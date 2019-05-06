@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE TemplateHaskell #-}
 module RhythmGame.Drums where
 
@@ -6,8 +6,10 @@ import           Codec.Picture
 import           Control.Concurrent        (threadDelay)
 import           Control.Exception         (bracket)
 import           Control.Monad             (forM_, when)
-import           Control.Monad.IO.Class    (MonadIO(..))
+import           Control.Monad.IO.Class    (MonadIO (..))
 import           Control.Monad.Trans.State
+import qualified Data.ByteString           as B
+import           Data.FileEmbed            (embedFile, makeRelativeToProject)
 import           Data.List                 (partition)
 import qualified Data.Map.Strict           as Map
 import           Data.Map.Strict.Internal  (Map (..))
@@ -15,7 +17,6 @@ import qualified Data.Matrix               as M
 import           Data.Maybe                (fromMaybe)
 import qualified Data.Vector               as V
 import qualified Data.Vector.Storable      as VS
-import qualified Data.ByteString as B
 import           Foreign
 import           Foreign.C
 import           Graphics.GL.Core33
@@ -24,7 +25,6 @@ import           Resources                 (onyxAlbum)
 import qualified RockBand.Codec.Drums      as D
 import           SDL                       (($=))
 import qualified SDL
-import Data.FileEmbed (embedFile, makeRelativeToProject)
 
 data Note t a
   = Upcoming a
@@ -101,57 +101,8 @@ hitPad t x trk = let
       (_ : _, notes') ->
         trk { trackNotes = Map.insert k (Hit t x : notes') $ trackNotes trk }
 
-drawDrums :: SDL.Renderer -> SDL.Rectangle CInt -> Track Double (D.Gem ()) -> IO ()
-drawDrums rend rect@(SDL.Rectangle (SDL.P (SDL.V2 rectX rectY)) (SDL.V2 rectW rectH)) trk = do
-  SDL.rendererDrawColor rend $= SDL.V4 100 100 100 0xFF
-  SDL.fillRect rend $ Just rect
-  let nowLineFrac = 0.8
-      nowLineY = rectY + floor (fromIntegral rectH * nowLineFrac)
-      futureSight = 0.7
-      drawnSpan = futureSight / nowLineFrac -- time in seconds from top to bottom
-      yToTime y = (trackTime trk + futureSight) - (fromIntegral (y - rectY) / fromIntegral rectH) * drawnSpan
-      timeToY t = rectY + floor (((trackTime trk + futureSight - t) / drawnSpan) * fromIntegral rectH)
-      timeAppear = yToTime $ rectY - 50
-      timeDisappear = yToTime $ rectY + rectH + 50
-      drawNotes t notes = let
-        yCenter = timeToY t
-        drawGem gem = let
-          floor' :: Double -> CInt
-          floor' = floor
-          h = case gem of
-            D.Kick -> 10
-            _      -> 20
-          color = case gem of
-            D.Kick            -> SDL.V4 153 106 6 0xFF
-            D.Red             -> SDL.V4 202 25 7 0xFF
-            D.Pro D.Yellow () -> SDL.V4 207 180 57 0xFF
-            D.Pro D.Blue ()   -> SDL.V4 71 110 222 0xFF
-            D.Pro D.Green ()  -> SDL.V4 58 207 68 0xFF
-            D.Orange          -> SDL.V4 58 207 68 0xFF -- TODO
-          w = case gem of
-            D.Kick -> rectW
-            _      -> floor' $ fromIntegral rectW * 0.25
-          x = case gem of
-            D.Kick            -> rectX
-            D.Red             -> rectX
-            D.Pro D.Yellow () -> rectX + floor' (fromIntegral rectW * 0.25)
-            D.Pro D.Blue ()   -> rectX + floor' (fromIntegral rectW * 0.5)
-            D.Pro D.Green ()  -> rectX + floor' (fromIntegral rectW * 0.75)
-            D.Orange          -> rectX + floor' (fromIntegral rectW * 0.75) -- TODO
-          y = yCenter - quot h 2
-          in do
-            SDL.rendererDrawColor rend $= color
-            SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 x y) $ SDL.V2 w h
-        in forM_ notes $ \case
-          Upcoming gem -> drawGem gem
-          Hit _ _ -> return ()
-          Missed gem -> drawGem gem
-  SDL.rendererDrawColor rend $= SDL.V4 0 0 0 0xFF
-  SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 rectX nowLineY) $ SDL.V2 rectW 10
-  traverseRange_ drawNotes False timeDisappear timeAppear $ trackNotes trk
-
-drawDrums' :: GLint -> GLint -> Track Double (D.Gem ()) -> IO ()
-drawDrums' modelLoc colorLoc trk = do
+drawDrums :: GLint -> GLint -> Track Double (D.Gem ()) -> IO ()
+drawDrums modelLoc colorLoc trk = do
   let drawCube (x1, y1, z1) (x2, y2, z2) (r, g, b) = do
         sendMatrix modelLoc
           $ translate4 (V.fromList [(x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2])
@@ -175,15 +126,15 @@ drawDrums' modelLoc colorLoc trk = do
           D.Pro D.Green ()  -> (58, 207, 68)
           D.Orange          -> (58, 207, 68) -- TODO
         (x1, x2) = case gem of
-          D.Kick -> (-1, 1)
-          D.Red -> (-1, -0.5)
+          D.Kick            -> (-1, 1)
+          D.Red             -> (-1, -0.5)
           D.Pro D.Yellow () -> (-0.5, 0)
-          D.Pro D.Blue () -> (0, 0.5)
-          D.Pro D.Green () -> (0.5, 1)
-          D.Orange -> (0.5, 1) -- TODO
+          D.Pro D.Blue ()   -> (0, 0.5)
+          D.Pro D.Green ()  -> (0.5, 1)
+          D.Orange          -> (0.5, 1) -- TODO
         (y1, y2) = case gem of
-          D.Kick -> (-0.85, -1.1)
-          _      -> (-0.7, -1.1)
+          D.Kick -> (-0.9, -1.1)
+          _      -> (-0.8, -1.1)
         (z1, z2) = case gem of
           D.Kick -> (z + 0.1, z - 0.1)
           _      -> (z + 0.2, z - 0.2)
@@ -218,7 +169,7 @@ compileShader shaderType source = do
       allocaArray 512 $ \infoLog -> do
         glGetShaderiv shader GL_COMPILE_STATUS success
         peek success >>= \case
-          0 -> do
+          GL_FALSE -> do
             glGetShaderInfoLog shader 512 nullPtr infoLog
             peekCString infoLog >>= error
           _ -> return shader
@@ -230,9 +181,9 @@ compileProgram shaders = do
   glLinkProgram program
   alloca $ \success -> do
     allocaArray 512 $ \infoLog -> do
-      glGetShaderiv program GL_LINK_STATUS success
+      glGetProgramiv program GL_LINK_STATUS success
       peek success >>= \case
-        0 -> do
+        GL_FALSE -> do
           glGetProgramInfoLog program 512 nullPtr infoLog
           peekCString infoLog >>= error
         _ -> return program
@@ -244,47 +195,47 @@ withArrayBytes xs f = withArray xs $ \p -> let
 
 cubeVertices :: [CFloat]
 cubeVertices = [
-  -0.5, -0.5, -0.5,
-   0.5, -0.5, -0.5,
-   0.5,  0.5, -0.5,
-   0.5,  0.5, -0.5,
-  -0.5,  0.5, -0.5,
-  -0.5, -0.5, -0.5,
+  -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
+   0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
+   0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
+   0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
+  -0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
+  -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
 
-  -0.5, -0.5,  0.5,
-   0.5, -0.5,  0.5,
-   0.5,  0.5,  0.5,
-   0.5,  0.5,  0.5,
-  -0.5,  0.5,  0.5,
-  -0.5, -0.5,  0.5,
+  -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
+   0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
+   0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
+   0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
+  -0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
+  -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
 
-  -0.5,  0.5,  0.5,
-  -0.5,  0.5, -0.5,
-  -0.5, -0.5, -0.5,
-  -0.5, -0.5, -0.5,
-  -0.5, -0.5,  0.5,
-  -0.5,  0.5,  0.5,
+  -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,
+  -0.5,  0.5, -0.5, -1.0,  0.0,  0.0,
+  -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,
+  -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,
+  -0.5, -0.5,  0.5, -1.0,  0.0,  0.0,
+  -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,
 
-   0.5,  0.5,  0.5,
-   0.5,  0.5, -0.5,
-   0.5, -0.5, -0.5,
-   0.5, -0.5, -0.5,
-   0.5, -0.5,  0.5,
-   0.5,  0.5,  0.5,
+   0.5,  0.5,  0.5,  1.0,  0.0,  0.0,
+   0.5,  0.5, -0.5,  1.0,  0.0,  0.0,
+   0.5, -0.5, -0.5,  1.0,  0.0,  0.0,
+   0.5, -0.5, -0.5,  1.0,  0.0,  0.0,
+   0.5, -0.5,  0.5,  1.0,  0.0,  0.0,
+   0.5,  0.5,  0.5,  1.0,  0.0,  0.0,
 
-  -0.5, -0.5, -0.5,
-   0.5, -0.5, -0.5,
-   0.5, -0.5,  0.5,
-   0.5, -0.5,  0.5,
-  -0.5, -0.5,  0.5,
-  -0.5, -0.5, -0.5,
+  -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
+   0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
+   0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
+   0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
+  -0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
+  -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
 
-  -0.5,  0.5, -0.5,
-   0.5,  0.5, -0.5,
-   0.5,  0.5,  0.5,
-   0.5,  0.5,  0.5,
-  -0.5,  0.5,  0.5,
-  -0.5,  0.5, -0.5
+  -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,
+   0.5,  0.5, -0.5,  0.0,  1.0,  0.0,
+   0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
+   0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
+  -0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
+  -0.5,  0.5, -0.5,  0.0,  1.0,  0.0
   ]
 
 rotate4 :: (Floating a) => a -> V.Vector a -> M.Matrix a
@@ -359,27 +310,55 @@ sendMatrix loc m = liftIO $ withArray (M.toList m)
   $ glUniformMatrix4fv loc 1 GL_TRUE {- <- this means row major order -}
 
 objectVS, objectFS :: B.ByteString
-objectVS = $(makeRelativeToProject "shaders/object.vs" >>= embedFile)
-objectFS = $(makeRelativeToProject "shaders/object.fs" >>= embedFile)
+objectVS = $(makeRelativeToProject "shaders/object.vert" >>= embedFile)
+objectFS = $(makeRelativeToProject "shaders/object.frag" >>= embedFile)
+
+lampVS, lampFS :: B.ByteString
+lampVS = $(makeRelativeToProject "shaders/lamp.vert" >>= embedFile)
+lampFS = $(makeRelativeToProject "shaders/lamp.frag" >>= embedFile)
 
 playDrums :: SDL.Window -> Track Double (D.Gem ()) -> IO ()
 playDrums window trk = flip evalStateT trk $ do
   initTime <- SDL.ticks
   glEnable GL_DEPTH_TEST
-  shaderProgram <- liftIO $ do
+  cubeShader <- liftIO $ do
     bracket (compileShader GL_VERTEX_SHADER objectVS) glDeleteShader $ \vertexShader -> do
       bracket (compileShader GL_FRAGMENT_SHADER objectFS) glDeleteShader $ \fragmentShader -> do
         compileProgram [vertexShader, fragmentShader]
-  vao <- liftIO $ alloca $ \p -> glGenVertexArrays 1 p >> peek p
+  lampShader <- liftIO $ do
+    bracket (compileShader GL_VERTEX_SHADER lampVS) glDeleteShader $ \vertexShader -> do
+      bracket (compileShader GL_FRAGMENT_SHADER lampFS) glDeleteShader $ \fragmentShader -> do
+        compileProgram [vertexShader, fragmentShader]
+
+  cubeVAO <- liftIO $ alloca $ \p -> glGenVertexArrays 1 p >> peek p
   vbo <- liftIO $ alloca $ \p -> glGenBuffers 1 p >> peek p
-  glBindVertexArray vao
+
   glBindBuffer GL_ARRAY_BUFFER vbo
   liftIO $ withArrayBytes cubeVertices $ \size p -> do
     glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
+
+  glBindVertexArray cubeVAO
+
+  -- position attribute
   glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE
-    (fromIntegral $ 3 * sizeOf (undefined :: CFloat))
+    (fromIntegral $ 6 * sizeOf (undefined :: CFloat))
     nullPtr
   glEnableVertexAttribArray 0
+  glVertexAttribPointer 1 3 GL_FLOAT GL_FALSE
+    (fromIntegral $ 6 * sizeOf (undefined :: CFloat))
+    (intPtrToPtr $ fromIntegral $ 3 * sizeOf (undefined :: CFloat))
+  glEnableVertexAttribArray 1
+
+  lightVAO <- liftIO $ alloca $ \p -> glGenVertexArrays 1 p >> peek p
+  glBindVertexArray lightVAO
+
+  glBindBuffer GL_ARRAY_BUFFER vbo
+
+  glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE
+    (fromIntegral $ 6 * sizeOf (undefined :: CFloat))
+    nullPtr
+  glEnableVertexAttribArray 0
+
   -- texture
   texture <- liftIO $ alloca $ \p -> glGenTextures 1 p >> peek p
   glBindTexture GL_TEXTURE_2D texture
@@ -400,11 +379,19 @@ playDrums window trk = flip evalStateT trk $ do
       GL_UNSIGNED_BYTE
       (castPtr p)
   glGenerateMipmap GL_TEXTURE_2D
-  -- matrix stuff
-  modelLoc <- liftIO $ withCString "model" $ glGetUniformLocation shaderProgram
-  viewLoc <- liftIO $ withCString "view" $ glGetUniformLocation shaderProgram
-  projectionLoc <- liftIO $ withCString "projection" $ glGetUniformLocation shaderProgram
-  colorLoc <- liftIO $ withCString "objectColor" $ glGetUniformLocation shaderProgram
+
+  -- uniforms
+  modelLoc <- liftIO $ withCString "model" $ glGetUniformLocation cubeShader
+  viewLoc <- liftIO $ withCString "view" $ glGetUniformLocation cubeShader
+  projectionLoc <- liftIO $ withCString "projection" $ glGetUniformLocation cubeShader
+  colorLoc <- liftIO $ withCString "objectColor" $ glGetUniformLocation cubeShader
+  lightColorLoc <- liftIO $ withCString "lightColor" $ glGetUniformLocation cubeShader
+  lightPosLoc <- liftIO $ withCString "lightPos" $ glGetUniformLocation cubeShader
+
+  lampModelLoc <- liftIO $ withCString "model" $ glGetUniformLocation lampShader
+  lampViewLoc <- liftIO $ withCString "view" $ glGetUniformLocation lampShader
+  lampProjectionLoc <- liftIO $ withCString "projection" $ glGetUniformLocation lampShader
+
   let loop = SDL.pollEvents >>= processEvents >>= \b -> when b $ do
         timestamp <- SDL.ticks
         modify $ updateTime $ fromIntegral (timestamp - initTime) / 1000
@@ -430,20 +417,37 @@ playDrums window trk = flip evalStateT trk $ do
               _                 -> return ()
             processEvents es
         _ -> processEvents es
+      lightPos = V.fromList [0, -0.5, 0.5]
       draw = do
         trk' <- get
         SDL.V2 w h <- SDL.glGetDrawableSize window
         glViewport 0 0 (fromIntegral w) (fromIntegral h)
         glClearColor 0.2 0.3 0.3 1.0
         glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
-        glUseProgram shaderProgram
+
+        glUseProgram cubeShader
         let view
               = rotate4 (degrees 20) (V.fromList [1, 0, 0])
               * translate4 (V.fromList [0, -1, -3])
             projection = perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
         sendMatrix viewLoc view
         sendMatrix projectionLoc projection
-        glBindVertexArray vao
-        liftIO $ drawDrums' modelLoc colorLoc trk'
+        glBindVertexArray cubeVAO
+        glUniform3f lightColorLoc 1 1 1
+        glUniform3f lightPosLoc
+          (lightPos V.! 0)
+          (lightPos V.! 1)
+          (lightPos V.! 2)
+        liftIO $ drawDrums modelLoc colorLoc trk'
+
+        -- glUseProgram lampShader
+        -- sendMatrix lampViewLoc view
+        -- sendMatrix lampProjectionLoc projection
+        -- sendMatrix lampModelLoc
+        --   $ translate4 lightPos
+        --   * scale4 (V.fromList [0.2, 0.2, 0.2])
+        -- glBindVertexArray lightVAO
+        -- glDrawArrays GL_TRIANGLES 0 36
+
         SDL.glSwapWindow window
   loop
