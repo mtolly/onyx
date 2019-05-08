@@ -40,7 +40,7 @@ parts:
   bass:
     grybo:
       difficulty: 3
-    pro-guitar: # need to check a few sections from the video
+    pro-guitar:
       difficulty: 4
       tuning:
         base: bass-6
@@ -51,12 +51,12 @@ targets:
   # download-ps: http://www.mediafire.com/?as3cs8azr9b2p6v
   rb3:
     game: rb3
-    song-id: 1660200009
-    version: 1
+    song-id: 1660200110
+    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    song-id: 1660200010
-    version: 1
+    song-id: 1660200111
+    version: 2
   ps:
     game: ps

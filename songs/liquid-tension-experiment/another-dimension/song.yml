@@ -39,7 +39,7 @@ parts:
       difficulty: 6
       sustain-gap: 120 # 16th note
     pro-guitar:
-      difficulty: 6
+      difficulty: 7
       tuning:
         base: guitar-6
   keys:
@@ -52,12 +52,12 @@ targets:
   # video: https://www.youtube.com/watch?v=mPiR5lq__fU
   rb3:
     game: rb3
-    song-id: 1660200019
-    version: 2
+    song-id: 1660200107
+    version: 3
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    song-id: 1660200020
-    version: 2
+    song-id: 1660200108
+    version: 3
   ps:
     game: ps

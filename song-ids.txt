@@ -31,8 +31,8 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200018 Universal Mind (Liquid Tension Experiment) 2x
 1660200019 Another Dimension (Liquid Tension Experiment) 1x
 1660200020 Another Dimension (Liquid Tension Experiment) 2x
-1660200021 Chris & Kevin's Excellent Adventure (Liquid Tension Experiment) 1x
-1660200022 Chris & Kevin's Excellent Adventure (Liquid Tension Experiment) 2x
+1660200021 Chris and Kevin's Excellent Adventure (Liquid Tension Experiment) 1x
+1660200022 Chris and Kevin's Excellent Adventure (Liquid Tension Experiment) 2x
   Taiko + LTE pack
   v1 (of all) published 2016-12-02
   Another Dimension v2 published 2017-09-24: fixed triplet section fast bits and end of gtr solo
@@ -162,6 +162,26 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200104 In the Name of God (Dream Theater) 2x
   Train of Thought (album)
   v1 released 2019-02-08
+
+1660200105 Enigma Machine (Dream Theater) 1x (v2)
+1660200106 Enigma Machine (Dream Theater) 2x (v2)
+1660200107 Another Dimension (Liquid Tension Experiment) 1x (v3)
+1660200108 Another Dimension (Liquid Tension Experiment) 2x (v3)
+1660200109 Got a Match? (Chick Corea Elektric Band) (v2)
+1660200110 Spark (Hiromi: The Trio Project) 1x (v2)
+1660200111 Spark (Hiromi: The Trio Project) 2x (v2)
+1660200112 These Walls (Dream Theater) 1x (v2)
+1660200113 These Walls (Dream Theater) 2x (v2)
+1660200114 Sabotage (Soil & "Pimp" Sessions) (v2)
+1660200115 A Crimson Rose and a Gin Tonic (Asuka Sakai, Ado Mizumori) (v2)
+1660200116 Summer Goddess (Soil & "Pimp" Sessions) (v2)
+1660200117 Scoop Out (Soil & "Pimp" Sessions) (v3)
+1660200118 The Black Widow Blues/The White Widow (Soil & "Pimp" Sessions) (v2)
+1660200119 Chris and Kevin's Excellent Adventure (Liquid Tension Experiment) 1x (v2)
+1660200120 Chris and Kevin's Excellent Adventure (Liquid Tension Experiment) 2x (v2)
+1660200121 Blind Faith (Dream Theater) 1x (v2)
+1660200122 Blind Faith (Dream Theater) 2x (v2)
+  Pack of song updates (many Pro G/B charts, other fixes) published ???
 
 BONUS SONGS (counting down from max)
 

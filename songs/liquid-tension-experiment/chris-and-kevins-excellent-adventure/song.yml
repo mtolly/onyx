@@ -45,12 +45,12 @@ targets:
   # ps: http://www.mediafire.com/file/7bm2bclumgef7zo/onyx_ChrisKevin_v1_ps.zip
   rb3:
     game: rb3
-    song-id: 1660200021
-    version: 1
+    song-id: 1660200119
+    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    song-id: 1660200022
-    version: 1
+    song-id: 1660200120
+    version: 2
   ps:
     game: ps

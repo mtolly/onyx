@@ -94,7 +94,7 @@ audio:
 jammit:
   jammit-track: {}
 plans:
-  jammit-all:
+  jammit:
     countin:
       &countin
       0|0: hihat
@@ -124,6 +124,34 @@ plans:
         mixed-drums
     song:
       mix:
+      - mixed-guitar1-backing
+      - fade:
+        - start
+        - 2.4
+        - take:
+          - 4.063
+          - mixed-guitar1-unchanged # guitar tune-up before first notes
+  jammit-wii:
+    countin: *countin
+    parts:
+      guitar:
+        pad:
+        - start
+        - 4.063
+        - drop:
+          - start
+          - 4.063 # drops guitar tune-up before first note
+          - mix: [mixed-guitar1-unchanged, mixed-guitar1-missing, mixed-guitar2]
+      keys:
+        mix: [mixed-keys1, mixed-keys2]
+      drums:
+        mixed-drums
+    song:
+      mix:
+      - mixed-bass
+      - mixed-vocal
+      - mixed-bvocals-unchanged
+      - mixed-bvocals-faded
       - mixed-guitar1-backing
       - fade:
         - start
@@ -172,15 +200,26 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: jammit-all
-    song-id: 1660200029
-    version: 1
+    plan: jammit
+    song-id: 1660200112
+    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: jammit-all
-    song-id: 1660200030
-    version: 1
+    plan: jammit
+    song-id: 1660200113
+    version: 2
+  rb3-wii:
+    game: rb3
+    plan: jammit-wii
+    song-id: 1660200112
+    version: 2
+  rb3-wii-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: jammit-wii
+    song-id: 1660200113
+    version: 2
   ps:
     game: ps
-    plan: jammit-all
+    plan: jammit

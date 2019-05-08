@@ -65,16 +65,15 @@ parts:
       difficulty: 7
       tuning:
         base: guitar-7
-        # some arp chords use the high string so they'll need [chrd] events
 targets:
   rb3:
     game: rb3
-    version: 1
-    song-id: 1660200076
+    version: 2
+    song-id: 1660200105
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    version: 1
-    song-id: 1660200077
+    version: 2
+    song-id: 1660200106
   ps:
     game: ps

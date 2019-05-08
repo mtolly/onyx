@@ -60,7 +60,7 @@ targets:
   # download-ps: http://www.mediafire.com/?11alb85tqpmwr9n
   rb3:
     game: rb3
-    song-id: 1660200001
-    version: 1
+    song-id: 1660200114
+    version: 2
   ps:
     game: ps
