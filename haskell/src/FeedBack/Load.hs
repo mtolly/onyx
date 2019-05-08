@@ -33,6 +33,7 @@ import           RockBand.Codec.Events
 import           RockBand.Codec.File
 import           RockBand.Codec.Five
 import           RockBand.Codec.Six
+import           RockBand.Codec.Vocal
 import           RockBand.Common                  (Difficulty (..),
                                                    StrumHOPOTap (..))
 import           RockBand.Sections                (makeRB2Section)
@@ -296,12 +297,24 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   fixedPartBass         <- parseGRYBO "DoubleBass" -- ExpertDoubleBass etc.
   fixedPartBassGHL      <- parseGHL "GHLBass" -- ExpertGHLBass etc.
   fixedPartKeys         <- parseGRYBO "Keyboard" -- ExpertKeyboard etc.
-  fixedPartRhythm       <- return mempty -- ExpertDoubleBass when Player2 = rhythm ???
+  fixedPartRhythm       <- parseGRYBO "DoubleRhythm" -- ExpertDoubleRhythm etc.
+  -- Might also be ExpertDoubleBass when Player2 = rhythm ?
   fixedPartGuitarCoop   <- return mempty -- ExpertDoubleGuitar ???
   fixedEvents           <- insideTrack "Events" $ \trk -> return mempty
     { eventsSections = fmap makeRB2Section $ flip RTB.mapMaybe trk $ \case
       Event t -> T.stripPrefix "section " t
       _       -> Nothing
+    }
+  -- CH-format lyrics
+  fixedPartVocals <- insideTrack "Events" $ \trk -> return mempty
+    { vocalLyrics = flip RTB.mapMaybe trk $ \case
+      Event t -> flip fmap (T.stripPrefix "lyric " t) $ T.replace "’" "'"
+      -- TODO probably more char fixes, also maybe it should be moved to song compile time
+      _       -> Nothing
+    , vocalPhrase1 = flip RTB.mapMaybe trk $ \case
+      Event "phrase_start" -> Just True
+      Event "phrase_end"   -> Just False
+      _                    -> Nothing
     }
   let fixedPartDrums        = mempty -- ExpertDrums etc.
       fixedPartDrums2x      = mempty
@@ -316,7 +329,6 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       fixedPartRealKeysX    = mempty
       fixedPartKeysAnimLH   = mempty
       fixedPartKeysAnimRH   = mempty
-      fixedPartVocals       = mempty
       fixedHarm1            = mempty
       fixedHarm2            = mempty
       fixedHarm3            = mempty

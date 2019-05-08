@@ -73,7 +73,8 @@ data VocalTrack t = VocalTrack
   } deriving (Eq, Ord, Show)
 
 nullVox :: VocalTrack t -> Bool
-nullVox = RTB.null . vocalNotes
+-- we look at lyrics also, so lyrics can be imported from PS/CH into vox tracks
+nullVox t = RTB.null (vocalNotes t) && RTB.null (vocalLyrics t)
 
 instance (NNC.C t) => Semigroup (VocalTrack t) where
   (<>)
