@@ -12,25 +12,37 @@ load_yaml_tree('songs.yml').each do |song|
     'project' => load_yaml_tree("#{song['file-path']}/song.yml"),
     'urls' => song['urls'],
     'video' => song['video'],
+    'c3' => song['c3'],
   })
 end
 
-def difficultyDots(n)
-  dots =
-    case n
-    when 1 then 'BBBBB'
-    when 2 then 'WBBBB'
-    when 3 then 'WWBBB'
-    when 4 then 'WWWBB'
-    when 5 then 'WWWWB'
-    when 6 then 'WWWWW'
-    when 7 then 'DDDDD'
-    else        ''
-    end
+def dotsLetters(n)
+  case n
+  when 1 then 'BBBBB'
+  when 2 then 'WBBBB'
+  when 3 then 'WWBBB'
+  when 4 then 'WWWBB'
+  when 5 then 'WWWWB'
+  when 6 then 'WWWWW'
+  when 7 then 'DDDDD'
+  else        ''
+  end
+end
+
+def dotsHTML(n)
+  dots = dotsLetters(n)
   # explicit height/width get overridden by css
   dots.gsub!('B', '<img alt="" height="13px" width="13px" class="onyx-mode-difficulty-dot" src="img/black.png">')
   dots.gsub!('W', '<img alt="" height="13px" width="13px" class="onyx-mode-difficulty-dot" src="img/white.png">')
   dots.gsub!('D', '<img alt="" height="13px" width="13px" class="onyx-mode-difficulty-dot" src="img/devil.png">')
+  dots
+end
+
+def dotsEmoji(n)
+  dots = dotsLetters(n)
+  dots.gsub!('B', '⚫')
+  dots.gsub!('W', '⚪')
+  dots.gsub!('D', '😈')
   dots
 end
 
@@ -94,15 +106,7 @@ def makeDifficulties(parts, song)
           'The Ministry of Lost Souls',
           'In the Presence of Enemies (Part 2)',
           'In the Presence of Enemies',
-          'Summer Goddess',
-          'Scoop Out',
-          'The Black Widow Blues/The White Widow',
-          'Sabotage',
-          'Spark',
-          'A Crimson Rose and a Gin Tonic',
-          'Got a Match?',
           'Temple (Zelda 2)',
-          'Another Dimension',
         ].include?(song['project']['metadata']['title'])
           # hiding these pro guitar/bass charts since they haven't been released
           next
@@ -126,20 +130,18 @@ def makeDifficulties(parts, song)
         mode_image = "vocal-#{[count, 3].min}"
       end
       diff = info['difficulty']
-      # explicit height gets overridden by css
-      modes_output << %{
-        <span class="onyx-mode">
-          <img alt="#{mode_name}" height="27px" title="#{mode_name}" src="img/icons-alpha/#{mode_image}.png" class="onyx-mode-icon">
-          <span class="onyx-mode-difficulty" title="#{difficultyName(diff)}">#{difficultyDots(diff)}</span>
-        </span>
+      modes_output << {
+        'name' => mode_name,
+        'image' => mode_image,
+        'difficulty' => difficultyName(diff),
+        'dotsHTML' => dotsHTML(diff),
+        'dotsEmoji' => dotsEmoji(diff),
       }
     end
     unless modes_output.empty?
-      output << %{
-        <span class="onyx-part">
-          <span class="onyx-part-name">#{part}</span>
-          #{modes_output.join('')}
-        </span>
+      output << {
+        'name' => part,
+        'modes' => modes_output,
       }
     end
   end
@@ -187,6 +189,10 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
           {
             'title' => song['project']['metadata']['title'],
             'author' => song['project']['metadata']['author'],
+            'collab' => if song['project']['metadata']['author'] == 'Onyxite'
+              then ''
+              else ' [' + song['project']['metadata']['author'] + ']'
+            end,
             'comments' => (song['project']['metadata']['comments'] || []).map do |comment|
               Kramdown::Document.new(comment).to_html
             end,
@@ -198,7 +204,8 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
               }
             end.select { |obj| not obj['url'].nil? },
             'difficulties' => makeDifficulties(song['project']['parts'] || {}, song),
-            'video' => song['video']
+            'video' => song['video'],
+            'c3' => song['c3']
           }
         end.sort_by { |song| song['track-number'] },
         'art' => art_site,
@@ -207,7 +214,10 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
     end.sort_by { |album| album['year'] },
   }
 end.sort_by { |artist| artist['artist'].downcase }
-data = {'artists' => artists}
+data = {'artists' => artists, 'website' => 'https://onyxite.org/customs/'}
 
 page = Mustache.render(File.read('template/page.mustache'), data)
 File.write('index.html', page)
+
+page = Mustache.render(File.read('template/post.mustache'), data)
+File.write('c3.bbcode', page)

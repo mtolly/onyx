@@ -1,0 +1,18 @@
+{{#artists}}
+[spoiler="{{{ artist }}}"]
+{{#albums}}
+[center][img={{ website }}{{ art }}][/center]
+[center][size=6][i]{{{ album }}}[/i] ({{ year }})[/size][/center]
+[LIST]
+{{#songs}}
+[*][size=5][b][url={{ c3 }}]{{{ title }}}[/url][/b][/size]{{ collab }}
+{{#difficulties}}
+[b]{{ name }}[/b]:{{#modes}} {{ name }} {{ dotsEmoji }}{{/modes}}
+{{/difficulties}}
+[/*]
+{{/songs}}
+[/LIST]
+{{/albums}}
+[/spoiler]
+
+{{/artists}}

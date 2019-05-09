@@ -43,7 +43,16 @@
                   </h4>
                   <p>
                     {{#difficulties}}
-                      <span>{{{.}}}</span>
+                      <span class="onyx-part">
+                        <span class="onyx-part-name">{{ name }}</span>
+                        {{#modes}}
+                          <span class="onyx-mode">
+                            <!-- explicit height gets overridden by css -->
+                            <img alt="{{ name }}" height="27px" title="{{ name }}" src="img/icons-alpha/{{ image }}.png" class="onyx-mode-icon">
+                            <span class="onyx-mode-difficulty" title="{{ difficulty }}">{{{ dotsHTML }}}</span>
+                          </span>
+                        {{/modes}}
+                      </span>
                     {{/difficulties}}
                   </p>
                   <ul>

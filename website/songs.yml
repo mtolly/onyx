@@ -1,32 +1,38 @@
 # Onyxite's Jazz Pack 1
 - file-path: ../songs/hiromi-uehara/spark
   video: https://www.youtube.com/watch?v=NF99tUe_ujw
+  c3: http://customscreators.com/index.php?/page/index.html/_/spark-r14123
   urls:
     rb3: download/OJP1_Spark1x_v1_rb3con
     rb3-2x: download/OJP1_Spark2x_v1_rb3con
     ps: download/OJP1_Spark_v1_ps.zip
 - file-path: ../songs/soil-and-pimp-sessions/keizoku
   video: https://vimeo.com/183597717
+  c3: http://customscreators.com/index.php?/page/index.html/_/keizoku-r14126
   urls:
     rb3: download/OJP1_Keizoku_v2_rb3con
     ps: download/OJP1_Keizoku_v2_ps.zip
 - file-path: ../songs/soil-and-pimp-sessions/scoop-out
   video: https://vimeo.com/183598619
+  c3: http://customscreators.com/index.php?/page/index.html/_/scoop-out-r14128
   urls:
     rb3: download/OJP1_ScoopOut_v2_rb3con
     ps: download/OJP1_ScoopOut_v2_ps.zip
 - file-path: ../songs/soil-and-pimp-sessions/sabotage
   video: https://vimeo.com/183597718
+  c3: http://customscreators.com/index.php?/page/index.html/_/sabotage-r14127
   urls:
     rb3: download/OJP1_Sabotage_v1_rb3con
     ps: download/OJP1_Sabotage_v1_ps.zip
 - file-path: ../songs/youngblood-brass-band/brooklyn
   video: https://www.youtube.com/watch?v=qyq9Xpp3zn8
+  c3: http://customscreators.com/index.php?/page/index.html/_/brooklyn-r10437
   urls:
     rb3: download/OJP1_Brooklyn_v1_rb3con
     ps: download/OJP1_Brooklyn_v1_ps.zip
 - file-path: ../songs/mahavishnu-orchestra/celestial-terrestrial-commuters
   video: https://www.youtube.com/watch?v=y2T0q89nPG8
+  c3: http://customscreators.com/index.php?/page/index.html/_/celestial-terrestrial-commu-r14122
   urls:
     rb3: download/OJP1_Commuters1x_v2_rb3con
     rb3-2x: download/OJP1_Commuters2x_v2_rb3con
@@ -35,16 +41,20 @@
     ps: download/OJP1_Commuters_v2_ps.zip
 - file-path: ../songs-lik/jazz-pack-1/the-nag
   video: https://www.youtube.com/watch?v=6BWOX_VmiVc
+  c3: http://customscreators.com/index.php?/page/index.html/_/the-nag-r14125
   urls:
     rb3: download/OJP1_TheNag_v1_rb3con
     ps: download/OJP1_TheNag_v1_ps.zip
 - file-path: ../songs-lik/other/a-crimson-rose-and-a-gin-tonic
   video: https://www.youtube.com/watch?v=4Dkr-YO4asY
+  c3: http://customscreators.com/index.php?/page/index.html/_/a-crimson-rose-and-a-gin-tonic-r14124
   urls:
     rb3: download/OJP1_ACrimsonRose_v1_rb3con
     ps: download/OJP1_ACrimsonRose_v1_ps.zip
 
 - file-path: ../songs/the-agonist/the-tempest
+  video: https://www.youtube.com/watch?v=fuXV0IENmy4 # Gal's OMBFC
+  c3: http://customscreators.com/index.php?/page/index.html/_/the-tempest-the-siren-r13191
   urls:
     rb3: download/TheTempest_1p_v2_rb3con
     rb3-2x: download/TheTempest_2p_v2_rb3con
@@ -53,17 +63,20 @@
 # Taiko no Tatsujin 3-pack
 - file-path: ../songs/game-soundtracks/fantaisie-impromptu
   video: https://www.youtube.com/watch?v=PDe9EiIOT2E
+  c3: http://customscreators.com/index.php?/page/index.html/_/fantaisie-impromptu-r14875
   urls:
     rb3: download/onyx_Fantaisie1x_v1_rb3con
     rb3-2x: download/onyx_Fantaisie2x_v1_rb3con
     ps: download/onyx_Fantaisie_v1_ps.zip
 - file-path: ../songs/game-soundtracks/kagekiyo
   video: https://www.youtube.com/watch?v=6jq7LyIalcM
+  c3: http://customscreators.com/index.php?/page/index.html/_/kagekiyo-genpei-touma-den-r14873
   urls:
     rb3: download/onyx_Kagekiyo_v1_rb3con
     ps: download/onyx_Kagekiyo_v1_ps.zip
 - file-path: ../songs/game-soundtracks/toccata-and-fugue-and-rock
   video: https://www.youtube.com/watch?v=WATwNE28ek0
+  c3: http://customscreators.com/index.php?/page/index.html/_/toccata-and-fugue-and-rock-r14874
   urls:
     rb3: download/onyx_Toccata_v1_rb3con
     ps: download/onyx_Toccata_v1_ps.zip
@@ -71,29 +84,34 @@
 # Liquid Tension Experiment 3-pack
 - file-path: ../songs/liquid-tension-experiment/another-dimension
   video: https://www.youtube.com/watch?v=mPiR5lq__fU
+  c3: http://customscreators.com/index.php?/page/index.html/_/another-dimension-r10439
   urls:
     rb3: download/onyx_AnotherDim1x_v2_rb3con
     rb3-2x: download/onyx_AnotherDim2x_v2_rb3con
     ps: download/onyx_AnotherDim_v2_ps.zip
 - file-path: ../songs/liquid-tension-experiment/chris-and-kevins-excellent-adventure
   video: https://www.youtube.com/watch?v=LEbXbnMTBdg
+  c3: http://customscreators.com/index.php?/page/index.html/_/chris-and-kevins-excel-r14872
   urls:
     rb3: download/onyx_ChrisKevin1x_v1_rb3con
     rb3-2x: download/onyx_ChrisKevin2x_v1_rb3con
     ps: download/onyx_ChrisKevin_v1_ps.zip
 - file-path: ../songs/liquid-tension-experiment/universal-mind
   video: https://www.youtube.com/watch?v=_XH8quUCM5Y
+  c3: http://customscreators.com/index.php?/page/index.html/_/universal-mind-r10440
   urls:
     rb3: download/onyx_Universal1x_fbv1_rb3con
     rb3-2x: download/onyx_Universal2x_fbv1_rb3con
     ps: download/onyx_Universal_fbv1_ps.zip
 
 - file-path: ../songs/liquid-tension-experiment/914
+  c3: http://customscreators.com/index.php?/page/index.html/_/914-r10075
   urls:
     rb3: download/914_1x_v5_rb3con
     rb3-2x: download/914_2x_v5_rb3con
     ps: download/914_v5_ps.zip
 - file-path: ../songs/liquid-tension-experiment/paradigm-shift
+  c3: http://customscreators.com/index.php?/page/index.html/_/paradigm-shift-r10076
   urls:
     rb3: download/ParadigmShift_1x_v3_rb3con
     rb3-2x: download/ParadigmShift_2x_v3_rb3con
@@ -101,6 +119,7 @@
 
 - file-path: ../songs/dream-theater/blind-faith
   video: https://www.youtube.com/watch?v=9otQmgn0RRI
+  c3: http://customscreators.com/index.php?/page/index.html/_/blind-faith-r15101
   urls:
     rb3: download/BlindFaith_v1_1x_rb3con
     rb3-2x: download/BlindFaith_v1_2x_rb3con
@@ -108,12 +127,14 @@
 
 - file-path: ../songs/liquid-tension-experiment/when-the-water-breaks
   video: https://www.youtube.com/watch?v=xNTXeuxuuGI
+  c3: http://customscreators.com/index.php?/page/index.html/_/when-the-water-breaks-r10441
   urls:
     rb3: download/WhenTheWaterBreaks_v2_1x_rb3con
     rb3-2x: download/WhenTheWaterBreaks_v2_2x_rb3con
     ps: download/WhenTheWaterBreaks_v2_ps.zip
 - file-path: ../songs/dream-theater/these-walls
   video: https://www.youtube.com/watch?v=26h_wCHfN1s
+  c3: http://customscreators.com/index.php?/page/index.html/_/these-walls-r16097
   urls:
     rb3: download/TheseWalls_v1_1x_rb3con
     rb3-2x: download/TheseWalls_v1_2x_rb3con
@@ -122,43 +143,51 @@
 # Onyxite's Jazz Pack 2
 - file-path: ../songs/hiromi-uehara/kung-fu-world-champion
   video: https://vimeo.com/246616313
+  c3: http://customscreators.com/index.php?/page/index.html/_/kung-fu-world-champion-r16293
   urls:
     rb3: download/OJP2_KungFuWC_v3_rb3con
     ps: download/OJP2_KungFuWC_v3_ps.zip
 - file-path: ../songs/joshua-redman/jazz-crimes
   video: https://www.youtube.com/watch?v=laVwTzD9ud4
+  c3: http://customscreators.com/index.php?/page/index.html/_/jazz-crimes-r16290
   urls:
     rb3: download/OJP2_JazzCrimes_v1_rb3con
     ps: download/OJP2_JazzCrimes_v1_ps.zip
 - file-path: ../songs/toe/last-night
   video: https://www.youtube.com/watch?v=mOk-JipSKgg
+  c3: http://customscreators.com/index.php?/page/index.html/_/last-night-r16288
   urls:
     rb3: download/OJP2_LastNight_v1_rb3con
     ps: download/OJP2_LastNight_v1_ps.zip
 - file-path: ../songs/shnabubula/temple-zelda-2
   video: https://www.youtube.com/watch?v=cHjkRN0bt60
+  c3: http://customscreators.com/index.php?/page/index.html/_/temple-zelda-2-r16289
   urls:
     rb3: download/OJP2_TempleZ2_v1_1x_rb3con
     rb3-2x: download/OJP2_TempleZ2_v1_2x_rb3con
     ps: download/OJP2_TempleZ2_v1_ps.zip
 - file-path: ../songs-lik/jazz-pack-1/sly
   video: https://www.youtube.com/watch?v=1jfbbKjtFqk
+  c3: http://customscreators.com/index.php?/page/index.html/_/sly-r16287
   urls:
     rb3: download/OJP2_Sly_v1_rb3con
     ps: download/OJP2_Sly_v1_ps.zip
 - file-path: ../songs-lik/jazz-pack-2/barracuda
   video: https://www.youtube.com/watch?v=DxSU0zrT0bc
+  c3: http://customscreators.com/index.php?/page/index.html/_/barracuda-r16286
   urls:
     rb3: download/OJP2_Barracuda_v1_rb3con
     ps: download/OJP2_Barracuda_v1_ps.zip
 - file-path: ../songs/soil-and-pimp-sessions/summer-goddess
   video: https://vimeo.com/211213777
+  c3: http://customscreators.com/index.php?/page/index.html/_/summer-goddess-r16291
   urls:
     rb3: download/OJP2_SummerGoddess_v1_rb3con
     ps: download/OJP2_SummerGoddess_v1_ps.zip
 
 - file-path: ../songs/dream-theater/new-millennium
   video: https://www.youtube.com/watch?v=-IsTXpLyQ94
+  c3: http://customscreators.com/index.php?/page/index.html/_/new-millennium-r10442
   urls:
     rb3: download/NewMillennium_v1_1x_rb3con
     rb3-2x: download/NewMillennium_v1_2x_rb3con
@@ -166,6 +195,7 @@
 
 - file-path: ../songs/dream-theater/trial-of-tears
   video: https://www.youtube.com/watch?v=59ZTA7gmcBk
+  c3: http://customscreators.com/index.php?/page/index.html/_/trial-of-tears-r10444
   urls:
     rb3: download/TrialOfTears_1x_v1_rb3con
     rb3-2x: download/TrialOfTears_2x_v1_rb3con
@@ -174,48 +204,56 @@
 # Systematic Chaos
 - file-path: ../songs/dream-theater/in-the-presence-of-enemies-pt-1
   video: https://www.youtube.com/watch?v=BdNDhwVFWpg
+  c3: http://customscreators.com/index.php?/page/index.html/_/in-the-presence-of-enemies-r12340
   urls:
     rb3: download/itpoe1_1p_rc2_rb3con
     rb3-2x: download/itpoe1_2p_rc2_rb3con
     ps: download/itpoe1_rc2_ps_fixed.zip
 - file-path: ../songs/dream-theater/forsaken
   video: https://www.youtube.com/watch?v=tSVkfHXkC-c
+  c3: http://customscreators.com/index.php?/page/index.html/_/forsaken-r10122
   urls:
     rb3: download/forsaken_1p_rc2_rb3con
     rb3-2x: download/forsaken_2p_rc2_rb3con
     ps: download/forsaken_rc2_ps_fixed.zip
 - file-path: ../songs/dream-theater/the-dark-eternal-night
   video: https://www.youtube.com/watch?v=DFNFCuLZSSI
+  c3: http://customscreators.com/index.php?/page/index.html/_/the-dark-eternal-night-r10123
   urls:
     rb3: download/tden_1p_rc2_rb3con
     rb3-2x: download/tden_2p_rc2_rb3con
     ps: download/tden_rc2_ps_fixed.zip
 - file-path: ../songs/dream-theater/repentance
   video: https://www.youtube.com/watch?v=9MyThwkPO7Y
+  c3: http://customscreators.com/index.php?/page/index.html/_/repentance-r10124
   urls:
     rb3: download/repentance_1p_rc2_rb3con
     rb3-2x: download/repentance_2p_rc2_rb3con
     ps: download/repentance_rc2_ps_fixed.zip
 - file-path: ../songs/dream-theater/prophets-of-war
   video: https://www.youtube.com/watch?v=gY27TYaxeoA
+  c3: http://customscreators.com/index.php?/page/index.html/_/prophets-of-war-r10125
   urls:
     rb3: download/pow_1p_rc3_rb3con
     rb3-2x: download/pow_2p_rc3_rb3con
     ps: download/pow_rc3_ps_fixed.zip
 - file-path: ../songs/dream-theater/the-ministry-of-lost-souls
   video: https://www.youtube.com/watch?v=lofHNdJMLvI
+  c3: http://customscreators.com/index.php?/page/index.html/_/the-ministry-of-lost-souls-r12339
   urls:
     rb3: download/tmols_1p_rc2_rb3con
     rb3-2x: download/tmols_2p_rc2_rb3con
     ps: download/tmols_rc2_ps_fixed.zip
 - file-path: ../songs/dream-theater/in-the-presence-of-enemies-pt-2
   video: https://www.youtube.com/watch?v=BdNDhwVFWpg
+  c3: http://customscreators.com/index.php?/page/index.html/_/in-the-presence-of-enemies-r12340
   urls:
     rb3: download/itpoe2_1p_rc2_rb3con
     rb3-2x: download/itpoe2_2p_rc2_rb3con
     ps: download/itpoe2_rc2_ps_fixed.zip
 - file-path: ../songs/dream-theater/in-the-presence-of-enemies
   video: https://www.youtube.com/watch?v=BdNDhwVFWpg
+  c3: http://customscreators.com/index.php?/page/index.html/_/in-the-presence-of-enemies-r12340
   urls:
     rb3: download/itpoe_1p_rc3_rb3con
     rb3-2x: download/itpoe_2p_rc3_rb3con
@@ -224,18 +262,21 @@
 # Bad Salad pack
 - file-path: ../songs/bad-salad/crowded-sky
   video: https://www.youtube.com/watch?v=XlnpCaqtJOg
+  c3: http://customscreators.com/index.php?/page/index.html/_/crowded-sky-r18719
   urls:
     rb3: download/onyx_CrowdedSky1x_v1_rb3con
     rb3-2x: download/onyx_CrowdedSky2x_v1_rb3con
     ps: download/onyx_CrowdedSky_v1_ps_ch.zip
 - file-path: ../songs/bad-salad/pain-that-binds-us
   video: https://www.youtube.com/watch?v=lu7tEufMlDQ
+  c3: http://customscreators.com/index.php?/page/index.html/_/pain-that-binds-us-r18721
   urls:
     rb3: download/onyx_PainThatBindsUs1x_v1_rb3con
     rb3-2x: download/onyx_PainThatBindsUs2x_v1_rb3con
     ps: download/onyx_PainThatBindsUs_v1_ps_ch.zip
 - file-path: ../songs/bad-salad/moonlight
   video: https://www.youtube.com/watch?v=3_tgeYc7AJM
+  c3: http://customscreators.com/index.php?/page/index.html/_/moonlight-r18720
   urls:
     rb3: download/onyx_Moonlight_v1_rb3con
     ps: download/onyx_Moonlight_v1_ps_ch.zip
@@ -243,49 +284,58 @@
 # Onyxite's Jazz Pack 3
 - file-path: ../songs/chick-corea-elektric-band/got-a-match
   video: https://www.youtube.com/watch?v=80OCyJA7VJA
+  c3: http://customscreators.com/index.php?/page/index.html/_/got-a-match-r19886
   urls:
     rb3: download/OJP3_GotAMatch_v1_rb3con
     ps: download/OJP3_GotAMatch_v1_ps_ch.zip
 - file-path: ../songs/game-soundtracks/ripple-star
   video: https://www.youtube.com/watch?v=83rYLj3aQws
+  c3: http://customscreators.com/index.php?/page/index.html/_/ripple-star-r19884
   urls:
     rb3: download/OJP3_RippleStar1x_v1_rb3con
     rb3-2x: download/OJP3_RippleStar2x_v1_rb3con
     ps: download/OJP3_RippleStar_v1_ps_ch.zip
 - file-path: ../songs/hiromi-uehara/keytalk
   video: https://vimeo.com/253096521
+  c3: http://customscreators.com/index.php?/page/index.html/_/keytalk-r19885
   urls:
     rb3: download/OJP3_Keytalk_v1_rb3con
     ps: download/OJP3_Keytalk_v1_ps_ch.zip
 - file-path: ../songs/mouse-on-the-keys/leviathan
   video: https://www.youtube.com/watch?v=j8DwFl8NS2I
+  c3: http://customscreators.com/index.php?/page/index.html/_/leviathan-r19883
   urls:
     rb3: download/OJP3_leviathan_v1_rb3con
     ps: download/OJP3_leviathan_v1_ps_ch.zip
 - file-path: ../songs/return-to-forever/medieval-overture
   video: https://www.youtube.com/watch?v=imIuiXnS0sY
+  c3: http://customscreators.com/index.php?/page/index.html/_/medieval-overture-r19881
   urls:
     rb3: download/OJP3_MedievalOverture_v1_rb3con
     ps: download/OJP3_MedievalOverture_v1_ps_ch.zip
 - file-path: ../songs/snarky-puppy/what-about-me
   video: https://www.youtube.com/watch?v=0Rbbewj4XQU
+  c3: http://customscreators.com/index.php?/page/index.html/_/what-about-me-r19887
   urls:
     rb3: download/OJP3_WhatAboutMe_v1_rb3con
     ps: download/OJP3_WhatAboutMe_v1_ps_ch.zip
 - file-path: ../songs/soil-and-pimp-sessions/the-black-widow-blues
   video: https://vimeo.com/252455703
+  c3: http://customscreators.com/index.php?/page/index.html/_/the-black-widow-bluesthe-w-r19880
   urls:
     rb3: download/OJP3_BlackWidowBlues_v1_rb3con
     ps: download/OJP3_BlackWidowBlues_v1_ps_ch.zip
 
 - file-path: ../songs/dream-theater/the-great-debate
   video: https://www.youtube.com/watch?v=XYlB2tMjBJA
+  c3: http://customscreators.com/index.php?/page/index.html/_/the-great-debate-r21252
   urls:
     rb3: download/onyx_TheGreatDebate1x_v1_rb3con
     rb3-2x: download/onyx_TheGreatDebate2x_v1_rb3con
     ps: download/onyx_TheGreatDebate_v1_ch_ps.zip
 - file-path: ../songs/dream-theater/enigma-machine
   video: https://www.youtube.com/watch?v=KiYoYYirbmI
+  c3: http://customscreators.com/index.php?/page/index.html/_/enigma-machine-r21251
   urls:
     rb3: download/onyx_EnigmaMachine1x_v1_rb3con
     rb3-2x: download/onyx_EnigmaMachine2x_v1_rb3con
@@ -294,36 +344,42 @@
 # The Further Side (Nova Collective)
 - file-path: ../songs/nova-collective/dancing-machines
   video: https://www.youtube.com/watch?v=p6CMAksrnz4&index=1&list=PLbzRUhk5--qejXeY_xklTb3nwbuoQHguj
+  c3: http://customscreators.com/index.php?/page/index.html/_/dancing-machines-r21639
   urls:
     rb3: download/onyx_DancingMachines_1x_v1_rb3con
     rb3-2x: download/onyx_DancingMachines_2x_v1_rb3con
     ps: download/onyx_DancingMachines_v1_ps.zip
 - file-path: ../songs/nova-collective/cascades
   video: https://www.youtube.com/watch?v=Hy3qhws8_UQ&index=2&list=PLbzRUhk5--qejXeY_xklTb3nwbuoQHguj
+  c3: http://customscreators.com/index.php?/page/index.html/_/cascades-r19882
   urls:
     rb3: download/onyx_Cascades_1x_v3_rb3con
     rb3-2x: download/onyx_Cascades_2x_v3_rb3con
     ps: download/onyx_Cascades_v3_ps.zip
 - file-path: ../songs/nova-collective/air
   video: https://www.youtube.com/watch?v=d5dZ5sgzrjs&index=3&list=PLbzRUhk5--qejXeY_xklTb3nwbuoQHguj
+  c3: http://customscreators.com/index.php?/page/index.html/_/air-r21638
   urls:
     rb3: download/onyx_Air_1x_v1_rb3con
     rb3-2x: download/onyx_Air_2x_v1_rb3con
     ps: download/onyx_Air_v1_ps.zip
 - file-path: ../songs/nova-collective/state-of-flux
   video: https://www.youtube.com/watch?v=tGYv-Y7d0q4&index=4&list=PLbzRUhk5--qejXeY_xklTb3nwbuoQHguj
+  c3: http://customscreators.com/index.php?/page/index.html/_/state-of-flux-r21637
   urls:
     rb3: download/onyx_StateOfFlux_1x_v1_rb3con
     rb3-2x: download/onyx_StateOfFlux_2x_v1_rb3con
     ps: download/onyx_StateOfFlux_v1_ps.zip
 - file-path: ../songs/nova-collective/ripped-apart-and-reassembled
   video: https://www.youtube.com/watch?v=jqMC6cYnTlE&index=5&list=PLbzRUhk5--qejXeY_xklTb3nwbuoQHguj
+  c3: http://customscreators.com/index.php?/page/index.html/_/ripped-apart-and-reassembled-r16292
   urls:
     rb3: download/onyx_RippedApart_1x_v2_rb3con
     rb3-2x: download/onyx_RippedApart_2x_v2_rb3con
     ps: download/onyx_RippedApart_v2_ps.zip
 - file-path: ../songs/nova-collective/the-further-side
   video: https://www.youtube.com/watch?v=rzOYac-pZy4&index=6&list=PLbzRUhk5--qejXeY_xklTb3nwbuoQHguj
+  c3: http://customscreators.com/index.php?/page/index.html/_/the-further-side-r21636
   urls:
     rb3: download/onyx_TheFurtherSide_1x_v1_rb3con
     rb3-2x: download/onyx_TheFurtherSide_2x_v1_rb3con
@@ -331,6 +387,7 @@
 
 - file-path: ../songs/tool/lost-keys-blame-hoffman-rosetta-stoned
   video: https://www.youtube.com/watch?v=fDRixdzyicc
+  c3: http://customscreators.com/index.php?/page/index.html/_/lost-keys-blame-hofmannr-r10592
   urls:
     rb3: download/onyx_LKRosettaStoned_v3_1x_rb3con
     rb3-2x: download/onyx_LKRosettaStoned_v3_2x_rb3con
@@ -342,41 +399,48 @@
 # Train of Thought
 - file-path: ../songs-grinnz/dream-theater/as-i-am
   video: https://www.youtube.com/watch?v=Zlv-ZgpQPO0
+  c3: http://customscreators.com/index.php?/page/index.html/_/as-i-am-r22917
   urls:
     rb3: download/c3x_AsIAm_v1_1x_rb3con
     rb3-2x: download/c3x_AsIAm_v1_2x_rb3con
     ps: download/c3x_AsIAm_v1_ch_ps_m.zip
 - file-path: ../songs-grinnz/dream-theater/this-dying-soul
   video: https://www.youtube.com/watch?v=J5cDxm4CjiA
+  c3: http://customscreators.com/index.php?/page/index.html/_/this-dying-soul-r22918
   urls:
     rb3: download/c3x_ThisDyingSoul_v1_1x_rb3con
     rb3-2x: download/c3x_ThisDyingSoul_v1_2x_rb3con
     ps: download/c3x_ThisDyingSoul_v1_ch_ps_m.zip
 - file-path: ../songs-grinnz/dream-theater/endless-sacrifice
   video: https://www.youtube.com/watch?v=uPcnMMcqoRk
+  c3: http://customscreators.com/index.php?/page/index.html/_/endless-sacrifice-r22919
   urls:
     rb3: download/c3x_EndlessSacrifice_v1_1x_rb3con
     rb3-2x: download/c3x_EndlessSacrifice_v1_2x_rb3con
     ps: download/c3x_EndlessSacrifice_v1_ch_ps_m.zip
 - file-path: ../songs-grinnz/dream-theater/honor-thy-father
   video: https://www.youtube.com/watch?v=jKqfZio5FAo
+  c3: http://customscreators.com/index.php?/page/index.html/_/honor-thy-father-r22920
   urls:
     rb3: download/c3x_HonorThyFather_v1_1x_rb3con
     rb3-2x: download/c3x_HonorThyFather_v1_2x_rb3con
     ps: download/c3x_HonorThyFather_v1_ch_ps_m.zip
 - file-path: ../songs/dream-theater/vacant
   video: https://www.youtube.com/watch?v=8WbNKSQOwQ8
+  c3: http://customscreators.com/index.php?/page/index.html/_/vacant-r22921
   urls:
     rb3: download/c3x_Vacant_v1_rb3con
     ps: download/c3x_Vacant_v1_ch_ps.zip
 - file-path: ../songs-grinnz/dream-theater/stream-of-consciousness
   video: https://www.youtube.com/watch?v=DuQkqErjFhI
+  c3: http://customscreators.com/index.php?/page/index.html/_/stream-of-consciousness-r22922
   urls:
     rb3: download/c3x_StreamOfConsciousness_v1_1x_rb3con
     rb3-2x: download/c3x_StreamOfConsciousness_v1_2x_rb3con
     ps: download/c3x_StreamOfConsciousness_v1_ch_ps_m.zip
 - file-path: ../songs-grinnz/dream-theater/in-the-name-of-god
   video: https://www.youtube.com/watch?v=-2YGnlFD5UU
+  c3: http://customscreators.com/index.php?/page/index.html/_/in-the-name-of-god-r22923
   urls:
     rb3: download/c3x_InTheNameOfGod_v1_1x_rb3con
     rb3-2x: download/c3x_InTheNameOfGod_v1_2x_rb3con
