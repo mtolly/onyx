@@ -3,9 +3,9 @@
   video: https://www.youtube.com/watch?v=NF99tUe_ujw
   c3: http://customscreators.com/index.php?/page/index.html/_/spark-r14123
   urls:
-    rb3: download/OJP1_Spark1x_v1_rb3con
-    rb3-2x: download/OJP1_Spark2x_v1_rb3con
-    ps: download/OJP1_Spark_v1_ps.zip
+    rb3: download/OJP1_Spark1x_v2_rb3con
+    rb3-2x: download/OJP1_Spark2x_v2_rb3con
+    ps: download/OJP1_Spark_v2_ch_ps.zip
 - file-path: ../songs/soil-and-pimp-sessions/keizoku
   video: https://vimeo.com/183597717
   c3: http://customscreators.com/index.php?/page/index.html/_/keizoku-r14126
@@ -16,14 +16,14 @@
   video: https://vimeo.com/183598619
   c3: http://customscreators.com/index.php?/page/index.html/_/scoop-out-r14128
   urls:
-    rb3: download/OJP1_ScoopOut_v2_rb3con
-    ps: download/OJP1_ScoopOut_v2_ps.zip
+    rb3: download/OJP1_ScoopOut_v3_rb3con
+    ps: download/OJP1_ScoopOut_v3_ch_ps.zip
 - file-path: ../songs/soil-and-pimp-sessions/sabotage
   video: https://vimeo.com/183597718
   c3: http://customscreators.com/index.php?/page/index.html/_/sabotage-r14127
   urls:
-    rb3: download/OJP1_Sabotage_v1_rb3con
-    ps: download/OJP1_Sabotage_v1_ps.zip
+    rb3: download/OJP1_Sabotage_v2_rb3con
+    ps: download/OJP1_Sabotage_v2_ch_ps.zip
 - file-path: ../songs/youngblood-brass-band/brooklyn
   video: https://www.youtube.com/watch?v=qyq9Xpp3zn8
   c3: http://customscreators.com/index.php?/page/index.html/_/brooklyn-r10437
@@ -49,8 +49,8 @@
   video: https://www.youtube.com/watch?v=4Dkr-YO4asY
   c3: http://customscreators.com/index.php?/page/index.html/_/a-crimson-rose-and-a-gin-tonic-r14124
   urls:
-    rb3: download/OJP1_ACrimsonRose_v1_rb3con
-    ps: download/OJP1_ACrimsonRose_v1_ps.zip
+    rb3: download/OJP1_ACrimsonRose_v2_rb3con
+    ps: download/OJP1_ACrimsonRose_v2_ch_ps.zip
 
 - file-path: ../songs/the-agonist/the-tempest
   video: https://www.youtube.com/watch?v=fuXV0IENmy4 # Gal's OMBFC
@@ -86,16 +86,16 @@
   video: https://www.youtube.com/watch?v=mPiR5lq__fU
   c3: http://customscreators.com/index.php?/page/index.html/_/another-dimension-r10439
   urls:
-    rb3: download/onyx_AnotherDim1x_v2_rb3con
-    rb3-2x: download/onyx_AnotherDim2x_v2_rb3con
-    ps: download/onyx_AnotherDim_v2_ps.zip
+    rb3: download/onyx_AnotherDim1x_v3_rb3con
+    rb3-2x: download/onyx_AnotherDim2x_v3_rb3con
+    ps: download/onyx_AnotherDim_v3_ch_ps.zip
 - file-path: ../songs/liquid-tension-experiment/chris-and-kevins-excellent-adventure
   video: https://www.youtube.com/watch?v=LEbXbnMTBdg
   c3: http://customscreators.com/index.php?/page/index.html/_/chris-and-kevins-excel-r14872
   urls:
-    rb3: download/onyx_ChrisKevin1x_v1_rb3con
-    rb3-2x: download/onyx_ChrisKevin2x_v1_rb3con
-    ps: download/onyx_ChrisKevin_v1_ps.zip
+    rb3: download/onyx_ChrisKevin1x_v2_rb3con
+    rb3-2x: download/onyx_ChrisKevin2x_v2_rb3con
+    ps: download/onyx_ChrisKevin_v2_ch_ps.zip
 - file-path: ../songs/liquid-tension-experiment/universal-mind
   video: https://www.youtube.com/watch?v=_XH8quUCM5Y
   c3: http://customscreators.com/index.php?/page/index.html/_/universal-mind-r10440
@@ -121,9 +121,9 @@
   video: https://www.youtube.com/watch?v=9otQmgn0RRI
   c3: http://customscreators.com/index.php?/page/index.html/_/blind-faith-r15101
   urls:
-    rb3: download/BlindFaith_v1_1x_rb3con
-    rb3-2x: download/BlindFaith_v1_2x_rb3con
-    ps: download/BlindFaith_v1_ps.zip
+    rb3: download/mazeonyx_BlindFaith1x_v2_rb3con
+    rb3-2x: download/mazeonyx_BlindFaith2x_v2_rb3con
+    ps: download/mazeonyx_BlindFaith_v2_ch_ps.zip
 
 - file-path: ../songs/liquid-tension-experiment/when-the-water-breaks
   video: https://www.youtube.com/watch?v=xNTXeuxuuGI
@@ -136,9 +136,9 @@
   video: https://www.youtube.com/watch?v=26h_wCHfN1s
   c3: http://customscreators.com/index.php?/page/index.html/_/these-walls-r16097
   urls:
-    rb3: download/TheseWalls_v1_1x_rb3con
-    rb3-2x: download/TheseWalls_v1_2x_rb3con
-    ps: download/TheseWalls_v1_ps.zip
+    rb3: download/onyx_TheseWalls1x_v2_rb3con
+    rb3-2x: download/onyx_TheseWalls2x_v2_rb3con
+    ps: download/onyx_TheseWalls_v2_ch_ps.zip
 
 # Onyxite's Jazz Pack 2
 - file-path: ../songs/hiromi-uehara/kung-fu-world-champion
@@ -182,8 +182,8 @@
   video: https://vimeo.com/211213777
   c3: http://customscreators.com/index.php?/page/index.html/_/summer-goddess-r16291
   urls:
-    rb3: download/OJP2_SummerGoddess_v1_rb3con
-    ps: download/OJP2_SummerGoddess_v1_ps.zip
+    rb3: download/OJP2_SummerGoddess_v2_rb3con
+    ps: download/OJP2_SummerGoddess_v2_ch_ps.zip
 
 - file-path: ../songs/dream-theater/new-millennium
   video: https://www.youtube.com/watch?v=-IsTXpLyQ94
@@ -286,8 +286,8 @@
   video: https://www.youtube.com/watch?v=80OCyJA7VJA
   c3: http://customscreators.com/index.php?/page/index.html/_/got-a-match-r19886
   urls:
-    rb3: download/OJP3_GotAMatch_v1_rb3con
-    ps: download/OJP3_GotAMatch_v1_ps_ch.zip
+    rb3: download/OJP3_GotAMatch_v2_rb3con
+    ps: download/OJP3_GotAMatch_v2_ch_ps.zip
 - file-path: ../songs/game-soundtracks/ripple-star
   video: https://www.youtube.com/watch?v=83rYLj3aQws
   c3: http://customscreators.com/index.php?/page/index.html/_/ripple-star-r19884
@@ -323,8 +323,8 @@
   video: https://vimeo.com/252455703
   c3: http://customscreators.com/index.php?/page/index.html/_/the-black-widow-bluesthe-w-r19880
   urls:
-    rb3: download/OJP3_BlackWidowBlues_v1_rb3con
-    ps: download/OJP3_BlackWidowBlues_v1_ps_ch.zip
+    rb3: download/OJP3_BlackWidowBlues_v2_rb3con
+    ps: download/OJP3_BlackWidowBlues_v2_ch_ps.zip
 
 - file-path: ../songs/dream-theater/the-great-debate
   video: https://www.youtube.com/watch?v=XYlB2tMjBJA
@@ -337,9 +337,9 @@
   video: https://www.youtube.com/watch?v=KiYoYYirbmI
   c3: http://customscreators.com/index.php?/page/index.html/_/enigma-machine-r21251
   urls:
-    rb3: download/onyx_EnigmaMachine1x_v1_rb3con
-    rb3-2x: download/onyx_EnigmaMachine2x_v1_rb3con
-    ps: download/onyx_EnigmaMachine_v1_ch_ps.zip
+    rb3: download/onyx_EnigmaMachine1x_v2_rb3con
+    rb3-2x: download/onyx_EnigmaMachine2x_v2_rb3con
+    ps: download/onyx_EnigmaMachine_v2_ch_ps.zip
 
 # The Further Side (Nova Collective)
 - file-path: ../songs/nova-collective/dancing-machines

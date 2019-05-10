@@ -8,3 +8,4 @@ rsync-exclude
 *.sass
 *.map
 .DS_Store
+c3.bbcode

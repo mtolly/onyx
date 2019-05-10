@@ -66,7 +66,6 @@ SYSTEMATIC CHAOS (new version)
 SELF-TITLED
   > the enemy inside - drums done
   > the looking glass - drums done, 6-fret from GHL
-  > enigma machine (update) - PG and PB done, drums fixed for flipped stereo
   > behind the veil - just needs rest of gtr, basic keys, vox, OD, and audio exprs
 FALLING INTO INFINITY (have all stems now)
   > lines in the sand - needs: pro keys, basic keys, vox, OD
@@ -75,8 +74,6 @@ SOLO STUFF
   > go wayne earl (rudess) needs polish + basic keys
   > time crunch (rudess) drums done, pkeys started
   > black ice (petrucci+rudess) gtr done
-OCTAVARIUM
-  > these walls - minor audio and pg/pb fixes to release
 DISTANCE OVER TIME
   > pale blue dot - drums done
 
@@ -94,13 +91,8 @@ NES JAMS (Shnabubula)
 11. Wood Man (Mega Man 2) - PK, K done
 
 PRO GUITAR/BASS
-- summer goddess, scoop out, sabotage, widows (soil & pimp) ready after checks
-- spark (hiromi) ready after checks
-- a crimson rose (katamari) ready after checks
-- got a match (chick corea) ready after some fret cleanup
 - leyenda (williams) pretty much done
 - one for antonio (corea + sanchez)
-- another dimension (lte)
 > sys chaos; see DT
 > foam born (btbam)
 > dark world (insaneintherain)
