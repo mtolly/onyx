@@ -22,8 +22,7 @@ import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
 import           Control.Monad                             (forM, forM_, guard,
-                                                            unless, void, when,
-                                                            (>=>))
+                                                            unless, void, (>=>))
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
 import           Control.Monad.Trans.Class                 (lift)
@@ -1044,16 +1043,19 @@ miscPageMIDI sink rect tab startTasks = do
   FL.setResizable tab $ Just pack
   return ()
 
-launchMisc :: (Event -> IO ()) -> IO ()
-launchMisc sink = mdo
-  let windowSize = Size (Width 800) (Height 400)
-      windowRect = Rectangle
+launchMisc :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
+launchMisc sink makeMenuBar = mdo
+  let windowWidth = Width 800
+      windowHeight = Height 400
+      windowSize = Size windowWidth windowHeight
+  window <- FL.windowNew windowSize Nothing $ Just "Tools"
+  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+  let (_, windowRect) = chopTop menuHeight $ Rectangle
         (Position (X 0) (Y 0))
         windowSize
-  window <- FL.windowNew windowSize Nothing $ Just "Tools"
   behindTabsColor >>= FL.setColor window
   FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
-  FL.sizeRange window $ Size (Width 800) (Height 400)
+  FL.sizeRange window windowSize
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   functionTabs <- sequence
@@ -1209,17 +1211,20 @@ fileLoadWindow rect sink single plural modifyFiles startFiles step display = mdo
   FL.end group
   return group
 
-launchBatch :: (Event -> IO ()) -> [FilePath] -> IO ()
-launchBatch sink startFiles = mdo
+launchBatch :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> [FilePath] -> IO ()
+launchBatch sink makeMenuBar startFiles = mdo
   loadedFiles <- newMVar []
-  let windowSize = Size (Width 800) (Height 400)
-      windowRect = Rectangle
+  let windowWidth = Width 800
+      windowHeight = Height 400
+      windowSize = Size windowWidth windowHeight
+  window <- FL.windowNew windowSize Nothing $ Just "Batch Process"
+  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+  let (_, windowRect) = chopTop menuHeight $ Rectangle
         (Position (X 0) (Y 0))
         windowSize
-  window <- FL.windowNew windowSize Nothing $ Just "Batch Process"
   behindTabsColor >>= FL.setColor window
   FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
-  FL.sizeRange window $ Size (Width 800) (Height 400)
+  FL.sizeRange window windowSize
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   tabSongs <- makeTab windowRect "Songs" $ \rect tab -> do
@@ -1431,16 +1436,59 @@ launchGUI = do
         FLTK.awake -- this makes waitFor finish so we can process the event
 
   -- terminal
+  let consoleWidth = Width 500
+      consoleHeight = Height 400
   termWindow <- FL.windowNew
-    (Size (Width 500) (Height 400))
+    (Size consoleWidth consoleHeight)
     Nothing
     (Just "Onyx Console")
-  FL.sizeRange termWindow $ Size (Width 500) (Height 400)
+  FL.sizeRange termWindow $ Size consoleWidth consoleHeight
   globalLogColor >>= FL.setColor termWindow
-  let termMenuHeight = if macOS then 0 else 30
+  let makeMenuBar width includeConsole = do
+        let menuHeight = if macOS then 0 else 30
+            menuRect = Rectangle (Position (X 0) (Y 0)) (Size width (Height menuHeight))
+            menuFn :: IO () -> FL.Ref FL.MenuItem -> IO ()
+            menuFn = const
+            menuOptions =
+              [ ( "File/Batch Process"
+                , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'b'
+                , Just $ launchBatch sink makeMenuBar []
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
+              , ( "File/Tools"
+                , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 't'
+                , Just $ launchMisc sink makeMenuBar
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
+              , ( "File/Close Window"
+                , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'w'
+                , Just $ sink $ EventIO $ FLTK.firstWindow >>= \case
+                    Just window -> FL.doCallback window
+                    Nothing     -> return ()
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
+              ] ++ do
+                guard includeConsole
+                return
+                  ( "View/Show Console"
+                  , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.Kb_CtrlState] $ FL.NormalKeyType '`'
+                  , Just $ FL.showWidget termWindow
+                  , FL.MenuItemFlags [FL.MenuItemNormal]
+                  )
+        if macOS
+          then do
+            menu <- FL.sysMenuBarNew menuRect Nothing
+            forM_ menuOptions $ \(a, b, c, d) -> do
+              FL.add menu a b (fmap menuFn c) d
+          else do
+            menu <- FL.menuBarNew menuRect Nothing
+            forM_ menuOptions $ \(a, b, c, d) -> do
+              FL.add menu a b (fmap menuFn c) d
+        return menuHeight
+  menuHeight <- makeMenuBar consoleWidth macOS
   buttonGithub <- FL.buttonNew
     (Rectangle
-      (Position (X 10) (Y $ 10 + termMenuHeight))
+      (Position (X 10) (Y $ 10 + menuHeight))
       (Size (Width 100) (Height 25))
     )
     (Just "Homepage")
@@ -1448,7 +1496,7 @@ launchGUI = do
     osOpenFile "https://github.com/mtolly/onyxite-customs/releases"
   labelLatest <- FL.boxNew
     (Rectangle
-      (Position (X 120) (Y $ 10 + termMenuHeight))
+      (Position (X 120) (Y $ 10 + menuHeight))
       (Size (Width 370) (Height 25))
     )
     (Just "Checking for updates…")
@@ -1459,8 +1507,8 @@ launchGUI = do
     unless b $ FL.setLabelcolor labelLatest FLE.whiteColor
   term <- FL.simpleTerminalNew
     (Rectangle
-      (Position (X 10) (Y $ 45 + termMenuHeight))
-      (Size (Width 480) (Height $ 305 - termMenuHeight))
+      (Position (X 10) (Y $ 45 + menuHeight))
+      (Size (Width 480) (Height $ 305 - menuHeight))
     )
     Nothing
   FL.setAnsi term True
@@ -1480,52 +1528,17 @@ launchGUI = do
     (Just "Batch process")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs
-      { FL.handleCustom = Just $ dragAndDrop (launchBatch sink) . FL.handleButtonBase . FL.safeCast
+      { FL.handleCustom = Just $ dragAndDrop (launchBatch sink makeMenuBar) . FL.handleButtonBase . FL.safeCast
       }
   batchProcessColor >>= FL.setColor buttonBatch
   FL.setLabelsize buttonBatch (FL.FontSize 13)
-  FL.setCallback buttonBatch $ \_ -> launchBatch sink []
+  FL.setCallback buttonBatch $ \_ -> launchBatch sink makeMenuBar []
   buttonMisc <- FL.buttonNew
     (Rectangle (Position (X 255) (Y 360)) (Size (Width 235) (Height 30)))
     (Just "Other tools")
   loadSongColor >>= FL.setColor buttonMisc
   FL.setLabelsize buttonMisc (FL.FontSize 13)
-  FL.setCallback buttonMisc $ \_ -> launchMisc sink
-  menu <- FL.sysMenuBarNew
-    (Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height termMenuHeight)))
-    Nothing
-  let menuFn :: IO () -> FL.Ref FL.MenuItem -> IO ()
-      menuFn = const
-  {-
-  void $ FL.add menu
-    "File/Open…"
-    (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o')
-    (Just $ menuFn loadDialog)
-    (FL.MenuItemFlags [FL.MenuItemNormal])
-  -}
-  void $ FL.add menu
-    "File/Batch Process"
-    (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'b')
-    (Just $ menuFn $ launchBatch sink [])
-    (FL.MenuItemFlags [FL.MenuItemNormal])
-  void $ FL.add menu
-    "File/Tools"
-    (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 't')
-    (Just $ menuFn $ launchMisc sink)
-    (FL.MenuItemFlags [FL.MenuItemNormal])
-  void $ FL.add menu
-    "File/Close Window"
-    (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'w')
-    (Just $ menuFn $ sink $ EventIO $ FLTK.firstWindow >>= \case
-      Just window -> FL.doCallback window
-      Nothing     -> return ()
-    )
-    (FL.MenuItemFlags [FL.MenuItemNormal])
-  when macOS $ void $ FL.add menu
-    "View/Show Console"
-    (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.Kb_CtrlState] $ FL.NormalKeyType '`')
-    (Just $ menuFn $ FL.showWidget termWindow)
-    (FL.MenuItemFlags [FL.MenuItemNormal])
+  FL.setCallback buttonMisc $ \_ -> launchMisc sink makeMenuBar
   FL.end termWindow
   FL.setResizable termWindow $ Just term
   FL.setCallback termWindow $ windowCloser $ return ()
