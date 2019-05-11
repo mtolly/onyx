@@ -60,12 +60,11 @@ Onyx can import the following song formats:
 
 ## Batch Mode
 
-This is currently where most of Onyx's functionality is.
-
 First, load files into the Songs tab.
 You can drag and drop files or folders onto the list, or browse with Add Song.
 Folders will be searched for any recognized songs inside.
 To remove a song, select its row in the tree, and press the Delete key.
+To change the order of songs, select its row and press Ctrl+Up or Ctrl+Down.
 
   * Rock Band 3 (360)
 
@@ -104,11 +103,17 @@ To remove a song, select its row in the tree, and press the Delete key.
     If this happens, you can produce a Magma project and then make the needed
     changes before compiling with Magma.
 
-    Also available is an option to copy the Guitar chart to Keys,
-    so that two people can play it. This will add force notes to the chart to
-    make the Keys chart have the right strum/HOPO notes when played on a guitar.
-    For songs with stems, the guitar audio will be linked to both the guitar
-    and keys tracks, so if either instrument misses it will cut out.
+    A few options are available for moving Guitar/Bass/Keys parts:
+    `Copy G to K`, `Swap G and K`, and `Swap B and K`. In all cases, force notes
+    will be applied so charts keep their strum/HOPO notes correct when switched
+    between Keys and Guitar/Bass. If `Copy G to K` is selected and a guitar stem
+    is present, depending on the input format, the guitar audio will either be
+    linked to both guitar and keys (for CON or RBA inputs) or moved to the
+    backing track (for FoF/PS/CH and .rbproj inputs).
+
+    By default, an input format like Phase Shift that can contain both 1x and
+    2x Bass Pedal drums charts will generate two separate songs. If you are
+    interested in only 1x or only 2x, select the appropriate Bass Pedal option.
 
     When creating a Magma project, a REAPER project will also be generated
     so any remaining problems can be quickly edited and re-exported to MIDI.
@@ -178,20 +183,18 @@ To remove a song, select its row in the tree, and press the Delete key.
     which plays back the audio and displays all tracks in 2D "Beatmania" style.
 
     Supports all Rock Band 3 instrument tracks, including Pro Guitar/Bass/Keys,
-    as well as the Clone Hero 6-fret (GHL) mode, and 5-lane drums.
+    as well as Clone Hero's 6-fret (GHL) mode, 5-lane Drums, and PS Real Drums.
 
-    A player folder will appear next to the CON; open `index.html` to run.
+    A player folder will appear next to each song; open `index.html` to run.
     It can be run locally via `file://`, or hosted on a web server.
 
     Colors used for drawing the display can be tweaked by editing the file
     `customize.js`. In the future this will be improved to allow overriding
     all pixel sizes as well, so images will be further customizable.
 
-## Song View
+## Other Tools
 
-In future releases, this will be the primary method of interacting with Onyx.
-
-  * Auto reductions
+  * Fill in automatic lower difficulties (MIDI function)
 
     Generates CAT-like automatic reductions for empty difficulties in a MIDI.
     Quality is not guaranteed, but they should pass Magma.
@@ -200,7 +203,28 @@ In future releases, this will be the primary method of interacting with Onyx.
     for a difficulty you want to be filled in.
     (For Pro Keys, remove the `PART REAL_KEYS_?` track entirely.)
 
-  * Hanging Pro Keys notes
+  * Find hanging Pro Keys notes (MIDI function)
 
     Looks for cases in a Pro Keys track where a range shift occurs less than
     1 second before a note that is not visible in the previous range.
+
+  * Make Reaper project with RB template (MIDI function)
+
+    Imports a MIDI file into a REAPER project. It avoids a few bugs in REAPER's
+    own MIDI import function, and applies track names and note colors similar to
+    the RBN or C3 project templates.
+
+  * MOGG creator
+
+    Generates an unencrypted MOGG file from a set of input audio files. The
+    created files should work on Rock Band games, Guitar Hero II for Xbox 360,
+    and newer games such as Audica, with a proper seek header.
+
+    The channels of all the input files, which can be WAV, OGG, MP3, or FLAC,
+    will be merged into one multichannel OGG file, and then prefixed with the
+    MOGG header. As with the batch load screen, you can select a song row, and
+    press Delete to remove it, Ctrl+Up to move it up in the list, or Ctrl+Down
+    to move it down.
+
+    As a special case, if you provide a single OGG file, it will not be
+    reencoded, and will go unchanged into the MOGG file.
