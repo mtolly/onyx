@@ -1,16 +1,24 @@
 parts:
-  vocal: {}
   bass:
-    grybo:
-      fix-freeform: false
-      difficulty:
-        tier: 3
+    # grybo:
+    #   fix-freeform: false
+    #   difficulty:
+    #     tier: 3
+    pro-guitar:
+      tuning:
+        base: bass-5
   guitar:
-    grybo:
-      fix-freeform: false
-      difficulty:
-        tier: 5
-  keys: {}
+    # grybo:
+    #   fix-freeform: false
+    #   difficulty:
+    #     tier: 5
+    pro-guitar:
+      tuning:
+        base: guitar-6
+  rhythm:
+    pro-guitar:
+      tuning:
+        base: guitar-6
   drums:
     drums:
       kicks: 1
