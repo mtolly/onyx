@@ -1,10 +1,13 @@
 {- |
 EVENTS
 -}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
 module GuitarHeroII.Events where
 
 import           Control.Monad                    ((>=>))
@@ -12,7 +15,8 @@ import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
-import qualified Numeric.NonNegative.Class        as NNC
+import           GHC.Generics                     (Generic)
+import           MergeMonoid
 import           RockBand.Codec
 import           RockBand.Common
 
@@ -89,25 +93,12 @@ data EventsTrack t = EventsTrack
   , eventsLighting      :: RTB.T t Lighting
   , eventsSections      :: RTB.T t T.Text
   , eventsOther         :: RTB.T t Event
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (EventsTrack t)
 
 instance TraverseTrack EventsTrack where
   traverseTrack fn (EventsTrack a b c d e) = EventsTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
-
-instance (NNC.C t) => Semigroup (EventsTrack t) where
-  (<>)
-    (EventsTrack a1 a2 a3 a4 a5)
-    (EventsTrack b1 b2 b3 b4 b5)
-    = EventsTrack
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-
-instance (NNC.C t) => Monoid (EventsTrack t) where
-  mempty = EventsTrack RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance ParseTrack EventsTrack where
   parseTrack = do

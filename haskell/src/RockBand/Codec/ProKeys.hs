@@ -1,12 +1,17 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE RecordWildCards  #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE RecordWildCards    #-}
 module RockBand.Codec.ProKeys where
 
 import           Control.Monad                    ((>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Text                        as T
+import           GHC.Generics                     (Generic)
+import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
@@ -56,30 +61,11 @@ data ProKeysTrack t = ProKeysTrack
   , pkOverdrive :: RTB.T t Bool
   , pkBRE       :: RTB.T t Bool
   , pkNotes     :: RTB.T t (Pitch, Maybe t)
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (ProKeysTrack t)
 
 nullPK :: ProKeysTrack t -> Bool
 nullPK = RTB.null . pkNotes
-
-instance (NNC.C t) => Semigroup (ProKeysTrack t) where
-  (<>)
-    (ProKeysTrack a1 a2 a3 a4 a5 a6 a7 a8 a9)
-    (ProKeysTrack b1 b2 b3 b4 b5 b6 b7 b8 b9)
-    = ProKeysTrack
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-      (RTB.merge a6 b6)
-      (RTB.merge a7 b7)
-      (RTB.merge a8 b8)
-      (RTB.merge a9 b9)
-
-instance (NNC.C t) => Monoid (ProKeysTrack t) where
-  mempty = ProKeysTrack RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack ProKeysTrack where
   traverseTrack fn (ProKeysTrack a b c d e f g h i) = ProKeysTrack

@@ -1,5 +1,8 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE RecordWildCards    #-}
 module MelodysEscape where
 
 import           Control.Monad.Codec
@@ -8,6 +11,8 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (elemIndex, intercalate)
 import           Data.Maybe                       (fromJust)
+import           GHC.Generics                     (Generic)
+import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common                  (each)
@@ -16,15 +21,8 @@ import qualified Sound.MIDI.Util                  as U
 data MelodyTrack t = MelodyTrack
   { melodyIntensity :: RTB.T t (Intensity, Bool)
   , melodyNotes     :: RTB.T t (NoteType, Maybe t)
-  } deriving (Eq, Ord, Show)
-
-instance (NNC.C t) => Semigroup (MelodyTrack t) where
-  (<>) (MelodyTrack a1 a2) (MelodyTrack b1 b2) = MelodyTrack
-    (RTB.merge a1 b1)
-    (RTB.merge a2 b2)
-
-instance (NNC.C t) => Monoid (MelodyTrack t) where
-  mempty = MelodyTrack RTB.empty RTB.empty
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (MelodyTrack t)
 
 instance TraverseTrack MelodyTrack where
   traverseTrack fn (MelodyTrack a b) = MelodyTrack <$> fn a <*> traverseBlipSustain fn b

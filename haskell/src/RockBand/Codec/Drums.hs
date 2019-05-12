@@ -1,11 +1,14 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DeriveFoldable     #-}
+{-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DeriveTraversable  #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE TupleSections      #-}
 module RockBand.Codec.Drums where
 
 import           Control.Monad                    (guard, (>=>))
@@ -17,7 +20,9 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromJust, fromMaybe)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Text                        as T
+import           GHC.Generics                     (Generic)
 import           Guitars                          (applyStatus)
+import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
@@ -36,33 +41,11 @@ data DrumTrack t = DrumTrack
   , drumPlayer2      :: RTB.T t Bool
   , drumKick2x       :: RTB.T t ()
   , drumAnimation    :: RTB.T t Animation
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (DrumTrack t)
 
 nullDrums :: DrumTrack t -> Bool
 nullDrums = all (RTB.null . drumGems) . toList . drumDifficulties
-
-instance (NNC.C t) => Semigroup (DrumTrack t) where
-  (<>)
-    (DrumTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12)
-    (DrumTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12)
-    = DrumTrack
-      (Map.unionWith (<>) a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-      (RTB.merge a6 b6)
-      (RTB.merge a7 b7)
-      (RTB.merge a8 b8)
-      (RTB.merge a9 b9)
-      (RTB.merge a10 b10)
-      (RTB.merge a11 b11)
-      (RTB.merge a12 b12)
-
-instance (NNC.C t) => Monoid (DrumTrack t) where
-  mempty = DrumTrack Map.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack DrumTrack where
   traverseTrack fn (DrumTrack a b c d e f g h i j k l) = DrumTrack
@@ -168,23 +151,12 @@ data DrumDifficulty t = DrumDifficulty
   { drumMix         :: RTB.T t (Audio, Disco)
   , drumPSModifiers :: RTB.T t (PSGem, Bool)
   , drumGems        :: RTB.T t (Gem ())
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (DrumDifficulty t)
 
 instance TraverseTrack DrumDifficulty where
   traverseTrack fn (DrumDifficulty a b c) = DrumDifficulty
     <$> fn a <*> fn b <*> fn c
-
-instance (NNC.C t) => Semigroup (DrumDifficulty t) where
-  (<>)
-    (DrumDifficulty a1 a2 a3)
-    (DrumDifficulty b1 b2 b3)
-    = DrumDifficulty
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-
-instance (NNC.C t) => Monoid (DrumDifficulty t) where
-  mempty = DrumDifficulty RTB.empty RTB.empty RTB.empty
 
 parseProType :: (Monad m, NNC.C t) => Int -> TrackEvent m t ProType
 parseProType

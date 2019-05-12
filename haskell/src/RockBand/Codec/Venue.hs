@@ -1,7 +1,10 @@
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
 module RockBand.Codec.Venue where
 
 import           Control.Applicative              (liftA2)
@@ -10,6 +13,8 @@ import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (sortBy)
 import qualified Data.Text                        as T
+import           GHC.Generics                     (Generic)
+import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
@@ -343,37 +348,8 @@ data VenueTrack t = VenueTrack
 
   , venueFog              :: RTB.T t Bool
 
-  } deriving (Eq, Ord, Show)
-
-instance (NNC.C t) => Semigroup (VenueTrack t) where
-  (<>)
-    (VenueTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18)
-    (VenueTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18)
-    = VenueTrack
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-      (RTB.merge a6 b6)
-      (RTB.merge a7 b7)
-      (RTB.merge a8 b8)
-      (RTB.merge a9 b9)
-      (RTB.merge a10 b10)
-      (RTB.merge a11 b11)
-      (RTB.merge a12 b12)
-      (RTB.merge a13 b13)
-      (RTB.merge a14 b14)
-      (RTB.merge a15 b15)
-      (RTB.merge a16 b16)
-      (RTB.merge a17 b17)
-      (RTB.merge a18 b18)
-
-instance (NNC.C t) => Monoid (VenueTrack t) where
-  mempty = VenueTrack
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (VenueTrack t)
 
 instance TraverseTrack VenueTrack where
   traverseTrack fn (VenueTrack a b c d e f g h i j k l m n o p q r) = VenueTrack

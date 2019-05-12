@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE MultiWayIf          #-}
@@ -21,8 +24,10 @@ import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
+import           GHC.Generics                     (Generic)
 import           Guitars                          (applyStatus, applyStatus1,
                                                    guitarify, trackState)
+import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
@@ -150,38 +155,11 @@ data ProGuitarTrack t = ProGuitarTrack
   , pgMystery45      :: RTB.T t Bool
   , pgMystery69      :: RTB.T t Bool
   , pgMystery93      :: RTB.T t Bool
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (ProGuitarTrack t)
 
 nullPG :: ProGuitarTrack t -> Bool
 nullPG = all (RTB.null . pgNotes) . toList . pgDifficulties
-
-instance (NNC.C t) => Semigroup (ProGuitarTrack t) where
-  (<>)
-    (ProGuitarTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17)
-    (ProGuitarTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17)
-    = ProGuitarTrack
-      (Map.unionWith (<>) a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-      (RTB.merge a6 b6)
-      (RTB.merge a7 b7)
-      (RTB.merge a8 b8)
-      (RTB.merge a9 b9)
-      (RTB.merge a10 b10)
-      (RTB.merge a11 b11)
-      (RTB.merge a12 b12)
-      (RTB.merge a13 b13)
-      (RTB.merge a14 b14)
-      (RTB.merge a15 b15)
-      (RTB.merge a16 b16)
-      (RTB.merge a17 b17)
-
-instance (NNC.C t) => Monoid (ProGuitarTrack t) where
-  mempty = ProGuitarTrack Map.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack ProGuitarTrack where
   traverseTrack fn (ProGuitarTrack a b c d e f g h i j k l m n o p q) = ProGuitarTrack
@@ -199,7 +177,8 @@ data ProGuitarDifficulty t = ProGuitarDifficulty
   , pgMysteryBFlat :: RTB.T t Bool
   -- TODO EOF format sysexes
   , pgNotes        :: RTB.T t (GtrString, (NoteType, GtrFret, Maybe t))
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (ProGuitarDifficulty t)
 
 instance TraverseTrack ProGuitarDifficulty where
   traverseTrack fn (ProGuitarDifficulty a b c d e f g h) = ProGuitarDifficulty
@@ -210,25 +189,6 @@ instance TraverseTrack ProGuitarDifficulty where
         $ splitEdges
         $ fmap (\(str, (nt, fret, len)) -> (fret, (str, nt), len))
         $ h
-
-instance (NNC.C t) => Semigroup (ProGuitarDifficulty t) where
-  (<>)
-    (ProGuitarDifficulty a1 a2 a3 a4 a5 a6 a7 a8)
-    (ProGuitarDifficulty b1 b2 b3 b4 b5 b6 b7 b8)
-    = ProGuitarDifficulty
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-      (RTB.merge a6 b6)
-      (RTB.merge a7 b7)
-      (RTB.merge a8 b8)
-
-instance (NNC.C t) => Monoid (ProGuitarDifficulty t) where
-  mempty = ProGuitarDifficulty
-    RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty
 
 channelEdges
   :: (Show a, GtrChannel a, SendMessage m, NNC.C t)

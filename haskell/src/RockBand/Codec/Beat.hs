@@ -1,10 +1,14 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE RecordWildCards    #-}
 module RockBand.Codec.Beat where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Class        as NNC
+import           GHC.Generics                     (Generic)
+import           MergeMonoid
 import           RockBand.Codec
 import           RockBand.Common
 
@@ -12,7 +16,8 @@ data BeatEvent = Bar | Beat
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 newtype BeatTrack t = BeatTrack { beatLines :: RTB.T t BeatEvent }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+  deriving (Semigroup, Monoid, Mergeable) via GenericMerge (BeatTrack t)
 
 instance ParseTrack BeatTrack where
   parseTrack = do
@@ -23,9 +28,3 @@ instance ParseTrack BeatTrack where
 
 instance TraverseTrack BeatTrack where
   traverseTrack fn (BeatTrack a) = BeatTrack <$> fn a
-
-instance (NNC.C t) => Semigroup (BeatTrack t) where
-  (<>) (BeatTrack a) (BeatTrack b) = BeatTrack (RTB.merge a b)
-
-instance (NNC.C t) => Monoid (BeatTrack t) where
-  mempty = BeatTrack RTB.empty

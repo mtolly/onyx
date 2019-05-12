@@ -1,14 +1,18 @@
 {- |
 TRIGGERS
 -}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
 module GuitarHeroII.Triggers where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Class        as NNC
+import           GHC.Generics                     (Generic)
+import           MergeMonoid
 import           RockBand.Codec
 import           RockBand.Codec.Events            (Backing (..))
 import           RockBand.Common                  (each)
@@ -19,26 +23,12 @@ data TriggersTrack t = TriggersTrack
   , triggersUnknown49 :: RTB.T t ()
   , triggersUnknown50 :: RTB.T t ()
   , triggersUnknown52 :: RTB.T t Bool
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (TriggersTrack t)
 
 instance TraverseTrack TriggersTrack where
   traverseTrack fn (TriggersTrack a b c d e) = TriggersTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
-
-instance (NNC.C t) => Semigroup (TriggersTrack t) where
-  (<>)
-    (TriggersTrack a1 a2 a3 a4 a5)
-    (TriggersTrack b1 b2 b3 b4 b5)
-    = TriggersTrack
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-
-instance (NNC.C t) => Monoid (TriggersTrack t) where
-  mempty = TriggersTrack
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance ParseTrack TriggersTrack where
   parseTrack = do

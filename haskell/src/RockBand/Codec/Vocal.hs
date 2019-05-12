@@ -1,14 +1,18 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
 module RockBand.Codec.Vocal where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
-import qualified Numeric.NonNegative.Class        as NNC
+import           GHC.Generics                     (Generic)
+import           MergeMonoid
 import           RockBand.Codec
 import           RockBand.Common
 import qualified Sound.MIDI.File.Event            as E
@@ -70,33 +74,12 @@ data VocalTrack t = VocalTrack
   , vocalLyricShift    :: RTB.T t ()
   , vocalRangeShift    :: RTB.T t Bool
   , vocalNotes         :: RTB.T t (Pitch, Bool)
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (VocalTrack t)
 
 nullVox :: VocalTrack t -> Bool
 -- we look at lyrics also, so lyrics can be imported from PS/CH into vox tracks
 nullVox t = RTB.null (vocalNotes t) && RTB.null (vocalLyrics t)
-
-instance (NNC.C t) => Semigroup (VocalTrack t) where
-  (<>)
-    (VocalTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11)
-    (VocalTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11)
-    = VocalTrack
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-      (RTB.merge a6 b6)
-      (RTB.merge a7 b7)
-      (RTB.merge a8 b8)
-      (RTB.merge a9 b9)
-      (RTB.merge a10 b10)
-      (RTB.merge a11 b11)
-
-instance (NNC.C t) => Monoid (VocalTrack t) where
-  mempty = VocalTrack RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack VocalTrack where
   traverseTrack fn (VocalTrack a b c d e f g h i j k) = VocalTrack

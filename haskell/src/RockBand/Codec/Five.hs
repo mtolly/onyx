@@ -1,6 +1,9 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
 module RockBand.Codec.Five where
 
 import           Control.Monad                    (guard, (>=>))
@@ -12,6 +15,8 @@ import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (isJust)
 import qualified Data.Text                        as T
+import           GHC.Generics                     (Generic)
+import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
@@ -101,33 +106,11 @@ data FiveTrack t = FiveTrack
   , fiveSolo         :: RTB.T t Bool
   , fivePlayer1      :: RTB.T t Bool
   , fivePlayer2      :: RTB.T t Bool
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (FiveTrack t)
 
 nullFive :: FiveTrack t -> Bool
 nullFive = all (RTB.null . fiveGems) . toList . fiveDifficulties
-
-instance (NNC.C t) => Semigroup (FiveTrack t) where
-  (<>)
-    (FiveTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12)
-    (FiveTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12)
-    = FiveTrack
-      (Map.unionWith (<>) a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-      (RTB.merge a6 b6)
-      (RTB.merge a7 b7)
-      (RTB.merge a8 b8)
-      (RTB.merge a9 b9)
-      (RTB.merge a10 b10)
-      (RTB.merge a11 b11)
-      (RTB.merge a12 b12)
-
-instance (NNC.C t) => Monoid (FiveTrack t) where
-  mempty = FiveTrack Map.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack FiveTrack where
   traverseTrack fn (FiveTrack a b c d e f g h i j k l) = FiveTrack
@@ -142,26 +125,12 @@ data FiveDifficulty t = FiveDifficulty
   , fiveOpen       :: RTB.T t Bool
   , fiveOnyxClose  :: RTB.T t Int
   , fiveGems       :: RTB.T t (Color, Maybe t)
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (FiveDifficulty t)
 
 instance TraverseTrack FiveDifficulty where
   traverseTrack fn (FiveDifficulty a b c d e f) = FiveDifficulty
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> traverseBlipSustain fn f
-
-instance (NNC.C t) => Semigroup (FiveDifficulty t) where
-  (<>)
-    (FiveDifficulty a1 a2 a3 a4 a5 a6)
-    (FiveDifficulty b1 b2 b3 b4 b5 b6)
-    = FiveDifficulty
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-      (RTB.merge a6 b6)
-
-instance (NNC.C t) => Monoid (FiveDifficulty t) where
-  mempty = FiveDifficulty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance ParseTrack FiveTrack where
   parseTrack = do

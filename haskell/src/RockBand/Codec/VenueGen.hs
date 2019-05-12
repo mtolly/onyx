@@ -2,9 +2,12 @@
 Alternate implementation of kueller's venuegen system:
 https://github.com/kueller/ReaperRBTools
 -}
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE TupleSections      #-}
 module RockBand.Codec.VenueGen where
 
 import           Control.Monad                    (guard)
@@ -13,6 +16,8 @@ import           Control.Monad.Random             (MonadRandom, fromListMay)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (partition)
 import           Data.Maybe                       (catMaybes, fromMaybe)
+import           GHC.Generics                     (Generic)
+import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Codec.Venue
@@ -25,22 +30,8 @@ data LightingTrack t = LightingTrack
   , lightingCommands        :: RTB.T t LightingCommand
   , lightingBonusFX         :: RTB.T t ()
   , lightingBonusFXOptional :: RTB.T t ()
-  } deriving (Eq, Ord, Show)
-
-instance (NNC.C t) => Semigroup (LightingTrack t) where
-  (<>)
-    (LightingTrack a1 a2 a3 a4 a5)
-    (LightingTrack b1 b2 b3 b4 b5)
-    = LightingTrack
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-
-instance (NNC.C t) => Monoid (LightingTrack t) where
-  mempty = LightingTrack
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (LightingTrack t)
 
 instance TraverseTrack LightingTrack where
   traverseTrack fn (LightingTrack a b c d e) = LightingTrack
@@ -159,18 +150,8 @@ unbuildLighting lastLen vt = LightingTrack
 data CameraTrack t = CameraTrack
   { cameraCuts   :: RTB.T t (Camera3, Bool)
   , cameraRandom :: RTB.T t ()
-  } deriving (Eq, Ord, Show)
-
-instance (NNC.C t) => Semigroup (CameraTrack t) where
-  (<>)
-    (CameraTrack a1 a2)
-    (CameraTrack b1 b2)
-    = CameraTrack
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-
-instance (NNC.C t) => Monoid (CameraTrack t) where
-  mempty = CameraTrack RTB.empty RTB.empty
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (CameraTrack t)
 
 instance TraverseTrack CameraTrack where
   traverseTrack fn (CameraTrack a b) = CameraTrack <$> fn a <*> fn b

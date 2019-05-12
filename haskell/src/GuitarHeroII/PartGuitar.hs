@@ -1,16 +1,20 @@
 {- |
 PART GUITAR, PART GUITAR COOP, PART BASS, PART RHYTHM
 -}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
 module GuitarHeroII.PartGuitar where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
-import qualified Numeric.NonNegative.Class        as NNC
+import           GHC.Generics                     (Generic)
+import           MergeMonoid
 import           RockBand.Codec
 import           RockBand.Codec.Five              (Color (..),
                                                    FretPosition (..))
@@ -60,7 +64,8 @@ data PartTrack t = PartTrack
   , partOwFace       :: RTB.T t Bool
   , partTempo        :: RTB.T t Tempo
   , partUnknown110   :: RTB.T t Bool -- ^ some kind of sustain thing?
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (PartTrack t)
 
 instance TraverseTrack PartTrack where
   traverseTrack fn (PartTrack a b c d e f g h i j k) = PartTrack
@@ -68,51 +73,17 @@ instance TraverseTrack PartTrack where
     <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
     <*> fn g <*> fn h <*> fn i <*> fn j <*> fn k
 
-instance (NNC.C t) => Semigroup (PartTrack t) where
-  (<>)
-    (PartTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11)
-    (PartTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11)
-    = PartTrack
-      (Map.unionWith (<>) a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-      (RTB.merge a6 b6)
-      (RTB.merge a7 b7)
-      (RTB.merge a8 b8)
-      (RTB.merge a9 b9)
-      (RTB.merge a10 b10)
-      (RTB.merge a11 b11)
-
-instance (NNC.C t) => Monoid (PartTrack t) where
-  mempty = PartTrack Map.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-
 data PartDifficulty t = PartDifficulty
   { partStarPower :: RTB.T t Bool
   , partPlayer1   :: RTB.T t Bool
   , partPlayer2   :: RTB.T t Bool
   , partGems      :: RTB.T t (Color, Maybe t)
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (PartDifficulty t)
 
 instance TraverseTrack PartDifficulty where
   traverseTrack fn (PartDifficulty a b c d) = PartDifficulty
     <$> fn a <*> fn b <*> fn c <*> traverseBlipSustain fn d
-
-instance (NNC.C t) => Semigroup (PartDifficulty t) where
-  (<>)
-    (PartDifficulty a1 a2 a3 a4)
-    (PartDifficulty b1 b2 b3 b4)
-    = PartDifficulty
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-
-instance (NNC.C t) => Monoid (PartDifficulty t) where
-  mempty = PartDifficulty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance ParseTrack PartTrack where
   parseTrack = do

@@ -1,8 +1,12 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
 module GuitarHeroII.File where
 
 import           Control.Monad.Codec
+import           GHC.Generics            (Generic)
 import           GuitarHeroII.BandBass
 import           GuitarHeroII.BandDrums
 import           GuitarHeroII.BandKeys
@@ -10,7 +14,7 @@ import           GuitarHeroII.BandSinger
 import           GuitarHeroII.Events
 import           GuitarHeroII.PartGuitar
 import           GuitarHeroII.Triggers
-import qualified Numeric.NonNegative.Class as NNC
+import           MergeMonoid
 import           RockBand.Codec
 import           RockBand.Codec.File
 
@@ -25,28 +29,8 @@ data GH2File t = GH2File
   , gh2BandSinger     :: BandSingerTrack t
   , gh2Events         :: EventsTrack t
   , gh2Triggers       :: TriggersTrack t
-  } deriving (Eq, Ord, Show)
-
-instance (NNC.C t) => Semigroup (GH2File t) where
-  (<>)
-    (GH2File a1 a2 a3 a4 a5 a6 a7 a8 a9 a10)
-    (GH2File b1 b2 b3 b4 b5 b6 b7 b8 b9 b10)
-    = GH2File
-      (a1  <> b1 )
-      (a2  <> b2 )
-      (a3  <> b3 )
-      (a4  <> b4 )
-      (a5  <> b5 )
-      (a6  <> b6 )
-      (a7  <> b7 )
-      (a8  <> b8 )
-      (a9  <> b9 )
-      (a10 <> b10)
-
-instance (NNC.C t) => Monoid (GH2File t) where
-  mempty = GH2File
-    mempty mempty mempty mempty mempty
-    mempty mempty mempty mempty mempty
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (GH2File t)
 
 instance TraverseTrack GH2File where
   traverseTrack fn

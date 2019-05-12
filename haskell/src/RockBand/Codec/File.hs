@@ -1,9 +1,12 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveFoldable     #-}
+{-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DeriveTraversable  #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
 module RockBand.Codec.File where
 
 import           Amplitude.Track
@@ -27,7 +30,9 @@ import           Data.Maybe                        (catMaybes, fromJust,
                                                     mapMaybe)
 import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
+import           GHC.Generics                      (Generic)
 import           MelodysEscape                     (MelodyTrack)
+import           MergeMonoid
 import qualified Numeric.NonNegative.Class         as NNC
 import           RockBand.Codec
 import           RockBand.Codec.Beat
@@ -118,51 +123,11 @@ data FixedFile t = FixedFile
   , fixedEvents           :: EventsTrack t
   , fixedBeat             :: BeatTrack t
   , fixedVenue            :: VenueTrack t
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (FixedFile t)
 
 instance HasEvents FixedFile where
   getEventsTrack = fixedEvents
-
-instance (NNC.C t) => Semigroup (FixedFile t) where
-  (<>)
-    (FixedFile a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19 a20 a21 a22 a23 a24 a25 a26 a27)
-    (FixedFile b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18 b19 b20 b21 b22 b23 b24 b25 b26 b27)
-    = FixedFile
-      (a1  <> b1 )
-      (a2  <> b2 )
-      (a3  <> b3 )
-      (a4  <> b4 )
-      (a5  <> b5 )
-      (a6  <> b6 )
-      (a7  <> b7 )
-      (a8  <> b8 )
-      (a9  <> b9 )
-      (a10 <> b10)
-      (a11 <> b11)
-      (a12 <> b12)
-      (a13 <> b13)
-      (a14 <> b14)
-      (a15 <> b15)
-      (a16 <> b16)
-      (a17 <> b17)
-      (a18 <> b18)
-      (a19 <> b19)
-      (a20 <> b20)
-      (a21 <> b21)
-      (a22 <> b22)
-      (a23 <> b23)
-      (a24 <> b24)
-      (a25 <> b25)
-      (a26 <> b26)
-      (a27 <> b27)
-
-instance (NNC.C t) => Monoid (FixedFile t) where
-  mempty = FixedFile mempty mempty
-    mempty mempty mempty mempty mempty
-    mempty mempty mempty mempty mempty
-    mempty mempty mempty mempty mempty
-    mempty mempty mempty mempty mempty
-    mempty mempty mempty mempty mempty
 
 instance TraverseTrack FixedFile where
   traverseTrack fn
@@ -247,26 +212,11 @@ data OnyxFile t = OnyxFile
   , onyxLighting :: LightingTrack t
   , onyxCamera   :: CameraTrack t
   , onyxMelody   :: MelodyTrack t
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxFile t)
 
 instance HasEvents OnyxFile where
   getEventsTrack = onyxEvents
-
-instance (NNC.C t) => Semigroup (OnyxFile t) where
-  (<>)
-    (OnyxFile a1 a2 a3 a4 a5 a6 a7)
-    (OnyxFile b1 b2 b3 b4 b5 b6 b7)
-    = OnyxFile
-      (Map.unionWith (<>) a1 b1)
-      (a2 <> b2)
-      (a3 <> b3)
-      (a4 <> b4)
-      (a5 <> b5)
-      (a6 <> b6)
-      (a7 <> b7)
-
-instance (NNC.C t) => Monoid (OnyxFile t) where
-  mempty = OnyxFile Map.empty mempty mempty mempty mempty mempty mempty
 
 instance TraverseTrack OnyxFile where
   traverseTrack fn
@@ -297,39 +247,8 @@ data OnyxPart t = OnyxPart
   , onyxHarm2            :: VocalTrack t
   , onyxHarm3            :: VocalTrack t
   , onyxCatch            :: CatchTrack t
-  } deriving (Eq, Ord, Show)
-
-instance (NNC.C t) => Semigroup (OnyxPart t) where
-  (<>)
-    (OnyxPart a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19)
-    (OnyxPart b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18 b19)
-    = OnyxPart
-      (a1  <> b1 )
-      (a2  <> b2 )
-      (a3  <> b3 )
-      (a4  <> b4 )
-      (a5  <> b5 )
-      (a6  <> b6 )
-      (a7  <> b7 )
-      (a8  <> b8 )
-      (a9  <> b9 )
-      (a10 <> b10)
-      (a11 <> b11)
-      (a12 <> b12)
-      (a13 <> b13)
-      (a14 <> b14)
-      (a15 <> b15)
-      (a16 <> b16)
-      (a17 <> b17)
-      (a18 <> b18)
-      (a19 <> b19)
-
-instance (NNC.C t) => Monoid (OnyxPart t) where
-  mempty = OnyxPart
-    mempty mempty mempty mempty mempty mempty
-    mempty mempty mempty mempty mempty mempty
-    mempty mempty mempty mempty mempty mempty
-    mempty
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxPart t)
 
 instance TraverseTrack OnyxPart where
   traverseTrack fn

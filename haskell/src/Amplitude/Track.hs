@@ -1,35 +1,29 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE RecordWildCards    #-}
 module Amplitude.Track where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
-import qualified Numeric.NonNegative.Class        as NNC
+import           GHC.Generics                     (Generic)
+import           MergeMonoid
 import           RockBand.Codec
 import           RockBand.Common
 
 newtype CatchTrack t = CatchTrack
   { catchDifficulties :: Map.Map Difficulty (CatchDifficulty t)
-  } deriving (Eq, Ord, Show)
-
-instance (NNC.C t) => Semigroup (CatchTrack t) where
-  CatchTrack a <> CatchTrack b = CatchTrack $ Map.unionWith (<>) a b
-
-instance (NNC.C t) => Monoid (CatchTrack t) where
-  mempty = CatchTrack Map.empty
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (CatchTrack t)
 
 instance TraverseTrack CatchTrack where
   traverseTrack fn (CatchTrack a) = CatchTrack <$> traverse (traverseTrack fn) a
 
 newtype CatchDifficulty t = CatchDifficulty
   { catchGems :: RTB.T t Gem
-  } deriving (Eq, Ord, Show)
-
-instance (NNC.C t) => Semigroup (CatchDifficulty t) where
-  CatchDifficulty a <> CatchDifficulty b = CatchDifficulty $ RTB.merge a b
-
-instance (NNC.C t) => Monoid (CatchDifficulty t) where
-  mempty = CatchDifficulty RTB.empty
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (CatchDifficulty t)
 
 instance TraverseTrack CatchDifficulty where
   traverseTrack fn (CatchDifficulty a) = CatchDifficulty <$> fn a

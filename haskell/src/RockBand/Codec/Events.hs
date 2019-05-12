@@ -1,15 +1,19 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE TupleSections      #-}
 module RockBand.Codec.Events where
 
 import           Control.Monad                    ((>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Text                        as T
-import qualified Numeric.NonNegative.Class        as NNC
+import           GHC.Generics                     (Generic)
+import           MergeMonoid
 import           RockBand.Codec
 import           RockBand.Common
 
@@ -40,7 +44,8 @@ data EventsTrack t = EventsTrack
   , eventsCrowdClap  :: RTB.T t Bool
   , eventsSections   :: RTB.T t (SectionType, T.Text)
   , eventsBacking    :: RTB.T t Backing
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (EventsTrack t)
 
 instance TraverseTrack EventsTrack where
   traverseTrack fn (EventsTrack a b c d e f g h) = EventsTrack
@@ -73,22 +78,3 @@ instance ParseTrack EventsTrack where
       BackingSnare -> 25
       BackingHihat -> 26
     return EventsTrack{..}
-
-instance (NNC.C t) => Semigroup (EventsTrack t) where
-  (<>)
-    (EventsTrack a1 a2 a3 a4 a5 a6 a7 a8)
-    (EventsTrack b1 b2 b3 b4 b5 b6 b7 b8)
-    = EventsTrack
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-      (RTB.merge a6 b6)
-      (RTB.merge a7 b7)
-      (RTB.merge a8 b8)
-
-instance (NNC.C t) => Monoid (EventsTrack t) where
-  mempty = EventsTrack
-    RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty

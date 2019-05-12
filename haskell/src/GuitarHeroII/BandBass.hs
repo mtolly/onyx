@@ -1,14 +1,18 @@
 {- |
 BAND BASS
 -}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
 module GuitarHeroII.BandBass where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           GHC.Generics                     (Generic)
 import           GuitarHeroII.PartGuitar          (Tempo (..))
-import qualified Numeric.NonNegative.Class        as NNC
+import           MergeMonoid
 import           RockBand.Codec
 
 data BandBassTrack t = BandBassTrack
@@ -18,25 +22,12 @@ data BandBassTrack t = BandBassTrack
   , bassStrum     :: RTB.T t ()
   , bassMystery61 :: RTB.T t ()
   -- [wail_on] [wail_off]
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (BandBassTrack t)
 
 instance TraverseTrack BandBassTrack where
   traverseTrack fn (BandBassTrack a b c d e) = BandBassTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
-
-instance (NNC.C t) => Semigroup (BandBassTrack t) where
-  (<>)
-    (BandBassTrack a1 a2 a3 a4 a5)
-    (BandBassTrack b1 b2 b3 b4 b5)
-    = BandBassTrack
-      (RTB.merge a1 b1)
-      (RTB.merge a2 b2)
-      (RTB.merge a3 b3)
-      (RTB.merge a4 b4)
-      (RTB.merge a5 b5)
-
-instance (NNC.C t) => Monoid (BandBassTrack t) where
-  mempty = BandBassTrack RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance ParseTrack BandBassTrack where
   parseTrack = do
