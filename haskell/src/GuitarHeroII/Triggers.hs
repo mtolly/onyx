@@ -11,8 +11,8 @@ module GuitarHeroII.Triggers where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           DeriveHelpers
 import           GHC.Generics                     (Generic)
-import           MergeMonoid
 import           RockBand.Codec
 import           RockBand.Codec.Events            (Backing (..))
 import           RockBand.Common                  (each)

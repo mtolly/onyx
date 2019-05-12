@@ -24,10 +24,10 @@ import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
+import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import           Guitars                          (applyStatus, applyStatus1,
                                                    guitarify, trackState)
-import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common

@@ -15,8 +15,8 @@ import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (isJust)
 import qualified Data.Text                        as T
+import           DeriveHelpers
 import           GHC.Generics                     (Generic)
-import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common

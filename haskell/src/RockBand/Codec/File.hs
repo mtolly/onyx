@@ -30,9 +30,9 @@ import           Data.Maybe                        (catMaybes, fromJust,
                                                     mapMaybe)
 import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
+import           DeriveHelpers
 import           GHC.Generics                      (Generic)
 import           MelodysEscape                     (MelodyTrack)
-import           MergeMonoid
 import qualified Numeric.NonNegative.Class         as NNC
 import           RockBand.Codec
 import           RockBand.Codec.Beat

@@ -15,14 +15,13 @@ import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
-import           Data.List                        (elemIndex)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromJust, fromMaybe)
+import           Data.Maybe                       (fromMaybe)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Text                        as T
+import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import           Guitars                          (applyStatus)
-import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
@@ -70,33 +69,8 @@ data Animation
   | PercussionRH
   | HihatOpen Bool
   | RideSide Bool -- ^ Causes slow 'Ride' hits to animate differently.
-  deriving (Eq, Ord, Show, Read)
-
-allAnimations :: [Animation]
-allAnimations = concat
-  [ [Tom1] <*> each
-  , [Tom2] <*> each
-  , [FloorTom] <*> each
-  , [Hihat] <*> each
-  , [Snare]  <*> each <*> each
-  , [Ride] <*> each
-  , [Crash1] <*> each <*> each
-  , [Crash2] <*> each <*> each
-  , [KickRF]
-  , [Crash1RHChokeLH]
-  , [Crash2RHChokeLH]
-  , [PercussionRH]
-  , [HihatOpen] <*> each
-  , [RideSide] <*> each
-  ]
-
-instance Enum Animation where
-  toEnum = (allAnimations !!)
-  fromEnum x = fromJust $ elemIndex x allAnimations
-
-instance Bounded Animation where
-  minBound = head allAnimations
-  maxBound = last allAnimations
+  deriving (Eq, Ord, Show, Read, Generic)
+  deriving (Enum, Bounded) via GenericFullEnum Animation
 
 data Hit = SoftHit | HardHit
   deriving (Eq, Ord, Show, Read, Enum, Bounded)

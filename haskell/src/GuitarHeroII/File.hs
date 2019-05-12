@@ -6,6 +6,7 @@
 module GuitarHeroII.File where
 
 import           Control.Monad.Codec
+import           DeriveHelpers
 import           GHC.Generics            (Generic)
 import           GuitarHeroII.BandBass
 import           GuitarHeroII.BandDrums
@@ -14,7 +15,6 @@ import           GuitarHeroII.BandSinger
 import           GuitarHeroII.Events
 import           GuitarHeroII.PartGuitar
 import           GuitarHeroII.Triggers
-import           MergeMonoid
 import           RockBand.Codec
 import           RockBand.Codec.File
 

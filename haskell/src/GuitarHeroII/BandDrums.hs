@@ -10,9 +10,9 @@ module GuitarHeroII.BandDrums where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import           GuitarHeroII.PartGuitar          (Tempo (..))
-import           MergeMonoid
 import           RockBand.Codec
 
 data BandDrumsTrack t = BandDrumsTrack

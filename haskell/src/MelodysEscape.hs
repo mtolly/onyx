@@ -9,10 +9,9 @@ import           Control.Monad.Codec
 import           Control.Monad.Random
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (elemIndex, intercalate)
-import           Data.Maybe                       (fromJust)
+import           Data.List                        (intercalate)
+import           DeriveHelpers
 import           GHC.Generics                     (Generic)
-import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common                  (each)
@@ -31,22 +30,8 @@ data NoteType
   = Obstacle Direction
   | Color    Direction
   | Cutscene
-  deriving (Eq, Ord, Show, Read)
-
-allNoteTypes :: [NoteType]
-allNoteTypes = concat
-  [ [Obstacle] <*> each
-  , [Color] <*> each
-  , [Cutscene]
-  ]
-
-instance Enum NoteType where
-  toEnum = (allNoteTypes !!)
-  fromEnum x = fromJust $ elemIndex x allNoteTypes
-
-instance Bounded NoteType where
-  minBound = head allNoteTypes
-  maxBound = last allNoteTypes
+  deriving (Eq, Ord, Show, Read, Generic)
+  deriving (Enum, Bounded) via GenericFullEnum NoteType
 
 data Intensity = Low | Neutral | High | ExtraHigh
   deriving (Eq, Ord, Show, Read, Enum, Bounded)

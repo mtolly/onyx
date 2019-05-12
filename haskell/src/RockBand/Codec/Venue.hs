@@ -13,8 +13,8 @@ import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (sortBy)
 import qualified Data.Text                        as T
+import           DeriveHelpers
 import           GHC.Generics                     (Generic)
-import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
@@ -267,37 +267,8 @@ data Lighting game
   | Lighting_flare_slow
   | Lighting_flare_fast
   | Lighting_bre
-  deriving (Eq, Ord, Show, Read, Functor)
-
-allLighting :: (Enum game, Bounded game) => [Lighting game]
-allLighting = let
-  games = [minBound .. maxBound]
-  in concat
-    [ [Lighting_]
-    , map Lighting_verse games
-    , map Lighting_chorus games
-    , [Lighting_intro]
-    , [Lighting_manual_cool]
-    , [Lighting_manual_warm]
-    , [Lighting_dischord]
-    , [Lighting_stomp]
-    , [Lighting_loop_cool]
-    , [Lighting_loop_warm]
-    , [Lighting_harmony]
-    , [Lighting_frenzy]
-    , [Lighting_silhouettes]
-    , [Lighting_silhouettes_spot]
-    , [Lighting_searchlights]
-    , [Lighting_sweep]
-    , [Lighting_strobe_slow]
-    , [Lighting_strobe_fast]
-    , [Lighting_blackout_slow]
-    , [Lighting_blackout_fast]
-    , [Lighting_blackout_spot]
-    , [Lighting_flare_slow]
-    , [Lighting_flare_fast]
-    , [Lighting_bre]
-    ]
+  deriving (Eq, Ord, Show, Read, Functor, Generic)
+  deriving (Enum, Bounded) via GenericFullEnum (Lighting game)
 
 data VenueFormat = RBN1 | RBN2
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -396,7 +367,7 @@ instance ParseTrack VenueTrack where
       V2_film_16mm        -> 98
       V2_contrast_a       -> 97
       V2_Default          -> 96
-    venueLighting <- (venueLighting =.) $ condenseMap_ $ eachKey allLighting $ \case
+    venueLighting <- (venueLighting =.) $ condenseMap_ $ eachKey each $ \case
       Lighting_verse  RBN2 -> specificLighting "verse"
       Lighting_chorus RBN2 -> specificLighting "chorus"
       Lighting_verse  RBN1 -> commandMatch ["verse"]

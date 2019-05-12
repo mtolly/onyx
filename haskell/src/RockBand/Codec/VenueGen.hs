@@ -16,8 +16,8 @@ import           Control.Monad.Random             (MonadRandom, fromListMay)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (partition)
 import           Data.Maybe                       (catMaybes, fromMaybe)
+import           DeriveHelpers
 import           GHC.Generics                     (Generic)
-import           MergeMonoid
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Codec.Venue
@@ -72,7 +72,7 @@ instance ParseTrack LightingTrack where
       V3_ProFilm_mirror_a             -> 43
       V3_ProFilm_psychedelic_blue_red -> 42
       V3_space_woosh                  -> 41
-    lightingTypes <- (lightingTypes =.) $ condenseMap $ eachKey allLighting $ edges . \case
+    lightingTypes <- (lightingTypes =.) $ condenseMap $ eachKey each $ edges . \case
       -- manual
       Lighting_                 -> 1 -- not supported by venuegen
       Lighting_intro            -> 2 -- not supported by venuegen

@@ -13,8 +13,8 @@ import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
+import           DeriveHelpers
 import           GHC.Generics                     (Generic)
-import           MergeMonoid
 import           RockBand.Codec
 import           RockBand.Codec.Five              (Color (..),
                                                    FretPosition (..))

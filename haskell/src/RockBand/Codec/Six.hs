@@ -9,8 +9,8 @@ import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
+import           DeriveHelpers
 import           GHC.Generics                     (Generic)
-import           MergeMonoid
 import           RockBand.Codec
 import           RockBand.Common
 import qualified RockBand.PhaseShiftMessage       as PS
