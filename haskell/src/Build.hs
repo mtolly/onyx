@@ -86,7 +86,6 @@ import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
 import           RockBand.Common
-import qualified RockBand.Legacy.Vocal                 as RBVox
 import qualified RockBand.ProGuitar.Play               as PGPlay
 import           RockBand.Sections                     (makeRB2Section,
                                                         makeRB3Section,
@@ -269,9 +268,9 @@ makeRB3DTA songYaml plan rb3 song filename = do
       }
     , D.bank = Just $ case perctype of
       Nothing               -> "sfx/tambourine_bank.milo"
-      Just RBVox.Tambourine -> "sfx/tambourine_bank.milo"
-      Just RBVox.Cowbell    -> "sfx/cowbell_bank.milo"
-      Just RBVox.Clap       -> "sfx/handclap_bank.milo"
+      Just Magma.Tambourine -> "sfx/tambourine_bank.milo"
+      Just Magma.Cowbell    -> "sfx/cowbell_bank.milo"
+      Just Magma.Handclap   -> "sfx/handclap_bank.milo"
     , D.drumBank = Just $ case fmap drumsKit $ getPart (rb3_Drums rb3) songYaml >>= partDrums of
       Nothing            -> "sfx/kit01_bank.milo"
       Just HardRockKit   -> "sfx/kit01_bank.milo"
@@ -514,11 +513,7 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
           Left  D.KTempoFast   -> 64
           Right n              -> n
         , Magma.vocalGender = fromMaybe Magma.Female $ getPart (rb3_Vocal rb3) songYaml >>= partVocal >>= vocalGender
-        , Magma.vocalPercussion = case perctype of
-          Nothing               -> Magma.Tambourine
-          Just RBVox.Tambourine -> Magma.Tambourine
-          Just RBVox.Cowbell    -> Magma.Cowbell
-          Just RBVox.Clap       -> Magma.Handclap
+        , Magma.vocalPercussion = fromMaybe Magma.Tambourine perctype
         , Magma.vocalParts = case voxCount of
           Nothing     -> 0
           Just Vocal1 -> 1
@@ -902,7 +897,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 ] out
             let saveClip m out vox = do
                   let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-                      clip = clipDryVox $ U.applyTempoTrack (RBFile.s_tempos m) $ vocalTubes $ RBVox.vocalToLegacy vox
+                      clip = clipDryVox $ U.applyTempoTrack (RBFile.s_tempos m) $ vocalTubes vox
                   unclippedVox <- shk $ buildSource $ Input pathMagmaVocal
                   unclipped <- case frames unclippedVox of
                     0 -> shk $ buildSource $ Input pathMagmaSong

@@ -10,6 +10,7 @@ import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
 import           Data.Bifunctor                   (first)
+import           Data.DTA.Serialize.Magma         (Percussion)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
@@ -251,7 +252,7 @@ harm1ToPartVocals = Vocals.vocalFromLegacy . go . RTB.normalize . Vocals.vocalTo
     _                   -> Nothing
   isNote = \case Vocals.Note _ _ -> True; _ -> False
 
-getPercType :: (NNC.C t) => Song (RBFile.FixedFile t) -> Maybe Vocals.PercussionType
+getPercType :: (NNC.C t) => Song (RBFile.FixedFile t) -> Maybe Percussion
 getPercType song = listToMaybe $ do
   trk <-
     [ RBFile.fixedPartVocals $ RBFile.s_tracks song

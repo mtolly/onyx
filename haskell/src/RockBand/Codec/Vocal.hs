@@ -7,12 +7,15 @@
 {-# LANGUAGE RecordWildCards    #-}
 module RockBand.Codec.Vocal where
 
+import           Control.Monad                    ((>=>))
 import           Control.Monad.Codec
+import           Data.DTA.Serialize.Magma         (Percussion (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
+import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
 import qualified Sound.MIDI.File.Event            as E
@@ -35,22 +38,24 @@ pitchToKey = \case
   Octave72 k -> k
   Octave84C  -> C
 
-data PercussionType
-  = Tambourine
-  | Cowbell
-  | Clap
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-instance Command (PercussionType, Bool) where
-  fromCommand (typ, b) = [T.toLower (T.pack $ show typ) <> if b then "_start" else "_end"]
-  toCommand = reverseLookup ((,) <$> each <*> each) fromCommand
+parsePercAnimation :: (Monad m, NNC.C t) => TrackEvent m t (Percussion, Bool)
+parsePercAnimation = let
+  startEnd b = if b then "_start" else "end"
+  unparse :: (Percussion, Bool) -> [T.Text]
+  unparse (typ, b) = case typ of
+    Tambourine -> ["tambourine" <> startEnd b]
+    Cowbell    -> ["cowbell"    <> startEnd b]
+    Handclap   -> ["clap"       <> startEnd b]
+  parse :: [T.Text] -> Maybe (Percussion, Bool)
+  parse = reverseLookup ((,) <$> each <*> each) unparse
+  in single (readCommand' >=> parse) (showCommand' . unparse)
 
 data VocalTrack t = VocalTrack
   { vocalMood          :: RTB.T t Mood
   , vocalLyrics        :: RTB.T t T.Text
   , vocalPerc          :: RTB.T t () -- ^ playable percussion notes
   , vocalPercSound     :: RTB.T t () -- ^ nonplayable percussion, only triggers sound sample
-  , vocalPercAnimation :: RTB.T t (PercussionType, Bool)
+  , vocalPercAnimation :: RTB.T t (Percussion, Bool)
   , vocalPhrase1       :: RTB.T t Bool -- ^ General phrase marker (RB3) or Player 1 phrases (pre-RB3)
   , vocalPhrase2       :: RTB.T t Bool -- ^ Pre-RB3, used for 2nd player phrases in Tug of War
   , vocalOverdrive     :: RTB.T t Bool
@@ -87,7 +92,7 @@ instance ParseTrack VocalTrack where
       in single fp fs
     vocalPerc          <- vocalPerc          =. fatBlips (1/8) (blip 96)
     vocalPercSound     <- vocalPercSound     =. fatBlips (1/8) (blip 97)
-    vocalPercAnimation <- vocalPercAnimation =. command
+    vocalPercAnimation <- vocalPercAnimation =. parsePercAnimation
     vocalPhrase1       <- vocalPhrase1       =. edges 105
     vocalPhrase2       <- vocalPhrase2       =. edges 106
     vocalOverdrive     <- vocalOverdrive     =. edges 116

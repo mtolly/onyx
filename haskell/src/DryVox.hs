@@ -15,16 +15,17 @@ import qualified Data.Vector.Storable             as V
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
 import           RockBand.Codec.Vocal
-import qualified RockBand.Legacy.Vocal            as Vox
 import qualified Sound.MIDI.Util                  as U
 
-vocalTubes :: (NNC.C t) => RTB.T t Vox.Event -> RTB.T t Bool
+vocalTubes :: (NNC.C t) => VocalTrack t -> RTB.T t Bool
 vocalTubes vox = let
-  vox' = RTB.mapMaybe instant $ RTB.collectCoincident vox
+  edges = fmap (Just . snd) $ vocalNotes vox
+  pluses = fmap (const Nothing) $ RTB.filter (== "+") $ vocalLyrics vox
+  vox' = RTB.mapMaybe instant $ RTB.collectCoincident $ RTB.merge edges pluses
   instant evts = let
-    on   = not $ null [ () | Vox.Note True  _ <- evts ]
-    off  = not $ null [ () | Vox.Note False _ <- evts ]
-    plus = not $ null [ () | Vox.Lyric "+"    <- evts ]
+    on   = not $ null [ () | Just True  <- evts ]
+    off  = not $ null [ () | Just False <- evts ]
+    plus = not $ null [ () | Nothing    <- evts ]
     in guard (on || off || plus) >> Just (on, off, plus)
   go rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty

@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 module RockBand.Legacy.Vocal
-( PercussionType(..), Pitch(..)
+( Percussion(..), Pitch(..)
 , Event(..)
 , asciify
 , asciiLyrics
@@ -11,6 +11,7 @@ module RockBand.Legacy.Vocal
 , vocalFromLegacy, vocalToLegacy
 ) where
 
+import           Data.DTA.Serialize.Magma         (Percussion (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (partition)
 import           Data.Monoid                      ((<>))
@@ -26,7 +27,7 @@ data Event
   | Lyric T.Text
   | Percussion -- ^ playable percussion note
   | PercussionSound -- ^ nonplayable percussion note, only triggers sound sample
-  | PercussionAnimation PercussionType Bool
+  | PercussionAnimation Percussion Bool
   | Phrase     Bool -- ^ General phrase marker (RB3) or Player 1 phrases (pre-RB3)
   | Phrase2    Bool -- ^ Pre-RB3, used for 2nd player phrases in Tug of War
   | Overdrive  Bool
