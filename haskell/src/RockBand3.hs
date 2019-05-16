@@ -12,6 +12,7 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer.Strict (execWriter, tell)
 import qualified Data.EventList.Absolute.TimeBody  as ATB
 import qualified Data.EventList.Relative.TimeBody  as RTB
+import           Data.List.Extra                   (nubOrd)
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (fromMaybe, isJust)
 import           Guitars
@@ -305,7 +306,16 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         , eventsCrowd      = crowd
         , eventsCrowdClap  = crowdClap
         , eventsSections   = eventsSections eventsInput
-        , eventsBacking    = eventsBacking eventsInput
+        , eventsBacking    = if RTB.null (eventsBacking eventsInput) && not (nullDrums drumsTrack)
+          then let
+            makeBacking evts = nubOrd $ flip map evts $ \case
+              RBDrums.Kick                 -> BackingKick
+              RBDrums.Red                  -> BackingSnare
+              RBDrums.Pro _ RBDrums.Cymbal -> BackingHihat
+              RBDrums.Pro _ RBDrums.Tom    -> BackingKick
+              RBDrums.Orange               -> BackingHihat
+            in RTB.flatten $ fmap makeBacking $ RTB.collectCoincident $ computePro (Just Expert) drumsTrack
+          else eventsBacking eventsInput
         }
       eventsTrackPS = eventsTrack
         { eventsSections = (makePSSection . snd) <$> eventsSections eventsTrack
