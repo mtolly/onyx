@@ -1,7 +1,12 @@
 metadata:
   title: Sequence Start
-  artist: Sungazer
+  artist: sungazer
+  album: sungazer vol. 1
   author: Onyxite
+  genre: fusion
+  subgenre: fusion
+  year: 2014
+  file-album-art: cover.jpg
 audio:
   album-track:
     md5: 334138d7d819e018ae5dde458a06b0dc
@@ -13,5 +18,15 @@ plans:
 parts:
   bass:
     pro-guitar:
+      difficulty: 7
       tuning:
         base: bass-4
+  drums:
+    drums:
+      difficulty: 5
+      kicks: 1
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
