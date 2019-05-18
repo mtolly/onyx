@@ -24,3 +24,11 @@ parts:
   drums:
     drums:
       kicks: 2
+  guitar:
+    pro-guitar:
+      tuning:
+        base: guitar-6
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
