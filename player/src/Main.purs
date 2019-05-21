@@ -264,7 +264,8 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                   , maxY: windowH
                   }
                 evts <- Ref.modify' (\evts -> {state: [], value: evts}) clicks
-                let handle es app_ = case uncons es of
+                let endTime = case song of Song obj -> obj.end
+                    handle es app_ = case uncons es of
                       Nothing -> requestAnimationFrame $ loop app_
                       Just {head: {x: x, y: y}, tail: et} -> do
                         if app_.menuOpen
@@ -297,7 +298,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                                 else if _M <= y && y <= windowH - 3 * _M - 2 * _B
                                   then let -- progress bar
                                     frac = 1.0 - toNumber (y - _M) / toNumber (windowH - 4 * _M - 2 * _B)
-                                    t = case song of Song o -> Seconds $ frac * case o.end of Seconds e -> e
+                                    t = Seconds $ frac * case endTime of Seconds e -> e
                                     in case app_.time of
                                       Paused o -> handle et app_
                                         { time = Paused
@@ -317,11 +318,11 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                                   else handle et app_
                             else handle et app_
                 case app'.time of
-                  Playing _ | nowTheory >= (case song of Song obj -> obj.end) -> do
+                  Playing _ | nowTheory >= endTime -> do
                     stop audio
                     handle evts app'
                       { time = Paused
-                        { pausedSongTime: nowTheory
+                        { pausedSongTime: endTime
                         }
                       }
                   _ -> handle evts app'
