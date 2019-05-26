@@ -120,14 +120,14 @@ object p = lift ask >>= \case
   A.Object o -> parseFrom o p
   _          -> expected "an object"
 
-objectKey :: (SendMessage m, Eq a, Show v) => Maybe a -> Bool -> Bool -> T.Text -> ValueCodec m v a -> ObjectCodec m v a
+objectKey :: (SendMessage m, Show v) => Maybe (a, a -> Bool) -> Bool -> Bool -> T.Text -> ValueCodec m v a -> ObjectCodec m v a
 objectKey dflt shouldWarn shouldFill key valCodec = Codec
   { codecIn = do
     obj <- lift ask
     case Map.lookup key obj of
       Nothing -> case dflt of
-        Nothing -> expected $ "to find required key " ++ show key ++ " in object"
-        Just x  -> do
+        Nothing     -> expected $ "to find required key " ++ show key ++ " in object"
+        Just (x, _) -> do
           when shouldWarn $ warn $ "missing key " ++ show key
           return x
       Just v  -> let
@@ -137,18 +137,22 @@ objectKey dflt shouldWarn shouldFill key valCodec = Codec
           let f = withReaderT (const v) . mapReaderT lift
           mapStackTraceT f $ codecIn valCodec
   , codecOut = fmapArg $ \val -> tell
-    [(key, makeValue' valCodec val) | shouldFill || dflt /= Just val]
+    [ (key, makeValue' valCodec val)
+    | shouldFill || case dflt of
+      Just (_, fn) -> not $ fn val
+      _            -> True
+    ]
   }
 
 -- TODO req/fill/opt shouldn't need SendMessage constraint
 
-req :: (SendMessage m, Show v, Eq a) => T.Text -> ValueCodec m v a -> ObjectCodec m v a
+req :: (SendMessage m, Show v) => T.Text -> ValueCodec m v a -> ObjectCodec m v a
 req = objectKey Nothing False False
 
 warning, fill, opt :: (SendMessage m, Show v, Eq a) => a -> T.Text -> ValueCodec m v a -> ObjectCodec m v a
-warning x = objectKey (Just x) True  True
-fill    x = objectKey (Just x) False True
-opt     x = objectKey (Just x) False False
+warning x = objectKey (Just (x, (== x))) True  True
+fill    x = objectKey (Just (x, (== x))) False True
+opt     x = objectKey (Just (x, (== x))) False False
 
 -- TODO cleanup
 requiredKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (Map.HashMap T.Text A.Value) a
