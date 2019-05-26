@@ -3,7 +3,6 @@
 {-# LANGUAGE TupleSections #-}
 module RockBand.Codec where
 
-import           Control.Applicative              ((<|>))
 import           Control.Monad                    (forM, guard, void, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
@@ -267,15 +266,16 @@ sysexPS :: (Monad m, NNC.C t) => Difficulty -> PS.PhraseID -> TrackEvent m t Boo
 sysexPS diff pid = Codec
   { codecIn = slurpTrack $ \trk -> let
     otherDiffs = filter (/= diff) each
-    (slurp, leave) = flip RTB.partitionMaybe trk $ \x -> case PS.parsePSSysEx x <|> readCommand' x of
-      Just (PS.PSMessage Nothing      pid' b) | pid == pid' -> Just (b, otherDiffs)
-      Just (PS.PSMessage (Just diff') pid' b) | (diff, pid) == (diff', pid') -> Just (b, [])
-      _                                       -> Nothing
+    (ps, notPS) = RTB.partitionMaybe PS.parsePS trk
+    (slurp, leave) = flip RTB.partitionMaybe (RTB.flatten ps) $ \x -> case x of
+      PS.PSMessage Nothing      pid' b | pid == pid'                  -> Just (b, otherDiffs)
+      PS.PSMessage (Just diff') pid' b | (diff, pid) == (diff', pid') -> Just (b, [])
+      _                                                               -> Nothing
     unslurp = RTB.flatten $ flip fmap slurp $ \(b, diffs) ->
       [ PS.unparsePSSysEx $ PS.PSMessage (Just d) pid b | d <- diffs ]
     in if RTB.null slurp
       then (RTB.empty, trk)
-      else (fmap fst slurp, RTB.merge unslurp leave)
+      else (fmap fst slurp, RTB.merge unslurp $ RTB.merge (fmap PS.unparsePSSysEx leave) notPS)
   , codecOut = makeTrackBuilder $ fmap (PS.unparsePSSysEx . PS.PSMessage (Just diff) pid)
   }
 

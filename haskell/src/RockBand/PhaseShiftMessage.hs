@@ -2,9 +2,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 module RockBand.PhaseShiftMessage where
 
+import           Control.Applicative                   ((<|>))
 import qualified Data.Text                             as T
-import           RockBand.Common                       (Command (..),
-                                                        Difficulty (..))
+import           RockBand.Common                       (Difficulty (..),
+                                                        readCommandList)
 import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
 import           Text.Read                             (readMaybe)
@@ -39,24 +40,45 @@ data PhraseID
   | GreenTomCymbal
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-instance Command PSMessage where
-  fromCommand = error "PSMessage to command not implemented"
-  toCommand = \case
-    ["onyx", "ps", d, pid, e] -> do
-      diff <- case d of
-        "easy"   -> return $ Just Easy
-        "medium" -> return $ Just Medium
-        "hard"   -> return $ Just Hard
-        "expert" -> return $ Just Expert
-        "all"    -> return Nothing
-        _        -> Nothing
-      phraseID <- readMaybe $ T.unpack pid
-      onoff <- case e of
-        "on"  -> Just True
-        "off" -> Just False
-        _     -> Nothing
-      return $ PSMessage diff phraseID onoff
-    _ -> Nothing
+parsePSText :: [T.Text] -> Maybe [PSMessage]
+parsePSText = \case
+  ["onyx", "ps", d, pid, e] -> do
+    diff <- case d of
+      "easy"   -> return $ Just Easy
+      "medium" -> return $ Just Medium
+      "hard"   -> return $ Just Hard
+      "expert" -> return $ Just Expert
+      "all"    -> return Nothing
+      _        -> Nothing
+    phraseID <- readMaybe $ T.unpack pid
+    onoff <- case e of
+      "on"  -> Just True
+      "off" -> Just False
+      _     -> Nothing
+    return [PSMessage diff phraseID onoff]
+  ["ps", "tap", "on"] -> Just [PSMessage Nothing TapNotes True]
+  ["ps", "tap", "off"] -> Just [PSMessage Nothing TapNotes False]
+  ["ps", "hihat", "open"] -> Just
+    [ PSMessage Nothing HihatOpen True
+    , PSMessage Nothing HihatPedal False
+    , PSMessage Nothing HihatSizzle False
+    ]
+  ["ps", "hihat", "pedal"] -> Just
+    [ PSMessage Nothing HihatOpen False
+    , PSMessage Nothing HihatPedal True
+    , PSMessage Nothing HihatSizzle False
+    ]
+  ["ps", "hihat", "closed"] -> Just
+    [ PSMessage Nothing HihatOpen False
+    , PSMessage Nothing HihatPedal False
+    , PSMessage Nothing HihatSizzle True
+    ]
+  ["ps", "hihat", "off"] -> Just
+    [ PSMessage Nothing HihatOpen False
+    , PSMessage Nothing HihatPedal False
+    , PSMessage Nothing HihatSizzle False
+    ]
+  _ -> Nothing
 
 parsePSSysEx :: E.T -> Maybe PSMessage
 parsePSSysEx evt = do
@@ -88,3 +110,7 @@ unparsePSSysEx (PSMessage diff pid pedge) = E.SystemExclusive $ SysEx.Regular
   , if pedge then 1 else 0
   , 0xF7
   ]
+
+parsePS :: E.T -> Maybe [PSMessage]
+parsePS x = fmap (: []) (parsePSSysEx x) <|> do
+  readCommandList x >>= parsePSText

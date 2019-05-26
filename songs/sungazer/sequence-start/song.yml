@@ -25,6 +25,7 @@ parts:
     drums:
       difficulty: 5
       kicks: 1
+      mode: real
 targets:
   rb3:
     game: rb3
