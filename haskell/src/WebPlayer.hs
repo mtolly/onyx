@@ -338,25 +338,28 @@ processFive hopoThreshold tmap trk = makeDifficulties $ \diff -> let
 processSix :: U.Beats -> U.TempoMap -> GHL.SixTrack U.Beats -> Difficulties Six U.Seconds
 processSix hopoThreshold tmap trk = makeDifficulties $ \diff -> let
   thisDiff = fromMaybe mempty $ Map.lookup diff $ GHL.sixDifficulties trk
+  assigned :: RTB.T U.Beats ((Maybe GHL.Fret, StrumHOPOTap), Maybe U.Beats)
   assigned
     = applyForces (getForces6 thisDiff)
     $ strumHOPOTap' HOPOsRBGuitar hopoThreshold $ GHL.sixGems thisDiff
-  assigned' = U.trackJoin $ flip fmap assigned $ \((color, sht), mlen) -> case mlen of
-    Nothing -> RTB.singleton 0 $ Blip sht color
-    Just len -> RTB.fromPairList [(0, NoteOn sht color), (len, NoteOff color)]
+  onlyKey :: (Eq a) => a -> RTB.T U.Beats ((a, b), c) -> RTB.T U.Beats (((), b), c)
+  onlyKey fret trips = flip RTB.mapMaybe trips $ \case
+    ((fret', sht), mlen) -> guard (fret' == fret) >> Just (((), sht), mlen)
   oneTwoBoth x y = let
-    dual = RTB.collectCoincident $ RTB.merge (fmap (const False) <$> x) (fmap (const True) <$> y)
+    replaceFret b ((_, sht), mlen) = ((b, sht), mlen)
+    dual = RTB.collectCoincident $ RTB.merge (replaceFret False <$> x) (replaceFret True <$> y)
     (both, notBoth) = flip RTB.partitionMaybe dual $ \case
-      [a, b] | (() <$ a) == (() <$ b) -> Just $ () <$ a
-      _                               -> Nothing
+      [a, b] | replaceFret () a == replaceFret () b -> Just $ replaceFret () a
+      _                                             -> Nothing
     notBoth' = RTB.flatten notBoth
-    one = filterKey False notBoth'
-    two = filterKey True  notBoth'
+    one = onlyKey False notBoth'
+    two = onlyKey True  notBoth'
     in (one, two, both)
-  (b1, w1, bw1) = oneTwoBoth (filterKey (Just GHL.Black1) assigned') (filterKey (Just GHL.White1) assigned')
-  (b2, w2, bw2) = oneTwoBoth (filterKey (Just GHL.Black2) assigned') (filterKey (Just GHL.White2) assigned')
-  (b3, w3, bw3) = oneTwoBoth (filterKey (Just GHL.Black3) assigned') (filterKey (Just GHL.White3) assigned')
-  getLane = realTrack tmap . \case
+  (b1, w1, bw1) = oneTwoBoth (onlyKey (Just GHL.Black1) assigned) (onlyKey (Just GHL.White1) assigned)
+  (b2, w2, bw2) = oneTwoBoth (onlyKey (Just GHL.Black2) assigned) (onlyKey (Just GHL.White2) assigned)
+  (b3, w3, bw3) = oneTwoBoth (onlyKey (Just GHL.Black3) assigned) (onlyKey (Just GHL.White3) assigned)
+  toEdges = splitEdges . fmap (\((fret, sht), mlen) -> (sht, fret, mlen))
+  getLane = realTrack tmap . toEdges . \case
     GHLSingle GHL.Black1 -> b1
     GHLSingle GHL.Black2 -> b2
     GHLSingle GHL.Black3 -> b3
@@ -366,7 +369,7 @@ processSix hopoThreshold tmap trk = makeDifficulties $ \diff -> let
     GHLBoth1 -> bw1
     GHLBoth2 -> bw2
     GHLBoth3 -> bw3
-    GHLOpen -> filterKey Nothing assigned'
+    GHLOpen -> onlyKey Nothing assigned
   notes = Map.fromList $ do
     lane <- map GHLSingle [minBound .. maxBound] ++ [GHLBoth1, GHLBoth2, GHLBoth3, GHLOpen]
     return (lane, getLane lane)

@@ -10,7 +10,6 @@ import           Data.List               as L
 import           Data.Maybe              (Maybe (..), fromMaybe)
 import           Data.Time.Duration      (Seconds, negateDuration)
 import           Data.Tuple              (Tuple (..))
-import           Effect.Exception.Unsafe (unsafeThrow)
 import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
@@ -210,27 +209,24 @@ drawProKeys (ProKeys pk) badge targetX stuff = do
           when sustaining do
             setFillStyle shades.light stuff
             fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, width: if isBlack then 9.0 else 11.0, height: 8.0 } stuff
-        go False (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisPitch of
-          Just { key: secsStart, value: Sustain _ } -> do
-            drawSustainBlock (secsToPxVert secsEnd) stuff.maxY $ isEnergy secsStart
-            go False rest
-          _ -> unsafeThrow "during prokeys drawing: found a sustain end not preceded by sustain start"
-        go True (L.Cons (Tuple _ SustainEnd) rest) = go False rest
-        go _ (L.Cons (Tuple _ (Note (_ :: Unit))) rest) = go False rest
-        go _ (L.Cons (Tuple secsStart (Sustain (_ :: Unit))) rest) = do
-          let pxEnd = case rest of
-                L.Nil                      -> stuff.minY
-                L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
-          drawSustainBlock pxEnd (secsToPxVert secsStart) $ isEnergy secsStart
-          go True rest
-        go _ L.Nil = pure unit
-    case L.fromFoldable $ Map.doTupleArray (zoomAsc thisPitch) of
-      L.Nil -> case Map.lookupLT (pxToSecsVert stuff.maxY) thisPitch of
-        -- handle the case where the entire screen is the middle of a sustain
-        Just { key: secsStart, value: Sustain (_ :: Unit) } ->
-          drawSustainBlock stuff.minY stuff.maxY $ isEnergy secsStart
-        _ -> pure unit
-      events -> go False events
+
+        go Nothing L.Nil = pure unit
+        go sust (L.Cons (Tuple secs v) rest) = do
+          case sust of
+            Nothing -> pure unit
+            Just secsStart -> drawSustainBlock (secsToPxVert secs) (secsToPxVert secsStart) $ isEnergy secsStart
+          let newSustain = case v of
+                Sustain _ -> Just secs
+                _         -> Nothing
+          go newSustain rest
+        go (Just secsStart) L.Nil = do
+          drawSustainBlock stuff.minY (secsToPxVert secsStart) $ isEnergy secsStart
+
+        startSustain = case Map.lookupLT (pxToSecsVert stuff.maxY) thisPitch of
+          Just { key: secsStart, value: Sustain _ } -> Just secsStart
+          _                                         -> Nothing
+
+    go startSustain $ L.fromFoldable $ Map.doTupleArray (zoomAsc thisPitch)
   -- Sustain ends
   for_ pitchList \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
     setFillStyle customize.sustainBorder stuff

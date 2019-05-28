@@ -11,7 +11,6 @@ import           Data.Time.Duration      (Seconds, negateDuration)
 import           Data.Traversable        (for, maximum, sum)
 import           Data.Tuple              (Tuple (..), fst, snd)
 import           Effect                  (Effect)
-import           Effect.Exception.Unsafe (unsafeThrow)
 import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
@@ -251,27 +250,24 @@ drawProtar (Protar protar) badge startX stuff = do
           when sustaining do
             setFillStyle shades.light stuff
             fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
-        go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
-          Just { key: secsStart, value: Sustain (ProtarNote o) } -> do
-            drawSustainBlock (secsToPxVert secsEnd) stuff.maxY (isEnergy secsStart) o
-            go false rest
-          _ -> unsafeThrow "during protar drawing: found a sustain end not preceded by sustain start"
-        go true (L.Cons (Tuple _ SustainEnd) rest) = go false rest
-        go _ (L.Cons (Tuple _ (Note _)) rest) = go false rest
-        go _ (L.Cons (Tuple secsStart (Sustain (ProtarNote o))) rest) = do
-          let pxEnd = case rest of
-                L.Nil                      -> stuff.minY
-                L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
-          drawSustainBlock pxEnd (secsToPxVert secsStart) (isEnergy secsStart) o
-          go true rest
-        go _ L.Nil = pure unit
-    case L.fromFoldable $ Map.doTupleArray (zoomAsc thisColor) of
-      L.Nil -> case Map.lookupLT (pxToSecsVert stuff.maxY) thisColor of
-        -- handle the case where the entire screen is the middle of a sustain
-        Just { key: secsStart, value: Sustain (ProtarNote o) } ->
-          drawSustainBlock stuff.minY stuff.maxY (isEnergy secsStart) o
-        _ -> pure unit
-      events -> go false events
+
+        go Nothing L.Nil = pure unit
+        go sust (L.Cons (Tuple secs v) rest) = do
+          case sust of
+            Nothing -> pure unit
+            Just (Tuple secsStart o) -> drawSustainBlock (secsToPxVert secs) (secsToPxVert secsStart) (isEnergy secsStart) o
+          let newSustain = case v of
+                Sustain (ProtarNote o) -> Just (Tuple secs o)
+                _                      -> Nothing
+          go newSustain rest
+        go (Just (Tuple secsStart o)) L.Nil = do
+          drawSustainBlock stuff.minY (secsToPxVert secsStart) (isEnergy secsStart) o
+
+        startSustain = case Map.lookupLT (pxToSecsVert stuff.maxY) thisColor of
+          Just { key: secsStart, value: Sustain (ProtarNote o) } -> Just (Tuple secsStart o)
+          _                                                      -> Nothing
+
+    go startSustain $ L.fromFoldable $ Map.doTupleArray (zoomAsc thisColor)
   -- Phantom notes held during arpeggio (now)
   let withNoteStart (Note    (ProtarNote o)) f = f o
       withNoteStart (Sustain (ProtarNote o)) f = f o

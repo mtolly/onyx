@@ -9,7 +9,6 @@ import           Data.List               as L
 import           Data.Maybe              (Maybe (..))
 import           Data.Time.Duration      (Seconds, negateDuration)
 import           Data.Tuple              (Tuple (..))
-import           Effect.Exception.Unsafe (unsafeThrow)
 import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, fillRect, secToNum,
@@ -142,27 +141,24 @@ drawSix (Six six) badge targetX stuff = do
           when sustaining do
             setFillStyle shades.light stuff
             fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
-        go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisEvents of
-          Just { key: secsStart, value: Sustain _ } -> do
-            drawSustainBlock (secsToPxVert secsEnd) stuff.maxY $ isEnergy secsStart
-            go false rest
-          _ -> unsafeThrow "during ghl drawing: found a sustain end not preceded by sustain start"
-        go true (L.Cons (Tuple _ SustainEnd) rest) = go false rest
-        go _ (L.Cons (Tuple _ (Note _)) rest) = go false rest
-        go _ (L.Cons (Tuple secsStart (Sustain _)) rest) = do
-          let pxEnd = case rest of
-                L.Nil                      -> stuff.minY
-                L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
-          drawSustainBlock pxEnd (secsToPxVert secsStart) $ isEnergy secsStart
-          go true rest
-        go _ L.Nil = pure unit
-    case L.fromFoldable $ Map.doTupleArray (zoomAsc thisEvents) of
-      L.Nil -> case Map.lookupLT (pxToSecsVert stuff.maxY) thisEvents of
-        -- handle the case where the entire screen is the middle of a sustain
-        Just { key: secsStart, value: Sustain _ } ->
-          drawSustainBlock stuff.minY stuff.maxY $ isEnergy secsStart
-        _ -> pure unit
-      events -> go false events
+
+        go Nothing L.Nil = pure unit
+        go sust (L.Cons (Tuple secs v) rest) = do
+          case sust of
+            Nothing -> pure unit
+            Just secsStart -> drawSustainBlock (secsToPxVert secs) (secsToPxVert secsStart) $ isEnergy secsStart
+          let newSustain = case v of
+                Sustain _ -> Just secs
+                _         -> Nothing
+          go newSustain rest
+        go (Just secsStart) L.Nil = do
+          drawSustainBlock stuff.minY (secsToPxVert secsStart) $ isEnergy secsStart
+
+        startSustain = case Map.lookupLT (pxToSecsVert stuff.maxY) thisEvents of
+          Just { key: secsStart, value: Sustain _ } -> Just secsStart
+          _                                         -> Nothing
+
+    go startSustain $ L.fromFoldable $ Map.doTupleArray (zoomAsc thisEvents)
   -- Sustain ends
   for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do
     setFillStyle customize.sustainBorder stuff
