@@ -38,6 +38,9 @@ parts:
   guitar:
     grybo:
       difficulty: 6
+  rhythm:
+    grybo:
+      difficulty: 6
   keys:
     grybo:
       difficulty: 6
