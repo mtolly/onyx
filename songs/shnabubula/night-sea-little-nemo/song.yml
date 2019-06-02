@@ -31,7 +31,9 @@ parts:
       kicks: both
   bass:
     grybo: {}
-  guitar: # TODO split into rhythm
+  guitar:
+    grybo: {}
+  rhythm:
     grybo: {}
 targets:
   rb3:
