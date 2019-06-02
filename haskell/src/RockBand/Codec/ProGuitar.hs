@@ -20,7 +20,8 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.List.Extra                  (nubOrd, sort)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
+import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
+                                                   listToMaybe)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
@@ -564,7 +565,7 @@ guitarifyHOPO threshold pgd = let
       then Tap
       else case forces of
         nt : _ -> nt
-        [] -> if dt >= threshold -- TODO: should this be > or >= ?
+        [] -> if dt > threshold -- guessing this is > like 5-fret, but should test
           then Strum
           else case (prev, gems) of
             (Just [(prevStr, prevFret, prevType)], [(str, fret, typ)])
@@ -576,6 +577,63 @@ guitarifyHOPO threshold pgd = let
             _ -> Strum
     in (Just gems, Just (ntype, gems, len))
   in trackState Nothing fn withForce
+
+data Slide = SlideUp | SlideDown
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+computeSlides
+  :: ProGuitarDifficulty U.Beats
+  -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe U.Beats)
+  -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe (U.Beats, Maybe Slide))
+computeSlides pgd hopo = let
+  slideMarkers = RTB.mapMaybe (\(dir, b) -> guard b >> return dir) $ pgSlide pgd
+  marked = RTB.collectCoincident $ RTB.merge (Left <$> hopo) (Right <$> slideMarkers)
+  marked' = RTB.flatten $ flip fmap marked $ \xs -> let
+    notes = lefts xs
+    slides = rights xs
+    in map (, listToMaybe slides) notes
+  go = \case
+    RNil -> RNil
+    Wait dt ((sht, notes, mlen), slide) rest -> let
+      msust = case slide of
+        Nothing -> (, Nothing) <$> mlen
+        Just dir -> let
+          lowFret = (\(_, fret, _) -> fret) . minimum -- TODO use NonEmpty for safe minimum
+          connect :: Maybe (U.Beats, StrumHOPOTap, GtrFret)
+          connect = case rest of
+            RNil -> Nothing
+            Wait dt' ((sht', chord, _), _) _ -> do
+              guard $ (dt' <= 1/3) || (fromMaybe 0 mlen + (1/4) >= dt')
+              Just (dt', sht', lowFret chord)
+          smallSustain = case rest of
+            RNil -> Nothing
+            Wait dt' _ _ -> do
+              guard $ dt' <= 1/3 -- TODO check exact number
+              Just dt'
+          computedDir = let
+            natural = case connect of
+              Nothing -> if lowFret notes < 8 then SlideUp else SlideDown
+              Just (_, _, nextFret) -> if lowFret notes < nextFret
+                then SlideUp
+                else SlideDown
+            in case (natural, dir) of
+              (SlideDown, ReversedSlide) -> SlideUp
+              (SlideUp  , ReversedSlide) -> SlideDown
+              _                          -> natural
+          in case (mlen, smallSustain) of
+            (Nothing, Nothing) -> Nothing -- stub slide
+            (Nothing, Just dt') -> Just (dt', Just computedDir) -- non-sustainable note becomes slide
+            (Just len, _) -> Just $ case connect of
+              Nothing -> (len, Just computedDir) -- no close next note, normal sustain length
+              Just (dt', sht', _) -> case sht' of
+                Strum -> (len, Just computedDir) -- next note is strum, no extension
+                _     -> (dt', Just computedDir) -- extend sustain to next note (hopo/tap)
+      in Wait dt (sht, notes, msust) $ go rest
+  in go marked'
+
+guitarifyFull :: U.Beats -> ProGuitarDifficulty U.Beats
+  -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe (U.Beats, Maybe Slide))
+guitarifyFull threshold pgd = computeSlides pgd $ guitarifyHOPO threshold pgd
 
 -- | Ensures that frets do not go above the given maximum,
 -- first by lowering marked sections one octave and then by muting high notes.

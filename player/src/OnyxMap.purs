@@ -31,8 +31,7 @@ zoomDescDo kmin kmax m act = case foldSubmap (Just kmin) (Just kmax) (\k v -> Du
 
 -- | Converts `zoomAscDo` or `zoomDescDo` into an array-generating function
 doTupleArray :: forall k v. (forall m. (Monad m) => (k -> v -> m Unit) -> m Unit) -> Array (Tuple k v)
-doTupleArray f = ST.run (do
+doTupleArray f = ST.run do
   arr <- STArray.empty
   f $ \k v -> void $ STArray.push (Tuple k v) arr
   STArray.freeze arr
-)

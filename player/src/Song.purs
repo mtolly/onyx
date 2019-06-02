@@ -124,7 +124,10 @@ newtype ProtarNote = ProtarNote
   { noteType :: GuitarNoteType
   , fret     :: Maybe Int
   , phantom  :: Boolean
+  , slide    :: Maybe Slide
   }
+
+data Slide = SlideUp | SlideDown
 
 type ProtarEach a =
   { s1 :: a
@@ -230,22 +233,27 @@ isForeignFiveNote f = readString f >>= \s -> case s of
 isForeignProtarNote :: Foreign -> F (Sustainable ProtarNote)
 isForeignProtarNote f = do
   s <- readString f
-  let readFret "x" g = pure $ g { fret: Nothing, phantom: false }
-      readFret n   g = let
-        o = case Str.take 1 n of
-          "p" -> { phantom: true , rest: Str.drop 1 n }
-          _   -> { phantom: false, rest: n            }
-        in case fromString o.rest of
-          Nothing -> throwError $ pure $ TypeMismatch "protar note event" $ show s
-          Just ft -> pure $ g { fret: Just ft, phantom: o.phantom }
+  let readFret1 o = readFret2 case Str.take 1 o.str of
+        "u" -> { slide: Just SlideUp  , str: Str.drop 1 o.str }
+        "d" -> { slide: Just SlideDown, str: Str.drop 1 o.str }
+        _   -> { slide: Nothing       , str: o.str            }
+      readFret2 o = case o.str of
+        "x" -> \g -> pure $ g { fret: Nothing, phantom: false, slide: o.slide }
+        _   -> readFret3 o
+      readFret3 o = readFret4 case Str.take 1 o.str of
+        "p" -> { phantom: true , slide: o.slide, str: Str.drop 1 o.str }
+        _   -> { phantom: false, slide: o.slide, str: o.str            }
+      readFret4 o = case fromString o.str of
+        Nothing -> \_ -> throwError $ pure $ TypeMismatch "protar note event" $ show s
+        Just ft -> \g -> pure $ g { fret: Just ft, phantom: o.phantom, slide: o.slide }
   case Str.take 1 s of
     "e" -> pure SustainEnd
-    "s" -> readFret (Str.drop 1 s) \o -> Note    $ ProtarNote { noteType: Strum, fret: o.fret, phantom: o.phantom }
-    "h" -> readFret (Str.drop 1 s) \o -> Note    $ ProtarNote { noteType: HOPO , fret: o.fret, phantom: o.phantom }
-    "t" -> readFret (Str.drop 1 s) \o -> Note    $ ProtarNote { noteType: Tap  , fret: o.fret, phantom: o.phantom }
-    "S" -> readFret (Str.drop 1 s) \o -> Sustain $ ProtarNote { noteType: Strum, fret: o.fret, phantom: o.phantom }
-    "H" -> readFret (Str.drop 1 s) \o -> Sustain $ ProtarNote { noteType: HOPO , fret: o.fret, phantom: o.phantom }
-    "T" -> readFret (Str.drop 1 s) \o -> Sustain $ ProtarNote { noteType: Tap  , fret: o.fret, phantom: o.phantom }
+    "s" -> readFret1 { str: Str.drop 1 s } \o -> Note    $ ProtarNote { noteType: Strum, fret: o.fret, phantom: o.phantom, slide: o.slide }
+    "h" -> readFret1 { str: Str.drop 1 s } \o -> Note    $ ProtarNote { noteType: HOPO , fret: o.fret, phantom: o.phantom, slide: o.slide }
+    "t" -> readFret1 { str: Str.drop 1 s } \o -> Note    $ ProtarNote { noteType: Tap  , fret: o.fret, phantom: o.phantom, slide: o.slide }
+    "S" -> readFret1 { str: Str.drop 1 s } \o -> Sustain $ ProtarNote { noteType: Strum, fret: o.fret, phantom: o.phantom, slide: o.slide }
+    "H" -> readFret1 { str: Str.drop 1 s } \o -> Sustain $ ProtarNote { noteType: HOPO , fret: o.fret, phantom: o.phantom, slide: o.slide }
+    "T" -> readFret1 { str: Str.drop 1 s } \o -> Sustain $ ProtarNote { noteType: Tap  , fret: o.fret, phantom: o.phantom, slide: o.slide }
     _   -> throwError $ pure $ TypeMismatch "protar note event" $ show s
 
 isForeignPKNote :: Foreign -> F (Sustainable Unit)

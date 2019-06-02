@@ -20,7 +20,7 @@ import           OnyxMap                 as Map
 import           Song                    (ChordLine (..), Flex (..),
                                           GuitarNoteType (..), Protar (..),
                                           ProtarNote (..), Song (..),
-                                          Sustainable (..))
+                                          Sustainable (..), Slide (..))
 import           Style                   (customize)
 
 getChordsWidth
@@ -247,6 +247,15 @@ drawProtar (Protar protar) badge startX stuff = do
             , width: 9.0
             , height: 1.0
             } stuff
+          case note.slide of
+            Nothing -> pure unit
+            Just slide -> C.strokePath (stuff.context) case slide of
+              SlideDown -> do
+                C.moveTo (stuff.context) (toNumber $ targetX + offsetX) (toNumber ystart)
+                C.lineTo (stuff.context) (toNumber $ targetX + offsetX + widthFret) (toNumber yend)
+              SlideUp -> do
+                C.moveTo (stuff.context) (toNumber $ targetX + offsetX + widthFret) (toNumber ystart)
+                C.lineTo (stuff.context) (toNumber $ targetX + offsetX) (toNumber yend)
           when sustaining do
             setFillStyle shades.light stuff
             fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff

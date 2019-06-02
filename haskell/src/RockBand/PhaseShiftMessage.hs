@@ -56,28 +56,42 @@ parsePSText = \case
       "off" -> Just False
       _     -> Nothing
     return [PSMessage diff phraseID onoff]
-  ["ps", "tap", "on"] -> Just [PSMessage Nothing TapNotes True]
-  ["ps", "tap", "off"] -> Just [PSMessage Nothing TapNotes False]
-  ["ps", "hihat", "open"] -> Just
-    [ PSMessage Nothing HihatOpen True
-    , PSMessage Nothing HihatPedal False
-    , PSMessage Nothing HihatSizzle False
-    ]
-  ["ps", "hihat", "pedal"] -> Just
-    [ PSMessage Nothing HihatOpen False
-    , PSMessage Nothing HihatPedal True
-    , PSMessage Nothing HihatSizzle False
-    ]
-  ["ps", "hihat", "closed"] -> Just
-    [ PSMessage Nothing HihatOpen False
-    , PSMessage Nothing HihatPedal False
-    , PSMessage Nothing HihatSizzle True
-    ]
-  ["ps", "hihat", "off"] -> Just
-    [ PSMessage Nothing HihatOpen False
-    , PSMessage Nothing HihatPedal False
-    , PSMessage Nothing HihatSizzle False
-    ]
+  "ps" : rest -> let
+    diff d = \case
+      ["tap", b] -> bool (PSMessage d TapNotes) b
+      ["open", b] -> bool (PSMessage d OpenStrum) b
+      ["rimshot", b] -> bool (PSMessage d SnareRimshot) b
+      ["hihat", "open"] -> Just
+        [ PSMessage d HihatOpen True
+        , PSMessage d HihatPedal False
+        , PSMessage d HihatSizzle False
+        ]
+      ["hihat", "pedal"] -> Just
+        [ PSMessage d HihatOpen False
+        , PSMessage d HihatPedal True
+        , PSMessage d HihatSizzle False
+        ]
+      ["hihat", "closed"] -> Just
+        [ PSMessage d HihatOpen False
+        , PSMessage d HihatPedal False
+        , PSMessage d HihatSizzle True
+        ]
+      ["hihat", "off"] -> Just
+        [ PSMessage d HihatOpen False
+        , PSMessage d HihatPedal False
+        , PSMessage d HihatSizzle False
+        ]
+      _ -> Nothing
+    bool f = \case
+      "on"  -> Just [f True]
+      "off" -> Just [f False]
+      _     -> Nothing
+    in case rest of
+      "easy"   : t -> diff (Just Easy  ) t
+      "medium" : t -> diff (Just Medium) t
+      "hard"   : t -> diff (Just Hard  ) t
+      "expert" : t -> diff (Just Expert) t
+      _            -> diff Nothing       rest
   _ -> Nothing
 
 parsePSSysEx :: E.T -> Maybe PSMessage

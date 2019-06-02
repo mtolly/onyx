@@ -182,7 +182,7 @@ instance A.ToJSON (ProKeys U.Seconds) where
     ]
 
 data Protar t = Protar
-  { protarNotes    :: Map.Map PG.GtrString (RTB.T t (LongNote (StrumHOPOTap, Maybe PG.GtrFret, Bool) ()))
+  { protarNotes    :: Map.Map PG.GtrString (RTB.T t (LongNote (StrumHOPOTap, Maybe PG.GtrFret, Bool, Maybe PG.Slide) ()))
   , protarSolo     :: RTB.T t Bool
   , protarEnergy   :: RTB.T t Bool
   , protarLanes    :: Map.Map PG.GtrString (RTB.T t Bool)
@@ -197,12 +197,17 @@ instance A.ToJSON (Protar U.Seconds) where
     [ (,) "notes" $ A.object $ flip map (Map.toList $ protarNotes x) $ \(string, notes) ->
       (,) (T.pack $ map toLower $ show string) $ eventList notes $ A.String . \case
         NoteOff () -> "e"
-        Blip   (Strum, fret, phantom) () -> "s" <> (if phantom then "p" else "") <> showFret fret
-        Blip   (HOPO , fret, phantom) () -> "h" <> (if phantom then "p" else "") <> showFret fret
-        Blip   (Tap  , fret, phantom) () -> "t" <> (if phantom then "p" else "") <> showFret fret
-        NoteOn (Strum, fret, phantom) () -> "S" <> (if phantom then "p" else "") <> showFret fret
-        NoteOn (HOPO , fret, phantom) () -> "H" <> (if phantom then "p" else "") <> showFret fret
-        NoteOn (Tap  , fret, phantom) () -> "T" <> (if phantom then "p" else "") <> showFret fret
+        Blip (sht, fret, phantom, _) () -> T.concat
+          [ case sht of Strum -> "s"; HOPO -> "h"; Tap -> "t"
+          , if phantom then "p" else ""
+          , showFret fret
+          ]
+        NoteOn (sht, fret, phantom, slide) () -> T.concat
+          [ case sht of Strum -> "S"; HOPO -> "H"; Tap -> "T"
+          , case slide of Nothing -> ""; Just PG.SlideUp -> "u"; Just PG.SlideDown -> "d"
+          , if phantom then "p" else ""
+          , showFret fret
+          ]
     , (,) "solo" $ eventList (protarSolo x) A.toJSON
     , (,) "energy" $ eventList (protarEnergy x) A.toJSON
     , (,) "lanes" $ A.object $ flip map (Map.toList $ protarLanes x) $ \(string, lanes) ->
@@ -455,11 +460,11 @@ processProKeys tmap trk = let
 processProtar :: U.Beats -> PG.GtrTuning -> Bool -> U.TempoMap -> PG.ProGuitarTrack U.Beats -> Difficulties Protar U.Seconds
 processProtar hopoThreshold tuning defaultFlat tmap pg = makeDifficulties $ \diff -> let
   thisDiff = fromMaybe mempty $ Map.lookup diff $ PG.pgDifficulties pg
-  assigned = expandColors $ PG.guitarifyHOPO hopoThreshold thisDiff
+  assigned = expandColors $ PG.guitarifyFull hopoThreshold thisDiff
   expandColors = splitEdges . RTB.flatten . fmap expandChord
   expandChord (shopo, gems, len) = do
     (str, fret, ntype) <- gems
-    return ((shopo, guard (ntype /= PG.Muted) >> Just fret, ntype == PG.ArpeggioForm), str, len)
+    return ((shopo, guard (ntype /= PG.Muted) >> Just fret, ntype == PG.ArpeggioForm, len >>= snd), str, fmap fst len)
   getString string = realTrack tmap $ flip RTB.mapMaybe assigned $ \case
     Blip   ntype s -> guard (s == string) >> Just (Blip   ntype ())
     NoteOn ntype s -> guard (s == string) >> Just (NoteOn ntype ())
