@@ -68,7 +68,7 @@ function clone(obj) {
 exports.fillMenu = function(song) {
   return function(settings) {
     return function() {
-      menuMutable = settings;
+      menuMutable = clone(settings);
       menuImmutable = clone(menuMutable);
       function tag(p,t,f){
         var element = document.createElement(t);
