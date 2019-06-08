@@ -34,6 +34,9 @@ parts:
       difficulty: 5
       kicks: 1
       mode: real
+  keys:
+    pro-keys:
+      difficulty: 5
 targets:
   rb3:
     game: rb3
