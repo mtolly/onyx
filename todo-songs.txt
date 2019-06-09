@@ -51,12 +51,14 @@ DREAM THEATER
 > another won - drums fixed up w/ portnoy dvd audio
 A DRAMATIC TURN OF EVENTS
   > on the backs of angels - drums fixed from harmonix
-  > build me up break me down - drums done
-  > lost not forgotten - drums fixed from old chart
-  > this is the life - drums fixed from old chart
+  > build me up break me down - drums and PG done
+  > lost not forgotten - drums fixed from old chart, PG done
+  > this is the life - drums fixed from old chart, PG done except arpeggios
   > bridges in the sky - drums, pg, pb (need string checks), pk (+ keys anims) done
-  > outcry - drums fixed from old chart
+  > outcry - drums fixed from old chart, PB done
+  > far from heaven
   > breaking all illusions - drums PB PG done
+  > beneath the surface - PG done except arpeggios
 SYSTEMATIC CHAOS (new version)
   - PG/PB done!
   > PK fixed for Forsaken and POW, still need TDEN and Repentance (and quick check of Jarod's 4)

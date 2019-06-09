@@ -25,6 +25,10 @@ parts:
     drums:
       difficulty: 4
       kicks: both
+  guitar:
+    pro-guitar: # TODO arpeggios
+      tuning:
+        base: guitar-6
 targets:
   rb3:
     game: rb3
