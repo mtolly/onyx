@@ -18,7 +18,7 @@ import           Data.Default.Class               (Default (..))
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
-import           Data.List.Extra                  (nubOrd, sort)
+import           Data.List.Extra                  (nubOrd, sort, unsnoc)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    listToMaybe)
@@ -152,7 +152,7 @@ data ProGuitarTrack t = ProGuitarTrack
   -- ^ according to Ruggy, default sharp/flat is according to usual sheet music
   -- rules for the key + tonality
   , pgOnyxOctave     :: RTB.T t GtrFret -- "move these notes 12 frets down if needed" section
-  , pgOnyxString     :: RTB.T t GtrString -- changes the lowest string for RB (default S6)
+  , pgOnyxString     :: RTB.T t [GtrString] -- which strings RB should use (default S6..S1)
   , pgMystery45      :: RTB.T t Bool
   , pgMystery69      :: RTB.T t Bool
   , pgMystery93      :: RTB.T t Bool
@@ -253,9 +253,9 @@ instance ParseTrack ProGuitarTrack where
       in single parse unparse
     pgOnyxString   <- pgOnyxString =. let
       parse = readCommand' >=> \case
-        ["onyx", "string", x] -> readMaybe $ 'S' : T.unpack x
-        _                     -> Nothing
-      unparse str = showCommand' ["onyx", "string", T.pack $ drop 1 $ show str]
+        "onyx" : "string" : xs -> mapM (readMaybe . ('S' :) . T.unpack) xs
+        _                      -> Nothing
+      unparse strs = showCommand' $ "onyx" : "string" : map (T.pack . drop 1 . show) strs
       in single parse unparse
     pgMystery45    <- pgMystery45 =. edges 45
     pgMystery69    <- pgMystery69 =. edges 69
@@ -666,14 +666,23 @@ fretLimit maxFret pg = let
 -- | Shifts notes between strings to shrink a 7/8-string part to 6 strings.
 moveStrings :: (NNC.C t) => ProGuitarTrack t -> ProGuitarTrack t
 moveStrings pg = let
-  baseRB3 = S6
+  mappers = flip fmap (pgOnyxString pg) $ \setting -> let
+    strs = case unsnoc setting of
+      Nothing      -> [S6 .. S1]
+      Just (xs, x) -> xs ++ [x ..]
+    table = zip strs [S6 .. S1]
+    in \oldString -> case lookup oldString table of
+      Nothing -> error $ unwords
+        [ "RockBand.Codec.ProGuitar.moveStrings: no string mapping found for"
+        , show oldString
+        , "in"
+        , show setting
+        ]
+      Just newString -> newString
   moveDiff diff = diff
     { pgNotes
-      = fmap (\(base, (str, triple)) -> let
-          delta = fromEnum baseRB3 - fromEnum base
-          in (toEnum (fromEnum str + delta), triple)
-        )
-      $ applyStatus1 baseRB3 (pgOnyxString pg)
+      = fmap (\(mapper, (oldString, triple)) -> (mapper oldString, triple))
+      $ applyStatus1 id mappers
       $ pgNotes diff
     }
   in pg

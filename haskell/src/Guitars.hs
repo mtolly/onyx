@@ -72,20 +72,24 @@ trackState curState step rtb = case RTB.viewL rtb of
     (nextState, Nothing) -> RTB.delay dt   $ trackState nextState step rtb'
     (nextState, Just y ) -> RTB.cons  dt y $ trackState nextState step rtb'
 
-applyStatus1 :: (NNC.C t, Ord s, Ord a) => s -> RTB.T t s -> RTB.T t a -> RTB.T t (s, a)
+compareStatus :: Either a b -> Either a b -> Bool
+compareStatus (Right _) (Left _) = False
+compareStatus _         _        = True
+
+applyStatus1 :: (NNC.C t) => s -> RTB.T t s -> RTB.T t a -> RTB.T t (s, a)
 applyStatus1 start status events = let
   fn current _ = \case
     Left  s -> (s      , Nothing          )
     Right x -> (current, Just (current, x))
-  in trackState start fn $ RTB.merge (fmap Left status) (fmap Right events)
+  in trackState start fn $ RTB.mergeBy compareStatus (fmap Left status) (fmap Right events)
 
-applyStatus :: (NNC.C t, Ord s, Ord a) => RTB.T t (s, Bool) -> RTB.T t a -> RTB.T t ([s], a)
+applyStatus :: (NNC.C t, Ord s) => RTB.T t (s, Bool) -> RTB.T t a -> RTB.T t ([s], a)
 applyStatus status events = let
   fn current _ = \case
     Left  (s, True ) -> (Set.insert s current, Nothing                     )
     Left  (s, False) -> (Set.delete s current, Nothing                     )
     Right x          -> (             current, Just (Set.toList current, x))
-  in trackState Set.empty fn $ RTB.merge (fmap Left status) (fmap Right events)
+  in trackState Set.empty fn $ RTB.mergeBy compareStatus (fmap Left status) (fmap Right events)
 
 -- | Computes the default strum or HOPO value for each note.
 strumHOPOTap' :: (NNC.C t, Ord color) => HOPOsAlgorithm -> t -> RTB.T t (color, len) -> RTB.T t ((color, StrumHOPOTap), len)
