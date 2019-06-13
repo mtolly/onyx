@@ -51,11 +51,11 @@ DREAM THEATER
 > another won - drums fixed up w/ portnoy dvd audio
 A DRAMATIC TURN OF EVENTS
   > on the backs of angels - drums fixed from harmonix
-  > build me up break me down - drums and PG done
+  > build me up break me down - drums PG PB (unchecked) done
   > lost not forgotten - drums fixed from old chart, PG done
-  > this is the life - drums fixed from old chart, PG done except arpeggios
-  > bridges in the sky - drums, pg, pb (need string checks), pk (+ keys anims) done
-  > outcry - drums fixed from old chart, PB done
+  > this is the life - drums fixed from old chart, PG done except arpeggios, PB done (unchecked)
+  > bridges in the sky - drums, PG, PB (unchecked), PK (+ keys anims) done
+  > outcry - drums fixed from old chart, PG PB done
   > far from heaven
   > breaking all illusions - drums PB PG done
   > beneath the surface - PG done except arpeggios

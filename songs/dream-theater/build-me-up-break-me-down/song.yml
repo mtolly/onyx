@@ -31,6 +31,10 @@ parts:
     pro-guitar:
       tuning:
         base: guitar-7
+  bass:
+    pro-guitar: # TODO check from a live source
+      tuning:
+        base: bass-5
 targets:
   rb3:
     game: rb3

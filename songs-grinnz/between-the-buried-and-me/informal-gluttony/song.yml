@@ -40,10 +40,10 @@ parts:
     grybo: {} # alextaylor
   bass:
     grybo: {} # alextaylor
-    # pro-guitar: # onyxite
-    #   tuning:
-    #     base: bass-5
-    #     global: -3 # G# C# F# B E
+    pro-guitar: # onyxite
+      tuning:
+        base: bass-5
+        global: -3 # G# C# F# B E
   keys:
     grybo: {} # alextaylor
     pro-keys: {} # alextaylor

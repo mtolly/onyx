@@ -28,6 +28,10 @@ parts:
     pro-guitar:
       tuning:
         base: bass-6
+  guitar:
+    pro-guitar:
+      tuning:
+        base: guitar-7
 targets:
   rb3-2x:
     game: rb3

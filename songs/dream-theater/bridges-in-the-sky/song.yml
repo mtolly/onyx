@@ -41,6 +41,9 @@ parts:
       # pitches checked, but there might be some string differences from guitar
       tuning:
         base: bass-5
+  vocal:
+    vocal: # WIP
+      count: 2
 targets:
   rb3:
     game: rb3
