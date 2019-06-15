@@ -42,7 +42,7 @@ parts:
       tuning:
         base: bass-5
   vocal:
-    vocal: # WIP
+    vocal:
       count: 2
 targets:
   rb3:
