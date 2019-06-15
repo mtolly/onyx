@@ -34,6 +34,10 @@ parts:
       tuning:
         base: guitar-6
         global: -2 # D standard
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6
 targets:
   rb3:
     game: rb3
