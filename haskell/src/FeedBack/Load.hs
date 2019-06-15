@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -14,6 +16,7 @@ import           Data.Either                      (isLeft)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Fixed (..), Milli)
+import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd, partition, sort)
 import qualified Data.Map                         as Map
@@ -29,6 +32,7 @@ import qualified FretsOnFire                      as FoF
 import qualified Guitars                          as G
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
+import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events
 import           RockBand.Codec.File
 import           RockBand.Codec.Five
@@ -183,7 +187,7 @@ data TrackEvent t a
   | TrackP2 t
   | TrackOD t
   | TrackSolo Bool
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable)
 
 emitTrack :: (NNC.C t, Ord a) => t -> RTB.T t (TrackEvent t a) -> RTB.T t ((a, StrumHOPOTap), Maybe t)
 emitTrack hopoThreshold trk = let
@@ -292,6 +296,36 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
             $ \case TrackSolo b -> Just b; _ -> Nothing
           , sixDifficulties = G.emit6' . emitTrack hopoThreshold <$> diffs
           }
+      parseDrums label = do
+        diffs <- fmap Map.fromList $ forM [Easy, Medium, Hard, Expert] $ \diff -> do
+          parsed <- insideTrack (T.pack (show diff) <> label) $ \trk -> do
+            fmap RTB.catMaybes $ insideEvents trk $ \evt -> do
+              eachEvent evt $ \n len -> case n of
+                0 -> return $ Just $ TrackNote D.Kick              len
+                1 -> return $ Just $ TrackNote D.Red               len
+                2 -> return $ Just $ TrackNote (D.Pro D.Yellow ()) len
+                3 -> return $ Just $ TrackNote (D.Pro D.Blue   ()) len
+                4 -> return $ Just $ TrackNote (D.Pro D.Green  ()) len
+                _ -> do
+                  warn $ "Unrecognized note type: N " <> show n <> " " <> show len
+                  return Nothing
+          return (diff, parsed)
+        let expert = fixBackToBackSolos $ fromMaybe RTB.empty $ Map.lookup Expert diffs
+        return (mempty :: D.DrumTrack U.Beats)
+          { D.drumOverdrive = U.trackJoin $ flip fmap expert
+            $ \case TrackOD t -> lengthToBools t; _ -> RTB.empty
+          , D.drumSolo = flip RTB.mapMaybe expert
+            $ \case TrackSolo b -> Just b; _ -> Nothing
+          , D.drumPlayer1 = U.trackJoin $ flip fmap expert
+            $ \case TrackP1 t -> lengthToBools t; _ -> RTB.empty
+          , D.drumPlayer2 = U.trackJoin $ flip fmap expert
+            $ \case TrackP2 t -> lengthToBools t; _ -> RTB.empty
+          , D.drumDifficulties = flip fmap diffs $ \parsed -> D.DrumDifficulty
+            { drumMix         = RTB.empty
+            , drumPSModifiers = RTB.empty
+            , drumGems        = RTB.flatten $ toList <$> parsed
+            }
+          }
   fixedPartGuitar       <- parseGRYBO "Single" -- ExpertSingle etc.
   fixedPartGuitarGHL    <- parseGHL "GHLGuitar" -- ExpertGHLGuitar etc.
   fixedPartBass         <- parseGRYBO "DoubleBass" -- ExpertDoubleBass etc.
@@ -300,6 +334,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   fixedPartRhythm       <- parseGRYBO "DoubleRhythm" -- ExpertDoubleRhythm etc.
   -- Might also be ExpertDoubleBass when Player2 = rhythm ?
   fixedPartGuitarCoop   <- return mempty -- ExpertDoubleGuitar ???
+  fixedPartDrums        <- parseDrums "Drums" -- ExpertDrums etc.
   fixedEvents           <- insideTrack "Events" $ \trk -> return mempty
     { eventsSections = fmap makeRB2Section $ flip RTB.mapMaybe trk $ \case
       Event t -> T.stripPrefix "section " t
@@ -316,8 +351,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       Event "phrase_end"   -> Just False
       _                    -> Nothing
     }
-  let fixedPartDrums        = mempty -- ExpertDrums etc.
-      fixedPartDrums2x      = mempty
+  let fixedPartDrums2x      = mempty
       fixedPartRealDrumsPS  = mempty
       fixedPartRealGuitar   = mempty
       fixedPartRealGuitar22 = mempty
