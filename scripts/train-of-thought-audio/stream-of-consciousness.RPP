@@ -1,0 +1,1382 @@
+<REAPER_PROJECT 0.1 "5.92/OSX64" 1549596580
+  RIPPLE 0
+  GROUPOVERRIDE 0 0 0
+  AUTOXFADE 1
+  ENVATTACH 1
+  POOLEDENVATTACH 0
+  MIXERUIFLAGS 11 48
+  PEAKGAIN 1
+  FEEDBACK 0
+  PANLAW 1
+  PROJOFFS 0 0
+  MAXPROJLEN 0 600
+  GRID 3199 8 1 8 1 0 0 0
+  TIMEMODE 1 5 -1 30 0
+  CURSOR 464
+  ZOOM 0.58181157863035 0 0
+  VZOOMEX 11
+  USE_REC_CFG 0
+  RECMODE 1
+  SMPTESYNC 0 30 100 40 1000 300 0 0 1 0 0
+  LOOP 0
+  LOOPGRAN 0 4
+  RECORD_PATH "" ""
+  <RECORD_CFG
+    ZXZhdxgAAA==
+  >
+  <APPLYFX_CFG
+  >
+  RENDER_FILE ""
+  RENDER_PATTERN ""
+  RENDER_FMT 0 2 0
+  RENDER_1X 0
+  RENDER_RANGE 1 0 0 18 1000
+  RENDER_RESAMPLE 3 0 1
+  RENDER_ADDTOPROJ 0
+  RENDER_STEMS 0
+  RENDER_DITHER 0
+  TIMELOCKMODE 2
+  TEMPOENVLOCKMODE 1
+  ITEMMIX 0
+  DEFPITCHMODE 589824
+  TAKELANE 1
+  SAMPLERATE 44100 0 0
+  <RENDER_CFG
+  >
+  LOCK 1
+  <METRONOME 6 2
+    VOL 1 0.5
+    FREQ 800 1600 1
+    BEATLEN 4
+    SAMPLES "" ""
+    PATTERN 2863311530 2863311529
+  >
+  GLOBAL_AUTO -1
+  TEMPO 120 4 4
+  PLAYRATE 1 0 0.25 4
+  SELECTION 647 647.5
+  SELECTION2 647 647.5
+  MASTERAUTOMODE 0
+  MASTERTRACKHEIGHT 0 0
+  MASTERPEAKCOL 16576
+  MASTERMUTESOLO 0
+  MASTERTRACKVIEW 0 0.6667 0.5 0.5 0 0 0
+  MASTERHWOUT 0 0 1 0 0 0 0 -1
+  MASTER_NCH 2 2
+  MASTER_VOLUME 1 0 -1 -1 1
+  MASTER_FX 1
+  MASTER_SEL 0
+  <MASTERPLAYSPEEDENV
+    ACT 0 -1
+    VIS 0 1 1
+    LANEHEIGHT 0 0
+    ARM 0
+    DEFSHAPE 0 -1 -1
+  >
+  <TEMPOENVEX
+    ACT 0 -1
+    VIS 1 0 1
+    LANEHEIGHT 0 0
+    ARM 0
+    DEFSHAPE 1 -1 -1
+  >
+  <PROJBAY
+  >
+  <TRACK {6226443E-1220-6B41-9D91-02097B895AFC}
+    NAME stream-of-consciousness-debleed
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 0
+    ISBUS 0 0
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 0
+    REC 0 0 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {6226443E-1220-6B41-9D91-02097B895AFC}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <FXCHAIN
+      WNDRECT 89 402 835 444
+      SHOW 0
+      LASTSEL 0
+      DOCKED 0
+      BYPASS 0 0 0
+      <VST "VST: ReaEQ (Cockos)" reaeq.vst.dylib 0 "" 1919247729
+        cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
+        IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH8SpoqWp5JAUbRBhYs6
+        9z8AAAAAAAAAQAEBAAAAAAAAAGxAFO91orBAwZo3sGO+9z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAFQCAABwAQAA
+        AAAQAAAA
+      >
+      FLOATPOS 0 0 0 0
+      FXID {E8CA6D19-57EB-D342-99D1-563FA7C22EFF}
+      WAK 0
+    >
+    <ITEM
+      POSITION 0.001
+      SNAPOFFS 0
+      LENGTH 25.34205486011068
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {90734E29-F6EC-D64B-A382-234E21145C3D}
+      IID 3
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.796992 0 1 -1
+      SOFFS 0
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {7DB7196D-5DCB-4B49-AEF8-5DBDE846DF44}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 25.34305486011068
+      SNAPOFFS 0
+      LENGTH 2.42380448508042
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 2.338573 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {8EE183D1-F258-6E4B-A0E3-C4ABD69EFDFE}
+      IID 5
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.627968 0 1 -1
+      SOFFS 25.34205486011068
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {EB4E8B4D-53BD-0A4C-B3BF-ED6DC2176D4C}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 25.42828590353855
+      SNAPOFFS 0
+      LENGTH 9.0145597821214
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 2.338573 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {5A992D7D-2FB8-9E4C-A6E3-6D0330B77B4E}
+      IID 6
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.730826 0 1 -1
+      SOFFS 25.42728590353855
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E58BD39F-29F0-254E-AE89-0F791681F07C}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 34.44284568565995
+      SNAPOFFS 0
+      LENGTH 2.8203404358961
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 2.671895 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {604D2736-6070-8F43-BEDB-5955698AF88B}
+      IID 11
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.963607 0 1 -1
+      SOFFS 34.44184568565994
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {EB715202-1772-6645-924C-4C44D3648CBF}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 34.59129135737808
+      SNAPOFFS 0
+      LENGTH 4.59136883813595
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 2.671895 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {68F10295-A8B4-584C-9EDE-C6E22EC09E54}
+      IID 12
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.730826 0 1 -1
+      SOFFS 34.59029135737808
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {17562A42-6C37-A94A-94F1-5CDBDAEB4F67}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 39.18266019551403
+      SNAPOFFS 0
+      LENGTH 2.81357477316357
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 2.442149 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {AEC3DADD-C642-1847-91D5-2145FA5BB91E}
+      IID 13
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.866164 0 1 -1
+      SOFFS 39.18166019551403
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {33D48E24-7338-2645-B9F9-9F3E04D51A63}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 39.55408631006292
+      SNAPOFFS 0
+      LENGTH 4.82493198623484
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 2.442149 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {5B8B24DF-C20F-404F-AC07-D8FB75AA078E}
+      IID 14
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.730826 0 1 -1
+      SOFFS 39.55308631006292
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {6264ECE9-377B-3444-8EDA-534498AA47C5}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 44.37901829629777
+      SNAPOFFS 0
+      LENGTH 131.95925385981468
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 5 0 3.585616 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {315D5786-78F6-B34E-8768-541D019EE9D9}
+      IID 109
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.796992 0 1 -1
+      SOFFS 44.37801829629777
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B7C30299-C74D-6E4E-A936-6349EFB9F8B1}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 172.75265576431644
+      SNAPOFFS 0
+      LENGTH 17.46281447138509
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 3.585616 1.1 1 0
+      FADEOUT 1.1 0 0.095721 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {595B3BB2-088C-0B43-8582-7D90E8D14833}
+      IID 43
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.920969 0 1 -1
+      SOFFS 172.75165576431644
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {CD9AF56D-98FB-C540-93D5-A49967B9B79A}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 190.1197492424352
+      SNAPOFFS 0
+      LENGTH 36.8802507575648
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.095721 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {93EE96A8-F2C2-394A-8043-5A8DCEB9BEB8}
+      IID 44
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.796992 0 1 -1
+      SOFFS 190.1187492424352
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {13264653-4CA6-094B-93F6-68F399A2B38F}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 227
+      SNAPOFFS 0
+      LENGTH 7.92152207515491
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {6CA4E7A0-6C11-F243-A0E2-EE8C53754981}
+      IID 45
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.879643 0 1 -1
+      SOFFS 226.999
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {DFCC5459-1676-A04C-85F3-3621B99F0210}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 234.92152207515491
+      SNAPOFFS 0
+      LENGTH 361.57847792484517
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 0 0 4.853937 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {ED369F4D-9962-124A-928E-F5902D614855}
+      IID 47
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.796992 0 1 -1
+      SOFFS 234.92052207515491
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {CC32FAE4-7A1B-1D45-B98B-AC1036AB2027}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 591.64606261615438
+      SNAPOFFS 0
+      LENGTH 33.21773989652024
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 0 4.853937 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {D014B597-9D42-FA4A-94E9-CCA2C4B83F23}
+      IID 38
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.932776 0 1 -1
+      SOFFS 591.64506261615441
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {BD43E24D-ADD5-6F4F-856E-618AD0BFC784}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 624.86380251267462
+      SNAPOFFS 0
+      LENGTH 1.61340174947644
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 1.565153 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {B435CD87-A6E5-2742-9542-8B1FA105F10C}
+      IID 111
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.901286 0 1 -1
+      SOFFS 624.86280251267465
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {35D643E0-A9AC-3645-9770-651EFA659EE5}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 624.91205138473708
+      SNAPOFFS 0
+      LENGTH 4.27457739577062
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 1.565153 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {E580E7A6-60D6-3D4B-B0BA-59E94407780E}
+      IID 40
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.741564 0 1 -1
+      SOFFS 624.91105138473711
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {05E2FDA5-4CBE-0F40-9A57-9A00E24FC55D}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 629.1866287805077
+      SNAPOFFS 0
+      LENGTH 2.79318881587585
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 0 0 2.362803 1 1 0.018868
+      MUTE 0
+      SEL 1
+      IGUID {ABF4F730-5410-E94C-A352-327B7E43B131}
+      IID 49
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 1.100938 0 1 -1
+      SOFFS 629.18562878050773
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {3661F6BF-AA17-CD43-B610-CCD13A89700C}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 629.61701437705608
+      SNAPOFFS 0
+      LENGTH 4.31017633898512
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 0 2.362803 1 1 0.018868
+      FADEOUT 1.1 0 0.015377 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {C9B43044-2CFE-0442-8DBA-DC82C1121135}
+      IID 50
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.741564 0 1 -1
+      SOFFS 629.6160143770561
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E844CDAF-50E2-3146-BDE0-7FAB6866C688}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 633.91181420320777
+      SNAPOFFS 0
+      LENGTH 2.85099669329918
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.015377 1 1 0
+      FADEOUT 1.1 0 2.388607 1 1 -0.3286
+      MUTE 0
+      SEL 1
+      IGUID {58AFB65F-1DC4-7940-8BC3-23AD4F3AFAFE}
+      IID 53
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 1.129459 0 1 -1
+      SOFFS 633.91081420320779
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {7AB08F9E-4510-7042-8690-AD3DFC5EC755}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 634.37420391596368
+      SNAPOFFS 0
+      LENGTH 4.30179609270056
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 0 2.388607 0 1 -0.3286
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {1FF28666-B3BE-5C44-BEFD-A0ECBEB1ABA2}
+      IID 54
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.741564 0 1 -1
+      SOFFS 634.3732039159637
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {10D234FD-2DE3-964F-A9E0-75FAABEC016A}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 638.67600000866423
+      SNAPOFFS 0
+      LENGTH 1.94400000002634
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1.1 0 1.752 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {BE1EC5AC-8433-1E46-BE4B-8C6260EEDABF}
+      IID 55
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.975443 0 1 -1
+      SOFFS 638.67500000866426
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {26EF7471-6BCF-1345-94C1-88EB431AF515}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 638.86800000866685
+      SNAPOFFS 0
+      LENGTH 5.29200000007177
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 1.752 0 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {B6F65617-FFF4-1043-81E0-C513BE226DC4}
+      IID 56
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.741564 0 1 -1
+      SOFFS 638.86700000866688
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {6ACDB1B8-6B80-E644-AC09-48BA70DDA6E6}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 644.16000000873862
+      SNAPOFFS 0
+      LENGTH 6.02400000008174
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1.1 0 0.178555 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {A8774AA9-F109-A946-9EB8-3C1F1C1E243F}
+      IID 57
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 1.03886 0 1 -1
+      SOFFS 644.15900000873864
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {CEFB4354-6642-A547-9425-55F770B4CC32}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 650.00544481336635
+      SNAPOFFS 0
+      LENGTH 31.30755065148662
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.178555 0 1 0
+      FADEOUT 1 0.576477 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {747CB3D9-351F-D24E-A2AB-64AE63A0F2CB}
+      IID 58
+      NAME stream-of-consciousness-debleed.flac
+      VOLPAN 0.741564 0 1 -1
+      SOFFS 650.00444481336638
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {A89A2E06-32A4-8844-B52C-80925B2582FD}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-debleed.flac"
+      >
+    >
+  >
+  <TRACK {D39307C7-7F98-8C44-A8FE-4FA7B444D841}
+    NAME stream-of-consciousness-drums
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 0
+    ISBUS 0 0
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 0
+    REC 0 0 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {D39307C7-7F98-8C44-A8FE-4FA7B444D841}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <FXCHAIN
+      WNDRECT 89 661 793 185
+      SHOW 0
+      LASTSEL 0
+      DOCKED 0
+      BYPASS 0 0 0
+      <JS utility/channelmixer ""
+        -120.000000 -120.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+      >
+      FLOATPOS 0 0 0 0
+      FXID {AB289B48-AE2D-9E47-9D47-B3043735DBD4}
+      WAK 0
+      BYPASS 0 0 0
+      <VST "VST: ReaEQ (Cockos)" reaeq.vst.dylib 0 "" 1919247729
+        cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
+        IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH+UvFzAH5hAwEvN32hd
+        9D8AAAAAAAAAQAEBAAAAAQAAAIDRCgiUcbBApv7/////7z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAFQCAABwAQAA
+        AAAQAAAA
+      >
+      FLOATPOS 0 0 0 0
+      FXID {EB7047B3-99D3-EB43-8B03-581887DC1F21}
+      WAK 0
+    >
+    <ITEM
+      POSITION 0
+      SNAPOFFS 0
+      LENGTH 25.33908573037862
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {3EAB1114-A741-524A-AC57-78D3C94B9188}
+      IID 4
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.796992 0 1 -1
+      SOFFS 0.001
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E8FB8E19-C3E6-D146-812A-AD452EFFF25E}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 25.33908573037862
+      SNAPOFFS 0
+      LENGTH 2.39698733152997
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 2.244786 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {EC72529C-7496-5248-AB65-6C7FE69A285E}
+      IID 7
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.920299 0 1 -1
+      SOFFS 25.34008573037862
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E041411F-4317-E843-A012-58F688476FBC}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 25.49128704071743
+      SNAPOFFS 0
+      LENGTH 14.17760396751032
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 2.244786 1 1 0
+      FADEOUT 1.1 0 0.047516 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {35DA9BF5-CE54-E24B-B5BD-27D15073C9B0}
+      IID 8
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.730826 0 1 -1
+      SOFFS 25.49228704071743
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {4156EC12-0774-DE40-98F1-E2FE8390D9A7}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 39.62137522502145
+      SNAPOFFS 0
+      LENGTH 2.38936509837374
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.047516 1 1 0
+      FADEOUT 1.1 0 0.054304 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {0727371A-2BAA-3942-BCA1-969B74F78D60}
+      IID 15
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.947366 0 1 -1
+      SOFFS 39.62237522502145
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {ABB6445E-B487-F34B-9DC0-9AA2E62DDBF2}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 41.95643657115943
+      SNAPOFFS 0
+      LENGTH 2.42258172513834
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.054304 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {106AF5D6-45A4-064D-9E63-60AB972FE53B}
+      IID 16
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.730826 0 1 -1
+      SOFFS 41.95743657115943
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {A6B2886F-A831-5843-A2AF-B6F10CF69522}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 44.37901829629777
+      SNAPOFFS 0
+      LENGTH 129.56627543330202
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 0.505934 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {43EAE895-85D4-A045-8FF8-008CE7469776}
+      IID 110
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.796992 0 1 -1
+      SOFFS 44.38001829629776
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {6FDF5AA8-03A3-1B44-82FA-D39A3DE868B5}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 173.43936000235254
+      SNAPOFFS 0
+      LENGTH 16.77555551247892
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.505934 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {960504FE-BCF8-CB48-A79E-8748EF45C2FD}
+      IID 17
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.920969 0 1 -1
+      SOFFS 173.44036000235255
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {0A1E64FE-B811-DC45-8D0A-8DCB1C202EED}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 190.21491551483146
+      SNAPOFFS 0
+      LENGTH 5.79608419413637
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {745F3378-B134-A549-9A17-C115FAC81FB8}
+      IID 18
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.702533 0 1 -1
+      SOFFS 190.21591551483147
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D716E5CA-C830-0246-AB9B-DB75F084130E}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 196.01099970896783
+      SNAPOFFS 0
+      LENGTH 30.98900029103217
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {D08DBF6F-020A-9341-B349-62E5AD6B2C58}
+      IID 19
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.814703 0 1 -1
+      SOFFS 196.01199970896783
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {81CCA399-5B10-F149-B1B1-F2BFC3DEEB8E}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 227
+      SNAPOFFS 0
+      LENGTH 7.92152207515491
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {0D0F0458-874D-374D-AE17-51218B174DDE}
+      IID 46
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.89919 0 1 -1
+      SOFFS 227.001
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {45E01B56-E468-4747-9872-B6D163807CC6}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 234.92152207515491
+      SNAPOFFS 0
+      LENGTH 77.06656741986316
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {9A848665-E94F-434C-B3D8-1F82510AF6F8}
+      IID 48
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.814703 0 1 -1
+      SOFFS 234.92252207515492
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {DA5F6692-9E60-714C-A84C-FECFADD2E915}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 311.98808949501807
+      SNAPOFFS 0
+      LENGTH 17.59895117377516
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {9EAA23A5-EDEF-5B4A-8CBB-568B0CAB3BF0}
+      IID 20
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.856029 0 1 -1
+      SOFFS 311.98908949501811
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {565D4E58-75AD-F44C-8C42-ECFB8CB81B31}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 329.58704066879324
+      SNAPOFFS 0
+      LENGTH 8.32699372110784
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 0.364059 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {FC02A850-E157-D448-A361-381462023734}
+      IID 21
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.796992 0 1 -1
+      SOFFS 329.58804066879327
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E4DFDA8E-B6AC-BB43-9306-A7A08C103BCB}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 337.54997529560706
+      SNAPOFFS 0
+      LENGTH 2.52360274219075
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.364059 1 1 0
+      FADEOUT 1.1 0 1.413637 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {E0160DA7-398E-7849-8FCD-FE3E3F5E0349}
+      IID 24
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 1.033138 0 1 -1
+      SOFFS 337.55097529560709
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {7824E37E-E834-0343-8638-81ADFD6C9FE9}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 338.65994091030325
+      SNAPOFFS 0
+      LENGTH 23.57210775710121
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 1.413637 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {15688F6B-772C-6142-B568-6EF5B7B344D2}
+      IID 22
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.702533 0 1 -1
+      SOFFS 338.66094091030328
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {213386EF-0047-DF4C-8524-9B80F307BDCB}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 362.23204866740446
+      SNAPOFFS 0
+      LENGTH 24.99833621639118
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {8A886CFD-35CA-B448-ABBC-E8AB70389E26}
+      IID 23
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.796992 0 1 -1
+      SOFFS 362.23304866740449
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {FC46833D-D861-1E40-B0C3-A5069DADCC14}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 387.23038488379564
+      SNAPOFFS 0
+      LENGTH 2.3128460108091
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 0.364059 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {F4503E26-52E9-CE4A-896C-E4FC4B92C490}
+      IID 25
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.985909 0 1 -1
+      SOFFS 387.23138488379567
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {16E019DF-CAD8-2440-B59C-F4F2AA7A37DE}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 389.17917180031071
+      SNAPOFFS 0
+      LENGTH 7.79282820507257
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.364059 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {4D7B5A79-30E9-5941-9988-FC489C7F1279}
+      IID 26
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.708438 0 1 -1
+      SOFFS 389.18017180031075
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {6FA3F692-04F9-4040-8AFF-ADE109E9752A}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 396.97200000538328
+      SNAPOFFS 0
+      LENGTH 5.02799999461672
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {451EF25A-0DC5-564E-8E18-5144AD8869FC}
+      IID 27
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.838318 0 1 -1
+      SOFFS 396.97300000538331
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {91A2CAE5-FF89-7749-B10A-FB164C82B948}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 402
+      SNAPOFFS 0
+      LENGTH 9.99786128272547
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {77CBDA14-C323-EE41-AA00-93E5D16F241C}
+      IID 28
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.720245 0 1 -1
+      SOFFS 402.001
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {DA8C5FF5-1082-F94C-ADB6-A74833956394}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 411.99786128272547
+      SNAPOFFS 0
+      LENGTH 45.23342132641176
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {8CEAAE41-73CA-FB40-A0EE-CF091E28398D}
+      IID 29
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.796992 0 1 -1
+      SOFFS 411.9988612827255
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E23C361A-1D45-5342-86DA-7FB27972D895}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 457.23128260913722
+      SNAPOFFS 0
+      LENGTH 2.36365102315926
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {187A32F6-95E8-9243-8CB6-4EFFDF617D97}
+      IID 33
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.861932 0 1 -1
+      SOFFS 457.23228260913726
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {AA401D90-797E-E140-B9D7-6CB9B965A108}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 459.59493363229649
+      SNAPOFFS 0
+      LENGTH 7.83952841349264
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {D5ECED15-352B-9345-B5C8-3773EBD3FE52}
+      IID 36
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.667112 0 1 -1
+      SOFFS 459.59593363229652
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D9F3D848-7CBC-7D40-8F2A-36D65F1D6793}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 467.43446204578913
+      SNAPOFFS 0
+      LENGTH 129.05385796230109
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 0 0 4.80384 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {0D51D5EB-400F-B04D-BA8A-75B544FBB447}
+      IID 37
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.796992 0 1 -1
+      SOFFS 467.43546204578917
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {17A58945-6EBF-274D-AD24-A3B8CD9E7BD9}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 591.68448000802505
+      SNAPOFFS 0
+      LENGTH 33.17932250464958
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 0 4.80384 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {B4ED0AF9-9A9F-9A49-8669-DB4B64D64996}
+      IID 39
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.932776 0 1 -1
+      SOFFS 591.68548000802514
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {68FD8966-BF31-7F4C-8DB7-3FE3549FCF82}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 624.86380251267462
+      SNAPOFFS 0
+      LENGTH 1.61340174947645
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 1.24816 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {EE076D23-0878-784E-97F9-6E199FD7CFE4}
+      IID 112
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.901286 0 1 -1
+      SOFFS 624.86480251267471
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {769C4140-AB89-1A47-BF01-9FF1F64326B6}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 625.22904437256773
+      SNAPOFFS 0
+      LENGTH 4.37863086132882
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 1.24816 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {0E7ECED8-5707-5749-9CBB-DE594D99ABF4}
+      IID 41
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.718746 0 1 -1
+      SOFFS 625.23004437256782
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {5625F90C-E52D-8545-9490-B6B82D232697}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 629.60767523389654
+      SNAPOFFS 0
+      LENGTH 2.36280321932736
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {ACF43635-B3D4-0041-96DD-D5C8A15A8A96}
+      IID 51
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.827129 0 1 -1
+      SOFFS 629.60867523389663
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {73DC9B62-DAB6-ED44-B87A-919AE83448F1}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 631.9704784532239
+      SNAPOFFS 0
+      LENGTH 12.13615874672587
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {3A2CB749-BABC-F74F-A7A4-D26CF0179B26}
+      IID 52
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.718746 0 1 -1
+      SOFFS 631.97147845322399
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {CB351D07-13C9-A141-B87F-8B5AF9FEB39D}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 644.10663719994977
+      SNAPOFFS 0
+      LENGTH 4.52640083944482
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {FBE27B1A-5810-E047-A1D3-34B5B32C7637}
+      IID 113
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.791224 0 1 -1
+      SOFFS 644.10763719994986
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {78D77D25-9C7D-D143-95FF-E2D9A05B8D4A}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 648.63303803939459
+      SNAPOFFS 0
+      LENGTH 5.67231194882618
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 3.619602 1 1 0
+      MUTE 0
+      SEL 1
+      IGUID {F88B16E7-9028-694F-A9BE-4EFAD795288E}
+      IID 114
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.718746 0 1 -1
+      SOFFS 648.63403803939468
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {52E1B2DD-0EE6-2443-9A2D-72933AD17FA7}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 650.68574777892775
+      SNAPOFFS 0
+      LENGTH 15.12372067894842
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 3.619602 1 1 0
+      FADEOUT 1 2.712965 0 1 0 0
+      MUTE 0
+      SEL 1
+      IGUID {BA51748F-4630-1042-AD8A-76114C63B529}
+      IID 42
+      NAME stream-of-consciousness-drums.flac
+      VOLPAN 0.410712 0 1 -1
+      SOFFS 650.68674777892784
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {8B9367DE-9C2F-074D-A048-FD4765EFC6D1}
+      <SOURCE FLAC
+        FILE "stream-of-consciousness-drums.flac"
+      >
+    >
+  >
+>

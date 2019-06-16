@@ -1,0 +1,1668 @@
+<REAPER_PROJECT 0.1 "5.92/OSX64" 1549390900
+  RIPPLE 0
+  GROUPOVERRIDE 0 0 0
+  AUTOXFADE 1
+  ENVATTACH 1
+  POOLEDENVATTACH 0
+  MIXERUIFLAGS 11 48
+  PEAKGAIN 1
+  FEEDBACK 0
+  PANLAW 1
+  PROJOFFS 0 0
+  MAXPROJLEN 0 600
+  GRID 3199 8 1 8 1 0 0 0
+  TIMEMODE 1 5 -1 30 0
+  CURSOR 432
+  ZOOM 0.95692571600497 0 0
+  VZOOMEX 9
+  USE_REC_CFG 0
+  RECMODE 1
+  SMPTESYNC 0 30 100 40 1000 300 0 0 1 0 0
+  LOOP 0
+  LOOPGRAN 0 4
+  RECORD_PATH "" ""
+  <RECORD_CFG
+    ZXZhdxgAAA==
+  >
+  <APPLYFX_CFG
+  >
+  RENDER_FILE ""
+  RENDER_PATTERN ""
+  RENDER_FMT 0 2 0
+  RENDER_1X 0
+  RENDER_RANGE 1 0 0 18 1000
+  RENDER_RESAMPLE 3 0 1
+  RENDER_ADDTOPROJ 0
+  RENDER_STEMS 0
+  RENDER_DITHER 0
+  TIMELOCKMODE 2
+  TEMPOENVLOCKMODE 1
+  ITEMMIX 0
+  DEFPITCHMODE 589824
+  TAKELANE 1
+  SAMPLERATE 44100 0 0
+  <RENDER_CFG
+  >
+  LOCK 1
+  <METRONOME 6 2
+    VOL 1 0.5
+    FREQ 800 1600 1
+    BEATLEN 4
+    SAMPLES "" ""
+    PATTERN 2863311530 2863311529
+  >
+  GLOBAL_AUTO -1
+  TEMPO 120 4 4
+  PLAYRATE 1 0 0.25 4
+  SELECTION 684 684
+  SELECTION2 684 684
+  MASTERAUTOMODE 0
+  MASTERTRACKHEIGHT 0 0
+  MASTERPEAKCOL 16576
+  MASTERMUTESOLO 0
+  MASTERTRACKVIEW 0 0.6667 0.5 0.5 0 0 0
+  MASTERHWOUT 0 0 1 0 0 0 0 -1
+  MASTER_NCH 2 2
+  MASTER_VOLUME 1 0 -1 -1 1
+  MASTER_FX 1
+  MASTER_SEL 0
+  <MASTERPLAYSPEEDENV
+    ACT 0 -1
+    VIS 0 1 1
+    LANEHEIGHT 0 0
+    ARM 0
+    DEFSHAPE 0 -1 -1
+  >
+  <TEMPOENVEX
+    ACT 0 -1
+    VIS 1 0 1
+    LANEHEIGHT 0 0
+    ARM 0
+    DEFSHAPE 1 -1 -1
+  >
+  <PROJBAY
+  >
+  <TRACK {1B9424D2-2E23-FB40-B1CF-E8A9FB7C740F}
+    NAME endless-sacrifice-debleed
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 0
+    ISBUS 0 0
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 1
+    REC 0 0 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {1B9424D2-2E23-FB40-B1CF-E8A9FB7C740F}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <FXCHAIN
+      WNDRECT 89 402 835 444
+      SHOW 0
+      LASTSEL 0
+      DOCKED 0
+      BYPASS 0 0 0
+      <VST "VST: ReaEQ (Cockos)" reaeq.vst.dylib 0 "" 1919247729
+        cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
+        IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH8SpoqWp5JAUbRBhYs6
+        9z8AAAAAAAAAQAEBAAAAAAAAAGxAFO91orBAwZo3sGO+9z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAFQCAABwAQAA
+        AAAQAAAA
+      >
+      FLOATPOS 0 0 0 0
+      FXID {0D178801-6DB9-D943-9BC2-91FFFF7CD11D}
+      WAK 0
+    >
+    <ITEM
+      POSITION 0.001
+      SNAPOFFS 0
+      LENGTH 393.59365825392581
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {250819EC-70BA-3D49-9703-3D201FE7C0F8}
+      IID 1
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 0
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {46812409-AC6E-D440-AAED-A85D0265CDD8}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 393.59465825392579
+      SNAPOFFS 0
+      LENGTH 5.74766753827555
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {C62202CB-6011-394F-8A65-CE01D9D3BB3D}
+      IID 28
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 0.794643 0 1 -1
+      SOFFS 393.59365825392581
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {2CF0B929-9059-0345-ACF7-134D6CDB84C5}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 399.34232579220134
+      SNAPOFFS 0
+      LENGTH 75.20028653523997
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {18959669-6D19-324C-BE08-8BB7848D7F66}
+      IID 29
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 399.34132579220136
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D3E1AE05-E50E-7943-988A-956D62A094FD}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 474.5426123274413
+      SNAPOFFS 0
+      LENGTH 3.10325735487743
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {7A41590F-122E-6D48-A1E4-BAC59B1039EB}
+      IID 74
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.125 0 1 -1
+      SOFFS 474.54161232744133
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {CA71EE08-2C52-544E-BFC4-A8D2A7757833}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 477.64586968231873
+      SNAPOFFS 0
+      LENGTH 1.61841123041012
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {7E5D8A47-B14A-9849-BA86-3E31DF3E6221}
+      IID 75
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 477.64486968231876
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1EF5EABD-AB57-624A-AC97-295E4ACE9D23}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 479.26428091272885
+      SNAPOFFS 0
+      LENGTH 10.23105795688701
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 0 0 1.274216 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {C219093E-1CD7-6A42-9689-9D5F0E9F60D7}
+      IID 30
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.585979 0 1 -1
+      SOFFS 479.26328091272887
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {02249FA8-0CDE-494F-BF00-134421A1C434}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 488.22112319762476
+      SNAPOFFS 0
+      LENGTH 17.32537430683499
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 0 1.274216 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {E234F59E-CFD8-004C-B63D-D84C4E3842EE}
+      IID 32
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 488.22012319762479
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {4B63F61F-E609-B74F-8DB7-1A18DCB5C381}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 505.54649750445975
+      SNAPOFFS 0
+      LENGTH 1.66183583574508
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {8855132D-364C-D944-B89F-4F8B59E9E777}
+      IID 85
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.410714 0 1 -1
+      SOFFS 505.54549750445977
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {2C2B09E9-A6CB-6A49-B20F-740509911E25}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 507.20833334020483
+      SNAPOFFS 0
+      LENGTH 33.2492930275979
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 0.127009 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {3870A396-2417-C840-A3D3-62F4C5C93EB4}
+      IID 87
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 507.20733334020485
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {9675E2D1-A3F3-5F4F-B6CF-CDEE79EC9A16}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 540.33061748576347
+      SNAPOFFS 0
+      LENGTH 20.88432568029327
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.127009 1 1 0
+      FADEOUT 1.1 0 1.20815 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {3D269E72-160E-5646-A0AA-8C9B786ECF78}
+      IID 59
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.464286 0 1 -1
+      SOFFS 540.32961748576349
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {84FD99F7-D6C3-E948-A199-F10440DB3242}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 560.00679328631543
+      SNAPOFFS 0
+      LENGTH 91.93668696516897
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 1.20815 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {24BE164D-EA35-3D4D-A6DE-57BC166BAFB8}
+      IID 62
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 560.00579328631545
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {91A80454-ADD4-424F-A821-781A79BE0F41}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 651.9434802514844
+      SNAPOFFS 0
+      LENGTH 14.39670684664861
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 0.851127 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {841DBB30-1878-F04A-A94B-E2BC8A366ABB}
+      IID 89
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.366071 0 1 -1
+      SOFFS 651.94248025148443
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {ED937654-F38C-3E44-ADD5-63DDEE1638F2}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 665.48905976615526
+      SNAPOFFS 0
+      LENGTH 2.85094024289992
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.851127 1 1 0
+      FADEOUT 1.1 0 0.083319 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {B1E9C8C1-CBDC-9A4F-A04E-070A33EE487A}
+      IID 91
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 665.48805976615529
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1D91FC14-B8C9-7D4D-9EE5-18CF28301F99}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 668.2566812132975
+      SNAPOFFS 0
+      LENGTH 15.4891226580412
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.083319 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {42E21F33-CC21-A145-9042-28FBCCE102AD}
+      IID 93
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.410714 0 1 -1
+      SOFFS 668.25568121329752
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {F88C2D27-86EB-F242-A055-1234E378838E}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 683.74580387133869
+      SNAPOFFS 0
+      LENGTH 3.35388710961797
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 1.351049 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {4B9BB819-13D5-6444-9A57-44DBBAE683F2}
+      IID 94
+      NAME endless-sacrifice-debleed.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 683.74480387133872
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B822A188-3F7E-184B-B6C4-EA88635470F2}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-debleed.flac"
+      >
+    >
+  >
+  <TRACK {BC99A1FE-3C75-8840-8977-615154B89921}
+    NAME endless-sacrifice-drums
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 0
+    ISBUS 0 0
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 1
+    REC 0 0 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {BC99A1FE-3C75-8840-8977-615154B89921}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <FXCHAIN
+      WNDRECT 89 402 835 444
+      SHOW 0
+      LASTSEL 1
+      DOCKED 0
+      BYPASS 0 0 0
+      <JS utility/channelmixer ""
+        -120.000000 -120.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+      >
+      FLOATPOS 0 0 0 0
+      FXID {3AFAFCAB-B566-FC44-A340-88FA18A5EA3B}
+      WAK 0
+      BYPASS 0 0 0
+      <VST "VST: ReaEQ (Cockos)" reaeq.vst.dylib 0 "" 1919247729
+        cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
+        IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH+UvFzAH5hAwEvN32hd
+        9D8AAAAAAAAAQAEBAAAAAQAAAIDRCgiUcbBApv7/////7z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAFQCAABwAQAA
+        AAAQAAAA
+      >
+      FLOATPOS 0 0 0 0
+      FXID {7B2F65C5-492B-4B43-B681-3B8789059CC7}
+      WAK 0
+    >
+    <ITEM
+      POSITION 0
+      SNAPOFFS 0
+      LENGTH 105.7694867054268
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 0 0 0.227429 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {1A337792-62BE-E649-A471-F4CB91E6F2B9}
+      IID 2
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.196429 0 1 -1
+      SOFFS 0.001
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {DDBBD105-B61F-044B-AF1A-8E8620CCF179}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 105.54205765782484
+      SNAPOFFS 0
+      LENGTH 2.655453484329
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 0 0.227429 1 1 0
+      FADEOUT 1.1 0 0.606212 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {6732ED25-8B6A-9A48-99E2-74685FD4CB65}
+      IID 3
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 0.991071 0 1 -1
+      SOFFS 105.54305765782485
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {17263C7A-7159-4E41-9025-C336B8EA37B2}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 107.59129906814043
+      SNAPOFFS 0
+      LENGTH 3.36542263871038
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 0 0.606212 0 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {6CAF095A-F315-B84F-86E1-A4CDA3D09E48}
+      IID 4
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.125 0 1 -1
+      SOFFS 107.59229906814043
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D6A4DF3A-4C0B-5046-B079-FF4C7E980076}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 110.95672170685081
+      SNAPOFFS 0
+      LENGTH 45.43015452328022
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 0 0 0.886876 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {FA42FF91-2FA8-314B-8ECC-5AA194F3A719}
+      IID 63
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.232143 0 1 -1
+      SOFFS 110.95772170685082
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {6273D37A-55A4-2C40-94BA-A748A101866D}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 155.5
+      SNAPOFFS 0
+      LENGTH 2.25124853741738
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 0 0.886876 0 1 0
+      FADEOUT 1.1 0 0.550335 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {3F24753E-DA23-BF41-81B2-FE8A2D02DED7}
+      IID 7
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 0.901786 0 1 -1
+      SOFFS 155.501
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {52EA6883-BECD-C74C-9972-1EA132678E85}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 157.2009134891002
+      SNAPOFFS 0
+      LENGTH 1.67149154300228
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 0 0.550335 0 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {BB1011EB-0601-824E-93A1-8BECCC20620A}
+      IID 8
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.241564 0 1 -1
+      SOFFS 157.20191348910021
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {C62F16F6-F03B-024A-9B3A-B72FE9826821}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 158.87240503210248
+      SNAPOFFS 0
+      LENGTH 2.83720284791522
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {1368E7CA-77AE-1046-B24E-F3878E9968F8}
+      IID 9
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.507614 0 1 -1
+      SOFFS 158.87340503210248
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {16DE0DC9-7A3C-F747-B65E-91858838E288}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 161.7096078800177
+      SNAPOFFS 0
+      LENGTH 0.66822152016536
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {6697D5AD-17CD-2944-A760-61CF33E9E77D}
+      IID 10
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.086368 0 1 -1
+      SOFFS 161.7106078800177
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {8CDB958A-320B-D24F-8FC1-4B55165CC9E1}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 162.37782940018306
+      SNAPOFFS 0
+      LENGTH 3.31429527190951
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {89B1C7CE-4388-9E4E-B9FE-4BFB78B82012}
+      IID 11
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.214286 0 1 -1
+      SOFFS 162.37882940018306
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {5F6E1712-39F0-384B-A46C-541F19D7DF26}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 165.69212467209258
+      SNAPOFFS 0
+      LENGTH 1.16787533016833
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {A2BA5272-1E61-3243-9EAA-B10D0B4802D6}
+      IID 64
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.303571 0 1 -1
+      SOFFS 165.69312467209258
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {41105DD2-C1DD-5B46-91D0-1471D6C14331}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 166.8600000022609
+      SNAPOFFS 0
+      LENGTH 5.51741755624366
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {B315E2B6-7567-6444-BB83-5B68D84A2D79}
+      IID 65
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.214286 0 1 -1
+      SOFFS 166.86100000226091
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {612B5E50-2813-BE4D-ADB9-9F012A82E9E7}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 172.37741755850456
+      SNAPOFFS 0
+      LENGTH 3.3411076008268
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1.1 0 0.583711 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {E55AB436-AFF2-F44F-BA75-D08AAA196294}
+      IID 12
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 0.975515 0 1 -1
+      SOFFS 172.37841755850457
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {C844E7F2-3AC8-BC4A-8066-7E445D49F17F}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 175.13481412056296
+      SNAPOFFS 0
+      LENGTH 18.13875356315285
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 0 0.583711 0 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {08DC0950-420A-3340-BC29-1D29970B7A28}
+      IID 13
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.1875 0 1 -1
+      SOFFS 175.13581412056297
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {380E34F6-26EB-A142-90A4-350D4D0E4EC9}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 193.27356768371581
+      SNAPOFFS 0
+      LENGTH 1.71840234132901
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {C800DDC1-4A70-4447-8F1C-074C59422914}
+      IID 14
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 0.892857 0 1 -1
+      SOFFS 193.27456768371582
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {64EDFD1F-83FB-DF40-8047-59F3B257FFA3}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 194.99197002504482
+      SNAPOFFS 0
+      LENGTH 5.14661501227874
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {7ADF211B-84CB-8C48-B0CE-740633EB894B}
+      IID 15
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.226001 0 1 -1
+      SOFFS 194.99297002504483
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {A8109E1E-A257-8949-9102-3BDECCD89CD6}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 200.13858503732357
+      SNAPOFFS 0
+      LENGTH 11.76614987996394
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {D1085F8A-C67A-0D4A-8769-39C5E26EE01E}
+      IID 66
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.116071 0 1 -1
+      SOFFS 200.13958503732357
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B5A7709F-3112-1842-8B5D-AC30923DE9AA}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 211.9047349172875
+      SNAPOFFS 0
+      LENGTH 1.66757455663196
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {70DE3B83-E952-C644-899C-9FF04438F849}
+      IID 18
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.29592 0 1 -1
+      SOFFS 211.9057349172875
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {7D3CEF74-3307-E949-93B6-20B751848665}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 213.57230947391946
+      SNAPOFFS 0
+      LENGTH 7.92769052608054
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {FC4E827A-B472-574C-B451-FB67A031F0F0}
+      IID 19
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.214286 0 1 -1
+      SOFFS 213.57330947391947
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {76705C0B-5680-FC46-9EB7-36D01A6C0361}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 221.5
+      SNAPOFFS 0
+      LENGTH 27.0728000033682
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {4FEE8A8F-BD18-4E46-AE67-7134EBAB0143}
+      IID 68
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.142857 0 1 -1
+      SOFFS 221.501
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {ECAB02E7-C7D4-844F-A5F1-DD21116C1E30}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 248.5728000033682
+      SNAPOFFS 0
+      LENGTH 53.86817919710703
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 0 0 7.222902 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {0EC79A83-8CC7-984F-A79E-8D1A63AE9A41}
+      IID 67
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.285714 0 1 -1
+      SOFFS 248.57380000336821
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {79EBAFFD-7E59-5D47-8FF7-96FBBF19F793}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 295.21807671882721
+      SNAPOFFS 0
+      LENGTH 9.50340787777037
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 0 7.222902 0 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {D16D3E65-CD61-7C45-9C20-D32460FDAEED}
+      IID 20
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.087257 0 1 -1
+      SOFFS 295.21907671882718
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {7D52966E-DD20-3249-AD9B-E3C0AA7CC363}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 304.72148459659758
+      SNAPOFFS 0
+      LENGTH 1.70760714016058
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {2706A10B-2289-F34D-BBB4-2E51D6EF5F1D}
+      IID 21
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.375 0 1 -1
+      SOFFS 304.72248459659755
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {28967FA1-8D65-B745-89DB-158E9D690376}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 306.42909173675815
+      SNAPOFFS 0
+      LENGTH 2.92694968783661
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {93AFC972-0F18-4740-BC8D-B0C6C33F4B6D}
+      IID 69
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.232143 0 1 -1
+      SOFFS 306.43009173675813
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {C176B48F-5971-2E49-AB91-86D88E099278}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 309.35604142459476
+      SNAPOFFS 0
+      LENGTH 1.52226292967816
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1.1 0 1.499646 0 1 0.488383
+      MUTE 0
+      SEL 0
+      IGUID {9EB6BB29-7B9D-594C-981A-F88B7984B341}
+      IID 22
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 0.357143 0 1 -1
+      SOFFS 309.35704142459474
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {BF3E4DE9-BF36-CE40-888D-ABEB2BAE1A7F}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 309.37865844070564
+      SNAPOFFS 0
+      LENGTH 2.09951882081526
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 1.499646 0 1 0.488383
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {5C2FAC28-4C92-294B-959A-8E773DE855FB}
+      IID 23
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.142857 0 1 -1
+      SOFFS 309.37965844070561
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1668E6AE-82CD-4943-8AEE-3DCBF12E39F7}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 311.4781772615209
+      SNAPOFFS 0
+      LENGTH 38.61181132666877
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {05C36163-93EB-4640-A59A-4DF8CB6B469C}
+      IID 70
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 311.47917726152087
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {BA3A3911-82A3-BB43-8E51-7094627772BC}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 350.08998858818967
+      SNAPOFFS 0
+      LENGTH 2.12825141658249
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {DAFC0B99-0A5C-794C-9A7A-2A213799B562}
+      IID 24
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.089286 0 1 -1
+      SOFFS 350.09098858818965
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {273070F9-DCAA-F54C-A6A3-8090CC60B864}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 352.21824000477216
+      SNAPOFFS 0
+      LENGTH 8.47839491312305
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {F6FD623F-019D-464A-AFC1-B6D61EE8A307}
+      IID 71
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.151786 0 1 -1
+      SOFFS 352.21924000477213
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {0F6F9F56-D9A2-5C49-816C-FB68091DE41B}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 360.69663491789521
+      SNAPOFFS 0
+      LENGTH 38.63936508751982
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {C31B8465-0013-7E4C-A2F0-809FBBDF4264}
+      IID 25
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 360.69763491789519
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B56E7B16-7D06-1D46-8112-6893182CC65C}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 399.33600000541503
+      SNAPOFFS 0
+      LENGTH 0.60134310226027
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {A38F1AFF-D82A-E944-89A1-569674FBC589}
+      IID 36
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 0.991071 0 1 -1
+      SOFFS 399.33700000541501
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {F381A762-867C-AB43-A1FF-0A03D632A0A2}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 399.9373431076753
+      SNAPOFFS 0
+      LENGTH 74.51725536382799
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {60CE1D01-6FA0-8F43-AE9F-7076EB34A85E}
+      IID 37
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 399.93834310767528
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B0665675-50E3-4042-AE0C-C15FB7DB55DE}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 474.45459847150329
+      SNAPOFFS 0
+      LENGTH 3.12789612878015
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {C55813ED-41D6-1841-9F34-E253B63D3331}
+      IID 72
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.089286 0 1 -1
+      SOFFS 474.45559847150327
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {AD1100DC-1D89-C445-B836-A16C04C3684C}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 477.58249460028344
+      SNAPOFFS 0
+      LENGTH 1.68178631244541
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {12974C95-F7C5-594E-9BD3-DCEA2DE6DBA2}
+      IID 73
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 477.58349460028342
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {62882355-FBB6-0844-95DA-7A6371232C83}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 479.26428091272885
+      SNAPOFFS 0
+      LENGTH 10.20465827438062
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {E9F182E1-039C-4B46-A8ED-5CE2733423D3}
+      IID 31
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.669643 0 1 -1
+      SOFFS 479.26528091272883
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {A5A24426-8911-DF48-9A53-41D9F5141BA9}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 489.46893918710947
+      SNAPOFFS 0
+      LENGTH 2.40916158945998
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {9A417E44-EC73-7D44-AB7C-5C9B0FF3D8F4}
+      IID 76
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.482143 0 1 -1
+      SOFFS 489.46993918710945
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B239C120-C679-3A4B-897E-C56C16C1434B}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 491.87810077656945
+      SNAPOFFS 0
+      LENGTH 0.32964550585439
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {9FB634D5-C0BC-2F48-8112-C6CB14028E8F}
+      IID 33
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 491.87910077656943
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {DD92F83A-E222-E647-A560-F4EE981C063C}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 492.20774628242384
+      SNAPOFFS 0
+      LENGTH 0.60058705758576
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {D7ABEB9A-FF45-FD46-8E83-1CE37CC875F0}
+      IID 77
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.339286 0 1 -1
+      SOFFS 492.20874628242382
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {44CC412A-AA5E-D444-A268-3410CB2AA506}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 492.8083333400096
+      SNAPOFFS 0
+      LENGTH 0.48333333333983
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {DEA92603-656A-CF49-AAFF-F30067960778}
+      IID 78
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.705357 0 1 -1
+      SOFFS 492.80933334000957
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {303EE3CF-28D2-9944-80A3-8924F86ACDA4}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 493.29166667334943
+      SNAPOFFS 0
+      LENGTH 0.76566017418594
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {B61661AD-3EC7-C64D-AACC-1B2A0E67A343}
+      IID 79
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.339286 0 1 -1
+      SOFFS 493.2926666733494
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {57A164C5-7A20-2D4E-BFBD-602F93AD8A5C}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 494.05732684753536
+      SNAPOFFS 0
+      LENGTH 0.29839013027669
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {55BC6CF4-6FCF-E74A-874E-6D1766494550}
+      IID 80
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.589286 0 1 -1
+      SOFFS 494.05832684753534
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D14EA75D-8AEF-E644-ACA3-092EAB543AE5}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 494.35571697781205
+      SNAPOFFS 0
+      LENGTH 1.24150525112447
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {F0735A8E-0502-E744-A0F6-77755C12FB42}
+      IID 81
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.339286 0 1 -1
+      SOFFS 494.35671697781203
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {503BFD18-B98F-1D45-A5FA-6FADC034C7D2}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 495.59722222893652
+      SNAPOFFS 0
+      LENGTH 2.63599196643543
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {87C1E070-2A00-C048-93C1-59E344B0177D}
+      IID 83
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.482143 0 1 -1
+      SOFFS 495.59822222893649
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {2A1C887B-E8CC-3642-978A-7968D49618B9}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 498.23321419537194
+      SNAPOFFS 0
+      LENGTH 7.31328330908781
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {C4E1D32B-998C-D84C-8DA1-054D31EAC13F}
+      IID 84
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.339286 0 1 -1
+      SOFFS 498.23421419537192
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {14E337FB-FAB7-FC42-9930-8673351A215D}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 505.54649750445975
+      SNAPOFFS 0
+      LENGTH 1.66183583574508
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {C4237A0E-AA1E-404E-84F2-7B61DE96963E}
+      IID 86
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.473961 0 1 -1
+      SOFFS 505.54749750445973
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {7A26B083-0A0E-7044-BD79-562BE2E18300}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 507.20833334020483
+      SNAPOFFS 0
+      LENGTH 33.18082770790886
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1.1 0 0.179311 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {1E8DBABF-8B43-0B46-9614-C2A2CA2F0BB4}
+      IID 88
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.339286 0 1 -1
+      SOFFS 507.20933334020481
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {3055499D-119C-8845-8ADA-7F1909A15553}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 540.20984999480606
+      SNAPOFFS 0
+      LENGTH 21.26566127962019
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.179311 0 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {1E99B313-4174-044E-BBEB-2DA2D57C623B}
+      IID 60
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.464286 0 1 -1
+      SOFFS 540.21084999480604
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {DBDC667C-667E-0D4F-B393-E595762A9A10}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 561.47551127442625
+      SNAPOFFS 0
+      LENGTH 90.46796897705815
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {9583D430-5582-0044-A77A-DD142FD2159F}
+      IID 61
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 561.47651127442623
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {716B7C4D-0ACC-4549-B93E-4F884F698ED4}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 651.9434802514844
+      SNAPOFFS 0
+      LENGTH 13.04851975753229
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 0 0 1.3536 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {6EDA3409-D579-BC4A-B78E-092808018A33}
+      IID 90
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.366071 0 1 -1
+      SOFFS 651.94448025148438
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {33B81E3D-E785-BB49-A44E-0E39AF98A218}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 663.63840000899825
+      SNAPOFFS 0
+      LENGTH 4.62240000006273
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 0 1.3536 0 1 0
+      FADEOUT 1.1 0 0.0808 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {B87EF9F9-F1F6-3B4E-A97B-BC54EE94CF29}
+      IID 34
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 0.982143 0 1 -1
+      SOFFS 663.63940000899822
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {EC800FC9-93B0-8146-B1BC-B298A5D3E72E}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 668.18000000905306
+      SNAPOFFS 0
+      LENGTH 13.6425667044557
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.0808 0 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {ACC0A117-FA3C-0C4F-8E9D-12F913259773}
+      IID 35
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.348214 0 1 -1
+      SOFFS 668.18100000905304
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D0EE7DEC-975F-EC4D-913D-104197CC4AD3}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 681.82256671350876
+      SNAPOFFS 0
+      LENGTH 1.60331996284685
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {89B488D8-5EA7-4841-858D-867764F5E226}
+      IID 92
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 681.82356671350874
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {6004B71E-DBB6-5F4B-B962-20FE0AED90F5}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 683.42588667635562
+      SNAPOFFS 0
+      LENGTH 1.07455073469646
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {910B9EC4-9B22-5147-8C8F-3EEB4E783183}
+      IID 95
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.678571 0 1 -1
+      SOFFS 683.42688667635559
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {3F09B0F7-7137-0946-BF0B-749A75CF8E70}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 684.50043741105208
+      SNAPOFFS 0
+      LENGTH 2.40412017881874
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0.667121 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {6B25BFC6-532A-7E4F-8BA3-0D5BDAEA6A50}
+      IID 96
+      NAME endless-sacrifice-drums.flac
+      VOLPAN 1.281818 0 1 -1
+      SOFFS 684.50143741105205
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {A6E3F3A4-F1E9-CE4F-85C9-77D0679E475D}
+      <SOURCE FLAC
+        FILE "endless-sacrifice-drums.flac"
+      >
+    >
+  >
+>

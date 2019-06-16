@@ -1,0 +1,1030 @@
+<REAPER_PROJECT 0.1 "5.92/OSX64" 1549388892
+  RIPPLE 0
+  GROUPOVERRIDE 0 0 0
+  AUTOXFADE 1
+  ENVATTACH 1
+  POOLEDENVATTACH 0
+  MIXERUIFLAGS 11 48
+  PEAKGAIN 1
+  FEEDBACK 0
+  PANLAW 1
+  PROJOFFS 0 0
+  MAXPROJLEN 0 600
+  GRID 3199 8 1 8 1 0 0 0
+  TIMEMODE 1 5 -1 30 0
+  CURSOR 0
+  ZOOM 34.26180030457567 0 0
+  VZOOMEX 10
+  USE_REC_CFG 0
+  RECMODE 1
+  SMPTESYNC 0 30 100 40 1000 300 0 0 1 0 0
+  LOOP 0
+  LOOPGRAN 0 4
+  RECORD_PATH "" ""
+  <RECORD_CFG
+    ZXZhdxgAAA==
+  >
+  <APPLYFX_CFG
+  >
+  RENDER_FILE ""
+  RENDER_PATTERN ""
+  RENDER_FMT 0 2 0
+  RENDER_1X 0
+  RENDER_RANGE 1 0 0 18 1000
+  RENDER_RESAMPLE 3 0 1
+  RENDER_ADDTOPROJ 0
+  RENDER_STEMS 0
+  RENDER_DITHER 0
+  TIMELOCKMODE 2
+  TEMPOENVLOCKMODE 1
+  ITEMMIX 0
+  DEFPITCHMODE 589824
+  TAKELANE 1
+  SAMPLERATE 44100 0 0
+  <RENDER_CFG
+  >
+  LOCK 1
+  <METRONOME 6 2
+    VOL 1 0.5
+    FREQ 800 1600 1
+    BEATLEN 4
+    SAMPLES "" ""
+    PATTERN 2863311530 2863311529
+  >
+  GLOBAL_AUTO -1
+  TEMPO 120 4 4
+  PLAYRATE 1 0 0.25 4
+  SELECTION 542 542
+  SELECTION2 542 542
+  MASTERAUTOMODE 0
+  MASTERTRACKHEIGHT 0 0
+  MASTERPEAKCOL 16576
+  MASTERMUTESOLO 0
+  MASTERTRACKVIEW 0 0.6667 0.5 0.5 0 0 0
+  MASTERHWOUT 0 0 1 0 0 0 0 -1
+  MASTER_NCH 2 2
+  MASTER_VOLUME 1 0 -1 -1 1
+  MASTER_FX 1
+  MASTER_SEL 0
+  <MASTERPLAYSPEEDENV
+    ACT 0 -1
+    VIS 0 1 1
+    LANEHEIGHT 0 0
+    ARM 0
+    DEFSHAPE 0 -1 -1
+  >
+  <TEMPOENVEX
+    ACT 0 -1
+    VIS 1 0 1
+    LANEHEIGHT 0 0
+    ARM 0
+    DEFSHAPE 1 -1 -1
+  >
+  <PROJBAY
+  >
+  <TRACK {A172144C-4C64-F74D-826D-662A08A92E12}
+    NAME this-dying-soul-debleed
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 0
+    ISBUS 0 0
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 0
+    REC 0 0 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {A172144C-4C64-F74D-826D-662A08A92E12}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <FXCHAIN
+      WNDRECT 89 402 835 444
+      SHOW 0
+      LASTSEL 0
+      DOCKED 0
+      BYPASS 0 0 0
+      <VST "VST: ReaEQ (Cockos)" reaeq.vst.dylib 0 "" 1919247729
+        cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
+        IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH8SpoqWp5JAUbRBhYs6
+        9z8AAAAAAAAAQAEBAAAAAAAAAGxAFO91orBAwZo3sGO+9z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAFQCAABwAQAA
+        AAAQAAAA
+      >
+      FLOATPOS 0 0 0 0
+      FXID {6CC9518D-027F-7045-9EA5-72A141E2C487}
+      WAK 0
+    >
+    <ITEM
+      POSITION 1.75406241459761
+      SNAPOFFS 0
+      LENGTH 3.07427459881056
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 0 3.074275 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {2D92D8F2-2B5F-384B-B991-ADE0508020E4}
+      IID 1
+      NAME this-dying-soul-debleed.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 1.75306241459761
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {6D0E7EFC-7EEA-A74F-BCBC-DC565395C2BF}
+      <SOURCE FLAC
+        FILE "this-dying-soul-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 4.82833701340817
+      SNAPOFFS 0
+      LENGTH 38.62102290962235
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {E20C6610-CD2E-5E47-A960-4BEEB5C4EB76}
+      IID 11
+      NAME this-dying-soul-debleed.flac
+      VOLPAN 1.637097 0 1 -1
+      SOFFS 4.82733701340817
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B8144F21-1731-6748-AEFC-E67159A45603}
+      <SOURCE FLAC
+        FILE "this-dying-soul-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 43.44935992303052
+      SNAPOFFS 0
+      LENGTH 485.661639351269
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {DC65C356-696A-D646-AA74-467BCB0AD3E0}
+      IID 12
+      NAME this-dying-soul-debleed.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 43.44835992303052
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1ADC11F9-B717-1F4A-9E9D-EDDDB732A3DB}
+      <SOURCE FLAC
+        FILE "this-dying-soul-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 529.1109992742995
+      SNAPOFFS 0
+      LENGTH 10.26320933056627
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {20A4617D-3071-1E49-A961-4A30E0EA3C34}
+      IID 25
+      NAME this-dying-soul-debleed.flac
+      VOLPAN 1.564516 0 1 -1
+      SOFFS 529.10999927429953
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {056BEB87-9EEF-F340-88F1-A8E7094FDB1D}
+      <SOURCE FLAC
+        FILE "this-dying-soul-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 539.37420860486577
+      SNAPOFFS 0
+      LENGTH 32.82050578500423
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {6FD214AC-43B7-4040-8C60-E2F1C1DB1637}
+      IID 27
+      NAME this-dying-soul-debleed.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 539.37320860486579
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {05366E1D-4A83-E54D-900E-AFA7735F1743}
+      <SOURCE FLAC
+        FILE "this-dying-soul-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 572.19471438987
+      SNAPOFFS 0
+      LENGTH 2.30528561013
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {F1A2A245-518F-514E-87C3-D97C87BAC054}
+      IID 29
+      NAME this-dying-soul-debleed.flac
+      VOLPAN 1.5 0 1 -1
+      SOFFS 572.19371438987002
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {70F5A182-52DB-B546-B490-8CA5DAAD587A}
+      <SOURCE FLAC
+        FILE "this-dying-soul-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 574.5
+      SNAPOFFS 0
+      LENGTH 2.27445944833175
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {2C0E9F4C-1FF3-6A41-AC57-B354F35C396F}
+      IID 33
+      NAME this-dying-soul-debleed.flac
+      VOLPAN 1.556452 0 1 -1
+      SOFFS 574.499
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {5B28197B-710E-0A44-81FE-A76835401AE2}
+      <SOURCE FLAC
+        FILE "this-dying-soul-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 576.77445944833175
+      SNAPOFFS 0
+      LENGTH 4.53808398060642
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {A927FCDC-EF78-E54F-AAB8-15E311EAA2C9}
+      IID 35
+      NAME this-dying-soul-debleed.flac
+      VOLPAN 1.677419 0 1 -1
+      SOFFS 576.77345944833178
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {88593003-2ECA-4C4C-A2F2-911C3F8BA9D3}
+      <SOURCE FLAC
+        FILE "this-dying-soul-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 581.31254342893817
+      SNAPOFFS 0
+      LENGTH 22.43020940377141
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {80FE6D5B-8D7C-EB49-943C-BDC42AD6E9C9}
+      IID 31
+      NAME this-dying-soul-debleed.flac
+      VOLPAN 1.491935 0 1 -1
+      SOFFS 581.31154342893819
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {A53B9A59-23A4-B548-BC88-9A6E99574939}
+      <SOURCE FLAC
+        FILE "this-dying-soul-debleed.flac"
+      >
+    >
+    <ITEM
+      POSITION 603.74275283270958
+      SNAPOFFS 0
+      LENGTH 84.05238606551245
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 0 0 0
+      FADEOUT 1 0.05787 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {1B0B8C22-84B3-AF4F-A302-002953D7439E}
+      IID 37
+      NAME this-dying-soul-debleed.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 603.74175283270961
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {6A4964BF-F01A-A44F-B96E-2348728AB208}
+      <SOURCE FLAC
+        FILE "this-dying-soul-debleed.flac"
+      >
+    >
+  >
+  <TRACK {C14E1383-8A81-7B4F-B529-3B69AF3C72B7}
+    NAME this-dying-soul-drums
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 0
+    ISBUS 0 0
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 0
+    REC 0 0 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {C14E1383-8A81-7B4F-B529-3B69AF3C72B7}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <FXCHAIN
+      WNDRECT 89 661 793 185
+      SHOW 0
+      LASTSEL 0
+      DOCKED 0
+      BYPASS 0 0 0
+      <JS utility/channelmixer ""
+        -120.000000 -120.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+      >
+      FLOATPOS 0 0 0 0
+      FXID {0CB5DCCA-F2C1-8645-B13A-24BF54AACC94}
+      WAK 0
+      BYPASS 0 0 0
+      <VST "VST: ReaEQ (Cockos)" reaeq.vst.dylib 0 "" 1919247729
+        cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
+        IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAQI9AAAAAAAAA
+        8D8AAAAAAAAAQAEBAAAAAQAAAAA9OxVPBrJAE3Re0f/Q9D8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAFQCAABwAQAA
+        AAAQAAAA
+      >
+      FLOATPOS 0 0 0 0
+      FXID {190ADC64-974E-314B-8CFE-F0B82D33B703}
+      WAK 0
+    >
+    <ITEM
+      POSITION 1.70965577119007
+      SNAPOFFS 0
+      LENGTH 3.51979556911434
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 2.886432 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {7011C851-E4FC-2740-80C7-35921F6DA28A}
+      IID 2
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 1.71065577119007
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E7B43521-681D-4749-97A1-B0C93979C346}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 5.22945134030441
+      SNAPOFFS 0
+      LENGTH 26.37558063731996
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {733F837B-A467-0144-9FBF-5D6A0C7BCA78}
+      IID 14
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.758065 0 1 -1
+      SOFFS 5.23045134030441
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {AB1FE206-2AD3-FD45-84B7-43BFD183EB1A}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 31.60503197762436
+      SNAPOFFS 0
+      LENGTH 11.84432794540616
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {673A1182-F257-F14F-B3A1-098E413DB4CA}
+      IID 15
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.66129 0 1 -1
+      SOFFS 31.60603197762436
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {C96193F5-CB5E-4243-809E-48CF040AA8CD}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 43.44935992303052
+      SNAPOFFS 0
+      LENGTH 77.74855826973788
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {99CA054D-F6B6-8244-A3CB-D325135E137D}
+      IID 13
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 43.45035992303052
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {29FC0402-CA3D-014F-9B99-48F1567A58AC}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 121.19791819276841
+      SNAPOFFS 0
+      LENGTH 0.19905058171194
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {2357B68B-96C3-BF48-90C3-8D7032719BC5}
+      IID 16
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.282258 0 1 -1
+      SOFFS 121.1989181927684
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {616FDE2E-C56B-6044-9233-E76A5F92B9E3}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 121.39696877448036
+      SNAPOFFS 0
+      LENGTH 0.77303122717727
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {91F5911C-975B-4547-80E2-288036910C4E}
+      IID 17
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 121.39796877448035
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B6889520-1D72-B746-ADF4-412453E4B299}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 122.17000000165763
+      SNAPOFFS 0
+      LENGTH 1.0100000000137
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {05C18B13-31B1-5641-9CAA-A9BE16FD3A88}
+      IID 18
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.508065 0 1 -1
+      SOFFS 122.17100000165762
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {99DD79C8-5006-3644-8A09-8E5570F54B76}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 123.18000000167133
+      SNAPOFFS 0
+      LENGTH 223.20517223452941
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {29004AEB-04E1-3447-96D2-E600569DDCAA}
+      IID 19
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 123.18100000167132
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {AFD94A82-847F-8A47-AA28-8DC79B0079A5}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 346.38517223620073
+      SNAPOFFS 0
+      LENGTH 1.5639480643901
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {DCFF81F0-ECEF-6148-B288-7626BC69FFE5}
+      IID 22
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.596774 0 1 -1
+      SOFFS 346.38617223620076
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B4BF884F-D5B9-6440-AE9E-D405E1EFD55B}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 347.94912030059083
+      SNAPOFFS 0
+      LENGTH 2.3008797041615
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {D0E27697-1DAE-ED40-96BA-D110F209DFB9}
+      IID 23
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.467742 0 1 -1
+      SOFFS 347.95012030059087
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {F33AA5BF-31D6-2549-B425-3745A4FB7B62}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 350.25000000475234
+      SNAPOFFS 0
+      LENGTH 2.10833333336194
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {24DD777B-BE6B-6540-961E-DF5CBB89ADA2}
+      IID 20
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.330645 0 1 -1
+      SOFFS 350.25100000475231
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {45B4B7B4-9BF6-E346-B3FD-56763671D090}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 352.35833333811428
+      SNAPOFFS 0
+      LENGTH 42.91208138492823
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {71EA843E-7FC8-EB40-95BD-4BD5F46E4F02}
+      IID 21
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 352.35933333811425
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {CBEA3BA9-CE89-BE47-96C3-0E13A6375028}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 395.27041472304251
+      SNAPOFFS 0
+      LENGTH 15.80355932649417
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 0.271216 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {5247B848-1C04-1940-8D6E-C8C2266DA6BE}
+      IID 24
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.483871 0 1 -1
+      SOFFS 395.27141472304248
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {BFF379BD-9394-7B41-9D03-DD3CED9FA7AD}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 410.80275798102133
+      SNAPOFFS 0
+      LENGTH 3.76554295769269
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.271216 1 1 0
+      FADEOUT 1.1 0 0.224139 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {30451336-41EF-C34B-8E4B-B0F0F1E7564C}
+      IID 5
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.217742 0 1 -1
+      SOFFS 410.80375798102131
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {ABFE9252-FEEE-CA4C-91EE-21B7A591F67D}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 414.34416150289019
+      SNAPOFFS 0
+      LENGTH 2.94738888361354
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.224139 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {370D48B1-7A2A-DB42-90F2-7CCC899F2D39}
+      IID 6
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 414.34516150289022
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {54B7049F-B955-6840-8D2E-41AB1966A358}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 417.29155038650373
+      SNAPOFFS 0
+      LENGTH 2.0453166135743
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {CC61C7F4-CC43-E04B-BD80-8D7F83FE7C3E}
+      IID 7
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.241935 0 1 -1
+      SOFFS 417.29255038650376
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1E9A0337-E82D-D045-8C51-7FA80D81291D}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 419.33686700007803
+      SNAPOFFS 0
+      LENGTH 0.95700275319063
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1.1 0 0.019416 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {365AEBA5-9B28-2B40-B5B0-062B6B55568D}
+      IID 8
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 419.33786700007806
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E86E5430-9910-CC44-BC83-82FE8D4D0986}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 420.27445393664351
+      SNAPOFFS 0
+      LENGTH 0.21400303900873
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.019416 1 1 0
+      FADEOUT 1.1 0 0.027045 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {37FEBEEE-44ED-144A-AA7E-FFA0D550674B}
+      IID 3
+      NAME this-dying-soul-drums.flac
+      VOLPAN 2.194464 0 1 -1
+      SOFFS 420.27545393664354
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {897438F6-B40B-4148-9F0E-E504AA046781}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 420.4614122520756
+      SNAPOFFS 0
+      LENGTH 108.6495870222239
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0 0.027045 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {806831FB-A3A7-DF40-A10E-4103F53D38A7}
+      IID 4
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 420.46241225207564
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {610C80E8-4B2A-EA46-98BB-F2AD1FA617E8}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 529.1109992742995
+      SNAPOFFS 0
+      LENGTH 11.19189972460151
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {7CF56FB7-67E5-964A-9BAC-6ED9D3017102}
+      IID 26
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.564516 0 1 -1
+      SOFFS 529.11199927429948
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1EF47D29-AF15-6047-9D99-456CD1F986DC}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 540.30289899890101
+      SNAPOFFS 0
+      LENGTH 1.06749816513673
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {E081207F-3352-0F4C-98A7-9FD1B345C58B}
+      IID 28
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.314516 0 1 -1
+      SOFFS 540.30389899890099
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {7FAACE2D-64D6-2E42-BA7D-5394CF002392}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 541.37039716403774
+      SNAPOFFS 0
+      LENGTH 1.1925103990975
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {C54F3D3E-85B9-B14D-9D0D-29BA92E3A25F}
+      IID 40
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.443548 0 1 -1
+      SOFFS 541.37139716403772
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {BEFF1289-64AA-9C40-86F0-83FE19A51B4F}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 542.56290756313524
+      SNAPOFFS 0
+      LENGTH 1.25539860854417
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {F6D6BB1A-DE73-BE4E-B5DE-85AE7F4210BC}
+      IID 41
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.314516 0 1 -1
+      SOFFS 542.56390756313522
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {C78EE425-2635-D84F-82B3-09DB222B7AC8}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 543.81830617167941
+      SNAPOFFS 0
+      LENGTH 28.37640821819059
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {9081B062-BE49-7A4F-AE9C-DBD2AC45F924}
+      IID 39
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 543.81930617167939
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {3F0D9C69-6FE7-8341-BFB3-60E9E6B60B82}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 572.19471438987
+      SNAPOFFS 0
+      LENGTH 2.30528561013
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {A8851BE5-0057-DC4F-A1C2-8414DB819041}
+      IID 30
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.5 0 1 -1
+      SOFFS 572.19571438986998
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E3EF132B-BA4B-7048-9689-50F58774EDD5}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 574.5
+      SNAPOFFS 0
+      LENGTH 2.27445944833175
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {0EF228D0-BA34-9B47-95EB-CDF14C19259D}
+      IID 34
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.564516 0 1 -1
+      SOFFS 574.501
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {A7130C74-6F86-B747-8DB9-8AD2513C1928}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 576.77445944833175
+      SNAPOFFS 0
+      LENGTH 4.53808398060642
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {581E8387-5F29-7E4E-B573-C95E567CDE6D}
+      IID 36
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.686111 0 1 -1
+      SOFFS 576.77545944833173
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {13584659-2394-DA4F-8C24-387BDE605427}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 581.31254342893817
+      SNAPOFFS 0
+      LENGTH 22.43020940377141
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {295840BF-F37D-8B4F-9ED1-2CED7BC050EE}
+      IID 32
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.491935 0 1 -1
+      SOFFS 581.31354342893815
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {63390ABE-6256-EE4A-B4C1-4514C91BE4DD}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+    <ITEM
+      POSITION 603.74275283270958
+      SNAPOFFS 0
+      LENGTH 83.31041807916722
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0.255519 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {420FDC7B-BB99-CE47-B499-1B54638C65C8}
+      IID 38
+      NAME this-dying-soul-drums.flac
+      VOLPAN 1.419355 0 1 -1
+      SOFFS 603.74375283270956
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {8356C7B7-25F4-BB44-8244-2A06CD31F909}
+      <SOURCE FLAC
+        FILE "this-dying-soul-drums.flac"
+      >
+    >
+  >
+>
