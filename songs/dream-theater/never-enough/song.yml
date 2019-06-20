@@ -27,8 +27,35 @@ plans:
     parts:
       drums:
         pad: [1.920, only: [Drums, jammit-track]]
+      bass:
+        pad: [1.920, only: [Bass, jammit-track]]
+      vocal:
+        pad: [1.920, only: [Vocal, jammit-track]]
+      # the 2 gtrs are just a few short harmony parts panned left/right
+      todo-gtr1:
+        pad: [1.920, only: [Guitar 1, jammit-track]]
+      todo-gtr2:
+        pad: [1.920, only: [Guitar 2, jammit-track]]
+      todo-keys1:
+        pad: [1.920, only: [Keys 1, jammit-track]]
+      todo-keys2:
+        pad: [1.920, only: [Keys 2, jammit-track]]
+    # TODO: backing has some keys we might want, some shaker in a few sections,
+    # and then the voice clips leading into Sacrificed Sons (could remove maybe)
     song:
-      pad: [1.920, without: [drums, jammit-track]]
+      pad:
+      - 1.920
+      - mix:
+        - without: [drums, jammit-track]
+        - gain:
+          - -1
+          - mix:
+            - only: [Bass, jammit-track]
+            - only: [Vocal, jammit-track]
+            - only: [Guitar 1, jammit-track]
+            - only: [Guitar 2, jammit-track]
+            - only: [Keys 1, jammit-track]
+            - only: [Keys 2, jammit-track]
   album:
     countin: *countin
     song:
@@ -37,6 +64,15 @@ parts:
   drums:
     drums:
       kicks: 1
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+  guitar:
+    pro-guitar:
+      tuning:
+        base: guitar-6
+        global: -2 # D standard
 targets:
   rb3:
     game: rb3

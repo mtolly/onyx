@@ -27,15 +27,39 @@ plans:
       4|2.5: hihat
     parts:
       drums:
-        fade:
-          - begin
-          - 6.866
-          - trim: [46.526, only: [Drums, jammit-track]]
+        trim: [46.526, only: [Drums, jammit-track]]
+      guitar-1:
+        trim: [46.526, only: [Guitar 1, jammit-track]]
+      guitar-2:
+        trim: [46.526, only: [Guitar 2, jammit-track]]
+      bass:
+        trim: [46.526, only: [Bass, jammit-track]]
+      keys-1:
+        trim: [46.526, only: [Keys 1, jammit-track]]
+      keys-2:
+        trim: [46.526, only: [Keys 2, jammit-track]]
+      vox-1:
+        trim: [46.526, only: [Vocal, jammit-track]]
+      vox-2:
+        trim: [46.526, only: [B Vocals, jammit-track]]
     song:
       fade:
         - begin
         - 6.866
-        - trim: [46.526, without: [drums, jammit-track]]
+        - trim:
+          - 46.526
+          - mix:
+            - without: [drums, jammit-track]
+            - gain:
+              - -1
+              - mix:
+                - only: [Guitar 1, jammit-track]
+                - only: [Guitar 2, jammit-track]
+                - only: [Bass, jammit-track]
+                - only: [Keys 1, jammit-track]
+                - only: [Keys 2, jammit-track]
+                - only: [Vocal, jammit-track]
+                - only: [B Vocals, jammit-track]
   album:
     countin: *countin
     song:
@@ -47,6 +71,14 @@ parts:
   drums:
     drums:
       kicks: 2
+  bass:
+    pro-guitar: # WIP
+      tuning:
+        base: bass-5
+  guitar:
+    pro-guitar: # WIP
+      tuning:
+        base: guitar-6
 targets:
   rb3-2x:
     game: rb3

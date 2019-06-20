@@ -58,17 +58,26 @@ plans:
         pad:
           - 4.317
           - gain: [1.3, deluxe-drum]
-    song:
-      pad:
-        - 4.317
-        - gain:
-          - 0.4
-          - mix:
-            - gain: [1.2, deluxe-bass]
-            - gain: [1.2, deluxe-guitar]
-            - gain: [1.2, deluxe-keys]
-            - gain: [1.5, deluxe-solo]
-            - gain: [3.0, deluxe-vocal]
+      bass:
+        pad:
+          - 4.317
+          - gain: [0.48, deluxe-bass]
+      vocal:
+        pad:
+          - 4.317
+          - gain: [1.2, deluxe-vocal]
+      todo-keys:
+        pad:
+          - 4.317
+          - gain: [0.48, deluxe-keys]
+      todo-guitar:
+        pad:
+          - 4.317
+          - gain: [0.48, deluxe-guitar]
+      todo-solo:
+        pad:
+          - 4.317
+          - gain: [0.6, deluxe-solo]
     comments:
     - "Stems from the deluxe edition of Black Clouds & Silver Linings."
 parts:

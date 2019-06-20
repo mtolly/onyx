@@ -62,7 +62,7 @@ parts:
     pro-guitar:
       difficulty: 1
       tuning:
-        base: [35, 40, 45, 50, 55, 59] # low 6 strings of a 7-string
+        base: bass-6
   vocal:
     vocal:
       difficulty: 2
