@@ -16,6 +16,7 @@ import           Data.List.Extra                   (nubOrd)
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (fromMaybe, isJust)
 import           Guitars
+import qualified Numeric.NonNegative.Class         as NNC
 import           OneFoot
 import           Overdrive                         (fixBrokenUnisons)
 import           ProKeysRanges
@@ -156,6 +157,38 @@ basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
       return $ timingEnd - 2
   return BasicTiming{..}
 
+makeMoods' :: (NNC.C t) => t -> t -> RTB.T t (LongNote s a) -> RTB.T t Mood
+makeMoods' buffer gap rtb = let
+  edges = RTB.collectCoincident $ U.trackJoin $ flip fmap rtb $ \case
+    Blip{}    -> Wait NNC.zero True  $ Wait buffer False RNil
+    NoteOn{}  -> Wait NNC.zero True  RNil
+    NoteOff{} -> Wait buffer   False RNil
+  go held = \case
+    RNil -> RNil
+    Wait dt changes rest -> let
+      held' = held + sum (map (\b -> if b then 1 else -1) changes)
+      in if held == 0 && held' /= 0
+        then Wait dt Mood_play $ go held' rest
+        else if held /= 0 && held' == 0
+          then case rest of
+            RNil -> Wait dt Mood_idle_realtime RNil
+            Wait dt' _ _ -> if dt' > gap
+              then Wait dt Mood_idle $ go held' rest
+              else RTB.delay dt $ go held' rest
+          else RTB.delay dt $ go held' rest
+  removeDupes = \case
+    Wait tx x (Wait ty y rest) | x == y -> removeDupes $ Wait tx x $ RTB.delay ty rest
+    Wait tx x rest                      -> Wait tx x $ removeDupes rest
+    RNil                                -> RNil
+  in removeDupes $ go (0 :: Int) edges
+
+makeMoods :: U.TempoMap -> BasicTiming -> RTB.T U.Beats (LongNote s a) -> RTB.T U.Beats Mood
+makeMoods tmap timing
+  = U.trackTake (timingEnd timing)
+  . U.unapplyTempoTrack tmap
+  . makeMoods' (0.4 :: U.Seconds) 2
+  . U.applyTempoTrack tmap
+
 buildDrums
   :: RBFile.FlexPartName
   -> Either TargetRB3 TargetPS
@@ -163,7 +196,7 @@ buildDrums
   -> BasicTiming
   -> SongYaml
   -> Maybe (DrumTrack U.Beats)
-buildDrums drumsPart target (RBFile.Song tempos mmap trks) BasicTiming{..} songYaml = case getPart drumsPart songYaml >>= partDrums of
+buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..} songYaml = case getPart drumsPart songYaml >>= partDrums of
   Nothing -> Nothing
   Just pd -> Just $ let
     psKicks = case drumsKicks pd of
@@ -216,10 +249,23 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) BasicTiming{..} songY
     ps1x = finish $ if nullDrums pro1x then pro2x else pro1x
     ps2x = finish $ if nullDrums pro2x then pro1x else pro2x
     psPS = if not $ RTB.null $ drumKick2x pro1x then ps1x else ps2x
+    autoAnims
+      = U.unapplyTempoTrack tempos
+      $ autoDrumAnimation (0.25 :: U.Seconds)
+      $ U.applyTempoTrack tempos
+      $ computePro (Just Expert) ps1x
+    addAnims dt = if RTB.null $ drumAnimation dt
+      then dt { drumAnimation = autoAnims }
+      else dt
+    addMoods dt = if RTB.null $ drumMood dt
+      then dt { drumMood = makeMoods tempos timing $ Blip () () <$ drumAnimation dt }
+      else dt
     -- Note: drumMix must be applied *after* drumsComplete.
     -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
     in (if drumsFixFreeform pd then fixFreeformDrums else id)
       $ (\dt -> dt { drumPlayer1 = RTB.empty, drumPlayer2 = RTB.empty })
+      $ addMoods
+      $ addAnims
       $ case target of
         Left rb3 -> if rb3_2xBassPedal rb3
           then rockBand2x ps2x

@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns       #-}
 {-# LANGUAGE DeriveFoldable     #-}
 {-# LANGUAGE DeriveFunctor      #-}
 {-# LANGUAGE DeriveGeneric      #-}
@@ -6,6 +7,7 @@
 {-# LANGUAGE DerivingVia        #-}
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE MultiWayIf         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RecordWildCards    #-}
 {-# LANGUAGE TupleSections      #-}
@@ -16,7 +18,7 @@ import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromMaybe, mapMaybe)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Text                        as T
 import           DeriveHelpers
@@ -275,3 +277,108 @@ perfectSoloBonus :: (NNC.C t, Ord a) => RTB.T t Bool -> RTB.T t (Gem a) -> Int
 perfectSoloBonus solo gems = sum $ fmap score $ applyStatus (fmap ((),) solo) gems where
   score ([], _) = 0
   score _       = 100
+
+data AnimPad
+  = AnimSnare
+  | AnimHihat
+  | AnimCrash1
+  | AnimTom1
+  | AnimTom2
+  | AnimFloorTom
+  | AnimCrash2
+  | AnimRide
+  deriving (Eq, Ord)
+
+normalDirection :: AnimPad -> AnimPad -> Maybe Hand
+normalDirection AnimHihat AnimSnare = Nothing
+normalDirection AnimSnare AnimHihat = Nothing
+normalDirection AnimSnare AnimTom1  = Nothing
+normalDirection AnimTom1  AnimSnare = Nothing
+normalDirection x         y         = case compare x y of
+  LT -> Just RH
+  GT -> Just LH
+  EQ -> Nothing
+
+countNothings :: [Maybe a] -> Maybe (Int, a)
+countNothings = go 0 where
+  go !_ []             = Nothing
+  go !n (Nothing : xs) = go (n + 1) xs
+  go !n (Just x  : _ ) = Just (n, x)
+
+autoSticking :: Maybe (AnimPad, AnimPad) -> [AnimPad] -> Maybe (AnimPad, AnimPad) -> [Hand]
+autoSticking _           []   _         = [] -- shouldn't happen
+autoSticking _boundStart pads _boundEnd = let
+  flipHand RH = LH
+  flipHand LH = RH
+  go _    []       = []
+  go prev xs@(x : xt) = let
+    -- rule: any double strokes, we do at the latest possible time.
+    -- so e.g. BRRRRB (ride and snare) would be RLRLLR, not RLLRLR
+    hand = case prev of
+      Nothing -> case countNothings $ zipWith normalDirection xs xt of
+        Nothing     -> RH -- if no movement, just start with RH
+        Just (n, h) -> if even n then flipHand h else h
+      Just (prevHand, prevPad) -> if x == prevPad
+        then case xt of
+          y : _ | Just (flipHand prevHand) == normalDirection x y
+            -- do a double stroke so we don't have to cross for the next hit
+            -> prevHand
+          _ -> flipHand prevHand
+        else flipHand prevHand -- if we move to a different pad, always switch hands
+    in hand : go (Just (hand, x)) xt
+  in go Nothing pads
+
+autoDrumAnimation :: (NNC.C t) => t -> RTB.T t (Gem ProType) -> RTB.T t Animation
+autoDrumAnimation closeTime pro = let
+  hands = flip RTB.mapMaybe (RTB.collectCoincident pro) $ \inst -> let
+    anims = if
+      | all (`elem` inst) [Pro Yellow Cymbal, Pro Green Cymbal] -> [AnimCrash1, AnimCrash2]
+      | all (`elem` inst) [Pro Blue Cymbal, Pro Green Cymbal] -> [AnimCrash1, AnimCrash2]
+      | all (`elem` inst) [Pro Yellow Cymbal, Orange] -> [AnimCrash1, AnimCrash2]
+      | all (`elem` inst) [Red, Pro Yellow Tom] -> [AnimSnare, AnimSnare]
+      | otherwise -> flip mapMaybe inst $ \case
+        Red               -> Just AnimSnare
+        Pro Yellow Cymbal -> Just AnimHihat
+        Pro Blue Cymbal   -> Just AnimRide
+        Pro Green Cymbal  -> Just AnimCrash2
+        Pro Yellow Tom    -> Just AnimTom1
+        Pro Blue Tom      -> Just AnimTom2
+        Pro Green Tom     -> Just AnimFloorTom
+        Orange            -> Just AnimCrash2
+        Kick              -> Nothing
+    in case anims of
+      x : y : _ -> Just $ Right (min x y, max x y)
+      [x]       -> Just $ Left x
+      []        -> Nothing
+  applySticking prev = \case
+    RNil -> RNil
+    Wait dt (Right pair) rest -> Wait dt (Right pair) $ applySticking (Just pair) rest
+    Wait dt (Left x) rest -> let
+      prevBound = guard (dt <= closeTime) >> prev
+      (phrase, afterPhrase) = getPhrase rest
+      phrase' = (dt, x) : phrase
+      nextBound = case afterPhrase of
+        Wait dt' (Right pair) _ | dt' <= closeTime -> Just pair
+        _                                          -> Nothing
+      computed = autoSticking prevBound (map snd phrase') nextBound
+      outputPhrase = zipWith (\(dt', pad) hand -> Wait dt' $ Left (pad, hand)) phrase' computed
+      in foldr ($) (applySticking Nothing afterPhrase) outputPhrase
+  getPhrase = \case
+    Wait dt (Left x) rest | dt <= closeTime -> let
+      (phrase, afterPhrase) = getPhrase rest
+      in ((dt, x) : phrase, afterPhrase)
+    afterPhrase -> ([], afterPhrase)
+  makeAnimations rtb = RTB.flatten $ flip fmap rtb $ \case
+    Right (x, y) -> [makeSingle x LH, makeSingle y RH]
+    Left (x, hand) -> [makeSingle x hand]
+  makeSingle pad hand = case pad of
+    AnimSnare    -> Snare HardHit hand
+    AnimHihat    -> Hihat hand
+    AnimCrash1   -> Crash1 HardHit hand
+    AnimTom1     -> Tom1 hand
+    AnimTom2     -> Tom2 hand
+    AnimFloorTom -> FloorTom hand
+    AnimCrash2   -> Crash2 HardHit hand
+    AnimRide     -> Ride hand
+  kicks = RTB.mapMaybe (\case Kick -> Just KickRF; _ -> Nothing) pro
+  in RTB.merge kicks $ makeAnimations $ applySticking Nothing hands
