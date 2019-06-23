@@ -1550,7 +1550,9 @@ launchGUI = do
         else fmap (/= 0) FLTK.wait
   -- TODO: catch errors that reach top level,
   -- and close the GUI with a nice error message
-  addTerm term $ TermLog "Welcome to \ESC[45mOnyx\ESC[0m!"
+  addTerm term $ TermLog $
+    "\ESC[45mOnyx\ESC[0m Music Game Toolkit, version " <> showVersion version
+  addTerm term $ TermLog "Select an option below to get started."
   void $ runResourceT $ (`runReaderT` sink) $ logChan $ let
     process = liftIO (atomically $ tryReadTChan evts) >>= \case
       Nothing -> return ()

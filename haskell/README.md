@@ -64,7 +64,8 @@ First, load files into the Songs tab.
 You can drag and drop files or folders onto the list, or browse with Add Song.
 Folders will be searched for any recognized songs inside.
 To remove a song, select its row in the tree, and press the Delete key.
-To change the order of songs, select its row and press Ctrl+Up or Ctrl+Down.
+To change the order of songs, select its row and press Ctrl+Up or Ctrl+Down
+(Windows), or Cmd+Up or Cmd+Down (Mac).
 
   * Rock Band 3 (360)
 
@@ -154,10 +155,10 @@ To change the order of songs, select its row and press Ctrl+Up or Ctrl+Down.
     the Steam version of Phase Shift, and the latest version of Clone Hero.
     Songs may also work in Frets on Fire X, but this is not guaranteed.
 
-    Due to how the conversion is implemented, non-RB features such as Dance
-    mode, Real Drums, and Real Keys will generally not survive a PS-to-PS
-    conversion. However other 5-fret charts such as `PART RHYTHM`, as well as
-    Clone Hero 6-fret tracks, should remain.
+    Due to how the conversion is implemented, some non-RB features such as Dance
+    mode, Real Drums, and Real Keys will not survive a PS-to-PS conversion.
+    However other 5-fret charts such as `PART RHYTHM`, as well as Clone Hero
+    6-fret tracks, should remain.
 
   * Rock Band 3 (Wii)
 

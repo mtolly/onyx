@@ -48,6 +48,7 @@ import           Data.Monoid                           ((<>))
 import           Data.String                           (IsString, fromString)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
+import           Data.Version                          (showVersion)
 import           Development.Shake                     hiding (phony, (%>),
                                                         (&%>))
 import           Development.Shake.FilePath
@@ -69,6 +70,7 @@ import           Overdrive                             (calculateUnisons,
                                                         getOverdrive,
                                                         printFlexParts)
 import           Path                                  (parseAbsDir, toFilePath)
+import           Paths_onyxite_customs_tool            (version)
 import           PrettyDTA
 import           ProKeysRanges
 import           Reaper.Build                          (makeReaper)
@@ -611,7 +613,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
 
   exeTime <- stackIO $ getExecutablePath >>= Dir.getModificationTime
   yamlTime <- stackIO $ Dir.getModificationTime yamlPath
-  let version = show exeTime ++ "," ++ show yamlTime
+  let projVersion = show exeTime ++ "," ++ show yamlTime
 
   audioLib <- newAudioLibrary
   forM_ audioDirs $ \dir -> do
@@ -620,7 +622,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
 
   withDir (takeDirectory yamlPath) $ do
 
-    shakeEmbed shakeOptions{ shakeThreads = 0, shakeFiles = "gen", shakeVersion = version } $ do
+    shakeEmbed shakeOptions{ shakeThreads = 0, shakeFiles = "gen", shakeVersion = projVersion } $ do
 
       phony "yaml"  $ lg $ show songYaml
       phony "audio" $ lg $ show audioDirs
@@ -1139,7 +1141,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               lg "# Producing RB3 CON file via X360"
               mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ rb3pkg
                 (getArtist (_metadata songYaml) <> ": " <> title)
-                "Compiled by Onyx Music Game Toolkit"
+                (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
                 (dir </> "stfs")
                 out
 

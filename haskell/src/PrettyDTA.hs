@@ -8,7 +8,6 @@ Add the C3 comments into a @songs.dta@ file.
 module PrettyDTA where
 
 import           Config
-
 import           Control.Monad                     (forM)
 import           Control.Monad.IO.Class            (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
@@ -27,8 +26,10 @@ import           Data.Maybe                        (fromMaybe, listToMaybe,
 import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
 import qualified Data.Text.Encoding                as TE
+import           Data.Version                      (showVersion)
 import           DecodeText                        (decodeGeneral)
 import           JSONData                          (makeValue)
+import           Paths_onyxite_customs_tool        (version)
 import           Resources                         (missingSongData)
 
 writeUtf8CRLF :: (MonadIO m) => FilePath -> T.Text -> m ()
@@ -59,7 +60,7 @@ data C3DTAComments = C3DTAComments
 
 makeC3DTAComments :: Metadata -> Plan -> TargetRB3 -> C3DTAComments
 makeC3DTAComments meta plan rb3 = C3DTAComments
-  { c3dtaCreatedUsing = Just "Onyx Music Game Toolkit"
+  { c3dtaCreatedUsing = Just $ T.pack $ "Onyx Music Game Toolkit version " <> showVersion version
   , c3dtaAuthoredBy   = Just $ getAuthor meta
   , c3dtaSong         = Just $ fromMaybe (getTitle meta) $ tgt_Title $ rb3_Common rb3
   , c3dtaLanguages    = Just $ _languages meta

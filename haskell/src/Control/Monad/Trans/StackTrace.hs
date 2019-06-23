@@ -253,14 +253,15 @@ stackProcess cp = mapStackTraceT liftIO $ do
   -- Magma's output is Latin-1, so we read it as ByteString and B8.unpack.
   -- otherwise non-utf-8 chars crash with "invalid byte sequence".
   liftIO (readCreateProcessWithExitCode cp B8.empty) >>= \case
-    (ExitSuccess  , out, _  ) -> return $ B8.unpack out
+    (ExitSuccess  , out, _  ) -> return $ stringNoCR out
     (ExitFailure n, out, err) -> fatal $ unlines
       [ "process exited with code " ++ show n
       , "stdout:"
-      , B8.unpack out
+      , stringNoCR out
       , "stderr:"
-      , B8.unpack err
+      , stringNoCR err
       ]
+    where stringNoCR = filter (/= '\r') . B8.unpack
 
 stackCatchIO :: (MonadIO m, Exc.Exception e) => (e -> StackTraceT m a) -> IO a -> StackTraceT m a
 stackCatchIO handler io = do
