@@ -257,9 +257,11 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
     addAnims dt = if RTB.null $ drumAnimation dt
       then dt { drumAnimation = autoAnims }
       else dt
-    addMoods dt = if RTB.null $ drumMood dt
-      then dt { drumMood = makeMoods tempos timing $ Blip () () <$ drumAnimation dt }
-      else dt
+    addMoods dt = dt
+      { drumMood = noEarlyMood $ if RTB.null $ drumMood dt
+        then makeMoods tempos timing $ Blip () () <$ drumAnimation dt
+        else drumMood dt
+      }
     -- Note: drumMix must be applied *after* drumsComplete.
     -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
     in (if drumsFixFreeform pd then fixFreeformDrums else id)
@@ -272,14 +274,28 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
           else rockBand1x ps1x
         Right _ -> psPS
 
+addFiveMoods
+  :: U.TempoMap
+  -> BasicTiming
+  -> FiveTrack U.Beats
+  -> FiveTrack U.Beats
+addFiveMoods tempos timing ft = ft
+  { fiveMood = noEarlyMood $ if RTB.null $ fiveMood ft
+    then makeMoods tempos timing $ let
+      expert = fromMaybe mempty $ Map.lookup Expert $ fiveDifficulties ft
+      in splitEdges $ (\(_, len) -> ((), (), len)) <$> fiveGems expert
+    else fiveMood ft
+  }
+
 buildFive
   :: RBFile.FlexPartName
   -> Either TargetRB3 TargetPS
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
+  -> BasicTiming
   -> Bool
   -> SongYaml
   -> Maybe (FiveTrack U.Beats)
-buildFive fivePart target (RBFile.Song _tempos mmap trks) toKeys songYaml = case getPart fivePart songYaml >>= partGRYBO of
+buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml = case getPart fivePart songYaml >>= partGRYBO of
   Nothing    -> Nothing
   Just grybo -> Just $ let
     src = RBFile.getFlexPart fivePart trks
@@ -313,8 +329,8 @@ buildFive fivePart target (RBFile.Song _tempos mmap trks) toKeys songYaml = case
       . fixSloppyNotes (10 / 480)
       . openNotes'
       $ fd
-    forAll x = x
-      { fiveMood = noEarlyMood $ fiveMood x
+    forAll
+      = addFiveMoods tempos timing
       {-
       , fiveFretPosition
         = U.unapplyTempoTrack tempos
@@ -322,7 +338,6 @@ buildFive fivePart target (RBFile.Song _tempos mmap trks) toKeys songYaml = case
         $ U.applyTempoTrack tempos
         $ fiveFretPosition x
       -}
-      }
     in forAll $ case target of
       Left  _rb3 -> forRB3 track
       Right _ps  -> forPS  track
@@ -370,7 +385,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       drumsTrack = case buildDrums drumsPart target input timing songYaml of
         Nothing -> mempty
         Just dt -> setDrumMix mixMode dt
-      makeGRYBOTrack toKeys fpart = fromMaybe mempty $ buildFive fpart target input toKeys songYaml
+      makeGRYBOTrack toKeys fpart = fromMaybe mempty $ buildFive fpart target input timing toKeys songYaml
 
       hasProtarNotFive partName = case getPart partName songYaml of
         Just part -> case (partGRYBO part, partProGuitar part) of
@@ -380,12 +395,12 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
 
       guitarPart = either rb3_Guitar ps_Guitar target
       guitar = if hasProtarNotFive guitarPart
-        then protarToGrybo proGtr
+        then addFiveMoods tempos timing $ protarToGrybo proGtr
         else makeGRYBOTrack False guitarPart
 
       bassPart = either rb3_Bass ps_Bass target
       bass = if hasProtarNotFive bassPart
-        then protarToGrybo proBass
+        then addFiveMoods tempos timing $ protarToGrybo proBass
         else makeGRYBOTrack False bassPart
 
       rhythmPart = either (const $ RBFile.FlexExtra "undefined") ps_Rhythm target
@@ -450,7 +465,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           _ -> let
             basicKeys = gryboComplete Nothing mmap
               $ case partGRYBO part of
-                Nothing -> expertProKeysToKeys keysExpert
+                Nothing -> addFiveMoods tempos timing $ expertProKeysToKeys keysExpert
                 Just _  -> makeGRYBOTrack True keysPart
             fpart = RBFile.getFlexPart keysPart trks
             keysDiff diff = if isJust $ partProKeys part
@@ -500,9 +515,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
                 )
 
       vocalPart = either rb3_Vocal ps_Vocal target
-      (trkVox, trkHarm1, trkHarm2, trkHarm3) = case getPart vocalPart songYaml >>= partVocal of
+      voxCount = fmap vocalCount $ getPart vocalPart songYaml >>= partVocal
+      (trkVox, trkHarm1, trkHarm2, trkHarm3) = case voxCount of
         Nothing -> (mempty, mempty, mempty, mempty)
-        Just pv -> case vocalCount pv of
+        Just c -> case c of
           Vocal3 -> (partVox', harm1 , harm2 , harm3 )
           Vocal2 -> (partVox', harm1 , harm2 , mempty)
           Vocal1 -> (partVox', mempty, mempty, mempty)
@@ -511,10 +527,20 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               harm1   = RBFile.onyxHarm1 $ RBFile.getFlexPart vocalPart trks
               harm2   = RBFile.onyxHarm2 $ RBFile.getFlexPart vocalPart trks
               harm3   = RBFile.onyxHarm3 $ RBFile.getFlexPart vocalPart trks
-      trkVox'   = trkVox   { vocalMood = noEarlyMood $ vocalMood trkVox   }
-      trkHarm1' = trkHarm1 { vocalMood = noEarlyMood $ vocalMood trkHarm1 }
-      trkHarm2' = trkHarm2 { vocalMood = noEarlyMood $ vocalMood trkHarm2 }
-      trkHarm3' = trkHarm3 { vocalMood = noEarlyMood $ vocalMood trkHarm3 }
+      autoVoxMood vox = makeMoods tempos timing $ flip fmap (vocalNotes vox) $ \case
+        (_, True) -> NoteOn () ()
+        (_, False) -> NoteOff ()
+      trkVox'   = trkVox
+        { vocalMood = noEarlyMood $ if RTB.null $ vocalMood trkVox
+          then case voxCount of
+            Nothing     -> RTB.empty
+            Just Vocal1 -> autoVoxMood trkVox
+            Just _      -> autoVoxMood trkHarm1
+          else vocalMood trkVox
+        }
+      trkHarm1' = trkHarm1 { vocalMood = RTB.empty }
+      trkHarm2' = trkHarm2 { vocalMood = RTB.empty }
+      trkHarm3' = trkHarm3 { vocalMood = RTB.empty }
 
   drumsTrack' <- let
     fills = RTB.normalize $ drumActivation drumsTrack
@@ -530,7 +556,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
     in do
       when (fills /= fixedFills) $ warn
         "Removing some drum fills because they are too close (within 2.5 seconds)"
-      return drumsTrack { drumActivation = fixedFills, drumMood = noEarlyMood $ drumMood drumsTrack }
+      return drumsTrack { drumActivation = fixedFills }
 
   -- remove tempo and time signature events on or after [end].
   -- found in some of bluzer's RB->PS converts. magma complains

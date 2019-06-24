@@ -19,6 +19,7 @@ import           Data.Maybe                       (fromMaybe, isJust,
 import           Data.Monoid                      ((<>))
 import           Development.Shake
 import qualified FretsOnFire                      as FoF
+import           Guitars
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.Beat
 import           RockBand.Codec.Drums
@@ -267,7 +268,12 @@ getPercType song = listToMaybe $ do
 protarToGrybo :: ProGuitarTrack U.Beats -> FiveTrack U.Beats
 protarToGrybo pg = mempty
   { fiveDifficulties = flip fmap (pgDifficulties pg) $ \pgd -> mempty
-    { fiveGems = fmap (const (Five.Green, Nothing)) $ RTB.collectCoincident $ pgNotes pgd
+    { fiveGems
+      = fmap head
+      $ RTB.collectCoincident
+      $ noExtendedSustains' standardBlipThreshold standardSustainGap
+      $ fmap (\(_, (_, _, len)) -> (Five.Green, len))
+      $ pgNotes pgd
     }
   , fiveOverdrive    = pgOverdrive pg
   , fiveBRE          = fmap snd $ pgBRE pg
@@ -278,7 +284,14 @@ protarToGrybo pg = mempty
 expertProKeysToKeys :: ProKeysTrack U.Beats -> FiveTrack U.Beats
 expertProKeysToKeys pk = mempty
   { fiveDifficulties = let
-    fd = mempty { fiveGems = fmap (const (Five.Green, Nothing)) $ RTB.collectCoincident $ pkNotes pk }
+    fd = mempty
+      { fiveGems
+        = fmap head
+        $ RTB.collectCoincident
+        $ noExtendedSustains' standardBlipThreshold standardSustainGap
+        $ fmap (\(_, len) -> (Five.Green, len))
+        $ pkNotes pk
+      }
     in Map.fromList [ (diff, fd) | diff <- [minBound .. maxBound] ]
   , fiveOverdrive    = pkOverdrive pk
   , fiveBRE          = pkBRE pk

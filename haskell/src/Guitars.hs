@@ -157,7 +157,7 @@ no5NoteChords' = let
   -- because Magma allows that on keys.
   in RTB.flatten . fmap f . RTB.collectCoincident
 
-noExtendedSustains' :: (NNC.C t, Num t, Ord a) => t -> t -> RTB.T t (a, Maybe t) -> RTB.T t (a, Maybe t)
+noExtendedSustains' :: (NNC.C t, Num t) => t -> t -> RTB.T t (a, Maybe t) -> RTB.T t (a, Maybe t)
 noExtendedSustains' blipThreshold sustainGap = let
   go rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
