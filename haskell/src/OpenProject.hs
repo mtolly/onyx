@@ -73,21 +73,20 @@ findSongs :: (SendMessage m, MonadResource m)
 findSongs fp' = do
   fp <- stackIO $ Dir.makeAbsolute fp'
   let found imp = return ([], Just imp)
-      withYaml loc key fyml = loadYaml fyml >>= \yml -> return Project
+      withYaml loc isDir key fyml = loadYaml fyml >>= \yml -> return Project
         { projectLocation = fyml
         , projectSongYaml = yml
         , projectRelease = key
         , projectSource = loc
-        , projectTemplate
-          = dropExtension
-          $ dropTrailingPathSeparator
-          $ fromMaybe loc
-          $ stripSuffix "_rb3con" loc <|> stripSuffix "_rb2con" loc
+        , projectTemplate = fromMaybe
+          ( (if isDir then id else dropExtension)
+          $ dropTrailingPathSeparator loc
+          ) (stripSuffix "_rb3con" loc <|> stripSuffix "_rb2con" loc)
         }
-      importFrom loc fn = do
+      importFrom loc isDir fn = do
         (key, tmp) <- resourceTempDir
         () <- fn tmp
-        withYaml loc (Just key) (tmp </> "song.yml")
+        withYaml loc isDir (Just key) (tmp </> "song.yml")
       foundChart loc = do
         let dir = takeDirectory loc
         ini <- fmap FB.chartToIni $ FB.loadChartFile loc
@@ -97,7 +96,7 @@ findSongs fp' = do
           , impAuthor = FoF.charter ini
           , impFormat = "Clone Hero"
           , impPath = dir
-          , impProject = importFrom dir $ void . importFoF True False dir
+          , impProject = importFrom dir True $ void . importFoF True False dir
           }
       foundIni loc = do
         let dir = takeDirectory loc
@@ -108,7 +107,7 @@ findSongs fp' = do
           , impAuthor = FoF.charter ini
           , impFormat = "Frets on Fire/Phase Shift/Clone Hero"
           , impPath = dir
-          , impProject = importFrom dir $ void . importFoF True False dir
+          , impProject = importFrom dir True $ void . importFoF True False dir
           }
       foundYaml loc = do
         let dir = takeDirectory loc
@@ -119,7 +118,7 @@ findSongs fp' = do
           , impAuthor = _author $ _metadata yml
           , impFormat = "Onyx"
           , impPath = dir
-          , impProject = withYaml dir Nothing loc
+          , impProject = withYaml dir True Nothing loc
           }
       foundRBProj loc = do
         RBProj.RBProj proj <- stackIO (readFileDTA loc) >>= DTA.unserialize DTA.stackChunks
@@ -129,23 +128,23 @@ findSongs fp' = do
           , impAuthor = Just $ RBProj.author $ RBProj.metadata proj
           , impFormat = "Magma Project"
           , impPath = loc
-          , impProject = importFrom loc $ void . importMagma loc
+          , impProject = importFrom loc False $ void . importMagma loc
           }
-      foundDTA bs fmt loc imp = readDTASingles bs >>= \case
+      foundDTA bs fmt loc isDir imp = readDTASingles bs >>= \case
         [(single, _)] -> found Importable
           { impTitle = Just $ D.name $ dtaSongPackage single
           , impArtist = Just $ D.artist $ dtaSongPackage single
           , impAuthor = c3dtaAuthoredBy $ dtaC3Comments single
           , impFormat = fmt
           , impPath = loc
-          , impProject = importFrom loc imp
+          , impProject = importFrom loc isDir imp
           }
         _ -> return ([], Nothing)
       foundSTFS loc = do
         dta <- stackIO $ withSTFS loc $ \stfs ->
           sequence $ lookup ("songs" </> "songs.dta") $ stfsFiles stfs
         case dta of
-          Just bs -> foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc $ void . importSTFS loc Nothing
+          Just bs -> foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc False $ void . importSTFS loc Nothing
           Nothing -> return ([], Nothing)
   isDir <- stackIO $ Dir.doesDirectoryExist fp
   if isDir
@@ -158,7 +157,7 @@ findSongs fp' = do
         | otherwise -> stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
           True  -> do
             bs <- stackIO $ B.readFile $ fp </> "songs/songs.dta"
-            foundDTA bs "Rock Band Extracted" fp $ void . importSTFSDir fp Nothing
+            foundDTA bs "Rock Band Extracted" fp True $ void . importSTFSDir fp Nothing
           False -> return (map (fp </>) ents, Nothing)
     else do
       case map toLower $ takeExtension fp of
@@ -174,7 +173,7 @@ findSongs fp' = do
             case magic of
               "RBSF" -> do
                 bs <- getRBAFileBS 0 fp
-                foundDTA (BL.toStrict bs) "Magma RBA" fp $ void . importRBA fp Nothing
+                foundDTA (BL.toStrict bs) "Magma RBA" fp False $ void . importRBA fp Nothing
               "CON " -> foundSTFS fp
               "LIVE" -> foundSTFS fp
               _ -> return ([], Nothing)

@@ -752,6 +752,7 @@ taskOutputPage rect tab sink cbStart cbEnd = mdo
       buttonRect' = trimClock 5 10 10 10 buttonRect
   labelTask <- FL.boxNew labelRect' $ Just "…"
   termTask <- FL.simpleTerminalNew termRect' Nothing
+  FL.setHistoryLines termTask $ FL.Lines (-1) -- unlimited
   FL.setAnsi termTask True
   FL.setStayAtBottom termTask True
   FL.setResizable tab $ Just termTask
@@ -1256,8 +1257,8 @@ launchBatch sink makeMenuBar startFiles = mdo
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (targets, yaml) = settings proj
+          proj' <- stackIO $ saveProject proj yaml
           forM targets $ \(target, creator) -> do
-            proj' <- stackIO $ saveProject proj yaml
             case creator of
               RB3CON fout -> do
                 tmp <- buildRB3CON target proj'
@@ -1502,7 +1503,7 @@ launchGUI = do
     (Just "Checking for updates…")
   _ <- forkIO $ isNewestRelease $ \b -> sink $ EventIO $ do
     FL.setLabel labelLatest $ if b
-      then "No updates found."
+      then "You are using the latest version."
       else "New version available!"
     unless b $ FL.setLabelcolor labelLatest FLE.whiteColor
   term <- FL.simpleTerminalNew
@@ -1511,6 +1512,7 @@ launchGUI = do
       (Size (Width 480) (Height $ 305 - menuHeight))
     )
     Nothing
+  FL.setHistoryLines term $ FL.Lines (-1) -- unlimited
   FL.setAnsi term True
   FL.setStayAtBottom term True
   let loadSongs = mapM_ $ sink . EventLoad

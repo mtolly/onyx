@@ -38,8 +38,7 @@ import           RockBand.Codec.File
 import           RockBand.Codec.Five
 import           RockBand.Codec.Six
 import           RockBand.Codec.Vocal
-import           RockBand.Common                  (Difficulty (..),
-                                                   StrumHOPOTap (..))
+import           RockBand.Common
 import           RockBand.Sections                (makeRB2Section)
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
@@ -341,16 +340,24 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       _       -> Nothing
     }
   -- CH-format lyrics
-  fixedPartVocals <- insideTrack "Events" $ \trk -> return mempty
-    { vocalLyrics = flip RTB.mapMaybe trk $ \case
+  fixedPartVocals <- insideTrack "Events" $ \trk -> let
+    lyrics = flip RTB.mapMaybe trk $ \case
       Event t -> flip fmap (T.stripPrefix "lyric " t) $ T.replace "’" "'"
       -- TODO probably more char fixes, also maybe it should be moved to song compile time
       _       -> Nothing
-    , vocalPhrase1 = flip RTB.mapMaybe trk $ \case
+    phrases = flip RTB.mapMaybe trk $ \case
       Event "phrase_start" -> Just True
       Event "phrase_end"   -> Just False
       _                    -> Nothing
-    }
+    endPhrases True  (Wait dt (Left  True) rest) = Wait dt False $ Wait NNC.zero True $ endPhrases True rest
+    endPhrases _     (Wait dt (Left  b   ) rest) = Wait dt b $ endPhrases b rest
+    endPhrases b     (Wait dt (Right _   ) rest) = RTB.delay dt $ endPhrases b rest
+    endPhrases True  RNil                        = Wait (0.5 :: U.Beats) False RNil
+    endPhrases False RNil                        = RNil
+    in return mempty
+      { vocalLyrics = lyrics
+      , vocalPhrase1 = endPhrases False $ RTB.normalize $ RTB.merge (fmap Left phrases) (fmap Right lyrics)
+      }
   let fixedPartDrums2x      = mempty
       fixedPartRealDrumsPS  = mempty
       fixedPartRealGuitar   = mempty
