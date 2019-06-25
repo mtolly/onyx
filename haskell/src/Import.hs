@@ -254,7 +254,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
         else if is2x then Kicks2x else Kicks1x
 
   let fixGHVox trks = trks
-        { RBFile.fixedPartVocals = RBVox.vocalFromLegacy $ RBVox.fixGHVocals $ RBVox.vocalToLegacy $ RBFile.fixedPartVocals trks
+        { RBFile.fixedPartVocals = stripTags $ RBVox.vocalFromLegacy $ RBVox.fixGHVocals $ RBVox.vocalToLegacy $ RBFile.fixedPartVocals trks
         }
       swapFiveLane trks = if fromMaybe False $ FoF.fiveLaneDrums song
         then trks

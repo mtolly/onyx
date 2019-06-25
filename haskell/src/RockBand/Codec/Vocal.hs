@@ -119,3 +119,12 @@ asciify = let
 -- (RB text events are always Latin-1, even if .dta encoding is UTF-8.)
 asciiLyrics :: VocalTrack t -> VocalTrack t
 asciiLyrics vt = vt { vocalLyrics = fmap asciify $ vocalLyrics vt }
+
+-- | Strips some CH-format tags used in lyric events.
+stripTags :: VocalTrack t -> VocalTrack t
+stripTags vt = vt
+  { vocalLyrics = let
+    tags = ["<b>", "</b>", "<i>", "</i>"]
+    in flip fmap (vocalLyrics vt) $ \t ->
+      foldr (\tag lyric -> T.concat $ T.splitOn tag lyric) t tags
+  }

@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
 module RockBand.Sections
@@ -8,7 +9,7 @@ module RockBand.Sections
 ) where
 
 import           Control.Arrow         (second)
-import           Data.Char             (isAlphaNum, isSpace)
+import           Data.Char             (isAlphaNum, isAscii, isPrint)
 import qualified Data.HashMap.Strict   as HM
 import           Data.List             (sort)
 import           Data.List.HT          (partitionMaybe)
@@ -2592,14 +2593,26 @@ underscoreForm :: T.Text -> T.Text
 underscoreForm
   = T.intercalate "_"
   . T.words
-  -- TODO actually check if any other chars work
-  . T.filter (\c -> isAlphaNum c || isSpace c)
+  -- tested in rb3: all ascii punctuation/symbols work other than square brackets
+  . T.map (\case '[' -> '('; ']' -> ')'; c -> c)
+  . T.filter (\c -> isAscii c && isPrint c)
   . T.replace "_" " "
+  . stripTags
 
 printForm :: T.Text -> T.Text
 printForm
   = T.replace "_" " "
-  -- TODO do we want to capitalize each word?
+  . stripTags
+
+-- | Strips CH tags from e.g. "<color=#AEFFFF>bit.ly/AECharts</color>"
+stripTags :: T.Text -> T.Text
+stripTags t = case T.splitOn "<color=" t of
+  x : xs@(_ : _)
+    -> T.concat
+    $  T.splitOn "</color>"
+    $  T.concat
+    $  x : map (T.dropWhile (== '>') . T.dropWhile (/= '>')) xs
+  _ -> t
 
 makeRB3Section :: T.Text -> (SectionType, T.Text)
 makeRB3Section t = case findRBN2Section t of
