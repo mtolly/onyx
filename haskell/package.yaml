@@ -166,6 +166,7 @@ executables:
       then:
         cpp-options: -DWINDOWS
         ld-options: icon/icon.o -mwindows
+        dependencies: Win32
       else:
         dependencies: mountpoints
     - condition: os(darwin)

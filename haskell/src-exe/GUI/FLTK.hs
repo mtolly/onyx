@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo       #-}
 {-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE CPP     #-}
 module GUI.FLTK (launchGUI) where
 
 import           Audio                                     (Audio (..),
@@ -85,6 +86,12 @@ import           System.FilePath                           (takeDirectory,
                                                             (-<.>), (<.>),
                                                             (</>))
 import           System.Info                               (os)
+
+#ifdef WINDOWS
+import System.Win32 (HINSTANCE)
+import Graphics.Win32 (loadIcon)
+import           Foreign                                   (peek, intPtrToPtr)
+#endif
 
 data Event
   = EventIO (IO ())
@@ -1426,6 +1433,12 @@ isNewestRelease cb = do
       _                   -> return ()
     _            -> return ()
 
+#ifdef WINDOWS
+foreign import ccall "&fl_display" fl_display :: Ptr HINSTANCE
+foreign import ccall "Fl_Window_set_icon"
+  setIconRaw :: Ptr () -> Ptr () -> IO ()
+#endif
+
 launchGUI :: IO ()
 launchGUI = do
   _ <- FLTK.setScheme "gtk+"
@@ -1443,6 +1456,12 @@ launchGUI = do
     (Size consoleWidth consoleHeight)
     Nothing
     (Just "Onyx Console")
+#ifdef WINDOWS
+  peek fl_display >>= \disp -> do
+    icon <- loadIcon (Just disp) $ intPtrToPtr 1
+    FL.withRef termWindow $ \ptr ->
+      setIconRaw ptr icon
+#endif
   FL.sizeRange termWindow $ Size consoleWidth consoleHeight
   globalLogColor >>= FL.setColor termWindow
   let makeMenuBar width includeConsole = do
