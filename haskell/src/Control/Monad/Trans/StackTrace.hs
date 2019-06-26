@@ -19,7 +19,7 @@ module Control.Monad.Trans.StackTrace
 , runStackTraceT
 , liftBracket, liftBracketLog, liftMaybe
 , mapStackTraceT
-, stracket, tempDir, withDir
+, stracket, tempDir
 , stackProcess
 , stackCatchIO
 , stackShowException
@@ -230,14 +230,6 @@ stracket
 stracket new del fn = mapStackTraceT (mapQueueLog (liftIO . runResourceT)) $ do
   (_, x) <- allocate new del
   mapStackTraceT (mapQueueLog lift) $ fn x
-
-withDir :: (MonadIO m) => FilePath -> StackTraceT (QueueLog IO) a -> StackTraceT (QueueLog m) a
-withDir d stk = do
-  cwd <- stackIO Dir.getCurrentDirectory
-  stracket
-    (Dir.setCurrentDirectory d)
-    (\() -> Dir.setCurrentDirectory cwd)
-    (\() -> stk)
 
 tempDir :: (MonadResource m) => String -> (FilePath -> m a) -> m a
 tempDir template fn = do

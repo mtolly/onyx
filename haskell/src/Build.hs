@@ -620,9 +620,10 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
     p <- parseAbsDir dir
     addAudioDir audioLib p
 
-  withDir (takeDirectory yamlPath) $ do
+  let rel f = takeDirectory yamlPath </> f
+  do
 
-    shakeEmbed shakeOptions{ shakeThreads = 0, shakeFiles = "gen", shakeVersion = projVersion } $ do
+    shakeEmbed shakeOptions{ shakeThreads = 0, shakeFiles = rel "gen", shakeVersion = projVersion } $ do
 
       phony "yaml"  $ lg $ show songYaml
       phony "audio" $ lg $ show audioDirs
@@ -632,7 +633,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                           ++ map J.Without [minBound .. maxBound]
       forM_ (HM.toList $ _jammit songYaml) $ \(jammitName, jammitQuery) ->
         forM_ jammitAudioParts $ \audpart ->
-          jammitPath jammitName audpart %> \out -> do
+          rel (jammitPath jammitName audpart) %> \out -> do
             inside ("Looking for the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart) $ do
               let title  = fromMaybe (getTitle  $ _metadata songYaml) $ _jammitTitle  jammitQuery
                   artist = fromMaybe (getArtist $ _metadata songYaml) $ _jammitArtist jammitQuery
@@ -655,18 +656,18 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
                   Right dyn -> return $ convertRGB8 dyn
             Nothing -> return onyxAlbum
-      "gen/cover.bmp"      %> \out -> loadRGB8 >>= stackIO . writeBitmap  out . STBIR.resize STBIR.defaultOptions 256 256
-      "gen/cover.png"      %> \out -> loadRGB8 >>= stackIO . writePng     out . STBIR.resize STBIR.defaultOptions 256 256
-      "gen/cover.png_wii"  %> \out -> loadRGB8 >>= stackIO . BL.writeFile out . toDXT1File PNGWii
-      "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of
+      rel "gen/cover.bmp"      %> \out -> loadRGB8 >>= stackIO . writeBitmap  out . STBIR.resize STBIR.defaultOptions 256 256
+      rel "gen/cover.png"      %> \out -> loadRGB8 >>= stackIO . writePng     out . STBIR.resize STBIR.defaultOptions 256 256
+      rel "gen/cover.png_wii"  %> \out -> loadRGB8 >>= stackIO . BL.writeFile out . toDXT1File PNGWii
+      rel "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of
         Just f | takeExtension f == ".png_xbox" -> do
           shk $ copyFile' f out
           forceRW out
         _      -> loadRGB8 >>= stackIO . BL.writeFile out . toDXT1File PNGXbox
 
-      "gen/notes.mid" %> \out -> shk $ do
-        doesFileExist "notes.mid" >>= \b -> if b
-          then copyFile' "notes.mid" out
+      rel "gen/notes.mid" %> \out -> shk $ do
+        doesFileExist (rel "notes.mid") >>= \b -> if b
+          then copyFile' (rel "notes.mid") out
           else saveMIDI out RBFile.Song
             { RBFile.s_tempos = U.tempoMapFromBPS RTB.empty
             , RBFile.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
@@ -676,7 +677,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
       let getAudioLength :: T.Text -> Plan -> Staction U.Seconds
           getAudioLength planName = \case
             MoggPlan{} -> do
-              let ogg = "gen/plan" </> T.unpack planName </> "audio.ogg"
+              let ogg = rel $ "gen/plan" </> T.unpack planName </> "audio.ogg"
               shk $ need [ogg]
               liftIO $ audioSeconds ogg
             Plan{..} -> do
@@ -805,7 +806,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   guard $ notElem fpart usedParts
                   return pa
                 partAudios = maybe id (\pa -> (PartSingle pa :)) _song unusedParts
-                countinPath = "gen/plan" </> T.unpack planName </> "countin.wav"
+                countinPath = rel $ "gen/plan" </> T.unpack planName </> "countin.wav"
                 in do
                   unusedSrcs <- mapM (buildPartAudioToSpec audioLib songYaml spec . Just) partAudios
                   if includeCountin
@@ -829,7 +830,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             (planName, plan) <- case getPlan (tgt_Plan $ rb3_Common rb3) songYaml of
               Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rb3
               Just pair -> return pair
-            let planDir = "gen/plan" </> T.unpack planName
+            let planDir = rel $ "gen/plan" </> T.unpack planName
 
             let pathMagmaKick        = dir </> "magma/kick.wav"
                 pathMagmaSnare       = dir </> "magma/snare.wav"
@@ -925,7 +926,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               liftIO $ runResourceT $ sinkSnd out fmt $ RB2.dryVoxAudio m
             pathMagmaDummyMono   %> buildAudio (Silence 1 $ Seconds 31) -- we set preview start to 0:00 so these can be short
             pathMagmaDummyStereo %> buildAudio (Silence 2 $ Seconds 31)
-            pathMagmaCover %> shk . copyFile' "gen/cover.bmp"
+            pathMagmaCover %> shk . copyFile' (rel "gen/cover.bmp")
             pathMagmaCoverV1 %> \out -> liftIO $ writeBitmap out $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
             let title = targetTitle songYaml $ RB3 rb3
             pathMagmaProj %> \out -> do
@@ -1128,7 +1129,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               Plan{..}   -> do
                 shk $ need [pathOgg]
                 mapStackTraceT (liftIO . runResourceT) $ Magma.oggToMogg pathOgg out
-            pathPng  %> shk . copyFile' "gen/cover.png_xbox"
+            pathPng  %> shk . copyFile' (rel "gen/cover.png_xbox")
             pathMilo %> \out -> case rb3_FileMilo rb3 of
               Nothing   -> liftIO $ B.writeFile out emptyMilo
               Just milo -> do
@@ -1440,7 +1441,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     liftIO $ if ex
                       then Magma.getRBAFile 5 pathMagmaRbaV1 out
                       else B.writeFile out emptyWeightsRB2
-                  rb2Art %> shk . copyFile' "gen/cover.png_xbox"
+                  rb2Art %> shk . copyFile' (rel "gen/cover.png_xbox")
                   rb2Pan %> \out -> liftIO $ B.writeFile out B.empty
                   rb2CON %> \out -> do
                     shk $ need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
@@ -1452,7 +1453,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                       out
 
       forM_ (extraTargets ++ HM.toList (_targets songYaml)) $ \(targetName, target) -> do
-        let dir = "gen/target" </> T.unpack targetName
+        let dir = rel $ "gen/target" </> T.unpack targetName
         case target of
           RB3 rb3 -> rbRules dir rb3 Nothing
           RB2 rb2 -> let
@@ -1475,7 +1476,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             (planName, plan) <- case getPlan (tgt_Plan $ gh2_Common gh2) songYaml of
               Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh2
               Just pair -> return pair
-            let planDir = "gen/plan" </> T.unpack planName
+            let planDir = rel $ "gen/plan" </> T.unpack planName
 
             dir </> "gh2/notes.mid" %> \out -> do
               -- TODO support speed
@@ -1537,7 +1538,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             (planName, plan) <- case getPlan (tgt_Plan $ ps_Common ps) songYaml of
               Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show ps
               Just pair -> return pair
-            let planDir = "gen/plan" </> T.unpack planName
+            let planDir = rel $ "gen/plan" </> T.unpack planName
                 DifficultyPS{..} = difficultyPS ps songYaml
                 DifficultyRB3{..} = psDifficultyRB3
 
@@ -1648,7 +1649,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               , (ps_Keys       ps, rb3KeysTier     )
               , (ps_Vocal      ps, rb3VocalTier    )
               ]
-            dir </> "ps/album.png"   %> shk . copyFile' "gen/cover.png"
+            dir </> "ps/album.png"   %> shk . copyFile' (rel "gen/cover.png")
             phony (dir </> "ps") $ do
               (_, mixMode) <- computeDrumsPart (ps_Drums ps) plan songYaml
               shk $ need $ map (\f -> dir </> "ps" </> f) $ concat
@@ -1695,7 +1696,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
 
       forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
 
-        let dir = "gen/plan" </> T.unpack planName
+        let dir = rel $ "gen/plan" </> T.unpack planName
 
         -- plan audio, currently only used for REAPER project
         let allPlanParts :: [(RBFile.FlexPartName, PartAudio ())]
@@ -1740,15 +1741,15 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               ]
 
         -- REAPER project
-        "notes-" ++ T.unpack planName ++ ".RPP" %> \out -> do
+        rel ("notes-" ++ T.unpack planName ++ ".RPP") %> \out -> do
           let extraTempo = "tempo-" ++ T.unpack planName ++ ".mid"
           b <- shk $ doesFileExist extraTempo
-          let tempo = if b then extraTempo else "gen/notes.mid"
+          let tempo = rel $ if b then extraTempo else "gen/notes.mid"
               tunings = do
                 (fpart, part) <- HM.toList $ getParts $ _parts songYaml
                 pg <- toList $ partProGuitar part
                 return (fpart, pgTuning pg)
-          makeReaper tunings "gen/notes.mid" tempo allPlanAudio out
+          makeReaper tunings (rel "gen/notes.mid") tempo allPlanAudio out
 
         dir </> "web/song.js" %> \out -> do
           let json = dir </> "display.json"
@@ -1795,9 +1796,9 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             display = dir </> "display.json"
         midraw %> \out -> do
           lg "Loading the MIDI file..."
-          input <- shakeMIDI "gen/notes.mid"
+          input <- shakeMIDI $ rel "gen/notes.mid"
           let _ = input :: RBFile.Song (RBFile.RawFile U.Beats)
-              extraTempo  = "tempo-" ++ T.unpack planName ++ ".mid"
+              extraTempo = rel $ "tempo-" ++ T.unpack planName ++ ".mid"
           tempos <- fmap RBFile.s_tempos $ shk (doesFileExist extraTempo) >>= \b -> if b
             then shakeMIDI extraTempo
             else return input
@@ -1896,7 +1897,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             unless (null problems) $ fail "At least 1 problem was found in the MIDI."
         -}
 
-      lift $ want buildables
+      lift $ want $ map rel buildables
 
 shk :: Action a -> StackTraceT (QueueLog Action) a
 shk = lift . lift
