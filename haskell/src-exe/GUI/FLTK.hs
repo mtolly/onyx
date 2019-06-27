@@ -23,7 +23,8 @@ import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
 import           Control.Monad                             (forM, forM_, guard,
-                                                            unless, void, (>=>))
+                                                            join, unless, void,
+                                                            (>=>))
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
 import           Control.Monad.Trans.Class                 (lift)
@@ -49,6 +50,7 @@ import qualified Data.Text                                 as T
 import qualified Data.Text.Encoding                        as TE
 import           Data.Version                              (showVersion)
 import qualified Data.Yaml                                 as Y
+import           DryVox
 import           Foreign                                   (Ptr)
 import           Foreign.C                                 (CString,
                                                             withCString)
@@ -74,13 +76,15 @@ import           Paths_onyxite_customs_tool                (version)
 import           ProKeysRanges                             (closeShiftsFile)
 import           Reaper.Build                              (makeReaperIO)
 import           Reductions                                (simpleReduce)
+import           RockBand.Codec                            (mapTrack)
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
 import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.File.Load                      as Load
 import qualified Sound.MIDI.Util                           as U
 import qualified System.Directory                          as Dir
-import           System.FilePath                           (takeDirectory,
+import           System.FilePath                           (dropExtension,
+                                                            takeDirectory,
                                                             takeExtension,
                                                             takeFileName,
                                                             (-<.>), (<.>),
@@ -887,6 +891,104 @@ getAudioSpec f = Exc.try (Snd.getFileInfo f) >>= \case
       Snd.HeaderFormatFlac -> withFormat "FLAC"
       _                    -> return Nothing
 
+miscPageLipsync
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageLipsync sink rect tab startTasks = do
+  pack <- FL.packNew rect Nothing
+  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    let (_, rectA) = chopLeft 100 rect'
+        (inputRect, rectB) = chopRight 50 rectA
+        (_, pickRect) = chopRight 40 rectB
+    input <- FL.inputNew
+      inputRect
+      (Just "MIDI file")
+      (Just FL.FlNormalInput) -- required for labels to work
+    FL.setLabelsize input $ FL.FontSize 13
+    FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
+    pick <- FL.buttonNew pickRect $ Just "@fileopen"
+    FL.setCallback pick $ \_ -> sink $ EventIO $ do
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+      FL.setTitle picker "Load MIDI file"
+      FL.setFilter picker "*.{mid,midi}" -- TODO also handle .chart?
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
+          Nothing -> return ()
+          Just f  -> void $ FL.setValue input f
+        _                          -> return ()
+    return $ fmap T.unpack $ FL.getValue input
+  getVocalTrack <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    fn <- horizRadio rect'
+      [ ("PART VOCALS", Nothing, False)
+      , ("HARM1", Just Vocal1, False)
+      , ("HARM2", Just Vocal2, False)
+      , ("HARM3", Just Vocal3, False)
+      ]
+    return $ join <$> fn
+  let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+        btn <- FL.buttonNew rect' $ Just label
+        FL.setCallback btn $ \_ -> sink $ EventIO $ do
+          input <- pickedFile
+          voc <- getVocalTrack
+          picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+          FL.setTitle picker "Save lipsync audio"
+          FL.setFilter picker "*.wav"
+          FL.setPresetFile picker $ T.pack $ dropExtension input ++ case voc of
+            Nothing     -> "-solovox.wav"
+            Just Vocal1 -> "-harm1.wav"
+            Just Vocal2 -> "-harm2.wav"
+            Just Vocal3 -> "-harm3.wav"
+          FL.showWidget picker >>= \case
+            FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+              Nothing -> return ()
+              Just f  -> sink $ EventOnyx $ let
+                task = do
+                  mid <- stackIO (Load.fromFile input) >>= RBFile.readMIDIFile'
+                  let trk = mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) $ case voc of
+                        Nothing     -> RBFile.fixedPartVocals $ RBFile.s_tracks mid
+                        Just Vocal1 -> RBFile.fixedHarm1      $ RBFile.s_tracks mid
+                        Just Vocal2 -> RBFile.fixedHarm2      $ RBFile.s_tracks mid
+                        Just Vocal3 -> RBFile.fixedHarm3      $ RBFile.s_tracks mid
+                  src <- toDryVoxFormat <$> fn trk
+                  runAudio src f
+                  return [f]
+                in startTasks [(T.unpack label <> ": " <> input, task)]
+            _ -> return ()
+  dryvoxButton "Make sine wave dry vox" $ return . sineDryVox
+  pickedAudio <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    let (_, rectA) = chopLeft 100 rect'
+        (inputRect, rectB) = chopRight 50 rectA
+        (_, pickRect) = chopRight 40 rectB
+    input <- FL.inputNew
+      inputRect
+      (Just "Audio file")
+      (Just FL.FlNormalInput) -- required for labels to work
+    FL.setLabelsize input $ FL.FontSize 13
+    FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
+    pick <- FL.buttonNew pickRect $ Just "@fileopen"
+    FL.setCallback pick $ \_ -> sink $ EventIO $ do
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+      FL.setTitle picker "Load song or vocals audio"
+      FL.setFilter picker "*.{wav,ogg,mp3,flac}"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
+          Nothing -> return ()
+          Just f  -> void $ FL.setValue input f
+        _                          -> return ()
+    return $ fmap T.unpack $ FL.getValue input
+  dryvoxButton "Make clipped dry vox" $ \trk -> do
+    audio <- stackIO $ pickedAudio
+    src <- buildSource' $ Input audio
+    return $ clipDryVox (vocalTubes trk) src
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
 miscPageMOGG
   :: (Event -> IO ())
   -> Rectangle
@@ -1074,6 +1176,10 @@ launchMisc sink makeMenuBar = mdo
     , makeTab windowRect "MOGG creator" $ \rect tab -> mdo
       functionTabColor >>= setTabColor tab
       miscPageMOGG sink rect tab startTasks
+      return tab
+    , makeTab windowRect "Lipsync dry vox" $ \rect tab -> mdo
+      functionTabColor >>= setTabColor tab
+      miscPageLipsync sink rect tab startTasks
       return tab
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do

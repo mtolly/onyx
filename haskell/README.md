@@ -229,3 +229,19 @@ To change the order of songs, select its row and press Ctrl+Up or Ctrl+Down
 
     As a special case, if you provide a single OGG file, it will not be
     reencoded, and will go unchanged into the MOGG file.
+
+  * Lipsync dry vocals audio creation for Magma
+
+    Two options for generating audio files to give to Magma's vocal animation
+    generator.
+
+      * Sine wave dryvox: the pitches from the vocal track become simple pitch
+        tones. This is used by Onyx for Magma v1 (RB2) which is picky about
+        matching the charted vocal pitches to the dry vocal file, and can error
+        if it thinks they do not match.
+
+        Currently slides are not yet supported.
+
+      * Clipped dryvox: an input audio file, either a mixed song file or an
+        isolated vocal file, is clipped so audio is only present during the
+        vocal notes. This is used by Onyx when exporting Magma v2 projects.
