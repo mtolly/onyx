@@ -1,8 +1,8 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo       #-}
 {-# LANGUAGE TupleSections     #-}
-{-# LANGUAGE CPP     #-}
 module GUI.FLTK (launchGUI) where
 
 import           Audio                                     (Audio (..),
@@ -88,9 +88,9 @@ import           System.FilePath                           (takeDirectory,
 import           System.Info                               (os)
 
 #ifdef WINDOWS
-import System.Win32 (HINSTANCE)
-import Graphics.Win32 (loadIcon)
-import           Foreign                                   (peek, intPtrToPtr)
+import           Foreign                                   (intPtrToPtr, peek)
+import           Graphics.Win32                            (loadIcon)
+import           System.Win32                              (HINSTANCE)
 #endif
 
 data Event

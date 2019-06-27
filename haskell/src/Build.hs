@@ -601,8 +601,9 @@ shakeBuildFiles :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackT
 shakeBuildFiles audioDirs yamlPath = shakeBuild audioDirs yamlPath []
 
 shakeBuild :: (MonadIO m) => [FilePath] -> FilePath -> [(T.Text, Target)] -> [FilePath] -> StackTraceT (QueueLog m) ()
-shakeBuild audioDirs yamlPath extraTargets buildables = do
+shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
+  yamlPath <- stackIO $ Dir.makeAbsolute yamlPathRel
   songYaml <- loadYaml yamlPath
 
   let fullGenre = interpretGenre
