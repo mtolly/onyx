@@ -49,6 +49,7 @@ import           Data.String                           (IsString, fromString)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
 import           Data.Version                          (showVersion)
+import           DeriveHelpers                         (mergeEmpty)
 import           Development.Shake                     hiding (phony, (%>),
                                                         (&%>))
 import           Development.Shake.FilePath
@@ -79,14 +80,12 @@ import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
                                                         onyxAlbum, webDisplay)
 import           RockBand.Codec                        (mapTrack)
-import           RockBand.Codec.Drums
 import qualified RockBand.Codec.Drums                  as RBDrums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File                   as RBFile
 import           RockBand.Codec.Five
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.Venue
-import           RockBand.Codec.Vocal
 import           RockBand.Common
 import qualified RockBand.ProGuitar.Play               as PGPlay
 import           RockBand.Sections                     (makeRB2Section,
@@ -687,7 +686,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , toList _crowd
                     , toList _planParts >>= toList
                     ]
-              src <- mapM (manualLeaf audioLib songYaml) expr >>= lift . lift . buildSource . join
+              src <- mapM (manualLeaf rel audioLib songYaml) expr >>= lift . lift . buildSource . join
               let _ = src :: AudioSource (ResourceT IO) Float
               return $ realToFrac $ fromIntegral (frames src) / rate src
 
@@ -708,18 +707,20 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             _ : _ : _ -> takeStart (Frames 0) src
             _         -> src
 
+          oggForPlan planName = rel $ "gen/plan" </> T.unpack planName </> "audio.ogg"
+
           writeKick, writeSnare, writeKit, writeSimplePart
             :: [RBFile.FlexPartName] -> Maybe Double -> Int -> Bool -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> FilePath -> Staction ()
           writeKick gameParts speed pad supportsOffMono planName plan fpart rank out = do
             ((spec', _, _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ do
+              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) _silent $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit kick _ _) -> fromMaybe [] kick
                   _                           -> []
-              Plan{..}     -> buildAudioToSpec audioLib songYaml spec $ do
+              Plan{..}     -> buildAudioToSpec rel audioLib songYaml spec $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit kick _ _) -> kick
@@ -729,12 +730,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             ((_, spec', _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ do
+              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) _silent $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit _ snare _) -> fromMaybe [] snare
                   _                            -> []
-              Plan{..}     -> buildAudioToSpec audioLib songYaml spec $ do
+              Plan{..}     -> buildAudioToSpec rel audioLib songYaml spec $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit _ snare _) -> snare
@@ -744,13 +745,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             ((_, _, spec'), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ do
+              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) _silent $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit _ _ kit) -> kit
                   Just (PartSingle      kit) -> kit
                   _                          -> []
-              Plan{..}     -> buildAudioToSpec audioLib songYaml spec $ do
+              Plan{..}     -> buildAudioToSpec rel audioLib songYaml spec $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit _ _ kit) -> Just kit
@@ -759,10 +760,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             runAudio (zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
           getPartSource :: (MonadResource m) => [(Double, Double)] -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> Staction (AudioSource m Float)
           getPartSource spec planName plan fpart rank = case plan of
-            MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ do
+            MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) _silent $ do
               guard $ rank /= 0
               toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
-            Plan{..} -> buildPartAudioToSpec audioLib songYaml spec $ do
+            Plan{..} -> buildPartAudioToSpec rel audioLib songYaml spec $ do
               guard $ rank /= 0
               HM.lookup fpart $ getParts _planParts
           writeStereoParts gameParts speed pad planName plan fpartranks out = do
@@ -771,7 +772,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               -> zeroIfMultiple gameParts fpart
               <$> getPartSource spec planName plan fpart rank
             src <- case srcs of
-              []     -> buildAudioToSpec audioLib songYaml spec Nothing
+              []     -> buildAudioToSpec rel audioLib songYaml spec Nothing
               s : ss -> return $ foldr mix s ss
             runAudio (padAudio pad $ adjustAudioSpeed speed src) out
           writeSimplePart gameParts speed pad supportsOffMono planName plan fpart rank out = do
@@ -780,8 +781,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             runAudio (zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
           writeCrowd speed pad planName plan out = do
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] planName (zip _pans _vols) _silent _moggCrowd
-              Plan{..}     -> buildAudioToSpec audioLib songYaml [(-1, 0), (1, 0)] _crowd
+              MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] (oggForPlan planName) (zip _pans _vols) _silent _moggCrowd
+              Plan{..}     -> buildAudioToSpec rel audioLib songYaml [(-1, 0), (1, 0)] _crowd
             runAudio (padAudio pad $ adjustAudioSpeed speed src) out
           sourceSongCountin :: (MonadResource m) => Maybe Double -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> Staction (AudioSource m Float)
           sourceSongCountin speed pad includeCountin planName plan fparts = do
@@ -797,7 +798,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   ]
                 spec = [(-1, 0), (1, 0)]
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ let
+              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) _silent $ let
                 channelsFor fpart = toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
                 usedChannels = concatMap channelsFor usedParts ++ _moggCrowd
                 in filter (`notElem` usedChannels) [0 .. length _pans - 1]
@@ -809,13 +810,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 partAudios = maybe id (\pa -> (PartSingle pa :)) _song unusedParts
                 countinPath = rel $ "gen/plan" </> T.unpack planName </> "countin.wav"
                 in do
-                  unusedSrcs <- mapM (buildPartAudioToSpec audioLib songYaml spec . Just) partAudios
+                  unusedSrcs <- mapM (buildPartAudioToSpec rel audioLib songYaml spec . Just) partAudios
                   if includeCountin
                     then do
                       countinSrc <- shk $ buildSource $ Input countinPath
                       return $ foldr mix countinSrc unusedSrcs
                     else case unusedSrcs of
-                      []     -> buildPartAudioToSpec audioLib songYaml spec Nothing
+                      []     -> buildPartAudioToSpec rel audioLib songYaml spec Nothing
                       s : ss -> return $ foldr mix s ss
             return $ padAudio pad $ adjustAudioSpeed speed src
           writeSongCountin :: Maybe Double -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> Staction ()
@@ -1002,46 +1003,55 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     return RTB.empty
                   _   -> return rtb
             pathMagmaExport2 %> \out -> do
-              -- Using Magma's "export MIDI" option overwrites all animations/venue
+              -- Using Magma's "export MIDI" option overwrites animations/venue
               -- with autogenerated ones, even if they were actually authored.
-              -- So, we now need to readd them back from the user MIDI (if they exist).
+              -- We already generate moods and drum animations ourselves,
+              -- so the only things we need to get from Magma are venue,
+              -- and percent sections.
               userMid <- shakeMIDI pathMagmaMid
               magmaMid <- shakeMIDI pathMagmaExport
               sects <- getRealSections'
-              let trackOr x y = if RTB.null x then y else x
+              let trackOr x y = if x == mergeEmpty then y else x
                   user = RBFile.s_tracks userMid
                   magma = RBFile.s_tracks magmaMid
                   reauthor f = f user `trackOr` f magma
-                  reauthorFive f = (f magma)
-                    { fiveMood = reauthor $ fiveMood . f
-                    , fiveHandMap = reauthor $ fiveHandMap . f
-                    , fiveStrumMap = reauthor $ fiveStrumMap . f
-                    , fiveFretPosition = reauthor $ fiveFretPosition . f
-                    }
-              saveMIDI out $ magmaMid
+              saveMIDI out $ userMid
                 { RBFile.s_tracks = magma
-                  { RBFile.fixedPartDrums = (RBFile.fixedPartDrums magma)
-                    { drumMood = reauthor $ drumMood . RBFile.fixedPartDrums
-                    , drumAnimation = reauthor $ drumAnimation . RBFile.fixedPartDrums
-                    }
-                  , RBFile.fixedPartGuitar = reauthorFive RBFile.fixedPartGuitar
-                  , RBFile.fixedPartBass = reauthorFive RBFile.fixedPartBass
-                  , RBFile.fixedPartKeys = reauthorFive RBFile.fixedPartKeys
-                  , RBFile.fixedPartVocals = (RBFile.fixedPartVocals magma)
-                    { vocalMood = reauthor $ vocalMood . RBFile.fixedPartVocals
-                    }
-                  , RBFile.fixedVenue = if RBFile.fixedVenue user == mempty
-                    then RBFile.fixedVenue magma
-                    else RBFile.fixedVenue user
-                    -- TODO: split up camera and lighting so you can author just one
+                  { RBFile.fixedVenue = let
+                    onlyLightingPP venue = mempty
+                      { venueSpotKeys = venueSpotKeys venue
+                      , venueSpotVocal = venueSpotVocal venue
+                      , venueSpotGuitar = venueSpotGuitar venue
+                      , venueSpotDrums = venueSpotDrums venue
+                      , venueSpotBass = venueSpotBass venue
+                      , venuePostProcessRB3 = venuePostProcessRB3 venue
+                      , venuePostProcessRB2 = venuePostProcessRB2 venue
+                      , venueLighting = venueLighting venue
+                      , venueLightingCommands = venueLightingCommands venue
+                      }
+                    onlyCamera venue = mempty
+                      { venueCameraRB3 = venueCameraRB3 venue
+                      , venueCameraRB2 = venueCameraRB2 venue
+                      , venueDirectedRB2 = venueDirectedRB2 venue
+                      }
+                    onlyOther venue = mempty
+                      { venueSingGuitar = venueSingGuitar venue
+                      , venueSingDrums = venueSingDrums venue
+                      , venueSingBass = venueSingBass venue
+                      , venueBonusFX = venueBonusFX venue
+                      , venueBonusFXOptional = venueBonusFXOptional venue
+                      , venueFog = venueFog venue
+                      }
+                    in mconcat
+                      [ reauthor $ onlyLightingPP . RBFile.fixedVenue
+                      , reauthor $ onlyCamera . RBFile.fixedVenue
+                      , reauthor $ onlyOther . RBFile.fixedVenue
+                      ]
                   , RBFile.fixedEvents = if RTB.null sects
                     then RBFile.fixedEvents magma
                     else (RBFile.fixedEvents magma)
                       { eventsSections = fmap makeRB3Section sects
                       }
-                  -- Stuff "export midi" doesn't overwrite:
-                  -- PART KEYS_ANIM_LH/RH
-                  -- Crowd stuff in EVENTS
                   }
                 }
 
@@ -1785,7 +1795,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   [ toList _song
                   , toList _planParts >>= toList
                   ]
-            srcs <- mapM (buildAudioToSpec audioLib songYaml [(-1, 0), (1, 0)] . Just) planAudios
+            srcs <- mapM (buildAudioToSpec rel audioLib songYaml [(-1, 0), (1, 0)] . Just) planAudios
             count <- shk $ buildSource $ Input $ dir </> "countin.wav"
             runAudio (foldr mix count srcs) out
         dir </> "everything.ogg" %> buildAudio (Input $ dir </> "everything.wav")
@@ -1817,7 +1827,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         -- count-in audio
         dir </> "countin.wav" %> \out -> do
           let hits = case plan of MoggPlan{} -> []; Plan{..} -> case _countin of Countin h -> h
-          src <- buildAudioToSpec audioLib songYaml [(-1, 0), (1, 0)] =<< case hits of
+          src <- buildAudioToSpec rel audioLib songYaml [(-1, 0), (1, 0)] =<< case hits of
             [] -> return Nothing
             _  -> Just . (\expr -> PlanAudio expr [] []) <$> do
               mid <- shakeMIDI $ dir </> "raw.mid"

@@ -583,14 +583,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         , buildLighting $ RBFile.onyxLighting trks
         , camera
         ]
-      -- hack: if author is testing lighting but no camera cuts yet, just show stage
-      venue' = if RTB.null (venueCameraRB3 venue) && not (RTB.null $ venueLighting venue)
-        then venue { venueCameraRB3 = RTB.singleton 0 V3_coop_all_near }
-        else venue
   return $ RBFile.Song tempos' mmap' RBFile.FixedFile
     { RBFile.fixedBeat = timingBeat
     , RBFile.fixedEvents = if isPS then eventsTrackPS else eventsTrack
-    , RBFile.fixedVenue = venue'
+    , RBFile.fixedVenue = venue
     , RBFile.fixedPartDrums = drumsTrack'
     , RBFile.fixedPartDrums2x = mempty
     , RBFile.fixedPartRealDrumsPS = mempty

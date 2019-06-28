@@ -103,8 +103,8 @@ instance ParseTrack LightingTrack where
       LightingFirst -> 32
       LightingPrev  -> 31
       LightingNext  -> 30
-    lightingBonusFXOptional <- lightingBonusFXOptional =. fatBlips (1/8) (blip 11)
-    lightingBonusFX         <- lightingBonusFX         =. fatBlips (1/8) (blip 10)
+    lightingBonusFX         <- lightingBonusFX         =. fatBlips (1/8) (blip 11)
+    lightingBonusFXOptional <- lightingBonusFXOptional =. fatBlips (1/8) (blip 10)
     return LightingTrack{..}
 
 venue_generate :: (NNC.C t) => RTB.T t (a, Bool) -> RTB.T t a

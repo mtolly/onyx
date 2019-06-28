@@ -94,17 +94,17 @@ jammitPath name (J.Without inst)
   = "gen/jammit" </> T.unpack name </> "without" </> map toLower (show inst) <.> "wav"
 
 -- | Looking up single audio files and Jammit parts in the work directory
-manualLeaf :: (SendMessage m, MonadIO m) => AudioLibrary -> SongYaml -> AudioInput -> StackTraceT m (Audio Duration FilePath)
-manualLeaf alib songYaml (Named name) = case HM.lookup name $ _audio songYaml of
+manualLeaf :: (SendMessage m, MonadIO m) => (FilePath -> FilePath) -> AudioLibrary -> SongYaml -> AudioInput -> StackTraceT m (Audio Duration FilePath)
+manualLeaf rel alib songYaml (Named name) = case HM.lookup name $ _audio songYaml of
   Just audioQuery -> case audioQuery of
     AudioFile ainfo -> inside ("Looking for the audio file named " ++ show name) $ do
       aud <- searchInfo alib ainfo
       lg $ "Found audio file " ++ show name ++ " at: " ++ show (toList aud)
       return aud
-    AudioSnippet expr -> join <$> mapM (manualLeaf alib songYaml) expr
+    AudioSnippet expr -> join <$> mapM (manualLeaf rel alib songYaml) expr
   Nothing -> fail $ "Couldn't find an audio source named " ++ show name
-manualLeaf _ songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
-  Just _  -> return $ Input $ jammitPath name audpart
+manualLeaf rel _ songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
+  Just _  -> return $ Input $ rel $ jammitPath name audpart
   Nothing -> fail $ "Couldn't find a Jammit source named " ++ show name
 
 -- | Computing a non-drums instrument's audio for CON/Magma.
@@ -163,17 +163,16 @@ fitToSpec pvIn pvOut src = let
 channelsToSpec
   :: (MonadResource m)
   => [(Double, Double)]
-  -> T.Text
+  -> FilePath
   -> [(Double, Double)]
   -> [Int]
   -> [Int]
   -> Staction (AudioSource m Float)
-channelsToSpec pvOut planName pvIn silentChans chans = inside "conforming MOGG channels to output spec" $ do
+channelsToSpec pvOut pathOgg pvIn silentChans chans = inside "conforming MOGG channels to output spec" $ do
   let partPVIn = map (pvIn !!) chans
-      mogg = "gen/plan" </> T.unpack planName </> "audio.ogg"
   src <- lift $ lift $ buildSource $ case chans of
     [] -> Silence 1 $ Frames 0
-    _  -> Channels (map Just chans) $ Input mogg
+    _  -> Channels (map Just chans) $ Input pathOgg
   let zeroIfSilent = if all (`elem` silentChans) chans
         then takeStart (Frames 0)
         else id
@@ -181,31 +180,33 @@ channelsToSpec pvOut planName pvIn silentChans chans = inside "conforming MOGG c
 
 buildAudioToSpec
   :: (MonadResource m)
-  => AudioLibrary
+  => (FilePath -> FilePath)
+  -> AudioLibrary
   -> SongYaml
   -> [(Double, Double)]
   -> Maybe (PlanAudio Duration AudioInput)
   -> Staction (AudioSource m Float)
-buildAudioToSpec alib songYaml pvOut mpa = inside "conforming audio file to output spec" $ do
+buildAudioToSpec rel alib songYaml pvOut mpa = inside "conforming audio file to output spec" $ do
   (expr, pans, vols) <- completePlanAudio songYaml
     $ fromMaybe (PlanAudio (Silence 1 $ Frames 0) [] []) mpa
-  src <- mapM (manualLeaf alib songYaml) expr >>= lift . lift . buildSource . join
+  src <- mapM (manualLeaf rel alib songYaml) expr >>= lift . lift . buildSource . join
   fitToSpec (zip pans vols) pvOut src
 
 buildPartAudioToSpec
   :: (MonadResource m)
-  => AudioLibrary
+  => (FilePath -> FilePath)
+  -> AudioLibrary
   -> SongYaml
   -> [(Double, Double)]
   -> Maybe (PartAudio (PlanAudio Duration AudioInput))
   -> Staction (AudioSource m Float)
-buildPartAudioToSpec alib songYaml specPV = \case
-  Nothing -> buildAudioToSpec alib songYaml specPV Nothing
-  Just (PartSingle pa) -> buildAudioToSpec alib songYaml specPV $ Just pa
+buildPartAudioToSpec rel alib songYaml specPV = \case
+  Nothing -> buildAudioToSpec rel alib songYaml specPV Nothing
+  Just (PartSingle pa) -> buildAudioToSpec rel alib songYaml specPV $ Just pa
   Just (PartDrumKit kick snare kit) -> do
-    kickSrc  <- buildAudioToSpec alib songYaml specPV kick
-    snareSrc <- buildAudioToSpec alib songYaml specPV snare
-    kitSrc   <- buildAudioToSpec alib songYaml specPV $ Just kit
+    kickSrc  <- buildAudioToSpec rel alib songYaml specPV kick
+    snareSrc <- buildAudioToSpec rel alib songYaml specPV snare
+    kitSrc   <- buildAudioToSpec rel alib songYaml specPV $ Just kit
     return $ mix kickSrc $ mix snareSrc kitSrc
 
 -- | Computing a drums instrument's audio for CON/Magma.

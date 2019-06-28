@@ -88,8 +88,11 @@ queueFileBack f ast = if HS.member f $ audioScannedFiles ast
 
 addDirectoryContents :: (MonadIO m) => AudioState -> Path Abs Dir -> StackTraceT m AudioState
 addDirectoryContents ast dir = do
-  genDir <- getCurrentDir >>= \cwd -> resolveDir cwd "gen/"
-  if dir == genDir
+  songyml <- parseRelFile "song.yml"
+  isGen <- if toFilePath (dirname dir) == "gen/"
+    then doesFileExist $ parent dir </> songyml
+    else return False
+  if isGen
     then return ast
     else stackIO' (listDir dir) >>= \case
       Nothing -> return ast
