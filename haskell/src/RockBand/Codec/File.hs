@@ -39,6 +39,7 @@ import           RockBand.Codec.Beat
 import           RockBand.Codec.Drums
 import           RockBand.Codec.Events
 import           RockBand.Codec.Five
+import           RockBand.Codec.Lipsync
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Six
@@ -247,12 +248,15 @@ data OnyxPart t = OnyxPart
   , onyxHarm2            :: VocalTrack t
   , onyxHarm3            :: VocalTrack t
   , onyxCatch            :: CatchTrack t
+  , onyxLipsync1         :: LipsyncTrack t
+  , onyxLipsync2         :: LipsyncTrack t
+  , onyxLipsync3         :: LipsyncTrack t
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxPart t)
 
 instance TraverseTrack OnyxPart where
   traverseTrack fn
-    (OnyxPart a b c d e f g h i j k l m n o p q r s)
+    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v)
     = OnyxPart
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -260,7 +264,8 @@ instance TraverseTrack OnyxPart where
       <*> traverseTrack fn j <*> traverseTrack fn k <*> traverseTrack fn l
       <*> traverseTrack fn m <*> traverseTrack fn n <*> traverseTrack fn o
       <*> traverseTrack fn p <*> traverseTrack fn q <*> traverseTrack fn r
-      <*> traverseTrack fn s
+      <*> traverseTrack fn s <*> traverseTrack fn t <*> traverseTrack fn u
+      <*> traverseTrack fn v
 
 getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
 getFlexPart part = fromMaybe mempty . Map.lookup part . onyxParts
@@ -316,6 +321,9 @@ parseOnyxPart partName = do
   onyxHarm2            <- onyxHarm2            =. names (FlexVocal, "HARM2") []
   onyxHarm3            <- onyxHarm3            =. names (FlexVocal, "HARM3") []
   onyxCatch            <- onyxCatch            =. names (FlexExtra "undefined", "CATCH") []
+  onyxLipsync1         <- onyxLipsync1         =. names (FlexVocal, "LIPSYNC1") []
+  onyxLipsync2         <- onyxLipsync2         =. names (FlexVocal, "LIPSYNC2") []
+  onyxLipsync3         <- onyxLipsync3         =. names (FlexVocal, "LIPSYNC3") []
   return OnyxPart{..}
 
 instance ParseFile OnyxFile where

@@ -84,9 +84,15 @@ import qualified RockBand.Codec.Drums                  as RBDrums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File                   as RBFile
 import           RockBand.Codec.Five
+import           RockBand.Codec.Lipsync                (LipsyncTrack (..))
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.Venue
+import           RockBand.Codec.Vocal                  (nullVox)
 import           RockBand.Common
+import           RockBand.Milo                         (MagmaLipsync (..),
+                                                        autoLipsync,
+                                                        lipsyncFromMidi,
+                                                        magmaMilo)
 import qualified RockBand.ProGuitar.Play               as PGPlay
 import           RockBand.Sections                     (makeRB2Section,
                                                         makeRB3Section,
@@ -1142,7 +1148,31 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 mapStackTraceT (liftIO . runResourceT) $ Magma.oggToMogg pathOgg out
             pathPng  %> shk . copyFile' (rel "gen/cover.png_xbox")
             pathMilo %> \out -> case rb3_FileMilo rb3 of
-              Nothing   -> liftIO $ B.writeFile out emptyMilo
+              Nothing   -> do
+                midi <- shakeMIDI $ planDir </> "processed.mid"
+                let vox = RBFile.getFlexPart (rb3_Vocal rb3) $ RBFile.s_tracks midi
+                    lip = lipsyncFromMidi . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
+                    auto = autoLipsync . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
+                liftIO $ BL.writeFile out $ if
+                  | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync3 vox -> magmaMilo $ MagmaLipsync3
+                    (lip $ RBFile.onyxLipsync1 vox)
+                    (lip $ RBFile.onyxLipsync2 vox)
+                    (lip $ RBFile.onyxLipsync3 vox)
+                  | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync2 vox -> magmaMilo $ MagmaLipsync2
+                    (lip $ RBFile.onyxLipsync1 vox)
+                    (lip $ RBFile.onyxLipsync2 vox)
+                  | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync1 vox -> magmaMilo $ MagmaLipsync1
+                    (lip $ RBFile.onyxLipsync1 vox)
+                  | not $ nullVox $ RBFile.onyxHarm3 vox -> magmaMilo $ MagmaLipsync3
+                    (auto $ RBFile.onyxHarm1 vox)
+                    (auto $ RBFile.onyxHarm2 vox)
+                    (auto $ RBFile.onyxHarm3 vox)
+                  | not $ nullVox $ RBFile.onyxHarm2 vox -> magmaMilo $ MagmaLipsync2
+                    (auto $ RBFile.onyxHarm1 vox)
+                    (auto $ RBFile.onyxHarm2 vox)
+                  | not $ nullVox $ RBFile.onyxPartVocals vox -> magmaMilo $ MagmaLipsync1
+                    (auto $ RBFile.onyxPartVocals vox)
+                  | otherwise -> BL.fromStrict emptyMilo
               Just milo -> do
                 shk $ copyFile' milo out
                 forceRW out
