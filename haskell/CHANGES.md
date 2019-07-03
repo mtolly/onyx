@@ -1,5 +1,31 @@
 # Version history
 
+## 20190702
+
+* New interface!
+* Add "swap guitar/keys" and "swap bass/keys" to RB3 conversion
+* Convert to Phase Shift/Clone Hero format
+* Import from Magma project format
+* Function: MOGG file generator
+* Function: Pro Keys hanging notes finder
+* Function: Standalone MIDI to REAPER project converter
+* Function: Lipsync dry vocals generator
+* Match Magma format for printed MIDI timestamps
+* Import basic drums and vocal lyrics from `.chart`
+* Proof-of-concept generation of lipsync animations (will be improved)
+* Fixes to importing Phase Shift/Clone Hero charts:
+  * Remove overdrive phrases that have no notes in any difficulty,
+    or that have no notes between it and the previous phrase
+  * Better detection of dummy tracks and lower difficulties
+  * Make short songs at least 30 seconds for Magma
+  * Support `hopo_frequency` in `song.ini`
+* Web player:
+  * Fix longstanding bug when drawing sustains with no gap before the next note
+  * Add PS Real Drums display with hihat and rimshot notes
+  * Separate Pro Drums and Basic Drums display
+  * Better cymbal gem image
+  * Compute and show (not pretty) slides in Pro Guitar/Bass
+
 ## 20190209
 
 * Tool to convert songs to Dolphin `.app` format for recording videos
