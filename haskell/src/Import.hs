@@ -308,7 +308,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
         else getDiff song /= Just (-1)
       isnt :: (Eq a, Monoid a) => (a -> Bool) -> (RBFile.FixedFile U.Beats -> a) -> Bool
       isnt isEmpty f = not $ isEmpty $ f outputMIDI
-      vocalMode = if isnt nullVox RBFile.fixedPartVocals && guardDifficulty FoF.diffVocals
+      vocalMode = if isnt nullVox RBFile.fixedPartVocals && guardDifficulty FoF.diffVocals && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
         then if isnt nullVox RBFile.fixedHarm2 && guardDifficulty FoF.diffVocalsHarm
           then if isnt nullVox RBFile.fixedHarm3
             then Just Vocal3
