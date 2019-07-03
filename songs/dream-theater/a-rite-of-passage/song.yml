@@ -85,6 +85,13 @@ parts:
     drums:
       difficulty: 5
       kicks: 2
+  guitar:
+    pro-guitar:
+      tuning:
+        base: guitar-6
+        global: -2 # D standard
+  bass:
+    grybo: {} # probably needs some cleanup
 targets:
   rb3-2x:
     game: rb3
