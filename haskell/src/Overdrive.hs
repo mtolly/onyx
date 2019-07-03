@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
 module Overdrive
 ( HasOverdrive(..)
@@ -9,19 +10,22 @@ module Overdrive
 , fixBrokenUnisons
 , fixPartialUnisons
 , printFlexParts
+, notesFromRB3
+, fixNotelessOD
 ) where
 
 import           Control.Arrow                    ((>>>))
-import           Control.Monad                    (forM, guard, unless)
+import           Control.Monad                    (forM, guard, unless, void)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (intercalate, sort,
+import           Data.Foldable                    (toList)
+import           Data.List.Extra                  (intercalate, nubOrd, sort,
                                                    stripPrefix)
 import           Data.List.NonEmpty               (NonEmpty (..))
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromMaybe, listToMaybe)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.Drums
 import           RockBand.Codec.File
@@ -29,7 +33,7 @@ import           RockBand.Codec.Five
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Six
-import           RockBand.Common                  (joinEdgesSimple)
+import           RockBand.Common
 import qualified Sound.MIDI.Util                  as U
 
 class HasOverdrive file where
@@ -262,4 +266,91 @@ fixPartialUnisons
 fixPartialUnisons parts (Song tmap mmap rb3) = do
   od <- getOverdrive rb3
   od' <- removePartialUnisons parts mmap od
+  return $ Song tmap mmap $ putOverdrive rb3 od'
+
+notesFromRB3
+  :: (NNC.C t)
+  => FixedFile t
+  -> [(FlexPartName, [(String, RTB.T t ())])]
+notesFromRB3 FixedFile{..} = let
+  five name part = do
+    (diff, fd) <- Map.toAscList $ fiveDifficulties part
+    return (show diff ++ " " ++ name, void $ fiveGems fd)
+  protar name part = do
+    (diff, pgd) <- Map.toAscList $ pgDifficulties part
+    return (show diff ++ " Pro " ++ name, void $ pgNotes pgd)
+  in do
+    (fpart, notes) <-
+      [ (FlexDrums,) $ do
+        (diff, dd) <- Map.toAscList $ drumDifficulties fixedPartDrums
+        return (show diff ++ " Drums", void $ drumGems dd)
+      , (FlexGuitar,) $ five "Guitar" fixedPartGuitar ++ protar "Guitar" fixedPartRealGuitar ++ protar "Guitar (22)" fixedPartRealGuitar22
+      , (FlexBass,) $ five "Bass" fixedPartBass ++ protar "Bass" fixedPartRealBass ++ protar "Bass (22)" fixedPartRealBass22
+      , (FlexKeys,) $ five "Keys" fixedPartKeys ++
+        [ ("Easy Pro Keys"  , void $ pkNotes fixedPartRealKeysE)
+        , ("Medium Pro Keys", void $ pkNotes fixedPartRealKeysM)
+        , ("Hard Pro Keys"  , void $ pkNotes fixedPartRealKeysH)
+        , ("Expert Pro Keys", void $ pkNotes fixedPartRealKeysX)
+        ]
+      ]
+    case filter (not . RTB.null . snd) notes of
+      []       -> []
+      nonempty -> return (fpart, nonempty)
+
+-- | Remove OD phrases that are either missing a note in some difficulty,
+-- or don't have any notes between it and the previous phrase.
+removeNotelessOD
+  :: (SendMessage m)
+  => U.MeasureMap
+  -> [(FlexPartName, [(String, RTB.T U.Beats ())])]
+  -> RTB.T U.Beats (FlexPartName, Bool)
+  -> StackTraceT m (RTB.T U.Beats (FlexPartName, Bool))
+removeNotelessOD mmap notes allOD = foldr RTB.merge RTB.empty <$> do
+  forM (nubOrd $ map fst $ toList allOD) $ \fpart -> do
+    let thisODEdges = fmap snd $ RTB.filter ((== fpart) . fst) allOD
+        joinOD = fmap (\((), (), len) -> len) . joinEdgesSimple . fmap (\b -> (guard b >> Just (), ()))
+        splitOD = U.trackJoin . fmap (\len -> Wait 0 (fpart, True) $ Wait len (fpart, False) RNil)
+        removeNoteless = let
+          -- a map-form of each difficulty that needs notes for each phrase
+          needNotes = do
+            (diff, units) <- fromMaybe [] $ lookup fpart notes
+            return (diff, Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList NNC.zero units)
+          -- returns a difficulty that is missing notes in the given time span, if one exists
+          findNoNotes includeT1 t1 t2 = listToMaybe $ do
+            (diff, units) <- needNotes
+            guard $ maybe True (\(noteTime, ()) -> t2 <= noteTime)
+              $ (if includeT1 then Map.lookupGE else Map.lookupGT) t1 units
+            return diff
+          go _ ANil = return ANil
+          go mprev (At t len rest) = case mprev >>= \prev -> findNoNotes False prev t of
+            Just diff -> do
+              -- note: "between" means *after* (not simultaneous with) the previous phrase end.
+              -- this really shouldn't be a problem but Magma will fail
+              inside (showPosition mmap t) $ warn $ unwords
+                [ "Removing an OD phrase on"
+                , show fpart
+                , "because there are no notes between the it and the previous phrase on"
+                , diff
+                ]
+              go mprev rest
+            Nothing -> case findNoNotes True t $ t <> len of
+              Just diff -> do
+                inside (showPosition mmap t) $ warn $ unwords
+                  [ "Removing an OD phrase on"
+                  , show fpart
+                  , "because it has no notes on"
+                  , diff
+                  ]
+                go mprev rest
+              Nothing -> At t len <$> go (Just $ t <> len) rest
+          in fmap RTB.fromAbsoluteEventList . go Nothing . RTB.toAbsoluteEventList NNC.zero
+    splitOD <$> removeNoteless (joinOD thisODEdges)
+
+fixNotelessOD
+  :: (SendMessage m)
+  => Song (FixedFile U.Beats)
+  -> StackTraceT m (Song (FixedFile U.Beats))
+fixNotelessOD (Song tmap mmap rb3) = do
+  od <- getOverdrive rb3
+  od' <- removeNotelessOD mmap (notesFromRB3 rb3) od
   return $ Song tmap mmap $ putOverdrive rb3 od'

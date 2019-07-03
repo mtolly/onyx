@@ -492,7 +492,8 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
       , Magma.projectVersion = 24
       , Magma.metadata = Magma.Metadata
         { Magma.songName = replaceCharsRB True title
-        , Magma.artistName = replaceCharsRB True $ getArtist $ _metadata songYaml
+        -- "artist_name: This field must be less than 75 characters."
+        , Magma.artistName = T.take 74 $ replaceCharsRB True $ getArtist $ _metadata songYaml
         , Magma.genre = rbn2Genre fullGenre
         , Magma.subGenre = "subgenre_" <> rbn2Subgenre fullGenre
         , Magma.yearReleased = fromIntegral $ max 1960 $ getYear $ _metadata songYaml
@@ -1149,7 +1150,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             pathPng  %> shk . copyFile' (rel "gen/cover.png_xbox")
             pathMilo %> \out -> case rb3_FileMilo rb3 of
               Nothing   -> do
-                midi <- shakeMIDI $ planDir </> "processed.mid"
+                midi <- shakeMIDI $ planDir </> "raw.mid"
                 let vox = RBFile.getFlexPart (rb3_Vocal rb3) $ RBFile.s_tracks midi
                     lip = lipsyncFromMidi . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
                     auto = autoLipsync . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)

@@ -65,7 +65,7 @@ import           Resources                        (rb3Updates)
 import           RockBand.Codec.Drums             as RBDrums
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
-import           RockBand.Codec.Five              (nullFive)
+import qualified RockBand.Codec.Five              as RBFive
 import           RockBand.Codec.ProGuitar         (GtrBase (..), GtrTuning (..),
                                                    nullPG)
 import           RockBand.Codec.ProKeys           (nullPK)
@@ -83,6 +83,22 @@ import           System.FilePath                  (dropExtension, takeDirectory,
                                                    (-<.>), (<.>), (</>))
 import           Text.Read                        (readMaybe)
 import           X360DotNet                       (rb3pkg)
+
+removeDummyTracks :: (NNC.C t) => RBFile.FixedFile t -> RBFile.FixedFile t
+removeDummyTracks trks = let
+  five  fd = fd { RBFive.fiveDifficulties  = scan RBFive.fiveGems  $ RBFive.fiveDifficulties  fd }
+  drums dd = dd { RBDrums.drumDifficulties = scan RBDrums.drumGems $ RBDrums.drumDifficulties dd }
+  scan getGems = Map.filter $ (> 5) . length . getGems
+  in trks
+    { RBFile.fixedPartGuitar      = five  $ RBFile.fixedPartGuitar      trks
+    , RBFile.fixedPartBass        = five  $ RBFile.fixedPartBass        trks
+    , RBFile.fixedPartKeys        = five  $ RBFile.fixedPartKeys        trks
+    , RBFile.fixedPartRhythm      = five  $ RBFile.fixedPartRhythm      trks
+    , RBFile.fixedPartGuitarCoop  = five  $ RBFile.fixedPartGuitarCoop  trks
+    , RBFile.fixedPartDrums       = drums $ RBFile.fixedPartDrums       trks
+    , RBFile.fixedPartDrums2x     = drums $ RBFile.fixedPartDrums2x     trks
+    , RBFile.fixedPartRealDrumsPS = drums $ RBFile.fixedPartRealDrumsPS trks
+    }
 
 fixDoubleSwells :: RBFile.FixedFile U.Beats -> RBFile.FixedFile U.Beats
 fixDoubleSwells ps = let
@@ -270,7 +286,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           x                            -> x
         }
 
-  let outputMIDI = fixGHVox $ fixDoubleSwells $ swapFiveLane $ add2x $ RBFile.s_tracks parsed
+  let outputMIDI = fixGHVox $ fixDoubleSwells $ swapFiveLane $ removeDummyTracks $ add2x $ RBFile.s_tracks parsed
   stackIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI parsed
     { RBFile.s_tracks = outputMIDI
     }
@@ -291,16 +307,16 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
         then True
         else getDiff song /= Just (-1)
       isnt :: (Eq a, Monoid a) => (a -> Bool) -> (RBFile.FixedFile U.Beats -> a) -> Bool
-      isnt isEmpty f = not $ isEmpty $ f $ RBFile.s_tracks parsed
-      vocalMode = if isnt nullVox RBFile.fixedPartVocals && guardDifficulty FoF.diffVocals && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
+      isnt isEmpty f = not $ isEmpty $ f outputMIDI
+      vocalMode = if isnt nullVox RBFile.fixedPartVocals && guardDifficulty FoF.diffVocals
         then if isnt nullVox RBFile.fixedHarm2 && guardDifficulty FoF.diffVocalsHarm
           then if isnt nullVox RBFile.fixedHarm3
             then Just Vocal3
             else Just Vocal2
           else Just Vocal1
         else Nothing
-      hasBass = isnt nullFive RBFile.fixedPartBass && guardDifficulty FoF.diffBass
-      hasRhythm = isnt nullFive RBFile.fixedPartRhythm && guardDifficulty FoF.diffRhythm
+      hasBass = isnt RBFive.nullFive RBFile.fixedPartBass && guardDifficulty FoF.diffBass
+      hasRhythm = isnt RBFive.nullFive RBFile.fixedPartRhythm && guardDifficulty FoF.diffRhythm
 
   let hopoThreshold = case FoF.hopoFrequency song of
         Just ht -> ht
@@ -407,7 +423,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           }
         })
       , ( FlexGuitar, def
-        { partGRYBO = guard (isnt nullFive RBFile.fixedPartGuitar && guardDifficulty FoF.diffGuitar) >> Just PartGRYBO
+        { partGRYBO = guard (isnt RBFive.nullFive RBFile.fixedPartGuitar && guardDifficulty FoF.diffGuitar) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffGuitar song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
@@ -451,7 +467,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           }
         })
       , ( FlexKeys, def
-        { partGRYBO = guard (isnt nullFive RBFile.fixedPartKeys && guardDifficulty FoF.diffKeys) >> Just PartGRYBO
+        { partGRYBO = guard (isnt RBFive.nullFive RBFile.fixedPartKeys && guardDifficulty FoF.diffKeys) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffKeys song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False

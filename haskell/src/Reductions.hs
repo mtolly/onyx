@@ -35,7 +35,7 @@ gryboComplete :: Maybe Int -> U.MeasureMap -> FiveTrack U.Beats -> FiveTrack U.B
 gryboComplete hopoThres mmap trk = let
   od        = fiveOverdrive trk
   getDiff d = fromMaybe mempty $ Map.lookup d $ fiveDifficulties trk
-  trk1 `orIfNull` trk2 = if length (RTB.collectCoincident $ fiveGems trk1) < 5 then trk2 else trk1
+  trk1 `orIfNull` trk2 = if length (RTB.collectCoincident $ fiveGems trk1) <= 5 then trk2 else trk1
   expert    = getDiff Expert
   hard      = getDiff Hard   `orIfNull` gryboReduce Hard   hopoThres mmap od expert
   medium    = getDiff Medium `orIfNull` gryboReduce Medium hopoThres mmap od hard
@@ -353,7 +353,7 @@ drumsComplete mmap sections trk = let
   getRaw d = fromMaybe mempty $ Map.lookup d $ D.drumDifficulties trk
   reduceStep diff source = let
     raw = getRaw diff
-    in if length (D.drumGems raw) < 5
+    in if length (D.drumGems raw) <= 5
       then let
         auto = drumsReduce diff mmap od sections source
         in (proToDiff auto, auto)

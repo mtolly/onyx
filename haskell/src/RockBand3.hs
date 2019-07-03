@@ -18,7 +18,7 @@ import           Data.Maybe                        (fromMaybe, isJust)
 import           Guitars
 import qualified Numeric.NonNegative.Class         as NNC
 import           OneFoot
-import           Overdrive                         (fixBrokenUnisons)
+import           Overdrive
 import           ProKeysRanges
 import           Reductions
 import           RockBand.Codec                    (mapTrack)
@@ -50,7 +50,7 @@ processRB3Pad
 processRB3Pad a b c d e = do
   res <- processMIDI (Left a) b c d e
   -- TODO we probably should run fixBrokenUnisons before autoreductions
-  magmaLegalTemposFile res >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
+  magmaLegalTemposFile res >>= fixNotelessOD >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
 
 processPS
   :: (SendMessage m, MonadIO m)
@@ -112,18 +112,17 @@ basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
     Just ((t, _), _) -> return t
     Nothing -> do
       audLen <- U.unapplyTempoMap tempos <$> getAudioLength
-      let absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
+      let thirtySecs = U.unapplyTempoMap tempos (30.05 :: U.Seconds)
+          absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
           lastMIDIEvent = foldr max 0
             $ concatMap absTimes (RBFile.s_tracks $ RBFile.showMIDITracks input)
             ++ absTimes (U.tempoMapToBPS tempos)
-          endPosn = fromInteger $ round $ max audLen lastMIDIEvent + 4
+          endPosn = fromInteger $ ceiling $ max thirtySecs $ max audLen lastMIDIEvent + 4
       warn $ unwords
-        [ "[end] is missing. The last MIDI event is at"
-        , showPosition lastMIDIEvent
-        , "and the longest audio file ends at"
-        , showPosition audLen
-        , "so [end] will be at"
-        , showPosition endPosn
+        [ "Placing [end] at " <> showPosition endPosn <> "."
+        , "Last MIDI event is at " <> showPosition lastMIDIEvent <> ","
+        , "longest audio file ends at " <> showPosition audLen <> ","
+        , "minimum Magma length (30s) is " <> showPosition thirtySecs
         ]
       return endPosn
   timingBeat <- let

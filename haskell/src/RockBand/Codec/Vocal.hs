@@ -40,7 +40,7 @@ pitchToKey = \case
 
 parsePercAnimation :: (Monad m, NNC.C t) => TrackEvent m t (Percussion, Bool)
 parsePercAnimation = let
-  startEnd b = if b then "_start" else "end"
+  startEnd b = if b then "_start" else "_end"
   unparse :: (Percussion, Bool) -> [T.Text]
   unparse (typ, b) = case typ of
     Tambourine -> ["tambourine" <> startEnd b]

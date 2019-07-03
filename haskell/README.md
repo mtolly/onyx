@@ -84,7 +84,9 @@ To change the order of songs, select its row and press Ctrl+Up or Ctrl+Down
       * Convert 5-lane drums to 4-lane using the standard Phase Shift rules
       * Convert Phase Shift "Real Drums" to RB by removing hihat pedal notes
       * Convert tap notes to HOPO notes
-      * Remove some overdrive phrases if they produce invalid unison phrases
+      * Remove some overdrive phrases if they produce invalid unison phrases,
+        have no notes under them on any difficulty, or have no notes between
+        two adjacent phrases on any difficulty
 
     If the "automatic tom markers" option is turned on, an FoF song that doesn't
     have any tom markers and that does not have "pro_drums = True" in the
