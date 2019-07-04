@@ -11,21 +11,21 @@ import           Data.DTA.Serialize
 import           Data.DTA.Serialize.Magma       (Gender (..))
 import qualified Data.HashMap.Strict            as Map
 import qualified Data.Text                      as T
-import           JSONData                       (eitherCodec, expected, fill,
-                                                 opt, req)
+import           JSONData                       (eitherCodec, enumCodec,
+                                                 expected, fill, opt, req)
 import           RockBand.Common                (Key (..), Tonality (..))
 
 chunkTonicNote :: (SendMessage m) => ChunkCodec m Key
-chunkTonicNote = dtaEnum "Key" $ Int . fromIntegral . fromEnum
+chunkTonicNote = enumCodec "Key" $ Int . fromIntegral . fromEnum
 
 chunkTonality :: (SendMessage m) => ChunkCodec m Tonality
-chunkTonality = dtaEnum "Tonality" $ Int . fromIntegral . fromEnum
+chunkTonality = enumCodec "Tonality" $ Int . fromIntegral . fromEnum
 
 data AnimTempo = KTempoSlow | KTempoMedium | KTempoFast
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackChunk AnimTempo where
-  stackChunk = dtaEnum "AnimTempo" $ \case
+  stackChunk = enumCodec "AnimTempo" $ \case
     KTempoSlow   -> Key "kTempoSlow"
     KTempoMedium -> Key "kTempoMedium"
     KTempoFast   -> Key "kTempoFast"

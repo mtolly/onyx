@@ -13,7 +13,7 @@ import           Data.Hashable          (Hashable (..))
 import qualified Data.HashMap.Strict    as Map
 import qualified Data.Text              as T
 import           GHC.Generics           (Generic (..))
-import           JSONData               (opt, req)
+import           JSONData               (enumCodec, opt, req)
 
 data Song = Song
   { songName :: T.Text
@@ -48,7 +48,7 @@ data CharacterOutfit
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk CharacterOutfit where
-  stackChunk = dtaEnum "CharacterOutfit" $ Key . T.toLower . T.pack . show
+  stackChunk = enumCodec "CharacterOutfit" $ Key . T.toLower . T.pack . show
 instance StackChunks CharacterOutfit
 
 data Guitar
@@ -58,7 +58,7 @@ data Guitar
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk Guitar where
-  stackChunk = dtaEnum "Guitar" $ Key . T.toLower . T.pack . show
+  stackChunk = enumCodec "Guitar" $ Key . T.toLower . T.pack . show
 instance StackChunks Guitar
 
 data Venue
@@ -72,7 +72,7 @@ data Venue
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk Venue where
-  stackChunk = dtaEnum "Venue" $ Key . T.toLower . T.pack . show
+  stackChunk = enumCodec "Venue" $ Key . T.toLower . T.pack . show
 instance StackChunks Venue
 
 data Quickplay = Quickplay
@@ -96,7 +96,7 @@ data BandMember
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk BandMember where
-  stackChunk = dtaEnum "BandMember" $ Key . \case
+  stackChunk = enumCodec "BandMember" $ Key . \case
     MetalBass     -> "metal_bass"
     MetalDrummer  -> "metal_drummer"
     MetalKeyboard -> "metal_keyboard"

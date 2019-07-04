@@ -16,7 +16,7 @@ import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
 import qualified Data.Aeson                     as A
 import           Data.Functor.Identity          (Identity (..))
-import qualified Data.HashMap.Strict            as Map
+import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as Set
 import           Data.Maybe                     (isJust)
 import           Data.Scientific
@@ -25,7 +25,7 @@ import qualified Data.Vector                    as V
 
 type StackParser m v = StackTraceT (ReaderT v m)
 
-type ObjectParser m v = StackParser (StateT (Set.HashSet T.Text) m) (Map.HashMap T.Text v)
+type ObjectParser m v = StackParser (StateT (Set.HashSet T.Text) m) (HM.HashMap T.Text v)
 type ObjectBuilder v = Writer [(T.Text, v)]
 type ObjectCodec m v a = Codec (ObjectParser m v) (ObjectBuilder v) a
 
@@ -60,6 +60,45 @@ class StackJSON a where
 expected :: (Monad m, Show v) => String -> StackParser m v a
 expected x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ show v
 
+enumCodec :: (Enum a, Bounded a, Eq v, Show v, Monad m) =>
+  String -> (a -> v) -> ValueCodec m v a
+enumCodec s f = enumCodecFull s $ is . f
+
+enumCodecFull :: (Enum a, Bounded a, Show v, Monad m) =>
+  String -> (a -> ValueCodec m v ()) -> ValueCodec m v a
+enumCodecFull s f = Codec
+  { codecOut = fmapArg $ \x -> codecOut (f x) ()
+  , codecIn = foldr (<|>) (expected s)
+    [ x <$ codecIn (f x) | x <- [minBound .. maxBound] ]
+  }
+
+(|?>) :: (Monad m) => ValueCodec m v () -> ValueCodec m v () -> ValueCodec m v ()
+x |?> y = Codec
+  { codecOut = codecOut x
+  , codecIn = codecIn x <|> codecIn y
+  }
+
+is :: (Eq v, Show v, Monad m) => v -> ValueCodec m v ()
+is x = Codec
+  { codecOut = makeOut $ \() -> x
+  , codecIn  = lift ask >>= \v -> if v == x
+    then return ()
+    else expected $ show x
+  }
+
+fuzzy :: (Monad m) => T.Text -> JSONCodec m ()
+fuzzy s = Codec
+  { codecOut = makeOut $ \() -> A.String s
+  , codecIn = let
+    f = T.toLower . T.filter (/= ' ')
+    s' = f s
+    in lift ask >>= \case
+      A.String t -> if f t == s'
+        then return ()
+        else expected $ show s
+      _ -> expected "a string"
+  }
+
 aesonCodec :: (A.ToJSON a, A.FromJSON a, Monad m) => JSONCodec m a
 aesonCodec = Codec
   { codecOut = makeOut A.toJSON
@@ -87,7 +126,7 @@ strictKeys :: (Monad m) => ObjectParser m v ()
 strictKeys = do
   obj <- lift ask
   known <- lift $ lift get
-  let unknown = Set.fromList (Map.keys obj) `Set.difference` known
+  let unknown = Set.fromList (HM.keys obj) `Set.difference` known
   unless (Set.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (Set.toList unknown)
 
 makeObject :: (Monad m) => ObjectCodec m v a -> a -> [(T.Text, v)]
@@ -100,7 +139,7 @@ asObject err codec = Codec
       f = withReaderT (const obj) . mapReaderT (`evalStateT` Set.empty)
       in mapStackTraceT f $ codecIn codec
     _ -> expected "object"
-  , codecOut = makeOut $ A.Object . Map.fromList . makeObject codec
+  , codecOut = makeOut $ A.Object . HM.fromList . makeObject codec
   }
 
 objectId :: ObjectCodec (PureLog Identity) v a -> ObjectCodec (PureLog Identity) v a
@@ -115,7 +154,7 @@ asStrictObject err codec = asObject err Codec
   , codecIn = codecIn codec <* strictKeys
   }
 
-object :: (Monad m) => StackParser m (Map.HashMap T.Text A.Value) a -> StackParser m A.Value a
+object :: (Monad m) => StackParser m (HM.HashMap T.Text A.Value) a -> StackParser m A.Value a
 object p = lift ask >>= \case
   A.Object o -> parseFrom o p
   _          -> expected "an object"
@@ -124,7 +163,7 @@ objectKey :: (SendMessage m, Show v) => Maybe (a, a -> Bool) -> Bool -> Bool -> 
 objectKey dflt shouldWarn shouldFill key valCodec = Codec
   { codecIn = do
     obj <- lift ask
-    case Map.lookup key obj of
+    case HM.lookup key obj of
       Nothing -> case dflt of
         Nothing     -> expected $ "to find required key " ++ show key ++ " in object"
         Just (x, _) -> do
@@ -155,23 +194,23 @@ fill    x = objectKey (Just (x, (== x))) False True
 opt     x = objectKey (Just (x, (== x))) False False
 
 -- TODO cleanup
-requiredKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (Map.HashMap T.Text A.Value) a
-requiredKey k p = lift ask >>= \hm -> case Map.lookup k hm of
+requiredKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (HM.HashMap T.Text A.Value) a
+requiredKey k p = lift ask >>= \hm -> case HM.lookup k hm of
   Nothing -> parseFrom (A.Object hm) $
     expected $ "to find required key " ++ show k ++ " in object"
   Just v  -> inside ("required key " ++ show k) $ parseFrom v p
 
 -- TODO cleanup
-optionalKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (Map.HashMap T.Text A.Value) (Maybe a)
-optionalKey k p = lift ask >>= \hm -> case Map.lookup k hm of
+optionalKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (HM.HashMap T.Text A.Value) (Maybe a)
+optionalKey k p = lift ask >>= \hm -> case HM.lookup k hm of
   Nothing -> return Nothing
   Just v  -> fmap Just $ inside ("optional key " ++ show k) $ parseFrom v p
 
 -- TODO cleanup
-expectedKeys :: (Monad m) => [T.Text] -> StackParser m (Map.HashMap T.Text A.Value) ()
+expectedKeys :: (Monad m) => [T.Text] -> StackParser m (HM.HashMap T.Text A.Value) ()
 expectedKeys keys = do
   hm <- lift ask
-  let unknown = Set.fromList (Map.keys hm) `Set.difference` Set.fromList keys
+  let unknown = Set.fromList (HM.keys hm) `Set.difference` Set.fromList keys
   unless (Set.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (Set.toList unknown)
 
 instance StackJSON Int
@@ -208,29 +247,29 @@ maybeCodec c = Codec
 instance (StackJSON a) => StackJSON (Maybe a) where
   stackJSON = maybeCodec stackJSON
 
-onlyKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (Map.HashMap T.Text A.Value) a
-onlyKey k p = lift ask >>= \hm -> case Map.toList hm of
+onlyKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (HM.HashMap T.Text A.Value) a
+onlyKey k p = lift ask >>= \hm -> case HM.toList hm of
   [(k', v)] | k == k' -> inside ("only key " ++ show k) $ parseFrom v p
   _ -> parseFrom (A.Object hm) $
     expected $ "to find only key " ++ show k ++ " in object"
 
-mapping :: (Monad m) => StackParser m A.Value a -> StackParser m A.Value (Map.HashMap T.Text a)
+mapping :: (Monad m) => StackParser m A.Value a -> StackParser m A.Value (HM.HashMap T.Text a)
 mapping p = lift ask >>= \case
-  A.Object o -> Map.traverseWithKey (\k x -> inside ("mapping key " ++ show k) $ parseFrom x p) o
+  A.Object o -> HM.traverseWithKey (\k x -> inside ("mapping key " ++ show k) $ parseFrom x p) o
   _          -> expected "an object"
 
-mappingToJSON :: (StackJSON a) => Map.HashMap T.Text a -> A.Value
+mappingToJSON :: (StackJSON a) => HM.HashMap T.Text a -> A.Value
 mappingToJSON = A.toJSON . fmap toJSON
 
-dict :: (Monad m) => JSONCodec m a -> JSONCodec m (Map.HashMap T.Text a)
+dict :: (Monad m) => JSONCodec m a -> JSONCodec m (HM.HashMap T.Text a)
 dict c = Codec
   { codecOut = makeOut $ A.toJSON . fmap (makeValue' c)
   , codecIn = mapping $ codecIn c
   }
 
 pattern OneKey :: T.Text -> A.Value -> A.Value
-pattern OneKey k v <- A.Object (Map.toList -> [(k, v)]) where
-  OneKey k v = A.Object $ Map.fromList [(k, v)]
+pattern OneKey k v <- A.Object (HM.toList -> [(k, v)]) where
+  OneKey k v = A.Object $ HM.fromList [(k, v)]
 
 -- TODO find a safer way to do this
 fromEmptyObject :: (StackJSON a) => a

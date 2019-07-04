@@ -4,14 +4,12 @@
 module Cytoid where
 
 import           Control.Monad.Codec
-import           Control.Monad.Trans.Class  (lift)
-import           Control.Monad.Trans.Reader (ask)
-import qualified Data.Aeson                 as A
-import           Data.Profunctor            (dimap)
-import           Data.Scientific            (Scientific)
-import qualified Data.Text                  as T
+import qualified Data.Aeson          as A
+import           Data.Profunctor     (dimap)
+import           Data.Scientific     (Scientific)
+import qualified Data.Text           as T
 import           JSONData
-import qualified Sound.MIDI.Util            as U
+import qualified Sound.MIDI.Util     as U
 
 -- | Contents of level.json
 data CytoidLevel = CytoidLevel
@@ -96,15 +94,9 @@ data ScanLineDirection = ScanDown | ScanUp
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackJSON ScanLineDirection where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.Number (-1) -> return ScanDown
-      A.Number 1    -> return ScanUp
-      _             -> expected "a scan line direction (-1 for down, 1 for up)"
-    , codecOut = makeOut $ A.Number . \case
-      ScanDown -> -1
-      ScanUp   -> 1
-    }
+  stackJSON = enumCodec "a scan line direction (-1 for down, 1 for up)" $ \case
+    ScanDown -> A.Number (-1)
+    ScanUp   -> A.Number 1
 
 data Page t = Page
   { page_start_tick          :: t
@@ -191,14 +183,10 @@ data NoteType
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackJSON NoteType where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.Number 0 -> return TapNote
-      A.Number 1 -> return HoldNote
-      A.Number 2 -> return LongHoldNote
-      A.Number 3 -> return DragHeadNote
-      A.Number 4 -> return DragChildNote
-      A.Number 5 -> return FlickNote
-      _          -> expected "a note type (0 to 5)"
-    , codecOut = makeOut $ A.Number . fromIntegral . fromEnum
-    }
+  stackJSON = enumCodec "a note type (0 to 5)" $ \case
+    TapNote       -> A.Number 0
+    HoldNote      -> A.Number 1
+    LongHoldNote  -> A.Number 2
+    DragHeadNote  -> A.Number 3
+    DragChildNote -> A.Number 4
+    FlickNote     -> A.Number 5

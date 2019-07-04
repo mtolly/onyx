@@ -191,16 +191,6 @@ instance (StackChunk a, StackChunk b) => StackChunks (a, b) where
 instance (StackChunks a, StackChunks b) => StackChunks (Either a b) where
   stackChunks = eitherCodec stackChunks stackChunks
 
-dtaEnum :: (Monad m, Enum a, Bounded a) => String -> (a -> Chunk T.Text) -> ChunkCodec m a
-dtaEnum err f = let
-  kv = Map.fromList [ (f x, x) | x <- [minBound .. maxBound] ]
-  in Codec
-    { codecOut  = makeOut f
-    , codecIn = lift ask >>= \v -> case Map.lookup v kv of
-      Nothing -> expected $ err ++ " enumeration value"
-      Just x  -> return x
-    }
-
 asAssoc :: (Monad m) => T.Text -> ObjectCodec m [Chunk T.Text] a -> ChunksCodec m a
 asAssoc err codec = Codec
   { codecIn = inside ("parsing " ++ T.unpack err) $ do

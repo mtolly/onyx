@@ -8,7 +8,7 @@ import           Data.DTA
 import           Data.DTA.Serialize
 import           Data.Monoid         ((<>))
 import qualified Data.Text           as T
-import           JSONData            (eitherCodec, opt, req)
+import           JSONData
 
 data Metadata = Metadata
   { songName     :: T.Text
@@ -101,9 +101,9 @@ data AutogenTheme
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackChunk AutogenTheme where
-  stackChunk = dtaEnum "AutogenTheme" $ \case
-    DefaultTheme -> String "" -- TODO also allow "Default.rbtheme"
-    theme        -> String $ T.pack (show theme) <> ".rbtheme"
+  stackChunk = enumCodecFull "AutogenTheme" $ \case
+    DefaultTheme -> is (String "") |?> is (String "Default.rbtheme")
+    theme        -> is $ String $ T.pack (show theme) <> ".rbtheme"
 instance StackChunks AutogenTheme
 
 data Midi = Midi
@@ -125,7 +125,7 @@ data DrumLayout
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackChunk DrumLayout where
-  stackChunk = dtaEnum "DrumLayout" $ \case
+  stackChunk = enumCodec "DrumLayout" $ \case
     Kit          -> Key "drum_layout_kit"
     KitSnare     -> Key "drum_layout_kit_snare"
     KitKick      -> Key "drum_layout_kit_kick"
@@ -164,7 +164,7 @@ data Percussion
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackChunk Percussion where
-  stackChunk = dtaEnum "Percussion" $ \case
+  stackChunk = enumCodec "Percussion" $ \case
     Tambourine -> Key "tambourine"
     Cowbell    -> Key "cowbell"
     Handclap   -> Key "handclap"
@@ -174,7 +174,7 @@ data Gender = Male | Female
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackChunk Gender where
-  stackChunk = dtaEnum "Gender" $ \case
+  stackChunk = enumCodec "Gender" $ \case
     Male   -> Key "male"
     Female -> Key "female"
 instance StackChunks Gender

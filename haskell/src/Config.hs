@@ -38,7 +38,6 @@ import           Data.Traversable
 import qualified Data.Vector                    as V
 import           GHC.Generics                   (Generic (..))
 import           JSONData
-import qualified RockBand.Codec.Drums           as Drums
 import           RockBand.Codec.File            (FlexPartName (..), getPartName,
                                                  readPartName)
 import           RockBand.Codec.ProGuitar       (GtrBase (..), GtrTuning (..))
@@ -83,32 +82,17 @@ parseSongKey = Codec
   }
 
 parseJammitInstrument :: (Monad m) => ValueCodec m A.Value J.Instrument
-parseJammitInstrument = Codec
-  { codecIn = lift ask >>= \s -> case s of
-    A.String "guitar" -> return J.Guitar
-    A.String "bass"   -> return J.Bass
-    A.String "drums"  -> return J.Drums
-    A.String "keys"   -> return J.Keyboard
-    A.String "vocal"  -> return J.Vocal
-    _                 -> expected "a jammit instrument name"
-  , codecOut = makeOut $ \case
-    J.Guitar   -> "guitar"
-    J.Bass     -> "bass"
-    J.Drums    -> "drums"
-    J.Keyboard -> "keys"
-    J.Vocal    -> "vocal"
-  }
+parseJammitInstrument = enumCodec "a jammit instrument name" $ \case
+  J.Guitar   -> "guitar"
+  J.Bass     -> "bass"
+  J.Drums    -> "drums"
+  J.Keyboard -> "keys"
+  J.Vocal    -> "vocal"
 
 parseGender :: (Monad m) => ValueCodec m A.Value Magma.Gender
-parseGender = Codec
-  { codecIn = lift ask >>= \case
-    A.String "female" -> return Magma.Female
-    A.String "male"   -> return Magma.Male
-    _                 -> expected "a gender (male or female)"
-  , codecOut = makeOut $ \case
-    Magma.Female -> "female"
-    Magma.Male   -> "male"
-  }
+parseGender = enumCodec "a gender (male or female)" $ \case
+  Magma.Female -> "female"
+  Magma.Male   -> "male"
 
 data AudioInfo = AudioInfo
   { _md5      :: Maybe T.Text
@@ -364,18 +348,6 @@ instance StackJSON Plan where
         ]
     }
 
-instance StackJSON Drums.Audio where
-  stackJSON = Codec
-    { codecIn = fromJSON >>= \n -> case n :: Int of
-      0 -> return Drums.D0
-      1 -> return Drums.D1
-      2 -> return Drums.D2
-      3 -> return Drums.D3
-      4 -> return Drums.D4
-      _ -> expected "a valid drum mix mode (a number 0 through 4)"
-    , codecOut = makeOut $ A.toJSON . fromEnum
-    }
-
 data AudioInput
   = Named T.Text
   | JammitSelect J.AudioPart T.Text
@@ -427,16 +399,9 @@ jammitPartToTitle = \case
   J.PartBVocals -> "B Vocals"
 
 instance StackJSON Edge where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.String "start" -> return Start
-      A.String "begin" -> return Start
-      A.String "end"   -> return End
-      _                -> expected "an audio edge (start or end)"
-    , codecOut = makeOut $ \case
-      Start -> "start"
-      End -> "end"
-    }
+  stackJSON = enumCodecFull "an audio edge (start or end)" $ \case
+    Start -> is "start" |?> is "begin"
+    End   -> is "end"
 
 algebraic1 :: (Monad m) => T.Text -> (a -> b) -> StackParser m A.Value a -> StackParser m A.Value b
 algebraic1 k f p1 = object $ onlyKey k $ do
@@ -679,20 +644,12 @@ data DrumKit
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackJSON DrumKit where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.Null     -> return HardRockKit
-      A.String t         -> case readMaybe $ filter (/= ' ') $ T.unpack t of
-        Just kit -> return kit
-        Nothing  -> expected "the name of a drum kit or null"
-      _                  -> expected "the name of a drum kit or null"
-    , codecOut = makeOut $ \case
-      HardRockKit -> "Hard Rock Kit"
-      ArenaKit -> "Arena Kit"
-      VintageKit -> "Vintage Kit"
-      TrashyKit -> "Trashy Kit"
-      ElectronicKit -> "Electronic Kit"
-    }
+  stackJSON = enumCodecFull "the name of a drum kit or null" $ \case
+    HardRockKit   -> is A.Null |?> fuzzy "Hard Rock Kit"
+    ArenaKit      -> fuzzy "Arena Kit"
+    VintageKit    -> fuzzy "Vintage Kit"
+    TrashyKit     -> fuzzy "Trashy Kit"
+    ElectronicKit -> fuzzy "Electronic Kit"
 
 data DrumLayout
   = StandardLayout
@@ -700,16 +657,9 @@ data DrumLayout
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackJSON DrumLayout where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.Null                     -> return StandardLayout
-      A.String "standard-layout" -> return StandardLayout
-      A.String "flip-yb-toms"    -> return FlipYBToms
-      _                          -> expected "the name of a drum kit layout or null"
-    , codecOut = makeOut $ \case
-      StandardLayout -> "standard-layout"
-      FlipYBToms     -> "flip-yb-toms"
-    }
+  stackJSON = enumCodecFull "the name of a drum kit layout or null" $ \case
+    StandardLayout -> is A.Null |?> is "standard-layout"
+    FlipYBToms     -> is "flip-yb-toms"
 
 data DrumMode
   = Drums4
@@ -719,52 +669,28 @@ data DrumMode
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackJSON DrumMode where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.Number 4      -> return Drums4
-      A.Number 5      -> return Drums5
-      A.String "pro"  -> return DrumsPro
-      A.String "real" -> return DrumsReal
-      _               -> expected "a drum mode (4, 5, pro, real)"
-    , codecOut = makeOut $ \case
-      Drums4    -> A.Number 4
-      Drums5    -> A.Number 5
-      DrumsPro  -> A.String "pro"
-      DrumsReal -> A.String "real"
-    }
+  stackJSON = enumCodec "a drum mode (4, 5, pro, real)" $ \case
+    Drums4    -> A.Number 4
+    Drums5    -> A.Number 5
+    DrumsPro  -> "pro"
+    DrumsReal -> "real"
 
 data OrangeFallback = FallbackBlue | FallbackGreen
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackJSON OrangeFallback where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.String "blue"  -> return FallbackBlue
-      A.String "green" -> return FallbackGreen
-      _                -> expected "an orange drum note fallback color (blue, green)"
-    , codecOut = makeOut $ \case
-      FallbackBlue  -> "blue"
-      FallbackGreen -> "green"
-    }
+  stackJSON = enumCodec "an orange drum note fallback color (blue, green)" $ \case
+    FallbackBlue  -> "blue"
+    FallbackGreen -> "green"
 
 data Kicks = Kicks1x | Kicks2x | KicksBoth
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackJSON Kicks where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.Null          -> return Kicks1x
-      A.Number 1      -> return Kicks1x
-      A.Number 2      -> return Kicks1x
-      A.String "1"    -> return Kicks1x
-      A.String "2"    -> return Kicks2x
-      A.String "both" -> return KicksBoth
-      _               -> expected "number of bass pedals (1, 2, both)"
-    , codecOut = makeOut $ \case
-      Kicks1x   -> A.Number 1
-      Kicks2x   -> A.Number 2
-      KicksBoth -> A.String "both"
-    }
+  stackJSON = enumCodecFull "number of bass pedals (1, 2, both)" $ \case
+    Kicks1x   -> is (A.Number 1) |?> is "1" |?> is A.Null
+    Kicks2x   -> is (A.Number 2) |?> is "2"
+    KicksBoth -> is "both"
 
 data PartDrums = PartDrums
   { drumsDifficulty  :: Difficulty
@@ -791,14 +717,10 @@ data VocalCount = Vocal1 | Vocal2 | Vocal3
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackJSON VocalCount where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.Number 1   -> return Vocal1
-      A.Number 2   -> return Vocal2
-      A.Number 3   -> return Vocal3
-      _            -> expected "a vocal part count (1 to 3)"
-    , codecOut = makeOut $ \c -> A.toJSON $ fromEnum c + 1
-    }
+  stackJSON = enumCodec "a vocal part count (1 to 3)" $ \case
+    Vocal1 -> A.Number 1
+    Vocal2 -> A.Number 2
+    Vocal3 -> A.Number 3
 
 data PartVocal = PartVocal
   { vocalDifficulty :: Difficulty
@@ -825,16 +747,12 @@ instance StackJSON PartAmplitude where
     return PartAmplitude{..}
 
 instance StackJSON Amp.Instrument where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.String "drums"  -> return Amp.Drums
-      A.String "bass"   -> return Amp.Bass
-      A.String "synth"  -> return Amp.Synth
-      A.String "vocal"  -> return Amp.Vocal
-      A.String "guitar" -> return Amp.Guitar
-      _                 -> expected "amplitude instrument type"
-    , codecOut = makeOut $ A.String . T.toLower . T.pack . show
-    }
+  stackJSON = enumCodec "amplitude instrument type" $ \case
+    Amp.Drums  -> "drums"
+    Amp.Bass   -> "bass"
+    Amp.Synth  -> "synth"
+    Amp.Vocal  -> "vocal"
+    Amp.Guitar -> "guitar"
 
 data Part = Part
   { partGRYBO     :: Maybe PartGRYBO
@@ -861,16 +779,9 @@ instance Default Part where
   def = fromEmptyObject
 
 instance StackJSON Magma.AutogenTheme where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.Null             -> return Magma.DefaultTheme
-      A.String "Default" -> return Magma.DefaultTheme
-      A.String t         -> case readMaybe $ filter (/= ' ') $ T.unpack t of
-        Just theme -> return theme
-        Nothing    -> expected "the name of an autogen theme or null"
-      _                  -> expected "the name of an autogen theme or null"
-    , codecOut = makeOut $ A.toJSON . show -- maybe put spaces in here later
-    }
+  stackJSON = enumCodecFull "the name of an autogen theme or null" $ \case
+    Magma.DefaultTheme -> is A.Null |?> fuzzy "Default"
+    theme              -> fuzzy $ T.pack $ show theme
 
 data Rating
   = FamilyFriendly
@@ -880,22 +791,11 @@ data Rating
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackJSON Rating where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.Null     -> return Unrated
-      A.String t -> case T.filter (/= ' ') t of
-        "FF"                     -> return FamilyFriendly
-        "SR"                     -> return SupervisionRecommended
-        "M"                      -> return Mature
-        "UR"                     -> return Unrated
-        "FamilyFriendly"         -> return FamilyFriendly
-        "SupervisionRecommended" -> return SupervisionRecommended
-        "Mature"                 -> return Mature
-        "Unrated"                -> return Unrated
-        _                        -> expected "a valid content rating or null"
-      _          -> expected "a valid content rating or null"
-    , codecOut = makeOut $ A.toJSON . show -- maybe put spaces in here later
-    }
+  stackJSON = enumCodecFull "a valid content rating or null" $ \case
+    FamilyFriendly         -> fuzzy "Family Friendly"         |?> fuzzy "FF"
+    SupervisionRecommended -> fuzzy "Supervision Recommended" |?> fuzzy "SR"
+    Mature                 -> fuzzy "Mature"                  |?> fuzzy "M"
+    Unrated                -> fuzzy "Unrated"                 |?> fuzzy "UR"
 
 data PreviewTime
   = PreviewSection T.Text
@@ -959,18 +859,11 @@ data Metadata = Metadata
 
 parseAnimTempo :: (SendMessage m) => ValueCodec m A.Value (Either AnimTempo Integer)
 parseAnimTempo = eitherCodec
-  Codec
-    { codecIn = lift ask >>= \case
-      A.Null            -> return KTempoMedium
-      A.String "slow"   -> return KTempoSlow
-      A.String "medium" -> return KTempoMedium
-      A.String "fast"   -> return KTempoFast
-      _                 -> expected "an animation speed"
-    , codecOut = makeOut $ \case
-      KTempoSlow   -> A.String "slow"
-      KTempoMedium -> A.String "medium"
-      KTempoFast   -> A.String "fast"
-    }
+  (enumCodecFull "an animation speed" $ \case
+    KTempoSlow   -> is "slow" |?> is A.Null
+    KTempoMedium -> is "medium"
+    KTempoFast   -> is "fast"
+  )
   stackJSON
 
 instance StackJSON Metadata where
@@ -1151,16 +1044,9 @@ data GH2Coop = GH2Bass | GH2Rhythm
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
 
 instance StackJSON GH2Coop where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.Null            -> return GH2Bass
-      A.String "bass"   -> return GH2Bass
-      A.String "rhythm" -> return GH2Rhythm
-      _                 -> expected "bass or rhythm"
-    , codecOut = makeOut $ \case
-      GH2Bass   -> "bass"
-      GH2Rhythm -> "rhythm"
-    }
+  stackJSON = enumCodecFull "bass or rhythm" $ \case
+    GH2Bass   -> is "bass" |?> is A.Null
+    GH2Rhythm -> is "rhythm"
 
 data TargetGH2 = TargetGH2
   { gh2_Common    :: TargetCommon
