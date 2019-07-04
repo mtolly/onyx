@@ -212,7 +212,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       insideEvents trk f = flip traverseWithAbsTime trk $ \t x -> do
         inside ("ticks: " <> show (round $ t * res :: Integer)) $ do
           f x
-      hopoThreshold = 1/3 -- default threshold according to moonscraper
+      hopoThreshold = 65/192 -- default threshold according to moonscraper
       eachEvent evt parseNote = case evt of
         Note n len -> parseNote n len
         Stream n len -> let
@@ -229,16 +229,14 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
         _ -> return Nothing
       -- some songs start a new solo without ending the previous one
       fixBackToBackSolos :: (NNC.C t, Ord a) => RTB.T t (TrackEvent t a) -> RTB.T t (TrackEvent t a)
-      fixBackToBackSolos = let
-        go b rtb = case RTB.viewL rtb of
-          Nothing -> RTB.empty
-          Just ((dt, x), rtb') -> case x of
-            TrackSolo False -> RTB.cons dt x $ go False rtb'
-            TrackSolo True  -> if b
-              then RTB.cons dt (TrackSolo False) $ RTB.cons NNC.zero x $ go True rtb'
-              else                                 RTB.cons dt       x $ go True rtb'
-            _ -> RTB.cons dt x $ go b rtb'
-        in go False . RTB.normalize
+      fixBackToBackSolos = go False . RTB.normalize where
+        go _ RNil             = RNil
+        go b (Wait dt x rest) = case x of
+          TrackSolo False -> Wait dt x $ go False rest
+          TrackSolo True  -> if b
+            then Wait dt (TrackSolo False) $ Wait NNC.zero x $ go True rest
+            else                             Wait dt       x $ go True rest
+          _               -> Wait dt x $ go b rest
       lengthToBools t = RTB.fromPairList [(0, True), (t, False)]
       parseGRYBO label = do
         diffs <- fmap Map.fromList $ forM [Easy, Medium, Hard, Expert] $ \diff -> do

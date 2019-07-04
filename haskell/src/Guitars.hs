@@ -220,6 +220,14 @@ noOpenNotes' removeOpenHOPO = RTB.mapMaybe $ \case
 noTaps' :: RTB.T t ((color, StrumHOPOTap), len) -> RTB.T t ((color, StrumHOPOTap), len)
 noTaps' = fmap $ first $ second $ \case Tap -> HOPO; sh -> sh
 
+cleanEdges :: (NNC.C t, Ord a) => RTB.T t (Bool, a) -> RTB.T t (Bool, a)
+cleanEdges = go . RTB.normalize where
+  go RNil = RNil
+  go (Wait tx (False, x) (Wait ty (True, y) rest)) = if x == y
+    then RTB.delay (tx <> ty) $ go rest
+    else Wait (tx <> ty) (False, x) $ Wait NNC.zero (True, y) $ go rest
+  go (Wait t pair rest) = Wait t pair $ go rest
+
 -- | Writes every note with an explicit HOPO/strum force.
 emit5' :: RTB.T U.Beats ((Maybe G5.Color, StrumHOPOTap), Maybe U.Beats) -> FiveDifficulty U.Beats
 emit5' notes = FiveDifficulty
@@ -233,7 +241,8 @@ emit5' notes = FiveDifficulty
   , fiveGems = fmap (\((mc, _), len) -> (fromMaybe G5.Green mc, len)) notes
   } where
     shts = fmap (snd . fst) $ RTB.flatten $ fmap (take 1) $ RTB.collectCoincident notes
-    makeForce sht = U.trackJoin $ fmap (const boolBlip) $ RTB.filter (== sht) shts
+    shtEdges = cleanEdges $ U.trackJoin $ fmap (\sht -> fmap (, sht) boolBlip) shts
+    makeForce sht = fmap fst $ RTB.filter ((== sht) . snd) shtEdges
     boolBlip = RTB.fromPairList [(0, True), (1/32, False)]
 
 -- | Writes every note with an explicit HOPO/strum force.
@@ -244,7 +253,7 @@ emit6' notes = SixDifficulty
   , sixTap = makeForce Tap
   , sixGems = fmap (\((mc, _), len) -> (mc, len)) notes
   } where
-    makeForce sht = U.trackJoin $ flip RTB.mapMaybe notes $ \case
-      ((_, sht'), _) | sht == sht' -> Just boolBlip
-      _                            -> Nothing
+    shts = fmap (snd . fst) $ RTB.flatten $ fmap (take 1) $ RTB.collectCoincident notes
+    shtEdges = cleanEdges $ U.trackJoin $ fmap (\sht -> fmap (, sht) boolBlip) shts
+    makeForce sht = fmap fst $ RTB.filter ((== sht) . snd) shtEdges
     boolBlip = RTB.fromPairList [(0, True), (1/32, False)]
