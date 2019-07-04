@@ -826,6 +826,8 @@ venuegenLightingNames = execWriter $ do
   x 12
   o 11 "BONUSFX"
   o 10 "BONUSFX_Opt"
+  x 9
+  o 8 "STROBE"
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 

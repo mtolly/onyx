@@ -10,14 +10,17 @@ https://github.com/kueller/ReaperRBTools
 {-# LANGUAGE TupleSections      #-}
 module RockBand.Codec.VenueGen where
 
+import           Control.Arrow                    (first)
 import           Control.Monad                    (guard)
 import           Control.Monad.Codec
 import           Control.Monad.Random             (MonadRandom, fromListMay)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (partition)
-import           Data.Maybe                       (catMaybes, fromMaybe)
+import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
+import           Data.Profunctor                  (dimap)
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
+import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Codec.Venue
@@ -27,15 +30,36 @@ import qualified Sound.MIDI.Util                  as U
 data LightingTrack t = LightingTrack
   { lightingPostProcess     :: RTB.T t (PostProcess3, Bool)
   , lightingTypes           :: RTB.T t (Lighting (), Bool)
+  , lightingStrobe          :: RTB.T t (Maybe StrobeSpeed)
   , lightingCommands        :: RTB.T t LightingCommand
   , lightingBonusFX         :: RTB.T t ()
   , lightingBonusFXOptional :: RTB.T t ()
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (LightingTrack t)
 
+data StrobeSpeed
+  = Strobe4
+  | Strobe8
+  | Strobe16
+  | Strobe32
+  | Strobe4Triplet
+  | Strobe8Triplet
+  | Strobe16Triplet
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
+strobeSpeedVelocity :: StrobeSpeed -> Int
+strobeSpeedVelocity = \case
+  Strobe4         -> 4
+  Strobe8         -> 8
+  Strobe16        -> 16
+  Strobe32        -> 32
+  Strobe4Triplet  -> 104
+  Strobe8Triplet  -> 108
+  Strobe16Triplet -> 116
+
 instance TraverseTrack LightingTrack where
-  traverseTrack fn (LightingTrack a b c d e) = LightingTrack
-    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
+  traverseTrack fn (LightingTrack a b c d e f) = LightingTrack
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
 
 instance ParseTrack LightingTrack where
   parseTrack = do
@@ -99,6 +123,10 @@ instance ParseTrack LightingTrack where
       Lighting_flare_slow       -> 15
       Lighting_flare_fast       -> 14
       Lighting_bre              -> 13
+    lightingStrobe <- (lightingStrobe =.) $ let
+      fs = fmap $ \mspeed -> (1, fmap strobeSpeedVelocity mspeed)
+      fp = fmap $ \(_, vel) -> flip fmap vel $ fromMaybe Strobe16 . reverseLookup each strobeSpeedVelocity
+      in dimap fs fp $ edgesCV 8
     lightingCommands <- (lightingCommands =.) $ fatBlips (1/8) $ condenseMap_ $ eachKey each $ blip . \case
       LightingFirst -> 32
       LightingPrev  -> 31
@@ -129,10 +157,50 @@ venue_ungenerate lastLen = go Nothing where
         then RTB.cons dt (y, False) $ go Nothing rtb'
         else RTB.cons dt (y, False) $ RTB.cons NNC.zero (x, True) $ go (Just x) rtb'
 
-buildLighting :: (NNC.C t) => LightingTrack t -> VenueTrack t
+data StrobeInput
+  = Strobe StrobeSpeed U.Beats
+  | OtherLighting
+  deriving (Eq, Ord)
+
+applyStrobeNotes :: LightingTrack U.Beats -> RTB.T U.Beats (Lighting ())
+applyStrobeNotes lt = let
+  input = RTB.normalize $ RTB.merge
+    (RTB.mapMaybe (\(_, b) -> guard b >> Just OtherLighting) $ lightingTypes lt)
+    (fmap (\(speed, (), len) -> Strobe speed len) $ joinEdgesSimple $ (, ()) <$> lightingStrobe lt)
+  go = \case
+    RNil                            -> RNil
+    Wait dt OtherLighting      rest -> RTB.delay dt $ go rest
+    Wait dt (Strobe speed len) rest -> let
+      rest' = U.trackDrop len rest
+      immediateSwitch = not $ null $ U.trackTakeZero rest'
+      stepLength = (/ 2) $ case speed of
+        Strobe4         -> 1
+        Strobe8         -> 1/2
+        Strobe16        -> 1/4
+        Strobe32        -> 1/8
+        Strobe4Triplet  -> 2/3
+        Strobe8Triplet  -> 1/3
+        Strobe16Triplet -> 1/6
+      makeStrobe flare remaining = let
+        light = if flare then Lighting_flare_fast else Lighting_blackout_fast
+        in if remaining == 0
+          then if immediateSwitch then RTB.empty else RTB.singleton 0 light
+          else Wait 0 light $ RTB.delay (min stepLength remaining)
+            $ makeStrobe (not flare) (remaining -| stepLength)
+      in RTB.delay dt $ RTB.merge (makeStrobe True len) $ RTB.delay len $ go rest'
+  in go input
+
+buildLighting :: LightingTrack U.Beats -> VenueTrack U.Beats
 buildLighting lt = mempty
   { venuePostProcessRB3   = venue_generate $ lightingPostProcess lt
-  , venueLighting         = fmap (fmap $ const RBN2) $ venue_generate $ lightingTypes lt
+  , venueLighting         = let
+    lightingInput = RTB.merge
+      (first Just <$> lightingTypes lt)
+      ((\speed -> (Nothing, isJust speed)) <$> lightingStrobe lt)
+    in fmap (fmap $ const RBN2)
+      $ RTB.merge (applyStrobeNotes lt)
+      $ RTB.mapMaybe id
+      $ venue_generate lightingInput
   , venueLightingCommands = (\cmd -> (cmd, RBN2)) <$> lightingCommands lt
   , venueBonusFX          = lightingBonusFX lt
   , venueBonusFXOptional  = lightingBonusFXOptional lt
@@ -142,6 +210,7 @@ unbuildLighting :: (NNC.C t) => t -> VenueTrack t -> LightingTrack t
 unbuildLighting lastLen vt = LightingTrack
   { lightingPostProcess     = venue_ungenerate lastLen $ venuePostProcessRB3 vt
   , lightingTypes           = venue_ungenerate lastLen $ fmap (const ()) <$> venueLighting vt
+  , lightingStrobe          = RTB.empty
   , lightingCommands        = fst <$> venueLightingCommands vt
   , lightingBonusFX         = venueBonusFX vt
   , lightingBonusFXOptional = venueBonusFXOptional vt
