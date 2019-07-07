@@ -1534,7 +1534,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               srcGtr  <- getPartSource [(-1, 0), (1, 0)] planName plan (gh2_Guitar gh2) 1
               srcCoop <- getPartSource [(-1, 0), (1, 0)] planName plan coopPart 1
               srcSong <- sourceSongCountin Nothing 0 True planName plan [(gh2_Guitar gh2, 1), (coopPart, 1)]
-              stackIO $ runResourceT $ writeVGS out $ mapSamples integralSample $ merge (merge srcGtr srcCoop) srcSong
+              stackIO $ runResourceT $ writeVGS out $ mapSamples integralSample $ merge srcSong $ merge srcGtr srcCoop
 
             forM_ ([90, 75, 60] :: [Int]) $ \speed -> do
               dir </> ("gh2/audio_p" ++ show speed ++ ".vgs") %> \out -> do
