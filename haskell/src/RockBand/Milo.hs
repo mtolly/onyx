@@ -26,12 +26,10 @@ import           Data.List.Split                  (keepDelimsR, onSublist,
                                                    split)
 import           Data.Word
 import           DryVox                           (vocalTubes)
-import qualified Numeric.NonNegative.Wrapper      as NN
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Lipsync           (LipsyncTrack (..),
-                                                   MagmaViseme (..), Slide (..))
+                                                   MagmaViseme (..))
 import           RockBand.Codec.Vocal
-import           RockBand.Common                  (pattern RNil, pattern Wait)
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.File.Load             as Load
@@ -282,25 +280,28 @@ lipsyncToMIDI tmap mmap lip = RBFile.Song tmap mmap $ RBFile.RawFile $ (:[])
 
 autoLipsync :: VocalTrack U.Seconds -> Lipsync
 autoLipsync vt = let
-  edgesInFrames :: RTB.T NN.Int Bool
-  edgesInFrames = removeDupes $ RTB.discretize $ RTB.mapTime (* 30) $
-    RTB.normalize $ vocalTubes vt
-  removeDupes (Wait dt _ (Wait 0 x rest)) = removeDupes $ Wait dt x rest
-  removeDupes (Wait dt x rest)            = Wait dt x $ removeDupes rest
-  removeDupes RNil                        = RNil
-  ah True  = [(Viseme_Ox_hi, 255), (Viseme_Ox_lo, 255)]
-  ah False = [(Viseme_Ox_hi, 0  ), (Viseme_Ox_lo, 0  )]
-  makeKeyframes RNil             = [ah False]
-  makeKeyframes (Wait 0  b rest) = [ah b] ++ drop 1 (makeKeyframes rest)
-  makeKeyframes (Wait dt b rest) = replicate (NN.toNumber dt - 1) [] ++ [ah b] ++ makeKeyframes rest
+  ah n = [(Viseme_Ox_hi, n), (Viseme_Ox_lo, n)]
+  makeKeyframes cur goal rest = let
+    next = case compare cur goal of
+      EQ -> cur
+      LT -> if cur + 20 < cur then goal else min goal $ cur + 20
+      GT -> if cur - 20 > cur then goal else max goal $ cur - 20
+    in ah next : if RTB.null rest
+      then if cur == next then [] else makeKeyframes next goal RTB.empty
+      else let
+        (frame, after) = U.trackSplit (1/30 :: U.Seconds) rest
+        goal' = case RTB.viewR frame of
+          Just (_, (_, bool)) -> if bool then 100 else 0
+          Nothing             -> goal
+        in makeKeyframes next goal' after
   in Lipsync
     { lipsyncVersion    = 1
     , lipsyncSubversion = 2
     , lipsyncDTAImport  = B.empty
     , lipsyncVisemes    = map (B8.pack . drop 7 . show) [minBound :: MagmaViseme .. maxBound]
-    , lipsyncKeyframes  = map
+    , lipsyncKeyframes  = drop 1 $ map
       (Keyframe . map ((\(vis, n) -> VisemeEvent (fromEnum vis) n)))
-      (makeKeyframes $ edgesInFrames)
+      (makeKeyframes 0 0 $ vocalTubes vt)
     }
 
 lipsyncFromMidi :: LipsyncTrack U.Seconds -> Lipsync
