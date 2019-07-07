@@ -27,6 +27,7 @@ import qualified RockBand.Codec.File              as F
 import qualified RockBand.Codec.Five              as RB
 import qualified RockBand.Codec.Vocal             as RB
 import           RockBand.Common                  (Difficulty (..), Mood (..))
+import           RockBand.Sections                (makeGH2Section)
 import qualified Sound.MIDI.Util                  as U
 
 midiRB3toGH2
@@ -120,7 +121,8 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
     (idle, play) = makeMoods $ RB.vocalMood trk
     in mempty { singerIdle = idle, singerPlay = play }
   events = mempty
-    { eventsSections      = fmap snd $ RB.eventsSections $ F.onyxEvents onyx
+    { eventsSections      = fmap (makeGH2Section . snd)
+      $ RB.eventsSections $ F.onyxEvents onyx
     , eventsOther         = foldr RTB.merge RTB.empty
       [ fmap (const MusicStart) $ RB.eventsMusicStart $ F.onyxEvents onyx
       , fmap (const End) $ RB.eventsEnd $ F.onyxEvents onyx
