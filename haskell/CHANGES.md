@@ -1,5 +1,12 @@
 # Version history
 
+## 20190707
+
+* Fix the HOPO threshold used for `.chart` files to match Clone Hero and
+  Moonscraper
+* Much better automatic vocal animations
+* Mac version probably requires Mojave now, though I haven't confirmed this
+
 ## 20190702
 
 * New interface!
