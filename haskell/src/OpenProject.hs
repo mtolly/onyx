@@ -6,6 +6,7 @@ module OpenProject where
 import           Build
 import           Config
 import           Control.Applicative            ((<|>))
+import           Control.Monad                  (guard)
 import qualified Control.Monad.Catch            as MC
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Resource
@@ -13,9 +14,11 @@ import           Control.Monad.Trans.StackTrace
 import           Data.Aeson                     ((.:))
 import qualified Data.Aeson.Types               as A
 import qualified Data.ByteString                as B
+import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Char                      (toLower)
-import           Data.DTA                       (readFileDTA)
+import           Data.DTA                       (DTA (..), Tree (..),
+                                                 readFileDTA)
 import qualified Data.DTA.Serialize             as DTA
 import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
@@ -23,12 +26,13 @@ import           Data.Functor                   (void)
 import           Data.Hashable
 import qualified Data.HashMap.Strict            as Map
 import           Data.List.Extra                (stripSuffix)
-import           Data.Maybe                     (fromMaybe)
+import           Data.Maybe                     (fromMaybe, mapMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Yaml                      as Y
 import qualified FeedBack.Load                  as FB
 import qualified FretsOnFire                    as FoF
+import           GuitarHeroII.Ark               (replaceSong)
 import           Import
 import           Magma                          (getRBAFileBS)
 import           PrettyDTA                      (C3DTAComments (..),
@@ -237,6 +241,20 @@ buildPSDir ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash
 
 buildPSZip :: (MonadIO m) => TargetPS -> Project -> StackTraceT (QueueLog m) FilePath
 buildPSZip ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps.zip"
+
+buildGH2Dir :: (MonadIO m) => TargetGH2 -> Project -> StackTraceT (QueueLog m) FilePath
+buildGH2Dir gh2 = buildCommon (GH2 gh2) $ \targetHash -> "gen/target" </> targetHash </> "gh2"
+
+installGH2 :: (MonadIO m) => TargetGH2 -> Project -> B.ByteString -> FilePath -> StackTraceT (QueueLog m) ()
+installGH2 gh2 proj song gen = do
+  dir <- buildGH2Dir gh2 proj
+  files <- stackIO $ Dir.listDirectory dir
+  dta <- stackIO $ readFileDTA $ dir </> "songs.dta"
+  let chunks = treeChunks $ topTree $ fmap (B8.pack . T.unpack) dta
+      filePairs = flip mapMaybe files $ \f -> do
+        guard $ f /= "songs.dta"
+        return (song <> B8.pack (drop 5 f), dir </> f)
+  stackIO $ replaceSong gen song chunks filePairs
 
 buildPlayer :: (MonadIO m) => Project -> StackTraceT (QueueLog m) FilePath
 buildPlayer proj = case Map.toList $ _plans $ projectSongYaml proj of

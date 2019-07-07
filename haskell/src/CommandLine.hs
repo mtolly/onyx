@@ -17,6 +17,7 @@ import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.ByteString.Lazy.Char8       ()
 import           Data.Char                        (isAlphaNum, isAscii)
@@ -981,6 +982,26 @@ commands =
           runAudio (CA.mapSamples CA.fractionalSample src) fout
           return fout
       _ -> fatal "Expected 1 argument (.vgs file)"
+    }
+
+  , Command
+    { commandWord = "install-ark"
+    , commandDesc = "Install a song into GH2 (PS2)."
+    , commandUsage = "onyx install-ark song GEN/ songtoreplace --target gh2"
+    , commandRun = \args opts -> case args of
+      [song, gen, replace] -> withProject song $ \proj -> do
+        targetName <- case [ t | OptTarget t <- opts ] of
+          []    -> fatal "command requires --target, none given"
+          t : _ -> return t
+        target <- case Map.lookup targetName $ _targets $ projectSongYaml proj of
+          Nothing     -> fatal $ "Target not found in YAML file: " <> show targetName
+          Just target -> return target
+        gh2 <- case target of
+          GH2 gh2 -> return gh2
+          _       -> fatal $ "Target is not for GH2: " <> show targetName
+        installGH2 gh2 proj (B8.pack replace) gen
+        return [gen]
+      _ -> fatal "Expected 3 arguments (input song, GEN, song to replace)"
     }
 
   ]
