@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-module RockBand.PhaseShiftMessage where
+module PhaseShift.Message where
 
 import           Control.Applicative                   ((<|>))
 import qualified Data.Text                             as T

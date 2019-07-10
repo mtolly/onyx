@@ -11,9 +11,9 @@ import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
+import qualified PhaseShift.Message               as PS
 import           RockBand.Codec
 import           RockBand.Common
-import qualified RockBand.PhaseShiftMessage       as PS
 
 data Fret
   = Black1

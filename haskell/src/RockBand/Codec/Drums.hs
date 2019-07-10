@@ -25,9 +25,9 @@ import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import           Guitars                          (applyStatus)
 import qualified Numeric.NonNegative.Class        as NNC
+import qualified PhaseShift.Message               as PS
 import           RockBand.Codec
 import           RockBand.Common
-import qualified RockBand.PhaseShiftMessage       as PS
 
 data DrumTrack t = DrumTrack
   { drumDifficulties :: Map.Map Difficulty (DrumDifficulty t)

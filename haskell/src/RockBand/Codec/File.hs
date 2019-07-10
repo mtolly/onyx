@@ -34,6 +34,7 @@ import           DeriveHelpers
 import           GHC.Generics                      (Generic)
 import           MelodysEscape                     (MelodyTrack)
 import qualified Numeric.NonNegative.Class         as NNC
+import           PhaseShift.Message
 import           RockBand.Codec
 import           RockBand.Codec.Beat
 import           RockBand.Codec.Drums
@@ -47,7 +48,6 @@ import           RockBand.Codec.Venue
 import           RockBand.Codec.VenueGen
 import           RockBand.Codec.Vocal
 import           RockBand.Common
-import           RockBand.PhaseShiftMessage
 import qualified Sound.MIDI.File                   as F
 import qualified Sound.MIDI.File.Event             as E
 import qualified Sound.MIDI.File.Event.Meta        as Meta

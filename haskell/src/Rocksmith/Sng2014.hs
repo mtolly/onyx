@@ -12,8 +12,6 @@ import           Data.Word
 import           Debug.Trace
 import           Rocksmith.Crypt
 
--- TODO something is not quite right in one of these
-
 class Bin a where
   bin :: BinaryCodec a
 
@@ -403,13 +401,13 @@ data Notes = Notes
   , notes_NextIterNote      :: Int16
   , notes_PrevIterNote      :: Int16
   , notes_ParentPrevNote    :: Int16
-  , notes_SlideTo           :: Word8
-  , notes_SlideUnpitchTo    :: Word8
-  , notes_LeftHand          :: Word8
-  , notes_Tap               :: Word8
+  , notes_SlideTo           :: Int8
+  , notes_SlideUnpitchTo    :: Int8
+  , notes_LeftHand          :: Int8
+  , notes_Tap               :: Int8
   , notes_PickDirection     :: Word8
-  , notes_Slap              :: Word8
-  , notes_Pluck             :: Word8
+  , notes_Slap              :: Int8
+  , notes_Pluck             :: Int8
   , notes_Vibrato           :: Int16
   , notes_Sustain           :: Float
   , notes_MaxBend           :: Float
@@ -434,13 +432,13 @@ instance Bin Notes where
     notes_NextIterNote      <- notes_NextIterNote      =. int16be
     notes_PrevIterNote      <- notes_PrevIterNote      =. int16be
     notes_ParentPrevNote    <- notes_ParentPrevNote    =. int16be
-    notes_SlideTo           <- notes_SlideTo           =. word8
-    notes_SlideUnpitchTo    <- notes_SlideUnpitchTo    =. word8
-    notes_LeftHand          <- notes_LeftHand          =. word8
-    notes_Tap               <- notes_Tap               =. word8
+    notes_SlideTo           <- notes_SlideTo           =. int8
+    notes_SlideUnpitchTo    <- notes_SlideUnpitchTo    =. int8
+    notes_LeftHand          <- notes_LeftHand          =. int8
+    notes_Tap               <- notes_Tap               =. int8
     notes_PickDirection     <- notes_PickDirection     =. word8
-    notes_Slap              <- notes_Slap              =. word8
-    notes_Pluck             <- notes_Pluck             =. word8
+    notes_Slap              <- notes_Slap              =. int8
+    notes_Pluck             <- notes_Pluck             =. int8
     notes_Vibrato           <- notes_Vibrato           =. int16be
     notes_Sustain           <- notes_Sustain           =. floatbe
     notes_MaxBend           <- notes_MaxBend           =. floatbe
@@ -513,9 +511,9 @@ data SNG2014 = SNG2014
   , sng_Chords            :: [Chord]
   , sng_ChordNotes        :: [ChordNotes]
   , sng_Vocals            :: [Vocal]
-  , sng_SymbolHeaders     :: [SymbolHeader]
-  , sng_SymbolTextures    :: [SymbolTexture]
-  , sng_SymbolDefinitions :: [SymbolDefinition]
+  , sng_SymbolHeaders     :: [SymbolHeader] -- only in vocals files
+  , sng_SymbolTextures    :: [SymbolTexture] -- only in vocals files
+  , sng_SymbolDefinitions :: [SymbolDefinition] -- only in vocals files
   , sng_PhraseIterations  :: [PhraseIteration]
   , sng_PhraseExtraInfo   :: [PhraseExtraInfo]
   , sng_NLinkedDifficulty :: [NLinkedDifficulty]
@@ -535,9 +533,10 @@ instance Bin SNG2014 where
     sng_Chords            <- sng_Chords            =. lenArray bin
     sng_ChordNotes        <- sng_ChordNotes        =. lenArray bin
     sng_Vocals            <- sng_Vocals            =. lenArray bin
-    sng_SymbolHeaders     <- sng_SymbolHeaders     =. lenArray bin
-    sng_SymbolTextures    <- sng_SymbolTextures    =. lenArray bin
-    sng_SymbolDefinitions <- sng_SymbolDefinitions =. lenArray bin
+    let onlyVox p = if null sng_Vocals then return [] else p
+    sng_SymbolHeaders     <- onlyVox $ sng_SymbolHeaders     =. lenArray bin
+    sng_SymbolTextures    <- onlyVox $ sng_SymbolTextures    =. lenArray bin
+    sng_SymbolDefinitions <- onlyVox $ sng_SymbolDefinitions =. lenArray bin
     sng_PhraseIterations  <- sng_PhraseIterations  =. lenArray bin
     sng_PhraseExtraInfo   <- sng_PhraseExtraInfo   =. lenArray bin
     sng_NLinkedDifficulty <- sng_NLinkedDifficulty =. lenArray bin

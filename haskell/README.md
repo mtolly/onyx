@@ -11,6 +11,8 @@ Built on work and research by:
   * Harmonix
   * TrojanNemo, emist (C3 CON Tools, Magma v2 mod)
   * No1mann (Magma v1 mod)
+  * maxton, PikminGuts92 (LibForge/ForgeTool, milo lipsync help)
+  * StackOverflow0x (MiloMod, milo venue help)
   * xorloser (ArkTool/DtbCrypt)
   * deimos (dtb2dta)
   * qwertymodo (Magma MOGG redirect)

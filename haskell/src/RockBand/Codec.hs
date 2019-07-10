@@ -20,8 +20,8 @@ import qualified Data.Text                        as T
 import           Data.Tuple                       (swap)
 import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
+import qualified PhaseShift.Message               as PS
 import           RockBand.Common
-import qualified RockBand.PhaseShiftMessage       as PS
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
 
