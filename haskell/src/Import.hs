@@ -68,6 +68,7 @@ import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as RBFive
 import           RockBand.Codec.ProGuitar         (GtrBase (..), GtrTuning (..),
                                                    nullPG)
+import qualified RockBand.Codec.ProGuitar         as PG
 import           RockBand.Codec.ProKeys           (nullPK)
 import           RockBand.Codec.Six               (nullSix)
 import           RockBand.Codec.Vocal
@@ -786,7 +787,9 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       Right ()   -> emptyChannels ogg
   lg $ "Detected the following channels as silent: " ++ show silentChannels
 
-  drumEvents <- RBFile.fixedPartDrums . RBFile.s_tracks <$> loadMIDI mid
+  fixedTracks <- RBFile.s_tracks <$> loadMIDI mid
+
+  let drumEvents = RBFile.fixedPartDrums fixedTracks
   foundMix <- let
     drumMixes = do
       (_, dd) <- Map.toList $ drumDifficulties drumEvents
@@ -840,6 +843,8 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         (Just sk, Nothing ) -> (Just $ SongKey sk tone , Nothing )
         (Nothing, Just vtn) -> (Just $ SongKey vtn tone, Nothing )
         (Nothing, Nothing ) -> (Nothing                , Nothing )
+
+  let bassBase = detectExtProBass fixedTracks
 
   stackIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
@@ -956,7 +961,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_bass" diffMap
           , pgHopoThreshold = hopoThresh
           , pgTuning = GtrTuning
-            { gtrBase = Bass4 -- TODO import 5/6-string pro bass correctly
+            { gtrBase = bassBase
             , gtrOffsets = fromMaybe [] $ map fromIntegral <$> D.realBassTuning pkg
             , gtrGlobal = 0
             }
@@ -987,6 +992,19 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       ]
     }
 
+detectExtProBass :: RBFile.FixedFile t -> GtrBase
+detectExtProBass trks = let
+  strs = do
+    trk <- [RBFile.fixedPartRealBass trks, RBFile.fixedPartRealBass22 trks]
+    diff <- toList $ PG.pgDifficulties trk
+    (str, _) <- toList $ PG.pgNotes diff
+    return str
+  in if elem PG.S1 strs
+    then PG.GtrCustom [28, 33, 38, 43, 47, 52] -- bass with 2 high gtr strings
+    else if elem PG.S2 strs
+      then PG.GtrCustom [28, 33, 38, 43, 47] -- bass with 1 high gtr string
+      else Bass4
+
 importMagma :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m Kicks
 importMagma fin dir = do
   lg $ "Importing Magma project from: " <> fin
@@ -996,6 +1014,8 @@ importMagma fin dir = do
 
   let mid = T.unpack (RBProj.midiFile $ RBProj.midi rbproj)
   stackIO $ Dir.copyFile (oldDir </> mid) (dir </> "notes.mid")
+  bassBase <- detectExtProBass . RBFile.s_tracks
+    <$> loadMIDI (dir </> "notes.mid")
 
   c3 <- do
     let pathC3 = fin -<.> "c3"
@@ -1227,7 +1247,7 @@ importMagma fin dir = do
             { pgDifficulty = Tier $ rankToTier proBassDiffMap $ fromIntegral diff
             , pgHopoThreshold = hopoThresh
             , pgTuning = GtrTuning
-              { gtrBase = Bass4  -- TODO import 5/6-string pro bass correctly
+              { gtrBase = bassBase
               , gtrOffsets = fromMaybe [] tuneBass
               , gtrGlobal = 0
               }
