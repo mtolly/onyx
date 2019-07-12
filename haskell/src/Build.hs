@@ -1671,22 +1671,23 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
             let psParts = map ($ ps) [ps_Drums, ps_Guitar, ps_Bass, ps_Keys, ps_Vocal, ps_Rhythm, ps_GuitarCoop]
                 psSpeed = tgt_Speed $ ps_Common ps
+                eitherDiff x y = if x == 0 then y else x
             dir </> "ps/drums.ogg"   %> writeStereoParts psParts psSpeed 0 planName plan [(ps_Drums  ps, rb3DrumsRank)]
             dir </> "ps/drums_1.ogg" %> writeKick  psParts psSpeed 0 False planName plan  (ps_Drums  ps) rb3DrumsRank
             dir </> "ps/drums_2.ogg" %> writeSnare psParts psSpeed 0 False planName plan  (ps_Drums  ps) rb3DrumsRank
             dir </> "ps/drums_3.ogg" %> writeKit   psParts psSpeed 0 False planName plan  (ps_Drums  ps) rb3DrumsRank
             dir </> "ps/guitar.ogg"  %> writeStereoParts psParts psSpeed 0 planName plan
-              [(ps_Guitar ps, rb3GuitarRank), (ps_GuitarCoop ps, psGuitarCoopTier)]
+              [(ps_Guitar ps, eitherDiff rb3GuitarRank chGuitarGHLTier), (ps_GuitarCoop ps, psGuitarCoopTier)]
             dir </> "ps/keys.ogg"    %> writeStereoParts psParts psSpeed 0 planName plan [(ps_Keys   ps, rb3KeysRank)]
             dir </> "ps/rhythm.ogg"  %> writeStereoParts psParts psSpeed 0 planName plan
-              [(ps_Bass ps, rb3BassRank), (ps_Rhythm ps, psRhythmTier)]
+              [(ps_Bass ps, eitherDiff rb3BassRank chBassGHLTier),(ps_Rhythm ps, psRhythmTier)]
             dir </> "ps/vocals.ogg"  %> writeStereoParts psParts psSpeed 0 planName plan [(ps_Vocal  ps, rb3VocalRank)]
             dir </> "ps/crowd.ogg"   %> writeCrowd       psSpeed 0 planName plan
             dir </> "ps/song.ogg"    %> writeSongCountin psSpeed 0 True planName plan
               [ (ps_Drums      ps, rb3DrumsTier    )
-              , (ps_Guitar     ps, rb3GuitarTier   )
+              , (ps_Guitar     ps, eitherDiff rb3GuitarRank chGuitarGHLTier)
               , (ps_GuitarCoop ps, psGuitarCoopTier)
-              , (ps_Bass       ps, rb3BassTier     )
+              , (ps_Bass       ps, eitherDiff rb3BassRank chBassGHLTier)
               , (ps_Rhythm     ps, psRhythmTier    )
               , (ps_Keys       ps, rb3KeysTier     )
               , (ps_Vocal      ps, rb3VocalTier    )

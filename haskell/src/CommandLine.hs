@@ -512,47 +512,17 @@ commands =
     { commandWord = "import"
     , commandDesc = "Import a file into onyx's project format."
     , commandUsage = ""
-    , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> do
-      let pschart = do
-            out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
-            stackIO $ Dir.createDirectoryIfMissing False out
-            void $ importFoF (OptForceProDrums `notElem` opts) (OptDropOpenHOPOs `elem` opts) (takeDirectory fpath) out
-            return out
-      yamlDir <- case ftype of
-        FileSTFS -> do
-          out <- outputFile opts $ return $ fpath ++ "_import"
-          stackIO $ Dir.createDirectoryIfMissing False out
-          let f2x = listToMaybe [ f | Opt2x f <- opts ]
-          void $ importSTFS fpath f2x out
-          return out
-        FileDTA -> do
-          let topDir = takeDirectory $ takeDirectory fpath
-          out <- outputFile opts $ return $ topDir ++ "_import"
-          stackIO $ Dir.createDirectoryIfMissing False out
-          let f2x = listToMaybe [ f | Opt2x f <- opts ]
-          void $ importSTFSDir topDir f2x out
-          return out
-        FileRBA -> do
-          out <- outputFile opts $ return $ fpath ++ "_import"
-          stackIO $ Dir.createDirectoryIfMissing False out
-          let f2x = listToMaybe [ f | Opt2x f <- opts ]
-          void $ importRBA fpath f2x out
-          return out
-        FilePS -> pschart
-        FileChart -> pschart
-        FileRBProj -> do
-          out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
-          stackIO $ Dir.createDirectoryIfMissing False out
-          void $ importMagma fpath out
-          return out
-        FileMOGGSong -> do
-          out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
-          stackIO $ Dir.createDirectoryIfMissing False out
-          void $ importAmplitude fpath out
-          return out
-        _ -> unrecognized ftype fpath
-      when (OptVenueGen `elem` opts) $ changeToVenueGen yamlDir
-      return [yamlDir]
+    , commandRun = \files opts -> do
+      fpath <- case files of
+        []  -> return "."
+        [x] -> return x
+        _   -> fatal "Expected 0 or 1 files/folders"
+      proj <- openProject fpath
+      out <- outputFile opts $ return $ projectTemplate proj ++ "_import"
+      stackIO $ Dir.createDirectoryIfMissing False out
+      copyDirRecursive (takeDirectory $ projectLocation proj) out
+      when (OptVenueGen `elem` opts) $ changeToVenueGen out
+      return [out]
     }
 
   , Command

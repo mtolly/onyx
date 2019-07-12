@@ -30,6 +30,8 @@ import           Data.Maybe                     (fromMaybe, mapMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Yaml                      as Y
+import           DTXMania.DTX
+import           DTXMania.Import
 import qualified FeedBack.Load                  as FB
 import qualified FretsOnFire                    as FoF
 import           GuitarHeroII.Ark               (replaceSong)
@@ -113,6 +115,16 @@ findSongs fp' = do
           , impPath = dir
           , impProject = importFrom dir True $ void . importFoF True False dir
           }
+      foundDTX loc = do
+        dtx <- stackIO $ readDTXLines <$> loadDTXLines loc
+        found Importable
+          { impTitle = dtx_TITLE dtx
+          , impArtist = dtx_ARTIST dtx
+          , impAuthor = Nothing
+          , impFormat = "DTXMania"
+          , impPath = loc
+          , impProject = importFrom loc False $ importDTX loc
+          }
       foundYaml loc = do
         let dir = takeDirectory loc
         yml <- loadYaml loc
@@ -170,6 +182,7 @@ findSongs fp' = do
         ".rbproj" -> foundRBProj fp
         -- TODO Amplitude .moggsong
         ".chart" -> foundChart fp
+        ".dtx" -> foundDTX fp
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundIni fp
           _ -> do

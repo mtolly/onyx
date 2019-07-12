@@ -5,45 +5,43 @@
 {-# LANGUAGE TupleSections     #-}
 module DTXMania.DTX where
 
-import           Audio                            (applyPansVols)
+import           Audio                            (applyPansVols, mixMany)
 import           Control.Monad                    (forM)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
-import           Control.Monad.Trans.Resource     (MonadResource)
+import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
+                                                   runResourceT)
+import           Control.Monad.Trans.StackTrace   (tempDir)
+import           Data.Binary.Get
 import qualified Data.ByteString                  as B
-import           Data.Char                        (isDigit, toLower)
-import           Data.Conduit
+import qualified Data.ByteString.Lazy             as BL
+import           Data.Char                        (isAlphaNum, isDigit, toLower)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.Mpg123        (sourceMpg)
 import           Data.Conduit.Audio.SampleRate    (ConverterType (SincMediumQuality),
                                                    resampleTo)
 import           Data.Conduit.Audio.Sndfile       (sourceSnd)
-import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Maybe
 import qualified Data.Text                        as T
-import qualified Data.Vector.Storable             as V
 import           DTXMania.ShiftJIS                (decodeShiftJIS)
 import           DTXMania.XA                      (sourceXA)
 import           Numeric
-import qualified Numeric.NonNegative.Wrapper      as NN
 import           RockBand.Common                  (pattern RNil, pattern Wait)
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath
+import           System.IO
 import           Text.Read                        (readMaybe)
 
 loadDTXLines :: FilePath -> IO [(T.Text, T.Text)]
 loadDTXLines f = do
   lns <- lines . decodeShiftJIS <$> B.readFile f
   return $ flip mapMaybe lns $ \ln -> case ln of
-    '#' : rest -> case T.splitOn ":" $ T.pack rest of
-      x : xs@(_ : _) -> Just (T.strip x, T.strip $ T.intercalate ":" xs)
-      _              -> Nothing
+    '#' : rest -> case T.span isAlphaNum $ T.pack rest of
+      (x, y) -> Just (T.strip x, T.strip $ T.takeWhile (/= ';') $ T.dropWhile (== ':') y)
     _ -> Nothing
-  -- TODO ignore from ; to end of line
-  -- TODO : is not actually required! can just be "#KEY VALUE"
 
 type BarNumber = Int
 type Channel = T.Text
@@ -101,7 +99,7 @@ drumChar = \case
   HihatOpen  -> '8'
   RideCymbal -> '9'
   LeftCymbal -> 'A'
-  -- TODO The Enemy Inside has 1B notes
+  -- TODO The Enemy Inside has 1B notes, is this left foot
 
 data GuitarNote = Open | B | G | GB | R | RB | RG | RGB
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -193,63 +191,6 @@ readDTXLines lns = DTX
       lane <- [minBound .. maxBound]
       return $ fmap (lane,) $ getChannel $ T.pack [col, guitarChar lane]
 
-unvoid :: (Monad m) => ConduitT i Void m r -> ConduitT i o m r
-unvoid = mapOutput $ \case {}
-
-getChunk
-  :: (Monad m)
-  => Int
-  -> SealedConduitT () (V.Vector Float) m ()
-  -> ConduitT () o m (Maybe (SealedConduitT () (V.Vector Float) m ()), V.Vector Float)
-getChunk n sc = do
-  (sc', mv) <- unvoid $ sc =$$++ await
-  case mv of
-    Nothing -> return (Nothing, V.replicate n 0)
-    Just v -> case compare (V.length v) n of
-      EQ -> return (Just sc', v)
-      LT -> do
-        (msc, v') <- getChunk (n - V.length v) sc'
-        return (msc, v <> v')
-      GT -> do
-        let (this, after) = V.splitAt n v
-        (sc'', ()) <- unvoid $ sc' =$$++ leftover after
-        return (Just sc'', this)
-
-mixMany :: (Monad m) => Rate -> Channels -> RTB.T U.Seconds (AudioSource m Float) -> AudioSource m Float
-mixMany r c srcs = let
-  srcs' = RTB.discretize $ RTB.mapTime (* realToFrac r) srcs
-  in AudioSource
-    { rate = r
-    , channels = c
-    , frames = foldr max 0
-      $ map (\(t, src) -> NN.toNumber t + frames src)
-      $ ATB.toPairList
-      $ RTB.toAbsoluteEventList 0 srcs'
-    , source = let
-      getFrames n sources = do
-        results <- mapM (getChunk $ n * c) sources
-        return $ (mapMaybe fst results ,) $ case map snd results of
-          []     -> V.replicate (n * c) 0
-          v : vs -> foldr (V.zipWith (+)) v vs
-      go currentSources future = case future of
-        RNil -> case currentSources of
-          [] -> return ()
-          _ -> do
-            (nextSources, v) <- getFrames chunkSize currentSources
-            yield v
-            go nextSources RNil
-        Wait 0 src rest -> do
-          let (now, later) = U.trackSplitZero rest
-          opened <- unvoid $ map fst <$> mapM (=$$+ return ()) (src : now)
-          go (currentSources ++ opened) later
-        Wait dt src next -> do
-          let sizeToGet = min chunkSize $ fromIntegral dt
-          (nextSources, v) <- getFrames sizeToGet currentSources
-          yield v
-          go nextSources $ Wait (dt - fromIntegral sizeToGet) src next
-      in go [] $ fmap source srcs'
-    }
-
 getAudio :: (MonadResource m, MonadIO f) =>
   RTB.T U.Beats Chip -> FilePath -> DTX -> f (AudioSource m Float)
 getAudio chips dtxPath dtx = liftIO $ do
@@ -260,6 +201,7 @@ getAudio chips dtxPath dtx = liftIO $ do
     in case map toLower $ takeExtension fp' of
       ".mp3" -> sourceMpg fp'
       ".xa"  -> mapSamples fractionalSample <$> sourceXA fp'
+      ".wav" -> sourceWAVMaybeOGG fp'
       _      -> sourceSnd fp'
   let outOf100 n = realToFrac n / 100
       r = 44100
@@ -279,3 +221,46 @@ getAudio chips dtxPath dtx = liftIO $ do
     $ mixMany r 2
     $ U.applyTempoTrack (dtx_TempoMap dtx)
     $ RTB.mapMaybe lookupChip chips
+
+dropBytes :: (MonadResource m) => Integer -> FilePath -> FilePath -> (FilePath -> m a) -> m a
+dropBytes n template f cb = tempDir "onyx-dtx-import" $ \dir -> do
+  temp <- liftIO $ withBinaryFile f ReadMode $ \h -> do
+    let temp = dir </> template
+    hSeek h AbsoluteSeek n
+    BL.hGetContents h >>= BL.writeFile temp
+    return temp
+  cb temp
+
+sourceWAVMaybeOGG :: (MonadIO f, MonadResource m) => FilePath -> f (AudioSource m Float)
+sourceWAVMaybeOGG f = liftIO $ do
+  maybeOGGStart <- withBinaryFile f ReadMode $ \h -> do
+    let findChunk magic = hSeek h AbsoluteSeek 12 >> findChunk' magic
+        findChunk' magic = do
+          thisChunk <- BL.hGet h 4
+          size <- runGet getWord32le <$> BL.hGet h 4
+          if magic == thisChunk
+            then return ()
+            else do
+              hSeek h RelativeSeek $ fromIntegral size
+              findChunk' magic
+    findChunk "fmt "
+    audioType <- BL.hGet h 2
+    if audioType == "Og"
+      then do
+        findChunk "data"
+        Just <$> hTell h
+      else return Nothing
+  case maybeOGGStart of
+    Nothing  -> sourceSnd f
+    Just ogg -> do
+      src <- runResourceT $ dropBytes ogg "dtx-audio.ogg" f $ \temp -> do
+        src <- liftIO $ sourceSnd temp
+        return (src :: AudioSource (ResourceT IO) Float)
+      return AudioSource
+        { frames = frames src
+        , rate = rate src
+        , channels = channels src
+        , source = dropBytes ogg "dtx-audio.ogg" f $ \temp -> do
+          src' <- liftIO $ sourceSnd temp
+          source src'
+        }
