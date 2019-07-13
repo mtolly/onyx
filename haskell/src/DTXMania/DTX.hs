@@ -39,6 +39,7 @@ import qualified Sound.MIDI.Util                  as U
 import           System.FilePath
 import           System.IO
 import           Text.Read                        (readMaybe)
+import OSFiles (fixFileCase)
 
 loadDTXLines :: FilePath -> IO [(T.Text, T.Text)]
 loadDTXLines f = do
@@ -199,10 +200,14 @@ readDTXLines lns = DTX
     tmap
       = U.tempoMapFromBPS
       $ fmap (\bpm -> U.BPS $ bpm / 60)
-      $ RTB.merge startBPM
+      $ addStartBPM
       $ fmap (+ baseBPM)
       $ RTB.merge bpmHexes bpmRefs
-    startBPM = maybe RTB.empty (RTB.singleton 0) $ lookup "BPM" lns >>= textFloat
+    addStartBPM bpms = case bpms of
+      Wait 0 _ _ -> bpms -- already a tempo set at time 0
+      _          -> case lookup "BPM" lns >>= textFloat of
+        Just n | n /= 0 -> Wait 0 n   bpms
+        _               -> Wait 0 120 bpms
     bpmHexes = RTB.mapMaybe textHex $ RTB.merge (getChannel "03") (getChannel "TC") -- TC = tempo change, in .gda
     bpmRefs = RTB.mapMaybe (`HM.lookup` refBPMs) $ getChannel "08"
     refBPMs = HM.mapMaybe textFloat $ HM.fromList $ getReferences "BPM"
@@ -230,9 +235,9 @@ getAudio :: (MonadResource m, MonadIO f) =>
 getAudio overlap chips dtxPath dtx = liftIO $ do
   let usedChips = nubOrd $ RTB.getBodies chips
       wavs = HM.filterWithKey (\k _ -> elem k usedChips) $ dtx_WAV dtx
-  srcs <- forM wavs $ \fp -> let
-    fp' = takeDirectory dtxPath </> fp
-    in case map toLower $ takeExtension fp' of
+  srcs <- forM wavs $ \fp -> do
+    fp' <- fixFileCase $ takeDirectory dtxPath </> fp
+    case map toLower $ takeExtension fp' of
       ".mp3" -> sourceMpg fp'
       ".xa"  -> mapSamples fractionalSample <$> sourceXA fp'
       ".wav" -> sourceCompressedWAV fp'
