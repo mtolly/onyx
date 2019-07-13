@@ -576,9 +576,9 @@ getChunk n sc = do
         (sc'', ()) <- unvoid $ sc' =$$++ leftover after
         return (Just sc'', this)
 
-mixMany :: (Monad m, Num a, V.Storable a) =>
-  Rate -> Channels -> RTB.T U.Seconds (AudioSource m a) -> AudioSource m a
-mixMany r c srcs = let
+mixMany :: (Monad m, Num a, Ord a, Fractional a, V.Storable a) =>
+  Bool -> Rate -> Channels -> RTB.T U.Seconds (AudioSource m a) -> AudioSource m a
+mixMany overlap r c srcs = let
   srcs' = RTB.discretize $ RTB.mapTime (* realToFrac r) srcs
   in AudioSource
     { rate = r
@@ -593,6 +593,13 @@ mixMany r c srcs = let
         return $ (mapMaybe fst results ,) $ case map snd results of
           []     -> V.replicate (n * c) 0
           v : vs -> foldr (V.zipWith (+)) v vs
+      cutoffLength = 0.002 :: Seconds
+      cutoff src = sealConduitT $ source $ fadeOut $ takeStart (Seconds cutoffLength) AudioSource
+        { rate = r
+        , channels = c
+        , frames = secondsToFrames cutoffLength r
+        , source = unsealConduitT src
+        }
       go currentSources future = case future of
         RNil -> case currentSources of
           [] -> return ()
@@ -602,8 +609,11 @@ mixMany r c srcs = let
             go nextSources RNil
         Wait 0 src rest -> do
           let (now, later) = U.trackSplitZero rest
-          opened <- unvoid $ map fst <$> mapM (=$$+ return ()) (src : now)
-          go (currentSources ++ opened) later
+          opened <- unvoid $ map fst <$> mapM (=$$+ return ())
+            (if overlap then src : now else [src])
+          if overlap
+            then go (currentSources ++ opened) later
+            else go (map cutoff currentSources ++ opened) later
         Wait dt src next -> do
           let sizeToGet = min chunkSize $ fromIntegral dt
           (nextSources, v) <- getFrames sizeToGet currentSources

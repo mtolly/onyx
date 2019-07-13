@@ -183,6 +183,7 @@ findSongs fp' = do
         -- TODO Amplitude .moggsong
         ".chart" -> foundChart fp
         ".dtx" -> foundDTX fp
+        ".gda" -> foundDTX fp
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundIni fp
           _ -> do
