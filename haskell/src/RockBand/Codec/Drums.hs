@@ -13,7 +13,7 @@
 {-# LANGUAGE TupleSections      #-}
 module RockBand.Codec.Drums where
 
-import           Control.Monad                    (guard, (>=>))
+import           Control.Monad                    (guard, void, (>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
@@ -28,6 +28,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import qualified PhaseShift.Message               as PS
 import           RockBand.Codec
 import           RockBand.Common
+import qualified Sound.MIDI.Util                  as U
 
 data DrumTrack t = DrumTrack
   { drumDifficulties :: Map.Map Difficulty (DrumDifficulty t)
@@ -249,6 +250,30 @@ computePSReal diff trk = let
       | elem HHPedal mods -> Left HHPedal
       | elem HHSizzle mods -> Left HHSizzle
     (_, gem) -> Right gem
+
+encodePSReal :: (NNC.C t) => t -> Difficulty -> RTB.T t RealDrum -> DrumTrack t
+encodePSReal blipTime diff real = let
+  toms = U.trackJoin $ flip fmap real $ \case
+    Right (Pro color Tom) -> Wait NNC.zero (color, Tom) $ Wait blipTime (color, Cymbal) RNil
+    _                     -> RNil
+  psmods = U.trackJoin $ flip fmap real $ \case
+    Left ps -> Wait NNC.zero (ps, True) $ Wait blipTime (ps, False) RNil
+    Right _ -> RNil
+  gems = flip fmap real $ \case
+    Left ps -> case ps of
+      Rimshot  -> Red
+      HHOpen   -> Pro Yellow ()
+      HHSizzle -> Pro Yellow ()
+      HHPedal  -> Pro Yellow ()
+    Right rb -> void rb
+  in mempty
+    { drumToms = toms
+    , drumDifficulties = Map.singleton diff DrumDifficulty
+      { drumMix = RNil
+      , drumPSModifiers = psmods
+      , drumGems = gems
+      }
+    }
 
 psRealToPro :: (NNC.C t) => DrumTrack t -> DrumTrack t
 psRealToPro trk = trk

@@ -124,6 +124,7 @@ event tks = \case
       Meta.Marker s -> Just $ B.cons 6 $ stringBytes s
       Meta.CuePoint s -> Just $ B.cons 7 $ stringBytes s
       Meta.SequencerSpecific{} -> Nothing
+      Meta.MIDIPrefix{} -> Nothing
       _ -> error $ "unhandled case in reaper event parser: " ++ show e
     splitChunks bs = if B.length bs <= 40
       then [bs]

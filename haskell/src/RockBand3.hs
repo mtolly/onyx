@@ -268,9 +268,10 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
       $ addMoods
       $ addAnims
       $ case target of
-        Left rb3 -> if rb3_2xBassPedal rb3
-          then rockBand2x ps2x
-          else rockBand1x ps1x
+        Left rb3 -> drumEachDiff (\dd -> dd { drumPSModifiers = RTB.empty }) $
+          if rb3_2xBassPedal rb3
+            then rockBand2x ps2x
+            else rockBand1x ps1x
         Right _ -> psPS
 
 addFiveMoods
