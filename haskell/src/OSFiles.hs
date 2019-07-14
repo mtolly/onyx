@@ -1,5 +1,5 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE CPP          #-}
+{-# LANGUAGE LambdaCase   #-}
 {-# LANGUAGE ViewPatterns #-}
 -- | OS-specific functions to open and show files.
 module OSFiles (osOpenFile, osShowFolder, commonDir, fixFileCase) where
@@ -19,13 +19,14 @@ import           System.Process           (callProcess)
 import           Foreign                  (Ptr, withArrayLen, withMany)
 import           Foreign.C                (CInt (..), CString, withCString)
 #else
+import           Data.Maybe               (fromMaybe)
+import qualified Data.Text                as T
+import           System.Directory         (doesPathExist, listDirectory)
+import           System.FilePath          (dropTrailingPathSeparator,
+                                           splitFileName, (</>))
 import           System.Info              (os)
 import           System.IO                (stderr, stdout)
 import           System.IO.Silently       (hSilence)
-import System.Directory (doesPathExist, listDirectory)
-import Data.Maybe (fromMaybe)
-import System.FilePath (splitFileName, dropTrailingPathSeparator, (</>))
-import qualified Data.Text as T
 #endif
 #endif
 
@@ -110,7 +111,7 @@ fixFileCaseMaybe (dropTrailingPathSeparator -> f) = liftIO $ do
           let compForm = T.toCaseFold . T.pack
               entry' = compForm entry
           case filter ((== entry') . compForm) entries of
-            [] -> return Nothing
+            []    -> return Nothing
             e : _ -> return $ Just $ dir' </> e
 
 #endif

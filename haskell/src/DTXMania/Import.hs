@@ -14,17 +14,20 @@ import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes)
+import           Data.Maybe                       (catMaybes, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Yaml                        as Y
 import           DTXMania.DTX
+import           Guitars                          (emit5')
 import           JSONData                         (toJSON)
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
-import           RockBand.Codec.Six
+import           RockBand.Codec.Five
 import           RockBand.Common                  (Difficulty (..),
-                                                   pattern RNil, pattern Wait)
+                                                   pattern RNil,
+                                                   StrumHOPOTap (..),
+                                                   pattern Wait)
 import qualified Sound.MIDI.File.Save             as Save
 import           System.FilePath                  (dropExtension, (</>))
 
@@ -49,10 +52,10 @@ importDTX fin dout = do
           else Just <$> getAudio False chips fin dtx
       writeDrums f lanes = mapMaybeM drumSrc lanes >>= writeAudio f
   song   <- simpleAudio "song.wav" True $ dtx_BGM dtx
-  kick   <- writeDrums "kick.wav" [[BassDrum]]
+  kick   <- writeDrums "kick.wav" [[BassDrum, LeftBass]]
   snare  <- writeDrums "snare.wav" [[Snare]]
   kit    <- writeDrums "kit.wav"
-    [ [HihatClose, HihatOpen]
+    [ [HihatClose, HihatOpen, LeftPedal]
     , [HighTom]
     , [LowTom]
     , [Cymbal]
@@ -61,8 +64,8 @@ importDTX fin dout = do
     , [RideCymbal]
     , [LeftCymbal]
     ]
-  guitar <- simpleAudio "guitar.wav" False $ RTB.mapMaybe id $ snd <$> dtx_Guitar dtx
-  bass   <- simpleAudio "bass.wav"   False $ RTB.mapMaybe id $ snd <$> dtx_Bass   dtx
+  guitar <- simpleAudio "guitar.wav" False $ snd <$> dtx_Guitar dtx
+  bass   <- simpleAudio "bass.wav"   False $ snd <$> dtx_Bass   dtx
   extra  <- forM (HM.toList $ dtx_BGMExtra dtx) $ \(chan, chips) -> do
     let f = "song-" <> T.unpack chan <> ".wav"
     simpleAudio f False chips
@@ -80,37 +83,31 @@ importDTX fin dout = do
         { D.drumDifficulties = Map.singleton Expert mempty
           { D.drumGems = RTB.flatten $ fmap drumsInstant $ RTB.collectCoincident notes
           }
+        , D.drumKick2x = RTB.mapMaybe (\case LeftBass -> Just (); _ -> Nothing) notes
         }
       drumsInstant xs = let
-        normal = flip map xs $ \case
-          HihatClose -> D.Pro D.Yellow ()
-          Snare      -> D.Red
-          BassDrum   -> D.Kick
-          HighTom    -> D.Pro D.Yellow ()
-          LowTom     -> D.Pro D.Blue ()
-          Cymbal     -> D.Pro D.Green ()
-          FloorTom   -> D.Pro D.Green ()
-          HihatOpen  -> D.Pro D.Yellow ()
-          RideCymbal -> D.Pro D.Blue ()
-          LeftCymbal -> D.Pro D.Yellow ()
+        normal = flip mapMaybe xs $ \case
+          HihatClose -> Just $ D.Pro D.Yellow ()
+          Snare      -> Just $ D.Red
+          BassDrum   -> Just $ D.Kick
+          HighTom    -> Just $ D.Pro D.Yellow ()
+          LowTom     -> Just $ D.Pro D.Blue ()
+          Cymbal     -> Just $ D.Pro D.Green ()
+          FloorTom   -> Just $ D.Pro D.Green ()
+          HihatOpen  -> Just $ D.Pro D.Yellow ()
+          RideCymbal -> Just $ D.Pro D.Blue ()
+          LeftCymbal -> Just $ D.Pro D.Yellow ()
+          LeftPedal  -> Nothing
+          LeftBass   -> Nothing
         in case normal of
           [D.Pro D.Yellow (), D.Pro D.Yellow ()] -> [D.Pro D.Yellow (), D.Pro D.Blue  ()]
           [D.Pro D.Blue   (), D.Pro D.Blue   ()] -> [D.Pro D.Yellow (), D.Pro D.Blue  ()]
           [D.Pro D.Green  (), D.Pro D.Green  ()] -> [D.Pro D.Blue   (), D.Pro D.Green ()]
           _                                      -> normal
-      guitarToSix notes = mempty
-        { sixDifficulties = Map.singleton Expert mempty
-          { sixGems = fmap (, Nothing) $ RTB.flatten $ flip fmap notes $ \case
-            Open    -> [Nothing]
-            R       -> [Just Black1]
-            G       -> [Just Black2]
-            B       -> [Just Black3]
-            RG      -> [Just Black1, Just Black2]
-            RB      -> [Just Black1, Just Black3]
-            GB      -> [Just Black2, Just Black3]
-            RGB     -> [Just Black1, Just Black2, Just Black3]
-            Wailing -> []
-          }
+      guitarToFive notes = mempty
+        { fiveDifficulties = Map.singleton Expert $ emit5' $ RTB.flatten $ flip fmap notes $ \case
+          [] -> [((Nothing, Strum), Nothing)]
+          xs -> [ ((Just x, Strum), Nothing) | x <- xs ]
         }
 
   stackIO
@@ -118,8 +115,8 @@ importDTX fin dout = do
     $ RBFile.showMIDIFile'
     $ RBFile.Song (dtx_TempoMap dtx) (dtx_MeasureMap dtx) mempty
       { RBFile.fixedPartDrums = importDrums $ fmap fst $ dtx_Drums dtx
-      , RBFile.fixedPartGuitarGHL = guitarToSix $ fmap fst $ dtx_Guitar dtx
-      , RBFile.fixedPartBassGHL = guitarToSix $ fmap fst $ dtx_Bass dtx
+      , RBFile.fixedPartGuitar = guitarToFive $ fmap fst $ dtx_Guitar dtx
+      , RBFile.fixedPartBass = guitarToFive $ fmap fst $ dtx_Bass dtx
       }
   stackIO $ Y.encodeFile (dout </> "song.yml") $ toJSON SongYaml
     { _metadata = def
@@ -177,19 +174,9 @@ importDTX fin dout = do
           }
       , do
         guard $ not $ RTB.null $ dtx_Guitar dtx
-        return $ (FlexGuitar ,) def
-          { partGHL = Just PartGHL
-            { ghlDifficulty    = Tier 1
-            , ghlHopoThreshold = 170
-            }
-          }
+        return $ (FlexGuitar ,) def { partGRYBO = Just def }
       , do
         guard $ not $ RTB.null $ dtx_Bass dtx
-        return $ (FlexBass ,) def
-          { partGHL = Just PartGHL
-            { ghlDifficulty    = Tier 1
-            , ghlHopoThreshold = 170
-            }
-          }
+        return $ (FlexBass ,) def { partGRYBO = Just def }
       ]
     }

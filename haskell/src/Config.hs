@@ -569,6 +569,9 @@ instance StackJSON PartGRYBO where
     gryboSustainGap    <- gryboSustainGap    =. opt  60       "sustain-gap"     stackJSON
     return PartGRYBO{..}
 
+instance Default PartGRYBO where
+  def = fromEmptyObject
+
 data PartProKeys = PartProKeys
   { pkDifficulty  :: Difficulty
   , pkFixFreeform :: Bool

@@ -9,10 +9,11 @@ import           Audio                            (applyPansVols, mixMany)
 import           Control.Applicative              ((<|>))
 import           Control.Concurrent.MVar          (newEmptyMVar, tryPutMVar,
                                                    tryReadMVar)
-import           Control.Monad                    (forM, guard)
+import           Control.Monad                    (forM, forM_, guard, void)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource     (MonadResource, runResourceT)
 import           Control.Monad.Trans.StackTrace   (tempDir)
+import           Control.Monad.Trans.Writer       (execWriter, tell)
 import           Data.Binary.Get
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
@@ -34,12 +35,13 @@ import qualified Data.Vector.Storable             as V
 import           DTXMania.ShiftJIS                (decodeShiftJIS)
 import           DTXMania.XA                      (sourceXA)
 import           Numeric
+import           OSFiles                          (fixFileCase)
+import qualified RockBand.Codec.Five              as Five
 import           RockBand.Common                  (pattern RNil, pattern Wait)
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath
 import           System.IO
 import           Text.Read                        (readMaybe)
-import OSFiles (fixFileCase)
 
 loadDTXLines :: FilePath -> IO [(T.Text, T.Text)]
 loadDTXLines f = do
@@ -54,19 +56,21 @@ type Channel = T.Text
 type Chip = T.Text
 
 data DTX = DTX
-  { dtx_TITLE      :: Maybe T.Text
-  , dtx_ARTIST     :: Maybe T.Text
-  , dtx_WAV        :: HM.HashMap Chip FilePath
-  , dtx_VOLUME     :: HM.HashMap Chip Int
-  , dtx_PAN        :: HM.HashMap Chip Int
-  , dtx_MeasureMap :: U.MeasureMap
-  , dtx_TempoMap   :: U.TempoMap
-  , dtx_Drums      :: RTB.T U.Beats (DrumLane, Chip)
-  , dtx_DrumsDummy :: RTB.T U.Beats (DrumLane, Chip)
-  , dtx_Guitar     :: RTB.T U.Beats (GuitarNote, Maybe Chip)
-  , dtx_Bass       :: RTB.T U.Beats (GuitarNote, Maybe Chip)
-  , dtx_BGM        :: RTB.T U.Beats Chip
-  , dtx_BGMExtra   :: HM.HashMap Channel (RTB.T U.Beats Chip)
+  { dtx_TITLE         :: Maybe T.Text
+  , dtx_ARTIST        :: Maybe T.Text
+  , dtx_WAV           :: HM.HashMap Chip FilePath
+  , dtx_VOLUME        :: HM.HashMap Chip Int
+  , dtx_PAN           :: HM.HashMap Chip Int
+  , dtx_MeasureMap    :: U.MeasureMap
+  , dtx_TempoMap      :: U.TempoMap
+  , dtx_Drums         :: RTB.T U.Beats (DrumLane, Chip)
+  , dtx_DrumsDummy    :: RTB.T U.Beats (DrumLane, Chip)
+  , dtx_Guitar        :: RTB.T U.Beats ([Five.Color], Chip)
+  , dtx_GuitarWailing :: RTB.T U.Beats ()
+  , dtx_Bass          :: RTB.T U.Beats ([Five.Color], Chip)
+  , dtx_BassWailing   :: RTB.T U.Beats ()
+  , dtx_BGM           :: RTB.T U.Beats Chip
+  , dtx_BGMExtra      :: HM.HashMap Channel (RTB.T U.Beats Chip)
   } deriving (Show)
 
 textFloat :: (RealFrac a) => T.Text -> Maybe a
@@ -92,6 +96,8 @@ data DrumLane
   | HihatOpen
   | RideCymbal
   | LeftCymbal
+  | LeftPedal
+  | LeftBass
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 drumChar :: DrumLane -> Char
@@ -106,7 +112,8 @@ drumChar = \case
   HihatOpen  -> '8'
   RideCymbal -> '9'
   LeftCymbal -> 'A'
-  -- TODO The Enemy Inside has 1B notes, is this left foot
+  LeftPedal  -> 'B'
+  LeftBass   -> 'C'
 
 drumGDA :: DrumLane -> Maybe T.Text
 drumGDA = \case
@@ -116,10 +123,97 @@ drumGDA = \case
   HighTom    -> Just "HT"
   LowTom     -> Just "LT"
   Cymbal     -> Just "CY"
-  FloorTom   -> Nothing
-  HihatOpen  -> Nothing
-  RideCymbal -> Nothing
-  LeftCymbal -> Nothing
+  FloorTom   -> Just "FT" -- guess from DTXC
+  HihatOpen  -> Nothing -- unknown
+  RideCymbal -> Just "RD" -- guess from DTXC
+  LeftCymbal -> Just "LC" -- guess from DTXC
+  LeftPedal  -> Just "LP" -- guess from DTXC
+  LeftBass   -> Just "LB" -- guess from DTXC
+
+guitarMapping :: [(Channel, [Five.Color])]
+guitarMapping = execWriter $ do
+  let x chan cols = tell [(chan, cols)]
+      n1 = Five.Green  -- red in GF
+      n2 = Five.Red    -- green in GF
+      n3 = Five.Yellow -- blue in GF
+      n4 = Five.Blue   -- yellow in GF
+      n5 = Five.Orange -- purple in GF
+  forM_ ['2', 'G'] $ \c -> do
+    x (T.cons c "0") []
+    x (T.cons c "1") [n3]
+    x (T.cons c "2") [n2]
+    x (T.cons c "3") [n2, n3]
+    x (T.cons c "4") [n1]
+    x (T.cons c "5") [n1, n3]
+    x (T.cons c "6") [n1, n2]
+    x (T.cons c "7") [n1, n2, n3]
+    -- 28 / G8 / GW is wailing
+  x "93" [n4]
+  x "94" [n3, n4]
+  x "95" [n2, n4]
+  x "96" [n2, n3, n4]
+  x "97" [n1, n4]
+  x "98" [n1, n3, n4]
+  x "99" [n1, n2, n4]
+  x "9A" [n1, n2, n3, n4]
+  x "9B" [n5]
+  x "9C" [n3, n5]
+  x "9D" [n2, n5]
+  x "9E" [n2, n3, n5]
+  x "9F" [n1, n5]
+  x "A9" [n1, n3, n5]
+  x "AA" [n1, n2, n5]
+  x "AB" [n1, n2, n3, n5]
+  x "AC" [n4, n5]
+  x "AD" [n3, n4, n5]
+  x "AE" [n2, n4, n5]
+  x "AF" [n2, n3, n4, n5]
+  x "D0" [n1, n4, n5]
+  x "D1" [n1, n3, n4, n5]
+  x "D2" [n1, n2, n4, n5]
+  x "D3" [n1, n2, n3, n4, n5]
+
+bassMapping :: [(Channel, [Five.Color])]
+bassMapping = execWriter $ do
+  let x chan cols = tell [(chan, cols)]
+      n1 = Five.Green  -- red in GF
+      n2 = Five.Red    -- green in GF
+      n3 = Five.Yellow -- blue in GF
+      n4 = Five.Blue   -- yellow in GF
+      n5 = Five.Orange -- purple in GF
+  x "A0" []
+  x "A1" [n3]
+  x "A2" [n2]
+  x "A3" [n2, n3]
+  x "A4" [n1]
+  x "A5" [n1, n3]
+  x "A6" [n1, n2]
+  x "A7" [n1, n2, n3]
+  -- A8 is wailing
+  x "C5" [n4]
+  x "C6" [n3, n4]
+  x "C8" [n2, n4]
+  x "C9" [n2, n3, n4]
+  x "CA" [n1, n4]
+  x "CB" [n1, n3, n4]
+  x "CC" [n1, n2, n4]
+  x "CD" [n1, n2, n3, n4]
+  x "CE" [n5]
+  x "CF" [n3, n5]
+  x "DA" [n2, n5]
+  x "DB" [n2, n3, n5]
+  x "DC" [n1, n5]
+  x "DD" [n1, n3, n5]
+  x "DE" [n1, n2, n5]
+  x "DF" [n1, n2, n3, n5]
+  x "E1" [n4, n5]
+  x "E2" [n3, n4, n5]
+  x "E3" [n2, n4, n5]
+  x "E4" [n2, n3, n4, n5]
+  x "E5" [n1, n4, n5]
+  x "E6" [n1, n3, n4, n5]
+  x "E7" [n1, n2, n4, n5]
+  x "E8" [n1, n2, n3, n4, n5]
 
 data GuitarNote = Open | B | G | GB | R | RB | RG | RGB | Wailing
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -141,8 +235,10 @@ readDTXLines lns = DTX
   , dtx_TempoMap   = tmap
   , dtx_Drums      = readDrums [Just '1', Nothing]
   , dtx_DrumsDummy = readDrums [Just '3']
-  , dtx_Guitar     = readGuitar ['2', 'G']
-  , dtx_Bass       = readGuitar ['A']
+  , dtx_Guitar     = readGuitar guitarMapping
+  , dtx_GuitarWailing = void $ foldr RTB.merge RTB.empty $ map getChannel ["28", "G8", "GW"]
+  , dtx_Bass       = readGuitar bassMapping
+  , dtx_BassWailing = void $ getChannel "A8"
   , dtx_BGM        = getChannel "01"
   , dtx_BGMExtra   = HM.fromList $ filter (not . RTB.null . snd) $ do
     chan <- map (T.pack . show) ([61..69] ++ [70..79] ++ [80..89] ++ [90..92] :: [Int])
@@ -221,14 +317,9 @@ readDTXLines lns = DTX
         Nothing -> drumGDA lane
       return $ fmap (lane,) $ getChannel chan
 
-    readGuitar cols = foldr RTB.merge RTB.empty $ do
-      lane <- [minBound .. maxBound]
-      col <- cols
-      ch <- guitarChars lane
-      let evts = getChannel $ T.pack [col, ch]
-      return $ case lane of
-        Wailing -> (lane, Nothing) <$ evts
-        _       -> (\chip -> (lane, Just chip)) <$> evts
+    readGuitar mapping = foldr RTB.merge RTB.empty $ do
+      (chan, frets) <- mapping
+      return $ (frets,) <$> getChannel chan
 
 getAudio :: (MonadResource m, MonadIO f) =>
   Bool -> RTB.T U.Beats Chip -> FilePath -> DTX -> f (AudioSource m Float)
@@ -236,7 +327,8 @@ getAudio overlap chips dtxPath dtx = liftIO $ do
   let usedChips = nubOrd $ RTB.getBodies chips
       wavs = HM.filterWithKey (\k _ -> elem k usedChips) $ dtx_WAV dtx
   srcs <- forM wavs $ \fp -> do
-    fp' <- fixFileCase $ takeDirectory dtxPath </> fp
+    fp' <- fixFileCase $ takeDirectory dtxPath </> map (\case '¥' -> '/'; '\\' -> '/'; c -> c) fp
+    -- ¥ is the backslash when Shift-JIS decoded
     case map toLower $ takeExtension fp' of
       ".mp3" -> sourceMpg fp'
       ".xa"  -> mapSamples fractionalSample <$> sourceXA fp'
