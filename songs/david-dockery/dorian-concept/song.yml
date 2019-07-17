@@ -1,0 +1,35 @@
+metadata:
+  author: Onyxite
+  title: Fooling around on Yamaha Reface CS [Dorian Concept]
+  genre: fusion
+  subgenre: fusion
+  artist: David Dockery
+  year: 2018
+  file-album-art: ../cover.jpg
+plans:
+  album:
+    song:
+      pad: [2.622, youtube]
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube mly790Y2yg0 140
+    # md5: 
+    # frames: 
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+parts:
+  drums:
+    drums:
+      kicks: 1
+targets:
+  rb3:
+    game: rb3
