@@ -32,9 +32,9 @@ parts:
   bass:
     grybo: {}
   guitar:
-    grybo: {} # WIP
+    grybo: {}
   rhythm:
-    grybo: {} # WIP
+    grybo: {}
 targets:
   rb3:
     game: rb3
