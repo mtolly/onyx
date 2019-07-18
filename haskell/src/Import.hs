@@ -14,14 +14,13 @@ import qualified Config
 import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first, second)
 import           Control.Exception                (evaluate)
-import           Control.Monad.Extra              (findM, forM, forM_, guard,
-                                                   void)
+import           Control.Monad.Extra              (forM, forM_, guard, void)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (isSpace)
+import           Data.Char                        (isSpace, toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.Digest.Pure.MD5             as MD5
@@ -57,6 +56,7 @@ import           JSONData                         (toJSON)
 import           Magma                            (getRBAFile)
 import           MoggDecrypt                      (moggToOgg)
 import qualified Numeric.NonNegative.Class        as NNC
+import           OSFiles                          (fixFileCase)
 import           PrettyDTA                        (C3DTAComments (..),
                                                    DTASingle (..),
                                                    readDTASingle, readRB3DTA,
@@ -79,9 +79,7 @@ import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package                     (extractSTFS)
 import qualified System.Directory                 as Dir
-import           System.FilePath                  (dropExtension, takeDirectory,
-                                                   takeExtension, takeFileName,
-                                                   (-<.>), (<.>), (</>))
+import           System.FilePath
 import           Text.Read                        (readMaybe)
 import           X360DotNet                       (rb3pkg)
 
@@ -130,16 +128,16 @@ fixDoubleSwells ps = let
 importFoF :: (SendMessage m, MonadIO m) => Bool -> Bool -> FilePath -> FilePath -> StackTraceT m Kicks
 importFoF detectBasicDrums dropOpenHOPOs src dest = do
   lg $ "Importing FoF/PS/CH song from folder: " <> src
-  let pathMid = src </> "notes.mid"
-      pathChart = src </> "notes.chart"
-      pathIni = src </> "song.ini"
+  pathMid <- fixFileCase $ src </> "notes.mid"
+  pathChart <- fixFileCase $ src </> "notes.chart"
+  pathIni <- fixFileCase $ src </> "song.ini"
   (song, parsed, isChart) <- stackIO (Dir.doesFileExist pathIni) >>= \case
     True -> do
       ini <- FoF.loadSong pathIni
       stackIO (Dir.doesFileExist pathMid) >>= \case
         True -> do
           lg "Found song.ini and notes.mid"
-          mid <- loadFoFMIDI ini $ src </> "notes.mid"
+          mid <- loadFoFMIDI ini pathMid
           return (ini, mid, False)
         False -> stackIO (Dir.doesFileExist pathChart) >>= \case
           True -> do
@@ -162,21 +160,28 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
         return (FB.chartToIni chart, mid, True)
       False -> fatal "No song.ini or notes.chart found"
 
-  albumArt <- findM (stackIO . Dir.doesFileExist . (src </>)) ["album.png", "image.jpg"]
-  forM_ albumArt $ \art -> stackIO $ Dir.copyFile (src </> art) (dest </> art)
+  albumArt <- stackIO $ do
+    files <- Dir.listDirectory src
+    let isImage f = case splitExtension $ map toLower f of
+          (x, y) -> elem x ["album", "image"] && elem y [".png", ".jpg"]
+    case filter isImage files of
+      []    -> return Nothing
+      f : _ -> do
+        Dir.copyFile (src </> f) (dest </> map toLower f)
+        return $ Just f
 
-  let loadAudioFile x = stackIO $ do
-        let ogg = x <.> "ogg"
-            mp3 = x <.> "mp3"
-        Dir.doesFileExist (src </> ogg) >>= \case
-          True -> do
-            Dir.copyFile (src </> ogg) (dest </> ogg)
-            return $ Just ogg
-          False -> Dir.doesFileExist (src </> mp3) >>= \case
+  let loadAudioFile x = stackIO $ let
+        tryExt ext = do
+          let template = x <.> ext
+          path <- fixFileCase $ src </> template
+          Dir.doesFileExist path >>= \case
             True -> do
-              Dir.copyFile (src </> mp3) (dest </> mp3)
-              return $ Just mp3
+              Dir.copyFile path $ dest </> template
+              return $ Just template
             False -> return Nothing
+        in tryExt "ogg" >>= \case
+          Nothing -> tryExt "mp3"
+          Just o  -> return $ Just o
   audio_drums <- loadAudioFile "drums"
   audio_drums_1 <- loadAudioFile "drums_1"
   audio_drums_2 <- loadAudioFile "drums_2"
@@ -254,10 +259,11 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
 
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
-  mid2x <- stackIO $ Dir.doesFileExist $ src </> "expert+.mid"
+  path2x <- fixFileCase $ src </> "expert+.mid"
+  mid2x <- stackIO $ Dir.doesFileExist path2x
   add2x <- if mid2x
     then do
-      parsed2x <- loadMIDI $ src </> "expert+.mid"
+      parsed2x <- loadMIDI path2x
       let trk2x = RBFile.fixedPartDrums $ RBFile.s_tracks parsed2x
       return $ if nullDrums trk2x
         then id
@@ -297,7 +303,8 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
     Nothing -> return Nothing
     Just s | all isSpace s -> return Nothing
     Just v -> inside "copying PS video file to onyx project" $ do
-      stackIO $ Dir.copyFile (src </> v) (dest </> "video.avi")
+      v' <- fixFileCase $ src </> v
+      stackIO $ Dir.copyFile v' (dest </> "video.avi")
       return $ Just "video.avi"
 
   -- In Phase Shift, if you put -1 as the difficulty for a part,
@@ -1010,15 +1017,16 @@ importMagma fin dir = do
   lg $ "Importing Magma project from: " <> fin
 
   let oldDir = takeDirectory fin
+      locate f = fixFileCase $ oldDir </> f
   RBProj.RBProj rbproj <- stackIO (D.readFileDTA fin) >>= D.unserialize D.stackChunks
 
   let mid = T.unpack (RBProj.midiFile $ RBProj.midi rbproj)
-  stackIO $ Dir.copyFile (oldDir </> mid) (dir </> "notes.mid")
+  stackIO $ locate mid >>= \m -> Dir.copyFile m (dir </> "notes.mid")
   bassBase <- detectExtProBass . RBFile.s_tracks
     <$> loadMIDI (dir </> "notes.mid")
 
   c3 <- do
-    let pathC3 = fin -<.> "c3"
+    pathC3 <- fixFileCase $ fin -<.> "c3"
     hasC3 <- stackIO $ Dir.doesFileExist pathC3
     if hasC3
       then fmap Just $ stackIO (decodeGeneral <$> B8.readFile pathC3) >>= C3.readC3
@@ -1026,8 +1034,8 @@ importMagma fin dir = do
 
   let art = fromMaybe (T.unpack $ RBProj.albumArtFile $ RBProj.albumArt rbproj)
         $ C3.songAlbumArt <$> c3
-      art' = "album" <.> takeExtension art
-  stackIO $ Dir.copyFile (oldDir </> art) (dir </> art')
+      art' = "album" <.> map toLower (takeExtension art)
+  stackIO $ locate art >>= \a -> Dir.copyFile a (dir </> art')
 
   let hopoThresh = case fmap C3.hopoThresholdIndex c3 of
         Nothing -> 170
@@ -1042,8 +1050,8 @@ importMagma fin dir = do
         aud = f $ RBProj.tracks rbproj
         in if RBProj.audioEnabled aud
           then do
-            let src = oldDir </> T.unpack (RBProj.audioFile aud)
-                dst = s -<.> takeExtension src
+            src <- locate $ T.unpack $ RBProj.audioFile aud
+            let dst = s -<.> map toLower (takeExtension src)
             stackIO $ Dir.copyFile src (dir </> dst)
             return $ Just
               ( PlanAudio
@@ -1074,9 +1082,9 @@ importMagma fin dir = do
   crowd <- case c3 >>= C3.crowdAudio of
     Nothing -> return Nothing
     Just f  -> do
-      let src = oldDir </> T.unpack f
-          s = "crowd"
-          dst = s -<.> takeExtension src
+      src <- locate $ T.unpack f
+      let s = "crowd"
+          dst = s -<.> map toLower (takeExtension src)
       stackIO $ Dir.copyFile src (dir </> dst)
       chans <- audioChannels src >>= \case
         Just c -> return c
