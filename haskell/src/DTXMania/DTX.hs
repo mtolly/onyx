@@ -119,7 +119,7 @@ drumGDA :: DrumLane -> Maybe T.Text
 drumGDA = \case
   HihatClose -> Just "HH"
   Snare      -> Just "SD"
-  BassDrum   -> Just "BD"
+  BassDrum   -> Just "BD" -- this conflicts with .dtx, so only read from .gda
   HighTom    -> Just "HT"
   LowTom     -> Just "LT"
   Cymbal     -> Just "CY"
@@ -222,8 +222,11 @@ guitarChars :: GuitarNote -> [Char]
 guitarChars Wailing = ['W', '8'] -- W used in .gda
 guitarChars n       = [head $ show $ fromEnum n]
 
-readDTXLines :: [(T.Text, T.Text)] -> DTX
-readDTXLines lns = DTX
+data DTXFormat = FormatDTX | FormatGDA
+  deriving (Eq, Show)
+
+readDTXLines :: DTXFormat -> [(T.Text, T.Text)] -> DTX
+readDTXLines fmt lns = DTX
   { dtx_TITLE      = lookup "TITLE" lns
   , dtx_ARTIST     = lookup "ARTIST" lns
   , dtx_WAV        = fmap T.unpack $ HM.fromList $ getReferences "WAV"
@@ -314,7 +317,7 @@ readDTXLines lns = DTX
       col <- cols
       Just chan <- return $ case col of
         Just c  -> Just $ T.pack [c, drumChar lane]
-        Nothing -> drumGDA lane
+        Nothing -> guard (fmt == FormatGDA) >> drumGDA lane
       return $ fmap (lane,) $ getChannel chan
 
     readGuitar mapping = foldr RTB.merge RTB.empty $ do

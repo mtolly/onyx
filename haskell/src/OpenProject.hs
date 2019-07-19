@@ -115,8 +115,8 @@ findSongs fp' = do
           , impPath = dir
           , impProject = importFrom dir True $ void . importFoF True False dir
           }
-      foundDTX loc = do
-        dtx <- stackIO $ readDTXLines <$> loadDTXLines loc
+      foundDTX fmt loc = do
+        dtx <- stackIO $ readDTXLines fmt <$> loadDTXLines loc
         found Importable
           { impTitle = dtx_TITLE dtx
           , impArtist = dtx_ARTIST dtx
@@ -182,8 +182,8 @@ findSongs fp' = do
         ".rbproj" -> foundRBProj fp
         -- TODO Amplitude .moggsong
         ".chart" -> foundChart fp
-        ".dtx" -> foundDTX fp
-        ".gda" -> foundDTX fp
+        ".dtx" -> foundDTX FormatDTX fp
+        ".gda" -> foundDTX FormatGDA fp
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundIni fp
           _ -> do

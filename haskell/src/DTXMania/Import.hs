@@ -11,6 +11,7 @@ import           Control.Monad.Extra              (forM, guard, mapMaybeM, void,
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
+import           Data.Char                        (toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -31,11 +32,15 @@ import           RockBand.Common                  (Difficulty (..),
                                                    StrumHOPOTap (..),
                                                    pattern Wait)
 import qualified Sound.MIDI.File.Save             as Save
-import           System.FilePath                  (dropExtension, (</>))
+import           System.FilePath                  (dropExtension, takeExtension,
+                                                   (</>))
 
 importDTX :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 importDTX fin dout = do
-  dtx <- stackIO $ readDTXLines <$> loadDTXLines fin
+  let fmt = case map toLower $ takeExtension fin of
+        ".gda" -> FormatGDA
+        _      -> FormatDTX
+  dtx <- stackIO $ readDTXLines fmt <$> loadDTXLines fin
   let simpleAudio f overlap chips = if RTB.null chips
         then return Nothing
         else do

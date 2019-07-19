@@ -14,6 +14,10 @@ packages:
     subdirs:
     - conduit-audio-mpg123
   extra-dep: true
+- location:
+    git: git://github.com/deech/fltkhs
+    commit: c55aa9198088198e83060276114fcb8087872734
+  extra-dep: true
 extra-deps:
 - conduit-audio-0.2.0.3
 - conduit-audio-lame-0.1.2.1
@@ -28,7 +32,6 @@ extra-deps:
 - JuicyPixels-stbir-0.1.0.0
 - hsndfile-0.8.0
 - hsndfile-vector-0.5.2
-- fltkhs-0.8.0.1
 resolver: nightly-2019-04-12
 flags:
   fltkhs:
