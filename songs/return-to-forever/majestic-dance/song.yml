@@ -1,0 +1,33 @@
+metadata:
+  title: Majestic Dance
+  artist: Return to Forever
+  album: Romantic Warrior
+  track-number: 4
+  author: Onyxite
+  rating: FamilyFriendly
+  key: E major
+  genre: fusion
+  subgenre: fusion
+  year: 1976
+  file-album-art: ../medieval-overture/cover.jpg
+  autogen-theme: PsychJamRock
+audio:
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  album-track:
+    md5: c316cfa79e92a214293b6feeef914f3e
+    frames: 13254696
+plans:
+  album:
+    song:
+      pad: [3.432, album-track]
+parts:
+  drums:
+    drums:
+      kicks: 1
+      kit: VintageKit
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
