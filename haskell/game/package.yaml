@@ -37,6 +37,6 @@ executables:
     - midi-util
     - gl
     - JuicyPixels
-    - matrix
     - file-embed
     - bytestring
+    - linear

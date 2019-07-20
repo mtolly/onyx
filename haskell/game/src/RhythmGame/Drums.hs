@@ -10,10 +10,10 @@ import           Control.Monad.IO.Class    (MonadIO (..))
 import           Control.Monad.Trans.State
 import qualified Data.ByteString           as B
 import           Data.FileEmbed            (embedFile, makeRelativeToProject)
+import           Data.Foldable             (toList)
 import           Data.List                 (partition)
 import qualified Data.Map.Strict           as Map
 import           Data.Map.Strict.Internal  (Map (..))
-import qualified Data.Matrix               as M
 import           Data.Maybe                (fromMaybe)
 import qualified Data.Vector               as V
 import qualified Data.Vector.Storable      as VS
@@ -21,9 +21,10 @@ import           Foreign
 import           Foreign.C
 import           Graphics.GL.Core33
 import           Graphics.GL.Types
+import           Linear                    (M44, V3 (..), V4 (..), (!*!))
+import qualified Linear                    as L
 import           Resources                 (onyxAlbum)
 import qualified RockBand.Codec.Drums      as D
-import           SDL                       (($=))
 import qualified SDL
 
 data Note t a
@@ -105,8 +106,8 @@ drawDrums :: GLint -> GLint -> Track Double (D.Gem ()) -> IO ()
 drawDrums modelLoc colorLoc trk = do
   let drawCube (x1, y1, z1) (x2, y2, z2) (r, g, b) = do
         sendMatrix modelLoc
-          $ translate4 (V.fromList [(x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2])
-          * scale4 (V.fromList [x2 - x1, y2 - y1, z2 - z1])
+          $ translate4 (V3 ((x1 + x2) / 2) ((y1 + y2) / 2) ((z1 + z2) / 2))
+          !*! L.scaled (V4 (x2 - x1) (y2 - y1) (z2 - z1) 1)
         glUniform3f colorLoc r g b
         glDrawArrays GL_TRIANGLES 0 36
       nearZ = 2 :: Float
@@ -238,75 +239,49 @@ cubeVertices = [
   -0.5,  0.5, -0.5,  0.0,  1.0,  0.0
   ]
 
-rotate4 :: (Floating a) => a -> V.Vector a -> M.Matrix a
-rotate4 theta r = let
+rotate4 :: (Floating a) => a -> V3 a -> M44 a
+rotate4 theta (V3 rx ry rz) = let
   sint = sin theta
   cost = cos theta
-  rx = r V.! 0
-  ry = r V.! 1
-  rz = r V.! 2
   len = sqrt $ rx * rx + ry * ry + rz * rz
   nx = rx / len
   ny = ry / len
   nz = rz / len
-  in M.fromList 4 4
-    [ cost + (nx ** 2) * (1 - cost)
-    , nx * ny * (1 - cost) - nz * sint
-    , nx * nz * (1 - cost) + ny * sint
-    , 0
-    , ny * nx * (1 - cost) + nz * sint
-    , cost + (ny ** 2) * (1 - cost)
-    , ny * nz * (1 - cost) - nx * sint
-    , 0
-    , nz * nx * (1 - cost) - ny * sint
-    , nz * ny * (1 - cost) + nx * sint
-    , cost + (nz ** 2) * (1 - cost)
-    , 0
-    , 0
-    , 0
-    , 0
-    , 1
-    ]
+  in V4
+    (V4
+      (cost + (nx ** 2) * (1 - cost))
+      (nx * ny * (1 - cost) - nz * sint)
+      (nx * nz * (1 - cost) + ny * sint)
+      0
+    ) (V4
+      (ny * nx * (1 - cost) + nz * sint)
+      (cost + (ny ** 2) * (1 - cost))
+      (ny * nz * (1 - cost) - nx * sint)
+      0
+    ) (V4
+      (nz * nx * (1 - cost) - ny * sint)
+      (nz * ny * (1 - cost) + nx * sint)
+      (cost + (nz ** 2) * (1 - cost))
+      0
+    ) (V4
+      0
+      0
+      0
+      1
+    )
 
-scale4 :: (Num a) => V.Vector a -> M.Matrix a
-scale4 v = M.diagonalList 4 0 (V.toList v ++ [1])
-
-translate4 :: (Num a) => V.Vector a -> M.Matrix a
-translate4 v = M.fromList 4 4
-  [ 1, 0, 0, v V.! 0
-  , 0, 1, 0, v V.! 1
-  , 0, 0, 1, v V.! 2
-  , 0, 0, 0, 1
-  ]
-
-perspective :: (Floating a) => a -> a -> a -> a -> M.Matrix a
-perspective fov aspect near far = let
-  top = near * tan (fov / 2)
-  bottom = -top
-  right = top * aspect
-  left = -right
-
-  sx = 2 * near / (right - left)
-  sy = 2 * near / (top - bottom)
-
-  c2 = (- (far + near)) / (far - near)
-  c1 = 2 * near * far / (near - far)
-
-  tx = (-near) * (left + right) / (right - left)
-  ty = (-near) * (bottom + top) / (top - bottom)
-
-  in M.fromList 4 4
-    [ sx, 0, 0, tx
-    , 0, sy, 0, ty
-    , 0, 0, c2, c1
-    , 0, 0, -1, 0
-    ]
+translate4 :: (Num a) => V3 a -> M44 a
+translate4 (V3 x y z) = V4
+  (V4 1 0 0 x)
+  (V4 0 1 0 y)
+  (V4 0 0 1 z)
+  (V4 0 0 0 1)
 
 degrees :: (Floating a) => a -> a
 degrees d = (d / 180) * pi
 
-sendMatrix :: (MonadIO m) => GLint -> M.Matrix Float -> m ()
-sendMatrix loc m = liftIO $ withArray (M.toList m)
+sendMatrix :: (MonadIO m) => GLint -> M44 Float -> m ()
+sendMatrix loc m = liftIO $ withArray (toList m >>= toList)
   $ glUniformMatrix4fv loc 1 GL_TRUE {- <- this means row major order -}
 
 objectVS, objectFS :: B.ByteString
@@ -426,10 +401,10 @@ playDrums window trk = flip evalStateT trk $ do
         glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
 
         glUseProgram cubeShader
-        let view
-              = rotate4 (degrees 20) (V.fromList [1, 0, 0])
-              * translate4 (V.fromList [0, -1, -3])
-            projection = perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
+        let view -- this should be doable with L.mkTransformation but not sure exactly how
+              = rotate4 (degrees 20) (V3 1 0 0)
+              !*! translate4 (V3 0 (-1) (-3))
+            projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
         sendMatrix viewLoc view
         sendMatrix projectionLoc projection
         glBindVertexArray cubeVAO
@@ -445,7 +420,7 @@ playDrums window trk = flip evalStateT trk $ do
         -- sendMatrix lampProjectionLoc projection
         -- sendMatrix lampModelLoc
         --   $ translate4 lightPos
-        --   * scale4 (V.fromList [0.2, 0.2, 0.2])
+        --   !*! L.scaled (V4 0.2 0.2 0.2 1)
         -- glBindVertexArray lightVAO
         -- glDrawArrays GL_TRIANGLES 0 36
 
