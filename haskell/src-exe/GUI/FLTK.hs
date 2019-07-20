@@ -349,15 +349,6 @@ forceProDrums song = song
       }
   }
 
-dropOpenHOPOs :: Bool -> SongYaml -> SongYaml
-dropOpenHOPOs b song = song
-  { _parts = flip fmap (_parts song) $ \part -> case partGRYBO part of
-    Nothing    -> part
-    Just grybo -> part
-      { partGRYBO = Just grybo { gryboDropOpenHOPOs = b }
-      }
-  }
-
 saveProject :: Project -> SongYaml -> IO Project
 saveProject proj song = do
   Y.encodeFile (projectLocation proj) $ toJSON song
@@ -440,10 +431,6 @@ batchPageRB2
 batchPageRB2 sink rect tab build = do
   pack <- FL.packNew rect Nothing
   getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
-  getDropOpen <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    box <- FL.checkButtonNew rect' (Just "Drop HOPO/tap open notes")
-    FL.setTooltip box "When checked, open notes on guitar/bass which are also HOPO or tap notes will be removed, instead of becoming green notes."
-    return $ FL.getValue box
   getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     fn <- horizRadio rect'
       [ ("Guitar/Bass", GBKUnchanged, True)
@@ -460,7 +447,6 @@ batchPageRB2 sink rect tab build = do
     return $ fromMaybe KicksBoth <$> fn
   let getTargetSong usePath template = do
         speed <- getSpeed
-        dropOpen <- getDropOpen
         gbk <- getGBK
         kicks <- getKicks
         return $ \proj -> let
@@ -486,8 +472,7 @@ batchPageRB2 sink rect tab build = do
               in T.intercalate modifiers . T.splitOn "%modifiers%"
             ]
           yaml
-            = dropOpenHOPOs dropOpen
-            $ forceProDrums
+            = forceProDrums
             $ projectSongYaml proj
           in
             ( [ (tgt { rb2_2xBassPedal = is2x }, usePath $ fout kicksLabel)
@@ -605,12 +590,8 @@ batchPageRB3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
   getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
   getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    box <- FL.checkButtonNew rect' (Just "Tom Markers for non-Pro Drums")
+    box <- FL.checkButtonNew rect' (Just "Convert non-Pro Drums to all toms")
     FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
-    return $ FL.getValue box
-  getDropOpen <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    box <- FL.checkButtonNew rect' (Just "Drop HOPO/tap open notes")
-    FL.setTooltip box "When checked, open notes on guitar/bass which are also HOPO or tap notes will be removed, instead of becoming green notes."
     return $ FL.getValue box
   getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     fn <- horizRadio rect'
@@ -630,7 +611,6 @@ batchPageRB3 sink rect tab build = do
   let getTargetSong usePath template = do
         speed <- getSpeed
         toms <- getToms
-        dropOpen <- getDropOpen
         gbk <- getGBK
         kicks <- getKicks
         return $ \proj -> let
@@ -656,8 +636,7 @@ batchPageRB3 sink rect tab build = do
               in T.intercalate modifiers . T.splitOn "%modifiers%"
             ]
           yaml
-            = dropOpenHOPOs dropOpen
-            $ (if toms then id else forceProDrums)
+            = (if toms then id else forceProDrums)
             $ projectSongYaml proj
           in
             ( [ (tgt { rb3_2xBassPedal = is2x }, usePath $ fout kicksLabel)

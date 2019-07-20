@@ -102,7 +102,7 @@ findSongs fp' = do
           , impAuthor = FoF.charter ini
           , impFormat = "Clone Hero"
           , impPath = dir
-          , impProject = importFrom dir True $ void . importFoF True False dir
+          , impProject = importFrom dir True $ void . importFoF True dir
           }
       foundIni loc = do
         let dir = takeDirectory loc
@@ -113,7 +113,7 @@ findSongs fp' = do
           , impAuthor = FoF.charter ini
           , impFormat = "Frets on Fire/Phase Shift/Clone Hero"
           , impPath = dir
-          , impProject = importFrom dir True $ void . importFoF True False dir
+          , impProject = importFrom dir True $ void . importFoF True dir
           }
       foundDTX fmt loc = do
         dtx <- stackIO $ readDTXLines fmt <$> loadDTXLines loc

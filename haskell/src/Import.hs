@@ -125,8 +125,8 @@ fixDoubleSwells ps = let
     , RBFile.fixedPartRealDrumsPS = fixTrack $ RBFile.fixedPartRealDrumsPS ps
     }
 
-importFoF :: (SendMessage m, MonadIO m) => Bool -> Bool -> FilePath -> FilePath -> StackTraceT m Kicks
-importFoF detectBasicDrums dropOpenHOPOs src dest = do
+importFoF :: (SendMessage m, MonadIO m) => Bool -> FilePath -> FilePath -> StackTraceT m Kicks
+importFoF detectBasicDrums src dest = do
   lg $ "Importing FoF/PS/CH song from folder: " <> src
   pathMid <- fixFileCase $ src </> "notes.mid"
   pathChart <- fixFileCase $ src </> "notes.chart"
@@ -435,7 +435,6 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           { gryboDifficulty = toTier $ FoF.diffGuitar song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
-          , gryboDropOpenHOPOs = dropOpenHOPOs
           , gryboSustainGap = 60
           }
         , partProGuitar = let
@@ -457,7 +456,6 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           { gryboDifficulty = toTier $ FoF.diffBass song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
-          , gryboDropOpenHOPOs = dropOpenHOPOs
           , gryboSustainGap = 60
           }
         , partProGuitar = let
@@ -479,7 +477,6 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           { gryboDifficulty = toTier $ FoF.diffKeys song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
-          , gryboDropOpenHOPOs = dropOpenHOPOs
           , gryboSustainGap = 60
           }
         , partProKeys = guard (isnt nullPK RBFile.fixedPartRealKeysX && guardDifficulty FoF.diffKeysReal) >> Just PartProKeys
@@ -492,7 +489,6 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           { gryboDifficulty = toTier $ FoF.diffRhythm song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
-          , gryboDropOpenHOPOs = dropOpenHOPOs
           , gryboSustainGap = 60
           }
         })
@@ -942,7 +938,6 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           { gryboDifficulty = fromMaybe (Tier 1) $ HM.lookup "guitar" diffMap
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
-          , gryboDropOpenHOPOs = False
           , gryboSustainGap = 60
           }
         , partProGuitar = guard (hasRankStr "real_guitar") >> Just PartProGuitar
@@ -961,7 +956,6 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           { gryboDifficulty = fromMaybe (Tier 1) $ HM.lookup "bass" diffMap
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
-          , gryboDropOpenHOPOs = False
           , gryboSustainGap = 60
           }
         , partProGuitar = guard (hasRankStr "real_bass") >> Just PartProGuitar
@@ -980,7 +974,6 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           { gryboDifficulty = fromMaybe (Tier 1) $ HM.lookup "keys" diffMap
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
-          , gryboDropOpenHOPOs = False
           , gryboSustainGap = 60
           }
         , partProKeys = guard (hasRankStr "real_keys") >> Just PartProKeys
@@ -1225,7 +1218,6 @@ importMagma fin dir = do
           { gryboDifficulty = Tier $ RBProj.rankGuitar $ RBProj.gamedata rbproj
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
-          , gryboDropOpenHOPOs = False
           , gryboSustainGap = 60
           }
         , partProGuitar = do
@@ -1246,7 +1238,6 @@ importMagma fin dir = do
           { gryboDifficulty = Tier $ RBProj.rankBass $ RBProj.gamedata rbproj
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
-          , gryboDropOpenHOPOs = False
           , gryboSustainGap = 60
           }
         , partProGuitar = do
@@ -1267,7 +1258,6 @@ importMagma fin dir = do
           { gryboDifficulty = Tier $ RBProj.rankKeys $ RBProj.gamedata rbproj
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
-          , gryboDropOpenHOPOs = False
           , gryboSustainGap = 60
           }
         , partProKeys = guard (isJust keys && maybe False (not . C3.disableProKeys) c3) >> Just PartProKeys

@@ -208,13 +208,40 @@ fromClosed' = fmap $ first $ first Just
 
 noOpenNotes'
   :: (NNC.C t)
-  => Bool -- ^ whether open HOPOs\/taps should be removed
-  -> RTB.T t ((Maybe G5.Color, StrumHOPOTap), len)
+  => RTB.T t ((Maybe G5.Color, StrumHOPOTap), len)
   -> RTB.T t ((G5.Color, StrumHOPOTap), len)
-noOpenNotes' removeOpenHOPO = RTB.mapMaybe $ \case
-  ((Nothing, sht), _) | removeOpenHOPO && sht /= Strum -> Nothing
-  ((Nothing, sht), len) -> Just ((G5.Green, sht), len)
-  ((Just x, sht), len) -> Just ((x, sht), len)
+noOpenNotes' = let
+  rev = RTB.fromPairList . reverse . RTB.toPairList
+
+  fixForward RNil = RNil
+  fixForward (Wait dt xs@[((Nothing, _), _)] rest) = case rest of
+    Wait _ [((Just Green, _), _)] _ -> case tryPush Nothing rest of
+      Nothing    -> Wait dt xs $ fixForward $ fallbackFlip rest
+      Just rest' -> Wait dt xs $ fixForward rest'
+    _ -> Wait dt xs $ fixForward rest
+  fixForward (Wait dt xs rest) = Wait dt xs $ fixForward rest
+
+  isPred Nothing (Just Green) = True
+  isPred (Just x) (Just y)    = x /= maxBound && succ x == y
+  isPred _ _                  = False
+
+  -- Attempt to push a sequence of ascending notes up one fret.
+  -- Fails if there's a full sequence of open-G-R-Y-B-O.
+  tryPush prev rtb = case rtb of
+    Wait dt open@[((Nothing, _), _)] rest | prev == Nothing -> Wait dt open <$> tryPush Nothing rest
+    Wait dt [((this@(Just c), sht), len)] rest | prev == this || isPred prev this -> do
+      guard $ c /= Orange
+      Wait dt [((Just $ succ c, sht), len)] <$> tryPush this rest
+    _ -> Just rtb -- a chord, or we moved down, or moved >1 fret up, or no more notes
+
+  -- For that full ascending sequence, move the G to Y instead of R.
+  -- So it becomes G-Y-R-Y-B-O.
+  fallbackFlip (Wait dt [((Just Green, sht), len)] rest)
+    = Wait dt [((Just Yellow, sht), len)] $ fallbackFlip rest
+  fallbackFlip rest = rest
+
+  openGreen = fmap $ \((mc, sht), len) -> ((fromMaybe Green mc, sht), len)
+  in openGreen . RTB.flatten . rev . fixForward . rev . fixForward . RTB.collectCoincident
 
 -- | Turns all tap notes into HOPO notes.
 noTaps' :: RTB.T t ((color, StrumHOPOTap), len) -> RTB.T t ((color, StrumHOPOTap), len)

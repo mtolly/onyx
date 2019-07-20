@@ -81,7 +81,7 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
           emit5'
         . fromClosed'
         . no5NoteChords'
-        . noOpenNotes' (gryboDropOpenHOPOs grybo)
+        . noOpenNotes'
         . noTaps'
         . noExtendedSustains' standardBlipThreshold gap
         . applyForces (getForces5 fd)
