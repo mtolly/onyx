@@ -32,6 +32,7 @@ import qualified Data.Text                      as T
 import qualified Data.Yaml                      as Y
 import           DTXMania.DTX
 import           DTXMania.Import
+import           DTXMania.Set
 import qualified FeedBack.Load                  as FB
 import qualified FretsOnFire                    as FoF
 import           GuitarHeroII.Ark               (replaceSong)
@@ -71,15 +72,17 @@ data Importable m = Importable
   , impAuthor  :: Maybe T.Text
   , impFormat  :: T.Text
   , impPath    :: FilePath
+  , impIndex   :: Maybe Int
   , impProject :: StackTraceT m Project
   }
 
 findSongs :: (SendMessage m, MonadResource m)
-  => FilePath -> StackTraceT m ([FilePath], Maybe (Importable m))
+  => FilePath -> StackTraceT m ([FilePath], [Importable m])
 findSongs fp' = do
   fp <- stackIO $ Dir.makeAbsolute fp'
-  let found imp = return ([], Just imp)
-      withYaml loc isDir key fyml = loadYaml fyml >>= \yml -> return Project
+  let found imp = foundMany [imp]
+      foundMany imps = return ([], imps)
+      withYaml index loc isDir key fyml = loadYaml fyml >>= \yml -> return Project
         { projectLocation = fyml
         , projectSongYaml = yml
         , projectRelease = key
@@ -88,11 +91,12 @@ findSongs fp' = do
           ( (if isDir then id else dropExtension)
           $ dropTrailingPathSeparator loc
           ) (stripSuffix "_rb3con" loc <|> stripSuffix "_rb2con" loc)
+          <> maybe "" (\i -> "_" <> show (i :: Int)) index
         }
-      importFrom loc isDir fn = do
+      importFrom index loc isDir fn = do
         (key, tmp) <- resourceTempDir
         () <- fn tmp
-        withYaml loc isDir (Just key) (tmp </> "song.yml")
+        withYaml index loc isDir (Just key) (tmp </> "song.yml")
       foundChart loc = do
         let dir = takeDirectory loc
         ini <- fmap FB.chartToIni $ FB.loadChartFile loc
@@ -102,7 +106,8 @@ findSongs fp' = do
           , impAuthor = FoF.charter ini
           , impFormat = "Clone Hero"
           , impPath = dir
-          , impProject = importFrom dir True $ void . importFoF True dir
+          , impIndex = Nothing
+          , impProject = importFrom Nothing dir True $ void . importFoF dir
           }
       foundIni loc = do
         let dir = takeDirectory loc
@@ -113,8 +118,24 @@ findSongs fp' = do
           , impAuthor = FoF.charter ini
           , impFormat = "Frets on Fire/Phase Shift/Clone Hero"
           , impPath = dir
-          , impProject = importFrom dir True $ void . importFoF True dir
+          , impIndex = Nothing
+          , impProject = importFrom Nothing dir True $ void . importFoF dir
           }
+      foundDTXSet loc = do
+        let dir = takeDirectory loc
+        songs <- stackIO $ loadSet loc
+        let eachSong i song = let
+              index = guard (not $ null $ drop 1 songs) >> Just i
+              in Importable
+                { impTitle = Just $ setTitle song
+                , impArtist = Nothing
+                , impAuthor = Nothing
+                , impFormat = "DTXMania (set.def)"
+                , impPath = dir
+                , impIndex = index
+                , impProject = importFrom index dir False $ importSet i loc
+                }
+        foundMany $ zipWith eachSong [0..] songs
       foundDTX fmt loc = do
         dtx <- stackIO $ readDTXLines fmt <$> loadDTXLines loc
         found Importable
@@ -123,7 +144,8 @@ findSongs fp' = do
           , impAuthor = Nothing
           , impFormat = "DTXMania"
           , impPath = loc
-          , impProject = importFrom loc False $ importDTX loc
+          , impIndex = Nothing
+          , impProject = importFrom Nothing loc False $ importDTX loc
           }
       foundYaml loc = do
         let dir = takeDirectory loc
@@ -134,7 +156,8 @@ findSongs fp' = do
           , impAuthor = _author $ _metadata yml
           , impFormat = "Onyx"
           , impPath = dir
-          , impProject = withYaml dir True Nothing loc
+          , impIndex = Nothing
+          , impProject = withYaml Nothing dir True Nothing loc
           }
       foundRBProj loc = do
         RBProj.RBProj proj <- stackIO (readFileDTA loc) >>= DTA.unserialize DTA.stackChunks
@@ -144,7 +167,8 @@ findSongs fp' = do
           , impAuthor = Just $ RBProj.author $ RBProj.metadata proj
           , impFormat = "Magma Project"
           , impPath = loc
-          , impProject = importFrom loc False $ void . importMagma loc
+          , impIndex = Nothing
+          , impProject = importFrom Nothing loc False $ void . importMagma loc
           }
       foundDTA bs fmt loc isDir imp = readDTASingles bs >>= \case
         [(single, _)] -> found Importable
@@ -153,28 +177,30 @@ findSongs fp' = do
           , impAuthor = c3dtaAuthoredBy $ dtaC3Comments single
           , impFormat = fmt
           , impPath = loc
-          , impProject = importFrom loc isDir imp
+          , impIndex = Nothing
+          , impProject = importFrom Nothing loc isDir imp
           }
-        _ -> return ([], Nothing)
+        _ -> return ([], [])
       foundSTFS loc = do
         dta <- stackIO $ withSTFS loc $ \stfs ->
           sequence $ lookup ("songs" </> "songs.dta") $ stfsFiles stfs
         case dta of
           Just bs -> foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc False $ void . importSTFS loc Nothing
-          Nothing -> return ([], Nothing)
+          Nothing -> return ([], [])
   isDir <- stackIO $ Dir.doesDirectoryExist fp
   if isDir
     then do
       ents <- stackIO $ Dir.listDirectory fp
-      if
+      if -- TODO make all these case-insensitive
         | elem "song.yml" ents -> foundYaml $ fp </> "song.yml"
         | elem "song.ini" ents -> foundIni $ fp </> "song.ini"
         | elem "notes.chart" ents -> foundChart $ fp </> "notes.chart"
+        | elem "set.def" ents -> foundDTXSet $ fp </> "set.def"
         | otherwise -> stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
           True  -> do
             bs <- stackIO $ B.readFile $ fp </> "songs/songs.dta"
             foundDTA bs "Rock Band Extracted" fp True $ void . importSTFSDir fp Nothing
-          False -> return (map (fp </>) ents, Nothing)
+          False -> return (map (fp </>) ents, [])
     else do
       case map toLower $ takeExtension fp of
         ".yml" -> foundYaml fp
@@ -186,6 +212,7 @@ findSongs fp' = do
         ".gda" -> foundDTX FormatGDA fp
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundIni fp
+          "set.def" -> foundDTXSet fp
           _ -> do
             magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 4
             case magic of
@@ -194,13 +221,14 @@ findSongs fp' = do
                 foundDTA (BL.toStrict bs) "Magma RBA" fp False $ void . importRBA fp Nothing
               "CON " -> foundSTFS fp
               "LIVE" -> foundSTFS fp
-              _ -> return ([], Nothing)
+              _ -> return ([], [])
 
 openProject :: (SendMessage m, MonadResource m) =>
   FilePath -> StackTraceT m Project
 openProject fp = findSongs fp >>= \case
-  (_, Just imp) -> impProject imp
-  (_, Nothing ) -> fatal $ "Couldn't find a song at location: " <> fp
+  (_, [imp]) -> impProject imp
+  (_, []   ) -> fatal $ "Couldn't find a song at location: " <> fp
+  (_, _    ) -> fatal $ "Found more than 1 song at location: " <> fp
 
 withProject :: (SendMessage m, MonadResource m) =>
   FilePath -> (Project -> StackTraceT m a) -> StackTraceT m a
@@ -270,11 +298,15 @@ installGH2 gh2 proj song gen = do
         return (song <> B8.pack (drop 5 f), dir </> f)
   stackIO $ replaceSong gen song chunks filePairs
 
-buildPlayer :: (MonadIO m) => Project -> StackTraceT (QueueLog m) FilePath
-buildPlayer proj = case Map.toList $ _plans $ projectSongYaml proj of
-  [(planName, _)] -> shakeBuild1 proj [] $ "gen/plan" </> T.unpack planName </> "web"
-  []              -> fatal "Project has no audio plans"
-  _ : _ : _       -> fatal "Project has more than 1 audio plan"
+buildPlayer :: (MonadIO m) => Maybe T.Text -> Project -> StackTraceT (QueueLog m) FilePath
+buildPlayer mplan proj = do
+  planName <- case mplan of
+    Just planName -> return planName
+    Nothing       -> case Map.toList $ _plans $ projectSongYaml proj of
+      [(planName, _)] -> return planName
+      []              -> fatal "Project has no audio plans"
+      _ : _ : _       -> fatal "Project has more than 1 audio plan"
+  shakeBuild1 proj [] $ "gen/plan" </> T.unpack planName </> "web"
 
 choosePlan :: (Monad m) => Maybe T.Text -> Project -> StackTraceT m T.Text
 choosePlan (Just plan) _    = return plan

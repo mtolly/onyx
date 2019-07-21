@@ -995,7 +995,7 @@ miscPageMOGG sink rect tab startTasks = mdo
             then FL.deactivate btn
             else FL.activate   btn
   group <- fileLoadWindow filesRect sink "Audio" "Audio" modifyAudio []
-    (\f -> liftIO $ ([],) <$> getAudioSpec f)
+    (\f -> liftIO $ ([],) . toList <$> getAudioSpec f)
     $ \info -> let
       entry = T.pack $ audioPath info
       sublines =
@@ -1188,7 +1188,7 @@ fileLoadWindow
   -> T.Text -- ^ plural
   -> (([a] -> IO [a]) -> IO ()) -- ^ read and/or modify the current list of files
   -> [FilePath] -- ^ initial paths to start searching
-  -> (FilePath -> Onyx ([FilePath], Maybe a)) -- ^ one step of file search process
+  -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
   -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
   -> IO (FL.Ref FL.Group)
 fileLoadWindow rect sink single plural modifyFiles startFiles step display = mdo
@@ -1278,8 +1278,8 @@ fileLoadWindow rect sink single plural modifyFiles startFiles step display = mdo
         return fs'
       searchSongs [] = return ()
       searchSongs (loc : locs) = do
-        (children, mimp) <- step loc
-        stackIO $ sink $ EventIO $ addFiles $ toList mimp
+        (children, imps) <- step loc
+        stackIO $ sink $ EventIO $ addFiles imps
         searchSongs $ locs ++ children
       forkSearch = void . forkOnyx . searchSongs
   clearFiles
@@ -1332,8 +1332,11 @@ launchBatch sink makeMenuBar startFiles = mdo
           Just author | T.any (not . isSpace) author -> ["Author: " <> author]
           _                                          -> []
         , ["Format: " <> impFormat imp]
-        , ["Path: " <> T.pack (impPath imp)]
+        , ["Path: " <> T.pack (impPath imp) <> index]
         ]
+      index = case impIndex imp of
+        Nothing -> ""
+        Just i  -> T.pack $ " (#" <> show i <> ")"
       in (entry, sublines)
     FL.setResizable tab $ Just group
     return tab
@@ -1406,7 +1409,7 @@ launchBatch sink makeMenuBar startFiles = mdo
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let dout = settings proj
-          tmp <- buildPlayer proj
+          tmp <- buildPlayer Nothing proj
           copyDirRecursive tmp dout
           return [dout]
       return tab

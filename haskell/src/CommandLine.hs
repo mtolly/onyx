@@ -9,7 +9,6 @@ import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Config
-import           Control.Applicative              (liftA2)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard,
                                                    when)
 import           Control.Monad.IO.Class
@@ -23,7 +22,6 @@ import           Data.ByteString.Lazy.Char8       ()
 import           Data.Char                        (isAlphaNum, isAscii)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Conduit.Audio.Sndfile       (sinkSnd, sourceSndFrom)
-import           Data.Default.Class               (def)
 import qualified Data.Digest.Pure.MD5             as MD5
 import           Data.DTA.Lex                     (scanStack)
 import           Data.DTA.Parse                   (parseStack)
@@ -34,9 +32,10 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     (void)
 import qualified Data.HashMap.Strict              as Map
 import           Data.Int                         (Int16)
-import           Data.List.Extra                  (intercalate, stripSuffix)
+import           Data.List.Extra                  (stripSuffix)
 import           Data.List.HT                     (partitionMaybe)
-import           Data.Maybe                       (fromMaybe, listToMaybe)
+import           Data.Maybe                       (fromMaybe, listToMaybe,
+                                                   mapMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
@@ -53,10 +52,8 @@ import           OpenProject
 import           PrettyDTA                        (DTASingle (..),
                                                    readFileSongsDTA, readRB3DTA,
                                                    writeDTASingle)
-import           ProKeysRanges                    (closeShiftsFile,
-                                                   completeFile)
+import           ProKeysRanges                    (closeShiftsFile)
 import           Reaper.Build                     (makeReaperIO)
-import           Reductions                       (simpleReduce)
 import qualified RockBand.Codec.File              as RBFile
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File.Load             as Load
@@ -406,7 +403,7 @@ commands =
           pschart dir = do
             let out = dir ++ "_reaper"
             stackIO $ Dir.createDirectoryIfMissing False out
-            void $ importFoF (OptForceProDrums `notElem` opts) dir out
+            void $ importFoF dir out
             withSongYaml $ out </> "song.yml"
       case files' of
         [(FileSTFS, stfsPath)] -> doImport importSTFS stfsPath
@@ -426,59 +423,23 @@ commands =
     }
 
   , Command
-    { commandWord = "new"
-    , commandDesc = "Start a new project from an audio file."
-    , commandUsage = "onyx new song.flac"
-    , commandRun = \_ _ -> undone
-    }
-
-  , Command
     { commandWord = "player"
     , commandDesc = "Create a web browser chart playback app."
     , commandUsage = ""
-    , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> let
-      pschart = tempDir "onyx_player" $ \tmp -> do
-        out <- outputFile opts $ return $ takeDirectory fpath ++ "_player"
-        void $ importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
-        let player = "gen/plan/fof/web"
-        shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
-        stackIO $ Dir.createDirectoryIfMissing False out
-        copyDirRecursive (tmp </> player) out
-        return [out </> "index.html"]
-      in case ftype of
-        FileSongYaml -> do
-          audioDirs <- withProject fpath getAudioDirs
-          planName <- getPlanName (Just "player") fpath opts
-          let player = "gen/plan" </> T.unpack planName </> "web"
-          shakeBuildFiles audioDirs fpath [player]
-          player' <- case [ to | OptTo to <- opts ] of
-            []      -> return $ takeDirectory fpath </> player
-            out : _ -> do
-              stackIO $ Dir.createDirectoryIfMissing False out
-              copyDirRecursive (takeDirectory fpath </> player) out
-              return out
-          return [player' </> "index.html"]
-        FileRBProj -> undone
-        FileSTFS -> tempDir "onyx_player" $ \tmp -> do
-          out <- outputFile opts $ return $ fpath ++ "_player"
-          void $ importSTFS fpath Nothing tmp
-          let player = "gen/plan/mogg/web"
-          shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
+    , commandRun = \files opts -> do
+      fpath <- case files of
+        []  -> return "."
+        [x] -> return x
+        _   -> fatal "Expected 0 or 1 files/folders"
+      proj <- openProject fpath
+      out <- outputFile opts $ return $ projectTemplate proj ++ "_player"
+      player <- buildPlayer (getMaybePlan opts) proj
+      case projectRelease proj of
+        Nothing -> return [player </> "index.html"] -- onyx project, return folder directly
+        Just _ -> do
           stackIO $ Dir.createDirectoryIfMissing False out
-          copyDirRecursive (tmp </> player) out
+          copyDirRecursive player out
           return [out </> "index.html"]
-        FileRBA -> tempDir "onyx_player" $ \tmp -> do
-          out <- outputFile opts $ return $ fpath ++ "_player"
-          void $ importRBA fpath Nothing tmp
-          let player = "gen/plan/mogg/web"
-          shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
-          stackIO $ Dir.createDirectoryIfMissing False out
-          copyDirRecursive (tmp </> player) out
-          return [out </> "index.html"]
-        FilePS -> pschart
-        FileChart -> pschart
-        FileMidi -> undone
-        _ -> unrecognized ftype fpath
     }
 
   , Command
@@ -526,156 +487,6 @@ commands =
     }
 
   , Command
-    { commandWord = "magma"
-    , commandDesc = "Import a file into a Magma project."
-    , commandUsage = T.unlines
-      [ "onyx magma in_rb3con"
-      , "onyx magma in_rb3con --to project/"
-      , "onyx magma in_ps/song.ini"
-      , "onyx magma in_ps/song.ini --to project_1x/ --2x project_2x/"
-      ]
-    , commandRun = \files opts -> tempDir "onyx_magma" $ \tmp -> do
-      (ftype, fpath) <- optionalFile files
-      hasKicks <- case ftype of
-        FileSTFS   -> importSTFS fpath Nothing tmp
-        FileRBA    -> importRBA fpath Nothing tmp
-        FilePS     -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
-        FileChart  -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
-        FileRBProj -> importMagma (takeDirectory fpath) tmp -- why would you do this
-        _          -> unrecognized ftype fpath
-      let specified1x = listToMaybe [ f | OptTo f <- opts ]
-          specified2x = listToMaybe [ f | Opt2x f <- opts ]
-          target1x = makeTarget False
-          target2x = makeTarget True
-          speed = listToMaybe [ d | OptSpeed d <- opts ]
-          speedPercent = round $ fromMaybe 1 speed * 100 :: Int
-          makeTarget is2x = def
-            { rb3_2xBassPedal = is2x
-            , rb3_Common = (rb3_Common def) { tgt_Speed = speed }
-            , rb3_Keys = if elem OptGuitarOnKeys opts
-              then RBFile.FlexGuitar
-              else RBFile.FlexKeys
-            }
-      prefix <- fmap dropTrailingPathSeparator $ stackIO $ Dir.makeAbsolute $ case ftype of
-        FilePS    -> takeDirectory fpath
-        FileChart -> takeDirectory fpath
-        _         -> fpath
-      let out1x = flip fromMaybe specified1x $ case hasKicks of
-            Kicks1x -> prefix <> "_" <> suffix
-            _       -> prefix <> "_1x_" <> suffix
-          out2x = flip fromMaybe specified2x $ case hasKicks of
-            Kicks2x -> prefix <> "_" <> suffix
-            _       -> prefix <> "_2x_" <> suffix
-          suffix = intercalate "_" $ concat
-            [ ["gk" | elem OptGuitarOnKeys opts]
-            , case speedPercent of 100 -> []; _ -> [show speedPercent]
-            , ["project"]
-            ]
-          go target out = do
-            magma <- withProject (tmp </> "song.yml") $ buildMagmaV2 target
-            copyDirRecursive magma out
-            return [out]
-          go1x = go target1x out1x
-          go2x = go target2x out2x
-          goBoth = liftA2 (++) go1x go2x
-      case (specified1x, specified2x) of
-        (Nothing, Nothing) -> case hasKicks of
-          Kicks1x   -> go1x
-          Kicks2x   -> go2x
-          KicksBoth -> goBoth
-        (Just _ , Nothing) -> go1x
-        (Nothing, Just _ ) -> go2x
-        (Just _ , Just _ ) -> goBoth
-    }
-
-  , Command
-    { commandWord = "convert"
-    , commandDesc = "Convert a song file to a different game."
-    , commandUsage = T.unlines
-      [ "onyx convert in.rba --to out_rb3con --game rb3"
-      , "onyx convert in_rb3con --to out_rb2con --game rb2"
-      , "onyx convert in_rb3con --to out_rb2con --game rb2 --keys-on-guitar"
-      , "onyx convert in_rb3con --to out_rb2con --game rb2 --keys-on-bass"
-      , "onyx convert in_ps/song.ini --to out_1x_rb3con --2x out_2x_rb3con"
-      -- TODO , "onyx convert in_1x_rb3con --2x in_2x_rb3con --to out/ --game ps"
-      ]
-    , commandRun = \files opts -> tempDir "onyx_convert" $ \tmp -> do
-      (ftype, fpath) <- optionalFile files
-      let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
-      if game == GameRB3 && ftype == FileRBA
-        && all (\case OptSpeed{} -> False; OptGuitarOnKeys -> False; _ -> True) opts
-        then do
-          -- TODO make sure that the RBA is actually RB3 not RB2
-          out <- outputFile opts $ return $ trimFileName fpath 42 ".rba" "_rb3con"
-          simpleRBAtoCON fpath out
-          return [out]
-        else do
-          hasKicks <- case ftype of
-            FileSTFS   -> importSTFS fpath Nothing tmp
-            FileRBA    -> importRBA fpath Nothing tmp
-            FilePS     -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
-            FileChart  -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
-            FileRBProj -> importMagma (takeDirectory fpath) tmp
-            _          -> unrecognized ftype fpath
-          let (gtr, bass)
-                | elem OptKeysOnGuitar opts = (RBFile.FlexKeys  , RBFile.FlexBass)
-                | elem OptKeysOnBass   opts = (RBFile.FlexGuitar, RBFile.FlexKeys)
-                | otherwise                 = (RBFile.FlexGuitar, RBFile.FlexBass)
-              keys
-                | elem OptGuitarOnKeys opts = RBFile.FlexGuitar
-                | otherwise                 = RBFile.FlexKeys
-              specified1x = listToMaybe [ f | OptTo f <- opts ]
-              specified2x = listToMaybe [ f | Opt2x f <- opts ]
-              target1x = makeTarget False
-              target2x = makeTarget True
-              speed = listToMaybe [ d | OptSpeed d <- opts ]
-              speedPercent = round $ fromMaybe 1 speed * 100 :: Int
-              makeTarget is2x = case game of
-                GameRB3 -> buildRB3CON def
-                  { rb3_2xBassPedal = is2x
-                  , rb3_Common = (rb3_Common def) { tgt_Speed = speed }
-                  , rb3_Keys = keys
-                  }
-                GameRB2 -> buildRB2CON def
-                  { rb2_2xBassPedal = is2x
-                  , rb2_Common = (rb2_Common def) { tgt_Speed = speed }
-                  , rb2_Guitar = gtr
-                  , rb2_Bass = bass
-                  , rb2_LabelRB2 = elem OptRB2Version opts
-                  }
-              suffix = intercalate "_" $ concat
-                [ ["gk" | keys == RBFile.FlexGuitar]
-                , case speedPercent of 100 -> []; _ -> [show speedPercent]
-                , [case game of GameRB3 -> "rb3con"; GameRB2 -> "rb2con"]
-                ]
-          prefix <- fmap dropTrailingPathSeparator $ stackIO $ Dir.makeAbsolute $ case ftype of
-            FilePS    -> takeDirectory fpath
-            FileChart -> takeDirectory fpath
-            _         -> fpath
-          let out1x = flip fromMaybe specified1x $ case hasKicks of
-                Kicks1x -> trimFileName prefix 42 "_rb3con" $ "_" <> suffix
-                _       -> trimFileName prefix 42 "_rb3con" $ "_1x_" <> suffix
-              out2x = flip fromMaybe specified2x $ case hasKicks of
-                Kicks2x -> trimFileName prefix 42 "_rb3con" $ "_" <> suffix
-                _       -> trimFileName prefix 42 "_rb3con" $ "_2x_" <> suffix
-              go buildCON out = do
-                con <- withProject (tmp </> "song.yml") buildCON
-                stackIO $ Dir.copyFile con out
-                return [out]
-              go1x = go target1x out1x
-              go2x = go target2x out2x
-              goBoth = liftA2 (++) go1x go2x
-          case (specified1x, specified2x) of
-            (Nothing, Nothing) -> case hasKicks of
-              Kicks1x   -> go1x
-              Kicks2x   -> go2x
-              KicksBoth -> goBoth
-            (Just _ , Nothing) -> go1x
-            (Nothing, Just _ ) -> go2x
-            (Just _ , Just _ ) -> goBoth
-    }
-
-  , Command
     { commandWord = "hanging"
     , commandDesc = "Find pro keys range shifts with hanging notes."
     , commandUsage = T.unlines
@@ -699,40 +510,6 @@ commands =
         FileMidi     -> withMIDI fpath
         _            -> unrecognized ftype fpath
       return []
-    }
-
-  , Command
-    { commandWord = "reduce"
-    , commandDesc = "Fill in missing difficulties in a MIDI file."
-    , commandUsage = T.unlines
-      [ "onyx reduce [notes.mid|song.yml|magma.rbproj|song.ini]"
-      , "# or run on current directory"
-      , "onyx reduce"
-      , "# by default, creates .reduced.mid. or specify --to"
-      , "onyx reduce notes.mid --to new.mid"
-      ]
-    , commandRun = \files opts -> do
-      mid <- getInputMIDI files
-      out <- outputFile opts $ return $ mid -<.> "reduced.mid"
-      simpleReduce mid out
-      return [out]
-    }
-
-  , Command
-    { commandWord = "ranges"
-    , commandDesc = "Generate an automatic set of pro keys range shifts."
-    , commandUsage = T.unlines
-      [ "onyx ranges [notes.mid|song.yml|magma.rbproj]"
-      , "# or run on current directory"
-      , "onyx ranges"
-      , "# by default, creates .ranges.mid. or specify --to"
-      , "onyx ranges notes.mid --to new.mid"
-      ]
-    , commandRun = \files opts -> do
-      mid <- getInputMIDI files
-      out <- outputFile opts $ return $ mid -<.> "ranges.mid"
-      completeFile mid out
-      return [out]
     }
 
   , Command
@@ -878,24 +655,23 @@ commands =
     { commandWord = "add-track"
     , commandDesc = "Add an empty track to a MIDI file with a given name."
     , commandUsage = "onyx add-track \"TRACK NAME\" --to [notes.mid|song.yml]"
-    , commandRun = \args opts -> case args of
-      [name] -> do
-        f <- outputFile opts $ return "."
-        (ftype, fpath) <- identifyFile' f
-        pathMid <- case ftype of
-          FileMidi -> return fpath
-          FileSongYaml -> return $ takeDirectory fpath </> "notes.mid"
-          FileRBProj -> undone
-          _ -> fatal "Unrecognized --to argument, expected .mid/.yml/.rbproj"
-        mid <- stackIO (Load.fromFile pathMid) >>= RBFile.readMIDIFile'
-        let trks = RBFile.rawTracks $ RBFile.s_tracks mid
-        if any ((== Just name) . U.trackName) trks
-          then return ()
-          else stackIO $ Save.toFile pathMid $ RBFile.showMIDIFile' $ mid
-            { RBFile.s_tracks = RBFile.RawFile $ trks ++ [U.setTrackName name RTB.empty]
-            }
-        return [pathMid]
-      _ -> fatal "Expected 1 argument (track name)"
+    , commandRun = \args opts -> do
+      f <- outputFile opts $ return "."
+      (ftype, fpath) <- identifyFile' f
+      pathMid <- case ftype of
+        FileMidi -> return fpath
+        FileSongYaml -> return $ takeDirectory fpath </> "notes.mid"
+        FileRBProj -> undone
+        _ -> fatal "Unrecognized --to argument, expected .mid/.yml/.rbproj"
+      mid <- stackIO (Load.fromFile pathMid) >>= RBFile.readMIDIFile'
+      let existingTracks = RBFile.rawTracks $ RBFile.s_tracks mid
+          existingNames = mapMaybe U.trackName existingTracks
+      case filter (`notElem` existingNames) args of
+        []      -> return ()
+        newTrks -> stackIO $ Save.toFile pathMid $ RBFile.showMIDIFile' mid
+          { RBFile.s_tracks = RBFile.RawFile $ existingTracks ++ map (`U.setTrackName` RTB.empty) newTrks
+          }
+      return [pathMid]
     }
 
   , Command
@@ -1117,11 +893,7 @@ optDescrs =
   , Option []   ["in-measures"    ] (NoArg  OptInMeasures                     ) ""
   , Option []   ["match-notes"    ] (NoArg  OptMatchNotes                     ) ""
   , Option []   ["resolution"     ] (ReqArg (OptResolution . read) "int"      ) ""
-  , Option []   ["keys-on-guitar" ] (NoArg  OptKeysOnGuitar                   ) ""
-  , Option []   ["keys-on-bass"   ] (NoArg  OptKeysOnBass                     ) ""
-  , Option []   ["force-pro-drums"] (NoArg  OptForceProDrums                  ) ""
   , Option []   ["speed"          ] (ReqArg (OptSpeed . read)      "real"     ) ""
-  , Option []   ["guitar-on-keys" ] (NoArg  OptGuitarOnKeys                   ) ""
   , Option []   ["rb2-version"    ] (NoArg  OptRB2Version                     ) ""
   , Option []   ["wii-no-fills"   ] (NoArg  OptWiiNoFills                     ) ""
   , Option []   ["wii-mustang-22" ] (NoArg  OptWiiMustang22                   ) ""
@@ -1146,11 +918,7 @@ data OnyxOption
   | OptInMeasures
   | OptResolution Integer
   | OptMatchNotes
-  | OptKeysOnGuitar
-  | OptKeysOnBass
-  | OptForceProDrums
   | OptSpeed Double
-  | OptGuitarOnKeys
   | OptRB2Version
   | OptWiiNoFills
   | OptWiiMustang22
@@ -1174,9 +942,9 @@ getDolphinFunction
   :: [OnyxOption]
   -> Maybe (RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats))
 getDolphinFunction opts = let
-  nofills = elem OptWiiNoFills opts
+  nofills   = elem OptWiiNoFills   opts
   mustang22 = elem OptWiiMustang22 opts
-  unmute22 = elem OptWiiUnmute22 opts
+  unmute22  = elem OptWiiUnmute22  opts
   in do
     guard $ or [nofills, mustang22, unmute22]
     Just

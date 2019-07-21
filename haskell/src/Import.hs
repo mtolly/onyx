@@ -125,8 +125,8 @@ fixDoubleSwells ps = let
     , RBFile.fixedPartRealDrumsPS = fixTrack $ RBFile.fixedPartRealDrumsPS ps
     }
 
-importFoF :: (SendMessage m, MonadIO m) => Bool -> FilePath -> FilePath -> StackTraceT m Kicks
-importFoF detectBasicDrums src dest = do
+importFoF :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m Kicks
+importFoF src dest = do
   lg $ "Importing FoF/PS/CH song from folder: " <> src
   pathMid <- fixFileCase $ src </> "notes.mid"
   pathChart <- fixFileCase $ src </> "notes.chart"
@@ -414,7 +414,7 @@ importFoF detectBasicDrums src dest = do
               (\(_, dd) -> RBDrums.Orange `elem` drumGems dd)
               (Map.toList $ drumDifficulties $ RBFile.fixedPartDrums outputMIDI)
             isReal = isnt nullDrums RBFile.fixedPartRealDrumsPS
-            isPro = not detectBasicDrums || case FoF.proDrums song of
+            isPro = case FoF.proDrums song of
               Just b  -> b
               Nothing -> not $ RTB.null $ drumToms $ RBFile.fixedPartDrums outputMIDI
             in if isFiveLane then Drums5
