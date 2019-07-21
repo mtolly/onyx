@@ -194,16 +194,20 @@ findSongs fp' = do
   if isDir
     then do
       ents <- stackIO $ Dir.listDirectory fp
-      if -- TODO make all these case-insensitive
-        | elem "song.yml" ents -> foundYaml $ fp </> "song.yml"
-        | elem "song.ini" ents -> foundIni $ fp </> "song.ini"
-        | elem "notes.chart" ents -> foundChart $ fp </> "notes.chart"
-        | elem "set.def" ents -> foundDTXSet $ fp </> "set.def"
-        | otherwise -> stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
-          True  -> do
-            bs <- stackIO $ B.readFile $ fp </> "songs/songs.dta"
-            foundDTA bs "Rock Band Extracted" fp True $ \i -> void . importSTFSDir i fp Nothing
-          False -> return (map (fp </>) ents, [])
+      let lookFor [] = stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
+            True  -> do
+              bs <- stackIO $ B.readFile $ fp </> "songs/songs.dta"
+              foundDTA bs "Rock Band Extracted" fp True $ \i -> void . importSTFSDir i fp Nothing
+            False -> return (map (fp </>) ents, [])
+          lookFor ((file, use) : rest) = case filter ((== file) . map toLower) ents of
+            match : _ -> use $ fp </> match
+            []        -> lookFor rest
+      lookFor
+        [ ("song.yml", foundYaml)
+        , ("song.ini", foundIni)
+        , ("notes.chart", foundChart)
+        , ("set.def", foundDTXSet)
+        ]
     else do
       case map toLower $ takeExtension fp of
         ".yml" -> foundYaml fp
