@@ -170,22 +170,25 @@ findSongs fp' = do
           , impIndex = Nothing
           , impProject = importFrom Nothing loc False $ void . importMagma loc
           }
-      foundDTA bs fmt loc isDir imp = readDTASingles bs >>= \case
-        [(single, _)] -> found Importable
-          { impTitle = Just $ D.name $ dtaSongPackage single
-          , impArtist = Just $ D.artist $ dtaSongPackage single
-          , impAuthor = c3dtaAuthoredBy $ dtaC3Comments single
-          , impFormat = fmt
-          , impPath = loc
-          , impIndex = Nothing
-          , impProject = importFrom Nothing loc isDir imp
-          }
-        _ -> return ([], [])
+      foundDTA bs fmt loc isDir imp = do
+        singles <- map fst <$> readDTASingles bs
+        let eachSong i single = let
+              index = guard (not $ null $ drop 1 singles) >> Just i
+              in Importable
+                { impTitle = Just $ D.name $ dtaSongPackage single
+                , impArtist = Just $ D.artist $ dtaSongPackage single
+                , impAuthor = c3dtaAuthoredBy $ dtaC3Comments single
+                , impFormat = fmt
+                , impPath = loc
+                , impIndex = index
+                , impProject = importFrom index loc isDir $ imp i
+                }
+        foundMany $ zipWith eachSong [0..] singles
       foundSTFS loc = do
         dta <- stackIO $ withSTFS loc $ \stfs ->
           sequence $ lookup ("songs" </> "songs.dta") $ stfsFiles stfs
         case dta of
-          Just bs -> foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc False $ void . importSTFS loc Nothing
+          Just bs -> foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc False $ \i -> void . importSTFS i loc Nothing
           Nothing -> return ([], [])
   isDir <- stackIO $ Dir.doesDirectoryExist fp
   if isDir
@@ -199,7 +202,7 @@ findSongs fp' = do
         | otherwise -> stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
           True  -> do
             bs <- stackIO $ B.readFile $ fp </> "songs/songs.dta"
-            foundDTA bs "Rock Band Extracted" fp True $ void . importSTFSDir fp Nothing
+            foundDTA bs "Rock Band Extracted" fp True $ \i -> void . importSTFSDir i fp Nothing
           False -> return (map (fp </>) ents, [])
     else do
       case map toLower $ takeExtension fp of
@@ -218,7 +221,7 @@ findSongs fp' = do
             case magic of
               "RBSF" -> do
                 bs <- getRBAFileBS 0 fp
-                foundDTA (BL.toStrict bs) "Magma RBA" fp False $ void . importRBA fp Nothing
+                foundDTA (BL.toStrict bs) "Magma RBA" fp False $ \_ -> void . importRBA fp Nothing
               "CON " -> foundSTFS fp
               "LIVE" -> foundSTFS fp
               _ -> return ([], [])

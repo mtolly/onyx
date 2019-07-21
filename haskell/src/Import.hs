@@ -59,7 +59,8 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           OSFiles                          (fixFileCase)
 import           PrettyDTA                        (C3DTAComments (..),
                                                    DTASingle (..),
-                                                   readDTASingle, readRB3DTA,
+                                                   readDTASingle,
+                                                   readFileSongsDTA, readRB3DTA,
                                                    writeDTASingle)
 import           Resources                        (rb3Updates)
 import           RockBand.Codec.Drums             as RBDrums
@@ -517,9 +518,12 @@ dtaIsRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc", "ugc_plus"]) $ D.gameOrigi
 dtaIsHarmonixRB3 :: D.SongPackage -> Bool
 dtaIsHarmonixRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc"]) $ D.gameOrigin pkg
 
-importSTFSDir :: (SendMessage m, MonadResource m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m Kicks
-importSTFSDir temp mtemp2x dir = do
-  DTASingle top pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
+importSTFSDir :: (SendMessage m, MonadResource m) => Int -> FilePath -> Maybe FilePath -> FilePath -> StackTraceT m Kicks
+importSTFSDir index temp mtemp2x dir = do
+  packSongs <- readFileSongsDTA $ temp </> "songs/songs.dta"
+  DTASingle top pkg comments <- case drop index packSongs of
+    []            -> fatal $ "Couldn't find song index " <> show index
+    (song, _) : _ -> return song
   updateDir <- stackIO rb3Updates
   let c3Title = fromMaybe (D.name pkg) $ c3dtaSong comments
       (title, is2x) = case c3dta2xBass comments of
@@ -567,12 +571,12 @@ importSTFSDir temp mtemp2x dir = do
       let base2x = T.unpack $ D.songName $ D.song pkg2x
       with2xPath $ Just (pkg2x, temp2x </> base2x <.> "mid")
 
-importSTFS :: (SendMessage m, MonadResource m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m Kicks
-importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
+importSTFS :: (SendMessage m, MonadResource m) => Int -> FilePath -> Maybe FilePath -> FilePath -> StackTraceT m Kicks
+importSTFS index file file2x dir = tempDir "onyx_con" $ \temp -> do
   lg $ "Importing STFS file from: " ++ file
   forM_ file2x $ \f2x -> lg $ "Plus 2x Bass Pedal from: " ++ f2x
   stackIO $ extractSTFS file temp
-  let with2xPath mtemp2x = importSTFSDir temp mtemp2x dir
+  let with2xPath mtemp2x = importSTFSDir index temp mtemp2x dir
   case file2x of
     Nothing -> with2xPath Nothing
     Just f2x -> tempDir "onyx_con2x" $ \temp2x -> do

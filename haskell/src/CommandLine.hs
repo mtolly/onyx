@@ -406,8 +406,8 @@ commands =
             void $ importFoF dir out
             withSongYaml $ out </> "song.yml"
       case files' of
-        [(FileSTFS, stfsPath)] -> doImport importSTFS stfsPath
-        [(FileDTA, dtaPath)] -> doImport importSTFSDir $ takeDirectory $ takeDirectory dtaPath
+        [(FileSTFS, stfsPath)] -> doImport (importSTFS 0) stfsPath
+        [(FileDTA, dtaPath)] -> doImport (importSTFSDir 0) $ takeDirectory $ takeDirectory dtaPath
         [(FileRBA, rbaPath)] -> doImport importRBA rbaPath
         [(FilePS, iniPath)] -> pschart $ takeDirectory iniPath
         [(FileChart, chartPath)] -> pschart $ takeDirectory chartPath
