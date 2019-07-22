@@ -33,8 +33,8 @@ Windows version requires .NET and (I think) the Visual C++ runtime.
 Mac version requires Wine, Mono, and Mono's `libgdiplus` library.
 You can use the official Mac installers for Wine and Mono; Mono's will install
 `libgdiplus` as well. Or you can use Homebrew, by installing the packages
-`wine`, `mono`, and `mono-libgdiplus`. The app is compiled with High Sierra
-(10.13.6) so you probably need at least that version.
+`wine`, `mono`, and `mono-libgdiplus`. The app is compiled with Mojave, so you
+probably need at least that version.
 
 ## Instructions
 
@@ -47,7 +47,7 @@ Onyx can import the following song formats:
 
   * Rock Band 1/2/3 STFS (CON or LIVE) files
 
-    * Currently only single-song files (not packs) are supported.
+    * Both single-song files and packs are supported.
 
   * Magma (v1 or v2) RBA files
 
@@ -59,6 +59,16 @@ Onyx can import the following song formats:
     * Audio files must be named according to PS/CH conventions.
 
   * Magma (v1 or v2) projects (.rbproj)
+
+  * Guitar Hero II (or Guitar Hero Encore: Rocks the 80s) (PS2)
+
+    * Extract the `.iso` contents, and then import either `GEN` or `MAIN.HDR`.
+
+  * DTXMania (DrumMania / GuitarFreaks) simfiles (.dtx/.gda)
+
+    * XG features (5-fret guitar/bass, extra drum pads) are supported.
+    * Drums are translated to Pro Drums as well as Phase Shift Real Drums.
+    * Keysounded audio is rendered to stem files.
 
 ## Batch Mode
 
