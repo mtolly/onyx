@@ -20,6 +20,7 @@ import           Data.Char                      (toLower)
 import           Data.DTA                       (DTA (..), Tree (..),
                                                  readFileDTA)
 import qualified Data.DTA.Serialize             as DTA
+import qualified Data.DTA.Serialize.GH2         as GH2
 import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
 import           Data.Functor                   (void)
@@ -36,6 +37,7 @@ import           DTXMania.Set
 import qualified FeedBack.Load                  as FB
 import qualified FretsOnFire                    as FoF
 import           GuitarHeroII.Ark               (replaceSong)
+import qualified GuitarHeroII.Import            as GH2
 import           Import
 import           Magma                          (getRBAFileBS)
 import           PrettyDTA                      (C3DTAComments (..),
@@ -78,7 +80,7 @@ data Importable m = Importable
 
 findSongs :: (SendMessage m, MonadResource m)
   => FilePath -> StackTraceT m ([FilePath], [Importable m])
-findSongs fp' = do
+findSongs fp' = inside ("searching: " <> fp') $ do
   fp <- stackIO $ Dir.makeAbsolute fp'
   let found imp = foundMany [imp]
       foundMany imps = return ([], imps)
@@ -121,6 +123,23 @@ findSongs fp' = do
           , impIndex = Nothing
           , impProject = importFrom Nothing dir True $ void . importFoF dir
           }
+      foundGH2 loc = do
+        let dir = takeDirectory loc
+        songs <- GH2.getImports <$> GH2.getSongList dir
+        let eachSong i (_, (mode, pkg)) = let
+              index = Just i
+              in Importable
+                { impTitle = Just $ GH2.name pkg <> case mode of
+                  GH2.ImportSolo -> ""
+                  GH2.ImportCoop -> " (Co-op)"
+                , impArtist = Just $ GH2.artist pkg
+                , impAuthor = Nothing
+                , impFormat = "Guitar Hero II"
+                , impPath = dir
+                , impIndex = index
+                , impProject = importFrom index dir True $ GH2.importGH2 mode pkg dir
+                }
+        foundMany $ zipWith eachSong [0..] songs
       foundDTXSet loc = do
         let dir = takeDirectory loc
         songs <- stackIO $ loadSet loc
@@ -133,7 +152,7 @@ findSongs fp' = do
                 , impFormat = "DTXMania (set.def)"
                 , impPath = dir
                 , impIndex = index
-                , impProject = importFrom index dir False $ importSet i loc
+                , impProject = importFrom index dir True $ importSet i loc
                 }
         foundMany $ zipWith eachSong [0..] songs
       foundDTX fmt loc = do
@@ -207,6 +226,7 @@ findSongs fp' = do
         , ("song.ini", foundIni)
         , ("notes.chart", foundChart)
         , ("set.def", foundDTXSet)
+        , ("main.hdr", foundGH2)
         ]
     else do
       case map toLower $ takeExtension fp of
@@ -220,6 +240,7 @@ findSongs fp' = do
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundIni fp
           "set.def" -> foundDTXSet fp
+          "main.hdr" -> foundGH2 fp
           _ -> do
             magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 4
             case magic of

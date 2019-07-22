@@ -181,8 +181,10 @@ importFoF src dest = do
               return $ Just template
             False -> return Nothing
         in tryExt "ogg" >>= \case
-          Nothing -> tryExt "mp3"
-          Just o  -> return $ Just o
+          Nothing -> tryExt "mp3" >>= \case
+            Nothing -> tryExt "wav"
+            found@(Just _) -> return found
+          found@(Just _) -> return found
   audio_drums <- loadAudioFile "drums"
   audio_drums_1 <- loadAudioFile "drums_1"
   audio_drums_2 <- loadAudioFile "drums_2"

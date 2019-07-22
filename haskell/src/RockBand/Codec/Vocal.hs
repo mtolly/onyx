@@ -14,6 +14,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
 import           DeriveHelpers
+import qualified FretsOnFire                      as FoF
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
@@ -123,8 +124,5 @@ asciiLyrics vt = vt { vocalLyrics = fmap asciify $ vocalLyrics vt }
 -- | Strips some CH-format tags used in lyric events.
 stripTags :: VocalTrack t -> VocalTrack t
 stripTags vt = vt
-  { vocalLyrics = let
-    tags = ["<b>", "</b>", "<i>", "</i>"]
-    in flip fmap (vocalLyrics vt) $ \t ->
-      foldr (\tag lyric -> T.concat $ T.splitOn tag lyric) t tags
+  { vocalLyrics = FoF.stripTags <$> vocalLyrics vt
   }

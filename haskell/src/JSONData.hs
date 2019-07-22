@@ -129,6 +129,13 @@ strictKeys = do
   let unknown = Set.fromList (HM.keys obj) `Set.difference` known
   unless (Set.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (Set.toList unknown)
 
+warnKeys :: (SendMessage m) => ObjectParser m v ()
+warnKeys = do
+  obj <- lift ask
+  known <- lift $ lift get
+  let unknown = Set.fromList (HM.keys obj) `Set.difference` known
+  unless (Set.null unknown) $ warn $ "Unrecognized object keys: " ++ show (Set.toList unknown)
+
 makeObject :: (Monad m) => ObjectCodec m v a -> a -> [(T.Text, v)]
 makeObject codec x = execWriter $ codecOut codec x
 

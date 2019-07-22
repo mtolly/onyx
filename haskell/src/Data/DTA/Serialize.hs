@@ -205,3 +205,9 @@ asStrictAssoc err codec = asAssoc err Codec
   { codecOut = codecOut codec
   , codecIn = codecIn codec <* strictKeys
   }
+
+asWarnAssoc :: (SendMessage m) => T.Text -> ObjectCodec m [Chunk T.Text] a -> ChunksCodec m a
+asWarnAssoc err codec = asAssoc err Codec
+  { codecOut = codecOut codec
+  , codecIn = codecIn codec <* warnKeys
+  }

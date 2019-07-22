@@ -7,6 +7,7 @@ module RockBand.Sections
 , makeRB2Section
 , makePSSection
 , makeGH2Section
+, fromGH2Section
 ) where
 
 import           Control.Arrow         (second)
@@ -14,7 +15,9 @@ import           Data.Char             (isAlphaNum, isAscii, isPrint)
 import qualified Data.HashMap.Strict   as HM
 import           Data.List             (sort)
 import           Data.List.HT          (partitionMaybe)
+import           Data.Maybe            (fromMaybe)
 import qualified Data.Text             as T
+import           FretsOnFire           (stripTags)
 import           RockBand.Codec.Events
 
 rbn2Sections :: [(T.Text, T.Text)]
@@ -2605,16 +2608,6 @@ printForm
   = T.replace "_" " "
   . stripTags
 
--- | Strips CH tags from e.g. "<color=#AEFFFF>bit.ly/AECharts</color>"
-stripTags :: T.Text -> T.Text
-stripTags t = case T.splitOn "<color=" t of
-  x : xs@(_ : _)
-    -> T.concat
-    $  T.splitOn "</color>"
-    $  T.concat
-    $  x : map (T.dropWhile (== '>') . T.dropWhile (/= '>')) xs
-  _ -> t
-
 makeRB3Section :: T.Text -> (SectionType, T.Text)
 makeRB3Section t = case findRBN2Section t of
   Nothing     -> (SectionRB2, underscoreForm t)
@@ -2858,3 +2851,6 @@ gh2Sections =
 
 makeGH2Section :: T.Text -> T.Text
 makeGH2Section = underscoreForm -- TODO look up in gh2Sections
+
+fromGH2Section :: T.Text -> T.Text
+fromGH2Section s = fromMaybe s $ lookup s gh2Sections

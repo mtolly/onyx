@@ -11,6 +11,8 @@ import qualified Data.ByteString                as B
 import           Data.Default.Class             (Default (..))
 import qualified Data.HashMap.Strict            as HM
 import           Data.Ini
+import           Data.List                      (stripPrefix)
+import           Data.Maybe                     (mapMaybe)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import           DecodeText                     (decodeGeneral)
@@ -91,6 +93,21 @@ instance Default Song where
     def def def def def def def def def def
     def def def def def def def def def
 
+-- | Strips <b>bold</b>, <i>italic</i>, and <color=red>colored</color>
+-- which are supported by CH in metadata, lyrics, and sections.
+stripTags :: T.Text -> T.Text
+stripTags = let
+  simple = ["<b>", "</b>", "<i>", "</i>", "</color>"]
+  go "" = ""
+  go s@(c:cs) = case mapMaybe (`stripPrefix` s) simple of
+    [] -> case stripPrefix "<color=" s of
+      Nothing -> c : go cs
+      Just after -> case break (== '>') after of
+        (_, '>' : after') -> go after'
+        _                 -> c : go cs
+    after : _ -> go after
+  in T.pack . go . T.unpack
+
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do
   let readIniUTF8
@@ -110,12 +127,12 @@ loadSong fp = do
         "0"     -> Just False
         _       -> Nothing
 
-      name = str "name"
-      artist = str "artist"
-      album = str "album"
-      charter = str "charter" <|> str "frets"
+      name = stripTags <$> str "name"
+      artist = stripTags <$> str "artist"
+      album = stripTags <$> str "album"
+      charter = stripTags <$> (str "charter" <|> str "frets")
       year = int "year"
-      genre = str "genre"
+      genre = stripTags <$> str "genre"
       proDrums = bool "pro_drums"
       songLength = int "song_length"
       previewStartTime = int "preview_start_time"

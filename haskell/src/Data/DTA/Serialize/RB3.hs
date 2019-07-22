@@ -36,7 +36,7 @@ newtype DrumSounds = DrumSounds
   } deriving (Eq, Ord, Show, Read)
 
 instance StackChunks DrumSounds where
-  stackChunks = asStrictAssoc "DrumSounds" $ do
+  stackChunks = asWarnAssoc "DrumSounds" $ do
     seqs <- seqs =. req "seqs" (chunksParens $ chunksList chunkKey)
     return DrumSounds{..}
 
@@ -68,7 +68,7 @@ data Song = Song
   } deriving (Eq, Show, Read)
 
 instance StackChunks Song where
-  stackChunks = asStrictAssoc "Song" $ do
+  stackChunks = asWarnAssoc "Song" $ do
     songName         <- songName         =. req         "name"               (single chunkString)
     tracksCount      <- tracksCount      =. opt Nothing "tracks_count"       (chunksMaybe $ chunksParens stackChunks)
     tracks           <- tracks           =. req         "tracks"             (chunksParens $ chunksDictList chunkKey channelList)
@@ -136,7 +136,7 @@ data SongPackage = SongPackage
   } deriving (Eq, Show, Read)
 
 instance StackChunks SongPackage where
-  stackChunks = asStrictAssoc "SongPackage" $ do
+  stackChunks = asWarnAssoc "SongPackage" $ do
     name              <- name              =. req         "name"                (single chunkString)
     artist            <- artist            =. req         "artist"              (single chunkString)
     master            <- master            =. fill False  "master"              stackChunks
