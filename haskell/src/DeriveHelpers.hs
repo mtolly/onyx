@@ -96,6 +96,10 @@ instance (TypeError ('Text "You can't use `genericMerge` for sum types"))
   genericMerge' = undefined
   genericMergeEmpty' = undefined
 
+instance MergeProduct U1 where
+  genericMerge' U1 U1 = U1
+  genericMergeEmpty' = U1
+
 instance MergeProduct c => MergeProduct (D1 md c) where
   genericMerge' (M1 a) (M1 b) = M1 (genericMerge' a b)
   genericMergeEmpty' = M1 genericMergeEmpty'

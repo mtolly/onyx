@@ -15,6 +15,7 @@ module Audio
 , buildSource, buildSource'
 , buildAudio
 , runAudio
+, audioIO
 , clampFloat
 , audioMD5
 , audioLength
@@ -41,7 +42,8 @@ import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
-                                                   Staction, fatal, lg, stackIO)
+                                                   Staction, inside, lg,
+                                                   stackIO)
 import           Data.Binary.Get                  (getWord32le, runGetOrFail)
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.ByteString.Lazy.Char8       as BL8
@@ -394,26 +396,26 @@ buildAudio aud out = do
   src <- lift $ lift $ buildSource aud
   runAudio src out
 
-runAudio :: (SendMessage m, MonadIO m) => AudioSource (ResourceT IO) Float -> FilePath -> StackTraceT m ()
-runAudio src out = let
+audioIO :: AudioSource (ResourceT IO) Float -> FilePath -> IO ()
+audioIO src out = let
   src' = clampFloat $ if takeExtension out == ".ogg" && channels src == 6
     then merge src $ silent (Frames 0) (rate src) 1
     -- this works around an issue with oggenc:
     -- it assumes 6 channels is 5.1 surround where the last channel
     -- is LFE, so instead we add a silent 7th channel
     else src
-  withSndFormat fmt = do
-    lg $ "Writing an audio expression to " ++ out
-    stackIO $ runResourceT $ sinkSnd out fmt src'
-    lg $ "Finished writing an audio expression to " ++ out
+  withSndFormat fmt = runResourceT $ sinkSnd out fmt src'
   in case takeExtension out of
     ".ogg" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
     ".wav" -> withSndFormat $ Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-    ".mp3" -> do
-      lg $ "Writing an audio expression to " ++ out
-      stackIO $ runResourceT $ sinkMP3 out src'
-      lg $ "Finished writing an audio expression to " ++ out
-    ext -> fatal $ "runAudio: unknown audio output file extension " ++ ext
+    ".mp3" -> runResourceT $ sinkMP3 out src'
+    ext -> error $ "audioIO: unknown audio output file extension " ++ ext
+
+runAudio :: (SendMessage m, MonadIO m) => AudioSource (ResourceT IO) Float -> FilePath -> StackTraceT m ()
+runAudio src out = do
+  lg $ "Writing audio to " ++ out
+  inside ("Writing audio to " ++ out) $ stackIO $ audioIO src out
+  lg $ "Finished writing audio to " ++ out
 
 -- | Forces floating point samples to be in @[-1, 1]@.
 -- libsndfile should do this, after https://github.com/kaoskorobase/hsndfile/pull/12

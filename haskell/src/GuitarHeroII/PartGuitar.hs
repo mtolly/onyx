@@ -19,6 +19,7 @@ import           RockBand.Codec
 import           RockBand.Codec.Five              (Color (..),
                                                    FretPosition (..))
 import           RockBand.Common
+import qualified Sound.MIDI.Util                  as U
 
 data HandMap
   = HandMap_Default
@@ -107,20 +108,23 @@ instance ParseTrack PartTrack where
       True  -> ["ow_face_on"]
       False -> ["ow_face_off"]
     partUnknown110 <- partUnknown110 =. edges 110
-    partDifficulties <- (partDifficulties =.) $ eachKey each $ \diff -> do
-      let base = case diff of
-            Easy   -> 60
-            Medium -> 72
-            Hard   -> 84
-            Expert -> 96
-      partStarPower <- partStarPower =. edges (base + 7)
-      partPlayer1   <- partPlayer1   =. edges (base + 9)
-      partPlayer2   <- partPlayer2   =. edges (base + 10)
-      partGems      <- (partGems =.) $ fatBlips (1/8) $ blipSustainRB $ condenseMap $ eachKey each $ matchEdges . edges . \case
-        Green  -> base + 0
-        Red    -> base + 1
-        Yellow -> base + 2
-        Blue   -> base + 3
-        Orange -> base + 4
-      return PartDifficulty{..}
+    partDifficulties <- (partDifficulties =.) $ eachKey each parseDifficulty
     return PartTrack{..}
+
+parseDifficulty :: (Monad m) => Difficulty -> TrackCodec m U.Beats (PartDifficulty U.Beats)
+parseDifficulty diff = do
+  let base = case diff of
+        Easy   -> 60
+        Medium -> 72
+        Hard   -> 84
+        Expert -> 96
+  partStarPower <- partStarPower =. edges (base + 7)
+  partPlayer1   <- partPlayer1   =. edges (base + 9)
+  partPlayer2   <- partPlayer2   =. edges (base + 10)
+  partGems      <- (partGems =.) $ fatBlips (1/8) $ blipSustainRB $ condenseMap $ eachKey each $ matchEdges . edges . \case
+    Green  -> base + 0
+    Red    -> base + 1
+    Yellow -> base + 2
+    Blue   -> base + 3
+    Orange -> base + 4
+  return PartDifficulty{..}

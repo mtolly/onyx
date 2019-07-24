@@ -294,3 +294,10 @@ traverseBlipSustain f
   . f
   . splitEdges
   . fmap (\(a, mt) -> ((), a, mt))
+
+reprPrefix :: (Show a) => T.Text -> a -> T.Text
+reprPrefix pre x = let
+  s = T.pack $ show x
+  in case T.stripPrefix pre s of
+    Just s' -> s'
+    Nothing -> error $ "panic! couldn't strip prefix " <> show pre <> " from enum " <> show s

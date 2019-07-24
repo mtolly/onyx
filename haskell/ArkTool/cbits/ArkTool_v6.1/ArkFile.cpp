@@ -71,9 +71,14 @@ bool ArkFile::Open(const char* dirname, s64 maxArkSize, bool newEncryption)
 	for(int i=0; 1; i++)
 	{
 		sprintf(filename, "%s%cMAIN_%d.ARK", dirname, DIRSEPCHAR, i);
-		FILE* fd = fopen(filename, "r+b");
+		// MT: edited to not require write access
+		FILE* fd = fopen(filename, "r+b"); // first try read/write
 		if(fd == NULL)
-			break;
+		{
+			fd = fopen(filename, "rb"); // fallback to read-only
+			if(fd == NULL)
+				break;
+		}
 		mArkHandles.push_back(fd);
 	}
 	

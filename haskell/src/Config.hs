@@ -1062,7 +1062,7 @@ data TargetGH2 = TargetGH2
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 instance Default GH2.Quickplay where
-  def = GH2.Quickplay GH2.Classic GH2.LesPaul GH2.Big -- whatever
+  def = GH2.Quickplay GH2.Char_classic GH2.Guitar_lespaul GH2.Venue_big -- whatever
 
 instance StackJSON GH2.Quickplay where
   stackJSON = Codec

@@ -14,6 +14,7 @@ import qualified Data.HashMap.Strict    as Map
 import qualified Data.Text              as T
 import           GHC.Generics           (Generic (..))
 import           JSONData               (enumCodec, opt, req)
+import           RockBand.Codec         (reprPrefix)
 
 data Song = Song
   { songName      :: T.Text
@@ -37,44 +38,44 @@ instance StackChunks Song where
     return Song{..}
 
 data CharacterOutfit
-  = Funk1
-  | Goth2
-  | Classic
-  | Punk1
-  | Glam1
-  | Alterna1
-  | Metal1
-  | Rock2
-  | Deathmetal1
-  | Rockabill1
+  = Char_funk1
+  | Char_goth2
+  | Char_classic
+  | Char_punk1
+  | Char_glam1
+  | Char_alterna1
+  | Char_metal1
+  | Char_rock2
+  | Char_deathmetal1
+  | Char_rockabill1
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk CharacterOutfit where
-  stackChunk = enumCodec "CharacterOutfit" $ Key . T.toLower . T.pack . show
+  stackChunk = enumCodec "CharacterOutfit" $ Key . reprPrefix "Char_"
 instance StackChunks CharacterOutfit
 
 data Guitar
-  = Flying_V
-  | LesPaul
-  | SG
+  = Guitar_flying_v
+  | Guitar_lespaul
+  | Guitar_sg
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk Guitar where
-  stackChunk = enumCodec "Guitar" $ Key . T.toLower . T.pack . show
+  stackChunk = enumCodec "Guitar" $ Key . reprPrefix "Guitar_"
 instance StackChunks Guitar
 
 data Venue
-  = Arena
-  | Battle
-  | Big
-  | Fest
-  | Small1
-  | Small2
-  | Theatre
+  = Venue_arena
+  | Venue_battle
+  | Venue_big
+  | Venue_fest
+  | Venue_small1
+  | Venue_small2
+  | Venue_theatre
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk Venue where
-  stackChunk = enumCodec "Venue" $ Key . T.toLower . T.pack . show
+  stackChunk = enumCodec "Venue" $ Key . reprPrefix "Venue_"
 instance StackChunks Venue
 
 data Quickplay = Quickplay

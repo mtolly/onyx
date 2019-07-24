@@ -81,6 +81,7 @@ data Lighting
   -- TODO laid to rest has [lighting (f)]
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
+-- TODO handle [lighting(foo)] with no space, like we do from RB
 instance Command Lighting where
   fromCommand x = case T.stripPrefix "Lighting_" $ T.pack $ show x of
     Just s  -> ["lighting", "(" <> s <> ")"]
