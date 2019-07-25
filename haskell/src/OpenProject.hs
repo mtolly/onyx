@@ -20,6 +20,7 @@ import           Data.Char                      (toLower)
 import           Data.DTA                       (DTA (..), Tree (..),
                                                  readFileDTA)
 import qualified Data.DTA.Serialize             as DTA
+import qualified Data.DTA.Serialize.GH1         as GH1
 import qualified Data.DTA.Serialize.GH2         as GH2
 import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
@@ -36,7 +37,9 @@ import           DTXMania.Import
 import           DTXMania.Set
 import qualified FeedBack.Load                  as FB
 import qualified FretsOnFire                    as FoF
-import           GuitarHeroII.Ark               (replaceSong)
+import qualified GuitarHeroI.Import             as GH1
+import           GuitarHeroII.Ark               (GameGH (..), detectGameGH,
+                                                 replaceSong)
 import qualified GuitarHeroII.Import            as GH2
 import           Import
 import           Magma                          (getRBAFileBS)
@@ -123,23 +126,42 @@ findSongs fp' = inside ("searching: " <> fp') $ do
           , impIndex = Nothing
           , impProject = importFrom Nothing dir True $ void . importFoF dir
           }
-      foundGH2 loc = do
+      foundGH loc = do
         let dir = takeDirectory loc
-        songs <- GH2.getImports <$> GH2.getSongList dir
-        let eachSong i (_, (mode, pkg)) = let
-              index = Just i
-              in Importable
-                { impTitle = Just $ GH2.name pkg <> case mode of
-                  GH2.ImportSolo -> ""
-                  GH2.ImportCoop -> " (Co-op)"
-                , impArtist = Just $ GH2.artist pkg
-                , impAuthor = Nothing
-                , impFormat = "Guitar Hero II"
-                , impPath = dir
-                , impIndex = index
-                , impProject = importFrom index dir True $ GH2.importGH2 mode pkg dir
-                }
-        foundMany $ zipWith eachSong [0..] songs
+        stackIO (detectGameGH dir) >>= \case
+          Nothing -> do
+            warn $ "Couldn't detect GH game version for: " <> dir
+            return ([], [])
+          Just GameGH2 -> do
+            songs <- GH2.getImports <$> GH2.getSongList dir
+            let eachSong i (_, (mode, pkg)) = let
+                  index = Just i
+                  in Importable
+                    { impTitle = Just $ GH2.name pkg <> case mode of
+                      GH2.ImportSolo -> ""
+                      GH2.ImportCoop -> " (Co-op)"
+                    , impArtist = Just $ GH2.artist pkg
+                    , impAuthor = Nothing
+                    , impFormat = "Guitar Hero II"
+                    , impPath = dir
+                    , impIndex = index
+                    , impProject = importFrom index dir True $ GH2.importGH2 mode pkg dir
+                    }
+            foundMany $ zipWith eachSong [0..] songs
+          Just GameGH1 -> do
+            songs <- GH1.getSongList dir
+            let eachSong i (_, pkg) = let
+                  index = Just i
+                  in Importable
+                    { impTitle = Just $ GH1.name pkg
+                    , impArtist = Just $ GH1.artist pkg
+                    , impAuthor = Nothing
+                    , impFormat = "Guitar Hero (1)"
+                    , impPath = dir
+                    , impIndex = index
+                    , impProject = importFrom index dir True $ GH1.importGH1 pkg dir
+                    }
+            foundMany $ zipWith eachSong [0..] songs
       foundDTXSet loc = do
         let dir = takeDirectory loc
         songs <- stackIO $ loadSet loc
@@ -226,7 +248,7 @@ findSongs fp' = inside ("searching: " <> fp') $ do
         , ("song.ini", foundIni)
         , ("notes.chart", foundChart)
         , ("set.def", foundDTXSet)
-        , ("main.hdr", foundGH2)
+        , ("main.hdr", foundGH)
         ]
     else do
       case map toLower $ takeExtension fp of
@@ -240,7 +262,7 @@ findSongs fp' = inside ("searching: " <> fp') $ do
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundIni fp
           "set.def" -> foundDTXSet fp
-          "main.hdr" -> foundGH2 fp
+          "main.hdr" -> foundGH fp
           _ -> do
             magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 4
             case magic of
@@ -252,16 +274,22 @@ findSongs fp' = inside ("searching: " <> fp') $ do
               _ -> return ([], [])
 
 openProject :: (SendMessage m, MonadResource m) =>
-  FilePath -> StackTraceT m Project
-openProject fp = findSongs fp >>= \case
-  (_, [imp]) -> impProject imp
-  (_, []   ) -> fatal $ "Couldn't find a song at location: " <> fp
-  (_, _    ) -> fatal $ "Found more than 1 song at location: " <> fp
+  Maybe Int -> FilePath -> StackTraceT m Project
+openProject i fp = do
+  (_, imps) <- findSongs fp
+  case i of
+    Nothing -> case imps of
+      [imp] -> impProject imp
+      []    -> fatal $ "Couldn't find a song at location: " <> fp
+      _     -> fatal $ "Found more than 1 song at location: " <> fp
+    Just j  -> case drop j imps of
+      imp : _ -> impProject imp
+      []      -> fatal $ "Couldn't find song #" <> show j <> " at location: " <> fp
 
 withProject :: (SendMessage m, MonadResource m) =>
-  FilePath -> (Project -> StackTraceT m a) -> StackTraceT m a
-withProject fp fn = do
-  proj <- openProject fp
+  Maybe Int -> FilePath -> (Project -> StackTraceT m a) -> StackTraceT m a
+withProject i fp fn = do
+  proj <- openProject i fp
   x <- fn proj
   stackIO $ mapM_ release $ projectRelease proj
   return x

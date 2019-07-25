@@ -7,8 +7,7 @@ import           ArkTool
 import           Audio                            (Audio (..), applyPansVols,
                                                    runAudio)
 import           Config
-import           Control.Exception                (bracket, bracket_)
-import           Control.Monad                    (forM, unless)
+import           Control.Monad                    (forM, void)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
@@ -30,9 +29,10 @@ import           GuitarHeroI.File
 import           GuitarHeroII.Audio               (readVGS)
 import           GuitarHeroII.PartGuitar
 import           JSONData                         (toJSON)
+import qualified RockBand.Codec.Events            as RB
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as RB
-import           RockBand.Common                  (Difficulty (..))
+import           RockBand.Common                  (Difficulty (..), Mood (..))
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
@@ -42,15 +42,11 @@ import           System.IO.Temp                   (withSystemTempFile)
 
 getSongList :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(T.Text, SongPackage)]
 getSongList gen = do
-  let wrap msg f = f >>= \b -> unless b $ fail msg
-  dtb <- stackIO $ bracket ark_new ark_delete $ \ark -> do
-    let open = wrap "Couldn't open the ARK file" $ ark_Open ark gen
-    bracket_ open (ark_Close ark) $ do
-      withSystemTempFile "songs.dtb" $ \fdtb hdl -> do
-        IO.hClose hdl
-        wrap "Couldn't find songs.dtb in the ARK." $
-          ark_GetFile ark fdtb "config/gen/songs.dtb" True
-        D.readFileDTB fdtb
+  dtb <- stackIO $ withArk gen $ \ark -> do
+    withSystemTempFile "songs.dtb" $ \fdtb hdl -> do
+      IO.hClose hdl
+      ark_GetFile' ark fdtb "config/gen/songs.dtb" True
+      D.readFileDTB fdtb
   let editDTB d = d { D.topTree = editTree $ D.topTree d }
       editTree t = t { D.treeChunks = filter keepChunk $ D.treeChunks t }
       keepChunk = \case
@@ -62,29 +58,39 @@ getSongList gen = do
 
 importGH1 :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> FilePath -> StackTraceT m ()
 importGH1 pkg gen dout = do
-  let wrap msg f = f >>= \b -> unless b $ fail msg
-  stackIO $ bracket ark_new ark_delete $ \ark -> do
-    let open = wrap "Couldn't open the ARK file" $ ark_Open ark gen
-    bracket_ open (ark_Close ark) $ do
-      let encLatin1 = B8.pack . T.unpack
-      wrap "Couldn't load MIDI file" $
-        ark_GetFile ark (dout </> "gh1.mid") (encLatin1 $ midiFile pkg) True
-      wrap "Couldn't load audio (VGS) file" $
-        ark_GetFile ark (dout </> "audio.vgs") (encLatin1 (songName $ song pkg) <> ".vgs") True
+  stackIO $ withArk gen $ \ark -> do
+    let encLatin1 = B8.pack . T.unpack
+    ark_GetFile' ark (dout </> "gh1.mid") (encLatin1 $ midiFile pkg) True
+    ark_GetFile' ark (dout </> "audio.vgs") (encLatin1 (songName $ song pkg) <> ".vgs") True
   RBFile.Song tmap mmap gh1 <- stackIO (Load.fromFile $ dout </> "gh1.mid") >>= RBFile.readMIDIFile'
   let convmid :: RBFile.Song (RBFile.FixedFile U.Beats)
       convmid = RBFile.Song tmap mmap mempty
-        { RBFile.fixedPartGuitar = convertPart $ gh1T1Gems gh1
-        }
-      convertPart :: GemsTrack U.Beats -> RB.FiveTrack U.Beats
-      convertPart part = mempty
-        { RB.fiveDifficulties = flip fmap (gemsDifficulties part) $ \diff -> mempty
-          { RB.fiveGems = partGems diff
+        { RBFile.fixedPartGuitar = mempty
+          { RB.fiveDifficulties = flip fmap diffs $ \diff -> mempty
+            { RB.fiveGems = partGems diff
+            }
+          , RB.fiveOverdrive    = maybe RTB.empty partStarPower $ Map.lookup Expert diffs
+          , RB.fivePlayer1      = maybe RTB.empty partPlayer1   $ Map.lookup Expert diffs
+          , RB.fivePlayer2      = maybe RTB.empty partPlayer2   $ Map.lookup Expert diffs
+          , RB.fiveFretPosition = flip fmap (animFretPosition $ gh1Anim gh1) $ \case
+            (FretPosition p, b) -> (p        , b)
+            (Fret60        , b) -> (RB.Fret59, b)
+          , RB.fiveHandMap      = flip fmap (animHandMap $ gh1Anim gh1) $ \case
+            HandMap_Default   -> RB.HandMap_Default
+            HandMap_DropD2    -> RB.HandMap_DropD2
+            HandMap_Solo      -> RB.HandMap_Solo
+            HandMap_NoChords  -> RB.HandMap_NoChords
+            HandMap_AllChords -> RB.HandMap_AllChords
+          , RB.fiveMood         = flip RTB.mapMaybe (eventsList $ gh1Events gh1) $ \case
+            Event_gtr_on  -> Just Mood_play
+            Event_gtr_off -> Just Mood_idle
+            _             -> Nothing
           }
-        , RB.fiveOverdrive    = maybe RTB.empty partStarPower $ Map.lookup Expert $ gemsDifficulties part
-        , RB.fivePlayer1      = maybe RTB.empty partPlayer1   $ Map.lookup Expert $ gemsDifficulties part
-        , RB.fivePlayer2      = maybe RTB.empty partPlayer2   $ Map.lookup Expert $ gemsDifficulties part
+        , RBFile.fixedEvents = mempty
+          { RB.eventsEnd = void $ RTB.filter (== Event_end) $ eventsList $ gh1Events gh1
+          }
         }
+      diffs = gemsDifficulties $ gh1T1Gems gh1
   stackIO $ Save.toFile (dout </> "notes.mid") $ RBFile.showMIDIFile' convmid
   srcs <- stackIO $ readVGS $ dout </> "audio.vgs"
   wavs <- forM (zip [0..] srcs) $ \(i, src) -> do

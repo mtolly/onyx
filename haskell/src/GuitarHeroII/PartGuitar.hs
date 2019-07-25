@@ -26,6 +26,7 @@ data HandMap
   | HandMap_DropD2
   | HandMap_Solo
   | HandMap_NoChords
+  | HandMap_AllChords -- seen in GH1
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command HandMap where

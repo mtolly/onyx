@@ -137,7 +137,7 @@ resizeWindow window size = do
 startLoad :: FilePath -> Onyx ()
 startLoad f = do
   sink <- getEventSink
-  void $ forkOnyx $ errorToEither (openProject f) >>= \case
+  void $ forkOnyx $ errorToEither (openProject Nothing f) >>= \case
     Left (Messages msgs) -> liftIO $ forM_ msgs $ \msg -> do
       liftIO $ sink $ EventFail msg
     Right proj -> do

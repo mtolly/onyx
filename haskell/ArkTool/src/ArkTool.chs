@@ -1,6 +1,7 @@
 module ArkTool where
 
-import           Control.Exception (bracket)
+import           Control.Exception (bracket, bracket_)
+import           Control.Monad     (unless)
 import qualified Data.ByteString   as B
 import           Data.Monoid       ((<>))
 import           Foreign
@@ -107,3 +108,36 @@ searchFiles ark pat = bracket ark_new_iterator ark_delete_iterator $ \iter -> do
         then return []
         else (entry :) <$> (ark_Next ark iter pat >>= go)
   ark_First ark iter pat >>= go
+
+wrapArk :: String -> IO Bool -> IO ()
+wrapArk s f = do
+  b <- f
+  unless b $ fail $ "ARK operation failed: " <> s
+
+withArk :: FilePath -> (ArkTool -> IO a) -> IO a
+withArk gen act = bracket ark_new ark_delete $ \ark -> do
+  bracket_ (wrapArk ("opening folder " <> gen) $ ark_Open ark gen) (ark_Close ark) $ do
+    act ark
+
+ark_GetFile' :: ArkTool -> FilePath -> B.ByteString -> Bool -> IO ()
+ark_GetFile' ark fp fpInArk enc
+  = wrapArk ("extracting file " <> show fpInArk <> " to " <> show fp)
+  $ ark_GetFile ark fp fpInArk enc
+
+ark_ReplaceAFile' :: ArkTool -> FilePath -> B.ByteString -> Bool -> IO ()
+ark_ReplaceAFile' ark fp fpInArk enc
+  = wrapArk ("replacing file " <> show fpInArk <> " with " <> show fp)
+  $ ark_ReplaceAFile ark fp fpInArk enc
+
+ark_AddFile' :: ArkTool -> FilePath -> B.ByteString -> Bool -> IO ()
+ark_AddFile' ark fp fpInArk enc
+  = wrapArk ("inserting file " <> show fp <> " at " <> show fpInArk)
+  $ ark_AddFile ark fp fpInArk enc
+
+ark_RemoveFile' :: ArkTool -> B.ByteString -> IO ()
+ark_RemoveFile' ark fpInArk
+  = wrapArk ("removing file " <> show fpInArk)
+  $ ark_RemoveFile ark fpInArk
+
+ark_Save' :: ArkTool -> IO ()
+ark_Save' ark = wrapArk "saving ARK" $ ark_Save ark

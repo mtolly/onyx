@@ -236,13 +236,16 @@ outputFile opts dft = case [ to | OptTo to <- opts ] of
   []     -> dft
   to : _ -> return to
 
+optIndex :: [OnyxOption] -> Maybe Int
+optIndex opts = listToMaybe [ i | OptIndex i <- opts ]
+
 buildTarget :: (MonadResource m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target, FilePath)
 buildTarget yamlPath opts = do
   songYaml <- loadYaml yamlPath
   targetName <- case [ t | OptTarget t <- opts ] of
     []    -> fatal "command requires --target, none given"
     t : _ -> return t
-  audioDirs <- withProject yamlPath getAudioDirs
+  audioDirs <- withProject (optIndex opts) yamlPath getAudioDirs
   target <- case Map.lookup targetName $ _targets songYaml of
     Nothing     -> fatal $ "Target not found in YAML file: " <> show targetName
     Just target -> return target
@@ -337,11 +340,11 @@ commands =
     { commandWord = "shake"
     , commandDesc = "For debug use only."
     , commandUsage = "onyx file mysong.yml file1 [file2...]"
-    , commandRun = \files _opts -> case files of
+    , commandRun = \files opts -> case files of
       [] -> return []
       yml : builds -> identifyFile' yml >>= \case
         (FileSongYaml, yml') -> do
-          audioDirs <- withProject yml getAudioDirs
+          audioDirs <- withProject (optIndex opts) yml getAudioDirs
           shakeBuildFiles audioDirs yml' builds
           return $ map (takeDirectory yml' </>) builds
         (ftype, fpath) -> unrecognized ftype fpath
@@ -385,7 +388,7 @@ commands =
         _  -> files
       let isType types (ftype, fpath) = guard (elem ftype types) >> Just fpath
           withSongYaml yamlPath = do
-            audioDirs <- withProject yamlPath getAudioDirs
+            audioDirs <- withProject (optIndex opts) yamlPath getAudioDirs
             planName <- getPlanName (Just "author") yamlPath opts
             let rpp = "notes-" <> T.unpack planName <> ".RPP"
                 yamlDir = takeDirectory yamlPath
@@ -431,7 +434,7 @@ commands =
         []  -> return "."
         [x] -> return x
         _   -> fatal "Expected 0 or 1 files/folders"
-      proj <- openProject fpath
+      proj <- openProject (optIndex opts) fpath
       out <- outputFile opts $ return $ projectTemplate proj ++ "_player"
       player <- buildPlayer (getMaybePlan opts) proj
       case projectRelease proj of
@@ -453,7 +456,7 @@ commands =
           t : _ -> return t
         -- TODO: handle non-RB3 targets
         let built = "gen/target" </> T.unpack targetName </> "notes-magma-export.mid"
-        audioDirs <- withProject yamlPath getAudioDirs
+        audioDirs <- withProject (optIndex opts) yamlPath getAudioDirs
         shakeBuildFiles audioDirs yamlPath [built]
         return []
       (FileRBProj, rbprojPath) -> do
@@ -478,7 +481,7 @@ commands =
         []  -> return "."
         [x] -> return x
         _   -> fatal "Expected 0 or 1 files/folders"
-      proj <- openProject fpath
+      proj <- openProject (optIndex opts) fpath
       out <- outputFile opts $ return $ projectTemplate proj ++ "_import"
       stackIO $ Dir.createDirectoryIfMissing False out
       copyDirRecursive (takeDirectory $ projectLocation proj) out
@@ -496,7 +499,7 @@ commands =
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> do
       let withMIDI mid = stackIO (Load.fromFile mid) >>= RBFile.readMIDIFile' >>= lg . closeShiftsFile
       case ftype of
-        FileSongYaml -> withProject fpath $ proKeysHanging $ getMaybePlan opts
+        FileSongYaml -> withProject (optIndex opts) fpath $ proKeysHanging $ getMaybePlan opts
         FileRBProj   -> do
           rbproj <- loadRBProj fpath
           let midPath = T.unpack $ RBProj.midiFile $ RBProj.midi $ RBProj.project rbproj
@@ -735,7 +738,7 @@ commands =
     , commandDesc = "Install a song into GH2 (PS2)."
     , commandUsage = "onyx install-ark song GEN/ songtoreplace --target gh2"
     , commandRun = \args opts -> case args of
-      [song, gen, replace] -> withProject song $ \proj -> do
+      [song, gen, replace] -> withProject (optIndex opts) song $ \proj -> do
         targetName <- case [ t | OptTarget t <- opts ] of
           []    -> fatal "command requires --target, none given"
           t : _ -> return t
@@ -899,6 +902,7 @@ optDescrs =
   , Option []   ["wii-mustang-22" ] (NoArg  OptWiiMustang22                   ) ""
   , Option []   ["wii-unmute-22"  ] (NoArg  OptWiiUnmute22                    ) ""
   , Option []   ["venuegen"       ] (NoArg  OptVenueGen                       ) ""
+  , Option []   ["index"          ] (ReqArg (OptIndex . read)      "int"      ) ""
   , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
   ] where
     readGame = \case
@@ -924,6 +928,7 @@ data OnyxOption
   | OptWiiMustang22
   | OptWiiUnmute22
   | OptVenueGen
+  | OptIndex Int
   | OptHelp
   deriving (Eq, Ord, Show, Read)
 

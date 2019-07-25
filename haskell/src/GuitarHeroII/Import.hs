@@ -7,8 +7,7 @@ import           ArkTool
 import           Audio                            (Audio (..), applyPansVols,
                                                    runAudio)
 import           Config
-import           Control.Exception                (bracket, bracket_)
-import           Control.Monad                    (forM, guard, unless, void)
+import           Control.Monad                    (forM, guard, void)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
@@ -46,15 +45,11 @@ import           System.IO.Temp                   (withSystemTempFile)
 
 getSongList :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(T.Text, SongPackage)]
 getSongList gen = do
-  let wrap msg f = f >>= \b -> unless b $ fail msg
-  dtb <- stackIO $ bracket ark_new ark_delete $ \ark -> do
-    let open = wrap "Couldn't open the ARK file" $ ark_Open ark gen
-    bracket_ open (ark_Close ark) $ do
-      withSystemTempFile "songs.dtb" $ \fdtb hdl -> do
-        IO.hClose hdl
-        wrap "Couldn't find songs.dtb in the ARK." $
-          ark_GetFile ark fdtb "config/gen/songs.dtb" True
-        D.readFileDTB fdtb
+  dtb <- stackIO $ withArk gen $ \ark -> do
+    withSystemTempFile "songs.dtb" $ \fdtb hdl -> do
+      IO.hClose hdl
+      ark_GetFile' ark fdtb "config/gen/songs.dtb" True
+      D.readFileDTB fdtb
   let editDTB d = d { D.topTree = editTree $ D.topTree d }
       editTree t = t { D.treeChunks = filter keepChunk $ D.treeChunks t }
       keepChunk = \case
@@ -81,15 +76,10 @@ importGH2 mode pkg gen dout = do
     ImportCoop -> case songCoop pkg of
       Nothing -> fatal "Tried to import coop version from a song that doesn't have one"
       Just coop -> return coop
-  let wrap msg f = f >>= \b -> unless b $ fail msg
-  stackIO $ bracket ark_new ark_delete $ \ark -> do
-    let open = wrap "Couldn't open the ARK file" $ ark_Open ark gen
-    bracket_ open (ark_Close ark) $ do
-      let encLatin1 = B8.pack . T.unpack
-      wrap "Couldn't load MIDI file" $
-        ark_GetFile ark (dout </> "gh2.mid") (encLatin1 $ midiFile songChunk) True
-      wrap "Couldn't load audio (VGS) file" $
-        ark_GetFile ark (dout </> "audio.vgs") (encLatin1 (songName songChunk) <> ".vgs") True
+  stackIO $ withArk gen $ \ark -> do
+    let encLatin1 = B8.pack . T.unpack
+    ark_GetFile' ark (dout </> "gh2.mid") (encLatin1 $ midiFile songChunk) True
+    ark_GetFile' ark (dout </> "audio.vgs") (encLatin1 (songName songChunk) <> ".vgs") True
   RBFile.Song tmap mmap gh2 <- stackIO (Load.fromFile $ dout </> "gh2.mid") >>= RBFile.readMIDIFile'
   let convmid :: RBFile.Song (RBFile.FixedFile U.Beats)
       convmid = RBFile.Song tmap mmap mempty
@@ -116,10 +106,11 @@ importGH2 mode pkg gen dout = do
           }
         , RB.fiveMood         = RTB.empty -- TODO
         , RB.fiveHandMap      = flip fmap (partHandMap part) $ \case
-          HandMap_Default -> RB.HandMap_Default
-          HandMap_DropD2 -> RB.HandMap_DropD2
-          HandMap_Solo -> RB.HandMap_Solo
-          HandMap_NoChords -> RB.HandMap_NoChords
+          HandMap_Default   -> RB.HandMap_Default
+          HandMap_DropD2    -> RB.HandMap_DropD2
+          HandMap_Solo      -> RB.HandMap_Solo
+          HandMap_NoChords  -> RB.HandMap_NoChords
+          HandMap_AllChords -> RB.HandMap_AllChords
         , RB.fiveStrumMap     = flip fmap (partStrumMap part) $ \case
           StrumMap_SlapBass -> RB.StrumMap_SlapBass
         , RB.fiveFretPosition = partFretPosition part
