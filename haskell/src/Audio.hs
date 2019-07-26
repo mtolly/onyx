@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Audio
 ( Audio(..)
 , Edge(..)
@@ -60,6 +61,7 @@ import qualified Data.Digest.Pure.MD5             as MD5
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Int                         (Int16)
 import           Data.List                        (elemIndex, sortOn)
 import           Data.Maybe                       (mapMaybe)
 import qualified Data.Text                        as T
@@ -67,6 +69,7 @@ import qualified Data.Vector.Storable             as V
 import           Data.Word                        (Word8)
 import           Development.Shake                (Action, need)
 import           Development.Shake.FilePath       (takeExtension)
+import           GuitarHeroII.Audio               (readVGS)
 import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Wrapper      as NN
 import           RockBand.Common                  (pattern RNil, pattern Wait)
@@ -354,16 +357,31 @@ buildSource :: (MonadResource m) =>
   Audio Duration FilePath -> Action (AudioSource m Float)
 buildSource aud = need (toList aud) >> buildSource' aud
 
+standardRate :: (MonadResource m) => AudioSource m Float -> AudioSource m Float
+standardRate src = if rate src == 44100
+  then src
+  else resampleTo 44100 SincMediumQuality $ reorganize chunkSize src
+
 buildSource' :: (MonadResource m, MonadIO f) =>
   Audio Duration FilePath -> f (AudioSource m Float)
 buildSource' aud = case aud of
   -- optimizations
   Drop Start t (Input fin) -> liftIO $ sourceSndFrom t fin
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
+  Channels (sequence -> Just cs) (Input fin) | takeExtension fin == ".vgs" -> do
+    chans <- liftIO $ readVGS fin
+    case map (standardRate . mapSamples fractionalSample . (chans !!)) cs of
+      src : srcs -> return $ foldl merge src srcs
+      []         -> error "buildSource: 0 channels selected"
   -- normal cases
   Silence c t -> return $ silent t 44100 c
   Input fin -> liftIO $ case takeExtension fin of
     ".mp3" -> sourceMpg fin
+    ".vgs" -> do
+      chans <- readVGS fin
+      case map (standardRate . mapSamples fractionalSample) chans of
+        src : srcs -> return $ foldl merge src srcs
+        []         -> error "buildSource: VGS has 0 channels"
     _      -> sourceSnd fin
   Mix         xs -> combine (\a b -> uncurry mix $ sameChannels (a, b)) xs
   Merge       xs -> combine merge xs
@@ -377,9 +395,7 @@ buildSource' aud = case aud of
   Pad End t x -> padEnd t <$> buildSource' x
   Fade Start t x -> fadeStart t <$> buildSource' x
   Fade End t x -> fadeEnd t <$> buildSource' x
-  Resample x -> buildSource' x >>= \src -> return $ if rate src == 44100
-    then src
-    else resampleTo 44100 SincMediumQuality src
+  Resample x -> standardRate <$> buildSource' x
   Channels cs x -> remapChannels cs <$> buildSource' x
   StretchSimple d x -> stretchSimple d <$> buildSource' x
   StretchFull t p x -> stretchFull t p <$> buildSource' x
@@ -469,12 +485,15 @@ audioLength f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
 audioChannels :: (MonadIO m) => FilePath -> m (Maybe Int)
 audioChannels f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
   then liftIO $ Just . Snd.channels <$> Snd.getFileInfo f
-  else if takeExtension f == ".mp3"
-    then do
+  else case takeExtension f of
+    ".mp3" -> do
       src <- liftIO $ sourceMpg f
       let _ = src :: AudioSource (ResourceT IO) Float
       return $ Just $ channels src
-    else return Nothing
+    ".vgs" -> do
+      chans <- liftIO (readVGS f :: IO [AudioSource (ResourceT IO) Int16])
+      return $ Just $ length chans
+    _ -> return Nothing
 
 audioRate :: (MonadIO m) => FilePath -> m (Maybe Int)
 audioRate f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]

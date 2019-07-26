@@ -4,8 +4,7 @@
 module GuitarHeroII.Import where
 
 import           ArkTool
-import           Audio                            (Audio (..), applyPansVols,
-                                                   runAudio)
+import           Audio                            (Audio (..), runAudio)
 import           Config
 import           Control.Monad                    (forM, guard, void)
 import           Control.Monad.IO.Class
@@ -96,8 +95,12 @@ importGH2 mode pkg gen dout = do
         , RBFile.fixedPartGuitar = convertPart $ case mode of
           ImportSolo -> gh2PartGuitar     gh2
           ImportCoop -> gh2PartGuitarCoop gh2
-        , RBFile.fixedPartBass = convertPart $ gh2PartBass gh2
-        , RBFile.fixedPartRhythm = convertPart $ gh2PartRhythm gh2
+        , RBFile.fixedPartBass = if HM.member "bass" $ tracks songChunk
+          then convertPart $ gh2PartBass gh2
+          else mempty
+        , RBFile.fixedPartRhythm = if HM.member "rhythm" $ tracks songChunk
+          then convertPart $ gh2PartRhythm gh2
+          else mempty
         }
       convertPart :: PartTrack U.Beats -> RB.FiveTrack U.Beats
       convertPart part = RB.FiveTrack
@@ -126,9 +129,7 @@ importGH2 mode pkg gen dout = do
   srcs <- stackIO $ readVGS $ dout </> "audio.vgs"
   wavs <- forM (zip [0..] srcs) $ \(i, src) -> do
     let f = "vgs-" <> show (i :: Int) <> ".wav"
-        src' = applyPansVols [pans songChunk !! i] [vols songChunk !! i]
-          $ CA.mapSamples CA.fractionalSample src
-    runAudio src' $ dout </> f
+    runAudio (CA.mapSamples CA.fractionalSample src) $ dout </> f
     return f
   stackIO $ Y.encodeFile (dout </> "song.yml") $ toJSON SongYaml
     { _metadata = def
@@ -146,33 +147,34 @@ importGH2 mode pkg gen dout = do
         , _commands = []
         , _filePath = Just wav
         , _rate = Nothing
-        , _channels = 2 -- because we did applyPansVols
+        , _channels = 1
         }
     , _jammit = HM.empty
     , _plans = HM.singleton "vgs" $ let
-      guitarChans = fromMaybe [] $ HM.lookup "guitar" $ tracks songChunk
-      bassChans = fromMaybe [] $ HM.lookup "bass" $ tracks songChunk
-      rhythmChans = fromMaybe [] $ HM.lookup "rhythm" $ tracks songChunk
+      guitarChans = map fromIntegral $ fromMaybe [] $ HM.lookup "guitar" $ tracks songChunk
+      bassChans = map fromIntegral $ fromMaybe [] $ HM.lookup "bass" $ tracks songChunk
+      rhythmChans = map fromIntegral $ fromMaybe [] $ HM.lookup "rhythm" $ tracks songChunk
       songChans = zipWith const [0..] (pans songChunk)
         \\ (guitarChans ++ bassChans ++ rhythmChans)
-      mixChans [] = Nothing
-      mixChans [c] = Just PlanAudio
-        { _planExpr = Input $ Named $ T.pack $ wavs !! fromIntegral c
-        , _planPans = []
-        , _planVols = []
+      mixChans _ [] = Nothing
+      mixChans v [c] = Just PlanAudio
+        { _planExpr = Input $ Named $ T.pack $ wavs !! c
+        , _planPans = map realToFrac [pans songChunk !! c]
+        , _planVols = map realToFrac [(vols songChunk !! c) + v]
         }
-      mixChans cs = Just PlanAudio
-        { _planExpr = Mix $ map (Input . Named . T.pack . (wavs !!) . fromIntegral) cs
-        , _planPans = []
-        , _planVols = []
+      mixChans v cs = Just PlanAudio
+        { _planExpr = Merge $ map (Input . Named . T.pack . (wavs !!)) cs
+        , _planPans = map realToFrac [ pans songChunk !! c | c <- cs ]
+        , _planVols = map realToFrac [ (vols songChunk !! c) + v | c <- cs ]
         }
       in Plan
-        { _song = mixChans songChans
+        { _song = mixChans 0 songChans
         , _countin = Countin []
         , _planParts = Parts $ HM.fromList $ catMaybes
-          [ (RBFile.FlexGuitar ,) . PartSingle <$> mixChans guitarChans
-          , (RBFile.FlexBass ,) . PartSingle <$> mixChans bassChans
-          , (RBFile.FlexExtra "rhythm" ,) . PartSingle <$> mixChans rhythmChans
+          -- I made up these volume adjustments but they seem to work
+          [ (RBFile.FlexGuitar ,) . PartSingle <$> mixChans (-0.5) guitarChans
+          , (RBFile.FlexBass ,) . PartSingle <$> mixChans (-3) bassChans
+          , (RBFile.FlexExtra "rhythm" ,) . PartSingle <$> mixChans (-1.5) rhythmChans
           ]
         , _crowd = Nothing
         , _planComments = []

@@ -4,8 +4,7 @@
 module GuitarHeroI.Import where
 
 import           ArkTool
-import           Audio                            (Audio (..), applyPansVols,
-                                                   runAudio)
+import           Audio                            (Audio (..), runAudio)
 import           Config
 import           Control.Monad                    (forM, void)
 import           Control.Monad.IO.Class
@@ -95,9 +94,7 @@ importGH1 pkg gen dout = do
   srcs <- stackIO $ readVGS $ dout </> "audio.vgs"
   wavs <- forM (zip [0..] srcs) $ \(i, src) -> do
     let f = "vgs-" <> show (i :: Int) <> ".wav"
-        src' = applyPansVols [pans (song pkg) !! i] [vols (song pkg) !! i]
-          $ CA.mapSamples CA.fractionalSample src
-    runAudio src' $ dout </> f
+    runAudio (CA.mapSamples CA.fractionalSample src) $ dout </> f
     return f
   stackIO $ Y.encodeFile (dout </> "song.yml") $ toJSON SongYaml
     { _metadata = def
@@ -113,22 +110,22 @@ importGH1 pkg gen dout = do
         , _commands = []
         , _filePath = Just wav
         , _rate = Nothing
-        , _channels = 2 -- because we did applyPansVols
+        , _channels = 1
         }
     , _jammit = HM.empty
     , _plans = HM.singleton "vgs" $ let
-      guitarChans = concat $ take 1 $ slip_tracks $ song pkg
+      guitarChans = map fromIntegral $ concat $ take 1 $ slip_tracks $ song pkg
       songChans = zipWith const [0..] (pans $ song pkg) \\ guitarChans
       mixChans [] = Nothing
       mixChans [c] = Just PlanAudio
-        { _planExpr = Input $ Named $ T.pack $ wavs !! fromIntegral c
-        , _planPans = []
-        , _planVols = []
+        { _planExpr = Input $ Named $ T.pack $ wavs !! c
+        , _planPans = map realToFrac [pans (song pkg) !! c]
+        , _planVols = map realToFrac [vols (song pkg) !! c]
         }
       mixChans cs = Just PlanAudio
-        { _planExpr = Mix $ map (Input . Named . T.pack . (wavs !!) . fromIntegral) cs
-        , _planPans = []
-        , _planVols = []
+        { _planExpr = Merge $ map (Input . Named . T.pack . (wavs !!)) cs
+        , _planPans = map realToFrac [ pans (song pkg) !! c | c <- cs ]
+        , _planVols = map realToFrac [ vols (song pkg) !! c | c <- cs ]
         }
       in Plan
         { _song = mixChans songChans
