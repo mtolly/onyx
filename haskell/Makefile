@@ -1,10 +1,10 @@
-.PHONY: usage install-magma mac mac-deps win win-deps ubuntu-deps
+.PHONY: usage install-resources mac mac-deps win win-deps ubuntu-deps
 SHELL=/bin/bash
 
 usage:
 	@echo "Targets:"
-	@echo "  make install-magma"
-	@echo "    puts Magma files in ~/.local/bin"
+	@echo "  make install-resources"
+	@echo "    puts required files in ~/.local/bin"
 	@echo "  make mac-deps"
 	@echo "  make win-deps"
 	@echo "  make ubuntu-deps"
@@ -13,13 +13,15 @@ usage:
 	@echo "  make win"
 	@echo "    packages app for distribution"
 
-install-magma:
+install-resources:
 	rm -rf $(HOME)/.local/bin/magma-{v1,v2,common,ogg2mogg}
 	rm -rf $(HOME)/.local/bin/x360-rb3pkg
 	rm -rf $(HOME)/.local/bin/rb3-updates
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} $(HOME)/.local/bin/
 	cp -R vendors/x360-rb3pkg $(HOME)/.local/bin/
 	cp -R vendors/rb3-updates $(HOME)/.local/bin/
+	cp vendors/itaijidict $(HOME)/.local/bin/
+	cp vendors/kanwadict $(HOME)/.local/bin/
 
 mac:
 	stack build .
@@ -33,6 +35,8 @@ mac:
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} Onyx.app/Contents/MacOS/
 	cp -R vendors/x360-rb3pkg Onyx.app/Contents/MacOS/
 	cp -R vendors/rb3-updates Onyx.app/Contents/MacOS/
+	cp vendors/itaijidict Onyx.app/Contents/MacOS/
+	cp vendors/kanwadict Onyx.app/Contents/MacOS/
 	rm -rf mac/
 	mkdir mac/
 	cp -R Onyx.app LICENSE.txt mac/
@@ -56,6 +60,8 @@ win:
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} win/
 	cp -R vendors/x360-rb3pkg win/
 	cp -R vendors/rb3-updates win/
+	cp vendors/itaijidict win/
+	cp vendors/kanwadict win/
 	stack exec -- onyx-package win/README.txt
 	"/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
 

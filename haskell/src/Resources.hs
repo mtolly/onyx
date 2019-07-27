@@ -8,16 +8,26 @@ import qualified Data.DTA           as D
 import           Data.FileEmbed     (embedDir, embedFile, makeRelativeToProject)
 import qualified Data.Text          as T
 import           Data.Text.Encoding (decodeUtf8)
+import           System.Directory   (getHomeDirectory)
 import           System.Environment (getExecutablePath)
-import           System.FilePath    (takeDirectory, (</>))
+import           System.FilePath    (takeDirectory, takeFileName, (</>))
 
-magmaV1Dir, magmaV2Dir, magmaCommonDir, magmaOgg2MoggDir, x360RB3pkgDir, rb3Updates :: IO FilePath
-magmaV1Dir       = (</> "magma-v1")       . takeDirectory <$> getExecutablePath
-magmaV2Dir       = (</> "magma-v2")       . takeDirectory <$> getExecutablePath
-magmaCommonDir   = (</> "magma-common")   . takeDirectory <$> getExecutablePath
-magmaOgg2MoggDir = (</> "magma-ogg2mogg") . takeDirectory <$> getExecutablePath
-x360RB3pkgDir    = (</> "x360-rb3pkg")    . takeDirectory <$> getExecutablePath
-rb3Updates       = (</> "rb3-updates")    . takeDirectory <$> getExecutablePath
+getResourcesPath :: IO FilePath
+getResourcesPath = do
+  exe <- getExecutablePath
+  if takeFileName exe == "ghc"
+    then (</> ".local/bin") <$> getHomeDirectory -- we're in ghci, use installed resources
+    else return $ takeDirectory exe
+
+magmaV1Dir, magmaV2Dir, magmaCommonDir, magmaOgg2MoggDir, x360RB3pkgDir, rb3Updates, kanwadict, itaijidict :: IO FilePath
+magmaV1Dir       = (</> "magma-v1")       <$> getResourcesPath
+magmaV2Dir       = (</> "magma-v2")       <$> getResourcesPath
+magmaCommonDir   = (</> "magma-common")   <$> getResourcesPath
+magmaOgg2MoggDir = (</> "magma-ogg2mogg") <$> getResourcesPath
+x360RB3pkgDir    = (</> "x360-rb3pkg")    <$> getResourcesPath
+rb3Updates       = (</> "rb3-updates")    <$> getResourcesPath
+kanwadict        = (</> "kanwadict")      <$> getResourcesPath
+itaijidict       = (</> "itaijidict")     <$> getResourcesPath
 
 xboxKV :: B.ByteString
 xboxKV = $(makeRelativeToProject "vendors/KV.bin" >>= embedFile)

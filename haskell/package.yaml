@@ -16,6 +16,8 @@ extra-source-files:
 - vendors/rockband_drums.png
 - vendors/rockband_guitarbass.png
 - vendors/rockband_ghl.png
+- vendors/itaijidict
+- vendors/kanwadict
 - ../player/www/index.html
 - ../player/www/style.css
 - ../player/www/app.min.js
@@ -101,6 +103,7 @@ library:
   - rubberband
   - JuicyPixels-stbir
   - ArkTool
+  - kakasi
 
   ghc-options: -O
   build-tools:

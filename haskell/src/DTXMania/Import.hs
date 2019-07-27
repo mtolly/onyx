@@ -100,7 +100,7 @@ dtxToAudio dtx fin dout = do
   let simpleAudio f overlap chips = if RTB.null chips
         then return Nothing
         else do
-          src <- getAudio overlap chips fin dtx
+          src <- stackIO $ getAudio overlap chips fin dtx
           writeAudio f [src]
       writeAudio f = \case
         []         -> return Nothing
@@ -112,7 +112,7 @@ dtxToAudio dtx fin dout = do
         chips = RTB.mapMaybe (\(l, chip) -> guard (elem l lanes) >> Just chip) $ dtx_Drums dtx
         in if RTB.null chips
           then return Nothing
-          else Just <$> getAudio False chips fin dtx
+          else stackIO $ Just <$> getAudio False chips fin dtx
       writeDrums f lanes = mapMaybeM drumSrc lanes >>= writeAudio f
   song   <- simpleAudio "song.wav" True $ dtx_BGM dtx
   kick   <- writeDrums "kick.wav" [[BassDrum, LeftBass]]

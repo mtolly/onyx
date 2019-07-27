@@ -24,7 +24,7 @@ import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64.Lazy           as B64
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (isAscii, isControl,
-                                                        isSpace)
+                                                        isSpace, toUpper)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
@@ -57,6 +57,7 @@ import           Difficulty
 import           DryVox                                (clipDryVox,
                                                         toDryVoxFormat,
                                                         vocalTubes)
+import           DTXMania.ShiftJIS                     (kakasi)
 import qualified FretsOnFire                           as FoF
 import           Genre
 import           GuitarHeroII.Audio                    (writeVGS)
@@ -176,7 +177,7 @@ forceRW f = stackIO $ do
   p <- Dir.getPermissions f
   Dir.setPermissions f $ Dir.setOwnerReadable True $ Dir.setOwnerWritable True p
 
-makeRB3DTA :: (Monad m) => SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
+makeRB3DTA :: (MonadIO m) => SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
 makeRB3DTA songYaml plan rb3 song filename = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
   let thresh = 170 -- everything gets forced anyway
@@ -211,9 +212,12 @@ makeRB3DTA songYaml plan rb3 song filename = do
           Nothing -> []
           Just _  -> [(-1, 0), (1, 0)]
       songChannels = [(-1, 0), (1, 0)]
+  songName <- replaceCharsRB False $ targetTitle songYaml $ RB3 rb3
+  artistName <- replaceCharsRB False $ getArtist $ _metadata songYaml
+  albumName <- mapM (replaceCharsRB False) $ _album $ _metadata songYaml
   return D.SongPackage
-    { D.name = replaceCharsRB False $ targetTitle songYaml $ RB3 rb3
-    , D.artist = replaceCharsRB False $ getArtist $ _metadata songYaml
+    { D.name = songName
+    , D.artist = artistName
     , D.master = not $ _cover $ _metadata songYaml
     , D.songId = Just $ fromMaybe (Right filename) $ rb3_SongID rb3
     , D.song = D.Song
@@ -327,7 +331,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     -- confirmed: you can have (album_art 1) with no album_name/album_track_number
     , D.albumArt = Just $ isJust $ _fileAlbumArt $ _metadata songYaml
     -- haven't tested behavior if you have album_name but no album_track_number
-    , D.albumName = fmap (replaceCharsRB False) $ _album $ _metadata songYaml
+    , D.albumName = albumName
     , D.albumTrackNumber = fmap fromIntegral $ _trackNumber $ _metadata songYaml
     , D.packName = Nothing
     , D.vocalTonicNote = fmap songKey $ _key $ _metadata songYaml
@@ -435,13 +439,28 @@ makeC3 songYaml plan rb3 midi pkg = do
     , C3.toDoList = C3.defaultToDo
     }
 
-replaceCharsRB :: Bool -> T.Text -> T.Text
-replaceCharsRB rbproj = T.map $ \case
-  'ÿ' | rbproj -> 'y'
-  'Ÿ' | rbproj -> 'Y'
-  '–' -> '-' -- en dash
-  '—' -> '-' -- em dash
-  c   -> c
+replaceCharsRB :: (MonadIO m) => Bool -> T.Text -> m T.Text
+replaceCharsRB rbproj txt = liftIO $ let
+  jpnRanges =
+    [ (0x3000, 0x30ff) -- Japanese-style punctuation, Hiragana, Katakana
+    , (0xff00, 0xffef) -- Full-width roman characters and half-width katakana
+    , (0x4e00, 0x9faf) -- CJK unifed ideographs - Common and uncommon kanji
+    ]
+  isJapanese c = let
+    point = fromEnum c
+    in any (\(pmin, pmax) -> pmin <= point && point <= pmax) jpnRanges
+  in if T.any isJapanese txt
+    then do
+      rom <- kakasi (words "-Ha -Ka -Ja -Ea -ka -s") $ T.unpack txt
+      let capital ""       = ""
+          capital (s : ss) = toUpper s : ss
+      return $ T.pack $ unwords $ map capital $ words rom
+    else return $ flip T.map txt $ \case
+      'ÿ' | rbproj -> 'y'
+      'Ÿ' | rbproj -> 'Y'
+      '–' -> '-' -- en dash
+      '—' -> '-' -- em dash
+      c   -> c
 
 -- Magma RBProj rules
 makeMagmaProj :: SongYaml -> TargetRB3 -> Plan -> T.Text -> FilePath -> Action T.Text -> Staction Magma.RBProj
@@ -486,18 +505,21 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
       warn $ "Preview start time of " ++ show pstart ++ "ms too late for C3 Magma; changed to " ++ show maxPStart ++ "ms"
       return maxPStart
     else return pstart
+  songName <- replaceCharsRB True title
+  artistName <- replaceCharsRB True $ getArtist $ _metadata songYaml
+  albumName <- replaceCharsRB True $ getAlbum $ _metadata songYaml
   return Magma.RBProj
     { Magma.project = Magma.Project
       { Magma.toolVersion = "110411_A"
       , Magma.projectVersion = 24
       , Magma.metadata = Magma.Metadata
-        { Magma.songName = replaceCharsRB True title
+        { Magma.songName = songName
         -- "artist_name: This field must be less than 75 characters."
-        , Magma.artistName = T.take 74 $ replaceCharsRB True $ getArtist $ _metadata songYaml
+        , Magma.artistName = T.take 74 artistName
         , Magma.genre = rbn2Genre fullGenre
         , Magma.subGenre = "subgenre_" <> rbn2Subgenre fullGenre
         , Magma.yearReleased = fromIntegral $ max 1960 $ getYear $ _metadata songYaml
-        , Magma.albumName = replaceCharsRB True $ getAlbum $ _metadata songYaml
+        , Magma.albumName = albumName
         , Magma.author = getAuthor $ _metadata songYaml
         , Magma.releaseLabel = "Onyxite Customs"
         , Magma.country = "ugc_country_us"

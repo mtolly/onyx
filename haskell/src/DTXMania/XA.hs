@@ -25,6 +25,7 @@ import           Data.Int
 import qualified Data.Vector.Storable         as V
 import           Data.Word                    (Word8)
 import           System.IO
+import           System.IO.Error              (ioError, userError)
 
 data XAState = XAState
   { xa_Prev0 :: Int16
@@ -121,7 +122,7 @@ sourceXA f = do
             xa_blockSizeXA = xa_blockSize * xa_channels
         return XAHeader{..}
   xa <- case runGetOrFail readHeader headerBytes of
-    Left  (_, _, err) -> error err
+    Left  (_, _, err) -> liftIO $ ioError $ userError $ "[" <> f <> "] " <> err
     Right (_, _, x  ) -> return x
   return AudioSource
     { rate     = xa_rate xa

@@ -395,7 +395,9 @@ sourceCompressedWAV f = liftIO $ do
     let findChunk magic = hSeek h AbsoluteSeek 12 >> findChunk' magic
         findChunk' magic = do
           thisChunk <- BL.hGet h 4
-          size <- runGet getWord32le <$> BL.hGet h 4
+          size <- BL.hGet h 4 >>= \bs -> case runGetOrFail getWord32le bs of
+            Left  (_, _, err) -> liftIO $ ioError $ userError $ "[" <> f <> "] " <> err
+            Right (_, _, x  ) -> return x
           if magic == thisChunk
             then return ()
             else do
