@@ -51,27 +51,53 @@ plans:
     comments:
     - "Stems from the deluxe edition of Black Clouds & Silver Linings."
     countin: *countin
+    # TODO needs more mixing
     parts:
       drums:
         pad:
           - 3.750
           - gain: [0.95, deluxe-drum]
-    song:
-      pad:
-        - 3.750
-        - gain:
-          - 0.4
-          - mix:
+      bass:
+        pad:
+          - 3.750
+          - gain:
+            - 0.4
             - gain: [1.2, deluxe-bass]
-            - gain: [1.1, deluxe-guitar]
+      keys:
+        pad:
+          - 3.750
+          - gain:
+            - 0.4
             - gain: [0.9, deluxe-keys]
-            - gain: [0.9, deluxe-solo]
+      vocal:
+        pad:
+          - 3.750
+          - gain:
+            - 0.4
             - gain: [1.5, deluxe-vocal]
+      # TODO build guitar audio
+      guitar-main:
+        pad:
+          - 3.750
+          - gain:
+            - 0.4
+            - gain: [1.1, deluxe-guitar]
+      guitar-solo:
+        pad:
+          - 3.750
+          - gain:
+            - 0.4
+            - gain: [0.9, deluxe-solo]
 parts:
   drums:
     drums:
       kicks: 1
       difficulty: 3
+  guitar:
+    pro-guitar:
+      tuning:
+        base: guitar-6
+        global: -6 # Bb standard
 targets:
   rb3:
     game: rb3

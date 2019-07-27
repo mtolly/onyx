@@ -1,0 +1,57 @@
+metadata:
+  author: Onyxite
+  title: Curb Your Enthusiasm w/drums
+  genre: fusion
+  subgenre: fusion
+  artist: David Dockery
+  year: 2018
+  file-album-art: ../cover.jpg
+plans:
+  album:
+    # song:
+    #   pad: [1.745, youtube]
+    parts:
+      show:
+        gain:
+        - 2.38
+        - pad:
+          - 1.854
+          - fade:
+            - start
+            - 0.125
+            - fade:
+              - end
+              - 0.381
+              - take:
+                - 57.504
+                - trim:
+                  - start
+                  - 49.240
+                  - youtube-show
+      drums:
+        gain:
+        - 1.7
+        - pad: [1.744, youtube-drums]
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube zIJvmuLVRZw 140
+  youtube-show:
+    file-path: audio-show.wav
+    commands:
+    - ../../../scripts/youtube GLuCEXrrXbg 140 audio-show.wav
+  youtube-drums:
+    file-path: audio-drums.wav
+    commands:
+    - ../../../scripts/youtube USpNriQYClQ 140 audio-drums.wav
+parts:
+  drums:
+    drums:
+      kicks: 1
+      difficulty: 5
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps

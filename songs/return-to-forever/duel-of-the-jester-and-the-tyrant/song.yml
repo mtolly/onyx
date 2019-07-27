@@ -20,18 +20,23 @@ plans:
   jammit:
     parts:
       drums:
-        pad:
-        - 1.693
-        - only: [Drums, jammit-track]
+        gain:
+        - 1.3
+        - pad:
+          - 1.693
+          - only: [Drums, jammit-track]
     song:
-      pad:
-      - 1.693
-      - without: [drums, jammit-track]
+      gain:
+      - 1.27
+      - pad:
+        - 1.693
+        - without: [drums, jammit-track]
 parts:
   drums:
     drums:
       kicks: 1
       kit: VintageKit
+      difficulty: 7
 targets:
   rb3:
     game: rb3
