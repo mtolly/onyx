@@ -51,7 +51,7 @@
 
 /* KAKASI_SUPPORT_UTF8 */
 // MT: disabling this because it uses iconv
-#define KAKASI_SUPPORT_UTF8 0
+#undef KAKASI_SUPPORT_UTF8
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
