@@ -1,0 +1,49 @@
+parts:
+  guitar:
+    grybo:
+      difficulty:
+        tier: 6
+  drums:
+    drums:
+      difficulty:
+        tier: 7
+      kicks: both
+plans:
+  mogg:
+    parts:
+      guitar: [2, 3]
+      drums: [4, 5]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1]
+    mogg-md5: 5820b6cc0c70963741db2ea20cdc5cbc
+    multitrack: false
+    silent: [2, 3, 4, 5]
+    vols: [-3, -3, -3, -3, -3, -3, -3, -3]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  preview-start: 48
+  file-album-art: ../../../covers/option-paralysis.png_xbox
+  track-number: 2
+  album: Option Paralysis
+  year: 2010
+  subgenre: core
+  anim-tempo: 64
+  author: CyclopsDragon, Onyxite
+  title: Good Neighbor
+  preview-end: 1:18.000
+  genre: metal
+  difficulty:
+    tier: 6
+  artist: The Dillinger Escape Plan
+  comments:
+  - Drums and guitar originally by CyclopsDragon.
+  - New tempo map and drums tweaks by Onyxite.

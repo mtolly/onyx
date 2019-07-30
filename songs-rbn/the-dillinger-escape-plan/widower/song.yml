@@ -1,0 +1,76 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        tier: 4
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 4
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 4
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  drums:
+    drums:
+      difficulty:
+        tier: 6
+      kicks: both
+plans:
+  mogg:
+    parts:
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
+      vocal: [10, 11]
+      keys: [12, 13]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -1, -1, -1, -1, -1, -1]
+    mogg-md5: 4e8d964a2ed300a584dbc01790753277
+    multitrack: true
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    file-milo: lipsync.milo_xbox
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  preview-start: 3:15.000
+  preview-end: 3:45.000
+  file-album-art: ../../../covers/option-paralysis.png_xbox
+  track-number: 6
+  album: Option Paralysis
+  year: 2010
+  subgenre: core
+  anim-tempo: 32
+  author: ThatAuthoringGroup, Onyxite
+  title: Widower
+  genre: metal
+  difficulty:
+    tier: 5
+  artist: The Dillinger Escape Plan
+  comments:
+  - Edited drums chart by Onyxite.

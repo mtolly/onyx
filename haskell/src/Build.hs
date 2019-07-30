@@ -1545,6 +1545,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             dir </> "gh2/notes.mid" %> \out -> do
               -- TODO support speed
               input <- shakeMIDI $ planDir </> "raw.mid"
+              -- TODO use rb-processed mid
               saveMIDI out $ midiRB3toGH2 songYaml gh2 input
 
             dir </> "gh2/audio.vgs" %> \out -> do
@@ -1553,6 +1554,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     GH2Bass   -> gh2_Bass   gh2
                     GH2Rhythm -> gh2_Rhythm gh2
               -- TODO support no coop part
+              -- TODO audio has to go past [end], otherwise the track stops in place!
               srcGtr  <- getPartSource [(-1, 0), (1, 0)] planName plan (gh2_Guitar gh2) 1
               srcCoop <- getPartSource [(-1, 0), (1, 0)] planName plan coopPart 1
               srcSong <- sourceSongCountin Nothing 0 True planName plan [(gh2_Guitar gh2, 1), (coopPart, 1)]
@@ -1694,6 +1696,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             let psParts = map ($ ps) [ps_Drums, ps_Guitar, ps_Bass, ps_Keys, ps_Vocal, ps_Rhythm, ps_GuitarCoop]
                 psSpeed = tgt_Speed $ ps_Common ps
                 eitherDiff x y = if x == 0 then y else x
+            -- TODO make all of these end at [end] for maximum compatibility
+            -- (prevents early endings in PS and practice audio glitch in CH)
             dir </> "ps/drums.ogg"   %> writeStereoParts psParts psSpeed 0 planName plan [(ps_Drums  ps, rb3DrumsRank)]
             dir </> "ps/drums_1.ogg" %> writeKick  psParts psSpeed 0 False planName plan  (ps_Drums  ps) rb3DrumsRank
             dir </> "ps/drums_2.ogg" %> writeSnare psParts psSpeed 0 False planName plan  (ps_Drums  ps) rb3DrumsRank
