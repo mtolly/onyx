@@ -215,13 +215,6 @@ bassMapping = execWriter $ do
   x "E7" [n1, n2, n4, n5]
   x "E8" [n1, n2, n3, n4, n5]
 
-data GuitarNote = Open | B | G | GB | R | RB | RG | RGB | Wailing
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-guitarChars :: GuitarNote -> [Char]
-guitarChars Wailing = ['W', '8'] -- W used in .gda
-guitarChars n       = [head $ show $ fromEnum n]
-
 data DTXFormat = FormatDTX | FormatGDA
   deriving (Eq, Show)
 

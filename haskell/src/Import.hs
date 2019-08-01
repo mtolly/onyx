@@ -509,9 +509,12 @@ importFoF src dest = do
   return hasKicks
 
 determine2xBass :: T.Text -> (T.Text, Bool)
-determine2xBass s = case T.stripSuffix " (2x Bass Pedal)" s <|> T.stripSuffix " (2X Bass Pedal)" s of
-  Nothing -> (s , False)
-  Just s' -> (s', True )
+determine2xBass s = let
+  stripInfix inf str = case T.breakOn inf str of
+    (x, y) -> (x <>) <$> T.stripPrefix inf y
+  in case stripInfix " (2x Bass Pedal)" s <|> stripInfix " (2X Bass Pedal)" s of
+    Nothing -> (s , False)
+    Just s' -> (s', True )
 
 dtaIsRB3 :: D.SongPackage -> Bool
 dtaIsRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc", "ugc_plus"]) $ D.gameOrigin pkg
@@ -527,10 +530,8 @@ importSTFSDir index temp mtemp2x dir = do
     []            -> fatal $ "Couldn't find song index " <> show index
     (song, _) : _ -> return song
   updateDir <- stackIO rb3Updates
-  let c3Title = fromMaybe (D.name pkg) $ c3dtaSong comments
-      (title, is2x) = case c3dta2xBass comments of
-        Just b  -> (fst $ determine2xBass c3Title, b)
-        Nothing -> determine2xBass c3Title
+  let (title, auto2x) = determine2xBass $ D.name pkg
+      is2x = fromMaybe auto2x $ c3dta2xBass comments
       meta = def
         { _author = c3dtaAuthoredBy comments
         , _title = Just title
