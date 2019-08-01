@@ -1,0 +1,55 @@
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 298
+  guitar:
+    grybo:
+      difficulty:
+        rank: 406
+  drums:
+    drums:
+      difficulty:
+        rank: 401
+      kicks: both
+plans:
+  mogg:
+    parts:
+      bass: [5]
+      guitar: [6, 7]
+      drums:
+        kick: [0]
+        snare: [1, 2]
+        kit: [3, 4]
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1]
+    mogg-md5: c802a74cff565329933dddf77a7095cd
+    multitrack: true
+    vols: [-2, -3, -3, -3, -3, -3, -3, -3, -3, -3]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  preview-start: 1:16.000
+  file-album-art: cover.png_xbox
+  track-number: 1
+  album: Atoms & Space
+  year: 2011
+  subgenre: prog
+  anim-tempo: 64
+  author: RockGamer, Onyxite
+  title: Insanity of the Atoms
+  preview-end: 1:46.000
+  genre: metal
+  difficulty:
+    rank: 454
+  artist: Hedras Ramos
+  comments:
+  - Edited drum chart and activation layout by Onyxite.
