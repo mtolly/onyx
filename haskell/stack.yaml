@@ -6,6 +6,8 @@ packages:
   extra-dep: true
 - location: kakasi/
   extra-dep: true
+- location: gamecube-dsp/
+  extra-dep: true
 - location:
     git: git://github.com/mtolly/midi
     commit: 28866f4715cde594d8d8ec5e6f3beecb64783614
