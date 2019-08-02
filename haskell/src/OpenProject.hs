@@ -165,6 +165,7 @@ findSongs fp' = inside ("searching: " <> fp') $ do
       foundDTXSet loc = do
         let dir = takeDirectory loc
         songs <- stackIO $ loadSet loc
+        -- TODO get the artist from the top found difficulty
         let eachSong i song = let
               index = guard (not $ null $ drop 1 songs) >> Just i
               in Importable

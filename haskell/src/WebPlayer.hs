@@ -382,6 +382,7 @@ processSix hopoThreshold tmap trk = makeDifficulties $ \diff -> let
 
 processDrums :: C.DrumMode -> U.TempoMap -> Maybe U.Beats -> D.DrumTrack U.Beats -> D.DrumTrack U.Beats -> Difficulties Drums U.Seconds
 processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
+  -- TODO if only 2x kicks charted, label difficulty as X+ instead of X
   has2x = all (not . D.nullDrums) [trk1x, trk2x] || any (not . RTB.null . D.drumKick2x) [trk1x, trk2x]
   trk = case (D.nullDrums trk1x, D.nullDrums trk2x, diff) of
     (True , _    , _      ) -> trk2x

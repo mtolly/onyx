@@ -15,6 +15,7 @@ import           Data.Char                        (toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
@@ -35,8 +36,9 @@ import           RockBand.Common                  (Difficulty (..),
                                                    pattern Wait)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
+import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropExtension, takeDirectory,
-                                                   takeExtension, (</>))
+                                                   takeExtension, (<.>), (</>))
 
 dtxConvertDrums, dtxConvertGuitar, dtxConvertBass
   :: DTX -> RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats)
@@ -88,7 +90,7 @@ dtxConvertGB getter setter dtx (RBFile.Song tmap mmap fixed) = let
   guitarToFive notes = mempty
     { fiveDifficulties = Map.singleton Expert $ emit5' $ RTB.flatten $ flip fmap notes $ \case
       [] -> [((Nothing, Strum), Nothing)]
-      xs -> [ ((Just x, Strum), Nothing) | x <- xs ]
+      xs -> [((Just x , Strum), Nothing) | x <- xs ]
     }
   in RBFile.Song tmap mmap $ setter fixed $ guitarToFive $ fmap fst $ getter dtx
 
@@ -100,7 +102,7 @@ dtxToAudio dtx fin dout = do
   let simpleAudio f overlap chips = if RTB.null chips
         then return Nothing
         else do
-          src <- stackIO $ getAudio overlap chips fin dtx
+          src <- getAudio overlap chips fin dtx
           writeAudio f [src]
       writeAudio f = \case
         []         -> return Nothing
@@ -112,7 +114,7 @@ dtxToAudio dtx fin dout = do
         chips = RTB.mapMaybe (\(l, chip) -> guard (elem l lanes) >> Just chip) $ dtx_Drums dtx
         in if RTB.null chips
           then return Nothing
-          else stackIO $ Just <$> getAudio False chips fin dtx
+          else Just <$> getAudio False chips fin dtx
       writeDrums f lanes = mapMaybeM drumSrc lanes >>= writeAudio f
   song   <- simpleAudio "song.wav" True $ dtx_BGM dtx
   kick   <- writeDrums "kick.wav" [[BassDrum, LeftBass]]
@@ -189,13 +191,17 @@ importSetDef setDefPath song dout = do
   let relToSet = maybe id (\sdp -> (takeDirectory sdp </>)) setDefPath
       fs = map (relToSet . T.unpack)
         $ mapMaybe ($ song) [setL5File, setL4File, setL3File, setL2File, setL1File]
-  diffs <- stackIO $ forM fs $ \f -> let
+  diffs <- fmap catMaybes $ forM fs $ \f -> let
     fmt = case map toLower $ takeExtension f of
       ".gda" -> FormatGDA
       _      -> FormatDTX
-    in do
-      dtx <- readDTXLines fmt <$> loadDTXLines f
-      return (f, dtx)
+    in stackIO (Dir.doesFileExist f) >>= \case
+      True -> stackIO $ do
+        dtx <- readDTXLines fmt <$> loadDTXLines f
+        return $ Just (f, dtx)
+      False -> do
+        warn $ "Couldn't find difficulty from set.def: " <> f
+        return Nothing
   (topDiffPath, topDiffDTX) <- case diffs of
     []    -> fatal "No difficulties found for song"
     d : _ -> return d
@@ -228,10 +234,25 @@ importSetDef setDefPath song dout = do
     $ maybe id dtxConvertGuitar topGuitarDiff
     $ maybe id dtxConvertBass topBassDiff
     $ dtxBaseMIDI topDiffDTX
+  art <- case (takeDirectory topDiffPath </>) <$> dtx_PREIMAGE topDiffDTX of
+    Nothing -> return Nothing
+    Just f  -> stackIO (Dir.doesFileExist f) >>= \case
+      False -> do
+        warn $ "Couldn't find preview image: " <> f
+        return Nothing
+      True -> do
+        let loc = "cover" <.> takeExtension f
+        stackIO $ Dir.copyFile f $ dout </> loc
+        return $ Just loc
   stackIO $ Y.encodeFile (dout </> "song.yml") $ toJSON $ addAudio SongYaml
     { _metadata = def
-      { _title        = Just $ setTitle song
+      { _title        = case setTitle song of
+        ""    -> dtx_TITLE topDiffDTX
+        title -> Just title
       , _artist       = dtx_ARTIST topDiffDTX
+      , _comments     = toList $ dtx_COMMENT topDiffDTX
+      , _genre        = dtx_GENRE topDiffDTX
+      , _fileAlbumArt = art
       }
     , _audio = HM.empty
     , _jammit = HM.empty

@@ -12,7 +12,7 @@ import           Control.Concurrent.MVar          (newEmptyMVar, tryPutMVar,
 import           Control.Monad                    (forM, forM_, guard, void)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource     (MonadResource, runResourceT)
-import           Control.Monad.Trans.StackTrace   (tempDir)
+import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import           Data.Binary.Get
 import qualified Data.ByteString                  as B
@@ -32,6 +32,7 @@ import qualified Data.Map                         as Map
 import           Data.Maybe
 import qualified Data.Text                        as T
 import qualified Data.Vector.Storable             as V
+import           DecodeText                       (decodeWithDefault)
 import           DTXMania.ShiftJIS                (decodeShiftJIS)
 import           DTXMania.XA                      (sourceXA)
 import           Numeric
@@ -39,15 +40,17 @@ import           OSFiles                          (fixFileCase)
 import qualified RockBand.Codec.Five              as Five
 import           RockBand.Common                  (pattern RNil, pattern Wait)
 import qualified Sound.MIDI.Util                  as U
+import qualified System.Directory                 as Dir
 import           System.FilePath
 import           System.IO
 import           Text.Read                        (readMaybe)
 
 loadDTXLines :: FilePath -> IO [(T.Text, T.Text)]
 loadDTXLines f = do
-  lns <- lines . decodeShiftJIS <$> B.readFile f
-  return $ flip mapMaybe lns $ \ln -> case ln of
-    '#' : rest -> case T.span isAlphaNum $ T.pack rest of
+  -- Shift-JIS is the usual encoding, but I've seen UTF-16 (with BOM) in the wild
+  lns <- T.lines . decodeWithDefault (T.pack . decodeShiftJIS) <$> B.readFile f
+  return $ flip mapMaybe lns $ \ln -> case T.uncons ln of
+    Just ('#', rest) -> case T.span isAlphaNum rest of
       (x, y) -> Just (T.strip x, T.strip $ T.takeWhile (/= ';') $ T.dropWhile (== ':') y)
     _ -> Nothing
 
@@ -58,6 +61,17 @@ type Chip = T.Text
 data DTX = DTX
   { dtx_TITLE         :: Maybe T.Text
   , dtx_ARTIST        :: Maybe T.Text
+  , dtx_PREIMAGE      :: Maybe FilePath
+  , dtx_COMMENT       :: Maybe T.Text
+  , dtx_GENRE         :: Maybe T.Text
+  , dtx_PREVIEW       :: Maybe FilePath
+  , dtx_STAGEFILE     :: Maybe FilePath
+  , dtx_DLEVEL        :: Maybe Int
+  , dtx_GLEVEL        :: Maybe Int
+  , dtx_BLEVEL        :: Maybe Int
+  , dtx_DLVDEC        :: Maybe Int
+  , dtx_GLVDEC        :: Maybe Int
+  , dtx_BLVDEC        :: Maybe Int
   , dtx_WAV           :: HM.HashMap Chip FilePath
   , dtx_VOLUME        :: HM.HashMap Chip Int
   , dtx_PAN           :: HM.HashMap Chip Int
@@ -74,7 +88,7 @@ data DTX = DTX
   } deriving (Show)
 
 textFloat :: (RealFrac a) => T.Text -> Maybe a
-textFloat = fmap fst . listToMaybe . readFloat . T.unpack
+textFloat = fmap fst . listToMaybe . readFloat . map (\case ',' -> '.'; c -> c) . T.unpack
 
 textHex :: (Eq a, Num a) => T.Text -> Maybe a
 textHex = fmap fst . listToMaybe . readHex . T.unpack
@@ -222,6 +236,17 @@ readDTXLines :: DTXFormat -> [(T.Text, T.Text)] -> DTX
 readDTXLines fmt lns = DTX
   { dtx_TITLE      = lookup "TITLE" lns
   , dtx_ARTIST     = lookup "ARTIST" lns
+  , dtx_PREIMAGE   = T.unpack <$> lookup "PREIMAGE" lns
+  , dtx_COMMENT    = lookup "COMMENT" lns
+  , dtx_GENRE      = lookup "GENRE" lns
+  , dtx_PREVIEW    = T.unpack <$> lookup "PREVIEW" lns
+  , dtx_STAGEFILE  = T.unpack <$> lookup "STAGEFILE" lns
+  , dtx_DLEVEL     = lookup "DLEVEL" lns >>= readMaybe . T.unpack
+  , dtx_GLEVEL     = lookup "GLEVEL" lns >>= readMaybe . T.unpack
+  , dtx_BLEVEL     = lookup "BLEVEL" lns >>= readMaybe . T.unpack
+  , dtx_DLVDEC     = lookup "DLVDEC" lns >>= readMaybe . T.unpack
+  , dtx_GLVDEC     = lookup "GLVDEC" lns >>= readMaybe . T.unpack
+  , dtx_BLVDEC     = lookup "BLVDEC" lns >>= readMaybe . T.unpack
   , dtx_WAV        = fmap T.unpack $ HM.fromList $ getReferences "WAV"
   , dtx_VOLUME     = HM.mapMaybe (readMaybe . T.unpack) $ HM.fromList $
     getReferences "VOLUME" ++ getReferences "WAVVOL"
@@ -317,21 +342,25 @@ readDTXLines fmt lns = DTX
       (chan, frets) <- mapping
       return $ (frets,) <$> getChannel chan
 
-getAudio :: (MonadResource m, MonadIO f) =>
-  Bool -> RTB.T U.Beats Chip -> FilePath -> DTX -> f (AudioSource m Float)
-getAudio overlap chips dtxPath dtx = liftIO $ do
+getAudio :: (MonadResource m, MonadIO f, SendMessage f) =>
+  Bool -> RTB.T U.Beats Chip -> FilePath -> DTX -> StackTraceT f (AudioSource m Float)
+getAudio overlap chips dtxPath dtx = do
   let usedChips = nubOrd $ RTB.getBodies chips
       wavs = HM.filterWithKey (\k _ -> elem k usedChips) $ dtx_WAV dtx
-  srcs <- forM wavs $ \fp -> do
+  srcs <- fmap (HM.mapMaybe id) $ forM wavs $ \fp -> do
     fp' <- fixFileCase $ takeDirectory dtxPath </> map (\case '¥' -> '/'; '\\' -> '/'; c -> c) fp
     -- ¥ is the backslash when Shift-JIS decoded
-    case map toLower $ takeExtension fp' of
-      ".mp3" -> sourceMpg fp'
-      ".xa"  -> mapSamples fractionalSample <$> sourceXA fp'
-      ".wav" -> sourceCompressedWAV fp'
-      _      -> sourceSnd fp'
+    stackIO (Dir.doesFileExist fp') >>= \case
+      False -> do
+        warn $ "Couldn't find audio file at: " <> fp'
+        return Nothing
+      True -> stackIO $ Just <$> case map toLower $ takeExtension fp' of
+        ".mp3" -> sourceMpg fp'
+        ".xa"  -> mapSamples fractionalSample <$> sourceXA fp'
+        ".wav" -> sourceCompressedWAV fp'
+        _      -> sourceSnd fp'
   cachedSrcs <- forM srcs $ \src -> if fromIntegral (frames src) < rate src * 5
-    then cacheAudio src
+    then stackIO $ cacheAudio src
     else return src
   let outOf100 n = realToFrac n / 100
       r = 44100

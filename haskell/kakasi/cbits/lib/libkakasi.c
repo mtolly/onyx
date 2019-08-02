@@ -350,7 +350,9 @@ kakasi_getopt_argv(argc, argv)
     romaji_type = HEPBURN;
     heiki_mode = 0;
     bunkatu_mode = 0;
+#ifdef EACH_YOMI
     eachyomi_mode = 0; // MT: added this, was missing!
+#endif
     furigana_mode = 0;
     cr_eat_mode = 0;
     romaji_capitalize = 0;
