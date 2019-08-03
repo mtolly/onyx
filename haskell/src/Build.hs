@@ -1512,7 +1512,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     lg "# Producing RB2 CON file via X360"
                     mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ rb2pkg
                       (getArtist (_metadata songYaml) <> ": " <> targetTitle songYaml (RB2 rb2))
-                      "Compiled by Onyx Music Game Toolkit"
+                      (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
                       (dir </> "rb2")
                       out
 

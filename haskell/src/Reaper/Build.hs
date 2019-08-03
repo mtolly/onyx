@@ -18,10 +18,10 @@ import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (toLower)
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
-import           Data.List                             (find, findIndex,
+import           Data.List.Extra                       (find, findIndex,
                                                         isInfixOf, isSuffixOf,
-                                                        nub, sortOn)
-import           Data.Maybe                            (fromMaybe, listToMaybe)
+                                                        nubOrd, sortOn, unsnoc)
+import           Data.Maybe                            (fromMaybe)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
 import           Data.Time                             (defaultTimeLocale,
@@ -75,12 +75,13 @@ processTempoTrack = go 500000 . RTB.collectCoincident where
   go tempo rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
     Just ((dt, evts), rtb') -> let
-      newTempo = listToMaybe [ t          | E.MetaEvent (Meta.SetTempo t     ) <- evts ]
-      newSig   = listToMaybe [ (n, 2 ^ d) | E.MetaEvent (Meta.TimeSig n d _ _) <- evts ]
+      lastMaybe = fmap snd . unsnoc
+      newTempo  = lastMaybe [ t          | E.MetaEvent (Meta.SetTempo t     ) <- evts ]
+      newSig    = lastMaybe [ (n, 2 ^ d) | E.MetaEvent (Meta.TimeSig n d _ _) <- evts ]
       in case (newTempo, newSig) of
-        (Nothing, Nothing)  -> RTB.delay dt $ go tempo rtb'
-        (Just tempo', _)    -> RTB.cons dt (tempo', newSig) $ go tempo' rtb'
-        (Nothing, Just sig) -> RTB.cons dt (tempo, Just sig) $ go tempo rtb'
+        (Nothing    , Nothing ) -> RTB.delay dt $ go tempo rtb'
+        (Just tempo', _       ) -> RTB.cons dt (tempo', newSig) $ go tempo' rtb'
+        (Nothing    , Just sig) -> RTB.cons dt (tempo, Just sig) $ go tempo rtb'
 
 tempoTrack :: (Monad m) =>
   ATB.T U.Seconds (Meta.Tempo, Maybe (Int, Int)) -> WriterT [Element] m ()
@@ -1080,7 +1081,7 @@ makeReaperIO tunings evts tempo audios out = liftIO $ do
         Element _ _ Nothing -> []
         Element _ _ (Just sub) -> concatMap findColorMaps sub
   writeRPP out project
-  forM_ (nub $ findColorMaps project) $ \cmap -> case cmap of
+  forM_ (nubOrd $ findColorMaps project) $ \cmap -> case cmap of
     "colormap_drums.png" -> B.writeFile (takeDirectory out </> cmap) colorMapDrums
     "colormap_grybo.png" -> B.writeFile (takeDirectory out </> cmap) colorMapGRYBO
     "colormap_ghl.png"   -> B.writeFile (takeDirectory out </> cmap) colorMapGHL

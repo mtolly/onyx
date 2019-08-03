@@ -129,7 +129,7 @@ readC3Comments t = let
     | elem (";" <> s <> "=1") dtaLines = Just True
     | otherwise                        = Nothing
   in C3DTAComments
-    { c3dtaCreatedUsing = Just "Onyx Music Game Toolkit"
+    { c3dtaCreatedUsing = listToMaybe $ mapMaybe (T.stripPrefix ";Created using ") dtaLines
     , c3dtaAuthoredBy = listToMaybe $ mapMaybe (T.stripPrefix ";Song authored by ") dtaLines
     , c3dtaSong = listToMaybe $ mapMaybe (T.stripPrefix ";Song=") dtaLines
     , c3dtaLanguages
