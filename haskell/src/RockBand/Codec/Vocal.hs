@@ -9,6 +9,7 @@ module RockBand.Codec.Vocal where
 
 import           Control.Monad                    ((>=>))
 import           Control.Monad.Codec
+import           Data.Char                        (isAscii)
 import           Data.DTA.Serialize.Magma         (Percussion (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (fromMaybe)
@@ -106,14 +107,14 @@ instance ParseTrack VocalTrack where
 asciify :: T.Text -> T.Text
 asciify = let
   oneToOne = zip
-    "ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝàáâãäåçèéêëìíîïðñòóôõö÷øùúûüýÿ"
-    "AAAAAACEEEEIIIIDNOOOOOxOUUUUYaaaaaaceeeeiiiidnooooo/ouuuuyy"
+    "ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝŸàáâãäåçèéêëìíîïðñòóôõö÷øùúûüýÿ"
+    "AAAAAACEEEEIIIIDNOOOOOxOUUUUYYaaaaaaceeeeiiiidnooooo/ouuuuyy"
   f 'Æ' = "AE"
   f 'Þ' = "Th"
   f 'ß' = "ss"
   f 'æ' = "ae"
   f 'þ' = "th"
-  f c   = T.singleton $ fromMaybe c $ lookup c oneToOne
+  f c   = T.singleton $ fromMaybe (if isAscii c then c else '?') $ lookup c oneToOne
   in T.concatMap f
 
 -- | Phase Shift doesn't support non-ASCII chars in lyrics.

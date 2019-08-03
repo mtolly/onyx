@@ -24,7 +24,8 @@ import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64.Lazy           as B64
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (isAscii, isControl,
-                                                        isSpace, toUpper)
+                                                        isLatin1, isSpace,
+                                                        toUpper)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
@@ -449,18 +450,35 @@ replaceCharsRB rbproj txt = liftIO $ let
   isJapanese c = let
     point = fromEnum c
     in any (\(pmin, pmax) -> pmin <= point && point <= pmax) jpnRanges
+  nonBreakingSpace = '\8203'
   in if T.any isJapanese txt
     then do
       rom <- kakasi (words "-Ha -Ka -Ja -Ea -ka -s") $ T.unpack txt
       let capital ""       = ""
           capital (s : ss) = toUpper s : ss
       return $ T.pack $ unwords $ map capital $ words rom
-    else return $ flip T.map txt $ \case
+    else return $ flip T.map (T.filter (/= nonBreakingSpace) txt) $ \case
       'ÿ' | rbproj -> 'y'
       'Ÿ' | rbproj -> 'Y'
       '–' -> '-' -- en dash
       '—' -> '-' -- em dash
-      c   -> c
+      -- random chars from a Eximperituserqethhzebibšiptugakkathšulweliarzaxułum song
+      -- TODO fill this out more
+      'ł' -> 'l'
+      'ź' -> 'z'
+      'š' -> 's'
+      'č' -> 'c'
+      'ę' -> 'e'
+      'ń' -> 'n'
+      'Ŭ' -> 'U'
+      'ś' -> 's'
+      'ć' -> 'c'
+      'ĺ' -> 'l'
+      'Ž' -> 'Z'
+      'Š' -> 'S'
+      'ī' -> 'i'
+      'ŭ' -> 'u'
+      c   -> if isLatin1 c || c == 'Ÿ' || c == 'ÿ' then c else '?'
 
 -- Magma RBProj rules
 makeMagmaProj :: SongYaml -> TargetRB3 -> Plan -> T.Text -> FilePath -> Action T.Text -> Staction Magma.RBProj
@@ -513,13 +531,16 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
       { Magma.toolVersion = "110411_A"
       , Magma.projectVersion = 24
       , Magma.metadata = Magma.Metadata
-        { Magma.songName = songName
+        -- "song_name: This field must be less than 100 characters."
+        -- also, can't begin or end with whitespace
+        { Magma.songName = T.strip $ T.take 99 songName
         -- "artist_name: This field must be less than 75 characters."
-        , Magma.artistName = T.take 74 artistName
+        , Magma.artistName = T.strip $ T.take 74 artistName
         , Magma.genre = rbn2Genre fullGenre
         , Magma.subGenre = "subgenre_" <> rbn2Subgenre fullGenre
         , Magma.yearReleased = fromIntegral $ max 1960 $ getYear $ _metadata songYaml
-        , Magma.albumName = albumName
+        -- "album_name: This field must be less than 75 characters."
+        , Magma.albumName = T.strip $ T.take 74 albumName
         , Magma.author = getAuthor $ _metadata songYaml
         , Magma.releaseLabel = "Onyxite Customs"
         , Magma.country = "ugc_country_us"
