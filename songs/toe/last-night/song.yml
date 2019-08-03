@@ -40,6 +40,8 @@ parts:
       difficulty: 4
     pro-keys:
       difficulty: 4
+  global:
+    melody: {}
 targets:
   rb3:
     game: rb3
@@ -47,3 +49,5 @@ targets:
     version: 1
   ps:
     game: ps
+  melody:
+    game: melody

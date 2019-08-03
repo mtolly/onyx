@@ -755,6 +755,38 @@ instance StackJSON Amp.Instrument where
     Amp.Vocal  -> "vocal"
     Amp.Guitar -> "guitar"
 
+data PartMelody = PartMelody
+  deriving (Eq, Ord, Show, Read)
+
+instance StackJSON PartMelody where
+  stackJSON = asStrictObject "PartMelody" $ do
+    return PartMelody
+
+data PartKonga = PartKonga
+  { dkMode1E :: Maybe Int
+  , dkMode1H :: Maybe Int
+  , dkMode1X :: Maybe Int
+  , dkMode2E :: Maybe Int
+  , dkMode2H :: Maybe Int
+  , dkMode2X :: Maybe Int
+  , dkMode4  :: Maybe Int
+  , dkModeB  :: Maybe Int
+  , dkModeC  :: Maybe Int
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackJSON PartKonga where
+  stackJSON = asStrictObject "PartKonga" $ do
+    dkMode1E <- dkMode1E =. opt Nothing "mode-1E" stackJSON
+    dkMode1H <- dkMode1H =. opt Nothing "mode-1H" stackJSON
+    dkMode1X <- dkMode1X =. opt Nothing "mode-1X" stackJSON
+    dkMode2E <- dkMode2E =. opt Nothing "mode-2E" stackJSON
+    dkMode2H <- dkMode2H =. opt Nothing "mode-2H" stackJSON
+    dkMode2X <- dkMode2X =. opt Nothing "mode-2X" stackJSON
+    dkMode4  <- dkMode4  =. opt Nothing "mode-4"  stackJSON
+    dkModeB  <- dkModeB  =. opt Nothing "mode-B"  stackJSON
+    dkModeC  <- dkModeC  =. opt Nothing "mode-C"  stackJSON
+    return PartKonga{..}
+
 data Part = Part
   { partGRYBO     :: Maybe PartGRYBO
   , partGHL       :: Maybe PartGHL
@@ -763,6 +795,8 @@ data Part = Part
   , partDrums     :: Maybe PartDrums
   , partVocal     :: Maybe PartVocal
   , partAmplitude :: Maybe PartAmplitude
+  , partMelody    :: Maybe PartMelody
+  , partKonga     :: Maybe PartKonga
   } deriving (Eq, Ord, Show, Read)
 
 instance StackJSON Part where
@@ -774,6 +808,8 @@ instance StackJSON Part where
     partDrums     <- partDrums     =. opt Nothing "drums"      stackJSON
     partVocal     <- partVocal     =. opt Nothing "vocal"      stackJSON
     partAmplitude <- partAmplitude =. opt Nothing "amplitude"  stackJSON
+    partMelody    <- partMelody    =. opt Nothing "melody"     stackJSON
+    partKonga     <- partKonga     =. opt Nothing "konga"      stackJSON
     return Part{..}
 
 instance Default Part where
@@ -1089,11 +1125,30 @@ instance StackJSON TargetGH2 where
 instance Default TargetGH2 where
   def = fromEmptyObject
 
+data TargetPart = TargetPart
+  { tgt_Common :: TargetCommon
+  , tgt_Part   :: FlexPartName
+  } deriving (Eq, Ord, Show, Generic, Hashable)
+
+parseTargetPart :: (SendMessage m) => ObjectCodec m A.Value TargetPart
+parseTargetPart = do
+  tgt_Common <- tgt_Common =. parseTargetCommon
+  tgt_Part   <- tgt_Part   =. opt (FlexExtra "global") "part" stackJSON
+  return TargetPart{..}
+
+instance StackJSON TargetPart where
+  stackJSON = asStrictObject "TargetPart" parseTargetPart
+
+instance Default TargetPart where
+  def = fromEmptyObject
+
 data Target
-  = RB3 TargetRB3
-  | RB2 TargetRB2
-  | PS  TargetPS
-  | GH2 TargetGH2
+  = RB3    TargetRB3
+  | RB2    TargetRB2
+  | PS     TargetPS
+  | GH2    TargetGH2
+  | Melody TargetPart
+  | Konga  TargetPart
   deriving (Eq, Ord, Show, Generic, Hashable)
 
 addKey :: (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
@@ -1105,16 +1160,20 @@ instance StackJSON Target where
       target <- requiredKey "game" fromJSON
       hm <- lift ask
       parseFrom (A.Object $ Map.delete "game" hm) $ case target :: T.Text of
-        "rb3" -> fmap RB3 fromJSON
-        "rb2" -> fmap RB2 fromJSON
-        "ps"  -> fmap PS  fromJSON
-        "gh2" -> fmap GH2 fromJSON
-        _     -> fatal $ "Unrecognized target game: " ++ show target
+        "rb3"    -> fmap RB3    fromJSON
+        "rb2"    -> fmap RB2    fromJSON
+        "ps"     -> fmap PS     fromJSON
+        "gh2"    -> fmap GH2    fromJSON
+        "melody" -> fmap Melody fromJSON
+        "konga"  -> fmap Konga  fromJSON
+        _        -> fatal $ "Unrecognized target game: " ++ show target
     , codecOut = makeOut $ \case
-      RB3 rb3 -> addKey parseTargetRB3 "game" "rb3" rb3
-      RB2 rb2 -> addKey parseTargetRB2 "game" "rb2" rb2
-      PS  ps  -> addKey parseTargetPS  "game" "ps"  ps
-      GH2 gh2 -> addKey parseTargetGH2 "game" "gh2" gh2
+      RB3    rb3 -> addKey parseTargetRB3  "game" "rb3"    rb3
+      RB2    rb2 -> addKey parseTargetRB2  "game" "rb2"    rb2
+      PS     ps  -> addKey parseTargetPS   "game" "ps"     ps
+      GH2    gh2 -> addKey parseTargetGH2  "game" "gh2"    gh2
+      Melody tgt -> addKey parseTargetPart "game" "melody" tgt
+      Konga  tgt -> addKey parseTargetPart "game" "konga"  tgt
     }
 
 data SongYaml = SongYaml

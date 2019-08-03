@@ -255,35 +255,31 @@ track tunings lenTicks lenSecs resn trk = let
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
     line "FX" [if fxActive then "1" else "0"]
-    hasNoteNames <- case find (\(sfx, _) -> sfx `isSuffixOf` name)
-      [ ("PART DRUMS", drumNoteNames)
-      , ("PART DRUMS_2X", drumNoteNames)
-      , ("PART REAL_DRUMS_PS", drumNoteNames)
-      , ("PART GUITAR", gryboNoteNames False)
-      , ("PART BASS", gryboNoteNames False)
-      , ("T1 GEMS", gryboNoteNames False)
-      , ("PART RHYTHM", gryboNoteNames False)
-      , ("PART GUITAR COOP", gryboNoteNames False)
-      , ("PART KEYS", gryboNoteNames True)
-      , ("PART GUITAR GHL", ghlNoteNames)
-      , ("PART BASS GHL", ghlNoteNames)
-      , ("PART REAL_KEYS_X", proKeysNoteNames)
-      , ("PART REAL_KEYS_H", proKeysNoteNames)
-      , ("PART REAL_KEYS_M", proKeysNoteNames)
-      , ("PART REAL_KEYS_E", proKeysNoteNames)
-      , ("BEAT", [(13, "Up Beats"), (12, "Downbeat")])
-      , ("PART VOCALS", vocalNoteNames)
-      , ("HARM1", vocalNoteNames)
-      , ("HARM2", vocalNoteNames)
-      , ("HARM3", vocalNoteNames)
-      , ("PART REAL_GUITAR", proGuitarNoteNames)
-      , ("PART REAL_GUITAR_22", proGuitarNoteNames)
-      , ("PART REAL_BASS", proGuitarNoteNames)
-      , ("PART REAL_BASS_22", proGuitarNoteNames)
-      , ("MELODY'S ESCAPE", melodyNoteNames)
-      , ("LIGHTING", venuegenLightingNames)
-      , ("CAMERA", venuegenCameraNames)
-      , ("VENUE", venueNoteNames)
+    hasNoteNames <- case find (($ name) . fst)
+      [ (("PART DRUMS" `isSuffixOf`), drumNoteNames)
+      , (("PART DRUMS_2X" `isSuffixOf`), drumNoteNames)
+      , (("PART REAL_DRUMS_PS" `isSuffixOf`), drumNoteNames)
+      , (("PART GUITAR" `isSuffixOf`), gryboNoteNames False)
+      , (("PART BASS" `isSuffixOf`), gryboNoteNames False)
+      , (("T1 GEMS" `isSuffixOf`), gryboNoteNames False)
+      , (("PART RHYTHM" `isSuffixOf`), gryboNoteNames False)
+      , (("PART GUITAR COOP" `isSuffixOf`), gryboNoteNames False)
+      , (("PART KEYS" `isSuffixOf`), gryboNoteNames True)
+      , (("PART GUITAR GHL" `isSuffixOf`), ghlNoteNames)
+      , (("PART BASS GHL" `isSuffixOf`), ghlNoteNames)
+      , (("PART REAL_KEYS" `isInfixOf`), proKeysNoteNames)
+      , (("BEAT" `isSuffixOf`), [(13, "Up Beats"), (12, "Downbeat")])
+      , (("PART VOCALS" `isSuffixOf`), vocalNoteNames)
+      , (("HARM1" `isSuffixOf`), vocalNoteNames)
+      , (("HARM2" `isSuffixOf`), vocalNoteNames)
+      , (("HARM3" `isSuffixOf`), vocalNoteNames)
+      , (("PART REAL_GUITAR" `isInfixOf`), proGuitarNoteNames)
+      , (("PART REAL_BASS" `isInfixOf`), proGuitarNoteNames)
+      , (("MELODY'S ESCAPE" `isSuffixOf`), melodyNoteNames)
+      , (("DONKEY KONGA" `isInfixOf`), dkongaNoteNames)
+      , (("LIGHTING" `isSuffixOf`), venuegenLightingNames)
+      , (("CAMERA" `isSuffixOf`), venuegenCameraNames)
+      , (("VENUE" `isSuffixOf`), venueNoteNames)
       ] of
       Nothing -> return False
       Just (_, names) -> do
@@ -995,6 +991,14 @@ melodyNoteNames = execWriter $ do
   o 60 "Obstacle DOWN"
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
+
+dkongaNoteNames :: [(Int, String)]
+dkongaNoteNames = execWriter $ do
+  -- These are actually General MIDI percussion!
+  o 64 "RED" -- "Low Conga"
+  o 63 "YELLOW" -- "Open Hi Conga"
+  o 39 "CLAP" -- "Hand Clap"
+  where o k v = tell [(k, v)]
 
 sortTracks :: (NNC.C t) => [RTB.T t E.T] -> [RTB.T t E.T]
 sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`isSuffixOf` name)

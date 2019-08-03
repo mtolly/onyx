@@ -120,10 +120,12 @@ import           YAMLTree
 targetTitle :: SongYaml -> Target -> T.Text
 targetTitle songYaml target = let
   common = case target of
-    RB3 TargetRB3{..} -> rb3_Common
-    RB2 TargetRB2{..} -> rb2_Common
-    PS  TargetPS {..} -> ps_Common
-    GH2 TargetGH2{..} -> gh2_Common
+    RB3    TargetRB3 {..} -> rb3_Common
+    RB2    TargetRB2 {..} -> rb2_Common
+    PS     TargetPS  {..} -> ps_Common
+    GH2    TargetGH2 {..} -> gh2_Common
+    Melody TargetPart{..} -> tgt_Common
+    Konga  TargetPart{..} -> tgt_Common
   base = fromMaybe (getTitle $ _metadata songYaml) $ tgt_Title common
   segments = base : case target of
     RB3 TargetRB3{..} -> makeLabel []                               rb3_2xBassPedal
@@ -1784,6 +1786,47 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               z <- stackIO $ Zip.addFilesToArchive [Zip.OptLocation folderInZip False] Zip.emptyArchive files
               stackIO $ BL.writeFile out $ Zip.fromArchive z
 
+          Melody tgt -> do
+
+            (planName, _) <- case getPlan (tgt_Plan $ tgt_Common tgt) songYaml of
+              Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show tgt
+              Just pair -> return pair
+            let planDir = rel $ "gen/plan" </> T.unpack planName
+                midraw = planDir </> "raw.mid"
+
+            -- Melody's Escape customs
+            let melodyAudio = dir </> "melody/audio.ogg"
+                melodyChart = dir </> "melody/song.track"
+            -- TODO support audio speed
+            melodyAudio %> shk . copyFile' (planDir </> "everything.ogg")
+            melodyChart %> \out -> do
+              shk $ need [midraw, melodyAudio]
+              mid <- shakeMIDI midraw
+              melody <- liftIO
+                $ Melody.randomNotes
+                $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid)
+                $ maybe mempty RBFile.onyxMelody
+                $ Map.lookup (tgt_Part tgt)
+                $ RBFile.onyxParts
+                $ RBFile.s_tracks mid
+              info <- liftIO $ Snd.getFileInfo melodyAudio
+              let secs = realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info) :: U.Seconds
+                  str = unlines
+                    [ "1.02"
+                    , intercalate ";"
+                      [ show (Melody.secondsToTicks secs)
+                      , show (realToFrac secs :: Centi)
+                      , "420"
+                      , "4"
+                      ]
+                    , Melody.writeTransitions melody
+                    , Melody.writeNotes melody
+                    ]
+              liftIO $ writeFile out str
+            phony (dir </> "melody") $ shk $ need [melodyAudio, melodyChart]
+
+          Konga _ -> return () -- TODO
+
       forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
 
         let dir = rel $ "gen/plan" </> T.unpack planName
@@ -1949,34 +1992,6 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
         -- Print out a summary of (non-vocal) overdrive and unison phrases
         phony (dir </> "overdrive") $ printOverdrive midprocessed
-
-        -- Melody's Escape customs
-        let melodyAudio = dir </> "melody/audio.ogg"
-            melodyChart = dir </> "melody/song.track"
-        melodyAudio %> shk . copyFile' (dir </> "everything.ogg")
-        melodyChart %> \out -> do
-          shk $ need [midraw, melodyAudio]
-          mid <- shakeMIDI midraw
-          melody <- liftIO
-            $ Melody.randomNotes
-            $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid)
-            $ RBFile.onyxMelody
-            $ RBFile.s_tracks mid
-          info <- liftIO $ Snd.getFileInfo melodyAudio
-          let secs = realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info) :: U.Seconds
-              str = unlines
-                [ "1.02"
-                , intercalate ";"
-                  [ show (Melody.secondsToTicks secs)
-                  , show (realToFrac secs :: Centi)
-                  , "420"
-                  , "4"
-                  ]
-                , Melody.writeTransitions melody
-                , Melody.writeNotes melody
-                ]
-          liftIO $ writeFile out str
-        phony (dir </> "melody") $ shk $ need [melodyAudio, melodyChart]
 
         {-
           -- Check for some extra problems that Magma doesn't catch.

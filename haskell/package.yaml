@@ -104,6 +104,7 @@ library:
   - JuicyPixels-stbir
   - ArkTool
   - kakasi
+  - gamecube-dsp
 
   ghc-options: -O
   build-tools:

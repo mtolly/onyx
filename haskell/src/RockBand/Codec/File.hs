@@ -212,7 +212,6 @@ data OnyxFile t = OnyxFile
   , onyxVenue    :: VenueTrack t
   , onyxLighting :: LightingTrack t
   , onyxCamera   :: CameraTrack t
-  , onyxMelody   :: MelodyTrack t
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxFile t)
 
@@ -221,12 +220,12 @@ instance HasEvents OnyxFile where
 
 instance TraverseTrack OnyxFile where
   traverseTrack fn
-    (OnyxFile a b c d e f g)
+    (OnyxFile a b c d e f)
     = OnyxFile
       <$> traverse (traverseTrack fn) a
       <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e
-      <*> traverseTrack fn f <*> traverseTrack fn g
+      <*> traverseTrack fn f
 
 data OnyxPart t = OnyxPart
   { onyxPartDrums        :: DrumTrack t
@@ -251,12 +250,13 @@ data OnyxPart t = OnyxPart
   , onyxLipsync1         :: LipsyncTrack t
   , onyxLipsync2         :: LipsyncTrack t
   , onyxLipsync3         :: LipsyncTrack t
+  , onyxMelody           :: MelodyTrack t
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxPart t)
 
 instance TraverseTrack OnyxPart where
   traverseTrack fn
-    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v)
+    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w)
     = OnyxPart
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -265,7 +265,7 @@ instance TraverseTrack OnyxPart where
       <*> traverseTrack fn m <*> traverseTrack fn n <*> traverseTrack fn o
       <*> traverseTrack fn p <*> traverseTrack fn q <*> traverseTrack fn r
       <*> traverseTrack fn s <*> traverseTrack fn t <*> traverseTrack fn u
-      <*> traverseTrack fn v
+      <*> traverseTrack fn v <*> traverseTrack fn w
 
 getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
 getFlexPart part = fromMaybe mempty . Map.lookup part . onyxParts
@@ -283,6 +283,8 @@ identifyFlexTrack name = case stripPrefix "[" name of
     | "KEYS"        `isInfixOf` name -> Just FlexKeys
     | "VOCAL"       `isInfixOf` name -> Just FlexVocal
     | "HARM"        `isInfixOf` name -> Just FlexVocal
+    | "MELODY"      `isInfixOf` name -> Just $ FlexExtra "global"
+    | "KONGA"       `isInfixOf` name -> Just $ FlexExtra "global"
     | otherwise                      -> Nothing
 
 parseOnyxPart :: (SendMessage m) => FlexPartName -> FileCodec m U.Beats (OnyxPart U.Beats)
@@ -321,6 +323,7 @@ parseOnyxPart partName = do
   onyxHarm2            <- onyxHarm2            =. names (FlexVocal, "HARM2") []
   onyxHarm3            <- onyxHarm3            =. names (FlexVocal, "HARM3") []
   onyxCatch            <- onyxCatch            =. names (FlexExtra "undefined", "CATCH") []
+  onyxMelody           <- onyxMelody           =. names (FlexExtra "global", "MELODY'S ESCAPE") []
   onyxLipsync1         <- onyxLipsync1         =. names (FlexVocal, "LIPSYNC1") []
   onyxLipsync2         <- onyxLipsync2         =. names (FlexVocal, "LIPSYNC2") []
   onyxLipsync3         <- onyxLipsync3         =. names (FlexVocal, "LIPSYNC3") []
@@ -344,7 +347,6 @@ instance ParseFile OnyxFile where
     onyxVenue    <- onyxVenue    =. fileTrack "VENUE"           []
     onyxLighting <- onyxLighting =. fileTrack "LIGHTING"        []
     onyxCamera   <- onyxCamera   =. fileTrack "CAMERA"          []
-    onyxMelody   <- onyxMelody   =. fileTrack "MELODY'S ESCAPE" []
     return OnyxFile{..}
 
 newtype RawFile t = RawFile { rawTracks :: [RTB.T t E.T] }
