@@ -27,10 +27,10 @@ import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
 import qualified Data.Text.Encoding                as TE
 import           Data.Version                      (showVersion)
-import           DecodeText                        (decodeGeneral)
 import           JSONData                          (makeValue)
 import           Paths_onyxite_customs_tool        (version)
 import           Resources                         (missingSongData)
+import           Text.Decode                       (decodeGeneral)
 
 writeUtf8CRLF :: (MonadIO m) => FilePath -> T.Text -> m ()
 writeUtf8CRLF fp = liftIO . B.writeFile fp . TE.encodeUtf8

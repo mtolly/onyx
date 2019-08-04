@@ -46,7 +46,6 @@ import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Data.Tuple.Extra                 (fst3, snd3, thd3)
 import qualified Data.Yaml                        as Y
-import           DecodeText                       (decodeGeneral)
 import           Difficulty
 import qualified FeedBack.Load                    as FB
 import qualified FretsOnFire                      as FoF
@@ -81,6 +80,7 @@ import qualified Sound.MIDI.Util                  as U
 import           STFS.Package                     (extractSTFS)
 import qualified System.Directory                 as Dir
 import           System.FilePath
+import           Text.Decode                      (decodeGeneral)
 import           Text.Read                        (readMaybe)
 import           X360DotNet                       (rb3pkg)
 

@@ -15,7 +15,7 @@ import           Data.List                      (stripPrefix)
 import           Data.Maybe                     (mapMaybe)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
-import           DecodeText                     (decodeGeneral)
+import           Text.Decode                    (decodeGeneral)
 import           Text.Read                      (readMaybe)
 
 data Song = Song

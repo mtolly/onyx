@@ -24,7 +24,6 @@ import           Data.Maybe                       (fromMaybe)
 import           Data.Monoid                      (mconcat, (<>))
 import qualified Data.Text                        as T
 import           Data.Traversable                 (forM)
-import           DecodeText                       (decodeGeneral)
 import           FeedBack.Base
 import           FeedBack.Parse                   (parseStack)
 import           FeedBack.Scan                    (scanStack)
@@ -41,6 +40,7 @@ import           RockBand.Codec.Vocal
 import           RockBand.Common
 import           RockBand.Sections                (makeRB2Section)
 import qualified Sound.MIDI.Util                  as U
+import           Text.Decode                      (decodeGeneral)
 import           Text.Read                        (readMaybe)
 
 atomStr :: Atom -> T.Text

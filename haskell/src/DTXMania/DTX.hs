@@ -32,7 +32,6 @@ import qualified Data.Map                         as Map
 import           Data.Maybe
 import qualified Data.Text                        as T
 import qualified Data.Vector.Storable             as V
-import           DecodeText                       (decodeWithDefault)
 import           DTXMania.ShiftJIS                (decodeShiftJIS)
 import           DTXMania.XA                      (sourceXA)
 import           Numeric
@@ -43,6 +42,7 @@ import qualified Sound.MIDI.Util                  as U
 import qualified System.Directory                 as Dir
 import           System.FilePath
 import           System.IO
+import           Text.Decode                      (decodeWithDefault)
 import           Text.Read                        (readMaybe)
 
 loadDTXLines :: FilePath -> IO [(T.Text, T.Text)]

@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module DecodeText (decodeWithDefault, decodeGeneral, removeBOM) where
+module Text.Decode (decodeWithDefault, decodeGeneral, removeBOM) where
 
 import           Control.Applicative      ((<|>))
 import qualified Data.ByteString          as B

@@ -24,8 +24,7 @@ import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64.Lazy           as B64
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (isAscii, isControl,
-                                                        isLatin1, isSpace,
-                                                        toUpper)
+                                                        isSpace)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
@@ -58,7 +57,6 @@ import           Difficulty
 import           DryVox                                (clipDryVox,
                                                         toDryVoxFormat,
                                                         vocalTubes)
-import           DTXMania.ShiftJIS                     (kakasi)
 import qualified FretsOnFire                           as FoF
 import           Genre
 import           GuitarHeroII.Audio                    (writeVGS)
@@ -113,6 +111,7 @@ import           System.Environment.Executable         (getExecutablePath)
 import           System.IO                             (IOMode (ReadMode),
                                                         hFileSize,
                                                         withBinaryFile)
+import           Text.Transform                        (replaceCharsRB)
 import           WebPlayer                             (makeDisplay)
 import           X360DotNet
 import           YAMLTree
@@ -441,46 +440,6 @@ makeC3 songYaml plan rb3 midi pkg = do
     , C3.uniqueNumericID2X = "" -- will use later if we ever create combined 1x/2x C3 Magma projects
     , C3.toDoList = C3.defaultToDo
     }
-
-replaceCharsRB :: (MonadIO m) => Bool -> T.Text -> m T.Text
-replaceCharsRB rbproj txt = liftIO $ let
-  jpnRanges =
-    [ (0x3000, 0x30ff) -- Japanese-style punctuation, Hiragana, Katakana
-    , (0xff00, 0xffef) -- Full-width roman characters and half-width katakana
-    , (0x4e00, 0x9faf) -- CJK unifed ideographs - Common and uncommon kanji
-    ]
-  isJapanese c = let
-    point = fromEnum c
-    in any (\(pmin, pmax) -> pmin <= point && point <= pmax) jpnRanges
-  nonBreakingSpace = '\8203'
-  in if T.any isJapanese txt
-    then do
-      rom <- kakasi (words "-Ha -Ka -Ja -Ea -ka -s") $ T.unpack txt
-      let capital ""       = ""
-          capital (s : ss) = toUpper s : ss
-      return $ T.pack $ unwords $ map capital $ words rom
-    else return $ flip T.map (T.filter (/= nonBreakingSpace) txt) $ \case
-      'ÿ' | rbproj -> 'y'
-      'Ÿ' | rbproj -> 'Y'
-      '–' -> '-' -- en dash
-      '—' -> '-' -- em dash
-      -- random chars from a Eximperituserqethhzebibšiptugakkathšulweliarzaxułum song
-      -- TODO fill this out more
-      'ł' -> 'l'
-      'ź' -> 'z'
-      'š' -> 's'
-      'č' -> 'c'
-      'ę' -> 'e'
-      'ń' -> 'n'
-      'Ŭ' -> 'U'
-      'ś' -> 's'
-      'ć' -> 'c'
-      'ĺ' -> 'l'
-      'Ž' -> 'Z'
-      'Š' -> 'S'
-      'ī' -> 'i'
-      'ŭ' -> 'u'
-      c   -> if isLatin1 c || c == 'Ÿ' || c == 'ÿ' then c else '?'
 
 -- Magma RBProj rules
 makeMagmaProj :: SongYaml -> TargetRB3 -> Plan -> T.Text -> FilePath -> Action T.Text -> Staction Magma.RBProj

@@ -29,8 +29,8 @@ import           Data.DTA.PrettyPrint
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeLatin1, decodeUtf8,
                                                  decodeUtf8', encodeUtf8)
-import           DecodeText                     (removeBOM)
 import           System.IO.Error                (tryIOError)
+import           Text.Decode                    (removeBOM)
 
 decodeDTB :: BL.ByteString -> DTA B.ByteString
 decodeDTB = decode

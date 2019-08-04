@@ -40,7 +40,6 @@ import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Data.Word                        (Word32)
-import           DecodeText                       (decodeGeneral)
 import           GuitarHeroII.Audio               (readVGS)
 import qualified Image
 import           Import
@@ -72,6 +71,7 @@ import           System.FilePath                  (dropExtension,
                                                    takeExtension, takeFileName,
                                                    (-<.>), (<.>), (</>))
 import qualified System.IO                        as IO
+import           Text.Decode                      (decodeGeneral)
 import           Text.Printf                      (printf)
 import           Text.Read                        (readMaybe)
 import           U8                               (packU8)
