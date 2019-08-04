@@ -705,7 +705,13 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       else return Nothing
 
   RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
-  trksUpdate <- maybe (return []) (fmap (RBFile.rawTracks . RBFile.s_tracks) . loadMIDI) updateMid
+  trksUpdate <- case updateMid of
+    Nothing -> return []
+    Just umid -> stackIO (Dir.doesFileExist umid) >>= \case
+      True -> RBFile.rawTracks . RBFile.s_tracks <$> loadMIDI umid
+      False -> do
+        warn $ "Expected to find disc update MIDI but it's not installed: " <> umid
+        return []
   let updatedNames = map Just $ mapMaybe U.trackName trksUpdate
       trksUpdated
         = filter ((`notElem` updatedNames) . U.trackName) trks1x
@@ -739,10 +745,14 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
 
   coverName <- case mcover of
     Nothing -> return Nothing
-    Just (cover, coverName) -> errorToWarning $ do
-      -- errorToWarning shouldn't be needed, but just in case
-      stackIO $ Dir.copyFile cover $ dir </> coverName
-      return coverName
+    Just (cover, coverName) -> stackIO (Dir.doesFileExist cover) >>= \case
+      True -> errorToWarning $ do
+        -- errorToWarning shouldn't be needed, but just in case
+        stackIO $ Dir.copyFile cover $ dir </> coverName
+        return coverName
+      False -> do
+        warn $ "Couldn't load album art: " <> cover
+        return Nothing
   md5 <- stackIO $ show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
   drumkit <- case D.drumBank pkg of
     Nothing -> return HardRockKit

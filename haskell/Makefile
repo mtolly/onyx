@@ -34,7 +34,7 @@ mac:
 	rm -rf Onyx.app/Contents/MacOS/rb3-updates
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} Onyx.app/Contents/MacOS/
 	cp -R vendors/x360-rb3pkg Onyx.app/Contents/MacOS/
-	cp -R vendors/rb3-updates Onyx.app/Contents/MacOS/
+	# cp -R vendors/rb3-updates Onyx.app/Contents/MacOS/
 	cp vendors/itaijidict Onyx.app/Contents/MacOS/
 	cp vendors/kanwadict Onyx.app/Contents/MacOS/
 	rm -rf mac/
@@ -59,7 +59,7 @@ win:
 	cp CHANGES.md win/CHANGES.txt
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} win/
 	cp -R vendors/x360-rb3pkg win/
-	cp -R vendors/rb3-updates win/
+	# cp -R vendors/rb3-updates win/
 	cp vendors/itaijidict win/
 	cp vendors/kanwadict win/
 	stack exec -- onyx-package win/README.txt
