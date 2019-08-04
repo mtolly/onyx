@@ -1,5 +1,18 @@
 # Version history
 
+## 20190804
+
+* Better conversion of charts with open notes to games that don't support them:
+  can now move sequences of adjacent notes to preserve movement
+  * Removed the "drop open HOPOs" conversion option; no longer necessary
+* Support for STFS files containing more than one song
+* Support for importing from GH1/GH2/GH80s (PS2) `.ark`/`.hdr` files
+* Support for importing from DTXMania song format
+  * Automatic romanization of Japanese metadata for RB output
+* Strip Clone Hero formatting tags from metadata, sections, and lyrics
+* Fix a bug with importing Pro Bass that uses more than 4 strings
+* Fix STFS imports to always use in-game title instead of C3 comment title
+
 ## 20190707
 
 * Fix the HOPO threshold used for `.chart` files to match Clone Hero and
