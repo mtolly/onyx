@@ -5,6 +5,7 @@
 * Better conversion of charts with open notes to games that don't support them:
   can now move sequences of adjacent notes to preserve movement
   * Removed the "drop open HOPOs" conversion option; no longer necessary
+* Fix `.chart` files with a solo with no end event
 * Support for STFS files containing more than one song
 * Support for importing from GH1/GH2/GH80s (PS2) `.ark`/`.hdr` files
 * Support for importing from DTXMania song format

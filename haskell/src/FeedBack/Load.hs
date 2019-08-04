@@ -230,8 +230,9 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       -- some songs start a new solo without ending the previous one
       fixBackToBackSolos :: (NNC.C t, Ord a) => RTB.T t (TrackEvent t a) -> RTB.T t (TrackEvent t a)
       fixBackToBackSolos = go False . RTB.normalize where
-        go _ RNil             = RNil
-        go b (Wait dt x rest) = case x of
+        go False RNil             = RNil -- normal end
+        go True  RNil             = Wait NNC.zero (TrackSolo False) RNil -- solo goes to end of song without ending
+        go b     (Wait dt x rest) = case x of
           TrackSolo False -> Wait dt x $ go False rest
           TrackSolo True  -> if b
             then Wait dt (TrackSolo False) $ Wait NNC.zero x $ go True rest
