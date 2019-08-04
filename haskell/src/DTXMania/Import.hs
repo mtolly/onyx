@@ -18,7 +18,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
+import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Yaml                        as Y
@@ -244,6 +244,10 @@ importSetDef setDefPath song dout = do
         let loc = "cover" <.> takeExtension f
         stackIO $ Dir.copyFile f $ dout </> loc
         return $ Just loc
+  let translateDifficulty Nothing    _   = Rank 1
+      translateDifficulty (Just lvl) dec = let
+        lvl' = (fromIntegral lvl + maybe 0 ((/ 10) . fromIntegral) dec) / 100 :: Rational
+        in Rank $ max 1 $ round $ lvl' * 525 -- arbitrary scaling factor
   stackIO $ Y.encodeFile (dout </> "song.yml") $ toJSON $ addAudio SongYaml
     { _metadata = def
       { _title        = case setTitle song of
@@ -261,7 +265,7 @@ importSetDef setDefPath song dout = do
     , _parts = Parts $ HM.fromList $ catMaybes
       [ flip fmap topDrumDiff $ \diff -> (FlexDrums ,) def
         { partDrums = Just PartDrums
-          { drumsDifficulty  = Tier 1
+          { drumsDifficulty  = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
           , drumsMode        = DrumsReal
           , drumsKicks       = if any ((== LeftBass) . fst) $ dtx_Drums diff
             then KicksBoth
@@ -272,12 +276,16 @@ importSetDef setDefPath song dout = do
           , drumsFallback    = FallbackGreen
           }
         }
-      , do
-        guard $ isJust topGuitarDiff
-        return $ (FlexGuitar ,) def { partGRYBO = Just def }
-      , do
-        guard $ isJust topBassDiff
-        return $ (FlexBass ,) def { partGRYBO = Just def }
+      , flip fmap topGuitarDiff $ \diff -> (FlexGuitar ,) def
+        { partGRYBO = Just def
+          { gryboDifficulty = translateDifficulty (dtx_GLEVEL diff) (dtx_GLVDEC diff)
+          }
+        }
+      , flip fmap topBassDiff $ \diff -> (FlexBass ,) def
+        { partGRYBO = Just def
+          { gryboDifficulty = translateDifficulty (dtx_BLEVEL diff) (dtx_BLVDEC diff)
+          }
+        }
       ]
     }
 
