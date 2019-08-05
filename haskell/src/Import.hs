@@ -56,6 +56,7 @@ import           Magma                            (getRBAFile)
 import           MoggDecrypt                      (moggToOgg)
 import qualified Numeric.NonNegative.Class        as NNC
 import           OSFiles                          (fixFileCase)
+import           PhaseShift.Dance                 (nullDance)
 import           PrettyDTA                        (C3DTAComments (..),
                                                    DTASingle (..),
                                                    readDTASingle,
@@ -501,6 +502,11 @@ importFoF src dest = do
           , vocalCount = vc
           , vocalGender = Nothing
           , vocalKey = Nothing
+          }
+        })
+      , ( FlexExtra "global", def
+        { partDance = guard (isnt nullDance RBFile.fixedPartDance && guardDifficulty FoF.diffDance) >> Just PartDance
+          { danceDifficulty = toTier $ FoF.diffDance song
           }
         })
       ]

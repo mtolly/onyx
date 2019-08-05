@@ -787,6 +787,15 @@ instance StackJSON PartKonga where
     dkModeC  <- dkModeC  =. opt Nothing "mode-C"  stackJSON
     return PartKonga{..}
 
+data PartDance = PartDance
+  { danceDifficulty :: Difficulty
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackJSON PartDance where
+  stackJSON = asStrictObject "PartDance" $ do
+    danceDifficulty <- danceDifficulty =. fill (Tier 1) "difficulty" stackJSON
+    return PartDance{..}
+
 data Part = Part
   { partGRYBO     :: Maybe PartGRYBO
   , partGHL       :: Maybe PartGHL
@@ -797,6 +806,7 @@ data Part = Part
   , partAmplitude :: Maybe PartAmplitude
   , partMelody    :: Maybe PartMelody
   , partKonga     :: Maybe PartKonga
+  , partDance     :: Maybe PartDance
   } deriving (Eq, Ord, Show, Read)
 
 instance StackJSON Part where
@@ -810,6 +820,7 @@ instance StackJSON Part where
     partAmplitude <- partAmplitude =. opt Nothing "amplitude"  stackJSON
     partMelody    <- partMelody    =. opt Nothing "melody"     stackJSON
     partKonga     <- partKonga     =. opt Nothing "konga"      stackJSON
+    partDance     <- partDance     =. opt Nothing "dance"      stackJSON
     return Part{..}
 
 instance Default Part where
@@ -1056,6 +1067,7 @@ data TargetPS = TargetPS
   , ps_Vocal      :: FlexPartName
   , ps_Rhythm     :: FlexPartName
   , ps_GuitarCoop :: FlexPartName
+  , ps_Dance      :: FlexPartName
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetPS :: (SendMessage m) => ObjectCodec m A.Value TargetPS
@@ -1069,6 +1081,7 @@ parseTargetPS = do
   ps_Vocal      <- ps_Vocal      =. opt FlexVocal                 "vocal"       stackJSON
   ps_Rhythm     <- ps_Rhythm     =. opt (FlexExtra "rhythm"     ) "rhythm"      stackJSON
   ps_GuitarCoop <- ps_GuitarCoop =. opt (FlexExtra "guitar-coop") "guitar-coop" stackJSON
+  ps_Dance      <- ps_Dance      =. opt (FlexExtra "global"     ) "dance"       stackJSON
   return TargetPS{..}
 
 instance StackJSON TargetPS where

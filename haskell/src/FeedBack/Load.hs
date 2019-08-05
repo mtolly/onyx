@@ -369,6 +369,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       fixedPartRealKeysX    = mempty
       fixedPartKeysAnimLH   = mempty
       fixedPartKeysAnimRH   = mempty
+      fixedPartDance        = mempty
       fixedHarm1            = mempty
       fixedHarm2            = mempty
       fixedHarm3            = mempty

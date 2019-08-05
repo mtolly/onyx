@@ -9,8 +9,6 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import           RockBand.Codec
-import           RockBand.Codec.ProGuitar         (GtrChannel (..),
-                                                   channelEdges)
 import           RockBand.Common
 
 newtype LipsyncTrack t = LipsyncTrack
@@ -21,7 +19,7 @@ newtype LipsyncTrack t = LipsyncTrack
 data Slide = NoSlide | SlideToNext | SlideFromPrev
   deriving (Eq, Ord, Show, Enum, Bounded, Generic)
 
-instance GtrChannel Slide where
+instance ChannelType Slide where
   encodeChannel = fromEnum
 
 instance TraverseTrack LipsyncTrack where

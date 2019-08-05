@@ -277,6 +277,7 @@ track tunings lenTicks lenSecs resn trk = let
       , (("PART REAL_BASS" `isInfixOf`), proGuitarNoteNames)
       , (("MELODY'S ESCAPE" `isSuffixOf`), melodyNoteNames)
       , (("DONKEY KONGA" `isInfixOf`), dkongaNoteNames)
+      , (("PART DANCE" `isSuffixOf`), danceNoteNames)
       , (("LIGHTING" `isSuffixOf`), venuegenLightingNames)
       , (("CAMERA" `isSuffixOf`), venuegenCameraNames)
       , (("VENUE" `isSuffixOf`), venueNoteNames)
@@ -319,6 +320,7 @@ track tunings lenTicks lenSecs resn trk = let
               , ("PART BASS GHL", "colormap_ghl.png")
               ]
             isProtar = any (`isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS"]
+            isDance = "PART DANCE" `isSuffixOf` name
         forM_ colorMap $ \cmap -> line "COLORMAP" [cmap]
         line "CFGEDIT"
           [ "1" -- ??? if i set to 0, gets reset to 1
@@ -360,7 +362,7 @@ track tunings lenTicks lenSecs resn trk = let
             -- 0 = project beats
             -- 2 = project time
             -- 1 = project synced
-          , if isProtar then "1" else "2"
+          , if isProtar || isDance then "1" else "2"
             -- color notes by...
             -- 0 = velocity
             -- 1 = channel
@@ -969,6 +971,35 @@ venueNoteNames = execWriter $ do
   o 39 "Spot Gtr"
   o 38 "Spot Drums" -- RBN2 docs incorrectly say this is bass
   o 37 "Spot Bass" -- RBN2 docs incorrectly say this is drums
+  where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
+
+danceNoteNames :: [(Int, String)]
+danceNoteNames = execWriter $ do
+  o 99 "Challenge RIGHT"
+  o 98 "Challenge UP"
+  o 97 "Challenge DOWN"
+  o 96 "Challenge LEFT"
+  x 95
+  o 87 "Hard RIGHT"
+  o 86 "Hard UP"
+  o 85 "Hard DOWN"
+  o 84 "Hard LEFT"
+  x 83
+  o 75 "Medium RIGHT"
+  o 74 "Medium UP"
+  o 73 "Medium DOWN"
+  o 72 "Medium LEFT"
+  x 71
+  o 63 "Easy RIGHT"
+  o 62 "Easy UP"
+  o 61 "Easy DOWN"
+  o 60 "Easy LEFT"
+  x 59
+  o 51 "Beginner RIGHT"
+  o 50 "Beginner UP"
+  o 49 "Beginner DOWN"
+  o 48 "Beginner LEFT"
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 

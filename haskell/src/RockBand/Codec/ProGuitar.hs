@@ -11,16 +11,15 @@
 module RockBand.Codec.ProGuitar where
 
 import           Control.Arrow                    (first)
-import           Control.Monad                    (forM, guard, (>=>))
+import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
-import           Control.Monad.Trans.StackTrace
 import           Data.Default.Class               (Default (..))
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.List.Extra                  (nubOrd, sort, unsnoc)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
+import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Set                         as Set
@@ -114,19 +113,17 @@ encodeTuningOffsets tun typ = let
   this = take n $ tuningPitches tun { gtrGlobal = 0 }
   in map fromIntegral $ zipWith (-) this std
 
-class (Enum a, Bounded a) => GtrChannel a where
-  encodeChannel :: a -> Int
-  channelMap :: [(Int, a)]
-  channelMap = [ (encodeChannel x, x) | x <- [minBound .. maxBound] ]
-instance GtrChannel NoteType where
+instance ChannelType NoteType where
   encodeChannel = fromEnum
-instance GtrChannel SlideType where
+
+instance ChannelType SlideType where
   encodeChannel = \case
     NormalSlide   -> 0
     ReversedSlide -> 11
     MysterySlide3 -> 3
     MysterySlide2 -> 2
-instance GtrChannel StrumArea where
+
+instance ChannelType StrumArea where
   encodeChannel = \case
     High -> 13
     Mid  -> 14
@@ -190,37 +187,6 @@ instance TraverseTrack ProGuitarDifficulty where
         $ splitEdges
         $ fmap (\(str, (nt, fret, len)) -> (fret, (str, nt), len))
         $ h
-
-channelEdges
-  :: (Show a, GtrChannel a, SendMessage m, NNC.C t)
-  => Int -> TrackEvent m t (a, Maybe Int)
-channelEdges p = let
-  src = edgesCV p
-  in Codec
-    { codecIn = do
-      trk <- codecIn src
-      forM trk $ \(c, v) -> do
-        c' <- case lookup c channelMap of
-          Just c' -> return c'
-          Nothing  -> do
-            let c' = minBound
-            warn $ "Unrecognized channel " ++ show c ++ "; using default value of " ++ show c'
-            return c'
-        return (c', v)
-    , codecOut = \x -> do
-      _ <- codecOut src $ fmap (\(c', v) -> (encodeChannel c', v)) x
-      return x
-    }
-
-channelEdges_
-  :: (Show a, GtrChannel a, SendMessage m, NNC.C t)
-  => Int -> TrackEvent m t (a, Bool)
-channelEdges_ = let
-  -- note, this has to be at least 100 because Nemo's MIDI checker
-  -- complains (incorrectly) if slide notes have velocity < 100.
-  fs (c, b) = (c, guard b >> Just 100)
-  fp (c, v) = (c, isJust v)
-  in dimap (fmap fs) (fmap fp) . channelEdges
 
 instance ParseTrack ProGuitarTrack where
   parseTrack = do

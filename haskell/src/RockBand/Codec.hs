@@ -14,7 +14,7 @@ import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (Identity (..))
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromMaybe, isJust)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Text                        as T
 import           Data.Tuple                       (swap)
@@ -301,3 +301,39 @@ reprPrefix pre x = let
   in case T.stripPrefix pre s of
     Just s' -> s'
     Nothing -> error $ "panic! couldn't strip prefix " <> show pre <> " from enum " <> show s
+
+class (Enum a, Bounded a) => ChannelType a where
+  encodeChannel :: a -> Int
+  channelMap :: [(Int, a)]
+  channelMap = [ (encodeChannel x, x) | x <- [minBound .. maxBound] ]
+
+channelEdges
+  :: (Show a, ChannelType a, SendMessage m, NNC.C t)
+  => Int -> TrackEvent m t (a, Maybe Int)
+channelEdges p = let
+  src = edgesCV p
+  in Codec
+    { codecIn = do
+      trk <- codecIn src
+      forM trk $ \(c, v) -> do
+        c' <- case lookup c channelMap of
+          Just c' -> return c'
+          Nothing  -> do
+            let c' = minBound
+            warn $ "Unrecognized channel " ++ show c ++ "; using default value of " ++ show c'
+            return c'
+        return (c', v)
+    , codecOut = \x -> do
+      _ <- codecOut src $ fmap (\(c', v) -> (encodeChannel c', v)) x
+      return x
+    }
+
+channelEdges_
+  :: (Show a, ChannelType a, SendMessage m, NNC.C t)
+  => Int -> TrackEvent m t (a, Bool)
+channelEdges_ = let
+  -- velocity has to be at least 100 because Nemo's MIDI checker
+  -- complains (incorrectly) if Pro Guitar slide notes have velocity < 100.
+  fs (c, b) = (c, guard b >> Just 100)
+  fp (c, v) = (c, isJust v)
+  in dimap (fmap fs) (fmap fp) . channelEdges

@@ -34,6 +34,7 @@ import           DeriveHelpers
 import           GHC.Generics                      (Generic)
 import           MelodysEscape                     (MelodyTrack)
 import qualified Numeric.NonNegative.Class         as NNC
+import           PhaseShift.Dance
 import           PhaseShift.Message
 import           RockBand.Codec
 import           RockBand.Codec.Beat
@@ -117,6 +118,7 @@ data FixedFile t = FixedFile
   , fixedPartKeysAnimLH   :: ProKeysTrack t
   , fixedPartKeysAnimRH   :: ProKeysTrack t
   , fixedPartVocals       :: VocalTrack t
+  , fixedPartDance        :: DanceTrack t
   -- TODO PS Real Keys
   , fixedHarm1            :: VocalTrack t
   , fixedHarm2            :: VocalTrack t
@@ -132,7 +134,7 @@ instance HasEvents FixedFile where
 
 instance TraverseTrack FixedFile where
   traverseTrack fn
-    (FixedFile a b c d e f g h i j k l m n o p q r s t u v w x y z aa)
+    (FixedFile a b c d e f g h i j k l m n o p q r s t u v w x y z aa bb)
     = FixedFile
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -143,6 +145,7 @@ instance TraverseTrack FixedFile where
       <*> traverseTrack fn s <*> traverseTrack fn t <*> traverseTrack fn u
       <*> traverseTrack fn v <*> traverseTrack fn w <*> traverseTrack fn x
       <*> traverseTrack fn y <*> traverseTrack fn z <*> traverseTrack fn aa
+      <*> traverseTrack fn bb
 
 instance ParseFile FixedFile where
   parseFile = do
@@ -167,6 +170,7 @@ instance ParseFile FixedFile where
     fixedPartKeysAnimLH   <- fixedPartKeysAnimLH   =. fileTrack "PART KEYS_ANIM_LH"   []
     fixedPartKeysAnimRH   <- fixedPartKeysAnimRH   =. fileTrack "PART KEYS_ANIM_RH"   []
     fixedPartVocals       <- fixedPartVocals       =. fileTrack "PART VOCALS"         []
+    fixedPartDance        <- fixedPartDance        =. fileTrack "PART DANCE"          []
     fixedHarm1            <- fixedHarm1            =. fileTrack "HARM1"               []
     fixedHarm2            <- fixedHarm2            =. fileTrack "HARM2"               []
     fixedHarm3            <- fixedHarm3            =. fileTrack "HARM3"               []
@@ -251,12 +255,13 @@ data OnyxPart t = OnyxPart
   , onyxLipsync2         :: LipsyncTrack t
   , onyxLipsync3         :: LipsyncTrack t
   , onyxMelody           :: MelodyTrack t
+  , onyxPartDance        :: DanceTrack t
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxPart t)
 
 instance TraverseTrack OnyxPart where
   traverseTrack fn
-    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w)
+    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x)
     = OnyxPart
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -265,7 +270,7 @@ instance TraverseTrack OnyxPart where
       <*> traverseTrack fn m <*> traverseTrack fn n <*> traverseTrack fn o
       <*> traverseTrack fn p <*> traverseTrack fn q <*> traverseTrack fn r
       <*> traverseTrack fn s <*> traverseTrack fn t <*> traverseTrack fn u
-      <*> traverseTrack fn v <*> traverseTrack fn w
+      <*> traverseTrack fn v <*> traverseTrack fn w <*> traverseTrack fn x
 
 getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
 getFlexPart part = fromMaybe mempty . Map.lookup part . onyxParts
@@ -285,6 +290,7 @@ identifyFlexTrack name = case stripPrefix "[" name of
     | "HARM"        `isInfixOf` name -> Just FlexVocal
     | "MELODY"      `isInfixOf` name -> Just $ FlexExtra "global"
     | "KONGA"       `isInfixOf` name -> Just $ FlexExtra "global"
+    | "DANCE"       `isInfixOf` name -> Just $ FlexExtra "global"
     | otherwise                      -> Nothing
 
 parseOnyxPart :: (SendMessage m) => FlexPartName -> FileCodec m U.Beats (OnyxPart U.Beats)
@@ -327,6 +333,7 @@ parseOnyxPart partName = do
   onyxLipsync1         <- onyxLipsync1         =. names (FlexVocal, "LIPSYNC1") []
   onyxLipsync2         <- onyxLipsync2         =. names (FlexVocal, "LIPSYNC2") []
   onyxLipsync3         <- onyxLipsync3         =. names (FlexVocal, "LIPSYNC3") []
+  onyxPartDance        <- onyxPartDance        =. names (FlexExtra "global", "PART DANCE") []
   return OnyxPart{..}
 
 instance ParseFile OnyxFile where
