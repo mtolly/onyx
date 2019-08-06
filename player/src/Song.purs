@@ -40,18 +40,8 @@ newtype Flex = Flex
   , protar    :: Maybe (Difficulties Protar)
   , amplitude :: Maybe (Difficulties Amplitude)
   , vocal     :: Maybe (Difficulties Vocal)
+  , dance     :: Maybe (Difficulties Dance)
   }
-
-data FlexPart
-  = FlexFive
-  | FlexSix
-  | FlexDrums
-  | FlexProKeys
-  | FlexProtar
-  | FlexVocal
-
-derive instance eqFlexPart :: Eq FlexPart
-derive instance ordFlexPart :: Ord FlexPart
 
 newtype Drums = Drums
   { notes  :: Map.Map Seconds (Array Gem)
@@ -219,6 +209,22 @@ newtype Amplitude = Amplitude
 
 data AmpNote = L | M | R
 
+data DanceType
+  = NoteNormal
+  | NoteMine
+  | NoteLift
+  | NoteRoll
+
+newtype Dance = Dance
+  { notes ::
+    { left  :: Map.Map Seconds (Sustainable DanceType)
+    , down  :: Map.Map Seconds (Sustainable DanceType)
+    , up    :: Map.Map Seconds (Sustainable DanceType)
+    , right :: Map.Map Seconds (Sustainable DanceType)
+    }
+  , energy :: Map.Map Seconds Boolean
+  }
+
 isForeignFiveNote :: Foreign -> F (Sustainable GuitarNoteType)
 isForeignFiveNote f = readString f >>= \s -> case s of
   "e" -> pure SustainEnd
@@ -309,6 +315,36 @@ isForeignAmplitude f = do
   pure $ Amplitude
     { notes: notes
     , instrument: instrument
+    }
+
+isForeignDance :: Foreign -> F Dance
+isForeignDance f = do
+  notesF <- readProp "notes" f
+  let readLane s = readProp s notesF >>= readTimedMap isForeignDanceType
+      isForeignDanceType f = readString f >>= \s -> case s of
+        "e" -> pure SustainEnd
+        "n" -> pure $ Note    NoteNormal
+        "m" -> pure $ Note    NoteMine
+        "l" -> pure $ Note    NoteLift
+        "r" -> pure $ Note    NoteRoll
+        "N" -> pure $ Sustain NoteNormal
+        "M" -> pure $ Sustain NoteMine
+        "L" -> pure $ Sustain NoteLift
+        "R" -> pure $ Sustain NoteRoll
+        _   -> throwError $ pure $ TypeMismatch "dance note event" $ show s
+  arrowL <- readLane "L"
+  arrowD <- readLane "D"
+  arrowU <- readLane "U"
+  arrowR <- readLane "R"
+  energy <- readProp "energy" f >>= readTimedMap readBoolean
+  pure $ Dance
+    { notes:
+      { left:  arrowL
+      , down:  arrowD
+      , up:    arrowU
+      , right: arrowR
+      }
+    , energy: energy
     }
 
 isForeignSix :: Foreign -> F Six
@@ -474,6 +510,7 @@ isForeignFlex f = do
   protar <- readProp "protar" f >>= readNullOrUndefined >>= traverse (difficulties isForeignProtar)
   amplitude <- readProp "catch" f >>= readNullOrUndefined >>= traverse (difficulties isForeignAmplitude)
   vocal <- readProp "vocal" f >>= readNullOrUndefined >>= traverse (difficulties isForeignVocal)
+  dance <- readProp "dance" f >>= readNullOrUndefined >>= traverse (difficulties isForeignDance)
   pure $ Flex
     { five: five
     , six: six
@@ -482,6 +519,7 @@ isForeignFlex f = do
     , protar: protar
     , amplitude: amplitude
     , vocal: vocal
+    , dance: dance
     }
 
 isForeignSong :: Foreign -> F Song

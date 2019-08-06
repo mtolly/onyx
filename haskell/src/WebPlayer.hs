@@ -35,6 +35,7 @@ import qualified Data.Text                        as T
 import           Guitars
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
+import qualified PhaseShift.Dance                 as Dance
 import qualified RockBand.Codec.Beat              as Beat
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events
@@ -296,6 +297,17 @@ makeDifficulties f = Difficulties $ catMaybes $ do
 makeDrumDifficulties :: (Maybe Difficulty -> Maybe (a t)) -> Difficulties a t
 makeDrumDifficulties f = Difficulties $ catMaybes $ do
   (d, name) <- [(Nothing, "X+"), (Just Expert, "X"), (Just Hard, "H"), (Just Medium, "M"), (Just Easy, "E")]
+  return $ (name,) <$> f d
+
+makeDanceDifficulties :: (Dance.SMDifficulty -> Maybe (a t)) -> Difficulties a t
+makeDanceDifficulties f = Difficulties $ catMaybes $ do
+  (d, name) <-
+    [ (Dance.SMChallenge, "C")
+    , (Dance.SMHard, "H")
+    , (Dance.SMMedium, "M")
+    , (Dance.SMEasy, "E")
+    , (Dance.SMBeginner, "B")
+    ]
   return $ (name,) <$> f d
 
 laneDifficulty :: (NNC.C t) => Difficulty -> RTB.T t (Maybe LaneDifficulty) -> RTB.T t t
@@ -637,6 +649,50 @@ instance A.ToJSON (Amplitude U.Seconds) where
     , (,) "instrument" $ A.toJSON $ show $ ampInstrument x
     ]
 
+data Dance t = Dance
+  { danceNotes  :: Map.Map Dance.Arrow (RTB.T t (LongNote Dance.NoteType ()))
+  , danceEnergy :: RTB.T t Bool
+  } deriving (Eq, Ord, Show)
+
+instance A.ToJSON (Dance U.Seconds) where
+  toJSON x = A.object
+    [ (,) "notes" $ A.object $ flip map (Map.toList $ danceNotes x) $ \(lane, notes) ->
+      let showLane = \case
+            Dance.ArrowL -> "L"
+            Dance.ArrowD -> "D"
+            Dance.ArrowU -> "U"
+            Dance.ArrowR -> "R"
+      in (,) (showLane lane) $ eventList notes $ \case
+        NoteOff                 () -> "e"
+        Blip   Dance.NoteNormal () -> "n"
+        Blip   Dance.NoteMine   () -> "m"
+        Blip   Dance.NoteLift   () -> "l"
+        Blip   Dance.NoteRoll   () -> "r" -- unexpected
+        NoteOn Dance.NoteNormal () -> "N"
+        NoteOn Dance.NoteMine   () -> "M" -- unexpected
+        NoteOn Dance.NoteLift   () -> "L" -- unexpected
+        NoteOn Dance.NoteRoll   () -> "R"
+    , (,) "energy" $ eventList (danceEnergy x) A.toJSON
+    ]
+
+processDance :: U.TempoMap -> Dance.DanceTrack U.Beats -> Difficulties Dance U.Seconds
+processDance tmap trk = makeDanceDifficulties $ \diff -> let
+  thisDiff = fromMaybe mempty $ Map.lookup diff $ Dance.danceDifficulties trk
+  edges
+    = splitEdges
+    $ fmap (\((arr, ntype), mlen) -> (ntype, arr, mlen))
+    $ Dance.danceNotes thisDiff
+  getArrow arrow = realTrack tmap $ filterKey arrow edges
+  notes = Map.fromList $ do
+    arrow <- [minBound .. maxBound]
+    return (arrow, getArrow arrow)
+  in do
+    guard $ not $ RTB.null $ Dance.danceNotes thisDiff
+    return Dance
+      { danceNotes = notes
+      , danceEnergy = realTrack tmap $ Dance.danceOverdrive trk
+      }
+
 newtype Difficulties a t = Difficulties [(T.Text, a t)]
   deriving (Eq, Ord, Show)
 
@@ -651,6 +707,7 @@ data Flex t = Flex
   , flexProtar  :: Maybe (Difficulties Protar    t)
   , flexCatch   :: Maybe (Difficulties Amplitude t)
   , flexVocal   :: Maybe (Difficulties Vocal     t)
+  , flexDance   :: Maybe (Difficulties Dance     t)
   } deriving (Eq, Ord, Show)
 
 instance A.ToJSON (Flex U.Seconds) where
@@ -662,6 +719,7 @@ instance A.ToJSON (Flex U.Seconds) where
     , case flexProtar  flex of Nothing -> []; Just x -> [("protar" , A.toJSON x)]
     , case flexCatch   flex of Nothing -> []; Just x -> [("catch"  , A.toJSON x)]
     , case flexVocal   flex of Nothing -> []; Just x -> [("vocal"  , A.toJSON x)]
+    , case flexDance   flex of Nothing -> []; Just x -> [("dance"  , A.toJSON x)]
     ]
 
 data Processed t = Processed
@@ -758,6 +816,9 @@ makeDisplay songYaml song = let
           { ampNotes = U.applyTempoTrack (RBFile.s_tempos song) notes
           , ampInstrument = C.ampInstrument amp
           }
+    , flexDance = flip fmap (C.partDance fpart) $ \_dance -> processDance
+      (RBFile.s_tempos song)
+      (RBFile.onyxPartDance tracks)
     } where
       tracks = RBFile.getFlexPart name $ RBFile.s_tracks song
   parts = do

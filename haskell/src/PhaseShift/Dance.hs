@@ -26,13 +26,13 @@ data SMDifficulty
 
 data DanceTrack t = DanceTrack
   { danceDifficulties :: Map.Map SMDifficulty (DanceDifficulty t)
-  -- TODO does dance mode have OD?
+  , danceOverdrive    :: RTB.T t Bool -- TODO does OD work in game?
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (DanceTrack t)
 
 instance TraverseTrack DanceTrack where
-  traverseTrack fn (DanceTrack a) = DanceTrack
-    <$> traverse (traverseTrack fn) a
+  traverseTrack fn (DanceTrack a b) = DanceTrack
+    <$> traverse (traverseTrack fn) a <*> fn b
 
 nullDance :: DanceTrack t -> Bool
 nullDance = all (RTB.null . danceNotes) . toList . danceDifficulties
@@ -61,6 +61,7 @@ instance TraverseTrack DanceDifficulty where
 
 instance ParseTrack DanceTrack where
   parseTrack = do
+    danceOverdrive <- danceOverdrive =. edges 116
     danceDifficulties <- (danceDifficulties =.) $ eachKey each $ \diff -> fatBlips (1/8) $ do
       let base = case diff of
             SMBeginner  -> 48

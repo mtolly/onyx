@@ -32,6 +32,7 @@ import           Draw.Protar        (drawProtar, eachChordsWidth)
 import           Draw.Six           (drawSix)
 import           Draw.Vocal         (drawVocal)
 import           Draw.Amplitude     (drawAmplitude)
+import           Draw.Dance     (drawDance)
 
 foreign import onyxSong :: Foreign
 
@@ -114,8 +115,9 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
         { parts: map
           (\(Tuple key (Flex flex)) ->
             { partName: case key of
-              "vocal" -> "vocals"
-              _       -> key
+              "vocal"  -> "vocals"
+              "global" -> "…"
+              _        -> key
             , flexParts: let
               inst enabled o = let
                 diff enabled' d = { enabled: enabled', diffName: fst d, draw: Drawer $ snd d }
@@ -198,6 +200,15 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                       _      -> image_icon_pro_guitar
                     , typeVertical: true
                     , diffs: map (map drawProtar) ds
+                    , count: 1
+                    }
+                , case flex.dance of
+                  Nothing -> []
+                  Just ds -> pure
+                    { typeName: "Dance"
+                    , typeIcon: image_icon_dance
+                    , typeVertical: true
+                    , diffs: map (map drawDance) ds
                     , count: 1
                     }
                 , case flex.amplitude of
