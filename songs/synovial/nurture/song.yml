@@ -5,6 +5,8 @@ metadata:
   year: 2017
   track-number: 3
   author: Xane60, Onyxite
+  genre: metal
+  subgenre: prog
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -26,3 +28,6 @@ plans:
 parts:
   guitar:
     grybo: {}
+  drums:
+    drums:
+      kicks: 2
