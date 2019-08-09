@@ -1,10 +1,10 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module STFS.Package (extractSTFS, withSTFS, STFSContents(..), openSTFS, verifyHashes) where
+module STFS.Package where
 
 import           Control.Monad             (forM_, guard, replicateM, unless,
-                                            void, when)
+                                            void)
 import           Control.Monad.Codec
 import           Control.Monad.Fix         (fix)
 import           Control.Monad.IO.Class
@@ -22,7 +22,8 @@ import qualified Data.ByteString           as B
 import qualified Data.ByteString.Lazy      as BL
 import           Data.Foldable             (toList)
 import           Data.Int
-import           Data.Maybe                (mapMaybe)
+import qualified Data.Map                  as Map
+import           Data.Maybe                (fromMaybe, isNothing, mapMaybe)
 import           Data.Profunctor           (dimap)
 import           Data.Sequence             ((|>))
 import qualified Data.Sequence             as Seq
@@ -583,6 +584,12 @@ getCorrectBlockHash fblk stfs = do
     then getBlockHash 1
     else return hsh
 
+writeBlockHash :: FileBlock -> BlockHashRecord -> STFSPackage -> IO ()
+writeBlockHash fblk bhr stfs = do
+  let tableOffset = if tableSizeShift (stfsMetadata stfs) == Shift1 then 1 else 0
+  seekToBlockHash fblk tableOffset stfs
+  BL.hPut (stfsHandle stfs) $ runPut $ void $ codecOut bin bhr
+
 getFileEntries :: STFSPackage -> IO [FileEntry]
 getFileEntries stfs = let
   stfsDesc = md_VolumeDescriptor $ stfsMetadata stfs
@@ -641,34 +648,80 @@ extractSTFS stfs dir = withSTFS stfs $ \contents -> do
   forM_ (stfsFiles contents) $ \(path, getFile) -> do
     getFile >>= BL.writeFile (dir </> path)
 
-verifyHashes :: STFSPackage -> IO ()
-verifyHashes stfs = do
-  let meta = stfsMetadata stfs
-      sd = md_VolumeDescriptor meta
-      blockCount = sd_TotalAllocatedBlockCount sd + sd_TotalUnallocatedBlockCount sd
-  putStrLn $ "Allocated blocks: " ++ show (sd_TotalAllocatedBlockCount sd)
-  putStrLn $ "Unallocated blocks: " ++ show (sd_TotalUnallocatedBlockCount sd)
+data BlockContents a
+  = L0Hashes a -- ^ hashes of 0xAA data blocks
+  | DataBlock a
+  | L1Hashes a -- ^ hashes of 0xAA L0 hash blocks
+  | L2Hashes a -- ^ hashes of 0xAA L1 hash blocks
+  | Dummy
+  deriving (Eq, Ord, Show)
 
-  putStrLn "Verifying Level 0"
-  forM_ (map FileBlock [0 .. blockCount - 1]) $ \fblk -> do
-    hsh <- getCorrectBlockHash fblk stfs
-    seekToFileBlock fblk stfs
-    contents <- readBlock 0x1000 stfs
-    let written = bhr_SHA1 hsh
-        expected = convert (hash contents :: Digest SHA1)
-    unless (written == expected) $ putStrLn $ unwords
-      [ show fblk
-      , "has written hash"
-      , show $ B.unpack written
-      , "but calculated"
-      , show $ B.unpack expected
-      ]
+blockContentsPattern :: TableSizeShift -> [BlockContents Int32]
+blockContentsPattern tss = let
+  makeHash fn = case tss of
+    Shift0 -> [fn ()]
+    Shift1 -> [Dummy, fn ()] -- TODO verify this is actually correct
+  -- this pattern is so weird
+  l0 = makeHash L0Hashes ++ replicate 0xAA (DataBlock ())
+  l1first = l0 ++ makeHash L1Hashes ++ concat (replicate 0xA9 l0)
+  l1later = makeHash L1Hashes ++ concat (replicate 0xAA l0)
+  l2 = l1first ++ makeHash L2Hashes ++ concat (replicate 0xA9 l1later)
+  go a b c d = \case
+    [] -> []
+    Dummy : rest -> Dummy : go a b c d rest
+    L0Hashes ()  : rest -> L0Hashes  a : go (a + 1) b c d rest
+    DataBlock () : rest -> DataBlock b : go a (b + 1) c d rest
+    L1Hashes ()  : rest -> L1Hashes  c : go a b (c + 1) d rest
+    L2Hashes ()  : rest -> L2Hashes  d : go a b c (d + 1) rest
+  in go 0 0 0 0 l2
 
-  when (blockCount >= 0xAA) $ do
-    putStrLn "Verifying Level 1"
-
-    when (blockCount >= 0x70E4) $ do -- TODO X360 has > instead of >=, which is right?
-      putStrLn "Verifying Level 2"
+verifyHashes :: Bool -> STFSPackage -> IO ()
+verifyHashes fixHashes stfs = let
+  meta = stfsMetadata stfs
+  sd = md_VolumeDescriptor meta
+  pattern = takeWhile
+    (/= DataBlock (sd_TotalAllocatedBlockCount sd + 1))
+    -- TODO does this need to use sd_TotalUnallocatedBlockCount as well
+    (blockContentsPattern $ tableSizeShift meta)
+  patternWithIndexes = zip pattern $ map RealBlock [(-1) ..]
+  patternTable = Map.fromList patternWithIndexes
+  verify hashed hblk i = case Map.lookup hashed patternTable of
+    Nothing -> return ()
+    Just rblk -> do
+      seekToRealBlock rblk stfs
+      contents <- readBlock 0x1000 stfs
+      unless (B.null contents) $ do
+        seekToRealBlock hblk stfs
+        hSeek (stfsHandle stfs) RelativeSeek $ i * 0x18
+        hsh <- readBlockHash stfs
+        let written = bhr_SHA1 hsh
+            expected = convert (hash contents :: Digest SHA1)
+        if written == expected
+          then return ()
+          else if fixHashes
+            then do
+              let hsh' = hsh { bhr_SHA1 = expected }
+              seekToRealBlock hblk stfs
+              hSeek (stfsHandle stfs) RelativeSeek $ i * 0x18
+              BL.hPut (stfsHandle stfs) $ runPut $ void $ codecOut bin hsh'
+            else putStrLn $ unwords
+              [ show hashed
+              , "has written hash"
+              , show $ B.unpack written
+              , "but calculated"
+              , show $ B.unpack expected
+              ]
+  in forM_ patternWithIndexes $ \(contents, rblk) -> case contents of
+    L0Hashes i -> forM_ [0 .. 0xA9] $ \j -> do
+      let hashedIndex = i * 0xAA + fromIntegral j
+      verify (DataBlock hashedIndex) rblk j
+    L1Hashes i -> forM_ [0 .. 0xA9] $ \j -> do
+      let hashedIndex = i * 0xAA + fromIntegral j
+      verify (L0Hashes hashedIndex) rblk j
+    L2Hashes i -> forM_ [0 .. 0xA9] $ \j -> do
+      let hashedIndex = i * 0xAA + fromIntegral j
+      verify (L1Hashes hashedIndex) rblk j
+    _ -> return ()
 
 -- extraction stuff follows
 
@@ -689,6 +742,12 @@ bytesToInteger :: B.ByteString -> Integer
 bytesToInteger bs = sum $ do
   (i, b) <- zip [0..] $ B.unpack $ B.reverse bs
   return $ (0x100 ^ (i :: Int)) * fromIntegral b
+
+bytesFromInteger :: Int -> Integer -> B.ByteString
+bytesFromInteger len n = if len <= 0
+  then B.empty
+  else bytesFromInteger (len - 1) (n `shiftR` 8)
+    <> B.singleton (fromIntegral $ n .&. 0xFF)
 
 xk0 :: B.ByteString
 xk0 = B.pack [81,236,31,157,86,38,194,252,16,166,103,100,203,58,109,77,161,231,78,168,66,240,244,253,250,102,239,199,142,16,47,228,28,163,29,208,206,57,46,195,25,45,208,88,116,121,172,8,231,144,193,172,45,198,235,71,232,61,207,76,109,255,81,101,212,110,189,15,21,121,55,149,196,175,144,158,43,80,138,10,34,74,179,65,229,137,128,115,205,250,33,2,245,221,48,221,7,42,111,52,7,129,151,126,178,251,114,233,234,193,136,57,172,72,43,168,77,252,215,237,155,249,222,194,69,147,76,76]
@@ -740,7 +799,11 @@ readAsBlocks f = do
     blk <- B.hGet h 0x1000
     if B.null blk
       then return []
-      else (blk :) <$> go
+      else let
+        blk' = if B.length blk == 0x1000
+          then blk
+          else blk <> B.replicate (0x1000 - B.length blk) 0
+        in (blk' :) <$> go
   return (size, blocks)
 
 traverseFolder :: FilePath -> IO [(Int, T.Text, Maybe (Integer, [B.ByteString]))]
@@ -766,16 +829,19 @@ makeRB3CON dir con = withBinaryFile con ReadWriteMode $ \fd -> do
   -- each 0x1000 block can store 64 file entries (each of which is 64 bytes)
   -- and then we need one at the end for the final (null) entry
   let listBlocks = ((length fileList + 1) `quot` 64) + 1
+      totalBlocks = sum $ listBlocks : do
+        (_, _, Just (_, blocks)) <- fileList
+        return $ length blocks
 
   let metadata = Metadata
         { md_LicenseEntries = take 0x10
           $ LicenseEntry (-1) 1 0 -- unlocked license
           : repeat (LicenseEntry 0 0 0)
-        , md_HeaderSHA1 = B.replicate 0x14 0 -- TODO fill in later
+        , md_HeaderSHA1 = B.replicate 0x14 0 -- filled in later
         , md_HeaderSize = 0xAD0E
         , md_ContentType = CT_SavedGame
         , md_MetadataVersion = 2
-        , md_ContentSize = 0 -- TODO fill in later. file size - 0xB000
+        , md_ContentSize = 0 -- filled in later
         , md_MediaID = 0
         , md_Version = 0
         , md_BaseVersion = 0
@@ -791,11 +857,11 @@ makeRB3CON dir con = withBinaryFile con ReadWriteMode $ \fd -> do
           { sd_VolDescSize                = 0x24
           , sd_Reserved                   = 0
           , sd_BlockSeparation            = 1
-          , sd_FileTableBlockCount        = undefined -- :: Int16
-          , sd_FileTableBlockNumber       = undefined -- :: Int32 -- 3 bytes, should be Int24
-          , sd_TopHashTableHash           = undefined -- :: B.ByteString -- 0x14 bytes
-          , sd_TotalAllocatedBlockCount   = undefined -- :: Int32
-          , sd_TotalUnallocatedBlockCount = undefined -- :: Int32
+          , sd_FileTableBlockCount        = fromIntegral listBlocks
+          , sd_FileTableBlockNumber       = 0
+          , sd_TopHashTableHash           = B.replicate 0x14 0 -- filled in later
+          , sd_TotalAllocatedBlockCount   = fromIntegral totalBlocks
+          , sd_TotalUnallocatedBlockCount = 0
           }
         , md_DataFileCount = 0
         , md_DataFileCombinedSize = 0
@@ -814,6 +880,127 @@ makeRB3CON dir con = withBinaryFile con ReadWriteMode $ \fd -> do
   hSeek fd AbsoluteSeek 0x22C
   BL.hPut fd $ runPut $ void $ codecOut bin metadata
 
-  -- TODO write blocks
-  -- TODO fix hashes
-  -- TODO sign
+  let key = loadKVbin xboxKV
+      initHeader = CONHeader
+        { ch_PublicKeyCertSize       = B.pack [0x01, 0xA8]
+        , ch_CertOwnerConsoleID      = B.pack [0x09, 0x12, 0xBA, 0x26, 0xE3]
+        , ch_CertOwnerConsolePartNum = "X803395-001"
+        , ch_CertOwnerConsoleType    = Retail
+        , ch_CertDateGeneration      = "09-18-06"
+        , ch_PublicExponent          = bytesFromInteger 4 $ public_e $ private_pub $ kv_PrivateKey key
+        , ch_PublicModulus           = bytesFromInteger 0x80 $ public_n $ private_pub $ kv_PrivateKey key
+        , ch_CertSignature           = B.take 0x100 $ B.drop 0xA60 xboxKV
+        , ch_Signature               = B.replicate 0x80 0 -- TODO fill in when package is done
+        }
+      initPackage = STFSPackage
+        { stfsHandle   = fd
+        , stfsHeader   = CON initHeader
+        , stfsMetadata = metadata
+        }
+
+  hSeek fd AbsoluteSeek 0
+  BL.hPut fd $ runPut $ void $ codecOut bin $ CON initHeader
+
+  let makeFileEntries _ [] = (:[]) $ FileEntry
+        { fe_FileName        = ""
+        , fe_Consecutive     = False
+        , fe_Directory       = False
+        , fe_Blocks1         = 0
+        , fe_Blocks2         = 0
+        , fe_FirstBlock      = 0
+        , fe_PathIndex       = 0
+        , fe_Size            = 0
+        , fe_UpdateTimestamp = timestamp
+        , fe_AccessTimestamp = timestamp
+        }
+      makeFileEntries used ((parent, name, blocks) : rest) = let
+        thisBlocks = maybe 0 (fromIntegral . length . snd) blocks
+        in FileEntry
+          { fe_FileName        = name
+          , fe_Consecutive     = True -- TODO is this always true, even if it crosses a hash block?
+          , fe_Directory       = isNothing blocks
+          , fe_Blocks1         = thisBlocks
+          , fe_Blocks2         = thisBlocks
+          , fe_FirstBlock      = used
+          , fe_PathIndex       = fromIntegral parent
+          , fe_Size            = maybe 0 (fromIntegral . fst) blocks
+          , fe_UpdateTimestamp = timestamp
+          , fe_AccessTimestamp = timestamp
+          } : makeFileEntries (used + thisBlocks) rest
+      timestamp = LocalTime
+        { localDay = fromGregorian 2019 8 8
+        , localTimeOfDay = TimeOfDay 0 0 0
+        }
+      fileEntries = makeFileEntries (fromIntegral listBlocks) fileList
+
+      writeFileBlock n bs = do
+        seekToFileBlock (FileBlock n) initPackage
+        let len = BL.length bs
+            blockData = if len > 0x1000
+              then BL.take 0x1000 bs
+              else bs <> BL.replicate (0x1000 - len) 0
+        BL.hPut fd blockData
+        seekToBlockHash (FileBlock n) (if tableSizeShift metadata == Shift1 then 1 else 0) initPackage
+        let hsh = BlockHashRecord
+              { bhr_SHA1      = B.replicate 0x14 0 -- fixed later
+              , bhr_Status    = BlockUsed
+              , bhr_NextBlock = n + 1
+              }
+        BL.hPut fd $ runPut $ void $ codecOut bin hsh
+
+      writeFileList _ [] = return ()
+      writeFileList n ents = do
+        let (thisBlock, laterBlocks) = splitAt 64 ents
+        writeFileBlock n $ BL.concat
+          $ map (runPut . void . codecOut bin) thisBlock
+        writeFileList (n + 1) laterBlocks
+
+      writeFiles _ [] = return ()
+      writeFiles n ((_, _, Nothing) : rest) = writeFiles n rest
+      writeFiles n ((_, _, Just (_size, blocks)) : rest) = do
+        forM_ (zip [n..] blocks) $ \(n', block) -> do
+          writeFileBlock n' $ BL.fromStrict block
+        writeFiles (n + fromIntegral (length blocks)) rest
+
+  writeFileList 0 fileEntries
+  writeFiles (fromIntegral listBlocks) fileList
+
+  verifyHashes True initPackage
+
+  nextMetadata <- do
+    size <- hFileSize fd
+    let pat = zip (blockContentsPattern $ tableSizeShift metadata) [-1 ..]
+        topTable
+          | totalBlocks < 0xAA        = L0Hashes 0
+          | totalBlocks < 0xAA * 0xAA = L1Hashes 0
+          | otherwise                 = L2Hashes 0
+    seekToRealBlock (RealBlock $ fromMaybe 0 $ lookup topTable pat) initPackage
+    table <- readBlock 0x1000 initPackage
+    return metadata
+      { md_ContentSize = fromIntegral size - 0xB000
+      , md_VolumeDescriptor = (md_VolumeDescriptor metadata)
+        { sd_TopHashTableHash = convert (hash table :: Digest SHA1)
+        }
+      }
+  hSeek fd AbsoluteSeek 0x22C
+  BL.hPut fd $ runPut $ void $ codecOut bin nextMetadata
+
+  finalMetadata <- do
+    hSeek fd AbsoluteSeek 0x344
+    headerBytes <- B.hGet fd $ 0xB000 - 0x344
+    return nextMetadata
+      { md_HeaderSHA1 = convert (hash headerBytes :: Digest SHA1)
+      }
+  hSeek fd AbsoluteSeek 0x22C
+  BL.hPut fd $ runPut $ void $ codecOut bin finalMetadata
+
+  finalHeader <- do
+    hSeek fd AbsoluteSeek 0x22C
+    signedStuff <- B.hGet fd 0x118
+    case sign Nothing (Just SHA1) (kv_PrivateKey key) signedStuff of
+      Left err -> error $ show err
+      Right signature -> return initHeader
+        { ch_Signature = B.reverse signature
+        }
+  hSeek fd AbsoluteSeek 0
+  BL.hPut fd $ runPut $ void $ codecOut bin $ CON finalHeader
