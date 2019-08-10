@@ -94,7 +94,10 @@ drawDance (Dance dance) badge targetX stuff = do
     zoomDesc (obj.fn dance.notes) \secs evt -> let
       withNoteType ntype = do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
-        if stuff.app.settings.autoplay && futureSecs <= 0.0
+            isMine = case ntype of
+              NoteMine -> true
+              _        -> false
+        if stuff.app.settings.autoplay && futureSecs <= 0.0 && not isMine
           then do
             -- note is in the past or being hit now
             if (-0.1) < futureSecs

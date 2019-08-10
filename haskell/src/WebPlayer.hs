@@ -569,12 +569,6 @@ instance A.ToJSON (Vocal U.Seconds) where
     ] where voxEvent VocalEnd                 = A.Null
             voxEvent (VocalStart lyric pitch) = A.toJSON [A.toJSON lyric, maybe A.Null A.toJSON pitch]
 
-rtbMapMaybeWithAbsoluteTime :: (Num t) => (t -> a -> Maybe b) -> RTB.T t a -> RTB.T t b
-rtbMapMaybeWithAbsoluteTime f = RTB.fromAbsoluteEventList . ATB.foldrPair g ATB.empty . RTB.toAbsoluteEventList 0 where
-  g absTime body = case f absTime body of
-    Nothing    -> id
-    Just body' -> ATB.cons absTime body'
-
 showTimestamp :: U.Seconds -> String
 showTimestamp secs = let
   minutes = floor $ secs / 60 :: Int
@@ -599,22 +593,23 @@ processVocal tmap h1 h2 h3 tonic = let
     Vox.Phrase2 False -> Just ()
     _                 -> Nothing
   pitchToInt p = fromEnum p + 36
-  makeVoxPart trk = realTrack tmap $ flip rtbMapMaybeWithAbsoluteTime (RTB.collectCoincident trk) $ \bts evts -> let
+  makeVoxPart trk = realTrack tmap $ flip RTB.mapMaybe (RTB.collectCoincident trk) $ \evts -> let
     lyric = listToMaybe [ s | Vox.Lyric s <- evts ]
     note = listToMaybe [ p | Vox.Note True p <- evts ]
     end = listToMaybe [ () | Vox.Note False _ <- evts ]
     in case (lyric, note, end) of
       -- Note: the _ in the first pattern below should be Nothing,
       -- but we allow Just () for sloppy vox charts with no gap between notes
-      (Just l, Just p, _) -> Just $ case T.stripSuffix "#" l <|> T.stripSuffix "^" l of
-        Nothing -> case T.stripSuffix "#$" l <|> T.stripSuffix "^$" l of
-          Nothing -> VocalStart l $ Just $ pitchToInt p -- non-talky
-          Just l' -> VocalStart (l' <> "$") Nothing     -- hidden lyric talky
-        Just l' -> VocalStart l' Nothing                -- talky
+      (ml, Just p, _) -> let
+        l = fromMaybe "" ml
+        in Just $ case T.stripSuffix "#" l <|> T.stripSuffix "^" l of
+          Nothing -> case T.stripSuffix "#$" l <|> T.stripSuffix "^$" l of
+            Nothing -> VocalStart l $ Just $ pitchToInt p -- non-talky
+            Just l' -> VocalStart (l' <> "$") Nothing     -- hidden lyric talky
+          Just l' -> VocalStart l' Nothing                -- talky
       (Nothing, Nothing, Just ()) -> Just VocalEnd
       (Nothing, Nothing, Nothing) -> Nothing
-      lne -> error $
-        "processVocal: invalid set of vocal events at " ++ showTimestamp (U.applyTempoMap tmap bts) ++ "! " ++ show lne
+      (Just l, Nothing, _) -> Just $ VocalStart l Nothing -- shouldn't happen
   harm1 = makeVoxPart h1
   harm2 = makeVoxPart h2
   harm3 = makeVoxPart h3
