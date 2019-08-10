@@ -1,39 +1,49 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module STFS.Package where
+module STFS.Package
+( extractSTFS
+, withSTFS
+, STFSContents(..)
+, rb3pkg
+, rb2pkg
+, makeCON
+, CreateOptions(..)
+, stfsFolder
+) where
 
-import           Control.Monad             (forM_, guard, replicateM, unless,
-                                            void)
+import           Control.Monad                  (forM_, guard, replicateM,
+                                                 unless, void)
 import           Control.Monad.Codec
-import           Control.Monad.Fix         (fix)
+import           Control.Monad.Fix              (fix)
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
-import           Crypto.Hash               (Digest, hash)
-import           Crypto.Hash.Algorithms    (SHA1 (..))
-import           Crypto.PubKey.RSA.PKCS15  (sign)
+import           Crypto.Hash                    (Digest, hash)
+import           Crypto.Hash.Algorithms         (SHA1 (..))
+import           Crypto.PubKey.RSA.PKCS15       (sign)
 import           Crypto.PubKey.RSA.Types
 import           Data.Binary.Codec
 import           Data.Binary.Get
 import           Data.Binary.Put
 import           Data.Bits
-import           Data.ByteArray            (convert)
-import qualified Data.ByteString           as B
-import qualified Data.ByteString.Lazy      as BL
-import           Data.Foldable             (toList)
+import           Data.ByteArray                 (convert)
+import qualified Data.ByteString                as B
+import qualified Data.ByteString.Lazy           as BL
+import           Data.Foldable                  (toList)
 import           Data.Int
-import qualified Data.Map                  as Map
-import           Data.Maybe                (fromMaybe, isNothing, mapMaybe)
-import           Data.Profunctor           (dimap)
-import           Data.Sequence             ((|>))
-import qualified Data.Sequence             as Seq
-import qualified Data.Text                 as T
+import qualified Data.Map                       as Map
+import           Data.Maybe                     (fromMaybe, isNothing, mapMaybe)
+import           Data.Profunctor                (dimap)
+import           Data.Sequence                  ((|>))
+import qualified Data.Sequence                  as Seq
+import qualified Data.Text                      as T
 import           Data.Text.Encoding
 import           Data.Time
 import           Data.Word
-import           Resources                 (rb3Thumbnail, xboxKV)
-import qualified System.Directory          as Dir
-import           System.FilePath           ((</>))
+import           Resources                      (rb3Thumbnail, xboxKV)
+import qualified System.Directory               as Dir
+import           System.FilePath                ((</>))
 import           System.IO
 
 class Bin a where
@@ -584,11 +594,11 @@ getCorrectBlockHash fblk stfs = do
     then getBlockHash 1
     else return hsh
 
-writeBlockHash :: FileBlock -> BlockHashRecord -> STFSPackage -> IO ()
-writeBlockHash fblk bhr stfs = do
-  let tableOffset = if tableSizeShift (stfsMetadata stfs) == Shift1 then 1 else 0
-  seekToBlockHash fblk tableOffset stfs
-  BL.hPut (stfsHandle stfs) $ runPut $ void $ codecOut bin bhr
+-- writeBlockHash :: FileBlock -> BlockHashRecord -> STFSPackage -> IO ()
+-- writeBlockHash fblk bhr stfs = do
+--   let tableOffset = if tableSizeShift (stfsMetadata stfs) == Shift1 then 1 else 0
+--   seekToBlockHash fblk tableOffset stfs
+--   BL.hPut (stfsHandle stfs) $ runPut $ void $ codecOut bin bhr
 
 getFileEntries :: STFSPackage -> IO [FileEntry]
 getFileEntries stfs = let
@@ -711,19 +721,22 @@ verifyHashes fixHashes stfs = let
               , "but calculated"
               , show $ B.unpack expected
               ]
-  in forM_ patternWithIndexes $ \(contents, rblk) -> case contents of
-    L0Hashes i -> forM_ [0 .. 0xA9] $ \j -> do
-      let hashedIndex = i * 0xAA + fromIntegral j
-      verify (DataBlock hashedIndex) rblk j
-    L1Hashes i -> forM_ [0 .. 0xA9] $ \j -> do
-      let hashedIndex = i * 0xAA + fromIntegral j
-      verify (L0Hashes hashedIndex) rblk j
-    L2Hashes i -> forM_ [0 .. 0xA9] $ \j -> do
-      let hashedIndex = i * 0xAA + fromIntegral j
-      verify (L1Hashes hashedIndex) rblk j
-    _ -> return ()
-
--- extraction stuff follows
+  in do
+    forM_ patternWithIndexes $ \(contents, rblk) -> case contents of
+      L0Hashes i -> forM_ [0 .. 0xA9] $ \j -> do
+        let hashedIndex = i * 0xAA + fromIntegral j
+        verify (DataBlock hashedIndex) rblk j
+      _ -> return ()
+    forM_ patternWithIndexes $ \(contents, rblk) -> case contents of
+      L1Hashes i -> forM_ [0 .. 0xA9] $ \j -> do
+        let hashedIndex = i * 0xAA + fromIntegral j
+        verify (L0Hashes hashedIndex) rblk j
+      _ -> return ()
+    forM_ patternWithIndexes $ \(contents, rblk) -> case contents of
+      L2Hashes i -> forM_ [0 .. 0xA9] $ \j -> do
+        let hashedIndex = i * 0xAA + fromIntegral j
+        verify (L1Hashes hashedIndex) rblk j
+      _ -> return ()
 
 stockScramble :: B.ByteString -> B.ByteString
 stockScramble bs = case quotRem (B.length bs) 8 of
@@ -785,12 +798,12 @@ loadKVbin bs = let
     , kv_PackageMagic = "CON "
     }
 
-testSign :: FilePath -> FilePath -> IO ()
-testSign kv msg = do
-  kv' <- loadKVbin <$> B.readFile kv
-  print kv'
-  msg' <- B.readFile msg
-  print $ sign Nothing (Just SHA1) (kv_PrivateKey kv') msg'
+-- testSign :: FilePath -> FilePath -> IO ()
+-- testSign kv msg = do
+--   kv' <- loadKVbin <$> B.readFile kv
+--   print kv'
+--   msg' <- B.readFile msg
+--   print $ sign Nothing (Just SHA1) (kv_PrivateKey kv') msg'
 
 readAsBlocks :: FilePath -> IO (Integer, [B.ByteString])
 readAsBlocks f = do
@@ -821,8 +834,31 @@ traverseFolder top = toList <$> execStateT (go (-1) top) Seq.empty where
           sizeBlocks <- liftIO $ readAsBlocks $ dir </> f
           modify (|> (parentIndex, T.pack f, Just sizeBlocks))
 
-makeRB3CON :: FilePath -> FilePath -> IO ()
-makeRB3CON dir con = withBinaryFile con ReadWriteMode $ \fd -> do
+data CreateOptions = CreateOptions
+  { createName        :: T.Text
+  , createDescription :: T.Text
+  , createTitleID     :: Word32
+  , createTitleName   :: T.Text
+  }
+
+rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
+rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ makeCON CreateOptions
+  { createName = title
+  , createDescription = desc
+  , createTitleID = 0x45410914
+  , createTitleName = "Rock Band 3"
+  } dir fout
+
+rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
+rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ makeCON CreateOptions
+  { createName = title
+  , createDescription = desc
+  , createTitleID = 0x45410869
+  , createTitleName = "Rock Band 2"
+  } dir fout
+
+makeCON :: CreateOptions -> FilePath -> FilePath -> IO ()
+makeCON opts dir con = withBinaryFile con ReadWriteMode $ \fd -> do
   hSetFileSize fd 0
 
   fileList <- traverseFolder dir
@@ -845,7 +881,7 @@ makeRB3CON dir con = withBinaryFile con ReadWriteMode $ \fd -> do
         , md_MediaID = 0
         , md_Version = 0
         , md_BaseVersion = 0
-        , md_TitleID = 0x45410914
+        , md_TitleID = createTitleID opts
         , md_Platform = P_Unknown
         , md_ExecutableType = 0
         , md_DiscNumber = 0
@@ -869,10 +905,10 @@ makeRB3CON dir con = withBinaryFile con ReadWriteMode $ \fd -> do
         , md_Reserved = 0
         , md_Padding = B.replicate 0x4C 0
         , md_DeviceID = B.replicate 0x14 0
-        , md_DisplayName = take 18 $ "Test package" : repeat ""
-        , md_DisplayDescription = take 18 $ "Test description" : repeat ""
+        , md_DisplayName = take 18 $ createName opts : repeat ""
+        , md_DisplayDescription = take 18 $ createDescription opts : repeat ""
         , md_PublisherName = ""
-        , md_TitleName = "Rock Band 3"
+        , md_TitleName = createTitleName opts
         , md_TransferFlags = 0xC0
         , md_ThumbnailImage = rb3Thumbnail
         , md_TitleThumbnailImage = rb3Thumbnail
@@ -888,7 +924,7 @@ makeRB3CON dir con = withBinaryFile con ReadWriteMode $ \fd -> do
         , ch_CertOwnerConsoleType    = Retail
         , ch_CertDateGeneration      = "09-18-06"
         , ch_PublicExponent          = bytesFromInteger 4 $ public_e $ private_pub $ kv_PrivateKey key
-        , ch_PublicModulus           = bytesFromInteger 0x80 $ public_n $ private_pub $ kv_PrivateKey key
+        , ch_PublicModulus           = stockScramble $ bytesFromInteger 0x80 $ public_n $ private_pub $ kv_PrivateKey key
         , ch_CertSignature           = B.take 0x100 $ B.drop 0xA60 xboxKV
         , ch_Signature               = B.replicate 0x80 0 -- TODO fill in when package is done
         }
@@ -917,11 +953,11 @@ makeRB3CON dir con = withBinaryFile con ReadWriteMode $ \fd -> do
         thisBlocks = maybe 0 (fromIntegral . length . snd) blocks
         in FileEntry
           { fe_FileName        = name
-          , fe_Consecutive     = True -- TODO is this always true, even if it crosses a hash block?
+          , fe_Consecutive     = False
           , fe_Directory       = isNothing blocks
           , fe_Blocks1         = thisBlocks
           , fe_Blocks2         = thisBlocks
-          , fe_FirstBlock      = used
+          , fe_FirstBlock      = if isNothing blocks then 0 else used
           , fe_PathIndex       = fromIntegral parent
           , fe_Size            = maybe 0 (fromIntegral . fst) blocks
           , fe_UpdateTimestamp = timestamp
@@ -1004,3 +1040,14 @@ makeRB3CON dir con = withBinaryFile con ReadWriteMode $ \fd -> do
         }
   hSeek fd AbsoluteSeek 0
   BL.hPut fd $ runPut $ void $ codecOut bin $ CON finalHeader
+
+stfsFolder :: (MonadIO m) => FilePath -> m (Word32, Word32)
+stfsFolder f = liftIO $ withBinaryFile f ReadMode $ \h -> do
+  ftype <- B.hGet h 4 >>= \case
+    "CON " -> return 1
+    "LIVE" -> return 2
+    magic  -> error $ "stfsFolder: unknown magic number " ++ show magic
+  hSeek h AbsoluteSeek 0x360
+  [a, b, c, d] <- map fromIntegral . B.unpack <$> B.hGet h 4
+  let titleID = a * 0x1000000 + b * 0x10000 + c * 0x100 + d
+  return (titleID, ftype)

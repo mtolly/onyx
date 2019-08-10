@@ -19,12 +19,11 @@ getResourcesPath = do
     then (</> ".local/bin") <$> getHomeDirectory -- we're in ghci, use installed resources
     else return $ takeDirectory exe
 
-magmaV1Dir, magmaV2Dir, magmaCommonDir, magmaOgg2MoggDir, x360RB3pkgDir, rb3Updates, kanwadict, itaijidict :: IO FilePath
+magmaV1Dir, magmaV2Dir, magmaCommonDir, magmaOgg2MoggDir, rb3Updates, kanwadict, itaijidict :: IO FilePath
 magmaV1Dir       = (</> "magma-v1")       <$> getResourcesPath
 magmaV2Dir       = (</> "magma-v2")       <$> getResourcesPath
 magmaCommonDir   = (</> "magma-common")   <$> getResourcesPath
 magmaOgg2MoggDir = (</> "magma-ogg2mogg") <$> getResourcesPath
-x360RB3pkgDir    = (</> "x360-rb3pkg")    <$> getResourcesPath
 rb3Updates       = (</> "rb3-updates")    <$> getResourcesPath
 kanwadict        = (</> "kanwadict")      <$> getResourcesPath
 itaijidict       = (</> "itaijidict")     <$> getResourcesPath

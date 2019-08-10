@@ -78,12 +78,11 @@ import qualified RockBand.Legacy.Vocal            as RBVox
 import           Scripts                          (loadFoFMIDI, loadMIDI)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
-import           STFS.Package                     (extractSTFS)
+import           STFS.Package                     (extractSTFS, rb3pkg)
 import qualified System.Directory                 as Dir
 import           System.FilePath
 import           Text.Decode                      (decodeGeneral)
 import           Text.Read                        (readMaybe)
-import           X360DotNet                       (rb3pkg)
 
 removeDummyTracks :: (NNC.C t) => RBFile.FixedFile t -> RBFile.FixedFile t
 removeDummyTracks trks = let

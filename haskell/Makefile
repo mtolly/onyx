@@ -15,10 +15,8 @@ usage:
 
 install-resources:
 	rm -rf $(HOME)/.local/bin/magma-{v1,v2,common,ogg2mogg}
-	rm -rf $(HOME)/.local/bin/x360-rb3pkg
 	rm -rf $(HOME)/.local/bin/rb3-updates
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} $(HOME)/.local/bin/
-	cp -R vendors/x360-rb3pkg $(HOME)/.local/bin/
 	cp -R vendors/rb3-updates $(HOME)/.local/bin/
 	cp vendors/itaijidict $(HOME)/.local/bin/
 	cp vendors/kanwadict $(HOME)/.local/bin/
@@ -30,10 +28,8 @@ mac:
 	rm -rf Onyx.app/Contents/libs/*.dylib
 	dylibbundler -cd -of -b -x Onyx.app/Contents/MacOS/onyx -d Onyx.app/Contents/libs/
 	rm -rf Onyx.app/Contents/MacOS/magma-{v1,v2,common,ogg2mogg}
-	rm -rf Onyx.app/Contents/MacOS/x360-rb3pkg
 	rm -rf Onyx.app/Contents/MacOS/rb3-updates
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} Onyx.app/Contents/MacOS/
-	cp -R vendors/x360-rb3pkg Onyx.app/Contents/MacOS/
 	# cp -R vendors/rb3-updates Onyx.app/Contents/MacOS/
 	cp vendors/itaijidict Onyx.app/Contents/MacOS/
 	cp vendors/kanwadict Onyx.app/Contents/MacOS/
@@ -58,7 +54,6 @@ win:
 	cp README.md win/README.txt
 	cp CHANGES.md win/CHANGES.txt
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} win/
-	cp -R vendors/x360-rb3pkg win/
 	# cp -R vendors/rb3-updates win/
 	cp vendors/itaijidict win/
 	cp vendors/kanwadict win/

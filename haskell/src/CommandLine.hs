@@ -62,7 +62,8 @@ import qualified Sound.MIDI.Script.Parse          as MS
 import qualified Sound.MIDI.Script.Read           as MS
 import qualified Sound.MIDI.Script.Scan           as MS
 import qualified Sound.MIDI.Util                  as U
-import           STFS.Package                     (extractSTFS)
+import           STFS.Package                     (extractSTFS, rb2pkg, rb3pkg,
+                                                   stfsFolder)
 import           System.Console.GetOpt
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropExtension,
@@ -75,7 +76,6 @@ import           Text.Decode                      (decodeGeneral)
 import           Text.Printf                      (printf)
 import           Text.Read                        (readMaybe)
 import           U8                               (packU8)
-import           X360DotNet                       (rb2pkg, rb3pkg, stfsFolder)
 
 #ifdef WINDOWS
 import           Data.Bits                        (testBit)

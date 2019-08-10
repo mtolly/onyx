@@ -27,14 +27,12 @@ New versions and source at: https://github.com/mtolly/onyxite-customs/releases
 
 ## Requirements
 
-Windows version requires .NET and (I think) the Visual C++ runtime.
+Windows version requires (I think) the Visual C++ runtime.
 (If you can run Magma, you're good.)
 
-Mac version requires Wine, Mono, and Mono's `libgdiplus` library.
-You can use the official Mac installers for Wine and Mono; Mono's will install
-`libgdiplus` as well. Or you can use Homebrew, by installing the packages
-`wine`, `mono`, and `mono-libgdiplus`. The app is compiled with Mojave, so you
-probably need at least that version.
+Mac version requires Wine. You can use the official installer, or you can use
+Homebrew (`brew install wine`). The app is compiled with Mojave (10.14.6), so
+you probably need at least that version.
 
 ## Instructions
 

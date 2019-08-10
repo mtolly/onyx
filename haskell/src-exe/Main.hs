@@ -30,7 +30,6 @@ main = do
           "mingw32" -> return ()
           _ -> do
             inside "checking if Wine is installed" $ checkShell "wine --version"
-            inside "checking if Mono is installed" $ checkShell "mono --version"
         files <- mapStackTraceT (mapQueueLog runResourceT) $ commandLine argv
         unless (null files) $ lg $ unlines $ "Done! Created files:" : files
       case res of

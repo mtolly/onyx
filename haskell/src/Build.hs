@@ -106,6 +106,7 @@ import qualified Sound.Jammit.Export                   as J
 import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
 import qualified Sound.MIDI.Util                       as U
+import           STFS.Package                          (rb2pkg, rb3pkg)
 import qualified System.Directory                      as Dir
 import           System.Environment.Executable         (getExecutablePath)
 import           System.IO                             (IOMode (ReadMode),
@@ -113,7 +114,6 @@ import           System.IO                             (IOMode (ReadMode),
                                                         withBinaryFile)
 import           Text.Transform                        (replaceCharsRB)
 import           WebPlayer                             (makeDisplay)
-import           X360DotNet
 import           YAMLTree
 
 targetTitle :: SongYaml -> Target -> T.Text
@@ -1185,7 +1185,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               let files = [pathDta, pathMid, pathMogg, pathMilo]
                     ++ [pathPng | isJust $ _fileAlbumArt $ _metadata songYaml]
               shk $ need files
-              lg "# Producing RB3 CON file via X360"
+              lg "# Producing RB3 CON file"
               mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ rb3pkg
                 (getArtist (_metadata songYaml) <> ": " <> title)
                 (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
@@ -1491,7 +1491,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   rb2Pan %> \out -> liftIO $ B.writeFile out B.empty
                   rb2CON %> \out -> do
                     shk $ need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
-                    lg "# Producing RB2 CON file via X360"
+                    lg "# Producing RB2 CON file"
                     mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ rb2pkg
                       (getArtist (_metadata songYaml) <> ": " <> targetTitle songYaml (RB2 rb2))
                       (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
