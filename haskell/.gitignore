@@ -4,3 +4,4 @@ installer.nsi
 onyx-*.exe
 onyxite-customs-tool.cabal
 game/onyx-game.cabal
+stack.yaml.lock

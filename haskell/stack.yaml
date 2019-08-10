@@ -1,27 +1,5 @@
 packages:
 - '.'
-- location: game/
-  extra-dep: true
-- location: ArkTool/
-  extra-dep: true
-- location: kakasi/
-  extra-dep: true
-- location: gamecube-dsp/
-  extra-dep: true
-- location:
-    git: git://github.com/mtolly/midi
-    commit: 28866f4715cde594d8d8ec5e6f3beecb64783614
-  extra-dep: true
-- location:
-    git: git://github.com/mtolly/conduit-audio
-    commit: e32b257121dcfa55c8bf8e3c6ba5a0d23dcb0fc3
-    subdirs:
-    - conduit-audio-mpg123
-  extra-dep: true
-- location:
-    git: git://github.com/deech/fltkhs
-    commit: c55aa9198088198e83060276114fcb8087872734
-  extra-dep: true
 extra-deps:
 - conduit-audio-0.2.0.3
 - conduit-audio-lame-0.1.2.1
@@ -36,6 +14,20 @@ extra-deps:
 - JuicyPixels-stbir-0.1.0.0
 - hsndfile-0.8.0
 - hsndfile-vector-0.5.2
+# local folders
+- game/
+- ArkTool/
+- kakasi/
+- gamecube-dsp/
+# git repos
+- git: git://github.com/mtolly/midi
+  commit: 28866f4715cde594d8d8ec5e6f3beecb64783614
+- git: git://github.com/mtolly/conduit-audio
+  commit: e32b257121dcfa55c8bf8e3c6ba5a0d23dcb0fc3
+  subdirs:
+  - conduit-audio-mpg123
+- git: git://github.com/deech/fltkhs
+  commit: c55aa9198088198e83060276114fcb8087872734
 resolver: nightly-2019-04-12
 flags:
   fltkhs:
