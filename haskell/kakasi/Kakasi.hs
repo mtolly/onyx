@@ -1,8 +1,9 @@
 module Kakasi where
 
-import Foreign
+import Foreign hiding (void)
 import Foreign.C
 import qualified Data.ByteString as B
+import Control.Monad (void)
 
 foreign import ccall "kakasi_getopt_argv"
   kakasi_getopt_argv :: CInt -> Ptr CString -> IO CInt
@@ -24,6 +25,6 @@ kakasiArgs args = withMany withCString args $ \ps -> do
 kakasiDo :: B.ByteString -> IO B.ByteString
 kakasiDo bs = do
   cs <- B.useAsCString bs kakasi_do
-  bs <- B.packCString cs
-  kakasi_free cs
-  return bs
+  bs' <- B.packCString cs
+  void $ kakasi_free cs
+  return bs'

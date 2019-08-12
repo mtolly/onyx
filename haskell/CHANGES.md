@@ -1,5 +1,10 @@
 # Version history
 
+## 20190811
+
+* Fix PS/CH speed changes not editing the MIDI tempos
+* .NET or Mono no longer required (new library for generating CON files)
+
 ## 20190804
 
 * Better conversion of charts with open notes to games that don't support them:
