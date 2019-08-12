@@ -41,7 +41,6 @@ plans:
     karaoke: false
     mogg-md5: 25c3edbf932c70fb71cc419070a2f290
     multitrack: false
-    silent: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 targets:
   rb3:

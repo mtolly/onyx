@@ -68,7 +68,7 @@ replaceCharsRB rbproj txt = liftIO $ let
             Nothing      -> s
             Just (c, cs) -> T.cons (toUpper c) cs
       return
-        -- $ T.replace "(kigou)" "?" -- only needed with -Ea
+        -- T.replace "(kigou)" "?" -- only needed with -Ea
         $ T.replace "^" "-" -- kakasi writes long vowels as ^
         -- get rid of extra space around punctuation
         $ T.replace "( " "("

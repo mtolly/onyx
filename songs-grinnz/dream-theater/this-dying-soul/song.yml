@@ -134,7 +134,6 @@ plans:
     karaoke: false
     mogg-md5: 553099b906f7437756605df4d0480718
     multitrack: true
-    silent: [2, 3, 4, 5]
     vols: [0, 0, 0, 0, 0, 0, 0, 0]
 parts:
   drums:

@@ -23,9 +23,6 @@ plans:
     karaoke: false
     mogg-md5: 37a000ccb0b2a425371ec51e52974f73
     multitrack: false
-    silent:
-    - 0
-    - 1
     vols:
     - -3
     - -3

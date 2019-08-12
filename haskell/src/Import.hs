@@ -53,7 +53,6 @@ import           Image                            (DXTFormat (PNGXbox),
                                                    toDXT1File)
 import           JSONData                         (toJSON)
 import           Magma                            (getRBAFile)
-import           MoggDecrypt                      (moggToOgg)
 import qualified Numeric.NonNegative.Class        as NNC
 import           OSFiles                          (fixFileCase)
 import           PhaseShift.Dance                 (nullDance)
@@ -164,7 +163,7 @@ importFoF src dest = do
   albumArt <- stackIO $ do
     files <- Dir.listDirectory src
     let isImage f = case splitExtension $ map toLower f of
-          (x, y) -> elem x ["album", "image"] && elem y [".png", ".jpg"]
+          (x, y) -> elem x ["album", "image"] && elem y [".png", ".jpg", ".jpeg"]
     case filter isImage files of
       []    -> return Nothing
       f : _ -> do
@@ -801,17 +800,6 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
     else return Nothing
   let hopoThresh = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
 
-  -- try to scan MOGG file for silent channels
-  silentChannels <- tempDir "moggscan" $ \temp -> do
-    let ogg = temp </> "audio.ogg"
-    res <- errorToEither $ moggToOgg (dir </> "audio.mogg") ogg
-    case res of
-      Left  _err -> do
-        warn "Couldn't decrypt MOGG to scan for empty channels."
-        return []
-      Right ()   -> emptyChannels ogg
-  lg $ "Detected the following channels as silent: " ++ show silentChannels
-
   fixedTracks <- RBFile.s_tracks <$> loadMIDI mid
 
   let drumEvents = RBFile.fixedPartDrums fixedTracks
@@ -916,7 +904,6 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
       , _karaoke = karaoke
       , _multitrack = multitrack
-      , _silent = silentChannels
       }
     , _targets = let
       getSongID = \case
@@ -1419,7 +1406,6 @@ importAmplitude fin dout = do
       , _tuningCents = 0
       , _karaoke = False
       , _multitrack = True
-      , _silent = []
       }
     , _targets = HM.empty
     , _parts = Parts $ HM.fromList $ do

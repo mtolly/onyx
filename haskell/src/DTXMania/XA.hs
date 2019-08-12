@@ -1,7 +1,9 @@
 {- |
 
 DTX .xa audio decoding
+
 Ported from https://github.com/Dridi/bjxa
+
 Licensed under the GNU General Public License v3
 
 -}

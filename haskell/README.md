@@ -130,6 +130,8 @@ To change the order of songs, select its row and press Ctrl+Up or Ctrl+Down
     By default, an input format like Phase Shift that can contain both 1x and
     2x Bass Pedal drums charts will generate two separate songs. If you are
     interested in only 1x or only 2x, select the appropriate Bass Pedal option.
+    Songs that are detected as 2x Bass Pedal versions can also produce an
+    automatic 1x version, using an algorithm to remove certain kick notes.
 
     When creating a Magma project, a REAPER project will also be generated
     so any remaining problems can be quickly edited and re-exported to MIDI.

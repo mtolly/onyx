@@ -9,7 +9,6 @@ plans:
       bass: [3]
       keys: [4]
       vocal: [5]
-    silent: [0, 1, 2, 3, 4, 5]
 metadata:
   rating: SupervisionRecommended
   preview-start: 97.853

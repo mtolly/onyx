@@ -16,7 +16,6 @@ plans:
     pans: [-1, 1, -1, 1, -1, 1, -1, 1]
     mogg-md5: 5820b6cc0c70963741db2ea20cdc5cbc
     multitrack: false
-    silent: [2, 3, 4, 5]
     vols: [-3, -3, -3, -3, -3, -3, -3, -3]
 targets:
   rb3:

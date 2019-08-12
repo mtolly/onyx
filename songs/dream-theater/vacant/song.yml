@@ -46,7 +46,6 @@ plans:
     karaoke: false
     mogg-md5: 2ee7e073da41bf71fb3416831e3b9380
     multitrack: false
-    silent: [0, 1, 2, 3, 4]
     vols: [0, 0, 0, 0, 0, 0, 0]
 parts:
   bass:

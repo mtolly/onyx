@@ -116,6 +116,16 @@ import           Text.Transform                        (replaceCharsRB)
 import           WebPlayer                             (makeDisplay)
 import           YAMLTree
 
+adjustMIDISpeed :: Double -> RBFile.Song t -> RBFile.Song t
+adjustMIDISpeed 1     mid = mid
+adjustMIDISpeed speed mid = mid
+  { RBFile.s_tempos
+    = U.tempoMapFromBPS
+    $ fmap (* realToFrac speed)
+    $ U.tempoMapToBPS
+    $ RBFile.s_tempos mid
+  }
+
 targetTitle :: SongYaml -> Target -> T.Text
 targetTitle songYaml target = let
   common = case target of
@@ -726,7 +736,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             ((spec', _, _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) _silent $ do
+              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit kick _ _) -> fromMaybe [] kick
@@ -736,12 +746,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit kick _ _) -> kick
                   _                           -> Nothing
-            runAudio (zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
+            runAudio (clampIfSilent $ zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
           writeSnare gameParts speed pad supportsOffMono planName plan fpart rank out = do
             ((_, spec', _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) _silent $ do
+              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit _ snare _) -> fromMaybe [] snare
@@ -751,12 +761,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit _ snare _) -> snare
                   _                            -> Nothing
-            runAudio (zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
+            runAudio (clampIfSilent $ zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
           writeKit gameParts speed pad supportsOffMono planName plan fpart rank out = do
             ((_, _, spec'), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) _silent $ do
+              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit _ _ kit) -> kit
@@ -768,10 +778,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   Just (PartDrumKit _ _ kit) -> Just kit
                   Just (PartSingle      kit) -> Just kit
                   _                          -> Nothing
-            runAudio (zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
+            runAudio (clampIfSilent $ zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
           getPartSource :: (MonadResource m) => [(Double, Double)] -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> Staction (AudioSource m Float)
           getPartSource spec planName plan fpart rank = case plan of
-            MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) _silent $ do
+            MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) $ do
               guard $ rank /= 0
               toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
             Plan{..} -> buildPartAudioToSpec rel audioLib songYaml spec $ do
@@ -785,16 +795,16 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             src <- case srcs of
               []     -> buildAudioToSpec rel audioLib songYaml spec Nothing
               s : ss -> return $ foldr mix s ss
-            runAudio (padAudio pad $ adjustAudioSpeed speed src) out
+            runAudio (clampIfSilent $ padAudio pad $ adjustAudioSpeed speed src) out
           writeSimplePart gameParts speed pad supportsOffMono planName plan fpart rank out = do
             let spec = adjustSpec supportsOffMono $ computeSimplePart fpart plan songYaml
             src <- getPartSource spec planName plan fpart rank
-            runAudio (zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
+            runAudio (clampIfSilent $ zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
           writeCrowd speed pad planName plan out = do
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] (oggForPlan planName) (zip _pans _vols) _silent _moggCrowd
+              MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] (oggForPlan planName) (zip _pans _vols) _moggCrowd
               Plan{..}     -> buildAudioToSpec rel audioLib songYaml [(-1, 0), (1, 0)] _crowd
-            runAudio (padAudio pad $ adjustAudioSpeed speed src) out
+            runAudio (clampIfSilent $ padAudio pad $ adjustAudioSpeed speed src) out
           sourceSongCountin :: (MonadResource m) => Maybe Double -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> Staction (AudioSource m Float)
           sourceSongCountin speed pad includeCountin planName plan fparts = do
             let usedParts' = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
@@ -809,7 +819,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   ]
                 spec = [(-1, 0), (1, 0)]
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) _silent $ let
+              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) $ let
                 channelsFor fpart = toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
                 usedChannels = concatMap channelsFor usedParts ++ _moggCrowd
                 in filter (`notElem` usedChannels) [0 .. length _pans - 1]
@@ -833,7 +843,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           writeSongCountin :: Maybe Double -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> Staction ()
           writeSongCountin speed pad includeCountin planName plan fparts out = do
             src <- sourceSongCountin speed pad includeCountin planName plan fparts
-            runAudio src out
+            runAudio (clampIfSilent src) out
 
           rbRules :: FilePath -> TargetRB3 -> Maybe TargetRB2 -> QueueLog Rules ()
           rbRules dir rb3 mrb2 = do
@@ -1079,19 +1089,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     }
                   input' = input { RBFile.s_tracks = adjustEvents $ RBFile.s_tracks input }
                   speed = fromMaybe 1 rb3speed
-                  adjustMIDISpeed mid = if speed /= 1
-                    then mid
-                      { RBFile.s_tempos
-                        = U.tempoMapFromBPS
-                        $ fmap (* realToFrac speed)
-                        $ U.tempoMapToBPS
-                        $ RBFile.s_tempos mid
-                      }
-                    else mid
               (output, pad) <- RB3.processRB3Pad
                 rb3
                 songYaml
-                (adjustMIDISpeed input')
+                (adjustMIDISpeed speed input')
                 mixMode
                 ((/ realToFrac speed) <$> getAudioLength planName plan)
               liftIO $ writeFile outPad $ show pad
@@ -1122,7 +1123,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   _      -> do
                     input <- shk $ buildSource $ Input $ planDir </> "audio.ogg"
                     let src = padStart (Seconds $ realToFrac pad)
-                          $ stretchFullSmart _silent (1 / speed) 1 input
+                          $ stretchFullSmart (1 / speed) 1 input
                     runAudio src out
               Plan{..}   -> do
                 (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
@@ -1596,7 +1597,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               output <- RB3.processPS
                 ps
                 songYaml
-                input
+                (adjustMIDISpeed (fromMaybe 1 $ tgt_Speed $ ps_Common ps) input)
                 mixMode
                 (getAudioLength planName plan)
               saveMIDI out output

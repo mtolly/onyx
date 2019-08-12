@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -29,15 +30,16 @@ module Audio
 , decentVorbis
 , stretchFull
 , stretchFullSmart
-, emptyChannels
 , fadeStart, fadeEnd
 , mixMany
+, clampIfSilent
 ) where
 
 import           Control.Concurrent               (threadDelay)
 import           Control.DeepSeq                  (($!!))
 import           Control.Exception                (evaluate)
-import           Control.Monad                    (ap, when)
+import           Control.Monad                    (ap, replicateM_, unless,
+                                                   when)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
@@ -182,13 +184,18 @@ stretchSimple ratio src = AudioSource
           pipe (nextIndex - len) $ map V.last chans
 
 -- | Avoids giving silent channels to the audio stretcher.
-stretchFullSmart :: (MonadResource m) => [Int] -> Double -> Double -> AudioSource m Float -> AudioSource m Float
-stretchFullSmart [] tr pr src = stretchFull tr pr src
-stretchFullSmart silentChannels tr pr src = let
-  soundChannels = filter (`notElem` silentChannels) [0 .. channels src - 1]
-  transformIn = remapChannels $ map Just soundChannels
-  transformOut = remapChannels $ map (`elemIndex` soundChannels) [0 .. channels src - 1]
-  in transformOut $ stretchFull tr pr $ transformIn src
+stretchFullSmart :: (MonadResource m) => Double -> Double -> AudioSource m Float -> AudioSource m Float
+stretchFullSmart tr pr src = let
+  stretchAll = stretchFull tr pr src
+  in stretchAll
+    { source = emptyChannels src >>= source . \case
+      []    -> stretchAll
+      chans -> let
+        soundChannels = filter (`notElem` chans) [0 .. channels src - 1]
+        transformIn = remapChannels $ map Just soundChannels
+        transformOut = remapChannels $ map (`elemIndex` soundChannels) [0 .. channels src - 1]
+        in transformOut $ stretchFull tr pr $ transformIn src
+    }
 
 -- | Proper audio stretching of time and/or pitch separately.
 stretchFull :: (MonadResource m) => Double -> Double -> AudioSource m Float -> AudioSource m Float
@@ -560,20 +567,40 @@ decentVorbis out = let
   fmt = Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
   in sinkSndWithHandle out fmt setup
 
--- | Loads an OGG file and returns channel indexes which are silent.
-emptyChannels :: (MonadIO m) => FilePath -> m [Int]
-emptyChannels ogg = liftIO $ do
-  src <- sourceSnd ogg
-  runResourceT $ let
-    loop []    = return []
-    loop chans = await >>= \case
-      Nothing  -> return chans
-      Just blk -> let
-        chans' = flip filter chans $ \chan -> let
-          indexes = [chan, chan + channels src .. V.length blk - 1]
-          in flip all indexes $ \i -> abs (blk V.! i :: Float) < 0.01
-        in loop $!! chans'
-    in runConduit $ source src .| loop [0 .. channels src - 1]
+-- | Returns channel indexes (starting from 0) which are silent.
+emptyChannels :: (Monad m, V.Storable a, Eq a, Num a) => AudioSource m a -> ConduitT () o m [Int]
+emptyChannels src = let
+  loop []    = return []
+  loop chans = await >>= \case
+    Nothing  -> return chans
+    Just blk -> let
+      chans' = flip filter chans $ \chan -> let
+        indexes = [chan, chan + channels src .. V.length blk - 1]
+        in flip all indexes $ \i -> (blk V.! i) == 0
+      in loop $!! chans'
+  in source src .| loop [0 .. channels src - 1]
+
+-- | Modifies the source to return 0 audio frames if all samples are silent.
+clampIfSilent :: (Monad m, V.Storable a, Eq a, Num a)
+  => AudioSource m a -> AudioSource m a
+clampIfSilent src = src
+  { source = source src .| let
+    loop !samples = await >>= \case
+      Nothing -> return () -- whole thing was silent. yield no audio
+      Just blk -> if V.all (== 0) blk
+        then loop $ samples + V.length blk
+        else do
+          -- got a non-silent block. yield all the silence, then passthrough upstream
+          let maxSize = chunkSize * channels src
+              maxChunk = V.replicate maxSize 0
+          case quotRem samples maxSize of
+            (q, r) -> do
+              replicateM_ q $ yield maxChunk
+              unless (r == 0) $ yield $ V.replicate r 0
+          yield blk
+          awaitForever yield
+    in loop 0
+  }
 
 unvoid :: (Monad m) => ConduitT i Void m r -> ConduitT i o m r
 unvoid = mapOutput $ \case {}

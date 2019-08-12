@@ -166,17 +166,13 @@ channelsToSpec
   -> FilePath
   -> [(Double, Double)]
   -> [Int]
-  -> [Int]
   -> Staction (AudioSource m Float)
-channelsToSpec pvOut pathOgg pvIn silentChans chans = inside "conforming MOGG channels to output spec" $ do
+channelsToSpec pvOut pathOgg pvIn chans = inside "conforming MOGG channels to output spec" $ do
   let partPVIn = map (pvIn !!) chans
   src <- lift $ lift $ buildSource $ case chans of
     [] -> Silence 1 $ Frames 0
     _  -> Channels (map Just chans) $ Input pathOgg
-  let zeroIfSilent = if all (`elem` silentChans) chans
-        then takeStart (Frames 0)
-        else id
-  zeroIfSilent <$> fitToSpec partPVIn pvOut src
+  fitToSpec partPVIn pvOut src
 
 buildAudioToSpec
   :: (MonadResource m)

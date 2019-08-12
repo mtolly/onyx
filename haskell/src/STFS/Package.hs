@@ -1,3 +1,8 @@
+{- | This code was written with the help of
+* X360 and Le Fluffie by DJ Shepherd
+* py360 by arkem - https://github.com/arkem/py360
+* Free60 - https://free60project.github.io/wiki/STFS.html
+-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -72,13 +77,13 @@ data CONHeader = CONHeader
 
 utf8String :: Int -> BinaryCodec T.Text
 utf8String n = dimap
-  (\s -> encodeUtf8 $ s <> T.replicate (n - T.length s) "\0")
+  (\s -> B.take n $ encodeUtf8 s <> B.replicate n 0) -- this might result in broken utf8
   (T.takeWhile (/= '\0') . decodeUtf8)
   $ byteString n
 
 utf16BEString :: Int -> BinaryCodec T.Text
 utf16BEString n = dimap
-  (\s -> encodeUtf16BE $ s <> T.replicate (quot n 2 - T.length s) "\0")
+  (\s -> B.take n $ encodeUtf16BE s <> B.replicate n 0)
   (T.takeWhile (/= '\0') . decodeUtf16BE)
   $ byteString n
 
@@ -926,7 +931,7 @@ makeCON opts dir con = withBinaryFile con ReadWriteMode $ \fd -> do
         , ch_PublicExponent          = bytesFromInteger 4 $ public_e $ private_pub $ kv_PrivateKey key
         , ch_PublicModulus           = stockScramble $ bytesFromInteger 0x80 $ public_n $ private_pub $ kv_PrivateKey key
         , ch_CertSignature           = B.take 0x100 $ B.drop 0xA60 xboxKV
-        , ch_Signature               = B.replicate 0x80 0 -- TODO fill in when package is done
+        , ch_Signature               = B.replicate 0x80 0 -- gets filled in when package is done
         }
       initPackage = STFSPackage
         { stfsHandle   = fd

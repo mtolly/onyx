@@ -100,7 +100,6 @@ plans:
     karaoke: false
     mogg-md5: f1dd3db97b25cc92257491d9caf95401
     multitrack: true
-    silent: [2, 3, 4, 5]
     vols: [0, 0, 0, 0, 0, 0, 0, 0]
   release:
     countin: *countin
