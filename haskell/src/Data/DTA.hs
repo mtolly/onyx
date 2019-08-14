@@ -15,7 +15,6 @@ module Data.DTA
 , removeBOM
 ) where
 
-import           Control.Exception.Extra
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.StackTrace (StackTraceT, fatal, inside)
 import           Data.Binary                    (decode, encode)
@@ -30,7 +29,7 @@ import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeLatin1, decodeUtf8,
                                                  decodeUtf8', encodeUtf8)
 import           System.IO.Error                (tryIOError)
-import           Text.Decode                    (removeBOM)
+import           Text.Decode                    (decodeGeneral, removeBOM)
 
 decodeDTB :: BL.ByteString -> DTA B.ByteString
 decodeDTB = decode
@@ -48,7 +47,7 @@ readDTA :: T.Text -> DTA T.Text
 readDTA = parse . scan . removeBOM
 
 readFileDTA :: FilePath -> IO (DTA T.Text)
-readFileDTA f = readFileDTA_utf8 f `catch_` \_ -> readFileDTA_latin1 f
+readFileDTA = fmap (readDTA . decodeGeneral) . B.readFile
 
 readFileDTA_latin1 :: FilePath -> IO (DTA T.Text)
 readFileDTA_latin1 = fmap (readDTA . decodeLatin1) . B.readFile
