@@ -52,7 +52,7 @@ parts:
         global: -3 # G# C# F# B E
   keys:
     pro-keys: {} # onyxite, a bit of alextaylor
-  vocal:
+  vocal: # WIP
     vocal: # onyxite
       count: 3
 targets:
