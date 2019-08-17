@@ -7,6 +7,8 @@ metadata:
   author: Xane60, Onyxite
   genre: metal
   subgenre: prog
+  anim-tempo: fast
+  file-album-art: cover.png_xbox
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -27,14 +29,20 @@ plans:
       pad: [1.691, youtube]
 parts:
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 6
+  bass:
+    grybo:
+      difficulty: 6
   drums:
     drums:
       kicks: both
+      difficulty: 7
   vocal:
     vocal:
       count: 3
       gender: male
+      difficulty: 3
 targets:
   rb3:
     game: rb3
