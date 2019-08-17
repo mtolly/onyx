@@ -30,9 +30,9 @@ parts:
     grybo: {}
   drums:
     drums:
-      kicks: 2
+      kicks: both
   vocal:
-    vocal: # TODO solo vox
+    vocal:
       count: 3
       gender: male
 targets:
