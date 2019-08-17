@@ -1,0 +1,26 @@
+PLANS FOR ONYX
+
+Make a rhythm game
+  currently have a demo of drum gameplay engine, with basic 3d (GL) graphics
+  using SDL audio at the moment. should maybe move to OpenAL (easier mixing and volume control of many channels, easier to hook up to `conduit-audio` reliably)
+Improvements to conversion tool
+  Single song view: loads a song, displays all imported info (editable), full control over what is included in export target
+  More control over which transform passes are applied to song data
+Preview tool
+  Likely going to move from the web app to a desktop (SDL) app
+    Too difficult to track browser issues, especially relating to audio and the local (file://) execution method
+  Should redo song formats to use a single tree-map that indexes track states
+    Currently stuff like pro keys is very inefficient bc each key has its own tree-map
+  Want to turn it into a live preview app for authoring
+    Would monitor a .RPP or .mid file for changes and reload data automatically
+    Reaper can run a script that reports play position and state to a local web server, so seeking and playing would all be synced with the preview
+  Minor thing, but image drawing should all be tweaked so it takes the center point as its argument
+    Important for moving all sizes to the config file
+Code maintenance / general stuff
+  Should redo all record naming to be focused towards lenses (with `generic-lens`)
+  Parsed note track types should contain note on/off, not the `Maybe len`
+Extension to new games
+  Dance Dance Revolution / Stepmania / Phase Shift Dance mode
+  Donkey Konga
+  Taiko no Tatsujin
+  Rocksmith

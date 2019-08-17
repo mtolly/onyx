@@ -1,0 +1,21 @@
+PLANS FOR NEW AUDIO I/O SYSTEM
+
+audio inputs:
+- expressions (or nothing) for each part, and for backing
+  - adding sequencing support, but this just evaluates to an expression
+- mogg/vgs file
+
+audio outputs:
+- rb mogg
+  - can be any number of channels (but each part must have at least 1)
+  - drums must be a valid mix layout
+  - silent part can be mono except drums which must be stereo
+- magma wavs
+- ps/ch oggs: should end exactly at [end]
+  - silent parts should have no file
+- gh2 vgs: should end just past [end]
+  - silent part can be mono
+- audio for web preview app
+  - stereo ogg/mp3 with everything in it
+  - end time doesn't matter
+- playing audio via sdl/openal
