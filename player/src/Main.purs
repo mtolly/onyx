@@ -27,7 +27,7 @@ import           Song                  (Flex (..), Song (..), isForeignSong, voc
 import           Style                 (customize)
 import           Draw.Drums         (drawDrums)
 import           Draw.Five          (drawFive)
-import           Draw.ProKeys       (drawProKeys)
+import           Draw.ProKeys       (drawProKeysFast)
 import           Draw.Protar        (drawProtar, eachChordsWidth)
 import           Draw.Six           (drawSix)
 import           Draw.Vocal         (drawVocal)
@@ -186,7 +186,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                     { typeName: "Pro Keys"
                     , typeIcon: image_icon_pro_keys
                     , typeVertical: true
-                    , diffs: map (map drawProKeys) ds
+                    , diffs: map (map drawProKeysFast) ds
                     , count: 1
                     }
                 , case flex.protar of

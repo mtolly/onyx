@@ -36,7 +36,7 @@ newtype Flex = Flex
   { five      :: Maybe (Difficulties Five)
   , six       :: Maybe (Difficulties Six)
   , drums     :: Array (Difficulties Drums)
-  , prokeys   :: Maybe (Difficulties ProKeys)
+  , prokeys   :: Maybe (Difficulties ProKeysFast)
   , protar    :: Maybe (Difficulties Protar)
   , amplitude :: Maybe (Difficulties Amplitude)
   , vocal     :: Maybe (Difficulties Vocal)
@@ -144,6 +144,99 @@ newtype Protar = Protar
   , chordsWidth :: Int
   }
 
+type TimeState p n f =
+  { past   :: p
+  , now    :: n
+  , future :: f
+  }
+type SustainOD a = TimeState (Maybe Boolean) (Maybe a) (Maybe Boolean)
+-- above bools are whether sustain was under OD
+type SustainBool = TimeState Boolean Boolean Boolean
+
+newtype ProKeysState = ProKeysState
+  { notes  :: Map.Map Pitch (SustainOD Unit)
+  , lanes  :: Map.Map Pitch SustainBool
+  , ranges :: TimeState (Maybe Range) Unit (Maybe Range)
+  , solo   :: SustainBool
+  , energy :: SustainBool
+  , gliss  :: SustainBool
+  , bre    :: SustainBool
+  }
+
+emptyProKeysState :: ProKeysState
+emptyProKeysState = ProKeysState
+  { notes: Map.fromFoldable $ map (\p -> Tuple p {past: Nothing, now: Nothing, future: Nothing}) allPitches
+  , lanes: Map.fromFoldable $ map (\p -> Tuple p {past: false, now: false, future: false}) allPitches
+  , ranges: {past: Nothing, now: unit, future: Nothing}
+  , solo: {past: false, now: false, future: false}
+  , energy: {past: false, now: false, future: false}
+  , gliss: {past: false, now: false, future: false}
+  , bre: {past: false, now: false, future: false}
+  }
+
+extendPKFuture :: ProKeysState -> ProKeysState
+extendPKFuture (ProKeysState pk) = ProKeysState
+  { notes: map (\s -> {past: s.future, now: Nothing, future: s.future}) pk.notes
+  , lanes: map (\s -> {past: s.future, now: false, future: s.future}) pk.lanes
+  , ranges: {past: pk.ranges.future, now: unit, future: pk.ranges.future}
+  , solo: {past: pk.solo.future, now: false, future: pk.solo.future}
+  , energy: {past: pk.energy.future, now: false, future: pk.energy.future}
+  , gliss: {past: pk.gliss.future, now: false, future: pk.gliss.future}
+  , bre: {past: pk.bre.future, now: false, future: pk.bre.future}
+  }
+
+extendPKPast :: ProKeysState -> ProKeysState
+extendPKPast (ProKeysState pk) = ProKeysState
+  { notes: map (\s -> {past: s.past, now: Nothing, future: s.past}) pk.notes
+  , lanes: map (\s -> {past: s.past, now: false, future: s.past}) pk.lanes
+  , ranges: {past: pk.ranges.past, now: unit, future: pk.ranges.past}
+  , solo: {past: pk.solo.past, now: false, future: pk.solo.past}
+  , energy: {past: pk.energy.past, now: false, future: pk.energy.past}
+  , gliss: {past: pk.gliss.past, now: false, future: pk.gliss.past}
+  , bre: {past: pk.bre.past, now: false, future: pk.bre.past}
+  }
+
+type ProKeysFast = Map.Map Seconds ProKeysState
+
+processProKeys :: ProKeys -> ProKeysFast
+processProKeys (ProKeys pk) = let
+  allSecs = List.fromFoldable $ Set.unions
+    [ Set.unions $ map Map.keys $ Map.values pk.notes
+    , Set.unions $ map Map.keys $ Map.values pk.lanes
+    , Map.keys pk.ranges
+    , Map.keys pk.solo
+    , Map.keys pk.energy
+    , Map.keys pk.gliss
+    , Map.keys pk.bre
+    ]
+  updateBool prevTS tmap t = case Map.lookup t tmap of
+    Just b -> {past: prevTS.future, now: true, future: b}
+    Nothing -> {past: prevTS.future, now: false, future: prevTS.future}
+  go _                   List.Nil           = List.Nil
+  go (ProKeysState prev) (List.Cons t rest) = let
+    energy = updateBool prev.energy pk.energy t
+    v =
+      { notes: flip mapWithIndex prev.notes \pitch prevPitch ->
+        case Map.lookup pitch pk.notes >>= Map.lookup t of
+          Nothing -> {past: prevPitch.future, now: Nothing, future: prevPitch.future}
+          Just SustainEnd -> {past: prevPitch.future, now: Nothing, future: Nothing}
+          Just (Note _) -> {past: prevPitch.future, now: Just unit, future: Nothing}
+          Just (Sustain _) -> {past: prevPitch.future, now: Just unit, future: Just energy.future}
+      , lanes: flip mapWithIndex prev.lanes \pitch prevPitch ->
+        updateBool prevPitch (fromMaybe Map.empty $ Map.lookup pitch pk.lanes) t
+      , ranges:
+        { past: prev.ranges.future
+        , now: unit
+        , future: maybe prev.ranges.future Just $ Map.lookup t pk.ranges
+        }
+      , solo: updateBool prev.solo pk.solo t
+      , energy: energy
+      , gliss: updateBool prev.gliss pk.gliss t
+      , bre: updateBool prev.bre pk.bre t
+      }
+    in List.Cons (Tuple t $ ProKeysState v) $ go (ProKeysState v) rest
+  in Map.fromFoldable $ go emptyProKeysState allSecs
+
 newtype ProKeys = ProKeys
   { notes  :: Map.Map Pitch (Map.Map Seconds (Sustainable Unit))
   , lanes  :: Map.Map Pitch (Map.Map Seconds Boolean)
@@ -201,6 +294,13 @@ data Pitch
 
 derive instance eqPitch :: Eq Pitch
 derive instance ordPitch :: Ord Pitch
+
+allPitches :: Array Pitch
+allPitches =
+  [ RedC, RedCs, RedD, RedDs, RedE, YellowF, YellowFs, YellowG, YellowGs
+  , YellowA, YellowAs, YellowB, BlueC, BlueCs, BlueD, BlueDs, BlueE, GreenF
+  , GreenFs, GreenG, GreenGs, GreenA, GreenAs, GreenB, OrangeC
+  ]
 
 newtype Amplitude = Amplitude
   { notes      :: Map.Map Seconds AmpNote
@@ -515,7 +615,7 @@ isForeignFlex f = do
     { five: five
     , six: six
     , drums: drums
-    , prokeys: prokeys
+    , prokeys: map (map (map processProKeys)) prokeys
     , protar: protar
     , amplitude: amplitude
     , vocal: vocal
