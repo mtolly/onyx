@@ -183,6 +183,9 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200122 Blind Faith (Dream Theater) 2x (v2)
   Pack of song updates (many Pro G/B charts, other fixes) published 2019-05-09
 
+1660200123 Nurture (Synovial) 1x (v1)
+1660200124 Nurture (Synovial) 2x (v1)
+
 BONUS SONGS (counting down from max)
 
 1660299999 hacked c3 6:00 drum chart
