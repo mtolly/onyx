@@ -1037,7 +1037,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   magma = RBFile.s_tracks magmaMid
                   reauthor f = f user `trackOr` f magma
               saveMIDI out $ userMid
-                { RBFile.s_tracks = magma
+                { RBFile.s_tracks = user
                   { RBFile.fixedVenue = let
                     onlyLightingPP venue = mempty
                       { venueSpotKeys = venueSpotKeys venue
