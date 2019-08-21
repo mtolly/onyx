@@ -185,6 +185,7 @@ onyxite's C3-format Song IDs (16602xxxxx)
 
 1660200123 Nurture (Synovial) 1x (v1)
 1660200124 Nurture (Synovial) 2x (v1)
+  Published 2019-08-20
 
 BONUS SONGS (counting down from max)
 

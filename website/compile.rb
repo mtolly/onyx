@@ -76,6 +76,7 @@ def makeDifficulties(parts, song)
   end
   output = []
   parts.sort_by(&part_index).each do |part, modes|
+    next if %w{guitar-ch bass-ch}.include?(part) # hack in Nurture
     modes_output = []
     modes.sort_by(&mode_index).each do |mode, info|
       mode_name = '???'
@@ -128,6 +129,8 @@ def makeDifficulties(parts, song)
         count = info['count']
         mode_name = "Vocals (#{count})"
         mode_image = "vocal-#{[count, 3].min}"
+      else
+        next
       end
       diff = info['difficulty']
       modes_output << {
