@@ -2,7 +2,7 @@ metadata:
   title: Sequence Start
   artist: sungazer
   album: sungazer vol. 1
-  author: Onyxite
+  author: Onyxite, 2DHumanity
   genre: fusion
   subgenre: fusion
   year: 2014
@@ -29,6 +29,9 @@ parts:
       difficulty: 7
       tuning:
         base: bass-4
+    grybo: # TODO edit some parts to match pro
+      difficulty: 5
+      # by 2DHumanity, from Anti Hero (1)
   drums:
     drums:
       difficulty: 5
@@ -37,6 +40,9 @@ parts:
   keys:
     pro-keys:
       difficulty: 5
+    grybo: # WIP
+      difficulty: 5
+      # intro section by 2DHumanity
 targets:
   rb3:
     game: rb3

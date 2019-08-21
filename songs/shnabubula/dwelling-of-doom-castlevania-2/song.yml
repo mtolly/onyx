@@ -27,8 +27,10 @@ parts:
     grybo:
       difficulty: 7
   guitar:
-    grybo: {} # WIP
+    grybo: {}
   rhythm:
+    grybo: {} # WIP
+  bass:
     grybo: {} # WIP
 targets:
   rb3:
