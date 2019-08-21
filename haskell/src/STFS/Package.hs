@@ -974,7 +974,7 @@ makeCON opts dir con = withBinaryFile con ReadWriteMode $ \fd -> do
         }
       fileEntries = makeFileEntries (fromIntegral listBlocks) fileList
 
-      writeFileBlock n bs = do
+      writeFileBlock n hasNext bs = do
         seekToFileBlock (FileBlock n) initPackage
         let len = BL.length bs
             blockData = if len > 0x1000
@@ -985,22 +985,27 @@ makeCON opts dir con = withBinaryFile con ReadWriteMode $ \fd -> do
         let hsh = BlockHashRecord
               { bhr_SHA1      = B.replicate 0x14 0 -- fixed later
               , bhr_Status    = BlockUsed
-              , bhr_NextBlock = n + 1
+              , bhr_NextBlock = if hasNext then n + 1 else (-1)
               }
         BL.hPut fd $ runPut $ void $ codecOut bin hsh
 
       writeFileList _ [] = return ()
       writeFileList n ents = do
         let (thisBlock, laterBlocks) = splitAt 64 ents
-        writeFileBlock n $ BL.concat
+        writeFileBlock n (not $ null laterBlocks) $ BL.concat
           $ map (runPut . void . codecOut bin) thisBlock
         writeFileList (n + 1) laterBlocks
+
+      addHasNext :: [a] -> [(a, Bool)]
+      addHasNext [] = []
+      addHasNext [x] = [(x, False)]
+      addHasNext (x : xs) = (x, True) : addHasNext xs
 
       writeFiles _ [] = return ()
       writeFiles n ((_, _, Nothing) : rest) = writeFiles n rest
       writeFiles n ((_, _, Just (_size, blocks)) : rest) = do
-        forM_ (zip [n..] blocks) $ \(n', block) -> do
-          writeFileBlock n' $ BL.fromStrict block
+        forM_ (addHasNext $ zip [n..] blocks) $ \((n', block), hasNext) -> do
+          writeFileBlock n' hasNext $ BL.fromStrict block
         writeFiles (n + fromIntegral (length blocks)) rest
 
   writeFileList 0 fileEntries
