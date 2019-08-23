@@ -26,7 +26,7 @@ import           Images
 import           Song                  (Flex (..), Song (..), isForeignSong, vocalCount, DrumMode (..), Drums (..), drumsProTo4)
 import           Style                 (customize)
 import           Draw.Drums         (drawDrums)
-import           Draw.Five          (drawFive)
+import           Draw.Five          (drawFiveFast)
 import           Draw.ProKeys       (drawProKeysFast)
 import           Draw.Protar        (drawProtar, eachChordsWidth)
 import           Draw.Six           (drawSix)
@@ -137,7 +137,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                       "keys" -> image_icon_keys
                       _      -> image_icon_guitar
                     , typeVertical: true
-                    , diffs: map (map drawFive) ds
+                    , diffs: map (map drawFiveFast) ds
                     , count: 1
                     }
                 , case flex.six of

@@ -12,7 +12,7 @@ import           Data.Time.Duration      (negateDuration)
 import           Data.Tuple              (Tuple (..))
 import           Graphics.Canvas         as C
 
-import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
+import           Draw.Common             (Draw, drawImage, drawLaneCap, drawLaneBody, fillRect,
                                           onContext, secToNum, setFillStyle,
                                           strokeRect, BadgeInfo, drawBadgeVertical)
 import           Images
@@ -64,16 +64,16 @@ drawProKeysFast pkf badge targetX stuff = do
       addMin L.Nil = let
         s = case Map.lookupLE minSecs pkf of
           Nothing -> emptyProKeysState
-          Just o -> extendPKFuture o.value
+          Just o -> extendPK _.future o.value
         in L.Cons (Tuple minSecs s) L.Nil
-      addMin xs@(L.Cons (Tuple _ pks) _) = L.Cons (Tuple minSecs (extendPKPast pks)) xs
+      addMin xs@(L.Cons (Tuple _ pks) _) = L.Cons (Tuple minSecs (extendPK _.past pks)) xs
 
-      addMax (L.Cons t@(Tuple _ pks) L.Nil) = L.Cons t $ L.Cons (Tuple maxSecs (extendPKFuture pks)) L.Nil
+      addMax (L.Cons t@(Tuple _ pks) L.Nil) = L.Cons t $ L.Cons (Tuple maxSecs (extendPK _.future pks)) L.Nil
       addMax (L.Cons t rest) = L.Cons t $ addMax rest
       addMax L.Nil = let
         s = case Map.lookupGE maxSecs pkf of
           Nothing -> emptyProKeysState
-          Just o -> extendPKPast o.value
+          Just o -> extendPK _.past o.value
         in L.Cons (Tuple maxSecs s) L.Nil
 
       targetY = secsToPxVert stuff.time
@@ -107,7 +107,7 @@ drawProKeysFast pkf badge targetX stuff = do
             setFillStyle c stuff
             fillRect { x: toNumber xpos, y: toNumber y1, width: toNumber params.width, height: toNumber $ y2 - y1 } stuff
         drawSoloHighway (xpos + params.width) y1 y2 chunks
-      drawSolos (L.Cons (Tuple s1 (ProKeysState pks1)) rest@(L.Cons (Tuple s2 (ProKeysState pks2)) _)) = do
+      drawSolos (L.Cons (Tuple s1 (ProKeysState pks1)) rest@(L.Cons (Tuple s2 _) _)) = do
         when pks1.solo.future $ drawSoloHighway targetX (secsToPxVert s1) (secsToPxVert s2) pkHighway
         drawSolos rest
       drawSolos _ = pure unit
@@ -128,21 +128,31 @@ drawProKeysFast pkf badge targetX stuff = do
     setFillStyle customize.highwayLine stuff
     fillRect { x: toNumber targetX + 1.0, y: toNumber $ y - shr h 1, width: toNumber widthHighway - 1.0, height: toNumber h } stuff
   -- Lanes
-  -- TODO only draw lane caps when necessary
   for_ pitchList \{pitch: pitch, offsetX: offsetX, isBlack: isBlack} -> let
-    drawLanes (L.Cons (Tuple s1 (ProKeysState pks1)) rest@(L.Cons (Tuple s2 (ProKeysState pks2)) _)) = do
-      when (maybe false _.future (Map.lookup pitch pks1.lanes) || pks1.bre.future) do
-        let y1 = secsToPxVert s1
-            y2 = secsToPxVert s2
-        drawLane
+    goCap xs@(L.Cons (Tuple s1 (ProKeysState pks1)) _) = do
+      let this f = maybe false f $ Map.lookup pitch pks1.lanes
+          past   = this _.past   || pks1.bre.past
+          future = this _.future || pks1.bre.future
+      when (past /= future) $ drawLaneCap
+        { x: targetX + offsetX + if isBlack then 0 else 1
+        , y: secsToPxVert s1
+        , width: 11
+        } stuff
+      goBody xs
+    goCap L.Nil = pure unit
+    goBody (L.Cons (Tuple s1 (ProKeysState pks1)) rest@(L.Cons (Tuple s2 _) _)) = do
+      when (maybe false _.future (Map.lookup pitch pks1.lanes) || pks1.bre.future) let
+        y1 = secsToPxVert s1
+        y2 = secsToPxVert s2
+        in drawLaneBody
           { x: targetX + offsetX + if isBlack then 0 else 1
           , y: y2
           , width: 11
           , height: y1 - y2
           } stuff
-      drawLanes rest
-    drawLanes _ = pure unit
-    in drawLanes zoomAsc
+      goCap rest
+    goBody xs = goCap $ L.drop 1 xs
+    in goCap zoomAsc
   -- Target
   drawImage image_highway_prokeys_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Ranges
@@ -158,7 +168,7 @@ drawProKeysFast pkf badge targetX stuff = do
           RangeG -> [{x: toNumber $ targetX + 2, y: y, width: 78.0, height: h}, {x: toNumber $ targetX + 270, y: y, width: 12.0, height: h}]
           RangeA -> [{x: toNumber $ targetX + 2, y: y, width: 100.0, height: h}]
         in for_ rects \rect -> fillRect rect stuff
-      drawRanges (L.Cons (Tuple s1 (ProKeysState pks1)) rest@(L.Cons (Tuple s2 (ProKeysState pks2)) _)) = do
+      drawRanges (L.Cons (Tuple s1 (ProKeysState pks1)) rest@(L.Cons (Tuple s2 _) _)) = do
         case pks1.ranges.future of
           Nothing -> pure unit
           Just rng -> drawRange s1 s2 rng
@@ -193,7 +203,7 @@ drawProKeysFast pkf badge targetX stuff = do
           when sustaining do
             setFillStyle shades.light stuff
             fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, width: if isBlack then 9.0 else 11.0, height: 8.0 } stuff
-        drawSustains (L.Cons (Tuple s1 (ProKeysState pks1)) rest@(L.Cons (Tuple s2 (ProKeysState pks2)) _)) = do
+        drawSustains (L.Cons (Tuple s1 (ProKeysState pks1)) rest@(L.Cons (Tuple s2 _) _)) = do
           case Map.lookup pitch pks1.notes >>= _.future of
             Nothing -> pure unit
             Just energy -> drawSustainBlock (secsToPxVert s2) (secsToPxVert s1) energy

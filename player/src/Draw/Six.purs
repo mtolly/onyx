@@ -18,6 +18,7 @@ import           OnyxMap                 as Map
 import           Song                    (GuitarNoteType (..), Six (..),
                                           Sustainable (..))
 import           Style                   (customize)
+import Data.Newtype (unwrap)
 
 data SixColor
   = SixOpen
@@ -113,7 +114,7 @@ drawSix (Six six) badge targetX stuff = do
           else { strum: image_gem_blackwhite, hopo: image_gem_blackwhite_hopo, tap: image_gem_blackwhite_tap, energy: image_gem_ghl_energy }
         SixOpen  -> { strum: image_gem_openghl, hopo: image_gem_openghl_hopo, tap: image_gem_openghl_tap, energy: image_gem_openghl_energy }
   for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do
-    let thisEvents = getEvents six.notes
+    let thisEvents = getEvents $ unwrap six.notes
         offsetX' = case thisColor of
           SixOpen -> 1 * widthFret + 1
           _       -> offsetX
@@ -162,7 +163,7 @@ drawSix (Six six) badge targetX stuff = do
   -- Sustain ends
   for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do
     setFillStyle customize.sustainBorder stuff
-    zoomDesc (getEvents six.notes) \secs evt -> case evt of
+    zoomDesc (getEvents $ unwrap six.notes) \secs evt -> case evt of
       SustainEnd -> do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
             trailX = case thisColor of
@@ -180,7 +181,7 @@ drawSix (Six six) badge targetX stuff = do
   -- Notes
   for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do
     let {strum: strumImage, hopo: hopoImage, tap: tapImage, energy: energyOverlay} = getGemImages thisColor
-    zoomDesc (getEvents six.notes) \secs evt -> let
+    zoomDesc (getEvents $ unwrap six.notes) \secs evt -> let
       withNoteType sht = do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
             trailX = case thisColor of

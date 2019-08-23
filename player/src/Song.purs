@@ -17,8 +17,13 @@ import Control.Monad.State (get, modify, lift, evalStateT)
 import Data.Int (toNumber, fromString)
 import Data.List as List
 import Data.Set as Set
-import Data.Foldable (maximum)
+import Data.Foldable (class Foldable, maximum, foldrDefault, foldlDefault)
 import Data.FunctorWithIndex (mapWithIndex)
+import Data.Newtype (class Newtype)
+import Data.Functor (class Functor)
+import Control.Apply (class Apply, lift2)
+import Control.Applicative (class Applicative)
+import Data.Semigroup ((<>))
 
 newtype Song = Song
   { end      :: Seconds
@@ -33,7 +38,7 @@ newtype Song = Song
 type Difficulties a = Array (Tuple String a)
 
 newtype Flex = Flex
-  { five      :: Maybe (Difficulties Five)
+  { five      :: Maybe (Difficulties FiveFast)
   , six       :: Maybe (Difficulties Six)
   , drums     :: Array (Difficulties Drums)
   , prokeys   :: Maybe (Difficulties ProKeysFast)
@@ -75,7 +80,7 @@ data Sustainable a
 
 data GuitarNoteType = Strum | HOPO | Tap
 
-type FiveEach a =
+newtype FiveEach a = FiveEach
   { open   :: a
   , green  :: a
   , red    :: a
@@ -83,6 +88,100 @@ type FiveEach a =
   , blue   :: a
   , orange :: a
   }
+derive instance newtypeFiveEach :: Newtype (FiveEach a) _
+derive instance functorFiveEach :: Functor FiveEach
+
+instance applyFiveEach :: Apply FiveEach where
+  apply (FiveEach f) (FiveEach x) = FiveEach
+    { open:   f.open   x.open
+    , green:  f.green  x.green
+    , red:    f.red    x.red
+    , yellow: f.yellow x.yellow
+    , blue:   f.blue   x.blue
+    , orange: f.orange x.orange
+    }
+
+instance applicativeFiveEach :: Applicative FiveEach where
+  pure x = FiveEach
+    { open:   x
+    , green:  x
+    , red:    x
+    , yellow: x
+    , blue:   x
+    , orange: x
+    }
+
+instance foldableFiveEach :: Foldable FiveEach where
+  foldMap f (FiveEach o)
+    =  f o.open
+    <> f o.green
+    <> f o.red
+    <> f o.yellow
+    <> f o.blue
+    <> f o.orange
+  foldr f = foldrDefault f
+  foldl f = foldlDefault f
+
+newtype FiveState = FiveState
+  { notes  :: FiveEach (SustainOD GuitarNoteType)
+  , lanes  :: FiveEach SustainBool
+  , solo   :: SustainBool
+  , energy :: SustainBool
+  , bre    :: SustainBool
+  }
+
+emptyFiveState :: FiveState
+emptyFiveState = FiveState
+  { notes: pure {past: Nothing, now: Nothing, future: Nothing}
+  , lanes: pure {past: false, now: false, future: false}
+  , solo: {past: false, now: false, future: false}
+  , energy: {past: false, now: false, future: false}
+  , bre: {past: false, now: false, future: false}
+  }
+
+extendFive :: (forall p n. TimeState p n p -> p) -> FiveState -> FiveState
+extendFive fn (FiveState fs) = FiveState
+  { notes: map (\s -> {past: fn s, now: Nothing, future: fn s}) fs.notes
+  , lanes: map (\s -> {past: fn s, now: false, future: fn s}) fs.lanes
+  , solo: {past: fn fs.solo, now: false, future: fn fs.solo}
+  , energy: {past: fn fs.energy, now: false, future: fn fs.energy}
+  , bre: {past: fn fs.bre, now: false, future: fn fs.bre}
+  }
+
+type FiveFast = Map.Map Seconds FiveState
+
+processFive :: Five -> FiveFast
+processFive (Five fv) = let
+  allSecs = List.fromFoldable $ Set.unions
+    [ Set.unions $ map Map.keys $ List.fromFoldable fv.notes
+    , Set.unions $ map Map.keys $ List.fromFoldable fv.lanes
+    , Map.keys fv.solo
+    , Map.keys fv.energy
+    , Map.keys fv.bre
+    ]
+  updateBool prevTS tmap t = case Map.lookup t tmap of
+    Just b -> {past: prevTS.future, now: true, future: b}
+    Nothing -> {past: prevTS.future, now: false, future: prevTS.future}
+  go _                List.Nil           = List.Nil
+  go (FiveState prev) (List.Cons t rest) = let
+    energy = updateBool prev.energy fv.energy t
+    v =
+      { notes: let
+        f m prevPitch = case Map.lookup t m of
+          Nothing -> {past: prevPitch.future, now: Nothing, future: prevPitch.future}
+          Just SustainEnd -> {past: prevPitch.future, now: Nothing, future: Nothing}
+          Just (Note sht) -> {past: prevPitch.future, now: Just sht, future: Nothing}
+          Just (Sustain sht) -> {past: prevPitch.future, now: Just sht, future: Just energy.future}
+        in lift2 f fv.notes prev.notes
+      , lanes: let
+        f m prevPitch = updateBool prevPitch m t
+        in lift2 f fv.lanes prev.lanes
+      , solo: updateBool prev.solo fv.solo t
+      , energy: energy
+      , bre: updateBool prev.bre fv.bre t
+      }
+    in List.Cons (Tuple t $ FiveState v) $ go (FiveState v) rest
+  in Map.fromFoldable $ go emptyFiveState allSecs
 
 newtype Five = Five
   { notes :: FiveEach (Map.Map Seconds (Sustainable GuitarNoteType))
@@ -92,19 +191,30 @@ newtype Five = Five
   , bre :: Map.Map Seconds Boolean
   }
 
+newtype SixEach a = SixEach
+  { open :: a
+  , b1   :: a
+  , b2   :: a
+  , b3   :: a
+  , w1   :: a
+  , w2   :: a
+  , w3   :: a
+  , bw1  :: a
+  , bw2  :: a
+  , bw3  :: a
+  }
+derive instance newtypeSixEach :: Newtype (SixEach a) _
+derive instance functorSixEach :: Functor SixEach
+
+newtype SixState = SixState
+  { notes  :: SixEach (SustainOD GuitarNoteType)
+  , solo   :: SustainBool
+  , energy :: SustainBool
+  , bre    :: SustainBool
+  }
+
 newtype Six = Six
-  { notes ::
-    { open :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , b1   :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , b2   :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , b3   :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , w1   :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , w2   :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , w3   :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , bw1  :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , bw2  :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , bw3  :: Map.Map Seconds (Sustainable GuitarNoteType)
-    }
+  { notes :: SixEach (Map.Map Seconds (Sustainable GuitarNoteType))
   , solo :: Map.Map Seconds Boolean
   , energy :: Map.Map Seconds Boolean
   , bre :: Map.Map Seconds Boolean
@@ -174,26 +284,15 @@ emptyProKeysState = ProKeysState
   , bre: {past: false, now: false, future: false}
   }
 
-extendPKFuture :: ProKeysState -> ProKeysState
-extendPKFuture (ProKeysState pk) = ProKeysState
-  { notes: map (\s -> {past: s.future, now: Nothing, future: s.future}) pk.notes
-  , lanes: map (\s -> {past: s.future, now: false, future: s.future}) pk.lanes
-  , ranges: {past: pk.ranges.future, now: unit, future: pk.ranges.future}
-  , solo: {past: pk.solo.future, now: false, future: pk.solo.future}
-  , energy: {past: pk.energy.future, now: false, future: pk.energy.future}
-  , gliss: {past: pk.gliss.future, now: false, future: pk.gliss.future}
-  , bre: {past: pk.bre.future, now: false, future: pk.bre.future}
-  }
-
-extendPKPast :: ProKeysState -> ProKeysState
-extendPKPast (ProKeysState pk) = ProKeysState
-  { notes: map (\s -> {past: s.past, now: Nothing, future: s.past}) pk.notes
-  , lanes: map (\s -> {past: s.past, now: false, future: s.past}) pk.lanes
-  , ranges: {past: pk.ranges.past, now: unit, future: pk.ranges.past}
-  , solo: {past: pk.solo.past, now: false, future: pk.solo.past}
-  , energy: {past: pk.energy.past, now: false, future: pk.energy.past}
-  , gliss: {past: pk.gliss.past, now: false, future: pk.gliss.past}
-  , bre: {past: pk.bre.past, now: false, future: pk.bre.past}
+extendPK :: (forall p n. TimeState p n p -> p) -> ProKeysState -> ProKeysState
+extendPK fn (ProKeysState pk) = ProKeysState
+  { notes: map (\s -> {past: fn s, now: Nothing, future: fn s}) pk.notes
+  , lanes: map (\s -> {past: fn s, now: false, future: fn s}) pk.lanes
+  , ranges: {past: fn pk.ranges, now: unit, future: fn pk.ranges}
+  , solo: {past: fn pk.solo, now: false, future: fn pk.solo}
+  , energy: {past: fn pk.energy, now: false, future: fn pk.energy}
+  , gliss: {past: fn pk.gliss, now: false, future: fn pk.gliss}
+  , bre: {past: fn pk.bre, now: false, future: fn pk.bre}
   }
 
 type ProKeysFast = Map.Map Seconds ProKeysState
@@ -295,6 +394,36 @@ data Pitch
 derive instance eqPitch :: Eq Pitch
 derive instance ordPitch :: Ord Pitch
 
+newtype ProKeysEach a = ProKeysEach
+  { redC     :: a
+  , redCs    :: a
+  , redD     :: a
+  , redDs    :: a
+  , redE     :: a
+  , yellowF  :: a
+  , yellowFs :: a
+  , yellowG  :: a
+  , yellowGs :: a
+  , yellowA  :: a
+  , yellowAs :: a
+  , yellowB  :: a
+  , blueC    :: a
+  , blueCs   :: a
+  , blueD    :: a
+  , blueDs   :: a
+  , blueE    :: a
+  , greenF   :: a
+  , greenFs  :: a
+  , greenG   :: a
+  , greenGs  :: a
+  , greenA   :: a
+  , greenAs  :: a
+  , greenB   :: a
+  , orangeC  :: a
+  }
+derive instance newtypeProKeysEach :: Newtype (ProKeysEach a) _
+derive instance functorProKeysEach :: Functor ProKeysEach
+
 allPitches :: Array Pitch
 allPitches =
   [ RedC, RedCs, RedD, RedDs, RedE, YellowF, YellowFs, YellowG, YellowGs
@@ -381,7 +510,7 @@ isForeignFive f = do
         yellow <- g "yellow"
         blue <- g "blue"
         orange <- g "orange"
-        pure
+        pure $ FiveEach
           { open: open
           , green: green
           , red: red
@@ -421,7 +550,7 @@ isForeignDance :: Foreign -> F Dance
 isForeignDance f = do
   notesF <- readProp "notes" f
   let readLane s = readProp s notesF >>= readTimedMap isForeignDanceType
-      isForeignDanceType f = readString f >>= \s -> case s of
+      isForeignDanceType x = readString x >>= \s -> case s of
         "e" -> pure SustainEnd
         "n" -> pure $ Note    NoteNormal
         "m" -> pure $ Note    NoteMine
@@ -465,7 +594,7 @@ isForeignSix f = do
   energy <- readProp "energy" f >>= readTimedMap readBoolean
   bre <- readProp "bre" f >>= readTimedMap readBoolean
   pure $ Six
-    { notes:
+    { notes: SixEach
       { open: open
       , b1: b1
       , b2: b2
@@ -612,7 +741,7 @@ isForeignFlex f = do
   vocal <- readProp "vocal" f >>= readNullOrUndefined >>= traverse (difficulties isForeignVocal)
   dance <- readProp "dance" f >>= readNullOrUndefined >>= traverse (difficulties isForeignDance)
   pure $ Flex
-    { five: five
+    { five: map (map (map processFive)) five
     , six: six
     , drums: drums
     , prokeys: map (map (map processProKeys)) prokeys

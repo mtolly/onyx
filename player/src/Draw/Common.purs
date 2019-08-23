@@ -126,17 +126,12 @@ showTimestamp (Seconds s) = let
   pad3 str n = if n < 100 then str <> pad2 str n else show n
   in show mins <> ":" <> pad2 "0" secs <> "." <> pad3 "0" msecs
 
-drawLane
-  :: { x :: Int, y :: Int, width :: Int, height :: Int }
+drawLaneCap
+  :: forall r
+  .  { x :: Int, y :: Int, width :: Int | r }
   -> Draw Unit
-drawLane obj stuff = do
+drawLaneCap obj stuff = do
   setFillStyle customize.freeformLane stuff
-  fillRect
-    { x: toNumber obj.x
-    , y: toNumber obj.y
-    , width: toNumber obj.width
-    , height: toNumber obj.height
-    } stuff
   let rx = toNumber obj.width / 2.0
   fillEllipse
     { x: toNumber obj.x + rx
@@ -144,12 +139,26 @@ drawLane obj stuff = do
     , rx: rx
     , ry: 15.0
     } stuff
-  fillEllipse
-    { x: toNumber obj.x + rx
-    , y: toNumber $ obj.y + obj.height
-    , rx: rx
-    , ry: 15.0
+
+drawLaneBody
+  :: { x :: Int, y :: Int, width :: Int, height :: Int }
+  -> Draw Unit
+drawLaneBody obj stuff = do
+  setFillStyle customize.freeformLane stuff
+  fillRect
+    { x: toNumber obj.x
+    , y: toNumber obj.y
+    , width: toNumber obj.width
+    , height: toNumber obj.height
     } stuff
+
+drawLane
+  :: { x :: Int, y :: Int, width :: Int, height :: Int }
+  -> Draw Unit
+drawLane obj stuff = do
+  drawLaneBody obj stuff
+  drawLaneCap obj stuff
+  drawLaneCap (obj { y = obj.y + obj.height }) stuff
 
 zoomAscDoPadding :: forall k a m. (Ord k) => (Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
 zoomAscDoPadding k1 k2 m act = do
