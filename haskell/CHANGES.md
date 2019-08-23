@@ -1,5 +1,14 @@
 # Version history
 
+## 20190823
+
+* Fix an issue with generated CON files that prevented them from being read by
+  C3 CON Tools
+* Fix a bug that overwrote drum animations and character intensities with
+  Magma's default ones
+* Fix reading non-ASCII characters in (Latin-1) Magma project files
+* Web player: minor optimizations to drawing 5-fret G/B/K and pro keys tracks
+
 ## 20190811
 
 * Fix PS/CH speed changes not editing the MIDI tempos
