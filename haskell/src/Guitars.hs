@@ -255,12 +255,23 @@ cleanEdges = go . RTB.normalize where
     else Wait (tx <> ty) (False, x) $ Wait NNC.zero (True, y) $ go rest
   go (Wait t pair rest) = Wait t pair $ go rest
 
+-- | Clone Hero (v0.22.5) does not apply tap-off until the next tick.
+-- So we move each tap-off earlier by one tick.
+-- (Moonscraper doesn't have this issue, so CH must be using an old version?)
+fixTapOff :: RTB.T U.Beats Bool -> RTB.T U.Beats Bool
+fixTapOff = \case
+  Wait t False rest -> let
+    t' = t NNC.-| (1/480)
+    in Wait t' False $ fixTapOff $ RTB.delay (t - t') rest
+  Wait t True rest -> Wait t True $ fixTapOff rest
+  RNil -> RNil
+
 -- | Writes every note with an explicit HOPO/strum force.
 emit5' :: RTB.T U.Beats ((Maybe G5.Color, StrumHOPOTap), Maybe U.Beats) -> FiveDifficulty U.Beats
 emit5' notes = FiveDifficulty
   { fiveForceStrum = makeForce Strum
   , fiveForceHOPO = makeForce HOPO
-  , fiveTap = makeForce Tap
+  , fiveTap = fixTapOff $ makeForce Tap
   , fiveOpen = U.trackJoin $ flip RTB.mapMaybe notes $ \case
     ((Nothing, _), _) -> Just boolBlip
     _                 -> Nothing
