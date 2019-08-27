@@ -20,6 +20,7 @@ import           Data.Char                      (toLower)
 import           Data.DTA                       (DTA (..), Tree (..),
                                                  readFileDTA)
 import qualified Data.DTA.Serialize             as DTA
+import qualified Data.DTA.Serialize.Amplitude   as Amp
 import qualified Data.DTA.Serialize.GH1         as GH1
 import qualified Data.DTA.Serialize.GH2         as GH2
 import qualified Data.DTA.Serialize.Magma       as RBProj
@@ -83,7 +84,7 @@ data Importable m = Importable
 
 findSongs :: (SendMessage m, MonadResource m)
   => FilePath -> StackTraceT m ([FilePath], [Importable m])
-findSongs fp' = inside ("searching: " <> fp') $ do
+findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ errorToWarning $ do
   fp <- stackIO $ Dir.makeAbsolute fp'
   let found imp = foundMany [imp]
       foundMany imps = return ([], imps)
@@ -212,6 +213,18 @@ findSongs fp' = inside ("searching: " <> fp') $ do
           , impIndex = Nothing
           , impProject = importFrom Nothing loc False $ void . importMagma loc
           }
+      foundAmplitude loc = do
+        let dir = takeDirectory loc
+        song <- stackIO (readFileDTA loc) >>= DTA.unserialize DTA.stackChunks
+        found Importable
+          { impTitle = Just $ Amp.title song
+          , impArtist = Just $ Amp.artist song
+          , impAuthor = Nothing
+          , impFormat = "Amplitude (2016)"
+          , impPath = dir
+          , impIndex = Nothing
+          , impProject = importFrom Nothing dir True $ importAmplitude loc
+          }
       foundDTA bs fmt loc isDir imp = do
         singles <- map fst <$> readDTASingles bs
         let eachSong i single = let
@@ -256,7 +269,7 @@ findSongs fp' = inside ("searching: " <> fp') $ do
         ".yml" -> foundYaml fp
         ".yaml" -> foundYaml fp
         ".rbproj" -> foundRBProj fp
-        -- TODO Amplitude .moggsong
+        ".moggsong" -> foundAmplitude fp
         ".chart" -> foundChart fp
         ".dtx" -> foundDTX FormatDTX fp
         ".gda" -> foundDTX FormatGDA fp
