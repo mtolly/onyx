@@ -1,0 +1,53 @@
+metadata:
+  title: I'm Tweeked/Attack of the 20 Lb. Pizza [Vinnie Colaiuta] [Meinl Cymbals]
+  artist: Benny Greb
+  album: Grebfruit 2 # though this is a different drum track from the album
+  author: Onyxite
+  year: 2017
+  genre: fusion
+  subgenre: fusion
+  file-album-art: cover.jpg
+audio:
+  album-track:
+    file-path: audio-album.wav
+    commands:
+    - ../../../scripts/youtube 617HDrw21N8 140 audio-album.wav
+  meinl-track:
+    file-path: audio-meinl.wav
+    commands:
+    - ../../../scripts/youtube 7ttesixp9pk 140 audio-meinl.wav
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+parts:
+  drums:
+    drums:
+      kicks: both
+plans:
+  youtube:
+    countin:
+      19|0: hihat
+      19|2: hihat
+      20|0: hihat
+      20|1: hihat
+      20|2: hihat
+    song:
+      drop:
+      - 0.097
+      - fade:
+        - end
+        - 2
+        - take:
+          - 7:28.071
+          - concatenate:
+            - gain:
+              - 0.586
+              - take: [42.266, album-track]
+            - drop: [1.641, meinl-track]
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
