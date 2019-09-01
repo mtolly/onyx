@@ -1,3 +1,10 @@
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube waOcqbpGsak 140
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 parts:
   guitar:
     grybo:
@@ -9,14 +16,16 @@ parts:
         tier: 7
       kicks: both
 plans:
-  mogg:
-    parts:
-      guitar: [2, 3]
-      drums: [4, 5]
-    pans: [-1, 1, -1, 1, -1, 1, -1, 1]
-    mogg-md5: 5820b6cc0c70963741db2ea20cdc5cbc
-    multitrack: false
-    vols: [-3, -3, -3, -3, -3, -3, -3, -3]
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
+    song:
+      pad: [3.603, youtube]
 targets:
   rb3:
     game: rb3

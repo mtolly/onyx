@@ -54,6 +54,7 @@ drawFiveFast ff badge targetX stuff = do
   setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: toNumber $ widthFret * 5 + 2, height: toNumber drawH } stuff
   -- Solo highway
+  setFillStyle customize.highwaySolo stuff
   let drawSolos (L.Cons (Tuple s1 (FiveState fs1)) rest@(L.Cons (Tuple s2 _) _)) = do
         when fs1.solo.future do
           let y1 = secsToPxVert s1
