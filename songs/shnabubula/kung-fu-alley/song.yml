@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/nes-jams.yml
   track-number: 6
   author: Onyxite
+  preview-start: prc_main_riff_2
 audio:
   album:
     md5: 3591dcf8f1e1aa1523b61abacd43f724
@@ -22,7 +23,10 @@ plans:
       pad: [3.098, album]
 parts:
   keys:
-    pro-keys: {}
+    pro-keys:
+      difficulty: 6
+    grybo:
+      difficulty: 6
 targets:
   rb3:
     game: rb3

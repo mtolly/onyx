@@ -1,0 +1,52 @@
+parts:
+  bass:
+    grybo:
+      difficulty:
+        tier: 2
+  guitar:
+    grybo:
+      difficulty:
+        tier: 7
+  drums:
+    drums:
+      difficulty:
+        tier: 7
+      kicks: both
+plans:
+  mogg:
+    mogg-md5: 4646caea7f430cc4588273163f1b5ea5
+    multitrack: true
+    parts:
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-2.7, -2.7, -3, -3, -3, -3, -3, -3, -2.7, -2.7, -3, -3]
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
+metadata:
+  preview-start: 3:01.000
+  file-album-art: cover.png_xbox
+  track-number: 5
+  album: Pink Magick
+  year: 2011
+  subgenre: mathrock
+  anim-tempo: 64
+  author: Fairwood Studios, Onyxite
+  title: 'Werewolf Grandma With Knives (Part Two: Don''t Die)'
+  preview-end: 3:31.000
+  genre: indierock
+  difficulty:
+    tier: 7
+  artist: Giraffes? Giraffes!
+  comments:
+  - More accurate drum chart + 2x Bass Pedal upgrade.

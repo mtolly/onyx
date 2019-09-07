@@ -140,7 +140,7 @@ rbn2Sections =
   , ("gtr_enters", "Gtr enters")
   , ("rhy_enters", "Gtr2 enters")
   , ("band_enters", "Band enters")
-  , ("syth_enters", "Synth enters")
+  , ("syth_enters", "Synth enters") -- is this typo correct?
   , ("keyb_enters", "Keyboard enters")
   , ("organ_enters", "Organ enters")
   , ("piano_enters", "Piano enters")
@@ -1364,7 +1364,7 @@ rbn2Sections =
   , ("keyboard_break_4c", "Keyboard break 4c")
   , ("keyboard_break_4d", "Keyboard break 4d")
   , ("horn_break", "Horn break")
-  , ("sctrach_break", "Scratch break")
+  , ("sctrach_break", "Scratch break") -- is this typo correct?
   , ("perc_break", "Percussion break")
   , ("dj_break", "DJ break")
   , ("interlude", "Interlude")

@@ -1,0 +1,83 @@
+parts:
+  vocal:
+    vocal:
+      difficulty: 4
+      count: 3
+  bass:
+    grybo:
+      difficulty: 3
+  guitar:
+    grybo:
+      difficulty: 5
+  drums:
+    drums:
+      difficulty: 4
+      kicks: 1
+  keys:
+    pro-keys:
+      difficulty: 3
+    grybo:
+      difficulty: 3
+plans:
+  fof:
+    parts:
+      vocal: vocals.ogg
+      bass: rhythm.ogg
+      guitar: guitar.ogg
+      drums:
+        kick: drums_1.ogg
+        snare: drums_2.ogg
+        kit:
+          mix:
+          - drums_3.ogg
+          - drums_4.ogg
+    song: song.ogg
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
+metadata:
+  file-album-art: album.jpg
+  album: Miss Machine
+  year: 2004
+  author: Neversoft
+  title: Setting Fire to Sleeping Giants
+  genre: Metal
+  difficulty:
+    tier: 5
+  artist: The Dillinger Escape Plan
+audio:
+  drums_1.ogg:
+    channels: 2
+    file-path: drums_1.ogg
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+  song.ogg:
+    channels: 2
+    file-path: song.ogg
+  drums_4.ogg:
+    channels: 2
+    file-path: drums_4.ogg
+  vocals.ogg:
+    channels: 2
+    file-path: vocals.ogg
+  drums_3.ogg:
+    channels: 2
+    file-path: drums_3.ogg
+  rhythm.ogg:
+    channels: 2
+    file-path: rhythm.ogg
+  drums_2.ogg:
+    channels: 2
+    file-path: drums_2.ogg
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
