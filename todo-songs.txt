@@ -63,11 +63,11 @@ A DRAMATIC TURN OF EVENTS
 SYSTEMATIC CHAOS (new version)
   - PG/PB done!
   > PK fixed for Forsaken POW TDEN, still need Repentance (and quick check of Jarod's 4)
-  > lipsync
+  > fix G/B/K from PG/PB/PK
   > venue
-  > fix G/B from PG/PB
   > keyboard animations
-  > fix PK and K
+  > improve onyx lipsync generation
+  > build onyx protar-to-hand-position generator
   > numeric song IDs
 SELF-TITLED
   > the enemy inside - drums, PG done
