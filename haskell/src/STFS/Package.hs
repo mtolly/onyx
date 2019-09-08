@@ -163,8 +163,8 @@ data Metadata = Metadata
   -- in metadata v2 this padding contains series/season/episode stuff, we don't care
   , md_Padding              :: B.ByteString -- 0x4C bytes
   , md_DeviceID             :: B.ByteString -- 0x14 bytes
-  , md_DisplayName          :: [T.Text] -- 0x900 bytes, split up into 0x80 for each locale
-  , md_DisplayDescription   :: [T.Text] -- 0x900 bytes, split up into 0x80 for each locale
+  , md_DisplayName          :: [T.Text] -- 0x900 bytes, split up into 0x100 (0x80 chars) for each locale
+  , md_DisplayDescription   :: [T.Text] -- 0x900 bytes, split up into 0x100 (0x80 chars) for each locale
   , md_PublisherName        :: T.Text -- 0x80 bytes
   , md_TitleName            :: T.Text -- 0x80 bytes
   , md_TransferFlags        :: Word8
@@ -240,8 +240,8 @@ instance Bin Metadata where
     md_Reserved             <- md_Reserved             =. int32be
     md_Padding              <- md_Padding              =. byteString 0x4C
     md_DeviceID             <- md_DeviceID             =. byteString 0x14
-    md_DisplayName          <- md_DisplayName          =. fixedList 18 (utf16BEString 0x80)
-    md_DisplayDescription   <- md_DisplayDescription   =. fixedList 18 (utf16BEString 0x80)
+    md_DisplayName          <- md_DisplayName          =. fixedList 9 (utf16BEString 0x100)
+    md_DisplayDescription   <- md_DisplayDescription   =. fixedList 9 (utf16BEString 0x100)
     md_PublisherName        <- md_PublisherName        =. utf16BEString 0x80
     md_TitleName            <- md_TitleName            =. utf16BEString 0x80
     md_TransferFlags        <- md_TransferFlags        =. word8
@@ -910,8 +910,8 @@ makeCON opts dir con = withBinaryFile con ReadWriteMode $ \fd -> do
         , md_Reserved = 0
         , md_Padding = B.replicate 0x4C 0
         , md_DeviceID = B.replicate 0x14 0
-        , md_DisplayName = take 18 $ createName opts : repeat ""
-        , md_DisplayDescription = take 18 $ createDescription opts : repeat ""
+        , md_DisplayName = take 9 $ createName opts : repeat ""
+        , md_DisplayDescription = take 9 $ createDescription opts : repeat ""
         , md_PublisherName = ""
         , md_TitleName = createTitleName opts
         , md_TransferFlags = 0xC0
