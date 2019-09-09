@@ -299,15 +299,16 @@ buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml 
   Nothing    -> Nothing
   Just grybo -> Just $ let
     src = RBFile.getFlexPart fivePart trks
-    (trackOrig, isKeys) = if nullFive $ RBFile.onyxPartGuitar src
-      then (RBFile.onyxPartKeys src, True)
-      else (RBFile.onyxPartGuitar src, False)
+    gtrType = case (target, toKeys) of
+      (_         , True ) -> RBFile.FiveTypeKeys
+      (Left  _rb3, False) -> RBFile.FiveTypeGuitar
+      (Right _ps , False) -> RBFile.FiveTypeGuitarExt
+    (trackOrig, algo) = RBFile.selectGuitarTrack gtrType src
     track
       = (\fd -> fd { fivePlayer1 = RTB.empty, fivePlayer2 = RTB.empty })
       $ (if gryboFixFreeform grybo then fixFreeformFive else id)
       $ gryboComplete (guard toKeys >> Just ht) mmap trackOrig
     ht = gryboHopoThreshold grybo
-    algo = if isKeys then HOPOsRBKeys else HOPOsRBGuitar
     fiveEachDiff f ft = ft { fiveDifficulties = fmap f $ fiveDifficulties ft }
     gap = fromIntegral (gryboSustainGap grybo) / 480
     forRB3 = fiveEachDiff $ \fd ->

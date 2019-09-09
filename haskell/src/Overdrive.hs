@@ -66,6 +66,7 @@ instance HasOverdrive OnyxFile where
         , ("drums (PS)"     , drumOverdrive $ onyxPartRealDrumsPS  opart)
         , ("5-fret (guitar)", fiveOverdrive $ onyxPartGuitar       opart)
         , ("5-fret (keys)"  , fiveOverdrive $ onyxPartKeys         opart)
+        , ("5-fret (CH gtr)", fiveOverdrive $ onyxPartGuitarExt    opart)
         , ("6-fret"         , sixOverdrive  $ onyxPartSix          opart)
         , ("pro guitar"     , pgOverdrive   $ onyxPartRealGuitar   opart)
         , ("pro guitar (22)", pgOverdrive   $ onyxPartRealGuitar22 opart)
@@ -85,6 +86,7 @@ instance HasOverdrive OnyxFile where
         , onyxPartRealDrumsPS  = fn nullDrums onyxPartRealDrumsPS  $ \x -> x { drumOverdrive = bools }
         , onyxPartGuitar       = fn nullFive  onyxPartGuitar       $ \x -> x { fiveOverdrive = bools }
         , onyxPartKeys         = fn nullFive  onyxPartKeys         $ \x -> x { fiveOverdrive = bools }
+        , onyxPartGuitarExt    = fn nullFive  onyxPartGuitarExt    $ \x -> x { fiveOverdrive = bools }
         , onyxPartSix          = fn nullSix   onyxPartSix          $ \x -> x { sixOverdrive  = bools }
         , onyxPartRealGuitar   = fn nullPG    onyxPartRealGuitar   $ \x -> x { pgOverdrive   = bools }
         , onyxPartRealGuitar22 = fn nullPG    onyxPartRealGuitar22 $ \x -> x { pgOverdrive   = bools }

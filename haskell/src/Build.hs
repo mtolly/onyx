@@ -1613,6 +1613,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   len = songLengthMS song
                   pd = getPart (ps_Drums ps) songYaml >>= partDrums
                   dmode = fmap drumsMode pd
+                  allFives =
+                    [ RBFile.fixedPartGuitar     $ RBFile.s_tracks song
+                    , RBFile.fixedPartBass       $ RBFile.s_tracks song
+                    , RBFile.fixedPartKeys       $ RBFile.s_tracks song
+                    , RBFile.fixedPartRhythm     $ RBFile.s_tracks song
+                    , RBFile.fixedPartGuitarCoop $ RBFile.s_tracks song
+                    ]
               FoF.saveSong out FoF.Song
                 { FoF.artist           = _artist $ _metadata songYaml
                 , FoF.name             = Just $ targetTitle songYaml target
@@ -1664,13 +1671,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 , FoF.hopoFrequency    = Nothing
                 , FoF.track            = _trackNumber $ _metadata songYaml
                 , FoF.sysexSlider      = Just $ or $ do
-                  opart <- toList $ RBFile.onyxParts $ RBFile.s_tracks song
-                  five <- [RBFile.onyxPartGuitar opart, RBFile.onyxPartKeys opart]
+                  five <- allFives
                   fd <- toList $ fiveDifficulties five
                   return $ not $ RTB.null $ fiveTap fd
                 , FoF.sysexOpenBass    = Just $ or $ do
-                  opart <- toList $ RBFile.onyxParts $ RBFile.s_tracks song
-                  five <- [RBFile.onyxPartGuitar opart, RBFile.onyxPartKeys opart]
+                  five <- allFives
                   fd <- toList $ fiveDifficulties five
                   return $ not $ RTB.null $ fiveOpen fd
                 , FoF.video            = const "video.avi" <$> ps_FileVideo ps

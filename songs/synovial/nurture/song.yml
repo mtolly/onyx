@@ -37,12 +37,6 @@ parts:
   bass:
     grybo:
       difficulty: 6
-  guitar-ch:
-    grybo:
-      difficulty: 6
-  bass-ch:
-    grybo:
-      difficulty: 6
   drums:
     drums:
       kicks: both
@@ -62,5 +56,3 @@ targets:
     song-id: 1660200124
   ps:
     game: ps
-    guitar: guitar-ch
-    bass: bass-ch

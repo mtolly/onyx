@@ -27,11 +27,12 @@ import           Data.List.Extra                   (isInfixOf, nubOrd,
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (catMaybes, fromJust,
                                                     fromMaybe, isNothing,
-                                                    mapMaybe)
+                                                    listToMaybe, mapMaybe)
 import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
 import           DeriveHelpers
 import           GHC.Generics                      (Generic)
+import           Guitars                           (HOPOsAlgorithm (..))
 import           MelodysEscape                     (MelodyTrack)
 import qualified Numeric.NonNegative.Class         as NNC
 import           PhaseShift.Dance
@@ -235,8 +236,9 @@ data OnyxPart t = OnyxPart
   { onyxPartDrums        :: DrumTrack t
   , onyxPartDrums2x      :: DrumTrack t
   , onyxPartRealDrumsPS  :: DrumTrack t
-  , onyxPartGuitar       :: FiveTrack t -- for guitars
-  , onyxPartKeys         :: FiveTrack t -- for keyboards
+  , onyxPartGuitar       :: FiveTrack t
+  , onyxPartKeys         :: FiveTrack t
+  , onyxPartGuitarExt    :: FiveTrack t
   , onyxPartSix          :: SixTrack t
   , onyxPartRealGuitar   :: ProGuitarTrack t
   , onyxPartRealGuitar22 :: ProGuitarTrack t
@@ -259,9 +261,27 @@ data OnyxPart t = OnyxPart
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxPart t)
 
+data FiveType
+  = FiveTypeGuitar
+  | FiveTypeKeys
+  | FiveTypeGuitarExt
+  deriving (Eq, Show)
+
+selectGuitarTrack :: (NNC.C t) => FiveType -> OnyxPart t -> (FiveTrack t, HOPOsAlgorithm)
+selectGuitarTrack typ part = let
+  gtr  = (onyxPartGuitar    part, HOPOsRBGuitar)
+  keys = (onyxPartKeys      part, HOPOsRBKeys  )
+  ext  = (onyxPartGuitarExt part, HOPOsRBGuitar)
+  trks = case typ of
+    FiveTypeGuitar    -> [gtr, ext, keys]
+    FiveTypeKeys      -> [keys, ext, gtr] -- prefer ext due to sustains? or gtr due to no opens? dunno
+    FiveTypeGuitarExt -> [ext, gtr, keys]
+  in fromMaybe (mempty, HOPOsRBGuitar) $ listToMaybe $ filter (not . nullFive . fst) trks
+  -- TODO maybe fill in lower difficulties from secondary tracks
+
 instance TraverseTrack OnyxPart where
   traverseTrack fn
-    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x)
+    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x y)
     = OnyxPart
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -271,6 +291,7 @@ instance TraverseTrack OnyxPart where
       <*> traverseTrack fn p <*> traverseTrack fn q <*> traverseTrack fn r
       <*> traverseTrack fn s <*> traverseTrack fn t <*> traverseTrack fn u
       <*> traverseTrack fn v <*> traverseTrack fn w <*> traverseTrack fn x
+      <*> traverseTrack fn y
 
 getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
 getFlexPart part = fromMaybe mempty . Map.lookup part . onyxParts
@@ -309,6 +330,12 @@ parseOnyxPart partName = do
     , (FlexExtra "guitar-coop", "PART GUITAR COOP")
     ]
   onyxPartKeys         <- onyxPartKeys         =. names (FlexKeys, "PART KEYS") []
+  onyxPartGuitarExt    <- onyxPartGuitarExt    =. names
+    (FlexGuitar, "PART GUITAR EXT")
+    [ (FlexBass, "PART BASS EXT")
+    , (FlexExtra "rhythm", "PART RHYTHM EXT")
+    , (FlexExtra "guitar-coop", "PART GUITAR COOP EXT")
+    ]
   onyxPartSix          <- onyxPartSix          =. names
     (FlexGuitar, "PART GUITAR GHL")
     [ (FlexBass, "PART BASS GHL") ]

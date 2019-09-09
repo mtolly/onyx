@@ -997,8 +997,8 @@ makeCON opts dir con = withBinaryFile con ReadWriteMode $ \fd -> do
         writeFileList (n + 1) laterBlocks
 
       addHasNext :: [a] -> [(a, Bool)]
-      addHasNext [] = []
-      addHasNext [x] = [(x, False)]
+      addHasNext []       = []
+      addHasNext [x]      = [(x, False)]
       addHasNext (x : xs) = (x, True) : addHasNext xs
 
       writeFiles _ [] = return ()

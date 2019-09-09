@@ -72,11 +72,10 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
     Nothing -> mempty
     Just grybo -> let
       src = F.getFlexPart fpart onyx
-      (trackOrig, isKeys) = getFive src
+      (trackOrig, algo) = getFive src
       gap = fromIntegral (gryboSustainGap grybo) / 480
       ht = gryboHopoThreshold grybo
       fiveEachDiff f ft = ft { RB.fiveDifficulties = fmap f $ RB.fiveDifficulties ft }
-      algo = if isKeys then HOPOsRBKeys else HOPOsRBGuitar
       toGtr = fiveEachDiff $ \fd ->
           emit5'
         . fromClosed'
@@ -147,9 +146,7 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
     , gh2Events         = events
     , gh2Triggers       = triggers
     }
-  getFive src = if RB.nullFive $ F.onyxPartGuitar src
-    then (F.onyxPartKeys   src, True )
-    else (F.onyxPartGuitar src, False)
+  getFive = F.selectGuitarTrack F.FiveTypeGuitar
   in F.Song tmap mmap gh2
 
 makeGH2DTA :: SongYaml -> (Int, Int) -> TargetGH2 -> D.SongPackage

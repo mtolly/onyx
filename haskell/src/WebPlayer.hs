@@ -320,13 +320,12 @@ laneDifficulty _      _     = RTB.empty
 splitEdgesBool :: (NNC.C t) => RTB.T t t -> RTB.T t Bool
 splitEdgesBool = U.trackJoin . fmap (\len -> RTB.fromPairList [(NNC.zero, True), (len, False)])
 
-processFive :: Maybe U.Beats -> U.TempoMap -> Five.FiveTrack U.Beats -> Difficulties Five U.Seconds
-processFive hopoThreshold tmap trk = makeDifficulties $ \diff -> let
+processFive :: HOPOsAlgorithm -> U.Beats -> U.TempoMap -> Five.FiveTrack U.Beats -> Difficulties Five U.Seconds
+processFive algo hopoThreshold tmap trk = makeDifficulties $ \diff -> let
   thisDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk
   assigned
-    = case hopoThreshold of
-      Nothing -> fmap (\(col, len) -> ((col, Strum), len))
-      Just ht -> applyForces (getForces5 thisDiff) . strumHOPOTap' HOPOsRBGuitar ht
+    = applyForces (getForces5 thisDiff)
+    $ strumHOPOTap' algo hopoThreshold
     $ openNotes' thisDiff
   assigned' = U.trackJoin $ flip fmap assigned $ \((color, sht), mlen) -> case mlen of
     Nothing -> RTB.singleton 0 $ Blip sht color
@@ -745,12 +744,13 @@ makeDisplay songYaml song = let
   defaultFlat = maybe False songKeyUsesFlats $ C._key $ C._metadata songYaml
   -- the above gets imported from first song_key then vocal_tonic_note
   makePart name fpart = Flex
-    { flexFive = flip fmap (C.partGRYBO fpart) $ \grybo -> let
-      gtr = RBFile.onyxPartGuitar tracks
-      keys = RBFile.onyxPartKeys tracks
-      in if Five.nullFive gtr
-        then processFive Nothing (RBFile.s_tempos song) keys
-        else processFive (Just $ ht $ C.gryboHopoThreshold grybo) (RBFile.s_tempos song) gtr
+    { flexFive = flip fmap (C.partGRYBO fpart) $ \grybo ->
+      case RBFile.selectGuitarTrack RBFile.FiveTypeGuitarExt tracks of
+        (trk, algo) -> processFive
+          algo
+          (ht $ C.gryboHopoThreshold grybo)
+          (RBFile.s_tempos song)
+          trk
     , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (RBFile.onyxPartSix tracks)
     , flexDrums = case C.partDrums fpart of
       Nothing -> []
