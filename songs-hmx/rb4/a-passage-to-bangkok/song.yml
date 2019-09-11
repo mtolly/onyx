@@ -1,0 +1,58 @@
+parts:
+  vocal:
+    vocal:
+      difficulty: 6
+  bass:
+    grybo:
+      difficulty: 7
+  guitar:
+    grybo:
+      difficulty: 5
+  drums:
+    drums:
+      difficulty: 4
+      kicks: 1
+plans:
+  fof:
+    parts:
+      vocal: vocals.ogg
+      bass: rhythm.ogg
+      guitar: guitar.ogg
+      drums: drums.ogg
+    song: song.ogg
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  preview-start: 1:04.512
+  file-album-art: album.png
+  album: '2112'
+  year: 1976
+  author: Harmonix, Onyxite
+  title: A Passage To Bangkok
+  genre: prog
+  difficulty:
+    tier: 6
+  artist: Rush
+  comments:
+  - Minor drum edits by Onyxite.
+audio:
+  drums.ogg:
+    channels: 2
+    file-path: drums.ogg
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+  song.ogg:
+    channels: 2
+    file-path: song.ogg
+  vocals.ogg:
+    channels: 2
+    file-path: vocals.ogg
+  rhythm.ogg:
+    channels: 2
+    file-path: rhythm.ogg

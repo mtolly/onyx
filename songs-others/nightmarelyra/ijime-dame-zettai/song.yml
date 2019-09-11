@@ -1,0 +1,69 @@
+metadata:
+  rating: Family Friendly
+  preview-start: 1:51.000
+  file-album-art: ../megitsune/cover.png
+  languages:
+  - English
+  - Japanese
+  track-number: 13
+  album: Babymetal
+  year: 2014
+  subgenre: power
+  anim-tempo: 64
+  author: Nightmare Lyra, Gigakoops, Onyxite
+  title: Ijime, Dame, Zettai
+  preview-end: 2:21.000
+  genre: metal
+  difficulty: 7
+  artist: Babymetal
+  comments:
+  - Fixes to drum chart by Onyxite.
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: female
+      difficulty: 4
+  bass:
+    grybo:
+      difficulty: 7
+  guitar:
+    grybo:
+      difficulty: 7
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty: 7
+    grybo:
+      fix-freeform: false
+      difficulty: 7
+  drums:
+    drums:
+      difficulty: 7
+      kicks: both
+plans:
+  mogg:
+    mogg-md5: e4272af7bc21c92692d4a58084a61b00
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+      keys: [8, 9]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1]
+    karaoke: false
+    multitrack: false
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    label: (O)
+  rb3-2x:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)

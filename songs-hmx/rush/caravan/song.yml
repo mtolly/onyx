@@ -1,0 +1,72 @@
+metadata:
+  title: Caravan
+  artist: Rush
+  album: Caravan
+  track-number: 1
+  year: 2010
+  file-album-art: cover.png_xbox
+  rating: Family Friendly
+  key: E minor
+  author: Harmonix, Onyxite
+  preview-start: 1:30.027
+  preview-end: 2:00.027
+  genre: prog
+  difficulty:
+    rank: 295
+  comments:
+  - Drum edits and 2x upgrade by Onyxite.
+parts:
+  vocal:
+    vocal:
+      count: 2
+      gender: male
+      difficulty:
+        rank: 228
+  bass:
+    grybo:
+      difficulty:
+        rank: 325
+  guitar:
+    grybo:
+      difficulty:
+        rank: 290
+  keys:
+    pro-keys:
+      difficulty:
+        rank: 295
+    grybo:
+      difficulty:
+        rank: 290
+  drums:
+    drums:
+      difficulty:
+        rank: 343
+      kicks: both
+plans:
+  mogg:
+    mogg-md5: dbbaac067d071ca6a119cfdbe20a9c2e
+    parts:
+      drums: [0, 1]
+      bass: [2]
+      guitar: [3, 4]
+      vocal: [5, 6]
+      keys: [7, 8]
+    pans: [-1, 1, 0.1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-5.3, -5.3, -4.8, -4.8, -4.8, -4.5, -4.5, -4.8, -4.8, -4.8, -4.8]
+    multitrack: true
+    karaoke: false
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)

@@ -39,7 +39,7 @@ plans:
       keys: [8, 9]
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     karaoke: false
-    mogg-md5: 25c3edbf932c70fb71cc419070a2f290
+    mogg-md5: 8d059ffc7df527594db5d39d36a68b41
     multitrack: false
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 targets:
@@ -52,6 +52,9 @@ targets:
     2x-bass-pedal: true
     file-milo: lipsync.milo_xbox
     label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
 metadata:
   rating: FamilyFriendly
   preview-start: 45.005
