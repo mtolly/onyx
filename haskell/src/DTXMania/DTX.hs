@@ -232,6 +232,44 @@ bassMapping = execWriter $ do
 data DTXFormat = FormatDTX | FormatGDA
   deriving (Eq, Show)
 
+getReferences :: T.Text -> [(T.Text, T.Text)] -> [(Chip, T.Text)]
+getReferences typ = mapMaybe $ \(k, v) -> (, v) <$> T.stripPrefix typ k
+
+getObjects :: [(T.Text, T.Text)] -> Map.Map BarNumber (HM.HashMap Channel [T.Text])
+getObjects lns = let
+  isObjects :: T.Text -> Maybe (BarNumber, Channel)
+  isObjects k = if T.length k == 5 && T.all isDigit (T.take 3 k)
+    then Just (read $ T.unpack $ T.take 3 k, T.drop 3 k)
+    else Nothing
+  in foldr (Map.unionWith $ HM.unionWith (++)) Map.empty
+    $ flip mapMaybe lns
+    $ \(k, v) -> flip fmap (isObjects k)
+      $ \(bar, chan) -> Map.singleton bar $ HM.singleton chan [v]
+
+getChannelGeneral
+  :: Channel
+  -> Map.Map BarNumber (HM.HashMap Channel [T.Text])
+  -> U.MeasureMap
+  -> RTB.T U.Beats Chip
+getChannelGeneral chan objects mmap = let
+  maxBar = maybe 0 fst $ Map.lookupMax objects
+  readBar :: BarNumber -> RTB.T U.Beats Chip
+  readBar bar = let
+    barStart = U.unapplyMeasureMap mmap (bar, 0)
+    barEnd = U.unapplyMeasureMap mmap (bar + 1, 0)
+    barLen = barEnd - barStart
+    placeLine xs = let
+      chips = splitChips xs
+      subdiv = barLen / fromIntegral (length chips)
+      in  RTB.filter (/= "00")
+        $ foldr ($) RNil
+        $ zipWith Wait (barStart : repeat subdiv) chips
+    in foldr RTB.merge RTB.empty
+      $ map placeLine
+      $ fromMaybe []
+      $ Map.lookup bar objects >>= HM.lookup chan
+  in foldr RTB.merge RTB.empty $ map readBar [0 .. maxBar]
+
 readDTXLines :: DTXFormat -> [(T.Text, T.Text)] -> DTX
 readDTXLines fmt lns = DTX
   { dtx_TITLE      = lookup "TITLE" lns
@@ -247,11 +285,11 @@ readDTXLines fmt lns = DTX
   , dtx_DLVDEC     = lookup "DLVDEC" lns >>= readMaybe . T.unpack
   , dtx_GLVDEC     = lookup "GLVDEC" lns >>= readMaybe . T.unpack
   , dtx_BLVDEC     = lookup "BLVDEC" lns >>= readMaybe . T.unpack
-  , dtx_WAV        = fmap T.unpack $ HM.fromList $ getReferences "WAV"
+  , dtx_WAV        = fmap T.unpack $ HM.fromList $ getReferences "WAV" lns
   , dtx_VOLUME     = HM.mapMaybe (readMaybe . T.unpack) $ HM.fromList $
-    getReferences "VOLUME" ++ getReferences "WAVVOL"
+    getReferences "VOLUME" lns ++ getReferences "WAVVOL" lns
   , dtx_PAN        = HM.mapMaybe (readMaybe . T.unpack) $ HM.fromList $
-    getReferences "PAN" ++ getReferences "WAVPAN"
+    getReferences "PAN" lns ++ getReferences "WAVPAN" lns
   , dtx_MeasureMap = mmap
   , dtx_TempoMap   = tmap
   , dtx_Drums      = readDrums [Just '1', Nothing]
@@ -266,19 +304,9 @@ readDTXLines fmt lns = DTX
     return (chan, getChannel chan)
   } where
 
-    getReferences :: T.Text -> [(Chip, T.Text)]
-    getReferences typ = flip mapMaybe lns $ \(k, v) -> (, v) <$> T.stripPrefix typ k
-
-    isObjects :: T.Text -> Maybe (BarNumber, Channel)
-    isObjects k = if T.length k == 5 && T.all isDigit (T.take 3 k)
-      then Just (read $ T.unpack $ T.take 3 k, T.drop 3 k)
-      else Nothing
     objects :: Map.Map BarNumber (HM.HashMap Channel [T.Text])
-    objects
-      = foldr (Map.unionWith $ HM.unionWith (++)) Map.empty
-      $ flip mapMaybe lns
-      $ \(k, v) -> flip fmap (isObjects k)
-        $ \(bar, chan) -> Map.singleton bar $ HM.singleton chan [v]
+    objects = getObjects lns
+
     maxBar = maybe 0 fst $ Map.lookupMax objects
 
     mmap
@@ -296,23 +324,7 @@ readDTXLines fmt lns = DTX
     assembleMMap lens = foldr ($) RNil $ zipWith Wait (0 : lens) lens
 
     getChannel :: Channel -> RTB.T U.Beats Chip
-    getChannel chans = foldr RTB.merge RTB.empty $ map (`readBar` chans) [0 .. maxBar]
-
-    readBar :: BarNumber -> Channel -> RTB.T U.Beats Chip
-    readBar bar chan = let
-      barStart = U.unapplyMeasureMap mmap (bar, 0)
-      barEnd = U.unapplyMeasureMap mmap (bar + 1, 0)
-      barLen = barEnd - barStart
-      placeLine xs = let
-        chips = splitChips xs
-        subdiv = barLen / fromIntegral (length chips)
-        in  RTB.filter (/= "00")
-          $ foldr ($) RNil
-          $ zipWith Wait (barStart : repeat subdiv) chips
-      in foldr RTB.merge RTB.empty
-        $ map placeLine
-        $ fromMaybe []
-        $ Map.lookup bar objects >>= HM.lookup chan
+    getChannel chan = getChannelGeneral chan objects mmap
 
     tmap
       = U.tempoMapFromBPS
@@ -327,7 +339,7 @@ readDTXLines fmt lns = DTX
         _               -> Wait 0 120 bpms
     bpmHexes = RTB.mapMaybe textHex $ RTB.merge (getChannel "03") (getChannel "TC") -- TC = tempo change, in .gda
     bpmRefs = RTB.mapMaybe (`HM.lookup` refBPMs) $ getChannel "08"
-    refBPMs = HM.mapMaybe textFloat $ HM.fromList $ getReferences "BPM"
+    refBPMs = HM.mapMaybe textFloat $ HM.fromList $ getReferences "BPM" lns
     baseBPM = fromMaybe 0 $ lookup "BASEBPM" lns >>= textFloat
 
     readDrums cols = foldr RTB.merge RTB.empty $ do
@@ -342,23 +354,35 @@ readDTXLines fmt lns = DTX
       (chan, frets) <- mapping
       return $ (frets,) <$> getChannel chan
 
+dtxAudioSource :: (MonadResource m, MonadIO f, SendMessage f) =>
+  FilePath -> StackTraceT f (Maybe (AudioSource m Float))
+dtxAudioSource fp' = do
+  fp <- fixFileCase fp'
+  stackIO (Dir.doesFileExist fp) >>= \case
+    True -> stackIO $ Just <$> case map toLower $ takeExtension fp of
+      ".mp3" -> sourceMpg fp
+      ".xa"  -> mapSamples fractionalSample <$> sourceXA fp
+      ".wav" -> sourceCompressedWAV fp
+      _      -> sourceSnd fp
+    False -> do
+      tryOgg <- case map toLower $ takeExtension fp of
+        ".ogg" -> return Nothing
+        _      -> dtxAudioSource $ fp -<.> "ogg"
+      case tryOgg of
+        Nothing -> warn $ "Couldn't find audio file at: " <> fp
+        Just _  -> return ()
+      return tryOgg
+
 getAudio :: (MonadResource m, MonadIO f, SendMessage f) =>
   Bool -> RTB.T U.Beats Chip -> FilePath -> DTX -> StackTraceT f (AudioSource m Float)
 getAudio overlap chips dtxPath dtx = do
   let usedChips = nubOrd $ RTB.getBodies chips
       wavs = HM.filterWithKey (\k _ -> elem k usedChips) $ dtx_WAV dtx
   srcs <- fmap (HM.mapMaybe id) $ forM wavs $ \fp -> do
-    fp' <- fixFileCase $ takeDirectory dtxPath </> map (\case '¥' -> '/'; '\\' -> '/'; c -> c) fp
-    -- ¥ is the backslash when Shift-JIS decoded
-    stackIO (Dir.doesFileExist fp') >>= \case
-      False -> do
-        warn $ "Couldn't find audio file at: " <> fp'
-        return Nothing
-      True -> stackIO $ Just <$> case map toLower $ takeExtension fp' of
-        ".mp3" -> sourceMpg fp'
-        ".xa"  -> mapSamples fractionalSample <$> sourceXA fp'
-        ".wav" -> sourceCompressedWAV fp'
-        _      -> sourceSnd fp'
+    dtxAudioSource
+      $ takeDirectory dtxPath
+      </> map (\case '¥' -> '/'; '\\' -> '/'; c -> c) fp
+      -- ¥ is the backslash when Shift-JIS decoded
   cachedSrcs <- forM srcs $ \src -> if fromIntegral (frames src) < rate src * 5
     then stackIO $ cacheAudio src
     else return src
