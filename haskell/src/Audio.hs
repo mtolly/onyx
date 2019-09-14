@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE EmptyCase         #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE PatternSynonyms   #-}
@@ -31,15 +32,15 @@ module Audio
 , stretchFull
 , stretchFullSmart
 , fadeStart, fadeEnd
-, mixMany
+, mixMany, mixMany'
 , clampIfSilent
 ) where
 
 import           Control.Concurrent               (threadDelay)
 import           Control.DeepSeq                  (($!!))
 import           Control.Exception                (evaluate)
-import           Control.Monad                    (ap, replicateM_, unless,
-                                                   when)
+import           Control.Monad                    (ap, forM, replicateM_,
+                                                   unless, when)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
@@ -60,12 +61,14 @@ import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
 import qualified Data.Conduit.List                as CL
 import qualified Data.Digest.Pure.MD5             as MD5
+import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Int                         (Int16)
 import           Data.List                        (elemIndex, sortOn)
-import           Data.Maybe                       (mapMaybe)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Vector.Storable             as V
 import           Data.Word                        (Word8)
@@ -624,23 +627,43 @@ getChunk n sc = do
         (sc'', ()) <- unvoid $ sc' =$$++ leftover after
         return (Just sc'', this)
 
-mixMany :: (Monad m, Num a, Ord a, Fractional a, V.Storable a) =>
-  Bool -> Rate -> Channels -> RTB.T U.Seconds (AudioSource m a) -> AudioSource m a
-mixMany overlap r c srcs = let
+mixMany
+  :: (Monad m, Num a, Ord a, Fractional a, V.Storable a)
+  => Bool
+  -> Rate
+  -> Channels
+  -> RTB.T U.Seconds (AudioSource m a)
+  -> AudioSource m a
+mixMany overlap r c srcs = mixMany' r c
+  (\() -> if overlap then Nothing else Just 1)
+  ((, ()) <$> srcs)
+
+mixMany'
+  :: (Monad m, Num a, Ord a, Fractional a, V.Storable a, Ord g)
+  => Rate
+  -> Channels
+  -> (g -> Maybe Int) -- ^ level of polyphony for each group (Nothing = infinite)
+  -> RTB.T U.Seconds (AudioSource m a, g) -- ^ each audio source is annotated with a group
+  -> AudioSource m a
+mixMany' r c polyphony srcs = let
   srcs' = RTB.discretize $ RTB.mapTime (* realToFrac r) srcs
   in AudioSource
     { rate = r
     , channels = c
     , frames = foldr max 0
-      $ map (\(t, src) -> NN.toNumber t + frames src)
+      $ map (\(t, (src, _)) -> NN.toNumber t + frames src)
       $ ATB.toPairList
       $ RTB.toAbsoluteEventList 0 srcs'
     , source = let
       getFrames n sources = do
-        results <- mapM (getChunk $ n * c) sources
-        return $ (mapMaybe fst results ,) $ case map snd results of
-          []     -> V.replicate (n * c) 0
-          v : vs -> foldr (V.zipWith (+)) v vs
+        results <- forM sources $ \(src, group) -> (, group) <$> getChunk (n * c) src
+        let newSources = flip mapMaybe results $ \case
+              ((Just src, _), group) -> Just (src, group)
+              _                      -> Nothing
+            result = case map (snd . fst) results of
+              []     -> V.replicate (n * c) 0
+              v : vs -> foldr (V.zipWith (+)) v vs
+        return (newSources, result)
       cutoffLength = 0.002 :: Seconds
       cutoff src = sealConduitT $ source $ fadeOut $ takeStart (Seconds cutoffLength) AudioSource
         { rate = r
@@ -655,17 +678,26 @@ mixMany overlap r c srcs = let
             (nextSources, v) <- getFrames chunkSize currentSources
             yield v
             go nextSources RNil
-        Wait 0 src rest -> do
+        Wait 0 next@(_src, _group) rest -> do
           let (now, later) = U.trackSplitZero rest
-          opened <- unvoid $ map fst <$> mapM (=$$+ return ())
-            (if overlap then src : now else [src])
-          if overlap
-            then go (currentSources ++ opened) later
-            else go (map cutoff currentSources ++ opened) later
-        Wait dt src next -> do
+              possibleSources = map Left (next : now) ++ map Right currentSources
+              processSources _ [] = []
+              processSources groups (Left (src, group) : remaining) = case polyphony group of
+                Just i | fromMaybe 0 (Map.lookup group groups) >= i -> processSources groups remaining
+                _ -> Left (src, group) : processSources (addGroup group groups) remaining
+              processSources groups (Right (osrc, group) : remaining) = case polyphony group of
+                Just i | fromMaybe 0 (Map.lookup group groups) >= i
+                  -> Right (cutoff osrc, group) : processSources groups remaining
+                _ -> Right (osrc, group) : processSources (addGroup group groups) remaining
+              processed = processSources Map.empty possibleSources
+              addGroup = Map.alter $ maybe (Just 1) (Just . (+ 1))
+          opened <- unvoid $ forM (lefts processed) $ \(src, group) -> do
+            fmap (\(osrc, _) -> (osrc, group)) $ src =$$+ return ()
+          go (opened ++ rights processed) later
+        Wait dt next rest -> do
           let sizeToGet = min chunkSize $ fromIntegral dt
           (nextSources, v) <- getFrames sizeToGet currentSources
           yield v
-          go nextSources $ Wait (dt - fromIntegral sizeToGet) src next
-      in go [] $ fmap source srcs'
+          go nextSources $ Wait (dt - fromIntegral sizeToGet) next rest
+      in go [] $ (\(asrc, group) -> (source asrc, group)) <$> srcs'
     }

@@ -3,6 +3,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module OpenProject where
 
+import           Beatmania.BMS                  (BMS (..), readBMSLines)
+import           Beatmania.Import               (importBMS)
 import           Build
 import           Config
 import           Control.Applicative            ((<|>))
@@ -190,6 +192,17 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           , impIndex = Nothing
           , impProject = importFrom Nothing loc False $ importDTX loc
           }
+      foundBME loc = do
+        bms <- stackIO $ readBMSLines <$> loadDTXLines loc
+        found Importable
+          { impTitle = bms_TITLE bms
+          , impArtist = bms_ARTIST bms
+          , impAuthor = Nothing
+          , impFormat = "Be-Music Source"
+          , impPath = loc
+          , impIndex = Nothing
+          , impProject = importFrom Nothing loc False $ importBMS loc
+          }
       foundYaml loc = do
         let dir = takeDirectory loc
         yml <- loadYaml loc
@@ -273,6 +286,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".chart" -> foundChart fp
         ".dtx" -> foundDTX FormatDTX fp
         ".gda" -> foundDTX FormatGDA fp
+        ".bms" -> foundBME fp
+        ".bme" -> foundBME fp
+        ".bml" -> foundBME fp
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundIni fp
           "set.def" -> foundDTXSet fp

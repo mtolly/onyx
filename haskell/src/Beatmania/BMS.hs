@@ -4,7 +4,7 @@
 {-# LANGUAGE TupleSections     #-}
 module Beatmania.BMS where
 
-import           Audio                            (applyPansVols, mixMany)
+import           Audio                            (applyPansVols, mixMany')
 import           Control.Monad                    (forM)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.Resource     (MonadResource)
@@ -134,7 +134,6 @@ readBMSLines lns = BMS
       return $ RTB.fromPairList $ flip fmap edges
         $ \(edge, (dt, chip)) -> (dt, (key, chip, edge))
 
--- TODO: for full accuracy, each Chip should be monophonic
 getBMSAudio :: (MonadResource m, MonadIO f, SendMessage f) =>
   RTB.T U.Beats Chip -> FilePath -> BMS -> StackTraceT f (AudioSource m Float)
 getBMSAudio chips bmsPath bms = do
@@ -158,10 +157,11 @@ getBMSAudio chips bmsPath bms = do
           )
           (replicate (channels src) $ maybe 0 outOf100 $ HM.lookup chip $ bms_VOLWAV bms)
           src
-        in if rate stereo == r
+        resampled = if rate stereo == r
           then stereo
           else resampleTo r SincMediumQuality stereo
+        in (resampled, chip)
   return
-    $ mixMany True r 2
+    $ mixMany' r 2 (const $ Just 1)
     $ U.applyTempoTrack (bms_TempoMap bms)
     $ RTB.mapMaybe lookupChip chips
