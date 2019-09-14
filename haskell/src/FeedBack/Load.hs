@@ -304,10 +304,17 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
                 2 -> return $ Just $ TrackNote (D.Pro D.Yellow ()) len
                 3 -> return $ Just $ TrackNote (D.Pro D.Blue   ()) len
                 4 -> return $ Just $ TrackNote (D.Pro D.Green  ()) len
+                5 -> return $ Just $ TrackNote D.Orange            len -- we'll flip green/orange later
                 _ -> do
                   warn $ "Unrecognized note type: N " <> show n <> " " <> show len
                   return Nothing
-          return (diff, parsed)
+          let flipped5 = if any (\case TrackNote D.Orange _ -> True; _ -> False) parsed
+                then flip fmap parsed $ \case
+                  TrackNote D.Orange           len -> TrackNote (D.Pro D.Green ()) len
+                  TrackNote (D.Pro D.Green ()) len -> TrackNote D.Orange           len
+                  x                                -> x
+                else parsed
+          return (diff, flipped5)
         let expert = fixBackToBackSolos $ fromMaybe RTB.empty $ Map.lookup Expert diffs
         return (mempty :: D.DrumTrack U.Beats)
           { D.drumOverdrive = U.trackJoin $ flip fmap expert
