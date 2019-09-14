@@ -34,6 +34,9 @@ xboxKV = $(makeRelativeToProject "vendors/KV.bin" >>= embedFile)
 rb3Thumbnail :: B.ByteString
 rb3Thumbnail = $(makeRelativeToProject "vendors/rb3.png" >>= embedFile)
 
+rb2Thumbnail :: B.ByteString
+rb2Thumbnail = $(makeRelativeToProject "vendors/rb2.png" >>= embedFile)
+
 emptyMilo :: B.ByteString
 emptyMilo = $(makeRelativeToProject "vendors/empty.milo_xbox" >>= embedFile)
 

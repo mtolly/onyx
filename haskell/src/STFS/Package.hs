@@ -46,7 +46,8 @@ import qualified Data.Text                      as T
 import           Data.Text.Encoding
 import           Data.Time
 import           Data.Word
-import           Resources                      (rb3Thumbnail, xboxKV)
+import           Resources                      (rb2Thumbnail, rb3Thumbnail,
+                                                 xboxKV)
 import qualified System.Directory               as Dir
 import           System.FilePath                ((</>))
 import           System.IO
@@ -844,6 +845,8 @@ data CreateOptions = CreateOptions
   , createDescription :: T.Text
   , createTitleID     :: Word32
   , createTitleName   :: T.Text
+  , createThumb       :: B.ByteString
+  , createTitleThumb  :: B.ByteString
   }
 
 rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
@@ -852,6 +855,8 @@ rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ makeCON
   , createDescription = desc
   , createTitleID = 0x45410914
   , createTitleName = "Rock Band 3"
+  , createThumb = rb3Thumbnail
+  , createTitleThumb = rb3Thumbnail
   } dir fout
 
 rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
@@ -860,6 +865,8 @@ rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ makeCON
   , createDescription = desc
   , createTitleID = 0x45410869
   , createTitleName = "Rock Band 2"
+  , createThumb = rb2Thumbnail
+  , createTitleThumb = rb2Thumbnail
   } dir fout
 
 makeCON :: CreateOptions -> FilePath -> FilePath -> IO ()
@@ -915,8 +922,8 @@ makeCON opts dir con = withBinaryFile con ReadWriteMode $ \fd -> do
         , md_PublisherName = ""
         , md_TitleName = createTitleName opts
         , md_TransferFlags = 0xC0
-        , md_ThumbnailImage = rb3Thumbnail
-        , md_TitleThumbnailImage = rb3Thumbnail
+        , md_ThumbnailImage = createThumb opts
+        , md_TitleThumbnailImage = createTitleThumb opts
         }
   hSeek fd AbsoluteSeek 0x22C
   BL.hPut fd $ runPut $ void $ codecOut bin metadata
