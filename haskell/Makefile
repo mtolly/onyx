@@ -38,7 +38,7 @@ mac:
 	cp -R Onyx.app LICENSE.txt mac/
 	cp README.md mac/README.txt
 	cp CHANGES.md mac/CHANGES.txt
-	stack exec -- onyx-package mac/Onyx.app/Contents/Info.plist mac/README.txt
+	stack exec -- onyx-package mac/Onyx.app/Contents/Info.plist mac/README.txt | ./mac-package.sh
 
 mac-deps:
 	brew install libsndfile libsamplerate lame rubberband dylibbundler wine mono mono-libgdiplus mpg123

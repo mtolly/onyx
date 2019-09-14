@@ -88,3 +88,6 @@ main = do
       rmdir [Recursive] "$SMPROGRAMS/Onyx Music Game Toolkit"
       rmdir [Recursive] "$INSTDIR"
       rmdir [Recursive] "$LOCALAPPDATA/onyx-log"
+
+  -- Write out the version to use it for naming the Mac .zip
+  putStr versionString
