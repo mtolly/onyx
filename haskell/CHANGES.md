@@ -1,5 +1,14 @@
 # Version history
 
+## 20190914
+
+* Fix CON names and descriptions getting truncated shorter than necessary
+* Fix tap notes being written in a way that confused Clone Hero
+* Fix RB2 CONs to use RB2 package thumbnail image
+* Support importing 5-lane drums from `.chart`
+* Web player: fix 5-fret solos that stopped being shown in `20190823`
+* Web player: show HOPOs in Keys track
+
 ## 20190823
 
 * Fix an issue with generated CON files that prevented them from being read by
