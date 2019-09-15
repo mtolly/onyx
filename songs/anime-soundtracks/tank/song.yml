@@ -5,6 +5,9 @@ metadata:
   track-number: 1
   album: Cowboy Bebop
   author: Onyxite
+  genre: jazz
+  subgenre: contemporary
+  file-album-art: cover.jpg
 audio:
   album-track:
     # remastered (2014)
@@ -25,7 +28,26 @@ plans:
       pad: [2.438, album-track]
 parts:
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 6
   vocal:
     vocal:
       count: 1
+      difficulty: 1
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+      difficulty: 4
+  drums:
+    drums:
+      kicks: 1
+      difficulty: 5
+  keys:
+    pro-keys:
+      difficulty: 5
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
