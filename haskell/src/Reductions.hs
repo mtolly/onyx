@@ -510,7 +510,10 @@ simpleReduce fin fout = do
       in trks
       { RBFile.onyxPartGuitar = gryboComplete (Just 170) mmap $ RBFile.onyxPartGuitar trks
       , RBFile.onyxPartKeys = gryboComplete Nothing mmap $ RBFile.onyxPartKeys trks
-      , RBFile.onyxPartDrums = drumsComplete mmap sections $ RBFile.onyxPartDrums trks
+      , RBFile.onyxPartDrums
+        = D.fillDrumAnimation (0.25 :: U.Seconds) tempos
+        $ drumsComplete mmap sections
+        $ RBFile.onyxPartDrums trks
       , RBFile.onyxPartRealKeysX = pkX
       , RBFile.onyxPartRealKeysH = pkH
       , RBFile.onyxPartRealKeysM = pkM

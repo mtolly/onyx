@@ -353,6 +353,17 @@ autoSticking _boundStart pads _boundEnd = let
     in hand : go (Just (hand, x)) xt
   in go Nothing pads
 
+fillDrumAnimation :: U.Seconds -> U.TempoMap -> DrumTrack U.Beats -> DrumTrack U.Beats
+fillDrumAnimation closeTime tmap trk = let
+  autoAnims
+    = U.unapplyTempoTrack tmap
+    $ autoDrumAnimation closeTime
+    $ U.applyTempoTrack tmap
+    $ computePro (Just Expert) trk
+  in if RTB.null $ drumAnimation trk
+    then trk { drumAnimation = autoAnims }
+    else trk
+
 autoDrumAnimation :: (NNC.C t) => t -> RTB.T t (Gem ProType) -> RTB.T t Animation
 autoDrumAnimation closeTime pro = let
   hands = flip RTB.mapMaybe (RTB.collectCoincident pro) $ \inst -> let

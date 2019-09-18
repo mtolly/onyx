@@ -1076,7 +1076,7 @@ miscPageMIDI sink rect tab startTasks = do
         _                          -> return ()
     return $ fmap T.unpack $ FL.getValue input
   padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Fill in automatic lower difficulties"
+    btn <- FL.buttonNew rect' $ Just "Fill in lower difficulties and drum animations"
     FL.setCallback btn $ \_ -> sink $ EventIO $ do
       input <- pickedFile
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
