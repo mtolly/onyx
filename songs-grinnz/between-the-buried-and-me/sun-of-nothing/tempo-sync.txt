@@ -1,0 +1,20 @@
+tempo map sync points
+grinnz - septekka
+
+4 - 5 (200bpm)
+45 - 46 (150bpm - 75bpm)
+120 - 89 (150bpm)
+  (200bpm)
+170 - 137.7.00 (150bpm - 200bpm) <- manual insert needed
+171 - 139 (150bpm)
+  (120bpm)
+341 - 304 (120bpm - 60bpm)
+  (septekka makes minor tempo adjustments around 60bpm)
+  (125bpm - ~62.5bpm)
+372 - 320 (130bpm)
+  (135bpm, septekka makes minor adjustments)
+401 - 349 (135bpm - 67.5bpm)
+415 - 357 (135bpm)
+419 - 361 (120bpm - 180bpm) <- manual insert needed
+420 - 361.13.00 (180bpm)
+  (septekka makes minor adjustment at end)

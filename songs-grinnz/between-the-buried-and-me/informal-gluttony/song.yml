@@ -38,6 +38,10 @@ parts:
       kicks: 2
   guitar:
     grybo: {} # alextaylor
+    pro-guitar: # onyxite
+      tuning:
+        base: guitar-6
+        global: -3 # C# standard
   bass:
     grybo: {} # alextaylor
     pro-guitar: # onyxite
@@ -47,6 +51,11 @@ parts:
   keys:
     grybo: {} # alextaylor
     pro-keys: {} # alextaylor
+  rhythm:
+    pro-guitar: # onyxite
+      tuning:
+        base: guitar-6
+        global: -3 # C# standard
 targets:
   rb3-2x:
     game: rb3

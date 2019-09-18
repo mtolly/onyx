@@ -2,7 +2,10 @@ metadata:
   title: Sun of Nothing
   file-include: "../../../albums/colors.yml"
   track-number: 4
-  author: Grinnz (drums), AlexTaylor (rest)
+  author: Grinnz, Septekka
+  difficulty: 7
+  # tempo map and practice sections by Grinnz, BEAT and rest of EVENTS by Septekka
+  # drums and drum animations by Grinnz, except overdrive by Septekka
 audio:
   album-informal-gluttony:
     md5: d468595b781ed178479d2183f72f9333
@@ -41,14 +44,25 @@ plans:
               - concatenate: [album-informal-gluttony, album-sun-of-nothing, album-ants-of-the-sky]
 parts:
   drums:
-    drums:
+    drums: # grinnz
+      difficulty: 7
       kicks: 2
-  guitar:
-    grybo: {}
+  vocal:
+    vocal: # septekka
+      count: 3
+      gender: male
+      difficulty: 3
   bass:
-    grybo: {}
+    grybo: # septekka
+      difficulty: 7
+  guitar:
+    grybo: # septekka
+      difficulty: 7
   keys:
-    grybo: {}
+    pro-keys: # septekka
+      difficulty: 2
+    grybo: # septekka
+      difficulty: 2
 targets:
   rb3-2x:
     game: rb3
