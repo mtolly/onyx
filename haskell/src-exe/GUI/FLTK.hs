@@ -79,6 +79,7 @@ import           Reductions                                (simpleReduce)
 import           RockBand.Codec                            (mapTrack)
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
+import           RockBand.Common                           (RB3Instrument (..))
 import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.File.Load                      as Load
 import qualified Sound.MIDI.Util                           as U
@@ -1320,9 +1321,10 @@ launchBatch sink makeMenuBar startFiles = mdo
   FL.sizeRange window windowSize
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
-  tabSongs <- makeTab windowRect "Songs" $ \rect tab -> do
+  (tabSongs, filterParts) <- makeTab windowRect "Songs" $ \rect tab -> do
     homeTabColor >>= setTabColor tab
-    group <- fileLoadWindow rect sink "Song" "Songs" (modifyMVar_ loadedFiles) startFiles findSongs $ \imp -> let
+    let (songsRect, importToggles) = chopBottom 40 rect
+    group <- fileLoadWindow songsRect sink "Song" "Songs" (modifyMVar_ loadedFiles) startFiles findSongs $ \imp -> let
       entry = T.concat
         [ fromMaybe "Untitled" $ impTitle imp
         , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
@@ -1338,8 +1340,37 @@ launchBatch sink makeMenuBar startFiles = mdo
         Nothing -> ""
         Just i  -> T.pack $ " (#" <> show i <> ")"
       in (entry, sublines)
+    getter <- do
+      let subrects = splitHorizN 7 importToggles
+          insts =
+            [ ("Guitar", Just Guitar)
+            , ("Bass", Just Bass)
+            , ("Drums", Just Drums)
+            , ("Keys", Just Keys)
+            , ("Vocals", Just Vocal)
+            , ("Other", Nothing)
+            ]
+      void $ FL.boxNew (head subrects) $ Just "Import:"
+      getters <- forM (zip insts $ drop 1 subrects) $ \((txt, inst), subrect) -> do
+        btn <- FL.checkButtonNew subrect $ Just txt
+        void $ FL.setValue btn True
+        return $ do
+          b <- FL.getValue btn
+          return $ guard b >> Just inst
+      return $ \songYaml -> do
+        active <- catMaybes <$> sequence getters
+        return songYaml
+          { _parts = Parts $ flip HM.filterWithKey (getParts $ _parts songYaml)
+            $ \part _ -> case part of
+              FlexGuitar -> elem (Just Guitar) active
+              FlexBass   -> elem (Just Bass  ) active
+              FlexDrums  -> elem (Just Drums ) active
+              FlexKeys   -> elem (Just Keys  ) active
+              FlexVocal  -> elem (Just Vocal ) active
+              _          -> elem Nothing       active
+          }
     FL.setResizable tab $ Just group
-    return tab
+    return (tab, getter)
   let doImport imp fn = do
         proj <- impProject imp
         x <- fn proj
@@ -1352,7 +1383,7 @@ launchBatch sink makeMenuBar startFiles = mdo
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (targets, yaml) = settings proj
-          proj' <- stackIO $ saveProject proj yaml
+          proj' <- stackIO $ filterParts yaml >>= saveProject proj
           forM targets $ \(target, creator) -> do
             case creator of
               RB3CON fout -> do
@@ -1371,7 +1402,7 @@ launchBatch sink makeMenuBar startFiles = mdo
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (targets, yaml) = settings proj
           forM targets $ \(target, fout) -> do
-            proj' <- stackIO $ saveProject proj yaml
+            proj' <- stackIO $ filterParts yaml >>= saveProject proj
             tmp <- buildRB2CON target proj'
             stackIO $ Dir.copyFile tmp fout
             return fout
@@ -1382,13 +1413,14 @@ launchBatch sink makeMenuBar startFiles = mdo
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (target, creator) = settings proj
+          proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
           case creator of
             PSDir dout -> do
-              tmp <- buildPSDir target proj
+              tmp <- buildPSDir target proj'
               copyDirRecursive tmp dout
               return [dout]
             PSZip fout -> do
-              tmp <- buildPSZip target proj
+              tmp <- buildPSZip target proj'
               stackIO $ Dir.copyFile tmp fout
               return [fout]
       return tab
@@ -1409,7 +1441,8 @@ launchBatch sink makeMenuBar startFiles = mdo
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let dout = settings proj
-          tmp <- buildPlayer Nothing proj
+          proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
+          tmp <- buildPlayer Nothing proj'
           copyDirRecursive tmp dout
           return [dout]
       return tab
