@@ -15,6 +15,7 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
 import qualified Data.Aeson                     as A
+import qualified Data.ByteString                as B
 import           Data.Functor.Identity          (Identity (..))
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as Set
@@ -22,6 +23,7 @@ import           Data.Maybe                     (isJust)
 import           Data.Scientific
 import qualified Data.Text                      as T
 import qualified Data.Vector                    as V
+import qualified Data.Yaml                      as Y
 
 type StackParser m v = StackTraceT (ReaderT v m)
 
@@ -289,3 +291,8 @@ toJSON = makeValue stackJSON
 
 fromJSON :: (SendMessage m, StackJSON a) => StackParser m A.Value a
 fromJSON = codecIn stackJSON
+
+-- | 'Y.encodeFile' as of 2019-09-18 has been observed to be bugged on Windows,
+-- because it does not truncate or remove an existing file at the location.
+yamlEncodeFile :: (Y.ToJSON a) => FilePath -> a -> IO ()
+yamlEncodeFile f x = B.writeFile f $ Y.encode x

@@ -23,11 +23,10 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes)
 import qualified Data.Text                        as T
 import           Data.Text.Encoding               (decodeLatin1)
-import qualified Data.Yaml                        as Y
 import           GuitarHeroI.File
 import           GuitarHeroII.Audio               (readVGS)
 import           GuitarHeroII.PartGuitar
-import           JSONData                         (toJSON)
+import           JSONData                         (toJSON, yamlEncodeFile)
 import qualified RockBand.Codec.Events            as RB
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as RB
@@ -96,7 +95,7 @@ importGH1 pkg gen dout = do
     let f = "vgs-" <> show (i :: Int) <> ".wav"
     runAudio (CA.mapSamples CA.fractionalSample src) $ dout </> f
     return f
-  stackIO $ Y.encodeFile (dout </> "song.yml") $ toJSON SongYaml
+  stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON SongYaml
     { _metadata = def
       { _title  = Just $ name pkg
       , _artist = Just $ artist pkg

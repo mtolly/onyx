@@ -21,11 +21,10 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    mapMaybe)
 import qualified Data.Text                        as T
-import qualified Data.Yaml                        as Y
 import           DTXMania.DTX
 import           DTXMania.Set
 import           Guitars                          (emit5')
-import           JSONData                         (toJSON)
+import           JSONData                         (toJSON, yamlEncodeFile)
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
@@ -248,7 +247,7 @@ importSetDef setDefPath song dout = do
       translateDifficulty (Just lvl) dec = let
         lvl' = (fromIntegral lvl + maybe 0 ((/ 10) . fromIntegral) dec) / 100 :: Rational
         in Rank $ max 1 $ round $ lvl' * 525 -- arbitrary scaling factor
-  stackIO $ Y.encodeFile (dout </> "song.yml") $ toJSON $ addAudio SongYaml
+  stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON $ addAudio SongYaml
     { _metadata = def
       { _title        = case setTitle song of
         ""    -> dtx_TITLE topDiffDTX

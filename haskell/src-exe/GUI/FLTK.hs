@@ -49,7 +49,6 @@ import           Data.Maybe                                (catMaybes,
 import qualified Data.Text                                 as T
 import qualified Data.Text.Encoding                        as TE
 import           Data.Version                              (showVersion)
-import qualified Data.Yaml                                 as Y
 import           DryVox
 import           Foreign                                   (Ptr)
 import           Foreign.C                                 (CString,
@@ -63,7 +62,8 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
                                                             Width (..), X (..),
                                                             Y (..))
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
-import           JSONData                                  (toJSON)
+import           JSONData                                  (toJSON,
+                                                            yamlEncodeFile)
 import           Magma                                     (oggToMogg)
 import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
@@ -352,7 +352,7 @@ forceProDrums song = song
 
 saveProject :: Project -> SongYaml -> IO Project
 saveProject proj song = do
-  Y.encodeFile (projectLocation proj) $ toJSON song
+  yamlEncodeFile (projectLocation proj) $ toJSON song
   return proj { projectSongYaml = song }
 
 data GBKOption

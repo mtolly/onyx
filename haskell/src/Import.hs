@@ -51,7 +51,7 @@ import qualified FeedBack.Load                    as FB
 import qualified FretsOnFire                      as FoF
 import           Image                            (DXTFormat (PNGXbox),
                                                    toDXT1File)
-import           JSONData                         (toJSON)
+import           JSONData                         (toJSON, yamlEncodeFile)
 import           Magma                            (getRBAFile)
 import qualified Numeric.NonNegative.Class        as NNC
 import           OSFiles                          (fixFileCase)
@@ -336,7 +336,7 @@ importFoF src dest = do
           Just True -> 250 -- don't know exactly
           _         -> 170
 
-  stackIO $ Y.encodeFile (dest </> "song.yml") $ toJSON SongYaml
+  stackIO $ yamlEncodeFile (dest </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
       { _title        = title
       , _artist       = FoF.artist song
@@ -859,7 +859,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
 
   let bassBase = detectExtProBass fixedTracks
 
-  stackIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
+  stackIO $ yamlEncodeFile (dir </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
       { _title        = _title meta <|> Just (D.name pkg)
       , _artist       = Just $ D.artist pkg
@@ -1136,7 +1136,7 @@ importMagma fin dir = do
   tuneGtr <- inside "Reading pro guitar tuning" $ readTuning C3.proGuitarTuning "real_guitar_tuning"
   tuneBass <- inside "Reading pro bass tuning" $ readTuning C3.proBassTuning4 "real_bass_tuning"
 
-  stackIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
+  stackIO $ yamlEncodeFile (dir </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
       { _title        = Just title
       , _artist       = Just $ maybe (RBProj.artistName $ RBProj.metadata rbproj) C3.artist c3
@@ -1383,7 +1383,7 @@ importAmplitude fin dout = do
         return (name, mempty { RBFile.onyxCatch = trk })
       }
   stackIO $ Dir.copyFile moggPath $ dout </> "audio.mogg"
-  stackIO $ Y.encodeFile (dout </> "song.yml") $ toJSON SongYaml
+  stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON SongYaml
     { _metadata = def
       { _title        = Just $ Amp.title song
       , _artist       = Just $ case Amp.artist_short song of
