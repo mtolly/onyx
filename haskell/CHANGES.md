@@ -1,5 +1,10 @@
 # Version history
 
+## 20190918
+
+* Options to prevent importing specific instruments in batch window
+* Add automatic drum animations to standalone MIDI reduction generator
+
 ## 20190914
 
 * Fix CON names and descriptions getting truncated shorter than necessary

@@ -81,6 +81,10 @@ To remove a song, select its row in the tree, and press the Delete key.
 To change the order of songs, select its row and press Ctrl+Up or Ctrl+Down
 (Windows), or Cmd+Up or Cmd+Down (Mac).
 
+At the bottom of the tab are toggles for whether specific instruments should
+be imported. These can be helpful if unnecessary instrument parts are causing
+compilation errors.
+
   * Rock Band 3 (360)
 
     Creates either a Rock Band 3 CON file or a Magma v2 project.
@@ -220,6 +224,11 @@ To change the order of songs, select its row and press Ctrl+Up or Ctrl+Down
     To use, ensure that there are no notes or events authored
     for a difficulty you want to be filled in.
     (For Pro Keys, remove the `PART REAL_KEYS_?` track entirely.)
+
+    If a drum track with no animations is present, drum animations will also
+    be generated. These are of somewhat higher quality than the ones Magma can
+    generate, as they will always handle tom markers correctly, and have more
+    of a preference for double strokes rather than crossing hands.
 
   * Find hanging Pro Keys notes (MIDI function)
 
