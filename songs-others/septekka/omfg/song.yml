@@ -1,0 +1,63 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty: 3
+  bass:
+    grybo:
+      difficulty: 6
+  guitar:
+    grybo:
+      difficulty: 7
+  drums:
+    drums:
+      kit: Arena Kit
+      difficulty: 7
+      kicks: both
+plans:
+  mogg:
+    mogg-md5: 9f7a7a8e50f923c5404a62c8f58a71bc
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    tuning-cents: 34
+    karaoke: false
+    multitrack: false
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    label: (O)
+  rb3-2x:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Mature
+  preview-start: 1:23.000
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 3
+  album: City
+  year: 1997
+  subgenre: industrial
+  anim-tempo: 64
+  author: Septekka, Onyxite
+  title: Oh My Fucking God
+  preview-end: 1:53.000
+  genre: metal
+  difficulty:
+    tier: 7
+  artist: Strapping Young Lad
+  comments:
+  - Drum edits and tempo map tweaks by Onyxite.
