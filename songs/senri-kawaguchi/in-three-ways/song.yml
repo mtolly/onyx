@@ -1,18 +1,17 @@
 metadata:
-  title: Summer
-  track-number: 20
+  title: In Three Ways
+  artist: Senri Kawaguchi
+  album: Cider (Hard & Sweet)
+  year: 2016
   author: Onyxite
-  album: Classical Drumming
-  artist: Andrea Vadrucci (Vadrum)
-  file-album-art: ../../../covers/classical-drumming.jpg
-  genre: classical
-  subgenre: classical
-  year: 2011
-  preview-start: prc_intro
+  genre: fusion
+  subgenre: fusion
+  file-album-art: ../../../covers/cider-hard-and-sweet.jpg
+  track-number: 12
 audio:
   album-track:
-    md5: eab7af9e9579fe9c6dcd31c937bd7442
-    frames: 7152432
+    md5: 00b1a93f939fa4f585857f6c137d1611
+    frames: 10035396
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -25,12 +24,12 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [2.740, album-track]
+      pad: [3.138, album-track]
 parts:
   drums:
     drums:
-      difficulty: 5
       kicks: both
+      difficulty: 7
 targets:
   rb3:
     game: rb3

@@ -1,19 +1,17 @@
 metadata:
-  title: Super Grande
-  artist: Niacin
-  album: Organik
-  year: 2005
+  title: Flux Capacitor
+  artist: Senri Kawaguchi
+  album: Cider (Hard & Sweet)
+  year: 2016
   author: Onyxite
   genre: fusion
   subgenre: fusion
-  file-album-art: ../../../covers/organik.jpg
+  file-album-art: ../../../covers/cider-hard-and-sweet.jpg
+  track-number: 1
 audio:
-  youtube:
-    file-path: audio-youtube.wav
-    commands:
-    - ../../../scripts/youtube 8BR500xU_8k 140
-    md5: a3fffc4a95d9ac7eaa04cf591d227b01
-    frames: 13135872
+  album-track:
+    md5: 64a0405663c66dec122ab83ee280bfb6
+    frames: 13516944
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -26,12 +24,11 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [3.372, youtube]
+      pad: [3.802, album-track]
 parts:
   drums:
     drums:
       kicks: 1
-      difficulty: 5
 targets:
   rb3:
     game: rb3

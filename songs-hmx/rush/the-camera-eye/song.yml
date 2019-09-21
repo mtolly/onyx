@@ -29,6 +29,7 @@ plans:
     pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1]
     mogg-md5: de775a5d94a562e9b924ce76754bcbd4
     vols: [-1, -1, -1, -3, -3, -4.2, -4.2, -3.5, -3.5]
+    multitrack: true
   jammit:
     # TODO can do a lot more debleeding I think
     song:
@@ -68,14 +69,10 @@ jammit:
 metadata:
   rating: FamilyFriendly
   preview-start: 5:35.000
-  file-album-art: cover.png_xbox
   track-number: 5
-  album: Moving Pictures
-  year: 1981
   author: Harmonix, Onyxite
   title: The Camera Eye
   preview-end: 6:05.000
-  genre: prog
   difficulty:
     rank: 230
-  artist: Rush
+  file-include: ../../../albums/moving-pictures.yml

@@ -18,7 +18,7 @@ import           Data.Maybe                       (catMaybes)
 import qualified Data.Text                        as T
 import qualified Data.Yaml                        as Y
 import           DTXMania.DTX
-import           JSONData                         (toJSON)
+import           JSONData                         (toJSON, yamlEncodeFile)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
@@ -87,7 +87,7 @@ importBMS bmsPath dout = do
               }
         return (fpart, opart)
       }
-  stackIO $ Y.encodeFile (dout </> "song.yml") $ toJSON SongYaml
+  stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON SongYaml
     { _metadata = def
       { _title        = bms_TITLE bms
       , _artist       = bms_ARTIST bms

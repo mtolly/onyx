@@ -5,7 +5,7 @@ metadata:
   album: the flowers of romance
   genre: jazz
   subgenre: contemporary
-  file-album-art: cover.jpg
+  file-album-art: ../../../covers/the-flowers-of-romance.jpg
   year: 2015
   track-number: 2
   difficulty: 5

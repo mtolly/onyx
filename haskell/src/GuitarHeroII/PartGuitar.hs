@@ -65,7 +65,9 @@ data PartTrack t = PartTrack
   , partSolo         :: RTB.T t Bool -- ^ fire hands, special animations
   , partOwFace       :: RTB.T t Bool
   , partTempo        :: RTB.T t Tempo
-  , partUnknown110   :: RTB.T t Bool -- ^ some kind of sustain thing?
+  , partUnknown110   :: RTB.T t Bool
+  -- ^ from mariteaux: note 110 on part guitar will cause a "disappointment"
+  -- sound effect to play if the player misses any and all notes during its duration
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (PartTrack t)
 

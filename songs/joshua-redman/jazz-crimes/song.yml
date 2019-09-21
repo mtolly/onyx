@@ -2,7 +2,7 @@ metadata:
   title: Jazz Crimes
   artist: Joshua Redman
   album: Elastic
-  file-album-art: cover.jpg
+  file-album-art: ../../../covers/elastic.jpg
   genre: jazz
   subgenre: contemporary
   year: 2002

@@ -6,7 +6,7 @@ metadata:
   genre: popdanceelectronic
   subgenre: drumandbass
   year: 2015
-  file-album-art: cover.jpg
+  file-album-art: ../../../covers/rhythm-and-xen.jpg
   author: Onyxite
 audio:
   stem-bass-1:

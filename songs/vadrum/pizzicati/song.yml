@@ -1,6 +1,6 @@
 metadata:
-  title: Summer
-  track-number: 20
+  title: Pizzicati
+  track-number: 13
   author: Onyxite
   album: Classical Drumming
   artist: Andrea Vadrucci (Vadrum)
@@ -8,29 +8,28 @@ metadata:
   genre: classical
   subgenre: classical
   year: 2011
-  preview-start: prc_intro
 audio:
   album-track:
-    md5: eab7af9e9579fe9c6dcd31c937bd7442
-    frames: 7152432
+    md5: 5b1ac3ef54f5b104595853be9d446553
+    frames: 5415480
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:
-      0|0: hihat
-      0|2: hihat
       1|0: hihat
-      1|1: hihat
       1|2: hihat
-      1|3: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
     song:
-      pad: [2.740, album-track]
+      pad: [3.038, album-track]
 parts:
   drums:
     drums:
-      difficulty: 5
       kicks: both
+      difficulty: 6
 targets:
   rb3:
     game: rb3

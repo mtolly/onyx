@@ -9,7 +9,7 @@ metadata:
   genre: jazz
   subgenre: contemporary
   year: 2007
-  file-album-art: ../time-out/cover.jpg
+  file-album-art: ../../../covers/time-control.jpg
 audio:
   album-track:
     md5: 4e6b7fd8f5da5be8057ce4fa590575a8

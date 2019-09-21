@@ -1,18 +1,12 @@
 metadata:
   title: Medieval Overture
-  artist: Return to Forever
-  album: Romantic Warrior
   track-number: 1
   author: Onyxite
   rating: FamilyFriendly
   key: A # I think?
-  genre: fusion
-  subgenre: fusion
-  year: 1976
-  file-album-art: cover.jpg
+  file-include: ../../../albums/romantic-warrior.yml
   preview-start: prc_big_riff
   difficulty: 6
-  autogen-theme: PsychJamRock
 audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
