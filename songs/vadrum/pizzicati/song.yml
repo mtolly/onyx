@@ -17,12 +17,12 @@ audio:
 plans:
   album:
     countin:
+      0|0: hihat
+      0|2: hihat
       1|0: hihat
+      1|1: hihat
       1|2: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
-      2|3: hihat
+      1|3: hihat
     song:
       pad: [3.038, album-track]
 parts:
@@ -30,6 +30,9 @@ parts:
     drums:
       kicks: both
       difficulty: 6
+  keys:
+    pro-keys:
+      difficulty: 4
 targets:
   rb3:
     game: rb3

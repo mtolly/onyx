@@ -8,7 +8,8 @@ metadata:
   file-album-art: cover.jpg
   difficulty: 7
   comments:
-  - "Manual conversion from RB4 DLC. Verified expert charts, BEAT track, drum fill locations, and all drum notes underneath fills."
+  - "Started as manual conversion from RB4 DLC. Verified expert charts, BEAT track, drum fill locations, and all drum notes underneath fills."
+  - Edited drum chart by Onyxite.
 plans:
   album:
     song:
@@ -43,8 +44,11 @@ parts:
 targets:
   rb3:
     game: rb3
+    label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
   ps:
     game: ps
+    label: (O)
