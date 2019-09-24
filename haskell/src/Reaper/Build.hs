@@ -185,7 +185,7 @@ track tunings lenTicks lenSecs resn trk = let
           = (False, True, pitchStandard)
           | any (`isSuffixOf` name) ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
           = (False, True, mutePitches 0 35 >> mutePitches 85 127 >> pitchStandard)
-          | any (`isSuffixOf` name) ["PART GUITAR", "PART BASS", "T1 GEMS"]
+          | any (`isSuffixOf` name) ["PART GUITAR", "PART GUITAR EXT", "PART BASS", "PART BASS EXT", "T1 GEMS"]
           = (True, True, previewGtr >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
           | "PART KEYS" `isSuffixOf` name
           = (True, True, previewKeys >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
@@ -260,7 +260,9 @@ track tunings lenTicks lenSecs resn trk = let
       , (("PART DRUMS_2X" `isSuffixOf`), drumNoteNames)
       , (("PART REAL_DRUMS_PS" `isSuffixOf`), drumNoteNames)
       , (("PART GUITAR" `isSuffixOf`), gryboNoteNames False)
+      , (("PART GUITAR EXT" `isSuffixOf`), gryboNoteNames False)
       , (("PART BASS" `isSuffixOf`), gryboNoteNames False)
+      , (("PART BASS EXT" `isSuffixOf`), gryboNoteNames False)
       , (("T1 GEMS" `isSuffixOf`), gryboNoteNames False)
       , (("PART RHYTHM" `isSuffixOf`), gryboNoteNames False)
       , (("PART GUITAR COOP" `isSuffixOf`), gryboNoteNames False)
@@ -312,8 +314,11 @@ track tunings lenTicks lenSecs resn trk = let
               , ("PART DRUMS_2X", "colormap_drums.png")
               , ("PART REAL_DRUMS_PS", "colormap_drums.png")
               , ("PART GUITAR", "colormap_grybo.png")
+              , ("PART GUITAR EXT", "colormap_grybo.png")
               , ("PART BASS", "colormap_grybo.png")
+              , ("PART BASS EXT", "colormap_grybo.png")
               , ("PART RHYTHM", "colormap_grybo.png")
+              , ("PART RHYTHM EXT", "colormap_grybo.png")
               , ("PART GUITAR COOP", "colormap_grybo.png")
               , ("PART KEYS", "colormap_grybo.png")
               , ("PART GUITAR GHL", "colormap_ghl.png")

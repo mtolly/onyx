@@ -6,7 +6,6 @@ extra-deps:
 - conduit-audio-samplerate-0.1.0.3
 - conduit-audio-sndfile-0.1.2.1
 - jammittools-0.5.5.2
-- midi-util-0.2.1
 - rubberband-0.1.0.2
 - tinyfiledialogs-0.2.0.0
 - hmidi-0.2.2.1
@@ -28,7 +27,9 @@ extra-deps:
   - conduit-audio-mpg123
 - git: git://github.com/deech/fltkhs
   commit: c55aa9198088198e83060276114fcb8087872734
-resolver: nightly-2019-04-12
+- git: git://github.com/mtolly/midi-util
+  commit: 12951b7bc64cb006fa153d54b90174f0a90ba0f9
+resolver: nightly-2019-09-21
 flags:
   fltkhs:
     bundled: true

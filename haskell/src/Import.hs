@@ -45,7 +45,6 @@ import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Data.Tuple.Extra                 (fst3, snd3, thd3)
-import qualified Data.Yaml                        as Y
 import           Difficulty
 import qualified FeedBack.Load                    as FB
 import qualified FretsOnFire                      as FoF

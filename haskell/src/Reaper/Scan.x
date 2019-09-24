@@ -7,7 +7,7 @@ module Reaper.Scan (scan, Token(..), AlexPosn(..)) where
 
 tokens :-
 
-[ \t] ;
+[\ \t] ;
 
 [\r\n] { \pn _ -> (pn, Newline) }
 \< { \pn _ -> (pn, AngleL) }
@@ -18,7 +18,7 @@ tokens :-
 \' [^\']* \' { \pn str -> (pn, Atom $ dropEdges str) }
 \` [^\`]* \` { \pn str -> (pn, Atom $ dropEdges str) }
 
-[A-Za-z0-9\+\/\_\-\{\}]+ { \pn str -> (pn, Atom str) }
+(. # [ $white \" \' \` \< \> ]) (. # $white)* { \pn str -> (pn, Atom str) }
 
 {
 

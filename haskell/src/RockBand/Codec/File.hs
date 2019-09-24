@@ -511,9 +511,11 @@ parseTracks trks name = do
       (Right file, unrec) -> Right (file, unrec)
   return file
 
-readMIDIFile' :: (SendMessage m, ParseFile f) => F.T -> StackTraceT m (Song (f U.Beats))
-readMIDIFile' mid = do
-  Song tempos mmap trks <- readMIDIFile mid
+interpretMIDIFile
+  :: (SendMessage m, ParseFile f)
+  => Song [RTB.T U.Beats E.T]
+  -> StackTraceT m (Song (f U.Beats))
+interpretMIDIFile (Song tempos mmap trks) = do
   (file, unrec) <- flip mapStackTraceT (codecIn parseFile) $ \f -> do
     flip fmap (runStateT f trks) $ \case
       (Left  err , _    ) -> Left  err
@@ -526,6 +528,9 @@ readMIDIFile' mid = do
     [] -> return ()
     unnamed -> warn $ show (length unnamed) ++ " MIDI track(s) with no track name"
   return $ Song tempos mmap file
+
+readMIDIFile' :: (SendMessage m, ParseFile f) => F.T -> StackTraceT m (Song (f U.Beats))
+readMIDIFile' mid = readMIDIFile mid >>= interpretMIDIFile
 
 showMIDIFile :: Song [RTB.T U.Beats E.T] -> F.T
 showMIDIFile s = let

@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 module RhythmGame.Drums where
 
@@ -292,24 +293,33 @@ lampVS, lampFS :: B.ByteString
 lampVS = $(makeRelativeToProject "shaders/lamp.vert" >>= embedFile)
 lampFS = $(makeRelativeToProject "shaders/lamp.frag" >>= embedFile)
 
-playDrums :: SDL.Window -> Track Double (D.Gem ()) -> IO ()
-playDrums window trk = flip evalStateT trk $ do
-  initTime <- SDL.ticks
-  glEnable GL_DEPTH_TEST
-  cubeShader <- liftIO $ do
-    bracket (compileShader GL_VERTEX_SHADER objectVS) glDeleteShader $ \vertexShader -> do
-      bracket (compileShader GL_FRAGMENT_SHADER objectFS) glDeleteShader $ \fragmentShader -> do
-        compileProgram [vertexShader, fragmentShader]
-  lampShader <- liftIO $ do
-    bracket (compileShader GL_VERTEX_SHADER lampVS) glDeleteShader $ \vertexShader -> do
-      bracket (compileShader GL_FRAGMENT_SHADER lampFS) glDeleteShader $ \fragmentShader -> do
-        compileProgram [vertexShader, fragmentShader]
+data GLStuff = GLStuff
+  { cubeShader    :: GLuint
+  , cubeVAO       :: GLuint
+  , modelLoc      :: GLint
+  , viewLoc       :: GLint
+  , projectionLoc :: GLint
+  , colorLoc      :: GLint
+  , lightColorLoc :: GLint
+  , lightPosLoc   :: GLint
+  }
 
-  cubeVAO <- liftIO $ alloca $ \p -> glGenVertexArrays 1 p >> peek p
-  vbo <- liftIO $ alloca $ \p -> glGenBuffers 1 p >> peek p
+loadGLStuff :: IO GLStuff
+loadGLStuff = do
+
+  glEnable GL_DEPTH_TEST
+  cubeShader <- bracket (compileShader GL_VERTEX_SHADER objectVS) glDeleteShader $ \vertexShader -> do
+    bracket (compileShader GL_FRAGMENT_SHADER objectFS) glDeleteShader $ \fragmentShader -> do
+      compileProgram [vertexShader, fragmentShader]
+  lampShader <- bracket (compileShader GL_VERTEX_SHADER lampVS) glDeleteShader $ \vertexShader -> do
+    bracket (compileShader GL_FRAGMENT_SHADER lampFS) glDeleteShader $ \fragmentShader -> do
+      compileProgram [vertexShader, fragmentShader]
+
+  cubeVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
+  vbo <- alloca $ \p -> glGenBuffers 1 p >> peek p
 
   glBindBuffer GL_ARRAY_BUFFER vbo
-  liftIO $ withArrayBytes cubeVertices $ \size p -> do
+  withArrayBytes cubeVertices $ \size p -> do
     glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
 
   glBindVertexArray cubeVAO
@@ -324,7 +334,7 @@ playDrums window trk = flip evalStateT trk $ do
     (intPtrToPtr $ fromIntegral $ 3 * sizeOf (undefined :: CFloat))
   glEnableVertexAttribArray 1
 
-  lightVAO <- liftIO $ alloca $ \p -> glGenVertexArrays 1 p >> peek p
+  lightVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
   glBindVertexArray lightVAO
 
   glBindBuffer GL_ARRAY_BUFFER vbo
@@ -335,7 +345,7 @@ playDrums window trk = flip evalStateT trk $ do
   glEnableVertexAttribArray 0
 
   -- texture
-  texture <- liftIO $ alloca $ \p -> glGenTextures 1 p >> peek p
+  texture <- alloca $ \p -> glGenTextures 1 p >> peek p
   glBindTexture GL_TEXTURE_2D texture
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_REPEAT
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_REPEAT
@@ -345,7 +355,7 @@ playDrums window trk = flip evalStateT trk $ do
         (\x y -> pixelAt onyxAlbum x $ imageHeight onyxAlbum - y - 1)
         (imageWidth onyxAlbum)
         (imageHeight onyxAlbum)
-  liftIO $ VS.unsafeWith (imageData flippedImage) $ \p -> do
+  VS.unsafeWith (imageData flippedImage) $ \p -> do
     glTexImage2D GL_TEXTURE_2D 0 GL_RGB
       (fromIntegral $ imageWidth flippedImage)
       (fromIntegral $ imageHeight flippedImage)
@@ -356,17 +366,55 @@ playDrums window trk = flip evalStateT trk $ do
   glGenerateMipmap GL_TEXTURE_2D
 
   -- uniforms
-  modelLoc <- liftIO $ withCString "model" $ glGetUniformLocation cubeShader
-  viewLoc <- liftIO $ withCString "view" $ glGetUniformLocation cubeShader
-  projectionLoc <- liftIO $ withCString "projection" $ glGetUniformLocation cubeShader
-  colorLoc <- liftIO $ withCString "objectColor" $ glGetUniformLocation cubeShader
-  lightColorLoc <- liftIO $ withCString "lightColor" $ glGetUniformLocation cubeShader
-  lightPosLoc <- liftIO $ withCString "lightPos" $ glGetUniformLocation cubeShader
+  modelLoc <- withCString "model" $ glGetUniformLocation cubeShader
+  viewLoc <- withCString "view" $ glGetUniformLocation cubeShader
+  projectionLoc <- withCString "projection" $ glGetUniformLocation cubeShader
+  colorLoc <- withCString "objectColor" $ glGetUniformLocation cubeShader
+  lightColorLoc <- withCString "lightColor" $ glGetUniformLocation cubeShader
+  lightPosLoc <- withCString "lightPos" $ glGetUniformLocation cubeShader
 
-  lampModelLoc <- liftIO $ withCString "model" $ glGetUniformLocation lampShader
-  lampViewLoc <- liftIO $ withCString "view" $ glGetUniformLocation lampShader
-  lampProjectionLoc <- liftIO $ withCString "projection" $ glGetUniformLocation lampShader
+  lampModelLoc <- withCString "model" $ glGetUniformLocation lampShader
+  lampViewLoc <- withCString "view" $ glGetUniformLocation lampShader
+  lampProjectionLoc <- withCString "projection" $ glGetUniformLocation lampShader
 
+  return GLStuff{..}
+
+drawDrumsFull :: GLStuff -> SDL.Window -> Track Double (D.Gem ()) -> IO ()
+drawDrumsFull GLStuff{..} window trk' = do
+  let lightPos = V.fromList [0, -0.5, 0.5]
+  SDL.V2 w h <- SDL.glGetDrawableSize window
+  glViewport 0 0 (fromIntegral w) (fromIntegral h)
+  glClearColor 0.2 0.3 0.3 1.0
+  glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
+
+  glUseProgram cubeShader
+  let view -- this should be doable with L.mkTransformation but not sure exactly how
+        = rotate4 (degrees 20) (V3 1 0 0)
+        !*! translate4 (V3 0 (-1) (-3))
+      projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
+  sendMatrix viewLoc view
+  sendMatrix projectionLoc projection
+  glBindVertexArray cubeVAO
+  glUniform3f lightColorLoc 1 1 1
+  glUniform3f lightPosLoc
+    (lightPos V.! 0)
+    (lightPos V.! 1)
+    (lightPos V.! 2)
+  drawDrums modelLoc colorLoc trk'
+
+  -- glUseProgram lampShader
+  -- sendMatrix lampViewLoc view
+  -- sendMatrix lampProjectionLoc projection
+  -- sendMatrix lampModelLoc
+  --   $ translate4 lightPos
+  --   !*! L.scaled (V4 0.2 0.2 0.2 1)
+  -- glBindVertexArray lightVAO
+  -- glDrawArrays GL_TRIANGLES 0 36
+
+playDrums :: SDL.Window -> Track Double (D.Gem ()) -> IO ()
+playDrums window trk = flip evalStateT trk $ do
+  initTime <- SDL.ticks
+  glStuff <- liftIO loadGLStuff
   let loop = SDL.pollEvents >>= processEvents >>= \b -> when b $ do
         timestamp <- SDL.ticks
         modify $ updateTime $ fromIntegral (timestamp - initTime) / 1000
@@ -392,37 +440,24 @@ playDrums window trk = flip evalStateT trk $ do
               _                 -> return ()
             processEvents es
         _ -> processEvents es
-      lightPos = V.fromList [0, -0.5, 0.5]
       draw = do
         trk' <- get
-        SDL.V2 w h <- SDL.glGetDrawableSize window
-        glViewport 0 0 (fromIntegral w) (fromIntegral h)
-        glClearColor 0.2 0.3 0.3 1.0
-        glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
-
-        glUseProgram cubeShader
-        let view -- this should be doable with L.mkTransformation but not sure exactly how
-              = rotate4 (degrees 20) (V3 1 0 0)
-              !*! translate4 (V3 0 (-1) (-3))
-            projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
-        sendMatrix viewLoc view
-        sendMatrix projectionLoc projection
-        glBindVertexArray cubeVAO
-        glUniform3f lightColorLoc 1 1 1
-        glUniform3f lightPosLoc
-          (lightPos V.! 0)
-          (lightPos V.! 1)
-          (lightPos V.! 2)
-        liftIO $ drawDrums modelLoc colorLoc trk'
-
-        -- glUseProgram lampShader
-        -- sendMatrix lampViewLoc view
-        -- sendMatrix lampProjectionLoc projection
-        -- sendMatrix lampModelLoc
-        --   $ translate4 lightPos
-        --   !*! L.scaled (V4 0.2 0.2 0.2 1)
-        -- glBindVertexArray lightVAO
-        -- glDrawArrays GL_TRIANGLES 0 36
-
+        liftIO $ drawDrumsFull glStuff window trk'
         SDL.glSwapWindow window
+  loop
+
+previewDrums :: SDL.Window -> IO (Track Double (D.Gem ())) -> IO Double -> IO ()
+previewDrums window getTrack getTime = do
+  glStuff <- loadGLStuff
+  let loop = SDL.pollEvents >>= processEvents >>= \b -> when b $ do
+        t <- getTime
+        trk <- getTrack
+        drawDrumsFull glStuff window trk { trackTime = t }
+        SDL.glSwapWindow window
+        threadDelay 5000
+        loop
+      processEvents [] = return True
+      processEvents (e : es) = case SDL.eventPayload e of
+        SDL.QuitEvent -> return False
+        _             -> processEvents es
   loop

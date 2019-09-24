@@ -40,3 +40,7 @@ executables:
     - file-embed
     - bytestring
     - linear
+    - tcp-streams
+    - io-streams
+    - fsnotify
+    - text

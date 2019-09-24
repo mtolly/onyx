@@ -16,7 +16,6 @@ import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes)
 import qualified Data.Text                        as T
-import qualified Data.Yaml                        as Y
 import           DTXMania.DTX
 import           JSONData                         (toJSON, yamlEncodeFile)
 import qualified Numeric.NonNegative.Class        as NNC

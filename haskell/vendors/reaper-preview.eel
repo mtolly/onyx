@@ -1,0 +1,9 @@
+conn = tcp_connect("127.0.0.1", 4938, 1);
+
+function report()
+(
+  res = tcp_send(conn, sprintf(#, "%f", GetPlayPosition()));
+  res > 0 ? defer("report()");
+);
+conn > 0 ? report();
+
