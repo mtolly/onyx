@@ -9,11 +9,11 @@ metadata:
   difficulty: 7
   comments:
   - "Started as manual conversion from RB4 DLC. Verified expert charts, BEAT track, drum fill locations, and all drum notes underneath fills."
-  - Edited drum chart by Onyxite.
+  - Edited drum chart and split guitar/keys by Onyxite.
 plans:
   album:
     song:
-      pad: [3.784, youtube]
+      pad: [3.784, gain: [1.6, youtube]]
     countin:
       0|0: hihat
       0|2: hihat
@@ -40,6 +40,11 @@ parts:
       difficulty: 7
   guitar:
     grybo:
+      difficulty: 7
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
       difficulty: 7
 targets:
   rb3:
