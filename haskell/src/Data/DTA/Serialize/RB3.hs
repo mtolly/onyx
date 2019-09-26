@@ -165,6 +165,8 @@ instance StackChunks SongPackage where
     albumName         <- albumName         =. opt Nothing "album_name"          (chunksMaybe $ single chunkString)
     albumTrackNumber  <- albumTrackNumber  =. opt Nothing "album_track_number"  stackChunks
     vocalTonicNote    <- vocalTonicNote    =. opt Nothing "vocal_tonic_note"    (chunksMaybe $ single chunkTonicNote)
+    -- older songs have vocal_note_tonic, but these have vocal_tonic_note
+    -- added by missing_song_data.dta
     songTonality      <- songTonality      =. opt Nothing "song_tonality"       (chunksMaybe $ single chunkTonality)
     realGuitarTuning  <- realGuitarTuning  =. opt Nothing "real_guitar_tuning"  (chunksMaybe $ chunksParens stackChunks)
     realBassTuning    <- realBassTuning    =. opt Nothing "real_bass_tuning"    (chunksMaybe $ chunksParens stackChunks)

@@ -1,0 +1,52 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 190
+  bass:
+    grybo:
+      difficulty:
+        rank: 199
+  guitar:
+    grybo:
+      difficulty:
+        rank: 228
+  drums:
+    drums:
+      difficulty:
+        rank: 380
+      kicks: both
+plans:
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    mogg-md5: a2ce11638c2d537cc438ce185e95f9d2
+    multitrack: true
+    vols: [-2, -2, -5, -5, -3.5, -3.5, -4, -4, -6, -6]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Family Friendly
+  preview-start: 1:05.425
+  track-number: 2
+  anim-tempo: slow
+  author: Harmonix, Onyxite
+  title: Red Barchetta
+  preview-end: 1:34.763
+  difficulty:
+    rank: 250
+  file-include: ../../../albums/moving-pictures.yml

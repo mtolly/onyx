@@ -542,6 +542,8 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       trkHarm1' = trkHarm1 { vocalMood = RTB.empty }
       trkHarm2' = trkHarm2 { vocalMood = RTB.empty }
       trkHarm3' = trkHarm3 { vocalMood = RTB.empty }
+      -- TODO: CH lyrics don't handle ^ correctly, might replace with #.
+      -- specifically "word-^" (hyphen is shown)
 
   drumsTrack' <- let
     fills = RTB.normalize $ drumActivation drumsTrack

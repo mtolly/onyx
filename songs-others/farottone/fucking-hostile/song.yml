@@ -1,0 +1,53 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty: 3
+  bass:
+    grybo:
+      difficulty: 6
+  guitar:
+    grybo:
+      difficulty: 6
+  drums:
+    drums:
+      difficulty: 7
+      kicks: both
+plans:
+  mogg:
+    parts:
+      vocal: [6, 7]
+      bass: [2, 3]
+      guitar: [4, 5]
+      drums: [0, 1]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1]
+    mogg-md5: 61cdb2b8e5edafd2dcfb85a894d92d28
+    multitrack: true
+    vols: [0, 0, 0, 0, 0, 0, 0, 0]
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    label: (O)
+  rb3-2x:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  preview-start: 30
+  file-album-art: cover.png_xbox
+  track-number: 4
+  album: Vulgar Display of Power
+  year: 1992
+  subgenre: metal
+  anim-tempo: 32
+  author: Farottone, Onyxite
+  title: Fucking Hostile
+  preview-end: 1:00.000
+  genre: metal
+  difficulty: 6
+  artist: Pantera
