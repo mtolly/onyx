@@ -27,7 +27,7 @@ data Color = Green | Red | Yellow | Blue | Orange
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 -- | These don't actually correspond to 20 different frets;
--- see http://i.imgur.com/fRg6Vo9.png by Orange Harrison
+-- see <http://i.imgur.com/fRg6Vo9.png> by Orange Harrison
 data FretPosition
   = Fret40 -- ^ the nut
   | Fret41

@@ -27,7 +27,7 @@ withWin32Exe f exe args = if os == "mingw32"
   then f exe args
   else f "wine" $ exe : args
 
--- modified from https://stackoverflow.com/q/6807025
+-- | modified from <https://stackoverflow.com/q/6807025>
 copyDirContents :: FilePath -> FilePath -> IO ()
 copyDirContents src dst = do
   Dir.createDirectoryIfMissing False dst

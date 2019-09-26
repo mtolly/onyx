@@ -444,7 +444,7 @@ runAudio src out = do
   lg $ "Finished writing audio to " ++ out
 
 -- | Forces floating point samples to be in @[-1, 1]@.
--- libsndfile should do this, after https://github.com/kaoskorobase/hsndfile/pull/12
+-- libsndfile should do this, after <https://github.com/kaoskorobase/hsndfile/pull/12>
 clampFloat :: (Monad m) => AudioSource m Float -> AudioSource m Float
 clampFloat src = src { source = source src .| CL.map clampVector } where
   clampVector = V.map $ \s -> if

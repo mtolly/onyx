@@ -38,7 +38,7 @@ detectGameGH gen = withArk gen $ \ark -> do
 replaceSong
   :: FilePath -- ^ the @GEN@ folder containing ark and hdr files
   -> B.ByteString -- ^ the folder name (and DTB key) of the song to replace
-  -> [D.Chunk B.ByteString] -- ^ the DTB snippet to insert into @config/gen/songs.dtb@
+  -> [D.Chunk B.ByteString] -- ^ the DTB snippet to insert into @config\/gen\/songs.dtb@
   -> [(B.ByteString, FilePath)] -- ^ the files to copy into the song folder, e.g. @("yyz.mid", "some/dir/notes.mid")@
   -> IO ()
 replaceSong gen key snippet files = withArk gen $ \ark -> do

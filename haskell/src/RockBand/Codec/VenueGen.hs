@@ -1,6 +1,6 @@
 {- |
 Alternate implementation of kueller's venuegen system:
-https://github.com/kueller/ReaperRBTools
+<https://github.com/kueller/ReaperRBTools>
 -}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}

@@ -1,7 +1,11 @@
-{- | This code was written with the help of
-* X360 and Le Fluffie by DJ Shepherd
-* py360 by arkem - https://github.com/arkem/py360
-* Free60 - https://free60project.github.io/wiki/STFS.html
+{- |
+
+This code was written with the help of
+
+  * X360 and Le Fluffie by DJ Shepherd - <https://github.com/mtolly/X360>
+  * py360 by arkem - <https://github.com/arkem/py360>
+  * Free60 - <https://free60project.github.io/wiki/STFS.html>
+
 -}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}

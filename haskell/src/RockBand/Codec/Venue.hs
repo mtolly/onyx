@@ -1,3 +1,7 @@
+{- |
+Pre-RB3 venue format information from:
+<https://web.archive.org/web/20120109105129/http://creators.rockband.com:80/spec/Camera_And_Lights>
+-}
 {-# LANGUAGE DeriveFunctor      #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
@@ -19,11 +23,6 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
 import qualified Sound.MIDI.Util                  as U
-
-{-
-Pre-RB3 venue format information from:
-https://web.archive.org/web/20120109105129/http://creators.rockband.com:80/spec/Camera_And_Lights
--}
 
 data Camera3
   -- generic 4 camera shots

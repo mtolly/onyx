@@ -1,7 +1,10 @@
 {- |
+
 Written with reference to
-- http://wiibrew.org/wiki/U8_archive
-- u8it by icefire: https://github.com/Plombo/romextract/blob/master/src/u8it.c
+
+  * <http://wiibrew.org/wiki/U8_archive>
+  * u8it by icefire: <https://github.com/Plombo/romextract/blob/master/src/u8it.c>
+
 -}
 {-# LANGUAGE BangPatterns #-}
 module U8 (packU8) where
