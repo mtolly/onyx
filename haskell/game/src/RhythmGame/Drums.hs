@@ -1,11 +1,12 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module RhythmGame.Drums where
 
 import           Codec.Picture
 import           Control.Concurrent        (threadDelay)
-import           Control.Exception         (bracket)
+import           Control.Exception         (bracket, bracket_)
 import           Control.Monad             (forM_, when)
 import           Control.Monad.IO.Class    (MonadIO (..))
 import           Control.Monad.Trans.State
@@ -16,17 +17,20 @@ import           Data.List                 (partition)
 import qualified Data.Map.Strict           as Map
 import           Data.Map.Strict.Internal  (Map (..))
 import           Data.Maybe                (fromMaybe)
-import qualified Data.Vector               as V
+import qualified Data.Text                 as T
 import qualified Data.Vector.Storable      as VS
 import           Foreign
 import           Foreign.C
+import           GHC.ByteOrder
 import           Graphics.GL.Core33
 import           Graphics.GL.Types
-import           Linear                    (M44, V3 (..), V4 (..), (!*!))
+import           Linear                    (M44, V2 (..), V3 (..), V4 (..),
+                                            (!*!))
 import qualified Linear                    as L
-import           Resources                 (onyxAlbum)
 import qualified RockBand.Codec.Drums      as D
 import qualified SDL
+import qualified SDL.Font                  as Font
+import qualified SDL.Raw                   as Raw
 
 data Note t a
   = Upcoming a
@@ -103,13 +107,13 @@ hitPad t x trk = let
       (_ : _, notes') ->
         trk { trackNotes = Map.insert k (Hit t x : notes') $ trackNotes trk }
 
-drawDrums :: GLint -> GLint -> Track Double (D.Gem ()) -> IO ()
-drawDrums modelLoc colorLoc trk = do
+drawDrums :: GLStuff -> Track Double (D.Gem ()) -> IO ()
+drawDrums GLStuff{..} trk = do
   let drawCube (x1, y1, z1) (x2, y2, z2) (r, g, b) = do
-        sendMatrix modelLoc
+        sendMatrix cubeModel
           $ translate4 (V3 ((x1 + x2) / 2) ((y1 + y2) / 2) ((z1 + z2) / 2))
           !*! L.scaled (V4 (x2 - x1) (y2 - y1) (z2 - z1) 1)
-        glUniform3f colorLoc r g b
+        glUniform3f cubeObjectColor r g b
         glDrawArrays GL_TRIANGLES 0 36
       nearZ = 2 :: Float
       nowZ = 0 :: Float
@@ -240,6 +244,21 @@ cubeVertices = [
   -0.5,  0.5, -0.5,  0.0,  1.0,  0.0
   ]
 
+quadVertices :: [CFloat]
+quadVertices =
+  -- positions    texture coords
+  [  1,  1, 0,    1, 1   -- top right
+  ,  1, -1, 0,    1, 0   -- bottom right
+  , -1, -1, 0,    0, 0   -- bottom left
+  , -1,  1, 0,    0, 1   -- top left
+  ]
+
+quadIndices :: [GLuint]
+quadIndices =
+  [ 0, 1, 3 -- first triangle
+  , 1, 2, 3 -- second triangle
+  ]
+
 rotate4 :: (Floating a) => a -> V3 a -> M44 a
 rotate4 theta (V3 rx ry rz) = let
   sint = sin theta
@@ -289,42 +308,100 @@ objectVS, objectFS :: B.ByteString
 objectVS = $(makeRelativeToProject "shaders/object.vert" >>= embedFile)
 objectFS = $(makeRelativeToProject "shaders/object.frag" >>= embedFile)
 
-lampVS, lampFS :: B.ByteString
-lampVS = $(makeRelativeToProject "shaders/lamp.vert" >>= embedFile)
-lampFS = $(makeRelativeToProject "shaders/lamp.frag" >>= embedFile)
+quadVS, quadFS :: B.ByteString
+quadVS = $(makeRelativeToProject "shaders/quad.vert" >>= embedFile)
+quadFS = $(makeRelativeToProject "shaders/quad.frag" >>= embedFile)
 
 data GLStuff = GLStuff
-  { cubeShader    :: GLuint
-  , cubeVAO       :: GLuint
-  , modelLoc      :: GLint
-  , viewLoc       :: GLint
-  , projectionLoc :: GLint
-  , colorLoc      :: GLint
-  , lightColorLoc :: GLint
-  , lightPosLoc   :: GLint
+  { cubeShader      :: GLuint
+  , cubeVAO         :: GLuint
+  , cubeModel       :: GLint
+  , cubeView        :: GLint
+  , cubeProjection  :: GLint
+  , cubeObjectColor :: GLint
+  , cubeLightColor  :: GLint
+  , cubeLightPos    :: GLint
+  , testFont        :: Font.Font
+  , quadShader      :: GLuint
+  , quadVAO         :: GLuint
+  , quadTransform   :: GLint
   }
+
+class (Pixel a) => GLPixel a where
+  glPixelInternalFormat :: a -> GLint
+  glPixelFormat :: a -> GLenum
+  glPixelType :: a -> GLenum
+
+instance GLPixel PixelRGB8 where
+  glPixelInternalFormat _ = GL_RGB
+  glPixelFormat _ = GL_RGB
+  glPixelType _ = GL_UNSIGNED_BYTE
+
+instance GLPixel PixelRGBA8 where
+  glPixelInternalFormat _ = GL_RGBA
+  glPixelFormat _ = GL_RGBA
+  glPixelType _ = GL_UNSIGNED_BYTE
+
+data Texture = Texture
+  { textureGL     :: GLuint
+  , textureWidth  :: Int
+  , textureHeight :: Int
+  }
+
+loadTexture :: (GLPixel a) => Bool -> Image a -> IO Texture
+loadTexture linear img = do
+  let pixelProp :: (a -> b) -> Image a -> b
+      pixelProp f _ = f undefined
+      flippedVert = generateImage
+        (\x y -> pixelAt img x $ imageHeight img - y - 1)
+        (imageWidth img)
+        (imageHeight img)
+  texture <- alloca $ \p -> glGenTextures 1 p >> peek p
+  glBindTexture GL_TEXTURE_2D texture
+  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_REPEAT
+  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_REPEAT
+  let filtering = if linear then GL_LINEAR_MIPMAP_LINEAR else GL_NEAREST
+  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER filtering
+  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER filtering
+  VS.unsafeWith (imageData flippedVert) $ \p -> do
+    glTexImage2D GL_TEXTURE_2D 0 (pixelProp glPixelInternalFormat img)
+      (fromIntegral $ imageWidth flippedVert)
+      (fromIntegral $ imageHeight flippedVert)
+      0
+      (pixelProp glPixelFormat img)
+      (pixelProp glPixelType img)
+      (castPtr p)
+  when linear $ glGenerateMipmap GL_TEXTURE_2D
+  return $ Texture texture (imageWidth img) (imageHeight img)
 
 loadGLStuff :: IO GLStuff
 loadGLStuff = do
 
   glEnable GL_DEPTH_TEST
+  glEnable GL_BLEND
+  glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+
+  -- cube stuff
+
   cubeShader <- bracket (compileShader GL_VERTEX_SHADER objectVS) glDeleteShader $ \vertexShader -> do
     bracket (compileShader GL_FRAGMENT_SHADER objectFS) glDeleteShader $ \fragmentShader -> do
       compileProgram [vertexShader, fragmentShader]
-  lampShader <- bracket (compileShader GL_VERTEX_SHADER lampVS) glDeleteShader $ \vertexShader -> do
-    bracket (compileShader GL_FRAGMENT_SHADER lampFS) glDeleteShader $ \fragmentShader -> do
-      compileProgram [vertexShader, fragmentShader]
+  cubeModel <- withCString "model" $ glGetUniformLocation cubeShader
+  cubeView <- withCString "view" $ glGetUniformLocation cubeShader
+  cubeProjection <- withCString "projection" $ glGetUniformLocation cubeShader
+  cubeObjectColor <- withCString "objectColor" $ glGetUniformLocation cubeShader
+  cubeLightColor <- withCString "lightColor" $ glGetUniformLocation cubeShader
+  cubeLightPos <- withCString "lightPos" $ glGetUniformLocation cubeShader
 
   cubeVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
-  vbo <- alloca $ \p -> glGenBuffers 1 p >> peek p
-
-  glBindBuffer GL_ARRAY_BUFFER vbo
-  withArrayBytes cubeVertices $ \size p -> do
-    glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
+  cubeVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
 
   glBindVertexArray cubeVAO
 
-  -- position attribute
+  glBindBuffer GL_ARRAY_BUFFER cubeVBO
+  withArrayBytes cubeVertices $ \size p -> do
+    glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
+
   glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE
     (fromIntegral $ 6 * sizeOf (undefined :: CFloat))
     nullPtr
@@ -334,54 +411,71 @@ loadGLStuff = do
     (intPtrToPtr $ fromIntegral $ 3 * sizeOf (undefined :: CFloat))
   glEnableVertexAttribArray 1
 
-  lightVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
-  glBindVertexArray lightVAO
+  -- quad stuff
 
-  glBindBuffer GL_ARRAY_BUFFER vbo
+  quadShader <- bracket (compileShader GL_VERTEX_SHADER quadVS) glDeleteShader $ \vertexShader -> do
+    bracket (compileShader GL_FRAGMENT_SHADER quadFS) glDeleteShader $ \fragmentShader -> do
+      compileProgram [vertexShader, fragmentShader]
+  quadTransform <- withCString "transform" $ glGetUniformLocation quadShader
+
+  quadVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
+  quadVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
+  quadEBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
+
+  glBindVertexArray quadVAO
+
+  glBindBuffer GL_ARRAY_BUFFER quadVBO
+  withArrayBytes quadVertices $ \size p -> do
+    glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
+
+  glBindBuffer GL_ELEMENT_ARRAY_BUFFER quadEBO
+  withArrayBytes quadIndices $ \size p -> do
+    glBufferData GL_ELEMENT_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
 
   glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE
-    (fromIntegral $ 6 * sizeOf (undefined :: CFloat))
+    (fromIntegral $ 5 * sizeOf (undefined :: CFloat))
     nullPtr
   glEnableVertexAttribArray 0
+  glVertexAttribPointer 1 2 GL_FLOAT GL_FALSE
+    (fromIntegral $ 5 * sizeOf (undefined :: CFloat))
+    (intPtrToPtr $ fromIntegral $ 3 * sizeOf (undefined :: CFloat))
+  glEnableVertexAttribArray 1
 
-  -- texture
-  texture <- alloca $ \p -> glGenTextures 1 p >> peek p
-  glBindTexture GL_TEXTURE_2D texture
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_REPEAT
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_REPEAT
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
-  let flippedImage = generateImage
-        (\x y -> pixelAt onyxAlbum x $ imageHeight onyxAlbum - y - 1)
-        (imageWidth onyxAlbum)
-        (imageHeight onyxAlbum)
-  VS.unsafeWith (imageData flippedImage) $ \p -> do
-    glTexImage2D GL_TEXTURE_2D 0 GL_RGB
-      (fromIntegral $ imageWidth flippedImage)
-      (fromIntegral $ imageHeight flippedImage)
-      0
-      GL_RGB
-      GL_UNSIGNED_BYTE
-      (castPtr p)
-  glGenerateMipmap GL_TEXTURE_2D
+  glUseProgram quadShader
+  quadOurTexture <- withCString "ourTexture" $ glGetUniformLocation quadShader
+  glUniform1i quadOurTexture 0
 
-  -- uniforms
-  modelLoc <- withCString "model" $ glGetUniformLocation cubeShader
-  viewLoc <- withCString "view" $ glGetUniformLocation cubeShader
-  projectionLoc <- withCString "projection" $ glGetUniformLocation cubeShader
-  colorLoc <- withCString "objectColor" $ glGetUniformLocation cubeShader
-  lightColorLoc <- withCString "lightColor" $ glGetUniformLocation cubeShader
-  lightPosLoc <- withCString "lightPos" $ glGetUniformLocation cubeShader
+  -- test text rendering
 
-  lampModelLoc <- withCString "model" $ glGetUniformLocation lampShader
-  lampViewLoc <- withCString "view" $ glGetUniformLocation lampShader
-  lampProjectionLoc <- withCString "projection" $ glGetUniformLocation lampShader
+  Font.initialize
+  testFont <- Font.decode
+    $(makeRelativeToProject "../../player/www/VarelaRound-Regular.ttf" >>= embedFile)
+    30 -- point size
 
   return GLStuff{..}
 
+drawTexture :: GLStuff -> SDL.Window -> Texture -> V2 Int -> Int -> IO ()
+drawTexture GLStuff{..} window (Texture tex w h) (V2 x y) scale = do
+  SDL.V2 screenW screenH <- SDL.glGetDrawableSize window
+  glUseProgram quadShader
+  glActiveTexture GL_TEXTURE0
+  glBindTexture GL_TEXTURE_2D tex
+  glBindVertexArray quadVAO
+  let scaleX = fromIntegral (w * scale) / fromIntegral screenW
+      scaleY = fromIntegral (h * scale) / fromIntegral screenH
+      translateX = (fromIntegral x / fromIntegral screenW) * 2 - 1 + scaleX
+      translateY = (fromIntegral y / fromIntegral screenH) * 2 - 1 + scaleY
+  sendMatrix quadTransform
+    $ translate4 (V3 translateX translateY 0)
+    !*! L.scaled (V4 scaleX scaleY 1 1)
+  glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_INT nullPtr
+
+freeTexture :: Texture -> IO ()
+freeTexture (Texture tex _ _) = with tex $ glDeleteTextures 1
+
 drawDrumsFull :: GLStuff -> SDL.Window -> Track Double (D.Gem ()) -> IO ()
-drawDrumsFull GLStuff{..} window trk' = do
-  let lightPos = V.fromList [0, -0.5, 0.5]
+drawDrumsFull glStuff@GLStuff{..} window trk' = do
+  let V3 lightX lightY lightZ = V3 0 (-0.5) (0.5)
   SDL.V2 w h <- SDL.glGetDrawableSize window
   glViewport 0 0 (fromIntegral w) (fromIntegral h)
   glClearColor 0.2 0.3 0.3 1.0
@@ -392,24 +486,51 @@ drawDrumsFull GLStuff{..} window trk' = do
         = rotate4 (degrees 20) (V3 1 0 0)
         !*! translate4 (V3 0 (-1) (-3))
       projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
-  sendMatrix viewLoc view
-  sendMatrix projectionLoc projection
+  sendMatrix cubeView view
+  sendMatrix cubeProjection projection
   glBindVertexArray cubeVAO
-  glUniform3f lightColorLoc 1 1 1
-  glUniform3f lightPosLoc
-    (lightPos V.! 0)
-    (lightPos V.! 1)
-    (lightPos V.! 2)
-  drawDrums modelLoc colorLoc trk'
+  glUniform3f cubeLightColor 1 1 1
+  glUniform3f cubeLightPos lightX lightY lightZ
+  drawDrums glStuff trk'
 
-  -- glUseProgram lampShader
-  -- sendMatrix lampViewLoc view
-  -- sendMatrix lampProjectionLoc projection
-  -- sendMatrix lampModelLoc
-  --   $ translate4 lightPos
-  --   !*! L.scaled (V4 0.2 0.2 0.2 1)
-  -- glBindVertexArray lightVAO
-  -- glDrawArrays GL_TRIANGLES 0 36
+  let time = T.pack $ show $ trackTime trk'
+  bracket (Font.blended testFont (SDL.V4 255 255 255 255) time) SDL.freeSurface $ \surf -> do
+    bracket (surfaceToGL surf) freeTexture $ \text -> do
+      drawTexture glStuff window text (V2 0 0) 1
+
+surfaceToGL :: SDL.Surface -> IO Texture
+surfaceToGL (SDL.Surface p _) = do
+  texture <- alloca $ \ptex -> glGenTextures 1 ptex >> peek ptex
+  glBindTexture GL_TEXTURE_2D texture
+  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_REPEAT
+  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_REPEAT
+  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
+  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
+  let fmt = case targetByteOrder of -- this is SDL_PIXELFORMAT_RGBA32 but there's no hs binding
+        BigEndian    -> Raw.SDL_PIXELFORMAT_RGBA8888
+        LittleEndian -> Raw.SDL_PIXELFORMAT_ABGR8888
+  (w, h) <- bracket (Raw.convertSurfaceFormat p fmt 0) Raw.freeSurface $ \raw -> do
+    struct <- peek raw
+    bracket_ (Raw.lockSurface raw) (Raw.unlockSurface raw) $ do
+      -- flip rows vertically
+      let rowLength = fromIntegral (Raw.surfaceW struct) * 4
+          rowPointer r = Raw.surfacePixels struct `plusPtr` (r * rowLength)
+      allocaBytes rowLength $ \tmp -> do
+        forM_ [0 .. (quot (fromIntegral $ Raw.surfaceH struct) 2 - 1)] $ \r1 -> do
+          let r2 = fromIntegral (Raw.surfaceH struct) - 1 - r1
+          -- note, it's "copyBytes <destination> <source>"
+          copyBytes tmp             (rowPointer r1) rowLength
+          copyBytes (rowPointer r1) (rowPointer r2) rowLength
+          copyBytes (rowPointer r2) tmp             rowLength
+      glTexImage2D GL_TEXTURE_2D 0 GL_RGBA
+        (fromIntegral $ Raw.surfaceW struct)
+        (fromIntegral $ Raw.surfaceH struct)
+        0
+        GL_RGBA
+        GL_UNSIGNED_BYTE
+        (Raw.surfacePixels struct)
+    return (fromIntegral $ Raw.surfaceW struct, fromIntegral $ Raw.surfaceH struct)
+  return $ Texture texture w h
 
 playDrums :: SDL.Window -> Track Double (D.Gem ()) -> IO ()
 playDrums window trk = flip evalStateT trk $ do
