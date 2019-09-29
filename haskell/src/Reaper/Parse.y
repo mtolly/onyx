@@ -17,18 +17,21 @@ import Reaper.Base (Element(..))
 
 %%
 
-File : Element Newlines { $1 }
+File : Newlines Element Newlines { $2 }
 
-Element : '<' atom Atoms Newlines Elements '>' { Element $2 $3 (Just $5) }
-        | atom Atoms                           { Element $1 $2 Nothing   }
+Element : '<' atom Atoms Newlines1 Elements '>' { Element $2 $3 (Just $5) }
+        | atom Atoms                            { Element $1 $2 Nothing   }
 
 -- 0 or more
-Elements : Element Newlines Elements { $1 : $3 }
-         |                           { []      }
+Elements : Element Newlines1 Elements { $1 : $3 }
+         |                            { []      }
+
+-- 0 or more
+Newlines :             { () }
+         | nl Newlines { () }
 
 -- 1 or more
-Newlines : nl Newlines { () }
-         | nl          { () }
+Newlines1 : nl Newlines { () }
 
 -- 0 or more
 Atoms :            { []      }
