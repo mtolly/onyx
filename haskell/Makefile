@@ -41,7 +41,7 @@ mac:
 	stack exec -- onyx-package mac/Onyx.app/Contents/Info.plist mac/README.txt | ./mac-package.sh
 
 mac-deps:
-	brew install libsndfile libsamplerate lame rubberband dylibbundler wine mono mono-libgdiplus mpg123
+	brew install libsndfile libsamplerate lame rubberband dylibbundler wine mpg123
 
 win:
 	stack build .
