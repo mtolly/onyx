@@ -45,3 +45,7 @@ executables:
     - io-streams
     - fsnotify
     - text
+    pkg-config-dependencies:
+    - assimp
+    build-tools:
+    - c2hs

@@ -68,11 +68,8 @@ main = getArgs >>= \case
                   $ ATB.toPairList
                   $ RTB.toAbsoluteEventList 0
                   $ RTB.collectCoincident
-                  $ fmap RGDrums.Upcoming
-                  $ drumGems
-                  $ fromMaybe mempty
-                  $ Map.lookup Expert
-                  $ drumDifficulties drums
+                  $ fmap RGDrums.Autoplay
+                  $ computePro Nothing drums
             return $ RGDrums.Track drums' Map.empty 0 0.2
       varTrack <- loadTrack >>= liftIO . newIORef
       let midFileName = takeFileName mid

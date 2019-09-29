@@ -1,4 +1,6 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE NegativeLiterals  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
@@ -12,7 +14,6 @@ import           Control.Monad.IO.Class    (MonadIO (..))
 import           Control.Monad.Trans.State
 import qualified Data.ByteString           as B
 import           Data.FileEmbed            (embedFile, makeRelativeToProject)
-import           Data.Foldable             (toList)
 import           Data.List                 (partition)
 import qualified Data.Map.Strict           as Map
 import           Data.Map.Strict.Internal  (Map (..))
@@ -36,6 +37,7 @@ data Note t a
   = Upcoming a
   | Hit t a
   | Missed a
+  | Autoplay a
   deriving (Eq, Ord, Show, Read)
 
 data Track t a = Track
@@ -107,13 +109,18 @@ hitPad t x trk = let
       (_ : _, notes') ->
         trk { trackNotes = Map.insert k (Hit t x : notes') $ trackNotes trk }
 
-drawDrums :: GLStuff -> Track Double (D.Gem ()) -> IO ()
+drawDrums :: GLStuff -> Track Double (D.Gem a) -> IO ()
 drawDrums GLStuff{..} trk = do
-  let drawCube (x1, y1, z1) (x2, y2, z2) (r, g, b) = do
-        sendMatrix cubeModel
+  let drawCube :: V3 Float -> V3 Float -> V3 Float -> IO ()
+      drawCube (V3 x1 y1 z1) (V3 x2 y2 z2) color = do
+        sendUniformName cubeShader "model"
           $ translate4 (V3 ((x1 + x2) / 2) ((y1 + y2) / 2) ((z1 + z2) / 2))
           !*! L.scaled (V4 (x2 - x1) (y2 - y1) (z2 - z1) 1)
-        glUniform3f cubeObjectColor r g b
+        sendUniformName cubeShader "objectColor" color
+        sendUniformName cubeShader "material.ambient" color
+        sendUniformName cubeShader "material.diffuse" color
+        sendUniformName cubeShader "material.specular" (V3 0.5 0.5 0.5 :: V3 Float)
+        sendUniformName cubeShader "material.shininess" (32 :: Float)
         glDrawArrays GL_TRIANGLES 0 36
       nearZ = 2 :: Float
       nowZ = 0 :: Float
@@ -125,19 +132,19 @@ drawDrums GLStuff{..} trk = do
       nearTime = zToTime nearZ
       drawGem t gem colorFn = let
         color = case gem of
-          D.Kick            -> (153, 106, 6)
-          D.Red             -> (202, 25, 7)
-          D.Pro D.Yellow () -> (207, 180, 57)
-          D.Pro D.Blue ()   -> (71, 110, 222)
-          D.Pro D.Green ()  -> (58, 207, 68)
-          D.Orange          -> (58, 207, 68) -- TODO
+          D.Kick           -> V3 153 106 6
+          D.Red            -> V3 202 25 7
+          D.Pro D.Yellow _ -> V3 207 180 57
+          D.Pro D.Blue   _ -> V3 71 110 222
+          D.Pro D.Green  _ -> V3 58 207 68
+          D.Orange         -> V3 58 207 68 -- TODO
         (x1, x2) = case gem of
-          D.Kick            -> (-1, 1)
-          D.Red             -> (-1, -0.5)
-          D.Pro D.Yellow () -> (-0.5, 0)
-          D.Pro D.Blue ()   -> (0, 0.5)
-          D.Pro D.Green ()  -> (0.5, 1)
-          D.Orange          -> (0.5, 1) -- TODO
+          D.Kick           -> (-1, 1)
+          D.Red            -> (-1, -0.5)
+          D.Pro D.Yellow _ -> (-0.5, 0)
+          D.Pro D.Blue   _ -> (0, 0.5)
+          D.Pro D.Green  _ -> (0.5, 1)
+          D.Orange         -> (0.5, 1) -- TODO
         (y1, y2) = case gem of
           D.Kick -> (-0.9, -1.1)
           _      -> (-0.8, -1.1)
@@ -145,13 +152,14 @@ drawDrums GLStuff{..} trk = do
           D.Kick -> (z + 0.1, z - 0.1)
           _      -> (z + 0.2, z - 0.2)
         z = timeToZ t
-        in drawCube (x1, y1, z1) (x2, y2, z2) $ case color of
-          (r, g, b) ->
-            ( colorFn $ fromInteger r / 255
-            , colorFn $ fromInteger g / 255
-            , colorFn $ fromInteger b / 255
-            )
+        in drawCube (V3 x1 y1 z1) (V3 x2 y2 z2)
+          $ fmap (\chan -> colorFn $ fromInteger chan / 255) color
       drawNotes t notes = forM_ notes $ \case
+        Autoplay gem -> if nowTime < t
+          then drawGem t gem id
+          else if nowTime - t < 0.1
+            then drawGem nowTime gem sqrt
+            else return ()
         Upcoming gem -> drawGem t gem id
         Hit t' gem -> if nowTime - t' < 0.1
           then drawGem nowTime gem sqrt
@@ -160,8 +168,8 @@ drawDrums GLStuff{..} trk = do
       drawOverhits t notes = if nowTime - t < 0.1
         then forM_ notes $ \gem -> drawGem nowTime gem (** 3)
         else return ()
-  drawCube (-1, -1, nearZ) (1, -1.1, farZ) (0.2, 0.2, 0.2)
-  drawCube (-1, -0.98, 0.2) (1, -1.05, -0.2) (0.8, 0.8, 0.8)
+  drawCube (V3 -1 -1 nearZ) (V3 1 -1.1 farZ) (V3 0.2 0.2 0.2)
+  drawCube (V3 -1 -0.98 0.2) (V3 1 -1.05 -0.2) (V3 0.8 0.8 0.8)
   traverseRange_ drawNotes False nearTime farTime $ trackNotes trk
   traverseRange_ drawOverhits False nearTime farTime $ trackOverhits trk
 
@@ -259,37 +267,6 @@ quadIndices =
   , 1, 2, 3 -- second triangle
   ]
 
-rotate4 :: (Floating a) => a -> V3 a -> M44 a
-rotate4 theta (V3 rx ry rz) = let
-  sint = sin theta
-  cost = cos theta
-  len = sqrt $ rx * rx + ry * ry + rz * rz
-  nx = rx / len
-  ny = ry / len
-  nz = rz / len
-  in V4
-    (V4
-      (cost + (nx ** 2) * (1 - cost))
-      (nx * ny * (1 - cost) - nz * sint)
-      (nx * nz * (1 - cost) + ny * sint)
-      0
-    ) (V4
-      (ny * nx * (1 - cost) + nz * sint)
-      (cost + (ny ** 2) * (1 - cost))
-      (ny * nz * (1 - cost) - nx * sint)
-      0
-    ) (V4
-      (nz * nx * (1 - cost) - ny * sint)
-      (nz * ny * (1 - cost) + nx * sint)
-      (cost + (nz ** 2) * (1 - cost))
-      0
-    ) (V4
-      0
-      0
-      0
-      1
-    )
-
 translate4 :: (Num a) => V3 a -> M44 a
 translate4 (V3 x y z) = V4
   (V4 1 0 0 x)
@@ -300,9 +277,27 @@ translate4 (V3 x y z) = V4
 degrees :: (Floating a) => a -> a
 degrees d = (d / 180) * pi
 
-sendMatrix :: (MonadIO m) => GLint -> M44 Float -> m ()
-sendMatrix loc m = liftIO $ withArray (toList m >>= toList)
-  $ glUniformMatrix4fv loc 1 GL_TRUE {- <- this means row major order -}
+class SendUniform a where
+  sendUniform :: GLint -> a -> IO ()
+
+sendUniformName :: (MonadIO m, SendUniform a) => GLuint -> String -> a -> m ()
+sendUniformName prog name x = liftIO $ do
+  uni <- withCString name $ glGetUniformLocation prog
+  sendUniform uni x
+
+instance SendUniform (M44 Float) where
+  sendUniform uni mat = with mat
+    $ glUniformMatrix4fv uni 1 GL_TRUE {- <- this means row major order -}
+    . castPtr
+
+instance SendUniform (V3 Float) where
+  sendUniform uni (V3 x y z) = glUniform3f uni x y z
+
+instance SendUniform GLint where
+  sendUniform = glUniform1i
+
+instance SendUniform Float where
+  sendUniform = glUniform1f
 
 objectVS, objectFS :: B.ByteString
 objectVS = $(makeRelativeToProject "shaders/object.vert" >>= embedFile)
@@ -313,18 +308,11 @@ quadVS = $(makeRelativeToProject "shaders/quad.vert" >>= embedFile)
 quadFS = $(makeRelativeToProject "shaders/quad.frag" >>= embedFile)
 
 data GLStuff = GLStuff
-  { cubeShader      :: GLuint
-  , cubeVAO         :: GLuint
-  , cubeModel       :: GLint
-  , cubeView        :: GLint
-  , cubeProjection  :: GLint
-  , cubeObjectColor :: GLint
-  , cubeLightColor  :: GLint
-  , cubeLightPos    :: GLint
-  , testFont        :: Font.Font
-  , quadShader      :: GLuint
-  , quadVAO         :: GLuint
-  , quadTransform   :: GLint
+  { cubeShader :: GLuint
+  , cubeVAO    :: GLuint
+  , testFont   :: Font.Font
+  , quadShader :: GLuint
+  , quadVAO    :: GLuint
   }
 
 class (Pixel a) => GLPixel a where
@@ -386,12 +374,6 @@ loadGLStuff = do
   cubeShader <- bracket (compileShader GL_VERTEX_SHADER objectVS) glDeleteShader $ \vertexShader -> do
     bracket (compileShader GL_FRAGMENT_SHADER objectFS) glDeleteShader $ \fragmentShader -> do
       compileProgram [vertexShader, fragmentShader]
-  cubeModel <- withCString "model" $ glGetUniformLocation cubeShader
-  cubeView <- withCString "view" $ glGetUniformLocation cubeShader
-  cubeProjection <- withCString "projection" $ glGetUniformLocation cubeShader
-  cubeObjectColor <- withCString "objectColor" $ glGetUniformLocation cubeShader
-  cubeLightColor <- withCString "lightColor" $ glGetUniformLocation cubeShader
-  cubeLightPos <- withCString "lightPos" $ glGetUniformLocation cubeShader
 
   cubeVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
   cubeVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
@@ -416,7 +398,6 @@ loadGLStuff = do
   quadShader <- bracket (compileShader GL_VERTEX_SHADER quadVS) glDeleteShader $ \vertexShader -> do
     bracket (compileShader GL_FRAGMENT_SHADER quadFS) glDeleteShader $ \fragmentShader -> do
       compileProgram [vertexShader, fragmentShader]
-  quadTransform <- withCString "transform" $ glGetUniformLocation quadShader
 
   quadVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
   quadVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
@@ -442,8 +423,7 @@ loadGLStuff = do
   glEnableVertexAttribArray 1
 
   glUseProgram quadShader
-  quadOurTexture <- withCString "ourTexture" $ glGetUniformLocation quadShader
-  glUniform1i quadOurTexture 0
+  sendUniformName quadShader "ourTexture" (0 :: GLint)
 
   -- test text rendering
 
@@ -465,32 +445,39 @@ drawTexture GLStuff{..} window (Texture tex w h) (V2 x y) scale = do
       scaleY = fromIntegral (h * scale) / fromIntegral screenH
       translateX = (fromIntegral x / fromIntegral screenW) * 2 - 1 + scaleX
       translateY = (fromIntegral y / fromIntegral screenH) * 2 - 1 + scaleY
-  sendMatrix quadTransform
-    $ translate4 (V3 translateX translateY 0)
+  sendUniformName quadShader "transform"
+    (   translate4 (V3 translateX translateY 0)
     !*! L.scaled (V4 scaleX scaleY 1 1)
+    :: M44 Float
+    )
   glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_INT nullPtr
 
 freeTexture :: Texture -> IO ()
 freeTexture (Texture tex _ _) = with tex $ glDeleteTextures 1
 
-drawDrumsFull :: GLStuff -> SDL.Window -> Track Double (D.Gem ()) -> IO ()
+drawDrumsFull :: GLStuff -> SDL.Window -> Track Double (D.Gem a) -> IO ()
 drawDrumsFull glStuff@GLStuff{..} window trk' = do
-  let V3 lightX lightY lightZ = V3 0 (-0.5) (0.5)
   SDL.V2 w h <- SDL.glGetDrawableSize window
   glViewport 0 0 (fromIntegral w) (fromIntegral h)
   glClearColor 0.2 0.3 0.3 1.0
   glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
 
   glUseProgram cubeShader
-  let view -- this should be doable with L.mkTransformation but not sure exactly how
-        = rotate4 (degrees 20) (V3 1 0 0)
-        !*! translate4 (V3 0 (-1) (-3))
-      projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
-  sendMatrix cubeView view
-  sendMatrix cubeProjection projection
   glBindVertexArray cubeVAO
-  glUniform3f cubeLightColor 1 1 1
-  glUniform3f cubeLightPos lightX lightY lightZ
+  let viewPosn = V3 0 1 3 :: V3 Float
+      view, projection :: M44 Float
+      view
+        = L.mkTransformation (L.axisAngle (V3 1 0 0) (degrees 20)) 0
+        !*! translate4 (negate viewPosn)
+        -- note, this translates then rotates (can't just give V3 to mkTransformation)
+      projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
+  sendUniformName cubeShader "view" view
+  sendUniformName cubeShader "projection" projection
+  sendUniformName cubeShader "light.position" (V3 0 -0.5 0.5 :: V3 Float)
+  sendUniformName cubeShader "light.ambient" (V3 0.2 0.2 0.2 :: V3 Float)
+  sendUniformName cubeShader "light.diffuse" (V3 1 1 1 :: V3 Float)
+  sendUniformName cubeShader "light.specular" (V3 1 1 1 :: V3 Float)
+  sendUniformName cubeShader "viewPos" viewPosn
   drawDrums glStuff trk'
 
   let time = T.pack $ show $ trackTime trk'
@@ -567,7 +554,7 @@ playDrums window trk = flip evalStateT trk $ do
         SDL.glSwapWindow window
   loop
 
-previewDrums :: SDL.Window -> IO (Track Double (D.Gem ())) -> IO Double -> IO ()
+previewDrums :: SDL.Window -> IO (Track Double (D.Gem D.ProType)) -> IO Double -> IO ()
 previewDrums window getTrack getTime = do
   glStuff <- loadGLStuff
   let loop = SDL.pollEvents >>= processEvents >>= \b -> when b $ do
