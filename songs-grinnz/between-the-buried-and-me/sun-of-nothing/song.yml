@@ -55,9 +55,22 @@ parts:
   bass:
     grybo: # septekka
       difficulty: 7
+    pro-guitar: # onyxite
+      tuning:
+        base: bass-5
+        global: -3 # G# C# F# B E
   guitar:
     grybo: # septekka
       difficulty: 7
+    pro-guitar: # onyxite
+      tuning:
+        base: guitar-6
+        global: -3 # C# standard
+  rhythm:
+    pro-guitar: # onyxite
+      tuning:
+        base: guitar-6
+        global: -3 # C# standard
   keys:
     pro-keys: # septekka
       difficulty: 2

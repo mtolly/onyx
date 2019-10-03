@@ -5,6 +5,8 @@ parts:
     #   difficulty:
     #     tier: 3
     pro-guitar:
+      # TODO this was tabbed like Esiah plays it in standard BEADG,
+      # but Anthony probably used one whole step down (ADGCF), should check/fix
       tuning:
         base: bass-5
   guitar:
@@ -28,54 +30,29 @@ parts:
 plans:
   mogg:
     parts:
-      bass:
-      - 2
-      - 3
-      guitar:
-      - 4
-      - 5
-      drums:
-      - 0
-      - 1
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
+      bass: [2, 3]
+      guitar: [4, 5]
+      drums: [0, 1]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -2.5, 2.5]
     karaoke: false
-    mogg-md5: bd403105a05792c16af4a1120964162d
+    mogg-md5: a6cb925fadad88a8f0e26e0dffaa7185
     multitrack: false
-    vols:
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
+    crowd: [8, 9]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, -5, -5]
 targets:
   rb3:
-    song-id: 1096300007
     game: rb3
-    version: 30
+  ps:
+    game: ps
 metadata:
   rating: FamilyFriendly
   preview-start: 30.001
   file-album-art: cover.png_xbox
-  languages:
-  - English
   track-number: 1
   album: Homey
   year: 2017
   subgenre: progrock
-  author: GanonMetroid
-  comments:
-  - Minor edits to drum chart by Onyxite.
+  author: SoundHaven, Onyxite, GanonMetroid, captaintoasty
   title: Sleepy Tea
   preview-end: 1:00.001
   genre: prog

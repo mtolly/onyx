@@ -29,9 +29,12 @@ parts:
   guitar:
     grybo: {}
   rhythm:
-    grybo: {} # WIP
+    grybo: {}
   bass:
     grybo: {} # WIP
+  drums:
+    drums: # WIP
+      kicks: both
 targets:
   rb3:
     game: rb3

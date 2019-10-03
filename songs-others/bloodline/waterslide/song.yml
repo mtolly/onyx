@@ -1,0 +1,71 @@
+parts:
+  vocal: {}
+  bass:
+    # Anthony Crawford's part on the album
+    pro-guitar:
+      tuning:
+        base: bass-5
+        global: -2 # verified from Anthony's other performances and youtube comments
+  esiah:
+    # Esiah Camarena's playthrough: https://www.youtube.com/watch?v=4eObIh2KRKs
+    pro-guitar:
+      tuning:
+        base: bass-5
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    karaoke: false
+    mogg-md5: 89475d17835e9507d005c73888fece4d
+    multitrack: false
+    crowd:
+    - 4
+    - 5
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+targets:
+  rb3:
+    song-id: 1681601027
+    game: rb3
+    version: 30
+metadata:
+  rating: Family Friendly
+  preview-start: 40
+  expert-only: true
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 2
+  album: Homey
+  year: 2017
+  subgenre: progrock
+  anim-tempo: 32
+  author: Bloodline
+  title: Waterslide (B)
+  preview-end: 1:10.000
+  genre: prog
+  difficulty:
+    tier: 7
+  artist: CHON
