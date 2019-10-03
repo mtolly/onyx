@@ -1,0 +1,58 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      count: 3
+      difficulty:
+        rank: 408
+      # harmonies by Espher (RBHP)
+  bass:
+    grybo:
+      difficulty:
+        rank: 232
+  guitar:
+    grybo:
+      difficulty:
+        rank: 447
+  drums:
+    drums:
+      difficulty:
+        rank: 560
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      vocal: [10, 11]
+      bass: [6, 7]
+      guitar: [8, 9]
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    mogg-md5: 877cec6546dbd3b0d70f105358715dce
+    multitrack: true
+    vols: [-1.5, -1.5, -2, -2, -2.5, -2.5, -2.5, -2.5, -4.5, -4.5, -3.5, -3.5, -4.5, -4.5]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Family Friendly
+  preview-start: 1:05.944
+  file-album-art: cover.png_xbox
+  track-number: 3
+  key: D minor
+  album: Year of the Black Rainbow
+  year: 2010
+  anim-tempo: fast
+  author: Harmonix, Onyxite, Espher
+  title: Guns of Summer
+  preview-end: 1:35.944
+  genre: prog
+  difficulty:
+    rank: 518
+  artist: Coheed and Cambria
