@@ -30,6 +30,9 @@ targets:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
 metadata:
   rating: FamilyFriendly
   preview-start: 1:00.776

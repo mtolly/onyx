@@ -3,49 +3,45 @@ parts:
     vocal:
       gender: male
       difficulty:
-        rank: 157
+        rank: 152
   bass:
     grybo:
       difficulty:
-        rank: 225
+        rank: 120
   guitar:
     grybo:
       difficulty:
-        rank: 252
+        rank: 205
   drums:
     drums:
-      kicks: both
       difficulty:
-        rank: 358
+        rank: 301
+      kicks: 1
 plans:
   mogg:
     parts:
-      drums: [0, 1]
+      vocal: [5, 6]
       bass: [2]
       guitar: [3, 4]
-      vocal: [5, 6]
+      drums: [0, 1]
     pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1]
-    mogg-md5: 46b1f1e109c956e7267b87d065435528
+    mogg-md5: b95a090134fcdda3be87d397e5d013e7
     multitrack: true
-    vols: [-3, -3, -1.5, -2.5, -2.5, -5, -5, -2.5, -2.5]
+    vols: [-0.5, -0.5, -3.5, -4.5, -4.5, -4.5, -4.5, -2.5, -2.5]
 targets:
   rb3:
     game: rb3
     label: (O)
-  rb3-2x:
-    game: rb3
-    2x-bass-pedal: true
-    label: (2x Bass Pedal) (O)
   ps:
     game: ps
     label: (O)
 metadata:
-  rating: FamilyFriendly
-  preview-start: 9.9
-  track-number: 1
+  rating: Family Friendly
+  preview-start: 2:36.528
+  track-number: 6
   author: Harmonix, Onyxite
-  title: Tom Sawyer (Original Version)
-  preview-end: 39.9
+  title: Witch Hunt (Part III of Fear)
+  preview-end: 2:59.169
   difficulty:
-    rank: 248
+    rank: 194
   file-include: ../../../albums/moving-pictures.yml

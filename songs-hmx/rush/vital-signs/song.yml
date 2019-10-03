@@ -3,31 +3,31 @@ parts:
     vocal:
       gender: male
       difficulty:
-        rank: 157
+        rank: 131
   bass:
     grybo:
       difficulty:
-        rank: 225
+        rank: 251
   guitar:
     grybo:
       difficulty:
-        rank: 252
+        rank: 204
   drums:
     drums:
-      kicks: both
       difficulty:
-        rank: 358
+        rank: 372
+      kicks: both
 plans:
   mogg:
     parts:
+      vocal: [6, 7]
+      bass: [2, 3]
+      guitar: [4, 5]
       drums: [0, 1]
-      bass: [2]
-      guitar: [3, 4]
-      vocal: [5, 6]
-    pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1]
-    mogg-md5: 46b1f1e109c956e7267b87d065435528
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    mogg-md5: 327962fd9f060712e155dca9036c738c
     multitrack: true
-    vols: [-3, -3, -1.5, -2.5, -2.5, -5, -5, -2.5, -2.5]
+    vols: [-0.5, -0.5, -3.5, -3.5, -4, -4, -3.5, -3.5, -3, -3]
 targets:
   rb3:
     game: rb3
@@ -40,12 +40,12 @@ targets:
     game: ps
     label: (O)
 metadata:
-  rating: FamilyFriendly
-  preview-start: 9.9
-  track-number: 1
+  rating: Family Friendly
+  preview-start: 2:27.969
+  track-number: 7
   author: Harmonix, Onyxite
-  title: Tom Sawyer (Original Version)
-  preview-end: 39.9
+  title: Vital Signs
+  preview-end: 2:57.969
   difficulty:
-    rank: 248
+    rank: 240
   file-include: ../../../albums/moving-pictures.yml

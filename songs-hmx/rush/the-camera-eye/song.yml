@@ -64,6 +64,10 @@ targets:
     game: rb3
     label: (O)
     plan: mogg
+  ps:
+    game: ps
+    label: (O)
+    plan: mogg
 jammit:
   jammit-track: {}
 metadata:
