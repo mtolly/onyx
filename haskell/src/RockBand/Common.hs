@@ -323,3 +323,48 @@ pattern ANil :: ATB.T time body
 pattern ANil <- (ATB.viewL -> Nothing) where
   ANil = ATB.empty
 {-# COMPLETE At, ANil #-}
+
+class ChopTrack f where
+  chopTake :: (NNC.C t) => t -> f t -> f t
+  chopDrop :: (NNC.C t) => t -> f t -> f t
+
+chopDropStatus :: (NNC.C t) => t -> RTB.T t a -> RTB.T t a
+chopDropStatus t xs = let
+  (before, after) = U.trackSplit t xs
+  in case U.trackTakeZero after of
+    _ : _ -> after
+    []    -> case RTB.viewR before of
+      Nothing          -> after
+      Just (_, (_, x)) -> U.trackGlueZero [x] after
+
+chopTakeBool :: (NNC.C t) => t -> RTB.T t Bool -> RTB.T t Bool
+chopTakeBool t xs = let
+  before = U.trackTake t xs
+  in case RTB.viewR before of
+    Just (_, (_, True)) -> RTB.insert t False before
+    _                   -> before
+
+chopDropBool :: (NNC.C t) => t -> RTB.T t Bool -> RTB.T t Bool
+chopDropBool t xs = let
+  (before, after) = U.trackSplit t xs
+  in case U.trackSplitZero after of
+    ([], _) -> case RTB.viewR before of
+      Just (_, (_, True)) -> U.trackGlueZero [True] after
+      _                   -> after
+    (z, nz) -> U.trackGlueZero (filter id z) nz
+
+chopTakeMaybe :: (NNC.C t, Ord a) => t -> RTB.T t (Maybe a) -> RTB.T t (Maybe a)
+chopTakeMaybe t xs = let
+  before = U.trackTake t xs
+  in case RTB.viewR before of
+    Just (_, (_, Just _)) -> RTB.insert t Nothing before
+    _                     -> before
+
+chopDropMaybe :: (NNC.C t, Ord a) => t -> RTB.T t (Maybe a) -> RTB.T t (Maybe a)
+chopDropMaybe t xs = let
+  (before, after) = U.trackSplit t xs
+  in case U.trackSplitZero after of
+    ([], _) -> case RTB.viewR before of
+      Just (_, (_, Just x)) -> U.trackGlueZero [Just x] after
+      _                     -> after
+    (z, nz) -> U.trackGlueZero (filter isJust z) nz

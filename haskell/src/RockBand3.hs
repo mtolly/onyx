@@ -15,6 +15,7 @@ import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.List.Extra                   (nubOrd)
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (fromMaybe, isJust)
+import           Difficulty
 import           Guitars
 import qualified Numeric.NonNegative.Class         as NNC
 import           OneFoot
@@ -46,11 +47,12 @@ processRB3Pad
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
   -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats), Int)
+  -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats), DifficultyRB3, Maybe VocalCount, Int)
 processRB3Pad a b c d e = do
-  res <- processMIDI (Left a) b c d e
+  (mid, diffs, vc) <- processMIDI (Left a) b c d e
   -- TODO we probably should run fixBrokenUnisons before autoreductions
-  magmaLegalTemposFile res >>= fixNotelessOD >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
+  (mid', pad) <- magmaLegalTemposFile mid >>= fixNotelessOD >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
+  return (mid', psDifficultyRB3 diffs, vc, pad)
 
 processPS
   :: (SendMessage m, MonadIO m)
@@ -59,7 +61,7 @@ processPS
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
   -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats))
+  -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats), DifficultyPS, Maybe VocalCount)
 processPS = processMIDI . Right
 
 -- | Magma gets mad if you put an event like [idle_realtime] before 2 beats in.
@@ -350,10 +352,26 @@ processMIDI
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
   -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats))
+  -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats), DifficultyPS, Maybe VocalCount) -- ^ output midi, filtered difficulties, vocal count
 processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudioLength = inside "Processing MIDI for RB3/PS" $ do
   timing@BasicTiming{..} <- basicTiming input getAudioLength
-  let eventsInput = RBFile.onyxEvents trks
+  let targetPS = case target of
+        Right tps -> tps
+        Left trb3 -> TargetPS
+          { ps_Common     = rb3_Common trb3
+          , ps_FileVideo  = Nothing
+          , ps_Guitar     = rb3_Guitar trb3
+          , ps_Bass       = rb3_Bass trb3
+          , ps_Drums      = rb3_Drums trb3
+          , ps_Keys       = rb3_Keys trb3
+          , ps_Vocal      = rb3_Vocal trb3
+          , ps_Rhythm     = RBFile.FlexExtra "undefined"
+          , ps_GuitarCoop = RBFile.FlexExtra "undefined"
+          , ps_Dance      = RBFile.FlexExtra "undefined"
+          }
+      originalRanks = difficultyPS targetPS songYaml
+
+      eventsInput = RBFile.onyxEvents trks
       (crowd, crowdClap) = if RTB.null (eventsCrowd eventsInput) && RTB.null (eventsCrowdClap eventsInput)
         then
           ( RTB.singleton timingMusicStart CrowdRealtime
@@ -515,19 +533,64 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
                 , keysEasy
                 )
 
-      vocalPart = either rb3_Vocal ps_Vocal target
+  let vocalPart = either rb3_Vocal ps_Vocal target
       voxCount = fmap vocalCount $ getPart vocalPart songYaml >>= partVocal
-      (trkVox, trkHarm1, trkHarm2, trkHarm3) = case voxCount of
-        Nothing -> (mempty, mempty, mempty, mempty)
-        Just c -> case c of
-          Vocal3 -> (partVox', harm1 , harm2 , harm3 )
-          Vocal2 -> (partVox', harm1 , harm2 , mempty)
-          Vocal1 -> (partVox', mempty, mempty, mempty)
-        where partVox = RBFile.onyxPartVocals $ RBFile.getFlexPart vocalPart trks
-              partVox' = if nullVox partVox then harm1ToPartVocals harm1 else partVox
-              harm1   = RBFile.onyxHarm1 $ RBFile.getFlexPart vocalPart trks
-              harm2   = RBFile.onyxHarm2 $ RBFile.getFlexPart vocalPart trks
-              harm3   = RBFile.onyxHarm3 $ RBFile.getFlexPart vocalPart trks
+      partVox = RBFile.onyxPartVocals $ RBFile.getFlexPart vocalPart trks
+      -- partVox' = if nullVox partVox then harm1ToPartVocals harm1 else partVox
+      harm1   = RBFile.onyxHarm1 $ RBFile.getFlexPart vocalPart trks
+      harm2   = RBFile.onyxHarm2 $ RBFile.getFlexPart vocalPart trks
+      harm3   = RBFile.onyxHarm3 $ RBFile.getFlexPart vocalPart trks
+      someV `withNotesOf` otherV = someV
+        { vocalLyrics = vocalLyrics otherV
+        , vocalNotes = vocalNotes otherV
+        }
+      makeSoloVocals harm =
+        (Just Vocal1, if nullVox partVox then harm else partVox, mempty, mempty, mempty)
+  (editCount, trkPV, trkHarm1, trkHarm2, trkHarm3) <- case voxCount of
+    Nothing -> return (Nothing, mempty, mempty, mempty, mempty)
+    Just Vocal1 -> case (nullVox partVox, nullVox harm1) of
+      (False, _) -> return (Just Vocal1, partVox, mempty, mempty, mempty)
+      (True, False) -> return (Just Vocal1, harm1, mempty, mempty, mempty)
+      (True, True) -> do
+        lg "Vocals (1) is empty (both PART VOCALS and HARM1); disabling"
+        return (Nothing, mempty, mempty, mempty, mempty)
+    Just Vocal2 -> case (nullVox harm1, nullVox harm2) of
+      (False, False) -> return (Just Vocal2, partVox, harm1, harm2, mempty)
+      (False, True) -> do
+        lg "Vocals (2) has empty HARM2; switching to solo vocals"
+        return $ makeSoloVocals harm1
+      (True, False) -> do
+        lg "Vocals (2) has empty HARM1; switching HARM2 to solo vocals"
+        return $ makeSoloVocals $ harm1 `withNotesOf` harm2
+      (True, True) -> do
+        lg "Vocals (2) is empty; disabling"
+        return (Nothing, mempty, mempty, mempty, mempty)
+    Just Vocal3 -> case (nullVox harm1, nullVox harm2, nullVox harm3) of
+      (False, False, False) -> return (Just Vocal3, partVox, harm1, harm2, harm3)
+      (False, False, True) -> do
+        lg "Vocals (3) has empty HARM2; switching to 2 harmonies"
+        return (Just Vocal2, partVox, harm1, harm2, mempty)
+      (False, True, False) -> do
+        lg "Vocals (3) has empty HARM3; switching to 2 harmonies"
+        return (Just Vocal2, partVox, harm1, harm2 `withNotesOf` harm3, mempty)
+      (True, False, False) -> do
+        lg "Vocals (3) has empty HARM1; switching to 2 harmonies"
+        return (Just Vocal2, partVox, harm1 `withNotesOf` harm2, harm2 `withNotesOf` harm3, mempty)
+      (False, True, True) -> do
+        lg "Vocals (3) only has notes in HARM1; switching to solo vocals"
+        return $ makeSoloVocals harm1
+      (True, False, True) -> do
+        lg "Vocals (3) only has notes in HARM2; switching to solo vocals"
+        return $ makeSoloVocals $ harm1 `withNotesOf` harm2
+      (True, True, False) -> do
+        lg "Vocals (3) only has notes in HARM3; switching to solo vocals"
+        return $ makeSoloVocals $ harm1 `withNotesOf` harm3
+      (True, True, True) -> do
+        lg "Vocals (3) is empty; disabling"
+        return (Nothing, mempty, mempty, mempty, mempty)
+  let trkVox = if editCount >= Just Vocal2 && nullVox trkPV
+        then harm1ToPartVocals trkHarm1
+        else trkPV
       autoVoxMood vox = makeMoods tempos timing $ flip fmap (vocalNotes vox) $ \case
         (_, True) -> NoteOn () ()
         (_, False) -> NoteOff ()
@@ -586,7 +649,15 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         , buildLighting $ RBFile.onyxLighting trks
         , camera
         ]
-  return $ RBFile.Song tempos' mmap' RBFile.FixedFile
+      editRanks = case editCount of
+        Nothing -> originalRanks
+          { psDifficultyRB3 = (psDifficultyRB3 originalRanks)
+            { rb3VocalRank = 0
+            , rb3VocalTier = 0
+            }
+          }
+        Just _ -> originalRanks
+  return (RBFile.Song tempos' mmap' RBFile.FixedFile
     { RBFile.fixedBeat = timingBeat
     , RBFile.fixedEvents = if isPS then eventsTrackPS else eventsTrack
     , RBFile.fixedVenue = venue
@@ -615,7 +686,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
     , RBFile.fixedHarm2 = (if isPS then asciiLyrics else id) trkHarm2'
     , RBFile.fixedHarm3 = (if isPS then asciiLyrics else id) trkHarm3'
     , RBFile.fixedPartDance = mempty
-    }
+    }, editRanks, editCount)
 
 magmaLegalTemposFile :: (SendMessage m) => RBFile.Song (RBFile.FixedFile U.Beats) -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats))
 magmaLegalTemposFile rb3 = let

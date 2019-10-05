@@ -156,6 +156,46 @@ data ProGuitarTrack t = ProGuitarTrack
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (ProGuitarTrack t)
 
+instance ChopTrack ProGuitarTrack where
+  chopTake t pg = ProGuitarTrack
+    { pgDifficulties   = mapTrack (U.trackTake t) <$> pgDifficulties pg -- TODO
+    , pgTrainer        = U.trackTake    t $ pgTrainer        pg -- TODO
+    , pgTremolo        = chopTakeMaybe  t $ pgTremolo        pg
+    , pgTrill          = chopTakeMaybe  t $ pgTrill          pg
+    , pgOverdrive      = chopTakeBool   t $ pgOverdrive      pg
+    , pgBRE            = U.trackTake    t $ pgBRE            pg -- TODO
+    , pgSolo           = chopTakeBool   t $ pgSolo           pg
+    , pgHandPosition   = U.trackTake    t $ pgHandPosition   pg
+    , pgChordRoot      = U.trackTake    t $ pgChordRoot      pg
+    , pgNoChordNames   = chopTakeBool   t $ pgNoChordNames   pg
+    , pgSlashChords    = chopTakeBool   t $ pgSlashChords    pg
+    , pgSwapAccidental = chopTakeBool   t $ pgSwapAccidental pg
+    , pgOnyxOctave     = U.trackTake    t $ pgOnyxOctave     pg
+    , pgOnyxString     = U.trackTake    t $ pgOnyxString     pg
+    , pgMystery45      = chopTakeBool   t $ pgMystery45      pg
+    , pgMystery69      = chopTakeBool   t $ pgMystery69      pg
+    , pgMystery93      = chopTakeBool   t $ pgMystery93      pg
+    }
+  chopDrop t pg = ProGuitarTrack
+    { pgDifficulties   = mapTrack (U.trackDrop t) <$> pgDifficulties pg -- TODO
+    , pgTrainer        = U.trackDrop    t $ pgTrainer        pg -- TODO
+    , pgTremolo        = chopDropMaybe  t $ pgTremolo        pg
+    , pgTrill          = chopDropMaybe  t $ pgTrill          pg
+    , pgOverdrive      = chopDropBool   t $ pgOverdrive      pg
+    , pgBRE            = U.trackDrop    t $ pgBRE            pg -- TODO
+    , pgSolo           = chopDropBool   t $ pgSolo           pg
+    , pgHandPosition   = chopDropStatus t $ pgHandPosition   pg
+    , pgChordRoot      = chopDropStatus t $ pgChordRoot      pg
+    , pgNoChordNames   = chopDropBool   t $ pgNoChordNames   pg
+    , pgSlashChords    = chopDropBool   t $ pgSlashChords    pg
+    , pgSwapAccidental = chopDropBool   t $ pgSwapAccidental pg
+    , pgOnyxOctave     = chopDropStatus t $ pgOnyxOctave     pg
+    , pgOnyxString     = chopDropStatus t $ pgOnyxString     pg
+    , pgMystery45      = chopDropBool   t $ pgMystery45      pg
+    , pgMystery69      = chopDropBool   t $ pgMystery69      pg
+    , pgMystery93      = chopDropBool   t $ pgMystery93      pg
+    }
+
 nullPG :: ProGuitarTrack t -> Bool
 nullPG = all (RTB.null . pgNotes) . toList . pgDifficulties
 

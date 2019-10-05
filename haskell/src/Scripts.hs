@@ -131,24 +131,25 @@ loadTemposIO fp = do
 saveMIDI :: (MonadIO m, RBFile.ParseFile f) => FilePath -> Song (f U.Beats) -> m ()
 saveMIDI fp song = liftIO $ Save.toFile fp $ RBFile.showMIDIFile' song
 
+evalPreviewTime :: (HasEvents f) => Bool -> Song (f U.Beats) -> PreviewTime -> Maybe U.Seconds
+evalPreviewTime leadin song = \case
+  PreviewSeconds secs -> Just secs
+  PreviewMIDI mb -> Just $ addLeadin $ U.applyTempoMap (s_tempos song) $ U.unapplyMeasureMap (s_signatures song) mb
+  PreviewSection str -> addLeadin . U.applyTempoMap (s_tempos song) <$> findSection str
+  where addLeadin = if leadin then max 0 . subtract 0.6 else id
+        findSection sect = fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . snd)
+          $ eventsSections $ getEventsTrack $ s_tracks song
+
 -- | Returns the start and end of the preview audio in milliseconds.
 previewBounds :: (HasEvents f) => SongYaml -> Song (f U.Beats) -> (Int, Int)
 previewBounds syaml song = let
   len = songLengthMS song
   secsToMS s = floor $ s * 1000
-  leadIn = max 0 . subtract 600
-  evalTime = \case
-    PreviewSeconds secs -> Just $ secsToMS secs
-    PreviewMIDI mb -> Just $ leadIn $ secsToMS $ U.applyTempoMap (s_tempos song) $ U.unapplyMeasureMap (s_signatures song) mb
-    PreviewSection str -> case findSection str of
-      Nothing  -> Nothing
-      Just bts -> Just $ leadIn $ secsToMS $ U.applyTempoMap (s_tempos song) bts
+  evalTime t = secsToMS <$> evalPreviewTime True song t
   evalTime' pt = fromMaybe (error $ "Couldn't evaluate preview bound: " ++ show pt) $ evalTime pt
   defStartTime = case mapMaybe (evalTime . PreviewSection) ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"] of
     []    -> max 0 $ quot len 2 - 15000
     t : _ -> min (len - 30000) t
-  findSection sect = fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . snd)
-    $ eventsSections $ getEventsTrack $ s_tracks song
   in case (_previewStart $ _metadata syaml, _previewEnd $ _metadata syaml) of
     (Nothing, Nothing) -> (defStartTime, defStartTime + 30000)
     (Just ps, Just pe) -> (evalTime' ps, evalTime' pe)

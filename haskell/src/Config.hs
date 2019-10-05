@@ -972,17 +972,20 @@ parseTargetCommon = do
   tgt_End   <- tgt_End   =. opt Nothing "end"   stackJSON
   return TargetCommon{..}
 
+instance Default TargetCommon where
+  def = TargetCommon Nothing Nothing Nothing Nothing Nothing Nothing
+
 data SegmentEdge = SegmentEdge
-  { seg_FadeStart :: Maybe PreviewTime
-  , seg_FadeEnd   :: Maybe PreviewTime
+  { seg_FadeStart :: PreviewTime
+  , seg_FadeEnd   :: PreviewTime
   , seg_Notes     :: PreviewTime
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseSegmentEdge :: (SendMessage m) => ObjectCodec m A.Value SegmentEdge
 parseSegmentEdge = do
-  seg_FadeStart <- seg_FadeStart =. opt Nothing "fade-start" stackJSON
-  seg_FadeEnd   <- seg_FadeEnd   =. opt Nothing "fade-end"   stackJSON
-  seg_Notes     <- seg_Notes     =. req         "notes"      stackJSON
+  seg_FadeStart <- seg_FadeStart =. req "fade-start" stackJSON
+  seg_FadeEnd   <- seg_FadeEnd   =. req "fade-end"   stackJSON
+  seg_Notes     <- seg_Notes     =. req "notes"      stackJSON
   return SegmentEdge{..}
 
 instance StackJSON SegmentEdge where

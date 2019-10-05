@@ -46,6 +46,36 @@ data DrumTrack t = DrumTrack
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (DrumTrack t)
 
+instance ChopTrack DrumTrack where
+  chopTake t dt = DrumTrack
+    { drumDifficulties = chopTake t <$> drumDifficulties dt
+    , drumMood         = U.trackTake t $ drumMood dt
+    , drumToms         = U.trackTake t $ drumToms dt -- TODO
+    , drumSingleRoll   = chopTakeMaybe t $ drumSingleRoll dt
+    , drumDoubleRoll   = chopTakeMaybe t $ drumDoubleRoll dt
+    , drumOverdrive    = chopTakeBool t $ drumOverdrive dt
+    , drumActivation   = chopTakeBool t $ drumActivation dt
+    , drumSolo         = chopTakeBool t $ drumSolo dt
+    , drumPlayer1      = chopTakeBool t $ drumPlayer1 dt
+    , drumPlayer2      = chopTakeBool t $ drumPlayer2 dt
+    , drumKick2x       = U.trackTake t $ drumKick2x dt
+    , drumAnimation    = U.trackTake t $ drumAnimation dt -- TODO
+    }
+  chopDrop t dt = DrumTrack
+    { drumDifficulties = chopDrop t <$> drumDifficulties dt
+    , drumMood         = chopDropStatus t $ drumMood dt
+    , drumToms         = U.trackDrop t $ drumToms dt -- TODO
+    , drumSingleRoll   = chopDropMaybe t $ drumSingleRoll dt
+    , drumDoubleRoll   = chopDropMaybe t $ drumDoubleRoll dt
+    , drumOverdrive    = chopDropBool t $ drumOverdrive dt
+    , drumActivation   = chopDropBool t $ drumActivation dt
+    , drumSolo         = chopDropBool t $ drumSolo dt
+    , drumPlayer1      = chopDropBool t $ drumPlayer1 dt
+    , drumPlayer2      = chopDropBool t $ drumPlayer2 dt
+    , drumKick2x       = U.trackDrop t $ drumKick2x dt
+    , drumAnimation    = U.trackDrop t $ drumAnimation dt -- TODO
+    }
+
 nullDrums :: DrumTrack t -> Bool
 nullDrums = all (RTB.null . drumGems) . toList . drumDifficulties
 
@@ -134,6 +164,14 @@ data DrumDifficulty t = DrumDifficulty
 instance TraverseTrack DrumDifficulty where
   traverseTrack fn (DrumDifficulty a b c) = DrumDifficulty
     <$> fn a <*> fn b <*> fn c
+
+instance ChopTrack DrumDifficulty where
+  chopTake t = mapTrack $ U.trackTake t
+  chopDrop t dd = DrumDifficulty
+    { drumMix         = chopDropStatus t $ drumMix         dd
+    , drumPSModifiers = chopDropStatus t $ drumPSModifiers dd
+    , drumGems        = U.trackDrop    t $ drumGems        dd
+    }
 
 parseProType :: (Monad m, NNC.C t) => Int -> TrackEvent m t ProType
 parseProType

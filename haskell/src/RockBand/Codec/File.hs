@@ -634,3 +634,77 @@ convertToVenueGen (Song temps sigs trks) = Song temps sigs trks
     , venueBonusFXOptional  = RTB.empty
     }
   }
+
+instance ChopTrack OnyxFile where
+  chopTake t o = OnyxFile
+    { onyxParts    = chopTake t <$> onyxParts o
+    , onyxEvents   = mapTrack (U.trackTake t) $ onyxEvents o -- TODO
+    , onyxBeat     = mapTrack (U.trackTake t) $ onyxBeat o -- TODO
+    , onyxVenue    = mapTrack (U.trackTake t) $ onyxVenue o -- TODO
+    , onyxLighting = mapTrack (U.trackTake t) $ onyxLighting o -- TODO
+    , onyxCamera   = mapTrack (U.trackTake t) $ onyxCamera o -- TODO
+    }
+  chopDrop t o = OnyxFile
+    { onyxParts    = chopDrop t <$> onyxParts o
+    , onyxEvents   = mapTrack (U.trackDrop t) $ onyxEvents o -- TODO
+    , onyxBeat     = mapTrack (U.trackDrop t) $ onyxBeat o -- TODO
+    , onyxVenue    = mapTrack (U.trackDrop t) $ onyxVenue o -- TODO
+    , onyxLighting = mapTrack (U.trackDrop t) $ onyxLighting o -- TODO
+    , onyxCamera   = mapTrack (U.trackDrop t) $ onyxCamera o -- TODO
+    }
+
+instance ChopTrack OnyxPart where
+  chopTake t op = OnyxPart
+    { onyxPartDrums        = chopTake t               $ onyxPartDrums        op
+    , onyxPartDrums2x      = chopTake t               $ onyxPartDrums2x      op
+    , onyxPartRealDrumsPS  = chopTake t               $ onyxPartRealDrumsPS  op
+    , onyxPartGuitar       = mapTrack (U.trackTake t) $ onyxPartGuitar       op -- TODO
+    , onyxPartKeys         = mapTrack (U.trackTake t) $ onyxPartKeys         op -- TODO
+    , onyxPartGuitarExt    = mapTrack (U.trackTake t) $ onyxPartGuitarExt    op -- TODO
+    , onyxPartSix          = mapTrack (U.trackTake t) $ onyxPartSix          op -- TODO
+    , onyxPartRealGuitar   = chopTake t               $ onyxPartRealGuitar   op
+    , onyxPartRealGuitar22 = chopTake t               $ onyxPartRealGuitar22 op
+    , onyxPartRealKeysE    = mapTrack (U.trackTake t) $ onyxPartRealKeysE    op -- TODO
+    , onyxPartRealKeysM    = mapTrack (U.trackTake t) $ onyxPartRealKeysM    op -- TODO
+    , onyxPartRealKeysH    = mapTrack (U.trackTake t) $ onyxPartRealKeysH    op -- TODO
+    , onyxPartRealKeysX    = mapTrack (U.trackTake t) $ onyxPartRealKeysX    op -- TODO
+    , onyxPartKeysAnimLH   = mapTrack (U.trackTake t) $ onyxPartKeysAnimLH   op -- TODO
+    , onyxPartKeysAnimRH   = mapTrack (U.trackTake t) $ onyxPartKeysAnimRH   op -- TODO
+    , onyxPartVocals       = mapTrack (U.trackTake t) $ onyxPartVocals       op -- TODO
+    , onyxHarm1            = mapTrack (U.trackTake t) $ onyxHarm1            op -- TODO
+    , onyxHarm2            = mapTrack (U.trackTake t) $ onyxHarm2            op -- TODO
+    , onyxHarm3            = mapTrack (U.trackTake t) $ onyxHarm3            op -- TODO
+    , onyxCatch            = mapTrack (U.trackTake t) $ onyxCatch            op -- TODO
+    , onyxLipsync1         = mapTrack (U.trackTake t) $ onyxLipsync1         op -- TODO
+    , onyxLipsync2         = mapTrack (U.trackTake t) $ onyxLipsync2         op -- TODO
+    , onyxLipsync3         = mapTrack (U.trackTake t) $ onyxLipsync3         op -- TODO
+    , onyxMelody           = mapTrack (U.trackTake t) $ onyxMelody           op -- TODO
+    , onyxPartDance        = mapTrack (U.trackTake t) $ onyxPartDance        op -- TODO
+    }
+  chopDrop t op = OnyxPart
+    { onyxPartDrums        = chopDrop t               $ onyxPartDrums        op
+    , onyxPartDrums2x      = chopDrop t               $ onyxPartDrums2x      op
+    , onyxPartRealDrumsPS  = chopDrop t               $ onyxPartRealDrumsPS  op
+    , onyxPartGuitar       = mapTrack (U.trackDrop t) $ onyxPartGuitar       op -- TODO
+    , onyxPartKeys         = mapTrack (U.trackDrop t) $ onyxPartKeys         op -- TODO
+    , onyxPartGuitarExt    = mapTrack (U.trackDrop t) $ onyxPartGuitarExt    op -- TODO
+    , onyxPartSix          = mapTrack (U.trackDrop t) $ onyxPartSix          op -- TODO
+    , onyxPartRealGuitar   = chopDrop t               $ onyxPartRealGuitar   op
+    , onyxPartRealGuitar22 = chopDrop t               $ onyxPartRealGuitar22 op
+    , onyxPartRealKeysE    = mapTrack (U.trackDrop t) $ onyxPartRealKeysE    op -- TODO
+    , onyxPartRealKeysM    = mapTrack (U.trackDrop t) $ onyxPartRealKeysM    op -- TODO
+    , onyxPartRealKeysH    = mapTrack (U.trackDrop t) $ onyxPartRealKeysH    op -- TODO
+    , onyxPartRealKeysX    = mapTrack (U.trackDrop t) $ onyxPartRealKeysX    op -- TODO
+    , onyxPartKeysAnimLH   = mapTrack (U.trackDrop t) $ onyxPartKeysAnimLH   op -- TODO
+    , onyxPartKeysAnimRH   = mapTrack (U.trackDrop t) $ onyxPartKeysAnimRH   op -- TODO
+    , onyxPartVocals       = mapTrack (U.trackDrop t) $ onyxPartVocals       op -- TODO
+    , onyxHarm1            = mapTrack (U.trackDrop t) $ onyxHarm1            op -- TODO
+    , onyxHarm2            = mapTrack (U.trackDrop t) $ onyxHarm2            op -- TODO
+    , onyxHarm3            = mapTrack (U.trackDrop t) $ onyxHarm3            op -- TODO
+    , onyxCatch            = mapTrack (U.trackDrop t) $ onyxCatch            op -- TODO
+    , onyxLipsync1         = mapTrack (U.trackDrop t) $ onyxLipsync1         op -- TODO
+    , onyxLipsync2         = mapTrack (U.trackDrop t) $ onyxLipsync2         op -- TODO
+    , onyxLipsync3         = mapTrack (U.trackDrop t) $ onyxLipsync3         op -- TODO
+    , onyxMelody           = mapTrack (U.trackDrop t) $ onyxMelody           op -- TODO
+    , onyxPartDance        = mapTrack (U.trackDrop t) $ onyxPartDance        op -- TODO
+    }

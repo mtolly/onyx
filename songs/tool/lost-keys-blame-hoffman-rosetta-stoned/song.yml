@@ -80,7 +80,6 @@ targets:
   ps:
     game: ps
     plan: stems
-  # TODO add start bounds below when supported
   rb3-rs:
     title: Rosetta Stoned
     game: rb3
