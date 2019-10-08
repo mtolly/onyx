@@ -64,6 +64,9 @@ SYSTEMATIC CHAOS (new version)
   - PG/PB done!
   > PK fixed for Forsaken POW TDEN, still need Repentance (and quick check of Jarod's 4)
   > fix G/B/K from PG/PB/PK
+    - bass:
+      - itpoe1, forsaken, cm, tden, pow, repentance: fixed and done (opens + no-opens)
+      # tmols, itpoe2: todo
   > venue
   > keyboard animations
   > improve onyx lipsync generation
