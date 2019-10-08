@@ -638,16 +638,16 @@ convertToVenueGen (Song temps sigs trks) = Song temps sigs trks
 instance ChopTrack OnyxFile where
   chopTake t o = OnyxFile
     { onyxParts    = chopTake t <$> onyxParts o
-    , onyxEvents   = mapTrack (U.trackTake t) $ onyxEvents o -- TODO
-    , onyxBeat     = mapTrack (U.trackTake t) $ onyxBeat o -- TODO
+    , onyxEvents   = chopTake t $ onyxEvents o
+    , onyxBeat     = chopTake t $ onyxBeat o
     , onyxVenue    = mapTrack (U.trackTake t) $ onyxVenue o -- TODO
     , onyxLighting = mapTrack (U.trackTake t) $ onyxLighting o -- TODO
     , onyxCamera   = mapTrack (U.trackTake t) $ onyxCamera o -- TODO
     }
   chopDrop t o = OnyxFile
     { onyxParts    = chopDrop t <$> onyxParts o
-    , onyxEvents   = mapTrack (U.trackDrop t) $ onyxEvents o -- TODO
-    , onyxBeat     = mapTrack (U.trackDrop t) $ onyxBeat o -- TODO
+    , onyxEvents   = chopDrop t $ onyxEvents o
+    , onyxBeat     = chopDrop t $ onyxBeat o
     , onyxVenue    = mapTrack (U.trackDrop t) $ onyxVenue o -- TODO
     , onyxLighting = mapTrack (U.trackDrop t) $ onyxLighting o -- TODO
     , onyxCamera   = mapTrack (U.trackDrop t) $ onyxCamera o -- TODO

@@ -11,6 +11,7 @@ import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import           RockBand.Codec
 import           RockBand.Common
+import qualified Sound.MIDI.Util                  as U
 
 data BeatEvent = Bar | Beat
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -18,6 +19,10 @@ data BeatEvent = Bar | Beat
 newtype BeatTrack t = BeatTrack { beatLines :: RTB.T t BeatEvent }
   deriving (Eq, Ord, Show, Generic)
   deriving (Semigroup, Monoid, Mergeable) via GenericMerge (BeatTrack t)
+
+instance ChopTrack BeatTrack where
+  chopTake t = mapTrack $ U.trackTake t
+  chopDrop t = mapTrack $ U.trackDrop t
 
 instance ParseTrack BeatTrack where
   parseTrack = do

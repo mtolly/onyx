@@ -16,6 +16,7 @@ import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import           RockBand.Codec
 import           RockBand.Common
+import qualified Sound.MIDI.Util                  as U
 
 data CrowdMood
   = CrowdRealtime
@@ -46,6 +47,19 @@ data EventsTrack t = EventsTrack
   , eventsBacking    :: RTB.T t Backing
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (EventsTrack t)
+
+instance ChopTrack EventsTrack where
+  chopTake t = mapTrack $ U.trackTake t
+  chopDrop t trk = EventsTrack
+    { eventsMusicStart = U.trackDrop    t $ eventsMusicStart trk
+    , eventsMusicEnd   = U.trackDrop    t $ eventsMusicEnd   trk
+    , eventsEnd        = U.trackDrop    t $ eventsEnd        trk
+    , eventsCoda       = U.trackDrop    t $ eventsCoda       trk
+    , eventsCrowd      = chopDropStatus t $ eventsCrowd      trk
+    , eventsCrowdClap  = chopDropStatus t $ eventsCrowdClap  trk
+    , eventsSections   = chopDropStatus t $ eventsSections   trk
+    , eventsBacking    = U.trackDrop    t $ eventsBacking    trk
+    }
 
 instance TraverseTrack EventsTrack where
   traverseTrack fn (EventsTrack a b c d e f g h) = EventsTrack
