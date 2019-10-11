@@ -31,7 +31,7 @@ import           Path
 import           Path.IO
 import           RockBand.Common                (RB3Instrument (..))
 import qualified Sound.Jammit.Base              as J
-import           System.Process                 (shell)
+import           System.Process                 (CreateProcess (cwd), shell)
 
 newtype AudioLibrary = AudioLibrary (MVar AudioState)
 
@@ -217,8 +217,8 @@ searchJammit :: (MonadIO m) => AudioLibrary -> (T.Text, T.Text, RB3Instrument) -
 searchJammit = searchCommon SearchJammit audioJammit
 
 searchInfo :: (SendMessage m, MonadIO m) =>
-  AudioLibrary -> AudioInfo -> StackTraceT m (Audio Duration FilePath)
-searchInfo lib ainfo@AudioInfo{..} = let
+  FilePath -> AudioLibrary -> AudioInfo -> StackTraceT m (Audio Duration FilePath)
+searchInfo dir lib ainfo@AudioInfo{..} = let
   finishFile p = do
     verifyFile ainfo p
     return $ case _rate of
@@ -236,7 +236,7 @@ searchInfo lib ainfo@AudioInfo{..} = let
           [] -> fatal $ "File does not exist: " ++ toFilePath p
           _ -> do
             forM_ _commands $ \c -> do
-              out <- stackProcess $ shell $ T.unpack c
+              out <- stackProcess (shell $ T.unpack c) { cwd = Just dir }
               lg $ "# " ++ T.unpack c ++ "\n" ++ out
             doesFileExist p >>= \case
               True -> return ()

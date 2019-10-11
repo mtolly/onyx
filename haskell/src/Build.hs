@@ -718,7 +718,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
     p <- parseAbsDir dir
     addAudioDir audioLib p
 
-  let rel f = takeDirectory yamlPath </> f
+  let yamlDir = takeDirectory yamlPath
+      rel f = yamlDir </> f
   do
 
     shakeEmbed shakeOptions{ shakeThreads = 0, shakeFiles = rel "gen", shakeVersion = projVersion } $ do
@@ -784,7 +785,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , toList _crowd
                     , toList _planParts >>= toList
                     ]
-              src <- mapM (manualLeaf rel audioLib songYaml) expr >>= lift . lift . buildSource . join
+              src <- mapM (manualLeaf yamlDir audioLib songYaml) expr >>= lift . lift . buildSource . join
               let _ = src :: AudioSource (ResourceT IO) Float
               return $ realToFrac $ fromIntegral (frames src) / rate src
 
@@ -815,7 +816,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit kick _ _) -> fromMaybe [] kick
                   _                           -> []
-              Plan{..}     -> buildAudioToSpec rel audioLib songYaml spec $ do
+              Plan{..}     -> buildAudioToSpec yamlDir audioLib songYaml spec $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit kick _ _) -> kick
@@ -830,7 +831,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit _ snare _) -> fromMaybe [] snare
                   _                            -> []
-              Plan{..}     -> buildAudioToSpec rel audioLib songYaml spec $ do
+              Plan{..}     -> buildAudioToSpec yamlDir audioLib songYaml spec $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit _ snare _) -> snare
@@ -846,7 +847,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   Just (PartDrumKit _ _ kit) -> kit
                   Just (PartSingle      kit) -> kit
                   _                          -> []
-              Plan{..}     -> buildAudioToSpec rel audioLib songYaml spec $ do
+              Plan{..}     -> buildAudioToSpec yamlDir audioLib songYaml spec $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit _ _ kit) -> Just kit
@@ -858,7 +859,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) $ do
               guard $ rank /= 0
               toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
-            Plan{..} -> buildPartAudioToSpec rel audioLib songYaml spec $ do
+            Plan{..} -> buildPartAudioToSpec yamlDir audioLib songYaml spec $ do
               guard $ rank /= 0
               HM.lookup fpart $ getParts _planParts
           writeStereoParts gameParts tgt mid pad planName plan fpartranks out = do
@@ -867,7 +868,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               -> zeroIfMultiple gameParts fpart
               <$> getPartSource spec planName plan fpart rank
             src <- case srcs of
-              []     -> buildAudioToSpec rel audioLib songYaml spec Nothing
+              []     -> buildAudioToSpec yamlDir audioLib songYaml spec Nothing
               s : ss -> return $ foldr mix s ss
             runAudio (clampIfSilent $ padAudio pad $ applyTargetAudio tgt mid src) out
           writeSimplePart gameParts tgt mid pad supportsOffMono planName plan fpart rank out = do
@@ -877,7 +878,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           writeCrowd tgt mid pad planName plan out = do
             src <- case plan of
               MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] (oggForPlan planName) (zip _pans _vols) _moggCrowd
-              Plan{..}     -> buildAudioToSpec rel audioLib songYaml [(-1, 0), (1, 0)] _crowd
+              Plan{..}     -> buildAudioToSpec yamlDir audioLib songYaml [(-1, 0), (1, 0)] _crowd
             runAudio (clampIfSilent $ padAudio pad $ applyTargetAudio tgt mid src) out
           sourceSongCountin :: (MonadResource m, RBFile.HasEvents f) => TargetCommon -> RBFile.Song (f U.Beats) -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> Staction (AudioSource m Float)
           sourceSongCountin tgt mid pad includeCountin planName plan fparts = do
@@ -905,13 +906,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 partAudios = maybe id (\pa -> (PartSingle pa :)) _song unusedParts
                 countinPath = rel $ "gen/plan" </> T.unpack planName </> "countin.wav"
                 in do
-                  unusedSrcs <- mapM (buildPartAudioToSpec rel audioLib songYaml spec . Just) partAudios
+                  unusedSrcs <- mapM (buildPartAudioToSpec yamlDir audioLib songYaml spec . Just) partAudios
                   if includeCountin
                     then do
                       countinSrc <- shk $ buildSource $ Input countinPath
                       return $ foldr mix countinSrc unusedSrcs
                     else case unusedSrcs of
-                      []     -> buildPartAudioToSpec rel audioLib songYaml spec Nothing
+                      []     -> buildPartAudioToSpec yamlDir audioLib songYaml spec Nothing
                       s : ss -> return $ foldr mix s ss
             return $ padAudio pad $ applyTargetAudio tgt mid src
           writeSongCountin :: (RBFile.HasEvents f) => TargetCommon -> RBFile.Song (f U.Beats) -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> Staction ()
@@ -1680,7 +1681,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 loadEditedParts :: Staction (DifficultyPS, Maybe VocalCount)
                 loadEditedParts = shk $ read <$> readFile' pathPSEditedParts
 
-            dir </> "ps/notes.mid" %> \out -> do
+            [dir </> "ps/notes.mid", pathPSEditedParts] &%> \[out, parts] -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
               (_, mixMode) <- computeDrumsPart (ps_Drums ps) plan songYaml
               (output, diffs, vc) <- RB3.processPS
@@ -1690,7 +1691,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 mixMode
                 (applyTargetLength (ps_Common ps) input <$> getAudioLength planName plan)
               saveMIDI out output
-              liftIO $ writeFile pathPSEditedParts $ show (diffs, vc)
+              liftIO $ writeFile parts $ show (diffs, vc)
 
             dir </> "ps/video.avi" %> \out -> case ps_FileVideo ps of
               Nothing  -> fatal "requested Phase Shift video background, but target doesn't have one"
@@ -2009,7 +2010,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   [ toList _song
                   , toList _planParts >>= toList
                   ]
-            srcs <- mapM (buildAudioToSpec rel audioLib songYaml [(-1, 0), (1, 0)] . Just) planAudios
+            srcs <- mapM (buildAudioToSpec yamlDir audioLib songYaml [(-1, 0), (1, 0)] . Just) planAudios
             count <- shk $ buildSource $ Input $ dir </> "countin.wav"
             runAudio (foldr mix count srcs) out
         dir </> "everything.ogg" %> buildAudio (Input $ dir </> "everything.wav")
@@ -2041,7 +2042,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         -- count-in audio
         dir </> "countin.wav" %> \out -> do
           let hits = case plan of MoggPlan{} -> []; Plan{..} -> case _countin of Countin h -> h
-          src <- buildAudioToSpec rel audioLib songYaml [(-1, 0), (1, 0)] =<< case hits of
+          src <- buildAudioToSpec yamlDir audioLib songYaml [(-1, 0), (1, 0)] =<< case hits of
             [] -> return Nothing
             _  -> Just . (\expr -> PlanAudio expr [] []) <$> do
               mid <- shakeMIDI $ dir </> "raw.mid"
