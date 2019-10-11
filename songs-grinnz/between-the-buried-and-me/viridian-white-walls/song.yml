@@ -39,7 +39,7 @@ parts:
     grybo: {}
   bass:
     grybo: {}
-    pro-guitar: # WIP
+    pro-guitar:
       tuning:
         base: bass-5
         global: -3 # G# C# F# B E

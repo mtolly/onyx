@@ -1,20 +1,15 @@
 metadata:
   author: Onyxite
-  title: Cube [Hauschka]
+  title: Don't Stop 'Til You Get Enough [Jacob Collier]
   genre: fusion
   subgenre: fusion
   artist: David Dockery
-  year: 2017
+  year: 2019
   file-album-art: ../cover.jpg
 plans:
   album:
     song:
-      pad:
-      - 3.380 # video seems more in sync padded 3.471
-      - fade:
-        - end
-        - 0.848
-        - gain: [1.5, youtube]
+      pad: [3.059, gain: [1.15, youtube]]
     countin:
       0|0: hihat
       0|2: hihat
@@ -26,7 +21,7 @@ audio:
   youtube:
     file-path: audio-youtube.wav
     commands:
-    - ../../../scripts/youtube h9ykCzGdb4Q 140
+    - ../../../scripts/youtube wkoEEYcQdG0 140
     # md5: 
     # frames: 
   hihat:
@@ -35,7 +30,7 @@ parts:
   drums:
     drums:
       kicks: 1
-      difficulty: 4
+      difficulty: 6
 targets:
   rb3:
     game: rb3

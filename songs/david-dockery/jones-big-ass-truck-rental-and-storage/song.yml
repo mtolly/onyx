@@ -1,0 +1,49 @@
+metadata:
+  author: Onyxite
+  title: Jones' Big Ass Truck Rental and Storage w/drums
+  genre: fusion
+  subgenre: fusion
+  artist: David Dockery
+  year: 2019
+  file-album-art: ../cover.jpg
+plans:
+  album:
+    # song:
+    #   pad: [2.662, youtube]
+    parts:
+      original:
+        gain: [1.3, pad: [3.217, take: [47.231, youtube-original]]]
+      drums:
+        gain: [1.43, pad: [2.662, youtube-drums]]
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube qPuA6JkeVIg 140
+  youtube-original:
+    file-path: audio-original.wav
+    commands:
+    - ../../../scripts/youtube N0gb9v4LI4o 140 audio-original.wav
+  youtube-drums:
+    file-path: audio-drums.wav
+    commands:
+    - ../../../scripts/youtube LZnQLDEBt18 140 audio-drums.wav
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+parts:
+  drums:
+    drums:
+      kicks: 1
+      difficulty: 5
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
