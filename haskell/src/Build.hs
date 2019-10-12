@@ -74,7 +74,7 @@ import           Overdrive                             (calculateUnisons,
                                                         getOverdrive,
                                                         printFlexParts)
 import           Path                                  (parseAbsDir, toFilePath)
-import           Paths_onyxite_customs_tool            (version)
+import           Paths_onyxite_customs_lib             (version)
 import           PrettyDTA
 import           ProKeysRanges
 import           Reaper.Build                          (makeReaper)

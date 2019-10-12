@@ -1,0 +1,85 @@
+name: onyxite-customs-tool
+version: '20190918'
+github: mtolly/onyxite-customs
+author: Michael Tolly <miketolly@gmail.com>
+category: Distribution
+license: GPL-3
+license-file: ../LICENSE.txt
+
+extra-source-files:
+- ../vendors/KV.bin
+- ../vendors/rb3.png
+- ../vendors/empty.milo_xbox
+- ../vendors/empty-rb2.milo_xbox
+- ../vendors/empty-rb2_weights.bin
+- ../vendors/missing_song_data.dta
+- ../vendors/rockband_drums.png
+- ../vendors/rockband_guitarbass.png
+- ../vendors/rockband_ghl.png
+- ../vendors/itaijidict
+- ../vendors/kanwadict
+- ../../player/www/index.html
+- ../../player/www/style.css
+- ../../player/www/app.min.js
+- ../../player/www/customize.js
+- ../../player/www/VarelaRound-Regular.ttf
+- ../../player/www/images/*.png
+- ../cbits/*.h
+- ../icon/icon.*
+
+ghc-options: -Wall
+
+executables:
+
+  onyx:
+    source-dirs: '.'
+    main: Main.hs
+
+    dependencies:
+    - base
+    - directory
+    - aeson
+    - text
+    - bytestring
+    - unordered-containers
+    - filepath
+    - yaml
+    - process
+    - resourcet
+    - hsndfile
+    - transformers
+    - data-default-class
+    - stm
+    - req
+    - fltkhs
+    - midi
+    # my libraries
+    - midi-util
+    # the lib in this package
+    - onyxite-customs-lib
+
+    ghc-options: -threaded -O
+
+    when:
+    - condition: os(mingw32)
+      then:
+        cpp-options: -DWINDOWS
+        ld-options: ../icon/icon.o -mwindows
+        dependencies: Win32
+      else:
+        dependencies: mountpoints
+    - condition: os(darwin)
+      then:
+        cpp-options: -DMACOSX
+        ld-options: -lto_library
+        # ^ this fixes C++ exception catching on mac.
+        # see https://ghc.haskell.org/trac/ghc/ticket/11829
+        extra-libraries:
+        - fltkc # TODO breaks ghci
+      else:
+        # copied from fltkhs-hello-world
+        ghc-options: '-pgml g++ "-optl-Wl,--allow-multiple-definition" "-optl-Wl,--whole-archive" "-optl-Wl,-Bstatic" "-optl-Wl,-lfltkc" "-optl-Wl,-Bdynamic" "-optl-Wl,--no-whole-archive"'
+
+  onyx-package:
+    main: ../Installer.hs
+    dependencies: [base, nsis, text]

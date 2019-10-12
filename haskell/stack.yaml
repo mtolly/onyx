@@ -1,5 +1,6 @@
 packages:
 - '.'
+- 'src-exe/'
 extra-deps:
 - conduit-audio-0.2.0.3
 - conduit-audio-lame-0.1.2.1
@@ -15,6 +16,7 @@ extra-deps:
 - hsndfile-vector-0.5.2
 # local folders
 - game/
+- 3d/
 - ArkTool/
 - kakasi/
 - gamecube-dsp/

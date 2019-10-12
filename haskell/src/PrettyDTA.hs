@@ -28,7 +28,7 @@ import qualified Data.Text                         as T
 import qualified Data.Text.Encoding                as TE
 import           Data.Version                      (showVersion)
 import           JSONData                          (makeValue)
-import           Paths_onyxite_customs_tool        (version)
+import           Paths_onyxite_customs_lib         (version)
 import           Resources                         (missingSongData)
 import           Text.Decode                       (decodeGeneral)
 
