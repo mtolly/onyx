@@ -175,7 +175,7 @@ chunkParens cf = Codec
     _ -> expected "a set of parentheses"
   }
 
-chunksPair :: (Monad m) =>  ChunkCodec m a -> ChunkCodec m b -> ChunksCodec m (a, b)
+chunksPair :: (Monad m) => ChunkCodec m a -> ChunkCodec m b -> ChunksCodec m (a, b)
 chunksPair xf yf = Codec
   { codecOut = makeOut $ \(x, y) -> [makeValue' xf x, makeValue' yf y]
   , codecIn = lift ask >>= \case

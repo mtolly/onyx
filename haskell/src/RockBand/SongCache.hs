@@ -1,17 +1,34 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module RockBand.SongCache where
 
 import           Control.Monad
 import           Control.Monad.Codec
+import           Control.Monad.IO.Class         (MonadIO (..))
+import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Codec
 import           Data.Binary.Get
 import           Data.Binary.Put
-import qualified Data.ByteString     as B
+import qualified Data.ByteString                as B
+import qualified Data.ByteString.Lazy           as BL
+import           Data.DTA.Serialize             (DictList (..))
+import           Data.DTA.Serialize.Magma       (Gender (..))
+import qualified Data.DTA.Serialize.RB3         as D
+import qualified Data.HashMap.Strict            as HM
 import           Data.Int
-import qualified Data.Text           as T
-import qualified Data.Text.Encoding  as TE
+import           Data.List                      (findIndex, sort)
+import           Data.Maybe                     (fromMaybe)
+import qualified Data.Text                      as T
+import qualified Data.Text.Encoding             as TE
 import           Data.Word
-import           Rocksmith.Sng2014   (Bin (..), fixedArray)
+import           PrettyDTA
+import           Resources                      (rb3Thumbnail)
+import           Rocksmith.Sng2014              (Bin (..), fixedArray)
+import           STFS.Package
+import           System.Directory               (doesFileExist, listDirectory)
+import           System.FilePath                (takeDirectory, (</>))
+import qualified System.IO                      as IO
 
 -- C3 parse code for reference:
 -- https://github.com/RBTools/CON-Tools/blob/14dd538ee929093808b67e96691620321d41aa54/C3%20Tools/SetlistManager.cs#L426
@@ -48,7 +65,7 @@ data SongCache = SongCache
   , sc_NewSongIDs :: [Word32] -- the 20 most recent songs for "newly obtained"
   , sc_FileNames  :: [T.Text] -- this gets new filenames tacked onto the end
   , sc_FileNames2 :: [FileNames2Entry] -- order matches that of sc_Files
-  } deriving (Show)
+  } deriving (Eq, Show)
 
 instance Bin SongCache where
   bin = do
@@ -64,7 +81,7 @@ data FileEntry = FileEntry
   { fe_Name    :: T.Text
   , fe_Mystery :: Word32 -- 1 on every song in my cache. maybe index into multi-song pack?
   , fe_SongID  :: Word32
-  } deriving (Show)
+  } deriving (Eq, Show)
 
 instance Bin FileEntry where
   bin = do
@@ -128,11 +145,11 @@ data SongEntry = SongEntry
   , se_Mystery14        :: Word8 -- 0 on every song in my cache
   , se_AnimTempo        :: Word32 -- 16 slow, 32 medium, 64 fast
   , se_VocalGender      :: T.Text
-  , se_GuitarTuning     :: [Word32] -- 6 entries (no length)
-  , se_BassTuning       :: [Word32] -- 4 entries (no length)
+  , se_GuitarTuning     :: [Int32] -- 6 entries (no length)
+  , se_BassTuning       :: [Int32] -- 4 entries (no length)
   , se_Mystery15        :: Word8 -- 0 on every song in my cache
   , se_Solo             :: [T.Text] -- ["guitar", "keys"]
-  } deriving (Show)
+  } deriving (Eq, Show)
 
 instance Bin SongEntry where
   bin = do
@@ -188,8 +205,8 @@ instance Bin SongEntry where
     se_Mystery14        <- se_Mystery14        =. word8
     se_AnimTempo        <- se_AnimTempo        =. word32le
     se_VocalGender      <- se_VocalGender      =. string
-    se_GuitarTuning     <- se_GuitarTuning     =. fixedArray 6 word32le
-    se_BassTuning       <- se_BassTuning       =. fixedArray 4 word32le
+    se_GuitarTuning     <- se_GuitarTuning     =. fixedArray 6 int32le
+    se_BassTuning       <- se_BassTuning       =. fixedArray 4 int32le
     se_Mystery15        <- se_Mystery15        =. word8
     se_Solo             <- se_Solo             =. lenArray string
     return SongEntry{..}
@@ -197,7 +214,7 @@ instance Bin SongEntry where
 data TracksEntry = TracksEntry
   { te_Instrument :: Word32 -- 0 drum, 2 bass, 1 guitar, 4 keys, probably 3 vox
   , te_Channels   :: [Word32]
-  } deriving (Show)
+  } deriving (Eq, Show)
 
 instance Bin TracksEntry where
   bin = do
@@ -208,7 +225,7 @@ instance Bin TracksEntry where
 data RankEntry = RankEntry
   { re_Part :: T.Text
   , re_Rank :: Float
-  } deriving (Show)
+  } deriving (Eq, Show)
 
 instance Bin RankEntry where
   bin = do
@@ -219,10 +236,171 @@ instance Bin RankEntry where
 data FileNames2Entry = FileNames2Entry
   { fn2_Path    :: T.Text
   , fn2_Mystery :: Word32 -- 0 on every song in my cache
-  } deriving (Show)
+  } deriving (Eq, Show)
 
 instance Bin FileNames2Entry where
   bin = do
     fn2_Path    <- fn2_Path    =. string
     fn2_Mystery <- fn2_Mystery =. word32le
     return FileNames2Entry{..}
+
+-- | Orders keys to match an existing list, and puts new ones at the end (sorted).
+matchOrder :: (Ord a, Ord b) => [a] -> [(a, b)] -> [(a, b)]
+matchOrder template xs = let
+  xs' = do
+    pair@(x, _) <- xs
+    let xi = case findIndex (== x) template of
+          Just i  -> Left i
+          Nothing -> Right x
+    return (xi, pair)
+  in map snd $ sort xs'
+
+applyDTA :: DTASingle -> SongEntry -> SongEntry
+applyDTA single entry = let
+  pkg = dtaSongPackage single
+  songID orig = case D.songId pkg of
+    Just (Left i) -> fromIntegral i
+    _             -> orig
+  in entry
+    { se_SongID           = songID $ se_SongID entry
+    , se_Version          = fromIntegral $ D.version pkg
+    , se_SongID2          = songID $ se_SongID2 entry
+    , se_GameOrigin       = fromMaybe (se_GameOrigin entry) $ D.gameOrigin pkg
+    , se_PreviewStart     = fromIntegral $ fst $ D.preview pkg
+    , se_PreviewEnd       = fromIntegral $ snd $ D.preview pkg
+    , se_Key1             = dtaTopKey single
+    , se_Key2             = dtaTopKey single
+    , se_Path             = D.songName $ D.song pkg
+    , se_VocalParts       = maybe (se_VocalParts entry) fromIntegral $ D.vocalParts $ D.song pkg
+    , se_HopoThreshold    = maybe (se_HopoThreshold entry) fromIntegral $ D.hopoThreshold $ D.song pkg
+    , se_MuteVolume       = maybe (-16) fromIntegral $ D.muteVolume $ D.song pkg
+    , se_MuteVolumeVocals = maybe (-12) fromIntegral $ D.muteVolumeVocals $ D.song pkg
+    , se_Pans             = D.pans $ D.song pkg
+    , se_Vols             = D.vols $ D.song pkg
+    , se_Cores            = map fromIntegral $ D.cores $ D.song pkg
+    , se_CrowdChannels    = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
+    , se_DrumSolo         = D.seqs $ D.drumSolo $ D.song pkg
+    , se_DrumFreestyle    = D.seqs $ D.drumFreestyle $ D.song pkg
+    , se_Tracks           = do
+      (inst, chans) <- matchOrder (map te_Instrument $ se_Tracks entry) $ do
+        (inst, chans) <- fromDictList $ D.tracks $ D.song pkg
+        case inst of
+          "drum"   -> [(0, chans)]
+          "guitar" -> [(1, chans)]
+          "bass"   -> [(2, chans)]
+          "vocals" -> [(3, chans)]
+          "keys"   -> [(4, chans)]
+          _        -> [] -- unrecognized instrument
+      return TracksEntry { te_Instrument = inst, te_Channels = map fromIntegral chans }
+    , se_Title            = D.name pkg
+    , se_Artist           = D.artist pkg
+    , se_Album            = fromMaybe (se_Album entry) $ D.albumName pkg
+    , se_AlbumTrackNumber = maybe (se_AlbumTrackNumber entry) fromIntegral $ D.albumTrackNumber pkg
+    -- TODO se_MysteryDates
+    , se_Genre            = D.genre pkg
+    , se_Ranks            = do
+      (t, i) <- matchOrder (map re_Part $ se_Ranks entry) $ HM.toList $ D.rank pkg
+      return RankEntry { re_Part = t, re_Rank = fromIntegral i }
+    , se_Rating           = fromIntegral $ D.rating pkg
+    , se_SongScrollSpeed  = fromIntegral $ D.songScrollSpeed pkg
+    , se_Bank             = fromMaybe (se_Bank entry) $ D.bank pkg
+    , se_DrumBank         = fromMaybe (se_DrumBank entry) $ D.drumBank pkg
+    , se_VocalTonicNote   = maybe (-1) (fromIntegral . fromEnum) $ D.vocalTonicNote pkg
+    , se_SongTonality     = maybe (-1) (fromIntegral . fromEnum) $ D.songTonality pkg
+    , se_SongLength       = maybe (se_SongLength entry) fromIntegral $ D.songLength pkg
+    , se_HasAlbumArt      = maybe (se_HasAlbumArt entry) (\b -> if b then 1 else 0) $ D.albumArt pkg
+    , se_Master           = if D.master pkg then 1 else 0
+    , se_AnimTempo        = case D.animTempo pkg of
+      Right i              -> fromIntegral i
+      Left  D.KTempoSlow   -> 16
+      Left  D.KTempoMedium -> 32
+      Left  D.KTempoFast   -> 64
+    , se_VocalGender      = case D.vocalGender pkg of
+      Just Female -> "female"
+      Just Male   -> "male"
+      Nothing     -> se_VocalGender entry
+    , se_GuitarTuning     = take 6 $
+      maybe [] (map fromIntegral) (D.realGuitarTuning pkg) ++ repeat 0
+    , se_BassTuning       = take 4 $
+      maybe [] (map fromIntegral) (D.realBassTuning pkg) ++ repeat 0
+    , se_Solo             = flip map (fromMaybe [] $ D.solo pkg) $ \case
+      "vocal_percussion" -> "vocals"
+      inst               -> inst
+    }
+
+fixSongCache :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m ()
+fixSongCache path = do
+  mcache <- stackIO $ withSTFS path $ \stfs -> do
+    sequence $ lookup "songcache" $ stfsFiles stfs
+  origCache <- case mcache of
+    Nothing -> fatal "Couldn't find song cache file inside STFS"
+    Just bs -> case runGetOrFail (codecIn bin) bs of
+      Left  (_, _, err  ) -> fatal $ "Couldn't parse song cache file: " <> err
+      Right (_, _, cache) -> return (cache :: SongCache)
+  cons <- fmap (filter $ \s -> take 1 s /= ".")
+    $ stackIO $ listDirectory $ takeDirectory path
+  let checkCON cache con = do
+        let conFull = takeDirectory path </> con
+        lg con
+        stackIO (doesFileExist conFull) >>= \case
+          False -> return cache
+          True  -> do
+            magic <- stackIO $ IO.withBinaryFile conFull IO.ReadMode $ \h -> B.hGet h 4
+            if elem magic ["CON ", "LIVE"]
+              then do
+                dta <- fmap join $ errorToWarning $ stackIO $ withSTFS conFull $ \stfs ->
+                  sequence $ lookup ("songs" </> "songs.dta") $ stfsFiles stfs
+                case dta of
+                  Nothing -> return cache
+                  Just bs -> do
+                    songs <- map fst <$> readDTASingles (BL.toStrict bs)
+                    foldM (checkSingle $ T.pack con) cache (zip [1..] songs)
+              else return cache
+      checkSingle name cache (i, single) = do
+        let numericID = case D.songId $ dtaSongPackage single of
+              Just (Left nid) -> Just $ fromIntegral nid
+              _               -> Nothing
+        case [ fe_SongID fe | fe <- sc_Files cache, fe_Name fe == name, fe_Mystery fe == i ] of
+          [] -> case numericID of
+            Just nid -> checkSongID name nid single cache
+            Nothing  -> return cache -- non-numeric ID, no generated ID, nothing to do
+          cid : _ -> case numericID of
+            Just nid -> if nid == cid
+              then checkSongID name nid single cache
+              else do
+                lg $ T.unpack name <> ": updated song ID from " <> show cid <> " to " <> show nid
+                checkSongID name nid single cache
+                  { sc_Files = flip map (sc_Files cache) $ \fe ->
+                    -- replace the existing numeric ID with a new one
+                    if fe_Name fe == name && fe_Mystery fe == i
+                      then fe { fe_SongID = nid }
+                      else fe
+                  }
+            Nothing -> checkSongID name cid single cache -- keep the generated ID
+      checkSongID name sid single cache = do
+        newSongs <- forM (sc_Songs cache) $ \se ->
+          if se_SongID se == sid
+            then do
+              let se' = applyDTA single se
+              when (se /= se') $ lg $ T.unpack name <> " [" <> show sid <> "]: updated metadata"
+              return se'
+            else return se
+        return cache { sc_Songs = newSongs }
+  newCache <- foldM checkCON origCache cons
+  if origCache == newCache
+    then lg "Cache is up to date, nothing to save."
+    else do
+      lg "Saving updated cache file."
+      stackIO $ makeCONMemory CreateOptions
+        { createName = "Rock Band 3 Song Cache"
+        , createDescription = ""
+        , createTitleID = 0x45410914
+        , createTitleName = "Rock Band 3"
+        , createThumb = rb3Thumbnail
+        , createTitleThumb = rb3Thumbnail
+        , createLicense = LicenseEntry (-1) 0 0
+        , createMediaID       = 1338582383
+        , createVersion       = 1025
+        , createBaseVersion   = 1
+        , createTransferFlags = 64
+        } [MemoryFile "songcache" $ runPut $ void $ codecOut bin newCache] path

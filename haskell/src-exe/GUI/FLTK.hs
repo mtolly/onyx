@@ -80,6 +80,7 @@ import           RockBand.Codec                            (mapTrack)
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
 import           RockBand.Common                           (RB3Instrument (..))
+import           RockBand.SongCache                        (fixSongCache)
 import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.File.Load                      as Load
 import qualified Sound.MIDI.Util                           as U
@@ -1133,6 +1134,49 @@ miscPageMIDI sink rect tab startTasks = do
   FL.setResizable tab $ Just pack
   return ()
 
+miscPageSongCache
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageSongCache sink rect tab startTasks = do
+  pack <- FL.packNew rect Nothing
+  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    let (_, rectA) = chopLeft 100 rect'
+        (inputRect, rectB) = chopRight 50 rectA
+        (_, pickRect) = chopRight 40 rectB
+    input <- FL.inputNew
+      inputRect
+      (Just "Song cache")
+      (Just FL.FlNormalInput) -- required for labels to work
+    FL.setLabelsize input $ FL.FontSize 13
+    FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
+    pick <- FL.buttonNew pickRect $ Just "@fileopen"
+    FL.setCallback pick $ \_ -> sink $ EventIO $ do
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+      FL.setTitle picker "Load RB3 song cache"
+      FL.setFilter picker "songcache"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
+          Nothing -> return ()
+          Just f  -> void $ FL.setValue input f
+        _                          -> return ()
+    return $ fmap T.unpack $ FL.getValue input
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Update outdated songs in cache"
+    FL.setCallback btn $ \_ -> sink $ EventIO $ do
+      input <- pickedFile
+      sink $ EventOnyx $ let
+        task = do
+          fixSongCache input
+          return [input]
+        in startTasks [("Fix song cache: " <> input, task)]
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
 launchMisc :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
 launchMisc sink makeMenuBar = mdo
   let windowWidth = Width 800
@@ -1153,13 +1197,17 @@ launchMisc sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       miscPageMIDI sink rect tab startTasks
       return tab
-    , makeTab windowRect "MOGG creator" $ \rect tab -> mdo
+    , makeTab windowRect "MOGG creator" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageMOGG sink rect tab startTasks
       return tab
-    , makeTab windowRect "Lipsync dry vox" $ \rect tab -> mdo
+    , makeTab windowRect "Lipsync dry vox" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageLipsync sink rect tab startTasks
+      return tab
+    , makeTab windowRect "RB3 song cache" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      miscPageSongCache sink rect tab startTasks
       return tab
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do

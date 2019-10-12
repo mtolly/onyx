@@ -17,13 +17,19 @@ module STFS.Package
 , rb3pkg
 , rb2pkg
 , makeCON
+, makeCONMemory
+, MemoryEntry(..)
 , CreateOptions(..)
 , stfsFolder
+, openSTFS
+, STFSPackage(..)
+, LicenseEntry(..)
 ) where
 
 import           Control.Monad                  (forM_, guard, replicateM,
                                                  unless, void)
 import           Control.Monad.Codec
+import           Control.Monad.Fail             (MonadFail)
 import           Control.Monad.Fix              (fix)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.StackTrace
@@ -531,12 +537,17 @@ data STFSPackage = STFSPackage
   , stfsMetadata :: Metadata
   }
 
+runGetM :: (MonadFail m) => Get a -> BL.ByteString -> m a
+runGetM g bs = case runGetOrFail g bs of
+  Left (_, pos, err) -> fail $ "Binary Get at position " <> show pos <> ": " <> err
+  Right (_, _, x) -> return x
+
 openSTFS :: FilePath -> (STFSPackage -> IO a) -> IO a
 openSTFS stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
   headerMetaBytes <- BL.hGet fd 0x971A
-  let (header, meta) = flip runGet headerMetaBytes $ (,)
-        <$> (codecIn bin :: Get Header)
-        <*> (codecIn bin :: Get Metadata)
+  (header, meta) <- flip runGetM headerMetaBytes $ (,)
+    <$> (codecIn bin :: Get Header)
+    <*> (codecIn bin :: Get Metadata)
   fn $ STFSPackage fd header meta
 
 newtype RealBlock = RealBlock Int32
@@ -592,7 +603,9 @@ readBlock :: Word32 -> STFSPackage -> IO B.ByteString
 readBlock len stfs = B.hGet (stfsHandle stfs) $ fromIntegral len
 
 readBlockHash :: STFSPackage -> IO BlockHashRecord
-readBlockHash stfs = fmap (runGet $ codecIn bin) $ BL.hGet (stfsHandle stfs) 0x18
+readBlockHash stfs = do
+  bs <- BL.hGet (stfsHandle stfs) 0x18
+  runGetM (codecIn bin) $ if BL.null bs then BL.replicate 0x18 0 else bs
 
 getCorrectBlockHash :: FileBlock -> STFSPackage -> IO BlockHashRecord
 getCorrectBlockHash fblk stfs = do
@@ -624,9 +637,8 @@ getFileEntries stfs = let
     filesBytes <- readFileBlocks
       (fromIntegral $ sd_FileTableBlockCount stfsDesc)
       (sd_FileTableBlockNumber stfsDesc)
-    return
-      $ takeWhile (not . T.null . fe_FileName)
-      $ flip runGet filesBytes
+    fmap (takeWhile $ not . T.null . fe_FileName)
+      $ flip runGetM filesBytes
       $ replicateM (fromIntegral (BL.length filesBytes) `div` 0x40)
       $ codecIn bin
 
@@ -829,7 +841,10 @@ readAsBlocks f = do
         in (blk' :) <$> go
   return (size, blocks)
 
-traverseFolder :: FilePath -> IO [(Int, T.Text, Maybe (Integer, [B.ByteString]))]
+-- parent index, name, maybe (length, data blocks)
+type BlocksPlan = [(Int, T.Text, Maybe (Integer, [B.ByteString]))]
+
+traverseFolder :: FilePath -> IO BlocksPlan
 traverseFolder top = toList <$> execStateT (go (-1) top) Seq.empty where
   go parentIndex dir = do
     contents <- liftIO $ Dir.listDirectory dir
@@ -844,13 +859,35 @@ traverseFolder top = toList <$> execStateT (go (-1) top) Seq.empty where
           sizeBlocks <- liftIO $ readAsBlocks $ dir </> f
           modify (|> (parentIndex, T.pack f, Just sizeBlocks))
 
+data MemoryEntry a = MemoryFolder T.Text [MemoryEntry a] | MemoryFile T.Text a
+
+traverseMemory :: [MemoryEntry BL.ByteString] -> BlocksPlan
+traverseMemory top = toList $ execState (go (-1) top) Seq.empty where
+  go parentIndex contents = forM_ contents $ \case
+    MemoryFolder f contents' -> do
+      thisIndex <- gets Seq.length
+      modify (|> (parentIndex, f, Nothing))
+      go thisIndex contents'
+    MemoryFile f bs -> do
+      modify (|> (parentIndex, f, Just (fromIntegral $ BL.length bs, splitIntoBlocks bs)))
+  splitIntoBlocks bs = if BL.null bs
+    then []
+    else let
+      (h, t) = BL.splitAt 0x1000 bs
+      in BL.toStrict h : splitIntoBlocks t
+
 data CreateOptions = CreateOptions
-  { createName        :: T.Text
-  , createDescription :: T.Text
-  , createTitleID     :: Word32
-  , createTitleName   :: T.Text
-  , createThumb       :: B.ByteString
-  , createTitleThumb  :: B.ByteString
+  { createName          :: T.Text
+  , createDescription   :: T.Text
+  , createTitleID       :: Word32
+  , createTitleName     :: T.Text
+  , createThumb         :: B.ByteString
+  , createTitleThumb    :: B.ByteString
+  , createLicense       :: LicenseEntry
+  , createMediaID       :: Word32
+  , createVersion       :: Int32
+  , createBaseVersion   :: Int32
+  , createTransferFlags :: Word8
   }
 
 rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
@@ -861,6 +898,11 @@ rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ makeCON
   , createTitleName = "Rock Band 3"
   , createThumb = rb3Thumbnail
   , createTitleThumb = rb3Thumbnail
+  , createLicense = LicenseEntry (-1) 1 0 -- unlocked
+  , createMediaID       = 0
+  , createVersion       = 0
+  , createBaseVersion   = 0
+  , createTransferFlags = 0xC0
   } dir fout
 
 rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
@@ -871,13 +913,25 @@ rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ makeCON
   , createTitleName = "Rock Band 2"
   , createThumb = rb2Thumbnail
   , createTitleThumb = rb2Thumbnail
+  , createLicense = LicenseEntry (-1) 1 0 -- unlocked
+  , createMediaID       = 0
+  , createVersion       = 0
+  , createBaseVersion   = 0
+  , createTransferFlags = 0xC0
   } dir fout
 
 makeCON :: CreateOptions -> FilePath -> FilePath -> IO ()
-makeCON opts dir con = withBinaryFile con ReadWriteMode $ \fd -> do
+makeCON opts dir con = do
+  fileList <- traverseFolder dir
+  makeCONGeneral opts fileList con
+
+makeCONMemory :: CreateOptions -> [MemoryEntry BL.ByteString] -> FilePath -> IO ()
+makeCONMemory opts mem con = makeCONGeneral opts (traverseMemory mem) con
+
+makeCONGeneral :: CreateOptions -> BlocksPlan -> FilePath -> IO ()
+makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
   hSetFileSize fd 0
 
-  fileList <- traverseFolder dir
   -- each 0x1000 block can store 64 file entries (each of which is 64 bytes)
   -- and then we need one at the end for the final (null) entry
   let listBlocks = ((length fileList + 1) `quot` 64) + 1
@@ -887,16 +941,16 @@ makeCON opts dir con = withBinaryFile con ReadWriteMode $ \fd -> do
 
   let metadata = Metadata
         { md_LicenseEntries = take 0x10
-          $ LicenseEntry (-1) 1 0 -- unlocked license
+          $ createLicense opts
           : repeat (LicenseEntry 0 0 0)
         , md_HeaderSHA1 = B.replicate 0x14 0 -- filled in later
         , md_HeaderSize = 0xAD0E
         , md_ContentType = CT_SavedGame
         , md_MetadataVersion = 2
         , md_ContentSize = 0 -- filled in later
-        , md_MediaID = 0
-        , md_Version = 0
-        , md_BaseVersion = 0
+        , md_MediaID = createMediaID opts
+        , md_Version = createVersion opts
+        , md_BaseVersion = createBaseVersion opts
         , md_TitleID = createTitleID opts
         , md_Platform = P_Unknown
         , md_ExecutableType = 0
@@ -925,7 +979,7 @@ makeCON opts dir con = withBinaryFile con ReadWriteMode $ \fd -> do
         , md_DisplayDescription = take 9 $ createDescription opts : repeat ""
         , md_PublisherName = ""
         , md_TitleName = createTitleName opts
-        , md_TransferFlags = 0xC0
+        , md_TransferFlags = createTransferFlags opts
         , md_ThumbnailImage = createThumb opts
         , md_TitleThumbnailImage = createTitleThumb opts
         }
@@ -1023,6 +1077,14 @@ makeCON opts dir con = withBinaryFile con ReadWriteMode $ \fd -> do
   writeFiles (fromIntegral listBlocks) fileList
 
   verifyHashes True initPackage
+  sizeAfterHash <- hFileSize fd
+  case sizeAfterHash `rem` 0x1000 of
+    0 -> return () -- usual case, last block is a data block and already 0x1000 size
+    n -> do
+      -- last block is a hash and we didn't pad the end with 0.
+      -- not sure if it's necessary but we do that now to be safe
+      hSeek fd SeekFromEnd 0
+      BL.hPut fd $ BL.replicate (fromIntegral $ 0x1000 - n) 0
 
   nextMetadata <- do
     size <- hFileSize fd
