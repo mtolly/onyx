@@ -11,12 +11,15 @@ import           Audio                                     (Audio (..),
 import           CommandLine                               (copyDirRecursive,
                                                             runDolphin)
 import           Config
+import           Control.Arrow                             (first)
 import           Control.Concurrent                        (MVar, ThreadId,
                                                             forkIO, killThread,
                                                             modifyMVar,
                                                             modifyMVar_,
-                                                            newMVar, putMVar,
-                                                            readMVar, takeMVar)
+                                                            newChan, newMVar,
+                                                            putMVar, readChan,
+                                                            readMVar, takeMVar,
+                                                            writeChan)
 import           Control.Concurrent.STM                    (atomically)
 import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             tryReadTChan,
@@ -37,22 +40,31 @@ import           Control.Monad.Trans.Resource              (ResourceT, release,
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                                as A
 import qualified Data.ByteString                           as B
+import qualified Data.ByteString.Char8                     as B8
 import           Data.Char                                 (isSpace, toLower,
                                                             toUpper)
+import qualified Data.Connection                           as Conn
 import           Data.Default.Class                        (def)
+import qualified Data.EventList.Absolute.TimeBody          as ATB
+import qualified Data.EventList.Relative.TimeBody          as RTB
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
+import           Data.IORef                                (newIORef, readIORef,
+                                                            writeIORef)
+import qualified Data.Map.Strict                           as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
                                                             listToMaybe)
 import qualified Data.Text                                 as T
 import qualified Data.Text.Encoding                        as TE
+import           Data.Time                                 (getCurrentTime)
 import           Data.Version                              (showVersion)
 import           DryVox
 import           Foreign                                   (Ptr)
 import           Foreign.C                                 (CString,
                                                             withCString)
+import qualified Graphics.UI.FLTK.LowLevel.Base.GlWindow   as FLGL
 import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
 import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
 import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
@@ -62,6 +74,7 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
                                                             Width (..), X (..),
                                                             Y (..))
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
+import           Graphics.UI.FLTK.LowLevel.GlWindow        ()
 import           JSONData                                  (toJSON,
                                                             yamlEncodeFile)
 import           Magma                                     (oggToMogg)
@@ -75,12 +88,18 @@ import           OSFiles                                   (commonDir,
 import           Paths_onyxite_customs_tool                (version)
 import           ProKeysRanges                             (closeShiftsFile)
 import           Reaper.Build                              (makeReaperIO)
+import qualified Reaper.Extract                            as RPP
+import qualified Reaper.Parse                              as RPP
+import qualified Reaper.Scan                               as RPP
 import           Reductions                                (simpleReduce)
+import qualified RhythmGame.Drums                          as RGDrums
 import           RockBand.Codec                            (mapTrack)
+import qualified RockBand.Codec.Drums                      as D
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
 import           RockBand.Common                           (RB3Instrument (..))
 import           RockBand.SongCache                        (fixSongCache)
+import           Scripts                                   (loadMIDI)
 import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.File.Load                      as Load
 import qualified Sound.MIDI.Util                           as U
@@ -91,7 +110,12 @@ import           System.FilePath                           (dropExtension,
                                                             takeFileName,
                                                             (-<.>), (<.>),
                                                             (</>))
+import qualified System.FSNotify                           as FS
 import           System.Info                               (os)
+import qualified System.IO.Streams                         as Streams
+import qualified System.IO.Streams.TCP                     as TCP
+import           Text.Decode                               (decodeGeneral)
+import           Text.Read                                 (readMaybe)
 
 #ifdef WINDOWS
 import           Foreign                                   (intPtrToPtr, peek)
@@ -1230,6 +1254,106 @@ launchMisc sink makeMenuBar = mdo
   FL.setCallback window $ windowCloser cancelTasks
   FL.showWidget window
 
+watchSong :: FilePath -> Onyx (IO (RGDrums.Track Double (D.Gem D.ProType)), IO ())
+watchSong mid = do
+  let loadTrack = do
+        song <- case map toLower $ takeExtension mid of
+          ".rpp" -> do
+            txt <- liftIO $ T.unpack . decodeGeneral <$> B.readFile mid
+            RBFile.interpretMIDIFile $ RPP.getMIDI $ RPP.parse $ RPP.scan txt
+          _ -> loadMIDI mid
+        let tempos = RBFile.s_tempos song
+            drums = RBFile.fixedPartDrums $ RBFile.s_tracks song
+            drums'
+              = Map.fromList
+              $ map (first $ realToFrac . U.applyTempoMap tempos)
+              $ ATB.toPairList
+              $ RTB.toAbsoluteEventList 0
+              $ RTB.collectCoincident
+              $ fmap RGDrums.Autoplay
+              $ D.computePro Nothing drums
+        return $ RGDrums.Track drums' Map.empty 0 0.2
+  varTrack <- loadTrack >>= liftIO . newIORef
+  chan <- liftIO newChan
+  let midFileName = takeFileName mid
+      sendClose = do
+        t <- liftIO getCurrentTime
+        writeChan chan $ FS.Unknown "" t "STOP_WATCH"
+  _ <- forkOnyx $ do
+    wm <- liftIO FS.startManager
+    let test = \case
+          FS.Added    f _ _ -> takeFileName f == midFileName
+          FS.Modified f _ _ -> takeFileName f == midFileName
+          _                 -> False
+    _ <- liftIO $ FS.watchDirChan wm (takeDirectory mid) test chan
+    let go = liftIO (readChan chan) >>= \case
+          FS.Unknown _ _ "STOP_WATCH" -> liftIO $ FS.stopManager wm
+          _ -> do
+            lg $ "Reloading from " <> mid
+            loadTrack >>= liftIO . writeIORef varTrack
+            go
+    go
+  return (readIORef varTrack, sendClose)
+
+launchTimeServer :: IO () -> Onyx (IO Double, IO ())
+launchTimeServer notify = do
+  time <- liftIO $ newIORef 0
+  sock <- liftIO $ TCP.bindAndListen 1024 4938
+  _ <- forkOnyx $ do
+    let connectLoop = do
+          lg "Waiting for connection..."
+          conn <- liftIO $ TCP.accept sock
+          lg "Connected."
+          let readLoop = do
+                req <- liftIO $ Streams.read $ Conn.source conn
+                case req of
+                  Just x -> do
+                    case readMaybe $ B8.unpack x of
+                      Nothing -> lg $ "Couldn't read as Double: " <> show x
+                      Just d  -> liftIO $ do
+                        writeIORef time d
+                        notify
+                    readLoop
+                  Nothing -> lg "Connection closed." >> connectLoop
+          readLoop
+    connectLoop
+  return (readIORef time, return ())
+
+launchPreview :: (Event -> IO ()) -> FilePath -> Onyx ()
+launchPreview sink mid = do
+  (getTrack, stopWatch) <- watchSong mid
+  (getTime, stopServer) <- launchTimeServer $ sink $ EventIO FLTK.redraw
+  liftIO $ do
+    varStuff <- newMVar Nothing
+    let draw _window = do
+          stuff <- modifyMVar varStuff $ \case
+            Nothing -> do
+              s <- RGDrums.loadGLStuff
+              return (Just s, s)
+            js@(Just s) -> return (js, s)
+          t <- getTime
+          trk <- getTrack
+          RGDrums.drawDrumsFull stuff (RGDrums.WindowDims 800 600) trk { RGDrums.trackTime = t }
+    window <- FLGL.glWindowCustom (Size (Width 800) (Height 600)) Nothing (Just "Onyx Preview")
+      (Just draw)
+      FL.defaultCustomWidgetFuncs
+      FL.defaultCustomWindowFuncs
+    FL.end window
+    FL.setMode window $ FLE.Modes [FLE.ModeOpenGL3, FLE.ModeDepth, FLE.ModeRGB8, FLE.ModeDouble, FLE.ModeAlpha]
+    FL.showWidget window
+  return ()
+
+promptPreview :: (Event -> IO ()) -> IO ()
+promptPreview sink = sink $ EventIO $ do
+  picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+  FL.setTitle picker "Load MIDI or REAPER project"
+  FL.setFilter picker "*.{mid,midi,RPP}" -- TODO also handle .chart?
+  FL.showWidget picker >>= \case
+    FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
+      Nothing -> return ()
+      Just f  -> sink $ EventOnyx $ launchPreview sink $ T.unpack f
+    _                          -> return ()
+
 fileLoadWindow
   :: Rectangle
   -> (Event -> IO ())
@@ -1647,6 +1771,11 @@ launchGUI = do
               , ( "File/Tools"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 't'
                 , Just $ launchMisc sink makeMenuBar
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
+              , ( "File/Live Preview"
+                , Nothing
+                , Just $ promptPreview sink
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               , ( "File/Close Window"

@@ -18,12 +18,7 @@ library:
   dependencies:
   - base
   - onyxite-customs-lib
-  - sdl2
-  - sdl2-ttf
   - containers
-  - conduit
-  - conduit-audio
-  - conduit-audio-sndfile
   - vector
   - async
   - temporary
@@ -38,9 +33,6 @@ library:
   - file-embed
   - bytestring
   - linear
-  - tcp-streams
-  - io-streams
-  - fsnotify
   - text
   pkg-config-dependencies:
   - assimp

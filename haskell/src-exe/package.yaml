@@ -53,10 +53,19 @@ executables:
     - req
     - fltkhs
     - midi
+    - event-list
+    - containers
+    - time
     # my libraries
     - midi-util
-    # the lib in this package
+    # local
     - onyxite-customs-lib
+    - onyx-game-3d
+    # only used by live preview
+    - tcp-streams
+    - io-streams
+    - fsnotify
+    - gl
 
     ghc-options: -threaded -O
 

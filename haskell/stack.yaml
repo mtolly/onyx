@@ -28,10 +28,11 @@ extra-deps:
   subdirs:
   - conduit-audio-mpg123
 - git: git://github.com/deech/fltkhs
-  commit: c55aa9198088198e83060276114fcb8087872734
+  commit: a46f5f752782624b1747b4d242ab677fabbcfadf
 - git: git://github.com/mtolly/midi-util
   commit: 12951b7bc64cb006fa153d54b90174f0a90ba0f9
 resolver: nightly-2019-09-21
 flags:
   fltkhs:
     bundled: true
+    opengl: true
