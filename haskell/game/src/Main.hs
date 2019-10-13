@@ -32,6 +32,7 @@ import qualified Reaper.Parse                     as RPP
 import qualified Reaper.Scan                      as RPP
 import qualified RhythmGame.Audio                 as RGAudio
 import qualified RhythmGame.Drums                 as RGDrums
+import qualified RhythmGame.Drums.Play            as RGDrums
 import           RockBand.Codec.Drums
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Common                  (Difficulty (..))

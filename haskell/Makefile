@@ -22,8 +22,8 @@ install-resources:
 	cp vendors/kanwadict $(HOME)/.local/bin/
 
 mac:
-	stack build .
-	cp $(shell stack exec which onyx) Onyx.app/Contents/MacOS/onyx
+	stack build
+	stack exec which onyx | xargs -I{} cp {} Onyx.app/Contents/MacOS/onyx
 	strip Onyx.app/Contents/MacOS/onyx
 	rm -rf Onyx.app/Contents/libs/*.dylib
 	dylibbundler -cd -of -b -x Onyx.app/Contents/MacOS/onyx -d Onyx.app/Contents/libs/
@@ -44,10 +44,10 @@ mac-deps:
 	brew install libsndfile libsamplerate lame rubberband dylibbundler wine mpg123
 
 win:
-	stack build .
+	stack build
 	rm -rf win/
 	mkdir win/
-	cp "$(shell stack exec which onyx)" win/
+	stack exec which onyx | xargs -I{} cp {} win/
 	cp /mingw64/bin/*.dll win/
 	stack exec strip win/onyx.exe
 	cp LICENSE.txt win/LICENSE.txt

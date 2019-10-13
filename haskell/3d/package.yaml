@@ -1,0 +1,40 @@
+name: onyx-game-3d
+version: '20190209'
+github: mtolly/onyxite-customs
+author: Michael Tolly <miketolly@gmail.com>
+category: Distribution
+license: GPL-3
+license-file: ../LICENSE.txt
+
+ghc-options: -Wall
+
+extra-source-files:
+- shaders/*.vert
+- shaders/*.frag
+
+library:
+
+  source-dirs: src
+  dependencies:
+  - base
+  - onyxite-customs-lib
+  - containers
+  - vector
+  - async
+  - temporary
+  - filepath
+  - resourcet
+  - transformers
+  - unordered-containers
+  - event-list
+  - midi-util
+  - gl
+  - JuicyPixels
+  - file-embed
+  - bytestring
+  - linear
+  - text
+  pkg-config-dependencies:
+  - assimp
+  build-tools:
+  - c2hs

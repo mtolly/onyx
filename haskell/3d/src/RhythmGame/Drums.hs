@@ -7,31 +7,24 @@
 module RhythmGame.Drums where
 
 import           Codec.Picture
-import           Control.Concurrent        (threadDelay)
-import           Control.Exception         (bracket, bracket_)
-import           Control.Monad             (forM_, when)
-import           Control.Monad.IO.Class    (MonadIO (..))
-import           Control.Monad.Trans.State
-import qualified Data.ByteString           as B
-import           Data.FileEmbed            (embedFile, makeRelativeToProject)
-import           Data.List                 (partition)
-import qualified Data.Map.Strict           as Map
-import           Data.Map.Strict.Internal  (Map (..))
-import           Data.Maybe                (fromMaybe)
-import qualified Data.Text                 as T
-import qualified Data.Vector.Storable      as VS
+import           Control.Exception        (bracket)
+import           Control.Monad            (forM_, when)
+import           Control.Monad.IO.Class   (MonadIO (..))
+import qualified Data.ByteString          as B
+import           Data.FileEmbed           (embedFile, makeRelativeToProject)
+import           Data.List                (partition)
+import qualified Data.Map.Strict          as Map
+import           Data.Map.Strict.Internal (Map (..))
+import           Data.Maybe               (fromMaybe)
+import qualified Data.Vector.Storable     as VS
 import           Foreign
 import           Foreign.C
-import           GHC.ByteOrder
 import           Graphics.GL.Core33
 import           Graphics.GL.Types
-import           Linear                    (M44, V2 (..), V3 (..), V4 (..),
-                                            (!*!))
-import qualified Linear                    as L
-import qualified RockBand.Codec.Drums      as D
-import qualified SDL
-import qualified SDL.Font                  as Font
-import qualified SDL.Raw                   as Raw
+import           Linear                   (M44, V2 (..), V3 (..), V4 (..),
+                                           (!*!))
+import qualified Linear                   as L
+import qualified RockBand.Codec.Drums     as D
 
 data Note t a
   = Upcoming a
@@ -310,7 +303,6 @@ quadFS = $(makeRelativeToProject "shaders/quad.frag" >>= embedFile)
 data GLStuff = GLStuff
   { cubeShader :: GLuint
   , cubeVAO    :: GLuint
-  , testFont   :: Font.Font
   , quadShader :: GLuint
   , quadVAO    :: GLuint
   }
@@ -425,18 +417,23 @@ loadGLStuff = do
   glUseProgram quadShader
   sendUniformName quadShader "ourTexture" (0 :: GLint)
 
-  -- test text rendering
+  -- clean up
 
-  Font.initialize
-  testFont <- Font.decode
-    $(makeRelativeToProject "../../player/www/VarelaRound-Regular.ttf" >>= embedFile)
-    30 -- point size
+  glBindVertexArray 0
+  withArray [cubeVBO, quadVBO, quadEBO] $ glDeleteBuffers 3
 
   return GLStuff{..}
 
-drawTexture :: GLStuff -> SDL.Window -> Texture -> V2 Int -> Int -> IO ()
-drawTexture GLStuff{..} window (Texture tex w h) (V2 x y) scale = do
-  SDL.V2 screenW screenH <- SDL.glGetDrawableSize window
+deleteGLStuff :: GLStuff -> IO ()
+deleteGLStuff GLStuff{..} = do
+  glDeleteProgram cubeShader
+  glDeleteProgram quadShader
+  withArray [cubeVAO, quadVAO] $ glDeleteVertexArrays 2
+
+data WindowDims = WindowDims Int Int
+
+drawTexture :: GLStuff -> WindowDims -> Texture -> V2 Int -> Int -> IO ()
+drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) scale = do
   glUseProgram quadShader
   glActiveTexture GL_TEXTURE0
   glBindTexture GL_TEXTURE_2D tex
@@ -455,9 +452,8 @@ drawTexture GLStuff{..} window (Texture tex w h) (V2 x y) scale = do
 freeTexture :: Texture -> IO ()
 freeTexture (Texture tex _ _) = with tex $ glDeleteTextures 1
 
-drawDrumsFull :: GLStuff -> SDL.Window -> Track Double (D.Gem a) -> IO ()
-drawDrumsFull glStuff@GLStuff{..} window trk' = do
-  SDL.V2 w h <- SDL.glGetDrawableSize window
+drawDrumsFull :: GLStuff -> WindowDims -> Track Double (D.Gem a) -> IO ()
+drawDrumsFull glStuff@GLStuff{..} (WindowDims w h) trk' = do
   glViewport 0 0 (fromIntegral w) (fromIntegral h)
   glClearColor 0.2 0.3 0.3 1.0
   glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
@@ -479,93 +475,3 @@ drawDrumsFull glStuff@GLStuff{..} window trk' = do
   sendUniformName cubeShader "light.specular" (V3 1 1 1 :: V3 Float)
   sendUniformName cubeShader "viewPos" viewPosn
   drawDrums glStuff trk'
-
-  let time = T.pack $ show $ trackTime trk'
-  bracket (Font.blended testFont (SDL.V4 255 255 255 255) time) SDL.freeSurface $ \surf -> do
-    bracket (surfaceToGL surf) freeTexture $ \text -> do
-      drawTexture glStuff window text (V2 0 0) 1
-
-surfaceToGL :: SDL.Surface -> IO Texture
-surfaceToGL (SDL.Surface p _) = do
-  texture <- alloca $ \ptex -> glGenTextures 1 ptex >> peek ptex
-  glBindTexture GL_TEXTURE_2D texture
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_REPEAT
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_REPEAT
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_NEAREST
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_NEAREST
-  let fmt = case targetByteOrder of -- this is SDL_PIXELFORMAT_RGBA32 but there's no hs binding
-        BigEndian    -> Raw.SDL_PIXELFORMAT_RGBA8888
-        LittleEndian -> Raw.SDL_PIXELFORMAT_ABGR8888
-  (w, h) <- bracket (Raw.convertSurfaceFormat p fmt 0) Raw.freeSurface $ \raw -> do
-    struct <- peek raw
-    bracket_ (Raw.lockSurface raw) (Raw.unlockSurface raw) $ do
-      -- flip rows vertically
-      let rowLength = fromIntegral (Raw.surfaceW struct) * 4
-          rowPointer r = Raw.surfacePixels struct `plusPtr` (r * rowLength)
-      allocaBytes rowLength $ \tmp -> do
-        forM_ [0 .. (quot (fromIntegral $ Raw.surfaceH struct) 2 - 1)] $ \r1 -> do
-          let r2 = fromIntegral (Raw.surfaceH struct) - 1 - r1
-          -- note, it's "copyBytes <destination> <source>"
-          copyBytes tmp             (rowPointer r1) rowLength
-          copyBytes (rowPointer r1) (rowPointer r2) rowLength
-          copyBytes (rowPointer r2) tmp             rowLength
-      glTexImage2D GL_TEXTURE_2D 0 GL_RGBA
-        (fromIntegral $ Raw.surfaceW struct)
-        (fromIntegral $ Raw.surfaceH struct)
-        0
-        GL_RGBA
-        GL_UNSIGNED_BYTE
-        (Raw.surfacePixels struct)
-    return (fromIntegral $ Raw.surfaceW struct, fromIntegral $ Raw.surfaceH struct)
-  return $ Texture texture w h
-
-playDrums :: SDL.Window -> Track Double (D.Gem ()) -> IO ()
-playDrums window trk = flip evalStateT trk $ do
-  initTime <- SDL.ticks
-  glStuff <- liftIO loadGLStuff
-  let loop = SDL.pollEvents >>= processEvents >>= \b -> when b $ do
-        timestamp <- SDL.ticks
-        modify $ updateTime $ fromIntegral (timestamp - initTime) / 1000
-        draw
-        liftIO $ threadDelay 5000
-        loop
-      processEvents [] = return True
-      processEvents (e : es) = case SDL.eventPayload e of
-        SDL.QuitEvent -> return False
-        SDL.KeyboardEvent SDL.KeyboardEventData
-          { SDL.keyboardEventKeyMotion = SDL.Pressed
-          , SDL.keyboardEventKeysym = ksym
-          , SDL.keyboardEventRepeat = False
-          } -> do
-            let hit gem = modify $ hitPad t gem
-                t = fromIntegral (SDL.eventTimestamp e - initTime) / 1000
-            case SDL.keysymScancode ksym of
-              SDL.ScancodeV     -> hit D.Red
-              SDL.ScancodeB     -> hit $ D.Pro D.Yellow ()
-              SDL.ScancodeN     -> hit $ D.Pro D.Blue ()
-              SDL.ScancodeM     -> hit $ D.Pro D.Green ()
-              SDL.ScancodeSpace -> hit D.Kick
-              _                 -> return ()
-            processEvents es
-        _ -> processEvents es
-      draw = do
-        trk' <- get
-        liftIO $ drawDrumsFull glStuff window trk'
-        SDL.glSwapWindow window
-  loop
-
-previewDrums :: SDL.Window -> IO (Track Double (D.Gem D.ProType)) -> IO Double -> IO ()
-previewDrums window getTrack getTime = do
-  glStuff <- loadGLStuff
-  let loop = SDL.pollEvents >>= processEvents >>= \b -> when b $ do
-        t <- getTime
-        trk <- getTrack
-        drawDrumsFull glStuff window trk { trackTime = t }
-        SDL.glSwapWindow window
-        threadDelay 5000
-        loop
-      processEvents [] = return True
-      processEvents (e : es) = case SDL.eventPayload e of
-        SDL.QuitEvent -> return False
-        _             -> processEvents es
-  loop

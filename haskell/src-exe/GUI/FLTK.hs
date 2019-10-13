@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo       #-}
 {-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE ViewPatterns      #-}
 module GUI.FLTK (launchGUI) where
 
 import           Audio                                     (Audio (..),
@@ -11,12 +12,17 @@ import           Audio                                     (Audio (..),
 import           CommandLine                               (copyDirRecursive,
                                                             runDolphin)
 import           Config
+import           Control.Arrow                             (first)
 import           Control.Concurrent                        (MVar, ThreadId,
                                                             forkIO, killThread,
                                                             modifyMVar,
                                                             modifyMVar_,
-                                                            newMVar, putMVar,
-                                                            readMVar, takeMVar)
+                                                            newChan, newMVar,
+                                                            putMVar, readChan,
+                                                            readMVar, takeMVar,
+                                                            writeChan)
+import           Control.Concurrent.Async                  (async,
+                                                            waitAnyCancel)
 import           Control.Concurrent.STM                    (atomically)
 import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             tryReadTChan,
@@ -24,35 +30,47 @@ import           Control.Concurrent.STM.TChan              (newTChanIO,
 import qualified Control.Exception                         as Exc
 import           Control.Monad                             (forM, forM_, guard,
                                                             join, unless, void,
-                                                            (>=>))
+                                                            when, (>=>))
+import           Control.Monad.Catch                       (catchIOError)
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
 import           Control.Monad.Trans.Class                 (lift)
 import           Control.Monad.Trans.Maybe                 (MaybeT (..))
 import           Control.Monad.Trans.Reader                (ReaderT, ask, local,
                                                             runReaderT)
-import           Control.Monad.Trans.Resource              (ResourceT, release,
+import           Control.Monad.Trans.Resource              (ResourceT, allocate,
+                                                            register, release,
                                                             resourceForkIO,
                                                             runResourceT)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                                as A
 import qualified Data.ByteString                           as B
+import qualified Data.ByteString.Char8                     as B8
 import           Data.Char                                 (isSpace, toLower,
                                                             toUpper)
+import qualified Data.Connection                           as Conn
 import           Data.Default.Class                        (def)
+import qualified Data.EventList.Absolute.TimeBody          as ATB
+import qualified Data.EventList.Relative.TimeBody          as RTB
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
+import           Data.IORef                                (IORef, newIORef,
+                                                            readIORef,
+                                                            writeIORef)
+import qualified Data.Map.Strict                           as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
                                                             listToMaybe)
 import qualified Data.Text                                 as T
 import qualified Data.Text.Encoding                        as TE
+import           Data.Time                                 (getCurrentTime)
 import           Data.Version                              (showVersion)
 import           DryVox
 import           Foreign                                   (Ptr)
 import           Foreign.C                                 (CString,
                                                             withCString)
+import qualified Graphics.UI.FLTK.LowLevel.Base.GlWindow   as FLGL
 import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
 import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
 import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
@@ -62,11 +80,13 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
                                                             Width (..), X (..),
                                                             Y (..))
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
+import           Graphics.UI.FLTK.LowLevel.GlWindow        ()
 import           JSONData                                  (toJSON,
                                                             yamlEncodeFile)
 import           Magma                                     (oggToMogg)
 import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
+import qualified Network.Socket                            as Socket
 import           Numeric                                   (readHex)
 import           OpenProject
 import           OSFiles                                   (commonDir,
@@ -75,12 +95,18 @@ import           OSFiles                                   (commonDir,
 import           Paths_onyxite_customs_tool                (version)
 import           ProKeysRanges                             (closeShiftsFile)
 import           Reaper.Build                              (makeReaperIO)
+import qualified Reaper.Extract                            as RPP
+import qualified Reaper.Parse                              as RPP
+import qualified Reaper.Scan                               as RPP
 import           Reductions                                (simpleReduce)
+import qualified RhythmGame.Drums                          as RGDrums
 import           RockBand.Codec                            (mapTrack)
+import qualified RockBand.Codec.Drums                      as D
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
 import           RockBand.Common                           (RB3Instrument (..))
 import           RockBand.SongCache                        (fixSongCache)
+import           Scripts                                   (loadMIDI)
 import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.File.Load                      as Load
 import qualified Sound.MIDI.Util                           as U
@@ -91,7 +117,12 @@ import           System.FilePath                           (dropExtension,
                                                             takeFileName,
                                                             (-<.>), (<.>),
                                                             (</>))
+import qualified System.FSNotify                           as FS
 import           System.Info                               (os)
+import qualified System.IO.Streams                         as Streams
+import qualified System.IO.Streams.TCP                     as TCP
+import           Text.Decode                               (decodeGeneral)
+import           Text.Read                                 (readMaybe)
 
 #ifdef WINDOWS
 import           Foreign                                   (intPtrToPtr, peek)
@@ -1230,6 +1261,208 @@ launchMisc sink makeMenuBar = mdo
   FL.setCallback window $ windowCloser cancelTasks
   FL.showWidget window
 
+watchSong :: IO () -> FilePath -> Onyx (IO (RGDrums.Track Double (D.Gem D.ProType)), IO ())
+watchSong notify mid = do
+  let loadTrack = do
+        song <- case map toLower $ takeExtension mid of
+          ".rpp" -> do
+            txt <- liftIO $ T.unpack . decodeGeneral <$> B.readFile mid
+            RBFile.interpretMIDIFile $ RPP.getMIDI $ RPP.parse $ RPP.scan txt
+          _ -> loadMIDI mid
+        let tempos = RBFile.s_tempos song
+            drums = RBFile.fixedPartDrums $ RBFile.s_tracks song
+            drums'
+              = Map.fromList
+              $ map (first $ realToFrac . U.applyTempoMap tempos)
+              $ ATB.toPairList
+              $ RTB.toAbsoluteEventList 0
+              $ RTB.collectCoincident
+              $ fmap RGDrums.Autoplay
+              $ D.computePro Nothing drums
+        return $ RGDrums.Track drums' Map.empty 0 0.2
+  varTrack <- loadTrack >>= liftIO . newIORef
+  chan <- liftIO newChan
+  let midFileName = takeFileName mid
+      sendClose = do
+        t <- liftIO getCurrentTime
+        writeChan chan $ FS.Unknown "" t "STOP_WATCH"
+  _ <- forkOnyx $ do
+    wm <- liftIO FS.startManager
+    let test = \case
+          FS.Added    f _ _ -> takeFileName f == midFileName
+          FS.Modified f _ _ -> takeFileName f == midFileName
+          _                 -> False
+    _ <- liftIO $ FS.watchDirChan wm (takeDirectory mid) test chan
+    let go = liftIO (readChan chan) >>= \case
+          FS.Unknown _ _ "STOP_WATCH" -> liftIO $ FS.stopManager wm
+          _ -> do
+            lg $ "Reloading from " <> mid
+            loadTrack >>= liftIO . writeIORef varTrack
+            liftIO notify
+            go
+    go
+  return (readIORef varTrack, sendClose)
+
+launchTimeServer
+  :: (Event -> IO ())
+  -> IORef Double
+  -> FL.Ref FL.Input
+  -> FL.Ref FL.Button
+  -> FL.Ref FL.Box
+  -> IO (IO ())
+launchTimeServer sink varTime inputPort button label = do
+  presses <- newChan
+  FL.setCallback button $ \_ -> writeChan presses ()
+  tid <- forkIO $ runResourceT $ let
+    goOffline :: ResourceT IO ()
+    goOffline = do
+      liftIO $ do
+        FL.setLabel button "Start"
+        FL.setLabel label "Server offline."
+        sink $ EventIO FLTK.redraw
+      () <- liftIO $ readChan presses
+      s <- liftIO $ FL.getValue inputPort
+      case readMaybe $ T.unpack s of
+        Nothing -> goOffline
+        Just p -> catchIOError
+          (Just <$> allocate (TCP.bindAndListen 1024 p) Socket.close)
+          (\e -> liftIO (sink $ EventOnyx $ lg $ "Failed to start server: " <> show e) >> return Nothing)
+          >>= maybe goOffline (goOnline p)
+    goOnline port ps@(sockKey, sock) = do
+      liftIO $ do
+        FL.setLabel button "Stop"
+        FL.setLabel label $ "Waiting for connections on port " <> T.pack (show port) <> "."
+        sink $ EventIO FLTK.redraw
+      asyncStop <- liftIO $ async $ Left <$> readChan presses
+      asyncConn <- liftIO $ async $ Right <$> TCP.accept sock
+      liftIO (snd <$> waitAnyCancel [asyncStop, asyncConn]) >>= \case
+        Left () -> release sockKey >> goOffline
+        Right conn -> do
+          connKey <- register $ Conn.close conn
+          liftIO $ do
+            FL.setLabel label "Connected."
+            sink $ EventIO FLTK.redraw
+          goConnected B.empty port ps (connKey, conn)
+    goConnected dat port ps@(sockKey, _sock) pc@(connKey, conn) = do
+      asyncStop <- liftIO $ async $ Left <$> readChan presses
+      asyncData <- liftIO $ async $ Right <$> Streams.read (Conn.source conn)
+      liftIO (snd <$> waitAnyCancel [asyncStop, asyncData]) >>= \case
+        Left () -> release connKey >> release sockKey >> goOffline
+        Right Nothing -> release connKey >> goOnline port ps
+        Right (Just bs) -> let
+          dat' = dat <> bs
+          in case reverse $ B8.split '|' dat' of
+            after : s : _ -> do
+              forM_ (readMaybe $ B8.unpack s) $ \d -> liftIO $ sink $ EventIO $ do
+                old <- readIORef varTime
+                when (old /= d) $ do
+                  writeIORef varTime d
+                  FLTK.redraw
+              goConnected after port ps pc
+            _ -> goConnected dat' port ps pc
+    in goOffline
+  return $ killThread tid
+
+data GLStatus = GLPreload | GLLoaded RGDrums.GLStuff | GLClosed
+
+launchPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
+launchPreview sink makeMenuBar mid = do
+  (getTrack, stopWatch) <- watchSong (sink $ EventIO FLTK.redraw) mid
+  liftIO $ do
+
+    let windowWidth = Width 800
+        windowHeight = Height 600
+        windowSize = Size windowWidth windowHeight
+    window <- FL.windowNew windowSize Nothing $ Just "Onyx Preview"
+    menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+    let (_, windowRect) = chopTop menuHeight $ Rectangle
+          (Position (X 0) (Y 0))
+          windowSize
+        (controlsArea, glArea) = chopTop 50 windowRect
+        (trimClock 6 3 6 66 -> portArea, controls1) = chopLeft 150 controlsArea
+        (trimClock 6 3 6 3 -> buttonArea, controls2) = chopLeft 100 controls1
+        labelArea = trimClock 6 6 6 3 controls2
+
+    controlsGroup <- FL.groupNew controlsArea Nothing
+
+    inputPort <- FL.inputNew
+      portArea
+      (Just "Port")
+      (Just FL.FlNormalInput) -- required for label to work
+    FL.setLabelsize inputPort $ FL.FontSize 13
+    FL.setLabeltype inputPort FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign inputPort $ FLE.Alignments [FLE.AlignTypeLeft]
+    void $ FL.setValue inputPort "4938"
+
+    buttonServer <- FL.buttonNew buttonArea $ Just "..."
+    FL.setCallback buttonServer $ \_ -> sink $ EventIO $ return ()
+
+    labelServer <- FL.boxNew
+      labelArea
+      (Just "...")
+    FL.setLabel labelServer "..."
+
+    FL.end controlsGroup
+    FL.setResizable controlsGroup $ Just labelServer
+
+    varTime <- newIORef 0
+    stopServer <- launchTimeServer
+      sink
+      varTime
+      inputPort
+      buttonServer
+      labelServer
+
+    varStuff <- newMVar GLPreload
+    let draw :: FL.Ref FL.GlWindow -> IO ()
+        draw wind = do
+          mstuff <- modifyMVar varStuff $ \case
+            GLPreload -> do
+              s <- RGDrums.loadGLStuff
+              return (GLLoaded s, Just s)
+            loaded@(GLLoaded s) -> return (loaded, Just s)
+            GLClosed -> return (GLClosed, Nothing)
+          forM_ mstuff $ \stuff -> do
+            t <- readIORef varTime
+            trk <- getTrack
+            Width w <- FL.getW wind
+            Height h <- FL.getH wind
+            RGDrums.drawDrumsFull stuff (RGDrums.WindowDims w h) trk { RGDrums.trackTime = t }
+    glwindow <- FLGL.glWindowCustom
+      (rectangleSize glArea)
+      (Just $ rectanglePosition glArea)
+      Nothing -- label
+      (Just draw)
+      FL.defaultCustomWidgetFuncs
+      FL.defaultCustomWindowFuncs
+    FL.end glwindow
+    FL.setMode glwindow $ FLE.Modes [FLE.ModeOpenGL3, FLE.ModeDepth, FLE.ModeRGB8, FLE.ModeDouble, FLE.ModeAlpha]
+
+    FL.end window
+    FL.setResizable window $ Just glwindow
+    FL.setCallback window $ windowCloser $ do
+      stopServer
+      stopWatch
+      modifyMVar_ varStuff $ \x -> do
+        case x of
+          GLLoaded s -> RGDrums.deleteGLStuff s
+          _          -> return ()
+        return GLClosed
+
+    FL.showWidget window
+  return ()
+
+promptPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
+promptPreview sink makeMenuBar = sink $ EventIO $ do
+  picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+  FL.setTitle picker "Load MIDI or REAPER project"
+  FL.setFilter picker "*.{mid,midi,RPP}" -- TODO also handle .chart?
+  FL.showWidget picker >>= \case
+    FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
+      Nothing -> return ()
+      Just f  -> sink $ EventOnyx $ launchPreview sink makeMenuBar $ T.unpack f
+    _                          -> return ()
+
 fileLoadWindow
   :: Rectangle
   -> (Event -> IO ())
@@ -1647,6 +1880,11 @@ launchGUI = do
               , ( "File/Tools"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 't'
                 , Just $ launchMisc sink makeMenuBar
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
+              , ( "File/Live Preview"
+                , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'p'
+                , Just $ promptPreview sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               , ( "File/Close Window"

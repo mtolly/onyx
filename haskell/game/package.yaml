@@ -8,10 +8,6 @@ license-file: ../LICENSE.txt
 
 ghc-options: -Wall
 
-extra-source-files:
-- shaders/*.vert
-- shaders/*.frag
-
 executables:
 
   onyx-game:
@@ -20,7 +16,7 @@ executables:
     ghc-options: -threaded -O
     dependencies:
     - base
-    - onyxite-customs-tool
+    - onyxite-customs-lib
     - sdl2
     - sdl2-ttf
     - containers
@@ -45,7 +41,4 @@ executables:
     - io-streams
     - fsnotify
     - text
-    pkg-config-dependencies:
-    - assimp
-    build-tools:
-    - c2hs
+    - onyx-game-3d
