@@ -17,6 +17,8 @@ import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.Meta            as Meta
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
 import qualified Sound.MIDI.Message                    as Message
+import qualified Sound.MIDI.Message.Channel            as C
+import qualified Sound.MIDI.Message.Channel.Mode       as Mode
 import qualified Sound.MIDI.Parser.Report              as Report
 import qualified Sound.MIDI.Util                       as U
 import           Text.Read                             (readMaybe)
@@ -97,8 +99,9 @@ getTracks proj = let
               tks' <- readMaybe tks
               bytes' <- mapM unhex bytes
               case Message.maybeFromByteString $ BL.pack bytes' of
-                Report.Cons _ (Right (Message.Channel c))
-                  -> Just (tks', E.MIDIEvent c)
+                Report.Cons _ (Right (Message.Channel c)) -> case c of
+                  C.Cons _ (C.Mode Mode.AllNotesOff) -> Nothing
+                  _ -> Just (tks', E.MIDIEvent c)
                 -- don't think we need to support sysex messages here
                 _                       -> Nothing
             Element "X" (tks : _) (Just xdata) -> do

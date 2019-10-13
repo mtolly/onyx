@@ -66,6 +66,9 @@ executables:
     - io-streams
     - fsnotify
     - gl
+    - async
+    - network
+    - exceptions
 
     ghc-options: -threaded -O
 

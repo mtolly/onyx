@@ -7,24 +7,24 @@
 module RhythmGame.Drums where
 
 import           Codec.Picture
-import           Control.Exception         (bracket)
-import           Control.Monad             (forM_, when)
-import           Control.Monad.IO.Class    (MonadIO (..))
-import qualified Data.ByteString           as B
-import           Data.FileEmbed            (embedFile, makeRelativeToProject)
-import           Data.List                 (partition)
-import qualified Data.Map.Strict           as Map
-import           Data.Map.Strict.Internal  (Map (..))
-import           Data.Maybe                (fromMaybe)
-import qualified Data.Vector.Storable      as VS
+import           Control.Exception        (bracket)
+import           Control.Monad            (forM_, when)
+import           Control.Monad.IO.Class   (MonadIO (..))
+import qualified Data.ByteString          as B
+import           Data.FileEmbed           (embedFile, makeRelativeToProject)
+import           Data.List                (partition)
+import qualified Data.Map.Strict          as Map
+import           Data.Map.Strict.Internal (Map (..))
+import           Data.Maybe               (fromMaybe)
+import qualified Data.Vector.Storable     as VS
 import           Foreign
 import           Foreign.C
 import           Graphics.GL.Core33
 import           Graphics.GL.Types
-import           Linear                    (M44, V2 (..), V3 (..), V4 (..),
-                                            (!*!))
-import qualified Linear                    as L
-import qualified RockBand.Codec.Drums      as D
+import           Linear                   (M44, V2 (..), V3 (..), V4 (..),
+                                           (!*!))
+import qualified Linear                   as L
+import qualified RockBand.Codec.Drums     as D
 
 data Note t a
   = Upcoming a
@@ -417,7 +417,18 @@ loadGLStuff = do
   glUseProgram quadShader
   sendUniformName quadShader "ourTexture" (0 :: GLint)
 
+  -- clean up
+
+  glBindVertexArray 0
+  withArray [cubeVBO, quadVBO, quadEBO] $ glDeleteBuffers 3
+
   return GLStuff{..}
+
+deleteGLStuff :: GLStuff -> IO ()
+deleteGLStuff GLStuff{..} = do
+  glDeleteProgram cubeShader
+  glDeleteProgram quadShader
+  withArray [cubeVAO, quadVAO] $ glDeleteVertexArrays 2
 
 data WindowDims = WindowDims Int Int
 
