@@ -158,6 +158,8 @@ parts:
       tuning:
         base: guitar-7 # all chords are in lower 6 strings
       difficulty: 7
+    # ghl: # WIP
+    #   difficulty: 7
   keys:
     grybo:
       difficulty: 7
