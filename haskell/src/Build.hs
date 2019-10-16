@@ -119,9 +119,9 @@ import           Text.Transform                        (replaceCharsRB)
 import           WebPlayer                             (makeDisplay)
 import           YAMLTree
 
-applyTargetAudio :: (MonadResource m, RBFile.HasEvents f) => TargetCommon -> RBFile.Song (f U.Beats) -> AudioSource m Float -> AudioSource m Float
+applyTargetAudio :: (MonadResource m) => TargetCommon -> RBFile.Song f -> AudioSource m Float -> AudioSource m Float
 applyTargetAudio tgt mid = let
-  eval = evalPreviewTime False mid
+  eval = evalPreviewTime False Nothing mid
   bounds seg = liftA2 (,) (eval $ seg_FadeStart seg) (eval $ seg_FadeEnd seg)
   toDuration :: U.Seconds -> Duration
   toDuration = Seconds . realToFrac
@@ -143,7 +143,7 @@ lastEvent RNil             = Nothing
 
 applyTargetMIDI :: TargetCommon -> RBFile.Song (RBFile.OnyxFile U.Beats) -> RBFile.Song (RBFile.OnyxFile U.Beats)
 applyTargetMIDI tgt mid = let
-  eval = fmap (U.unapplyTempoMap $ RBFile.s_tempos mid) . evalPreviewTime False mid
+  eval = fmap (U.unapplyTempoMap $ RBFile.s_tempos mid) . evalPreviewTime False Nothing mid
   applyEnd = case tgt_End tgt >>= eval . seg_Notes of
     Nothing -> id
     Just notesEnd -> \m -> m
@@ -195,12 +195,12 @@ applyTargetMIDI tgt mid = let
       }
   in applySpeed . applyStart . applyEnd $ mid
 
-applyTargetLength :: (RBFile.HasEvents f) => TargetCommon -> RBFile.Song (f U.Beats) -> U.Seconds -> U.Seconds
+applyTargetLength :: TargetCommon -> RBFile.Song (f U.Beats) -> U.Seconds -> U.Seconds
 applyTargetLength tgt mid = let
-  applyEnd = case tgt_End tgt >>= evalPreviewTime False mid . seg_FadeEnd of
+  applyEnd = case tgt_End tgt >>= evalPreviewTime False Nothing mid . seg_FadeEnd of
     Nothing   -> id
     Just secs -> min secs
-  applyStart = case tgt_Start tgt >>= evalPreviewTime False mid . seg_FadeStart of
+  applyStart = case tgt_Start tgt >>= evalPreviewTime False Nothing mid . seg_FadeStart of
     Nothing   -> id
     Just secs -> subtract secs
   applySpeed t = t / realToFrac (fromMaybe 1 $ tgt_Speed tgt)
@@ -805,8 +805,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           oggForPlan planName = rel $ "gen/plan" </> T.unpack planName </> "audio.ogg"
 
           writeKick, writeSnare, writeKit, writeSimplePart
-            :: (RBFile.HasEvents f)
-            => [RBFile.FlexPartName] -> TargetCommon -> RBFile.Song (f U.Beats) -> Int -> Bool -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> FilePath -> Staction ()
+            :: [RBFile.FlexPartName] -> TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> FilePath -> Staction ()
           writeKick gameParts tgt mid pad supportsOffMono planName plan fpart rank out = do
             ((spec', _, _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
@@ -880,7 +879,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] (oggForPlan planName) (zip _pans _vols) _moggCrowd
               Plan{..}     -> buildAudioToSpec yamlDir audioLib songYaml [(-1, 0), (1, 0)] _crowd
             runAudio (clampIfSilent $ padAudio pad $ applyTargetAudio tgt mid src) out
-          sourceSongCountin :: (MonadResource m, RBFile.HasEvents f) => TargetCommon -> RBFile.Song (f U.Beats) -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> Staction (AudioSource m Float)
+          sourceSongCountin :: (MonadResource m) => TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> Staction (AudioSource m Float)
           sourceSongCountin tgt mid pad includeCountin planName plan fparts = do
             let usedParts' = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
                 usedParts =
@@ -915,7 +914,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       []     -> buildPartAudioToSpec yamlDir audioLib songYaml spec Nothing
                       s : ss -> return $ foldr mix s ss
             return $ padAudio pad $ applyTargetAudio tgt mid src
-          writeSongCountin :: (RBFile.HasEvents f) => TargetCommon -> RBFile.Song (f U.Beats) -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> Staction ()
+          writeSongCountin :: TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> Staction ()
           writeSongCountin tgt mid pad includeCountin planName plan fparts out = do
             src <- sourceSongCountin tgt mid pad includeCountin planName plan fparts
             runAudio (clampIfSilent src) out
@@ -964,9 +963,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             let magmaParts = map ($ rb3) [rb3_Drums, rb3_Bass, rb3_Guitar, rb3_Keys, rb3_Vocal]
                 loadEditedParts :: Staction (DifficultyRB3, Maybe VocalCount)
                 loadEditedParts = shk $ read <$> readFile' pathMagmaEditedParts
-                loadMidiResults :: Staction (RBFile.Song (RBFile.OnyxFile U.Beats), DifficultyRB3, Maybe VocalCount, Int)
+                loadMidiResults :: Staction (RBFile.Song (RBFile.RawFile U.Beats), DifficultyRB3, Maybe VocalCount, Int)
                 loadMidiResults = do
-                  mid <- shakeMIDI $ planDir </> "raw.mid" :: Staction (RBFile.Song (RBFile.OnyxFile U.Beats))
+                  mid <- shakeMIDI $ planDir </> "raw.mid" :: Staction (RBFile.Song (RBFile.RawFile U.Beats))
                   (diffs, vc) <- loadEditedParts
                   pad <- shk $ read <$> readFile' pathMagmaPad
                   return (mid, diffs, vc, pad)
@@ -1085,10 +1084,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               lg "# Running Magma v2 to export MIDI"
               -- TODO: bypass Magma if it fails due to over 1MB midi
               mapStackTraceT (liftIO . runResourceT) (Magma.runMagmaMIDI pathMagmaProj out) >>= lg
-            let getRealSections :: Staction (RTB.T U.Beats T.Text)
-                getRealSections = do
-                  raw <- shakeMIDI $ planDir </> "raw.mid"
-                  notSingleSection $ fmap snd $ eventsSections $ RBFile.onyxEvents $ RBFile.s_tracks raw
+            let midRealSections :: RBFile.Song (RBFile.OnyxFile U.Beats) -> Staction (RTB.T U.Beats T.Text)
+                midRealSections = notSingleSection . fmap snd . eventsSections . RBFile.onyxEvents . RBFile.s_tracks
                 -- also applies the computed pad + tempo hacks
                 getRealSections' :: Staction (RTB.T U.Beats T.Text)
                 getRealSections' = do
@@ -1162,7 +1159,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             [pathMagmaMid, pathMagmaPad, pathMagmaEditedParts] &%> \_ -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
               (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
-              sects <- ATB.toPairList . RTB.toAbsoluteEventList 0 <$> getRealSections
+              sects <- ATB.toPairList . RTB.toAbsoluteEventList 0 <$> midRealSections input
               let (magmaSects, invalid) = makeRBN2Sections sects
                   magmaSects' = RTB.fromAbsoluteEventList $ ATB.fromPairList magmaSects
                   adjustEvents trks = trks

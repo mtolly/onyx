@@ -74,13 +74,11 @@ slurpTrack f = lift $ do
 
 blipCV :: (Monad m) => Int -> TrackEvent m U.Beats (Int, Int)
 blipCV p = Codec
-  { codecIn = do
-    trk <- lift get
-    let (slurp, leave) = flip RTB.partitionMaybe trk $ \x -> case isNoteEdgeCPV x of
-          Just (c, p', v) | p == p' -> Just $ (c ,) <$> v
-          _                         -> Nothing
-    lift $ put leave
-    return $ RTB.catMaybes slurp
+  { codecIn = slurpTrack $ \trk -> let
+    (slurp, leave) = flip RTB.partitionMaybe trk $ \x -> case isNoteEdgeCPV x of
+      Just (c, p', v) | p == p' -> Just $ (c ,) <$> v
+      _                         -> Nothing
+    in (RTB.catMaybes slurp, leave)
   , codecOut = makeTrackBuilder $ U.trackJoin . fmap (\(c, v) -> unparseBlipCPV (c, p, v))
   }
 
@@ -319,6 +317,7 @@ channelEdges p = let
         c' <- case lookup c channelMap of
           Just c' -> return c'
           Nothing  -> do
+            -- TODO we should put the timestamp in here as a context layer
             let c' = minBound
             warn $ "Unrecognized channel " ++ show c ++ "; using default value of " ++ show c'
             return c'

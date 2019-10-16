@@ -73,4 +73,4 @@ arch-deps:
 	pacman -S libsndfile libsamplerate lame rubberband mpg123
 
 ghci:
-	stack ghci onyxite-customs-tool:lib
+	stack ghci onyxite-customs-lib
