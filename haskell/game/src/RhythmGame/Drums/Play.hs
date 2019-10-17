@@ -65,3 +65,18 @@ previewDrums window getTrack getTime = do
         SDL.QuitEvent -> return False
         _             -> processEvents es
   loop
+
+playScene :: SDL.Window -> IO ()
+playScene window = do
+  glStuff <- loadGLStuff
+  let loop = SDL.pollEvents >>= processEvents >>= \b -> when b $ do
+        SDL.V2 w h <- fmap fromIntegral <$> SDL.glGetDrawableSize window
+        drawScene glStuff $ WindowDims w h
+        SDL.glSwapWindow window
+        liftIO $ threadDelay 5000
+        loop
+      processEvents [] = return True
+      processEvents (e : es) = case SDL.eventPayload e of
+        SDL.QuitEvent -> return False
+        _             -> processEvents es
+  loop

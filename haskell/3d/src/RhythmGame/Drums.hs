@@ -25,6 +25,9 @@ import           Linear                   (M44, V2 (..), V3 (..), V4 (..),
                                            (!*!))
 import qualified Linear                   as L
 import qualified RockBand.Codec.Drums     as D
+import qualified Assimp as A
+import Data.Foldable (toList)
+import qualified Data.Text as T
 
 data Note t a
   = Upcoming a
@@ -109,7 +112,6 @@ drawDrums GLStuff{..} trk = do
         sendUniformName cubeShader "model"
           $ translate4 (V3 ((x1 + x2) / 2) ((y1 + y2) / 2) ((z1 + z2) / 2))
           !*! L.scaled (V4 (x2 - x1) (y2 - y1) (z2 - z1) 1)
-        sendUniformName cubeShader "objectColor" color
         sendUniformName cubeShader "material.ambient" color
         sendUniformName cubeShader "material.diffuse" color
         sendUniformName cubeShader "material.specular" (V3 0.5 0.5 0.5 :: V3 Float)
@@ -286,6 +288,9 @@ instance SendUniform (M44 Float) where
 instance SendUniform (V3 Float) where
   sendUniform uni (V3 x y z) = glUniform3f uni x y z
 
+instance SendUniform (V4 Float) where
+  sendUniform uni (V4 x y z w) = glUniform4f uni x y z w
+
 instance SendUniform GLint where
   sendUniform = glUniform1i
 
@@ -299,13 +304,6 @@ objectFS = $(makeRelativeToProject "shaders/object.frag" >>= embedFile)
 quadVS, quadFS :: B.ByteString
 quadVS = $(makeRelativeToProject "shaders/quad.vert" >>= embedFile)
 quadFS = $(makeRelativeToProject "shaders/quad.frag" >>= embedFile)
-
-data GLStuff = GLStuff
-  { cubeShader :: GLuint
-  , cubeVAO    :: GLuint
-  , quadShader :: GLuint
-  , quadVAO    :: GLuint
-  }
 
 class (Pixel a) => GLPixel a where
   glPixelInternalFormat :: a -> GLint
@@ -354,12 +352,126 @@ loadTexture linear img = do
   when linear $ glGenerateMipmap GL_TEXTURE_2D
   return $ Texture texture (imageWidth img) (imageHeight img)
 
+loadMesh :: A.AiMesh -> IO (GLuint, (Int, Int))
+loadMesh mesh = do
+  A.Mesh{..} <- A.readMesh mesh
+
+  vao <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
+  vbo <- alloca $ \p -> glGenBuffers 1 p >> peek p
+  ebo <- alloca $ \p -> glGenBuffers 1 p >> peek p
+
+  glBindVertexArray vao
+
+  glBindBuffer GL_ARRAY_BUFFER vbo
+  let vertexData = map CFloat $
+        zip meshVertices meshNormals >>= \(v3v, v3n) -> toList v3v <> toList v3n
+  withArrayBytes vertexData $ \size p -> do
+    glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
+
+  glBindBuffer GL_ELEMENT_ARRAY_BUFFER ebo
+  let indices = map fromIntegral $ meshFaces >>= A.faceIndices :: [GLuint]
+  withArrayBytes indices $ \size p -> do
+    glBufferData GL_ELEMENT_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
+
+  -- vertex position
+  glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE
+    (fromIntegral $ 6 * sizeOf (undefined :: CFloat))
+    nullPtr
+  glEnableVertexAttribArray 0
+  -- normal
+  glVertexAttribPointer 1 3 GL_FLOAT GL_FALSE
+    (fromIntegral $ 6 * sizeOf (undefined :: CFloat))
+    (intPtrToPtr $ fromIntegral $ 3 * sizeOf (undefined :: CFloat))
+  glEnableVertexAttribArray 1
+
+  -- clean up
+  glBindVertexArray 0
+  withArray [vbo, ebo] $ glDeleteBuffers 2
+  return (vao, (length meshVertices, meshMaterialIndex))
+
+data GLStuff = GLStuff
+  { cubeShader     :: GLuint
+  , cubeVAO        :: GLuint
+  , quadShader     :: GLuint
+  , quadVAO        :: GLuint
+  , meshVAOs       :: [(GLuint, (Int, Int))]
+  , sceneLights    :: [A.Light]
+  , sceneCameras   :: [A.Camera]
+  , sceneNodes     :: [([Int], [M44 Float], T.Text)]
+  , sceneMaterials :: [A.Material]
+  } deriving (Show)
+
+drawScene :: GLStuff -> WindowDims -> IO ()
+drawScene GLStuff{..} (WindowDims w h) = do
+
+  glViewport 0 0 (fromIntegral w) (fromIntegral h)
+  glClearColor 0.2 0.3 0.3 1.0
+  glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
+
+  glUseProgram cubeShader
+
+  let camera = head sceneCameras
+      (_, cameraTrans, _) = head $
+        filter (\(_, _, name) -> name == A.cameraName camera) sceneNodes
+      viewPosn = A.cameraPosition camera
+      view, projection :: M44 Float
+      -- TODO fix these
+      view = foldr (!*!) L.identity cameraTrans
+      projection = L.perspective
+        (A.cameraHorizontalFOV camera)
+        (fromIntegral w / fromIntegral h)
+        (A.cameraClipPlaneNear camera)
+        (A.cameraClipPlaneFar camera)
+  sendUniformName cubeShader "view" view
+  sendUniformName cubeShader "projection" projection
+
+  let light = head sceneLights
+  sendUniformName cubeShader "light.position" $ A.lightPosition light
+  sendUniformName cubeShader "light.ambient" $ A.lightColorAmbient light
+  sendUniformName cubeShader "light.diffuse" $ A.lightColorDiffuse light
+  sendUniformName cubeShader "light.specular" $ A.lightColorSpecular light
+  sendUniformName cubeShader "viewPos" viewPosn
+
+  forM_ sceneNodes $ \(meshIndices, transMatrices, _) -> do
+    forM_ (map (meshVAOs !!) meshIndices) $ \(mesh, (len, materialIndex)) -> do
+      let material = sceneMaterials !! materialIndex
+          forceProp = either (error . ("Material property missing: " <>) . show) id
+          xyz (V4 x y z _) = V3 x y z
+      glBindVertexArray mesh
+      sendUniformName cubeShader "model" $ foldr (!*!) L.identity $ reverse transMatrices
+      sendUniformName cubeShader "material.ambient" $ xyz $ forceProp $ A.material_COLOR_AMBIENT material
+      sendUniformName cubeShader "material.diffuse" $ xyz $ forceProp $ A.material_COLOR_DIFFUSE material
+      sendUniformName cubeShader "material.specular" $ xyz $ forceProp $ A.material_COLOR_SPECULAR material
+      sendUniformName cubeShader "material.shininess" $ forceProp $ A.material_SHININESS material
+      glDrawElements GL_TRIANGLES (fromIntegral len) GL_UNSIGNED_INT nullPtr
+
 loadGLStuff :: IO GLStuff
 loadGLStuff = do
 
   glEnable GL_DEPTH_TEST
   glEnable GL_BLEND
   glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+
+  -- load from assimp
+
+  scene <- either error id <$> A.importFile "/Users/mtolly/Desktop/3d/drums.dae"
+    [ A.AiProcess_Triangulate
+    , A.AiProcess_FlipUVs
+    ]
+  meshVAOs <- A.sceneMeshes scene >>= mapM loadMesh
+  sceneLights <- A.sceneLights scene >>= mapM A.readLight
+  sceneCameras <- A.sceneCameras scene >>= mapM A.readCamera
+  sceneNodes <- let
+    loadNode trans node = do
+      name <- A.nodeName node
+      meshIndices <- map fromIntegral <$> A.nodeMeshes node
+      thisTrans <- A.nodeTransformation node
+      let trans' = thisTrans : trans
+      children <- A.nodeChildren node
+      ((meshIndices, trans', name) :) . concat <$> mapM (loadNode trans') children
+    in A.rootNode scene >>= loadNode []
+  sceneMaterials <- A.sceneMaterials scene >>= mapM A.readMaterial
+  A.aiReleaseImport scene
 
   -- cube stuff
 
@@ -428,7 +540,8 @@ deleteGLStuff :: GLStuff -> IO ()
 deleteGLStuff GLStuff{..} = do
   glDeleteProgram cubeShader
   glDeleteProgram quadShader
-  withArray [cubeVAO, quadVAO] $ glDeleteVertexArrays 2
+  withArrayLen (cubeVAO : quadVAO : map fst meshVAOs) $ \len p ->
+    glDeleteVertexArrays (fromIntegral len) p
 
 data WindowDims = WindowDims Int Int
 
