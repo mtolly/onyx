@@ -22,7 +22,7 @@ import           Foreign.C
 import           Graphics.GL.Core33
 import           Graphics.GL.Types
 import           Linear                   (M44, V2 (..), V3 (..), V4 (..),
-                                           (!*!))
+                                           (!*!), (!*))
 import qualified Linear                   as L
 import qualified RockBand.Codec.Drums     as D
 import qualified Assimp as A
@@ -401,8 +401,8 @@ data GLStuff = GLStuff
   , sceneMaterials :: [A.Material]
   } deriving (Show)
 
-drawScene :: GLStuff -> WindowDims -> IO ()
-drawScene GLStuff{..} (WindowDims w h) = do
+drawScene :: (V3 Float, V3 Float) -> GLStuff -> WindowDims -> IO ()
+drawScene (viewPosn, cameraDir) GLStuff{..} (WindowDims w h) = do
 
   glViewport 0 0 (fromIntegral w) (fromIntegral h)
   glClearColor 0.2 0.3 0.3 1.0
@@ -410,23 +410,45 @@ drawScene GLStuff{..} (WindowDims w h) = do
 
   glUseProgram cubeShader
 
-  let camera = head sceneCameras
-      (_, cameraTrans, _) = head $
-        filter (\(_, _, name) -> name == A.cameraName camera) sceneNodes
-      viewPosn = A.cameraPosition camera
+  let xyz (V4 x y z _) = V3 x y z
+      addW (V3 x y z) = V4 x y z 1
+
+  -- let camera = head sceneCameras
+  --     (_, cameraTranses, _) = head $
+  --       filter (\(_, _, name) -> name == A.cameraName camera) sceneNodes
+  --     cameraTrans = foldr (!*!) L.identity cameraTranses
+  --     viewPosn = xyz $ cameraTrans !* addW (A.cameraPosition camera)
+  --     view, projection :: M44 Float
+  --     view = L.lookAt
+  --       (A.cameraPosition camera)
+  --       (A.cameraLookAt camera)
+  --       (A.cameraUp camera)
+  --       !*! cameraTrans
+  --     projection = L.perspective
+  --       (A.cameraHorizontalFOV camera)
+  --       (fromIntegral w / fromIntegral h)
+  --       (A.cameraClipPlaneNear camera)
+  --       (A.cameraClipPlaneFar camera)
+
+  let worldUp = V3 0 0 1
+      cameraDirRev = negate cameraDir
+      cameraRight = L.normalize $ L.cross worldUp cameraDirRev
+      cameraUp = L.cross cameraDirRev cameraRight
       view, projection :: M44 Float
-      -- TODO fix these
-      view = foldr (!*!) L.identity cameraTrans
-      projection = L.perspective
-        (A.cameraHorizontalFOV camera)
-        (fromIntegral w / fromIntegral h)
-        (A.cameraClipPlaneNear camera)
-        (A.cameraClipPlaneFar camera)
+      view = L.lookAt
+        viewPosn
+        (viewPosn - cameraDirRev)
+        cameraUp
+      projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
+
   sendUniformName cubeShader "view" view
   sendUniformName cubeShader "projection" projection
 
   let light = head sceneLights
-  sendUniformName cubeShader "light.position" $ A.lightPosition light
+      (_, lightTranses, _) = head $
+        filter (\(_, _, name) -> name == A.lightName light) sceneNodes
+      lightTrans = head lightTranses
+  sendUniformName cubeShader "light.position" $ xyz $ lightTrans !* addW (A.lightPosition light)
   sendUniformName cubeShader "light.ambient" $ A.lightColorAmbient light
   sendUniformName cubeShader "light.diffuse" $ A.lightColorDiffuse light
   sendUniformName cubeShader "light.specular" $ A.lightColorSpecular light
@@ -436,9 +458,8 @@ drawScene GLStuff{..} (WindowDims w h) = do
     forM_ (map (meshVAOs !!) meshIndices) $ \(mesh, (len, materialIndex)) -> do
       let material = sceneMaterials !! materialIndex
           forceProp = either (error . ("Material property missing: " <>) . show) id
-          xyz (V4 x y z _) = V3 x y z
       glBindVertexArray mesh
-      sendUniformName cubeShader "model" $ foldr (!*!) L.identity $ reverse transMatrices
+      sendUniformName cubeShader "model" $ head transMatrices
       sendUniformName cubeShader "material.ambient" $ xyz $ forceProp $ A.material_COLOR_AMBIENT material
       sendUniformName cubeShader "material.diffuse" $ xyz $ forceProp $ A.material_COLOR_DIFFUSE material
       sendUniformName cubeShader "material.specular" $ xyz $ forceProp $ A.material_COLOR_SPECULAR material
