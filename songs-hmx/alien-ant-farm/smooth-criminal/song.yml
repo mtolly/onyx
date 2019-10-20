@@ -1,0 +1,65 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 279
+      count: 3
+  bass:
+    grybo:
+      difficulty:
+        rank: 199
+  guitar:
+    grybo:
+      difficulty:
+        rank: 292
+  drums:
+    drums:
+      difficulty:
+        rank: 359
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 7
+      - 8
+      bass:
+      - 4
+      guitar:
+      - 5
+      - 6
+      drums:
+        kick:
+        - 0
+        snare:
+        - 1
+        kit:
+        - 2
+        - 3
+    pans: [0, 0, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    mogg-md5: a0f28275e32c60dd0b538fbf6923cc66
+    multitrack: true
+    vols: [-0.7, -1, -3.7, -3.7, -2, -4, -4, -3, -3, -4, -4]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Supervision Recommended
+  preview-start: 41.5
+  file-album-art: cover.png_xbox
+  track-number: 12
+  album: ANThology
+  year: 2001
+  author: Harmonix, Onyxite, Espher
+  title: Smooth Criminal
+  preview-end: 1:11.500
+  genre: rock
+  difficulty:
+    rank: 304
+  artist: Alien Ant Farm
+  key: A minor

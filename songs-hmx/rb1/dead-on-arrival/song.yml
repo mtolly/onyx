@@ -1,0 +1,59 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 215
+      count: 3
+  bass:
+    grybo:
+      hopo-threshold: 250
+      difficulty:
+        rank: 325
+  guitar:
+    grybo:
+      hopo-threshold: 250
+      difficulty:
+        rank: 325
+  drums:
+    drums:
+      difficulty:
+        rank: 370
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      vocal: [7, 8]
+      bass: [4]
+      guitar: [5, 6]
+      drums:
+        kick: [0]
+        snare: [1]
+        kit: [2, 3]
+    pans: [0, 0, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    mogg-md5: 60c578df305fe61530c2208ce0f3cb7f
+    multitrack: true
+    vols: [0, 0, -1.5, -1.5, -3, -4, -4, -5, -5, -4, -4]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Family Friendly
+  preview-start: 11.5
+  file-album-art: cover.png_xbox
+  track-number: 2
+  album: Take This to Your Grave
+  year: 2003
+  anim-tempo: 64
+  author: Harmonix, Onyxite, Espher
+  title: Dead on Arrival
+  preview-end: 41.5
+  genre: emo
+  difficulty:
+    rank: 290
+  artist: Fall Out Boy
+  key: C major

@@ -1,0 +1,55 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 245
+  bass:
+    grybo:
+      difficulty:
+        rank: 390
+  guitar:
+    grybo:
+      difficulty:
+        rank: 390
+  drums:
+    drums:
+      difficulty:
+        rank: 470
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      vocal: [9, 10]
+      bass: [6]
+      guitar: [7, 8]
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+    pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    mogg-md5: 6bda5b56924d9077cf1e6e8c54a4a2e4
+    multitrack: true
+    vols: [-1.5, -1.5, -1.5, -1.5, -3, -3, -1.5, -3, -3, -4, -4, -4.5, -4.5]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Supervision Recommended
+  preview-start: 29.55
+  file-album-art: cover.png_xbox
+  track-number: 6
+  album: Flirtin' With Disaster
+  year: 1979
+  anim-tempo: 16
+  author: Harmonix, Onyxite
+  title: Flirtin' with Disaster
+  preview-end: 53.963
+  genre: southernrock
+  difficulty:
+    rank: 460
+  artist: Molly Hatchet

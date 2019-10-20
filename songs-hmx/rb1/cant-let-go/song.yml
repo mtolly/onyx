@@ -1,0 +1,57 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 450
+      count: 3
+  bass:
+    grybo:
+      difficulty:
+        rank: 242
+  guitar:
+    grybo:
+      difficulty:
+        rank: 370
+  drums:
+    drums:
+      difficulty:
+        rank: 280
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      vocal: [10, 11]
+      bass: [6, 7]
+      guitar: [8, 9]
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    mogg-md5: ac73df0a63fe8a1d072c42fe87dbaef6
+    multitrack: true
+    vols: [-0.5, -0.5, -0.5, -0.5, -1.5, -1.5, -5, -5, -4.5, -4.5, -3.5, -3.5, -1.5, -1.5]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Family Friendly
+  preview-start: 27.7
+  file-album-art: cover.png_xbox
+  track-number: 1
+  album: Can't Let Go
+  year: 2007
+  anim-tempo: 64
+  author: Harmonix, Onyxite, Espher
+  title: Can't Let Go
+  preview-end: 57.7
+  genre: rock
+  difficulty:
+    rank: 330
+  artist: Death of the Cool
+  key: F# minor

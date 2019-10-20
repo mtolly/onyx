@@ -1,0 +1,55 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 275
+      count: 2
+  bass:
+    grybo:
+      difficulty:
+        rank: 350
+  guitar:
+    grybo:
+      difficulty:
+        rank: 350
+  drums:
+    drums:
+      difficulty:
+        rank: 500
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      vocal: [5, 6]
+      bass: [2]
+      guitar: [3, 4]
+      drums: [0, 1]
+    pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1, -2.5, 2.5]
+    mogg-md5: 5f40d319bc1baeda20e536c1ddf2213e
+    multitrack: true
+    crowd: [9, 10]
+    vols: [0, 0, -1.5, -1.5, -1.5, -2.5, -2.5, -4, -4, -5, -5]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Family Friendly
+  preview-start: 1:15.750
+  file-album-art: cover.png_xbox
+  track-number: 9
+  album: Who's Next
+  year: 1971
+  anim-tempo: 32
+  author: Harmonix, Onyxite, Espher
+  title: Won't Get Fooled Again
+  preview-end: 1:45.750
+  genre: classicrock
+  difficulty:
+    rank: 500
+  artist: The Who
+  key: A major
