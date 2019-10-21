@@ -31,6 +31,7 @@ import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as HM
 import           Data.Maybe                     (fromMaybe, listToMaybe)
 import qualified Data.Text                      as T
+import           Development.Shake              (need)
 import           Development.Shake.FilePath
 import qualified RockBand.Codec.Drums           as RBDrums
 import           RockBand.Codec.File            (FlexPartName)
@@ -169,9 +170,16 @@ channelsToSpec
   -> Staction (AudioSource m Float)
 channelsToSpec pvOut pathOgg pvIn chans = inside "conforming MOGG channels to output spec" $ do
   let partPVIn = map (pvIn !!) chans
-  src <- lift $ lift $ buildSource $ case chans of
-    [] -> Silence 1 $ Frames 0 -- TODO this needs to be rendered at the ogg's sample rate
-    _  -> Channels (map Just chans) $ Input pathOgg
+  src <- case chans of
+    [] -> do
+      lift $ lift $ need [pathOgg]
+      rate <- audioRate pathOgg >>= \case
+        Just rate -> return $ fromIntegral rate
+        Nothing -> do
+          lg "Couldn't detect sample rate of input OGG; assuming 44100 Hz."
+          return 44100
+      return $ silent (Frames 0) rate 1
+    _  -> lift $ lift $ buildSource $ Channels (map Just chans) $ Input pathOgg
   fitToSpec partPVIn pvOut src
 
 buildAudioToSpec
