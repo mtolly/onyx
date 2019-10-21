@@ -170,7 +170,7 @@ channelsToSpec
 channelsToSpec pvOut pathOgg pvIn chans = inside "conforming MOGG channels to output spec" $ do
   let partPVIn = map (pvIn !!) chans
   src <- lift $ lift $ buildSource $ case chans of
-    [] -> Silence 1 $ Frames 0
+    [] -> Silence 1 $ Frames 0 -- TODO this needs to be rendered at the ogg's sample rate
     _  -> Channels (map Just chans) $ Input pathOgg
   fitToSpec partPVIn pvOut src
 
