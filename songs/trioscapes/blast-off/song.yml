@@ -1,13 +1,12 @@
 metadata:
   title: Blast Off
-  album: Separate Realities
-  artist: Trioscapes
+  file-include: ../../../albums/separate-realities.yml
   track-number: 1
-  author: dertanz, Onyxite
-  key: B
+  author: Onyxite, thecourtofaporcupine
+  key: B minor
   rating: FF
   comments:
-  - Drums chart done by dertanz for
+  - Drums chart done by thecourtofaporcupine for
     [live version](https://www.youtube.com/watch?v=reyZ5DqSyvs),
     adapted by Onyxite for
     [album version](https://trioscapes.bandcamp.com).
@@ -21,18 +20,19 @@ audio:
 plans:
   album:
     countin:
+      0|0: hihat
+      0|2: hihat
       1|0: hihat
+      1|1: hihat
       1|2: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
-      2|3: hihat
+      1|3: hihat
     song:
       pad: [4.526, album-track]
 parts:
   drums:
     drums:
       kicks: both
+      difficulty: 7
 targets:
   rb3:
     game: rb3

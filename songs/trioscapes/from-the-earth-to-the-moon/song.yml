@@ -1,19 +1,18 @@
 metadata:
-  title: Stab Wounds
+  title: From the Earth to the Moon
   file-include: ../../../albums/digital-dream-sequence.yml
-  track-number: 2
+  track-number: 3
   author: Onyxite
 audio:
   album-track:
-    md5: cb467dea25b279f6b59b68bf940085c7
-    frames: 10129476
+    md5: 6ebe466205c99d7ac8e4983cc6d7eaac
+    frames: 22936704
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 parts:
   drums:
     drums:
       kicks: both
-      difficulty: 7
 plans:
   album:
     countin:
@@ -24,7 +23,7 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [3.854, album-track]
+      pad: [3.476, album-track]
 targets:
   rb3:
     game: rb3
