@@ -1,21 +1,13 @@
-module Magma (runMagmaMIDI, runMagma, runMagmaV1, oggToMogg, getRBAFile, getRBAFileBS) where
+module Magma (runMagmaMIDI, runMagma, runMagmaV1, getRBAFile, getRBAFileBS) where
 
-import           Codec.Picture                  (writeBitmap)
 import           Control.Monad                  (forM_, replicateM)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
-import           Control.Monad.Trans.Resource   (MonadResource, ResourceT,
-                                                 runResourceT)
+import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Get                (getWord32le, runGet)
 import qualified Data.ByteString.Lazy           as BL
-import           Data.Conduit.Audio             (AudioSource, Duration (..),
-                                                 silent)
-import           Data.Conduit.Audio.Sndfile     (sinkSnd)
-import           Data.Int                       (Int16)
-import           Resources                      (magmaCommonDir,
-                                                 magmaOgg2MoggDir, magmaV1Dir,
-                                                 magmaV2Dir, onyxAlbum)
-import qualified Sound.File.Sndfile             as Snd
+import           Resources                      (magmaCommonDir, magmaV1Dir,
+                                                 magmaV2Dir)
 import qualified System.Directory               as Dir
 import           System.FilePath                ((</>))
 import           System.Info                    (os)
@@ -84,21 +76,3 @@ getRBAFileBS i rba = liftIO $ IO.withBinaryFile rba IO.ReadMode $ \h -> do
 
 getRBAFile :: (MonadIO m) => Int -> FilePath -> FilePath -> m ()
 getRBAFile i rba out = getRBAFileBS i rba >>= liftIO . BL.writeFile out
-
-oggToMogg :: (MonadResource m) => FilePath -> FilePath -> StackTraceT m ()
-oggToMogg ogg mogg = tempDir "ogg2mogg" $ \tmp -> do
-  wd <- liftIO Dir.getCurrentDirectory
-  let ogg'  = wd </> ogg
-      mogg' = wd </> mogg
-  liftIO $ forM_ [magmaV2Dir, magmaCommonDir, magmaOgg2MoggDir] (>>= \dir -> copyDirContents dir tmp)
-  liftIO $ Dir.copyFile ogg' $ tmp </> "audio.ogg"
-  let proj = "ogg2mogg.rbproj"
-      rba = "out.rba"
-  liftIO $ runResourceT $ sinkSnd (tmp </> "silence.wav")
-    (Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile)
-    (silent (Seconds 31) 44100 2 :: AudioSource (ResourceT IO) Int16)
-  liftIO $ writeBitmap (tmp </> "cover.bmp") onyxAlbum
-  let createProc = withWin32Exe (\exe args -> (proc exe args) { cwd = Just tmp })
-        (tmp </> "MagmaCompilerC3.exe") [proj, rba]
-  _ <- inside "running Magma v2 to convert OGG to MOGG" $ stackProcess createProc
-  getRBAFile 2 (tmp </> rba) mogg'

@@ -43,10 +43,9 @@ import           Data.Word                        (Word32)
 import           GuitarHeroII.Audio               (readVGS)
 import qualified Image
 import           Import
-import           Magma                            (getRBAFile, oggToMogg,
-                                                   runMagma, runMagmaMIDI,
-                                                   runMagmaV1)
-import           MoggDecrypt                      (moggToOgg)
+import           Magma                            (getRBAFile, runMagma,
+                                                   runMagmaMIDI, runMagmaV1)
+import           MoggDecrypt                      (moggToOgg, oggToMogg)
 import           OpenProject
 import           PrettyDTA                        (DTASingle (..),
                                                    readFileSongsDTA, readRB3DTA,

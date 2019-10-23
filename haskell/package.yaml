@@ -119,6 +119,8 @@ library:
   - cbits/encode_vag.c
   extra-libraries:
   - stdc++
+  pkg-config-dependencies:
+  - vorbisfile
 
   when:
   - condition: os(mingw32)

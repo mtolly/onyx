@@ -83,7 +83,7 @@ import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Graphics.UI.FLTK.LowLevel.GlWindow        ()
 import           JSONData                                  (toJSON,
                                                             yamlEncodeFile)
-import           Magma                                     (oggToMogg)
+import           MoggDecrypt                               (oggToMogg)
 import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
 import qualified Network.Socket                            as Socket

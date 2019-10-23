@@ -1232,10 +1232,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   (1, 0) -> shk $ copyFile' (planDir </> "audio.mogg") out
                   _      -> do
                     shk $ need [pathOgg]
-                    mapStackTraceT (liftIO . runResourceT) $ Magma.oggToMogg pathOgg out
+                    mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
               Plan{..}   -> do
                 shk $ need [pathOgg]
-                mapStackTraceT (liftIO . runResourceT) $ Magma.oggToMogg pathOgg out
+                mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
             pathPng  %> shk . copyFile' (rel "gen/cover.png_xbox")
             pathMilo %> \out -> case rb3_FileMilo rb3 of
               Nothing   -> do
