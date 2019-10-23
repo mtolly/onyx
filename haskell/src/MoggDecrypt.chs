@@ -57,9 +57,9 @@ makeMoggTable bufSize audioLen = go 0 (0, 0) where
   go curSample prevPair pairs = if curSample >= audioLen
     then []
     else case pairs of
-      []                      -> prevPair : go (curSample + bufSize) prevPair pairs
+      []                       -> prevPair : go (curSample + bufSize) prevPair pairs
       p@(_bytes, samples) : ps -> if samples <= curSample
-        then p        : go (curSample + bufSize) p        ps
+        then go curSample p ps
         else prevPair : go (curSample + bufSize) prevPair pairs
 
 oggToMogg :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
