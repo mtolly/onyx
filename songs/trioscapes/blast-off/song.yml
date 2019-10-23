@@ -2,7 +2,7 @@ metadata:
   title: Blast Off
   file-include: ../../../albums/separate-realities.yml
   track-number: 1
-  author: Onyxite, thecourtofaporcupine
+  author: Onyxite, GanonMetroid, thecourtofaporcupine
   key: B minor
   rating: FF
   comments:
@@ -10,6 +10,7 @@ metadata:
     [live version](https://www.youtube.com/watch?v=reyZ5DqSyvs),
     adapted by Onyxite for
     [album version](https://trioscapes.bandcamp.com).
+  - 5-fret keys chart and bass solo done by GanonMetroid for Carpal Tunnel Hero 2.
 audio:
   album-track:
     # https://trioscapes.bandcamp.com
@@ -33,6 +34,13 @@ parts:
     drums:
       kicks: both
       difficulty: 7
+  keys:
+    grybo: {} # WIP
+  bass:
+    grybo: {} # WIP
+    pro-guitar: # WIP
+      tuning:
+        base: bass-5
 targets:
   rb3:
     game: rb3
