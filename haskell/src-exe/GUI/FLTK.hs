@@ -1236,10 +1236,12 @@ launchMisc sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       miscPageLipsync sink rect tab startTasks
       return tab
+    {-
     , makeTab windowRect "RB3 song cache" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageSongCache sink rect tab startTasks
       return tab
+    -}
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskTabColor >>= setTabColor tab
@@ -1882,11 +1884,13 @@ launchGUI = do
                 , Just $ launchMisc sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
+              {-
               , ( "File/Live Preview"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'p'
                 , Just $ promptPreview sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
+              -}
               , ( "File/Close Window"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'w'
                 , Just $ sink $ EventIO $ FLTK.firstWindow >>= \case

@@ -34,6 +34,11 @@ Mac version requires Wine. You can use the official installer, or you can use
 Homebrew (`brew install wine`). The app is compiled with Mojave (10.14.6), so
 you probably need at least that version.
 
+I haven't tested it myself but is likely that macOS Catalina (10.15) does not
+support running Magma in Wine due to its lack of support for 32-bit programs.
+For this reason, I recommend Mac users stay on Mojave if you wish to create Rock
+Band CON files until a solution is found.
+
 ## Instructions
 
 On Windows, run the installer, then run `onyx.exe` (or the installed shortcut).

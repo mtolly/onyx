@@ -1,5 +1,10 @@
 # Version history
 
+## 20191024
+
+* Fix a bug that caused occasional errors when generating CON files
+* Generate MOGGs via a new much faster method, instead of Magma
+
 ## 20190918
 
 * Options to prevent importing specific instruments in batch window
