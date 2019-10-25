@@ -7,7 +7,7 @@ metadata:
   rating: FF
   comments:
   - Drums chart done by thecourtofaporcupine for
-    [live version](https://www.youtube.com/watch?v=reyZ5DqSyvs),
+    [playthrough version](https://www.youtube.com/watch?v=reyZ5DqSyvs),
     adapted by Onyxite for
     [album version](https://trioscapes.bandcamp.com).
   - 5-fret keys chart and bass solo done by GanonMetroid for Carpal Tunnel Hero 2.
@@ -34,13 +34,13 @@ parts:
     drums:
       kicks: both
       difficulty: 7
-  keys:
-    grybo: {} # WIP
-  bass:
-    grybo: {} # WIP
-    pro-guitar: # WIP
-      tuning:
-        base: bass-5
+  # keys:
+  #   grybo: {} # WIP
+  # bass:
+  #   grybo: {} # WIP
+  #   pro-guitar: # WIP
+  #     tuning:
+  #       base: bass-5
 targets:
   rb3:
     game: rb3
