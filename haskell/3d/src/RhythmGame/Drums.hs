@@ -105,16 +105,28 @@ hitPad t x trk = let
       (_ : _, notes') ->
         trk { trackNotes = Map.insert k (Hit t x : notes') $ trackNotes trk }
 
-drawDrums :: GLStuff -> Track Double (D.Gem a) -> IO ()
-drawDrums GLStuff{..} trk = do
-  let drawCube :: V3 Float -> V3 Float -> V3 Float -> IO ()
-      drawCube (V3 x1 y1 z1) (V3 x2 y2 z2) color = do
+drawDrums :: GLStuff -> WindowDims -> Track Double (D.Gem a) -> IO ()
+drawDrums GLStuff{..} _dims trk = do
+  let drawCube :: V3 Float -> V3 Float -> Maybe (V3 Float) -> IO ()
+      drawCube (V3 x1 y1 z1) (V3 x2 y2 z2) mcolor = do
         sendUniformName cubeShader "model"
           $ translate4 (V3 ((x1 + x2) / 2) ((y1 + y2) / 2) ((z1 + z2) / 2))
           !*! L.scaled (V4 (x2 - x1) (y2 - y1) (z2 - z1) 1)
-        sendUniformName cubeShader "material.ambient" color
-        sendUniformName cubeShader "material.diffuse" color
-        sendUniformName cubeShader "material.specular" (V3 0.5 0.5 0.5 :: V3 Float)
+        case mcolor of
+          Just color -> do
+            sendUniformName cubeShader "material.diffuse.color" color
+            sendUniformName cubeShader "material.diffuse.isColor" True
+            sendUniformName cubeShader "material.specular.color" (V3 0.5 0.5 0.5 :: V3 Float)
+            sendUniformName cubeShader "material.specular.isColor" True
+          Nothing -> do
+            sendUniformName cubeShader "material.diffuse.isColor" False
+            sendUniformName cubeShader "material.diffuse.image" (0 :: GLint)
+            glActiveTexture GL_TEXTURE0
+            glBindTexture GL_TEXTURE_2D $ textureGL testDiffuse
+            sendUniformName cubeShader "material.specular.isColor" False
+            sendUniformName cubeShader "material.specular.image" (1 :: GLint)
+            glActiveTexture GL_TEXTURE1
+            glBindTexture GL_TEXTURE_2D $ textureGL testSpecular
         sendUniformName cubeShader "material.shininess" (32 :: Float)
         glDrawArrays GL_TRIANGLES 0 36
       nearZ = 2 :: Float
@@ -148,7 +160,7 @@ drawDrums GLStuff{..} trk = do
           _      -> (z + 0.2, z - 0.2)
         z = timeToZ t
         in drawCube (V3 x1 y1 z1) (V3 x2 y2 z2)
-          $ fmap (\chan -> colorFn $ fromInteger chan / 255) color
+          $ Just $ fmap (\chan -> colorFn $ fromInteger chan / 255) color
       drawNotes t notes = forM_ notes $ \case
         Autoplay gem -> if nowTime < t
           then drawGem t gem id
@@ -163,8 +175,8 @@ drawDrums GLStuff{..} trk = do
       drawOverhits t notes = if nowTime - t < 0.1
         then forM_ notes $ \gem -> drawGem nowTime gem (** 3)
         else return ()
-  drawCube (V3 -1 -1 nearZ) (V3 1 -1.1 farZ) (V3 0.2 0.2 0.2)
-  drawCube (V3 -1 -0.98 0.2) (V3 1 -1.05 -0.2) (V3 0.8 0.8 0.8)
+  drawCube (V3 -1 -1 nearZ) (V3 1 -1.1 farZ) $ Just (V3 0.2 0.2 0.2)
+  drawCube (V3 -1 -0.98 0.2) (V3 1 -1.05 -0.2) $ Just (V3 0.8 0.8 0.8)
   traverseRange_ drawNotes False nearTime farTime $ trackNotes trk
   traverseRange_ drawOverhits False nearTime farTime $ trackOverhits trk
 
@@ -203,48 +215,49 @@ withArrayBytes xs f = withArray xs $ \p -> let
   in f bytes p
 
 cubeVertices :: [CFloat]
-cubeVertices = [
-  -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
-   0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
-   0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
-   0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
-  -0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
-  -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
+cubeVertices =
+  -- positions         normals           texture coords
+  [ -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,  0.0, 0.0
+  ,  0.5, -0.5, -0.5,  0.0,  0.0, -1.0,  1.0, 0.0
+  ,  0.5,  0.5, -0.5,  0.0,  0.0, -1.0,  1.0, 1.0
+  ,  0.5,  0.5, -0.5,  0.0,  0.0, -1.0,  1.0, 1.0
+  , -0.5,  0.5, -0.5,  0.0,  0.0, -1.0,  0.0, 1.0
+  , -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,  0.0, 0.0
 
-  -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
-   0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
-   0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
-   0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
-  -0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
-  -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
+  , -0.5, -0.5,  0.5,  0.0,  0.0,  1.0,  0.0, 0.0
+  ,  0.5, -0.5,  0.5,  0.0,  0.0,  1.0,  1.0, 0.0
+  ,  0.5,  0.5,  0.5,  0.0,  0.0,  1.0,  1.0, 1.0
+  ,  0.5,  0.5,  0.5,  0.0,  0.0,  1.0,  1.0, 1.0
+  , -0.5,  0.5,  0.5,  0.0,  0.0,  1.0,  0.0, 1.0
+  , -0.5, -0.5,  0.5,  0.0,  0.0,  1.0,  0.0, 0.0
 
-  -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,
-  -0.5,  0.5, -0.5, -1.0,  0.0,  0.0,
-  -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,
-  -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,
-  -0.5, -0.5,  0.5, -1.0,  0.0,  0.0,
-  -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,
+  , -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,  1.0, 0.0
+  , -0.5,  0.5, -0.5, -1.0,  0.0,  0.0,  1.0, 1.0
+  , -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,  0.0, 1.0
+  , -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,  0.0, 1.0
+  , -0.5, -0.5,  0.5, -1.0,  0.0,  0.0,  0.0, 0.0
+  , -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,  1.0, 0.0
 
-   0.5,  0.5,  0.5,  1.0,  0.0,  0.0,
-   0.5,  0.5, -0.5,  1.0,  0.0,  0.0,
-   0.5, -0.5, -0.5,  1.0,  0.0,  0.0,
-   0.5, -0.5, -0.5,  1.0,  0.0,  0.0,
-   0.5, -0.5,  0.5,  1.0,  0.0,  0.0,
-   0.5,  0.5,  0.5,  1.0,  0.0,  0.0,
+  ,  0.5,  0.5,  0.5,  1.0,  0.0,  0.0,  1.0, 0.0
+  ,  0.5,  0.5, -0.5,  1.0,  0.0,  0.0,  1.0, 1.0
+  ,  0.5, -0.5, -0.5,  1.0,  0.0,  0.0,  0.0, 1.0
+  ,  0.5, -0.5, -0.5,  1.0,  0.0,  0.0,  0.0, 1.0
+  ,  0.5, -0.5,  0.5,  1.0,  0.0,  0.0,  0.0, 0.0
+  ,  0.5,  0.5,  0.5,  1.0,  0.0,  0.0,  1.0, 0.0
 
-  -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
-   0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
-   0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
-   0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
-  -0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
-  -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
+  , -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,  0.0, 1.0
+  ,  0.5, -0.5, -0.5,  0.0, -1.0,  0.0,  1.0, 1.0
+  ,  0.5, -0.5,  0.5,  0.0, -1.0,  0.0,  1.0, 0.0
+  ,  0.5, -0.5,  0.5,  0.0, -1.0,  0.0,  1.0, 0.0
+  , -0.5, -0.5,  0.5,  0.0, -1.0,  0.0,  0.0, 0.0
+  , -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,  0.0, 1.0
 
-  -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,
-   0.5,  0.5, -0.5,  0.0,  1.0,  0.0,
-   0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
-   0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
-  -0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
-  -0.5,  0.5, -0.5,  0.0,  1.0,  0.0
+  , -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,  0.0, 1.0
+  ,  0.5,  0.5, -0.5,  0.0,  1.0,  0.0,  1.0, 1.0
+  ,  0.5,  0.5,  0.5,  0.0,  1.0,  0.0,  1.0, 0.0
+  ,  0.5,  0.5,  0.5,  0.0,  1.0,  0.0,  1.0, 0.0
+  , -0.5,  0.5,  0.5,  0.0,  1.0,  0.0,  0.0, 0.0
+  , -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,  0.0, 1.0
   ]
 
 quadVertices :: [CFloat]
@@ -297,6 +310,9 @@ instance SendUniform GLint where
 instance SendUniform Float where
   sendUniform = glUniform1f
 
+instance SendUniform Bool where
+  sendUniform uni b = glUniform1i uni $ if b then 1 else 0
+
 objectVS, objectFS :: B.ByteString
 objectVS = $(makeRelativeToProject "shaders/object.vert" >>= embedFile)
 objectFS = $(makeRelativeToProject "shaders/object.frag" >>= embedFile)
@@ -324,7 +340,7 @@ data Texture = Texture
   { textureGL     :: GLuint
   , textureWidth  :: Int
   , textureHeight :: Int
-  }
+  } deriving (Show)
 
 loadTexture :: (GLPixel a) => Bool -> Image a -> IO Texture
 loadTexture linear img = do
@@ -394,6 +410,9 @@ data GLStuff = GLStuff
   , cubeVAO        :: GLuint
   , quadShader     :: GLuint
   , quadVAO        :: GLuint
+  , testDiffuse    :: Texture
+  , testSpecular   :: Texture
+  -------------------------------
   , meshVAOs       :: [(GLuint, (Int, Int))]
   , sceneLights    :: [A.Light]
   , sceneCameras   :: [A.Camera]
@@ -460,9 +479,10 @@ drawScene (viewPosn, cameraDir) GLStuff{..} (WindowDims w h) = do
           forceProp = either (error . ("Material property missing: " <>) . show) id
       glBindVertexArray mesh
       sendUniformName cubeShader "model" $ head transMatrices
-      sendUniformName cubeShader "material.ambient" $ xyz $ forceProp $ A.material_COLOR_AMBIENT material
-      sendUniformName cubeShader "material.diffuse" $ xyz $ forceProp $ A.material_COLOR_DIFFUSE material
-      sendUniformName cubeShader "material.specular" $ xyz $ forceProp $ A.material_COLOR_SPECULAR material
+      sendUniformName cubeShader "material.diffuse.color" $ xyz $ forceProp $ A.material_COLOR_DIFFUSE material
+      sendUniformName cubeShader "material.diffuse.isColor" True
+      sendUniformName cubeShader "material.specular.color" $ xyz $ forceProp $ A.material_COLOR_SPECULAR material
+      sendUniformName cubeShader "material.specular.isColor" True
       sendUniformName cubeShader "material.shininess" $ forceProp $ A.material_SHININESS material
       glDrawElements GL_TRIANGLES (fromIntegral len) GL_UNSIGNED_INT nullPtr
 
@@ -510,13 +530,17 @@ loadGLStuff = do
     glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
 
   glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE
-    (fromIntegral $ 6 * sizeOf (undefined :: CFloat))
+    (fromIntegral $ 8 * sizeOf (undefined :: CFloat))
     nullPtr
   glEnableVertexAttribArray 0
   glVertexAttribPointer 1 3 GL_FLOAT GL_FALSE
-    (fromIntegral $ 6 * sizeOf (undefined :: CFloat))
+    (fromIntegral $ 8 * sizeOf (undefined :: CFloat))
     (intPtrToPtr $ fromIntegral $ 3 * sizeOf (undefined :: CFloat))
   glEnableVertexAttribArray 1
+  glVertexAttribPointer 2 3 GL_FLOAT GL_FALSE
+    (fromIntegral $ 8 * sizeOf (undefined :: CFloat))
+    (intPtrToPtr $ fromIntegral $ 6 * sizeOf (undefined :: CFloat))
+  glEnableVertexAttribArray 2
 
   -- quad stuff
 
@@ -549,6 +573,17 @@ loadGLStuff = do
 
   glUseProgram quadShader
   sendUniformName quadShader "ourTexture" (0 :: GLint)
+
+  -- load sample textures
+
+  testDiffuse <-
+    readImage "/Users/mtolly/Desktop/3d/container2.png"
+    >>= either error (return . convertRGB8)
+    >>= loadTexture True
+  testSpecular <-
+    readImage "/Users/mtolly/Desktop/3d/container2_specular.png"
+    >>= either error (return . convertRGB8)
+    >>= loadTexture True
 
   -- clean up
 
@@ -587,7 +622,7 @@ freeTexture :: Texture -> IO ()
 freeTexture (Texture tex _ _) = with tex $ glDeleteTextures 1
 
 drawDrumsFull :: GLStuff -> WindowDims -> Track Double (D.Gem a) -> IO ()
-drawDrumsFull glStuff@GLStuff{..} (WindowDims w h) trk' = do
+drawDrumsFull glStuff@GLStuff{..} dims@(WindowDims w h) trk' = do
   glViewport 0 0 (fromIntegral w) (fromIntegral h)
   glClearColor 0.2 0.3 0.3 1.0
   glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
@@ -608,4 +643,4 @@ drawDrumsFull glStuff@GLStuff{..} (WindowDims w h) trk' = do
   sendUniformName cubeShader "light.diffuse" (V3 1 1 1 :: V3 Float)
   sendUniformName cubeShader "light.specular" (V3 1 1 1 :: V3 Float)
   sendUniformName cubeShader "viewPos" viewPosn
-  drawDrums glStuff trk'
+  drawDrums glStuff dims trk'

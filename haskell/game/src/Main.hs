@@ -112,16 +112,18 @@ main = getArgs >>= \case
               putStrLn "Waiting for connection..."
               conn <- TCP.accept sock
               putStrLn "Connected."
-              let readLoop = do
+              let readLoop dat = do
                     req <- Streams.read $ source conn
                     case req of
-                      Just x -> do
-                        case readMaybe $ B8.unpack x of
-                          Nothing -> putStrLn $ "Couldn't read as Double: " <> show x
-                          Just d  -> print d >> writeIORef time d
-                        readLoop
+                      Just bs -> let
+                        dat' = dat <> bs
+                        in case reverse $ B8.split '|' dat' of
+                          after : s : _ -> do
+                            mapM_ (writeIORef time) $ readMaybe $ B8.unpack s
+                            readLoop after
+                          _ -> readLoop dat'
                       Nothing -> putStrLn "Connection closed." >> connectLoop
-              readLoop
+              readLoop B.empty
         connectLoop
       liftIO $ bracket_ SDL.initializeAll SDL.quit $ do
         let windowConf = SDL.defaultWindow
