@@ -61,7 +61,7 @@ data C3 = C3
   , soloBass           :: Bool
   , soloKeys           :: Bool
   , soloVocals         :: Bool
-  , songPreview        :: Int
+  , songPreview        :: Maybe Int
   , checkTempoMap      :: Bool
   , wiiMode            :: Bool
   , doDrumMixEvents    :: Bool
@@ -131,7 +131,7 @@ readC3 txt = inside "Reading .c3 file" $ do
   soloBass <- readPair "SoloBass"
   soloKeys <- readPair "SoloKeys"
   soloVocals <- readPair "SoloVocals"
-  songPreview <- readPair "SongPreview"
+  songPreview <- maybeReadPair "SongPreview"
   checkTempoMap <- readPair "CheckTempoMap"
   wiiMode <- readPair "WiiMode"
   doDrumMixEvents <- readPair "DoDrumMixEvents"
@@ -196,7 +196,7 @@ showC3 c3 = T.unlines $ execWriter $ do
   showPair "SoloBass" soloBass
   showPair "SoloKeys" soloKeys
   showPair "SoloVocals" soloVocals
-  showPair "SongPreview" songPreview
+  maybeShowPair "SongPreview" songPreview
   showPair "CheckTempoMap" checkTempoMap
   showPair "WiiMode" wiiMode
   showPair "DoDrumMixEvents" doDrumMixEvents
