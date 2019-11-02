@@ -391,13 +391,14 @@ fixSongCache path = do
     then lg "Cache is up to date, nothing to save."
     else do
       lg "Saving updated cache file."
+      thumb <- stackIO $ rb3Thumbnail >>= B.readFile
       stackIO $ makeCONMemory CreateOptions
         { createName = "Rock Band 3 Song Cache"
         , createDescription = ""
         , createTitleID = 0x45410914
         , createTitleName = "Rock Band 3"
-        , createThumb = rb3Thumbnail
-        , createTitleThumb = rb3Thumbnail
+        , createThumb = thumb
+        , createTitleThumb = thumb
         , createLicense = LicenseEntry (-1) 0 0
         , createMediaID       = 1338582383
         , createVersion       = 1025

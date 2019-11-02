@@ -9,8 +9,7 @@ import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Config
-import           Control.Monad.Extra              (filterM, forM, forM_, guard,
-                                                   when)
+import           Control.Monad.Extra              (filterM, forM, guard, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
@@ -47,6 +46,7 @@ import           Magma                            (getRBAFile, runMagma,
                                                    runMagmaMIDI, runMagmaV1)
 import           MoggDecrypt                      (moggToOgg, oggToMogg)
 import           OpenProject
+import           OSFiles                          (copyDirRecursive)
 import           PrettyDTA                        (DTASingle (..),
                                                    readFileSongsDTA, readRB3DTA,
                                                    writeDTASingle)
@@ -126,24 +126,6 @@ findXbox360USB = stackIO $ do
         ("/dev/" `isPrefixOf` mnt_fsname mnt) && (mnt_dir mnt /= "/")
 #endif
   filterM (\drive -> Dir.doesDirectoryExist $ drive </> "Content") drives
-
-copyDirRecursive :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-copyDirRecursive src dst = do
-  stackIO $ Dir.createDirectoryIfMissing False dst
-  ents <- stackIO $ Dir.listDirectory src
-  forM_ ents $ \ent -> do
-    let pathFrom = src </> ent
-        pathTo = dst </> ent
-    isDir <- stackIO $ Dir.doesDirectoryExist pathFrom
-    if isDir
-      then copyDirRecursive pathFrom pathTo
-      else stackIO $ do
-        Dir.copyFile pathFrom pathTo
-        -- force r/w permissions due to X360 requiring it
-        perm <- Dir.getPermissions pathTo
-        Dir.setPermissions pathTo
-          $ Dir.setOwnerReadable True
-          $ Dir.setOwnerWritable True perm
 
 data Command = Command
   { commandWord  :: T.Text

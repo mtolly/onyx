@@ -891,34 +891,38 @@ data CreateOptions = CreateOptions
   }
 
 rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
-rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ makeCON CreateOptions
-  { createName = title
-  , createDescription = desc
-  , createTitleID = 0x45410914
-  , createTitleName = "Rock Band 3"
-  , createThumb = rb3Thumbnail
-  , createTitleThumb = rb3Thumbnail
-  , createLicense = LicenseEntry (-1) 1 0 -- unlocked
-  , createMediaID       = 0
-  , createVersion       = 0
-  , createBaseVersion   = 0
-  , createTransferFlags = 0xC0
-  } dir fout
+rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ do
+  thumb <- rb3Thumbnail >>= B.readFile
+  makeCON CreateOptions
+    { createName = title
+    , createDescription = desc
+    , createTitleID = 0x45410914
+    , createTitleName = "Rock Band 3"
+    , createThumb = thumb
+    , createTitleThumb = thumb
+    , createLicense = LicenseEntry (-1) 1 0 -- unlocked
+    , createMediaID       = 0
+    , createVersion       = 0
+    , createBaseVersion   = 0
+    , createTransferFlags = 0xC0
+    } dir fout
 
 rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
-rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ makeCON CreateOptions
-  { createName = title
-  , createDescription = desc
-  , createTitleID = 0x45410869
-  , createTitleName = "Rock Band 2"
-  , createThumb = rb2Thumbnail
-  , createTitleThumb = rb2Thumbnail
-  , createLicense = LicenseEntry (-1) 1 0 -- unlocked
-  , createMediaID       = 0
-  , createVersion       = 0
-  , createBaseVersion   = 0
-  , createTransferFlags = 0xC0
-  } dir fout
+rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ do
+  thumb <- rb2Thumbnail >>= B.readFile
+  makeCON CreateOptions
+    { createName = title
+    , createDescription = desc
+    , createTitleID = 0x45410869
+    , createTitleName = "Rock Band 2"
+    , createThumb = thumb
+    , createTitleThumb = thumb
+    , createLicense = LicenseEntry (-1) 1 0 -- unlocked
+    , createMediaID       = 0
+    , createVersion       = 0
+    , createBaseVersion   = 0
+    , createTransferFlags = 0xC0
+    } dir fout
 
 makeCON :: CreateOptions -> FilePath -> FilePath -> IO ()
 makeCON opts dir con = do
@@ -986,7 +990,8 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
   hSeek fd AbsoluteSeek 0x22C
   BL.hPut fd $ runPut $ void $ codecOut bin metadata
 
-  let key = loadKVbin xboxKV
+  kv <- xboxKV >>= B.readFile
+  let key = loadKVbin kv
       initHeader = CONHeader
         { ch_PublicKeyCertSize       = B.pack [0x01, 0xA8]
         , ch_CertOwnerConsoleID      = B.pack [0x09, 0x12, 0xBA, 0x26, 0xE3]
@@ -995,7 +1000,7 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
         , ch_CertDateGeneration      = "09-18-06"
         , ch_PublicExponent          = bytesFromInteger 4 $ public_e $ private_pub $ kv_PrivateKey key
         , ch_PublicModulus           = stockScramble $ bytesFromInteger 0x80 $ public_n $ private_pub $ kv_PrivateKey key
-        , ch_CertSignature           = B.take 0x100 $ B.drop 0xA60 xboxKV
+        , ch_CertSignature           = B.take 0x100 $ B.drop 0xA60 kv
         , ch_Signature               = B.replicate 0x80 0 -- gets filled in when package is done
         }
       initPackage = STFSPackage

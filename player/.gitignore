@@ -6,6 +6,4 @@
 /.psci*
 /src/.webpack.js
 
-app.js
-app.min.js
-song.js
+/build

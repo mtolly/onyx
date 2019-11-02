@@ -70,6 +70,7 @@ import qualified Magma
 import qualified MelodysEscape                         as Melody
 import           MoggDecrypt
 import qualified Numeric.NonNegative.Class             as NNC
+import           OSFiles                               (copyDirRecursive)
 import           Overdrive                             (calculateUnisons,
                                                         getOverdrive,
                                                         printFlexParts)
@@ -754,7 +755,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 else readImage img >>= \case
                   Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
                   Right dyn -> return $ convertRGB8 dyn
-            Nothing -> return onyxAlbum
+            Nothing -> stackIO onyxAlbum
       rel "gen/cover.bmp"      %> \out -> loadRGB8 >>= stackIO . writeBitmap  out . STBIR.resize STBIR.defaultOptions 256 256
       rel "gen/cover.png"      %> \out -> loadRGB8 >>= stackIO . writePng     out . STBIR.resize STBIR.defaultOptions 256 256
       rel "gen/cover.png_wii"  %> \out -> loadRGB8 >>= stackIO . BL.writeFile out . toDXT1File PNGWii
@@ -1243,26 +1244,27 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 let vox = RBFile.getFlexPart (rb3_Vocal rb3) $ RBFile.s_tracks midi
                     lip = lipsyncFromMidi . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
                     auto = autoLipsync . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
-                liftIO $ BL.writeFile out $ if
-                  | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync3 vox -> magmaMilo $ MagmaLipsync3
+                    write = stackIO . BL.writeFile out
+                if
+                  | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync3 vox -> write $ magmaMilo $ MagmaLipsync3
                     (lip $ RBFile.onyxLipsync1 vox)
                     (lip $ RBFile.onyxLipsync2 vox)
                     (lip $ RBFile.onyxLipsync3 vox)
-                  | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync2 vox -> magmaMilo $ MagmaLipsync2
+                  | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync2 vox -> write $ magmaMilo $ MagmaLipsync2
                     (lip $ RBFile.onyxLipsync1 vox)
                     (lip $ RBFile.onyxLipsync2 vox)
-                  | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync1 vox -> magmaMilo $ MagmaLipsync1
+                  | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync1 vox -> write $ magmaMilo $ MagmaLipsync1
                     (lip $ RBFile.onyxLipsync1 vox)
-                  | not $ nullVox $ RBFile.onyxHarm3 vox -> magmaMilo $ MagmaLipsync3
+                  | not $ nullVox $ RBFile.onyxHarm3 vox -> write $ magmaMilo $ MagmaLipsync3
                     (auto $ RBFile.onyxHarm1 vox)
                     (auto $ RBFile.onyxHarm2 vox)
                     (auto $ RBFile.onyxHarm3 vox)
-                  | not $ nullVox $ RBFile.onyxHarm2 vox -> magmaMilo $ MagmaLipsync2
+                  | not $ nullVox $ RBFile.onyxHarm2 vox -> write $ magmaMilo $ MagmaLipsync2
                     (auto $ RBFile.onyxHarm1 vox)
                     (auto $ RBFile.onyxHarm2 vox)
-                  | not $ nullVox $ RBFile.onyxPartVocals vox -> magmaMilo $ MagmaLipsync1
+                  | not $ nullVox $ RBFile.onyxPartVocals vox -> write $ magmaMilo $ MagmaLipsync1
                     (auto $ RBFile.onyxPartVocals vox)
-                  | otherwise -> BL.fromStrict emptyMilo
+                  | otherwise -> stackIO emptyMilo >>= \mt -> shk $ copyFile' mt out
               Just milo -> do
                 shk $ copyFile' milo out
                 forceRW out
@@ -1565,14 +1567,14 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   rb2Mogg %> shk . copyFile' pathMogg
                   rb2Milo %> \out -> do
                     ex <- doesRBAExist
-                    liftIO $ if ex
-                      then Magma.getRBAFile 3 pathMagmaRbaV1 out
-                      else B.writeFile out emptyMiloRB2
+                    if ex
+                      then stackIO $ Magma.getRBAFile 3 pathMagmaRbaV1 out
+                      else stackIO emptyMiloRB2 >>= \mt -> shk $ copyFile' mt out
                   rb2Weights %> \out -> do
                     ex <- doesRBAExist
-                    liftIO $ if ex
-                      then Magma.getRBAFile 5 pathMagmaRbaV1 out
-                      else B.writeFile out emptyWeightsRB2
+                    if ex
+                      then stackIO $ Magma.getRBAFile 5 pathMagmaRbaV1 out
+                      else stackIO emptyWeightsRB2 >>= \mt -> shk $ copyFile' mt out
                   rb2Art %> shk . copyFile' (rel "gen/cover.png_xbox")
                   rb2Pan %> \out -> liftIO $ B.writeFile out B.empty
                   rb2CON %> \out -> do
@@ -1981,9 +1983,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               js = "window.onyxSong = " ++ s' ++ ";\n"
           liftIO $ writeFile out js
         phony (dir </> "web") $ do
-          liftIO $ forM_ webDisplay $ \(f, bs) -> do
-            Dir.createDirectoryIfMissing True $ dir </> "web" </> takeDirectory f
-            B.writeFile (dir </> "web" </> f) bs
+          stackIO $ Dir.createDirectoryIfMissing True $ dir </> "web"
+          stackIO webDisplay >>= (`copyDirRecursive` (dir </> "web"))
           shk $ need
             [ dir </> "web/audio-mp3.js"
             , dir </> "web/audio-ogg.js"

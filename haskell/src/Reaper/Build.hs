@@ -52,6 +52,7 @@ import qualified Sound.MIDI.Message                    as Message
 import qualified Sound.MIDI.Message.Channel            as C
 import qualified Sound.MIDI.Message.Channel.Voice      as V
 import qualified Sound.MIDI.Util                       as U
+import           System.Directory                      (copyFile)
 import           System.FilePath                       (makeRelative,
                                                         takeDirectory,
                                                         takeExtension,
@@ -1124,9 +1125,9 @@ makeReaperIO tunings evts tempo audios out = liftIO $ do
         Element _ _ (Just sub) -> concatMap findColorMaps sub
   writeRPP out project
   forM_ (nubOrd $ findColorMaps project) $ \cmap -> case cmap of
-    "colormap_drums.png" -> B.writeFile (takeDirectory out </> cmap) colorMapDrums
-    "colormap_grybo.png" -> B.writeFile (takeDirectory out </> cmap) colorMapGRYBO
-    "colormap_ghl.png"   -> B.writeFile (takeDirectory out </> cmap) colorMapGHL
+    "colormap_drums.png" -> colorMapDrums >>= (`copyFile` (takeDirectory out </> cmap))
+    "colormap_grybo.png" -> colorMapGRYBO >>= (`copyFile` (takeDirectory out </> cmap))
+    "colormap_ghl.png"   -> colorMapGHL   >>= (`copyFile` (takeDirectory out </> cmap))
     _ -> return ()
 
 makeReaper :: [(FlexPartName, GtrTuning)] -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()

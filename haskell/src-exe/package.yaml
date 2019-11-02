@@ -7,24 +7,6 @@ license: GPL-3
 license-file: ../LICENSE.txt
 
 extra-source-files:
-- ../vendors/KV.bin
-- ../vendors/rb3.png
-- ../vendors/empty.milo_xbox
-- ../vendors/empty-rb2.milo_xbox
-- ../vendors/empty-rb2_weights.bin
-- ../vendors/missing_song_data.dta
-- ../vendors/rockband_drums.png
-- ../vendors/rockband_guitarbass.png
-- ../vendors/rockband_ghl.png
-- ../vendors/itaijidict
-- ../vendors/kanwadict
-- ../../player/www/index.html
-- ../../player/www/style.css
-- ../../player/www/app.min.js
-- ../../player/www/customize.js
-- ../../player/www/VarelaRound-Regular.ttf
-- ../../player/www/images/*.png
-- ../cbits/*.h
 - ../icon/icon.*
 
 ghc-options: -Wall

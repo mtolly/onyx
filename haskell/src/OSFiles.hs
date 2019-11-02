@@ -2,11 +2,12 @@
 {-# LANGUAGE LambdaCase   #-}
 {-# LANGUAGE ViewPatterns #-}
 -- | OS-specific functions to open and show files.
-module OSFiles (osOpenFile, osShowFolder, commonDir, fixFileCase) where
+module OSFiles (osOpenFile, osShowFolder, commonDir, fixFileCase, copyDirRecursive) where
 
+import           Control.Monad            (forM_)
 import           Control.Monad.IO.Class   (MonadIO (..))
-import           System.Directory         (makeAbsolute)
-import           System.FilePath          (takeDirectory)
+import qualified System.Directory         as Dir
+import           System.FilePath          (takeDirectory, (</>))
 #ifdef WINDOWS
 import           Foreign                  (Ptr, nullPtr, ptrToIntPtr,
                                            withArrayLen, withMany)
@@ -30,12 +31,24 @@ import           System.IO.Silently       (hSilence)
 #endif
 #endif
 
+copyDirRecursive :: (MonadIO m) => FilePath -> FilePath -> m ()
+copyDirRecursive src dst = liftIO $ do
+  Dir.createDirectoryIfMissing False dst
+  ents <- Dir.listDirectory src
+  forM_ ents $ \ent -> do
+    let pathFrom = src </> ent
+        pathTo = dst </> ent
+    isDir <- Dir.doesDirectoryExist pathFrom
+    if isDir
+      then copyDirRecursive pathFrom pathTo
+      else Dir.copyFile pathFrom pathTo
+
 osOpenFile :: (MonadIO m) => FilePath -> m ()
 osShowFolder :: (MonadIO m) => FilePath -> [FilePath] -> m ()
 
 commonDir :: [FilePath] -> IO (Maybe (FilePath, [FilePath]))
 commonDir fs = do
-  fs' <- liftIO $ mapM makeAbsolute fs
+  fs' <- liftIO $ mapM Dir.makeAbsolute fs
   return $ case map takeDirectory fs' of
     dir : dirs | all (== dir) dirs -> Just (dir, fs')
     _                              -> Nothing
