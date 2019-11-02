@@ -1,15 +1,17 @@
 {-# LANGUAGE LambdaCase #-}
 module Resources where
 
-import qualified Codec.Picture      as P
-import qualified Data.ByteString    as B
-import qualified Data.DTA           as D
-import qualified Data.Text          as T
-import           Data.Text.Encoding (decodeUtf8)
-import           System.Directory   (getHomeDirectory)
-import           System.Environment (getExecutablePath)
-import           System.FilePath    (takeDirectory, takeFileName, (</>))
-import           System.IO.Unsafe   (unsafePerformIO)
+import qualified Codec.Picture       as P
+import           Control.Arrow       (first)
+import qualified Data.ByteString     as B
+import qualified Data.DTA            as D
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Text           as T
+import           Data.Text.Encoding  (decodeUtf8)
+import           System.Directory    (getHomeDirectory)
+import           System.Environment  (getExecutablePath)
+import           System.FilePath     (takeDirectory, takeFileName, (</>))
+import           System.IO.Unsafe    (unsafePerformIO)
 
 getResourcesPath :: FilePath -> IO FilePath
 getResourcesPath f = do
@@ -62,3 +64,9 @@ colorMapDrums, colorMapGRYBO, colorMapGHL :: IO FilePath
 colorMapDrums = getResourcesPath "rockband_drums.png"
 colorMapGRYBO = getResourcesPath "rockband_guitarbass.png"
 colorMapGHL   = getResourcesPath "rockband_ghl.png"
+
+{-# NOINLINE shiftJISTable #-}
+shiftJISTable :: HM.HashMap B.ByteString Char
+shiftJISTable = unsafePerformIO $ do
+  getResourcesPath "shift-jis.txt" >>=
+    fmap (HM.fromList . map (first B.pack) . read) . readFile
