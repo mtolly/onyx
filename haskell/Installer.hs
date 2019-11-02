@@ -57,6 +57,15 @@ main = do
 
     _ <- section "Onyx" [Required] $ do
       setOutPath "$INSTDIR"
+      -- delete existing resource folder and older resource locations
+      rmdir [Recursive] "$INSTDIR/onyx-resource"
+      rmdir [Recursive] "$INSTDIR/magma-v1"
+      rmdir [Recursive] "$INSTDIR/magma-v2"
+      rmdir [Recursive] "$INSTDIR/magma-ogg2mogg"
+      rmdir [Recursive] "$INSTDIR/magma-common"
+      delete [] "$INSTDIR/itaijidict"
+      delete [] "$INSTDIR/kanwadict"
+      -- copy the files
       file [Recursive] "win/*"
       -- write install path
       writeRegStr HKLM "SOFTWARE/OnyxToolkit" "Install_Dir" "$INSTDIR"
