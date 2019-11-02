@@ -119,6 +119,7 @@ library:
   - cbits/encode_vag.c
   extra-libraries:
   - stdc++
+  # - vorbisfile # needed for ghci to work, even though it's under pkg-config?
   pkg-config-dependencies:
   - vorbisfile
 
