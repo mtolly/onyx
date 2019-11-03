@@ -5,6 +5,7 @@ Thanks to PyMilo, LibForge, and MiloMod for information on these structures.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TupleSections     #-}
 module RockBand.Milo where
 
 import qualified Codec.Compression.GZip           as GZ
@@ -21,11 +22,16 @@ import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (foldl')
 import           Data.List.Split                  (keepDelimsR, onSublist,
                                                    split)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe)
+import qualified Data.Text                        as T
 import           Data.Word
 import           DryVox                           (vocalTubes)
+import           Resources                        (CMUPhoneme (..), cmuDict)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Lipsync           (LipsyncTrack (..),
                                                    MagmaViseme (..))
@@ -278,21 +284,99 @@ lipsyncToMIDI tmap mmap lip = RBFile.Song tmap mmap $ RBFile.RawFile $ (:[])
           return $ E.MetaEvent $ Meta.TextEvent str
     return (dt, evts)
 
+cmuToVisemes :: CMUPhoneme -> [MagmaViseme]
+cmuToVisemes = \case
+  -- ipa and examples from https://en.wikipedia.org/wiki/ARPABET
+
+  -- good mappings
+
+  CMU_AA -> [Viseme_Ox_hi, Viseme_Ox_lo] -- ɑ : balm bot
+  CMU_AH -> [Viseme_Bump_hi, Viseme_Bump_lo] -- ʌ : butt
+  CMU_AY -> [Viseme_Size_hi, Viseme_Size_lo] -- aɪ : bite
+  CMU_EH -> [Viseme_Wet_hi, Viseme_Wet_lo] -- ɛ : bet
+  CMU_ER -> [Viseme_Church_hi, Viseme_Church_lo] -- ɝ : bird
+  -- could also be [Viseme_Earth_hi, Viseme_Earth_lo]
+  CMU_EY -> [Viseme_Cage_hi, Viseme_Cage_lo] -- eɪ : bait
+  -- could also be [Viseme_Fave_hi, Viseme_Fave_lo]
+  CMU_IH -> [Viseme_If_hi, Viseme_If_lo] -- ɪ : bit
+  CMU_IY -> [Viseme_Eat_hi, Viseme_Eat_lo] -- i : beat
+  CMU_OW -> [Viseme_Oat_hi, Viseme_Oat_lo] -- oʊ : boat
+  -- could also be [Viseme_Told_hi, Viseme_Told_lo]
+  -- could also be [Viseme_Though_hi, Viseme_Though_lo]
+  -- could also be [Viseme_Roar_hi, Viseme_Roar_lo]
+  CMU_UW -> [Viseme_New_hi, Viseme_New_lo] -- u : boot
+
+  -- imperfect mappings
+
+  CMU_AE -> [Viseme_Wet_hi, Viseme_Wet_lo] -- æ : bat
+  CMU_AO -> [Viseme_Oat_hi, Viseme_Oat_lo] -- ɔ : story
+  CMU_AW -> [Viseme_Ox_hi, Viseme_Ox_lo] -- aʊ : bout
+  -- probably should be a diphthong
+  CMU_OY -> [Viseme_Oat_hi, Viseme_Oat_lo] -- ɔɪ : boy
+  -- probably should be a diphthong
+  CMU_UH -> [Viseme_New_hi, Viseme_New_lo] -- ʊ : book
+
+  _      -> [] -- probably shouldn't happen
+
+englishVowels :: RTB.T t (Maybe T.Text) -> RTB.T t (Maybe CMUPhoneme)
+englishVowels = let
+  splitFirstWord evts = let
+    (x, y) = flip span evts $ \case
+      (_, Nothing   ) -> True
+      (_, Just lyric) -> elem
+        (T.takeEnd 1 $ T.dropWhileEnd (`elem` ['$', '#', '^']) lyric)
+        ["-", "="]
+    in (x <> take 1 y, drop 1 y)
+  go [] = []
+  go evts = case splitFirstWord evts of
+    (wordEvents, rest) -> let
+      numSyllables = length [ () | (_, Just _) <- wordEvents ]
+      isVowel phone = elem phone
+        [ CMU_AA, CMU_AE, CMU_AH, CMU_AO, CMU_AW
+        , CMU_AY, CMU_EH, CMU_ER, CMU_EY, CMU_IH
+        , CMU_IY, CMU_OW, CMU_OY, CMU_UH, CMU_UW
+        ]
+      filterLyric = maybe ""
+        $ T.map (\case '=' -> '-'; c -> c)
+        . T.filter (`notElem` ("-#^$!?" :: String))
+      word = B8.pack $ T.unpack $ T.toUpper $ T.concat $ map (filterLyric . snd) wordEvents
+      phones = case filter ((== numSyllables) . length) $ map (filter isVowel) $ fromMaybe [] $ HM.lookup word cmuDict of
+        match : _ -> applyPhonemes match wordEvents
+        []        -> guessPhonemes wordEvents
+      in phones ++ go rest
+  applyPhonemes phones           ((t, Nothing) : events) = (t, Nothing    ) : applyPhonemes phones events
+  applyPhonemes (phone : phones) ((t, Just _ ) : events) = (t, Just phone ) : applyPhonemes phones events
+  applyPhonemes _                []                      = []
+  applyPhonemes []               ((t, Just _ ) : events) = (t, Just CMU_AH) : applyPhonemes []     events -- shouldn't happen
+  guessPhonemes = map $ \case
+    (t, Nothing) -> (t, Nothing)
+    (t, Just _lyric) -> let
+      phone = CMU_AH -- TODO
+      in (t, Just phone)
+  in RTB.fromPairList . go . RTB.toPairList
+
 autoLipsync :: VocalTrack U.Seconds -> Lipsync
 autoLipsync vt = let
-  ah n = [(Viseme_Ox_hi, n), (Viseme_Ox_lo, n)]
+  ahs cur next = do
+    vis <- Map.keys cur <> Map.keys next
+    return (vis, fromMaybe 0 $ Map.lookup vis next)
   makeKeyframes cur goal rest = let
-    next = case compare cur goal of
-      EQ -> cur
-      LT -> if cur + 20 < cur then goal else min goal $ cur + 20
-      GT -> if cur - 20 > cur then goal else max goal $ cur - 20
-    in ah next : if RTB.null rest
+    next = Map.fromList $ filter (\(_, n) -> n /= 0) $ do
+      vis <- Map.keys cur <> Map.keys goal
+      return (vis, crawlFrame (Map.lookup vis cur) (Map.lookup vis goal))
+    crawlFrame mx my = case compare x y of
+      EQ -> x
+      LT -> if x + 20 < x then y else min y $ x + 20
+      GT -> if x - 20 > x then y else max y $ x - 20
+      where x = fromMaybe 0 mx
+            y = fromMaybe 0 my
+    in ahs cur next : if RTB.null rest
       then if cur == next then [] else makeKeyframes next goal RTB.empty
       else let
         (frame, after) = U.trackSplit (1/30 :: U.Seconds) rest
         goal' = case RTB.viewR frame of
-          Just (_, (_, bool)) -> if bool then 100 else 0
-          Nothing             -> goal
+          Just (_, (_, phone)) -> Map.fromList $ map (, 100) $ maybe [] cmuToVisemes phone
+          Nothing              -> goal
         in makeKeyframes next goal' after
   in Lipsync
     { lipsyncVersion    = 1
@@ -301,7 +385,7 @@ autoLipsync vt = let
     , lipsyncVisemes    = map (B8.pack . drop 7 . show) [minBound :: MagmaViseme .. maxBound]
     , lipsyncKeyframes  = drop 1 $ map
       (Keyframe . map ((\(vis, n) -> VisemeEvent (fromEnum vis) n)))
-      (makeKeyframes 0 0 $ vocalTubes vt)
+      (makeKeyframes Map.empty Map.empty $ englishVowels $ vocalTubes vt)
     }
 
 lipsyncFromMidi :: LipsyncTrack U.Seconds -> Lipsync

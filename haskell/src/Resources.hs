@@ -1,17 +1,21 @@
 {-# LANGUAGE LambdaCase #-}
 module Resources where
 
-import qualified Codec.Picture       as P
-import           Control.Arrow       (first)
-import qualified Data.ByteString     as B
-import qualified Data.DTA            as D
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Text           as T
-import           Data.Text.Encoding  (decodeUtf8)
-import           System.Directory    (getHomeDirectory)
-import           System.Environment  (getExecutablePath)
-import           System.FilePath     (takeDirectory, takeFileName, (</>))
-import           System.IO.Unsafe    (unsafePerformIO)
+import qualified Codec.Picture         as P
+import           Control.Arrow         (first)
+import           Control.Monad         (guard)
+import qualified Data.ByteString       as B
+import qualified Data.ByteString.Char8 as B8
+import           Data.Char             (isAlpha)
+import qualified Data.DTA              as D
+import qualified Data.HashMap.Strict   as HM
+import           Data.Maybe            (mapMaybe)
+import qualified Data.Text             as T
+import           Data.Text.Encoding    (decodeUtf8)
+import           System.Directory      (getHomeDirectory)
+import           System.Environment    (getExecutablePath)
+import           System.FilePath       (takeDirectory, takeFileName, (</>))
+import           System.IO.Unsafe      (unsafePerformIO)
 
 getResourcesPath :: FilePath -> IO FilePath
 getResourcesPath f = do
@@ -70,3 +74,66 @@ shiftJISTable :: HM.HashMap B.ByteString Char
 shiftJISTable = unsafePerformIO $ do
   getResourcesPath "shift-jis.txt" >>=
     fmap (HM.fromList . map (first B.pack) . read) . readFile
+
+{-# NOINLINE cmuDict #-}
+cmuDict :: HM.HashMap B.ByteString [[CMUPhoneme]]
+cmuDict = unsafePerformIO $ do
+  let parseLine b = do
+        guard $ not $ B.null b
+        guard $ isAlpha $ B8.head b
+        case B8.words b of
+          [] -> Nothing
+          word : phones -> do
+            let word' = B8.takeWhile (/= '(') word
+            phones' <- mapM (`HM.lookup` phonemeTable) phones
+            Just (word', [phones'])
+      phonemeTable :: HM.HashMap B.ByteString CMUPhoneme
+      phonemeTable = HM.fromList $ do
+        phone <- [minBound .. maxBound]
+        stress <- ["", "0", "1", "2"]
+        return (B8.pack $ drop 4 (show phone) <> stress, phone)
+  getResourcesPath "cmudict-0.7b" >>=
+    fmap (HM.fromListWith (flip (<>)) . mapMaybe parseLine . B8.lines) . B.readFile
+    -- flip is because fromListWith calls "f newVal oldVal"
+
+data CMUPhoneme
+  = CMU_AA -- vowel
+  | CMU_AE -- vowel
+  | CMU_AH -- vowel
+  | CMU_AO -- vowel
+  | CMU_AW -- vowel
+  | CMU_AY -- vowel
+  | CMU_B  -- stop
+  | CMU_CH -- affricate
+  | CMU_D  -- stop
+  | CMU_DH -- fricative
+  | CMU_EH -- vowel
+  | CMU_ER -- vowel
+  | CMU_EY -- vowel
+  | CMU_F  -- fricative
+  | CMU_G  -- stop
+  | CMU_HH -- aspirate
+  | CMU_IH -- vowel
+  | CMU_IY -- vowel
+  | CMU_JH -- affricate
+  | CMU_K  -- stop
+  | CMU_L  -- liquid
+  | CMU_M  -- nasal
+  | CMU_N  -- nasal
+  | CMU_NG -- nasal
+  | CMU_OW -- vowel
+  | CMU_OY -- vowel
+  | CMU_P  -- stop
+  | CMU_R  -- liquid
+  | CMU_S  -- fricative
+  | CMU_SH -- fricative
+  | CMU_T  -- stop
+  | CMU_TH -- fricative
+  | CMU_UH -- vowel
+  | CMU_UW -- vowel
+  | CMU_V  -- fricative
+  | CMU_W  -- semivowel
+  | CMU_Y  -- semivowel
+  | CMU_Z  -- fricative
+  | CMU_ZH -- fricative
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)

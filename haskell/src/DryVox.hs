@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
 module DryVox where
 
 import           Audio                            (applyVolsMono)
@@ -10,32 +11,41 @@ import qualified Data.Conduit                     as C
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
 import qualified Data.Conduit.List                as CL
+import           Data.Either                      (rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Maybe                       (fromMaybe, isJust,
+                                                   listToMaybe)
+import qualified Data.Text                        as T
 import qualified Data.Vector.Storable             as V
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
 import           RockBand.Codec.Vocal
+import           RockBand.Common                  (pattern RNil, pattern Wait)
 import qualified Sound.MIDI.Util                  as U
 
-vocalTubes :: (NNC.C t) => VocalTrack t -> RTB.T t Bool
+vocalTubes :: (NNC.C t) => VocalTrack t -> RTB.T t (Maybe T.Text)
 vocalTubes vox = let
-  edges = fmap (Just . snd) $ vocalNotes vox
-  pluses = fmap (const Nothing) $ RTB.filter (== "+") $ vocalLyrics vox
-  vox' = RTB.mapMaybe instant $ RTB.collectCoincident $ RTB.merge edges pluses
+  edges = fmap (Left . snd) $ vocalNotes vox
+  lyrics = fmap Right $ vocalLyrics vox
+  vox' = RTB.mapMaybe instant $ RTB.collectCoincident $ RTB.merge edges lyrics
   instant evts = let
-    on   = not $ null [ () | Just True  <- evts ]
-    off  = not $ null [ () | Just False <- evts ]
-    plus = not $ null [ () | Nothing    <- evts ]
-    in guard (on || off || plus) >> Just (on, off, plus)
+    on    = elem (Left True) evts
+    off   = elem (Left False) evts
+    lyric = listToMaybe $ rights evts
+    in guard (on || off || isJust lyric) >> Just (on, off, lyric)
   go rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
-    Just ((dt, (on, off, _)), rtb')
-      | on -> RTB.cons dt True $ go rtb'
-      | off -> case RTB.viewL rtb' of
-        Just ((_, (_, _, True)), _) -> RTB.delay dt       $ go rtb'
-        _                           -> RTB.cons  dt False $ go rtb'
+    Just ((dt, (on, off, lyric)), rtb')
+      | on        -> RTB.cons dt (Just $ fromMaybe "" lyric) $ go rtb'
+      | off       -> RTB.cons  dt Nothing $ go rtb'
       | otherwise -> RTB.delay dt $ go rtb'
-  in go vox'
+  isPlus s = elem s [Just "+", Just "+$"]
+  removePlus = \case
+    RNil -> RNil
+    Wait t1 Nothing (Wait t2 lyric rest) | isPlus lyric -> removePlus $ RTB.delay (t1 <> t2) rest
+    Wait t lyric rest | isPlus lyric -> removePlus $ RTB.delay t rest -- probably shouldn't happen
+    Wait t x rest -> Wait t x $ removePlus rest
+  in removePlus $ go vox'
 
 clipDryVox :: (Monad m, Num a, V.Storable a) => RTB.T U.Seconds Bool -> AudioSource m a -> AudioSource m a
 clipDryVox vox src = let

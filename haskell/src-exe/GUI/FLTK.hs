@@ -996,7 +996,7 @@ miscPageLipsync sink rect tab startTasks = do
   dryvoxButton "Make clipped dry vox" $ \trk -> do
     audio <- stackIO $ pickedAudio
     src <- buildSource' $ Input audio
-    return $ clipDryVox (vocalTubes trk) src
+    return $ clipDryVox (isJust <$> vocalTubes trk) src
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()

@@ -1005,7 +1005,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 ] out
             let saveClip m out vox = do
                   let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-                      clip = clipDryVox $ U.applyTempoTrack (RBFile.s_tempos m) $ vocalTubes vox
+                      clip = clipDryVox $ U.applyTempoTrack (RBFile.s_tempos m)
+                        $ fmap isJust $ vocalTubes vox
                   unclippedVox <- shk $ buildSource $ Input pathMagmaVocal
                   unclipped <- case frames unclippedVox of
                     0 -> shk $ buildSource $ Input pathMagmaSong
