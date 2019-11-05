@@ -15,7 +15,7 @@ audio:
     md5: 449ae5a309863b41cf3fa5c528eec826
     frames: 17628828
   surround:
-    md5: c34a09a8a09ab441e8f2e0e9c5cf2cdb
+    md5: d16ea6c24c3e522f1af451010ab9b219 # was c34a09a8a09ab441e8f2e0e9c5cf2cdb ???
     frames: 38481920
     channels: 6
   hihat:
