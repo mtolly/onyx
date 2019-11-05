@@ -34,7 +34,5 @@ library:
   - bytestring
   - linear
   - text
-  pkg-config-dependencies:
-  - assimp
   build-tools:
   - c2hs

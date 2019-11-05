@@ -22,12 +22,9 @@ import           Foreign.C
 import           Graphics.GL.Core33
 import           Graphics.GL.Types
 import           Linear                   (M44, V2 (..), V3 (..), V4 (..),
-                                           (!*!), (!*))
+                                           (!*!))
 import qualified Linear                   as L
 import qualified RockBand.Codec.Drums     as D
-import qualified Assimp as A
-import Data.Foldable (toList)
-import qualified Data.Text as T
 
 data Note t a
   = Upcoming a
@@ -119,14 +116,10 @@ drawDrums GLStuff{..} _dims trk = do
             sendUniformName cubeShader "material.specular.color" (V3 0.5 0.5 0.5 :: V3 Float)
             sendUniformName cubeShader "material.specular.isColor" True
           Nothing -> do
-            sendUniformName cubeShader "material.diffuse.isColor" False
-            sendUniformName cubeShader "material.diffuse.image" (0 :: GLint)
-            glActiveTexture GL_TEXTURE0
-            glBindTexture GL_TEXTURE_2D $ textureGL testDiffuse
-            sendUniformName cubeShader "material.specular.isColor" False
-            sendUniformName cubeShader "material.specular.image" (1 :: GLint)
-            glActiveTexture GL_TEXTURE1
-            glBindTexture GL_TEXTURE_2D $ textureGL testSpecular
+            sendUniformName cubeShader "material.diffuse.color" (V3 0 0 0 :: V3 Float)
+            sendUniformName cubeShader "material.diffuse.isColor" True
+            sendUniformName cubeShader "material.specular.color" (V3 0.5 0.5 0.5 :: V3 Float)
+            sendUniformName cubeShader "material.specular.isColor" True
         sendUniformName cubeShader "material.shininess" (32 :: Float)
         glDrawArrays GL_TRIANGLES 0 36
       nearZ = 2 :: Float
@@ -368,123 +361,12 @@ loadTexture linear img = do
   when linear $ glGenerateMipmap GL_TEXTURE_2D
   return $ Texture texture (imageWidth img) (imageHeight img)
 
-loadMesh :: A.AiMesh -> IO (GLuint, (Int, Int))
-loadMesh mesh = do
-  A.Mesh{..} <- A.readMesh mesh
-
-  vao <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
-  vbo <- alloca $ \p -> glGenBuffers 1 p >> peek p
-  ebo <- alloca $ \p -> glGenBuffers 1 p >> peek p
-
-  glBindVertexArray vao
-
-  glBindBuffer GL_ARRAY_BUFFER vbo
-  let vertexData = map CFloat $
-        zip meshVertices meshNormals >>= \(v3v, v3n) -> toList v3v <> toList v3n
-  withArrayBytes vertexData $ \size p -> do
-    glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
-
-  glBindBuffer GL_ELEMENT_ARRAY_BUFFER ebo
-  let indices = map fromIntegral $ meshFaces >>= A.faceIndices :: [GLuint]
-  withArrayBytes indices $ \size p -> do
-    glBufferData GL_ELEMENT_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
-
-  -- vertex position
-  glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE
-    (fromIntegral $ 6 * sizeOf (undefined :: CFloat))
-    nullPtr
-  glEnableVertexAttribArray 0
-  -- normal
-  glVertexAttribPointer 1 3 GL_FLOAT GL_FALSE
-    (fromIntegral $ 6 * sizeOf (undefined :: CFloat))
-    (intPtrToPtr $ fromIntegral $ 3 * sizeOf (undefined :: CFloat))
-  glEnableVertexAttribArray 1
-
-  -- clean up
-  glBindVertexArray 0
-  withArray [vbo, ebo] $ glDeleteBuffers 2
-  return (vao, (length meshVertices, meshMaterialIndex))
-
 data GLStuff = GLStuff
-  { cubeShader     :: GLuint
-  , cubeVAO        :: GLuint
-  , quadShader     :: GLuint
-  , quadVAO        :: GLuint
-  , testDiffuse    :: Texture
-  , testSpecular   :: Texture
-  -------------------------------
-  , meshVAOs       :: [(GLuint, (Int, Int))]
-  , sceneLights    :: [A.Light]
-  , sceneCameras   :: [A.Camera]
-  , sceneNodes     :: [([Int], [M44 Float], T.Text)]
-  , sceneMaterials :: [A.Material]
+  { cubeShader :: GLuint
+  , cubeVAO    :: GLuint
+  , quadShader :: GLuint
+  , quadVAO    :: GLuint
   } deriving (Show)
-
-drawScene :: (V3 Float, V3 Float) -> GLStuff -> WindowDims -> IO ()
-drawScene (viewPosn, cameraDir) GLStuff{..} (WindowDims w h) = do
-
-  glViewport 0 0 (fromIntegral w) (fromIntegral h)
-  glClearColor 0.2 0.3 0.3 1.0
-  glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
-
-  glUseProgram cubeShader
-
-  let xyz (V4 x y z _) = V3 x y z
-      addW (V3 x y z) = V4 x y z 1
-
-  -- let camera = head sceneCameras
-  --     (_, cameraTranses, _) = head $
-  --       filter (\(_, _, name) -> name == A.cameraName camera) sceneNodes
-  --     cameraTrans = foldr (!*!) L.identity cameraTranses
-  --     viewPosn = xyz $ cameraTrans !* addW (A.cameraPosition camera)
-  --     view, projection :: M44 Float
-  --     view = L.lookAt
-  --       (A.cameraPosition camera)
-  --       (A.cameraLookAt camera)
-  --       (A.cameraUp camera)
-  --       !*! cameraTrans
-  --     projection = L.perspective
-  --       (A.cameraHorizontalFOV camera)
-  --       (fromIntegral w / fromIntegral h)
-  --       (A.cameraClipPlaneNear camera)
-  --       (A.cameraClipPlaneFar camera)
-
-  let worldUp = V3 0 0 1
-      cameraDirRev = negate cameraDir
-      cameraRight = L.normalize $ L.cross worldUp cameraDirRev
-      cameraUp = L.cross cameraDirRev cameraRight
-      view, projection :: M44 Float
-      view = L.lookAt
-        viewPosn
-        (viewPosn - cameraDirRev)
-        cameraUp
-      projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
-
-  sendUniformName cubeShader "view" view
-  sendUniformName cubeShader "projection" projection
-
-  let light = head sceneLights
-      (_, lightTranses, _) = head $
-        filter (\(_, _, name) -> name == A.lightName light) sceneNodes
-      lightTrans = head lightTranses
-  sendUniformName cubeShader "light.position" $ xyz $ lightTrans !* addW (A.lightPosition light)
-  sendUniformName cubeShader "light.ambient" $ A.lightColorAmbient light
-  sendUniformName cubeShader "light.diffuse" $ A.lightColorDiffuse light
-  sendUniformName cubeShader "light.specular" $ A.lightColorSpecular light
-  sendUniformName cubeShader "viewPos" viewPosn
-
-  forM_ sceneNodes $ \(meshIndices, transMatrices, _) -> do
-    forM_ (map (meshVAOs !!) meshIndices) $ \(mesh, (len, materialIndex)) -> do
-      let material = sceneMaterials !! materialIndex
-          forceProp = either (error . ("Material property missing: " <>) . show) id
-      glBindVertexArray mesh
-      sendUniformName cubeShader "model" $ head transMatrices
-      sendUniformName cubeShader "material.diffuse.color" $ xyz $ forceProp $ A.material_COLOR_DIFFUSE material
-      sendUniformName cubeShader "material.diffuse.isColor" True
-      sendUniformName cubeShader "material.specular.color" $ xyz $ forceProp $ A.material_COLOR_SPECULAR material
-      sendUniformName cubeShader "material.specular.isColor" True
-      sendUniformName cubeShader "material.shininess" $ forceProp $ A.material_SHININESS material
-      glDrawElements GL_TRIANGLES (fromIntegral len) GL_UNSIGNED_INT nullPtr
 
 loadGLStuff :: IO GLStuff
 loadGLStuff = do
@@ -492,27 +374,6 @@ loadGLStuff = do
   glEnable GL_DEPTH_TEST
   glEnable GL_BLEND
   glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
-
-  -- load from assimp
-
-  scene <- either error id <$> A.importFile "/Users/mtolly/Desktop/3d/drums.dae"
-    [ A.AiProcess_Triangulate
-    , A.AiProcess_FlipUVs
-    ]
-  meshVAOs <- A.sceneMeshes scene >>= mapM loadMesh
-  sceneLights <- A.sceneLights scene >>= mapM A.readLight
-  sceneCameras <- A.sceneCameras scene >>= mapM A.readCamera
-  sceneNodes <- let
-    loadNode trans node = do
-      name <- A.nodeName node
-      meshIndices <- map fromIntegral <$> A.nodeMeshes node
-      thisTrans <- A.nodeTransformation node
-      let trans' = thisTrans : trans
-      children <- A.nodeChildren node
-      ((meshIndices, trans', name) :) . concat <$> mapM (loadNode trans') children
-    in A.rootNode scene >>= loadNode []
-  sceneMaterials <- A.sceneMaterials scene >>= mapM A.readMaterial
-  A.aiReleaseImport scene
 
   -- cube stuff
 
@@ -574,17 +435,6 @@ loadGLStuff = do
   glUseProgram quadShader
   sendUniformName quadShader "ourTexture" (0 :: GLint)
 
-  -- load sample textures
-
-  testDiffuse <-
-    readImage "/Users/mtolly/Desktop/3d/container2.png"
-    >>= either error (return . convertRGB8)
-    >>= loadTexture True
-  testSpecular <-
-    readImage "/Users/mtolly/Desktop/3d/container2_specular.png"
-    >>= either error (return . convertRGB8)
-    >>= loadTexture True
-
   -- clean up
 
   glBindVertexArray 0
@@ -596,7 +446,7 @@ deleteGLStuff :: GLStuff -> IO ()
 deleteGLStuff GLStuff{..} = do
   glDeleteProgram cubeShader
   glDeleteProgram quadShader
-  withArrayLen (cubeVAO : quadVAO : map fst meshVAOs) $ \len p ->
+  withArrayLen [cubeVAO, quadVAO] $ \len p ->
     glDeleteVertexArrays (fromIntegral len) p
 
 data WindowDims = WindowDims Int Int

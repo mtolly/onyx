@@ -1756,15 +1756,6 @@ updateTabsColor tabs = FL.getValue tabs >>= \case
   Nothing  -> return ()
   Just tab -> FL.getSelectionColor tab >>= FL.setSelectionColor tabs
 
-{-
--- doesn't appear to be in the bundled code
-type OpenCallback = CString -> IO ()
-foreign import ccall unsafe "fl_open_callback"
-  fl_open_callback :: FunPtr OpenCallback -> IO ()
-foreign import ccall "wrapper"
-  mkOpenCallback :: OpenCallback -> IO (FunPtr OpenCallback)
--}
-
 dragAndDrop
   :: ([String] -> IO ())
   -> (FLE.Event -> IO (Either a ()))
@@ -1884,13 +1875,11 @@ launchGUI = do
                 , Just $ launchMisc sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
-              {-
               , ( "File/Live Preview"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'p'
                 , Just $ promptPreview sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
-              -}
               , ( "File/Close Window"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'w'
                 , Just $ sink $ EventIO $ FLTK.firstWindow >>= \case
