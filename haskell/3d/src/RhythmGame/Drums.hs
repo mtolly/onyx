@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NegativeLiterals  #-}
@@ -8,7 +9,7 @@ module RhythmGame.Drums where
 
 import           Codec.Picture
 import           Control.Exception        (bracket)
-import           Control.Monad            (forM_, when)
+import           Control.Monad            (forM, forM_, when)
 import           Control.Monad.IO.Class   (MonadIO (..))
 import qualified Data.ByteString          as B
 import           Data.FileEmbed           (embedFile, makeRelativeToProject)
@@ -24,6 +25,7 @@ import           Graphics.GL.Types
 import           Linear                   (M44, V2 (..), V3 (..), V4 (..),
                                            (!*!))
 import qualified Linear                   as L
+import           Resources                (getResourcesPath)
 import qualified RockBand.Codec.Drums     as D
 
 data Note t a
@@ -31,14 +33,14 @@ data Note t a
   | Hit t a
   | Missed a
   | Autoplay a
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Functor)
 
 data Track t a = Track
   { trackNotes    :: Map t [Note t a] -- ^ lists must be non-empty
   , trackOverhits :: Map t [a] -- ^ lists must be non-empty
   , trackTime     :: t -- ^ the latest timestamp we have reached
   , trackWindow   :: t -- ^ the half-window of time on each side of a note
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show, Read, Functor)
 
 -- | Efficiently updates the range @(k1, k2)@ of values.
 updateRange :: (Ord k) => (k -> a -> a) -> k -> k -> Map k a -> Map k a
@@ -102,25 +104,58 @@ hitPad t x trk = let
       (_ : _, notes') ->
         trk { trackNotes = Map.insert k (Hit t x : notes') $ trackNotes trk }
 
-drawDrums :: GLStuff -> WindowDims -> Track Double (D.Gem a) -> IO ()
+data Object = Box (V2 Float) (V2 Float) | Cone
+
+coneSegments :: GLuint
+coneSegments = 15
+
+drawDrums :: GLStuff -> WindowDims -> Track Double (D.Gem D.ProType) -> IO ()
 drawDrums GLStuff{..} _dims trk = do
-  let drawCube :: V3 Float -> V3 Float -> Maybe (V3 Float) -> IO ()
-      drawCube (V3 x1 y1 z1) (V3 x2 y2 z2) mcolor = do
-        sendUniformName cubeShader "model"
+  glUseProgram objectShader
+  -- view and projection matrices should already have been set
+  let colorType = 1 :: GLuint
+      boxType = 2 :: GLuint
+      coneType = 3 :: GLuint
+      drawObject :: Object -> V3 Float -> V3 Float -> Either TextureID (V3 Float) -> Float -> Maybe (V3 Float) -> IO ()
+      drawObject obj (V3 x1 y1 z1) (V3 x2 y2 z2) texcolor alpha lightOffset = do
+        glBindVertexArray $ case obj of
+          Box{} -> boxVAO
+          Cone  -> coneVAO
+        sendUniformName objectShader "model"
           $ translate4 (V3 ((x1 + x2) / 2) ((y1 + y2) / 2) ((z1 + z2) / 2))
-          !*! L.scaled (V4 (x2 - x1) (y2 - y1) (z2 - z1) 1)
-        case mcolor of
-          Just color -> do
-            sendUniformName cubeShader "material.diffuse.color" color
-            sendUniformName cubeShader "material.diffuse.isColor" True
-            sendUniformName cubeShader "material.specular.color" (V3 0.5 0.5 0.5 :: V3 Float)
-            sendUniformName cubeShader "material.specular.isColor" True
-          Nothing -> do
-            sendUniformName cubeShader "material.diffuse.color" (V3 0 0 0 :: V3 Float)
-            sendUniformName cubeShader "material.diffuse.isColor" True
-            sendUniformName cubeShader "material.specular.color" (V3 0.5 0.5 0.5 :: V3 Float)
-            sendUniformName cubeShader "material.specular.isColor" True
-        sendUniformName cubeShader "material.shininess" (32 :: Float)
+          !*! L.scaled (V4 (abs $ x2 - x1) (abs $ y2 - y1) (abs $ z2 - z1) 1)
+        sendUniformName objectShader "alpha" alpha
+        forM_ lightOffset $ \off -> do
+          let center = V3 ((x1 + x2) / 2) (max y1 y2) ((z1 + z2) / 2)
+          sendUniformName objectShader "light.position" $ center + off
+          -- TODO do this better, right now it loses the original light position
+        case texcolor of
+          Right color -> do
+            sendUniformName objectShader "material.diffuse.type" colorType
+            sendUniformName objectShader "material.diffuse.color" color
+          Left texid -> do
+            case lookup texid textures of
+              Just tex -> do
+                glActiveTexture GL_TEXTURE0
+                glBindTexture GL_TEXTURE_2D $ textureGL tex
+                case obj of
+                  Box (V2 totalW totalH) (V2 cornerW cornerH) -> do
+                    sendUniformName objectShader "material.diffuse.type" boxType
+                    sendUniformName objectShader "material.diffuse.image" (0 :: GLint)
+                    sendUniformName objectShader "material.diffuse.box.totalWidth" totalW
+                    sendUniformName objectShader "material.diffuse.box.totalHeight" totalH
+                    sendUniformName objectShader "material.diffuse.box.cornerWidth" cornerW
+                    sendUniformName objectShader "material.diffuse.box.cornerHeight" cornerH
+                  Cone -> do
+                    sendUniformName objectShader "material.diffuse.type" coneType
+                    sendUniformName objectShader "material.diffuse.image" (0 :: GLint)
+                    sendUniformName objectShader "material.diffuse.cone.segments" coneSegments
+              Nothing -> do
+                sendUniformName objectShader "material.diffuse.type" colorType
+                sendUniformName objectShader "material.diffuse.color" (V3 1 0 1 :: V3 Float)
+        sendUniformName objectShader "material.specular.type" colorType
+        sendUniformName objectShader "material.specular.color" (V3 0.5 0.5 0.5 :: V3 Float)
+        sendUniformName objectShader "material.shininess" (32 :: Float)
         glDrawArrays GL_TRIANGLES 0 36
       nearZ = 2 :: Float
       nowZ = 0 :: Float
@@ -130,14 +165,17 @@ drawDrums GLStuff{..} _dims trk = do
       timeToZ t = nowZ + farZ * realToFrac ((t - nowTime) / (farTime - nowTime))
       zToTime z = nowTime + farTime * realToFrac ((z - nowZ) / (farZ - nowZ))
       nearTime = zToTime nearZ
-      drawGem t gem colorFn = let
-        color = case gem of
-          D.Kick           -> V3 153 106 6
-          D.Red            -> V3 202 25 7
-          D.Pro D.Yellow _ -> V3 207 180 57
-          D.Pro D.Blue   _ -> V3 71 110 222
-          D.Pro D.Green  _ -> V3 58 207 68
-          D.Orange         -> V3 58 207 68 -- TODO
+      drawGem t gem alpha = let
+        (texid, obj) = case gem of
+          D.Kick                  -> (TextureKick        , Box (V2 500  40) (V2   0  20))
+          D.Red                   -> (TextureRedGem      , Box (V2 600 400) (V2 150 254))
+          D.Pro D.Yellow D.Tom    -> (TextureYellowGem   , Box (V2 600 400) (V2 150 254))
+          D.Pro D.Blue   D.Tom    -> (TextureBlueGem     , Box (V2 600 400) (V2 150 254))
+          D.Pro D.Green  D.Tom    -> (TextureGreenGem    , Box (V2 600 400) (V2 150 254))
+          D.Pro D.Yellow D.Cymbal -> (TextureYellowCymbal, Cone                         )
+          D.Pro D.Blue   D.Cymbal -> (TextureBlueCymbal  , Cone                         )
+          D.Pro D.Green  D.Cymbal -> (TextureGreenCymbal , Cone                         )
+          D.Orange                -> (TextureGreenCymbal , Cone                         )
         (x1, x2) = case gem of
           D.Kick           -> (-1, 1)
           D.Red            -> (-1, -0.5)
@@ -146,32 +184,34 @@ drawDrums GLStuff{..} _dims trk = do
           D.Pro D.Green  _ -> (0.5, 1)
           D.Orange         -> (0.5, 1) -- TODO
         (y1, y2) = case gem of
-          D.Kick -> (-0.9, -1.1)
-          _      -> (-0.8, -1.1)
+          D.Kick           -> (-0.97, -1)
+          D.Pro _ D.Cymbal -> (-0.8 , -1)
+          _                -> (-0.9 , -1)
         (z1, z2) = case gem of
-          D.Kick -> (z + 0.1, z - 0.1)
-          _      -> (z + 0.2, z - 0.2)
+          D.Kick -> (z + 0.06, z - 0.06)
+          _      -> (z + 0.17, z - 0.17)
         z = timeToZ t
-        in drawCube (V3 x1 y1 z1) (V3 x2 y2 z2)
-          $ Just $ fmap (\chan -> colorFn $ fromInteger chan / 255) color
+        in drawObject obj (V3 x1 y1 z1) (V3 x2 y2 z2) (Left texid) alpha $ Just $ V3 0 1 0
       drawNotes t notes = forM_ notes $ \case
         Autoplay gem -> if nowTime < t
-          then drawGem t gem id
+          then drawGem t gem 1
           else if nowTime - t < 0.1
-            then drawGem nowTime gem sqrt
+            then drawGem nowTime gem $ realToFrac $ 1 - (nowTime - t) * 10
             else return ()
-        Upcoming gem -> drawGem t gem id
+        Upcoming gem -> drawGem t gem 1
         Hit t' gem -> if nowTime - t' < 0.1
-          then drawGem nowTime gem sqrt
+          then drawGem nowTime gem $ realToFrac $ 1 - (nowTime - t') * 10
           else return ()
-        Missed gem -> drawGem t gem (** 3)
-      drawOverhits t notes = if nowTime - t < 0.1
-        then forM_ notes $ \gem -> drawGem nowTime gem (** 3)
-        else return ()
-  drawCube (V3 -1 -1 nearZ) (V3 1 -1.1 farZ) $ Just (V3 0.2 0.2 0.2)
-  drawCube (V3 -1 -0.98 0.2) (V3 1 -1.05 -0.2) $ Just (V3 0.8 0.8 0.8)
-  traverseRange_ drawNotes False nearTime farTime $ trackNotes trk
-  traverseRange_ drawOverhits False nearTime farTime $ trackOverhits trk
+        Missed gem -> drawGem t gem 1
+  -- draw highway
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 nearZ) (V3 1 -1.1  0.17) (Right $ V3 0.2 0.2 0.2) 1 Nothing
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1   0.2) (V3 1 -1   -0.17) (Right $ V3 0.8 0.8 0.8) 1 Nothing
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1  -0.2) (V3 1 -1.1  farZ) (Right $ V3 0.2 0.2 0.2) 1 Nothing
+  -- draw railings
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ) (Right $ V3 0.4 0.2 0.6) 1 Nothing
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3  1    -0.85 nearZ) (V3  1.09 -1.1 farZ) (Right $ V3 0.4 0.2 0.6) 1 Nothing
+  -- draw notes
+  traverseRange_ drawNotes False nearTime farTime $ trackNotes    trk
 
 compileShader :: GLenum -> B.ByteString -> IO GLuint
 compileShader shaderType source = do
@@ -207,51 +247,95 @@ withArrayBytes xs f = withArray xs $ \p -> let
   bytes = fromIntegral $ length xs * sizeOf (head xs)
   in f bytes p
 
-cubeVertices :: [CFloat]
-cubeVertices =
-  -- positions         normals           texture coords
-  [ -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,  0.0, 0.0
-  ,  0.5, -0.5, -0.5,  0.0,  0.0, -1.0,  1.0, 0.0
-  ,  0.5,  0.5, -0.5,  0.0,  0.0, -1.0,  1.0, 1.0
-  ,  0.5,  0.5, -0.5,  0.0,  0.0, -1.0,  1.0, 1.0
-  , -0.5,  0.5, -0.5,  0.0,  0.0, -1.0,  0.0, 1.0
-  , -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,  0.0, 0.0
+data Vertex = Vertex
+  { vertexPosition   :: V3 CFloat
+  , vertexNormal     :: V3 CFloat
+  , vertexTexCoords  :: V2 CFloat
+  , vertexTexSegment :: CFloat
+  } deriving (Eq, Show)
 
-  , -0.5, -0.5,  0.5,  0.0,  0.0,  1.0,  0.0, 0.0
-  ,  0.5, -0.5,  0.5,  0.0,  0.0,  1.0,  1.0, 0.0
-  ,  0.5,  0.5,  0.5,  0.0,  0.0,  1.0,  1.0, 1.0
-  ,  0.5,  0.5,  0.5,  0.0,  0.0,  1.0,  1.0, 1.0
-  , -0.5,  0.5,  0.5,  0.0,  0.0,  1.0,  0.0, 1.0
-  , -0.5, -0.5,  0.5,  0.0,  0.0,  1.0,  0.0, 0.0
+instance Storable Vertex where
+  sizeOf _ = 8 * sizeOf (undefined :: CFloat) + sizeOf (undefined :: CFloat)
+  alignment _ = lcm
+    (alignment (undefined :: CFloat))
+    (alignment (undefined :: CFloat))
+  peek = undefined -- not implemented
+  poke p v = do
+    poke (castPtr p) $ vertexPosition v
+    poke (castPtr p `plusPtr` (3 * sizeOf (undefined :: CFloat))) $ vertexNormal v
+    poke (castPtr p `plusPtr` (6 * sizeOf (undefined :: CFloat))) $ vertexTexCoords v
+    poke (castPtr p `plusPtr` (8 * sizeOf (undefined :: CFloat))) $ vertexTexSegment v
 
-  , -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,  1.0, 0.0
-  , -0.5,  0.5, -0.5, -1.0,  0.0,  0.0,  1.0, 1.0
-  , -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,  0.0, 1.0
-  , -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,  0.0, 1.0
-  , -0.5, -0.5,  0.5, -1.0,  0.0,  0.0,  0.0, 0.0
-  , -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,  1.0, 0.0
+simpleCone :: Int -> [Vertex]
+simpleCone n = let
+  topCenter :: V3 CFloat
+  topCenter = V3 0 0.5 0
+  bottomIndex :: Int -> V3 CFloat
+  bottomIndex i = let
+    theta = (fromIntegral i / fromIntegral n) * 2 * pi
+    -- theta 0 goes back (negative Z) behind the center point
+    x = -0.5 * sin theta
+    z = -0.5 * cos theta
+    in V3 x -0.5 z
+  in do
+    i <- [0 .. n - 1]
+    let a = topCenter
+        b = bottomIndex i
+        c = bottomIndex $ i + 1
+        dir = (b - a) `L.cross` (c - a)
+        normal = L.normalize dir
+        u0 = fromIntegral i / fromIntegral n
+        u1 = fromIntegral (i + 1) / fromIntegral n
+        uhalf = (u0 + u1) / 2
+    [   Vertex a normal (V2 uhalf 1) (fromIntegral i)
+      , Vertex b normal (V2 u0    0) (fromIntegral i)
+      , Vertex c normal (V2 u1    0) (fromIntegral i)
+      ]
 
-  ,  0.5,  0.5,  0.5,  1.0,  0.0,  0.0,  1.0, 0.0
-  ,  0.5,  0.5, -0.5,  1.0,  0.0,  0.0,  1.0, 1.0
-  ,  0.5, -0.5, -0.5,  1.0,  0.0,  0.0,  0.0, 1.0
-  ,  0.5, -0.5, -0.5,  1.0,  0.0,  0.0,  0.0, 1.0
-  ,  0.5, -0.5,  0.5,  1.0,  0.0,  0.0,  0.0, 0.0
-  ,  0.5,  0.5,  0.5,  1.0,  0.0,  0.0,  1.0, 0.0
+simpleBox :: [Vertex]
+simpleBox = let
+  frontTopRight    = V3  0.5  0.5  0.5
+  backTopRight     = V3  0.5  0.5 -0.5
+  frontBottomRight = V3  0.5 -0.5  0.5
+  backBottomRight  = V3  0.5 -0.5 -0.5
+  frontTopLeft     = V3 -0.5  0.5  0.5
+  backTopLeft      = V3 -0.5  0.5 -0.5
+  frontBottomLeft  = V3 -0.5 -0.5  0.5
+  backBottomLeft   = V3 -0.5 -0.5 -0.5
+  in
 
-  , -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,  0.0, 1.0
-  ,  0.5, -0.5, -0.5,  0.0, -1.0,  0.0,  1.0, 1.0
-  ,  0.5, -0.5,  0.5,  0.0, -1.0,  0.0,  1.0, 0.0
-  ,  0.5, -0.5,  0.5,  0.0, -1.0,  0.0,  1.0, 0.0
-  , -0.5, -0.5,  0.5,  0.0, -1.0,  0.0,  0.0, 0.0
-  , -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,  0.0, 1.0
+    -- top face
+    [ Vertex frontTopRight (V3 0.0 1.0 0.0) (V2 1.0 0.0) 1
+    , Vertex backTopRight  (V3 0.0 1.0 0.0) (V2 1.0 1.0) 1
+    , Vertex backTopLeft   (V3 0.0 1.0 0.0) (V2 0.0 1.0) 1
+    , Vertex backTopLeft   (V3 0.0 1.0 0.0) (V2 0.0 1.0) 1
+    , Vertex frontTopLeft  (V3 0.0 1.0 0.0) (V2 0.0 0.0) 1
+    , Vertex frontTopRight (V3 0.0 1.0 0.0) (V2 1.0 0.0) 1
 
-  , -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,  0.0, 1.0
-  ,  0.5,  0.5, -0.5,  0.0,  1.0,  0.0,  1.0, 1.0
-  ,  0.5,  0.5,  0.5,  0.0,  1.0,  0.0,  1.0, 0.0
-  ,  0.5,  0.5,  0.5,  0.0,  1.0,  0.0,  1.0, 0.0
-  , -0.5,  0.5,  0.5,  0.0,  1.0,  0.0,  0.0, 0.0
-  , -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,  0.0, 1.0
-  ]
+    -- left face
+    , Vertex frontTopLeft    (V3 -1.0 0.0 0.0) (V2 1.0 1.0) 2
+    , Vertex backTopLeft     (V3 -1.0 0.0 0.0) (V2 0.0 1.0) 2
+    , Vertex backBottomLeft  (V3 -1.0 0.0 0.0) (V2 0.0 0.0) 2
+    , Vertex backBottomLeft  (V3 -1.0 0.0 0.0) (V2 0.0 0.0) 2
+    , Vertex frontBottomLeft (V3 -1.0 0.0 0.0) (V2 1.0 0.0) 2
+    , Vertex frontTopLeft    (V3 -1.0 0.0 0.0) (V2 1.0 1.0) 2
+
+    -- front face
+    , Vertex frontBottomLeft  (V3 0.0 0.0 1.0) (V2 0.0 0.0) 3
+    , Vertex frontBottomRight (V3 0.0 0.0 1.0) (V2 1.0 0.0) 3
+    , Vertex frontTopRight    (V3 0.0 0.0 1.0) (V2 1.0 1.0) 3
+    , Vertex frontTopRight    (V3 0.0 0.0 1.0) (V2 1.0 1.0) 3
+    , Vertex frontTopLeft     (V3 0.0 0.0 1.0) (V2 0.0 1.0) 3
+    , Vertex frontBottomLeft  (V3 0.0 0.0 1.0) (V2 0.0 0.0) 3
+
+    -- right face
+    , Vertex frontTopRight    (V3 1.0 0.0 0.0) (V2 0.0 1.0) 4
+    , Vertex frontBottomRight (V3 1.0 0.0 0.0) (V2 0.0 0.0) 4
+    , Vertex backBottomRight  (V3 1.0 0.0 0.0) (V2 1.0 0.0) 4
+    , Vertex backBottomRight  (V3 1.0 0.0 0.0) (V2 1.0 0.0) 4
+    , Vertex backTopRight     (V3 1.0 0.0 0.0) (V2 1.0 1.0) 4
+    , Vertex frontTopRight    (V3 1.0 0.0 0.0) (V2 0.0 1.0) 4
+    ]
 
 quadVertices :: [CFloat]
 quadVertices =
@@ -264,8 +348,8 @@ quadVertices =
 
 quadIndices :: [GLuint]
 quadIndices =
-  [ 0, 1, 3 -- first triangle
-  , 1, 2, 3 -- second triangle
+  [ 0, 3, 1 -- first triangle
+  , 1, 3, 2 -- second triangle
   ]
 
 translate4 :: (Num a) => V3 a -> M44 a
@@ -300,6 +384,9 @@ instance SendUniform (V4 Float) where
 instance SendUniform GLint where
   sendUniform = glUniform1i
 
+instance SendUniform GLuint where
+  sendUniform = glUniform1ui
+
 instance SendUniform Float where
   sendUniform = glUniform1f
 
@@ -318,11 +405,6 @@ class (Pixel a) => GLPixel a where
   glPixelInternalFormat :: a -> GLint
   glPixelFormat :: a -> GLenum
   glPixelType :: a -> GLenum
-
-instance GLPixel PixelRGB8 where
-  glPixelInternalFormat _ = GL_RGB
-  glPixelFormat _ = GL_RGB
-  glPixelType _ = GL_UNSIGNED_BYTE
 
 instance GLPixel PixelRGBA8 where
   glPixelInternalFormat _ = GL_RGBA
@@ -362,46 +444,72 @@ loadTexture linear img = do
   return $ Texture texture (imageWidth img) (imageHeight img)
 
 data GLStuff = GLStuff
-  { cubeShader :: GLuint
-  , cubeVAO    :: GLuint
-  , quadShader :: GLuint
-  , quadVAO    :: GLuint
+  { objectShader :: GLuint
+  , boxVAO       :: GLuint
+  , coneVAO      :: GLuint
+  , quadShader   :: GLuint
+  , quadVAO      :: GLuint
+  , textures     :: [(TextureID, Texture)]
   } deriving (Show)
+
+data TextureID
+  = TextureKick
+  | TextureRedGem
+  | TextureYellowGem
+  | TextureBlueGem
+  | TextureGreenGem
+  | TextureRedCymbal
+  | TextureYellowCymbal
+  | TextureBlueCymbal
+  | TextureGreenCymbal
+  deriving (Eq, Show, Enum, Bounded)
 
 loadGLStuff :: IO GLStuff
 loadGLStuff = do
 
   glEnable GL_DEPTH_TEST
+  glEnable GL_CULL_FACE -- default CCW = front
   glEnable GL_BLEND
+  glEnable GL_MULTISAMPLE
   glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
 
-  -- cube stuff
+  -- format of the Vertex type
+  let vertexParts =
+        [ (3, GL_FLOAT, 3 * sizeOf (undefined :: CFloat))
+        , (3, GL_FLOAT, 3 * sizeOf (undefined :: CFloat))
+        , (2, GL_FLOAT, 2 * sizeOf (undefined :: CFloat))
+        , (1, GL_FLOAT, sizeOf (undefined :: CFloat))
+        ]
+      totalSize = sum [ size | (_, _, size) <- vertexParts ]
+      writeParts _ _      []                         = return ()
+      writeParts i offset ((n, gltype, size) : rest) = do
+        glVertexAttribPointer i n gltype GL_FALSE
+          (fromIntegral totalSize)
+          (intPtrToPtr $ fromIntegral offset)
+        glEnableVertexAttribArray i
+        writeParts (i + 1) (offset + size) rest
 
-  cubeShader <- bracket (compileShader GL_VERTEX_SHADER objectVS) glDeleteShader $ \vertexShader -> do
+  -- object stuff
+
+  objectShader <- bracket (compileShader GL_VERTEX_SHADER objectVS) glDeleteShader $ \vertexShader -> do
     bracket (compileShader GL_FRAGMENT_SHADER objectFS) glDeleteShader $ \fragmentShader -> do
       compileProgram [vertexShader, fragmentShader]
 
-  cubeVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
-  cubeVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
-
-  glBindVertexArray cubeVAO
-
-  glBindBuffer GL_ARRAY_BUFFER cubeVBO
-  withArrayBytes cubeVertices $ \size p -> do
+  boxVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
+  boxVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
+  glBindVertexArray boxVAO
+  glBindBuffer GL_ARRAY_BUFFER boxVBO
+  withArrayBytes simpleBox $ \size p -> do
     glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
+  writeParts 0 0 vertexParts
 
-  glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE
-    (fromIntegral $ 8 * sizeOf (undefined :: CFloat))
-    nullPtr
-  glEnableVertexAttribArray 0
-  glVertexAttribPointer 1 3 GL_FLOAT GL_FALSE
-    (fromIntegral $ 8 * sizeOf (undefined :: CFloat))
-    (intPtrToPtr $ fromIntegral $ 3 * sizeOf (undefined :: CFloat))
-  glEnableVertexAttribArray 1
-  glVertexAttribPointer 2 3 GL_FLOAT GL_FALSE
-    (fromIntegral $ 8 * sizeOf (undefined :: CFloat))
-    (intPtrToPtr $ fromIntegral $ 6 * sizeOf (undefined :: CFloat))
-  glEnableVertexAttribArray 2
+  coneVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
+  coneVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
+  glBindVertexArray coneVAO
+  glBindBuffer GL_ARRAY_BUFFER coneVBO
+  withArrayBytes (simpleCone $ fromIntegral coneSegments) $ \size p -> do
+    glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
+  writeParts 0 0 vertexParts
 
   -- quad stuff
 
@@ -435,18 +543,34 @@ loadGLStuff = do
   glUseProgram quadShader
   sendUniformName quadShader "ourTexture" (0 :: GLint)
 
+  -- textures
+
+  textures <- forM [minBound .. maxBound] $ \texID -> do
+    path <- getResourcesPath $ case texID of
+      TextureKick         -> "textures/kick.jpg"
+      TextureRedGem       -> "textures/box-red.jpg"
+      TextureYellowGem    -> "textures/box-yellow.jpg"
+      TextureBlueGem      -> "textures/box-blue.jpg"
+      TextureGreenGem     -> "textures/box-green.jpg"
+      TextureRedCymbal    -> "textures/cymbal-red.jpg"
+      TextureYellowCymbal -> "textures/cymbal-yellow.jpg"
+      TextureBlueCymbal   -> "textures/cymbal-blue.jpg"
+      TextureGreenCymbal  -> "textures/cymbal-green.jpg"
+    tex <- readImage path >>= either fail return >>= loadTexture True . convertRGBA8
+    return (texID, tex)
+
   -- clean up
 
   glBindVertexArray 0
-  withArray [cubeVBO, quadVBO, quadEBO] $ glDeleteBuffers 3
+  withArray [boxVBO, coneVBO, quadVBO, quadEBO] $ glDeleteBuffers 3
 
   return GLStuff{..}
 
 deleteGLStuff :: GLStuff -> IO ()
 deleteGLStuff GLStuff{..} = do
-  glDeleteProgram cubeShader
+  glDeleteProgram objectShader
   glDeleteProgram quadShader
-  withArrayLen [cubeVAO, quadVAO] $ \len p ->
+  withArrayLen [boxVAO, coneVAO, quadVAO] $ \len p ->
     glDeleteVertexArrays (fromIntegral len) p
 
 data WindowDims = WindowDims Int Int
@@ -471,26 +595,26 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
 freeTexture :: Texture -> IO ()
 freeTexture (Texture tex _ _) = with tex $ glDeleteTextures 1
 
-drawDrumsFull :: GLStuff -> WindowDims -> Track Double (D.Gem a) -> IO ()
+drawDrumsFull :: GLStuff -> WindowDims -> Track Double (D.Gem D.ProType) -> IO ()
 drawDrumsFull glStuff@GLStuff{..} dims@(WindowDims w h) trk' = do
   glViewport 0 0 (fromIntegral w) (fromIntegral h)
   glClearColor 0.2 0.3 0.3 1.0
   glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
 
-  glUseProgram cubeShader
-  glBindVertexArray cubeVAO
-  let viewPosn = V3 0 1 3 :: V3 Float
+  glUseProgram objectShader
+  glBindVertexArray boxVAO
+  let viewPosn = V3 0 1.4 3 :: V3 Float
       view, projection :: M44 Float
       view
-        = L.mkTransformation (L.axisAngle (V3 1 0 0) (degrees 20)) 0
+        = L.mkTransformation (L.axisAngle (V3 1 0 0) (degrees 25)) 0
         !*! translate4 (negate viewPosn)
         -- note, this translates then rotates (can't just give V3 to mkTransformation)
       projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
-  sendUniformName cubeShader "view" view
-  sendUniformName cubeShader "projection" projection
-  sendUniformName cubeShader "light.position" (V3 0 -0.5 0.5 :: V3 Float)
-  sendUniformName cubeShader "light.ambient" (V3 0.2 0.2 0.2 :: V3 Float)
-  sendUniformName cubeShader "light.diffuse" (V3 1 1 1 :: V3 Float)
-  sendUniformName cubeShader "light.specular" (V3 1 1 1 :: V3 Float)
-  sendUniformName cubeShader "viewPos" viewPosn
+  sendUniformName objectShader "view" view
+  sendUniformName objectShader "projection" projection
+  sendUniformName objectShader "light.position" (V3 0 -0.5 0.5 :: V3 Float)
+  sendUniformName objectShader "light.ambient" (V3 0.2 0.2 0.2 :: V3 Float)
+  sendUniformName objectShader "light.diffuse" (V3 1 1 1 :: V3 Float)
+  sendUniformName objectShader "light.specular" (V3 1 1 1 :: V3 Float)
+  sendUniformName objectShader "viewPos" viewPosn
   drawDrums glStuff dims trk'

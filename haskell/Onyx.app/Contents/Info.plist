@@ -35,7 +35,7 @@
   <key>LSEnvironment</key>
   <dict>
     <key>PATH</key>
-    <string>/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/Library/Frameworks/Mono.framework/Versions/Current/Commands:/Applications/Wine Devel.app/Contents/Resources/wine/bin:/Applications/Wine Stable.app/Contents/Resources/wine/bin</string>
+    <string>/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/Applications/Wine Devel.app/Contents/Resources/wine/bin:/Applications/Wine Stable.app/Contents/Resources/wine/bin</string>
     <!--
     If you change the above, the following command is required:
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -v -f Onyx.app

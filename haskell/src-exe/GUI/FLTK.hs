@@ -1438,7 +1438,7 @@ launchPreview sink makeMenuBar mid = do
       FL.defaultCustomWidgetFuncs
       FL.defaultCustomWindowFuncs
     FL.end glwindow
-    FL.setMode glwindow $ FLE.Modes [FLE.ModeOpenGL3, FLE.ModeDepth, FLE.ModeRGB8, FLE.ModeDouble, FLE.ModeAlpha]
+    FL.setMode glwindow $ FLE.Modes [FLE.ModeOpenGL3, FLE.ModeDepth, FLE.ModeRGB8, FLE.ModeDouble, FLE.ModeAlpha, FLE.ModeMultisample]
 
     FL.end window
     FL.setResizable window $ Just glwindow

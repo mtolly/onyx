@@ -52,26 +52,6 @@ import           Text.Read                        (readMaybe)
 main :: IO ()
 main = getArgs >>= \case
 
-  ["scene"] -> do
-    res <- runResourceT $ logStdout $ do
-      liftIO $ bracket_ SDL.initializeAll SDL.quit $ do
-        let windowConf = SDL.defaultWindow
-              { SDL.windowResizable = True
-              , SDL.windowHighDPI = False
-              , SDL.windowInitialSize = SDL.V2 800 600
-              , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
-                { SDL.glProfile = SDL.Core SDL.Normal 3 3
-                }
-              }
-        bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do
-          SDL.windowMinimumSize window $= SDL.V2 800 600
-          bracket (SDL.glCreateContext window) (\ctx -> glFinish >> SDL.glDeleteContext ctx) $ \_ctx -> do
-            threadDelay 1000000 -- this prevents a weird crash, see https://github.com/haskell-game/sdl2/issues/176
-            RGDrums.playScene window
-    case res of
-      Left err -> throwIO err
-      Right () -> return ()
-
   ["server", mid] -> do
     res <- runResourceT $ logStdout $ do
 
@@ -132,6 +112,7 @@ main = getArgs >>= \case
               , SDL.windowInitialSize = SDL.V2 800 600
               , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
                 { SDL.glProfile = SDL.Core SDL.Normal 3 3
+                , SDL.glMultisampleSamples = 4
                 }
               }
         bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do
@@ -172,6 +153,7 @@ main = getArgs >>= \case
               , SDL.windowInitialSize = SDL.V2 800 600
               , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
                 { SDL.glProfile = SDL.Core SDL.Normal 3 3
+                , SDL.glMultisampleSamples = 4
                 }
               }
         bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do
