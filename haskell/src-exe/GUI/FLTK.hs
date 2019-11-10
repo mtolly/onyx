@@ -58,10 +58,12 @@ import qualified Data.HashMap.Strict                       as HM
 import           Data.IORef                                (IORef, newIORef,
                                                             readIORef,
                                                             writeIORef)
+import           Data.List                                 (elemIndex)
 import qualified Data.Map.Strict                           as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
-                                                            listToMaybe)
+                                                            listToMaybe,
+                                                            mapMaybe)
 import qualified Data.Text                                 as T
 import qualified Data.Text.Encoding                        as TE
 import           Data.Time                                 (getCurrentTime)
@@ -104,7 +106,8 @@ import           RockBand.Codec                            (mapTrack)
 import qualified RockBand.Codec.Drums                      as D
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
-import           RockBand.Common                           (RB3Instrument (..))
+import           RockBand.Common                           (Difficulty (..),
+                                                            RB3Instrument (..))
 import           RockBand.SongCache                        (fixSongCache)
 import           Scripts                                   (loadMIDI)
 import qualified Sound.File.Sndfile                        as Snd
@@ -1263,7 +1266,38 @@ launchMisc sink makeMenuBar = mdo
   FL.setCallback window $ windowCloser cancelTasks
   FL.showWidget window
 
-watchSong :: IO () -> FilePath -> Onyx (IO (RGDrums.Track Double (D.Gem D.ProType)), IO ())
+data PreviewTrack
+  = PreviewDrums (RGDrums.Track Double (D.Gem D.ProType))
+  | PreviewFive -- TODO
+  deriving (Show)
+
+computeTracks :: RBFile.Song (RBFile.FixedFile U.Beats) -> [(T.Text, PreviewTrack)]
+computeTracks song = let
+  tempos = RBFile.s_tempos song
+  drums = RBFile.fixedPartDrums $ RBFile.s_tracks song
+  drums' diff
+    = Map.fromList
+    $ map (first $ realToFrac . U.applyTempoMap tempos)
+    $ ATB.toPairList
+    $ RTB.toAbsoluteEventList 0
+    $ RTB.collectCoincident
+    $ fmap RGDrums.Autoplay
+    $ D.computePro diff drums
+  drumTrack diff = RGDrums.Track (drums' diff) Map.empty 0 0.2
+  in concat
+    [ [ ("Drums (X+)", PreviewDrums $ drumTrack Nothing)
+      | not $ RTB.null $ D.drumKick2x drums
+      ]
+    , flip mapMaybe [(Expert, "X"), (Hard, "H"), (Medium, "M"), (Easy, "E")] $ \(diff, letter) -> do
+      guard $ maybe False (not . RTB.null . D.drumGems)
+        $ Map.lookup diff $ D.drumDifficulties drums
+      return
+        ( "Drums (" <> letter <> ")"
+        , PreviewDrums $ drumTrack $ Just diff
+        )
+    ]
+
+watchSong :: IO () -> FilePath -> Onyx (IO [(T.Text, PreviewTrack)], IO ())
 watchSong notify mid = do
   let loadTrack = do
         song <- case map toLower $ takeExtension mid of
@@ -1271,17 +1305,7 @@ watchSong notify mid = do
             txt <- liftIO $ T.unpack . decodeGeneral <$> B.readFile mid
             RBFile.interpretMIDIFile $ RPP.getMIDI $ RPP.parse $ RPP.scan txt
           _ -> loadMIDI mid
-        let tempos = RBFile.s_tempos song
-            drums = RBFile.fixedPartDrums $ RBFile.s_tracks song
-            drums'
-              = Map.fromList
-              $ map (first $ realToFrac . U.applyTempoMap tempos)
-              $ ATB.toPairList
-              $ RTB.toAbsoluteEventList 0
-              $ RTB.collectCoincident
-              $ fmap RGDrums.Autoplay
-              $ D.computePro Nothing drums
-        return $ RGDrums.Track drums' Map.empty 0 0.2
+        return $ computeTracks song
   varTrack <- loadTrack >>= liftIO . newIORef
   chan <- liftIO newChan
   let midFileName = takeFileName mid
@@ -1369,7 +1393,7 @@ data GLStatus = GLPreload | GLLoaded RGDrums.GLStuff | GLClosed
 
 launchPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
 launchPreview sink makeMenuBar mid = do
-  (getTrack, stopWatch) <- watchSong (sink $ EventIO FLTK.redraw) mid
+  (getTracks, stopWatch) <- watchSong (sink $ EventIO FLTK.redraw) mid
   liftIO $ do
 
     let windowWidth = Width 800
@@ -1380,9 +1404,11 @@ launchPreview sink makeMenuBar mid = do
     let (_, windowRect) = chopTop menuHeight $ Rectangle
           (Position (X 0) (Y 0))
           windowSize
-        (controlsArea, glArea) = chopTop 50 windowRect
+        (controlsArea, belowTopControls) = chopTop 40 windowRect
+        (glArea, bottomControlsArea) = chopBottom 40 belowTopControls
         (trimClock 6 3 6 66 -> portArea, controls1) = chopLeft 150 controlsArea
         (trimClock 6 3 6 3 -> buttonArea, controls2) = chopLeft 100 controls1
+        partSelectArea = trimClock 6 15 6 50 bottomControlsArea
         labelArea = trimClock 6 6 6 3 controls2
 
     controlsGroup <- FL.groupNew controlsArea Nothing
@@ -1407,6 +1433,25 @@ launchPreview sink makeMenuBar mid = do
     FL.end controlsGroup
     FL.setResizable controlsGroup $ Just labelServer
 
+    bottomControlsGroup <- FL.groupNew bottomControlsArea Nothing
+    choice <- FL.choiceNew partSelectArea $ Just "Part"
+    currentParts <- newIORef []
+    let selectedName = FL.getText choice
+        updateParts redraw names = sink $ EventIO $ do
+          cur <- readIORef currentParts
+          when (cur /= names) $ do
+            selected <- selectedName
+            FL.clear choice
+            mapM_ (FL.addName choice) names
+            void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $
+              fromMaybe 0 $ elemIndex selected names
+            writeIORef currentParts names
+            when redraw $ sink $ EventIO FLTK.redraw
+    getTracks >>= updateParts False . map fst
+    FL.setCallback choice $ \_ -> sink $ EventIO $ FLTK.redraw
+    FL.end bottomControlsGroup
+    FL.setResizable bottomControlsGroup $ Just choice
+
     varTime <- newIORef 0
     stopServer <- launchTimeServer
       sink
@@ -1426,10 +1471,15 @@ launchPreview sink makeMenuBar mid = do
             GLClosed -> return (GLClosed, Nothing)
           forM_ mstuff $ \stuff -> do
             t <- readIORef varTime
-            trk <- getTrack
-            Width w <- FL.getW wind
-            Height h <- FL.getH wind
-            RGDrums.drawDrumsFull stuff (RGDrums.WindowDims w h) trk { RGDrums.trackTime = t }
+            trks <- getTracks
+            updateParts True $ map fst trks -- TODO does this need to be done in a sink event
+            selected <- selectedName
+            forM_ (lookup selected trks) $ \case
+              PreviewDrums trk -> do
+                Width w <- FL.getW wind
+                Height h <- FL.getH wind
+                RGDrums.drawDrumsFull stuff (RGDrums.WindowDims w h) trk { RGDrums.trackTime = t }
+              PreviewFive -> return ()
     glwindow <- FLGL.glWindowCustom
       (rectangleSize glArea)
       (Just $ rectanglePosition glArea)

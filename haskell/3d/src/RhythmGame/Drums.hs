@@ -204,9 +204,9 @@ drawDrums GLStuff{..} _dims trk = do
           else return ()
         Missed gem -> drawGem t gem 1
   -- draw highway
-  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 nearZ) (V3 1 -1.1  0.17) (Right $ V3 0.2 0.2 0.2) 1 Nothing
-  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1   0.2) (V3 1 -1   -0.17) (Right $ V3 0.8 0.8 0.8) 1 Nothing
-  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1  -0.2) (V3 1 -1.1  farZ) (Right $ V3 0.2 0.2 0.2) 1 Nothing
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 nearZ) (V3 1 -1  0.17) (Right $ V3 0.2 0.2 0.2) 1 Nothing
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1  0.17) (V3 1 -1 -0.17) (Right $ V3 0.8 0.8 0.8) 1 Nothing
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 -0.17) (V3 1 -1  farZ) (Right $ V3 0.2 0.2 0.2) 1 Nothing
   -- draw railings
   drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ) (Right $ V3 0.4 0.2 0.6) 1 Nothing
   drawObject (Box (V2 0 0) (V2 0 0)) (V3  1    -0.85 nearZ) (V3  1.09 -1.1 farZ) (Right $ V3 0.4 0.2 0.6) 1 Nothing
