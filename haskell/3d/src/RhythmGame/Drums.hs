@@ -27,6 +27,7 @@ import           Linear                   (M44, V2 (..), V3 (..), V4 (..),
 import qualified Linear                   as L
 import           Resources                (getResourcesPath)
 import qualified RockBand.Codec.Drums     as D
+import           System.Info              (os)
 
 data Note t a
   = Upcoming a
@@ -569,11 +570,13 @@ loadGLStuff = do
   return GLStuff{..}
 
 deleteGLStuff :: GLStuff -> IO ()
-deleteGLStuff GLStuff{..} = do
-  glDeleteProgram objectShader
-  glDeleteProgram quadShader
-  withArrayLen [boxVAO, coneVAO, quadVAO] $ \len p ->
-    glDeleteVertexArrays (fromIntegral len) p
+deleteGLStuff GLStuff{..} = case os of
+  "mingw32" -> return () -- TODO all the deletion calls cause a segfault on Windows, need to figure out why!
+  _ -> do
+    glDeleteProgram objectShader
+    glDeleteProgram quadShader
+    withArrayLen [boxVAO, coneVAO, quadVAO] $ \len p ->
+      glDeleteVertexArrays (fromIntegral len) p
 
 data WindowDims = WindowDims Int Int
 

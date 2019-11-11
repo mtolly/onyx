@@ -1337,6 +1337,9 @@ launchTimeServer
   -> FL.Ref FL.Box
   -> IO (IO ())
 launchTimeServer sink varTime inputPort button label = do
+  -- TODO something is wrong here on Windows;
+  -- stopping the server before a connection comes in
+  -- seems to kill the thread (GUI stops updating)
   presses <- newChan
   FL.setCallback button $ \_ -> writeChan presses ()
   tid <- forkIO $ runResourceT $ let
