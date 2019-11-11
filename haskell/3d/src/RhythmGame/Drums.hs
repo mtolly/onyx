@@ -110,7 +110,7 @@ coneSegments :: GLuint
 coneSegments = 15
 
 drawDrums :: GLStuff -> WindowDims -> Track Double (D.Gem D.ProType) -> IO ()
-drawDrums GLStuff{..} _dims trk = do
+drawDrums GLStuff{..} (WindowDims _w h) trk = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
   let colorType = 1 :: GLuint
@@ -125,6 +125,8 @@ drawDrums GLStuff{..} _dims trk = do
           $ translate4 (V3 ((x1 + x2) / 2) ((y1 + y2) / 2) ((z1 + z2) / 2))
           !*! L.scaled (V4 (abs $ x2 - x1) (abs $ y2 - y1) (abs $ z2 - z1) 1)
         sendUniformName objectShader "alpha" alpha
+        sendUniformName objectShader "startFade" (fromIntegral h * (519 / 671) :: Float)
+        sendUniformName objectShader "endFade" (fromIntegral h * (558 / 671) :: Float)
         forM_ lightOffset $ \off -> do
           let center = V3 ((x1 + x2) / 2) (max y1 y2) ((z1 + z2) / 2)
           sendUniformName objectShader "light.position" $ center + off

@@ -44,6 +44,8 @@ flat in float TexSegment;
 uniform vec3 viewPos;
 uniform Material material;
 uniform float alpha;
+uniform float startFade;
+uniform float endFade;
 
 vec3 getColor(ImageOrColor ioc)
 {
@@ -109,5 +111,6 @@ void main()
     vec3 specular = light.specular * (spec * specularSource);
 
     vec3 result = ambient + diffuse + specular;
-    FragColor = vec4(result, alpha);
+    float horizonFade = 1 - (gl_FragCoord.y - startFade) / (endFade - startFade);
+    FragColor = vec4(result, alpha * horizonFade);
 }
