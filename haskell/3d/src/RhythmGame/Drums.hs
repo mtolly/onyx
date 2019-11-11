@@ -9,7 +9,7 @@ module RhythmGame.Drums where
 
 import           Codec.Picture
 import           Control.Exception        (bracket)
-import           Control.Monad            (forM, forM_, when)
+import           Control.Monad            (forM, forM_)
 import           Control.Monad.IO.Class   (MonadIO (..))
 import qualified Data.ByteString          as B
 import           Data.FileEmbed           (embedFile, makeRelativeToProject)
@@ -432,7 +432,7 @@ loadTexture linear img = do
   glBindTexture GL_TEXTURE_2D texture
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_REPEAT
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_REPEAT
-  let filtering = if linear then GL_LINEAR_MIPMAP_LINEAR else GL_NEAREST
+  let filtering = if linear then GL_LINEAR else GL_NEAREST
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER filtering
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER filtering
   VS.unsafeWith (imageData flippedVert) $ \p -> do
@@ -443,7 +443,7 @@ loadTexture linear img = do
       (pixelProp glPixelFormat img)
       (pixelProp glPixelType img)
       (castPtr p)
-  when linear $ glGenerateMipmap GL_TEXTURE_2D
+  -- when linear $ glGenerateMipmap GL_TEXTURE_2D
   return $ Texture texture (imageWidth img) (imageHeight img)
 
 data GLStuff = GLStuff

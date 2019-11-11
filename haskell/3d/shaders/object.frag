@@ -111,6 +111,8 @@ void main()
     vec3 specular = light.specular * (spec * specularSource);
 
     vec3 result = ambient + diffuse + specular;
-    float horizonFade = 1 - (gl_FragCoord.y - startFade) / (endFade - startFade);
+    float horizonFade = 1.0 - (gl_FragCoord.y - startFade) / (endFade - startFade);
+    if (horizonFade > 1.0) horizonFade = 1.0;
+    if (horizonFade < 0.0) horizonFade = 0.0;
     FragColor = vec4(result, alpha * horizonFade);
 }
