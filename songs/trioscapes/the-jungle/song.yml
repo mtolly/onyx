@@ -1,0 +1,34 @@
+metadata:
+  title: The Jungle
+  file-include: ../../../albums/digital-dream-sequence.yml
+  track-number: 5
+  author: Onyxite
+audio:
+  album-track:
+    md5: 27360875878d5f8d0b1da6a15ae9afe4
+    frames: 40146876
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+parts:
+  drums:
+    drums:
+      kicks: both
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [5.432, album-track]
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

@@ -1,0 +1,34 @@
+metadata:
+  title: Hysteria
+  file-include: ../../../albums/digital-dream-sequence.yml
+  track-number: 4
+  author: Onyxite
+audio:
+  album-track:
+    md5: 72656d65f889f32a3149c459df6b41d3
+    frames: 17958696
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+parts:
+  drums:
+    drums:
+      kicks: both
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.626, album-track]
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
