@@ -13,6 +13,7 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 7
 plans:
   album:
     countin:
