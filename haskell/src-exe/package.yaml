@@ -38,6 +38,7 @@ executables:
     - event-list
     - containers
     - time
+    - non-negative
     # my libraries
     - midi-util
     # local

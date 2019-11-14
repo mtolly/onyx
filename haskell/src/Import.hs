@@ -107,6 +107,7 @@ fixDoubleSwells ps = let
     newLanes = U.trackJoin $ RTB.fromAbsoluteEventList $ ATB.fromPairList
       $ flip map (ATB.toPairList lanesAbs) $ \(startTime, lane) -> case lane of
         (diff, (), len) -> let
+          -- TODO this should make sure that none of the notes we're looking at are simultaneous
           shouldBeDouble = case toList $ U.trackTake len $ U.trackDrop startTime notes of
             g1 : g2 : g3 : g4 : _ | g1 == g3 && g2 == g4 && g1 /= g2 -> True
             _                                                        -> False

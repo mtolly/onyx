@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE RecursiveDo       #-}
 {-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE ViewPatterns      #-}
@@ -90,6 +91,7 @@ import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
 import qualified Network.Socket                            as Socket
 import           Numeric                                   (readHex)
+import           Numeric.NonNegative.Class                 ((-|))
 import           OpenProject
 import           OSFiles                                   (commonDir,
                                                             osOpenFile,
@@ -103,11 +105,14 @@ import qualified Reaper.Scan                               as RPP
 import           Reductions                                (simpleReduce)
 import qualified RhythmGame.Drums                          as RGDrums
 import           RockBand.Codec                            (mapTrack)
+import qualified RockBand.Codec.Beat                       as Beat
 import qualified RockBand.Codec.Drums                      as D
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
 import           RockBand.Common                           (Difficulty (..),
-                                                            RB3Instrument (..))
+                                                            RB3Instrument (..),
+                                                            pattern RNil,
+                                                            pattern Wait)
 import           RockBand.SongCache                        (fixSongCache)
 import           Scripts                                   (loadMIDI)
 import qualified Sound.File.Sndfile                        as Snd
@@ -1283,7 +1288,22 @@ computeTracks song = let
     $ RTB.collectCoincident
     $ fmap RGDrums.Autoplay
     $ D.computePro diff drums
-  drumTrack diff = RGDrums.Track (drums' diff) Map.empty 0 0.2
+  drumTrack diff = RGDrums.Track (drums' diff) Map.empty 0 0.2 beats
+  beats = let
+    sourceMidi = Beat.beatLines $ RBFile.fixedBeat $ RBFile.s_tracks song
+    source = if RTB.null sourceMidi
+      then RTB.empty -- TODO use makeBeatTrack
+      else sourceMidi
+    makeBeats _         RNil            = RNil
+    makeBeats _         (Wait 0 e rest) = Wait 0 (Just e) $ makeBeats False rest
+    makeBeats firstLine (Wait t e rest)
+      = (if firstLine then Wait 0 Nothing else id)
+      $ makeBeats True $ Wait (t -| 0.5) e rest
+    in Map.fromList
+      $ map (first $ realToFrac . U.applyTempoMap tempos)
+      $ ATB.toPairList
+      $ RTB.toAbsoluteEventList 0
+      $ makeBeats True source
   in concat
     [ [ ("Drums (X+)", PreviewDrums $ drumTrack Nothing)
       | not $ RTB.null $ D.drumKick2x drums

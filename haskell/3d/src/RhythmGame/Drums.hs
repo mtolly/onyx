@@ -26,6 +26,7 @@ import           Linear                   (M44, V2 (..), V3 (..), V4 (..),
                                            (!*!))
 import qualified Linear                   as L
 import           Resources                (getResourcesPath)
+import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums     as D
 import           System.Info              (os)
 
@@ -41,6 +42,7 @@ data Track t a = Track
   , trackOverhits :: Map t [a] -- ^ lists must be non-empty
   , trackTime     :: t -- ^ the latest timestamp we have reached
   , trackWindow   :: t -- ^ the half-window of time on each side of a note
+  , trackBeats    :: Map t (Maybe BeatEvent) -- ^ 'Nothing' is the auto 8th note interval lines
   } deriving (Eq, Ord, Show, Read, Functor)
 
 -- | Efficiently updates the range @(k1, k2)@ of values.
