@@ -34,5 +34,6 @@ library:
   - bytestring
   - linear
   - text
+  - non-negative
   build-tools:
   - c2hs

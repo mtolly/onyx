@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE RecursiveDo       #-}
 {-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE ViewPatterns      #-}
@@ -13,7 +12,6 @@ import           Audio                                     (Audio (..),
 import           CommandLine                               (copyDirRecursive,
                                                             runDolphin)
 import           Config
-import           Control.Arrow                             (first)
 import           Control.Concurrent                        (MVar, ThreadId,
                                                             forkIO, killThread,
                                                             modifyMVar,
@@ -51,8 +49,6 @@ import           Data.Char                                 (isSpace, toLower,
                                                             toUpper)
 import qualified Data.Connection                           as Conn
 import           Data.Default.Class                        (def)
-import qualified Data.EventList.Absolute.TimeBody          as ATB
-import qualified Data.EventList.Relative.TimeBody          as RTB
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
@@ -60,11 +56,9 @@ import           Data.IORef                                (IORef, newIORef,
                                                             readIORef,
                                                             writeIORef)
 import           Data.List                                 (elemIndex)
-import qualified Data.Map.Strict                           as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
-                                                            listToMaybe,
-                                                            mapMaybe)
+                                                            listToMaybe)
 import qualified Data.Text                                 as T
 import qualified Data.Text.Encoding                        as TE
 import           Data.Time                                 (getCurrentTime)
@@ -91,7 +85,6 @@ import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
 import qualified Network.Socket                            as Socket
 import           Numeric                                   (readHex)
-import           Numeric.NonNegative.Class                 ((-|))
 import           OpenProject
 import           OSFiles                                   (commonDir,
                                                             osOpenFile,
@@ -99,22 +92,14 @@ import           OSFiles                                   (commonDir,
 import           Paths_onyxite_customs_tool                (version)
 import           ProKeysRanges                             (closeShiftsFile)
 import           Reaper.Build                              (makeReaperIO)
-import qualified Reaper.Extract                            as RPP
-import qualified Reaper.Parse                              as RPP
-import qualified Reaper.Scan                               as RPP
 import           Reductions                                (simpleReduce)
 import qualified RhythmGame.Drums                          as RGDrums
+import           RhythmGame.Track
 import           RockBand.Codec                            (mapTrack)
-import qualified RockBand.Codec.Beat                       as Beat
-import qualified RockBand.Codec.Drums                      as D
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
-import           RockBand.Common                           (Difficulty (..),
-                                                            RB3Instrument (..),
-                                                            pattern RNil,
-                                                            pattern Wait)
+import           RockBand.Common                           (RB3Instrument (..))
 import           RockBand.SongCache                        (fixSongCache)
-import           Scripts                                   (loadMIDI)
 import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.File.Load                      as Load
 import qualified Sound.MIDI.Util                           as U
@@ -129,7 +114,6 @@ import qualified System.FSNotify                           as FS
 import           System.Info                               (os)
 import qualified System.IO.Streams                         as Streams
 import qualified System.IO.Streams.TCP                     as TCP
-import           Text.Decode                               (decodeGeneral)
 import           Text.Read                                 (readMaybe)
 
 #ifdef WINDOWS
@@ -1271,62 +1255,9 @@ launchMisc sink makeMenuBar = mdo
   FL.setCallback window $ windowCloser cancelTasks
   FL.showWidget window
 
-data PreviewTrack
-  = PreviewDrums (RGDrums.Track Double (D.Gem D.ProType))
-  | PreviewFive -- TODO
-  deriving (Show)
-
-computeTracks :: RBFile.Song (RBFile.FixedFile U.Beats) -> [(T.Text, PreviewTrack)]
-computeTracks song = let
-  tempos = RBFile.s_tempos song
-  drums = RBFile.fixedPartDrums $ RBFile.s_tracks song
-  drums' diff
-    = Map.fromList
-    $ map (first $ realToFrac . U.applyTempoMap tempos)
-    $ ATB.toPairList
-    $ RTB.toAbsoluteEventList 0
-    $ RTB.collectCoincident
-    $ fmap RGDrums.Autoplay
-    $ D.computePro diff drums
-  drumTrack diff = RGDrums.Track (drums' diff) Map.empty 0 0.2 beats
-  beats = let
-    sourceMidi = Beat.beatLines $ RBFile.fixedBeat $ RBFile.s_tracks song
-    source = if RTB.null sourceMidi
-      then RTB.empty -- TODO use makeBeatTrack
-      else sourceMidi
-    makeBeats _         RNil            = RNil
-    makeBeats _         (Wait 0 e rest) = Wait 0 (Just e) $ makeBeats False rest
-    makeBeats firstLine (Wait t e rest)
-      = (if firstLine then Wait 0 Nothing else id)
-      $ makeBeats True $ Wait (t -| 0.5) e rest
-    in Map.fromList
-      $ map (first $ realToFrac . U.applyTempoMap tempos)
-      $ ATB.toPairList
-      $ RTB.toAbsoluteEventList 0
-      $ makeBeats True source
-  in concat
-    [ [ ("Drums (X+)", PreviewDrums $ drumTrack Nothing)
-      | not $ RTB.null $ D.drumKick2x drums
-      ]
-    , flip mapMaybe [(Expert, "X"), (Hard, "H"), (Medium, "M"), (Easy, "E")] $ \(diff, letter) -> do
-      guard $ maybe False (not . RTB.null . D.drumGems)
-        $ Map.lookup diff $ D.drumDifficulties drums
-      return
-        ( "Drums (" <> letter <> ")"
-        , PreviewDrums $ drumTrack $ Just diff
-        )
-    ]
-
 watchSong :: IO () -> FilePath -> Onyx (IO [(T.Text, PreviewTrack)], IO ())
 watchSong notify mid = do
-  let loadTrack = do
-        song <- case map toLower $ takeExtension mid of
-          ".rpp" -> do
-            txt <- liftIO $ T.unpack . decodeGeneral <$> B.readFile mid
-            RBFile.interpretMIDIFile $ RPP.getMIDI $ RPP.parse $ RPP.scan txt
-          _ -> loadMIDI mid
-        return $ computeTracks song
-  varTrack <- loadTrack >>= liftIO . newIORef
+  varTrack <- loadTracks True mid >>= liftIO . newIORef
   chan <- liftIO newChan
   let midFileName = takeFileName mid
       sendClose = do
@@ -1343,7 +1274,7 @@ watchSong notify mid = do
           FS.Unknown _ _ "STOP_WATCH" -> liftIO $ FS.stopManager wm
           _ -> do
             lg $ "Reloading from " <> mid
-            loadTrack >>= liftIO . writeIORef varTrack
+            loadTracks True mid >>= liftIO . writeIORef varTrack
             liftIO notify
             go
     go
@@ -1530,8 +1461,8 @@ launchPreview sink makeMenuBar mid = do
 promptPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
 promptPreview sink makeMenuBar = sink $ EventIO $ do
   picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
-  FL.setTitle picker "Load MIDI or REAPER project"
-  FL.setFilter picker "*.{mid,midi,RPP}" -- TODO also handle .chart?
+  FL.setTitle picker "Load MIDI, .chart, or REAPER project"
+  FL.setFilter picker "*.{mid,midi,RPP,chart}"
   FL.showWidget picker >>= \case
     FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
       Nothing -> return ()
