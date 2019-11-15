@@ -54,7 +54,7 @@ parts:
   keys:
     pro-keys:
       difficulty: 7
-    grybo: # WIP
+    grybo:
       difficulty: 7
 targets:
   rb3:

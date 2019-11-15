@@ -31,7 +31,7 @@ parts:
   rhythm:
     grybo: {}
   bass:
-    grybo: {} # WIP
+    grybo: {}
   drums:
     drums: # WIP
       kicks: both
