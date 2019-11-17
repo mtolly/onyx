@@ -107,7 +107,7 @@ hitPad t x trk = let
       (_ : _, notes') ->
         trk { trackNotes = Map.insert k (Hit t x : notes') $ trackNotes trk }
 
-data Object = Box (V2 Float) (V2 Float) | Cone
+data Object = Box (V2 Float) (V2 Float) | Cone | Flat
 
 coneSegments :: GLuint
 coneSegments = 15
@@ -119,11 +119,13 @@ drawDrums GLStuff{..} (WindowDims _w h) trk = do
   let colorType = 1 :: GLuint
       boxType = 2 :: GLuint
       coneType = 3 :: GLuint
-      drawObject :: Object -> V3 Float -> V3 Float -> Either TextureID (V3 Float) -> Float -> Maybe (V3 Float) -> IO ()
+      flatType = 4 :: GLuint
+      drawObject :: Object -> V3 Float -> V3 Float -> Either TextureID (V4 Float) -> Float -> Maybe (V3 Float) -> IO ()
       drawObject obj (V3 x1 y1 z1) (V3 x2 y2 z2) texcolor alpha lightOffset = do
         glBindVertexArray $ case obj of
           Box{} -> boxVAO
           Cone  -> coneVAO
+          Flat  -> flatVAO
         sendUniformName objectShader "model"
           $ translate4 (V3 ((x1 + x2) / 2) ((y1 + y2) / 2) ((z1 + z2) / 2))
           !*! L.scaled (V4 (abs $ x2 - x1) (abs $ y2 - y1) (abs $ z2 - z1) 1)
@@ -155,11 +157,14 @@ drawDrums GLStuff{..} (WindowDims _w h) trk = do
                     sendUniformName objectShader "material.diffuse.type" coneType
                     sendUniformName objectShader "material.diffuse.image" (0 :: GLint)
                     sendUniformName objectShader "material.diffuse.cone.segments" coneSegments
+                  Flat -> do
+                    sendUniformName objectShader "material.diffuse.type" flatType
+                    sendUniformName objectShader "material.diffuse.image" (0 :: GLint)
               Nothing -> do
                 sendUniformName objectShader "material.diffuse.type" colorType
-                sendUniformName objectShader "material.diffuse.color" (V3 1 0 1 :: V3 Float)
+                sendUniformName objectShader "material.diffuse.color" (V4 1 0 1 1 :: V4 Float)
         sendUniformName objectShader "material.specular.type" colorType
-        sendUniformName objectShader "material.specular.color" (V3 0.5 0.5 0.5 :: V3 Float)
+        sendUniformName objectShader "material.specular.color" (V4 0.5 0.5 0.5 1 :: V4 Float)
         sendUniformName objectShader "material.shininess" (32 :: Float)
         glDrawArrays GL_TRIANGLES 0 36
       nearZ = 2 :: Float
@@ -208,15 +213,28 @@ drawDrums GLStuff{..} (WindowDims _w h) trk = do
           then drawGem nowTime gem $ realToFrac $ 1 - (nowTime - t') * 10
           else return ()
         Missed gem -> drawGem t gem 1
+      drawBeat t e = let
+        tex = case e of
+          Just Bar  -> TextureLine1
+          Just Beat -> TextureLine2
+          Nothing   -> TextureLine3
+        z = timeToZ t
+        xyz1 = V3 -1 -1 (z + 0.05)
+        xyz2 = V3  1 -1 (z - 0.05)
+        in drawObject Flat xyz1 xyz2 (Left tex) 1 Nothing
   -- draw highway
-  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 nearZ) (V3 1 -1  0.17) (Right $ V3 0.2 0.2 0.2) 1 Nothing
-  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1  0.17) (V3 1 -1 -0.17) (Right $ V3 0.8 0.8 0.8) 1 Nothing
-  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 -0.17) (V3 1 -1  farZ) (Right $ V3 0.2 0.2 0.2) 1 Nothing
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 nearZ) (V3 1 -1  0.17) (Right $ V4 0.2 0.2 0.2 1) 1 Nothing
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1  0.17) (V3 1 -1 -0.17) (Right $ V4 0.8 0.8 0.8 1) 1 Nothing
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 -0.17) (V3 1 -1  farZ) (Right $ V4 0.2 0.2 0.2 1) 1 Nothing
   -- draw railings
-  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ) (Right $ V3 0.4 0.2 0.6) 1 Nothing
-  drawObject (Box (V2 0 0) (V2 0 0)) (V3  1    -0.85 nearZ) (V3  1.09 -1.1 farZ) (Right $ V3 0.4 0.2 0.6) 1 Nothing
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 Nothing
+  drawObject (Box (V2 0 0) (V2 0 0)) (V3  1    -0.85 nearZ) (V3  1.09 -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 Nothing
+  -- draw lines
+  glDepthFunc GL_ALWAYS
+  traverseRange_ drawBeat False nearTime farTime $ trackBeats trk
+  glDepthFunc GL_LESS
   -- draw notes
-  traverseRange_ drawNotes False nearTime farTime $ trackNotes    trk
+  traverseRange_ drawNotes False nearTime farTime $ trackNotes trk
 
 compileShader :: GLenum -> B.ByteString -> IO GLuint
 compileShader shaderType source = do
@@ -342,6 +360,21 @@ simpleBox = let
     , Vertex frontTopRight    (V3 1.0 0.0 0.0) (V2 0.0 1.0) 4
     ]
 
+simpleFlat :: [Vertex]
+simpleFlat = let
+  frontTopRight    = Vertex (V3  0.5 0  0.5) (V3 0.0 1.0 0.0) (V2 1.0 0.0) 1
+  backTopRight     = Vertex (V3  0.5 0 -0.5) (V3 0.0 1.0 0.0) (V2 1.0 1.0) 1
+  frontTopLeft     = Vertex (V3 -0.5 0  0.5) (V3 0.0 1.0 0.0) (V2 0.0 0.0) 1
+  backTopLeft      = Vertex (V3 -0.5 0 -0.5) (V3 0.0 1.0 0.0) (V2 0.0 1.0) 1
+  in
+    [ frontTopRight
+    , backTopRight
+    , backTopLeft
+    , backTopLeft
+    , frontTopLeft
+    , frontTopRight
+    ]
+
 quadVertices :: [CFloat]
 quadVertices =
   -- positions    texture coords
@@ -452,6 +485,7 @@ data GLStuff = GLStuff
   { objectShader :: GLuint
   , boxVAO       :: GLuint
   , coneVAO      :: GLuint
+  , flatVAO      :: GLuint
   , quadShader   :: GLuint
   , quadVAO      :: GLuint
   , textures     :: [(TextureID, Texture)]
@@ -467,6 +501,9 @@ data TextureID
   | TextureYellowCymbal
   | TextureBlueCymbal
   | TextureGreenCymbal
+  | TextureLine1
+  | TextureLine2
+  | TextureLine3
   deriving (Eq, Show, Enum, Bounded)
 
 loadGLStuff :: IO GLStuff
@@ -516,6 +553,14 @@ loadGLStuff = do
     glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
   writeParts 0 0 vertexParts
 
+  flatVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
+  flatVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
+  glBindVertexArray flatVAO
+  glBindBuffer GL_ARRAY_BUFFER flatVBO
+  withArrayBytes simpleFlat $ \size p -> do
+    glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
+  writeParts 0 0 vertexParts
+
   -- quad stuff
 
   quadShader <- bracket (compileShader GL_VERTEX_SHADER quadVS) glDeleteShader $ \vertexShader -> do
@@ -561,6 +606,9 @@ loadGLStuff = do
       TextureYellowCymbal -> "textures/cymbal-yellow.jpg"
       TextureBlueCymbal   -> "textures/cymbal-blue.jpg"
       TextureGreenCymbal  -> "textures/cymbal-green.jpg"
+      TextureLine1        -> "textures/line-1.png"
+      TextureLine2        -> "textures/line-2.png"
+      TextureLine3        -> "textures/line-3.png"
     tex <- readImage path >>= either fail return >>= loadTexture True . convertRGBA8
     return (texID, tex)
 
@@ -577,7 +625,7 @@ deleteGLStuff GLStuff{..} = case os of
   _ -> do
     glDeleteProgram objectShader
     glDeleteProgram quadShader
-    withArrayLen [boxVAO, coneVAO, quadVAO] $ \len p ->
+    withArrayLen [boxVAO, coneVAO, flatVAO, quadVAO] $ \len p ->
       glDeleteVertexArrays (fromIntegral len) p
 
 data WindowDims = WindowDims Int Int

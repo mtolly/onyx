@@ -57,9 +57,12 @@ computeTracks auto song = let
       else sourceMidi
     makeBeats _         RNil            = RNil
     makeBeats _         (Wait 0 e rest) = Wait 0 (Just e) $ makeBeats False rest
-    makeBeats firstLine (Wait t e rest)
-      = (if firstLine then Wait 0 Nothing else id)
-      $ makeBeats True $ Wait (t -| 0.5) e rest
+    makeBeats firstLine (Wait t e rest) = let
+      t' = t -| 0.5
+      in (if firstLine then Wait 0 Nothing else id)
+        $ RTB.delay (t - t')
+        $ makeBeats True
+        $ Wait (t -| 0.5) e rest
     in Map.fromList
       $ map (first $ realToFrac . U.applyTempoMap tempos)
       $ ATB.toPairList
@@ -86,7 +89,7 @@ loadTracks
 loadTracks auto f = do
   song <- case map toLower $ takeExtension f of
     ".rpp" -> do
-      txt <- liftIO $ T.unpack . decodeGeneral <$> B.readFile f
+      txt <- stackIO $ T.unpack . decodeGeneral <$> B.readFile f
       RBFile.interpretMIDIFile $ RPP.getMIDI $ RPP.parse $ RPP.scan txt
     ".chart" -> do
       chart <- FB.chartToBeats <$> FB.loadChartFile f
