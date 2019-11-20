@@ -95,6 +95,7 @@ getTracks proj = let
             _         -> Nothing
           pairs :: [(Integer, E.T)]
           pairs = flip mapMaybe srcLines $ \case
+            -- lowercase event type means the event is selected
             Element etype (tks : bytes) Nothing | etype == "E" || etype == "e" -> do
               tks' <- readMaybe tks
               bytes' <- mapM unhex bytes
@@ -104,7 +105,7 @@ getTracks proj = let
                   _ -> Just (tks', E.MIDIEvent c)
                 -- don't think we need to support sysex messages here
                 _                       -> Nothing
-            Element "X" (tks : _) (Just xdata) -> do
+            Element etype (tks : _) (Just xdata) | etype == "X" || etype == "x" -> do
               tks' <- readMaybe tks
               let bytes = B.concat $ map (B64.decodeLenient . B8.pack)
                     [ b64 | Element b64 [] Nothing <- xdata ]
