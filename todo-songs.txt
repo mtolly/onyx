@@ -67,6 +67,11 @@ SYSTEMATIC CHAOS (new version)
     - bass:
       - itpoe1, forsaken, cm, tden, pow, repentance: fixed and done (opens + no-opens)
       # tmols, itpoe2: todo
+    - keys:
+      - forsaken: fixed
+      # itpoe1, cm, tden, pow, repentance, tmols, itpoe2: todo
+    - guitar:
+      # itpoe1, forsaken, cm, tden, pow, repentance, tmols, itpoe2: todo
   > venue
   > keyboard animations
   > improve onyx lipsync generation
