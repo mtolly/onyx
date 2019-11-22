@@ -9,7 +9,7 @@ import           Control.Concurrent        (threadDelay)
 import           Control.Monad             (when)
 import           Control.Monad.IO.Class    (MonadIO (..))
 import           Control.Monad.Trans.State
-import           RhythmGame.Drums
+import           RhythmGame.Graphics
 import qualified RockBand.Codec.Drums      as D
 import qualified SDL
 

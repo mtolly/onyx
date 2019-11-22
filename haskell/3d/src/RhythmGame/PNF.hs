@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE DeriveFunctor        #-}
 {-# LANGUAGE DeriveGeneric        #-}
 {-# LANGUAGE DerivingStrategies   #-}
 {-# LANGUAGE DerivingVia          #-}
@@ -16,6 +17,7 @@ import           Control.Monad.Trans.State        (evalState, get, put)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromMaybe)
+import qualified Data.Set                         as Set
 import           GHC.Generics
 import           GHC.TypeLits
 import qualified Numeric.NonNegative.Class        as NNC
@@ -32,40 +34,81 @@ data PNF sust now
   | PF sust -- past sustain continues to future
   | NF now sust
   | PNF sust now sust
+  deriving (Eq, Show)
 
-type PNFBool = PNF Bool ()
+getPast :: PNF sust now -> Maybe sust
+getPast = \case
+  P   p     -> Just p
+  PN  p _   -> Just p
+  PF  p     -> Just p
+  PNF p _ _ -> Just p
+  _         -> Nothing
 
-newtype TotalMap k a = TotalMap (Map.Map k a)
-  deriving (Eq, Ord, Show)
+getFuture :: PNF sust now -> Maybe sust
+getFuture = \case
+  NF  _ f   -> Just f
+  PF  f     -> Just f
+  PNF _ _ f -> Just f
+  _         -> Nothing
+
+getNow :: PNF sust now -> Maybe now
+getNow = \case
+  N n       -> Just n
+  PN _ n    -> Just n
+  NF n _    -> Just n
+  PNF _ n _ -> Just n
+  _         -> Nothing
+
+data Toggle
+  = ToggleEmpty -- Empty
+  | ToggleStart -- NF
+  | ToggleEnd -- P
+  | ToggleRestart -- PNF
+  | ToggleOn -- PF
+  deriving (Eq, Show)
+
+makeToggle :: Map.Map t Bool -> Map.Map t Toggle
+makeToggle m = let
+  go b = do
+    cur <- get
+    put b
+    return $ case (cur, b) of
+      (False, False) -> ToggleEmpty
+      (False, True)  -> ToggleStart
+      (True, False)  -> ToggleEnd
+      (True, True)   -> ToggleRestart
+  in evalState (traverse go m) False
 
 type IsOverdrive = Bool
 
 data CommonState a = CommonState
   { commonState     :: a
-  , commonOverdrive :: PNFBool
-  , commonBRE       :: PNFBool
-  , commonSolo      :: PNFBool
+  , commonOverdrive :: Toggle
+  , commonBRE       :: Toggle
+  , commonSolo      :: Toggle
   , commonBeats     :: Maybe (Maybe BeatEvent)
-  } deriving (Generic)
+  } deriving (Show, Generic)
     deriving (TimeState) via GenericTimeState (CommonState a)
 
 data DrumState pad = DrumState
-  { drumNotes      :: TotalMap pad Bool
-  , drumLanes      :: TotalMap pad PNFBool
-  , drumActivation :: PNFBool
-  } deriving (Generic)
+  { drumNotes      :: Set.Set pad
+  , drumLanes      :: Map.Map pad Toggle
+  , drumActivation :: Toggle
+  } deriving (Show, Generic)
     deriving (TimeState) via GenericTimeState (DrumState pad)
 
 data GuitarState fret = GuitarState
-  { guitarNotes   :: TotalMap fret (PNF IsOverdrive (IsOverdrive, StrumHOPOTap))
-  , guitarTremolo :: TotalMap fret PNFBool
-  , guitarTrill   :: TotalMap fret PNFBool
-  } deriving (Generic)
+  { guitarNotes   :: Map.Map fret (PNF IsOverdrive StrumHOPOTap)
+  , guitarTremolo :: Map.Map fret Toggle
+  , guitarTrill   :: Map.Map fret Toggle
+  } deriving (Show, Generic)
     deriving (TimeState) via GenericTimeState (GuitarState fret)
 
 class TimeState a where
   before :: a -> a
+  before _ = empty
   after :: a -> a
+  after _ = empty
   empty :: a
 
 instance TimeState (PNF sust now) where
@@ -87,23 +130,38 @@ instance TimeState (PNF sust now) where
     PNF _past _now future -> PF future
   empty = Empty
 
+instance TimeState Toggle where
+  before = \case
+    ToggleStart -> ToggleEmpty
+    ToggleEmpty -> ToggleEmpty
+    _           -> ToggleOn
+  after = \case
+    ToggleEnd   -> ToggleEmpty
+    ToggleEmpty -> ToggleEmpty
+    _           -> ToggleOn
+  empty = ToggleEmpty
+
 instance TimeState (Maybe a) where
-  before _ = Nothing
-  after _ = Nothing
   empty = Nothing
 
 instance TimeState Bool where
-  before _ = False
-  after _ = False
   empty = False
 
-instance (TimeState a, Ord k, Enum k, Bounded k) => TimeState (TotalMap k a) where
-  before (TotalMap m) = TotalMap $ fmap before m
-  after (TotalMap m) = TotalMap $ fmap after m
-  empty = TotalMap $ Map.fromList [ (k, empty) | k <- [minBound .. maxBound] ]
+instance (TimeState a, TimeState b) => TimeState (a, b) where
+  before (x, y) = (before x, before y)
+  after (x, y) = (after x, after y)
+  empty = (empty, empty)
 
-combineStateMaps :: (TimeState a, TimeState b, Ord t) => Map.Map t a -> Map.Map t b -> Map.Map t (a, b)
-combineStateMaps xs ys = let
+instance (TimeState a, Eq a) => TimeState (Map.Map k a) where
+  before = Map.filter (/= empty) . fmap before
+  after = Map.filter (/= empty) . fmap after
+  empty = Map.empty
+
+instance TimeState (Set.Set k) where
+  empty = Set.empty
+
+zipStateMaps :: (TimeState a, TimeState b, Ord t) => Map.Map t a -> Map.Map t b -> Map.Map t (a, b)
+zipStateMaps xs ys = let
   xs' = fmap (\x -> (Just x, Nothing)) xs
   ys' = fmap (\y -> (Nothing, Just y)) ys
   zs = Map.unionWith (\(a, b) (c, d) -> (a <|> c, b <|> d)) xs' ys'
@@ -116,8 +174,10 @@ combineStateMaps xs ys = let
   initY = maybe empty (before . snd) $ Map.lookupMin ys
   in evalState (traverse go zs) (initX, initY)
 
-combineStateLists :: (TimeState a, TimeState b, NNC.C t) => RTB.T t a -> RTB.T t b -> RTB.T t (a, b)
-combineStateLists rtbX rtbY = let
+infixl 1 `zipStateMaps`
+
+zipStateLists :: (TimeState a, TimeState b, NNC.C t) => RTB.T t a -> RTB.T t b -> RTB.T t (a, b)
+zipStateLists rtbX rtbY = let
   initX = case rtbX of
     RNil       -> empty
     Wait _ x _ -> before x

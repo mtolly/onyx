@@ -93,7 +93,7 @@ import           Paths_onyxite_customs_tool                (version)
 import           ProKeysRanges                             (closeShiftsFile)
 import           Reaper.Build                              (makeReaperIO)
 import           Reductions                                (simpleReduce)
-import qualified RhythmGame.Drums                          as RGDrums
+import qualified RhythmGame.Graphics                       as RGGraphics
 import           RhythmGame.Track
 import           RockBand.Codec                            (mapTrack)
 import           RockBand.Codec.File                       (FlexPartName (..))
@@ -1257,7 +1257,7 @@ launchMisc sink makeMenuBar = mdo
 
 watchSong :: IO () -> FilePath -> Onyx (IO [(T.Text, PreviewTrack)], IO ())
 watchSong notify mid = do
-  varTrack <- loadTracks True mid >>= liftIO . newIORef
+  varTrack <- loadTracks mid >>= liftIO . newIORef
   chan <- liftIO newChan
   let midFileName = takeFileName mid
       sendClose = do
@@ -1274,7 +1274,7 @@ watchSong notify mid = do
           FS.Unknown _ _ "STOP_WATCH" -> liftIO $ FS.stopManager wm
           _ -> do
             lg $ "Reloading from " <> mid
-            loadTracks True mid >>= liftIO . writeIORef varTrack
+            loadTracks mid >>= liftIO . writeIORef varTrack
             liftIO notify
             go
     go
@@ -1343,7 +1343,7 @@ launchTimeServer sink varTime inputPort button label = do
     in goOffline
   return $ killThread tid
 
-data GLStatus = GLPreload | GLLoaded RGDrums.GLStuff | GLClosed
+data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLClosed
 
 launchPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
 launchPreview sink makeMenuBar mid = do
@@ -1419,7 +1419,7 @@ launchPreview sink makeMenuBar mid = do
         draw wind = do
           mstuff <- modifyMVar varStuff $ \case
             GLPreload -> do
-              s <- RGDrums.loadGLStuff
+              s <- RGGraphics.loadGLStuff
               return (GLLoaded s, Just s)
             loaded@(GLLoaded s) -> return (loaded, Just s)
             GLClosed -> return (GLClosed, Nothing)
@@ -1428,12 +1428,13 @@ launchPreview sink makeMenuBar mid = do
             trks <- getTracks
             updateParts True $ map fst trks -- TODO does this need to be done in a sink event
             selected <- selectedName
+            Width w <- FL.getW wind
+            Height h <- FL.getH wind
             forM_ (lookup selected trks) $ \case
               PreviewDrums trk -> do
-                Width w <- FL.getW wind
-                Height h <- FL.getH wind
-                RGDrums.drawDrumsFull stuff (RGDrums.WindowDims w h) trk { RGDrums.trackTime = t }
-              PreviewFive -> return ()
+                RGGraphics.drawTrack RGGraphics.drawDrums stuff (RGGraphics.WindowDims w h) t trk
+              PreviewFive trk -> do
+                RGGraphics.drawTrack RGGraphics.drawFive stuff (RGGraphics.WindowDims w h) t trk
     glwindow <- FLGL.glWindowCustom
       (rectangleSize glArea)
       (Just $ rectanglePosition glArea)
@@ -1451,7 +1452,7 @@ launchPreview sink makeMenuBar mid = do
       stopWatch
       modifyMVar_ varStuff $ \x -> do
         case x of
-          GLLoaded s -> RGDrums.deleteGLStuff s
+          GLLoaded s -> RGGraphics.deleteGLStuff s
           _          -> return ()
         return GLClosed
 
