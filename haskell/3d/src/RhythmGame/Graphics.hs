@@ -9,11 +9,15 @@ module RhythmGame.Graphics where
 
 import           Codec.Picture
 import           Control.Exception      (bracket)
-import           Control.Monad          (forM, forM_, void, when)
+import           Control.Monad          (forM, forM_, guard, void, when)
 import           Control.Monad.IO.Class (MonadIO (..))
 import qualified Data.ByteString        as B
 import           Data.FileEmbed         (embedFile, makeRelativeToProject)
+import           Data.List              (partition)
+import           Data.List.HT           (partitionMaybe)
 import qualified Data.Map.Strict        as Map
+import           Data.Maybe             (fromMaybe, isJust)
+import qualified Data.Set               as Set
 import qualified Data.Vector.Storable   as VS
 import           Foreign                hiding (void)
 import           Foreign.C
@@ -104,10 +108,10 @@ drawDrums glStuff@GLStuff{..} dims nowTime trk = do
       nowZ = 0 :: Float
       farZ = -12 :: Float
       farTime = nowTime + 1 :: Double
-      timeToZ t = nowZ + farZ * realToFrac ((t - nowTime) / (farTime - nowTime))
-      zToTime z = nowTime + farTime * realToFrac ((z - nowZ) / (farZ - nowZ))
+      timeToZ t = nowZ + (farZ - nowZ) * realToFrac ((t - nowTime) / (farTime - nowTime))
+      zToTime z = nowTime + (farTime - nowTime) * realToFrac ((z - nowZ) / (farZ - nowZ))
       nearTime = zToTime nearZ
-      zoomed = fst $ Map.split farTime $ snd $ Map.split nearTime trk
+      zoomed = zoomMap nearTime farTime trk
       drawGem t od gem alpha = let
         (texid, obj) = case gem of
           D.Kick                  -> (if od then TextureLongEnergy   else TextureLongKick     , Box (V2 500  40) (V2   0  20))
@@ -119,6 +123,9 @@ drawDrums glStuff@GLStuff{..} dims nowTime trk = do
           D.Pro D.Blue   D.Cymbal -> (if od then TextureEnergyCymbal else TextureBlueCymbal   , Cone                         )
           D.Pro D.Green  D.Cymbal -> (if od then TextureEnergyCymbal else TextureGreenCymbal  , Cone                         )
           D.Orange                -> (if od then TextureEnergyCymbal else TextureGreenCymbal  , Cone                         )
+        shade = case alpha of
+          Nothing -> Left texid
+          Just _  -> Right $ V4 1 1 1 1
         (x1, x2) = case gem of
           D.Kick           -> (-1, 1)
           D.Red            -> (-1, -0.5)
@@ -134,16 +141,16 @@ drawDrums glStuff@GLStuff{..} dims nowTime trk = do
           D.Kick -> (z + 0.06, z - 0.06)
           _      -> (z + 0.17, z - 0.17)
         z = timeToZ t
-        in drawObject' obj (V3 x1 y1 z1) (V3 x2 y2 z2) (Left texid) alpha $ LightOffset $ V3 0 1 0
+        in drawObject' obj (V3 x1 y1 z1) (V3 x2 y2 z2) shade (fromMaybe 1 alpha) $ LightOffset $ V3 0 1 0
       drawNotes t cs = let
         od = case commonOverdrive cs of
           ToggleEmpty -> False
           ToggleEnd   -> False
           _           -> True
-        in forM_ (drumNotes $ commonState cs) $ \gem -> if nowTime < t
-          then drawGem t od gem 1
+        in forM_ (drumNotes $ commonState cs) $ \gem -> if nowTime <= t
+          then drawGem t od gem Nothing
           else if nowTime - t < 0.1
-            then drawGem nowTime od gem $ realToFrac $ 1 - (nowTime - t) * 10
+            then drawGem nowTime od gem $ Just $ realToFrac $ 1 - (nowTime - t) * 10
             else return ()
       drawBeat t cs = case commonBeats cs of
         Nothing -> return ()
@@ -156,9 +163,35 @@ drawDrums glStuff@GLStuff{..} dims nowTime trk = do
           xyz1 = V3 -1 -1 (z + 0.05)
           xyz2 = V3  1 -1 (z - 0.05)
           in drawObject' Flat xyz1 xyz2 (Left tex) 1 globalLight
+      drawTargetSquare i tex alpha = let
+        pieceWidth = 0.5
+        x1 = -1 + pieceWidth * i
+        x2 = x1 + pieceWidth
+        y = -1
+        z1 = 0.17
+        z2 = -0.17
+        in drawObject' Flat (V3 x1 y z1) (V3 x2 y z2) (Left tex) alpha globalLight
   -- draw highway
   drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 nearZ) (V3 1 -1  0.17) (Right $ V4 0.2 0.2 0.2 1) 1 globalLight
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1 -1  0.17) (V3 1 -1 -0.17) (Right $ V4 0.8 0.8 0.8 1) 1 globalLight
+  mapM_ (\(i, tex) -> drawTargetSquare i tex 1) $
+    zip [0..] [TextureTargetRed, TextureTargetYellow, TextureTargetBlue, TextureTargetGreen]
+  glDepthFunc GL_ALWAYS
+  let drawLights [] _ = return ()
+      drawLights _ [] = return ()
+      drawLights ((t, cs) : states) colors = let
+        gemsHere = drumNotes $ commonState cs
+        (colorsYes, colorsNo) = partition (\(_, _, pads) -> any (`Set.member` gemsHere) pads) colors
+        alpha = realToFrac $ 1 - (nowTime - t) * 6
+        in do
+          forM_ colorsYes $ \(i, light, _) -> drawTargetSquare i light alpha
+          drawLights states colorsNo
+  drawLights (Map.toDescList $ fst $ Map.split nowTime zoomed)
+    [ (0, TextureTargetRedLight   , [D.Red                                        ])
+    , (1, TextureTargetYellowLight, [D.Pro D.Yellow D.Tom, D.Pro D.Yellow D.Cymbal])
+    , (2, TextureTargetBlueLight  , [D.Pro D.Blue D.Tom, D.Pro D.Blue D.Cymbal])
+    , (3, TextureTargetGreenLight , [D.Pro D.Green D.Tom, D.Pro D.Green D.Cymbal])
+    ]
+  glDepthFunc GL_LESS
   drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 -0.17) (V3 1 -1  farZ) (Right $ V4 0.2 0.2 0.2 1) 1 globalLight
   -- draw railings
   drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
@@ -170,6 +203,18 @@ drawDrums glStuff@GLStuff{..} dims nowTime trk = do
   -- draw notes
   void $ Map.traverseWithKey drawNotes zoomed
 
+zoomMap :: (TimeState a, Fractional t, Ord t) => t -> t -> Map.Map t a -> Map.Map t a
+zoomMap t1 t2 m = let
+  zoomed = fst $ Map.split t2 $ snd $ Map.split t1 m
+  generated = case Map.lookupGE t2 m of
+    Just (_, s) -> Just $ before s
+    Nothing -> case Map.lookupLE t1 m of
+      Just (_, s) -> Just $ after s
+      Nothing     -> Nothing
+  in if Map.null zoomed
+    then maybe Map.empty (Map.singleton $ t1 + (t2 + t1) / 2) generated
+    else zoomed
+
 drawFive :: GLStuff -> WindowDims -> Double -> Map.Map Double (CommonState (GuitarState (Maybe F.Color))) -> IO ()
 drawFive glStuff@GLStuff{..} dims nowTime trk = do
   glUseProgram objectShader
@@ -180,10 +225,10 @@ drawFive glStuff@GLStuff{..} dims nowTime trk = do
       nowZ = 0 :: Float
       farZ = -12 :: Float
       farTime = nowTime + 1 :: Double
-      timeToZ t = nowZ + farZ * realToFrac ((t - nowTime) / (farTime - nowTime))
-      zToTime z = nowTime + farTime * realToFrac ((z - nowZ) / (farZ - nowZ))
+      timeToZ t = nowZ + (farZ - nowZ) * realToFrac ((t - nowTime) / (farTime - nowTime))
+      zToTime z = nowTime + (farTime - nowTime) * realToFrac ((z - nowZ) / (farZ - nowZ))
       nearTime = zToTime nearZ
-      zoomed = fst $ Map.split farTime $ snd $ Map.split nearTime trk
+      zoomed = zoomMap nearTime farTime trk
       drawSustain t1 t2 od color
         | t2 <= nowTime = return ()
         | otherwise     = let
@@ -226,6 +271,9 @@ drawFive glStuff@GLStuff{..} dims nowTime trk = do
           (Just F.Yellow, Tap) -> (if od then TextureEnergyTap  else TextureYellowTap, Box (V2 600 400) (V2 150 254))
           (Just F.Blue  , Tap) -> (if od then TextureEnergyTap  else TextureBlueTap  , Box (V2 600 400) (V2 150 254))
           (Just F.Orange, Tap) -> (if od then TextureEnergyTap  else TextureOrangeTap, Box (V2 600 400) (V2 150 254))
+        shade = case alpha of
+          Nothing -> Left texid
+          Just _  -> Right $ V4 1 1 1 1
         (x1, x2) = case color of
           Nothing       -> (-1, 1)
           Just F.Green  -> (-1   + shrink, -0.6 - shrink)
@@ -243,7 +291,7 @@ drawFive glStuff@GLStuff{..} dims nowTime trk = do
           Nothing -> (z + 0.06, z - 0.06)
           _       -> (z + 0.17, z - 0.17)
         z = timeToZ t
-        in drawObject' obj (V3 x1 y1 z1) (V3 x2 y2 z2) (Left texid) alpha $ LightOffset $ V3 0 1 0
+        in drawObject' obj (V3 x1 y1 z1) (V3 x2 y2 z2) shade (fromMaybe 1 alpha) $ LightOffset $ V3 0 1 0
       drawNotes _        []                     = return ()
       drawNotes prevTime ((thisTime, cs) : rest) = do
         let notes = Map.toList $ guitarNotes $ commonState cs
@@ -255,10 +303,10 @@ drawFive glStuff@GLStuff{..} dims nowTime trk = do
               ToggleEmpty -> False
               ToggleEnd   -> False
               _           -> True
-        forM_ notes $ \(color, pnf) -> forM_ (getNow pnf) $ \sht -> if nowTime < thisTime
-          then drawGem thisTime thisOD color sht 1
+        forM_ notes $ \(color, pnf) -> forM_ (getNow pnf) $ \sht -> if nowTime <= thisTime
+          then drawGem thisTime thisOD color sht Nothing
           else if nowTime - thisTime < 0.1
-            then drawGem nowTime thisOD color sht $ realToFrac $ 1 - (nowTime - thisTime) * 10
+            then drawGem nowTime thisOD color sht $ Just $ realToFrac $ 1 - (nowTime - thisTime) * 10
             else return ()
         -- draw future sustain if rest is empty
         when (null rest) $ do
@@ -276,9 +324,50 @@ drawFive glStuff@GLStuff{..} dims nowTime trk = do
           xyz1 = V3 -1 -1 (z + 0.05)
           xyz2 = V3  1 -1 (z - 0.05)
           in drawObject' Flat xyz1 xyz2 (Left tex) 1 globalLight
+      drawTargetSquare i tex alpha = let
+        pieceWidth = 0.4
+        x1 = -1 + pieceWidth * i
+        x2 = x1 + pieceWidth
+        y = -1
+        z1 = 0.17
+        z2 = -0.17
+        in drawObject' Flat (V3 x1 y z1) (V3 x2 y z2) (Left tex) alpha globalLight
   -- draw highway
   drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 nearZ) (V3 1 -1  0.17) (Right $ V4 0.2 0.2 0.2 1) 1 globalLight
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1 -1  0.17) (V3 1 -1 -0.17) (Right $ V4 0.8 0.8 0.8 1) 1 globalLight
+  mapM_ (\(i, tex) -> drawTargetSquare i tex 1) $
+    zip [0..] [TextureTargetGreen, TextureTargetRed, TextureTargetYellow, TextureTargetBlue, TextureTargetOrange]
+  glDepthFunc GL_ALWAYS
+  let drawLights [] _ = return ()
+      drawLights _ [] = return ()
+      drawLights ((t, cs) : states) colors = let
+        getLightAlpha gem = do
+          pnf <- Map.lookup gem $ guitarNotes $ commonState cs
+          case getFuture pnf of
+            Just _ -> Just 1 -- gem is being sustained
+            Nothing -> do
+              guard $ isJust (getNow pnf) || isJust (getPast pnf)
+              Just alpha
+        (colorsYes, colorsNo) = flip partitionMaybe colors $ \(i, light, gem) ->
+          fmap (\thisAlpha -> (i, light, thisAlpha))
+            $ getLightAlpha gem
+        alpha = realToFrac $ 1 - (nowTime - t) * 6
+        in do
+          forM_ colorsYes $ \(i, light, thisAlpha) -> drawTargetSquare i light thisAlpha
+          drawLights states colorsNo
+      lookPast = case Map.split nowTime zoomed of
+        (past, future)
+          | Map.null past -> case Map.lookupMin future of
+            Nothing      -> []
+            Just (_, cs) -> [(nowTime, before cs)]
+          | otherwise     -> Map.toDescList past
+  drawLights lookPast
+    [ (0, TextureTargetGreenLight , Just F.Green )
+    , (1, TextureTargetRedLight   , Just F.Red   )
+    , (2, TextureTargetYellowLight, Just F.Yellow)
+    , (3, TextureTargetBlueLight  , Just F.Blue  )
+    , (4, TextureTargetOrangeLight, Just F.Orange)
+    ]
+  glDepthFunc GL_LESS
   drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 -0.17) (V3 1 -1  farZ) (Right $ V4 0.2 0.2 0.2 1) 1 globalLight
   -- draw railings
   drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
@@ -579,6 +668,16 @@ data TextureID
   | TextureLine1
   | TextureLine2
   | TextureLine3
+  | TextureTargetGreen
+  | TextureTargetRed
+  | TextureTargetYellow
+  | TextureTargetBlue
+  | TextureTargetOrange
+  | TextureTargetGreenLight
+  | TextureTargetRedLight
+  | TextureTargetYellowLight
+  | TextureTargetBlueLight
+  | TextureTargetOrangeLight
   deriving (Eq, Show, Enum, Bounded)
 
 loadGLStuff :: IO GLStuff
@@ -672,39 +771,49 @@ loadGLStuff = do
 
   textures <- forM [minBound .. maxBound] $ \texID -> do
     path <- getResourcesPath $ case texID of
-      TextureLongKick       -> "textures/long-kick.jpg"
-      TextureLongOpen       -> "textures/long-open.jpg"
-      TextureLongOpenHopo   -> "textures/long-open-hopo.jpg"
-      TextureLongOpenTap    -> "textures/long-open-tap.jpg"
-      TextureLongEnergy     -> "textures/long-energy.jpg"
-      TextureLongEnergyHopo -> "textures/long-energy-hopo.jpg"
-      TextureLongEnergyTap  -> "textures/long-energy-tap.jpg"
-      TextureGreenGem       -> "textures/box-green.jpg"
-      TextureRedGem         -> "textures/box-red.jpg"
-      TextureYellowGem      -> "textures/box-yellow.jpg"
-      TextureBlueGem        -> "textures/box-blue.jpg"
-      TextureOrangeGem      -> "textures/box-orange.jpg"
-      TextureEnergyGem      -> "textures/box-energy.jpg"
-      TextureGreenHopo      -> "textures/hopo-green.jpg"
-      TextureRedHopo        -> "textures/hopo-red.jpg"
-      TextureYellowHopo     -> "textures/hopo-yellow.jpg"
-      TextureBlueHopo       -> "textures/hopo-blue.jpg"
-      TextureOrangeHopo     -> "textures/hopo-orange.jpg"
-      TextureEnergyHopo     -> "textures/hopo-energy.jpg"
-      TextureGreenTap       -> "textures/tap-green.jpg"
-      TextureRedTap         -> "textures/tap-red.jpg"
-      TextureYellowTap      -> "textures/tap-yellow.jpg"
-      TextureBlueTap        -> "textures/tap-blue.jpg"
-      TextureOrangeTap      -> "textures/tap-orange.jpg"
-      TextureEnergyTap      -> "textures/tap-energy.jpg"
-      TextureRedCymbal      -> "textures/cymbal-red.jpg"
-      TextureYellowCymbal   -> "textures/cymbal-yellow.jpg"
-      TextureBlueCymbal     -> "textures/cymbal-blue.jpg"
-      TextureGreenCymbal    -> "textures/cymbal-green.jpg"
-      TextureEnergyCymbal   -> "textures/cymbal-energy.jpg"
-      TextureLine1          -> "textures/line-1.png"
-      TextureLine2          -> "textures/line-2.png"
-      TextureLine3          -> "textures/line-3.png"
+      TextureLongKick          -> "textures/long-kick.jpg"
+      TextureLongOpen          -> "textures/long-open.jpg"
+      TextureLongOpenHopo      -> "textures/long-open-hopo.jpg"
+      TextureLongOpenTap       -> "textures/long-open-tap.jpg"
+      TextureLongEnergy        -> "textures/long-energy.jpg"
+      TextureLongEnergyHopo    -> "textures/long-energy-hopo.jpg"
+      TextureLongEnergyTap     -> "textures/long-energy-tap.jpg"
+      TextureGreenGem          -> "textures/box-green.jpg"
+      TextureRedGem            -> "textures/box-red.jpg"
+      TextureYellowGem         -> "textures/box-yellow.jpg"
+      TextureBlueGem           -> "textures/box-blue.jpg"
+      TextureOrangeGem         -> "textures/box-orange.jpg"
+      TextureEnergyGem         -> "textures/box-energy.jpg"
+      TextureGreenHopo         -> "textures/hopo-green.jpg"
+      TextureRedHopo           -> "textures/hopo-red.jpg"
+      TextureYellowHopo        -> "textures/hopo-yellow.jpg"
+      TextureBlueHopo          -> "textures/hopo-blue.jpg"
+      TextureOrangeHopo        -> "textures/hopo-orange.jpg"
+      TextureEnergyHopo        -> "textures/hopo-energy.jpg"
+      TextureGreenTap          -> "textures/tap-green.jpg"
+      TextureRedTap            -> "textures/tap-red.jpg"
+      TextureYellowTap         -> "textures/tap-yellow.jpg"
+      TextureBlueTap           -> "textures/tap-blue.jpg"
+      TextureOrangeTap         -> "textures/tap-orange.jpg"
+      TextureEnergyTap         -> "textures/tap-energy.jpg"
+      TextureRedCymbal         -> "textures/cymbal-red.jpg"
+      TextureYellowCymbal      -> "textures/cymbal-yellow.jpg"
+      TextureBlueCymbal        -> "textures/cymbal-blue.jpg"
+      TextureGreenCymbal       -> "textures/cymbal-green.jpg"
+      TextureEnergyCymbal      -> "textures/cymbal-energy.jpg"
+      TextureLine1             -> "textures/line-1.png"
+      TextureLine2             -> "textures/line-2.png"
+      TextureLine3             -> "textures/line-3.png"
+      TextureTargetGreen       -> "textures/target-green.jpg"
+      TextureTargetRed         -> "textures/target-red.jpg"
+      TextureTargetYellow      -> "textures/target-yellow.jpg"
+      TextureTargetBlue        -> "textures/target-blue.jpg"
+      TextureTargetOrange      -> "textures/target-orange.jpg"
+      TextureTargetGreenLight  -> "textures/target-green-light.jpg"
+      TextureTargetRedLight    -> "textures/target-red-light.jpg"
+      TextureTargetYellowLight -> "textures/target-yellow-light.jpg"
+      TextureTargetBlueLight   -> "textures/target-blue-light.jpg"
+      TextureTargetOrangeLight -> "textures/target-orange-light.jpg"
     tex <- readImage path >>= either fail return >>= loadTexture True . convertRGBA8
     return (texID, tex)
 
@@ -723,6 +832,7 @@ deleteGLStuff GLStuff{..} = case os of
     glDeleteProgram quadShader
     withArrayLen [boxVAO, coneVAO, flatVAO, quadVAO] $ \len p ->
       glDeleteVertexArrays (fromIntegral len) p
+    mapM_ (freeTexture . snd) textures
 
 data WindowDims = WindowDims Int Int
 

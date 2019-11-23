@@ -35,5 +35,6 @@ library:
   - linear
   - text
   - non-negative
+  - utility-ht
   build-tools:
   - c2hs
