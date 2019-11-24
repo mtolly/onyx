@@ -8,6 +8,7 @@
 module RhythmGame.Graphics where
 
 import           Codec.Picture
+import           Control.Arrow          (second)
 import           Control.Exception      (bracket)
 import           Control.Monad          (forM, forM_, guard, void, when)
 import           Control.Monad.IO.Class (MonadIO (..))
@@ -98,6 +99,22 @@ drawObject GLStuff{..} (WindowDims _w h) obj (V3 x1 y1 z1) (V3 x2 y2 z2) texcolo
   sendUniformName objectShader "material.shininess" (32 :: Float)
   glDrawArrays GL_TRIANGLES 0 36
 
+makeToggleBounds :: t -> t -> Map.Map t Toggle -> [(t, t, Bool)]
+makeToggleBounds t1 t2 m = let
+  togs = Map.toAscList m
+  initBool = case togs of
+    []           -> False
+    (_, tog) : _ -> tog /= ToggleEmpty && tog /= ToggleStart
+  togFuture tog = tog /= ToggleEmpty && tog /= ToggleEnd
+  zipped = map (\((chunkStart, b), chunkEnd) -> (chunkStart, chunkEnd, b)) $ zip
+    ((t1, initBool) : map (second togFuture) togs)
+    (map fst togs ++ [t2])
+  simplify [] = []
+  simplify ((tx, _, b1) : (_, ty, b2) : rest) | b1 == b2
+    = simplify $ (tx, ty, b1) : rest
+  simplify (x : xs) = x : simplify xs
+  in simplify zipped
+
 drawDrums :: GLStuff -> WindowDims -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
 drawDrums glStuff@GLStuff{..} dims nowTime trk = do
   glUseProgram objectShader
@@ -172,10 +189,26 @@ drawDrums glStuff@GLStuff{..} dims nowTime trk = do
         z2 = -0.17
         in drawObject' Flat (V3 x1 y z1) (V3 x2 y z2) (Left tex) alpha globalLight
   -- draw highway
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 nearZ) (V3 1 -1  0.17) (Right $ V4 0.2 0.2 0.2 1) 1 globalLight
+  forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
+    let highwayColor = if isSolo
+          then V4 0.2 0.2 0.6 1
+          else V4 0.2 0.2 0.2 1
+    drawObject'
+      (Box (V2 0 0) (V2 0 0))
+      (V3 -1 -1 (timeToZ t1))
+      (V3 1 -1 (timeToZ t2))
+      (Right highwayColor)
+      1
+      globalLight
+  -- draw railings
+  drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
+  drawObject' (Box (V2 0 0) (V2 0 0)) (V3  1    -0.85 nearZ) (V3  1.09 -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
+  -- draw beat lines
+  glDepthFunc GL_ALWAYS
+  void $ Map.traverseWithKey drawBeat zoomed
+  -- draw target
   mapM_ (\(i, tex) -> drawTargetSquare i tex 1) $
     zip [0..] [TextureTargetRed, TextureTargetYellow, TextureTargetBlue, TextureTargetGreen]
-  glDepthFunc GL_ALWAYS
   let drawLights [] _ = return ()
       drawLights _ [] = return ()
       drawLights ((t, cs) : states) colors = let
@@ -191,14 +224,6 @@ drawDrums glStuff@GLStuff{..} dims nowTime trk = do
     , (2, TextureTargetBlueLight  , [D.Pro D.Blue D.Tom, D.Pro D.Blue D.Cymbal])
     , (3, TextureTargetGreenLight , [D.Pro D.Green D.Tom, D.Pro D.Green D.Cymbal])
     ]
-  glDepthFunc GL_LESS
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 -0.17) (V3 1 -1  farZ) (Right $ V4 0.2 0.2 0.2 1) 1 globalLight
-  -- draw railings
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3  1    -0.85 nearZ) (V3  1.09 -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
-  -- draw lines
-  glDepthFunc GL_ALWAYS
-  void $ Map.traverseWithKey drawBeat zoomed
   glDepthFunc GL_LESS
   -- draw notes
   void $ Map.traverseWithKey drawNotes zoomed
@@ -333,10 +358,26 @@ drawFive glStuff@GLStuff{..} dims nowTime trk = do
         z2 = -0.17
         in drawObject' Flat (V3 x1 y z1) (V3 x2 y z2) (Left tex) alpha globalLight
   -- draw highway
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 nearZ) (V3 1 -1  0.17) (Right $ V4 0.2 0.2 0.2 1) 1 globalLight
+  forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
+    let highwayColor = if isSolo
+          then V4 0.2 0.2 0.6 1
+          else V4 0.2 0.2 0.2 1
+    drawObject'
+      (Box (V2 0 0) (V2 0 0))
+      (V3 -1 -1 (timeToZ t1))
+      (V3 1 -1 (timeToZ t2))
+      (Right highwayColor)
+      1
+      globalLight
+  -- draw railings
+  drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
+  drawObject' (Box (V2 0 0) (V2 0 0)) (V3  1    -0.85 nearZ) (V3  1.09 -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
+  -- draw beatlines
+  glDepthFunc GL_ALWAYS
+  void $ Map.traverseWithKey drawBeat zoomed
+  -- draw target
   mapM_ (\(i, tex) -> drawTargetSquare i tex 1) $
     zip [0..] [TextureTargetGreen, TextureTargetRed, TextureTargetYellow, TextureTargetBlue, TextureTargetOrange]
-  glDepthFunc GL_ALWAYS
   let drawLights [] _ = return ()
       drawLights _ [] = return ()
       drawLights ((t, cs) : states) colors = let
@@ -367,14 +408,6 @@ drawFive glStuff@GLStuff{..} dims nowTime trk = do
     , (3, TextureTargetBlueLight  , Just F.Blue  )
     , (4, TextureTargetOrangeLight, Just F.Orange)
     ]
-  glDepthFunc GL_LESS
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1 -1 -0.17) (V3 1 -1  farZ) (Right $ V4 0.2 0.2 0.2 1) 1 globalLight
-  -- draw railings
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3  1    -0.85 nearZ) (V3  1.09 -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
-  -- draw lines
-  glDepthFunc GL_ALWAYS
-  void $ Map.traverseWithKey drawBeat zoomed
   glDepthFunc GL_LESS
   -- draw notes
   drawNotes nearTime $ Map.toList zoomed

@@ -27,6 +27,8 @@ import qualified RockBand.Codec.Drums             as D
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
 import           RockBand.Common
+import           RockBand3                        (BasicTiming (..),
+                                                   basicTiming)
 import           Scripts                          (loadMIDI)
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension)
@@ -128,7 +130,9 @@ computeTracks song = let
   beats = let
     sourceMidi = Beat.beatLines $ RBFile.fixedBeat $ RBFile.s_tracks song
     source = if RTB.null sourceMidi
-      then RTB.empty -- TODO use makeBeatTrack
+      then case runPureLog $ runStackTraceT $ basicTiming song $ return 0 of
+        (Right timing, _) -> Beat.beatLines $ timingBeat timing
+        (Left  _     , _) -> RTB.empty
       else sourceMidi
     makeBeats _         RNil            = RNil
     makeBeats _         (Wait 0 e rest) = Wait 0 (Just e) $ makeBeats False rest

@@ -95,6 +95,7 @@ fileTrack name otherNames = Codec
 
 class HasEvents f where
   getEventsTrack :: f t -> EventsTrack t
+  getBeatTrack :: f t -> BeatTrack t
 
 -- | Combined MIDI format for RB2, RB3, PS, CH
 data FixedFile t = FixedFile
@@ -132,6 +133,7 @@ data FixedFile t = FixedFile
 
 instance HasEvents FixedFile where
   getEventsTrack = fixedEvents
+  getBeatTrack = fixedBeat
 
 instance TraverseTrack FixedFile where
   traverseTrack fn
@@ -222,6 +224,7 @@ data OnyxFile t = OnyxFile
 
 instance HasEvents OnyxFile where
   getEventsTrack = onyxEvents
+  getBeatTrack = onyxBeat
 
 instance TraverseTrack OnyxFile where
   traverseTrack fn

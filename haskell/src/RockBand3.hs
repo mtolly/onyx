@@ -3,7 +3,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE RecordWildCards   #-}
-module RockBand3 (processRB3Pad, processPS, processTiming, findProblems, TrackAdjust(..), magmaLegalTempos) where
+module RockBand3
+( processRB3Pad, processPS, processTiming
+, findProblems
+, TrackAdjust(..)
+, magmaLegalTempos
+, basicTiming, BasicTiming(..)
+) where
 
 import           Config
 import           Control.Monad.Extra
@@ -103,14 +109,14 @@ processTiming input getAudioLength = do
 
 -- | Retrieves or generates [end], [music_start], [music_end], and the BEAT track.
 basicTiming
-  :: (SendMessage m)
-  => RBFile.Song (RBFile.OnyxFile U.Beats)
+  :: (SendMessage m, RBFile.HasEvents f, RBFile.ParseFile f)
+  => RBFile.Song (f U.Beats)
   -> StackTraceT m U.Seconds
   -> StackTraceT m BasicTiming
 basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
   let showPosition = RBFile.showPosition mmap
   -- If there's no @[end]@, put it after all MIDI events and audio files.
-  timingEnd <- case RTB.viewL $ eventsEnd $ RBFile.onyxEvents trks of
+  timingEnd <- case RTB.viewL $ eventsEnd $ RBFile.getEventsTrack trks of
     Just ((t, _), _) -> return t
     Nothing -> do
       audLen <- U.unapplyTempoMap tempos <$> getAudioLength
@@ -128,7 +134,7 @@ basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
         ]
       return endPosn
   timingBeat <- let
-    trk = beatLines $ RBFile.onyxBeat trks
+    trk = beatLines $ RBFile.getBeatTrack trks
     in if RTB.null trk
       then do
         warn "No BEAT track found; automatic one generated from time signatures."
@@ -137,7 +143,7 @@ basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
   -- If [music_start] is before 2 beats,
   -- Magma will add auto [idle] events there in instrument tracks, and then error...
   let musicStartMin = 2 :: U.Beats
-  timingMusicStart <- case RTB.viewL $ eventsMusicStart $ RBFile.onyxEvents trks of
+  timingMusicStart <- case RTB.viewL $ eventsMusicStart $ RBFile.getEventsTrack trks of
     Just ((t, _), _) -> if t < musicStartMin
       then do
         warn $ "[music_start] is too early. Moving to " ++ showPosition musicStartMin
@@ -146,7 +152,7 @@ basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
     Nothing -> do
       warn $ "[music_start] is missing. Placing at " ++ showPosition musicStartMin
       return musicStartMin
-  timingMusicEnd <- case RTB.viewL $ eventsMusicEnd $ RBFile.onyxEvents trks of
+  timingMusicEnd <- case RTB.viewL $ eventsMusicEnd $ RBFile.getEventsTrack trks of
     Just ((t, _), _) -> return t
     Nothing -> do
       warn $ unwords
