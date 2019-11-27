@@ -125,8 +125,6 @@ import           System.Win32                              (HINSTANCE)
 data Event
   = EventIO (IO ())
   | EventOnyx (Onyx ())
-  | EventLoad FilePath
-  | EventLoaded Project
   | EventFail Message
   | EventMsg (MessageLevel, Message)
 
@@ -167,7 +165,7 @@ startLoad f = do
       liftIO $ sink $ EventFail msg
     Right proj -> do
       void $ shakeBuild1 proj [] "gen/cover.png"
-      liftIO $ sink $ EventLoaded proj
+      liftIO $ sink $ EventIO $ launchWindow sink proj
 
 chopRight :: Int -> Rectangle -> (Rectangle, Rectangle)
 chopRight n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
@@ -1880,6 +1878,19 @@ launchGUI = do
                 , Just $ launchMisc sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
+              , ( "File/Open Song"
+                , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o'
+                , Just $ do
+                  picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
+                  FL.setTitle picker "Load song"
+                  FL.showWidget picker >>= \case
+                    FL.NativeFileChooserPicked -> do
+                      n <- FL.getCount picker
+                      fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
+                      mapM_ (sink . EventOnyx . startLoad) $ map T.unpack $ catMaybes fs
+                    _ -> return ()
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
               , ( "File/Live Preview"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'p'
                 , Just $ promptPreview sink makeMenuBar
@@ -1939,16 +1950,6 @@ launchGUI = do
   FL.setHistoryLines term $ FL.Lines (-1) -- unlimited
   FL.setAnsi term True
   FL.setStayAtBottom term True
-  let loadSongs = mapM_ $ sink . EventLoad
-      loadDialog = sink $ EventIO $ do
-        picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
-        FL.setTitle picker "Load song"
-        FL.showWidget picker >>= \case
-          FL.NativeFileChooserPicked -> do
-            n <- FL.getCount picker
-            fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
-            loadSongs $ map T.unpack $ catMaybes fs
-          _ -> return ()
   buttonBatch <- FL.buttonCustom
     (Rectangle (Position (X 10) (Y 360)) (Size (Width 235) (Height 30)))
     (Just "Batch process")
@@ -1986,8 +1987,6 @@ launchGUI = do
         case e of
           EventMsg    pair -> liftIO $ addTerm term $ toTermMessage pair
           EventFail   msg  -> liftIO $ addTerm term $ TermError msg
-          EventLoaded proj -> liftIO $ launchWindow sink proj
-          EventLoad   f    -> startLoad f
           EventIO     act  -> liftIO act
           EventOnyx   act  -> act
         process
