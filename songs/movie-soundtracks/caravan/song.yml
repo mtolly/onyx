@@ -1,0 +1,30 @@
+metadata:
+  title: Caravan
+  artist: Justin Hurwitz
+  album: Whiplash (Original Motion Picture Soundtrack)
+  author: Onyxite
+  genre: jazz
+  year: 2014
+  track-number: 6
+audio:
+  youtube:
+    commands:
+    - ../../../scripts/youtube TS-G4UQTfUo 140
+    file-path: audio-youtube.wav
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.004, youtube]
+parts:
+  drums:
+    drums:
+      kicks: both
