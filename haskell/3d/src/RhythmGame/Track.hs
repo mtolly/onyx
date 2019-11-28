@@ -152,6 +152,7 @@ computeTracks song = let
     [ do
       (name, isKeys, src) <-
         [ ("Guitar", False, RBFile.fixedPartGuitar $ RBFile.s_tracks song)
+        , ("Rhythm", False, RBFile.fixedPartRhythm $ RBFile.s_tracks song)
         , ("Bass", False, RBFile.fixedPartBass $ RBFile.s_tracks song)
         , ("Keys", True, RBFile.fixedPartKeys $ RBFile.s_tracks song)
         ]
