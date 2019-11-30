@@ -94,7 +94,7 @@ import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal                  (nullVox)
 import           RockBand.Common
 import           RockBand.Milo                         (MagmaLipsync (..),
-                                                        autoLipsyncAh,
+                                                        autoLipsync,
                                                         lipsyncFromMidi,
                                                         magmaMilo)
 import qualified RockBand.ProGuitar.Play               as PGPlay
@@ -1244,7 +1244,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 midi <- shakeMIDI $ planDir </> "raw.mid"
                 let vox = RBFile.getFlexPart (rb3_Vocal rb3) $ RBFile.s_tracks midi
                     lip = lipsyncFromMidi . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
-                    auto = autoLipsyncAh . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
+                    auto = autoLipsync . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
                     write = stackIO . BL.writeFile out
                 if
                   | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync3 vox -> write $ magmaMilo $ MagmaLipsync3

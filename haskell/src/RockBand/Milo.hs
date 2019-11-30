@@ -10,7 +10,8 @@ module RockBand.Milo where
 
 import qualified Codec.Compression.GZip           as GZ
 import qualified Codec.Compression.Zlib.Internal  as Z
-import           Control.Monad                    (forM, forM_, replicateM)
+import           Control.Monad                    (forM, forM_, guard,
+                                                   replicateM)
 import           Control.Monad.ST.Lazy
 import           Control.Monad.Trans.StackTrace   (logStdout, stackIO)
 import           Data.Binary.Get
@@ -23,10 +24,11 @@ import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (foldl')
+import           Data.List                        (foldl', sort)
 import           Data.List.Split                  (keepDelimsR, onSublist,
                                                    split)
 import qualified Data.Map                         as Map
+import qualified Data.Set                         as Set
 import           Data.Maybe                       (fromMaybe, isJust)
 import qualified Data.Text                        as T
 import           Data.Word
@@ -216,7 +218,7 @@ newtype Keyframe = Keyframe
 data VisemeEvent = VisemeEvent
   { visemeIndex  :: Int
   , visemeWeight :: Word8
-  } deriving (Eq, Show)
+  } deriving (Eq, Ord, Show)
 
 getStringBE :: Get B.ByteString
 getStringBE = do
@@ -358,7 +360,7 @@ englishVowels = let
 autoLipsync :: VocalTrack U.Seconds -> Lipsync
 autoLipsync vt = let
   ahs cur next = do
-    vis <- Map.keys cur <> Map.keys next
+    vis <- Set.toList $ Map.keysSet cur <> Map.keysSet next
     return (vis, fromMaybe 0 $ Map.lookup vis next)
   makeKeyframes cur goal rest = let
     next = Map.fromList $ filter (\(_, n) -> n /= 0) $ do
@@ -384,7 +386,7 @@ autoLipsync vt = let
     , lipsyncDTAImport  = B.empty
     , lipsyncVisemes    = map (B8.pack . drop 7 . show) [minBound :: MagmaViseme .. maxBound]
     , lipsyncKeyframes  = drop 1 $ map
-      (Keyframe . map ((\(vis, n) -> VisemeEvent (fromEnum vis) n)))
+      (Keyframe . sort . map ((\(vis, n) -> VisemeEvent (fromEnum vis) n)))
       (makeKeyframes Map.empty Map.empty $ englishVowels $ vocalTubes vt)
     }
 
@@ -512,3 +514,32 @@ testConvertLipsync fmid fvoc fout = do
   voc <- fmap (runGet parseLipsync) $ BL.readFile fvoc
   let raw = lipsyncToMIDI (RBFile.s_tempos mid) (RBFile.s_signatures mid) voc `asTypeOf` mid
   Save.toFile fout $ RBFile.showMIDIFile' raw
+
+-- | Does simple matching of the different RB3 milo content sets.
+recognizeMilo :: B.ByteString -> Maybe [(FilePath, B.ByteString)]
+recognizeMilo bs = let
+  breakPiece b = case B.breakSubstring (B.pack [0xAD, 0xDE, 0xAD, 0xDE]) b of
+    (x, y) -> if B.null y
+      then [b]
+      else x : breakPiece (B.drop 4 y)
+  pieces = breakPiece bs
+  filesInHeader header = let
+    indexOfString s = case B.breakSubstring s header of
+      (x, y) -> do
+        guard $ not $ B.null y
+        Just $ B.length x
+    knownFiles = ["song.lipsync", "part2.lipsync", "part3.lipsync", "part4.lipsync", "song.anim"]
+    in map snd $ sort [ (i, B8.unpack f) | f <- knownFiles, Just i <- [indexOfString f] ]
+  in case pieces of
+    [] -> Nothing
+    header : rest -> let
+      files = filesInHeader header
+      nonzero = filter (B.any (/= 0)) rest
+      in do
+        guard $ length files == length nonzero
+        realOrder <- case files of
+          "song.anim" : restFiles -> Just $ restFiles ++ ["song.anim"]
+          _ -> do
+            guard $ "song.anim" `notElem` files
+            Just files
+        Just $ zip realOrder nonzero

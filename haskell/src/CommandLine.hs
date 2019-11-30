@@ -9,11 +9,13 @@ import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Config
-import           Control.Monad.Extra              (filterM, forM, guard, when)
+import           Control.Monad.Extra              (filterM, forM, forM_, guard,
+                                                   when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace
+import           Data.Binary.Get                  (runGetOrFail)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
@@ -53,6 +55,9 @@ import           PrettyDTA                        (DTASingle (..),
 import           ProKeysRanges                    (closeShiftsFile)
 import           Reaper.Build                     (makeReaperIO)
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Milo                    (decompressMilo,
+                                                   recognizeMilo,
+                                                   testConvertLipsync)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
@@ -736,6 +741,40 @@ commands =
         installGH2 gh2 proj (B8.pack replace) gen
         return [gen]
       _ -> fatal "Expected 3 arguments (input song, GEN, song to replace)"
+    }
+
+  , Command
+    { commandWord = "lipsync-midi"
+    , commandDesc = "Transfer data from a lipsync file to a MIDI file."
+    , commandUsage = "onyx lipsync-midi in.mid in.lipsync out.mid"
+    , commandRun = \args _opts -> case args of
+      [fmid, fvoc, fout] -> do
+        stackIO $ testConvertLipsync fmid fvoc fout
+        return [fout]
+      _ -> fatal "Expected 3 arguments (input midi, input lipsync, output midi)"
+    }
+
+  , Command
+    { commandWord = "unmilo"
+    , commandDesc = "Decompress and possibly split the data inside a .milo_xxx file."
+    , commandUsage = "onyx unmilo in.milo"
+    , commandRun = \args _opts -> case args of
+      [fin] -> do
+        bs <- stackIO $ BL.readFile fin
+        dec <- case runGetOrFail decompressMilo bs of
+          Left (_, pos, err) -> fatal $ "Failed to decompress the milo. Error at position " <> show pos <> ": " <> err
+          Right (_, _, x) -> return x
+        let dout = fin ++ "_extract"
+        stackIO $ Dir.createDirectoryIfMissing False dout
+        stackIO $ BL.writeFile (dout </> "decompressed.bin") dec
+        case recognizeMilo $ BL.toStrict dec of
+          Nothing -> lg "Couldn't recognize standard RB lipsync/venue milo contents."
+          Just contents -> do
+            stackIO $ forM_ contents $ \(subname, subbytes) -> do
+              B.writeFile (dout </> subname) subbytes
+            lg $ "Recognized and extracted milo contents: " <> show (map fst contents)
+        return [dout]
+      _ -> fatal "Expected 1 argument (input milo)"
     }
 
   ]
