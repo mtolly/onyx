@@ -1,11 +1,12 @@
 metadata:
   title: Caravan
-  artist: Justin Hurwitz
+  artist: Juan Tizol and Duke Ellington # composers; can't find any info on actual performers!
   album: Whiplash (Original Motion Picture Soundtrack)
   author: Onyxite
   genre: jazz
   year: 2014
   track-number: 6
+  file-album-art: cover.jpg
 audio:
   youtube:
     commands:
@@ -28,3 +29,12 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 7
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
