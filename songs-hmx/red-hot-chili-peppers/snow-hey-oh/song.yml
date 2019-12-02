@@ -10,6 +10,11 @@ parts:
       hopo-threshold: 80
       difficulty:
         rank: 230
+    pro-guitar:
+      tuning:
+        base: bass-4
+      difficulty:
+        rank: 325
   guitar:
     grybo:
       hopo-threshold: 80
@@ -19,7 +24,7 @@ parts:
       tuning:
         base: guitar-6
       difficulty:
-        rank: 373
+        rank: 382
   drums:
     drums:
       difficulty:
