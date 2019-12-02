@@ -1,0 +1,27 @@
+MAGMA VISEME SET
+===============
+
+blink
+Squint
+
+brow aggressive - inner brows go down, outer brows go up
+brow down - lowered down evenly
+brow pouty - inner brows go up, outer brows go down
+brow up - raised up evenly
+
+Cage - vowel, looks like "ay" (cage) or "ae" (like cat)
+Church - vowel, 255 is pretty wide open
+Earth - vowel, but looks more like "oh"
+Eat - vowel, 255 is very wide
+If - vowel, but looks more like "AHHH" - 255 is huge and terrifying
+New - looks like the middle "eeeeu" kind of? lower lip is forward, upper lip is raised up
+Oat - vowel, circle mouth, very big
+Ox - vowel, big square mouth
+Roar - mouth is open but looks like it's midway through one of the Rs, lips are curled back
+Though - vowel, mouth is like a triangle
+Wet - the starting "W", looks like "ooh"
+
+Bump - consonant, the ending "mp" (or maybe intro "b"), lips tightly pursed - 255 looks comical (lips clip into each other)
+Fave - consonant, either F or V
+Size - consonant, the S or Z
+Told - the ending "LD"? a big grin with mouth slightly open

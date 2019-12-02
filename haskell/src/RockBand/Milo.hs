@@ -28,8 +28,8 @@ import           Data.List                        (foldl', sort)
 import           Data.List.Split                  (keepDelimsR, onSublist,
                                                    split)
 import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe, isJust, isNothing)
 import qualified Data.Set                         as Set
-import           Data.Maybe                       (fromMaybe, isJust)
 import qualified Data.Text                        as T
 import           Data.Word
 import           DryVox                           (vocalTubes)
@@ -290,33 +290,24 @@ cmuToVisemes :: CMUPhoneme -> [MagmaViseme]
 cmuToVisemes = \case
   -- ipa and examples from https://en.wikipedia.org/wiki/ARPABET
 
-  -- good mappings
-
   CMU_AA -> [Viseme_Ox_hi, Viseme_Ox_lo] -- ɑ : balm bot
-  CMU_AH -> [Viseme_Bump_hi, Viseme_Bump_lo] -- ʌ : butt
-  CMU_AY -> [Viseme_Size_hi, Viseme_Size_lo] -- aɪ : bite
-  CMU_EH -> [Viseme_Wet_hi, Viseme_Wet_lo] -- ɛ : bet
+  CMU_AH -> [Viseme_If_hi, Viseme_If_lo] -- ʌ : butt
+  CMU_AY -> [Viseme_Ox_hi, Viseme_Ox_lo] -- aɪ : bite
+  -- probably should be a diphthong
+  CMU_EH -> [Viseme_Cage_hi, Viseme_Cage_lo] -- ɛ : bet
   CMU_ER -> [Viseme_Church_hi, Viseme_Church_lo] -- ɝ : bird
-  -- could also be [Viseme_Earth_hi, Viseme_Earth_lo]
   CMU_EY -> [Viseme_Cage_hi, Viseme_Cage_lo] -- eɪ : bait
-  -- could also be [Viseme_Fave_hi, Viseme_Fave_lo]
   CMU_IH -> [Viseme_If_hi, Viseme_If_lo] -- ɪ : bit
   CMU_IY -> [Viseme_Eat_hi, Viseme_Eat_lo] -- i : beat
-  CMU_OW -> [Viseme_Oat_hi, Viseme_Oat_lo] -- oʊ : boat
-  -- could also be [Viseme_Told_hi, Viseme_Told_lo]
-  -- could also be [Viseme_Though_hi, Viseme_Though_lo]
-  -- could also be [Viseme_Roar_hi, Viseme_Roar_lo]
-  CMU_UW -> [Viseme_New_hi, Viseme_New_lo] -- u : boot
-
-  -- imperfect mappings
-
-  CMU_AE -> [Viseme_Wet_hi, Viseme_Wet_lo] -- æ : bat
-  CMU_AO -> [Viseme_Oat_hi, Viseme_Oat_lo] -- ɔ : story
-  CMU_AW -> [Viseme_Ox_hi, Viseme_Ox_lo] -- aʊ : bout
+  CMU_OW -> [Viseme_Earth_hi, Viseme_Earth_lo] -- oʊ : boat
+  CMU_UW -> [Viseme_Wet_hi, Viseme_Wet_lo] -- u : boot
+  CMU_AE -> [Viseme_Cage_hi, Viseme_Cage_lo] -- æ : bat
+  CMU_AO -> [Viseme_Earth_hi, Viseme_Earth_lo] -- ɔ : story
+  CMU_AW -> [Viseme_If_hi, Viseme_If_lo] -- aʊ : bout
   -- probably should be a diphthong
   CMU_OY -> [Viseme_Oat_hi, Viseme_Oat_lo] -- ɔɪ : boy
   -- probably should be a diphthong
-  CMU_UH -> [Viseme_New_hi, Viseme_New_lo] -- ʊ : book
+  CMU_UH -> [Viseme_Though_hi, Viseme_Though_lo] -- ʊ : book
 
   _      -> [] -- probably shouldn't happen
 
@@ -357,8 +348,19 @@ englishVowels = let
       in (t, Just phone)
   in RTB.fromPairList . go . RTB.toPairList
 
+redundantZero :: (Eq a) => [[(a, Word8)]] -> [[(a, Word8)]]
+redundantZero []               = []
+redundantZero [x]              = [x, x]
+redundantZero (x : xs@(y : _)) = x : case [ vis | (vis, 0) <- x, isNothing $ lookup vis y ] of
+  []      -> redundantZero xs
+  visemes -> case redundantZero xs of
+    []      -> [] -- shouldn't happen
+    y' : ys -> (map (, 0) visemes ++ y') : ys
+
 autoLipsync :: VocalTrack U.Seconds -> Lipsync
 autoLipsync vt = let
+  fullWeight = 140
+  weightDelta = 35
   ahs cur next = do
     vis <- Set.toList $ Map.keysSet cur <> Map.keysSet next
     return (vis, fromMaybe 0 $ Map.lookup vis next)
@@ -368,8 +370,8 @@ autoLipsync vt = let
       return (vis, crawlFrame (Map.lookup vis cur) (Map.lookup vis goal))
     crawlFrame mx my = case compare x y of
       EQ -> x
-      LT -> if x + 20 < x then y else min y $ x + 20
-      GT -> if x - 20 > x then y else max y $ x - 20
+      LT -> if x + weightDelta < x then y else min y $ x + weightDelta
+      GT -> if x - weightDelta > x then y else max y $ x - weightDelta
       where x = fromMaybe 0 mx
             y = fromMaybe 0 my
     in ahs cur next : if RTB.null rest
@@ -377,7 +379,7 @@ autoLipsync vt = let
       else let
         (frame, after) = U.trackSplit (1/30 :: U.Seconds) rest
         goal' = case RTB.viewR frame of
-          Just (_, (_, phone)) -> Map.fromList $ map (, 100) $ maybe [] cmuToVisemes phone
+          Just (_, (_, phone)) -> Map.fromList $ map (, fullWeight) $ maybe [] cmuToVisemes phone
           Nothing              -> goal
         in makeKeyframes next goal' after
   in Lipsync
@@ -385,9 +387,13 @@ autoLipsync vt = let
     , lipsyncSubversion = 2
     , lipsyncDTAImport  = B.empty
     , lipsyncVisemes    = map (B8.pack . drop 7 . show) [minBound :: MagmaViseme .. maxBound]
-    , lipsyncKeyframes  = drop 1 $ map
-      (Keyframe . sort . map ((\(vis, n) -> VisemeEvent (fromEnum vis) n)))
-      (makeKeyframes Map.empty Map.empty $ englishVowels $ vocalTubes vt)
+    , lipsyncKeyframes
+      = map (Keyframe . sort . map ((\(vis, n) -> VisemeEvent (fromEnum vis) n)))
+      $ redundantZero
+      $ drop 2
+      $ makeKeyframes Map.empty Map.empty
+      $ englishVowels
+      $ vocalTubes vt
     }
 
 autoLipsyncAh :: VocalTrack U.Seconds -> Lipsync
@@ -411,9 +417,12 @@ autoLipsyncAh vt = let
     , lipsyncSubversion = 2
     , lipsyncDTAImport  = B.empty
     , lipsyncVisemes    = map (B8.pack . drop 7 . show) [minBound :: MagmaViseme .. maxBound]
-    , lipsyncKeyframes  = drop 1 $ map
-      (Keyframe . map ((\(vis, n) -> VisemeEvent (fromEnum vis) n)))
-      (makeKeyframes 0 0 $ fmap isJust $ vocalTubes vt)
+    , lipsyncKeyframes
+      = drop 1
+      $ map (Keyframe . map ((\(vis, n) -> VisemeEvent (fromEnum vis) n)))
+      $ makeKeyframes 0 0
+      $ fmap isJust
+      $ vocalTubes vt
     }
 
 lipsyncFromMidi :: LipsyncTrack U.Seconds -> Lipsync

@@ -60,8 +60,8 @@ data Song = Song
   , vocalParts       :: Maybe Integer
   , drumSolo         :: DrumSounds
   , drumFreestyle    :: DrumSounds
-  , muteVolume       :: Maybe Integer -- should probably be Float?
-  , muteVolumeVocals :: Maybe Integer -- should probably be Float?
+  , muteVolume       :: Maybe Float
+  , muteVolumeVocals :: Maybe Float
   , hopoThreshold    :: Maybe Integer
   -- magma v1 / rb2:
   , midiFile         :: Maybe T.Text
