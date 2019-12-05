@@ -55,7 +55,8 @@ import           PrettyDTA                        (DTASingle (..),
 import           ProKeysRanges                    (closeShiftsFile)
 import           Reaper.Build                     (makeReaperIO)
 import qualified RockBand.Codec.File              as RBFile
-import           RockBand.Milo                    (decompressMilo,
+import           RockBand.Milo                    (addMiloHeader, breakMilo,
+                                                   decompressMilo,
                                                    recognizeMilo,
                                                    testConvertLipsync)
 import qualified Sound.File.Sndfile               as Snd
@@ -755,20 +756,40 @@ commands =
     }
 
   , Command
+    { commandWord = "milo"
+    , commandDesc = "Combine a list of pieces into a .milo_xxx file."
+    , commandUsage = "onyx milo piece1.bin piece2.bin ... --to out.milo_xbox"
+    , commandRun = \args opts -> do
+      out <- case [ to | OptTo to <- opts ] of
+        []    -> fatal "milo command requires --to, none given"
+        f : _ -> return f
+      parts <- stackIO $ mapM BL.readFile args
+      stackIO $ BL.writeFile out $ addMiloHeader $
+        BL.intercalate (BL.pack [0xAD, 0xDE, 0xAD, 0xDE]) parts
+      return [out]
+    }
+
+  , Command
     { commandWord = "unmilo"
-    , commandDesc = "Decompress and possibly split the data inside a .milo_xxx file."
+    , commandDesc = "Decompress and split the data inside a .milo_xxx file."
     , commandUsage = "onyx unmilo in.milo"
     , commandRun = \args _opts -> case args of
       [fin] -> do
         bs <- stackIO $ BL.readFile fin
         dec <- case runGetOrFail decompressMilo bs of
           Left (_, pos, err) -> fatal $ "Failed to decompress the milo. Error at position " <> show pos <> ": " <> err
-          Right (_, _, x) -> return x
+          Right (_, _, x)    -> return $ BL.toStrict x
         let dout = fin ++ "_extract"
         stackIO $ Dir.createDirectoryIfMissing False dout
-        stackIO $ BL.writeFile (dout </> "decompressed.bin") dec
-        case recognizeMilo $ BL.toStrict dec of
-          Nothing -> lg "Couldn't recognize standard RB lipsync/venue milo contents."
+        stackIO $ B.writeFile (dout </> "decompressed.bin") dec
+        case recognizeMilo dec of
+          Nothing -> do
+            stackIO $ forM_ (zip [0..] $ breakMilo dec) $ \(i, piece) -> do
+              let num = case show (i :: Int) of
+                    [c] -> ['0', c]
+                    s   -> s
+              B.writeFile (dout </> "piece" <> num <.> "bin") piece
+            lg "Couldn't recognize standard RB lipsync/venue milo contents; split into simple pieces."
           Just contents -> do
             stackIO $ forM_ contents $ \(subname, subbytes) -> do
               B.writeFile (dout </> subname) subbytes

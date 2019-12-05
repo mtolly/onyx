@@ -357,10 +357,8 @@ redundantZero (x : xs@(y : _)) = x : case [ vis | (vis, 0) <- x, isNothing $ loo
     []      -> [] -- shouldn't happen
     y' : ys -> (map (, 0) visemes ++ y') : ys
 
-autoLipsync :: VocalTrack U.Seconds -> Lipsync
-autoLipsync vt = let
-  fullWeight = 140
-  weightDelta = 35
+visemesToLipsync :: Word8 -> RTB.T U.Seconds [(B.ByteString, Word8)] -> Lipsync
+visemesToLipsync weightDelta rtb = let
   ahs cur next = do
     vis <- Set.toList $ Map.keysSet cur <> Map.keysSet next
     return (vis, fromMaybe 0 $ Map.lookup vis next)
@@ -379,51 +377,45 @@ autoLipsync vt = let
       else let
         (frame, after) = U.trackSplit (1/30 :: U.Seconds) rest
         goal' = case RTB.viewR frame of
-          Just (_, (_, phone)) -> Map.fromList $ map (, fullWeight) $ maybe [] cmuToVisemes phone
+          Just (_, (_, pairs)) -> Map.fromList pairs
           Nothing              -> goal
         in makeKeyframes next goal' after
+  visemeSet = Set.fromList $ map fst $ concat $ RTB.getBodies rtb
   in Lipsync
     { lipsyncVersion    = 1
     , lipsyncSubversion = 2
     , lipsyncDTAImport  = B.empty
-    , lipsyncVisemes    = map (B8.pack . drop 7 . show) [minBound :: MagmaViseme .. maxBound]
+    , lipsyncVisemes    = Set.toList visemeSet
     , lipsyncKeyframes
-      = map (Keyframe . sort . map ((\(vis, n) -> VisemeEvent (fromEnum vis) n)))
+      = map (Keyframe . sort . map ((\(vis, n) -> VisemeEvent (Set.findIndex vis visemeSet) n)))
       $ redundantZero
       $ drop 2
-      $ makeKeyframes Map.empty Map.empty
-      $ englishVowels
-      $ vocalTubes vt
+      $ makeKeyframes Map.empty Map.empty rtb
     }
 
+autoLipsync :: VocalTrack U.Seconds -> Lipsync
+autoLipsync
+  = visemesToLipsync 35
+  . fmap (maybe [] $ map (\v -> (B8.pack $ drop 7 $ show v, 140)) . cmuToVisemes)
+  . englishVowels
+  . vocalTubes
+
 autoLipsyncAh :: VocalTrack U.Seconds -> Lipsync
-autoLipsyncAh vt = let
-  ah n = [(Viseme_Ox_hi, n), (Viseme_Ox_lo, n)]
-  makeKeyframes cur goal rest = let
-    next = case compare cur goal of
-      EQ -> cur
-      LT -> if cur + 20 < cur then goal else min goal $ cur + 20
-      GT -> if cur - 20 > cur then goal else max goal $ cur - 20
-    in ah next : if RTB.null rest
-      then if cur == next then [] else makeKeyframes next goal RTB.empty
-      else let
-        (frame, after) = U.trackSplit (1/30 :: U.Seconds) rest
-        goal' = case RTB.viewR frame of
-          Just (_, (_, bool)) -> if bool then 100 else 0
-          Nothing             -> goal
-        in makeKeyframes next goal' after
-  in Lipsync
-    { lipsyncVersion    = 1
+autoLipsyncAh
+  = visemesToLipsync 20
+  . fmap (\x -> guard (isJust x) >> [("Ox_hi", 100), ("Ox_lo", 100)])
+  . vocalTubes
+
+beatlesLipsync :: VocalTrack U.Seconds -> Lipsync
+beatlesLipsync
+  = (\lip -> lip
+    { lipsyncVersion = 0
     , lipsyncSubversion = 2
-    , lipsyncDTAImport  = B.empty
-    , lipsyncVisemes    = map (B8.pack . drop 7 . show) [minBound :: MagmaViseme .. maxBound]
-    , lipsyncKeyframes
-      = drop 1
-      $ map (Keyframe . map ((\(vis, n) -> VisemeEvent (fromEnum vis) n)))
-      $ makeKeyframes 0 0
-      $ fmap isJust
-      $ vocalTubes vt
-    }
+    , lipsyncDTAImport = "proj9"
+    })
+  . visemesToLipsync 30
+  . fmap (\x -> guard (isJust x) >> [("jaw_open", 160), ("l_smile_closed", 100), ("r_smile_closed", 100)])
+  . vocalTubes
 
 lipsyncFromMidi :: LipsyncTrack U.Seconds -> Lipsync
 lipsyncFromMidi _ = let
@@ -524,14 +516,15 @@ testConvertLipsync fmid fvoc fout = do
   let raw = lipsyncToMIDI (RBFile.s_tempos mid) (RBFile.s_signatures mid) voc `asTypeOf` mid
   Save.toFile fout $ RBFile.showMIDIFile' raw
 
+breakMilo :: B.ByteString -> [B.ByteString]
+breakMilo b = case B.breakSubstring (B.pack [0xAD, 0xDE, 0xAD, 0xDE]) b of
+  (x, y) -> if B.null y
+    then [b]
+    else x : breakMilo (B.drop 4 y)
+
 -- | Does simple matching of the different RB3 milo content sets.
 recognizeMilo :: B.ByteString -> Maybe [(FilePath, B.ByteString)]
 recognizeMilo bs = let
-  breakPiece b = case B.breakSubstring (B.pack [0xAD, 0xDE, 0xAD, 0xDE]) b of
-    (x, y) -> if B.null y
-      then [b]
-      else x : breakPiece (B.drop 4 y)
-  pieces = breakPiece bs
   filesInHeader header = let
     indexOfString s = case B.breakSubstring s header of
       (x, y) -> do
@@ -539,7 +532,7 @@ recognizeMilo bs = let
         Just $ B.length x
     knownFiles = ["song.lipsync", "part2.lipsync", "part3.lipsync", "part4.lipsync", "song.anim"]
     in map snd $ sort [ (i, B8.unpack f) | f <- knownFiles, Just i <- [indexOfString f] ]
-  in case pieces of
+  in case breakMilo bs of
     [] -> Nothing
     header : rest -> let
       files = filesInHeader header
