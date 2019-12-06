@@ -3,7 +3,6 @@ Thanks to PyMilo, LibForge, and MiloMod for information on these structures.
 -}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
 module RockBand.Milo where
@@ -28,15 +27,19 @@ import           Data.List                        (foldl', sort)
 import           Data.List.Split                  (keepDelimsR, onSublist,
                                                    split)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, isJust, isNothing)
+import           Data.Maybe                       (fromMaybe, isJust, isNothing,
+                                                   listToMaybe)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
+import qualified Data.Text.Encoding               as TE
 import           Data.Word
 import           DryVox                           (vocalTubes)
 import           Resources                        (CMUPhoneme (..), cmuDict)
+import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Lipsync           (LipsyncTrack (..),
-                                                   MagmaViseme (..))
+                                                   MagmaViseme (..),
+                                                   VisemeEvent (..))
 import           RockBand.Codec.Vocal
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
@@ -212,13 +215,8 @@ data Lipsync = Lipsync
   } deriving (Eq, Show)
 
 newtype Keyframe = Keyframe
-  { keyframeEvents :: [VisemeEvent]
+  { keyframeEvents :: [VisemeEvent Int]
   } deriving (Eq, Show)
-
-data VisemeEvent = VisemeEvent
-  { visemeIndex  :: Int
-  , visemeWeight :: Word8
-  } deriving (Eq, Ord, Show)
 
 getStringBE :: Get B.ByteString
 getStringBE = do
@@ -247,7 +245,7 @@ parseLipsync = do
   lipsyncKeyframes <- replicateM (fromIntegral keyframeCount) $ do
     eventCount <- getWord8
     keyframeEvents <- replicateM (fromIntegral eventCount) $ do
-      visemeIndex <- fromIntegral <$> getWord8
+      visemeKey <- fromIntegral <$> getWord8
       visemeWeight <- getWord8
       return VisemeEvent{..}
     return Keyframe{..}
@@ -266,7 +264,7 @@ putLipsync lip = do
   let keyframeBS = runPut $ forM_ (lipsyncKeyframes lip) $ \key -> do
         putWord8 $ fromIntegral $ length $ keyframeEvents key
         forM_ (keyframeEvents key) $ \evt -> do
-          putWord8 $ fromIntegral $ visemeIndex evt
+          putWord8 $ fromIntegral $ visemeKey evt
           putWord8 $ visemeWeight evt
   putWord32be $ fromIntegral $ BL.length keyframeBS
   putLazyByteString keyframeBS
@@ -282,9 +280,19 @@ lipsyncToMIDI tmap mmap lip = RBFile.Song tmap mmap $ RBFile.RawFile $ (:[])
     (dt, key) <- zip (0 : repeat (1/30 :: U.Seconds)) $ lipsyncKeyframes lip
     let evts = do
           vis <- keyframeEvents key
-          let str = "[viseme " <> B8.unpack (lipsyncVisemes lip !! visemeIndex vis) <> " " <> show (visemeWeight vis) <> "]"
+          let str = "[viseme " <> B8.unpack (lipsyncVisemes lip !! visemeKey vis) <> " " <> show (visemeWeight vis) <> "]"
           return $ E.MetaEvent $ Meta.TextEvent str
     return (dt, evts)
+
+lipsyncToMIDITrack :: Lipsync -> LipsyncTrack U.Seconds
+lipsyncToMIDITrack lip
+  = LipsyncTrack
+  $ RTB.flatten
+  $ RTB.fromPairList
+  $ do
+    (dt, key) <- zip (0 : repeat (1/30 :: U.Seconds)) $ lipsyncKeyframes lip
+    let lookupViseme i = TE.decodeLatin1 $ lipsyncVisemes lip !! i
+    return (dt, map (fmap lookupViseme) $ keyframeEvents key)
 
 cmuToVisemes :: CMUPhoneme -> [MagmaViseme]
 cmuToVisemes = \case
@@ -417,15 +425,29 @@ beatlesLipsync
   . fmap (\x -> guard (isJust x) >> [("jaw_open", 160), ("l_smile_closed", 100), ("r_smile_closed", 100)])
   . vocalTubes
 
-lipsyncFromMidi :: LipsyncTrack U.Seconds -> Lipsync
-lipsyncFromMidi _ = let
-  -- TODO
+lipsyncFromMIDITrack :: LipsyncTrack U.Seconds -> Lipsync
+lipsyncFromMIDITrack lip = let
+  makeKeyframes cur rest = let
+    (frame, after) = U.trackSplit (1/30 :: U.Seconds) rest
+    next = Map.filter (/= 0) $ foldl' (\m (VisemeEvent k w) -> Map.insert k w m) cur frame
+    keyframe = do
+      vis <- Set.toList $ Map.keysSet cur <> Map.keysSet next
+      return (vis, fromMaybe 0 $ Map.lookup vis next)
+    in keyframe : if RTB.null after
+      then []
+      else makeKeyframes next after
+  visemeSet = Set.fromList $ map visemeKey $ RTB.getBodies $ lipEvents lip
   in Lipsync
     { lipsyncVersion    = 1
     , lipsyncSubversion = 2
     , lipsyncDTAImport  = B.empty
-    , lipsyncVisemes    = map (B8.pack . drop 7 . show) [minBound :: MagmaViseme .. maxBound]
-    , lipsyncKeyframes  = undefined
+    , lipsyncVisemes    = map TE.encodeUtf8 $ Set.toList visemeSet
+    , lipsyncKeyframes
+      = map (Keyframe . sort . map ((\(vis, n) -> VisemeEvent (Set.findIndex vis visemeSet) n)))
+      $ redundantZero
+      $ makeKeyframes Map.empty
+      $ RTB.delay (1/60 :: U.Seconds) -- this is so we can process the first 1/30 and end up in the center of the first frame
+      $ lipEvents lip
     }
 
 data Venue = Venue
@@ -506,15 +528,27 @@ testConvertVenue fmid fven fout = do
   let raw = venueToMIDI (RBFile.s_tempos mid) (RBFile.s_signatures mid) ven `asTypeOf` mid
   Save.toFile fout $ RBFile.showMIDIFile' raw
 
-testConvertLipsync :: FilePath -> FilePath -> FilePath -> IO ()
-testConvertLipsync fmid fvoc fout = do
+testConvertLipsync :: FilePath -> [FilePath] -> FilePath -> IO ()
+testConvertLipsync fmid fvocs fout = do
   res <- logStdout $ stackIO (Load.fromFile fmid) >>= RBFile.readMIDIFile'
   mid <- case res of
     Left err  -> error $ show err
     Right mid -> return mid
-  voc <- fmap (runGet parseLipsync) $ BL.readFile fvoc
-  let raw = lipsyncToMIDI (RBFile.s_tempos mid) (RBFile.s_signatures mid) voc `asTypeOf` mid
-  Save.toFile fout $ RBFile.showMIDIFile' raw
+  trks <- forM fvocs $ \fvoc -> do
+    voc <- fmap (runGet parseLipsync) $ BL.readFile fvoc
+    return $ mapTrack (U.unapplyTempoTrack $ RBFile.s_tempos mid) $ lipsyncToMIDITrack voc
+  Save.toFile fout $ RBFile.showMIDIFile' mid
+    { RBFile.s_tracks = (RBFile.s_tracks mid)
+      { RBFile.onyxParts = let
+        orig = RBFile.onyxParts $ RBFile.s_tracks mid
+        fn vox = Just (fromMaybe mempty vox)
+          { RBFile.onyxLipsync1 = fromMaybe mempty $ listToMaybe trks
+          , RBFile.onyxLipsync2 = fromMaybe mempty $ listToMaybe $ drop 1 trks
+          , RBFile.onyxLipsync3 = fromMaybe mempty $ listToMaybe $ drop 2 trks
+          }
+        in Map.alter fn RBFile.FlexVocal orig
+      }
+    }
 
 breakMilo :: B.ByteString -> [B.ByteString]
 breakMilo b = case B.breakSubstring (B.pack [0xAD, 0xDE, 0xAD, 0xDE]) b of

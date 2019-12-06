@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE ViewPatterns      #-}
 module CommandLine (commandLine, identifyFile', FileType(..), copyDirRecursive, runDolphin) where
 
 import           Audio                            (applyPansVols, fadeEnd,
@@ -33,7 +34,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     (void)
 import qualified Data.HashMap.Strict              as Map
 import           Data.Int                         (Int16)
-import           Data.List.Extra                  (stripSuffix)
+import           Data.List.Extra                  (stripSuffix, unsnoc)
 import           Data.List.HT                     (partitionMaybe)
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
@@ -747,12 +748,12 @@ commands =
   , Command
     { commandWord = "lipsync-midi"
     , commandDesc = "Transfer data from a lipsync file to a MIDI file."
-    , commandUsage = "onyx lipsync-midi in.mid in.lipsync out.mid"
+    , commandUsage = "onyx lipsync-midi in.mid in.lipsync [in2.lipsync [in3.lipsync]] out.mid"
     , commandRun = \args _opts -> case args of
-      [fmid, fvoc, fout] -> do
-        stackIO $ testConvertLipsync fmid fvoc fout
+      fmid : (unsnoc -> Just (fvocs, fout)) -> do
+        stackIO $ testConvertLipsync fmid fvocs fout
         return [fout]
-      _ -> fatal "Expected 3 arguments (input midi, input lipsync, output midi)"
+      _ -> fatal "Expected at least 2-5 arguments (input midi, 0-3 input lipsyncs, output midi)"
     }
 
   , Command

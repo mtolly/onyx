@@ -1,40 +1,46 @@
+{-# LANGUAGE DeriveFunctor      #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RecordWildCards    #-}
 module RockBand.Codec.Lipsync where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.Text                        as T
+import           Data.Word
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import           RockBand.Codec
 import           RockBand.Common
+import           Text.Read                        (readMaybe)
 
 newtype LipsyncTrack t = LipsyncTrack
-  { lipEvents :: RTB.T t (MagmaViseme, (Slide, Int, t))
+  { lipEvents :: RTB.T t (VisemeEvent T.Text)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (LipsyncTrack t)
 
-data Slide = NoSlide | SlideToNext | SlideFromPrev
-  deriving (Eq, Ord, Show, Enum, Bounded, Generic)
-
-instance ChannelType Slide where
-  encodeChannel = fromEnum
-
 instance TraverseTrack LipsyncTrack where
-  traverseTrack fn (LipsyncTrack a) = LipsyncTrack <$> do
-    fmap (fmap (\(fret, (str, nt), len) -> (str, (nt, fret, len))) . joinEdgesSimple)
-      $ fn
-      $ splitEdgesSimple
-      $ fmap (\(str, (nt, fret, len)) -> (fret, (str, nt), len))
-      $ a
+  traverseTrack fn (LipsyncTrack a) = LipsyncTrack <$> fn a
 
 instance ParseTrack LipsyncTrack where
   parseTrack = do
-    lipEvents <- (lipEvents =.) $ condenseMap $ eachKey each $ \viseme ->
-      matchEdgesCV $ channelEdges (100 - fromEnum viseme)
+    lipEvents <- lipEvents =. command
     return LipsyncTrack{..}
+
+data VisemeEvent a = VisemeEvent
+  { visemeKey    :: a
+  , visemeWeight :: Word8
+  } deriving (Eq, Ord, Show, Functor)
+
+instance Command (VisemeEvent T.Text) where
+  toCommand = \case
+    [v, w] -> VisemeEvent v <$> readMaybe (T.unpack w)
+    _      -> Nothing
+  fromCommand (VisemeEvent v w) = [v, T.pack $ show w]
 
 data MagmaViseme
   = Viseme_Blink
