@@ -9,8 +9,9 @@ module RockBand.Milo where
 
 import qualified Codec.Compression.GZip           as GZ
 import qualified Codec.Compression.Zlib.Internal  as Z
+import           Control.Applicative              (liftA2)
 import           Control.Monad                    (forM, forM_, guard,
-                                                   replicateM)
+                                                   replicateM, unless)
 import           Control.Monad.ST.Lazy
 import           Control.Monad.Trans.StackTrace   (logStdout, stackIO)
 import           Data.Binary.Get
@@ -269,20 +270,6 @@ putLipsync lip = do
   putWord32be $ fromIntegral $ BL.length keyframeBS
   putLazyByteString keyframeBS
   putWord32be 0
-
-lipsyncToMIDI :: U.TempoMap -> U.MeasureMap -> Lipsync -> RBFile.Song (RBFile.RawFile U.Beats)
-lipsyncToMIDI tmap mmap lip = RBFile.Song tmap mmap $ RBFile.RawFile $ (:[])
-  $ U.setTrackName "LIPSYNC"
-  $ U.unapplyTempoTrack tmap
-  $ RTB.flatten
-  $ RTB.fromPairList
-  $ do
-    (dt, key) <- zip (0 : repeat (1/30 :: U.Seconds)) $ lipsyncKeyframes lip
-    let evts = do
-          vis <- keyframeEvents key
-          let str = "[viseme " <> B8.unpack (lipsyncVisemes lip !! visemeKey vis) <> " " <> show (visemeWeight vis) <> "]"
-          return $ E.MetaEvent $ Meta.TextEvent str
-    return (dt, evts)
 
 lipsyncToMIDITrack :: Lipsync -> LipsyncTrack U.Seconds
 lipsyncToMIDITrack lip
@@ -556,26 +543,72 @@ breakMilo b = case B.breakSubstring (B.pack [0xAD, 0xDE, 0xAD, 0xDE]) b of
     then [b]
     else x : breakMilo (B.drop 4 y)
 
--- | Does simple matching of the different RB3 milo content sets.
-recognizeMilo :: B.ByteString -> Maybe [(FilePath, B.ByteString)]
-recognizeMilo bs = let
-  filesInHeader header = let
-    indexOfString s = case B.breakSubstring s header of
-      (x, y) -> do
-        guard $ not $ B.null y
-        Just $ B.length x
-    knownFiles = ["song.lipsync", "part2.lipsync", "part3.lipsync", "part4.lipsync", "song.anim"]
-    in map snd $ sort [ (i, B8.unpack f) | f <- knownFiles, Just i <- [indexOfString f] ]
-  in case breakMilo bs of
-    [] -> Nothing
-    header : rest -> let
-      files = filesInHeader header
-      nonzero = filter (B.any (/= 0)) rest
-      in do
-        guard $ length files == length nonzero
-        realOrder <- case files of
-          "song.anim" : restFiles -> Just $ restFiles ++ ["song.anim"]
-          _ -> do
-            guard $ "song.anim" `notElem` files
-            Just files
-        Just $ zip realOrder nonzero
+parseFileADDE :: Get BL.ByteString
+parseFileADDE = do
+  magic <- lookAhead $ getByteString 4
+  case B.unpack magic of
+    [0xAD, 0xDE, 0xAD, 0xDE] -> do
+      skip 4
+      return BL.empty
+    _ -> do
+      b <- getWord8
+      BL.cons b <$> parseFileADDE
+
+data MiloDir = MiloDir
+  { miloVersion    :: Word32
+  , miloType       :: B.ByteString
+  , miloName       :: B.ByteString
+  , miloV1         :: Word32
+  , miloV2         :: Word32
+  , miloEntryNames :: [(B.ByteString, B.ByteString)]
+  , miloV3         :: Word32
+  , miloV4         :: Word32
+  , miloSubname    :: B.ByteString
+  , miloMatrices   :: [[Float]]
+  , miloV5         :: Word32
+  , miloV6         :: Word8
+  , miloV7         :: Word32
+  , miloParents    :: [B.ByteString]
+  , miloV8         :: Word8
+  , miloChildren   :: [B.ByteString]
+  , miloSubdirs    :: [MiloDir]
+  , miloFiles      :: [BL.ByteString]
+  } deriving (Show)
+
+parseMiloStructure :: Get MiloDir
+parseMiloStructure = do
+  miloVersion <- getWord32be
+  miloType <- getStringBE
+  miloName <- getStringBE
+  miloV1 <- getWord32be
+  miloV2 <- getWord32be
+  entryCount <- getWord32be
+  miloEntryNames <- replicateM (fromIntegral entryCount)
+    $ liftA2 (,) getStringBE getStringBE
+  miloV3 <- getWord32be
+  miloV4 <- getWord32be
+  miloSubname <- getStringBE
+  let getMatrixCount = getWord32be >>= \case
+        -- tbrb has 7 right away, rb3 (magma2 and dlc) has 8 extra 0 bytes
+        0 -> getMatrixCount
+        n -> return n
+  matrixCount <- getMatrixCount
+  miloMatrices <- replicateM (fromIntegral matrixCount)
+    $ replicateM 12 getFloat32be
+  miloV5 <- getWord32be
+  miloV6 <- getWord8
+  miloV7 <- getWord32be
+  parentMiloCount <- getWord32be
+  miloParents <- replicateM (fromIntegral parentMiloCount) getStringBE
+  miloV8 <- getWord8
+  subMiloCount <- getWord32be
+  miloChildren <- replicateM (fromIntegral subMiloCount) getStringBE
+  -- if the next byte is 01, eat 2 bytes (01 00). needed for hmx rb3 dlc (onthebacksofangels)
+  lookAhead getWord8 >>= \case
+    1 -> skip 2
+    _ -> return ()
+  miloSubdirs <- replicateM (fromIntegral subMiloCount) parseMiloStructure
+  zeroes <- parseFileADDE
+  unless (BL.all (== 0) zeroes) $ fail "non-zero byte before milo entries"
+  miloFiles <- replicateM (fromIntegral entryCount) parseFileADDE
+  return MiloDir{..}

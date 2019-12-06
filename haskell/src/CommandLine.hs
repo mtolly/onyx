@@ -56,9 +56,9 @@ import           PrettyDTA                        (DTASingle (..),
 import           ProKeysRanges                    (closeShiftsFile)
 import           Reaper.Build                     (makeReaperIO)
 import qualified RockBand.Codec.File              as RBFile
-import           RockBand.Milo                    (addMiloHeader, breakMilo,
-                                                   decompressMilo,
-                                                   recognizeMilo,
+import           RockBand.Milo                    (MiloDir (..), addMiloHeader,
+                                                   breakMilo, decompressMilo,
+                                                   parseMiloStructure,
                                                    testConvertLipsync)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File.Load             as Load
@@ -779,22 +779,28 @@ commands =
         bs <- stackIO $ BL.readFile fin
         dec <- case runGetOrFail decompressMilo bs of
           Left (_, pos, err) -> fatal $ "Failed to decompress the milo. Error at position " <> show pos <> ": " <> err
-          Right (_, _, x)    -> return $ BL.toStrict x
+          Right (_, _, x)    -> return x
         let dout = fin ++ "_extract"
         stackIO $ Dir.createDirectoryIfMissing False dout
-        stackIO $ B.writeFile (dout </> "decompressed.bin") dec
-        case recognizeMilo dec of
-          Nothing -> do
-            stackIO $ forM_ (zip [0..] $ breakMilo dec) $ \(i, piece) -> do
+        stackIO $ BL.writeFile (dout </> "decompressed.bin") dec
+        case runGetOrFail parseMiloStructure dec of
+          Left (_, pos, err) -> do
+            stackIO $ forM_ (zip [0..] $ breakMilo $ BL.toStrict dec) $ \(i, piece) -> do
               let num = case show (i :: Int) of
                     [c] -> ['0', c]
                     s   -> s
               B.writeFile (dout </> "piece" <> num <.> "bin") piece
-            lg "Couldn't recognize standard RB lipsync/venue milo contents; split into simple pieces."
-          Just contents -> do
-            stackIO $ forM_ contents $ \(subname, subbytes) -> do
-              B.writeFile (dout </> subname) subbytes
-            lg $ "Recognized and extracted milo contents: " <> show (map fst contents)
+            inside "Parsing .milo structure" $ inside ("position " <> show pos) $ warn err
+            lg "Couldn't parse milo structure; split into simple pieces."
+          Right (_, _, topdir) -> do
+            let go parent milodir = do
+                  let thisout = parent </> B8.unpack (miloName milodir)
+                  Dir.createDirectoryIfMissing False thisout
+                  forM_ (zip (miloEntryNames milodir) (miloFiles milodir)) $ \((_typ, name), fileBytes) -> do
+                    BL.writeFile (thisout </> B8.unpack name) fileBytes
+                  mapM_ (go thisout) $ miloSubdirs milodir
+            stackIO $ go dout topdir
+            lg "Recognized and extracted milo contents."
         return [dout]
       _ -> fatal "Expected 1 argument (input milo)"
     }
