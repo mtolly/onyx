@@ -58,7 +58,7 @@ import           Reaper.Build                     (makeReaperIO)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Milo                    (MiloDir (..), addMiloHeader,
                                                    breakMilo, decompressMilo,
-                                                   parseMiloStructure,
+                                                   parseMiloFile,
                                                    testConvertLipsync)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File.Load             as Load
@@ -783,7 +783,7 @@ commands =
         let dout = fin ++ "_extract"
         stackIO $ Dir.createDirectoryIfMissing False dout
         stackIO $ BL.writeFile (dout </> "decompressed.bin") dec
-        case runGetOrFail parseMiloStructure dec of
+        case runGetOrFail parseMiloFile dec of
           Left (_, pos, err) -> do
             stackIO $ forM_ (zip [0..] $ breakMilo $ BL.toStrict dec) $ \(i, piece) -> do
               let num = case show (i :: Int) of
@@ -799,7 +799,12 @@ commands =
                   forM_ (zip (miloEntryNames milodir) (miloFiles milodir)) $ \((_typ, name), fileBytes) -> do
                     BL.writeFile (thisout </> B8.unpack name) fileBytes
                   mapM_ (go thisout) $ miloSubdirs milodir
+                removeFiles dir = dir
+                  { miloSubdirs = map removeFiles $ miloSubdirs dir
+                  , miloFiles = map (const "(file contents)") $ miloFiles dir
+                  }
             stackIO $ go dout topdir
+            stackIO $ writeFile (dout </> "parsed.txt") $ show $ removeFiles topdir
             lg "Recognized and extracted milo contents."
         return [dout]
       _ -> fatal "Expected 1 argument (input milo)"

@@ -11,7 +11,7 @@ import qualified Codec.Compression.GZip           as GZ
 import qualified Codec.Compression.Zlib.Internal  as Z
 import           Control.Applicative              (liftA2)
 import           Control.Monad                    (forM, forM_, guard,
-                                                   replicateM, unless)
+                                                   replicateM)
 import           Control.Monad.ST.Lazy
 import           Control.Monad.Trans.StackTrace   (logStdout, stackIO)
 import           Data.Binary.Get
@@ -555,28 +555,37 @@ parseFileADDE = do
       BL.cons b <$> parseFileADDE
 
 data MiloDir = MiloDir
-  { miloVersion    :: Word32
-  , miloType       :: B.ByteString
-  , miloName       :: B.ByteString
-  , miloV1         :: Word32
-  , miloV2         :: Word32
-  , miloEntryNames :: [(B.ByteString, B.ByteString)]
-  , miloV3         :: Word32
-  , miloV4         :: Word32
-  , miloSubname    :: B.ByteString
-  , miloMatrices   :: [[Float]]
-  , miloV5         :: Word32
-  , miloV6         :: Word8
-  , miloV7         :: Word32
-  , miloParents    :: [B.ByteString]
-  , miloV8         :: Word8
-  , miloChildren   :: [B.ByteString]
-  , miloSubdirs    :: [MiloDir]
-  , miloFiles      :: [BL.ByteString]
+  { miloVersion      :: Word32
+  , miloType         :: B.ByteString
+  , miloName         :: B.ByteString
+  , miloV1           :: Word32
+  , miloV2           :: Word32
+  , miloEntryNames   :: [(B.ByteString, B.ByteString)]
+  , miloV3           :: Word32
+  , miloV4           :: Maybe Word32
+  , miloSubname      :: Maybe B.ByteString
+  , miloV5           :: Maybe Word32
+  , miloV6           :: Maybe Word32
+  , miloMatrices     :: [[Float]]
+  , miloV7           :: Word32
+  , miloV8           :: Word8
+  , miloV9           :: Word32
+  , miloParents      :: [B.ByteString]
+  , miloV10          :: Word8
+  , miloChildren     :: [B.ByteString]
+  , miloSubdirs      :: [MiloDir]
+  , miloUnknownBytes :: BL.ByteString
+  , miloFiles        :: [BL.ByteString]
   } deriving (Show)
 
-parseMiloStructure :: Get MiloDir
-parseMiloStructure = do
+{-
+Currently this can parse:
+* all RB 1/2/3/Lego/Beatles/GD songs,
+  except fantasma2 which is kind of broken (has an ObjectDir in the files list)
+But fails on e.g. most on-disc RB3 game content milos.
+-}
+parseMiloDir :: Get MiloDir
+parseMiloDir = do
   miloVersion <- getWord32be
   miloType <- getStringBE
   miloName <- getStringBE
@@ -586,29 +595,40 @@ parseMiloStructure = do
   miloEntryNames <- replicateM (fromIntegral entryCount)
     $ liftA2 (,) getStringBE getStringBE
   miloV3 <- getWord32be
-  miloV4 <- getWord32be
-  miloSubname <- getStringBE
-  let getMatrixCount = getWord32be >>= \case
-        -- tbrb has 7 right away, rb3 (magma2 and dlc) has 8 extra 0 bytes
-        0 -> getMatrixCount
-        n -> return n
-  matrixCount <- getMatrixCount
+  let expectedMatrixCount = 7
+  flag1 <- (/= expectedMatrixCount) <$> lookAhead getWord32be
+  -- flag1 is false on 2minutestomidnight, but true on TBRB, magma2, and 2112
+  miloV4 <- if flag1 then Just <$> getWord32be else return Nothing
+  miloSubname <- if flag1 then Just <$> getStringBE else return Nothing
+  flag2 <- (/= expectedMatrixCount) <$> lookAhead getWord32be
+  -- flag2 is false on TBRB, but true on magma2 and onthebacksofangels
+  miloV5 <- if flag2 then Just <$> getWord32be else return Nothing
+  miloV6 <- if flag2 then Just <$> getWord32be else return Nothing
+  matrixCount <- getWord32be
   miloMatrices <- replicateM (fromIntegral matrixCount)
     $ replicateM 12 getFloat32be
-  miloV5 <- getWord32be
-  miloV6 <- getWord8
   miloV7 <- getWord32be
+  miloV8 <- getWord8
+  miloV9 <- getWord32be
   parentMiloCount <- getWord32be
   miloParents <- replicateM (fromIntegral parentMiloCount) getStringBE
-  miloV8 <- getWord8
+  miloV10 <- getWord8
   subMiloCount <- getWord32be
   miloChildren <- replicateM (fromIntegral subMiloCount) getStringBE
   -- if the next byte is 01, eat 2 bytes (01 00). needed for hmx rb3 dlc (onthebacksofangels)
   lookAhead getWord8 >>= \case
     1 -> skip 2
     _ -> return ()
-  miloSubdirs <- replicateM (fromIntegral subMiloCount) parseMiloStructure
-  zeroes <- parseFileADDE
-  unless (BL.all (== 0) zeroes) $ fail "non-zero byte before milo entries"
+  miloSubdirs <- replicateM (fromIntegral subMiloCount) parseMiloDir
+  miloUnknownBytes <- parseFileADDE
+  -- above is all 0 in later songs, but e.g. 2minutestomidnight has a 2 in there
   miloFiles <- replicateM (fromIntegral entryCount) parseFileADDE
   return MiloDir{..}
+
+parseMiloFile :: Get MiloDir
+parseMiloFile = do
+  dir <- parseMiloDir
+  eof <- isEmpty
+  if eof
+    then return dir
+    else fail "Didn't parse entire .milo file"
