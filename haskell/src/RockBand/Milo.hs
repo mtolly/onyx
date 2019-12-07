@@ -556,25 +556,46 @@ parseFileADDE = do
 
 data MiloDir = MiloDir
   { miloVersion      :: Word32
+  -- ^ Observed versions:
+  -- - 25 for all song milos before RB3
+  -- - 28 for all song milos after RB3
   , miloType         :: B.ByteString
   , miloName         :: B.ByteString
   , miloV1           :: Word32
+  -- ^ Pikmin says: Count of Strings (All Strings in this part)
+  -- Seen: 4, 6, 8, 10, 12
   , miloV2           :: Word32
+  -- ^ Pikmin says: Count of Names + Total Length
+  -- Seen: lots of numbers ranging from 14 to 69
   , miloEntryNames   :: [(B.ByteString, B.ByteString)]
   , miloV3           :: Word32
+  -- ^ Seen: 20, 22, 27
   , miloV4           :: Maybe Word32
+  -- ^ Nothing for version 25, Just 2 for version 28
+  -- EXCEPT Beatles which is version 25 with Just 2
   , miloSubname      :: Maybe B.ByteString
+  -- ^ Same as miloV4, value is Just "song" for top, Just "" for subdir
   , miloV5           :: Maybe Word32
+  -- ^ Nothing for version 25 (incl. Beatles), Just 0 for version 28
   , miloV6           :: Maybe Word32
+  -- ^ Same as miloV5
   , miloMatrices     :: [[Float]]
   , miloV7           :: Word32
+  -- ^ always 0, except for herecomesthesun where it's 6
   , miloV8           :: Word8
+  -- ^ always 1
   , miloV9           :: Word32
+  -- ^ always 0
   , miloParents      :: [B.ByteString]
   , miloV10          :: Word8
+  -- ^ appears to be 0 in root, 1 in some subdirectories but not all
   , miloChildren     :: [B.ByteString]
+  , miloV11          :: Maybe Word16
+  -- ^ in v25, always Nothing. in v28, Just 256 in root, Nothing in subdir
   , miloSubdirs      :: [MiloDir]
   , miloUnknownBytes :: BL.ByteString
+  -- ^ in version 28 and beatles (25), this is [0,0,0,0,0,0,0,0,0,0,0,0,0]
+  -- in version 25 other than beatles, it's [0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0]
   , miloFiles        :: [BL.ByteString]
   } deriving (Show)
 
@@ -615,13 +636,11 @@ parseMiloDir = do
   miloV10 <- getWord8
   subMiloCount <- getWord32be
   miloChildren <- replicateM (fromIntegral subMiloCount) getStringBE
-  -- if the next byte is 01, eat 2 bytes (01 00). needed for hmx rb3 dlc (onthebacksofangels)
-  lookAhead getWord8 >>= \case
-    1 -> skip 2
-    _ -> return ()
+  miloV11 <- lookAhead getWord8 >>= \case
+    1 -> Just <$> getWord16be
+    _ -> return Nothing
   miloSubdirs <- replicateM (fromIntegral subMiloCount) parseMiloDir
   miloUnknownBytes <- parseFileADDE
-  -- above is all 0 in later songs, but e.g. 2minutestomidnight has a 2 in there
   miloFiles <- replicateM (fromIntegral entryCount) parseFileADDE
   return MiloDir{..}
 
