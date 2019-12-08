@@ -10,13 +10,11 @@ import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Config
-import           Control.Monad.Extra              (filterM, forM, forM_, guard,
-                                                   when)
+import           Control.Monad.Extra              (filterM, forM, guard, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace
-import           Data.Binary.Get                  (runGetOrFail)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
@@ -56,10 +54,8 @@ import           PrettyDTA                        (DTASingle (..),
 import           ProKeysRanges                    (closeShiftsFile)
 import           Reaper.Build                     (makeReaperIO)
 import qualified RockBand.Codec.File              as RBFile
-import           RockBand.Milo                    (MiloDir (..), addMiloHeader,
-                                                   breakMilo, decompressMilo,
-                                                   parseMiloFile,
-                                                   testConvertLipsync)
+import           RockBand.Milo                    (packMilo, testConvertLipsync,
+                                                   unpackMilo)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
@@ -757,57 +753,27 @@ commands =
     }
 
   , Command
-    { commandWord = "milo"
-    , commandDesc = "Combine a list of pieces into a .milo_xxx file."
-    , commandUsage = "onyx milo piece1.bin piece2.bin ... --to out.milo_xbox"
-    , commandRun = \args opts -> do
-      out <- case [ to | OptTo to <- opts ] of
-        []    -> fatal "milo command requires --to, none given"
-        f : _ -> return f
-      parts <- stackIO $ mapM BL.readFile args
-      stackIO $ BL.writeFile out $ addMiloHeader $
-        BL.intercalate (BL.pack [0xAD, 0xDE, 0xAD, 0xDE]) parts
-      return [out]
+    { commandWord = "unmilo"
+    , commandDesc = "Decompress and split the data inside a .milo_xxx file."
+    , commandUsage = "onyx unmilo in.milo_xxx [--to dir]"
+    , commandRun = \args opts -> case args of
+      [fin] -> do
+        dout <- outputFile opts $ return $ fin ++ "_extract"
+        unpackMilo fin dout
+        return [dout]
+      _ -> fatal "Expected 1 argument (input milo)"
     }
 
   , Command
-    { commandWord = "unmilo"
-    , commandDesc = "Decompress and split the data inside a .milo_xxx file."
-    , commandUsage = "onyx unmilo in.milo"
-    , commandRun = \args _opts -> case args of
-      [fin] -> do
-        bs <- stackIO $ BL.readFile fin
-        dec <- case runGetOrFail decompressMilo bs of
-          Left (_, pos, err) -> fatal $ "Failed to decompress the milo. Error at position " <> show pos <> ": " <> err
-          Right (_, _, x)    -> return x
-        let dout = fin ++ "_extract"
-        stackIO $ Dir.createDirectoryIfMissing False dout
-        stackIO $ BL.writeFile (dout </> "decompressed.bin") dec
-        case runGetOrFail parseMiloFile dec of
-          Left (_, pos, err) -> do
-            stackIO $ forM_ (zip [0..] $ breakMilo $ BL.toStrict dec) $ \(i, piece) -> do
-              let num = case show (i :: Int) of
-                    [c] -> ['0', c]
-                    s   -> s
-              B.writeFile (dout </> "piece" <> num <.> "bin") piece
-            inside "Parsing .milo structure" $ inside ("position " <> show pos) $ warn err
-            lg "Couldn't parse milo structure; split into simple pieces."
-          Right (_, _, topdir) -> do
-            let go parent milodir = do
-                  let thisout = parent </> B8.unpack (miloName milodir)
-                  Dir.createDirectoryIfMissing False thisout
-                  forM_ (zip (miloEntryNames milodir) (miloFiles milodir)) $ \((_typ, name), fileBytes) -> do
-                    BL.writeFile (thisout </> B8.unpack name) fileBytes
-                  mapM_ (go thisout) $ miloSubdirs milodir
-                removeFiles dir = dir
-                  { miloSubdirs = map removeFiles $ miloSubdirs dir
-                  , miloFiles = map (const "(file contents)") $ miloFiles dir
-                  }
-            stackIO $ go dout topdir
-            stackIO $ writeFile (dout </> "parsed.txt") $ show $ removeFiles topdir
-            lg "Recognized and extracted milo contents."
-        return [dout]
-      _ -> fatal "Expected 1 argument (input milo)"
+    { commandWord = "milo"
+    , commandDesc = "Recombine a split .milo_xxx file."
+    , commandUsage = "onyx milo dir [--to out.milo_xxx]"
+    , commandRun = \args opts -> case args of
+      [din] -> do
+        fout <- outputFile opts $ return $ dropTrailingPathSeparator din <.> "milo_xbox"
+        packMilo din fout
+        return [fout]
+      _ -> fatal "Expected 1 argument (input dir)"
     }
 
   ]

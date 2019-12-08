@@ -80,3 +80,59 @@ data MagmaViseme
   | Viseme_Wet_hi
   | Viseme_Wet_lo
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data BeatlesViseme
+  = Viseme_head_rot_neg_x
+  | Viseme_head_rot_neg_y
+  | Viseme_head_rot_neg_z
+  | Viseme_head_rot_pos_x
+  | Viseme_head_rot_pos_y
+  | Viseme_head_rot_pos_z
+  | Viseme_jaw_fwd
+  | Viseme_jaw_left
+  | Viseme_jaw_open
+  | Viseme_jaw_right
+  | Viseme_l_brow_dn
+  | Viseme_l_brow_up
+  | Viseme_l_cheek_puff
+  | Viseme_l_frown
+  | Viseme_l_lids
+  | Viseme_l_lip_pull
+  | Viseme_l_lolid_up
+  | Viseme_l_lolip_dn
+  | Viseme_l_lolip_roll
+  | Viseme_l_lolip_up
+  | Viseme_l_mouth_pucker
+  | Viseme_l_open_pucker
+  | Viseme_l_smile_closed
+  | Viseme_l_smile_open
+  | Viseme_l_sneer_narrow
+  | Viseme_l_squint
+  | Viseme_l_uplip_roll
+  | Viseme_l_uplip_up
+  | Viseme_m_brow_dn
+  | Viseme_m_brow_up
+  | Viseme_m_lips_close
+  | Viseme_r_brow_dn
+  | Viseme_r_brow_up
+  | Viseme_r_cheek_puff
+  | Viseme_r_frown
+  | Viseme_r_lids
+  | Viseme_r_lip_pull
+  | Viseme_r_lolid_up
+  | Viseme_r_lolip_dn
+  | Viseme_r_lolip_roll
+  | Viseme_r_lolip_up
+  | Viseme_r_mouth_pucker
+  | Viseme_r_open_pucker
+  | Viseme_r_smile_closed
+  | Viseme_r_smile_open
+  | Viseme_r_sneer_narrow
+  | Viseme_r_squint
+  | Viseme_r_uplip_roll
+  | Viseme_r_uplip_up
+  | Viseme_tongue_dn
+  | Viseme_tongue_out
+  | Viseme_tongue_roll
+  | Viseme_tongue_up
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)

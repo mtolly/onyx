@@ -17,11 +17,10 @@ import           Data.Word                 (Word32, Word8)
 
 import qualified Control.Monad.Trans.State as S
 import           Data.Binary               (Binary (..), Get, Put)
-import           Data.Binary.Get           (getByteString, getWord16le,
-                                            getWord32le, skip)
-import           Data.Binary.IEEE754       (getFloat32le, putFloat32le)
-import           Data.Binary.Put           (putByteString, putWord16le,
-                                            putWord32le)
+import           Data.Binary.Get           (getByteString, getFloatle,
+                                            getWord16le, getWord32le, skip)
+import           Data.Binary.Put           (putByteString, putFloatle,
+                                            putWord16le, putWord32le)
 import           Data.Hashable             (Hashable (..))
 import           GHC.Generics              (Generic (..))
 
@@ -81,7 +80,7 @@ instance Binary (Tree B.ByteString) where
 instance Binary (Chunk B.ByteString) where
   put c = case c of
     Int i       -> putWord32le 0x0  >> putWord32le (fromIntegral i)
-    Float f     -> putWord32le 0x1  >> putFloat32le f
+    Float f     -> putWord32le 0x1  >> putFloatle f
     Var b       -> putWord32le 0x2  >> putLenStr b
     Key b       -> putWord32le 0x5  >> putLenStr b
     Unhandled   -> putWord32le 0x6  >> putWord32le 0
@@ -98,7 +97,7 @@ instance Binary (Chunk B.ByteString) where
     IfNDef b    -> putWord32le 0x23 >> putLenStr b
   get = getWord32le >>= \cid -> case cid of
     0x0  -> Int . fromIntegral <$> getWord32le
-    0x1  -> Float <$> getFloat32le
+    0x1  -> Float <$> getFloatle
     0x2  -> Var <$> getLenStr
     0x5  -> Key <$> getLenStr
     0x6  -> skip 4 >> return Unhandled

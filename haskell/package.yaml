@@ -55,7 +55,6 @@ library:
   - scientific
   - template-haskell
   - MonadRandom
-  - data-binary-ieee754
   - zip-archive
   - silently
   - codec
