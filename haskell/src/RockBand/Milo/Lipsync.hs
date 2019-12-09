@@ -14,9 +14,10 @@ import           Data.Binary.Put
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (foldl', sort)
+import           Data.List.Extra                  (foldl', nubOrd, sort, zip3)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe)
@@ -289,52 +290,53 @@ redundantZero (x : xs@(y : _)) = x : case [ vis | (vis, 0) <- x, isNothing $ loo
     []      -> [] -- shouldn't happen
     y' : ys -> (map (, 0) visemes ++ y') : ys
 
-visemesToLipsync :: Word8 -> RTB.T U.Seconds [(B.ByteString, Word8)] -> Lipsync
-visemesToLipsync weightDelta rtb = let
-  ahs cur next = do
-    vis <- Set.toList $ Map.keysSet cur <> Map.keysSet next
-    return (vis, fromMaybe 0 $ Map.lookup vis next)
-  makeKeyframes cur goal rest = let
-    next = Map.fromList $ filter (\(_, n) -> n /= 0) $ do
-      vis <- Map.keys cur <> Map.keys goal
-      return (vis, crawlFrame (Map.lookup vis cur) (Map.lookup vis goal))
-    crawlFrame mx my = case compare x y of
-      EQ -> x
-      LT -> if x + weightDelta < x then y else min y $ x + weightDelta
-      GT -> if x - weightDelta > x then y else max y $ x - weightDelta
-      where x = fromMaybe 0 mx
-            y = fromMaybe 0 my
-    in ahs cur next : if RTB.null rest
-      then if cur == next then [] else makeKeyframes next goal RTB.empty
-      else let
-        (frame, after) = U.trackSplit (1/30 :: U.Seconds) rest
-        goal' = case RTB.viewR frame of
-          Just (_, (_, pairs)) -> Map.fromList pairs
-          Nothing              -> goal
-        in makeKeyframes next goal' after
-  visemeSet = Set.fromList $ map fst $ concat $ RTB.getBodies rtb
-  in Lipsync
-    { lipsyncVersion    = 1
-    , lipsyncSubversion = 2
-    , lipsyncDTAImport  = B.empty
-    , lipsyncVisemes    = Set.toList visemeSet
-    , lipsyncKeyframes
-      = map (Keyframe . sort . map ((\(vis, n) -> VisemeEvent (Set.findIndex vis visemeSet) n)))
-      $ redundantZero
-      $ drop 2
-      $ makeKeyframes Map.empty Map.empty rtb
-    }
+visemesToLipsync :: U.Seconds -> RTB.T U.Seconds [(T.Text, Word8)] -> Lipsync
+visemesToLipsync transition rtb = let
+  halfTransition = transition / 2
+  transitionSteps = ceiling $ transition * 30 :: Int
+  pairs = ATB.toPairList $ RTB.toAbsoluteEventList 0 rtb
+  triples = zip3
+    ((0, []) : pairs) -- previous time and viseme
+    pairs
+    (map Just (drop 1 $ map fst pairs) ++ [Nothing]) -- time of next viseme
+  withTransitions = flip concatMap triples $ \((prevTime, prevVisemes), (thisTime, thisVisemes), mNextTime) -> let
+    dt = thisTime - prevTime
+    transitionBefore = min halfTransition (dt / 2)
+    transitionAfter = case mNextTime of
+      Nothing       -> halfTransition
+      Just nextTime -> min halfTransition ((nextTime - thisTime) / 2)
+    transitionStart = thisTime - transitionBefore
+    transitionLength = transitionBefore + transitionAfter
+    transitionVisemes = do
+      vis <- nubOrd $ map fst $ prevVisemes ++ thisVisemes
+      let startValue = maybe 0 fromIntegral $ lookup vis prevVisemes
+          endValue = maybe 0 fromIntegral $ lookup vis thisVisemes
+          change = endValue - startValue
+      return (vis, startValue :: Rational, change :: Rational)
+    in flip map [0 .. transitionSteps] $ \i -> let
+      frac = fromIntegral i / fromIntegral transitionSteps
+      newTime = transitionStart + transitionLength * fromRational frac
+      newVisemes = do
+        (vis, startValue, change) <- transitionVisemes
+        let thisValue = round $ startValue + change * frac
+        return $ VisemeEvent vis thisValue
+      in (newTime, newVisemes)
+  in lipsyncFromMIDITrack
+    $ LipsyncTrack
+    $ RTB.flatten
+    $ RTB.fromAbsoluteEventList
+    $ ATB.fromPairList withTransitions
 
 autoLipsync :: VocalTrack U.Seconds -> Lipsync
 autoLipsync
-  = visemesToLipsync 35
-  . fmap (maybe [] $ map (\v -> (B8.pack $ drop 7 $ show v, 140)) . cmuToVisemes)
+  = visemesToLipsync 0.15
+  . fmap (maybe [] $ map (\v -> (T.pack $ drop 7 $ show v, 140)) . cmuToVisemes)
   . englishVowels
   . vocalTubes
 
 autoLipsyncAh :: VocalTrack U.Seconds -> Lipsync
 autoLipsyncAh
-  = visemesToLipsync 20
+  = visemesToLipsync 0.15
   . fmap (\x -> guard (isJust x) >> [("Ox_hi", 100), ("Ox_lo", 100)])
   . vocalTubes
 
@@ -345,8 +347,8 @@ beatlesLipsync
     , lipsyncSubversion = 2
     , lipsyncDTAImport = "proj9"
     })
-  . visemesToLipsync 30
-  . fmap (maybe [] $ map (first $ B8.pack . drop 7 . show) . cmuToBeatles)
+  . visemesToLipsync 0.15
+  . fmap (maybe [] $ map (first $ T.pack . drop 7 . show) . cmuToBeatles)
   . englishVowels
   . vocalTubes
 
