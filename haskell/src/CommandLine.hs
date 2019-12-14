@@ -15,6 +15,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace
+import           Data.Binary.Put                  (runPut)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
@@ -34,8 +35,8 @@ import qualified Data.HashMap.Strict              as Map
 import           Data.Int                         (Int16)
 import           Data.List.Extra                  (stripSuffix, unsnoc)
 import           Data.List.HT                     (partitionMaybe)
-import           Data.Maybe                       (fromMaybe, listToMaybe,
-                                                   mapMaybe)
+import           Data.Maybe                       (catMaybes, fromMaybe,
+                                                   listToMaybe, mapMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
@@ -53,8 +54,12 @@ import           PrettyDTA                        (DTASingle (..),
                                                    writeDTASingle)
 import           ProKeysRanges                    (closeShiftsFile)
 import           Reaper.Build                     (makeReaperIO)
+import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
-import           RockBand.Milo                    (packMilo, testConvertLipsync,
+import           RockBand.Codec.Vocal             (nullVox)
+import           RockBand.Milo                    (autoLipsync, beatlesLipsync,
+                                                   packMilo, putLipsync,
+                                                   testConvertLipsync,
                                                    unpackMilo)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File.Load             as Load
@@ -516,8 +521,11 @@ commands =
       [dir] -> stackIO (Dir.doesDirectoryExist dir) >>= \case
         True -> do
           let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
-              suffix = case game of GameRB3 -> "_rb3con"; GameRB2 -> "_rb2con"
-              pkg    = case game of GameRB3 -> rb3pkg   ; GameRB2 -> rb2pkg
+              suffix = case game of GameRB3 -> "_rb3con"; GameRB2 -> "_rb2con"; GameTBRB -> "_tbrbcon"
+          pkg <- case game of
+            GameRB3  -> return rb3pkg
+            GameRB2  -> return rb2pkg
+            GameTBRB -> fatal "TBRB unsupported as game for stfs command"
           stfs <- outputFile opts
             $   (\f -> trimFileName f 42 "" suffix) . dropTrailingPathSeparator
             <$> stackIO (Dir.makeAbsolute dir)
@@ -753,6 +761,38 @@ commands =
     }
 
   , Command
+    { commandWord = "lipsync-gen"
+    , commandDesc = "Make lipsync files from the vocal tracks in a MIDI file."
+    , commandUsage = "onyx lipsync-gen in.mid"
+    , commandRun = \args opts -> case args of
+      [fmid] -> do
+        mid <- stackIO (Load.fromFile fmid) >>= RBFile.readMIDIFile'
+        let template = dropExtension fmid
+            tracks =
+              [ (RBFile.fixedPartVocals, "_solovox.lipsync", False)
+              , (RBFile.fixedHarm1, "_harm1.lipsync", False)
+              , (RBFile.fixedHarm2, "_harm2.lipsync", False)
+              , (RBFile.fixedHarm3, "_harm3.lipsync", False)
+              , (const mempty, "_empty.lipsync", True)
+              ]
+            game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
+            voxToLip = case game of
+              GameRB3  -> autoLipsync
+              GameRB2  -> autoLipsync
+              GameTBRB -> beatlesLipsync
+        fmap catMaybes $ forM tracks $ \(getter, suffix, alwaysWrite) -> do
+          let trk = getter $ RBFile.s_tracks mid
+              fout = template <> suffix
+          if nullVox trk && not alwaysWrite
+            then return Nothing
+            else do
+              let lip = voxToLip $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
+              stackIO $ BL.writeFile fout $ runPut $ putLipsync lip
+              return $ Just fout
+      _ -> fatal "Expected 1 argument (input midi)"
+    }
+
+  , Command
     { commandWord = "unmilo"
     , commandDesc = "Decompress and split the data inside a .milo_xxx file."
     , commandUsage = "onyx unmilo in.milo_xxx [--to dir]"
@@ -929,9 +969,10 @@ optDescrs =
   , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
   ] where
     readGame = \case
-      "rb3" -> GameRB3
-      "rb2" -> GameRB2
-      g     -> error $ "Unrecognized --game value: " ++ show g
+      "rb3"  -> GameRB3
+      "rb2"  -> GameRB2
+      "tbrb" -> GameTBRB
+      g      -> error $ "Unrecognized --game value: " ++ show g
 
 data OnyxOption
   = OptTarget T.Text
@@ -983,6 +1024,7 @@ getDolphinFunction opts = let
 data Game
   = GameRB3
   | GameRB2
+  | GameTBRB
   deriving (Eq, Ord, Show, Read)
 
 midiOptions :: [OnyxOption] -> MS.Options
