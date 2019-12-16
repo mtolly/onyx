@@ -254,6 +254,7 @@ hashRB3 songYaml rb3 = let
     ( rb3
     , _title $ _metadata songYaml
     , _artist $ _metadata songYaml
+    -- TODO this should use more info, or find a better way to come up with hashes.
     )
   in hash hashed `mod` 1000000000
 

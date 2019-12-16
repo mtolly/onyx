@@ -71,7 +71,8 @@ SYSTEMATIC CHAOS (new version)
       - forsaken: fixed
       # itpoe1, cm, tden, pow, repentance, tmols, itpoe2: todo
     - guitar:
-      # itpoe1, forsaken, cm, tden, pow, repentance, tmols, itpoe2: todo
+      - forsaken, tden: fixed
+      # itpoe1, cm, pow, repentance, tmols, itpoe2: todo
   > venue
   - improved onyx lipsync generation: done!
   > numeric song IDs

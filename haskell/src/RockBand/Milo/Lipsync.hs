@@ -370,6 +370,8 @@ englishVowels = let
       in (t, Just phone)
   in RTB.fromPairList . go . RTB.toPairList
 
+-- for some reason you sometimes need an extra zero for a viseme to be totally shut off.
+-- official lipsync files usually have this as well
 redundantZero :: (Eq a) => [[(a, Word8)]] -> [[(a, Word8)]]
 redundantZero []               = []
 redundantZero [x]              = [x, x]
@@ -379,6 +381,7 @@ redundantZero (x : xs@(y : _)) = x : case [ vis | (vis, 0) <- x, isNothing $ loo
     []      -> [] -- shouldn't happen
     y' : ys -> (map (, 0) visemes ++ y') : ys
 
+-- each list in the event list is an absolute set of visemes, not just changes
 visemesToLipsync :: U.Seconds -> RTB.T U.Seconds [(T.Text, Word8)] -> Lipsync
 visemesToLipsync transition rtb = let
   halfTransition = transition / 2

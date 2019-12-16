@@ -156,8 +156,8 @@ track tunings lenTicks lenSecs resn trk = let
     _             -> GtrTuning Guitar6 [] 0
   in block "TRACK" [] $ do
     line "NAME" [name]
-    let yellow = (255, 170, 0)
-        green = (170, 221, 34)
+    let yellow = (255, 221, 0)
+        green = (149, 221, 33)
         red = (255, 0, 51)
         blue = (0, 136, 255)
         orange = (255, 119, 0)
