@@ -7,12 +7,13 @@ import           Build                          (loadYaml)
 import           Config
 import           Control.Concurrent             (threadDelay)
 import           Control.Exception              (bracket, bracket_, throwIO)
-import           Control.Monad                  (when)
+import           Control.Monad                  (forM_, void, when)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.Trans.Resource   (runResourceT)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Map.Strict                as Map
+import qualified Data.Text                      as T
 import           Graphics.GL.Core33
 import           Import                         (importSTFS)
 import qualified RhythmGame.Audio               as RGAudio
@@ -24,12 +25,20 @@ import           SDL                            (($=))
 import qualified SDL
 import           System.Environment             (getArgs)
 import           System.FilePath                ((</>))
+import           Text.Read                      (readMaybe)
 
 main :: IO ()
 main = getArgs >>= \case
 
-  [con] -> do
+  [con] -> void $ runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
+    _ <- importSTFS 0 con Nothing dir
+    trks <- loadTracks $ dir </> "notes.mid"
+    stackIO $ forM_ (zip [0..] trks) $ \(i, (name, _)) -> do
+      putStrLn $ show (i :: Int) <> ": " <> T.unpack name
+
+  [con, si] -> do
     res <- runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
+      i <- maybe (fatal "Invalid track number") return $ readMaybe si
       _ <- importSTFS 0 con Nothing dir
       trks <- loadTracks $ dir </> "notes.mid"
       yml <- loadYaml $ dir </> "song.yml"
@@ -51,14 +60,14 @@ main = getArgs >>= \case
           bracket (SDL.glCreateContext window) (\ctx -> glFinish >> SDL.glDeleteContext ctx) $ \_ctx -> do
             threadDelay 1000000 -- this prevents a weird crash, see https://github.com/haskell-game/sdl2/issues/176
             RGAudio.playMOGG pans vols (dir </> "audio.mogg") $ do
-              playTrack window $ case trks of
+              playTrack window $ case drop i trks of
                 []           -> PreviewDrums Map.empty
                 (_, trk) : _ -> trk
     case res of
       Left err -> throwIO err
       Right () -> return ()
 
-  _ -> error "Usage: onyx-game song_rb3con"
+  _ -> error "Usage: onyx-game song_rb3con [track_number]"
 
 playTrack :: SDL.Window -> PreviewTrack -> IO ()
 playTrack window trk = do

@@ -156,12 +156,12 @@ track tunings lenTicks lenSecs resn trk = let
     _             -> GtrTuning Guitar6 [] 0
   in block "TRACK" [] $ do
     line "NAME" [name]
-    let yellow = (255, 255, 0)
-        green = (0, 255, 0)
-        red = (255, 0, 0)
-        blue = (0, 0, 255)
-        orange = (255, 128, 0)
-        purple = (202, 2, 252)
+    let yellow = (255, 170, 0)
+        green = (170, 221, 34)
+        red = (255, 0, 51)
+        blue = (0, 136, 255)
+        orange = (255, 119, 0)
+        purple = (153, 17, 170)
         color = fpart >>= \case
           FlexDrums -> Just yellow
           FlexGuitar -> Just blue

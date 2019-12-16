@@ -73,10 +73,11 @@ SYSTEMATIC CHAOS (new version)
     - guitar:
       # itpoe1, forsaken, cm, tden, pow, repentance, tmols, itpoe2: todo
   > venue
-  > keyboard animations
-  > improve onyx lipsync generation
-  > build onyx protar-to-hand-position generator
+  - improved onyx lipsync generation: done!
   > numeric song IDs
+  maybe but not required:
+  > build onyx protar-to-hand-position generator
+  > keyboard animations
 SELF-TITLED
   > the enemy inside - drums, PG done
   > the looking glass - drums done, 6-fret from GHL

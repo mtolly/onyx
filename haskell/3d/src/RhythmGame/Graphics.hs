@@ -56,9 +56,12 @@ drawObject GLStuff{..} (WindowDims _w h) obj (V3 x1 y1 z1) (V3 x2 y2 z2) texcolo
     Box{} -> boxVAO
     Cone  -> coneVAO
     Flat  -> flatVAO
+  let yScale = case obj of
+        Flat -> 1 -- so we don't try to scale by 0 since y1 == y2
+        _    -> abs $ y2 - y1
   sendUniformName objectShader "model"
     $ translate4 (V3 ((x1 + x2) / 2) ((y1 + y2) / 2) ((z1 + z2) / 2))
-    !*! L.scaled (V4 (abs $ x2 - x1) (abs $ y2 - y1) (abs $ z2 - z1) 1)
+    !*! L.scaled (V4 (abs $ x2 - x1) yScale (abs $ z2 - z1) 1)
   sendUniformName objectShader "alpha" alpha
   sendUniformName objectShader "startFade" (fromIntegral h * (519 / 671) :: Float)
   sendUniformName objectShader "endFade" (fromIntegral h * (558 / 671) :: Float)
