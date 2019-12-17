@@ -9,6 +9,7 @@ module GUI.FLTK (launchGUI) where
 import           Audio                                     (Audio (..),
                                                             buildSource',
                                                             runAudio)
+import           Build                                     (targetTitle)
 import           CommandLine                               (copyDirRecursive,
                                                             runDolphin)
 import           Config
@@ -484,7 +485,7 @@ batchPageRB2 sink rect tab build = do
             (Kicks2x  , _      ) -> [(True , "_2x")]
             (KicksBoth, _      ) -> [(False, "_1x"), (True, "_2x")]
           fout kicksLabel = T.unpack $ foldr ($) template
-            [ templateApplyInput proj
+            [ templateApplyInput proj $ Just $ RB2 tgt
             , let
               modifiers = T.concat
                 [ T.pack $ case tgt_Speed $ rb2_Common tgt of
@@ -581,7 +582,7 @@ batchPagePS sink rect tab build = do
               }
             }
           fout = T.unpack $ foldr ($) template
-            [ templateApplyInput proj
+            [ templateApplyInput proj $ Just $ PS tgt
             , let
               modifiers = T.pack $ case tgt_Speed $ ps_Common tgt of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
@@ -592,7 +593,7 @@ batchPagePS sink rect tab build = do
   makeTemplateRunner
     sink
     "Create PS folders"
-    "%input_dir%/%input_base%%modifiers%_ps"
+    "%input_dir%/%artist% - %title%"
     (getTargetSong PSDir >=> build)
   makeTemplateRunner
     sink
@@ -648,7 +649,7 @@ batchPageRB3 sink rect tab build = do
             (Kicks2x  , _      ) -> [(True , "_2x")]
             (KicksBoth, _      ) -> [(False, "_1x"), (True, "_2x")]
           fout kicksLabel = T.unpack $ foldr ($) template
-            [ templateApplyInput proj
+            [ templateApplyInput proj $ Just $ RB3 tgt
             , let
               modifiers = T.concat
                 [ T.pack $ case tgt_Speed $ rb3_Common tgt of
@@ -681,11 +682,18 @@ batchPageRB3 sink rect tab build = do
   FL.setResizable tab $ Just pack
   return ()
 
-templateApplyInput :: Project -> T.Text -> T.Text
-templateApplyInput proj txt = foldr ($) txt
+templateApplyInput :: Project -> Maybe Target -> T.Text -> T.Text
+templateApplyInput proj mtgt txt = foldr ($) txt
   [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
   , T.intercalate (T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
-  ]
+  , T.intercalate (getTitle $ _metadata $ projectSongYaml proj) . T.splitOn "%title%"
+  , T.intercalate (getArtist $ _metadata $ projectSongYaml proj) . T.splitOn "%artist%"
+  , T.intercalate (getAlbum $ _metadata $ projectSongYaml proj) . T.splitOn "%album%"
+  , T.intercalate (getAuthor $ _metadata $ projectSongYaml proj) . T.splitOn "%author%"
+  ] where
+    title = case mtgt of
+      Nothing  -> getTitle $ _metadata $ projectSongYaml proj
+      Just tgt -> targetTitle (projectSongYaml proj) tgt
 
 makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
 makeTemplateRunner sink buttonText defTemplate useTemplate = do
@@ -711,6 +719,10 @@ makeTemplateRunner sink buttonText defTemplate useTemplate = do
       , "  %input_dir% - folder containing the input"
       , "  %input_base% - input filename by itself, extension removed"
       , "  %modifiers% - added distinguishing features e.g. speed modifier"
+      , "  %title% - title from song's metadata (including modifiers)"
+      , "  %artist% - artist from song's metadata"
+      , "  %album% - album from song's metadata"
+      , "  %author% - author from song's metadata"
       ]
     FL.setCallback button $ \_ -> FL.getValue input >>= useTemplate
     browseButton <- FL.buttonNew browseRect $ Just "@fileopen"
@@ -741,7 +753,7 @@ batchPagePreview sink rect tab build = do
     sink
     "Build web previews"
     "%input_dir%/%input_base%_player"
-    (\template -> build $ \proj -> T.unpack $ templateApplyInput proj template)
+    (\template -> build $ \proj -> T.unpack $ templateApplyInput proj Nothing template)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
