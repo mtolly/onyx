@@ -686,7 +686,7 @@ templateApplyInput :: Project -> Maybe Target -> T.Text -> T.Text
 templateApplyInput proj mtgt txt = foldr ($) txt
   [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
   , T.intercalate (T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
-  , T.intercalate (getTitle $ _metadata $ projectSongYaml proj) . T.splitOn "%title%"
+  , T.intercalate title . T.splitOn "%title%"
   , T.intercalate (getArtist $ _metadata $ projectSongYaml proj) . T.splitOn "%artist%"
   , T.intercalate (getAlbum $ _metadata $ projectSongYaml proj) . T.splitOn "%album%"
   , T.intercalate (getAuthor $ _metadata $ projectSongYaml proj) . T.splitOn "%author%"
