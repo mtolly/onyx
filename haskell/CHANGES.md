@@ -1,5 +1,14 @@
 # Version history
 
+## 20191216
+
+* Fix an issue parsing `*.c3` files when importing Magma projects
+* Improved lipsync for English lyrics; now uses a few different vowel shapes by
+  looking up lyric words in a pronunciation dictionary
+* Add extra options to use a song's title, artist, album, or author in produced
+  files/folders (PS/CH export uses "Artist - Title" by default)
+* Fix Mac build which didn't bundle a required library correctly
+
 ## 20191024
 
 * Fix a bug that caused occasional errors when generating CON files
