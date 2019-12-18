@@ -63,16 +63,17 @@ A DRAMATIC TURN OF EVENTS
 SYSTEMATIC CHAOS (new version)
   - PG/PB done!
   > PK fixed for Forsaken POW TDEN, still need Repentance (and quick check of Jarod's 4)
+  > some remaining stuff on constant motion: fix vox, adjust pk, basic keys
   > fix G/B/K from PG/PB/PK
     - bass:
-      - itpoe1, forsaken, cm, tden, pow, repentance: fixed and done (opens + no-opens)
+      - itpoe1, forsaken, cm, tden, repentance, pow: fixed and done (opens + no-opens)
       # tmols, itpoe2: todo
     - keys:
       - forsaken: fixed
-      # itpoe1, cm, tden, pow, repentance, tmols, itpoe2: todo
+      # itpoe1, cm, tden, repentance, pow, tmols, itpoe2: todo
     - guitar:
-      - forsaken, tden: fixed
-      # itpoe1, cm, pow, repentance, tmols, itpoe2: todo
+      - forsaken, cm, tden, repentance, pow: fixed
+      # itpoe1, tmols, itpoe2: todo
   > venue
   - improved onyx lipsync generation: done!
   > numeric song IDs

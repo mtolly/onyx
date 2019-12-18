@@ -1891,24 +1891,24 @@ launchGUI = do
                 , Just $ launchMisc sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
-              -- , ( "File/Open Song"
-              --   , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o'
-              --   , Just $ do
-              --     picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
-              --     FL.setTitle picker "Load song"
-              --     FL.showWidget picker >>= \case
-              --       FL.NativeFileChooserPicked -> do
-              --         n <- FL.getCount picker
-              --         fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
-              --         mapM_ (sink . EventOnyx . startLoad) $ map T.unpack $ catMaybes fs
-              --       _ -> return ()
-              --   , FL.MenuItemFlags [FL.MenuItemNormal]
-              --   )
-              -- , ( "File/Live Preview"
-              --   , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'p'
-              --   , Just $ promptPreview sink makeMenuBar
-              --   , FL.MenuItemFlags [FL.MenuItemNormal]
-              --   )
+              , ( "File/Open Song"
+                , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o'
+                , Just $ do
+                  picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
+                  FL.setTitle picker "Load song"
+                  FL.showWidget picker >>= \case
+                    FL.NativeFileChooserPicked -> do
+                      n <- FL.getCount picker
+                      fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
+                      mapM_ (sink . EventOnyx . startLoad) $ map T.unpack $ catMaybes fs
+                    _ -> return ()
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
+              , ( "File/Live Preview"
+                , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'p'
+                , Just $ promptPreview sink makeMenuBar
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
               , ( "File/Close Window"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'w'
                 , Just $ sink $ EventIO $ FLTK.firstWindow >>= \case

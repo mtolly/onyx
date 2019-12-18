@@ -197,7 +197,7 @@ drawDrums glStuff@GLStuff{..} dims nowTime trk = do
           then V4 0.2 0.2 0.6 1
           else V4 0.2 0.2 0.2 1
     drawObject'
-      (Box (V2 0 0) (V2 0 0))
+      Flat
       (V3 -1 -1 (timeToZ t1))
       (V3 1 -1 (timeToZ t2))
       (Right highwayColor)
@@ -366,7 +366,7 @@ drawFive glStuff@GLStuff{..} dims nowTime trk = do
           then V4 0.2 0.2 0.6 1
           else V4 0.2 0.2 0.2 1
     drawObject'
-      (Box (V2 0 0) (V2 0 0))
+      Flat
       (V3 -1 -1 (timeToZ t1))
       (V3 1 -1 (timeToZ t2))
       (Right highwayColor)
