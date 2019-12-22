@@ -32,13 +32,15 @@ plans:
     countin:
       &countin
       0|0: hihat
-      0|0.5: hihat
-      0|1: hihat
       0|1.5: hihat
-      0|2: hihat
-      0|2.5: hihat
+      1|0: hihat
+      1|0.5: {gain: [0.5, hihat]}
+      1|1: {gain: [0.5, hihat]}
+      1|1.5: hihat
+      1|2: {gain: [0.5, hihat]}
+      1|2.5: {gain: [0.5, hihat]}
     song:
-      pad: [2.315, album-track]
+      pad: [4.942, album-track]
   drumcam:
     # three phases of offset in this one.
     # first band is 821 frames ahead of drums,
@@ -55,7 +57,7 @@ plans:
       - 1.25
       - resample:
           pad:
-          - 2.205
+          - 4.832
           - take:
             - '10:42.951'
             - mix:
@@ -101,10 +103,10 @@ plans:
         - -1
         - resample:
             pad:
-              - 2.205
-              - take:
-                - '10:42.951'
-                - *drums
+            - 4.832
+            - take:
+              - '10:42.951'
+              - *drums
 parts:
   drums:
     drums:
