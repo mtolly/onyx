@@ -34,10 +34,13 @@ tokens :-
   }
 
 $rawfirst $rawnext* { emit $ TAtom . Str . T.pack }
-\" [^\"]* \" { emit $ TAtom . Str . T.tail . T.init . T.pack }
-\" [^\"]*    { emit $ TAtom . Str . T.tail          . T.pack }
+\" ([^\"\n\r] | \"\/\")* \" { emit $ TAtom . Str . fixQuotes . T.tail . T.init . T.pack }
+\" ([^\"\n\r] | \"\/\")*    { emit $ TAtom . Str . fixQuotes . T.tail          . T.pack }
 
 {
+
+fixQuotes :: T.Text -> T.Text
+fixQuotes = T.intercalate (T.pack "\"") . T.splitOn (T.pack "\"/\"")
 
 emit :: (String -> a) -> AlexInput -> Int -> Alex (Maybe (AlexPosn, a))
 emit f (pn, _, _, str) len = return $ Just $ (pn, f $ take len str)
