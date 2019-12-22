@@ -17,6 +17,7 @@ import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
+import           Data.Int
 import           Data.List.Extra                  (foldl', nubOrd, sort, zip3)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
@@ -40,6 +41,7 @@ import           Rocksmith.Sng2014                (Bin (..))
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
+import           System.FilePath                  (takeExtension)
 
 data MagmaLipsync
   = MagmaLipsync1 Lipsync
@@ -476,8 +478,10 @@ testConvertLipsync fmid fvocs fout = do
     Left err  -> error $ show err
     Right mid -> return mid
   trks <- forM fvocs $ \fvoc -> do
-    voc <- fmap (runGet parseLipsync) $ BL.readFile fvoc
-    return $ mapTrack (U.unapplyTempoTrack $ RBFile.s_tempos mid) $ lipsyncToMIDITrack voc
+    trk <- BL.readFile fvoc >>= return . case takeExtension fvoc of
+      ".voc" -> vocToMIDITrack     . runGet parseVocFile
+      _      -> lipsyncToMIDITrack . runGet parseLipsync
+    return $ mapTrack (U.unapplyTempoTrack $ RBFile.s_tempos mid) trk
   Save.toFile fout $ RBFile.showMIDIFile' mid
     { RBFile.s_tracks = (RBFile.s_tracks mid)
       { RBFile.onyxParts = let
@@ -490,3 +494,128 @@ testConvertLipsync fmid fvocs fout = do
         in Map.alter fn RBFile.FlexVocal orig
       }
     }
+
+data VocFile = VocFile
+  { vocMystery1  :: Word32 -- RB: 1500, GH2: 1200
+  , vocMystery2  :: Word16 -- RB: 1, GH2: 0
+  , vocCompany   :: B.ByteString -- "Harmonix"
+  , vocMystery3  :: Word16 -- 1
+  , vocComment   :: B.ByteString
+    -- RB: "5 projects developed before 5/7/2007"
+    -- GH2: "Karaoke Revolution Vol 4"
+  -- boundaries between next few are uncertain
+  , vocMystery4  :: Word32 -- 1000
+  , vocMystery5  :: Word32 -- 0
+  , vocMystery6  :: Word16 -- 0
+  , vocMystery7  :: Word16 -- RB: 1, GH2: 0
+  , vocName      :: B.ByteString -- "alright_dryvox"
+  , vocMystery8  :: Word16 -- 3
+  , vocFileSize  :: Word32 -- total size of the file. 123525 (0x1E285)
+  , vocMystery9  :: Word16 -- 0
+  , vocVisemes   :: [VocViseme]
+  -- again, boundaries uncertain
+  , vocMystery10 :: Word32 -- 0
+  , vocMystery11 :: Word16 -- 0
+  -- pretty sure these are floats. could be weight transition times
+  , vocMystery12 :: Float -- 0.16
+  , vocMystery13 :: Float -- 0.22
+  -- GH2 file ends here. RB file continues
+  , vocMystery14 :: Maybe Word32 -- 0
+  , vocMystery15 :: Maybe Word16 -- 0
+  , vocMystery16 :: Maybe Word32 -- 1
+  , vocMystery17 :: Maybe Word16 -- 0
+  , vocMystery18 :: Maybe Word32 -- 1
+  , vocMystery19 :: Maybe Word16 -- 0
+  , vocMystery20 :: Maybe Int32 -- -1
+  } deriving (Show)
+
+data VocViseme = VocViseme
+  { vvMystery1 :: Word32 -- 0
+  , vvMystery2 :: Word16 -- 0
+  , vvMystery3 :: Word16 -- RB: 1, GH2: 0
+  , vvName     :: B.ByteString -- "Eat", "If", etc.
+  , vvMystery4 :: Word32 -- 0
+  , vvMystery5 :: Word32 -- 0
+  , vvEvents   :: [VocEvent] -- each is 18 bytes
+  , vvMystery6 :: Word16 -- 0
+  } deriving (Show)
+
+data VocEvent = VocEvent
+  { veMystery1 :: Word32 -- 0
+  , veTime     :: Float -- timestamp in seconds
+  , veWeight   :: Float -- range appears to vary per property. 0 to 1 is typical but some are negative or higher than 1
+  , veMystery2 :: Word32 -- 0
+  , veMystery3 :: Word16 -- 0
+  } deriving (Show)
+
+parseVocFile :: Get VocFile
+parseVocFile = do
+  "FACE" <- getByteString 4
+  vocMystery1 <- getWord32le
+  vocMystery2 <- getWord16le
+  vocCompany <- getStringLE
+  vocMystery3 <- getWord16le
+  vocComment <- getStringLE
+  vocMystery4 <- getWord32le
+  vocMystery5 <- getWord32le
+  vocMystery6 <- getWord16le
+  vocMystery7 <- getWord16le
+  vocName <- getStringLE
+  vocMystery8 <- getWord16le
+  vocFileSize <- getWord32le
+  vocMystery9 <- getWord16le
+  visemeCount <- getWord32le
+  vocVisemes <- replicateM (fromIntegral visemeCount) $ do
+    vvMystery1 <- getWord32le
+    vvMystery2 <- getWord16le
+    vvMystery3 <- getWord16le
+    vvName <- getStringLE
+    vvMystery4 <- getWord32le
+    vvMystery5 <- getWord32le
+    eventCount <- getWord16le
+    vvEvents <- replicateM (fromIntegral eventCount) $ do
+      veMystery1 <- getWord32le
+      veTime <- getFloatle
+      veWeight <- getFloatle
+      veMystery2 <- getWord32le
+      veMystery3 <- getWord16le
+      return VocEvent{..}
+    vvMystery6 <- getWord16le
+    return VocViseme{..}
+  vocMystery10 <- getWord32le
+  vocMystery11 <- getWord16le
+  vocMystery12 <- getFloatle
+  vocMystery13 <- getFloatle
+  isGH <- isEmpty
+  vocMystery14 <- if isGH then return Nothing else Just <$> getWord32le
+  vocMystery15 <- if isGH then return Nothing else Just <$> getWord16le
+  vocMystery16 <- if isGH then return Nothing else Just <$> getWord32le
+  vocMystery17 <- if isGH then return Nothing else Just <$> getWord16le
+  vocMystery18 <- if isGH then return Nothing else Just <$> getWord32le
+  vocMystery19 <- if isGH then return Nothing else Just <$> getWord16le
+  vocMystery20 <- if isGH then return Nothing else Just <$> getInt32le
+  return VocFile{..}
+
+getStringLE :: Get B.ByteString
+getStringLE = do
+  len <- getWord32le
+  getByteString $ fromIntegral len
+
+vocToMIDITrack :: VocFile -> LipsyncTrack U.Seconds
+vocToMIDITrack voc
+  = LipsyncTrack
+  $ foldr RTB.merge RTB.empty
+  $ flip map (vocVisemes voc)
+  $ \vis -> let
+    name = TE.decodeLatin1 $ vvName vis
+    in RTB.fromAbsoluteEventList
+      $ ATB.fromPairList
+      $ flip map (vvEvents vis) $ \evt -> let
+        -- arterialblack.voc has a veTime of -2.3666643e-2 so we clamp to 0
+        time = realToFrac $ if veTime evt < 0 then 0 else veTime evt
+        -- TODO extend lipsync track to support the full range
+        weight
+          | veWeight evt < 0 = 0
+          | veWeight evt > 1 = 255
+          | otherwise        = round $ veWeight evt * 255
+        in (time, VisemeEvent name weight)
