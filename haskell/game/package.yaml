@@ -38,3 +38,4 @@ executables:
     - linear
     - text
     - onyx-game-3d
+    - OpenAL
