@@ -66,8 +66,8 @@ SYSTEMATIC CHAOS (new version)
   > some remaining stuff on constant motion: fix vox, adjust pk, basic keys, adjust od
   > fix G/B/K from PG/PB/PK
     - bass:
-      - itpoe1, forsaken, cm, tden, repentance, pow: fixed (opens + no-opens)
-      # tmols, itpoe2: todo
+      - itpoe1, forsaken, cm, tden, repentance, pow, tmols: fixed (opens + no-opens)
+      # itpoe2: todo
     - keys:
       - forsaken: fixed
       # cm, tden, repentance, pow: todo
