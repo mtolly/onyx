@@ -59,7 +59,7 @@ main = getArgs >>= \case
           SDL.windowMinimumSize window $= SDL.V2 800 600
           bracket (SDL.glCreateContext window) (\ctx -> glFinish >> SDL.glDeleteContext ctx) $ \_ctx -> do
             threadDelay 1000000 -- this prevents a weird crash, see https://github.com/haskell-game/sdl2/issues/176
-            RGAudio.playMOGG_AL pans vols (dir </> "audio.mogg") $ do
+            RGAudio.playMOGG pans vols (dir </> "audio.mogg") $ do
               playTrack window $ case drop i trks of
                 []           -> PreviewDrums Map.empty
                 (_, trk) : _ -> trk
