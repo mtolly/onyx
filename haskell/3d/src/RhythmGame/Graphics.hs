@@ -28,6 +28,7 @@ import           Linear                 (M44, V2 (..), V3 (..), V4 (..), (!*!))
 import qualified Linear                 as L
 import           Resources              (getResourcesPath)
 import           RhythmGame.PNF
+import           RhythmGame.Track
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums   as D
 import qualified RockBand.Codec.Five    as F
@@ -892,32 +893,40 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
 freeTexture :: Texture -> IO ()
 freeTexture (Texture tex _ _) = with tex $ glDeleteTextures 1
 
-drawTrack
-  :: (GLStuff -> WindowDims -> Double -> statemap -> IO ())
-  -> GLStuff
+drawTracks
+  :: GLStuff
   -> WindowDims
   -> Double
-  -> statemap
+  -> [PreviewTrack]
   -> IO ()
-drawTrack drawer glStuff@GLStuff{..} dims@(WindowDims w h) time trk = do
+drawTracks glStuff@GLStuff{..} (WindowDims w h) time trks = do
   glViewport 0 0 (fromIntegral w) (fromIntegral h)
   glClearColor 0.2 0.3 0.3 1.0
-  glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
+  glClear GL_COLOR_BUFFER_BIT
 
-  glUseProgram objectShader
-  glBindVertexArray boxVAO
-  let viewPosn = V3 0 1.4 3 :: V3 Float
-      view, projection :: M44 Float
-      view
-        = L.mkTransformation (L.axisAngle (V3 1 0 0) (degrees 25)) 0
-        !*! translate4 (negate viewPosn)
-        -- note, this translates then rotates (can't just give V3 to mkTransformation)
-      projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
-  sendUniformName objectShader "view" view
-  sendUniformName objectShader "projection" projection
-  -- light.position gets sent later
-  sendUniformName objectShader "light.ambient" (V3 0.2 0.2 0.2 :: V3 Float)
-  sendUniformName objectShader "light.diffuse" (V3 1 1 1 :: V3 Float)
-  sendUniformName objectShader "light.specular" (V3 1 1 1 :: V3 Float)
-  sendUniformName objectShader "viewPos" viewPosn
-  drawer glStuff dims time trk
+  let count = length trks
+      widthPart = quot w count
+  forM_ (zip [0..] trks) $ \(i, trk) -> do
+    glClear GL_DEPTH_BUFFER_BIT
+    let widthOffset = quot (w * i) count
+        dims' = WindowDims widthPart h
+    glUseProgram objectShader
+    glBindVertexArray boxVAO
+    let viewPosn = V3 0 1.4 3 :: V3 Float
+        view, projection :: M44 Float
+        view
+          = L.mkTransformation (L.axisAngle (V3 1 0 0) (degrees 25)) 0
+          !*! translate4 (negate viewPosn)
+          -- note, this translates then rotates (can't just give V3 to mkTransformation)
+        projection = L.perspective (degrees 45) (fromIntegral widthPart / fromIntegral h) 0.1 100
+    sendUniformName objectShader "view" view
+    sendUniformName objectShader "projection" projection
+    -- light.position gets sent later
+    sendUniformName objectShader "light.ambient" (V3 0.2 0.2 0.2 :: V3 Float)
+    sendUniformName objectShader "light.diffuse" (V3 1 1 1 :: V3 Float)
+    sendUniformName objectShader "light.specular" (V3 1 1 1 :: V3 Float)
+    sendUniformName objectShader "viewPos" viewPosn
+    glViewport (fromIntegral widthOffset) 0 (fromIntegral widthPart) (fromIntegral h)
+    case trk of
+      PreviewDrums m -> drawDrums glStuff dims' time m
+      PreviewFive m  -> drawFive glStuff dims' time m

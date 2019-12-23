@@ -1440,11 +1440,8 @@ launchPreview sink makeMenuBar mid = do
             selected <- selectedName
             w <- FL.pixelW wind
             h <- FL.pixelH wind
-            forM_ (lookup selected trks) $ \case
-              PreviewDrums trk -> do
-                RGGraphics.drawTrack RGGraphics.drawDrums stuff (RGGraphics.WindowDims w h) t trk
-              PreviewFive trk -> do
-                RGGraphics.drawTrack RGGraphics.drawFive stuff (RGGraphics.WindowDims w h) t trk
+            forM_ (lookup selected trks) $ \trk -> do
+              RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t [trk]
     -- TODO do we want to set "FL.setUseHighResGL True" here for mac?
     glwindow <- FLGL.glWindowCustom
       (rectangleSize glArea)

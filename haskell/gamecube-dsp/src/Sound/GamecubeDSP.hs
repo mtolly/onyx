@@ -1,8 +1,8 @@
 module Sound.GamecubeDSP where
 
-import Foreign
-import Foreign.C
-import Control.Exception
+import           Control.Exception
+import           Foreign
+import           Foreign.C
 
 foreign import ccall unsafe "dsper_main"
   dsper_main :: CInt -> Ptr CString -> IO CInt

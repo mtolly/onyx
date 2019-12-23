@@ -1,9 +1,9 @@
 module Kakasi where
 
-import Foreign hiding (void)
-import Foreign.C
+import           Control.Monad   (void)
 import qualified Data.ByteString as B
-import Control.Monad (void)
+import           Foreign         hiding (void)
+import           Foreign.C
 
 foreign import ccall "kakasi_getopt_argv"
   kakasi_getopt_argv :: CInt -> Ptr CString -> IO CInt
