@@ -906,10 +906,11 @@ drawTracks glStuff@GLStuff{..} (WindowDims w h) time trks = do
 
   let count = length trks
       widthPart = quot w count
+      heightPart = min h $ quot (widthPart * 7) 6
   forM_ (zip [0..] trks) $ \(i, trk) -> do
     glClear GL_DEPTH_BUFFER_BIT
     let widthOffset = quot (w * i) count
-        dims' = WindowDims widthPart h
+        dims' = WindowDims widthPart heightPart
     glUseProgram objectShader
     glBindVertexArray boxVAO
     let viewPosn = V3 0 1.4 3 :: V3 Float
@@ -918,7 +919,7 @@ drawTracks glStuff@GLStuff{..} (WindowDims w h) time trks = do
           = L.mkTransformation (L.axisAngle (V3 1 0 0) (degrees 25)) 0
           !*! translate4 (negate viewPosn)
           -- note, this translates then rotates (can't just give V3 to mkTransformation)
-        projection = L.perspective (degrees 45) (fromIntegral widthPart / fromIntegral h) 0.1 100
+        projection = L.perspective (degrees 45) (fromIntegral widthPart / fromIntegral heightPart) 0.1 100
     sendUniformName objectShader "view" view
     sendUniformName objectShader "projection" projection
     -- light.position gets sent later
@@ -926,7 +927,7 @@ drawTracks glStuff@GLStuff{..} (WindowDims w h) time trks = do
     sendUniformName objectShader "light.diffuse" (V3 1 1 1 :: V3 Float)
     sendUniformName objectShader "light.specular" (V3 1 1 1 :: V3 Float)
     sendUniformName objectShader "viewPos" viewPosn
-    glViewport (fromIntegral widthOffset) 0 (fromIntegral widthPart) (fromIntegral h)
+    glViewport (fromIntegral widthOffset) 0 (fromIntegral widthPart) (fromIntegral heightPart)
     case trk of
       PreviewDrums m -> drawDrums glStuff dims' time m
       PreviewFive m  -> drawFive glStuff dims' time m

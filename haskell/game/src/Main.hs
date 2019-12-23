@@ -69,11 +69,14 @@ playTracks :: SDL.Window -> [PreviewTrack] -> IO ()
 playTracks window trks = do
   initTime <- SDL.ticks
   glStuff <- loadGLStuff
-  let loop = SDL.pollEvents >>= processEvents >>= \b -> when b $ do
-        timestamp <- SDL.ticks
-        draw $ fromIntegral (timestamp - initTime) / 1000
-        threadDelay 5000
-        loop
+  let loop = do
+        frameStart <- fromIntegral <$> SDL.ticks
+        SDL.pollEvents >>= processEvents >>= \b -> when b $ do
+          timestamp <- SDL.ticks
+          draw $ fromIntegral (timestamp - initTime) / 1000
+          frameEnd <- fromIntegral <$> SDL.ticks
+          threadDelay $ (16 - (frameEnd - frameStart)) * 1000
+          loop
       processEvents [] = return True
       processEvents (e : es) = case SDL.eventPayload e of
         SDL.QuitEvent -> return False
