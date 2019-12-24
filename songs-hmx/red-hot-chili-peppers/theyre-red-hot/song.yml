@@ -1,0 +1,51 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 470
+  bass:
+    grybo:
+      difficulty:
+        rank: 275
+  guitar:
+    grybo:
+      difficulty:
+        rank: 350
+  drums:
+    drums:
+      difficulty:
+        rank: 500
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      drums:
+        kick: [0]
+        snare: [1]
+        kit: [2, 3]
+      bass: [4]
+      guitar: [5, 6]
+      vocal: [7, 8]
+    pans: [0, 0, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    mogg-md5: 5cf4369ff55b098f53e1ec15488d8135
+    multitrack: true
+    vols: [-1, -1.5, -3.5, -3.5, -3, -4.5, -4.5, -2.5, -2.5, -3, -3]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+metadata:
+  rating: Supervision Recommended
+  preview-start: 17.1
+  file-album-art: cover.png_xbox
+  track-number: 17
+  album: Blood Sugar Sex Magik
+  year: 1991
+  author: Harmonix, Onyxite
+  title: They're Red Hot
+  preview-end: 40.7
+  genre: alternative
+  difficulty:
+    rank: 490
+  artist: Red Hot Chili Peppers

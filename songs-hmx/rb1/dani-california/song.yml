@@ -1,0 +1,53 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 155
+  bass:
+    grybo:
+      difficulty:
+        rank: 290
+  guitar:
+    grybo:
+      difficulty:
+        rank: 290
+  drums:
+    drums:
+      difficulty:
+        rank: 280
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6]
+      guitar: [7, 8]
+      vocal: [9, 10]
+    pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -2.5, 2.5]
+    mogg-md5: 8f2cedd34b227b0f68576431174955bf
+    multitrack: true
+    crowd: [13, 14]
+    vols: [0, 0, -3, -3, -1.5, -1.5, -1.5, -2.5, -2.5, -3, -3, -4.5, -4.5, -5, -5]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+metadata:
+  rating: Supervision Recommended
+  preview-start: 39.45
+  file-album-art: cover.png_xbox
+  track-number: 1
+  album: Stadium Arcadium
+  year: 2006
+  anim-tempo: 16
+  author: Harmonix, Onyxite
+  title: Dani California
+  preview-end: 1:09.450
+  genre: rock
+  difficulty:
+    rank: 340
+  artist: Red Hot Chili Peppers
