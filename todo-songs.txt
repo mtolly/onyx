@@ -65,9 +65,7 @@ SYSTEMATIC CHAOS (new version)
   > PK fixed for Forsaken POW TDEN, still need Repentance (and quick check of Jarod's 4)
   > some remaining stuff on constant motion: fix vox, adjust pk, basic keys, adjust od
   > fix G/B/K from PG/PB/PK
-    - bass:
-      - itpoe1, forsaken, cm, tden, repentance, pow, tmols: fixed (opens + no-opens)
-      # itpoe2: todo
+    - bass: done!! (incl. opens + no-opens)
     - keys:
       - forsaken: fixed
       # cm, tden, repentance, pow: todo
@@ -80,8 +78,9 @@ SYSTEMATIC CHAOS (new version)
       - forsaken, tden, repentance, pow: first drafts done
       # itpoe1, cm, tmols, itpoe2: todo
     - camera:
+      - pow: first draft done
       > forsaken: started
-      # itpoe1, cm, tden, repentance, pow, tmols, itpoe2: todo
+      # itpoe1, cm, tden, repentance, tmols, itpoe2: todo
   - improved onyx lipsync generation: done!
   > drum animations
   > numeric song IDs
