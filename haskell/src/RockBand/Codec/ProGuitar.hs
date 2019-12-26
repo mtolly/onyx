@@ -17,7 +17,7 @@ import           Data.Default.Class               (Default (..))
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
-import           Data.List.Extra                  (nubOrd, sort, unsnoc)
+import           Data.List.Extra                  (sort, unsnoc)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe)
@@ -534,7 +534,7 @@ autoHandPosition pg = if RTB.null $ pgHandPosition pg
     posns' = case posns of
       RNil          -> RNil
       Wait t p rest -> Wait t p $ RTB.filter (/= 0) rest
-    in pg { pgHandPosition = posns' }
+    in pg { pgHandPosition = noRedundantStatus posns' }
   else pg
 
 -- | If there are no chord root notes, sets each chord to have its lowest
@@ -544,14 +544,16 @@ autoChordRoot tuning pg = if RTB.null $ pgChordRoot pg
   then let
     getPitch str fret = indexTuning tuning str + fret
     notes = foldr RTB.merge RTB.empty $ do
-      pgd <- Map.elems $ pgDifficulties pg
-      return $ fmap (\(str, (_, fret, _)) -> getPitch str fret) $ pgNotes pgd
-    roots = flip RTB.mapMaybe (RTB.collectCoincident notes) $ \ns ->
-      case nubOrd ns of
+      (diff, pgd) <- Map.toList $ pgDifficulties pg
+      return $ fmap (\(str, (_, fret, _)) -> (diff, getPitch str fret)) $ pgNotes pgd
+    roots = flip RTB.mapMaybe (RTB.collectCoincident notes) $ \ns -> let
+      findChord diff = case map snd $ filter ((== diff) . fst) ns of
         p : ps@(_ : _) -> Just $ toEnum $ foldr min p ps `rem` 12
-        _              -> Nothing
-    -- TODO maybe remove duplicate roots
-    in pg { pgChordRoot = roots }
+        _              -> case diff of
+          Easy -> Nothing
+          _    -> findChord $ pred diff
+      in findChord Expert
+    in pg { pgChordRoot = noRedundantStatus roots }
   else pg
 
 -- | Basically like the GRYBO HOPO algorithm, with caveats:

@@ -368,3 +368,12 @@ chopDropMaybe t xs = let
       Just (_, (_, Just x)) -> U.trackGlueZero [Just x] after
       _                     -> after
     (z, nz) -> U.trackGlueZero (filter isJust z) nz
+
+noRedundantStatus :: (NNC.C t, Eq a) => RTB.T t a -> RTB.T t a
+noRedundantStatus = go Nothing where
+  go _ RNil
+    = RNil
+  go (Just k) (Wait dt k' rest) | k == k'
+    = go (Just k) (RTB.delay dt rest)
+  go _ (Wait dt k rest)
+    = Wait dt k $ go (Just k) rest
