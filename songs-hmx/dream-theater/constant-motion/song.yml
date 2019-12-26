@@ -13,9 +13,6 @@ metadata:
   - "Edits to guitar and pro guitar charts (including redone solo) by me."
   - "Vocals fixed up and split into harmonies by me."
   rating: Family Friendly # so says HMX
-  # TODO:
-  # chart sound effects on keys
-  # adjust OD/unisons for keys
 audio:
   album-track:
     md5: 8c906ac9ee62cccb895a0daaf5001049
@@ -74,6 +71,8 @@ parts:
   keys:
     pro-keys:
       difficulty: 7
+    grybo:
+      difficulty: 6
 targets:
   rb3:
     game: rb3

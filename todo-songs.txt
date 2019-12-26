@@ -71,8 +71,8 @@ SYSTEMATIC CHAOS (new version)
       # cm, tden, repentance, pow: todo
       # itpoe1, tmols, itpoe2: probably not necessary
     - guitar:
-      - forsaken, cm, tden, repentance, pow, tmols: fixed (opens + no-opens)
-      # itpoe1, itpoe2: todo
+      - itpoe1, forsaken, cm, tden, repentance, pow, tmols: fixed (opens + no-opens)
+      # itpoe2: todo (redo)
   > venue
     - lighting/postproc:
       - forsaken, tden, repentance, pow: first drafts done
