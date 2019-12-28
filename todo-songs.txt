@@ -61,22 +61,24 @@ A DRAMATIC TURN OF EVENTS
   > breaking all illusions - drums PB PG done
   > beneath the surface - PG done except arpeggios
 SYSTEMATIC CHAOS (new version)
-  - PG/PB done!
-  > PK fixed for Forsaken POW TDEN, still need Repentance (and quick check of Jarod's 4)
-  > some remaining stuff on constant motion: fix vox, adjust pk, basic keys, adjust od
+  > PG/PB done (incl. Mustang, slides, chords), except TMOLS and ITPOE2 need Mustang versions
+  - PK fixed for Forsaken POW TDEN
+    # Repentance and Jarod's 4 probably fine
+  > constant motion vox: fix timing, do solo vox, vox od
   > fix G/B/K from PG/PB/PK
     - bass: done!! (incl. opens + no-opens)
     - keys:
       - forsaken: fixed
-      # cm, tden, repentance, pow: todo
-      # itpoe1, tmols, itpoe2: probably not necessary
+      - cm: done
+      # tden, pow: todo
+      # repentance, itpoe1, tmols, itpoe2: probably not necessary
     - guitar:
       - itpoe1, forsaken, cm, tden, repentance, pow, tmols: fixed (opens + no-opens)
       # itpoe2: todo (redo)
   > venue
     - lighting/postproc:
-      - forsaken, tden, repentance, pow: first drafts done
-      # itpoe1, cm, tmols, itpoe2: todo
+      - itpoe1, forsaken, tden, repentance, pow: first drafts done
+      # cm, tmols, itpoe2: todo
     - camera:
       - pow: first draft done
       > forsaken: started
