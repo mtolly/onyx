@@ -283,9 +283,84 @@ launchWindow sink proj = mdo
     FL.end packRight
     FL.setResizable tab $ Just pack
     return tab
+  instTab <- makeTab windowRect "Instruments" $ \rect tab -> do
+    let instRect = trimClock 10 10 10 10 rect
+    tree <- FL.treeNew instRect Nothing
+    FL.end tree
+    FL.rootLabel tree "Instruments"
+    FL.setSelectmode tree FLE.TreeSelectNone
+    FL.setShowcollapse tree False
+    Just root <- FL.root tree
+    forM_ (HM.toList $ getParts $ _parts $ projectSongYaml proj) $ \(fpart, part) -> when (part /= def) $ do
+      Just itemInst <- FL.addAt tree (T.toTitle $ RBFile.getPartName fpart) root
+      let dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 100))
+          addType lbl extra = do
+            Just itemCheck <- FL.addAt tree "" itemInst
+            check <- FL.checkButtonNew dummyRect $ Just lbl
+            void $ FL.setValue check True
+            FL.setWidget itemCheck $ Just check
+            extra itemCheck
+          makeChoice :: (Enum a, Bounded a) => FL.Ref FL.TreeItem -> a -> (a -> T.Text) -> IO ()
+          makeChoice itemParent cur getLabel = do
+            Just itemChoice <- FL.addAt tree "" itemParent
+            choice <- FL.choiceNew dummyRect Nothing
+            forM_ [minBound .. maxBound] $ FL.addName choice . getLabel
+            void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $ fromEnum cur
+            FL.setWidget itemChoice $ Just choice
+          makeDifficulty :: FL.Ref FL.TreeItem -> Difficulty -> IO ()
+          makeDifficulty itemParent diff = do
+            Just itemGroup <- FL.addAt tree "" itemParent
+            group <- FL.groupNew dummyRect Nothing
+            let (choiceArea, textArea) = chopLeft 100 dummyRect
+            choice <- FL.choiceNew choiceArea Nothing
+            forM_ [1..7] $ \i -> FL.addName choice $ T.pack $ "Tier " <> show (i :: Int)
+            FL.addName choice "Rank"
+            let setChoice = void . FL.setValue choice . FL.MenuItemByIndex . FL.AtIndex
+            case diff of
+              Tier i | 1 <= i && i <= 7 -> setChoice $ fromIntegral i - 1
+              Rank _                    -> setChoice 7
+              _                         -> return ()
+            input <- FL.inputNew textArea Nothing $ Just FL.FlNormalInput
+            case diff of
+              Rank r -> void $ FL.setValue input $ T.pack $ show r
+              _      -> return ()
+            FL.end group
+            FL.setWidget itemGroup $ Just group
+      forM_ (partGRYBO part) $ \pg -> addType "5-Fret" $ \itemCheck -> do
+        makeDifficulty itemCheck $ gryboDifficulty pg
+      forM_ (partGHL part) $ \pg -> addType "6-Fret" $ \itemCheck -> do
+        makeDifficulty itemCheck $ ghlDifficulty pg
+      forM_ (partProKeys part) $ \pk -> addType "Pro Keys" $ \itemCheck -> do
+        makeDifficulty itemCheck $ pkDifficulty pk
+      forM_ (partProGuitar part) $ \pg -> addType "Pro Guitar" $ \itemCheck -> do
+        makeDifficulty itemCheck $ pgDifficulty pg
+      forM_ (partDrums part) $ \pd -> addType "Drums" $ \itemCheck -> do
+        makeDifficulty itemCheck $ drumsDifficulty pd
+        makeChoice itemCheck (drumsMode pd) $ \case
+          Drums4    -> "4-Lane Drums"
+          Drums5    -> "5-Lane Drums"
+          DrumsPro  -> "Pro Drums"
+          DrumsReal -> "Phase Shift Real Drums"
+        makeChoice itemCheck (drumsKicks pd) $ \case
+          Kicks1x   -> "1x Bass Pedal"
+          Kicks2x   -> "2x Bass Pedal"
+          KicksBoth -> "1x+2x Bass Pedal (PS X+ or C3 format)"
+        makeChoice itemCheck (drumsKit pd) $ \case
+          HardRockKit   -> "Hard Rock Kit"
+          ArenaKit      -> "Arena Kit"
+          VintageKit    -> "Vintage Kit"
+          TrashyKit     -> "Trashy Kit"
+          ElectronicKit -> "Electronic Kit"
+      forM_ (partVocal part) $ \pv -> addType "Vocals" $ \itemCheck -> do
+        makeDifficulty itemCheck $ vocalDifficulty pv
+        makeChoice itemCheck (vocalCount pv) $ \case
+          Vocal1 -> "Solo"
+          Vocal2 -> "Harmonies (2)"
+          Vocal3 -> "Harmonies (3)"
+    FL.setResizable tab $ Just tree
+    return tab
   {-
   makeTab windowRect "Audio" $ \_ _ -> return ()
-  makeTab windowRect "Instruments" $ \_ _ -> return ()
   makeTab windowRect "Rock Band 3" $ \_ _ -> return ()
   makeTab windowRect "Rock Band 2" $ \_ _ -> return ()
   makeTab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
@@ -326,7 +401,7 @@ launchWindow sink proj = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let nonTermTabs = [metaTab, utilsTab]
+  let nonTermTabs = [metaTab, instTab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskTabColor >>= setTabColor tab
     FL.deactivate tab
