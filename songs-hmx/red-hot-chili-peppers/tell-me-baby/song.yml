@@ -4,19 +4,19 @@ parts:
       count: 3
       gender: male
       difficulty:
-        rank: 155
+        rank: 145
   bass:
     grybo:
       difficulty:
-        rank: 290
+        rank: 330
   guitar:
     grybo:
       difficulty:
-        rank: 290
+        rank: 240
   drums:
     drums:
       difficulty:
-        rank: 280
+        rank: 320
       kicks: 1
 plans:
   mogg:
@@ -28,11 +28,10 @@ plans:
       bass: [6]
       guitar: [7, 8]
       vocal: [9, 10]
-    pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -2.5, 2.5]
-    mogg-md5: 8f2cedd34b227b0f68576431174955bf
+    pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    mogg-md5: 91b5e8f0d069e7583b9a294720b1574f
     multitrack: true
-    crowd: [13, 14]
-    vols: [0, 0, -3, -3, -1.5, -1.5, -1.5, -2.5, -2.5, -3, -3, -4.5, -4.5, -5, -5]
+    vols: [-2.5, -2.5, -1, -1, -3, -3, -2.5, -3.8, -3.8, -3, -3, -4.2, -4.2]
 targets:
   rb3:
     game: rb3
@@ -42,17 +41,16 @@ targets:
     label: (O)
 metadata:
   rating: Supervision Recommended
-  preview-start: 39.45
+  preview-start: 58.8
   file-album-art: cover.png_xbox
-  track-number: 1
+  track-number: 16
   album: Stadium Arcadium
   year: 2006
-  anim-tempo: 16
-  author: Harmonix, Espher, Onyxite
-  title: Dani California
-  preview-end: 1:09.450
+  author: Harmonix, RBHP, Onyxite
+  title: Tell Me Baby
+  preview-end: 1:26.022
   genre: rock
   difficulty:
-    rank: 340
+    rank: 300
   artist: Red Hot Chili Peppers
   key: A minor
