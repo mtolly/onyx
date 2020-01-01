@@ -283,6 +283,33 @@ launchWindow sink proj = mdo
     FL.end packRight
     FL.setResizable tab $ Just pack
     return tab
+  (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> do
+    let (topControlsArea1, glArea) = chopTop 40 rect
+        (trimClock 5 5 5 5 -> playButtonArea, topControlsArea2) = chopLeft 60 topControlsArea1
+        (trimClock 8 5 8 5 -> scrubberArea, trimClock 5 5 5 80 -> speedArea) = chopRight 220 topControlsArea2
+    topControls <- FL.groupNew topControlsArea1 Nothing
+    scrubber <- FL.sliderNew scrubberArea Nothing
+    FL.setType scrubber FL.HorNiceSliderType
+    FL.setMinimum scrubber 0
+    FL.setMaximum scrubber 100
+    FL.setStep scrubber 1
+    void $ FL.setValue scrubber 0
+    playButton <- FL.buttonNew playButtonArea $ Just "@>"
+    getSpeed <- speedPercent speedArea
+    FL.end topControls
+    FL.setResizable topControls $ Just scrubber
+    varTracks <- newIORef []
+    sink $ EventOnyx $ do
+      trks <- loadTracks $ takeDirectory (projectLocation proj) </> "notes.mid"
+      stackIO $ writeIORef varTracks trks
+    varTime <- newIORef 0
+    (groupGL, cleanupGL') <- previewGroup
+      sink
+      glArea
+      (readIORef varTracks)
+      (readIORef varTime)
+    FL.setResizable tab $ Just groupGL
+    return (tab, cleanupGL')
   instTab <- makeTab windowRect "Instruments" $ \rect tab -> do
     let instRect = trimClock 10 10 10 10 rect
     tree <- FL.treeNew instRect Nothing
@@ -422,6 +449,7 @@ launchWindow sink proj = mdo
   FL.setCallback window $ windowCloser $ do
     cancelTasks
     mapM_ release $ projectRelease proj
+    cleanupGL
   FL.showWidget window
 
 -- | Ignores the Escape key, and runs a resource-release function after close.
@@ -1430,6 +1458,75 @@ launchTimeServer sink varTime inputPort button label = do
 
 data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLClosed
 
+previewGroup
+  :: (Event -> IO ())
+  -> Rectangle
+  -> IO [(T.Text, PreviewTrack)]
+  -> IO Double
+  -> IO (FL.Ref FL.Group, IO ())
+previewGroup sink rect getTracks getTime = do
+  let (glArea, bottomControlsArea) = chopBottom 40 rect
+      partSelectArea = trimClock 6 15 6 50 bottomControlsArea
+
+  wholeGroup <- FL.groupNew rect Nothing
+
+  bottomControlsGroup <- FL.groupNew bottomControlsArea Nothing
+  choice <- FL.choiceNew partSelectArea $ Just "Part"
+  currentParts <- newIORef []
+  let selectedName = FL.getText choice
+      updateParts redraw names = sink $ EventIO $ do
+        cur <- readIORef currentParts
+        when (cur /= names) $ do
+          selected <- selectedName
+          FL.clear choice
+          mapM_ (FL.addName choice) names
+          void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $
+            fromMaybe 0 $ elemIndex selected names
+          writeIORef currentParts names
+          when redraw $ sink $ EventIO FLTK.redraw
+  getTracks >>= updateParts False . map fst
+  FL.setCallback choice $ \_ -> sink $ EventIO $ FLTK.redraw
+  FL.end bottomControlsGroup
+  FL.setResizable bottomControlsGroup $ Just choice
+
+  varStuff <- newMVar GLPreload
+  let draw :: FL.Ref FL.GlWindow -> IO ()
+      draw wind = do
+        mstuff <- modifyMVar varStuff $ \case
+          GLPreload -> do
+            s <- RGGraphics.loadGLStuff
+            return (GLLoaded s, Just s)
+          loaded@(GLLoaded s) -> return (loaded, Just s)
+          GLClosed -> return (GLClosed, Nothing)
+        forM_ mstuff $ \stuff -> do
+          t <- getTime
+          trks <- getTracks
+          updateParts True $ map fst trks -- TODO does this need to be done in a sink event
+          selected <- selectedName
+          w <- FL.pixelW wind
+          h <- FL.pixelH wind
+          forM_ (lookup selected trks) $ \trk -> do
+            RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t [trk]
+  -- TODO do we want to set "FL.setUseHighResGL True" here for mac?
+  glwindow <- FLGL.glWindowCustom
+    (rectangleSize glArea)
+    (Just $ rectanglePosition glArea)
+    Nothing -- label
+    (Just draw)
+    FL.defaultCustomWidgetFuncs
+    FL.defaultCustomWindowFuncs
+  FL.end glwindow
+  FL.setMode glwindow $ FLE.Modes [FLE.ModeOpenGL3, FLE.ModeDepth, FLE.ModeRGB8, FLE.ModeDouble, FLE.ModeAlpha, FLE.ModeMultisample]
+
+  FL.end wholeGroup
+  FL.setResizable wholeGroup $ Just glwindow
+  let cleanupGL = modifyMVar_ varStuff $ \x -> do
+        case x of
+          GLLoaded s -> RGGraphics.deleteGLStuff s
+          _          -> return ()
+        return GLClosed
+  return (wholeGroup, cleanupGL)
+
 launchPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
 launchPreview sink makeMenuBar mid = do
   (getTracks, stopWatch) <- watchSong (sink $ EventIO FLTK.redraw) mid
@@ -1444,10 +1541,8 @@ launchPreview sink makeMenuBar mid = do
           (Position (X 0) (Y 0))
           windowSize
         (controlsArea, belowTopControls) = chopTop 40 windowRect
-        (glArea, bottomControlsArea) = chopBottom 40 belowTopControls
         (trimClock 6 3 6 66 -> portArea, controls1) = chopLeft 150 controlsArea
         (trimClock 6 3 6 3 -> buttonArea, controls2) = chopLeft 100 controls1
-        partSelectArea = trimClock 6 15 6 50 bottomControlsArea
         labelArea = trimClock 6 6 6 3 controls2
 
     controlsGroup <- FL.groupNew controlsArea Nothing
@@ -1472,26 +1567,13 @@ launchPreview sink makeMenuBar mid = do
     FL.end controlsGroup
     FL.setResizable controlsGroup $ Just labelServer
 
-    bottomControlsGroup <- FL.groupNew bottomControlsArea Nothing
-    choice <- FL.choiceNew partSelectArea $ Just "Part"
-    currentParts <- newIORef []
-    let selectedName = FL.getText choice
-        updateParts redraw names = sink $ EventIO $ do
-          cur <- readIORef currentParts
-          when (cur /= names) $ do
-            selected <- selectedName
-            FL.clear choice
-            mapM_ (FL.addName choice) names
-            void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $
-              fromMaybe 0 $ elemIndex selected names
-            writeIORef currentParts names
-            when redraw $ sink $ EventIO FLTK.redraw
-    getTracks >>= updateParts False . map fst
-    FL.setCallback choice $ \_ -> sink $ EventIO $ FLTK.redraw
-    FL.end bottomControlsGroup
-    FL.setResizable bottomControlsGroup $ Just choice
-
     varTime <- newIORef 0
+    (groupGL, cleanupGL) <- previewGroup
+      sink
+      belowTopControls
+      getTracks
+      (readIORef varTime)
+
     stopServer <- launchTimeServer
       sink
       varTime
@@ -1499,45 +1581,12 @@ launchPreview sink makeMenuBar mid = do
       buttonServer
       labelServer
 
-    varStuff <- newMVar GLPreload
-    let draw :: FL.Ref FL.GlWindow -> IO ()
-        draw wind = do
-          mstuff <- modifyMVar varStuff $ \case
-            GLPreload -> do
-              s <- RGGraphics.loadGLStuff
-              return (GLLoaded s, Just s)
-            loaded@(GLLoaded s) -> return (loaded, Just s)
-            GLClosed -> return (GLClosed, Nothing)
-          forM_ mstuff $ \stuff -> do
-            t <- readIORef varTime
-            trks <- getTracks
-            updateParts True $ map fst trks -- TODO does this need to be done in a sink event
-            selected <- selectedName
-            w <- FL.pixelW wind
-            h <- FL.pixelH wind
-            forM_ (lookup selected trks) $ \trk -> do
-              RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t [trk]
-    -- TODO do we want to set "FL.setUseHighResGL True" here for mac?
-    glwindow <- FLGL.glWindowCustom
-      (rectangleSize glArea)
-      (Just $ rectanglePosition glArea)
-      Nothing -- label
-      (Just draw)
-      FL.defaultCustomWidgetFuncs
-      FL.defaultCustomWindowFuncs
-    FL.end glwindow
-    FL.setMode glwindow $ FLE.Modes [FLE.ModeOpenGL3, FLE.ModeDepth, FLE.ModeRGB8, FLE.ModeDouble, FLE.ModeAlpha, FLE.ModeMultisample]
-
     FL.end window
-    FL.setResizable window $ Just glwindow
+    FL.setResizable window $ Just groupGL
     FL.setCallback window $ windowCloser $ do
       stopServer
       stopWatch
-      modifyMVar_ varStuff $ \x -> do
-        case x of
-          GLLoaded s -> RGGraphics.deleteGLStuff s
-          _          -> return ()
-        return GLClosed
+      cleanupGL
 
     FL.showWidget window
   return ()
