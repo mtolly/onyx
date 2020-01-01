@@ -1,0 +1,69 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        rank: 266
+  bass:
+    grybo:
+      difficulty:
+        rank: 350
+    pro-guitar:
+      difficulty:
+        rank: 416
+      tuning:
+        base: bass-4
+        offsets: [-2, 0, 0, 0]
+  guitar:
+    grybo:
+      difficulty:
+        rank: 223
+    pro-guitar:
+      difficulty:
+        rank: 235
+      tuning:
+        base: guitar-6
+  drums:
+    drums:
+      difficulty:
+        rank: 294
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6]
+      guitar: [7, 8]
+      vocal: [9, 10]
+    pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    mogg-md5: 9b6a668cd89946fa140892a0a3b52219
+    multitrack: true
+    vols: [-2, -2, -3.3, -3.3, -3, -3, -4, -4, -4, -5.2, -5.2, -5, -5]
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Supervision Recommended
+  preview-start: 1:05.108
+  file-album-art: cover.png_xbox
+  track-number: 1
+  key: D minor
+  album: By the Way
+  year: 2002
+  author: Harmonix, Onyxite
+  title: By the Way
+  preview-end: 1:35.108
+  genre: alternative
+  difficulty:
+    rank: 279
+  artist: Red Hot Chili Peppers

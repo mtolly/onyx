@@ -1,21 +1,22 @@
 parts:
   vocal:
     vocal:
+      count: 3
       gender: male
       difficulty:
-        rank: 470
+        rank: 245
   bass:
     grybo:
       difficulty:
-        rank: 275
+        rank: 260
   guitar:
     grybo:
       difficulty:
-        rank: 350
+        rank: 275
   drums:
     drums:
       difficulty:
-        rank: 500
+        rank: 354
       kicks: 1
 plans:
   mogg:
@@ -28,9 +29,9 @@ plans:
       guitar: [5, 6]
       vocal: [7, 8]
     pans: [0, 0, -1, 1, 0, -1, 1, -1, 1, -1, 1]
-    mogg-md5: 5cf4369ff55b098f53e1ec15488d8135
+    mogg-md5: 3107776da2ba6b28d00c12237874c9c1
     multitrack: true
-    vols: [-1, -1.5, -3.5, -3.5, -3, -4.5, -4.5, -2.5, -2.5, -3, -3]
+    vols: [-1.5, -1.5, -3, -3, -3, -4.5, -4.5, -2.7, -2.7, -3, -3]
 targets:
   rb3:
     game: rb3
@@ -40,15 +41,16 @@ targets:
     label: (O)
 metadata:
   rating: Supervision Recommended
-  preview-start: 17.1
+  preview-start: 1:07.700
   file-album-art: cover.png_xbox
-  track-number: 17
+  track-number: 14
   album: Blood Sugar Sex Magik
   year: 1991
-  author: Harmonix, Onyxite
-  title: They're Red Hot
-  preview-end: 40.7
+  author: Harmonix, Espher, Onyxite
+  title: The Greeting Song
+  preview-end: 1:29.500
   genre: alternative
   difficulty:
-    rank: 490
+    rank: 330
   artist: Red Hot Chili Peppers
+  key: A major
