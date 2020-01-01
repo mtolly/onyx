@@ -186,6 +186,17 @@ eachDifficulty f rtb = let
   x' = fmap (makeDiffEvent Expert) $ f x
   in foldr RTB.merge rtb' [e', m', h', x']
 
+data Edge s a
+  = EdgeOff a
+  | EdgeOn s a
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+instance Bifunctor Edge where
+  first f = \case
+    EdgeOff  x -> EdgeOff      x
+    EdgeOn s x -> EdgeOn (f s) x
+  second = fmap
+
 data LongNote s a
   = NoteOff     a
   | Blip      s a
@@ -199,7 +210,7 @@ instance Bifunctor LongNote where
     NoteOn s x -> NoteOn (f s) x
   second = fmap
 
-showEdgesNice :: (NNC.C t, Ord s, Ord a) => t -> RTB.T t (LongNote s a) -> RTB.T t (Maybe s, a)
+showEdgesNice :: (NNC.C t, Ord s, Ord a) => t -> RTB.T t (LongNote s a) -> RTB.T t (Edge s a)
 showEdgesNice defLength = U.trackJoin . go . RTB.collectCoincident where
   go rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
@@ -209,30 +220,25 @@ showEdgesNice defLength = U.trackJoin . go . RTB.collectCoincident where
         Nothing            -> defLength
       ons = RTB.filter (\case NoteOff{} -> False; _ -> True) $ RTB.flatten rtb'
       f = \case
-        NoteOff  a -> RTB.singleton NNC.zero (Nothing, a)
-        NoteOn s a -> RTB.singleton NNC.zero ( Just s, a)
+        NoteOff  a -> RTB.singleton NNC.zero $ EdgeOff  a
+        NoteOn s a -> RTB.singleton NNC.zero $ EdgeOn s a
         Blip   s a -> RTB.fromPairList
-          [ (NNC.zero  , ( Just s, a))
-          , (blipLength, (Nothing, a))
+          [ (NNC.zero  , EdgeOn s a)
+          , (blipLength, EdgeOff  a)
           ]
       in RTB.cons dt (foldr RTB.merge RTB.empty $ map f xs) $ go rtb'
 
-showEdgesNice' :: (NNC.C t, Ord s, Ord a) => t -> RTB.T t (LongNote s a) -> RTB.T t (LongNote s a)
-showEdgesNice' defLength trk = flip fmap (showEdgesNice defLength trk) $ \case
-  (Nothing, a) -> NoteOff  a
-  ( Just s, a) -> NoteOn s a
-
-joinEdgesSimple :: (NNC.C t, Eq a) => RTB.T t (Maybe s, a) -> RTB.T t (s, a, t)
+joinEdgesSimple :: (NNC.C t, Eq a) => RTB.T t (Edge s a) -> RTB.T t (s, a, t)
 joinEdgesSimple rtb = case RTB.viewL rtb of
   Nothing -> RTB.empty
   Just ((dt, x), rtb') -> case x of
-    (Just s, a) -> let
-      isNoteOff (Nothing, a') = guard (a == a') >> Just ()
-      isNoteOff _             = Nothing
+    EdgeOn s a -> let
+      isNoteOff (EdgeOff a') = guard (a == a') >> Just ()
+      isNoteOff _            = Nothing
       in case U.extractFirst isNoteOff rtb' of
         Nothing                 -> RTB.delay dt $ joinEdgesSimple rtb' -- unmatched note on
         Just ((len, ()), rtb'') -> RTB.cons dt (s, a, len) $ joinEdgesSimple rtb''
-    (Nothing, _) -> RTB.delay dt $ joinEdgesSimple rtb' -- unmatched note off
+    EdgeOff _ -> RTB.delay dt $ joinEdgesSimple rtb' -- unmatched note off
 
 joinEdges :: (NNC.C t, Eq a) => RTB.T t (LongNote s a) -> RTB.T t (s, a, Maybe t)
 joinEdges rtb = case RTB.viewL rtb of
@@ -256,11 +262,11 @@ fillJoinedBlips defLength rtb = case RTB.viewL rtb of
       next : _ -> min defLength next
     in RTB.cons dt (s, a, len') $ fillJoinedBlips defLength rtb'
 
-splitEdgesSimple :: (NNC.C t, Ord s, Ord a) => RTB.T t (s, a, t) -> RTB.T t (Maybe s, a)
+splitEdgesSimple :: (NNC.C t, Ord s, Ord a) => RTB.T t (s, a, t) -> RTB.T t (Edge s a)
 splitEdgesSimple = U.trackJoin . fmap f where
   f (s, a, t) = RTB.fromPairList
-    [ (NNC.zero, (Just s , a))
-    , (t       , (Nothing, a))
+    [ (NNC.zero, EdgeOn s a)
+    , (t       , EdgeOff  a)
     ]
 
 splitEdges :: (NNC.C t, Ord s, Ord a) => RTB.T t (s, a, Maybe t) -> RTB.T t (LongNote s a)
@@ -271,6 +277,9 @@ splitEdges = U.trackJoin . fmap f where
       [ (NNC.zero, NoteOn s a)
       , (t       , NoteOff  a)
       ]
+
+isNoteEdge' :: E.T -> Maybe (Edge Int (Int, Int))
+isNoteEdge' = fmap (\(c, p, mv) -> maybe (EdgeOff (c, p)) (`EdgeOn` (c, p)) mv) . isNoteEdgeCPV
 
 isNoteEdgeCPV :: E.T -> Maybe (Int, Int, Maybe Int)
 isNoteEdgeCPV = \case
@@ -288,6 +297,10 @@ unparseBlipCPV (c, p, v) = RTB.fromPairList
   [ (0     , makeEdgeCPV c p $ Just v)
   , (1 / 32, makeEdgeCPV c p Nothing )
   ]
+
+makeEdge' :: Edge Int (Int, Int) -> E.T
+makeEdge' (EdgeOff  (c, p)) = makeEdgeCPV c p Nothing
+makeEdge' (EdgeOn v (c, p)) = makeEdgeCPV c p $ Just v
 
 makeEdgeCPV :: Int -> Int -> Maybe Int -> E.T
 makeEdgeCPV c p v = E.MIDIEvent $ C.Cons (C.toChannel c) $ C.Voice $

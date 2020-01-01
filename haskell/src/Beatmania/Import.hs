@@ -22,7 +22,8 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProKeys
-import           RockBand.Common                  (Key (..), joinEdgesSimple)
+import           RockBand.Common                  (Edge (..), Key (..),
+                                                   joinEdgesSimple)
 import qualified Sound.MIDI.File.Save             as Save
 import           System.FilePath                  ((</>))
 
@@ -31,7 +32,7 @@ joinLongNotes :: (NNC.C t) =>
 joinLongNotes
   = fmap (\(chip, key, t) -> (key, chip, t))
   . joinEdgesSimple
-  . fmap (\(key, chip, b) -> (guard b >> Just chip, key))
+  . fmap (\(key, chip, b) -> if b then EdgeOn chip key else EdgeOff key)
 
 importBMS :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 importBMS bmsPath dout = do

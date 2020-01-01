@@ -210,9 +210,9 @@ instance ParseTrack DrumTrack where
           Pro Green  () -> 4
           Orange        -> 5
       drumMix <- drumMix =. let
-        parse = readCommand' >=> \(diff', aud, dsc) -> guard (diff == diff') >> Just (aud, dsc)
-        unparse (aud, dsc) = showCommand' (diff :: Difficulty, aud :: Audio, dsc :: Disco)
-        in single parse unparse
+        parse = toCommand >=> \(diff', aud, dsc) -> guard (diff == diff') >> Just (aud, dsc)
+        unparse (aud, dsc) = fromCommand (diff :: Difficulty, aud :: Audio, dsc :: Disco)
+        in commandMatch' parse unparse
       drumPSModifiers <- (drumPSModifiers =.) $ condenseMap $ eachKey each $ sysexPS diff . \case
         Rimshot  -> PS.SnareRimshot
         HHOpen   -> PS.HihatOpen

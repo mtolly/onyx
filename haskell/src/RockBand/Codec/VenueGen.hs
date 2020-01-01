@@ -166,7 +166,7 @@ applyStrobeNotes :: LightingTrack U.Beats -> RTB.T U.Beats (Lighting ())
 applyStrobeNotes lt = let
   input = RTB.normalize $ RTB.merge
     (RTB.mapMaybe (\(_, b) -> guard b >> Just OtherLighting) $ lightingTypes lt)
-    (fmap (\(speed, (), len) -> Strobe speed len) $ joinEdgesSimple $ (, ()) <$> lightingStrobe lt)
+    (fmap (\(speed, (), len) -> Strobe speed len) $ joinEdgesSimple $ maybe (EdgeOff ()) (`EdgeOn` ()) <$> lightingStrobe lt)
   go = \case
     RNil                            -> RNil
     Wait dt OtherLighting      rest -> RTB.delay dt $ go rest
@@ -361,7 +361,7 @@ cameraLevels =
 
 buildCamera :: (NNC.C t, MonadRandom m) => [RB3Instrument] -> CameraTrack t -> m (VenueTrack t)
 buildCamera hasInsts ct = do
-  let joined = joinEdgesSimple $ (\(cut, b) -> (guard b >> Just (), cut)) <$> cameraCuts ct
+  let joined = joinEdgesSimple $ (\(cut, b) -> if b then EdgeOn () cut else EdgeOff cut) <$> cameraCuts ct
       go prev rtb = case RTB.viewL rtb of
         Nothing -> return RTB.empty
         Just ((dt, evts), rtb') -> do

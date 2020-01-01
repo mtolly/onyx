@@ -816,6 +816,34 @@ commands =
       _ -> fatal "Expected 1 argument (input dir)"
     }
 
+  , Command
+    { commandWord = "benchmark-midi"
+    , commandDesc = ""
+    , commandUsage = "onyx benchmark-midi [raw|fixed|onyx] in.mid [--to out.txt]"
+    , commandRun = \args opts -> case args of
+      ["raw", fin] -> do
+        fout <- outputFile opts $ return $ fin <> ".txt"
+        mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+        stackIO $ writeFile fout $ show (mid :: RBFile.Song (RBFile.RawFile U.Beats))
+        return [fout]
+      ["raw-len", fin] -> do
+        fout <- outputFile opts $ return $ fin <> ".txt"
+        mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+        stackIO $ writeFile fout $ show $ length $ show (mid :: RBFile.Song (RBFile.RawFile U.Beats))
+        return [fout]
+      ["fixed", fin] -> do
+        fout <- outputFile opts $ return $ fin <> ".txt"
+        mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+        stackIO $ writeFile fout $ show (mid :: RBFile.Song (RBFile.FixedFile U.Beats))
+        return [fout]
+      ["onyx", fin] -> do
+        fout <- outputFile opts $ return $ fin <> ".txt"
+        mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+        stackIO $ writeFile fout $ show (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))
+        return [fout]
+      _ -> fatal "Expected 2 arguments (raw/fixed/onyx, then a midi file)"
+    }
+
   ]
 
 runDolphin

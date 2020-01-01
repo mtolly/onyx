@@ -49,9 +49,9 @@ instance TraverseTrack ProKeysTrack where
 instance ParseTrack ProKeysTrack where
   parseTrack = do
     pkTrainer   <- pkTrainer   =. let
-      parse = readCommand' >=> \case (t, k) | k == T.pack "key" -> Just t; _ -> Nothing
-      unparse t = showCommand' (t, T.pack "key")
-      in single parse unparse
+      parse = toCommand >=> \case (t, k) | k == T.pack "key" -> Just t; _ -> Nothing
+      unparse t = fromCommand (t, T.pack "key")
+      in commandMatch' parse unparse
     pkMood      <- pkMood      =. command
     pkGlissando <- pkGlissando =. edges 126
     pkTrill     <- pkTrill     =. edges 127

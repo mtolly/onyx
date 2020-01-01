@@ -10,7 +10,6 @@ EVENTS
 {-# LANGUAGE RecordWildCards    #-}
 module GuitarHeroII.Events where
 
-import           Control.Monad                    ((>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Monoid                      ((<>))
@@ -108,9 +107,9 @@ instance ParseTrack EventsTrack where
     eventsLighting      <- eventsLighting      =. command
     eventsOther         <- eventsOther         =. command
     eventsSections      <- eventsSections      =. let
-      fp = readCommand' >=> \case
+      fp = \case
         ("section" : s) -> Just $ T.unwords s
         _               -> Nothing
-      fs t = showCommand' ["section", t]
-      in single fp fs
+      fs t = ["section", t]
+      in commandMatch' fp fs
     return EventsTrack{..}

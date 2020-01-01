@@ -80,13 +80,13 @@ instance ParseTrack EventsTrack where
       False -> ["crowd_noclap"]
       True  -> ["crowd_clap"]
     eventsSections <- eventsSections =. let
-      fp = readCommand' >=> \case
+      fp = toCommand >=> \case
         ("section" : s) -> Just (SectionRB2, T.unwords s)
         [s]             -> (SectionRB3 ,) <$> T.stripPrefix "prc_" s
         _               -> Nothing
-      fs (SectionRB2, t) = showCommand' ["section", t]
-      fs (SectionRB3, t) = showCommand' ["prc_" <> t]
-      in single fp fs
+      fs (SectionRB2, t) = ["section", t]
+      fs (SectionRB3, t) = ["prc_" <> t]
+      in commandMatch' fp fs
     eventsBacking <- (eventsBacking =.) $ condenseMap_ $ eachKey each $ blip . \case
       BackingKick  -> 24
       BackingSnare -> 25

@@ -1,14 +1,16 @@
 {-# LANGUAGE LambdaCase    #-}
 {-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ViewPatterns  #-}
 module RockBand.Codec where
 
-import           Control.Monad                    (forM, guard, void, (>=>))
+import           Control.Monad                    (forM, guard, void)
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State.Strict (State, StateT, execState,
                                                    get, modify', put)
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (Identity (..))
@@ -17,16 +19,93 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Text                        as T
-import           Data.Tuple                       (swap)
 import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
+import           PhaseShift.Message
 import qualified PhaseShift.Message               as PS
 import           RockBand.Common
 import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
+import qualified Sound.MIDI.Message.Channel       as C
+import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util                  as U
 
+data MIDITrack f = MIDITrack
+  { midiNotes      :: Map.Map V.Pitch (f (Edge V.Velocity C.Channel))
+  , midiCommands   :: f [T.Text]
+  , midiLyrics     :: f T.Text -- also any text events that aren't commands or comments
+  , midiComments   :: f T.Text
+  , midiPhaseShift :: f PSMessage
+  , midiUnknown    :: f E.T
+  }
+
+mapMIDITrack :: (forall a. f a -> g a) -> MIDITrack f -> MIDITrack g
+mapMIDITrack f mt = mt
+  { midiNotes = fmap f $ midiNotes mt
+  , midiCommands = f $ midiCommands mt
+  , midiLyrics = f $ midiLyrics mt
+  , midiComments = f $ midiComments mt
+  , midiPhaseShift = f $ midiPhaseShift mt
+  , midiUnknown = f $ midiUnknown mt
+  }
+
+getMIDITrack :: (NNC.C t) => ATB.T t E.T -> MIDITrack (ATB.T t)
+getMIDITrack = let
+  go cur [] = cur
+  go cur ((t, x) : rest) = let
+    new = case x of
+      (isNoteEdgeCPV -> Just (c, p, mv)) -> cur
+        { midiNotes = let
+          f = Just . At t noteEdge . fromMaybe ANil
+          noteEdge = case mv of
+            Nothing -> EdgeOff                 $ C.toChannel c
+            Just v  -> EdgeOn (V.toVelocity v) $ C.toChannel c
+          in Map.alter f (V.toPitch p) $ midiNotes cur
+        }
+      -- note, we do PS before commands so our PS command parser goes first
+      (parsePS -> Just msgs) -> cur
+        { midiPhaseShift = foldr (At t) (midiPhaseShift cur) msgs
+        }
+      (readCommandList -> Just cmd) -> cur
+        { midiCommands = At t cmd $ midiCommands cur
+        }
+      E.MetaEvent (Meta.TextEvent ('#' : cmt)) -> cur
+        { midiComments = At t (T.pack cmt) $ midiComments cur
+        }
+      E.MetaEvent (Meta.Lyric lyric) -> cur
+        { midiLyrics = At t (T.pack lyric) $ midiLyrics cur
+        }
+      E.MetaEvent (Meta.TextEvent lyric) -> cur
+        { midiLyrics = At t (T.pack lyric) $ midiLyrics cur
+        }
+      _ -> cur
+        { midiUnknown = At t x $ midiUnknown cur
+        }
+    in go new rest
+  empty = MIDITrack
+    { midiNotes = Map.empty
+    , midiCommands = ATB.empty
+    , midiLyrics = ATB.empty
+    , midiComments = ATB.empty
+    , midiPhaseShift = ATB.empty
+    , midiUnknown = ATB.empty
+    }
+  in go empty . reverse . ATB.toPairList
+
+putMIDITrack :: (Functor f) => (f E.T -> f E.T -> f E.T) -> MIDITrack f -> f E.T
+putMIDITrack merge mt = foldr merge (midiUnknown mt) $ let
+  notes = flip map (Map.toList $ midiNotes mt) $ \(p, lane) -> let
+    f (EdgeOff  c) = makeEdgeCPV (C.fromChannel c) (V.fromPitch p) Nothing
+    f (EdgeOn v c) = makeEdgeCPV (C.fromChannel c) (V.fromPitch p) (Just $ V.fromVelocity v)
+    in f <$> lane
+  in notes ++
+    [ showCommand' <$> midiCommands mt
+    , (\cmt -> E.MetaEvent $ Meta.TextEvent $ '#' : T.unpack cmt) <$> midiComments mt
+    , unparsePSSysEx <$> midiPhaseShift mt
+    ]
+
 -- like the json/dta one but uses StateT so it can modify the source as it goes
-type TrackParser m t = StackTraceT (StateT (RTB.T t E.T) m)
+type TrackParser m t = StackTraceT (StateT (MIDITrack (RTB.T t)) m)
 type TrackBuilder t = State (RTB.T t E.T)
 type TrackCodec m t a = Codec (TrackParser m t) (TrackBuilder t) a
 
@@ -46,10 +125,11 @@ forceTrackSpine rtb = case RTB.viewL rtb of
   Nothing              -> ()
   Just ((dt, x), rtb') -> seq dt $ seq x $ forceTrackSpine rtb'
 
-slurpTrack :: (Monad m) => (RTB.T t a -> (RTB.T t b, RTB.T t a)) -> StackTraceT (StateT (RTB.T t a) m) (RTB.T t b)
+slurpTrack :: (Monad m) => (trk -> (RTB.T t b, trk)) -> StackTraceT (StateT trk m) (RTB.T t b)
 slurpTrack f = lift $ do
   (slurp, leave) <- f <$> get
-  seq (forceTrackSpine slurp) $ seq (forceTrackSpine leave) $ return ()
+  -- TODO do we need to re-add a force for `leave`
+  seq (forceTrackSpine slurp) $ return ()
   put leave
   return slurp
 
@@ -74,11 +154,14 @@ slurpTrack f = lift $ do
 
 blipCV :: (Monad m) => Int -> TrackEvent m U.Beats (Int, Int)
 blipCV p = Codec
-  { codecIn = slurpTrack $ \trk -> let
-    (slurp, leave) = flip RTB.partitionMaybe trk $ \x -> case isNoteEdgeCPV x of
-      Just (c, p', v) | p == p' -> Just $ (c ,) <$> v
-      _                         -> Nothing
-    in (RTB.catMaybes slurp, leave)
+  { codecIn = slurpTrack $ \mt -> case Map.lookup (V.toPitch p) (midiNotes mt) of
+    Nothing        -> (RTB.empty, mt)
+    Just noteEdges -> let
+      cvs = flip RTB.mapMaybe noteEdges $ \case
+        EdgeOn v c -> Just (C.fromChannel c, V.fromVelocity v)
+        _          -> Nothing
+      mt' = mt { midiNotes = Map.delete (V.toPitch p) $ midiNotes mt }
+      in (cvs, mt')
   , codecOut = makeTrackBuilder $ U.trackJoin . fmap (\(c, v) -> unparseBlipCPV (c, p, v))
   }
 
@@ -89,41 +172,55 @@ blip :: (Monad m) => Int -> TrackEvent m U.Beats ()
 blip = dimap (fmap $ \() -> (0, 96)) void . blipCV
 
 edge :: (Monad m) => Int -> Bool -> TrackEvent m U.Beats ()
-edge p b = single
-  (\x -> case isNoteEdge x of
-    Just pb' | (p, b) == pb' -> Just ()
-    _                        -> Nothing
-  ) (\() -> makeEdge p b)
+edge p b = Codec
+  { codecIn = slurpTrack $ \mt -> case Map.lookup (V.toPitch p) (midiNotes mt) of
+    Nothing -> (RTB.empty, mt)
+    Just noteEdges -> let
+      (matches, rest) = flip RTB.partitionMaybe noteEdges $ \case
+        EdgeOn _ _ | b     -> Just ()
+        EdgeOff  _ | not b -> Just ()
+        _                  -> Nothing
+      mt' = mt { midiNotes = Map.insert (V.toPitch p) rest $ midiNotes mt }
+      in (matches, mt')
+  , codecOut = makeTrackBuilder $ fmap (\() -> makeEdge p b)
+  }
 
 edges :: (Monad m, NNC.C t) => Int -> TrackEvent m t Bool
-edges p = single
-  (\x -> case isNoteEdge x of
-    Just (p', b) | p == p' -> Just b
-    _                      -> Nothing
-  ) (makeEdge p)
+edges = let
+  fs b = (0, guard b >> Just 96)
+  fp (_c, mv) = isJust mv
+  in dimap (fmap fs) (fmap fp) . edgesCV
 
 edgesLanes :: (Monad m, NNC.C t) => Int -> TrackEvent m t (Maybe LaneDifficulty)
-edgesLanes p = single
-  (\x -> case isNoteEdgeCPV x of
-    Just (_, p', mv) | p == p' -> Just $ (\v -> if v <= 50 then LaneHard else LaneExpert) <$> mv
-    _                          -> Nothing
-  ) (makeEdgeCPV 0 p . fmap (\case LaneHard -> 40; LaneExpert -> 96))
+edgesLanes = let
+  fs mld = (0, (\case LaneHard -> 40; LaneExpert -> 96) <$> mld)
+  fp (_c, mv) = (\v -> if v <= 50 then LaneHard else LaneExpert) <$> mv
+  in dimap (fmap fs) (fmap fp) . edgesCV
 
 splitTrack :: (a -> (b, c)) -> RTB.T t a -> (RTB.T t b, RTB.T t c)
 splitTrack f trk = let
   trk' = fmap f trk
   in (fmap fst trk', fmap snd trk')
 
-removeEdgeGroup :: [Int] -> Bool -> [E.T] -> Maybe [E.T]
+removeEdgeGroup :: [Int] -> Bool
+  -> [(V.Pitch, Edge V.Velocity C.Channel)]
+  -> Maybe [(V.Pitch, Edge V.Velocity C.Channel)]
 removeEdgeGroup [] _ evts = Just evts
-removeEdgeGroup (p : ps) b evts =
-  case break (maybe False (== (p, b)) . isNoteEdge) evts of
+removeEdgeGroup (p : ps) b evts = let
+  matcher (p', EdgeOff{}) = p == V.fromPitch p' && not b
+  matcher (p', EdgeOn{})  = p == V.fromPitch p' && b
+  in case break matcher evts of
     (xs, _ : ys) -> removeEdgeGroup ps b $ xs ++ ys
     (_ , []    ) -> Nothing
 
 edgesBRE :: (Monad m, NNC.C t) => [Int] -> TrackEvent m t Bool
 edgesBRE ps = Codec
-  { codecIn = slurpTrack $ \trk -> let
+  { codecIn = slurpTrack $ \mt -> let
+    ourPitches
+      = foldr RTB.merge RTB.empty
+      $ map (\(p, xs) -> fmap (p,) xs)
+      $ filter (\(p, _) -> elem (V.fromPitch p) ps)
+      $ Map.toList $ midiNotes mt
     f evts = let
       (hasOn, evts') = case removeEdgeGroup ps True evts of
         Nothing  -> (False, evts)
@@ -132,36 +229,59 @@ edgesBRE ps = Codec
         Nothing  -> (False, evts')
         Just new -> (True, new)
       in ([ True | hasOn ] ++ [ False | hasOff ], evts'')
-    (slurp, leave) = splitTrack f $ RTB.collectCoincident trk
+    (slurp, leave) = splitTrack f $ RTB.collectCoincident ourPitches
     slurp' = RTB.flatten slurp
     leave' = RTB.flatten leave
-    in if RTB.null slurp' then (RTB.empty, trk) else (slurp', leave')
+    getLeavePitch p = fmap snd $ RTB.filter (\(p', _) -> p == p') leave'
+    mt' = mt
+      { midiNotes = Map.union
+        (Map.fromList $ flip map ps $ (\p -> (p, getLeavePitch p)) . V.toPitch)
+        (midiNotes mt)
+      }
+    in if RTB.null slurp' then (RTB.empty, mt) else (slurp', mt')
   , codecOut = makeTrackBuilder $ RTB.flatten . fmap (\b -> [makeEdge p b | p <- ps])
   }
 
 edgesCV :: (Monad m, NNC.C t) => Int -> TrackEvent m t (Int, Maybe Int)
-edgesCV p = single
-  (\x -> case isNoteEdgeCPV x of
-    Just (c, p', v) | p == p' -> Just (c, v)
-    _                         -> Nothing
-  ) (\(c, v) -> makeEdgeCPV c p v)
-
-single :: (Monad m, NNC.C t) => (E.T -> Maybe a) -> (a -> E.T) -> TrackEvent m t a
-single fp fs = Codec
-  { codecIn = slurpTrack $ RTB.partitionMaybe fp
-  , codecOut = makeTrackBuilder $ fmap fs
+edgesCV p = Codec
+  { codecIn = slurpTrack $ \mt -> case Map.lookup (V.toPitch p) (midiNotes mt) of
+    Nothing -> (RTB.empty, mt)
+    Just noteEdges -> let
+      cvs = flip fmap noteEdges $ \case
+        EdgeOn v c -> (C.fromChannel c, Just $ V.fromVelocity v)
+        EdgeOff c -> (C.fromChannel c, Nothing)
+      mt' = mt { midiNotes = Map.delete (V.toPitch p) $ midiNotes mt }
+      in (cvs, mt')
+  , codecOut = makeTrackBuilder $ fmap (\(c, mv) -> makeEdgeCPV c p mv)
   }
 
 command :: (Monad m, NNC.C t, Command a) => TrackEvent m t a
-command = single readCommand' showCommand'
+command = Codec
+  { codecIn = slurpTrack $ \mt -> case RTB.partitionMaybe toCommand (midiCommands mt) of
+    (matches, rest) -> (matches, mt { midiCommands = rest })
+  , codecOut = makeTrackBuilder $ fmap showCommand'
+  }
+
+commandMatch' :: (Monad m, NNC.C t) => ([T.Text] -> Maybe a) -> (a -> [T.Text]) -> TrackEvent m t a
+commandMatch' fp fs = Codec
+  { codecIn = slurpTrack $ \mt -> case RTB.partitionMaybe fp (midiCommands mt) of
+    (matches, rest) -> (matches, mt { midiCommands = rest })
+  , codecOut = makeTrackBuilder $ fmap $ showCommand' . fs
+  }
 
 commandMatch :: (Monad m, NNC.C t) => [T.Text] -> TrackEvent m t ()
-commandMatch c = single
-  (readCommand' >=> \c' -> guard (c == c') >> Just ())
-  (\() -> showCommand' c)
+commandMatch c = commandMatch'
+  (\c' -> guard (c == c') >> Just ())
+  (const c)
+
+lyrics :: (Monad m, NNC.C t) => TrackEvent m t T.Text
+lyrics = Codec
+  { codecIn = slurpTrack $ \mt -> (midiLyrics mt, mt { midiLyrics = RTB.empty })
+  , codecOut = makeTrackBuilder $ fmap $ E.MetaEvent . Meta.Lyric . T.unpack
+  }
 
 joinEdges' :: (NNC.C t, Eq a) => RTB.T t (a, Maybe s) -> RTB.T t (a, s, t)
-joinEdges' = fmap (\(s, a, t) -> (a, s, t)) . joinEdgesSimple . fmap swap
+joinEdges' = fmap (\(s, a, t) -> (a, s, t)) . joinEdgesSimple . fmap (\(a, ms) -> maybe (EdgeOff a) (`EdgeOn` a) ms)
 
 matchEdges :: (Monad m, NNC.C t) => TrackEvent m t Bool -> TrackEvent m t t
 matchEdges = dimap
@@ -179,8 +299,8 @@ fatBlips :: (NNC.C t, Monad m) => t -> Codec (TrackParser m t) (TrackBuilder t) 
 fatBlips len cdc = cdc
   { codecOut = let
     extend trk = let
-      (origEdges, notNotes) = RTB.partitionMaybe isNoteEdgeCPV trk
-      notes = joinEdgesSimple $ fmap (\(c, p, mv) -> (mv, (c, p))) origEdges
+      (origEdges, notNotes) = RTB.partitionMaybe isNoteEdge' trk
+      notes = joinEdgesSimple origEdges
       notes' = RTB.flatten $ go $ RTB.collectCoincident notes
       go rtb = case RTB.viewL rtb of
         Nothing -> RTB.empty
@@ -190,7 +310,7 @@ fatBlips len cdc = cdc
             Just ((dt', _), _) -> min len dt'
           adjustLen (v, c, origLen) = (v, c, max origLen blipLen)
           in RTB.cons dt (map adjustLen evs) $ go rtb'
-      edgeEvents = fmap (\(mv, (c, p)) -> makeEdgeCPV c p mv) $ splitEdgesSimple notes'
+      edgeEvents = fmap makeEdge' $ splitEdgesSimple notes'
       in RTB.merge edgeEvents notNotes
     in makeTrackBuilder $ extend . runTrackBuilder (codecOut cdc)
   }
@@ -202,8 +322,8 @@ statusBlips cdc = cdc
   { codecOut = \x -> do
     lastTime <- mconcat . RTB.getTimes <$> get
     let extend trk = let
-          (origEdges, notNotes) = RTB.partitionMaybe isNoteEdgeCPV trk
-          notes = joinEdgesSimple $ fmap (\(c, p, mv) -> (mv, (c, p))) origEdges
+          (origEdges, notNotes) = RTB.partitionMaybe isNoteEdge' trk
+          notes = joinEdgesSimple origEdges
           notes' = RTB.flatten $ go NNC.zero $ RTB.collectCoincident notes
           go elapsed rtb = case RTB.viewL rtb of
             Nothing -> RTB.empty
@@ -214,7 +334,7 @@ statusBlips cdc = cdc
                 Just ((dt', _), _) -> dt'
               adjustLen (v, c, origLen) = (v, c, max origLen statusLen)
               in RTB.cons dt (map adjustLen evs) $ go elapsed' rtb'
-          edgeEvents = fmap (\(mv, (c, p)) -> makeEdgeCPV c p mv) $ splitEdgesSimple notes'
+          edgeEvents = fmap makeEdge' $ splitEdgesSimple notes'
           in RTB.merge edgeEvents notNotes
     makeTrackBuilder (extend . runTrackBuilder (codecOut cdc)) x
   }
@@ -262,19 +382,20 @@ blipSustainRB = let
 
 sysexPS :: (Monad m, NNC.C t) => Difficulty -> PS.PhraseID -> TrackEvent m t Bool
 sysexPS diff pid = Codec
-  { codecIn = slurpTrack $ \trk -> let
+  { codecIn = slurpTrack $ \mt -> let
     otherDiffs = filter (/= diff) each
-    (ps, notPS) = RTB.partitionMaybe PS.parsePS trk
-    (slurp, leave) = flip RTB.partitionMaybe (RTB.flatten ps) $ \x -> case x of
-      PS.PSMessage Nothing      pid' b | pid == pid'                  -> Just (b, otherDiffs)
-      PS.PSMessage (Just diff') pid' b | (diff, pid) == (diff', pid') -> Just (b, [])
-      _                                                               -> Nothing
-    unslurp = RTB.flatten $ flip fmap slurp $ \(b, diffs) ->
-      [ PS.unparsePSSysEx $ PS.PSMessage (Just d) pid b | d <- diffs ]
-    in if RTB.null slurp
-      then (RTB.empty, trk)
-      else (fmap fst slurp, RTB.merge unslurp $ RTB.merge (fmap PS.unparsePSSysEx leave) notPS)
-  , codecOut = makeTrackBuilder $ fmap (PS.unparsePSSysEx . PS.PSMessage (Just diff) pid)
+    matcher (PS.PSMessage (Just diff') pid' b) = do
+      guard $ (diff, pid) == (diff', pid')
+      Just (b, [])
+    matcher (PS.PSMessage Nothing pid' b) = do
+      guard $ pid == pid'
+      Just (b, otherDiffs)
+    in case RTB.partitionMaybe matcher (midiPhaseShift mt) of
+      (matches, rest) -> let
+        leftover = RTB.flatten $ flip fmap matches $ \(b, diffs) ->
+          map (\diff' -> PS.PSMessage (Just diff') pid b) diffs
+        in (fmap fst matches, mt { midiPhaseShift = RTB.merge leftover rest })
+  , codecOut = makeTrackBuilder $ fmap $ PS.unparsePSSysEx . PS.PSMessage (Just diff) pid
   }
 
 class ParseTrack trk where

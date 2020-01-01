@@ -72,14 +72,17 @@ fileTrack name otherNames = Codec
     let (match, rest) = partition matchTrack trks
         match' = stripTrack $ foldr RTB.merge RTB.empty match
         name' = fromMaybe (T.unpack name) $ U.trackName match'
+        mt = mapMIDITrack RTB.fromAbsoluteEventList
+          $ getMIDITrack $ RTB.toAbsoluteEventList 0 match'
     lift $ put rest
     inside ("Parsing track: " ++ name') $ do
       (parsedTrk, unrec) <- flip mapStackTraceT (codecIn parseTrack) $ \input -> do
-        (errorOrParsed, unrec) <- lift $ runStateT input match'
+        (errorOrParsed, unrec) <- lift $ runStateT input mt
         case errorOrParsed of
           Left  msgs      -> return $ Left msgs
           Right parsedTrk -> return $ Right (parsedTrk, unrec)
-      forM_ (nubOrd $ toList unrec) $ \e -> warn $ "Unrecognized MIDI event: " ++ show e
+      let unrec' = mapMIDITrack toList unrec
+      forM_ (nubOrd $ putMIDITrack (++) unrec') $ \e -> warn $ "Unrecognized MIDI event: " ++ show e
       return parsedTrk
   , codecOut = fmapArg $ \trk -> let
     evs = (`execState` RTB.empty) $ codecOut (forcePure parseTrack) trk

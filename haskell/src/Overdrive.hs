@@ -178,7 +178,7 @@ type Unisons t = RTB.T t (NE.NonEmpty (t, FlexPartName, t))
 
 calculateUnisons :: RTB.T U.Beats (FlexPartName, Bool) -> Unisons U.Beats
 calculateUnisons = let
-  joinOD = joinEdgesSimple . fmap (\(inst, b) -> (guard b >> Just (), inst))
+  joinOD = joinEdgesSimple . fmap (\(inst, b) -> if b then EdgeOn () inst else EdgeOff inst)
   findUnisons = RTB.viewL >>> \case
     Nothing -> RTB.empty
     Just ((dt, x), rest) -> let
@@ -310,7 +310,7 @@ removeNotelessOD
 removeNotelessOD mmap notes allOD = foldr RTB.merge RTB.empty <$> do
   forM (nubOrd $ map fst $ toList allOD) $ \fpart -> do
     let thisODEdges = fmap snd $ RTB.filter ((== fpart) . fst) allOD
-        joinOD = fmap (\((), (), len) -> len) . joinEdgesSimple . fmap (\b -> (guard b >> Just (), ()))
+        joinOD = fmap (\((), (), len) -> len) . joinEdgesSimple . fmap (\b -> if b then EdgeOn () () else EdgeOff ())
         splitOD = U.trackJoin . fmap (\len -> Wait 0 (fpart, True) $ Wait len (fpart, False) RNil)
         removeNoteless = let
           -- a map-form of each difficulty that needs notes for each phrase

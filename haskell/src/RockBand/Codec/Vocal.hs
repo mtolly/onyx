@@ -20,8 +20,6 @@ import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
-import qualified Sound.MIDI.File.Event            as E
-import qualified Sound.MIDI.File.Event.Meta       as Meta
 
 data Pitch
   = Octave36 Key
@@ -50,7 +48,7 @@ parsePercAnimation = let
     Handclap   -> ["clap"       <> startEnd b]
   parse :: [T.Text] -> Maybe (Percussion, Bool)
   parse = reverseLookup ((,) <$> each <*> each) unparse
-  in single (readCommand' >=> parse) (showCommand' . unparse)
+  in commandMatch' (toCommand >=> parse) (fromCommand . unparse)
 
 data VocalTrack t = VocalTrack
   { vocalMood          :: RTB.T t Mood
@@ -79,19 +77,8 @@ instance TraverseTrack VocalTrack where
 instance ParseTrack VocalTrack where
   parseTrack = do
     vocalMood   <- vocalMood   =. command
-    vocalLyrics <- vocalLyrics =. let
-      withStr s = case readCommand txt :: Maybe [T.Text] of
-        -- non-command text events get defaulted to lyrics.
-        -- and, commands sometimes accidentally in lyric events
-        Nothing -> Just txt
-        Just _  -> Nothing
-        where txt = T.pack s
-      fp = \case
-        E.MetaEvent (Meta.Lyric     s) -> withStr s
-        E.MetaEvent (Meta.TextEvent s) -> withStr s
-        _                              -> Nothing
-      fs = E.MetaEvent . Meta.Lyric . T.unpack
-      in single fp fs
+    -- this also gets lyrics in non-lyric text events
+    vocalLyrics <- vocalLyrics =. lyrics
     vocalPerc          <- vocalPerc          =. fatBlips (1/8) (blip 96)
     vocalPercSound     <- vocalPercSound     =. fatBlips (1/8) (blip 97)
     vocalPercAnimation <- vocalPercAnimation =. parsePercAnimation

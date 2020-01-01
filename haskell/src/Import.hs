@@ -103,7 +103,7 @@ fixDoubleSwells ps = let
   fixTrack trk = let
     notes = RTB.filter (/= RBDrums.Kick) $ drumGems $ fromMaybe mempty $ Map.lookup Expert $ drumDifficulties trk
     lanesAbs = RTB.toAbsoluteEventList 0 $ joinEdgesSimple
-      $ fmap (\diff -> (diff, ())) $ drumSingleRoll trk
+      $ fmap (maybe (EdgeOff ()) (`EdgeOn` ())) $ drumSingleRoll trk
     newLanes = U.trackJoin $ RTB.fromAbsoluteEventList $ ATB.fromPairList
       $ flip map (ATB.toPairList lanesAbs) $ \(startTime, lane) -> case lane of
         (diff, (), len) -> let

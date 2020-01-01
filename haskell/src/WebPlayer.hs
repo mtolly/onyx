@@ -44,7 +44,7 @@ import qualified RockBand.Codec.Five              as Five
 import qualified RockBand.Codec.ProGuitar         as PG
 import           RockBand.Codec.ProKeys           as PK
 import qualified RockBand.Codec.Six               as GHL
-import           RockBand.Common                  (Difficulty (..),
+import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    LaneDifficulty (..),
                                                    LongNote (..), SongKey (..),
                                                    StrumHOPOTap (..),
@@ -311,10 +311,10 @@ makeDanceDifficulties f = Difficulties $ catMaybes $ do
   return $ (name,) <$> f d
 
 laneDifficulty :: (NNC.C t) => Difficulty -> RTB.T t (Maybe LaneDifficulty) -> RTB.T t t
-laneDifficulty Expert lanes = fmap (\(_, _, len) -> len) $ joinEdgesSimple $ (, ()) <$> lanes
+laneDifficulty Expert lanes = fmap (\(_, _, len) -> len) $ joinEdgesSimple $ maybe (EdgeOff ()) (`EdgeOn` ()) <$> lanes
 laneDifficulty Hard   lanes
   = RTB.mapMaybe (\(d, (), len) -> guard (d == LaneHard) >> Just len)
-  $ joinEdgesSimple $ (, ()) <$> lanes
+  $ joinEdgesSimple $ maybe (EdgeOff ()) (`EdgeOn` ()) <$> lanes
 laneDifficulty _      _     = RTB.empty
 
 splitEdgesBool :: (NNC.C t) => RTB.T t t -> RTB.T t Bool

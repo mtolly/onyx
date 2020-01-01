@@ -292,9 +292,9 @@ isLighting = let
     _               -> Nothing
 
 specificLighting :: (Monad m, NNC.C t) => T.Text -> TrackEvent m t ()
-specificLighting s = single
-  (readCommand' >=> isLighting >=> guard . (== s))
-  (\() -> showCommand' ["lighting", "(" <> s <> ")"])
+specificLighting s = commandMatch'
+  (isLighting >=> guard . (== s))
+  (\() -> ["lighting", "(" <> s <> ")"])
 
 data VenueTrack t = VenueTrack
 

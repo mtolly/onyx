@@ -231,13 +231,13 @@ instance TraverseTrack ProGuitarDifficulty where
 instance ParseTrack ProGuitarTrack where
   parseTrack = do
     pgTrainer   <- pgTrainer   =. let
-      parse = readCommand' >=> \case
+      parse = toCommand >=> \case
         (t, k) | k == T.pack "pg" -> Just (TypeGuitar, t)
                | k == T.pack "pb" -> Just (TypeBass  , t)
         _ -> Nothing
-      unparse (TypeGuitar, t) = showCommand' (t, T.pack "pg")
-      unparse (TypeBass  , t) = showCommand' (t, T.pack "pb")
-      in single parse unparse
+      unparse (TypeGuitar, t) = fromCommand (t, T.pack "pg")
+      unparse (TypeBass  , t) = fromCommand (t, T.pack "pb")
+      in commandMatch' parse unparse
     pgTremolo      <- pgTremolo =. edgesLanes 126
     pgTrill        <- pgTrill =. edgesLanes 127
     pgOverdrive    <- pgOverdrive =. edges 116
@@ -252,17 +252,17 @@ instance ParseTrack ProGuitarTrack where
       fp (_c, v) = v - 100
       in fatBlips (1/8) $ dimap (fmap fs) (fmap fp) $ blipCV 108
     pgOnyxOctave   <- pgOnyxOctave =. let
-      parse = readCommand' >=> \case
+      parse = \case
         ["onyx", "octave", x] -> readMaybe $ T.unpack x
         _                     -> Nothing
-      unparse n = showCommand' ["onyx", "octave", T.pack $ show n]
-      in single parse unparse
+      unparse n = ["onyx", "octave", T.pack $ show n]
+      in commandMatch' parse unparse
     pgOnyxString   <- pgOnyxString =. let
-      parse = readCommand' >=> \case
+      parse = \case
         "onyx" : "string" : xs -> mapM (readMaybe . ('S' :) . T.unpack) xs
         _                      -> Nothing
-      unparse strs = showCommand' $ "onyx" : "string" : map (T.pack . drop 1 . show) strs
-      in single parse unparse
+      unparse strs = "onyx" : "string" : map (T.pack . drop 1 . show) strs
+      in commandMatch' parse unparse
     pgMystery45    <- pgMystery45 =. edges 45
     pgMystery69    <- pgMystery69 =. edges 69
     pgMystery93    <- pgMystery93 =. edges 93
@@ -284,12 +284,12 @@ instance ParseTrack ProGuitarTrack where
       pgAllFrets     <- pgAllFrets =. edges (base + 11)
       pgChordName    <- pgChordName =. let
         cmd = T.pack $ "chrd" ++ show (fromEnum diff)
-        parse = readCommand' >=> \case
+        parse = \case
           [k] | k == cmd -> Just Nothing
           [k, cname] | k == cmd -> Just $ Just cname
           _ -> Nothing
-        unparse cname = showCommand' $ cmd : toList cname
-        in single parse unparse
+        unparse cname = cmd : toList cname
+        in commandMatch' parse unparse
       return ProGuitarDifficulty{..}
     pgChordRoot    <- (pgChordRoot =.) $ statusBlips $ condenseMap_ $ eachKey each $ blip . \case
       E  -> 4
@@ -465,7 +465,7 @@ computeChordNames diff tuning flatDefault pg = let
           cd  : _ -> RTB.cons dt (Just cd{ chordLength = Just arpLen }) . RTB.delay arpLen
         in fn $ go $ U.trackDrop arpLen rtb'
     in go . RTB.merge (Left <$> arpsList) . fmap Right
-  arpsList = fmap (\((), (), t) -> t) $ joinEdgesSimple $ fmap (\b -> (guard b >> Just (), ())) $ pgArpeggio pgd
+  arpsList = fmap (\((), (), t) -> t) $ joinEdgesSimple $ (\b -> if b then EdgeOn () () else EdgeOff ()) <$> pgArpeggio pgd
 
   -- chrdX events override a single chord computed at a certain point.
   overrides :: RTB.T t (Maybe (ChordData t)) -> RTB.T t (Maybe (ChordData t))

@@ -13,7 +13,7 @@ import           Control.Monad.Trans.State.Strict (modify)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (isJust)
+import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
@@ -21,6 +21,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import qualified PhaseShift.Message               as PS
 import           RockBand.Codec
 import           RockBand.Common
+import qualified Sound.MIDI.Message.Channel.Voice as V
 import           Text.Read                        (readMaybe)
 
 data Color = Green | Red | Yellow | Blue | Orange
@@ -136,14 +137,17 @@ instance ParseTrack FiveTrack where
   parseTrack = do
     -- preprocess pitch 95 as a shortcut for 96 + open note sysex
     Codec
-      { codecIn = let
-        p95 x = case isNoteEdgeCPV x of
-          Just (c, 95, v) ->
-            [ makeEdgeCPV c 96 v
-            , PS.unparsePSSysEx $ PS.PSMessage (Just Expert) PS.OpenStrum $ isJust v
-            ]
-          _ -> [x]
-        in lift $ modify $ RTB.flatten . fmap p95
+      { codecIn = lift $ modify $ \mt -> let
+        p95 = fromMaybe RTB.empty $ Map.lookup (V.toPitch 95) (midiNotes mt)
+        in if RTB.null p95 then mt else let
+          newPS = flip fmap p95 $ PS.PSMessage (Just Expert) PS.OpenStrum . \case
+            EdgeOn {} -> True
+            EdgeOff{} -> False
+          in mt
+            { midiPhaseShift = RTB.merge newPS $ midiPhaseShift mt
+            , midiNotes = Map.insertWith RTB.merge (V.toPitch 96) p95
+              $ Map.delete (V.toPitch 95) $ midiNotes mt
+            }
       , codecOut = const $ return ()
       }
     fiveMood         <- fiveMood         =. command
@@ -169,9 +173,9 @@ instance ParseTrack FiveTrack where
       fiveTap        <- fiveTap        =. sysexPS diff PS.TapNotes
       fiveOpen       <- fiveOpen       =. sysexPS diff PS.OpenStrum
       fiveOnyxClose  <- fiveOnyxClose  =. let
-        parse = readCommand' >=> \(OnyxCloseEvent diff' n) -> guard (diff == diff') >> Just n
-        unparse n = showCommand' $ OnyxCloseEvent diff n
-        in single parse unparse
+        parse = toCommand >=> \(OnyxCloseEvent diff' n) -> guard (diff == diff') >> Just n
+        unparse n = fromCommand $ OnyxCloseEvent diff n
+        in commandMatch' parse unparse
       fiveGems       <- (fiveGems =.) $ blipSustainRB $ condenseMap $ eachKey each $ matchEdges . edges . \case
         Green  -> base + 0
         Red    -> base + 1
