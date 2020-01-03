@@ -31,7 +31,7 @@ main = getArgs >>= \case
 
   [con] -> void $ runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
     _ <- importSTFS 0 con Nothing dir
-    trks <- loadTracks $ dir </> "notes.mid"
+    trks <- fmap previewTracks $ loadTracks $ dir </> "notes.mid"
     stackIO $ forM_ (zip [0..] trks) $ \(i, (name, _)) -> do
       putStrLn $ show (i :: Int) <> ": " <> T.unpack name
 
@@ -39,7 +39,7 @@ main = getArgs >>= \case
     res <- runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
       indexes <- forM strIndexes $ maybe (fatal "Invalid track number") return . readMaybe
       _ <- importSTFS 0 con Nothing dir
-      allTracks <- loadTracks $ dir </> "notes.mid"
+      allTracks <- fmap previewTracks $ loadTracks $ dir </> "notes.mid"
       let trks = map (snd . (allTracks !!)) indexes
       yml <- loadYaml $ dir </> "song.yml"
       (pans, vols) <- case HM.toList $ _plans yml of

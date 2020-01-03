@@ -20,9 +20,6 @@ executables:
     - sdl2
     - sdl2-ttf
     - containers
-    - conduit
-    - conduit-audio
-    - conduit-audio-sndfile
     - vector
     - async
     - temporary
@@ -38,4 +35,3 @@ executables:
     - linear
     - text
     - onyx-game-3d
-    - OpenAL

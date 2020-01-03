@@ -39,10 +39,17 @@ data PreviewTrack
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState (Maybe F.Color))))
   deriving (Show)
 
+data PreviewSong = PreviewSong
+  { previewTempo  :: U.TempoMap
+  , previewTiming :: BasicTiming
+  , previewTracks :: [(T.Text, PreviewTrack)]
+  }
+
 computeTracks
-  :: RBFile.Song (RBFile.FixedFile U.Beats)
-  -> [(T.Text, PreviewTrack)]
-computeTracks song = let
+  :: (SendMessage m)
+  => RBFile.Song (RBFile.FixedFile U.Beats)
+  -> StackTraceT m PreviewSong
+computeTracks song = basicTiming song (return 0) >>= \timing -> let
 
   rtbToMap
     = Map.fromList
@@ -130,9 +137,7 @@ computeTracks song = let
   beats = let
     sourceMidi = Beat.beatLines $ RBFile.fixedBeat $ RBFile.s_tracks song
     source = if RTB.null sourceMidi
-      then case runPureLog $ runStackTraceT $ basicTiming song $ return 0 of
-        (Right timing, _) -> Beat.beatLines $ timingBeat timing
-        (Left  _     , _) -> RTB.empty
+      then Beat.beatLines $ timingBeat timing
       else sourceMidi
     makeBeats _         RNil            = RNil
     makeBeats _         (Wait 0 e rest) = Wait 0 (Just e) $ makeBeats False rest
@@ -148,7 +153,7 @@ computeTracks song = let
       $ RTB.toAbsoluteEventList 0
       $ makeBeats True source
 
-  in concat
+  tracks = concat
     [ do
       (name, isKeys, src) <-
         [ ("Guitar", False, RBFile.fixedPartGuitar $ RBFile.s_tracks song)
@@ -175,10 +180,16 @@ computeTracks song = let
         )
     ]
 
+  in return $ PreviewSong
+    { previewTempo  = RBFile.s_tempos song
+    , previewTiming = timing
+    , previewTracks = tracks
+    }
+
 loadTracks
   :: (SendMessage m, MonadIO m)
   => FilePath
-  -> StackTraceT m [(T.Text, PreviewTrack)]
+  -> StackTraceT m PreviewSong
 loadTracks f = do
   song <- case map toLower $ takeExtension f of
     ".rpp" -> do
@@ -188,4 +199,4 @@ loadTracks f = do
       chart <- FB.chartToBeats <$> FB.loadChartFile f
       FB.chartToMIDI chart
     _ -> loadMIDI f
-  return $ computeTracks song
+  computeTracks song

@@ -116,6 +116,7 @@ import           System.Info                               (os)
 import qualified System.IO.Streams                         as Streams
 import qualified System.IO.Streams.TCP                     as TCP
 import           Text.Read                                 (readMaybe)
+import RockBand3 (BasicTiming(..))
 
 #ifdef WINDOWS
 import           Foreign                                   (intPtrToPtr, peek)
@@ -288,28 +289,65 @@ launchWindow sink proj = mdo
         (trimClock 5 5 5 5 -> playButtonArea, topControlsArea2) = chopLeft 60 topControlsArea1
         (trimClock 8 5 8 5 -> scrubberArea, trimClock 5 5 5 80 -> speedArea) = chopRight 220 topControlsArea2
     topControls <- FL.groupNew topControlsArea1 Nothing
-    scrubber <- FL.sliderNew scrubberArea Nothing
-    FL.setType scrubber FL.HorNiceSliderType
+    scrubber <- FL.horNiceSliderNew scrubberArea Nothing
     FL.setMinimum scrubber 0
     FL.setMaximum scrubber 100
     FL.setStep scrubber 1
     void $ FL.setValue scrubber 0
+    FL.deactivate scrubber
     playButton <- FL.buttonNew playButtonArea $ Just "@>"
+    FL.deactivate playButton
     getSpeed <- speedPercent speedArea
     FL.end topControls
     FL.setResizable topControls $ Just scrubber
-    varTracks <- newIORef []
-    sink $ EventOnyx $ do
-      trks <- loadTracks $ takeDirectory (projectLocation proj) </> "notes.mid"
-      stackIO $ writeIORef varTracks trks
+    varSong <- newIORef Nothing
+    sink $ EventOnyx $ void $ forkOnyx $ do
+      song <- loadTracks $ takeDirectory (projectLocation proj) </> "notes.mid"
+      stackIO $ do
+        writeIORef varSong $ Just song
+        FL.setMaximum scrubber $ fromInteger $ ceiling $ U.applyTempoMap
+          (previewTempo song)
+          (timingEnd $ previewTiming song)
+        FL.activate scrubber
+        FL.activate playButton
     varTime <- newIORef 0
+    FL.setCallback scrubber $ \_ -> do
+      secs <- FL.getValue scrubber
+      writeIORef varTime secs
+      FLTK.redraw
     (groupGL, cleanupGL') <- previewGroup
       sink
       glArea
-      (readIORef varTracks)
+      (maybe [] previewTracks <$> readIORef varSong)
       (readIORef varTime)
     FL.setResizable tab $ Just groupGL
     return (tab, cleanupGL')
+    {-
+
+    paused:
+      user hits play:
+        start playing from current position and speed
+      user moves scrubber:
+        change position shown on track
+      user changes speed:
+        nothing
+    playing:
+      user hits pause:
+        stop (set position to calculated current position)
+      user moves scrubber:
+        stop (set position to new position)
+        start playing from new position
+      user changes speed:
+        stop (set position to calculated current position)
+        start playing at the new speed
+      a frame's time passes:
+        calculate current position
+        redraw the track
+        set scrubber position
+      window closes:
+        stop audio
+
+    -}
   instTab <- makeTab windowRect "Instruments" $ \rect tab -> do
     let instRect = trimClock 10 10 10 10 rect
     tree <- FL.treeNew instRect Nothing
@@ -1391,7 +1429,7 @@ watchSong notify mid = do
             liftIO notify
             go
     go
-  return (readIORef varTrack, sendClose)
+  return (previewTracks <$> readIORef varTrack, sendClose)
 
 launchTimeServer
   :: (Event -> IO ())

@@ -36,5 +36,9 @@ library:
   - text
   - non-negative
   - utility-ht
+  - OpenAL
+  - conduit
+  - conduit-audio
+  - conduit-audio-sndfile
   build-tools:
   - c2hs
