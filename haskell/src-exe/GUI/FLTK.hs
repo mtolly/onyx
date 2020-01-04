@@ -44,8 +44,10 @@ import           Control.Monad.Trans.Resource              (ResourceT, allocate,
                                                             runResourceT)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                                as A
+import           Data.Binary.Put                           (runPut)
 import qualified Data.ByteString                           as B
 import qualified Data.ByteString.Char8                     as B8
+import qualified Data.ByteString.Lazy                      as BL
 import           Data.Char                                 (isSpace, toLower,
                                                             toUpper)
 import qualified Data.Connection                           as Conn
@@ -100,7 +102,12 @@ import           RockBand.Codec                            (mapTrack)
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
 import           RockBand.Common                           (RB3Instrument (..))
+import           RockBand.Milo                             (autoLipsync,
+                                                            beatlesLipsync,
+                                                            putLipsync,
+                                                            unpackMilo)
 import           RockBand.SongCache                        (fixSongCache)
+import           RockBand3                                 (BasicTiming (..))
 import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.File.Load                      as Load
 import qualified Sound.MIDI.Util                           as U
@@ -116,7 +123,6 @@ import           System.Info                               (os)
 import qualified System.IO.Streams                         as Streams
 import qualified System.IO.Streams.TCP                     as TCP
 import           Text.Read                                 (readMaybe)
-import RockBand3 (BasicTiming(..))
 
 #ifdef WINDOWS
 import           Foreign                                   (intPtrToPtr, peek)
@@ -327,6 +333,7 @@ launchWindow sink proj = mdo
     paused:
       user hits play:
         start playing from current position and speed
+        change button icon to pause
       user moves scrubber:
         change position shown on track
       user changes speed:
@@ -334,6 +341,7 @@ launchWindow sink proj = mdo
     playing:
       user hits pause:
         stop (set position to calculated current position)
+        change button icon to play
       user moves scrubber:
         stop (set position to new position)
         start playing from new position
@@ -1046,6 +1054,65 @@ getAudioSpec f = Exc.try (Snd.getFileInfo f) >>= \case
       Snd.HeaderFormatFlac -> withFormat "FLAC"
       _                    -> return Nothing
 
+miscPageMilo
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageMilo sink rect tab startTasks = do
+  pack <- FL.packNew rect Nothing
+  padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Extract .milo to folder"
+    FL.setCallback btn $ \_ -> do
+      picker1 <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+      FL.setTitle picker1 "Load .milo"
+      FL.setFilter picker1 "*.{milo_xbox,milo_ps3,milo_wii}"
+      FL.showWidget picker1 >>= \case
+        FL.NativeFileChooserPicked -> FL.getFilename picker1 >>= \case
+          Nothing  -> return ()
+          Just (T.unpack -> fin) -> do
+            picker2 <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
+            FL.setTitle picker2 "Create folder"
+            FL.setPresetFile picker2 $ T.pack $ fin <> "-extract"
+            FL.showWidget picker2 >>= \case
+              FL.NativeFileChooserPicked -> FL.getFilename picker2 >>= \case
+                Nothing -> return ()
+                Just (T.unpack -> dout) -> sink $ EventOnyx $ let
+                  task = do
+                    unpackMilo fin dout
+                    return [dout]
+                  in startTasks [("Extract " <> fin, task)]
+              _ -> return ()
+        _ -> return ()
+    return ()
+  padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Repack .milo from folder"
+    -- TODO
+    return ()
+  padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    group <- FL.groupNew rect' Nothing
+    let (trimClock 0 10 0 100 -> dropdownArea, btnArea) = chopRight 160 rect'
+    choice <- FL.choiceNew dropdownArea $ Just "Contents"
+    mapM_ (FL.addName choice)
+      [ "RB2, empty"
+      , "RB2, 1 lipsync"
+      , "RB3, empty"
+      , "RB3, 1 lipsync"
+      , "RB3, 2 lipsync"
+      , "RB3, 3 lipsync"
+      , "RB3, venue"
+      , "RB3, 1 lipsync + venue"
+      , "RB3, 2 lipsync + venue"
+      , "RB3, 3 lipsync + venue"
+      ]
+    btn <- FL.buttonNew btnArea $ Just "Create .milo"
+    -- TODO
+    FL.end group
+    FL.setResizable group $ Just choice
+    return ()
+  FL.end pack
+
 miscPageLipsync
   :: (Event -> IO ())
   -> Rectangle
@@ -1078,12 +1145,50 @@ miscPageLipsync sink rect tab startTasks = do
     return $ fmap T.unpack $ FL.getValue input
   getVocalTrack <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     fn <- horizRadio rect'
-      [ ("PART VOCALS", Nothing, False)
-      , ("HARM1", Just Vocal1, False)
-      , ("HARM2", Just Vocal2, False)
-      , ("HARM3", Just Vocal3, False)
+      [ ("PART VOCALS", Nothing, True)
+      , ("[PART] HARM1", Just Vocal1, False)
+      , ("[PART] HARM2", Just Vocal2, False)
+      , ("[PART] HARM3", Just Vocal3, False)
       ]
     return $ join <$> fn
+  padded 5 5 5 5 (Size (Width 800) (Height 35)) $ \rect' -> do
+    let [areaVoc, areaRB, areaTBRB] = map (trimClock 0 5 0 5) $ splitHorizN 3 rect'
+        lipsyncButton area label ext fn = do
+          btn <- FL.buttonNew area $ Just label
+          FL.setCallback btn $ \_ -> sink $ EventIO $ do
+            input <- pickedFile
+            voc <- getVocalTrack
+            picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+            FL.setTitle picker "Save lipsync file"
+            FL.setFilter picker $ "*." <> T.pack ext
+            FL.setPresetFile picker $ T.pack $ dropExtension input ++ case voc of
+              Nothing     -> "-solovox" <.> ext
+              Just Vocal1 -> "-harm1" <.> ext
+              Just Vocal2 -> "-harm2" <.> ext
+              Just Vocal3 -> "-harm3" <.> ext
+            FL.showWidget picker >>= \case
+              FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+                Nothing -> return ()
+                Just f -> sink $ EventOnyx $ let
+                  task = do
+                    mid <- stackIO (Load.fromFile input) >>= RBFile.readMIDIFile'
+                    let trk = mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) $ case voc of
+                          Nothing     -> RBFile.fixedPartVocals $ RBFile.s_tracks mid
+                          Just Vocal1 -> RBFile.fixedHarm1      $ RBFile.s_tracks mid
+                          Just Vocal2 -> RBFile.fixedHarm2      $ RBFile.s_tracks mid
+                          Just Vocal3 -> RBFile.fixedHarm3      $ RBFile.s_tracks mid
+                    stackIO $ BL.writeFile f $ fn trk
+                    return [f]
+                  in startTasks [(T.unpack label <> ": " <> input, task)]
+              _ -> return ()
+          return btn
+    buttonVoc <- lipsyncButton areaVoc "Make .voc (GH2/RB1)" "voc" undefined
+    FL.deactivate buttonVoc
+    void $ lipsyncButton areaRB "Make .lipsync (RB2/RB3)" "lipsync"
+      $ runPut . putLipsync . autoLipsync
+    void $ lipsyncButton areaTBRB "Make .lipsync (TBRB)" "lipsync"
+      $ runPut . putLipsync . beatlesLipsync
+    return ()
   let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
         btn <- FL.buttonNew rect' $ Just label
         FL.setCallback btn $ \_ -> sink $ EventIO $ do
@@ -1113,7 +1218,7 @@ miscPageLipsync sink rect tab startTasks = do
                   return [f]
                 in startTasks [(T.unpack label <> ": " <> input, task)]
             _ -> return ()
-  dryvoxButton "Make sine wave dry vox" $ return . sineDryVox
+  dryvoxButton "Make sine wave dry vox from MIDI" $ return . sineDryVox
   pickedAudio <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     let (_, rectA) = chopLeft 100 rect'
         (inputRect, rectB) = chopRight 50 rectA
@@ -1136,7 +1241,7 @@ miscPageLipsync sink rect tab startTasks = do
           Just f  -> void $ FL.setValue input f
         _                          -> return ()
     return $ fmap T.unpack $ FL.getValue input
-  dryvoxButton "Make clipped dry vox" $ \trk -> do
+  dryvoxButton "Make clipped dry vox from MIDI and audio" $ \trk -> do
     audio <- stackIO $ pickedAudio
     src <- buildSource' $ Input audio
     return $ clipDryVox (isJust <$> vocalTubes trk) src
@@ -1375,9 +1480,13 @@ launchMisc sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       miscPageMOGG sink rect tab startTasks
       return tab
-    , makeTab windowRect "Lipsync dry vox" $ \rect tab -> do
+    , makeTab windowRect "Lipsync + dry vox" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageLipsync sink rect tab startTasks
+      return tab
+    , makeTab windowRect ".milo functions" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      miscPageMilo sink rect tab startTasks
       return tab
     {-
     , makeTab windowRect "RB3 song cache" $ \rect tab -> do

@@ -39,6 +39,7 @@ executables:
     - containers
     - time
     - non-negative
+    - binary
     # my libraries
     - midi-util
     # local
