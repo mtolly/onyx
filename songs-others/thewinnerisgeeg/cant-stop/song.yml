@@ -1,0 +1,56 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        tier: 5
+  bass:
+    grybo:
+      difficulty:
+        tier: 4
+  guitar:
+    grybo:
+      difficulty:
+        tier: 3
+  drums:
+    drums:
+      difficulty:
+        tier: 4
+      kicks: 1
+audio:
+  album-track: # from c3 file; has padding already
+    md5: 84b5daa89c10d51ee3a88d517d324307
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    song: album-track
+    countin:
+      0|0:
+        gain: [0.5, hihat]
+      0|2:
+        gain: [0.5, hihat]
+      1|0:
+        gain: [0.5, hihat]
+      1|2:
+        gain: [0.5, hihat]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+metadata:
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 7
+  album: By the Way
+  year: 2002
+  subgenre: alternative
+  author: thewinnerisgeeg, Jusey1, Onyxite
+  title: Can't Stop
+  genre: alternative
+  difficulty:
+    tier: 4
+  cat-emh: true
+  artist: Red Hot Chili Peppers
