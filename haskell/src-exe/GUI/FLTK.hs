@@ -20,6 +20,7 @@ import           Control.Concurrent                        (MVar, ThreadId,
                                                             newChan, newMVar,
                                                             putMVar, readChan,
                                                             readMVar, takeMVar,
+                                                            threadDelay,
                                                             writeChan)
 import           Control.Concurrent.Async                  (async,
                                                             waitAnyCancel)
@@ -65,6 +66,8 @@ import           Data.Maybe                                (catMaybes,
 import qualified Data.Text                                 as T
 import qualified Data.Text.Encoding                        as TE
 import           Data.Time                                 (getCurrentTime)
+import           Data.Time.Clock.System                    (SystemTime (..),
+                                                            getSystemTime)
 import           Data.Version                              (showVersion)
 import           DryVox
 import           Foreign                                   (Ptr)
@@ -104,6 +107,7 @@ import qualified RockBand.Codec.File                       as RBFile
 import           RockBand.Common                           (RB3Instrument (..))
 import           RockBand.Milo                             (autoLipsync,
                                                             beatlesLipsync,
+                                                            packMilo,
                                                             putLipsync,
                                                             unpackMilo)
 import           RockBand.SongCache                        (fixSongCache)
@@ -247,6 +251,38 @@ makeTab rect name fn = do
   FL.end group
   return res
 
+startAnimation :: IO () -> IO (IO ())
+startAnimation redraw = do
+  stopper <- newIORef False
+  let loop = readIORef stopper >>= \case
+        True -> return ()
+        False -> do
+          redraw
+          threadDelay 16666
+          loop
+  _ <- forkIO loop
+  return $ writeIORef stopper True
+
+data Playing = Playing
+  { playStarted       :: SystemTime
+  , playSpeed         :: Double -- 1 = 100%
+  , playStopAnimation :: IO ()
+  , playStopAudio     :: IO ()
+  }
+
+data SongState = SongState
+  { songTime    :: Double
+  , songPlaying :: Maybe Playing
+  }
+
+currentSongTime :: SystemTime -> SongState -> Double
+currentSongTime stime ss = case songPlaying ss of
+  Nothing -> songTime ss
+  Just p  -> songTime ss + let
+    -- this might lose precision?
+    timeToDouble t = realToFrac (systemSeconds t) + realToFrac (systemNanoseconds t) / 1000000000
+    in (timeToDouble stime - timeToDouble (playStarted p)) * playSpeed p
+
 launchWindow :: (Event -> IO ()) -> Project -> IO ()
 launchWindow sink proj = mdo
   let windowSize = Size (Width 800) (Height 500)
@@ -316,17 +352,50 @@ launchWindow sink proj = mdo
           (timingEnd $ previewTiming song)
         FL.activate scrubber
         FL.activate playButton
-    varTime <- newIORef 0
-    FL.setCallback scrubber $ \_ -> do
-      secs <- FL.getValue scrubber
-      writeIORef varTime secs
-      FLTK.redraw
-    (groupGL, cleanupGL') <- previewGroup
+    varTime <- newIORef $ SongState 0 Nothing
+    (groupGL, redrawGL, cleanupGL') <- previewGroup
       sink
       glArea
       (maybe [] previewTracks <$> readIORef varSong)
-      (readIORef varTime)
+      (currentSongTime <$> getSystemTime <*> readIORef varTime)
     FL.setResizable tab $ Just groupGL
+    FL.setCallback scrubber $ \_ -> do
+      secs <- FL.getValue scrubber
+      ss <- readIORef varTime
+      ss' <- case songPlaying ss of
+        Nothing -> return ss { songTime = secs }
+        Just ps -> do
+          -- TODO once we add audio, this should do a full stop+start
+          t <- getSystemTime
+          return ss { songTime = secs, songPlaying = Just ps { playStarted = t } }
+      writeIORef varTime ss'
+      redrawGL
+    FL.setCallback playButton $ \_ -> do
+      ss <- readIORef varTime
+      curTime <- getSystemTime
+      case songPlaying ss of
+        Nothing -> do
+          FL.setLabel playButton "@square"
+          stopAnim <- startAnimation $ do
+            t <- currentSongTime <$> getSystemTime <*> readIORef varTime
+            void $ FL.setValue scrubber t
+            sink $ EventIO redrawGL -- is sink required here?
+          let ps = Playing
+                { playStarted = curTime
+                , playSpeed = 1 -- TODO
+                , playStopAnimation = stopAnim
+                , playStopAudio = return () -- TODO
+                }
+              ss' = ss { songPlaying = Just ps }
+          writeIORef varTime ss'
+        Just ps -> do
+          FL.setLabel playButton "@>"
+          playStopAnimation ps
+          playStopAudio ps
+          writeIORef varTime SongState
+            { songTime = currentSongTime curTime ss
+            , songPlaying = Nothing
+            }
     return (tab, cleanupGL')
     {-
 
@@ -1071,10 +1140,10 @@ miscPageMilo sink rect tab startTasks = do
       FL.showWidget picker1 >>= \case
         FL.NativeFileChooserPicked -> FL.getFilename picker1 >>= \case
           Nothing  -> return ()
-          Just (T.unpack -> fin) -> do
+          Just finText@(T.unpack -> fin) -> do
             picker2 <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
             FL.setTitle picker2 "Create folder"
-            FL.setPresetFile picker2 $ T.pack $ fin <> "-extract"
+            FL.setPresetFile picker2 $ finText <> "-extract"
             FL.showWidget picker2 >>= \case
               FL.NativeFileChooserPicked -> FL.getFilename picker2 >>= \case
                 Nothing -> return ()
@@ -1088,7 +1157,29 @@ miscPageMilo sink rect tab startTasks = do
     return ()
   padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Repack .milo from folder"
-    -- TODO
+    FL.setCallback btn $ \_ -> do
+      picker1 <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
+      FL.setTitle picker1 "Select extracted folder"
+      FL.showWidget picker1 >>= \case
+        FL.NativeFileChooserPicked -> FL.getFilename picker1 >>= \case
+          Nothing -> return ()
+          Just dinText@(T.unpack -> din) -> do
+            picker2 <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+            FL.setTitle picker2 "Save .milo"
+            FL.setPresetFile picker2 $ case T.stripSuffix "-extract" dinText of
+              Just stripped -> stripped
+              Nothing       -> dinText <> ".milo"
+            FL.setFilter picker2 "*.{milo_xbox,milo_ps3,milo_wii}"
+            FL.showWidget picker2 >>= \case
+              FL.NativeFileChooserPicked -> FL.getFilename picker2 >>= \case
+                Nothing -> return ()
+                Just (T.unpack -> fout) -> sink $ EventOnyx $ let
+                  task = do
+                    packMilo din fout
+                    return [fout]
+                  in startTasks [("Repack " <> din, task)]
+              _ -> return ()
+        _ -> return ()
     return ()
   padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     group <- FL.groupNew rect' Nothing
@@ -1610,7 +1701,7 @@ previewGroup
   -> Rectangle
   -> IO [(T.Text, PreviewTrack)]
   -> IO Double
-  -> IO (FL.Ref FL.Group, IO ())
+  -> IO (FL.Ref FL.Group, IO (), IO ())
 previewGroup sink rect getTracks getTime = do
   let (glArea, bottomControlsArea) = chopBottom 40 rect
       partSelectArea = trimClock 6 15 6 50 bottomControlsArea
@@ -1672,7 +1763,7 @@ previewGroup sink rect getTracks getTime = do
           GLLoaded s -> RGGraphics.deleteGLStuff s
           _          -> return ()
         return GLClosed
-  return (wholeGroup, cleanupGL)
+  return (wholeGroup, FL.redraw glwindow, cleanupGL)
 
 launchPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
 launchPreview sink makeMenuBar mid = do
@@ -1715,7 +1806,7 @@ launchPreview sink makeMenuBar mid = do
     FL.setResizable controlsGroup $ Just labelServer
 
     varTime <- newIORef 0
-    (groupGL, cleanupGL) <- previewGroup
+    (groupGL, _, cleanupGL) <- previewGroup
       sink
       belowTopControls
       getTracks
