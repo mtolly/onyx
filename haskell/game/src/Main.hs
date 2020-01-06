@@ -116,6 +116,6 @@ playTracks window trks pans vols ogg = do
         _             -> processEvents s es
       draw t = do
         SDL.V2 w h <- fmap fromIntegral <$> SDL.glGetDrawableSize window
-        drawTracks glStuff (WindowDims w h) (realToFrac t) trks
+        drawTracks glStuff (WindowDims w h) (realToFrac t) 1 trks
         SDL.glSwapWindow window
   loop $ AppState { songTime = 0, sdlStartedPlay = Nothing }

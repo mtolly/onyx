@@ -119,8 +119,8 @@ makeToggleBounds t1 t2 m = let
   simplify (x : xs) = x : simplify xs
   in simplify zipped
 
-drawDrums :: GLStuff -> WindowDims -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
-drawDrums glStuff@GLStuff{..} dims nowTime trk = do
+drawDrums :: GLStuff -> WindowDims -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
+drawDrums glStuff@GLStuff{..} dims nowTime speed trk = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
   let drawObject' = drawObject glStuff dims
@@ -128,7 +128,7 @@ drawDrums glStuff@GLStuff{..} dims nowTime trk = do
       nearZ = 2 :: Float
       nowZ = 0 :: Float
       farZ = -12 :: Float
-      farTime = nowTime + 1 :: Double
+      farTime = nowTime + speed :: Double
       timeToZ t = nowZ + (farZ - nowZ) * realToFrac ((t - nowTime) / (farTime - nowTime))
       zToTime z = nowTime + (farTime - nowTime) * realToFrac ((z - nowZ) / (farZ - nowZ))
       nearTime = zToTime nearZ
@@ -244,8 +244,8 @@ zoomMap t1 t2 m = let
     then maybe Map.empty (Map.singleton $ t1 + (t2 + t1) / 2) generated
     else zoomed
 
-drawFive :: GLStuff -> WindowDims -> Double -> Map.Map Double (CommonState (GuitarState (Maybe F.Color))) -> IO ()
-drawFive glStuff@GLStuff{..} dims nowTime trk = do
+drawFive :: GLStuff -> WindowDims -> Double -> Double -> Map.Map Double (CommonState (GuitarState (Maybe F.Color))) -> IO ()
+drawFive glStuff@GLStuff{..} dims nowTime speed trk = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
   let drawObject' = drawObject glStuff dims
@@ -253,7 +253,7 @@ drawFive glStuff@GLStuff{..} dims nowTime trk = do
       nearZ = 2 :: Float
       nowZ = 0 :: Float
       farZ = -12 :: Float
-      farTime = nowTime + 1 :: Double
+      farTime = nowTime + speed :: Double
       timeToZ t = nowZ + (farZ - nowZ) * realToFrac ((t - nowTime) / (farTime - nowTime))
       zToTime z = nowTime + (farTime - nowTime) * realToFrac ((z - nowZ) / (farZ - nowZ))
       nearTime = zToTime nearZ
@@ -897,9 +897,10 @@ drawTracks
   :: GLStuff
   -> WindowDims
   -> Double
+  -> Double
   -> [PreviewTrack]
   -> IO ()
-drawTracks glStuff@GLStuff{..} (WindowDims w h) time trks = do
+drawTracks glStuff@GLStuff{..} (WindowDims w h) time speed trks = do
   glViewport 0 0 (fromIntegral w) (fromIntegral h)
   glClearColor 0.2 0.3 0.3 1.0
   glClear GL_COLOR_BUFFER_BIT
@@ -929,5 +930,5 @@ drawTracks glStuff@GLStuff{..} (WindowDims w h) time trks = do
     sendUniformName objectShader "viewPos" viewPosn
     glViewport (fromIntegral widthOffset) 0 (fromIntegral widthPart) (fromIntegral heightPart)
     case trk of
-      PreviewDrums m -> drawDrums glStuff dims' time m
-      PreviewFive m  -> drawFive glStuff dims' time m
+      PreviewDrums m -> drawDrums glStuff dims' time speed m
+      PreviewFive m  -> drawFive glStuff dims' time speed m

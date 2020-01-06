@@ -40,12 +40,6 @@ executables:
     - time
     - non-negative
     - binary
-    # my libraries
-    - midi-util
-    # local
-    - onyxite-customs-lib
-    - onyx-game-3d
-    # only used by live preview
     - tcp-streams
     - io-streams
     - fsnotify
@@ -53,6 +47,11 @@ executables:
     - async
     - network
     - exceptions
+    # my libraries
+    - midi-util
+    # local
+    - onyxite-customs-lib
+    - onyx-game-3d
 
     ghc-options: -threaded -O
 

@@ -27,7 +27,9 @@ import qualified Data.DTA.Serialize.GH1         as GH1
 import qualified Data.DTA.Serialize.GH2         as GH2
 import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
+import           Data.Foldable                  (toList)
 import           Data.Functor                   (void)
+import           Data.Functor.Identity
 import           Data.Hashable
 import qualified Data.HashMap.Strict            as Map
 import           Data.List.Extra                (stripSuffix)
@@ -343,11 +345,16 @@ getAudioDirs proj = do
     Right obj -> either fatal return $ A.parseEither A.parseJSON obj
   mapM (stackIO . Dir.canonicalizePath) $ addons ++ dirs
 
-shakeBuild1 :: (MonadIO m) => Project -> [(T.Text, Target)] -> FilePath -> StackTraceT (QueueLog m) FilePath
-shakeBuild1 proj extraTargets buildable = do
+shakeBuild1 :: (MonadIO m) =>
+  Project -> [(T.Text, Target)] -> FilePath -> StackTraceT (QueueLog m) FilePath
+shakeBuild1 proj extraTargets = fmap runIdentity . shakeBuildMany proj extraTargets . Identity
+
+shakeBuildMany :: (MonadIO m, Functor f, Foldable f) =>
+  Project -> [(T.Text, Target)] -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
+shakeBuildMany proj extraTargets buildables = do
   audioDirs <- getAudioDirs proj
-  shakeBuild audioDirs (projectLocation proj) extraTargets [buildable]
-  return $ takeDirectory (projectLocation proj) </> buildable
+  shakeBuild audioDirs (projectLocation proj) extraTargets $ toList buildables
+  return $ fmap (takeDirectory (projectLocation proj) </>) buildables
 
 buildCommon :: (MonadIO m) => Target -> (String -> FilePath) -> Project -> StackTraceT (QueueLog m) FilePath
 buildCommon target getBuildable proj = do

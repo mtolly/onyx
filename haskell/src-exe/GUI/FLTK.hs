@@ -72,8 +72,7 @@ import           Data.Time.Clock.System                    (SystemTime (..),
 import           Data.Version                              (showVersion)
 import           DryVox
 import           Foreign                                   (Ptr)
-import           Foreign.C                                 (CString,
-                                                            withCString)
+import           Foreign.C                                 (CString)
 import qualified Graphics.UI.FLTK.LowLevel.Base.GlWindow   as FLGL
 import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
 import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
@@ -181,12 +180,12 @@ startLoad f = do
       liftIO $ sink $ EventFail msg
     Right proj -> do
       void $ shakeBuild1 proj [] "gen/cover.png"
-      maybeOgg <- case [ (k, _pans, _vols) | (k, MoggPlan{..}) <- HM.toList $ _plans $ projectSongYaml proj ] of
-        [(k, pans, vols)] -> do
-          ogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.ogg"
-          return $ Just (ogg, map realToFrac pans, map realToFrac vols)
+      maybeAudio <- case HM.toList $ _plans $ projectSongYaml proj of
+        [(k, _)] -> errorToWarning $ do
+          wav <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/everything.wav"
+          return $ \t speed -> sourceOGGFrom t speed wav >>= playSource [-1, 1] [0, 0]
         _ -> return Nothing
-      liftIO $ sink $ EventIO $ launchWindow sink proj maybeOgg
+      liftIO $ sink $ EventIO $ launchWindow sink proj maybeAudio
 
 chopRight :: Int -> Rectangle -> (Rectangle, Rectangle)
 chopRight n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
@@ -292,8 +291,8 @@ currentSongTime stime ss = case songPlaying ss of
     timeToDouble t = realToFrac (systemSeconds t) + realToFrac (systemNanoseconds t) / 1000000000
     in (timeToDouble stime - timeToDouble (playStarted p)) * playSpeed p
 
-launchWindow :: (Event -> IO ()) -> Project -> Maybe (FilePath, [Float], [Float]) -> IO ()
-launchWindow sink proj maybeOgg = mdo
+launchWindow :: (Event -> IO ()) -> Project -> Maybe (Double -> Maybe Double -> IO (IO ())) -> IO ()
+launchWindow sink proj maybeAudio = mdo
   let windowSize = Size (Width 800) (Height 500)
       windowRect = Rectangle
         (Position (X 0) (Y 0))
@@ -369,6 +368,7 @@ launchWindow sink proj maybeOgg = mdo
       glArea
       (maybe [] previewTracks <$> readIORef varSong)
       (currentSongTime <$> getSystemTime <*> readIORef varTime)
+      getSpeed
     FL.setResizable tab $ Just groupGL
     let takeState = takeMVar varState
         putState ss = do
@@ -383,10 +383,8 @@ launchWindow sink proj maybeOgg = mdo
         startPlaying :: Double -> IO SongState
         startPlaying t = do
           speed <- getSpeed
-          stopAudio <- case maybeOgg of
-            Just (ogg, pans, vols) -> do
-              src <- sourceOGGFrom t (case speed of 1 -> Nothing; _ -> Just speed) ogg
-              playSource pans vols src
+          stopAudio <- case maybeAudio of
+            Just f  -> f t $ guard (speed /= 1) >> Just speed
             Nothing -> return $ return ()
           curTime <- getSystemTime
           stopAnim <- startAnimation $ do
@@ -424,7 +422,7 @@ launchWindow sink proj maybeOgg = mdo
     FL.setCallback counter $ \_ -> do
       ss <- takeState
       ss' <- case songPlaying ss of
-        Nothing -> return ss
+        Nothing -> redrawGL >> return ss
         Just ps -> stopPlaying (songTime ss) ps >>= startPlaying
       putState ss'
     let cleanup = do
@@ -1741,8 +1739,9 @@ previewGroup
   -> Rectangle
   -> IO [(T.Text, PreviewTrack)]
   -> IO Double
+  -> IO Double
   -> IO (FL.Ref FL.Group, IO (), IO ())
-previewGroup sink rect getTracks getTime = do
+previewGroup sink rect getTracks getTime getSpeed = do
   let (glArea, bottomControlsArea) = chopBottom 40 rect
       partSelectArea = trimClock 6 15 6 50 bottomControlsArea
 
@@ -1778,13 +1777,14 @@ previewGroup sink rect getTracks getTime = do
           GLClosed -> return (GLClosed, Nothing)
         forM_ mstuff $ \stuff -> do
           t <- getTime
+          speed <- getSpeed
           trks <- getTracks
           updateParts True $ map fst trks -- TODO does this need to be done in a sink event
           selected <- selectedName
           w <- FL.pixelW wind
           h <- FL.pixelH wind
           forM_ (lookup selected trks) $ \trk -> do
-            RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t [trk]
+            RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t speed [trk]
   -- TODO do we want to set "FL.setUseHighResGL True" here for mac?
   glwindow <- FLGL.glWindowCustom
     (rectangleSize glArea)
@@ -1851,6 +1851,7 @@ launchPreview sink makeMenuBar mid = do
       belowTopControls
       getTracks
       (readIORef varTime)
+      (return 1)
 
     stopServer <- launchTimeServer
       sink
@@ -2216,14 +2217,14 @@ toTermMessage (MessageWarning, msg) = TermWarning msg
 
 addTerm :: FL.Ref FL.SimpleTerminal -> TermMessage -> IO ()
 addTerm term pair = do
-  let newtxt = case pair of
+  let newtxt = T.pack $ case pair of
         TermStart x y   -> "\ESC[46m" <> x <> "\ESC[0m" <> ": " <> y
         TermLog str     -> str
         TermWarning msg -> "\ESC[33mWarning\ESC[0m: " <> Exc.displayException msg
         TermError msg   -> "\ESC[41mERROR!\ESC[0m " <> Exc.displayException msg
         TermSuccess str -> "\ESC[42mSuccess!\ESC[0m " <> str
   FL.withRef term $ \ptr ->
-    withCString (newtxt <> "\n") $ \cs ->
+    B.useAsCString (TE.encodeUtf8 $ T.strip newtxt <> "\n") $ \cs ->
       c_append ptr cs
 
 -- present in C layer but missing from Haskell
