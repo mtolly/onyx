@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE RecursiveDo       #-}
 {-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE ViewPatterns      #-}
@@ -99,6 +100,9 @@ import           Paths_onyxite_customs_tool                (version)
 import           ProKeysRanges                             (closeShiftsFile)
 import           Reaper.Build                              (makeReaperIO)
 import           Reductions                                (simpleReduce)
+import           RhythmGame.Audio                          (playSource,
+                                                            sourceOGGFrom,
+                                                            withAL)
 import qualified RhythmGame.Graphics                       as RGGraphics
 import           RhythmGame.Track
 import           RockBand.Codec                            (mapTrack)
@@ -177,7 +181,12 @@ startLoad f = do
       liftIO $ sink $ EventFail msg
     Right proj -> do
       void $ shakeBuild1 proj [] "gen/cover.png"
-      liftIO $ sink $ EventIO $ launchWindow sink proj
+      maybeOgg <- case [ (k, _pans, _vols) | (k, MoggPlan{..}) <- HM.toList $ _plans $ projectSongYaml proj ] of
+        [(k, pans, vols)] -> do
+          ogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.ogg"
+          return $ Just (ogg, map realToFrac pans, map realToFrac vols)
+        _ -> return Nothing
+      liftIO $ sink $ EventIO $ launchWindow sink proj maybeOgg
 
 chopRight :: Int -> Rectangle -> (Rectangle, Rectangle)
 chopRight n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
@@ -283,8 +292,8 @@ currentSongTime stime ss = case songPlaying ss of
     timeToDouble t = realToFrac (systemSeconds t) + realToFrac (systemNanoseconds t) / 1000000000
     in (timeToDouble stime - timeToDouble (playStarted p)) * playSpeed p
 
-launchWindow :: (Event -> IO ()) -> Project -> IO ()
-launchWindow sink proj = mdo
+launchWindow :: (Event -> IO ()) -> Project -> Maybe (FilePath, [Float], [Float]) -> IO ()
+launchWindow sink proj maybeOgg = mdo
   let windowSize = Size (Width 800) (Height 500)
       windowRect = Rectangle
         (Position (X 0) (Y 0))
@@ -339,7 +348,7 @@ launchWindow sink proj = mdo
     FL.deactivate scrubber
     playButton <- FL.buttonNew playButtonArea $ Just "@>"
     FL.deactivate playButton
-    getSpeed <- speedPercent speedArea
+    (getSpeed, counter) <- speedPercent' speedArea
     FL.end topControls
     FL.setResizable topControls $ Just scrubber
     varSong <- newIORef Nothing
@@ -352,51 +361,79 @@ launchWindow sink proj = mdo
           (timingEnd $ previewTiming song)
         FL.activate scrubber
         FL.activate playButton
-    varTime <- newIORef $ SongState 0 Nothing
+    let initState = SongState 0 Nothing
+    varState <- newMVar initState
+    varTime <- newIORef initState
     (groupGL, redrawGL, cleanupGL') <- previewGroup
       sink
       glArea
       (maybe [] previewTracks <$> readIORef varSong)
       (currentSongTime <$> getSystemTime <*> readIORef varTime)
     FL.setResizable tab $ Just groupGL
-    FL.setCallback scrubber $ \_ -> do
-      secs <- FL.getValue scrubber
-      ss <- readIORef varTime
-      ss' <- case songPlaying ss of
-        Nothing -> return ss { songTime = secs }
-        Just ps -> do
-          -- TODO once we add audio, this should do a full stop+start
-          t <- getSystemTime
-          return ss { songTime = secs, songPlaying = Just ps { playStarted = t } }
-      writeIORef varTime ss'
-      redrawGL
-    FL.setCallback playButton $ \_ -> do
-      ss <- readIORef varTime
-      curTime <- getSystemTime
-      case songPlaying ss of
-        Nothing -> do
-          FL.setLabel playButton "@square"
+    let takeState = takeMVar varState
+        putState ss = do
+          putMVar varState ss
+          writeIORef varTime ss
+        stopPlaying :: Double -> Playing -> IO Double
+        stopPlaying t ps = do
+          stime <- getSystemTime
+          playStopAnimation ps
+          playStopAudio ps
+          return $ currentSongTime stime $ SongState t $ Just ps
+        startPlaying :: Double -> IO SongState
+        startPlaying t = do
+          speed <- getSpeed
+          stopAudio <- case maybeOgg of
+            Just (ogg, pans, vols) -> do
+              src <- sourceOGGFrom t (case speed of 1 -> Nothing; _ -> Just speed) ogg
+              playSource pans vols src
+            Nothing -> return $ return ()
+          curTime <- getSystemTime
           stopAnim <- startAnimation $ do
-            t <- currentSongTime <$> getSystemTime <*> readIORef varTime
-            void $ FL.setValue scrubber t
+            t' <- currentSongTime <$> getSystemTime <*> readIORef varTime
+            void $ FL.setValue scrubber t'
             sink $ EventIO redrawGL -- is sink required here?
           let ps = Playing
                 { playStarted = curTime
-                , playSpeed = 1 -- TODO
+                , playSpeed = speed
                 , playStopAnimation = stopAnim
-                , playStopAudio = return () -- TODO
+                , playStopAudio = stopAudio
                 }
-              ss' = ss { songPlaying = Just ps }
-          writeIORef varTime ss'
+          return SongState { songTime = t, songPlaying = Just ps }
+    FL.setCallback scrubber $ \_ -> do
+      secs <- FL.getValue scrubber
+      ss <- takeState
+      ss' <- case songPlaying ss of
+        Nothing -> return ss { songTime = secs }
+        Just ps -> do
+          _ <- stopPlaying (songTime ss) ps
+          startPlaying secs
+      putState ss'
+      redrawGL
+    FL.setCallback playButton $ \_ -> do
+      ss <- takeState
+      ss' <- case songPlaying ss of
+        Nothing -> do
+          FL.setLabel playButton "@square"
+          startPlaying $ songTime ss
         Just ps -> do
           FL.setLabel playButton "@>"
-          playStopAnimation ps
-          playStopAudio ps
-          writeIORef varTime SongState
-            { songTime = currentSongTime curTime ss
-            , songPlaying = Nothing
-            }
-    return (tab, cleanupGL')
+          t <- stopPlaying (songTime ss) ps
+          return $ SongState t Nothing
+      putState ss'
+    FL.setCallback counter $ \_ -> do
+      ss <- takeState
+      ss' <- case songPlaying ss of
+        Nothing -> return ss
+        Just ps -> stopPlaying (songTime ss) ps >>= startPlaying
+      putState ss'
+    let cleanup = do
+          ss <- takeState
+          case songPlaying ss of
+            Nothing -> return ()
+            Just ps -> void $ stopPlaying (songTime ss) ps
+          cleanupGL'
+    return (tab, cleanup)
     {-
 
     paused:
@@ -651,8 +688,8 @@ horizRadio rect opts = do
     bools <- mapM FL.getValue btns
     return $ fmap (\(_, (_, x, _)) -> x) $ listToMaybe $ filter fst $ zip bools opts
 
-speedPercent :: Rectangle -> IO (IO Double)
-speedPercent rect = do
+speedPercent' :: Rectangle -> IO (IO Double, FL.Ref FL.Counter)
+speedPercent' rect = do
   speed <- FL.counterNew rect (Just "Speed (%)")
   FL.setLabelsize speed $ FL.FontSize 13
   FL.setLabeltype speed FLE.NormalLabelType FL.ResolveImageLabelDoNothing
@@ -662,7 +699,10 @@ speedPercent rect = do
   FL.setMinimum speed 1
   void $ FL.setValue speed 100
   FL.setTooltip speed "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
-  return $ (/ 100) <$> FL.getValue speed
+  return ((/ 100) <$> FL.getValue speed, speed)
+
+speedPercent :: Rectangle -> IO (IO Double)
+speedPercent = fmap fst . speedPercent'
 
 batchPageRB2
   :: (Event -> IO ())
@@ -1203,6 +1243,7 @@ miscPageMilo sink rect tab startTasks = do
     FL.setResizable group $ Just choice
     return ()
   FL.end pack
+  FL.setResizable tab $ Just pack
 
 miscPageLipsync
   :: (Event -> IO ())
@@ -1338,7 +1379,6 @@ miscPageLipsync sink rect tab startTasks = do
     return $ clipDryVox (isJust <$> vocalTubes trk) src
   FL.end pack
   FL.setResizable tab $ Just pack
-  return ()
 
 miscPageMOGG
   :: (Event -> IO ())
@@ -2352,7 +2392,7 @@ launchGUI = do
   addTerm term $ TermLog $
     "\ESC[45mOnyx\ESC[0m Music Game Toolkit, version " <> showVersion version
   addTerm term $ TermLog "Select an option below to get started."
-  void $ runResourceT $ (`runReaderT` sink) $ logChan $ let
+  void $ withAL $ runResourceT $ (`runReaderT` sink) $ logChan $ let
     process = liftIO (atomically $ tryReadTChan evts) >>= \case
       Nothing -> return ()
       Just e -> do

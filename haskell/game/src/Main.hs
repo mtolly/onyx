@@ -103,7 +103,7 @@ playTracks window trks pans vols ogg = do
           } -> do
             s' <- case sdlStartedPlay s of
               Nothing -> do
-                ca <- RGAudio.sourceOGGFrom (realToFrac $ songTime s) ogg
+                ca <- RGAudio.sourceOGGFrom (realToFrac $ songTime s) Nothing ogg
                 stop <- RGAudio.playSource pans vols ca
                 timestamp <- ticksMilli
                 return s { sdlStartedPlay = Just (timestamp, stop) }

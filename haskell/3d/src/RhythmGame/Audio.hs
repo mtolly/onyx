@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 module RhythmGame.Audio where
 
+import           Audio                          (stretchRealtime)
 import           Control.Concurrent             (threadDelay)
 import           Control.Concurrent.Async       (async)
 import           Control.Concurrent.MVar
@@ -31,10 +32,11 @@ withMOGG mogg fn = withSystemTempDirectory "onyxLoadMogg" $ \tmp -> do
   logStdout (moggToOgg mogg ogg) >>= either throwIO return
   fn ogg
 
-sourceOGGFrom :: Double -> FilePath -> IO (CA.AudioSource (ResourceT IO) Int16)
-sourceOGGFrom pos ogg = CA.mapSamples CA.integralSample <$>
-  -- this should be doable with libsndfile's clamping but it doesn't work for some reason?
-  (sourceSndFrom (CA.Seconds pos) ogg :: IO (CA.AudioSource (ResourceT IO) Float))
+sourceOGGFrom :: Double -> Maybe Double -> FilePath -> IO (CA.AudioSource (ResourceT IO) Int16)
+sourceOGGFrom pos mspeed ogg = do
+  src <- sourceSndFrom (CA.Seconds pos) ogg
+  let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
+  return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 
 withAL :: IO a -> IO a
 withAL fn = let

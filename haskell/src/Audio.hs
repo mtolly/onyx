@@ -31,6 +31,7 @@ module Audio
 , decentVorbis
 , stretchFull
 , stretchFullSmart
+, stretchRealtime
 , fadeStart, fadeEnd
 , mixMany, mixMany'
 , clampIfSilent
@@ -226,6 +227,38 @@ stretchFull timeRatio pitchRatio src = AudioSource
           leftover v'
           liftIO $ RB.study rb (deinterleave (channels src) v) False
           studyAll rb
+    processAll rb = liftIO (RB.available rb) >>= \case
+      Nothing -> return ()
+      Just 0 -> liftIO (RB.getSamplesRequired rb) >>= \case
+        0 -> liftIO (threadDelay 1000) >> processAll rb
+        _ -> await >>= \case
+          Nothing -> return ()
+          Just v -> await >>= \case
+            Nothing -> liftIO $ RB.process rb (deinterleave (channels src) v) True
+            Just v' -> do
+              leftover v'
+              liftIO $ RB.process rb (deinterleave (channels src) v) False
+              processAll rb
+      Just n -> do
+        liftIO (interleave <$> RB.retrieve rb (min n chunkSize)) >>= yield
+        processAll rb
+
+stretchRealtime :: (MonadResource m) => Double -> Double -> AudioSource m Float -> AudioSource m Float
+stretchRealtime timeRatio pitchRatio src = AudioSource
+  { rate     = rate src
+  , frames   = ceiling $ fromIntegral (frames src) * timeRatio
+  , channels = channels src
+  , source   = pipe $ source $ reorganize chunkSize src
+  } where
+    pipe upstream = do
+      rb <- liftIO $ RB.new
+        (round $ rate src)
+        (channels src)
+        RB.defaultOptions{ RB.oProcess = RB.RealTime, RB.oStretch = RB.Precise }
+        timeRatio
+        pitchRatio
+      liftIO $ RB.setMaxProcessSize rb chunkSize
+      upstream .| processAll rb
     processAll rb = liftIO (RB.available rb) >>= \case
       Nothing -> return ()
       Just 0 -> liftIO (RB.getSamplesRequired rb) >>= \case
