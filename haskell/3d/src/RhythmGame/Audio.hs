@@ -7,7 +7,7 @@ import           Control.Concurrent             (threadDelay)
 import           Control.Concurrent.Async       (async)
 import           Control.Concurrent.MVar
 import           Control.Exception              (bracket, throwIO)
-import           Control.Monad                  (forM_)
+import           Control.Monad                  (forM_, filterM, when)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace (logStdout)
@@ -25,6 +25,9 @@ import           Sound.OpenAL                   (($=))
 import qualified Sound.OpenAL                   as AL
 import           System.FilePath                ((</>))
 import           System.IO.Temp
+
+-- TODO all OpenAL functions should be wrapped in error checking!
+-- probably need to use a lock since there's only one shared error value
 
 withMOGG :: FilePath -> (FilePath -> IO a) -> IO a
 withMOGG mogg fn = withSystemTempDirectory "onyxLoadMogg" $ \tmp -> do
@@ -50,7 +53,25 @@ withAL fn = let
       AL.currentContext $= Just ctx
       fn
 
-data AudioState = Filling | Playing | Stopping
+data AudioState = Filling | Playing
+
+emptySources :: [AL.Source] -> IO ()
+emptySources srcs = do
+  srcs' <- flip filterM srcs $ \src -> do
+    cur <- AL.buffersQueued src
+    proc <- AL.buffersProcessed src
+    if cur == 0
+      then do
+        AL.deleteObjectNames [src]
+        return False
+      else do
+        when (proc /= 0) $ AL.unqueueBuffers src proc >>= AL.deleteObjectNames
+        return True
+  case srcs' of
+    [] -> return ()
+    _ -> do
+      threadDelay 5000
+      emptySources srcs'
 
 playSource
   :: [Float]
@@ -65,16 +86,13 @@ playSource pans vols ca = do
   forM_ (zip srcs vols) $ \(src, volDB) -> AL.sourceGain src $= CFloat (10 ** (volDB / 20))
   firstFull <- newEmptyMVar
   stopper <- newIORef False
-  let queueSize = 5
-      waitTime = 10000 -- 0.01 secs
+  let queueSize = 7
+      waitTime = 5000
       t1 = runResourceT $ runConduit $ CA.source ca .| let
         loop audioState = liftIO (readIORef stopper) >>= \case
           True -> do
-            case audioState of
-              Stopping -> return ()
-              _        -> AL.stop srcs
-            -- TODO remove all the sources' buffers, waiting if necessary
-            return ()
+            AL.stop srcs
+            liftIO $ emptySources srcs
           False -> do
             current <- liftIO $ AL.buffersQueued $ head srcs
             if current < queueSize
