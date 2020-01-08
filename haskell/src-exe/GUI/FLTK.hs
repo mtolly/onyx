@@ -100,7 +100,7 @@ import           ProKeysRanges                             (closeShiftsFile)
 import           Reaper.Build                              (makeReaperIO)
 import           Reductions                                (simpleReduce)
 import           RhythmGame.Audio                          (playSource,
-                                                            sourceOGGFrom,
+                                                            sourceOGGFrom, sourceOGGFrom',
                                                             withAL)
 import qualified RhythmGame.Graphics                       as RGGraphics
 import           RhythmGame.Track
@@ -181,6 +181,9 @@ startLoad f = do
     Right proj -> do
       void $ shakeBuild1 proj [] "gen/cover.png"
       maybeAudio <- case HM.toList $ _plans $ projectSongYaml proj of
+        [(k, MoggPlan{..})] -> errorToWarning $ do
+          ogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.ogg"
+          return $ \t speed -> sourceOGGFrom' t speed ogg >>= playSource (map realToFrac _pans) (map realToFrac _vols)
         [(k, _)] -> errorToWarning $ do
           wav <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/everything.wav"
           return $ \t speed -> sourceOGGFrom t speed wav >>= playSource [-1, 1] [0, 0]

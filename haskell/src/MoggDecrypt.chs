@@ -1,5 +1,9 @@
 {-# LANGUAGE LambdaCase #-}
-module MoggDecrypt (moggToOgg, oggToMogg) where
+module MoggDecrypt
+( moggToOgg, oggToMogg
+, OggVorbis_File, runVorbisFile, ov_pcm_seek, ov_read_float, ov_pcm_total, getChannelsRate
+, ov_fopen, ov_clear, newOV
+) where
 
 import           Audio                          (audioLength)
 import           Control.Applicative            (liftA2)
@@ -16,6 +20,7 @@ import           Foreign                        hiding (void)
 import           Foreign.C
 import           Numeric                        (showHex)
 
+#include "vorbis/codec.h"
 #include "vorbis/vorbisfile.h"
 
 -- | Just strips the header off an unencrypted MOGG for now.
@@ -29,6 +34,7 @@ moggToOgg mogg ogg = do
     else fatal $ "moggToOgg: encrypted MOGG (type " <> hex <> ") not supported"
 
 {#pointer *OggVorbis_File as OggVorbis_File newtype #}
+{#pointer *vorbis_info as VorbisInfo newtype #}
 
 {#fun ov_fopen
   { `CString'
@@ -42,15 +48,61 @@ moggToOgg mogg ogg = do
   } -> `CInt'
 #}
 
+{#fun ov_pcm_seek
+  { `OggVorbis_File'
+  , `Int64'
+  } -> `CInt'
+#}
+
+{#fun ov_pcm_total
+  { `OggVorbis_File'
+  , `CInt'
+  } -> `Int64'
+#}
+
 {#fun ov_pcm_tell
   { `OggVorbis_File'
   } -> `Int64'
+#}
+
+{#fun ov_read_float
+  { `OggVorbis_File'
+  , id `Ptr (Ptr (Ptr CFloat))'
+  , `CInt'
+  , id `Ptr CInt'
+  } -> `CLong'
 #}
 
 {#fun ov_clear
   { `OggVorbis_File'
   } -> `CInt'
 #}
+
+{#fun ov_info
+  { `OggVorbis_File'
+  , `CInt'
+  } -> `VorbisInfo'
+#}
+
+getChannelsRate :: OggVorbis_File -> IO (CInt, CLong)
+getChannelsRate ov = do
+  p <- ov_info ov (-1)
+  chans <- {#get vorbis_info->channels #} p
+  rate <- {#get vorbis_info->rate #} p
+  return (chans, rate)
+
+newOV :: IO OggVorbis_File
+newOV = OggVorbis_File <$> mallocBytes {#sizeof OggVorbis_File#}
+
+runVorbisFile :: FilePath -> (Maybe OggVorbis_File -> IO a) -> IO a
+runVorbisFile fogg fn = allocaBytes {#sizeof OggVorbis_File#} $ \p -> let
+  ov = OggVorbis_File p
+  -- TODO does this need a short name hack on Windows for non-ascii chars?
+  in bracket
+    (withCString fogg $ \cstr -> ov_fopen cstr ov)
+    (\n -> when (n == 0) $ void $ ov_clear ov) $ \case
+      0 -> fn $ Just ov
+      _ -> fn Nothing
 
 makeMoggTable :: Word32 -> Word32 -> [(Word32, Word32)] -> [(Word32, Word32)]
 makeMoggTable bufSize audioLen = go 0 (0, 0) where
@@ -67,19 +119,13 @@ oggToMogg ogg mogg = do
   audioLen <- stackIO (audioLength ogg) >>= maybe
     (fatal "couldn't get length of OGG file to generate MOGG")
     (return . fromIntegral)
-  mtable <- stackIO $ allocaBytes {#sizeof OggVorbis_File#} $ \p -> do
-    let ov = OggVorbis_File p
-    bracket
-      (withCString ogg $ \cstr -> ov_fopen cstr ov)
-      (\n -> when (n == 0) $ void $ ov_clear ov) $ \case
-        0 -> let
-          go bytes = ov_raw_seek ov bytes >>= \case
-            0 -> do
-              samples <- ov_pcm_tell ov
-              ((fromIntegral bytes, fromIntegral samples) :) <$> go (bytes + 0x8000)
-            _ -> return []
-          in Just <$> go 0
-        _ -> return Nothing
+  mtable <- stackIO $ runVorbisFile ogg $ mapM $ \ov -> let
+    go bytes = ov_raw_seek ov bytes >>= \case
+      0 -> do
+        samples <- ov_pcm_tell ov
+        ((fromIntegral bytes, fromIntegral samples) :) <$> go (bytes + 0x8000)
+      _ -> return []
+    in go 0
   table <- maybe (fatal "couldn't open OGG file to generate MOGG") return mtable
   let bufSize = 20000
       table' = makeMoggTable bufSize audioLen table
