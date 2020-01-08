@@ -33,7 +33,6 @@ import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums   as D
 import qualified RockBand.Codec.Five    as F
 import           RockBand.Common        (StrumHOPOTap (..))
-import           System.Info            (os)
 
 data Object
   = Box (V2 Float) (V2 Float)
@@ -862,14 +861,12 @@ loadGLStuff = do
   return GLStuff{..}
 
 deleteGLStuff :: GLStuff -> IO ()
-deleteGLStuff GLStuff{..} = case os of
-  "mingw32" -> return () -- TODO all the deletion calls cause a segfault on Windows, need to figure out why!
-  _ -> do
-    glDeleteProgram objectShader
-    glDeleteProgram quadShader
-    withArrayLen [boxVAO, coneVAO, flatVAO, quadVAO] $ \len p ->
-      glDeleteVertexArrays (fromIntegral len) p
-    mapM_ (freeTexture . snd) textures
+deleteGLStuff GLStuff{..} = do
+  glDeleteProgram objectShader
+  glDeleteProgram quadShader
+  withArrayLen [boxVAO, coneVAO, flatVAO, quadVAO] $ \len p ->
+    glDeleteVertexArrays (fromIntegral len) p
+  mapM_ (freeTexture . snd) textures
 
 data WindowDims = WindowDims Int Int
 

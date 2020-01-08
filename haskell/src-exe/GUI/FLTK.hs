@@ -363,7 +363,7 @@ launchWindow sink proj maybeAudio = mdo
     let initState = SongState 0 Nothing
     varState <- newMVar initState
     varTime <- newIORef initState
-    (groupGL, redrawGL, cleanupGL') <- previewGroup
+    (groupGL, redrawGL) <- previewGroup
       sink
       glArea
       (maybe [] previewTracks <$> readIORef varSong)
@@ -430,7 +430,6 @@ launchWindow sink proj maybeAudio = mdo
           case songPlaying ss of
             Nothing -> return ()
             Just ps -> void $ stopPlaying (songTime ss) ps
-          cleanupGL'
     return (tab, cleanup)
     {-
 
@@ -1732,7 +1731,7 @@ launchTimeServer sink varTime inputPort button label = do
     in goOffline
   return $ killThread tid
 
-data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLClosed
+data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff
 
 previewGroup
   :: (Event -> IO ())
@@ -1740,7 +1739,7 @@ previewGroup
   -> IO [(T.Text, PreviewTrack)]
   -> IO Double
   -> IO Double
-  -> IO (FL.Ref FL.Group, IO (), IO ())
+  -> IO (FL.Ref FL.Group, IO ())
 previewGroup sink rect getTracks getTime getSpeed = do
   let (glArea, bottomControlsArea) = chopBottom 40 rect
       partSelectArea = trimClock 6 15 6 50 bottomControlsArea
@@ -1774,7 +1773,6 @@ previewGroup sink rect getTracks getTime getSpeed = do
             s <- RGGraphics.loadGLStuff
             return (GLLoaded s, Just s)
           loaded@(GLLoaded s) -> return (loaded, Just s)
-          GLClosed -> return (GLClosed, Nothing)
         forM_ mstuff $ \stuff -> do
           t <- getTime
           speed <- getSpeed
@@ -1798,12 +1796,7 @@ previewGroup sink rect getTracks getTime getSpeed = do
 
   FL.end wholeGroup
   FL.setResizable wholeGroup $ Just glwindow
-  let cleanupGL = modifyMVar_ varStuff $ \x -> do
-        case x of
-          GLLoaded s -> RGGraphics.deleteGLStuff s
-          _          -> return ()
-        return GLClosed
-  return (wholeGroup, FL.redraw glwindow, cleanupGL)
+  return (wholeGroup, FL.redraw glwindow)
 
 launchPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
 launchPreview sink makeMenuBar mid = do
@@ -1846,7 +1839,7 @@ launchPreview sink makeMenuBar mid = do
     FL.setResizable controlsGroup $ Just labelServer
 
     varTime <- newIORef 0
-    (groupGL, _, cleanupGL) <- previewGroup
+    (groupGL, _) <- previewGroup
       sink
       belowTopControls
       getTracks
@@ -1865,7 +1858,6 @@ launchPreview sink makeMenuBar mid = do
     FL.setCallback window $ windowCloser $ do
       stopServer
       stopWatch
-      cleanupGL
 
     FL.showWidget window
   return ()
