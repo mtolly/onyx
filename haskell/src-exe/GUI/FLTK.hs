@@ -172,6 +172,17 @@ resizeWindow window size = do
   y <- FL.getY window
   FL.resize window $ Rectangle (Position x y) size
 
+promptLoad :: (Event -> IO ()) -> IO ()
+promptLoad sink = do
+  picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
+  FL.setTitle picker "Load song"
+  FL.showWidget picker >>= \case
+    FL.NativeFileChooserPicked -> do
+      n <- FL.getCount picker
+      fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
+      mapM_ (sink . EventOnyx . startLoad) $ map T.unpack $ catMaybes fs
+    _ -> return ()
+
 startLoad :: FilePath -> Onyx ()
 startLoad f = do
   sink <- getEventSink
@@ -1122,12 +1133,13 @@ taskOutputPage rect tab sink cbStart cbEnd = mdo
             updateStatus id
   return (startTasks, cancelTasks)
 
-homeTabColor, functionTabColor, taskTabColor, globalLogColor, loadSongColor, batchProcessColor, behindTabsColor :: IO FLE.Color
+homeTabColor, functionTabColor, taskTabColor, globalLogColor, miscColor, loadSongColor, batchProcessColor, behindTabsColor :: IO FLE.Color
 homeTabColor      = FLE.rgbColorWithRgb (209,177,224)
 functionTabColor  = FLE.rgbColorWithRgb (224,210,177)
 taskTabColor      = FLE.rgbColorWithRgb (179,221,187)
 globalLogColor    = FLE.rgbColorWithRgb (114,74,124)
-loadSongColor     = FLE.rgbColorWithRgb (177,173,244)
+miscColor         = FLE.rgbColorWithRgb (177,173,244)
+loadSongColor     = FLE.rgbColorWithRgb (186,229,181)
 batchProcessColor = FLE.rgbColorWithRgb (237,173,193)
 behindTabsColor   = FLE.rgbColorWithRgb (94,94,94) -- TODO report incorrect Char binding type for rgbColorWithGrayscale
 
@@ -2288,15 +2300,7 @@ launchGUI = do
                 )
               , ( "File/Open Song"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o'
-                , Just $ do
-                  picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
-                  FL.setTitle picker "Load song"
-                  FL.showWidget picker >>= \case
-                    FL.NativeFileChooserPicked -> do
-                      n <- FL.getCount picker
-                      fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
-                      mapM_ (sink . EventOnyx . startLoad) $ map T.unpack $ catMaybes fs
-                    _ -> return ()
+                , Just $ promptLoad sink
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               , ( "File/Live Preview"
@@ -2358,22 +2362,35 @@ launchGUI = do
   FL.setHistoryLines term $ FL.Lines (-1) -- unlimited
   FL.setAnsi term True
   FL.setStayAtBottom term True
+
+  let bottomBar = Rectangle (Position (X 5) (Y 360)) (Size (Width 490) (Height 30))
+      [areaOpen, areaBatch, areaMisc] = map (trimClock 0 5 0 5) $ splitHorizN 3 bottomBar
+  buttonOpen <- FL.buttonCustom
+    areaOpen
+    (Just "Load a song")
+    Nothing
+    $ Just $ FL.defaultCustomWidgetFuncs
+      { FL.handleCustom = Just $ dragAndDrop (sink . EventOnyx . mapM_ startLoad) . FL.handleButtonBase . FL.safeCast
+      }
+  loadSongColor >>= FL.setColor buttonOpen
+  FL.setCallback buttonOpen $ \_ -> promptLoad sink
   buttonBatch <- FL.buttonCustom
-    (Rectangle (Position (X 10) (Y 360)) (Size (Width 235) (Height 30)))
+    areaBatch
     (Just "Batch process")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs
       { FL.handleCustom = Just $ dragAndDrop (launchBatch sink makeMenuBar) . FL.handleButtonBase . FL.safeCast
       }
   batchProcessColor >>= FL.setColor buttonBatch
-  FL.setLabelsize buttonBatch (FL.FontSize 13)
   FL.setCallback buttonBatch $ \_ -> launchBatch sink makeMenuBar []
   buttonMisc <- FL.buttonNew
-    (Rectangle (Position (X 255) (Y 360)) (Size (Width 235) (Height 30)))
+    areaMisc
     (Just "Other tools")
-  loadSongColor >>= FL.setColor buttonMisc
-  FL.setLabelsize buttonMisc (FL.FontSize 13)
+  miscColor >>= FL.setColor buttonMisc
   FL.setCallback buttonMisc $ \_ -> launchMisc sink makeMenuBar
+  forM_ [buttonOpen, buttonBatch, buttonMisc] $ \btn ->
+    FL.setLabelsize btn $ FL.FontSize 13
+
   FL.end termWindow
   FL.setResizable termWindow $ Just term
   FL.setCallback termWindow $ windowCloser $ return ()
