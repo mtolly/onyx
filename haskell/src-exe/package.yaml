@@ -49,6 +49,7 @@ executables:
     - exceptions
     # my libraries
     - midi-util
+    - conduit-audio
     # local
     - onyxite-customs-lib
     - onyx-game-3d

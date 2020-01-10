@@ -7,7 +7,7 @@ import           Control.Concurrent             (threadDelay)
 import           Control.Concurrent.Async       (async)
 import           Control.Concurrent.MVar
 import           Control.Exception              (bracket, throwIO)
-import           Control.Monad                  (forM, forM_, void)
+import           Control.Monad                  (forM, forM_)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace (logStdout)
@@ -19,9 +19,8 @@ import           Data.Int                       (Int16)
 import           Data.IORef
 import qualified Data.Set                       as Set
 import qualified Data.Vector.Storable           as V
-import qualified Data.Vector.Storable.Mutable   as MV
 import           Foreign                        hiding (void)
-import           Foreign.C                      (CFloat (..), withCString)
+import           Foreign.C                      (CFloat (..))
 import           MoggDecrypt
 import           Sound.OpenAL                   (($=))
 import qualified Sound.OpenAL                   as AL
@@ -52,9 +51,9 @@ withMOGG mogg fn = withSystemTempDirectory "onyxLoadMogg" $ \tmp -> do
   logStdout (moggToOgg mogg ogg) >>= either throwIO return
   fn ogg
 
-sourceOGGFrom :: Double -> Maybe Double -> FilePath -> IO (CA.AudioSource (ResourceT IO) Int16)
-sourceOGGFrom pos mspeed ogg = do
-  src <- sourceSndFrom (CA.Seconds pos) ogg
+sndSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> FilePath -> IO (CA.AudioSource m Int16)
+sndSecsSpeed pos mspeed f = do
+  src <- sourceSndFrom (CA.Seconds pos) f
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 
@@ -164,38 +163,8 @@ playSource pans vols ca = do
   return $ writeIORef stopper True >> takeMVar stopped
 
 -- | Use libvorbisfile to read an OGG
-sourceOGGFrom' :: Double -> Maybe Double -> FilePath -> IO (CA.AudioSource (ResourceT IO) Int16)
-sourceOGGFrom' pos mspeed ogg = do
-  src <- runVorbisFile ogg $ \case
-    Nothing -> error "couldn't load ogg"
-    Just ovInit -> do
-      (chans, rate) <- getChannelsRate ovInit
-      total <- ov_pcm_total ovInit (-1)
-      let seekTo = floor $ pos * fromIntegral rate
-      return $ CA.reorganize CA.chunkSize $ CA.AudioSource
-        { CA.source = C.bracketP newOV (void . ov_clear) $ \ov -> do
-          void $ liftIO $ withCString ogg $ \cs -> ov_fopen cs ov
-          void $ liftIO $ ov_pcm_seek ov seekTo
-          let loop = do
-                (numRead, ppfloat) <- liftIO $ alloca $ \pppfloat -> do
-                  with (-1) $ \psection -> do
-                    numRead <- ov_read_float ov pppfloat (fromIntegral CA.chunkSize) psection
-                    ppfloat <- peek pppfloat
-                    return (numRead, ppfloat)
-                if numRead <= 0
-                  then return ()
-                  else do
-                    pfloats <- liftIO $ peekArray (fromIntegral chans) ppfloat
-                    vchans <- liftIO $ forM pfloats $ \pfloat -> do
-                      fptr <- newForeignPtr_ ((castPtr :: Ptr CFloat -> Ptr Float) pfloat)
-                      let mv = MV.unsafeFromForeignPtr0 fptr $ fromIntegral numRead
-                      V.freeze mv
-                    C.yield $ CA.interleave vchans
-                    loop
-          loop
-        , CA.rate = fromIntegral rate
-        , CA.channels = fromIntegral chans
-        , CA.frames = fromIntegral total - fromIntegral seekTo
-        }
+oggSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> FilePath -> IO (CA.AudioSource m Int16)
+oggSecsSpeed pos mspeed ogg = do
+  src <- sourceVorbisFile (CA.Seconds pos) ogg
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src

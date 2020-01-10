@@ -76,6 +76,7 @@ import           Data.Word                        (Word8)
 import           Development.Shake                (Action, need)
 import           Development.Shake.FilePath       (takeExtension)
 import           GuitarHeroII.Audio               (readVGS)
+import           MoggDecrypt                      (sourceVorbisFile)
 import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Wrapper      as NN
 import           RockBand.Common                  (pattern RNil, pattern Wait)
@@ -409,7 +410,15 @@ buildSource' :: (MonadResource m, MonadIO f) =>
   Audio Duration FilePath -> f (AudioSource m Float)
 buildSource' aud = case aud of
   -- optimizations
-  Drop Start t (Input fin) -> liftIO $ sourceSndFrom t fin
+  Drop Start (Seconds t1) (Pad Start (Seconds t2) x) -> dropPad Start Seconds t1 t2 x
+  Drop End   (Seconds t1) (Pad End   (Seconds t2) x) -> dropPad End   Seconds t1 t2 x
+  Drop Start (Frames  t1) (Pad Start (Frames  t2) x) -> dropPad Start Frames  t1 t2 x
+  Drop End   (Frames  t1) (Pad End   (Frames  t2) x) -> dropPad End   Frames  t1 t2 x
+  Drop Start t (Input fin) -> liftIO $ case takeExtension fin of
+    ".mp3" -> dropStart t <$> sourceMpg fin -- TODO add seek ability to conduit-audio-mpg123
+    ".ogg" -> sourceVorbisFile t fin
+    ".vgs" -> dropStart t <$> buildSource' (Input fin)
+    _      -> sourceSndFrom t fin
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
   Channels (sequence -> Just cs) (Input fin) | takeExtension fin == ".vgs" -> do
     chans <- liftIO $ readVGS fin
@@ -420,6 +429,7 @@ buildSource' aud = case aud of
   Silence c t -> return $ silent t 44100 c
   Input fin -> liftIO $ case takeExtension fin of
     ".mp3" -> sourceMpg fin
+    ".ogg" -> sourceVorbisFile (Frames 0) fin
     ".vgs" -> do
       chans <- readVGS fin
       case map (standardRate . mapSamples fractionalSample) chans of
@@ -448,6 +458,10 @@ buildSource' aud = case aud of
           s : ss -> return $ foldl meth s ss
           -- TODO just have this make an empty mono source,
           -- and make sure mono can mix with a source of any channel count
+        dropPad edge dur t1 t2 x = buildSource' $ case compare t1 t2 of
+          EQ -> x
+          GT -> Drop edge (dur $ t1 - t2) x
+          LT -> Pad edge (dur $ t2 - t1) x
 
 -- | Assumes 16-bit 44100 Hz audio files.
 buildAudio :: Audio Duration FilePath -> FilePath -> Staction ()

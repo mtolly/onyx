@@ -49,6 +49,7 @@ import qualified Control.Monad.Trans.State.Strict as SS
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString.Char8            as B8
 import           Data.Functor.Identity            (Identity)
+import           Data.List                        (stripPrefix)
 import qualified Development.Shake                as Shake
 import qualified System.Directory                 as Dir
 import           System.Exit                      (ExitCode (..))
@@ -272,7 +273,9 @@ shakeEmbed opts rules = do
   let handleShakeErr se = let
         -- we translate ShakeException (which may or may not have a StackTraceT fatal inside)
         -- to a StackTraceT fatal with layers
-        go (layer : layers) exc = inside ("shake: " ++ layer) $ go layers exc
+        go (layer : layers) exc = case stripPrefix "* Depends on: " layer of
+          Nothing     -> go layers exc
+          Just needed -> inside ("shake: " ++ needed) $ go layers exc
         go []               exc = case Exc.fromException exc of
           Nothing   -> stackShowException exc
           Just msgs -> throwError msgs
