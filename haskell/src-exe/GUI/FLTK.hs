@@ -64,10 +64,10 @@ import qualified Data.HashMap.Strict                       as HM
 import           Data.IORef                                (IORef, newIORef,
                                                             readIORef,
                                                             writeIORef)
-import           Data.List                                 (elemIndex)
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
-                                                            listToMaybe)
+                                                            listToMaybe,
+                                                            mapMaybe)
 import qualified Data.Text                                 as T
 import qualified Data.Text.Encoding                        as TE
 import           Data.Time                                 (getCurrentTime)
@@ -393,14 +393,14 @@ launchWindow sink proj maybeAudio = mdo
         (trimClock 5 5 5 5 -> playButtonArea, topControlsArea2) = chopLeft 60 topControlsArea1
         (trimClock 8 5 8 5 -> scrubberArea, trimClock 5 5 5 80 -> speedArea) = chopRight 220 topControlsArea2
     topControls <- FL.groupNew topControlsArea1 Nothing
+    playButton <- FL.buttonNew playButtonArea $ Just "@>"
+    FL.deactivate playButton
     scrubber <- FL.horNiceSliderNew scrubberArea Nothing
     FL.setMinimum scrubber 0
     FL.setMaximum scrubber 100
     FL.setStep scrubber 1
     void $ FL.setValue scrubber 0
     FL.deactivate scrubber
-    playButton <- FL.buttonNew playButtonArea $ Just "@>"
-    FL.deactivate playButton
     (getSpeed, counter) <- speedPercent' speedArea
     FL.end topControls
     FL.setResizable topControls $ Just scrubber
@@ -1797,28 +1797,42 @@ previewGroup
   -> IO (FL.Ref FL.Group, IO ())
 previewGroup sink rect getTracks getTime getSpeed = do
   let (glArea, bottomControlsArea) = chopBottom 40 rect
-      partSelectArea = trimClock 6 15 6 50 bottomControlsArea
+      partSelectArea = trimClock 6 15 6 15 bottomControlsArea
 
   wholeGroup <- FL.groupNew rect Nothing
 
   bottomControlsGroup <- FL.groupNew bottomControlsArea Nothing
-  choice <- FL.choiceNew partSelectArea $ Just "Part"
+  trackMenu <- FL.menuButtonNew partSelectArea $ Just "Select Tracks"
   currentParts <- newIORef []
-  let selectedName = FL.getText choice
+  let selectedNames = do
+        items <- FL.getMenu trackMenu
+        fmap catMaybes $ forM items $ \case
+          Nothing -> return Nothing
+          Just item -> FL.getFlags item >>= \case
+            Just (FL.MenuItemFlags flags) | elem FL.MenuItemValue flags -> do
+              Just <$> FL.getText item
+            _ -> return Nothing
+      defaultTracks = filter $ \t -> "(X)" `T.isInfixOf` t
       updateParts redraw names = sink $ EventIO $ do
         cur <- readIORef currentParts
         when (cur /= names) $ do
-          selected <- selectedName
-          FL.clear choice
-          mapM_ (FL.addName choice) names
-          void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $
-            fromMaybe 0 $ elemIndex selected names
+          selected <- case cur of
+            [] -> return $ defaultTracks names
+            _  -> selectedNames
+          FL.clear trackMenu
+          forM_ names $ \t -> do
+            let flags = FL.MenuItemToggle : [FL.MenuItemValue | elem t selected]
+            FL.add trackMenu t Nothing
+              (Nothing :: Maybe (FL.Ref FL.MenuItem -> IO ()))
+              (FL.MenuItemFlags flags)
           writeIORef currentParts names
           when redraw $ sink $ EventIO FLTK.redraw
   getTracks >>= updateParts False . map fst
-  FL.setCallback choice $ \_ -> sink $ EventIO $ FLTK.redraw
+  FL.setCallback trackMenu $ \_ -> do
+    sink $ EventIO $ FLTK.redraw
+    sink $ EventIO $ void $ FL.popup trackMenu -- reopen menu (TODO find a way to not close it at all)
   FL.end bottomControlsGroup
-  FL.setResizable bottomControlsGroup $ Just choice
+  FL.setResizable bottomControlsGroup $ Just trackMenu
 
   varStuff <- newMVar GLPreload
   let draw :: FL.Ref FL.GlWindow -> IO ()
@@ -1833,11 +1847,11 @@ previewGroup sink rect getTracks getTime getSpeed = do
           speed <- getSpeed
           trks <- getTracks
           updateParts True $ map fst trks -- TODO does this need to be done in a sink event
-          selected <- selectedName
+          selected <- selectedNames
           w <- FL.pixelW wind
           h <- FL.pixelH wind
-          forM_ (lookup selected trks) $ \trk -> do
-            RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t speed [trk]
+          RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t speed
+            $ mapMaybe (`lookup` trks) selected
   -- TODO do we want to set "FL.setUseHighResGL True" here for mac?
   glwindow <- FLGL.glWindowCustom
     (rectangleSize glArea)

@@ -24,7 +24,7 @@ extra-deps:
 - git: git://github.com/mtolly/midi
   commit: 28866f4715cde594d8d8ec5e6f3beecb64783614
 - git: git://github.com/mtolly/conduit-audio
-  commit: e32b257121dcfa55c8bf8e3c6ba5a0d23dcb0fc3
+  commit: 0a90a9541b261583a09e5d5f9f416bc7ae59d07d
   subdirs:
   - conduit-audio-mpg123
 - git: git://github.com/deech/fltkhs

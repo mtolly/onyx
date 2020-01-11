@@ -57,7 +57,7 @@ import           Data.Conduit
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding  as L
-import           Data.Conduit.Audio.Mpg123        (sourceMpg)
+import           Data.Conduit.Audio.Mpg123        (sourceMpg, sourceMpgFrom)
 import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
 import qualified Data.Conduit.List                as CL
@@ -415,7 +415,7 @@ buildSource' aud = case aud of
   Drop Start (Frames  t1) (Pad Start (Frames  t2) x) -> dropPad Start Frames  t1 t2 x
   Drop End   (Frames  t1) (Pad End   (Frames  t2) x) -> dropPad End   Frames  t1 t2 x
   Drop Start t (Input fin) -> liftIO $ case takeExtension fin of
-    ".mp3" -> dropStart t <$> sourceMpg fin -- TODO add seek ability to conduit-audio-mpg123
+    ".mp3" -> sourceMpgFrom t fin
     ".ogg" -> sourceVorbisFile t fin
     ".vgs" -> dropStart t <$> buildSource' (Input fin)
     _      -> sourceSndFrom t fin

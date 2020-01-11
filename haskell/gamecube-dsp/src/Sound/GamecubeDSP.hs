@@ -21,7 +21,7 @@ dsper fin fout = do
         0 -> return ()
         n -> throwIO $ userError $ "dsper returned " <> show n
 
--- | Combine 2 WAVs into a Donkey Konga format stereo DSP.
+-- | Combine 2 DSPs into a Donkey Konga format stereo DSP.
 dkdsp :: FilePath -> Maybe FilePath -> FilePath -> IO ()
 dkdsp fin finR fout = do
   let args = ["hs-dkdsp", fin] <> maybe [] (\r -> ["-s", r]) finR <> [fout]
