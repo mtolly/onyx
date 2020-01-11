@@ -46,8 +46,8 @@ data LightPosition
   = LightGlobal (V3 Float)
   | LightOffset (V3 Float)
 
-drawObject :: GLStuff -> WindowDims -> Object -> V3 Float -> V3 Float -> Either TextureID (V4 Float) -> Float -> LightPosition -> IO ()
-drawObject GLStuff{..} (WindowDims _w h) obj (V3 x1 y1 z1) (V3 x2 y2 z2) texcolor alpha lightOffset = do
+drawObject :: GLStuff -> (Int, Int) -> Object -> V3 Float -> V3 Float -> Either TextureID (V4 Float) -> Float -> LightPosition -> IO ()
+drawObject GLStuff{..} (viewY, viewH) obj (V3 x1 y1 z1) (V3 x2 y2 z2) texcolor alpha lightOffset = do
   let colorType = 1 :: GLuint
       boxType = 2 :: GLuint
       coneType = 3 :: GLuint
@@ -63,8 +63,8 @@ drawObject GLStuff{..} (WindowDims _w h) obj (V3 x1 y1 z1) (V3 x2 y2 z2) texcolo
     $ translate4 (V3 ((x1 + x2) / 2) ((y1 + y2) / 2) ((z1 + z2) / 2))
     !*! L.scaled (V4 (abs $ x2 - x1) yScale (abs $ z2 - z1) 1)
   sendUniformName objectShader "alpha" alpha
-  sendUniformName objectShader "startFade" (fromIntegral h * (519 / 671) :: Float)
-  sendUniformName objectShader "endFade" (fromIntegral h * (558 / 671) :: Float)
+  sendUniformName objectShader "startFade" (fromIntegral viewY + fromIntegral viewH * (519 / 671) :: Float)
+  sendUniformName objectShader "endFade" (fromIntegral viewY + fromIntegral viewH * (558 / 671) :: Float)
   case lightOffset of
     LightGlobal g -> sendUniformName objectShader "light.position" g
     LightOffset off -> do
@@ -118,11 +118,11 @@ makeToggleBounds t1 t2 m = let
   simplify (x : xs) = x : simplify xs
   in simplify zipped
 
-drawDrums :: GLStuff -> WindowDims -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
-drawDrums glStuff@GLStuff{..} dims nowTime speed trk = do
+drawDrums :: GLStuff -> (Int, Int) -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
+drawDrums glStuff@GLStuff{..} ydims nowTime speed trk = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
-  let drawObject' = drawObject glStuff dims
+  let drawObject' = drawObject glStuff ydims
       globalLight = LightGlobal $ V3 0 -0.5 0.5
       nearZ = 2 :: Float
       nowZ = 0 :: Float
@@ -243,11 +243,11 @@ zoomMap t1 t2 m = let
     then maybe Map.empty (Map.singleton $ t1 + (t2 + t1) / 2) generated
     else zoomed
 
-drawFive :: GLStuff -> WindowDims -> Double -> Double -> Map.Map Double (CommonState (GuitarState (Maybe F.Color))) -> IO ()
-drawFive glStuff@GLStuff{..} dims nowTime speed trk = do
+drawFive :: GLStuff -> (Int, Int) -> Double -> Double -> Map.Map Double (CommonState (GuitarState (Maybe F.Color))) -> IO ()
+drawFive glStuff@GLStuff{..} ydims nowTime speed trk = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
-  let drawObject' = drawObject glStuff dims
+  let drawObject' = drawObject glStuff ydims
       globalLight = LightGlobal $ V3 0 -0.5 0.5
       nearZ = 2 :: Float
       nowZ = 0 :: Float
@@ -890,6 +890,34 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
 freeTexture :: Texture -> IO ()
 freeTexture (Texture tex _ _) = with tex $ glDeleteTextures 1
 
+-- | Split up the available space to show tracks at the largest possible size.
+-- Returns [(x, y, w, h)] in GL space (so bottom left corner is (0, 0)).
+splitSpace :: Int -> Double -> WindowDims -> [(Int, Int, Int, Int)]
+splitSpace n heightWidthRatio (WindowDims w h) = let
+  fi :: Int -> Double
+  fi = fromIntegral
+  heightScore rows = let
+    cols = ceiling $ fi n / fi rows
+    colWidth = fi w / fi cols
+    colHeight = fi h / fi rows
+    colHeightUsed = min colHeight $ colWidth * heightWidthRatio
+    in colHeightUsed
+  bestRows = snd $ maximum [ ((heightScore rows, -rows), rows) | rows <- [1..n] ]
+  bestCols = ceiling $ fi n / fi bestRows
+  pieces :: Int -> Int -> [(Int, Int)]
+  pieces p whole = let
+    edges = [ round $ fi whole * (fi i / fi p) | i <- [0 .. p] ]
+    in zip edges $ tail edges
+  makeRows _      []                = []
+  makeRows spaces ((y1, y2) : rows) = let
+    cols = min spaces bestCols
+    thisRow = do
+      (x1, x2) <- pieces cols w
+      let maxHeight = round $ fi (x2 - x1) * heightWidthRatio
+      return (x1, y1, x2 - x1, min maxHeight $ y2 - y1)
+    in thisRow ++ makeRows (spaces - cols) rows
+  in makeRows n $ reverse $ pieces bestRows h
+
 drawTracks
   :: GLStuff
   -> WindowDims
@@ -897,18 +925,16 @@ drawTracks
   -> Double
   -> [PreviewTrack]
   -> IO ()
-drawTracks glStuff@GLStuff{..} (WindowDims w h) time speed trks = do
-  glViewport 0 0 (fromIntegral w) (fromIntegral h)
+drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks = do
+  glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
   glClearColor 0.2 0.3 0.3 1.0
   glClear GL_COLOR_BUFFER_BIT
 
-  let count = length trks
-      widthPart = quot w count
-      heightPart = min h $ quot (widthPart * 7) 6
-  forM_ (zip [0..] trks) $ \(i, trk) -> do
+  let spaces = case trks of
+        [] -> []
+        _  -> splitSpace (length trks) (7/6) dims
+  forM_ (zip spaces trks) $ \((x, y, w, h), trk) -> do
     glClear GL_DEPTH_BUFFER_BIT
-    let widthOffset = quot (w * i) count
-        dims' = WindowDims widthPart heightPart
     glUseProgram objectShader
     glBindVertexArray boxVAO
     let viewPosn = V3 0 1.4 3 :: V3 Float
@@ -917,7 +943,7 @@ drawTracks glStuff@GLStuff{..} (WindowDims w h) time speed trks = do
           = L.mkTransformation (L.axisAngle (V3 1 0 0) (degrees 25)) 0
           !*! translate4 (negate viewPosn)
           -- note, this translates then rotates (can't just give V3 to mkTransformation)
-        projection = L.perspective (degrees 45) (fromIntegral widthPart / fromIntegral heightPart) 0.1 100
+        projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
     sendUniformName objectShader "view" view
     sendUniformName objectShader "projection" projection
     -- light.position gets sent later
@@ -925,7 +951,7 @@ drawTracks glStuff@GLStuff{..} (WindowDims w h) time speed trks = do
     sendUniformName objectShader "light.diffuse" (V3 1 1 1 :: V3 Float)
     sendUniformName objectShader "light.specular" (V3 1 1 1 :: V3 Float)
     sendUniformName objectShader "viewPos" viewPosn
-    glViewport (fromIntegral widthOffset) 0 (fromIntegral widthPart) (fromIntegral heightPart)
+    glViewport (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h)
     case trk of
-      PreviewDrums m -> drawDrums glStuff dims' time speed m
-      PreviewFive m  -> drawFive glStuff dims' time speed m
+      PreviewDrums m -> drawDrums glStuff (y, h) time speed m
+      PreviewFive m  -> drawFive  glStuff (y, h) time speed m
