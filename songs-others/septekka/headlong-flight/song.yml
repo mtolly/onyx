@@ -1,0 +1,62 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        tier: 5
+  bass:
+    grybo:
+      difficulty:
+        tier: 7
+  guitar:
+    grybo:
+      difficulty:
+        tier: 7
+  drums:
+    drums:
+      difficulty:
+        tier: 7
+      kicks: both
+plans:
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+    pans: [1, -1, 1, -1, 1, -1, 1, -1, 1, -1] # swapped all channels so drums are drummer perspective
+    mogg-md5: 6c6e75728b116a37862bb8f2b998d003
+    multitrack: true
+    vols: [1.2, -1.2, -1.2, -1.2, -1.2, -1.2, -1.2, -1.2, -2, -2]
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    label: (O)
+  rb3-2x:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Family Friendly
+  preview-start: 54
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 9
+  album: Clockwork Angels
+  year: 2012
+  subgenre: progrock
+  anim-tempo: 64
+  author: Septekka, Onyxite
+  title: Headlong Flight
+  preview-end: 1:24.000
+  genre: prog
+  difficulty:
+    tier: 7
+  artist: Rush

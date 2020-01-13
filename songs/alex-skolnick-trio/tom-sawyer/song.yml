@@ -23,8 +23,8 @@ audio:
     file-path: audio-youtube.wav
     commands:
     - ../../../scripts/youtube IVhggQCqvqI 140
-    md5: 39c2a9f01101fe30c8d2e318010a6794
-    frames: 17653760
+    md5: 3327395ef60ecc6cec72cc00b00aba5d
+    frames: 17654784
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 parts:
@@ -34,3 +34,7 @@ parts:
 targets:
   rb3:
     game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)

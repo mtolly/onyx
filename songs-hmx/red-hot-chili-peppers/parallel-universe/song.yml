@@ -1,0 +1,58 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 228
+  bass:
+    grybo:
+      difficulty:
+        rank: 290
+  guitar:
+    grybo:
+      difficulty:
+        rank: 238
+  drums:
+    drums:
+      kit: Trashy Kit
+      difficulty:
+        rank: 330
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      drums:
+        kick: [0]
+        snare: [1, 2]
+        kit: [3, 4]
+      bass: [5]
+      guitar: [6, 7]
+      vocal: [8, 9]
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    mogg-md5: f6236532ba7c571bb903af2e317a40f0
+    multitrack: true
+    vols: [-1.6, -4.6, -4.6, -4, -4, -1.6, -4.6, -4.6, -4.6, -4.6, -4.6, -4.6]
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Supervision Recommended
+  preview-start: 53.295
+  file-album-art: cover.png_xbox
+  track-number: 2
+  key: C minor
+  album: Californication
+  year: 1999
+  author: Harmonix, Onyxite
+  title: Parallel Universe
+  preview-end: 1:23.295
+  genre: alternative
+  difficulty:
+    rank: 292
+  artist: Red Hot Chili Peppers
