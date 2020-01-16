@@ -106,7 +106,7 @@ playSource pans vols ca = do
   srcs <- doAL "playSource genObjectNames sources" $ AL.genObjectNames chanCount
   forM_ (zip srcs pans) $ \(src, pan) ->
     doAL "playSource setting sourcePosition" $
-    AL.sourcePosition src $= AL.Vertex3 (CFloat pan) 0 0
+    AL.sourcePosition src $= AL.V3 (CFloat pan) 0 0
   forM_ (zip srcs vols) $ \(src, volDB) ->
     doAL "playSource setting sourceGain" $
     AL.sourceGain src $= CFloat (10 ** (volDB / 20))

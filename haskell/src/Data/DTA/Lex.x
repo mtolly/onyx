@@ -11,7 +11,6 @@ import Control.Monad.Trans.StackTrace (StackTraceT, fatal)
 %wrapper "monad"
 
 $digit = 0-9
-$alpha = [a-zA-Z]
 
 tokens :-
 
@@ -37,12 +36,12 @@ $white+ ;
 }
 
 -- Variable names.
-\$ ($alpha | $digit | _)+ { emit $ Var . T.pack . tail }
+\$ (. # $white # [ \( \) \{ \} \[ \] ])+ { emit $ Var . T.pack . tail }
 
 -- This reserved word needs to come before the general keyword rule.
 "kDataUnhandled" { emit $ const Unhandled }
 -- Quoted strings.
-\" [^\"]* \" { emit $ String . T.pack . readString }
+\" ([^\"] | \n)* \" { emit $ String . T.pack . readString }
 -- Quoted keywords.
 ' ([^'] | \\')* ' { emit $ Key . T.pack . readKey }
 -- Raw keywords. Note: these can start with digits, like "3sand7s", as long as
