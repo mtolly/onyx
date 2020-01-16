@@ -5,7 +5,7 @@ extra-deps:
 - conduit-audio-0.2.0.3
 - conduit-audio-lame-0.1.2.1
 - conduit-audio-samplerate-0.1.0.3
-- conduit-audio-sndfile-0.1.2.1
+- conduit-audio-sndfile-0.1.2.2
 - jammittools-0.5.5.2
 - rubberband-0.1.0.2
 - tinyfiledialogs-0.2.0.0

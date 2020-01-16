@@ -127,8 +127,12 @@ playSource pans vols ca = do
             if current < queueSize
               then do
                 -- liftIO $ putStrLn $ "Filling because queue has " <> show current
-                newBuffers <- C.await >>= \case
-                  Nothing -> return currentBuffers
+                C.await >>= \case
+                  Nothing -> do
+                    case audioState of
+                      Filling -> liftIO $ putMVar firstFull ()
+                      _       -> return ()
+                    loop currentBuffers Playing
                   Just chunk -> do
                     bufs <- liftIO $ doAL "playSource genObjectNames buffers" $ AL.genObjectNames chanCount
                     forM_ (zip bufs $ CA.deinterleave chanCount chunk) $ \(buf, chan) -> do
@@ -140,8 +144,8 @@ playSource pans vols ca = do
                           floatRate
                     forM_ (zip srcs bufs) $ \(src, buf) -> do
                       liftIO $ doAL "playSource queueBuffers" $ AL.queueBuffers src [buf]
-                    return $ Set.fromList bufs
-                loop (Set.union currentBuffers newBuffers) audioState
+                    let newBuffers = Set.fromList bufs
+                    loop (Set.union currentBuffers newBuffers) audioState
               else do
                 -- liftIO $ putStrLn "Queue is full"
                 case audioState of

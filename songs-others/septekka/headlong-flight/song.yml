@@ -16,7 +16,7 @@ parts:
   drums:
     drums:
       difficulty:
-        tier: 7
+        tier: 6
       kicks: both
 plans:
   mogg:
