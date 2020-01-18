@@ -10,7 +10,8 @@ import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Config
-import           Control.Monad.Extra              (filterM, forM, guard, when)
+import           Control.Monad.Extra              (filterM, forM, forM_, guard,
+                                                   when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
@@ -61,6 +62,7 @@ import           RockBand.Milo                    (autoLipsync, beatlesLipsync,
                                                    packMilo, putLipsync,
                                                    testConvertLipsync,
                                                    unpackMilo)
+import           RockBand.Score
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
@@ -842,6 +844,22 @@ commands =
         stackIO $ writeFile fout $ show (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))
         return [fout]
       _ -> fatal "Expected 2 arguments (raw/fixed/onyx, then a midi file)"
+    }
+
+  , Command
+    { commandWord = "scoring"
+    , commandDesc = ""
+    , commandUsage = "onyx scoring in.mid"
+    , commandRun = \args _opts -> case args of
+      [fin] -> do
+        mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+        stackIO $ forM_ [minBound .. maxBound] $ \scoreTrack -> do
+          forM_ [minBound .. maxBound] $ \diff -> do
+            let stars = starCutoffs (RBFile.s_tracks mid) [(scoreTrack, diff)]
+            when (any (maybe False (> 0)) stars) $ do
+              putStrLn $ unwords [show scoreTrack, show diff, show stars]
+        return []
+      _ -> fatal "Expected 1 argument (input midi)"
     }
 
   ]
