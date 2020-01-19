@@ -10,7 +10,6 @@
 {-# LANGUAGE MultiWayIf         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE TupleSections      #-}
 module RockBand.Codec.Drums where
 
 import           Control.Monad                    (guard, void, (>=>))
@@ -326,25 +325,6 @@ psRealToPro trk = trk
       , drumGems = RTB.flatten $ fmap eachInstant $ RTB.collectCoincident merged
       }
   }
-
-baseScore :: Int -> RTB.T t (Gem a) -> Int
-baseScore gem rtb = let
-  len = length rtb
-  gems1x = min 9 len
-  gems2x = min 10 $ len - gems1x
-  gems3x = min 10 $ len - gems1x - gems2x
-  gems4x = len - gems1x - gems2x - gems3x
-  in sum
-    [ gems1x * gem
-    + gems2x * gem * 2
-    + gems3x * gem * 3
-    + gems4x * gem * 4
-    ]
-
-perfectSoloBonus :: (NNC.C t, Ord a) => RTB.T t Bool -> RTB.T t (Gem a) -> Int
-perfectSoloBonus solo gems = sum $ fmap score $ applyStatus (fmap ((),) solo) gems where
-  score ([], _) = 0
-  score _       = 100
 
 data AnimPad
   = AnimSnare
