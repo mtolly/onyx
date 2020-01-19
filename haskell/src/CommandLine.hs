@@ -21,7 +21,8 @@ import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.ByteString.Lazy.Char8       ()
-import           Data.Char                        (isAlphaNum, isAscii)
+import           Data.Char                        (isAlphaNum, isAscii, isDigit,
+                                                   isUpper)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Conduit.Audio.Sndfile       (sinkSnd, sourceSndFrom)
 import qualified Data.Digest.Pure.MD5             as MD5
@@ -58,6 +59,7 @@ import           Reaper.Build                     (makeReaperIO)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Vocal             (nullVox)
+import           RockBand.Common                  (Difficulty (..))
 import           RockBand.Milo                    (autoLipsync, beatlesLipsync,
                                                    packMilo, putLipsync,
                                                    testConvertLipsync,
@@ -849,15 +851,38 @@ commands =
   , Command
     { commandWord = "scoring"
     , commandDesc = ""
-    , commandUsage = "onyx scoring in.mid"
+    , commandUsage = T.unlines
+      [ "onyx scoring in.mid [players]"
+      , "players is a sequence that alternates:"
+      , "  part: G B D K V PG PB PD PK H"
+      , "  difficulty: e m h x"
+      , "for example: onyx scoring in.mid G x B x PD x V x"
+      ]
     , commandRun = \args _opts -> case args of
-      [fin] -> do
+      fin : players -> do
         mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
-        stackIO $ forM_ [minBound .. maxBound] $ \scoreTrack -> do
-          forM_ [minBound .. maxBound] $ \diff -> do
-            let stars = starCutoffs (RBFile.s_tracks mid) [(scoreTrack, diff)]
-            when (any (maybe False (> 0)) stars) $ do
-              putStrLn $ unwords [show scoreTrack, show diff, show stars]
+        case players of
+          [] -> stackIO $ forM_ [minBound .. maxBound] $ \scoreTrack -> do
+            forM_ [minBound .. maxBound] $ \diff -> do
+              let stars = starCutoffs (RBFile.s_tracks mid) [(scoreTrack, diff)]
+              when (any (maybe False (> 0)) stars) $ do
+                putStrLn $ unwords [show scoreTrack, show diff, show stars]
+          _ -> let
+            parsePlayers [] = Right []
+            parsePlayers [_] = Left "Odd number of player arguments"
+            parsePlayers (p : d : rest) = do
+              part <- maybe (Left $ "Unrecognized track name: " <> p) Right $ lookup p
+                [ (filter (\c -> isUpper c || isDigit c) $ drop 5 $ show strack, strack) | strack <- [minBound .. maxBound] ]
+              diff <- maybe (Left $ "Unrecognized difficulty: " <> d) Right $ lookup d
+                [("e", Easy), ("m", Medium), ("h", Hard), ("x", Expert)]
+              ((part, diff) :) <$> parsePlayers rest
+            in case parsePlayers players of
+              Left  err   -> fatal err
+              Right pairs -> stackIO $ do
+                forM_ pairs $ \pair -> let
+                  (base, solo) = baseAndSolo (RBFile.s_tracks mid) pair
+                  in putStrLn $ show pair <> ": base " <> show base <> ", solo bonuses " <> show solo
+                print $ starCutoffs (RBFile.s_tracks mid) pairs
         return []
       _ -> fatal "Expected 1 argument (input midi)"
     }
