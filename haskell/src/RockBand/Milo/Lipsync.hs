@@ -31,10 +31,12 @@ import           Resources                        (CMUPhoneme (..), cmuDict)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Lipsync           (BeatlesViseme (..),
+                                                   GH2Viseme (..),
                                                    LipsyncTrack (..),
                                                    MagmaViseme (..),
                                                    VisemeEvent (..))
 import           RockBand.Codec.Vocal
+import           RockBand.Common                  (noRedundantStatus)
 import           RockBand.Milo.Compression
 import           RockBand.Milo.Dir
 import           Rocksmith.Sng2014                (Bin (..))
@@ -221,6 +223,25 @@ cmuToVisemes = \case
   CMU_UH -> [Viseme_Though_hi, Viseme_Though_lo] -- ʊ : book
 
   _      -> [] -- probably shouldn't happen
+
+cmuToGH2Viseme :: CMUPhoneme -> Maybe GH2Viseme
+cmuToGH2Viseme = \case
+  CMU_AA -> Just GH2_Ox -- ɑ : balm bot
+  CMU_AH -> Just GH2_If -- ʌ : butt
+  CMU_AY -> Just GH2_Ox -- aɪ : bite
+  CMU_EH -> Just GH2_Cage -- ɛ : bet
+  CMU_ER -> Just GH2_Church -- ɝ : bird
+  CMU_EY -> Just GH2_Cage -- eɪ : bait
+  CMU_IH -> Just GH2_If -- ɪ : bit
+  CMU_IY -> Just GH2_Eat -- i : beat
+  CMU_OW -> Just GH2_Earth -- oʊ : boat
+  CMU_UW -> Just GH2_Wet -- u : boot
+  CMU_AE -> Just GH2_Cage -- æ : bat
+  CMU_AO -> Just GH2_Earth -- ɔ : story
+  CMU_AW -> Just GH2_If -- aʊ : bout
+  CMU_OY -> Just GH2_Oat -- ɔɪ : boy
+  CMU_UH -> Just GH2_Though -- ʊ : book
+  _      -> Nothing -- probably shouldn't happen
 
 cmuToBeatles :: CMUPhoneme -> [(BeatlesViseme, Word8)]
 cmuToBeatles = \case
@@ -446,6 +467,16 @@ beatlesLipsync
   . englishVowels
   . vocalTubes
 
+gh2Lipsync :: VocalTrack U.Seconds -> VocFile
+gh2Lipsync
+  = visemesToVoc
+  . fmap (\mcmu -> case mcmu >>= cmuToGH2Viseme of
+    Nothing  -> []
+    Just vis -> [(T.replace "_" " " $ T.pack $ drop 4 $ show vis, 1)]
+    )
+  . englishVowels
+  . vocalTubes
+
 lipsyncFromMIDITrack :: LipsyncTrack U.Seconds -> Lipsync
 lipsyncFromMIDITrack lip = let
   makeKeyframes cur rest = let
@@ -596,10 +627,64 @@ parseVocFile = do
   vocMystery20 <- if isGH then return Nothing else Just <$> getInt32le
   return VocFile{..}
 
+putVocFileRaw :: VocFile -> Put
+putVocFileRaw VocFile{..} = do
+  putByteString "FACE"
+  putWord32le vocMystery1
+  putWord16le vocMystery2
+  putStringLE vocCompany
+  putWord16le vocMystery3
+  putStringLE vocComment
+  putWord32le vocMystery4
+  putWord32le vocMystery5
+  putWord16le vocMystery6
+  putWord16le vocMystery7
+  putStringLE vocName
+  putWord16le vocMystery8
+  putWord32le vocFileSize
+  putWord16le vocMystery9
+  putWord32le $ fromIntegral $ length vocVisemes
+  forM_ vocVisemes $ \VocViseme{..} -> do
+    putWord32le vvMystery1
+    putWord16le vvMystery2
+    putWord16le vvMystery3
+    putStringLE vvName
+    putWord32le vvMystery4
+    putWord32le vvMystery5
+    putWord16le $ fromIntegral $ length vvEvents
+    forM_ vvEvents $ \VocEvent{..} -> do
+      putWord32le veMystery1
+      putFloatle veTime
+      putFloatle veWeight
+      putWord32le veMystery2
+      putWord16le veMystery3
+    putWord16le vvMystery6
+  putWord32le vocMystery10
+  putWord16le vocMystery11
+  putFloatle vocMystery12
+  putFloatle vocMystery13
+  mapM_ putWord32le vocMystery14
+  mapM_ putWord16le vocMystery15
+  mapM_ putWord32le vocMystery16
+  mapM_ putWord16le vocMystery17
+  mapM_ putWord32le vocMystery18
+  mapM_ putWord16le vocMystery19
+  mapM_ putInt32le vocMystery20
+
+putVocFile :: VocFile -> Put
+putVocFile voc = let
+  len = fromIntegral $ BL.length $ runPut $ putVocFileRaw voc
+  in putVocFileRaw voc { vocFileSize = len }
+
 getStringLE :: Get B.ByteString
 getStringLE = do
   len <- getWord32le
   getByteString $ fromIntegral len
+
+putStringLE :: B.ByteString -> Put
+putStringLE bs = do
+  putWord32le $ fromIntegral $ B.length bs
+  putByteString bs
 
 vocToMIDITrack :: VocFile -> LipsyncTrack U.Seconds
 vocToMIDITrack voc
@@ -619,3 +704,52 @@ vocToMIDITrack voc
           | veWeight evt > 1 = 255
           | otherwise        = round $ veWeight evt * 255
         in (time, VisemeEvent name weight)
+
+visemesToVoc :: RTB.T U.Seconds [(T.Text, Float)] -> VocFile
+visemesToVoc visemes = VocFile
+  { vocMystery1 = 1200
+  , vocMystery2 = 0
+  , vocCompany = "Harmonix"
+  , vocMystery3 = 0
+  , vocComment = "Karaoke Revolution Vol 4"
+  , vocMystery4 = 1000
+  , vocMystery5 = 0
+  , vocMystery6 = 0
+  , vocMystery7 = 0
+  , vocName = "onyx_toolkit_lipsync"
+  , vocMystery8 = 0
+  , vocFileSize = 0xDEADBEEF -- calculated later
+  , vocMystery9 = 0
+  , vocVisemes = flip map (nubOrd $ map fst $ concat $ RTB.getBodies visemes) $ \vis -> VocViseme
+    { vvMystery1 = 0
+    , vvMystery2 = 0
+    , vvMystery3 = 0
+    , vvName = TE.encodeUtf8 vis
+    , vvMystery4 = 0
+    , vvMystery5 = 0
+    , vvEvents
+      = map (\(t, weight) -> VocEvent
+        { veMystery1 = 0
+        , veTime = realToFrac t
+        , veWeight = weight
+        , veMystery2 = 0
+        , veMystery3 = 0
+        })
+      $ ATB.toPairList
+      $ RTB.toAbsoluteEventList 0
+      $ noRedundantStatus
+      $ fmap (\set -> fromMaybe 0 $ lookup vis set) visemes
+    , vvMystery6 = 0
+    }
+  , vocMystery10 = 0
+  , vocMystery11 = 0
+  , vocMystery12 = 0.16
+  , vocMystery13 = 0.22
+  , vocMystery14 = Nothing
+  , vocMystery15 = Nothing
+  , vocMystery16 = Nothing
+  , vocMystery17 = Nothing
+  , vocMystery18 = Nothing
+  , vocMystery19 = Nothing
+  , vocMystery20 = Nothing
+  }

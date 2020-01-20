@@ -136,3 +136,31 @@ data BeatlesViseme
   | Viseme_tongue_roll
   | Viseme_tongue_up
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data GH2Viseme
+  = GH2_Eat
+  | GH2_If
+  | GH2_Ox
+  | GH2_Oat
+  | GH2_Earth
+  | GH2_Size
+  | GH2_Church
+  | GH2_Fave
+  | GH2_Though
+  | GH2_Bump
+  | GH2_New
+  | GH2_Told
+  | GH2_Roar
+  | GH2_Wet
+  | GH2_Cage
+  | GH2_Orientation_Head_Pitch
+  | GH2_Orientation_Head_Roll
+  | GH2_Orientation_Head_Yaw
+  | GH2_Gaze_Eye_Pitch
+  | GH2_Gaze_Eye_Yaw
+  | GH2_Emphasis_Head_Pitch
+  | GH2_Emphasis_Head_Roll
+  | GH2_Emphasis_Head_Yaw
+  | GH2_Eyebrow_Raise
+  | GH2_Blink
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)

@@ -114,8 +114,10 @@ import qualified RockBand.Codec.File                       as RBFile
 import           RockBand.Common                           (RB3Instrument (..))
 import           RockBand.Milo                             (autoLipsync,
                                                             beatlesLipsync,
+                                                            gh2Lipsync,
                                                             packMilo,
                                                             putLipsync,
+                                                            putVocFile,
                                                             unpackMilo)
 import           RockBand.SongCache                        (fixSongCache)
 import           RockBand3                                 (BasicTiming (..))
@@ -1366,8 +1368,8 @@ miscPageLipsync sink rect tab startTasks = do
                   in startTasks [(T.unpack label <> ": " <> input, task)]
               _ -> return ()
           return btn
-    buttonVoc <- lipsyncButton areaVoc "Make .voc (GH2/RB1)" "voc" undefined
-    FL.deactivate buttonVoc
+    void $ lipsyncButton areaVoc "Make .voc (GH2/RB1)" "voc"
+      $ runPut . putVocFile . gh2Lipsync
     void $ lipsyncButton areaRB "Make .lipsync (RB2/RB3)" "lipsync"
       $ runPut . putLipsync . autoLipsync
     void $ lipsyncButton areaTBRB "Make .lipsync (TBRB)" "lipsync"

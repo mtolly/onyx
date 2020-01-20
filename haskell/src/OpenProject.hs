@@ -18,7 +18,7 @@ import qualified Data.Aeson.Types               as A
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
-import           Data.Char                      (toLower)
+import           Data.Char                      (isAlpha, toLower)
 import           Data.DTA                       (DTA (..), Tree (..),
                                                  readFileDTA)
 import qualified Data.DTA.Serialize             as DTA
@@ -388,7 +388,7 @@ installGH2 gh2 proj song gen = do
   let chunks = treeChunks $ topTree $ fmap (B8.pack . T.unpack) dta
       filePairs = flip mapMaybe files $ \f -> do
         guard $ f /= "songs.dta"
-        return (song <> B8.pack (drop 5 f), dir </> f)
+        return (song <> B8.pack (dropWhile isAlpha f), dir </> f)
   stackIO $ replaceSong gen song chunks filePairs
 
 buildPlayer :: (MonadIO m) => Maybe T.Text -> Project -> StackTraceT (QueueLog m) FilePath

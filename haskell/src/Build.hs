@@ -22,6 +22,7 @@ import           Control.Monad.Trans.Class             (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
+import           Data.Binary.Put                       (runPut)
 import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64.Lazy           as B64
 import qualified Data.ByteString.Lazy                  as BL
@@ -94,9 +95,9 @@ import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal                  (nullVox)
 import           RockBand.Common
 import           RockBand.Milo                         (MagmaLipsync (..),
-                                                        autoLipsync,
+                                                        autoLipsync, gh2Lipsync,
                                                         lipsyncFromMIDITrack,
-                                                        magmaMilo)
+                                                        magmaMilo, putVocFile)
 import qualified RockBand.ProGuitar.Play               as PGPlay
 import           RockBand.Sections                     (makeRB2Section,
                                                         makeRB3Section,
@@ -1663,6 +1664,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)))
                 gh2
 
+            dir </> "gh2/lipsync.voc" %> \out -> do
+              midi <- shakeMIDI $ planDir </> "raw.mid"
+              let vox = RBFile.getFlexPart (gh2_Vocal gh2) $ RBFile.s_tracks midi
+                  auto = gh2Lipsync . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
+              stackIO $ BL.writeFile out $ runPut $ putVocFile
+                $ auto $ RBFile.onyxPartVocals vox
+
             phony (dir </> "gh2") $ shk $ need
               [ dir </> "gh2/notes.mid"
               , dir </> "gh2/audio.vgs"
@@ -1670,6 +1678,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , dir </> "gh2/audio_p75.vgs"
               , dir </> "gh2/audio_p60.vgs"
               , dir </> "gh2/songs.dta"
+              , dir </> "gh2/lipsync.voc"
               ]
 
           PS ps -> do
