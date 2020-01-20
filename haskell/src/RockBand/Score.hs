@@ -1,8 +1,9 @@
-{-# LANGUAGE DeriveFoldable  #-}
-{-# LANGUAGE DeriveFunctor   #-}
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE TupleSections     #-}
 module RockBand.Score where
 
 import           Control.Applicative              (liftA2)
@@ -10,6 +11,7 @@ import           Control.Monad                    (guard, void)
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
+import qualified Data.Text                        as T
 import           Guitars                          (applyStatus, fixSloppyNotes)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Codec.Drums             as RBDrums
@@ -35,7 +37,20 @@ data ScoreTrack
   | ScoreProDrums
   | ScoreProKeys
   | ScoreHarmonies
-  deriving (Eq, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
+scoreTrackName :: ScoreTrack -> T.Text
+scoreTrackName = \case
+  ScoreGuitar    -> "Guitar"
+  ScoreBass      -> "Bass"
+  ScoreDrums     -> "Drums"
+  ScoreKeys      -> "Keys"
+  ScoreVocals    -> "Vocals"
+  ScoreProGuitar -> "Pro Guitar"
+  ScoreProBass   -> "Pro Bass"
+  ScoreProDrums  -> "Pro Drums"
+  ScoreProKeys   -> "Pro Keys"
+  ScoreHarmonies -> "Harmonies"
 
 data Stars a = Stars
   { stars1    :: a
@@ -68,6 +83,7 @@ new_instrument_thresholds = \case
 new_bonus_thresholds :: Stars Float
 new_bonus_thresholds = Stars 0.05 0.1 0.2 0.3 0.4 0.95
 
+-- | This could be done with 'annotateMultiplier' but drums are way simpler
 drumBase :: Int -> RTB.T t a -> Int
 drumBase gem rtb = let
   len = length rtb
@@ -77,9 +93,9 @@ drumBase gem rtb = let
   gems4x = len - gems1x - gems2x - gems3x
   in sum
     [ gems1x * gem
-    + gems2x * gem * 2
-    + gems3x * gem * 3
-    + gems4x * gem * 4
+    , gems2x * gem * 2
+    , gems3x * gem * 3
+    , gems4x * gem * 4
     ]
 
 perfectSoloBonus :: (NNC.C t) => Int -> RTB.T t Bool -> RTB.T t a -> Int
@@ -190,19 +206,31 @@ gbkBase headPoints tailPoints maxStreak evts = let
     let tailTicks = maybe 0 (\bts -> floor $ toRational bts * toRational tailPoints) mlen
     return $ mult * (headPoints + tailTicks)
 
-starCutoffs :: RBFile.FixedFile U.Beats -> [(ScoreTrack, Difficulty)] -> Stars (Maybe Int)
-starCutoffs mid trks = let
+getScoreTracks :: RBFile.FixedFile U.Beats -> [(ScoreTrack, Difficulty, Int, Int)]
+getScoreTracks mid = do
+  strack <- [minBound .. maxBound]
+  diff   <- [minBound .. maxBound]
+  let (base, solo) = baseAndSolo mid (strack, diff)
+  guard $ base /= 0
+  return (strack, diff, base, solo)
+
+tracksToStars :: [(ScoreTrack, Difficulty, Int, Int)] -> Stars (Maybe Int)
+tracksToStars trks = let
   new_num_instruments_multiplier = case length trks of
     1 -> 1.0
     2 -> 1.26
     3 -> 1.52
     _ -> 1.8
   sumOfBases :: Stars Float
-  sumOfBases = foldr (liftA2 (+)) (pure 0) $ flip map trks $ \trk@(scoreTrack, _) -> let
-    (base, solo) = baseAndSolo mid trk
-    in liftA2 (+)
-      (((fromIntegral base * new_num_instruments_multiplier) *) <$> new_instrument_thresholds scoreTrack)
-      ((fromIntegral solo *) <$> new_bonus_thresholds)
+  sumOfBases = foldr (liftA2 (+)) (pure 0) $ flip map trks $ \(scoreTrack, _, base, solo) -> liftA2 (+)
+    (((fromIntegral base * new_num_instruments_multiplier) *) <$> new_instrument_thresholds scoreTrack)
+    ((fromIntegral solo *) <$> new_bonus_thresholds)
   allCutoffs = Just . (floor :: Float -> Int) <$> sumOfBases
-  allExpert = all ((== Expert) . snd) trks
+  allExpert = all (\(_, diff, _, _) -> diff == Expert) trks
   in allCutoffs { starsGold = guard allExpert >> starsGold allCutoffs }
+
+starCutoffs :: RBFile.FixedFile U.Beats -> [(ScoreTrack, Difficulty)] -> Stars (Maybe Int)
+starCutoffs mid trks = tracksToStars $ do
+  pair@(strack, diff) <- trks
+  let (base, solo) = baseAndSolo mid pair
+  return (strack, diff, base, solo)

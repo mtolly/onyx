@@ -47,6 +47,7 @@ executables:
     - async
     - network
     - exceptions
+    - extra
     # my libraries
     - midi-util
     - conduit-audio

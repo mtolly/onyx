@@ -33,10 +33,11 @@ import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             tryReadTChan,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
-import           Control.Monad                             (forM, forM_, guard,
-                                                            join, unless, void,
-                                                            when, (>=>))
 import           Control.Monad.Catch                       (catchIOError)
+import           Control.Monad.Extra                       (concatMapM, forM,
+                                                            forM_, guard, join,
+                                                            unless, void, when,
+                                                            (>=>))
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
 import           Control.Monad.Trans.Class                 (lift)
@@ -64,8 +65,11 @@ import qualified Data.HashMap.Strict                       as HM
 import           Data.IORef                                (IORef, newIORef,
                                                             readIORef,
                                                             writeIORef)
+import           Data.List.Extra                           (nubOrd)
+import qualified Data.Map                                  as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
+                                                            isNothing,
                                                             listToMaybe,
                                                             mapMaybe)
 import qualified Data.Text                                 as T
@@ -112,6 +116,7 @@ import           RockBand.Codec                            (mapTrack)
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
 import           RockBand.Common                           (RB3Instrument (..))
+import qualified RockBand.Common                           as RB
 import           RockBand.Milo                             (autoLipsync,
                                                             beatlesLipsync,
                                                             gh2Lipsync,
@@ -119,6 +124,7 @@ import           RockBand.Milo                             (autoLipsync,
                                                             putLipsync,
                                                             putVocFile,
                                                             unpackMilo)
+import           RockBand.Score
 import           RockBand.SongCache                        (fixSongCache)
 import           RockBand3                                 (BasicTiming (..))
 import qualified Sound.File.Sndfile                        as Snd
@@ -597,6 +603,49 @@ launchWindow sink proj maybeAudio = mdo
   makeTab windowRect "Rock Band 2" $ \_ _ -> return ()
   makeTab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
   -}
+  _starsTab <- makeTab windowRect "Stars" $ \rect tab -> do
+    pack <- FL.packNew rect Nothing
+    FL.end pack
+    sink $ EventOnyx $ void $ forkOnyx $ do
+      let input = takeDirectory (projectLocation proj) </> "notes.mid"
+      mid <- stackIO (Load.fromFile input) >>= RBFile.readMIDIFile'
+      let foundTracks = getScoreTracks $ RBFile.s_tracks mid
+          trackLookup = Map.fromList $ map
+            (\quad@(strack, diff, _, _) -> ((strack, diff), quad))
+            foundTracks
+      stackIO $ sink $ EventIO $ mdo
+        FL.begin pack
+        getTracks <- forM (nubOrd [strack | (strack, _, _, _) <- foundTracks]) $ \strack -> do
+          getDiff <- padded 3 10 3 10 (Size (Width 800) (Height 20)) $ \row -> do
+            let (labelArea, diffArea) = chopLeft 200 row
+            void $ FL.boxNew labelArea $ Just $ scoreTrackName strack
+            horizRadio' diffArea (Just updateLabel) $ do
+              diff <- Nothing : map Just [minBound .. maxBound] :: [Maybe RB.Difficulty]
+              return (maybe "None" (T.pack . show) diff, diff, isNothing diff)
+          return (strack, getDiff)
+        [l1S, l2S, l3S, l4S, l5S, lGS] <- padded 3 10 3 10 (Size (Width 800) (Height 40)) $ \bottomArea -> do
+          forM (splitHorizN 6 bottomArea) $ \cell -> do
+            cutoffLabel <- FL.boxNew cell Nothing
+            FL.setLabelfont cutoffLabel FLE.helveticaBold
+            return cutoffLabel
+        let updateLabel = do
+              tracks <- flip concatMapM getTracks $ \(strack, getDiff) -> do
+                mmdiff <- getDiff
+                case join mmdiff of
+                  Nothing   -> return []
+                  Just diff -> return $ toList $ Map.lookup (strack, diff) trackLookup
+              let stars = tracksToStars tracks
+              FL.setLabel l1S $ maybe "" (\n -> "1*: " <> T.pack (show n)) $ stars1    stars
+              FL.setLabel l2S $ maybe "" (\n -> "2*: " <> T.pack (show n)) $ stars2    stars
+              FL.setLabel l3S $ maybe "" (\n -> "3*: " <> T.pack (show n)) $ stars3    stars
+              FL.setLabel l4S $ maybe "" (\n -> "4*: " <> T.pack (show n)) $ stars4    stars
+              FL.setLabel l5S $ maybe "" (\n -> "5*: " <> T.pack (show n)) $ stars5    stars
+              FL.setLabel lGS $ maybe "" (\n -> "G*: " <> T.pack (show n)) $ starsGold stars
+        updateLabel
+        FL.end pack
+        FLTK.redraw
+    FL.setResizable tab $ Just pack
+    return tab
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
@@ -633,17 +682,17 @@ launchWindow sink proj maybeAudio = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let nonTermTabs = [metaTab, instTab, utilsTab]
+  let tabsToDisable = [metaTab, instTab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskTabColor >>= setTabColor tab
     FL.deactivate tab
     let cbStart = do
           FL.activate tab
-          mapM_ FL.deactivate nonTermTabs
+          mapM_ FL.deactivate tabsToDisable
           void $ FL.setValue tabs $ Just tab
           updateTabsColor tabs
         cbEnd = do
-          mapM_ FL.activate nonTermTabs
+          mapM_ FL.activate tabsToDisable
     taskOutputPage rect tab sink cbStart cbEnd
   FL.end tabs
   updateTabsColor tabs
@@ -727,9 +776,9 @@ data PSCreate
   = PSDir FilePath
   | PSZip FilePath
 
-horizRadio :: Rectangle -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
-horizRadio _    []   = error "horizRadio: empty option list"
-horizRadio rect opts = do
+horizRadio' :: Rectangle -> Maybe (IO ()) -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
+horizRadio' _    _  []   = error "horizRadio: empty option list"
+horizRadio' rect cb opts = do
   let rects = splitHorizN (length opts) rect
   btns <- forM (zip opts rects) $ \((label, _, b), rectButton) -> do
     btn <- FL.roundButtonNew rectButton $ Just label
@@ -737,9 +786,13 @@ horizRadio rect opts = do
     return btn
   forM_ btns $ \opt -> FL.setCallback opt $ \_ -> do
     forM_ btns $ \opt' -> FL.setValue opt' $ opt == opt'
+    sequence_ cb
   return $ do
     bools <- mapM FL.getValue btns
     return $ fmap (\(_, (_, x, _)) -> x) $ listToMaybe $ filter fst $ zip bools opts
+
+horizRadio :: Rectangle -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
+horizRadio rect = horizRadio' rect Nothing
 
 speedPercent' :: Rectangle -> IO (IO Double, FL.Ref FL.Counter)
 speedPercent' rect = do
