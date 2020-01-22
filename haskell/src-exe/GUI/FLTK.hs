@@ -597,12 +597,6 @@ launchWindow sink proj maybeAudio = mdo
           Vocal3 -> "Harmonies (3)"
     FL.setResizable tab $ Just tree
     return tab
-  {-
-  makeTab windowRect "Audio" $ \_ _ -> return ()
-  makeTab windowRect "Rock Band 3" $ \_ _ -> return ()
-  makeTab windowRect "Rock Band 2" $ \_ _ -> return ()
-  makeTab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
-  -}
   _starsTab <- makeTab windowRect "Stars" $ \rect tab -> do
     pack <- FL.packNew rect Nothing
     FL.end pack
@@ -646,6 +640,28 @@ launchWindow sink proj maybeAudio = mdo
         FLTK.redraw
     FL.setResizable tab $ Just pack
     return tab
+  rb3Tab <- makeTab windowRect "RB3" $ \rect tab -> do
+    functionTabColor >>= setTabColor tab
+    songPageRB3 sink rect tab proj $ \tgt create -> do
+      proj' <- return proj -- TODO get updated metadata and parts
+      let name = case create of
+            RB3CON   _ -> "Building RB3 CON"
+            RB3Magma _ -> "Building Magma project"
+          task = case create of
+            RB3CON fout -> do
+              tmp <- buildRB3CON tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            RB3Magma dout -> do
+              tmp <- buildMagmaV2 tgt proj'
+              copyDirRecursive tmp dout
+              return [dout]
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
+  {-
+  makeTab windowRect "Rock Band 2" $ \_ _ -> return ()
+  makeTab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
+  -}
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
@@ -682,7 +698,7 @@ launchWindow sink proj maybeAudio = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let tabsToDisable = [metaTab, instTab, utilsTab]
+  let tabsToDisable = [metaTab, instTab, rb3Tab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskTabColor >>= setTabColor tab
     FL.deactivate tab
@@ -964,6 +980,59 @@ batchPagePS sink rect tab build = do
     "Create PS zips"
     "%input_dir%/%input_base%%modifiers%_ps.zip"
     (getTargetSong PSZip >=> build)
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+songPageRB3
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> Project
+  -> (TargetRB3 -> RB3Create -> IO ())
+  -> IO ()
+songPageRB3 sink rect tab proj build = do
+  pack <- FL.packNew rect Nothing
+  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
+  get2x <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    box <- FL.checkButtonNew rect' (Just "2x Bass Pedal drums")
+    return $ FL.getValue box
+  -- TODO custom song ID
+  -- TODO instrument selections: G B D K V
+  -- TODO custom label or title
+  let makeTarget = do
+        speed <- getSpeed
+        is2x <- get2x
+        return def
+          { rb3_Common = (rb3_Common def)
+            { tgt_Speed = Just speed
+            }
+          , rb3_2xBassPedal = is2x
+          }
+  padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Create CON file"
+    FL.setCallback btn $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save RB3 CON file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_rb3con" -- TODO add modifiers
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ RB3CON f
+        _ -> return ()
+  padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Create Magma project"
+    FL.setCallback btn $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
+      FL.setTitle picker "Save Magma v2 project"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_project" -- TODO add modifiers
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ RB3Magma f
+        _ -> return ()
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
