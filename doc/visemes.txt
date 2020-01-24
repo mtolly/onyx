@@ -17,11 +17,11 @@ If - vowel, but looks more like "AHHH" - 255 is huge and terrifying
 New - looks like the middle "eeeeu" kind of? lower lip is forward, upper lip is raised up
 Oat - vowel, circle mouth, very big
 Ox - vowel, big square mouth
-Roar - mouth is open but looks like it's midway through one of the Rs, lips are curled back
 Though - vowel, mouth is like a triangle
-Wet - the starting "W", looks like "ooh"
+Wet - either vowel ("ooh") or consonant ("W")
 
-Bump - consonant, the ending "mp" (or maybe intro "b"), lips tightly pursed - 255 looks comical (lips clip into each other)
-Fave - consonant, either F or V
-Size - consonant, the S or Z
-Told - the ending "LD"? a big grin with mouth slightly open
+Roar - mouth is open but looks like it's midway through one of the Rs, lips are curled back
+Bump - consonant, B M or P (bilabial), lips tightly pursed - 255 looks comical (lips clip into each other)
+Fave - consonant, F or V (labiodental)
+Size - consonant, S or Z (alveolar sibilants)
+Told - consonant, T L or D (alveolar other), a big grin with mouth slightly open

@@ -370,21 +370,47 @@ launchWindow sink proj maybeAudio = mdo
   tabs <- FL.tabsNew
     (Rectangle (Position (X 0) (Y 0)) windowSize)
     Nothing
-  metaTab <- makeTab windowRect "Metadata" $ \rect tab -> do
+  (modifyMeta, metaTab) <- makeTab windowRect "Metadata" $ \rect tab -> do
     homeTabColor >>= setTabColor tab
     let (rectLeft, rectRight) = chopRight 200 rect
     pack <- FL.packNew rectLeft Nothing
-    forM_ (zip (True : repeat False) [("Title", _title), ("Artist", _artist), ("Album", _album)]) $ \(top, (str, fn)) -> do
-      padded (if top then 10 else 5) 10 5 100 (Size (Width 500) (Height 25)) $ \rect' -> do
-        input <- FL.inputNew
-          rect'
-          (Just str)
-          (Just FL.FlNormalInput) -- this is required for labels to work. TODO report bug in binding's "inputNew"
-        FL.setLabelsize input $ FL.FontSize 13
-        FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
-        FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
-        void $ FL.setValue input $ fromMaybe "" $ fn $ _metadata $ projectSongYaml proj
-        return ()
+    let simpleText lbl getter setter = do
+          padded 5 10 5 100 (Size (Width 500) (Height 25)) $ \rect' -> do
+            input <- FL.inputNew
+              rect'
+              (Just lbl)
+              (Just FL.FlNormalInput) -- this is required for labels to work. TODO report bug in binding's "inputNew"
+            FL.setLabelsize input $ FL.FontSize 13
+            FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+            FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
+            void $ FL.setValue input $ fromMaybe "" $ getter $ _metadata $ projectSongYaml proj
+            return $ do
+              val <- FL.getValue input
+              let val' = guard (val /= "") >> Just val
+              return $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
+    void $ FL.boxNew (Rectangle (Position (X 0) (Y 0)) (Size (Width 800) (Height 5))) Nothing
+    yamlModifiers <- sequence
+      [ simpleText "Title"  _title  $ \mstr meta -> meta { _title  = mstr }
+      , simpleText "Artist" _artist $ \mstr meta -> meta { _artist = mstr }
+      , simpleText "Album"  _album  $ \mstr meta -> meta { _album  = mstr }
+      , simpleText "Author" _author $ \mstr meta -> meta { _author = mstr }
+      ]
+    let yamlModifier :: IO (SongYaml -> SongYaml)
+        yamlModifier = foldr (.) id <$> sequence yamlModifiers
+    {- TODO:
+      genre/subgenre: probably dropdowns for magma's genres
+      year
+      track number
+      song key
+      autogen theme? maybe not since planning on removing eventually
+      anim tempo
+      rating
+      preview start/end time
+      languages
+      C3 flags: convert, rhythm keys/bass, cat emh, X only
+      cover/master
+      band difficulty (maybe should go on instruments page?)
+    -}
     FL.end pack
     packRight <- FL.packNew rectRight Nothing
     padded 10 10 0 0 (Size (Width 190) (Height 190)) $ \rect' -> do
@@ -393,9 +419,93 @@ launchWindow sink proj maybeAudio = mdo
       FL.scale png (Size (Width 180) (Height 180)) (Just True) (Just False)
       FL.setImage cover $ Just png
       return ()
+      -- TODO support changing image: click to browse, or drag and drop
     FL.end packRight
     FL.setResizable tab $ Just pack
-    return tab
+    return (yamlModifier, tab)
+  (modifyInsts, instTab) <- makeTab windowRect "Instruments" $ \rect tab -> do
+    homeTabColor >>= setTabColor tab
+    let instRect = trimClock 10 10 10 10 rect
+    tree <- FL.treeNew instRect Nothing
+    FL.end tree
+    FL.rootLabel tree "Instruments"
+    FL.setSelectmode tree FLE.TreeSelectNone
+    FL.setShowcollapse tree False
+    Just root <- FL.root tree
+    forM_ (HM.toList $ getParts $ _parts $ projectSongYaml proj) $ \(fpart, part) -> when (part /= def) $ do
+      Just itemInst <- FL.addAt tree (T.toTitle $ RBFile.getPartName fpart) root
+      let dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 100))
+          addType lbl extra = do
+            Just itemCheck <- FL.addAt tree "" itemInst
+            check <- FL.checkButtonNew dummyRect $ Just lbl
+            void $ FL.setValue check True
+            FL.setWidget itemCheck $ Just check
+            extra itemCheck
+          makeChoice :: (Enum a, Bounded a) => FL.Ref FL.TreeItem -> a -> (a -> T.Text) -> IO ()
+          makeChoice itemParent cur getLabel = do
+            Just itemChoice <- FL.addAt tree "" itemParent
+            choice <- FL.choiceNew dummyRect Nothing
+            forM_ [minBound .. maxBound] $ FL.addName choice . getLabel
+            void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $ fromEnum cur
+            FL.setWidget itemChoice $ Just choice
+          makeDifficulty :: FL.Ref FL.TreeItem -> Difficulty -> IO ()
+          makeDifficulty itemParent diff = do
+            -- TODO disable rank number box unless dropdown is on Rank
+            Just itemGroup <- FL.addAt tree "" itemParent
+            group <- FL.groupNew dummyRect Nothing
+            let (choiceArea, textArea) = chopLeft 100 dummyRect
+            choice <- FL.choiceNew choiceArea Nothing
+            forM_ [1..7] $ \i -> FL.addName choice $ T.pack $ "Tier " <> show (i :: Int)
+            FL.addName choice "Rank"
+            let setChoice = void . FL.setValue choice . FL.MenuItemByIndex . FL.AtIndex
+            case diff of
+              Tier i | 1 <= i && i <= 7 -> setChoice $ fromIntegral i - 1
+              Rank _                    -> setChoice 7
+              _                         -> return ()
+            input <- FL.inputNew textArea Nothing $ Just FL.FlNormalInput
+            case diff of
+              Rank r -> void $ FL.setValue input $ T.pack $ show r
+              _      -> return ()
+            FL.end group
+            FL.setWidget itemGroup $ Just group
+      forM_ (partGRYBO part) $ \pg -> addType "5-Fret" $ \itemCheck -> do
+        makeDifficulty itemCheck $ gryboDifficulty pg
+      forM_ (partGHL part) $ \pg -> addType "6-Fret" $ \itemCheck -> do
+        makeDifficulty itemCheck $ ghlDifficulty pg
+      forM_ (partProKeys part) $ \pk -> addType "Pro Keys" $ \itemCheck -> do
+        makeDifficulty itemCheck $ pkDifficulty pk
+      forM_ (partProGuitar part) $ \pg -> addType "Pro Guitar" $ \itemCheck -> do
+        makeDifficulty itemCheck $ pgDifficulty pg
+      forM_ (partDrums part) $ \pd -> addType "Drums" $ \itemCheck -> do
+        makeDifficulty itemCheck $ drumsDifficulty pd
+        makeChoice itemCheck (drumsMode pd) $ \case
+          Drums4    -> "4-Lane Drums"
+          Drums5    -> "5-Lane Drums"
+          DrumsPro  -> "Pro Drums"
+          DrumsReal -> "Phase Shift Real Drums"
+        makeChoice itemCheck (drumsKicks pd) $ \case
+          Kicks1x   -> "1x Bass Pedal"
+          Kicks2x   -> "2x Bass Pedal"
+          KicksBoth -> "1x+2x Bass Pedal (PS X+ or C3 format)"
+        makeChoice itemCheck (drumsKit pd) $ \case
+          HardRockKit   -> "Hard Rock Kit"
+          ArenaKit      -> "Arena Kit"
+          VintageKit    -> "Vintage Kit"
+          TrashyKit     -> "Trashy Kit"
+          ElectronicKit -> "Electronic Kit"
+      forM_ (partVocal part) $ \pv -> addType "Vocals" $ \itemCheck -> do
+        makeDifficulty itemCheck $ vocalDifficulty pv
+        makeChoice itemCheck (vocalCount pv) $ \case
+          Vocal1 -> "Solo"
+          Vocal2 -> "Harmonies (2)"
+          Vocal3 -> "Harmonies (3)"
+    FL.setResizable tab $ Just tree
+    return (return id, tab) -- TODO return part editor function
+  let fullProjModify :: Project -> IO Project
+      fullProjModify p = do
+        modifiers <- sequence [modifyMeta, modifyInsts]
+        let newYaml = foldr ($) (projectSongYaml p) modifiers
+        saveProject p newYaml
   (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> do
     let (topControlsArea1, glArea) = chopTop 40 rect
         (trimClock 5 5 5 5 -> playButtonArea, topControlsArea2) = chopLeft 60 topControlsArea1
@@ -521,82 +631,6 @@ launchWindow sink proj maybeAudio = mdo
         stop audio
 
     -}
-  instTab <- makeTab windowRect "Instruments" $ \rect tab -> do
-    let instRect = trimClock 10 10 10 10 rect
-    tree <- FL.treeNew instRect Nothing
-    FL.end tree
-    FL.rootLabel tree "Instruments"
-    FL.setSelectmode tree FLE.TreeSelectNone
-    FL.setShowcollapse tree False
-    Just root <- FL.root tree
-    forM_ (HM.toList $ getParts $ _parts $ projectSongYaml proj) $ \(fpart, part) -> when (part /= def) $ do
-      Just itemInst <- FL.addAt tree (T.toTitle $ RBFile.getPartName fpart) root
-      let dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 100))
-          addType lbl extra = do
-            Just itemCheck <- FL.addAt tree "" itemInst
-            check <- FL.checkButtonNew dummyRect $ Just lbl
-            void $ FL.setValue check True
-            FL.setWidget itemCheck $ Just check
-            extra itemCheck
-          makeChoice :: (Enum a, Bounded a) => FL.Ref FL.TreeItem -> a -> (a -> T.Text) -> IO ()
-          makeChoice itemParent cur getLabel = do
-            Just itemChoice <- FL.addAt tree "" itemParent
-            choice <- FL.choiceNew dummyRect Nothing
-            forM_ [minBound .. maxBound] $ FL.addName choice . getLabel
-            void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $ fromEnum cur
-            FL.setWidget itemChoice $ Just choice
-          makeDifficulty :: FL.Ref FL.TreeItem -> Difficulty -> IO ()
-          makeDifficulty itemParent diff = do
-            Just itemGroup <- FL.addAt tree "" itemParent
-            group <- FL.groupNew dummyRect Nothing
-            let (choiceArea, textArea) = chopLeft 100 dummyRect
-            choice <- FL.choiceNew choiceArea Nothing
-            forM_ [1..7] $ \i -> FL.addName choice $ T.pack $ "Tier " <> show (i :: Int)
-            FL.addName choice "Rank"
-            let setChoice = void . FL.setValue choice . FL.MenuItemByIndex . FL.AtIndex
-            case diff of
-              Tier i | 1 <= i && i <= 7 -> setChoice $ fromIntegral i - 1
-              Rank _                    -> setChoice 7
-              _                         -> return ()
-            input <- FL.inputNew textArea Nothing $ Just FL.FlNormalInput
-            case diff of
-              Rank r -> void $ FL.setValue input $ T.pack $ show r
-              _      -> return ()
-            FL.end group
-            FL.setWidget itemGroup $ Just group
-      forM_ (partGRYBO part) $ \pg -> addType "5-Fret" $ \itemCheck -> do
-        makeDifficulty itemCheck $ gryboDifficulty pg
-      forM_ (partGHL part) $ \pg -> addType "6-Fret" $ \itemCheck -> do
-        makeDifficulty itemCheck $ ghlDifficulty pg
-      forM_ (partProKeys part) $ \pk -> addType "Pro Keys" $ \itemCheck -> do
-        makeDifficulty itemCheck $ pkDifficulty pk
-      forM_ (partProGuitar part) $ \pg -> addType "Pro Guitar" $ \itemCheck -> do
-        makeDifficulty itemCheck $ pgDifficulty pg
-      forM_ (partDrums part) $ \pd -> addType "Drums" $ \itemCheck -> do
-        makeDifficulty itemCheck $ drumsDifficulty pd
-        makeChoice itemCheck (drumsMode pd) $ \case
-          Drums4    -> "4-Lane Drums"
-          Drums5    -> "5-Lane Drums"
-          DrumsPro  -> "Pro Drums"
-          DrumsReal -> "Phase Shift Real Drums"
-        makeChoice itemCheck (drumsKicks pd) $ \case
-          Kicks1x   -> "1x Bass Pedal"
-          Kicks2x   -> "2x Bass Pedal"
-          KicksBoth -> "1x+2x Bass Pedal (PS X+ or C3 format)"
-        makeChoice itemCheck (drumsKit pd) $ \case
-          HardRockKit   -> "Hard Rock Kit"
-          ArenaKit      -> "Arena Kit"
-          VintageKit    -> "Vintage Kit"
-          TrashyKit     -> "Trashy Kit"
-          ElectronicKit -> "Electronic Kit"
-      forM_ (partVocal part) $ \pv -> addType "Vocals" $ \itemCheck -> do
-        makeDifficulty itemCheck $ vocalDifficulty pv
-        makeChoice itemCheck (vocalCount pv) $ \case
-          Vocal1 -> "Solo"
-          Vocal2 -> "Harmonies (2)"
-          Vocal3 -> "Harmonies (3)"
-    FL.setResizable tab $ Just tree
-    return tab
   _starsTab <- makeTab windowRect "Stars" $ \rect tab -> do
     pack <- FL.packNew rect Nothing
     FL.end pack
@@ -643,7 +677,7 @@ launchWindow sink proj maybeAudio = mdo
   rb3Tab <- makeTab windowRect "RB3" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageRB3 sink rect tab proj $ \tgt create -> do
-      proj' <- return proj -- TODO get updated metadata and parts
+      proj' <- fullProjModify proj
       let name = case create of
             RB3CON   _ -> "Building RB3 CON"
             RB3Magma _ -> "Building Magma project"
