@@ -432,75 +432,136 @@ launchWindow sink proj maybeAudio = mdo
     FL.setSelectmode tree FLE.TreeSelectNone
     FL.setShowcollapse tree False
     Just root <- FL.root tree
-    forM_ (HM.toList $ getParts $ _parts $ projectSongYaml proj) $ \(fpart, part) -> when (part /= def) $ do
-      Just itemInst <- FL.addAt tree (T.toTitle $ RBFile.getPartName fpart) root
-      let dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 100))
-          addType lbl extra = do
-            Just itemCheck <- FL.addAt tree "" itemInst
-            check <- FL.checkButtonNew dummyRect $ Just lbl
-            void $ FL.setValue check True
-            FL.setWidget itemCheck $ Just check
-            extra itemCheck
-          makeChoice :: (Enum a, Bounded a) => FL.Ref FL.TreeItem -> a -> (a -> T.Text) -> IO ()
-          makeChoice itemParent cur getLabel = do
-            Just itemChoice <- FL.addAt tree "" itemParent
-            choice <- FL.choiceNew dummyRect Nothing
-            forM_ [minBound .. maxBound] $ FL.addName choice . getLabel
-            void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $ fromEnum cur
-            FL.setWidget itemChoice $ Just choice
-          makeDifficulty :: FL.Ref FL.TreeItem -> Difficulty -> IO ()
-          makeDifficulty itemParent diff = do
-            -- TODO disable rank number box unless dropdown is on Rank
-            Just itemGroup <- FL.addAt tree "" itemParent
-            group <- FL.groupNew dummyRect Nothing
-            let (choiceArea, textArea) = chopLeft 100 dummyRect
-            choice <- FL.choiceNew choiceArea Nothing
-            forM_ [1..7] $ \i -> FL.addName choice $ T.pack $ "Tier " <> show (i :: Int)
-            FL.addName choice "Rank"
-            let setChoice = void . FL.setValue choice . FL.MenuItemByIndex . FL.AtIndex
-            case diff of
-              Tier i | 1 <= i && i <= 7 -> setChoice $ fromIntegral i - 1
-              Rank _                    -> setChoice 7
-              _                         -> return ()
-            input <- FL.inputNew textArea Nothing $ Just FL.FlNormalInput
-            case diff of
-              Rank r -> void $ FL.setValue input $ T.pack $ show r
-              _      -> return ()
-            FL.end group
-            FL.setWidget itemGroup $ Just group
-      forM_ (partGRYBO part) $ \pg -> addType "5-Fret" $ \itemCheck -> do
-        makeDifficulty itemCheck $ gryboDifficulty pg
-      forM_ (partGHL part) $ \pg -> addType "6-Fret" $ \itemCheck -> do
-        makeDifficulty itemCheck $ ghlDifficulty pg
-      forM_ (partProKeys part) $ \pk -> addType "Pro Keys" $ \itemCheck -> do
-        makeDifficulty itemCheck $ pkDifficulty pk
-      forM_ (partProGuitar part) $ \pg -> addType "Pro Guitar" $ \itemCheck -> do
-        makeDifficulty itemCheck $ pgDifficulty pg
-      forM_ (partDrums part) $ \pd -> addType "Drums" $ \itemCheck -> do
-        makeDifficulty itemCheck $ drumsDifficulty pd
-        makeChoice itemCheck (drumsMode pd) $ \case
-          Drums4    -> "4-Lane Drums"
-          Drums5    -> "5-Lane Drums"
-          DrumsPro  -> "Pro Drums"
-          DrumsReal -> "Phase Shift Real Drums"
-        makeChoice itemCheck (drumsKicks pd) $ \case
-          Kicks1x   -> "1x Bass Pedal"
-          Kicks2x   -> "2x Bass Pedal"
-          KicksBoth -> "1x+2x Bass Pedal (PS X+ or C3 format)"
-        makeChoice itemCheck (drumsKit pd) $ \case
-          HardRockKit   -> "Hard Rock Kit"
-          ArenaKit      -> "Arena Kit"
-          VintageKit    -> "Vintage Kit"
-          TrashyKit     -> "Trashy Kit"
-          ElectronicKit -> "Electronic Kit"
-      forM_ (partVocal part) $ \pv -> addType "Vocals" $ \itemCheck -> do
-        makeDifficulty itemCheck $ vocalDifficulty pv
-        makeChoice itemCheck (vocalCount pv) $ \case
-          Vocal1 -> "Solo"
-          Vocal2 -> "Harmonies (2)"
-          Vocal3 -> "Harmonies (3)"
+    getNewParts <- fmap catMaybes $ forM (HM.toList $ getParts $ _parts $ projectSongYaml proj) $ \(fpart, part) ->
+      if part == def
+        then return Nothing
+        else do
+          Just itemInst <- FL.addAt tree (T.toTitle $ RBFile.getPartName fpart) root
+          let dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 100))
+              addType lbl extra = do
+                Just itemCheck <- FL.addAt tree "" itemInst
+                check <- FL.checkButtonNew dummyRect $ Just lbl
+                void $ FL.setValue check True
+                FL.setWidget itemCheck $ Just check
+                fn <- extra itemCheck
+                return $ \curPart -> do
+                  isChecked <- FL.getValue check
+                  fn isChecked curPart
+              makeChoice :: (Enum a, Bounded a) => FL.Ref FL.TreeItem -> a -> (a -> T.Text) -> IO (IO a)
+              makeChoice itemParent cur getLabel = do
+                Just itemChoice <- FL.addAt tree "" itemParent
+                choice <- FL.choiceNew dummyRect Nothing
+                forM_ [minBound .. maxBound] $ FL.addName choice . getLabel
+                void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $ fromEnum cur
+                FL.setWidget itemChoice $ Just choice
+                return $ (\(FL.AtIndex i) -> toEnum i) <$> FL.getValue choice
+              makeDifficulty :: FL.Ref FL.TreeItem -> Difficulty -> IO (IO Difficulty)
+              makeDifficulty itemParent diff = do
+                -- TODO disable rank number box unless dropdown is on Rank
+                Just itemGroup <- FL.addAt tree "" itemParent
+                group <- FL.groupNew dummyRect Nothing
+                let (choiceArea, textArea) = chopLeft 100 dummyRect
+                choice <- FL.choiceNew choiceArea Nothing
+                let tierCount = 7
+                forM_ [1 .. tierCount] $ \i -> FL.addName choice $ T.pack $ "Tier " <> show (i :: Int)
+                FL.addName choice "Rank"
+                input <- FL.inputNew textArea Nothing $ Just FL.FlNormalInput
+                let setChoice = void . FL.setValue choice . FL.MenuItemByIndex . FL.AtIndex
+                    controlRank = do
+                      FL.AtIndex i <- FL.getValue choice
+                      if i == tierCount
+                        then FL.activate   input
+                        else FL.deactivate input
+                case diff of
+                  Tier i -> setChoice $ max 1 $ min tierCount $ fromIntegral i - 1
+                  Rank r -> do
+                    setChoice tierCount
+                    void $ FL.setValue input $ T.pack $ show r
+                controlRank
+                FL.setCallback choice $ \_ -> controlRank
+                FL.end group
+                FL.setWidget itemGroup $ Just group
+                return $ do
+                  FL.AtIndex i <- FL.getValue choice
+                  if i == tierCount
+                    then Rank . fromMaybe 0 . readMaybe . T.unpack <$> FL.getValue input
+                    else return $ Tier $ fromIntegral i
+          mbGRYBO <- forM (partGRYBO part) $ \pg -> addType "5-Fret" $ \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck $ gryboDifficulty pg
+            return $ \isChecked curPart -> do
+              diff <- getDiff
+              return curPart { partGRYBO = guard isChecked >> Just pg { gryboDifficulty = diff } }
+          mbGHL <- forM (partGHL part) $ \pg -> addType "6-Fret" $ \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck $ ghlDifficulty pg
+            return $ \isChecked curPart -> do
+              diff <- getDiff
+              return curPart { partGHL = guard isChecked >> Just pg { ghlDifficulty = diff } }
+          mbProKeys <- forM (partProKeys part) $ \pk -> addType "Pro Keys" $ \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck $ pkDifficulty pk
+            return $ \isChecked curPart -> do
+              diff <- getDiff
+              return curPart { partProKeys = guard isChecked >> Just pk { pkDifficulty = diff } }
+          mbProGuitar <- forM (partProGuitar part) $ \pg -> addType "Pro Guitar" $ \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck $ pgDifficulty pg
+            return $ \isChecked curPart -> do
+              diff <- getDiff
+              return curPart { partProGuitar = guard isChecked >> Just pg { pgDifficulty = diff } }
+          mbDrums <- forM (partDrums part) $ \pd -> addType "Drums" $ \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck $ drumsDifficulty pd
+            getMode <- makeChoice itemCheck (drumsMode pd) $ \case
+              Drums4    -> "4-Lane Drums"
+              Drums5    -> "5-Lane Drums"
+              DrumsPro  -> "Pro Drums"
+              DrumsReal -> "Phase Shift Real Drums"
+            getKicks <- makeChoice itemCheck (drumsKicks pd) $ \case
+              Kicks1x   -> "1x Bass Pedal"
+              Kicks2x   -> "2x Bass Pedal"
+              KicksBoth -> "1x+2x Bass Pedal (PS X+ or C3 format)"
+            getKit <- makeChoice itemCheck (drumsKit pd) $ \case
+              HardRockKit   -> "Hard Rock Kit"
+              ArenaKit      -> "Arena Kit"
+              VintageKit    -> "Vintage Kit"
+              TrashyKit     -> "Trashy Kit"
+              ElectronicKit -> "Electronic Kit"
+            return $ \isChecked curPart -> do
+              diff <- getDiff
+              mode <- getMode
+              kicks <- getKicks
+              kit <- getKit
+              return curPart
+                { partDrums = guard isChecked >> Just pd
+                  { drumsDifficulty = diff
+                  , drumsMode = mode
+                  , drumsKicks = kicks
+                  , drumsKit = kit
+                  }
+                }
+          mbVocal <- forM (partVocal part) $ \pv -> addType "Vocals" $ \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck $ vocalDifficulty pv
+            getCount <- makeChoice itemCheck (vocalCount pv) $ \case
+              Vocal1 -> "Solo"
+              Vocal2 -> "Harmonies (2)"
+              Vocal3 -> "Harmonies (3)"
+            return $ \isChecked curPart -> do
+              diff <- getDiff
+              count <- getCount
+              return curPart
+                { partVocal = guard isChecked >> Just pv
+                  { vocalDifficulty = diff
+                  , vocalCount = count
+                  }
+                }
+          return $ Just $ do
+            let modifiers = catMaybes [mbGRYBO, mbGHL, mbProKeys, mbProGuitar, mbDrums, mbVocal]
+            newPart <- foldl (>>=) (return part) modifiers
+            return (fpart, newPart)
+    let editParts = do
+          newParts <- sequence getNewParts
+          return $ \yaml -> yaml
+            { _parts = Parts $ HM.fromList newParts
+            }
     FL.setResizable tab $ Just tree
-    return (return id, tab) -- TODO return part editor function
+    return (editParts, tab)
   let fullProjModify :: Project -> IO Project
       fullProjModify p = do
         modifiers <- sequence [modifyMeta, modifyInsts]
