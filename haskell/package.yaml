@@ -106,7 +106,7 @@ library:
   when:
   - condition: os(mingw32)
     then:
-      extra-libraries: shell32
+      extra-libraries: shell32 ole32
       cpp-options: -DWINDOWS
       c-sources: cbits/winfiles.c
       dependencies: Win32

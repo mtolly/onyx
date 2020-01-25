@@ -4,7 +4,9 @@
 #include <shlobj.h>
 
 void onyx_ShowFiles(wchar_t *dir, wchar_t **files, int len) {
-  // COM must be init'd before this. SDL does it for us
+  // initialize COM (SDL does this itself but I don't think FLTK does)
+  CoInitializeEx(NULL, COINIT_MULTITHREADED);
+
   ITEMIDLIST *pidl = ILCreateFromPathW(dir);
   if (pidl) {
     const ITEMIDLIST *pidls[len];
@@ -26,4 +28,7 @@ void onyx_ShowFiles(wchar_t *dir, wchar_t **files, int len) {
     }
     ILFree(pidl);
   }
+
+  // tear down COM
+  CoUninitialize();
 }

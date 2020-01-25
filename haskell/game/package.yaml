@@ -18,7 +18,6 @@ executables:
     - base
     - onyxite-customs-lib
     - sdl2
-    - sdl2-ttf
     - containers
     - vector
     - async
