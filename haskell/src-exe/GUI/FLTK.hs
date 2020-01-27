@@ -49,6 +49,8 @@ import           Control.Monad.Trans.Resource              (ResourceT, allocate,
                                                             resourceForkIO,
                                                             runResourceT)
 import           Control.Monad.Trans.StackTrace
+import           Control.Monad.Trans.Writer                (WriterT,
+                                                            execWriterT, tell)
 import qualified Data.Aeson                                as A
 import           Data.Binary.Put                           (runPut)
 import qualified Data.ByteString                           as B
@@ -72,6 +74,7 @@ import           Data.Maybe                                (catMaybes,
                                                             isNothing,
                                                             listToMaybe,
                                                             mapMaybe)
+import           Data.Monoid                               (Endo (..))
 import qualified Data.Text                                 as T
 import qualified Data.Text.Encoding                        as TE
 import           Data.Time                                 (getCurrentTime)
@@ -81,6 +84,8 @@ import           Data.Version                              (showVersion)
 import           DryVox
 import           Foreign                                   (Ptr)
 import           Foreign.C                                 (CString)
+import           Genre                                     (FullGenre (..),
+                                                            interpretGenre)
 import qualified Graphics.UI.FLTK.LowLevel.Base.GlWindow   as FLGL
 import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
 import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
@@ -294,22 +299,23 @@ trimClock t r b l rect = let
   in rect4
 
 padded
-  :: Int -> Int -> Int -> Int
+  :: (MonadIO m)
+  => Int -> Int -> Int -> Int
   -> Size
-  -> (Rectangle -> IO a)
-  -> IO a
+  -> (Rectangle -> m a)
+  -> m a
 padded t r b l size@(Size (Width w) (Height h)) fn = do
-  group <- FL.groupNew
+  group <- liftIO $ FL.groupNew
     (Rectangle
       (Position (X 0) (Y 0))
       (Size (Width (w + l + r)) (Height (h + t + b)))
     )
     Nothing
   let rect = Rectangle (Position (X l) (Y t)) size
-  box <- FL.boxNew rect Nothing
-  FL.setResizable group $ Just box
+  box <- liftIO $ FL.boxNew rect Nothing
+  liftIO $ FL.setResizable group $ Just box
   x <- fn rect
-  FL.end group
+  liftIO $ FL.end group
   return x
 
 makeTab :: Rectangle -> T.Text -> (Rectangle -> FL.Ref FL.Group -> IO a) -> IO a
@@ -353,6 +359,8 @@ currentSongTime stime ss = case songPlaying ss of
     timeToDouble t = realToFrac (systemSeconds t) + realToFrac (systemNanoseconds t) / 1000000000
     in (timeToDouble stime - timeToDouble (playStarted p)) * playSpeed p
 
+type BuildYamlControl = WriterT (IO (Endo SongYaml)) IO
+
 launchWindow :: (Event -> IO ()) -> Project -> Maybe (Double -> Maybe Double -> IO (IO ())) -> IO ()
 launchWindow sink proj maybeAudio = mdo
   let windowSize = Size (Width 800) (Height 500)
@@ -374,8 +382,9 @@ launchWindow sink proj maybeAudio = mdo
     homeTabColor >>= setTabColor tab
     let (rectLeft, rectRight) = chopRight 200 rect
     pack <- FL.packNew rectLeft Nothing
-    let simpleText lbl getter setter = do
-          padded 5 10 5 100 (Size (Width 500) (Height 25)) $ \rect' -> do
+    yamlModifier <- fmap (fmap appEndo) $ execWriterT $ do
+      let fullWidth = padded 5 10 5 100 (Size (Width 500) (Height 30))
+          simpleText lbl getter rect' = liftIO $ do
             input <- FL.inputNew
               rect'
               (Just lbl)
@@ -384,33 +393,74 @@ launchWindow sink proj maybeAudio = mdo
             FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
             FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
             void $ FL.setValue input $ fromMaybe "" $ getter $ _metadata $ projectSongYaml proj
-            return $ do
-              val <- FL.getValue input
-              let val' = guard (val /= "") >> Just val
-              return $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
-    void $ FL.boxNew (Rectangle (Position (X 0) (Y 0)) (Size (Width 800) (Height 5))) Nothing
-    yamlModifiers <- sequence
-      [ simpleText "Title"  _title  $ \mstr meta -> meta { _title  = mstr }
-      , simpleText "Artist" _artist $ \mstr meta -> meta { _artist = mstr }
-      , simpleText "Album"  _album  $ \mstr meta -> meta { _album  = mstr }
-      , simpleText "Author" _author $ \mstr meta -> meta { _author = mstr }
-      ]
-    let yamlModifier :: IO (SongYaml -> SongYaml)
-        yamlModifier = foldr (.) id <$> sequence yamlModifiers
-    {- TODO:
-      genre/subgenre: probably dropdowns for magma's genres
-      year
-      track number
-      song key
-      autogen theme? maybe not since planning on removing eventually
-      anim tempo
-      rating
-      preview start/end time
-      languages
-      C3 flags: convert, rhythm keys/bass, cat emh, X only
-      cover/master
-      band difficulty (maybe should go on instruments page?)
-    -}
+            return input
+          applyToMetadata :: (Maybe T.Text -> Metadata -> Metadata) -> FL.Ref FL.Input -> BuildYamlControl ()
+          applyToMetadata setter input = tell $ do
+            val <- FL.getValue input
+            let val' = guard (val /= "") >> Just val
+            return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
+          simpleTextGet lbl getter setter rect' = do
+            input <- simpleText lbl getter rect'
+            applyToMetadata setter input
+          simpleCheck lbl getter setter rect' = do
+            input <- liftIO $ FL.checkButtonNew rect' $ Just lbl
+            liftIO $ void $ FL.setValue input $ getter $ _metadata $ projectSongYaml proj
+            liftIO $ FL.setLabelsize input $ FL.FontSize 13
+            tell $ do
+              b <- FL.getValue input
+              return $ Endo $ \yaml -> yaml { _metadata = setter b $ _metadata yaml }
+      void $ liftIO $ FL.boxNew (Rectangle (Position (X 0) (Y 0)) (Size (Width 800) (Height 5))) Nothing
+      fullWidth $ simpleTextGet "Title"  _title  $ \mstr meta -> meta { _title  = mstr }
+      fullWidth $ simpleTextGet "Artist" _artist $ \mstr meta -> meta { _artist = mstr }
+      fullWidth $ simpleTextGet "Album"  _album  $ \mstr meta -> meta { _album  = mstr }
+      fullWidth $ simpleTextGet "Author" _author $ \mstr meta -> meta { _author = mstr }
+      (genreInput, subgenreInput) <- fullWidth $ \rect' -> let
+        [trimClock 0 50 0 0 -> genreArea, trimClock 0 0 0 50 -> subgenreArea] = splitHorizN 2 rect'
+        in do
+          genreInput    <- simpleText "Genre"    _genre    genreArea
+          subgenreInput <- simpleText "Subgenre" _subgenre subgenreArea
+          applyToMetadata (\mstr meta -> meta { _genre    = mstr }) genreInput
+          applyToMetadata (\mstr meta -> meta { _subgenre = mstr }) subgenreInput
+          return (genreInput, subgenreInput)
+      fullWidth $ \rect' -> liftIO $ do
+        calcGenreBox <- FL.boxNew rect' Nothing
+        let calcGenre = do
+              g <- FL.getValue genreInput
+              s <- FL.getValue subgenreInput
+              let FullGenre{..} = interpretGenre
+                    (guard (g /= "") >> Just g)
+                    (guard (s /= "") >> Just s)
+              FL.setLabel calcGenreBox $ T.concat
+                -- TODO show in-game names, not dta names
+                [ "RB3: ", rbn2Genre, " (", rbn2Subgenre, "), "
+                , "RB2: ", rbn1Genre, " (", rbn1Subgenre, ")"
+                ]
+        calcGenre
+        FL.setCallback genreInput    $ \_ -> calcGenre
+        FL.setCallback subgenreInput $ \_ -> calcGenre
+        FL.setWhen genreInput    [FLE.WhenChanged]
+        FL.setWhen subgenreInput [FLE.WhenChanged]
+      padded 5 10 5 10 (Size (Width 500) (Height 30)) $ \rect' -> do
+        let [r1, r2, r3] = splitHorizN 3 rect'
+        simpleCheck "Convert"        _convert    (\b meta -> meta { _convert    = b }) r1
+        simpleCheck "Rhythm on Keys" _rhythmKeys (\b meta -> meta { _rhythmKeys = b }) r2
+        simpleCheck "Rhythm on Bass" _rhythmBass (\b meta -> meta { _rhythmBass = b }) r3
+      padded 5 10 5 10 (Size (Width 500) (Height 30)) $ \rect' -> do
+        let [r4, r5, r6] = splitHorizN 3 rect'
+        simpleCheck "Auto EMH"       _catEMH     (\b meta -> meta { _catEMH     = b }) r4
+        simpleCheck "Expert Only"    _expertOnly (\b meta -> meta { _expertOnly = b }) r5
+        simpleCheck "Cover"          _cover      (\b meta -> meta { _cover      = b }) r6
+      {- TODO:
+        year
+        track number
+        song key
+        autogen theme? maybe not since planning on removing eventually
+        anim tempo
+        rating
+        preview start/end time
+        languages
+        band difficulty (maybe should go on instruments page?)
+      -}
     FL.end pack
     packRight <- FL.packNew rectRight Nothing
     padded 10 10 0 0 (Size (Width 190) (Height 190)) $ \rect' -> do
