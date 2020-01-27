@@ -97,6 +97,7 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
                                                             Y (..))
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Graphics.UI.FLTK.LowLevel.GlWindow        ()
+import           Graphics.UI.FLTK.LowLevel.X               (openCallback)
 import           JSONData                                  (toJSON,
                                                             yamlEncodeFile)
 import           MoggDecrypt                               (oggToMogg)
@@ -2589,6 +2590,9 @@ launchGUI = do
   let sink e = do
         atomically $ writeTChan evts e
         FLTK.awake -- this makes waitFor finish so we can process the event
+
+  -- support drag and drop onto mac app icon
+  void $ openCallback $ Just $ sink . EventOnyx . startLoad . T.unpack
 
   -- terminal
   let consoleWidth = Width 500
