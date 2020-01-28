@@ -10,12 +10,14 @@ import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Config
+import           Control.Monad.Codec              (codecIn)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard,
                                                    when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace
+import           Data.Binary.Get                  (runGetOrFail)
 import           Data.Binary.Put                  (runPut)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
@@ -60,11 +62,13 @@ import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Vocal             (nullVox)
 import           RockBand.Common                  (Difficulty (..))
-import           RockBand.Milo                    (autoLipsync, beatlesLipsync,
-                                                   packMilo, putLipsync,
+import           RockBand.Milo                    (SongPref, autoLipsync,
+                                                   beatlesLipsync, packMilo,
+                                                   putLipsync,
                                                    testConvertLipsync,
                                                    unpackMilo)
 import           RockBand.Score
+import           Rocksmith.Sng2014                (bin)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
@@ -794,6 +798,21 @@ commands =
               stackIO $ BL.writeFile fout $ runPut $ putLipsync lip
               return $ Just fout
       _ -> fatal "Expected 1 argument (input midi)"
+    }
+
+  , Command
+    { commandWord = "unpref"
+    , commandDesc = "Parse a BandSongPref file"
+    , commandUsage = "onyx unpref BandSongPref [--to out.txt]"
+    , commandRun = \args opts -> case args of
+      [fin] -> do
+        fout <- outputFile opts $ return $ fin <.> "txt"
+        bs <- stackIO $ BL.readFile fin
+        case runGetOrFail (codecIn bin) bs of
+          Right (_, _, pref) -> stackIO $ writeFile fout $ show (pref :: SongPref)
+          Left (_, pos, err) -> fatal $ "Binary Get at position " <> show pos <> ": " <> err
+        return [fout]
+      _ -> fatal "Expected 1 argument (BandSongPref file)"
     }
 
   , Command

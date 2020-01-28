@@ -305,6 +305,8 @@ data VenueTrack t = VenueTrack
   , venueSingGuitar       :: RTB.T t Bool -- or keys if no guitar
   , venueSingDrums        :: RTB.T t Bool
   , venueSingBass         :: RTB.T t Bool -- or keys if no bass
+  -- these are actually "part 2" "part 4" "part 3" respectively,
+  -- as they can be redirected by BandSongPref
 
   , venueSpotKeys         :: RTB.T t Bool -- rb3 only of course
   , venueSpotVocal        :: RTB.T t Bool

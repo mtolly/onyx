@@ -7,6 +7,7 @@ module RockBand.Milo
 ( module RockBand.Milo.Compression
 , module RockBand.Milo.Dir
 , module RockBand.Milo.Lipsync
+, module RockBand.Milo.SongPref
 , module RockBand.Milo.Venue
 , unpackMilo
 , packMilo
@@ -22,6 +23,7 @@ import qualified Data.ByteString.Lazy           as BL
 import           RockBand.Milo.Compression
 import           RockBand.Milo.Dir
 import           RockBand.Milo.Lipsync
+import           RockBand.Milo.SongPref
 import           RockBand.Milo.Venue
 import qualified System.Directory               as Dir
 import           System.FilePath                ((<.>), (</>))
