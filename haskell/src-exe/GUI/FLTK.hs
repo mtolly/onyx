@@ -372,6 +372,10 @@ launchWindow sink proj maybeAudio = mdo
     windowSize
     Nothing
     (Just $ fromMaybe "Song" $ _title $ _metadata $ projectSongYaml proj)
+    -- TODO if title has slash like "Pupa / Cocoon" this makes weird new menus
+    -- on Mac that can crash (bc you can reopen a closed song window and try to
+    -- delete the temp folder a second time). to fix properly I think we need
+    -- to set window_menu_style on the SysMenuBar (not in fltkhs yet)
   behindTabsColor >>= FL.setColor window
   FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
   FL.sizeRange window $ Size (Width 800) (Height 500)
@@ -523,7 +527,7 @@ launchWindow sink proj maybeAudio = mdo
                         then FL.activate   input
                         else FL.deactivate input
                 case diff of
-                  Tier i -> setChoice $ max 1 $ min tierCount $ fromIntegral i - 1
+                  Tier i -> setChoice $ (max 1 $ min tierCount $ fromIntegral i) - 1
                   Rank r -> do
                     setChoice tierCount
                     void $ FL.setValue input $ T.pack $ show r
@@ -2652,6 +2656,8 @@ launchGUI = do
         if macOS
           then do
             menu <- FL.sysMenuBarNew menuRect Nothing
+            -- TODO need to set window_menu_style to avoid weird slash submenu,
+            -- see details in launchWindow
             forM_ menuOptions $ \(a, b, c, d) -> do
               FL.add menu a b (fmap menuFn c) d
           else do
