@@ -40,5 +40,6 @@ library:
   - conduit
   - conduit-audio
   - conduit-audio-sndfile
+  - wavefront
   build-tools:
   - c2hs

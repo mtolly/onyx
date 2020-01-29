@@ -8,6 +8,7 @@
 module RhythmGame.Graphics where
 
 import           Codec.Picture
+import qualified Codec.Wavefront        as Obj
 import           Control.Arrow          (second)
 import           Control.Exception      (bracket)
 import           Control.Monad          (forM, forM_, guard, void, when)
@@ -19,6 +20,7 @@ import           Data.List.HT           (partitionMaybe)
 import qualified Data.Map.Strict        as Map
 import           Data.Maybe             (fromMaybe, isJust)
 import qualified Data.Set               as Set
+import qualified Data.Vector            as V
 import qualified Data.Vector.Storable   as VS
 import           Foreign                hiding (void)
 import           Foreign.C
@@ -100,7 +102,10 @@ drawObject GLStuff{..} (viewY, viewH) obj (V3 x1 y1 z1) (V3 x2 y2 z2) texcolor a
   sendUniformName objectShader "material.specular.type" colorType
   sendUniformName objectShader "material.specular.color" (V4 0.5 0.5 0.5 1 :: V4 Float)
   sendUniformName objectShader "material.shininess" (32 :: Float)
-  glDrawArrays GL_TRIANGLES 0 36
+  glDrawArrays GL_TRIANGLES 0 $ case obj of
+    Box{} -> boxCount
+    Cone  -> coneCount
+    Flat  -> flatCount
 
 makeToggleBounds :: t -> t -> Map.Map t Toggle -> [(t, t, Bool)]
 makeToggleBounds t1 t2 m = let
@@ -668,6 +673,10 @@ data GLStuff = GLStuff
   , quadShader   :: GLuint
   , quadVAO      :: GLuint
   , textures     :: [(TextureID, Texture)]
+  , boxCount     :: GLint
+  , coneCount    :: GLint
+  , flatCount    :: GLint
+  , quadCount    :: GLint
   } deriving (Show)
 
 data TextureID
@@ -716,6 +725,25 @@ data TextureID
   | TextureTargetOrangeLight
   deriving (Eq, Show, Enum, Bounded)
 
+loadObj :: FilePath -> IO [Vertex]
+loadObj f = do
+  obj <- Obj.fromFile f >>= either fail return
+  return $ do
+    Obj.Face a b c rest <- map Obj.elValue $ V.toList $ Obj.objFaces obj
+    let triangulate v1 v2 v3 vs = [v1, v2, v3] ++ case vs of
+          []    -> []
+          h : t -> triangulate v1 v3 h t
+    faceIndex <- triangulate a b c rest
+    let loc      = Obj.objLocations obj V.! (Obj.faceLocIndex faceIndex - 1)
+        texCoord = Obj.objTexCoords obj V.! (fromMaybe 0 (Obj.faceTexCoordIndex faceIndex) - 1)
+        nor      = Obj.objNormals   obj V.! (fromMaybe 0 (Obj.faceNorIndex      faceIndex) - 1)
+    return $ Vertex
+      { vertexPosition   = CFloat <$> V3 (Obj.locX loc) (Obj.locY loc) (Obj.locZ loc)
+      , vertexNormal     = CFloat <$> V3 (Obj.norX nor) (Obj.norY nor) (Obj.norZ nor)
+      , vertexTexCoords  = CFloat <$> V2 (Obj.texcoordR texCoord) (Obj.texcoordS texCoord)
+      , vertexTexSegment = 4
+      }
+
 loadGLStuff :: IO GLStuff
 loadGLStuff = do
 
@@ -754,14 +782,17 @@ loadGLStuff = do
   withArrayBytes simpleBox $ \size p -> do
     glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
   writeParts 0 0 vertexParts
+  let boxCount = fromIntegral $ length simpleBox
 
   coneVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
   coneVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
   glBindVertexArray coneVAO
   glBindBuffer GL_ARRAY_BUFFER coneVBO
-  withArrayBytes (simpleCone $ fromIntegral coneSegments) $ \size p -> do
+  let coneVerts = simpleCone $ fromIntegral coneSegments
+  withArrayBytes coneVerts $ \size p -> do
     glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
   writeParts 0 0 vertexParts
+  let coneCount = fromIntegral $ length coneVerts
 
   flatVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
   flatVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
@@ -770,6 +801,7 @@ loadGLStuff = do
   withArrayBytes simpleFlat $ \size p -> do
     glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
   writeParts 0 0 vertexParts
+  let flatCount = fromIntegral $ length simpleFlat
 
   -- quad stuff
 
@@ -802,6 +834,7 @@ loadGLStuff = do
 
   glUseProgram quadShader
   sendUniformName quadShader "ourTexture" (0 :: GLint)
+  let quadCount = fromIntegral $ length quadIndices
 
   -- textures
 
@@ -885,7 +918,7 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
     !*! L.scaled (V4 scaleX scaleY 1 1)
     :: M44 Float
     )
-  glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_INT nullPtr
+  glDrawElements GL_TRIANGLES quadCount GL_UNSIGNED_INT nullPtr
 
 freeTexture :: Texture -> IO ()
 freeTexture (Texture tex _ _) = with tex $ glDeleteTextures 1

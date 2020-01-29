@@ -452,15 +452,14 @@ launchWindow sink proj maybeAudio = mdo
         simpleCheck "Expert Only"    _expertOnly (\b meta -> meta { _expertOnly = b }) r5
         simpleCheck "Cover"          _cover      (\b meta -> meta { _cover      = b }) r6
       {- TODO:
-        year
-        track number
-        song key
-        autogen theme? maybe not since planning on removing eventually
-        anim tempo
-        rating
-        preview start/end time
-        languages
-        band difficulty (maybe should go on instruments page?)
+        year -- text, only digits
+        track number -- text, only digits
+        song key -- two dropdowns (key + tonality)
+        anim tempo -- dropdown with disableable number box (like rank)?
+        rating -- dropdown
+        preview start/end time -- ???
+        languages -- checkboxes
+        band difficulty (maybe should go on instruments page?) -- dropdown with disableable number box
       -}
     FL.end pack
     packRight <- FL.packNew rectRight Nothing
@@ -536,7 +535,7 @@ launchWindow sink proj maybeAudio = mdo
                   FL.AtIndex i <- FL.getValue choice
                   if i == tierCount
                     then Rank . fromMaybe 0 . readMaybe . T.unpack <$> FL.getValue input
-                    else return $ Tier $ fromIntegral i
+                    else return $ Tier $ fromIntegral i + 1
           mbGRYBO <- forM (partGRYBO part) $ \pg -> addType "5-Fret" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck $ gryboDifficulty pg
             return $ \isChecked curPart -> do

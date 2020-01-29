@@ -191,7 +191,7 @@ baseAndSolo mid (scoreTrack, diff) = let
 
 annotateMultiplier :: Int -> RTB.T t a -> RTB.T t (a, Int)
 annotateMultiplier maxMult = RTB.fromPairList . go 1 9 . RTB.toPairList where
-  go _         _         []   = []
+  go _       _       []   = []
   go curMult multLen evts = if curMult >= maxMult
     then map (addMult curMult) evts
     else case splitAt multLen evts of
