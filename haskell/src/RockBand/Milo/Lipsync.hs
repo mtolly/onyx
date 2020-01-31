@@ -14,6 +14,7 @@ import           Data.Binary.Put
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
+import           Data.Char                        (isAlpha)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
@@ -21,7 +22,7 @@ import           Data.Int
 import           Data.List.Extra                  (foldl', nubOrd, sort, zip3)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
-                                                   listToMaybe)
+                                                   listToMaybe, mapMaybe)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
@@ -356,7 +357,61 @@ cmuToBeatles = \case
       , (Viseme_jaw_open, 180)
       ]
 
-englishVowels :: RTB.T t (Maybe T.Text) -> RTB.T t (Maybe CMUPhoneme)
+type Transcribe t = RTB.T t (Maybe T.Text) -> RTB.T t (Maybe CMUPhoneme)
+
+spanishVowels :: Transcribe t
+spanishVowels = fmap $ fmap $ \t -> let
+  vowels = flip mapMaybe (T.unpack $ T.toLower t) $ \case
+    'á' -> Just 'a'
+    'é' -> Just 'e'
+    'í' -> Just 'i'
+    'ó' -> Just 'o'
+    'ú' -> Just 'u'
+    -- don't need to handle 'ü' since should always be followed by 'i'
+    c   -> guard (elem c ("aeiou" :: String)) >> Just c
+  sound = \case
+    'a' -> CMU_AA
+    'e' -> CMU_EY -- could be CMU_EH
+    'i' -> CMU_IY
+    'o' -> CMU_OW
+    'u' -> CMU_UW
+    _   -> CMU_AH -- shouldn't happen
+  in case vowels of
+    [v] -> sound v
+    _   -> case filter (\c -> c /= 'i' && c /= 'u') vowels of
+      v : _ -> sound v
+      []    -> case vowels of
+        "ui"  -> CMU_IY
+        v : _ -> sound v
+        []    -> if T.any (\c -> c == 'y' || c == 'Y') t
+          then CMU_IY
+          else CMU_AH -- default
+
+germanVowels :: Transcribe t
+germanVowels = fmap $ fmap $ \t -> let
+  vowels = T.filter (`elem` ("aeiouäöü" :: String)) $ T.toLower t
+  in case vowels of
+    "ei" -> CMU_AY
+    "ie" -> CMU_IY
+    "eu" -> CMU_OY
+    "eue" -> CMU_OY
+    "oo" -> case T.filter isAlpha $ T.toLower t of
+      "ooh" -> CMU_UW -- for english "ooh"
+      _     -> CMU_OW
+    "ea" -> CMU_AE -- for english "yeah"
+    _ -> case T.take 1 vowels of
+      -- these aren't entirely accurate, long vs short should depend on consonants
+      "a" -> CMU_AA
+      "e" -> CMU_EH -- should be CMU_AH when unstressed, especially -e at end of word
+      "i" -> CMU_IH
+      "o" -> CMU_AO
+      "u" -> CMU_UW
+      "ä" -> CMU_EH
+      "ö" -> CMU_ER
+      "ü" -> CMU_UW
+      _   -> CMU_AH -- default
+
+englishVowels :: Transcribe t
 englishVowels = let
   splitFirstWord evts = let
     (x, y) = flip span evts $ \case
@@ -442,11 +497,11 @@ visemesToLipsync transition rtb = let
     $ RTB.fromAbsoluteEventList
     $ ATB.fromPairList withTransitions
 
-autoLipsync :: VocalTrack U.Seconds -> Lipsync
-autoLipsync
+autoLipsync :: Transcribe U.Seconds -> VocalTrack U.Seconds -> Lipsync
+autoLipsync trans
   = visemesToLipsync 0.12
   . fmap (maybe [] $ map (\v -> (T.pack $ drop 7 $ show v, 140)) . cmuToVisemes)
-  . englishVowels
+  . trans
   . vocalTubes
 
 autoLipsyncAh :: VocalTrack U.Seconds -> Lipsync
@@ -455,8 +510,8 @@ autoLipsyncAh
   . fmap (\x -> guard (isJust x) >> [("Ox_hi", 100), ("Ox_lo", 100)])
   . vocalTubes
 
-beatlesLipsync :: VocalTrack U.Seconds -> Lipsync
-beatlesLipsync
+beatlesLipsync :: Transcribe U.Seconds -> VocalTrack U.Seconds -> Lipsync
+beatlesLipsync trans
   = (\lip -> lip
     { lipsyncVersion = 0
     , lipsyncSubversion = 2
@@ -464,17 +519,17 @@ beatlesLipsync
     })
   . visemesToLipsync 0.12
   . fmap (maybe [] $ map (first $ T.pack . drop 7 . show) . cmuToBeatles)
-  . englishVowels
+  . trans
   . vocalTubes
 
-gh2Lipsync :: VocalTrack U.Seconds -> VocFile
-gh2Lipsync
+gh2Lipsync :: Transcribe U.Seconds -> VocalTrack U.Seconds -> VocFile
+gh2Lipsync trans
   = visemesToVoc
   . fmap (\mcmu -> case mcmu >>= cmuToGH2Viseme of
     Nothing  -> []
     Just vis -> [(T.replace "_" " " $ T.pack $ drop 4 $ show vis, 1)]
     )
-  . englishVowels
+  . trans
   . vocalTubes
 
 lipsyncFromMIDITrack :: LipsyncTrack U.Seconds -> Lipsync

@@ -95,7 +95,9 @@ import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal                  (nullVox)
 import           RockBand.Common
 import           RockBand.Milo                         (MagmaLipsync (..),
-                                                        autoLipsync, gh2Lipsync,
+                                                        autoLipsync,
+                                                        englishVowels,
+                                                        gh2Lipsync,
                                                         lipsyncFromMIDITrack,
                                                         magmaMilo, putVocFile)
 import qualified RockBand.ProGuitar.Play               as PGPlay
@@ -1246,7 +1248,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 midi <- shakeMIDI $ planDir </> "raw.mid"
                 let vox = RBFile.getFlexPart (rb3_Vocal rb3) $ RBFile.s_tracks midi
                     lip = lipsyncFromMIDITrack . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
-                    auto = autoLipsync . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
+                    auto = autoLipsync englishVowels . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
                     write = stackIO . BL.writeFile out
                 if
                   | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync3 vox -> write $ magmaMilo $ MagmaLipsync3
@@ -1667,7 +1669,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             dir </> "gh2/lipsync.voc" %> \out -> do
               midi <- shakeMIDI $ planDir </> "raw.mid"
               let vox = RBFile.getFlexPart (gh2_Vocal gh2) $ RBFile.s_tracks midi
-                  auto = gh2Lipsync . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
+                  auto = gh2Lipsync englishVowels . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
               stackIO $ BL.writeFile out $ runPut $ putVocFile
                 $ auto $ RBFile.onyxPartVocals vox
 

@@ -129,7 +129,7 @@ import           RockBand.Milo                             (autoLipsync,
                                                             packMilo,
                                                             putLipsync,
                                                             putVocFile,
-                                                            unpackMilo)
+                                                            unpackMilo, englishVowels)
 import           RockBand.Score
 import           RockBand.SongCache                        (fixSongCache)
 import           RockBand3                                 (BasicTiming (..))
@@ -1640,11 +1640,11 @@ miscPageLipsync sink rect tab startTasks = do
               _ -> return ()
           return btn
     void $ lipsyncButton areaVoc "Make .voc (GH2/RB1)" "voc"
-      $ runPut . putVocFile . gh2Lipsync
+      $ runPut . putVocFile . gh2Lipsync englishVowels
     void $ lipsyncButton areaRB "Make .lipsync (RB2/RB3)" "lipsync"
-      $ runPut . putLipsync . autoLipsync
+      $ runPut . putLipsync . autoLipsync englishVowels
     void $ lipsyncButton areaTBRB "Make .lipsync (TBRB)" "lipsync"
-      $ runPut . putLipsync . beatlesLipsync
+      $ runPut . putLipsync . beatlesLipsync englishVowels
     return ()
   let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
         btn <- FL.buttonNew rect' $ Just label
