@@ -1,0 +1,72 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        tier: 6
+  bass:
+    grybo:
+      difficulty:
+        tier: 5
+  guitar:
+    grybo:
+      difficulty:
+        tier: 7
+  keys:
+    pro-keys:
+      difficulty:
+        tier: 3
+    grybo:
+      difficulty:
+        tier: 2
+  drums:
+    drums:
+      kit: Arena Kit
+      difficulty:
+        tier: 7
+      kicks: both
+plans:
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+      keys: [8, 9]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    karaoke: false
+    mogg-md5: 41c9c78cb90ea1bf279a8f67f8faa0c8
+    multitrack: false
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    label: (O)
+  rb3-2x:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Mature
+  preview-start: 3:01.000
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 2
+  album: Alien
+  year: 2005
+  subgenre: industrial
+  anim-tempo: 32
+  author: Septekka, Onyxite
+  title: Skeksis
+  preview-end: 3:31.000
+  genre: metal
+  difficulty:
+    tier: 7
+  artist: Strapping Young Lad

@@ -1,0 +1,52 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 160
+  bass:
+    grybo:
+      difficulty:
+        rank: 200
+  guitar:
+    grybo:
+      difficulty:
+        rank: 230
+  drums:
+    drums:
+      difficulty:
+        rank: 180
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    mogg-md5: 2f59113c08ff8792ac2fe3dcf0538868
+    multitrack: true
+    vols: [-0.5, -0.5, -5.5, -5.5, -4, -4, -3, -3, -3, -3]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Family Friendly
+  preview-start: 1:06.680
+  file-album-art: cover.png_xbox
+  track-number: 3
+  album: A Farewell to Kings
+  year: 1977
+  author: Harmonix, Onyxite
+  title: Closer to the Heart
+  preview-end: 1:36.680
+  genre: prog
+  difficulty:
+    rank: 192
+  artist: Rush
+  key: A major
