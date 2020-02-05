@@ -1,0 +1,56 @@
+parts:
+  bass:
+    grybo:
+      difficulty:
+        tier: 6
+  guitar:
+    grybo:
+      difficulty:
+        tier: 7
+  keys:
+    pro-keys:
+      difficulty:
+        tier: 2
+    grybo:
+      difficulty:
+        tier: 1
+  drums:
+    drums:
+      difficulty:
+        tier: 7
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      keys: [6, 7]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    mogg-md5: 9b23b6cbc89394bcc87e1e659d95a047
+    multitrack: true
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  preview-start: 2:30.000
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 4
+  album: Hemispheres
+  year: 1978
+  subgenre: progrock
+  anim-tempo: 64
+  author: DoNotPassGo, Ejthedj, Drihscol, Onyxite
+  title: La Villa Strangiato
+  preview-end: 3:00.000
+  genre: prog
+  difficulty:
+    tier: 7
+  artist: Rush
