@@ -20,46 +20,20 @@ parts:
 plans:
   mogg:
     parts:
-      vocal:
-      - 6
-      - 7
-      bass:
-      - 2
-      - 3
-      guitar:
-      - 4
-      - 5
-      drums:
-      - 0
-      - 1
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    karaoke: false
+      vocal: [6, 7]
+      bass: [2, 3]
+      guitar: [4, 5]
+      drums: [0, 1]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     mogg-md5: 15488f1332ae006b866a819cbc49f6aa
-    multitrack: false
-    vols:
-    - -0.5
-    - -0.5
-    - -5
-    - -5
-    - -6
-    - -6
-    - -4.5
-    - -4.5
-    - -5
-    - -5
+    multitrack: true
+    vols: [-0.5, -0.5, -5, -5, -6, -6, -4.5, -4.5, -5, -5]
 targets:
   rb3:
     game: rb3
+    label: (O)
+  ps:
+    game: ps
     label: (O)
 metadata:
   rating: SupervisionRecommended

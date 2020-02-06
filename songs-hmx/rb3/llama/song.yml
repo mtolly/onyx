@@ -1,0 +1,81 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        rank: 488
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+      difficulty:
+        rank: 495
+    grybo:
+      difficulty:
+        rank: 500
+  guitar:
+    pro-guitar:
+      tuning:
+        base: guitar-6
+      difficulty:
+        rank: 490
+    grybo:
+      difficulty:
+        rank: 463
+  keys:
+    pro-keys:
+      difficulty:
+        rank: 481
+    grybo:
+      difficulty:
+        rank: 481
+  drums:
+    drums:
+      difficulty:
+        rank: 550
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6]
+      guitar: [7, 8]
+      vocal: [9, 10]
+      keys: [11, 12]
+    pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
+    mogg-md5: 2295b284f95c650f803a651000867b5c
+    multitrack: true
+    vols: [-4.5, -4.5, -4.5, -4.5, -4.5, -4.5, -1.8, -4.5, -4.5, -3.3, -3.3, -3.3, -3.3, -4.5, -4.5]
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Supervision Recommended
+  preview-start: 46.486
+  file-album-art: cover.png_xbox
+  track-number: 1
+  key: E minor
+  album: A Picture of Nectar
+  year: 1992
+  anim-tempo: fast
+  author: Harmonix, Onyxite
+  title: Llama
+  preview-end: 1:16.486
+  genre: rock
+  difficulty:
+    rank: 495
+  artist: Phish
+  comments:
+  - Heavily edited Pro Keys chart.
+  - Redone tempo map.
+  - Minor drum edits.
