@@ -125,11 +125,14 @@ import           RockBand.Common                           (RB3Instrument (..))
 import qualified RockBand.Common                           as RB
 import           RockBand.Milo                             (autoLipsync,
                                                             beatlesLipsync,
+                                                            englishVowels,
+                                                            germanVowels,
                                                             gh2Lipsync,
                                                             packMilo,
                                                             putLipsync,
                                                             putVocFile,
-                                                            unpackMilo, englishVowels)
+                                                            spanishVowels,
+                                                            unpackMilo)
 import           RockBand.Score
 import           RockBand.SongCache                        (fixSongCache)
 import           RockBand3                                 (BasicTiming (..))
@@ -1600,14 +1603,34 @@ miscPageLipsync sink rect tab startTasks = do
           Just f  -> void $ FL.setValue input f
         _                          -> return ()
     return $ fmap T.unpack $ FL.getValue input
-  getVocalTrack <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  getVocalTrack <- padded 2 10 2 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     fn <- horizRadio rect'
-      [ ("PART VOCALS", Nothing, True)
-      , ("[PART] HARM1", Just Vocal1, False)
-      , ("[PART] HARM2", Just Vocal2, False)
-      , ("[PART] HARM3", Just Vocal3, False)
+      [ ("PART VOCALS", Just Nothing, True)
+      , ("[PART] HARM1", Just $ Just Vocal1, False)
+      , ("[PART] HARM2", Just $ Just Vocal2, False)
+      , ("[PART] HARM3", Just $ Just Vocal3, False)
+      , ("(blank)", Nothing, False)
       ]
     return $ join <$> fn
+  let getSelectedVox = \case
+        Nothing            -> const mempty
+        Just Nothing       -> RBFile.fixedPartVocals . RBFile.s_tracks
+        Just (Just Vocal1) -> RBFile.fixedHarm1      . RBFile.s_tracks
+        Just (Just Vocal2) -> RBFile.fixedHarm2      . RBFile.s_tracks
+        Just (Just Vocal3) -> RBFile.fixedHarm3      . RBFile.s_tracks
+      defaultSuffix = \case
+        Nothing            -> "-blank"
+        Just Nothing       -> "-solovox"
+        Just (Just Vocal1) -> "-harm1"
+        Just (Just Vocal2) -> "-harm2"
+        Just (Just Vocal3) -> "-harm3"
+  getVowels <- padded 2 10 2 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    fn <- horizRadio rect'
+      [ ("English", englishVowels, True)
+      , ("German", germanVowels, False)
+      , ("Spanish", spanishVowels, False)
+      ]
+    return $ fromMaybe englishVowels <$> fn
   padded 5 5 5 5 (Size (Width 800) (Height 35)) $ \rect' -> do
     let [areaVoc, areaRB, areaTBRB] = map (trimClock 0 5 0 5) $ splitHorizN 3 rect'
         lipsyncButton area label ext fn = do
@@ -1615,36 +1638,29 @@ miscPageLipsync sink rect tab startTasks = do
           FL.setCallback btn $ \_ -> sink $ EventIO $ do
             input <- pickedFile
             voc <- getVocalTrack
+            vowels <- getVowels
             picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
             FL.setTitle picker "Save lipsync file"
             FL.setFilter picker $ "*." <> T.pack ext
-            FL.setPresetFile picker $ T.pack $ dropExtension input ++ case voc of
-              Nothing     -> "-solovox" <.> ext
-              Just Vocal1 -> "-harm1" <.> ext
-              Just Vocal2 -> "-harm2" <.> ext
-              Just Vocal3 -> "-harm3" <.> ext
+            FL.setPresetFile picker $ T.pack $ (dropExtension input ++ defaultSuffix voc) <.> ext
             FL.showWidget picker >>= \case
               FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
                 Nothing -> return ()
                 Just f -> sink $ EventOnyx $ let
                   task = do
                     mid <- stackIO (Load.fromFile input) >>= RBFile.readMIDIFile'
-                    let trk = mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) $ case voc of
-                          Nothing     -> RBFile.fixedPartVocals $ RBFile.s_tracks mid
-                          Just Vocal1 -> RBFile.fixedHarm1      $ RBFile.s_tracks mid
-                          Just Vocal2 -> RBFile.fixedHarm2      $ RBFile.s_tracks mid
-                          Just Vocal3 -> RBFile.fixedHarm3      $ RBFile.s_tracks mid
-                    stackIO $ BL.writeFile f $ fn trk
+                    stackIO $ BL.writeFile f $ fn vowels $
+                      mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) $ getSelectedVox voc mid
                     return [f]
                   in startTasks [(T.unpack label <> ": " <> input, task)]
               _ -> return ()
           return btn
     void $ lipsyncButton areaVoc "Make .voc (GH2/RB1)" "voc"
-      $ runPut . putVocFile . gh2Lipsync englishVowels
+      $ \vowels -> runPut . putVocFile . gh2Lipsync vowels
     void $ lipsyncButton areaRB "Make .lipsync (RB2/RB3)" "lipsync"
-      $ runPut . putLipsync . autoLipsync englishVowels
+      $ \vowels -> runPut . putLipsync . autoLipsync vowels
     void $ lipsyncButton areaTBRB "Make .lipsync (TBRB)" "lipsync"
-      $ runPut . putLipsync . beatlesLipsync englishVowels
+      $ \vowels -> runPut . putLipsync . beatlesLipsync vowels
     return ()
   let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
         btn <- FL.buttonNew rect' $ Just label
@@ -1654,22 +1670,14 @@ miscPageLipsync sink rect tab startTasks = do
           picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
           FL.setTitle picker "Save lipsync audio"
           FL.setFilter picker "*.wav"
-          FL.setPresetFile picker $ T.pack $ dropExtension input ++ case voc of
-            Nothing     -> "-solovox.wav"
-            Just Vocal1 -> "-harm1.wav"
-            Just Vocal2 -> "-harm2.wav"
-            Just Vocal3 -> "-harm3.wav"
+          FL.setPresetFile picker $ T.pack $ (dropExtension input ++ defaultSuffix voc) <.> "wav"
           FL.showWidget picker >>= \case
             FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
               Nothing -> return ()
               Just f  -> sink $ EventOnyx $ let
                 task = do
                   mid <- stackIO (Load.fromFile input) >>= RBFile.readMIDIFile'
-                  let trk = mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) $ case voc of
-                        Nothing     -> RBFile.fixedPartVocals $ RBFile.s_tracks mid
-                        Just Vocal1 -> RBFile.fixedHarm1      $ RBFile.s_tracks mid
-                        Just Vocal2 -> RBFile.fixedHarm2      $ RBFile.s_tracks mid
-                        Just Vocal3 -> RBFile.fixedHarm3      $ RBFile.s_tracks mid
+                  let trk = mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) $ getSelectedVox voc mid
                   src <- toDryVoxFormat <$> fn trk
                   runAudio src f
                   return [f]
