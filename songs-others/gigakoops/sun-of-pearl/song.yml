@@ -1,0 +1,66 @@
+parts:
+  bass:
+    grybo:
+      difficulty:
+        tier: 7
+  guitar:
+    grybo:
+      difficulty:
+        tier: 7
+  keys:
+    pro-keys:
+      difficulty:
+        tier: 6
+    grybo:
+      difficulty:
+        tier: 5
+  drums:
+    drums:
+      difficulty:
+        tier: 7
+      kicks: both
+plans:
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      keys: [6, 7]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    karaoke: false
+    mogg-md5: 4ea0ea89454213d207ed5dc9ece906f7
+    multitrack: false
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  rating: Family Friendly
+  preview-start: 34
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 3
+  album: Ameliorate
+  year: 2008
+  subgenre: progrock
+  anim-tempo: 16
+  author: Gigakoops, Nightmare Lyra, Onyxite
+  title: Sun of Pearl
+  preview-end: 1:04.000
+  genre: prog
+  difficulty:
+    tier: 7
+  artist: An Endless Sporadic
+  comments:
+  - Drums edited.
+  - TODO split 1x/2x kicks
+  - TODO tighten up tempo map
