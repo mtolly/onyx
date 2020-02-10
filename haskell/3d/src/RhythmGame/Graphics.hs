@@ -222,8 +222,8 @@ drawDrums glStuff@GLStuff{..} ydims nowTime speed trk = do
   drawLights (Map.toDescList $ fst $ Map.split nowTime zoomed)
     [ (0, TextureTargetRedLight   , [D.Red                                        ])
     , (1, TextureTargetYellowLight, [D.Pro D.Yellow D.Tom, D.Pro D.Yellow D.Cymbal])
-    , (2, TextureTargetBlueLight  , [D.Pro D.Blue D.Tom, D.Pro D.Blue D.Cymbal])
-    , (3, TextureTargetGreenLight , [D.Pro D.Green D.Tom, D.Pro D.Green D.Cymbal])
+    , (2, TextureTargetBlueLight  , [D.Pro D.Blue   D.Tom, D.Pro D.Blue   D.Cymbal])
+    , (3, TextureTargetGreenLight , [D.Pro D.Green  D.Tom, D.Pro D.Green  D.Cymbal])
     ]
   glDepthFunc GL_LESS
   -- draw notes
@@ -446,23 +446,19 @@ withArrayBytes xs f = withArray xs $ \p -> let
   in f bytes p
 
 data Vertex = Vertex
-  { vertexPosition   :: V3 CFloat
-  , vertexNormal     :: V3 CFloat
-  , vertexTexCoords  :: V2 CFloat
-  , vertexTexSegment :: CFloat
+  { vertexPosition  :: V3 CFloat
+  , vertexNormal    :: V3 CFloat
+  , vertexTexCoords :: V2 CFloat
   } deriving (Eq, Show)
 
 instance Storable Vertex where
-  sizeOf _ = 8 * sizeOf (undefined :: CFloat) + sizeOf (undefined :: CFloat)
-  alignment _ = lcm
-    (alignment (undefined :: CFloat))
-    (alignment (undefined :: CFloat))
+  sizeOf _ = 8 * sizeOf (undefined :: CFloat)
+  alignment _ = alignment (undefined :: CFloat)
   peek = undefined -- not implemented
   poke p v = do
     poke (castPtr p) $ vertexPosition v
     poke (castPtr p `plusPtr` (3 * sizeOf (undefined :: CFloat))) $ vertexNormal v
     poke (castPtr p `plusPtr` (6 * sizeOf (undefined :: CFloat))) $ vertexTexCoords v
-    poke (castPtr p `plusPtr` (8 * sizeOf (undefined :: CFloat))) $ vertexTexSegment v
 
 simpleBox :: [Vertex]
 simpleBox = let
@@ -477,44 +473,44 @@ simpleBox = let
   in
 
     -- top face
-    [ Vertex frontTopRight (V3 0.0 1.0 0.0) (V2 1.0 0.0) 1
-    , Vertex backTopRight  (V3 0.0 1.0 0.0) (V2 1.0 1.0) 1
-    , Vertex backTopLeft   (V3 0.0 1.0 0.0) (V2 0.0 1.0) 1
-    , Vertex backTopLeft   (V3 0.0 1.0 0.0) (V2 0.0 1.0) 1
-    , Vertex frontTopLeft  (V3 0.0 1.0 0.0) (V2 0.0 0.0) 1
-    , Vertex frontTopRight (V3 0.0 1.0 0.0) (V2 1.0 0.0) 1
+    [ Vertex frontTopRight (V3 0.0 1.0 0.0) (V2 1.0 0.0)
+    , Vertex backTopRight  (V3 0.0 1.0 0.0) (V2 1.0 1.0)
+    , Vertex backTopLeft   (V3 0.0 1.0 0.0) (V2 0.0 1.0)
+    , Vertex backTopLeft   (V3 0.0 1.0 0.0) (V2 0.0 1.0)
+    , Vertex frontTopLeft  (V3 0.0 1.0 0.0) (V2 0.0 0.0)
+    , Vertex frontTopRight (V3 0.0 1.0 0.0) (V2 1.0 0.0)
 
     -- left face
-    , Vertex frontTopLeft    (V3 -1.0 0.0 0.0) (V2 1.0 1.0) 2
-    , Vertex backTopLeft     (V3 -1.0 0.0 0.0) (V2 0.0 1.0) 2
-    , Vertex backBottomLeft  (V3 -1.0 0.0 0.0) (V2 0.0 0.0) 2
-    , Vertex backBottomLeft  (V3 -1.0 0.0 0.0) (V2 0.0 0.0) 2
-    , Vertex frontBottomLeft (V3 -1.0 0.0 0.0) (V2 1.0 0.0) 2
-    , Vertex frontTopLeft    (V3 -1.0 0.0 0.0) (V2 1.0 1.0) 2
+    , Vertex frontTopLeft    (V3 -1.0 0.0 0.0) (V2 1.0 1.0)
+    , Vertex backTopLeft     (V3 -1.0 0.0 0.0) (V2 0.0 1.0)
+    , Vertex backBottomLeft  (V3 -1.0 0.0 0.0) (V2 0.0 0.0)
+    , Vertex backBottomLeft  (V3 -1.0 0.0 0.0) (V2 0.0 0.0)
+    , Vertex frontBottomLeft (V3 -1.0 0.0 0.0) (V2 1.0 0.0)
+    , Vertex frontTopLeft    (V3 -1.0 0.0 0.0) (V2 1.0 1.0)
 
     -- front face
-    , Vertex frontBottomLeft  (V3 0.0 0.0 1.0) (V2 0.0 0.0) 3
-    , Vertex frontBottomRight (V3 0.0 0.0 1.0) (V2 1.0 0.0) 3
-    , Vertex frontTopRight    (V3 0.0 0.0 1.0) (V2 1.0 1.0) 3
-    , Vertex frontTopRight    (V3 0.0 0.0 1.0) (V2 1.0 1.0) 3
-    , Vertex frontTopLeft     (V3 0.0 0.0 1.0) (V2 0.0 1.0) 3
-    , Vertex frontBottomLeft  (V3 0.0 0.0 1.0) (V2 0.0 0.0) 3
+    , Vertex frontBottomLeft  (V3 0.0 0.0 1.0) (V2 0.0 0.0)
+    , Vertex frontBottomRight (V3 0.0 0.0 1.0) (V2 1.0 0.0)
+    , Vertex frontTopRight    (V3 0.0 0.0 1.0) (V2 1.0 1.0)
+    , Vertex frontTopRight    (V3 0.0 0.0 1.0) (V2 1.0 1.0)
+    , Vertex frontTopLeft     (V3 0.0 0.0 1.0) (V2 0.0 1.0)
+    , Vertex frontBottomLeft  (V3 0.0 0.0 1.0) (V2 0.0 0.0)
 
     -- right face
-    , Vertex frontTopRight    (V3 1.0 0.0 0.0) (V2 0.0 1.0) 4
-    , Vertex frontBottomRight (V3 1.0 0.0 0.0) (V2 0.0 0.0) 4
-    , Vertex backBottomRight  (V3 1.0 0.0 0.0) (V2 1.0 0.0) 4
-    , Vertex backBottomRight  (V3 1.0 0.0 0.0) (V2 1.0 0.0) 4
-    , Vertex backTopRight     (V3 1.0 0.0 0.0) (V2 1.0 1.0) 4
-    , Vertex frontTopRight    (V3 1.0 0.0 0.0) (V2 0.0 1.0) 4
+    , Vertex frontTopRight    (V3 1.0 0.0 0.0) (V2 0.0 1.0)
+    , Vertex frontBottomRight (V3 1.0 0.0 0.0) (V2 0.0 0.0)
+    , Vertex backBottomRight  (V3 1.0 0.0 0.0) (V2 1.0 0.0)
+    , Vertex backBottomRight  (V3 1.0 0.0 0.0) (V2 1.0 0.0)
+    , Vertex backTopRight     (V3 1.0 0.0 0.0) (V2 1.0 1.0)
+    , Vertex frontTopRight    (V3 1.0 0.0 0.0) (V2 0.0 1.0)
     ]
 
 simpleFlat :: [Vertex]
 simpleFlat = let
-  frontTopRight    = Vertex (V3  0.5 0  0.5) (V3 0.0 1.0 0.0) (V2 1.0 0.0) 1
-  backTopRight     = Vertex (V3  0.5 0 -0.5) (V3 0.0 1.0 0.0) (V2 1.0 1.0) 1
-  frontTopLeft     = Vertex (V3 -0.5 0  0.5) (V3 0.0 1.0 0.0) (V2 0.0 0.0) 1
-  backTopLeft      = Vertex (V3 -0.5 0 -0.5) (V3 0.0 1.0 0.0) (V2 0.0 1.0) 1
+  frontTopRight    = Vertex (V3  0.5 0  0.5) (V3 0.0 1.0 0.0) (V2 1.0 0.0)
+  backTopRight     = Vertex (V3  0.5 0 -0.5) (V3 0.0 1.0 0.0) (V2 1.0 1.0)
+  frontTopLeft     = Vertex (V3 -0.5 0  0.5) (V3 0.0 1.0 0.0) (V2 0.0 0.0)
+  backTopLeft      = Vertex (V3 -0.5 0 -0.5) (V3 0.0 1.0 0.0) (V2 0.0 1.0)
   in
     [ frontTopRight
     , backTopRight
@@ -707,7 +703,11 @@ loadObj f = do
     Obj.Face a b c rest <- map Obj.elValue $ V.toList $ Obj.objFaces obj
     let triangulate v1 v2 v3 vs = [v1, v2, v3] ++ case vs of
           []    -> []
-          h : t -> triangulate v1 v3 h t
+          h : t -> triangulateExtra v1 v2 v3 h t
+        triangulateExtra v1 v2 v3 v4 vs = [v1, v3, v4] ++ case vs of
+          []    -> []
+          h : t -> triangulateExtra v2 v3 v4 h t
+        -- above is implemented according to https://stackoverflow.com/a/43422763
     faceIndex <- triangulate a b c rest
     let loc      = Obj.objLocations obj V.! (Obj.faceLocIndex faceIndex - 1)
         texCoord = Obj.objTexCoords obj V.! (fromMaybe 0 (Obj.faceTexCoordIndex faceIndex) - 1)
@@ -716,7 +716,6 @@ loadObj f = do
       { vertexPosition   = CFloat <$> V3 (Obj.locX loc) (Obj.locY loc) (Obj.locZ loc)
       , vertexNormal     = CFloat <$> V3 (Obj.norX nor) (Obj.norY nor) (Obj.norZ nor)
       , vertexTexCoords  = CFloat <$> V2 (Obj.texcoordR texCoord) (Obj.texcoordS texCoord)
-      , vertexTexSegment = 4
       }
 
 loadGLStuff :: IO GLStuff
@@ -733,7 +732,6 @@ loadGLStuff = do
         [ (3, GL_FLOAT, 3 * sizeOf (undefined :: CFloat))
         , (3, GL_FLOAT, 3 * sizeOf (undefined :: CFloat))
         , (2, GL_FLOAT, 2 * sizeOf (undefined :: CFloat))
-        , (1, GL_FLOAT, sizeOf (undefined :: CFloat))
         ]
       totalSize = sum [ size | (_, _, size) <- vertexParts ]
       writeParts _ _      []                         = return ()
@@ -750,23 +748,23 @@ loadGLStuff = do
     bracket (compileShader GL_FRAGMENT_SHADER objectFS) glDeleteShader $ \fragmentShader -> do
       compileProgram [vertexShader, fragmentShader]
 
-  boxVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
-  boxVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
-  glBindVertexArray boxVAO
-  glBindBuffer GL_ARRAY_BUFFER boxVBO
-  withArrayBytes simpleBox $ \size p -> do
-    glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
-  writeParts 0 0 vertexParts
-  let boxObject = RenderObject boxVAO $ fromIntegral $ length simpleBox
+  let loadObject vertices = do
+        vao <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
+        vbo <- alloca $ \p -> glGenBuffers 1 p >> peek p
+        glBindVertexArray vao
+        glBindBuffer GL_ARRAY_BUFFER vbo
+        withArrayBytes vertices $ \size p -> do
+          glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
+        writeParts 0 0 vertexParts
+        glBindVertexArray 0
+        withArrayLen [vbo] $ glDeleteBuffers . fromIntegral
+        return RenderObject
+          { objVAO         = vao
+          , objVertexCount = fromIntegral $ length vertices
+          }
 
-  flatVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
-  flatVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
-  glBindVertexArray flatVAO
-  glBindBuffer GL_ARRAY_BUFFER flatVBO
-  withArrayBytes simpleFlat $ \size p -> do
-    glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
-  writeParts 0 0 vertexParts
-  let flatObject = RenderObject flatVAO $ fromIntegral $ length simpleFlat
+  boxObject <- loadObject simpleBox
+  flatObject <- loadObject simpleFlat
 
   -- quad stuff
 
@@ -800,6 +798,8 @@ loadGLStuff = do
   glUseProgram quadShader
   sendUniformName quadShader "ourTexture" (0 :: GLint)
   let quadObject = RenderObject quadVAO $ fromIntegral $ length quadIndices
+  glBindVertexArray 0
+  withArrayLen [quadVBO, quadEBO] $ glDeleteBuffers . fromIntegral
 
   -- textures
 
@@ -853,7 +853,7 @@ loadGLStuff = do
 
   -- models
 
-  modelsAndVBOs <- forM [minBound .. maxBound] $ \modID -> do
+  models <- forM [minBound .. maxBound] $ \modID -> do
     path <- getResourcesPath $ case modID of
       ModelDrumTom       -> "models/drum-tom.obj"
       ModelDrumCymbal    -> "models/drum-cymbal.obj"
@@ -861,24 +861,8 @@ loadGLStuff = do
       ModelGuitarStrum   -> "models/gtr-strum.obj"
       ModelGuitarHOPOTap -> "models/gtr-hopotap.obj"
       ModelGuitarOpen    -> "models/gtr-open.obj"
-    vertices <- loadObj path
-    modelVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
-    modelVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
-    glBindVertexArray modelVAO
-    glBindBuffer GL_ARRAY_BUFFER modelVBO
-    withArrayBytes vertices $ \size p -> do
-      glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
-    writeParts 0 0 vertexParts
-    let modelObject = RenderObject modelVAO $ fromIntegral $ length vertices
-    return ((modID, modelObject), modelVBO)
-  let models    = map fst modelsAndVBOs
-      modelVBOs = map snd modelsAndVBOs
-
-  -- clean up
-
-  glBindVertexArray 0
-  withArrayLen ([boxVBO, flatVBO, quadVBO, quadEBO] ++ modelVBOs)
-    $ glDeleteBuffers . fromIntegral
+    obj <- loadObj path >>= loadObject
+    return (modID, obj)
 
   return GLStuff{..}
 

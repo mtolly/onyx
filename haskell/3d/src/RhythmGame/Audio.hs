@@ -113,7 +113,7 @@ playSource pans vols ca = do
   firstFull <- newEmptyMVar
   stopper <- newIORef False
   stopped <- newEmptyMVar
-  let queueSize = 7
+  let queueSize = 10 -- TODO rework so this is in terms of frames/seconds, not buffer chunks
       waitTime = 5000
       t1 = runResourceT $ runConduit $ CA.source ca .| let
         loop currentBuffers audioState = liftIO (readIORef stopper) >>= \case
