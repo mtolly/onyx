@@ -37,40 +37,49 @@ import qualified RockBand.Codec.Five    as F
 import           RockBand.Common        (StrumHOPOTap (..))
 
 data Object
-  = Box (V2 Float) (V2 Float)
-  | Cone
+  = Box
   | Flat
+  | Model ModelID
 
-coneSegments :: GLuint
-coneSegments = 15
+data ObjectPosition
+  = ObjectStretch (V3 Float) (V3 Float)
+  -- ^ translate+scale so the area -0.5 to 0.5 in all 3 dimensions is scaled
+  -- to the bounds between the two given corners
+  | ObjectMove (V3 Float)
+  -- ^ translate, no scale
 
 data LightPosition
   = LightGlobal (V3 Float)
   | LightOffset (V3 Float)
 
-drawObject :: GLStuff -> (Int, Int) -> Object -> V3 Float -> V3 Float -> Either TextureID (V4 Float) -> Float -> LightPosition -> IO ()
-drawObject GLStuff{..} (viewY, viewH) obj (V3 x1 y1 z1) (V3 x2 y2 z2) texcolor alpha lightOffset = do
-  let colorType = 1 :: GLuint
-      boxType = 2 :: GLuint
-      coneType = 3 :: GLuint
-      flatType = 4 :: GLuint
-  glBindVertexArray $ case obj of
-    Box{} -> boxVAO
-    Cone  -> coneVAO
-    Flat  -> flatVAO
-  let yScale = case obj of
+drawObject :: GLStuff -> (Int, Int) -> Object -> ObjectPosition -> Either TextureID (V4 Float) -> Float -> LightPosition -> IO ()
+drawObject GLStuff{..} (viewY, viewH) obj posn texcolor alpha lightOffset = do
+  let colorType   = 1 :: GLuint
+      textureType = 2 :: GLuint
+      thisObject = case obj of
+        Box           -> boxObject
+        Flat          -> flatObject
+        Model modelID -> fromMaybe (flatObject { objVertexCount = 0 })
+          $ lookup modelID models
+  glBindVertexArray $ objVAO thisObject
+  sendUniformName objectShader "model" $ case posn of
+    ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2) -> let
+      yScale = case obj of
         Flat -> 1 -- so we don't try to scale by 0 since y1 == y2
         _    -> abs $ y2 - y1
-  sendUniformName objectShader "model"
-    $ translate4 (V3 ((x1 + x2) / 2) ((y1 + y2) / 2) ((z1 + z2) / 2))
-    !*! L.scaled (V4 (abs $ x2 - x1) yScale (abs $ z2 - z1) 1)
+      in translate4 (V3 ((x1 + x2) / 2) ((y1 + y2) / 2) ((z1 + z2) / 2))
+        !*! L.scaled (V4 (abs $ x2 - x1) yScale (abs $ z2 - z1) 1)
+    ObjectMove xyz -> translate4 xyz
   sendUniformName objectShader "alpha" alpha
   sendUniformName objectShader "startFade" (fromIntegral viewY + fromIntegral viewH * (519 / 671) :: Float)
   sendUniformName objectShader "endFade" (fromIntegral viewY + fromIntegral viewH * (558 / 671) :: Float)
   case lightOffset of
     LightGlobal g -> sendUniformName objectShader "light.position" g
     LightOffset off -> do
-      let center = V3 ((x1 + x2) / 2) (max y1 y2) ((z1 + z2) / 2)
+      let center = case posn of
+            ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2)
+              -> V3 ((x1 + x2) / 2) (max y1 y2) ((z1 + z2) / 2)
+            ObjectMove xyz -> xyz
       sendUniformName objectShader "light.position" $ center + off
   case texcolor of
     Right color -> do
@@ -81,31 +90,15 @@ drawObject GLStuff{..} (viewY, viewH) obj (V3 x1 y1 z1) (V3 x2 y2 z2) texcolor a
         Just tex -> do
           glActiveTexture GL_TEXTURE0
           glBindTexture GL_TEXTURE_2D $ textureGL tex
-          case obj of
-            Box (V2 totalW totalH) (V2 cornerW cornerH) -> do
-              sendUniformName objectShader "material.diffuse.type" boxType
-              sendUniformName objectShader "material.diffuse.image" (0 :: GLint)
-              sendUniformName objectShader "material.diffuse.box.totalWidth" totalW
-              sendUniformName objectShader "material.diffuse.box.totalHeight" totalH
-              sendUniformName objectShader "material.diffuse.box.cornerWidth" cornerW
-              sendUniformName objectShader "material.diffuse.box.cornerHeight" cornerH
-            Cone -> do
-              sendUniformName objectShader "material.diffuse.type" coneType
-              sendUniformName objectShader "material.diffuse.image" (0 :: GLint)
-              sendUniformName objectShader "material.diffuse.cone.segments" coneSegments
-            Flat -> do
-              sendUniformName objectShader "material.diffuse.type" flatType
-              sendUniformName objectShader "material.diffuse.image" (0 :: GLint)
+          sendUniformName objectShader "material.diffuse.type" textureType
+          sendUniformName objectShader "material.diffuse.image" (0 :: GLint)
         Nothing -> do
           sendUniformName objectShader "material.diffuse.type" colorType
           sendUniformName objectShader "material.diffuse.color" (V4 1 0 1 1 :: V4 Float)
   sendUniformName objectShader "material.specular.type" colorType
   sendUniformName objectShader "material.specular.color" (V4 0.5 0.5 0.5 1 :: V4 Float)
   sendUniformName objectShader "material.shininess" (32 :: Float)
-  glDrawArrays GL_TRIANGLES 0 $ case obj of
-    Box{} -> boxCount
-    Cone  -> coneCount
-    Flat  -> flatCount
+  glDrawArrays GL_TRIANGLES 0 $ objVertexCount thisObject
 
 makeToggleBounds :: t -> t -> Map.Map t Toggle -> [(t, t, Bool)]
 makeToggleBounds t1 t2 m = let
@@ -139,34 +132,28 @@ drawDrums glStuff@GLStuff{..} ydims nowTime speed trk = do
       zoomed = zoomMap nearTime farTime trk
       drawGem t od gem alpha = let
         (texid, obj) = case gem of
-          D.Kick                  -> (if od then TextureLongEnergy   else TextureLongKick     , Box (V2 500  40) (V2   0  20))
-          D.Red                   -> (if od then TextureEnergyGem    else TextureRedGem       , Box (V2 600 400) (V2 150 254))
-          D.Pro D.Yellow D.Tom    -> (if od then TextureEnergyGem    else TextureYellowGem    , Box (V2 600 400) (V2 150 254))
-          D.Pro D.Blue   D.Tom    -> (if od then TextureEnergyGem    else TextureBlueGem      , Box (V2 600 400) (V2 150 254))
-          D.Pro D.Green  D.Tom    -> (if od then TextureEnergyGem    else TextureGreenGem     , Box (V2 600 400) (V2 150 254))
-          D.Pro D.Yellow D.Cymbal -> (if od then TextureEnergyCymbal else TextureYellowCymbal , Cone                         )
-          D.Pro D.Blue   D.Cymbal -> (if od then TextureEnergyCymbal else TextureBlueCymbal   , Cone                         )
-          D.Pro D.Green  D.Cymbal -> (if od then TextureEnergyCymbal else TextureGreenCymbal  , Cone                         )
-          D.Orange                -> (if od then TextureEnergyCymbal else TextureGreenCymbal  , Cone                         )
+          D.Kick                  -> (if od then TextureLongEnergy   else TextureLongKick     , Model ModelDrumKick  )
+          D.Red                   -> (if od then TextureEnergyGem    else TextureRedGem       , Model ModelDrumTom   )
+          D.Pro D.Yellow D.Tom    -> (if od then TextureEnergyGem    else TextureYellowGem    , Model ModelDrumTom   )
+          D.Pro D.Blue   D.Tom    -> (if od then TextureEnergyGem    else TextureBlueGem      , Model ModelDrumTom   )
+          D.Pro D.Green  D.Tom    -> (if od then TextureEnergyGem    else TextureGreenGem     , Model ModelDrumTom   )
+          D.Pro D.Yellow D.Cymbal -> (if od then TextureEnergyCymbal else TextureYellowCymbal , Model ModelDrumCymbal)
+          D.Pro D.Blue   D.Cymbal -> (if od then TextureEnergyCymbal else TextureBlueCymbal   , Model ModelDrumCymbal)
+          D.Pro D.Green  D.Cymbal -> (if od then TextureEnergyCymbal else TextureGreenCymbal  , Model ModelDrumCymbal)
+          D.Orange                -> (if od then TextureEnergyCymbal else TextureGreenCymbal  , Model ModelDrumCymbal)
         shade = case alpha of
           Nothing -> Left texid
           Just _  -> Right $ V4 1 1 1 1
-        (x1, x2) = case gem of
-          D.Kick           -> (-1, 1)
-          D.Red            -> (-1, -0.5)
-          D.Pro D.Yellow _ -> (-0.5, 0)
-          D.Pro D.Blue   _ -> (0, 0.5)
-          D.Pro D.Green  _ -> (0.5, 1)
-          D.Orange         -> (0.5, 1) -- TODO
-        (y1, y2) = case gem of
-          D.Kick           -> (-0.97, -1)
-          D.Pro _ D.Cymbal -> (-0.8 , -1)
-          _                -> (-0.9 , -1)
-        (z1, z2) = case gem of
-          D.Kick -> (z + 0.06, z - 0.06)
-          _      -> (z + 0.17, z - 0.17)
+        posn = case gem of
+          D.Kick           -> gemAtX 0
+          D.Red            -> gemAtX -0.75
+          D.Pro D.Yellow _ -> gemAtX -0.25
+          D.Pro D.Blue _   -> gemAtX 0.25
+          D.Pro D.Green _  -> gemAtX 0.75
+          D.Orange         -> gemAtX 0.75 -- TODO
+        gemAtX x = ObjectMove $ V3 x -1 z
         z = timeToZ t
-        in drawObject' obj (V3 x1 y1 z1) (V3 x2 y2 z2) shade (fromMaybe 1 alpha) $ LightOffset $ V3 0 1 0
+        in drawObject' obj posn shade (fromMaybe 1 alpha) $ LightOffset $ V3 0 1 0
       drawNotes t cs = let
         od = case commonOverdrive cs of
           ToggleEmpty -> False
@@ -187,7 +174,7 @@ drawDrums glStuff@GLStuff{..} ydims nowTime speed trk = do
           z = timeToZ t
           xyz1 = V3 -1 -1 (z + 0.05)
           xyz2 = V3  1 -1 (z - 0.05)
-          in drawObject' Flat xyz1 xyz2 (Left tex) 1 globalLight
+          in drawObject' Flat (ObjectStretch xyz1 xyz2) (Left tex) 1 globalLight
       drawTargetSquare i tex alpha = let
         pieceWidth = 0.5
         x1 = -1 + pieceWidth * i
@@ -195,7 +182,7 @@ drawDrums glStuff@GLStuff{..} ydims nowTime speed trk = do
         y = -1
         z1 = 0.17
         z2 = -0.17
-        in drawObject' Flat (V3 x1 y z1) (V3 x2 y z2) (Left tex) alpha globalLight
+        in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (Left tex) alpha globalLight
   -- draw highway
   forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
     let highwayColor = if isSolo
@@ -203,14 +190,20 @@ drawDrums glStuff@GLStuff{..} ydims nowTime speed trk = do
           else V4 0.2 0.2 0.2 1
     drawObject'
       Flat
-      (V3 -1 -1 (timeToZ t1))
-      (V3 1 -1 (timeToZ t2))
+      (ObjectStretch
+        (V3 -1 -1 (timeToZ t1))
+        (V3 1 -1 (timeToZ t2))
+      )
       (Right highwayColor)
       1
       globalLight
   -- draw railings
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3  1    -0.85 nearZ) (V3  1.09 -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
+  drawObject' Box
+    (ObjectStretch (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ))
+    (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
+  drawObject' Box
+    (ObjectStretch (V3  1    -0.85 nearZ) (V3  1.09 -1.1 farZ))
+    (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
   -- draw beat lines
   glDepthFunc GL_ALWAYS
   void $ Map.traverseWithKey drawBeat zoomed
@@ -283,48 +276,40 @@ drawFive glStuff@GLStuff{..} ydims nowTime speed trk = do
             Just F.Orange -> ( 0.7,  0.9)
           (y1, y2) = (-0.98, -1)
           (z1, z2) = (timeToZ $ max nowTime t1, timeToZ t2)
-          in drawObject' (Box (V2 0 0) (V2 0 0)) (V3 x1 y1 z1) (V3 x2 y2 z2) (Right boxColor) 1 globalLight
+          in drawObject' Box (ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2)) (Right boxColor) 1 globalLight
       drawGem t od color sht alpha = let
         (texid, obj) = case (color, sht) of
-          (Nothing      , Strum) -> (if od then TextureLongEnergy else TextureLongOpen , Box (V2 500  40) (V2   0  20))
-          (Just F.Green , Strum) -> (if od then TextureEnergyGem  else TextureGreenGem , Box (V2 600 400) (V2 150 254))
-          (Just F.Red   , Strum) -> (if od then TextureEnergyGem  else TextureRedGem   , Box (V2 600 400) (V2 150 254))
-          (Just F.Yellow, Strum) -> (if od then TextureEnergyGem  else TextureYellowGem, Box (V2 600 400) (V2 150 254))
-          (Just F.Blue  , Strum) -> (if od then TextureEnergyGem  else TextureBlueGem  , Box (V2 600 400) (V2 150 254))
-          (Just F.Orange, Strum) -> (if od then TextureEnergyGem  else TextureOrangeGem, Box (V2 600 400) (V2 150 254))
-          (Nothing      , HOPO) -> (if od then TextureLongEnergyHopo else TextureLongOpenHopo , Box (V2 500  40) (V2   0  20))
-          (Just F.Green , HOPO) -> (if od then TextureEnergyHopo  else TextureGreenHopo , Box (V2 600 400) (V2 150 254))
-          (Just F.Red   , HOPO) -> (if od then TextureEnergyHopo  else TextureRedHopo   , Box (V2 600 400) (V2 150 254))
-          (Just F.Yellow, HOPO) -> (if od then TextureEnergyHopo  else TextureYellowHopo, Box (V2 600 400) (V2 150 254))
-          (Just F.Blue  , HOPO) -> (if od then TextureEnergyHopo  else TextureBlueHopo  , Box (V2 600 400) (V2 150 254))
-          (Just F.Orange, HOPO) -> (if od then TextureEnergyHopo  else TextureOrangeHopo, Box (V2 600 400) (V2 150 254))
-          (Nothing      , Tap) -> (if od then TextureLongEnergyTap else TextureLongOpenTap , Box (V2 500  40) (V2   0  20))
-          (Just F.Green , Tap) -> (if od then TextureEnergyTap  else TextureGreenTap , Box (V2 600 400) (V2 150 254))
-          (Just F.Red   , Tap) -> (if od then TextureEnergyTap  else TextureRedTap   , Box (V2 600 400) (V2 150 254))
-          (Just F.Yellow, Tap) -> (if od then TextureEnergyTap  else TextureYellowTap, Box (V2 600 400) (V2 150 254))
-          (Just F.Blue  , Tap) -> (if od then TextureEnergyTap  else TextureBlueTap  , Box (V2 600 400) (V2 150 254))
-          (Just F.Orange, Tap) -> (if od then TextureEnergyTap  else TextureOrangeTap, Box (V2 600 400) (V2 150 254))
+          (Nothing      , Strum) -> (if od then TextureLongEnergy else TextureLongOpen , Model ModelGuitarOpen)
+          (Just F.Green , Strum) -> (if od then TextureEnergyGem  else TextureGreenGem , Model ModelGuitarStrum)
+          (Just F.Red   , Strum) -> (if od then TextureEnergyGem  else TextureRedGem   , Model ModelGuitarStrum)
+          (Just F.Yellow, Strum) -> (if od then TextureEnergyGem  else TextureYellowGem, Model ModelGuitarStrum)
+          (Just F.Blue  , Strum) -> (if od then TextureEnergyGem  else TextureBlueGem  , Model ModelGuitarStrum)
+          (Just F.Orange, Strum) -> (if od then TextureEnergyGem  else TextureOrangeGem, Model ModelGuitarStrum)
+          (Nothing      , HOPO) -> (if od then TextureLongEnergyHopo else TextureLongOpenHopo , Model ModelGuitarOpen)
+          (Just F.Green , HOPO) -> (if od then TextureEnergyHopo  else TextureGreenHopo , Model ModelGuitarHOPOTap)
+          (Just F.Red   , HOPO) -> (if od then TextureEnergyHopo  else TextureRedHopo   , Model ModelGuitarHOPOTap)
+          (Just F.Yellow, HOPO) -> (if od then TextureEnergyHopo  else TextureYellowHopo, Model ModelGuitarHOPOTap)
+          (Just F.Blue  , HOPO) -> (if od then TextureEnergyHopo  else TextureBlueHopo  , Model ModelGuitarHOPOTap)
+          (Just F.Orange, HOPO) -> (if od then TextureEnergyHopo  else TextureOrangeHopo, Model ModelGuitarHOPOTap)
+          (Nothing      , Tap) -> (if od then TextureLongEnergyTap else TextureLongOpenTap , Model ModelGuitarOpen)
+          (Just F.Green , Tap) -> (if od then TextureEnergyTap  else TextureGreenTap , Model ModelGuitarHOPOTap)
+          (Just F.Red   , Tap) -> (if od then TextureEnergyTap  else TextureRedTap   , Model ModelGuitarHOPOTap)
+          (Just F.Yellow, Tap) -> (if od then TextureEnergyTap  else TextureYellowTap, Model ModelGuitarHOPOTap)
+          (Just F.Blue  , Tap) -> (if od then TextureEnergyTap  else TextureBlueTap  , Model ModelGuitarHOPOTap)
+          (Just F.Orange, Tap) -> (if od then TextureEnergyTap  else TextureOrangeTap, Model ModelGuitarHOPOTap)
         shade = case alpha of
           Nothing -> Left texid
           Just _  -> Right $ V4 1 1 1 1
-        (x1, x2) = case color of
-          Nothing       -> (-1, 1)
-          Just F.Green  -> (-1   + shrink, -0.6 - shrink)
-          Just F.Red    -> (-0.6 + shrink, -0.2 - shrink)
-          Just F.Yellow -> (-0.2 + shrink,  0.2 - shrink)
-          Just F.Blue   -> ( 0.2 + shrink,  0.6 - shrink)
-          Just F.Orange -> ( 0.6 + shrink,  1   - shrink)
-          where shrink = case sht of
-                  Strum -> 0
-                  _     -> 0.05
-        (y1, y2) = case color of
-          Nothing -> (-0.97, -1)
-          _       -> (-0.9 , -1)
-        (z1, z2) = case color of
-          Nothing -> (z + 0.06, z - 0.06)
-          _       -> (z + 0.17, z - 0.17)
+        posn = case color of
+          Nothing       -> gemAtX 0
+          Just F.Green  -> gemAtX -0.8
+          Just F.Red    -> gemAtX -0.4
+          Just F.Yellow -> gemAtX 0
+          Just F.Blue   -> gemAtX 0.4
+          Just F.Orange -> gemAtX 0.8
+        gemAtX x = ObjectMove $ V3 x -1 z
         z = timeToZ t
-        in drawObject' obj (V3 x1 y1 z1) (V3 x2 y2 z2) shade (fromMaybe 1 alpha) $ LightOffset $ V3 0 1 0
+        in drawObject' obj posn shade (fromMaybe 1 alpha) $ LightOffset $ V3 0 1 0
       drawNotes _        []                     = return ()
       drawNotes prevTime ((thisTime, cs) : rest) = do
         let notes = Map.toList $ guitarNotes $ commonState cs
@@ -356,7 +341,7 @@ drawFive glStuff@GLStuff{..} ydims nowTime speed trk = do
           z = timeToZ t
           xyz1 = V3 -1 -1 (z + 0.05)
           xyz2 = V3  1 -1 (z - 0.05)
-          in drawObject' Flat xyz1 xyz2 (Left tex) 1 globalLight
+          in drawObject' Flat (ObjectStretch xyz1 xyz2) (Left tex) 1 globalLight
       drawTargetSquare i tex alpha = let
         pieceWidth = 0.4
         x1 = -1 + pieceWidth * i
@@ -364,7 +349,7 @@ drawFive glStuff@GLStuff{..} ydims nowTime speed trk = do
         y = -1
         z1 = 0.17
         z2 = -0.17
-        in drawObject' Flat (V3 x1 y z1) (V3 x2 y z2) (Left tex) alpha globalLight
+        in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (Left tex) alpha globalLight
   -- draw highway
   forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
     let highwayColor = if isSolo
@@ -372,14 +357,20 @@ drawFive glStuff@GLStuff{..} ydims nowTime speed trk = do
           else V4 0.2 0.2 0.2 1
     drawObject'
       Flat
-      (V3 -1 -1 (timeToZ t1))
-      (V3 1 -1 (timeToZ t2))
+      (ObjectStretch
+        (V3 -1 -1 (timeToZ t1))
+        (V3 1 -1 (timeToZ t2))
+      )
       (Right highwayColor)
       1
       globalLight
   -- draw railings
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
-  drawObject' (Box (V2 0 0) (V2 0 0)) (V3  1    -0.85 nearZ) (V3  1.09 -1.1 farZ) (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
+  drawObject' Box
+    (ObjectStretch (V3 -1.09 -0.85 nearZ) (V3 -1    -1.1 farZ))
+    (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
+  drawObject' Box
+    (ObjectStretch (V3  1    -0.85 nearZ) (V3  1.09 -1.1 farZ))
+    (Right $ V4 0.4 0.2 0.6 1) 1 globalLight
   -- draw beatlines
   glDepthFunc GL_ALWAYS
   void $ Map.traverseWithKey drawBeat zoomed
@@ -472,32 +463,6 @@ instance Storable Vertex where
     poke (castPtr p `plusPtr` (3 * sizeOf (undefined :: CFloat))) $ vertexNormal v
     poke (castPtr p `plusPtr` (6 * sizeOf (undefined :: CFloat))) $ vertexTexCoords v
     poke (castPtr p `plusPtr` (8 * sizeOf (undefined :: CFloat))) $ vertexTexSegment v
-
-simpleCone :: Int -> [Vertex]
-simpleCone n = let
-  topCenter :: V3 CFloat
-  topCenter = V3 0 0.5 0
-  bottomIndex :: Int -> V3 CFloat
-  bottomIndex i = let
-    theta = (fromIntegral i / fromIntegral n) * 2 * pi
-    -- theta 0 goes back (negative Z) behind the center point
-    x = -0.5 * sin theta
-    z = -0.5 * cos theta
-    in V3 x -0.5 z
-  in do
-    i <- [0 .. n - 1]
-    let a = topCenter
-        b = bottomIndex i
-        c = bottomIndex $ i + 1
-        dir = (b - a) `L.cross` (c - a)
-        normal = L.normalize dir
-        u0 = fromIntegral i / fromIntegral n
-        u1 = fromIntegral (i + 1) / fromIntegral n
-        uhalf = (u0 + u1) / 2
-    [   Vertex a normal (V2 uhalf 1) (fromIntegral i)
-      , Vertex b normal (V2 u0    0) (fromIntegral i)
-      , Vertex c normal (V2 u1    0) (fromIntegral i)
-      ]
 
 simpleBox :: [Vertex]
 simpleBox = let
@@ -665,18 +630,19 @@ loadTexture linear img = do
   -- when linear $ glGenerateMipmap GL_TEXTURE_2D
   return $ Texture texture (imageWidth img) (imageHeight img)
 
+data RenderObject = RenderObject
+  { objVAO         :: GLuint
+  , objVertexCount :: GLint
+  } deriving (Show)
+
 data GLStuff = GLStuff
   { objectShader :: GLuint
-  , boxVAO       :: GLuint
-  , coneVAO      :: GLuint
-  , flatVAO      :: GLuint
+  , boxObject    :: RenderObject
+  , flatObject   :: RenderObject
   , quadShader   :: GLuint
-  , quadVAO      :: GLuint
+  , quadObject   :: RenderObject
   , textures     :: [(TextureID, Texture)]
-  , boxCount     :: GLint
-  , coneCount    :: GLint
-  , flatCount    :: GLint
-  , quadCount    :: GLint
+  , models       :: [(ModelID, RenderObject)]
   } deriving (Show)
 
 data TextureID
@@ -723,6 +689,15 @@ data TextureID
   | TextureTargetYellowLight
   | TextureTargetBlueLight
   | TextureTargetOrangeLight
+  deriving (Eq, Show, Enum, Bounded)
+
+data ModelID
+  = ModelDrumTom
+  | ModelDrumCymbal
+  | ModelDrumKick
+  | ModelGuitarStrum
+  | ModelGuitarHOPOTap
+  | ModelGuitarOpen
   deriving (Eq, Show, Enum, Bounded)
 
 loadObj :: FilePath -> IO [Vertex]
@@ -782,17 +757,7 @@ loadGLStuff = do
   withArrayBytes simpleBox $ \size p -> do
     glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
   writeParts 0 0 vertexParts
-  let boxCount = fromIntegral $ length simpleBox
-
-  coneVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
-  coneVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
-  glBindVertexArray coneVAO
-  glBindBuffer GL_ARRAY_BUFFER coneVBO
-  let coneVerts = simpleCone $ fromIntegral coneSegments
-  withArrayBytes coneVerts $ \size p -> do
-    glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
-  writeParts 0 0 vertexParts
-  let coneCount = fromIntegral $ length coneVerts
+  let boxObject = RenderObject boxVAO $ fromIntegral $ length simpleBox
 
   flatVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
   flatVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
@@ -801,7 +766,7 @@ loadGLStuff = do
   withArrayBytes simpleFlat $ \size p -> do
     glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
   writeParts 0 0 vertexParts
-  let flatCount = fromIntegral $ length simpleFlat
+  let flatObject = RenderObject flatVAO $ fromIntegral $ length simpleFlat
 
   -- quad stuff
 
@@ -834,7 +799,7 @@ loadGLStuff = do
 
   glUseProgram quadShader
   sendUniformName quadShader "ourTexture" (0 :: GLint)
-  let quadCount = fromIntegral $ length quadIndices
+  let quadObject = RenderObject quadVAO $ fromIntegral $ length quadIndices
 
   -- textures
 
@@ -886,10 +851,34 @@ loadGLStuff = do
     tex <- readImage path >>= either fail return >>= loadTexture True . convertRGBA8
     return (texID, tex)
 
+  -- models
+
+  modelsAndVBOs <- forM [minBound .. maxBound] $ \modID -> do
+    path <- getResourcesPath $ case modID of
+      ModelDrumTom       -> "models/drum-tom.obj"
+      ModelDrumCymbal    -> "models/drum-cymbal.obj"
+      ModelDrumKick      -> "models/drum-kick.obj"
+      ModelGuitarStrum   -> "models/gtr-strum.obj"
+      ModelGuitarHOPOTap -> "models/gtr-hopotap.obj"
+      ModelGuitarOpen    -> "models/gtr-open.obj"
+    vertices <- loadObj path
+    modelVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
+    modelVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
+    glBindVertexArray modelVAO
+    glBindBuffer GL_ARRAY_BUFFER modelVBO
+    withArrayBytes vertices $ \size p -> do
+      glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
+    writeParts 0 0 vertexParts
+    let modelObject = RenderObject modelVAO $ fromIntegral $ length vertices
+    return ((modID, modelObject), modelVBO)
+  let models    = map fst modelsAndVBOs
+      modelVBOs = map snd modelsAndVBOs
+
   -- clean up
 
   glBindVertexArray 0
-  withArray [boxVBO, coneVBO, quadVBO, quadEBO] $ glDeleteBuffers 3
+  withArrayLen ([boxVBO, flatVBO, quadVBO, quadEBO] ++ modelVBOs)
+    $ glDeleteBuffers . fromIntegral
 
   return GLStuff{..}
 
@@ -897,8 +886,8 @@ deleteGLStuff :: GLStuff -> IO ()
 deleteGLStuff GLStuff{..} = do
   glDeleteProgram objectShader
   glDeleteProgram quadShader
-  withArrayLen [boxVAO, coneVAO, flatVAO, quadVAO] $ \len p ->
-    glDeleteVertexArrays (fromIntegral len) p
+  withArrayLen (map objVAO $ [boxObject, flatObject, quadObject] ++ map snd models)
+    $ glDeleteVertexArrays . fromIntegral
   mapM_ (freeTexture . snd) textures
 
 data WindowDims = WindowDims Int Int
@@ -908,7 +897,7 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
   glUseProgram quadShader
   glActiveTexture GL_TEXTURE0
   glBindTexture GL_TEXTURE_2D tex
-  glBindVertexArray quadVAO
+  glBindVertexArray $ objVAO quadObject
   let scaleX = fromIntegral (w * scale) / fromIntegral screenW
       scaleY = fromIntegral (h * scale) / fromIntegral screenH
       translateX = (fromIntegral x / fromIntegral screenW) * 2 - 1 + scaleX
@@ -918,7 +907,7 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
     !*! L.scaled (V4 scaleX scaleY 1 1)
     :: M44 Float
     )
-  glDrawElements GL_TRIANGLES quadCount GL_UNSIGNED_INT nullPtr
+  glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
 freeTexture :: Texture -> IO ()
 freeTexture (Texture tex _ _) = with tex $ glDeleteTextures 1
@@ -969,7 +958,6 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
   forM_ (zip spaces trks) $ \((x, y, w, h), trk) -> do
     glClear GL_DEPTH_BUFFER_BIT
     glUseProgram objectShader
-    glBindVertexArray boxVAO
     let viewPosn = V3 0 1.4 3 :: V3 Float
         view, projection :: M44 Float
         view
