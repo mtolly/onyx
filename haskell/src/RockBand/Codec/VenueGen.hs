@@ -29,7 +29,7 @@ import qualified Sound.MIDI.Util                  as U
 
 data LightingTrack t = LightingTrack
   { lightingPostProcess     :: RTB.T t (PostProcess3, Bool)
-  , lightingTypes           :: RTB.T t (Lighting (), Bool)
+  , lightingTypes           :: RTB.T t (Lighting, Bool)
   , lightingStrobe          :: RTB.T t (Maybe StrobeSpeed)
   , lightingCommands        :: RTB.T t LightingCommand
   , lightingBonusFX         :: RTB.T t ()
@@ -100,8 +100,8 @@ instance ParseTrack LightingTrack where
       -- manual
       Lighting_                 -> 1 -- not supported by venuegen
       Lighting_intro            -> 2 -- not supported by venuegen
-      Lighting_verse ()         -> 39
-      Lighting_chorus ()        -> 38
+      Lighting_verse            -> 39
+      Lighting_chorus           -> 38
       Lighting_manual_cool      -> 37
       Lighting_manual_warm      -> 36
       Lighting_dischord         -> 35
@@ -162,7 +162,7 @@ data StrobeInput
   | OtherLighting
   deriving (Eq, Ord)
 
-applyStrobeNotes :: LightingTrack U.Beats -> RTB.T U.Beats (Lighting ())
+applyStrobeNotes :: LightingTrack U.Beats -> RTB.T U.Beats Lighting
 applyStrobeNotes lt = let
   input = RTB.normalize $ RTB.merge
     (RTB.mapMaybe (\(_, b) -> guard b >> Just OtherLighting) $ lightingTypes lt)
@@ -197,8 +197,7 @@ buildLighting lt = mempty
     lightingInput = RTB.merge
       (first Just <$> lightingTypes lt)
       ((\speed -> (Nothing, isJust speed)) <$> lightingStrobe lt)
-    in fmap (fmap $ const RBN2)
-      $ RTB.merge (applyStrobeNotes lt)
+    in  RTB.merge (applyStrobeNotes lt)
       $ RTB.mapMaybe id
       $ venue_generate lightingInput
   , venueLightingCommands = (\cmd -> (cmd, RBN2)) <$> lightingCommands lt
@@ -209,7 +208,7 @@ buildLighting lt = mempty
 unbuildLighting :: (NNC.C t) => t -> VenueTrack t -> LightingTrack t
 unbuildLighting lastLen vt = LightingTrack
   { lightingPostProcess     = venue_ungenerate lastLen $ venuePostProcessRB3 vt
-  , lightingTypes           = venue_ungenerate lastLen $ fmap (const ()) <$> venueLighting vt
+  , lightingTypes           = venue_ungenerate lastLen $ venueLighting vt
   , lightingStrobe          = RTB.empty
   , lightingCommands        = fst <$> venueLightingCommands vt
   , lightingBonusFX         = venueBonusFX vt

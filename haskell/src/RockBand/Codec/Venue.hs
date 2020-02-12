@@ -19,10 +19,10 @@ import           Data.List                        (sortBy)
 import qualified Data.Text                        as T
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
+import           Guitars                          (applyStatus1)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
-import qualified Sound.MIDI.Util                  as U
 
 data Camera3
   -- generic 4 camera shots
@@ -244,11 +244,11 @@ data CutEvent2
   | NoBehind
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-data Lighting game
+data Lighting
   -- manual
-  = Lighting_ -- ^ empty parens
-  | Lighting_verse game -- ^ @[verse]@ in RBN1
-  | Lighting_chorus game -- ^ @[chorus]@ in RBN1
+  = Lighting_ -- ^ empty parens, only pre-rb3
+  | Lighting_verse -- ^ only in rb3 (rb2 uses different format)
+  | Lighting_chorus -- ^ only in rb3 (rb2 uses different format)
   | Lighting_intro -- ^ new in rb3
   | Lighting_manual_cool
   | Lighting_manual_warm
@@ -271,8 +271,10 @@ data Lighting game
   | Lighting_flare_slow
   | Lighting_flare_fast
   | Lighting_bre
-  deriving (Eq, Ord, Show, Read, Functor, Generic)
-  deriving (Enum, Bounded) via GenericFullEnum (Lighting game)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data LightingMode2 = ModeVerse | ModeChorus
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data VenueFormat = RBN1 | RBN2
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -317,8 +319,9 @@ data VenueTrack t = VenueTrack
   , venuePostProcessRB3   :: RTB.T t PostProcess3
   , venuePostProcessRB2   :: RTB.T t PostProcess2
 
-  , venueLighting         :: RTB.T t (Lighting VenueFormat)
+  , venueLighting         :: RTB.T t Lighting
   , venueLightingCommands :: RTB.T t (LightingCommand, VenueFormat)
+  , venueLightingMode     :: RTB.T t LightingMode2
 
   , venueBonusFX          :: RTB.T t ()
   , venueBonusFXOptional  :: RTB.T t ()
@@ -329,10 +332,11 @@ data VenueTrack t = VenueTrack
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (VenueTrack t)
 
 instance TraverseTrack VenueTrack where
-  traverseTrack fn (VenueTrack a b c d e f g h i j k l m n o p q r) = VenueTrack
+  traverseTrack fn (VenueTrack a b c d e f g h i j k l m n o p q r s) = VenueTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
     <*> fn g <*> fn h <*> fn i <*> fn j <*> fn k <*> fn l
     <*> fn m <*> fn n <*> fn o <*> fn p <*> fn q <*> fn r
+    <*> fn s
 
 instance ParseTrack VenueTrack where
   parseTrack = do
@@ -373,12 +377,8 @@ instance ParseTrack VenueTrack where
       V2_film_16mm        -> 98
       V2_contrast_a       -> 97
       V2_Default          -> 96
-    venueLighting <- (venueLighting =.) $ condenseMap_ $ eachKey each $ \case
-      Lighting_verse  RBN2 -> specificLighting "verse"
-      Lighting_chorus RBN2 -> specificLighting "chorus"
-      Lighting_verse  RBN1 -> commandMatch ["verse"]
-      Lighting_chorus RBN1 -> commandMatch ["chorus"]
-      light -> specificLighting $ case T.stripPrefix "Lighting_" $ T.pack $ show light of
+    venueLighting <- (venueLighting =.) $ condenseMap_ $ eachKey each $ \light ->
+      specificLighting $ case T.stripPrefix "Lighting_" $ T.pack $ show light of
         Just s  -> s
         Nothing -> error $ "panic! couldn't strip Lighting_ from: " ++ show light
     venueLightingCommands <- (venueLightingCommands =.) $ condenseMap_ $ eachKey (liftA2 (,) each each) $ \case
@@ -388,6 +388,9 @@ instance ParseTrack VenueTrack where
       (LightingFirst, RBN1) -> blip 50
       (LightingPrev , RBN1) -> blip 49
       (LightingNext , RBN1) -> blip 48
+    venueLightingMode <- (venueLightingMode =.) $ condenseMap_ $ eachKey each $ \case
+      ModeVerse  -> commandMatch ["verse"]
+      ModeChorus -> commandMatch ["chorus"]
     venueBonusFX         <- venueBonusFX         =. commandMatch ["bonusfx"]
     venueBonusFXOptional <- venueBonusFXOptional =. commandMatch ["bonusfx_optional"]
     venueFog <- (venueFog =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
@@ -503,6 +506,7 @@ compileVenueRB3 vt = vt
   , venuePostProcessRB3
     = RTB.merge (venuePostProcessRB3 vt)
     $ flip fmap (venuePostProcessRB2 vt)
+    -- TODO do we need to remove redundant events to prevent blending from an RB2 source
     $ \case
       V2_video_trails     -> V3_video_trails
       V2_video_security   -> V3_video_security
@@ -521,8 +525,18 @@ compileVenueRB3 vt = vt
       V2_Default          -> V3_ProFilm_a
       -- not in rbn2 list, but rbn2 docs say ProFilm_a is "default"
   , venuePostProcessRB2 = RTB.empty
-  , venueLighting = fmap (const RBN2) <$> venueLighting vt
+  , venueLighting = let
+    -- in RB2, [verse]/[chorus] are a separate mode which affect any lighting setting.
+    -- the docs say they most noticeably affect [lighting ()].
+    -- RB3 just replaces it with [lighting (verse)]/[lighting (chorus)].
+    withMode = applyStatus1 ModeVerse (venueLightingMode vt) (venueLighting vt)
+    noBlend = if RTB.null $ venueLightingMode vt then id else noRedundantStatus
+    in noBlend $ flip fmap withMode $ \case
+      (ModeVerse , Lighting_) -> Lighting_verse
+      (ModeChorus, Lighting_) -> Lighting_chorus
+      (_         , light    ) -> light
   , venueLightingCommands = (\(cmd, _) -> (cmd, RBN2)) <$> venueLightingCommands vt
+  , venueLightingMode = RTB.empty
   , venueFog = RTB.empty
   }
 
@@ -666,15 +680,16 @@ compileVenueRB2 vt = let
         V3_ProFilm_mirror_a             -> V2_ProFilm_mirror_a
         V3_ProFilm_psychedelic_blue_red -> V2_photo_negative
         V3_space_woosh                  -> V2_video_trails
-    , venueLighting
-      = fmap (fmap (const RBN1) . \case
-        Lighting_intro         -> Lighting_
-        Lighting_blackout_spot -> Lighting_silhouettes_spot
-        x                      -> x
-        )
-      -- Magma v1 requires that the lighting track start with [verse]
-      $ RTB.cons NNC.zero (Lighting_verse RBN1)
-      $ U.trackDropZero
-      $ venueLighting vt
+    , venueLighting = noRedundantStatus $ fmap snd lightingWithMode'
     , venueLightingCommands = (\(cmd, _) -> (cmd, RBN1)) <$> venueLightingCommands vt
-    }
+    , venueLightingMode = noRedundantStatus $
+      RTB.cons NNC.zero ModeVerse $ fmap fst lightingWithMode'
+      -- have to have [verse] at the start
+    } where
+      lightingWithMode = applyStatus1 ModeVerse (venueLightingMode vt) (venueLighting vt)
+      lightingWithMode' = flip fmap lightingWithMode $ \case
+        (_   , Lighting_verse        ) -> (ModeVerse , Lighting_                )
+        (_   , Lighting_chorus       ) -> (ModeChorus, Lighting_                )
+        (mode, Lighting_intro        ) -> (mode      , Lighting_                )
+        (mode, Lighting_blackout_spot) -> (mode      , Lighting_silhouettes_spot)
+        x                              -> x
