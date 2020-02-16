@@ -14,7 +14,8 @@ import           Audio                                     (Audio (..),
                                                             stretchRealtime)
 import           AudioSearch
 import           Build                                     (targetTitle)
-import           CommandLine                               (copyDirRecursive,
+import           CommandLine                               (blackVenue,
+                                                            copyDirRecursive,
                                                             runDolphin)
 import           Config
 import           Control.Concurrent                        (MVar, ThreadId,
@@ -1713,6 +1714,40 @@ miscPageLipsync sink rect tab startTasks = do
   FL.end pack
   FL.setResizable tab $ Just pack
 
+miscPageBlack
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageBlack sink rect tab startTasks = do
+  loadedFiles <- newMVar []
+  let (filesRect, startRect) = chopBottom 50 rect
+      startRect' = trimClock 5 10 10 10 startRect
+  group <- fileLoadWindow filesRect sink "Song" "Songs" (modifyMVar_ loadedFiles) [] findSongs $ \imp -> let
+    entry = T.concat
+      [ fromMaybe "Untitled" $ impTitle imp
+      , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
+      ]
+    sublines = concat
+      [ case impAuthor imp of
+        Just author | T.any (not . isSpace) author -> ["Author: " <> author]
+        _                                          -> []
+      , ["Format: " <> impFormat imp]
+      , ["Path: " <> T.pack (impPath imp) <> index]
+      ]
+    index = case impIndex imp of
+      Nothing -> ""
+      Just i  -> T.pack $ " (#" <> show i <> ")"
+    in (entry, sublines)
+  btn <- FL.buttonNew startRect' $ Just "Modify CON files"
+  FL.setResizable tab $ Just group
+  FL.setCallback btn $ \_ -> sink $ EventIO $ do
+    files <- map impPath <$> readMVar loadedFiles
+    sink $ EventOnyx $ startTasks $ do
+      f <- files
+      return (f, blackVenue f >> return [f])
+
 miscPageMOGG
   :: (Event -> IO ())
   -> Rectangle
@@ -1951,6 +1986,10 @@ launchMisc sink makeMenuBar = mdo
     , makeTab windowRect ".milo functions" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageMilo sink rect tab startTasks
+      return tab
+    , makeTab windowRect "Black VENUE" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      miscPageBlack sink rect tab startTasks
       return tab
     {-
     , makeTab windowRect "RB3 song cache" $ \rect tab -> do

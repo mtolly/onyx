@@ -5,7 +5,14 @@
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE ViewPatterns      #-}
-module CommandLine (commandLine, identifyFile', FileType(..), copyDirRecursive, runDolphin) where
+module CommandLine
+( commandLine
+, identifyFile'
+, FileType(..)
+, copyDirRecursive
+, runDolphin
+, blackVenue
+) where
 
 import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart, runAudio)
