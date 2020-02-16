@@ -238,3 +238,36 @@ instance TimeState t => TimeStateProduct (S1 m (Rec0 t)) where
   genericBefore (M1 (K1 x)) = M1 $ K1 $ before x
   genericAfter (M1 (K1 x)) = M1 $ K1 $ after x
   genericEmpty = M1 $ K1 empty
+
+-- drum gameplay
+
+data EventResult t pad = EventResult
+  { eventHit    :: Maybe (pad, Maybe t) -- Just if a note was correctly hit
+  , eventMissed :: [t]
+  }
+
+data GamePlayState = GamePlayState
+  { gameScore :: Int
+  , gameCombo :: Int
+  }
+
+initialState :: GamePlayState
+initialState = GamePlayState
+  { gameScore = 0
+  , gameCombo = 0
+  }
+
+data DrumPlayState t pad = DrumPlayState
+  { drumEvents :: [(t, (EventResult t pad, GamePlayState))]
+  , drumTrack  :: Map.Map t (CommonState (DrumState pad))
+  }
+
+applyDrumEvent :: (Ord t, Eq pad) => t -> Maybe pad -> DrumPlayState t pad -> DrumPlayState t pad
+applyDrumEvent tNew mpadNew dps = let
+  applyNoRewind (t, mpad) evts = undefined
+  in case span ((> tNew) . fst) $ drumEvents dps of
+    (eventsToRewind, rest) -> let
+      eventsToRewind' = flip map eventsToRewind $ \(t, (res, _)) ->
+        (t, fmap fst $ eventHit res)
+      newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, mpadNew)]
+      in dps { drumEvents = newEvents }

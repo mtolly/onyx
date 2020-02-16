@@ -24,6 +24,8 @@ module STFS.Package
 , openSTFS
 , STFSPackage(..)
 , LicenseEntry(..)
+, Header(..)
+, Metadata(..)
 ) where
 
 import           Control.Monad                  (forM_, guard, replicateM,

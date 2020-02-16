@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE ViewPatterns      #-}
 module CommandLine (commandLine, identifyFile', FileType(..), copyDirRecursive, runDolphin) where
@@ -37,7 +38,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     (void)
 import qualified Data.HashMap.Strict              as Map
 import           Data.Int                         (Int16)
-import           Data.List.Extra                  (stripSuffix, unsnoc)
+import           Data.List.Extra                  (nubOrd, stripSuffix, unsnoc)
 import           Data.List.HT                     (partitionMaybe)
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
@@ -54,6 +55,7 @@ import           MoggDecrypt                      (moggToOgg, oggToMogg)
 import           OpenProject
 import           OSFiles                          (copyDirRecursive)
 import           PrettyDTA                        (DTASingle (..),
+                                                   readDTASingles,
                                                    readFileSongsDTA, readRB3DTA,
                                                    writeDTASingle)
 import           ProKeysRanges                    (closeShiftsFile)
@@ -61,7 +63,9 @@ import           Reaper.Build                     (makeReaperIO)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Vocal             (nullVox)
-import           RockBand.Common                  (Difficulty (..))
+import           RockBand.Common                  (Difficulty (..),
+                                                   pattern RNil, pattern Wait,
+                                                   makeEdgeCPV)
 import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    beatlesLipsync,
                                                    englishVowels, packMilo,
@@ -71,19 +75,23 @@ import           RockBand.Milo                    (SongPref, autoLipsync,
 import           RockBand.Score
 import           Rocksmith.Sng2014                (bin)
 import qualified Sound.File.Sndfile               as Snd
+import qualified Sound.MIDI.File                  as F
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
+import qualified Sound.MIDI.Parser.Report         as Report
 import qualified Sound.MIDI.Script.Base           as MS
 import qualified Sound.MIDI.Script.Parse          as MS
 import qualified Sound.MIDI.Script.Read           as MS
 import qualified Sound.MIDI.Script.Scan           as MS
 import qualified Sound.MIDI.Util                  as U
-import           STFS.Package                     (extractSTFS, rb2pkg, rb3pkg,
-                                                   stfsFolder)
+import           STFS.Package
 import           System.Console.GetOpt
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropExtension,
                                                    dropTrailingPathSeparator,
+                                                   splitDirectories,
                                                    splitFileName, takeDirectory,
                                                    takeExtension, takeFileName,
                                                    (-<.>), (<.>), (</>))
@@ -907,6 +915,15 @@ commands =
       _ -> fatal "Expected 1 argument (input midi)"
     }
 
+  , Command
+    { commandWord = "black"
+    , commandDesc = "Replace the VENUE track in CON MIDIs with a black background."
+    , commandUsage = "onyx black con_1 con_2 ..."
+    , commandRun = \args _opts -> do
+      mapM_ blackVenue args
+      return args
+    }
+
   ]
 
 runDolphin
@@ -1129,3 +1146,76 @@ midiOptions opts = MS.Options
   , MS.separateLines = elem OptSeparateLines opts
   , MS.matchNoteOff = elem OptMatchNotes opts
   }
+
+blackVenue :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m ()
+blackVenue fcon = inside ("Inserting black VENUE in: " <> fcon) $ do
+  (hdr, meta) <- stackIO $ openSTFS fcon $ \pkg -> return (stfsHeader pkg, stfsMetadata pkg)
+  case hdr of
+    CON _ -> do
+      filePairs <- stackIO $ withSTFS fcon $ mapM sequence . stfsFiles
+      let isMid = (== ".mid") . takeExtension
+      if any (isMid . fst) filePairs
+        then do
+          filePairs' <- flip mapM filePairs $ \(f, bs) -> if isMid f
+            then do
+              F.Cons typ dvn trks <- inside ("loading " <> f) $ either fatal return
+                $ Report.result $ Load.maybeFromByteString bs
+              isRB3 <- case lookup ("songs" </> "songs.dta") filePairs of
+                Nothing -> fatal "Couldn't find songs.dta in package"
+                Just dtaBS -> do
+                  songs <- readDTASingles $ BL.toStrict dtaBS
+                  case map (D.songFormat . dtaSongPackage . fst) songs of
+                    [] -> fatal "No songs found in songs.dta"
+                    fmts  | all (>= 10) fmts -> return True
+                          | all (< 10) fmts -> return False
+                          | otherwise -> fatal
+                            "Mix of RB3 and pre-RB3 songs found in pack (???)"
+              let black = U.setTrackName "VENUE" $ if isRB3
+                    then RTB.fromPairList $ map (\s -> (0, E.MetaEvent $ Meta.TextEvent s))
+                      ["[lighting (blackout_fast)]", "[film_b+w.pp]", "[coop_all_far]"]
+                    else Wait 0 (E.MetaEvent $ Meta.TextEvent "[verse]")
+                      $ Wait 0 (E.MetaEvent $ Meta.TextEvent "[lighting (blackout_fast)]")
+                      $ Wait 0 (makeEdgeCPV 0 60 $ Just 96) -- camera cut
+                      $ Wait 0 (makeEdgeCPV 0 61 $ Just 96) -- focus bass
+                      $ Wait 0 (makeEdgeCPV 0 62 $ Just 96) -- focus drums
+                      $ Wait 0 (makeEdgeCPV 0 63 $ Just 96) -- focus guitar
+                      $ Wait 0 (makeEdgeCPV 0 64 $ Just 96) -- focus vocal
+                      $ Wait 0 (makeEdgeCPV 0 71 $ Just 96) -- only far
+                      $ Wait 0 (makeEdgeCPV 0 108 $ Just 96) -- video_bw
+                      $ Wait 120 (makeEdgeCPV 0 60 Nothing)
+                      $ Wait 0 (makeEdgeCPV 0 61 Nothing)
+                      $ Wait 0 (makeEdgeCPV 0 62 Nothing)
+                      $ Wait 0 (makeEdgeCPV 0 63 Nothing)
+                      $ Wait 0 (makeEdgeCPV 0 64 Nothing)
+                      $ Wait 0 (makeEdgeCPV 0 71 Nothing)
+                      $ Wait 0 (makeEdgeCPV 0 108 Nothing) RNil
+                  isVenue = (== Just "VENUE") . U.trackName
+                  mid = F.Cons typ dvn $ filter (not . isVenue) trks ++ [black]
+              return (splitDirectories f, Save.toByteString mid)
+            else return (splitDirectories f, bs)
+          let opts = CreateOptions
+                { createName          = head $ md_DisplayName meta
+                , createDescription   = head $ md_DisplayDescription meta
+                , createTitleID       = md_TitleID meta
+                , createTitleName     = md_TitleName meta
+                , createThumb         = md_ThumbnailImage meta
+                , createTitleThumb    = md_TitleThumbnailImage meta
+                , createLicense       = LicenseEntry (-1) 1 0 -- unlocked
+                , createMediaID       = 0
+                , createVersion       = 0
+                , createBaseVersion   = 0
+                , createTransferFlags = 0xC0
+                }
+              mem = makeFolder filePairs'
+              makeFolder pairs = let
+                files = [ (concat parts, bs) | (parts, bs) <- pairs, null $ drop 1 parts ]
+                folders = nubOrd [ dir | (dir : _ : _, _) <- pairs ]
+                in [ MemoryFile (T.pack f) bs | (f, bs) <- files ] ++ do
+                  dir <- folders
+                  let inDir = [ (rest, bs) | (fileDir : rest, bs) <- pairs, fileDir == dir ]
+                  return $ MemoryFolder (T.pack dir) $ makeFolder inDir
+              ftemp = fcon <> ".tmp"
+          stackIO $ makeCONMemory opts mem ftemp
+          stackIO $ Dir.renameFile ftemp fcon
+        else fatal "Couldn't find MIDI file in package"
+    _ -> fatal "Package is LIVE/PIRS, can't edit"
