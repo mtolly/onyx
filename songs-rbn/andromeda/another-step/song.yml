@@ -80,7 +80,7 @@ targets:
     game: rb3
     file-milo: lipsync.milo_xbox
     label: (O)
-  rb3:
+  rb3-2x:
     game: rb3
     file-milo: lipsync.milo_xbox
     label: (2x Bass Pedal) (O)
