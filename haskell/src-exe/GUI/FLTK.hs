@@ -2615,13 +2615,15 @@ foreign import ccall unsafe "Fl_Simple_Terminal_append"
 macOS :: Bool
 macOS = os == "darwin"
 
-isNewestRelease :: (Bool -> IO ()) -> IO ()
+isNewestRelease :: (Ordering -> IO ()) -> IO ()
 isNewestRelease cb = do
   let addr = Req.https "api.github.com" /: "repos" /: "mtolly" /: "onyxite-customs" /: "releases" /: "latest"
   rsp <- Req.runReq Req.defaultHttpConfig $ Req.req Req.GET addr Req.NoReqBody Req.jsonResponse $ Req.header "User-Agent" "mtolly/onyxite-customs"
   case Req.responseBody rsp of
     A.Object obj -> case HM.lookup "name" obj of
-      Just (A.String str) -> cb $ T.unpack str == showVersion version
+      Just (A.String str) -> cb $ case (readMaybe $ T.unpack str, readMaybe $ showVersion version) of
+        (Just latest, Just this) -> compare (this :: Integer) latest
+        _                        -> if T.unpack str == showVersion version then EQ else LT
       _                   -> return ()
     _            -> return ()
 
@@ -2727,11 +2729,12 @@ launchGUI = do
       (Size (Width 370) (Height 25))
     )
     (Just "Checking for updates…")
-  _ <- forkIO $ isNewestRelease $ \b -> sink $ EventIO $ do
-    FL.setLabel labelLatest $ if b
-      then "You are using the latest version."
-      else "New version available!"
-    unless b $ FL.setLabelcolor labelLatest FLE.whiteColor
+  _ <- forkIO $ isNewestRelease $ \comp -> sink $ EventIO $ do
+    FL.setLabel labelLatest $ case comp of
+      EQ -> "You are using the latest version."
+      LT -> "New version available!"
+      GT -> "Prerelease version"
+    when (comp /= EQ) $ FL.setLabelcolor labelLatest FLE.whiteColor
   term <- FL.simpleTerminalNew
     (Rectangle
       (Position (X 10) (Y $ 45 + menuHeight))
