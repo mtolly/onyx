@@ -1,6 +1,6 @@
 metadata:
   comments:
-  - 2x Bass Pedal upgrade; no other changes.
+  - Drum edit and 2x Bass Pedal upgrade.
   file-album-art: ../../../covers/extension-of-the-wish.png_xbox
   track-number: 4
   album: Extension of the Wish
@@ -51,9 +51,11 @@ plans:
 targets:
   rb3:
     game: rb3
+    label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
   ps:
     game: ps
+    label: (O)
