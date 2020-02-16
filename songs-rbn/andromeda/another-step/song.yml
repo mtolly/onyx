@@ -1,0 +1,105 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        tier: 5
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: both
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 6
+      - 7
+      bass:
+      - 2
+      - 3
+      guitar:
+      - 4
+      - 5
+      keys:
+      - 8
+      - 9
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    mogg-md5: 457b95bf18261af75de8638288f5ec24
+    multitrack: true
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    label: (O)
+  rb3:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    label: (2x Bass Pedal) (O)
+    2x-bass-pedal: true
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  preview-start: 5:03.000
+  file-album-art: cover.png_xbox
+  track-number: 7
+  album: The Immunity Zone
+  year: 2008
+  subgenre: progrock
+  anim-tempo: 64
+  author: Rhythm Authors, Onyxite
+  title: Another Step
+  preview-end: 5:33.000
+  genre: prog
+  difficulty:
+    tier: 7
+  artist: Andromeda
