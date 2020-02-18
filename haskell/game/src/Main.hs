@@ -130,7 +130,7 @@ playDrumTrack window trk pans vols ogg = do
   _stop <- RGAudio.playSource pans vols ca
   startedAt <- ticksMilli
   let loop prevState = do
-        print $ PNF.drumEvents $ prevState
+        -- print $ PNF.drumEvents $ prevState
         frameStart <- ticksMilli
         let timePassed = PNF.applyDrumEvent (realToFrac $ frameStart - startedAt) Nothing halfWindow prevState
         SDL.pollEvents >>= processEvents timePassed >>= \case

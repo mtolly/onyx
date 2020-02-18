@@ -704,6 +704,16 @@ data TextureID
   | TextureTargetYellowLight
   | TextureTargetBlueLight
   | TextureTargetOrangeLight
+  | TextureNumber0
+  | TextureNumber1
+  | TextureNumber2
+  | TextureNumber3
+  | TextureNumber4
+  | TextureNumber5
+  | TextureNumber6
+  | TextureNumber7
+  | TextureNumber8
+  | TextureNumber9
   deriving (Eq, Show, Enum, Bounded)
 
 data ModelID
@@ -867,7 +877,29 @@ loadGLStuff = do
       TextureTargetYellowLight -> "textures/target-yellow-light.jpg"
       TextureTargetBlueLight   -> "textures/target-blue-light.jpg"
       TextureTargetOrangeLight -> "textures/target-orange-light.jpg"
-    tex <- readImage path >>= either fail return >>= loadTexture True . convertRGBA8
+      TextureNumber0           -> "textures/number-0.png"
+      TextureNumber1           -> "textures/number-1.png"
+      TextureNumber2           -> "textures/number-2.png"
+      TextureNumber3           -> "textures/number-3.png"
+      TextureNumber4           -> "textures/number-4.png"
+      TextureNumber5           -> "textures/number-5.png"
+      TextureNumber6           -> "textures/number-6.png"
+      TextureNumber7           -> "textures/number-7.png"
+      TextureNumber8           -> "textures/number-8.png"
+      TextureNumber9           -> "textures/number-9.png"
+    let isLinear = case texID of
+          TextureNumber0 -> False
+          TextureNumber1 -> False
+          TextureNumber2 -> False
+          TextureNumber3 -> False
+          TextureNumber4 -> False
+          TextureNumber5 -> False
+          TextureNumber6 -> False
+          TextureNumber7 -> False
+          TextureNumber8 -> False
+          TextureNumber9 -> False
+          _              -> True
+    tex <- readImage path >>= either fail return >>= loadTexture isLinear . convertRGBA8
     return (texID, tex)
 
   -- models
@@ -975,6 +1007,25 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
     sendUniformName objectShader "viewPos" viewPosn
     glViewport (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h)
     drawDrumPlay glStuff (y, h) time speed dps
+
+  glClear GL_DEPTH_BUFFER_BIT
+  let gps = case drumEvents dps of
+        (_, (_, s)) : _ -> s
+        _               -> initialState
+      digitScale = 2
+      digitWidth = 14
+      digitHeight = 18
+      drawNumber = drawNumber' True
+      drawNumber' write0 n x y = case quotRem n 10 of
+        (q, r) -> when (q /= 0 || r /= 0 || write0) $ do
+          case drop r [TextureNumber0 .. TextureNumber9] of
+            texid : _ -> case lookup texid textures of
+              Just tex -> drawTexture glStuff dims tex (V2 x y) digitScale
+              Nothing -> return ()
+            [] -> return ()
+          drawNumber' False q (x - digitWidth * digitScale) y
+  drawNumber (gameScore gps) (wWhole - digitWidth * digitScale) (hWhole - digitHeight * digitScale)
+  drawNumber (gameCombo gps) (quot wWhole 2) 0
 
 drawTracks
   :: GLStuff
