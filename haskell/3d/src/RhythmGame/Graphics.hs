@@ -117,7 +117,21 @@ makeToggleBounds t1 t2 m = let
   in simplify zipped
 
 drawDrums :: GLStuff -> (Int, Int) -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
-drawDrums glStuff@GLStuff{..} ydims nowTime speed trk = do
+drawDrums glStuff ydims nowTime speed trk = drawDrumPlay glStuff ydims nowTime speed DrumPlayState
+  { drumEvents = do
+    (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
+    pad <- Set.toList $ drumNotes $ commonState cs
+    let res = EventResult
+          { eventHit = Just (pad, Just cst)
+          , eventMissed = []
+          }
+    return (cst, (res, initialState)) -- score/combo state not used
+  , drumTrack = trk
+  , drumNoteTimes = Set.empty -- not used
+  }
+
+drawDrumPlay :: GLStuff -> (Int, Int) -> Double -> Double -> DrumPlayState Double (D.Gem D.ProType) -> IO ()
+drawDrumPlay glStuff@GLStuff{..} ydims nowTime speed dps = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
   let drawObject' = drawObject glStuff ydims
@@ -129,7 +143,10 @@ drawDrums glStuff@GLStuff{..} ydims nowTime speed trk = do
       timeToZ t = nowZ + (farZ - nowZ) * realToFrac ((t - nowTime) / (farTime - nowTime))
       zToTime z = nowTime + (farTime - nowTime) * realToFrac ((z - nowZ) / (farZ - nowZ))
       nearTime = zToTime nearZ
-      zoomed = zoomMap nearTime farTime trk
+      zoomed = zoomMap nearTime farTime $ drumTrack dps
+      -- TODO these need to return the actual time of hit
+      processed = processedNotes $ drumEvents dps
+      isHit t gem = lookupNote t gem processed == Just True
       drawGem t od gem alpha = let
         (texid, obj) = case gem of
           D.Kick                  -> (if od then TextureLongEnergy   else TextureLongKick     , Model ModelDrumKick  )
@@ -159,10 +176,11 @@ drawDrums glStuff@GLStuff{..} ydims nowTime speed trk = do
           ToggleEmpty -> False
           ToggleEnd   -> False
           _           -> True
-        in forM_ (drumNotes $ commonState cs) $ \gem -> if nowTime <= t
+        in forM_ (drumNotes $ commonState cs) $ \gem -> if not $ isHit t gem
           then drawGem t od gem Nothing
           else if nowTime - t < 0.1
             then drawGem nowTime od gem $ Just $ realToFrac $ 1 - (nowTime - t) * 10
+            -- TODO the above needs to use actual hit time, not note time
             else return ()
       drawBeat t cs = case commonBeats cs of
         Nothing -> return ()
@@ -214,6 +232,7 @@ drawDrums glStuff@GLStuff{..} ydims nowTime speed trk = do
       drawLights _ [] = return ()
       drawLights ((t, cs) : states) colors = let
         gemsHere = drumNotes $ commonState cs
+        -- TODO need to use isHit
         (colorsYes, colorsNo) = partition (\(_, _, pads) -> any (`Set.member` gemsHere) pads) colors
         alpha = realToFrac $ 1 - (nowTime - t) * 6
         in do
@@ -923,6 +942,39 @@ splitSpace n heightWidthRatio (WindowDims w h) = let
       return (x1, y1, x2 - x1, min maxHeight $ y2 - y1)
     in thisRow ++ makeRows (spaces - cols) rows
   in makeRows n $ reverse $ pieces bestRows h
+
+drawDrumPlayFull
+  :: GLStuff
+  -> WindowDims
+  -> Double
+  -> Double
+  -> DrumPlayState Double (D.Gem D.ProType)
+  -> IO ()
+drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed dps = do
+  glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
+  glClearColor 0.2 0.3 0.3 1.0
+  glClear GL_COLOR_BUFFER_BIT
+
+  let spaces = splitSpace 1 (7/6) dims
+  forM_ spaces $ \(x, y, w, h) -> do
+    glClear GL_DEPTH_BUFFER_BIT
+    glUseProgram objectShader
+    let viewPosn = V3 0 1.4 3 :: V3 Float
+        view, projection :: M44 Float
+        view
+          = L.mkTransformation (L.axisAngle (V3 1 0 0) (degrees 25)) 0
+          !*! translate4 (negate viewPosn)
+          -- note, this translates then rotates (can't just give V3 to mkTransformation)
+        projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
+    sendUniformName objectShader "view" view
+    sendUniformName objectShader "projection" projection
+    -- light.position gets sent later
+    sendUniformName objectShader "light.ambient" (V3 0.2 0.2 0.2 :: V3 Float)
+    sendUniformName objectShader "light.diffuse" (V3 1 1 1 :: V3 Float)
+    sendUniformName objectShader "light.specular" (V3 1 1 1 :: V3 Float)
+    sendUniformName objectShader "viewPos" viewPosn
+    glViewport (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h)
+    drawDrumPlay glStuff (y, h) time speed dps
 
 drawTracks
   :: GLStuff

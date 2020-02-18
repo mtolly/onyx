@@ -6,17 +6,22 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE MultiWayIf           #-}
 {-# LANGUAGE PatternSynonyms      #-}
+{-# LANGUAGE RecordWildCards      #-}
 {-# LANGUAGE TupleSections        #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
 module RhythmGame.PNF where
 
 import           Control.Applicative              ((<|>))
+import           Control.Monad                    (guard)
 import           Control.Monad.Trans.State        (evalState, get, put)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map.Strict                  as Map
-import           Data.Maybe                       (fromMaybe)
+import           Data.Map.Strict.Internal         (Map (..))
+import           Data.Maybe                       (fromMaybe, isJust,
+                                                   listToMaybe, mapMaybe)
 import qualified Data.Set                         as Set
 import           GHC.Generics
 import           GHC.TypeLits
@@ -243,13 +248,13 @@ instance TimeState t => TimeStateProduct (S1 m (Rec0 t)) where
 
 data EventResult t pad = EventResult
   { eventHit    :: Maybe (pad, Maybe t) -- Just if a note was correctly hit
-  , eventMissed :: [t]
-  }
+  , eventMissed :: [(t, pad)]
+  } deriving (Show)
 
 data GamePlayState = GamePlayState
   { gameScore :: Int
   , gameCombo :: Int
-  }
+  } deriving (Show)
 
 initialState :: GamePlayState
 initialState = GamePlayState
@@ -258,13 +263,101 @@ initialState = GamePlayState
   }
 
 data DrumPlayState t pad = DrumPlayState
-  { drumEvents :: [(t, (EventResult t pad, GamePlayState))]
-  , drumTrack  :: Map.Map t (CommonState (DrumState pad))
-  }
+  { drumEvents    :: [(t, (EventResult t pad, GamePlayState))]
+  , drumTrack     :: Map.Map t (CommonState (DrumState pad))
+  , drumNoteTimes :: Set.Set t
+  } deriving (Show)
 
-applyDrumEvent :: (Ord t, Eq pad) => t -> Maybe pad -> DrumPlayState t pad -> DrumPlayState t pad
-applyDrumEvent tNew mpadNew dps = let
-  applyNoRewind (t, mpad) evts = undefined
+processedNotes :: [(t, (EventResult t pad, GamePlayState))] -> [(t, pad, Bool)]
+processedNotes = concatMap $ \(_, (res, _)) -> let
+  hit = case eventHit res of
+    Just (pad, Just t) -> [(t, pad, True)]
+    _                  -> []
+  misses = [ (t, pad, False) | (t, pad) <- eventMissed res ]
+  in hit ++ misses
+
+lookupNote :: (Ord t, Eq pad) => t -> pad -> [(t, pad, Bool)] -> Maybe Bool
+lookupNote t pad
+  = listToMaybe
+  . mapMaybe (\(pt, ppad, b) -> guard (pt == t && ppad == pad) >> Just b)
+  . takeWhile (\(pt, _, _) -> pt >= t)
+
+zoomMapList :: (Ord k) => k -> k -> Map.Map k a -> [(k, a)]
+zoomMapList _ _ Tip = []
+zoomMapList kmin kmax (Bin _ k v ml mr)
+  =  (if k <= kmin then [] else zoomMapList kmin kmax ml)
+  ++ [(k, v) | kmin <= k && k <= kmax]
+  ++ (if kmax <= k then [] else zoomMapList kmin kmax mr)
+
+applyDrumEvent :: (Show t, Ord t, Num t, Ord pad) => t -> Maybe pad -> t -> DrumPlayState t pad -> DrumPlayState t pad
+applyDrumEvent tNew mpadNew halfWindow dps = let
+  applyNoRewind (t, mpad) evts = let
+    mClosestTime = case (Set.lookupLE t $ drumNoteTimes dps, Set.lookupGE t $ drumNoteTimes dps) of
+      (x, Nothing)     -> x
+      (Nothing, y)     -> y
+      (Just x, Just y) -> Just $ if t - x < y - t then x else y
+    mClosestTime' = mClosestTime >>= \ct -> do
+      guard $ abs (ct - t) < halfWindow
+      return ct
+    processed = processedNotes evts
+    lastProcessedGroup = case processed of
+      [] -> Nothing
+      (pt, pad, b) : ps -> let
+        rest = [ (pad', b') | (pt', pad', b') <- ps, pt == pt' ]
+        in Just (pt, (pad, b) : rest)
+    eventHit = flip fmap mpad $ \pad -> let
+      hitNote = mClosestTime' >>= \closestTime -> do
+        guard $ case Map.lookup closestTime $ drumTrack dps of
+          Nothing -> False
+          Just cs -> Set.member pad $ drumNotes $ commonState cs
+        let thisWindow = takeWhile (\(pt, _, _) -> pt == closestTime) processed
+        guard $ all (\(_, ppad, _) -> pad /= ppad) thisWindow
+        Just closestTime
+      in (pad, hitNote)
+    eventMissed = let
+      -- earliest missable time is the last processed note time
+      -- latest missable time is t
+      -- for each time, miss a note if we didn't process it already and:
+      -- * it's before the note we are hitting now
+      -- * or, it's not hittable because it's <= t - halfWindow
+      firstPossibleMiss = case lastProcessedGroup of
+        Nothing      -> 0
+        Just (pt, _) -> pt
+      lastPossibleMiss = t
+      in do
+        (cst, cs) <- zoomMapList firstPossibleMiss lastPossibleMiss $ drumTrack dps
+        notePad <- Set.toList $ drumNotes $ commonState cs
+        let inProcessed = isJust $ lookupNote cst notePad processed
+            beforeCurrentHit = case eventHit of
+              Just (_, Just hitTime) -> cst < hitTime
+              _                      -> False
+            beforeWindow = cst <= t - halfWindow
+        guard $ not inProcessed && (beforeCurrentHit || beforeWindow)
+        return (cst, notePad)
+    newState = let
+      prevState = case evts of
+        []              -> initialState
+        (_, (_, s)) : _ -> s
+      comboPlus = case eventHit of
+        Just (_, Just _) -> 1 -- hit a note
+        _                -> 0
+      comboBase = case eventHit of
+        Just (_, Nothing) -> 0 -- overhit
+        _                 -> case eventMissed of
+          _ : _ -> 0 -- missed a note
+          []    -> gameCombo prevState
+      scorePlus = comboPlus * 25 * if
+        | comboBase < 9  -> 1
+        | comboBase < 19 -> 2
+        | comboBase < 29 -> 3
+        | otherwise      -> 4
+      in GamePlayState
+        { gameScore = gameScore prevState + scorePlus
+        , gameCombo = comboBase + comboPlus
+        }
+    in case (eventHit, eventMissed) of
+      (Nothing, []) -> evts -- time passed but nothing happened
+      _             -> (t, (EventResult{..}, newState)) : evts
   in case span ((> tNew) . fst) $ drumEvents dps of
     (eventsToRewind, rest) -> let
       eventsToRewind' = flip map eventsToRewind $ \(t, (res, _)) ->
