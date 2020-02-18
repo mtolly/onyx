@@ -32,8 +32,12 @@
 
 1. `make mac-deps` (if you want to use an existing Wine, edit the `Makefile`)
 
-2. `stack build`
+2. Follow the instructions printed by Homebrew for setting up `openal-soft` in `pkg-config`.
 
-3. `make mac`
+3. `stack build`
 
-4. Program is packaged as `Onyx.app`.
+4. Build the web player in `../player`. (Or make a dummy `build` folder with `app.min.js` if you don't need it.)
+
+5. `make mac`
+
+6. Program is packaged as `Onyx.app`.
