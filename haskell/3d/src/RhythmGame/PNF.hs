@@ -20,8 +20,8 @@ import           Control.Monad.Trans.State        (evalState, get, put)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map.Strict                  as Map
 import           Data.Map.Strict.Internal         (Map (..))
-import           Data.Maybe                       (fromMaybe, isJust,
-                                                   listToMaybe, mapMaybe)
+import           Data.Maybe                       (fromMaybe, listToMaybe,
+                                                   mapMaybe)
 import qualified Data.Set                         as Set
 import           GHC.Generics
 import           GHC.TypeLits
@@ -268,19 +268,29 @@ data DrumPlayState t pad = DrumPlayState
   , drumNoteTimes :: Set.Set t
   } deriving (Show)
 
-processedNotes :: [(t, (EventResult t pad, GamePlayState))] -> [(t, pad, Bool)]
-processedNotes = concatMap $ \(_, (res, _)) -> let
+data NoteStatus t
+  = NoteFuture
+  | NoteHitAt t
+  | NoteMissed
+  deriving (Eq, Show)
+
+processedNotes :: [(t, (EventResult t pad, GamePlayState))] -> [(t, pad, NoteStatus t)]
+processedNotes = concatMap $ \(eventTime, (res, _)) -> let
   hit = case eventHit res of
-    Just (pad, Just t) -> [(t, pad, True)]
+    Just (pad, Just t) -> [(t, pad, NoteHitAt eventTime)]
     _                  -> []
-  misses = [ (t, pad, False) | (t, pad) <- eventMissed res ]
+  misses = [ (t, pad, NoteMissed) | (t, pad) <- eventMissed res ]
   in hit ++ misses
 
-lookupNote :: (Ord t, Eq pad) => t -> pad -> [(t, pad, Bool)] -> Maybe Bool
+lookupNote :: (Ord t, Eq pad) => t -> pad -> [(t, pad, NoteStatus t)] -> NoteStatus t
 lookupNote t pad
-  = listToMaybe
-  . mapMaybe (\(pt, ppad, b) -> guard (pt == t && ppad == pad) >> Just b)
+  = fromMaybe NoteFuture
+  . listToMaybe
+  . mapMaybe (\(pt, ppad, status) -> guard (pt == t && ppad == pad) >> Just status)
   . takeWhile (\(pt, _, _) -> pt >= t)
+
+noteStatus :: (Ord t, Eq pad) => t -> pad -> [(t, (EventResult t pad, GamePlayState))] -> NoteStatus t
+noteStatus t pad = lookupNote t pad . processedNotes
 
 zoomMapList :: (Ord k) => k -> k -> Map.Map k a -> [(k, a)]
 zoomMapList _ _ Tip = []
@@ -299,19 +309,12 @@ applyDrumEvent tNew mpadNew halfWindow dps = let
     mClosestTime' = mClosestTime >>= \ct -> do
       guard $ abs (ct - t) < halfWindow
       return ct
-    processed = processedNotes evts
-    lastProcessedGroup = case processed of
-      [] -> Nothing
-      (pt, pad, b) : ps -> let
-        rest = [ (pad', b') | (pt', pad', b') <- ps, pt == pt' ]
-        in Just (pt, (pad, b) : rest)
     eventHit = flip fmap mpad $ \pad -> let
       hitNote = mClosestTime' >>= \closestTime -> do
         guard $ case Map.lookup closestTime $ drumTrack dps of
           Nothing -> False
           Just cs -> Set.member pad $ drumNotes $ commonState cs
-        let thisWindow = takeWhile (\(pt, _, _) -> pt == closestTime) processed
-        guard $ all (\(_, ppad, _) -> pad /= ppad) thisWindow
+        guard $ noteStatus closestTime pad evts == NoteFuture
         Just closestTime
       in (pad, hitNote)
     eventMissed = let
@@ -320,19 +323,19 @@ applyDrumEvent tNew mpadNew halfWindow dps = let
       -- for each time, miss a note if we didn't process it already and:
       -- * it's before the note we are hitting now
       -- * or, it's not hittable because it's <= t - halfWindow
-      firstPossibleMiss = case lastProcessedGroup of
-        Nothing      -> 0
-        Just (pt, _) -> pt
+      firstPossibleMiss = case processedNotes evts of
+        []                   -> 0
+        (lastTime, _, _) : _ -> lastTime
       lastPossibleMiss = t
       in do
         (cst, cs) <- zoomMapList firstPossibleMiss lastPossibleMiss $ drumTrack dps
         notePad <- Set.toList $ drumNotes $ commonState cs
-        let inProcessed = isJust $ lookupNote cst notePad processed
+        let isFuture = noteStatus cst notePad evts == NoteFuture
             beforeCurrentHit = case eventHit of
               Just (_, Just hitTime) -> cst < hitTime
               _                      -> False
             beforeWindow = cst <= t - halfWindow
-        guard $ not inProcessed && (beforeCurrentHit || beforeWindow)
+        guard $ isFuture && (beforeCurrentHit || beforeWindow)
         return (cst, notePad)
     newState = let
       prevState = case evts of

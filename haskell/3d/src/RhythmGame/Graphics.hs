@@ -144,9 +144,6 @@ drawDrumPlay glStuff@GLStuff{..} ydims nowTime speed dps = do
       zToTime z = nowTime + (farTime - nowTime) * realToFrac ((z - nowZ) / (farZ - nowZ))
       nearTime = zToTime nearZ
       zoomed = zoomMap nearTime farTime $ drumTrack dps
-      -- TODO these need to return the actual time of hit
-      processed = processedNotes $ drumEvents dps
-      isHit t gem = lookupNote t gem processed == Just True
       drawGem t od gem alpha = let
         (texid, obj) = case gem of
           D.Kick                  -> (if od then TextureLongEnergy   else TextureLongKick     , Model ModelDrumKick  )
@@ -176,12 +173,13 @@ drawDrumPlay glStuff@GLStuff{..} ydims nowTime speed dps = do
           ToggleEmpty -> False
           ToggleEnd   -> False
           _           -> True
-        in forM_ (drumNotes $ commonState cs) $ \gem -> if not $ isHit t gem
-          then drawGem t od gem Nothing
-          else if nowTime - t < 0.1
-            then drawGem nowTime od gem $ Just $ realToFrac $ 1 - (nowTime - t) * 10
-            -- TODO the above needs to use actual hit time, not note time
-            else return ()
+        in forM_ (drumNotes $ commonState cs) $ \gem ->
+          case noteStatus t gem $ drumEvents dps of
+            NoteFuture -> drawGem t od gem Nothing
+            NoteMissed -> drawGem t od gem Nothing
+            NoteHitAt hitTime -> if nowTime - hitTime < 0.1
+              then drawGem nowTime od gem $ Just $ realToFrac $ 1 - (nowTime - hitTime) * 10
+              else return ()
       drawBeat t cs = case commonBeats cs of
         Nothing -> return ()
         Just e -> let
@@ -230,15 +228,13 @@ drawDrumPlay glStuff@GLStuff{..} ydims nowTime speed dps = do
     zip [0..] [TextureTargetRed, TextureTargetYellow, TextureTargetBlue, TextureTargetGreen]
   let drawLights [] _ = return ()
       drawLights _ [] = return ()
-      drawLights ((t, cs) : states) colors = let
-        gemsHere = drumNotes $ commonState cs
-        -- TODO need to use isHit
-        (colorsYes, colorsNo) = partition (\(_, _, pads) -> any (`Set.member` gemsHere) pads) colors
+      drawLights ((t, pad) : states) colors = let
+        (colorsYes, colorsNo) = partition (\(_, _, pads) -> elem pad pads) colors
         alpha = realToFrac $ 1 - (nowTime - t) * 6
-        in do
+        in when (t > nearTime) $ do
           forM_ colorsYes $ \(i, light, _) -> drawTargetSquare i light alpha
           drawLights states colorsNo
-  drawLights (Map.toDescList $ fst $ Map.split nowTime zoomed)
+  drawLights [ (t, pad) | (t, (res, _)) <- drumEvents dps, Just (pad, _) <- [eventHit res] ]
     [ (0, TextureTargetRedLight   , [D.Red                                        ])
     , (1, TextureTargetYellowLight, [D.Pro D.Yellow D.Tom, D.Pro D.Yellow D.Cymbal])
     , (2, TextureTargetBlueLight  , [D.Pro D.Blue   D.Tom, D.Pro D.Blue   D.Cymbal])
@@ -1021,7 +1017,7 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
           case drop r [TextureNumber0 .. TextureNumber9] of
             texid : _ -> case lookup texid textures of
               Just tex -> drawTexture glStuff dims tex (V2 x y) digitScale
-              Nothing -> return ()
+              Nothing  -> return ()
             [] -> return ()
           drawNumber' False q (x - digitWidth * digitScale) y
   drawNumber (gameScore gps) (wWhole - digitWidth * digitScale) (hWhole - digitHeight * digitScale)
