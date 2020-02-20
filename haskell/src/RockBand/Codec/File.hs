@@ -12,11 +12,14 @@ module RockBand.Codec.File where
 import           Amplitude.Track
 import           Control.Monad                     (forM, forM_, unless, (>=>))
 import           Control.Monad.Codec
+import           Control.Monad.IO.Class            (MonadIO)
 import           Control.Monad.Trans.Class         (lift)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State.Strict  (StateT, execState, get, put,
                                                     runStateT)
 import           Control.Monad.Trans.Writer.Strict (Writer, execWriter, tell)
+import qualified Data.ByteString                   as B
+import qualified Data.ByteString.Lazy              as BL
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
 import           Data.Functor.Identity             (Identity)
@@ -53,6 +56,8 @@ import           RockBand.Common
 import qualified Sound.MIDI.File                   as F
 import qualified Sound.MIDI.File.Event             as E
 import qualified Sound.MIDI.File.Event.Meta        as Meta
+import qualified Sound.MIDI.File.Load              as Load
+import qualified Sound.MIDI.Parser.Report          as Report
 import qualified Sound.MIDI.Util                   as U
 
 type FileParser m t = StackTraceT (StateT [RTB.T t E.T] m)
@@ -537,6 +542,17 @@ interpretMIDIFile (Song tempos mmap trks) = do
 
 readMIDIFile' :: (SendMessage m, ParseFile f) => F.T -> StackTraceT m (Song (f U.Beats))
 readMIDIFile' mid = readMIDIFile mid >>= interpretMIDIFile
+
+loadRawMIDI :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m F.T
+loadRawMIDI f = inside ("loading MIDI: " <> f) $ do
+  bs <- stackIO $ BL.fromStrict <$> B.readFile f
+  let rep = Load.maybeFromByteString bs
+      ascii = tail . init . show -- midi likes to put weird bytes directly in the string
+  mapM_ (warn . ascii) $ Report.warnings rep
+  either (fatal . ascii) return $ Report.result rep
+
+loadMIDI :: (SendMessage m, MonadIO m, ParseFile f) => FilePath -> StackTraceT m (Song (f U.Beats))
+loadMIDI f = loadRawMIDI f >>= readMIDIFile'
 
 showMIDIFile :: Song [RTB.T U.Beats E.T] -> F.T
 showMIDIFile s = let

@@ -19,14 +19,13 @@ import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProKeys
 import           RockBand.Common
-import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           WebPlayer                        (showTimestamp)
 
 completeFile :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 completeFile fin fout = do
-  RBFile.Song tempos mmap trks <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+  RBFile.Song tempos mmap trks <- RBFile.loadMIDI fin
   liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap trks
     { RBFile.onyxParts = flip fmap (RBFile.onyxParts trks) $ \flex -> flex
       { RBFile.onyxPartRealKeysE = completeRanges $ RBFile.onyxPartRealKeysE flex

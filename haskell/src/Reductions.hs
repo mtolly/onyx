@@ -26,7 +26,6 @@ import           RockBand.Codec.ProKeys           as PK
 import           RockBand.Common                  (Difficulty (..), Key (..),
                                                    StrumHOPOTap (..))
 import           Scripts                          (trackGlue)
-import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 
@@ -494,7 +493,7 @@ drumsReduce diff   mmap od sections trk = let
 
 simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleReduce fin fout = do
-  RBFile.Song tempos mmap onyx <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+  RBFile.Song tempos mmap onyx <- RBFile.loadMIDI fin
   let sections = fmap snd $ eventsSections $ RBFile.onyxEvents onyx
   stackIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap onyx
     { RBFile.onyxParts = flip fmap (RBFile.onyxParts onyx) $ \trks -> let

@@ -29,7 +29,6 @@ import qualified RockBand.Codec.Five              as F
 import           RockBand.Common
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming)
-import           Scripts                          (loadMIDI)
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension)
 import           Text.Decode                      (decodeGeneral)
@@ -198,5 +197,5 @@ loadTracks f = do
     ".chart" -> do
       chart <- FB.chartToBeats <$> FB.loadChartFile f
       FB.chartToMIDI chart
-    _ -> loadMIDI f
+    _ -> RBFile.loadMIDI f
   computeTracks song

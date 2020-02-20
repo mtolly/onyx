@@ -31,7 +31,6 @@ import qualified RockBand.Codec.Events            as RB
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as RB
 import           RockBand.Common                  (Difficulty (..), Mood (..))
-import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  ((</>))
@@ -60,7 +59,7 @@ importGH1 pkg gen dout = do
     let encLatin1 = B8.pack . T.unpack
     ark_GetFile' ark (dout </> "gh1.mid") (encLatin1 $ midiFile pkg) True
     ark_GetFile' ark (dout </> "audio.vgs") (encLatin1 (songName $ song pkg) <> ".vgs") True
-  RBFile.Song tmap mmap gh1 <- stackIO (Load.fromFile $ dout </> "gh1.mid") >>= RBFile.readMIDIFile'
+  RBFile.Song tmap mmap gh1 <- RBFile.loadMIDI $ dout </> "gh1.mid"
   let convmid :: RBFile.Song (RBFile.FixedFile U.Beats)
       convmid = RBFile.Song tmap mmap mempty
         { RBFile.fixedPartGuitar = mempty

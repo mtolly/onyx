@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Reaper.Build (makeReaper, makeReaperIO) where
+module Reaper.Build (makeReaperShake, makeReaper) where
 
 import           Reaper.Base
 
@@ -9,7 +9,7 @@ import           Control.Monad                         (forM_, unless, when,
 import           Control.Monad.Extra                   (mapMaybeM)
 import           Control.Monad.IO.Class                (MonadIO (liftIO))
 import           Control.Monad.Trans.Class             (lift)
-import           Control.Monad.Trans.StackTrace        (Staction, lg, stackIO)
+import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64                as B64
@@ -35,19 +35,19 @@ import           Resources                             (colorMapDrums,
                                                         colorMapGHL,
                                                         colorMapGRYBO)
 import           RockBand.Codec.File                   (FlexPartName (..),
-                                                        identifyFlexTrack)
+                                                        identifyFlexTrack,
+                                                        loadRawMIDI)
 import           RockBand.Codec.ProGuitar              (GtrBase (..),
                                                         GtrTuning (..),
                                                         tuningPitches)
 import qualified RockBand.Codec.Vocal                  as Vox
 import           RockBand.Common                       (Key (..), showKey)
-import           Scripts                               (loadTemposIO)
+import           Scripts                               (loadTempos)
 import qualified Sound.File.Sndfile                    as Snd
 import qualified Sound.MIDI.File                       as F
 import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.Meta            as Meta
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
-import qualified Sound.MIDI.File.Load                  as Load
 import qualified Sound.MIDI.Message                    as Message
 import qualified Sound.MIDI.Message.Channel            as C
 import qualified Sound.MIDI.Message.Channel.Voice      as V
@@ -1069,16 +1069,16 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`isSuffixOf` name)
   , "BEAT"
   ]
 
-makeReaperIO :: (MonadIO m) => [(FlexPartName, GtrTuning)] -> FilePath -> FilePath -> [FilePath] -> FilePath -> m ()
-makeReaperIO tunings evts tempo audios out = liftIO $ do
-  lenAudios <- flip mapMaybeM audios $ \aud -> do
+makeReaper :: (SendMessage m, MonadIO m) => [(FlexPartName, GtrTuning)] -> FilePath -> FilePath -> [FilePath] -> FilePath -> StackTraceT m ()
+makeReaper tunings evts tempo audios out = do
+  lenAudios <- stackIO $ flip mapMaybeM audios $ \aud -> do
     info <- Snd.getFileInfo aud
     return $ case Snd.frames info of
       0 -> Nothing
       f -> Just (fromIntegral f / fromIntegral (Snd.samplerate info), aud)
-  mid <- Load.fromFile evts
-  tmap <- loadTemposIO tempo
-  tempoMid <- Load.fromFile tempo
+  mid <- loadRawMIDI evts
+  tmap <- loadTempos tempo
+  tempoMid <- loadRawMIDI tempo
   let getLastTime :: (NNC.C t, Num t) => [RTB.T t a] -> t
       getLastTime = foldr max NNC.zero . map getTrackLastTime
       getTrackLastTime trk = case reverse $ ATB.getTimes $ RTB.toAbsoluteEventList NNC.zero trk of
@@ -1102,7 +1102,7 @@ makeReaperIO tunings evts tempo audios out = liftIO $ do
           t_secs = U.applyTempoTrack tmap t_beats
           in tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
         _ -> error "Unsupported MIDI format for Reaper project generation"
-  project <- do
+  project <- stackIO $ do
     time <- liftIO getCurrentTime
     let timestamp = formatTime defaultTimeLocale "%s" time
     rpp "REAPER_PROJECT" ["0.1", "5.0/Onyx", timestamp] $ do
@@ -1123,15 +1123,15 @@ makeReaperIO tunings evts tempo audios out = liftIO $ do
         Element "COLORMAP" [cmap] _ -> [cmap]
         Element _ _ Nothing -> []
         Element _ _ (Just sub) -> concatMap findColorMaps sub
-  writeRPP out project
-  forM_ (nubOrd $ findColorMaps project) $ \cmap -> case cmap of
+  stackIO $ writeRPP out project
+  stackIO $ forM_ (nubOrd $ findColorMaps project) $ \cmap -> case cmap of
     "colormap_drums.png" -> colorMapDrums >>= (`copyFile` (takeDirectory out </> cmap))
     "colormap_grybo.png" -> colorMapGRYBO >>= (`copyFile` (takeDirectory out </> cmap))
     "colormap_ghl.png"   -> colorMapGHL   >>= (`copyFile` (takeDirectory out </> cmap))
     _ -> return ()
 
-makeReaper :: [(FlexPartName, GtrTuning)] -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()
-makeReaper tunings evts tempo audios out = do
+makeReaperShake :: [(FlexPartName, GtrTuning)] -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()
+makeReaperShake tunings evts tempo audios out = do
   lift $ lift $ need $ evts : tempo : audios
   lg $ "Generating a REAPER project at " ++ out
-  stackIO $ makeReaperIO tunings evts tempo audios out
+  makeReaper tunings evts tempo audios out

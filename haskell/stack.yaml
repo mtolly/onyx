@@ -23,7 +23,7 @@ extra-deps:
 - gamecube-dsp/
 # git repos
 - git: git://github.com/mtolly/midi
-  commit: 28866f4715cde594d8d8ec5e6f3beecb64783614
+  commit: 66a49fe08bd941322061fc812f0eab6bac68c6f9
 - git: git://github.com/mtolly/conduit-audio
   commit: 0a90a9541b261583a09e5d5f9f416bc7ae59d07d
   subdirs:

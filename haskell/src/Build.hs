@@ -79,7 +79,7 @@ import           Path                                  (parseAbsDir, toFilePath)
 import           Paths_onyxite_customs_lib             (version)
 import           PrettyDTA
 import           ProKeysRanges
-import           Reaper.Build                          (makeReaper)
+import           Reaper.Build                          (makeReaperShake)
 import           RenderAudio
 import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
@@ -1076,7 +1076,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       ]
                     pg <- toList $ partProGuitar part
                     return (fpart', pgTuning pg)
-              makeReaper tunings pathMagmaMid pathMagmaMid auds' out
+              makeReaperShake tunings pathMagmaMid pathMagmaMid auds' out
             phony pathMagmaSetup $ do
               -- Just make all the Magma prereqs, but don't actually run Magma
               auds <- magmaNeededAudio
@@ -1527,7 +1527,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       then do
                         shk $ need [pathMagmaRbaV1]
                         liftIO $ Magma.getRBAFile 1 pathMagmaRbaV1 out
-                        loadMIDI out
+                        RBFile.loadMIDI out
                       else shakeMIDI pathMagmaMidV1
                     sects <- getRealSections'
                     let mid = RBFile.Song tempos sigs trks
@@ -1988,7 +1988,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 (fpart, part) <- HM.toList $ getParts $ _parts songYaml
                 pg <- toList $ partProGuitar part
                 return (fpart, pgTuning pg)
-          makeReaper tunings (rel "gen/notes.mid") tempo allPlanAudio out
+          makeReaperShake tunings (rel "gen/notes.mid") tempo allPlanAudio out
 
         dir </> "web/song.js" %> \out -> do
           let json = dir </> "display.json"
@@ -2101,7 +2101,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         {-
           -- Check for some extra problems that Magma doesn't catch.
           phony (pedalDir </> "problems") $ do
-            song <- loadMIDI $ pedalDir </> "notes.mid"
+            song <- RBFile.loadMIDI $ pedalDir </> "notes.mid"
             let problems = RB3.findProblems song
             mapM_ putNormal problems
             unless (null problems) $ fail "At least 1 problem was found in the MIDI."

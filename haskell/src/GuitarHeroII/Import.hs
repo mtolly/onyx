@@ -34,7 +34,6 @@ import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as RB
 import           RockBand.Common                  (Difficulty (..))
 import           RockBand.Sections                (fromGH2Section)
-import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  ((</>))
@@ -78,7 +77,7 @@ importGH2 mode pkg gen dout = do
     let encLatin1 = B8.pack . T.unpack
     ark_GetFile' ark (dout </> "gh2.mid") (encLatin1 $ midiFile songChunk) True
     ark_GetFile' ark (dout </> "audio.vgs") (encLatin1 (songName songChunk) <> ".vgs") True
-  RBFile.Song tmap mmap gh2 <- stackIO (Load.fromFile $ dout </> "gh2.mid") >>= RBFile.readMIDIFile'
+  RBFile.Song tmap mmap gh2 <- RBFile.loadMIDI $ dout </> "gh2.mid"
   let convmid :: RBFile.Song (RBFile.FixedFile U.Beats)
       convmid = RBFile.Song tmap mmap mempty
         { RBFile.fixedEvents = RB.EventsTrack

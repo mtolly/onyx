@@ -66,7 +66,7 @@ import           PrettyDTA                        (DTASingle (..),
                                                    readFileSongsDTA, readRB3DTA,
                                                    writeDTASingle)
 import           ProKeysRanges                    (closeShiftsFile)
-import           Reaper.Build                     (makeReaperIO)
+import           Reaper.Build                     (makeReaper)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Vocal             (nullVox)
@@ -312,7 +312,7 @@ trimFileName fp len sfxOld sfx = let
 changeToVenueGen :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m ()
 changeToVenueGen dir = do
   let midPath = dir </> "notes.mid"
-  mid <- stackIO (Load.fromFile midPath) >>= RBFile.readMIDIFile'
+  mid <- RBFile.loadMIDI midPath
   stackIO $ Save.toFile midPath $ RBFile.showMIDIFile' $ RBFile.convertToVenueGen mid
 
 commands :: [Command]
@@ -436,7 +436,7 @@ commands =
           ([mid], notMid) -> case partitionMaybe (isType [FileOGG, FileWAV, FileFLAC]) notMid of
             (audio, []      ) -> do
               rpp <- outputFile opts $ return $ mid -<.> "RPP"
-              makeReaperIO [] mid mid audio rpp
+              makeReaper [] mid mid audio rpp
               return [rpp]
             (_    , notAudio) -> fatal $ "onyx reap given non-MIDI, non-audio files: " <> show notAudio
           (mids, _) -> fatal $ "onyx reap expected 1 MIDI file, given " <> show (length mids)
@@ -514,7 +514,7 @@ commands =
       , "onyx hanging notes.mid"
       ]
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> do
-      let withMIDI mid = stackIO (Load.fromFile mid) >>= RBFile.readMIDIFile' >>= lg . closeShiftsFile
+      let withMIDI mid = RBFile.loadMIDI mid >>= lg . closeShiftsFile
       case ftype of
         FileSongYaml -> withProject (optIndex opts) fpath $ proKeysHanging $ getMaybePlan opts
         FileRBProj   -> do
@@ -588,7 +588,7 @@ commands =
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
       FileMidi -> do
         out <- outputFile opts $ return $ fpath -<.> "midtxt"
-        res <- stackIO $ MS.toStandardMIDI <$> Load.fromFile fpath
+        res <- MS.toStandardMIDI <$> RBFile.loadRawMIDI fpath
         case res of
           Left  err -> fatal err
           Right sm  -> stackIO $ writeFile out $ MS.showStandardMIDI (midiOptions opts) sm
@@ -609,7 +609,7 @@ commands =
     , commandUsage = "onyx midi-text-git in.mid > out.midtxt"
     , commandRun = \files opts -> case files of
       [mid] -> do
-        res <- stackIO $ MS.toStandardMIDI <$> Load.fromFile mid
+        res <- MS.toStandardMIDI <$> RBFile.loadRawMIDI mid
         case res of
           Left  err -> fatal err
           Right sm  -> lg $ MS.showStandardMIDI (midiOptions opts) sm
@@ -645,15 +645,15 @@ commands =
       ]
     , commandRun = \args opts -> case args of
       [base, tracks] -> do
-        baseMid <- stackIO (Load.fromFile base) >>= RBFile.readMIDIFile'
-        tracksMid <- stackIO (Load.fromFile tracks) >>= RBFile.readMIDIFile'
+        baseMid <- RBFile.loadMIDI base
+        tracksMid <- RBFile.loadMIDI tracks
         out <- outputFile opts $ return $ tracks ++ ".merged.mid"
         let newMid = RBFile.mergeCharts (RBFile.TrackPad 0) baseMid tracksMid
         stackIO $ Save.toFile out $ RBFile.showMIDIFile' newMid
         return [out]
       [base, tracks, "pad", n] -> do
-        baseMid <- stackIO (Load.fromFile base) >>= RBFile.readMIDIFile'
-        tracksMid <- stackIO (Load.fromFile tracks) >>= RBFile.readMIDIFile'
+        baseMid <- RBFile.loadMIDI base
+        tracksMid <- RBFile.loadMIDI tracks
         out <- outputFile opts $ return $ tracks ++ ".merged.mid"
         n' <- case readMaybe n of
           Nothing -> fatal "Invalid merge pad amount"
@@ -662,8 +662,8 @@ commands =
         stackIO $ Save.toFile out $ RBFile.showMIDIFile' newMid
         return [out]
       [base, tracks, "drop", n] -> do
-        baseMid <- stackIO (Load.fromFile base) >>= RBFile.readMIDIFile'
-        tracksMid <- stackIO (Load.fromFile tracks) >>= RBFile.readMIDIFile'
+        baseMid <- RBFile.loadMIDI base
+        tracksMid <- RBFile.loadMIDI tracks
         out <- outputFile opts $ return $ tracks ++ ".merged.mid"
         n' <- case readMaybe n of
           Nothing -> fatal "Invalid merge drop amount"
@@ -686,7 +686,7 @@ commands =
         FileSongYaml -> return $ takeDirectory fpath </> "notes.mid"
         FileRBProj -> undone
         _ -> fatal "Unrecognized --to argument, expected .mid/.yml/.rbproj"
-      mid <- stackIO (Load.fromFile pathMid) >>= RBFile.readMIDIFile'
+      mid <- RBFile.loadMIDI pathMid
       let existingTracks = RBFile.rawTracks $ RBFile.s_tracks mid
           existingNames = mapMaybe U.trackName existingTracks
       case filter (`notElem` existingNames) args of
@@ -790,7 +790,7 @@ commands =
     , commandUsage = "onyx lipsync-gen in.mid"
     , commandRun = \args opts -> case args of
       [fmid] -> do
-        mid <- stackIO (Load.fromFile fmid) >>= RBFile.readMIDIFile'
+        mid <- RBFile.loadMIDI fmid
         let template = dropExtension fmid
             tracks =
               [ (RBFile.fixedPartVocals, "_solovox.lipsync", False)
@@ -862,22 +862,22 @@ commands =
     , commandRun = \args opts -> case args of
       ["raw", fin] -> do
         fout <- outputFile opts $ return $ fin <> ".txt"
-        mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+        mid <- RBFile.loadMIDI fin
         stackIO $ writeFile fout $ show (mid :: RBFile.Song (RBFile.RawFile U.Beats))
         return [fout]
       ["raw-len", fin] -> do
         fout <- outputFile opts $ return $ fin <> ".txt"
-        mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+        mid <- RBFile.loadMIDI fin
         stackIO $ writeFile fout $ show $ length $ show (mid :: RBFile.Song (RBFile.RawFile U.Beats))
         return [fout]
       ["fixed", fin] -> do
         fout <- outputFile opts $ return $ fin <> ".txt"
-        mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+        mid <- RBFile.loadMIDI fin
         stackIO $ writeFile fout $ show (mid :: RBFile.Song (RBFile.FixedFile U.Beats))
         return [fout]
       ["onyx", fin] -> do
         fout <- outputFile opts $ return $ fin <> ".txt"
-        mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+        mid <- RBFile.loadMIDI fin
         stackIO $ writeFile fout $ show (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))
         return [fout]
       _ -> fatal "Expected 2 arguments (raw/fixed/onyx, then a midi file)"
@@ -895,7 +895,7 @@ commands =
       ]
     , commandRun = \args _opts -> case args of
       fin : players -> do
-        mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+        mid <- RBFile.loadMIDI fin
         case players of
           [] -> stackIO $ forM_ [minBound .. maxBound] $ \scoreTrack -> do
             forM_ [minBound .. maxBound] $ \diff -> do
@@ -967,7 +967,7 @@ runDolphin cons midfn makePreview out = do
         case midfn of
           Nothing -> stackIO $ Dir.copyFile midin midout
           Just f  -> do
-            mid <- stackIO (Load.fromFile midin) >>= RBFile.readMIDIFile'
+            mid <- RBFile.loadMIDI midin
             stackIO $ Save.toFile midout $ RBFile.showMIDIFile' $ f mid
         -- .mogg (use unchanged)
         let mogg = dir_song </> "content" </> songsXX <.> "mogg"
@@ -1119,7 +1119,7 @@ applyMidiFunction
   -> StackTraceT m ()
 applyMidiFunction Nothing fin fout = stackIO $ Dir.copyFile fin fout
 applyMidiFunction (Just fn) fin fout = do
-  mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+  mid <- RBFile.loadMIDI fin
   stackIO $ Save.toFile fout $ RBFile.showMIDIFile' $ fn mid
 
 getDolphinFunction

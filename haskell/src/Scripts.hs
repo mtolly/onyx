@@ -33,7 +33,6 @@ import           RockBand.Codec.Vocal
 import           RockBand.Common
 import qualified RockBand.Legacy.Vocal            as Vocals
 import qualified Sound.MIDI.File                  as F
-import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 
@@ -57,14 +56,11 @@ addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
 addZero x rtb = case U.trackSplitZero rtb of
   (zero, rest) -> U.trackGlueZero (zero ++ [x]) rest
 
-loadMIDI :: (SendMessage m, MonadIO m, RBFile.ParseFile f) => FilePath -> StackTraceT m (Song (f U.Beats))
-loadMIDI fp = stackIO (Load.fromFile fp) >>= RBFile.readMIDIFile'
-
 -- | Moves star power from the GH 1/2 format to the RB format, either if it is
 -- specified in the song.ini, or automatically detected from the MIDI.
 loadFoFMIDI :: (SendMessage m, MonadIO m, RBFile.ParseFile f) => FoF.Song -> FilePath -> StackTraceT m (Song (f U.Beats))
 loadFoFMIDI ini fp = do
-  mid <- stackIO $ Load.fromFile fp
+  mid <- RBFile.loadRawMIDI fp
   let isGtrTrack trk = U.trackName trk `elem` map Just ["PART GUITAR", "PART BASS", "PART RHYTHM", "T1 GEMS"]
       midGH = case mid of
         F.Cons typ dvn trks -> F.Cons typ dvn $ flip map trks $ \trk -> if isGtrTrack trk
@@ -118,15 +114,15 @@ loadFoFMIDI ini fp = do
   RBFile.readMIDIFile' mid'
 
 shakeMIDI :: (RBFile.ParseFile f) => FilePath -> StackTraceT (QueueLog Action) (Song (f U.Beats))
-shakeMIDI fp = lift (lift $ need [fp]) >> loadMIDI fp
+shakeMIDI fp = lift (lift $ need [fp]) >> RBFile.loadMIDI fp
 
-loadTemposIO :: FilePath -> IO U.TempoMap
-loadTemposIO fp = do
-  mid <- Load.fromFile fp
+loadTempos :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m U.TempoMap
+loadTempos fp = inside ("Loading MIDI tempos: " <> fp) $ do
+  mid <- RBFile.loadRawMIDI fp
   case U.decodeFile mid of
     Left []               -> return $ U.makeTempoMap RTB.empty
     Left (tempoTrack : _) -> return $ U.makeTempoMap tempoTrack
-    Right _               -> error "Scripts.loadTemposIO: SMPTE midi not supported"
+    Right _               -> fatal "SMPTE midi not supported"
 
 saveMIDI :: (MonadIO m, RBFile.ParseFile f) => FilePath -> Song (f U.Beats) -> m ()
 saveMIDI fp song = liftIO $ Save.toFile fp $ RBFile.showMIDIFile' song

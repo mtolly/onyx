@@ -5,7 +5,7 @@
 module RockBand.Milo.Venue where
 
 import           Control.Monad                    (replicateM)
-import           Control.Monad.Trans.StackTrace   (logStdout, stackIO)
+import           Control.Monad.Trans.StackTrace   (logStdout)
 import           Data.Binary.Get
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
@@ -17,7 +17,6 @@ import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Milo.Dir
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
-import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 
@@ -91,7 +90,7 @@ venueToMIDI tmap mmap venue = RBFile.Song tmap mmap $ RBFile.RawFile $ do
 
 testConvertVenue :: FilePath -> FilePath -> FilePath -> IO ()
 testConvertVenue fmid fven fout = do
-  res <- logStdout $ stackIO (Load.fromFile fmid) >>= RBFile.readMIDIFile'
+  res <- logStdout $ RBFile.loadMIDI fmid
   mid <- case res of
     Left err  -> error $ show err
     Right mid -> return mid

@@ -112,7 +112,7 @@ import           OSFiles                                   (commonDir,
                                                             osShowFolder)
 import           Paths_onyxite_customs_tool                (version)
 import           ProKeysRanges                             (closeShiftsFile)
-import           Reaper.Build                              (makeReaperIO)
+import           Reaper.Build                              (makeReaper)
 import           Reductions                                (simpleReduce)
 import           RenderAudio                               (computeChannelsPlan)
 import           RhythmGame.Audio                          (oggSecsSpeed,
@@ -138,7 +138,6 @@ import           RockBand.Score
 import           RockBand.SongCache                        (fixSongCache)
 import           RockBand3                                 (BasicTiming (..))
 import qualified Sound.File.Sndfile                        as Snd
-import qualified Sound.MIDI.File.Load                      as Load
 import qualified Sound.MIDI.Util                           as U
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (dropExtension,
@@ -755,7 +754,7 @@ launchWindow sink proj maybeAudio = mdo
     FL.end pack
     sink $ EventOnyx $ void $ forkOnyx $ do
       let input = takeDirectory (projectLocation proj) </> "notes.mid"
-      mid <- stackIO (Load.fromFile input) >>= RBFile.readMIDIFile'
+      mid <- RBFile.loadMIDI input
       let foundTracks = getScoreTracks $ RBFile.s_tracks mid
           trackLookup = Map.fromList $ map
             (\quad@(strack, diff, _, _) -> ((strack, diff), quad))
@@ -1649,7 +1648,7 @@ miscPageLipsync sink rect tab startTasks = do
                 Nothing -> return ()
                 Just f -> sink $ EventOnyx $ let
                   task = do
-                    mid <- stackIO (Load.fromFile input) >>= RBFile.readMIDIFile'
+                    mid <- RBFile.loadMIDI input
                     stackIO $ BL.writeFile f $ fn vowels $
                       mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) $ getSelectedVox voc mid
                     return [f]
@@ -1677,7 +1676,7 @@ miscPageLipsync sink rect tab startTasks = do
               Nothing -> return ()
               Just f  -> sink $ EventOnyx $ let
                 task = do
-                  mid <- stackIO (Load.fromFile input) >>= RBFile.readMIDIFile'
+                  mid <- RBFile.loadMIDI input
                   let trk = mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) $ getSelectedVox voc mid
                   src <- toDryVoxFormat <$> fn trk
                   runAudio src f
@@ -1882,7 +1881,7 @@ miscPageMIDI sink rect tab startTasks = do
       input <- pickedFile
       sink $ EventOnyx $ let
         task = do
-          mid <- stackIO (Load.fromFile input) >>= RBFile.readMIDIFile'
+          mid <- RBFile.loadMIDI input
           lg $ closeShiftsFile mid
           return []
         in startTasks [("Pro Keys range check: " <> input, task)]
@@ -1904,7 +1903,7 @@ miscPageMIDI sink rect tab startTasks = do
               else f <.> "RPP"
             in sink $ EventOnyx $ let
               task = do
-                stackIO $ makeReaperIO [] input input [] f'
+                makeReaper [] input input [] f'
                 return [f']
               in startTasks [("Make REAPER project: " <> input, task)]
         _ -> return ()

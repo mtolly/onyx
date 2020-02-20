@@ -73,7 +73,7 @@ import           RockBand.Codec.Six               (nullSix)
 import           RockBand.Codec.Vocal
 import           RockBand.Common
 import qualified RockBand.Legacy.Vocal            as RBVox
-import           Scripts                          (loadFoFMIDI, loadMIDI)
+import           Scripts                          (loadFoFMIDI)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package                     (extractSTFS, rb3pkg)
@@ -265,7 +265,7 @@ importFoF src dest = do
   mid2x <- stackIO $ Dir.doesFileExist path2x
   add2x <- if mid2x
     then do
-      parsed2x <- loadMIDI path2x
+      parsed2x <- RBFile.loadMIDI path2x
       let trk2x = RBFile.fixedPartDrums $ RBFile.s_tracks parsed2x
       return $ if nullDrums trk2x
         then id
@@ -708,11 +708,11 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         return local
       else return Nothing
 
-  RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
+  RBFile.Song temps sigs (RBFile.RawFile trks1x) <- RBFile.loadMIDI mid
   trksUpdate <- case updateMid of
     Nothing -> return []
     Just umid -> stackIO (Dir.doesFileExist umid) >>= \case
-      True -> RBFile.rawTracks . RBFile.s_tracks <$> loadMIDI umid
+      True -> RBFile.rawTracks . RBFile.s_tracks <$> RBFile.loadMIDI umid
       False -> do
         warn $ "Expected to find disc update MIDI but it's not installed: " <> umid
         return []
@@ -723,7 +723,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
   trksAdd2x <- case files2x of
     Nothing -> return trksUpdated
     Just (_pkg2x, mid2x) -> do
-      RBFile.Song _ _ (RBFile.RawFile trks2x) <- loadMIDI mid2x
+      RBFile.Song _ _ (RBFile.RawFile trks2x) <- RBFile.loadMIDI mid2x
       drums1x <- RBFile.parseTracks trksUpdated "PART DRUMS"
       drums2x <- RBFile.parseTracks trks2x      "PART DRUMS"
       let notDrums = filter ((/= Just "PART DRUMS") . U.trackName) trksUpdated
@@ -800,7 +800,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
     else return Nothing
   let hopoThresh = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
 
-  fixedTracks <- RBFile.s_tracks <$> loadMIDI mid
+  fixedTracks <- RBFile.s_tracks <$> RBFile.loadMIDI mid
 
   let drumEvents = RBFile.fixedPartDrums fixedTracks
   foundMix <- let
@@ -1025,7 +1025,7 @@ importMagma fin dir = do
   let mid = T.unpack (RBProj.midiFile $ RBProj.midi rbproj)
   stackIO $ locate mid >>= \m -> Dir.copyFile m (dir </> "notes.mid")
   bassBase <- detectExtProBass . RBFile.s_tracks
-    <$> loadMIDI (dir </> "notes.mid")
+    <$> RBFile.loadMIDI (dir </> "notes.mid")
 
   c3 <- do
     pathC3 <- fixFileCase $ fin -<.> "c3"
@@ -1365,7 +1365,7 @@ importAmplitude fin dout = do
       previewStart = realToFrac (Amp.preview_start_ms song) / 1000
       previewEnd = previewStart + realToFrac (Amp.preview_length_ms song) / 1000
   md5 <- stackIO $ BL.readFile moggPath >>= evaluate . MD5.md5
-  RBFile.Song temps sigs amp <- loadMIDI midPath
+  RBFile.Song temps sigs amp <- RBFile.loadMIDI midPath
   let getChannels n = case Amp.tracks song !! (n - 1) of
         (_, (chans, _)) -> map fromIntegral chans
       freestyle = do

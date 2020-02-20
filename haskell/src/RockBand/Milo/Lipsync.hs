@@ -8,7 +8,7 @@ import           Control.Arrow                    (first)
 import           Control.Monad                    (forM, forM_, guard,
                                                    replicateM, void)
 import           Control.Monad.Codec
-import           Control.Monad.Trans.StackTrace   (logStdout, stackIO)
+import           Control.Monad.Trans.StackTrace   (logStdout)
 import           Data.Binary.Get
 import           Data.Binary.Put
 import qualified Data.ByteString                  as B
@@ -41,7 +41,6 @@ import           RockBand.Common                  (noRedundantStatus)
 import           RockBand.Milo.Compression
 import           RockBand.Milo.Dir
 import           Rocksmith.Sng2014                (Bin (..))
-import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension)
@@ -559,7 +558,7 @@ lipsyncFromMIDITrack lip = let
 
 testConvertLipsync :: FilePath -> [FilePath] -> FilePath -> IO ()
 testConvertLipsync fmid fvocs fout = do
-  res <- logStdout $ stackIO (Load.fromFile fmid) >>= RBFile.readMIDIFile'
+  res <- logStdout $ RBFile.loadMIDI fmid
   mid <- case res of
     Left err  -> error $ show err
     Right mid -> return mid
