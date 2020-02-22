@@ -58,4 +58,4 @@ targets:
     version: 1
   ps:
     game: ps
-    file-video: video.avi
+    # file-video: video.avi

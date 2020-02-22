@@ -150,5 +150,5 @@ targets:
     song-id: 1660200062
   ps:
     game: ps
-    file-video: video.avi
+    # file-video: video.avi
     plan: pledgemusic

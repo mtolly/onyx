@@ -1,0 +1,37 @@
+metadata:
+  title: Bathroom (Nord Live Sessions)
+  artist: DOMi & JD Beck
+  author: Onyxite
+  year: 2020
+  genre: fusion
+  subgenre: fusion
+  file-album-art: cover.jpg
+plans:
+  album:
+    song:
+      pad: [3.950, youtube]
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube Qu1Z1Tlzz0E 140
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+parts:
+  drums:
+    drums:
+      kicks: 1
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)

@@ -32,8 +32,6 @@ audio:
     file-path: audio-youtube.wav
     commands:
     - ../../../scripts/youtube a-AE98Adt0U 140
-    md5: 79f0ec506d2c2c3ebfabb48fe7341373
-    frames: 4324352
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
