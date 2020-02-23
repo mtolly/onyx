@@ -13,7 +13,8 @@ import           Audio                                     (Audio (..),
                                                             runAudio,
                                                             stretchRealtime)
 import           AudioSearch
-import           Build                                     (targetTitle)
+import           Build                                     (targetTitle,
+                                                            toValidFileName)
 import           CommandLine                               (blackVenue,
                                                             copyDirRecursive,
                                                             runDolphin)
@@ -1271,10 +1272,10 @@ templateApplyInput :: Project -> Maybe Target -> T.Text -> T.Text
 templateApplyInput proj mtgt txt = foldr ($) txt
   [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
   , T.intercalate (T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
-  , T.intercalate title . T.splitOn "%title%"
-  , T.intercalate (getArtist $ _metadata $ projectSongYaml proj) . T.splitOn "%artist%"
-  , T.intercalate (getAlbum $ _metadata $ projectSongYaml proj) . T.splitOn "%album%"
-  , T.intercalate (getAuthor $ _metadata $ projectSongYaml proj) . T.splitOn "%author%"
+  , T.intercalate (toValidFileName title) . T.splitOn "%title%"
+  , T.intercalate (toValidFileName $ getArtist $ _metadata $ projectSongYaml proj) . T.splitOn "%artist%"
+  , T.intercalate (toValidFileName $ getAlbum $ _metadata $ projectSongYaml proj) . T.splitOn "%album%"
+  , T.intercalate (toValidFileName $ getAuthor $ _metadata $ projectSongYaml proj) . T.splitOn "%author%"
   ] where
     title = case mtgt of
       Nothing  -> getTitle $ _metadata $ projectSongYaml proj
