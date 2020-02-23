@@ -29,6 +29,7 @@ plans:
     countin: *countin
     parts:
       drums:
+        # jammit drums are drummer-panned on this song
         pad: [2.780, only: [Drums, jammit-track]]
       guitar:
         pad:

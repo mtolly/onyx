@@ -30,6 +30,7 @@ plans:
     countin: *countin
     parts:
       drums:
+        # jammit drums are audience-panned on this song
         pad: [1.193, only: [Drums, jammit-track]]
       bass:
         pad: [1.193, only: [Bass, jammit-track]]

@@ -32,6 +32,7 @@ plans:
     countin: *countin
     parts:
       drums:
+        # jammit drums are audience-panned on this song
         pad: [1.039, only: [Drums, jammit-track]]
       vocal:
         # TODO: movie dialog samples (extract from backing track)

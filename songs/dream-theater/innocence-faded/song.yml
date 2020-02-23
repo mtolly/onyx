@@ -24,6 +24,7 @@ plans:
       1|2: hihat
     parts:
       drums:
+        # jammit drums are drummer-panned on this song
         only: [Drums, jammit-track]
     song:
       without: [drums, jammit-track]

@@ -25,6 +25,7 @@ plans:
       1|3: hihat
     parts:
       drums:
+        # jammit drums are audience-panned on this song
         pad: [0.786, only: [Drums, jammit-track]]
     song:
       pad: [0.786, without: [drums, jammit-track]]
