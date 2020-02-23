@@ -261,6 +261,18 @@ compilation errors.
     As a special case, if you provide a single OGG file, it will not be
     reencoded, and will go unchanged into the MOGG file.
 
+  * Lipsync file generation
+
+    Use simple phonetic analysis to convert from a vocals chart to a lipsync
+    file. Uses a dictionary to look up English lyrics, or spelling-based rules
+    for German or Spanish lyrics. Currently only one vowel shape is produced
+    per lyric; in the future this will be improved to create consonant shapes
+    and vowel diphthongs.
+
+    Supports generating `.voc` files (used in GH2), as well as `.lipsync` files
+    for later RB games. `.lipsync` files can be inserted into `.milo_xxx` files
+    with the milo tools described further down.
+
   * Lipsync dry vocals audio creation for Magma
 
     Two options for generating audio files to give to Magma's vocal animation
@@ -276,3 +288,12 @@ compilation errors.
       * Clipped dryvox: an input audio file, either a mixed song file or an
         isolated vocal file, is clipped so audio is only present during the
         vocal notes. This is used by Onyx when exporting Magma v2 projects.
+
+  * `.milo` unpack and repack
+
+    Allows editing files inside the `.milo` archive format seen in more recent
+    RB song files, which can contain lipsync, venue information (RB3 onward),
+    and tweaks to character animation + vocal assignment.
+
+    Only the `ObjectDir` format (used in song files) is supported; other milos
+    found on game discs will likely not work.

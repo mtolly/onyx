@@ -1550,6 +1550,7 @@ miscPageMilo sink rect tab startTasks = do
               _ -> return ()
         _ -> return ()
     return ()
+  {-
   padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     group <- FL.groupNew rect' Nothing
     let (trimClock 0 10 0 100 -> dropdownArea, btnArea) = chopRight 160 rect'
@@ -1571,6 +1572,7 @@ miscPageMilo sink rect tab startTasks = do
     FL.end group
     FL.setResizable group $ Just choice
     return ()
+  -}
   FL.end pack
   FL.setResizable tab $ Just pack
 
@@ -1656,7 +1658,7 @@ miscPageLipsync sink rect tab startTasks = do
                   in startTasks [(T.unpack label <> ": " <> input, task)]
               _ -> return ()
           return btn
-    void $ lipsyncButton areaVoc "Make .voc (GH2/RB1)" "voc"
+    void $ lipsyncButton areaVoc "Make .voc (GH2)" "voc"
       $ \vowels -> runPut . putVocFile . gh2Lipsync vowels
     void $ lipsyncButton areaRB "Make .lipsync (RB2/RB3)" "lipsync"
       $ \vowels -> runPut . putLipsync . autoLipsync vowels
@@ -2677,6 +2679,7 @@ launchGUI = do
                 , Just $ launchMisc sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
+              {-
               , ( "File/Open Song"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o'
                 , Just $ promptLoad sink
@@ -2687,6 +2690,7 @@ launchGUI = do
                 , Just $ promptPreview sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
+              -}
               , ( "File/Close Window"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'w'
                 , Just $ sink $ EventIO $ FLTK.firstWindow >>= \case
@@ -2746,7 +2750,8 @@ launchGUI = do
   FL.setStayAtBottom term True
 
   let bottomBar = Rectangle (Position (X 5) (Y 360)) (Size (Width 490) (Height 30))
-      [areaOpen, areaBatch, areaMisc] = map (trimClock 0 5 0 5) $ splitHorizN 3 bottomBar
+      [areaBatch, areaMisc] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar
+  {-
   buttonOpen <- FL.buttonCustom
     areaOpen
     (Just "Load a song")
@@ -2756,6 +2761,7 @@ launchGUI = do
       }
   loadSongColor >>= FL.setColor buttonOpen
   FL.setCallback buttonOpen $ \_ -> promptLoad sink
+  -}
   buttonBatch <- FL.buttonCustom
     areaBatch
     (Just "Batch process")
@@ -2770,7 +2776,7 @@ launchGUI = do
     (Just "Other tools")
   miscColor >>= FL.setColor buttonMisc
   FL.setCallback buttonMisc $ \_ -> launchMisc sink makeMenuBar
-  forM_ [buttonOpen, buttonBatch, buttonMisc] $ \btn ->
+  forM_ [buttonBatch, buttonMisc] $ \btn ->
     FL.setLabelsize btn $ FL.FontSize 13
 
   FL.end termWindow
