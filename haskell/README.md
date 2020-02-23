@@ -297,3 +297,8 @@ compilation errors.
 
     Only the `ObjectDir` format (used in song files) is supported; other milos
     found on game discs will likely not work.
+
+  * Black `VENUE` patcher
+
+    Modifies existing CON files so the `VENUE` track is replaced with a static
+    black background. Should work on both RB3 and RB2 format songs.

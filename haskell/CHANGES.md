@@ -7,6 +7,7 @@
 * Tools to make `.lipsync` and `.voc` files from a vocal track
 * Tools to extract `.milo_xxx` files to a folder, replace files, and repack them
 * Fix parsing lyrics from `.chart` containing a quote character
+* Prevent certain kinds of MIDI corruptions from causing errors (issue #137)
 * Significantly speed up parsing track data from MIDI files
 * Fix some lighting issues when converting RB2 venue tracks to RB3 format
 
