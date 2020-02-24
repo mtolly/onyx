@@ -28,10 +28,9 @@ parts:
   drums:
     drums:
       kicks: 1
+      difficulty: 7
 targets:
   rb3:
     game: rb3
-    label: (O)
   ps:
     game: ps
-    label: (O)
