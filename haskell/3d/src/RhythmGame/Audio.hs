@@ -1,30 +1,41 @@
-{-# LANGUAGE GADTs      #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GADTs           #-}
+{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE RecordWildCards #-}
 module RhythmGame.Audio where
 
 import           Audio                          (stretchRealtime)
+import           Audio
+import           AudioSearch
+import           Config
 import           Control.Concurrent             (threadDelay)
 import           Control.Concurrent.Async       (async)
 import           Control.Concurrent.MVar
 import           Control.Exception              (bracket, throwIO)
-import           Control.Monad                  (forM, forM_)
-import           Control.Monad.IO.Class         (liftIO)
+import           Control.Monad                  (forM, forM_, join)
+import           Control.Monad.IO.Class         (MonadIO, liftIO)
 import           Control.Monad.Trans.Resource
-import           Control.Monad.Trans.StackTrace (logStdout)
+import           Control.Monad.Trans.StackTrace (QueueLog, StackTraceT,
+                                                 errorToWarning, fatal,
+                                                 logStdout)
 import           Data.Conduit                   (runConduit, (.|))
 import qualified Data.Conduit                   as C
 import qualified Data.Conduit.Audio             as CA
 import           Data.Conduit.Audio.Sndfile     (sourceSndFrom)
+import           Data.Foldable                  (toList)
+import qualified Data.HashMap.Strict            as HM
 import           Data.Int                       (Int16)
 import           Data.IORef
 import qualified Data.Set                       as Set
+import qualified Data.Text                      as T
 import qualified Data.Vector.Storable           as V
 import           Foreign                        hiding (void)
 import           Foreign.C                      (CFloat (..))
 import           MoggDecrypt
+import           OpenProject
+import           RenderAudio                    (computeChannelsPlan)
 import           Sound.OpenAL                   (($=))
 import qualified Sound.OpenAL                   as AL
-import           System.FilePath                ((</>))
+import           System.FilePath                (takeDirectory, (</>))
 import           System.IO.Temp
 
 {-
@@ -172,3 +183,49 @@ oggSecsSpeed pos mspeed ogg = do
   src <- sourceVorbisFile (CA.Seconds pos) ogg
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
+
+projectAudio :: (MonadIO m) => Project -> StackTraceT (QueueLog m) (Maybe (Double -> Maybe Double -> IO (IO ())))
+projectAudio proj = case HM.toList $ _plans $ projectSongYaml proj of
+  [(k, MoggPlan{..})] -> errorToWarning $ do
+    -- TODO maybe silence crowd channels
+    ogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.ogg"
+    return $ \t speed -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac _pans) (map realToFrac _vols)
+  [(_, Plan{..})] -> errorToWarning $ do
+    let planAudios = toList _song ++ (toList _planParts >>= toList) -- :: [PlanAudio Duration AudioInput]
+    lib <- newAudioLibrary
+    -- TODO add audio dirs
+    let evalAudioInput = \case
+          Named name -> do
+            afile <- maybe (fatal "Undefined audio name") return $ HM.lookup name $ _audio $ projectSongYaml proj
+            case afile of
+              AudioFile ainfo -> searchInfo (takeDirectory $ projectLocation proj) lib ainfo
+              AudioSnippet expr -> join <$> mapM evalAudioInput expr
+          JammitSelect{} -> fatal "Jammit audio not supported in preview yet" -- TODO
+    planAudios' <- forM planAudios $ \planAudio -> do
+      let chans = computeChannelsPlan (projectSongYaml proj) $ _planExpr planAudio
+      evaled <- mapM evalAudioInput planAudio
+      let expr = join $ _planExpr evaled
+          pans = case _planPans evaled of
+            [] -> case chans of
+              1 -> [0]
+              2 -> [-1, 1]
+              _ -> replicate chans 0
+            pansSpecified -> pansSpecified
+          vols = case _planVols evaled of
+            []            -> replicate chans 0
+            volsSpecified -> volsSpecified
+      return $ PlanAudio expr pans vols
+      -- :: [PlanAudio Duration FilePath]
+    return $ \t mspeed -> do
+      src <- buildSource' $ Merge $ map (Drop Start (CA.Seconds t) . _planExpr) planAudios'
+      playSource
+        (map realToFrac $ planAudios' >>= _planPans)
+        (map realToFrac $ planAudios' >>= _planVols)
+        $ CA.mapSamples CA.integralSample
+        $ maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed src
+  {-
+  [(k, _)] -> errorToWarning $ do
+    wav <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/everything.wav"
+    return $ \t speed -> sndSecsSpeed t speed wav >>= playSource [-1, 1] [0, 0]
+  -}
+  _ -> return Nothing

@@ -331,7 +331,7 @@ removeNotelessOD mmap notes allOD = foldr RTB.merge RTB.empty <$> do
               inside (showPosition mmap t) $ warn $ unwords
                 [ "Removing an OD phrase on"
                 , show fpart
-                , "because there are no notes between the it and the previous phrase on"
+                , "because there are no notes between it and the previous phrase on"
                 , diff
                 ]
               go mprev rest

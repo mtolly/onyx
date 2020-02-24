@@ -971,6 +971,26 @@ splitSpace n heightWidthRatio (WindowDims w h) = let
     in thisRow ++ makeRows (spaces - cols) rows
   in makeRows n $ reverse $ pieces bestRows h
 
+setUpTrackView :: GLStuff -> (Int, Int, Int, Int) -> IO ()
+setUpTrackView GLStuff{..} (x, y, w, h) = do
+  glClear GL_DEPTH_BUFFER_BIT
+  glUseProgram objectShader
+  let viewPosn = V3 0 1.4 3 :: V3 Float
+      view, projection :: M44 Float
+      view
+        = L.mkTransformation (L.axisAngle (V3 1 0 0) (degrees 25)) 0
+        !*! translate4 (negate viewPosn)
+        -- note, this translates then rotates (can't just give V3 to mkTransformation)
+      projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
+  sendUniformName objectShader "view" view
+  sendUniformName objectShader "projection" projection
+  -- light.position gets sent later
+  sendUniformName objectShader "light.ambient" (V3 0.2 0.2 0.2 :: V3 Float)
+  sendUniformName objectShader "light.diffuse" (V3 1 1 1 :: V3 Float)
+  sendUniformName objectShader "light.specular" (V3 1 1 1 :: V3 Float)
+  sendUniformName objectShader "viewPos" viewPosn
+  glViewport (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h)
+
 drawDrumPlayFull
   :: GLStuff
   -> WindowDims
@@ -983,26 +1003,9 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
   glClearColor 0.2 0.3 0.3 1.0
   glClear GL_COLOR_BUFFER_BIT
 
-  let spaces = splitSpace 1 (7/6) dims
-  forM_ spaces $ \(x, y, w, h) -> do
-    glClear GL_DEPTH_BUFFER_BIT
-    glUseProgram objectShader
-    let viewPosn = V3 0 1.4 3 :: V3 Float
-        view, projection :: M44 Float
-        view
-          = L.mkTransformation (L.axisAngle (V3 1 0 0) (degrees 25)) 0
-          !*! translate4 (negate viewPosn)
-          -- note, this translates then rotates (can't just give V3 to mkTransformation)
-        projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
-    sendUniformName objectShader "view" view
-    sendUniformName objectShader "projection" projection
-    -- light.position gets sent later
-    sendUniformName objectShader "light.ambient" (V3 0.2 0.2 0.2 :: V3 Float)
-    sendUniformName objectShader "light.diffuse" (V3 1 1 1 :: V3 Float)
-    sendUniformName objectShader "light.specular" (V3 1 1 1 :: V3 Float)
-    sendUniformName objectShader "viewPos" viewPosn
-    glViewport (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h)
-    drawDrumPlay glStuff (y, h) time speed dps
+  let space = (0, 0, wWhole, hWhole)
+  setUpTrackView glStuff space
+  drawDrumPlay glStuff (0, hWhole) time speed dps
 
   glClear GL_DEPTH_BUFFER_BIT
   let gps = case drumEvents dps of
@@ -1038,24 +1041,8 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
   let spaces = case trks of
         [] -> []
         _  -> splitSpace (length trks) (7/6) dims
-  forM_ (zip spaces trks) $ \((x, y, w, h), trk) -> do
-    glClear GL_DEPTH_BUFFER_BIT
-    glUseProgram objectShader
-    let viewPosn = V3 0 1.4 3 :: V3 Float
-        view, projection :: M44 Float
-        view
-          = L.mkTransformation (L.axisAngle (V3 1 0 0) (degrees 25)) 0
-          !*! translate4 (negate viewPosn)
-          -- note, this translates then rotates (can't just give V3 to mkTransformation)
-        projection = L.perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
-    sendUniformName objectShader "view" view
-    sendUniformName objectShader "projection" projection
-    -- light.position gets sent later
-    sendUniformName objectShader "light.ambient" (V3 0.2 0.2 0.2 :: V3 Float)
-    sendUniformName objectShader "light.diffuse" (V3 1 1 1 :: V3 Float)
-    sendUniformName objectShader "light.specular" (V3 1 1 1 :: V3 Float)
-    sendUniformName objectShader "viewPos" viewPosn
-    glViewport (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h)
+  forM_ (zip spaces trks) $ \(space@(_x, y, _w, h), trk) -> do
+    setUpTrackView glStuff space
     case trk of
       PreviewDrums m -> drawDrums glStuff (y, h) time speed m
       PreviewFive m  -> drawFive  glStuff (y, h) time speed m

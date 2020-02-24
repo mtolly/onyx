@@ -8,11 +8,8 @@
 module GUI.FLTK (launchGUI) where
 
 import           Audio                                     (Audio (..),
-                                                            Edge (..),
                                                             buildSource',
-                                                            runAudio,
-                                                            stretchRealtime)
-import           AudioSearch
+                                                            runAudio)
 import           Build                                     (targetTitle,
                                                             toValidFileName)
 import           CommandLine                               (blackVenue,
@@ -60,7 +57,6 @@ import qualified Data.ByteString.Char8                     as B8
 import qualified Data.ByteString.Lazy                      as BL
 import           Data.Char                                 (isSpace, toLower,
                                                             toUpper)
-import qualified Data.Conduit.Audio                        as CA
 import qualified Data.Connection                           as Conn
 import           Data.Default.Class                        (def)
 import           Data.Fixed                                (Milli)
@@ -115,9 +111,8 @@ import           Paths_onyxite_customs_tool                (version)
 import           ProKeysRanges                             (closeShiftsFile)
 import           Reaper.Build                              (makeReaper)
 import           Reductions                                (simpleReduce)
-import           RenderAudio                               (computeChannelsPlan)
-import           RhythmGame.Audio                          (oggSecsSpeed,
-                                                            playSource, withAL)
+import           RhythmGame.Audio                          (projectAudio,
+                                                            withAL)
 import qualified RhythmGame.Graphics                       as RGGraphics
 import           RhythmGame.Track
 import           RockBand.Codec                            (mapTrack)
@@ -213,50 +208,7 @@ startLoad f = do
       liftIO $ sink $ EventFail msg
     Right proj -> do
       void $ shakeBuild1 proj [] "gen/cover.png"
-      maybeAudio <- case HM.toList $ _plans $ projectSongYaml proj of
-        [(k, MoggPlan{..})] -> errorToWarning $ do
-          -- TODO maybe silence crowd channels
-          ogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.ogg"
-          return $ \t speed -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac _pans) (map realToFrac _vols)
-        [(_, Plan{..})] -> errorToWarning $ do
-          let planAudios = toList _song ++ (toList _planParts >>= toList) -- :: [PlanAudio Duration AudioInput]
-          lib <- newAudioLibrary
-          -- TODO add audio dirs
-          let evalAudioInput = \case
-                Named name -> do
-                  afile <- maybe (fatal "Undefined audio name") return $ HM.lookup name $ _audio $ projectSongYaml proj
-                  case afile of
-                    AudioFile ainfo -> searchInfo (takeDirectory $ projectLocation proj) lib ainfo
-                    AudioSnippet expr -> join <$> mapM evalAudioInput expr
-                JammitSelect{} -> fatal "Jammit audio not supported in preview yet" -- TODO
-          planAudios' <- forM planAudios $ \planAudio -> do
-            let chans = computeChannelsPlan (projectSongYaml proj) $ _planExpr planAudio
-            evaled <- mapM evalAudioInput planAudio
-            let expr = join $ _planExpr evaled
-                pans = case _planPans evaled of
-                  [] -> case chans of
-                    1 -> [0]
-                    2 -> [-1, 1]
-                    _ -> replicate chans 0
-                  pansSpecified -> pansSpecified
-                vols = case _planVols evaled of
-                  []            -> replicate chans 0
-                  volsSpecified -> volsSpecified
-            return $ PlanAudio expr pans vols
-            -- :: [PlanAudio Duration FilePath]
-          return $ \t mspeed -> do
-            src <- buildSource' $ Merge $ map (Drop Start (CA.Seconds t) . _planExpr) planAudios'
-            playSource
-              (map realToFrac $ planAudios' >>= _planPans)
-              (map realToFrac $ planAudios' >>= _planVols)
-              $ CA.mapSamples CA.integralSample
-              $ maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed src
-        {-
-        [(k, _)] -> errorToWarning $ do
-          wav <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/everything.wav"
-          return $ \t speed -> sndSecsSpeed t speed wav >>= playSource [-1, 1] [0, 0]
-        -}
-        _ -> return Nothing
+      maybeAudio <- projectAudio proj
       liftIO $ sink $ EventIO $ launchWindow sink proj maybeAudio
 
 chopRight :: Int -> Rectangle -> (Rectangle, Rectangle)
