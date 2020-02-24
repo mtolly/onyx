@@ -37,7 +37,11 @@ parts:
   drums:
     drums:
       kicks: 1
+      difficulty: 4
 targets:
   rb3:
     game: rb3
+    plan: jammit
+  ps:
+    game: ps
     plan: jammit

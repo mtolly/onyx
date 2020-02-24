@@ -35,9 +35,16 @@ plans:
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
+      difficulty: 5
 targets:
+  rb3:
+    game: rb3
+    plan: jammit
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: jammit
+  ps:
+    game: ps
     plan: jammit
