@@ -79,8 +79,7 @@ SYSTEMATIC CHAOS (new version)
       # itpoe2: todo (redo)
   > venue
     - lighting/postproc:
-      - itpoe1, forsaken, tden, repentance, pow: first drafts done
-      > cm: postprocs done
+      - itpoe1, forsaken, cm, tden, repentance, pow: first drafts done
       # tmols, itpoe2: todo
     - camera:
       - pow: first draft done
