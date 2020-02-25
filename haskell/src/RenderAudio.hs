@@ -103,10 +103,10 @@ manualLeaf rel alib songYaml (Named name) = case HM.lookup name $ _audio songYam
       lg $ "Found audio file " ++ show name ++ " at: " ++ show (toList aud)
       return aud
     AudioSnippet expr -> join <$> mapM (manualLeaf rel alib songYaml) expr
-  Nothing -> fail $ "Couldn't find an audio source named " ++ show name
+  Nothing -> fatal $ "Couldn't find an audio source named " ++ show name
 manualLeaf rel _ songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
   Just _  -> return $ Input $ rel </> jammitPath name audpart
-  Nothing -> fail $ "Couldn't find a Jammit source named " ++ show name
+  Nothing -> fatal $ "Couldn't find a Jammit source named " ++ show name
 
 -- | Computing a non-drums instrument's audio for CON/Magma.
 -- Always returns 1 or 2 channels, with all volumes 0.

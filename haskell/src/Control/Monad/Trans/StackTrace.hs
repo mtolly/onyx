@@ -177,6 +177,9 @@ errorToEither p = fmap Right p `catchError` (return . Left)
 fatal :: (Monad m) => String -> StackTraceT m a
 fatal s = throwError $ Messages [Message s []]
 
+instance (Monad m) => MonadFail (StackTraceT m) where
+  fail = fatal
+
 instance (Monad m) => MonadError Messages (StackTraceT m) where
   throwError (Messages msgs) = StackTraceT $ do
     upper <- lift ask

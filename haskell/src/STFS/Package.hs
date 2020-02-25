@@ -224,7 +224,7 @@ fixedList n cdc = Codec
   { codecIn = replicateM n $ codecIn cdc
   , codecOut = \xs -> if length xs == n
     then mapM (codecOut cdc) xs
-    else fail $ "fixedList: expected a list of size " <> show n <> " but got " <> show (length xs)
+    else error $ "fixedList: expected a list of size " <> show n <> " but got " <> show (length xs)
   }
 
 instance Bin Metadata where

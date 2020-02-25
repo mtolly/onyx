@@ -14,7 +14,8 @@ extra-deps:
 - JuicyPixels-stbir-0.1.0.0
 - hsndfile-0.8.0
 - hsndfile-vector-0.5.2
-- wavefront-0.7.1.3
+- wavefront-0.7.1.4
+- tcp-streams-1.0.1.1
 # local folders
 - game/
 - 3d/
@@ -29,12 +30,16 @@ extra-deps:
   subdirs:
   - conduit-audio-mpg123
 - git: git://github.com/deech/fltkhs
-  commit: a46f5f752782624b1747b4d242ab677fabbcfadf
+  commit: 2551c0a2e4cca6099a5f8babb1a94262f998d27c
 - git: git://github.com/mtolly/midi-util
   commit: 12951b7bc64cb006fa153d54b90174f0a90ba0f9
 - git: git://github.com/mtolly/OpenAL
   commit: 3c74c9807c2d126cbbd2596082f9b9345a247ec5
-resolver: nightly-2019-09-21
+- git: git://github.com/tfausak/binary-bits # ghc 8.8 pull req
+  commit: b7480fd7023d9d3adb1862309dd7bc9276e778ed
+- git: git://github.com/mtolly/codec # ghc 8.8 patch
+  commit: 9733cb44c3d92fd65dbbf421eb58753150e3ea3b
+resolver: lts-15.1
 flags:
   fltkhs:
     bundled: true

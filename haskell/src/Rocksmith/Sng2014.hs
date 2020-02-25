@@ -45,7 +45,7 @@ fixedArray n c = Codec
   { codecIn = replicateM n $ codecIn c
   , codecOut = fmapArg $ \xs -> if length xs == n
     then forM_ xs $ codecOut c
-    else fail $ "Expected an array of size " <> show n
+    else error $ "Expected an array of size " <> show n
   }
 
 data BPM = BPM
