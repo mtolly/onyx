@@ -28,7 +28,6 @@ library:
   - event-list
   - non-negative
   - midi
-  - hmidi
   - containers
   - bytestring
   - process

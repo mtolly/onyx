@@ -9,7 +9,6 @@ extra-deps:
 - jammittools-0.5.5.2
 - rubberband-0.1.0.2
 - tinyfiledialogs-0.2.0.0
-- hmidi-0.2.2.1
 - mpg123-bindings-0.1.0.0
 - JuicyPixels-stbir-0.1.0.0
 - hsndfile-0.8.0
