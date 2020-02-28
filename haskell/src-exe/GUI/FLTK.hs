@@ -12,6 +12,9 @@ import           Audio                                     (Audio (..),
                                                             runAudio)
 import           Build                                     (targetTitle,
                                                             toValidFileName)
+import           Codec.Picture                             (readImage,
+                                                            savePngImage,
+                                                            writePng)
 import           CommandLine                               (blackVenue,
                                                             copyDirRecursive,
                                                             runDolphin)
@@ -96,6 +99,7 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Graphics.UI.FLTK.LowLevel.GlWindow        ()
 import           Graphics.UI.FLTK.LowLevel.X               (openCallback)
+import           Image                                     (readRBImageMaybe)
 import           JSONData                                  (toJSON,
                                                             yamlEncodeFile)
 import           MoggDecrypt                               (oggToMogg)
@@ -342,8 +346,8 @@ launchWindow sink proj maybeAudio = mdo
   (modifyMeta, metaTab) <- makeTab windowRect "Metadata" $ \rect tab -> do
     homeTabColor >>= setTabColor tab
     let (rectLeft, rectRight) = chopRight 200 rect
-    pack <- FL.packNew rectLeft Nothing
     yamlModifier <- fmap (fmap appEndo) $ execWriterT $ do
+      pack <- liftIO $ FL.packNew rectLeft Nothing
       let fullWidth = padded 5 10 5 100 (Size (Width 500) (Height 30))
           simpleText lbl getter rect' = liftIO $ do
             input <- FL.inputNew
@@ -421,17 +425,60 @@ launchWindow sink proj maybeAudio = mdo
         languages -- checkboxes
         band difficulty (maybe should go on instruments page?) -- dropdown with disableable number box
       -}
-    FL.end pack
-    packRight <- FL.packNew rectRight Nothing
-    padded 10 10 0 0 (Size (Width 190) (Height 190)) $ \rect' -> do
-      cover <- FL.buttonNew rect' Nothing
-      Right png <- FL.pngImageNew $ T.pack $ takeDirectory (projectLocation proj) </> "gen/cover.png"
-      FL.scale png (Size (Width 180) (Height 180)) (Just True) (Just False)
-      FL.setImage cover $ Just png
-      return ()
-      -- TODO support changing image: click to browse, or drag and drop
-    FL.end packRight
-    FL.setResizable tab $ Just pack
+      liftIO $ FL.end pack
+      packRight <- liftIO $ FL.packNew rectRight Nothing
+      padded 10 10 0 0 (Size (Width 190) (Height 190)) $ \rect' -> mdo
+        cover <- liftIO $ FL.buttonCustom rect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
+          { FL.handleCustom = Just
+            $ dragAndDrop (mapM_ swapImage . listToMaybe)
+            . FL.handleButtonBase
+            . FL.safeCast
+          }
+        let setPNG defaultImage f = do
+              Right png <- FL.pngImageNew $ T.pack f
+              FL.scale png (Size (Width 180) (Height 180))
+                (Just False) -- not proportional (stretch to square, like onyx does)
+                (Just True) -- can expand
+              FL.setImage cover $ Just png
+              return (png, guard (not defaultImage) >> Just f)
+        currentImage <- liftIO
+          $ setPNG True (takeDirectory (projectLocation proj) </> "gen/cover.png")
+          >>= newMVar
+        let swapImage f = sink $ EventOnyx $ void $ forkOnyx $ void $ errorToWarning $ do
+              inside ("Loading image: " <> f) $ do
+                let newPath = takeDirectory (projectLocation proj) </> "new-cover.png"
+                if elem (takeExtension f) [".png_xbox", ".png_wii"]
+                  then stackIO (BL.readFile f) >>= maybe
+                    (fatal "Couldn't read RB image file")
+                    (stackIO . writePng newPath)
+                    . readRBImageMaybe
+                  else stackIO (readImage f) >>= either fatal (stackIO . savePngImage newPath)
+                stackIO $ sink $ EventIO $ do
+                  oldImage <- modifyMVar currentImage $ \(oldImage, _) -> do
+                    newPair <- setPNG False newPath
+                    return (newPair, oldImage)
+                  FL.redraw cover
+                  FL.destroy oldImage
+        liftIO $ FL.setCallback cover $ \_ -> do
+          picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+          FL.setTitle picker "Select album art"
+          FL.setFilter picker "*.{png,jpg,jpeg,png_xbox,png_wii}"
+          FL.showWidget picker >>= \case
+            FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
+              Nothing              -> return ()
+              Just (T.unpack -> f) -> swapImage f
+            _ -> return ()
+        tell $ do
+          (_, mpath) <- readMVar currentImage
+          return $ Endo $ case mpath of
+            Nothing   -> id
+            Just path -> \yaml -> yaml
+              { _metadata = (_metadata yaml)
+                { _fileAlbumArt = Just path
+                }
+              }
+      liftIO $ FL.end packRight
+      liftIO $ FL.setResizable tab $ Just pack
     return (yamlModifier, tab)
   (modifyInsts, instTab) <- makeTab windowRect "Instruments" $ \rect tab -> do
     homeTabColor >>= setTabColor tab
