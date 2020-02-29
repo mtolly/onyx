@@ -59,7 +59,7 @@ import qualified Data.ByteString                           as B
 import qualified Data.ByteString.Char8                     as B8
 import qualified Data.ByteString.Lazy                      as BL
 import           Data.Char                                 (isSpace, toLower,
-                                                            toUpper, isDigit)
+                                                            toUpper)
 import qualified Data.Connection                           as Conn
 import           Data.Default.Class                        (def)
 import           Data.Fixed                                (Milli)
@@ -68,7 +68,7 @@ import qualified Data.HashMap.Strict                       as HM
 import           Data.IORef                                (IORef, newIORef,
                                                             readIORef,
                                                             writeIORef)
-import           Data.List.Extra                           (nubOrd)
+import           Data.List.Extra                           (nubOrd, findIndex)
 import qualified Data.Map                                  as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
@@ -1179,22 +1179,68 @@ songPageRB3
   -> IO ()
 songPageRB3 sink rect tab proj build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
-  get2x <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    box <- FL.checkButtonNew rect' (Just "2x Bass Pedal drums")
-    return $ FL.getValue box
-  -- TODO custom song ID
-  -- TODO instrument selections: G B D K V
-  -- TODO custom label or title
-  let makeTarget = do
-        speed <- getSpeed
-        is2x <- get2x
-        return def
-          { rb3_Common = (rb3_Common def)
-            { tgt_Speed = Just speed
-            }
-          , rb3_2xBassPedal = is2x
-          }
+  targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
+    padded 10 250 5 250 (Size (Width 300) (Height 35)) $ \rect' -> do
+      getSpeed <- liftIO $ speedPercent rect'
+      tell $ getSpeed >>= \speed -> return $ Endo $ \rb3 ->
+        rb3 { rb3_Common = (rb3_Common rb3) { tgt_Speed = Just speed } }
+    let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
+    fullWidth 35 $ \rect' -> do
+      box <- liftIO $ FL.checkButtonNew rect' (Just "2x Bass Pedal drums")
+      tell $ FL.getValue box >>= \b -> return $ Endo $ \rb3 ->
+        rb3 { rb3_2xBassPedal = b }
+    fullWidth 35 $ \rect' -> do
+      let (checkArea, inputArea) = chopLeft 200 rect'
+      check <- liftIO $ FL.checkButtonNew checkArea (Just "Specific Song ID")
+      input <- liftIO $ FL.inputNew
+        inputArea
+        Nothing
+        (Just FL.FlNormalInput) -- required for labels to work
+      let controlInput = do
+            b <- FL.getValue check
+            (if b then FL.activate else FL.deactivate) input
+      liftIO controlInput
+      liftIO $ FL.setCallback check $ \_ -> controlInput
+      tell $ do
+        b <- FL.getValue check
+        s <- FL.getValue input
+        return $ Endo $ \rb3 -> let
+          sid = do
+            guard $ b && s /= ""
+            Just $ case readMaybe $ T.unpack s of
+              Nothing -> Right s
+              Just i  -> Left i
+          in rb3 { rb3_SongID = sid }
+    fullWidth 60 $ \rect' -> do
+      let [r1, r2, r3, r4, r5] = splitHorizN 5 rect'
+          fparts = do
+            (fpart, part) <- HM.toList $ getParts $ _parts $ projectSongYaml proj
+            guard $ part /= def
+            return (fpart, T.toTitle $ RBFile.getPartName fpart)
+          instSelector lbl getter setter r = do
+            let r' = trimClock 30 5 5 5 r
+            choice <- liftIO $ do
+              choice <- FL.choiceNew r' $ Just lbl
+              FL.setAlign choice $ FLE.Alignments [FLE.AlignTypeTop]
+              FL.addName choice "(none)"
+              forM_ fparts $ \(_, opt) -> FL.addName choice opt
+              void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $
+                case findIndex ((== getter def) . fst) fparts of
+                  Nothing -> 0 -- (none)
+                  Just i  -> i + 1
+              return choice
+            tell $ do
+              FL.AtIndex i <- FL.getValue choice
+              return $ Endo $ setter $ case drop (i - 1) fparts of
+                (fpart, _) : _ | i /= 0 -> fpart
+                _                       -> FlexExtra "undefined"
+      instSelector "Guitar" rb3_Guitar (\v rb3 -> rb3 { rb3_Guitar = v }) r1
+      instSelector "Bass"   rb3_Bass   (\v rb3 -> rb3 { rb3_Bass   = v }) r2
+      instSelector "Keys"   rb3_Keys   (\v rb3 -> rb3 { rb3_Keys   = v }) r3
+      instSelector "Drums"  rb3_Drums  (\v rb3 -> rb3 { rb3_Drums  = v }) r4
+      instSelector "Vocal"  rb3_Vocal  (\v rb3 -> rb3 { rb3_Vocal  = v }) r5
+    -- TODO custom label or title
+  let makeTarget = fmap ($ def) targetModifier
   padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Create CON file"
     FL.setCallback btn $ \_ -> do
