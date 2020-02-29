@@ -82,9 +82,9 @@ SYSTEMATIC CHAOS (new version)
       - itpoe1, forsaken, cm, tden, repentance, pow: first drafts done
       # tmols, itpoe2: todo
     - camera:
-      - pow: first draft done
-      > forsaken: started
-      # itpoe1, cm, tden, repentance, tmols, itpoe2: todo
+      - forsaken, pow: first drafts done
+      > tden: started
+      # itpoe1, cm, repentance, tmols, itpoe2: todo
   - improved onyx lipsync generation: done!
   > drum animations
   > numeric song IDs
