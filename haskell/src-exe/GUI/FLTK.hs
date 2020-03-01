@@ -548,7 +548,6 @@ launchWindow sink proj maybeAudio = mdo
                 return $ (\(FL.AtIndex i) -> toEnum i) <$> FL.getValue choice
               makeDifficulty :: FL.Ref FL.TreeItem -> Difficulty -> IO (IO Difficulty)
               makeDifficulty itemParent diff = do
-                -- TODO disable rank number box unless dropdown is on Rank
                 Just itemGroup <- FL.addAt tree "" itemParent
                 group <- FL.groupNew dummyRect Nothing
                 let (choiceArea, textArea) = chopLeft 100 dummyRect
@@ -1177,18 +1176,20 @@ songPageRB3
   -> Project
   -> (TargetRB3 -> RB3Create -> IO ())
   -> IO ()
-songPageRB3 sink rect tab proj build = do
+songPageRB3 sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
+  let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
-    padded 10 250 5 250 (Size (Width 300) (Height 35)) $ \rect' -> do
-      getSpeed <- liftIO $ speedPercent rect'
+    counterSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) $ \rect' -> do
+      (getSpeed, counter) <- liftIO $ speedPercent' rect'
       tell $ getSpeed >>= \speed -> return $ Endo $ \rb3 ->
         rb3 { rb3_Common = (rb3_Common rb3) { tgt_Speed = Just speed } }
-    let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
-    fullWidth 35 $ \rect' -> do
+      return counter
+    box2x <- fullWidth 35 $ \rect' -> do
       box <- liftIO $ FL.checkButtonNew rect' (Just "2x Bass Pedal drums")
       tell $ FL.getValue box >>= \b -> return $ Endo $ \rb3 ->
         rb3 { rb3_2xBassPedal = b }
+      return box
     fullWidth 35 $ \rect' -> do
       let (checkArea, inputArea) = chopLeft 200 rect'
       check <- liftIO $ FL.checkButtonNew checkArea (Just "Specific Song ID")
@@ -1211,14 +1212,14 @@ songPageRB3 sink rect tab proj build = do
               Nothing -> Right s
               Just i  -> Left i
           in rb3 { rb3_SongID = sid }
-    fullWidth 60 $ \rect' -> do
+    fullWidth 50 $ \rect' -> do
       let [r1, r2, r3, r4, r5] = splitHorizN 5 rect'
           fparts = do
             (fpart, part) <- HM.toList $ getParts $ _parts $ projectSongYaml proj
             guard $ part /= def
             return (fpart, T.toTitle $ RBFile.getPartName fpart)
           instSelector lbl getter setter r = do
-            let r' = trimClock 30 5 5 5 r
+            let r' = trimClock 20 5 5 5 r
             choice <- liftIO $ do
               choice <- FL.choiceNew r' $ Just lbl
               FL.setAlign choice $ FLE.Alignments [FLE.AlignTypeTop]
@@ -1239,11 +1240,40 @@ songPageRB3 sink rect tab proj build = do
       instSelector "Keys"   rb3_Keys   (\v rb3 -> rb3 { rb3_Keys   = v }) r3
       instSelector "Drums"  rb3_Drums  (\v rb3 -> rb3 { rb3_Drums  = v }) r4
       instSelector "Vocal"  rb3_Vocal  (\v rb3 -> rb3 { rb3_Vocal  = v }) r5
-    -- TODO custom label or title
+    fullWidth 35 $ \rect' -> do
+      let (checkArea, inputArea) = chopLeft 200 rect'
+      check <- liftIO $ FL.checkButtonNew checkArea (Just "Custom Title Suffix")
+      input <- liftIO $ FL.inputNew
+        inputArea
+        Nothing
+        (Just FL.FlNormalInput) -- required for labels to work
+      let controlInput = do
+            b <- FL.getValue check
+            if b
+              then FL.activate input
+              else do
+                rb3 <- makeTarget
+                void $ FL.setValue input $ T.strip $ targetTitle
+                  (projectSongYaml proj)
+                  (RB3 rb3 { rb3_Common = (rb3_Common rb3) { tgt_Title = Just "" } })
+                FL.deactivate input
+      liftIO $ sink $ EventIO controlInput -- have to delay; can't call now due to dependency loop!
+      liftIO $ FL.setCallback check $ \_ -> controlInput
+      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+      liftIO $ FL.setCallback box2x $ \_ -> controlInput
+      tell $ do
+        b <- FL.getValue check
+        s <- FL.getValue input
+        return $ Endo $ \rb3 -> rb3
+          { rb3_Common = (rb3_Common rb3)
+            { tgt_Label = guard b >> Just (T.strip s)
+            }
+          }
   let makeTarget = fmap ($ def) targetModifier
-  padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Create CON file"
-    FL.setCallback btn $ \_ -> do
+  fullWidth 35 $ \rect' -> do
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    btn1 <- FL.buttonNew r1 $ Just "Create CON file"
+    FL.setCallback btn1 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save RB3 CON file"
@@ -1253,9 +1283,8 @@ songPageRB3 sink rect tab proj build = do
           Nothing -> return ()
           Just f  -> build tgt $ RB3CON f
         _ -> return ()
-  padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Create Magma project"
-    FL.setCallback btn $ \_ -> do
+    btn2 <- FL.buttonNew r2 $ Just "Create Magma project"
+    FL.setCallback btn2 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
       FL.setTitle picker "Save Magma v2 project"
@@ -1265,6 +1294,9 @@ songPageRB3 sink rect tab proj build = do
           Nothing -> return ()
           Just f  -> build tgt $ RB3Magma f
         _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn1 color
+    FL.setColor btn2 color
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
