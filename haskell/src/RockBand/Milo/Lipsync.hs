@@ -147,6 +147,14 @@ newtype Keyframe = Keyframe
   { keyframeEvents :: [VisemeEvent Int]
   } deriving (Eq, Show)
 
+lipsyncToStates :: Lipsync -> [Map.Map B.ByteString Word8]
+lipsyncToStates l = go Map.empty $ lipsyncKeyframes l where
+  go _ [] = []
+  go m (kf : rest) = let
+    m' = Map.filter (/= 0) $
+      foldr (\(VisemeEvent i w) -> Map.insert (lipsyncVisemes l !! i) w) m (keyframeEvents kf)
+    in m' : go m' rest
+
 parseLipsync :: Get Lipsync
 parseLipsync = do
   lipsyncVersion <- getWord32be
@@ -509,13 +517,16 @@ autoLipsyncAh
   . fmap (\x -> guard (isJust x) >> [("Ox_hi", 100), ("Ox_lo", 100)])
   . vocalTubes
 
+setBeatles :: Lipsync -> Lipsync
+setBeatles lip = lip
+  { lipsyncVersion = 0
+  , lipsyncSubversion = 2
+  , lipsyncDTAImport = "proj9"
+  }
+
 beatlesLipsync :: Transcribe U.Seconds -> VocalTrack U.Seconds -> Lipsync
 beatlesLipsync trans
-  = (\lip -> lip
-    { lipsyncVersion = 0
-    , lipsyncSubversion = 2
-    , lipsyncDTAImport = "proj9"
-    })
+  = setBeatles
   . visemesToLipsync 0.12
   . fmap (maybe [] $ map (first $ T.pack . drop 7 . show) . cmuToBeatles)
   . trans

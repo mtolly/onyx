@@ -68,7 +68,7 @@ import qualified Data.HashMap.Strict                       as HM
 import           Data.IORef                                (IORef, newIORef,
                                                             readIORef,
                                                             writeIORef)
-import           Data.List.Extra                           (nubOrd, findIndex)
+import           Data.List.Extra                           (findIndex, nubOrd)
 import qualified Data.Map                                  as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
