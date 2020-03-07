@@ -21,19 +21,21 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.Int
 import           Data.List.Extra                  (foldl', nubOrd, sort, zip3)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, isJust, isNothing,
+import           Data.Maybe                       (fromMaybe, isNothing,
                                                    listToMaybe, mapMaybe)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Data.Word
 import           DryVox                           (vocalTubes)
+import           Guitars                          (applyStatus1)
 import           Resources                        (CMUPhoneme (..), cmuDict)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Lipsync           (BeatlesViseme (..),
                                                    GH2Viseme (..),
                                                    LipsyncTrack (..),
+                                                   LyricLanguage (..),
                                                    MagmaViseme (..),
                                                    VisemeEvent (..))
 import           RockBand.Codec.Vocal
@@ -147,13 +149,54 @@ newtype Keyframe = Keyframe
   { keyframeEvents :: [VisemeEvent Int]
   } deriving (Eq, Show)
 
-lipsyncToStates :: Lipsync -> [Map.Map B.ByteString Word8]
+type LipsyncStates = [Map.Map B.ByteString Word8] -- each map is an absolute state of visemes
+
+lipsyncToStates :: Lipsync -> LipsyncStates
 lipsyncToStates l = go Map.empty $ lipsyncKeyframes l where
   go _ [] = []
   go m (kf : rest) = let
     m' = Map.filter (/= 0) $
       foldr (\(VisemeEvent i w) -> Map.insert (lipsyncVisemes l !! i) w) m (keyframeEvents kf)
     in m' : go m' rest
+
+lipsyncFromStates :: LipsyncStates -> Lipsync
+lipsyncFromStates ms = let
+  visemes = Set.unions $ map Map.keysSet ms
+  changes _   []            = []
+  changes cur (next : rest) = let
+    this = do
+      vis <- Set.toList $ Map.keysSet cur <> Map.keysSet next
+      return (vis, fromMaybe 0 $ Map.lookup vis next)
+    in this : changes next rest
+  in Lipsync
+    { lipsyncVersion = 1
+    , lipsyncSubversion = 2
+    , lipsyncDTAImport = ""
+    , lipsyncVisemes = Set.toList visemes
+    , lipsyncKeyframes = do
+      frame <- redundantZero $ changes Map.empty ms
+      return $ Keyframe $ sort $ flip map frame $ \(bs, w) -> VisemeEvent
+        { visemeKey = Set.findIndex bs visemes
+        , visemeWeight = w
+        }
+    }
+
+addLipsyncStates :: LipsyncStates -> LipsyncStates -> LipsyncStates
+addLipsyncStates = let
+  addList []       ys       = ys
+  addList xs       []       = xs
+  addList [x]      ys       = map (addSingle x) ys
+  addList xs       [y]      = map (addSingle y) xs
+  addList (x : xs) (y : ys) = addSingle x y : addList xs ys
+  addSingle mx my = Map.filter (/= 0) $ Map.unionWith addWeight mx my
+  addWeight w1 w2 = let
+    summed = fromIntegral w1 + fromIntegral w2 :: Int
+    in if summed > 255 then 255 else fromIntegral summed
+  in addList
+
+addLipsync :: Lipsync -> Lipsync -> Lipsync
+addLipsync lx ly = lipsyncFromStates $
+  addLipsyncStates (lipsyncToStates lx) (lipsyncToStates ly)
 
 parseLipsync :: Get Lipsync
 parseLipsync = do
@@ -199,7 +242,7 @@ putLipsync lip = do
 
 lipsyncToMIDITrack :: Lipsync -> LipsyncTrack U.Seconds
 lipsyncToMIDITrack lip
-  = LipsyncTrack
+  = LipsyncTrack RTB.empty RTB.empty RTB.empty
   $ RTB.flatten
   $ RTB.fromPairList
   $ do
@@ -364,10 +407,10 @@ cmuToBeatles = \case
       , (Viseme_jaw_open, 180)
       ]
 
-type Transcribe t = RTB.T t (Maybe T.Text) -> RTB.T t (Maybe CMUPhoneme)
+type Transcribe = [T.Text] -> [CMUPhoneme]
 
-spanishVowels :: Transcribe t
-spanishVowels = fmap $ fmap $ \t -> let
+spanishVowels :: Transcribe
+spanishVowels = fmap $ \t -> let
   vowels = flip mapMaybe (T.unpack $ T.toLower t) $ \case
     'á' -> Just 'a'
     'é' -> Just 'e'
@@ -394,8 +437,8 @@ spanishVowels = fmap $ fmap $ \t -> let
           then CMU_IY
           else CMU_AH -- default
 
-germanVowels :: Transcribe t
-germanVowels = fmap $ fmap $ \t -> let
+germanVowels :: Transcribe
+germanVowels = fmap $ \t -> let
   vowels = T.filter (`elem` ("aeiouäöü" :: String)) $ T.toLower t
   in case vowels of
     "ei" -> CMU_AY
@@ -418,41 +461,43 @@ germanVowels = fmap $ fmap $ \t -> let
       "ü" -> CMU_UW
       _   -> CMU_AH -- default
 
-englishVowels :: Transcribe t
-englishVowels = let
+englishVowels :: Transcribe
+englishVowels syllables = let
+  numSyllables = length syllables
+  isVowel phone = elem phone
+    [ CMU_AA, CMU_AE, CMU_AH, CMU_AO, CMU_AW
+    , CMU_AY, CMU_EH, CMU_ER, CMU_EY, CMU_IH
+    , CMU_IY, CMU_OW, CMU_OY, CMU_UH, CMU_UW
+    ]
+  filterLyric
+    = T.map (\case '=' -> '-'; c -> c)
+    . T.filter (`notElem` ("-#^$!?" :: String))
+  word = B8.pack $ T.unpack $ T.toUpper $ T.concat $ map filterLyric syllables
+  in case filter ((== numSyllables) . length) $ map (filter isVowel) $ fromMaybe [] $ HM.lookup word cmuDict of
+    match : _ -> match
+    []        -> const CMU_AH <$> syllables -- TODO
+
+runTranscribe :: RTB.T t (Maybe (Transcribe, T.Text)) -> RTB.T t (Maybe CMUPhoneme)
+runTranscribe = let
   splitFirstWord evts = let
     (x, y) = flip span evts $ \case
-      (_, Nothing   ) -> True
-      (_, Just lyric) -> elem
+      (_, Nothing        ) -> True
+      (_, Just (_, lyric)) -> elem
         (T.takeEnd 1 $ T.dropWhileEnd (`elem` ['$', '#', '^']) lyric)
         ["-", "="]
     in (x <> take 1 y, drop 1 y)
   go [] = []
   go evts = case splitFirstWord evts of
     (wordEvents, rest) -> let
-      numSyllables = length [ () | (_, Just _) <- wordEvents ]
-      isVowel phone = elem phone
-        [ CMU_AA, CMU_AE, CMU_AH, CMU_AO, CMU_AW
-        , CMU_AY, CMU_EH, CMU_ER, CMU_EY, CMU_IH
-        , CMU_IY, CMU_OW, CMU_OY, CMU_UH, CMU_UW
-        ]
-      filterLyric = maybe ""
-        $ T.map (\case '=' -> '-'; c -> c)
-        . T.filter (`notElem` ("-#^$!?" :: String))
-      word = B8.pack $ T.unpack $ T.toUpper $ T.concat $ map (filterLyric . snd) wordEvents
-      phones = case filter ((== numSyllables) . length) $ map (filter isVowel) $ fromMaybe [] $ HM.lookup word cmuDict of
-        match : _ -> applyPhonemes match wordEvents
-        []        -> guessPhonemes wordEvents
+      syllablePairs = mapMaybe snd wordEvents
+      phones = case syllablePairs of
+        []             -> [] -- shouldn't happen
+        (trans, _) : _ -> applyPhonemes (trans $ map snd syllablePairs) wordEvents
       in phones ++ go rest
   applyPhonemes phones           ((t, Nothing) : events) = (t, Nothing    ) : applyPhonemes phones events
   applyPhonemes (phone : phones) ((t, Just _ ) : events) = (t, Just phone ) : applyPhonemes phones events
   applyPhonemes _                []                      = []
   applyPhonemes []               ((t, Just _ ) : events) = (t, Just CMU_AH) : applyPhonemes []     events -- shouldn't happen
-  guessPhonemes = map $ \case
-    (t, Nothing) -> (t, Nothing)
-    (t, Just _lyric) -> let
-      phone = CMU_AH -- TODO
-      in (t, Just phone)
   in RTB.fromPairList . go . RTB.toPairList
 
 -- for some reason you sometimes need an extra zero for a viseme to be totally shut off.
@@ -467,8 +512,8 @@ redundantZero (x : xs@(y : _)) = x : case [ vis | (vis, 0) <- x, isNothing $ loo
     y' : ys -> (map (, 0) visemes ++ y') : ys
 
 -- each list in the event list is an absolute set of visemes, not just changes
-visemesToLipsync :: U.Seconds -> RTB.T U.Seconds [(T.Text, Word8)] -> Lipsync
-visemesToLipsync transition rtb = let
+visemesToStates :: U.Seconds -> RTB.T U.Seconds [(T.Text, Word8)] -> LipsyncStates
+visemesToStates transition rtb = let
   halfTransition = transition / 2
   transitionSteps = ceiling $ transition * 30 :: Int
   pairs = ATB.toPairList $ RTB.toAbsoluteEventList 0 rtb
@@ -498,24 +543,28 @@ visemesToLipsync transition rtb = let
         let thisValue = round $ startValue + change * frac
         return $ VisemeEvent vis thisValue
       in (newTime, newVisemes)
-  in lipsyncFromMIDITrack
-    $ LipsyncTrack
+  in lipEventsStates
     $ RTB.flatten
     $ RTB.fromAbsoluteEventList
     $ ATB.fromPairList withTransitions
 
-autoLipsync :: Transcribe U.Seconds -> VocalTrack U.Seconds -> Lipsync
+visemesToLipsync :: U.Seconds -> RTB.T U.Seconds [(T.Text, Word8)] -> Lipsync
+visemesToLipsync transition = lipsyncFromStates . visemesToStates transition
+
+autoLipsync :: Transcribe -> VocalTrack U.Seconds -> Lipsync
 autoLipsync trans
   = visemesToLipsync 0.12
   . fmap (maybe [] $ map (\v -> (T.pack $ drop 7 $ show v, 140)) . cmuToVisemes)
-  . trans
+  . runTranscribe
+  . fmap (fmap (trans,))
   . vocalTubes
 
-autoLipsyncAh :: VocalTrack U.Seconds -> Lipsync
-autoLipsyncAh
-  = visemesToLipsync 0.12
-  . fmap (\x -> guard (isJust x) >> [("Ox_hi", 100), ("Ox_lo", 100)])
-  . vocalTubes
+setRB3 :: Lipsync -> Lipsync
+setRB3 lip = lip
+  { lipsyncVersion = 1
+  , lipsyncSubversion = 2
+  , lipsyncDTAImport = ""
+  }
 
 setBeatles :: Lipsync -> Lipsync
 setBeatles lip = lip
@@ -524,48 +573,68 @@ setBeatles lip = lip
   , lipsyncDTAImport = "proj9"
   }
 
-beatlesLipsync :: Transcribe U.Seconds -> VocalTrack U.Seconds -> Lipsync
+beatlesLipsync :: Transcribe -> VocalTrack U.Seconds -> Lipsync
 beatlesLipsync trans
   = setBeatles
   . visemesToLipsync 0.12
   . fmap (maybe [] $ map (first $ T.pack . drop 7 . show) . cmuToBeatles)
-  . trans
+  . runTranscribe
+  . fmap (fmap (trans,))
   . vocalTubes
 
-gh2Lipsync :: Transcribe U.Seconds -> VocalTrack U.Seconds -> VocFile
+gh2Lipsync :: Transcribe -> VocalTrack U.Seconds -> VocFile
 gh2Lipsync trans
   = visemesToVoc
   . fmap (\mcmu -> case mcmu >>= cmuToGH2Viseme of
     Nothing  -> []
     Just vis -> [(T.replace "_" " " $ T.pack $ drop 4 $ show vis, 1)]
     )
-  . trans
+  . runTranscribe
+  . fmap (fmap (trans,))
   . vocalTubes
 
-lipsyncFromMIDITrack :: LipsyncTrack U.Seconds -> Lipsync
-lipsyncFromMIDITrack lip = let
+lipEventsStates :: RTB.T U.Seconds (VisemeEvent T.Text) -> LipsyncStates
+lipEventsStates = let
   makeKeyframes cur rest = let
     (frame, after) = U.trackSplit (1/30 :: U.Seconds) rest
     next = Map.filter (/= 0) $ foldl' (\m (VisemeEvent k w) -> Map.insert k w m) cur frame
-    keyframe = do
-      vis <- Set.toList $ Map.keysSet cur <> Map.keysSet next
-      return (vis, fromMaybe 0 $ Map.lookup vis next)
-    in keyframe : if RTB.null after
+    in next : if RTB.null after
       then []
       else makeKeyframes next after
-  visemeSet = Set.fromList $ map visemeKey $ RTB.getBodies $ lipEvents lip
-  in Lipsync
-    { lipsyncVersion    = 1
-    , lipsyncSubversion = 2
-    , lipsyncDTAImport  = B.empty
-    , lipsyncVisemes    = map TE.encodeUtf8 $ Set.toList visemeSet
-    , lipsyncKeyframes
-      = map (Keyframe . sort . map ((\(vis, n) -> VisemeEvent (Set.findIndex vis visemeSet) n)))
-      $ redundantZero
-      $ makeKeyframes Map.empty
-      $ RTB.delay (1/60 :: U.Seconds) -- this is so we can process the first 1/30 and end up in the center of the first frame
-      $ lipEvents lip
+  in map (Map.mapKeys TE.encodeUtf8)
+    . makeKeyframes Map.empty
+    . RTB.delay (1/60 :: U.Seconds) -- this is so we can process the first 1/30 and end up in the center of the first frame
+
+data LipsyncTarget
+  = LipsyncRB3
+  | LipsyncTBRB
+
+lipLyricsStates :: LipsyncTarget -> LipsyncTrack U.Seconds -> LipsyncStates
+lipLyricsStates tgt lip = let
+  tubes = vocalTubes mempty
+    { vocalLyrics = lipLyrics lip
+    , vocalNotes  = lipNotes  lip
     }
+  withLang = applyStatus1 LyricEnglish (lipLanguage lip) tubes
+  transcribed = runTranscribe $ flip fmap withLang $ \(lang, mtext) -> let
+    trans = case lang of
+      LyricEnglish -> englishVowels
+      LyricGerman  -> germanVowels
+      LyricSpanish -> spanishVowels
+    in (trans,) <$> mtext
+  fromCMU = case tgt of
+    LipsyncRB3 -> maybe [] $ map (\v -> (T.pack $ drop 7 $ show v, 140)) . cmuToVisemes
+    LipsyncTBRB -> maybe [] $ map (first $ T.pack . drop 7 . show) . cmuToBeatles
+  in visemesToStates 0.12 $ fmap fromCMU transcribed
+
+lipsyncFromMIDITrack' :: LipsyncTarget -> LipsyncTrack U.Seconds -> Lipsync
+lipsyncFromMIDITrack' tgt lip
+  = (case tgt of LipsyncTBRB -> setBeatles; LipsyncRB3 -> setRB3)
+  $ lipsyncFromStates
+  $ addLipsyncStates (lipEventsStates $ lipEvents lip) (lipLyricsStates tgt lip)
+
+lipsyncFromMIDITrack :: LipsyncTrack U.Seconds -> Lipsync
+lipsyncFromMIDITrack = lipsyncFromMIDITrack' LipsyncRB3
 
 testConvertLipsync :: FilePath -> [FilePath] -> FilePath -> IO ()
 testConvertLipsync fmid fvocs fout = do
@@ -753,7 +822,7 @@ putStringLE bs = do
 
 vocToMIDITrack :: VocFile -> LipsyncTrack U.Seconds
 vocToMIDITrack voc
-  = LipsyncTrack
+  = LipsyncTrack RTB.empty RTB.empty RTB.empty
   $ foldr RTB.merge RTB.empty
   $ flip map (vocVisemes voc)
   $ \vis -> let
