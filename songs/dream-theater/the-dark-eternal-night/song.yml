@@ -114,6 +114,8 @@ parts:
       difficulty: 2
       count: 2
       gender: male
+      # TODO: I'm writing the CAMERA track assuming that HARM2 will be
+      # lipsync'd by drums, so we need to add onyx support for that
 targets:
   rb3:
     game: rb3

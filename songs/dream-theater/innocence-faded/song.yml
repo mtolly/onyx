@@ -2,7 +2,7 @@ metadata:
   title: Innocence Faded
   file-include: ../../../albums/awake.yml
   track-number: 3
-  author: Onyxite
+  author: Onyxite, Mazegeek999
   comments:
   - "Chart confidence: *high* (Jammit stems)."
 audio:
@@ -26,8 +26,30 @@ plans:
       drums:
         # jammit drums are drummer-panned on this song
         only: [Drums, jammit-track]
+      guitar-1:
+        only: [Guitar 1, jammit-track]
+      guitar-2:
+        only: [Guitar 2, jammit-track]
+      bass:
+        only: [Bass, jammit-track]
+      keys:
+        only: [Keys, jammit-track]
+      vocal-1:
+        only: [Vocal, jammit-track]
+      vocal-2:
+        only: [B Vocals, jammit-track]
     song:
-      without: [drums, jammit-track]
+      mix:
+      - without: [drums, jammit-track]
+      - gain:
+        - -1
+        - mix:
+          - only: [Guitar 1, jammit-track]
+          - only: [Guitar 2, jammit-track]
+          - only: [Bass, jammit-track]
+          - only: [Keys, jammit-track]
+          - only: [Vocal, jammit-track]
+          - only: [B Vocals, jammit-track]
   album:
     countin: *countin
     song:
@@ -37,6 +59,13 @@ parts:
     drums:
       kicks: both
       difficulty: 5
+  keys:
+    # both by Mazegeek999
+    # TODO there are some keys parts in backing that should be charted
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
 targets:
   rb3:
     game: rb3
