@@ -42,7 +42,7 @@ import           Data.Fixed                            (Centi, Milli)
 import           Data.Foldable                         (toList)
 import           Data.Hashable                         (hash)
 import qualified Data.HashMap.Strict                   as HM
-import           Data.List                             (intercalate)
+import           Data.List                             (intercalate, sort)
 import qualified Data.List.NonEmpty                    as NE
 import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe, isJust,
@@ -1965,10 +1965,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         let allPlanAudio :: [FilePath]
             allPlanAudio = map (dir </>) $ concat
               [ [ "song.wav" ]
-              , [ "crowd.wav"
-                | case plan of Plan{..} -> isJust _crowd; MoggPlan{..} -> not $ null _moggCrowd
-                ]
-              , allPlanParts >>= \(fpart, pa) -> let
+              , sort $ allPlanParts >>= \(fpart, pa) -> let
                 name = T.unpack $ RBFile.getPartName fpart
                 in case pa of
                   PartSingle () -> [name <.> "wav"]
@@ -1977,6 +1974,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , map (\() -> (name ++ "-snare") <.> "wav") $ toList msnare
                     , [(name ++ "-kit") <.> "wav"]
                     ]
+              , [ "crowd.wav"
+                | case plan of Plan{..} -> isJust _crowd; MoggPlan{..} -> not $ null _moggCrowd
+                ]
               ]
 
         -- REAPER project
