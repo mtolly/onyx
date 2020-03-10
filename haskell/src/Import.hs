@@ -500,6 +500,8 @@ importFoF src dest = do
           , vocalCount = vc
           , vocalGender = Nothing
           , vocalKey = Nothing
+          , vocalLipsyncRB3 = Nothing
+          , vocalLipsyncRB2 = Nothing
           }
         })
       , ( FlexExtra "global", def
@@ -996,6 +998,9 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           , vocalCount = vc
           , vocalGender = D.vocalGender pkg
           , vocalKey = vkey
+          -- TODO actually extract lipsync
+          , vocalLipsyncRB3 = Nothing
+          , vocalLipsyncRB2 = Nothing
           }
         })
       ]
@@ -1283,6 +1288,8 @@ importMagma fin dir = do
             | otherwise                                                  -> Vocal1
           , vocalGender = Just $ RBProj.vocalGender $ RBProj.gamedata rbproj
           , vocalKey = Nothing
+          , vocalLipsyncRB3 = Nothing
+          , vocalLipsyncRB2 = Nothing
           }
         })
       ]

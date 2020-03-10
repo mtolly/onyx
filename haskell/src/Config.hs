@@ -725,14 +725,18 @@ data PartVocal = PartVocal
   , vocalCount      :: VocalCount
   , vocalGender     :: Maybe Magma.Gender
   , vocalKey        :: Maybe Key
+  , vocalLipsyncRB3 :: Maybe LipsyncRB3
+  , vocalLipsyncRB2 :: Maybe LipsyncSource
   } deriving (Eq, Ord, Show, Read)
 
 instance StackJSON PartVocal where
   stackJSON = asStrictObject "PartVocal" $ do
-    vocalDifficulty <- vocalDifficulty =. fill (Tier 1) "difficulty" stackJSON
-    vocalCount      <- vocalCount      =. opt  Vocal1   "count"      stackJSON
-    vocalGender     <- vocalGender     =. opt  Nothing  "gender"     (maybeCodec parseGender)
-    vocalKey        <- vocalKey        =. opt  Nothing  "key"        (maybeCodec parsePitch)
+    vocalDifficulty <- vocalDifficulty =. fill (Tier 1) "difficulty"  stackJSON
+    vocalCount      <- vocalCount      =. opt  Vocal1   "count"       stackJSON
+    vocalGender     <- vocalGender     =. opt  Nothing  "gender"      (maybeCodec parseGender)
+    vocalKey        <- vocalKey        =. opt  Nothing  "key"         (maybeCodec parsePitch)
+    vocalLipsyncRB3 <- vocalLipsyncRB3 =. opt  Nothing  "lipsync-rb3" stackJSON
+    vocalLipsyncRB2 <- vocalLipsyncRB2 =. opt  Nothing  "lipsync-rb2" stackJSON
     return PartVocal{..}
 
 data PartAmplitude = PartAmplitude
@@ -1025,6 +1029,64 @@ instance StackJSON TargetRB3 where
 
 instance Default TargetRB3 where
   def = fromEmptyObject
+
+data LipsyncMember = LipsyncGuitar | LipsyncBass | LipsyncDrums
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance StackJSON LipsyncMember where
+  stackJSON = enumCodecFull "guitar, bass, or drums" $ \case
+    LipsyncGuitar -> is "guitar"
+    LipsyncBass   -> is "bass"
+    LipsyncDrums  -> is "drums"
+
+data LipsyncRB3 = LipsyncRB3
+  { lipsyncSources :: [LipsyncSource]
+  , lipsyncMember2 :: LipsyncMember
+  , lipsyncMember3 :: LipsyncMember
+  , lipsyncMember4 :: LipsyncMember
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackJSON LipsyncRB3 where
+  stackJSON = asStrictObject "LipsyncRB3" $ do
+    lipsyncSources <- lipsyncSources =. req "sources" stackJSON
+    lipsyncMember2 <- lipsyncMember2 =. opt LipsyncGuitar "member-2" stackJSON
+    lipsyncMember3 <- lipsyncMember3 =. opt LipsyncBass   "member-3" stackJSON
+    lipsyncMember4 <- lipsyncMember4 =. opt LipsyncDrums  "member-4" stackJSON
+    return LipsyncRB3{..}
+
+data LipsyncSource
+  = LipsyncTrack1
+  | LipsyncTrack2
+  | LipsyncTrack3
+  | LipsyncTrack4
+  | LipsyncVocal (Maybe VocalCount)
+  | LipsyncFile FilePath
+  deriving (Eq, Ord, Show, Read)
+
+instance StackJSON LipsyncSource where
+  stackJSON = Codec
+    { codecIn = lift ask >>= \case
+      "track1" -> return LipsyncTrack1
+      "track2" -> return LipsyncTrack2
+      "track3" -> return LipsyncTrack3
+      "track4" -> return LipsyncTrack4
+      "solo" -> return $ LipsyncVocal Nothing
+      "harm1" -> return $ LipsyncVocal $ Just Vocal1
+      "harm2" -> return $ LipsyncVocal $ Just Vocal2
+      "harm3" -> return $ LipsyncVocal $ Just Vocal3
+      OneKey "file-lipsync" (A.String f) -> return $ LipsyncFile $ T.unpack f
+      _ -> expected "a lipsync source"
+    , codecOut = makeOut $ \case
+      LipsyncTrack1 -> "track1"
+      LipsyncTrack2 -> "track2"
+      LipsyncTrack3 -> "track3"
+      LipsyncTrack4 -> "track4"
+      LipsyncVocal Nothing -> "solo"
+      LipsyncVocal (Just Vocal1) -> "harm1"
+      LipsyncVocal (Just Vocal2) -> "harm2"
+      LipsyncVocal (Just Vocal3) -> "harm3"
+      LipsyncFile f -> OneKey "file-lipsync" $ A.String $ T.pack f
+    }
 
 data TargetRB2 = TargetRB2
   { rb2_Common      :: TargetCommon
