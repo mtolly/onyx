@@ -93,6 +93,7 @@ importBMS bmsPath dout = do
       , _artist       = bms_ARTIST bms
       , _genre        = bms_GENRE bms
       }
+    , _global = def
     , _audio = HM.fromList $ do
       (f, chans) <- catMaybes [audioSong, audioPlayer1, audioPlayer2]
       return $ (T.pack f ,) $ AudioFile AudioInfo
@@ -114,6 +115,7 @@ importBMS bmsPath dout = do
       , _crowd = Nothing
       , _planComments = []
       , _tuningCents = 0
+      , _fileTempo = Nothing
       }
     , _targets = HM.empty
     , _parts = Parts $ HM.fromList $ do

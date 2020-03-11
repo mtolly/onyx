@@ -137,6 +137,7 @@ importGH2 mode pkg gen dout = do
       , _artist = Just $ artist pkg
       , _cover = caption pkg /= Just "performed_by"
       }
+    , _global = def
     , _audio = HM.fromList $ do
       wav <- wavs
       return $ (T.pack wav ,) $ AudioFile AudioInfo
@@ -177,6 +178,7 @@ importGH2 mode pkg gen dout = do
         , _crowd = Nothing
         , _planComments = []
         , _tuningCents = 0
+        , _fileTempo = Nothing
         }
     , _targets = HM.empty -- TODO add gh2 target
     , _parts = Parts $ HM.fromList $ catMaybes

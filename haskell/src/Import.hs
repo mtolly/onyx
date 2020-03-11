@@ -348,8 +348,6 @@ importFoF src dest = do
       , _trackNumber  = FoF.track song
       , _comments     = []
       , _key          = Nothing
-      , _autogenTheme = RBProj.DefaultTheme
-      , _animTempo    = Left D.KTempoMedium
       , _author       = FoF.charter song
       , _rating       = Unrated
       , _previewStart = case FoF.previewStartTime song of
@@ -365,6 +363,7 @@ importFoF src dest = do
       , _cover        = _cover def
       , _difficulty   = toTier $ FoF.diffBand song
       }
+    , _global = def
     , _audio = HM.fromList $ flip map audioFilesWithChannels $ \(aud, chans) ->
       (T.pack aud, AudioFile AudioInfo
         { _md5 = Nothing
@@ -405,6 +404,7 @@ importFoF src dest = do
       , _crowd = audioExpr crowdAudio
       , _planComments = []
       , _tuningCents = 0
+      , _fileTempo = Nothing
       }
     , _targets = HM.singleton "ps" $ PS def { ps_FileVideo = vid }
     , _parts = Parts $ HM.fromList
@@ -874,8 +874,6 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _comments     = []
       , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
       , _key          = skey
-      , _autogenTheme = RBProj.DefaultTheme
-      , _animTempo    = D.animTempo pkg
       , _author       = _author meta
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
       , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ D.preview pkg) / 1000
@@ -887,6 +885,9 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _catEMH       = _catEMH meta
       , _expertOnly   = _expertOnly meta
       , _cover        = not $ D.master pkg
+      }
+    , _global = def
+      { _animTempo = D.animTempo pkg
       }
     , _audio = HM.empty
     , _jammit = HM.empty
@@ -904,6 +905,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _vols = map realToFrac $ D.vols $ D.song pkg
       , _planComments = []
       , _tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
+      , _fileTempo = Nothing
       , _karaoke = karaoke
       , _multitrack = multitrack
       }
@@ -1154,10 +1156,6 @@ importMagma fin dir = do
       , _comments     = []
       , _difficulty   = Tier $ RBProj.rankBand $ RBProj.gamedata rbproj
       , _key          = fmap (`SongKey` Major) $ c3 >>= C3.tonicNote
-      , _autogenTheme = case RBProj.autogenTheme $ RBProj.midi rbproj of
-        Left theme -> theme
-        Right _str -> RBProj.DefaultTheme -- TODO
-      , _animTempo    = Right $ RBProj.animTempo $ RBProj.gamedata rbproj
       , _author       = Just $ RBProj.author $ RBProj.metadata rbproj
       , _rating       = case fmap C3.songRating c3 of
         Nothing -> Unrated
@@ -1185,6 +1183,14 @@ importMagma fin dir = do
       , _expertOnly   = maybe False C3.expertOnly c3
       , _cover        = maybe False (not . C3.isMaster) c3
       }
+    , _global = Global
+      { _fileMidi = "notes.mid"
+      , _fileSongAnim = Nothing
+      , _autogenTheme = case RBProj.autogenTheme $ RBProj.midi rbproj of
+        Left theme -> theme
+        Right _str -> RBProj.DefaultTheme -- TODO
+      , _animTempo    = Right $ RBProj.animTempo $ RBProj.gamedata rbproj
+      }
     , _audio = HM.fromList allAudio
     , _jammit = HM.empty
     , _plans = HM.singleton "rbproj" Plan
@@ -1206,6 +1212,7 @@ importMagma fin dir = do
       , _crowd = fmap fst crowd
       , _planComments = []
       , _tuningCents = maybe 0 C3.tuningCents c3 -- TODO use this, or Magma.tuningOffsetCents?
+      , _fileTempo = Nothing
       }
     , _targets = HM.singleton targetName $ RB3 target
     , _parts = Parts $ HM.fromList
@@ -1399,6 +1406,7 @@ importAmplitude fin dout = do
       , _previewStart = Just $ PreviewSeconds previewStart
       , _previewEnd   = Just $ PreviewSeconds previewEnd
       }
+    , _global = def
     , _audio = HM.empty
     , _jammit = HM.empty
     , _plans = HM.singleton "mogg" MoggPlan
@@ -1411,6 +1419,7 @@ importAmplitude fin dout = do
       , _vols = map realToFrac $ Amp.vols song
       , _planComments = []
       , _tuningCents = 0
+      , _fileTempo = Nothing
       , _karaoke = False
       , _multitrack = True
       }

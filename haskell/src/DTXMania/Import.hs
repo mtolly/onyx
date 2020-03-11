@@ -175,6 +175,7 @@ dtxToAudio dtx fin dout = do
       , _crowd = Nothing
       , _planComments = []
       , _tuningCents = 0
+      , _fileTempo = Nothing
       }
     }
 
@@ -257,6 +258,7 @@ importSetDef setDefPath song dout = do
       , _genre        = dtx_GENRE topDiffDTX
       , _fileAlbumArt = art
       }
+    , _global = def
     , _audio = HM.empty
     , _jammit = HM.empty
     , _plans = HM.empty

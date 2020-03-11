@@ -50,6 +50,7 @@ plans:
       - begin
       - 0.172
       - pad: [4.918, album-track]
+    file-tempo: tempo-album.mid
 parts:
   drums:
     drums:

@@ -28,6 +28,7 @@ plans:
       1|4: hihat
     song:
       pad: [4.180, album-track]
+    file-tempo: tempo-album.mid
   ghwt-c3:
     comments:
     - "Uses the C3 version of the audio from Guitar Hero: World Tour."
@@ -58,6 +59,7 @@ plans:
           - '5:40'
           - channels: [[12, 13], c3]
       - channels: [[14, 15], c3]
+    file-tempo: tempo-ghwt-c3.mid
 parts:
   drums:
     drums:

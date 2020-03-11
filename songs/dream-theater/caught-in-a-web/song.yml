@@ -25,6 +25,7 @@ plans:
       1|3: hihat
     song:
       pad: [4.151, album-track]
+    file-tempo: tempo-album.mid
   jammit:
     countin: *countin
     parts:

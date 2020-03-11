@@ -224,6 +224,7 @@ data Plan
     , _crowd        :: Maybe (PlanAudio Duration AudioInput)
     , _planComments :: [T.Text]
     , _tuningCents  :: Int
+    , _fileTempo    :: Maybe FilePath
     }
   | MoggPlan
     { _moggMD5      :: T.Text
@@ -235,6 +236,7 @@ data Plan
     , _karaoke      :: Bool
     , _multitrack   :: Bool
     , _tuningCents  :: Int
+    , _fileTempo    :: Maybe FilePath
     }
   deriving (Eq, Show)
 
@@ -311,7 +313,8 @@ instance StackJSON Plan where
         _karaoke    <- fromMaybe False          <$> optionalKey "karaoke"    fromJSON
         _multitrack <- fromMaybe (not _karaoke) <$> optionalKey "multitrack" fromJSON
         _tuningCents <- fromMaybe 0 <$> optionalKey "tuning-cents" fromJSON
-        expectedKeys ["mogg-md5", "parts", "crowd", "pans", "vols", "comments", "karaoke", "multitrack", "silent", "tuning-cents"]
+        _fileTempo <- fromMaybe Nothing <$> optionalKey "file-tempo" fromJSON
+        expectedKeys ["mogg-md5", "parts", "crowd", "pans", "vols", "comments", "karaoke", "multitrack", "silent", "tuning-cents", "file-tempo"]
         return MoggPlan{..}
         )
       ] $ object $ do
@@ -321,7 +324,8 @@ instance StackJSON Plan where
         _crowd <- optionalKey "crowd" fromJSON
         _planComments <- fromMaybe [] <$> optionalKey "comments" fromJSON
         _tuningCents <- fromMaybe 0 <$> optionalKey "tuning-cents" fromJSON
-        expectedKeys ["song", "countin", "parts", "crowd", "comments", "tuning-cents"]
+        _fileTempo <- fromMaybe Nothing <$> optionalKey "file-tempo" fromJSON
+        expectedKeys ["song", "countin", "parts", "crowd", "comments", "tuning-cents", "file-tempo"]
         return Plan{..}
     , codecOut = makeOut $ \case
       Plan{..} -> A.object $ concat
@@ -331,6 +335,7 @@ instance StackJSON Plan where
         , map ("crowd" .=) $ toList _crowd
         , ["comments" .= _planComments | not $ null _planComments]
         , ["tuning-cents" .= _tuningCents | _tuningCents /= 0]
+        , map ("file-tempo" .=) $ toList _fileTempo
         ]
       MoggPlan{..} -> A.object $ concat
         [ ["mogg-md5" .= _moggMD5]
@@ -342,6 +347,7 @@ instance StackJSON Plan where
         , ["karaoke" .= _karaoke]
         , ["multitrack" .= _multitrack]
         , ["tuning-cents" .= _tuningCents | _tuningCents /= 0]
+        , map ("file-tempo" .=) $ toList _fileTempo
         ]
     }
 
@@ -890,16 +896,14 @@ data Metadata = Metadata
   , _trackNumber  :: Maybe Int
   , _comments     :: [T.Text]
   , _key          :: Maybe SongKey
-  , _autogenTheme :: Magma.AutogenTheme
-  , _animTempo    :: Either AnimTempo Integer
   , _author       :: Maybe T.Text
   , _rating       :: Rating
   , _previewStart :: Maybe PreviewTime
   , _previewEnd   :: Maybe PreviewTime
   , _languages    :: [T.Text]
   , _convert      :: Bool
-  , _rhythmKeys   :: Bool
-  , _rhythmBass   :: Bool
+  , _rhythmKeys   :: Bool -- should be in target!
+  , _rhythmBass   :: Bool -- should be in target!
   , _catEMH       :: Bool
   , _expertOnly   :: Bool
   , _cover        :: Bool
@@ -928,8 +932,6 @@ instance StackJSON Metadata where
     _trackNumber  <- _trackNumber  =. opt     Nothing        "track-number"   stackJSON
     _comments     <- _comments     =. opt     []             "comments"       stackJSON
     _key          <- _key          =. opt     Nothing        "key"            (maybeCodec parseSongKey)
-    _autogenTheme <- _autogenTheme =. opt     Magma.DefaultTheme "autogen-theme" stackJSON
-    _animTempo    <- _animTempo    =. opt     (Left KTempoMedium) "anim-tempo" parseAnimTempo
     _author       <- _author       =. warning Nothing        "author"         stripped
     _rating       <- _rating       =. opt     Unrated        "rating"         stackJSON
     _previewStart <- _previewStart =. opt     Nothing        "preview-start"  stackJSON
@@ -945,6 +947,24 @@ instance StackJSON Metadata where
     return Metadata{..}
 
 instance Default Metadata where
+  def = fromEmptyObject
+
+data Global = Global
+  { _fileMidi     :: FilePath
+  , _fileSongAnim :: Maybe FilePath -- ^ venue format found in RB3 milos
+  , _autogenTheme :: Magma.AutogenTheme
+  , _animTempo    :: Either AnimTempo Integer
+  } deriving (Eq, Show)
+
+instance StackJSON Global where
+  stackJSON = asStrictObject "Global" $ do
+    _fileMidi     <- _fileMidi     =. opt "notes.mid"         "file-midi"      stackJSON
+    _fileSongAnim <- _fileSongAnim =. opt Nothing             "file-song-anim" stackJSON
+    _autogenTheme <- _autogenTheme =. opt Magma.DefaultTheme  "autogen-theme"  stackJSON
+    _animTempo    <- _animTempo    =. opt (Left KTempoMedium) "anim-tempo"     parseAnimTempo
+    return Global{..}
+
+instance Default Global where
   def = fromEmptyObject
 
 getTitle, getArtist, getAlbum, getAuthor :: Metadata -> T.Text
@@ -1253,6 +1273,7 @@ instance StackJSON Target where
 
 data SongYaml = SongYaml
   { _metadata :: Metadata
+  , _global   :: Global
   , _audio    :: Map.HashMap T.Text AudioFile
   , _jammit   :: Map.HashMap T.Text JammitTrack
   , _plans    :: Map.HashMap T.Text Plan
@@ -1263,6 +1284,7 @@ data SongYaml = SongYaml
 instance StackJSON SongYaml where
   stackJSON = asStrictObject "SongYaml" $ do
     _metadata <- _metadata =. opt def       "metadata" stackJSON
+    _global   <- _global   =. opt def       "global"   stackJSON
     _audio    <- _audio    =. opt Map.empty "audio"    (dict stackJSON)
     _jammit   <- _jammit   =. opt Map.empty "jammit"   (dict stackJSON)
     _plans    <- _plans    =. opt Map.empty "plans"    (dict stackJSON)

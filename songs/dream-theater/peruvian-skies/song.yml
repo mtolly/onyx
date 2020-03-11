@@ -35,6 +35,7 @@ plans:
     countin: *countin
     song:
       pad: [4.300, album-track]
+    file-tempo: tempo-album.mid
 parts:
   drums:
     drums:

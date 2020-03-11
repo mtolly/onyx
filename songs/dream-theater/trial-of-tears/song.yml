@@ -260,6 +260,7 @@ plans:
   album:
     song:
       trim: [0.072, album-track]
+    file-tempo: tempo-album.mid
 parts:
   drums:
     drums: # onyxite

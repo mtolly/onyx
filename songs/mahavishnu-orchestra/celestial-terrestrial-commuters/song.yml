@@ -72,6 +72,7 @@ plans:
       1|3: hihat
     song:
       pad: [4.381, album-track]
+    file-tempo: tempo-album.mid
   jammit-all:
     comments:
     - "Requires all the Jammit instruments."

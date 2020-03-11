@@ -385,7 +385,7 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
       Just VintageKit    -> "sfx/kit03_bank.milo"
       Just TrashyKit     -> "sfx/kit04_bank.milo"
       Just ElectronicKit -> "sfx/kit05_bank.milo"
-    , D.animTempo = _animTempo $ _metadata songYaml
+    , D.animTempo = _animTempo $ _global songYaml
     , D.bandFailCue = Nothing
     , D.songScrollSpeed = 2300
     , D.preview = (fromIntegral pstart, fromIntegral pend)
@@ -611,7 +611,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
         , Magma.rankProKeys = max 1 rb3ProKeysTier
         , Magma.rankBand    = max 1 rb3BandTier
         , Magma.vocalScrollSpeed = 2300
-        , Magma.animTempo = case _animTempo $ _metadata songYaml of
+        , Magma.animTempo = case _animTempo $ _global songYaml of
           Left  D.KTempoSlow   -> 16
           Left  D.KTempoMedium -> 32
           Left  D.KTempoFast   -> 64
@@ -644,7 +644,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
       , Magma.destinationFile = T.pack $ T.unpack pkg <.> "rba"
       , Magma.midi = Magma.Midi
         { Magma.midiFile = "notes.mid"
-        , Magma.autogenTheme = Left $ _autogenTheme $ _metadata songYaml
+        , Magma.autogenTheme = Left $ _autogenTheme $ _global songYaml
         }
       , Magma.dryVox = Magma.DryVox
         { Magma.part0 = case voxCount of
@@ -770,8 +770,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         _      -> loadRGB8 >>= stackIO . BL.writeFile out . toDXT1File PNGXbox
 
       rel "gen/notes.mid" %> \out -> shk $ do
-        doesFileExist (rel "notes.mid") >>= \b -> if b
-          then copyFile' (rel "notes.mid") out
+        let f = rel $ _fileMidi $ _global songYaml
+        doesFileExist f >>= \b -> if b
+          then copyFile' f out
           else saveMIDI out RBFile.Song
             { RBFile.s_tempos = U.tempoMapFromBPS RTB.empty
             , RBFile.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
@@ -1981,9 +1982,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
         -- REAPER project
         rel ("notes-" ++ T.unpack planName ++ ".RPP") %> \out -> do
-          let extraTempo = "tempo-" ++ T.unpack planName ++ ".mid"
-          b <- shk $ doesFileExist extraTempo
-          let tempo = rel $ if b then extraTempo else "gen/notes.mid"
+          let tempo = rel $ fromMaybe "gen/notes.mid" $ _fileTempo plan
               tunings = do
                 (fpart, part) <- HM.toList $ getParts $ _parts songYaml
                 pg <- toList $ partProGuitar part
@@ -2036,10 +2035,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           lg "Loading the MIDI file..."
           input <- shakeMIDI $ rel "gen/notes.mid"
           let _ = input :: RBFile.Song (RBFile.RawFile U.Beats)
-              extraTempo = rel $ "tempo-" ++ T.unpack planName ++ ".mid"
-          tempos <- fmap RBFile.s_tempos $ shk (doesFileExist extraTempo) >>= \b -> if b
-            then shakeMIDI extraTempo
-            else return input
+          tempos <- fmap RBFile.s_tempos $ case _fileTempo plan of
+            Nothing -> return input
+            Just m  -> shakeMIDI m
           saveMIDI out input { RBFile.s_tempos = tempos }
         midprocessed %> \out -> do
           -- basically just autogen a BEAT track
