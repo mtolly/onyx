@@ -40,7 +40,7 @@ import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Fixed                            (Centi, Milli)
 import           Data.Foldable                         (toList)
-import           Data.Hashable                         (hash)
+import           Data.Hashable                         (Hashable, hash)
 import qualified Data.HashMap.Strict                   as HM
 import           Data.List                             (intercalate, sort)
 import qualified Data.List.NonEmpty                    as NE
@@ -210,7 +210,7 @@ applyTargetLength tgt mid = let
   applySpeed t = t / realToFrac (fromMaybe 1 $ tgt_Speed tgt)
   in applySpeed . applyStart . applyEnd
 
-targetTitle :: SongYaml -> Target -> T.Text
+targetTitle :: SongYaml f -> Target f -> T.Text
 targetTitle songYaml target = let
   common = case target of
     RB3    TargetRB3 {..} -> rb3_Common
@@ -251,7 +251,7 @@ toValidFileName t = let
     ".." -> "dots"
     t'   -> t'
 
-hashRB3 :: SongYaml -> TargetRB3 -> Int
+hashRB3 :: (Hashable f) => SongYaml f -> TargetRB3 f -> Int
 hashRB3 songYaml rb3 = let
   hashed =
     ( rb3
@@ -261,7 +261,7 @@ hashRB3 songYaml rb3 = let
     )
   in hash hashed `mod` 1000000000
 
-getPlan :: Maybe T.Text -> SongYaml -> Maybe (T.Text, Plan)
+getPlan :: Maybe T.Text -> SongYaml f -> Maybe (T.Text, Plan f)
 getPlan Nothing songYaml = case HM.toList $ _plans songYaml of
   [pair] -> Just pair
   _      -> Nothing
@@ -274,7 +274,7 @@ forceRW f = stackIO $ do
   p <- Dir.getPermissions f
   Dir.setPermissions f $ Dir.setOwnerReadable True $ Dir.setOwnerWritable True p
 
-makeRB3DTA :: (MonadIO m) => SongYaml -> Plan -> TargetRB3 -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
+makeRB3DTA :: (MonadIO m) => SongYaml f -> Plan f -> TargetRB3 f -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
 makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
   let thresh = 170 -- everything gets forced anyway
@@ -462,7 +462,7 @@ printOverdrive mid = do
         (t, inst, _) <- NE.toList unison
         return $ "  (" <> show (realToFrac t :: Milli) <> ") " <> printFlexParts [inst]
 
-makeC3 :: (Monad m) => SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m C3.C3
+makeC3 :: (Monad m) => SongYaml f -> Plan f -> TargetRB3 f -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m C3.C3
 makeC3 songYaml plan rb3 midi pkg = do
   let (pstart, _) = previewBounds songYaml midi
       DifficultyRB3{..} = difficultyRB3 rb3 songYaml
@@ -536,7 +536,7 @@ makeC3 songYaml plan rb3 midi pkg = do
     }
 
 -- Magma RBProj rules
-makeMagmaProj :: SongYaml -> TargetRB3 -> Plan -> (DifficultyRB3, Maybe VocalCount) -> T.Text -> FilePath -> Action T.Text -> Staction Magma.RBProj
+makeMagmaProj :: SongYaml f -> TargetRB3 f -> Plan f -> (DifficultyRB3, Maybe VocalCount) -> T.Text -> FilePath -> Action T.Text -> Staction Magma.RBProj
 makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle = do
   song <- shakeMIDI mid
   ((kickPVs, snarePVs, kitPVs), mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
@@ -702,7 +702,7 @@ loadYaml fp = do
 shakeBuildFiles :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT (QueueLog m) ()
 shakeBuildFiles audioDirs yamlPath = shakeBuild audioDirs yamlPath []
 
-shakeBuild :: (MonadIO m) => [FilePath] -> FilePath -> [(T.Text, Target)] -> [FilePath] -> StackTraceT (QueueLog m) ()
+shakeBuild :: (MonadIO m) => [FilePath] -> FilePath -> [(T.Text, Target FilePath)] -> [FilePath] -> StackTraceT (QueueLog m) ()
 shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
   yamlPath <- stackIO $ Dir.canonicalizePath yamlPathRel
@@ -779,7 +779,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             , RBFile.s_tracks = mempty :: RBFile.OnyxFile U.Beats
             }
 
-      let getAudioLength :: T.Text -> Plan -> Staction U.Seconds
+      let getAudioLength :: T.Text -> Plan f -> Staction U.Seconds
           getAudioLength planName = \case
             MoggPlan{} -> do
               let ogg = rel $ "gen/plan" </> T.unpack planName </> "audio.ogg"
@@ -811,7 +811,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           oggForPlan planName = rel $ "gen/plan" </> T.unpack planName </> "audio.ogg"
 
           writeKick, writeSnare, writeKit, writeSimplePart
-            :: [RBFile.FlexPartName] -> TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> FilePath -> Staction ()
+            :: [RBFile.FlexPartName] -> TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan FilePath -> RBFile.FlexPartName -> Integer -> FilePath -> Staction ()
           writeKick gameParts tgt mid pad supportsOffMono planName plan fpart rank out = do
             ((spec', _, _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
@@ -859,7 +859,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   Just (PartSingle      kit) -> Just kit
                   _                          -> Nothing
             runAudio (clampIfSilent $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src) out
-          getPartSource :: (MonadResource m) => [(Double, Double)] -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> Staction (AudioSource m Float)
+          getPartSource :: (MonadResource m) => [(Double, Double)] -> T.Text -> Plan FilePath -> RBFile.FlexPartName -> Integer -> Staction (AudioSource m Float)
           getPartSource spec planName plan fpart rank = case plan of
             MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) $ do
               guard $ rank /= 0
@@ -885,7 +885,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] (oggForPlan planName) (zip _pans _vols) _moggCrowd
               Plan{..}     -> buildAudioToSpec yamlDir audioLib songYaml [(-1, 0), (1, 0)] _crowd
             runAudio (clampIfSilent $ padAudio pad $ applyTargetAudio tgt mid src) out
-          sourceSongCountin :: (MonadResource m) => TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> Staction (AudioSource m Float)
+          sourceSongCountin :: (MonadResource m) => TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan g -> [(RBFile.FlexPartName, Integer)] -> Staction (AudioSource m Float)
           sourceSongCountin tgt mid pad includeCountin planName plan fparts = do
             let usedParts' = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
                 usedParts =
@@ -920,12 +920,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       []     -> buildPartAudioToSpec yamlDir audioLib songYaml spec Nothing
                       s : ss -> return $ foldr mix s ss
             return $ padAudio pad $ applyTargetAudio tgt mid src
-          writeSongCountin :: TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> Staction ()
+          writeSongCountin :: TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan g -> [(RBFile.FlexPartName, Integer)] -> FilePath -> Staction ()
           writeSongCountin tgt mid pad includeCountin planName plan fparts out = do
             src <- sourceSongCountin tgt mid pad includeCountin planName plan fparts
             runAudio (clampIfSilent src) out
 
-          rbRules :: FilePath -> TargetRB3 -> Maybe TargetRB2 -> QueueLog Rules ()
+          rbRules :: FilePath -> TargetRB3 FilePath -> Maybe TargetRB2 -> QueueLog Rules ()
           rbRules dir rb3 mrb2 = do
             let pkg :: (IsString a) => a
                 pkg = fromString $ "o" <> show (hashRB3 songYaml rb3)

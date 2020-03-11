@@ -124,7 +124,7 @@ popDir ast = case audioQueueDirs ast of
       }
     in Just (d, ast')
 
-verifyFile :: (MonadIO m) => AudioInfo -> Path Abs File -> StackTraceT m ()
+verifyFile :: (MonadIO m) => AudioInfo f -> Path Abs File -> StackTraceT m ()
 verifyFile AudioInfo{..} f = do
   let verify str expect compute = do
         actual <- compute $ toFilePath f
@@ -217,7 +217,7 @@ searchJammit :: (MonadIO m) => AudioLibrary -> (T.Text, T.Text, RB3Instrument) -
 searchJammit = searchCommon SearchJammit audioJammit
 
 searchInfo :: (SendMessage m, MonadIO m) =>
-  FilePath -> AudioLibrary -> AudioInfo -> StackTraceT m (Audio Duration FilePath)
+  FilePath -> AudioLibrary -> AudioInfo FilePath -> StackTraceT m (Audio Duration FilePath)
 searchInfo dir lib ainfo@AudioInfo{..} = let
   finishFile p = do
     verifyFile ainfo p

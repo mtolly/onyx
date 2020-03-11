@@ -56,7 +56,7 @@ computeChannels = \case
   Mask _ _ aud -> computeChannels aud
 
 -- | make sure all audio leaves are defined, catch typos
-checkDefined :: (Monad m) => SongYaml -> StackTraceT m ()
+checkDefined :: (Monad m) => SongYaml f -> StackTraceT m ()
 checkDefined songYaml = do
   let definedLeaves = HM.keys (_audio songYaml) ++ HM.keys (_jammit songYaml)
   forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
@@ -77,7 +77,7 @@ checkDefined songYaml = do
       undefinedLeaves -> fatal $
         "Undefined leaves in plan " ++ show planName ++ " audio expression: " ++ show undefinedLeaves
 
-computeChannelsPlan :: SongYaml -> Audio Duration AudioInput -> Int
+computeChannelsPlan :: SongYaml f -> Audio Duration AudioInput -> Int
 computeChannelsPlan songYaml = let
   toChannels ai = case ai of
     Named name -> case HM.lookup name $ _audio songYaml of
@@ -95,7 +95,7 @@ jammitPath name (J.Without inst)
   = "gen/jammit" </> T.unpack name </> "without" </> map toLower (show inst) <.> "wav"
 
 -- | Looking up single audio files and Jammit parts in the work directory
-manualLeaf :: (SendMessage m, MonadIO m) => FilePath -> AudioLibrary -> SongYaml -> AudioInput -> StackTraceT m (Audio Duration FilePath)
+manualLeaf :: (SendMessage m, MonadIO m) => FilePath -> AudioLibrary -> SongYaml FilePath -> AudioInput -> StackTraceT m (Audio Duration FilePath)
 manualLeaf rel alib songYaml (Named name) = case HM.lookup name $ _audio songYaml of
   Just audioQuery -> case audioQuery of
     AudioFile ainfo -> inside ("Looking for the audio file named " ++ show name) $ do
@@ -110,7 +110,7 @@ manualLeaf rel _ songYaml (JammitSelect audpart name) = case HM.lookup name $ _j
 
 -- | Computing a non-drums instrument's audio for CON/Magma.
 -- Always returns 1 or 2 channels, with all volumes 0.
-computeSimplePart :: FlexPartName -> Plan -> SongYaml -> [(Double, Double)]
+computeSimplePart :: FlexPartName -> Plan f -> SongYaml f -> [(Double, Double)]
 computeSimplePart fpart plan songYaml = case plan of
   MoggPlan{..} -> let
     inds = maybe [] (concat . toList) $ HM.lookup fpart $ getParts _moggParts
@@ -124,7 +124,7 @@ computeSimplePart fpart plan songYaml = case plan of
       _ -> [(-1, 0), (1, 0)]
     Just (PartDrumKit _ _ _) -> [(-1, 0), (1, 0)]
 
-completePlanAudio :: (Monad m) => SongYaml -> PlanAudio Duration AudioInput -> StackTraceT m (Audio Duration AudioInput, [Double], [Double])
+completePlanAudio :: (Monad m) => SongYaml f -> PlanAudio Duration AudioInput -> StackTraceT m (Audio Duration AudioInput, [Double], [Double])
 completePlanAudio songYaml pa = do
   let chans = computeChannelsPlan songYaml $ _planExpr pa
       vols = map realToFrac $ case _planVols pa of
@@ -186,7 +186,7 @@ buildAudioToSpec
   :: (MonadResource m)
   => FilePath
   -> AudioLibrary
-  -> SongYaml
+  -> SongYaml FilePath
   -> [(Double, Double)]
   -> Maybe (PlanAudio Duration AudioInput)
   -> Staction (AudioSource m Float)
@@ -200,7 +200,7 @@ buildPartAudioToSpec
   :: (MonadResource m)
   => FilePath
   -> AudioLibrary
-  -> SongYaml
+  -> SongYaml FilePath
   -> [(Double, Double)]
   -> Maybe (PartAudio (PlanAudio Duration AudioInput))
   -> Staction (AudioSource m Float)
@@ -218,8 +218,8 @@ buildPartAudioToSpec rel alib songYaml specPV = \case
 computeDrumsPart
   :: (Monad m)
   => FlexPartName
-  -> Plan
-  -> SongYaml
+  -> Plan f
+  -> SongYaml f
   -> StackTraceT m (([(Double, Double)], [(Double, Double)], [(Double, Double)]), RBDrums.Audio)
 computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case plan of
   MoggPlan{..} -> case HM.lookup fpart $ getParts _moggParts of

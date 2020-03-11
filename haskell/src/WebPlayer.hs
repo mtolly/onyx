@@ -737,7 +737,7 @@ instance A.ToJSON (Processed U.Seconds) where
     , [("parts"   , A.toJSON $ processedParts  proc)]
     ]
 
-makeDisplay :: C.SongYaml -> RBFile.Song (RBFile.OnyxFile U.Beats) -> BL.ByteString
+makeDisplay :: C.SongYaml FilePath -> RBFile.Song (RBFile.OnyxFile U.Beats) -> BL.ByteString
 makeDisplay songYaml song = let
   ht n = fromIntegral n / 480
   coda = fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song

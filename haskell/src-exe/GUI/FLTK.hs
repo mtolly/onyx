@@ -320,7 +320,7 @@ currentSongTime stime ss = case songPlaying ss of
     timeToDouble t = realToFrac (systemSeconds t) + realToFrac (systemNanoseconds t) / 1000000000
     in (timeToDouble stime - timeToDouble (playStarted p)) * playSpeed p
 
-type BuildYamlControl = WriterT (IO (Endo SongYaml)) IO
+type BuildYamlControl = WriterT (IO (Endo (SongYaml FilePath))) IO
 
 launchWindow :: (Event -> IO ()) -> Project -> Maybe (Double -> Maybe Double -> IO (IO ())) -> IO ()
 launchWindow sink proj maybeAudio = mdo
@@ -369,12 +369,12 @@ launchWindow sink proj maybeAudio = mdo
             FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
             void $ FL.setValue input $ fromMaybe "" $ getter $ _metadata $ projectSongYaml proj
             return input
-          applyToMetadata :: (Maybe T.Text -> Metadata -> Metadata) -> FL.Ref FL.Input -> BuildYamlControl ()
+          applyToMetadata :: (Maybe T.Text -> Metadata FilePath -> Metadata FilePath) -> FL.Ref FL.Input -> BuildYamlControl ()
           applyToMetadata setter input = tell $ do
             val <- FL.getValue input
             let val' = guard (val /= "") >> Just val
             return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
-          applyIntToMetadata :: (Maybe Int -> Metadata -> Metadata) -> FL.Ref FL.Input -> BuildYamlControl ()
+          applyIntToMetadata :: (Maybe Int -> Metadata FilePath -> Metadata FilePath) -> FL.Ref FL.Input -> BuildYamlControl ()
           applyIntToMetadata setter input = tell $ do
             val <- FL.getValue input
             let val' = readMaybe $ T.unpack val
@@ -918,7 +918,7 @@ windowCloser finalize window = do
       FL.hide window
       finalize
 
-forceProDrums :: SongYaml -> SongYaml
+forceProDrums :: SongYaml f -> SongYaml f
 forceProDrums song = song
   { _parts = flip fmap (_parts song) $ \part -> case partDrums part of
     Nothing    -> part
@@ -931,7 +931,7 @@ forceProDrums song = song
       }
   }
 
-saveProject :: Project -> SongYaml -> IO Project
+saveProject :: Project -> SongYaml FilePath -> IO Project
 saveProject proj song = do
   yamlEncodeFile (projectLocation proj) $ toJSON song
   return proj { projectSongYaml = song }
@@ -943,7 +943,7 @@ data GBKOption
   | SwapBassKeys
   deriving (Eq, Show)
 
-applyGBK :: GBKOption -> SongYaml -> TargetRB3 -> TargetRB3
+applyGBK :: GBKOption -> SongYaml f -> TargetRB3 f -> TargetRB3 f
 applyGBK gbk song tgt = case gbk of
   GBKUnchanged -> tgt
   CopyGuitarToKeys -> if hasFive FlexGuitar
@@ -957,7 +957,7 @@ applyGBK gbk song tgt = case gbk of
     else tgt
   where hasFive flex = isJust $ getPart flex song >>= partGRYBO
 
-applyGBK2 :: GBKOption -> SongYaml -> TargetRB2 -> TargetRB2
+applyGBK2 :: GBKOption -> SongYaml f -> TargetRB2 -> TargetRB2
 applyGBK2 gbk song tgt = case gbk of
   GBKUnchanged -> tgt
   CopyGuitarToKeys -> tgt
@@ -1015,7 +1015,7 @@ batchPageRB2
   :: (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> ([(TargetRB2, FilePath)], SongYaml)) -> IO ())
+  -> ((Project -> ([(TargetRB2, FilePath)], SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageRB2 sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -1133,7 +1133,7 @@ batchPagePS
   :: (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> (TargetPS, PSCreate)) -> IO ())
+  -> ((Project -> (TargetPS FilePath, PSCreate)) -> IO ())
   -> IO ()
 batchPagePS sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -1141,8 +1141,9 @@ batchPagePS sink rect tab build = do
   let getTargetSong usePath template = do
         speed <- getSpeed
         return $ \proj -> let
-          tgt = def
-            { ps_Common = (ps_Common def)
+          defPS = def :: TargetPS FilePath
+          tgt = defPS
+            { ps_Common = (ps_Common defPS)
               { tgt_Speed = Just speed
               }
             }
@@ -1174,7 +1175,7 @@ songPageRB3
   -> Rectangle
   -> FL.Ref FL.Group
   -> Project
-  -> (TargetRB3 -> RB3Create -> IO ())
+  -> (TargetRB3 FilePath -> RB3Create -> IO ())
   -> IO ()
 songPageRB3 sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
@@ -1226,7 +1227,7 @@ songPageRB3 sink rect tab proj build = mdo
               FL.addName choice "(none)"
               forM_ fparts $ \(_, opt) -> FL.addName choice opt
               void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $
-                case findIndex ((== getter def) . fst) fparts of
+                case findIndex ((== getter (def :: TargetRB3 FilePath)) . fst) fparts of
                   Nothing -> 0 -- (none)
                   Just i  -> i + 1
               return choice
@@ -1305,7 +1306,7 @@ batchPageRB3
   :: (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> ([(TargetRB3, RB3Create)], SongYaml)) -> IO ())
+  -> ((Project -> ([(TargetRB3 FilePath, RB3Create)], SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageRB3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -1335,8 +1336,9 @@ batchPageRB3 sink rect tab build = do
         gbk <- getGBK
         kicks <- getKicks
         return $ \proj -> let
-          tgt = applyGBK gbk yaml def
-            { rb3_Common = (rb3_Common def)
+          defRB3 = def :: TargetRB3 FilePath
+          tgt = applyGBK gbk yaml defRB3
+            { rb3_Common = (rb3_Common defRB3)
               { tgt_Speed = Just speed
               }
             }
@@ -1379,7 +1381,7 @@ batchPageRB3 sink rect tab build = do
   FL.setResizable tab $ Just pack
   return ()
 
-templateApplyInput :: Project -> Maybe Target -> T.Text -> T.Text
+templateApplyInput :: Project -> Maybe (Target FilePath) -> T.Text -> T.Text
 templateApplyInput proj mtgt txt = foldr ($) txt
   [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
   , T.intercalate (T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"

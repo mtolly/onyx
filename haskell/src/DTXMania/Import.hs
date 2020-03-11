@@ -96,7 +96,7 @@ dtxConvertGB getter setter dtx (RBFile.Song tmap mmap fixed) = let
 dtxBaseMIDI :: DTX -> RBFile.Song (RBFile.FixedFile U.Beats)
 dtxBaseMIDI dtx = RBFile.Song (dtx_TempoMap dtx) (dtx_MeasureMap dtx) mempty
 
-dtxToAudio :: (SendMessage m, MonadIO m) => DTX -> FilePath -> FilePath -> StackTraceT m (SongYaml -> SongYaml)
+dtxToAudio :: (SendMessage m, MonadIO m) => DTX -> FilePath -> FilePath -> StackTraceT m (SongYaml FilePath -> SongYaml FilePath)
 dtxToAudio dtx fin dout = do
   let simpleAudio f overlap chips = if RTB.null chips
         then return Nothing
@@ -249,7 +249,7 @@ importSetDef setDefPath song dout = do
         lvl' = (fromIntegral lvl + maybe 0 ((/ 10) . fromIntegral) dec) / 100 :: Rational
         in Rank $ max 1 $ round $ lvl' * 525 -- arbitrary scaling factor
   stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON $ addAudio SongYaml
-    { _metadata = def
+    { _metadata = (def :: Metadata FilePath)
       { _title        = case setTitle song of
         ""    -> dtx_TITLE topDiffDTX
         title -> Just title

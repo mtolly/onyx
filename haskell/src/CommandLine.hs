@@ -255,7 +255,7 @@ outputFile opts dft = case [ to | OptTo to <- opts ] of
 optIndex :: [OnyxOption] -> Maybe Int
 optIndex opts = listToMaybe [ i | OptIndex i <- opts ]
 
-buildTarget :: (MonadResource m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target, FilePath)
+buildTarget :: (MonadResource m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target FilePath, FilePath)
 buildTarget yamlPath opts = do
   songYaml <- loadYaml yamlPath
   targetName <- case [ t | OptTarget t <- opts ] of
@@ -283,7 +283,7 @@ getPlanName defaultPlan yamlPath opts = case getMaybePlan opts of
   Just p  -> return p
   Nothing -> do
     songYaml <- loadYaml yamlPath
-    case HM.keys $ _plans songYaml of
+    case HM.keys $ _plans (songYaml :: SongYaml FilePath) of
       [p]   -> return p
       plans -> let
         err = fatal $ "No --plan given, and YAML file doesn't have exactly 1 plan: " <> show plans

@@ -22,7 +22,7 @@ import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isSpace, toLower)
 import qualified Data.Conduit.Audio               as CA
-import           Data.Default.Class               (def)
+import           Data.Default.Class               (Default, def)
 import qualified Data.Digest.Pure.MD5             as MD5
 import qualified Data.DTA                         as D
 import           Data.DTA.Lex                     (scanStack)
@@ -354,16 +354,16 @@ importFoF src dest = do
         Just ms | ms >= 0 -> Just $ PreviewSeconds $ fromIntegral ms / 1000
         _                 -> Nothing
       , _previewEnd   = Nothing
-      , _languages    = _languages def
-      , _convert      = _convert def
-      , _rhythmKeys   = _rhythmKeys def
-      , _rhythmBass   = _rhythmBass def
-      , _catEMH       = _catEMH def
-      , _expertOnly   = _expertOnly def
-      , _cover        = _cover def
+      , _languages    = _languages def'
+      , _convert      = _convert def'
+      , _rhythmKeys   = _rhythmKeys def'
+      , _rhythmBass   = _rhythmBass def'
+      , _catEMH       = _catEMH def'
+      , _expertOnly   = _expertOnly def'
+      , _cover        = _cover def'
       , _difficulty   = toTier $ FoF.diffBand song
       }
-    , _global = def
+    , _global = def'
     , _audio = HM.fromList $ flip map audioFilesWithChannels $ \(aud, chans) ->
       (T.pack aud, AudioFile AudioInfo
         { _md5 = Nothing
@@ -406,7 +406,7 @@ importFoF src dest = do
       , _tuningCents = 0
       , _fileTempo = Nothing
       }
-    , _targets = HM.singleton "ps" $ PS def { ps_FileVideo = vid }
+    , _targets = HM.singleton "ps" $ PS def' { ps_FileVideo = vid }
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard ((isnt nullDrums RBFile.fixedPartDrums || isnt nullDrums RBFile.fixedPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums
@@ -494,7 +494,7 @@ importFoF src dest = do
           , gryboSustainGap = 60
           }
         })
-      , ( FlexVocal, def
+      , ( FlexVocal, def'
         { partVocal = flip fmap vocalMode $ \vc -> PartVocal
           { vocalDifficulty = toTier $ FoF.diffVocals song
           , vocalCount = vc
@@ -538,15 +538,15 @@ importSTFSDir index temp mtemp2x dir = do
   updateDir <- stackIO rb3Updates
   let (title, auto2x) = determine2xBass $ D.name pkg
       is2x = fromMaybe auto2x $ c3dta2xBass comments
-      meta = def
+      meta = def'
         { _author = c3dtaAuthoredBy comments
         , _title = Just title
-        , _convert = fromMaybe (_convert def) $ c3dtaConvert comments
-        , _rhythmKeys = fromMaybe (_rhythmKeys def) $ c3dtaRhythmKeys comments
-        , _rhythmBass = fromMaybe (_rhythmBass def) $ c3dtaRhythmBass comments
-        , _catEMH = fromMaybe (_catEMH def) $ c3dtaCATemh comments
-        , _expertOnly = fromMaybe (_expertOnly def) $ c3dtaExpertOnly comments
-        , _languages = fromMaybe (_languages def) $ c3dtaLanguages comments
+        , _convert = fromMaybe (_convert def') $ c3dtaConvert comments
+        , _rhythmKeys = fromMaybe (_rhythmKeys def') $ c3dtaRhythmKeys comments
+        , _rhythmBass = fromMaybe (_rhythmBass def') $ c3dtaRhythmBass comments
+        , _catEMH = fromMaybe (_catEMH def') $ c3dtaCATemh comments
+        , _expertOnly = fromMaybe (_expertOnly def') $ c3dtaExpertOnly comments
+        , _languages = fromMaybe (_languages def') $ c3dtaLanguages comments
         }
       karaoke = fromMaybe False $ c3dtaKaraoke comments
       multitrack = fromMaybe False $ c3dtaMultitrack comments
@@ -680,7 +680,7 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
         _ -> Nothing
       (title, is2x) = determine2xBass $ D.name pkg
       -- TODO: import more stuff from the extra dta
-      meta = def
+      meta = def'
         { _author = author
         , _title = Just title
         }
@@ -698,7 +698,7 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
   return hasKicks
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: (SendMessage m, MonadResource m) => D.SongPackage -> Metadata -> Bool -> Bool -> Kicks -> FilePath -> Maybe FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> Maybe FilePath -> FilePath -> StackTraceT m ()
+importRB3 :: (SendMessage m, MonadResource m) => D.SongPackage -> Metadata f -> Bool -> Bool -> Kicks -> FilePath -> Maybe FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> Maybe FilePath -> FilePath -> StackTraceT m ()
 importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover mmilo dir = do
   stackIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
   localMilo <- do
@@ -919,7 +919,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         else files2x >>= D.songId . fst >>= getSongID
       version1x = songID1x >> Just (D.version pkg)
       version2x = songID2x >> fmap (D.version . fst) files2x
-      targetShared = def
+      targetShared = def'
         { rb3_Harmonix = dtaIsHarmonixRB3 pkg
         , rb3_FileMilo = localMilo
         }
@@ -994,7 +994,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           , pkFixFreeform = False
           }
         })
-      , ( FlexVocal, def
+      , ( FlexVocal, def'
         { partVocal = flip fmap vocalMode $ \vc -> PartVocal
           { vocalDifficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
           , vocalCount = vc
@@ -1286,7 +1286,7 @@ importMagma fin dir = do
           , pkFixFreeform = False
           }
         })
-      , ( FlexVocal, def
+      , ( FlexVocal, def'
         { partVocal = guard (isJust vox) >> Just PartVocal
           { vocalDifficulty = Tier $ RBProj.rankVocals $ RBProj.gamedata rbproj
           , vocalCount = if
@@ -1398,7 +1398,7 @@ importAmplitude fin dout = do
       }
   stackIO $ Dir.copyFile moggPath $ dout </> "audio.mogg"
   stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON SongYaml
-    { _metadata = def
+    { _metadata = def'
       { _title        = Just $ Amp.title song
       , _artist       = Just $ case Amp.artist_short song of
         "Harmonix" -> Amp.artist song -- human love
@@ -1406,7 +1406,7 @@ importAmplitude fin dout = do
       , _previewStart = Just $ PreviewSeconds previewStart
       , _previewEnd   = Just $ PreviewSeconds previewEnd
       }
-    , _global = def
+    , _global = def'
     , _audio = HM.empty
     , _jammit = HM.empty
     , _plans = HM.singleton "mogg" MoggPlan
@@ -1426,5 +1426,8 @@ importAmplitude fin dout = do
     , _targets = HM.empty
     , _parts = Parts $ HM.fromList $ do
       (name, _, inst, _) <- parts
-      return (name, def { partAmplitude = Just (PartAmplitude inst) })
+      return (name, def' { partAmplitude = Just (PartAmplitude inst) })
     }
+
+def' :: (Default (f FilePath)) => f FilePath
+def' = def

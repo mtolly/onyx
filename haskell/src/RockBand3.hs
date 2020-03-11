@@ -48,8 +48,8 @@ import qualified Sound.MIDI.Util                   as U
 
 processRB3Pad
   :: (SendMessage m, MonadIO m)
-  => TargetRB3
-  -> SongYaml
+  => TargetRB3 f
+  -> SongYaml f
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
   -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
@@ -62,8 +62,8 @@ processRB3Pad a b c d e = do
 
 processPS
   :: (SendMessage m, MonadIO m)
-  => TargetPS
-  -> SongYaml
+  => TargetPS f
+  -> SongYaml f
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
   -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
@@ -198,10 +198,10 @@ makeMoods tmap timing
 
 buildDrums
   :: RBFile.FlexPartName
-  -> Either TargetRB3 TargetPS
+  -> Either (TargetRB3 f) (TargetPS f)
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> BasicTiming
-  -> SongYaml
+  -> SongYaml f
   -> Maybe (DrumTrack U.Beats)
 buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..} songYaml = case getPart drumsPart songYaml >>= partDrums of
   Nothing -> Nothing
@@ -297,11 +297,11 @@ addFiveMoods tempos timing ft = ft
 
 buildFive
   :: RBFile.FlexPartName
-  -> Either TargetRB3 TargetPS
+  -> Either (TargetRB3 f) (TargetPS f)
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> BasicTiming
   -> Bool
-  -> SongYaml
+  -> SongYaml f
   -> Maybe (FiveTrack U.Beats)
 buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml = case getPart fivePart songYaml >>= partGRYBO of
   Nothing    -> Nothing
@@ -353,8 +353,8 @@ buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml 
 
 processMIDI
   :: (SendMessage m, MonadIO m)
-  => Either TargetRB3 TargetPS
-  -> SongYaml
+  => Either (TargetRB3 f) (TargetPS f)
+  -> SongYaml f
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
   -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
