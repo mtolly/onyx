@@ -47,7 +47,6 @@ metadata:
   track-number: 1
   album: Stadium Arcadium
   year: 2006
-  anim-tempo: 16
   author: Harmonix, Espher, Onyxite
   title: Dani California
   preview-end: 1:09.450
@@ -56,3 +55,5 @@ metadata:
     rank: 340
   artist: Red Hot Chili Peppers
   key: A minor
+global:
+  anim-tempo: 16

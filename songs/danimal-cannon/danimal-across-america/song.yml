@@ -6,9 +6,10 @@ metadata:
   - "Chart confidence: *high*. Transcribed from the separated Game Boy channels."
   - "All difficulties are charted on all instruments."
   difficulty: 5
-  autogen-theme: Synth Pop
   rating: Family Friendly
   author: Onyxite
+global:
+  autogen-theme: Synth Pop
 audio:
   album-track:
     md5: bcdcc44fd651b5f632e5e5f66619e384

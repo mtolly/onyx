@@ -3,10 +3,11 @@ metadata:
   file-include: ../../../albums/dream-theater.yml
   track-number: 4
   author: Onyxite
-  autogen-theme: PsychJamRock
   key: E minor # for the main riff at least
   difficulty: 7
   rating: FF
+global:
+  autogen-theme: PsychJamRock
 audio:
   album-track:
     md5: e3b02d6c3135375d72e87eafce49c1b7

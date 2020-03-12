@@ -43,7 +43,6 @@ metadata:
   album: Atoms & Space
   year: 2011
   subgenre: prog
-  anim-tempo: 64
   author: RockGamer, Onyxite
   title: Insanity of the Atoms
   preview-end: 1:46.000
@@ -53,3 +52,5 @@ metadata:
   artist: Hedras Ramos
   comments:
   - Edited drum chart and activation layout by Onyxite.
+global:
+  anim-tempo: 64

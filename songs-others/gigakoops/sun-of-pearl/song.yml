@@ -56,7 +56,6 @@ metadata:
   album: Ameliorate
   year: 2008
   subgenre: progrock
-  anim-tempo: 16
   author: Gigakoops, Nightmare Lyra, Onyxite
   title: Sun of Pearl
   preview-end: 1:04.000
@@ -65,6 +64,6 @@ metadata:
     tier: 7
   artist: An Endless Sporadic
   comments:
-  - Drums edited.
-  - TODO split 1x/2x kicks
-  - TODO tighten up tempo map
+  - Drums heavily edited, tempo map slightly edited.
+global:
+  anim-tempo: 16

@@ -48,7 +48,6 @@ metadata:
   key: D minor
   album: Year of the Black Rainbow
   year: 2010
-  anim-tempo: fast
   author: Harmonix, Onyxite, Espher
   title: Guns of Summer
   preview-end: 1:35.944
@@ -56,3 +55,5 @@ metadata:
   difficulty:
     rank: 518
   artist: Coheed and Cambria
+global:
+  anim-tempo: fast

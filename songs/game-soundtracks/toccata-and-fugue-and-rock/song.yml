@@ -7,9 +7,10 @@ metadata:
   genre: jrock # classical???
   subgenre: jrock
   rating: Family Friendly
-  autogen-theme: Dark Heavy Rock
   difficulty: 6
   key: D
+global:
+  autogen-theme: Dark Heavy Rock
 parts:
   drums:
     drums:

@@ -15,9 +15,10 @@ metadata:
     pro drums by dertanz,
     guitar and bass by girldrummer,
     and all other parts by Onyxite.
-  autogen-theme: Aggressive Metal
   key: D
   rating: Supervision Recommended
+global:
+  autogen-theme: Aggressive Metal
 parts:
   drums:
     drums:

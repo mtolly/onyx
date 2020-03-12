@@ -46,7 +46,6 @@ metadata:
   track-number: 1
   album: Can't Let Go
   year: 2007
-  anim-tempo: 64
   author: Harmonix, Onyxite, Espher
   title: Can't Let Go
   preview-end: 57.7
@@ -55,3 +54,5 @@ metadata:
     rank: 330
   artist: Death of the Cool
   key: F# minor
+global:
+  anim-tempo: 64

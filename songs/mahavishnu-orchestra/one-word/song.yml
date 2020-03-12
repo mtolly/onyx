@@ -4,9 +4,10 @@ metadata:
   track-number: 7
   difficulty: 7
   author: Onyxite
-  autogen-theme: PsychJamRock
   rating: FamilyFriendly
   key: A # most of it at least
+global:
+  autogen-theme: PsychJamRock
 audio:
   album-track:
     md5: 551abc729c6559dcbf5994d366d3900c

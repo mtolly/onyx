@@ -112,7 +112,6 @@ metadata:
   album: The Astonishing
   year: 2016
   subgenre: progrock
-  anim-tempo: 64
   author: atupomaruru
   title: Three Days
   preview-end: 1:45.000
@@ -120,3 +119,5 @@ metadata:
   difficulty:
     rank: 345
   artist: Dream Theater
+global:
+  anim-tempo: 64

@@ -6,12 +6,13 @@ metadata:
   rating: FamilyFriendly
   key: B
   difficulty: 4
-  autogen-theme: DustyVintage
   comments:
   - >-
     Guitar part is sax and trumpet.
   - >-
     The White Widow's lyrics are not verified and probably partially incorrect.
+global:
+  autogen-theme: DustyVintage
 audio:
   album-black:
     md5: 4dadfd4b1235c7c77f9ba50d7229427d

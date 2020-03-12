@@ -52,7 +52,6 @@ metadata:
   album: Clockwork Angels
   year: 2012
   subgenre: progrock
-  anim-tempo: 64
   author: Septekka, Onyxite
   title: Headlong Flight
   preview-end: 1:24.000
@@ -60,3 +59,5 @@ metadata:
   difficulty:
     tier: 7
   artist: Rush
+global:
+  anim-tempo: 64

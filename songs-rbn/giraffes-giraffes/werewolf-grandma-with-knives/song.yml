@@ -43,7 +43,6 @@ metadata:
   album: Pink Magick
   year: 2011
   subgenre: mathrock
-  anim-tempo: 64
   author: Fairwood Studios, Onyxite
   title: 'Werewolf Grandma With Knives (Part Two: Don''t Die)'
   preview-end: 3:31.000
@@ -53,3 +52,5 @@ metadata:
   artist: Giraffes? Giraffes!
   comments:
   - More accurate drum chart + 2x Bass Pedal upgrade.
+global:
+  anim-tempo: 64

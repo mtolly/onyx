@@ -4,7 +4,6 @@ metadata:
   track-number: 3
   difficulty: 7
   author: Onyxite
-  autogen-theme: PsychJamRock
   comments:
   - >-
     Violin is on vocals in unlabeled RB3 versions,
@@ -13,6 +12,8 @@ metadata:
   preview-start: prc_synth_solo_2
   rating: FamilyFriendly
   key: G
+global:
+  autogen-theme: PsychJamRock
 audio:
   album-track:
     md5: 171abbfdc77ec2ef86a816994723e22d

@@ -4,12 +4,13 @@ metadata:
   track-number: 2
   author: Onyxite
   difficulty: 6
-  autogen-theme: PsychJamRock
   preview-start: prc_verse_1
   rating: FamilyFriendly
   key: A # at least in chorus
   comments:
   - "Guitar part is sax and trumpet."
+global:
+  autogen-theme: PsychJamRock
 audio:
   album-track:
     md5: 675dac1566809747687e43efe098918a

@@ -8,6 +8,7 @@ metadata:
   key: Bb minor
   comments:
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
+global:
   autogen-theme: Slow Jam
 audio:
   album-track:

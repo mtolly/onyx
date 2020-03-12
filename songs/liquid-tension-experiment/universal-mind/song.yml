@@ -2,7 +2,6 @@ metadata:
   title: Universal Mind
   file-include: ../../../albums/liquid-tension-experiment.yml
   track-number: 8
-  autogen-theme: Psych Jam Rock
   rating: Family Friendly
   difficulty: 6
   author: Onyxite
@@ -12,6 +11,8 @@ metadata:
     Keys charts mirror guitar in several sections
     (even when keyboard is not actually played on the CD),
     to fill empty space and to match live performances.
+global:
+  autogen-theme: Psych Jam Rock
 audio:
   album-track:
     md5: 3a8042ea3c93f7843757a18e352dfb50

@@ -43,10 +43,11 @@ metadata:
   rating: Family Friendly
   preview-start: 1:05.425
   track-number: 2
-  anim-tempo: slow
   author: Harmonix, Onyxite
   title: Red Barchetta
   preview-end: 1:34.763
   difficulty:
     rank: 250
   file-include: ../../../albums/moving-pictures.yml
+global:
+  anim-tempo: slow

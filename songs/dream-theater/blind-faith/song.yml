@@ -4,11 +4,12 @@ metadata:
   track-number: 2
   author: Mazegeek999, Onyxite, GHFreak46
   difficulty: 7
-  autogen-theme: SynthPop
   key: D # choruses are in A
   rating: SR # ???
   comments:
   - Pro keys by Mazegeek999, guitar by GHFreak46, and all other parts by Onyxite.
+global:
+  autogen-theme: SynthPop
 audio:
   album-track:
     md5: bb640697c680c06882276305c29191ed

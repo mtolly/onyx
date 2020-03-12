@@ -2,11 +2,12 @@ metadata:
   title: When the Water Breaks
   file-include: ../../../albums/liquid-tension-experiment-2.yml
   track-number: 5
-  autogen-theme: Psych Jam Rock
   rating: Family Friendly
   difficulty: 7
   author: Onyxite
   key: G # I mean, there's a lot of keys in this song
+global:
+  autogen-theme: Psych Jam Rock
 audio:
   album-track:
     md5: 46262fa66f94bda9b20a5f86944d1b10

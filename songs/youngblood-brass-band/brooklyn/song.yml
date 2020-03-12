@@ -2,7 +2,6 @@ metadata:
   title: Brooklyn
   file-include: ../../../albums/center-level-roar.yml
   track-number: 4
-  autogen-theme: Feel Good Pop Rock # no idea lol
   rating: Family Friendly
   difficulty: 5
   author: Onyxite
@@ -13,6 +12,8 @@ metadata:
     Bass is tuba, keys is trombone plus backing chords, guitar is sax plus backing chords.
   preview-start: prc_bridge_1
   key: C
+global:
+  autogen-theme: Feel Good Pop Rock # no idea lol
 audio:
   album-track:
     md5: 410b38285daa0447d0c1cec8f5fbac1f

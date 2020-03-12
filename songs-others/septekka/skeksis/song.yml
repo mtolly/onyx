@@ -62,7 +62,6 @@ metadata:
   album: Alien
   year: 2005
   subgenre: industrial
-  anim-tempo: 32
   author: Septekka, Onyxite
   title: Skeksis
   preview-end: 3:31.000
@@ -70,3 +69,5 @@ metadata:
   difficulty:
     tier: 7
   artist: Strapping Young Lad
+global:
+  anim-tempo: 32

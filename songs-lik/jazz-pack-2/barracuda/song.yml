@@ -10,11 +10,12 @@ metadata:
   file-album-art: cover.jpg
   key: C
   difficulty: 5
-  autogen-theme: DustyVintage
   rating: FF
   comments:
   - Drums by TheLieInKing (minor edits by Onyxite), all other parts by Onyxite.
   - Minor edits to pro keys by Mazegeek999.
+global:
+  autogen-theme: DustyVintage
 audio:
   youtube:
     file-path: audio-youtube.wav

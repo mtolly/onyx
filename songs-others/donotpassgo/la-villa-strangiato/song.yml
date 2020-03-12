@@ -46,7 +46,6 @@ metadata:
   album: Hemispheres
   year: 1978
   subgenre: progrock
-  anim-tempo: 64
   author: DoNotPassGo, Ejthedj, Drihscol, Onyxite
   title: La Villa Strangiato
   preview-end: 3:00.000
@@ -54,3 +53,5 @@ metadata:
   difficulty:
     tier: 7
   artist: Rush
+global:
+  anim-tempo: 64

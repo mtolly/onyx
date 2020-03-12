@@ -6,7 +6,6 @@ metadata:
   author: Mazegeek999, Onyxite
   difficulty: 7
   key: E minor # kind of? mostly E5 or Esus4 really, and some Emaj
-  autogen-theme: DarkHeavyRock
   comments:
   - >-
     Pro keys by Mazegeek999, rest by Onyxite.
@@ -15,6 +14,8 @@ metadata:
     [*Ten Degrees of Turbulent Drumming*](https://www.youtube.com/watch?v=OOjKScCpgMw)
     and [*In Constant Motion*](https://www.youtube.com/watch?v=73VhQk1Y7Mo),
     due to overdubbing and a unique kit layout in the intro/outro.
+global:
+  autogen-theme: DarkHeavyRock
 parts:
   keys:
     pro-keys: # mazegeek999

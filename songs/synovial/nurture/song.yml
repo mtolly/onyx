@@ -7,11 +7,12 @@ metadata:
   author: Xane60, Onyxite
   genre: metal
   subgenre: prog
-  anim-tempo: fast
   file-album-art: cover.png_xbox
   difficulty: 6
   key: C minor
   rating: SR
+global:
+  anim-tempo: fast
 audio:
   youtube:
     file-path: audio-youtube.wav
