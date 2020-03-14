@@ -193,7 +193,8 @@ loadTracks f = do
   song <- case map toLower $ takeExtension f of
     ".rpp" -> do
       txt <- stackIO $ T.unpack . decodeGeneral <$> B.readFile f
-      RBFile.interpretMIDIFile $ RPP.getMIDI $ RPP.parse $ RPP.scan txt
+      song <- RPP.getMIDI $ RPP.parse $ RPP.scan txt
+      RBFile.interpretMIDIFile song
     ".chart" -> do
       chart <- FB.chartToBeats <$> FB.loadChartFile f
       FB.chartToMIDI chart
