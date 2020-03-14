@@ -181,11 +181,16 @@ forkOnyx act = do
   sink <- getEventSink
   chan <- lift $ lift ask
   lift $ lift $ lift $ resourceForkIO $ do
-    res <- runReaderT (logToSink sink act) chan
-    case res of
-      Right () -> return ()
-      Left (Messages msgs) -> forM_ msgs $ \msg -> do
-        liftIO $ sink $ EventFail msg
+    runReaderT (logToSink sink act) chan >>= logErrors sink
+
+logErrors :: (MonadIO m) => (Event -> IO ()) -> Either Messages () -> m ()
+logErrors sink = \case
+  Right ()             -> return ()
+  Left (Messages msgs) -> forM_ msgs $ \msg -> do
+    liftIO $ sink $ EventFail msg
+
+safeOnyx :: Onyx () -> Onyx ()
+safeOnyx f = getEventSink >>= \sink -> errorToEither f >>= logErrors sink
 
 resizeWindow :: FL.Ref FL.Window -> Size -> IO ()
 resizeWindow window size = do
@@ -2152,8 +2157,9 @@ watchSong notify mid = do
           FS.Unknown _ _ "STOP_WATCH" -> liftIO $ FS.stopManager wm
           _ -> do
             lg $ "Reloading from " <> mid
-            loadTracks mid >>= liftIO . writeIORef varTrack
-            liftIO notify
+            safeOnyx $ do
+              loadTracks mid >>= liftIO . writeIORef varTrack
+              liftIO notify
             go
     go
   return (previewTracks <$> readIORef varTrack, sendClose)
@@ -2911,7 +2917,7 @@ launchGUI = do
           EventMsg    pair -> liftIO $ addTerm term $ toTermMessage pair
           EventFail   msg  -> liftIO $ addTerm term $ TermError msg
           EventIO     act  -> liftIO act
-          EventOnyx   act  -> act
+          EventOnyx   act  -> safeOnyx act
         process
     loop = liftIO FLTK.getProgramShouldQuit >>= \case
       True  -> return ()

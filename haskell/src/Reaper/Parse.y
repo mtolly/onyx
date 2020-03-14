@@ -1,19 +1,22 @@
 {
-module Reaper.Parse (parse) where
+module Reaper.Parse (parseStack) where
 
-import qualified Reaper.Scan as L
+import Reaper.Scan
 import Reaper.Base (Element(..))
+import qualified Data.Text as T
+import Control.Monad.Trans.StackTrace (StackTraceT, fatal, inside)
 }
 
-%name parse
-%tokentype { (L.AlexPosn, L.Token) }
+%name parseEither
+%tokentype { (AlexPosn, Token) }
 %error { parseError }
+%monad { Either [(AlexPosn, Token)] }
 
 %token
-  nl { (_, L.Newline) }
-  '<' { (_, L.AngleL) }
-  '>' { (_, L.AngleR) }
-  atom { (_, L.Atom $$) }
+  nl { (_, Newline) }
+  '<' { (_, AngleL) }
+  '>' { (_, AngleR) }
+  atom { (_, Atom $$) }
 
 %%
 
@@ -39,9 +42,27 @@ Atoms :            { []      }
 
 {
 
-parseError :: [(L.AlexPosn, L.Token)] -> a
-parseError [] = error "Parse error at EOF"
-parseError ((L.AlexPn _ ln col, tok) : _) = error $
+-- | If instead of this error, "Internal Happy error" is sometimes printed, make
+-- sure you are using Happy 1.18.7 or later.
+parseError :: e -> Either e a
+parseError = Left
+
+showError :: [(AlexPosn, Token)] -> String
+showError [] = "Parse error at end of file"
+showError ((AlexPn _ ln col, tok) : _) =
   "Parse error at " ++ show ln ++ ":" ++ show col ++ ", token " ++ show tok
+
+fatalError :: (Monad m) => [(AlexPosn, Token)] -> StackTraceT m a
+fatalError [] = inside "End of file" $ fatal "Parse error"
+fatalError ((AlexPn _ ln col, tok) : _)
+  = inside ("Line " ++ show ln ++ ", column " ++ show col)
+  $ inside ("Token " ++ show tok)
+  $ fatal "Parse error"
+
+parse :: [(AlexPosn, Token)] -> Element
+parse = either (error . showError) id . parseEither
+
+parseStack :: (Monad m) => [(AlexPosn, Token)] -> StackTraceT m Element
+parseStack = either fatalError return . parseEither
 
 }
