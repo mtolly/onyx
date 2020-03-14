@@ -36,6 +36,7 @@ import qualified Control.Exception                as Exc
 import           Control.Monad
 import           Control.Monad.Catch              (MonadThrow (..))
 import           Control.Monad.Except             (MonadError (..))
+import           Control.Monad.Fix                (MonadFix)
 import           Control.Monad.IO.Class
 import           Control.Monad.IO.Unlift          (MonadUnliftIO (..),
                                                    UnliftIO (..))
@@ -82,7 +83,7 @@ class (Monad m) => SendMessage m where
   sendMessage :: MessageLevel -> Message -> m ()
 
 newtype PureLog m a = PureLog { fromPureLog :: WriterT [(MessageLevel, Message)] m a }
-  deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus)
+  deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus, MonadFix)
 
 instance MonadTrans PureLog where
   lift = PureLog . lift
@@ -103,7 +104,7 @@ withPureLog f st = do
   return x
 
 newtype QueueLog m a = QueueLog { fromQueueLog :: ReaderT ((MessageLevel, Message) -> IO ()) m a }
-  deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus)
+  deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus, MonadFix)
 
 mapQueueLog :: (m a -> n b) -> QueueLog m a -> QueueLog n b
 mapQueueLog f = QueueLog . mapReaderT f . fromQueueLog
@@ -139,7 +140,7 @@ instance (SendMessage m)           => SendMessage (ResourceT   m) where sendMess
 
 newtype StackTraceT m a = StackTraceT
   { fromStackTraceT :: ExceptT Messages (ReaderT [String] m) a
-  } deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus)
+  } deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus, MonadFix)
 
 instance (MonadState s m) => MonadState s (StackTraceT m) where
   get = StackTraceT get

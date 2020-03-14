@@ -2303,9 +2303,9 @@ previewGroup sink rect getTracks getTime getSpeed = do
   return (wholeGroup, FL.redraw glwindow)
 
 launchPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
-launchPreview sink makeMenuBar mid = do
-  (getTracks, stopWatch) <- watchSong (sink $ EventIO FLTK.redraw) mid
-  liftIO $ do
+launchPreview sink makeMenuBar mid = mdo
+  (getTracks, stopWatch) <- watchSong (sink $ EventIO redraw) mid
+  redraw <- liftIO $ do
 
     let windowWidth = Width 800
         windowHeight = Height 600
@@ -2343,7 +2343,7 @@ launchPreview sink makeMenuBar mid = do
     FL.setResizable controlsGroup $ Just labelServer
 
     varTime <- newIORef 0
-    (groupGL, _) <- previewGroup
+    (groupGL, redrawGL) <- previewGroup
       sink
       belowTopControls
       getTracks
@@ -2364,6 +2364,7 @@ launchPreview sink makeMenuBar mid = do
       stopWatch
 
     FL.showWidget window
+    return redrawGL
   return ()
 
 promptPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
