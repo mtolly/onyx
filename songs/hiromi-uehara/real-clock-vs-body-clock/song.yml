@@ -30,6 +30,42 @@ plans:
       2|2: hihat
     song:
       pad: [3.228, album-track]
+  dev:
+    song:
+      pad: [3.228, album-track]
+    parts:
+      ch1:
+        pad:
+        - 3.850
+        - stretch:
+          # on time at 3.952, then later 5:49.575 in album = 5:49.540 in surround
+          - 1.0001012766646988 # (349.575 - 3.952) / (349.540 - 3.952)
+          - channels: [[0], surround]
+      ch2:
+        pad:
+        - 3.850
+        - stretch:
+          - 1.0001012766646988
+          - channels: [[1], surround]
+      ch3:
+        pad:
+        - 3.850
+        - stretch:
+          - 1.0001012766646988
+          - channels: [[2], surround]
+      # ch4 is useless
+      ch5:
+        pad:
+        - 3.850
+        - stretch:
+          - 1.0001012766646988
+          - channels: [[4], surround]
+      ch6:
+        pad:
+        - 3.850
+        - stretch:
+          - 1.0001012766646988
+          - channels: [[5], surround]
 parts:
   drums:
     drums:
