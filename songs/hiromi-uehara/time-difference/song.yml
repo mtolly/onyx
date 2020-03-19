@@ -1,15 +1,10 @@
 metadata:
   title: Time Difference
-  artist: Hiromi's Sonicbloom
-  album: Time Control
   author: Onyxite
   track-number: 1
-  rating: FamilyFriendly
   key: C minor
-  genre: jazz
-  subgenre: contemporary
-  year: 2007
-  file-album-art: ../../../covers/time-control.jpg
+  preview-start: prc_verse_1
+  file-include: ../../../albums/time-control.yml
 audio:
   album-track:
     md5: 2969b803862313a6be34d96185b09b35

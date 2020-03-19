@@ -1,15 +1,10 @@
 metadata:
   title: "Real Clock vs. Body Clock = Jet Lag"
-  artist: Hiromi's Sonicbloom
-  album: Time Control
   author: Onyxite
   track-number: 5
-  rating: FamilyFriendly
   key: Bb minor
-  genre: jazz
-  subgenre: contemporary
-  year: 2007
-  file-album-art: ../../../covers/time-control.jpg
+  preview-start: prc_main_riff_2
+  file-include: ../../../albums/time-control.yml
 audio:
   album-track:
     md5: 4e6b7fd8f5da5be8057ce4fa590575a8
