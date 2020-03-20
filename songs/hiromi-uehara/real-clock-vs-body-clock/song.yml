@@ -24,7 +24,11 @@ plans:
       2|1: hihat
       2|2: hihat
     song:
-      pad: [3.228, album-track]
+      gain:
+      - 1.2
+      - pad:
+        - 3.228
+        - channels: [[1, 0], album-track]
   dev:
     song:
       pad: [3.228, album-track]
@@ -65,6 +69,7 @@ parts:
   drums:
     drums:
       kicks: 1
+      difficulty: 6
 targets:
   rb3:
     game: rb3
