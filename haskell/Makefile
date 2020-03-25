@@ -65,7 +65,7 @@ icon/icon.o:
 	stack exec -- windres -i icon/icon.rc icon/icon.o
 
 ubuntu-deps:
-	apt install libsndfile-dev libsamplerate-dev libmp3lame-dev librubberband-dev libmpg123-dev
+	apt install libsndfile-dev libsamplerate-dev libmp3lame-dev librubberband-dev libmpg123-dev freeglut3-dev autoconf libxft-dev libopenal-dev unzip
 
 arch-deps:
 	pacman -S libsndfile libsamplerate lame rubberband mpg123
