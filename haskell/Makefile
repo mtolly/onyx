@@ -52,6 +52,15 @@ win:
 win-deps:
 	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-rubberband mingw-w64-x86_64-mpg123 wget tar unzip zip man autoconf automake
 
+linux:
+	rm -rf Onyx.AppDir/usr/bin/*
+	rm -rf Onyx.AppDir/usr/lib/*
+	stack build
+	stack exec which onyx | xargs -I{} cp {} Onyx.AppDir/usr/bin/onyx
+	strip Onyx.AppDir/usr/bin/onyx
+	./make-resources.sh Onyx.AppDir/usr/bin/onyx-resources
+	linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
+
 icon/icon.o:
 	stack exec -- windres -i icon/icon.rc icon/icon.o
 

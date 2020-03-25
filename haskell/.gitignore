@@ -8,3 +8,4 @@ game/onyx-game.cabal
 src-exe/onyxite-customs-tool.cabal
 stack.yaml.lock
 onyx-20*
+*.AppImage
