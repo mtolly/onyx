@@ -1,4 +1,4 @@
-.PHONY: usage install-resources mac mac-deps win win-deps ubuntu-deps
+.PHONY: usage install-resources mac mac-deps win win-deps linux ubuntu-deps arch-deps ghci
 SHELL=/bin/bash
 
 usage:
@@ -8,9 +8,11 @@ usage:
 	@echo "  make mac-deps"
 	@echo "  make win-deps"
 	@echo "  make ubuntu-deps"
+	@echo "  make arch-deps"
 	@echo "    installs C libs via homebrew/pacman/apt"
 	@echo "  make mac"
 	@echo "  make win"
+	@echo "  make linux"
 	@echo "    packages app for distribution"
 
 install-resources:
@@ -55,11 +57,14 @@ win-deps:
 linux:
 	rm -rf Onyx.AppDir/usr/bin/*
 	rm -rf Onyx.AppDir/usr/lib/*
+	rm -rf Onyx.AppDir/usr/share/metainfo/*
 	stack build
 	stack exec which onyx | xargs -I{} cp {} Onyx.AppDir/usr/bin/onyx
 	strip Onyx.AppDir/usr/bin/onyx
 	./make-resources.sh Onyx.AppDir/usr/bin/onyx-resources
-	linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
+	cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
+	stack exec -- onyx-package Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml | xargs -I{} env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
+	# centos 7 also needs these to run the appimage: yum install mesa-libGL fontconfig
 
 icon/icon.o:
 	stack exec -- windres -i icon/icon.rc icon/icon.o

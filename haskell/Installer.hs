@@ -25,7 +25,13 @@ main = do
   args <- getArgs
   forM_ args $ \arg -> do
     txt <- T.readFile arg
-    T.writeFile arg $ T.replace "_ONYXVERSION_" versionString txt
+    date <- case versionString of
+      [y1, y2, y3, y4, m1, m2, d1, d2] -> return
+        [y1, y2, y3, y4, '-', m1, m2, '-', d1, d2]
+      _ -> error "Version string not in 8-character date format"
+    T.writeFile arg
+      $ T.replace "_ONYXDATE_" (T.pack date)
+      $ T.replace "_ONYXVERSION_" versionString txt
 
   -- Create Windows installer script
   writeFile "installer.nsi" $ nsis $ do

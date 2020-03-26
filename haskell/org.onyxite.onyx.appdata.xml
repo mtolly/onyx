@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2020 Michael Tolly <miketolly@gmail.com> -->
+<component type="desktop-application">
+  <id>org.onyxite.onyx</id>
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <name>Onyx</name>
+  <summary>Tools for building rhythm game custom songs</summary>
+
+  <description>
+    <p>
+      Onyx is a multipurpose build tool for Guitar-Hero/Rock-Band-like music games.
+      It can import and export a wide variety of formats, move parts around,
+      change song speed, fill in missing details, and assist with song authoring.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">onyx.desktop</launchable>
+
+  <url type="homepage">https://github.com/mtolly/onyxite-customs</url>
+
+  <provides>
+    <binary>onyx</binary>
+  </provides>
+
+  <releases>
+    <release version="_ONYXVERSION_" date="_ONYXDATE_">
+    </release>
+  </releases>
+</component>
