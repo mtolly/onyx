@@ -115,6 +115,7 @@ import           Paths_onyxite_customs_tool                (version)
 import           ProKeysRanges                             (closeShiftsFile)
 import           Reaper.Build                              (makeReaper)
 import           Reductions                                (simpleReduce)
+import           Resources                                 (getResourcesPath)
 import           RhythmGame.Audio                          (projectAudio,
                                                             withAL)
 import qualified RhythmGame.Graphics                       as RGGraphics
@@ -2733,6 +2734,8 @@ addTerm term pair = do
 -- present in C layer but missing from Haskell
 foreign import ccall unsafe "Fl_Simple_Terminal_append"
   c_append :: Ptr () -> CString -> IO ()
+-- foreign import ccall safe "Fl_Window_show_with_args" -- must be safe! hangs if unsafe
+--   c_show_with_args :: Ptr () -> CInt -> Ptr CString -> IO ()
 
 macOS :: Bool
 macOS = os == "darwin"
@@ -2775,11 +2778,18 @@ launchGUI = do
     (Size consoleWidth consoleHeight)
     Nothing
     (Just "Onyx Console")
+  FL.setXclass termWindow "Onyx" -- this sets it as the default
 #ifdef WINDOWS
   peek fl_display >>= \disp -> do
     icon <- loadIcon (Just disp) $ intPtrToPtr 1
     FL.withRef termWindow $ \ptr ->
       setIconRaw ptr icon
+#else
+#ifndef MACOSX
+  -- linux icon (not working?)
+  Right icon <- getResourcesPath "icon.png" >>= FL.pngImageNew . T.pack
+  FL.setIcon termWindow $ Just icon
+#endif
 #endif
   FL.sizeRange termWindow $ Size consoleWidth consoleHeight
   globalLogColor >>= FL.setColor termWindow
@@ -2899,6 +2909,14 @@ launchGUI = do
   FL.setResizable termWindow $ Just term
   FL.setCallback termWindow $ windowCloser $ return ()
   FL.showWidget termWindow
+
+  {-
+  -- on linux, supposedly you need to show(argc,argv) for icon to work
+  FL.withRef termWindow $ \pwin -> do
+    withMany withCString ["onyx"] $ \ps -> do
+      withArrayLen ps $ \argc argv -> do
+        c_show_with_args pwin (fromIntegral argc) argv
+  -}
 
   let logChan = logIO $ sink . EventMsg
       wait = if macOS

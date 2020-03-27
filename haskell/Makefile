@@ -62,6 +62,7 @@ linux:
 	stack exec which onyx | xargs -I{} cp {} Onyx.AppDir/usr/bin/onyx
 	strip Onyx.AppDir/usr/bin/onyx
 	./make-resources.sh Onyx.AppDir/usr/bin/onyx-resources
+	cp icon/icon.png Onyx.AppDir/usr/share/icons/hicolor/256x256/apps/onyx.png
 	cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
 	stack exec -- onyx-package Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml | xargs -I{} env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
 	# centos 7 also needs these to run the appimage: yum install mesa-libGL fontconfig
