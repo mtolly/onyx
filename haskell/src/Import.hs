@@ -36,7 +36,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (elemIndex, nub)
+import           Data.List                        (elemIndex, intercalate, nub)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    mapMaybe)
@@ -98,32 +98,138 @@ removeDummyTracks trks = let
     , RBFile.fixedPartRealDrumsPS = drums $ RBFile.fixedPartRealDrumsPS trks
     }
 
-fixDoubleSwells :: RBFile.FixedFile U.Beats -> RBFile.FixedFile U.Beats
-fixDoubleSwells ps = let
-  fixTrack trk = let
+fixShortVoxPhrases
+  :: (SendMessage m)
+  => RBFile.Song (RBFile.FixedFile U.Beats)
+  -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats))
+fixShortVoxPhrases song@(RBFile.Song tmap mmap ps)
+  | not $ nullVox $ RBFile.fixedHarm1 ps = return song
+    -- not touching songs with harmonies
+  | not $ RTB.null $ vocalPhrase2 $ RBFile.fixedPartVocals ps = return song
+    -- not touching songs with separate p1/p2 phrases
+  | otherwise = inside "Track PART VOCALS" $ do
+    let vox = RBFile.fixedPartVocals ps
+        minLength = 1 :: U.Beats
+        joinBools = joinEdgesSimple . fmap
+          (\b -> if b then EdgeOn () () else EdgeOff ())
+        phrases = RTB.toAbsoluteEventList 0 $ joinBools $ vocalPhrase1 vox
+        od = Set.fromList $ ATB.getTimes $ RTB.toAbsoluteEventList 0
+          $ RTB.filter id $ vocalOverdrive vox
+        wiggle = 10/480
+        isOD t = case Set.lookupGT (t NNC.-| wiggle) od of
+          Nothing -> False
+          Just t' -> t' < t + wiggle
+        phrasesWithOD :: RTB.T U.Beats (RockBand.Common.Edge () Bool)
+        phrasesWithOD
+          = splitEdgesSimple
+          $ RTB.fromAbsoluteEventList
+          $ ATB.fromPairList
+          $ fmap (\(t, ((), (), len)) -> (t, ((), isOD t, len)))
+          $ ATB.toPairList phrases
+        fixed = fixPhrases phrasesWithOD
+        fixPhrases = \case
+          RNil -> RNil
+          Wait dt on@EdgeOn{} (Wait len off@EdgeOff{} rest) ->
+            if len >= minLength
+              then Wait dt on $ Wait len off $ fixPhrases rest -- all good
+              else let
+                -- pull phrase start earlier
+                len2 = min minLength $ len + dt
+                dt2 = (len + dt) - len2
+                in if len2 >= minLength
+                  then Wait dt2 on $ Wait len2 off $ fixPhrases rest
+                  else let
+                    -- also push phrase end later
+                    futureSpace = case rest of
+                      RNil       -> minLength
+                      Wait t _ _ -> t
+                    len3 = min minLength $ len2 + futureSpace
+                    usedSpace = len3 - len
+                    in Wait dt2 on $ Wait len3 off $ fixPhrases $ U.trackDrop usedSpace rest
+          Wait dt x rest -> Wait dt x $ fixPhrases rest -- shouldn't happen
+        vox' = vox
+          { vocalPhrase1 = fmap (\case EdgeOn{} -> True; EdgeOff{} -> False) fixed
+          , vocalOverdrive = flip RTB.mapMaybe fixed $ \case
+            EdgeOn () True -> Just True
+            EdgeOff   True -> Just False
+            _              -> Nothing
+          }
+        differenceTimes = case bothFirstSecond phrasesWithOD fixed of
+          (_, only1, _) -> ATB.getTimes $ RTB.toAbsoluteEventList 0
+            $ RTB.collectCoincident only1
+    case differenceTimes of
+      [] -> return ()
+      _  -> inside (intercalate ", " $ map (RBFile.showPosition mmap) differenceTimes) $ do
+        warn "Vocal phrase edges extended to be a minimum length of 1 beat"
+    return $ RBFile.Song tmap mmap ps { RBFile.fixedPartVocals = vox' }
+
+data LaneNotes = LaneSingle | LaneDouble
+  deriving (Eq, Ord)
+
+{-
+Fixes 2 issues with drum lanes seen in Phase Shift charts:
+* using the single roll type for a two-lane roll
+* GH converts that convert their drum sustains to a single note with lane marker
+-}
+fixSwells
+  :: (SendMessage m)
+  => RBFile.Song (RBFile.FixedFile U.Beats)
+  -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats))
+fixSwells (RBFile.Song tmap mmap ps) = let
+  fixTrack name trk = inside ("Track " <> name) $ let
     notes = RTB.filter (/= RBDrums.Kick) $ drumGems $ fromMaybe mempty $ Map.lookup Expert $ drumDifficulties trk
-    lanesAbs = RTB.toAbsoluteEventList 0 $ joinEdgesSimple
+    singleAbs = RTB.toAbsoluteEventList 0 $ joinEdgesSimple
       $ fmap (maybe (EdgeOff ()) (`EdgeOn` ())) $ drumSingleRoll trk
-    newLanes = U.trackJoin $ RTB.fromAbsoluteEventList $ ATB.fromPairList
-      $ flip map (ATB.toPairList lanesAbs) $ \(startTime, lane) -> case lane of
-        (diff, (), len) -> let
-          -- TODO this should make sure that none of the notes we're looking at are simultaneous
-          shouldBeDouble = case toList $ U.trackTake len $ U.trackDrop startTime notes of
-            g1 : g2 : g3 : g4 : _ | g1 == g3 && g2 == g4 && g1 /= g2 -> True
-            _                                                        -> False
-          in (startTime,) $ RTB.fromPairList $ if shouldBeDouble
-            then [(0, (True, Just diff)), (len, (True, Nothing))]
-            else [(0, (False, Just diff)), (len, (False, Nothing))]
-    in trk
-      { drumSingleRoll = RTB.mapMaybe (\case (False, b) -> Just b; _ -> Nothing) newLanes
-      , drumDoubleRoll = RTB.merge (drumDoubleRoll trk)
-        $ RTB.mapMaybe (\case (True, b) -> Just b; _ -> Nothing) newLanes
+    doubleAbs = RTB.toAbsoluteEventList 0 $ joinEdgesSimple
+      $ fmap (maybe (EdgeOff ()) (`EdgeOn` ())) $ drumDoubleRoll trk
+    lanesAbs = ATB.merge
+      (fmap (LaneSingle,) singleAbs)
+      (fmap (LaneDouble,) doubleAbs)
+    assignedLanes = ATB.fromPairList $ map assignLane $ ATB.toPairList lanesAbs
+    assignLane (startTime, (initType, lane@(_diff, (), len))) = let
+      notesUnderLane = U.trackTake len $ U.trackDrop startTime notes
+      assignment = case toList $ RTB.collectCoincident notesUnderLane of
+        -- definite two-lane roll
+        [g1] : [g2] : [g3] : [g4] : _ | g1 == g3 && g2 == g4 && g1 /= g2 -> Just LaneDouble
+        -- definite one-lane roll
+        [g1] : [g2] : _ | g1 == g2 -> Just LaneSingle
+        -- single note (GH sustain)
+        [_] -> Nothing
+        -- unidentified, just leave it alone
+        _ -> Just initType
+      in (startTime, (assignment, initType, lane))
+    selectAssigned f
+      = fmap (\case EdgeOff () -> Nothing; EdgeOn diff () -> Just diff)
+      $ splitEdgesSimple
+      $ RTB.fromAbsoluteEventList
+      $ ATB.mapMaybe f assignedLanes
+    warnLanes f str = case ATB.getTimes $ ATB.filter f assignedLanes of
+      []    -> return ()
+      times -> inside (intercalate ", " $ map (RBFile.showPosition mmap) times) $ warn str
+    in do
+      warnLanes (\case (Nothing, _, _) -> True; _ -> False)
+        "Lanes removed that had only one note under them (likely GH drum sustains)"
+      warnLanes (\case (Just LaneSingle, LaneDouble, _) -> True; _ -> False)
+        "Lanes marked as two-lane changed to one-lane based on notes underneath"
+      warnLanes (\case (Just LaneDouble, LaneSingle, _) -> True; _ -> False)
+        "Lanes marked as one-lane changed to two-lane based on notes underneath"
+      return trk
+        { drumSingleRoll = selectAssigned $ \case
+          (Just LaneSingle, _, lane) -> Just lane
+          _                          -> Nothing
+        , drumDoubleRoll = selectAssigned $ \case
+          (Just LaneDouble, _, lane) -> Just lane
+          _                          -> Nothing
+        }
+  in do
+    new1x <- fixTrack "PART DRUMS"         $ RBFile.fixedPartDrums       ps
+    new2x <- fixTrack "PART DRUMS_2X"      $ RBFile.fixedPartDrums2x     ps
+    newPS <- fixTrack "PART REAL_DRUMS_PS" $ RBFile.fixedPartRealDrumsPS ps
+    return $ RBFile.Song tmap mmap ps
+      { RBFile.fixedPartDrums       = new1x
+      , RBFile.fixedPartDrums2x     = new2x
+      , RBFile.fixedPartRealDrumsPS = newPS
       }
-  in ps
-    { RBFile.fixedPartDrums       = fixTrack $ RBFile.fixedPartDrums       ps
-    , RBFile.fixedPartDrums2x     = fixTrack $ RBFile.fixedPartDrums2x     ps
-    , RBFile.fixedPartRealDrumsPS = fixTrack $ RBFile.fixedPartRealDrumsPS ps
-    }
 
 importFoF :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m Kicks
 importFoF src dest = do
@@ -295,10 +401,11 @@ importFoF src dest = do
           x                            -> x
         }
 
-  let outputMIDI = fixGHVox $ fixDoubleSwells $ swapFiveLane $ removeDummyTracks $ add2x $ RBFile.s_tracks parsed
-  stackIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI parsed
-    { RBFile.s_tracks = outputMIDI
-    }
+  outputMIDI <- fixSwells (parsed
+    { RBFile.s_tracks = fixGHVox $ swapFiveLane $ removeDummyTracks $ add2x $ RBFile.s_tracks parsed
+    }) >>= fixShortVoxPhrases
+  let outputFixed = RBFile.s_tracks outputMIDI
+  stackIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI outputMIDI
 
   -- TODO get this working with Clone Hero videos
   vid <- case FoF.video song of
@@ -317,7 +424,7 @@ importFoF src dest = do
         then True
         else getDiff song /= Just (-1)
       isnt :: (Eq a, Monoid a) => (a -> Bool) -> (RBFile.FixedFile U.Beats -> a) -> Bool
-      isnt isEmpty f = not $ isEmpty $ f outputMIDI
+      isnt isEmpty f = not $ isEmpty $ f outputFixed
       vocalMode = if isnt nullVox RBFile.fixedPartVocals && guardDifficulty FoF.diffVocals && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
         then if isnt nullVox RBFile.fixedHarm2 && guardDifficulty FoF.diffVocalsHarm
           then if isnt nullVox RBFile.fixedHarm3
@@ -414,11 +521,11 @@ importFoF src dest = do
           , drumsMode = let
             isFiveLane = FoF.fiveLaneDrums song == Just True || any
               (\(_, dd) -> RBDrums.Orange `elem` drumGems dd)
-              (Map.toList $ drumDifficulties $ RBFile.fixedPartDrums outputMIDI)
+              (Map.toList $ drumDifficulties $ RBFile.fixedPartDrums outputFixed)
             isReal = isnt nullDrums RBFile.fixedPartRealDrumsPS
             isPro = case FoF.proDrums song of
               Just b  -> b
-              Nothing -> not $ RTB.null $ drumToms $ RBFile.fixedPartDrums outputMIDI
+              Nothing -> not $ RTB.null $ drumToms $ RBFile.fixedPartDrums outputFixed
             in if isFiveLane then Drums5
               else if isReal then DrumsReal
                 else if isPro then DrumsPro
