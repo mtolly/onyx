@@ -1,4 +1,4 @@
-.PHONY: usage install-resources mac mac-deps win win-deps linux ubuntu-deps arch-deps ghci
+.PHONY: usage install-resources mac mac-deps win win-deps docker linux ubuntu-deps arch-deps ghci
 SHELL=/bin/bash
 
 usage:
@@ -12,7 +12,8 @@ usage:
 	@echo "    installs C libs via homebrew/pacman/apt"
 	@echo "  make mac"
 	@echo "  make win"
-	@echo "  make linux"
+	@echo "  make linux (only runs on older linux)"
+	@echo "  make docker (runs on any linux)"
 	@echo "    packages app for distribution"
 
 install-resources:
@@ -54,24 +55,43 @@ win:
 win-deps:
 	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-rubberband mingw-w64-x86_64-mpg123 wget tar unzip zip man autoconf automake
 
-linux:
+icon/icon.o:
+	stack exec -- windres -i icon/icon.rc icon/icon.o
+
+# runs stack in docker mode and then linuxdeployqt inside that container
+docker:
+	docker build -t onyxite/onyx .
+	stack --docker --docker-image=onyxite/onyx build
 	rm -rf Onyx.AppDir/usr/bin/*
 	rm -rf Onyx.AppDir/usr/lib/*
 	rm -rf Onyx.AppDir/usr/share/metainfo/*
+	stack --docker --docker-image=onyxite/onyx exec which onyx | xargs -I{} cp {} Onyx.AppDir/usr/bin/onyx
+	strip Onyx.AppDir/usr/bin/onyx
+	./make-resources.sh Onyx.AppDir/usr/bin/onyx-resources
+	cp icon/icon.png Onyx.AppDir/usr/share/icons/hicolor/256x256/apps/onyx.png
+	cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
+	stack --docker --docker-image=onyxite/onyx exec -- onyx-package Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml \
+		| xargs -I{} docker run -v $(shell pwd):/mnt onyxite/onyx bash -c \
+			'cd /mnt && env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage'
+
+# this runs direct stack and linuxdeployqt
+# (the linuxdeployqt will fail on recent linux systems)
+linux:
 	stack build
+	rm -rf Onyx.AppDir/usr/bin/*
+	rm -rf Onyx.AppDir/usr/lib/*
+	rm -rf Onyx.AppDir/usr/share/metainfo/*
 	stack exec which onyx | xargs -I{} cp {} Onyx.AppDir/usr/bin/onyx
 	strip Onyx.AppDir/usr/bin/onyx
 	./make-resources.sh Onyx.AppDir/usr/bin/onyx-resources
 	cp icon/icon.png Onyx.AppDir/usr/share/icons/hicolor/256x256/apps/onyx.png
 	cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
-	stack exec -- onyx-package Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml | xargs -I{} env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
+	stack exec -- onyx-package Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml \
+		| xargs -I{} env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
 	# centos 7 also needs these to run the appimage: yum install mesa-libGL fontconfig
 
-icon/icon.o:
-	stack exec -- windres -i icon/icon.rc icon/icon.o
-
 ubuntu-deps:
-	apt install libsndfile-dev libsamplerate-dev libmp3lame-dev librubberband-dev libmpg123-dev freeglut3-dev autoconf libxft-dev libopenal-dev unzip
+	apt-get -y install libsndfile-dev libsamplerate-dev libmp3lame-dev librubberband-dev libmpg123-dev freeglut3-dev autoconf libxft-dev libopenal-dev unzip
 
 arch-deps:
 	pacman -S libsndfile libsamplerate lame rubberband mpg123
