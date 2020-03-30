@@ -48,6 +48,7 @@ import           Data.Tuple.Extra                 (fst3, snd3, thd3)
 import           Difficulty
 import qualified FeedBack.Load                    as FB
 import qualified FretsOnFire                      as FoF
+import           Guitars                          (applyStatus)
 import           Image                            (DXTFormat (PNGXbox),
                                                    toDXT1File)
 import           JSONData                         (toJSON, yamlEncodeFile)
@@ -73,7 +74,7 @@ import           RockBand.Codec.Six               (nullSix)
 import           RockBand.Codec.Vocal
 import           RockBand.Common
 import qualified RockBand.Legacy.Vocal            as RBVox
-import           Scripts                          (loadFoFMIDI)
+import           Scripts                          (fixFreeform, loadFoFMIDI)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package                     (extractSTFS, rb3pkg)
@@ -163,73 +164,70 @@ fixShortVoxPhrases song@(RBFile.Song tmap mmap ps)
         warn "Vocal phrase edges extended to be a minimum length of 1 beat"
     return $ RBFile.Song tmap mmap ps { RBFile.fixedPartVocals = vox' }
 
+generateSwells
+  :: (Eq a)
+  => RTB.T U.Seconds (Bool, [a])
+  -> (RTB.T U.Seconds Bool, RTB.T U.Seconds Bool)
+generateSwells notes = let
+  maxDistance = 0.155 :: U.Seconds -- actually 0.16 but being conservative
+  go RNil = RNil
+  go (Wait t1 (True, [x]) (Wait t2 (True, [y]) rest)) | t2 < maxDistance = let
+    thisType = if x == y then LaneSingle else LaneDouble
+    in case splitLane x y rest of
+      (lane, after) -> let
+        laneBaseLength = t2 <> mconcat (RTB.getTimes lane)
+        in case after of
+          RNil
+            -- lane goes to end; just make it go a bit past last note
+            -> Wait t1 (thisType, True)
+            $  Wait (laneBaseLength <> maxDistance) (thisType, False)
+            $  RNil
+          Wait t3 z rest'
+            -- end lane at next note; we trim it back with fixFreeform later
+            -> Wait t1 (thisType, True)
+            $  Wait (laneBaseLength <> t3) (thisType, False)
+            $  go $ Wait 0 z rest'
+  go (Wait t _ rest) = RTB.delay t $ go rest
+  splitLane gem1 gem2 (Wait t (True, [x]) rest)
+    | x == gem1
+    = case splitLane gem2 gem1 rest of
+      (lane, after) -> (Wait t x lane, after)
+  splitLane _ _ rest = (RNil, rest)
+  result = go notes
+  laneType typ = fmap snd $ RTB.filter ((== typ) . fst) result
+  in (laneType LaneSingle, laneType LaneDouble)
+
+-- | Uses the PS swell lanes as a guide to make new valid ones.
+redoSwells
+  :: RBFile.Song (RBFile.FixedFile U.Beats)
+  -> RBFile.Song (RBFile.FixedFile U.Beats)
+redoSwells (RBFile.Song tmap mmap ps) = let
+  fixTrack trk = let
+    notes = RTB.collectCoincident
+      $ RTB.filter (/= RBDrums.Kick) $ drumGems $ fromMaybe mempty
+      $ Map.lookup Expert $ drumDifficulties trk
+    notesWithLanes = fmap (first $ not . null)
+      $ flip applyStatus notes $ RTB.merge
+        (fmap (('s',) . isJust) $ drumSingleRoll trk)
+        (fmap (('d',) . isJust) $ drumDoubleRoll trk)
+    (lanes1, lanes2) = generateSwells
+      $ U.applyTempoTrack tmap notesWithLanes
+    in trk
+      { drumSingleRoll = fmap (\b -> guard b >> Just LaneExpert)
+        $ fixFreeform (void notes)
+        $ U.unapplyTempoTrack tmap lanes1
+      , drumDoubleRoll = fmap (\b -> guard b >> Just LaneExpert)
+        $ fixFreeform (void notes)
+        $ U.unapplyTempoTrack tmap lanes2
+      }
+  in RBFile.Song tmap mmap ps
+    { RBFile.fixedPartDrums       = fixTrack $ RBFile.fixedPartDrums       ps
+    , RBFile.fixedPartDrums2x     = fixTrack $ RBFile.fixedPartDrums2x     ps
+    , RBFile.fixedPartRealDrumsPS = fixTrack $ RBFile.fixedPartRealDrumsPS ps
+    }
+
 data LaneNotes = LaneSingle | LaneDouble
   deriving (Eq, Ord)
-
-{-
-Fixes 2 issues with drum lanes seen in Phase Shift charts:
-* using the single roll type for a two-lane roll
-* GH converts that convert their drum sustains to a single note with lane marker
--}
-fixSwells
-  :: (SendMessage m)
-  => RBFile.Song (RBFile.FixedFile U.Beats)
-  -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats))
-fixSwells (RBFile.Song tmap mmap ps) = let
-  fixTrack name trk = inside ("Track " <> name) $ let
-    notes = RTB.filter (/= RBDrums.Kick) $ drumGems $ fromMaybe mempty $ Map.lookup Expert $ drumDifficulties trk
-    singleAbs = RTB.toAbsoluteEventList 0 $ joinEdgesSimple
-      $ fmap (maybe (EdgeOff ()) (`EdgeOn` ())) $ drumSingleRoll trk
-    doubleAbs = RTB.toAbsoluteEventList 0 $ joinEdgesSimple
-      $ fmap (maybe (EdgeOff ()) (`EdgeOn` ())) $ drumDoubleRoll trk
-    lanesAbs = ATB.merge
-      (fmap (LaneSingle,) singleAbs)
-      (fmap (LaneDouble,) doubleAbs)
-    assignedLanes = ATB.fromPairList $ map assignLane $ ATB.toPairList lanesAbs
-    assignLane (startTime, (initType, lane@(_diff, (), len))) = let
-      notesUnderLane = U.trackTake len $ U.trackDrop startTime notes
-      assignment = case toList $ RTB.collectCoincident notesUnderLane of
-        -- definite two-lane roll
-        [g1] : [g2] : [g3] : [g4] : _ | g1 == g3 && g2 == g4 && g1 /= g2 -> Just LaneDouble
-        -- definite one-lane roll
-        [g1] : [g2] : _ | g1 == g2 -> Just LaneSingle
-        -- single note (GH sustain)
-        [_] -> Nothing
-        -- unidentified, just leave it alone
-        _ -> Just initType
-      in (startTime, (assignment, initType, lane))
-    selectAssigned f
-      = fmap (\case EdgeOff () -> Nothing; EdgeOn diff () -> Just diff)
-      $ splitEdgesSimple
-      $ RTB.fromAbsoluteEventList
-      $ ATB.mapMaybe f assignedLanes
-    warnLanes f str = case ATB.getTimes $ ATB.filter f assignedLanes of
-      []    -> return ()
-      times -> inside (intercalate ", " $ map (RBFile.showPosition mmap) times) $ warn str
-    in do
-      warnLanes (\case (Nothing, _, _) -> True; _ -> False)
-        "Lanes removed that had only one note under them (likely GH drum sustains)"
-      warnLanes (\case (Just LaneSingle, LaneDouble, _) -> True; _ -> False)
-        "Lanes marked as two-lane changed to one-lane based on notes underneath"
-      warnLanes (\case (Just LaneDouble, LaneSingle, _) -> True; _ -> False)
-        "Lanes marked as one-lane changed to two-lane based on notes underneath"
-      return trk
-        { drumSingleRoll = selectAssigned $ \case
-          (Just LaneSingle, _, lane) -> Just lane
-          _                          -> Nothing
-        , drumDoubleRoll = selectAssigned $ \case
-          (Just LaneDouble, _, lane) -> Just lane
-          _                          -> Nothing
-        }
-  in do
-    new1x <- fixTrack "PART DRUMS"         $ RBFile.fixedPartDrums       ps
-    new2x <- fixTrack "PART DRUMS_2X"      $ RBFile.fixedPartDrums2x     ps
-    newPS <- fixTrack "PART REAL_DRUMS_PS" $ RBFile.fixedPartRealDrumsPS ps
-    return $ RBFile.Song tmap mmap ps
-      { RBFile.fixedPartDrums       = new1x
-      , RBFile.fixedPartDrums2x     = new2x
-      , RBFile.fixedPartRealDrumsPS = newPS
-      }
 
 importFoF :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m Kicks
 importFoF src dest = do
@@ -401,9 +399,9 @@ importFoF src dest = do
           x                            -> x
         }
 
-  outputMIDI <- fixSwells (parsed
+  outputMIDI <- fixShortVoxPhrases $ redoSwells parsed
     { RBFile.s_tracks = fixGHVox $ swapFiveLane $ removeDummyTracks $ add2x $ RBFile.s_tracks parsed
-    }) >>= fixShortVoxPhrases
+    }
   let outputFixed = RBFile.s_tracks outputMIDI
   stackIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI outputMIDI
 
