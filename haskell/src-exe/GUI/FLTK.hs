@@ -285,17 +285,6 @@ padded t r b l size@(Size (Width w) (Height h)) fn = do
   liftIO $ FL.end group
   return x
 
-{-
-
-this crashes on link currently with:
-
-onyxite-customs-tool> Linking .stack-work/dist/x86_64-linux-tinfo6/Cabal-2.4.0.1/build/onyx/onyx ...
-onyxite-customs-tool> /usr/bin/ld: .stack-work/dist/x86_64-linux-tinfo6/Cabal-2.4.0.1/build/onyx/onyx-tmp/GUI/FLTK.o: in function `c3mVr_info':
-onyxite-customs-tool> (.text+0x18419): undefined reference to `Fl_DerivedGroup_resize'
-onyxite-customs-tool> /usr/bin/ld: /home/mtolly/.stack/snapshots/x86_64-linux-tinfo6/45b13b607a0fc5af1fe07527f4d855d069e4de1d94de96b94c26c77657304b03/8.6.5/lib/x86_64-linux-ghc-8.6.5/fltkhs-0.8.0.2-7q5FLVsyA0NGOxHwiNpxap/libHSfltkhs-0.8.0.2-7q5FLVsyA0NGOxHwiNpxap.a(Group.o):(.text+0x75a): undefined reference to `Fl_DerivedGroup_resize'
-onyxite-customs-tool> collect2: error: ld returned 1 exit status
-onyxite-customs-tool> `g++' failed in phase `Linker'. (Exit code: 1)
-
 -- | Ported from Erco's Fl_Center class
 centerFixed :: Rectangle -> IO a -> IO a
 centerFixed rect makeChildren = do
@@ -322,7 +311,7 @@ centerFixed rect makeChildren = do
             newY <- centerY this cw
             newW <- FL.getW cw
             newH <- FL.getH cw
-            FL.resize this $ Rectangle
+            FL.resize cw $ Rectangle
               (Position newX newY)
               (Size newW newH)
   group <- FL.groupCustom rect Nothing Nothing FL.defaultCustomWidgetFuncs
@@ -332,8 +321,6 @@ centerFixed rect makeChildren = do
   FL.end group
   myResize group rect
   return x
-
--}
 
 makeTab :: Rectangle -> T.Text -> (Rectangle -> FL.Ref FL.Group -> IO a) -> IO a
 makeTab rect name fn = do
@@ -1077,7 +1064,9 @@ batchPageRB2
   -> IO ()
 batchPageRB2 sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) $ speedPercent True
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+    centerRect = trimClock 0 250 0 250 rect'
+    in centerFixed rect' $ speedPercent True centerRect
   getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     fn <- horizRadio rect'
       [ ("Guitar/Bass", GBKUnchanged, True)
@@ -1195,7 +1184,9 @@ batchPagePS
   -> IO ()
 batchPagePS sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) $ speedPercent True
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+    centerRect = trimClock 0 250 0 250 rect'
+    in centerFixed rect' $ speedPercent True centerRect
   let getTargetSong usePath template = do
         speed <- getSpeed
         return $ \proj -> let
@@ -1239,8 +1230,10 @@ songPageRB3 sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
-    counterSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) $ \rect' -> do
-      (getSpeed, counter) <- liftIO $ speedPercent' True rect'
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \rb3 ->
         rb3 { rb3_Common = (rb3_Common rb3) { tgt_Speed = Just speed } }
       return counter
@@ -1368,7 +1361,9 @@ batchPageRB3
   -> IO ()
 batchPageRB3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) $ speedPercent True
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+    centerRect = trimClock 0 250 0 250 rect'
+    in centerFixed rect' $ speedPercent True centerRect
   getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     box <- FL.checkButtonNew rect' (Just "Convert non-Pro Drums to all toms")
     FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
