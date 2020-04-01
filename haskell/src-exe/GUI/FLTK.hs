@@ -199,19 +199,19 @@ resizeWindow window size = do
   y <- FL.getY window
   FL.resize window $ Rectangle (Position x y) size
 
-promptLoad :: (Event -> IO ()) -> IO ()
-promptLoad sink = do
+promptLoad :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
+promptLoad sink makeMenuBar = do
   picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
   FL.setTitle picker "Load song"
   FL.showWidget picker >>= \case
     FL.NativeFileChooserPicked -> do
       n <- FL.getCount picker
       fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
-      mapM_ (sink . EventOnyx . startLoad) $ map T.unpack $ catMaybes fs
+      mapM_ (sink . EventOnyx . startLoad makeMenuBar) $ map T.unpack $ catMaybes fs
     _ -> return ()
 
-startLoad :: FilePath -> Onyx ()
-startLoad f = do
+startLoad :: (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
+startLoad makeMenuBar f = do
   sink <- getEventSink
   void $ forkOnyx $ errorToEither (openProject Nothing f) >>= \case
     Left (Messages msgs) -> liftIO $ forM_ msgs $ \msg -> do
@@ -219,7 +219,7 @@ startLoad f = do
     Right proj -> do
       void $ shakeBuild1 proj [] "gen/cover.png"
       maybeAudio <- projectAudio proj
-      liftIO $ sink $ EventIO $ launchWindow sink proj maybeAudio
+      liftIO $ sink $ EventIO $ launchWindow sink makeMenuBar proj maybeAudio
 
 chopRight :: Int -> Rectangle -> (Rectangle, Rectangle)
 chopRight n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
@@ -285,6 +285,56 @@ padded t r b l size@(Size (Width w) (Height h)) fn = do
   liftIO $ FL.end group
   return x
 
+{-
+
+this crashes on link currently with:
+
+onyxite-customs-tool> Linking .stack-work/dist/x86_64-linux-tinfo6/Cabal-2.4.0.1/build/onyx/onyx ...
+onyxite-customs-tool> /usr/bin/ld: .stack-work/dist/x86_64-linux-tinfo6/Cabal-2.4.0.1/build/onyx/onyx-tmp/GUI/FLTK.o: in function `c3mVr_info':
+onyxite-customs-tool> (.text+0x18419): undefined reference to `Fl_DerivedGroup_resize'
+onyxite-customs-tool> /usr/bin/ld: /home/mtolly/.stack/snapshots/x86_64-linux-tinfo6/45b13b607a0fc5af1fe07527f4d855d069e4de1d94de96b94c26c77657304b03/8.6.5/lib/x86_64-linux-ghc-8.6.5/fltkhs-0.8.0.2-7q5FLVsyA0NGOxHwiNpxap/libHSfltkhs-0.8.0.2-7q5FLVsyA0NGOxHwiNpxap.a(Group.o):(.text+0x75a): undefined reference to `Fl_DerivedGroup_resize'
+onyxite-customs-tool> collect2: error: ld returned 1 exit status
+onyxite-customs-tool> `g++' failed in phase `Linker'. (Exit code: 1)
+
+-- | Ported from Erco's Fl_Center class
+centerFixed :: Rectangle -> IO a -> IO a
+centerFixed rect makeChildren = do
+  let centerX :: FL.Ref FL.Group -> FL.Ref FL.WidgetBase -> IO X
+      centerX this wid = do
+        X x <- FL.getX this
+        Width w <- FL.getW this
+        Width widW <- FL.getW wid
+        return $ X $ x + quot w 2 - quot widW 2
+      centerY :: FL.Ref FL.Group -> FL.Ref FL.WidgetBase -> IO Y
+      centerY this wid = do
+        Y y <- FL.getY this
+        Height h <- FL.getH this
+        Height widH <- FL.getH wid
+        return $ Y $ y + quot h 2 - quot widH 2
+      myResize :: FL.Ref FL.Group -> Rectangle -> IO ()
+      myResize this rect' = do
+        FL.resizeWidgetBase (FL.safeCast this) rect'
+        children <- FL.children this
+        forM_ [0 .. children - 1] $ \i -> do
+          mcw <- FL.getChild this $ FL.AtIndex i
+          forM_ mcw $ \cw -> do
+            newX <- centerX this cw
+            newY <- centerY this cw
+            newW <- FL.getW cw
+            newH <- FL.getH cw
+            FL.resize this $ Rectangle
+              (Position newX newY)
+              (Size newW newH)
+  group <- FL.groupCustom rect Nothing Nothing FL.defaultCustomWidgetFuncs
+    { FL.resizeCustom = Just myResize
+    }
+  x <- makeChildren
+  FL.end group
+  myResize group rect
+  return x
+
+-}
+
 makeTab :: Rectangle -> T.Text -> (Rectangle -> FL.Ref FL.Group -> IO a) -> IO a
 makeTab rect name fn = do
   let tabHeight = 25
@@ -328,12 +378,11 @@ currentSongTime stime ss = case songPlaying ss of
 
 type BuildYamlControl = WriterT (IO (Endo (SongYaml FilePath))) IO
 
-launchWindow :: (Event -> IO ()) -> Project -> Maybe (Double -> Maybe Double -> IO (IO ())) -> IO ()
-launchWindow sink proj maybeAudio = mdo
-  let windowSize = Size (Width 800) (Height 500)
-      windowRect = Rectangle
-        (Position (X 0) (Y 0))
-        windowSize
+launchWindow :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Project -> Maybe (Double -> Maybe Double -> IO (IO ())) -> IO ()
+launchWindow sink makeMenuBar proj maybeAudio = mdo
+  let windowWidth = Width 800
+      windowHeight = Height 500
+      windowSize = Size windowWidth windowHeight
   window <- FL.windowNew
     windowSize
     Nothing
@@ -342,13 +391,15 @@ launchWindow sink proj maybeAudio = mdo
     -- on Mac that can crash (bc you can reopen a closed song window and try to
     -- delete the temp folder a second time). to fix properly I think we need
     -- to set window_menu_style on the SysMenuBar (not in fltkhs yet)
+  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+  let (_, windowRect) = chopTop menuHeight $ Rectangle
+        (Position (X 0) (Y 0))
+        windowSize
   behindTabsColor >>= FL.setColor window
   FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
   FL.sizeRange window $ Size (Width 800) (Height 500)
   FL.begin window
-  tabs <- FL.tabsNew
-    (Rectangle (Position (X 0) (Y 0)) windowSize)
-    Nothing
+  tabs <- FL.tabsNew windowRect Nothing
   (modifyMeta, metaTab) <- makeTab windowRect "Metadata" $ \rect tab -> do
     homeTabColor >>= setTabColor tab
     let (rectSplit, rectRest) = chopTop 200 rect
@@ -676,7 +727,7 @@ launchWindow sink proj maybeAudio = mdo
     FL.setStep scrubber 1
     void $ FL.setValue scrubber 0
     FL.deactivate scrubber
-    (getSpeed, counter) <- speedPercent' speedArea
+    (getSpeed, counter) <- speedPercent' False speedArea
     FL.end topControls
     FL.setResizable topControls $ Just scrubber
     varSong <- newIORef Nothing
@@ -1001,8 +1052,8 @@ horizRadio' rect cb opts = do
 horizRadio :: Rectangle -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
 horizRadio rect = horizRadio' rect Nothing
 
-speedPercent' :: Rectangle -> IO (IO Double, FL.Ref FL.Counter)
-speedPercent' rect = do
+speedPercent' :: Bool -> Rectangle -> IO (IO Double, FL.Ref FL.Counter)
+speedPercent' tooltip rect = do
   speed <- FL.counterNew rect (Just "Speed (%)")
   FL.setLabelsize speed $ FL.FontSize 13
   FL.setLabeltype speed FLE.NormalLabelType FL.ResolveImageLabelDoNothing
@@ -1011,11 +1062,12 @@ speedPercent' rect = do
   FL.setLstep speed 5
   FL.setMinimum speed 1
   void $ FL.setValue speed 100
-  FL.setTooltip speed "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
+  when tooltip $ FL.setTooltip speed
+    "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
   return ((/ 100) <$> FL.getValue speed, speed)
 
-speedPercent :: Rectangle -> IO (IO Double)
-speedPercent = fmap fst . speedPercent'
+speedPercent :: Bool -> Rectangle -> IO (IO Double)
+speedPercent tooltip rect = fst <$> speedPercent' tooltip rect
 
 batchPageRB2
   :: (Event -> IO ())
@@ -1025,7 +1077,7 @@ batchPageRB2
   -> IO ()
 batchPageRB2 sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
+  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) $ speedPercent True
   getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     fn <- horizRadio rect'
       [ ("Guitar/Bass", GBKUnchanged, True)
@@ -1143,7 +1195,7 @@ batchPagePS
   -> IO ()
 batchPagePS sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
+  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) $ speedPercent True
   let getTargetSong usePath template = do
         speed <- getSpeed
         return $ \proj -> let
@@ -1188,7 +1240,7 @@ songPageRB3 sink rect tab proj build = mdo
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
     counterSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) $ \rect' -> do
-      (getSpeed, counter) <- liftIO $ speedPercent' rect'
+      (getSpeed, counter) <- liftIO $ speedPercent' True rect'
       tell $ getSpeed >>= \speed -> return $ Endo $ \rb3 ->
         rb3 { rb3_Common = (rb3_Common rb3) { tgt_Speed = Just speed } }
       return counter
@@ -1316,7 +1368,7 @@ batchPageRB3
   -> IO ()
 batchPageRB3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
+  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) $ speedPercent True
   getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     box <- FL.checkButtonNew rect' (Just "Convert non-Pro Drums to all toms")
     FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
@@ -2768,9 +2820,6 @@ launchGUI = do
         atomically $ writeTChan evts e
         FLTK.awake -- this makes waitFor finish so we can process the event
 
-  -- support drag and drop onto mac app icon
-  void $ openCallback $ Just $ sink . EventOnyx . startLoad . T.unpack
-
   -- terminal
   let consoleWidth = Width 500
       consoleHeight = Height 400
@@ -2811,7 +2860,7 @@ launchGUI = do
                 )
               , ( "File/Open Song"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o'
-                , Just $ promptLoad sink
+                , Just $ promptLoad sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               , ( "File/Live Preview"
@@ -2884,10 +2933,10 @@ launchGUI = do
     (Just "Load a song")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs
-      { FL.handleCustom = Just $ dragAndDrop (sink . EventOnyx . mapM_ startLoad) . FL.handleButtonBase . FL.safeCast
+      { FL.handleCustom = Just $ dragAndDrop (sink . EventOnyx . mapM_ (startLoad makeMenuBar)) . FL.handleButtonBase . FL.safeCast
       }
   loadSongColor >>= FL.setColor buttonOpen
-  FL.setCallback buttonOpen $ \_ -> promptLoad sink
+  FL.setCallback buttonOpen $ \_ -> promptLoad sink makeMenuBar
   buttonBatch <- FL.buttonCustom
     areaBatch
     (Just "Batch process")
@@ -2909,6 +2958,9 @@ launchGUI = do
   FL.setResizable termWindow $ Just term
   FL.setCallback termWindow $ windowCloser $ return ()
   FL.showWidget termWindow
+
+  -- support drag and drop onto mac app icon
+  void $ openCallback $ Just $ sink . EventOnyx . startLoad makeMenuBar . T.unpack
 
   {-
   -- on linux, supposedly you need to show(argc,argv) for icon to work
