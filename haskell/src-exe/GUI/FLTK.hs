@@ -61,7 +61,7 @@ import qualified Data.ByteString.Lazy                      as BL
 import           Data.Char                                 (isSpace, toLower,
                                                             toUpper)
 import qualified Data.Connection                           as Conn
-import           Data.Default.Class                        (def)
+import           Data.Default.Class                        (Default, def)
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
@@ -363,7 +363,7 @@ currentSongTime stime ss = case songPlaying ss of
     timeToDouble t = realToFrac (systemSeconds t) + realToFrac (systemNanoseconds t) / 1000000000
     in (timeToDouble stime - timeToDouble (playStarted p)) * playSpeed p
 
-type BuildYamlControl = WriterT (IO (Endo (SongYaml FilePath))) IO
+type BuildYamlControl a = WriterT (IO (Endo a)) IO
 
 launchWindow :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Project -> Maybe (Double -> Maybe Double -> IO (IO ())) -> IO ()
 launchWindow sink makeMenuBar proj maybeAudio = mdo
@@ -413,12 +413,12 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
             FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
             void $ FL.setValue input $ fromMaybe "" $ getter $ _metadata $ projectSongYaml proj
             return input
-          applyToMetadata :: (Maybe T.Text -> Metadata FilePath -> Metadata FilePath) -> FL.Ref FL.Input -> BuildYamlControl ()
+          applyToMetadata :: (Maybe T.Text -> Metadata f -> Metadata f) -> FL.Ref FL.Input -> BuildYamlControl (SongYaml f) ()
           applyToMetadata setter input = tell $ do
             val <- FL.getValue input
             let val' = guard (val /= "") >> Just val
             return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
-          applyIntToMetadata :: (Maybe Int -> Metadata FilePath -> Metadata FilePath) -> FL.Ref FL.Input -> BuildYamlControl ()
+          applyIntToMetadata :: (Maybe Int -> Metadata f -> Metadata f) -> FL.Ref FL.Input -> BuildYamlControl (SongYaml f) ()
           applyIntToMetadata setter input = tell $ do
             val <- FL.getValue input
             let val' = readMaybe $ T.unpack val
@@ -1219,6 +1219,63 @@ batchPagePS sink rect tab build = do
   FL.setResizable tab $ Just pack
   return ()
 
+songIDBox
+  :: Rectangle
+  -> (Maybe (Either Integer T.Text) -> tgt -> tgt)
+  -> BuildYamlControl tgt ()
+songIDBox rect f = do
+  let (checkArea, inputArea) = chopLeft 200 rect
+  check <- liftIO $ FL.checkButtonNew checkArea (Just "Specific Song ID")
+  input <- liftIO $ FL.inputNew
+    inputArea
+    Nothing
+    (Just FL.FlNormalInput) -- required for labels to work
+  let controlInput = do
+        b <- FL.getValue check
+        (if b then FL.activate else FL.deactivate) input
+  liftIO controlInput
+  liftIO $ FL.setCallback check $ \_ -> controlInput
+  tell $ do
+    b <- FL.getValue check
+    s <- FL.getValue input
+    return $ Endo $ f $ do
+      guard $ b && s /= ""
+      Just $ case readMaybe $ T.unpack s of
+        Nothing -> Right s
+        Just i  -> Left i
+
+partSelectors
+  :: (Default tgt)
+  => Rectangle
+  -> Project
+  -> [(T.Text, tgt -> FlexPartName, FlexPartName -> tgt -> tgt, Part FilePath -> Bool)]
+  -> BuildYamlControl tgt ()
+partSelectors rect proj slots = let
+  rects = splitHorizN (length slots) rect
+  fparts = do
+    (fpart, part) <- HM.toList $ getParts $ _parts $ projectSongYaml proj
+    guard $ part /= def
+    return (fpart, T.toTitle $ RBFile.getPartName fpart, part)
+  instSelector ((lbl, getter, setter, partFilter), r) = do
+    let r' = trimClock 20 5 5 5 r
+        fparts' = [ t | t@(_, _, part) <- fparts, partFilter part ]
+    choice <- liftIO $ do
+      choice <- FL.choiceNew r' $ Just lbl
+      FL.setAlign choice $ FLE.Alignments [FLE.AlignTypeTop]
+      FL.addName choice "(none)"
+      forM_ fparts' $ \(_, opt, _) -> FL.addName choice opt
+      void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $
+        case findIndex (\(fpart, _, _) -> fpart == getter def) fparts' of
+          Nothing -> 0 -- (none)
+          Just i  -> i + 1
+      return choice
+    tell $ do
+      FL.AtIndex i <- FL.getValue choice
+      return $ Endo $ setter $ case drop (i - 1) fparts' of
+        (fpart, _, _) : _ | i /= 0 -> fpart
+        _                          -> FlexExtra "undefined"
+  in mapM_ instSelector $ zip slots rects
+
 songPageRB3
   :: (Event -> IO ())
   -> Rectangle
@@ -1242,56 +1299,25 @@ songPageRB3 sink rect tab proj build = mdo
       tell $ FL.getValue box >>= \b -> return $ Endo $ \rb3 ->
         rb3 { rb3_2xBassPedal = b }
       return box
-    fullWidth 35 $ \rect' -> do
-      let (checkArea, inputArea) = chopLeft 200 rect'
-      check <- liftIO $ FL.checkButtonNew checkArea (Just "Specific Song ID")
-      input <- liftIO $ FL.inputNew
-        inputArea
-        Nothing
-        (Just FL.FlNormalInput) -- required for labels to work
-      let controlInput = do
-            b <- FL.getValue check
-            (if b then FL.activate else FL.deactivate) input
-      liftIO controlInput
-      liftIO $ FL.setCallback check $ \_ -> controlInput
-      tell $ do
-        b <- FL.getValue check
-        s <- FL.getValue input
-        return $ Endo $ \rb3 -> let
-          sid = do
-            guard $ b && s /= ""
-            Just $ case readMaybe $ T.unpack s of
-              Nothing -> Right s
-              Just i  -> Left i
-          in rb3 { rb3_SongID = sid }
-    fullWidth 50 $ \rect' -> do
-      let [r1, r2, r3, r4, r5] = splitHorizN 5 rect'
-          fparts = do
-            (fpart, part) <- HM.toList $ getParts $ _parts $ projectSongYaml proj
-            guard $ part /= def
-            return (fpart, T.toTitle $ RBFile.getPartName fpart)
-          instSelector lbl getter setter r = do
-            let r' = trimClock 20 5 5 5 r
-            choice <- liftIO $ do
-              choice <- FL.choiceNew r' $ Just lbl
-              FL.setAlign choice $ FLE.Alignments [FLE.AlignTypeTop]
-              FL.addName choice "(none)"
-              forM_ fparts $ \(_, opt) -> FL.addName choice opt
-              void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $
-                case findIndex ((== getter (def :: TargetRB3 FilePath)) . fst) fparts of
-                  Nothing -> 0 -- (none)
-                  Just i  -> i + 1
-              return choice
-            tell $ do
-              FL.AtIndex i <- FL.getValue choice
-              return $ Endo $ setter $ case drop (i - 1) fparts of
-                (fpart, _) : _ | i /= 0 -> fpart
-                _                       -> FlexExtra "undefined"
-      instSelector "Guitar" rb3_Guitar (\v rb3 -> rb3 { rb3_Guitar = v }) r1
-      instSelector "Bass"   rb3_Bass   (\v rb3 -> rb3 { rb3_Bass   = v }) r2
-      instSelector "Keys"   rb3_Keys   (\v rb3 -> rb3 { rb3_Keys   = v }) r3
-      instSelector "Drums"  rb3_Drums  (\v rb3 -> rb3 { rb3_Drums  = v }) r4
-      instSelector "Vocal"  rb3_Vocal  (\v rb3 -> rb3 { rb3_Vocal  = v }) r5
+    fullWidth 35 $ \rect' -> songIDBox rect' $ \sid rb3 ->
+      rb3 { rb3_SongID = sid }
+    fullWidth 50 $ \rect' -> partSelectors rect' proj
+      [ ( "Guitar", rb3_Guitar, (\v rb3 -> rb3 { rb3_Guitar = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
+        )
+      , ( "Bass"  , rb3_Bass  , (\v rb3 -> rb3 { rb3_Bass   = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
+        )
+      , ( "Keys"  , rb3_Keys  , (\v rb3 -> rb3 { rb3_Keys   = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partProKeys p))
+        )
+      , ( "Drums" , rb3_Drums , (\v rb3 -> rb3 { rb3_Drums  = v })
+        , (\p -> isJust $ partDrums p)
+        )
+      , ( "Vocal" , rb3_Vocal , (\v rb3 -> rb3 { rb3_Vocal  = v })
+        , (\p -> isJust $ partVocal p)
+        )
+      ]
     fullWidth 35 $ \rect' -> do
       let (checkArea, inputArea) = chopLeft 200 rect'
       check <- liftIO $ FL.checkButtonNew checkArea (Just "Custom Title Suffix")
