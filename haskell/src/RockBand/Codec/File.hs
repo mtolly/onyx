@@ -77,7 +77,8 @@ fileTrack name otherNames = Codec
     let (match, rest) = partition matchTrack trks
         match' = stripTrack $ foldr RTB.merge RTB.empty match
         name' = fromMaybe (T.unpack name) $ U.trackName match'
-        mt = mapMIDITrack RTB.fromAbsoluteEventList
+        mt = fixZeroLengthNotes (1/480 :: U.Beats)
+          $ mapMIDITrack RTB.fromAbsoluteEventList
           $ getMIDITrack $ RTB.toAbsoluteEventList 0 match'
     lift $ put rest
     inside ("Parsing track: " ++ name') $ do
