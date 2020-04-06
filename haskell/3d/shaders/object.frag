@@ -15,9 +15,9 @@ struct Material {
 struct Light {
     vec3 position;
 
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
+    vec4 ambient;
+    vec4 diffuse;
+    vec4 specular;
 };
 
 uniform Light light;
@@ -50,19 +50,19 @@ void main()
     vec4 specularSource = getColor(material.specular);
 
     // ambient
-    vec4 ambient = vec4(light.ambient, 1.0) * diffuseSource;
+    vec4 ambient = light.ambient * diffuseSource;
 
     // diffuse
     vec3 norm = normalize(Normal);
     vec3 lightDir = normalize(light.position - FragPos);
     float diff = max(dot(norm, lightDir), 0.0);
-    vec4 diffuse = vec4(light.diffuse, 1.0) * diff * diffuseSource;
+    vec4 diffuse = light.diffuse * diff * diffuseSource;
 
     // specular
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 reflectDir = reflect(-lightDir, norm);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-    vec4 specular = vec4(light.specular, 1.0) * (spec * specularSource);
+    vec4 specular = light.specular * (spec * specularSource);
 
     vec4 result = ambient + diffuse + specular;
     float horizonFade = 1.0 - (gl_FragCoord.y - startFade) / (endFade - startFade);
