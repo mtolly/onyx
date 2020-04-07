@@ -36,7 +36,7 @@ import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
 import           Control.Monad.Catch                       (catchIOError)
-import           Control.Monad.Extra                       (concatMapM, forM,
+import           Control.Monad.Extra                       (forM,
                                                             forM_, guard, join,
                                                             unless, void, when,
                                                             (>=>))
@@ -68,11 +68,10 @@ import qualified Data.HashMap.Strict                       as HM
 import           Data.IORef                                (IORef, newIORef,
                                                             readIORef,
                                                             writeIORef)
-import           Data.List.Extra                           (findIndex, nubOrd)
+import           Data.List.Extra                           (findIndex)
 import qualified Data.Map                                  as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
-                                                            isNothing,
                                                             listToMaybe,
                                                             mapMaybe)
 import           Data.Monoid                               (Endo (..))
@@ -833,31 +832,23 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
       let input = takeDirectory (projectLocation proj) </> "notes.mid"
       mid <- RBFile.loadMIDI input
       let foundTracks = getScoreTracks $ RBFile.s_tracks mid
-          trackLookup = Map.fromList $ map
-            (\quad@(strack, diff, _, _) -> ((strack, diff), quad))
-            foundTracks
       stackIO $ sink $ EventIO $ mdo
         FL.begin pack
-        getTracks <- forM (nubOrd [strack | (strack, _, _, _) <- foundTracks]) $ \strack -> do
-          getDiff <- padded 3 10 3 10 (Size (Width 800) (Height 20)) $ \row -> do
-            let (labelArea, diffArea) = chopLeft 200 row
-            void $ FL.boxNew labelArea $ Just $ scoreTrackName strack
-            horizRadio' diffArea (Just updateLabel) $ do
-              diff <- Nothing : map Just [minBound .. maxBound] :: [Maybe RB.Difficulty]
-              return (maybe "None" (T.pack . show) diff, diff, isNothing diff)
-          return (strack, getDiff)
+        getTracks <- padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
+          starSelectors rect' foundTracks updateLabel
+            [ ("Guitar", [ScoreGuitar, ScoreProGuitar])
+            , ("Bass"  , [ScoreBass  , ScoreProBass  ])
+            , ("Keys"  , [ScoreKeys  , ScoreProKeys  ])
+            , ("Drums" , [ScoreDrums , ScoreProDrums ])
+            , ("Vocal" , [ScoreVocals, ScoreHarmonies])
+            ]
         [l1S, l2S, l3S, l4S, l5S, lGS] <- padded 3 10 3 10 (Size (Width 800) (Height 40)) $ \bottomArea -> do
           forM (splitHorizN 6 bottomArea) $ \cell -> do
             cutoffLabel <- FL.boxNew cell Nothing
             FL.setLabelfont cutoffLabel FLE.helveticaBold
             return cutoffLabel
         let updateLabel = do
-              tracks <- flip concatMapM getTracks $ \(strack, getDiff) -> do
-                mmdiff <- getDiff
-                case join mmdiff of
-                  Nothing   -> return []
-                  Just diff -> return $ toList $ Map.lookup (strack, diff) trackLookup
-              let stars = tracksToStars tracks
+              stars <- tracksToStars <$> getTracks
               FL.setLabel l1S $ maybe "" (\n -> "1*: " <> T.pack (show n)) $ stars1    stars
               FL.setLabel l2S $ maybe "" (\n -> "2*: " <> T.pack (show n)) $ stars2    stars
               FL.setLabel l3S $ maybe "" (\n -> "3*: " <> T.pack (show n)) $ stars3    stars
@@ -1243,6 +1234,35 @@ songIDBox rect f = do
       Just $ case readMaybe $ T.unpack s of
         Nothing -> Right s
         Just i  -> Left i
+
+starSelectors
+  :: Rectangle
+  -> [(ScoreTrack, RB.Difficulty, Int, Int)]
+  -> IO ()
+  -> [(T.Text, [ScoreTrack])]
+  -> IO (IO [(ScoreTrack, RB.Difficulty, Int, Int)])
+starSelectors rect foundTracks updateLabel slots = let
+  rects = splitHorizN (length slots) rect
+  instSelector ((lbl, trackFilter), r) = do
+    let r' = trimClock 20 5 5 5 r
+        matchTracks = [ t | t@(strack, _, _, _) <- foundTracks, elem strack trackFilter ]
+    choice <- FL.choiceNew r' $ Just lbl
+    FL.setAlign choice $ FLE.Alignments [FLE.AlignTypeTop]
+    FL.addName choice "(none)"
+    forM_ matchTracks $ \(strack, diff, _, _) -> FL.addName choice $
+      scoreTrackName strack <> " " <> case diff of
+        RB.Easy   -> "(E)"
+        RB.Medium -> "(M)"
+        RB.Hard   -> "(H)"
+        RB.Expert -> "(X)"
+    void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex 0
+    FL.setCallback choice $ \_ -> updateLabel
+    return $ do
+      FL.AtIndex i <- FL.getValue choice
+      return $ case drop (i - 1) matchTracks of
+        t : _ | i /= 0 -> [t]
+        _              -> []
+  in mconcat $ map instSelector $ zip slots rects
 
 partSelectors
   :: (Default tgt)
