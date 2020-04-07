@@ -41,6 +41,8 @@ import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums           as D
 import qualified RockBand.Codec.Five            as F
 import           RockBand.Common                (StrumHOPOTap (..))
+import           System.Directory               (doesFileExist)
+import           System.FilePath                ((<.>), (</>))
 
 data Object
   = Box
@@ -929,60 +931,61 @@ loadGLStuff = do
   -- textures
 
   textures <- forM [minBound .. maxBound] $ \texID -> do
-    path <- getResourcesPath $ case texID of
-      TextureLongKick          -> "textures/long-kick.jpg"
-      TextureLongOpen          -> "textures/long-open.jpg"
-      TextureLongOpenHopo      -> "textures/long-open-hopo.jpg"
-      TextureLongOpenTap       -> "textures/long-open-tap.jpg"
-      TextureLongEnergy        -> "textures/long-energy.jpg"
-      TextureLongEnergyHopo    -> "textures/long-energy-hopo.jpg"
-      TextureLongEnergyTap     -> "textures/long-energy-tap.jpg"
-      TextureGreenGem          -> "textures/box-green.jpg"
-      TextureRedGem            -> "textures/box-red.jpg"
-      TextureYellowGem         -> "textures/box-yellow.jpg"
-      TextureBlueGem           -> "textures/box-blue.jpg"
-      TextureOrangeGem         -> "textures/box-orange.jpg"
-      TextureEnergyGem         -> "textures/box-energy.jpg"
-      TextureGreenHopo         -> "textures/hopo-green.jpg"
-      TextureRedHopo           -> "textures/hopo-red.jpg"
-      TextureYellowHopo        -> "textures/hopo-yellow.jpg"
-      TextureBlueHopo          -> "textures/hopo-blue.jpg"
-      TextureOrangeHopo        -> "textures/hopo-orange.jpg"
-      TextureEnergyHopo        -> "textures/hopo-energy.jpg"
-      TextureGreenTap          -> "textures/tap-green.jpg"
-      TextureRedTap            -> "textures/tap-red.jpg"
-      TextureYellowTap         -> "textures/tap-yellow.jpg"
-      TextureBlueTap           -> "textures/tap-blue.jpg"
-      TextureOrangeTap         -> "textures/tap-orange.jpg"
-      TextureEnergyTap         -> "textures/tap-energy.jpg"
-      TextureRedCymbal         -> "textures/cymbal-red.jpg"
-      TextureYellowCymbal      -> "textures/cymbal-yellow.jpg"
-      TextureBlueCymbal        -> "textures/cymbal-blue.jpg"
-      TextureGreenCymbal       -> "textures/cymbal-green.jpg"
-      TextureEnergyCymbal      -> "textures/cymbal-energy.jpg"
-      TextureLine1             -> "textures/line-1.png"
-      TextureLine2             -> "textures/line-2.png"
-      TextureLine3             -> "textures/line-3.png"
-      TextureTargetGreen       -> "textures/target-green.jpg"
-      TextureTargetRed         -> "textures/target-red.jpg"
-      TextureTargetYellow      -> "textures/target-yellow.jpg"
-      TextureTargetBlue        -> "textures/target-blue.jpg"
-      TextureTargetOrange      -> "textures/target-orange.jpg"
-      TextureTargetGreenLight  -> "textures/target-green-light.jpg"
-      TextureTargetRedLight    -> "textures/target-red-light.jpg"
-      TextureTargetYellowLight -> "textures/target-yellow-light.jpg"
-      TextureTargetBlueLight   -> "textures/target-blue-light.jpg"
-      TextureTargetOrangeLight -> "textures/target-orange-light.jpg"
-      TextureNumber0           -> "textures/number-0.png"
-      TextureNumber1           -> "textures/number-1.png"
-      TextureNumber2           -> "textures/number-2.png"
-      TextureNumber3           -> "textures/number-3.png"
-      TextureNumber4           -> "textures/number-4.png"
-      TextureNumber5           -> "textures/number-5.png"
-      TextureNumber6           -> "textures/number-6.png"
-      TextureNumber7           -> "textures/number-7.png"
-      TextureNumber8           -> "textures/number-8.png"
-      TextureNumber9           -> "textures/number-9.png"
+    let imageName = case texID of
+          TextureLongKick          -> "long-kick"
+          TextureLongOpen          -> "long-open"
+          TextureLongOpenHopo      -> "long-open-hopo"
+          TextureLongOpenTap       -> "long-open-tap"
+          TextureLongEnergy        -> "long-energy"
+          TextureLongEnergyHopo    -> "long-energy-hopo"
+          TextureLongEnergyTap     -> "long-energy-tap"
+          TextureGreenGem          -> "box-green"
+          TextureRedGem            -> "box-red"
+          TextureYellowGem         -> "box-yellow"
+          TextureBlueGem           -> "box-blue"
+          TextureOrangeGem         -> "box-orange"
+          TextureEnergyGem         -> "box-energy"
+          TextureGreenHopo         -> "hopo-green"
+          TextureRedHopo           -> "hopo-red"
+          TextureYellowHopo        -> "hopo-yellow"
+          TextureBlueHopo          -> "hopo-blue"
+          TextureOrangeHopo        -> "hopo-orange"
+          TextureEnergyHopo        -> "hopo-energy"
+          TextureGreenTap          -> "tap-green"
+          TextureRedTap            -> "tap-red"
+          TextureYellowTap         -> "tap-yellow"
+          TextureBlueTap           -> "tap-blue"
+          TextureOrangeTap         -> "tap-orange"
+          TextureEnergyTap         -> "tap-energy"
+          TextureRedCymbal         -> "cymbal-red"
+          TextureYellowCymbal      -> "cymbal-yellow"
+          TextureBlueCymbal        -> "cymbal-blue"
+          TextureGreenCymbal       -> "cymbal-green"
+          TextureEnergyCymbal      -> "cymbal-energy"
+          TextureLine1             -> "line-1"
+          TextureLine2             -> "line-2"
+          TextureLine3             -> "line-3"
+          TextureTargetGreen       -> "target-green"
+          TextureTargetRed         -> "target-red"
+          TextureTargetYellow      -> "target-yellow"
+          TextureTargetBlue        -> "target-blue"
+          TextureTargetOrange      -> "target-orange"
+          TextureTargetGreenLight  -> "target-green-light"
+          TextureTargetRedLight    -> "target-red-light"
+          TextureTargetYellowLight -> "target-yellow-light"
+          TextureTargetBlueLight   -> "target-blue-light"
+          TextureTargetOrangeLight -> "target-orange-light"
+          TextureNumber0           -> "number-0"
+          TextureNumber1           -> "number-1"
+          TextureNumber2           -> "number-2"
+          TextureNumber3           -> "number-3"
+          TextureNumber4           -> "number-4"
+          TextureNumber5           -> "number-5"
+          TextureNumber6           -> "number-6"
+          TextureNumber7           -> "number-7"
+          TextureNumber8           -> "number-8"
+          TextureNumber9           -> "number-9"
+    base <- getResourcesPath $ "textures" </> imageName
     let isLinear = case texID of
           TextureNumber0 -> False
           TextureNumber1 -> False
@@ -995,7 +998,12 @@ loadGLStuff = do
           TextureNumber8 -> False
           TextureNumber9 -> False
           _              -> True
-    tex <- readImage path >>= either fail return >>= loadTexture isLinear . convertRGBA8
+        readExt [] = error $ "No file found for texture " <> imageName
+        readExt (ext : rest) = doesFileExist (base <.> ext) >>= \case
+          True -> readImage (base <.> ext) >>= either fail return
+            >>= loadTexture isLinear . convertRGBA8
+          False -> readExt rest
+    tex <- readExt ["png", "jpg", "jpeg"]
     return (texID, tex)
 
   -- models

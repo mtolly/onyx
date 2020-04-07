@@ -54,8 +54,8 @@ track:
     z-past: 0.05
     z-future: -0.05
   targets:
-    z-past: 0.17
-    z-future: -0.17
+    z-past: 0.13
+    z-future: -0.13
     # time the "light up" overlay takes to fade after a hit
     secs-light: 0.1666666
   # light used for the track itself (but not the gems on top)
