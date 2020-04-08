@@ -3,7 +3,6 @@
 {-# LANGUAGE RecordWildCards #-}
 module RhythmGame.Audio where
 
-import           Audio                          (stretchRealtime)
 import           Audio
 import           AudioSearch
 import           Config
@@ -29,7 +28,7 @@ import qualified Data.Set                       as Set
 import qualified Data.Text                      as T
 import qualified Data.Vector.Storable           as V
 import           Foreign                        hiding (void)
-import           Foreign.C                      (CFloat (..))
+import           Foreign.C                      (CFloat (..), CInt(..), CUInt(..))
 import           MoggDecrypt
 import           OpenProject
 import           RenderAudio                    (computeChannelsPlan)
@@ -106,6 +105,9 @@ emptySources srcs = do
       emptySources srcs'
 -}
 
+foreign import ccall unsafe
+  alSourcei :: AL.ALuint -> AL.ALenum -> AL.ALint -> IO ()
+
 playSource
   :: [Float]
   -> [Float]
@@ -115,9 +117,11 @@ playSource pans vols ca = do
   let chanCount = CA.channels ca
       floatRate = realToFrac $ CA.rate ca
   srcs <- doAL "playSource genObjectNames sources" $ AL.genObjectNames chanCount
-  forM_ (zip srcs pans) $ \(src, pan) ->
-    doAL "playSource setting sourcePosition" $
-    AL.sourcePosition src $= AL.V3 (CFloat pan) 0 0
+  forM_ srcs $ \src -> do
+    with src $ \p -> do
+      srcID <- peek $ castPtr p -- this is dumb but OpenAL pkg doesn't expose constructor
+      doAL "playSource setting direct mode" $ do
+        alSourcei srcID 0x1033 1 -- this is AL_DIRECT_CHANNELS_SOFT (should use c2hs!)
   forM_ (zip srcs vols) $ \(src, volDB) ->
     doAL "playSource setting sourceGain" $
     AL.sourceGain src $= CFloat (10 ** (volDB / 20))
@@ -146,12 +150,20 @@ playSource pans vols ca = do
                     loop currentBuffers Playing
                   Just chunk -> do
                     bufs <- liftIO $ doAL "playSource genObjectNames buffers" $ AL.genObjectNames chanCount
-                    forM_ (zip bufs $ CA.deinterleave chanCount chunk) $ \(buf, chan) -> do
-                      liftIO $ V.unsafeWith chan $ \p -> do
+                    forM_ (zip bufs $ zip pans $ CA.deinterleave chanCount chunk) $ \(buf, (pan, chan)) -> do
+                      let chan' = V.generate (V.length chan * 2) $ \i -> case pan of
+                            -1 -> case quotRem i 2 of
+                              (j, 0) -> chan V.! j
+                              _      -> 0
+                            1 -> case quotRem i 2 of
+                              (j, 1) -> chan V.! j
+                              _      -> 0
+                            _ -> 0 -- TODO support other pans
+                      liftIO $ V.unsafeWith chan' $ \p -> do
                         let _ = p :: Ptr Int16
                         doAL "playSource set bufferData" $ AL.bufferData buf $= AL.BufferData
-                          (AL.MemoryRegion p $ fromIntegral $ V.length chan * sizeOf (V.head chan))
-                          AL.Mono16
+                          (AL.MemoryRegion p $ fromIntegral $ V.length chan' * sizeOf (V.head chan'))
+                          AL.Stereo16
                           floatRate
                     forM_ (zip srcs bufs) $ \(src, buf) -> do
                       liftIO $ doAL "playSource queueBuffers" $ AL.queueBuffers src [buf]
