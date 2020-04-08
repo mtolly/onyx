@@ -888,10 +888,24 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
             return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  {-
-  makeTab windowRect "Rock Band 2" $ \_ _ -> return ()
-  makeTab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
-  -}
+  psTab <- makeTab windowRect "CH/PS" $ \rect tab -> do
+    functionTabColor >>= setTabColor tab
+    songPagePS sink rect tab proj $ \tgt create -> do
+      proj' <- fullProjModify proj
+      let name = case create of
+            PSDir _ -> "Building CH/PS song folder"
+            PSZip _ -> "Building CH/PS zip file"
+          task = case create of
+            PSDir dout -> do
+              tmp <- buildPSDir tgt proj'
+              copyDirRecursive tmp dout
+              return [dout]
+            PSZip fout -> do
+              tmp <- buildPSZip tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
@@ -928,7 +942,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, utilsTab]
+  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskTabColor >>= setTabColor tab
     FL.deactivate tab
@@ -1491,6 +1505,92 @@ songPageRB2 sink rect tab proj build = mdo
         _ -> return ()
     color <- FLE.rgbColorWithRgb (179,221,187)
     FL.setColor btn color
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+songPagePS
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> Project
+  -> (TargetPS FilePath -> PSCreate -> IO ())
+  -> IO ()
+songPagePS sink rect tab proj build = mdo
+  pack <- FL.packNew rect Nothing
+  let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
+  targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
+      tell $ getSpeed >>= \speed -> return $ Endo $ \ps ->
+        ps { ps_Common = (ps_Common ps) { tgt_Speed = Just speed } }
+      return counter
+    fullWidth 50 $ \rect' -> partSelectors rect' proj
+      [ ( "Guitar"     , ps_Guitar    , (\v ps -> ps { ps_Guitar       = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partGHL p) || isJust (partProGuitar p))
+        )
+      , ( "Bass"       , ps_Bass      , (\v ps -> ps { ps_Bass         = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partGHL p) || isJust (partProGuitar p))
+        )
+      , ( "Keys"       , ps_Keys      , (\v ps -> ps { ps_Keys         = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partProKeys p))
+        )
+      , ( "Drums"      , ps_Drums     , (\v ps -> ps { ps_Drums        = v })
+        , (\p -> isJust $ partDrums p)
+        )
+      , ( "Vocal"      , ps_Vocal     , (\v ps -> ps { ps_Vocal        = v })
+        , (\p -> isJust $ partVocal p)
+        )
+      , ( "Rhythm"     , ps_Rhythm    , (\v ps -> ps { ps_Rhythm       = v })
+        , (\p -> isJust $ partGRYBO p)
+        )
+      , ( "Guitar Coop", ps_GuitarCoop, (\v ps -> ps { ps_GuitarCoop   = v })
+        , (\p -> isJust $ partGRYBO p)
+        )
+      ]
+    fullWidth 35 $ \rect' -> do
+      controlInput <- customTitleSuffix sink rect'
+        (makeTarget >>= \ps -> return $ targetTitle
+          (projectSongYaml proj)
+          (PS ps { ps_Common = (ps_Common ps) { tgt_Title = Just "" } })
+        )
+        (\msfx ps -> ps
+          { ps_Common = (ps_Common ps)
+            { tgt_Label = msfx
+            }
+          }
+        )
+      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+  let makeTarget = fmap ($ def) targetModifier
+  fullWidth 35 $ \rect' -> do
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    btn1 <- FL.buttonNew r1 $ Just "Create CH/PS song folder"
+    FL.setCallback btn1 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
+      FL.setTitle picker "Save CH/PS song folder"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_chps" -- TODO add modifiers
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ PSDir f
+        _ -> return ()
+    btn2 <- FL.buttonNew r2 $ Just "Create CH/PS zip file"
+    FL.setCallback btn2 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save CH/PS zip file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_chps.zip" -- TODO add modifiers
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ PSZip f
+        _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn1 color
+    FL.setColor btn2 color
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
