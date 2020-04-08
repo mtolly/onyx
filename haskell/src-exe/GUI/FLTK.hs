@@ -69,7 +69,6 @@ import           Data.IORef                                (IORef, newIORef,
                                                             readIORef,
                                                             writeIORef)
 import           Data.List.Extra                           (findIndex)
-import qualified Data.Map                                  as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
                                                             listToMaybe,
@@ -878,6 +877,17 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
               return [dout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
+  rb2Tab <- makeTab windowRect "RB2" $ \rect tab -> do
+    functionTabColor >>= setTabColor tab
+    songPageRB2 sink rect tab proj $ \tgt fout -> do
+      proj' <- fullProjModify proj
+      let name = "Building RB2 CON"
+          task = do
+            tmp <- buildRB2CON tgt proj'
+            stackIO $ Dir.copyFile tmp fout
+            return [fout]
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
   {-
   makeTab windowRect "Rock Band 2" $ \_ _ -> return ()
   makeTab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
@@ -918,7 +928,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let tabsToDisable = [metaTab, instTab, rb3Tab, utilsTab]
+  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskTabColor >>= setTabColor tab
     FL.deactivate tab
@@ -1296,6 +1306,35 @@ partSelectors rect proj slots = let
         _                          -> FlexExtra "undefined"
   in mapM_ instSelector $ zip slots rects
 
+customTitleSuffix
+  :: (Event -> IO ())
+  -> Rectangle
+  -> IO T.Text
+  -> (Maybe T.Text -> tgt -> tgt)
+  -> BuildYamlControl tgt (IO ())
+customTitleSuffix sink rect getSuffix setSuffix = do
+  let (checkArea, inputArea) = chopLeft 200 rect
+  check <- liftIO $ FL.checkButtonNew checkArea (Just "Custom Title Suffix")
+  input <- liftIO $ FL.inputNew
+    inputArea
+    Nothing
+    (Just FL.FlNormalInput) -- required for labels to work
+  let controlInput = do
+        b <- FL.getValue check
+        if b
+          then FL.activate input
+          else do
+            sfx <- getSuffix
+            void $ FL.setValue input $ T.strip sfx
+            FL.deactivate input
+  liftIO $ sink $ EventIO controlInput -- have to delay; can't call now due to dependency loop!
+  liftIO $ FL.setCallback check $ \_ -> controlInput
+  tell $ do
+    b <- FL.getValue check
+    s <- FL.getValue input
+    return $ Endo $ setSuffix $ guard b >> Just (T.strip s)
+  return controlInput
+
 songPageRB3
   :: (Event -> IO ())
   -> Rectangle
@@ -1339,34 +1378,19 @@ songPageRB3 sink rect tab proj build = mdo
         )
       ]
     fullWidth 35 $ \rect' -> do
-      let (checkArea, inputArea) = chopLeft 200 rect'
-      check <- liftIO $ FL.checkButtonNew checkArea (Just "Custom Title Suffix")
-      input <- liftIO $ FL.inputNew
-        inputArea
-        Nothing
-        (Just FL.FlNormalInput) -- required for labels to work
-      let controlInput = do
-            b <- FL.getValue check
-            if b
-              then FL.activate input
-              else do
-                rb3 <- makeTarget
-                void $ FL.setValue input $ T.strip $ targetTitle
-                  (projectSongYaml proj)
-                  (RB3 rb3 { rb3_Common = (rb3_Common rb3) { tgt_Title = Just "" } })
-                FL.deactivate input
-      liftIO $ sink $ EventIO controlInput -- have to delay; can't call now due to dependency loop!
-      liftIO $ FL.setCallback check $ \_ -> controlInput
-      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
-      liftIO $ FL.setCallback box2x $ \_ -> controlInput
-      tell $ do
-        b <- FL.getValue check
-        s <- FL.getValue input
-        return $ Endo $ \rb3 -> rb3
+      controlInput <- customTitleSuffix sink rect'
+        (makeTarget >>= \rb3 -> return $ targetTitle
+          (projectSongYaml proj)
+          (RB3 rb3 { rb3_Common = (rb3_Common rb3) { tgt_Title = Just "" } })
+        )
+        (\msfx rb3 -> rb3
           { rb3_Common = (rb3_Common rb3)
-            { tgt_Label = guard b >> Just (T.strip s)
+            { tgt_Label = msfx
             }
           }
+        )
+      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+      liftIO $ FL.setCallback box2x $ \_ -> controlInput
   let makeTarget = fmap ($ def) targetModifier
   fullWidth 35 $ \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
@@ -1395,6 +1419,78 @@ songPageRB3 sink rect tab proj build = mdo
     color <- FLE.rgbColorWithRgb (179,221,187)
     FL.setColor btn1 color
     FL.setColor btn2 color
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+songPageRB2
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> Project
+  -> (TargetRB2 -> FilePath -> IO ())
+  -> IO ()
+songPageRB2 sink rect tab proj build = mdo
+  pack <- FL.packNew rect Nothing
+  let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
+  targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
+      tell $ getSpeed >>= \speed -> return $ Endo $ \rb2 ->
+        rb2 { rb2_Common = (rb2_Common rb2) { tgt_Speed = Just speed } }
+      return counter
+    box2x <- fullWidth 35 $ \rect' -> do
+      box <- liftIO $ FL.checkButtonNew rect' (Just "2x Bass Pedal drums")
+      tell $ FL.getValue box >>= \b -> return $ Endo $ \rb2 ->
+        rb2 { rb2_2xBassPedal = b }
+      return box
+    fullWidth 35 $ \rect' -> songIDBox rect' $ \sid rb2 ->
+      rb2 { rb2_SongID = sid }
+    fullWidth 50 $ \rect' -> partSelectors rect' proj
+      [ ( "Guitar", rb2_Guitar, (\v rb2 -> rb2 { rb2_Guitar = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
+        )
+      , ( "Bass"  , rb2_Bass  , (\v rb2 -> rb2 { rb2_Bass   = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
+        )
+      , ( "Drums" , rb2_Drums , (\v rb2 -> rb2 { rb2_Drums  = v })
+        , (\p -> isJust $ partDrums p)
+        )
+      , ( "Vocal" , rb2_Vocal , (\v rb2 -> rb2 { rb2_Vocal  = v })
+        , (\p -> isJust $ partVocal p)
+        )
+      ]
+    fullWidth 35 $ \rect' -> do
+      controlInput <- customTitleSuffix sink rect'
+        (makeTarget >>= \rb2 -> return $ targetTitle
+          (projectSongYaml proj)
+          (RB2 rb2 { rb2_Common = (rb2_Common rb2) { tgt_Title = Just "" } })
+        )
+        (\msfx rb2 -> rb2
+          { rb2_Common = (rb2_Common rb2)
+            { tgt_Label = msfx
+            }
+          }
+        )
+      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+      liftIO $ FL.setCallback box2x $ \_ -> controlInput
+  let makeTarget = fmap ($ def) targetModifier
+  fullWidth 35 $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Create CON file"
+    FL.setCallback btn $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save RB2 CON file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_rb2con" -- TODO add modifiers
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt f
+        _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn color
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
