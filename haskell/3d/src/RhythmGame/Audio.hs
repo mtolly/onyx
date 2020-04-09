@@ -151,14 +151,17 @@ playSource pans vols ca = do
                   Just chunk -> do
                     bufs <- liftIO $ doAL "playSource genObjectNames buffers" $ AL.genObjectNames chanCount
                     forM_ (zip bufs $ zip pans $ CA.deinterleave chanCount chunk) $ \(buf, (pan, chan)) -> do
-                      let chan' = V.generate (V.length chan * 2) $ \i -> case pan of
-                            -1 -> case quotRem i 2 of
-                              (j, 0) -> chan V.! j
-                              _      -> 0
-                            1 -> case quotRem i 2 of
-                              (j, 1) -> chan V.! j
-                              _      -> 0
-                            _ -> 0 -- TODO support other pans
+                      let (applyL, applyR) = case pan of
+                            -- optimize for the usual hard pan cases
+                            -1 -> (id, const 0)
+                            1  -> (const 0, id)
+                            _ -> let
+                              (ratioL, ratioR) = stereoPanRatios pan
+                              applyRatio r i = CA.integralSample $ CA.fractionalSample i * r
+                              in (applyRatio ratioL, applyRatio ratioR)
+                          chan' = V.generate (V.length chan * 2) $ \i -> case quotRem i 2 of
+                            (j, 0) -> applyL $ chan V.! j
+                            (j, _) -> applyR $ chan V.! j
                       liftIO $ V.unsafeWith chan' $ \p -> do
                         let _ = p :: Ptr Int16
                         doAL "playSource set bufferData" $ AL.bufferData buf $= AL.BufferData
