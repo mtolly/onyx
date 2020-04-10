@@ -49,7 +49,7 @@ main = getArgs >>= \case
       liftIO $ bracket_ SDL.initializeAll SDL.quit $ do
         let windowConf = SDL.defaultWindow
               { SDL.windowResizable = True
-              , SDL.windowHighDPI = False
+              , SDL.windowHighDPI = True -- required on Catalina apparently
               , SDL.windowInitialSize = SDL.V2 800 600
               , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
                 { SDL.glProfile = SDL.Core SDL.Normal 3 3
@@ -85,7 +85,7 @@ main = getArgs >>= \case
       liftIO $ bracket_ SDL.initializeAll SDL.quit $ do
         let windowConf = SDL.defaultWindow
               { SDL.windowResizable = True
-              , SDL.windowHighDPI = False
+              , SDL.windowHighDPI = True -- required on Catalina apparently
               , SDL.windowInitialSize = SDL.V2 800 600
               , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
                 { SDL.glProfile = SDL.Core SDL.Normal 3 3

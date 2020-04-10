@@ -2583,7 +2583,7 @@ previewGroup sink rect getTracks getTime getSpeed = do
           h <- FL.pixelH wind
           RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t speed
             $ mapMaybe (`lookup` trks) selected
-  -- TODO do we want to set "FL.setUseHighResGL True" here for mac?
+  FLTK.setUseHighResGL True -- required on Catalina, otherwise it does high-res anyway but pixelW/pixelH aren't right
   glwindow <- FLGL.glWindowCustom
     (rectangleSize glArea)
     (Just $ rectanglePosition glArea)
