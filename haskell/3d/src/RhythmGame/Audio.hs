@@ -28,7 +28,8 @@ import qualified Data.Set                       as Set
 import qualified Data.Text                      as T
 import qualified Data.Vector.Storable           as V
 import           Foreign                        hiding (void)
-import           Foreign.C                      (CFloat (..), CInt(..), CUInt(..))
+import           Foreign.C                      (CFloat (..), CInt (..),
+                                                 CUInt (..))
 import           MoggDecrypt
 import           OpenProject
 import           RenderAudio                    (computeChannelsPlan)

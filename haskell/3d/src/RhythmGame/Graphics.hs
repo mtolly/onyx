@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE ViewPatterns      #-}
 module RhythmGame.Graphics where
 
 import           Build                          (loadYaml)
@@ -19,7 +20,8 @@ import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
 import qualified Data.ByteString                as B
 import           Data.FileEmbed                 (embedFile,
                                                  makeRelativeToProject)
-import           Data.List                      (partition)
+import           Data.Foldable                  (traverse_)
+import           Data.List                      (partition, sort)
 import           Data.List.HT                   (partitionMaybe)
 import qualified Data.Map.Strict                as Map
 import           Data.Maybe                     (fromMaybe, isJust)
@@ -295,7 +297,10 @@ drawDrumPlay glStuff@GLStuff{..} ydims nowTime speed dps = do
     ]
   glDepthFunc GL_LESS
   -- draw notes
-  void $ Map.traverseWithKey drawNotes zoomed
+  traverseDescWithKey_ drawNotes zoomed
+
+traverseDescWithKey_ :: (Applicative t) => (k -> a -> t ()) -> Map.Map k a -> t ()
+traverseDescWithKey_ f = traverse_ (uncurry f) . Map.toDescList
 
 zoomMap :: (TimeState a, Fractional t, Ord t) => t -> t -> Map.Map t a -> Map.Map t a
 zoomMap t1 t2 m = let
@@ -383,12 +388,12 @@ drawFive glStuff@GLStuff{..} ydims nowTime speed trk = do
         posn = ObjectMove $ V3 (colorCenterX color) (C.trk_y $ C.cfg_track gfxConfig) z
         z = timeToZ t
         in drawObject' obj posn shade (fromMaybe 1 alpha) $ LightOffset $ V3 0 1 0 -- CONFIGME
-      drawNotes _        []                     = return ()
-      drawNotes prevTime ((thisTime, cs) : rest) = do
+      drawNotes _        []                      = return ()
+      drawNotes nextTime ((thisTime, cs) : rest) = do
         let notes = Map.toList $ guitarNotes $ commonState cs
-        -- draw preceding sustain
-        forM_ notes $ \(color, pnf) -> forM_ (getPast pnf) $ \od -> do
-          drawSustain prevTime thisTime od color
+        -- draw following sustain
+        forM_ notes $ \(color, pnf) -> forM_ (getFuture pnf) $ \od -> do
+          drawSustain thisTime nextTime od color
         -- draw note
         let thisOD = case commonOverdrive cs of
               ToggleEmpty -> False
@@ -400,10 +405,10 @@ drawFive glStuff@GLStuff{..} ydims nowTime speed trk = do
           else if nowTime - thisTime < realToFrac fadeTime
             then drawGem nowTime thisOD color sht $ Just $ 1 - realToFrac (nowTime - thisTime) / fadeTime
             else return ()
-        -- draw future sustain if rest is empty
+        -- draw past sustain if rest is empty
         when (null rest) $ do
-          forM_ notes $ \(color, pnf) -> forM_ (getFuture pnf) $ \od -> do
-            drawSustain thisTime farTime od color
+          forM_ notes $ \(color, pnf) -> forM_ (getPast pnf) $ \od -> do
+            drawSustain nearTime thisTime od color
         drawNotes thisTime rest
       drawBeat t cs = case commonBeats cs of
         Nothing -> return ()
@@ -520,7 +525,7 @@ drawFive glStuff@GLStuff{..} ydims nowTime speed trk = do
     ]
   glDepthFunc GL_LESS
   -- draw notes
-  drawNotes nearTime $ Map.toList zoomed
+  drawNotes farTime $ Map.toDescList zoomed
 
 compileShader :: GLenum -> B.ByteString -> IO GLuint
 compileShader shaderType source = do
@@ -560,7 +565,7 @@ data Vertex = Vertex
   { vertexPosition  :: V3 CFloat
   , vertexNormal    :: V3 CFloat
   , vertexTexCoords :: V2 CFloat
-  } deriving (Eq, Show)
+  } deriving (Eq, Ord, Show)
 
 instance Storable Vertex where
   sizeOf _ = 8 * sizeOf (undefined :: CFloat)
@@ -743,14 +748,17 @@ data RenderObject = RenderObject
   } deriving (Show)
 
 data GLStuff = GLStuff
-  { objectShader :: GLuint
-  , boxObject    :: RenderObject
-  , flatObject   :: RenderObject
-  , quadShader   :: GLuint
-  , quadObject   :: RenderObject
-  , textures     :: [(TextureID, Texture)]
-  , models       :: [(ModelID, RenderObject)]
-  , gfxConfig    :: C.Config
+  { objectShader      :: GLuint
+  , boxObject         :: RenderObject
+  , flatObject        :: RenderObject
+  , quadShader        :: GLuint
+  , quadObject        :: RenderObject
+  , textures          :: [(TextureID, Texture)]
+  , models            :: [(ModelID, RenderObject)]
+  , gfxConfig         :: C.Config
+  , framebuffer       :: GLuint
+  , framebufferTex    :: GLuint
+  , framebufferRender :: GLuint
   } deriving (Show)
 
 data TextureID
@@ -843,6 +851,14 @@ loadObj f = do
 load3DConfig :: (MonadIO m, SendMessage m) => StackTraceT m C.Config
 load3DConfig = stackIO (getResourcesPath "3d-config.yml") >>= loadYaml
 
+sortVertices :: [Vertex] -> [Vertex]
+sortVertices = let
+  getTris (v1 : v2 : v3 : rest) = [v1, v2, v3] : getTris rest
+  getTris _                     = []
+  getZ (V3 _ _ z) = z
+  sumZ = sum . map (getZ . vertexPosition)
+  in concatMap snd . sort . map (\tri -> (sumZ tri, tri)) . getTris
+
 loadGLStuff :: IO GLStuff
 loadGLStuff = do
 
@@ -875,7 +891,7 @@ loadGLStuff = do
     bracket (compileShader GL_FRAGMENT_SHADER objectFS) glDeleteShader $ \fragmentShader -> do
       compileProgram [vertexShader, fragmentShader]
 
-  let loadObject vertices = do
+  let loadObject (sortVertices -> vertices) = do
         vao <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
         vbo <- alloca $ \p -> glGenBuffers 1 p >> peek p
         glBindVertexArray vao
@@ -1019,7 +1035,32 @@ loadGLStuff = do
     obj <- loadObj path >>= loadObject
     return (modID, obj)
 
+  -- configure MSAA framebuffer
+  framebuffer <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
+  glBindFramebuffer GL_FRAMEBUFFER framebuffer
+  -- create a multisampled color attachment texture
+  -- create a (also multisampled) renderbuffer object for depth and stencil attachments
+  framebufferTex    <- alloca $ \p -> glGenTextures      1 p >> peek p
+  framebufferRender <- alloca $ \p -> glGenRenderbuffers 1 p >> peek p
+  setFramebufferSize framebufferTex framebufferRender 1920 1080 -- dummy size, changed later
+  glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D_MULTISAMPLE framebufferTex 0
+  glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER framebufferRender
+
+  glCheckFramebufferStatus GL_FRAMEBUFFER >>= \case
+    GL_FRAMEBUFFER_COMPLETE -> return ()
+    _ -> putStrLn "ERROR::FRAMEBUFFER:: Framebuffer is not complete!"
+  glBindFramebuffer GL_FRAMEBUFFER 0
+
   return GLStuff{..}
+
+setFramebufferSize :: GLuint -> GLuint -> GLsizei -> GLsizei -> IO ()
+setFramebufferSize tex render w h = do
+  glBindTexture GL_TEXTURE_2D_MULTISAMPLE tex
+  glTexImage2DMultisample GL_TEXTURE_2D_MULTISAMPLE 4 GL_RGB w h GL_TRUE
+  glBindTexture GL_TEXTURE_2D_MULTISAMPLE 0
+  glBindRenderbuffer GL_RENDERBUFFER render
+  glRenderbufferStorageMultisample GL_RENDERBUFFER 4 GL_DEPTH24_STENCIL8 w h
+  glBindRenderbuffer GL_RENDERBUFFER 0
 
 deleteGLStuff :: GLStuff -> IO ()
 deleteGLStuff GLStuff{..} = do
@@ -1105,7 +1146,6 @@ setUpTrackView GLStuff{..} (x, y, w, h) = do
   sendUniformName objectShader "light.specular"
     $ C.tl_specular $ C.trk_light $ C.cfg_track gfxConfig
   sendUniformName objectShader "viewPos" viewPosn
-  glViewport (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h)
 
 drawDrumPlayFull
   :: GLStuff
@@ -1151,6 +1191,7 @@ drawTracks
   -> [PreviewTrack]
   -> IO ()
 drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks = do
+  glBindFramebuffer GL_FRAMEBUFFER 0
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
   case C.view_background $ C.cfg_view gfxConfig of
     V4 r g b a -> glClearColor r g b a
@@ -1161,8 +1202,29 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
         _  -> splitSpace (length trks)
           (C.view_height_width_ratio $ C.cfg_view gfxConfig)
           dims
-  forM_ (zip spaces trks) $ \(space@(_x, y, _w, h), trk) -> do
+
+  forM_ (zip spaces trks) $ \(space@(x, y, w, h), trk) -> do
+    glBindFramebuffer GL_FRAMEBUFFER framebuffer
+    setFramebufferSize framebufferTex framebufferRender
+      (fromIntegral w) (fromIntegral h)
+    glViewport 0 0 (fromIntegral w) (fromIntegral h)
+    case C.view_background $ C.cfg_view gfxConfig of
+      V4 r g b a -> glClearColor r g b a
+    glClear GL_COLOR_BUFFER_BIT
     setUpTrackView glStuff space
     case trk of
       PreviewDrums m -> drawDrums glStuff (y, h) time speed m
       PreviewFive m  -> drawFive  glStuff (y, h) time speed m
+
+    glBindFramebuffer GL_READ_FRAMEBUFFER framebuffer
+    glBindFramebuffer GL_DRAW_FRAMEBUFFER 0
+    glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
+    glBlitFramebuffer
+      0 0 (fromIntegral w) (fromIntegral h)
+      (fromIntegral x) (fromIntegral y) (fromIntegral $ x + w) (fromIntegral $ y + h)
+      GL_COLOR_BUFFER_BIT GL_NEAREST
+
+    -- glBindFramebuffer GL_FRAMEBUFFER 0
+    -- glClear GL_DEPTH_BUFFER_BIT
+    -- glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
+    -- drawTexture glStuff dims (Texture framebufferTex w h) (V2 x y) 1
