@@ -44,10 +44,11 @@ metadata:
   album: Vulgar Display of Power
   year: 1992
   subgenre: metal
-  anim-tempo: 32
   author: Farottone, Onyxite
   title: Fucking Hostile
   preview-end: 1:00.000
   genre: metal
   difficulty: 6
   artist: Pantera
+global:
+  anim-tempo: 32

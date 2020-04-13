@@ -8,9 +8,10 @@ metadata:
   subgenre: jrock
   preview-start: prc_verse_2a
   rating: Family Friendly
-  autogen-theme: Dark Heavy Rock
   difficulty: 6
   key: C# minor
+global:
+  autogen-theme: Dark Heavy Rock
 parts:
   drums:
     drums:

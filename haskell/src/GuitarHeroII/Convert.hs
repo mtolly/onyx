@@ -31,7 +31,7 @@ import           RockBand.Sections                (makeGH2Section)
 import qualified Sound.MIDI.Util                  as U
 
 midiRB3toGH2
-  :: SongYaml
+  :: SongYaml f
   -> TargetGH2
   -> F.Song (F.OnyxFile U.Beats)
   -> F.Song (GH2File U.Beats)
@@ -149,7 +149,7 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
   getFive = F.selectGuitarTrack F.FiveTypeGuitar
   in F.Song tmap mmap gh2
 
-makeGH2DTA :: SongYaml -> (Int, Int) -> TargetGH2 -> D.SongPackage
+makeGH2DTA :: SongYaml f -> (Int, Int) -> TargetGH2 -> D.SongPackage
 makeGH2DTA song preview target = D.SongPackage
   { D.name = getTitle $ _metadata song
   , D.artist = getArtist $ _metadata song

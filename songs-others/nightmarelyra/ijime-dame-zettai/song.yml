@@ -9,7 +9,6 @@ metadata:
   album: Babymetal
   year: 2014
   subgenre: power
-  anim-tempo: 64
   author: Nightmare Lyra, Gigakoops, Onyxite
   title: Ijime, Dame, Zettai
   preview-end: 2:21.000
@@ -18,6 +17,8 @@ metadata:
   artist: Babymetal
   comments:
   - Fixes to drum chart by Onyxite.
+global:
+  anim-tempo: 64
 parts:
   vocal:
     vocal:

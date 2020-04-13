@@ -9,9 +9,10 @@ metadata:
   author: Onyxite
   track-number: 2
   key: F# # not really major/minor?
-  autogen-theme: SynthPop
   difficulty: 6
   rating: FF
+global:
+  autogen-theme: SynthPop
 parts:
   drums:
     drums:

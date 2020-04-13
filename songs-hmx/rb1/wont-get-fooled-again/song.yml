@@ -44,7 +44,6 @@ metadata:
   track-number: 9
   album: Who's Next
   year: 1971
-  anim-tempo: 32
   author: Harmonix, Onyxite, Espher
   title: Won't Get Fooled Again
   preview-end: 1:45.750
@@ -53,3 +52,5 @@ metadata:
     rank: 500
   artist: The Who
   key: A major
+global:
+  anim-tempo: 32

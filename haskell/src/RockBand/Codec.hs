@@ -49,6 +49,22 @@ mapMIDITrack f mt = mt
   , midiUnknown = f $ midiUnknown mt
   }
 
+-- Note, this does not yet process different channel notes separately
+fixZeroLengthNotes :: (NNC.C t) => t -> MIDITrack (RTB.T t) -> MIDITrack (RTB.T t)
+fixZeroLengthNotes oneTick mt = mt { midiNotes = fmap fixRow $ midiNotes mt } where
+  fixRow = go False . RTB.normalize
+  go False (Wait t1 x@EdgeOff{} (Wait t2 y@EdgeOn{} rest)) | t2 == mempty
+    = case rest of
+      RNil -> Wait t1 y $ Wait oneTick x RNil
+      Wait t3 z rest' -> let
+        (m, (b, d)) = NNC.split oneTick t3
+        newNoteTime = m {- min oneTick t3 -}
+        restTime = if b {- oneTick <= t3 -} then d else NNC.zero
+        in Wait t1 y $ Wait newNoteTime x $ go False $ Wait restTime z rest'
+  go _ (Wait t x@EdgeOff{} rest) = Wait t x $ go False rest
+  go _ (Wait t x@EdgeOn{}  rest) = Wait t x $ go True  rest
+  go _ RNil                      = RNil
+
 getMIDITrack :: (NNC.C t) => ATB.T t E.T -> MIDITrack (ATB.T t)
 getMIDITrack = let
   go cur [] = cur

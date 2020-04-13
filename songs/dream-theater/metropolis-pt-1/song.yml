@@ -40,6 +40,7 @@ plans:
   album:
     song:
       trim: [0.379, album-track]
+    file-tempo: tempo-album.mid
 parts:
   drums:
     drums:

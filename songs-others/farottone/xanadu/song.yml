@@ -1,0 +1,69 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        tier: 5
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 5
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        tier: 3
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 3
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+      keys: [8, 9]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    karaoke: false
+    mogg-md5: d2235e06ac1496e20c4786ff9d77a6c4
+    multitrack: false
+    vols: [-3, -3, -3, -3, -3, -3, -3, -3, -3, -3, 0, 0]
+targets:
+  rb3:
+    song-id: far_xanadu_longv2
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    version: 30
+metadata:
+  preview-start: 3:00.000
+  file-album-art: cover.png_xbox
+  track-number: 2
+  album: A Farewell to Kings
+  year: 1977
+  subgenre: progrock
+  author: Farottone, Onyxite
+  title: Xanadu
+  preview-end: 3:30.000
+  genre: prog
+  difficulty:
+    tier: 5
+  artist: Rush
+  comments:
+  - Time signatures added.
+  - Tempo map redone and drums edited up to measure 141.
+global:
+  anim-tempo: 32

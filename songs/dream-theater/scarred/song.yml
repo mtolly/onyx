@@ -27,12 +27,40 @@ plans:
       drums:
         # jammit drums are audience-panned on this song
         pad: [2.580, only: [Drums, jammit-track]]
+      guitar-1:
+        pad: [2.580, only: [Guitar 1, jammit-track]]
+      guitar-2:
+        pad: [2.580, only: [Guitar 2, jammit-track]]
+      bass:
+        pad: [2.580, only: [Bass, jammit-track]]
+      keys-1:
+        pad: [2.580, only: [Keys 1, jammit-track]]
+      keys-2:
+        pad: [2.580, only: [Keys 2, jammit-track]]
+      vocal-1:
+        pad: [2.580, only: [Vocal, jammit-track]]
+      vocal-2:
+        pad: [2.580, only: [B Vocals, jammit-track]]
     song:
-      pad: [2.580, without: [drums, jammit-track]]
+      pad:
+      - 2.580
+      - mix:
+        - without: [drums, jammit-track]
+        - gain:
+          - -1
+          - mix:
+            - only: [Guitar 1, jammit-track]
+            - only: [Guitar 2, jammit-track]
+            - only: [Bass, jammit-track]
+            - only: [Keys 1, jammit-track]
+            - only: [Keys 2, jammit-track]
+            - only: [Vocal, jammit-track]
+            - only: [B Vocals, jammit-track]
   album:
     countin: *countin
     song:
       pad: [4.946, album-track]
+    file-tempo: tempo-album.mid
 parts:
   drums:
     drums:

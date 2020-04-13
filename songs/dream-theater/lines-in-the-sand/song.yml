@@ -61,6 +61,7 @@ plans:
       pad:
         - 2.510
         - fade: [begin, 4.261, album-track]
+    file-tempo: tempo-album.mid
 parts:
   drums:
     drums:

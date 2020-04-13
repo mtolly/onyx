@@ -43,10 +43,11 @@ import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     (void)
-import qualified Data.HashMap.Strict              as Map
+import qualified Data.HashMap.Strict              as HM
 import           Data.Int                         (Int16)
 import           Data.List.Extra                  (nubOrd, stripSuffix, unsnoc)
 import           Data.List.HT                     (partitionMaybe)
+import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
 import           Data.Monoid                      ((<>))
@@ -75,8 +76,10 @@ import           RockBand.Common                  (Difficulty (..),
                                                    makeEdgeCPV)
 import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    beatlesLipsync,
-                                                   englishVowels, packMilo,
-                                                   putLipsync,
+                                                   englishVowels,
+                                                   lipsyncFromMIDITrack,
+                                                   packMilo, putLipsync,
+                                                   setBeatles,
                                                    testConvertLipsync,
                                                    unpackMilo)
 import           RockBand.Score
@@ -252,14 +255,14 @@ outputFile opts dft = case [ to | OptTo to <- opts ] of
 optIndex :: [OnyxOption] -> Maybe Int
 optIndex opts = listToMaybe [ i | OptIndex i <- opts ]
 
-buildTarget :: (MonadResource m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target, FilePath)
+buildTarget :: (MonadResource m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target FilePath, FilePath)
 buildTarget yamlPath opts = do
   songYaml <- loadYaml yamlPath
   targetName <- case [ t | OptTarget t <- opts ] of
     []    -> fatal "command requires --target, none given"
     t : _ -> return t
   audioDirs <- withProject (optIndex opts) yamlPath getAudioDirs
-  target <- case Map.lookup targetName $ _targets songYaml of
+  target <- case HM.lookup targetName $ _targets songYaml of
     Nothing     -> fatal $ "Target not found in YAML file: " <> show targetName
     Just target -> return target
   let built = case target of
@@ -280,7 +283,7 @@ getPlanName defaultPlan yamlPath opts = case getMaybePlan opts of
   Just p  -> return p
   Nothing -> do
     songYaml <- loadYaml yamlPath
-    case Map.keys $ _plans songYaml of
+    case HM.keys $ _plans (songYaml :: SongYaml FilePath) of
       [p]   -> return p
       plans -> let
         err = fatal $ "No --plan given, and YAML file doesn't have exactly 1 plan: " <> show plans
@@ -762,7 +765,7 @@ commands =
         targetName <- case [ t | OptTarget t <- opts ] of
           []    -> fatal "command requires --target, none given"
           t : _ -> return t
-        target <- case Map.lookup targetName $ _targets $ projectSongYaml proj of
+        target <- case HM.lookup targetName $ _targets $ projectSongYaml proj of
           Nothing     -> fatal $ "Target not found in YAML file: " <> show targetName
           Just target -> return target
         gh2 <- case target of
@@ -813,6 +816,36 @@ commands =
               let lip = voxToLip $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
               stackIO $ BL.writeFile fout $ runPut $ putLipsync lip
               return $ Just fout
+      _ -> fatal "Expected 1 argument (input midi)"
+    }
+
+  , Command
+    { commandWord = "lipsync-track-gen"
+    , commandDesc = "Make lipsync files from LIPSYNC{1,2,3} in a MIDI file."
+    , commandUsage = "onyx lipsync-gen in.mid"
+    , commandRun = \args opts -> case args of
+      [fmid] -> do
+        mid <- RBFile.loadMIDI fmid
+        let template = dropExtension fmid
+            tracks =
+              [ (RBFile.onyxLipsync1, "_1.lipsync")
+              , (RBFile.onyxLipsync2, "_2.lipsync")
+              , (RBFile.onyxLipsync3, "_3.lipsync")
+              ]
+            game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
+            voxToLip
+              = (if game == GameTBRB then setBeatles else id)
+              . lipsyncFromMIDITrack
+        fmap concat $ forM (Map.toList $ RBFile.onyxParts $ RBFile.s_tracks mid) $ \(fpart, opart) -> do
+          fmap catMaybes $ forM tracks $ \(getter, suffix) -> do
+            let trk = getter opart
+                fout = template <> "_" <> T.unpack (RBFile.getPartName fpart) <> suffix
+            if trk == mempty
+              then return Nothing
+              else do
+                let lip = voxToLip $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
+                stackIO $ BL.writeFile fout $ runPut $ putLipsync lip
+                return $ Just fout
       _ -> fatal "Expected 1 argument (input midi)"
     }
 

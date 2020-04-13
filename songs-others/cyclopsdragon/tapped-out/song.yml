@@ -48,7 +48,6 @@ metadata:
   album: Sonic Stomp II
   year: 2010
   subgenre: metal
-  anim-tempo: 32
   author: CyclopsDragon, Onyxite
   title: Tapped Out
   preview-end: 2:24.000
@@ -56,3 +55,5 @@ metadata:
   difficulty:
     tier: 7
   artist: Mike Orlando
+global:
+  anim-tempo: 32

@@ -61,7 +61,6 @@ metadata:
   album: Homey
   year: 2017
   subgenre: progrock
-  anim-tempo: 32
   author: Bloodline
   title: Waterslide (B)
   preview-end: 1:10.000
@@ -69,3 +68,5 @@ metadata:
   difficulty:
     tier: 7
   artist: CHON
+global:
+  anim-tempo: 32

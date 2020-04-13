@@ -65,7 +65,6 @@ metadata:
   album: Option Paralysis
   year: 2010
   subgenre: core
-  anim-tempo: 32
   author: ThatAuthoringGroup, Onyxite
   title: Widower
   genre: metal
@@ -74,3 +73,5 @@ metadata:
   artist: The Dillinger Escape Plan
   comments:
   - Edited drums chart by Onyxite.
+global:
+  anim-tempo: 32

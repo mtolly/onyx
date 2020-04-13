@@ -2,11 +2,12 @@ metadata:
   title: "Chris and Kevin's Excellent Adventure"
   file-include: ../../../albums/liquid-tension-experiment.yml
   track-number: 6
-  autogen-theme: Psych Jam Rock
   rating: Family Friendly # ???
   difficulty: 5
   author: Onyxite
   key: D # ???
+global:
+  autogen-theme: Psych Jam Rock
 audio:
   album-track:
     md5: 0aae8dce8159e9f81f78c8833e560525

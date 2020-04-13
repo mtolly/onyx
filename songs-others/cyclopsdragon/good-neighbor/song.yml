@@ -44,7 +44,6 @@ metadata:
   album: Option Paralysis
   year: 2010
   subgenre: core
-  anim-tempo: 64
   author: CyclopsDragon, Onyxite
   title: Good Neighbor
   preview-end: 1:18.000
@@ -55,3 +54,5 @@ metadata:
   comments:
   - Drums and guitar originally by CyclopsDragon.
   - New tempo map and drums tweaks by Onyxite.
+global:
+  anim-tempo: 64

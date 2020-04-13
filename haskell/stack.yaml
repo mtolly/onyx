@@ -9,7 +9,6 @@ extra-deps:
 - jammittools-0.5.5.2
 - rubberband-0.1.0.2
 - tinyfiledialogs-0.2.0.0
-- mpg123-bindings-0.1.0.0
 - JuicyPixels-stbir-0.1.0.0
 - hsndfile-0.8.0
 - hsndfile-vector-0.5.2
@@ -29,7 +28,7 @@ extra-deps:
   subdirs:
   - conduit-audio-mpg123
 - git: git://github.com/deech/fltkhs
-  commit: 2551c0a2e4cca6099a5f8babb1a94262f998d27c
+  commit: 71af56f7194946a495e0d9d6457470f97988f754
 - git: git://github.com/mtolly/midi-util
   commit: 12951b7bc64cb006fa153d54b90174f0a90ba0f9
 - git: git://github.com/mtolly/OpenAL
@@ -38,7 +37,9 @@ extra-deps:
   commit: b7480fd7023d9d3adb1862309dd7bc9276e778ed
 - git: git://github.com/mtolly/codec # ghc 8.8 patch
   commit: 9733cb44c3d92fd65dbbf421eb58753150e3ea3b
-resolver: lts-15.1
+- git: git://github.com/mtolly/mpg123-haskell-binding
+  commit: 4790b92549b7db51801a67cf1055259e3abcf60e
+resolver: lts-15.8
 flags:
   fltkhs:
     bundled: true

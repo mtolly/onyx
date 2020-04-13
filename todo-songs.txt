@@ -76,15 +76,15 @@ SYSTEMATIC CHAOS (new version)
       # repentance, itpoe1, tmols, itpoe2: probably not necessary
     - guitar:
       - itpoe1, forsaken, cm, tden, repentance, pow, tmols: fixed (opens + no-opens)
-      # itpoe2: todo (redo)
+      # itpoe2: just needs solo cleaned up, then no-opens version
   > venue
     - lighting/postproc:
       - itpoe1, forsaken, cm, tden, repentance, pow: first drafts done
       # tmols, itpoe2: todo
     - camera:
-      - pow: first draft done
-      > forsaken: started
-      # itpoe1, cm, tden, repentance, tmols, itpoe2: todo
+      - forsaken, pow: first drafts done
+      > tden: started
+      # itpoe1, cm, repentance, tmols, itpoe2: todo
   - improved onyx lipsync generation: done!
   > drum animations
   > numeric song IDs
@@ -110,7 +110,7 @@ NES JAMS (Shnabubula)
 2. Temple (Zelda 2) - Released in OJP2; to update: drum edits, PK edits, PB, rhythm split
 3. Alien Lair (Contra) - Just needs OD
 4. Night Sea (Little Nemo) - Done
-5. Dwelling of Doom (Castlevania 2) - PK, K done
+5. Dwelling of Doom (Castlevania 2) - Just needs rest of drums, and OD
 6. Kung Fu Alley - PK, K done
 7. Title (Double Dragon) - PK, K done
 8. Gemini Man (Mega Man 3) - PK, K done

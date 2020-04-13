@@ -1,0 +1,34 @@
+metadata:
+  title: "Unfinished Business (Under the Bridge) (Skullgirls Encore)"
+  artist: insaneintherainmusic
+  genre: jazz
+  subgenre: contemporary
+  author: Onyxite
+  year: 2020
+  track-number: 14
+audio:
+  # https://www.patreon.com/insaneintherainmusic/
+  patreon-wav:
+    md5: dbc0ed87c8508aa722096bbace7a5f42
+    frames: 26363336
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  patreon:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [6.339, patreon-wav]
+    # pad video approx. 5.456s
+parts:
+  drums:
+    drums:
+      kicks: 1
+targets:
+  rb3:
+    game: rb3

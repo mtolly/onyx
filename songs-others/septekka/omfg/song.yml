@@ -51,7 +51,6 @@ metadata:
   album: City
   year: 1997
   subgenre: industrial
-  anim-tempo: 64
   author: Septekka, Onyxite
   title: Oh My Fucking God
   preview-end: 1:53.000
@@ -61,3 +60,5 @@ metadata:
   artist: Strapping Young Lad
   comments:
   - Drum edits and tempo map tweaks by Onyxite.
+global:
+  anim-tempo: 64

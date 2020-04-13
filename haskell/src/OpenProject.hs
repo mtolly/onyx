@@ -62,7 +62,7 @@ import qualified System.IO.Temp                 as Temp
 
 data Project = Project
   { projectLocation :: FilePath -- path to song.yml
-  , projectSongYaml :: SongYaml
+  , projectSongYaml :: SongYaml FilePath
   , projectRelease  :: Maybe ReleaseKey -- delete the temp import dir early if you want
   , projectSource   :: FilePath -- absolute path to the source STFS file, PS dir, etc.
   , projectTemplate :: FilePath -- string you can append "_whatever" to for generated files
@@ -208,6 +208,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       foundYaml loc = do
         let dir = takeDirectory loc
         yml <- loadYaml loc
+        let _ = yml :: SongYaml FilePath
         found Importable
           { impTitle = _title $ _metadata yml
           , impArtist = _artist $ _metadata yml
@@ -346,35 +347,35 @@ getAudioDirs proj = do
   mapM (stackIO . Dir.canonicalizePath) $ addons ++ dirs
 
 shakeBuild1 :: (MonadIO m) =>
-  Project -> [(T.Text, Target)] -> FilePath -> StackTraceT (QueueLog m) FilePath
+  Project -> [(T.Text, Target FilePath)] -> FilePath -> StackTraceT (QueueLog m) FilePath
 shakeBuild1 proj extraTargets = fmap runIdentity . shakeBuildMany proj extraTargets . Identity
 
 shakeBuildMany :: (MonadIO m, Functor f, Foldable f) =>
-  Project -> [(T.Text, Target)] -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
+  Project -> [(T.Text, Target FilePath)] -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
 shakeBuildMany proj extraTargets buildables = do
   audioDirs <- getAudioDirs proj
   shakeBuild audioDirs (projectLocation proj) extraTargets $ toList buildables
   return $ fmap (takeDirectory (projectLocation proj) </>) buildables
 
-buildCommon :: (MonadIO m) => Target -> (String -> FilePath) -> Project -> StackTraceT (QueueLog m) FilePath
+buildCommon :: (MonadIO m) => Target FilePath -> (String -> FilePath) -> Project -> StackTraceT (QueueLog m) FilePath
 buildCommon target getBuildable proj = do
   let targetHash = show $ hash target `mod` 100000000
       buildable = getBuildable targetHash
   shakeBuild1 proj [(T.pack targetHash, target)] buildable
 
-buildRB3CON :: (MonadIO m) => TargetRB3 -> Project -> StackTraceT (QueueLog m) FilePath
+buildRB3CON :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB3CON rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> targetHash </> "rb3con"
 
 buildRB2CON :: (MonadIO m) => TargetRB2 -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB2CON rb2 = buildCommon (RB2 rb2) $ \targetHash -> "gen/target" </> targetHash </> "rb2con"
 
-buildMagmaV2 :: (MonadIO m) => TargetRB3 -> Project -> StackTraceT (QueueLog m) FilePath
+buildMagmaV2 :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildMagmaV2 rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> targetHash </> "magma"
 
-buildPSDir :: (MonadIO m) => TargetPS -> Project -> StackTraceT (QueueLog m) FilePath
+buildPSDir :: (MonadIO m) => TargetPS FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildPSDir ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps"
 
-buildPSZip :: (MonadIO m) => TargetPS -> Project -> StackTraceT (QueueLog m) FilePath
+buildPSZip :: (MonadIO m) => TargetPS FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildPSZip ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps.zip"
 
 buildGH2Dir :: (MonadIO m) => TargetGH2 -> Project -> StackTraceT (QueueLog m) FilePath

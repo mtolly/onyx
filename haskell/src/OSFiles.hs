@@ -24,7 +24,7 @@ import           Data.Maybe               (fromMaybe)
 import qualified Data.Text                as T
 import           System.Directory         (doesPathExist, listDirectory)
 import           System.FilePath          (dropTrailingPathSeparator,
-                                           splitFileName, (</>))
+                                           splitFileName)
 import           System.Info              (os)
 import           System.IO                (stderr, stdout)
 import           System.IO.Silently       (hSilence)
@@ -100,12 +100,13 @@ fixFileCase = return
 
 #else
 
+-- TODO this should be done on a forked thread
+
 osOpenFile f = liftIO $ case os of
   "linux" -> hSilence [stdout, stderr] $ callProcess "xdg-open" [f]
   _       -> return ()
 
 osShowFolder dir _ = osOpenFile dir
-
 
 fixFileCase f = fromMaybe f <$> fixFileCaseMaybe f
 

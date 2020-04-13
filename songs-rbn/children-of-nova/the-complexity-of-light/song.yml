@@ -45,7 +45,6 @@ metadata:
   album: The Complexity of Light
   year: 2009
   subgenre: progrock
-  anim-tempo: 64
   author: RockGamer, Onyxite
   title: The Complexity of Light
   preview-end: 1:54.000
@@ -53,3 +52,5 @@ metadata:
   difficulty:
     rank: 328
   artist: Children of Nova
+global:
+  anim-tempo: 64

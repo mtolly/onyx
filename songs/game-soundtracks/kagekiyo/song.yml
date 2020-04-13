@@ -7,9 +7,10 @@ metadata:
   genre: jrock
   subgenre: jrock
   rating: Family Friendly
-  autogen-theme: Feel Good Pop Rock
   difficulty: 6
   key: E
+global:
+  autogen-theme: Feel Good Pop Rock
 parts:
   drums:
     drums:

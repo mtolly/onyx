@@ -67,7 +67,6 @@ metadata:
   key: E minor
   album: A Picture of Nectar
   year: 1992
-  anim-tempo: fast
   author: Harmonix, Onyxite
   title: Llama
   preview-end: 1:16.486
@@ -79,3 +78,5 @@ metadata:
   - Heavily edited Pro Keys chart.
   - Redone tempo map.
   - Minor drum edits.
+global:
+  anim-tempo: fast

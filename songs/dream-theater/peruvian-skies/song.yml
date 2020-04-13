@@ -2,12 +2,13 @@ metadata:
   title: Peruvian Skies
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 3
-  autogen-theme: Dusty Vintage
   rating: Supervision Recommended
   author: Onyxite
   key: E
   comments:
   - "Chart confidence: *high* (Jammit stems)."
+global:
+  autogen-theme: Dusty Vintage
 audio:
   album-track:
     md5: 22d463433f4ef22e502a0d3a771618d0
@@ -35,6 +36,7 @@ plans:
     countin: *countin
     song:
       pad: [4.300, album-track]
+    file-tempo: tempo-album.mid
 parts:
   drums:
     drums:

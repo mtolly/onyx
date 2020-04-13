@@ -2,11 +2,12 @@ metadata:
   title: Another Dimension
   file-include: ../../../albums/liquid-tension-experiment-2.yml
   track-number: 4
-  autogen-theme: Psych Jam Rock
   rating: Family Friendly
   difficulty: 6
   author: Onyxite
   key: E
+global:
+  autogen-theme: Psych Jam Rock
 audio:
   album-track:
     md5: 979287af96bd996ae64e35728a77590f

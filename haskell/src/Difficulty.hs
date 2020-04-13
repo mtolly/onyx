@@ -28,7 +28,7 @@ data DifficultyRB3 = DifficultyRB3
   , rb3DrumsTier, rb3BassTier, rb3GuitarTier, rb3VocalTier, rb3KeysTier, rb3ProBassTier, rb3ProGuitarTier, rb3ProKeysTier, rb3BandTier :: Integer
   } deriving (Eq, Ord, Show, Read)
 
-difficultyRB3 :: TargetRB3 -> SongYaml -> DifficultyRB3
+difficultyRB3 :: TargetRB3 f -> SongYaml f -> DifficultyRB3
 difficultyRB3 TargetRB3{..} songYaml = let
 
   simpleRank flex getMode getDiff dmap = case getPart flex songYaml >>= getMode of
@@ -73,7 +73,7 @@ data DifficultyPS = DifficultyPS
   , chBassGHLTier    :: Integer
   } deriving (Eq, Ord, Show, Read)
 
-difficultyPS :: TargetPS -> SongYaml -> DifficultyPS
+difficultyPS :: TargetPS f -> SongYaml f -> DifficultyPS
 difficultyPS TargetPS{..} songYaml = let
   rb3 = TargetRB3
     { rb3_Common = ps_Common

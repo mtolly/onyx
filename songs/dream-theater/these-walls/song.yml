@@ -4,9 +4,10 @@ metadata:
   track-number: 3
   author: Onyxite
   difficulty: 4
-  autogen-theme: EdgyProgRock
   key: A
   rating: SupervisionRecommended
+global:
+  autogen-theme: EdgyProgRock
 audio:
   album-track:
     md5: d0168a7020211436743ffef91c474e37

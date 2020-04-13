@@ -3,10 +3,11 @@ metadata:
   file-include: ../../../albums/brain.yml
   author: Onyxite
   track-number: 1
-  autogen-theme: SynthPop
   key: F
   difficulty: 7
   preview-start: prc_break_1
+global:
+  autogen-theme: SynthPop
 audio:
   album-track:
     md5: 884247128bc3dede8465d52903746fb3

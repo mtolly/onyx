@@ -1,0 +1,8 @@
+Building onyx in High Sierra VM
+
+From ~/.stack/snapshots/x86_64-osx/(random)/8.6.5/lib/x86_64-osx-ghc-8.6.5/fltkhs-0.8.0.2-(random)/, copy libfltkc-dyn.dylib to workingdir/libfltkc.dylib, and copy libfltkc.a to workingdir/libfltkc.a
+stack build --extra-lib-dirs=.
+now delete dylib
+stack build --extra-lib-dirs=. --force-dirty
+now it'll link again but use the .a
+`make mac` but make sure to comment out the stack build line

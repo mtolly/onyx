@@ -6,12 +6,13 @@ metadata:
   author: Onyxite
   comments:
   - "Guitar part is sax and trumpet."
-  autogen-theme: PsychJamRock
   preview-start: prc_break
   rating: FamilyFriendly
   key: F
   languages:
   - English
+global:
+  autogen-theme: PsychJamRock
 audio:
   album-track:
     md5: fa5dbe61d808c40d9d26c2d76ae30a1a

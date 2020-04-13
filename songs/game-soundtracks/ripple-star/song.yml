@@ -9,10 +9,11 @@ metadata:
   year: 2000
   author: Onyxite, SubDrag
   difficulty: 7
-  autogen-theme: SynthPop
   rating: FF
   comments:
   - "Thanks to SubDrag for the N64 Soundbank Tool, used to obtain both the stems and MIDI data."
+global:
+  autogen-theme: SynthPop
 audio:
   # Instructions for making these:
   # - Use N64 Soundbank Tool to extract the soundfont from Kirby 64 (U)

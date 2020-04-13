@@ -39,6 +39,7 @@ plans:
     countin: *countin
     song:
       pad: [4.317, album-track]
+    file-tempo: tempo-album.mid
   # greatest-hit:
   #   comments:
   #   - "The remastered version from *Greatest Hit (...and 21 other pretty cool songs)*."

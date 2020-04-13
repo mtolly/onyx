@@ -15,21 +15,40 @@ import           Data.Word
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import           RockBand.Codec
+import           RockBand.Codec.Vocal             (Pitch)
 import           RockBand.Common
 import           Text.Read                        (readMaybe)
 
-newtype LipsyncTrack t = LipsyncTrack
-  { lipEvents :: RTB.T t (VisemeEvent T.Text)
+data LipsyncTrack t = LipsyncTrack
+  { lipLyrics   :: RTB.T t T.Text
+  , lipNotes    :: RTB.T t (Pitch, Bool)
+  , lipLanguage :: RTB.T t LyricLanguage
+  , lipEvents   :: RTB.T t (VisemeEvent T.Text)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (LipsyncTrack t)
 
 instance TraverseTrack LipsyncTrack where
-  traverseTrack fn (LipsyncTrack a) = LipsyncTrack <$> fn a
+  traverseTrack fn (LipsyncTrack a b c d) = LipsyncTrack
+    <$> fn a <*> fn b <*> fn c <*> fn d
 
 instance ParseTrack LipsyncTrack where
   parseTrack = do
+    lipLyrics <- lipLyrics =. lyrics
+    lipNotes <- (lipNotes =.)
+      $ condenseMap $ eachKey each $ edges . (+ 36) . fromEnum
+    lipLanguage <- (lipLanguage =.)
+      $ condenseMap_ $ eachKey each $ commandMatch . \case
+        LyricEnglish -> ["lang", "en"]
+        LyricGerman  -> ["lang", "de"]
+        LyricSpanish -> ["lang", "es"]
     lipEvents <- lipEvents =. command
     return LipsyncTrack{..}
+
+data LyricLanguage
+  = LyricEnglish
+  | LyricGerman
+  | LyricSpanish
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data VisemeEvent a = VisemeEvent
   { visemeKey    :: a

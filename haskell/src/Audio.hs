@@ -35,6 +35,7 @@ module Audio
 , fadeStart, fadeEnd
 , mixMany, mixMany'
 , clampIfSilent
+, stereoPanRatios
 ) where
 
 import           Control.Concurrent               (threadDelay)
@@ -579,13 +580,17 @@ applyPansVols pans    vols   src = AudioSource
           pvx = zip3 pans vols $ V.toList $ V.drop (frame * channels src) v
           wire (pan, volDB, sample) = let
             volRatio = 10 ** (volDB / 20)
-            -- constant power panning: http://dsp.stackexchange.com/a/21736
-            theta = pan * (pi / 4)
-            panRatio = if chan == 0
-              then (sqrt 2 / 2) * (cos theta - sin theta)
-              else (sqrt 2 / 2) * (cos theta + sin theta)
+            panRatio = (if chan == 0 then fst else snd) $ stereoPanRatios pan
             in panRatio * volRatio * sample
           in sum $ map wire pvx
+
+-- | Constant power panning: http://dsp.stackexchange.com/a/21736
+stereoPanRatios :: Float -> (Float, Float)
+stereoPanRatios pan = let
+  theta = pan * (pi / 4)
+  ratioL = (sqrt 2 / 2) * (cos theta - sin theta)
+  ratioR = (sqrt 2 / 2) * (cos theta + sin theta)
+  in (ratioL, ratioR)
 
 -- | Like 'applyPansVols', but mixes into mono instead of stereo.
 applyVolsMono :: (Monad m) => [Float] -> AudioSource m Float -> AudioSource m Float

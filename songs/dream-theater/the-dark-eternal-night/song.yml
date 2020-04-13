@@ -9,6 +9,7 @@ metadata:
   - "All instruments have all difficulties, except Medium/Easy Pro Keys."
   - "QA and Continuum pro keys solo by Mazegeek999."
   rating: Supervision Recommended
+global:
   autogen-theme: Aggressive Metal
 audio:
   album-track:
@@ -114,6 +115,10 @@ parts:
       difficulty: 2
       count: 2
       gender: male
+      # CAMERA track is written for HARM2 to be drummer
+      lipsync-rb3:
+        sources: [harm1, harm2]
+        member-2: drums
 targets:
   rb3:
     game: rb3

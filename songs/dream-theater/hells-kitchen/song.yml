@@ -43,6 +43,7 @@ plans:
           - concatenate:
             - album-track
             - take: [5.696, album-next]
+    file-tempo: tempo-album.mid
 parts:
   drums:
     drums:

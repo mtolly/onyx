@@ -9,12 +9,13 @@ metadata:
   year: 2015
   track-number: 2
   difficulty: 5
-  autogen-theme: PsychJamRock
   rating: FF
   comments:
   - >-
     Keys is "lead piano", bass is "backing piano", and guitar is strings.
     (Piano parts were split arbitrarily and may not exactly correspond to the two pianists.)
+global:
+  autogen-theme: PsychJamRock
 audio:
   youtube:
     file-path: audio-youtube.wav

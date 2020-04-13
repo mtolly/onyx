@@ -2,7 +2,6 @@ metadata:
   title: Trial of Tears
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 11
-  autogen-theme: Slow Jam
   rating: Family Friendly
   author: Onyxite, vpetrucci93
   difficulty: 6
@@ -13,6 +12,8 @@ metadata:
   - >-
     The "loose discobeat" in the first verse is charted as straight 16ths.
     This is how both Portnoy and Mangini play it live.
+global:
+  autogen-theme: Slow Jam
 audio:
   album-track:
     md5: e39562653b1904bd99c935ca0a46b5ef
@@ -260,6 +261,7 @@ plans:
   album:
     song:
       trim: [0.072, album-track]
+    file-tempo: tempo-album.mid
 parts:
   drums:
     drums: # onyxite

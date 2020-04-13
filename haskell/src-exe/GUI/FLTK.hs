@@ -12,6 +12,9 @@ import           Audio                                     (Audio (..),
                                                             runAudio)
 import           Build                                     (targetTitle,
                                                             toValidFileName)
+import           Codec.Picture                             (readImage,
+                                                            savePngImage,
+                                                            writePng)
 import           CommandLine                               (blackVenue,
                                                             copyDirRecursive,
                                                             runDolphin)
@@ -33,7 +36,7 @@ import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
 import           Control.Monad.Catch                       (catchIOError)
-import           Control.Monad.Extra                       (concatMapM, forM,
+import           Control.Monad.Extra                       (forM,
                                                             forM_, guard, join,
                                                             unless, void, when,
                                                             (>=>))
@@ -58,18 +61,16 @@ import qualified Data.ByteString.Lazy                      as BL
 import           Data.Char                                 (isSpace, toLower,
                                                             toUpper)
 import qualified Data.Connection                           as Conn
-import           Data.Default.Class                        (def)
+import           Data.Default.Class                        (Default, def)
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
 import           Data.IORef                                (IORef, newIORef,
                                                             readIORef,
                                                             writeIORef)
-import           Data.List.Extra                           (nubOrd)
-import qualified Data.Map                                  as Map
+import           Data.List.Extra                           (findIndex)
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
-                                                            isNothing,
                                                             listToMaybe,
                                                             mapMaybe)
 import           Data.Monoid                               (Endo (..))
@@ -96,6 +97,7 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Graphics.UI.FLTK.LowLevel.GlWindow        ()
 import           Graphics.UI.FLTK.LowLevel.X               (openCallback)
+import           Image                                     (readRBImageMaybe)
 import           JSONData                                  (toJSON,
                                                             yamlEncodeFile)
 import           MoggDecrypt                               (oggToMogg)
@@ -111,6 +113,7 @@ import           Paths_onyxite_customs_tool                (version)
 import           ProKeysRanges                             (closeShiftsFile)
 import           Reaper.Build                              (makeReaper)
 import           Reductions                                (simpleReduce)
+import           Resources                                 (getResourcesPath)
 import           RhythmGame.Audio                          (projectAudio,
                                                             withAL)
 import qualified RhythmGame.Graphics                       as RGGraphics
@@ -177,11 +180,16 @@ forkOnyx act = do
   sink <- getEventSink
   chan <- lift $ lift ask
   lift $ lift $ lift $ resourceForkIO $ do
-    res <- runReaderT (logToSink sink act) chan
-    case res of
-      Right () -> return ()
-      Left (Messages msgs) -> forM_ msgs $ \msg -> do
-        liftIO $ sink $ EventFail msg
+    runReaderT (logToSink sink act) chan >>= logErrors sink
+
+logErrors :: (MonadIO m) => (Event -> IO ()) -> Either Messages () -> m ()
+logErrors sink = \case
+  Right ()             -> return ()
+  Left (Messages msgs) -> forM_ msgs $ \msg -> do
+    liftIO $ sink $ EventFail msg
+
+safeOnyx :: Onyx () -> Onyx ()
+safeOnyx f = getEventSink >>= \sink -> errorToEither f >>= logErrors sink
 
 resizeWindow :: FL.Ref FL.Window -> Size -> IO ()
 resizeWindow window size = do
@@ -189,19 +197,19 @@ resizeWindow window size = do
   y <- FL.getY window
   FL.resize window $ Rectangle (Position x y) size
 
-promptLoad :: (Event -> IO ()) -> IO ()
-promptLoad sink = do
+promptLoad :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
+promptLoad sink makeMenuBar = do
   picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
   FL.setTitle picker "Load song"
   FL.showWidget picker >>= \case
     FL.NativeFileChooserPicked -> do
       n <- FL.getCount picker
       fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
-      mapM_ (sink . EventOnyx . startLoad) $ map T.unpack $ catMaybes fs
+      mapM_ (sink . EventOnyx . startLoad makeMenuBar) $ map T.unpack $ catMaybes fs
     _ -> return ()
 
-startLoad :: FilePath -> Onyx ()
-startLoad f = do
+startLoad :: (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
+startLoad makeMenuBar f = do
   sink <- getEventSink
   void $ forkOnyx $ errorToEither (openProject Nothing f) >>= \case
     Left (Messages msgs) -> liftIO $ forM_ msgs $ \msg -> do
@@ -209,7 +217,7 @@ startLoad f = do
     Right proj -> do
       void $ shakeBuild1 proj [] "gen/cover.png"
       maybeAudio <- projectAudio proj
-      liftIO $ sink $ EventIO $ launchWindow sink proj maybeAudio
+      liftIO $ sink $ EventIO $ launchWindow sink makeMenuBar proj maybeAudio
 
 chopRight :: Int -> Rectangle -> (Rectangle, Rectangle)
 chopRight n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
@@ -275,6 +283,43 @@ padded t r b l size@(Size (Width w) (Height h)) fn = do
   liftIO $ FL.end group
   return x
 
+-- | Ported from Erco's Fl_Center class
+centerFixed :: Rectangle -> IO a -> IO a
+centerFixed rect makeChildren = do
+  let centerX :: FL.Ref FL.Group -> FL.Ref FL.WidgetBase -> IO X
+      centerX this wid = do
+        X x <- FL.getX this
+        Width w <- FL.getW this
+        Width widW <- FL.getW wid
+        return $ X $ x + quot w 2 - quot widW 2
+      centerY :: FL.Ref FL.Group -> FL.Ref FL.WidgetBase -> IO Y
+      centerY this wid = do
+        Y y <- FL.getY this
+        Height h <- FL.getH this
+        Height widH <- FL.getH wid
+        return $ Y $ y + quot h 2 - quot widH 2
+      myResize :: FL.Ref FL.Group -> Rectangle -> IO ()
+      myResize this rect' = do
+        FL.resizeWidgetBase (FL.safeCast this) rect'
+        children <- FL.children this
+        forM_ [0 .. children - 1] $ \i -> do
+          mcw <- FL.getChild this $ FL.AtIndex i
+          forM_ mcw $ \cw -> do
+            newX <- centerX this cw
+            newY <- centerY this cw
+            newW <- FL.getW cw
+            newH <- FL.getH cw
+            FL.resize cw $ Rectangle
+              (Position newX newY)
+              (Size newW newH)
+  group <- FL.groupCustom rect Nothing Nothing FL.defaultCustomWidgetFuncs
+    { FL.resizeCustom = Just myResize
+    }
+  x <- makeChildren
+  FL.end group
+  myResize group rect
+  return x
+
 makeTab :: Rectangle -> T.Text -> (Rectangle -> FL.Ref FL.Group -> IO a) -> IO a
 makeTab rect name fn = do
   let tabHeight = 25
@@ -316,14 +361,13 @@ currentSongTime stime ss = case songPlaying ss of
     timeToDouble t = realToFrac (systemSeconds t) + realToFrac (systemNanoseconds t) / 1000000000
     in (timeToDouble stime - timeToDouble (playStarted p)) * playSpeed p
 
-type BuildYamlControl = WriterT (IO (Endo SongYaml)) IO
+type BuildYamlControl a = WriterT (IO (Endo a)) IO
 
-launchWindow :: (Event -> IO ()) -> Project -> Maybe (Double -> Maybe Double -> IO (IO ())) -> IO ()
-launchWindow sink proj maybeAudio = mdo
-  let windowSize = Size (Width 800) (Height 500)
-      windowRect = Rectangle
-        (Position (X 0) (Y 0))
-        windowSize
+launchWindow :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Project -> Maybe (Double -> Maybe Double -> IO (IO ())) -> IO ()
+launchWindow sink makeMenuBar proj maybeAudio = mdo
+  let windowWidth = Width 800
+      windowHeight = Height 500
+      windowSize = Size windowWidth windowHeight
   window <- FL.windowNew
     windowSize
     Nothing
@@ -332,37 +376,57 @@ launchWindow sink proj maybeAudio = mdo
     -- on Mac that can crash (bc you can reopen a closed song window and try to
     -- delete the temp folder a second time). to fix properly I think we need
     -- to set window_menu_style on the SysMenuBar (not in fltkhs yet)
+  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+  let (_, windowRect) = chopTop menuHeight $ Rectangle
+        (Position (X 0) (Y 0))
+        windowSize
   behindTabsColor >>= FL.setColor window
   FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
   FL.sizeRange window $ Size (Width 800) (Height 500)
   FL.begin window
-  tabs <- FL.tabsNew
-    (Rectangle (Position (X 0) (Y 0)) windowSize)
-    Nothing
+  tabs <- FL.tabsNew windowRect Nothing
   (modifyMeta, metaTab) <- makeTab windowRect "Metadata" $ \rect tab -> do
     homeTabColor >>= setTabColor tab
-    let (rectLeft, rectRight) = chopRight 200 rect
-    pack <- FL.packNew rectLeft Nothing
+    let (rectSplit, rectRest) = chopTop 200 rect
+        (rectLeft, rectRight) = chopRight 200 rectSplit
+        (rectResize, _) = chopRight 200 rectRest
     yamlModifier <- fmap (fmap appEndo) $ execWriterT $ do
+      {- TODO:
+        song key -- two dropdowns (key + tonality)
+        anim tempo -- dropdown with disableable number box (like rank)?
+        rating -- dropdown
+        preview start/end time -- ???
+        band difficulty (maybe should go on instruments page?) -- dropdown with disableable number box
+      -}
+      pack <- liftIO $ FL.packNew rectLeft Nothing
       let fullWidth = padded 5 10 5 100 (Size (Width 500) (Height 30))
-          simpleText lbl getter rect' = liftIO $ do
+          simpleText lbl = simpleText' lbl FL.FlNormalInput
+          simpleText' lbl intype getter rect' = liftIO $ do
             input <- FL.inputNew
               rect'
               (Just lbl)
-              (Just FL.FlNormalInput) -- this is required for labels to work. TODO report bug in binding's "inputNew"
+              (Just intype) -- TODO if Nothing here, labels don't work. should report bug in binding's "inputNew"
             FL.setLabelsize input $ FL.FontSize 13
             FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
             FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
             void $ FL.setValue input $ fromMaybe "" $ getter $ _metadata $ projectSongYaml proj
             return input
-          applyToMetadata :: (Maybe T.Text -> Metadata -> Metadata) -> FL.Ref FL.Input -> BuildYamlControl ()
+          applyToMetadata :: (Maybe T.Text -> Metadata f -> Metadata f) -> FL.Ref FL.Input -> BuildYamlControl (SongYaml f) ()
           applyToMetadata setter input = tell $ do
             val <- FL.getValue input
             let val' = guard (val /= "") >> Just val
             return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
+          applyIntToMetadata :: (Maybe Int -> Metadata f -> Metadata f) -> FL.Ref FL.Input -> BuildYamlControl (SongYaml f) ()
+          applyIntToMetadata setter input = tell $ do
+            val <- FL.getValue input
+            let val' = readMaybe $ T.unpack val
+            return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
           simpleTextGet lbl getter setter rect' = do
             input <- simpleText lbl getter rect'
             applyToMetadata setter input
+          simpleTextGetInt lbl getter setter rect' = do
+            input <- simpleText' lbl FL.FlIntInput (fmap (T.pack . show) . getter) rect'
+            applyIntToMetadata setter input
           simpleCheck lbl getter setter rect' = do
             input <- liftIO $ FL.checkButtonNew rect' $ Just lbl
             liftIO $ void $ FL.setValue input $ getter $ _metadata $ projectSongYaml proj
@@ -372,8 +436,14 @@ launchWindow sink proj maybeAudio = mdo
               return $ Endo $ \yaml -> yaml { _metadata = setter b $ _metadata yaml }
       void $ liftIO $ FL.boxNew (Rectangle (Position (X 0) (Y 0)) (Size (Width 800) (Height 5))) Nothing
       fullWidth $ simpleTextGet "Title"  _title  $ \mstr meta -> meta { _title  = mstr }
-      fullWidth $ simpleTextGet "Artist" _artist $ \mstr meta -> meta { _artist = mstr }
-      fullWidth $ simpleTextGet "Album"  _album  $ \mstr meta -> meta { _album  = mstr }
+      fullWidth $ \rect' -> do
+        let (artistArea, trimClock 0 0 0 50 -> yearArea) = chopRight 120 rect'
+        simpleTextGet "Artist" _artist (\mstr meta -> meta { _artist = mstr }) artistArea
+        simpleTextGetInt "Year" _year (\mint meta -> meta { _year = mint }) yearArea
+      fullWidth $ \rect' -> do
+        let (albumArea, trimClock 0 0 0 30 -> trackNumArea) = chopRight 120 rect'
+        simpleTextGet "Album" _album (\mstr meta -> meta { _album = mstr }) albumArea
+        simpleTextGetInt "#" _trackNumber (\mint meta -> meta { _trackNumber = mint }) trackNumArea
       fullWidth $ simpleTextGet "Author" _author $ \mstr meta -> meta { _author = mstr }
       (genreInput, subgenreInput) <- fullWidth $ \rect' -> let
         [trimClock 0 50 0 0 -> genreArea, trimClock 0 0 0 50 -> subgenreArea] = splitHorizN 2 rect'
@@ -383,7 +453,61 @@ launchWindow sink proj maybeAudio = mdo
           applyToMetadata (\mstr meta -> meta { _genre    = mstr }) genreInput
           applyToMetadata (\mstr meta -> meta { _subgenre = mstr }) subgenreInput
           return (genreInput, subgenreInput)
-      fullWidth $ \rect' -> liftIO $ do
+      liftIO $ FL.end pack
+      packRight <- liftIO $ FL.packNew rectRight Nothing
+      padded 10 10 0 0 (Size (Width 190) (Height 190)) $ \rect' -> mdo
+        cover <- liftIO $ FL.buttonCustom rect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
+          { FL.handleCustom = Just
+            $ dragAndDrop (mapM_ swapImage . listToMaybe)
+            . FL.handleButtonBase
+            . FL.safeCast
+          }
+        let setPNG defaultImage f = do
+              Right png <- FL.pngImageNew $ T.pack f
+              FL.scale png (Size (Width 180) (Height 180))
+                (Just False) -- not proportional (stretch to square, like onyx does)
+                (Just True) -- can expand
+              FL.setImage cover $ Just png
+              return (png, guard (not defaultImage) >> Just f)
+        currentImage <- liftIO
+          $ setPNG True (takeDirectory (projectLocation proj) </> "gen/cover.png")
+          >>= newMVar
+        let swapImage f = sink $ EventOnyx $ void $ forkOnyx $ void $ errorToWarning $ do
+              inside ("Loading image: " <> f) $ do
+                let newPath = takeDirectory (projectLocation proj) </> "new-cover.png"
+                if elem (takeExtension f) [".png_xbox", ".png_wii"]
+                  then stackIO (BL.readFile f) >>= maybe
+                    (fatal "Couldn't read RB image file")
+                    (stackIO . writePng newPath)
+                    . readRBImageMaybe
+                  else stackIO (readImage f) >>= either fatal (stackIO . savePngImage newPath)
+                stackIO $ sink $ EventIO $ do
+                  oldImage <- modifyMVar currentImage $ \(oldImage, _) -> do
+                    newPair <- setPNG False newPath
+                    return (newPair, oldImage)
+                  FL.redraw cover
+                  FL.destroy oldImage
+        liftIO $ FL.setCallback cover $ \_ -> do
+          picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+          FL.setTitle picker "Select album art"
+          FL.setFilter picker "*.{png,jpg,jpeg,png_xbox,png_wii}"
+          FL.showWidget picker >>= \case
+            FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
+              Nothing              -> return ()
+              Just (T.unpack -> f) -> swapImage f
+            _ -> return ()
+        tell $ do
+          (_, mpath) <- readMVar currentImage
+          return $ Endo $ case mpath of
+            Nothing   -> id
+            Just path -> \yaml -> yaml
+              { _metadata = (_metadata yaml)
+                { _fileAlbumArt = Just path
+                }
+              }
+      liftIO $ FL.end packRight
+      packBottom <- liftIO $ FL.packNew rectRest Nothing
+      padded 10 10 5 10 (Size (Width 500) (Height 30)) $ \rect' -> liftIO $ do
         calcGenreBox <- FL.boxNew rect' Nothing
         let calcGenre = do
               g <- FL.getValue genreInput
@@ -402,36 +526,35 @@ launchWindow sink proj maybeAudio = mdo
         FL.setWhen genreInput    [FLE.WhenChanged]
         FL.setWhen subgenreInput [FLE.WhenChanged]
       padded 5 10 5 10 (Size (Width 500) (Height 30)) $ \rect' -> do
-        let [r1, r2, r3] = splitHorizN 3 rect'
-        simpleCheck "Convert"        _convert    (\b meta -> meta { _convert    = b }) r1
-        simpleCheck "Rhythm on Keys" _rhythmKeys (\b meta -> meta { _rhythmKeys = b }) r2
-        simpleCheck "Rhythm on Bass" _rhythmBass (\b meta -> meta { _rhythmBass = b }) r3
+        let [r1, r2, r3, r4, r5, r6] = splitHorizN 6 rect'
+        simpleCheck "Convert"     _convert    (\b meta -> meta { _convert    = b }) r1
+        simpleCheck "Rhythm Keys" _rhythmKeys (\b meta -> meta { _rhythmKeys = b }) r2
+        simpleCheck "Rhythm Bass" _rhythmBass (\b meta -> meta { _rhythmBass = b }) r3
+        simpleCheck "Auto EMH"    _catEMH     (\b meta -> meta { _catEMH     = b }) r4
+        simpleCheck "Expert Only" _expertOnly (\b meta -> meta { _expertOnly = b }) r5
+        simpleCheck "Cover"       _cover      (\b meta -> meta { _cover      = b }) r6
       padded 5 10 5 10 (Size (Width 500) (Height 30)) $ \rect' -> do
-        let [r4, r5, r6] = splitHorizN 3 rect'
-        simpleCheck "Auto EMH"       _catEMH     (\b meta -> meta { _catEMH     = b }) r4
-        simpleCheck "Expert Only"    _expertOnly (\b meta -> meta { _expertOnly = b }) r5
-        simpleCheck "Cover"          _cover      (\b meta -> meta { _cover      = b }) r6
-      {- TODO:
-        year -- text, only digits
-        track number -- text, only digits
-        song key -- two dropdowns (key + tonality)
-        anim tempo -- dropdown with disableable number box (like rank)?
-        rating -- dropdown
-        preview start/end time -- ???
-        languages -- checkboxes
-        band difficulty (maybe should go on instruments page?) -- dropdown with disableable number box
-      -}
-    FL.end pack
-    packRight <- FL.packNew rectRight Nothing
-    padded 10 10 0 0 (Size (Width 190) (Height 190)) $ \rect' -> do
-      cover <- FL.buttonNew rect' Nothing
-      Right png <- FL.pngImageNew $ T.pack $ takeDirectory (projectLocation proj) </> "gen/cover.png"
-      FL.scale png (Size (Width 180) (Height 180)) (Just True) (Just False)
-      FL.setImage cover $ Just png
-      return ()
-      -- TODO support changing image: click to browse, or drag and drop
-    FL.end packRight
-    FL.setResizable tab $ Just pack
+        let [r1, r2, r3, r4, r5, r6] = splitHorizN 6 rect'
+            editLangs f meta = meta
+              { _languages = f $ _languages meta
+              }
+            lang l = simpleCheck l
+              (elem l . _languages)
+              (\b -> editLangs $ if b then (l :) else id)
+        lang "English" r1
+        lang "French" r2
+        lang "Italian" r3
+        lang "Spanish" r4
+        lang "German" r5
+        lang "Japanese" r6
+        -- language-clear function at the bottom; this makes it happen first
+        -- (note how function composition happens via the Writer monad)
+        tell $ return $ Endo $ \yaml -> yaml
+          { _metadata = editLangs (const []) $ _metadata yaml
+          }
+      liftIO $ FL.end packBottom
+      resizeBox <- liftIO $ FL.boxNew rectResize Nothing
+      liftIO $ FL.setResizable tab $ Just resizeBox
     return (yamlModifier, tab)
   (modifyInsts, instTab) <- makeTab windowRect "Instruments" $ \rect tab -> do
     homeTabColor >>= setTabColor tab
@@ -467,7 +590,6 @@ launchWindow sink proj maybeAudio = mdo
                 return $ (\(FL.AtIndex i) -> toEnum i) <$> FL.getValue choice
               makeDifficulty :: FL.Ref FL.TreeItem -> Difficulty -> IO (IO Difficulty)
               makeDifficulty itemParent diff = do
-                -- TODO disable rank number box unless dropdown is on Rank
                 Just itemGroup <- FL.addAt tree "" itemParent
                 group <- FL.groupNew dummyRect Nothing
                 let (choiceArea, textArea) = chopLeft 100 dummyRect
@@ -590,7 +712,7 @@ launchWindow sink proj maybeAudio = mdo
     FL.setStep scrubber 1
     void $ FL.setValue scrubber 0
     FL.deactivate scrubber
-    (getSpeed, counter) <- speedPercent' speedArea
+    (getSpeed, counter) <- speedPercent' False speedArea
     FL.end topControls
     FL.setResizable topControls $ Just scrubber
     varSong <- newIORef Nothing
@@ -709,31 +831,23 @@ launchWindow sink proj maybeAudio = mdo
       let input = takeDirectory (projectLocation proj) </> "notes.mid"
       mid <- RBFile.loadMIDI input
       let foundTracks = getScoreTracks $ RBFile.s_tracks mid
-          trackLookup = Map.fromList $ map
-            (\quad@(strack, diff, _, _) -> ((strack, diff), quad))
-            foundTracks
       stackIO $ sink $ EventIO $ mdo
         FL.begin pack
-        getTracks <- forM (nubOrd [strack | (strack, _, _, _) <- foundTracks]) $ \strack -> do
-          getDiff <- padded 3 10 3 10 (Size (Width 800) (Height 20)) $ \row -> do
-            let (labelArea, diffArea) = chopLeft 200 row
-            void $ FL.boxNew labelArea $ Just $ scoreTrackName strack
-            horizRadio' diffArea (Just updateLabel) $ do
-              diff <- Nothing : map Just [minBound .. maxBound] :: [Maybe RB.Difficulty]
-              return (maybe "None" (T.pack . show) diff, diff, isNothing diff)
-          return (strack, getDiff)
+        getTracks <- padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
+          starSelectors rect' foundTracks updateLabel
+            [ ("Guitar", [ScoreGuitar, ScoreProGuitar])
+            , ("Bass"  , [ScoreBass  , ScoreProBass  ])
+            , ("Keys"  , [ScoreKeys  , ScoreProKeys  ])
+            , ("Drums" , [ScoreDrums , ScoreProDrums ])
+            , ("Vocal" , [ScoreVocals, ScoreHarmonies])
+            ]
         [l1S, l2S, l3S, l4S, l5S, lGS] <- padded 3 10 3 10 (Size (Width 800) (Height 40)) $ \bottomArea -> do
           forM (splitHorizN 6 bottomArea) $ \cell -> do
             cutoffLabel <- FL.boxNew cell Nothing
             FL.setLabelfont cutoffLabel FLE.helveticaBold
             return cutoffLabel
         let updateLabel = do
-              tracks <- flip concatMapM getTracks $ \(strack, getDiff) -> do
-                mmdiff <- getDiff
-                case join mmdiff of
-                  Nothing   -> return []
-                  Just diff -> return $ toList $ Map.lookup (strack, diff) trackLookup
-              let stars = tracksToStars tracks
+              stars <- tracksToStars <$> getTracks
               FL.setLabel l1S $ maybe "" (\n -> "1*: " <> T.pack (show n)) $ stars1    stars
               FL.setLabel l2S $ maybe "" (\n -> "2*: " <> T.pack (show n)) $ stars2    stars
               FL.setLabel l3S $ maybe "" (\n -> "3*: " <> T.pack (show n)) $ stars3    stars
@@ -763,10 +877,35 @@ launchWindow sink proj maybeAudio = mdo
               return [dout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  {-
-  makeTab windowRect "Rock Band 2" $ \_ _ -> return ()
-  makeTab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
-  -}
+  rb2Tab <- makeTab windowRect "RB2" $ \rect tab -> do
+    functionTabColor >>= setTabColor tab
+    songPageRB2 sink rect tab proj $ \tgt fout -> do
+      proj' <- fullProjModify proj
+      let name = "Building RB2 CON"
+          task = do
+            tmp <- buildRB2CON tgt proj'
+            stackIO $ Dir.copyFile tmp fout
+            return [fout]
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
+  psTab <- makeTab windowRect "CH/PS" $ \rect tab -> do
+    functionTabColor >>= setTabColor tab
+    songPagePS sink rect tab proj $ \tgt create -> do
+      proj' <- fullProjModify proj
+      let name = case create of
+            PSDir _ -> "Building CH/PS song folder"
+            PSZip _ -> "Building CH/PS zip file"
+          task = case create of
+            PSDir dout -> do
+              tmp <- buildPSDir tgt proj'
+              copyDirRecursive tmp dout
+              return [dout]
+            PSZip fout -> do
+              tmp <- buildPSZip tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
@@ -803,7 +942,7 @@ launchWindow sink proj maybeAudio = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let tabsToDisable = [metaTab, instTab, rb3Tab, utilsTab]
+  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskTabColor >>= setTabColor tab
     FL.deactivate tab
@@ -838,7 +977,7 @@ windowCloser finalize window = do
       FL.hide window
       finalize
 
-forceProDrums :: SongYaml -> SongYaml
+forceProDrums :: SongYaml f -> SongYaml f
 forceProDrums song = song
   { _parts = flip fmap (_parts song) $ \part -> case partDrums part of
     Nothing    -> part
@@ -851,7 +990,7 @@ forceProDrums song = song
       }
   }
 
-saveProject :: Project -> SongYaml -> IO Project
+saveProject :: Project -> SongYaml FilePath -> IO Project
 saveProject proj song = do
   yamlEncodeFile (projectLocation proj) $ toJSON song
   return proj { projectSongYaml = song }
@@ -863,7 +1002,7 @@ data GBKOption
   | SwapBassKeys
   deriving (Eq, Show)
 
-applyGBK :: GBKOption -> SongYaml -> TargetRB3 -> TargetRB3
+applyGBK :: GBKOption -> SongYaml f -> TargetRB3 f -> TargetRB3 f
 applyGBK gbk song tgt = case gbk of
   GBKUnchanged -> tgt
   CopyGuitarToKeys -> if hasFive FlexGuitar
@@ -877,7 +1016,7 @@ applyGBK gbk song tgt = case gbk of
     else tgt
   where hasFive flex = isJust $ getPart flex song >>= partGRYBO
 
-applyGBK2 :: GBKOption -> SongYaml -> TargetRB2 -> TargetRB2
+applyGBK2 :: GBKOption -> SongYaml f -> TargetRB2 -> TargetRB2
 applyGBK2 gbk song tgt = case gbk of
   GBKUnchanged -> tgt
   CopyGuitarToKeys -> tgt
@@ -915,8 +1054,8 @@ horizRadio' rect cb opts = do
 horizRadio :: Rectangle -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
 horizRadio rect = horizRadio' rect Nothing
 
-speedPercent' :: Rectangle -> IO (IO Double, FL.Ref FL.Counter)
-speedPercent' rect = do
+speedPercent' :: Bool -> Rectangle -> IO (IO Double, FL.Ref FL.Counter)
+speedPercent' tooltip rect = do
   speed <- FL.counterNew rect (Just "Speed (%)")
   FL.setLabelsize speed $ FL.FontSize 13
   FL.setLabeltype speed FLE.NormalLabelType FL.ResolveImageLabelDoNothing
@@ -925,21 +1064,24 @@ speedPercent' rect = do
   FL.setLstep speed 5
   FL.setMinimum speed 1
   void $ FL.setValue speed 100
-  FL.setTooltip speed "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
+  when tooltip $ FL.setTooltip speed
+    "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
   return ((/ 100) <$> FL.getValue speed, speed)
 
-speedPercent :: Rectangle -> IO (IO Double)
-speedPercent = fmap fst . speedPercent'
+speedPercent :: Bool -> Rectangle -> IO (IO Double)
+speedPercent tooltip rect = fst <$> speedPercent' tooltip rect
 
 batchPageRB2
   :: (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> ([(TargetRB2, FilePath)], SongYaml)) -> IO ())
+  -> ((Project -> ([(TargetRB2, FilePath)], SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageRB2 sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+    centerRect = trimClock 0 250 0 250 rect'
+    in centerFixed rect' $ speedPercent True centerRect
   getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     fn <- horizRadio rect'
       [ ("Guitar/Bass", GBKUnchanged, True)
@@ -1053,16 +1195,19 @@ batchPagePS
   :: (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> (TargetPS, PSCreate)) -> IO ())
+  -> ((Project -> (TargetPS FilePath, PSCreate)) -> IO ())
   -> IO ()
 batchPagePS sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+    centerRect = trimClock 0 250 0 250 rect'
+    in centerFixed rect' $ speedPercent True centerRect
   let getTargetSong usePath template = do
         speed <- getSpeed
         return $ \proj -> let
-          tgt = def
-            { ps_Common = (ps_Common def)
+          defPS = def :: TargetPS FilePath
+          tgt = defPS
+            { ps_Common = (ps_Common defPS)
               { tgt_Speed = Just speed
               }
             }
@@ -1089,34 +1234,182 @@ batchPagePS sink rect tab build = do
   FL.setResizable tab $ Just pack
   return ()
 
+songIDBox
+  :: Rectangle
+  -> (Maybe (Either Integer T.Text) -> tgt -> tgt)
+  -> BuildYamlControl tgt ()
+songIDBox rect f = do
+  let (checkArea, inputArea) = chopLeft 200 rect
+  check <- liftIO $ FL.checkButtonNew checkArea (Just "Specific Song ID")
+  input <- liftIO $ FL.inputNew
+    inputArea
+    Nothing
+    (Just FL.FlNormalInput) -- required for labels to work
+  let controlInput = do
+        b <- FL.getValue check
+        (if b then FL.activate else FL.deactivate) input
+  liftIO controlInput
+  liftIO $ FL.setCallback check $ \_ -> controlInput
+  tell $ do
+    b <- FL.getValue check
+    s <- FL.getValue input
+    return $ Endo $ f $ do
+      guard $ b && s /= ""
+      Just $ case readMaybe $ T.unpack s of
+        Nothing -> Right s
+        Just i  -> Left i
+
+starSelectors
+  :: Rectangle
+  -> [(ScoreTrack, RB.Difficulty, Int, Int)]
+  -> IO ()
+  -> [(T.Text, [ScoreTrack])]
+  -> IO (IO [(ScoreTrack, RB.Difficulty, Int, Int)])
+starSelectors rect foundTracks updateLabel slots = let
+  rects = splitHorizN (length slots) rect
+  instSelector ((lbl, trackFilter), r) = do
+    let r' = trimClock 20 5 5 5 r
+        matchTracks = [ t | t@(strack, _, _, _) <- foundTracks, elem strack trackFilter ]
+    choice <- FL.choiceNew r' $ Just lbl
+    FL.setAlign choice $ FLE.Alignments [FLE.AlignTypeTop]
+    FL.addName choice "(none)"
+    forM_ matchTracks $ \(strack, diff, _, _) -> FL.addName choice $
+      scoreTrackName strack <> " " <> case diff of
+        RB.Easy   -> "(E)"
+        RB.Medium -> "(M)"
+        RB.Hard   -> "(H)"
+        RB.Expert -> "(X)"
+    void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex 0
+    FL.setCallback choice $ \_ -> updateLabel
+    return $ do
+      FL.AtIndex i <- FL.getValue choice
+      return $ case drop (i - 1) matchTracks of
+        t : _ | i /= 0 -> [t]
+        _              -> []
+  in mconcat $ map instSelector $ zip slots rects
+
+partSelectors
+  :: (Default tgt)
+  => Rectangle
+  -> Project
+  -> [(T.Text, tgt -> FlexPartName, FlexPartName -> tgt -> tgt, Part FilePath -> Bool)]
+  -> BuildYamlControl tgt ()
+partSelectors rect proj slots = let
+  rects = splitHorizN (length slots) rect
+  fparts = do
+    (fpart, part) <- HM.toList $ getParts $ _parts $ projectSongYaml proj
+    guard $ part /= def
+    return (fpart, T.toTitle $ RBFile.getPartName fpart, part)
+  instSelector ((lbl, getter, setter, partFilter), r) = do
+    let r' = trimClock 20 5 5 5 r
+        fparts' = [ t | t@(_, _, part) <- fparts, partFilter part ]
+    choice <- liftIO $ do
+      choice <- FL.choiceNew r' $ Just lbl
+      FL.setAlign choice $ FLE.Alignments [FLE.AlignTypeTop]
+      FL.addName choice "(none)"
+      forM_ fparts' $ \(_, opt, _) -> FL.addName choice opt
+      void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $
+        case findIndex (\(fpart, _, _) -> fpart == getter def) fparts' of
+          Nothing -> 0 -- (none)
+          Just i  -> i + 1
+      return choice
+    tell $ do
+      FL.AtIndex i <- FL.getValue choice
+      return $ Endo $ setter $ case drop (i - 1) fparts' of
+        (fpart, _, _) : _ | i /= 0 -> fpart
+        _                          -> FlexExtra "undefined"
+  in mapM_ instSelector $ zip slots rects
+
+customTitleSuffix
+  :: (Event -> IO ())
+  -> Rectangle
+  -> IO T.Text
+  -> (Maybe T.Text -> tgt -> tgt)
+  -> BuildYamlControl tgt (IO ())
+customTitleSuffix sink rect getSuffix setSuffix = do
+  let (checkArea, inputArea) = chopLeft 200 rect
+  check <- liftIO $ FL.checkButtonNew checkArea (Just "Custom Title Suffix")
+  input <- liftIO $ FL.inputNew
+    inputArea
+    Nothing
+    (Just FL.FlNormalInput) -- required for labels to work
+  let controlInput = do
+        b <- FL.getValue check
+        if b
+          then FL.activate input
+          else do
+            sfx <- getSuffix
+            void $ FL.setValue input $ T.strip sfx
+            FL.deactivate input
+  liftIO $ sink $ EventIO controlInput -- have to delay; can't call now due to dependency loop!
+  liftIO $ FL.setCallback check $ \_ -> controlInput
+  tell $ do
+    b <- FL.getValue check
+    s <- FL.getValue input
+    return $ Endo $ setSuffix $ guard b >> Just (T.strip s)
+  return controlInput
+
 songPageRB3
   :: (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
   -> Project
-  -> (TargetRB3 -> RB3Create -> IO ())
+  -> (TargetRB3 FilePath -> RB3Create -> IO ())
   -> IO ()
-songPageRB3 sink rect tab proj build = do
+songPageRB3 sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
-  get2x <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    box <- FL.checkButtonNew rect' (Just "2x Bass Pedal drums")
-    return $ FL.getValue box
-  -- TODO custom song ID
-  -- TODO instrument selections: G B D K V
-  -- TODO custom label or title
-  let makeTarget = do
-        speed <- getSpeed
-        is2x <- get2x
-        return def
-          { rb3_Common = (rb3_Common def)
-            { tgt_Speed = Just speed
+  let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
+  targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
+      tell $ getSpeed >>= \speed -> return $ Endo $ \rb3 ->
+        rb3 { rb3_Common = (rb3_Common rb3) { tgt_Speed = Just speed } }
+      return counter
+    box2x <- fullWidth 35 $ \rect' -> do
+      box <- liftIO $ FL.checkButtonNew rect' (Just "2x Bass Pedal drums")
+      tell $ FL.getValue box >>= \b -> return $ Endo $ \rb3 ->
+        rb3 { rb3_2xBassPedal = b }
+      return box
+    fullWidth 35 $ \rect' -> songIDBox rect' $ \sid rb3 ->
+      rb3 { rb3_SongID = sid }
+    fullWidth 50 $ \rect' -> partSelectors rect' proj
+      [ ( "Guitar", rb3_Guitar, (\v rb3 -> rb3 { rb3_Guitar = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
+        )
+      , ( "Bass"  , rb3_Bass  , (\v rb3 -> rb3 { rb3_Bass   = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
+        )
+      , ( "Keys"  , rb3_Keys  , (\v rb3 -> rb3 { rb3_Keys   = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partProKeys p))
+        )
+      , ( "Drums" , rb3_Drums , (\v rb3 -> rb3 { rb3_Drums  = v })
+        , (\p -> isJust $ partDrums p)
+        )
+      , ( "Vocal" , rb3_Vocal , (\v rb3 -> rb3 { rb3_Vocal  = v })
+        , (\p -> isJust $ partVocal p)
+        )
+      ]
+    fullWidth 35 $ \rect' -> do
+      controlInput <- customTitleSuffix sink rect'
+        (makeTarget >>= \rb3 -> return $ targetTitle
+          (projectSongYaml proj)
+          (RB3 rb3 { rb3_Common = (rb3_Common rb3) { tgt_Title = Just "" } })
+        )
+        (\msfx rb3 -> rb3
+          { rb3_Common = (rb3_Common rb3)
+            { tgt_Label = msfx
             }
-          , rb3_2xBassPedal = is2x
           }
-  padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Create CON file"
-    FL.setCallback btn $ \_ -> do
+        )
+      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+      liftIO $ FL.setCallback box2x $ \_ -> controlInput
+  let makeTarget = fmap ($ def) targetModifier
+  fullWidth 35 $ \rect' -> do
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    btn1 <- FL.buttonNew r1 $ Just "Create CON file"
+    FL.setCallback btn1 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save RB3 CON file"
@@ -1126,9 +1419,8 @@ songPageRB3 sink rect tab proj build = do
           Nothing -> return ()
           Just f  -> build tgt $ RB3CON f
         _ -> return ()
-  padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Create Magma project"
-    FL.setCallback btn $ \_ -> do
+    btn2 <- FL.buttonNew r2 $ Just "Create Magma project"
+    FL.setCallback btn2 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
       FL.setTitle picker "Save Magma v2 project"
@@ -1138,6 +1430,167 @@ songPageRB3 sink rect tab proj build = do
           Nothing -> return ()
           Just f  -> build tgt $ RB3Magma f
         _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn1 color
+    FL.setColor btn2 color
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+songPageRB2
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> Project
+  -> (TargetRB2 -> FilePath -> IO ())
+  -> IO ()
+songPageRB2 sink rect tab proj build = mdo
+  pack <- FL.packNew rect Nothing
+  let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
+  targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
+      tell $ getSpeed >>= \speed -> return $ Endo $ \rb2 ->
+        rb2 { rb2_Common = (rb2_Common rb2) { tgt_Speed = Just speed } }
+      return counter
+    box2x <- fullWidth 35 $ \rect' -> do
+      box <- liftIO $ FL.checkButtonNew rect' (Just "2x Bass Pedal drums")
+      tell $ FL.getValue box >>= \b -> return $ Endo $ \rb2 ->
+        rb2 { rb2_2xBassPedal = b }
+      return box
+    fullWidth 35 $ \rect' -> songIDBox rect' $ \sid rb2 ->
+      rb2 { rb2_SongID = sid }
+    fullWidth 50 $ \rect' -> partSelectors rect' proj
+      [ ( "Guitar", rb2_Guitar, (\v rb2 -> rb2 { rb2_Guitar = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
+        )
+      , ( "Bass"  , rb2_Bass  , (\v rb2 -> rb2 { rb2_Bass   = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
+        )
+      , ( "Drums" , rb2_Drums , (\v rb2 -> rb2 { rb2_Drums  = v })
+        , (\p -> isJust $ partDrums p)
+        )
+      , ( "Vocal" , rb2_Vocal , (\v rb2 -> rb2 { rb2_Vocal  = v })
+        , (\p -> isJust $ partVocal p)
+        )
+      ]
+    fullWidth 35 $ \rect' -> do
+      controlInput <- customTitleSuffix sink rect'
+        (makeTarget >>= \rb2 -> return $ targetTitle
+          (projectSongYaml proj)
+          (RB2 rb2 { rb2_Common = (rb2_Common rb2) { tgt_Title = Just "" } })
+        )
+        (\msfx rb2 -> rb2
+          { rb2_Common = (rb2_Common rb2)
+            { tgt_Label = msfx
+            }
+          }
+        )
+      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+      liftIO $ FL.setCallback box2x $ \_ -> controlInput
+  let makeTarget = fmap ($ def) targetModifier
+  fullWidth 35 $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Create CON file"
+    FL.setCallback btn $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save RB2 CON file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_rb2con" -- TODO add modifiers
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt f
+        _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn color
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+songPagePS
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> Project
+  -> (TargetPS FilePath -> PSCreate -> IO ())
+  -> IO ()
+songPagePS sink rect tab proj build = mdo
+  pack <- FL.packNew rect Nothing
+  let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
+  targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
+      tell $ getSpeed >>= \speed -> return $ Endo $ \ps ->
+        ps { ps_Common = (ps_Common ps) { tgt_Speed = Just speed } }
+      return counter
+    fullWidth 50 $ \rect' -> partSelectors rect' proj
+      [ ( "Guitar"     , ps_Guitar    , (\v ps -> ps { ps_Guitar       = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partGHL p) || isJust (partProGuitar p))
+        )
+      , ( "Bass"       , ps_Bass      , (\v ps -> ps { ps_Bass         = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partGHL p) || isJust (partProGuitar p))
+        )
+      , ( "Keys"       , ps_Keys      , (\v ps -> ps { ps_Keys         = v })
+        , (\p -> isJust (partGRYBO p) || isJust (partProKeys p))
+        )
+      , ( "Drums"      , ps_Drums     , (\v ps -> ps { ps_Drums        = v })
+        , (\p -> isJust $ partDrums p)
+        )
+      , ( "Vocal"      , ps_Vocal     , (\v ps -> ps { ps_Vocal        = v })
+        , (\p -> isJust $ partVocal p)
+        )
+      , ( "Rhythm"     , ps_Rhythm    , (\v ps -> ps { ps_Rhythm       = v })
+        , (\p -> isJust $ partGRYBO p)
+        )
+      , ( "Guitar Coop", ps_GuitarCoop, (\v ps -> ps { ps_GuitarCoop   = v })
+        , (\p -> isJust $ partGRYBO p)
+        )
+      ]
+    fullWidth 35 $ \rect' -> do
+      controlInput <- customTitleSuffix sink rect'
+        (makeTarget >>= \ps -> return $ targetTitle
+          (projectSongYaml proj)
+          (PS ps { ps_Common = (ps_Common ps) { tgt_Title = Just "" } })
+        )
+        (\msfx ps -> ps
+          { ps_Common = (ps_Common ps)
+            { tgt_Label = msfx
+            }
+          }
+        )
+      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+  let makeTarget = fmap ($ def) targetModifier
+  fullWidth 35 $ \rect' -> do
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    btn1 <- FL.buttonNew r1 $ Just "Create CH/PS song folder"
+    FL.setCallback btn1 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
+      FL.setTitle picker "Save CH/PS song folder"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_chps" -- TODO add modifiers
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ PSDir f
+        _ -> return ()
+    btn2 <- FL.buttonNew r2 $ Just "Create CH/PS zip file"
+    FL.setCallback btn2 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save CH/PS zip file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_chps.zip" -- TODO add modifiers
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ PSZip f
+        _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn1 color
+    FL.setColor btn2 color
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -1146,11 +1599,13 @@ batchPageRB3
   :: (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> ([(TargetRB3, RB3Create)], SongYaml)) -> IO ())
+  -> ((Project -> ([(TargetRB3 FilePath, RB3Create)], SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageRB3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+    centerRect = trimClock 0 250 0 250 rect'
+    in centerFixed rect' $ speedPercent True centerRect
   getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     box <- FL.checkButtonNew rect' (Just "Convert non-Pro Drums to all toms")
     FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
@@ -1176,8 +1631,9 @@ batchPageRB3 sink rect tab build = do
         gbk <- getGBK
         kicks <- getKicks
         return $ \proj -> let
-          tgt = applyGBK gbk yaml def
-            { rb3_Common = (rb3_Common def)
+          defRB3 = def :: TargetRB3 FilePath
+          tgt = applyGBK gbk yaml defRB3
+            { rb3_Common = (rb3_Common defRB3)
               { tgt_Speed = Just speed
               }
             }
@@ -1220,7 +1676,7 @@ batchPageRB3 sink rect tab build = do
   FL.setResizable tab $ Just pack
   return ()
 
-templateApplyInput :: Project -> Maybe Target -> T.Text -> T.Text
+templateApplyInput :: Project -> Maybe (Target FilePath) -> T.Text -> T.Text
 templateApplyInput proj mtgt txt = foldr ($) txt
   [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
   , T.intercalate (T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
@@ -1991,8 +2447,9 @@ watchSong notify mid = do
           FS.Unknown _ _ "STOP_WATCH" -> liftIO $ FS.stopManager wm
           _ -> do
             lg $ "Reloading from " <> mid
-            loadTracks mid >>= liftIO . writeIORef varTrack
-            liftIO notify
+            safeOnyx $ do
+              loadTracks mid >>= liftIO . writeIORef varTrack
+              liftIO notify
             go
     go
   return (previewTracks <$> readIORef varTrack, sendClose)
@@ -2142,9 +2599,9 @@ previewGroup sink rect getTracks getTime getSpeed = do
   return (wholeGroup, FL.redraw glwindow)
 
 launchPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
-launchPreview sink makeMenuBar mid = do
-  (getTracks, stopWatch) <- watchSong (sink $ EventIO FLTK.redraw) mid
-  liftIO $ do
+launchPreview sink makeMenuBar mid = mdo
+  (getTracks, stopWatch) <- watchSong (sink $ EventIO redraw) mid
+  redraw <- liftIO $ do
 
     let windowWidth = Width 800
         windowHeight = Height 600
@@ -2182,7 +2639,7 @@ launchPreview sink makeMenuBar mid = do
     FL.setResizable controlsGroup $ Just labelServer
 
     varTime <- newIORef 0
-    (groupGL, _) <- previewGroup
+    (groupGL, redrawGL) <- previewGroup
       sink
       belowTopControls
       getTracks
@@ -2203,6 +2660,7 @@ launchPreview sink makeMenuBar mid = do
       stopWatch
 
     FL.showWidget window
+    return redrawGL
   return ()
 
 promptPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
@@ -2565,6 +3023,8 @@ addTerm term pair = do
 -- present in C layer but missing from Haskell
 foreign import ccall unsafe "Fl_Simple_Terminal_append"
   c_append :: Ptr () -> CString -> IO ()
+-- foreign import ccall safe "Fl_Window_show_with_args" -- must be safe! hangs if unsafe
+--   c_show_with_args :: Ptr () -> CInt -> Ptr CString -> IO ()
 
 macOS :: Bool
 macOS = os == "darwin"
@@ -2597,9 +3057,6 @@ launchGUI = do
         atomically $ writeTChan evts e
         FLTK.awake -- this makes waitFor finish so we can process the event
 
-  -- support drag and drop onto mac app icon
-  void $ openCallback $ Just $ sink . EventOnyx . startLoad . T.unpack
-
   -- terminal
   let consoleWidth = Width 500
       consoleHeight = Height 400
@@ -2607,11 +3064,18 @@ launchGUI = do
     (Size consoleWidth consoleHeight)
     Nothing
     (Just "Onyx Console")
+  FL.setXclass termWindow "Onyx" -- this sets it as the default
 #ifdef WINDOWS
   peek fl_display >>= \disp -> do
     icon <- loadIcon (Just disp) $ intPtrToPtr 1
     FL.withRef termWindow $ \ptr ->
       setIconRaw ptr icon
+#else
+#ifndef MACOSX
+  -- linux icon (not working?)
+  Right icon <- getResourcesPath "icon.png" >>= FL.pngImageNew . T.pack
+  FL.setIcon termWindow $ Just icon
+#endif
 #endif
   FL.sizeRange termWindow $ Size consoleWidth consoleHeight
   globalLogColor >>= FL.setColor termWindow
@@ -2633,7 +3097,7 @@ launchGUI = do
                 )
               , ( "File/Open Song"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o'
-                , Just $ promptLoad sink
+                , Just $ promptLoad sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               , ( "File/Live Preview"
@@ -2706,10 +3170,10 @@ launchGUI = do
     (Just "Load a song")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs
-      { FL.handleCustom = Just $ dragAndDrop (sink . EventOnyx . mapM_ startLoad) . FL.handleButtonBase . FL.safeCast
+      { FL.handleCustom = Just $ dragAndDrop (sink . EventOnyx . mapM_ (startLoad makeMenuBar)) . FL.handleButtonBase . FL.safeCast
       }
   loadSongColor >>= FL.setColor buttonOpen
-  FL.setCallback buttonOpen $ \_ -> promptLoad sink
+  FL.setCallback buttonOpen $ \_ -> promptLoad sink makeMenuBar
   buttonBatch <- FL.buttonCustom
     areaBatch
     (Just "Batch process")
@@ -2732,6 +3196,17 @@ launchGUI = do
   FL.setCallback termWindow $ windowCloser $ return ()
   FL.showWidget termWindow
 
+  -- support drag and drop onto mac app icon
+  void $ openCallback $ Just $ sink . EventOnyx . startLoad makeMenuBar . T.unpack
+
+  {-
+  -- on linux, supposedly you need to show(argc,argv) for icon to work
+  FL.withRef termWindow $ \pwin -> do
+    withMany withCString ["onyx"] $ \ps -> do
+      withArrayLen ps $ \argc argv -> do
+        c_show_with_args pwin (fromIntegral argc) argv
+  -}
+
   let logChan = logIO $ sink . EventMsg
       wait = if macOS
         then FLTK.waitFor 1e20 >> return True
@@ -2749,7 +3224,7 @@ launchGUI = do
           EventMsg    pair -> liftIO $ addTerm term $ toTermMessage pair
           EventFail   msg  -> liftIO $ addTerm term $ TermError msg
           EventIO     act  -> liftIO act
-          EventOnyx   act  -> act
+          EventOnyx   act  -> safeOnyx act
         process
     loop = liftIO FLTK.getProgramShouldQuit >>= \case
       True  -> return ()

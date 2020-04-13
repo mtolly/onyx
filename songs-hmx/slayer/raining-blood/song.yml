@@ -19,7 +19,6 @@ plans:
       guitar: [6, 7]
       vocal: [8, 9]
 metadata:
-  autogen-theme: AggressiveMetal
   rating: SupervisionRecommended
   preview-start: 2:46.088
   file-album-art: cover.png_xbox
@@ -36,6 +35,8 @@ metadata:
   difficulty:
     rank: 389
   artist: Slayer
+global:
+  autogen-theme: AggressiveMetal
 parts:
   drums:
     drums:

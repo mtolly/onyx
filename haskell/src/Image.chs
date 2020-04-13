@@ -1,7 +1,7 @@
 -- | Functions dealing with the DXT texture formats used for album art by RB games.
 {-# LANGUAGE BinaryLiterals   #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Image (toDXT1File, DXTFormat(..), readRBImage) where
+module Image (toDXT1File, DXTFormat(..), readRBImage, readRBImageMaybe) where
 
 import           Codec.Picture
 import qualified Codec.Picture.STBIR        as STBIR
@@ -12,6 +12,7 @@ import           Data.Binary.Get
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Builder    as BB
 import qualified Data.ByteString.Lazy       as BL
+import           Data.Maybe                 (fromMaybe)
 import           Data.Word                  (Word16, Word8)
 import           Foreign
 import           Foreign.C
@@ -165,8 +166,8 @@ pngWii256DXT1Signature = B.pack
   ]
 
 -- | Supports .png_xbox in both official DXT1 and C3 DXT2/3, and also .png_wii.
-readRBImage :: BL.ByteString -> Image PixelRGB8
-readRBImage bs = let
+readRBImageMaybe :: BL.ByteString -> Maybe (Image PixelRGB8)
+readRBImageMaybe bs = let
   readWiiChunk = fmap (arrangeRows 2 2) $ replicateM 4 $ readDXTChunk PNGWii True
   arrangeRows cols rows xs = let
     w = imageWidth  $ head xs
@@ -199,5 +200,10 @@ readRBImage bs = let
         $ replicateM (quot (width * height) 64) readWiiChunk
       _ -> fail "Unrecognized HMX image format"
   in case runGetOrFail parseImage bs of
-    Left  _           -> generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256
-    Right (_, _, img) -> img
+    Left  _           -> Nothing
+    Right (_, _, img) -> Just img
+
+readRBImage :: BL.ByteString -> Image PixelRGB8
+readRBImage = let
+  magenta = generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256
+  in fromMaybe magenta . readRBImageMaybe

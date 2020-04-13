@@ -10,6 +10,7 @@ metadata:
   - "QA by Mazegeek999."
   - "*Restitution* spoken word transcribed with the help of *Chaos in Progress*."
   rating: Supervision Recommended
+global:
   autogen-theme: Dusty Vintage
 audio:
   album-track:

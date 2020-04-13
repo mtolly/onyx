@@ -26,6 +26,7 @@ plans:
       1|3: hihat
     song:
       pad: [2.960, album-track]
+    file-tempo: tempo-album.mid
   jammit:
     countin: *countin
     parts:
@@ -36,12 +37,10 @@ plans:
         pad: [1.193, only: [Bass, jammit-track]]
       keys:
         pad: [1.193, only: [Keys, jammit-track]]
-      guitar:
-        pad:
-        - 1.193
-        - mix:
-          - only: [Guitar 1, jammit-track]
-          - only: [Guitar 2, jammit-track]
+      guitar-1:
+        pad: [1.193, only: [Guitar 1, jammit-track]]
+      guitar-2:
+        pad: [1.193, only: [Guitar 2, jammit-track]]
     song:
       pad:
       - 1.193

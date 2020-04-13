@@ -48,7 +48,6 @@ metadata:
   track-number: 2
   album: Take This to Your Grave
   year: 2003
-  anim-tempo: 64
   author: Harmonix, Onyxite, Espher
   title: Dead on Arrival
   preview-end: 41.5
@@ -57,3 +56,5 @@ metadata:
     rank: 290
   artist: Fall Out Boy
   key: C major
+global:
+  anim-tempo: 64

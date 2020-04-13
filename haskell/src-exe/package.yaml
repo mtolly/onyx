@@ -48,6 +48,7 @@ executables:
     - network
     - exceptions
     - extra
+    - JuicyPixels
     # my libraries
     - midi-util
     - conduit-audio

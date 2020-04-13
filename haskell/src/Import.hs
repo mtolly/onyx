@@ -22,7 +22,7 @@ import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isSpace, toLower)
 import qualified Data.Conduit.Audio               as CA
-import           Data.Default.Class               (def)
+import           Data.Default.Class               (Default, def)
 import qualified Data.Digest.Pure.MD5             as MD5
 import qualified Data.DTA                         as D
 import           Data.DTA.Lex                     (scanStack)
@@ -36,7 +36,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (elemIndex, nub)
+import           Data.List                        (elemIndex, intercalate, nub)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    mapMaybe)
@@ -48,6 +48,7 @@ import           Data.Tuple.Extra                 (fst3, snd3, thd3)
 import           Difficulty
 import qualified FeedBack.Load                    as FB
 import qualified FretsOnFire                      as FoF
+import           Guitars                          (applyStatus)
 import           Image                            (DXTFormat (PNGXbox),
                                                    toDXT1File)
 import           JSONData                         (toJSON, yamlEncodeFile)
@@ -73,7 +74,7 @@ import           RockBand.Codec.Six               (nullSix)
 import           RockBand.Codec.Vocal
 import           RockBand.Common
 import qualified RockBand.Legacy.Vocal            as RBVox
-import           Scripts                          (loadFoFMIDI)
+import           Scripts                          (fixFreeform, loadFoFMIDI)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package                     (extractSTFS, rb3pkg)
@@ -98,32 +99,135 @@ removeDummyTracks trks = let
     , RBFile.fixedPartRealDrumsPS = drums $ RBFile.fixedPartRealDrumsPS trks
     }
 
-fixDoubleSwells :: RBFile.FixedFile U.Beats -> RBFile.FixedFile U.Beats
-fixDoubleSwells ps = let
+fixShortVoxPhrases
+  :: (SendMessage m)
+  => RBFile.Song (RBFile.FixedFile U.Beats)
+  -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats))
+fixShortVoxPhrases song@(RBFile.Song tmap mmap ps)
+  | not $ nullVox $ RBFile.fixedHarm1 ps = return song
+    -- not touching songs with harmonies
+  | not $ RTB.null $ vocalPhrase2 $ RBFile.fixedPartVocals ps = return song
+    -- not touching songs with separate p1/p2 phrases
+  | otherwise = inside "Track PART VOCALS" $ do
+    let vox = RBFile.fixedPartVocals ps
+        minLength = 1 :: U.Beats
+        joinBools = joinEdgesSimple . fmap
+          (\b -> if b then EdgeOn () () else EdgeOff ())
+        phrases = RTB.toAbsoluteEventList 0 $ joinBools $ vocalPhrase1 vox
+        od = Set.fromList $ ATB.getTimes $ RTB.toAbsoluteEventList 0
+          $ RTB.filter id $ vocalOverdrive vox
+        wiggle = 10/480
+        isOD t = case Set.lookupGT (t NNC.-| wiggle) od of
+          Nothing -> False
+          Just t' -> t' < t + wiggle
+        phrasesWithOD :: RTB.T U.Beats (RockBand.Common.Edge () Bool)
+        phrasesWithOD
+          = splitEdgesSimple
+          $ RTB.fromAbsoluteEventList
+          $ ATB.fromPairList
+          $ fmap (\(t, ((), (), len)) -> (t, ((), isOD t, len)))
+          $ ATB.toPairList phrases
+        fixed = fixPhrases phrasesWithOD
+        fixPhrases = \case
+          RNil -> RNil
+          Wait dt on@EdgeOn{} (Wait len off@EdgeOff{} rest) ->
+            if len >= minLength
+              then Wait dt on $ Wait len off $ fixPhrases rest -- all good
+              else let
+                -- pull phrase start earlier
+                len2 = min minLength $ len + dt
+                dt2 = (len + dt) - len2
+                in if len2 >= minLength
+                  then Wait dt2 on $ Wait len2 off $ fixPhrases rest
+                  else let
+                    -- also push phrase end later
+                    futureSpace = case rest of
+                      RNil       -> minLength
+                      Wait t _ _ -> t
+                    len3 = min minLength $ len2 + futureSpace
+                    usedSpace = len3 - len
+                    in Wait dt2 on $ Wait len3 off $ fixPhrases $ U.trackDrop usedSpace rest
+          Wait dt x rest -> Wait dt x $ fixPhrases rest -- shouldn't happen
+        vox' = vox
+          { vocalPhrase1 = fmap (\case EdgeOn{} -> True; EdgeOff{} -> False) fixed
+          , vocalOverdrive = flip RTB.mapMaybe fixed $ \case
+            EdgeOn () True -> Just True
+            EdgeOff   True -> Just False
+            _              -> Nothing
+          }
+        differenceTimes = case bothFirstSecond phrasesWithOD fixed of
+          (_, only1, _) -> ATB.getTimes $ RTB.toAbsoluteEventList 0
+            $ RTB.collectCoincident only1
+    case differenceTimes of
+      [] -> return ()
+      _  -> inside (intercalate ", " $ map (RBFile.showPosition mmap) differenceTimes) $ do
+        warn "Vocal phrase edges extended to be a minimum length of 1 beat"
+    return $ RBFile.Song tmap mmap ps { RBFile.fixedPartVocals = vox' }
+
+generateSwells
+  :: (Eq a)
+  => RTB.T U.Seconds (Bool, [a])
+  -> (RTB.T U.Seconds Bool, RTB.T U.Seconds Bool)
+generateSwells notes = let
+  maxDistance = 0.155 :: U.Seconds -- actually 0.16 but being conservative
+  go RNil = RNil
+  go (Wait t1 (True, [x]) (Wait t2 (True, [y]) rest)) | t2 < maxDistance = let
+    thisType = if x == y then LaneSingle else LaneDouble
+    in case splitLane x y rest of
+      (lane, after) -> let
+        laneBaseLength = t2 <> mconcat (RTB.getTimes lane)
+        in case after of
+          RNil
+            -- lane goes to end; just make it go a bit past last note
+            -> Wait t1 (thisType, True)
+            $  Wait (laneBaseLength <> maxDistance) (thisType, False)
+            $  RNil
+          Wait t3 z rest'
+            -- end lane at next note; we trim it back with fixFreeform later
+            -> Wait t1 (thisType, True)
+            $  Wait (laneBaseLength <> t3) (thisType, False)
+            $  go $ Wait 0 z rest'
+  go (Wait t _ rest) = RTB.delay t $ go rest
+  splitLane gem1 gem2 (Wait t (True, [x]) rest)
+    | x == gem1
+    = case splitLane gem2 gem1 rest of
+      (lane, after) -> (Wait t x lane, after)
+  splitLane _ _ rest = (RNil, rest)
+  result = go notes
+  laneType typ = fmap snd $ RTB.filter ((== typ) . fst) result
+  in (laneType LaneSingle, laneType LaneDouble)
+
+-- | Uses the PS swell lanes as a guide to make new valid ones.
+redoSwells
+  :: RBFile.Song (RBFile.FixedFile U.Beats)
+  -> RBFile.Song (RBFile.FixedFile U.Beats)
+redoSwells (RBFile.Song tmap mmap ps) = let
   fixTrack trk = let
-    notes = RTB.filter (/= RBDrums.Kick) $ drumGems $ fromMaybe mempty $ Map.lookup Expert $ drumDifficulties trk
-    lanesAbs = RTB.toAbsoluteEventList 0 $ joinEdgesSimple
-      $ fmap (maybe (EdgeOff ()) (`EdgeOn` ())) $ drumSingleRoll trk
-    newLanes = U.trackJoin $ RTB.fromAbsoluteEventList $ ATB.fromPairList
-      $ flip map (ATB.toPairList lanesAbs) $ \(startTime, lane) -> case lane of
-        (diff, (), len) -> let
-          -- TODO this should make sure that none of the notes we're looking at are simultaneous
-          shouldBeDouble = case toList $ U.trackTake len $ U.trackDrop startTime notes of
-            g1 : g2 : g3 : g4 : _ | g1 == g3 && g2 == g4 && g1 /= g2 -> True
-            _                                                        -> False
-          in (startTime,) $ RTB.fromPairList $ if shouldBeDouble
-            then [(0, (True, Just diff)), (len, (True, Nothing))]
-            else [(0, (False, Just diff)), (len, (False, Nothing))]
+    notes = RTB.collectCoincident
+      $ RTB.filter (/= RBDrums.Kick) $ drumGems $ fromMaybe mempty
+      $ Map.lookup Expert $ drumDifficulties trk
+    notesWithLanes = fmap (first $ not . null)
+      $ flip applyStatus notes $ RTB.merge
+        (fmap (('s',) . isJust) $ drumSingleRoll trk)
+        (fmap (('d',) . isJust) $ drumDoubleRoll trk)
+    (lanes1, lanes2) = generateSwells
+      $ U.applyTempoTrack tmap notesWithLanes
     in trk
-      { drumSingleRoll = RTB.mapMaybe (\case (False, b) -> Just b; _ -> Nothing) newLanes
-      , drumDoubleRoll = RTB.merge (drumDoubleRoll trk)
-        $ RTB.mapMaybe (\case (True, b) -> Just b; _ -> Nothing) newLanes
+      { drumSingleRoll = fmap (\b -> guard b >> Just LaneExpert)
+        $ fixFreeform (void notes)
+        $ U.unapplyTempoTrack tmap lanes1
+      , drumDoubleRoll = fmap (\b -> guard b >> Just LaneExpert)
+        $ fixFreeform (void notes)
+        $ U.unapplyTempoTrack tmap lanes2
       }
-  in ps
+  in RBFile.Song tmap mmap ps
     { RBFile.fixedPartDrums       = fixTrack $ RBFile.fixedPartDrums       ps
     , RBFile.fixedPartDrums2x     = fixTrack $ RBFile.fixedPartDrums2x     ps
     , RBFile.fixedPartRealDrumsPS = fixTrack $ RBFile.fixedPartRealDrumsPS ps
     }
+
+data LaneNotes = LaneSingle | LaneDouble
+  deriving (Eq, Ord)
 
 importFoF :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m Kicks
 importFoF src dest = do
@@ -295,10 +399,11 @@ importFoF src dest = do
           x                            -> x
         }
 
-  let outputMIDI = fixGHVox $ fixDoubleSwells $ swapFiveLane $ removeDummyTracks $ add2x $ RBFile.s_tracks parsed
-  stackIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI parsed
-    { RBFile.s_tracks = outputMIDI
+  outputMIDI <- fixShortVoxPhrases $ redoSwells parsed
+    { RBFile.s_tracks = fixGHVox $ swapFiveLane $ removeDummyTracks $ add2x $ RBFile.s_tracks parsed
     }
+  let outputFixed = RBFile.s_tracks outputMIDI
+  stackIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI outputMIDI
 
   -- TODO get this working with Clone Hero videos
   vid <- case FoF.video song of
@@ -317,7 +422,7 @@ importFoF src dest = do
         then True
         else getDiff song /= Just (-1)
       isnt :: (Eq a, Monoid a) => (a -> Bool) -> (RBFile.FixedFile U.Beats -> a) -> Bool
-      isnt isEmpty f = not $ isEmpty $ f outputMIDI
+      isnt isEmpty f = not $ isEmpty $ f outputFixed
       vocalMode = if isnt nullVox RBFile.fixedPartVocals && guardDifficulty FoF.diffVocals && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
         then if isnt nullVox RBFile.fixedHarm2 && guardDifficulty FoF.diffVocalsHarm
           then if isnt nullVox RBFile.fixedHarm3
@@ -348,23 +453,22 @@ importFoF src dest = do
       , _trackNumber  = FoF.track song
       , _comments     = []
       , _key          = Nothing
-      , _autogenTheme = RBProj.DefaultTheme
-      , _animTempo    = Left D.KTempoMedium
       , _author       = FoF.charter song
       , _rating       = Unrated
       , _previewStart = case FoF.previewStartTime song of
         Just ms | ms >= 0 -> Just $ PreviewSeconds $ fromIntegral ms / 1000
         _                 -> Nothing
       , _previewEnd   = Nothing
-      , _languages    = _languages def
-      , _convert      = _convert def
-      , _rhythmKeys   = _rhythmKeys def
-      , _rhythmBass   = _rhythmBass def
-      , _catEMH       = _catEMH def
-      , _expertOnly   = _expertOnly def
-      , _cover        = _cover def
+      , _languages    = _languages def'
+      , _convert      = _convert def'
+      , _rhythmKeys   = _rhythmKeys def'
+      , _rhythmBass   = _rhythmBass def'
+      , _catEMH       = _catEMH def'
+      , _expertOnly   = _expertOnly def'
+      , _cover        = _cover def'
       , _difficulty   = toTier $ FoF.diffBand song
       }
+    , _global = def'
     , _audio = HM.fromList $ flip map audioFilesWithChannels $ \(aud, chans) ->
       (T.pack aud, AudioFile AudioInfo
         { _md5 = Nothing
@@ -405,8 +509,9 @@ importFoF src dest = do
       , _crowd = audioExpr crowdAudio
       , _planComments = []
       , _tuningCents = 0
+      , _fileTempo = Nothing
       }
-    , _targets = HM.singleton "ps" $ PS def { ps_FileVideo = vid }
+    , _targets = HM.singleton "ps" $ PS def' { ps_FileVideo = vid }
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard ((isnt nullDrums RBFile.fixedPartDrums || isnt nullDrums RBFile.fixedPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums
@@ -414,11 +519,11 @@ importFoF src dest = do
           , drumsMode = let
             isFiveLane = FoF.fiveLaneDrums song == Just True || any
               (\(_, dd) -> RBDrums.Orange `elem` drumGems dd)
-              (Map.toList $ drumDifficulties $ RBFile.fixedPartDrums outputMIDI)
+              (Map.toList $ drumDifficulties $ RBFile.fixedPartDrums outputFixed)
             isReal = isnt nullDrums RBFile.fixedPartRealDrumsPS
             isPro = case FoF.proDrums song of
               Just b  -> b
-              Nothing -> not $ RTB.null $ drumToms $ RBFile.fixedPartDrums outputMIDI
+              Nothing -> not $ RTB.null $ drumToms $ RBFile.fixedPartDrums outputFixed
             in if isFiveLane then Drums5
               else if isReal then DrumsReal
                 else if isPro then DrumsPro
@@ -494,12 +599,14 @@ importFoF src dest = do
           , gryboSustainGap = 60
           }
         })
-      , ( FlexVocal, def
+      , ( FlexVocal, def'
         { partVocal = flip fmap vocalMode $ \vc -> PartVocal
           { vocalDifficulty = toTier $ FoF.diffVocals song
           , vocalCount = vc
           , vocalGender = Nothing
           , vocalKey = Nothing
+          , vocalLipsyncRB3 = Nothing
+          , vocalLipsyncRB2 = Nothing
           }
         })
       , ( FlexExtra "global", def
@@ -536,15 +643,15 @@ importSTFSDir index temp mtemp2x dir = do
   updateDir <- stackIO rb3Updates
   let (title, auto2x) = determine2xBass $ D.name pkg
       is2x = fromMaybe auto2x $ c3dta2xBass comments
-      meta = def
+      meta = def'
         { _author = c3dtaAuthoredBy comments
         , _title = Just title
-        , _convert = fromMaybe (_convert def) $ c3dtaConvert comments
-        , _rhythmKeys = fromMaybe (_rhythmKeys def) $ c3dtaRhythmKeys comments
-        , _rhythmBass = fromMaybe (_rhythmBass def) $ c3dtaRhythmBass comments
-        , _catEMH = fromMaybe (_catEMH def) $ c3dtaCATemh comments
-        , _expertOnly = fromMaybe (_expertOnly def) $ c3dtaExpertOnly comments
-        , _languages = fromMaybe (_languages def) $ c3dtaLanguages comments
+        , _convert = fromMaybe (_convert def') $ c3dtaConvert comments
+        , _rhythmKeys = fromMaybe (_rhythmKeys def') $ c3dtaRhythmKeys comments
+        , _rhythmBass = fromMaybe (_rhythmBass def') $ c3dtaRhythmBass comments
+        , _catEMH = fromMaybe (_catEMH def') $ c3dtaCATemh comments
+        , _expertOnly = fromMaybe (_expertOnly def') $ c3dtaExpertOnly comments
+        , _languages = fromMaybe (_languages def') $ c3dtaLanguages comments
         }
       karaoke = fromMaybe False $ c3dtaKaraoke comments
       multitrack = fromMaybe False $ c3dtaMultitrack comments
@@ -678,7 +785,7 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
         _ -> Nothing
       (title, is2x) = determine2xBass $ D.name pkg
       -- TODO: import more stuff from the extra dta
-      meta = def
+      meta = def'
         { _author = author
         , _title = Just title
         }
@@ -696,7 +803,7 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
   return hasKicks
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: (SendMessage m, MonadResource m) => D.SongPackage -> Metadata -> Bool -> Bool -> Kicks -> FilePath -> Maybe FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> Maybe FilePath -> FilePath -> StackTraceT m ()
+importRB3 :: (SendMessage m, MonadResource m) => D.SongPackage -> Metadata f -> Bool -> Bool -> Kicks -> FilePath -> Maybe FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> Maybe FilePath -> FilePath -> StackTraceT m ()
 importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover mmilo dir = do
   stackIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
   localMilo <- do
@@ -872,8 +979,6 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _comments     = []
       , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
       , _key          = skey
-      , _autogenTheme = RBProj.DefaultTheme
-      , _animTempo    = D.animTempo pkg
       , _author       = _author meta
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
       , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ D.preview pkg) / 1000
@@ -885,6 +990,9 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _catEMH       = _catEMH meta
       , _expertOnly   = _expertOnly meta
       , _cover        = not $ D.master pkg
+      }
+    , _global = def
+      { _animTempo = D.animTempo pkg
       }
     , _audio = HM.empty
     , _jammit = HM.empty
@@ -902,6 +1010,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _vols = map realToFrac $ D.vols $ D.song pkg
       , _planComments = []
       , _tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
+      , _fileTempo = Nothing
       , _karaoke = karaoke
       , _multitrack = multitrack
       }
@@ -915,7 +1024,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         else files2x >>= D.songId . fst >>= getSongID
       version1x = songID1x >> Just (D.version pkg)
       version2x = songID2x >> fmap (D.version . fst) files2x
-      targetShared = def
+      targetShared = def'
         { rb3_Harmonix = dtaIsHarmonixRB3 pkg
         , rb3_FileMilo = localMilo
         }
@@ -990,12 +1099,15 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           , pkFixFreeform = False
           }
         })
-      , ( FlexVocal, def
+      , ( FlexVocal, def'
         { partVocal = flip fmap vocalMode $ \vc -> PartVocal
           { vocalDifficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
           , vocalCount = vc
           , vocalGender = D.vocalGender pkg
           , vocalKey = vkey
+          -- TODO actually extract lipsync
+          , vocalLipsyncRB3 = Nothing
+          , vocalLipsyncRB2 = Nothing
           }
         })
       ]
@@ -1149,10 +1261,6 @@ importMagma fin dir = do
       , _comments     = []
       , _difficulty   = Tier $ RBProj.rankBand $ RBProj.gamedata rbproj
       , _key          = fmap (`SongKey` Major) $ c3 >>= C3.tonicNote
-      , _autogenTheme = case RBProj.autogenTheme $ RBProj.midi rbproj of
-        Left theme -> theme
-        Right _str -> RBProj.DefaultTheme -- TODO
-      , _animTempo    = Right $ RBProj.animTempo $ RBProj.gamedata rbproj
       , _author       = Just $ RBProj.author $ RBProj.metadata rbproj
       , _rating       = case fmap C3.songRating c3 of
         Nothing -> Unrated
@@ -1180,6 +1288,14 @@ importMagma fin dir = do
       , _expertOnly   = maybe False C3.expertOnly c3
       , _cover        = maybe False (not . C3.isMaster) c3
       }
+    , _global = Global
+      { _fileMidi = "notes.mid"
+      , _fileSongAnim = Nothing
+      , _autogenTheme = case RBProj.autogenTheme $ RBProj.midi rbproj of
+        Left theme -> theme
+        Right _str -> RBProj.DefaultTheme -- TODO
+      , _animTempo    = Right $ RBProj.animTempo $ RBProj.gamedata rbproj
+      }
     , _audio = HM.fromList allAudio
     , _jammit = HM.empty
     , _plans = HM.singleton "rbproj" Plan
@@ -1201,6 +1317,7 @@ importMagma fin dir = do
       , _crowd = fmap fst crowd
       , _planComments = []
       , _tuningCents = maybe 0 C3.tuningCents c3 -- TODO use this, or Magma.tuningOffsetCents?
+      , _fileTempo = Nothing
       }
     , _targets = HM.singleton targetName $ RB3 target
     , _parts = Parts $ HM.fromList
@@ -1274,7 +1391,7 @@ importMagma fin dir = do
           , pkFixFreeform = False
           }
         })
-      , ( FlexVocal, def
+      , ( FlexVocal, def'
         { partVocal = guard (isJust vox) >> Just PartVocal
           { vocalDifficulty = Tier $ RBProj.rankVocals $ RBProj.gamedata rbproj
           , vocalCount = if
@@ -1283,6 +1400,8 @@ importMagma fin dir = do
             | otherwise                                                  -> Vocal1
           , vocalGender = Just $ RBProj.vocalGender $ RBProj.gamedata rbproj
           , vocalKey = Nothing
+          , vocalLipsyncRB3 = Nothing
+          , vocalLipsyncRB2 = Nothing
           }
         })
       ]
@@ -1384,7 +1503,7 @@ importAmplitude fin dout = do
       }
   stackIO $ Dir.copyFile moggPath $ dout </> "audio.mogg"
   stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON SongYaml
-    { _metadata = def
+    { _metadata = def'
       { _title        = Just $ Amp.title song
       , _artist       = Just $ case Amp.artist_short song of
         "Harmonix" -> Amp.artist song -- human love
@@ -1392,6 +1511,7 @@ importAmplitude fin dout = do
       , _previewStart = Just $ PreviewSeconds previewStart
       , _previewEnd   = Just $ PreviewSeconds previewEnd
       }
+    , _global = def'
     , _audio = HM.empty
     , _jammit = HM.empty
     , _plans = HM.singleton "mogg" MoggPlan
@@ -1404,11 +1524,15 @@ importAmplitude fin dout = do
       , _vols = map realToFrac $ Amp.vols song
       , _planComments = []
       , _tuningCents = 0
+      , _fileTempo = Nothing
       , _karaoke = False
       , _multitrack = True
       }
     , _targets = HM.empty
     , _parts = Parts $ HM.fromList $ do
       (name, _, inst, _) <- parts
-      return (name, def { partAmplitude = Just (PartAmplitude inst) })
+      return (name, def' { partAmplitude = Just (PartAmplitude inst) })
     }
+
+def' :: (Default (f FilePath)) => f FilePath
+def' = def

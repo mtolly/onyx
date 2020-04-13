@@ -77,7 +77,8 @@ fileTrack name otherNames = Codec
     let (match, rest) = partition matchTrack trks
         match' = stripTrack $ foldr RTB.merge RTB.empty match
         name' = fromMaybe (T.unpack name) $ U.trackName match'
-        mt = mapMIDITrack RTB.fromAbsoluteEventList
+        mt = fixZeroLengthNotes (1/480 :: U.Beats)
+          $ mapMIDITrack RTB.fromAbsoluteEventList
           $ getMIDITrack $ RTB.toAbsoluteEventList 0 match'
     lift $ put rest
     inside ("Parsing track: " ++ name') $ do
@@ -267,6 +268,7 @@ data OnyxPart t = OnyxPart
   , onyxLipsync1         :: LipsyncTrack t
   , onyxLipsync2         :: LipsyncTrack t
   , onyxLipsync3         :: LipsyncTrack t
+  , onyxLipsync4         :: LipsyncTrack t
   , onyxMelody           :: MelodyTrack t
   , onyxPartDance        :: DanceTrack t
   } deriving (Eq, Ord, Show, Generic)
@@ -292,7 +294,7 @@ selectGuitarTrack typ part = let
 
 instance TraverseTrack OnyxPart where
   traverseTrack fn
-    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x y)
+    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x y z)
     = OnyxPart
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -302,7 +304,7 @@ instance TraverseTrack OnyxPart where
       <*> traverseTrack fn p <*> traverseTrack fn q <*> traverseTrack fn r
       <*> traverseTrack fn s <*> traverseTrack fn t <*> traverseTrack fn u
       <*> traverseTrack fn v <*> traverseTrack fn w <*> traverseTrack fn x
-      <*> traverseTrack fn y
+      <*> traverseTrack fn y <*> traverseTrack fn z
 
 getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
 getFlexPart part = fromMaybe mempty . Map.lookup part . onyxParts
@@ -371,6 +373,7 @@ parseOnyxPart partName = do
   onyxLipsync1         <- onyxLipsync1         =. names (FlexVocal, "LIPSYNC1") []
   onyxLipsync2         <- onyxLipsync2         =. names (FlexVocal, "LIPSYNC2") []
   onyxLipsync3         <- onyxLipsync3         =. names (FlexVocal, "LIPSYNC3") []
+  onyxLipsync4         <- onyxLipsync4         =. names (FlexVocal, "LIPSYNC4") []
   onyxPartDance        <- onyxPartDance        =. names (FlexExtra "global", "PART DANCE") []
   return OnyxPart{..}
 
@@ -700,6 +703,7 @@ instance ChopTrack OnyxPart where
     , onyxLipsync1         = mapTrack (U.trackTake t) $ onyxLipsync1         op -- TODO
     , onyxLipsync2         = mapTrack (U.trackTake t) $ onyxLipsync2         op -- TODO
     , onyxLipsync3         = mapTrack (U.trackTake t) $ onyxLipsync3         op -- TODO
+    , onyxLipsync4         = mapTrack (U.trackTake t) $ onyxLipsync4         op -- TODO
     , onyxMelody           = mapTrack (U.trackTake t) $ onyxMelody           op -- TODO
     , onyxPartDance        = mapTrack (U.trackTake t) $ onyxPartDance        op -- TODO
     }
@@ -727,6 +731,7 @@ instance ChopTrack OnyxPart where
     , onyxLipsync1         = mapTrack (U.trackDrop t) $ onyxLipsync1         op -- TODO
     , onyxLipsync2         = mapTrack (U.trackDrop t) $ onyxLipsync2         op -- TODO
     , onyxLipsync3         = mapTrack (U.trackDrop t) $ onyxLipsync3         op -- TODO
+    , onyxLipsync4         = mapTrack (U.trackDrop t) $ onyxLipsync4         op -- TODO
     , onyxMelody           = mapTrack (U.trackDrop t) $ onyxMelody           op -- TODO
     , onyxPartDance        = mapTrack (U.trackDrop t) $ onyxPartDance        op -- TODO
     }

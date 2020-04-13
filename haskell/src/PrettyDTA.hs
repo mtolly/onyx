@@ -58,7 +58,7 @@ data C3DTAComments = C3DTAComments
   , c3dtaExpertOnly   :: Maybe Bool
   } deriving (Eq, Ord, Show, Read)
 
-makeC3DTAComments :: Metadata -> Plan -> TargetRB3 -> C3DTAComments
+makeC3DTAComments :: Metadata f -> Plan f -> TargetRB3 f -> C3DTAComments
 makeC3DTAComments meta plan rb3 = C3DTAComments
   { c3dtaCreatedUsing = Just $ T.pack $ "Onyx Music Game Toolkit version " <> showVersion version
   , c3dtaAuthoredBy   = Just $ getAuthor meta

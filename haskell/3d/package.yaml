@@ -8,10 +8,6 @@ license-file: ../LICENSE.txt
 
 ghc-options: -Wall
 
-extra-source-files:
-- shaders/*.vert
-- shaders/*.frag
-
 library:
 
   source-dirs: src
@@ -30,7 +26,6 @@ library:
   - midi-util
   - gl
   - JuicyPixels
-  - file-embed
   - bytestring
   - linear
   - text
@@ -41,5 +36,7 @@ library:
   - conduit-audio
   - conduit-audio-sndfile
   - wavefront
+  - codec
+  - directory
   build-tools:
   - c2hs

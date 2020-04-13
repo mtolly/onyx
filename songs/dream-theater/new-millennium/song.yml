@@ -2,13 +2,15 @@ metadata:
   title: New Millennium
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 1
-  autogen-theme: Edgy Prog Rock
   rating: Supervision Recommended
   author: Onyxite
   key: C# minor
   difficulty: 5
   comments:
   - Phase Shift download features tap notes on bass to emulate John Myung's Chapman Stick.
+
+global:
+  autogen-theme: Edgy Prog Rock
 
 jammit:
   jammit-track: {}

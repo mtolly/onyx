@@ -2,7 +2,7 @@ metadata:
   title: Lifting Shadows Off a Dream
   file-include: ../../../albums/awake.yml
   track-number: 9
-  author: Onyxite
+  author: Onyxite, Mazegeek999
   comments:
   - "Chart confidence: *high* (Jammit stems)."
 audio:
@@ -27,17 +27,51 @@ plans:
       drums:
         # jammit drums are audience-panned on this song
         pad: [2.178, only: [Drums, jammit-track]]
+      guitar-1:
+        pad: [2.178, only: [Guitar 1, jammit-track]]
+      guitar-2:
+        pad: [2.178, only: [Guitar 2, jammit-track]]
+      bass:
+        pad: [2.178, only: [Bass, jammit-track]]
+      keys-1:
+        pad: [2.178, only: [Keys 1, jammit-track]]
+      keys-2:
+        pad: [2.178, only: [Keys 2, jammit-track]]
+      vocal-1:
+        pad: [2.178, only: [Vocal, jammit-track]]
+      vocal-2:
+        pad: [2.178, only: [B Vocals, jammit-track]]
     song:
-      pad: [2.178, without: [drums, jammit-track]]
+      pad:
+      - 2.178
+      - mix:
+        - without: [drums, jammit-track]
+        - gain:
+          - -1
+          - mix:
+            - only: [Guitar 1, jammit-track]
+            - only: [Guitar 2, jammit-track]
+            - only: [Bass, jammit-track]
+            - only: [Keys 1, jammit-track]
+            - only: [Keys 2, jammit-track]
+            - only: [Vocal, jammit-track]
+            - only: [B Vocals, jammit-track]
   album:
     countin: *countin
     song:
       pad: [4.173, album-track]
+    file-tempo: tempo-album.mid
 parts:
   drums:
     drums:
       kicks: 1
       difficulty: 4
+  keys:
+    # both by Mazegeek999
+    grybo:
+      difficulty: 4
+    pro-keys:
+      difficulty: 5
 targets:
   rb3:
     game: rb3

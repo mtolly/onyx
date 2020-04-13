@@ -45,7 +45,6 @@ metadata:
   track-number: 6
   album: Flirtin' With Disaster
   year: 1979
-  anim-tempo: 16
   author: Harmonix, Onyxite
   title: Flirtin' with Disaster
   preview-end: 53.963
@@ -53,3 +52,5 @@ metadata:
   difficulty:
     rank: 460
   artist: Molly Hatchet
+global:
+  anim-tempo: 16

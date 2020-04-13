@@ -12,12 +12,13 @@ metadata:
   key: D minor
   # we use accidental flip on pro guitar to use sharps
   # since it pretends to be E minor
-  anim-tempo: fast
   difficulty: 7
   comments:
   - "Drums, drum animations, and tempo map by Grinnz."
   - "Pro keys and QA by Mazegeek999."
   rating: SR
+global:
+  anim-tempo: fast
 audio:
   album-track:
     md5: 4c7768aca1b5f13b15de68688afdc69f

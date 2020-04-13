@@ -138,7 +138,7 @@ evalPreviewTime leadin getEvents song = \case
             $ eventsSections $ f $ s_tracks song
 
 -- | Returns the start and end of the preview audio in milliseconds.
-previewBounds :: (HasEvents f) => SongYaml -> Song (f U.Beats) -> (Int, Int)
+previewBounds :: (HasEvents f) => SongYaml file -> Song (f U.Beats) -> (Int, Int)
 previewBounds syaml song = let
   len = songLengthMS song
   secsToMS s = floor $ s * 1000

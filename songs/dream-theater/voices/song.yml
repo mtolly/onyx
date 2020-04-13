@@ -2,7 +2,7 @@ metadata:
   title: Voices
   file-include: ../../../albums/awake.yml
   track-number: 5
-  author: Onyxite
+  author: Onyxite, Mazegeek999
   comments:
   - "Chart confidence: *high* (Jammit stems)."
 audio:
@@ -28,28 +28,97 @@ plans:
       drums:
         # jammit drums are audience-panned on this song
         pad:
-          - 2.877
-          - fade:
-            - begin
-            - 0.477
-            - trim: [3.183, only: [Drums, jammit-track]]
-    song:
-      pad:
         - 2.877
         - fade:
           - begin
           - 0.477
-          - trim: [3.183, without: [drums, jammit-track]]
+          - trim: [3.183, only: [Drums, jammit-track]]
+      bass:
+        pad:
+        - 2.877
+        - fade:
+          - begin
+          - 0.477
+          - trim: [3.183, only: [Bass, jammit-track]]
+      guitar-1:
+        pad:
+        - 2.877
+        - fade:
+          - begin
+          - 0.477
+          - trim: [3.183, only: [Guitar 1, jammit-track]]
+      guitar-2:
+        pad:
+        - 2.877
+        - fade:
+          - begin
+          - 0.477
+          - trim: [3.183, only: [Guitar 2, jammit-track]]
+      keys-1:
+        pad:
+        - 2.877
+        - fade:
+          - begin
+          - 0.477
+          - trim: [3.183, only: [Keys 1, jammit-track]]
+      keys-2:
+        pad:
+        - 2.877
+        - fade:
+          - begin
+          - 0.477
+          - trim: [3.183, only: [Keys 2, jammit-track]]
+      vocal-1:
+        pad:
+        - 2.877
+        - fade:
+          - begin
+          - 0.477
+          - trim: [3.183, only: [Vocal, jammit-track]]
+      vocal-2:
+        pad:
+        - 2.877
+        - fade:
+          - begin
+          - 0.477
+          - trim: [3.183, only: [B Vocals, jammit-track]]
+    song:
+      pad:
+      - 2.877
+      - fade:
+        - begin
+        - 0.477
+        - trim:
+          - 3.183
+          - mix:
+            - without: [drums, jammit-track]
+            - gain:
+              - -1
+              - mix:
+                - only: [Bass, jammit-track]
+                - only: [Guitar 1, jammit-track]
+                - only: [Guitar 2, jammit-track]
+                - only: [Keys 1, jammit-track]
+                - only: [Keys 2, jammit-track]
+                - only: [Vocal, jammit-track]
+                - only: [B Vocals, jammit-track]
   album:
     countin: *countin
     song:
       pad:
         - 2.893
         - fade: [begin, 0.538, album-track]
+    file-tempo: tempo-album.mid
 parts:
   drums:
     drums:
       kicks: both
+      difficulty: 5
+  keys:
+    # both by Mazegeek999
+    grybo:
+      difficulty: 5
+    pro-keys:
       difficulty: 5
 targets:
   rb3:

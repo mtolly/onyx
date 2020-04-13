@@ -2,7 +2,7 @@ metadata:
   title: "6:00"
   file-include: ../../../albums/awake.yml
   track-number: 1
-  author: Onyxite
+  author: Onyxite, Mazegeek999
   comments:
   - >-
     Chart confidence: *high* (Jammit stems).
@@ -28,6 +28,7 @@ plans:
       1|1: hihat
     song:
       pad: [3.103, album-track]
+    file-tempo: tempo-album.mid
   jammit:
     countin: *countin
     parts:
@@ -37,6 +38,16 @@ plans:
       vocal:
         # TODO: movie dialog samples (extract from backing track)
         pad: [1.039, only: [Vocal, jammit-track]]
+      keys-1:
+        pad: [1.039, only: [Keys 1, jammit-track]]
+      keys-2:
+        pad: [1.039, only: [Keys 2, jammit-track]]
+      guitar-1:
+        pad: [1.039, only: [Guitar 1, jammit-track]]
+      guitar-2:
+        pad: [1.039, only: [Guitar 2, jammit-track]]
+      bass:
+        pad: [1.039, only: [Bass, jammit-track]]
     song:
       pad:
       - 1.039
@@ -44,7 +55,13 @@ plans:
         - without: [drums, jammit-track]
         - gain:
           - -1
-          - only: [Vocal, jammit-track]
+          - mix:
+            - only: [Vocal, jammit-track]
+            - only: [Keys 1, jammit-track]
+            - only: [Keys 2, jammit-track]
+            - only: [Guitar 1, jammit-track]
+            - only: [Guitar 2, jammit-track]
+            - only: [Bass, jammit-track]
 parts:
   drums:
     drums:
@@ -53,6 +70,12 @@ parts:
   vocal:
     vocal:
       count: 3
+  keys:
+    # both by Mazegeek999
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
 targets:
   rb3:
     game: rb3

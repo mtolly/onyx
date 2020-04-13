@@ -6,10 +6,11 @@ metadata:
   difficulty: 5
   comments:
   - "Guitar part is sax and trumpet."
-  autogen-theme: SynthPop
   preview-start: prc_verse_3a
   rating: FamilyFriendly
   key: F # mainly the solo
+global:
+  autogen-theme: SynthPop
 audio:
   album-track:
     md5: 53cfe5969cd3451eebadc33dc4b89d54

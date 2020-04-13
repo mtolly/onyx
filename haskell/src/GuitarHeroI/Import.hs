@@ -100,6 +100,7 @@ importGH1 pkg gen dout = do
       , _artist = Just $ artist pkg
       , _cover = False -- TODO this doesn't appear to be in songs.dta, where is it?
       }
+    , _global = def
     , _audio = HM.fromList $ do
       wav <- wavs
       return $ (T.pack wav ,) $ AudioFile AudioInfo
@@ -134,6 +135,7 @@ importGH1 pkg gen dout = do
         , _crowd = Nothing
         , _planComments = []
         , _tuningCents = 0
+        , _fileTempo = Nothing
         }
     , _targets = HM.empty
     , _parts = Parts $ HM.singleton RBFile.FlexGuitar $ def

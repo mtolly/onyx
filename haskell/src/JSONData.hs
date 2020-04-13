@@ -226,6 +226,7 @@ instance StackJSON Int
 instance StackJSON Integer
 instance StackJSON Scientific
 instance StackJSON Double
+instance StackJSON Float
 instance StackJSON T.Text
 instance StackJSON Bool
 instance StackJSON A.Value

@@ -1,15 +1,10 @@
 metadata:
   title: Time Out
-  artist: Hiromi's Sonicbloom
-  album: Time Control
   author: Onyxite
   track-number: 2
-  rating: FamilyFriendly
   key: C minor
-  genre: jazz
-  subgenre: contemporary
-  year: 2007
-  file-album-art: ../../../covers/time-control.jpg
+  preview-start: prc_heavy_riff_1
+  file-include: ../../../albums/time-control.yml
 audio:
   album-track:
     md5: 449ae5a309863b41cf3fa5c528eec826
@@ -30,7 +25,11 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [3.934, album-track]
+      gain:
+      - 1.2
+      - pad:
+        - 3.934
+        - channels: [[1, 0], album-track]
   dev:
     song:
       pad: [3.934, album-track]
@@ -71,12 +70,13 @@ parts:
   drums:
     drums:
       kicks: 1
-  bass:
-    pro-guitar: # WIP
-      tuning:
-        base: bass-5
-  keys:
-    pro-keys: {} # WIP
+      difficulty: 5
+  # bass:
+  #   pro-guitar: # WIP
+  #     tuning:
+  #       base: bass-5
+  # keys:
+  #   pro-keys: {} # WIP
 targets:
   rb3:
     game: rb3

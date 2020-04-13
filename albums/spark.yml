@@ -4,4 +4,4 @@ year: 2016
 genre: jazz
 subgenre: contemporary
 file-album-art: ../covers/spark.jpg
-autogen-theme: SynthPop
+# autogen-theme: SynthPop

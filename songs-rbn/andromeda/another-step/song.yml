@@ -95,7 +95,6 @@ metadata:
   album: The Immunity Zone
   year: 2008
   subgenre: progrock
-  anim-tempo: 64
   author: Rhythm Authors, Onyxite
   title: Another Step
   preview-end: 5:33.000
@@ -103,3 +102,5 @@ metadata:
   difficulty:
     tier: 7
   artist: Andromeda
+global:
+  anim-tempo: 64

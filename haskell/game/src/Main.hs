@@ -43,7 +43,7 @@ main = getArgs >>= \case
         PreviewDrums drums -> return drums
         _                  -> fatal "Not a drums track"
       yml <- loadYaml $ dir </> "song.yml"
-      (pans, vols) <- case HM.toList $ _plans yml of
+      (pans, vols) <- case HM.toList $ _plans (yml :: SongYaml FilePath) of
         [(_, MoggPlan{..})] -> return (map realToFrac _pans, map realToFrac _vols)
         _                   -> fatal "Couldn't find pans and vols after importing STFS"
       liftIO $ bracket_ SDL.initializeAll SDL.quit $ do
@@ -53,7 +53,7 @@ main = getArgs >>= \case
               , SDL.windowInitialSize = SDL.V2 800 600
               , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
                 { SDL.glProfile = SDL.Core SDL.Normal 3 3
-                , SDL.glMultisampleSamples = 4
+                -- , SDL.glMultisampleSamples = 4
                 }
               }
         bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do
@@ -79,7 +79,7 @@ main = getArgs >>= \case
       allTracks <- fmap previewTracks $ loadTracks $ dir </> "notes.mid"
       let trks = map (snd . (allTracks !!)) indexes
       yml <- loadYaml $ dir </> "song.yml"
-      (pans, vols) <- case HM.toList $ _plans yml of
+      (pans, vols) <- case HM.toList $ _plans (yml :: SongYaml FilePath) of
         [(_, MoggPlan{..})] -> return (map realToFrac _pans, map realToFrac _vols)
         _                   -> fatal "Couldn't find pans and vols after importing STFS"
       liftIO $ bracket_ SDL.initializeAll SDL.quit $ do
@@ -89,7 +89,7 @@ main = getArgs >>= \case
               , SDL.windowInitialSize = SDL.V2 800 600
               , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
                 { SDL.glProfile = SDL.Core SDL.Normal 3 3
-                , SDL.glMultisampleSamples = 4
+                -- , SDL.glMultisampleSamples = 4
                 }
               }
         bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do

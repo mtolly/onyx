@@ -3,6 +3,7 @@ metadata:
   track-number: 4
   author: Onyxite
   file-include: ../../../albums/we-like-it-here.yml
+global:
   autogen-theme: FeelGoodPopRock
 audio:
   # bandcamp (not available anymore...)

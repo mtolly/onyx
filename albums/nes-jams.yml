@@ -4,4 +4,4 @@ year: 2012
 genre: popdanceelectronic
 subgenre: chiptune
 file-album-art: ../covers/nes-jams.png
-autogen-theme: SynthPop
+# autogen-theme: SynthPop
