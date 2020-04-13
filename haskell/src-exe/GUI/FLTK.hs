@@ -699,12 +699,21 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         modifiers <- sequence [modifyMeta, modifyInsts]
         let newYaml = foldr ($) (projectSongYaml p) modifiers
         saveProject p newYaml
-  (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> do
+  (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> mdo
     let (topControlsArea1, glArea) = chopTop 40 rect
         (trimClock 5 5 5 5 -> playButtonArea, topControlsArea2) = chopLeft 60 topControlsArea1
         (trimClock 8 5 8 5 -> scrubberArea, trimClock 5 5 5 80 -> speedArea) = chopRight 220 topControlsArea2
     topControls <- FL.groupNew topControlsArea1 Nothing
-    playButton <- FL.buttonNew playButtonArea $ Just "@>"
+    playButton <- FL.buttonCustom playButtonArea (Just "@>") Nothing $ Just FL.defaultCustomWidgetFuncs
+      { FL.handleCustom = Just $ \ref e -> case e of
+        -- support play/pause with space even if button is not focused
+        FLE.Shortcut -> FLTK.eventKey >>= \case
+          FL.NormalKeyType ' ' -> FL.activeR ref >>= \case
+            True  -> togglePlay >> return (Right ())
+            False -> FL.handleButtonBase (FL.safeCast ref) e
+          _ -> FL.handleButtonBase (FL.safeCast ref) e
+        _ -> FL.handleButtonBase (FL.safeCast ref) e
+      }
     FL.deactivate playButton
     scrubber <- FL.horNiceSliderNew scrubberArea Nothing
     FL.setMinimum scrubber 0
@@ -773,17 +782,18 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
           startPlaying secs
       putState ss'
       redrawGL
-    FL.setCallback playButton $ \_ -> do
-      ss <- takeState
-      ss' <- case songPlaying ss of
-        Nothing -> do
-          FL.setLabel playButton "@square"
-          startPlaying $ songTime ss
-        Just ps -> do
-          FL.setLabel playButton "@>"
-          t <- stopPlaying (songTime ss) ps
-          return $ SongState t Nothing
-      putState ss'
+    let togglePlay = do
+          ss <- takeState
+          ss' <- case songPlaying ss of
+            Nothing -> do
+              FL.setLabel playButton "@square"
+              startPlaying $ songTime ss
+            Just ps -> do
+              FL.setLabel playButton "@>"
+              t <- stopPlaying (songTime ss) ps
+              return $ SongState t Nothing
+          putState ss'
+    FL.setCallback playButton $ \_ -> togglePlay
     FL.setCallback counter $ \_ -> do
       ss <- takeState
       ss' <- case songPlaying ss of
