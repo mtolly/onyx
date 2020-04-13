@@ -103,7 +103,7 @@ data Track = Track
   , trk_railings  :: Railings
   , trk_beats     :: Beats
   , trk_targets   :: Targets
-  , trk_light     :: TrackLight
+  , trk_light     :: Light
   } deriving (Show)
 
 instance StackJSON Track where
@@ -194,20 +194,20 @@ instance StackJSON Targets where
     tgt_secs_light <- tgt_secs_light =. req "secs-light" stackJSON
     return Targets{..}
 
-data TrackLight = TrackLight
-  { tl_position :: V3 Float
-  , tl_ambient  :: Color
-  , tl_diffuse  :: Color
-  , tl_specular :: Color
+data Light = Light
+  { light_position :: V3 Float
+  , light_ambient  :: Color
+  , light_diffuse  :: Color
+  , light_specular :: Color
   } deriving (Show)
 
-instance StackJSON TrackLight where
-  stackJSON = asObject "TrackLight" $ do
-    tl_position <- tl_position =. req "position" stackXYZ
-    tl_ambient  <- tl_ambient  =. req "ambient"  stackColor
-    tl_diffuse  <- tl_diffuse  =. req "diffuse"  stackColor
-    tl_specular <- tl_specular =. req "specular" stackColor
-    return TrackLight{..}
+instance StackJSON Light where
+  stackJSON = asObject "Light" $ do
+    light_position <- light_position =. req "position" stackXYZ
+    light_ambient  <- light_ambient  =. req "ambient"  stackColor
+    light_diffuse  <- light_diffuse  =. req "diffuse"  stackColor
+    light_specular <- light_specular =. req "specular" stackColor
+    return Light{..}
 
 data Objects = Objects
   { obj_gems     :: Gems
@@ -223,12 +223,14 @@ instance StackJSON Objects where
 data Gems = Gems
   { gems_color_hit :: Color
   , gems_secs_fade :: Float
+  , gems_light     :: Light
   } deriving (Show)
 
 instance StackJSON Gems where
   stackJSON = asObject "Gems" $ do
     gems_color_hit <- gems_color_hit =. req "color-hit" stackColor
     gems_secs_fade <- gems_secs_fade =. req "secs-fade" stackJSON
+    gems_light     <- gems_light     =. req "light"     stackJSON
     return Gems{..}
 
 data Sustains = Sustains

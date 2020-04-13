@@ -56,8 +56,8 @@ data ObjectPosition
   -- ^ translate, no scale
 
 data LightPosition
-  = LightGlobal (V3 Float)
-  | LightOffset (V3 Float)
+  = LightGlobal C.Light
+  | LightOffset C.Light
 
 drawObject :: GLStuff -> (Int, Int) -> Object -> ObjectPosition -> Either TextureID (V4 Float) -> Float -> LightPosition -> IO ()
 drawObject GLStuff{..} (viewY, viewH) obj posn texcolor alpha lightOffset = do
@@ -84,13 +84,20 @@ drawObject GLStuff{..} (viewY, viewH) obj posn texcolor alpha lightOffset = do
   sendUniformName objectShader "endFade"
     (fromIntegral viewY + fromIntegral viewH * C.tf_top fade)
   case lightOffset of
-    LightGlobal g -> sendUniformName objectShader "light.position" g
+    LightGlobal g -> do
+      sendUniformName objectShader "light.position" $ C.light_position g
+      sendUniformName objectShader "light.ambient"  $ C.light_ambient  g
+      sendUniformName objectShader "light.diffuse"  $ C.light_diffuse  g
+      sendUniformName objectShader "light.specular" $ C.light_specular g
     LightOffset off -> do
       let center = case posn of
             ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2)
               -> V3 ((x1 + x2) / 2) (max y1 y2) ((z1 + z2) / 2)
             ObjectMove xyz -> xyz
-      sendUniformName objectShader "light.position" $ center + off
+      sendUniformName objectShader "light.position" $ center + C.light_position off
+      sendUniformName objectShader "light.ambient"  $ C.light_ambient  off
+      sendUniformName objectShader "light.diffuse"  $ C.light_diffuse  off
+      sendUniformName objectShader "light.specular" $ C.light_specular off
   case texcolor of
     Right color -> do
       sendUniformName objectShader "material.diffuse.type" colorType
@@ -145,7 +152,7 @@ drawDrumPlay glStuff@GLStuff{..} ydims nowTime speed dps = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
   let drawObject' = drawObject glStuff ydims
-      globalLight = LightGlobal $ C.tl_position $ C.trk_light $ C.cfg_track gfxConfig
+      globalLight = LightGlobal $ C.trk_light $ C.cfg_track gfxConfig
       nearZ = C.tt_z_past $ C.trk_time $ C.cfg_track gfxConfig
       nowZ = C.tt_z_now $ C.trk_time $ C.cfg_track gfxConfig
       farZ = C.tt_z_future $ C.trk_time $ C.cfg_track gfxConfig
@@ -181,7 +188,8 @@ drawDrumPlay glStuff@GLStuff{..} ydims nowTime speed dps = do
           D.Orange         -> gemAtX $ fracToX 0.5 -- TODO
         gemAtX x = ObjectMove $ V3 x (C.trk_y $ C.cfg_track gfxConfig) z
         z = timeToZ t
-        in drawObject' obj posn shade (fromMaybe 1 alpha) $ LightOffset $ V3 0 1 0 -- CONFIGME
+        in drawObject' obj posn shade (fromMaybe 1 alpha) $ LightOffset
+          $ C.gems_light $ C.obj_gems $ C.cfg_objects gfxConfig
       drawNotes t cs = let
         od = case commonOverdrive cs of
           ToggleEmpty -> False
@@ -316,7 +324,7 @@ drawFive glStuff@GLStuff{..} ydims nowTime speed trk = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
   let drawObject' = drawObject glStuff ydims
-      globalLight = LightGlobal $ C.tl_position $ C.trk_light $ C.cfg_track gfxConfig
+      globalLight = LightGlobal $ C.trk_light $ C.cfg_track gfxConfig
       nearZ = C.tt_z_past $ C.trk_time $ C.cfg_track gfxConfig
       nowZ = C.tt_z_now $ C.trk_time $ C.cfg_track gfxConfig
       farZ = C.tt_z_future $ C.trk_time $ C.cfg_track gfxConfig
@@ -384,7 +392,8 @@ drawFive glStuff@GLStuff{..} ydims nowTime speed trk = do
           Just _  -> Right $ C.gems_color_hit $ C.obj_gems $ C.cfg_objects gfxConfig
         posn = ObjectMove $ V3 (colorCenterX color) (C.trk_y $ C.cfg_track gfxConfig) z
         z = timeToZ t
-        in drawObject' obj posn shade (fromMaybe 1 alpha) $ LightOffset $ V3 0 1 0 -- CONFIGME
+        in drawObject' obj posn shade (fromMaybe 1 alpha) $ LightOffset
+          $ C.gems_light $ C.obj_gems $ C.cfg_objects gfxConfig
       drawNotes _        []                      = return ()
       drawNotes nextTime ((thisTime, cs) : rest) = do
         let notes = Map.toList $ guitarNotes $ commonState cs
@@ -935,7 +944,7 @@ loadGLStuff = do
   glEnableVertexAttribArray 1
 
   glUseProgram quadShader
-  sendUniformName quadShader "ourTexture" (0 :: GLint)
+  sendUniformName quadShader "inTexture" (0 :: GLint)
   let quadObject = RenderObject quadVAO $ fromIntegral $ length quadIndices
   glBindVertexArray 0
   withArrayLen [quadVBO, quadEBO] $ glDeleteBuffers . fromIntegral
@@ -1083,6 +1092,9 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
     !*! L.scaled (V4 scaleX scaleY 1 1)
     :: M44 Float
     )
+  sendUniformName quadShader "inResolution" $ V2
+    (fromIntegral screenW :: Float)
+    (fromIntegral screenH :: Float)
   checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
 freeTexture :: Texture -> IO ()
@@ -1134,13 +1146,6 @@ setUpTrackView GLStuff{..} (x, y, w, h) = do
         (C.cam_far $ C.view_camera $ C.cfg_view gfxConfig)
   sendUniformName objectShader "view" view
   sendUniformName objectShader "projection" projection
-  -- light.position gets sent later
-  sendUniformName objectShader "light.ambient"
-    $ C.tl_ambient $ C.trk_light $ C.cfg_track gfxConfig
-  sendUniformName objectShader "light.diffuse"
-    $ C.tl_diffuse $ C.trk_light $ C.cfg_track gfxConfig
-  sendUniformName objectShader "light.specular"
-    $ C.tl_specular $ C.trk_light $ C.cfg_track gfxConfig
   sendUniformName objectShader "viewPos" viewPosn
 
 drawDrumPlayFull
