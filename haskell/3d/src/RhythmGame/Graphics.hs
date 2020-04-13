@@ -4,7 +4,6 @@
 {-# LANGUAGE NegativeLiterals  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE ViewPatterns      #-}
 module RhythmGame.Graphics where
 
@@ -18,8 +17,6 @@ import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
                                                  logStdout, stackIO)
 import qualified Data.ByteString                as B
-import           Data.FileEmbed                 (embedFile,
-                                                 makeRelativeToProject)
 import           Data.Foldable                  (traverse_)
 import           Data.List                      (partition, sort)
 import           Data.List.HT                   (partitionMaybe)
@@ -674,6 +671,9 @@ instance SendUniform (M44 Float) where
     $ glUniformMatrix4fv uni 1 GL_TRUE {- <- this means row major order -}
     . castPtr
 
+instance SendUniform (V2 Float) where
+  sendUniform uni (V2 x y) = glUniform2f uni x y
+
 instance SendUniform (V3 Float) where
   sendUniform uni (V3 x y z) = glUniform3f uni x y z
 
@@ -691,14 +691,6 @@ instance SendUniform Float where
 
 instance SendUniform Bool where
   sendUniform uni b = glUniform1i uni $ if b then 1 else 0
-
-objectVS, objectFS :: B.ByteString
-objectVS = $(makeRelativeToProject "shaders/object.vert" >>= embedFile)
-objectFS = $(makeRelativeToProject "shaders/object.frag" >>= embedFile)
-
-quadVS, quadFS :: B.ByteString
-quadVS = $(makeRelativeToProject "shaders/quad.vert" >>= embedFile)
-quadFS = $(makeRelativeToProject "shaders/quad.frag" >>= embedFile)
 
 class (Pixel a) => GLPixel a where
   glPixelInternalFormat :: a -> GLint
@@ -867,7 +859,7 @@ loadGLStuff = do
   glEnable GL_DEPTH_TEST
   glEnable GL_CULL_FACE -- default CCW = front
   glEnable GL_BLEND
-  glEnable GL_MULTISAMPLE
+  glDisable GL_MULTISAMPLE
   glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
 
   -- format of the Vertex type
@@ -887,6 +879,8 @@ loadGLStuff = do
 
   -- object stuff
 
+  objectVS <- getResourcesPath "shaders/object.vert" >>= B.readFile
+  objectFS <- getResourcesPath "shaders/object.frag" >>= B.readFile
   objectShader <- bracket (compileShader GL_VERTEX_SHADER objectVS) glDeleteShader $ \vertexShader -> do
     bracket (compileShader GL_FRAGMENT_SHADER objectFS) glDeleteShader $ \fragmentShader -> do
       compileProgram [vertexShader, fragmentShader]
@@ -911,6 +905,8 @@ loadGLStuff = do
 
   -- quad stuff
 
+  quadVS <- getResourcesPath "shaders/quad.vert" >>= B.readFile
+  quadFS <- getResourcesPath "shaders/quad.frag" >>= B.readFile
   quadShader <- bracket (compileShader GL_VERTEX_SHADER quadVS) glDeleteShader $ \vertexShader -> do
     bracket (compileShader GL_FRAGMENT_SHADER quadFS) glDeleteShader $ \fragmentShader -> do
       compileProgram [vertexShader, fragmentShader]
@@ -1037,14 +1033,14 @@ loadGLStuff = do
 
   -- configure MSAA framebuffer
   framebuffer <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
-  glBindFramebuffer GL_FRAMEBUFFER framebuffer
+  checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER framebuffer
   -- create a multisampled color attachment texture
   -- create a (also multisampled) renderbuffer object for depth and stencil attachments
   framebufferTex    <- alloca $ \p -> glGenTextures      1 p >> peek p
   framebufferRender <- alloca $ \p -> glGenRenderbuffers 1 p >> peek p
-  setFramebufferSize framebufferTex framebufferRender 1920 1080 -- dummy size, changed later
-  glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D_MULTISAMPLE framebufferTex 0
-  glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER framebufferRender
+  checkGL "fbuf 1" $ setFramebufferSize framebufferTex framebufferRender 1920 1080 -- dummy size, changed later
+  checkGL "fbuf 2" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D framebufferTex 0
+  checkGL "fbuf 3" $ glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER framebufferRender
 
   glCheckFramebufferStatus GL_FRAMEBUFFER >>= \case
     GL_FRAMEBUFFER_COMPLETE -> return ()
@@ -1055,12 +1051,12 @@ loadGLStuff = do
 
 setFramebufferSize :: GLuint -> GLuint -> GLsizei -> GLsizei -> IO ()
 setFramebufferSize tex render w h = do
-  glBindTexture GL_TEXTURE_2D_MULTISAMPLE tex
-  glTexImage2DMultisample GL_TEXTURE_2D_MULTISAMPLE 4 GL_RGB w h GL_TRUE
-  glBindTexture GL_TEXTURE_2D_MULTISAMPLE 0
+  glBindTexture GL_TEXTURE_2D tex
+  glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
+  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
+  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
   glBindRenderbuffer GL_RENDERBUFFER render
-  glRenderbufferStorageMultisample GL_RENDERBUFFER 4 GL_DEPTH24_STENCIL8 w h
-  glBindRenderbuffer GL_RENDERBUFFER 0
+  glRenderbufferStorage GL_RENDERBUFFER GL_DEPTH24_STENCIL8 w h
 
 deleteGLStuff :: GLStuff -> IO ()
 deleteGLStuff GLStuff{..} = do
@@ -1076,7 +1072,7 @@ drawTexture :: GLStuff -> WindowDims -> Texture -> V2 Int -> Int -> IO ()
 drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) scale = do
   glUseProgram quadShader
   glActiveTexture GL_TEXTURE0
-  glBindTexture GL_TEXTURE_2D tex
+  checkGL "glBindTexture" $ glBindTexture GL_TEXTURE_2D tex
   glBindVertexArray $ objVAO quadObject
   let scaleX = fromIntegral (w * scale) / fromIntegral screenW
       scaleY = fromIntegral (h * scale) / fromIntegral screenH
@@ -1087,7 +1083,7 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
     !*! L.scaled (V4 scaleX scaleY 1 1)
     :: M44 Float
     )
-  glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
+  checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
 freeTexture :: Texture -> IO ()
 freeTexture (Texture tex _ _) = with tex $ glDeleteTextures 1
@@ -1203,7 +1199,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
           (C.view_height_width_ratio $ C.cfg_view gfxConfig)
           dims
 
-  forM_ (zip spaces trks) $ \(space@(x, y, w, h), trk) -> do
+  forM_ (zip spaces trks) $ \(space@(x, y, w, h), trk) -> checkGL "draw" $ do
     glBindFramebuffer GL_FRAMEBUFFER framebuffer
     setFramebufferSize framebufferTex framebufferRender
       (fromIntegral w) (fromIntegral h)
@@ -1216,15 +1212,21 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
       PreviewDrums m -> drawDrums glStuff (y, h) time speed m
       PreviewFive m  -> drawFive  glStuff (y, h) time speed m
 
-    glBindFramebuffer GL_READ_FRAMEBUFFER framebuffer
-    glBindFramebuffer GL_DRAW_FRAMEBUFFER 0
+    glBindFramebuffer GL_FRAMEBUFFER 0
+    glClear GL_DEPTH_BUFFER_BIT
     glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-    glBlitFramebuffer
-      0 0 (fromIntegral w) (fromIntegral h)
-      (fromIntegral x) (fromIntegral y) (fromIntegral $ x + w) (fromIntegral $ y + h)
-      GL_COLOR_BUFFER_BIT GL_NEAREST
+    drawTexture glStuff dims (Texture framebufferTex w h) (V2 x y) 1
 
-    -- glBindFramebuffer GL_FRAMEBUFFER 0
-    -- glClear GL_DEPTH_BUFFER_BIT
-    -- glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-    -- drawTexture glStuff dims (Texture framebufferTex w h) (V2 x y) 1
+checkGL :: String -> IO a -> IO a
+checkGL s f = do
+  void $ glGetError
+  x <- f
+  desc <- glGetError >>= return . \case
+    GL_NO_ERROR          -> Nothing
+    GL_INVALID_ENUM      -> Just "Invalid enum"
+    GL_INVALID_VALUE     -> Just "Invalid value"
+    GL_INVALID_OPERATION -> Just "Invalid operation"
+    GL_OUT_OF_MEMORY     -> Just "Out of memory"
+    _                    -> Just "Unknown error"
+  forM_ desc $ \err -> putStrLn $ s <> ": " <> err
+  return x

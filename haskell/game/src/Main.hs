@@ -53,7 +53,7 @@ main = getArgs >>= \case
               , SDL.windowInitialSize = SDL.V2 800 600
               , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
                 { SDL.glProfile = SDL.Core SDL.Normal 3 3
-                , SDL.glMultisampleSamples = 4
+                -- , SDL.glMultisampleSamples = 4
                 }
               }
         bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do
@@ -89,7 +89,7 @@ main = getArgs >>= \case
               , SDL.windowInitialSize = SDL.V2 800 600
               , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
                 { SDL.glProfile = SDL.Core SDL.Normal 3 3
-                , SDL.glMultisampleSamples = 4
+                -- , SDL.glMultisampleSamples = 4
                 }
               }
         bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do
