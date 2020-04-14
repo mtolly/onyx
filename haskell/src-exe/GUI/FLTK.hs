@@ -205,19 +205,101 @@ promptLoad sink makeMenuBar = do
     FL.NativeFileChooserPicked -> do
       n <- FL.getCount picker
       fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
-      mapM_ (sink . EventOnyx . startLoad makeMenuBar) $ map T.unpack $ catMaybes fs
+      sink $ EventOnyx $ startLoad makeMenuBar $ map T.unpack $ catMaybes fs
     _ -> return ()
 
-startLoad :: (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
-startLoad makeMenuBar f = do
+startLoad :: (Width -> Bool -> IO Int) -> [FilePath] -> Onyx ()
+startLoad makeMenuBar fs = do
   sink <- getEventSink
-  void $ forkOnyx $ errorToEither (openProject Nothing f) >>= \case
-    Left (Messages msgs) -> liftIO $ forM_ msgs $ \msg -> do
-      liftIO $ sink $ EventFail msg
-    Right proj -> do
-      void $ shakeBuild1 proj [] "gen/cover.png"
-      maybeAudio <- projectAudio proj
-      liftIO $ sink $ EventIO $ launchWindow sink makeMenuBar proj maybeAudio
+  void $ forkOnyx $ do
+    results <- mapM (errorToEither . findAllSongs) fs
+    liftIO
+      $ mapM_ (sink . EventFail)
+      $ concat [ msgs | Left (Messages msgs) <- results ]
+    case concat [ imps | Right imps <- results ] of
+      [imp] -> continueImport makeMenuBar imp
+      imps  -> stackIO $ sink $ EventIO $ multipleSongsWindow sink makeMenuBar imps
+
+continueImport
+  :: (Width -> Bool -> IO Int)
+  -> Importable (QueueLog (ReaderT (Event -> IO ()) (ResourceT IO)))
+  -> Onyx ()
+continueImport makeMenuBar imp = do
+  sink <- getEventSink
+  proj <- impProject imp
+  void $ shakeBuild1 proj [] "gen/cover.png"
+  maybeAudio <- projectAudio proj
+  stackIO $ sink $ EventIO $ launchWindow sink makeMenuBar proj maybeAudio
+
+multipleSongsWindow
+  :: (Event -> IO ())
+  -> (Width -> Bool -> IO Int)
+  -> [Importable (QueueLog (ReaderT (Event -> IO ()) (ResourceT IO)))]
+  -> IO ()
+multipleSongsWindow sink makeMenuBar imps = do
+  let windowWidth = Width 500
+      windowHeight = Height 400
+      windowSize = Size windowWidth windowHeight
+  window <- FL.windowNew
+    windowSize
+    Nothing
+    (Just "Select Songs")
+  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+  let (_, windowRect) = chopTop menuHeight $ Rectangle
+        (Position (X 0) (Y 0))
+        windowSize
+      (songsArea, trimClock 10 0 0 0 -> buttonsArea) =
+        chopBottom 40 $ trimClock 10 10 10 10 windowRect
+      [areaSelect, trimClock 0 0 0 10 -> areaOpen] = splitHorizN 2 buttonsArea
+  tree <- FL.treeNew songsArea Nothing
+  FL.end tree
+  FL.rootLabel tree "Songs"
+  FL.setSelectmode tree FLE.TreeSelectNone
+  FL.setShowcollapse tree False
+  Just root <- FL.root tree
+  checks <- forM imps $ \imp -> do
+    let entry = T.concat
+          [ fromMaybe "Untitled" $ impTitle imp
+          , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
+          ]
+        dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 400) (Height 25))
+    Just itemSong <- FL.addAt tree "" root
+    check <- FL.checkButtonNew dummyRect $ Just entry
+    void $ FL.setValue check False
+    FL.setWidget itemSong $ Just check
+    return check
+  selectButton <- FL.buttonNew areaSelect $ Just "Select All/None"
+  openButton <- FL.buttonNew areaOpen $ Just "Open Songs"
+  let updateButtons = do
+        bools <- mapM FL.getValue checks
+        let newValue = not $ and bools
+            checked = length $ filter id bools
+        FL.setLabel selectButton $ if newValue
+          then "Select all"
+          else "Select none"
+        FL.setLabel openButton $ case checked of
+          0 -> "Close"
+          1 -> "Open 1 song"
+          _ -> T.pack $ "Open " <> show checked <> " songs"
+        color <- if checked == 0 then defaultColor else taskColor
+        FL.setColor openButton color
+  updateButtons
+  FL.setCallback selectButton $ \_ -> do
+    bools <- mapM FL.getValue checks
+    let newValue = not $ and bools
+    mapM_ (\check -> FL.setValue check newValue) checks
+    updateButtons
+  FL.setCallback openButton $ \_ -> do
+    bools <- mapM FL.getValue checks
+    forM_ (zip bools imps) $ \(b, imp) -> when b $ do
+      sink $ EventOnyx $ void $ forkOnyx $ do
+        continueImport makeMenuBar imp
+    FL.hide window
+  forM_ checks $ \check -> FL.setCallback check $ \_ -> updateButtons
+  FL.end window
+  FL.setResizable window $ Just tree
+  FL.sizeRange window windowSize
+  FL.showWidget window
 
 chopRight :: Int -> Rectangle -> (Rectangle, Rectangle)
 chopRight n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
@@ -699,12 +781,21 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         modifiers <- sequence [modifyMeta, modifyInsts]
         let newYaml = foldr ($) (projectSongYaml p) modifiers
         saveProject p newYaml
-  (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> do
+  (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> mdo
     let (topControlsArea1, glArea) = chopTop 40 rect
         (trimClock 5 5 5 5 -> playButtonArea, topControlsArea2) = chopLeft 60 topControlsArea1
         (trimClock 8 5 8 5 -> scrubberArea, trimClock 5 5 5 80 -> speedArea) = chopRight 220 topControlsArea2
     topControls <- FL.groupNew topControlsArea1 Nothing
-    playButton <- FL.buttonNew playButtonArea $ Just "@>"
+    playButton <- FL.buttonCustom playButtonArea (Just "@>") Nothing $ Just FL.defaultCustomWidgetFuncs
+      { FL.handleCustom = Just $ \ref e -> case e of
+        -- support play/pause with space even if button is not focused
+        FLE.Shortcut -> FLTK.eventKey >>= \case
+          FL.NormalKeyType ' ' -> FL.activeR ref >>= \case
+            True  -> togglePlay >> return (Right ())
+            False -> FL.handleButtonBase (FL.safeCast ref) e
+          _ -> FL.handleButtonBase (FL.safeCast ref) e
+        _ -> FL.handleButtonBase (FL.safeCast ref) e
+      }
     FL.deactivate playButton
     scrubber <- FL.horNiceSliderNew scrubberArea Nothing
     FL.setMinimum scrubber 0
@@ -773,17 +864,18 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
           startPlaying secs
       putState ss'
       redrawGL
-    FL.setCallback playButton $ \_ -> do
-      ss <- takeState
-      ss' <- case songPlaying ss of
-        Nothing -> do
-          FL.setLabel playButton "@square"
-          startPlaying $ songTime ss
-        Just ps -> do
-          FL.setLabel playButton "@>"
-          t <- stopPlaying (songTime ss) ps
-          return $ SongState t Nothing
-      putState ss'
+    let togglePlay = do
+          ss <- takeState
+          ss' <- case songPlaying ss of
+            Nothing -> do
+              FL.setLabel playButton "@square"
+              startPlaying $ songTime ss
+            Just ps -> do
+              FL.setLabel playButton "@>"
+              t <- stopPlaying (songTime ss) ps
+              return $ SongState t Nothing
+          putState ss'
+    FL.setCallback playButton $ \_ -> togglePlay
     FL.setCallback counter $ \_ -> do
       ss <- takeState
       ss' <- case songPlaying ss of
@@ -944,7 +1036,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     return tab
   let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
-    taskTabColor >>= setTabColor tab
+    taskColor >>= setTabColor tab
     FL.deactivate tab
     let cbStart = do
           FL.activate tab
@@ -1176,6 +1268,7 @@ batchPageDolphin sink rect tab build = do
             . (if unmute22 then RBFile.wiiUnmute22 else id)
   padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Create .app files"
+    taskColor >>= FL.setColor btn
     FL.setCallback btn $ \_ -> sink $ EventIO $ do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
       FL.setTitle picker "Location for .app files"
@@ -1430,7 +1523,7 @@ songPageRB3 sink rect tab proj build = mdo
           Nothing -> return ()
           Just f  -> build tgt $ RB3Magma f
         _ -> return ()
-    color <- FLE.rgbColorWithRgb (179,221,187)
+    color <- taskColor
     FL.setColor btn1 color
     FL.setColor btn2 color
   FL.end pack
@@ -1700,6 +1793,7 @@ makeTemplateRunner sink buttonText defTemplate useTemplate = do
         (_, rectD) = chopRight 50 rectC
         (_, resetRect) = chopRight 40 rectD
     button <- FL.buttonNew buttonRect $ Just buttonText
+    taskColor >>= FL.setColor button
     input <- FL.inputNew
       inputRect
       (Just "Template")
@@ -1858,15 +1952,16 @@ taskOutputPage rect tab sink cbStart cbEnd = mdo
             updateStatus id
   return (startTasks, cancelTasks)
 
-homeTabColor, functionTabColor, taskTabColor, globalLogColor, miscColor, loadSongColor, batchProcessColor, behindTabsColor :: IO FLE.Color
+homeTabColor, functionTabColor, taskColor, globalLogColor, miscColor, loadSongColor, batchProcessColor, behindTabsColor, defaultColor :: IO FLE.Color
 homeTabColor      = FLE.rgbColorWithRgb (209,177,224)
 functionTabColor  = FLE.rgbColorWithRgb (224,210,177)
-taskTabColor      = FLE.rgbColorWithRgb (179,221,187)
+taskColor         = FLE.rgbColorWithRgb (179,221,187)
 globalLogColor    = FLE.rgbColorWithRgb (114,74,124)
 miscColor         = FLE.rgbColorWithRgb (177,173,244)
 loadSongColor     = FLE.rgbColorWithRgb (186,229,181)
 batchProcessColor = FLE.rgbColorWithRgb (237,173,193)
 behindTabsColor   = FLE.rgbColorWithRgb (94,94,94) -- TODO report incorrect Char binding type for rgbColorWithGrayscale
+defaultColor      = FLE.rgbColorWithRgb (192,192,192)
 
 setTabColor :: FL.Ref FL.Group -> FLE.Color -> IO ()
 setTabColor tab color = do
@@ -1910,6 +2005,7 @@ miscPageMilo sink rect tab startTasks = do
   pack <- FL.packNew rect Nothing
   padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Extract .milo to folder"
+    taskColor >>= FL.setColor btn
     FL.setCallback btn $ \_ -> do
       picker1 <- FL.nativeFileChooserNew $ Just FL.BrowseFile
       FL.setTitle picker1 "Load .milo"
@@ -1934,6 +2030,7 @@ miscPageMilo sink rect tab startTasks = do
     return ()
   padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Repack .milo from folder"
+    taskColor >>= FL.setColor btn
     FL.setCallback btn $ \_ -> do
       picker1 <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
       FL.setTitle picker1 "Select extracted folder"
@@ -2046,6 +2143,7 @@ miscPageLipsync sink rect tab startTasks = do
     let [areaVoc, areaRB, areaTBRB] = map (trimClock 0 5 0 5) $ splitHorizN 3 rect'
         lipsyncButton area label ext fn = do
           btn <- FL.buttonNew area $ Just label
+          taskColor >>= FL.setColor btn
           FL.setCallback btn $ \_ -> sink $ EventIO $ do
             input <- pickedFile
             voc <- getVocalTrack
@@ -2075,6 +2173,7 @@ miscPageLipsync sink rect tab startTasks = do
     return ()
   let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
         btn <- FL.buttonNew rect' $ Just label
+        taskColor >>= FL.setColor btn
         FL.setCallback btn $ \_ -> sink $ EventIO $ do
           input <- pickedFile
           voc <- getVocalTrack
@@ -2151,6 +2250,7 @@ miscPageBlack sink rect tab startTasks = do
       Just i  -> T.pack $ " (#" <> show i <> ")"
     in (entry, sublines)
   btn <- FL.buttonNew startRect' $ Just "Modify CON files"
+  taskColor >>= FL.setColor btn
   FL.setResizable tab $ Just group
   FL.setCallback btn $ \_ -> sink $ EventIO $ do
     files <- map impPath <$> readMVar loadedFiles
@@ -2202,6 +2302,7 @@ miscPageMOGG sink rect tab startTasks = mdo
         ]
       in (entry, sublines)
   btn <- FL.buttonNew startRect' Nothing
+  taskColor >>= FL.setColor btn
   FL.setResizable tab $ Just group
   FL.setCallback btn $ \_ -> sink $ EventIO $ do
     audio <- readMVar loadedAudio
@@ -2266,6 +2367,7 @@ miscPageMIDI sink rect tab startTasks = do
     return $ fmap T.unpack $ FL.getValue input
   padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Fill in lower difficulties and drum animations"
+    taskColor >>= FL.setColor btn
     FL.setCallback btn $ \_ -> sink $ EventIO $ do
       input <- pickedFile
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
@@ -2288,6 +2390,7 @@ miscPageMIDI sink rect tab startTasks = do
         _ -> return ()
   padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Find hanging Pro Keys notes"
+    taskColor >>= FL.setColor btn
     FL.setCallback btn $ \_ -> sink $ EventIO $ do
       input <- pickedFile
       sink $ EventOnyx $ let
@@ -2298,6 +2401,7 @@ miscPageMIDI sink rect tab startTasks = do
         in startTasks [("Pro Keys range check: " <> input, task)]
   padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Make REAPER project with RB template"
+    taskColor >>= FL.setColor btn
     FL.setCallback btn $ \_ -> sink $ EventIO $ do
       input <- pickedFile
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
@@ -2409,7 +2513,7 @@ launchMisc sink makeMenuBar = mdo
     -}
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
-    taskTabColor >>= setTabColor tab
+    taskColor >>= setTabColor tab
     FL.deactivate tab
     let cbStart = do
           FL.activate tab
@@ -2941,7 +3045,7 @@ launchBatch sink makeMenuBar startFiles = mdo
     ]
   let nonTermTabs = tabSongs : functionTabs
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
-    taskTabColor >>= setTabColor tab
+    taskColor >>= setTabColor tab
     FL.deactivate tab
     let cbStart = do
           FL.activate tab
@@ -3167,7 +3271,7 @@ launchGUI = do
     (Just "Load a song")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs
-      { FL.handleCustom = Just $ dragAndDrop (sink . EventOnyx . mapM_ (startLoad makeMenuBar)) . FL.handleButtonBase . FL.safeCast
+      { FL.handleCustom = Just $ dragAndDrop (sink . EventOnyx . startLoad makeMenuBar) . FL.handleButtonBase . FL.safeCast
       }
   loadSongColor >>= FL.setColor buttonOpen
   FL.setCallback buttonOpen $ \_ -> promptLoad sink makeMenuBar
@@ -3194,7 +3298,8 @@ launchGUI = do
   FL.showWidget termWindow
 
   -- support drag and drop onto mac app icon
-  void $ openCallback $ Just $ sink . EventOnyx . startLoad makeMenuBar . T.unpack
+  void $ openCallback $ Just $
+    sink . EventOnyx . startLoad makeMenuBar . (: []) . T.unpack
 
   {-
   -- on linux, supposedly you need to show(argc,argv) for icon to work
