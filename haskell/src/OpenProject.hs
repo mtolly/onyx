@@ -86,6 +86,12 @@ data Importable m = Importable
   , impProject :: StackTraceT m Project
   }
 
+findAllSongs :: (SendMessage m, MonadResource m)
+  => FilePath -> StackTraceT m [Importable m]
+findAllSongs fp' = do
+  (subs, imps) <- findSongs fp'
+  concat . (imps :) <$> mapM findAllSongs subs
+
 findSongs :: (SendMessage m, MonadResource m)
   => FilePath -> StackTraceT m ([FilePath], [Importable m])
 findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ errorToWarning $ do
