@@ -218,7 +218,7 @@ startLoad makeMenuBar fs = do
       $ concat [ msgs | Left (Messages msgs) <- results ]
     case concat [ imps | Right imps <- results ] of
       [imp] -> continueImport makeMenuBar imp
-      imps  -> stackIO $ multipleSongsWindow sink makeMenuBar imps
+      imps  -> stackIO $ sink $ EventIO $ multipleSongsWindow sink makeMenuBar imps
 
 continueImport
   :: (Width -> Bool -> IO Int)
@@ -229,7 +229,7 @@ continueImport makeMenuBar imp = do
   proj <- impProject imp
   void $ shakeBuild1 proj [] "gen/cover.png"
   maybeAudio <- projectAudio proj
-  liftIO $ sink $ EventIO $ launchWindow sink makeMenuBar proj maybeAudio
+  stackIO $ sink $ EventIO $ launchWindow sink makeMenuBar proj maybeAudio
 
 multipleSongsWindow
   :: (Event -> IO ())
