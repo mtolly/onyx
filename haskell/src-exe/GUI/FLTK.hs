@@ -3043,8 +3043,6 @@ isNewestRelease cb = do
 
 #ifdef WINDOWS
 foreign import ccall "&fl_display" fl_display :: Ptr HINSTANCE
-foreign import ccall "Fl_Window_set_icon"
-  setIconRaw :: Ptr () -> Ptr () -> IO ()
 #endif
 
 launchGUI :: IO ()
@@ -3068,8 +3066,7 @@ launchGUI = do
 #ifdef WINDOWS
   peek fl_display >>= \disp -> do
     icon <- loadIcon (Just disp) $ intPtrToPtr 1
-    FL.withRef termWindow $ \ptr ->
-      setIconRaw ptr icon
+    FL.setIconRaw termWindow icon
 #else
 #ifndef MACOSX
   -- linux icon (not working?)
