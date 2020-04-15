@@ -59,8 +59,8 @@ data LightPosition
   = LightGlobal C.Light
   | LightOffset C.Light
 
-drawObject :: GLStuff -> (Int, Int) -> Object -> ObjectPosition -> Either TextureID (V4 Float) -> Float -> LightPosition -> IO ()
-drawObject GLStuff{..} (viewY, viewH) obj posn texcolor alpha lightOffset = do
+drawObject :: GLStuff -> Object -> ObjectPosition -> Either TextureID (V4 Float) -> Float -> LightPosition -> IO ()
+drawObject GLStuff{..} obj posn texcolor alpha lightOffset = do
   let colorType   = 1 :: GLuint
       textureType = 2 :: GLuint
       thisObject = case obj of
@@ -78,11 +78,6 @@ drawObject GLStuff{..} (viewY, viewH) obj posn texcolor alpha lightOffset = do
         !*! L.scaled (V4 (abs $ x2 - x1) yScale (abs $ z2 - z1) 1)
     ObjectMove xyz -> translate4 xyz
   sendUniformName objectShader "alpha" alpha
-  let fade = C.view_track_fade $ C.cfg_view gfxConfig
-  sendUniformName objectShader "startFade"
-    (fromIntegral viewY + fromIntegral viewH * C.tf_bottom fade)
-  sendUniformName objectShader "endFade"
-    (fromIntegral viewY + fromIntegral viewH * C.tf_top fade)
   case lightOffset of
     LightGlobal g -> do
       sendUniformName objectShader "light.position" $ C.light_position g
@@ -133,8 +128,8 @@ makeToggleBounds t1 t2 m = let
   simplify (x : xs) = x : simplify xs
   in simplify zipped
 
-drawDrums :: GLStuff -> (Int, Int) -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
-drawDrums glStuff ydims nowTime speed trk = drawDrumPlay glStuff ydims nowTime speed DrumPlayState
+drawDrums :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
+drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPlayState
   { drumEvents = do
     (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
     pad <- Set.toList $ drumNotes $ commonState cs
@@ -147,11 +142,11 @@ drawDrums glStuff ydims nowTime speed trk = drawDrumPlay glStuff ydims nowTime s
   , drumNoteTimes = Set.empty -- not used
   }
 
-drawDrumPlay :: GLStuff -> (Int, Int) -> Double -> Double -> DrumPlayState Double (D.Gem D.ProType) -> IO ()
-drawDrumPlay glStuff@GLStuff{..} ydims nowTime speed dps = do
+drawDrumPlay :: GLStuff -> Double -> Double -> DrumPlayState Double (D.Gem D.ProType) -> IO ()
+drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
-  let drawObject' = drawObject glStuff ydims
+  let drawObject' = drawObject glStuff
       globalLight = LightGlobal $ C.trk_light $ C.cfg_track gfxConfig
       nearZ = C.tt_z_past $ C.trk_time $ C.cfg_track gfxConfig
       nowZ = C.tt_z_now $ C.trk_time $ C.cfg_track gfxConfig
@@ -319,11 +314,11 @@ zoomMap t1 t2 m = let
     then maybe Map.empty (Map.singleton $ t1 + (t2 + t1) / 2) generated
     else zoomed
 
-drawFive :: GLStuff -> (Int, Int) -> Double -> Double -> Map.Map Double (CommonState (GuitarState (Maybe F.Color))) -> IO ()
-drawFive glStuff@GLStuff{..} ydims nowTime speed trk = do
+drawFive :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (GuitarState (Maybe F.Color))) -> IO ()
+drawFive glStuff@GLStuff{..} nowTime speed trk = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
-  let drawObject' = drawObject glStuff ydims
+  let drawObject' = drawObject glStuff
       globalLight = LightGlobal $ C.trk_light $ C.cfg_track gfxConfig
       nearZ = C.tt_z_past $ C.trk_time $ C.cfg_track gfxConfig
       nowZ = C.tt_z_now $ C.trk_time $ C.cfg_track gfxConfig
@@ -1149,6 +1144,9 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
   sendUniformName quadShader "inResolution" $ V2
     (fromIntegral screenW :: Float)
     (fromIntegral screenH :: Float)
+  let fade = C.view_track_fade $ C.cfg_view gfxConfig
+  sendUniformName quadShader "startFade" (C.tf_bottom fade)
+  sendUniformName quadShader "endFade" (C.tf_top fade)
   checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
 freeTexture :: Texture -> IO ()
@@ -1182,8 +1180,8 @@ splitSpace n heightWidthRatio (WindowDims w h) = let
     in thisRow ++ makeRows (spaces - cols) rows
   in makeRows n $ reverse $ pieces bestRows h
 
-setUpTrackView :: GLStuff -> (Int, Int, Int, Int) -> IO ()
-setUpTrackView GLStuff{..} (x, y, w, h) = do
+setUpTrackView :: GLStuff -> WindowDims -> IO ()
+setUpTrackView GLStuff{..} (WindowDims w h) = do
   glClear GL_DEPTH_BUFFER_BIT
   glUseProgram objectShader
   let viewPosn = C.cam_position $ C.view_camera $ C.cfg_view gfxConfig
@@ -1215,9 +1213,8 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
     V4 r g b a -> glClearColor r g b a
   glClear GL_COLOR_BUFFER_BIT
 
-  let space = (0, 0, wWhole, hWhole)
-  setUpTrackView glStuff space
-  drawDrumPlay glStuff (0, hWhole) time speed dps
+  setUpTrackView glStuff dims
+  drawDrumPlay glStuff time speed dps
 
   glClear GL_DEPTH_BUFFER_BIT
   let gps = case drumEvents dps of
@@ -1258,7 +1255,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
           (C.view_height_width_ratio $ C.cfg_view gfxConfig)
           dims
 
-  forM_ (zip spaces trks) $ \(space@(x, y, w, h), trk) -> checkGL "draw" $ do
+  forM_ (zip spaces trks) $ \((x, y, w, h), trk) -> checkGL "draw" $ do
     glBindFramebuffer GL_FRAMEBUFFER $ case framebuffers of
       SimpleFramebuffer{..} -> simpleFBO
       MSAAFramebuffers{..} -> msaaFBO
@@ -1268,10 +1265,10 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
     case C.view_background $ C.cfg_view gfxConfig of
       V4 r g b a -> glClearColor r g b a
     glClear GL_COLOR_BUFFER_BIT
-    setUpTrackView glStuff space
+    setUpTrackView glStuff (WindowDims w h)
     case trk of
-      PreviewDrums m -> drawDrums glStuff (y, h) time speed m
-      PreviewFive m  -> drawFive  glStuff (y, h) time speed m
+      PreviewDrums m -> drawDrums glStuff time speed m
+      PreviewFive m  -> drawFive  glStuff time speed m
 
     case framebuffers of
       SimpleFramebuffer{..} -> do
