@@ -28,6 +28,9 @@ view:
     fov: 45 # degrees
     near: 0.1
     far: 100
+  # antialiasing options
+  msaa: null # set to null or a number (probably one of 2, 4, 8, 16)
+  fxaa: true # true or false
 
 track:
   'y': -1 # height of the main notes area's floor

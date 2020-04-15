@@ -59,8 +59,8 @@ data LightPosition
   = LightGlobal C.Light
   | LightOffset C.Light
 
-drawObject :: GLStuff -> (Int, Int) -> Object -> ObjectPosition -> Either TextureID (V4 Float) -> Float -> LightPosition -> IO ()
-drawObject GLStuff{..} (viewY, viewH) obj posn texcolor alpha lightOffset = do
+drawObject :: GLStuff -> Object -> ObjectPosition -> Either TextureID (V4 Float) -> Float -> LightPosition -> IO ()
+drawObject GLStuff{..} obj posn texcolor alpha lightOffset = do
   let colorType   = 1 :: GLuint
       textureType = 2 :: GLuint
       thisObject = case obj of
@@ -78,11 +78,6 @@ drawObject GLStuff{..} (viewY, viewH) obj posn texcolor alpha lightOffset = do
         !*! L.scaled (V4 (abs $ x2 - x1) yScale (abs $ z2 - z1) 1)
     ObjectMove xyz -> translate4 xyz
   sendUniformName objectShader "alpha" alpha
-  let fade = C.view_track_fade $ C.cfg_view gfxConfig
-  sendUniformName objectShader "startFade"
-    (fromIntegral viewY + fromIntegral viewH * C.tf_bottom fade)
-  sendUniformName objectShader "endFade"
-    (fromIntegral viewY + fromIntegral viewH * C.tf_top fade)
   case lightOffset of
     LightGlobal g -> do
       sendUniformName objectShader "light.position" $ C.light_position g
@@ -133,8 +128,8 @@ makeToggleBounds t1 t2 m = let
   simplify (x : xs) = x : simplify xs
   in simplify zipped
 
-drawDrums :: GLStuff -> (Int, Int) -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
-drawDrums glStuff ydims nowTime speed trk = drawDrumPlay glStuff ydims nowTime speed DrumPlayState
+drawDrums :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
+drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPlayState
   { drumEvents = do
     (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
     pad <- Set.toList $ drumNotes $ commonState cs
@@ -147,11 +142,11 @@ drawDrums glStuff ydims nowTime speed trk = drawDrumPlay glStuff ydims nowTime s
   , drumNoteTimes = Set.empty -- not used
   }
 
-drawDrumPlay :: GLStuff -> (Int, Int) -> Double -> Double -> DrumPlayState Double (D.Gem D.ProType) -> IO ()
-drawDrumPlay glStuff@GLStuff{..} ydims nowTime speed dps = do
+drawDrumPlay :: GLStuff -> Double -> Double -> DrumPlayState Double (D.Gem D.ProType) -> IO ()
+drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
-  let drawObject' = drawObject glStuff ydims
+  let drawObject' = drawObject glStuff
       globalLight = LightGlobal $ C.trk_light $ C.cfg_track gfxConfig
       nearZ = C.tt_z_past $ C.trk_time $ C.cfg_track gfxConfig
       nowZ = C.tt_z_now $ C.trk_time $ C.cfg_track gfxConfig
@@ -319,11 +314,11 @@ zoomMap t1 t2 m = let
     then maybe Map.empty (Map.singleton $ t1 + (t2 + t1) / 2) generated
     else zoomed
 
-drawFive :: GLStuff -> (Int, Int) -> Double -> Double -> Map.Map Double (CommonState (GuitarState (Maybe F.Color))) -> IO ()
-drawFive glStuff@GLStuff{..} ydims nowTime speed trk = do
+drawFive :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (GuitarState (Maybe F.Color))) -> IO ()
+drawFive glStuff@GLStuff{..} nowTime speed trk = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
-  let drawObject' = drawObject glStuff ydims
+  let drawObject' = drawObject glStuff
       globalLight = LightGlobal $ C.trk_light $ C.cfg_track gfxConfig
       nearZ = C.tt_z_past $ C.trk_time $ C.cfg_track gfxConfig
       nowZ = C.tt_z_now $ C.trk_time $ C.cfg_track gfxConfig
@@ -757,10 +752,24 @@ data GLStuff = GLStuff
   , textures          :: [(TextureID, Texture)]
   , models            :: [(ModelID, RenderObject)]
   , gfxConfig         :: C.Config
-  , framebuffer       :: GLuint
-  , framebufferTex    :: GLuint
-  , framebufferRender :: GLuint
+  , framebuffers      :: Framebuffers
   } deriving (Show)
+
+data Framebuffers
+  = SimpleFramebuffer
+    { simpleFBO       :: GLuint
+    , simpleFBOTex    :: GLuint
+    , simpleFBORender :: GLuint
+    }
+  | MSAAFramebuffers
+    { msaaFBO            :: GLuint
+    , msaaFBOTex         :: GLuint
+    , msaaFBORender      :: GLuint
+    , intermediateFBO    :: GLuint
+    , intermediateFBOTex :: GLuint
+    , multisamples       :: GLsizei
+    }
+  deriving (Show)
 
 data TextureID
   = TextureLongKick
@@ -868,7 +877,6 @@ loadGLStuff = do
   glEnable GL_DEPTH_TEST
   glEnable GL_CULL_FACE -- default CCW = front
   glEnable GL_BLEND
-  glDisable GL_MULTISAMPLE
   glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
 
   -- format of the Vertex type
@@ -1040,32 +1048,73 @@ loadGLStuff = do
     obj <- loadObj path >>= loadObject
     return (modID, obj)
 
-  -- configure MSAA framebuffer
-  framebuffer <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
-  checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER framebuffer
-  -- create a multisampled color attachment texture
-  -- create a (also multisampled) renderbuffer object for depth and stencil attachments
-  framebufferTex    <- alloca $ \p -> glGenTextures      1 p >> peek p
-  framebufferRender <- alloca $ \p -> glGenRenderbuffers 1 p >> peek p
-  checkGL "fbuf 1" $ setFramebufferSize framebufferTex framebufferRender 1920 1080 -- dummy size, changed later
-  checkGL "fbuf 2" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D framebufferTex 0
-  checkGL "fbuf 3" $ glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER framebufferRender
+  framebuffers <- case C.view_msaa $ C.cfg_view gfxConfig of
+    Just n | n > 1 -> do
 
-  glCheckFramebufferStatus GL_FRAMEBUFFER >>= \case
-    GL_FRAMEBUFFER_COMPLETE -> return ()
-    _ -> putStrLn "ERROR::FRAMEBUFFER:: Framebuffer is not complete!"
-  glBindFramebuffer GL_FRAMEBUFFER 0
+      glEnable GL_MULTISAMPLE
+
+      -- configure MSAA framebuffer
+      msaaFBO <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
+      checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
+      -- create a multisampled color attachment texture
+      -- create a (also multisampled) renderbuffer object for depth and stencil attachments
+      msaaFBOTex    <- alloca $ \p -> glGenTextures      1 p >> peek p
+      msaaFBORender <- alloca $ \p -> glGenRenderbuffers 1 p >> peek p
+
+      -- intermediate framebuffer
+      intermediateFBO <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
+      checkGL "interm 0" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
+      intermediateFBOTex <- alloca $ \p -> glGenTextures 1 p >> peek p
+
+      let multisamples = fromIntegral n
+          fbufs = MSAAFramebuffers{..}
+
+      setFramebufferSize fbufs 1920 1080 -- dummy size, changed later
+      checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
+      checkGL "fbuf 1" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D_MULTISAMPLE msaaFBOTex 0
+      checkGL "fbuf 2" $ glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER msaaFBORender
+      checkGL "interm 0" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
+      checkGL "interm 1" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D intermediateFBOTex 0
+
+      glBindFramebuffer GL_FRAMEBUFFER 0
+      return fbufs
+
+    _ -> do
+
+      glDisable GL_MULTISAMPLE
+
+      simpleFBO <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
+      glBindFramebuffer GL_FRAMEBUFFER simpleFBO
+      simpleFBOTex    <- alloca $ \p -> glGenTextures      1 p >> peek p
+      simpleFBORender <- alloca $ \p -> glGenRenderbuffers 1 p >> peek p
+      let fbufs = SimpleFramebuffer{..}
+      setFramebufferSize fbufs 1920 1080 -- dummy size, changed later
+      glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D simpleFBOTex 0
+      glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER simpleFBORender
+
+      glBindFramebuffer GL_FRAMEBUFFER 0
+      return fbufs
 
   return GLStuff{..}
 
-setFramebufferSize :: GLuint -> GLuint -> GLsizei -> GLsizei -> IO ()
-setFramebufferSize tex render w h = do
-  glBindTexture GL_TEXTURE_2D tex
-  glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
-  glBindRenderbuffer GL_RENDERBUFFER render
-  glRenderbufferStorage GL_RENDERBUFFER GL_DEPTH24_STENCIL8 w h
+setFramebufferSize :: Framebuffers -> GLsizei -> GLsizei -> IO ()
+setFramebufferSize fbufs w h = case fbufs of
+  SimpleFramebuffer{..} -> do
+    glBindTexture GL_TEXTURE_2D simpleFBOTex
+    glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
+    glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
+    glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
+    glBindRenderbuffer GL_RENDERBUFFER simpleFBORender
+    glRenderbufferStorage GL_RENDERBUFFER GL_DEPTH24_STENCIL8 w h
+  MSAAFramebuffers{..} -> do
+    glBindTexture GL_TEXTURE_2D_MULTISAMPLE msaaFBOTex
+    glTexImage2DMultisample GL_TEXTURE_2D_MULTISAMPLE multisamples GL_RGB w h GL_TRUE
+    glBindRenderbuffer GL_RENDERBUFFER msaaFBORender
+    glRenderbufferStorageMultisample GL_RENDERBUFFER multisamples GL_DEPTH24_STENCIL8 w h
+    glBindTexture GL_TEXTURE_2D intermediateFBOTex
+    glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
+    glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
+    glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
 
 deleteGLStuff :: GLStuff -> IO ()
 deleteGLStuff GLStuff{..} = do
@@ -1093,8 +1142,12 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
     :: M44 Float
     )
   sendUniformName quadShader "inResolution" $ V2
-    (fromIntegral screenW :: Float)
-    (fromIntegral screenH :: Float)
+    (fromIntegral (w * scale) :: Float)
+    (fromIntegral (h * scale) :: Float)
+  let fade = C.view_track_fade $ C.cfg_view gfxConfig
+  sendUniformName quadShader "startFade" (C.tf_bottom fade)
+  sendUniformName quadShader "endFade" (C.tf_top fade)
+  sendUniformName quadShader "doFXAA" $ C.view_fxaa $ C.cfg_view gfxConfig
   checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
 freeTexture :: Texture -> IO ()
@@ -1128,8 +1181,8 @@ splitSpace n heightWidthRatio (WindowDims w h) = let
     in thisRow ++ makeRows (spaces - cols) rows
   in makeRows n $ reverse $ pieces bestRows h
 
-setUpTrackView :: GLStuff -> (Int, Int, Int, Int) -> IO ()
-setUpTrackView GLStuff{..} (x, y, w, h) = do
+setUpTrackView :: GLStuff -> WindowDims -> IO ()
+setUpTrackView GLStuff{..} (WindowDims w h) = do
   glClear GL_DEPTH_BUFFER_BIT
   glUseProgram objectShader
   let viewPosn = C.cam_position $ C.view_camera $ C.cfg_view gfxConfig
@@ -1161,9 +1214,8 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
     V4 r g b a -> glClearColor r g b a
   glClear GL_COLOR_BUFFER_BIT
 
-  let space = (0, 0, wWhole, hWhole)
-  setUpTrackView glStuff space
-  drawDrumPlay glStuff (0, hWhole) time speed dps
+  setUpTrackView glStuff dims
+  drawDrumPlay glStuff time speed dps
 
   glClear GL_DEPTH_BUFFER_BIT
   let gps = case drumEvents dps of
@@ -1204,23 +1256,42 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
           (C.view_height_width_ratio $ C.cfg_view gfxConfig)
           dims
 
-  forM_ (zip spaces trks) $ \(space@(x, y, w, h), trk) -> checkGL "draw" $ do
-    glBindFramebuffer GL_FRAMEBUFFER framebuffer
-    setFramebufferSize framebufferTex framebufferRender
+  forM_ (zip spaces trks) $ \((x, y, w, h), trk) -> checkGL "draw" $ do
+    glBindFramebuffer GL_FRAMEBUFFER $ case framebuffers of
+      SimpleFramebuffer{..} -> simpleFBO
+      MSAAFramebuffers{..} -> msaaFBO
+    setFramebufferSize framebuffers
       (fromIntegral w) (fromIntegral h)
     glViewport 0 0 (fromIntegral w) (fromIntegral h)
     case C.view_background $ C.cfg_view gfxConfig of
       V4 r g b a -> glClearColor r g b a
     glClear GL_COLOR_BUFFER_BIT
-    setUpTrackView glStuff space
+    setUpTrackView glStuff (WindowDims w h)
     case trk of
-      PreviewDrums m -> drawDrums glStuff (y, h) time speed m
-      PreviewFive m  -> drawFive  glStuff (y, h) time speed m
+      PreviewDrums m -> drawDrums glStuff time speed m
+      PreviewFive m  -> drawFive  glStuff time speed m
 
-    glBindFramebuffer GL_FRAMEBUFFER 0
-    glClear GL_DEPTH_BUFFER_BIT
-    glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-    drawTexture glStuff dims (Texture framebufferTex w h) (V2 x y) 1
+    case framebuffers of
+      SimpleFramebuffer{..} -> do
+
+        glBindFramebuffer GL_FRAMEBUFFER 0
+        glClear GL_DEPTH_BUFFER_BIT
+        glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
+        drawTexture glStuff dims (Texture simpleFBOTex w h) (V2 x y) 1
+
+      MSAAFramebuffers{..} -> do
+
+        glBindFramebuffer GL_READ_FRAMEBUFFER msaaFBO
+        glBindFramebuffer GL_DRAW_FRAMEBUFFER intermediateFBO
+        glBlitFramebuffer
+          0 0 (fromIntegral w) (fromIntegral h)
+          0 0 (fromIntegral w) (fromIntegral h)
+          GL_COLOR_BUFFER_BIT GL_NEAREST
+
+        glBindFramebuffer GL_FRAMEBUFFER 0
+        glClear GL_DEPTH_BUFFER_BIT
+        glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
+        drawTexture glStuff dims (Texture intermediateFBOTex w h) (V2 x y) 1
 
 checkGL :: String -> IO a -> IO a
 checkGL s f = do
