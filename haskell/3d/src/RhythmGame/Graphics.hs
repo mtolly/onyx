@@ -7,15 +7,15 @@
 {-# LANGUAGE ViewPatterns      #-}
 module RhythmGame.Graphics where
 
+import Control.Monad.Trans.Resource (register, runResourceT)
 import           Build                          (loadYaml)
 import           Codec.Picture
 import qualified Codec.Wavefront                as Obj
 import           Control.Arrow                  (second)
-import           Control.Exception              (bracket, throwIO)
 import           Control.Monad                  (forM, forM_, guard, void, when)
 import           Control.Monad.IO.Class         (MonadIO (..))
-import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
-                                                 logStdout, stackIO)
+import           Control.Monad.Trans.StackTrace (mapStackTraceT, inside, fatal, SendMessage, StackTraceT,
+                                                 stackIO)
 import qualified Data.ByteString                as B
 import           Data.Foldable                  (traverse_)
 import           Data.List                      (partition, sort)
@@ -528,34 +528,45 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
   -- draw notes
   drawNotes farTime $ Map.toDescList zoomed
 
-compileShader :: GLenum -> B.ByteString -> IO GLuint
+fillPtr :: (Storable a, MonadIO m) => (Ptr a -> IO ()) -> m a
+fillPtr f = liftIO $ alloca $ \p -> f p >> peek p
+
+loadProgram :: (MonadIO m) => [(GLenum, FilePath)] -> StackTraceT m GLuint
+loadProgram shaderPairs = mapStackTraceT (liftIO . runResourceT) $ do
+  shaders <- forM shaderPairs $ \(shaderType, f) -> do
+    inside ("compiling shader: " <> f) $ do
+      source <- stackIO $ B.readFile f
+      shader <- stackIO (compileShader shaderType source) >>= either fatal return
+      void $ register $ glDeleteShader shader
+      return shader
+  stackIO (compileProgram shaders) >>= either fatal return
+
+compileShader :: GLenum -> B.ByteString -> IO (Either String GLuint)
 compileShader shaderType source = do
   shader <- glCreateShader shaderType
   B.useAsCString source $ \cs' -> with cs' $ \cs -> do
     glShaderSource shader 1 cs nullPtr
     glCompileShader shader
-    alloca $ \success -> do
-      allocaArray 512 $ \infoLog -> do
-        glGetShaderiv shader GL_COMPILE_STATUS success
-        peek success >>= \case
-          GL_FALSE -> do
-            glGetShaderInfoLog shader 512 nullPtr infoLog
-            peekCString infoLog >>= error
-          _ -> return shader
+    fillPtr (glGetShaderiv shader GL_COMPILE_STATUS) >>= \case
+      GL_FALSE -> do
+        errLen <- fillPtr $ glGetShaderiv shader GL_INFO_LOG_LENGTH
+        allocaArray (fromIntegral errLen) $ \infoLog -> do
+          glGetShaderInfoLog shader errLen nullPtr infoLog
+          peekCString infoLog >>= return . Left
+      _ -> return $ Right shader
 
-compileProgram :: [GLuint] -> IO GLuint
+compileProgram :: [GLuint] -> IO (Either String GLuint)
 compileProgram shaders = do
   program <- glCreateProgram
   mapM_ (glAttachShader program) shaders
   glLinkProgram program
-  alloca $ \success -> do
-    allocaArray 512 $ \infoLog -> do
-      glGetProgramiv program GL_LINK_STATUS success
-      peek success >>= \case
-        GL_FALSE -> do
-          glGetProgramInfoLog program 512 nullPtr infoLog
-          peekCString infoLog >>= error
-        _ -> return program
+  fillPtr (glGetProgramiv program GL_LINK_STATUS) >>= \case
+    GL_FALSE -> do
+      errLen <- fillPtr $ glGetProgramiv program GL_INFO_LOG_LENGTH
+      allocaArray (fromIntegral errLen) $ \infoLog -> do
+        glGetProgramInfoLog program errLen nullPtr infoLog
+        peekCString infoLog >>= return . Left
+    _ -> return $ Right program
 
 withArrayBytes :: (Storable a, Num len) => [a] -> (len -> Ptr a -> IO b) -> IO b
 withArrayBytes xs f = withArray xs $ \p -> let
@@ -712,8 +723,8 @@ data Texture = Texture
   , textureHeight :: Int
   } deriving (Show)
 
-loadTexture :: (GLPixel a) => Bool -> Image a -> IO Texture
-loadTexture linear img = do
+loadTexture :: (GLPixel a, MonadIO m) => Bool -> Image a -> m Texture
+loadTexture linear img = liftIO $ do
   let pixelProp :: (a -> b) -> Image a -> b
       pixelProp f _ = f undefined
       flippedVert = generateImage
@@ -836,9 +847,9 @@ data ModelID
   | ModelGuitarOpen
   deriving (Eq, Show, Enum, Bounded)
 
-loadObj :: FilePath -> IO [Vertex]
-loadObj f = do
-  obj <- Obj.fromFile f >>= either fail return
+loadObj :: (MonadIO m) => FilePath -> StackTraceT m [Vertex]
+loadObj f = inside ("loading model: " <> f) $ do
+  obj <- stackIO (Obj.fromFile f) >>= either fatal return
   return $ do
     Obj.Face a b c rest <- map Obj.elValue $ V.toList $ Obj.objFaces obj
     let triangulate v1 v2 v3 vs = [v1, v2, v3] ++ case vs of
@@ -869,10 +880,10 @@ sortVertices = let
   sumZ = sum . map (getZ . vertexPosition)
   in concatMap snd . sort . map (\tri -> (sumZ tri, tri)) . getTris
 
-loadGLStuff :: IO GLStuff
+loadGLStuff :: (MonadIO m, SendMessage m) => StackTraceT m GLStuff
 loadGLStuff = do
 
-  gfxConfig <- logStdout load3DConfig >>= either throwIO return
+  gfxConfig <- load3DConfig
 
   glEnable GL_DEPTH_TEST
   glEnable GL_CULL_FACE -- default CCW = front
@@ -896,13 +907,14 @@ loadGLStuff = do
 
   -- object stuff
 
-  objectVS <- getResourcesPath "shaders/object.vert" >>= B.readFile
-  objectFS <- getResourcesPath "shaders/object.frag" >>= B.readFile
-  objectShader <- bracket (compileShader GL_VERTEX_SHADER objectVS) glDeleteShader $ \vertexShader -> do
-    bracket (compileShader GL_FRAGMENT_SHADER objectFS) glDeleteShader $ \fragmentShader -> do
-      compileProgram [vertexShader, fragmentShader]
+  objectVS <- stackIO $ getResourcesPath "shaders/object.vert"
+  objectFS <- stackIO $ getResourcesPath "shaders/object.frag"
+  objectShader <- loadProgram
+    [ (GL_VERTEX_SHADER  , objectVS)
+    , (GL_FRAGMENT_SHADER, objectFS)
+    ]
 
-  let loadObject (sortVertices -> vertices) = do
+  let loadObject (sortVertices -> vertices) = liftIO $ do
         vao <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
         vbo <- alloca $ \p -> glGenBuffers 1 p >> peek p
         glBindVertexArray vao
@@ -922,24 +934,25 @@ loadGLStuff = do
 
   -- quad stuff
 
-  quadVS <- getResourcesPath "shaders/quad.vert" >>= B.readFile
-  quadFS <- getResourcesPath "shaders/quad.frag" >>= B.readFile
-  quadShader <- bracket (compileShader GL_VERTEX_SHADER quadVS) glDeleteShader $ \vertexShader -> do
-    bracket (compileShader GL_FRAGMENT_SHADER quadFS) glDeleteShader $ \fragmentShader -> do
-      compileProgram [vertexShader, fragmentShader]
+  quadVS <- stackIO $ getResourcesPath "shaders/quad.vert"
+  quadFS <- stackIO $ getResourcesPath "shaders/quad.frag"
+  quadShader <- loadProgram
+    [ (GL_VERTEX_SHADER  , quadVS)
+    , (GL_FRAGMENT_SHADER, quadFS)
+    ]
 
-  quadVAO <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
-  quadVBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
-  quadEBO <- alloca $ \p -> glGenBuffers 1 p >> peek p
+  quadVAO <- stackIO $ alloca $ \p -> glGenVertexArrays 1 p >> peek p
+  quadVBO <- stackIO $ alloca $ \p -> glGenBuffers 1 p >> peek p
+  quadEBO <- stackIO $ alloca $ \p -> glGenBuffers 1 p >> peek p
 
   glBindVertexArray quadVAO
 
   glBindBuffer GL_ARRAY_BUFFER quadVBO
-  withArrayBytes quadVertices $ \size p -> do
+  stackIO $ withArrayBytes quadVertices $ \size p -> do
     glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
 
   glBindBuffer GL_ELEMENT_ARRAY_BUFFER quadEBO
-  withArrayBytes quadIndices $ \size p -> do
+  stackIO $ withArrayBytes quadIndices $ \size p -> do
     glBufferData GL_ELEMENT_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
 
   glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE
@@ -955,7 +968,7 @@ loadGLStuff = do
   sendUniformName quadShader "inTexture" (0 :: GLint)
   let quadObject = RenderObject quadVAO $ fromIntegral $ length quadIndices
   glBindVertexArray 0
-  withArrayLen [quadVBO, quadEBO] $ glDeleteBuffers . fromIntegral
+  stackIO $ withArrayLen [quadVBO, quadEBO] $ glDeleteBuffers . fromIntegral
 
   -- textures
 
@@ -1014,7 +1027,7 @@ loadGLStuff = do
           TextureNumber7           -> "number-7"
           TextureNumber8           -> "number-8"
           TextureNumber9           -> "number-9"
-    base <- getResourcesPath $ "textures" </> imageName
+    base <- stackIO $ getResourcesPath $ "textures" </> imageName
     let isLinear = case texID of
           TextureNumber0 -> False
           TextureNumber1 -> False
@@ -1027,9 +1040,9 @@ loadGLStuff = do
           TextureNumber8 -> False
           TextureNumber9 -> False
           _              -> True
-        readExt [] = error $ "No file found for texture " <> imageName
-        readExt (ext : rest) = doesFileExist (base <.> ext) >>= \case
-          True -> readImage (base <.> ext) >>= either fail return
+        readExt [] = fatal $ "No file found for texture " <> imageName
+        readExt (ext : rest) = stackIO (doesFileExist $ base <.> ext) >>= \case
+          True -> stackIO (readImage $ base <.> ext) >>= either fatal return
             >>= loadTexture isLinear . convertRGBA8
           False -> readExt rest
     tex <- readExt ["png", "jpg", "jpeg"]
@@ -1038,7 +1051,7 @@ loadGLStuff = do
   -- models
 
   models <- forM [minBound .. maxBound] $ \modID -> do
-    path <- getResourcesPath $ case modID of
+    path <- liftIO $ getResourcesPath $ case modID of
       ModelDrumTom       -> "models/drum-tom.obj"
       ModelDrumCymbal    -> "models/drum-cymbal.obj"
       ModelDrumKick      -> "models/drum-kick.obj"
@@ -1054,17 +1067,17 @@ loadGLStuff = do
       glEnable GL_MULTISAMPLE
 
       -- configure MSAA framebuffer
-      msaaFBO <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
+      msaaFBO <- liftIO $ alloca $ \p -> glGenFramebuffers 1 p >> peek p
       checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
       -- create a multisampled color attachment texture
       -- create a (also multisampled) renderbuffer object for depth and stencil attachments
-      msaaFBOTex    <- alloca $ \p -> glGenTextures      1 p >> peek p
-      msaaFBORender <- alloca $ \p -> glGenRenderbuffers 1 p >> peek p
+      msaaFBOTex    <- liftIO $ alloca $ \p -> glGenTextures      1 p >> peek p
+      msaaFBORender <- liftIO $ alloca $ \p -> glGenRenderbuffers 1 p >> peek p
 
       -- intermediate framebuffer
-      intermediateFBO <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
+      intermediateFBO <- liftIO $ alloca $ \p -> glGenFramebuffers 1 p >> peek p
       checkGL "interm 0" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
-      intermediateFBOTex <- alloca $ \p -> glGenTextures 1 p >> peek p
+      intermediateFBOTex <- liftIO $ alloca $ \p -> glGenTextures 1 p >> peek p
 
       let multisamples = fromIntegral n
           fbufs = MSAAFramebuffers{..}
@@ -1083,10 +1096,10 @@ loadGLStuff = do
 
       glDisable GL_MULTISAMPLE
 
-      simpleFBO <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
+      simpleFBO <- liftIO $ alloca $ \p -> glGenFramebuffers 1 p >> peek p
       glBindFramebuffer GL_FRAMEBUFFER simpleFBO
-      simpleFBOTex    <- alloca $ \p -> glGenTextures      1 p >> peek p
-      simpleFBORender <- alloca $ \p -> glGenRenderbuffers 1 p >> peek p
+      simpleFBOTex    <- liftIO $ alloca $ \p -> glGenTextures      1 p >> peek p
+      simpleFBORender <- liftIO $ alloca $ \p -> glGenRenderbuffers 1 p >> peek p
       let fbufs = SimpleFramebuffer{..}
       setFramebufferSize fbufs 1920 1080 -- dummy size, changed later
       glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D simpleFBOTex 0
@@ -1097,7 +1110,7 @@ loadGLStuff = do
 
   return GLStuff{..}
 
-setFramebufferSize :: Framebuffers -> GLsizei -> GLsizei -> IO ()
+setFramebufferSize :: (MonadIO m) => Framebuffers -> GLsizei -> GLsizei -> m ()
 setFramebufferSize fbufs w h = case fbufs of
   SimpleFramebuffer{..} -> do
     glBindTexture GL_TEXTURE_2D simpleFBOTex
@@ -1116,11 +1129,11 @@ setFramebufferSize fbufs w h = case fbufs of
     glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
     glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
 
-deleteGLStuff :: GLStuff -> IO ()
+deleteGLStuff :: (MonadIO m) => GLStuff -> m ()
 deleteGLStuff GLStuff{..} = do
   glDeleteProgram objectShader
   glDeleteProgram quadShader
-  withArrayLen (map objVAO $ [boxObject, flatObject, quadObject] ++ map snd models)
+  liftIO $ withArrayLen (map objVAO $ [boxObject, flatObject, quadObject] ++ map snd models)
     $ glDeleteVertexArrays . fromIntegral
   mapM_ (freeTexture . snd) textures
 
@@ -1150,8 +1163,8 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
   sendUniformName quadShader "doFXAA" $ C.view_fxaa $ C.cfg_view gfxConfig
   checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
-freeTexture :: Texture -> IO ()
-freeTexture (Texture tex _ _) = with tex $ glDeleteTextures 1
+freeTexture :: (MonadIO m) => Texture -> m ()
+freeTexture (Texture tex _ _) = liftIO $ with tex $ glDeleteTextures 1
 
 -- | Split up the available space to show tracks at the largest possible size.
 -- Returns [(x, y, w, h)] in GL space (so bottom left corner is (0, 0)).
@@ -1293,7 +1306,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
         glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
         drawTexture glStuff dims (Texture intermediateFBOTex w h) (V2 x y) 1
 
-checkGL :: String -> IO a -> IO a
+checkGL :: (MonadIO m) => String -> m a -> m a
 checkGL s f = do
   void $ glGetError
   x <- f
@@ -1304,5 +1317,5 @@ checkGL s f = do
     GL_INVALID_OPERATION -> Just "Invalid operation"
     GL_OUT_OF_MEMORY     -> Just "Out of memory"
     _                    -> Just "Unknown error"
-  forM_ desc $ \err -> putStrLn $ s <> ": " <> err
+  liftIO $ forM_ desc $ \err -> putStrLn $ s <> ": " <> err
   return x

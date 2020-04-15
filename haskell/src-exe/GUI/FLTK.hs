@@ -180,16 +180,24 @@ forkOnyx act = do
   sink <- getEventSink
   chan <- lift $ lift ask
   lift $ lift $ lift $ resourceForkIO $ do
-    runReaderT (logToSink sink act) chan >>= logErrors sink
+    runReaderT (logToSink sink act) chan >>= logErrors_ sink
 
-logErrors :: (MonadIO m) => (Event -> IO ()) -> Either Messages () -> m ()
+embedOnyx :: (Event -> IO ()) -> Onyx a -> IO (Maybe a)
+embedOnyx sink act = runResourceT $
+  runReaderT (logToSink sink act) sink >>= logErrors sink
+
+logErrors :: (MonadIO m) => (Event -> IO ()) -> Either Messages a -> m (Maybe a)
 logErrors sink = \case
-  Right ()             -> return ()
-  Left (Messages msgs) -> forM_ msgs $ \msg -> do
-    liftIO $ sink $ EventFail msg
+  Right x              -> return $ Just x
+  Left (Messages msgs) -> do
+    liftIO $ forM_ msgs $ sink . EventFail
+    return Nothing
+
+logErrors_ :: (MonadIO m) => (Event -> IO ()) -> Either Messages () -> m ()
+logErrors_ sink = void . logErrors sink
 
 safeOnyx :: Onyx () -> Onyx ()
-safeOnyx f = getEventSink >>= \sink -> errorToEither f >>= logErrors sink
+safeOnyx f = getEventSink >>= \sink -> errorToEither f >>= logErrors_ sink
 
 resizeWindow :: FL.Ref FL.Window -> Size -> IO ()
 resizeWindow window size = do
@@ -2621,7 +2629,7 @@ launchTimeServer sink varTime inputPort button label = do
     in goOffline
   return $ killThread tid
 
-data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff
+data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLFailed
 
 previewGroup
   :: (Event -> IO ())
@@ -2673,10 +2681,11 @@ previewGroup sink rect getTracks getTime getSpeed = do
   let draw :: FL.Ref FL.GlWindow -> IO ()
       draw wind = do
         mstuff <- modifyMVar varStuff $ \case
-          GLPreload -> do
-            s <- RGGraphics.loadGLStuff
-            return (GLLoaded s, Just s)
+          GLPreload -> embedOnyx sink RGGraphics.loadGLStuff >>= \case
+            Nothing -> return (GLFailed, Nothing)
+            Just s  -> return (GLLoaded s, Just s)
           loaded@(GLLoaded s) -> return (loaded, Just s)
+          GLFailed -> return (GLFailed, Nothing)
         forM_ mstuff $ \stuff -> do
           t <- getTime
           speed <- getSpeed
