@@ -757,10 +757,24 @@ data GLStuff = GLStuff
   , textures          :: [(TextureID, Texture)]
   , models            :: [(ModelID, RenderObject)]
   , gfxConfig         :: C.Config
-  , framebuffer       :: GLuint
-  , framebufferTex    :: GLuint
-  , framebufferRender :: GLuint
+  , framebuffers      :: Framebuffers
   } deriving (Show)
+
+data Framebuffers
+  = SimpleFramebuffer
+    { simpleFBO       :: GLuint
+    , simpleFBOTex    :: GLuint
+    , simpleFBORender :: GLuint
+    }
+  | MSAAFramebuffers
+    { msaaFBO            :: GLuint
+    , msaaFBOTex         :: GLuint
+    , msaaFBORender      :: GLuint
+    , intermediateFBO    :: GLuint
+    , intermediateFBOTex :: GLuint
+    , multisamples       :: GLsizei
+    }
+  deriving (Show)
 
 data TextureID
   = TextureLongKick
@@ -868,7 +882,6 @@ loadGLStuff = do
   glEnable GL_DEPTH_TEST
   glEnable GL_CULL_FACE -- default CCW = front
   glEnable GL_BLEND
-  glDisable GL_MULTISAMPLE
   glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
 
   -- format of the Vertex type
@@ -1040,32 +1053,73 @@ loadGLStuff = do
     obj <- loadObj path >>= loadObject
     return (modID, obj)
 
-  -- configure MSAA framebuffer
-  framebuffer <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
-  checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER framebuffer
-  -- create a multisampled color attachment texture
-  -- create a (also multisampled) renderbuffer object for depth and stencil attachments
-  framebufferTex    <- alloca $ \p -> glGenTextures      1 p >> peek p
-  framebufferRender <- alloca $ \p -> glGenRenderbuffers 1 p >> peek p
-  checkGL "fbuf 1" $ setFramebufferSize framebufferTex framebufferRender 1920 1080 -- dummy size, changed later
-  checkGL "fbuf 2" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D framebufferTex 0
-  checkGL "fbuf 3" $ glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER framebufferRender
+  framebuffers <- case C.view_msaa $ C.cfg_view gfxConfig of
+    Just n | n > 1 -> do
 
-  glCheckFramebufferStatus GL_FRAMEBUFFER >>= \case
-    GL_FRAMEBUFFER_COMPLETE -> return ()
-    _ -> putStrLn "ERROR::FRAMEBUFFER:: Framebuffer is not complete!"
-  glBindFramebuffer GL_FRAMEBUFFER 0
+      glEnable GL_MULTISAMPLE
+
+      -- configure MSAA framebuffer
+      msaaFBO <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
+      checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
+      -- create a multisampled color attachment texture
+      -- create a (also multisampled) renderbuffer object for depth and stencil attachments
+      msaaFBOTex    <- alloca $ \p -> glGenTextures      1 p >> peek p
+      msaaFBORender <- alloca $ \p -> glGenRenderbuffers 1 p >> peek p
+
+      -- intermediate framebuffer
+      intermediateFBO <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
+      checkGL "interm 0" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
+      intermediateFBOTex <- alloca $ \p -> glGenTextures 1 p >> peek p
+
+      let multisamples = fromIntegral n
+          fbufs = MSAAFramebuffers{..}
+
+      setFramebufferSize fbufs 1920 1080 -- dummy size, changed later
+      checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
+      checkGL "fbuf 1" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D_MULTISAMPLE msaaFBOTex 0
+      checkGL "fbuf 2" $ glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER msaaFBORender
+      checkGL "interm 0" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
+      checkGL "interm 1" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D intermediateFBOTex 0
+
+      glBindFramebuffer GL_FRAMEBUFFER 0
+      return fbufs
+
+    _ -> do
+
+      glDisable GL_MULTISAMPLE
+
+      simpleFBO <- alloca $ \p -> glGenFramebuffers 1 p >> peek p
+      glBindFramebuffer GL_FRAMEBUFFER simpleFBO
+      simpleFBOTex    <- alloca $ \p -> glGenTextures      1 p >> peek p
+      simpleFBORender <- alloca $ \p -> glGenRenderbuffers 1 p >> peek p
+      let fbufs = SimpleFramebuffer{..}
+      setFramebufferSize fbufs 1920 1080 -- dummy size, changed later
+      glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D simpleFBOTex 0
+      glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER simpleFBORender
+
+      glBindFramebuffer GL_FRAMEBUFFER 0
+      return fbufs
 
   return GLStuff{..}
 
-setFramebufferSize :: GLuint -> GLuint -> GLsizei -> GLsizei -> IO ()
-setFramebufferSize tex render w h = do
-  glBindTexture GL_TEXTURE_2D tex
-  glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
-  glBindRenderbuffer GL_RENDERBUFFER render
-  glRenderbufferStorage GL_RENDERBUFFER GL_DEPTH24_STENCIL8 w h
+setFramebufferSize :: Framebuffers -> GLsizei -> GLsizei -> IO ()
+setFramebufferSize fbufs w h = case fbufs of
+  SimpleFramebuffer{..} -> do
+    glBindTexture GL_TEXTURE_2D simpleFBOTex
+    glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
+    glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
+    glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
+    glBindRenderbuffer GL_RENDERBUFFER simpleFBORender
+    glRenderbufferStorage GL_RENDERBUFFER GL_DEPTH24_STENCIL8 w h
+  MSAAFramebuffers{..} -> do
+    glBindTexture GL_TEXTURE_2D_MULTISAMPLE msaaFBOTex
+    glTexImage2DMultisample GL_TEXTURE_2D_MULTISAMPLE multisamples GL_RGB w h GL_TRUE
+    glBindRenderbuffer GL_RENDERBUFFER msaaFBORender
+    glRenderbufferStorageMultisample GL_RENDERBUFFER multisamples GL_DEPTH24_STENCIL8 w h
+    glBindTexture GL_TEXTURE_2D intermediateFBOTex
+    glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
+    glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
+    glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
 
 deleteGLStuff :: GLStuff -> IO ()
 deleteGLStuff GLStuff{..} = do
@@ -1205,8 +1259,10 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
           dims
 
   forM_ (zip spaces trks) $ \(space@(x, y, w, h), trk) -> checkGL "draw" $ do
-    glBindFramebuffer GL_FRAMEBUFFER framebuffer
-    setFramebufferSize framebufferTex framebufferRender
+    glBindFramebuffer GL_FRAMEBUFFER $ case framebuffers of
+      SimpleFramebuffer{..} -> simpleFBO
+      MSAAFramebuffers{..} -> msaaFBO
+    setFramebufferSize framebuffers
       (fromIntegral w) (fromIntegral h)
     glViewport 0 0 (fromIntegral w) (fromIntegral h)
     case C.view_background $ C.cfg_view gfxConfig of
@@ -1217,10 +1273,27 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
       PreviewDrums m -> drawDrums glStuff (y, h) time speed m
       PreviewFive m  -> drawFive  glStuff (y, h) time speed m
 
-    glBindFramebuffer GL_FRAMEBUFFER 0
-    glClear GL_DEPTH_BUFFER_BIT
-    glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-    drawTexture glStuff dims (Texture framebufferTex w h) (V2 x y) 1
+    case framebuffers of
+      SimpleFramebuffer{..} -> do
+
+        glBindFramebuffer GL_FRAMEBUFFER 0
+        glClear GL_DEPTH_BUFFER_BIT
+        glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
+        drawTexture glStuff dims (Texture simpleFBOTex w h) (V2 x y) 1
+
+      MSAAFramebuffers{..} -> do
+
+        glBindFramebuffer GL_READ_FRAMEBUFFER msaaFBO
+        glBindFramebuffer GL_DRAW_FRAMEBUFFER intermediateFBO
+        glBlitFramebuffer
+          0 0 (fromIntegral w) (fromIntegral h)
+          0 0 (fromIntegral w) (fromIntegral h)
+          GL_COLOR_BUFFER_BIT GL_NEAREST
+
+        glBindFramebuffer GL_FRAMEBUFFER 0
+        glClear GL_DEPTH_BUFFER_BIT
+        glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
+        drawTexture glStuff dims (Texture intermediateFBOTex w h) (V2 x y) 1
 
 checkGL :: String -> IO a -> IO a
 checkGL s f = do

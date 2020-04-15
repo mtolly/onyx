@@ -28,6 +28,7 @@ view:
     fov: 45 # degrees
     near: 0.1
     far: 100
+  msaa: 4
 
 track:
   'y': -1 # height of the main notes area's floor
