@@ -58,6 +58,7 @@ data View = View
   , view_height_width_ratio :: Float
   , view_camera             :: Camera
   , view_msaa               :: Maybe Int
+  , view_fxaa               :: Bool
   } deriving (Show)
 
 instance StackJSON View where
@@ -67,6 +68,7 @@ instance StackJSON View where
     view_height_width_ratio <- view_height_width_ratio =. req "height-width-ratio" stackJSON
     view_camera             <- view_camera             =. req "camera"             stackJSON
     view_msaa               <- view_msaa               =. req "msaa"               stackJSON
+    view_fxaa               <- view_fxaa               =. req "fxaa"               stackJSON
     return View{..}
 
 data TrackFade = TrackFade

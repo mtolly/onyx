@@ -1142,11 +1142,12 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
     :: M44 Float
     )
   sendUniformName quadShader "inResolution" $ V2
-    (fromIntegral screenW :: Float)
-    (fromIntegral screenH :: Float)
+    (fromIntegral (w * scale) :: Float)
+    (fromIntegral (h * scale) :: Float)
   let fade = C.view_track_fade $ C.cfg_view gfxConfig
   sendUniformName quadShader "startFade" (C.tf_bottom fade)
   sendUniformName quadShader "endFade" (C.tf_top fade)
+  sendUniformName quadShader "doFXAA" $ C.view_fxaa $ C.cfg_view gfxConfig
   checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
 freeTexture :: Texture -> IO ()
