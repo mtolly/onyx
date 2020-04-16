@@ -1280,7 +1280,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               shk $ need files
               lg "# Producing RB3 CON file"
               mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ rb3pkg
-                (getArtist (_metadata songYaml) <> ": " <> title)
+                (getArtist (_metadata songYaml) <> " - " <> title)
                 (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
                 (dir </> "stfs")
                 out
@@ -1588,7 +1588,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     shk $ need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
                     lg "# Producing RB2 CON file"
                     mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ rb2pkg
-                      (getArtist (_metadata songYaml) <> ": " <> targetTitle songYaml (RB2 rb2))
+                      (getArtist (_metadata songYaml) <> " - " <> targetTitle songYaml (RB2 rb2))
                       (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
                       (dir </> "rb2")
                       out
