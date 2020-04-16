@@ -792,7 +792,8 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
   (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> mdo
     let (topControlsArea1, glArea) = chopTop 40 rect
         (trimClock 5 5 5 5 -> playButtonArea, topControlsArea2) = chopLeft 60 topControlsArea1
-        (trimClock 8 5 8 5 -> scrubberArea, trimClock 5 5 5 80 -> speedArea) = chopRight 220 topControlsArea2
+        (trimClock 8 5 8 5 -> scrubberArea, topControlsArea3) = chopRight 255 topControlsArea2
+        (trimClock 5 5 5 5 -> timestampArea, trimClock 5 5 5 5 -> speedArea) = chopLeft 105 topControlsArea3
     topControls <- FL.groupNew topControlsArea1 Nothing
     playButton <- FL.buttonCustom playButtonArea (Just "@>") Nothing $ Just FL.defaultCustomWidgetFuncs
       { FL.handleCustom = Just $ \ref e -> case e of
@@ -811,6 +812,19 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     FL.setStep scrubber 1
     void $ FL.setValue scrubber 0
     FL.deactivate scrubber
+    timestampLabel <- FL.boxNew timestampArea Nothing
+    let updateTimestamp = do
+          tcur <- FL.getValue scrubber
+          tmax <- FL.getMaximum scrubber
+          let formatTime n = T.pack $ case quotRem (floor n :: Int) 60 of
+                (m, s) -> show m <> ":" <> if s < 10
+                  then "0" <> show s
+                  else show s
+          FL.setLabel timestampLabel $ T.concat
+            [ formatTime $ min tcur tmax
+            , " / "
+            , formatTime tmax
+            ]
     (getSpeed, counter) <- speedPercent' False speedArea
     FL.end topControls
     FL.setResizable topControls $ Just scrubber
@@ -822,6 +836,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         FL.setMaximum scrubber $ fromInteger $ ceiling $ U.applyTempoMap
           (previewTempo song)
           (timingEnd $ previewTiming song)
+        updateTimestamp
         FL.activate scrubber
         FL.activate playButton
     let initState = SongState 0 Nothing
@@ -854,6 +869,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
           stopAnim <- startAnimation $ do
             t' <- currentSongTime <$> getSystemTime <*> readIORef varTime
             void $ FL.setValue scrubber t'
+            updateTimestamp
             sink $ EventIO redrawGL -- is sink required here?
           let ps = Playing
                 { playStarted = curTime
@@ -866,7 +882,9 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
       secs <- FL.getValue scrubber
       ss <- takeState
       ss' <- case songPlaying ss of
-        Nothing -> return ss { songTime = secs }
+        Nothing -> do
+          sink $ EventIO updateTimestamp
+          return ss { songTime = secs }
         Just ps -> do
           _ <- stopPlaying (songTime ss) ps
           startPlaying secs
@@ -1155,8 +1173,10 @@ horizRadio :: Rectangle -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
 horizRadio rect = horizRadio' rect Nothing
 
 speedPercent' :: Bool -> Rectangle -> IO (IO Double, FL.Ref FL.Counter)
-speedPercent' tooltip rect = do
-  speed <- FL.counterNew rect (Just "Speed (%)")
+speedPercent' isConverter rect = do
+  speed <- FL.counterNew rect $ if isConverter
+    then Just "Speed (%)"
+    else Nothing
   FL.setLabelsize speed $ FL.FontSize 13
   FL.setLabeltype speed FLE.NormalLabelType FL.ResolveImageLabelDoNothing
   FL.setAlign speed $ FLE.Alignments [FLE.AlignTypeLeft]
@@ -1164,12 +1184,13 @@ speedPercent' tooltip rect = do
   FL.setLstep speed 5
   FL.setMinimum speed 1
   void $ FL.setValue speed 100
-  when tooltip $ FL.setTooltip speed
-    "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
+  FL.setTooltip speed $ if isConverter
+    then "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
+    else "Speed (%)"
   return ((/ 100) <$> FL.getValue speed, speed)
 
 speedPercent :: Bool -> Rectangle -> IO (IO Double)
-speedPercent tooltip rect = fst <$> speedPercent' tooltip rect
+speedPercent isConverter rect = fst <$> speedPercent' isConverter rect
 
 batchPageRB2
   :: (Event -> IO ())
