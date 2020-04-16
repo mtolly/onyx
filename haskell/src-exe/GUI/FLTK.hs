@@ -115,7 +115,7 @@ import           Reaper.Build                              (makeReaper)
 import           Reductions                                (simpleReduce)
 import           Resources                                 (getResourcesPath)
 import           RhythmGame.Audio                          (projectAudio,
-                                                            withAL)
+                                                            withAL, AudioHandle(..))
 import qualified RhythmGame.Graphics                       as RGGraphics
 import           RhythmGame.Track
 import           RockBand.Codec                            (mapTrack)
@@ -438,7 +438,7 @@ data Playing = Playing
   { playStarted       :: SystemTime
   , playSpeed         :: Double -- 1 = 100%
   , playStopAnimation :: IO ()
-  , playStopAudio     :: IO ()
+  , playAudioHandle   :: AudioHandle
   }
 
 data SongState = SongState
@@ -456,7 +456,7 @@ currentSongTime stime ss = case songPlaying ss of
 
 type BuildYamlControl a = WriterT (IO (Endo a)) IO
 
-launchWindow :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Project -> Maybe (Double -> Maybe Double -> IO (IO ())) -> IO ()
+launchWindow :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Project -> Maybe (Double -> Maybe Double -> Float -> IO AudioHandle) -> IO ()
 launchWindow sink makeMenuBar proj maybeAudio = mdo
   let windowWidth = Width 800
       windowHeight = Height 500
@@ -794,10 +794,12 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         saveProject p newYaml
   (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> mdo
     let (topControlsArea1, glArea) = chopTop 40 rect
-        (trimClock 5 5 5 5 -> playButtonArea, topControlsArea2) = chopLeft 60 topControlsArea1
+        (trimClock 5 5 5 5 -> volPlayButtonsArea, topControlsArea2) = chopLeft 110 topControlsArea1
+        [trimClock 0 5 0 0 -> volButtonArea, trimClock 0 0 0 5 -> playButtonArea] = splitHorizN 2 volPlayButtonsArea
         (trimClock 8 5 8 5 -> scrubberArea, topControlsArea3) = chopRight 255 topControlsArea2
         (trimClock 5 5 5 5 -> timestampArea, trimClock 5 5 5 5 -> speedArea) = chopLeft 105 topControlsArea3
     topControls <- FL.groupNew topControlsArea1 Nothing
+    volButton <- FL.buttonNew volButtonArea $ Just "vol"
     playButton <- FL.buttonCustom playButtonArea (Just "@>") Nothing $ Just FL.defaultCustomWidgetFuncs
       { FL.handleCustom = Just $ \ref e -> case e of
         -- support play/pause with space even if button is not focused
@@ -834,7 +836,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     varSong <- newIORef Nothing
     sink $ EventOnyx $ void $ forkOnyx $ do
       song <- loadTracks $ takeDirectory (projectLocation proj) </> "notes.mid"
-      stackIO $ do
+      stackIO $ sink $ EventIO $ do
         writeIORef varSong $ Just song
         FL.setMaximum scrubber $ fromInteger $ ceiling $ U.applyTempoMap
           (previewTempo song)
@@ -860,25 +862,31 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         stopPlaying t ps = do
           stime <- getSystemTime
           playStopAnimation ps
-          playStopAudio ps
+          audioStop $ playAudioHandle ps
           return $ currentSongTime stime $ SongState t $ Just ps
         startPlaying :: Double -> IO SongState
         startPlaying t = do
           speed <- getSpeed
-          stopAudio <- case maybeAudio of
-            Just f  -> f t $ guard (speed /= 1) >> Just speed
-            Nothing -> return $ return ()
+          handle <- case maybeAudio of
+            Just f  -> do
+              gain <- FL.getValue volSlider
+              f t (guard (speed /= 1) >> Just speed) (realToFrac gain)
+            Nothing -> return AudioHandle
+              { audioStop = return ()
+              , audioSetGain = \_ -> return ()
+              }
           curTime <- getSystemTime
           stopAnim <- startAnimation $ do
             t' <- currentSongTime <$> getSystemTime <*> readIORef varTime
-            void $ FL.setValue scrubber t'
-            updateTimestamp
-            sink $ EventIO redrawGL -- is sink required here?
+            sink $ EventIO $ do
+              void $ FL.setValue scrubber t'
+              updateTimestamp
+              redrawGL
           let ps = Playing
                 { playStarted = curTime
                 , playSpeed = speed
                 , playStopAnimation = stopAnim
-                , playStopAudio = stopAudio
+                , playAudioHandle = handle
                 }
           return SongState { songTime = t, songPlaying = Just ps }
     FL.setCallback scrubber $ \_ -> do
@@ -897,10 +905,10 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
           ss <- takeState
           ss' <- case songPlaying ss of
             Nothing -> do
-              FL.setLabel playButton "@square"
+              sink $ EventIO $ FL.setLabel playButton "@square"
               startPlaying $ songTime ss
             Just ps -> do
-              FL.setLabel playButton "@>"
+              sink $ EventIO $ FL.setLabel playButton "@>"
               t <- stopPlaying (songTime ss) ps
               return $ SongState t Nothing
           putState ss'
@@ -911,6 +919,42 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         Nothing -> redrawGL >> return ss
         Just ps -> stopPlaying (songTime ss) ps >>= startPlaying
       putState ss'
+    let volSliderBoxArea = case volButtonArea of
+          Rectangle (Position (X vx) (Y vy)) (Size (Width vw) (Height vh)) ->
+            Rectangle
+              (Position (X vx) (Y $ vy + vh))
+              (Size (Width vw) (Height 150))
+        volSliderArea = trimClock 5 5 5 5 volSliderBoxArea
+          { rectanglePosition = Position (X 0) (Y 0)
+          } -- this area is within the volSliderBox window
+    volSliderBox <- FL.windowCustom
+      (rectangleSize volSliderBoxArea)
+      (Just $ rectanglePosition volSliderBoxArea)
+      Nothing -- label
+      Nothing -- table drawing routine
+      FL.defaultCustomWidgetFuncs
+        { FL.resizeCustom
+          -- hack to never resize even though we're inside the gl area
+          = Just $ \_ _ -> return ()
+        }
+      FL.defaultCustomWindowFuncs
+    FL.setBox volSliderBox FLE.EmbossedBox
+    volSlider <- FL.niceSliderNew volSliderArea Nothing
+    FL.setMinimum volSlider 1 -- minimum means top
+    FL.setMaximum volSlider 0
+    void $ FL.setValue volSlider 1
+    FL.setCallback volSlider $ \_ -> do
+      ss <- readIORef varTime
+      case songPlaying ss of
+        Nothing -> return ()
+        Just p -> do
+          v <- FL.getValue volSlider
+          audioSetGain (playAudioHandle p) (realToFrac v)
+    FL.end volSliderBox
+    FL.hide volSliderBox
+    FL.setCallback volButton $ \_ -> do
+      b <- FL.getVisible volSliderBox
+      (if b then FL.hide else FL.showWidget) volSliderBox
     let cleanup = do
           ss <- takeState
           case songPlaying ss of

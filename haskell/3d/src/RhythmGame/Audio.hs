@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs           #-}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
-module RhythmGame.Audio (projectAudio, withAL) where
+module RhythmGame.Audio (projectAudio, withAL, AudioHandle(..)) where
 
 import           Audio
 import           AudioSearch
@@ -112,12 +112,18 @@ emptySources srcs = do
 foreign import ccall unsafe
   alSourcei :: AL.ALuint -> AL.ALenum -> AL.ALint -> IO ()
 
+data AudioHandle = AudioHandle
+  { audioStop    :: IO ()
+  , audioSetGain :: Float -> IO ()
+  }
+
 playSource
-  :: [Float]
-  -> [Float]
+  :: [Float] -- ^ channel pans, -1 (L) to 1 (R)
+  -> [Float] -- ^ channel volumes, in decibels
+  -> Float -- ^ initial gain, 0 to 1
   -> CA.AudioSource (ResourceT IO) Int16
-  -> IO (IO ())
-playSource pans vols ca = do
+  -> IO AudioHandle
+playSource pans vols initGain ca = do
   let chanCount = CA.channels ca
       floatRate = realToFrac $ CA.rate ca
   srcs <- doAL "playSource genObjectNames sources" $ AL.genObjectNames chanCount
@@ -126,9 +132,10 @@ playSource pans vols ca = do
       srcID <- peek $ castPtr p -- this is dumb but OpenAL pkg doesn't expose constructor
       doAL "playSource setting direct mode" $ do
         alSourcei srcID 0x1033 1 -- this is AL_DIRECT_CHANNELS_SOFT (should use c2hs!)
-  forM_ (zip srcs vols) $ \(src, volDB) ->
-    doAL "playSource setting sourceGain" $
-    AL.sourceGain src $= CFloat (10 ** (volDB / 20))
+  let setGain g = forM_ (zip srcs vols) $ \(src, volDB) ->
+        doAL "playSource setting sourceGain" $
+        AL.sourceGain src $= CFloat (g * (10 ** (volDB / 20)))
+  setGain initGain
   firstFull <- newEmptyMVar
   stopper <- newIORef False
   stopped <- newEmptyMVar
@@ -194,7 +201,10 @@ playSource pans vols ca = do
   _ <- async t1
   () <- takeMVar firstFull
   doAL "playSource play" $ AL.play srcs
-  return $ writeIORef stopper True >> takeMVar stopped
+  return AudioHandle
+    { audioStop = writeIORef stopper True >> takeMVar stopped
+    , audioSetGain = setGain
+    }
 
 -- | Use libvorbisfile to read an OGG
 oggSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> FilePath -> IO (CA.AudioSource m Int16)
@@ -203,12 +213,12 @@ oggSecsSpeed pos mspeed ogg = do
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 
-projectAudio :: (MonadIO m) => Project -> StackTraceT (QueueLog m) (Maybe (Double -> Maybe Double -> IO (IO ())))
+projectAudio :: (MonadIO m) => Project -> StackTraceT (QueueLog m) (Maybe (Double -> Maybe Double -> Float -> IO AudioHandle))
 projectAudio proj = case HM.toList $ _plans $ projectSongYaml proj of
   [(k, MoggPlan{..})] -> errorToWarning $ do
     -- TODO maybe silence crowd channels
     ogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.ogg"
-    return $ \t speed -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac _pans) (map realToFrac _vols)
+    return $ \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac _pans) (map realToFrac _vols) gain
   [(_, Plan{..})] -> errorToWarning $ do
     let planAudios = toList _song ++ (toList _planParts >>= toList) -- :: [PlanAudio Duration AudioInput]
     lib <- newAudioLibrary
@@ -235,11 +245,12 @@ projectAudio proj = case HM.toList $ _plans $ projectSongYaml proj of
             volsSpecified -> volsSpecified
       return $ PlanAudio expr pans vols
       -- :: [PlanAudio Duration FilePath]
-    return $ \t mspeed -> do
+    return $ \t mspeed gain -> do
       src <- buildSource' $ Merge $ map (Drop Start (CA.Seconds t) . _planExpr) planAudios'
       playSource
         (map realToFrac $ planAudios' >>= _planPans)
         (map realToFrac $ planAudios' >>= _planVols)
+        gain
         $ CA.mapSamples CA.integralSample
         $ maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed src
   {-
