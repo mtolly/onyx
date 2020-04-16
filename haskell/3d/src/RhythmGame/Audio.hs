@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs           #-}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
-module RhythmGame.Audio where
+module RhythmGame.Audio (projectAudio, withAL) where
 
 import           Audio
 import           AudioSearch
@@ -68,17 +68,20 @@ sndSecsSpeed pos mspeed f = do
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 
-withAL :: IO a -> IO a
+withAL :: (Bool -> IO a) -> IO a
 withAL fn = let
-  openDevice = AL.openDevice Nothing >>= maybe (error "couldn't open audio") return
-  createContext dev = AL.createContext dev [] >>= maybe (error "couldn't create context") return
   destroyContext ctx = do
     AL.currentContext $= Nothing
     AL.destroyContext ctx
-  in bracket openDevice AL.closeDevice $ \dev -> do
-    bracket (createContext dev) destroyContext $ \ctx -> do
-      AL.currentContext $= Just ctx
-      fn
+  in bracket (AL.openDevice Nothing) (mapM_ AL.closeDevice) $ \mdev -> do
+    case mdev of
+      Nothing -> fn False
+      Just dev -> bracket (AL.createContext dev []) (mapM_ destroyContext) $ \mctx -> do
+        case mctx of
+          Nothing -> fn False
+          Just ctx -> do
+            AL.currentContext $= Just ctx
+            fn True
 
 data AudioState = Filling | Playing
 

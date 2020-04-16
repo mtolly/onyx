@@ -205,19 +205,20 @@ resizeWindow window size = do
   y <- FL.getY window
   FL.resize window $ Rectangle (Position x y) size
 
-promptLoad :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
-promptLoad sink makeMenuBar = do
+promptLoad :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Bool -> IO ()
+promptLoad sink makeMenuBar hasAudio = do
   picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
   FL.setTitle picker "Load song"
   FL.showWidget picker >>= \case
     FL.NativeFileChooserPicked -> do
       n <- FL.getCount picker
       fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
-      sink $ EventOnyx $ startLoad makeMenuBar $ map T.unpack $ catMaybes fs
+      sink $ EventOnyx $ startLoad makeMenuBar hasAudio $
+        map T.unpack $ catMaybes fs
     _ -> return ()
 
-startLoad :: (Width -> Bool -> IO Int) -> [FilePath] -> Onyx ()
-startLoad makeMenuBar fs = do
+startLoad :: (Width -> Bool -> IO Int) -> Bool -> [FilePath] -> Onyx ()
+startLoad makeMenuBar hasAudio fs = do
   sink <- getEventSink
   void $ forkOnyx $ do
     results <- mapM (errorToEither . findAllSongs) fs
@@ -225,26 +226,28 @@ startLoad makeMenuBar fs = do
       $ mapM_ (sink . EventFail)
       $ concat [ msgs | Left (Messages msgs) <- results ]
     case concat [ imps | Right imps <- results ] of
-      [imp] -> continueImport makeMenuBar imp
-      imps  -> stackIO $ sink $ EventIO $ multipleSongsWindow sink makeMenuBar imps
+      [imp] -> continueImport makeMenuBar hasAudio imp
+      imps  -> stackIO $ sink $ EventIO $ multipleSongsWindow sink makeMenuBar hasAudio imps
 
 continueImport
   :: (Width -> Bool -> IO Int)
+  -> Bool
   -> Importable (QueueLog (ReaderT (Event -> IO ()) (ResourceT IO)))
   -> Onyx ()
-continueImport makeMenuBar imp = do
+continueImport makeMenuBar hasAudio imp = do
   sink <- getEventSink
   proj <- impProject imp
   void $ shakeBuild1 proj [] "gen/cover.png"
-  maybeAudio <- projectAudio proj
+  maybeAudio <- if hasAudio then projectAudio proj else return Nothing
   stackIO $ sink $ EventIO $ launchWindow sink makeMenuBar proj maybeAudio
 
 multipleSongsWindow
   :: (Event -> IO ())
   -> (Width -> Bool -> IO Int)
+  -> Bool
   -> [Importable (QueueLog (ReaderT (Event -> IO ()) (ResourceT IO)))]
   -> IO ()
-multipleSongsWindow sink makeMenuBar imps = do
+multipleSongsWindow sink makeMenuBar hasAudio imps = do
   let windowWidth = Width 500
       windowHeight = Height 400
       windowSize = Size windowWidth windowHeight
@@ -301,7 +304,7 @@ multipleSongsWindow sink makeMenuBar imps = do
     bools <- mapM FL.getValue checks
     forM_ (zip bools imps) $ \(b, imp) -> when b $ do
       sink $ EventOnyx $ void $ forkOnyx $ do
-        continueImport makeMenuBar imp
+        continueImport makeMenuBar hasAudio imp
     FL.hide window
   forM_ checks $ \check -> FL.setCallback check $ \_ -> updateButtons
   FL.end window
@@ -3180,7 +3183,7 @@ foreign import ccall "&fl_display" fl_display :: Ptr HINSTANCE
 #endif
 
 launchGUI :: IO ()
-launchGUI = do
+launchGUI = withAL $ \hasAudio -> do
   _ <- FLTK.setScheme "gtk+"
   void FLTK.lock -- this is required to get threads to work properly
 
@@ -3228,7 +3231,7 @@ launchGUI = do
                 )
               , ( "File/Open Song"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o'
-                , Just $ promptLoad sink makeMenuBar
+                , Just $ promptLoad sink makeMenuBar hasAudio
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               , ( "File/Live Preview"
@@ -3301,10 +3304,10 @@ launchGUI = do
     (Just "Load a song")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs
-      { FL.handleCustom = Just $ dragAndDrop (sink . EventOnyx . startLoad makeMenuBar) . FL.handleButtonBase . FL.safeCast
+      { FL.handleCustom = Just $ dragAndDrop (sink . EventOnyx . startLoad makeMenuBar hasAudio) . FL.handleButtonBase . FL.safeCast
       }
   loadSongColor >>= FL.setColor buttonOpen
-  FL.setCallback buttonOpen $ \_ -> promptLoad sink makeMenuBar
+  FL.setCallback buttonOpen $ \_ -> promptLoad sink makeMenuBar hasAudio
   buttonBatch <- FL.buttonCustom
     areaBatch
     (Just "Batch process")
@@ -3329,7 +3332,7 @@ launchGUI = do
 
   -- support drag and drop onto mac app icon
   void $ openCallback $ Just $
-    sink . EventOnyx . startLoad makeMenuBar . (: []) . T.unpack
+    sink . EventOnyx . startLoad makeMenuBar hasAudio . (: []) . T.unpack
 
   {-
   -- on linux, supposedly you need to show(argc,argv) for icon to work
@@ -3348,7 +3351,7 @@ launchGUI = do
   addTerm term $ TermLog $
     "\ESC[45mOnyx\ESC[0m Music Game Toolkit, version " <> showVersion version
   addTerm term $ TermLog "Select an option below to get started."
-  void $ withAL $ runResourceT $ (`runReaderT` sink) $ logChan $ let
+  void $ runResourceT $ (`runReaderT` sink) $ logChan $ let
     process = liftIO (atomically $ tryReadTChan evts) >>= \case
       Nothing -> return ()
       Just e -> do
@@ -3363,5 +3366,8 @@ launchGUI = do
       False -> liftIO wait >>= \case
         False -> return ()
         True  -> process >> loop
-    in loop
+    in do
+      unless hasAudio $ warn
+        "Couldn't open audio device"
+      loop
   FLTK.flush -- dunno if required
