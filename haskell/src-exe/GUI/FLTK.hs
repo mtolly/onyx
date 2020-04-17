@@ -3344,6 +3344,8 @@ launchGUI = withAL $ \hasAudio -> do
             menu <- FL.menuBarNew menuRect Nothing
             forM_ menuOptions $ \(a, b, c, d) -> do
               FL.add menu a b (fmap menuFn c) d
+            FL.setBox menu FLE.EngravedBox
+            FLE.rgbColorWithRgb (0x32, 0x30, 0x30) >>= FL.setDownColor menu
         return menuHeight
   menuHeight <- makeMenuBar consoleWidth macOS
   buttonGithub <- FL.buttonNew
