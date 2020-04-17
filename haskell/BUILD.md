@@ -1,3 +1,5 @@
+These instructions also expect the web player to be built. If you don't want to do that, just make an empty file at `../player/build/app.min.js`.
+
 # Windows
 
 ## Requirements
@@ -35,8 +37,6 @@
 2. Follow the instructions printed by Homebrew for setting up `openal-soft` in `pkg-config`.
 
 3. `stack build`
-
-4. Build the web player in `../player`. (Or make a dummy `build` folder with `app.min.js` if you don't need it.)
 
 5. `make mac`
 

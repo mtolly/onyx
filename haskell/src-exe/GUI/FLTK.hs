@@ -658,13 +658,44 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     FL.setSelectmode tree FLE.TreeSelectNone
     FL.setShowcollapse tree False
     Just root <- FL.root tree
+    let dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 100))
+        makeDifficulty :: FL.Ref FL.TreeItem -> Difficulty -> IO (IO Difficulty)
+        makeDifficulty itemParent diff = do
+          Just itemGroup <- FL.addAt tree "" itemParent
+          group <- FL.groupNew dummyRect Nothing
+          let (choiceArea, textArea) = chopLeft 100 dummyRect
+          choice <- FL.choiceNew choiceArea Nothing
+          let tierCount = 7
+          forM_ [1 .. tierCount] $ \i -> FL.addName choice $ T.pack $ "Tier " <> show (i :: Int)
+          FL.addName choice "Rank"
+          input <- FL.inputNew textArea Nothing $ Just FL.FlNormalInput
+          let setChoice = void . FL.setValue choice . FL.MenuItemByIndex . FL.AtIndex
+              controlRank = do
+                FL.AtIndex i <- FL.getValue choice
+                if i == tierCount
+                  then FL.activate   input
+                  else FL.deactivate input
+          case diff of
+            Tier i -> setChoice $ (max 1 $ min tierCount $ fromIntegral i) - 1
+            Rank r -> do
+              setChoice tierCount
+              void $ FL.setValue input $ T.pack $ show r
+          controlRank
+          FL.setCallback choice $ \_ -> controlRank
+          FL.end group
+          FL.setWidget itemGroup $ Just group
+          return $ do
+            FL.AtIndex i <- FL.getValue choice
+            if i == tierCount
+              then Rank . fromMaybe 0 . readMaybe . T.unpack <$> FL.getValue input
+              else return $ Tier $ fromIntegral i + 1
+    getBandDiff <- makeDifficulty root $ _difficulty $ _metadata $ projectSongYaml proj
     getNewParts <- fmap catMaybes $ forM (HM.toList $ getParts $ _parts $ projectSongYaml proj) $ \(fpart, part) ->
       if part == def
         then return Nothing
         else do
           Just itemInst <- FL.addAt tree (T.toTitle $ RBFile.getPartName fpart) root
-          let dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 100))
-              addType lbl extra = do
+          let addType lbl extra = do
                 Just itemCheck <- FL.addAt tree "" itemInst
                 check <- FL.checkButtonNew dummyRect $ Just lbl
                 void $ FL.setValue check True
@@ -681,36 +712,6 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
                 void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $ fromEnum cur
                 FL.setWidget itemChoice $ Just choice
                 return $ (\(FL.AtIndex i) -> toEnum i) <$> FL.getValue choice
-              makeDifficulty :: FL.Ref FL.TreeItem -> Difficulty -> IO (IO Difficulty)
-              makeDifficulty itemParent diff = do
-                Just itemGroup <- FL.addAt tree "" itemParent
-                group <- FL.groupNew dummyRect Nothing
-                let (choiceArea, textArea) = chopLeft 100 dummyRect
-                choice <- FL.choiceNew choiceArea Nothing
-                let tierCount = 7
-                forM_ [1 .. tierCount] $ \i -> FL.addName choice $ T.pack $ "Tier " <> show (i :: Int)
-                FL.addName choice "Rank"
-                input <- FL.inputNew textArea Nothing $ Just FL.FlNormalInput
-                let setChoice = void . FL.setValue choice . FL.MenuItemByIndex . FL.AtIndex
-                    controlRank = do
-                      FL.AtIndex i <- FL.getValue choice
-                      if i == tierCount
-                        then FL.activate   input
-                        else FL.deactivate input
-                case diff of
-                  Tier i -> setChoice $ (max 1 $ min tierCount $ fromIntegral i) - 1
-                  Rank r -> do
-                    setChoice tierCount
-                    void $ FL.setValue input $ T.pack $ show r
-                controlRank
-                FL.setCallback choice $ \_ -> controlRank
-                FL.end group
-                FL.setWidget itemGroup $ Just group
-                return $ do
-                  FL.AtIndex i <- FL.getValue choice
-                  if i == tierCount
-                    then Rank . fromMaybe 0 . readMaybe . T.unpack <$> FL.getValue input
-                    else return $ Tier $ fromIntegral i + 1
           mbGRYBO <- forM (partGRYBO part) $ \pg -> addType "5-Fret" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck $ gryboDifficulty pg
             return $ \isChecked curPart -> do
@@ -782,8 +783,10 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
             return (fpart, newPart)
     let editParts = do
           newParts <- sequence getNewParts
+          bandDiff <- getBandDiff
           return $ \yaml -> yaml
             { _parts = Parts $ HM.fromList newParts
+            , _metadata = (_metadata yaml) { _difficulty = bandDiff }
             }
     FL.setResizable tab $ Just tree
     return (editParts, tab)
@@ -793,6 +796,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         let newYaml = foldr ($) (projectSongYaml p) modifiers
         saveProject p newYaml
   (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> mdo
+    homeTabColor >>= setTabColor tab
     let (topControlsArea1, glArea) = chopTop 40 rect
         (trimClock 5 5 5 5 -> volPlayButtonsArea, topControlsArea2) = chopLeft 110 topControlsArea1
         [trimClock 0 5 0 0 -> volButtonArea, trimClock 0 0 0 5 -> playButtonArea] = splitHorizN 2 volPlayButtonsArea
@@ -812,6 +816,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
       }
     FL.deactivate playButton
     scrubber <- FL.horNiceSliderNew scrubberArea Nothing
+    homeTabColor >>= FL.setColor scrubber
     FL.setMinimum scrubber 0
     FL.setMaximum scrubber 100
     FL.setStep scrubber 1
@@ -990,7 +995,10 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
 
     -}
   _starsTab <- makeTab windowRect "Stars" $ \rect tab -> do
+    homeTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
+    padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
+      void $ FL.boxNew rect' $ Just "Rock Band 3 Star Cutoffs"
     FL.end pack
     sink $ EventOnyx $ void $ forkOnyx $ do
       let input = takeDirectory (projectLocation proj) </> "notes.mid"
@@ -1013,12 +1021,16 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
             return cutoffLabel
         let updateLabel = do
               stars <- tracksToStars <$> getTracks
-              FL.setLabel l1S $ maybe "" (\n -> "1*: " <> T.pack (show n)) $ stars1    stars
-              FL.setLabel l2S $ maybe "" (\n -> "2*: " <> T.pack (show n)) $ stars2    stars
-              FL.setLabel l3S $ maybe "" (\n -> "3*: " <> T.pack (show n)) $ stars3    stars
-              FL.setLabel l4S $ maybe "" (\n -> "4*: " <> T.pack (show n)) $ stars4    stars
-              FL.setLabel l5S $ maybe "" (\n -> "5*: " <> T.pack (show n)) $ stars5    stars
-              FL.setLabel lGS $ maybe "" (\n -> "G*: " <> T.pack (show n)) $ starsGold stars
+              let commafy n = T.pack $ reverse $ go $ reverse $ show n
+                  go (x : y : z : rest@(_ : _))
+                    = [x, y, z, ','] ++ go rest
+                  go xs = xs
+              FL.setLabel l1S $ maybe "" (\n -> "1*: " <> commafy n) $ stars1    stars
+              FL.setLabel l2S $ maybe "" (\n -> "2*: " <> commafy n) $ stars2    stars
+              FL.setLabel l3S $ maybe "" (\n -> "3*: " <> commafy n) $ stars3    stars
+              FL.setLabel l4S $ maybe "" (\n -> "4*: " <> commafy n) $ stars4    stars
+              FL.setLabel l5S $ maybe "" (\n -> "5*: " <> commafy n) $ stars5    stars
+              FL.setLabel lGS $ maybe "" (\n -> "G*: " <> commafy n) $ starsGold stars
         updateLabel
         FL.end pack
         FLTK.redraw
@@ -1075,7 +1087,27 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     functionTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
     padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+      btn <- FL.buttonNew rect' $ Just "Build web preview"
+      taskColor >>= FL.setColor btn
+      FL.setCallback btn $ \_ -> sink $ EventIO $ do
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
+        FL.setTitle picker "Save web preview folder"
+        FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_player"
+        FL.showWidget picker >>= \case
+          FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+            Nothing -> return ()
+            Just f  -> do
+              proj' <- fullProjModify proj
+              let task = do
+                    tmp <- buildPlayer Nothing proj'
+                    copyDirRecursive tmp f
+                    return [f]
+              sink $ EventOnyx $ startTasks [("Build web preview", task)]
+          _ -> return ()
+      return ()
+    padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
       btn <- FL.buttonNew rect' $ Just "Produce MIDI with automatic reductions"
+      taskColor >>= FL.setColor btn
       FL.setCallback btn $ \_ -> sink $ EventIO $ do
         picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
         FL.setTitle picker "Save MIDI file"
@@ -1102,6 +1134,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
       return ()
     padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
       btn <- FL.buttonNew rect' $ Just "Find hanging Pro Keys notes"
+      taskColor >>= FL.setColor btn
       FL.setCallback btn $ \_ -> sink $ EventOnyx $ do
         startTasks [("Pro Keys range check", proKeysHanging Nothing proj >> return [])]
     FL.end pack
@@ -3263,7 +3296,12 @@ launchGUI = withAL $ \hasAudio -> do
             menuFn :: IO () -> FL.Ref FL.MenuItem -> IO ()
             menuFn = const
             menuOptions =
-              [ ( "File/Batch Process"
+              [ ( "File/Open Song"
+                , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o'
+                , Just $ promptLoad sink makeMenuBar hasAudio
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
+              , ( "File/Batch Process"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'b'
                 , Just $ launchBatch sink makeMenuBar []
                 , FL.MenuItemFlags [FL.MenuItemNormal]
@@ -3273,16 +3311,13 @@ launchGUI = withAL $ \hasAudio -> do
                 , Just $ launchMisc sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
-              , ( "File/Open Song"
-                , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o'
-                , Just $ promptLoad sink makeMenuBar hasAudio
-                , FL.MenuItemFlags [FL.MenuItemNormal]
-                )
+              {-
               , ( "File/Live Preview"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'p'
                 , Just $ promptPreview sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
+              -}
               , ( "File/Close Window"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'w'
                 , Just $ sink $ EventIO $ FLTK.firstWindow >>= \case

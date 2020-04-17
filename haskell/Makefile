@@ -88,7 +88,6 @@ linux:
 	cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
 	stack exec -- onyx-package Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml \
 		| xargs -I{} env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
-	# centos 7 also needs these to run the appimage: yum install mesa-libGL fontconfig
 
 ubuntu-deps:
 	apt-get -y install libsndfile-dev libsamplerate-dev libmp3lame-dev librubberband-dev libmpg123-dev freeglut3-dev autoconf libxft-dev libopenal-dev unzip

@@ -117,6 +117,19 @@ data AudioHandle = AudioHandle
   , audioSetGain :: Float -> IO ()
   }
 
+data AssignedSource
+  = AssignedMono Float Float -- pan vol
+  | AssignedStereo Float -- vol
+  deriving (Show)
+
+-- | Splits off adjacent L/R pairs into stereo sources for OpenAL
+assignSources :: [Float] -> [Float] -> [AssignedSource]
+assignSources ((-1) : 1 : ps) (v1 : v2 : vs) | v1 == v2
+  = AssignedStereo v1 : assignSources ps vs
+assignSources (p : ps) (v : vs)
+  = AssignedMono p v : assignSources ps vs
+assignSources _ _ = []
+
 playSource
   :: [Float] -- ^ channel pans, -1 (L) to 1 (R)
   -> [Float] -- ^ channel volumes, in decibels
@@ -124,9 +137,10 @@ playSource
   -> CA.AudioSource (ResourceT IO) Int16
   -> IO AudioHandle
 playSource pans vols initGain ca = do
-  let chanCount = CA.channels ca
+  let assigned = assignSources pans vols
+      srcCount = length assigned
       floatRate = realToFrac $ CA.rate ca
-  srcs <- doAL "playSource genObjectNames sources" $ AL.genObjectNames chanCount
+  srcs <- doAL "playSource genObjectNames sources" $ AL.genObjectNames srcCount
   forM_ srcs $ \src -> do
     with src $ \p -> do
       srcID <- peek $ castPtr p -- this is dumb but OpenAL pkg doesn't expose constructor
@@ -160,19 +174,15 @@ playSource pans vols initGain ca = do
                       _       -> return ()
                     loop currentBuffers Playing
                   Just chunk -> do
-                    bufs <- liftIO $ doAL "playSource genObjectNames buffers" $ AL.genObjectNames chanCount
-                    forM_ (zip bufs $ zip pans $ CA.deinterleave chanCount chunk) $ \(buf, (pan, chan)) -> do
-                      let (applyL, applyR) = case pan of
-                            -- optimize for the usual hard pan cases
-                            -1 -> (id, const 0)
-                            1  -> (const 0, id)
-                            _ -> let
-                              (ratioL, ratioR) = stereoPanRatios pan
-                              applyRatio r i = CA.integralSample $ CA.fractionalSample i * r
-                              in (applyRatio ratioL, applyRatio ratioR)
-                          chan' = V.generate (V.length chan * 2) $ \i -> case quotRem i 2 of
-                            (j, 0) -> applyL $ chan V.! j
-                            (j, _) -> applyR $ chan V.! j
+                    bufs <- liftIO $ doAL "playSource genObjectNames buffers" $ AL.genObjectNames srcCount
+                    let grouped = groupChannels assigned $ CA.deinterleave (CA.channels ca) chunk
+                        groupChannels (AssignedMono{} : xs) (chan : ys) = [chan] : groupChannels xs ys
+                        groupChannels (AssignedStereo{} : xs) (c1 : c2 : ys) = [c1, c2] : groupChannels xs ys
+                        groupChannels _ _ = []
+                    forM_ (zip bufs grouped) $ \(buf, group) -> do
+                      let chan' = case group of
+                            [c] -> c
+                            _   -> CA.interleave group
                       liftIO $ V.unsafeWith chan' $ \p -> do
                         let _ = p :: Ptr Int16
                         doAL "playSource set bufferData" $ AL.bufferData buf $= AL.BufferData
