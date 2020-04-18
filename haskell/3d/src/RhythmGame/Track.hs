@@ -41,7 +41,7 @@ data PreviewTrack
 data PreviewSong = PreviewSong
   { previewTempo  :: U.TempoMap
   , previewTiming :: BasicTiming
-  , previewTracks :: [(T.Text, PreviewTrack)]
+  , previewTracks :: [[(T.Text, PreviewTrack)]]
   }
 
 computeTracks
@@ -152,22 +152,25 @@ computeTracks song = basicTiming song (return 0) >>= \timing -> let
       $ RTB.toAbsoluteEventList 0
       $ makeBeats True source
 
-  tracks = concat
-    [ do
-      (name, isKeys, src) <-
-        [ ("Guitar", False, RBFile.fixedPartGuitar $ RBFile.s_tracks song)
-        , ("Rhythm", False, RBFile.fixedPartRhythm $ RBFile.s_tracks song)
-        , ("Bass", False, RBFile.fixedPartBass $ RBFile.s_tracks song)
-        , ("Keys", True, RBFile.fixedPartKeys $ RBFile.s_tracks song)
-        ]
-      (diff, letter) <- diffPairs
-      guard $ maybe False (not . RTB.null . F.fiveGems)
-        $ Map.lookup diff $ F.fiveDifficulties src
-      return
-        ( name <> " (" <> letter <> ")"
-        , PreviewFive $ fiveTrack src isKeys diff
-        )
-    , [ ("Drums (X+)", PreviewDrums $ drumTrack Nothing)
+  fiveSources =
+    [ ("Guitar", False, RBFile.fixedPartGuitar $ RBFile.s_tracks song)
+    , ("Rhythm", False, RBFile.fixedPartRhythm $ RBFile.s_tracks song)
+    , ("Guitar Coop", False, RBFile.fixedPartGuitarCoop $ RBFile.s_tracks song)
+    , ("Bass", False, RBFile.fixedPartBass $ RBFile.s_tracks song)
+    , ("Keys", True, RBFile.fixedPartKeys $ RBFile.s_tracks song)
+    ]
+
+  fiveTracks = flip map fiveSources $ \(name, isKeys, src) -> do
+    (diff, letter) <- diffPairs
+    guard $ maybe False (not . RTB.null . F.fiveGems)
+      $ Map.lookup diff $ F.fiveDifficulties src
+    return
+      ( name <> " (" <> letter <> ")"
+      , PreviewFive $ fiveTrack src isKeys diff
+      )
+
+  drumTracks = concat
+    [ [ ("Drums (X+)", PreviewDrums $ drumTrack Nothing)
       | not $ RTB.null $ D.drumKick2x drumSrc
       ]
     , flip mapMaybe diffPairs $ \(diff, letter) -> do
@@ -178,6 +181,8 @@ computeTracks song = basicTiming song (return 0) >>= \timing -> let
         , PreviewDrums $ drumTrack $ Just diff
         )
     ]
+
+  tracks = filter (not . null) $ fiveTracks ++ [drumTracks]
 
   in return $ PreviewSong
     { previewTempo  = RBFile.s_tempos song

@@ -2641,7 +2641,7 @@ launchMisc sink makeMenuBar = mdo
   FL.setCallback window $ windowCloser cancelTasks
   FL.showWidget window
 
-watchSong :: IO () -> FilePath -> Onyx (IO [(T.Text, PreviewTrack)], IO ())
+watchSong :: IO () -> FilePath -> Onyx (IO [[(T.Text, PreviewTrack)]], IO ())
 watchSong notify mid = do
   varTrack <- loadTracks mid >>= liftIO . newIORef
   chan <- liftIO newChan
@@ -2735,7 +2735,7 @@ data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLFailed
 previewGroup
   :: (Event -> IO ())
   -> Rectangle
-  -> IO [(T.Text, PreviewTrack)]
+  -> IO [[(T.Text, PreviewTrack)]]
   -> IO Double
   -> IO Double
   -> IO (FL.Ref FL.Group, IO ())
@@ -2756,22 +2756,21 @@ previewGroup sink rect getTracks getTime getSpeed = do
             Just (FL.MenuItemFlags flags) | elem FL.MenuItemValue flags -> do
               Just <$> FL.getText item
             _ -> return Nothing
-      defaultTracks = filter $ \t -> "(X)" `T.isInfixOf` t
       updateParts redraw names = sink $ EventIO $ do
         cur <- readIORef currentParts
         when (cur /= names) $ do
           selected <- case cur of
-            [] -> return $ defaultTracks names
+            [] -> return $ names >>= take 1
             _  -> selectedNames
           FL.clear trackMenu
-          forM_ names $ \t -> do
+          forM_ (concat names) $ \t -> do
             let flags = FL.MenuItemToggle : [FL.MenuItemValue | elem t selected]
             FL.add trackMenu t Nothing
               (Nothing :: Maybe (FL.Ref FL.MenuItem -> IO ()))
               (FL.MenuItemFlags flags)
           writeIORef currentParts names
           when redraw $ sink $ EventIO FLTK.redraw
-  getTracks >>= updateParts False . map fst
+  getTracks >>= updateParts False . map (map fst)
   FL.setCallback trackMenu $ \_ -> do
     sink $ EventIO $ FLTK.redraw
     sink $ EventIO $ void $ FL.popup trackMenu -- reopen menu (TODO find a way to not close it at all)
@@ -2791,12 +2790,13 @@ previewGroup sink rect getTracks getTime getSpeed = do
           t <- getTime
           speed <- getSpeed
           trks <- getTracks
-          updateParts True $ map fst trks -- TODO does this need to be done in a sink event
+          updateParts True $ map (map fst) trks -- TODO does this need to be done in a sink event
           selected <- selectedNames
           w <- FL.pixelW wind
           h <- FL.pixelH wind
+          let flatTrks = concat trks
           RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t speed
-            $ mapMaybe (`lookup` trks) selected
+            $ mapMaybe (`lookup` flatTrks) selected
   -- TODO do we want to set "FL.setUseHighResGL True" here for mac?
   glwindow <- FLGL.glWindowCustom
     (rectangleSize glArea)
