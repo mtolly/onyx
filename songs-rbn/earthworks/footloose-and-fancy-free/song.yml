@@ -2,7 +2,7 @@ metadata:
   title: Footloose and Fancy Free
   file-include: ../../../albums/a-part-and-yet-apart.yml
   track-number: 4
-  author: Mick Larkins
+  author: Mick Larkins, Onyxite
   comments:
   - "In progress: fixing up the pulled RBN chart."
 audio:
@@ -37,3 +37,10 @@ parts:
     vocal:
       difficulty: 6
       count: 1
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)

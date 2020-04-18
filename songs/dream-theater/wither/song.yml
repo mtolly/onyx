@@ -91,14 +91,21 @@ plans:
 parts:
   drums:
     drums:
-      kicks: 1
+      kicks: both
       difficulty: 3
-  guitar:
-    pro-guitar:
-      tuning:
-        base: guitar-6
-        global: -6 # Bb standard
+  # guitar:
+  #   pro-guitar:
+  #     tuning:
+  #       base: guitar-6
+  #       global: -6 # Bb standard
 targets:
   rb3:
     game: rb3
-    plan: deluxe
+    plan: album
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: album
+  ps:
+    game: ps
+    plan: album
