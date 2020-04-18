@@ -9,33 +9,66 @@ import           Data.Version               (showVersion)
 import           Development.NSIS
 import           Paths_onyxite_customs_tool (version)
 import           System.Environment         (getArgs)
+import System.Exit (exitFailure)
+import System.IO (hPutStrLn, stderr)
+import System.Process (readProcess)
+import qualified Data.Set as Set
+import System.Directory (listDirectory, removeFile)
+import System.FilePath (takeExtension, (</>))
 
 versionString :: (IsString a) => a
 versionString = fromString $ showVersion version
 
 main :: IO ()
-main = do
+main = getArgs >>= \args -> case args of
 
-  -- Make sure I wrote up the changes for this version
-  changes <- T.readFile "CHANGES.md"
-  unless (versionString `T.isInfixOf` changes) $ do
-    error $ "No changelog written for version " ++ versionString
+  ["changes"] -> do
 
-  -- Insert version string into files specified on command line
-  args <- getArgs
-  forM_ args $ \arg -> do
-    txt <- T.readFile arg
-    date <- case versionString of
-      [y1, y2, y3, y4, m1, m2, d1, d2] -> return
-        [y1, y2, y3, y4, '-', m1, m2, '-', d1, d2]
-      _ -> error "Version string not in 8-character date format"
-    T.writeFile arg
-      $ T.replace "_ONYXDATE_" (T.pack date)
-      $ T.replace "_ONYXVERSION_" versionString txt
+    -- Make sure I wrote up the changes for this version
+    changes <- T.readFile "CHANGES.md"
+    unless (versionString `T.isInfixOf` changes) $ do
+      error $ "No changelog written for version " ++ versionString
 
-  -- Create Windows installer script
-  writeFile "installer.nsi" $ nsis $ do
+  ["version-print"] -> do
 
+    -- Write out the version to use it for naming the Mac .zip
+    putStr versionString
+
+  "version-write" : files -> do
+
+    -- Insert version string into files specified on command line
+    forM_ files $ \f -> do
+      txt <- T.readFile f
+      date <- case versionString of
+        [y1, y2, y3, y4, m1, m2, d1, d2] -> return
+          [y1, y2, y3, y4, '-', m1, m2, '-', d1, d2]
+        _ -> error "Version string not in 8-character date format"
+      T.writeFile f
+        $ T.replace "_ONYXDATE_" (T.pack date)
+        $ T.replace "_ONYXVERSION_" versionString txt
+
+  ["dlls"] -> do
+
+    -- Find which .dll files Onyx requires, delete the others
+    let go (obj : objs) dlls = if Set.member obj dlls
+          then go objs dlls
+          else do
+            lns <- readProcess "ldd" ["win/" <> obj] ""
+            let objdlls
+                  = map T.unpack
+                  $ concatMap (take 1 . T.words)
+                  $ filter ("haskell" `T.isInfixOf`)
+                  $ T.lines $ T.pack lns
+            go (objs ++ objdlls) (Set.insert obj dlls)
+        go [] dlls = return dlls
+    dlls <- go ["onyx.exe"] Set.empty
+    alldlls <- filter ((== ".dll") . takeExtension) <$> listDirectory "win"
+    forM_ (filter (`Set.notMember` dlls) alldlls) $ \dll -> do
+      removeFile $ "win" </> dll
+
+  ["nsis"] -> writeFile "installer.nsi" $ nsis $ do
+
+    -- Create Windows installer script
     name "Onyx Music Game Toolkit"
     outFile $ fromString $ "onyx-" ++ versionString ++ "-windows-x64.exe"
     installDir "$PROGRAMFILES64/OnyxToolkit"
@@ -65,10 +98,12 @@ main = do
       setOutPath "$INSTDIR"
       -- delete existing resource folder and older resource locations
       rmdir [Recursive] "$INSTDIR/onyx-resource"
+      rmdir [Recursive] "$INSTDIR/onyx-resources"
       rmdir [Recursive] "$INSTDIR/magma-v1"
       rmdir [Recursive] "$INSTDIR/magma-v2"
       rmdir [Recursive] "$INSTDIR/magma-ogg2mogg"
       rmdir [Recursive] "$INSTDIR/magma-common"
+      delete [] "$INSTDIR/*.dll"
       delete [] "$INSTDIR/itaijidict"
       delete [] "$INSTDIR/kanwadict"
       -- copy the files
@@ -104,5 +139,6 @@ main = do
       rmdir [Recursive] "$INSTDIR"
       rmdir [Recursive] "$LOCALAPPDATA/onyx-log"
 
-  -- Write out the version to use it for naming the Mac .zip
-  putStr versionString
+  _ -> do
+    hPutStrLn stderr "Invalid command."
+    exitFailure

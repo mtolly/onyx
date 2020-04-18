@@ -33,7 +33,9 @@ mac:
 	cp -R Onyx.app LICENSE.txt mac/
 	cp README.md mac/README.txt
 	cp CHANGES.md mac/CHANGES.txt
-	stack exec -- onyx-package mac/Onyx.app/Contents/Info.plist mac/README.txt | ./mac-package.sh
+	stack exec -- onyx-package changes
+	stack exec -- onyx-package version-write mac/Onyx.app/Contents/Info.plist mac/README.txt
+	stack exec -- onyx-package version-print | ./mac-package.sh
 
 mac-deps:
 	brew install libsndfile libsamplerate lame rubberband dylibbundler wine mpg123 autoconf openal-soft
@@ -49,7 +51,10 @@ win:
 	cp README.md win/README.txt
 	cp CHANGES.md win/CHANGES.txt
 	./make-resources.sh win/onyx-resources
-	stack exec -- onyx-package win/README.txt
+	stack exec -- onyx-package changes
+	stack exec -- onyx-package version-write win/README.txt
+	stack exec -- onyx-package dlls
+	stack exec -- onyx-package nsis
 	"/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
 
 win-deps:
@@ -70,7 +75,9 @@ docker:
 	./make-resources.sh Onyx.AppDir/usr/bin/onyx-resources
 	cp icon/icon.png Onyx.AppDir/usr/share/icons/hicolor/256x256/apps/onyx.png
 	cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
-	stack --docker --docker-image=onyxite/onyx exec -- onyx-package Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml \
+	stack --docker --docker-image=onyxite/onyx exec -- onyx-package changes
+	stack --docker --docker-image=onyxite/onyx exec -- onyx-package version-write Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml
+	stack --docker --docker-image=onyxite/onyx exec -- onyx-package version-print \
 		| xargs -I{} docker run -v $(shell pwd):/mnt onyxite/onyx bash -c \
 			'cd /mnt && env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage'
 
@@ -86,7 +93,9 @@ linux:
 	./make-resources.sh Onyx.AppDir/usr/bin/onyx-resources
 	cp icon/icon.png Onyx.AppDir/usr/share/icons/hicolor/256x256/apps/onyx.png
 	cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
-	stack exec -- onyx-package Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml \
+	stack exec -- onyx-package changes
+	stack exec -- onyx-package version-write Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml
+	stack exec -- onyx-package version-print \
 		| xargs -I{} env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
 
 ubuntu-deps:
