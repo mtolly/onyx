@@ -798,12 +798,23 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
   (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> mdo
     homeTabColor >>= setTabColor tab
     let (topControlsArea1, glArea) = chopTop 40 rect
-        (trimClock 5 5 5 5 -> volPlayButtonsArea, topControlsArea2) = chopLeft 110 topControlsArea1
-        [trimClock 0 5 0 0 -> volButtonArea, trimClock 0 0 0 5 -> playButtonArea] = splitHorizN 2 volPlayButtonsArea
+        (trimClock 0 5 0 5 -> volPlayButtonArea, topControlsArea2) = chopLeft 160 topControlsArea1
+        (trimClock 8 5 8 0 -> volSliderArea, trimClock 5 0 5 5 -> playButtonArea) = chopRight 50 volPlayButtonArea
         (trimClock 8 5 8 5 -> scrubberArea, topControlsArea3) = chopRight 255 topControlsArea2
         (trimClock 5 5 5 5 -> timestampArea, trimClock 5 5 5 5 -> speedArea) = chopLeft 105 topControlsArea3
     topControls <- FL.groupNew topControlsArea1 Nothing
-    volButton <- FL.buttonNew volButtonArea $ Just "vol"
+    volSlider <- FL.horNiceSliderNew volSliderArea Nothing
+    homeTabColor >>= FL.setColor volSlider
+    FL.setMinimum volSlider 0
+    FL.setMaximum volSlider 1
+    void $ FL.setValue volSlider 1
+    FL.setCallback volSlider $ \_ -> do
+      ss <- readIORef varTime
+      case songPlaying ss of
+        Nothing -> return ()
+        Just p -> do
+          v <- FL.getValue volSlider
+          audioSetGain (playAudioHandle p) (realToFrac v)
     playButton <- FL.buttonCustom playButtonArea (Just "@>") Nothing $ Just FL.defaultCustomWidgetFuncs
       { FL.handleCustom = Just $ \ref e -> case e of
         -- support play/pause with space even if button is not focused
@@ -924,42 +935,6 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         Nothing -> redrawGL >> return ss
         Just ps -> stopPlaying (songTime ss) ps >>= startPlaying
       putState ss'
-    let volSliderBoxArea = case volButtonArea of
-          Rectangle (Position (X vx) (Y vy)) (Size (Width vw) (Height vh)) ->
-            Rectangle
-              (Position (X vx) (Y $ vy + vh))
-              (Size (Width vw) (Height 150))
-        volSliderArea = trimClock 5 5 5 5 volSliderBoxArea
-          { rectanglePosition = Position (X 0) (Y 0)
-          } -- this area is within the volSliderBox window
-    volSliderBox <- FL.windowCustom
-      (rectangleSize volSliderBoxArea)
-      (Just $ rectanglePosition volSliderBoxArea)
-      Nothing -- label
-      Nothing -- table drawing routine
-      FL.defaultCustomWidgetFuncs
-        { FL.resizeCustom
-          -- hack to never resize even though we're inside the gl area
-          = Just $ \_ _ -> return ()
-        }
-      FL.defaultCustomWindowFuncs
-    FL.setBox volSliderBox FLE.EmbossedBox
-    volSlider <- FL.niceSliderNew volSliderArea Nothing
-    FL.setMinimum volSlider 1 -- minimum means top
-    FL.setMaximum volSlider 0
-    void $ FL.setValue volSlider 1
-    FL.setCallback volSlider $ \_ -> do
-      ss <- readIORef varTime
-      case songPlaying ss of
-        Nothing -> return ()
-        Just p -> do
-          v <- FL.getValue volSlider
-          audioSetGain (playAudioHandle p) (realToFrac v)
-    FL.end volSliderBox
-    FL.hide volSliderBox
-    FL.setCallback volButton $ \_ -> do
-      b <- FL.getVisible volSliderBox
-      (if b then FL.hide else FL.showWidget) volSliderBox
     let cleanup = do
           ss <- takeState
           case songPlaying ss of
