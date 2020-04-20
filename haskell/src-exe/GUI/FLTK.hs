@@ -3297,6 +3297,7 @@ launchGUI = withAL $ \hasAudio -> do
               , ( "File/Close Window"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'w'
                 , Just $ sink $ EventIO $ FLTK.firstWindow >>= \case
+                    -- TODO this sometimes hides the GLWindow inside a song window! maybe only on windows
                     Just window -> FL.doCallback window
                     Nothing     -> return ()
                 , FL.MenuItemFlags [FL.MenuItemNormal]

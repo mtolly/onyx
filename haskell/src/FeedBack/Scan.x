@@ -53,7 +53,7 @@ data Token
   | BracketR
   | Equals
   | TAtom Atom
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 scanAll :: Alex [(AlexPosn, Token)]
 scanAll = do
