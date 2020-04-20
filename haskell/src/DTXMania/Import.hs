@@ -188,6 +188,7 @@ importSet i setDefPath dout = inside ("Loading DTX set.def from: " <> setDefPath
 
 importSetDef :: (SendMessage m, MonadIO m) => Maybe FilePath -> SetDef -> FilePath -> StackTraceT m ()
 importSetDef setDefPath song dout = do
+  -- TODO need to fix path separators (both backslash and yen)
   let relToSet = maybe id (\sdp -> (takeDirectory sdp </>)) setDefPath
       fs = map (relToSet . T.unpack)
         $ mapMaybe ($ song) [setL5File, setL4File, setL3File, setL2File, setL1File]

@@ -226,6 +226,7 @@ startLoad makeMenuBar hasAudio fs = do
       $ mapM_ (sink . EventFail)
       $ concat [ msgs | Left (Messages msgs) <- results ]
     case concat [ imps | Right imps <- results ] of
+      []    -> fatal "No songs found!"
       [imp] -> continueImport makeMenuBar hasAudio imp
       imps  -> stackIO $ sink $ EventIO $ multipleSongsWindow sink makeMenuBar hasAudio imps
 
