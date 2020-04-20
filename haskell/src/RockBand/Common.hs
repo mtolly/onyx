@@ -52,7 +52,7 @@ data Mood
   | Mood_mellow
   | Mood_intense
   | Mood_play_solo
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Command Mood where
   fromCommand x = case T.stripPrefix "Mood_" $ T.pack $ show x of
@@ -68,7 +68,7 @@ instance Command [T.Text] where
   fromCommand = id
 
 data Difficulty = Easy | Medium | Hard | Expert
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 readCommand' :: (Command a) => E.T -> Maybe a
 readCommand' (E.MetaEvent (Meta.TextEvent s)) = readCommand $ T.pack s
@@ -98,7 +98,7 @@ data Trainer
   = TrainerBegin Int
   | TrainerNorm Int
   | TrainerEnd Int
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 instance Command (Trainer, T.Text) where
   fromCommand (t, s) = case t of
@@ -117,7 +117,7 @@ instance Command (Trainer, T.Text) where
   toCommand _ = Nothing
 
 data Key = C | Cs | D | Ds | E | F | Fs | G | Gs | A | As | B
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 showKey :: Bool -> Key -> String
 showKey False k = map (\case 's' -> '#'; c -> c) $ show k
@@ -130,7 +130,7 @@ showKey True  k = case k of
   _  -> show k
 
 data Tonality = Major | Minor
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data SongKey = SongKey
   { songKey      :: Key
@@ -189,7 +189,7 @@ eachDifficulty f rtb = let
 data Edge s a
   = EdgeOff a
   | EdgeOn s a
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance Bifunctor Edge where
   first f = \case
@@ -201,7 +201,7 @@ data LongNote s a
   = NoteOff     a
   | Blip      s a
   | NoteOn    s a
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance Bifunctor LongNote where
   first f = \case
@@ -310,13 +310,13 @@ makeEdge :: Int -> Bool -> E.T
 makeEdge p b = makeEdgeCPV 0 p $ guard b >> Just 96
 
 data StrumHOPOTap = Strum | HOPO | Tap
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data LaneDifficulty = LaneExpert | LaneHard
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data RB3Instrument = Guitar | Bass | Drums | Keys | Vocal
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Hashable RB3Instrument where
   hashWithSalt s = hashWithSalt s . fromEnum

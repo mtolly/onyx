@@ -198,7 +198,7 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
   in showGuitarNotes (isNothing hopoThres || elem diff [Easy, Medium]) gnotes9
 
 data GuitarNote t = GuitarNote [Five.Color] StrumHOPOTap (Maybe t)
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 readGuitarNotes :: Maybe Int -> FiveDifficulty U.Beats -> RTB.T U.Beats (GuitarNote U.Beats)
 readGuitarNotes hopoThres fd
@@ -219,7 +219,7 @@ showGuitarNotes isKeys trk = let
     else fd
 
 data PKNote t = PKNote [PK.Pitch] (Maybe t)
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 readPKNotes :: ProKeysTrack U.Beats -> RTB.T U.Beats (PKNote U.Beats)
 readPKNotes = fmap (uncurry PKNote) . guitarify' . pkNotes

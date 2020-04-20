@@ -24,7 +24,7 @@ data Song = Song
   , cores         :: [Integer]
   , midiFile      :: T.Text
   , hopoThreshold :: Maybe Integer
-  } deriving (Eq, Show, Read)
+  } deriving (Eq, Show)
 
 instance StackChunks Song where
   stackChunks = asWarnAssoc "Song" $ do
@@ -48,7 +48,7 @@ data CharacterOutfit
   | Char_rock2
   | Char_deathmetal1
   | Char_rockabill1
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk CharacterOutfit where
   stackChunk = enumCodec "CharacterOutfit" $ Key . reprPrefix "Char_"
@@ -58,7 +58,7 @@ data Guitar
   = Guitar_flying_v
   | Guitar_lespaul
   | Guitar_sg
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk Guitar where
   stackChunk = enumCodec "Guitar" $ Key . reprPrefix "Guitar_"
@@ -72,7 +72,7 @@ data Venue
   | Venue_small1
   | Venue_small2
   | Venue_theatre
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk Venue where
   stackChunk = enumCodec "Venue" $ Key . reprPrefix "Venue_"
@@ -82,7 +82,7 @@ data Quickplay = Quickplay
   { characterOutfit :: CharacterOutfit
   , guitar          :: Guitar
   , venue           :: Venue
-  } deriving (Eq, Ord, Show, Read, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable)
 
 instance StackChunks Quickplay where
   stackChunks = asWarnAssoc "Quickplay" $ do
@@ -96,7 +96,7 @@ data BandMember
   | MetalDrummer
   | MetalKeyboard
   | FemaleSinger
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk BandMember where
   stackChunk = enumCodec "BandMember" $ Key . \case
@@ -120,7 +120,7 @@ data SongPackage = SongPackage
   , songPractice2  :: Maybe Song
   , songPractice3  :: Maybe Song
   , band           :: Maybe [BandMember]
-  } deriving (Eq, Show, Read)
+  } deriving (Eq, Show)
 
 instance StackChunks SongPackage where
   stackChunks = asWarnAssoc "SongPackage" $ do

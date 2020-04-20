@@ -47,7 +47,7 @@ data Instrument
   | Synth
   | Vocal
   | Guitar
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance TraverseTrack AmplitudeFile where
   traverseTrack fn (AmplitudeFile trks) = AmplitudeFile <$> traverse (traverseTrack fn) trks

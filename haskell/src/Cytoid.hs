@@ -91,7 +91,7 @@ instance (StackJSON t) => StackJSON (CytoidChart t) where
     return CytoidChart{..}
 
 data ScanLineDirection = ScanDown | ScanUp
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON ScanLineDirection where
   stackJSON = enumCodec "a scan line direction (-1 for down, 1 for up)" $ \case
@@ -180,7 +180,7 @@ data NoteType
   | DragHeadNote
   | DragChildNote
   | FlickNote
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON NoteType where
   stackJSON = enumCodec "a note type (0 to 5)" $ \case

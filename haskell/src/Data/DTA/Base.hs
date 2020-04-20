@@ -30,11 +30,11 @@ import           GHC.Generics              (Generic (..))
 
 -- | A top-level file.
 data DTA s = DTA { byteZero :: Word8, topTree :: Tree s }
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic, Hashable)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic, Hashable)
 
 -- | A list of chunks, for either the top-level tree or a subtree.
 data Tree s = Tree { nodeID :: Word32, treeChunks :: [Chunk s] }
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic, Hashable)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic, Hashable)
 
 -- | A data value, which may be a subtree. The constructors are ordered by their
 -- chunk identification tag in the binary format.
@@ -55,7 +55,7 @@ data Chunk s
   | Include s
   | Merge s
   | IfNDef s
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic, Hashable)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic, Hashable)
 
 --
 -- Binary (DTB) instances

@@ -33,7 +33,7 @@ data Event
   | Overdrive  Bool
   | RangeShift Bool
   | Note       Bool Pitch
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 vocalFromLegacy :: (NNC.C t) => RTB.T t Event -> VocalTrack t
 vocalFromLegacy leg = VocalTrack

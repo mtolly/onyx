@@ -110,7 +110,7 @@ data Camera3
   | V3_directed_duo_gb
   | V3_directed_duo_kb
   | V3_directed_duo_kg
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Command Camera3 where
   fromCommand x = case T.stripPrefix "V3_" $ T.pack $ show x of
@@ -152,7 +152,7 @@ data Camera2
   | V2_directed_all_lt
   | V2_directed_drums_lt
   | V2_directed_crowdsurf
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Command Camera2 where
   fromCommand x = case T.stripPrefix "V2_" $ T.pack $ show x of
@@ -163,7 +163,7 @@ instance Command Camera2 where
 data DoCut2
   = DoDirectedCut Camera2
   | DoOptionalCut Camera2
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 instance Command DoCut2 where
   fromCommand (DoDirectedCut cam) = "do_directed_cut" : fromCommand cam
@@ -205,7 +205,7 @@ data PostProcess3
   | V3_ProFilm_mirror_a
   | V3_ProFilm_psychedelic_blue_red
   | V3_space_woosh
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Command PostProcess3 where
   fromCommand V3_film_b_w = ["film_b+w.pp"]
@@ -230,7 +230,7 @@ data PostProcess2
   | V2_film_16mm
   | V2_contrast_a
   | V2_Default -- ^ rbn2 docs say ProFilm_a is @"default"@. apparently in rb2 they were different?
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data CutEvent2
   = CameraCut
@@ -242,7 +242,7 @@ data CutEvent2
   | OnlyClose
   | OnlyFar
   | NoBehind
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data Lighting
   -- manual
@@ -271,19 +271,19 @@ data Lighting
   | Lighting_flare_slow
   | Lighting_flare_fast
   | Lighting_bre
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data LightingMode2 = ModeVerse | ModeChorus
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data VenueFormat = RBN1 | RBN2
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data LightingCommand
   = LightingFirst
   | LightingPrev
   | LightingNext
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 isLighting :: [T.Text] -> Maybe T.Text
 isLighting = let

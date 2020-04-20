@@ -29,7 +29,7 @@ instance TraverseTrack CatchDifficulty where
   traverseTrack fn (CatchDifficulty a) = CatchDifficulty <$> fn a
 
 data Gem = L | M | R
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance ParseTrack CatchTrack where
   parseTrack = do

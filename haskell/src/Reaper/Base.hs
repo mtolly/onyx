@@ -7,7 +7,7 @@ import           Text.PrettyPrint       ((<+>))
 import qualified Text.PrettyPrint       as PP
 
 data Element = Element String [String] (Maybe [Element])
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 writeRPP :: (MonadIO m) => FilePath -> Element -> m ()
 writeRPP path = liftIO . writeFile path . PP.render . showElement

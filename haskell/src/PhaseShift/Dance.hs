@@ -22,7 +22,7 @@ data SMDifficulty
   | SMMedium
   | SMHard
   | SMChallenge
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data DanceTrack t = DanceTrack
   { danceDifficulties :: Map.Map SMDifficulty (DanceDifficulty t)
@@ -38,14 +38,14 @@ nullDance :: DanceTrack t -> Bool
 nullDance = all (RTB.null . danceNotes) . toList . danceDifficulties
 
 data Arrow = ArrowL | ArrowD | ArrowU | ArrowR
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data NoteType
   = NoteNormal
   | NoteMine
   | NoteLift
   | NoteRoll
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance ChannelType NoteType where
   encodeChannel = fromEnum

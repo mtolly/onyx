@@ -11,7 +11,7 @@ import qualified RockBand.Common                  as RB
 import qualified Sound.MIDI.Util                  as U
 
 data Controller = Mustang | Squier
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 type Velocity = Int
 
@@ -22,7 +22,7 @@ data Message
   | Strum GtrString Velocity
   | KeepAlive
   | ChangeButtons Buttons
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 data Buttons = Buttons
   { buttonX     :: Bool
@@ -36,7 +36,7 @@ data Buttons = Buttons
   , buttonDpad  :: Dpad
   , button32    :: Bool -- ^ Unknown
   , buttonTilt  :: Bool
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 noButtons :: Buttons
 noButtons = Buttons
@@ -63,7 +63,7 @@ data Dpad
   | Left
   | UpLeft
   | Center
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 basePitch :: (Num a) => GtrString -> a
 basePitch s = case s of

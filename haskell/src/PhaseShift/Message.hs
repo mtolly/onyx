@@ -14,7 +14,7 @@ data PSMessage = PSMessage
   { psDifficulty :: Maybe Difficulty
   , psPhraseID   :: PhraseID
   , psEdge       :: Bool -- ^ True for start, False for end
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 data PhraseID
   = OpenStrum

@@ -313,10 +313,10 @@ data Column
   | ColumnR2
   | ColumnR3
   | ColumnR4
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data Color = Blue | Red
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 type MSize = Int
 

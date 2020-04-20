@@ -112,7 +112,7 @@ data DrumLane
   | LeftCymbal
   | LeftPedal
   | LeftBass
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 drumChar :: DrumLane -> Char
 drumChar = \case

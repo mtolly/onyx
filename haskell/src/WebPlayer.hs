@@ -230,7 +230,7 @@ data GHLLane
   | GHLBoth2
   | GHLBoth3
   | GHLOpen
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 data Six t = Six
   { sixNotes  :: Map.Map GHLLane (RTB.T t (LongNote StrumHOPOTap ()))
@@ -522,7 +522,7 @@ data Beat
   = Bar
   | Beat
   | HalfBeat
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 processBeat :: U.TempoMap -> RTB.T U.Beats Beat.BeatEvent -> Beats U.Seconds
 processBeat tmap rtb = Beats $ U.applyTempoTrack tmap $ flip fmap rtb $ \case

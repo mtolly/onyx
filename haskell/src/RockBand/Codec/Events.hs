@@ -23,18 +23,18 @@ data CrowdMood
   | CrowdIntense
   | CrowdNormal
   | CrowdMellow
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data Backing
   = BackingKick
   | BackingSnare
   | BackingHihat
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data SectionType
   = SectionRB2 -- @[section foo]@
   | SectionRB3 -- @[prc_foo]@
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data EventsTrack t = EventsTrack
   { eventsMusicStart :: RTB.T t ()

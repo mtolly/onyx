@@ -102,13 +102,13 @@ data Audio t a
   | StretchSimple Double      (Audio t a)
   | StretchFull Double Double (Audio t a)
   | Mask [T.Text] [Seam t]    (Audio t a)
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 data Seam t = Seam
   { seamCenter :: t
   , seamFade   :: t
   , seamTag    :: T.Text
-  } deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance Applicative (Audio t) where
   pure = Input
@@ -136,7 +136,7 @@ instance Monad (Audio t) where
     in join_ $ fmap f x
 
 data Edge = Start | End
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 mapTime :: (t -> u) -> Audio t a -> Audio u a
 mapTime f aud = case aud of
@@ -330,7 +330,7 @@ data MaskSections
   = MaskFade Bool Frames Frames MaskSections
   | MaskStay Bool Frames MaskSections
   | MaskEnd Bool
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 seamsToSections :: [T.Text] -> [Seam Frames] -> MaskSections
 seamsToSections tags seams = let

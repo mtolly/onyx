@@ -22,7 +22,7 @@ data MiloCompression
   | MILO_B
   | MILO_C
   | MILO_D
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 -- decompresses zlib stream, but ignores "input ended prematurely" error
 zlibTruncate :: BL.ByteString -> BL.ByteString

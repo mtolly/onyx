@@ -138,7 +138,7 @@ instance (StackChunks a) => StackChunks (Maybe a) where
   stackChunks = chunksMaybe stackChunks
 
 newtype DictList k a = DictList { fromDictList :: [(k, a)] }
-  deriving (Eq, Show, Read)
+  deriving (Eq, Show)
 
 chunksDictList :: (Monad m, Eq k) => ChunkCodec m k -> ChunksCodec m a -> ChunksCodec m (DictList k a)
 chunksDictList ck cv = Codec

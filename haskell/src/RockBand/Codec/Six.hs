@@ -22,7 +22,7 @@ data Fret
   | White1
   | White2
   | White3
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data SixTrack t = SixTrack
   { sixDifficulties :: Map.Map Difficulty (SixDifficulty t)

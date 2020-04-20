@@ -23,7 +23,7 @@ data CrowdTempo
   = CrowdHalfTempo
   | CrowdNormalTempo
   | CrowdFastTempo
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Command CrowdTempo where
   fromCommand = \case
@@ -36,7 +36,7 @@ data CrowdLighters
   = CrowdLightersOff
   | CrowdLightersSlow
   | CrowdLightersFast
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Command CrowdLighters where
   fromCommand = \case
@@ -54,7 +54,7 @@ data Event
   | Solo
   | MusicStart
   | End
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Command Event where
   fromCommand = \case
@@ -78,7 +78,7 @@ data Lighting
   | Lighting_color1
   | Lighting_color2
   -- TODO laid to rest has [lighting (f)]
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 -- TODO handle [lighting(foo)] with no space, like we do from RB
 instance Command Lighting where

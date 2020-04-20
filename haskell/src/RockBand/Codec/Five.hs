@@ -25,7 +25,7 @@ import qualified Sound.MIDI.Message.Channel.Voice as V
 import           Text.Read                        (readMaybe)
 
 data Color = Green | Red | Yellow | Blue | Orange
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 -- | These don't actually correspond to 20 different frets;
 -- see <http://i.imgur.com/fRg6Vo9.png> by Orange Harrison
@@ -50,7 +50,7 @@ data FretPosition
   | Fret57
   | Fret58
   | Fret59 -- ^ roughly fret 12
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 -- | Controls the fretting hand animation of a guitarist/bassist.
 data HandMap
@@ -66,7 +66,7 @@ data HandMap
   | HandMap_Chord_C   -- ^ All C chord shape.
   | HandMap_Chord_D   -- ^ All D chord shape.
   | HandMap_Chord_A   -- ^ All A minor chord shape.
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Command HandMap where
   fromCommand hm = ["map", T.pack $ show hm]
@@ -77,7 +77,7 @@ data StrumMap
   = StrumMap_Default
   | StrumMap_Pick
   | StrumMap_SlapBass
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Command StrumMap where
   fromCommand sm = ["map", T.pack $ show sm]

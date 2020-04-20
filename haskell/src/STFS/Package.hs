@@ -368,7 +368,7 @@ data ContentType
   | CT_Xbox360Title
   | CT_XboxTitle
   | CT_XNA
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 contentTypeID :: ContentType -> Word32
 contentTypeID = \case

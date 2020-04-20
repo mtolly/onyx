@@ -23,7 +23,7 @@ data Metadata = Metadata
   , price        :: Integer
   , trackNumber  :: Integer
   , hasAlbum     :: Bool
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackChunks Metadata where
   stackChunks = asStrictAssoc "Metadata" $ do
@@ -47,7 +47,7 @@ data AudioFile = AudioFile
   , pan          :: [Float]
   , vol          :: [Float]
   , audioFile    :: T.Text
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackChunks AudioFile where
   stackChunks = asStrictAssoc "AudioFile" $ do
@@ -61,7 +61,7 @@ instance StackChunks AudioFile where
 data DryVoxPart = DryVoxPart
   { dryVoxFile    :: T.Text
   , dryVoxEnabled :: Bool
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackChunks DryVoxPart where
   stackChunks = asStrictAssoc "DryVoxPart" $ do
@@ -75,7 +75,7 @@ data DryVox = DryVox
   , part1             :: DryVoxPart
   , part2             :: DryVoxPart
   , tuningOffsetCents :: Float
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackChunks DryVox where
   stackChunks = asStrictAssoc "DryVox" $ do
@@ -98,7 +98,7 @@ data AutogenTheme
   | PsychJamRock
   | SlowJam
   | SynthPop
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackChunk AutogenTheme where
   stackChunk = enumCodecFull "AutogenTheme" $ \case
@@ -109,7 +109,7 @@ instance StackChunks AutogenTheme
 data Midi = Midi
   { midiFile     :: T.Text
   , autogenTheme :: Either AutogenTheme T.Text
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackChunks Midi where
   stackChunks = asStrictAssoc "Midi" $ do
@@ -122,7 +122,7 @@ data DrumLayout
   | KitSnare
   | KitKick
   | KitKickSnare
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackChunk DrumLayout where
   stackChunk = enumCodec "DrumLayout" $ \case
@@ -142,7 +142,7 @@ data Tracks = Tracks
   , vocals     :: AudioFile
   , keys       :: AudioFile
   , backing    :: AudioFile
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackChunks Tracks where
   stackChunks = asStrictAssoc "Tracks" $ do
@@ -161,7 +161,7 @@ data Percussion
   = Tambourine
   | Cowbell
   | Handclap
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackChunk Percussion where
   stackChunk = enumCodec "Percussion" $ \case
@@ -171,7 +171,7 @@ instance StackChunk Percussion where
 instance StackChunks Percussion
 
 data Gender = Male | Female
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackChunk Gender where
   stackChunk = enumCodec "Gender" $ \case
@@ -186,7 +186,7 @@ data Languages = Languages
   , spanish  :: Maybe Bool
   , german   :: Maybe Bool
   , japanese :: Maybe Bool
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackChunks Languages where
   stackChunks = asStrictAssoc "Languages" $ do
@@ -200,7 +200,7 @@ instance StackChunks Languages where
 
 newtype AlbumArt = AlbumArt
   { albumArtFile :: T.Text
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackChunks AlbumArt where
   stackChunks = asStrictAssoc "AlbumArt" $ do
@@ -225,7 +225,7 @@ data Gamedata = Gamedata
   , vocalPercussion  :: Percussion
   , vocalParts       :: Integer
   , guidePitchVolume :: Float
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackChunks Gamedata where
   stackChunks = asStrictAssoc "Gamedata" $ do
@@ -256,7 +256,7 @@ data Project = Project
   , dryVox          :: DryVox
   , albumArt        :: AlbumArt
   , tracks          :: Tracks
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackChunks Project where
   stackChunks = asStrictAssoc "Project" $ do
@@ -274,7 +274,7 @@ instance StackChunks Project where
 
 newtype RBProj = RBProj
   { project :: Project
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackChunks RBProj where
   stackChunks = asStrictAssoc "RBProj" $ do

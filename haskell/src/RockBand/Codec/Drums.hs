@@ -101,14 +101,14 @@ data Animation
   | PercussionRH
   | HihatOpen Bool
   | RideSide Bool -- ^ Causes slow 'Ride' hits to animate differently.
-  deriving (Eq, Ord, Show, Read, Generic)
+  deriving (Eq, Ord, Show, Generic)
   deriving (Enum, Bounded) via GenericFullEnum Animation
 
 data Hit = SoftHit | HardHit
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data Hand = LH | RH
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 -- | Controls the audio files used for the drum track.
 data Audio
@@ -117,7 +117,7 @@ data Audio
   | D2 -- ^ Mono kick, stereo snare, stereo kit.
   | D3 -- ^ Stereo kick, stereo snare, stereo kit.
   | D4 -- ^ Mono kick, stereo kit (including snare).
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 -- | Special options that can affect drum audio and pad settings.
 data Disco
@@ -126,7 +126,7 @@ data Disco
   | DiscoNoFlip -- ^ New in RB3: snare beats where accented hits are 'Yellow'.
   | EasyMix     -- ^ Pre-RB3. 'Easy' sections with only 'Red' and 'Kick' notes.
   | EasyNoKick  -- ^ Pre-RB3. 'Easy' sections with no 'Kick' notes.
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Command (Difficulty, Audio, Disco) where
   fromCommand (diff, audio, disco) = ["mix", T.pack (show $ fromEnum diff), showMix audio disco]
@@ -142,16 +142,16 @@ showMix audio disco = "drums" <> T.pack (show $ fromEnum audio) <> case disco of
   EasyNoKick  -> "easynokick"
 
 data ProColor = Yellow | Blue | Green
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data ProType = Cymbal | Tom
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data Gem a = Kick | Red | Pro ProColor a | Orange
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 data PSGem = Rimshot | HHOpen | HHSizzle | HHPedal
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data DrumDifficulty t = DrumDifficulty
   { drumMix         :: RTB.T t (Audio, Disco)

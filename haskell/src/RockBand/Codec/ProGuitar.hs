@@ -42,13 +42,13 @@ data NoteType
   | Tapped
   | Harmonic
   | PinchHarmonic
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data SlideType = NormalSlide | ReversedSlide | MysterySlide3 | MysterySlide2
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data StrumArea = High | Mid | Low | MysteryStrum0
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 type GtrFret = Int
 
@@ -77,13 +77,13 @@ data GtrBase
   | Bass5
   | Bass6
   | GtrCustom [Int] -- List of MIDI pitches from low to high
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 data GtrTuning = GtrTuning
   { gtrBase    :: GtrBase
   , gtrOffsets :: [Int]
   , gtrGlobal  :: Int
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance Default GtrTuning where
   def = GtrTuning Guitar6 [] 0
@@ -131,7 +131,7 @@ instance ChannelType StrumArea where
     MysteryStrum0 -> 0
 
 data GuitarType = TypeGuitar | TypeBass
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data ProGuitarTrack t = ProGuitarTrack
   { pgDifficulties   :: Map.Map Difficulty (ProGuitarDifficulty t)
@@ -587,7 +587,7 @@ guitarifyHOPO threshold pgd = let
   in trackState Nothing fn withForce
 
 data Slide = SlideUp | SlideDown
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 computeSlides
   :: ProGuitarDifficulty U.Beats

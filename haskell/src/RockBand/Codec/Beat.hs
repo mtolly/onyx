@@ -14,7 +14,7 @@ import           RockBand.Common
 import qualified Sound.MIDI.Util                  as U
 
 data BeatEvent = Bar | Beat
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 newtype BeatTrack t = BeatTrack { beatLines :: RTB.T t BeatEvent }
   deriving (Eq, Ord, Show, Generic)

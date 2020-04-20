@@ -56,7 +56,7 @@ data C3DTAComments = C3DTAComments
   , c3dtaRhythmBass   :: Maybe Bool
   , c3dtaCATemh       :: Maybe Bool
   , c3dtaExpertOnly   :: Maybe Bool
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 makeC3DTAComments :: Metadata f -> Plan f -> TargetRB3 f -> C3DTAComments
 makeC3DTAComments meta plan rb3 = C3DTAComments
@@ -78,7 +78,7 @@ data DTASingle = DTASingle
   { dtaTopKey      :: T.Text
   , dtaSongPackage :: D.SongPackage
   , dtaC3Comments  :: C3DTAComments
-  } deriving (Eq, Show, Read)
+  } deriving (Eq, Show)
 
 -- | CONs put out by C3 Magma sometimes bizarrely have the @tracks_count@ key
 -- completely removed from @songs.dta@, but the list of track counts is still

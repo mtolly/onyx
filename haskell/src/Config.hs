@@ -102,14 +102,14 @@ data AudioInfo f = AudioInfo
   , _commands :: [T.Text]
   , _rate     :: Maybe Int
   , _channels :: Int
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 data AudioFile f
   = AudioFile (AudioInfo f)
   | AudioSnippet
     { _expr :: Audio Duration AudioInput
     }
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 instance StackJSON (AudioFile FilePath) where
   stackJSON = Codec
@@ -145,7 +145,7 @@ instance StackJSON (AudioFile FilePath) where
 data JammitTrack = JammitTrack
   { _jammitTitle  :: Maybe T.Text
   , _jammitArtist :: Maybe T.Text
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackJSON JammitTrack where
   stackJSON = asStrictObject "JammitTrack" $ do
@@ -157,7 +157,7 @@ data PlanAudio t a = PlanAudio
   { _planExpr :: Audio t a
   , _planPans :: [Double]
   , _planVols :: [Double]
-  } deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (StackJSON t, StackJSON a) => StackJSON (PlanAudio t a) where
   stackJSON = Codec
@@ -186,7 +186,7 @@ data PartAudio a
     , drumsSplitSnare :: Maybe a
     , drumsSplitKit   :: a
     }
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (StackJSON a) => StackJSON (PartAudio a) where
   stackJSON = Codec
@@ -355,7 +355,7 @@ instance StackJSON (Plan FilePath) where
 data AudioInput
   = Named T.Text
   | JammitSelect J.AudioPart T.Text
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 instance StackJSON AudioInput where
   stackJSON = Codec
@@ -542,7 +542,7 @@ instance StackJSON FlexPartName where
 data Difficulty
   = Tier Integer -- ^ [1..7]: 1 = no dots, 7 = devil dots
   | Rank Integer -- ^ [1..]
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 instance StackJSON Difficulty where
   stackJSON = Codec
@@ -561,7 +561,7 @@ data PartGRYBO = PartGRYBO
   , gryboHopoThreshold :: Int
   , gryboFixFreeform   :: Bool
   , gryboSustainGap    :: Int -- ticks, 480 per beat
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackJSON PartGRYBO where
   stackJSON = asStrictObject "PartGRYBO" $ do
@@ -577,7 +577,7 @@ instance Default PartGRYBO where
 data PartProKeys = PartProKeys
   { pkDifficulty  :: Difficulty
   , pkFixFreeform :: Bool
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackJSON PartProKeys where
   stackJSON = asStrictObject "PartProKeys" $ do
@@ -590,7 +590,7 @@ data PartProGuitar = PartProGuitar
   , pgHopoThreshold :: Int
   , pgTuning        :: GtrTuning
   , pgFixFreeform   :: Bool
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 tuningBaseFormat :: (SendMessage m) => ValueCodec m A.Value GtrBase
 tuningBaseFormat = Codec
@@ -632,7 +632,7 @@ instance StackJSON PartProGuitar where
 data PartGHL = PartGHL
   { ghlDifficulty    :: Difficulty
   , ghlHopoThreshold :: Int
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackJSON PartGHL where
   stackJSON = asStrictObject "PartGHL" $ do
@@ -646,7 +646,7 @@ data DrumKit
   | VintageKit
   | TrashyKit
   | ElectronicKit
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON DrumKit where
   stackJSON = enumCodecFull "the name of a drum kit or null" $ \case
@@ -659,7 +659,7 @@ instance StackJSON DrumKit where
 data DrumLayout
   = StandardLayout
   | FlipYBToms
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON DrumLayout where
   stackJSON = enumCodecFull "the name of a drum kit layout or null" $ \case
@@ -671,7 +671,7 @@ data DrumMode
   | Drums5
   | DrumsPro
   | DrumsReal
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON DrumMode where
   stackJSON = enumCodec "a drum mode (4, 5, pro, real)" $ \case
@@ -681,7 +681,7 @@ instance StackJSON DrumMode where
     DrumsReal -> "real"
 
 data OrangeFallback = FallbackBlue | FallbackGreen
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON OrangeFallback where
   stackJSON = enumCodec "an orange drum note fallback color (blue, green)" $ \case
@@ -689,7 +689,7 @@ instance StackJSON OrangeFallback where
     FallbackGreen -> "green"
 
 data Kicks = Kicks1x | Kicks2x | KicksBoth
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON Kicks where
   stackJSON = enumCodecFull "number of bass pedals (1, 2, both)" $ \case
@@ -705,7 +705,7 @@ data PartDrums = PartDrums
   , drumsKit         :: DrumKit
   , drumsLayout      :: DrumLayout
   , drumsFallback    :: OrangeFallback
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackJSON PartDrums where
   stackJSON = asStrictObject "PartDrums" $ do
@@ -734,7 +734,7 @@ data PartVocal f = PartVocal
   , vocalKey        :: Maybe Key
   , vocalLipsyncRB3 :: Maybe (LipsyncRB3 f)
   , vocalLipsyncRB2 :: Maybe (LipsyncSource f)
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackJSON (PartVocal FilePath) where
   stackJSON = asStrictObject "PartVocal" $ do
@@ -748,7 +748,7 @@ instance StackJSON (PartVocal FilePath) where
 
 data PartAmplitude = PartAmplitude
   { ampInstrument :: Amp.Instrument
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackJSON PartAmplitude where
   stackJSON = asStrictObject "PartAmplitude" $ do
@@ -764,7 +764,7 @@ instance StackJSON Amp.Instrument where
     Amp.Guitar -> "guitar"
 
 data PartMelody = PartMelody
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 instance StackJSON PartMelody where
   stackJSON = asStrictObject "PartMelody" $ do
@@ -780,7 +780,7 @@ data PartKonga = PartKonga
   , dkMode4  :: Maybe Int
   , dkModeB  :: Maybe Int
   , dkModeC  :: Maybe Int
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackJSON PartKonga where
   stackJSON = asStrictObject "PartKonga" $ do
@@ -797,7 +797,7 @@ instance StackJSON PartKonga where
 
 data PartDance = PartDance
   { danceDifficulty :: Difficulty
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackJSON PartDance where
   stackJSON = asStrictObject "PartDance" $ do
@@ -815,7 +815,7 @@ data Part f = Part
   , partMelody    :: Maybe PartMelody
   , partKonga     :: Maybe PartKonga
   , partDance     :: Maybe PartDance
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackJSON (Part FilePath) where
   stackJSON = asStrictObject "Part" $ do
@@ -844,7 +844,7 @@ data Rating
   | SupervisionRecommended
   | Mature
   | Unrated
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON Rating where
   stackJSON = enumCodecFull "a valid content rating or null" $ \case
@@ -1052,7 +1052,7 @@ instance Default (TargetRB3 FilePath) where
   def = fromEmptyObject
 
 data LipsyncMember = LipsyncGuitar | LipsyncBass | LipsyncDrums
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON LipsyncMember where
   stackJSON = enumCodecFull "guitar, bass, or drums" $ \case
@@ -1065,7 +1065,7 @@ data LipsyncRB3 f = LipsyncRB3
   , lipsyncMember2 :: LipsyncMember
   , lipsyncMember3 :: LipsyncMember
   , lipsyncMember4 :: LipsyncMember
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackJSON (LipsyncRB3 FilePath) where
   stackJSON = asStrictObject "LipsyncRB3" $ do
@@ -1082,7 +1082,7 @@ data LipsyncSource f
   | LipsyncTrack4
   | LipsyncVocal (Maybe VocalCount)
   | LipsyncFile f
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 instance StackJSON (LipsyncSource FilePath) where
   stackJSON = Codec
@@ -1174,7 +1174,7 @@ instance Default (TargetPS FilePath) where
   def = fromEmptyObject
 
 data GH2Coop = GH2Bass | GH2Rhythm
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackJSON GH2Coop where
   stackJSON = enumCodecFull "bass or rhythm" $ \case

@@ -27,7 +27,7 @@ data Pitch
   | Octave60 Key
   | Octave72 Key
   | Octave84C
-  deriving (Eq, Ord, Show, Read, Generic)
+  deriving (Eq, Ord, Show, Generic)
   deriving (Enum, Bounded) via GenericFullEnum Pitch
 
 pitchToKey :: Pitch -> Key

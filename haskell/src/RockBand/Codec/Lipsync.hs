@@ -48,7 +48,7 @@ data LyricLanguage
   = LyricEnglish
   | LyricGerman
   | LyricSpanish
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data VisemeEvent a = VisemeEvent
   { visemeKey    :: a
@@ -98,7 +98,7 @@ data MagmaViseme
   | Viseme_Told_lo
   | Viseme_Wet_hi
   | Viseme_Wet_lo
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data BeatlesViseme
   = Viseme_head_rot_neg_x
@@ -154,7 +154,7 @@ data BeatlesViseme
   | Viseme_tongue_out
   | Viseme_tongue_roll
   | Viseme_tongue_up
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data GH2Viseme
   = GH2_Eat
@@ -182,4 +182,4 @@ data GH2Viseme
   | GH2_Emphasis_Head_Yaw
   | GH2_Eyebrow_Raise
   | GH2_Blink
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)

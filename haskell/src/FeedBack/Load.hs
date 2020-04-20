@@ -186,7 +186,7 @@ data TrackEvent t a
   | TrackP2 t
   | TrackOD t
   | TrackSolo Bool
-  deriving (Eq, Ord, Show, Read, Functor, Foldable)
+  deriving (Eq, Ord, Show, Functor, Foldable)
 
 emitTrack :: (NNC.C t, Ord a) => t -> RTB.T t (TrackEvent t a) -> RTB.T t ((a, StrumHOPOTap), Maybe t)
 emitTrack hopoThreshold trk = let

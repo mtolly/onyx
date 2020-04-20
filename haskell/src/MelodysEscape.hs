@@ -30,14 +30,14 @@ data NoteType
   = Obstacle Direction
   | Color    Direction
   | Cutscene
-  deriving (Eq, Ord, Show, Read, Generic)
+  deriving (Eq, Ord, Show, Generic)
   deriving (Enum, Bounded) via GenericFullEnum NoteType
 
 data Intensity = Low | Neutral | High | ExtraHigh
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data Direction = U | R | L | D
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance ParseTrack MelodyTrack where
   parseTrack = do

@@ -19,10 +19,10 @@ import           RockBand.Common
 -- | There are six playable ranges, each of which covers 10 white keys, plus
 -- all the black keys within. They are named here according to their lowest key.
 data LaneRange = RangeC | RangeD | RangeE | RangeF | RangeG | RangeA
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data Pitch = RedYellow Key | BlueGreen Key | OrangeC
-  deriving (Eq, Ord, Show, Read, Generic)
+  deriving (Eq, Ord, Show, Generic)
   deriving (Enum, Bounded) via GenericFullEnum Pitch
 
 data ProKeysTrack t = ProKeysTrack

@@ -22,7 +22,7 @@ chunkTonality :: (SendMessage m) => ChunkCodec m Tonality
 chunkTonality = enumCodec "Tonality" $ Int . fromIntegral . fromEnum
 
 data AnimTempo = KTempoSlow | KTempoMedium | KTempoFast
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackChunk AnimTempo where
   stackChunk = enumCodec "AnimTempo" $ \case
@@ -33,7 +33,7 @@ instance StackChunks AnimTempo
 
 newtype DrumSounds = DrumSounds
   { seqs :: [T.Text]
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance StackChunks DrumSounds where
   stackChunks = asWarnAssoc "DrumSounds" $ do
@@ -65,7 +65,7 @@ data Song = Song
   , hopoThreshold    :: Maybe Integer
   -- magma v1 / rb2:
   , midiFile         :: Maybe T.Text
-  } deriving (Eq, Show, Read)
+  } deriving (Eq, Show)
 
 instance StackChunks Song where
   stackChunks = asWarnAssoc "Song" $ do
@@ -133,7 +133,7 @@ data SongPackage = SongPackage
   , basePoints        :: Maybe Integer
   , alternatePath     :: Maybe Bool
   , videoVenues       :: Maybe [T.Text] -- lego
-  } deriving (Eq, Show, Read)
+  } deriving (Eq, Show)
 
 instance StackChunks SongPackage where
   stackChunks = asWarnAssoc "SongPackage" $ do

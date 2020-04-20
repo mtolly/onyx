@@ -35,7 +35,7 @@ instance Command HandMap where
 
 data StrumMap
   = StrumMap_SlapBass
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Command StrumMap where
   fromCommand sm = ["map", T.pack $ show sm]
@@ -45,7 +45,7 @@ data Tempo
   = HalfTempo
   | NormalTempo
   | DoubleTempo
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Command Tempo where
   fromCommand = \case

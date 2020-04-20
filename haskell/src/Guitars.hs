@@ -21,7 +21,7 @@ import qualified Sound.MIDI.Util                  as U
 data GuitarEvent a
   = Force StrumHOPOTap Bool
   | Note a
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 openNotes' :: (NNC.C t) => FiveDifficulty t -> RTB.T t (Maybe G5.Color, Maybe t)
 openNotes' fd = fmap (\(isOpen, (col, len)) -> (guard (not isOpen) >> Just col, len))
@@ -63,7 +63,7 @@ data HOPOsAlgorithm
   = HOPOsRBGuitar
   | HOPOsRBKeys
   | HOPOsGH3
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 trackState :: (NNC.C t) => s -> (s -> t -> a -> (s, Maybe b)) -> RTB.T t a -> RTB.T t b
 trackState curState step rtb = case RTB.viewL rtb of

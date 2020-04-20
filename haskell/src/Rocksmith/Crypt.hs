@@ -14,7 +14,7 @@ data GamePlatform
   | Mac
   | Xbox360
   | PS3
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 unpackSNG :: GamePlatform -> FilePath -> IO BL.ByteString
 unpackSNG plat fp = do

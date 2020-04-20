@@ -148,7 +148,7 @@ stackIO' io = let
   in stackCatchIO handler $ fmap Just io
 
 data SearchType = SearchFile | SearchMOGG | SearchJammit
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 processOne :: (MonadIO m) => SearchType -> AudioState -> StackTraceT m (AudioState, Bool)
 processOne stype ast = case popFile stype ast of

@@ -83,7 +83,7 @@ pullBackRanges rtb rngs = case RTB.viewL rngs of
 data Lifetime t
   = Mortal t
   | Immortal
-  deriving (Eq, Ord, Show, Read, Functor)
+  deriving (Eq, Ord, Show, Functor)
 
 bestRange :: (NNC.C t) => Maybe LaneRange -> Set.Set Pitch -> RTB.T t (Set.Set Pitch) -> Maybe LaneRange
 bestRange currentRange held rtb = let

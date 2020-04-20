@@ -84,7 +84,7 @@ data Song = Song
   sysex_rimshot
   icon
   -}
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance Default Song where
   def = Song

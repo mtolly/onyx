@@ -63,7 +63,7 @@ import           System.Process.ByteString        (readCreateProcessWithExitCode
 data Message = Message
   { messageString  :: String
   , messageContext :: [String] -- ^ The first element is the innermost context
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 instance Exc.Exception Message where
   displayException (Message str ctx) = unlines $ str : case ctx of
@@ -71,13 +71,13 @@ instance Exc.Exception Message where
     _  -> "Context (innermost first):" : map ("  - " ++) ctx
 
 newtype Messages = Messages { getMessages :: [Message] }
-  deriving (Eq, Ord, Show, Read, Semigroup, Monoid)
+  deriving (Eq, Ord, Show, Semigroup, Monoid)
 
 instance Exc.Exception Messages where
   displayException = unlines . map Exc.displayException . getMessages
 
 data MessageLevel = MessageLog | MessageWarning
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 class (Monad m) => SendMessage m where
   sendMessage :: MessageLevel -> Message -> m ()

@@ -136,4 +136,4 @@ data CMUPhoneme
   | CMU_Y  -- semivowel
   | CMU_Z  -- fricative
   | CMU_ZH -- fricative
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)

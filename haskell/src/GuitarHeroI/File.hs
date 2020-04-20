@@ -69,7 +69,7 @@ instance ParseTrack GemsTrack where
 data FretPosition60
   = FretPosition FretPosition
   | Fret60
-  deriving (Eq, Ord, Show, Read, Generic)
+  deriving (Eq, Ord, Show, Generic)
   deriving (Enum, Bounded) via GenericFullEnum FretPosition60
 
 data AnimTrack t = AnimTrack

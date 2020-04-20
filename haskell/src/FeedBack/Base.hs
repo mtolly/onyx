@@ -15,7 +15,7 @@ data Atom
   = Int Integer
   | Real Rational
   | Str T.Text
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 type RawSection = (T.Text, RawLines)
 type RawLines = [(Atom, [Atom])]

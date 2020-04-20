@@ -75,7 +75,7 @@ data C3 = C3
   , uniqueNumericID    :: T.Text
   , uniqueNumericID2X  :: T.Text
   , toDoList           :: [(T.Text, Bool, Bool)] -- ^ to do item, is required, is completed
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 readC3 :: (SendMessage m) => T.Text -> StackTraceT m C3
 readC3 txt = inside "Reading .c3 file" $ do

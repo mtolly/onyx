@@ -212,7 +212,7 @@ data FileResult
   = FileType FileType FilePath
   | FileDoesNotExist
   | FileUnrecognized
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 data FileType
   = FileSongYaml
@@ -230,7 +230,7 @@ data FileType
   | FileFLAC
   | FileWAV
   | FileZip
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 identifyFile' :: (MonadIO m) => FilePath -> StackTraceT m (FileType, FilePath)
 identifyFile' file = stackIO (identifyFile file) >>= \case
@@ -1142,7 +1142,7 @@ data OnyxOption
   | OptVenueGen
   | OptIndex Int
   | OptHelp
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 applyMidiFunction
   :: (MonadIO m, SendMessage m)
@@ -1173,7 +1173,7 @@ data Game
   = GameRB3
   | GameRB2
   | GameTBRB
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 midiOptions :: [OnyxOption] -> MS.Options
 midiOptions opts = MS.Options

@@ -46,10 +46,10 @@ data Options = Options
   , resolution    :: Maybe Integer
   , separateLines :: Bool
   , matchNoteOff  :: Bool
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 data ShowFormat = ShowBeats | ShowMeasures | ShowSeconds
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 defaultOptions :: Options
 defaultOptions = Options

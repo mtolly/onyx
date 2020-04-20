@@ -200,7 +200,7 @@ data FlexPartName
   | FlexKeys
   | FlexVocal
   | FlexExtra T.Text
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 readPartName :: T.Text -> FlexPartName
 readPartName = \case

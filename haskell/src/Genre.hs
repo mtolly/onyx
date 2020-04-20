@@ -8,10 +8,10 @@ import           Data.Maybe    (catMaybes, fromMaybe, listToMaybe)
 import qualified Data.Text     as T
 
 data Genre = Genre T.Text T.Text [Subgenre]
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 data Subgenre = Subgenre T.Text T.Text
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
 
 data FullGenre = FullGenre
   { fofGenre     :: T.Text
@@ -19,7 +19,7 @@ data FullGenre = FullGenre
   , rbn2Subgenre :: T.Text
   , rbn1Genre    :: T.Text
   , rbn1Subgenre :: T.Text
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show)
 
 interpretGenre :: Maybe T.Text -> Maybe T.Text -> FullGenre
 interpretGenre mg ms = let
