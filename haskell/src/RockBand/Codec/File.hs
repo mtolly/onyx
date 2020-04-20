@@ -19,6 +19,7 @@ import           Control.Monad.Trans.State.Strict  (StateT, execState, get, put,
                                                     runStateT)
 import           Control.Monad.Trans.Writer.Strict (Writer, execWriter, tell)
 import qualified Data.ByteString                   as B
+import Data.Binary.Get (runGetOrFail)
 import qualified Data.ByteString.Lazy              as BL
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
@@ -59,6 +60,7 @@ import qualified Sound.MIDI.File.Event.Meta        as Meta
 import qualified Sound.MIDI.File.Load              as Load
 import qualified Sound.MIDI.Parser.Report          as Report
 import qualified Sound.MIDI.Util                   as U
+import Sound.MIDI.File.FastParse (getMIDI)
 
 type FileParser m t = StackTraceT (StateT [RTB.T t E.T] m)
 type FileBuilder t = Writer [RTB.T t E.T]
@@ -549,10 +551,9 @@ readMIDIFile' mid = readMIDIFile mid >>= interpretMIDIFile
 loadRawMIDI :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m F.T
 loadRawMIDI f = inside ("loading MIDI: " <> f) $ do
   bs <- stackIO $ BL.fromStrict <$> B.readFile f
-  let rep = Load.maybeFromByteString bs
-      ascii = tail . init . show -- midi likes to put weird bytes directly in the string
-  mapM_ (warn . ascii) $ Report.warnings rep
-  either (fatal . ascii) return $ Report.result rep
+  case runGetOrFail getMIDI bs of
+    Left (_, off, err) -> inside ("byte offset " <> show off) $ fatal err
+    Right (_, _, mid) -> return mid
 
 loadMIDI :: (SendMessage m, MonadIO m, ParseFile f) => FilePath -> StackTraceT m (Song (f U.Beats))
 loadMIDI f = loadRawMIDI f >>= readMIDIFile'
