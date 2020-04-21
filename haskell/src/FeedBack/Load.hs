@@ -348,7 +348,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   -- CH-format lyrics
   fixedPartVocals <- insideTrack "Events" $ \trk -> let
     lyrics = flip RTB.mapMaybe trk $ \case
-      Event t -> flip fmap (T.stripPrefix "lyric " t) $ T.replace "’" "'"
+      Event t -> flip fmap (T.stripPrefix "lyric " t) $ T.replace "’" "'" . T.strip
       -- TODO probably more char fixes, also maybe it should be moved to song compile time
       _       -> Nothing
     phrases = flip RTB.mapMaybe trk $ \case

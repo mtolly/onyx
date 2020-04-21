@@ -579,6 +579,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
   songName <- replaceCharsRB True title
   artistName <- replaceCharsRB True $ getArtist $ _metadata songYaml
   albumName <- replaceCharsRB True $ getAlbum $ _metadata songYaml
+  let fixString = T.strip . T.map (\case '"' -> '\''; c -> c)
   return Magma.RBProj
     { Magma.project = Magma.Project
       { Magma.toolVersion = "110411_A"
@@ -586,15 +587,15 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
       , Magma.metadata = Magma.Metadata
         -- "song_name: This field must be less than 100 characters."
         -- also, can't begin or end with whitespace
-        { Magma.songName = T.strip $ T.take 99 songName
+        { Magma.songName = T.take 99 $ fixString songName
         -- "artist_name: This field must be less than 75 characters."
-        , Magma.artistName = T.strip $ T.take 74 artistName
+        , Magma.artistName = T.take 74 $ fixString artistName
         , Magma.genre = rbn2Genre fullGenre
         , Magma.subGenre = "subgenre_" <> rbn2Subgenre fullGenre
         , Magma.yearReleased = fromIntegral $ max 1960 $ getYear $ _metadata songYaml
         -- "album_name: This field must be less than 75 characters."
-        , Magma.albumName = T.strip $ T.take 74 albumName
-        , Magma.author = getAuthor $ _metadata songYaml
+        , Magma.albumName = T.take 74 $ fixString albumName
+        , Magma.author = fixString $ getAuthor $ _metadata songYaml
         , Magma.releaseLabel = "Onyxite Customs"
         , Magma.country = "ugc_country_us"
         , Magma.price = 160
