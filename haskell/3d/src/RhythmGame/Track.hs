@@ -69,7 +69,13 @@ computeTracks song = basicTiming song (return 0) >>= \timing -> let
     drumMap
       = rtbToMap
       $ RTB.collectCoincident
-      $ D.computePro diff drumSrc
+      $ let
+        -- quick 5 lane to 4 hack, always uses green as 1st fallback choice
+        -- eventually should actually support drawing 5-lane drums
+        ddiff = D.getDrumDifficulty diff drumSrc
+        in if elem D.Orange $ D.getDrumDifficulty diff drumSrc
+          then fmap (const D.Tom) <$> D.fiveToFour D.Green ddiff
+          else D.computePro diff drumSrc
     drumStates = (\((a, b), c) -> PNF.DrumState a b c) <$> do
       (Set.fromList <$> drumMap)
         `PNF.zipStateMaps` Map.empty -- TODO lanes

@@ -56,7 +56,7 @@ fatalError :: (Monad m) => [(AlexPosn, Token)] -> StackTraceT m a
 fatalError [] = inside "End of file" $ fatal "Parse error"
 fatalError ((AlexPn _ ln col, tok) : _)
   = inside ("Line " ++ show ln ++ ", column " ++ show col)
-  $ inside ("Token " ++ show tok)
+  $ inside ("Token " ++ show tok) -- TODO this should probably have a length limit
   $ fatal "Parse error"
 
 parse :: [(AlexPosn, Token)] -> Element

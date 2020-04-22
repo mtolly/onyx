@@ -212,18 +212,13 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
     sections = fmap snd $ eventsSections $ RBFile.onyxEvents trks
     finish = sloppyDrums . changeMode . psKicks . drumsComplete mmap sections
     sloppyDrums = drumEachDiff $ \dd -> dd { drumGems = fixSloppyNotes (10 / 480) $ drumGems dd }
-    fiveToFour instant = flip map instant $ \case
-      RBDrums.Orange -> let
-        color = if
-          | RBDrums.Pro RBDrums.Blue  () `elem` instant -> RBDrums.Green
-          | RBDrums.Pro RBDrums.Green () `elem` instant -> RBDrums.Blue
-          | otherwise -> case drumsFallback pd of
-            FallbackBlue  -> RBDrums.Blue
-            FallbackGreen -> RBDrums.Green
-        in RBDrums.Pro color ()
-      x -> x
     fiveToFourTrack = drumEachDiff $ \dd -> dd
-      { drumGems = RTB.flatten $ fmap fiveToFour $ RTB.collectCoincident $ drumGems dd
+      { drumGems = RBDrums.fiveToFour
+        (case drumsFallback pd of
+          FallbackBlue  -> RBDrums.Blue
+          FallbackGreen -> RBDrums.Green
+        )
+        (drumGems dd)
       }
     drumEachDiff f dt = dt { drumDifficulties = fmap f $ drumDifficulties dt }
     noToms dt = dt { drumToms = RTB.empty }

@@ -253,14 +253,31 @@ instance ParseTrack DrumTrack where
       RideSide False -> commandMatch ["ride_side_false"]
     return DrumTrack{..}
 
+fiveToFour :: (NNC.C t) => ProColor -> RTB.T t (Gem ()) -> RTB.T t (Gem ())
+fiveToFour fallback = let
+  eachInstant instant = flip map instant $ \case
+    Orange -> let
+      color = if
+        | Pro Blue  () `elem` instant -> Green
+        | Pro Green () `elem` instant -> Blue
+        | otherwise                   -> fallback
+      in Pro color ()
+    x -> x
+  in RTB.flatten . fmap eachInstant . RTB.collectCoincident
+
+getDrumDifficulty :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t (Gem ())
+getDrumDifficulty diff trk = let
+  base = drumGems $ fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) $ drumDifficulties trk
+  in case diff of
+    Nothing -> RTB.merge base $ fmap (\() -> Kick) $ drumKick2x trk
+    _       -> base
+
 computePro :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t (Gem ProType)
 computePro diff trk = let
   toms = fmap (fmap $ \case Tom -> True; Cymbal -> False) $ drumToms trk
   this = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) $ drumDifficulties trk
   disco = fmap (\(_aud, dsc) -> ((), dsc == Disco)) $ drumMix this
-  applied = applyStatus disco $ applyStatus toms $ case diff of
-    Nothing -> RTB.merge (fmap (\() -> Kick) $ drumKick2x trk) $ drumGems this
-    _       -> drumGems this
+  applied = applyStatus disco $ applyStatus toms $ getDrumDifficulty diff trk
   in flip fmap applied $ \case
     (instantDisco, (instantToms, gem)) -> case gem of
       Kick -> Kick
