@@ -1012,7 +1012,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         FLTK.redraw
     FL.setResizable tab $ Just pack
     return tab
-  rb3Tab <- makeTab windowRect "RB3" $ \rect tab -> do
+  rb3Tab <- makeTab windowRect "RB3 (360)" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageRB3 sink rect tab proj $ \tgt create -> do
       proj' <- fullProjModify proj
@@ -1030,7 +1030,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
               return [dout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  rb2Tab <- makeTab windowRect "RB2" $ \rect tab -> do
+  rb2Tab <- makeTab windowRect "RB2 (360)" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageRB2 sink rect tab proj $ \tgt fout -> do
       proj' <- fullProjModify proj

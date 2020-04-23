@@ -809,7 +809,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             _ : _ : _ -> takeStart (Frames 0) src
             _         -> src
 
-          oggForPlan planName = rel $ "gen/plan" </> T.unpack planName </> "audio.ogg"
+          oggWavForPlan planName = rel $ "gen/plan" </> T.unpack planName </> "audio.wav"
 
           writeKick, writeSnare, writeKit, writeSimplePart
             :: [RBFile.FlexPartName] -> TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan FilePath -> RBFile.FlexPartName -> Integer -> FilePath -> Staction ()
@@ -817,7 +817,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             ((spec', _, _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) $ do
+              MoggPlan{..} -> channelsToSpec spec (oggWavForPlan planName) (zip _pans _vols) $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit kick _ _) -> fromMaybe [] kick
@@ -832,7 +832,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             ((_, spec', _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) $ do
+              MoggPlan{..} -> channelsToSpec spec (oggWavForPlan planName) (zip _pans _vols) $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit _ snare _) -> fromMaybe [] snare
@@ -847,7 +847,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             ((_, _, spec'), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) $ do
+              MoggPlan{..} -> channelsToSpec spec (oggWavForPlan planName) (zip _pans _vols) $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit _ _ kit) -> kit
@@ -862,7 +862,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             runAudio (clampIfSilent $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src) out
           getPartSource :: (MonadResource m) => [(Double, Double)] -> T.Text -> Plan FilePath -> RBFile.FlexPartName -> Integer -> Staction (AudioSource m Float)
           getPartSource spec planName plan fpart rank = case plan of
-            MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) $ do
+            MoggPlan{..} -> channelsToSpec spec (oggWavForPlan planName) (zip _pans _vols) $ do
               guard $ rank /= 0
               toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
             Plan{..} -> buildPartAudioToSpec yamlDir audioLib songYaml spec $ do
@@ -883,7 +883,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             runAudio (clampIfSilent $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src) out
           writeCrowd tgt mid pad planName plan out = do
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] (oggForPlan planName) (zip _pans _vols) _moggCrowd
+              MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] (oggWavForPlan planName) (zip _pans _vols) _moggCrowd
               Plan{..}     -> buildAudioToSpec yamlDir audioLib songYaml [(-1, 0), (1, 0)] _crowd
             runAudio (clampIfSilent $ padAudio pad $ applyTargetAudio tgt mid src) out
           sourceSongCountin :: (MonadResource m) => TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan g -> [(RBFile.FlexPartName, Integer)] -> Staction (AudioSource m Float)
@@ -900,7 +900,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   ]
                 spec = [(-1, 0), (1, 0)]
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec (oggForPlan planName) (zip _pans _vols) $ let
+              MoggPlan{..} -> channelsToSpec spec (oggWavForPlan planName) (zip _pans _vols) $ let
                 channelsFor fpart = toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
                 usedChannels = concatMap channelsFor usedParts ++ _moggCrowd
                 in filter (`notElem` usedChannels) [0 .. length _pans - 1]
@@ -2067,6 +2067,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
         -- Getting MOGG/OGG from MoggPlan
         let ogg  = dir </> "audio.ogg"
+            wav  = dir </> "audio.wav"
             mogg = dir </> "audio.mogg"
         case plan of
           Plan{} -> return ()
@@ -2074,6 +2075,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             ogg %> \out -> do
               shk $ need [mogg]
               moggToOgg mogg out
+            wav %> buildAudio (Input ogg)
             mogg %> \out -> do
               p <- inside "Searching for MOGG file" $ searchMOGG audioLib _moggMD5
               lg $ "Found the MOGG file: " ++ toFilePath p
