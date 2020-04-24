@@ -36,10 +36,9 @@ import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
 import           Control.Monad.Catch                       (catchIOError)
-import           Control.Monad.Extra                       (forM,
-                                                            forM_, guard, join,
-                                                            unless, void, when,
-                                                            (>=>))
+import           Control.Monad.Extra                       (forM, forM_, guard,
+                                                            join, unless, void,
+                                                            when, (>=>))
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
 import           Control.Monad.Trans.Class                 (lift)
@@ -114,8 +113,9 @@ import           ProKeysRanges                             (closeShiftsFile)
 import           Reaper.Build                              (makeReaper)
 import           Reductions                                (simpleReduce)
 import           Resources                                 (getResourcesPath)
-import           RhythmGame.Audio                          (projectAudio,
-                                                            withAL, AudioHandle(..))
+import           RhythmGame.Audio                          (AudioHandle (..),
+                                                            projectAudio,
+                                                            withAL)
 import qualified RhythmGame.Graphics                       as RGGraphics
 import           RhythmGame.Track
 import           RockBand.Codec                            (mapTrack)

@@ -1,25 +1,27 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE PatternSynonyms   #-}
 module Sound.MIDI.File.FastParse (getMIDI) where
 
-import qualified Sound.MIDI.File as F
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.File.Event.Meta as Meta
+import           Control.Applicative                   (liftA2)
+import           Data.Binary.Get
+import           Data.Bits                             (shiftR, testBit, (.&.))
+import qualified Data.ByteString                       as B
+import qualified Data.ByteString.Char8                 as B8
+import qualified Data.ByteString.Lazy                  as BL
+import qualified Data.EventList.Relative.TimeBody      as RTB
+import           Data.Word                             (Word32, Word8)
+import qualified Numeric.NonNegative.Wrapper           as NN
+import           RockBand.Common                       (pattern RNil,
+                                                        pattern Wait)
+import qualified Sound.MIDI.File                       as F
+import qualified Sound.MIDI.File.Event                 as E
+import qualified Sound.MIDI.File.Event.Meta            as Meta
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
-import qualified Sound.MIDI.Message.Channel as C
-import qualified Sound.MIDI.Message.Channel.Mode as Mode
-import qualified Sound.MIDI.Message.Channel.Voice as V
-import Data.Binary.Get
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as B8
-import Data.Bits ((.&.), shiftR, testBit)
-import Control.Applicative (liftA2)
-import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Wrapper as NN
-import Data.Word (Word32, Word8)
-import RockBand.Common (pattern RNil, pattern Wait)
+import qualified Sound.MIDI.KeySignature               as Key
+import qualified Sound.MIDI.Message.Channel            as C
+import qualified Sound.MIDI.Message.Channel.Mode       as Mode
+import qualified Sound.MIDI.Message.Channel.Voice      as V
 
 getMIDI :: Get F.T
 getMIDI = do
@@ -55,7 +57,7 @@ getHeader = do
   let dvn' = if dvn >= 0
         then F.Ticks $ fromIntegral dvn
         else F.SMPTE
-          (negate $ fromIntegral $ dvn .&. 0xFF00) -- TODO fix ghc warning about literal
+          (negate $ fromIntegral $ dvn `shiftR` 8)
           (fromIntegral $ dvn .&. 0xFF)
   return (fmt, ntrks, dvn')
 
@@ -101,12 +103,19 @@ getTrack = removeEnd <$> go Nothing where
             (0x20, 1) -> Meta.MIDIPrefix . C.toChannel . fromIntegral <$> getWord8
             (0x2F, 0) -> return Meta.EndOfTrack
             (0x51, 3) -> Meta.SetTempo . fromIntegral <$> getWord24be
-            -- TODO SMPTEOffset
+            (0x54, 5) -> do
+              [hr, mn, se, fr, ff] <- map fromIntegral . B.unpack <$> getByteString 5
+              return $ Meta.SMPTEOffset hr mn se fr ff
             (0x58, 4) -> do
               [nn, dd, cc, bb] <- map fromIntegral . B.unpack <$> getByteString 4
               return $ Meta.TimeSig nn dd cc bb
-            -- TODO KeySig
-            -- TODO SequencerSpecific
+            (0x59, 2) -> do
+              sf <- getWord8
+              mi <- getWord8
+              return $ Meta.KeySig $ Key.Cons
+                (case mi of 0 -> Key.Major; _ -> Key.Minor) -- technically only 1 should be minor
+                (Key.Accidentals $ fromIntegral sf)
+            (0x7F, _) -> Meta.SequencerSpecific . B.unpack <$> getByteString metaLen
             _ -> Meta.Unknown (fromIntegral metaType) . B.unpack <$> getByteString metaLen
           return (e, running) -- to be correct, this should clear running status
         0xF0 -> do
@@ -158,7 +167,7 @@ getTrack = removeEnd <$> go Nothing where
               y <- getWord8
               return $ C.Voice $ V.PitchBend $
                 int7Bits x * 0x80 + int7Bits y
-            -- 0xF SysEx handled above
+            -- 0xF is meta/sysex, handled above
             _ -> fail $ "Unknown event byte: " <> show statusByte
           return (e, Just statusByte)
       RTB.cons (fromIntegral tks) e <$> go running'

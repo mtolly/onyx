@@ -7,14 +7,15 @@
 {-# LANGUAGE ViewPatterns      #-}
 module RhythmGame.Graphics where
 
-import Control.Monad.Trans.Resource (register, runResourceT)
 import           Build                          (loadYaml)
 import           Codec.Picture
 import qualified Codec.Wavefront                as Obj
 import           Control.Arrow                  (second)
 import           Control.Monad                  (forM, forM_, guard, void, when)
 import           Control.Monad.IO.Class         (MonadIO (..))
-import           Control.Monad.Trans.StackTrace (mapStackTraceT, inside, fatal, SendMessage, StackTraceT,
+import           Control.Monad.Trans.Resource   (register, runResourceT)
+import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
+                                                 fatal, inside, mapStackTraceT,
                                                  stackIO)
 import qualified Data.ByteString                as B
 import           Data.Foldable                  (traverse_)
@@ -755,15 +756,15 @@ data RenderObject = RenderObject
   } deriving (Show)
 
 data GLStuff = GLStuff
-  { objectShader      :: GLuint
-  , boxObject         :: RenderObject
-  , flatObject        :: RenderObject
-  , quadShader        :: GLuint
-  , quadObject        :: RenderObject
-  , textures          :: [(TextureID, Texture)]
-  , models            :: [(ModelID, RenderObject)]
-  , gfxConfig         :: C.Config
-  , framebuffers      :: Framebuffers
+  { objectShader :: GLuint
+  , boxObject    :: RenderObject
+  , flatObject   :: RenderObject
+  , quadShader   :: GLuint
+  , quadObject   :: RenderObject
+  , textures     :: [(TextureID, Texture)]
+  , models       :: [(ModelID, RenderObject)]
+  , gfxConfig    :: C.Config
+  , framebuffers :: Framebuffers
   } deriving (Show)
 
 data Framebuffers
@@ -1272,7 +1273,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
   forM_ (zip spaces trks) $ \((x, y, w, h), trk) -> checkGL "draw" $ do
     glBindFramebuffer GL_FRAMEBUFFER $ case framebuffers of
       SimpleFramebuffer{..} -> simpleFBO
-      MSAAFramebuffers{..} -> msaaFBO
+      MSAAFramebuffers{..}  -> msaaFBO
     setFramebufferSize framebuffers
       (fromIntegral w) (fromIntegral h)
     glViewport 0 0 (fromIntegral w) (fromIntegral h)

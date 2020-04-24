@@ -18,8 +18,8 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State.Strict  (StateT, execState, get, put,
                                                     runStateT)
 import           Control.Monad.Trans.Writer.Strict (Writer, execWriter, tell)
+import           Data.Binary.Get                   (runGetOrFail)
 import qualified Data.ByteString                   as B
-import Data.Binary.Get (runGetOrFail)
 import qualified Data.ByteString.Lazy              as BL
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
@@ -57,10 +57,10 @@ import           RockBand.Common
 import qualified Sound.MIDI.File                   as F
 import qualified Sound.MIDI.File.Event             as E
 import qualified Sound.MIDI.File.Event.Meta        as Meta
+import           Sound.MIDI.File.FastParse         (getMIDI)
 import qualified Sound.MIDI.File.Load              as Load
 import qualified Sound.MIDI.Parser.Report          as Report
 import qualified Sound.MIDI.Util                   as U
-import Sound.MIDI.File.FastParse (getMIDI)
 
 type FileParser m t = StackTraceT (StateT [RTB.T t E.T] m)
 type FileBuilder t = Writer [RTB.T t E.T]
@@ -553,7 +553,7 @@ loadRawMIDI f = inside ("loading MIDI: " <> f) $ do
   bs <- stackIO $ BL.fromStrict <$> B.readFile f
   case runGetOrFail getMIDI bs of
     Left (_, off, err) -> inside ("byte offset " <> show off) $ fatal err
-    Right (_, _, mid) -> return mid
+    Right (_, _, mid)  -> return mid
 
 loadMIDI :: (SendMessage m, MonadIO m, ParseFile f) => FilePath -> StackTraceT m (Song (f U.Beats))
 loadMIDI f = loadRawMIDI f >>= readMIDIFile'

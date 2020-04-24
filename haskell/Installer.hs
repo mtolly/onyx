@@ -2,19 +2,19 @@
 module Main where
 
 import           Control.Monad              (forM_, unless)
+import qualified Data.Set                   as Set
 import           Data.String                (IsString (..))
 import qualified Data.Text                  as T
 import qualified Data.Text.IO               as T
 import           Data.Version               (showVersion)
 import           Development.NSIS
 import           Paths_onyxite_customs_tool (version)
+import           System.Directory           (listDirectory, removeFile)
 import           System.Environment         (getArgs)
-import System.Exit (exitFailure)
-import System.IO (hPutStrLn, stderr)
-import System.Process (readProcess)
-import qualified Data.Set as Set
-import System.Directory (listDirectory, removeFile)
-import System.FilePath (takeExtension, (</>))
+import           System.Exit                (exitFailure)
+import           System.FilePath            (takeExtension, (</>))
+import           System.IO                  (hPutStrLn, stderr)
+import           System.Process             (readProcess)
 
 versionString :: (IsString a) => a
 versionString = fromString $ showVersion version
