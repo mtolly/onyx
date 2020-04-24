@@ -421,6 +421,8 @@ buildSource' aud = case aud of
     ".vgs" -> dropStart t <$> buildSource' (Input fin)
     _      -> sourceSndFrom t fin
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
+  Drop Start t (Merge xs) -> buildSource' $ Merge $ map (Drop Start t) xs
+  Drop Start t (Mix   xs) -> buildSource' $ Mix   $ map (Drop Start t) xs
   Channels (sequence -> Just cs) (Input fin) | takeExtension fin == ".vgs" -> do
     chans <- liftIO $ readVGS fin
     case map (standardRate . mapSamples fractionalSample . (chans !!)) cs of
