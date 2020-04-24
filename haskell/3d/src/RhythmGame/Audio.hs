@@ -146,9 +146,12 @@ playSource pans vols initGain ca = do
       srcID <- peek $ castPtr p -- this is dumb but OpenAL pkg doesn't expose constructor
       doAL "playSource setting direct mode" $ do
         alSourcei srcID 0x1033 1 -- this is AL_DIRECT_CHANNELS_SOFT (should use c2hs!)
-  let setGain g = forM_ (zip srcs vols) $ \(src, volDB) ->
-        doAL "playSource setting sourceGain" $
-        AL.sourceGain src $= CFloat (g * (10 ** (volDB / 20)))
+  let setGain g = forM_ (zip srcs $ assigned) $ \(src, srcAssigned) -> let
+        volDB = case srcAssigned of
+          AssignedMono _ vol -> vol
+          AssignedStereo vol -> vol
+        in doAL "playSource setting sourceGain" $ do
+          AL.sourceGain src $= CFloat (g * (10 ** (volDB / 20)))
   setGain initGain
   firstFull <- newEmptyMVar
   stopper <- newIORef False
@@ -176,13 +179,17 @@ playSource pans vols initGain ca = do
                   Just chunk -> do
                     bufs <- liftIO $ doAL "playSource genObjectNames buffers" $ AL.genObjectNames srcCount
                     let grouped = groupChannels assigned $ CA.deinterleave (CA.channels ca) chunk
-                        groupChannels (AssignedMono{} : xs) (chan : ys) = [chan] : groupChannels xs ys
-                        groupChannels (AssignedStereo{} : xs) (c1 : c2 : ys) = [c1, c2] : groupChannels xs ys
+                        groupChannels (AssignedMono pan _ : xs) (chan : ys) = let
+                          (ratioL, ratioR) = stereoPanRatios pan
+                          newStereo = V.generate (V.length chan * 2) $ \i -> case quotRem i 2 of
+                            (j, 0) -> CA.integralSample $ ratioL * CA.fractionalSample (chan V.! j)
+                            (j, _) -> CA.integralSample $ ratioR * CA.fractionalSample(chan V.! j)
+                          in newStereo : groupChannels xs ys
+                        groupChannels (AssignedStereo{} : xs) (c1 : c2 : ys) = let
+                          interleaved = CA.interleave [c1, c2]
+                          in interleaved : groupChannels xs ys
                         groupChannels _ _ = []
-                    forM_ (zip bufs grouped) $ \(buf, group) -> do
-                      let chan' = case group of
-                            [c] -> c
-                            _   -> CA.interleave group
+                    forM_ (zip bufs grouped) $ \(buf, chan') -> do
                       liftIO $ V.unsafeWith chan' $ \p -> do
                         let _ = p :: Ptr Int16
                         doAL "playSource set bufferData" $ AL.bufferData buf $= AL.BufferData
