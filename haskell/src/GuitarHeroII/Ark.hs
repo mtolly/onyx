@@ -20,19 +20,20 @@ detectGameGH
   :: FilePath
   -> IO (Maybe GameGH)
 detectGameGH gen = withArk gen $ \ark -> do
-  searchFiles ark "songs/*/*.mid" >>= \case
-    []      -> return Nothing
-    ent : _ -> do
+  searchFiles ark "songs/*/*.mid" >>= let
+    go []           = return Nothing
+    go (ent : rest) = do
       midInArk <- ark_Arkname ent
       withSystemTempFile "ghtest.mid" $ \fmid hdl -> do
         IO.hClose hdl
         ark_GetFile' ark fmid midInArk True
         -- could parse whole midi but this is fine
         bs <- B.readFile fmid
-        return $ if
-          | "T1 GEMS"     `B.isInfixOf` bs -> Just GameGH1
-          | "PART GUITAR" `B.isInfixOf` bs -> Just GameGH2
-          | otherwise                      -> Nothing
+        if
+          | "T1 GEMS"     `B.isInfixOf` bs -> return $ Just GameGH1
+          | "PART GUITAR" `B.isInfixOf` bs -> return $ Just GameGH2
+          | otherwise                      -> go rest
+    in go
 
 -- | Replaces a song in Guitar Hero II (U).
 replaceSong

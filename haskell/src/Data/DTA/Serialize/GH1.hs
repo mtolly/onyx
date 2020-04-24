@@ -67,9 +67,9 @@ instance StackChunk Venue where
 instance StackChunks Venue
 
 data Quickplay = Quickplay
-  { character :: Character
-  , guitar    :: Guitar
-  , venue     :: Venue
+  { character :: Either Character T.Text
+  , guitar    :: Either Guitar T.Text
+  , venue     :: Either Venue T.Text
   } deriving (Eq, Show)
 
 instance StackChunks Quickplay where
@@ -94,7 +94,7 @@ data SongPackage = SongPackage
   { name      :: T.Text
   , artist    :: T.Text
   , song      :: Song
-  , band      :: Maybe [BandMember]
+  , band      :: Maybe [Either BandMember T.Text]
   , bank      :: T.Text
   , bpm       :: Integer
   , animTempo :: AnimTempo

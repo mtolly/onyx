@@ -191,6 +191,9 @@ instance (StackChunk a, StackChunk b) => StackChunks (a, b) where
 instance (StackChunks a, StackChunks b) => StackChunks (Either a b) where
   stackChunks = eitherCodec stackChunks stackChunks
 
+instance (StackChunk a, StackChunk b) => StackChunk (Either a b) where
+  stackChunk = eitherCodec stackChunk stackChunk
+
 asAssoc :: (Monad m) => T.Text -> ObjectCodec m [Chunk T.Text] a -> ChunksCodec m a
 asAssoc err codec = Codec
   { codecIn = inside ("parsing " ++ T.unpack err) $ do
