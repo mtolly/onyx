@@ -1797,7 +1797,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   mid <- shakeMIDI $ planDir </> "raw.mid"
                   return (mid, diffs, psDifficultyRB3 diffs)
             -- TODO make all of these end at [end] for maximum compatibility
-            -- (prevents early endings in PS and practice audio glitch in CH)
+            --   (prevents early endings in PS and practice audio glitch in CH)
+            -- TODO for mix mode 4 (kick + kit), we should create only
+            --   drums_1 (kick) and drums_2 (kit). currently we create
+            --   drums_1 (kick) drums_2 (snare, empty) drums_3 (kit)
             dir </> "ps/drums.ogg"   %> \out -> do
               (mid, DifficultyPS{..}, DifficultyRB3{..}) <- loadPSMidi
               writeStereoParts psParts (ps_Common ps) mid 0 planName plan [(ps_Drums  ps, rb3DrumsRank)] out
