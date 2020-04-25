@@ -3,6 +3,7 @@
 {-# LANGUAGE PatternSynonyms   #-}
 module RhythmGame.Track where
 
+import           Config                           (DrumMode (..))
 import           Control.Arrow                    (first)
 import           Control.Monad                    (guard)
 import           Control.Monad.IO.Class           (MonadIO (..))
@@ -46,9 +47,10 @@ data PreviewSong = PreviewSong
 
 computeTracks
   :: (SendMessage m)
-  => RBFile.Song (RBFile.FixedFile U.Beats)
+  => Maybe DrumMode
+  -> RBFile.Song (RBFile.FixedFile U.Beats)
   -> StackTraceT m PreviewSong
-computeTracks song = basicTiming song (return 0) >>= \timing -> let
+computeTracks mmode song = basicTiming song (return 0) >>= \timing -> let
 
   rtbToMap
     = Map.fromList
@@ -63,6 +65,7 @@ computeTracks song = basicTiming song (return 0) >>= \timing -> let
     . RTB.normalize
   diffPairs = [(Expert, "X"), (Hard, "H"), (Medium, "M"), (Easy, "E")]
 
+  drumMode = fromMaybe DrumsPro mmode
   drumSrc = RBFile.fixedPartDrums $ RBFile.s_tracks song
   drumTrack diff = let
     drumMap :: Map.Map Double [D.Gem D.ProType]
@@ -73,9 +76,11 @@ computeTracks song = basicTiming song (return 0) >>= \timing -> let
         -- quick 5 lane to 4 hack, always uses green as 1st fallback choice
         -- eventually should actually support drawing 5-lane drums
         ddiff = D.getDrumDifficulty diff drumSrc
-        in if elem D.Orange $ D.getDrumDifficulty diff drumSrc
-          then fmap (const D.Tom) <$> D.fiveToFour D.Green ddiff
-          else D.computePro diff drumSrc
+        in case drumMode of
+          Drums4    -> fmap (const D.Tom) <$> ddiff
+          Drums5    -> fmap (const D.Tom) <$> D.fiveToFour D.Green ddiff
+          DrumsPro  -> D.computePro diff drumSrc
+          DrumsReal -> D.computePro diff $ D.psRealToPro drumSrc
     drumStates = (\((a, b), c) -> PNF.DrumState a b c) <$> do
       (Set.fromList <$> drumMap)
         `PNF.zipStateMaps` Map.empty -- TODO lanes
@@ -175,15 +180,20 @@ computeTracks song = basicTiming song (return 0) >>= \timing -> let
       , PreviewFive $ fiveTrack src isKeys diff
       )
 
+  drumName = case drumMode of
+    Drums4    -> "Drums"
+    Drums5    -> "Drums"
+    DrumsPro  -> "Pro Drums"
+    DrumsReal -> "Pro Drums"
   drumTracks = concat
-    [ [ ("Drums (X+)", PreviewDrums $ drumTrack Nothing)
+    [ [ (drumName <> " (X+)", PreviewDrums $ drumTrack Nothing)
       | not $ RTB.null $ D.drumKick2x drumSrc
       ]
     , flip mapMaybe diffPairs $ \(diff, letter) -> do
       guard $ maybe False (not . RTB.null . D.drumGems)
         $ Map.lookup diff $ D.drumDifficulties drumSrc
       return
-        ( "Drums (" <> letter <> ")"
+        ( drumName <> " (" <> letter <> ")"
         , PreviewDrums $ drumTrack $ Just diff
         )
     ]
@@ -198,9 +208,10 @@ computeTracks song = basicTiming song (return 0) >>= \timing -> let
 
 loadTracks
   :: (SendMessage m, MonadIO m)
-  => FilePath
+  => Maybe DrumMode
+  -> FilePath
   -> StackTraceT m PreviewSong
-loadTracks f = do
+loadTracks drumMode f = do
   song <- case map toLower $ takeExtension f of
     ".rpp" -> do
       txt <- stackIO $ decodeGeneral <$> B.readFile f
@@ -210,4 +221,4 @@ loadTracks f = do
       chart <- FB.chartToBeats <$> FB.loadChartFile f
       FB.chartToMIDI chart
     _ -> RBFile.loadMIDI f
-  computeTracks song
+  computeTracks drumMode song
