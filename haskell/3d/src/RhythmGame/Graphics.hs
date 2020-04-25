@@ -16,7 +16,7 @@ import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Resource   (register, runResourceT)
 import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
                                                  fatal, inside, mapStackTraceT,
-                                                 stackIO)
+                                                 stackIO, warn)
 import qualified Data.ByteString                as B
 import           Data.Foldable                  (traverse_)
 import           Data.List                      (partition, sort)
@@ -732,7 +732,7 @@ loadTexture linear img = liftIO $ do
         (\x y -> pixelAt img x $ imageHeight img - y - 1)
         (imageWidth img)
         (imageHeight img)
-  texture <- alloca $ \p -> glGenTextures 1 p >> peek p
+  texture <- fillPtr $ glGenTextures 1
   glBindTexture GL_TEXTURE_2D texture
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_REPEAT
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_REPEAT
@@ -916,8 +916,8 @@ loadGLStuff = do
     ]
 
   let loadObject (sortVertices -> vertices) = liftIO $ do
-        vao <- alloca $ \p -> glGenVertexArrays 1 p >> peek p
-        vbo <- alloca $ \p -> glGenBuffers 1 p >> peek p
+        vao <- fillPtr $ glGenVertexArrays 1
+        vbo <- fillPtr $ glGenBuffers 1
         glBindVertexArray vao
         glBindBuffer GL_ARRAY_BUFFER vbo
         withArrayBytes vertices $ \size p -> do
@@ -942,9 +942,9 @@ loadGLStuff = do
     , (GL_FRAGMENT_SHADER, quadFS)
     ]
 
-  quadVAO <- stackIO $ alloca $ \p -> glGenVertexArrays 1 p >> peek p
-  quadVBO <- stackIO $ alloca $ \p -> glGenBuffers 1 p >> peek p
-  quadEBO <- stackIO $ alloca $ \p -> glGenBuffers 1 p >> peek p
+  quadVAO <- stackIO $ fillPtr $ glGenVertexArrays 1
+  quadVBO <- stackIO $ fillPtr $ glGenBuffers 1
+  quadEBO <- stackIO $ fillPtr $ glGenBuffers 1
 
   glBindVertexArray quadVAO
 
@@ -1062,57 +1062,84 @@ loadGLStuff = do
     obj <- loadObj path >>= loadObject
     return (modID, obj)
 
+  -- framebuffers
+
+  let setupMSAA n = do
+
+        glEnable GL_MULTISAMPLE
+
+        -- configure MSAA framebuffer
+        msaaFBO <- fillPtr $ glGenFramebuffers 1
+        checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
+        -- create a multisampled color attachment texture
+        -- create a (also multisampled) renderbuffer object for depth and stencil attachments
+        msaaFBOTex    <- fillPtr $ glGenTextures      1
+        msaaFBORender <- fillPtr $ glGenRenderbuffers 1
+
+        -- intermediate framebuffer
+        intermediateFBO <- fillPtr $ glGenFramebuffers 1
+        checkGL "interm 0" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
+        intermediateFBOTex <- fillPtr $ glGenTextures 1
+
+        let multisamples = fromIntegral n
+            fbufs = MSAAFramebuffers{..}
+
+        void glGetError
+        setFramebufferSize fbufs 1920 1080 -- dummy size, changed later
+        glGetError >>= \case
+          GL_NO_ERROR -> do
+
+            checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
+            checkGL "fbuf 1" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D_MULTISAMPLE msaaFBOTex 0
+            checkGL "fbuf 2" $ glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER msaaFBORender
+            checkGL "interm 0" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
+            checkGL "interm 1" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D intermediateFBOTex 0
+
+            glBindFramebuffer GL_FRAMEBUFFER 0
+            return fbufs
+
+          err -> do
+
+            warn $ concat
+              [ "Couldn't enable MSAA ("
+              , case err of
+                GL_INVALID_ENUM      -> "Invalid enum"
+                GL_INVALID_VALUE     -> "Invalid value"
+                GL_INVALID_OPERATION -> "Invalid operation"
+                GL_OUT_OF_MEMORY     -> "Out of memory"
+                _                    -> "Unknown error"
+              , "). See onyx-resources/3d-config.yml to configure anti-aliasing"
+              ]
+            liftIO $ withArrayLen [msaaFBO, intermediateFBO] $ glDeleteFramebuffers . fromIntegral
+            liftIO $ withArrayLen [msaaFBOTex, intermediateFBOTex] $ glDeleteTextures . fromIntegral
+            liftIO $ withArrayLen [msaaFBORender] $ glDeleteRenderbuffers . fromIntegral
+            setupSimple
+
+      setupSimple = do
+
+        glDisable GL_MULTISAMPLE
+
+        simpleFBO <- fillPtr $ glGenFramebuffers 1
+        glBindFramebuffer GL_FRAMEBUFFER simpleFBO
+        simpleFBOTex    <- fillPtr $ glGenTextures      1
+        simpleFBORender <- fillPtr $ glGenRenderbuffers 1
+        let fbufs = SimpleFramebuffer{..}
+        setFramebufferSize fbufs 1920 1080 -- dummy size, changed later
+        glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D simpleFBOTex 0
+        glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER simpleFBORender
+
+        glBindFramebuffer GL_FRAMEBUFFER 0
+        return fbufs
+
   framebuffers <- case C.view_msaa $ C.cfg_view gfxConfig of
-    Just n | n > 1 -> do
-
-      glEnable GL_MULTISAMPLE
-
-      -- configure MSAA framebuffer
-      msaaFBO <- liftIO $ alloca $ \p -> glGenFramebuffers 1 p >> peek p
-      checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
-      -- create a multisampled color attachment texture
-      -- create a (also multisampled) renderbuffer object for depth and stencil attachments
-      msaaFBOTex    <- liftIO $ alloca $ \p -> glGenTextures      1 p >> peek p
-      msaaFBORender <- liftIO $ alloca $ \p -> glGenRenderbuffers 1 p >> peek p
-
-      -- intermediate framebuffer
-      intermediateFBO <- liftIO $ alloca $ \p -> glGenFramebuffers 1 p >> peek p
-      checkGL "interm 0" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
-      intermediateFBOTex <- liftIO $ alloca $ \p -> glGenTextures 1 p >> peek p
-
-      let multisamples = fromIntegral n
-          fbufs = MSAAFramebuffers{..}
-
-      setFramebufferSize fbufs 1920 1080 -- dummy size, changed later
-      checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
-      checkGL "fbuf 1" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D_MULTISAMPLE msaaFBOTex 0
-      checkGL "fbuf 2" $ glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER msaaFBORender
-      checkGL "interm 0" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
-      checkGL "interm 1" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D intermediateFBOTex 0
-
-      glBindFramebuffer GL_FRAMEBUFFER 0
-      return fbufs
-
-    _ -> do
-
-      glDisable GL_MULTISAMPLE
-
-      simpleFBO <- liftIO $ alloca $ \p -> glGenFramebuffers 1 p >> peek p
-      glBindFramebuffer GL_FRAMEBUFFER simpleFBO
-      simpleFBOTex    <- liftIO $ alloca $ \p -> glGenTextures      1 p >> peek p
-      simpleFBORender <- liftIO $ alloca $ \p -> glGenRenderbuffers 1 p >> peek p
-      let fbufs = SimpleFramebuffer{..}
-      setFramebufferSize fbufs 1920 1080 -- dummy size, changed later
-      glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D simpleFBOTex 0
-      glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER simpleFBORender
-
-      glBindFramebuffer GL_FRAMEBUFFER 0
-      return fbufs
+    Just n | n > 1 -> setupMSAA n
+    _              -> setupSimple
 
   return GLStuff{..}
 
 setFramebufferSize :: (MonadIO m) => Framebuffers -> GLsizei -> GLsizei -> m ()
 setFramebufferSize fbufs w h = case fbufs of
+  -- TODO all or some of these GL_RGB should possibly be GL_RGBA?
   SimpleFramebuffer{..} -> do
     glBindTexture GL_TEXTURE_2D simpleFBOTex
     glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
@@ -1131,11 +1158,20 @@ setFramebufferSize fbufs w h = case fbufs of
     glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
 
 deleteGLStuff :: (MonadIO m) => GLStuff -> m ()
-deleteGLStuff GLStuff{..} = do
+deleteGLStuff GLStuff{..} = liftIO $ do
   glDeleteProgram objectShader
   glDeleteProgram quadShader
-  liftIO $ withArrayLen (map objVAO $ [boxObject, flatObject, quadObject] ++ map snd models)
+  withArrayLen (map objVAO $ [boxObject, flatObject, quadObject] ++ map snd models)
     $ glDeleteVertexArrays . fromIntegral
+  case framebuffers of
+    MSAAFramebuffers{..} -> do
+      withArrayLen [msaaFBO, intermediateFBO] $ glDeleteFramebuffers . fromIntegral
+      withArrayLen [msaaFBOTex, intermediateFBOTex] $ glDeleteTextures . fromIntegral
+      withArrayLen [msaaFBORender] $ glDeleteRenderbuffers . fromIntegral
+    SimpleFramebuffer{..} -> do
+      withArrayLen [simpleFBO] $ glDeleteFramebuffers . fromIntegral
+      withArrayLen [simpleFBOTex] $ glDeleteTextures . fromIntegral
+      withArrayLen [simpleFBORender] $ glDeleteRenderbuffers . fromIntegral
   mapM_ (freeTexture . snd) textures
 
 data WindowDims = WindowDims Int Int
@@ -1309,7 +1345,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
 
 checkGL :: (MonadIO m) => String -> m a -> m a
 checkGL s f = do
-  void $ glGetError
+  void glGetError
   x <- f
   desc <- glGetError >>= return . \case
     GL_NO_ERROR          -> Nothing
