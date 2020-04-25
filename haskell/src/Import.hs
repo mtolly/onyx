@@ -39,7 +39,7 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (elemIndex, intercalate, nub)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
-                                                   mapMaybe)
+                                                   listToMaybe, mapMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
@@ -232,6 +232,7 @@ data LaneNotes = LaneSingle | LaneDouble
 importFoF :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m Kicks
 importFoF src dest = do
   lg $ "Importing FoF/PS/CH song from folder: " <> src
+  allFiles <- stackIO $ Dir.listDirectory src
   pathMid <- fixFileCase $ src </> "notes.mid"
   pathChart <- fixFileCase $ src </> "notes.chart"
   pathIni <- fixFileCase $ src </> "song.ini"
@@ -265,10 +266,9 @@ importFoF src dest = do
       False -> fatal "No song.ini or notes.chart found"
 
   albumArt <- stackIO $ do
-    files <- Dir.listDirectory src
     let isImage f = case splitExtension $ map toLower f of
           (x, y) -> elem x ["album", "image"] && elem y [".png", ".jpg", ".jpeg"]
-    case filter isImage files of
+    case filter isImage allFiles of
       []    -> return Nothing
       f : _ -> do
         Dir.copyFile (src </> f) (dest </> map toLower f)
@@ -365,20 +365,28 @@ importFoF src dest = do
 
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
-  path2x <- fixFileCase $ src </> "expert+.mid"
-  mid2x <- stackIO $ Dir.doesFileExist path2x
-  add2x <- if mid2x
-    then do
-      parsed2x <- RBFile.loadMIDI path2x
+  let maybePath2x = listToMaybe $ flip filter allFiles $ \f -> let
+        lower = T.toLower $ T.pack f
+        in map toLower (takeExtension f) == ".mid"
+          && any (`T.isInfixOf` lower) ["expert+", "expertplus", "notes+"]
+      -- expert+.mid is most common but Drum Projects 2 and 3 also have:
+      -- expertplus.mid, notesexpert+.mid, (name of song)Expert+.mid
+      -- some also have expert+.chart but we shouldn't have to support that
+  forM_ maybePath2x $ \path2x -> do
+    lg $ "Loading separate X+ file: " <> path2x
+  -- TODO should we prefer the PS (95) format if there's also a separate midi?
+  add2x <- case maybePath2x of
+    Just path2x -> do
+      parsed2x <- RBFile.loadMIDI $ src </> path2x
       let trk2x = RBFile.fixedPartDrums $ RBFile.s_tracks parsed2x
       return $ if nullDrums trk2x
         then id
         else \mid -> mid { RBFile.fixedPartDrums2x = trk2x }
-    else return id
+    Nothing -> return id
   let (title, is2x) = case FoF.name song of
         Nothing   -> (Nothing, False)
         Just name -> first Just $ determine2xBass name
-      hasKicks = if mid2x || not (RTB.null $ drumKick2x $ RBFile.fixedPartDrums $ RBFile.s_tracks parsed)
+      hasKicks = if isJust maybePath2x || not (RTB.null $ drumKick2x $ RBFile.fixedPartDrums $ RBFile.s_tracks parsed)
         then KicksBoth
         else if is2x then Kicks2x else Kicks1x
 

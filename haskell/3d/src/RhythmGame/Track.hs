@@ -12,6 +12,7 @@ import qualified Data.ByteString                  as B
 import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Set                         as Set
@@ -66,8 +67,12 @@ computeTracks mmode song = basicTiming song (return 0) >>= \timing -> let
   diffPairs = [(Expert, "X"), (Hard, "H"), (Medium, "M"), (Easy, "E")]
 
   drumMode = fromMaybe DrumsPro mmode
-  drumSrc = RBFile.fixedPartDrums $ RBFile.s_tracks song
+  drumSrc   = RBFile.fixedPartDrums   $ RBFile.s_tracks song
+  drumSrc2x = RBFile.fixedPartDrums2x $ RBFile.s_tracks song
   drumTrack diff = let
+    thisSrc = case diff of
+      Nothing -> if D.nullDrums drumSrc2x then drumSrc else drumSrc2x
+      Just _  -> drumSrc
     drumMap :: Map.Map Double [D.Gem D.ProType]
     drumMap
       = rtbToMap
@@ -75,22 +80,24 @@ computeTracks mmode song = basicTiming song (return 0) >>= \timing -> let
       $ let
         -- quick 5 lane to 4 hack, always uses green as 1st fallback choice
         -- eventually should actually support drawing 5-lane drums
-        ddiff = D.getDrumDifficulty diff drumSrc
+        ddiff = D.getDrumDifficulty diff thisSrc
         in case drumMode of
           Drums4    -> fmap (const D.Tom) <$> ddiff
           Drums5    -> fmap (const D.Tom) <$> D.fiveToFour D.Green ddiff
-          DrumsPro  -> D.computePro diff drumSrc
-          DrumsReal -> D.computePro diff $ D.psRealToPro drumSrc
+          DrumsPro  -> D.computePro diff thisSrc
+          DrumsReal -> D.computePro diff $ D.psRealToPro thisSrc
     drumStates = (\((a, b), c) -> PNF.DrumState a b c) <$> do
       (Set.fromList <$> drumMap)
         `PNF.zipStateMaps` Map.empty -- TODO lanes
-        `PNF.zipStateMaps` toggle (D.drumActivation drumSrc) -- TODO remove BRE (act with [coda])
-    in (\(((((a, b), c), d), e)) -> PNF.CommonState a b c d e) <$> do
-      drumStates
-        `PNF.zipStateMaps` toggle (D.drumOverdrive drumSrc)
-        `PNF.zipStateMaps` Map.empty -- TODO get BRE from drumActivation + [coda]
-        `PNF.zipStateMaps` toggle (D.drumSolo drumSrc)
-        `PNF.zipStateMaps` fmap Just beats
+        `PNF.zipStateMaps` toggle (D.drumActivation thisSrc) -- TODO remove BRE (act with [coda])
+    in do
+      guard $ not $ Map.null drumMap
+      Just $ (\(((((a, b), c), d), e)) -> PNF.CommonState a b c d e) <$> do
+        drumStates
+          `PNF.zipStateMaps` toggle (D.drumOverdrive thisSrc)
+          `PNF.zipStateMaps` Map.empty -- TODO get BRE from drumActivation + [coda]
+          `PNF.zipStateMaps` toggle (D.drumSolo thisSrc)
+          `PNF.zipStateMaps` fmap Just beats
 
   fiveTrack src isKeys diff = let
     thisDiff = fromMaybe mempty $ Map.lookup diff $ F.fiveDifficulties src
@@ -186,15 +193,15 @@ computeTracks mmode song = basicTiming song (return 0) >>= \timing -> let
     DrumsPro  -> "Pro Drums"
     DrumsReal -> "Pro Drums"
   drumTracks = concat
-    [ [ (drumName <> " (X+)", PreviewDrums $ drumTrack Nothing)
-      | not $ RTB.null $ D.drumKick2x drumSrc
-      ]
+    [ toList $ do
+      guard $ not (D.nullDrums drumSrc2x) || not (RTB.null $ D.drumKick2x drumSrc)
+      trk <- drumTrack Nothing
+      return (drumName <> " (X+)", PreviewDrums trk)
     , flip mapMaybe diffPairs $ \(diff, letter) -> do
-      guard $ maybe False (not . RTB.null . D.drumGems)
-        $ Map.lookup diff $ D.drumDifficulties drumSrc
+      trk <- drumTrack $ Just diff
       return
         ( drumName <> " (" <> letter <> ")"
-        , PreviewDrums $ drumTrack $ Just diff
+        , PreviewDrums trk
         )
     ]
 
