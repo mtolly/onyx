@@ -35,6 +35,11 @@ parts:
       tuning:
         base: bass-4
       difficulty: 5
+  guitar:
+    grybo:
+      difficulty: 5
+  keys:
+    pro-keys: {} # WIP
 targets:
   rb3:
     game: rb3
