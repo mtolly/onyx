@@ -146,6 +146,8 @@ You can also drag and drop a file onto the button, or onto the app icon on Mac.
     only convert it to a Rock Band output format at 100% speed; Clone Hero
     format and/or modifying the speed are not supported.
 
+    See the "Batch Mode" section for more details on each output format.
+
   * The *Utilities* tab contains functions other than song conversion. See
     their descriptions in the "Other Tools" section below for more info.
 
