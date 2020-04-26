@@ -3314,10 +3314,16 @@ launchGUI = withAL $ \hasAudio -> do
               -}
               , ( "File/Close Window"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'w'
-                , Just $ sink $ EventIO $ FLTK.firstWindow >>= \case
-                    -- TODO this sometimes hides the GLWindow inside a song window! maybe only on windows
-                    Just window -> FL.doCallback window
-                    Nothing     -> return ()
+                , Just $ sink $ EventIO $ FLTK.firstWindow >>= let
+                    -- Can't reproduce consistently, but sometimes on Windows, firstWindow returns one of
+                    -- the preview windows (a non-root GLWindow). So we go up the chain to be sure
+                    findRootWindow :: FL.Ref FL.GroupBase -> IO ()
+                    findRootWindow w = do
+                      parent <- FL.getParent w
+                      case parent of
+                        Nothing -> FL.doCallback w
+                        Just p  -> findRootWindow p
+                    in mapM_ $ findRootWindow . FL.safeCast
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               ] ++ do
