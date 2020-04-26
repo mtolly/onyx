@@ -251,9 +251,12 @@ importFoF src dest = do
             mid <- FB.chartToMIDI chart
             -- if .ini delay is 0 or absent, CH uses .chart Offset
             ini' <- if fromMaybe 0 (FoF.delay ini) == 0
-              then do
-                lg "Using .chart 'Offset' because .ini 'delay' is 0 or absent"
-                return ini{ FoF.delay = FoF.delay $ FB.chartToIni chart }
+              then case FoF.delay $ FB.chartToIni chart of
+                Just 0     -> return ini
+                Nothing    -> return ini
+                chartDelay -> do
+                  lg "Using .chart 'Offset' because .ini 'delay' is 0 or absent"
+                  return ini{ FoF.delay = chartDelay }
               else return ini
             return (ini', mid, True)
           False -> fatal "Found song.ini, but no notes.mid or notes.chart"
