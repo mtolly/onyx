@@ -172,8 +172,8 @@ magmaV1Genre p@(g, s) = case g of
     "dance"         -> ("other", s)
     "downtempo"     -> ("other", "electronica")
     "dub"           -> ("rock", "reggae")
-    "drumandbass"   -> ("other", s)
-    "electronica"   -> ("other", s)
+    "drumandbass"   -> ("urban", s)
+    "electronica"   -> ("other", s) -- (urban, electronica) also seems to work
     "garage"        -> ("urban", s)
     "hardcoredance" -> ("urban", s)
     "house"         -> ("other", s)
