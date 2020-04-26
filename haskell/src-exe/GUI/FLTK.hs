@@ -248,7 +248,7 @@ multipleSongsWindow
   -> Bool
   -> [Importable (QueueLog (ReaderT (Event -> IO ()) (ResourceT IO)))]
   -> IO ()
-multipleSongsWindow sink makeMenuBar hasAudio imps = do
+multipleSongsWindow sink makeMenuBar hasAudio imps = mdo
   let windowWidth = Width 500
       windowHeight = Height 400
       windowSize = Size windowWidth windowHeight
@@ -263,23 +263,38 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
       (songsArea, trimClock 10 0 0 0 -> buttonsArea) =
         chopBottom 40 $ trimClock 10 10 10 10 windowRect
       [areaSelect, trimClock 0 0 0 10 -> areaOpen] = splitHorizN 2 buttonsArea
-  tree <- FL.treeNew songsArea Nothing
-  FL.end tree
-  FL.rootLabel tree "Songs"
-  FL.setSelectmode tree FLE.TreeSelectNone
-  FL.setShowcollapse tree False
-  Just root <- FL.root tree
+
+  scroll <- FL.scrolledCustom
+    songsArea
+    Nothing
+    Nothing
+    $ Just FL.defaultCustomWidgetFuncs
+      { FL.resizeCustom = Just $ \this newRect -> do
+        Rectangle pos (Size (Width _) h) <- FL.getRectangle pack
+        let newWidth = case rectangleSize newRect of
+              Size (Width w') _ -> Width $ w' - barSize
+        FL.resize pack $ Rectangle pos $ Size newWidth h
+        FL.resizeScrolledBase (FL.safeCast this) newRect
+      }
+  FL.setBox scroll FLE.EngravedBox
+  FL.setType scroll FL.VerticalAlwaysScrollBar
+  let barSize = 15
+  FL.setScrollbarSize scroll barSize
+  let (songsInnerArea, _) = chopRight barSize songsArea
+  pack <- FL.packNew songsInnerArea Nothing
   checks <- forM imps $ \imp -> do
     let entry = T.concat
           [ fromMaybe "Untitled" $ impTitle imp
           , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
           ]
         dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 400) (Height 25))
-    Just itemSong <- FL.addAt tree "" root
     check <- FL.checkButtonNew dummyRect $ Just entry
     void $ FL.setValue check False
-    FL.setWidget itemSong $ Just check
     return check
+  FL.end pack
+  FL.end scroll
+  FLE.rgbColorWithRgb (255,255,255) >>= FL.setColor scroll
+
   selectButton <- FL.buttonNew areaSelect $ Just "Select All/None"
   openButton <- FL.buttonNew areaOpen $ Just "Open Songs"
   let updateButtons = do
@@ -309,7 +324,7 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
     FL.hide window
   forM_ checks $ \check -> FL.setCallback check $ \_ -> updateButtons
   FL.end window
-  FL.setResizable window $ Just tree
+  FL.setResizable window $ Just scroll
   FL.sizeRange window windowSize
   FL.showWidget window
 
