@@ -5,6 +5,8 @@ Along the way, I've written a helpful program to streamline the build process, a
 
 Download from the [releases page](https://github.com/mtolly/onyxite-customs/releases).
 
+![Screenshot of Onyx's song preview tool](https://raw.githubusercontent.com/mtolly/onyxite-customs/master/haskell/screenshot.png)
+
 # Onyxite's Custom Songs
 
 This repository contains the "source" for charts which (once finished) are available from [my thread on the Customs Creators forum](http://customscreators.com/index.php?/topic/14398-onyxites-customs/), or from [my own website](https://onyxite.org/customs/) (work in progress).
