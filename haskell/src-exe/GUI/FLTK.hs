@@ -882,7 +882,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     let initState = SongState 0 Nothing
     varState <- newMVar initState
     varTime <- newIORef initState
-    (groupGL, redrawGL) <- previewGroup
+    (groupGL, redrawGL, deleteGL) <- previewGroup
       sink
       glArea
       (maybe [] previewTracks <$> readIORef varSong)
@@ -959,6 +959,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
           case songPlaying ss of
             Nothing -> return ()
             Just ps -> void $ stopPlaying (songTime ss) ps
+          deleteGL
     return (tab, cleanup)
     {-
 
@@ -2732,7 +2733,7 @@ previewGroup
   -> IO [[(T.Text, PreviewTrack)]]
   -> IO Double
   -> IO Double
-  -> IO (FL.Ref FL.Group, IO ())
+  -> IO (FL.Ref FL.Group, IO (), IO ())
 previewGroup sink rect getTracks getTime getSpeed = do
   let (glArea, bottomControlsArea) = chopBottom 40 rect
       partSelectArea = trimClock 6 15 6 15 bottomControlsArea
@@ -2800,11 +2801,12 @@ previewGroup sink rect getTracks getTime getSpeed = do
     FL.defaultCustomWidgetFuncs
     FL.defaultCustomWindowFuncs
   FL.end glwindow
+  let deleteGL = sink $ EventIO $ FLTK.deleteWidget glwindow
   FL.setMode glwindow $ FLE.Modes [FLE.ModeOpenGL3, FLE.ModeDepth, FLE.ModeRGB8, FLE.ModeDouble, FLE.ModeAlpha, FLE.ModeMultisample]
 
   FL.end wholeGroup
   FL.setResizable wholeGroup $ Just glwindow
-  return (wholeGroup, FL.redraw glwindow)
+  return (wholeGroup, FL.redraw glwindow, deleteGL)
 
 launchPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
 launchPreview sink makeMenuBar mid = mdo
@@ -2847,7 +2849,7 @@ launchPreview sink makeMenuBar mid = mdo
     FL.setResizable controlsGroup $ Just labelServer
 
     varTime <- newIORef 0
-    (groupGL, redrawGL) <- previewGroup
+    (groupGL, redrawGL, _deleteGL) <- previewGroup
       sink
       belowTopControls
       getTracks
