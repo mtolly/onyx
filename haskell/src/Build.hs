@@ -724,11 +724,23 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
     p <- parseAbsDir dir
     addAudioDir audioLib p
 
+  writeMsg <- lift $ QueueLog ask
   let yamlDir = takeDirectory yamlPath
       rel f = yamlDir </> f
+      ourShakeOptions = shakeOptions
+        { shakeThreads = 0
+        , shakeFiles = rel "gen"
+        , shakeVersion = projVersion
+        , shakeOutput = \verb str -> if verb <= Warn
+          then writeMsg (MessageWarning, Message str [])
+          else if verb <= Info
+            then writeMsg (MessageLog, Message str [])
+            else return ()
+        }
+
   do
 
-    shakeEmbed shakeOptions{ shakeThreads = 0, shakeFiles = rel "gen", shakeVersion = projVersion } $ do
+    shakeEmbed ourShakeOptions $ do
 
       phony "yaml"  $ lg $ show songYaml
       phony "audio" $ lg $ show audioDirs

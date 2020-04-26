@@ -1186,6 +1186,10 @@ forceProDrums song = song
 saveProject :: Project -> SongYaml FilePath -> IO Project
 saveProject proj song = do
   yamlEncodeFile (projectLocation proj) $ toJSON song
+  let genDir = takeDirectory (projectLocation proj) </> "gen"
+  Dir.doesDirectoryExist genDir >>= \b -> do
+    -- squash warnings about shake version difference
+    when b $ Dir.removeDirectoryRecursive genDir
   return proj { projectSongYaml = song }
 
 data GBKOption
