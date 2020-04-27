@@ -38,7 +38,7 @@ main = getArgs >>= \case
     res <- runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
       index <- maybe (fatal "Invalid track number") return $ readMaybe strIndex
       _ <- importSTFS 0 con Nothing dir
-      allTracks <- fmap previewTracks $ loadTracks $ dir </> "notes.mid"
+      allTracks <- fmap (concat . previewTracks) $ loadTracks Nothing $ dir </> "notes.mid"
       drums <- case snd $ allTracks !! index of
         PreviewDrums drums -> return drums
         _                  -> fatal "Not a drums track"
@@ -59,7 +59,7 @@ main = getArgs >>= \case
         bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do
           SDL.windowMinimumSize window $= SDL.V2 800 600
           bracket (SDL.glCreateContext window) (\ctx -> glFinish >> SDL.glDeleteContext ctx) $ \_ctx -> do
-            RGAudio.withAL $ do
+            RGAudio.withAL $ \_openedAudio -> do
               RGAudio.withMOGG (dir </> "audio.mogg") $ \ogg -> do
                 playDrumTrack window drums pans vols ogg
     case res of
@@ -68,7 +68,7 @@ main = getArgs >>= \case
 
   [con] -> void $ runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
     _ <- importSTFS 0 con Nothing dir
-    trks <- fmap previewTracks $ loadTracks $ dir </> "notes.mid"
+    trks <- fmap (concat . previewTracks) $ loadTracks Nothing $ dir </> "notes.mid"
     stackIO $ forM_ (zip [0..] trks) $ \(i, (name, _)) -> do
       putStrLn $ show (i :: Int) <> ": " <> T.unpack name
 
@@ -76,7 +76,7 @@ main = getArgs >>= \case
     res <- runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
       indexes <- forM strIndexes $ maybe (fatal "Invalid track number") return . readMaybe
       _ <- importSTFS 0 con Nothing dir
-      allTracks <- fmap previewTracks $ loadTracks $ dir </> "notes.mid"
+      allTracks <- fmap (concat . previewTracks) $ loadTracks Nothing $ dir </> "notes.mid"
       let trks = map (snd . (allTracks !!)) indexes
       yml <- loadYaml $ dir </> "song.yml"
       (pans, vols) <- case HM.toList $ _plans (yml :: SongYaml FilePath) of
@@ -95,7 +95,7 @@ main = getArgs >>= \case
         bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do
           SDL.windowMinimumSize window $= SDL.V2 800 600
           bracket (SDL.glCreateContext window) (\ctx -> glFinish >> SDL.glDeleteContext ctx) $ \_ctx -> do
-            RGAudio.withAL $ do
+            RGAudio.withAL $ \_openedAudio -> do
               RGAudio.withMOGG (dir </> "audio.mogg") $ \ogg -> do
                 playTracks window trks pans vols ogg
     case res of
@@ -106,7 +106,7 @@ main = getArgs >>= \case
 
 data AppState = AppState
   { songTime       :: Milli
-  , sdlStartedPlay :: Maybe (Milli, IO ())
+  , sdlStartedPlay :: Maybe (Milli, RGAudio.AudioHandle)
   }
 
 playDrumTrack
@@ -117,7 +117,7 @@ playDrumTrack
   -> FilePath
   -> IO ()
 playDrumTrack window trk pans vols ogg = do
-  glStuff <- loadGLStuff
+  Right glStuff <- logStdout loadGLStuff
   let ticksMilli :: IO Milli
       ticksMilli = MkFixed . fromIntegral <$> SDL.ticks
       delayMilli :: Milli -> IO ()
@@ -127,7 +127,7 @@ playDrumTrack window trk pans vols ogg = do
       halfWindow :: Double
       halfWindow = 0.05 -- 50 ms on each side
   ca <- RGAudio.oggSecsSpeed 0 Nothing ogg
-  _stop <- RGAudio.playSource pans vols ca
+  _audioHandle <- RGAudio.playSource pans vols 1 ca
   startedAt <- ticksMilli
   let loop prevState = do
         -- print $ PNF.drumEvents $ prevState
@@ -180,7 +180,7 @@ playDrumTrack window trk pans vols ogg = do
 
 playTracks :: SDL.Window -> [PreviewTrack] -> [Float] -> [Float] -> FilePath -> IO ()
 playTracks window trks pans vols ogg = do
-  glStuff <- loadGLStuff
+  Right glStuff <- logStdout loadGLStuff
   let ticksMilli :: IO Milli
       ticksMilli = MkFixed . fromIntegral <$> SDL.ticks
       delayMilli :: Milli -> IO ()
@@ -210,13 +210,13 @@ playTracks window trks pans vols ogg = do
             s' <- case sdlStartedPlay s of
               Nothing -> do
                 ca <- RGAudio.oggSecsSpeed (realToFrac $ songTime s) Nothing ogg
-                stop <- RGAudio.playSource pans vols ca
+                audioHandle <- RGAudio.playSource pans vols 1 ca
                 timestamp <- ticksMilli
-                return s { sdlStartedPlay = Just (timestamp, stop) }
-              Just (started, stop) -> do
+                return s { sdlStartedPlay = Just (timestamp, audioHandle) }
+              Just (started, audioHandle) -> do
                 timestamp <- ticksMilli
                 let current = songTime s + (timestamp - started)
-                stop
+                RGAudio.audioStop audioHandle
                 return s { songTime = current, sdlStartedPlay = Nothing }
             processEvents s' es
         _             -> processEvents s es
