@@ -31,6 +31,14 @@ parts:
     drums:
       kicks: both
       difficulty: 7
+  bass:
+    pro-guitar:
+      difficulty: 7
+      tuning:
+        base: bass-6
+  vocal:
+    vocal:
+      count: 2
 targets:
   rb3:
     game: rb3
