@@ -5,6 +5,7 @@
 {-# LANGUAGE RecursiveDo       #-}
 {-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE ImplicitParams    #-}
 module GUI.FLTK (launchGUI) where
 
 import           Audio                                     (Audio (..),
@@ -2779,6 +2780,7 @@ previewGroup sink rect getTracks getTime getSpeed = do
   varStuff <- newMVar GLPreload
   let draw :: FL.Ref FL.GlWindow -> IO ()
       draw wind = do
+        let ?writeLog = sink . EventOnyx . lg
         mstuff <- modifyMVar varStuff $ \case
           GLPreload -> embedOnyx sink RGGraphics.loadGLStuff >>= \case
             Nothing -> return (GLFailed, Nothing)

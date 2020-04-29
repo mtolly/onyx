@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE ImplicitParams    #-}
 module RhythmGame.Graphics where
 
 import           Build                          (loadYaml)
@@ -60,7 +61,7 @@ data LightPosition
   = LightGlobal C.Light
   | LightOffset C.Light
 
-drawObject :: GLStuff -> Object -> ObjectPosition -> Either TextureID (V4 Float) -> Float -> LightPosition -> IO ()
+drawObject :: (?writeLog :: String -> IO ()) => GLStuff -> Object -> ObjectPosition -> Either TextureID (V4 Float) -> Float -> LightPosition -> IO ()
 drawObject GLStuff{..} obj posn texcolor alpha lightOffset = do
   let colorType   = 1 :: GLuint
       textureType = 2 :: GLuint
@@ -111,7 +112,7 @@ drawObject GLStuff{..} obj posn texcolor alpha lightOffset = do
   sendUniformName objectShader "material.specular.type" colorType
   sendUniformName objectShader "material.specular.color" (V4 0.5 0.5 0.5 1 :: V4 Float) -- CONFIGME
   sendUniformName objectShader "material.shininess" (32 :: Float)
-  glDrawArrays GL_TRIANGLES 0 $ objVertexCount thisObject
+  checkGL "glDrawArrays (in drawObject)" $ glDrawArrays GL_TRIANGLES 0 $ objVertexCount thisObject
 
 makeToggleBounds :: t -> t -> Map.Map t Toggle -> [(t, t, Bool)]
 makeToggleBounds t1 t2 m = let
@@ -129,7 +130,7 @@ makeToggleBounds t1 t2 m = let
   simplify (x : xs) = x : simplify xs
   in simplify zipped
 
-drawDrums :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
+drawDrums :: (?writeLog :: String -> IO ()) => GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
 drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPlayState
   { drumEvents = do
     (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
@@ -143,7 +144,7 @@ drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPla
   , drumNoteTimes = Set.empty -- not used
   }
 
-drawDrumPlay :: GLStuff -> Double -> Double -> DrumPlayState Double (D.Gem D.ProType) -> IO ()
+drawDrumPlay :: (?writeLog :: String -> IO ()) => GLStuff -> Double -> Double -> DrumPlayState Double (D.Gem D.ProType) -> IO ()
 drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
@@ -315,7 +316,7 @@ zoomMap t1 t2 m = let
     then maybe Map.empty (Map.singleton $ t1 + (t2 + t1) / 2) generated
     else zoomed
 
-drawFive :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (GuitarState (Maybe F.Color))) -> IO ()
+drawFive :: (?writeLog :: String -> IO ()) => GLStuff -> Double -> Double -> Map.Map Double (CommonState (GuitarState (Maybe F.Color))) -> IO ()
 drawFive glStuff@GLStuff{..} nowTime speed trk = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
@@ -747,7 +748,7 @@ loadTexture linear img = liftIO $ do
       (pixelProp glPixelFormat img)
       (pixelProp glPixelType img)
       (castPtr p)
-  -- when linear $ glGenerateMipmap GL_TEXTURE_2D
+  glGenerateMipmap GL_TEXTURE_2D
   return $ Texture texture (imageWidth img) (imageHeight img)
 
 data RenderObject = RenderObject
@@ -881,8 +882,10 @@ sortVertices = let
   sumZ = sum . map (getZ . vertexPosition)
   in concatMap snd . sort . map (\tri -> (sumZ tri, tri)) . getTris
 
-loadGLStuff :: (MonadIO m, SendMessage m) => StackTraceT m GLStuff
+loadGLStuff :: (MonadIO m, SendMessage m, ?writeLog :: String -> IO ()) => StackTraceT m GLStuff
 loadGLStuff = do
+
+  stackIO $ ?writeLog "Loading graphics resources..."
 
   gfxConfig <- load3DConfig
 
@@ -1070,7 +1073,7 @@ loadGLStuff = do
 
         -- configure MSAA framebuffer
         msaaFBO <- fillPtr $ glGenFramebuffers 1
-        checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
+        checkGL "glBindFramebuffer (multisampled)" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
         -- create a multisampled color attachment texture
         -- create a (also multisampled) renderbuffer object for depth and stencil attachments
         msaaFBOTex    <- fillPtr $ glGenTextures      1
@@ -1078,55 +1081,34 @@ loadGLStuff = do
 
         -- intermediate framebuffer
         intermediateFBO <- fillPtr $ glGenFramebuffers 1
-        checkGL "interm 0" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
+        checkGL "glBindFramebuffer (intermediate)" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
         intermediateFBOTex <- fillPtr $ glGenTextures 1
 
         let multisamples = fromIntegral n
             fbufs = MSAAFramebuffers{..}
 
-        void glGetError
         setFramebufferSize fbufs 1920 1080 -- dummy size, changed later
-        glGetError >>= \case
-          GL_NO_ERROR -> do
+        checkGL "glBindFramebuffer (multisampled) to attach texture + render" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
+        checkGL "glFramebufferTexture2D (multisampled)" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D_MULTISAMPLE msaaFBOTex 0
+        checkGL "glFramebufferRenderbuffer (multisampled)" $ glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER msaaFBORender
+        checkGL "glBindFramebuffer (intermediate) to attach texture" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
+        checkGL "glFramebufferTexture2D (intermediate)" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D intermediateFBOTex 0
 
-            checkGL "fbuf 0" $ glBindFramebuffer GL_FRAMEBUFFER msaaFBO
-            checkGL "fbuf 1" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D_MULTISAMPLE msaaFBOTex 0
-            checkGL "fbuf 2" $ glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER msaaFBORender
-            checkGL "interm 0" $ glBindFramebuffer GL_FRAMEBUFFER intermediateFBO
-            checkGL "interm 1" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D intermediateFBOTex 0
-
-            glBindFramebuffer GL_FRAMEBUFFER 0
-            return fbufs
-
-          err -> do
-
-            warn $ concat
-              [ "Couldn't enable MSAA ("
-              , case err of
-                GL_INVALID_ENUM      -> "Invalid enum"
-                GL_INVALID_VALUE     -> "Invalid value"
-                GL_INVALID_OPERATION -> "Invalid operation"
-                GL_OUT_OF_MEMORY     -> "Out of memory"
-                _                    -> "Unknown error"
-              , "). See onyx-resources/3d-config.yml to configure anti-aliasing"
-              ]
-            liftIO $ withArrayLen [msaaFBO, intermediateFBO] $ glDeleteFramebuffers . fromIntegral
-            liftIO $ withArrayLen [msaaFBOTex, intermediateFBOTex] $ glDeleteTextures . fromIntegral
-            liftIO $ withArrayLen [msaaFBORender] $ glDeleteRenderbuffers . fromIntegral
-            setupSimple
+        glBindFramebuffer GL_FRAMEBUFFER 0
+        return fbufs
 
       setupSimple = do
 
         glDisable GL_MULTISAMPLE
 
         simpleFBO <- fillPtr $ glGenFramebuffers 1
-        glBindFramebuffer GL_FRAMEBUFFER simpleFBO
+        checkGL "glBindFramebuffer (simple)" $ glBindFramebuffer GL_FRAMEBUFFER simpleFBO
         simpleFBOTex    <- fillPtr $ glGenTextures      1
         simpleFBORender <- fillPtr $ glGenRenderbuffers 1
         let fbufs = SimpleFramebuffer{..}
         setFramebufferSize fbufs 1920 1080 -- dummy size, changed later
-        glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D simpleFBOTex 0
-        glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER simpleFBORender
+        checkGL "glFramebufferTexture2D (simple)" $ glFramebufferTexture2D GL_FRAMEBUFFER GL_COLOR_ATTACHMENT0 GL_TEXTURE_2D simpleFBOTex 0
+        checkGL "glFramebufferRenderbuffer (simple)" $ glFramebufferRenderbuffer GL_FRAMEBUFFER GL_DEPTH_STENCIL_ATTACHMENT GL_RENDERBUFFER simpleFBORender
 
         glBindFramebuffer GL_FRAMEBUFFER 0
         return fbufs
@@ -1135,27 +1117,28 @@ loadGLStuff = do
     Just n | n > 1 -> setupMSAA n
     _              -> setupSimple
 
+  stackIO $ ?writeLog "Finished loading graphics resources."
   return GLStuff{..}
 
-setFramebufferSize :: (MonadIO m) => Framebuffers -> GLsizei -> GLsizei -> m ()
+setFramebufferSize :: (MonadIO m, ?writeLog :: String -> IO ()) => Framebuffers -> GLsizei -> GLsizei -> m ()
 setFramebufferSize fbufs w h = case fbufs of
   -- TODO all or some of these GL_RGB should possibly be GL_RGBA?
   SimpleFramebuffer{..} -> do
-    glBindTexture GL_TEXTURE_2D simpleFBOTex
-    glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
-    glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
-    glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
-    glBindRenderbuffer GL_RENDERBUFFER simpleFBORender
-    glRenderbufferStorage GL_RENDERBUFFER GL_DEPTH24_STENCIL8 w h
+    checkGL "set size - glBindTexture (simple)" $ glBindTexture GL_TEXTURE_2D simpleFBOTex
+    checkGL "set size - glTexImage2D (simple)" $ glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
+    checkGL "set size - glTexParameteri min filter (simple)" $ glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
+    checkGL "set size - glTexParameteri mag filter (simple)" $ glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
+    checkGL "set size - glBindRenderbuffer (simple)" $ glBindRenderbuffer GL_RENDERBUFFER simpleFBORender
+    checkGL "set size - glRenderbufferStorage (simple)" $ glRenderbufferStorage GL_RENDERBUFFER GL_DEPTH24_STENCIL8 w h
   MSAAFramebuffers{..} -> do
-    glBindTexture GL_TEXTURE_2D_MULTISAMPLE msaaFBOTex
-    glTexImage2DMultisample GL_TEXTURE_2D_MULTISAMPLE multisamples GL_RGB w h GL_TRUE
-    glBindRenderbuffer GL_RENDERBUFFER msaaFBORender
-    glRenderbufferStorageMultisample GL_RENDERBUFFER multisamples GL_DEPTH24_STENCIL8 w h
-    glBindTexture GL_TEXTURE_2D intermediateFBOTex
-    glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
-    glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
-    glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
+    checkGL "set size - glBindTexture (multisampled)" $ glBindTexture GL_TEXTURE_2D_MULTISAMPLE msaaFBOTex
+    checkGL "set size - glTexImage2DMultisample (multisampled)" $ glTexImage2DMultisample GL_TEXTURE_2D_MULTISAMPLE multisamples GL_RGB w h GL_TRUE
+    checkGL "set size - glBindRenderbuffer (multisampled)" $ glBindRenderbuffer GL_RENDERBUFFER msaaFBORender
+    checkGL "set size - glRenderbufferStorageMultisample (multisampled)" $ glRenderbufferStorageMultisample GL_RENDERBUFFER multisamples GL_DEPTH24_STENCIL8 w h
+    checkGL "set size - glBindTexture (intermediate)" $ glBindTexture GL_TEXTURE_2D intermediateFBOTex
+    checkGL "set size - glTexImage2D (intermediate)" $ glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
+    checkGL "set size - glTexParameteri min filter (intermediate)" $ glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
+    checkGL "set size - glTexParameteri mag filter (intermediate)" $ glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
 
 deleteGLStuff :: (MonadIO m) => GLStuff -> m ()
 deleteGLStuff GLStuff{..} = liftIO $ do
@@ -1176,7 +1159,7 @@ deleteGLStuff GLStuff{..} = liftIO $ do
 
 data WindowDims = WindowDims Int Int
 
-drawTexture :: GLStuff -> WindowDims -> Texture -> V2 Int -> Int -> IO ()
+drawTexture :: (?writeLog :: String -> IO ()) => GLStuff -> WindowDims -> Texture -> V2 Int -> Int -> IO ()
 drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) scale = do
   glUseProgram quadShader
   glActiveTexture GL_TEXTURE0
@@ -1252,7 +1235,8 @@ setUpTrackView GLStuff{..} (WindowDims w h) = do
   sendUniformName objectShader "viewPos" viewPosn
 
 drawDrumPlayFull
-  :: GLStuff
+  :: (?writeLog :: String -> IO ())
+  => GLStuff
   -> WindowDims
   -> Double
   -> Double
@@ -1287,13 +1271,15 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
   drawNumber (gameCombo gps) (quot wWhole 2) 0
 
 drawTracks
-  :: GLStuff
+  :: (?writeLog :: String -> IO ())
+  => GLStuff
   -> WindowDims
   -> Double
   -> Double
   -> [PreviewTrack]
   -> IO ()
 drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks = do
+  ?writeLog "Starting a draw..."
   glBindFramebuffer GL_FRAMEBUFFER 0
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
   case C.view_background $ C.cfg_view gfxConfig of
@@ -1324,6 +1310,10 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
     case framebuffers of
       SimpleFramebuffer{..} -> do
 
+        -- probably not necessary but adding for AMD debugging
+        glBindTexture GL_TEXTURE_2D simpleFBOTex
+        glGenerateMipmap GL_TEXTURE_2D
+
         glBindFramebuffer GL_FRAMEBUFFER 0
         glClear GL_DEPTH_BUFFER_BIT
         glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
@@ -1338,12 +1328,18 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
           0 0 (fromIntegral w) (fromIntegral h)
           GL_COLOR_BUFFER_BIT GL_NEAREST
 
+        -- probably not necessary but adding for AMD debugging
+        glBindTexture GL_TEXTURE_2D intermediateFBOTex
+        glGenerateMipmap GL_TEXTURE_2D
+
         glBindFramebuffer GL_FRAMEBUFFER 0
         glClear GL_DEPTH_BUFFER_BIT
         glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
         drawTexture glStuff dims (Texture intermediateFBOTex w h) (V2 x y) 1
 
-checkGL :: (MonadIO m) => String -> m a -> m a
+  ?writeLog "Draw complete."
+
+checkGL :: (MonadIO m, ?writeLog :: String -> IO ()) => String -> m a -> m a
 checkGL s f = do
   void glGetError
   x <- f
@@ -1354,5 +1350,5 @@ checkGL s f = do
     GL_INVALID_OPERATION -> Just "Invalid operation"
     GL_OUT_OF_MEMORY     -> Just "Out of memory"
     _                    -> Just "Unknown error"
-  liftIO $ forM_ desc $ \err -> putStrLn $ s <> ": " <> err
+  liftIO $ ?writeLog $ s <> ": " <> maybe "ok" ("ERROR! " <>) desc
   return x

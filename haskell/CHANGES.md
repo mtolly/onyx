@@ -1,5 +1,9 @@
 # Version history
 
+## 20200428
+
+* Prerelease version
+
 ## 20200426
 
 * A new primary way of using Onyx, the "single song view", with several new
