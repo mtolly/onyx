@@ -35,12 +35,15 @@ parts:
       kicks: both
       difficulty: 7
   keys:
-    grybo: {} # WIP
+    grybo: {}
+    pro-keys: # WIP
+      difficulty: 7
   bass:
     grybo: {} # WIP
-    pro-guitar: # WIP
+    pro-guitar:
       tuning:
         base: bass-5
+      difficulty: 7
 targets:
   rb3:
     game: rb3
