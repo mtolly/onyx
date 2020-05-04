@@ -1720,6 +1720,15 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               saveMIDI out output
               liftIO $ writeFile parts $ show (diffs, vc)
 
+            dir </> "ps/expert+.mid" %> \out -> do
+              song <- shakeMIDI $ dir </> "ps/notes.mid"
+              saveMIDI out song
+                { RBFile.s_tracks = (RBFile.s_tracks song)
+                  { RBFile.fixedPartDrums = RBDrums.expertWith2x
+                    $ RBFile.fixedPartDrums $ RBFile.s_tracks song
+                  }
+                }
+
             dir </> "ps/video.avi" %> \out -> case ps_FileVideo ps of
               Nothing  -> fatal "requested Phase Shift video background, but target doesn't have one"
               Just vid -> shk $ copyFile' vid out
@@ -1865,6 +1874,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               shk $ need $ map (\f -> dir </> "ps" </> f) $ concat
                 -- TODO replace (/= def), should actually check whether the right PS play mode is present
                 [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
+                , ["expert+.mid"
+                  | maybe False ((/= Kicks1x) . drumsKicks)
+                  $ getPart (ps_Drums ps) songYaml >>= partDrums
+                  ]
                 , ["drums.ogg"   | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode == RBDrums.D0 && case plan of
                     Plan{..} -> HM.member (ps_Drums ps) $ getParts _planParts
                     _        -> True
