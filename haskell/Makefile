@@ -54,7 +54,7 @@ win:
 	./make-resources.sh win/onyx-resources
 	stack exec -- onyx-package changes
 	stack exec -- onyx-package version-write win/README.txt win/onyx-resources/README.txt
-	stack exec -- onyx-package dlls
+	stack exec -- onyx-package dlls win/onyx.exe
 	stack exec -- onyx-package nsis
 	"/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
 
