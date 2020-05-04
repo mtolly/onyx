@@ -52,7 +52,7 @@ main = getArgs >>= \case
               , SDL.windowHighDPI = False
               , SDL.windowInitialSize = SDL.V2 800 600
               , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
-                { SDL.glProfile = SDL.Core SDL.Normal 3 3
+                { SDL.glProfile = SDL.Core SDL.Debug 4 3
                 -- , SDL.glMultisampleSamples = 4
                 }
               }
@@ -66,18 +66,10 @@ main = getArgs >>= \case
       Left err -> throwIO err
       Right () -> return ()
 
-  [con] -> void $ runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
-    _ <- importSTFS 0 con Nothing dir
-    trks <- fmap (concat . previewTracks) $ loadTracks Nothing $ dir </> "notes.mid"
-    stackIO $ forM_ (zip [0..] trks) $ \(i, (name, _)) -> do
-      putStrLn $ show (i :: Int) <> ": " <> T.unpack name
-
-  con : strIndexes -> do
+  [con] -> do
     res <- runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
-      indexes <- forM strIndexes $ maybe (fatal "Invalid track number") return . readMaybe
       _ <- importSTFS 0 con Nothing dir
-      allTracks <- fmap (concat . previewTracks) $ loadTracks Nothing $ dir </> "notes.mid"
-      let trks = map (snd . (allTracks !!)) indexes
+      trks <- fmap (map snd . concat . map (take 1) . previewTracks) $ loadTracks Nothing $ dir </> "notes.mid"
       yml <- loadYaml $ dir </> "song.yml"
       (pans, vols) <- case HM.toList $ _plans (yml :: SongYaml FilePath) of
         [(_, MoggPlan{..})] -> return (map realToFrac _pans, map realToFrac _vols)
@@ -88,7 +80,7 @@ main = getArgs >>= \case
               , SDL.windowHighDPI = False
               , SDL.windowInitialSize = SDL.V2 800 600
               , SDL.windowGraphicsContext = SDL.OpenGLContext SDL.defaultOpenGL
-                { SDL.glProfile = SDL.Core SDL.Normal 3 3
+                { SDL.glProfile = SDL.Core SDL.Debug 4 3
                 -- , SDL.glMultisampleSamples = 4
                 }
               }
@@ -102,7 +94,7 @@ main = getArgs >>= \case
       Left err -> throwIO err
       Right () -> return ()
 
-  _ -> error "Usage: onyx-game song_rb3con [track_number]"
+  _ -> error "Drag a CON file onto this exe."
 
 data AppState = AppState
   { songTime       :: Milli

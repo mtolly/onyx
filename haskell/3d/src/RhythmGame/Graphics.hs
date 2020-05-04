@@ -28,7 +28,7 @@ import qualified Data.Vector                    as V
 import qualified Data.Vector.Storable           as VS
 import           Foreign                        hiding (void)
 import           Foreign.C
-import           Graphics.GL.Core33
+import           Graphics.GL.Core43
 import           Graphics.GL.Types
 import           Linear                         (M44, V2 (..), V3 (..), V4 (..),
                                                  (!*!))
@@ -42,7 +42,8 @@ import qualified RockBand.Codec.Drums           as D
 import qualified RockBand.Codec.Five            as F
 import           RockBand.Common                (StrumHOPOTap (..))
 import           System.Directory               (doesFileExist)
-import           System.FilePath                ((<.>), (</>))
+import           System.FilePath                ((<.>), (</>), takeDirectory)
+import           System.Environment    (getExecutablePath)
 
 data Object
   = Box
@@ -889,7 +890,16 @@ loadGLStuff = do
   glEnable GL_DEPTH_TEST
   glEnable GL_CULL_FACE -- default CCW = front
   glEnable GL_BLEND
+  glEnable GL_DEBUG_OUTPUT
+  glEnable GL_DEBUG_OUTPUT_SYNCHRONOUS -- required to not crash on windows!
   glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+
+  logfile <- ((</> "log.txt") . takeDirectory) <$> stackIO getExecutablePath
+  stackIO $ appendFile logfile "Start of GL debug log.\n"
+  proc <- stackIO $ mkGLDEBUGPROC $ \vsrc vtype vid vsev vlen vmsg vuser -> do
+    str <- peekCStringLen (vmsg, fromIntegral vlen)
+    appendFile logfile $ show (vsrc, vtype, vid, vsev, str, vuser) <> "\n"
+  glDebugMessageCallback proc nullPtr
 
   -- format of the Vertex type
   let vertexParts =
@@ -1351,6 +1361,8 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
         drawTextureFade glStuff dims (Texture intermediateFBOTex w h) (V2 x y) 1
 
 checkGL :: (MonadIO m) => String -> m a -> m a
+checkGL _ f = f
+{-
 checkGL s f = do
   void glGetError
   x <- f
@@ -1363,3 +1375,4 @@ checkGL s f = do
     _                    -> Just "Unknown error"
   liftIO $ forM_ desc $ \err -> putStrLn $ s <> ": " <> err
   return x
+-}
