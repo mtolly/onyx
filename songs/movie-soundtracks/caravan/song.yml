@@ -35,11 +35,15 @@ parts:
       tuning:
         base: bass-4
       difficulty: 5
+    grybo:
+      difficulty: 5
   guitar:
     grybo:
       difficulty: 5
   keys:
     pro-keys:
+      difficulty: 5
+    grybo:
       difficulty: 5
 targets:
   rb3:
