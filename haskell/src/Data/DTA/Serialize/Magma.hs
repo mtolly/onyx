@@ -29,13 +29,13 @@ instance StackChunks Metadata where
   stackChunks = asStrictAssoc "Metadata" $ do
     songName     <- songName     =. req "song_name"     (single chunkString)
     artistName   <- artistName   =. req "artist_name"   (single chunkString)
-    genre        <- genre        =. req "genre"         (single chunkKey)
-    subGenre     <- subGenre     =. req "sub_genre"     (single chunkKey)
+    genre        <- genre        =. req "genre"         (single chunkSym)
+    subGenre     <- subGenre     =. req "sub_genre"     (single chunkSym)
     yearReleased <- yearReleased =. req "year_released" stackChunks
     albumName    <- albumName    =. req "album_name"    (single chunkString)
     author       <- author       =. req "author"        (single chunkString)
     releaseLabel <- releaseLabel =. req "release_label" (single chunkString)
-    country      <- country      =. req "country"       (single chunkKey)
+    country      <- country      =. req "country"       (single chunkSym)
     price        <- price        =. req "price"         stackChunks
     trackNumber  <- trackNumber  =. req "track_number"  stackChunks
     hasAlbum     <- hasAlbum     =. req "has_album"     stackChunks
@@ -126,10 +126,10 @@ data DrumLayout
 
 instance StackChunk DrumLayout where
   stackChunk = enumCodec "DrumLayout" $ \case
-    Kit          -> Key "drum_layout_kit"
-    KitSnare     -> Key "drum_layout_kit_snare"
-    KitKick      -> Key "drum_layout_kit_kick"
-    KitKickSnare -> Key "drum_layout_kit_kick_snare"
+    Kit          -> Sym "drum_layout_kit"
+    KitSnare     -> Sym "drum_layout_kit_snare"
+    KitKick      -> Sym "drum_layout_kit_kick"
+    KitKickSnare -> Sym "drum_layout_kit_kick_snare"
 instance StackChunks DrumLayout
 
 data Tracks = Tracks
@@ -165,9 +165,9 @@ data Percussion
 
 instance StackChunk Percussion where
   stackChunk = enumCodec "Percussion" $ \case
-    Tambourine -> Key "tambourine"
-    Cowbell    -> Key "cowbell"
-    Handclap   -> Key "handclap"
+    Tambourine -> Sym "tambourine"
+    Cowbell    -> Sym "cowbell"
+    Handclap   -> Sym "handclap"
 instance StackChunks Percussion
 
 data Gender = Male | Female
@@ -175,8 +175,8 @@ data Gender = Male | Female
 
 instance StackChunk Gender where
   stackChunk = enumCodec "Gender" $ \case
-    Male   -> Key "male"
-    Female -> Key "female"
+    Male   -> Sym "male"
+    Female -> Sym "female"
 instance StackChunks Gender
 
 data Languages = Languages

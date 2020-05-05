@@ -740,7 +740,7 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
         , c3dtaAuthoredBy   = case extra of
           D.DTA _ (D.Tree _ [D.Parens (D.Tree _
             ( D.String "backend"
-            : D.Parens (D.Tree _ [D.Key "author", D.String s])
+            : D.Parens (D.Tree _ [D.Sym "author", D.String s])
             : _
             ))])
             -> Just s
@@ -789,7 +789,7 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
   let author = case extra of
         D.DTA _ (D.Tree _ [D.Parens (D.Tree _
           ( D.String "backend"
-          : D.Parens (D.Tree _ [D.Key "author", D.String s])
+          : D.Parens (D.Tree _ [D.Sym "author", D.String s])
           : _
           ))])
           -> Just s
@@ -1251,7 +1251,7 @@ importMagma fin dir = do
   let readTuning c3fn k = case c3 >>= c3fn of
         Nothing -> return Nothing
         Just tune -> errorToWarning (scanStack tune >>= parseStack) >>= \case
-          Just (D.DTA _ (D.Tree _ [D.Parens (D.Tree _ [D.Key k', D.Parens (D.Tree _ mints)])])) | k == k' ->
+          Just (D.DTA _ (D.Tree _ [D.Parens (D.Tree _ [D.Sym k', D.Parens (D.Tree _ mints)])])) | k == k' ->
             case mapM (\case D.Int i -> Just $ fromIntegral i; _ -> Nothing) mints of
               Just ints -> return $ Just ints
               Nothing   -> warn "Non-integer value in tuning" >> return Nothing

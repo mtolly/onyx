@@ -80,7 +80,7 @@ parseEvent = \case
   [Str "A", Int i] -> return $ Anchor $ MkFixed i
   Str "E" : rest -> return $ Event $ T.unwords $ map atomStr rest
   [Str "N", Int fret, Int len] -> Note fret <$> readTicks len
-  [Str "S", Int stype, Int len] -> Stream stype <$> readTicks len
+  [Str "S", Int stype, Int len] -> Special stype <$> readTicks len
   atoms -> fatal $ "Unrecognized track event: " <> show atoms
 
 parseChart :: (Monad m) => [RawSection] -> StackTraceT m (Chart Ticks)
@@ -215,14 +215,14 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       hopoThreshold = 65/192 -- default threshold according to moonscraper
       eachEvent evt parseNote = case evt of
         Note n len -> parseNote n len
-        Stream n len -> let
+        Special n len -> let
           len' = if len == 0 then 1/4 else len -- I guess S 2 0 means "instant SP phrase"?
           in case n of
             0 -> return $ Just $ TrackP1 len'
             1 -> return $ Just $ TrackP2 len'
             2 -> return $ Just $ TrackOD len'
             _ -> do
-              warn $ "Unrecognized stream type: S " <> show n <> " " <> show len
+              warn $ "Unrecognized special type: S " <> show n <> " " <> show len
               return Nothing
         Event "solo"    -> return $ Just $ TrackSolo True
         Event "soloend" -> return $ Just $ TrackSolo False

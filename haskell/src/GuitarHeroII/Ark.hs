@@ -38,18 +38,18 @@ detectGameGH gen = withArk gen $ \ark -> do
 -- | Replaces a song in Guitar Hero II (U).
 replaceSong
   :: FilePath -- ^ the @GEN@ folder containing ark and hdr files
-  -> B.ByteString -- ^ the folder name (and DTB key) of the song to replace
+  -> B.ByteString -- ^ the folder name (and DTB symbol) of the song to replace
   -> [D.Chunk B.ByteString] -- ^ the DTB snippet to insert into @config\/gen\/songs.dtb@
   -> [(B.ByteString, FilePath)] -- ^ the files to copy into the song folder, e.g. @("yyz.mid", "some/dir/notes.mid")@
   -> IO ()
-replaceSong gen key snippet files = withArk gen $ \ark -> do
+replaceSong gen sym snippet files = withArk gen $ \ark -> do
   withSystemTempFile "songs.dtb" $ \fdtb hdl -> do
     IO.hClose hdl
     ark_GetFile' ark fdtb "config/gen/songs.dtb" True
     D.DTA z (D.Tree _ chunks) <- D.readFileDTB fdtb
     let adjust chunk = case chunk of
-          D.Parens (D.Tree _ (D.Key k : _)) | k == key ->
-            D.Parens $ D.Tree 0 $ D.Key k : map adjustSnippet snippet
+          D.Parens (D.Tree _ (D.Sym k : _)) | k == sym ->
+            D.Parens $ D.Tree 0 $ D.Sym k : map adjustSnippet snippet
           _ -> chunk
         adjustSnippet = \case
           D.String s -> D.String $ adjustString s
@@ -59,15 +59,15 @@ replaceSong gen key snippet files = withArk gen $ \ark -> do
           chunk -> chunk
         adjustTree (D.Tree tid cks) = D.Tree tid $ map adjustSnippet cks
         adjustString str = case B.breakSubstring "$SONGKEY" str of
-          (h, t) | not $ B.null t -> adjustString $ h <> key <> B.drop 8 t
+          (h, t) | not $ B.null t -> adjustString $ h <> sym <> B.drop 8 t
           _                       -> str
     D.writeFileDTB fdtb $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 $ map adjust chunks
     ark_ReplaceAFile' ark fdtb "config/gen/songs.dtb" True
-    entries <- searchFiles ark $ "songs/" <> key <> "/*"
+    entries <- searchFiles ark $ "songs/" <> sym <> "/*"
     forM_ entries $ \entry -> do
       name <- ark_Arkname entry
       ark_RemoveFile' ark name
     forM_ files $ \(arkName, localPath) -> do
-      let arkPath = "songs/" <> key <> "/" <> arkName
+      let arkPath = "songs/" <> sym <> "/" <> arkName
       ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
     ark_Save' ark

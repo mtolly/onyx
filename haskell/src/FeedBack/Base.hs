@@ -28,7 +28,7 @@ data Event t
   | Anchor Micro
   | Event T.Text
   | Note Integer t
-  | Stream Integer t
+  | Special Integer t
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 data Chart t = Chart

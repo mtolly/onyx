@@ -29,7 +29,7 @@ data Song = Song
 instance StackChunks Song where
   stackChunks = asWarnAssoc "Song" $ do
     songName      <- songName      =. req         "name"           (single chunkString)
-    tracks        <- tracks        =. req         "tracks"         (chunksParens $ chunksDict chunkKey channelList)
+    tracks        <- tracks        =. req         "tracks"         (chunksParens $ chunksDict chunkSym channelList)
     pans          <- pans          =. req         "pans"           (chunksParens stackChunks)
     vols          <- vols          =. req         "vols"           (chunksParens stackChunks)
     cores         <- cores         =. req         "cores"          (chunksParens stackChunks)
@@ -51,7 +51,7 @@ data CharacterOutfit
   deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk CharacterOutfit where
-  stackChunk = enumCodec "CharacterOutfit" $ Key . reprPrefix "Char_"
+  stackChunk = enumCodec "CharacterOutfit" $ Sym . reprPrefix "Char_"
 instance StackChunks CharacterOutfit
 
 data Guitar
@@ -61,7 +61,7 @@ data Guitar
   deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk Guitar where
-  stackChunk = enumCodec "Guitar" $ Key . reprPrefix "Guitar_"
+  stackChunk = enumCodec "Guitar" $ Sym . reprPrefix "Guitar_"
 instance StackChunks Guitar
 
 data Venue
@@ -75,7 +75,7 @@ data Venue
   deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk Venue where
-  stackChunk = enumCodec "Venue" $ Key . reprPrefix "Venue_"
+  stackChunk = enumCodec "Venue" $ Sym . reprPrefix "Venue_"
 instance StackChunks Venue
 
 data Quickplay = Quickplay
@@ -99,7 +99,7 @@ data BandMember
   deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk BandMember where
-  stackChunk = enumCodec "BandMember" $ Key . \case
+  stackChunk = enumCodec "BandMember" $ Sym . \case
     MetalBass     -> "metal_bass"
     MetalDrummer  -> "metal_drummer"
     MetalKeyboard -> "metal_keyboard"
@@ -126,7 +126,7 @@ instance StackChunks SongPackage where
   stackChunks = asWarnAssoc "SongPackage" $ do
     name           <- name           =. req         "name"            (single chunkString)
     artist         <- artist         =. req         "artist"          (single chunkString)
-    caption        <- caption        =. opt Nothing "caption"         (chunksMaybe $ single chunkKey)
+    caption        <- caption        =. opt Nothing "caption"         (chunksMaybe $ single chunkSym)
     song           <- song           =. req         "song"            stackChunks
     animTempo      <- animTempo      =. req         "anim_tempo"      stackChunks
     preview        <- preview        =. req         "preview"         stackChunks

@@ -1506,7 +1506,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                               , D.extraAuthoring = Nothing
                               , D.alternatePath = Nothing
                               }
-                        liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : makeValue D.stackChunks newDTA))]
+                        liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Sym pkg : makeValue D.stackChunks newDTA))]
                   rb2DTA %> \out -> do
                     shk $ need [rb2OriginalDTA, pathDta]
                     (_, magmaDTA, _) <- readRB3DTA rb2OriginalDTA

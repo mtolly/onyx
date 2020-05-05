@@ -40,7 +40,7 @@ data Character
   deriving (Eq, Show, Enum, Bounded)
 
 instance StackChunk Character where
-  stackChunk = enumCodec "Character" $ Key . reprPrefix "Char_"
+  stackChunk = enumCodec "Character" $ Sym . reprPrefix "Char_"
 instance StackChunks Character
 
 data Guitar
@@ -50,7 +50,7 @@ data Guitar
   deriving (Eq, Show, Enum, Bounded)
 
 instance StackChunk Guitar where
-  stackChunk = enumCodec "Guitar" $ Key . reprPrefix "Guitar_"
+  stackChunk = enumCodec "Guitar" $ Sym . reprPrefix "Guitar_"
 instance StackChunks Guitar
 
 data Venue
@@ -63,7 +63,7 @@ data Venue
   deriving (Eq, Show, Enum, Bounded)
 
 instance StackChunk Venue where
-  stackChunk = enumCodec "Venue" $ Key . reprPrefix "Venue_"
+  stackChunk = enumCodec "Venue" $ Sym . reprPrefix "Venue_"
 instance StackChunks Venue
 
 data Quickplay = Quickplay
@@ -87,7 +87,7 @@ data BandMember
   deriving (Eq, Show, Enum, Bounded)
 
 instance StackChunk BandMember where
-  stackChunk = enumCodec "BandMember" $ Key . T.pack . show
+  stackChunk = enumCodec "BandMember" $ Sym . T.pack . show
 instance StackChunks BandMember
 
 data SongPackage = SongPackage

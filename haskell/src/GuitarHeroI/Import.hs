@@ -50,7 +50,7 @@ getSongList gen = do
         D.Parens _ -> True
         _          -> False
   fmap D.fromDictList
-    $ D.unserialize (D.chunksDictList D.chunkKey D.stackChunks)
+    $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
     $ editDTB $ fmap decodeLatin1 $ dtb
 
 importGH1 :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> FilePath -> StackTraceT m ()
