@@ -899,6 +899,7 @@ loadGLStuff = do
   proc <- stackIO $ mkGLDEBUGPROC $ \vsrc vtype vid vsev vlen vmsg vuser -> do
     str <- peekCStringLen (vmsg, fromIntegral vlen)
     appendFile logfile $ show (vsrc, vtype, vid, vsev, str, vuser) <> "\n"
+  glDebugMessageControl GL_DONT_CARE GL_DONT_CARE GL_DONT_CARE 0 nullPtr GL_TRUE
   glDebugMessageCallback proc nullPtr
 
   -- format of the Vertex type
