@@ -44,6 +44,7 @@ import           RockBand.Common                (StrumHOPOTap (..))
 import           System.Directory               (doesFileExist)
 import           System.FilePath                ((<.>), (</>), takeDirectory)
 import           System.Environment    (getExecutablePath)
+import Data.Time (getCurrentTime)
 
 data Object
   = Box
@@ -897,8 +898,9 @@ loadGLStuff = do
   logfile <- ((</> "log.txt") . takeDirectory) <$> stackIO getExecutablePath
   stackIO $ appendFile logfile "Start of GL debug log.\n"
   proc <- stackIO $ mkGLDEBUGPROC $ \vsrc vtype vid vsev vlen vmsg vuser -> do
+    time <- getCurrentTime
     str <- peekCStringLen (vmsg, fromIntegral vlen)
-    appendFile logfile $ show (vsrc, vtype, vid, vsev, str, vuser) <> "\n"
+    appendFile logfile $ show (time, vsrc, vtype, vid, vsev, str, vuser) <> "\n"
   glDebugMessageControl GL_DONT_CARE GL_DONT_CARE GL_DONT_CARE 0 nullPtr GL_TRUE
   glDebugMessageCallback proc nullPtr
 
