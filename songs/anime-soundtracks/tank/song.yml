@@ -39,6 +39,8 @@ parts:
       tuning:
         base: bass-4
       difficulty: 4
+    grybo:
+      difficulty: 4
   drums:
     drums:
       kicks: 1

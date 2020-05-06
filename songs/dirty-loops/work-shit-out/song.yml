@@ -39,6 +39,10 @@ parts:
   vocal:
     vocal:
       count: 2
+      difficulty: 7
+  keys:
+    pro-keys: # just needs wrapping/ranges
+      difficulty: 7
 targets:
   rb3:
     game: rb3

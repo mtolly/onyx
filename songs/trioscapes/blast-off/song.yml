@@ -40,7 +40,7 @@ parts:
     pro-keys:
       difficulty: 7
   bass:
-    grybo: # WIP
+    grybo:
       difficulty: 6
     pro-guitar:
       tuning:
