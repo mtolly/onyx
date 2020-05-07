@@ -15,9 +15,11 @@ parts:
       difficulty: 7
       kicks: both
   bass:
-    pro-guitar:
+    pro-guitar: # WIP
       tuning:
         base: bass-5
+  keys:
+    pro-keys: {} # WIP
 audio:
   album-track:
     md5: c29cb13351c0d8cbbc0f2f29453af5e1

@@ -41,13 +41,10 @@ parts:
       count: 2
       difficulty: 7
   keys:
-    pro-keys: # just needs wrapping/ranges
+    pro-keys:
       difficulty: 7
 targets:
   rb3:
     game: rb3
-  rb3-2x:
-    game: rb3
-    2x-bass-pedal: true
   ps:
     game: ps
