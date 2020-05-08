@@ -466,4 +466,5 @@ expertWith2x dt = let
     }
   in dt
     { drumDifficulties = add2x $ drumDifficulties dt
+    , drumKick2x = RTB.empty
     }
