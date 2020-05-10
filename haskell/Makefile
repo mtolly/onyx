@@ -1,4 +1,4 @@
-.PHONY: usage install-resources mac mac-deps win win-deps docker linux ubuntu-deps arch-deps ghci
+.PHONY: usage install-resources mac mac-deps win win-game win-deps docker linux ubuntu-deps arch-deps ghci
 SHELL=/bin/bash
 
 usage:
@@ -57,6 +57,16 @@ win:
 	stack exec -- onyx-package dlls win/onyx.exe
 	stack exec -- onyx-package nsis
 	"/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
+
+win-game:
+	stack build onyx-game
+	rm -rf win-game/
+	mkdir win-game/
+	stack exec which onyx-game | xargs -I{} cp {} win-game/
+	cp /mingw64/bin/*.dll win-game/
+	stack exec strip win-game/onyx-game.exe
+	./make-resources.sh win-game/onyx-resources
+	stack exec -- onyx-package dlls win-game/onyx-game.exe
 
 win-deps:
 	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-openal mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-rubberband mingw-w64-x86_64-mpg123 wget tar unzip zip man autoconf automake
