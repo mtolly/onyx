@@ -12,7 +12,8 @@ import           Paths_onyxite_customs_tool (version)
 import           System.Directory           (listDirectory, removeFile)
 import           System.Environment         (getArgs)
 import           System.Exit                (exitFailure)
-import           System.FilePath            (takeExtension, (</>), takeFileName, takeDirectory)
+import           System.FilePath            (takeDirectory, takeExtension,
+                                             takeFileName, (</>))
 import           System.IO                  (hPutStrLn, stderr)
 import           System.Process             (readProcess)
 
