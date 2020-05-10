@@ -29,9 +29,10 @@ parts:
       difficulty: 7
       tuning:
         base: bass-4
-    grybo: # TODO edit some parts to match pro
+    grybo:
       difficulty: 5
-      # by 2DHumanity, from Anti Hero (1)
+      # original by 2DHumanity, from Anti Hero (1)
+      # some edits by Onyxite
   drums:
     drums:
       difficulty: 5
@@ -40,9 +41,9 @@ parts:
   keys:
     pro-keys:
       difficulty: 5
-    grybo: # WIP
+    grybo:
       difficulty: 5
-      # intro section by 2DHumanity
+      # piano riff (intro + later) from 2DHumanity's chart
 targets:
   rb3:
     game: rb3

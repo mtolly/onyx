@@ -12,7 +12,8 @@ import           Paths_onyxite_customs_tool (version)
 import           System.Directory           (listDirectory, removeFile)
 import           System.Environment         (getArgs)
 import           System.Exit                (exitFailure)
-import           System.FilePath            (takeExtension, (</>))
+import           System.FilePath            (takeDirectory, takeExtension,
+                                             takeFileName, (</>))
 import           System.IO                  (hPutStrLn, stderr)
 import           System.Process             (readProcess)
 
@@ -47,13 +48,14 @@ main = getArgs >>= \args -> case args of
         $ T.replace "_ONYXDATE_" (T.pack date)
         $ T.replace "_ONYXVERSION_" versionString txt
 
-  ["dlls"] -> do
+  ["dlls", exe] -> do
 
     -- Find which .dll files Onyx requires, delete the others
-    let go (obj : objs) dlls = if Set.member obj dlls
+    let dir = takeDirectory exe
+        go (obj : objs) dlls = if Set.member obj dlls
           then go objs dlls
           else do
-            lns <- readProcess "ldd" ["win/" <> obj] ""
+            lns <- readProcess "ldd" [dir </> obj] ""
             let objdlls
                   = map T.unpack
                   $ concatMap (take 1 . T.words)
@@ -61,10 +63,10 @@ main = getArgs >>= \args -> case args of
                   $ T.lines $ T.pack lns
             go (objs ++ objdlls) (Set.insert obj dlls)
         go [] dlls = return dlls
-    dlls <- go ["onyx.exe"] Set.empty
-    alldlls <- filter ((== ".dll") . takeExtension) <$> listDirectory "win"
+    dlls <- go [takeFileName exe] Set.empty
+    alldlls <- filter ((== ".dll") . takeExtension) <$> listDirectory dir
     forM_ (filter (`Set.notMember` dlls) alldlls) $ \dll -> do
-      removeFile $ "win" </> dll
+      removeFile $ dir </> dll
 
   ["nsis"] -> writeFile "installer.nsi" $ nsis $ do
 

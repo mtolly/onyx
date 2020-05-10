@@ -75,12 +75,12 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
       | t2 - t1 <= 0.25 && isAligned 0.5 t1 && not (not (isOD t1) && isOD t2)
       -> (t1, GuitarNote cols Strum $ Just $ len + t2 - t1) : disgrace rest
     x : xs -> x : disgrace xs
-  -- Step: simplify 3-note chords and GO chords (or GB and RO chords on medium)
+  -- Step: simplify 3-note (or more) chords and GO chords (or GB and RO chords on medium)
   gnotes3 = flip fmap gnotes2 $ \(GuitarNote cols ntype len) -> let
     cols' = case diff of
       Expert -> cols
       Hard   -> case cols of
-        [_, _, _] -> case (minimum cols, maximum cols) of
+        _ : _ : _ : _ -> case (minimum cols, maximum cols) of
           (Five.Green, Five.Orange) -> [Five.Green, Five.Blue]
           (mincol, maxcol)          -> [mincol, maxcol]
         [Five.Green, Five.Orange] -> [Five.Green, Five.Blue]

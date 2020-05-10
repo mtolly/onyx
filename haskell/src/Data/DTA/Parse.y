@@ -17,7 +17,7 @@ import Control.Monad.Trans.StackTrace (StackTraceT, fatal, inside)
   int { (_, L.Int _) }
   float { (_, L.Float _) }
   var { (_, L.Var _) }
-  key { (_, L.Key _) }
+  sym { (_, L.Sym _) }
   unhandled { (_, L.Unhandled) }
   ifdef { (_, L.IfDef) }
   else { (_, L.Else) }
@@ -46,19 +46,19 @@ Subtree : Chunks { Tree 0 (map snd $1) }
 Chunk : int { fmap (\(L.Int x) -> Int x) $1 }
       | float { fmap (\(L.Float x) -> Float x) $1 }
       | var { fmap (\(L.Var x) -> Var x) $1 }
-      | key { fmap (\(L.Key x) -> Key x) $1 }
+      | sym { fmap (\(L.Sym x) -> Sym x) $1 }
       | unhandled { fmap (const Unhandled) $1 }
-      | ifdef key { fmap (\(L.Key x) -> IfDef x) $2 }
+      | ifdef sym { fmap (\(L.Sym x) -> IfDef x) $2 }
       | else { fmap (const Else) $1 }
       | endif { fmap (const EndIf) $1 }
       | '(' Subtree ')' { fmap (const (Parens $2)) $1 }
       | '{' Subtree '}' { fmap (const (Braces $2)) $1 }
       | string { fmap (\(L.String x) -> String x) $1 }
       | '[' Subtree ']' { fmap (const (Brackets $2)) $1 }
-      | define key { fmap (\(L.Key x) -> Define x) $2 }
-      | include key { fmap (\(L.Key x) -> Include x) $2 }
-      | merge key { fmap (\(L.Key x) -> Merge x) $2 }
-      | ifndef key { fmap (\(L.Key x) -> IfNDef x) $2 }
+      | define sym { fmap (\(L.Sym x) -> Define x) $2 }
+      | include sym { fmap (\(L.Sym x) -> Include x) $2 }
+      | merge sym { fmap (\(L.Sym x) -> Merge x) $2 }
+      | ifndef sym { fmap (\(L.Sym x) -> IfNDef x) $2 }
 
 {
 

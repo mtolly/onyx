@@ -53,10 +53,10 @@ getSongList gen = do
         D.Parens tree -> not $ any isIgnore $ D.treeChunks tree
         _             -> False
       isIgnore = \case
-        D.Parens (D.Tree _ [D.Key "validate_ignore", D.Key "TRUE"]) -> True
+        D.Parens (D.Tree _ [D.Sym "validate_ignore", D.Sym "TRUE"]) -> True
         _                                                           -> False
   fmap D.fromDictList
-    $ D.unserialize (D.chunksDictList D.chunkKey D.stackChunks)
+    $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
     $ editDTB $ fmap decodeLatin1 $ dtb
 
 getImports :: [(T.Text, SongPackage)] -> [(T.Text, (ImportMode, SongPackage))]

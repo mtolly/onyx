@@ -458,3 +458,13 @@ autoDrumAnimation closeTime pro = let
     AnimRide     -> Ride hand
   kicks = RTB.mapMaybe (\case Kick -> Just KickRF; _ -> Nothing) pro
   in RTB.merge kicks $ makeAnimations $ applySticking Nothing hands
+
+expertWith2x :: (NNC.C t) => DrumTrack t -> DrumTrack t
+expertWith2x dt = let
+  add2x = flip Map.adjust Expert $ \dd -> dd
+    { drumGems = RTB.merge (drumGems dd) $ Kick <$ drumKick2x dt
+    }
+  in dt
+    { drumDifficulties = add2x $ drumDifficulties dt
+    , drumKick2x = RTB.empty
+    }

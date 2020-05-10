@@ -10,7 +10,7 @@ These instructions also expect the web player to be built. If you don't want to 
 
 ## Steps
 
-1. `pacman -Syy` and `pacman -Syu` to make sure MSYS2 is updated
+1. `stack exec -- pacman -Syy` and `stack exec -- pacman -Syu` to make sure MSYS2 is updated
 
 2. Install `make` with `stack exec -- pacman -Sy make`
 

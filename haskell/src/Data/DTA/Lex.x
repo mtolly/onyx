@@ -38,15 +38,15 @@ $white+ ;
 -- Variable names.
 \$ (. # $white # [ \( \) \{ \} \[ \] ])+ { emit $ Var . T.pack . tail }
 
--- This reserved word needs to come before the general keyword rule.
+-- This reserved word needs to come before the general symbol rule.
 "kDataUnhandled" { emit $ const Unhandled }
 -- Quoted strings.
 \" ([^\"] | \n)* \" { emit $ String . T.pack . readString }
--- Quoted keywords.
-' ([^'] | \\')* ' { emit $ Key . T.pack . readKey }
--- Raw keywords. Note: these can start with digits, like "3sand7s", as long as
+-- Quoted symbols.
+' ([^'] | \\')* ' { emit $ Sym . T.pack . readSym }
+-- Raw symbols. Note: these can start with digits, like "3sand7s", as long as
 -- they also have letters in them.
-(. # $white # [ \( \) \{ \} \[ \] ])+ { emit $ Key . T.pack }
+(. # $white # [ \( \) \{ \} \[ \] ])+ { emit $ Sym . T.pack }
 
 -- Subtrees.
 \( { emit $ const LParen }
@@ -65,7 +65,7 @@ data Token s
   = Int Int32
   | Float Float
   | Var s
-  | Key s
+  | Sym s
   | Unhandled
   | IfDef
   | Else
@@ -84,8 +84,8 @@ data Token s
   deriving (Eq, Ord, Show, Read)
 
 -- | Reads a single-quoted string, by converting it to a double-quoted one.
-readKey :: String -> String
-readKey = readString . go where
+readSym :: String -> String
+readSym = readString . go where
   go ('\'':xs) = '"' : go xs        -- string begin/end -> double-quote
   go ('"':xs) = '\\' : 'q' : go xs  -- double-quote gets encoded as \q
   go ('\\':x:xs) = '\\' : x : go xs -- any escaped char can remain escaped

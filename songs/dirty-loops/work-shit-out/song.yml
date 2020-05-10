@@ -29,21 +29,26 @@ plans:
 parts:
   drums:
     drums:
-      kicks: both
+      kicks: 1 # LOL good luck
       difficulty: 7
   bass:
     pro-guitar:
       difficulty: 7
       tuning:
         base: bass-6
+    grybo:
+      difficulty: 6
   vocal:
     vocal:
       count: 2
+      difficulty: 7
+  keys:
+    pro-keys:
+      difficulty: 7
+    grybo:
+      difficulty: 7
 targets:
   rb3:
     game: rb3
-  rb3-2x:
-    game: rb3
-    2x-bass-pedal: true
   ps:
     game: ps

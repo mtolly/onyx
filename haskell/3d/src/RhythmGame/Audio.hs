@@ -1,7 +1,10 @@
 {-# LANGUAGE GADTs           #-}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
-module RhythmGame.Audio (projectAudio, withAL, AudioHandle(..)) where
+module RhythmGame.Audio
+( projectAudio, withAL, AudioHandle(..)
+, withMOGG, oggSecsSpeed, playSource
+) where
 
 import           Audio
 import           AudioSearch

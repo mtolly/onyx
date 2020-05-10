@@ -3334,6 +3334,24 @@ launchGUI = withAL $ \hasAudio -> do
                     in mapM_ $ findRootWindow . FL.safeCast
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
+              , ( "Help/Readme"
+                , Nothing
+                , Just $ sink $ EventIO $ do
+                    getResourcesPath "README.txt" >>= osOpenFile
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
+              , ( "Help/Update history"
+                , Nothing
+                , Just $ sink $ EventIO $ do
+                    getResourcesPath "CHANGES.txt" >>= osOpenFile
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
+              , ( "Help/License"
+                , Nothing
+                , Just $ sink $ EventIO $ do
+                    getResourcesPath "LICENSE.txt" >>= osOpenFile
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
               ] ++ do
                 guard includeConsole
                 return

@@ -20,6 +20,7 @@ extra-deps:
 - ArkTool/
 - kakasi/
 - gamecube-dsp/
+- ww2ogg/
 # git repos
 - git: git://github.com/mtolly/midi
   commit: 66a49fe08bd941322061fc812f0eab6bac68c6f9

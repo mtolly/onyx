@@ -19,6 +19,7 @@ usage:
 install-resources:
 	./make-resources.sh $(HOME)/.local/bin/onyx-resources
 	cp -R rb3-updates $(HOME)/.local/bin/onyx-resources/
+	stack exec -- onyx-package version-write $(HOME)/.local/bin/onyx-resources/README.txt
 
 mac:
 	rm -rf Onyx.app/Contents/MacOS/*
@@ -34,7 +35,7 @@ mac:
 	cp README.md mac/README.txt
 	cp CHANGES.md mac/CHANGES.txt
 	stack exec -- onyx-package changes
-	stack exec -- onyx-package version-write mac/Onyx.app/Contents/Info.plist mac/README.txt
+	stack exec -- onyx-package version-write mac/Onyx.app/Contents/Info.plist mac/README.txt mac/Onyx.app/Contents/MacOS/onyx-resources/README.txt
 	stack exec -- onyx-package version-print | ./mac-package.sh
 
 mac-deps:
@@ -52,13 +53,13 @@ win:
 	cp CHANGES.md win/CHANGES.txt
 	./make-resources.sh win/onyx-resources
 	stack exec -- onyx-package changes
-	stack exec -- onyx-package version-write win/README.txt
-	stack exec -- onyx-package dlls
+	stack exec -- onyx-package version-write win/README.txt win/onyx-resources/README.txt
+	stack exec -- onyx-package dlls win/onyx.exe
 	stack exec -- onyx-package nsis
 	"/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
 
 win-deps:
-	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-rubberband mingw-w64-x86_64-mpg123 wget tar unzip zip man autoconf automake
+	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-openal mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-rubberband mingw-w64-x86_64-mpg123 wget tar unzip zip man autoconf automake
 
 icon/icon.o:
 	stack exec -- windres -i icon/icon.rc icon/icon.o
@@ -76,7 +77,7 @@ docker:
 	cp icon/icon.png Onyx.AppDir/usr/share/icons/hicolor/256x256/apps/onyx.png
 	cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
 	stack --docker --docker-image=onyxite/onyx exec -- onyx-package changes
-	stack --docker --docker-image=onyxite/onyx exec -- onyx-package version-write Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml
+	stack --docker --docker-image=onyxite/onyx exec -- onyx-package version-write Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/bin/onyx-resources/README.txt
 	stack --docker --docker-image=onyxite/onyx exec -- onyx-package version-print \
 		| xargs -I{} docker run -v $(shell pwd):/mnt onyxite/onyx bash -c \
 			'cd /mnt && env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage'
@@ -94,7 +95,7 @@ linux:
 	cp icon/icon.png Onyx.AppDir/usr/share/icons/hicolor/256x256/apps/onyx.png
 	cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
 	stack exec -- onyx-package changes
-	stack exec -- onyx-package version-write Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml
+	stack exec -- onyx-package version-write Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/bin/onyx-resources/README.txt
 	stack exec -- onyx-package version-print \
 		| xargs -I{} env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
 

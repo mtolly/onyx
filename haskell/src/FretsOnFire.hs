@@ -97,6 +97,7 @@ instance Default Song where
 -- which are supported by CH in metadata, lyrics, and sections.
 stripTags :: T.Text -> T.Text
 stripTags = let
+  -- TODO also remove <size=3></size>
   simple = ["<b>", "</b>", "<i>", "</i>", "</color>"]
   go "" = ""
   go s@(c:cs) = case mapMaybe (`stripPrefix` s) simple of

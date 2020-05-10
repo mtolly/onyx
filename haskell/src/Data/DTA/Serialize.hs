@@ -90,34 +90,34 @@ instance StackChunk Bool where
     , codecIn = lift ask >>= \case
       Int 1       -> return True
       Int 0       -> return False
-      Key "TRUE"  -> return True
-      Key "FALSE" -> return False
-      Braces (Tree _ [Key "==", Var "SONG_VERSION", Int 0]) -> return False
+      Sym "TRUE"  -> return True
+      Sym "FALSE" -> return False
+      Braces (Tree _ [Sym "==", Var "SONG_VERSION", Int 0]) -> return False
       -- so we can parse (fake {== $SONG_VERSION 0})
-      Braces (Tree _ [Key ">", Var "SONG_VERSION", Int 0]) -> return True
+      Braces (Tree _ [Sym ">", Var "SONG_VERSION", Int 0]) -> return True
       -- so we can parse (downloaded {> $SONG_VERSION 0})
       _ -> expected "bool"
     }
 instance StackChunks Bool
 
--- | Allows a string or key as input, and outputs to a string.
+-- | Allows a string or symbol as input, and outputs to a string.
 chunkString :: (Monad m) => ChunkCodec m T.Text
 chunkString = Codec
   { codecOut = makeOut String
   , codecIn = lift ask >>= \case
-    Key    s -> return s
+    Sym    s -> return s
     String s -> return s
     _        -> expected "string"
   }
 
--- | Allows a string or key as input, and outputs to a key.
-chunkKey :: (Monad m) => ChunkCodec m T.Text
-chunkKey = Codec
-  { codecOut = makeOut Key
+-- | Allows a string or symbol as input, and outputs to a symbol.
+chunkSym :: (Monad m) => ChunkCodec m T.Text
+chunkSym = Codec
+  { codecOut = makeOut Sym
   , codecIn = lift ask >>= \case
-    Key    s -> return s
+    Sym    s -> return s
     String s -> return s
-    _     -> expected "keyword"
+    _     -> expected "symbol"
   }
 
 instance StackChunk T.Text where
@@ -149,7 +149,7 @@ chunksDictList ck cv = Codec
       k' <- inside "parsing dict key" $ parseFrom k $ codecIn ck
       v' <- inside ("dict key " ++ show k) $ parseFrom chunks' $ codecIn cv
       return (k', v')
-    _ -> expected "a key-value pair (parenthesized list starting with a key)"
+    _ -> expected "a key-value pair (parenthesized list starting with a symbol)"
   }
 
 instance (Eq k, StackChunk k, StackChunks a) => StackChunks (DictList k a) where
@@ -201,7 +201,7 @@ asAssoc err codec = Codec
     let f = withReaderT (const $ Map.fromList $ fromDictList obj) . mapReaderT (`evalStateT` Set.empty)
     mapStackTraceT f $ codecIn codec
   , codecOut = fmapArg $ void . codecOut cdc . DictList . makeObject codec
-  } where cdc = chunksDictList chunkKey identityCodec
+  } where cdc = chunksDictList chunkSym identityCodec
 
 asStrictAssoc :: (Monad m) => T.Text -> ObjectCodec m [Chunk T.Text] a -> ChunksCodec m a
 asStrictAssoc err codec = asAssoc err Codec

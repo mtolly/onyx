@@ -26,9 +26,9 @@ data AnimTempo = KTempoSlow | KTempoMedium | KTempoFast
 
 instance StackChunk AnimTempo where
   stackChunk = enumCodec "AnimTempo" $ \case
-    KTempoSlow   -> Key "kTempoSlow"
-    KTempoMedium -> Key "kTempoMedium"
-    KTempoFast   -> Key "kTempoFast"
+    KTempoSlow   -> Sym "kTempoSlow"
+    KTempoMedium -> Sym "kTempoMedium"
+    KTempoFast   -> Sym "kTempoFast"
 instance StackChunks AnimTempo
 
 newtype DrumSounds = DrumSounds
@@ -37,7 +37,7 @@ newtype DrumSounds = DrumSounds
 
 instance StackChunks DrumSounds where
   stackChunks = asWarnAssoc "DrumSounds" $ do
-    seqs <- seqs =. req "seqs" (chunksParens $ chunksList chunkKey)
+    seqs <- seqs =. req "seqs" (chunksParens $ chunksList chunkSym)
     return DrumSounds{..}
 
 channelList :: (SendMessage m) => ChunksCodec m [Integer]
@@ -71,7 +71,7 @@ instance StackChunks Song where
   stackChunks = asWarnAssoc "Song" $ do
     songName         <- songName         =. req         "name"               (single chunkString)
     tracksCount      <- tracksCount      =. opt Nothing "tracks_count"       (chunksMaybe $ chunksParens stackChunks)
-    tracks           <- tracks           =. req         "tracks"             (chunksParens $ chunksDictList chunkKey channelList)
+    tracks           <- tracks           =. req         "tracks"             (chunksParens $ chunksDictList chunkSym channelList)
     pans             <- pans             =. req         "pans"               (chunksParens stackChunks)
     vols             <- vols             =. req         "vols"               (chunksParens stackChunks)
     cores            <- cores            =. req         "cores"              (chunksParens stackChunks)
@@ -143,25 +143,25 @@ instance StackChunks SongPackage where
     song              <- song              =. req         "song"                stackChunks
     songScrollSpeed   <- songScrollSpeed   =. req         "song_scroll_speed"   stackChunks
     bank              <- bank              =. opt Nothing "bank"                stackChunks
-    drumBank          <- drumBank          =. opt Nothing "drum_bank"           (chunksMaybe $ single chunkKey) -- this has to be output as a key for C3
+    drumBank          <- drumBank          =. opt Nothing "drum_bank"           (chunksMaybe $ single chunkSym) -- this has to be output as a symbol for C3
     animTempo         <- animTempo         =. req         "anim_tempo"          stackChunks
     songLength        <- songLength        =. opt Nothing "song_length"         stackChunks
     preview           <- preview           =. req         "preview"             stackChunks
-    rank              <- rank              =. req         "rank"                (chunksDict chunkKey stackChunks)
-    genre             <- genre             =. req         "genre"               (single chunkKey)
+    rank              <- rank              =. req         "rank"                (chunksDict chunkSym stackChunks)
+    genre             <- genre             =. req         "genre"               (single chunkSym)
     vocalGender       <- vocalGender       =. opt Nothing "vocal_gender"        stackChunks
     version           <- version           =. req         "version"             stackChunks
     songFormat        <- songFormat        =. req         "format"              stackChunks
     albumArt          <- albumArt          =. opt Nothing "album_art"           stackChunks
     yearReleased      <- yearReleased      =. req         "year_released"       stackChunks
     rating            <- rating            =. fill 4      "rating"              stackChunks -- 4 is Unrated
-    subGenre          <- subGenre          =. opt Nothing "sub_genre"           (chunksMaybe $ single chunkKey)
-    songId            <- songId            =. opt Nothing "song_id"             (chunksMaybe $ eitherCodec stackChunks $ single chunkKey)
-    solo              <- solo              =. opt Nothing "solo"                (chunksMaybe $ chunksParens $ chunksList chunkKey)
+    subGenre          <- subGenre          =. opt Nothing "sub_genre"           (chunksMaybe $ single chunkSym)
+    songId            <- songId            =. opt Nothing "song_id"             (chunksMaybe $ eitherCodec stackChunks $ single chunkSym)
+    solo              <- solo              =. opt Nothing "solo"                (chunksMaybe $ chunksParens $ chunksList chunkSym)
     tuningOffsetCents <- tuningOffsetCents =. opt Nothing "tuning_offset_cents" stackChunks
     guidePitchVolume  <- guidePitchVolume  =. opt Nothing "guide_pitch_volume"  stackChunks
-    gameOrigin        <- gameOrigin        =. opt Nothing "game_origin"         (chunksMaybe $ single chunkKey)
-    encoding          <- encoding          =. opt Nothing "encoding"            (chunksMaybe $ single chunkKey)
+    gameOrigin        <- gameOrigin        =. opt Nothing "game_origin"         (chunksMaybe $ single chunkSym)
+    encoding          <- encoding          =. opt Nothing "encoding"            (chunksMaybe $ single chunkSym)
     albumName         <- albumName         =. opt Nothing "album_name"          (chunksMaybe $ single chunkString)
     albumTrackNumber  <- albumTrackNumber  =. opt Nothing "album_track_number"  stackChunks
     vocalTonicNote    <- vocalTonicNote    =. opt Nothing "vocal_tonic_note"    (chunksMaybe $ single chunkTonicNote)
@@ -179,9 +179,9 @@ instance StackChunks SongPackage where
     songKey           <- songKey           =. opt Nothing "song_key"            (chunksMaybe $ single chunkTonicNote)
     extraAuthoring    <- extraAuthoring    =. opt Nothing "extra_authoring"     stackChunks
     context           <- context           =. opt Nothing "context"             stackChunks
-    decade            <- decade            =. opt Nothing "decade"              (chunksMaybe $ single chunkKey)
+    decade            <- decade            =. opt Nothing "decade"              (chunksMaybe $ single chunkSym)
     downloaded        <- downloaded        =. opt Nothing "downloaded"          stackChunks
     basePoints        <- basePoints        =. opt Nothing "base_points"         stackChunks
     alternatePath     <- alternatePath     =. opt Nothing "alternate_path"      stackChunks
-    videoVenues       <- videoVenues       =. opt Nothing "video_venues"        (chunksMaybe $ chunksParens $ chunksList chunkKey)
+    videoVenues       <- videoVenues       =. opt Nothing "video_venues"        (chunksMaybe $ chunksParens $ chunksList chunkSym)
     return SongPackage{..}

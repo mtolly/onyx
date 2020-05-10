@@ -1,7 +1,6 @@
 module Rocksmith.Crypt where
 
 import           Codec.Compression.Zlib (decompress)
-import           Control.Monad.Fail     (MonadFail)
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
@@ -25,7 +24,7 @@ unpackSNG plat fp = do
     _   -> return $ B.drop 8 bs
   return $ decompress $ BL.fromStrict $ B.drop 4 bs'
 
-sngKeyMac, sngKeyPC :: B.ByteString
+sngKeyMac, sngKeyPC, arcKey, arcIV :: B.ByteString
 sngKeyMac = B.pack
   [ 0x98, 0x21, 0x33, 0x0E, 0x34, 0xB9, 0x1F, 0x70
   , 0xD0, 0xA4, 0x8C, 0xBD, 0x62, 0x59, 0x93, 0x12
@@ -38,6 +37,16 @@ sngKeyPC = B.pack
   , 0x17, 0x1C, 0xCA, 0x5D, 0x2A, 0x14, 0x2E, 0x3E
   , 0x59, 0xDE, 0x7A, 0xDD, 0xA1, 0x8A, 0x3A, 0x30
   ]
+arcKey = B.pack
+  [ 0xC5, 0x3D, 0xB2, 0x38, 0x70, 0xA1, 0xA2, 0xF7
+  , 0x1C, 0xAE, 0x64, 0x06, 0x1F, 0xDD, 0x0E, 0x11
+  , 0x57, 0x30, 0x9D, 0xC8, 0x52, 0x04, 0xD4, 0xC5
+  , 0xBF, 0xDF, 0x25, 0x09, 0x0D, 0xF2, 0x57, 0x2C
+  ]
+arcIV = B.pack
+  [ 0xE9, 0x15, 0xAA, 0x01, 0x8F, 0xEF, 0x71, 0xFC
+  , 0x50, 0x81, 0x32, 0xE4, 0xBB, 0x4C, 0xEB, 0x42
+  ]
 
 decryptSNGData :: (MonadFail m) => B.ByteString -> B.ByteString -> m B.ByteString
 decryptSNGData input key = do
@@ -48,3 +57,11 @@ decryptSNGData input key = do
     return $ return $ makeIV iv
   CryptoPassed cipher <- return $ cipherInit key
   return $ cfbDecrypt (cipher :: AES256) iv $ B.drop 24 input
+
+decryptPSARCTable :: (MonadFail m) => B.ByteString -> m B.ByteString
+decryptPSARCTable input = do
+  cipher <- case cipherInit arcKey of
+    CryptoPassed cipher -> return cipher
+    CryptoFailed err    -> fail $ show err
+  Just iv <- return $ makeIV arcIV
+  return $ cfbDecrypt (cipher :: AES256) iv input

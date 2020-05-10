@@ -1159,8 +1159,16 @@ deleteGLStuff GLStuff{..} = liftIO $ do
 
 data WindowDims = WindowDims Int Int
 
+drawTextureFade :: (?writeLog :: String -> IO ()) => GLStuff -> WindowDims -> Texture -> V2 Int -> Int -> IO ()
+drawTextureFade glstuff = drawTexture' glstuff $ let
+  fade = C.view_track_fade $ C.cfg_view $ gfxConfig glstuff
+  in (C.tf_bottom fade, C.tf_top fade)
+
 drawTexture :: (?writeLog :: String -> IO ()) => GLStuff -> WindowDims -> Texture -> V2 Int -> Int -> IO ()
-drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) scale = do
+drawTexture glstuff = drawTexture' glstuff (1, 1)
+
+drawTexture' :: (?writeLog :: String -> IO ()) => GLStuff -> (Float, Float) -> WindowDims -> Texture -> V2 Int -> Int -> IO ()
+drawTexture' GLStuff{..} (fadeBottom, fadeTop) (WindowDims screenW screenH) (Texture tex w h) (V2 x y) scale = do
   glUseProgram quadShader
   glActiveTexture GL_TEXTURE0
   checkGL "glBindTexture" $ glBindTexture GL_TEXTURE_2D tex
@@ -1177,9 +1185,8 @@ drawTexture GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) (V2 x y) 
   sendUniformName quadShader "inResolution" $ V2
     (fromIntegral (w * scale) :: Float)
     (fromIntegral (h * scale) :: Float)
-  let fade = C.view_track_fade $ C.cfg_view gfxConfig
-  sendUniformName quadShader "startFade" (C.tf_bottom fade)
-  sendUniformName quadShader "endFade" (C.tf_top fade)
+  sendUniformName quadShader "startFade" fadeBottom
+  sendUniformName quadShader "endFade" fadeTop
   sendUniformName quadShader "doFXAA" $ C.view_fxaa $ C.cfg_view gfxConfig
   checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
@@ -1317,7 +1324,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
         glBindFramebuffer GL_FRAMEBUFFER 0
         glClear GL_DEPTH_BUFFER_BIT
         glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-        drawTexture glStuff dims (Texture simpleFBOTex w h) (V2 x y) 1
+        drawTextureFade glStuff dims (Texture simpleFBOTex w h) (V2 x y) 1
 
       MSAAFramebuffers{..} -> do
 
@@ -1335,7 +1342,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
         glBindFramebuffer GL_FRAMEBUFFER 0
         glClear GL_DEPTH_BUFFER_BIT
         glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-        drawTexture glStuff dims (Texture intermediateFBOTex w h) (V2 x y) 1
+        drawTextureFade glStuff dims (Texture intermediateFBOTex w h) (V2 x y) 1
 
   ?writeLog "Draw complete."
 

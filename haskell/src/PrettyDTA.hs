@@ -86,27 +86,27 @@ data DTASingle = DTASingle
 fixTracksCount :: [D.Chunk T.Text] -> [D.Chunk T.Text]
 fixTracksCount = map findSong where
   findSong = \case
-    D.Parens (D.Tree w (D.Key "song" : rest)) ->
-      D.Parens (D.Tree w (D.Key "song" : map findTracksCount rest))
+    D.Parens (D.Tree w (D.Sym "song" : rest)) ->
+      D.Parens (D.Tree w (D.Sym "song" : map findTracksCount rest))
     x -> x
   findTracksCount = \case
     D.Parens (D.Tree w [D.Parens (D.Tree w2 nums)]) ->
-      D.Parens $ D.Tree w [D.Key "tracks_count", D.Parens $ D.Tree w2 nums]
+      D.Parens $ D.Tree w [D.Sym "tracks_count", D.Parens $ D.Tree w2 nums]
     x -> x
 
 -- | Remove keys which were moved or renamed in RB3.
 -- The correct versions are added by missing_song_data.dta
 removeOldDTAKeys :: [D.Chunk T.Text] -> [D.Chunk T.Text]
 removeOldDTAKeys = filter $ \case
-  D.Parens (D.Tree _ (D.Key "hopo_threshold" : _)) -> False -- Aesthetics of Hate. it should be under 'song'
-  D.Parens (D.Tree _ (D.Key "tuning_offset"  : _)) -> False -- in a few songs. changed to 'tuning_offset_cents'
+  D.Parens (D.Tree _ (D.Sym "hopo_threshold" : _)) -> False -- Aesthetics of Hate. it should be under 'song'
+  D.Parens (D.Tree _ (D.Sym "tuning_offset"  : _)) -> False -- in a few songs. changed to 'tuning_offset_cents'
   _                                                -> True
 
 missingMapping :: Map.HashMap T.Text [D.Chunk T.Text]
 missingMapping = case missingSongData of
   D.DTA _ (D.Tree _ chunks) -> let
     getPair = \case
-      D.Parens (D.Tree _ (D.Key k : rest)) -> (k, rest)
+      D.Parens (D.Tree _ (D.Sym k : rest)) -> (k, rest)
       _ -> error "panic! missing_song_data not in expected format"
     in Map.fromList $ map getPair chunks
 
@@ -114,11 +114,11 @@ missingMapping = case missingSongData of
 applyUpdate :: [D.Chunk T.Text] -> [D.Chunk T.Text] -> [D.Chunk T.Text]
 applyUpdate original update = let
   getSong = partitionMaybe $ \case
-    D.Parens (D.Tree _ (D.Key "song" : s)) -> Just s
+    D.Parens (D.Tree _ (D.Sym "song" : s)) -> Just s
     _ -> Nothing
   (originalSong, untouched) = getSong original
   (songUpdate, otherUpdate) = getSong update
-  newSong = D.Parens $ D.Tree 0 $ D.Key "song" : concat (originalSong ++ songUpdate)
+  newSong = D.Parens $ D.Tree 0 $ D.Sym "song" : concat (originalSong ++ songUpdate)
   in newSong : (untouched ++ otherUpdate)
 
 readC3Comments :: T.Text -> C3DTAComments
@@ -151,7 +151,7 @@ readDTASingles bs = do
   forM (zip [1..] songs) $ \(i, (bytes, chunk)) -> do
     inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") $ do
       let readTextChunk = \case
-            D.Parens (D.Tree _ (D.Key k : chunks)) -> do
+            D.Parens (D.Tree _ (D.Sym k : chunks)) -> do
               let missingChunks = fromMaybe [] $ Map.lookup k missingMapping
               pkg <- unserialize stackChunks $ D.DTA 0 $ D.Tree 0
                 $ removeOldDTAKeys $ fixTracksCount $ applyUpdate chunks missingChunks
@@ -205,7 +205,7 @@ writeC3Comments C3DTAComments{..} = execWriter $ do
 
 prettyDTA :: T.Text -> D.SongPackage -> C3DTAComments -> T.Text
 prettyDTA name pkg c3 = let
-  dta = D.DTA 0 $ D.Tree 0 [D.Parens $ D.Tree 0 $ D.Key name : makeValue stackChunks pkg]
+  dta = D.DTA 0 $ D.Tree 0 [D.Parens $ D.Tree 0 $ D.Sym name : makeValue stackChunks pkg]
   dtaLines = filter (T.any $ not . isSpace) $ T.lines $ D.showDTA dta
   c3Lines = writeC3Comments c3
   in T.unlines $ case reverse dtaLines of

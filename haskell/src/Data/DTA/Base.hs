@@ -42,7 +42,7 @@ data Chunk s
   = Int Int32
   | Float Float
   | Var s
-  | Key s
+  | Sym s
   | Unhandled
   | IfDef s
   | Else
@@ -82,7 +82,7 @@ instance Binary (Chunk B.ByteString) where
     Int i       -> putWord32le 0x0  >> putWord32le (fromIntegral i)
     Float f     -> putWord32le 0x1  >> putFloatle f
     Var b       -> putWord32le 0x2  >> putLenStr b
-    Key b       -> putWord32le 0x5  >> putLenStr b
+    Sym b       -> putWord32le 0x5  >> putLenStr b
     Unhandled   -> putWord32le 0x6  >> putWord32le 0
     IfDef b     -> putWord32le 0x7  >> putLenStr b
     Else        -> putWord32le 0x8  >> putWord32le 0
@@ -99,7 +99,7 @@ instance Binary (Chunk B.ByteString) where
     0x0  -> Int . fromIntegral <$> getWord32le
     0x1  -> Float <$> getFloatle
     0x2  -> Var <$> getLenStr
-    0x5  -> Key <$> getLenStr
+    0x5  -> Sym <$> getLenStr
     0x6  -> skip 4 >> return Unhandled
     0x7  -> IfDef <$> getLenStr
     0x8  -> skip 4 >> return Else

@@ -84,6 +84,7 @@ library:
   - ArkTool
   - kakasi
   - gamecube-dsp
+  - ww2ogg
 
   ghc-options: -O
   build-tools:
