@@ -924,7 +924,9 @@ loadGLStuff = do
           glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
         writeParts 0 0 vertexParts
         glBindVertexArray 0
-        withArrayLen [vbo] $ glDeleteBuffers . fromIntegral
+        -- commented out line worked on all platforms except AMD on Windows,
+        -- where it breaks drawing and causes out of memory errors (???)
+        -- withArrayLen [vbo] $ glDeleteBuffers . fromIntegral
         return RenderObject
           { objVAO         = vao
           , objVertexCount = fromIntegral $ length vertices
@@ -969,7 +971,8 @@ loadGLStuff = do
   sendUniformName quadShader "inTexture" (0 :: GLint)
   let quadObject = RenderObject quadVAO $ fromIntegral $ length quadIndices
   glBindVertexArray 0
-  stackIO $ withArrayLen [quadVBO, quadEBO] $ glDeleteBuffers . fromIntegral
+  -- see note in loadObject
+  -- stackIO $ withArrayLen [quadVBO, quadEBO] $ glDeleteBuffers . fromIntegral
 
   -- textures
 
