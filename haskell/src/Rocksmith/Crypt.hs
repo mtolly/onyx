@@ -51,7 +51,7 @@ arcIV = B.pack
 decryptSNGData :: (MonadFail m) => B.ByteString -> B.ByteString -> m B.ByteString
 decryptSNGData input key = do
   Just iv <- flip runGet (BL.fromStrict input) $ do
-    0x4A <- getWord32be
+    _4A <- getWord32be -- 0x4A either little or big endian
     _platform <- getWord32be
     iv <- getByteString 16
     return $ return $ makeIV iv

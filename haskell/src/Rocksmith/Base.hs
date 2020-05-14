@@ -321,16 +321,11 @@ data Arrangement = Arrangement
   } deriving (Eq, Show)
 
 plural' :: (SendMessage m, IsInside a) => T.Text -> T.Text -> InsideCodec m [a]
-plural' many one = childTag many $ parseInside' $ countList $ isTag one $ parseInside' insideCodec
-
-pluralOpt' :: (SendMessage m, IsInside a) => T.Text -> T.Text -> InsideCodec m (Maybe [a])
-pluralOpt' many one = childTagOpt many $ parseInside' $ countList $ isTag one $ parseInside' insideCodec
+plural' many one = dimap (\xs -> guard (not $ null xs) >> Just xs) (fromMaybe [])
+  $ childTagOpt many $ parseInside' $ countList $ isTag one $ parseInside' insideCodec
 
 plural :: (SendMessage m, IsInside a) => T.Text -> InsideCodec m [a]
 plural one = plural' (one <> "s") one
-
-pluralOpt :: (SendMessage m, IsInside a) => T.Text -> InsideCodec m (Maybe [a])
-pluralOpt one = pluralOpt' (one <> "s") one
 
 instance IsInside Arrangement where
   insideCodec = do
@@ -377,7 +372,7 @@ data PhraseIteration = PhraseIteration
   { pi_time       :: U.Seconds
   , pi_phraseId   :: Int
   , pi_variation  :: T.Text -- only seen empty, dunno what this is
-  , pi_heroLevels :: Maybe [HeroLevel]
+  , pi_heroLevels :: [HeroLevel]
   } deriving (Eq, Show)
 
 instance IsInside PhraseIteration where
@@ -385,7 +380,7 @@ instance IsInside PhraseIteration where
     pi_time       <- pi_time       =. seconds (reqAttr "time")
     pi_phraseId   <- pi_phraseId   =. intText (reqAttr "phraseId")
     pi_variation  <- pi_variation  =. reqAttr "variation"
-    pi_heroLevels <- pi_heroLevels =. pluralOpt "heroLevel"
+    pi_heroLevels <- pi_heroLevels =. plural "heroLevel"
     return PhraseIteration{..}
 
 data HeroLevel = HeroLevel
@@ -494,7 +489,7 @@ data Note = Note
   , n_accent         :: Bool
   , n_linkNext       :: Bool
   , n_bend           :: Maybe Int
-  , n_bendValues     :: Maybe [BendValue]
+  , n_bendValues     :: [BendValue]
   , n_harmonicPinch  :: Bool
   , n_leftHand       :: Maybe Int -- only in chordNote
   } deriving (Eq, Show)
@@ -549,7 +544,7 @@ instance IsInside Note where
     n_accent         <- n_accent         =. flag "accent"
     n_linkNext       <- n_linkNext       =. flag "linkNext"
     n_bend           <- n_bend           =. zoomValue (maybeValue intValue) (optAttr "bend")
-    n_bendValues     <- n_bendValues     =. pluralOpt "bendValue"
+    n_bendValues     <- n_bendValues     =. plural "bendValue"
     n_harmonicPinch  <- n_harmonicPinch  =. flag "harmonicPinch"
     n_leftHand       <- n_leftHand       =. zoomValue (maybeValue intValue) (optAttr "leftHand")
     return Note{..}
