@@ -1,5 +1,12 @@
 # Version history
 
+## 20200513
+
+* Fix 3D preview not displaying in AMD graphics cards on Windows
+* Fix a crash when auto reductions tried to handle more-than-3-note chords
+* Make readme, license, and update history available from menu
+* Include `expert+.mid` in CH/PS output
+
 ## 20200426
 
 * A new primary way of using Onyx, the "single song view", with several new
