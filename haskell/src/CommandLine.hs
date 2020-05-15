@@ -74,6 +74,7 @@ import           RockBand.Codec.Vocal             (nullVox)
 import           RockBand.Common                  (Difficulty (..),
                                                    pattern RNil, pattern Wait,
                                                    makeEdgeCPV)
+import qualified RockBand.IOS                     as IOS
 import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    beatlesLipsync,
                                                    englishVowels,
@@ -962,6 +963,21 @@ commands =
     , commandRun = \args _opts -> do
       mapM_ blackVenue args
       return args
+    }
+
+  , Command
+    { commandWord = "rbios"
+    , commandDesc = "Decrypt the contents of a Rock Band iOS or Reloaded song."
+    , commandUsage = "onyx rbios song.blob ..."
+    , commandRun = \args _opts -> fmap concat $ forM args $ \arg -> stackIO $ do
+      dec <- IOS.decodeBlob arg
+      (blob, dats) <- IOS.loadBlob arg
+      let blobDec = arg <.> "dec"
+          blobTxt = arg <.> "txt"
+      B.writeFile blobDec dec
+      writeFile blobTxt $ show blob
+      forM_ dats $ \(fout, bs) -> B.writeFile fout bs
+      return $ blobDec : blobTxt : fmap fst dats
     }
 
   ]
