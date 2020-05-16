@@ -55,6 +55,7 @@ import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Data.Word                        (Word32)
 import           GuitarHeroII.Audio               (readVGS)
+import           GuitarHeroIOS                    (extractIGA)
 import qualified Image
 import           Import
 import           Magma                            (getRBAFile, runMagma,
@@ -966,18 +967,21 @@ commands =
     }
 
   , Command
-    { commandWord = "rbios"
-    , commandDesc = "Decrypt the contents of a Rock Band iOS or Reloaded song."
-    , commandUsage = "onyx rbios song.blob ..."
-    , commandRun = \args _opts -> fmap concat $ forM args $ \arg -> stackIO $ do
-      dec <- IOS.decodeBlob arg
-      (blob, dats) <- IOS.loadBlob arg
-      let blobDec = arg <.> "dec"
-          blobTxt = arg <.> "txt"
-      B.writeFile blobDec dec
-      writeFile blobTxt $ show blob
-      forM_ dats $ \(fout, bs) -> B.writeFile fout bs
-      return $ blobDec : blobTxt : fmap fst dats
+    { commandWord = "ios"
+    , commandDesc = "Extract the contents of a Rock Band iOS, Rock Band Reloaded, or Guitar Hero iOS song."
+    , commandUsage = "onyx ios [song.blob|song.iga] ..."
+    , commandRun = \args _opts -> fmap concat $ forM args $ \arg -> case takeExtension arg of
+      ".blob" -> stackIO $ do
+        dec <- IOS.decodeBlob arg
+        (blob, dats) <- IOS.loadBlob arg
+        let blobDec = arg <.> "dec"
+            blobTxt = arg <.> "txt"
+        B.writeFile blobDec dec
+        writeFile blobTxt $ show blob
+        forM_ dats $ \(fout, bs) -> B.writeFile fout bs
+        return $ blobDec : blobTxt : fmap fst dats
+      ".iga" -> stackIO $ extractIGA arg
+      _ -> fatal $ "Unrecognized iOS game file extension: " <> arg
     }
 
   ]
