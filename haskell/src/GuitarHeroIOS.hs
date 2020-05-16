@@ -1,6 +1,6 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections   #-}
 module GuitarHeroIOS where
 
 import qualified Codec.Compression.Zlib.Raw as Raw
@@ -62,37 +62,36 @@ loadIGA f = do
       sliceFile name (offset, len, compression) = if compression == -1
         then return (name, BL.fromStrict $ B.take (fromIntegral len) $ B.drop (fromIntegral offset) bs)
         else let
-          jumpToData = BL.fromStrict $ B.drop (fromIntegral offset) bs
-          compressed = runGet (getWord16be >>= getLazyByteString . fromIntegral) jumpToData
-          uncompressed = Raw.decompress compressed
-          in do
-            -- print (name, BL.length uncompressed, len, compression)
-            name' <- if BL.length uncompressed /= fromIntegral len
-              then do
-                -- putStrLn "Size mismatch!"
-                return $ name <> ".truncated"
-              else return name
-            return (name', uncompressed)
+          decodeFrom offset' len' = print (name, offset', len', compression) >> let
+            jumpToData = BL.fromStrict $ B.drop (fromIntegral offset') bs
+            compressedLength = runGet getWord16be jumpToData
+            compressed = runGet (skip 2 >> getLazyByteString (fromIntegral compressedLength)) jumpToData
+            uncompressed = Raw.decompress compressed
+            gotFromThisBlock = fromIntegral $ BL.length uncompressed
+            in case compare gotFromThisBlock (fromIntegral len') of
+              EQ -> do
+                putStrLn "File complete!"
+                return uncompressed
+              LT -> do
+                -- we jump to the next 0x800 boundary after the data we uncompressed
+                let newOffset = offset' + case 2 + fromIntegral compressedLength of
+                      0x800 -> 0x800
+                      x     -> (quot x 0x800 + 1) * 0x800
+                (uncompressed <>) <$> decodeFrom newOffset (len' - gotFromThisBlock)
+              GT -> do
+                let totalDecoded = len + (gotFromThisBlock - len')
+                putStrLn $ unwords
+                  [ "Size mismatch! Expected"
+                  , show len
+                  , "bytes but uncompressed"
+                  , show totalDecoded
+                  , "for file"
+                  , show name
+                  ]
+                return uncompressed
+          in (name,) <$> decodeFrom offset len
   contents <- sequence $ zipWith sliceFile names $ igaFiles header
   return (header, contents)
-
-{-
--- decompresses raw deflate stream, but ignores "input ended prematurely" error
-rawTruncate :: BL.ByteString -> BL.ByteString
-rawTruncate bs = runST $ let
-  go input = \case
-    Z.DecompressInputRequired f              -> case input of
-      []     -> f B.empty >>= go []
-      x : xs -> f x       >>= go xs
-    Z.DecompressOutputAvailable out getNext  -> do
-      next <- getNext
-      (BL.fromStrict out <>) <$> go input next
-    Z.DecompressStreamEnd _unread            -> return BL.empty
-    Z.DecompressStreamError Z.TruncatedInput -> return BL.empty
-    Z.DecompressStreamError err              ->
-      error $ ".iga deflate decompression error: " <> show err
-  in go (BL.toChunks bs) $ Z.decompressST Z.rawFormat Z.defaultDecompressParams
--}
 
 extractIGA :: FilePath -> IO [FilePath]
 extractIGA f = do
