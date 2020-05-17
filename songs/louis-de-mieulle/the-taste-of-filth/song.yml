@@ -18,8 +18,10 @@ parts:
     pro-guitar: # WIP
       tuning:
         base: bass-5
+      difficulty: 7
   keys:
-    pro-keys: {} # WIP
+    pro-keys:
+      difficulty: 7
 audio:
   album-track:
     md5: c29cb13351c0d8cbbc0f2f29453af5e1

@@ -14,6 +14,23 @@ import           System.Directory           (createDirectoryIfMissing)
 import           System.FilePath            (dropExtension, takeDirectory,
                                              (-<.>), (</>))
 
+{-
+Most of the .iga format is the same as described in http://wiki.xentax.com/index.php/Madagascar:_Escape_2_Africa
+The one difference is where it says "Padding (-1)", in GH files that's only -1 for the .track files.
+All other files are compressed via raw DEFLATE format, and they have a zero or positive number in that location.
+
+To decompress a file, jump to its location and perform the following:
+
+1. read 2 bytes, big endian
+2. read that many bytes, decompress into data via DEFLATE
+3. if you need more bytes to get to the stated uncompressed size,
+  jump to the next 0x800-divisible location (after the data you read), and repeat
+
+Other sources for later versions of the format (supporting LZMA instead of DEFLATE):
+https://github.com/KillzXGaming/Switch-Toolbox/blob/e5bb9fa/File_Format_Library/FileFormats/CrashBandicoot/IGA_PAK.cs
+http://aluigi.altervista.org/bms/marvel_ultimate_alliance_2.bms
+-}
+
 data IGAHeader = IGAHeader
   { igaMagic                   :: Word32 -- 49 47 41 1A, but little endian
   , igaVersion                 :: Word32 -- xentax says 2 but GH uses 4
