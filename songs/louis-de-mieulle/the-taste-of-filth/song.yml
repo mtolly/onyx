@@ -15,7 +15,7 @@ parts:
       difficulty: 7
       kicks: both
   bass:
-    pro-guitar: # WIP
+    pro-guitar:
       tuning:
         base: bass-5
       difficulty: 7
