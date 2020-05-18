@@ -15,12 +15,16 @@ parts:
       difficulty: 7
       kicks: both
   bass:
+    grybo:
+      difficulty: 6
     pro-guitar:
       tuning:
         base: bass-5
       difficulty: 7
   keys:
     pro-keys:
+      difficulty: 7
+    grybo:
       difficulty: 7
 audio:
   album-track:
