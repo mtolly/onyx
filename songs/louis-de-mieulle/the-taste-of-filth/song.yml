@@ -9,6 +9,7 @@ metadata:
   subgenre: contemporary
   file-album-art: ../../../covers/defense-mechanisms.jpg
   preview-start: prc_odd_riff_2
+  key: D minor # uhhhh in some parts
 parts:
   drums:
     drums:
