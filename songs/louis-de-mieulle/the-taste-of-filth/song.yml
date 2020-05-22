@@ -10,6 +10,7 @@ metadata:
   file-album-art: ../../../covers/defense-mechanisms.jpg
   preview-start: prc_odd_riff_2
   key: D minor # uhhhh in some parts
+  difficulty: 7
 parts:
   drums:
     drums:
@@ -48,3 +49,5 @@ targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+  ps:
+    game: ps

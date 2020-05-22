@@ -8,6 +8,7 @@ metadata:
   genre: jazz
   subgenre: contemporary
   year: 2007
+  difficulty: 7
 audio:
   youtube:
     commands:
@@ -19,6 +20,7 @@ audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
+  # TODO final audio should use youtube + a slight drum-removed album track
   youtube:
     countin:
       &countin
@@ -57,4 +59,7 @@ parts:
 targets:
   rb3:
     game: rb3
+    plan: youtube
+  ps:
+    game: ps
     plan: youtube

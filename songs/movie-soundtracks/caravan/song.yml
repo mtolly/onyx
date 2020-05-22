@@ -7,6 +7,8 @@ metadata:
   year: 2014
   track-number: 6
   file-album-art: cover.jpg
+  difficulty: 7
+  key: C major
 audio:
   youtube:
     commands:

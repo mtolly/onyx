@@ -7,6 +7,8 @@ metadata:
   subgenre: fusion
   year: 2014
   file-album-art: cover.jpg
+  difficulty: 6
+  key: C major # in parts
 audio:
   album-track:
     md5: 334138d7d819e018ae5dde458a06b0dc

@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/nes-jams.yml
   track-number: 3
   author: Onyxite
+  difficulty: 7
 audio:
   album:
     md5: da860ab369d4e070e14081a0918d09ff
@@ -29,12 +30,16 @@ parts:
   drums:
     drums:
       kicks: 2
+      difficulty: 7
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 6
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 7
   rhythm:
-    grybo: {}
+    grybo:
+      difficulty: 7
 targets:
   rb3:
     game: rb3

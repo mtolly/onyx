@@ -8,6 +8,8 @@ metadata:
   genre: jazz
   subgenre: contemporary
   file-album-art: cover.jpg
+  difficulty: 5
+  key: C minor
 audio:
   album-track:
     # remastered (2014)
