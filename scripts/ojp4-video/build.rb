@@ -1,34 +1,5 @@
 #!/usr/bin/env ruby
 
-# video start times
-
-# alien lair CH = 6.111
-# blast off CH = 3.703
-# one for antonio CH = 3.801
-# sequence start CH = 4.143
-# the taste of filth CH = 5.446
-# work shit out CH = 5.190
-
-# alien lair RB = 2.476
-# blast off RB = 5.138
-# caravan RB = 5.000
-# one for antonio RB = 5.404
-# sequence start RB = 3.670
-# tank RB = 4.140
-# the taste of filth RB = 4.870
-# work shit out RB = 2.270
-
-# [end] times
-
-# one for antonio = 9:06.084
-# tank = 3:33.388
-# work shit out = 7:53.379
-# blast off = 5:34.807
-# alien lair = 3:10.373
-# the taste of filth = 11:35.801
-# sequence start = 1:37.440
-# caravan = 9:18.167
-
 # > alien lair (shnabubula)
 #   - maybe overlay on https://www.youtube.com/watch?v=EMPeH_tkeZ0 (time to final hit at 2:49)
 #   - top: RB pro keys, pro drums
@@ -60,10 +31,6 @@
 # > the taste of filth (louis de mieulle)
 #   - just CH charts on top, RB pro on bottom
 
-# one for antonio:
-# rb-3-tracks 4px down
-# ch-2-tracks-only12 326px right 556px up
-
 filesRoot = ARGV[0]
 
 $cardFadeIn = 0.5
@@ -75,7 +42,7 @@ videos = [
     # one for antonio
     songLength: 9 * 60 + 6.084,
     audio: "#{filesRoot}/audio/oneforantonio-temp.wav",
-    card: "#{filesRoot}/cards/dummy.png",
+    card: "#{filesRoot}/cards/one-for-antonio.png",
     sources: [
       {
         source: "#{filesRoot}/backgrounds/Antonio Sanchez - One for Antonio-ZMHyRjIGrOc.mp4",
@@ -103,7 +70,7 @@ videos = [
     # sequence start
     songLength: 1 * 60 + 37.440,
     audio: "#{filesRoot}/audio/sequencestart.wav",
-    card: "#{filesRoot}/cards/dummy.png",
+    card: "#{filesRoot}/cards/sequence-start.png",
     sources: [
       {
         source: "#{filesRoot}/backgrounds/Sungazer - 'Sequence Start'-Ta4TsfGwMBI.mp4",
@@ -131,7 +98,7 @@ videos = [
     # work shit out
     songLength: 7 * 60 + 53.379,
     audio: "#{filesRoot}/audio/workshitout.wav",
-    card: "#{filesRoot}/cards/dummy.png",
+    card: "#{filesRoot}/cards/work-shit-out.png",
     sources: [
       {
         source: "#{filesRoot}/backgrounds/Dirty Loops - Work Shit Out-r_GTgpdoCh0.mp4",
@@ -164,7 +131,140 @@ videos = [
       },
     ],
   },
+  {
+    # blast off
+    songLength: 5 * 60 + 34.807,
+    audio: "#{filesRoot}/audio/blastoff.wav",
+    card: "#{filesRoot}/cards/blast-off.png",
+    sources: [
+      # TODO find a background?
+      {
+        source: "#{filesRoot}/recorded/Blast Off CH.mkv",
+        mask: "#{filesRoot}/masks/ch-3-tracks-only12-fade-bottom.png",
+        startTime: 3.703,
+        position: {x: 326, y: -556},
+        size: {x: 1920, y: 1080},
+      },
+      {
+        source: "#{filesRoot}/recorded/Blast Off RB.avi",
+        mask: "#{filesRoot}/masks/rb-3-tracks.png",
+        startTime: 5.138,
+        position: {x: 0, y: 4},
+        size: {x: 1920, y: 1076},
+      },
+    ],
+  },
+  {
+    # the taste of filth
+    songLength: 11 * 60 + 35.801,
+    audio: "#{filesRoot}/audio/thetasteoffilth.wav",
+    card: "#{filesRoot}/cards/the-taste-of-filth.png",
+    sources: [
+      # TODO find a background?
+      {
+        source: "#{filesRoot}/recorded/The Taste of Filth CH.mkv",
+        mask: "#{filesRoot}/masks/ch-3-tracks-only12-fade-bottom.png",
+        startTime: 5.446,
+        position: {x: 326, y: -556},
+        size: {x: 1920, y: 1080},
+      },
+      {
+        source: "#{filesRoot}/recorded/The Taste of Filth RB.avi",
+        mask: "#{filesRoot}/masks/rb-3-tracks.png",
+        startTime: 4.870,
+        position: {x: 0, y: 4},
+        size: {x: 1920, y: 1076},
+      },
+    ],
+  },
+  {
+    # tank
+    songLength: 3 * 60 + 33.388,
+    audio: "#{filesRoot}/audio/tank.wav",
+    card: "#{filesRoot}/cards/tank.png",
+    sources: [
+      # TODO record and add venue from atupo
+      {
+        source: "#{filesRoot}/recorded/Tank RB.avi",
+        mask: "#{filesRoot}/masks/rb-4-tracks-solovox.png", # TODO fade in/out vox
+        startTime: 4.140,
+        position: {x: 0, y: 4},
+        size: {x: 1920, y: 1076},
+      },
+    ],
+  },
+  {
+    # Caravan
+    songLength: 9 * 60 + 18.167,
+    audio: "#{filesRoot}/audio/caravan.wav",
+    card: "#{filesRoot}/cards/caravan.png",
+    sources: [
+      # TODO movie footage
+      {
+        source: "#{filesRoot}/recorded/Caravan RB.avi",
+        mask: "#{filesRoot}/masks/rb-4-tracks.png", # TODO cycle through masks
+        startTime: 5.000,
+        position: {x: 0, y: 4},
+        size: {x: 1920, y: 1076},
+      },
+    ],
+  },
+  {
+    # Alien Lair
+    songLength: 3 * 60 + 10.373,
+    audio: "#{filesRoot}/audio/alienlair.wav",
+    card: "#{filesRoot}/cards/alien-lair.png",
+    sources: [
+      # TODO find a background?
+      {
+        source: "#{filesRoot}/recorded/Alien Lair RB.avi",
+        mask: "#{filesRoot}/masks/rb-2-tracks.png",
+        startTime: 2.476,
+        position: {x: 0, y: -500},
+        size: {x: 1920, y: 1076},
+      },
+      {
+        source: "#{filesRoot}/recorded/Alien Lair CH.mkv",
+        mask: "#{filesRoot}/masks/ch-4-tracks.png",
+        startTime: 6.111,
+        position: {x: 0, y: 0},
+        size: {x: 1920, y: 1080},
+      },
+    ],
+  },
 ]
+
+class Node
+  def initialize(inputs, filter)
+    @inputs = inputs
+    @filter = filter
+  end
+
+  def generate_child(next_index)
+    lines = []
+    input_names = []
+    inputs = (@inputs.respond_to?(:each) ? @inputs : [@inputs])
+    inputs.each do |input|
+      if input.respond_to? :generate_child
+        created_name, created_index, new_lines = input.generate_child(next_index)
+        lines += new_lines
+        next_index = created_index + 1
+        input_names << created_name
+      else
+        input_names << input # raw number/string
+      end
+    end
+    my_node = "node#{next_index}"
+    lines << "#{input_names.map { |x| "[#{x}]" }.join('')} #{@filter} [#{my_node}]"
+    return [my_node, next_index, lines]
+  end
+
+  def generate_root
+    created_name, created_index, lines = self.generate_child(0)
+    lines << "[#{created_name}] null"
+    return lines
+  end
+end
 
 def buildCommand(video, out)
   cmd = ['ffmpeg']
@@ -185,59 +285,41 @@ def buildCommand(video, out)
   sources.each { |src| cmd += src }
 
   cmd += ['-filter_complex']
-  filter = []
-  filter << %{
-    [0] format=rgba, scale=1920x1080,
-      fade=t=out:st=#{$cardFadeIn + $cardHold}:d=#{$cardFadeOut}:alpha=1,
-      fade=t=in:st=0:d=#{$cardFadeIn}:color=black [card]
-  }
-  stackIndex = 0
+  card = Node.new([0], "format=rgba, scale=1920x1080,
+    fade=t=out:st=#{$cardFadeIn + $cardHold}:d=#{$cardFadeOut}:alpha=1,
+    fade=t=in:st=0:d=#{$cardFadeIn}:color=black")
+  stack = Node.new([], 'color=size=1920x1080:color=black:rate=60')
   video[:sources].each_with_index do |src, i|
     inputs = sourceMap[i]
     size = '1920x1080'
     if src[:position] != 'stretch'
       size = "#{src[:size][:x]}x#{src[:size][:y]}"
     end
-    filter << "[#{inputs[0]}:v] fps=60, scale=#{size} [source#{i}]"
-    result = 'source'
+    node = Node.new(["#{inputs[0]}:v"], "fps=60, scale=#{size}")
     startTime = $cardFadeIn + $cardHold - src[:startTime]
     if startTime < 0
-      filter << "[#{result}#{i}] trim=start=#{startTime.abs}, setpts=PTS-STARTPTS [positioned#{i}]"
-      result = 'positioned'
+      node = Node.new([node], "trim=start=#{startTime.abs}, setpts=PTS-STARTPTS")
     elsif startTime > 0
-      filter << "color=size=#{size}:color=black:rate=60, trim=end=#{startTime} [black#{i}]"
-      filter << "[black#{i}][#{result}#{i}] concat [positioned#{i}]"
-      result = 'positioned'
+      node = Node.new([
+        Node.new([], "color=size=#{size}:color=black:rate=60, trim=end=#{startTime}"),
+        node,
+      ], "concat")
     end
     if src[:mask]
-      filter << "[#{result}#{i}][#{inputs[1]}:v] alphamerge [masked#{i}]"
-      result = 'masked'
+      node = Node.new([node, "#{inputs[1]}:v"], "alphamerge")
     end
     if src[:scale]
       scale = "#{src[:scale][:x]}x#{src[:scale][:y]}"
-      filter << "[#{result}#{i}] scale=#{scale} [scaled#{i}]"
-      result = 'scaled'
+      node = Node.new([node], "scale=#{scale}")
     end
-    if stackIndex == 0
-      if src[:position] == 'stretch'
-        filter << "[#{result}#{i}] null [stack#{stackIndex}]"
-      else
-        # TODO support
-        putStrLn "First source position needs to be stretch"
-        exit 1
-      end
+    if src[:position] == 'stretch'
+      command = 'overlay'
     else
-      if src[:position] == 'stretch'
-        command = 'overlay'
-      else
-        command = "overlay=x=#{src[:position][:x]}:y=#{src[:position][:y]}"
-      end
-      filter << "[stack#{stackIndex - 1}][#{result}#{i}] #{command} [stack#{stackIndex}]"
+      command = "overlay=x=#{src[:position][:x]}:y=#{src[:position][:y]}"
     end
-    stackIndex += 1
+    stack = Node.new([stack, node], command)
   end
-  filter << "[stack#{stackIndex - 1}][card] overlay"
-  cmd << filter.map(&:strip).join(";\n")
+  cmd << Node.new([stack, card], 'overlay').generate_root.join(";\n")
 
   cmd += %W{
     -c:v libx264
