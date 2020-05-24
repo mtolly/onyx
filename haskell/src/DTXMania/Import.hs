@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE TupleSections     #-}
@@ -14,6 +15,7 @@ import           Control.Monad.Trans.State
 import           Data.Char                        (toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
+import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
@@ -25,6 +27,7 @@ import           DTXMania.DTX
 import           DTXMania.Set
 import           Guitars                          (emit5')
 import           JSONData                         (toJSON, yamlEncodeFile)
+import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
@@ -39,38 +42,92 @@ import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropExtension, takeDirectory,
                                                    takeExtension, (<.>), (</>))
 
+data CymbalInstant a = CymbalInstant
+  { instantHH :: Maybe D.PSGem -- always yellow (with ps real mods)
+  , instantLC :: Maybe a -- default yellow, can be pushed to blue
+  , instantRD :: Maybe a -- default blue, can be pushed to green
+  , instantRC :: Bool -- always green
+  } deriving (Show)
+
+placeCymbals :: (NNC.C t) => RTB.T t DrumLane -> RTB.T t D.RealDrum
+placeCymbals = RTB.flatten . go Nothing . RTB.collectCoincident where
+  go _    RNil                 = RNil
+  go prev (Wait dt notes rest) = let
+    instant = CymbalInstant
+      { instantHH = if
+        | elem HihatClose notes -> Just D.HHSizzle
+        | elem HihatOpen notes  -> Just D.HHOpen
+        | elem LeftPedal notes  -> Just D.HHPedal
+        | otherwise             -> Nothing
+      , instantLC = guard (elem LeftCymbal notes) >> Just ()
+      , instantRD = guard (elem RideCymbal notes) >> Just ()
+      , instantRC = elem Cymbal notes
+      }
+    assignedLC = flip fmap (instantLC instant) $ \() -> case instantHH instant of
+      Just _ -> D.Blue -- we have to pick B because there's a (Y) HH
+      Nothing -> case prev >>= instantHH of
+        Just _  -> D.Blue -- we'll pick B because there was a HH previously
+        Nothing -> fromMaybe D.Yellow $ prev >>= instantLC -- match previous LC, or pick Y by default
+    assignedRD = instantRD instant >>= \() -> case assignedLC of
+      Just D.Blue -> if instantRC instant
+        then Nothing -- LC RC RD all at same time! drop ourselves
+        else Just D.Green -- we have to pick G because there's a B LC
+      _ -> Just $ if instantRC instant
+        then D.Blue -- we have to pick B because there's a (G) RC
+        else case prev >>= instantLC of
+          Just D.Blue -> D.Green -- we'll pick G because there was a B LC previously
+          _           -> fromMaybe D.Blue $ prev >>= instantRD -- match previous RD, or pick B by default
+    assigned = CymbalInstant
+      { instantHH = instantHH instant
+      , instantLC = assignedLC
+      , instantRD = assignedRD
+      , instantRC = instantRC instant
+      }
+    out = catMaybes
+      [ Left <$> instantHH assigned
+      , (\color -> Right $ D.Pro color D.Cymbal) <$> instantLC assigned
+      , (\color -> Right $ D.Pro color D.Cymbal) <$> instantRD assigned
+      , guard (instantRC assigned) >> Just (Right $ D.Pro D.Green D.Cymbal)
+      ]
+    prev' = case instant of
+      CymbalInstant Nothing Nothing Nothing False -> prev
+      _                                           -> Just assigned
+    in Wait dt out $ go prev' rest
+
+placeToms :: (NNC.C t) => RTB.T t D.RealDrum -> RTB.T t DrumLane -> RTB.T t D.RealDrum
+placeToms cymbals notes = let
+  basicGem = \case
+    Left D.Rimshot -> D.Red
+    Left _         -> D.Pro D.Yellow ()
+    Right rb       -> void rb
+  conflict x y = basicGem x == basicGem y
+  tomsInstant stuff = let
+    thisCymbals = lefts stuff
+    thisNotes = rights stuff
+    add x choices = when (elem x thisNotes) $ modify $ \cur ->
+      case filter (\y -> all (not . conflict y) $ thisCymbals <> cur) choices of
+        []    -> cur -- no options!
+        y : _ -> y : cur
+    in flip execState [] $ do
+      add HighTom $ map (\c -> Right $ D.Pro c D.Tom) [D.Yellow, D.Blue, D.Green]
+      add LowTom $ map (\c -> Right $ D.Pro c D.Tom) [D.Blue, D.Yellow, D.Green]
+      add FloorTom $ map (\c -> Right $ D.Pro c D.Tom) [D.Green, D.Blue, D.Yellow]
+  in RTB.flatten $ fmap tomsInstant $ RTB.collectCoincident $ RTB.merge (Left <$> cymbals) (Right <$> notes)
+
 dtxConvertDrums, dtxConvertGuitar, dtxConvertBass
   :: DTX -> RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats)
 dtxConvertDrums dtx (RBFile.Song tmap mmap fixed) = let
   importDrums notes = let
-    real = D.encodePSReal (1/32) Expert
-      $ RTB.flatten $ fmap drumsInstant $ RTB.collectCoincident notes
+    cymbals = placeCymbals notes
+    kicksSnares = flip RTB.mapMaybe notes $ \case
+      BassDrum -> Just $ Right D.Kick
+      Snare    -> Just $ Right D.Red
+      _        -> Nothing
+    toms = placeToms cymbals notes
+    real = D.encodePSReal (1/32) Expert $ RTB.merge cymbals $ RTB.merge kicksSnares toms
     in real
       { D.drumKick2x = RTB.mapMaybe (\case LeftBass -> Just (); _ -> Nothing) notes
       }
-  -- TODO if left cymbal in the middle of a hihat section, prefer blue instead of yellow
-  drumsInstant xs = let
-    basicGem = \case
-      Left  D.Rimshot -> D.Red
-      Left  _         -> D.Pro D.Yellow ()
-      Right rb        -> void rb
-    conflict x y = basicGem x == basicGem y
-    add x choices = when (elem x xs) $ modify $ \cur ->
-      case filter (\y -> all (not . conflict y) cur) choices of
-        []    -> cur -- no options!
-        y : _ -> y : cur
-    in flip execState [] $ do
-      add BassDrum [Right D.Kick]
-      add Snare [Right D.Red]
-      add HihatClose [Left D.HHSizzle]
-      add HihatOpen [Left D.HHOpen]
-      add LeftPedal [Left D.HHPedal]
-      add LeftCymbal [Right $ D.Pro D.Yellow D.Cymbal, Right $ D.Pro D.Blue D.Cymbal]
-      add RideCymbal [Right $ D.Pro D.Blue D.Cymbal, Right $ D.Pro D.Green D.Cymbal]
-      add Cymbal [Right $ D.Pro D.Green D.Cymbal, Right $ D.Pro D.Blue D.Cymbal]
-      add HighTom $ map (\c -> Right $ D.Pro c D.Tom) [D.Yellow, D.Blue, D.Green]
-      add LowTom $ map (\c -> Right $ D.Pro c D.Tom) [D.Blue, D.Yellow, D.Green]
-      add FloorTom $ map (\c -> Right $ D.Pro c D.Tom) [D.Green, D.Blue, D.Yellow]
   in RBFile.Song tmap mmap fixed
     { RBFile.fixedPartRealDrumsPS = importDrums $ fmap fst $ dtx_Drums dtx
     , RBFile.fixedPartDrums = importDrums $ RTB.filter (/= LeftPedal) $ fmap fst $ dtx_Drums dtx
