@@ -41,7 +41,7 @@ videos = [
   {
     # one for antonio
     songLength: 9 * 60 + 6.084,
-    audio: "#{filesRoot}/audio/oneforantonio-temp.wav",
+    audio: "#{filesRoot}/audio/oneforantonio-temp.wav", # TODO replace audio
     card: "#{filesRoot}/cards/one-for-antonio.png",
     sources: [
       {
@@ -157,7 +157,7 @@ videos = [
   {
     # the taste of filth
     songLength: 11 * 60 + 35.801,
-    audio: "#{filesRoot}/audio/thetasteoffilth.wav",
+    audio: "#{filesRoot}/audio/thetasteoffilth.wav", # TODO audio peaks a bit
     card: "#{filesRoot}/cards/the-taste-of-filth.png",
     sources: [
       # TODO find a background?
@@ -196,14 +196,20 @@ videos = [
   {
     # Caravan
     songLength: 9 * 60 + 18.167,
-    audio: "#{filesRoot}/audio/caravan.wav",
+    audio: "#{filesRoot}/audio/caravan-with-gap.wav", # gap added from 9:06.164 to 9:15.867
     card: "#{filesRoot}/cards/caravan.png",
     sources: [
-      # TODO movie footage
       {
-        source: "#{filesRoot}/recorded/Caravan RB.avi",
+        source: "#{filesRoot}/backgrounds/Caravan-final.mkv",
+        mask: nil,
+        startTime: 0,
+        position: {x: 0, y: -142}, # move up to cut the top letterbox bar
+        size: {x: 1920, y: 1080},
+      },
+      {
+        source: "#{filesRoot}/recorded/Caravan RB with gap.mkv", # gap added from 9:05.453 to 9:15.156
         mask: "#{filesRoot}/masks/rb-4-tracks.png", # TODO cycle through masks
-        startTime: 5.000,
+        startTime: 0, # original footage started at 5.000
         position: {x: 0, y: 4},
         size: {x: 1920, y: 1076},
       },
