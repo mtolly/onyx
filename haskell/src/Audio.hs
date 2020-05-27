@@ -684,20 +684,20 @@ getChunk n sc = do
 
 mixMany
   :: (Monad m, Num a, Ord a, Fractional a, V.Storable a)
-  => Bool
-  -> Rate
+  => Rate
   -> Channels
+  -> Maybe (Int, U.Seconds) -- ^ max polyphony and cutoff fade time
   -> RTB.T U.Seconds (AudioSource m a)
   -> AudioSource m a
-mixMany overlap r c srcs = mixMany' r c
-  (\() -> if overlap then Nothing else Just 1)
+mixMany r c polyphony srcs = mixMany' r c
+  (const polyphony)
   ((, ()) <$> srcs)
 
 mixMany'
   :: (Monad m, Num a, Ord a, Fractional a, V.Storable a, Ord g)
   => Rate
   -> Channels
-  -> (g -> Maybe Int) -- ^ level of polyphony for each group (Nothing = infinite)
+  -> (g -> Maybe (Int, U.Seconds)) -- ^ level of polyphony and cutoff fade time for each group (Nothing = unlimited)
   -> RTB.T U.Seconds (AudioSource m a, g) -- ^ each audio source is annotated with a group
   -> AudioSource m a
 mixMany' r c polyphony srcs = let
@@ -719,13 +719,12 @@ mixMany' r c polyphony srcs = let
               []     -> V.replicate (n * c) 0
               v : vs -> foldr (V.zipWith (+)) v vs
         return (newSources, result)
-      cutoffLength = 0.002 :: Seconds
-      cutoff src = sealConduitT $ source $ fadeOut $ takeStart (Seconds cutoffLength) AudioSource
+      cutoff cutoffLength src = sealConduitT $ source $ fadeOut $ takeStart (Seconds cutoffLength') AudioSource
         { rate = r
         , channels = c
-        , frames = secondsToFrames cutoffLength r
+        , frames = secondsToFrames cutoffLength' r
         , source = unsealConduitT src
-        }
+        } where cutoffLength' = (realToFrac :: U.Seconds -> Seconds) cutoffLength
       go currentSources future = case future of
         RNil -> case currentSources of
           [] -> return ()
@@ -738,11 +737,11 @@ mixMany' r c polyphony srcs = let
               possibleSources = map Left (next : now) ++ map Right currentSources
               processSources _ [] = []
               processSources groups (Left (src, group) : remaining) = case polyphony group of
-                Just i | fromMaybe 0 (Map.lookup group groups) >= i -> processSources groups remaining
+                Just (i, _) | fromMaybe 0 (Map.lookup group groups) >= i -> processSources groups remaining
                 _ -> Left (src, group) : processSources (addGroup group groups) remaining
               processSources groups (Right (osrc, group) : remaining) = case polyphony group of
-                Just i | fromMaybe 0 (Map.lookup group groups) >= i
-                  -> Right (cutoff osrc, group) : processSources groups remaining
+                Just (i, fadeTime) | fromMaybe 0 (Map.lookup group groups) >= i
+                  -> Right (cutoff fadeTime osrc, group) : processSources groups remaining
                 _ -> Right (osrc, group) : processSources (addGroup group groups) remaining
               processed = processSources Map.empty possibleSources
               addGroup = Map.alter $ maybe (Just 1) (Just . (+ 1))

@@ -162,6 +162,6 @@ getBMSAudio chips bmsPath bms = do
           else resampleTo r SincMediumQuality stereo
         in (resampled, chip)
   return
-    $ mixMany' r 2 (const $ Just 1)
+    $ mixMany' r 2 (const $ Just (1, 0.002)) -- TODO adjust cutoff time?
     $ U.applyTempoTrack (bms_TempoMap bms)
     $ RTB.mapMaybe lookupChip chips

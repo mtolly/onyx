@@ -374,8 +374,8 @@ dtxAudioSource fp' = do
       return tryOgg
 
 getAudio :: (MonadResource m, MonadIO f, SendMessage f) =>
-  Bool -> RTB.T U.Beats Chip -> FilePath -> DTX -> StackTraceT f (AudioSource m Float)
-getAudio overlap chips dtxPath dtx = do
+  Maybe (Int, U.Seconds) -> RTB.T U.Beats Chip -> FilePath -> DTX -> StackTraceT f (AudioSource m Float)
+getAudio polyphony chips dtxPath dtx = do
   let usedChips = nubOrd $ RTB.getBodies chips
       wavs = HM.filterWithKey (\k _ -> elem k usedChips) $ dtx_WAV dtx
   srcs <- fmap (HM.mapMaybe id) $ forM wavs $ \fp -> do
@@ -401,7 +401,7 @@ getAudio overlap chips dtxPath dtx = do
           then stereo
           else resampleTo r SincMediumQuality stereo
   return
-    $ mixMany overlap r 2
+    $ mixMany r 2 polyphony
     $ U.applyTempoTrack (dtx_TempoMap dtx)
     $ RTB.mapMaybe lookupChip chips
 

@@ -50,24 +50,31 @@ data CymbalInstant a = CymbalInstant
   } deriving (Show)
 
 placeCymbals :: (NNC.C t) => RTB.T t DrumLane -> RTB.T t D.RealDrum
-placeCymbals = RTB.flatten . go Nothing . RTB.collectCoincident where
-  go _    RNil                 = RNil
-  go prev (Wait dt notes rest) = let
-    instant = CymbalInstant
-      { instantHH = if
-        | elem HihatClose notes -> Just D.HHSizzle
-        | elem HihatOpen notes  -> Just D.HHOpen
-        | elem LeftPedal notes  -> Just D.HHPedal
-        | otherwise             -> Nothing
-      , instantLC = guard (elem LeftCymbal notes) >> Just ()
-      , instantRD = guard (elem RideCymbal notes) >> Just ()
-      , instantRC = elem Cymbal notes
-      }
+placeCymbals = RTB.flatten . go Nothing . RTB.filter hasCymbals . fmap makeInstant . RTB.collectCoincident where
+  makeInstant notes = CymbalInstant
+    { instantHH = if
+      | elem HihatClose notes -> Just D.HHSizzle
+      | elem HihatOpen notes  -> Just D.HHOpen
+      | elem LeftPedal notes  -> Just D.HHPedal
+      | otherwise             -> Nothing
+    , instantLC = guard (elem LeftCymbal notes) >> Just ()
+    , instantRD = guard (elem RideCymbal notes) >> Just ()
+    , instantRC = elem Cymbal notes
+    }
+  hasCymbals = \case
+    CymbalInstant Nothing Nothing Nothing False -> False
+    _                                           -> True
+  go _    RNil                   = RNil
+  go prev (Wait dt instant rest) = let
     assignedLC = flip fmap (instantLC instant) $ \() -> case instantHH instant of
       Just _ -> D.Blue -- we have to pick B because there's a (Y) HH
       Nothing -> case prev >>= instantHH of
         Just _  -> D.Blue -- we'll pick B because there was a HH previously
-        Nothing -> fromMaybe D.Yellow $ prev >>= instantLC -- match previous LC, or pick Y by default
+        Nothing -> case rest of
+          Wait _ CymbalInstant{ instantHH = Just _ } _ -> D.Blue -- we'll pick B because there's a HH next
+          -- TODO the above should look ahead more than one!
+          -- if next several notes are LC but then HH, we want to start on B.
+          _ -> fromMaybe D.Yellow $ prev >>= instantLC -- match previous LC, or pick Y by default
     assignedRD = instantRD instant >>= \() -> case assignedLC of
       Just D.Blue -> if instantRC instant
         then Nothing -- LC RC RD all at same time! drop ourselves
@@ -77,6 +84,8 @@ placeCymbals = RTB.flatten . go Nothing . RTB.collectCoincident where
         else case prev >>= instantLC of
           Just D.Blue -> D.Green -- we'll pick G because there was a B LC previously
           _           -> fromMaybe D.Blue $ prev >>= instantRD -- match previous RD, or pick B by default
+          -- TODO we could look ahead to pick G if there's a B LC next,
+          -- but we'd have to do some refactoring
     assigned = CymbalInstant
       { instantHH = instantHH instant
       , instantLC = assignedLC
@@ -89,10 +98,7 @@ placeCymbals = RTB.flatten . go Nothing . RTB.collectCoincident where
       , (\color -> Right $ D.Pro color D.Cymbal) <$> instantRD assigned
       , guard (instantRC assigned) >> Just (Right $ D.Pro D.Green D.Cymbal)
       ]
-    prev' = case instant of
-      CymbalInstant Nothing Nothing Nothing False -> prev
-      _                                           -> Just assigned
-    in Wait dt out $ go prev' rest
+    in Wait dt out $ go (Just assigned) rest
 
 placeToms :: (NNC.C t) => RTB.T t D.RealDrum -> RTB.T t DrumLane -> RTB.T t D.RealDrum
 placeToms cymbals notes = let
@@ -158,19 +164,19 @@ dtxToAudio dtx fin dout = do
   let simpleAudio f overlap chips = if RTB.null chips
         then return Nothing
         else do
-          src <- getAudio overlap chips fin dtx
+          src <- getAudio (if overlap then Nothing else Just (1, 0.002)) chips fin dtx
           writeAudio f [src]
       writeAudio f = \case
         []         -> return Nothing
         xs@(x : _) -> do
-          let src = mixMany True (CA.rate x) (CA.channels x) $ foldr (Wait 0) RNil xs
+          let src = mixMany (CA.rate x) (CA.channels x) Nothing $ foldr (Wait 0) RNil xs
           runAudio src $ dout </> f
           return $ Just (f, CA.channels src)
       drumSrc lanes = let
         chips = RTB.mapMaybe (\(l, chip) -> guard (elem l lanes) >> Just chip) $ dtx_Drums dtx
         in if RTB.null chips
           then return Nothing
-          else Just <$> getAudio False chips fin dtx
+          else Just <$> getAudio (Just (1, 0.2)) chips fin dtx
       writeDrums f lanes = mapMaybeM drumSrc lanes >>= writeAudio f
   song   <- simpleAudio "song.wav" True $ dtx_BGM dtx
   kick   <- writeDrums "kick.wav" [[BassDrum, LeftBass]]
