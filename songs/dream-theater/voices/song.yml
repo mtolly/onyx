@@ -120,6 +120,10 @@ parts:
       difficulty: 5
     pro-keys:
       difficulty: 5
+  bass:
+    pro-guitar: # WIP
+      tuning:
+        base: bass-6
 targets:
   rb3:
     game: rb3

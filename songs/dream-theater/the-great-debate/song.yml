@@ -34,6 +34,11 @@ parts:
   bass:
     grybo: # onyxite
       difficulty: 6
+      # TODO handful of fixes from pro
+    pro-guitar: # onyxite, WIP
+      difficulty: 7
+      tuning:
+        base: bass-6
   guitar:
     grybo: # onyxite
       difficulty: 7

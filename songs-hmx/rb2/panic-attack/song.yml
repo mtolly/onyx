@@ -55,6 +55,11 @@ parts:
     grybo:
       difficulty:
         rank: 600
+    pro-guitar:
+      # WIP, pitches put down but no positions checked yet!
+      tuning:
+        base: bass-5
+        global: -2 # ADGCF
   guitar:
     grybo:
       difficulty:
