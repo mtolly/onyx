@@ -26,6 +26,7 @@ import qualified Reaper.Scan                      as RPP
 import qualified RhythmGame.PNF                   as PNF
 import qualified RockBand.Codec.Beat              as Beat
 import qualified RockBand.Codec.Drums             as D
+import           RockBand.Codec.Events            (eventsCoda)
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
 import           RockBand.Common
@@ -34,6 +35,8 @@ import           RockBand3                        (BasicTiming (..),
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension)
 import           Text.Decode                      (decodeGeneral)
+import           WebPlayer                        (findTremolos, findTrills,
+                                                   laneDifficulty)
 
 data PreviewTrack
   = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType))))
@@ -66,6 +69,15 @@ computeTracks mmode song = basicTiming song (return 0) >>= \timing -> let
     . RTB.normalize
   diffPairs = [(Expert, "X"), (Hard, "H"), (Medium, "M"), (Easy, "E")]
 
+  makeLanes colors lanes = let
+    gemToggle gem = U.trackJoin $ flip fmap lanes $ \(gem', t) -> if gem == gem'
+      then Wait 0 True $ Wait t False RNil
+      else RNil
+    gemSingletons = do
+      gem <- colors
+      return $ fmap (Map.singleton gem) $ toggle $ gemToggle gem
+    in foldr (\x y -> fmap (uncurry Map.union) $ PNF.zipStateMaps x y) Map.empty gemSingletons
+
   drumMode = fromMaybe DrumsPro mmode
   drumSrc   = RBFile.fixedPartDrums   $ RBFile.s_tracks song
   drumSrc2x = RBFile.fixedPartDrums2x $ RBFile.s_tracks song
@@ -74,33 +86,44 @@ computeTracks mmode song = basicTiming song (return 0) >>= \timing -> let
       Nothing -> if D.nullDrums drumSrc2x then drumSrc else drumSrc2x
       Just _  -> drumSrc
     drumMap :: Map.Map Double [D.Gem D.ProType]
-    drumMap
-      = rtbToMap
-      $ RTB.collectCoincident
-      $ let
-        -- quick 5 lane to 4 hack, always uses green as 1st fallback choice
-        -- eventually should actually support drawing 5-lane drums
-        ddiff = D.getDrumDifficulty diff thisSrc
-        in case drumMode of
-          Drums4    -> fmap (const D.Tom) <$> ddiff
-          Drums5    -> fmap (const D.Tom) <$> D.fiveToFour D.Green ddiff
-          DrumsPro  -> D.computePro diff thisSrc
-          DrumsReal -> D.computePro diff $ D.psRealToPro thisSrc
+    drumMap = rtbToMap $ RTB.collectCoincident drumPro
+    drumPro = let
+      -- quick 5 lane to 4 hack, always uses green as 1st fallback choice
+      -- eventually should actually support drawing 5-lane drums
+      ddiff = D.getDrumDifficulty diff thisSrc
+      in case drumMode of
+        Drums4    -> fmap (const D.Tom) <$> ddiff
+        Drums5    -> fmap (const D.Tom) <$> D.fiveToFour D.Green ddiff
+        DrumsPro  -> D.computePro diff thisSrc
+        DrumsReal -> D.computePro diff $ D.psRealToPro thisSrc
+    hands = RTB.filter (/= D.Kick) drumPro
+    (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.fixedEvents $ RBFile.s_tracks song of
+      Nothing   -> (D.drumActivation thisSrc, RTB.empty)
+      Just coda ->
+        ( U.trackTake coda $ D.drumActivation thisSrc
+        , RTB.delay coda $ U.trackDrop coda $ D.drumActivation thisSrc
+        )
     drumStates = (\((a, b), c) -> PNF.DrumState a b c) <$> do
       (Set.fromList <$> drumMap)
-        `PNF.zipStateMaps` Map.empty -- TODO lanes
-        `PNF.zipStateMaps` toggle (D.drumActivation thisSrc) -- TODO remove BRE (act with [coda])
+        `PNF.zipStateMaps` (let
+          single = findTremolos hands $ laneDifficulty (fromMaybe Expert diff) $ D.drumSingleRoll thisSrc
+          double = findTrills   hands $ laneDifficulty (fromMaybe Expert diff) $ D.drumDoubleRoll thisSrc
+          in makeLanes (D.Red : (D.Pro <$> each <*> each)) (RTB.merge single double)
+          )
+        `PNF.zipStateMaps` toggle acts
     in do
       guard $ not $ Map.null drumMap
       Just $ (\(((((a, b), c), d), e)) -> PNF.CommonState a b c d e) <$> do
         drumStates
           `PNF.zipStateMaps` toggle (D.drumOverdrive thisSrc)
-          `PNF.zipStateMaps` Map.empty -- TODO get BRE from drumActivation + [coda]
+          `PNF.zipStateMaps` toggle bres
           `PNF.zipStateMaps` toggle (D.drumSolo thisSrc)
           `PNF.zipStateMaps` fmap Just beats
 
   fiveTrack src isKeys diff = let
     thisDiff = fromMaybe mempty $ Map.lookup diff $ F.fiveDifficulties src
+    withOpens = openNotes' thisDiff
+    ons = fmap fst withOpens
     assigned :: RTB.T U.Beats (LongNote Bool (Maybe F.Color, StrumHOPOTap))
     assigned
       = splitEdges
@@ -108,7 +131,7 @@ computeTracks mmode song = basicTiming song (return 0) >>= \timing -> let
       $ applyStatus1 False (RTB.normalize $ F.fiveOverdrive src)
       $ applyForces (getForces5 thisDiff)
       $ strumHOPOTap' (if isKeys then HOPOsRBKeys else HOPOsRBGuitar) hopoThreshold
-      $ openNotes' thisDiff
+      $ withOpens
     assignedMap :: Map.Map Double (Map.Map (Maybe F.Color) (PNF.PNF PNF.IsOverdrive StrumHOPOTap))
     assignedMap
       = rtbToMap
@@ -141,8 +164,8 @@ computeTracks mmode song = basicTiming song (return 0) >>= \timing -> let
     hopoThreshold = 170 / 480 :: U.Beats -- TODO support different threshold
     fiveStates = (\((a, b), c) -> PNF.GuitarState a b c) <$> do
       assignedMap
-        `PNF.zipStateMaps` Map.empty -- TODO tremolo
-        `PNF.zipStateMaps` Map.empty -- TODO trill
+        `PNF.zipStateMaps` (makeLanes (Nothing : map Just each) $ findTremolos ons $ laneDifficulty diff $ F.fiveTremolo src)
+        `PNF.zipStateMaps` (makeLanes (Nothing : map Just each) $ findTrills   ons $ laneDifficulty diff $ F.fiveTrill   src)
     in (\(((((a, b), c), d), e)) -> PNF.CommonState a b c d e) <$> do
       fiveStates
         `PNF.zipStateMaps` toggle (F.fiveOverdrive src)

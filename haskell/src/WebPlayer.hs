@@ -8,6 +8,7 @@
 module WebPlayer
 ( makeDisplay
 , showTimestamp
+, findTremolos, findTrills, laneDifficulty
 ) where
 
 import qualified Amplitude.File                   as Amp

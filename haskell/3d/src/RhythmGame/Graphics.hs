@@ -40,7 +40,7 @@ import           RhythmGame.Track
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums           as D
 import qualified RockBand.Codec.Five            as F
-import           RockBand.Common                (StrumHOPOTap (..))
+import           RockBand.Common                (StrumHOPOTap (..), each)
 import           System.Directory               (doesFileExist)
 import           System.FilePath                ((<.>), (</>))
 
@@ -278,6 +278,36 @@ drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
   -- draw beat lines
   glDepthFunc GL_ALWAYS
   void $ Map.traverseWithKey drawBeat zoomed
+  -- draw lanes
+  let drawLane startTime endTime pad = let
+        i = case pad of
+          D.Pro D.Yellow _ -> 1
+          D.Pro D.Blue   _ -> 2
+          D.Pro D.Green  _ -> 3
+          _                -> 0
+        x1 = fracToX $ i       / 4
+        x2 = fracToX $ (i + 1) / 4
+        y = C.trk_y $ C.cfg_track gfxConfig
+        z1 = timeToZ startTime
+        z2 = timeToZ endTime
+        in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (Right $ V4 1 1 1 1) 1 globalLight
+      drawLanes _        []                      = return ()
+      drawLanes nextTime ((thisTime, cs) : rest) = do
+        let lanes = Map.toList $ drumLanes $ commonState cs
+            bre = commonBRE cs
+        -- draw following lanes
+        forM_ lanes $ \(pad, tog) -> when (elem tog [ToggleStart, ToggleRestart, ToggleOn]) $ do
+          drawLane thisTime nextTime pad
+        when (elem bre [ToggleStart, ToggleRestart, ToggleOn]) $ do
+          mapM_ (drawLane thisTime nextTime) [D.Red, D.Pro D.Yellow D.Tom, D.Pro D.Blue D.Tom, D.Pro D.Green D.Tom]
+        -- draw past lanes if rest is empty
+        when (null rest) $ do
+          forM_ lanes $ \(pad, tog) -> when (elem tog [ToggleEnd, ToggleRestart, ToggleOn]) $ do
+            drawLane nearTime thisTime pad
+          when (elem bre [ToggleEnd, ToggleRestart, ToggleOn]) $ do
+            mapM_ (drawLane nearTime thisTime) [D.Red, D.Pro D.Yellow D.Tom, D.Pro D.Blue D.Tom, D.Pro D.Green D.Tom]
+        drawLanes thisTime rest
+  drawLanes farTime $ Map.toDescList zoomed
   -- draw target
   mapM_ (\(i, tex) -> drawTargetSquare i tex 1) $
     zip [0..] [TextureTargetRed, TextureTargetYellow, TextureTargetBlue, TextureTargetGreen]
@@ -488,9 +518,40 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
       )
     )
     (Right $ C.rail_color rail) 1 globalLight
-  -- draw beatlines
+  -- draw beat lines
   glDepthFunc GL_ALWAYS
   void $ Map.traverseWithKey drawBeat zoomed
+  -- draw lanes
+  let drawLane startTime endTime color = let
+        i = maybe 2 (fromIntegral . fromEnum) (color :: Maybe F.Color)
+        x1 = fracToX $ i       / 5
+        x2 = fracToX $ (i + 1) / 5
+        y = C.trk_y $ C.cfg_track gfxConfig
+        z1 = timeToZ startTime
+        z2 = timeToZ endTime
+        in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (Right $ V4 1 1 1 1) 1 globalLight
+      drawLanes _        []                      = return ()
+      drawLanes nextTime ((thisTime, cs) : rest) = do
+        let tremolo = Map.toList $ guitarTremolo $ commonState cs
+            trill   = Map.toList $ guitarTrill   $ commonState cs
+            bre     = commonBRE cs
+        -- draw following lanes
+        forM_ tremolo $ \(color, tog) -> when (elem tog [ToggleStart, ToggleRestart, ToggleOn]) $ do
+          drawLane thisTime nextTime color
+        forM_ trill $ \(color, tog) -> when (elem tog [ToggleStart, ToggleRestart, ToggleOn]) $ do
+          drawLane thisTime nextTime color
+        when (elem bre [ToggleStart, ToggleRestart, ToggleOn]) $ do
+          mapM_ (drawLane thisTime nextTime) $ map Just each
+        -- draw past lanes if rest is empty
+        when (null rest) $ do
+          forM_ tremolo $ \(color, tog) -> when (elem tog [ToggleEnd, ToggleRestart, ToggleOn]) $ do
+            drawLane nearTime thisTime color
+          forM_ trill $ \(color, tog) -> when (elem tog [ToggleEnd, ToggleRestart, ToggleOn]) $ do
+            drawLane nearTime thisTime color
+          when (elem bre [ToggleEnd, ToggleRestart, ToggleOn]) $ do
+            mapM_ (drawLane nearTime thisTime) $ map Just each
+        drawLanes thisTime rest
+  drawLanes farTime $ Map.toDescList zoomed
   -- draw target
   mapM_ (\(i, tex) -> drawTargetSquare i tex 1) $
     zip [0..] [TextureTargetGreen, TextureTargetRed, TextureTargetYellow, TextureTargetBlue, TextureTargetOrange]
