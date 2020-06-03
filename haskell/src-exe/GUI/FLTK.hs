@@ -867,10 +867,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     FL.setResizable topControls $ Just scrubber
     varSong <- newIORef Nothing
     sink $ EventOnyx $ void $ forkOnyx $ do
-      let drumMode = fmap drumsMode
-            $ getPart FlexDrums (projectSongYaml proj)
-            >>= partDrums
-      song <- loadTracks drumMode $ takeDirectory (projectLocation proj) </> "notes.mid"
+      song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> "notes.mid"
       stackIO $ sink $ EventIO $ do
         writeIORef varSong $ Just song
         FL.setMaximum scrubber $ fromInteger $ ceiling $ U.applyTempoMap
@@ -2642,7 +2639,8 @@ launchMisc sink makeMenuBar = mdo
 
 watchSong :: IO () -> FilePath -> Onyx (IO [[(T.Text, PreviewTrack)]], IO ())
 watchSong notify mid = do
-  varTrack <- loadTracks Nothing mid >>= liftIO . newIORef
+  let fakeYaml = undefined -- TODO
+  varTrack <- loadTracks fakeYaml mid >>= liftIO . newIORef
   chan <- liftIO newChan
   let midFileName = takeFileName mid
       sendClose = do
@@ -2660,7 +2658,7 @@ watchSong notify mid = do
           _ -> do
             lg $ "Reloading from " <> mid
             safeOnyx $ do
-              loadTracks Nothing mid >>= liftIO . writeIORef varTrack
+              loadTracks fakeYaml mid >>= liftIO . writeIORef varTrack
               liftIO notify
             go
     go

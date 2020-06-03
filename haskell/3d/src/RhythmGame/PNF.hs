@@ -23,12 +23,15 @@ import           Data.Map.Strict.Internal         (Map (..))
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
 import qualified Data.Set                         as Set
+import qualified Data.Text                        as T
 import           GHC.Generics
 import           GHC.TypeLits
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.Beat
+import qualified RockBand.Codec.ProGuitar         as PG
 import           RockBand.Common                  (pattern RNil, StrumHOPOTap,
                                                    pattern Wait)
+import qualified Sound.MIDI.Util                  as U
 
 data PNF sust now
   = Empty
@@ -63,6 +66,30 @@ getNow = \case
   NF n _    -> Just n
   PNF _ n _ -> Just n
   _         -> Nothing
+
+-- | Events in the input list must not overlap.
+-- The output will only have one PNF event per timestamp.
+buildPNF :: (NNC.C t, Ord now, Ord sust) => RTB.T t (now, Maybe (sust, t)) -> RTB.T t (PNF sust now)
+buildPNF
+  = fmap (\evts -> let
+    endSustain = listToMaybe [ sust | Right sust <- evts ]
+    blip = listToMaybe [ now | Left (now, Nothing) <- evts ]
+    startSustain = listToMaybe [ (now, sust) | Left (now, Just sust) <- evts ]
+    in case (endSustain, blip, startSustain) of
+      (Nothing  , Nothing , Nothing           ) -> Empty -- shouldn't happen
+      (Nothing  , Just now, _                 ) -> N now
+      (Nothing  , _       , Just (now, future)) -> NF now future
+      (Just past, Nothing , Nothing           ) -> P past
+      (Just past, Just now, _                 ) -> PN past now
+      (Just past, _       , Just (now, future)) -> PNF past now future
+      -- we don't need to make PF, those get inserted later
+    )
+  . RTB.collectCoincident
+  . U.trackJoin
+  . fmap (\(now, msust) -> case msust of
+    Nothing          -> Wait NNC.zero (Left (now, Nothing)) RNil
+    Just (sust, len) -> Wait NNC.zero (Left (now, Just sust)) $ Wait len (Right sust) RNil
+    )
 
 data Toggle
   = ToggleEmpty -- Empty
@@ -108,6 +135,27 @@ data GuitarState fret = GuitarState
   , guitarTrill   :: Map.Map fret Toggle
   } deriving (Show, Generic)
     deriving (TimeState) via GenericTimeState (GuitarState fret)
+
+data PGSustain t = PGSustain
+  { pgSlide     :: Maybe (PG.Slide, t, t) -- start and end times of the slide
+  , pgSustainOD :: IsOverdrive
+  -- TODO probably also add fret and notetype
+  } deriving (Eq, Ord, Show)
+
+data PGNote = PGNote
+  { pgFret :: PG.GtrFret
+  , pgType :: PG.NoteType
+  , pgSHT  :: StrumHOPOTap
+  } deriving (Eq, Ord, Show)
+
+data PGState t = PGState
+  { pgNotes    :: Map.Map PG.GtrString (PNF (PGSustain t) PGNote)
+  , pgArea     :: Maybe PG.StrumArea
+  , pgChords   :: PNF T.Text T.Text
+  , pgArpeggio :: PNF (Map.Map PG.GtrString PG.GtrFret) ()
+  -- TODO tremolo, trill
+  } deriving (Show, Generic)
+    deriving (TimeState) via GenericTimeState (PGState t)
 
 class TimeState a where
   before :: a -> a

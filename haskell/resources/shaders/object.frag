@@ -30,13 +30,18 @@ in vec2 TexCoords;
 uniform vec3 viewPos;
 uniform Material material;
 uniform float alpha;
+uniform float texScaleX;
+uniform float texScaleY;
+uniform float texScaleW;
+uniform float texScaleH;
 
 vec4 getColor(ImageOrColor ioc)
 {
     if (ioc.type == 1u) {
         return ioc.color;
     } else if (ioc.type == 2u) {
-        return texture(ioc.image, TexCoords);
+        vec2 scaledCoords = TexCoords * vec2(texScaleW, texScaleH) + vec2(texScaleX, texScaleY);
+        return texture(ioc.image, scaledCoords);
     }
     return vec4(1.0, 0.0, 1.0, 1.0); // magenta on invalid input
 }
