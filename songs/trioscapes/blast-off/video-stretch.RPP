@@ -1,0 +1,2786 @@
+<REAPER_PROJECT 0.1 "5.99/linux64" 1591157733
+  RIPPLE 0
+  GROUPOVERRIDE 0 0 0
+  AUTOXFADE 1
+  ENVATTACH 1
+  POOLEDENVATTACH 0
+  MIXERUIFLAGS 11 48
+  PEAKGAIN 1
+  FEEDBACK 0
+  PANLAW 1
+  PROJOFFS 0 0 0
+  MAXPROJLEN 0 600
+  GRID 3199 8 1 8 1 0 0 0
+  TIMEMODE 1 5 -1 30 0 0 -1
+  CURSOR 119.3684310000348
+  ZOOM 2.32748451506297 0 0
+  VZOOMEX 0
+  USE_REC_CFG 0
+  RECMODE 1
+  SMPTESYNC 0 30 100 40 1000 300 0 0 1 0 0
+  LOOP 0
+  LOOPGRAN 0 4
+  RECORD_PATH "" ""
+  <RECORD_CFG
+  >
+  <APPLYFX_CFG
+  >
+  RENDER_FILE ""
+  RENDER_PATTERN stretched-video
+  RENDER_FMT 0 2 44100
+  RENDER_1X 0
+  RENDER_RANGE 1 0 0 18 1000
+  RENDER_RESAMPLE 3 0 1
+  RENDER_ADDTOPROJ 0
+  RENDER_STEMS 0
+  RENDER_DITHER 0
+  TIMELOCKMODE 1
+  TEMPOENVLOCKMODE 1
+  ITEMMIX 0
+  DEFPITCHMODE 589824 0
+  TAKELANE 1
+  SAMPLERATE 44100 0 0
+  <RENDER_CFG
+    UE1GRgQAAAAAAAAAAAgAAAAAAACAAAAAgAcAADgEAAAAAPBBAQAAAF8AAAA=
+  >
+  LOCK 1
+  <METRONOME 7 2
+    VOL 1.487639 0.74382
+    FREQ 800 1600 1
+    BEATLEN 4
+    SAMPLES "" ""
+    PATTERN 2863311530 2863311529
+  >
+  GLOBAL_AUTO -1
+  TEMPO 120 4 4
+  PLAYRATE 1 0 0.25 4
+  SELECTION 36.631582 35.368424
+  SELECTION2 36.631582 35.368424
+  MASTERAUTOMODE 0
+  MASTERTRACKHEIGHT 0 0
+  MASTERPEAKCOL 16576
+  MASTERMUTESOLO 0
+  MASTERTRACKVIEW 0 0.6667 0.5 0.5 0 0 0
+  MASTERHWOUT 0 0 1 0 0 0 0 -1
+  MASTER_NCH 2 2
+  MASTER_VOLUME 1 0 -1 -1 1
+  MASTER_FX 1
+  MASTER_SEL 0
+  <MASTERPLAYSPEEDENV
+    ACT 0 -1
+    VIS 0 1 1
+    LANEHEIGHT 0 0
+    ARM 0
+    DEFSHAPE 0 -1 -1
+  >
+  <TEMPOENVEX
+    ACT 1 -1
+    VIS 1 0 1
+    LANEHEIGHT 0 0
+    ARM 0
+    DEFSHAPE 1 -1 -1
+    PT 0.000000000000 94.9999920833 1 262148 0 1
+    PT 5.052632000000 94.9999920833 1 524295 0 1
+    PT 11.684211500000 94.9999920833 1 524294 0 1
+    PT 13.578948500000 94.9999920833 1 524295 0 1
+    PT 20.210528000000 94.9999920833 1 524294 0 1
+    PT 22.105265000000 94.9999920833 1 524295 0 1
+    PT 130.421063500000 94.9999920833 1 524294 0 1
+    PT 132.315800500000 94.9999920833 1 524295 0 1
+    PT 138.947380000000 94.9999920833 1 524294 0 1
+    PT 140.842117000000 94.9999920833 1 524295 0 1
+    PT 147.473696500000 89.9999550000 1 262148 0 1
+    PT 288.807100500000 89.9999550000 1 1048587 0 1
+    PT 290.640434750000 89.9999550000 1 1048589 0 1
+    PT 292.807102500000 89.9999550000 1 1048587 0 1
+    PT 294.640436750000 89.9999550000 1 524298 0 1
+    PT 297.973771750000 89.9999550000 1 1048587 0 1
+    PT 299.807106000000 89.9999550000 1 1048589 0 1
+    PT 301.973773750000 89.9999550000 1 1048587 0 1
+    PT 303.807108000000 89.9999550000 1 524291 0 1
+    PT 304.807108500000 89.9999550000 1 524295 0 1
+    PT 307.140443000000 89.9999550000 1 1048587 0 1
+    PT 308.973777250000 89.9999550000 1 1048589 0 1
+    PT 311.140445000000 89.9999550000 1 1048587 0 1
+    PT 312.973779250000 89.9999550000 1 524298 0 1
+    PT 316.307114250000 89.9999550000 1 1048587 0 1
+    PT 318.140448500000 89.9999550000 1 1048589 0 1
+    PT 320.307116250000 89.9999550000 1 1048587 0 1
+    PT 322.140450500000 89.9999550000 1 524291 0 1
+    PT 323.140451000000 89.9999550000 1 524295 0 1
+  >
+  <PROJBAY
+  >
+  <TRACK {20F887B7-1A46-069E-DB48-593A2E55E32D}
+    NAME song.wav
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 0.36279289742106 0 -1 -1 1
+    MUTESOLO 1 0 0
+    IPHASE 0
+    ISBUS 0 0
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 0
+    REC 0 0 0 0 0 0 0
+    TRACKHEIGHT 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 0
+    TRACKID {20F887B7-1A46-069E-DB48-593A2E55E32D}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <FXCHAIN
+      SHOW 0
+      LASTSEL 0
+      DOCKED 0
+      BYPASS 0 0 0
+      <VST "VST: ReaPitch (Cockos)" reapitch.vst.so 0 "VST: ReaPitch (Cockos)" 1919250531<56535472657063726561706974636800> ""
+        Y3Blcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAATAAAAAEAAAAAABAA
+        AAAAAP////8BAAAALAAAAAIAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAD8AAAA/AAAAPwAAQD8AAAA/AAAAPwAAAD8AAIA/AAAAPw==
+        AAAQAAAA
+      >
+      FLOATPOS 0 0 0 0
+      FXID {56C45F79-FB56-B9AA-DE48-5E8D03B1E0D3}
+      WAK 0
+    >
+    <ITEM
+      POSITION 0
+      SNAPOFFS 0
+      LENGTH 333.31267573696147
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {C60FFFDB-FDD0-A0C0-8AAF-F7220E49D978}
+      IID 8
+      NAME song.wav
+      VOLPAN 1 0 1 -1
+      SOFFS 0
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {56DCD232-F682-0551-6A73-65C6AD78FEB1}
+      <SOURCE WAVE
+        FILE "gen/plan/album/song.wav"
+      >
+    >
+  >
+  <TRACK {704964DF-DE5C-9186-945D-E5357CD88C56}
+    NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs"
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 1 0 0
+    IPHASE 0
+    ISBUS 0 0
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 0
+    REC 0 0 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 98 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {704964DF-DE5C-9186-945D-E5357CD88C56}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <ITEM
+      POSITION 0
+      SNAPOFFS 0
+      LENGTH 9.473685
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {BF569BB7-02F7-8D0C-AC51-C08A97EA9218}
+      IID 9
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 4.78059190096895
+      PLAYRATE 0.95817704575948 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {5702B47B-301D-AC82-3AB9-B2EDC05414A4}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 9.473685
+      SNAPOFFS 0
+      LENGTH 23.6842125
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {9B7D4E25-0EAC-F265-26DB-6575C16EA20C}
+      IID 127
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 13.85805940672481
+      PLAYRATE 0.97964489391975 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {46947A03-66DD-A608-DAAC-5CC9CB21C242}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 33.1578975
+      SNAPOFFS 0
+      LENGTH 3.45274012323434
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {855C886A-9080-1F8D-8717-D24C4A6740E7}
+      IID 11
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 37.06017724886016
+      PLAYRATE 0.98558754222567 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {8163F266-42A9-4F00-3EAF-00B9CB19538E}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 36.61063762323434
+      SNAPOFFS 0
+      LENGTH 5.38936587676567
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {89DFA3D0-1A34-C2F3-7026-2EF55FBDD8DC}
+      IID 129
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 40.46315490086266
+      PLAYRATE 0.97583786304813 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {C21982C9-61FC-ECAE-0C7A-B59329E65692}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 42.0000035
+      SNAPOFFS 0
+      LENGTH 15.4736855
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {4C34BFCE-668C-9567-95E3-B1D2FA1C4FA8}
+      IID 13
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 45.72230218123016
+      PLAYRATE 0.96928178624559 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {7F51C8F4-B029-828D-B5D7-429605F1A9BA}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 57.473689
+      SNAPOFFS 0
+      LENGTH 22.105265
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {814A2687-2449-31B1-F725-047EB6290BB7}
+      IID 15
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 60.72066370247265
+      PLAYRATE 0.97961249935226 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {8729CA01-47B7-CCA8-09A1-AB814E37B784}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 79.578954
+      SNAPOFFS 0
+      LENGTH 2.2105265
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {2858551D-9D9C-5E68-D422-EBEB9AF4B181}
+      IID 21
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 82.37525759796668
+      PLAYRATE 0.96836069012265 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {C7188D33-78DB-117F-8042-CA6B88948BF8}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 81.7894805
+      SNAPOFFS 0
+      LENGTH 2.2105265
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {C89F868E-67D9-B8D6-A777-E413B7CC80F8}
+      IID 23
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 84.51584456504109
+      PLAYRATE 0.99673582422088 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {5CFE1BC6-AB87-5111-971E-64C29FBD4332}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 84.000007
+      SNAPOFFS 0
+      LENGTH 11.0526325
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {BE121C1B-4765-F03F-BDA3-75C88859611B}
+      IID 25
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 86.7191555179807
+      PLAYRATE 0.97961249935226 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {C0FA92C0-52A1-8020-2DC2-F888D300ACEE}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 95.0526395
+      SNAPOFFS 0
+      LENGTH 4.421053
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {E0315CA9-75C2-3BC1-2689-BD1257D9C546}
+      IID 27
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 97.54645246572773
+      PLAYRATE 0.96836069012265 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B1876FC5-92A6-E698-59F0-2D6C05B4E355}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 99.4736925
+      SNAPOFFS 0
+      LENGTH 3.4736845
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {8B0FF96E-E09C-A4E1-D1CA-2FD336C7B223}
+      IID 29
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 101.82762639987655
+      PLAYRATE 0.9909950483075 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D9B6A498-F917-2B21-968F-8872C6A15773}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 102.947377
+      SNAPOFFS 0
+      LENGTH 2.2105265
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {D19E9123-71E7-F9BA-9319-7901B2307A70}
+      IID 31
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 105.27003053875909
+      PLAYRATE 0.97961249935226 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {4EE30593-F01E-D42F-D0A8-56FE46E9EE46}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 105.1579035
+      SNAPOFFS 0
+      LENGTH 5.3684215
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {4E7D21B4-7A51-0A6F-26FA-C3D7633929C8}
+      IID 33
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 107.4354899283085
+      PLAYRATE 0.98528733683034 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {863B8A2B-678F-772D-406F-22173AC9EDA9}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 110.526325
+      SNAPOFFS 0
+      LENGTH 7.2631585
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {2B4736A4-3CEE-C44E-FBBE-92FCEE3906BF}
+      IID 35
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 112.72492765102625
+      PLAYRATE 0.97961249935226 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {70F7E149-41DB-E8C8-AA8A-D16931E7B596}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 117.7894835
+      SNAPOFFS 0
+      LENGTH 6.0000005
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {3D1826F3-41FA-CB72-C86C-FAEBD5B34C7A}
+      IID 37
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 119.8400085024029
+      PLAYRATE 0.95723811894485 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {EDC8CAC7-81B8-BDAE-D32D-EC806C325D91}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 123.789484
+      SNAPOFFS 0
+      LENGTH 8.5263165
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {6BC6BE9B-3752-BD4E-C26F-7ABAE4803E94}
+      IID 39
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 125.58343769469106
+      PLAYRATE 0.99099504830751 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {9BCE92A0-6093-B605-4433-29A504D2AC7A}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 132.3158005
+      SNAPOFFS 0
+      LENGTH 8.5263165
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {710725E7-A870-DCFB-B6B5-176272F688EF}
+      IID 41
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 134.03297512649362
+      PLAYRATE 0.98528733683035 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {57FFD063-AB27-F949-4EE8-B6E1E7371809}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 140.842117
+      SNAPOFFS 0
+      LENGTH 2.2105265
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {E7DE6D86-8644-0872-532F-096D19245082}
+      IID 45
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 142.43384680375129
+      PLAYRATE 0.99099504830751 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {8EBFD524-D177-7DD1-4C17-C16749162A01}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 143.0526435
+      SNAPOFFS 0
+      LENGTH 4.421053
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {BDF5E213-397C-B143-54F4-8CC2E4DF6878}
+      IID 47
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 144.62446761940382
+      PLAYRATE 0.99673582422089 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {6BD00F81-9E8F-8838-2E06-26B124C490E7}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 147.4736965
+      SNAPOFFS 0
+      LENGTH 5.333336
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {9CE2AD55-AA02-EA71-1E5C-1622AA082310}
+      IID 49
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 149.03108952528305
+      PLAYRATE 0.96836069012266 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {4E7C494A-45E0-E5C3-9813-0868310BDAD0}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 152.8070325
+      SNAPOFFS 0
+      LENGTH 4.666669
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {FD3032F0-0624-A3A7-1338-8BDBAF973C3B}
+      IID 51
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 154.1956824548991
+      PLAYRATE 0.97961249935227 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {517EBFCC-AD6B-DD63-61F0-DC6FDF35ACDB}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 157.4737015
+      SNAPOFFS 0
+      LENGTH 4.666669
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {D447F86B-1B57-4677-4E8C-D37883D46765}
+      IID 53
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 158.76720973763884
+      PLAYRATE 0.97397034653297 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {C82F733D-811E-BA40-52ED-0B085A874C2F}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 162.1403705
+      SNAPOFFS 0
+      LENGTH 4.666669
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {9C27B348-4D41-B43C-5408-88040BDF1F75}
+      IID 55
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 163.31240696072351
+      PLAYRATE 0.97961249935227 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {912159AA-B199-CF01-FFB3-C9948A7B8B1A}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 166.8070395
+      SNAPOFFS 0
+      LENGTH 4.666669
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {07BAB9B3-A128-858E-9EDB-8B267D378DC7}
+      IID 57
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 167.88393424346324
+      PLAYRATE 0.97397034653297 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D95AC81D-36E2-85F6-2C08-887D0936ECB9}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 171.4737085
+      SNAPOFFS 0
+      LENGTH 2.000001
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {33B898C4-46A5-1E01-6C10-D45BB8E89E99}
+      IID 59
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 172.42913146654791
+      PLAYRATE 0.97961249935227 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E5839A43-FB6F-9779-9FC7-A3D450BC0B66}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 173.4737095
+      SNAPOFFS 0
+      LENGTH 8.666671
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {9572B4EE-D7DD-9B32-9DE1-54C75F4A4BDF}
+      IID 61
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 174.38835744486497
+      PLAYRATE 0.97397034653297 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E6F44257-21F9-6EBC-1F90-9826F62FFD4B}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 182.1403805
+      SNAPOFFS 0
+      LENGTH 2.666668
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {79279A5B-CA72-E6FD-BFFE-35A017C9C2C9}
+      IID 63
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 182.82943800202219
+      PLAYRATE 1.00831733662721 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {F5C82E1F-D284-08D7-545A-D3C74694A356}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 184.8070485
+      SNAPOFFS 0
+      LENGTH 4.000002
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {6BB349C0-250E-0962-8007-E461B119D3DF}
+      IID 65
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 185.51828557745122
+      PLAYRATE 0.98528733683035 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {7E00647D-8E74-C6ED-B608-5755F5ECB8B0}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 188.8070505
+      SNAPOFFS 0
+      LENGTH 2.000001
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {B9AC3D40-14FA-F4B7-4701-603BCF824244}
+      IID 67
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 189.4594368953473
+      PLAYRATE 0.97397034653297 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {15992669-8B51-3D22-FE0C-150D482B8C98}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 190.8070515
+      SNAPOFFS 0
+      LENGTH 3.333335
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {4B88FE19-40CB-2738-4A12-F3F4C0F1215D}
+      IID 69
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 191.40737856238357
+      PLAYRATE 0.96836069012266 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {F01AB702-C11F-7653-528A-9731D59C02EB}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 194.1403865
+      SNAPOFFS 0
+      LENGTH 6.000003
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {E37CF755-C36B-79B8-EAAF-8DA786C5A48B}
+      IID 71
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 194.63524914339357
+      PLAYRATE 0.98528733683035 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {359AA79F-9588-22C6-DFEE-8871B7AB9831}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 200.1403895
+      SNAPOFFS 0
+      LENGTH 3.333335
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {C79111F0-87CD-B878-A447-490CC0DB93C3}
+      IID 73
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 200.5469761202377
+      PLAYRATE 0.97397034653297 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {94B4A3B5-C8AF-26CB-7E21-AF0E3BA9AE3B}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 203.4737245
+      SNAPOFFS 0
+      LENGTH 5.333336
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {FB11E0C4-C13A-B0CC-125A-14329782003B}
+      IID 75
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 203.79354556529819
+      PLAYRATE 0.98528733683035 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D7664B4C-51C0-5992-9389-F65689E1AE9E}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 208.8070605
+      SNAPOFFS 0
+      LENGTH 6.000003
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {FBD58C7C-162B-266D-286B-353C0880953E}
+      IID 77
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 209.0484139891596
+      PLAYRATE 0.99099504830751 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1158701D-17FC-780B-7C20-BBAC582858CF}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 214.8070635
+      SNAPOFFS 0
+      LENGTH 4.666669
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {09699FFE-A492-AA18-470D-BF8D62C55138}
+      IID 79
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 214.99438725198982
+      PLAYRATE 0.94624330139322 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {EEF61FA4-4A73-8EF0-63F0-FF20353C90BF}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 219.4737325
+      SNAPOFFS 0
+      LENGTH 4.666669
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {35B716C8-CEB1-C166-AFFA-FE77E7D1BF1F}
+      IID 81
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 219.41019153305922
+      PLAYRATE 0.95723811894486 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {280A61B3-4149-E496-5EA1-CBFD0D2FC1D1}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 224.1404015
+      SNAPOFFS 0
+      LENGTH 7.333337
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {277027B0-09E0-7FF7-EA80-64E9BF40FCCE}
+      IID 83
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 223.87730498835751
+      PLAYRATE 0.98528733683035 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {2A388023-DF83-026C-1209-83EA3D8201FF}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 231.4737385
+      SNAPOFFS 0
+      LENGTH 2.666668
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {E8FFE4ED-7911-661C-4D5A-892BC74750FF}
+      IID 85
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 231.10274907116695
+      PLAYRATE 0.99673582422089 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D2E775EC-ECC5-F2C6-6191-E505D33121BD}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 234.1404065
+      SNAPOFFS 0
+      LENGTH 3.333335
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {EA90D2E9-738F-974C-7AEA-F081198543AE}
+      IID 87
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 233.76071259807043
+      PLAYRATE 0.94624330139322 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D8DF6A03-12DD-3FE0-7A21-3E844446E5E3}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 237.4737415
+      SNAPOFFS 0
+      LENGTH 7.333337
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {B3702AF7-9C1D-ED0C-1EC2-46FEFDC407E2}
+      IID 89
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 236.91485851312001
+      PLAYRATE 0.95723811894486 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {06059A7B-F7B4-1C99-1D9F-2D87DEFC6DFF}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 244.8070785
+      SNAPOFFS 0
+      LENGTH 4.000002
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {CD9C4AA6-72B7-C336-842E-05EA052A2BF0}
+      IID 91
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 243.93460822858873
+      PLAYRATE 0.95172483307405 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {2D8FB11A-2694-52D1-0340-6E5F195A30D7}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 248.8070805
+      SNAPOFFS 0
+      LENGTH 10.000005
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {85597246-C9B7-0639-D60B-16A1866D9143}
+      IID 93
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 247.74150946433457
+      PLAYRATE 0.94624330139322 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {C0A5840D-E189-6FF4-3632-03ECB1D43C51}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 258.8070855
+      SNAPOFFS 0
+      LENGTH 16.666675
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {081362F7-8B1F-EDEB-7314-E0AB73BE1887}
+      IID 95
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 257.20394720948332
+      PLAYRATE 0.95172483307405 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {47A26B6D-7BFD-E838-36BA-7AB6D9C30D2E}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 275.4737605
+      SNAPOFFS 0
+      LENGTH 2.666668
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {72810022-6295-D3A4-50C8-3EB726CD0693}
+      IID 97
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 273.06603569175775
+      PLAYRATE 0.94079334101172 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {52779293-5911-69BB-79FB-C7186433997D}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 278.1404285
+      SNAPOFFS 0
+      LENGTH 2.666668
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {EFB1B579-6606-7A56-96B7-0AAE7074D7A2}
+      IID 99
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 275.57481918884673
+      PLAYRATE 0.96836069012266 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E8C2F52D-7A5A-B317-FD36-79968F1283F9}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 280.8070965
+      SNAPOFFS 0
+      LENGTH 4.000002
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {5CF7008B-312E-9F11-E05E-9356F363B196}
+      IID 101
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 278.15711565365478
+      PLAYRATE 0.95172483307404 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1F4BE8BE-D8F2-B826-FC4E-C8F84F4DE987}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 284.8070985
+      SNAPOFFS 0
+      LENGTH 4.000002
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {A5950400-6012-ED20-9DD7-88B519C338D7}
+      IID 103
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 281.96401688940063
+      PLAYRATE 0.94079334101171 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {AF137EAA-BC01-85E0-74DB-4F48D19CFA4D}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 288.8071005
+      SNAPOFFS 0
+      LENGTH 1.83333425
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {DF365ECA-46F6-0A44-1635-5808FC0FEBCA}
+      IID 105
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 285.72719213503416
+      PLAYRATE 1.00250985611082 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {0EE8D465-464F-CC72-E4F6-183B5FAF0544}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 290.64043475
+      SNAPOFFS 0
+      LENGTH 7.333337
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {A9CDE883-F788-EB48-F14E-55988563F733}
+      IID 107
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 287.56512779020471
+      PLAYRATE 0.99673582422089 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {DACA0097-283B-46BC-9EA7-3066985A4DBB}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 297.97377175
+      SNAPOFFS 0
+      LENGTH 2.50000125
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {3B67C607-794C-898E-DBB7-CC9EFD2D7644}
+      IID 109
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 294.87452748918923
+      PLAYRATE 1.00250985611082 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {22BA7F3F-1F39-2E66-590F-B4B025C72490}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 300.473773
+      SNAPOFFS 0
+      LENGTH 2.16666775
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {BAB12214-0220-98A7-A093-E2CBAE443B58}
+      IID 113
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 297.38080338260357
+      PLAYRATE 1.00831733662721 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {F9E98A00-9781-84FC-EED6-D4C8C632BA0A}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 302.64044075
+      SNAPOFFS 0
+      LENGTH 5.16666925
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {05661B04-9840-C77D-6CCD-3E1CB5244F9B}
+      IID 115
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 299.56549203763967
+      PLAYRATE 0.99673582422089 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {DBACD40F-B97E-BB4F-17EE-F36EAB6B9283}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 307.80711
+      SNAPOFFS 0
+      LENGTH 2.50000125
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {10AB5609-6AC3-1380-CF3A-577ED4B9C7F9}
+      IID 117
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 304.71529637101514
+      PLAYRATE 0.97961249935227 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {BFF2F6E1-0680-ECA1-01AA-1A19FC0680F5}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 310.30711125
+      SNAPOFFS 0
+      LENGTH 6.000003
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {C147D3D7-B884-B9AA-9ADD-A5BC789D6D2E}
+      IID 119
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 307.16432884391139
+      PLAYRATE 0.96278334295581 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {342CCBF8-7663-506B-A0BC-ABD22FAB9F94}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 316.30711425
+      SNAPOFFS 0
+      LENGTH 6.83333675
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {826D0F9A-A439-5F0E-C67C-4BFAFCA0404D}
+      IID 121
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 312.94103178999626
+      PLAYRATE 0.95723811894486 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1FD8489A-1321-8A8A-EF4F-64EFCD82DD2E}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 323.140451
+      SNAPOFFS 0
+      LENGTH 3.0000015
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {B614966D-605E-BC88-B7DD-FBF5D3B276C2}
+      IID 123
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 319.48216220668303
+      PLAYRATE 0.94624330139322 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {74000C7A-B46A-0233-6902-7A682E6928AE}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+    <ITEM
+      POSITION 326.1404525
+      SNAPOFFS 0
+      LENGTH 13.33334
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {D7B9B852-CA53-3765-40C6-ADDB4D18C6DC}
+      IID 125
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      VOLPAN 1 0 1 -1
+      SOFFS 322.32089353022764
+      PLAYRATE 0.95172483307403 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1BCE7AC9-CAF1-0A71-469A-54CADF1FE4CD}
+      <SOURCE VIDEO
+        FLIP 0 1
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.m4a"
+      >
+    >
+  >
+  <TRACK {C2786569-0FD5-E895-CED6-46FE08B1812A}
+    NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs"
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 0
+    ISBUS 0 0
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 0
+    REC 0 0 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 109 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {C2786569-0FD5-E895-CED6-46FE08B1812A}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <ITEM
+      POSITION 0
+      SNAPOFFS 0
+      LENGTH 9.473685
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {8A9A4655-02D1-B1D9-B195-804970F00745}
+      IID 10
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 4.78059174809373
+      PLAYRATE 0.95817720786486 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {12DFF033-C055-2BAF-42F5-2BB365C8BB1C}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 9.473685
+      SNAPOFFS 0
+      LENGTH 23.6842125
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {613B3412-080C-68D9-5501-2A65492E3448}
+      IID 128
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 13.85806078958497
+      PLAYRATE 0.97964505965709 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {94EB714B-1C4F-7354-FDD2-5414341849DC}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 33.1578975
+      SNAPOFFS 0
+      LENGTH 3.45274012323434
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {D5FF8A70-4E52-1BD9-75B2-C5A65DDA1ACC}
+      IID 12
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 37.06018255707862
+      PLAYRATE 0.98558754222567 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E69617D7-5D15-032C-7876-FCE57794794D}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 36.61063762323434
+      SNAPOFFS 0
+      LENGTH 5.38936587676567
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {DE5F77D8-8927-6D19-F2DD-283F671097D8}
+      IID 130
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 40.46316020908112
+      PLAYRATE 0.97583786304813 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {3A9F9A1A-6CA9-F456-450D-E55BC15E6CDD}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 42.0000035
+      SNAPOFFS 0
+      LENGTH 15.4736855
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {2FFCEF23-9DA3-FD53-4E99-E864B5598EBF}
+      IID 14
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 45.72230748944862
+      PLAYRATE 0.96928178624559 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {657D891D-55B5-8A93-D7D7-48E889D111CD}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 57.473689
+      SNAPOFFS 0
+      LENGTH 22.105265
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {44A7AFDC-7D2F-28C8-C464-BDD80E81D19F}
+      IID 16
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 60.72066901069111
+      PLAYRATE 0.97961249073404 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {53FE7F76-8ADF-3CAB-45FF-60D2F624590B}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 79.578954
+      SNAPOFFS 0
+      LENGTH 2.2105265
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {6194B6A7-914A-CA1E-B879-DAF0F2FC9B05}
+      IID 22
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 82.37526271567711
+      PLAYRATE 0.96836068160342 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B77979F1-713F-A072-A297-930F7BCE8C03}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 81.7894805
+      SNAPOFFS 0
+      LENGTH 2.2105265
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {C2D2096D-02F9-0B26-9F5D-FF01D6C8561E}
+      IID 24
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 84.51584966391954
+      PLAYRATE 0.99673581545202 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {8520F582-AD5D-CC45-98A6-88C0A712C9B7}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 84.000007
+      SNAPOFFS 0
+      LENGTH 11.0526325
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {6E6B0AD0-B773-D032-0246-1618EC48F336}
+      IID 26
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 86.71916059747534
+      PLAYRATE 0.97961249073404 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {A93FD06D-21BA-82B3-A3FC-5BECCD8338DE}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 95.0526395
+      SNAPOFFS 0
+      LENGTH 4.421053
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {7EA8C194-323B-3F0E-E6F2-3EDFE927E023}
+      IID 28
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 97.54645744996834
+      PLAYRATE 0.96836068160342 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {3458EC4B-2C52-F7E7-152B-9EEF8E896847}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 99.4736925
+      SNAPOFFS 0
+      LENGTH 3.4736845
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {D580E3CE-E1FD-9C1F-8AF2-F3C87AD14F21}
+      IID 30
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 101.82763134645319
+      PLAYRATE 0.99099503958914 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B6C6AF85-BED9-7AD3-BB31-7FC3CC676F22}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 102.947377
+      SNAPOFFS 0
+      LENGTH 2.2105265
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {BE08872F-9C7A-A48C-C45B-CA83C2D98DBA}
+      IID 32
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 105.27003545505087
+      PLAYRATE 0.97961249073404 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {CCEAA850-CFCD-4BED-E48D-2A374D52A99D}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 105.1579035
+      SNAPOFFS 0
+      LENGTH 5.3684215
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {ADC20AD7-7E75-38E6-38BA-ADB4CDEAD4CF}
+      IID 34
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 107.43549482554947
+      PLAYRATE 0.98528732816219 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {67E7E886-A5D8-8662-21EF-A59BB58939F0}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 110.526325
+      SNAPOFFS 0
+      LENGTH 7.2631585
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {DA658E0F-E02C-23F4-107C-D4DA1730C58B}
+      IID 36
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 112.72493250173294
+      PLAYRATE 0.97961249073404 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {8AD485DB-60B1-6082-C893-76E881165315}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 117.7894835
+      SNAPOFFS 0
+      LENGTH 6.0000005
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {E4ABE829-193C-30D4-634F-3EACE35FBF60}
+      IID 38
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 119.84001329051404
+      PLAYRATE 0.95723811052347 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {BDBFB40E-E8B1-D4CA-C703-4B445088D0EF}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 123.789484
+      SNAPOFFS 0
+      LENGTH 8.5263165
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {DF4E1DC5-26C3-4BC4-B28E-24D607F01FC3}
+      IID 40
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 125.58344243227388
+      PLAYRATE 0.99099503958914 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {34DD0B4B-8BA4-61B6-20B0-5EEADAA8B935}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 132.3158005
+      SNAPOFFS 0
+      LENGTH 8.5263165
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {D0EC34C3-FAB1-F8A2-8D1C-47081187CD89}
+      IID 42
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 134.03297978974092
+      PLAYRATE 0.98528732816219 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {67F66D31-E8FA-35F3-52BD-0C1659B00E73}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 140.842117
+      SNAPOFFS 0
+      LENGTH 2.2105265
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {6B5397C4-631A-0744-7DB8-A2C935DB8AB5}
+      IID 46
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 142.43385139309112
+      PLAYRATE 0.99099503958914 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {FE81ED94-4D69-609D-DE1B-FDBA120E205B}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 143.0526435
+      SNAPOFFS 0
+      LENGTH 4.421053
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {FAAA2C3D-2946-BF8D-DEB7-60BA1E0B66DF}
+      IID 48
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 144.62447218947145
+      PLAYRATE 0.99673581545201 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {A4929668-8192-8FA3-E30B-0FBF0C697143}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 147.4736965
+      SNAPOFFS 0
+      LENGTH 5.333336
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {78F8E04C-EB1B-3FFC-571F-A7B6618FF5A5}
+      IID 50
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 149.03109405658302
+      PLAYRATE 0.96836068160341 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {3F88E2E4-94E5-55A5-5E3A-84276E448EC7}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 152.8070325
+      SNAPOFFS 0
+      LENGTH 4.666669
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {654FEA85-4454-0B96-32CB-3B601B877E39}
+      IID 52
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 154.19568694076304
+      PLAYRATE 0.97961249073403 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {F4AB3A8D-F9AD-3A7C-BE66-0B4203F27559}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 157.4737015
+      SNAPOFFS 0
+      LENGTH 4.666669
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {40159535-5C68-A967-4273-9BA66928AD98}
+      IID 54
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 158.76721418328432
+      PLAYRATE 0.97397033796437 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {A4223B54-56B4-9E0C-6346-DFF9B0884EC6}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 162.1403705
+      SNAPOFFS 0
+      LENGTH 4.666669
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {F2EC26FD-ED48-BDB3-FDE8-16B91C11CECC}
+      IID 56
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 163.31241136638218
+      PLAYRATE 0.97961249073403 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {7D2FE201-B2E3-6104-ED45-C291FD92B626}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 166.8070395
+      SNAPOFFS 0
+      LENGTH 4.666669
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {A26BD444-2F42-0D1C-6F3E-393F94605329}
+      IID 58
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 167.88393860890346
+      PLAYRATE 0.97397033796437 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {EE9BEED4-DF4D-E1F8-8892-3BD9C68A2713}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 171.4737085
+      SNAPOFFS 0
+      LENGTH 2.000001
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {8F95E3A7-98EB-9136-BEF8-703475CFB6A5}
+      IID 60
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 172.42913579200132
+      PLAYRATE 0.97961249073403 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {FC8C7C7A-73F9-348A-D9B6-0C283B3AAACA}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 173.4737095
+      SNAPOFFS 0
+      LENGTH 8.666671
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {7D8C8FFB-ECDE-12E7-69B7-1D7CB5AAA96E}
+      IID 62
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 174.38836175308188
+      PLAYRATE 0.97397033796437 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {0AC5E809-A8E2-3C53-D958-E38BBF42A4FB}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 182.1403805
+      SNAPOFFS 0
+      LENGTH 2.666668
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {5F983B52-232D-2DD1-70C8-C3D326B94444}
+      IID 64
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 182.82944223597789
+      PLAYRATE 1.00831732775644 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {B3A4473B-F70F-4A23-7136-DAFF606AAF32}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 184.8070485
+      SNAPOFFS 0
+      LENGTH 4.000002
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {F19C299A-DE42-E1F8-59B9-F6025BF12EBC}
+      IID 66
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 185.51828978775151
+      PLAYRATE 0.98528732816219 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D544EE30-467D-9FF0-C90D-34984DDCB3DF}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 188.8070505
+      SNAPOFFS 0
+      LENGTH 2.000001
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {E184C7A4-8BEC-100E-6611-613F86FCC442}
+      IID 68
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 189.45944107097492
+      PLAYRATE 0.97397033796437 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {4742989F-7AD8-8984-5389-1EC7BA6A1C83}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 190.8070515
+      SNAPOFFS 0
+      LENGTH 3.333335
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {1A24E644-3A58-6AA3-4B7A-A5B2C8E6AB35}
+      IID 70
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 191.40738272087398
+      PLAYRATE 0.96836068160341 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {0211CEBB-221F-8567-FADC-49471BB5E4FA}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 194.1403865
+      SNAPOFFS 0
+      LENGTH 6.000003
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {812F6FB4-BB9B-9F22-A581-B9E42981AD68}
+      IID 72
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 194.63525327348648
+      PLAYRATE 0.98528732816219 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E9138E83-0B55-8328-EBA2-4D9F6266FA4A}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 200.1403895
+      SNAPOFFS 0
+      LENGTH 3.333335
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {66666274-8CBA-A828-CEA1-FA75CB9AD549}
+      IID 74
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 200.54698019832162
+      PLAYRATE 0.97397033796437 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {3F07909C-8BE7-8468-197C-1D0FC3835ECE}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 203.4737245
+      SNAPOFFS 0
+      LENGTH 5.333336
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {BE86DA61-E50D-FEEB-FC35-60A4B7436C2C}
+      IID 76
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 203.79354961482008
+      PLAYRATE 0.98528732816219 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {3C50875D-63FF-1A4F-14A4-849E3D745FDB}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 208.8070605
+      SNAPOFFS 0
+      LENGTH 6.000003
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {566AF1A1-63DD-CF3F-5BEE-7658152A5ADC}
+      IID 78
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 209.04841799245125
+      PLAYRATE 0.99099503958913 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {EBE581F4-6C8E-ED96-7486-01F7DC858724}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 214.8070635
+      SNAPOFFS 0
+      LENGTH 4.666669
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {DCF06966-65F3-6B89-3D70-9C1F0446A585}
+      IID 80
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 214.9943912029712
+      PLAYRATE 0.94624329306855 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {612C1F6D-A799-B870-B5ED-0EE247B7C832}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 219.4737325
+      SNAPOFFS 0
+      LENGTH 4.666669
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {32F5F8EB-728E-CE62-254E-D0FF3DFBBAD9}
+      IID 82
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 219.41019544519213
+      PLAYRATE 0.95723811052346 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {D98D3A94-02B8-72DB-E055-2E022C07C4B4}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 224.1404015
+      SNAPOFFS 0
+      LENGTH 7.333337
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {D2D9E16D-8922-5476-EE05-83435F65ECAA}
+      IID 84
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 223.87730886119053
+      PLAYRATE 0.98528732816218 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {EE37E9DF-DE15-AF09-F629-7D92C7207F44}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 231.4737385
+      SNAPOFFS 0
+      LENGTH 2.666668
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {5C599EF4-D130-C3EA-138A-77CE426072B5}
+      IID 86
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 231.10275288043343
+      PLAYRATE 0.996735815452 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1D160274-C7F7-1135-BF47-89CAF3866223}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 234.1404065
+      SNAPOFFS 0
+      LENGTH 3.333335
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {B8B742B3-B2D1-9244-D2EA-C8D6E5DDBF09}
+      IID 88
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 233.76071638395317
+      PLAYRATE 0.94624329306855 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {F584F3DC-8FF0-76EB-BC37-214A2A420340}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 237.4737415
+      SNAPOFFS 0
+      LENGTH 7.333337
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {59F8EE19-191D-B802-C267-525792B159EB}
+      IID 90
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 236.91486227125381
+      PLAYRATE 0.95723811052345 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {8237E6DC-E5BA-FB8D-122E-A6A89B82B69C}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 244.8070785
+      SNAPOFFS 0
+      LENGTH 4.000002
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {223B168F-F95E-2A41-1A5F-DE022C1A04CD}
+      IID 92
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 243.93461192496554
+      PLAYRATE 0.95172482470115 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1354AFFA-A53F-D2B8-61F4-86A7E89924B6}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 248.8070805
+      SNAPOFFS 0
+      LENGTH 10.000005
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {5B2D0DEA-F471-3755-B25D-AFD238C63BF4}
+      IID 94
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 247.74151312721978
+      PLAYRATE 0.94624329306855 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E9F7B575-033B-BE01-81CB-8EFFF2828847}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 258.8070855
+      SNAPOFFS 0
+      LENGTH 16.666675
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {FFA2D638-4119-320A-39D4-71142DEE329B}
+      IID 96
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 257.20395078912173
+      PLAYRATE 0.95172482470115 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {0B435B9A-CED6-67C7-A392-1EF44AE8D74C}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 275.4737605
+      SNAPOFFS 0
+      LENGTH 2.666668
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {F8951E4A-D565-BBAF-2C0B-3C7FD3B380A6}
+      IID 98
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 273.06603913184779
+      PLAYRATE 0.94079333273499 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {0A9121EB-0C25-D9E6-3C07-13D11D804ABF}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 278.1404285
+      SNAPOFFS 0
+      LENGTH 2.666668
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {B52B53FB-7B14-D982-1D6B-3897A026A759}
+      IID 100
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 275.5748226068655
+      PLAYRATE 0.9683606816034 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {CEB99FAD-784F-F7CF-4784-0FFE957666DE}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 280.8070965
+      SNAPOFFS 0
+      LENGTH 4.000002
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {5A59B407-D4E4-495D-2CBC-79F6935DDA7F}
+      IID 102
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 278.15711904895551
+      PLAYRATE 0.95172482470114 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {ACE28687-2B67-23AF-7842-F67CD6B8FD1D}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 284.8070985
+      SNAPOFFS 0
+      LENGTH 4.000002
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {46224CE3-C4EB-E665-AA62-8531B9761730}
+      IID 104
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 281.96402025120972
+      PLAYRATE 0.94079333273498 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E78DC9A6-CF77-47E7-0ADB-0F0C4C21B871}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 288.8071005
+      SNAPOFFS 0
+      LENGTH 1.83333425
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {2E92F308-5DA0-53EA-483C-AEB2E796E2F7}
+      IID 106
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 285.72719546373634
+      PLAYRATE 1.00250984729113 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {6CDB671E-FD36-14EE-B092-FE63801FF34D}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 290.64043475
+      SNAPOFFS 0
+      LENGTH 7.333337
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {F3DB5245-BD42-3FD2-82C4-9538ECE6ACAC}
+      IID 108
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 287.56513110273744
+      PLAYRATE 0.996735815452 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {54F09922-418E-2245-75B3-17CD6E07F295}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 297.97377175
+      SNAPOFFS 0
+      LENGTH 2.50000125
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {A8CB889C-15C9-2337-B599-808F658A7372}
+      IID 110
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 294.87453073741676
+      PLAYRATE 1.00250984729113 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {1AE5C4E1-991F-3D04-6953-D79EB043CA76}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 300.473773
+      SNAPOFFS 0
+      LENGTH 2.16666775
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {1EA8F610-C2E3-ED1C-E452-DBBD5580039F}
+      IID 114
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 297.38080660878188
+      PLAYRATE 1.00831732775643 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {6A67C166-75E6-E28C-8104-A40EFD411267}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 302.64044075
+      SNAPOFFS 0
+      LENGTH 5.16666925
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {D034CD91-068D-B97C-6316-DBB512BFB55A}
+      IID 116
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 299.56549524459797
+      PLAYRATE 0.996735815452 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {9A89D424-5EB8-1713-3E9D-DB6338C46AC7}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 307.80711
+      SNAPOFFS 0
+      LENGTH 2.50000125
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {FFE00995-4C88-E8D8-1E20-130AE4648831}
+      IID 118
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 304.71529953266747
+      PLAYRATE 0.97961249073402 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {0DC06F82-F1E3-96A8-EBE7-C4284908667E}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 310.30711125
+      SNAPOFFS 0
+      LENGTH 6.000003
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {DD1CB5D5-2E89-6DCD-CDE8-22CEA15E4990}
+      IID 120
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 307.16433198401813
+      PLAYRATE 0.96278333448561 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {2BC942B6-1E84-7311-D266-A2FBA8F470B9}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 316.30711425
+      SNAPOFFS 0
+      LENGTH 6.83333675
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {7E0666B9-C5C9-187C-30E3-57B80EF547BE}
+      IID 122
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 312.9410348792818
+      PLAYRATE 0.95723811052345 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {CF15DCA8-061E-015C-DDF6-4BFFB069217E}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 323.140451
+      SNAPOFFS 0
+      LENGTH 3.0000015
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {5E671802-DBB3-B5FD-62F3-84A7A019E191}
+      IID 124
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 319.48216523842223
+      PLAYRATE 0.94624329306856 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {08600A3E-C812-361C-1DEA-D8B9616BFBDB}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+    <ITEM
+      POSITION 326.1404525
+      SNAPOFFS 0
+      LENGTH 13.25854369436996
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {5CB66857-5EA4-4560-3343-9269B1B960C5}
+      IID 126
+      NAME "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      VOLPAN 1 0 1 -1
+      SOFFS 322.32089653699285
+      PLAYRATE 0.95172482470115 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E812C7E6-49A0-AFF3-C586-8E19634E7A94}
+      <SOURCE VIDEO
+        FILE "Trioscapes 'Blast Off' (Live Performance)-reyZ5DqSyvs.mp4"
+      >
+    >
+  >
+>

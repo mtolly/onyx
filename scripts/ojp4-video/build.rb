@@ -137,7 +137,12 @@ videos = [
     audio: "#{filesRoot}/audio/blastoff.wav",
     card: "#{filesRoot}/cards/blast-off.png",
     sources: [
-      # TODO find a background?
+      {
+        source: "#{filesRoot}/backgrounds/Blast Off stretched.mkv",
+        mask: nil,
+        startTime: 0,
+        position: 'stretch'
+      },
       {
         source: "#{filesRoot}/recorded/Blast Off CH.mkv",
         mask: "#{filesRoot}/masks/ch-3-tracks-only12-fade-bottom.png",
@@ -208,7 +213,21 @@ videos = [
       },
       {
         source: "#{filesRoot}/recorded/Caravan RB with gap.mkv", # gap added from 9:05.453 to 9:15.156
-        mask: "#{filesRoot}/masks/rb-4-tracks.png", # TODO cycle through masks
+        mask: "#{filesRoot}/masks/rb-4-tracks-only2.png",
+        # mask: [
+        #   [0, "#{filesRoot}/masks/rb-4-tracks-only2.png"],
+        #   [22.291, :fade],
+        #   [23.167, "#{filesRoot}/masks/rb-4-tracks-only23.png"],
+        #   [35.987, :fade],
+        #   [36.844, "#{filesRoot}/masks/rb-4-tracks-only234.png"],
+        #   [42.864, :fade],
+        #   [43.703, "#{filesRoot}/masks/rb-4-tracks.png"],
+        #   [4 * 60 + 33.062, :fade],
+        #   [4 * 60 + 34.002, "#{filesRoot}/masks/rb-4-tracks-only2.png"],
+        #   # TODO fade to black during gap
+        #   [9 * 60 + 14.948, :fade],
+        #   [9 * 60 + 15.533, "#{filesRoot}/masks/rb-4-tracks.png"],
+        # ],
         startTime: 0, # original footage started at 5.000
         position: {x: 0, y: 4},
         size: {x: 1920, y: 1076},
@@ -277,7 +296,7 @@ def buildCommand(video, out)
 
   sources = []
   sources << ['-loop', '1', '-i', video[:card]]
-  sources << ['-itsoffset', $cardFadeIn + $cardHold, '-i', video[:audio]]
+  sources << ['-i', video[:audio]]
   sourceMap = []
   video[:sources].each do |src|
     newSources = [sources.length]
@@ -303,14 +322,7 @@ def buildCommand(video, out)
     end
     node = Node.new(["#{inputs[0]}:v"], "fps=60, scale=#{size}")
     startTime = $cardFadeIn + $cardHold - src[:startTime]
-    if startTime < 0
-      node = Node.new([node], "trim=start=#{startTime.abs}, setpts=PTS-STARTPTS")
-    elsif startTime > 0
-      node = Node.new([
-        Node.new([], "color=size=#{size}:color=black:rate=60, trim=end=#{startTime}"),
-        node,
-      ], "concat")
-    end
+    node = Node.new([node], "setpts=PTS-STARTPTS+#{startTime}/TB")
     if src[:mask]
       node = Node.new([node, "#{inputs[1]}:v"], "alphamerge")
     end
@@ -325,12 +337,14 @@ def buildCommand(video, out)
     end
     stack = Node.new([stack, node], command)
   end
-  cmd << Node.new([stack, card], 'overlay').generate_root.join(";\n")
+  filter = Node.new([stack, card], 'overlay').generate_root
+  msdelay = (($cardFadeIn + $cardHold) * 1000).floor
+  filter << "[1:a] adelay=delays=#{msdelay}|#{msdelay}"
+  cmd << filter.join(";\n")
 
   cmd += %W{
     -c:v libx264
     -r 60
-    -map 1:a
     -t #{$cardFadeIn + $cardHold + video[:songLength]}
     #{out}
   }
