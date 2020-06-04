@@ -6,11 +6,27 @@ import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                     as A
 import qualified Data.HashMap.Strict            as HM
+import qualified Data.Map as Map
 import qualified Data.Text                      as T
-import           Rocksmith.Base                 (parseFile)
+import           Rocksmith.Base
 import           Rocksmith.PSARC
 import qualified System.Directory               as Dir
 import           System.FilePath                ((<.>), (</>))
+import Config
+import Audio (Audio(..))
+import Data.Default.Class (def)
+import Rocksmith.BNK (extractRSOgg)
+import JSONData (yamlEncodeFile, toJSON)
+import Data.Maybe (catMaybes)
+import qualified RockBand.Codec.File as RBFile
+import RockBand.Codec.ProGuitar
+import qualified Sound.MIDI.File.Save as Save
+import qualified Sound.MIDI.Util as U
+import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.EventList.Absolute.TimeBody as ATB
+import RockBand.Codec (mapTrack)
+import RockBand.Common (Difficulty(..))
+import Data.List (sort)
 
 importRS :: (SendMessage m, MonadResource m) => FilePath -> FilePath -> StackTraceT m ()
 importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
@@ -34,16 +50,121 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
         _ -> fatal $ "Tried to read urn " <> show urnType <> " from non-string"
   A.Object entries <- prop "Entries" manifest
   lg $ show $ HM.keys entries
-  parts <- forM (HM.toList entries) $ \(k, entry) -> inside ("Entry " <> T.unpack k) $ do
+  parts <- fmap catMaybes $ forM (HM.toList entries) $ \(k, entry) -> inside ("Entry " <> T.unpack k) $ do
     attrs <- prop "Attributes" entry
     partJsonPath <- prop "ManifestUrn" attrs >>= urn "urn:database:json-db:"
     part <- stackIO (A.eitherDecodeFileStrict $ temp </> "manifests" </> song </> T.unpack partJsonPath <.> "json") >>= either fatal return
     partAttrs <- prop "Entries" part >>= prop k >>= prop "Attributes"
     partXmlPath <- prop "SongXml" partAttrs >>= urn "urn:application:xml:"
     bnkPath <- prop "SongBank" partAttrs >>= urn ""
-    arr <- parseFile $ temp </> "songs/arr" </> T.unpack partXmlPath <.> "xml"
-    lg $ take 100 $ show arr
-    return ()
+    xml <- parseFile $ temp </> "songs/arr" </> T.unpack partXmlPath <.> "xml"
+    return $ case xml of
+      PartVocals          -> Nothing
+      PartArrangement arr -> let
+        partName = case arr_arrangement arr of
+          -- TODO verify these and maybe be more flexible
+          "Lead"   -> RBFile.FlexGuitar
+          "Rhythm" -> RBFile.FlexExtra "rhythm"
+          "Bass"   -> RBFile.FlexBass
+          p        -> RBFile.FlexExtra p
+        in Just (partName, arr, bnkPath)
+  (_, firstArr, bnk) <- case parts of
+    []    -> fatal "No entries found in song"
+    p : _ -> return p
+  -- TODO handle if the bnks are different in different parts?
+  -- how does multiplayer handle this?
+  -- TODO handle folders other than windows
+  stackIO $ extractRSOgg (temp </> "audio/windows" </> T.unpack bnk) $ dout </> "song.ogg"
+  let temps = U.tempoMapFromBPS RTB.empty -- TODO
+      sigs = U.measureMapFromTimeSigs U.Truncate RTB.empty -- TODO
+  stackIO $ Save.toFile (dout </> "notes.mid") $ RBFile.showMIDIFile'
+    $ RBFile.Song temps sigs mempty
+      { RBFile.onyxParts = Map.fromList $ do
+        (partName, arr, _) <- parts
+        let lvl = arr_transcriptionTrack arr -- TODO not every song has this! otherwise we need to stitch phrases together
+            notes = let
+              eachNote note = let
+                str = case n_string note of
+                  0 -> S6
+                  1 -> S5
+                  2 -> S4
+                  3 -> S3
+                  4 -> S2
+                  5 -> S1
+                  _ -> S7 -- TODO raise error
+                ntype = NormalNote -- TODO
+                fret = n_fret note
+                len = n_sustain note
+                in (n_time note, (str, (ntype, fret, len)))
+              in RTB.fromAbsoluteEventList
+                $ ATB.fromPairList
+                $ sort
+                $ map eachNote
+                $ lvl_notes lvl ++ concatMap chd_chordNotes (lvl_chords lvl)
+            diff = mapTrack (U.unapplyTempoTrack temps) mempty
+              { pgNotes = notes -- :: RTB.T t (GtrString, (NoteType, GtrFret, Maybe t))
+              }
+            trk = mempty
+              { pgDifficulties = Map.singleton Expert diff
+              }
+        return (partName, mempty { RBFile.onyxPartRealGuitar = trk })
+      }
+  stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON (SongYaml
+    { _metadata = (def :: Metadata FilePath)
+      { _title        = Just $ arr_title firstArr
+      , _artist       = Just $ arr_artistName firstArr
+      , _album        = Just $ arr_albumName firstArr
+      , _year         = arr_albumYear firstArr
+      , _fileAlbumArt = Nothing -- TODO
+      }
+    , _jammit = HM.empty
+    , _targets = HM.empty
+    , _global = def
+    , _audio = HM.singleton "song.ogg" $ AudioFile AudioInfo
+      { _md5      = Nothing
+      , _frames   = Nothing
+      , _filePath = Just "song.ogg"
+      , _commands = []
+      , _rate     = Nothing
+      , _channels = 2 -- TODO get real count
+      }
+    , _plans = HM.singleton "rs" Plan
+      { _song         = Just PlanAudio
+        { _planExpr = Input $ Named "song.ogg"
+        , _planPans = []
+        , _planVols = []
+        }
+      , _countin      = Countin []
+      , _planParts    = Parts HM.empty
+      , _crowd        = Nothing
+      , _planComments = []
+      , _tuningCents  = arr_centOffset firstArr
+      , _fileTempo    = Nothing
+      }
+    , _parts = Parts $ HM.fromList $ do
+      (partName, arr, _) <- parts
+      let part = def
+            { partProGuitar = Just PartProGuitar
+              { pgDifficulty    = Tier 1
+              , pgHopoThreshold = 170
+              , pgTuning        = if ap_pathBass $ arr_arrangementProperties arr
+                then GtrTuning
+                  { gtrBase    = Bass4
+                  , gtrOffsets = case arr_tuning arr of
+                    Tuning a b c d _ _ -> [a, b, c, d]
+                  , gtrGlobal  = 0 -- TODO use arr_capo ?
+                  }
+                else GtrTuning
+                  { gtrBase    = Guitar6
+                  , gtrOffsets = case arr_tuning arr of
+                    Tuning a b c d e f -> [a, b, c, d, e, f]
+                  , gtrGlobal  = 0 -- TODO use arr_capo ?
+                  }
+              , pgFixFreeform   = False
+              }
+            }
+      return (partName, part)
+    } :: SongYaml FilePath)
   {-
   1. pick manifests/foo
   2. load manifests/foo/foo.hsan (json)

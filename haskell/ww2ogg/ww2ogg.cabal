@@ -16,7 +16,8 @@ library
     cbits/crc.c
     cbits/haskell.cpp
     cbits/wwriff.cpp
+    cbits/revorb.c
   build-depends:
     base
   default-language: Haskell2010
-  extra-libraries: stdc++
+  extra-libraries: stdc++, ogg, vorbis
