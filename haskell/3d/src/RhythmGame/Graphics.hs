@@ -660,10 +660,9 @@ drawPG glStuff@GLStuff{..} nowTime speed trk = do
           y1 = y2 + C.sust_height (C.obj_sustains $ C.cfg_objects gfxConfig)
           (z1, z2) = (timeToZ $ max nowTime t1, timeToZ t2)
           in drawObject' Box (ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2)) (Right boxColor) 1 globalLight
-      -- TODO this isn't working yet!
       drawGem t od str note alpha = let
         obj = Model ModelPGNote
-        fretWidth = 1 / numStrings
+        fretWidth = 2 / numStrings
         (x1, x2) = let
           center = stringCenterX str
           halfWidth = fretWidth / 2
@@ -674,18 +673,19 @@ drawPG glStuff@GLStuff{..} nowTime speed trk = do
         (z1, z2) = (z - 0.01, z + 0.01)
         stretch = ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2)
         texid = TextureFrets
-        fretCols = 6 :: Int
-        fretRows = 4 :: Int
+        fretRows = 6 :: Int
+        fretCols = 4 :: Int
         crop = TextureCrop
-          (fromIntegral (rem  (pgFret note) fretRows) / fromIntegral fretRows)
-          (fromIntegral (quot (pgFret note) fretRows) / fromIntegral fretCols)
-          (1 / fromIntegral fretRows)
+          (fromIntegral (           rem  (pgFret note) fretCols    ) / fromIntegral fretCols)
+          (fromIntegral (fretRows - quot (pgFret note) fretCols - 1) / fromIntegral fretRows)
           (1 / fromIntegral fretCols)
+          (1 / fromIntegral fretRows)
         shade = case alpha of
           Nothing -> Left (texid, Just crop)
           Just _  -> Right $ C.gems_color_hit $ C.obj_gems $ C.cfg_objects gfxConfig
-        in drawObject' obj stretch shade (fromMaybe 1 alpha) $ LightOffset
-          $ C.gems_light $ C.obj_gems $ C.cfg_objects gfxConfig
+        in drawObject' obj stretch shade (fromMaybe 1 alpha) $ LightOffset $ let
+          normalLight = C.gems_light $ C.obj_gems $ C.cfg_objects gfxConfig
+          in normalLight { C.light_position = V3 0 0 0.5 }
       drawNotes _        []                      = return ()
       drawNotes nextTime ((thisTime, cs) : rest) = do
         let notes = Map.toList $ pgNotes $ commonState cs
@@ -1023,8 +1023,8 @@ loadTexture linear img = liftIO $ do
         (imageHeight img)
   texture <- fillPtr $ glGenTextures 1
   glBindTexture GL_TEXTURE_2D texture
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_REPEAT
-  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_REPEAT
+  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_CLAMP_TO_EDGE
+  glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_CLAMP_TO_EDGE
   let filtering = if linear then GL_LINEAR else GL_NEAREST
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER filtering
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER filtering

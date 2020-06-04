@@ -50,6 +50,7 @@ import           Import
 import           Magma                          (getRBAFileBS)
 import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingles)
+import           Rocksmith.Import               as RS
 import qualified Sound.Jammit.Base              as J
 import           STFS.Package                   (STFSContents (..), withSTFS)
 import qualified System.Directory               as Dir
@@ -267,6 +268,17 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         case dta of
           Just bs -> foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc False $ \i -> void . importSTFS i loc Nothing
           Nothing -> return ([], [])
+      foundRS psarc = do
+        -- TODO fill in data
+        found Importable
+          { impTitle = Just "(rocksmith song)"
+          , impArtist = Nothing
+          , impAuthor = Nothing
+          , impFormat = "Rocksmith"
+          , impPath = psarc
+          , impIndex = Nothing
+          , impProject = importFrom Nothing psarc False $ RS.importRS psarc
+          }
   isDir <- stackIO $ Dir.doesDirectoryExist fp
   if isDir
     then do
@@ -298,6 +310,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".bms" -> foundBME fp
         ".bme" -> foundBME fp
         ".bml" -> foundBME fp
+        ".psarc" -> foundRS fp
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundIni fp
           "set.def" -> foundDTXSet fp

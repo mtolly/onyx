@@ -1,12 +1,20 @@
 g default
 
+# top right front
 v 0.5 0.5 0.5
+# top right back
 v 0.5 0.5 -0.5
+# bottom right front
 v 0.5 -0.5 0.5
+# bottom right back
 v 0.5 -0.5 -0.5
+# top left front
 v -0.5 0.5 0.5
+# top left back
 v -0.5 0.5 -0.5
+# bottom left front
 v -0.5 -0.5 0.5
+# bottom left back
 v -0.5 -0.5 -0.5
 
 # bottom left
@@ -18,19 +26,23 @@ vt 1.0 0.0
 # top right
 vt 1.0 1.0
 
+# up
 vn  0.0 1.0 0.0
+# left
 vn -1.0 0.0 0.0
+# right
 vn  0.0 0.0 1.0
+# bottom
 vn  1.0 0.0 0.0
 
 s off
 g box_mesh
 
 # front
-f 5/2/3 1/4/3 3/3/3 7/1/3
+f 7/1/3 3/3/3 1/4/3 5/2/3
 # top
-f 6/2/1 2/4/1 1/4/1 5/2/1
+f 5/2/1 1/4/1 2/4/1 6/2/1
 # left
-f 6/2/2 5/2/2 7/1/2 8/1/2
+f 8/1/2 7/1/2 5/2/2 6/2/2
 # right
-f 1/4/4 2/4/4 4/3/4 3/3/4
+f 3/3/4 4/3/4 2/4/4 1/4/4

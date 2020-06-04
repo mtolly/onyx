@@ -7,6 +7,7 @@ import           Control.Arrow                  (second)
 import           Control.Monad                  (forM, forM_, guard, unless,
                                                  void, when)
 import           Control.Monad.Codec
+import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
@@ -689,11 +690,15 @@ instance IsInside Event where
     ev_code <- ev_code =. reqAttr "code"
     return Event{..}
 
-testParse :: FilePath -> IO Arrangement
-testParse f = do
-  let cdc = isTag "song" $ parseInside' insideCodec
-  T.readFile f >>= \t -> case parseXMLDoc t of
-    Nothing -> error "couldn't parse xml"
-    Just elt -> logStdout (mapStackTraceT (`runReaderT` elt) $ codecIn cdc) >>= \case
-      Left msgs -> error $ show msgs
-      Right arr -> return arr
+data PartContents
+  = PartArrangement Arrangement
+  | PartVocals -- TODO parse the vocals
+  deriving (Eq, Show)
+
+parseFile :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m PartContents
+parseFile f = inside ("Loading: " <> f) $ do
+  stackIO (T.readFile f) >>= \t -> case parseXMLDoc t of
+    Nothing  -> fatal "Couldn't parse XML"
+    Just elt -> mapStackTraceT (`runReaderT` elt) $ case matchTag "vocals" elt of
+      Just _  -> return PartVocals
+      Nothing -> fmap PartArrangement $ codecIn $ isTag "song" $ parseInside' insideCodec
