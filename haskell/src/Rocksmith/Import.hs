@@ -13,7 +13,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes)
+import           Data.Maybe                       (catMaybes, isNothing)
 import qualified Data.Text                        as T
 import           JSONData                         (toJSON, yamlEncodeFile)
 import           RockBand.Codec                   (mapTrack)
@@ -75,8 +75,21 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
   -- how does multiplayer handle this?
   -- TODO handle folders other than windows
   stackIO $ extractRSOgg (temp </> "audio/windows" </> T.unpack bnk) $ dout </> "song.ogg"
-  let temps = U.tempoMapFromBPS RTB.empty -- TODO
-      sigs = U.measureMapFromTimeSigs U.Truncate RTB.empty -- TODO
+  let modifiedBeats = case arr_ebeats firstArr of
+        ebeats@(Ebeat 0 _ : _) -> ebeats
+        ebeats                 -> Ebeat 0 Nothing : ebeats
+        -- TODO maybe be smarter about the initial added tempo
+      temps = U.tempoMapFromBPS $ let
+        makeTempo b1 b2 = U.makeTempo 1 (eb_time b2 - eb_time b1)
+        in RTB.fromPairList
+          $ zip (0 : repeat 1)
+          $ zipWith makeTempo modifiedBeats (drop 1 modifiedBeats)
+      sigs = U.measureMapFromLengths U.Truncate $ let
+        makeBarLengths [] = []
+        makeBarLengths (_ : ebeats) = case span (isNothing . eb_measure) ebeats of
+          (inThisBar, rest) -> (1 + fromIntegral (length inThisBar)) : makeBarLengths rest
+        assembleMMap lens = RTB.fromPairList $ zip (0 : lens) lens
+        in assembleMMap $ makeBarLengths modifiedBeats
   stackIO $ Save.toFile (dout </> "notes.mid") $ RBFile.showMIDIFile'
     $ RBFile.Song temps sigs mempty
       { RBFile.onyxParts = Map.fromList $ do
