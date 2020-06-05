@@ -85,6 +85,7 @@ import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    testConvertLipsync,
                                                    unpackMilo)
 import           RockBand.Score
+import           Rocksmith.PSARC                  (extractPSARC)
 import           Rocksmith.Sng2014                (bin)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File                  as F
@@ -982,6 +983,18 @@ commands =
         return $ blobDec : blobTxt : fmap fst dats
       ".iga" -> stackIO $ extractIGA arg
       _ -> fatal $ "Unrecognized iOS game file extension: " <> arg
+    }
+
+  , Command
+    { commandWord = "unpsarc"
+    , commandDesc = "Extract the contents of a Rocksmith.PSARC (extractPSARC) .psarc file."
+    , commandUsage = "onyx unpsarc in.psarc [--to dir]"
+    , commandRun = \args opts -> case args of
+      [fin] -> do
+        dout <- outputFile opts $ return $ fin ++ "_extract"
+        stackIO $ extractPSARC fin dout
+        return [dout]
+      _ -> fatal "Expected 1 argument (input psarc)"
     }
 
   ]

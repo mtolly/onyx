@@ -1,32 +1,32 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Rocksmith.Import where
 
-import           Control.Monad                  (forM)
-import           Control.Monad.Trans.Resource   (MonadResource)
+import           Audio                            (Audio (..))
+import           Config
+import           Control.Monad                    (forM)
+import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
-import qualified Data.Aeson                     as A
-import qualified Data.HashMap.Strict            as HM
-import qualified Data.Map as Map
-import qualified Data.Text                      as T
-import           Rocksmith.Base
-import           Rocksmith.PSARC
-import qualified System.Directory               as Dir
-import           System.FilePath                ((<.>), (</>))
-import Config
-import Audio (Audio(..))
-import Data.Default.Class (def)
-import Rocksmith.BNK (extractRSOgg)
-import JSONData (yamlEncodeFile, toJSON)
-import Data.Maybe (catMaybes)
-import qualified RockBand.Codec.File as RBFile
-import RockBand.Codec.ProGuitar
-import qualified Sound.MIDI.File.Save as Save
-import qualified Sound.MIDI.Util as U
-import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.Aeson                       as A
+import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
-import RockBand.Codec (mapTrack)
-import RockBand.Common (Difficulty(..))
-import Data.List (sort)
+import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (sort)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (catMaybes)
+import qualified Data.Text                        as T
+import           JSONData                         (toJSON, yamlEncodeFile)
+import           RockBand.Codec                   (mapTrack)
+import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.ProGuitar
+import           RockBand.Common                  (Difficulty (..))
+import           Rocksmith.Base
+import           Rocksmith.BNK                    (extractRSOgg)
+import           Rocksmith.PSARC
+import qualified Sound.MIDI.File.Save             as Save
+import qualified Sound.MIDI.Util                  as U
+import qualified System.Directory                 as Dir
+import           System.FilePath                  ((<.>), (</>))
 
 importRS :: (SendMessage m, MonadResource m) => FilePath -> FilePath -> StackTraceT m ()
 importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
@@ -62,7 +62,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
       PartVocals          -> Nothing
       PartArrangement arr -> let
         partName = case arr_arrangement arr of
-          -- TODO verify these and maybe be more flexible
+          -- TODO this needs to actually be based on manifest .json (pathLead/pathRhythm/pathBass/bonusArr)
           "Lead"   -> RBFile.FlexGuitar
           "Rhythm" -> RBFile.FlexExtra "rhythm"
           "Bass"   -> RBFile.FlexBass
@@ -81,26 +81,34 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
     $ RBFile.Song temps sigs mempty
       { RBFile.onyxParts = Map.fromList $ do
         (partName, arr, _) <- parts
-        let lvl = arr_transcriptionTrack arr -- TODO not every song has this! otherwise we need to stitch phrases together
+        -- if transcriptionTrack is present we could use that, but not all songs have that
+        let getNote note = let
+              str = case n_string note of
+                0 -> S6
+                1 -> S5
+                2 -> S4
+                3 -> S3
+                4 -> S2
+                5 -> S1
+                _ -> S7 -- TODO raise error
+              ntype = NormalNote -- TODO
+              fret = n_fret note
+              len = n_sustain note
+              in (n_time note, (str, (ntype, fret, len)))
+            iterBoundaries = zip (arr_phraseIterations arr)
+              (map Just (drop 1 $ arr_phraseIterations arr) ++ [Nothing])
+            getPhrase iter1 miter2 = let
+              phrase = arr_phrases arr !! pi_phraseId iter1
+              lvl = arr_levels arr !! ph_maxDifficulty phrase
+              inBounds note = pi_time iter1 <= n_time note
+                && all (\iter2 -> n_time note < pi_time iter2) miter2
+              lvlAllNotes = lvl_notes lvl ++ concatMap chd_chordNotes (lvl_chords lvl)
+              in map getNote $ filter inBounds lvlAllNotes
             notes = let
-              eachNote note = let
-                str = case n_string note of
-                  0 -> S6
-                  1 -> S5
-                  2 -> S4
-                  3 -> S3
-                  4 -> S2
-                  5 -> S1
-                  _ -> S7 -- TODO raise error
-                ntype = NormalNote -- TODO
-                fret = n_fret note
-                len = n_sustain note
-                in (n_time note, (str, (ntype, fret, len)))
               in RTB.fromAbsoluteEventList
                 $ ATB.fromPairList
                 $ sort
-                $ map eachNote
-                $ lvl_notes lvl ++ concatMap chd_chordNotes (lvl_chords lvl)
+                $ concatMap (uncurry getPhrase) iterBoundaries
             diff = mapTrack (U.unapplyTempoTrack temps) mempty
               { pgNotes = notes -- :: RTB.T t (GtrString, (NoteType, GtrFret, Maybe t))
               }

@@ -189,9 +189,9 @@ bareList cdc = Codec
 countList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m [a]
 countList cdc = Codec
   { codecIn = do
-    len <- codecIn $ intText $ reqAttr "count"
+    mlen <- codecIn $ zoomValue (maybeValue intValue) $ optAttr "count"
     xs <- codecIn bare
-    when (length xs /= len) $ warn $ unwords
+    forM_ mlen $ \len -> when (length xs /= len) $ warn $ unwords
       [ "List has count attribute of"
       , show len
       , "but contains"
@@ -372,7 +372,7 @@ instance IsInside Phrase where
 data PhraseIteration = PhraseIteration
   { pi_time       :: U.Seconds
   , pi_phraseId   :: Int
-  , pi_variation  :: T.Text -- only seen empty, dunno what this is
+  , pi_variation  :: Maybe T.Text -- only seen empty, dunno what this is
   , pi_heroLevels :: [HeroLevel]
   } deriving (Eq, Show)
 
@@ -380,7 +380,7 @@ instance IsInside PhraseIteration where
   insideCodec = do
     pi_time       <- pi_time       =. seconds (reqAttr "time")
     pi_phraseId   <- pi_phraseId   =. intText (reqAttr "phraseId")
-    pi_variation  <- pi_variation  =. reqAttr "variation"
+    pi_variation  <- pi_variation  =. optAttr "variation"
     pi_heroLevels <- pi_heroLevels =. plural "heroLevel"
     return PhraseIteration{..}
 
