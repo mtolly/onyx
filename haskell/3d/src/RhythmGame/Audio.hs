@@ -35,6 +35,7 @@ import           Foreign.C                      (CFloat (..), CInt (..),
                                                  CUInt (..))
 import           MoggDecrypt
 import           OpenProject
+import           Path                           (parseAbsDir)
 import           RenderAudio                    (computeChannelsPlan)
 import           Sound.OpenAL                   (($=))
 import qualified Sound.OpenAL                   as AL
@@ -242,7 +243,10 @@ projectAudio proj = case HM.toList $ _plans $ projectSongYaml proj of
   [(_, Plan{..})] -> errorToWarning $ do
     let planAudios = toList _song ++ (toList _planParts >>= toList) -- :: [PlanAudio Duration AudioInput]
     lib <- newAudioLibrary
-    -- TODO add audio dirs
+    audioDirs <- getAudioDirs proj
+    forM_ audioDirs $ \dir -> do
+      p <- parseAbsDir dir
+      addAudioDir lib p
     let evalAudioInput = \case
           Named name -> do
             afile <- maybe (fatal "Undefined audio name") return $ HM.lookup name $ _audio $ projectSongYaml proj

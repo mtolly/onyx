@@ -38,5 +38,6 @@ library:
   - wavefront
   - codec
   - directory
+  - path
   build-tools:
   - c2hs

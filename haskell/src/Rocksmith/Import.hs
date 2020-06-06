@@ -61,12 +61,15 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
     return $ case xml of
       PartVocals          -> Nothing
       PartArrangement arr -> let
-        partName = case arr_arrangement arr of
-          -- TODO this needs to actually be based on manifest .json (pathLead/pathRhythm/pathBass/bonusArr)
-          "Lead"   -> RBFile.FlexGuitar
-          "Rhythm" -> RBFile.FlexExtra "rhythm"
-          "Bass"   -> RBFile.FlexBass
-          p        -> RBFile.FlexExtra p
+        props = arr_arrangementProperties arr
+        partName = case (ap_pathLead props, ap_pathRhythm props, ap_pathBass props, ap_bonusArr props) of
+          (True, _, _, False) -> RBFile.FlexGuitar
+          (_, True, _, False) -> RBFile.FlexExtra "rhythm"
+          (_, _, True, False) -> RBFile.FlexBass
+          (True, _, _, True) -> RBFile.FlexExtra "bonus-lead"
+          (_, True, _, True) -> RBFile.FlexExtra "bonus-rhythm"
+          (_, _, True, True) -> RBFile.FlexExtra "bonus-bass"
+          (False, False, False, _) -> RBFile.FlexExtra $ arr_arrangement arr
         in Just (partName, arr, bnkPath)
   (_, firstArr, bnk) <- case parts of
     []    -> fatal "No entries found in song"

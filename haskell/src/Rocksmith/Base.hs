@@ -361,12 +361,18 @@ instance IsInside Arrangement where
 data Phrase = Phrase
   { ph_maxDifficulty :: Int
   , ph_name          :: T.Text
+  , ph_disparity     :: Maybe Int
+  , ph_ignore        :: Bool
+  , ph_solo          :: Bool
   } deriving (Eq, Show)
 
 instance IsInside Phrase where
   insideCodec = do
     ph_maxDifficulty <- ph_maxDifficulty =. intText (reqAttr "maxDifficulty")
     ph_name          <- ph_name          =. reqAttr "name"
+    ph_disparity     <- ph_disparity     =. zoomValue (maybeValue intValue) (optAttr "disparity")
+    ph_ignore        <- ph_ignore        =. flag "ignore"
+    ph_solo          <- ph_solo          =. flag "solo"
     return Phrase{..}
 
 data PhraseIteration = PhraseIteration
@@ -493,6 +499,12 @@ data Note = Note
   , n_bendValues     :: [BendValue]
   , n_harmonicPinch  :: Bool
   , n_leftHand       :: Maybe Int -- only in chordNote
+  , n_tap            :: Bool
+  , n_slap           :: Maybe Int
+  , n_pluck          :: Maybe Int
+  , n_tremolo        :: Bool
+  , n_pickDirection  :: Maybe Int
+  , n_ignore         :: Bool
   } deriving (Eq, Show)
 
 data Chord = Chord
@@ -548,6 +560,12 @@ instance IsInside Note where
     n_bendValues     <- n_bendValues     =. plural "bendValue"
     n_harmonicPinch  <- n_harmonicPinch  =. flag "harmonicPinch"
     n_leftHand       <- n_leftHand       =. zoomValue (maybeValue intValue) (optAttr "leftHand")
+    n_tap            <- n_tap            =. flag "tap"
+    n_slap           <- n_slap           =. zoomValue (maybeValue intValue) (optAttr "slap")
+    n_pluck          <- n_pluck          =. zoomValue (maybeValue intValue) (optAttr "pluck")
+    n_tremolo        <- n_tremolo        =. flag "tremolo"
+    n_pickDirection  <- n_pickDirection  =. zoomValue (maybeValue intValue) (optAttr "pickDirection")
+    n_ignore         <- n_ignore         =. flag "ignore"
     return Note{..}
 
 instance IsInside Chord where
@@ -623,6 +641,7 @@ data ArrangementProperties = ArrangementProperties
   , ap_pathLead          :: Bool
   , ap_pathRhythm        :: Bool
   , ap_pathBass          :: Bool
+  , ap_routeMask         :: Maybe Int
   } deriving (Eq, Show)
 
 instance IsInside ArrangementProperties where
@@ -658,6 +677,7 @@ instance IsInside ArrangementProperties where
     ap_pathLead          <- ap_pathLead          =. boolText (reqAttr "pathLead")
     ap_pathRhythm        <- ap_pathRhythm        =. boolText (reqAttr "pathRhythm")
     ap_pathBass          <- ap_pathBass          =. boolText (reqAttr "pathBass")
+    ap_routeMask         <- ap_routeMask         =. zoomValue (maybeValue intValue) (optAttr "routeMask")
     return ArrangementProperties{..}
 
 data Tuning = Tuning
