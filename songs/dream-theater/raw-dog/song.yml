@@ -1,0 +1,37 @@
+metadata:
+  author: Onyxite
+  title: Raw Dog
+  artist: Dream Theater
+plans:
+  album:
+    song:
+      pad: [2.748, youtube]
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube O6OfqGvliyw 140
+    # md5:
+    # frames:
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+parts:
+  drums:
+    drums:
+      kicks: 2
+      difficulty: 7
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
