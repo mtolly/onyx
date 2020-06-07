@@ -12,6 +12,8 @@ import           Data.Word
 import           Debug.Trace
 import           Rocksmith.Crypt
 
+-- TODO PC/Mac .sng files are little endian, need to make these work on either
+
 class Bin a where
   bin :: BinaryCodec a
 

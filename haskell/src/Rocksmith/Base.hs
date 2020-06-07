@@ -1,6 +1,8 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE StrictData        #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Rocksmith.Base where
 
 import           Control.Arrow                  (second)
@@ -21,21 +23,22 @@ import           Data.Maybe                     (catMaybes, fromMaybe, isJust,
 import           Data.Profunctor                (dimap)
 import qualified Data.Text                      as T
 import qualified Data.Text.IO                   as T
+import qualified Data.Vector                    as V
 import           JSONData
 import qualified Sound.MIDI.Util                as U
 import           Text.Read                      (readMaybe)
 import           Text.XML.Light
 
 data Inside = Inside
-  { insideAttrs   :: [Attr]
-  , insideContent :: [Content]
+  { insideAttrs   :: V.Vector Attr
+  , insideContent :: V.Vector Content
   }
 
 instance Semigroup Inside where
-  Inside a b <> Inside c d = Inside (a ++ c) (b ++ d)
+  Inside a b <> Inside c d = Inside (a <> c) (b <> d)
 
 instance Monoid Inside where
-  mempty = Inside [] []
+  mempty = Inside V.empty V.empty
 
 type InsideParser m = StackTraceT (StateT Inside m)
 type InsideBuilder = Writer Inside
@@ -55,8 +58,8 @@ matchTag t elt = do
 makeTag :: T.Text -> Inside -> Element
 makeTag t ins = Element
   { elName = QName (T.unpack t) Nothing Nothing
-  , elAttribs = insideAttrs ins
-  , elContent = insideContent ins
+  , elAttribs = V.toList $ insideAttrs ins
+  , elContent = V.toList $ insideContent ins
   , elLine = Nothing
   }
 
@@ -66,7 +69,7 @@ isTag t cdc = Codec
     elt <- lift ask
     case matchTag t elt of
       Nothing -> fatal $ "Expected a tag <" <> T.unpack t <> "> but got: " <> show (elName elt)
-      Just layer -> layer $ parseFrom (Inside (elAttribs elt) (elContent elt)) $ codecIn cdc
+      Just layer -> layer $ parseFrom (Inside (V.fromList $ elAttribs elt) (V.fromList $ elContent elt)) $ codecIn cdc
   , codecOut = mapWriter (second $ makeTag t) . codecOut cdc
   }
 
@@ -75,19 +78,19 @@ childTagOpt t cdc = Codec
   { codecIn = do
     ins <- lift get
     let isElement = \case Elem e -> Just e; _ -> Nothing
-    case break (isJust . snd) [ (x, isElement x >>= matchTag t) | x <- insideContent ins ] of
-      (before, (Elem elt, Just layer) : after) -> do
-        let ins' = Inside (elAttribs elt) (elContent elt)
+    case V.break (isJust . snd) $ fmap (\x -> (x, isElement x >>= matchTag t)) $ insideContent ins of
+      (before, V.toList -> (Elem elt, Just layer) : after) -> do
+        let ins' = Inside (V.fromList $ elAttribs elt) (V.fromList $ elContent elt)
         x <- layer $ mapStackTraceT (lift . (`runReaderT` ins')) $ codecIn cdc
-        lift $ put $ ins { insideContent = map fst $ before ++ after }
+        lift $ put $ ins { insideContent = fmap fst $ before <> V.fromList after }
         return $ Just x
       _ -> return Nothing
   , codecOut = fmapArg $ \case
     Nothing -> return ()
     Just x -> let
       makeChild ins = Inside
-        { insideAttrs = []
-        , insideContent = [Elem $ makeTag t ins]
+        { insideAttrs = V.empty
+        , insideContent = V.singleton $ Elem $ makeTag t ins
         }
       in void $ mapWriter (second makeChild) $ codecOut cdc x
   }
@@ -127,22 +130,22 @@ warnUnused cdc = cdc
   }
 
 parseInside' :: (SendMessage m) => InsideCodec m a -> ValueCodec m Inside a
-parseInside' = parseInside . warnUnused
+parseInside' = parseInside {- . warnUnused -}
 
 optAttr :: (Monad m) => T.Text -> InsideCodec m (Maybe T.Text)
 optAttr a = Codec
   { codecIn = do
     ins <- lift get
-    case break (\attr -> attrKey attr == QName (T.unpack a) Nothing Nothing) $ insideAttrs ins of
-      (before, attr : after) -> do
-        lift $ put $ ins { insideAttrs = before ++ after }
+    case V.break (\attr -> attrKey attr == QName (T.unpack a) Nothing Nothing) $ insideAttrs ins of
+      (before, V.toList -> attr : after) -> do
+        lift $ put $ ins { insideAttrs = before <> V.fromList after }
         return $ Just $ T.pack $ attrVal attr
       _ -> return Nothing
   , codecOut = makeOut $ \case
     Nothing -> mempty
     Just x -> Inside
-      { insideAttrs = [Attr (QName (T.unpack a) Nothing Nothing) (T.unpack x)]
-      , insideContent = []
+      { insideAttrs = V.singleton $ Attr (QName (T.unpack a) Nothing Nothing) (T.unpack x)
+      , insideContent = V.empty
       }
   }
 
@@ -154,39 +157,39 @@ reqAttr a = Codec
   , codecOut = fmapArg $ void . codecOut o . Just
   } where o = optAttr a
 
-childElements :: (SendMessage m) => InsideCodec m [Element]
+childElements :: (SendMessage m) => InsideCodec m (V.Vector Element)
 childElements = Codec
   { codecIn = do
     ins <- lift get
-    elts <- fmap catMaybes $ forM (insideContent ins) $ \case
+    elts <- fmap (V.mapMaybe id) $ forM (insideContent ins) $ \case
       Elem elt -> return $ Just elt
       Text cd -> do
         unless (all isSpace $ cdData cd) $ do
           warn $ "Unexpected text in list element: " ++ show (cdData cd)
         return Nothing
       CRef _ -> warn "Unexpected CRef" >> return Nothing
-    lift $ put ins{ insideContent = [] }
+    lift $ put ins{ insideContent = V.empty }
     return elts
   , codecOut = makeOut $ \elts -> Inside
-    { insideAttrs   = []
-    , insideContent = map Elem elts
+    { insideAttrs   = V.empty
+    , insideContent = fmap Elem elts
     }
   }
 
-bareList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m [a]
+bareList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m (V.Vector a)
 bareList cdc = Codec
   { codecIn = do
     elts <- codecIn children
-    forM (zip [0..] elts) $ \(i, e) -> do
+    forM (V.fromList $ zip [0..] $ V.toList elts) $ \(i, e) -> do
       let layer = unwords $ concat
             [ toList (elLine e) >>= \ln -> ["line", show ln]
             , ["list child #" <> show (i :: Int)]
             ]
       inside layer $ mapStackTraceT (lift . (`runReaderT` e)) $ codecIn cdc
-  , codecOut = fmapArg $ void . codecOut children . map (makeValue' cdc)
+  , codecOut = fmapArg $ void . codecOut children . fmap (makeValue' cdc)
   } where children = childElements
 
-countList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m [a]
+countList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m (V.Vector a)
 countList cdc = Codec
   { codecIn = do
     mlen <- codecIn $ zoomValue (maybeValue intValue) $ optAttr "count"
@@ -201,8 +204,8 @@ countList cdc = Codec
     return xs
   , codecOut = fmapArg $ \xs -> do
     tell Inside
-      { insideAttrs = [Attr (QName "count" Nothing Nothing) (show $ length xs)]
-      , insideContent = []
+      { insideAttrs = V.singleton $ Attr (QName "count" Nothing Nothing) (show $ length xs)
+      , insideContent = V.empty
       }
     void $ codecOut bare xs
   } where bare = bareList cdc
@@ -212,16 +215,19 @@ childText = Codec
   { codecIn = do
     ins <- lift get
     let getText = \case Text cd -> Just cd; _ -> Nothing
-    lift $ put $ ins { insideContent = filter (isNothing . getText) $ insideContent ins }
+    lift $ put $ ins { insideContent = V.filter (isNothing . getText) $ insideContent ins }
     return
       $ T.unwords
-      $ filter (not . T.null)
-      $ map (T.strip . T.pack . cdData)
-      $ mapMaybe getText
+      $ V.toList
+      $ V.filter (not . T.null)
+      $ fmap (T.strip . T.pack . cdData)
+      $ V.mapMaybe getText
       $ insideContent ins
   , codecOut = makeOut $ \t -> Inside
-    { insideAttrs = []
-    , insideContent = [Text $ CData CDataText (T.unpack t) Nothing | not $ T.null t]
+    { insideAttrs = V.empty
+    , insideContent = do
+      guard $ not $ T.null t
+      V.singleton $ Text $ CData CDataText (T.unpack t) Nothing
     }
   }
 
@@ -255,8 +261,8 @@ maybeValue cdc = Codec
 maybeInside :: (Monad m) => InsideCodec m a -> InsideCodec m (Maybe a)
 maybeInside cdc = Codec
   { codecIn = lift get >>= \case
-    Inside [] [] -> return Nothing
-    _            -> fmap Just $ codecIn cdc
+    Inside (V.null -> True) (V.null -> True) -> return Nothing
+    _                                        -> fmap Just $ codecIn cdc
   , codecOut = fmapArg $ maybe (return ()) (void . codecOut cdc)
   }
 
@@ -297,7 +303,7 @@ data Arrangement = Arrangement
   , arr_title                  :: T.Text
   , arr_arrangement            :: T.Text
   , arr_part                   :: Int -- what is this?
-  , arr_offset                 :: U.Seconds
+  , arr_offset                 :: Milli -- time, but can be negative
   , arr_centOffset             :: Int
   , arr_songLength             :: U.Seconds
   , arr_lastConversionDateTime :: T.Text -- whatever
@@ -311,21 +317,21 @@ data Arrangement = Arrangement
   , arr_albumYear              :: Maybe Int -- should verify
   , arr_crowdSpeed             :: Int
   , arr_arrangementProperties  :: ArrangementProperties
-  , arr_phrases                :: [Phrase]
-  , arr_phraseIterations       :: [PhraseIteration]
-  , arr_chordTemplates         :: [ChordTemplate]
-  , arr_ebeats                 :: [Ebeat]
-  , arr_sections               :: [Section]
-  , arr_events                 :: [Event]
+  , arr_phrases                :: V.Vector Phrase
+  , arr_phraseIterations       :: V.Vector PhraseIteration
+  , arr_chordTemplates         :: V.Vector ChordTemplate
+  , arr_ebeats                 :: V.Vector Ebeat
+  , arr_sections               :: V.Vector Section
+  , arr_events                 :: V.Vector Event
   , arr_transcriptionTrack     :: Level
-  , arr_levels                 :: [Level]
+  , arr_levels                 :: V.Vector Level
   } deriving (Eq, Show)
 
-plural' :: (SendMessage m, IsInside a) => T.Text -> T.Text -> InsideCodec m [a]
-plural' many one = dimap (\xs -> guard (not $ null xs) >> Just xs) (fromMaybe [])
+plural' :: (SendMessage m, IsInside a) => T.Text -> T.Text -> InsideCodec m (V.Vector a)
+plural' many one = dimap (\xs -> guard (not $ null xs) >> Just xs) (fromMaybe V.empty)
   $ childTagOpt many $ parseInside' $ countList $ isTag one $ parseInside' insideCodec
 
-plural :: (SendMessage m, IsInside a) => T.Text -> InsideCodec m [a]
+plural :: (SendMessage m, IsInside a) => T.Text -> InsideCodec m (V.Vector a)
 plural one = plural' (one <> "s") one
 
 instance IsInside Arrangement where
@@ -334,7 +340,7 @@ instance IsInside Arrangement where
     arr_title                  <- arr_title                  =. childTag "title"                  (parseInside' childText)
     arr_arrangement            <- arr_arrangement            =. childTag "arrangement"            (parseInside' childText)
     arr_part                   <- arr_part                   =. childTag "part"                   (parseInside' $ intText childText)
-    arr_offset                 <- arr_offset                 =. childTag "offset"                 (parseInside' $ seconds childText)
+    arr_offset                 <- arr_offset                 =. childTag "offset"                 (parseInside' $ milliText childText)
     arr_centOffset             <- arr_centOffset             =. childTag "centOffset"             (parseInside' $ intText childText)
     arr_songLength             <- arr_songLength             =. childTag "songLength"             (parseInside' $ seconds childText)
     arr_lastConversionDateTime <- arr_lastConversionDateTime =. childTag "lastConversionDateTime" (parseInside' childText)
@@ -379,7 +385,7 @@ data PhraseIteration = PhraseIteration
   { pi_time       :: U.Seconds
   , pi_phraseId   :: Int
   , pi_variation  :: Maybe T.Text -- only seen empty, dunno what this is
-  , pi_heroLevels :: [HeroLevel]
+  , pi_heroLevels :: V.Vector HeroLevel
   } deriving (Eq, Show)
 
 instance IsInside PhraseIteration where
@@ -463,11 +469,11 @@ instance IsInside Section where
 
 data Level = Level
   { lvl_difficulty    :: Int
-  , lvl_notes         :: [Note]
-  , lvl_chords        :: [Chord]
-  , lvl_fretHandMutes :: [FretHandMute]
-  , lvl_anchors       :: [Anchor]
-  , lvl_handShapes    :: [HandShape]
+  , lvl_notes         :: V.Vector Note
+  , lvl_chords        :: V.Vector Chord
+  , lvl_fretHandMutes :: V.Vector FretHandMute
+  , lvl_anchors       :: V.Vector Anchor
+  , lvl_handShapes    :: V.Vector HandShape
   } deriving (Eq, Show)
 
 instance IsInside Level where
@@ -495,8 +501,8 @@ data Note = Note
   , n_palmMute       :: Bool
   , n_accent         :: Bool
   , n_linkNext       :: Bool
-  , n_bend           :: Maybe Int
-  , n_bendValues     :: [BendValue]
+  , n_bend           :: Maybe Milli
+  , n_bendValues     :: V.Vector BendValue
   , n_harmonicPinch  :: Bool
   , n_leftHand       :: Maybe Int -- only in chordNote
   , n_tap            :: Bool
@@ -515,7 +521,7 @@ data Chord = Chord
   , chd_palmMute     :: Bool
   , chd_fretHandMute :: Bool
   , chd_linkNext     :: Bool
-  , chd_chordNotes   :: [Note]
+  , chd_chordNotes   :: V.Vector Note
   } deriving (Eq, Show)
 
 -- TODO
@@ -556,7 +562,7 @@ instance IsInside Note where
     n_palmMute       <- n_palmMute       =. flag "palmMute"
     n_accent         <- n_accent         =. flag "accent"
     n_linkNext       <- n_linkNext       =. flag "linkNext"
-    n_bend           <- n_bend           =. zoomValue (maybeValue intValue) (optAttr "bend")
+    n_bend           <- n_bend           =. zoomValue (maybeValue milliValue) (optAttr "bend")
     n_bendValues     <- n_bendValues     =. plural "bendValue"
     n_harmonicPinch  <- n_harmonicPinch  =. flag "harmonicPinch"
     n_leftHand       <- n_leftHand       =. zoomValue (maybeValue intValue) (optAttr "leftHand")
@@ -601,6 +607,7 @@ instance IsInside HandShape where
 data BendValue = BendValue
   { bv_time :: U.Seconds
   , bv_step :: Maybe Milli
+  -- seen in CST output: unk5="<number>"
   } deriving (Eq, Show)
 
 instance IsInside BendValue where

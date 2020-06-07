@@ -13,8 +13,9 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, isNothing)
+import           Data.Maybe                       (catMaybes)
 import qualified Data.Text                        as T
+import qualified Data.Vector                      as V
 import           JSONData                         (toJSON, yamlEncodeFile)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
@@ -32,11 +33,13 @@ importRS :: (SendMessage m, MonadResource m) => FilePath -> FilePath -> StackTra
 importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
   stackIO $ extractPSARC psarc temp
   manifestDirs <- stackIO $ Dir.listDirectory $ temp </> "manifests"
+  -- TODO after implementing the change below, just read all folders under manifests
   song <- case manifestDirs of
-    -- TODO support index into multiple songs
     [song] -> return song
-    _      -> fatal "Not exactly 1 song in .psarc"
+    _      -> fatal "Not exactly 1 manifest folder in .psarc"
   lg $ "Manifest folder: " <> song
+  -- TODO not every song has this single hsan! most official ones don't seem to, we need to read all .json files.
+  -- then use "SongKey" to group them into songs
   manifest <- stackIO (A.eitherDecodeFileStrict $ temp </> "manifests" </> song </> song <.> "hsan") >>= either fatal return
   let prop k rec = case rec of
         A.Object o -> case HM.lookup k o of
@@ -63,12 +66,12 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
       PartArrangement arr -> let
         props = arr_arrangementProperties arr
         partName = case (ap_pathLead props, ap_pathRhythm props, ap_pathBass props, ap_bonusArr props) of
-          (True, _, _, False) -> RBFile.FlexGuitar
-          (_, True, _, False) -> RBFile.FlexExtra "rhythm"
-          (_, _, True, False) -> RBFile.FlexBass
-          (True, _, _, True) -> RBFile.FlexExtra "bonus-lead"
-          (_, True, _, True) -> RBFile.FlexExtra "bonus-rhythm"
-          (_, _, True, True) -> RBFile.FlexExtra "bonus-bass"
+          (True, _, _, False)      -> RBFile.FlexGuitar
+          (_, True, _, False)      -> RBFile.FlexExtra "rhythm"
+          (_, _, True, False)      -> RBFile.FlexBass
+          (True, _, _, True)       -> RBFile.FlexExtra "bonus-lead"
+          (_, True, _, True)       -> RBFile.FlexExtra "bonus-rhythm"
+          (_, _, True, True)       -> RBFile.FlexExtra "bonus-bass"
           (False, False, False, _) -> RBFile.FlexExtra $ arr_arrangement arr
         in Just (partName, arr, bnkPath)
   (_, firstArr, bnk) <- case parts of
@@ -78,7 +81,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
   -- how does multiplayer handle this?
   -- TODO handle folders other than windows
   stackIO $ extractRSOgg (temp </> "audio/windows" </> T.unpack bnk) $ dout </> "song.ogg"
-  let modifiedBeats = case arr_ebeats firstArr of
+  let modifiedBeats = case V.toList $ arr_ebeats firstArr of
         ebeats@(Ebeat 0 _ : _) -> ebeats
         ebeats                 -> Ebeat 0 Nothing : ebeats
         -- TODO maybe be smarter about the initial added tempo
@@ -88,8 +91,9 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
           $ zip (0 : repeat 1)
           $ zipWith makeTempo modifiedBeats (drop 1 modifiedBeats)
       sigs = U.measureMapFromLengths U.Truncate $ let
+        startsBar = maybe False (/= (-1)) . eb_measure
         makeBarLengths [] = []
-        makeBarLengths (_ : ebeats) = case span (isNothing . eb_measure) ebeats of
+        makeBarLengths (_ : ebeats) = case break startsBar ebeats of
           (inThisBar, rest) -> (1 + fromIntegral (length inThisBar)) : makeBarLengths rest
         assembleMMap lens = RTB.fromPairList $ zip (0 : lens) lens
         in assembleMMap $ makeBarLengths modifiedBeats
@@ -111,14 +115,14 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
               fret = n_fret note
               len = n_sustain note
               in (n_time note, (str, (ntype, fret, len)))
-            iterBoundaries = zip (arr_phraseIterations arr)
-              (map Just (drop 1 $ arr_phraseIterations arr) ++ [Nothing])
+            iterBoundaries = V.toList $ V.zip (arr_phraseIterations arr)
+              (fmap Just (V.drop 1 $ arr_phraseIterations arr) <> V.singleton Nothing)
             getPhrase iter1 miter2 = let
-              phrase = arr_phrases arr !! pi_phraseId iter1
-              lvl = arr_levels arr !! ph_maxDifficulty phrase
+              phrase = arr_phrases arr V.! pi_phraseId iter1
+              lvl = arr_levels arr V.! ph_maxDifficulty phrase
               inBounds note = pi_time iter1 <= n_time note
                 && all (\iter2 -> n_time note < pi_time iter2) miter2
-              lvlAllNotes = lvl_notes lvl ++ concatMap chd_chordNotes (lvl_chords lvl)
+              lvlAllNotes = V.toList (lvl_notes lvl) ++ V.toList (lvl_chords lvl >>= chd_chordNotes)
               in map getNote $ filter inBounds lvlAllNotes
             notes = let
               in RTB.fromAbsoluteEventList

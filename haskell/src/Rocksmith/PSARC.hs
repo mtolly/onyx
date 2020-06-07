@@ -89,7 +89,7 @@ loadPSARC f = do
   (hdr, tocBytes) <- return $ flip runGet bs $ do
     hdr <- codecIn (bin :: BinaryCodec Header)
     tocEnc <- getByteString (fromIntegral (hdr_tocLength hdr) - 32)
-    toc <- decryptPSARCTable tocEnc
+    toc <- decryptPSARCTable' tocEnc
     return (hdr, toc)
   (toc, zlengths) <- return $ flip runGet (BL.fromStrict tocBytes) $ do
     toc <- replicateM (fromIntegral $ hdr_tocEntries hdr) $ do

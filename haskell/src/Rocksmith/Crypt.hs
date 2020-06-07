@@ -21,8 +21,8 @@ unpackSNG plat fp = do
   bs' <- case plat of
     PC  -> decryptSNGData bs sngKeyPC
     Mac -> decryptSNGData bs sngKeyMac
-    _   -> return $ B.drop 8 bs
-  return $ decompress $ BL.fromStrict $ B.drop 4 bs'
+    _   -> return $ BL.fromStrict $ B.drop 8 bs
+  return $ decompress $ BL.drop 4 bs'
 
 sngKeyMac, sngKeyPC, arcKey, arcIV :: B.ByteString
 sngKeyMac = B.pack
@@ -48,15 +48,20 @@ arcIV = B.pack
   , 0x50, 0x81, 0x32, 0xE4, 0xBB, 0x4C, 0xEB, 0x42
   ]
 
-decryptSNGData :: (MonadFail m) => B.ByteString -> B.ByteString -> m B.ByteString
+decryptSNGData :: (MonadFail m) => B.ByteString -> B.ByteString -> m BL.ByteString
 decryptSNGData input key = do
-  Just iv <- flip runGet (BL.fromStrict input) $ do
+  Just initIV <- flip runGet (BL.fromStrict input) $ do
     _4A <- getWord32be -- 0x4A either little or big endian
     _platform <- getWord32be
     iv <- getByteString 16
     return $ return $ makeIV iv
   CryptoPassed cipher <- return $ cipherInit key
-  return $ cfbDecrypt (cipher :: AES256) iv $ B.drop 24 input
+  let go iv rest = if B.null rest
+        then []
+        else let
+          chunk = cfbDecrypt (cipher :: AES256) iv $ B.take 16 rest
+          in chunk : go (ivAdd iv 1) (B.drop 16 rest)
+  return $ BL.fromChunks $ go initIV $ B.drop 24 input
 
 decryptPSARCTable :: (MonadFail m) => B.ByteString -> m B.ByteString
 decryptPSARCTable input = do
@@ -65,3 +70,8 @@ decryptPSARCTable input = do
     CryptoFailed err    -> fail $ show err
   Just iv <- return $ makeIV arcIV
   return $ cfbDecrypt (cipher :: AES256) iv input
+
+decryptPSARCTable' :: (MonadFail m) => B.ByteString -> m B.ByteString
+decryptPSARCTable' input = if B.all (== 0) $ B.take 16 input
+  then return input -- Xbox .psarc don't have encrypted TOC?
+  else decryptPSARCTable input

@@ -1,9 +1,10 @@
+{-# LANGUAGE LambdaCase #-}
 module Sound.WW2Ogg (WW2OggConfig(..), ww2ogg) where
 
+import qualified Data.ByteString        as B
+import qualified Data.ByteString.Unsafe as BU
 import           Foreign
 import           Foreign.C
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Unsafe as BU
 
 data WW2OggConfig = WW2OggConfig
   { wwCodebook :: FilePath
@@ -19,20 +20,24 @@ ww2ogg cfg fin fout = do
         if n == 0
           then do
             bs <- B.readFile fout
-            BU.unsafeUseAsCStringLen bs $ \(p, inlen) -> do
-              alloca $ \ppout -> do
-                alloca $ \plen -> do
-                  res <- hs_revorb (castPtr p) (fromIntegral inlen) ppout plen
-                  if res == 0
-                    then do
-                      pout <- peek ppout
-                      outlen <- peek plen
-                      bs' <- B.packCStringLen (castPtr pout, fromIntegral outlen)
-                      free pout
-                      B.writeFile fout bs'
-                      return True
-                    else return False
+            revorb bs >>= \case
+              Nothing -> return False
+              Just bs' -> B.writeFile fout bs' >> return True
           else return False
+
+revorb :: B.ByteString -> IO (Maybe B.ByteString)
+revorb bs = BU.unsafeUseAsCStringLen bs $ \(p, inlen) -> do
+  alloca $ \ppout -> do
+    alloca $ \plen -> do
+      res <- hs_revorb (castPtr p) (fromIntegral inlen) ppout plen
+      if res == 0
+        then do
+          pout <- peek ppout
+          outlen <- peek plen
+          bs' <- B.packCStringLen (castPtr pout, fromIntegral outlen)
+          free pout
+          return $ Just bs'
+        else return Nothing
 
 foreign import ccall "hs_ww2ogg"
   hs_ww2ogg :: CString -> CString -> CString -> IO CInt
