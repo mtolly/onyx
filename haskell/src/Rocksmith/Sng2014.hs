@@ -1,37 +1,22 @@
+{-# LANGUAGE ImplicitParams  #-}
 {-# LANGUAGE RecordWildCards #-}
 module Rocksmith.Sng2014 where
 
 import           Control.Monad
-import           Control.Monad.Codec
-import           Data.Binary.Codec
-import           Data.Binary.Get
-import           Data.Binary.Put
-import qualified Data.ByteString     as B
-import           Data.Int
-import           Data.Word
+import           Data.Binary.Codec.Class
+import qualified Data.ByteString         as B
 import           Debug.Trace
 import           Rocksmith.Crypt
 
--- TODO PC/Mac .sng files are little endian, need to make these work on either
-
-class Bin a where
-  bin :: BinaryCodec a
-
-floatbe :: BinaryCodec Float
-floatbe = Codec getFloatbe (fmapArg putFloatbe)
-
-doublebe :: BinaryCodec Double
-doublebe = Codec getDoublebe (fmapArg putDoublebe)
-
-lenArray :: BinaryCodec a -> BinaryCodec [a]
+lenArray :: (?endian :: ByteOrder) => BinaryCodec a -> BinaryCodec [a]
 lenArray c = Codec
   { codecIn = do
-    len <- getInt32be
+    len <- codecIn codecLen
     replicateM (fromIntegral len) $ codecIn c
   , codecOut = fmapArg $ \xs -> do
-    putInt32be $ fromIntegral $ length xs
+    void $ codecOut codecLen $ fromIntegral $ length xs
     forM_ xs $ codecOut c
-  }
+  } where codecLen = binEndian :: BinaryCodec Word32
 
 nullTerm :: Int -> BinaryCodec B.ByteString
 nullTerm n = Codec
@@ -42,14 +27,6 @@ nullTerm n = Codec
     GT -> b <> B.replicate (B.length b - n) 0
   }
 
-fixedArray :: Int -> BinaryCodec a -> BinaryCodec [a]
-fixedArray n c = Codec
-  { codecIn = replicateM n $ codecIn c
-  , codecOut = fmapArg $ \xs -> if length xs == n
-    then forM_ xs $ codecOut c
-    else error $ "Expected an array of size " <> show n
-  }
-
 data BPM = BPM
   { bpm_Time            :: Float
   , bpm_Measure         :: Int16
@@ -58,13 +35,13 @@ data BPM = BPM
   , bpm_Mask            :: Int32
   } deriving (Eq, Show)
 
-instance Bin BPM where
-  bin = do
-    bpm_Time            <- bpm_Time             =. floatbe
-    bpm_Measure         <- bpm_Measure          =. int16be
-    bpm_Beat            <- bpm_Beat             =. int16be
-    bpm_PhraseIteration <- bpm_PhraseIteration  =. int32be
-    bpm_Mask            <- bpm_Mask             =. int32be
+instance BinEndian BPM where
+  binEndian = do
+    bpm_Time            <- bpm_Time             =. binEndian
+    bpm_Measure         <- bpm_Measure          =. binEndian
+    bpm_Beat            <- bpm_Beat             =. binEndian
+    bpm_PhraseIteration <- bpm_PhraseIteration  =. binEndian
+    bpm_Mask            <- bpm_Mask             =. binEndian
     return BPM{..}
 
 data Phrase = Phrase
@@ -77,14 +54,14 @@ data Phrase = Phrase
   , phrase_Name                 :: B.ByteString
   } deriving (Eq, Show)
 
-instance Bin Phrase where
-  bin = do
-    phrase_Solo                 <- phrase_Solo                 =. word8
-    phrase_Disparity            <- phrase_Disparity            =. word8
-    phrase_Ignore               <- phrase_Ignore               =. word8
-    phrase_Padding              <- phrase_Padding              =. word8
-    phrase_MaxDifficulty        <- phrase_MaxDifficulty        =. int32be
-    phrase_PhraseIterationLinks <- phrase_PhraseIterationLinks =. int32be
+instance BinEndian Phrase where
+  binEndian = do
+    phrase_Solo                 <- phrase_Solo                 =. bin
+    phrase_Disparity            <- phrase_Disparity            =. bin
+    phrase_Ignore               <- phrase_Ignore               =. bin
+    phrase_Padding              <- phrase_Padding              =. bin
+    phrase_MaxDifficulty        <- phrase_MaxDifficulty        =. binEndian
+    phrase_PhraseIterationLinks <- phrase_PhraseIterationLinks =. binEndian
     phrase_Name                 <- phrase_Name                 =. nullTerm 32
     return Phrase{..}
 
@@ -96,12 +73,12 @@ data Chord = Chord
   , chord_Name    :: B.ByteString
   } deriving (Eq, Show)
 
-instance Bin Chord where
-  bin = do
-    chord_Mask    <- chord_Mask    =. word32be
-    chord_Frets   <- chord_Frets   =. fixedArray 6 int8
-    chord_Fingers <- chord_Fingers =. fixedArray 6 int8
-    chord_Notes   <- chord_Notes   =. fixedArray 6 int32be
+instance BinEndian Chord where
+  binEndian = do
+    chord_Mask    <- chord_Mask    =. binEndian
+    chord_Frets   <- chord_Frets   =. fixedArray 6 bin
+    chord_Fingers <- chord_Fingers =. fixedArray 6 bin
+    chord_Notes   <- chord_Notes   =. fixedArray 6 binEndian
     chord_Name    <- chord_Name    =. nullTerm 32
     return Chord{..}
 
@@ -113,13 +90,13 @@ data BendData32 = BendData32
   , bd32_Unk5   :: Word8
   } deriving (Eq, Show)
 
-instance Bin BendData32 where
-  bin = do
-    bd32_Time   <- bd32_Time   =. floatbe
-    bd32_Step   <- bd32_Step   =. floatbe
-    bd32_Unk3_0 <- bd32_Unk3_0 =. int16be
-    bd32_Unk4_0 <- bd32_Unk4_0 =. word8
-    bd32_Unk5   <- bd32_Unk5   =. word8
+instance BinEndian BendData32 where
+  binEndian = do
+    bd32_Time   <- bd32_Time   =. binEndian
+    bd32_Step   <- bd32_Step   =. binEndian
+    bd32_Unk3_0 <- bd32_Unk3_0 =. binEndian
+    bd32_Unk4_0 <- bd32_Unk4_0 =. bin
+    bd32_Unk5   <- bd32_Unk5   =. bin
     return BendData32{..}
 
 data BendData = BendData
@@ -127,10 +104,10 @@ data BendData = BendData
   , bd_UsedCount  :: Int32
   } deriving (Eq, Show)
 
-instance Bin BendData where
-  bin = do
-    bd_BendData32 <- bd_BendData32 =. fixedArray 32 bin
-    bd_UsedCount  <- bd_UsedCount  =. int32be
+instance BinEndian BendData where
+  binEndian = do
+    bd_BendData32 <- bd_BendData32 =. fixedArray 32 binEndian
+    bd_UsedCount  <- bd_UsedCount  =. binEndian
     return BendData{..}
 
 data ChordNotes = ChordNotes
@@ -141,13 +118,13 @@ data ChordNotes = ChordNotes
   , cn_Vibrato        :: [Int16]
   } deriving (Eq, Show)
 
-instance Bin ChordNotes where
-  bin = do
-    cn_NoteMask       <- cn_NoteMask       =. fixedArray 6 word32be
-    cn_BendData       <- cn_BendData       =. fixedArray 6 bin
-    cn_SlideTo        <- cn_SlideTo        =. fixedArray 6 int8
-    cn_SlideUnpitchTo <- cn_SlideUnpitchTo =. fixedArray 6 int8
-    cn_Vibrato        <- cn_Vibrato        =. fixedArray 6 int16be
+instance BinEndian ChordNotes where
+  binEndian = do
+    cn_NoteMask       <- cn_NoteMask       =. fixedArray 6 binEndian
+    cn_BendData       <- cn_BendData       =. fixedArray 6 binEndian
+    cn_SlideTo        <- cn_SlideTo        =. fixedArray 6 bin
+    cn_SlideUnpitchTo <- cn_SlideUnpitchTo =. fixedArray 6 bin
+    cn_Vibrato        <- cn_Vibrato        =. fixedArray 6 binEndian
     return ChordNotes{..}
 
 data Vocal = Vocal
@@ -157,11 +134,11 @@ data Vocal = Vocal
   , vocal_Lyric  :: B.ByteString
   } deriving (Eq, Show)
 
-instance Bin Vocal where
-  bin = do
-    vocal_Time   <- vocal_Time   =. floatbe
-    vocal_Note   <- vocal_Note   =. int32be
-    vocal_Length <- vocal_Length =. floatbe
+instance BinEndian Vocal where
+  binEndian = do
+    vocal_Time   <- vocal_Time   =. binEndian
+    vocal_Note   <- vocal_Note   =. binEndian
+    vocal_Length <- vocal_Length =. binEndian
     vocal_Lyric  <- vocal_Lyric  =. nullTerm 48
     return Vocal{..}
 
@@ -184,16 +161,16 @@ data SymbolHeader = SymbolHeader
   , sh_Unk8 :: Int32
   } deriving (Eq, Show)
 
-instance Bin SymbolHeader where
-  bin = do
-    sh_Unk1 <- sh_Unk1 =. int32be
-    sh_Unk2 <- sh_Unk2 =. int32be
-    sh_Unk3 <- sh_Unk3 =. int32be
-    sh_Unk4 <- sh_Unk4 =. int32be
-    sh_Unk5 <- sh_Unk5 =. int32be
-    sh_Unk6 <- sh_Unk6 =. int32be
-    sh_Unk7 <- sh_Unk7 =. int32be
-    sh_Unk8 <- sh_Unk8 =. int32be
+instance BinEndian SymbolHeader where
+  binEndian = do
+    sh_Unk1 <- sh_Unk1 =. binEndian
+    sh_Unk2 <- sh_Unk2 =. binEndian
+    sh_Unk3 <- sh_Unk3 =. binEndian
+    sh_Unk4 <- sh_Unk4 =. binEndian
+    sh_Unk5 <- sh_Unk5 =. binEndian
+    sh_Unk6 <- sh_Unk6 =. binEndian
+    sh_Unk7 <- sh_Unk7 =. binEndian
+    sh_Unk8 <- sh_Unk8 =. binEndian
     return SymbolHeader{..}
 
 data SymbolTexture = SymbolTexture
@@ -204,13 +181,13 @@ data SymbolTexture = SymbolTexture
   , st_Height         :: Int32
   } deriving (Eq, Show)
 
-instance Bin SymbolTexture where
-  bin = do
+instance BinEndian SymbolTexture where
+  binEndian = do
     st_Font           <- st_Font           =. nullTerm 128
-    st_FontpathLength <- st_FontpathLength =. int32be
-    st_Unk1_0         <- st_Unk1_0         =. int32be
-    st_Width          <- st_Width          =. int32be
-    st_Height         <- st_Height         =. int32be
+    st_FontpathLength <- st_FontpathLength =. binEndian
+    st_Unk1_0         <- st_Unk1_0         =. binEndian
+    st_Width          <- st_Width          =. binEndian
+    st_Height         <- st_Height         =. binEndian
     return SymbolTexture{..}
 
 data Rect = Rect
@@ -220,12 +197,12 @@ data Rect = Rect
   , rect_xMax :: Float
   } deriving (Eq, Show)
 
-instance Bin Rect where
-  bin = do
-    rect_yMin <- rect_yMin =. floatbe
-    rect_xMin <- rect_xMin =. floatbe
-    rect_yMax <- rect_yMax =. floatbe
-    rect_xMax <- rect_xMax =. floatbe
+instance BinEndian Rect where
+  binEndian = do
+    rect_yMin <- rect_yMin =. binEndian
+    rect_xMin <- rect_xMin =. binEndian
+    rect_yMax <- rect_yMax =. binEndian
+    rect_xMax <- rect_xMax =. binEndian
     return Rect{..}
 
 data SymbolDefinition = SymbolDefinition
@@ -234,11 +211,11 @@ data SymbolDefinition = SymbolDefinition
   , sd_Rect_Inner :: Rect
   } deriving (Eq, Show)
 
-instance Bin SymbolDefinition where
-  bin = do
+instance BinEndian SymbolDefinition where
+  binEndian = do
     sd_Text       <- sd_Text       =. nullTerm 12
-    sd_Rect_Outer <- sd_Rect_Outer =. bin
-    sd_Rect_Inner <- sd_Rect_Inner =. bin
+    sd_Rect_Outer <- sd_Rect_Outer =. binEndian
+    sd_Rect_Inner <- sd_Rect_Inner =. binEndian
     return SymbolDefinition{..}
 
 data PhraseIteration = PhraseIteration
@@ -248,12 +225,12 @@ data PhraseIteration = PhraseIteration
   , pi_Difficulty     :: [Int32]
   } deriving (Eq, Show)
 
-instance Bin PhraseIteration where
-  bin = do
-    pi_PhraseId       <- pi_PhraseId       =. int32be
-    pi_StartTime      <- pi_StartTime      =. floatbe
-    pi_NextPhraseTime <- pi_NextPhraseTime =. floatbe
-    pi_Difficulty     <- pi_Difficulty     =. fixedArray 3 int32be
+instance BinEndian PhraseIteration where
+  binEndian = do
+    pi_PhraseId       <- pi_PhraseId       =. binEndian
+    pi_StartTime      <- pi_StartTime      =. binEndian
+    pi_NextPhraseTime <- pi_NextPhraseTime =. binEndian
+    pi_Difficulty     <- pi_Difficulty     =. fixedArray 3 binEndian
     return PhraseIteration{..}
 
 data PhraseExtraInfo = PhraseExtraInfo
@@ -265,14 +242,14 @@ data PhraseExtraInfo = PhraseExtraInfo
   , pei_Padding    :: Word8
   } deriving (Eq, Show)
 
-instance Bin PhraseExtraInfo where
-  bin = do
-    pei_PhraseId   <- pei_PhraseId   =. int32be
-    pei_Difficulty <- pei_Difficulty =. int32be
-    pei_Empty      <- pei_Empty      =. int32be
-    pei_LevelJump  <- pei_LevelJump  =. word8
-    pei_Redundant  <- pei_Redundant  =. int16be
-    pei_Padding    <- pei_Padding    =. word8
+instance BinEndian PhraseExtraInfo where
+  binEndian = do
+    pei_PhraseId   <- pei_PhraseId   =. binEndian
+    pei_Difficulty <- pei_Difficulty =. binEndian
+    pei_Empty      <- pei_Empty      =. binEndian
+    pei_LevelJump  <- pei_LevelJump  =. bin
+    pei_Redundant  <- pei_Redundant  =. binEndian
+    pei_Padding    <- pei_Padding    =. bin
     return PhraseExtraInfo{..}
 
 data NLinkedDifficulty = NLinkedDifficulty
@@ -280,10 +257,10 @@ data NLinkedDifficulty = NLinkedDifficulty
   , nld_Phrase     :: [Int32]
   } deriving (Eq, Show)
 
-instance Bin NLinkedDifficulty where
-  bin = do
-    nld_LevelBreak <- nld_LevelBreak =. int32be
-    nld_Phrase     <- nld_Phrase     =. lenArray int32be
+instance BinEndian NLinkedDifficulty where
+  binEndian = do
+    nld_LevelBreak <- nld_LevelBreak =. binEndian
+    nld_Phrase     <- nld_Phrase     =. lenArray binEndian
     return NLinkedDifficulty{..}
 
 data TimeName = TimeName
@@ -291,9 +268,9 @@ data TimeName = TimeName
   , tn_Name :: B.ByteString
   } deriving (Eq, Show)
 
-instance Bin TimeName where
-  bin = do
-    tn_Time <- tn_Time =. floatbe
+instance BinEndian TimeName where
+  binEndian = do
+    tn_Time <- tn_Time =. binEndian
     tn_Name <- tn_Name =. nullTerm 256
     return TimeName{..}
 
@@ -302,10 +279,10 @@ data TimeID = TimeID
   , tid_ID   :: Int32
   } deriving (Eq, Show)
 
-instance Bin TimeID where
-  bin = do
-    tid_Time <- tid_Time =. floatbe
-    tid_ID   <- tid_ID   =. int32be
+instance BinEndian TimeID where
+  binEndian = do
+    tid_Time <- tid_Time =. binEndian
+    tid_ID   <- tid_ID   =. binEndian
     return TimeID{..}
 
 data Section = Section
@@ -318,14 +295,14 @@ data Section = Section
   , sect_StringMask             :: B.ByteString
   } deriving (Eq, Show)
 
-instance Bin Section where
-  bin = do
+instance BinEndian Section where
+  binEndian = do
     sect_Name                   <- sect_Name                   =. nullTerm 32
-    sect_Number                 <- sect_Number                 =. int32be
-    sect_StartTime              <- sect_StartTime              =. floatbe
-    sect_EndTime                <- sect_EndTime                =. floatbe
-    sect_StartPhraseIterationId <- sect_StartPhraseIterationId =. int32be
-    sect_EndPhraseIterationId   <- sect_EndPhraseIterationId   =. int32be
+    sect_Number                 <- sect_Number                 =. binEndian
+    sect_StartTime              <- sect_StartTime              =. binEndian
+    sect_EndTime                <- sect_EndTime                =. binEndian
+    sect_StartPhraseIterationId <- sect_StartPhraseIterationId =. binEndian
+    sect_EndPhraseIterationId   <- sect_EndPhraseIterationId   =. binEndian
     sect_StringMask             <- sect_StringMask             =. byteString 36
     return Section{..}
 
@@ -340,16 +317,16 @@ data Anchor = Anchor
   , anchor_PhraseIterationId  :: Int32
   } deriving (Eq, Show)
 
-instance Bin Anchor where
-  bin = do
-    anchor_StartBeatTime      <- anchor_StartBeatTime      =. floatbe
-    anchor_EndBeatTime        <- anchor_EndBeatTime        =. floatbe
-    anchor_Unk3_FirstNoteTime <- anchor_Unk3_FirstNoteTime =. floatbe
-    anchor_Unk4_LastNoteTime  <- anchor_Unk4_LastNoteTime  =. floatbe
-    anchor_FretId             <- anchor_FretId             =. word8
+instance BinEndian Anchor where
+  binEndian = do
+    anchor_StartBeatTime      <- anchor_StartBeatTime      =. binEndian
+    anchor_EndBeatTime        <- anchor_EndBeatTime        =. binEndian
+    anchor_Unk3_FirstNoteTime <- anchor_Unk3_FirstNoteTime =. binEndian
+    anchor_Unk4_LastNoteTime  <- anchor_Unk4_LastNoteTime  =. binEndian
+    anchor_FretId             <- anchor_FretId             =. bin
     anchor_Padding            <- anchor_Padding            =. byteString 3
-    anchor_Width              <- anchor_Width              =. int32be
-    anchor_PhraseIterationId  <- anchor_PhraseIterationId  =. int32be
+    anchor_Width              <- anchor_Width              =. binEndian
+    anchor_PhraseIterationId  <- anchor_PhraseIterationId  =. binEndian
     return Anchor{..}
 
 data AnchorExtension = AnchorExtension
@@ -360,13 +337,13 @@ data AnchorExtension = AnchorExtension
   , ae_Unk4_0   :: Word8
   } deriving (Eq, Show)
 
-instance Bin AnchorExtension where
-  bin = do
-    ae_BeatTime <- ae_BeatTime =. floatbe
-    ae_FretId   <- ae_FretId   =. word8
-    ae_Unk2_0   <- ae_Unk2_0   =. int32be
-    ae_Unk3_0   <- ae_Unk3_0   =. int16be
-    ae_Unk4_0   <- ae_Unk4_0   =. word8
+instance BinEndian AnchorExtension where
+  binEndian = do
+    ae_BeatTime <- ae_BeatTime =. binEndian
+    ae_FretId   <- ae_FretId   =. bin
+    ae_Unk2_0   <- ae_Unk2_0   =. binEndian
+    ae_Unk3_0   <- ae_Unk3_0   =. binEndian
+    ae_Unk4_0   <- ae_Unk4_0   =. bin
     return AnchorExtension{..}
 
 data Fingerprint = Fingerprint
@@ -377,13 +354,13 @@ data Fingerprint = Fingerprint
   , fp_Unk4_LastNoteTime  :: Float
   } deriving (Eq, Show)
 
-instance Bin Fingerprint where
-  bin = do
-    fp_ChordId            <- fp_ChordId            =. int32be
-    fp_StartTime          <- fp_StartTime          =. floatbe
-    fp_EndTime            <- fp_EndTime            =. floatbe
-    fp_Unk3_FirstNoteTime <- fp_Unk3_FirstNoteTime =. floatbe
-    fp_Unk4_LastNoteTime  <- fp_Unk4_LastNoteTime  =. floatbe
+instance BinEndian Fingerprint where
+  binEndian = do
+    fp_ChordId            <- fp_ChordId            =. binEndian
+    fp_StartTime          <- fp_StartTime          =. binEndian
+    fp_EndTime            <- fp_EndTime            =. binEndian
+    fp_Unk3_FirstNoteTime <- fp_Unk3_FirstNoteTime =. binEndian
+    fp_Unk4_LastNoteTime  <- fp_Unk4_LastNoteTime  =. binEndian
     return Fingerprint{..}
 
 data Notes = Notes
@@ -416,35 +393,35 @@ data Notes = Notes
   , notes_BendData          :: [BendData32]
   } deriving (Eq, Show)
 
-instance Bin Notes where
-  bin = do
-    notes_NoteMask          <- notes_NoteMask          =. word32be
-    notes_NoteFlags         <- notes_NoteFlags         =. word32be
-    notes_Hash              <- notes_Hash              =. word32be
-    notes_Time              <- notes_Time              =. floatbe
-    notes_StringIndex       <- notes_StringIndex       =. word8
-    notes_FretId            <- notes_FretId            =. word8
-    notes_AnchorFretId      <- notes_AnchorFretId      =. word8
-    notes_AnchorWidth       <- notes_AnchorWidth       =. word8
-    notes_ChordId           <- notes_ChordId           =. int32be
-    notes_ChordNotesId      <- notes_ChordNotesId      =. int32be
-    notes_PhraseId          <- notes_PhraseId          =. int32be
-    notes_PhraseIterationId <- notes_PhraseIterationId =. int32be
-    notes_FingerPrintId     <- notes_FingerPrintId     =. fixedArray 2 int16be
-    notes_NextIterNote      <- notes_NextIterNote      =. int16be
-    notes_PrevIterNote      <- notes_PrevIterNote      =. int16be
-    notes_ParentPrevNote    <- notes_ParentPrevNote    =. int16be
-    notes_SlideTo           <- notes_SlideTo           =. int8
-    notes_SlideUnpitchTo    <- notes_SlideUnpitchTo    =. int8
-    notes_LeftHand          <- notes_LeftHand          =. int8
-    notes_Tap               <- notes_Tap               =. int8
-    notes_PickDirection     <- notes_PickDirection     =. word8
-    notes_Slap              <- notes_Slap              =. int8
-    notes_Pluck             <- notes_Pluck             =. int8
-    notes_Vibrato           <- notes_Vibrato           =. int16be
-    notes_Sustain           <- notes_Sustain           =. floatbe
-    notes_MaxBend           <- notes_MaxBend           =. floatbe
-    notes_BendData          <- notes_BendData          =. lenArray bin
+instance BinEndian Notes where
+  binEndian = do
+    notes_NoteMask          <- notes_NoteMask          =. binEndian
+    notes_NoteFlags         <- notes_NoteFlags         =. binEndian
+    notes_Hash              <- notes_Hash              =. binEndian
+    notes_Time              <- notes_Time              =. binEndian
+    notes_StringIndex       <- notes_StringIndex       =. bin
+    notes_FretId            <- notes_FretId            =. bin
+    notes_AnchorFretId      <- notes_AnchorFretId      =. bin
+    notes_AnchorWidth       <- notes_AnchorWidth       =. bin
+    notes_ChordId           <- notes_ChordId           =. binEndian
+    notes_ChordNotesId      <- notes_ChordNotesId      =. binEndian
+    notes_PhraseId          <- notes_PhraseId          =. binEndian
+    notes_PhraseIterationId <- notes_PhraseIterationId =. binEndian
+    notes_FingerPrintId     <- notes_FingerPrintId     =. fixedArray 2 binEndian
+    notes_NextIterNote      <- notes_NextIterNote      =. binEndian
+    notes_PrevIterNote      <- notes_PrevIterNote      =. binEndian
+    notes_ParentPrevNote    <- notes_ParentPrevNote    =. binEndian
+    notes_SlideTo           <- notes_SlideTo           =. bin
+    notes_SlideUnpitchTo    <- notes_SlideUnpitchTo    =. bin
+    notes_LeftHand          <- notes_LeftHand          =. bin
+    notes_Tap               <- notes_Tap               =. bin
+    notes_PickDirection     <- notes_PickDirection     =. bin
+    notes_Slap              <- notes_Slap              =. bin
+    notes_Pluck             <- notes_Pluck             =. bin
+    notes_Vibrato           <- notes_Vibrato           =. binEndian
+    notes_Sustain           <- notes_Sustain           =. binEndian
+    notes_MaxBend           <- notes_MaxBend           =. binEndian
+    notes_BendData          <- notes_BendData          =. lenArray binEndian
     return Notes{..}
 
 data Arrangement = Arrangement
@@ -459,17 +436,17 @@ data Arrangement = Arrangement
   , arr_NotesInIteration2        :: [Int32]
   } deriving (Eq, Show)
 
-instance Bin Arrangement where
-  bin = do
-    arr_Difficulty               <- arr_Difficulty               =. int32be
-    arr_Anchors                  <- arr_Anchors                  =. lenArray bin
-    arr_AnchorExtensions         <- arr_AnchorExtensions         =. lenArray bin
-    arr_Fingerprints1            <- arr_Fingerprints1            =. lenArray bin
-    arr_Fingerprints2            <- arr_Fingerprints2            =. lenArray bin
-    arr_Notes                    <- arr_Notes                    =. lenArray bin
-    arr_AverageNotesPerIteration <- arr_AverageNotesPerIteration =. lenArray floatbe
-    arr_NotesInIteration1        <- arr_NotesInIteration1        =. lenArray int32be
-    arr_NotesInIteration2        <- arr_NotesInIteration2        =. lenArray int32be
+instance BinEndian Arrangement where
+  binEndian = do
+    arr_Difficulty               <- arr_Difficulty               =. binEndian
+    arr_Anchors                  <- arr_Anchors                  =. lenArray binEndian
+    arr_AnchorExtensions         <- arr_AnchorExtensions         =. lenArray binEndian
+    arr_Fingerprints1            <- arr_Fingerprints1            =. lenArray binEndian
+    arr_Fingerprints2            <- arr_Fingerprints2            =. lenArray binEndian
+    arr_Notes                    <- arr_Notes                    =. lenArray binEndian
+    arr_AverageNotesPerIteration <- arr_AverageNotesPerIteration =. lenArray binEndian
+    arr_NotesInIteration1        <- arr_NotesInIteration1        =. lenArray binEndian
+    arr_NotesInIteration2        <- arr_NotesInIteration2        =. lenArray binEndian
     return Arrangement{..}
 
 data Metadata = Metadata
@@ -489,22 +466,22 @@ data Metadata = Metadata
   , meta_MaxDifficulty          :: Int32
   } deriving (Eq, Show)
 
-instance Bin Metadata where
-  bin = do
-    meta_MaxScore               <- meta_MaxScore                =. doublebe
-    meta_MaxNotesAndChords      <- meta_MaxNotesAndChords       =. doublebe
-    meta_MaxNotesAndChords_Real <- meta_MaxNotesAndChords_Real  =. doublebe
-    meta_PointsPerNote          <- meta_PointsPerNote           =. doublebe
-    meta_FirstBeatLength        <- meta_FirstBeatLength         =. floatbe
-    meta_StartTime              <- meta_StartTime               =. floatbe
-    meta_CapoFretId             <- meta_CapoFretId              =. int8
+instance BinEndian Metadata where
+  binEndian = do
+    meta_MaxScore               <- meta_MaxScore                =. binEndian
+    meta_MaxNotesAndChords      <- meta_MaxNotesAndChords       =. binEndian
+    meta_MaxNotesAndChords_Real <- meta_MaxNotesAndChords_Real  =. binEndian
+    meta_PointsPerNote          <- meta_PointsPerNote           =. binEndian
+    meta_FirstBeatLength        <- meta_FirstBeatLength         =. binEndian
+    meta_StartTime              <- meta_StartTime               =. binEndian
+    meta_CapoFretId             <- meta_CapoFretId              =. bin
     meta_LastConversionDateTime <- meta_LastConversionDateTime  =. nullTerm 32
-    meta_Part                   <- meta_Part                    =. int16be
-    meta_SongLength             <- meta_SongLength              =. floatbe
-    meta_Tuning                 <- meta_Tuning                  =. lenArray int16be
-    meta_Unk11_FirstNoteTime    <- meta_Unk11_FirstNoteTime     =. floatbe
-    meta_Unk12_FirstNoteTime    <- meta_Unk12_FirstNoteTime     =. floatbe
-    meta_MaxDifficulty          <- meta_MaxDifficulty           =. int32be
+    meta_Part                   <- meta_Part                    =. binEndian
+    meta_SongLength             <- meta_SongLength              =. binEndian
+    meta_Tuning                 <- meta_Tuning                  =. lenArray binEndian
+    meta_Unk11_FirstNoteTime    <- meta_Unk11_FirstNoteTime     =. binEndian
+    meta_Unk12_FirstNoteTime    <- meta_Unk12_FirstNoteTime     =. binEndian
+    meta_MaxDifficulty          <- meta_MaxDifficulty           =. binEndian
     return Metadata{..}
 
 data SNG2014 = SNG2014
@@ -528,30 +505,35 @@ data SNG2014 = SNG2014
   , sng_Metadata          :: Metadata
   } deriving (Eq, Show)
 
-instance Bin SNG2014 where
-  bin = do
-    sng_BPMs              <- sng_BPMs              =. lenArray bin
-    sng_Phrases           <- sng_Phrases           =. lenArray bin
-    sng_Chords            <- sng_Chords            =. lenArray bin
-    sng_ChordNotes        <- sng_ChordNotes        =. lenArray bin
-    sng_Vocals            <- sng_Vocals            =. lenArray bin
+instance BinEndian SNG2014 where
+  binEndian = do
+    sng_BPMs              <- sng_BPMs              =. lenArray binEndian
+    sng_Phrases           <- sng_Phrases           =. lenArray binEndian
+    sng_Chords            <- sng_Chords            =. lenArray binEndian
+    sng_ChordNotes        <- sng_ChordNotes        =. lenArray binEndian
+    sng_Vocals            <- sng_Vocals            =. lenArray binEndian
     let onlyVox p = if null sng_Vocals then return [] else p
-    sng_SymbolHeaders     <- onlyVox $ sng_SymbolHeaders     =. lenArray bin
-    sng_SymbolTextures    <- onlyVox $ sng_SymbolTextures    =. lenArray bin
-    sng_SymbolDefinitions <- onlyVox $ sng_SymbolDefinitions =. lenArray bin
-    sng_PhraseIterations  <- sng_PhraseIterations  =. lenArray bin
-    sng_PhraseExtraInfo   <- sng_PhraseExtraInfo   =. lenArray bin
-    sng_NLinkedDifficulty <- sng_NLinkedDifficulty =. lenArray bin
-    sng_Actions           <- sng_Actions           =. lenArray bin
-    sng_Events            <- sng_Events            =. lenArray bin
-    sng_Tones             <- sng_Tones             =. lenArray bin
-    sng_DNAs              <- sng_DNAs              =. lenArray bin
-    sng_Sections          <- sng_Sections          =. lenArray bin
-    sng_Arrangements      <- sng_Arrangements      =. lenArray bin
-    sng_Metadata          <- sng_Metadata          =. bin
+    sng_SymbolHeaders     <- onlyVox $ sng_SymbolHeaders     =. lenArray binEndian
+    sng_SymbolTextures    <- onlyVox $ sng_SymbolTextures    =. lenArray binEndian
+    sng_SymbolDefinitions <- onlyVox $ sng_SymbolDefinitions =. lenArray binEndian
+    sng_PhraseIterations  <- sng_PhraseIterations  =. lenArray binEndian
+    sng_PhraseExtraInfo   <- sng_PhraseExtraInfo   =. lenArray binEndian
+    sng_NLinkedDifficulty <- sng_NLinkedDifficulty =. lenArray binEndian
+    sng_Actions           <- sng_Actions           =. lenArray binEndian
+    sng_Events            <- sng_Events            =. lenArray binEndian
+    sng_Tones             <- sng_Tones             =. lenArray binEndian
+    sng_DNAs              <- sng_DNAs              =. lenArray binEndian
+    sng_Sections          <- sng_Sections          =. lenArray binEndian
+    sng_Arrangements      <- sng_Arrangements      =. lenArray binEndian
+    sng_Metadata          <- sng_Metadata          =. binEndian
     return SNG2014{..}
 
 loadSNG :: GamePlatform -> FilePath -> IO SNG2014
 loadSNG plat fp = do
   bs <- unpackSNG plat fp
-  return $ runGet (codecIn bin) bs
+  let ?endian = case plat of
+        PC      -> LittleEndian
+        Mac     -> LittleEndian
+        Xbox360 -> BigEndian
+        PS3     -> BigEndian
+  return $ runGet (codecIn binEndian) bs

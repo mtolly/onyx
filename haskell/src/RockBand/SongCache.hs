@@ -4,27 +4,21 @@
 module RockBand.SongCache where
 
 import           Control.Monad
-import           Control.Monad.Codec
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.StackTrace
-import           Data.Binary.Codec
-import           Data.Binary.Get
-import           Data.Binary.Put
+import           Data.Binary.Codec.Class
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Lazy           as BL
 import           Data.DTA.Serialize             (DictList (..))
 import           Data.DTA.Serialize.Magma       (Gender (..))
 import qualified Data.DTA.Serialize.RB3         as D
 import qualified Data.HashMap.Strict            as HM
-import           Data.Int
 import           Data.List                      (findIndex, sort)
 import           Data.Maybe                     (fromMaybe)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
-import           Data.Word
 import           PrettyDTA
 import           Resources                      (rb3Thumbnail)
-import           Rocksmith.Sng2014              (Bin (..), fixedArray)
 import           STFS.Package
 import           System.Directory               (doesFileExist, listDirectory)
 import           System.FilePath                (takeDirectory, (</>))

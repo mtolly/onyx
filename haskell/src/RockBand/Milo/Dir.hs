@@ -6,14 +6,10 @@ module RockBand.Milo.Dir where
 
 import           Control.Applicative       (liftA2)
 import           Control.Monad             (replicateM, void)
-import           Control.Monad.Codec
-import           Data.Binary.Get
-import           Data.Binary.Put
+import           Data.Binary.Codec.Class
 import qualified Data.ByteString           as B
 import qualified Data.ByteString.Lazy      as BL
-import           Data.Word
 import           RockBand.Milo.Compression (magicBarrier)
-import           Rocksmith.Sng2014         (Bin (..))
 
 getStringBE :: Get B.ByteString
 getStringBE = do

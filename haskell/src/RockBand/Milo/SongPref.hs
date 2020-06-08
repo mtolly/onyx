@@ -1,12 +1,9 @@
 {-# LANGUAGE RecordWildCards #-}
 module RockBand.Milo.SongPref where
 
-import           Control.Monad.Codec
-import           Data.Binary.Codec
-import qualified Data.ByteString     as B
-import           Data.Word
-import           RockBand.Milo.Dir   (getStringBE, putStringBE)
-import           Rocksmith.Sng2014   (Bin (..))
+import           Data.Binary.Codec.Class
+import qualified Data.ByteString         as B
+import           RockBand.Milo.Dir       (getStringBE, putStringBE)
 
 data SongPref = SongPref
   { prefU1    :: Word32 -- 3

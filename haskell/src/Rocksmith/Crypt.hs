@@ -11,8 +11,8 @@ import qualified Data.ByteString.Lazy   as BL
 data GamePlatform
   = PC
   | Mac
-  | Xbox360
-  | PS3
+  | Xbox360 -- is Xbox One same?
+  | PS3 -- is PS4 same?
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 unpackSNG :: GamePlatform -> FilePath -> IO BL.ByteString

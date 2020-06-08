@@ -18,15 +18,13 @@ import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Config
-import           Control.Monad.Codec              (codecIn)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard,
                                                    when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace
-import           Data.Binary.Get                  (runGetOrFail)
-import           Data.Binary.Put                  (runPut)
+import           Data.Binary.Codec.Class
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
@@ -44,7 +42,6 @@ import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     (void)
 import qualified Data.HashMap.Strict              as HM
-import           Data.Int                         (Int16)
 import           Data.List.Extra                  (nubOrd, stripSuffix, unsnoc)
 import           Data.List.HT                     (partitionMaybe)
 import qualified Data.Map                         as Map
@@ -53,7 +50,6 @@ import           Data.Maybe                       (catMaybes, fromMaybe,
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import           Data.Word                        (Word32)
 import           GuitarHeroII.Audio               (readVGS)
 import           GuitarHeroIOS                    (extractIGA)
 import qualified Image
@@ -86,7 +82,6 @@ import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    unpackMilo)
 import           RockBand.Score
 import           Rocksmith.PSARC                  (extractPSARC)
-import           Rocksmith.Sng2014                (bin)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E

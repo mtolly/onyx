@@ -12,18 +12,14 @@ module Rocksmith.PSARC where
 import qualified Codec.Compression.Zlib.Internal as Z
 import           Control.Applicative             (liftA2)
 import           Control.Monad                   (forM_, replicateM)
-import           Control.Monad.Codec
 import           Control.Monad.ST.Lazy           (runST)
-import           Data.Binary.Codec
-import           Data.Binary.Get
+import           Data.Binary.Codec.Class
 import qualified Data.ByteString                 as B
 import qualified Data.ByteString.Lazy            as BL
 import           Data.Maybe                      (fromMaybe)
 import qualified Data.Text                       as T
 import qualified Data.Text.Encoding              as TE
-import           Data.Word
 import           Rocksmith.Crypt
-import           Rocksmith.Sng2014               (Bin (..))
 import qualified System.Directory                as Dir
 import           System.FilePath                 (takeDirectory, (</>))
 

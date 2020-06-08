@@ -7,10 +7,8 @@ module RockBand.Milo.Lipsync where
 import           Control.Arrow                    (first)
 import           Control.Monad                    (forM, forM_, guard,
                                                    replicateM, void)
-import           Control.Monad.Codec
 import           Control.Monad.Trans.StackTrace   (logStdout)
-import           Data.Binary.Get
-import           Data.Binary.Put
+import           Data.Binary.Codec.Class
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
@@ -18,15 +16,13 @@ import           Data.Char                        (isAlpha)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
-import           Data.Int
-import           Data.List.Extra                  (foldl', nubOrd, sort, zip3)
+import           Data.List.Extra                  (foldl', nubOrd, sort)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isNothing,
                                                    listToMaybe, mapMaybe)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import           Data.Word
 import           DryVox                           (vocalTubes)
 import           Guitars                          (applyStatus1)
 import           Resources                        (CMUPhoneme (..), cmuDict)
@@ -42,7 +38,6 @@ import           RockBand.Codec.Vocal
 import           RockBand.Common                  (noRedundantStatus)
 import           RockBand.Milo.Compression
 import           RockBand.Milo.Dir
-import           Rocksmith.Sng2014                (Bin (..))
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension)
