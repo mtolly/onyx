@@ -2,6 +2,12 @@ metadata:
   author: Onyxite
   title: Raw Dog
   artist: Dream Theater
+  year: 2010
+  genre: metal
+  subgenre: prog
+  album: "God of War: Blood & Metal"
+  file-album-art: cover.jpg
+  track-number: 3
 plans:
   album:
     song:
