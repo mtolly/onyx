@@ -1,11 +1,12 @@
 -- | Functions dealing with the DXT texture formats used for album art by RB games.
-{-# LANGUAGE BinaryLiterals   #-}
-{-# LANGUAGE FlexibleContexts #-}
-module Image (toDXT1File, DXTFormat(..), readRBImage, readRBImageMaybe) where
+{-# LANGUAGE BinaryLiterals    #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedStrings #-}
+module Image (toDXT1File, DXTFormat(..), readRBImage, readRBImageMaybe, readDDS) where
 
 import           Codec.Picture
 import qualified Codec.Picture.STBIR        as STBIR
-import           Control.Monad              (forM_, guard, replicateM)
+import           Control.Monad              (forM_, guard, replicateM, unless)
 import           Control.Monad.Trans.Writer (execWriter, tell)
 import           Data.Array                 (listArray, (!))
 import           Data.Binary.Get
@@ -165,19 +166,65 @@ pngWii256DXT1Signature = B.pack
   , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
   ]
 
+arrangeRows :: (Pixel a) => Int -> Int -> [Image a] -> Image a
+arrangeRows cols rows xs = let
+  w = imageWidth  $ head xs
+  h = imageHeight $ head xs
+  xs' = listArray (0, cols * rows - 1) xs
+  gen x y = let
+    (xa, xb) = quotRem x w
+    (ya, yb) = quotRem y h
+    in pixelAt (xs' ! (ya * cols + xa)) xb yb
+  in generateImage gen (w * cols) (h * rows)
+
+-- | Currently just hacked together for Rocksmith album art, otherwise untested
+readDDS :: BL.ByteString -> Maybe (Image PixelRGB8)
+readDDS bs = let
+  parseImage = do
+    magic <- getByteString 4 -- "DDS "
+    unless (magic == "DDS ") $ fail "Invalid magic number at start of DDS"
+    -- header
+    _dwSize <- getWord32le -- always 0x7C
+    _dwFlags <- getWord32le
+    dwHeight <- getWord32le
+    dwWidth <- getWord32le
+    _dwPitchOrLinearSize <- getWord32le
+    _dwDepth <- getWord32le
+    _dwMipMapCount <- getWord32le
+    skip $ 11 * 4 -- DWORD dwReserved1[11]
+    -- pixel format
+    _fmt_dwSize <- getWord32le
+    _fmt_dwFlags <- getWord32le
+    fmt_dwFourCC <- getByteString 4
+    _fmt_dwRGBBitCount <- getWord32le
+    _fmt_dwRBitMask <- getWord32le
+    _fmt_dwGBitMask <- getWord32le
+    _fmt_dwBBitMask <- getWord32le
+    _fmt_dwABitMask <- getWord32le
+    -- end pixel format
+    _dwCaps <- getWord32le
+    _dwCaps2 <- getWord32le
+    _dwCaps3 <- getWord32le
+    _dwCaps4 <- getWord32le
+    skip 4 -- DWORD dwReserved2
+    -- end header
+    let width = fromIntegral dwWidth
+        height = fromIntegral dwHeight
+    case fmt_dwFourCC of
+      "DXT1" -> fmap (arrangeRows (quot width 4) (quot height 4))
+        $ replicateM (quot (width * height) 16) $ readDXTChunk DDS True
+      -- these are untested
+      f | elem f ["DXT2", "DXT3", "DXT4", "DXT5"] -> fmap (arrangeRows (quot width 4) (quot height 4))
+        $ replicateM (quot (width * height) 16) $ readDXTChunk DDS False
+      _ -> fail "Unrecognized DDS compression format"
+  in case runGetOrFail parseImage bs of
+    Left  _           -> Nothing
+    Right (_, _, img) -> Just img
+
 -- | Supports .png_xbox in both official DXT1 and C3 DXT2/3, and also .png_wii.
 readRBImageMaybe :: BL.ByteString -> Maybe (Image PixelRGB8)
 readRBImageMaybe bs = let
   readWiiChunk = fmap (arrangeRows 2 2) $ replicateM 4 $ readDXTChunk PNGWii True
-  arrangeRows cols rows xs = let
-    w = imageWidth  $ head xs
-    h = imageHeight $ head xs
-    xs' = listArray (0, cols * rows - 1) xs
-    gen x y = let
-      (xa, xb) = quotRem x w
-      (ya, yb) = quotRem y h
-      in pixelAt (xs' ! (ya * cols + xa)) xb yb
-    in generateImage gen (w * cols) (h * rows)
   parseImage = do
     1             <- getWord8
     bitsPerPixel  <- getWord8

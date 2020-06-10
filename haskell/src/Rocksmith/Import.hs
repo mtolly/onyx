@@ -3,12 +3,14 @@
 module Rocksmith.Import where
 
 import           Audio                            (Audio (..))
+import           Codec.Picture                    (writePng)
 import           Config
 import           Control.Monad                    (forM, guard)
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                       as A
 import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isSpace)
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -19,6 +21,7 @@ import           Data.List                        (sort)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes)
 import qualified Data.Text                        as T
+import           Image                            (readDDS)
 import           JSONData                         (toJSON, yamlEncodeFile)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
@@ -35,10 +38,11 @@ import           System.FilePath                  (takeExtension, (<.>), (</>))
 import           Text.XML.Light
 
 data RSSong = RSSong
-  { rsHeader    :: String
-  , rsManifest  :: String
-  , rsSngAsset  :: String
-  , rsSoundBank :: String
+  { rsHeader        :: String
+  , rsManifest      :: String
+  , rsSngAsset      :: String
+  , rsSoundBank     :: String
+  , rsAlbumArtLarge :: String
   } deriving (Eq, Show)
 
 importRS :: (SendMessage m, MonadResource m) => FilePath -> FilePath -> StackTraceT m ()
@@ -73,6 +77,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
       rsManifest <- toList $ lookup "Manifest" mapping
       rsSngAsset <- toList $ lookup "SngAsset" mapping
       rsSoundBank <- toList $ lookup "SoundBank" mapping
+      rsAlbumArtLarge <- toList $ lookup "AlbumArtLarge" mapping
       return RSSong{..}
 
   song <- case xblockSongs of
@@ -140,6 +145,14 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
   (_, firstArr, bnk, (title, artist, album, year), _) <- case parts of
     []    -> fatal "No entries found in song"
     p : _ -> return p
+  art <- case map rsAlbumArtLarge song of
+    [] -> return Nothing
+    art : _ -> do
+      f <- urn art -- urn:image:dds
+      bs <- stackIO $ BL.readFile $ temp </> "gfxassets/album_art" </> f <.> "dds"
+      forM (readDDS bs) $ \img -> do
+        stackIO $ writePng (dout </> "cover.png") img
+        return "cover.png"
   -- TODO handle if the bnks are different in different parts?
   -- how does multiplayer handle this?
   stackIO $ extractRSOgg (temp </> "audio" </> audioDir </> bnk <.> "bnk") $ dout </> "song.ogg"
@@ -223,7 +236,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
       , _artist       = Just artist
       , _album        = Just album
       , _year         = Just year
-      , _fileAlbumArt = Nothing -- TODO
+      , _fileAlbumArt = art
       }
     , _jammit = HM.empty
     , _targets = HM.empty
