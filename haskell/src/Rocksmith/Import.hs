@@ -1,97 +1,165 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Rocksmith.Import where
 
 import           Audio                            (Audio (..))
 import           Config
-import           Control.Monad                    (forM)
+import           Control.Monad                    (forM, guard)
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                       as A
+import qualified Data.ByteString                  as B
+import           Data.Char                        (isSpace)
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes)
 import qualified Data.Text                        as T
-import qualified Data.Vector                      as V
 import           JSONData                         (toJSON, yamlEncodeFile)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProGuitar
 import           RockBand.Common                  (Difficulty (..))
-import           Rocksmith.Base
 import           Rocksmith.BNK                    (extractRSOgg)
+import           Rocksmith.Crypt
 import           Rocksmith.PSARC
+import           Rocksmith.Sng2014
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import qualified System.Directory                 as Dir
-import           System.FilePath                  ((<.>), (</>))
+import           System.FilePath                  (takeExtension, (<.>), (</>))
+import           Text.XML.Light
+
+data RSSong = RSSong
+  { rsHeader    :: String
+  , rsManifest  :: String
+  , rsSngAsset  :: String
+  , rsSoundBank :: String
+  } deriving (Eq, Show)
 
 importRS :: (SendMessage m, MonadResource m) => FilePath -> FilePath -> StackTraceT m ()
 importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
   stackIO $ extractPSARC psarc temp
-  manifestDirs <- stackIO $ Dir.listDirectory $ temp </> "manifests"
-  -- TODO after implementing the change below, just read all folders under manifests
-  song <- case manifestDirs of
+
+  audioDirs <- stackIO $ Dir.listDirectory $ temp </> "audio"
+  (audioDir, platform) <- case audioDirs of
+    ["windows"] -> return ("windows", PC)
+    ["xbox360"] -> return ("xbox360", Xbox360)
+    -- TODO find other folder names
+    _           -> fatal "Couldn't determine platform of .psarc"
+
+  xblocks <- fmap (filter $ (== ".xblock") . takeExtension)
+    $ stackIO $ Dir.listDirectory $ temp </> "gamexblocks/nsongs"
+  xblockSongs <- forM xblocks $ \xblock -> do
+    let xblockFull = "gamexblocks/nsongs" </> xblock
+    xml <- stackIO (B.readFile $ temp </> xblockFull) >>= \bs -> case parseXMLDoc bs of
+      Nothing  -> fatal $ "Couldn't parse XML from: " <> xblockFull
+      Just xml -> return xml
+    return $ do
+      entitySet <- findChildren (QName "entitySet" Nothing Nothing) xml
+      entity <- findChildren (QName "entity" Nothing Nothing) entitySet
+      let mapping = do
+            properties <- findChildren (QName "properties" Nothing Nothing) entity
+            prop <- findChildren (QName "property" Nothing Nothing) properties
+            propName <- toList $ findAttr (QName "name" Nothing Nothing) prop
+            propSet <- findChildren (QName "set" Nothing Nothing) prop
+            propValue <- toList $ findAttr (QName "value" Nothing Nothing) propSet
+            return (propName, propValue)
+      rsHeader <- toList $ lookup "Header" mapping
+      rsManifest <- toList $ lookup "Manifest" mapping
+      rsSngAsset <- toList $ lookup "SngAsset" mapping
+      rsSoundBank <- toList $ lookup "SoundBank" mapping
+      return RSSong{..}
+
+  song <- case xblockSongs of
     [song] -> return song
-    _      -> fatal "Not exactly 1 manifest folder in .psarc"
-  lg $ "Manifest folder: " <> song
-  -- TODO not every song has this single hsan! most official ones don't seem to, we need to read all .json files.
-  -- then use "SongKey" to group them into songs
-  manifest <- stackIO (A.eitherDecodeFileStrict $ temp </> "manifests" </> song </> song <.> "hsan") >>= either fatal return
-  let prop k rec = case rec of
+    _      -> fatal "Not exactly 1 song in .psarc"
+  let urn s = case T.splitOn ":" $ T.pack s of
+        ["urn", _, _, value] -> return $ T.unpack value
+        _ -> fatal $ "Couldn't parse urn value: " <> show s
+      prop k rec = case rec of
         A.Object o -> case HM.lookup k o of
           Nothing -> fatal $ "No key " <> show k <> " in object"
           Just v  -> return v
         _ -> fatal $ "Tried to read key " <> show k <> " of non-object"
-      urn urnType o = case o of
-        A.String s -> case T.stripPrefix urnType s of
-          Just s' -> return s'
-          Nothing -> fatal $ "Couldn't read urn of type " <> show urnType
-        _ -> fatal $ "Tried to read urn " <> show urnType <> " from non-string"
-  A.Object entries <- prop "Entries" manifest
-  lg $ show $ HM.keys entries
-  parts <- fmap catMaybes $ forM (HM.toList entries) $ \(k, entry) -> inside ("Entry " <> T.unpack k) $ do
-    attrs <- prop "Attributes" entry
-    partJsonPath <- prop "ManifestUrn" attrs >>= urn "urn:database:json-db:"
-    part <- stackIO (A.eitherDecodeFileStrict $ temp </> "manifests" </> song </> T.unpack partJsonPath <.> "json") >>= either fatal return
-    partAttrs <- prop "Entries" part >>= prop k >>= prop "Attributes"
-    partXmlPath <- prop "SongXml" partAttrs >>= urn "urn:application:xml:"
-    bnkPath <- prop "SongBank" partAttrs >>= urn ""
-    xml <- parseFile $ temp </> "songs/arr" </> T.unpack partXmlPath <.> "xml"
-    return $ case xml of
-      PartVocals          -> Nothing
-      PartArrangement arr -> let
-        props = arr_arrangementProperties arr
-        partName = case (ap_pathLead props, ap_pathRhythm props, ap_pathBass props, ap_bonusArr props) of
-          (True, _, _, False)      -> RBFile.FlexGuitar
-          (_, True, _, False)      -> RBFile.FlexExtra "rhythm"
-          (_, _, True, False)      -> RBFile.FlexBass
-          (True, _, _, True)       -> RBFile.FlexExtra "bonus-lead"
-          (_, True, _, True)       -> RBFile.FlexExtra "bonus-rhythm"
-          (_, _, True, True)       -> RBFile.FlexExtra "bonus-bass"
-          (False, False, False, _) -> RBFile.FlexExtra $ arr_arrangement arr
-        in Just (partName, arr, bnkPath)
-  (_, firstArr, bnk) <- case parts of
+      singleKey rec = case rec of
+        A.Object o -> case HM.toList o of
+          [(_, v)] -> return v
+          _        -> fatal "JSON object has more than 1 key, 1 expected"
+        _ -> fatal "Unexpected non-object in JSON file"
+      getString o = case o of
+        A.String s -> return s
+        _          -> fatal "Expected string in JSON file"
+      getInt o = case o of
+        A.Number n -> return $ round n
+        _          -> fatal "Expected integer in JSON file"
+      getBool o = case o of
+        A.Number n -> return $ n /= 0
+        _          -> fatal "Expected boolean (0 or 1) in JSON file"
+  parts <- fmap catMaybes $ forM song $ \entity -> inside ("Entity " <> show (rsManifest entity)) $ do
+    header <- urn $ rsHeader entity -- urn:database:hsan-db or hson-db
+    manifest <- urn $ rsManifest entity -- urn:database:json-db
+    sngPath <- urn $ rsSngAsset entity -- urn:application:musicgame-song
+    bnkPath <- urn $ rsSoundBank entity -- urn:audio:wwise-sound-bank
+    let binFolder = case platform of
+          Xbox360 -> "xbox360"
+          _       -> "generic" -- seen on PC? no idea about ps3/mac
+    sng <- stackIO $ loadSNG platform $ temp </> "songs/bin" </> binFolder </> sngPath <.> "sng"
+    if not $ null $ sng_Vocals sng
+      then return Nothing
+      else do
+        -- TODO I don't know if this is correct, just what I saw in dlc files
+        let manifestDir = case platform of
+              Xbox360 -> "songs_dlc"
+              _       -> header -- on PC
+        json <- stackIO (A.eitherDecodeFileStrict $ temp </> "manifests" </> manifestDir </> manifest <.> "json") >>= either fatal return
+        jsonAttrs <- prop "Entries" json >>= singleKey >>= prop "Attributes"
+        title <- prop "SongName" jsonAttrs >>= getString
+        artist <- prop "ArtistName" jsonAttrs >>= getString
+        album <- prop "AlbumName" jsonAttrs >>= getString
+        year <- prop "SongYear" jsonAttrs >>= getInt
+        arrProps <- prop "ArrangementProperties" jsonAttrs
+        isLead <- prop "pathLead" arrProps >>= getBool
+        isRhythm <- prop "pathRhythm" arrProps >>= getBool
+        isBass <- prop "pathBass" arrProps >>= getBool
+        isBonus <- prop "bonusArr" arrProps >>= getBool
+        arrName <- prop "ArrangementName" jsonAttrs >>= getString
+        let name = case (isLead, isRhythm, isBass, isBonus) of
+              (True, _, _, False)      -> RBFile.FlexGuitar
+              (_, True, _, False)      -> RBFile.FlexExtra "rhythm"
+              (_, _, True, False)      -> RBFile.FlexBass
+              (True, _, _, True)       -> RBFile.FlexExtra "bonus-lead"
+              (_, True, _, True)       -> RBFile.FlexExtra "bonus-rhythm"
+              (_, _, True, True)       -> RBFile.FlexExtra "bonus-bass"
+              (False, False, False, _) -> RBFile.FlexExtra $ T.filter (not . isSpace) arrName
+        return $ Just (name, sng, bnkPath, (title, artist, album, year), isBass)
+  (_, firstArr, bnk, (title, artist, album, year), _) <- case parts of
     []    -> fatal "No entries found in song"
     p : _ -> return p
   -- TODO handle if the bnks are different in different parts?
   -- how does multiplayer handle this?
-  -- TODO handle folders other than windows
-  stackIO $ extractRSOgg (temp </> "audio/windows" </> T.unpack bnk) $ dout </> "song.ogg"
-  let modifiedBeats = case V.toList $ arr_ebeats firstArr of
-        ebeats@(Ebeat 0 _ : _) -> ebeats
-        ebeats                 -> Ebeat 0 Nothing : ebeats
+  stackIO $ extractRSOgg (temp </> "audio" </> audioDir </> bnk <.> "bnk") $ dout </> "song.ogg"
+  let modifiedBeats = case sng_BPMs firstArr of
+        ebeats@(BPM { bpm_Time = 0 } : _) -> ebeats
+        ebeats                            -> BPM
+          { bpm_Time            = 0
+          , bpm_Measure         = -1
+          , bpm_Beat            = 0
+          , bpm_PhraseIteration = 0
+          , bpm_Mask            = 0
+          } : ebeats
         -- TODO maybe be smarter about the initial added tempo
       temps = U.tempoMapFromBPS $ let
-        makeTempo b1 b2 = U.makeTempo 1 (eb_time b2 - eb_time b1)
+        makeTempo b1 b2 = U.makeTempo 1 (realToFrac $ bpm_Time b2 - bpm_Time b1)
         in RTB.fromPairList
           $ zip (0 : repeat 1)
           $ zipWith makeTempo modifiedBeats (drop 1 modifiedBeats)
       sigs = U.measureMapFromLengths U.Truncate $ let
-        startsBar = maybe False (/= (-1)) . eb_measure
+        startsBar = (== 0) . bpm_Beat
         makeBarLengths [] = []
         makeBarLengths (_ : ebeats) = case break startsBar ebeats of
           (inThisBar, rest) -> (1 + fromIntegral (length inThisBar)) : makeBarLengths rest
@@ -100,30 +168,42 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
   stackIO $ Save.toFile (dout </> "notes.mid") $ RBFile.showMIDIFile'
     $ RBFile.Song temps sigs mempty
       { RBFile.onyxParts = Map.fromList $ do
-        (partName, arr, _) <- parts
+        (partName, sng, _, _, _) <- parts
         -- if transcriptionTrack is present we could use that, but not all songs have that
-        let getNote note = let
-              str = case n_string note of
-                0 -> S6
-                1 -> S5
-                2 -> S4
-                3 -> S3
-                4 -> S2
-                5 -> S1
-                _ -> S7 -- TODO raise error
+        let getNotes note = let
               ntype = NormalNote -- TODO
-              fret = n_fret note
-              len = n_sustain note
-              in (n_time note, (str, (ntype, fret, len)))
-            iterBoundaries = V.toList $ V.zip (arr_phraseIterations arr)
-              (fmap Just (V.drop 1 $ arr_phraseIterations arr) <> V.singleton Nothing)
+              len = do
+                guard $ notes_Sustain note > 0
+                Just $ realToFrac $ notes_Sustain note
+              in do
+                (str, fret) <- case notes_ChordId note of
+                  -1 -> let
+                    fret = fromIntegral $ notes_FretId note
+                    str = case notes_StringIndex note of
+                      0 -> S6
+                      1 -> S5
+                      2 -> S4
+                      3 -> S3
+                      4 -> S2
+                      5 -> S1
+                      _ -> S7 -- TODO raise error
+                    in [(str, fret)]
+                  chordID -> do
+                    pair@(_str, fret) <- zip [S6, S5 ..]
+                      $ map fromIntegral
+                      $ chord_Frets
+                      $ sng_Chords sng !! fromIntegral chordID
+                    guard $ fret >= 0
+                    return pair
+                return (realToFrac $ notes_Time note, (str, (ntype, fret, len)))
+            iterBoundaries = zip (sng_PhraseIterations sng)
+              (fmap Just (drop 1 $ sng_PhraseIterations sng) <> [Nothing])
             getPhrase iter1 miter2 = let
-              phrase = arr_phrases arr V.! pi_phraseId iter1
-              lvl = arr_levels arr V.! ph_maxDifficulty phrase
-              inBounds note = pi_time iter1 <= n_time note
-                && all (\iter2 -> n_time note < pi_time iter2) miter2
-              lvlAllNotes = V.toList (lvl_notes lvl) ++ V.toList (lvl_chords lvl >>= chd_chordNotes)
-              in map getNote $ filter inBounds lvlAllNotes
+              phrase = sng_Phrases sng !! fromIntegral (pi_PhraseId iter1)
+              lvl = sng_Arrangements sng !! fromIntegral (phrase_MaxDifficulty phrase)
+              inBounds note = pi_StartTime iter1 <= notes_Time note
+                && all (\iter2 -> notes_Time note < pi_StartTime iter2) miter2
+              in concatMap getNotes $ filter inBounds $ arr_Notes lvl
             notes = let
               in RTB.fromAbsoluteEventList
                 $ ATB.fromPairList
@@ -138,11 +218,11 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
         return (partName, mempty { RBFile.onyxPartRealGuitar = trk })
       }
   stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON (SongYaml
-    { _metadata = (def :: Metadata FilePath)
-      { _title        = Just $ arr_title firstArr
-      , _artist       = Just $ arr_artistName firstArr
-      , _album        = Just $ arr_albumName firstArr
-      , _year         = arr_albumYear firstArr
+    { _metadata = (def :: Config.Metadata FilePath)
+      { _title        = Just title
+      , _artist       = Just artist
+      , _album        = Just album
+      , _year         = Just year
       , _fileAlbumArt = Nothing -- TODO
       }
     , _jammit = HM.empty
@@ -166,26 +246,24 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
       , _planParts    = Parts HM.empty
       , _crowd        = Nothing
       , _planComments = []
-      , _tuningCents  = arr_centOffset firstArr
+      , _tuningCents  = 0 -- TODO get from manifest .json (CentOffset)
       , _fileTempo    = Nothing
       }
     , _parts = Parts $ HM.fromList $ do
-      (partName, arr, _) <- parts
+      (partName, sng, _, _, isBass) <- parts
       let part = def
             { partProGuitar = Just PartProGuitar
               { pgDifficulty    = Tier 1
               , pgHopoThreshold = 170
-              , pgTuning        = if ap_pathBass $ arr_arrangementProperties arr
+              , pgTuning        = if isBass
                 then GtrTuning
                   { gtrBase    = Bass4
-                  , gtrOffsets = case arr_tuning arr of
-                    Tuning a b c d _ _ -> [a, b, c, d]
+                  , gtrOffsets = map fromIntegral $ take 4 $ meta_Tuning $ sng_Metadata sng
                   , gtrGlobal  = 0 -- TODO use arr_capo ?
                   }
                 else GtrTuning
                   { gtrBase    = Guitar6
-                  , gtrOffsets = case arr_tuning arr of
-                    Tuning a b c d e f -> [a, b, c, d, e, f]
+                  , gtrOffsets = map fromIntegral $ meta_Tuning $ sng_Metadata sng
                   , gtrGlobal  = 0 -- TODO use arr_capo ?
                   }
               , pgFixFreeform   = False

@@ -27,7 +27,7 @@ nullTerm n = Codec
     GT -> b <> B.replicate (B.length b - n) 0
   }
 
-data BPM = BPM
+data BPM = BPM -- actually <ebeat>
   { bpm_Time            :: Float
   , bpm_Measure         :: Int16
   , bpm_Beat            :: Int16
@@ -65,7 +65,7 @@ instance BinEndian Phrase where
     phrase_Name                 <- phrase_Name                 =. nullTerm 32
     return Phrase{..}
 
-data Chord = Chord
+data Chord = Chord -- actually <chordTemplate>
   { chord_Mask    :: Word32
   , chord_Frets   :: [Int8]
   , chord_Fingers :: [Int8]
@@ -368,8 +368,8 @@ data Notes = Notes
   , notes_NoteFlags         :: Word32
   , notes_Hash              :: Word32
   , notes_Time              :: Float
-  , notes_StringIndex       :: Word8
-  , notes_FretId            :: Word8
+  , notes_StringIndex       :: Int8
+  , notes_FretId            :: Int8
   , notes_AnchorFretId      :: Word8
   , notes_AnchorWidth       :: Word8
   , notes_ChordId           :: Int32
@@ -424,7 +424,7 @@ instance BinEndian Notes where
     notes_BendData          <- notes_BendData          =. lenArray binEndian
     return Notes{..}
 
-data Arrangement = Arrangement
+data Arrangement = Arrangement -- actually <level>
   { arr_Difficulty               :: Int32
   , arr_Anchors                  :: [Anchor]
   , arr_AnchorExtensions         :: [AnchorExtension]
