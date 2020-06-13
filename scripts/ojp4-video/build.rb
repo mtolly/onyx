@@ -213,21 +213,20 @@ videos = [
       },
       {
         source: "#{filesRoot}/recorded/Caravan RB with gap.mkv", # gap added from 9:05.453 to 9:15.156
-        mask: "#{filesRoot}/masks/rb-4-tracks-only2.png",
-        # mask: [
-        #   [0, "#{filesRoot}/masks/rb-4-tracks-only2.png"],
-        #   [22.291, :fade],
-        #   [23.167, "#{filesRoot}/masks/rb-4-tracks-only23.png"],
-        #   [35.987, :fade],
-        #   [36.844, "#{filesRoot}/masks/rb-4-tracks-only234.png"],
-        #   [42.864, :fade],
-        #   [43.703, "#{filesRoot}/masks/rb-4-tracks.png"],
-        #   [4 * 60 + 33.062, :fade],
-        #   [4 * 60 + 34.002, "#{filesRoot}/masks/rb-4-tracks-only2.png"],
-        #   # TODO fade to black during gap
-        #   [9 * 60 + 14.948, :fade],
-        #   [9 * 60 + 15.533, "#{filesRoot}/masks/rb-4-tracks.png"],
-        # ],
+        mask: [
+          [0, "#{filesRoot}/masks/rb-4-tracks-only2.png"],
+          [22.291, :fade],
+          [23.167, "#{filesRoot}/masks/rb-4-tracks-only23.png"],
+          [35.987, :fade],
+          [36.844, "#{filesRoot}/masks/rb-4-tracks-only234.png"],
+          [42.864, :fade],
+          [43.703, "#{filesRoot}/masks/rb-4-tracks.png"],
+          [4 * 60 + 33.062, :fade],
+          [4 * 60 + 34.002, "#{filesRoot}/masks/rb-4-tracks-only2.png"],
+          # TODO fade to black during gap
+          [9 * 60 + 14.948, :fade],
+          [9 * 60 + 15.533, "#{filesRoot}/masks/rb-4-tracks.png"],
+        ],
         startTime: 0, # original footage started at 5.000
         position: {x: 0, y: 4},
         size: {x: 1920, y: 1076},
@@ -259,72 +258,120 @@ videos = [
   },
 ]
 
+class Source
+  def initialize(args)
+    @args = args
+  end
+
+  def generate_child(next_node_index, next_source_index)
+    return {
+      end_node_name: "#{next_source_index}:v",
+      sources: [@args],
+      graph_lines: [],
+      next_node_index: next_node_index,
+      next_source_index: next_source_index + 1,
+    }
+  end
+end
+
 class Node
   def initialize(inputs, filter)
     @inputs = inputs
     @filter = filter
   end
 
-  def generate_child(next_index)
+  def generate_child(next_node_index, next_source_index)
     lines = []
+    sources = []
     input_names = []
     inputs = (@inputs.respond_to?(:each) ? @inputs : [@inputs])
     inputs.each do |input|
       if input.respond_to? :generate_child
-        created_name, created_index, new_lines = input.generate_child(next_index)
-        lines += new_lines
-        next_index = created_index + 1
-        input_names << created_name
+        child_results = input.generate_child(next_node_index, next_source_index)
+        lines += child_results[:graph_lines]
+        sources += child_results[:sources]
+        next_node_index = child_results[:next_node_index]
+        next_source_index = child_results[:next_source_index]
+        input_names << child_results[:end_node_name]
       else
         input_names << input # raw number/string
       end
     end
-    my_node = "node#{next_index}"
+    my_node = "node#{next_node_index}"
     lines << "#{input_names.map { |x| "[#{x}]" }.join('')} #{@filter} [#{my_node}]"
-    return [my_node, next_index, lines]
+    next_node_index += 1
+    return {
+      end_node_name: my_node,
+      sources: sources,
+      graph_lines: lines,
+      next_node_index: next_node_index,
+      next_source_index: next_source_index,
+    }
   end
 
   def generate_root
-    created_name, created_index, lines = self.generate_child(0)
-    lines << "[#{created_name}] null"
-    return lines
+    results = self.generate_child(0, 0)
+    lines = results[:graph_lines]
+    lines << "[#{results[:end_node_name]}] null"
+    return {
+      graph_lines: lines,
+      sources: results[:sources],
+    }
   end
 end
 
 def buildCommand(video, out)
   cmd = ['ffmpeg']
 
-  sources = []
-  sources << ['-loop', '1', '-i', video[:card]]
-  sources << ['-i', video[:audio]]
-  sourceMap = []
-  video[:sources].each do |src|
-    newSources = [sources.length]
-    sources << ['-i', src[:source]]
-    if src[:mask]
-      newSources << sources.length
-      sources << ['-loop', '1', '-i', src[:mask]]
-    end
-    sourceMap << newSources
-  end
-  sources.each { |src| cmd += src }
-
-  cmd += ['-filter_complex']
-  card = Node.new([0], "format=rgba, scale=1920x1080,
+  cardSource = Source.new(['-r', '60', '-loop', '1', '-i', video[:card]])
+  card = Node.new([cardSource], "format=rgba, scale=1920x1080,
     fade=t=out:st=#{$cardFadeIn + $cardHold}:d=#{$cardFadeOut}:alpha=1,
     fade=t=in:st=0:d=#{$cardFadeIn}:color=black")
   stack = Node.new([], 'color=size=1920x1080:color=black:rate=60')
-  video[:sources].each_with_index do |src, i|
-    inputs = sourceMap[i]
+  video[:sources].each do |src|
     size = '1920x1080'
     if src[:position] != 'stretch'
       size = "#{src[:size][:x]}x#{src[:size][:y]}"
     end
-    node = Node.new(["#{inputs[0]}:v"], "fps=60, scale=#{size}")
+    mainSource = Source.new(['-i', src[:source]])
+    node = Node.new([mainSource], "fps=60, scale=#{size}")
     startTime = $cardFadeIn + $cardHold - src[:startTime]
     node = Node.new([node], "setpts=PTS-STARTPTS+#{startTime}/TB")
     if src[:mask]
-      node = Node.new([node, "#{inputs[1]}:v"], "alphamerge")
+      if src[:mask].is_a? String
+        # static mask
+        maskSource = Source.new(['-loop', '1', '-i', src[:mask]])
+        node = Node.new([node, maskSource], "alphamerge")
+      else
+        # dynamic mask
+        maskSegments = []
+        lastInput = nil
+        src[:mask].each_with_index do |maskEvent, i|
+          if i == src[:mask].length - 1
+            # last state, hold forever
+            maskSegments << Source.new(['-loop', '1', '-r', '60', '-i', maskEvent[1]])
+          elsif maskEvent[1] == :fade
+            # fade between two images
+            length = src[:mask][i + 1][0] - maskEvent[0]
+            nextImage = src[:mask][i + 1][1]
+            base = Source.new(['-loop', '1', '-r', '60', '-i', lastInput])
+            overlay = Source.new(['-loop', '1', '-r', '60', '-i', nextImage])
+            overlay = Node.new([overlay], "fade=t=in:st=0:d=#{length}:alpha=1")
+            maskSegments << Node.new([base, overlay], "overlay, trim=end=#{length}")
+          else
+            # hold image for a length of time
+            length = src[:mask][i + 1][0] - maskEvent[0]
+            segment = Source.new(['-loop', '1', '-r', '60', '-i', maskEvent[1]])
+            maskSegments << Node.new([segment], "trim=end=#{length}")
+            lastInput = maskEvent[1]
+          end
+        end
+        # I don't know why this is needed,
+        # otherwise it complains of SAR mismatch because SAR 11811:11811 doesn't match 1:1 ???
+        maskSegments = maskSegments.map { |seg| Node.new([seg], "setsar=1") }
+        concatenated = Node.new(maskSegments, "concat=n=#{maskSegments.length}")
+        node = Node.new([node, concatenated], "alphamerge")
+      end
     end
     if src[:scale]
       scale = "#{src[:scale][:x]}x#{src[:scale][:y]}"
@@ -337,10 +384,17 @@ def buildCommand(video, out)
     end
     stack = Node.new([stack, node], command)
   end
-  filter = Node.new([stack, card], 'overlay').generate_root
+  filterResults = Node.new([stack, card], 'overlay').generate_root
+
+  sources = filterResults[:sources]
+  audioSourceIndex = sources.length
+  sources << ['-i', video[:audio]]
+  cmd += sources.flatten
+
   msdelay = (($cardFadeIn + $cardHold) * 1000).floor
-  filter << "[1:a] adelay=delays=#{msdelay}|#{msdelay}"
-  cmd << filter.join(";\n")
+  graph_lines = filterResults[:graph_lines]
+  graph_lines << "[#{audioSourceIndex}:a] adelay=delays=#{msdelay}|#{msdelay}"
+  cmd += ['-filter_complex', graph_lines.join(";\n")]
 
   cmd += %W{
     -c:v libx264
@@ -349,7 +403,6 @@ def buildCommand(video, out)
     #{out}
   }
 
-  p sourceMap
   print cmd
   system(*(cmd.map(&:to_s)))
 end

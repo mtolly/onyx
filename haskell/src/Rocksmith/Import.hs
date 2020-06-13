@@ -53,6 +53,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
   (audioDir, platform) <- case audioDirs of
     ["windows"] -> return ("windows", PC)
     ["xbox360"] -> return ("xbox360", Xbox360)
+    ["mac"] -> return ("mac", Mac)
     -- TODO find other folder names
     _           -> fatal "Couldn't determine platform of .psarc"
 
@@ -112,7 +113,9 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
     bnkPath <- urn $ rsSoundBank entity -- urn:audio:wwise-sound-bank
     let binFolder = case platform of
           Xbox360 -> "xbox360"
-          _       -> "generic" -- seen on PC? no idea about ps3/mac
+          Mac     -> "macos"
+          -- TODO probably need ps3 name
+          _       -> "generic" -- PC
     sng <- stackIO $ loadSNG platform $ temp </> "songs/bin" </> binFolder </> sngPath <.> "sng"
     if not $ null $ sng_Vocals sng
       then return Nothing
