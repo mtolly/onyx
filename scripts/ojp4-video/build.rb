@@ -51,9 +51,9 @@ videos = [
         position: 'stretch',
       },
       {
-        source: "#{filesRoot}/recorded/One for Antonio CH.mkv",
+        source: "#{filesRoot}/recorded/speed8/oneforantonio-ch-speed8.mkv",
         mask: "#{filesRoot}/masks/ch-3-tracks-only12-fade-bottom.png",
-        startTime: 3.801,
+        startTime: 3.740 + 0.016 * 4,
         position: {x: 326, y: -556},
         size: {x: 1920, y: 1080},
       },
@@ -79,9 +79,9 @@ videos = [
         position: 'stretch',
       },
       {
-        source: "#{filesRoot}/recorded/Sequence Start CH.mkv",
+        source: "#{filesRoot}/recorded/speed8/sequencestart-ch-speed8.mkv",
         mask: "#{filesRoot}/masks/ch-3-tracks-only12-fade-bottom.png",
-        startTime: 4.143,
+        startTime: 5.920 + 0.016 * 4,
         position: {x: 326, y: -556},
         size: {x: 1920, y: 1080},
       },
@@ -107,9 +107,9 @@ videos = [
         position: 'stretch',
       },
       {
-        source: "#{filesRoot}/recorded/Work Shit Out CH.mkv",
+        source: "#{filesRoot}/recorded/speed8/workshitout-ch-speed8.mkv",
         mask: "#{filesRoot}/masks/ch-3-tracks-only12-fade-bottom.png",
-        startTime: 5.190,
+        startTime: 3.750 + 0.016 * 4,
         size: {x: 1920, y: 1080},
         scale: {x: 1422, y: 800},
         position: {x: 489, y: -421},
@@ -124,7 +124,11 @@ videos = [
       },
       {
         source: "#{filesRoot}/recorded/Work Shit Out RB.avi",
-        mask: "#{filesRoot}/masks/rb-harmonies.png", # TODO fade out after vox is done
+        mask: [
+          [0, "#{filesRoot}/masks/rb-harmonies.png"],
+          [2 * 60 + 35.031, :fade],
+          [2 * 60 + 35.586, "#{filesRoot}/masks/black.png"],
+        ],
         startTime: 2.270,
         size: {x: 1920, y: 1076},
         position: {x: 0, y: 370},
@@ -144,9 +148,9 @@ videos = [
         position: 'stretch'
       },
       {
-        source: "#{filesRoot}/recorded/Blast Off CH.mkv",
+        source: "#{filesRoot}/recorded/speed8/blastoff-ch-speed8.mkv",
         mask: "#{filesRoot}/masks/ch-3-tracks-only12-fade-bottom.png",
-        startTime: 3.703,
+        startTime: 4 + 0.016 * 4,
         position: {x: 326, y: -556},
         size: {x: 1920, y: 1080},
       },
@@ -167,9 +171,9 @@ videos = [
     sources: [
       # TODO find a background?
       {
-        source: "#{filesRoot}/recorded/The Taste of Filth CH.mkv",
+        source: "#{filesRoot}/recorded/speed8/thetasteoffilth-ch-speed8.mkv",
         mask: "#{filesRoot}/masks/ch-3-tracks-only12-fade-bottom.png",
-        startTime: 5.446,
+        startTime: 4.360 + 0.016 * 4,
         position: {x: 326, y: -556},
         size: {x: 1920, y: 1080},
       },
@@ -200,7 +204,7 @@ videos = [
   },
   {
     # Caravan
-    songLength: 9 * 60 + 18.167,
+    songLength: 9 * 60 + 18.167 + (15.156 - 5.453),
     audio: "#{filesRoot}/audio/caravan-with-gap.wav", # gap added from 9:06.164 to 9:15.867
     card: "#{filesRoot}/cards/caravan.png",
     sources: [
@@ -223,9 +227,10 @@ videos = [
           [43.703, "#{filesRoot}/masks/rb-4-tracks.png"],
           [4 * 60 + 33.062, :fade],
           [4 * 60 + 34.002, "#{filesRoot}/masks/rb-4-tracks-only2.png"],
-          # TODO fade to black during gap
-          [9 * 60 + 14.948, :fade],
-          [9 * 60 + 15.533, "#{filesRoot}/masks/rb-4-tracks.png"],
+          [9 * 60 + 4.976, :fade],
+          [9 * 60 + 5.273, "#{filesRoot}/masks/black.png"],
+          [9 * 60 + 15.533, :fade],
+          [9 * 60 + 15.825, "#{filesRoot}/masks/rb-4-tracks.png"],
         ],
         startTime: 0, # original footage started at 5.000
         position: {x: 0, y: 4},
@@ -250,7 +255,7 @@ videos = [
       {
         source: "#{filesRoot}/recorded/Alien Lair CH.mkv",
         mask: "#{filesRoot}/masks/ch-4-tracks.png",
-        startTime: 6.111,
+        startTime: 6.111 + 0.016 * 4,
         position: {x: 0, y: 0},
         size: {x: 1920, y: 1080},
       },
@@ -326,7 +331,9 @@ def buildCommand(video, out)
   cardSource = Source.new(['-r', '60', '-loop', '1', '-i', video[:card]])
   card = Node.new([cardSource], "format=rgba, scale=1920x1080,
     fade=t=out:st=#{$cardFadeIn + $cardHold}:d=#{$cardFadeOut}:alpha=1,
-    fade=t=in:st=0:d=#{$cardFadeIn}:color=black")
+    fade=t=in:st=0:d=#{$cardFadeIn}:color=black,
+    trim=duration=#{$cardFadeIn + $cardHold + $cardFadeOut + 1}")
+  # last trim isn't strictly necessary but probably more efficient
   stack = Node.new([], 'color=size=1920x1080:color=black:rate=60')
   video[:sources].each do |src|
     size = '1920x1080'
@@ -335,8 +342,14 @@ def buildCommand(video, out)
     end
     mainSource = Source.new(['-i', src[:source]])
     node = Node.new([mainSource], "fps=60, scale=#{size}")
-    startTime = $cardFadeIn + $cardHold - src[:startTime]
-    node = Node.new([node], "setpts=PTS-STARTPTS+#{startTime}/TB")
+    if src[:startTime] > 0
+      # trim
+      node = Node.new([node], "trim=start=#{src[:startTime]}, setpts=PTS-STARTPTS")
+    elsif src[:startTime] < 0
+      # pad with black
+      black = Node.new([], "color=color=black:duration=#{src[:startTime].abs}:size=#{size}")
+      node = Node.new([black, node], "concat, setpts=PTS-STARTPTS")
+    end
     if src[:mask]
       if src[:mask].is_a? String
         # static mask
@@ -384,6 +397,14 @@ def buildCommand(video, out)
     end
     stack = Node.new([stack, node], command)
   end
+
+  # fade very end to black
+  endFadeLength = 0.5
+  stack = Node.new([stack], "fade=type=out:st=#{video[:songLength] - endFadeLength}:d=#{endFadeLength}")
+
+  # pad with black to go under the card
+  black = Node.new([], "color=color=black:duration=#{$cardFadeIn + $cardHold}:size=1920x1080")
+  stack = Node.new([black, stack], "concat")
   filterResults = Node.new([stack, card], 'overlay').generate_root
 
   sources = filterResults[:sources]
