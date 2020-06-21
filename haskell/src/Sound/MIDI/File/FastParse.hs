@@ -166,7 +166,7 @@ getTrack = removeEnd <$> go Nothing where
               x <- getFirstByte
               y <- getWord8
               return $ C.Voice $ V.PitchBend $
-                int7Bits x * 0x80 + int7Bits y
+                int7Bits x + int7Bits y * 0x80
             -- 0xF is meta/sysex, handled above
             _ -> fail $ "Unknown event byte: " <> show statusByte
           return (e, Just statusByte)
