@@ -66,17 +66,14 @@ SYSTEMATIC CHAOS (new version)
   > PG/PB done (incl. Mustang, slides, chords), except TMOLS and ITPOE2 need Mustang versions
   - PK fixed for Forsaken POW TDEN
     # Repentance and Jarod's 4 probably fine
-  > constant motion vox: fix timing, do solo vox, vox od
   > fix G/B/K from PG/PB/PK
     - bass: done!! (incl. opens + no-opens)
+    - guitar: done!! (incl. opens + no-opens)
     - keys:
       - forsaken: fixed
       - cm: done
       # tden, pow: todo
       # repentance, itpoe1, tmols, itpoe2: probably not necessary
-    - guitar:
-      - itpoe1, forsaken, cm, tden, repentance, pow, tmols: fixed (opens + no-opens)
-      # itpoe2: just needs solo cleaned up, then no-opens version
   > venue
     - lighting/postproc:
       - itpoe1, forsaken, cm, tden, repentance, pow: first drafts done
