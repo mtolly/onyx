@@ -62,6 +62,7 @@ data VocalTrack t = VocalTrack
   , vocalLyricShift    :: RTB.T t ()
   , vocalRangeShift    :: RTB.T t Bool
   , vocalNotes         :: RTB.T t (Pitch, Bool)
+  , vocalEyesClosed    :: RTB.T t Bool -- ^ Temporary event for lipsync generation (this will be moved to dedicated lipsync track)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (VocalTrack t)
 
@@ -70,9 +71,9 @@ nullVox :: VocalTrack t -> Bool
 nullVox t = RTB.null (vocalNotes t) && RTB.null (vocalLyrics t)
 
 instance TraverseTrack VocalTrack where
-  traverseTrack fn (VocalTrack a b c d e f g h i j k) = VocalTrack
+  traverseTrack fn (VocalTrack a b c d e f g h i j k l) = VocalTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
-    <*> fn g <*> fn h <*> fn i <*> fn j <*> fn k
+    <*> fn g <*> fn h <*> fn i <*> fn j <*> fn k <*> fn l
 
 instance ParseTrack VocalTrack where
   parseTrack = do
@@ -89,6 +90,9 @@ instance ParseTrack VocalTrack where
     vocalRangeShift    <- vocalRangeShift    =. edges 0
     vocalNotes         <- (vocalNotes        =.)
       $ condenseMap $ eachKey each $ edges . (+ 36) . fromEnum
+    vocalEyesClosed <- (vocalEyesClosed =.) $ condenseMap_ $ eachKey each $ \case
+      True  -> commandMatch ["eyes", "close"]
+      False -> commandMatch ["eyes", "open" ]
     return VocalTrack{..}
 
 asciify :: T.Text -> T.Text

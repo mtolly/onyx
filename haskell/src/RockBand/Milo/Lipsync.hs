@@ -546,13 +546,22 @@ visemesToStates transition rtb = let
 visemesToLipsync :: U.Seconds -> RTB.T U.Seconds [(T.Text, Word8)] -> Lipsync
 visemesToLipsync transition = lipsyncFromStates . visemesToStates transition
 
-autoLipsync :: Transcribe -> VocalTrack U.Seconds -> Lipsync
-autoLipsync trans
-  = visemesToLipsync 0.12
-  . fmap (maybe [] $ map (\v -> (T.pack $ drop 7 $ show v, 140)) . cmuToVisemes)
-  . runTranscribe
-  . fmap (fmap (trans,))
-  . vocalTubes
+defaultTransition :: U.Seconds
+defaultTransition = 0.12
+
+autoLipsync :: U.Seconds -> Transcribe -> VocalTrack U.Seconds -> Lipsync
+autoLipsync transition trans vt = let
+  eyes
+    = visemesToStates transition
+    $ fmap (\b -> guard b >> [("Blink", 255)])
+    $ vocalEyesClosed vt
+  mouth
+    = visemesToStates transition
+    $ fmap (maybe [] $ map (\v -> (T.pack $ drop 7 $ show v, 140)) . cmuToVisemes)
+    $ runTranscribe
+    $ fmap (fmap (trans,))
+    $ vocalTubes vt
+  in lipsyncFromStates $ addLipsyncStates eyes mouth
 
 setRB3 :: Lipsync -> Lipsync
 setRB3 lip = lip
@@ -568,21 +577,26 @@ setBeatles lip = lip
   , lipsyncDTAImport = "proj9"
   }
 
-beatlesLipsync :: Transcribe -> VocalTrack U.Seconds -> Lipsync
-beatlesLipsync trans
-  = setBeatles
-  . visemesToLipsync 0.12
-  . fmap (maybe [] $ map (first $ T.pack . drop 7 . show) . cmuToBeatles)
-  . runTranscribe
-  . fmap (fmap (trans,))
-  . vocalTubes
+beatlesLipsync :: U.Seconds -> Transcribe -> VocalTrack U.Seconds -> Lipsync
+beatlesLipsync transition trans vt = let
+  eyes
+    = visemesToStates transition
+    $ fmap (\b -> guard b >> [("l_lids", 255), ("r_lids", 255)])
+    $ vocalEyesClosed vt
+  mouth
+    = visemesToStates transition
+    $ fmap (maybe [] $ map (first $ T.pack . drop 7 . show) . cmuToBeatles)
+    $ runTranscribe
+    $ fmap (fmap (trans,))
+    $ vocalTubes vt
+  in lipsyncFromStates $ addLipsyncStates eyes mouth
 
 gh2Lipsync :: Transcribe -> VocalTrack U.Seconds -> VocFile
 gh2Lipsync trans
   = visemesToVoc
   . fmap (\mcmu -> case mcmu >>= cmuToGH2Viseme of
     Nothing  -> []
-    Just vis -> [(T.replace "_" " " $ T.pack $ drop 4 $ show vis, 1)]
+    Just vis -> [(T.replace "_" " " $ T.pack $ drop 4 $ show vis, 0.5)]
     )
   . runTranscribe
   . fmap (fmap (trans,))
@@ -620,7 +634,7 @@ lipLyricsStates tgt lip = let
   fromCMU = case tgt of
     LipsyncRB3 -> maybe [] $ map (\v -> (T.pack $ drop 7 $ show v, 140)) . cmuToVisemes
     LipsyncTBRB -> maybe [] $ map (first $ T.pack . drop 7 . show) . cmuToBeatles
-  in visemesToStates 0.12 $ fmap fromCMU transcribed
+  in visemesToStates defaultTransition $ fmap fromCMU transcribed
 
 lipsyncFromMIDITrack' :: LipsyncTarget -> LipsyncTrack U.Seconds -> Lipsync
 lipsyncFromMIDITrack' tgt lip

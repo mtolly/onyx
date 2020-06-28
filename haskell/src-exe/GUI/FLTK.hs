@@ -125,6 +125,7 @@ import           RockBand.Common                           (RB3Instrument (..))
 import qualified RockBand.Common                           as RB
 import           RockBand.Milo                             (autoLipsync,
                                                             beatlesLipsync,
+                                                            defaultTransition,
                                                             englishVowels,
                                                             germanVowels,
                                                             gh2Lipsync,
@@ -2237,13 +2238,22 @@ miscPageLipsync sink rect tab startTasks = do
         Just (Just Vocal1) -> "-harm1"
         Just (Just Vocal2) -> "-harm2"
         Just (Just Vocal3) -> "-harm3"
-  getVowels <- padded 2 10 2 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    fn <- horizRadio rect'
+  (getVowels, getTransition) <- padded 2 10 2 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    let (trimClock 0 100 0 0 -> langArea, transArea) = chopRight 150 rect'
+    getVowels <- horizRadio langArea
       [ ("English", englishVowels, True)
       , ("German", germanVowels, False)
       , ("Spanish", spanishVowels, False)
       ]
-    return $ fromMaybe englishVowels <$> fn
+    counter <- FL.counterNew transArea $ Just "Transition (ms)"
+    FL.setLabelsize counter $ FL.FontSize 13
+    FL.setLabeltype counter FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign counter $ FLE.Alignments [FLE.AlignTypeLeft]
+    FL.setStep counter 1
+    FL.setLstep counter 5
+    FL.setMinimum counter 0
+    void $ FL.setValue counter $ fromInteger $ round $ defaultTransition * 1000
+    return (fromMaybe englishVowels <$> getVowels, (/ 1000) . realToFrac <$> FL.getValue counter)
   padded 5 5 5 5 (Size (Width 800) (Height 35)) $ \rect' -> do
     let [areaVoc, areaRB, areaTBRB] = map (trimClock 0 5 0 5) $ splitHorizN 3 rect'
         lipsyncButton area label ext fn = do
@@ -2252,6 +2262,7 @@ miscPageLipsync sink rect tab startTasks = do
           FL.setCallback btn $ \_ -> sink $ EventIO $ do
             input <- pickedFile
             voc <- getVocalTrack
+            trans <- getTransition
             vowels <- getVowels
             picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
             FL.setTitle picker "Save lipsync file"
@@ -2263,18 +2274,18 @@ miscPageLipsync sink rect tab startTasks = do
                 Just f -> sink $ EventOnyx $ let
                   task = do
                     mid <- RBFile.loadMIDI input
-                    stackIO $ BL.writeFile f $ fn vowels $
+                    stackIO $ BL.writeFile f $ fn trans vowels $
                       mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) $ getSelectedVox voc mid
                     return [f]
                   in startTasks [(T.unpack label <> ": " <> input, task)]
               _ -> return ()
           return btn
     void $ lipsyncButton areaVoc "Make .voc (GH2)" "voc"
-      $ \vowels -> runPut . putVocFile . gh2Lipsync vowels
+      $ \_trans vowels -> runPut . putVocFile . gh2Lipsync vowels
     void $ lipsyncButton areaRB "Make .lipsync (RB2/RB3)" "lipsync"
-      $ \vowels -> runPut . putLipsync . autoLipsync vowels
+      $ \trans vowels -> runPut . putLipsync . autoLipsync trans vowels
     void $ lipsyncButton areaTBRB "Make .lipsync (TBRB)" "lipsync"
-      $ \vowels -> runPut . putLipsync . beatlesLipsync vowels
+      $ \trans vowels -> runPut . putLipsync . beatlesLipsync trans vowels
     return ()
   let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
         btn <- FL.buttonNew rect' $ Just label

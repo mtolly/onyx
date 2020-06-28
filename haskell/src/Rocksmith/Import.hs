@@ -53,7 +53,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
   (audioDir, platform) <- case audioDirs of
     ["windows"] -> return ("windows", PC)
     ["xbox360"] -> return ("xbox360", Xbox360)
-    ["mac"] -> return ("mac", Mac)
+    ["mac"]     -> return ("mac", Mac)
     -- TODO find other folder names
     _           -> fatal "Couldn't determine platform of .psarc"
 

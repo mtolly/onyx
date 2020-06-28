@@ -74,6 +74,7 @@ import           RockBand.Common                  (Difficulty (..),
 import qualified RockBand.IOS                     as IOS
 import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    beatlesLipsync,
+                                                   defaultTransition,
                                                    englishVowels,
                                                    lipsyncFromMIDITrack,
                                                    packMilo, putLipsync,
@@ -802,9 +803,9 @@ commands =
               ]
             game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
             voxToLip = case game of
-              GameRB3  -> autoLipsync englishVowels
-              GameRB2  -> autoLipsync englishVowels
-              GameTBRB -> beatlesLipsync englishVowels
+              GameRB3  -> autoLipsync defaultTransition englishVowels
+              GameRB2  -> autoLipsync defaultTransition englishVowels
+              GameTBRB -> beatlesLipsync defaultTransition englishVowels
         fmap catMaybes $ forM tracks $ \(getter, suffix, alwaysWrite) -> do
           let trk = getter $ RBFile.s_tracks mid
               fout = template <> suffix

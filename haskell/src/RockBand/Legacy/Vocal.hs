@@ -48,6 +48,7 @@ vocalFromLegacy leg = VocalTrack
   , vocalLyricShift    = RTB.mapMaybe (\case LyricShift -> Just (); _ -> Nothing) leg
   , vocalRangeShift    = RTB.mapMaybe (\case RangeShift x -> Just x; _ -> Nothing) leg
   , vocalNotes         = RTB.mapMaybe (\case Note b p -> Just (p, b); _ -> Nothing) leg
+  , vocalEyesClosed    = RTB.empty
   }
 
 vocalToLegacy :: (NNC.C t) => VocalTrack t -> RTB.T t Event
