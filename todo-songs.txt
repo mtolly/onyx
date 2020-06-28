@@ -70,9 +70,9 @@ SYSTEMATIC CHAOS (new version)
     - bass: done!! (incl. opens + no-opens)
     - guitar: done!! (incl. opens + no-opens)
     - keys:
-      - forsaken: fixed
+      - forsaken, pow: fixed
       - cm: done
-      # tden, pow: todo
+      # tden: todo
       # repentance, itpoe1, tmols, itpoe2: probably not necessary
   > venue
     - lighting/postproc:
