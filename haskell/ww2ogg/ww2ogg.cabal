@@ -19,4 +19,4 @@ library
     cbits/revorb.c
   build-depends: base, bytestring
   default-language: Haskell2010
-  extra-libraries: stdc++, ogg, vorbis
+  extra-libraries: stdc++, ogg, vorbis, vorbisfile

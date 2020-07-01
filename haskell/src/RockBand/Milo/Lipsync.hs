@@ -474,15 +474,23 @@ englishVowels syllables = let
 
 runTranscribe :: RTB.T t (Maybe (Transcribe, T.Text)) -> RTB.T t (Maybe CMUPhoneme)
 runTranscribe = let
-  splitFirstWord evts = let
-    (x, y) = flip span evts $ \case
-      (_, Nothing        ) -> True
-      (_, Just (_, lyric)) -> elem
-        (T.takeEnd 1 $ T.dropWhileEnd (`elem` ['$', '#', '^']) lyric)
-        ["-", "="]
-    in (x <> take 1 y, drop 1 y)
+  splitFirstWord _         []            = ([], [])
+  splitFirstWord passedEnd xs@(x : rest) = let
+    (passedEnd', continue) = case x of
+      (_, Nothing) -> (passedEnd, True)
+      (_, Just (_, lyric)) -> if passedEnd
+        then (passedEnd, False)
+        else let
+          doesWordContinue = elem
+            (T.takeEnd 1 $ T.dropWhileEnd (`elem` ['$', '#', '^']) lyric)
+            ["-", "="]
+          in (not doesWordContinue, True)
+    in if continue
+      then case splitFirstWord passedEnd' rest of
+        (ys, zs) -> (x : ys, zs)
+      else ([], xs)
   go [] = []
-  go evts = case splitFirstWord evts of
+  go evts = case splitFirstWord False evts of
     (wordEvents, rest) -> let
       syllablePairs = mapMaybe snd wordEvents
       phones = case syllablePairs of
@@ -589,7 +597,7 @@ beatlesLipsync transition trans vt = let
     $ runTranscribe
     $ fmap (fmap (trans,))
     $ vocalTubes vt
-  in lipsyncFromStates $ addLipsyncStates eyes mouth
+  in setBeatles $ lipsyncFromStates $ addLipsyncStates eyes mouth
 
 gh2Lipsync :: Transcribe -> VocalTrack U.Seconds -> VocFile
 gh2Lipsync trans
