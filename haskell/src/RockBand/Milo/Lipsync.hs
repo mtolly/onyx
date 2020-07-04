@@ -311,20 +311,20 @@ cmuToBeatles = \case
 
   where
     -- samples collected from a hard day's night
-    ah = -- it's been *a* hard day's night
+    ah = -- it's been _a_ hard day's night
       [ (Viseme_l_uplip_up, 10), (Viseme_r_uplip_up, 10)
       , (Viseme_l_smile_open, 19), (Viseme_r_smile_open, 19)
       , (Viseme_l_smile_closed, 72), (Viseme_r_smile_closed, 72)
       , (Viseme_l_lolip_up, 40), (Viseme_r_lolip_up, 40)
       , (Viseme_jaw_open, 100)
       ]
-    aa = -- it's been a *hard* day's night
+    aa = -- it's been a _hard_ day's night
       [ (Viseme_jaw_open, 239)
       , (Viseme_l_smile_closed, 28), (Viseme_r_smile_closed, 28)
       , (Viseme_l_uplip_up, 44), (Viseme_r_uplip_up, 44)
       , (Viseme_l_lolip_up, 94), (Viseme_r_lolip_up, 94)
       ]
-    ih = -- it's *been* a hard day's night
+    ih = -- it's _been_ a hard day's night
       [ (Viseme_jaw_open, 50)
       , (Viseme_tongue_up, 200)
       , (Viseme_l_uplip_up, 35), (Viseme_r_uplip_up, 35)
@@ -333,7 +333,7 @@ cmuToBeatles = \case
       , (Viseme_jaw_fwd, 13)
       , (Viseme_l_mouth_pucker, 15), (Viseme_r_mouth_pucker, 15)
       ]
-    ae = -- *and* i've been working
+    ae = -- _and_ i've been working
       [ (Viseme_tongue_up, 200)
       , (Viseme_l_smile_closed, 120), (Viseme_r_smile_closed, 120)
       , (Viseme_l_uplip_up, 30), (Viseme_r_uplip_up, 30)
@@ -341,7 +341,7 @@ cmuToBeatles = \case
       , (Viseme_l_lolip_dn, 40), (Viseme_r_lolip_dn, 40)
       , (Viseme_jaw_open, 100)
       ]
-    eh = -- when i *get* home to you
+    eh = -- when i _get_ home to you
       [ (Viseme_l_uplip_up, 40), (Viseme_r_uplip_up, 40)
       , (Viseme_l_smile_open, 16), (Viseme_r_smile_open, 16)
       , (Viseme_l_smile_closed, 80), (Viseme_r_smile_closed, 80)
@@ -351,7 +351,7 @@ cmuToBeatles = \case
       , (Viseme_jaw_open, 120)
       , (Viseme_jaw_fwd, 15)
       ]
-    uw = -- when i get home to *you*
+    uw = -- when i get home to _you_
       [ (Viseme_l_uplip_up, 49), (Viseme_r_uplip_up, 49)
       , (Viseme_l_smile_closed, 40), (Viseme_r_smile_closed, 40)
       , (Viseme_l_mouth_pucker, 160), (Viseme_r_mouth_pucker, 160)
@@ -359,7 +359,7 @@ cmuToBeatles = \case
       , (Viseme_jaw_open, 80)
       , (Viseme_jaw_fwd, 8)
       ]
-    iy = -- will make me *be* here
+    iy = -- will make me _be_ here
       [ (Viseme_l_uplip_up, 60), (Viseme_r_uplip_up, 60)
       , (Viseme_l_smile_open, 19), (Viseme_r_smile_open, 19)
       , (Viseme_l_smile_closed, 130), (Viseme_r_smile_closed, 130)
@@ -369,7 +369,7 @@ cmuToBeatles = \case
       , (Viseme_l_lip_pull, 19), (Viseme_r_lip_pull, 19)
       , (Viseme_jaw_open, 100)
       ]
-    ey = -- it's been a hard *day's* night
+    ey = -- it's been a hard _day's_ night
       [ (Viseme_l_uplip_up, 50), (Viseme_r_uplip_up, 50)
       , (Viseme_l_smile_open, 20), (Viseme_r_smile_open, 20)
       , (Viseme_l_smile_closed, 125), (Viseme_r_smile_closed, 125)
@@ -377,7 +377,7 @@ cmuToBeatles = \case
       , (Viseme_l_lip_pull, 20), (Viseme_r_lip_pull, 20)
       , (Viseme_jaw_open, 166)
       ]
-    er = -- and i've been *work*ing
+    er = -- and i've been _work_ing
       [ (Viseme_tongue_up, 50)
       , (Viseme_l_uplip_up, 46), (Viseme_r_uplip_up, 46)
       , (Viseme_l_smile_closed, 31), (Viseme_r_smile_closed, 31)
@@ -385,7 +385,7 @@ cmuToBeatles = \case
       , (Viseme_l_lolip_up, 91), (Viseme_r_lolip_up, 91)
       , (Viseme_jaw_open, 200)
       ]
-    uh = -- *to* get you money
+    uh = -- _to_ get you money
       [ (Viseme_tongue_up, 200)
       , (Viseme_l_uplip_up, 40), (Viseme_r_uplip_up, 40)
       , (Viseme_l_smile_open, 23), (Viseme_r_smile_open, 23)
@@ -395,7 +395,7 @@ cmuToBeatles = \case
       , (Viseme_jaw_open, 70)
       , (Viseme_jaw_fwd, 14)
       ]
-    ow = -- when i'm *home*
+    ow = -- when i'm _home_
       [ (Viseme_l_open_pucker, 150), (Viseme_r_open_pucker, 150)
       , (Viseme_l_smile_open, 23), (Viseme_r_smile_open, 23)
       , (Viseme_l_mouth_pucker, 80), (Viseme_r_mouth_pucker, 80)

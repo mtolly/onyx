@@ -27,7 +27,7 @@ import           Control.Concurrent                        (MVar, ThreadId,
                                                             putMVar, readChan,
                                                             readMVar, takeMVar,
                                                             threadDelay,
-                                                            writeChan)
+                                                            writeChan, withMVar)
 import           Control.Concurrent.Async                  (async,
                                                             waitAnyCancel)
 import           Control.Concurrent.STM                    (atomically)
@@ -493,6 +493,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
   behindTabsColor >>= FL.setColor window
   FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
   FL.sizeRange window $ Size (Width 800) (Height 500)
+  doesWindowExist <- newMVar True
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   (modifyMeta, metaTab) <- makeTab windowRect "Metadata" $ \rect tab -> do
@@ -522,15 +523,19 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
             void $ FL.setValue input $ fromMaybe "" $ getter $ _metadata $ projectSongYaml proj
             return input
           applyToMetadata :: (Maybe T.Text -> Metadata f -> Metadata f) -> FL.Ref FL.Input -> BuildYamlControl (SongYaml f) ()
-          applyToMetadata setter input = tell $ do
-            val <- FL.getValue input
-            let val' = guard (val /= "") >> Just val
-            return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
+          applyToMetadata setter input = tell $ withMVar doesWindowExist $ \exist -> if exist
+            then do
+              val <- FL.getValue input
+              let val' = guard (val /= "") >> Just val
+              return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
+            else return $ Endo id
           applyIntToMetadata :: (Maybe Int -> Metadata f -> Metadata f) -> FL.Ref FL.Input -> BuildYamlControl (SongYaml f) ()
-          applyIntToMetadata setter input = tell $ do
-            val <- FL.getValue input
-            let val' = readMaybe $ T.unpack val
-            return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
+          applyIntToMetadata setter input = tell $ withMVar doesWindowExist $ \exist -> if exist
+            then do
+              val <- FL.getValue input
+              let val' = readMaybe $ T.unpack val
+              return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
+            else return $ Endo id
           simpleTextGet lbl getter setter rect' = do
             input <- simpleText lbl getter rect'
             applyToMetadata setter input
@@ -541,9 +546,11 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
             input <- liftIO $ FL.checkButtonNew rect' $ Just lbl
             liftIO $ void $ FL.setValue input $ getter $ _metadata $ projectSongYaml proj
             liftIO $ FL.setLabelsize input $ FL.FontSize 13
-            tell $ do
-              b <- FL.getValue input
-              return $ Endo $ \yaml -> yaml { _metadata = setter b $ _metadata yaml }
+            tell $ withMVar doesWindowExist $ \exist -> if exist
+              then do
+                b <- FL.getValue input
+                return $ Endo $ \yaml -> yaml { _metadata = setter b $ _metadata yaml }
+              else return $ Endo id
       void $ liftIO $ FL.boxNew (Rectangle (Position (X 0) (Y 0)) (Size (Width 800) (Height 5))) Nothing
       fullWidth $ simpleTextGet "Title"  _title  $ \mstr meta -> meta { _title  = mstr }
       fullWidth $ \rect' -> do
@@ -869,7 +876,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     varSong <- newIORef Nothing
     sink $ EventOnyx $ void $ forkOnyx $ do
       song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> "notes.mid"
-      stackIO $ sink $ EventIO $ do
+      stackIO $ sink $ EventIO $ withMVar doesWindowExist $ \exist -> when exist $ do
         writeIORef varSong $ Just song
         FL.setMaximum scrubber $ fromInteger $ ceiling $ U.applyTempoMap
           (previewTempo song)
@@ -880,7 +887,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     let initState = SongState 0 Nothing
     varState <- newMVar initState
     varTime <- newIORef initState
-    (groupGL, redrawGL, deleteGL) <- previewGroup
+    (groupGL, redrawGL, _deleteGL) <- previewGroup
       sink
       glArea
       (maybe [] previewTracks <$> readIORef varSong)
@@ -911,7 +918,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
           curTime <- getSystemTime
           stopAnim <- startAnimation $ do
             t' <- currentSongTime <$> getSystemTime <*> readIORef varTime
-            sink $ EventIO $ do
+            sink $ EventIO $ withMVar doesWindowExist $ \exist -> when exist $ do
               void $ FL.setValue scrubber t'
               updateTimestamp
               redrawGL
@@ -957,7 +964,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
           case songPlaying ss of
             Nothing -> return ()
             Just ps -> void $ stopPlaying (songTime ss) ps
-          deleteGL
+          _deleteGL -- TODO remove this when we delete the whole song window instead
     return (tab, cleanup)
     {-
 
@@ -997,7 +1004,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
       let input = takeDirectory (projectLocation proj) </> "notes.mid"
       mid <- RBFile.loadMIDI input
       let foundTracks = getScoreTracks $ RBFile.s_tracks mid
-      stackIO $ sink $ EventIO $ mdo
+      stackIO $ sink $ EventIO $ withMVar doesWindowExist $ \exist -> when exist $ mdo
         FL.begin pack
         getTracks <- padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
           starSelectors rect' foundTracks updateLabel
@@ -1155,6 +1162,10 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     cancelTasks
     mapM_ release $ projectRelease proj
     cleanupGL
+    -- TODO fix final bugs relating to this
+    -- modifyMVar_ doesWindowExist $ \_ -> do
+    --   FL.destroy window
+    --   return False
   FL.showWidget window
 
 -- | Ignores the Escape key, and runs a resource-release function after close.
