@@ -83,10 +83,7 @@ SYSTEMATIC CHAOS (new version)
       > tden, repentance: started
       # itpoe1, cm, tmols, itpoe2: todo
   - improved onyx lipsync generation: done!
-  > drum animations
-    - forsaken, cm, repentance, pow: done
-    > tden: started
-    # itpoe1, tmols, tmols2: todo
+  - drum animations: done!
   > numeric song IDs
   maybe but not required:
   > build onyx protar-to-hand-position generator
