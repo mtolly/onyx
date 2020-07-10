@@ -27,7 +27,7 @@ import           Control.Concurrent                        (MVar, ThreadId,
                                                             putMVar, readChan,
                                                             readMVar, takeMVar,
                                                             threadDelay,
-                                                            writeChan, withMVar)
+                                                            withMVar, writeChan)
 import           Control.Concurrent.Async                  (async,
                                                             waitAnyCancel)
 import           Control.Concurrent.STM                    (atomically)

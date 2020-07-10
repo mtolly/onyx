@@ -51,6 +51,10 @@ Lines0 : { [] }
 Atom : int  { Int  $1 }
      | real { Real $1 }
      | str  { Str  $1 }
+     -- these are just so we don't fail on parsing "E [start]"
+     -- (this inserts extra spaces but whatever)
+     | '['  { Str (T.pack "[") }
+     | ']'  { Str (T.pack "]") }
 
 Line : Atom '=' Atoms1 Newlines1 { ($1, $3) }
 
