@@ -64,7 +64,7 @@ import           PrettyDTA                        (DTASingle (..),
                                                    readFileSongsDTA, readRB3DTA,
                                                    writeDTASingle)
 import           ProKeysRanges                    (closeShiftsFile)
-import           Reaper.Build                     (makeReaper)
+import           Reaper.Build                     (makeReaperFromData)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Vocal             (nullVox)
@@ -317,6 +317,11 @@ changeToVenueGen dir = do
   mid <- RBFile.loadMIDI midPath
   stackIO $ Save.toFile midPath $ RBFile.showMIDIFile' $ RBFile.convertToVenueGen mid
 
+loadAsVenueGen :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m F.T
+loadAsVenueGen midPath = do
+  mid <- RBFile.loadMIDI midPath
+  return $ RBFile.showMIDIFile' $ RBFile.convertToVenueGen mid
+
 commands :: [Command]
 commands =
 
@@ -438,7 +443,10 @@ commands =
           ([mid], notMid) -> case partitionMaybe (isType [FileOGG, FileWAV, FileFLAC]) notMid of
             (audio, []      ) -> do
               rpp <- outputFile opts $ return $ mid -<.> "RPP"
-              makeReaper [] mid mid audio rpp
+              loadedMid <- if OptVenueGen `elem` opts
+                then loadAsVenueGen mid
+                else RBFile.loadRawMIDI mid
+              makeReaperFromData [] loadedMid loadedMid audio rpp
               return [rpp]
             (_    , notAudio) -> fatal $ "onyx reap given non-MIDI, non-audio files: " <> show notAudio
           (mids, _) -> fatal $ "onyx reap expected 1 MIDI file, given " <> show (length mids)

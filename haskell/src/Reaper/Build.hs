@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Reaper.Build (makeReaperShake, makeReaper) where
+module Reaper.Build (makeReaperShake, makeReaper, makeReaperFromData) where
 
 import           Reaper.Base
 
@@ -42,7 +42,7 @@ import           RockBand.Codec.ProGuitar              (GtrBase (..),
                                                         tuningPitches)
 import qualified RockBand.Codec.Vocal                  as Vox
 import           RockBand.Common                       (Key (..), showKey)
-import           Scripts                               (loadTempos)
+import           Scripts                               (getTempos)
 import qualified Sound.File.Sndfile                    as Snd
 import qualified Sound.MIDI.File                       as F
 import qualified Sound.MIDI.File.Event                 as E
@@ -1071,14 +1071,18 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`isSuffixOf` name)
 
 makeReaper :: (SendMessage m, MonadIO m) => [(FlexPartName, GtrTuning)] -> FilePath -> FilePath -> [FilePath] -> FilePath -> StackTraceT m ()
 makeReaper tunings evts tempo audios out = do
+  mid <- loadRawMIDI evts
+  tempoMid <- loadRawMIDI tempo
+  makeReaperFromData tunings mid tempoMid audios out
+
+makeReaperFromData :: (SendMessage m, MonadIO m) => [(FlexPartName, GtrTuning)] -> F.T -> F.T -> [FilePath] -> FilePath -> StackTraceT m ()
+makeReaperFromData tunings mid tempoMid audios out = do
   lenAudios <- stackIO $ flip mapMaybeM audios $ \aud -> do
     info <- Snd.getFileInfo aud
     return $ case Snd.frames info of
       0 -> Nothing
       f -> Just (fromIntegral f / fromIntegral (Snd.samplerate info), aud)
-  mid <- loadRawMIDI evts
-  tmap <- loadTempos tempo
-  tempoMid <- loadRawMIDI tempo
+  tmap <- getTempos tempoMid
   let getLastTime :: (NNC.C t, Num t) => [RTB.T t a] -> t
       getLastTime = foldr max NNC.zero . map getTrackLastTime
       getTrackLastTime trk = case reverse $ ATB.getTimes $ RTB.toAbsoluteEventList NNC.zero trk of

@@ -116,13 +116,11 @@ loadFoFMIDI ini fp = do
 shakeMIDI :: (RBFile.ParseFile f) => FilePath -> StackTraceT (QueueLog Action) (Song (f U.Beats))
 shakeMIDI fp = lift (lift $ need [fp]) >> RBFile.loadMIDI fp
 
-loadTempos :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m U.TempoMap
-loadTempos fp = inside ("Loading MIDI tempos: " <> fp) $ do
-  mid <- RBFile.loadRawMIDI fp
-  case U.decodeFile mid of
-    Left []               -> return $ U.makeTempoMap RTB.empty
-    Left (tempoTrack : _) -> return $ U.makeTempoMap tempoTrack
-    Right _               -> fatal "SMPTE midi not supported"
+getTempos :: (Monad m) => F.T -> StackTraceT m U.TempoMap
+getTempos mid = case U.decodeFile mid of
+  Left []               -> return $ U.makeTempoMap RTB.empty
+  Left (tempoTrack : _) -> return $ U.makeTempoMap tempoTrack
+  Right _               -> fatal "SMPTE midi not supported"
 
 saveMIDI :: (MonadIO m, RBFile.ParseFile f) => FilePath -> Song (f U.Beats) -> m ()
 saveMIDI fp song = liftIO $ Save.toFile fp $ RBFile.showMIDIFile' song
