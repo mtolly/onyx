@@ -9,6 +9,8 @@ metadata:
   - "Keys, pro keys, and QA by Mazegeek999."
   - "Guitar and bass by Meander, with some edits by me."
   rating: Supervision Recommended
+global:
+  anim-tempo: fast # is this right? we want faster animations because of slow bpms
 audio:
   album-track:
     md5: bbabecc6e66d28efa546a7c22760c830
