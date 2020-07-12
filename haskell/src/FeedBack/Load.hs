@@ -182,6 +182,7 @@ data TrackEvent t a
   = TrackNote a t
   | TrackForce t
   | TrackTap t
+  | TrackCymbal D.ProColor
   | TrackP1 t
   | TrackP2 t
   | TrackOD t
@@ -305,6 +306,12 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
                 3 -> return $ Just $ TrackNote (D.Pro D.Blue   ()) len
                 4 -> return $ Just $ TrackNote (D.Pro D.Green  ()) len
                 5 -> return $ Just $ TrackNote D.Orange            len -- we'll flip green/orange later
+                66 -> return $ Just $ TrackCymbal D.Yellow
+                67 -> return $ Just $ TrackCymbal D.Blue
+                68 -> return $ Just $ TrackCymbal D.Green
+              -- From Moonscraper it appears length should always be zero
+              -- (can't stretch out a marker to cover multiple notes)
+              -- Otherwise they work like .mid tom markers but in reverse (put next to note to make it a cymbal)
                 _ -> do
                   warn $ "Unrecognized note type: N " <> show n <> " " <> show len
                   return Nothing
@@ -330,6 +337,16 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
             , drumPSModifiers = RTB.empty
             , drumGems        = RTB.flatten $ toList <$> parsed
             }
+          -- TODO this doesn't handle cymbal markers on E/M/H since .mid can't separate them by difficulty
+          , D.drumToms = if any (\case TrackCymbal _ -> True; _ -> False) expert
+            then let
+              tomInstants = RTB.flatten $ flip fmap (RTB.collectCoincident expert) $ \evts -> let
+                -- emit tom markers for each YBG note that doesn't have a cymbal marker
+                ybg = [ c | TrackNote (D.Pro c ()) _ <- evts ]
+                cymbals = [ c | TrackCymbal c <- evts ]
+                in filter (`notElem` cymbals) ybg
+              in U.trackJoin $ fmap (\c -> Wait 0 (c, D.Tom) $ Wait (1/32) (c, D.Cymbal) RNil) tomInstants
+            else RTB.empty -- probably not pro authored
           }
   fixedPartGuitar       <- parseGRYBO "Single" -- ExpertSingle etc.
   fixedPartGuitarGHL    <- parseGHL "GHLGuitar" -- ExpertGHLGuitar etc.
