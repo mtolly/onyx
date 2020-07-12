@@ -63,16 +63,15 @@ A DRAMATIC TURN OF EVENTS
   > breaking all illusions - drums PB PG done
   > beneath the surface - PG done except arpeggios
 SYSTEMATIC CHAOS (new version)
-  > PG/PB done (incl. Mustang, slides, chords), except TMOLS and ITPOE2 need Mustang versions
+  - PG/PB done (incl. Mustang, slides, chords)
   - PK fixed for Forsaken POW TDEN
     # Repentance and Jarod's 4 probably fine
-  > fix G/B/K from PG/PB/PK
+  - fix G/B/K from PG/PB/PK
     - bass: done!! (incl. opens + no-opens)
     - guitar: done!! (incl. opens + no-opens)
     - keys:
-      - forsaken, pow: fixed
+      - forsaken, tden, pow: fixed
       - cm: done
-      # tden: todo
       # repentance, itpoe1, tmols, itpoe2: probably not necessary
   > venue
     - lighting/postproc:
