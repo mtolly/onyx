@@ -77,10 +77,14 @@ targets:
   rb3:
     game: rb3
     plan: mogg
+    song-id: 1660200129
+    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: mogg
+    song-id: 1660200130
+    version: 2
   ps:
     game: ps
     plan: mogg

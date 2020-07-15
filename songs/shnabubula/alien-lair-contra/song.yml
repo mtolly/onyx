@@ -4,6 +4,7 @@ metadata:
   track-number: 3
   author: Onyxite
   difficulty: 7
+  preview-start: prc_a1
 audio:
   album:
     md5: da860ab369d4e070e14081a0918d09ff
@@ -43,8 +44,12 @@ parts:
 targets:
   rb3:
     game: rb3
+    song-id: 1660200143
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    song-id: 1660200144
+    version: 1
   ps:
     game: ps

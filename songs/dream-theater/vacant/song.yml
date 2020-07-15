@@ -5,7 +5,7 @@ metadata:
   author: Onyxite
   key: C# minor
   comments:
-  - "Cello charted to guitar. Pro guitar uses BEADGB tuning (low 6 of 7 string)."
+  - "Cello charted to guitar. Pro Guitar uses 6-string bass tuning."
   difficulty: 2
   rating: SR
 audio:
@@ -51,6 +51,7 @@ parts:
   bass:
     grybo:
       difficulty: 1
+      smooth-frets: true
     pro-guitar:
       difficulty: 1
       tuning:
@@ -58,6 +59,7 @@ parts:
   guitar: # cello
     grybo:
       difficulty: 1
+      smooth-frets: true
     pro-guitar:
       difficulty: 1
       tuning:
@@ -77,7 +79,7 @@ targets:
     plan: mogg
     file-milo: lipsync.milo_xbox
     song-id: 1660200100
-    version: 1
+    version: 2
   ps:
     game: ps
     plan: release

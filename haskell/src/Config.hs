@@ -561,6 +561,7 @@ data PartGRYBO = PartGRYBO
   , gryboHopoThreshold :: Int
   , gryboFixFreeform   :: Bool
   , gryboSustainGap    :: Int -- ticks, 480 per beat
+  , gryboSmoothFrets   :: Bool -- should animation fret positions be smoothed out like pre-RB3
   } deriving (Eq, Ord, Show)
 
 instance StackJSON PartGRYBO where
@@ -569,6 +570,7 @@ instance StackJSON PartGRYBO where
     gryboHopoThreshold <- gryboHopoThreshold =. opt  170      "hopo-threshold"  stackJSON
     gryboFixFreeform   <- gryboFixFreeform   =. opt  True     "fix-freeform"    stackJSON
     gryboSustainGap    <- gryboSustainGap    =. opt  60       "sustain-gap"     stackJSON
+    gryboSmoothFrets   <- gryboSmoothFrets   =. opt  False    "smooth-frets"    stackJSON
     return PartGRYBO{..}
 
 instance Default PartGRYBO where

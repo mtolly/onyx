@@ -42,12 +42,16 @@ plans:
       2|0: hihat
       2|1: hihat
     song:
-      pad: [4.048, gain: [1.5, album-track]]
+      pad: [4.048, gain: [1.4, album-track]]
 targets:
   rb3:
     game: rb3
+    song-id: 1660200153
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    song-id: 1660200154
+    version: 1
   ps:
     game: ps

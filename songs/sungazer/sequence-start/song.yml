@@ -9,6 +9,7 @@ metadata:
   file-album-art: cover.jpg
   difficulty: 6
   key: C major # in parts
+  preview-start: prc_main_riff_1a
 audio:
   album-track:
     md5: 334138d7d819e018ae5dde458a06b0dc
@@ -49,5 +50,7 @@ parts:
 targets:
   rb3:
     game: rb3
+    song-id: 1660200147
+    version: 1
   ps:
     game: ps

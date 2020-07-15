@@ -47,10 +47,10 @@ audio:
               - frames: 150341462
               - drumcam-drums
   final-drums:
-    md5: 5bb0904c9d49a19a601df7a1243a5433
+    md5: fd2eb187c748933813c0f1a96d2ede75
     frames: 30090003
   final-song:
-    md5: e82e2d742b48a494218baad32b07be10
+    md5: 73d87d052f2d97788a0640d1805a7836
     frames: 30090003
 plans:
   album:
@@ -144,6 +144,7 @@ parts:
   guitar:
     grybo:
       difficulty: 7
+      smooth-frets: true
     pro-guitar:
       difficulty: 7
       tuning:
@@ -152,6 +153,7 @@ parts:
   bass:
     grybo:
       difficulty: 5
+      smooth-frets: true
     pro-guitar:
       difficulty: 6
       tuning:
@@ -159,15 +161,15 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: mogg
+    plan: release # TODO change back to mogg when encrypted moggs remade
     song-id: 1660200101
-    version: 1
+    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: mogg
+    plan: release # TODO change back to mogg when encrypted moggs remade
     song-id: 1660200102
-    version: 1
+    version: 2
   ps:
     game: ps
     plan: album

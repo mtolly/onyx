@@ -9,6 +9,7 @@ metadata:
   subgenre: contemporary
   year: 2007
   difficulty: 7
+  preview-start: prc_bridge_2
 audio:
   youtube:
     commands:
@@ -19,8 +20,13 @@ audio:
     frames: 23968056
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  processed:
+    # see processed-audio.RPP
+    # we mix in an RX7-produced no drums version of the album track
+    # and apply some tweaks to make the result sound OK
+    md5: d0dd55785d423e3b631fc85218d04e31
+    frames: 24175723
 plans:
-  # TODO final audio should use youtube + a slight drum-removed album track
   youtube:
     countin:
       &countin
@@ -39,6 +45,9 @@ plans:
         pad: [1.534, youtube]
       album:
         pad: [3.709, album]
+  final:
+    countin: *countin
+    song: processed
 parts:
   drums:
     drums:
@@ -59,7 +68,9 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: youtube
+    plan: final
+    song-id: 1660200152
+    version: 1
   ps:
     game: ps
-    plan: youtube
+    plan: final

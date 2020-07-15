@@ -335,13 +335,14 @@ buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml 
       $ fd
     forAll
       = addFiveMoods tempos timing
-      {-
-      , fiveFretPosition
+      . (if gryboSmoothFrets grybo then smoothFrets else id)
+    smoothFrets x = x
+      { fiveFretPosition
         = U.unapplyTempoTrack tempos
         $ smoothFretPosition
         $ U.applyTempoTrack tempos
         $ fiveFretPosition x
-      -}
+      }
     in forAll $ case target of
       Left  _rb3 -> forRB3 track
       Right _ps  -> forPS  track

@@ -12,6 +12,7 @@ metadata:
     [album version](https://trioscapes.bandcamp.com).
   - 5-fret keys chart and bass solo done by GanonMetroid for Carpal Tunnel Hero 2.
   difficulty: 7
+  preview-start: prc_main_riff_1b
 audio:
   album-track:
     # https://trioscapes.bandcamp.com
@@ -50,8 +51,12 @@ parts:
 targets:
   rb3:
     game: rb3
+    song-id: 1660200148
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    song-id: 1660200149
+    version: 1
   ps:
     game: ps

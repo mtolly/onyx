@@ -58,10 +58,10 @@ audio:
         - frames: 897
         - drop: [frames: 29081054, drumcam-drums-expr]
   final-drums:
-    md5: e65d6612f2dcaaa3486aac75c7279bcf
+    md5: ef1ab354ee6687d8dc7441c18d7f8749
     frames: 26987549
   final-song:
-    md5: b818e4131e28578a9a9a952df0809588
+    md5: bc0ffe7e38f665fa963026186ccb15fc
     frames: 26987549
 plans:
   album:
@@ -122,6 +122,7 @@ parts:
     grybo:
       difficulty: 5
       sustain-gap: 120 # 16th note
+      smooth-frets: true
     pro-guitar:
       difficulty: 5
       tuning:
@@ -136,6 +137,7 @@ parts:
     grybo:
       difficulty: 5
       sustain-gap: 120 # 16th note
+      smooth-frets: true
     pro-guitar:
       difficulty: 5
       tuning:
@@ -149,17 +151,17 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: mogg
+    plan: release # TODO change back to mogg when encrypted moggs remade
     file-milo: lipsync.milo_xbox
     song-id: 1660200098
-    version: 1
+    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: mogg
+    plan: release # TODO change back to mogg when encrypted moggs remade
     file-milo: lipsync.milo_xbox
     song-id: 1660200099
-    version: 1
+    version: 2
   ps:
     game: ps
     plan: album

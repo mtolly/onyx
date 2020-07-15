@@ -1,0 +1,375 @@
+<REAPER_PROJECT 0.1 "5.99/linux64" 1594772477
+  RIPPLE 0
+  GROUPOVERRIDE 0 0 0
+  AUTOXFADE 1
+  ENVATTACH 1
+  POOLEDENVATTACH 0
+  MIXERUIFLAGS 11 48
+  PEAKGAIN 1
+  FEEDBACK 0
+  PANLAW 1
+  PROJOFFS 0 0 0
+  MAXPROJLEN 0 600
+  GRID 3199 8 1 8 1 0 0 0
+  TIMEMODE 1 5 -1 30 0 0 -1
+  VIDEO_CONFIG 0 0 256
+  PANMODE 3
+  CURSOR 0
+  ZOOM 1.17478157786261 0 0
+  VZOOMEX 6
+  USE_REC_CFG 0
+  RECMODE 1
+  SMPTESYNC 0 30 100 40 1000 300 0 0 1 0 0
+  LOOP 0
+  LOOPGRAN 0 4
+  RECORD_PATH "" ""
+  <RECORD_CFG
+  >
+  <APPLYFX_CFG
+  >
+  RENDER_FILE ""
+  RENDER_PATTERN ""
+  RENDER_FMT 0 2 0
+  RENDER_1X 0
+  RENDER_RANGE 1 0 0 18 1000
+  RENDER_RESAMPLE 3 0 1
+  RENDER_ADDTOPROJ 0
+  RENDER_STEMS 0
+  RENDER_DITHER 0
+  TIMELOCKMODE 1
+  TEMPOENVLOCKMODE 1
+  ITEMMIX 0
+  DEFPITCHMODE 589824 0
+  TAKELANE 1
+  SAMPLERATE 44100 0 0
+  <RENDER_CFG
+  >
+  LOCK 1
+  <METRONOME 6 2
+    VOL 0.25 0.125
+    FREQ 800 1600 1
+    BEATLEN 4
+    SAMPLES "" ""
+    PATTERN 2863311530 2863311529
+  >
+  GLOBAL_AUTO -1
+  TEMPO 120 4 4
+  PLAYRATE 1 0 0.25 4
+  SELECTION 224 224
+  SELECTION2 224 224
+  MASTERAUTOMODE 0
+  MASTERTRACKHEIGHT 0 0
+  MASTERPEAKCOL 16576
+  MASTERMUTESOLO 0
+  MASTERTRACKVIEW 0 0.6667 0.5 0.5 0 0 0
+  MASTERHWOUT 0 0 1 0 0 0 0 -1
+  MASTER_NCH 2 2
+  MASTER_VOLUME 1 0 -1 -1 1
+  MASTER_FX 1
+  MASTER_SEL 0
+  <MASTERPLAYSPEEDENV
+    ACT 0 -1
+    VIS 0 1 1
+    LANEHEIGHT 0 0
+    ARM 0
+    DEFSHAPE 0 -1 -1
+  >
+  <TEMPOENVEX
+    ACT 0 -1
+    VIS 1 0 1
+    LANEHEIGHT 0 0
+    ARM 0
+    DEFSHAPE 1 -1 -1
+  >
+  <PROJBAY
+  >
+  <TRACK {BEDDE39A-C308-461A-BAA8-98CA9456FA45}
+    NAME ""
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 0
+    ISBUS 1 1
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 0
+    REC 0 0 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {BEDDE39A-C308-461A-BAA8-98CA9456FA45}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+  >
+  <TRACK {4DF40B85-007F-4CD8-AB1D-E65B054155CC}
+    NAME album-no-percussion-0-2-10-2-joint
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 0.5228261849445 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 1
+    ISBUS 0 0
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 0
+    REC 0 0 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {4DF40B85-007F-4CD8-AB1D-E65B054155CC}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <FXCHAIN
+      WNDRECT 128 226 887 191
+      SHOW 0
+      LASTSEL 0
+      DOCKED 0
+      BYPASS 0 0 0
+      <JS loser/StereoField ""
+        0.000000 100.000000 -100.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+      >
+      FLOATPOS 0 0 0 0
+      FXID {21FD08A1-D8C3-4C2B-AE6D-B457F154538D}
+      WAK 0
+    >
+    <ITEM
+      POSITION 0
+      SNAPOFFS 0
+      LENGTH 410.16999999999882
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {DAD15C95-5540-4574-96DE-B848B48F3BA8}
+      IID 1
+      NAME album-no-percussion-0-2-10-2-joint.wav
+      VOLPAN 1.161765 0 1 -1
+      SOFFS 0
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {7E82819F-D244-4BBE-B745-CD1D2A6E8A01}
+      <SOURCE WAVE
+        FILE "album-no-percussion-0-2-10-2-joint.wav"
+      >
+    >
+    <ITEM
+      POSITION 410.16999999999882
+      SNAPOFFS 0
+      LENGTH 41.35292163126979
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {13EA7AC9-9999-64EC-5309-61DDEED11A36}
+      IID 4
+      NAME album-no-percussion-0-2-10-2-joint.wav
+      VOLPAN 0.546713 0 1 -1
+      SOFFS 410.16999999999882
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {2F025023-5465-1132-CD3B-CC64412BB4B1}
+      <SOURCE WAVE
+        FILE "album-no-percussion-0-2-10-2-joint.wav"
+      >
+    >
+    <ITEM
+      POSITION 451.52292163126862
+      SNAPOFFS 0
+      LENGTH 95.67941396963846
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {1AF75CBA-4602-AE79-CAF5-158199564D8D}
+      IID 6
+      NAME album-no-percussion-0-2-10-2-joint.wav
+      VOLPAN 1.161765 0 1 -1
+      SOFFS 451.52292163126862
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {14409783-1885-BE57-84C6-173657EE81B8}
+      <SOURCE WAVE
+        FILE "album-no-percussion-0-2-10-2-joint.wav"
+      >
+    >
+  >
+  <TRACK {9DBF0D64-9F17-4276-A8DE-8D767BBCD219}
+    NAME album-no-percussion-0-2-10-2-joint
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 0.5228261849445 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 0
+    ISBUS 0 0
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 0
+    REC 0 0 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {9DBF0D64-9F17-4276-A8DE-8D767BBCD219}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <FXCHAIN
+      WNDRECT 331 379 887 191
+      SHOW 0
+      LASTSEL 0
+      DOCKED 0
+      BYPASS 0 0 0
+      <JS loser/StereoField ""
+        0.000000 100.000000 0.000000 -100.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+      >
+      FLOATPOS 0 0 0 0
+      FXID {77C67AC9-6416-46D0-A9E8-113648095515}
+      WAK 0
+    >
+    <ITEM
+      POSITION 0
+      SNAPOFFS 0
+      LENGTH 410.16999999999882
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {860E375A-D9ED-4637-950E-8187F79645BF}
+      IID 1
+      NAME album-no-percussion-0-2-10-2-joint.wav
+      VOLPAN 1.161765 0 1 -1
+      SOFFS 0
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {BFCB6537-9DA7-488F-A282-C2E9535B7971}
+      <SOURCE WAVE
+        FILE "album-no-percussion-0-2-10-2-joint.wav"
+      >
+    >
+    <ITEM
+      POSITION 410.16999999999882
+      SNAPOFFS 0
+      LENGTH 41.35292163126979
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {E860ECD0-3560-8616-DFAA-A42E622B53CC}
+      IID 5
+      NAME album-no-percussion-0-2-10-2-joint.wav
+      VOLPAN 0.546713 0 1 -1
+      SOFFS 410.16999999999882
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {BBC5B59A-F22E-8ECB-C2F4-6CC70E084A25}
+      <SOURCE WAVE
+        FILE "album-no-percussion-0-2-10-2-joint.wav"
+      >
+    >
+    <ITEM
+      POSITION 451.52292163126862
+      SNAPOFFS 0
+      LENGTH 95.67941396963846
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {CF96A8C2-09F3-D83E-F48E-44ED93DF5619}
+      IID 7
+      NAME album-no-percussion-0-2-10-2-joint.wav
+      VOLPAN 1.161765 0 1 -1
+      SOFFS 451.52292163126862
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {F908406A-0F58-7466-4C02-FE81FD56689E}
+      <SOURCE WAVE
+        FILE "album-no-percussion-0-2-10-2-joint.wav"
+      >
+    >
+  >
+  <TRACK {79B894B1-A100-4F94-B591-44CD53575BDC}
+    NAME youtube
+    PEAKCOL 16576
+    BEAT -1
+    AUTOMODE 0
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 0
+    ISBUS 2 -1
+    BUSCOMP 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FREEMODE 0
+    SEL 0
+    REC 0 0 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {79B894B1-A100-4F94-B591-44CD53575BDC}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <FXCHAIN
+      WNDRECT 143 600 887 191
+      SHOW 0
+      LASTSEL 0
+      DOCKED 0
+      BYPASS 0 0 0
+      <JS loser/StereoField ""
+        0.000000 161.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+      >
+      FLOATPOS 0 0 0 0
+      FXID {5EFEBCC6-97EA-0677-5CC2-D78E830F4CC9}
+      WAK 0
+    >
+    <ITEM
+      POSITION 0
+      SNAPOFFS 0
+      LENGTH 545.32210884353742
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {047FCD71-924E-463D-B590-0FA51CD8AD9B}
+      IID 2
+      NAME youtube.wav
+      VOLPAN 1.161765 0 1 -1
+      SOFFS 0
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {32D0B71F-0D41-4137-9B98-F392357C5FC6}
+      <SOURCE WAVE
+        FILE "youtube.wav"
+      >
+    >
+  >
+>

@@ -162,6 +162,8 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200104 In the Name of God (Dream Theater) 2x
   Train of Thought (album)
   v1 released 2019-02-08
+  v2 (audio fixes, double cymbal lanes) released ???
+    reusing song IDs because metadata and scoring pretty much the same
 
 1660200105 Enigma Machine (Dream Theater) 1x (v2)
 1660200106 Enigma Machine (Dream Theater) 2x (v2)
@@ -186,6 +188,43 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200123 Nurture (Synovial) 1x (v1)
 1660200124 Nurture (Synovial) 2x (v1)
   Published 2019-08-20
+
+1660200125 In the Presence of Enemies (Part 1) 1x (v2)
+1660200126 In the Presence of Enemies (Part 1) 2x (v2)
+1660200127 Forsaken 1x (v2)
+1660200128 Forsaken 2x (v2)
+1660200129 Constant Motion (O) 1x (v2)
+1660200130 Constant Motion (O) 2x (v2)
+1660200131 The Dark Eternal Night 1x (v2)
+1660200132 The Dark Eternal Night 2x (v2)
+1660200133 Repentance 1x (v2)
+1660200134 Repentance 2x (v2)
+1660200135 Prophets of War 1x (v2)
+1660200136 Prophets of War 2x (v2)
+1660200137 The Ministry of Lost Souls 1x (v2)
+1660200138 The Ministry of Lost Souls 2x (v2)
+1660200139 In the Presence of Enemies (Part 2) 1x (v2)
+1660200140 In the Presence of Enemies (Part 2) 2x (v2)
+1660200141 In the Presence of Enemies 1x (v2)
+1660200142 In the Presence of Enemies 2x (v2)
+  Systematic Chaos, v2: fixed up release from band score
+  Published on BirdmanExe drives (black venue) ???
+  Published on C3 (with venue) ???
+
+1660200143 Alien Lair [Contra] (Shnabubula) 1x
+1660200144 Alien Lair [Contra] (Shnabubula) 2x
+1660200145 Caravan (Whiplash) 1x
+1660200146 Caravan (Whiplash) 2x
+1660200147 Sequence Start (sungazer)
+1660200148 Blast Off (Trioscapes) 1x
+1660200149 Blast Off (Trioscapes) 2x
+1660200150 Tank! (Seatbelts)
+1660200151 Work Shit Out (Dirty Loops)
+1660200152 One for Antonio [Master Series] (Antonio Sánchez)
+1660200153 The Taste of Filth (Louis de Mieulle) 1x
+1660200154 The Taste of Filth (Louis de Mieulle) 2x
+  Onyxite's Jazz Pack 4
+  v1 published ???
 
 BONUS SONGS (counting down from max)
 
