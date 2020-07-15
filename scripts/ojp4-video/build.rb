@@ -41,7 +41,7 @@ videos = [
   {
     # one for antonio
     songLength: 9 * 60 + 6.084,
-    audio: "#{filesRoot}/audio/oneforantonio-temp.wav", # TODO replace audio
+    audio: "#{filesRoot}/audio/oneforantonio.wav",
     card: "#{filesRoot}/cards/one-for-antonio.png",
     sources: [
       {
@@ -103,7 +103,7 @@ videos = [
       {
         source: "#{filesRoot}/backgrounds/Dirty Loops - Work Shit Out-r_GTgpdoCh0.mp4",
         mask: nil,
-        startTime: -0.804,
+        startTime: -0.804 + 0.09,
         position: 'stretch',
       },
       {
@@ -145,7 +145,7 @@ videos = [
         source: "#{filesRoot}/backgrounds/Blast Off stretched.mkv",
         mask: nil,
         startTime: 0,
-        position: 'stretch'
+        position: 'stretch',
       },
       {
         source: "#{filesRoot}/recorded/speed8/blastoff-ch-speed8.mkv",
@@ -166,10 +166,15 @@ videos = [
   {
     # the taste of filth
     songLength: 11 * 60 + 35.801,
-    audio: "#{filesRoot}/audio/thetasteoffilth.wav", # TODO audio peaks a bit
+    audio: "#{filesRoot}/audio/thetasteoffilth.wav",
     card: "#{filesRoot}/cards/the-taste-of-filth.png",
     sources: [
-      # TODO find a background?
+      {
+        source: "#{filesRoot}/backgrounds/defense-mechanisms-top-stretched.png",
+        mask: nil,
+        startTime: 0,
+        position: 'stretch',
+      },
       {
         source: "#{filesRoot}/recorded/speed8/thetasteoffilth-ch-speed8.mkv",
         mask: "#{filesRoot}/masks/ch-3-tracks-only12-fade-bottom.png",
@@ -340,7 +345,11 @@ def buildCommand(video, out)
     if src[:position] != 'stretch'
       size = "#{src[:size][:x]}x#{src[:size][:y]}"
     end
-    mainSource = Source.new(['-i', src[:source]])
+    if src[:source] =~ /\.(png|jpg|jpeg)$/
+      mainSource = Source.new(['-loop', '1', '-i', src[:source]])
+    else
+      mainSource = Source.new(['-i', src[:source]])
+    end
     node = Node.new([mainSource], "fps=60, scale=#{size}")
     if src[:startTime] > 0
       # trim
@@ -405,7 +414,9 @@ def buildCommand(video, out)
   # pad with black to go under the card
   black = Node.new([], "color=color=black:duration=#{$cardFadeIn + $cardHold}:size=1920x1080")
   stack = Node.new([black, stack], "concat")
-  filterResults = Node.new([stack, card], 'overlay').generate_root
+  # this scale is because for some reason youtube now usually doesn't encode to
+  # 1080p60 if you upload 1080p60, but does if you upload 1440p60!
+  filterResults = Node.new([stack, card], 'overlay, scale=2560x1440').generate_root
 
   sources = filterResults[:sources]
   audioSourceIndex = sources.length
