@@ -30,7 +30,7 @@ import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.ByteString.Lazy.Char8       ()
 import           Data.Char                        (isAlphaNum, isAscii, isDigit,
-                                                   isUpper)
+                                                   isUpper, toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Conduit.Audio.Sndfile       (sinkSnd, sourceSndFrom)
 import qualified Data.Digest.Pure.MD5             as MD5
@@ -170,7 +170,7 @@ data Command = Command
 
 identifyFile :: FilePath -> IO FileResult
 identifyFile fp = Dir.doesFileExist fp >>= \case
-  True -> case takeExtension fp of
+  True -> case map toLower $ takeExtension fp of
     ".yml" -> return $ FileType FileSongYaml fp
     ".rbproj" -> return $ FileType FileRBProj fp
     ".moggsong" -> return $ FileType FileMOGGSong fp
@@ -178,19 +178,25 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
     ".mogg" -> return $ FileType FileMOGG fp
     ".zip" -> return $ FileType FileZip fp
     ".chart" -> return $ FileType FileChart fp
+    ".psarc" -> return $ FileType FilePSARC fp
     _ -> case takeFileName fp of
       "song.ini" -> return $ FileType FilePS fp
       _ -> do
         magic <- IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 4
-        case magic of
-          "RBSF" -> return $ FileType FileRBA fp
-          "CON " -> return $ FileType FileSTFS fp
-          "LIVE" -> return $ FileType FileSTFS fp
-          "MThd" -> return $ FileType FileMidi fp
-          "fLaC" -> return $ FileType FileFLAC fp
-          "OggS" -> return $ FileType FileOGG fp
-          "RIFF" -> return $ FileType FileWAV fp
-          _      -> return FileUnrecognized
+        return $ case magic of
+          "RBSF" -> FileType FileRBA fp
+          "CON " -> FileType FileSTFS fp
+          "LIVE" -> FileType FileSTFS fp
+          "MThd" -> FileType FileMidi fp
+          "fLaC" -> FileType FileFLAC fp
+          "OggS" -> FileType FileOGG fp
+          "RIFF" -> FileType FileWAV fp
+          _      -> case BL.unpack magic of
+            [0xAF, 0xDE, 0xBE, 0xCA] -> FileType FileMilo fp
+            [0xAF, 0xDE, 0xBE, 0xCB] -> FileType FileMilo fp
+            [0xAF, 0xDE, 0xBE, 0xCC] -> FileType FileMilo fp
+            [0xAF, 0xDE, 0xBE, 0xCD] -> FileType FileMilo fp
+            _                        -> FileUnrecognized
   False -> Dir.doesDirectoryExist fp >>= \case
     True -> Dir.doesFileExist (fp </> "song.yml") >>= \case
       True -> return $ FileType FileSongYaml $ fp </> "song.yml"
@@ -229,6 +235,8 @@ data FileType
   | FileFLAC
   | FileWAV
   | FileZip
+  | FilePSARC
+  | FileMilo
   deriving (Eq, Ord, Show)
 
 identifyFile' :: (MonadIO m) => FilePath -> StackTraceT m (FileType, FilePath)
@@ -576,19 +584,38 @@ commands =
     }
 
   , Command
-    { commandWord = "unstfs"
-    , commandDesc = "Extract the contents of an Xbox 360 STFS file."
+    { commandWord = "extract"
+    , commandDesc = "Extract various archive formats to a folder."
     , commandUsage = T.unlines
-      [ "onyx unstfs song_rb3con"
-      , "onyx unstfs song_rb3con --to a_folder"
+      [ "onyx extract file_in"
+      , "onyx extract file_in --to folder_out"
       ]
-    , commandRun = \files opts -> mapM identifyFile' files >>= \case
-      [(FileSTFS, stfs)] -> do
+    , commandRun = \files opts -> forM files $ \f -> identifyFile' f >>= \case
+      (FileSTFS, stfs) -> do
         out <- outputFile opts $ return $ stfs ++ "_extract"
         stackIO $ Dir.createDirectoryIfMissing False out
         stackIO $ extractSTFS stfs out
-        return [out]
-      _ -> fatal $ "onyx unstfs expected a single STFS argument, given: " <> show files
+        return out
+      (FilePSARC, psarc) -> do
+        out <- outputFile opts $ return $ psarc ++ "_extract"
+        stackIO $ extractPSARC psarc out
+        return out
+      (FileRBA, rba) -> do
+        out <- outputFile opts $ return $ rba ++ "_extract"
+        stackIO $ Dir.createDirectoryIfMissing False out
+        getRBAFile 0 rba $ out </> "songs.dta"
+        getRBAFile 1 rba $ out </> "notes.mid"
+        getRBAFile 2 rba $ out </> "audio.mogg"
+        getRBAFile 3 rba $ out </> "song.milo"
+        getRBAFile 4 rba $ out </> "cover.bmp"
+        getRBAFile 5 rba $ out </> "weights.bin"
+        getRBAFile 6 rba $ out </> "extra.dta"
+        return out
+      (FileMilo, milo) -> do
+        out <- outputFile opts $ return $ milo ++ "_extract"
+        unpackMilo milo out
+        return out
+      p -> fatal $ "Unexpected file type given to extractor: " <> show p
     }
 
   , Command
@@ -872,18 +899,6 @@ commands =
     }
 
   , Command
-    { commandWord = "unmilo"
-    , commandDesc = "Decompress and split the data inside a .milo_xxx file."
-    , commandUsage = "onyx unmilo in.milo_xxx [--to dir]"
-    , commandRun = \args opts -> case args of
-      [fin] -> do
-        dout <- outputFile opts $ return $ fin ++ "_extract"
-        unpackMilo fin dout
-        return [dout]
-      _ -> fatal "Expected 1 argument (input milo)"
-    }
-
-  , Command
     { commandWord = "milo"
     , commandDesc = "Recombine a split .milo_xxx file."
     , commandUsage = "onyx milo dir [--to out.milo_xxx]"
@@ -987,18 +1002,6 @@ commands =
         return $ blobDec : blobTxt : fmap fst dats
       ".iga" -> stackIO $ extractIGA arg
       _ -> fatal $ "Unrecognized iOS game file extension: " <> arg
-    }
-
-  , Command
-    { commandWord = "unpsarc"
-    , commandDesc = "Extract the contents of a Rocksmith.PSARC (extractPSARC) .psarc file."
-    , commandUsage = "onyx unpsarc in.psarc [--to dir]"
-    , commandRun = \args opts -> case args of
-      [fin] -> do
-        dout <- outputFile opts $ return $ fin ++ "_extract"
-        stackIO $ extractPSARC fin dout
-        return [dout]
-      _ -> fatal "Expected 1 argument (input psarc)"
     }
 
   ]
