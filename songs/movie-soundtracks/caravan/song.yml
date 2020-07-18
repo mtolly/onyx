@@ -4,12 +4,14 @@ metadata:
   album: Whiplash (Original Motion Picture Soundtrack)
   author: Onyxite
   genre: jazz
+  subgenre: other
   year: 2014
   track-number: 6
   file-album-art: cover.jpg
   difficulty: 7
   key: C major
   preview-start: 54.3
+  rating: FF
 audio:
   youtube:
     commands:

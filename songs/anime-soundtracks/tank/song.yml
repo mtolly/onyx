@@ -11,6 +11,7 @@ metadata:
   difficulty: 5
   key: C minor
   preview-start: 24.8 # ok, 3, 2, 1, let's jam
+  rating: FF
 audio:
   album-track:
     # remastered (2014)
@@ -37,6 +38,7 @@ parts:
     vocal:
       count: 1
       difficulty: 1
+      gender: male
   bass:
     pro-guitar:
       tuning:
@@ -58,5 +60,6 @@ targets:
     game: rb3
     song-id: 1660200150
     version: 1
+    file-milo: lipsync.milo
   ps:
     game: ps

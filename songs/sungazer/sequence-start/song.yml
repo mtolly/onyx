@@ -10,6 +10,7 @@ metadata:
   difficulty: 6
   key: C major # in parts
   preview-start: prc_main_riff_1a
+  rating: FF
 audio:
   album-track:
     md5: 334138d7d819e018ae5dde458a06b0dc

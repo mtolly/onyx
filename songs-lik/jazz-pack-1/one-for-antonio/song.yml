@@ -10,6 +10,7 @@ metadata:
   year: 2007
   difficulty: 7
   preview-start: prc_bridge_2
+  rating: FF
 audio:
   youtube:
     commands:
@@ -24,7 +25,7 @@ audio:
     # see processed-audio.RPP
     # we mix in an RX7-produced no drums version of the album track
     # and apply some tweaks to make the result sound OK
-    md5: d0dd55785d423e3b631fc85218d04e31
+    md5: fc7b9fae06c43dcc25c2a53160881bd6
     frames: 24175723
 plans:
   youtube:
