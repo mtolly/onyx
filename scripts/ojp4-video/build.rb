@@ -60,7 +60,7 @@ videos = [
       {
         source: "#{filesRoot}/recorded/One for Antonio RB.avi",
         mask: "#{filesRoot}/masks/rb-3-tracks.png",
-        startTime: 5.404,
+        startTime: 4.770,
         position: {x: 0, y: 4},
         size: {x: 1920, y: 1076},
       },
@@ -185,7 +185,7 @@ videos = [
       {
         source: "#{filesRoot}/recorded/The Taste of Filth RB.avi",
         mask: "#{filesRoot}/masks/rb-3-tracks.png",
-        startTime: 4.870,
+        startTime: 6.770,
         position: {x: 0, y: 4},
         size: {x: 1920, y: 1076},
       },
@@ -197,10 +197,21 @@ videos = [
     audio: "#{filesRoot}/audio/tank.wav",
     card: "#{filesRoot}/cards/tank.png",
     sources: [
-      # TODO record and add venue from atupo
+      {
+        source: "#{filesRoot}/backgrounds/Tank venue 2.mkv",
+        mask: nil,
+        startTime: 5.458,
+        position: 'stretch',
+      },
       {
         source: "#{filesRoot}/recorded/Tank RB.avi",
-        mask: "#{filesRoot}/masks/rb-4-tracks-solovox.png", # TODO fade in/out vox
+        mask: [
+          [0, "#{filesRoot}/masks/rb-4-tracks.png"],
+          [19.567, :fade],
+          [20.440, "#{filesRoot}/masks/rb-4-tracks-solovox.png"],
+          [28.289, :fade],
+          [29.155, "#{filesRoot}/masks/rb-4-tracks.png"],
+        ],
         startTime: 4.140,
         position: {x: 0, y: 4},
         size: {x: 1920, y: 1076},
@@ -249,10 +260,15 @@ videos = [
     audio: "#{filesRoot}/audio/alienlair.wav",
     card: "#{filesRoot}/cards/alien-lair.png",
     sources: [
-      # TODO find a background?
+      {
+        source: "#{filesRoot}/backgrounds/nes-jams-hands-stretched.png",
+        mask: nil,
+        startTime: 0,
+        position: 'stretch',
+      },
       {
         source: "#{filesRoot}/recorded/Alien Lair RB.avi",
-        mask: "#{filesRoot}/masks/rb-2-tracks.png",
+        mask: "#{filesRoot}/masks/rb-2-tracks-fade-bottom.png",
         startTime: 2.476,
         position: {x: 0, y: -500},
         size: {x: 1920, y: 1076},
