@@ -108,6 +108,7 @@ def makeDifficulties(parts, song)
           'In the Presence of Enemies (Part 2)',
           'In the Presence of Enemies',
           'Temple (Zelda 2)',
+          'New Millennium',
         ].include?(song['project']['metadata']['title'])
           # hiding these pro guitar/bass charts since they haven't been released
           next
@@ -160,7 +161,7 @@ def makeTargetName(target_name, target)
   case target['game']
   when 'rb3' then pieces << 'Rock Band 3'
   when 'rb2' then pieces << 'Rock Band 2'
-  when 'ps'  then pieces << 'Phase Shift + Clone Hero'
+  when 'ps'  then pieces << 'Clone Hero + Phase Shift'
   end
   if target['label']
     pieces << target['label']
@@ -182,7 +183,11 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
       png = "#{album_songs[0]['dir']}/gen/cover.png"
       art_site = 'album-art/'
       art_site += album_songs[0]['project']['metadata']['artist'].tr("^A-Za-z0-9", '').downcase
-      art_site += album_songs[0]['project']['metadata']['album'].tr("^A-Za-z0-9", '').downcase
+      if album_songs[0]['project']['metadata']['album']
+        art_site += album_songs[0]['project']['metadata']['album'].tr("^A-Za-z0-9", '').downcase
+      else
+        art_site += 'noalbum'
+      end
       art_site += '.jpg'
       system 'convert', png, art_site
 

@@ -2,11 +2,11 @@ metadata:
   title: Blast Off
   file-include: ../../../albums/separate-realities.yml
   track-number: 1
-  author: Onyxite, GanonMetroid, thecourtofaporcupine
+  author: Onyxite, GanonMetroid, TheCourtOfAPorcupine
   key: B minor
   rating: FF
   comments:
-  - Drums chart done by thecourtofaporcupine for
+  - Drums chart done by TheCourtOfAPorcupine for
     [playthrough version](https://www.youtube.com/watch?v=reyZ5DqSyvs),
     adapted by Onyxite for
     [album version](https://trioscapes.bandcamp.com).
@@ -60,3 +60,4 @@ targets:
     version: 1
   ps:
     game: ps
+    # loading-phrase: Part of Onyxite's Jazz Pack 4. Recommended 5-fret part: Keys (sax), though Bass also has a solo.

@@ -1,15 +1,11 @@
 JAZZ
 at least 2 parts done:
 > night sea (shnabubula) just needs basic keys (see album below)
-> one for antonio (chick corea + antonio sanchez) just needs basic keys + OD
-> tank! (seatbelts) just needs 5-fret bass, 5-fret keys, OD
 > thoughts (kaz rodriguez) drums and bass done
 > the chicken (gavin harrison) drums/bass/pk done; needs gtr, keys, OD, fix tempo map
 > scapegoat 1 (louis de mieulle) drums and bass done
 > footloose & fancy free (earthworks) needs pro keys, can't release on c3
-> sequence start (sungazer) drums, PB, PK done
 at least 1 part done:
-> the taste of filth (louis de mieulle) drums done
 > soundfrieze (louis de mieulle) drums done
 > vertigo (gem) drums done
 > jambone (snarky puppy) drums done
@@ -26,14 +22,10 @@ at least 1 part done:
 > mosquiton wa mou kikoenai (toe) drums done
 > animals (bonobo) drums done
 > dark world (insaneintherainmusic) pro bass done
-> work shit out (dirty loops) drums done
 > take five (dave brubeck) drums done by LIK+me, already one in c3 though
 > tom sawyer (alex skolnick trio) drums done
-> work shit out (dirty loops) drums done
-> caravan (whiplash ost) drums, pro bass, guitar (winds) done
 started:
 > beehive (lonnie smith) started drums
-> blast off (trioscapes) fix up drums by porcupinkfloyd
 > giant steps (coltrane)
 > with the love in my heart (jacob collier)
 planning:
@@ -104,7 +96,7 @@ DISTANCE OVER TIME
 NES JAMS (Shnabubula)
 1. Underwater (TMNT) - Just needs OD
 2. Temple (Zelda 2) - Released in OJP2; to update: drum edits, PK edits, PB, rhythm split
-3. Alien Lair (Contra) - Just needs OD
+3. Alien Lair (Contra) - Released in OJP4
 4. Night Sea (Little Nemo) - Done
 5. Dwelling of Doom (Castlevania 2) - Just needs rest of drums, and OD
 6. Kung Fu Alley - PK, K done

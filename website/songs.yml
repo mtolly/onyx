@@ -453,3 +453,57 @@
     rb3: download/onyxxane_Synovial_Nurture_1x_rb3con
     rb3-2x: download/onyxxane_Synovial_Nurture_2x_rb3con
     ps: download/onyxxane_Synovial_Nurture_ch_ps.zip
+
+# Onyxite's Jazz Pack 4
+- file-path: ../songs-lik/jazz-pack-1/one-for-antonio
+  video: https://www.youtube.com/watch?v=ls3t5fGQknA
+  c3: http://customscreators.com/index.php?/page/index.html/_/one-for-antonio-feat-chic-r26966
+  urls:
+    rb3: download/OJP4_OneForAntonio_v1_rb3con
+    ps: download/OJP4_OneForAntonio_v1_ch.zip
+- file-path: ../songs/anime-soundtracks/tank
+  video: https://www.youtube.com/watch?v=EwuGpTHFnaY
+  c3: http://customscreators.com/index.php?/page/index.html/_/tank-r26967
+  urls:
+    rb3: download/OJP4_Tank_v1_rb3con
+    ps: download/OJP4_Tank_v1_ch.zip
+- file-path: ../songs/dirty-loops/work-shit-out
+  video: https://www.youtube.com/watch?v=5RGZYhPFshc
+  c3: http://customscreators.com/index.php?/page/index.html/_/work-shit-out-r26965
+  urls:
+    rb3: download/OJP4_WorkShitOut_v1_rb3con
+    ps: download/OJP4_WorkShitOut_v1_ch.zip
+- file-path: ../songs/louis-de-mieulle/the-taste-of-filth
+  video: https://www.youtube.com/watch?v=Y5SnkhnXL3E
+  c3: http://customscreators.com/index.php?/page/index.html/_/the-taste-of-filth-r26964
+  urls:
+    rb3: download/OJP4_TheTasteOfFilth_v1_1x_rb3con
+    rb3-2x: download/OJP4_TheTasteOfFilth_v1_2x_rb3con
+    ps: download/OJP4_TheTasteOfFilth_v1_ch.zip
+- file-path: ../songs/movie-soundtracks/caravan
+  video: https://www.youtube.com/watch?v=BkfSkXO0UJc
+  c3: http://customscreators.com/index.php?/page/index.html/_/caravan-r26968
+  urls:
+    rb3: download/OJP4_Caravan_v1_1x_rb3con
+    rb3-2x: download/OJP4_Caravan_v1_2x_rb3con
+    ps: download/OJP4_Caravan_v1_ch.zip
+- file-path: ../songs/shnabubula/alien-lair-contra
+  video: https://www.youtube.com/watch?v=WfZju_gymIE
+  c3: http://customscreators.com/index.php?/page/index.html/_/alien-lair-contra-r26961
+  urls:
+    rb3: download/OJP4_AlienLair_v1_1x_rb3con
+    rb3-2x: download/OJP4_AlienLair_v1_2x_rb3con
+    ps: download/OJP4_AlienLair_v1_ch.zip
+- file-path: ../songs/sungazer/sequence-start
+  video: https://www.youtube.com/watch?v=spvinjucpG4&t=40s
+  c3: http://customscreators.com/index.php?/page/index.html/_/sequence-start-r26963
+  urls:
+    rb3: download/OJP4_SequenceStart_v1_rb3con
+    ps: download/OJP4_SequenceStart_v1_ch.zip
+- file-path: ../songs/trioscapes/blast-off
+  video: https://www.youtube.com/watch?v=DI2hGy6q8j0
+  c3: http://customscreators.com/index.php?/page/index.html/_/blast-off-r26962
+  urls:
+    rb3: download/OJP4_BlastOff_v1_1x_rb3con
+    rb3-2x: download/OJP4_BlastOff_v1_2x_rb3con
+    ps: download/OJP4_BlastOff_v1_ch.zip
