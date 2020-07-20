@@ -71,7 +71,7 @@ targets:
     game: rb3
     plan: final
     song-id: 1660200152
-    version: 1
+    version: 2
   ps:
     game: ps
     plan: final

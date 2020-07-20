@@ -225,6 +225,7 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200154 The Taste of Filth (Louis de Mieulle) 2x
   Onyxite's Jazz Pack 4
   v1 published 2019-07-18
+  v2 of One for Antonio published 2019-07-19 (removed BRE)
 
 BONUS SONGS (counting down from max)
 
