@@ -636,6 +636,7 @@ computeSlides pgd hopo = let
               Just (dt', sht', _) -> case sht' of
                 Strum -> (len, Just computedDir) -- next note is strum, no extension
                 _     -> (dt', Just computedDir) -- extend sustain to next note (hopo/tap)
+                -- TODO does extension happen even if next note is different string?
       in Wait dt (sht, notes, msust) $ go rest
   in go marked'
 
