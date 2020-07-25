@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module Rocksmith.Import where
@@ -19,11 +20,11 @@ import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes)
+import           Data.Maybe                       (catMaybes, listToMaybe,
+                                                   mapMaybe)
 import qualified Data.Text                        as T
 import           Image                            (readDDS)
 import           JSONData                         (toJSON, yamlEncodeFile)
-import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProGuitar
 import           RockBand.Common                  (Difficulty (..), blipEdgesRB)
@@ -35,6 +36,7 @@ import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (takeExtension, (<.>), (</>))
+import           Text.Decode                      (decodeGeneral)
 import           Text.XML.Light
 
 data RSSong = RSSong
@@ -233,6 +235,18 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
               }
         return (partName, mempty { RBFile.onyxPartRealGuitar = trk })
       }
+
+  -- Lots of authors don't put their name into CST for some reason,
+  -- so it just shows up as Custom Song Creator...
+  -- Is it a newer added feature?
+  let toolkitPath = temp </> "toolkit.version"
+  author <- stackIO $ Dir.doesFileExist toolkitPath >>= \case
+    False -> return Nothing
+    True -> do
+      txt <- decodeGeneral <$> B.readFile toolkitPath
+      return $ listToMaybe $ filter (`notElem` ["", "Custom Song Creator"]) $ map T.strip
+        $ mapMaybe (T.stripPrefix "Package Author:") $ T.lines txt
+
   stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON (SongYaml
     { _metadata = (def :: Config.Metadata FilePath)
       { _title        = Just title
@@ -240,6 +254,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
       , _album        = Just album
       , _year         = Just year
       , _fileAlbumArt = art
+      , _author       = author
       }
     , _jammit = HM.empty
     , _targets = HM.empty
