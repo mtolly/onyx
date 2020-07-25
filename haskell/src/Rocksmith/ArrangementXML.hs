@@ -3,28 +3,32 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE StrictData        #-}
 {-# LANGUAGE ViewPatterns      #-}
-module Rocksmith.Base where
+module Rocksmith.ArrangementXML where
 
 import           Control.Arrow                  (second)
 import           Control.Monad                  (forM, forM_, guard, unless,
                                                  void, when)
 import           Control.Monad.Codec
-import           Control.Monad.IO.Class         (MonadIO)
+import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
+import qualified Data.ByteString                as B
 import           Data.Char                      (isSpace)
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
-import           Data.Maybe                     (catMaybes, fromMaybe, isJust,
-                                                 isNothing, mapMaybe)
+import           Data.Functor.Identity          (Identity)
+import           Data.Maybe                     (fromMaybe, isJust, isNothing)
 import           Data.Profunctor                (dimap)
 import qualified Data.Text                      as T
+import qualified Data.Text.Encoding             as TE
 import qualified Data.Text.IO                   as T
 import qualified Data.Vector                    as V
+import           Data.Version                   (showVersion)
 import           JSONData
+import           Paths_onyxite_customs_lib      (version)
 import qualified Sound.MIDI.Util                as U
 import           Text.Read                      (readMaybe)
 import           Text.XML.Light
@@ -717,9 +721,34 @@ instance IsInside Event where
     ev_code <- ev_code =. reqAttr "code"
     return Event{..}
 
+data Vocal = Vocal
+  { voc_time   :: U.Seconds
+  -- TODO are any of these optional
+  , voc_note   :: Int
+  , voc_length :: U.Seconds
+  , voc_lyric  :: T.Text
+  } deriving (Eq, Show)
+
+instance IsInside Vocal where
+  insideCodec = do
+    voc_time <- voc_time =. seconds (reqAttr "time")
+    voc_note <- voc_note =. intText (reqAttr "note")
+    voc_length <- voc_length =. seconds (reqAttr "length")
+    voc_lyric <- voc_lyric =. reqAttr "lyric"
+    return Vocal{..}
+
+data Vocals = Vocals
+  { vocs_vocals :: V.Vector Vocal
+  } deriving (Eq, Show)
+
+instance IsInside Vocals where
+  insideCodec = do
+    vocs_vocals <- vocs_vocals =. countList (isTag "vocal" $ parseInside' insideCodec)
+    return Vocals{..}
+
 data PartContents
   = PartArrangement Arrangement
-  | PartVocals -- TODO parse the vocals
+  | PartVocals Vocals
   deriving (Eq, Show)
 
 parseFile :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m PartContents
@@ -727,5 +756,20 @@ parseFile f = inside ("Loading: " <> f) $ do
   stackIO (T.readFile f) >>= \t -> case parseXMLDoc t of
     Nothing  -> fatal "Couldn't parse XML"
     Just elt -> mapStackTraceT (`runReaderT` elt) $ case matchTag "vocals" elt of
-      Just _  -> return PartVocals
-      Nothing -> fmap PartArrangement $ codecIn $ isTag "song" $ parseInside' insideCodec
+      Just _  -> fmap PartVocals      $ codecIn $ isTag "vocals" $ parseInside' insideCodec
+      Nothing -> fmap PartArrangement $ codecIn $ isTag "song"   $ parseInside' insideCodec
+
+writePart :: (MonadIO m) => FilePath -> PartContents -> m ()
+writePart f pc = liftIO $ do
+  let xml = case pc of
+        PartArrangement arr -> let
+          output = execWriter $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Arrangement) arr
+          in makeTag "song" output
+        PartVocals vocs -> let
+          output = execWriter $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Vocals) vocs
+          in makeTag "vocals" output
+      -- this is a hack, could find better way to insert comment
+      xmlLines = ppTopElement xml
+      xmlLines' = case break (any isSpace . take 1) $ lines xmlLines of
+        (before, after) -> before <> ["<!-- Onyx v" <> showVersion version <> " -->"] <> after
+  B.writeFile f $ TE.encodeUtf8 $ T.pack $ unlines xmlLines'
