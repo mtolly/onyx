@@ -14,17 +14,18 @@ import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
-import           RockBand.Common                  (each)
+import           RockBand.Common                  (Edge, each, edgeBlipsRB,
+                                                   joinEdges, splitEdges)
 import qualified Sound.MIDI.Util                  as U
 
 data MelodyTrack t = MelodyTrack
   { melodyIntensity :: RTB.T t (Intensity, Bool)
-  , melodyNotes     :: RTB.T t (NoteType, Maybe t)
+  , melodyNotes     :: RTB.T t (Edge () NoteType)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (MelodyTrack t)
 
 instance TraverseTrack MelodyTrack where
-  traverseTrack fn (MelodyTrack a b) = MelodyTrack <$> fn a <*> traverseBlipSustain fn b
+  traverseTrack fn (MelodyTrack a b) = MelodyTrack <$> fn a <*> fn b
 
 data NoteType
   = Obstacle Direction
@@ -41,7 +42,7 @@ data Direction = U | R | L | D
 
 instance ParseTrack MelodyTrack where
   parseTrack = do
-    melodyNotes <- (melodyNotes =.) $ fatBlips (1/8) $ blipSustainRB $ condenseMap $ eachKey each $ matchEdges . edges . \case
+    melodyNotes <- (melodyNotes =.) $ fatBlips (1/8) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
       Obstacle D -> 60
       Obstacle L -> 61
       Obstacle R -> 62
@@ -80,8 +81,8 @@ noteTypeCharacter = \case
   Color    R -> '6'
   Color    U -> '8'
 
-writeTransitions :: MelodyTrack U.Seconds -> String
-writeTransitions = let
+writeTransitions :: U.TempoMap -> MelodyTrack U.Beats -> String
+writeTransitions tmap = let
   writePair ((t1, i1), (t2, i2)) = concat
     [ [intensityCharacter i1]
     , ":"
@@ -98,11 +99,12 @@ writeTransitions = let
   makePairs [(_, (_, False))] = []
   makePairs xs = error $ "MelodysEscape.writeTransitions: invalid events: " ++ show xs
   in intercalate ";" . map writePair . makePairs . ((0, (Low, False)) :)
-    . ATB.toPairList . RTB.toAbsoluteEventList 0 . melodyIntensity
+    . ATB.toPairList . RTB.toAbsoluteEventList 0
+    . U.applyTempoTrack tmap . melodyIntensity
 
-writeNotes :: MelodyTrack U.Seconds -> String
-writeNotes = let
-  writePair (t, (nt, mlen)) = concat
+writeNotes :: U.TempoMap -> MelodyTrack U.Beats -> String
+writeNotes tmap = let
+  writePair (t, ((), nt, mlen)) = concat
     [ show $ secondsToTicks t
     , ":"
     , [noteTypeCharacter nt]
@@ -110,8 +112,9 @@ writeNotes = let
       Nothing  -> ""
       Just len -> '-' : show (secondsToTicks len)
     ]
-  in intercalate ";" . map writePair . ATB.toPairList
-    . RTB.toAbsoluteEventList 0 . melodyNotes
+  in intercalate ";" . map writePair . ATB.toPairList . RTB.toAbsoluteEventList 0
+    . joinEdges . U.applyTempoTrack tmap . splitEdges
+    . edgeBlipsRB . melodyNotes
 
 -- | Any time 2 or more notes appear, randomly delete all but one of them.
 randomNotes :: (NNC.C t, MonadRandom m) => MelodyTrack t -> m (MelodyTrack t)

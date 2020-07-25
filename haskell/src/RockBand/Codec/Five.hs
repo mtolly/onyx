@@ -125,13 +125,13 @@ data FiveDifficulty t = FiveDifficulty
   , fiveTap        :: RTB.T t Bool
   , fiveOpen       :: RTB.T t Bool
   , fiveOnyxClose  :: RTB.T t Int
-  , fiveGems       :: RTB.T t (Color, Maybe t)
+  , fiveGems       :: RTB.T t (Edge () Color)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (FiveDifficulty t)
 
 instance TraverseTrack FiveDifficulty where
   traverseTrack fn (FiveDifficulty a b c d e f) = FiveDifficulty
-    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> traverseBlipSustain fn f
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
 
 instance ParseTrack FiveTrack where
   parseTrack = do
@@ -176,7 +176,7 @@ instance ParseTrack FiveTrack where
         parse = toCommand >=> \(OnyxCloseEvent diff' n) -> guard (diff == diff') >> Just n
         unparse n = fromCommand $ OnyxCloseEvent diff n
         in commandMatch' parse unparse
-      fiveGems       <- (fiveGems =.) $ blipSustainRB $ condenseMap $ eachKey each $ matchEdges . edges . \case
+      fiveGems       <- (fiveGems =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
         Green  -> base + 0
         Red    -> base + 1
         Yellow -> base + 2

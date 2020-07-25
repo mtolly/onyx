@@ -81,13 +81,13 @@ data PartDifficulty t = PartDifficulty
   { partStarPower :: RTB.T t Bool
   , partPlayer1   :: RTB.T t Bool
   , partPlayer2   :: RTB.T t Bool
-  , partGems      :: RTB.T t (Color, Maybe t)
+  , partGems      :: RTB.T t (Edge () Color)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (PartDifficulty t)
 
 instance TraverseTrack PartDifficulty where
   traverseTrack fn (PartDifficulty a b c d) = PartDifficulty
-    <$> fn a <*> fn b <*> fn c <*> traverseBlipSustain fn d
+    <$> fn a <*> fn b <*> fn c <*> fn d
 
 instance ParseTrack PartTrack where
   parseTrack = do
@@ -124,7 +124,7 @@ parseDifficulty diff = do
   partStarPower <- partStarPower =. edges (base + 7)
   partPlayer1   <- partPlayer1   =. edges (base + 9)
   partPlayer2   <- partPlayer2   =. edges (base + 10)
-  partGems      <- (partGems =.) $ fatBlips (1/8) $ blipSustainRB $ condenseMap $ eachKey each $ matchEdges . edges . \case
+  partGems      <- (partGems =.) $ fatBlips (1/8) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
     Green  -> base + 0
     Red    -> base + 1
     Yellow -> base + 2

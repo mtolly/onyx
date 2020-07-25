@@ -49,6 +49,7 @@ import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    LaneDifficulty (..),
                                                    LongNote (..), SongKey (..),
                                                    StrumHOPOTap (..),
+                                                   edgeBlipsRB_,
                                                    joinEdgesSimple,
                                                    songKeyUsesFlats, splitEdges)
 import qualified RockBand.Legacy.Vocal            as Vox
@@ -355,7 +356,7 @@ processSix hopoThreshold tmap trk = makeDifficulties $ \diff -> let
   assigned :: RTB.T U.Beats ((Maybe GHL.Fret, StrumHOPOTap), Maybe U.Beats)
   assigned
     = applyForces (getForces6 thisDiff)
-    $ strumHOPOTap' HOPOsRBGuitar hopoThreshold $ GHL.sixGems thisDiff
+    $ strumHOPOTap' HOPOsRBGuitar hopoThreshold $ edgeBlipsRB_ $ GHL.sixGems thisDiff
   onlyKey :: (Eq a) => a -> RTB.T U.Beats ((a, b), c) -> RTB.T U.Beats (((), b), c)
   onlyKey fret trips = flip RTB.mapMaybe trips $ \case
     ((fret', sht), mlen) -> guard (fret' == fret) >> Just (((), sht), mlen)
@@ -446,12 +447,13 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
 
 processProKeys :: U.TempoMap -> ProKeysTrack U.Beats -> Maybe (ProKeys U.Seconds)
 processProKeys tmap trk = let
-  assigned' = U.trackJoin $ flip fmap (pkNotes trk) $ \(p, mlen) -> case mlen of
+  joined = edgeBlipsRB_ $ pkNotes trk
+  assigned' = U.trackJoin $ flip fmap joined $ \(p, mlen) -> case mlen of
     Nothing  -> RTB.singleton 0 $ Blip () p
     Just len -> RTB.fromPairList [(0, NoteOn () p), (len, NoteOff p)]
   notesForPitch p = realTrack tmap $ filterKey p assigned'
   notes = Map.fromList [ (p, notesForPitch p) | p <- [minBound .. maxBound] ]
-  ons = RTB.normalize $ fmap fst $ pkNotes trk
+  ons = RTB.normalize $ fmap fst joined
   ranges = realTrack tmap $ pkLanes trk
   solo   = realTrack tmap $ pkSolo trk
   energy = realTrack tmap $ pkOverdrive trk
@@ -485,7 +487,9 @@ processProtar hopoThreshold tuning defaultFlat tmap pg = makeDifficulties $ \dif
   protarEnergy = realTrack tmap $ PG.pgOverdrive pg
   -- for protar we can treat tremolo/trill identically;
   -- in both cases it's just "get the strings the first note/chord is on"
-  onStrings = RTB.normalize $ fmap fst $ PG.pgNotes thisDiff
+  onStrings = RTB.normalize $ flip RTB.mapMaybe (PG.pgNotes thisDiff) $ \case
+    EdgeOn _ (str, _) -> Just str
+    EdgeOff _         -> Nothing
   lanesAll = findTremolos onStrings $ RTB.normalize
     $ laneDifficulty diff $ RTB.merge (PG.pgTremolo pg) (PG.pgTrill pg)
   protarLanes = Map.fromList $ do
@@ -494,7 +498,7 @@ processProtar hopoThreshold tuning defaultFlat tmap pg = makeDifficulties $ \dif
       guard $ str == str'
       return len
   protarBRE = realTrack tmap $ fmap snd $ PG.pgBRE pg
-  usedStrings = nubOrd $ toList (PG.pgDifficulties pg) >>= map fst . toList . PG.pgNotes
+  usedStrings = nubOrd $ toList (PG.pgDifficulties pg) >>= toList . PG.pgNotes >>= map fst . toList
   pitches = PG.tuningPitches tuning { PG.gtrGlobal = 0 }
   protarStrings
     | not (null $ drop 7 pitches) || elem PG.S8 usedStrings = 8
@@ -676,6 +680,7 @@ processDance tmap trk = makeDanceDifficulties $ \diff -> let
   edges
     = splitEdges
     $ fmap (\((arr, ntype), mlen) -> (ntype, arr, mlen))
+    $ edgeBlipsRB_
     $ Dance.danceNotes thisDiff
   getArrow arrow = realTrack tmap $ filterKey arrow edges
   notes = Map.fromList $ do

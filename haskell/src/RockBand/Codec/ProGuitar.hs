@@ -214,19 +214,14 @@ data ProGuitarDifficulty t = ProGuitarDifficulty
   , pgAllFrets     :: RTB.T t Bool
   , pgMysteryBFlat :: RTB.T t Bool
   -- TODO EOF format sysexes
-  , pgNotes        :: RTB.T t (GtrString, (NoteType, GtrFret, Maybe t))
+  , pgNotes        :: RTB.T t (Edge GtrFret (GtrString, NoteType))
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (ProGuitarDifficulty t)
 
 instance TraverseTrack ProGuitarDifficulty where
   traverseTrack fn (ProGuitarDifficulty a b c d e f g h) = ProGuitarDifficulty
     <$> fn a <*> fn b <*> fn c <*> fn d
-    <*> fn e <*> fn f <*> fn g <*> do
-      fmap (fmap (\(fret, (str, nt), mlen) -> (str, (nt, fret, mlen))) . joinEdges)
-        $ fn
-        $ splitEdges
-        $ fmap (\(str, (nt, fret, len)) -> (fret, (str, nt), len))
-        $ h
+    <*> fn e <*> fn f <*> fn g <*> fn h
 
 instance ParseTrack ProGuitarTrack where
   parseTrack = do
@@ -272,10 +267,14 @@ instance ParseTrack ProGuitarTrack where
             Medium -> 48
             Hard   -> 72
             Expert -> 96
-      pgNotes        <- (pgNotes =.) $ condenseMap $ eachKey each $ \str -> let
-        fs (typ, fret, mlen) = (typ, fret + 100, fromMaybe (1/32) mlen)
-        fp (typ, v, len) = (typ, v - 100, guard (len > (1/3)) >> Just len)
-        in dimap (fmap fs) (fmap fp) $ matchEdgesCV $ channelEdges (base + getStringIndex 6 str)
+      pgNotes        <- (pgNotes =.) $ let
+        fs = \case
+          EdgeOn fret (str, nt) -> (str, (nt, Just $ fret + 100))
+          EdgeOff (str, nt) -> (str, (nt, Nothing))
+        fp = \case
+          (str, (nt, Just v)) -> EdgeOn (v - 100) (str, nt)
+          (str, (nt, Nothing)) -> EdgeOff (str, nt)
+        in dimap (fmap fs) (fmap fp) $ condenseMap $ eachKey each $ \str -> channelEdges $ base + getStringIndex 6 str
       pgForceHOPO    <- pgForceHOPO =. edges (base + 6)
       pgSlide        <- pgSlide =. channelEdges_ (base + 7)
       pgArpeggio     <- pgArpeggio =. edges (base + 8)
@@ -409,7 +408,7 @@ data ChordData t = ChordData
 data ChordModifier = ModSwapAcc | ModNoName | ModSlash
   deriving (Eq, Ord)
 
-computeChordNames :: forall t. (NNC.C t) => Difficulty -> [Int] -> Bool -> ProGuitarTrack t -> RTB.T t (LongNote T.Text ())
+computeChordNames :: Difficulty -> [Int] -> Bool -> ProGuitarTrack U.Beats -> RTB.T U.Beats (LongNote T.Text ())
 computeChordNames diff tuning flatDefault pg = let
 
   pgd = fromMaybe mempty $ Map.lookup diff $ pgDifficulties pg
@@ -419,9 +418,12 @@ computeChordNames diff tuning flatDefault pg = let
       (RTB.merge ((ModSwapAcc,) <$> pgSwapAccidental pg)
         (RTB.merge ((ModNoName,) <$> pgNoChordNames pg)
           ((ModSlash,) <$> pgSlashChords pg)))
-    $ RTB.collectCoincident $ pgNotes pgd
+    $ RTB.collectCoincident
+    $ fmap (\(fret, (str, nt), mlen) -> (str, (nt, fret, mlen)))
+    $ edgeBlipsRB
+    $ pgNotes pgd
 
-  chords :: RTB.T t (Maybe (ChordData t))
+  chords :: RTB.T U.Beats (Maybe (ChordData U.Beats))
   chords = flip fmap notes $ \(root, (mods, chord)) -> case sort chord of
     low : rest@(_ : _) -> Just ChordData
       { chordFrets = Map.fromList [ (str, fret) | (str, (_, fret, _)) <- chord ]
@@ -445,7 +447,7 @@ computeChordNames diff tuning flatDefault pg = let
 
   -- Slide sustains that are the last repetition of their chord don't stick the name.
   -- But it'll still stick if there's another repetition after.
-  slides :: RTB.T t (Maybe (ChordData t)) -> RTB.T t (Maybe (ChordData t))
+  slides :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
   slides = let
     go (isSlide, mcd) = if isSlide
       then (\cd -> cd { chordLength = Nothing }) <$> mcd
@@ -454,7 +456,7 @@ computeChordNames diff tuning flatDefault pg = let
 
   -- For an arpeggio, get the chord computed at the start,
   -- and stretch it for the length of the arpeggio section.
-  arps :: RTB.T t (Maybe (ChordData t)) -> RTB.T t (Maybe (ChordData t))
+  arps :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
   arps = let
     go rtb = case RTB.viewL rtb of
       Nothing -> RTB.empty
@@ -468,7 +470,7 @@ computeChordNames diff tuning flatDefault pg = let
   arpsList = fmap (\((), (), t) -> t) $ joinEdgesSimple $ (\b -> if b then EdgeOn () () else EdgeOff ()) <$> pgArpeggio pgd
 
   -- chrdX events override a single chord computed at a certain point.
-  overrides :: RTB.T t (Maybe (ChordData t)) -> RTB.T t (Maybe (ChordData t))
+  overrides :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
   overrides = let
     go evs = case lefts evs of
       []           -> rights evs
@@ -479,7 +481,7 @@ computeChordNames diff tuning flatDefault pg = let
   -- the strikeline between them. Also, a muted strum can continue a chord name
   -- as long as it has the same chord on both sides of it, and also has the same
   -- frets as the others under the mute channel (even though not shown in game).
-  stick :: RTB.T t (Maybe (ChordData t)) -> RTB.T t (ChordData t)
+  stick :: (NNC.C t) => RTB.T t (Maybe (ChordData t)) -> RTB.T t (ChordData t)
   stick rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
     Just ((dt, Nothing), rtb') -> RTB.delay dt $ stick rtb'
@@ -504,7 +506,7 @@ computeChordNames diff tuning flatDefault pg = let
     $ chords
 
 -- | Renders all the chord names as explicit override events.
-freezeChordNames :: (NNC.C t) => [Int] -> Bool -> ProGuitarTrack t -> ProGuitarTrack t
+freezeChordNames :: [Int] -> Bool -> ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats
 freezeChordNames tuning flatDefault pg = pg
   { pgDifficulties = flip Map.mapWithKey (pgDifficulties pg) $ \diff pgd -> let
     chords = computeChordNames diff tuning flatDefault pg
@@ -525,7 +527,9 @@ autoHandPosition pg = if RTB.null $ pgHandPosition pg
       pgd <- Map.elems $ pgDifficulties pg
       -- note, we do take ArpeggioForm notes into account because Magma does too
       -- TODO do we need to take muted notes into account?
-      return $ fmap (\(_, (_, fret, _)) -> fret) $ pgNotes pgd
+      return $ flip RTB.mapMaybe (pgNotes pgd) $ \case
+        EdgeOn fret _ -> Just fret
+        EdgeOff _ -> Nothing
     posns = flip fmap (RTB.collectCoincident frets) $ \fs ->
       case filter (/= 0) fs of
         []     -> 0
@@ -545,7 +549,9 @@ autoChordRoot tuning pg = if RTB.null $ pgChordRoot pg
     getPitch str fret = indexTuning tuning str + fret
     notes = foldr RTB.merge RTB.empty $ do
       (diff, pgd) <- Map.toList $ pgDifficulties pg
-      return $ fmap (\(str, (_, fret, _)) -> (diff, getPitch str fret)) $ pgNotes pgd
+      return $ flip RTB.mapMaybe (pgNotes pgd) $ \case
+        EdgeOn fret (str, _) -> Just (diff, getPitch str fret)
+        EdgeOff _ -> Nothing
     roots = flip RTB.mapMaybe (RTB.collectCoincident notes) $ \ns -> let
       findChord diff = case map snd $ filter ((== diff) . fst) ns of
         p : ps@(_ : _) -> Just $ toEnum $ foldr min p ps `rem` 12
@@ -565,8 +571,9 @@ guitarifyHOPO :: U.Beats -> ProGuitarDifficulty U.Beats
   -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe U.Beats)
 guitarifyHOPO threshold pgd = let
   gtr = joinEdges $ guitarify $ splitEdges
-    $ (\(str, (ntype, fret, len)) -> ((), (str, fret, ntype), len))
-    <$> pgNotes pgd
+    $ (\(fret, (str, ntype), len) -> ((), (str, fret, ntype), len))
+    <$> edgeBlipsRB (pgNotes pgd)
+    -- TODO above logic is inefficient (join, split, join)
   withForce = applyStatus ((HOPO,) <$> pgForceHOPO pgd) gtr
   fn prev dt (forces, ((), gems, len)) = let
     ntype = if all (\(_, _, nt) -> elem nt [Tapped, ArpeggioForm]) gems
@@ -653,14 +660,16 @@ fretLimit maxFret pg = let
   doLower down n = if down && n >= 12 then n - 12 else n
   lowerDiff diff = diff
     { pgNotes
-      = fmap (\(down, (str, (nt, fret, mt))) -> let
+      = splitEdgesSimple
+      $ fmap (\(down, (fret, (str, nt), len)) -> let
           fret' = doLower down fret
           nt' = if nt /= ArpeggioForm && fret' > maxFret
             then Muted
             else nt
-          in (str, (nt', fret', mt))
+          in (fret', (str, nt'), len)
         )
       $ applyStatus1 False shouldLower
+      $ joinEdgesSimple
       $ pgNotes diff
     }
   in pg
@@ -690,8 +699,10 @@ moveStrings pg = let
       Just newString -> newString
   moveDiff diff = diff
     { pgNotes
-      = fmap (\(mapper, (oldString, triple)) -> (mapper oldString, triple))
+      = splitEdgesSimple
+      $ fmap (\(mapper, (fret, (oldString, ntype), len)) -> (fret, (mapper oldString, ntype), len))
       $ applyStatus1 id mappers
+      $ joinEdgesSimple
       $ pgNotes diff
     }
   in pg

@@ -265,10 +265,12 @@ protarToGrybo :: ProGuitarTrack U.Beats -> FiveTrack U.Beats
 protarToGrybo pg = mempty
   { fiveDifficulties = flip fmap (pgDifficulties pg) $ \pgd -> mempty
     { fiveGems
-      = fmap head
+      = blipEdgesRB_
+      $ fmap head
       $ RTB.collectCoincident
       $ noExtendedSustains' standardBlipThreshold standardSustainGap
-      $ fmap (\(_, (_, _, len)) -> (Five.Green, len))
+      $ fmap (\(_, _, len) -> (Five.Green, len))
+      $ edgeBlipsRB
       $ pgNotes pgd
     }
   , fiveOverdrive    = pgOverdrive pg
@@ -282,10 +284,12 @@ expertProKeysToKeys pk = mempty
   { fiveDifficulties = let
     fd = mempty
       { fiveGems
-        = fmap head
+        = blipEdgesRB_
+        $ fmap head
         $ RTB.collectCoincident
         $ noExtendedSustains' standardBlipThreshold standardSustainGap
         $ fmap (\(_, len) -> (Five.Green, len))
+        $ edgeBlipsRB_
         $ pkNotes pk
       }
     in Map.fromList [ (diff, fd) | diff <- [minBound .. maxBound] ]
@@ -317,7 +321,7 @@ keysToProKeys d ft = ProKeysTrack
         Five.Yellow -> E
         Five.Blue   -> F
         Five.Orange -> G
-      in first colorToKey <$> fiveGems fd
+      in fmap colorToKey <$> fiveGems fd
   }
 
 hasSolo :: (NNC.C t) => RB3Instrument -> Song (RBFile.FixedFile t) -> Bool

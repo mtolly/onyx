@@ -34,7 +34,7 @@ data ProKeysTrack t = ProKeysTrack
   , pkTrill     :: RTB.T t Bool
   , pkOverdrive :: RTB.T t Bool
   , pkBRE       :: RTB.T t Bool
-  , pkNotes     :: RTB.T t (Pitch, Maybe t)
+  , pkNotes     :: RTB.T t (Edge () Pitch)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (ProKeysTrack t)
 
@@ -44,7 +44,7 @@ nullPK = RTB.null . pkNotes
 instance TraverseTrack ProKeysTrack where
   traverseTrack fn (ProKeysTrack a b c d e f g h i) = ProKeysTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
-    <*> fn f <*> fn g <*> fn h <*> traverseBlipSustain fn i
+    <*> fn f <*> fn g <*> fn h <*> fn i
 
 instance ParseTrack ProKeysTrack where
   parseTrack = do
@@ -58,8 +58,8 @@ instance ParseTrack ProKeysTrack where
     pkOverdrive <- pkOverdrive =. edges 116
     pkSolo      <- pkSolo      =. edges 115
     pkBRE       <- pkBRE       =. edges 120
-    pkNotes     <- (pkNotes    =.) $ fatBlips (1/8) $ blipSustainRB $ condenseMap $ eachKey each
-      $ \k -> matchEdges $ edges $ fromEnum k + 48
+    pkNotes     <- (pkNotes    =.) $ fatBlips (1/8) $ translateEdges
+      $ condenseMap $ eachKey each $ \k -> edges $ fromEnum k + 48
     pkLanes     <- (pkLanes    =.) $ statusBlips $ condenseMap_ $ eachKey each $ blip . \case
       RangeC -> 0
       RangeD -> 2

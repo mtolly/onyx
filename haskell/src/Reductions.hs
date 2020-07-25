@@ -24,7 +24,8 @@ import           RockBand.Codec.Five              as Five
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys           as PK
 import           RockBand.Common                  (Difficulty (..), Key (..),
-                                                   StrumHOPOTap (..))
+                                                   StrumHOPOTap (..),
+                                                   blipEdgesRB_, edgeBlipsRB_)
 import           Scripts                          (trackGlue)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
@@ -222,10 +223,10 @@ data PKNote t = PKNote [PK.Pitch] (Maybe t)
   deriving (Eq, Ord, Show)
 
 readPKNotes :: ProKeysTrack U.Beats -> RTB.T U.Beats (PKNote U.Beats)
-readPKNotes = fmap (uncurry PKNote) . guitarify' . pkNotes
+readPKNotes = fmap (uncurry PKNote) . guitarify' . edgeBlipsRB_ . pkNotes
 
 showPKNotes :: RTB.T U.Beats (PKNote U.Beats) -> ProKeysTrack U.Beats
-showPKNotes pk = mempty { pkNotes = RTB.flatten $ fmap f pk } where
+showPKNotes pk = mempty { pkNotes = blipEdgesRB_ $ RTB.flatten $ fmap f pk } where
   f (PKNote ps len) = map (, len) ps
 
 pkReduce

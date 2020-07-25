@@ -1936,7 +1936,6 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               mid <- shakeMIDI midraw
               melody <- liftIO
                 $ Melody.randomNotes
-                $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid)
                 $ maybe mempty RBFile.onyxMelody
                 $ Map.lookup (tgt_Part tgt)
                 $ RBFile.onyxParts
@@ -1951,8 +1950,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , "420"
                       , "4"
                       ]
-                    , Melody.writeTransitions melody
-                    , Melody.writeNotes melody
+                    , Melody.writeTransitions (RBFile.s_tempos mid) melody
+                    , Melody.writeNotes (RBFile.s_tempos mid) melody
                     ]
               liftIO $ writeFile out str
             phony (dir </> "melody") $ shk $ need [melodyAudio, melodyChart]

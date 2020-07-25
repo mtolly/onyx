@@ -22,7 +22,8 @@ import qualified RockBand.Codec.ProGuitar         as PG
 import qualified RockBand.Codec.ProKeys           as PK
 import qualified RockBand.Codec.Vocal             as Vox
 import           RockBand.Common                  (Difficulty (..),
-                                                   pattern RNil, pattern Wait)
+                                                   pattern RNil, pattern Wait,
+                                                   edgeBlipsRB, edgeBlipsRB_)
 import           Scripts                          (trackGlue)
 import qualified Sound.MIDI.Util                  as U
 
@@ -147,7 +148,9 @@ baseAndSolo mid (scoreTrack, diff) = let
     in (base, solo)
   getFive maxStreak getTrack = let
     trk = getTrack mid
-    gems = adjustGems (RBFive.fiveBRE trk) $ maybe RTB.empty RBFive.fiveGems
+    gems = adjustGems (RBFive.fiveBRE trk)
+      $ edgeBlipsRB_
+      $ maybe RTB.empty RBFive.fiveGems
       $ Map.lookup diff $ RBFive.fiveDifficulties trk
     base = gbkBase 25 12 maxStreak $ fmap snd gems
     solo = perfectSoloBonus 100 (RBFive.fiveSolo trk) $ RTB.collectCoincident gems
@@ -159,9 +162,10 @@ baseAndSolo mid (scoreTrack, diff) = let
       _                             -> get17 mid
     gems
       = adjustGems (snd <$> PG.pgBRE trk)
+      $ edgeBlipsRB
       $ maybe RTB.empty PG.pgNotes
       $ Map.lookup diff $ PG.pgDifficulties trk
-    base = gbkBase 60 30 maxStreak $ maxChord2 $ fmap (\(_, (_, _, mlen)) -> mlen) gems
+    base = gbkBase 60 30 maxStreak $ maxChord2 $ fmap (\(_, (_, _), mlen) -> mlen) gems
     solo = perfectSoloBonus 150 (PG.pgSolo trk) $ RTB.collectCoincident gems
     in (base, solo)
   maxChord2 = RTB.flatten . fmap (take 2) . RTB.collectCoincident
@@ -173,7 +177,7 @@ baseAndSolo mid (scoreTrack, diff) = let
       Hard   -> RBFile.fixedPartRealKeysH mid
       Expert -> RBFile.fixedPartRealKeysX mid
     expert = RBFile.fixedPartRealKeysX mid
-    gems = adjustGems (PK.pkBRE expert) $ PK.pkNotes trk
+    gems = adjustGems (PK.pkBRE expert) $ edgeBlipsRB_ $ PK.pkNotes trk
     base = gbkBase 60 30 4 $ fmap snd gems
     solo = perfectSoloBonus 100 (PK.pkSolo expert) $ RTB.collectCoincident gems
     in (base, solo)

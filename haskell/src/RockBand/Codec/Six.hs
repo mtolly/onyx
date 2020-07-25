@@ -42,13 +42,13 @@ data SixDifficulty t = SixDifficulty
   { sixForceStrum :: RTB.T t Bool
   , sixForceHOPO  :: RTB.T t Bool
   , sixTap        :: RTB.T t Bool
-  , sixGems       :: RTB.T t (Maybe Fret, Maybe t)
+  , sixGems       :: RTB.T t (Edge () (Maybe Fret))
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (SixDifficulty t)
 
 instance TraverseTrack SixDifficulty where
   traverseTrack fn (SixDifficulty a b c d) = SixDifficulty
-    <$> fn a <*> fn b <*> fn c <*> traverseBlipSustain fn d
+    <$> fn a <*> fn b <*> fn c <*> fn d
 
 instance ParseTrack SixTrack where
   parseTrack = do
@@ -63,8 +63,8 @@ instance ParseTrack SixTrack where
       sixForceStrum <- sixForceStrum =. edges (base + 6)
       sixForceHOPO  <- sixForceHOPO  =. edges (base + 5)
       sixTap        <- sixTap        =. sysexPS diff PS.TapNotes
-      sixGems       <- (sixGems =.) $ blipSustainRB $ condenseMap
-        $ eachKey (Nothing : map Just each) $ matchEdges . edges . \case
+      sixGems       <- (sixGems =.) $ translateEdges $ condenseMap
+        $ eachKey (Nothing : map Just each) $ edges . \case
           Nothing     -> base - 2
           Just White1 -> base - 1
           Just White2 -> base

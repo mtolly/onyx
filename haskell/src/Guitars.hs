@@ -23,11 +23,13 @@ data GuitarEvent a
   | Note a
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-openNotes' :: (NNC.C t) => FiveDifficulty t -> RTB.T t (Maybe G5.Color, Maybe t)
+openNotes' :: FiveDifficulty U.Beats -> RTB.T U.Beats (Maybe G5.Color, Maybe U.Beats)
 openNotes' fd = fmap (\(isOpen, (col, len)) -> (guard (not isOpen) >> Just col, len))
-  $ applyStatus1 False (fiveOpen fd) (fiveGems fd)
+  $ applyStatus1 False (fiveOpen fd)
+  $ edgeBlipsRB_
+  $ fiveGems fd
 
-closeNotes' :: (NNC.C t) => FiveDifficulty t -> RTB.T t (Maybe G5.Color, Maybe t)
+closeNotes' :: FiveDifficulty U.Beats -> RTB.T U.Beats (Maybe G5.Color, Maybe U.Beats)
 closeNotes' fd = fmap (\(offset, (col, len)) -> let
   col' = case maybe (-1) fromEnum col + offset of
     0 -> Just G5.Green
@@ -184,7 +186,7 @@ noExtendedSustains blipThreshold sustainGap = let
   in splitEdges . RTB.flatten . go . RTB.collectCoincident . joinEdges
 
 standardBlipThreshold :: U.Beats
-standardBlipThreshold = 3/8
+standardBlipThreshold = 3/8 -- is this correct? I think 1/3 sustains might be possible in games
 
 standardSustainGap :: U.Beats
 standardSustainGap = 1/8
@@ -276,7 +278,9 @@ emit5' notes = FiveDifficulty
     ((Nothing, _), _) -> Just boolBlip
     _                 -> Nothing
   , fiveOnyxClose = RTB.empty
-  , fiveGems = fmap (\((mc, _), len) -> (fromMaybe G5.Green mc, len)) notes
+  , fiveGems
+    = blipEdgesRB_
+    $ fmap (\((mc, _), len) -> (fromMaybe G5.Green mc, len)) notes
   } where
     shts = fmap (snd . fst) $ RTB.flatten $ fmap (take 1) $ RTB.collectCoincident notes
     shtEdges = cleanEdges $ U.trackJoin $ fmap (\sht -> fmap (, sht) boolBlip) shts
@@ -289,7 +293,7 @@ emit6' notes = SixDifficulty
   { sixForceStrum = makeForce Strum
   , sixForceHOPO = makeForce HOPO
   , sixTap = makeForce Tap
-  , sixGems = fmap (\((mc, _), len) -> (mc, len)) notes
+  , sixGems = blipEdgesRB_ $ fmap (\((mc, _), len) -> (mc, len)) notes
   } where
     shts = fmap (snd . fst) $ RTB.flatten $ fmap (take 1) $ RTB.collectCoincident notes
     shtEdges = cleanEdges $ U.trackJoin $ fmap (\sht -> fmap (, sht) boolBlip) shts

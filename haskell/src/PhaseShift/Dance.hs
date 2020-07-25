@@ -14,7 +14,7 @@ import           Data.Profunctor                  (dimap)
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import           RockBand.Codec
-import           RockBand.Common                  (each)
+import           RockBand.Common                  (Edge (..), each)
 
 data SMDifficulty
   = SMBeginner
@@ -51,13 +51,12 @@ instance ChannelType NoteType where
   encodeChannel = fromEnum
 
 data DanceDifficulty t = DanceDifficulty
-  { danceNotes :: RTB.T t ((Arrow, NoteType), Maybe t)
+  { danceNotes :: RTB.T t (Edge () (Arrow, NoteType))
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (DanceDifficulty t)
 
 instance TraverseTrack DanceDifficulty where
-  traverseTrack fn (DanceDifficulty a) = DanceDifficulty
-    <$> traverseBlipSustain fn a
+  traverseTrack fn (DanceDifficulty a) = DanceDifficulty <$> fn a
 
 instance ParseTrack DanceTrack where
   parseTrack = do
@@ -69,9 +68,13 @@ instance ParseTrack DanceTrack where
             SMMedium    -> 72
             SMHard      -> 84
             SMChallenge -> 96
-          f1 = fmap $ \((arrow, ntype), len) -> (arrow, (ntype, 100, len))
-          f2 = fmap $ \(arrow, (ntype, _, len)) -> ((arrow, ntype), len)
-      danceNotes <- (danceNotes =.) $ blipSustainRB $ dimap f1 f2 $ condenseMap $ eachKey each $ matchEdgesCV . channelEdges . \case
+          f1 = \case
+            EdgeOn () (arrow, nt) -> (arrow, (nt, Just 100))
+            EdgeOff (arrow, nt) -> (arrow, (nt, Nothing))
+          f2 = \case
+            (arrow, (nt, Just _)) -> EdgeOn () (arrow, nt)
+            (arrow, (nt, Nothing)) -> EdgeOff (arrow, nt)
+      danceNotes <- (danceNotes =.) $ dimap (fmap f1) (fmap f2) $ condenseMap $ eachKey each $ channelEdges . \case
         ArrowL -> base + 0
         ArrowD -> base + 1
         ArrowU -> base + 2

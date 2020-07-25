@@ -11,7 +11,7 @@ import           Data.Foldable                    (toList)
 import           Data.List                        (inits, tails)
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (listToMaybe)
+import           Data.Maybe                       (listToMaybe, mapMaybe)
 import qualified Data.Set                         as Set
 import           DryVox                           (sineDryVox)
 import           Guitars                          (guitarify')
@@ -23,7 +23,8 @@ import qualified RockBand.Codec.File              as F
 import           RockBand.Codec.Five              as Five
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
-import           RockBand.Common                  (Difficulty (..))
+import           RockBand.Common                  (Difficulty (..), Edge (..),
+                                                   blipEdgesRB_, edgeBlipsRB_)
 import qualified Sound.MIDI.Util                  as U
 
 dryVoxAudio :: (Monad m) => F.Song (F.FixedFile U.Beats) -> AudioSource m Float
@@ -92,22 +93,26 @@ convertMIDI mid = fixUnisons mid
 fixFiveColors :: FiveTrack U.Beats -> FiveTrack U.Beats
 fixFiveColors trk = let
   expert = maybe RTB.empty fiveGems $ Map.lookup Expert $ fiveDifficulties trk
-  usedColors = Set.fromList $ map fst $ RTB.getBodies expert
+  usedColors = Set.fromList $ flip mapMaybe (RTB.getBodies expert) $ \case
+    EdgeOn _ color -> Just color
+    EdgeOff _      -> Nothing
   in trk
     { fiveDifficulties = flip Map.mapWithKey (fiveDifficulties trk) $ \diff fd -> case diff of
       Expert -> fd
       _      -> fd { fiveGems = useColorsFive usedColors $ fiveGems fd }
     }
 
-useColorsFive :: Set.Set Five.Color -> RTB.T U.Beats (Five.Color, Maybe U.Beats) -> RTB.T U.Beats (Five.Color, Maybe U.Beats)
+useColorsFive :: Set.Set Five.Color -> RTB.T U.Beats (Edge () Five.Color) -> RTB.T U.Beats (Edge () Five.Color)
 useColorsFive cols rtb = let
-  gtr = guitarify' rtb
-  present = Set.fromList $ map fst $ RTB.getBodies rtb
+  gtr = guitarify' $ edgeBlipsRB_ rtb
+  present = Set.fromList $ flip mapMaybe (RTB.getBodies rtb) $ \case
+    EdgeOn _ color -> Just color
+    EdgeOff _      -> Nothing
   missing = Set.difference cols present
   good = foldl (>>=) [gtr] $ map useColorFive $ Set.toDescList missing
   in if Set.null missing then rtb else case good of
     []    -> rtb
-    g : _ -> RTB.flatten $ fmap (\(colors, len) -> map (, len) colors) g
+    g : _ -> blipEdgesRB_ $ RTB.flatten $ fmap (\(colors, len) -> map (, len) colors) g
 
 focuses :: [a] -> [([a], a, [a])]
 focuses [] = []

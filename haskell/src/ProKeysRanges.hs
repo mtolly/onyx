@@ -39,7 +39,7 @@ completeFile fin fout = do
 completeRanges :: ProKeysTrack U.Beats -> ProKeysTrack U.Beats
 completeRanges trk = if RTB.null $ pkLanes trk
   then let
-    held = heldNotes $ U.trackJoin $ flip fmap (pkNotes trk)
+    held = heldNotes $ U.trackJoin $ flip fmap (edgeBlipsRB_ $ pkNotes trk)
       $ \(p, mlen) -> RTB.fromPairList
         [ (0                   , (True , p))
         , (fromMaybe (1/4) mlen, (False, p)) -- give all blips a 16th note of room
@@ -159,7 +159,9 @@ closeShifts :: U.Seconds -> ProKeysTrack U.Seconds -> RTB.T U.Seconds (LaneRange
 closeShifts threshold trk = let
   lanes = ATB.toPairList $ RTB.toAbsoluteEventList 0 $ pkLanes trk
   shifts = zip lanes $ drop 1 lanes
-  notes = fst <$> pkNotes trk
+  notes = flip RTB.mapMaybe (pkNotes trk) $ \case
+    EdgeOn () pitch -> Just pitch
+    EdgeOff _       -> Nothing
   closeNotes ((_, rng1), (t, rng2)) = do
     ((dt, p), _) <- RTB.viewL $ RTB.filter (not . keyInPreRange rng1) $ U.trackTake threshold $ U.trackDrop t notes
     return (t, (rng1, rng2, dt, p))

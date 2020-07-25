@@ -26,7 +26,7 @@ import           JSONData                         (toJSON, yamlEncodeFile)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProGuitar
-import           RockBand.Common                  (Difficulty (..))
+import           RockBand.Common                  (Difficulty (..), blipEdgesRB)
 import           Rocksmith.BNK                    (extractRSOgg)
 import           Rocksmith.Crypt
 import           Rocksmith.PSARC
@@ -211,7 +211,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                       $ sng_Chords sng !! fromIntegral chordID
                     guard $ fret >= 0
                     return pair
-                return (realToFrac $ notes_Time note, (str, (ntype, fret, len)))
+                return (realToFrac $ notes_Time note, (fret, (str, ntype), len))
             iterBoundaries = zip (sng_PhraseIterations sng)
               (fmap Just (drop 1 $ sng_PhraseIterations sng) <> [Nothing])
             getPhrase iter1 miter2 = let
@@ -225,8 +225,8 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                 $ ATB.fromPairList
                 $ sort
                 $ concatMap (uncurry getPhrase) iterBoundaries
-            diff = mapTrack (U.unapplyTempoTrack temps) mempty
-              { pgNotes = notes -- :: RTB.T t (GtrString, (NoteType, GtrFret, Maybe t))
+            diff = mempty
+              { pgNotes = blipEdgesRB $ U.unapplyTempoTrack temps notes
               }
             trk = mempty
               { pgDifficulties = Map.singleton Expert diff

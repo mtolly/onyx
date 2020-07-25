@@ -370,6 +370,11 @@ eachKey keys f = Codec
     return $ runTrackBuilder (codecOut $ f k) trk
   }
 
+translateEdges :: (Functor m) => TrackCodec m t (RTB.T t (k, Bool)) -> TrackCodec m t (RTB.T t (Edge () k))
+translateEdges = dimap
+  (fmap $ \case EdgeOn () k -> (k, True); EdgeOff k -> (k, False))
+  (fmap $ \(k, b) -> (if b then EdgeOn () else EdgeOff) k)
+
 condenseMap
   :: (Monad m, NNC.C t, Ord k, Ord a)
   => TrackCodec m t (Map.Map k (RTB.T t a))
@@ -422,13 +427,6 @@ class TraverseTrack trk where
 
 mapTrack :: (NNC.C t, NNC.C u, TraverseTrack trk) => (forall a. RTB.T t a -> RTB.T u a) -> trk t -> trk u
 mapTrack f = runIdentity . traverseTrack (Identity . f)
-
-traverseBlipSustain :: (NNC.C t, NNC.C u, Ord b, Applicative f) => (forall a. RTB.T t a -> f (RTB.T u a)) -> RTB.T t (b, Maybe t) -> f (RTB.T u (b, Maybe u))
-traverseBlipSustain f
-  = fmap (fmap (\((), a, mt) -> (a, mt)) . joinEdges)
-  . f
-  . splitEdges
-  . fmap (\(a, mt) -> ((), a, mt))
 
 reprPrefix :: (Show a) => T.Text -> a -> T.Text
 reprPrefix pre x = let

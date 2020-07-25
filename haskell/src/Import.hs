@@ -1136,7 +1136,7 @@ detectExtProBass trks = let
   strs = do
     trk <- [RBFile.fixedPartRealBass trks, RBFile.fixedPartRealBass22 trks]
     diff <- toList $ PG.pgDifficulties trk
-    (str, _) <- toList $ PG.pgNotes diff
+    (str, _) <- toList (PG.pgNotes diff) >>= toList
     return str
   in if elem PG.S1 strs
     then PG.GtrCustom [28, 33, 38, 43, 47, 52] -- bass with 2 high gtr strings

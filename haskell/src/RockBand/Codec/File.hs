@@ -630,15 +630,20 @@ wiiMustang22 (Song temps sigs ff) = let
     }
 
 -- | Unmutes protar notes with a velocity above 22.
-wiiUnmute22 :: Song (FixedFile t) -> Song (FixedFile t)
+wiiUnmute22 :: (NNC.C t) => Song (FixedFile t) -> Song (FixedFile t)
 wiiUnmute22 (Song temps sigs ff) = let
   unmuteTrack pg = pg
     { pgDifficulties = fmap unmuteDiff $ pgDifficulties pg
     }
   unmuteDiff diff = diff
-    { pgNotes = flip fmap (pgNotes diff) $ \case
-      (str, (Muted, fret, len)) | fret > 22 -> (str, (NormalNote, fret, len))
-      x                                     -> x
+    { pgNotes
+      = splitEdgesSimple
+      $ fmap (\case
+        (fret, (str, Muted), len) | fret > 22 -> (fret, (str, NormalNote), len)
+        x                                     -> x
+      )
+      $ joinEdgesSimple
+      $ pgNotes diff
     }
   in Song temps sigs ff
     { fixedPartRealGuitar   = unmuteTrack $ fixedPartRealGuitar   ff

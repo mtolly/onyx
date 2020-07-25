@@ -23,6 +23,7 @@ import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProKeys
 import           RockBand.Common                  (Edge (..), Key (..),
+                                                   blipEdgesRB_,
                                                    joinEdgesSimple)
 import qualified Sound.MIDI.File.Save             as Save
 import           System.FilePath                  ((</>))
@@ -82,7 +83,7 @@ importBMS bmsPath dout = do
                     $ \(key, _) -> (lookupKey key, Nothing)
                   long = flip fmap (joinLongNotes chipsLong)
                     $ \(key, _, len) -> (lookupKey key, Just len)
-                  in RTB.merge short long
+                  in blipEdgesRB_ $ RTB.merge short long
                 }
               }
         return (fpart, opart)
