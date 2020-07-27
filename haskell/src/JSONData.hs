@@ -34,7 +34,7 @@ type ObjectCodec m v a = Codec (ObjectParser m v) (ObjectBuilder v) a
 -- note, v will probably not be a Monoid! intended to just tell a single value
 type ValueCodec m v a = Codec (StackParser m v) (Writer v) a
 
-makeOut :: (a -> v) -> (a -> Writer v a)
+makeOut :: (Monad m) => (a -> v) -> (a -> WriterT v m a)
 makeOut f = fmapArg $ tell . f
 
 makeValue' :: ValueCodec m v a -> a -> v

@@ -32,6 +32,9 @@ import           Paths_onyxite_customs_lib      (version)
 import qualified Sound.MIDI.Util                as U
 import           Text.Read                      (readMaybe)
 import           Text.XML.Light
+import qualified Data.List.NonEmpty as NE
+import Data.List.NonEmpty (NonEmpty(..))
+import Data.String (IsString(..))
 
 data Inside = Inside
   { insideAttrs   :: V.Vector Attr
@@ -44,12 +47,56 @@ instance Semigroup Inside where
 instance Monoid Inside where
   mempty = Inside V.empty V.empty
 
+data Namespace = Namespace
+  { nsPrefix :: String
+  , nsURI    :: String
+  }
+
 type InsideParser m = StackTraceT (StateT Inside m)
-type InsideBuilder = Writer Inside
+type InsideBuilder = WriterT Inside (State (NE.NonEmpty [Namespace]))
 type InsideCodec m a = Codec (InsideParser m) InsideBuilder a
+
+type ValueCodec' m v a = Codec (StackParser m v) (WriterT v (State (NE.NonEmpty [Namespace]))) a
 
 class IsInside a where
   insideCodec :: (SendMessage m) => InsideCodec m a
+
+data ParseName = ParseName
+  { pURI  :: Maybe String
+  , pName :: String
+  }
+
+instance IsString ParseName where
+  fromString = ParseName Nothing
+
+inSpace :: String -> String -> ParseName
+inSpace = ParseName . Just
+
+getNamespace :: Maybe String -> String -> InsideBuilder String
+getNamespace defaultPrefix uri = do
+  existing <- lift get
+  case filter (\ns -> nsURI ns == uri) $ concat $ NE.toList existing of
+    ns : _ -> return $ nsPrefix ns
+    []     -> do
+      let prefix = case defaultPrefix of
+            Just p -> p -- TODO maybe check if it's being used already
+            Nothing -> let
+              depth        = NE.length existing
+              prefixNumber = length (NE.head existing) + 1
+              in "d" <> show depth <> "p" <> show prefixNumber
+          newNamespace = Namespace
+            { nsPrefix = prefix
+            , nsURI = uri
+            }
+      lift $ put $ case existing of
+        h :| t -> (newNamespace : h) :| t
+      tell Inside
+        { insideAttrs = V.singleton $ case prefix of
+          "" -> Attr (QName "xmlns" Nothing Nothing) uri
+          _  -> Attr (QName prefix Nothing $ Just "xmlns") uri
+        , insideContent = V.empty
+        }
+      return prefix
 
 matchTag :: T.Text -> Element -> Maybe (StackTraceT m a -> StackTraceT m a)
 matchTag t elt = do
@@ -67,17 +114,32 @@ makeTag t ins = Element
   , elLine = Nothing
   }
 
-isTag :: (Monad m) => T.Text -> ValueCodec m Inside a -> ValueCodec m Element a
+-- TODO this isn't quite right, should make namespace inside the new tag if needed
+-- makeTag' :: ParseName -> Inside -> InsideBuilder Element
+-- makeTag' pn ins = do
+--   prefix <- mapM (getNamespace Nothing) $ pURI pn
+--   return Element
+--     { elName = QName
+--       { qName = pName pn
+--       , qURI = pURI pn
+--       , qPrefix = prefix
+--       }
+--     , elAttribs = V.toList $ insideAttrs ins
+--     , elContent = V.toList $ insideContent ins
+--     , elLine = Nothing
+--     }
+
+isTag :: (Monad m) => T.Text -> ValueCodec' m Inside a -> ValueCodec' m Element a
 isTag t cdc = Codec
   { codecIn = do
     elt <- lift ask
     case matchTag t elt of
       Nothing -> fatal $ "Expected a tag <" <> T.unpack t <> "> but got: " <> show (elName elt)
       Just layer -> layer $ parseFrom (Inside (V.fromList $ elAttribs elt) (V.fromList $ elContent elt)) $ codecIn cdc
-  , codecOut = mapWriter (second $ makeTag t) . codecOut cdc
+  , codecOut = mapWriterT (fmap $ second $ makeTag t) . codecOut cdc
   }
 
-childTagOpt :: (Monad m) => T.Text -> ValueCodec m Inside a -> InsideCodec m (Maybe a)
+childTagOpt :: (Monad m) => T.Text -> ValueCodec' m Inside a -> InsideCodec m (Maybe a)
 childTagOpt t cdc = Codec
   { codecIn = do
     ins <- lift get
@@ -96,10 +158,14 @@ childTagOpt t cdc = Codec
         { insideAttrs = V.empty
         , insideContent = V.singleton $ Elem $ makeTag t ins
         }
-      in void $ mapWriter (second makeChild) $ codecOut cdc x
+      addNamespaceLayer act = do
+        s <- get
+        modify $ NE.cons []
+        act <* put s
+      in void $ mapWriterT (fmap (second makeChild) . addNamespaceLayer) $ codecOut cdc x
   }
 
-childTag :: (Monad m) => T.Text -> ValueCodec m Inside a -> InsideCodec m a
+childTag :: (Monad m) => T.Text -> ValueCodec' m Inside a -> InsideCodec m a
 childTag t cdc = let
   o = childTagOpt t cdc
   in Codec
@@ -109,7 +175,7 @@ childTag t cdc = let
     , codecOut = fmapArg $ void . codecOut o . Just
     }
 
-parseInside :: (Monad m) => InsideCodec m a -> ValueCodec m Inside a
+parseInside :: (Monad m) => InsideCodec m a -> ValueCodec' m Inside a
 parseInside cdc = Codec
   { codecIn = do
     ins <- lift ask
@@ -133,7 +199,7 @@ warnUnused cdc = cdc
       CRef _ -> warn "Found CRef"
   }
 
-parseInside' :: (SendMessage m) => InsideCodec m a -> ValueCodec m Inside a
+parseInside' :: (SendMessage m) => InsideCodec m a -> ValueCodec' m Inside a
 parseInside' = parseInside {- . warnUnused -}
 
 optAttr :: (Monad m) => T.Text -> InsideCodec m (Maybe T.Text)
@@ -180,7 +246,7 @@ childElements = Codec
     }
   }
 
-bareList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m (V.Vector a)
+bareList :: (SendMessage m) => ValueCodec' m Element a -> InsideCodec m (V.Vector a)
 bareList cdc = Codec
   { codecIn = do
     elts <- codecIn children
@@ -190,10 +256,10 @@ bareList cdc = Codec
             , ["list child #" <> show (i :: Int)]
             ]
       inside layer $ mapStackTraceT (lift . (`runReaderT` e)) $ codecIn cdc
-  , codecOut = fmapArg $ void . codecOut children . fmap (makeValue' cdc)
+  , codecOut = fmapArg $ void . fmap (codecOut children) . lift . traverse (execWriterT . codecOut cdc)
   } where children = childElements
 
-countList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m (V.Vector a)
+countList :: (SendMessage m) => ValueCodec' m Element a -> InsideCodec m (V.Vector a)
 countList cdc = Codec
   { codecIn = do
     mlen <- codecIn $ zoomValue (maybeValue intValue) $ optAttr "count"
@@ -235,13 +301,13 @@ childText = Codec
     }
   }
 
-zoomValue :: (Monad m) => ValueCodec m v a -> InsideCodec m v -> InsideCodec m a
+zoomValue :: (Monad m) => ValueCodec' m v a -> InsideCodec m v -> InsideCodec m a
 zoomValue z cdc = Codec
   { codecIn = codecIn cdc >>= \x -> mapStackTraceT (lift . (`runReaderT` x)) $ codecIn z
-  , codecOut = fmapArg $ void . codecOut cdc . execWriter . codecOut z
+  , codecOut = fmapArg $ void . fmap (codecOut cdc) . lift . execWriterT . codecOut z
   }
 
-intValue :: (Monad m, Integral a) => ValueCodec m T.Text a
+intValue :: (Monad m, Integral a) => ValueCodec' m T.Text a
 intValue = Codec
   { codecIn = lift ask >>= \str -> case readMaybe $ T.unpack str of
     Nothing -> fatal $ "Expected an integer, got: " <> show str
@@ -252,14 +318,14 @@ intValue = Codec
 intText :: (Monad m, Integral a) => InsideCodec m T.Text -> InsideCodec m a
 intText = zoomValue intValue
 
-maybeValue :: (Monad m) => ValueCodec m v a -> ValueCodec m (Maybe v) (Maybe a)
+maybeValue :: (Monad m) => ValueCodec' m v a -> ValueCodec' m (Maybe v) (Maybe a)
 maybeValue cdc = Codec
   { codecIn = lift ask >>= \case
     Nothing -> return Nothing
     Just v  -> fmap Just $ parseFrom v $ codecIn cdc
   , codecOut = fmapArg $ \case
     Nothing -> tell Nothing
-    Just a  -> void $ mapWriter (second Just) $ codecOut cdc a
+    Just a  -> void $ mapWriterT (fmap $ second Just) $ codecOut cdc a
   }
 
 maybeInside :: (Monad m) => InsideCodec m a -> InsideCodec m (Maybe a)
@@ -270,7 +336,7 @@ maybeInside cdc = Codec
   , codecOut = fmapArg $ maybe (return ()) (void . codecOut cdc)
   }
 
-boolValue :: (Monad m) => ValueCodec m T.Text Bool
+boolValue :: (Monad m) => ValueCodec' m T.Text Bool
 boolValue = Codec
   { codecIn = lift ask >>= \case
     "0" -> return False
@@ -282,7 +348,7 @@ boolValue = Codec
 boolText :: (Monad m) => InsideCodec m T.Text -> InsideCodec m Bool
 boolText = zoomValue boolValue
 
-milliValue :: (Monad m, RealFrac a) => ValueCodec m T.Text a
+milliValue :: (Monad m, RealFrac a) => ValueCodec' m T.Text a
 milliValue = Codec
   { codecIn = lift ask >>= \str -> case readMaybe $ T.unpack str of
     Nothing -> fatal $ "Expected a number to 3 decimal places, got: " <> show str
@@ -293,7 +359,7 @@ milliValue = Codec
 milliText :: (Monad m, RealFrac a) => InsideCodec m T.Text -> InsideCodec m a
 milliText = zoomValue milliValue
 
-secondsValue :: (Monad m) => ValueCodec m T.Text U.Seconds
+secondsValue :: (Monad m) => ValueCodec' m T.Text U.Seconds
 secondsValue = dimap U.fromSeconds U.Seconds milliValue
 
 seconds :: (Monad m) => InsideCodec m T.Text -> InsideCodec m U.Seconds
@@ -547,7 +613,7 @@ data HandShape = HandShape
 flag :: (Monad m) => T.Text -> InsideCodec m Bool
 flag s = zoomValue flagValue $ optAttr s
 
-flagValue :: (Monad m) => ValueCodec m (Maybe T.Text) Bool
+flagValue :: (Monad m) => ValueCodec' m (Maybe T.Text) Bool
 flagValue = dimap (\b -> guard b >> Just b) (fromMaybe False) $ maybeValue boolValue
 
 instance IsInside Note where
@@ -763,13 +829,54 @@ writePart :: (MonadIO m) => FilePath -> PartContents -> m ()
 writePart f pc = liftIO $ do
   let xml = case pc of
         PartArrangement arr -> let
-          output = execWriter $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Arrangement) arr
+          output = flip evalState (pure []) $ execWriterT
+            $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Arrangement) arr
           in makeTag "song" output
         PartVocals vocs -> let
-          output = execWriter $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Vocals) vocs
+          output = flip evalState (pure []) $ execWriterT
+            $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Vocals) vocs
           in makeTag "vocals" output
       -- this is a hack, could find better way to insert comment
       xmlLines = ppTopElement xml
       xmlLines' = case break (any isSpace . take 1) $ lines xmlLines of
         (before, after) -> before <> ["<!-- Onyx v" <> showVersion version <> " -->"] <> after
   B.writeFile f $ TE.encodeUtf8 $ T.pack $ unlines xmlLines'
+
+----------------------------
+
+cstSpaceW3, cstSpaceMain, cstSpaceArrProps, cstSpaceSng2014, cstSpaceAggGraph, cstSpaceTone, cstSpaceTone2014, cstSpaceArrays :: String
+cstSpaceW3 = "http://www.w3.org/2001/XMLSchema-instance"
+cstSpaceMain = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage"
+cstSpaceArrProps = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.XML"
+cstSpaceSng2014 = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.Sng2014HSL"
+cstSpaceAggGraph = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.AggregateGraph"
+cstSpaceTone = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest.Tone"
+cstSpaceTone2014 = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone"
+cstSpaceArrays = "http://schemas.microsoft.com/2003/10/Serialization/Arrays"
+
+data DLCPackageData = DLCPackageData
+  { dlc_AlbumArtPath :: T.Text
+  , dlc_AppId :: Int
+  , dlc_Arrangements :: () -- TODO
+  , dlc_ArtFiles :: () -- TODO
+  , dlc_DefaultShowlights :: Bool
+  , dlc_GameVersion :: T.Text
+  , dlc_Inlay :: () -- TODO  i:nil="true" />
+  , dlc_Mac :: Bool
+  , dlc_Name :: T.Text
+  , dlc_OggPath :: T.Text
+  , dlc_OggPreviewPath :: T.Text
+  , dlc_OggQuality :: Milli
+  , dlc_PS3 :: Bool
+  , dlc_Pc :: Bool
+  , dlc_PreviewVolume :: Milli
+  , dlc_SignatureType :: T.Text
+  , dlc_SongInfo :: () -- TODO >
+  , dlc_Tones :: () -- TODO  xmlns:d2p1="http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest.Tone" />
+  , dlc_TonesRS2014 :: () -- TODO  xmlns:d2p1="http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone">
+  , dlc_ToolkitInfo :: () -- TODO >
+  , dlc_Version :: T.Text
+  , dlc_Volume :: Milli
+  , dlc_XBox360 :: Bool
+  , dlc_XBox360Licenses :: () -- TODO  />
+  }
