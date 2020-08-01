@@ -14,6 +14,7 @@ import qualified Config
 import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first, second)
 import           Control.Exception                (evaluate)
+import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
 import           Control.Monad.Extra              (forM, forM_, guard, void)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.Resource     (MonadResource)
@@ -51,7 +52,6 @@ import qualified FretsOnFire                      as FoF
 import           Guitars                          (applyStatus)
 import           Image                            (DXTFormat (PNGXbox),
                                                    toDXT1File)
-import           JSONData                         (toJSON, yamlEncodeFile)
 import           Magma                            (getRBAFile)
 import qualified Numeric.NonNegative.Class        as NNC
 import           OSFiles                          (fixFileCase)

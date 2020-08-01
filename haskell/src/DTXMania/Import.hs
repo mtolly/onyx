@@ -7,6 +7,7 @@ module DTXMania.Import where
 
 import           Audio
 import           Config
+import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
 import           Control.Monad.Extra              (forM, guard, mapMaybeM,
                                                    unless, void, when)
 import           Control.Monad.IO.Class           (MonadIO)
@@ -26,7 +27,6 @@ import qualified Data.Text                        as T
 import           DTXMania.DTX
 import           DTXMania.Set
 import           Guitars                          (emit5')
-import           JSONData                         (toJSON, yamlEncodeFile)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.File              (FlexPartName (..))

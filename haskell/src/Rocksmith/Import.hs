@@ -7,6 +7,7 @@ import           Audio                            (Audio (..))
 import           Codec.Picture                    (writePng)
 import           Config
 import           Control.Monad                    (forM, guard)
+import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                       as A
@@ -24,7 +25,6 @@ import           Data.Maybe                       (catMaybes, listToMaybe,
                                                    mapMaybe)
 import qualified Data.Text                        as T
 import           Image                            (readDDS)
-import           JSONData                         (toJSON, yamlEncodeFile)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProGuitar
 import           RockBand.Common                  (Difficulty (..), blipEdgesRB)

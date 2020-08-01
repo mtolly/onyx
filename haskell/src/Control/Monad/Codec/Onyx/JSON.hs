@@ -1,53 +1,25 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE ViewPatterns      #-}
-module JSONData where
+module Control.Monad.Codec.Onyx.JSON where
 
-import           Control.Applicative            ((<|>))
 import qualified Control.Exception              as Exc
-import           Control.Monad                  (forM, unless, when)
+import           Control.Monad                  (forM, unless)
 import           Control.Monad.Codec
+import           Control.Monad.Codec.Onyx
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
-import           Control.Monad.Trans.Writer
 import qualified Data.Aeson                     as A
 import qualified Data.ByteString                as B
-import           Data.Functor.Identity          (Identity (..))
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as Set
-import           Data.Maybe                     (isJust)
 import           Data.Scientific
 import qualified Data.Text                      as T
 import qualified Data.Vector                    as V
 import qualified Data.Yaml                      as Y
-
-type StackParser m v = StackTraceT (ReaderT v m)
-
-type ObjectParser m v = StackParser (StateT (Set.HashSet T.Text) m) (HM.HashMap T.Text v)
-type ObjectBuilder v = Writer [(T.Text, v)]
-type ObjectCodec m v a = Codec (ObjectParser m v) (ObjectBuilder v) a
-
--- note, v will probably not be a Monoid! intended to just tell a single value
-type ValueCodec m v a = Codec (StackParser m v) (Writer v) a
-
-makeOut :: (Monad m) => (a -> v) -> (a -> WriterT v m a)
-makeOut f = fmapArg $ tell . f
-
-makeValue' :: ValueCodec m v a -> a -> v
-makeValue' cdc = execWriter . codecOut cdc
-
-makeValue :: ValueCodec (PureLog Identity) v a -> a -> v
-makeValue = makeValue'
-
-identityCodec :: (Monad m) => ValueCodec m a a
-identityCodec = Codec
-  { codecIn = lift ask
-  , codecOut = makeOut id
-  }
 
 type JSONCodec m a = ValueCodec m A.Value a
 
@@ -58,35 +30,6 @@ class StackJSON a where
 
   stackJSONList :: (SendMessage m) => JSONCodec m [a]
   stackJSONList = listCodec stackJSON
-
-expected :: (Monad m, Show v) => String -> StackParser m v a
-expected x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ show v
-
-enumCodec :: (Enum a, Bounded a, Eq v, Show v, Monad m) =>
-  String -> (a -> v) -> ValueCodec m v a
-enumCodec s f = enumCodecFull s $ is . f
-
-enumCodecFull :: (Enum a, Bounded a, Show v, Monad m) =>
-  String -> (a -> ValueCodec m v ()) -> ValueCodec m v a
-enumCodecFull s f = Codec
-  { codecOut = fmapArg $ \x -> codecOut (f x) ()
-  , codecIn = foldr (<|>) (expected s)
-    [ x <$ codecIn (f x) | x <- [minBound .. maxBound] ]
-  }
-
-(|?>) :: (Monad m) => ValueCodec m v () -> ValueCodec m v () -> ValueCodec m v ()
-x |?> y = Codec
-  { codecOut = codecOut x
-  , codecIn = codecIn x <|> codecIn y
-  }
-
-is :: (Eq v, Show v, Monad m) => v -> ValueCodec m v ()
-is x = Codec
-  { codecOut = makeOut $ \() -> x
-  , codecIn  = lift ask >>= \v -> if v == x
-    then return ()
-    else expected $ show x
-  }
 
 fuzzy :: (Monad m) => T.Text -> JSONCodec m ()
 fuzzy s = Codec
@@ -119,28 +62,6 @@ listCodec elt = Codec
     _ -> expected "array"
   }
 
-parseFrom :: (Monad m) => v1 -> StackParser m v1 a -> StackParser m v2 a
-parseFrom v = mapStackTraceT $ withReaderT $ const v
-
--- | Should be run as the last action in an object parser.
--- Raises an error if the object has a key that wasn't parsed.
-strictKeys :: (Monad m) => ObjectParser m v ()
-strictKeys = do
-  obj <- lift ask
-  known <- lift $ lift get
-  let unknown = Set.fromList (HM.keys obj) `Set.difference` known
-  unless (Set.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (Set.toList unknown)
-
-warnKeys :: (SendMessage m) => ObjectParser m v ()
-warnKeys = do
-  obj <- lift ask
-  known <- lift $ lift get
-  let unknown = Set.fromList (HM.keys obj) `Set.difference` known
-  unless (Set.null unknown) $ warn $ "Unrecognized object keys: " ++ show (Set.toList unknown)
-
-makeObject :: (Monad m) => ObjectCodec m v a -> a -> [(T.Text, v)]
-makeObject codec x = execWriter $ codecOut codec x
-
 asObject :: (Monad m) => T.Text -> ObjectCodec m A.Value a -> JSONCodec m a
 asObject err codec = Codec
   { codecIn = inside ("parsing " ++ T.unpack err) $ lift ask >>= \case
@@ -150,12 +71,6 @@ asObject err codec = Codec
     _ -> expected "object"
   , codecOut = makeOut $ A.Object . HM.fromList . makeObject codec
   }
-
-objectId :: ObjectCodec (PureLog Identity) v a -> ObjectCodec (PureLog Identity) v a
-objectId = id
-
-valueId :: ValueCodec (PureLog Identity) v a -> ValueCodec (PureLog Identity) v a
-valueId = id
 
 asStrictObject :: (Monad m) => T.Text -> ObjectCodec m A.Value a -> JSONCodec m a
 asStrictObject err codec = asObject err Codec
@@ -167,40 +82,6 @@ object :: (Monad m) => StackParser m (HM.HashMap T.Text A.Value) a -> StackParse
 object p = lift ask >>= \case
   A.Object o -> parseFrom o p
   _          -> expected "an object"
-
-objectKey :: (SendMessage m, Show v) => Maybe (a, a -> Bool) -> Bool -> Bool -> T.Text -> ValueCodec m v a -> ObjectCodec m v a
-objectKey dflt shouldWarn shouldFill key valCodec = Codec
-  { codecIn = do
-    obj <- lift ask
-    case HM.lookup key obj of
-      Nothing -> case dflt of
-        Nothing     -> expected $ "to find required key " ++ show key ++ " in object"
-        Just (x, _) -> do
-          when shouldWarn $ warn $ "missing key " ++ show key
-          return x
-      Just v  -> let
-        keyLayer = (if isJust dflt then "optional" else "required") <> " key " <> show key
-        in inside keyLayer $ do
-          lift $ lift $ modify $ Set.insert key
-          let f = withReaderT (const v) . mapReaderT lift
-          mapStackTraceT f $ codecIn valCodec
-  , codecOut = fmapArg $ \val -> tell
-    [ (key, makeValue' valCodec val)
-    | shouldFill || case dflt of
-      Just (_, fn) -> not $ fn val
-      _            -> True
-    ]
-  }
-
--- TODO req/fill/opt shouldn't need SendMessage constraint
-
-req :: (SendMessage m, Show v) => T.Text -> ValueCodec m v a -> ObjectCodec m v a
-req = objectKey Nothing False False
-
-warning, fill, opt :: (SendMessage m, Show v, Eq a) => a -> T.Text -> ValueCodec m v a -> ObjectCodec m v a
-warning x = objectKey (Just (x, (== x))) True  True
-fill    x = objectKey (Just (x, (== x))) False True
-opt     x = objectKey (Just (x, (== x))) False False
 
 -- TODO cleanup
 requiredKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (HM.HashMap T.Text A.Value) a
@@ -236,12 +117,6 @@ instance (StackJSON a) => StackJSON [a] where
 
 instance StackJSON Char where
   stackJSONList = aesonCodec
-
-eitherCodec :: (Monad m) => ValueCodec m v a -> ValueCodec m v b -> ValueCodec m v (Either a b)
-eitherCodec ca cb = Codec
-  { codecOut  = makeOut $ either (makeValue' ca) (makeValue' cb)
-  , codecIn = fmap Left (codecIn ca) <|> fmap Right (codecIn cb)
-  }
 
 instance (StackJSON a, StackJSON b) => StackJSON (Either a b) where
   stackJSON = eitherCodec stackJSON stackJSON

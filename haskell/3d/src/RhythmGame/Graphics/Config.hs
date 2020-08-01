@@ -4,10 +4,11 @@
 module RhythmGame.Graphics.Config where
 
 import           Control.Monad.Codec
+import           Control.Monad.Codec.Onyx
+import           Control.Monad.Codec.Onyx.JSON
 import           Control.Monad.Trans.StackTrace (SendMessage)
 import           Data.Char                      (toUpper)
 import           Data.List                      (elemIndex)
-import           JSONData
 import           Linear                         (V3 (..), V4 (..))
 
 type Color = V4 Float

@@ -5,14 +5,14 @@ module Data.DTA.Serialize.RB3 where
 
 import           Control.Applicative            ((<|>))
 import           Control.Monad.Codec            (CodecFor (..), (=.))
+import           Control.Monad.Codec.Onyx       (eitherCodec, enumCodec,
+                                                 expected, fill, opt, req)
 import           Control.Monad.Trans.StackTrace (SendMessage)
 import           Data.DTA
 import           Data.DTA.Serialize
 import           Data.DTA.Serialize.Magma       (Gender (..))
 import qualified Data.HashMap.Strict            as Map
 import qualified Data.Text                      as T
-import           JSONData                       (eitherCodec, enumCodec,
-                                                 expected, fill, opt, req)
 import           RockBand.Common                (Key (..), Tonality (..))
 
 chunkTonicNote :: (SendMessage m) => ChunkCodec m Key

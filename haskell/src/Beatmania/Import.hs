@@ -7,6 +7,7 @@ import           Audio
 import           Beatmania.BMS
 import           Config
 import           Control.Monad                    (guard)
+import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Conduit.Audio               as CA
@@ -17,7 +18,6 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes)
 import qualified Data.Text                        as T
 import           DTXMania.DTX
-import           JSONData                         (toJSON, yamlEncodeFile)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile

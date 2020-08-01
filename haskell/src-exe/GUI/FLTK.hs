@@ -97,7 +97,7 @@ import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Graphics.UI.FLTK.LowLevel.GlWindow        ()
 import           Graphics.UI.FLTK.LowLevel.X               (openCallback)
 import           Image                                     (readRBImageMaybe)
-import           JSONData                                  (toJSON,
+import           Control.Monad.Codec.Onyx.JSON                                  (toJSON,
                                                             yamlEncodeFile)
 import           MoggDecrypt                               (oggToMogg)
 import           Network.HTTP.Req                          ((/:))

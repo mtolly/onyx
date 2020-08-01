@@ -9,6 +9,8 @@
 module SpinRhythm where
 
 import           Control.Monad.Codec
+import           Control.Monad.Codec.Onyx
+import           Control.Monad.Codec.Onyx.JSON
 import qualified Data.Aeson                       as A
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -17,7 +19,6 @@ import qualified Data.Text                        as T
 import qualified Data.Vector                      as V
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
-import           JSONData
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Codec.Drums             (Hand (..))
