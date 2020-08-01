@@ -35,6 +35,7 @@ import           Text.XML.Light
 import qualified Data.List.NonEmpty as NE
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.String (IsString(..))
+import Data.Tuple (swap)
 
 data Inside = Inside
   { insideAttrs   :: V.Vector Attr
@@ -64,7 +65,7 @@ class IsInside a where
 data ParseName = ParseName
   { pURI  :: Maybe String
   , pName :: String
-  }
+  } deriving (Eq, Show)
 
 instance IsString ParseName where
   fromString = ParseName Nothing
@@ -98,48 +99,59 @@ getNamespace defaultPrefix uri = do
         }
       return prefix
 
-matchTag :: T.Text -> Element -> Maybe (StackTraceT m a -> StackTraceT m a)
-matchTag t elt = do
-  guard $ elName elt == QName (T.unpack t) Nothing Nothing
-  return $ inside $ unwords $ concat
-    [ toList (elLine elt) >>= \ln -> ["line", show ln]
-    , ["tag <" <> T.unpack t <> ">"]
-    ]
-
-makeTag :: T.Text -> Inside -> Element
-makeTag t ins = Element
-  { elName = QName (T.unpack t) Nothing Nothing
-  , elAttribs = V.toList $ insideAttrs ins
-  , elContent = V.toList $ insideContent ins
-  , elLine = Nothing
+useNamespace :: (Monad m) => Maybe String -> String -> CodecFor m InsideBuilder c ()
+useNamespace dp uri = Codec
+  { codecIn = return ()
+  , codecOut = \_ -> void $ getNamespace dp uri
   }
 
--- TODO this isn't quite right, should make namespace inside the new tag if needed
--- makeTag' :: ParseName -> Inside -> InsideBuilder Element
--- makeTag' pn ins = do
---   prefix <- mapM (getNamespace Nothing) $ pURI pn
---   return Element
---     { elName = QName
---       { qName = pName pn
---       , qURI = pURI pn
---       , qPrefix = prefix
---       }
---     , elAttribs = V.toList $ insideAttrs ins
---     , elContent = V.toList $ insideContent ins
---     , elLine = Nothing
---     }
+matchTag :: ParseName -> Element -> Maybe (StackTraceT m a -> StackTraceT m a)
+matchTag pn elt = do
+  guard $ qURI (elName elt) == pURI pn
+    && qName (elName elt) == pName pn
+  return $ inside $ unwords $ concat
+    [ toList (elLine elt) >>= \ln -> ["line", show ln]
+    , ["tag " <> show pn]
+    ]
 
-isTag :: (Monad m) => T.Text -> ValueCodec' m Inside a -> ValueCodec' m Element a
+makeDoc :: ParseName -> InsideBuilder () -> Element
+makeDoc = makeTag []
+
+makeTag :: [[Namespace]] -> ParseName -> InsideBuilder () -> Element
+makeTag namespaces pn inner = let
+  (prefix, result) = flip evalState ([] :| namespaces) $ runWriterT $ do
+    p <- mapM (getNamespace Nothing) $ pURI pn
+    inner
+    return p
+  in Element
+    { elName = QName
+      { qName = pName pn
+      , qURI = pURI pn
+      , qPrefix = case prefix of
+        Just "" -> Nothing
+        _       -> prefix
+      }
+    , elAttribs = V.toList $ insideAttrs result
+    , elContent = V.toList $ insideContent result
+    , elLine = Nothing
+    }
+
+makeTag' :: (Monoid w) => ParseName -> InsideBuilder () -> WriterT w (State (NE.NonEmpty [Namespace])) Element
+makeTag' pn inner = do
+  namespaces <- lift get
+  return $ makeTag (NE.toList namespaces) pn inner
+
+isTag :: (Monad m) => ParseName -> ValueCodec' m Inside a -> ValueCodec' m Element a
 isTag t cdc = Codec
   { codecIn = do
     elt <- lift ask
     case matchTag t elt of
-      Nothing -> fatal $ "Expected a tag <" <> T.unpack t <> "> but got: " <> show (elName elt)
+      Nothing -> fatal $ "Expected a tag " <> show t <> " but got: " <> show (elName elt)
       Just layer -> layer $ parseFrom (Inside (V.fromList $ elAttribs elt) (V.fromList $ elContent elt)) $ codecIn cdc
-  , codecOut = mapWriterT (fmap $ second $ makeTag t) . codecOut cdc
+  , codecOut = fmapArg $ mapWriterT (fmap swap) . makeTag' t . void . codecOut cdc
   }
 
-childTagOpt :: (Monad m) => T.Text -> ValueCodec' m Inside a -> InsideCodec m (Maybe a)
+childTagOpt :: (Monad m) => ParseName -> ValueCodec' m Inside a -> InsideCodec m (Maybe a)
 childTagOpt t cdc = Codec
   { codecIn = do
     ins <- lift get
@@ -153,25 +165,21 @@ childTagOpt t cdc = Codec
       _ -> return Nothing
   , codecOut = fmapArg $ \case
     Nothing -> return ()
-    Just x -> let
-      makeChild ins = Inside
+    Just x -> do
+      elt <- makeTag' t $ void $ codecOut cdc x
+      tell Inside
         { insideAttrs = V.empty
-        , insideContent = V.singleton $ Elem $ makeTag t ins
+        , insideContent = V.singleton $ Elem elt
         }
-      addNamespaceLayer act = do
-        s <- get
-        modify $ NE.cons []
-        act <* put s
-      in void $ mapWriterT (fmap (second makeChild) . addNamespaceLayer) $ codecOut cdc x
   }
 
-childTag :: (Monad m) => T.Text -> ValueCodec' m Inside a -> InsideCodec m a
+childTag :: (Monad m) => ParseName -> ValueCodec' m Inside a -> InsideCodec m a
 childTag t cdc = let
   o = childTagOpt t cdc
   in Codec
     { codecIn = codecIn o >>= \case
       Just x  -> return x
-      Nothing -> fatal $ "Missing required child tag <" <> T.unpack t <> ">"
+      Nothing -> fatal $ "Missing required child tag " <> show t
     , codecOut = fmapArg $ void . codecOut o . Just
     }
 
@@ -397,12 +405,14 @@ data Arrangement = Arrangement
   , arr_levels                 :: V.Vector Level
   } deriving (Eq, Show)
 
-plural' :: (SendMessage m, IsInside a) => T.Text -> T.Text -> InsideCodec m (V.Vector a)
+plural' :: (SendMessage m, IsInside a) => ParseName -> ParseName -> InsideCodec m (V.Vector a)
 plural' many one = dimap (\xs -> guard (not $ null xs) >> Just xs) (fromMaybe V.empty)
   $ childTagOpt many $ parseInside' $ countList $ isTag one $ parseInside' insideCodec
 
-plural :: (SendMessage m, IsInside a) => T.Text -> InsideCodec m (V.Vector a)
-plural one = plural' (one <> "s") one
+plural :: (SendMessage m, IsInside a) => ParseName -> InsideCodec m (V.Vector a)
+plural one = let
+  many = one { pName = pName one <> "s" }
+  in plural' many one
 
 instance IsInside Arrangement where
   insideCodec = do
@@ -828,14 +838,8 @@ parseFile f = inside ("Loading: " <> f) $ do
 writePart :: (MonadIO m) => FilePath -> PartContents -> m ()
 writePart f pc = liftIO $ do
   let xml = case pc of
-        PartArrangement arr -> let
-          output = flip evalState (pure []) $ execWriterT
-            $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Arrangement) arr
-          in makeTag "song" output
-        PartVocals vocs -> let
-          output = flip evalState (pure []) $ execWriterT
-            $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Vocals) vocs
-          in makeTag "vocals" output
+        PartArrangement arr -> makeDoc "song" $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Arrangement) arr
+        PartVocals vocs -> makeDoc "vocals" $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Vocals) vocs
       -- this is a hack, could find better way to insert comment
       xmlLines = ppTopElement xml
       xmlLines' = case break (any isSpace . take 1) $ lines xmlLines of
@@ -853,6 +857,18 @@ cstSpaceAggGraph = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.
 cstSpaceTone = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest.Tone"
 cstSpaceTone2014 = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone"
 cstSpaceArrays = "http://schemas.microsoft.com/2003/10/Serialization/Arrays"
+
+boolWordValue :: (Monad m) => ValueCodec' m T.Text Bool
+boolWordValue = Codec
+  { codecIn = lift ask >>= \case
+    "false" -> return False
+    "true"  -> return True
+    str     -> fatal $ "Expected true or false, got " <> show str
+  , codecOut = fmapArg $ tell . \b -> if b then "true" else "false"
+  }
+
+boolWordText :: (Monad m) => InsideCodec m T.Text -> InsideCodec m Bool
+boolWordText = zoomValue boolWordValue
 
 data DLCPackageData = DLCPackageData
   { dlc_AlbumArtPath :: T.Text
@@ -879,4 +895,47 @@ data DLCPackageData = DLCPackageData
   , dlc_Volume :: Milli
   , dlc_XBox360 :: Bool
   , dlc_XBox360Licenses :: () -- TODO  />
-  }
+  } deriving (Eq, Show)
+
+instance IsInside DLCPackageData where
+  insideCodec = do
+    useNamespace (Just "i") cstSpaceW3
+    useNamespace (Just "") cstSpaceMain
+    dlc_AlbumArtPath      <- dlc_AlbumArtPath      =. childTag (inSpace cstSpaceMain "AlbumArtPath"     ) (parseInside' childText)
+    dlc_AppId             <- dlc_AppId             =. childTag (inSpace cstSpaceMain "AppId"            ) (parseInside' $ intText childText)
+    dlc_DefaultShowlights <- dlc_DefaultShowlights =. childTag (inSpace cstSpaceMain "DefaultShowlights") (parseInside' $ boolWordText childText)
+    dlc_GameVersion       <- dlc_GameVersion       =. childTag (inSpace cstSpaceMain "GameVersion"      ) (parseInside' childText)
+    dlc_Mac               <- dlc_Mac               =. childTag (inSpace cstSpaceMain "Mac"              ) (parseInside' $ boolWordText childText)
+    dlc_Name              <- dlc_Name              =. childTag (inSpace cstSpaceMain "Name"             ) (parseInside' childText)
+    dlc_OggPath           <- dlc_OggPath           =. childTag (inSpace cstSpaceMain "OggPath"          ) (parseInside' childText)
+    dlc_OggPreviewPath    <- dlc_OggPreviewPath    =. childTag (inSpace cstSpaceMain "OggPreviewPath"   ) (parseInside' childText)
+    dlc_PS3               <- dlc_PS3               =. childTag (inSpace cstSpaceMain "PS3"              ) (parseInside' $ boolWordText childText)
+    dlc_Pc                <- dlc_Pc                =. childTag (inSpace cstSpaceMain "Pc"               ) (parseInside' $ boolWordText childText)
+    dlc_Version           <- dlc_Version           =. childTag (inSpace cstSpaceMain "Version"          ) (parseInside' childText)
+    dlc_XBox360           <- dlc_XBox360           =. childTag (inSpace cstSpaceMain "XBox360"          ) (parseInside' $ boolWordText childText)
+    let dlc_Arrangements = ()
+        dlc_ArtFiles = ()
+        dlc_Inlay = ()
+        dlc_OggQuality = 0
+        dlc_PreviewVolume = 0
+        dlc_SignatureType = ""
+        dlc_SongInfo = ()
+        dlc_Tones = ()
+        dlc_TonesRS2014 = ()
+        dlc_ToolkitInfo = ()
+        dlc_Volume = 0
+        dlc_XBox360Licenses = ()
+    return DLCPackageData{..}
+
+parseProject :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m DLCPackageData
+parseProject f = inside ("Loading: " <> f) $ do
+  stackIO (T.readFile f) >>= \t -> case parseXMLDoc t of
+    Nothing  -> fatal "Couldn't parse XML"
+    Just elt -> mapStackTraceT (`runReaderT` elt)
+      $ codecIn $ isTag (inSpace cstSpaceMain "DLCPackageData") $ parseInside' insideCodec
+
+writeProject :: (MonadIO m) => FilePath -> DLCPackageData -> m ()
+writeProject f proj = liftIO $ do
+  let xml = makeDoc (inSpace cstSpaceMain "DLCPackageData")
+        $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) DLCPackageData) proj
+  B.writeFile f $ TE.encodeUtf8 $ T.pack $ ppTopElement xml
