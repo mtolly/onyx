@@ -17,6 +17,8 @@ import qualified Amplitude.File                 as Amp
 import           Audio
 import           Control.Arrow                  (first)
 import           Control.Monad.Codec            (CodecFor (..), (=.))
+import           Control.Monad.Codec.Onyx
+import           Control.Monad.Codec.Onyx.JSON
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
@@ -38,7 +40,6 @@ import qualified Data.Text                      as T
 import           Data.Traversable
 import qualified Data.Vector                    as V
 import           GHC.Generics                   (Generic (..))
-import           JSONData
 import           RockBand.Codec.File            (FlexPartName (..), getPartName,
                                                  readPartName)
 import           RockBand.Codec.ProGuitar       (GtrBase (..), GtrTuning (..))

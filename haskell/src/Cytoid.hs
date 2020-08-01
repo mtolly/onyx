@@ -4,12 +4,13 @@
 module Cytoid where
 
 import           Control.Monad.Codec
-import qualified Data.Aeson          as A
-import           Data.Profunctor     (dimap)
-import           Data.Scientific     (Scientific)
-import qualified Data.Text           as T
-import           JSONData
-import qualified Sound.MIDI.Util     as U
+import           Control.Monad.Codec.Onyx
+import           Control.Monad.Codec.Onyx.JSON
+import qualified Data.Aeson                    as A
+import           Data.Profunctor               (dimap)
+import           Data.Scientific               (Scientific)
+import qualified Data.Text                     as T
+import qualified Sound.MIDI.Util               as U
 
 -- | Contents of level.json
 data CytoidLevel = CytoidLevel

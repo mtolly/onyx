@@ -2,13 +2,13 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Data.DTA.Serialize.GH1 where
 
-import           Control.Monad.Codec    ((=.))
+import           Control.Monad.Codec      ((=.))
+import           Control.Monad.Codec.Onyx (enumCodec, opt, req)
 import           Data.DTA
 import           Data.DTA.Serialize
-import           Data.DTA.Serialize.RB3 (AnimTempo)
-import qualified Data.Text              as T
-import           JSONData               (enumCodec, opt, req)
-import           RockBand.Codec         (reprPrefix)
+import           Data.DTA.Serialize.RB3   (AnimTempo)
+import qualified Data.Text                as T
+import           RockBand.Codec           (reprPrefix)
 
 data Song = Song
   { songName    :: T.Text

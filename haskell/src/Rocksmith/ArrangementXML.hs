@@ -1,306 +1,25 @@
-{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE StrictData        #-}
-{-# LANGUAGE ViewPatterns      #-}
 module Rocksmith.ArrangementXML where
 
-import           Control.Arrow                  (second)
-import           Control.Monad                  (forM, forM_, guard, unless,
-                                                 void, when)
+import           Control.Monad                  (void)
 import           Control.Monad.Codec
+import           Control.Monad.Codec.Onyx.XML
 import           Control.Monad.IO.Class         (MonadIO (..))
-import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.State
-import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                as B
 import           Data.Char                      (isSpace)
 import           Data.Fixed                     (Milli)
-import           Data.Foldable                  (toList)
 import           Data.Functor.Identity          (Identity)
-import           Data.Maybe                     (fromMaybe, isJust, isNothing)
-import           Data.Profunctor                (dimap)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import qualified Data.Text.IO                   as T
 import qualified Data.Vector                    as V
 import           Data.Version                   (showVersion)
-import           JSONData
 import           Paths_onyxite_customs_lib      (version)
 import qualified Sound.MIDI.Util                as U
-import           Text.Read                      (readMaybe)
 import           Text.XML.Light
-
-data Inside = Inside
-  { insideAttrs   :: V.Vector Attr
-  , insideContent :: V.Vector Content
-  }
-
-instance Semigroup Inside where
-  Inside a b <> Inside c d = Inside (a <> c) (b <> d)
-
-instance Monoid Inside where
-  mempty = Inside V.empty V.empty
-
-type InsideParser m = StackTraceT (StateT Inside m)
-type InsideBuilder = Writer Inside
-type InsideCodec m a = Codec (InsideParser m) InsideBuilder a
-
-class IsInside a where
-  insideCodec :: (SendMessage m) => InsideCodec m a
-
-matchTag :: T.Text -> Element -> Maybe (StackTraceT m a -> StackTraceT m a)
-matchTag t elt = do
-  guard $ elName elt == QName (T.unpack t) Nothing Nothing
-  return $ inside $ unwords $ concat
-    [ toList (elLine elt) >>= \ln -> ["line", show ln]
-    , ["tag <" <> T.unpack t <> ">"]
-    ]
-
-makeTag :: T.Text -> Inside -> Element
-makeTag t ins = Element
-  { elName = QName (T.unpack t) Nothing Nothing
-  , elAttribs = V.toList $ insideAttrs ins
-  , elContent = V.toList $ insideContent ins
-  , elLine = Nothing
-  }
-
-isTag :: (Monad m) => T.Text -> ValueCodec m Inside a -> ValueCodec m Element a
-isTag t cdc = Codec
-  { codecIn = do
-    elt <- lift ask
-    case matchTag t elt of
-      Nothing -> fatal $ "Expected a tag <" <> T.unpack t <> "> but got: " <> show (elName elt)
-      Just layer -> layer $ parseFrom (Inside (V.fromList $ elAttribs elt) (V.fromList $ elContent elt)) $ codecIn cdc
-  , codecOut = mapWriter (second $ makeTag t) . codecOut cdc
-  }
-
-childTagOpt :: (Monad m) => T.Text -> ValueCodec m Inside a -> InsideCodec m (Maybe a)
-childTagOpt t cdc = Codec
-  { codecIn = do
-    ins <- lift get
-    let isElement = \case Elem e -> Just e; _ -> Nothing
-    case V.break (isJust . snd) $ fmap (\x -> (x, isElement x >>= matchTag t)) $ insideContent ins of
-      (before, V.toList -> (Elem elt, Just layer) : after) -> do
-        let ins' = Inside (V.fromList $ elAttribs elt) (V.fromList $ elContent elt)
-        x <- layer $ mapStackTraceT (lift . (`runReaderT` ins')) $ codecIn cdc
-        lift $ put $ ins { insideContent = fmap fst $ before <> V.fromList after }
-        return $ Just x
-      _ -> return Nothing
-  , codecOut = fmapArg $ \case
-    Nothing -> return ()
-    Just x -> let
-      makeChild ins = Inside
-        { insideAttrs = V.empty
-        , insideContent = V.singleton $ Elem $ makeTag t ins
-        }
-      in void $ mapWriter (second makeChild) $ codecOut cdc x
-  }
-
-childTag :: (Monad m) => T.Text -> ValueCodec m Inside a -> InsideCodec m a
-childTag t cdc = let
-  o = childTagOpt t cdc
-  in Codec
-    { codecIn = codecIn o >>= \case
-      Just x  -> return x
-      Nothing -> fatal $ "Missing required child tag <" <> T.unpack t <> ">"
-    , codecOut = fmapArg $ void . codecOut o . Just
-    }
-
-parseInside :: (Monad m) => InsideCodec m a -> ValueCodec m Inside a
-parseInside cdc = Codec
-  { codecIn = do
-    ins <- lift ask
-    mapStackTraceT (lift . (`evalStateT` ins)) $ codecIn cdc
-  , codecOut = codecOut cdc
-  }
-
-warnUnused :: (SendMessage m) => InsideCodec m a -> InsideCodec m a
-warnUnused cdc = cdc
-  { codecIn = codecIn cdc <* do
-    ins <- lift get
-    forM_ (insideAttrs ins) $ \attr -> warn $ "Unused attribute " <> show (qName $ attrKey attr)
-    forM_ (insideContent ins) $ \case
-      Elem elt -> warn $ unwords $ concat
-        [ ["Unused element <" <> qName (elName elt) <> ">"]
-        , toList (elLine elt) >>= \ln -> ["at line", show ln]
-        ]
-      Text cd -> maybe id (inside . ("line " <>) . show) (cdLine cd) $ do
-        unless (all isSpace $ cdData cd)
-          $ warn $ "Found text: " <> show (cdData cd)
-      CRef _ -> warn "Found CRef"
-  }
-
-parseInside' :: (SendMessage m) => InsideCodec m a -> ValueCodec m Inside a
-parseInside' = parseInside {- . warnUnused -}
-
-optAttr :: (Monad m) => T.Text -> InsideCodec m (Maybe T.Text)
-optAttr a = Codec
-  { codecIn = do
-    ins <- lift get
-    case V.break (\attr -> attrKey attr == QName (T.unpack a) Nothing Nothing) $ insideAttrs ins of
-      (before, V.toList -> attr : after) -> do
-        lift $ put $ ins { insideAttrs = before <> V.fromList after }
-        return $ Just $ T.pack $ attrVal attr
-      _ -> return Nothing
-  , codecOut = makeOut $ \case
-    Nothing -> mempty
-    Just x -> Inside
-      { insideAttrs = V.singleton $ Attr (QName (T.unpack a) Nothing Nothing) (T.unpack x)
-      , insideContent = V.empty
-      }
-  }
-
-reqAttr :: (Monad m) => T.Text -> InsideCodec m T.Text
-reqAttr a = Codec
-  { codecIn = codecIn o >>= \case
-    Just x  -> return x
-    Nothing -> fatal $ "Missing required attribute " <> show a
-  , codecOut = fmapArg $ void . codecOut o . Just
-  } where o = optAttr a
-
-childElements :: (SendMessage m) => InsideCodec m (V.Vector Element)
-childElements = Codec
-  { codecIn = do
-    ins <- lift get
-    elts <- fmap (V.mapMaybe id) $ forM (insideContent ins) $ \case
-      Elem elt -> return $ Just elt
-      Text cd -> do
-        unless (all isSpace $ cdData cd) $ do
-          warn $ "Unexpected text in list element: " ++ show (cdData cd)
-        return Nothing
-      CRef _ -> warn "Unexpected CRef" >> return Nothing
-    lift $ put ins{ insideContent = V.empty }
-    return elts
-  , codecOut = makeOut $ \elts -> Inside
-    { insideAttrs   = V.empty
-    , insideContent = fmap Elem elts
-    }
-  }
-
-bareList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m (V.Vector a)
-bareList cdc = Codec
-  { codecIn = do
-    elts <- codecIn children
-    forM (V.fromList $ zip [0..] $ V.toList elts) $ \(i, e) -> do
-      let layer = unwords $ concat
-            [ toList (elLine e) >>= \ln -> ["line", show ln]
-            , ["list child #" <> show (i :: Int)]
-            ]
-      inside layer $ mapStackTraceT (lift . (`runReaderT` e)) $ codecIn cdc
-  , codecOut = fmapArg $ void . codecOut children . fmap (makeValue' cdc)
-  } where children = childElements
-
-countList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m (V.Vector a)
-countList cdc = Codec
-  { codecIn = do
-    mlen <- codecIn $ zoomValue (maybeValue intValue) $ optAttr "count"
-    xs <- codecIn bare
-    forM_ mlen $ \len -> when (length xs /= len) $ warn $ unwords
-      [ "List has count attribute of"
-      , show len
-      , "but contains"
-      , show $ length xs
-      , "children"
-      ]
-    return xs
-  , codecOut = fmapArg $ \xs -> do
-    tell Inside
-      { insideAttrs = V.singleton $ Attr (QName "count" Nothing Nothing) (show $ length xs)
-      , insideContent = V.empty
-      }
-    void $ codecOut bare xs
-  } where bare = bareList cdc
-
-childText :: (Monad m) => InsideCodec m T.Text
-childText = Codec
-  { codecIn = do
-    ins <- lift get
-    let getText = \case Text cd -> Just cd; _ -> Nothing
-    lift $ put $ ins { insideContent = V.filter (isNothing . getText) $ insideContent ins }
-    return
-      $ T.unwords
-      $ V.toList
-      $ V.filter (not . T.null)
-      $ fmap (T.strip . T.pack . cdData)
-      $ V.mapMaybe getText
-      $ insideContent ins
-  , codecOut = makeOut $ \t -> Inside
-    { insideAttrs = V.empty
-    , insideContent = do
-      guard $ not $ T.null t
-      V.singleton $ Text $ CData CDataText (T.unpack t) Nothing
-    }
-  }
-
-zoomValue :: (Monad m) => ValueCodec m v a -> InsideCodec m v -> InsideCodec m a
-zoomValue z cdc = Codec
-  { codecIn = codecIn cdc >>= \x -> mapStackTraceT (lift . (`runReaderT` x)) $ codecIn z
-  , codecOut = fmapArg $ void . codecOut cdc . execWriter . codecOut z
-  }
-
-intValue :: (Monad m, Integral a) => ValueCodec m T.Text a
-intValue = Codec
-  { codecIn = lift ask >>= \str -> case readMaybe $ T.unpack str of
-    Nothing -> fatal $ "Expected an integer, got: " <> show str
-    Just i  -> return $ fromInteger i
-  , codecOut = fmapArg $ tell . T.pack . show . toInteger
-  }
-
-intText :: (Monad m, Integral a) => InsideCodec m T.Text -> InsideCodec m a
-intText = zoomValue intValue
-
-maybeValue :: (Monad m) => ValueCodec m v a -> ValueCodec m (Maybe v) (Maybe a)
-maybeValue cdc = Codec
-  { codecIn = lift ask >>= \case
-    Nothing -> return Nothing
-    Just v  -> fmap Just $ parseFrom v $ codecIn cdc
-  , codecOut = fmapArg $ \case
-    Nothing -> tell Nothing
-    Just a  -> void $ mapWriter (second Just) $ codecOut cdc a
-  }
-
-maybeInside :: (Monad m) => InsideCodec m a -> InsideCodec m (Maybe a)
-maybeInside cdc = Codec
-  { codecIn = lift get >>= \case
-    Inside (V.null -> True) (V.null -> True) -> return Nothing
-    _                                        -> fmap Just $ codecIn cdc
-  , codecOut = fmapArg $ maybe (return ()) (void . codecOut cdc)
-  }
-
-boolValue :: (Monad m) => ValueCodec m T.Text Bool
-boolValue = Codec
-  { codecIn = lift ask >>= \case
-    "0" -> return False
-    "1" -> return True
-    str -> fatal $ "Expected 0 or 1 (bool), got: " <> show str
-  , codecOut = fmapArg $ tell . \b -> if b then "1" else "0"
-  }
-
-boolText :: (Monad m) => InsideCodec m T.Text -> InsideCodec m Bool
-boolText = zoomValue boolValue
-
-milliValue :: (Monad m, RealFrac a) => ValueCodec m T.Text a
-milliValue = Codec
-  { codecIn = lift ask >>= \str -> case readMaybe $ T.unpack str of
-    Nothing -> fatal $ "Expected a number to 3 decimal places, got: " <> show str
-    Just m  -> return $ realToFrac (m :: Milli)
-  , codecOut = fmapArg $ tell . T.pack . show . \n -> realToFrac n :: Milli
-  }
-
-milliText :: (Monad m, RealFrac a) => InsideCodec m T.Text -> InsideCodec m a
-milliText = zoomValue milliValue
-
-secondsValue :: (Monad m) => ValueCodec m T.Text U.Seconds
-secondsValue = dimap U.fromSeconds U.Seconds milliValue
-
-seconds :: (Monad m) => InsideCodec m T.Text -> InsideCodec m U.Seconds
-seconds = zoomValue secondsValue
-
-bpm :: (Monad m) => InsideCodec m T.Text -> InsideCodec m U.BPS
-bpm = dimap ((* 60) . U.fromBPS) (U.BPS . (/ 60)) . milliText
 
 data Arrangement = Arrangement
   { arr_version                :: Int
@@ -330,13 +49,6 @@ data Arrangement = Arrangement
   , arr_transcriptionTrack     :: Level
   , arr_levels                 :: V.Vector Level
   } deriving (Eq, Show)
-
-plural' :: (SendMessage m, IsInside a) => T.Text -> T.Text -> InsideCodec m (V.Vector a)
-plural' many one = dimap (\xs -> guard (not $ null xs) >> Just xs) (fromMaybe V.empty)
-  $ childTagOpt many $ parseInside' $ countList $ isTag one $ parseInside' insideCodec
-
-plural :: (SendMessage m, IsInside a) => T.Text -> InsideCodec m (V.Vector a)
-plural one = plural' (one <> "s") one
 
 instance IsInside Arrangement where
   insideCodec = do
@@ -543,12 +255,6 @@ data HandShape = HandShape
   , hs_startTime :: U.Seconds
   , hs_endTime   :: U.Seconds
   } deriving (Eq, Show)
-
-flag :: (Monad m) => T.Text -> InsideCodec m Bool
-flag s = zoomValue flagValue $ optAttr s
-
-flagValue :: (Monad m) => ValueCodec m (Maybe T.Text) Bool
-flagValue = dimap (\b -> guard b >> Just b) (fromMaybe False) $ maybeValue boolValue
 
 instance IsInside Note where
   insideCodec = do
@@ -762,14 +468,92 @@ parseFile f = inside ("Loading: " <> f) $ do
 writePart :: (MonadIO m) => FilePath -> PartContents -> m ()
 writePart f pc = liftIO $ do
   let xml = case pc of
-        PartArrangement arr -> let
-          output = execWriter $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Arrangement) arr
-          in makeTag "song" output
-        PartVocals vocs -> let
-          output = execWriter $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Vocals) vocs
-          in makeTag "vocals" output
+        PartArrangement arr -> makeDoc "song" $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Arrangement) arr
+        PartVocals vocs -> makeDoc "vocals" $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Vocals) vocs
       -- this is a hack, could find better way to insert comment
       xmlLines = ppTopElement xml
       xmlLines' = case break (any isSpace . take 1) $ lines xmlLines of
         (before, after) -> before <> ["<!-- Onyx v" <> showVersion version <> " -->"] <> after
   B.writeFile f $ TE.encodeUtf8 $ T.pack $ unlines xmlLines'
+
+----------------------------
+
+cstSpaceW3, cstSpaceMain, cstSpaceArrProps, cstSpaceSng2014, cstSpaceAggGraph, cstSpaceTone, cstSpaceTone2014, cstSpaceArrays :: String
+cstSpaceW3 = "http://www.w3.org/2001/XMLSchema-instance"
+cstSpaceMain = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage"
+cstSpaceArrProps = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.XML"
+cstSpaceSng2014 = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.Sng2014HSL"
+cstSpaceAggGraph = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.AggregateGraph"
+cstSpaceTone = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest.Tone"
+cstSpaceTone2014 = "http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone"
+cstSpaceArrays = "http://schemas.microsoft.com/2003/10/Serialization/Arrays"
+
+data DLCPackageData = DLCPackageData
+  { dlc_AlbumArtPath      :: T.Text
+  , dlc_AppId             :: Int
+  , dlc_Arrangements      :: () -- TODO
+  , dlc_ArtFiles          :: () -- TODO
+  , dlc_DefaultShowlights :: Bool
+  , dlc_GameVersion       :: T.Text
+  , dlc_Inlay             :: () -- TODO  i:nil="true" />
+  , dlc_Mac               :: Bool
+  , dlc_Name              :: T.Text
+  , dlc_OggPath           :: T.Text
+  , dlc_OggPreviewPath    :: T.Text
+  , dlc_OggQuality        :: Milli
+  , dlc_PS3               :: Bool
+  , dlc_Pc                :: Bool
+  , dlc_PreviewVolume     :: Milli
+  , dlc_SignatureType     :: T.Text
+  , dlc_SongInfo          :: () -- TODO >
+  , dlc_Tones             :: () -- TODO  xmlns:d2p1="http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest.Tone" />
+  , dlc_TonesRS2014       :: () -- TODO  xmlns:d2p1="http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone">
+  , dlc_ToolkitInfo       :: () -- TODO >
+  , dlc_Version           :: T.Text
+  , dlc_Volume            :: Milli
+  , dlc_XBox360           :: Bool
+  , dlc_XBox360Licenses   :: () -- TODO  />
+  } deriving (Eq, Show)
+
+instance IsInside DLCPackageData where
+  insideCodec = do
+    useNamespace (Just "i") cstSpaceW3
+    useNamespace (Just "") cstSpaceMain
+    dlc_AlbumArtPath      <- dlc_AlbumArtPath      =. childTag (inSpace cstSpaceMain "AlbumArtPath"     ) (parseInside' childText)
+    dlc_AppId             <- dlc_AppId             =. childTag (inSpace cstSpaceMain "AppId"            ) (parseInside' $ intText childText)
+    dlc_DefaultShowlights <- dlc_DefaultShowlights =. childTag (inSpace cstSpaceMain "DefaultShowlights") (parseInside' $ boolWordText childText)
+    dlc_GameVersion       <- dlc_GameVersion       =. childTag (inSpace cstSpaceMain "GameVersion"      ) (parseInside' childText)
+    dlc_Mac               <- dlc_Mac               =. childTag (inSpace cstSpaceMain "Mac"              ) (parseInside' $ boolWordText childText)
+    dlc_Name              <- dlc_Name              =. childTag (inSpace cstSpaceMain "Name"             ) (parseInside' childText)
+    dlc_OggPath           <- dlc_OggPath           =. childTag (inSpace cstSpaceMain "OggPath"          ) (parseInside' childText)
+    dlc_OggPreviewPath    <- dlc_OggPreviewPath    =. childTag (inSpace cstSpaceMain "OggPreviewPath"   ) (parseInside' childText)
+    dlc_PS3               <- dlc_PS3               =. childTag (inSpace cstSpaceMain "PS3"              ) (parseInside' $ boolWordText childText)
+    dlc_Pc                <- dlc_Pc                =. childTag (inSpace cstSpaceMain "Pc"               ) (parseInside' $ boolWordText childText)
+    dlc_Version           <- dlc_Version           =. childTag (inSpace cstSpaceMain "Version"          ) (parseInside' childText)
+    dlc_XBox360           <- dlc_XBox360           =. childTag (inSpace cstSpaceMain "XBox360"          ) (parseInside' $ boolWordText childText)
+    let dlc_Arrangements = ()
+        dlc_ArtFiles = ()
+        dlc_Inlay = ()
+        dlc_OggQuality = 0
+        dlc_PreviewVolume = 0
+        dlc_SignatureType = ""
+        dlc_SongInfo = ()
+        dlc_Tones = ()
+        dlc_TonesRS2014 = ()
+        dlc_ToolkitInfo = ()
+        dlc_Volume = 0
+        dlc_XBox360Licenses = ()
+    return DLCPackageData{..}
+
+parseProject :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m DLCPackageData
+parseProject f = inside ("Loading: " <> f) $ do
+  stackIO (T.readFile f) >>= \t -> case parseXMLDoc t of
+    Nothing  -> fatal "Couldn't parse XML"
+    Just elt -> mapStackTraceT (`runReaderT` elt)
+      $ codecIn $ isTag (inSpace cstSpaceMain "DLCPackageData") $ parseInside' insideCodec
+
+writeProject :: (MonadIO m) => FilePath -> DLCPackageData -> m ()
+writeProject f proj = liftIO $ do
+  let xml = makeDoc (inSpace cstSpaceMain "DLCPackageData")
+        $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) DLCPackageData) proj
+  B.writeFile f $ TE.encodeUtf8 $ T.pack $ ppTopElement xml

@@ -7,6 +7,7 @@ module Data.DTA.Serialize where
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Codec
+import           Control.Monad.Codec.Onyx
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
@@ -16,7 +17,6 @@ import           Data.Hashable                  (Hashable)
 import qualified Data.HashMap.Strict            as Map
 import qualified Data.HashSet                   as Set
 import qualified Data.Text                      as T
-import           JSONData
 
 type ChunksCodec m a = ValueCodec m [Chunk T.Text] a
 type ChunkCodec  m a = ValueCodec m (Chunk T.Text) a

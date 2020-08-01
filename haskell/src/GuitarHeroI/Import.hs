@@ -7,6 +7,7 @@ import           ArkTool
 import           Audio                            (Audio (..), runAudio)
 import           Config
 import           Control.Monad                    (forM, void)
+import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
@@ -26,7 +27,6 @@ import           Data.Text.Encoding               (decodeLatin1)
 import           GuitarHeroI.File
 import           GuitarHeroII.Audio               (readVGS)
 import           GuitarHeroII.PartGuitar
-import           JSONData                         (toJSON, yamlEncodeFile)
 import qualified RockBand.Codec.Events            as RB
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as RB

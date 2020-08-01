@@ -9,6 +9,7 @@ module PrettyDTA where
 
 import           Config
 import           Control.Monad                     (forM)
+import           Control.Monad.Codec.Onyx          (makeValue)
 import           Control.Monad.IO.Class            (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer.Strict
@@ -27,7 +28,6 @@ import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
 import qualified Data.Text.Encoding                as TE
 import           Data.Version                      (showVersion)
-import           JSONData                          (makeValue)
 import           Paths_onyxite_customs_lib         (version)
 import           Resources                         (missingSongData)
 import           Text.Decode                       (decodeGeneral)

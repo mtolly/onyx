@@ -5,6 +5,7 @@
 module Data.DTA.Serialize.Amplitude where
 
 import           Control.Monad.Codec            (CodecFor (..), fmapArg, (=.))
+import           Control.Monad.Codec.Onyx       (expected, opt, req)
 import           Control.Monad.Trans.Reader     (local)
 import           Control.Monad.Trans.StackTrace (SendMessage, mapStackTraceT)
 import           Control.Monad.Trans.Writer     (tell)
@@ -14,7 +15,6 @@ import           Data.Fixed                     (divMod')
 import           Data.List.Split                (splitOn)
 import           Data.Profunctor                (dimap)
 import qualified Data.Text                      as T
-import           JSONData                       (expected, opt, req)
 import qualified Sound.MIDI.Util                as U
 import           Text.Read                      (readMaybe)
 

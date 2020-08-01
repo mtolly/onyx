@@ -16,6 +16,8 @@ import qualified Codec.Picture.STBIR                   as STBIR
 import           Config                                hiding (Difficulty)
 import           Control.Applicative                   (liftA2)
 import           Control.Arrow                         (second)
+import           Control.Monad.Codec.Onyx              (makeValue, valueId)
+import           Control.Monad.Codec.Onyx.JSON         (StackJSON, fromJSON)
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class             (lift)
@@ -65,8 +67,6 @@ import           Genre
 import           GuitarHeroII.Audio                    (writeVGS)
 import           GuitarHeroII.Convert
 import           Image
-import           JSONData                              (StackJSON, fromJSON,
-                                                        makeValue, valueId)
 import qualified Magma
 import qualified MelodysEscape                         as Melody
 import           MoggDecrypt
