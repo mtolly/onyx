@@ -41,6 +41,9 @@ parts:
   guitar:
     grybo:
       difficulty: 7
+    pro-guitar: # WIP
+      tuning:
+        base: guitar-6
   keys:
     grybo:
       difficulty: 7
