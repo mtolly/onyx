@@ -36,6 +36,8 @@ import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
 import           Control.Monad.Catch                       (catchIOError)
+import           Control.Monad.Codec.Onyx.JSON             (toJSON,
+                                                            yamlEncodeFile)
 import           Control.Monad.Extra                       (forM, forM_, guard,
                                                             join, unless, void,
                                                             when, (>=>))
@@ -97,8 +99,6 @@ import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Graphics.UI.FLTK.LowLevel.GlWindow        ()
 import           Graphics.UI.FLTK.LowLevel.X               (openCallback)
 import           Image                                     (readRBImageMaybe)
-import           Control.Monad.Codec.Onyx.JSON                                  (toJSON,
-                                                            yamlEncodeFile)
 import           MoggDecrypt                               (oggToMogg)
 import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req

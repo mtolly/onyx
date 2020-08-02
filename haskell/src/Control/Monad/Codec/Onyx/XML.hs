@@ -96,10 +96,12 @@ useNamespace dp uri = Codec
   , codecOut = \_ -> void $ getNamespace dp uri
   }
 
+matchName :: ParseName -> QName -> Bool
+matchName pn qn = qURI qn == pURI pn && qName qn == pName pn
+
 matchTag :: ParseName -> Element -> Maybe (StackTraceT m a -> StackTraceT m a)
 matchTag pn elt = do
-  guard $ qURI (elName elt) == pURI pn
-    && qName (elName elt) == pName pn
+  guard $ matchName pn $ elName elt
   return $ inside $ unwords $ concat
     [ toList (elLine elt) >>= \ln -> ["line", show ln]
     , ["tag " <> show pn]
@@ -111,9 +113,8 @@ makeDoc = makeTag []
 makeTag :: [[Namespace]] -> ParseName -> InsideBuilder () -> Element
 makeTag namespaces pn inner = let
   (prefix, result) = flip evalState ([] :| namespaces) $ runWriterT $ do
-    p <- mapM (getNamespace Nothing) $ pURI pn
     inner
-    return p
+    mapM (getNamespace Nothing) $ pURI pn
   in Element
     { elName = QName
       { qName = pName pn
@@ -199,26 +200,35 @@ warnUnused cdc = cdc
   }
 
 parseInside' :: (SendMessage m) => InsideCodec m a -> ValueCodec' m Inside a
-parseInside' = parseInside {- . warnUnused -}
+parseInside' = parseInside . warnUnused
 
-optAttr :: (Monad m) => T.Text -> InsideCodec m (Maybe T.Text)
+optAttr :: (Monad m) => ParseName -> InsideCodec m (Maybe T.Text)
 optAttr a = Codec
   { codecIn = do
     ins <- lift get
-    case V.break (\attr -> attrKey attr == QName (T.unpack a) Nothing Nothing) $ insideAttrs ins of
+    case V.break (matchName a . attrKey) $ insideAttrs ins of
       (before, V.toList -> attr : after) -> do
         lift $ put $ ins { insideAttrs = before <> V.fromList after }
         return $ Just $ T.pack $ attrVal attr
       _ -> return Nothing
-  , codecOut = makeOut $ \case
-    Nothing -> mempty
-    Just x -> Inside
-      { insideAttrs = V.singleton $ Attr (QName (T.unpack a) Nothing Nothing) (T.unpack x)
-      , insideContent = V.empty
-      }
+  , codecOut = fmapArg $ \case
+    Nothing -> return ()
+    Just x -> do
+      prefix <- mapM (getNamespace Nothing) $ pURI a
+      let qn = QName
+            { qName = pName a
+            , qURI = pURI a
+            , qPrefix = case prefix of
+              Just "" -> Nothing
+              _       -> prefix
+            }
+      tell Inside
+        { insideContent = V.empty
+        , insideAttrs = V.singleton $ Attr qn $ T.unpack x
+        }
   }
 
-reqAttr :: (Monad m) => T.Text -> InsideCodec m T.Text
+reqAttr :: (Monad m) => ParseName -> InsideCodec m T.Text
 reqAttr a = Codec
   { codecIn = codecIn o >>= \case
     Just x  -> return x
@@ -255,7 +265,7 @@ bareList cdc = Codec
             , ["list child #" <> show (i :: Int)]
             ]
       inside layer $ mapStackTraceT (lift . (`runReaderT` e)) $ codecIn cdc
-  , codecOut = fmapArg $ void . fmap (codecOut children) . lift . traverse (execWriterT . codecOut cdc)
+  , codecOut = fmapArg $ \xs -> void $ lift (traverse (execWriterT . codecOut cdc) xs) >>= codecOut children
   } where children = childElements
 
 countList :: (SendMessage m) => ValueCodec' m Element a -> InsideCodec m (V.Vector a)
@@ -279,8 +289,8 @@ countList cdc = Codec
     void $ codecOut bare xs
   } where bare = bareList cdc
 
-childText :: (Monad m) => InsideCodec m T.Text
-childText = Codec
+childTextRaw :: (Monad m) => InsideCodec m T.Text
+childTextRaw = Codec
   { codecIn = do
     ins <- lift get
     let getText = \case Text cd -> Just cd; _ -> Nothing
@@ -289,7 +299,7 @@ childText = Codec
       $ T.unwords
       $ V.toList
       $ V.filter (not . T.null)
-      $ fmap (T.strip . T.pack . cdData)
+      $ fmap (T.pack . cdData)
       $ V.mapMaybe getText
       $ insideContent ins
   , codecOut = makeOut $ \t -> Inside
@@ -300,10 +310,13 @@ childText = Codec
     }
   }
 
+childText :: (Monad m) => InsideCodec m T.Text
+childText = dimap T.strip T.strip childTextRaw
+
 zoomValue :: (Monad m) => ValueCodec' m v a -> InsideCodec m v -> InsideCodec m a
 zoomValue z cdc = Codec
   { codecIn = codecIn cdc >>= \x -> mapStackTraceT (lift . (`runReaderT` x)) $ codecIn z
-  , codecOut = fmapArg $ void . fmap (codecOut cdc) . lift . execWriterT . codecOut z
+  , codecOut = fmapArg $ \x -> void $ lift (execWriterT $ codecOut z x) >>= codecOut cdc
   }
 
 intValue :: (Monad m, Integral a) => ValueCodec' m T.Text a
@@ -376,7 +389,7 @@ plural one = let
   many = one { pName = pName one <> "s" }
   in plural' many one
 
-flag :: (Monad m) => T.Text -> InsideCodec m Bool
+flag :: (Monad m) => ParseName -> InsideCodec m Bool
 flag s = zoomValue flagValue $ optAttr s
 
 flagValue :: (Monad m) => ValueCodec' m (Maybe T.Text) Bool
@@ -393,3 +406,13 @@ boolWordValue = Codec
 
 boolWordText :: (Monad m) => InsideCodec m T.Text -> InsideCodec m Bool
 boolWordText = zoomValue boolWordValue
+
+pluralBare' :: (SendMessage m, IsInside a) => ParseName -> ParseName -> InsideCodec m (V.Vector a)
+pluralBare' many one = dimap (\xs -> guard (not $ null xs) >> Just xs) (fromMaybe V.empty) $ childTagOpt many $ do
+  mapM_ (useNamespace Nothing) $ pURI one
+  parseInside' $ bareList $ isTag one $ parseInside' insideCodec
+
+pluralBare :: (SendMessage m, IsInside a) => ParseName -> InsideCodec m (V.Vector a)
+pluralBare one = let
+  many = one { pName = pName one <> "s" }
+  in pluralBare' many one
