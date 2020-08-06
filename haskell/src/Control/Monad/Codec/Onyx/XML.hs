@@ -187,7 +187,9 @@ warnUnused :: (SendMessage m) => InsideCodec m a -> InsideCodec m a
 warnUnused cdc = cdc
   { codecIn = codecIn cdc <* do
     ins <- lift get
-    forM_ (insideAttrs ins) $ \attr -> warn $ "Unused attribute " <> show (qName $ attrKey attr)
+    forM_ (insideAttrs ins) $ \attr ->
+      unless (qName (attrKey attr) == "xmlns" || qPrefix (attrKey attr) == Just "xmlns") $
+        warn $ "Unused attribute " <> show (qName $ attrKey attr)
     forM_ (insideContent ins) $ \case
       Elem elt -> warn $ unwords $ concat
         [ ["Unused element <" <> qName (elName elt) <> ">"]

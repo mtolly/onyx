@@ -32,10 +32,10 @@ data DLCPackageData = DLCPackageData
   { dlc_AlbumArtPath      :: T.Text
   , dlc_AppId             :: Int
   , dlc_Arrangements      :: V.Vector Arrangement
-  , dlc_ArtFiles          :: () -- TODO
+  , dlc_ArtFiles          :: Maybe () -- TODO
   , dlc_DefaultShowlights :: Bool
   , dlc_GameVersion       :: T.Text
-  , dlc_Inlay             :: () -- TODO
+  , dlc_Inlay             :: Maybe () -- TODO
   , dlc_Mac               :: Bool
   , dlc_Name              :: T.Text
   , dlc_OggPath           :: T.Text
@@ -46,13 +46,13 @@ data DLCPackageData = DLCPackageData
   , dlc_PreviewVolume     :: Milli
   , dlc_SignatureType     :: T.Text
   , dlc_SongInfo          :: SongInfo
-  , dlc_Tones             :: () -- TODO
+  , dlc_Tones             :: V.Vector () -- TODO
   , dlc_TonesRS2014       :: V.Vector Tone2014
   , dlc_ToolkitInfo       :: ToolkitInfo
   , dlc_Version           :: T.Text
   , dlc_Volume            :: Milli
   , dlc_XBox360           :: Bool
-  , dlc_XBox360Licenses   :: () -- TODO
+  , dlc_XBox360Licenses   :: V.Vector () -- TODO
   } deriving (Eq, Show)
 
 instance IsInside DLCPackageData where
@@ -62,10 +62,10 @@ instance IsInside DLCPackageData where
     dlc_AlbumArtPath      <- dlc_AlbumArtPath      =. childTag (inSpace cstSpaceMain "AlbumArtPath"     ) (parseInside' childText)
     dlc_AppId             <- dlc_AppId             =. childTag (inSpace cstSpaceMain "AppId"            ) (parseInside' $ intText childText)
     dlc_Arrangements      <- dlc_Arrangements      =. pluralBare (inSpace cstSpaceMain "Arrangement")
-    dlc_ArtFiles          <- dlc_ArtFiles          =. childTag (inSpace cstSpaceMain "ArtFiles"         ) (return ()) -- TODO
+    dlc_ArtFiles          <- dlc_ArtFiles          =. childTag (inSpace cstSpaceMain "ArtFiles"         ) (parseInside' $ nillable $ return ())
     dlc_DefaultShowlights <- dlc_DefaultShowlights =. childTag (inSpace cstSpaceMain "DefaultShowlights") (parseInside' $ boolWordText childText)
     dlc_GameVersion       <- dlc_GameVersion       =. childTag (inSpace cstSpaceMain "GameVersion"      ) (parseInside' childText)
-    dlc_Inlay             <- dlc_Inlay             =. childTag (inSpace cstSpaceMain "Inlay"            ) (return ()) -- TODO
+    dlc_Inlay             <- dlc_Inlay             =. childTag (inSpace cstSpaceMain "Inlay"            ) (parseInside' $ nillable $ return ())
     dlc_Mac               <- dlc_Mac               =. childTag (inSpace cstSpaceMain "Mac"              ) (parseInside' $ boolWordText childText)
     dlc_Name              <- dlc_Name              =. childTag (inSpace cstSpaceMain "Name"             ) (parseInside' childText)
     dlc_OggPath           <- dlc_OggPath           =. childTag (inSpace cstSpaceMain "OggPath"          ) (parseInside' childText)
@@ -76,13 +76,13 @@ instance IsInside DLCPackageData where
     dlc_PreviewVolume     <- dlc_PreviewVolume     =. childTag (inSpace cstSpaceMain "PreviewVolume"    ) (parseInside' $ milliText childText)
     dlc_SignatureType     <- dlc_SignatureType     =. childTag (inSpace cstSpaceMain "SignatureType"    ) (parseInside' childText)
     dlc_SongInfo          <- dlc_SongInfo          =. childTag (inSpace cstSpaceMain "SongInfo"         ) (parseInside' insideCodec)
-    dlc_Tones             <- dlc_Tones             =. childTag (inSpace cstSpaceMain "Tones"            ) (return ()) -- TODO
-    dlc_TonesRS2014       <- dlc_TonesRS2014       =. pluralBare' (inSpace cstSpaceMain "TonesRS2014") (inSpace cstSpaceTone2014 "Tone2014") -- TODO fix where the namespace goes
+    dlc_Tones             <- dlc_Tones             =. childTag (inSpace cstSpaceMain "Tones"            ) (parseInside' $ return V.empty)
+    dlc_TonesRS2014       <- dlc_TonesRS2014       =. pluralBare' (inSpace cstSpaceMain "TonesRS2014") (inSpace cstSpaceTone2014 "Tone2014")
     dlc_ToolkitInfo       <- dlc_ToolkitInfo       =. childTag (inSpace cstSpaceMain "ToolkitInfo"      ) (parseInside' insideCodec)
     dlc_Version           <- dlc_Version           =. childTag (inSpace cstSpaceMain "Version"          ) (parseInside' childText)
     dlc_Volume            <- dlc_Volume            =. childTag (inSpace cstSpaceMain "Volume"           ) (parseInside' $ milliText childText)
     dlc_XBox360           <- dlc_XBox360           =. childTag (inSpace cstSpaceMain "XBox360"          ) (parseInside' $ boolWordText childText)
-    dlc_XBox360Licenses   <- dlc_XBox360Licenses   =. childTag (inSpace cstSpaceMain "XBox360Licenses"  ) (return ()) -- TODO
+    dlc_XBox360Licenses   <- dlc_XBox360Licenses   =. childTag (inSpace cstSpaceMain "XBox360Licenses"  ) (parseInside' $ return V.empty)
     return DLCPackageData{..}
 
 data Tone2014 = Tone2014
@@ -92,7 +92,7 @@ data Tone2014 = Tone2014
   , t14_Name            :: T.Text
   , t14_NameSeparator   :: T.Text
   , t14_SortOrder       :: Int
-  , t14_ToneDescriptors :: [T.Text]
+  , t14_ToneDescriptors :: V.Vector T.Text
   , t14_Volume          :: Milli
   } deriving (Eq, Show)
 
@@ -104,9 +104,14 @@ instance IsInside Tone2014 where
     t14_Name            <- t14_Name            =. childTag (inSpace cstSpaceTone2014 "Name"           ) (parseInside' childText)
     t14_NameSeparator   <- t14_NameSeparator   =. childTag (inSpace cstSpaceTone2014 "NameSeparator"  ) (parseInside' childTextRaw)
     t14_SortOrder       <- t14_SortOrder       =. childTag (inSpace cstSpaceTone2014 "SortOrder"      ) (parseInside' $ intText childText)
-    t14_ToneDescriptors <- t14_ToneDescriptors =. childTag (inSpace cstSpaceTone2014 "ToneDescriptors") (return []) -- TODO
+    t14_ToneDescriptors <- t14_ToneDescriptors =. childTag (inSpace cstSpaceTone2014 "ToneDescriptors") (parseInside' toneDescriptors)
     t14_Volume          <- t14_Volume          =. childTag (inSpace cstSpaceTone2014 "Volume"         ) (parseInside' $ milliText childText)
     return Tone2014{..}
+
+toneDescriptors :: (SendMessage m) => InsideCodec m (V.Vector T.Text)
+toneDescriptors = do
+  useNamespace Nothing cstSpaceArrays
+  bareList $ isTag (inSpace cstSpaceArrays "string") $ parseInside' childText
 
 data Gear2014 = Gear2014
   { g14_Amp        :: Maybe Pedal2014
@@ -145,7 +150,7 @@ instance IsInside Gear2014 where
 
 data Pedal2014 = Pedal2014
   { p14_Category   :: T.Text
-  , p14_KnobValues :: () -- TODO
+  , p14_KnobValues :: V.Vector (T.Text, Milli)
   , p14_PedalKey   :: T.Text
   , p14_Skin       :: Maybe T.Text
   , p14_SkinIndex  :: Maybe Int
@@ -155,12 +160,20 @@ data Pedal2014 = Pedal2014
 instance IsInside Pedal2014 where
   insideCodec = do
     p14_Category   <- p14_Category   =. childTag (inSpace cstSpaceTone2014 "Category"  ) (parseInside' childText)
-    p14_KnobValues <- p14_KnobValues =. childTag (inSpace cstSpaceTone2014 "KnobValues") (return ()) -- TODO
+    p14_KnobValues <- p14_KnobValues =. childTag (inSpace cstSpaceTone2014 "KnobValues") (parseInside' knobValues)
     p14_PedalKey   <- p14_PedalKey   =. childTag (inSpace cstSpaceTone2014 "PedalKey"  ) (parseInside' childText)
     p14_Skin       <- p14_Skin       =. childTag (inSpace cstSpaceTone2014 "Skin"      ) (parseInside' $ nillable childText)
     p14_SkinIndex  <- p14_SkinIndex  =. childTag (inSpace cstSpaceTone2014 "SkinIndex" ) (parseInside' $ nillable $ intText childText)
     p14_Type       <- p14_Type       =. childTag (inSpace cstSpaceTone2014 "Type"      ) (parseInside' childText)
     return Pedal2014{..}
+
+knobValues :: (SendMessage m) => InsideCodec m (V.Vector (T.Text, Milli))
+knobValues = do
+  useNamespace Nothing cstSpaceArrays
+  bareList $ isTag (inSpace cstSpaceArrays "KeyValueOfstringfloat") $ parseInside' $ do
+    x <- fst =. childTag (inSpace cstSpaceArrays "Key") (parseInside' childText)
+    y <- snd =. childTag (inSpace cstSpaceArrays "Value") (parseInside' $ milliText childText)
+    return (x, y)
 
 nillable :: (Monad m) => InsideCodec m a -> InsideCodec m (Maybe a)
 nillable c = do
@@ -188,7 +201,7 @@ data Arrangement = Arrangement
   , arr_Represent            :: Bool
   , arr_RouteMask            :: T.Text
   , arr_ScrollSpeed          :: Int -- can be fractional?
-  , arr_Sng2014              :: () -- TODO
+  , arr_Sng2014              :: Maybe () -- TODO
   , arr_SongFile             :: AggregateGraph
   , arr_SongXml              :: AggregateGraph
   , arr_ToneA                :: T.Text
@@ -219,7 +232,7 @@ instance IsInside Arrangement where
     arr_Represent            <- arr_Represent            =. childTag (inSpace cstSpaceMain "Represent") (parseInside' $ boolWordText childText)
     arr_RouteMask            <- arr_RouteMask            =. childTag (inSpace cstSpaceMain "RouteMask") (parseInside' childText)
     arr_ScrollSpeed          <- arr_ScrollSpeed          =. childTag (inSpace cstSpaceMain "ScrollSpeed") (parseInside' $ intText childText)
-    arr_Sng2014              <- arr_Sng2014              =. childTag (inSpace cstSpaceMain "Sng2014") (return ()) -- TODO
+    arr_Sng2014              <- arr_Sng2014              =. childTag (inSpace cstSpaceMain "Sng2014") (parseInside' $ nillable $ return ())
     arr_SongFile             <- arr_SongFile             =. childTag (inSpace cstSpaceMain "SongFile") (parseInside' insideCodec)
     arr_SongXml              <- arr_SongXml              =. childTag (inSpace cstSpaceMain "SongXml") (parseInside' insideCodec)
     arr_ToneA                <- arr_ToneA                =. childTag (inSpace cstSpaceMain "ToneA") (parseInside' childText)
