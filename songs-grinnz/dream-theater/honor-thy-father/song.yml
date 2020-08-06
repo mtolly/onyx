@@ -58,7 +58,7 @@ audio:
         - frames: 897
         - drop: [frames: 29081054, drumcam-drums-expr]
   final-drums:
-    md5: ef1ab354ee6687d8dc7441c18d7f8749
+    md5: 04dd11410502b7142731f464b7faba99
     frames: 26987549
   final-song:
     md5: bc0ffe7e38f665fa963026186ccb15fc

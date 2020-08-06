@@ -47,10 +47,10 @@ audio:
               - frames: 150341462
               - drumcam-drums
   final-drums:
-    md5: fd2eb187c748933813c0f1a96d2ede75
+    md5: 1dbb6968a1b77d4800922e53e00fcf93
     frames: 30090003
   final-song:
-    md5: 73d87d052f2d97788a0640d1805a7836
+    md5: 810df99494f3524dde595a3311c74e11
     frames: 30090003
 plans:
   album:

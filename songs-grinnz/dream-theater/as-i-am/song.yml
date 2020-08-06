@@ -56,7 +56,7 @@ audio:
                   tag: drums
               - take: [{frames: 22481213}, drumcam-drums]
   final-drums:
-    md5: 641d3a2992c4b7fed7edaaf2e5522be5
+    md5: 73419379ba5ce88e0b09b86e7b8a8b13
     frames: 21177388
   final-song:
     md5: 9a5d47213b2ed066edd0154919a25677
