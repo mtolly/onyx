@@ -9,10 +9,15 @@ audio:
   album-track:
     md5: 3163600dfc7ed1b992aea14871a3faf2
     frames: 15226260
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube E0ckh2whJvY 140
 plans:
   album:
     song:
-      pad: [3.057, album-track]
+      # pad: [3.057, album-track]
+      pad: [3.015, youtube]
 parts:
   drums:
     drums:
