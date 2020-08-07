@@ -424,6 +424,7 @@ buildSource' aud = case aud of
   Drop Start t (Merge xs) -> buildSource' $ Merge $ map (Drop Start t) xs
   Drop Start t (Mix   xs) -> buildSource' $ Mix   $ map (Drop Start t) xs
   Drop edge t (Gain d x) -> buildSource' $ Gain d $ Drop edge t x
+  Drop edge t (Channels cs x) -> buildSource' $ Channels cs $ Drop edge t x
   Channels (sequence -> Just cs) (Input fin) | takeExtension fin == ".vgs" -> do
     chans <- liftIO $ readVGS fin
     case map (standardRate . mapSamples fractionalSample . (chans !!)) cs of

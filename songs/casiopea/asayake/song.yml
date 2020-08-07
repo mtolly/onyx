@@ -5,6 +5,9 @@ metadata:
   year: 1982
   track-number: 2
   author: Onyxite
+  genre: fusion
+  subgenre: fusion
+  file-album-art: cover.png
 audio:
   album-track:
     md5: e041674d0f55aba5101e03e48864ad1a
