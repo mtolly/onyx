@@ -8,6 +8,7 @@ metadata:
   genre: fusion
   subgenre: fusion
   file-album-art: cover.png
+  preview-start: prc_verse_1
 audio:
   album-track:
     md5: e041674d0f55aba5101e03e48864ad1a
@@ -33,6 +34,7 @@ parts:
   drums:
     drums:
       kicks: 1
+      difficulty: 5
 targets:
   rb3:
     game: rb3

@@ -103,9 +103,9 @@ plans:
     vols: [0, 0, 0, 0, 0, 0, 0, 0]
   release:
     countin: *countin
-    song: {drop: [0.001, final-song]}
+    song: final-song
     parts:
-      drums: {pad: [0.001, final-drums]}
+      drums: final-drums
 parts:
   drums:
     drums:
@@ -116,6 +116,7 @@ parts:
     grybo:
       difficulty: 6
       smooth-frets: true
+      sustain-gap: 120 # 16th note
     pro-guitar:
       difficulty: 7
       tuning:

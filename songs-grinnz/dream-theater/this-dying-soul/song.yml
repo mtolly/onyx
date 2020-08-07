@@ -121,9 +121,9 @@ plans:
             - drumcam-drums-expr
   release:
     countin: *countin
-    song: {drop: [0.001, final-song]}
+    song: final-song
     parts:
-      drums: {pad: [0.001, final-drums]}
+      drums: final-drums
   mogg:
     parts:
       drums: [0, 1]
@@ -149,6 +149,7 @@ parts:
     grybo:
       difficulty: 6
       smooth-frets: true
+      sustain-gap: 120 # 16th note
     pro-guitar:
       difficulty: 6
       tuning:
@@ -157,6 +158,7 @@ parts:
     grybo:
       difficulty: 7
       smooth-frets: true
+      sustain-gap: 120 # 16th note
     pro-guitar:
       tuning:
         base: guitar-7 # all chords are in lower 6 strings

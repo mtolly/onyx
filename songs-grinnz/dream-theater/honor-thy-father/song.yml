@@ -98,9 +98,9 @@ plans:
             - drumcam-drums-expr-gap
   release:
     countin: *countin
-    song: {drop: [0.001, final-song]}
+    song: final-song
     parts:
-      drums: {pad: [0.001, final-drums]}
+      drums: final-drums
   mogg:
     parts:
       drums: [0, 1]

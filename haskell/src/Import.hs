@@ -522,7 +522,10 @@ importFoF src dest = do
       , _tuningCents = 0
       , _fileTempo = Nothing
       }
-    , _targets = HM.singleton "ps" $ PS def' { ps_FileVideo = vid }
+    , _targets = HM.singleton "ps" $ PS def'
+      { ps_FileVideo = vid
+      , ps_LoadingPhrase = FoF.loadingPhrase song
+      }
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard ((isnt nullDrums RBFile.fixedPartDrums || isnt nullDrums RBFile.fixedPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums

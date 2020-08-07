@@ -1809,6 +1809,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   fd <- toList $ fiveDifficulties five
                   return $ not $ RTB.null $ fiveOpen fd
                 , FoF.video            = const "video.avi" <$> ps_FileVideo ps
+                , FoF.loadingPhrase    = ps_LoadingPhrase ps
                 }
 
             let psParts = map ($ ps) [ps_Drums, ps_Guitar, ps_Bass, ps_Keys, ps_Vocal, ps_Rhythm, ps_GuitarCoop]

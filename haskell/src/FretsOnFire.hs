@@ -58,11 +58,11 @@ data Song = Song
   , video            :: Maybe FilePath
   , fiveLaneDrums    :: Maybe Bool
   , drumFallbackBlue :: Maybe Bool
+  , loadingPhrase    :: Maybe T.Text
   {- TODO:
   video_start_time
   video_end_time
   video_loop
-  loading_phrase
   banner_link_a
   link_name_a
   banner_link_b
@@ -91,7 +91,7 @@ instance Default Song where
     def def def def def def def def def def
     def def def def def def def def def def
     def def def def def def def def def def
-    def def def def def def def def def
+    def def def def def def def def def def
 
 -- | Strips <b>bold</b>, <i>italic</i>, and <color=red>colored</color>
 -- which are supported by CH in metadata, lyrics, and sections.
@@ -167,6 +167,7 @@ loadSong fp = do
       video = fmap T.unpack $ str "video"
       fiveLaneDrums = bool "five_lane_drums"
       drumFallbackBlue = bool "drum_fallback_blue"
+      loadingPhrase = str "loading_phrase"
 
   return Song{..}
 
@@ -215,6 +216,7 @@ saveSong fp Song{..} = writePSIni fp $ flip Ini []
     str "video" $ fmap T.pack video
     shown "five_lane_drums" fiveLaneDrums
     shown "drum_fallback_blue" drumFallbackBlue
+    str "loading_phrase" loadingPhrase
 
 writePSIni :: (MonadIO m) => FilePath -> Ini -> m ()
 writePSIni fp (Ini hmap _) = let

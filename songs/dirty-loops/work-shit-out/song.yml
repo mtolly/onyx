@@ -59,4 +59,4 @@ targets:
     version: 1
   ps:
     game: ps
-    # loading-phrase: "Part of Onyxite's Jazz Pack 4. Recommended 5-fret part: Keys, though Bass is also fun throughout."
+    loading-phrase: "Part of Onyxite's Jazz Pack 4. Recommended 5-fret part: Keys, though Bass is also fun throughout."

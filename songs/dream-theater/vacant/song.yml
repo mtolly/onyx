@@ -52,6 +52,7 @@ parts:
     grybo:
       difficulty: 1
       smooth-frets: true
+      sustain-gap: 120 # 16th note
     pro-guitar:
       difficulty: 1
       tuning:
@@ -60,6 +61,7 @@ parts:
     grybo:
       difficulty: 1
       smooth-frets: true
+      sustain-gap: 120 # 16th note
     pro-guitar:
       difficulty: 1
       tuning:

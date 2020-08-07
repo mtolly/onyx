@@ -54,4 +54,4 @@ targets:
     version: 1
   ps:
     game: ps
-    # loading-phrase: "Part of Onyxite's Jazz Pack 4. Recommended 5-fret part: Keys (piano)."
+    loading-phrase: "Part of Onyxite's Jazz Pack 4. Recommended 5-fret part: Keys (piano)."

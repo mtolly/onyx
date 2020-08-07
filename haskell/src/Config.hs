@@ -1144,30 +1144,32 @@ instance Default TargetRB2 where
   def = fromEmptyObject
 
 data TargetPS f = TargetPS
-  { ps_Common     :: TargetCommon
-  , ps_FileVideo  :: Maybe f
-  , ps_Guitar     :: FlexPartName
-  , ps_Bass       :: FlexPartName
-  , ps_Drums      :: FlexPartName
-  , ps_Keys       :: FlexPartName
-  , ps_Vocal      :: FlexPartName
-  , ps_Rhythm     :: FlexPartName
-  , ps_GuitarCoop :: FlexPartName
-  , ps_Dance      :: FlexPartName
+  { ps_Common        :: TargetCommon
+  , ps_FileVideo     :: Maybe f
+  , ps_Guitar        :: FlexPartName
+  , ps_Bass          :: FlexPartName
+  , ps_Drums         :: FlexPartName
+  , ps_Keys          :: FlexPartName
+  , ps_Vocal         :: FlexPartName
+  , ps_Rhythm        :: FlexPartName
+  , ps_GuitarCoop    :: FlexPartName
+  , ps_Dance         :: FlexPartName
+  , ps_LoadingPhrase :: Maybe T.Text
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetPS :: (SendMessage m) => ObjectCodec m A.Value (TargetPS FilePath)
 parseTargetPS = do
-  ps_Common     <- ps_Common     =. parseTargetCommon
-  ps_FileVideo  <- ps_FileVideo  =. opt Nothing                   "file-video"  stackJSON
-  ps_Guitar     <- ps_Guitar     =. opt FlexGuitar                "guitar"      stackJSON
-  ps_Bass       <- ps_Bass       =. opt FlexBass                  "bass"        stackJSON
-  ps_Drums      <- ps_Drums      =. opt FlexDrums                 "drums"       stackJSON
-  ps_Keys       <- ps_Keys       =. opt FlexKeys                  "keys"        stackJSON
-  ps_Vocal      <- ps_Vocal      =. opt FlexVocal                 "vocal"       stackJSON
-  ps_Rhythm     <- ps_Rhythm     =. opt (FlexExtra "rhythm"     ) "rhythm"      stackJSON
-  ps_GuitarCoop <- ps_GuitarCoop =. opt (FlexExtra "guitar-coop") "guitar-coop" stackJSON
-  ps_Dance      <- ps_Dance      =. opt (FlexExtra "global"     ) "dance"       stackJSON
+  ps_Common        <- ps_Common        =. parseTargetCommon
+  ps_FileVideo     <- ps_FileVideo     =. opt Nothing                   "file-video"     stackJSON
+  ps_Guitar        <- ps_Guitar        =. opt FlexGuitar                "guitar"         stackJSON
+  ps_Bass          <- ps_Bass          =. opt FlexBass                  "bass"           stackJSON
+  ps_Drums         <- ps_Drums         =. opt FlexDrums                 "drums"          stackJSON
+  ps_Keys          <- ps_Keys          =. opt FlexKeys                  "keys"           stackJSON
+  ps_Vocal         <- ps_Vocal         =. opt FlexVocal                 "vocal"          stackJSON
+  ps_Rhythm        <- ps_Rhythm        =. opt (FlexExtra "rhythm"     ) "rhythm"         stackJSON
+  ps_GuitarCoop    <- ps_GuitarCoop    =. opt (FlexExtra "guitar-coop") "guitar-coop"    stackJSON
+  ps_Dance         <- ps_Dance         =. opt (FlexExtra "global"     ) "dance"          stackJSON
+  ps_LoadingPhrase <- ps_LoadingPhrase =. opt Nothing                   "loading-phrase" stackJSON
   return TargetPS{..}
 
 instance StackJSON (TargetPS FilePath) where

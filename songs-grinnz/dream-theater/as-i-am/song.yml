@@ -91,9 +91,9 @@ plans:
           - resample: drumcam-drums-expr
   release:
     countin: *countin
-    song: {drop: [0.001, final-song]}
+    song: final-song
     parts:
-      drums: {pad: [0.001, final-drums]}
+      drums: final-drums
   mogg:
     parts:
       drums: [0, 1]
@@ -132,6 +132,7 @@ parts:
     grybo:
       difficulty: 4
       smooth-frets: true
+      sustain-gap: 120 # 16th note
   vocal:
     vocal:
       difficulty: 4
