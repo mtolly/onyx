@@ -1,4 +1,4 @@
-<REAPER_PROJECT 0.1 "5.92/OSX64" 1549387256
+<REAPER_PROJECT 0.1 "5.99/linux64" 1596844116
   RIPPLE 0
   GROUPOVERRIDE 0 0 0
   AUTOXFADE 1
@@ -8,13 +8,13 @@
   PEAKGAIN 1
   FEEDBACK 0
   PANLAW 1
-  PROJOFFS 0 0
+  PROJOFFS 0 0 0
   MAXPROJLEN 0 600
   GRID 3199 8 1 8 1 0 0 0
-  TIMEMODE 1 5 -1 30 0
-  CURSOR 24
-  ZOOM 2.43688664255176 0 0
-  VZOOMEX 8
+  TIMEMODE 1 5 -1 30 0 0 -1
+  CURSOR 68
+  ZOOM 2.43688664255177 0 0
+  VZOOMEX 12
   USE_REC_CFG 0
   RECMODE 1
   SMPTESYNC 0 30 100 40 1000 300 0 0 1 0 0
@@ -38,7 +38,7 @@
   TIMELOCKMODE 2
   TEMPOENVLOCKMODE 1
   ITEMMIX 0
-  DEFPITCHMODE 589824
+  DEFPITCHMODE 589824 0
   TAKELANE 1
   SAMPLERATE 44100 0 0
   <RENDER_CFG
@@ -54,8 +54,8 @@
   GLOBAL_AUTO -1
   TEMPO 120 4 4
   PLAYRATE 1 0 0.25 4
-  SELECTION 382.5 382.5
-  SELECTION2 382.5 382.5
+  SELECTION 380 380
+  SELECTION2 380 380
   MASTERAUTOMODE 0
   MASTERTRACKHEIGHT 0 0
   MASTERPEAKCOL 16576
@@ -106,14 +106,14 @@
     MIDIOUT -1
     MAINSEND 1 0
     <FXCHAIN
-      WNDRECT 89 402 835 444
+      WNDRECT 937 322 823 481
       SHOW 0
       LASTSEL 0
       DOCKED 0
       BYPASS 0 0 0
-      <VST "VST: ReaEQ (Cockos)" reaeq.vst.dylib 0 "" 1919247729
+      <VST "VST: ReaEQ (Cockos)" reaeq.vst.so 0 "" 1919247729<56535472656571726561657100000000> ""
         cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
-        IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH8SpoqWp5JAUbRBhYs6
+        IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH8SpoqWp5JAVrRBhYs6
         9z8AAAAAAAAAQAEBAAAAAAAAAGxAFO91orBAwZo3sGO+9z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAFQCAABwAQAA
         AAAQAAAA
       >
@@ -133,14 +133,14 @@
       SEL 0
       IGUID {BDBD96AC-6A7D-E841-9EB9-338F4E837FB6}
       IID 1
-      NAME as-i-am-debleed.flac
+      NAME song.wav
       VOLPAN 1.090909 0 1 -1
       SOFFS 0
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {0030660D-B231-C949-AD5A-83D41AF07B37}
-      <SOURCE FLAC
-        FILE "as-i-am-debleed.flac"
+      <SOURCE WAVE
+        FILE "asiam/song.wav"
       >
     >
     <ITEM
@@ -155,14 +155,14 @@
       SEL 0
       IGUID {B058E987-A49C-9C48-9EEC-BC40BA6839FF}
       IID 22
-      NAME as-i-am-debleed.flac
+      NAME song.wav
       VOLPAN 1.17284 0 1 -1
       SOFFS 371.33971449513643
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {92F9CD55-712A-B84E-A2A0-E8AD40DF6CC8}
-      <SOURCE FLAC
-        FILE "as-i-am-debleed.flac"
+      <SOURCE WAVE
+        FILE "asiam/song.wav"
       >
     >
     <ITEM
@@ -177,14 +177,14 @@
       SEL 0
       IGUID {17FB999E-F469-BE45-8F78-3C79E00B8A90}
       IID 45
-      NAME as-i-am-debleed.flac
+      NAME song.wav
       VOLPAN 1.29 0 1 -1
       SOFFS 378.13900252665394
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {D7EE20F6-C37A-D74A-B95C-42073B2205C1}
-      <SOURCE FLAC
-        FILE "as-i-am-debleed.flac"
+      <SOURCE WAVE
+        FILE "asiam/song.wav"
       >
     >
     <ITEM
@@ -199,14 +199,14 @@
       SEL 0
       IGUID {A7A92F37-BEF3-C044-B35C-1D9851F1BCF5}
       IID 46
-      NAME as-i-am-debleed.flac
+      NAME song.wav
       VOLPAN 1.17284 0 1 -1
       SOFFS 382.69849996527819
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {A40ACEEF-0851-4749-B305-8D0C6DE219CD}
-      <SOURCE FLAC
-        FILE "as-i-am-debleed.flac"
+      <SOURCE WAVE
+        FILE "asiam/song.wav"
       >
     >
     <ITEM
@@ -221,14 +221,14 @@
       SEL 0
       IGUID {6995826D-BD9F-2F43-A6BB-CCC933CA9674}
       IID 24
-      NAME as-i-am-debleed.flac
+      NAME song.wav
       VOLPAN 1.090909 0 1 -1
       SOFFS 384.76336306913578
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {E12EA02B-76A0-7749-906A-1ED91CBAF449}
-      <SOURCE FLAC
-        FILE "as-i-am-debleed.flac"
+      <SOURCE WAVE
+        FILE "asiam/song.wav"
       >
     >
     <ITEM
@@ -243,14 +243,14 @@
       SEL 0
       IGUID {14CB414F-083A-3E4C-81D3-86EF5CC62735}
       IID 15
-      NAME as-i-am-debleed.flac
+      NAME song.wav
       VOLPAN 1.246914 0 1 -1
       SOFFS 427.23546390564951
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {FBC6B5E3-E54A-9144-9CFA-6E473FDCF1F7}
-      <SOURCE FLAC
-        FILE "as-i-am-debleed.flac"
+      <SOURCE WAVE
+        FILE "asiam/song.wav"
       >
     >
     <ITEM
@@ -265,14 +265,14 @@
       SEL 0
       IGUID {A142BFF1-915D-0A4C-B625-D1382D36AA83}
       IID 18
-      NAME as-i-am-debleed.flac
+      NAME song.wav
       VOLPAN 0.950617 0 1 -1
       SOFFS 441.62651256714486
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {9CBB4298-38E0-8E47-B21C-68AC09CE9119}
-      <SOURCE FLAC
-        FILE "as-i-am-debleed.flac"
+      <SOURCE WAVE
+        FILE "asiam/song.wav"
       >
     >
   >
@@ -288,7 +288,7 @@
     BUSCOMP 0 0
     SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
-    SEL 1
+    SEL 0
     REC 0 0 0 0 0 0 0
     VU 2
     TRACKHEIGHT 0 0 0
@@ -300,21 +300,14 @@
     MIDIOUT -1
     MAINSEND 1 0
     <FXCHAIN
-      WNDRECT 89 402 835 444
+      WNDRECT 158 516 823 481
       SHOW 0
-      LASTSEL 1
+      LASTSEL 0
       DOCKED 0
       BYPASS 0 0 0
-      <JS utility/channelmixer ""
-        -120.000000 -120.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-      >
-      FLOATPOS 0 0 0 0
-      FXID {1919B6C0-D649-204E-AAE8-69CCF37EC5FA}
-      WAK 0
-      BYPASS 0 0 0
-      <VST "VST: ReaEQ (Cockos)" reaeq.vst.dylib 0 "" 1919247729
+      <VST "VST: ReaEQ (Cockos)" reaeq.vst.so 0 "" 1919247729<56535472656571726561657100000000> ""
         cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
-        IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH+UvFzAH5hAwEvN32hd
+        IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH+UvFzAH5hA00vN32hd
         9D8AAAAAAAAAQAEBAAAAAQAAAIDRCgiUcbBApv7/////7z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAFQCAABwAQAA
         AAAQAAAA
       >
@@ -334,14 +327,14 @@
       SEL 0
       IGUID {133B2A8C-CABE-9D45-8424-E5ACF0E875FE}
       IID 2
-      NAME as-i-am-drums.flac
-      VOLPAN 1.090909 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.113956 0 1 -1
       SOFFS 0.001
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {076F2ECB-7C8A-A845-A8CA-0A02FFC78366}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -356,14 +349,14 @@
       SEL 0
       IGUID {7A7D4695-EB12-5F48-92A5-E1985AACCBC5}
       IID 28
-      NAME as-i-am-drums.flac
-      VOLPAN 1.54 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.572535 0 1 -1
       SOFFS 53.81401053984688
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {F356C581-43AA-154A-B922-2B0607BA4851}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -378,14 +371,14 @@
       SEL 0
       IGUID {74C9A7F1-AD51-6049-8CAE-6644BE17B0D2}
       IID 30
-      NAME as-i-am-drums.flac
-      VOLPAN 1.36 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.388732 0 1 -1
       SOFFS 54.001
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {DDE1F0B0-3980-4140-9B89-B4805DE69A18}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -400,14 +393,14 @@
       SEL 0
       IGUID {B8CE1525-AA0A-4D4E-859D-68D8299E6054}
       IID 29
-      NAME as-i-am-drums.flac
-      VOLPAN 1.090909 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.113956 0 1 -1
       SOFFS 57.28169648272323
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {90CB581E-E609-2042-AAAF-FA79897894EC}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -422,14 +415,14 @@
       SEL 0
       IGUID {C6E1ECE6-69AC-D348-BAE8-D6BB7C5A5DB5}
       IID 31
-      NAME as-i-am-drums.flac
-      VOLPAN 1.45 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.480633 0 1 -1
       SOFFS 58.71439830649052
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {E77DF734-AA8D-324F-B1A6-D74DA47AF42E}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -444,14 +437,14 @@
       SEL 0
       IGUID {902959BD-9DC6-9748-B98F-82DEDF798D73}
       IID 32
-      NAME as-i-am-drums.flac
-      VOLPAN 1.090909 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.113956 0 1 -1
       SOFFS 59.34405706980228
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {E012CDB0-7D5B-4E4C-B3DC-2C605A473DED}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -466,14 +459,14 @@
       SEL 0
       IGUID {67616ABA-BA70-F942-8B9D-6E75917CD8C4}
       IID 33
-      NAME as-i-am-drums.flac
-      VOLPAN 1.21 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.235563 0 1 -1
       SOFFS 84.61914212240731
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {0F5820C5-0AAB-634E-A354-7A82B5626E62}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -488,14 +481,14 @@
       SEL 0
       IGUID {4C06866C-D1F1-9643-89C5-8E9000708FE9}
       IID 34
-      NAME as-i-am-drums.flac
-      VOLPAN 1.090909 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.113956 0 1 -1
       SOFFS 85.6627738724285
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {AB878292-E930-D34E-B7DB-45B35FD29FAC}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -510,14 +503,14 @@
       SEL 0
       IGUID {71B66CB0-EA1C-B64E-A7C0-88F8575DE19D}
       IID 35
-      NAME as-i-am-drums.flac
-      VOLPAN 1.385702 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.414977 0 1 -1
       SOFFS 107.39340855301575
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {7526B5F6-C923-3549-AFB0-E82A44E10A14}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -532,14 +525,14 @@
       SEL 0
       IGUID {4B9C7D41-EEDE-9442-97FA-7E154A88EA7A}
       IID 36
-      NAME as-i-am-drums.flac
-      VOLPAN 1.229004 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.254968 0 1 -1
       SOFFS 107.82048145334895
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {C0B032EA-B6E0-B049-B6B9-AF516F4A980C}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -554,14 +547,14 @@
       SEL 0
       IGUID {267764BC-1D6A-1249-8BA3-70F7D6427CAA}
       IID 8
-      NAME as-i-am-drums.flac
-      VOLPAN 0.949091 0 1 -1
+      NAME drums.wav
+      VOLPAN 0.969142 0 1 -1
       SOFFS 137.6885064402731
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {8F27C2F4-C487-624A-858E-2CBFBE1782B1}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -576,14 +569,14 @@
       SEL 0
       IGUID {21EF52A3-8EF6-CC45-8881-0B27C5803DFB}
       IID 38
-      NAME as-i-am-drums.flac
-      VOLPAN 1.18 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.204929 0 1 -1
       SOFFS 146.59063496053344
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {4F68EE32-4771-D749-905C-0D4B751A9075}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -598,14 +591,14 @@
       SEL 0
       IGUID {24225A85-E11A-1344-9F3A-E046F781450C}
       IID 37
-      NAME as-i-am-drums.flac
-      VOLPAN 0.83 0 1 -1
+      NAME drums.wav
+      VOLPAN 0.847535 0 1 -1
       SOFFS 147.02998361887228
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {31EB63E2-5AA1-0044-A2E1-82738EDE812C}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -620,14 +613,14 @@
       SEL 0
       IGUID {3D38FD32-C33F-144A-85B6-B795F7929266}
       IID 12
-      NAME as-i-am-drums.flac
-      VOLPAN 1.090909 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.113956 0 1 -1
       SOFFS 148.80656871533085
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {F4C308C5-7CD7-A444-9BC1-61D7EDC3302D}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -642,36 +635,102 @@
       SEL 0
       IGUID {B5BB69B4-18F1-6644-9078-AB4535E3347E}
       IID 39
-      NAME as-i-am-drums.flac
-      VOLPAN 1.22 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.245774 0 1 -1
       SOFFS 167.38328776930865
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {EBFE8699-848F-E344-B194-A9ADDA79052E}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
       POSITION 167.82004458468248
       SNAPOFFS 0
-      LENGTH 72.43256902070533
+      LENGTH 14.78669015757615
       LOOP 0
       ALLTAKES 0
       FADEIN 1 0 0 1 0 0
-      FADEOUT 1.1 0 0.161921 1 1 0
+      FADEOUT 1 0.01 0 1 0 0
       MUTE 0
       SEL 0
       IGUID {137ABBF2-0F96-FA4A-9417-DE5BF9A8DCAA}
       IID 40
-      NAME as-i-am-drums.flac
-      VOLPAN 1.090909 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.113956 0 1 -1
       SOFFS 167.82104458468248
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {6AA65CFE-E649-384B-A116-A50D103E528A}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 182.60673474225862
+      SNAPOFFS 0
+      LENGTH 13.40007322360436
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {88E85F30-D961-40EE-AEEC-ACC19AE94E5E}
+      IID 82
+      NAME drums.wav
+      VOLPAN 1.216472 0 1 -1
+      SOFFS 182.60773474225863
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {664712B6-6338-4436-A1DD-EEFEFAD928A4}
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 196.00680796586298
+      SNAPOFFS 0
+      LENGTH 15.64463265997855
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {99269414-4ECF-465F-83F1-2D7507B82F1A}
+      IID 76
+      NAME drums.wav
+      VOLPAN 1.26087 0 1 -1
+      SOFFS 196.00780796586298
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {BDD8B3D9-5014-46D6-BE2F-F7522DA0F27C}
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 211.65144062584153
+      SNAPOFFS 0
+      LENGTH 28.60117297954628
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1.1 0 0.161921 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {D6B15021-F769-4B2C-A140-312DEAC6ECF2}
+      IID 79
+      NAME drums.wav
+      VOLPAN 1.113956 0 1 -1
+      SOFFS 211.65244062584154
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {542FEE04-21EE-4467-9A44-F3FADDEE3C06}
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -686,36 +745,80 @@
       SEL 0
       IGUID {04F27D24-7F83-814D-AEFC-F73EED0BC4B4}
       IID 13
-      NAME as-i-am-drums.flac
-      VOLPAN 0.970909 0 1 -1
+      NAME drums.wav
+      VOLPAN 0.991421 0 1 -1
       SOFFS 240.0916923417719
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {096DDBA4-94F2-9C4A-A5A6-A55556F77492}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
       POSITION 253.02540561753642
       SNAPOFFS 0
-      LENGTH 72.42920076079741
+      LENGTH 30.62796146841782
       LOOP 0
       ALLTAKES 0
       FADEIN 1.1 0 0.11207 1 1 0
-      FADEOUT 1 0 0 1 0 0
+      FADEOUT 1.1 0.012617 0.018088 1 1 0
       MUTE 0
       SEL 0
       IGUID {24D7197D-03CB-3542-BC28-35EC9904D992}
       IID 14
-      NAME as-i-am-drums.flac
-      VOLPAN 1.090909 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.113956 0 1 -1
       SOFFS 253.02640561753643
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {9C0F2D5C-CA5B-F143-AD97-C21644A5F03C}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 283.63527919827584
+      SNAPOFFS 0
+      LENGTH 14.34261371317245
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0.01 0.018088 1 1 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {7FEBA205-9C75-4880-8A5F-40C75D3C84DD}
+      IID 80
+      NAME drums.wav
+      VOLPAN 1.24311 0 1 -1
+      SOFFS 283.63627919827582
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {9E863DD3-3A25-4533-A5FF-0A5DA60E1134}
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 297.97789291144829
+      SNAPOFFS 0
+      LENGTH 27.47671346688554
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {EF7C70DA-E507-4BFB-AC0B-D13933BED349}
+      IID 81
+      NAME drums.wav
+      VOLPAN 1.113956 0 1 -1
+      SOFFS 297.97889291144827
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {DE266D39-A4DB-4423-A604-D78E75668B1E}
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -730,36 +833,58 @@
       SEL 0
       IGUID {BA07181A-2796-B54C-8423-73C3454015A0}
       IID 41
-      NAME as-i-am-drums.flac
-      VOLPAN 1.25 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.276408 0 1 -1
       SOFFS 325.45560637833387
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {5B49958E-C91A-8F4C-AA33-3F08D28E6465}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
       POSITION 325.91972003874395
       SNAPOFFS 0
-      LENGTH 45.42099445639246
+      LENGTH 4.14809980162937
       LOOP 0
       ALLTAKES 0
       FADEIN 1 0 0 1 0 0
-      FADEOUT 1 0 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
       MUTE 0
       SEL 0
       IGUID {90F16EF3-7442-5D4D-B6D7-0EC8B1F12779}
       IID 42
-      NAME as-i-am-drums.flac
-      VOLPAN 1.090909 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.113956 0 1 -1
       SOFFS 325.92072003874398
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {59F45C03-81E4-9244-BE28-16235E89AE84}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 330.06781984037332
+      SNAPOFFS 0
+      LENGTH 41.27289465476309
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {7E8D6BCA-7A7A-420A-BA58-202BD2398AF1}
+      IID 83
+      NAME drums.wav
+      VOLPAN 1.225352 0 1 -1
+      SOFFS 330.06881984037335
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E66592FA-5EA0-4D35-A7FB-CD5B54FFB873}
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -774,14 +899,14 @@
       SEL 0
       IGUID {C4907CC6-7E42-D24C-ADFA-33FA4A13753A}
       IID 23
-      NAME as-i-am-drums.flac
-      VOLPAN 1.17284 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.249688 0 1 -1
       SOFFS 371.34171449513644
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {EBB49F4E-0A53-F944-A4E2-3AEEA4F2ECEE}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -796,14 +921,14 @@
       SEL 0
       IGUID {A6CE1E56-A4B1-4143-8D1D-662A53009EA9}
       IID 43
-      NAME as-i-am-drums.flac
-      VOLPAN 1.3 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.438457 0 1 -1
       SOFFS 378.28441346147849
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {80D22E33-D668-4849-BC41-C81767D328EF}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -818,36 +943,58 @@
       SEL 0
       IGUID {C302EEA9-E4B2-0D49-82C1-826FBB7623FA}
       IID 44
-      NAME as-i-am-drums.flac
-      VOLPAN 1.17284 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.163196 0 1 -1
       SOFFS 383.14452476968893
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {645C6831-FA2F-FD4A-A90F-BEDD07BA361E}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
       POSITION 384.76436306913575
       SNAPOFFS 0
-      LENGTH 42.47210083651373
+      LENGTH 25.35938229291884
       LOOP 0
       ALLTAKES 0
       FADEIN 1 0 0 1 0 0
-      FADEOUT 1 0 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
       MUTE 0
       SEL 0
       IGUID {729D3411-A240-964F-A406-7C8362D8980B}
       IID 25
-      NAME as-i-am-drums.flac
-      VOLPAN 1.090909 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.113956 0 1 -1
       SOFFS 384.76536306913579
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {D1107269-E008-044E-AA8E-146C9A0696B6}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 410.12374536205459
+      SNAPOFFS 0
+      LENGTH 17.11271854359489
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {07F8DBC7-74D5-4C41-BB3F-A9B01BAB0D87}
+      IID 86
+      NAME drums.wav
+      VOLPAN 1.189834 0 1 -1
+      SOFFS 410.12474536205463
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {87B86073-3486-45DE-B376-BAFC0D5866D0}
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -862,14 +1009,14 @@
       SEL 0
       IGUID {7A28860E-721E-6D48-B209-74BBDC62AC9F}
       IID 16
-      NAME as-i-am-drums.flac
-      VOLPAN 1.358025 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.402939 0 1 -1
       SOFFS 427.23746390564952
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {C0F38086-9478-8B49-B4A5-06B68F6B3DD6}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
     <ITEM
@@ -884,14 +1031,14 @@
       SEL 0
       IGUID {8687116C-FF36-AD48-9C1A-97B64B9A3D99}
       IID 19
-      NAME as-i-am-drums.flac
-      VOLPAN 1.13 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.153873 0 1 -1
       SOFFS 442.001
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {13243F11-1F96-1443-9510-25A09D61F6D9}
-      <SOURCE FLAC
-        FILE "as-i-am-drums.flac"
+      <SOURCE WAVE
+        FILE "asiam/drums.wav"
       >
     >
   >

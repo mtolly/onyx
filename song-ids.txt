@@ -162,7 +162,7 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200104 In the Name of God (Dream Theater) 2x
   Train of Thought (album)
   v1 released 2019-02-08
-  v2 (audio fixes, double cymbal lanes) released ???
+  v2 (audio fixes, double cymbal lanes) on Birdman drives 2020-08-07
     reusing song IDs because metadata and scoring pretty much the same
 
 1660200105 Enigma Machine (Dream Theater) 1x (v2)
@@ -208,7 +208,7 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200141 In the Presence of Enemies 1x (v2)
 1660200142 In the Presence of Enemies 2x (v2)
   Systematic Chaos, v2: fixed up release from band score
-  Published on BirdmanExe drives (black venue) ???
+  Published on BirdmanExe drives (black venue) 2020-08-07
   Published on C3 (with venue) ???
 
 1660200143 Alien Lair [Contra] (Shnabubula) 1x

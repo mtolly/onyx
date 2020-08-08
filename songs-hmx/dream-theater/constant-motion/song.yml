@@ -19,10 +19,58 @@ audio:
     frames: 18317964
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  mogg-channel-0:
+    md5: 323e9e1ce006f9c8a920ae766fb5afef
+    frames: 18595500
+    channels: 1
+  mogg-channel-1:
+    md5: 4b31ebb2b8c1291192104297321f0f4c
+    frames: 18595500
+    channels: 1
+  mogg-channel-2:
+    md5: 65a2e713b6bff85bef60b61e6fcb12ae
+    frames: 18595500
+    channels: 1
+  mogg-channel-3:
+    md5: 098ea5322ed7daf83ed002518da66e4a
+    frames: 18595500
+    channels: 1
+  mogg-channel-4:
+    md5: 61e4da14bf36c17ee68f37da67b6e7ac
+    frames: 18595500
+    channels: 1
+  mogg-channel-5:
+    md5: 071e647edc460b61d51d37fee70c5fd5
+    frames: 18595500
+    channels: 1
+  mogg-channel-6:
+    md5: ea0dc187d1bd4421fbb141581709e382
+    frames: 18595500
+    channels: 1
+  mogg-channel-7:
+    md5: b9a63b984cd052682735119b6421b1fa
+    frames: 18595500
+    channels: 1
+  mogg-channel-8:
+    md5: 967e204ae3364dab3753217e337cb384
+    frames: 18595500
+    channels: 1
+  mogg-channel-9:
+    md5: eb36d18c7676d1940a70c7e02712d542
+    frames: 18595500
+    channels: 1
+  mogg-channel-10:
+    md5: 62410d984beae42f09df5eab2b2c4f64
+    frames: 18595500
+    channels: 1
+  mogg-channel-11:
+    md5: cf0953e9df26730ef01d4bdcfe0bdb1f
+    frames: 18595500
+    channels: 1
 plans:
-  # could set up DVD but not much point
   album:
     countin:
+      &countin
       1|0: hihat
       1|2: hihat
       2|0: hihat
@@ -43,8 +91,37 @@ plans:
       guitar: [6, 7]
       vocal: [8, 9]
       keys: [10, 11]
-      # ^ includes countin - should remove in real plan.
-      # also includes rhythm gtr but that makes sense for keys
+  final:
+    countin: *countin
+    parts:
+      drums:
+        kick:
+          expr: mogg-channel-0
+        snare:
+          expr:
+            merge: [mogg-channel-1, mogg-channel-2]
+        kit:
+          expr:
+            merge: [mogg-channel-3, mogg-channel-4]
+      bass:
+        expr: mogg-channel-5
+        vols: [-2.5]
+      guitar:
+        expr:
+          merge: [mogg-channel-6, mogg-channel-7]
+        vols: [-3.5, -3.5]
+      vocal:
+        expr:
+          merge: [mogg-channel-8, mogg-channel-9]
+      keys:
+        expr:
+          # get rid of hmx countin
+          pad:
+          - 8
+          - drop:
+            - 8
+            - merge: [mogg-channel-10, mogg-channel-11]
+        vols: [-1, -1]
 parts:
   drums:
     drums:
@@ -76,15 +153,18 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: mogg
+    plan: final
     song-id: 1660200129
     version: 2
+    label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: mogg
+    plan: final
     song-id: 1660200130
     version: 2
+    label: (2x Bass Pedal) (O)
   ps:
     game: ps
-    plan: mogg
+    plan: final
+    label: (O)

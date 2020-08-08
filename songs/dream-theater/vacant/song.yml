@@ -15,7 +15,7 @@ audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   final-song:
-    md5: c918f339a0c757d413a8ed09b0cc6f8b
+    md5: f82f750fe1f596be0a1f2d942cc8bf61
     frames: 8215376
 plans:
   album:
@@ -78,7 +78,7 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: mogg
+    plan: release
     file-milo: lipsync.milo_xbox
     song-id: 1660200100
     version: 2

@@ -1,4 +1,4 @@
-<REAPER_PROJECT 0.1 "5.92/OSX64" 1549596697
+<REAPER_PROJECT 0.1 "5.99/linux64" 1596844210
   RIPPLE 0
   GROUPOVERRIDE 0 0 0
   AUTOXFADE 1
@@ -8,12 +8,12 @@
   PEAKGAIN 1
   FEEDBACK 0
   PANLAW 1
-  PROJOFFS 0 0
+  PROJOFFS 0 0 0
   MAXPROJLEN 0 600
   GRID 3199 8 1 8 1 0 0 0
-  TIMEMODE 1 5 -1 30 0
-  CURSOR 96
-  ZOOM 0.72795805626764 0 0
+  TIMEMODE 1 5 -1 30 0 0 -1
+  CURSOR 416
+  ZOOM 2.03002256651908 0 0
   VZOOMEX 10
   USE_REC_CFG 0
   RECMODE 1
@@ -38,7 +38,7 @@
   TIMELOCKMODE 2
   TEMPOENVLOCKMODE 1
   ITEMMIX 0
-  DEFPITCHMODE 589824
+  DEFPITCHMODE 589824 0
   TAKELANE 1
   SAMPLERATE 44100 0 0
   <RENDER_CFG
@@ -54,8 +54,8 @@
   GLOBAL_AUTO -1
   TEMPO 120 4 4
   PLAYRATE 1 0 0.25 4
-  SELECTION 301.5 301.5
-  SELECTION2 301.5 301.5
+  SELECTION 336 344
+  SELECTION2 336 344
   MASTERAUTOMODE 0
   MASTERTRACKHEIGHT 0 0
   MASTERPEAKCOL 16576
@@ -111,7 +111,7 @@
       LASTSEL 0
       DOCKED 0
       BYPASS 0 0 0
-      <VST "VST: ReaEQ (Cockos)" reaeq.vst.dylib 0 "" 1919247729
+      <VST "VST: ReaEQ (Cockos)" reaeq.vst.so 0 "" 1919247729<56535472656571726561657100000000> ""
         cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
         IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH8SpoqWp5JAUbRBhYs6
         9z8AAAAAAAAAQAEBAAAAAAAAAGxAFO91orBAwZo3sGO+9z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAFQCAABwAQAA
@@ -130,17 +130,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {688313E0-E435-4547-AAA1-20FA0E2A2953}
       IID 1
-      NAME honor-thy-father-debleed.flac
-      VOLPAN 0.951878 0 1 -1
+      NAME song.wav
+      VOLPAN 0.988333 0 1 -1
       SOFFS 6.16796000008363
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {778A0A8C-EE76-C945-BE08-EA0820FDF11F}
-      <SOURCE FLAC
-        FILE "honor-thy-father-debleed.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/song.wav"
       >
     >
     <ITEM
@@ -152,17 +152,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1.1 0 0.162887 1 1 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {1F596B03-19D2-4443-ACFF-16DD656E380C}
       IID 4
-      NAME honor-thy-father-debleed.flac
-      VOLPAN 0.819672 0 1 -1
+      NAME song.wav
+      VOLPAN 0.851064 0 1 -1
       SOFFS 6.82656551547611
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {DDB82F85-03D1-2041-9CE4-4CAB399F6CA5}
-      <SOURCE FLAC
-        FILE "honor-thy-father-debleed.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/song.wav"
       >
     >
     <ITEM
@@ -174,17 +174,17 @@
       FADEIN 1.1 0 0.162887 1 1 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {A5B65DC2-C130-5741-A2AC-5E10ABDA998B}
       IID 76
-      NAME honor-thy-father-debleed.flac
-      VOLPAN 0.916105 0 1 -1
+      NAME song.wav
+      VOLPAN 0.95119 0 1 -1
       SOFFS 222.23598488624691
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {B3FBA4AD-57D4-8B4D-8174-ED0B5540804D}
-      <SOURCE FLAC
-        FILE "honor-thy-father-debleed.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/song.wav"
       >
     >
     <ITEM
@@ -196,17 +196,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {96CDED2D-D801-A244-AD9B-9D4E9C527F87}
       IID 79
-      NAME honor-thy-father-debleed.flac
-      VOLPAN 0.819672 0 1 -1
+      NAME song.wav
+      VOLPAN 0.851064 0 1 -1
       SOFFS 233.01748691872038
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {59F4728B-0028-5A48-8CDE-C402611BFBC1}
-      <SOURCE FLAC
-        FILE "honor-thy-father-debleed.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/song.wav"
       >
     >
     <ITEM
@@ -218,17 +218,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {3E27831F-9BDF-C647-9793-C022DFDA8E57}
       IID 80
-      NAME honor-thy-father-debleed.flac
-      VOLPAN 0.929881 0 1 -1
+      NAME song.wav
+      VOLPAN 0.965494 0 1 -1
       SOFFS 298.21028331267905
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {C1FF8AD7-6FF9-2344-8A57-82D10FF6D670}
-      <SOURCE FLAC
-        FILE "honor-thy-father-debleed.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/song.wav"
       >
     >
     <ITEM
@@ -240,17 +240,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {E38473E0-7250-2F44-975A-9A1895D18888}
       IID 81
-      NAME honor-thy-father-debleed.flac
-      VOLPAN 0.819672 0 1 -1
+      NAME song.wav
+      VOLPAN 0.851064 0 1 -1
       SOFFS 302.999
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {555B4D47-A352-2142-ACEE-2AC93C3C4F68}
-      <SOURCE FLAC
-        FILE "honor-thy-father-debleed.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/song.wav"
       >
     >
     <ITEM
@@ -262,17 +262,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {320A87E7-4632-914D-821F-72CE899F250D}
       IID 83
-      NAME honor-thy-father-debleed.flac
-      VOLPAN 0.89544 0 1 -1
+      NAME song.wav
+      VOLPAN 0.929734 0 1 -1
       SOFFS 305.81900000414612
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {225484CE-5E79-6C4B-93CA-C19F1C049E65}
-      <SOURCE FLAC
-        FILE "honor-thy-father-debleed.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/song.wav"
       >
     >
     <ITEM
@@ -284,17 +284,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0.999363 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {46B29760-09CB-F441-BEBC-97DCBC59CCB5}
       IID 85
-      NAME honor-thy-father-debleed.flac
-      VOLPAN 0.819672 0 1 -1
+      NAME song.wav
+      VOLPAN 0.851064 0 1 -1
       SOFFS 360.95869878493579
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {06212B6B-958F-6746-B752-1E30D7B63674}
-      <SOURCE FLAC
-        FILE "honor-thy-father-debleed.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/song.wav"
       >
     >
   >
@@ -322,19 +322,12 @@
     MIDIOUT -1
     MAINSEND 1 0
     <FXCHAIN
-      WNDRECT 89 402 835 444
+      WNDRECT 89 402 716 268
       SHOW 0
       LASTSEL 1
       DOCKED 0
       BYPASS 0 0 0
-      <JS utility/channelmixer ""
-        -120.000000 -120.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-      >
-      FLOATPOS 0 0 0 0
-      FXID {A8C752C7-A785-5A41-B8D0-B86ED06B4512}
-      WAK 0
-      BYPASS 0 0 0
-      <VST "VST: ReaEQ (Cockos)" reaeq.vst.dylib 0 "" 1919247729
+      <VST "VST: ReaEQ (Cockos)" reaeq.vst.so 0 "" 1919247729<56535472656571726561657100000000> ""
         cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
         IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH+UvFzAH5hAwEvN32hd
         9D8AAAAAAAAAQAEBAAAAAQAAAIDRCgiUcbBApv7/////7z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAFQCAABwAQAA
@@ -342,6 +335,13 @@
       >
       FLOATPOS 0 0 0 0
       FXID {E10C8113-5850-7F4C-85BE-75B0BE4708E9}
+      WAK 0
+      BYPASS 0 0 0
+      <JS utility/chanmix2 ""
+        0.000000 1.000000 0.000000 0.000000 -1.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+      >
+      FLOATPOS 0 0 0 0
+      FXID {2948A81B-2CC0-43CD-8D39-875B9E700C2A}
       WAK 0
     >
     <ITEM
@@ -353,17 +353,17 @@
       FADEIN 0 2.938971 0 0 0 0
       FADEOUT 1.1 0 0.051153 1 1 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {2C258B24-346A-4543-9DB8-0D94EE16F3C1}
       IID 2
-      NAME honor-thy-father-drums.flac
-      VOLPAN 0.971708 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.008923 0 1 -1
       SOFFS 1.26779793215597
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {481BED7B-01B5-544A-98A5-F9CA64D93509}
-      <SOURCE FLAC
-        FILE "honor-thy-father-drums.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
       >
     >
     <ITEM
@@ -375,17 +375,17 @@
       FADEIN 1.1 0 0.051153 1 1 0
       FADEOUT 1.1 0 0.038117 1 1 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {9FBBA100-2B32-1549-9440-0AAFF5A56060}
       IID 3
-      NAME honor-thy-father-drums.flac
-      VOLPAN 0.819672 0 1 -1
+      NAME drums.wav
+      VOLPAN 0.851064 0 1 -1
       SOFFS 6.79406445155597
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {B31C0CF4-B823-9543-83D4-555BEC0FC724}
-      <SOURCE FLAC
-        FILE "honor-thy-father-drums.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
       >
     >
     <ITEM
@@ -397,39 +397,149 @@
       FADEIN 1.1 0 0.038117 1 1 0
       FADEOUT 1.1 0 0.044389 1 1 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {E9D2DE94-28C1-AD46-8C98-97DA890DF211}
       IID 5
-      NAME honor-thy-father-drums.flac
-      VOLPAN 0.733739 0 1 -1
+      NAME drums.wav
+      VOLPAN 0.76184 0 1 -1
       SOFFS 58.03788033881433
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {56D02102-A998-2245-AFAC-7949C8B434CC}
-      <SOURCE FLAC
-        FILE "honor-thy-father-drums.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
       >
     >
     <ITEM
       POSITION 61.71702527889339
       SNAPOFFS 0
-      LENGTH 160.8547001720093
+      LENGTH 7.29297472110661
       LOOP 0
       ALLTAKES 0
       FADEIN 1.1 0 0.044389 1 1 0
-      FADEOUT 1.1 0 0.116658 1 1 0
+      FADEOUT 1.1 0.01 0.01 1 1 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {29BC7343-9A4E-DF4D-A3AE-617C0D5EA66C}
       IID 6
-      NAME honor-thy-father-drums.flac
-      VOLPAN 0.819672 0 1 -1
+      NAME drums.wav
+      VOLPAN 0.893617 0 1 -1
       SOFFS 61.71802527889339
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {98006442-A853-6740-B1F4-71B9CF9C10D6}
-      <SOURCE FLAC
-        FILE "honor-thy-father-drums.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 69
+      SNAPOFFS 0
+      LENGTH 13.95007790680049
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0.01 0.01 1 1 0
+      FADEOUT 1.1 0.01 0.01 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {5F79EBA8-BBEC-4BD5-89C2-CF688D0D81F0}
+      IID 106
+      NAME drums.wav
+      VOLPAN 1 0 1 -1
+      SOFFS 69.001
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {C6AF8D9B-D213-4580-BE7E-D99F1EAE25B9}
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 82.94007790680048
+      SNAPOFFS 0
+      LENGTH 7.38399616849733
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0.01 0.01 1 1 0
+      FADEOUT 0 2.228009 0 0 0 0
+      MUTE 0
+      SEL 0
+      IGUID {BDB7CDC9-1DB6-4559-8B8D-CC24882A53C0}
+      IID 97
+      NAME drums.wav
+      VOLPAN 1.005851 0 1 -1
+      SOFFS 82.94107790680049
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {47863796-6BE5-4AFA-AF4E-6093CE9D17BA}
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 90.32407407529782
+      SNAPOFFS 0
+      LENGTH 50.73221268298945
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1 0.069444 0 1 0 0
+      FADEOUT 1.1 0.01 0.01 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {62CF03E5-1F86-4482-85D1-653751F48817}
+      IID 98
+      NAME drums.wav
+      VOLPAN 0.851064 0 1 -1
+      SOFFS 90.32507407529782
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {2F32E2E9-0AA4-4478-9539-EAE67132258A}
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 141.04628675828727
+      SNAPOFFS 0
+      LENGTH 59.96371324171273
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0.01 0.01 1 1 0
+      FADEOUT 1.1 0.01 0.01 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {4324BCE9-3850-4AFF-902C-A8D3110F7F3D}
+      IID 107
+      NAME drums.wav
+      VOLPAN 0.978723 0 1 -1
+      SOFFS 141.04728675828727
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {403DC88C-F616-440A-BDCF-BC3F44BA2A6C}
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 201
+      SNAPOFFS 0
+      LENGTH 21.57172545090272
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0.01 0.01 1 1 0
+      FADEOUT 1.1 0 0.116658 1 1 0
+      MUTE 0
+      SEL 0
+      IGUID {2D23A59C-3160-411E-83F7-65886CE6CD21}
+      IID 108
+      NAME drums.wav
+      VOLPAN 0.904255 0 1 -1
+      SOFFS 201.001
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {ACD64BAE-53F7-4914-8362-841F4E6256A9}
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
       >
     >
     <ITEM
@@ -441,17 +551,17 @@
       FADEIN 1.1 0 0.116658 1 1 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {09CF4F41-C7E5-3E40-B36D-F22394E06B2C}
       IID 77
-      NAME honor-thy-father-drums.flac
-      VOLPAN 1.012537 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.070745 0 1 -1
       SOFFS 222.45606743688387
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {D5FC02B6-28DE-6942-BC74-32F2A2615541}
-      <SOURCE FLAC
-        FILE "honor-thy-father-drums.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
       >
     >
     <ITEM
@@ -463,17 +573,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1.1 0 0.080928 1 1 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {1FD651C7-C1B6-4E44-BEED-F65FD78DF96C}
       IID 78
-      NAME honor-thy-father-drums.flac
-      VOLPAN 0.819672 0 1 -1
+      NAME drums.wav
+      VOLPAN 0.851064 0 1 -1
       SOFFS 233.3616005578057
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {2D591E5E-A643-5043-8747-09701F7B9182}
-      <SOURCE FLAC
-        FILE "honor-thy-father-drums.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
       >
     >
     <ITEM
@@ -485,17 +595,17 @@
       FADEIN 1.1 0 0.080928 1 1 0
       FADEOUT 1.1 0 0.044196 1 1 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {1FEA8325-376B-E646-8F2E-9EDDCBCC88E1}
       IID 7
-      NAME honor-thy-father-drums.flac
-      VOLPAN 0.709464 0 1 -1
+      NAME drums.wav
+      VOLPAN 0.736635 0 1 -1
       SOFFS 292.60669600396676
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {7BF99230-0EE2-1749-BB25-BC71110B5530}
-      <SOURCE FLAC
-        FILE "honor-thy-father-drums.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
       >
     >
     <ITEM
@@ -507,17 +617,17 @@
       FADEIN 1.1 0 0.044196 1 1 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {F6BD5EC9-9973-D84A-A07B-402C8889BB8F}
       IID 8
-      NAME honor-thy-father-drums.flac
-      VOLPAN 0.89544 0 1 -1
+      NAME drums.wav
+      VOLPAN 0.951774 0 1 -1
       SOFFS 298.3818546063448
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {09E5B74D-F985-E847-BBD3-B827467DA368}
-      <SOURCE FLAC
-        FILE "honor-thy-father-drums.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
       >
     >
     <ITEM
@@ -529,17 +639,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {A5DEB1E0-B36B-B04F-A5A7-F6CD991A9B4F}
       IID 82
-      NAME honor-thy-father-drums.flac
-      VOLPAN 0.819672 0 1 -1
+      NAME drums.wav
+      VOLPAN 0.851064 0 1 -1
       SOFFS 302.39808345468157
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {A5472BF6-E263-D44D-907F-1FDA4D05F4A0}
-      <SOURCE FLAC
-        FILE "honor-thy-father-drums.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
       >
     >
     <ITEM
@@ -551,17 +661,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {D28725D8-E03A-AA44-8951-02D4CF537DFC}
       IID 84
-      NAME honor-thy-father-drums.flac
-      VOLPAN 0.89544 0 1 -1
+      NAME drums.wav
+      VOLPAN 1.085106 0 1 -1
       SOFFS 305.82100000414613
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {16845C6A-A072-4240-B050-77292BB86E89}
-      <SOURCE FLAC
-        FILE "honor-thy-father-drums.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
       >
     >
     <ITEM
@@ -573,17 +683,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 1.648763 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {92104073-3AF5-8644-BF5A-84F92BB1321F}
       IID 86
-      NAME honor-thy-father-drums.flac
-      VOLPAN 0.819672 0 1 -1
+      NAME drums.wav
+      VOLPAN 0.851064 0 1 -1
       SOFFS 360.9606987849358
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {40A9C8F8-C180-4D47-872A-C8C4C06C68A7}
-      <SOURCE FLAC
-        FILE "honor-thy-father-drums.flac"
+      <SOURCE WAVE
+        FILE "honorthyfather/drums.wav"
       >
     >
   >

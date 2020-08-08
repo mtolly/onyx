@@ -1,4 +1,4 @@
-<REAPER_PROJECT 0.1 "5.92/OSX64" 1549596261
+<REAPER_PROJECT 0.1 "5.99/linux64" 1596844219
   RIPPLE 0
   GROUPOVERRIDE 0 0 0
   AUTOXFADE 1
@@ -8,12 +8,12 @@
   PEAKGAIN 1
   FEEDBACK 0
   PANLAW 1
-  PROJOFFS 0 0
+  PROJOFFS 0 0 0
   MAXPROJLEN 0 600
   GRID 3199 8 1 8 1 0 0 0
-  TIMEMODE 1 5 -1 30 0
-  CURSOR 32
-  ZOOM 5.00056339095233 0 0
+  TIMEMODE 1 5 -1 30 0 0 -1
+  CURSOR 240
+  ZOOM 0.90509622889291 0 0
   VZOOMEX 15
   USE_REC_CFG 0
   RECMODE 1
@@ -38,7 +38,7 @@
   TIMELOCKMODE 2
   TEMPOENVLOCKMODE 1
   ITEMMIX 0
-  DEFPITCHMODE 589824
+  DEFPITCHMODE 589824 0
   TAKELANE 1
   SAMPLERATE 44100 0 0
   <RENDER_CFG
@@ -54,8 +54,8 @@
   GLOBAL_AUTO -1
   TEMPO 120 4 4
   PLAYRATE 1 0 0.25 4
-  SELECTION 834 834
-  SELECTION2 834 834
+  SELECTION 144 144
+  SELECTION2 144 144
   MASTERAUTOMODE 0
   MASTERTRACKHEIGHT 0 0
   MASTERPEAKCOL 16576
@@ -94,7 +94,7 @@
     BUSCOMP 0 0
     SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
-    SEL 1
+    SEL 0
     REC 0 0 0 0 0 0 0
     VU 2
     TRACKHEIGHT 0 0 0
@@ -111,7 +111,7 @@
       LASTSEL 0
       DOCKED 0
       BYPASS 0 0 0
-      <VST "VST: ReaEQ (Cockos)" reaeq.vst.dylib 0 "" 1919247729
+      <VST "VST: ReaEQ (Cockos)" reaeq.vst.so 0 "" 1919247729<56535472656571726561657100000000> ""
         cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
         IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH8SpoqWp5JAUbRBhYs6
         9z8AAAAAAAAAQAEBAAAAAAAAAGxAFO91orBAwZo3sGO+9z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAFQCAABwAQAA
@@ -130,7 +130,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {EF74F067-BF15-4C4F-B924-32DEEA4BB65E}
       IID 1
       NAME itnog-debleed.wav
@@ -140,7 +140,7 @@
       CHANMODE 0
       GUID {6AD1B177-D1D1-2149-8AFA-C770E7724DC7}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
     <ITEM
@@ -152,7 +152,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {BA37E8F5-BBEA-D842-9E4D-85020275D782}
       IID 76
       NAME itnog-debleed.wav
@@ -162,7 +162,7 @@
       CHANMODE 0
       GUID {2B9B0B93-5F18-CD4E-8E46-5EFDE1753194}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
     <ITEM
@@ -174,7 +174,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {B127F166-426E-3840-93C9-E51A05227C74}
       IID 84
       NAME itnog-debleed.wav
@@ -184,7 +184,7 @@
       CHANMODE 0
       GUID {E230CDFC-B755-3647-80A7-A9C8AD0B14A2}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
     <ITEM
@@ -196,7 +196,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {9260F3DA-870A-5B46-A236-950E14C4538D}
       IID 86
       NAME itnog-debleed.wav
@@ -206,7 +206,7 @@
       CHANMODE 0
       GUID {AE7A8BEE-BCD3-AC49-BC9E-3A5168291B24}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
     <ITEM
@@ -218,7 +218,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {935D079B-33B8-BF43-BC7B-28BE9114F707}
       IID 78
       NAME itnog-debleed.wav
@@ -228,7 +228,7 @@
       CHANMODE 0
       GUID {6834BF02-5F2B-524A-B2CB-4A90CEC269C4}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
     <ITEM
@@ -240,7 +240,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1.1 0 5.088222 1 1 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {C6B3FB1E-6C32-A442-BF3A-5159CF7C9ED6}
       IID 9
       NAME itnog-debleed.wav
@@ -250,7 +250,7 @@
       CHANMODE 0
       GUID {E36ABCF4-A974-204E-92C8-F0850538EE67}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
     <ITEM
@@ -262,7 +262,7 @@
       FADEIN 1.1 0 5.088222 1 1 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {9FAF1280-9999-084F-996A-D933533826BC}
       IID 10
       NAME itnog-debleed.wav
@@ -272,7 +272,7 @@
       CHANMODE 0
       GUID {127F30C9-153D-224F-B1BC-03A20D4C50F0}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
     <ITEM
@@ -284,7 +284,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {F24C7754-26F4-484F-8B7C-29D4B2FAFC58}
       IID 13
       NAME itnog-debleed.wav
@@ -294,7 +294,7 @@
       CHANMODE 0
       GUID {22056C83-F5E5-1F45-9432-00AE95BFCDDA}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
     <ITEM
@@ -306,7 +306,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {123D8976-66E9-3249-99B4-457B6E20182A}
       IID 88
       NAME itnog-debleed.wav
@@ -316,7 +316,7 @@
       CHANMODE 0
       GUID {35E741B2-96C7-4143-B0F1-482F6C76EE5B}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
     <ITEM
@@ -328,7 +328,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {F3F794D5-B317-B64F-89B4-DBD995CB35BC}
       IID 90
       NAME itnog-debleed.wav
@@ -338,7 +338,7 @@
       CHANMODE 0
       GUID {17B2DB8D-87A7-6C44-AF06-76F711814240}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
     <ITEM
@@ -350,7 +350,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {4526D6C0-3148-6146-8235-1065AE6471E3}
       IID 92
       NAME itnog-debleed.wav
@@ -360,7 +360,7 @@
       CHANMODE 0
       GUID {315EEAE0-9BEA-624A-B57A-46C27158A5C9}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
     <ITEM
@@ -372,7 +372,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 3 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {9F0A291B-14B2-9640-A453-86234ACB80E1}
       IID 93
       NAME itnog-debleed.wav
@@ -382,7 +382,7 @@
       CHANMODE 0
       GUID {322B10F2-4FA7-FF43-9C40-DE5E2410827E}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
     <ITEM
@@ -394,7 +394,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 3 32.817727 0 3 0 1
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {C3DF255A-0CE2-6441-B8AD-42823302AA78}
       IID 119
       NAME itnog-debleed.wav
@@ -404,7 +404,7 @@
       CHANMODE 0
       GUID {F2C2A37E-A8D0-8240-8327-F294CB5DE2D6}
       <SOURCE WAVE
-        FILE "itnog-debleed.wav"
+        FILE "itnog/song.wav"
       >
     >
   >
@@ -420,7 +420,7 @@
     BUSCOMP 0 0
     SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
-    SEL 1
+    SEL 0
     REC 0 0 0 0 0 0 0
     VU 2
     TRACKHEIGHT 0 0 0
@@ -432,19 +432,12 @@
     MIDIOUT -1
     MAINSEND 1 0
     <FXCHAIN
-      WNDRECT 89 402 835 444
+      WNDRECT 89 402 823 481
       SHOW 0
-      LASTSEL 1
+      LASTSEL 0
       DOCKED 0
       BYPASS 0 0 0
-      <JS utility/channelmixer ""
-        -120.000000 -120.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-      >
-      FLOATPOS 0 0 0 0
-      FXID {2A847250-B6B7-D241-9C0B-9317D5C8D78C}
-      WAK 0
-      BYPASS 0 0 0
-      <VST "VST: ReaEQ (Cockos)" reaeq.vst.dylib 0 "" 1919247729
+      <VST "VST: ReaEQ (Cockos)" reaeq.vst.so 0 "" 1919247729<56535472656571726561657100000000> ""
         cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
         IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAH+UvFzAH5hAwEvN32hd
         9D8AAAAAAAAAQAEBAAAAAQAAAIDRCgiUcbBApv7/////7z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAFQCAABwAQAA
@@ -463,7 +456,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {7E14017B-830D-2148-A59B-C740DE558070}
       IID 2
       NAME itnog-drums.wav
@@ -473,7 +466,7 @@
       CHANMODE 0
       GUID {5C227B93-0FEA-8C40-B21F-49EEA7ECB4F3}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -485,7 +478,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {9DC17B2C-E5F2-E74C-AABF-396EB4CB496D}
       IID 3
       NAME itnog-drums.wav
@@ -495,19 +488,19 @@
       CHANMODE 0
       GUID {F1D11A14-FAF0-CB4F-9378-EE35D70EE8EE}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
       POSITION 106.58094951602169
       SNAPOFFS 0
-      LENGTH 83.47439616038787
+      LENGTH 51.36521001164684
       LOOP 0
       ALLTAKES 0
       FADEIN 1 0 0 1 0 0
-      FADEOUT 1 0 0 1 0 0
+      FADEOUT 1.1 0.01 0.01 1 1 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {24FA543A-FB8D-9F42-BDF3-0A0BE766A375}
       IID 6
       NAME itnog-drums.wav
@@ -517,7 +510,29 @@
       CHANMODE 0
       GUID {8583FDDB-0F2A-6945-9767-F682F893641C}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 157.93615952766854
+      SNAPOFFS 0
+      LENGTH 32.11918614874102
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0.01 0.01 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {A884B901-EF38-4988-8B3C-293266FD9571}
+      IID 143
+      NAME itnog-drums.wav
+      VOLPAN 1.198582 0 1 -1
+      SOFFS 157.93715952766854
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {560E902E-4690-42A0-843B-4B9C639D53A4}
+      <SOURCE WAVE
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -529,17 +544,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {02919488-DC11-1C40-A023-3C5A28BF7D02}
       IID 77
       NAME itnog-drums.wav
-      VOLPAN 1.178736 0 1 -1
+      VOLPAN 1.264466 0 1 -1
       SOFFS 190.05634567640956
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {6A6C9056-7B15-4E41-9268-3EF0D3244FEA}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -551,17 +566,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {17F30262-2084-444C-8D1E-EE3821630F17}
       IID 85
       NAME itnog-drums.wav
-      VOLPAN 1.272659 0 1 -1
+      VOLPAN 1.365221 0 1 -1
       SOFFS 191.71686519956936
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {63604A9C-B9D7-404F-9839-A7107466880B}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -573,17 +588,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {9B69425B-DD43-5F40-BD8E-5B6238E2F456}
       IID 87
       NAME itnog-drums.wav
-      VOLPAN 1.178736 0 1 -1
+      VOLPAN 1.264466 0 1 -1
       SOFFS 198.39212008750076
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {0B30895D-32C8-224A-986D-D9B5587F95AE}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -595,17 +610,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1.1 0 2.114977 1 1 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {5AC050E4-CB76-454A-800B-B53BCD2FF3E1}
       IID 79
       NAME itnog-drums.wav
-      VOLPAN 1.117318 0 1 -1
+      VOLPAN 1.198582 0 1 -1
       SOFFS 205.61228888516766
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {CBAE6E83-8D94-3244-8DCD-E9E0B85B2F8C}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -617,17 +632,17 @@
       FADEIN 1.1 0 2.114977 1 1 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {5E5654E6-21C5-F943-A475-2B244A04344A}
       IID 7
       NAME itnog-drums.wav
-      VOLPAN 0.969979 0 1 -1
+      VOLPAN 0.996513 0 1 -1
       SOFFS 336.91002327011995
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {D091CCED-335F-8B4A-918F-621F1E399CF2}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -639,17 +654,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {DE04923D-E680-7942-AB14-A9FF6C71BD20}
       IID 8
       NAME itnog-drums.wav
-      VOLPAN 1.117318 0 1 -1
+      VOLPAN 1.162909 0 1 -1
       SOFFS 340.88131142166287
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {948F0EB2-DC5F-974A-A8E2-53425981D049}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -661,17 +676,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {5CF3E345-2BB6-3744-976C-FB5F8663D9A0}
       IID 11
       NAME itnog-drums.wav
-      VOLPAN 0.902449 0 1 -1
+      VOLPAN 0.927136 0 1 -1
       SOFFS 445.501
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {B09EDB34-3A8C-CD4F-8299-DB1F09F4F74C}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -683,17 +698,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {73DC4331-E77F-1A4E-89B2-003C241BC495}
       IID 12
       NAME itnog-drums.wav
-      VOLPAN 1.117318 0 1 -1
+      VOLPAN 1.147883 0 1 -1
       SOFFS 448.8145035428297
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {7049DE5C-86C9-A344-B935-F4E916AD9890}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -705,39 +720,61 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {0EC78B9B-50AE-564F-89FF-70E8BCD0CC31}
       IID 89
       NAME itnog-drums.wav
-      VOLPAN 1.178736 0 1 -1
+      VOLPAN 1.210981 0 1 -1
       SOFFS 485.7623991912663
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {28BF296B-898D-2D41-A376-8009F1EE6104}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
       POSITION 495.67680000672141
       SNAPOFFS 0
-      LENGTH 115.54020941406776
+      LENGTH 27.40978483035469
       LOOP 0
       ALLTAKES 0
       FADEIN 1 0 0 1 0 0
-      FADEOUT 1 0 0 1 0 0
+      FADEOUT 1.1 0.01 0.01 1 1 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {E2D90C6E-D9B9-FE45-95DC-9B3B82540CE0}
       IID 91
       NAME itnog-drums.wav
-      VOLPAN 1.117318 0 1 -1
+      VOLPAN 1.147883 0 1 -1
       SOFFS 495.67780000672138
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {4A52E3FC-228D-5A4B-AED9-0070E219BD03}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 523.0765848370761
+      SNAPOFFS 0
+      LENGTH 88.14042458371307
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0.01 0.01 1 1 0
+      FADEOUT 1 0 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {09FF83FA-DD4C-4F33-A1CB-19D63D692066}
+      IID 144
+      NAME itnog-drums.wav
+      VOLPAN 1.184313 0 1 -1
+      SOFFS 523.07758483707607
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {73F6B604-F0C5-48FB-8E7B-C45CE2F83647}
+      <SOURCE WAVE
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -749,17 +786,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {F5F78DAC-A5D6-194D-8D27-48BFD92C545C}
       IID 14
       NAME itnog-drums.wav
-      VOLPAN 1.000675 0 1 -1
+      VOLPAN 1.028049 0 1 -1
       SOFFS 611.21800942078914
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {F7198BF2-71FA-AD41-9F56-993E4A5D6952}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -771,17 +808,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {B88369F7-601A-704F-ABF6-7CEDE5A221B7}
       IID 15
       NAME itnog-drums.wav
-      VOLPAN 1.117318 0 1 -1
+      VOLPAN 1.147883 0 1 -1
       SOFFS 616.10372983554066
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {A2CFF42D-3033-A741-A4F2-E8E21DB7E17B}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -793,17 +830,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {E07DF4A5-72D3-6F42-AD63-2F19E36DB7DB}
       IID 16
       NAME itnog-drums.wav
-      VOLPAN 0.976118 0 1 -1
+      VOLPAN 1.00282 0 1 -1
       SOFFS 637.55835040864213
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {55991A13-A211-B74D-8874-F133C2654E56}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -815,17 +852,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {DEA96155-56FA-F24C-8562-577951070FCB}
       IID 17
       NAME itnog-drums.wav
-      VOLPAN 1.117318 0 1 -1
+      VOLPAN 1.147883 0 1 -1
       SOFFS 638.55183872332827
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {DB494762-A305-2A4F-900E-53B1E96D9243}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -837,17 +874,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {1F4379A0-64DC-7945-8581-14EA29324CAF}
       IID 18
       NAME itnog-drums.wav
-      VOLPAN 0.760778 0 1 -1
+      VOLPAN 0.781589 0 1 -1
       SOFFS 643.16294528286903
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {0685C1F3-8E9D-8945-924D-F4BBD3261E5D}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -859,17 +896,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {C3A0533C-D4AF-D249-AD5E-71C3DE43DCD2}
       IID 19
       NAME itnog-drums.wav
-      VOLPAN 1.117318 0 1 -1
+      VOLPAN 1.147883 0 1 -1
       SOFFS 644.58402329184742
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {0AFF932D-C849-6940-B7D4-4F7E395AE408}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -881,39 +918,83 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {12A22FED-3FFF-2948-9BB3-3D9B878A77DA}
       IID 20
       NAME itnog-drums.wav
-      VOLPAN 0.962713 0 1 -1
+      VOLPAN 0.989048 0 1 -1
       SOFFS 651.48406156091664
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {10F42D67-4876-A14E-A9B2-8D3D5B220627}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
       POSITION 653.0201288725674
       SNAPOFFS 0
-      LENGTH 173.48625811474312
+      LENGTH 12.43897695258296
       LOOP 0
       ALLTAKES 0
       FADEIN 1 0 0 1 0 0
-      FADEOUT 1 0 0 0 0 0
+      FADEOUT 1.1 0.01 0.01 0 1 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {09289AE3-800C-5A4C-8A40-758E6B0B4CFF}
       IID 21
       NAME itnog-drums.wav
-      VOLPAN 1.117318 0 1 -1
+      VOLPAN 1.147883 0 1 -1
       SOFFS 653.02112887256737
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {78254595-28A7-6149-A2EF-F9F519ED9D03}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 665.44910582515035
+      SNAPOFFS 0
+      LENGTH 32.95676680098621
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0.01 0.01 1 1 0
+      FADEOUT 1.1 0.01 0.01 0 1 0
+      MUTE 0
+      SEL 0
+      IGUID {685ED1EE-2E18-4B29-93B4-D553C61DFEA8}
+      IID 145
+      NAME itnog-drums.wav
+      VOLPAN 1.262791 0 1 -1
+      SOFFS 665.45010582515033
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {54325C6A-BF41-4C00-9B0E-EF5C74F0FCC3}
+      <SOURCE WAVE
+        FILE "itnog/drums.wav"
+      >
+    >
+    <ITEM
+      POSITION 698.39587262613657
+      SNAPOFFS 0
+      LENGTH 128.11051436117395
+      LOOP 0
+      ALLTAKES 0
+      FADEIN 1.1 0.01 0.01 1 1 0
+      FADEOUT 1 0 0 0 0 0
+      MUTE 0
+      SEL 0
+      IGUID {865C296E-F476-4E89-9697-9DC77C49183F}
+      IID 146
+      NAME itnog-drums.wav
+      VOLPAN 1.170044 0 1 -1
+      SOFFS 698.39687262613654
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {F5CE0E62-34C5-4EEC-BA73-C57A128D1AF7}
+      <SOURCE WAVE
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -925,17 +1006,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 0 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {65E52581-77F4-AC46-82C7-99E30849FCFA}
       IID 121
       NAME itnog-drums.wav
-      VOLPAN 1.064795 0 1 -1
+      VOLPAN 1.093923 0 1 -1
       SOFFS 826.5073869873105
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {64870142-D56E-4A49-A41E-D97C6C6CAE38}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
     <ITEM
@@ -947,17 +1028,17 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 0 7.724006 0 0 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {D37972CF-B349-BF4A-BC17-B1908558900E}
       IID 23
       NAME itnog-drums.wav
-      VOLPAN 0.836625 0 1 -1
+      VOLPAN 0.859511 0 1 -1
       SOFFS 828.31676827800095
       PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {4D411809-07D1-BC4E-8003-A23092CB1172}
       <SOURCE WAVE
-        FILE "itnog-drums.wav"
+        FILE "itnog/drums.wav"
       >
     >
   >
