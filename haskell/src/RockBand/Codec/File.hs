@@ -25,14 +25,11 @@ import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
 import           Data.Functor.Identity             (Identity)
 import           Data.Hashable                     (Hashable (..))
-import           Data.List.Extra                   (isInfixOf, nubOrd,
-                                                    partition, sortOn,
-                                                    stripPrefix)
+import           Data.List.Extra                   (nubOrd, partition, sortOn)
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (catMaybes, fromJust,
                                                     fromMaybe, isNothing,
                                                     listToMaybe, mapMaybe)
-import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
 import           DeriveHelpers
 import           GHC.Generics                      (Generic)
@@ -58,8 +55,6 @@ import qualified Sound.MIDI.File                   as F
 import qualified Sound.MIDI.File.Event             as E
 import qualified Sound.MIDI.File.Event.Meta        as Meta
 import           Sound.MIDI.File.FastParse         (getMIDI)
-import qualified Sound.MIDI.File.Load              as Load
-import qualified Sound.MIDI.Parser.Report          as Report
 import qualified Sound.MIDI.Util                   as U
 
 type FileParser m t = StackTraceT (StateT [RTB.T t E.T] m)
@@ -311,23 +306,23 @@ instance TraverseTrack OnyxPart where
 getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
 getFlexPart part = fromMaybe mempty . Map.lookup part . onyxParts
 
-identifyFlexTrack :: String -> Maybe FlexPartName
-identifyFlexTrack name = case stripPrefix "[" name of
-  Just name' -> Just $ readPartName $ T.pack $ takeWhile (/= ']') name'
+identifyFlexTrack :: T.Text -> Maybe FlexPartName
+identifyFlexTrack name = case T.stripPrefix "[" name of
+  Just name' -> Just $ readPartName $ T.takeWhile (/= ']') name'
   Nothing
-    | "RHYTHM"      `isInfixOf` name -> Just $ FlexExtra "rhythm"
-    | "GUITAR COOP" `isInfixOf` name -> Just $ FlexExtra "guitar-coop"
-    | "DRUM"        `isInfixOf` name -> Just FlexDrums
-    | "GUITAR"      `isInfixOf` name -> Just FlexGuitar
-    | "T1 GEMS"     `isInfixOf` name -> Just FlexGuitar
-    | "BASS"        `isInfixOf` name -> Just FlexBass
-    | "KEYS"        `isInfixOf` name -> Just FlexKeys
-    | "VOCAL"       `isInfixOf` name -> Just FlexVocal
-    | "HARM"        `isInfixOf` name -> Just FlexVocal
-    | "MELODY"      `isInfixOf` name -> Just $ FlexExtra "global"
-    | "KONGA"       `isInfixOf` name -> Just $ FlexExtra "global"
-    | "DANCE"       `isInfixOf` name -> Just $ FlexExtra "global"
-    | otherwise                      -> Nothing
+    | "RHYTHM"      `T.isInfixOf` name -> Just $ FlexExtra "rhythm"
+    | "GUITAR COOP" `T.isInfixOf` name -> Just $ FlexExtra "guitar-coop"
+    | "DRUM"        `T.isInfixOf` name -> Just FlexDrums
+    | "GUITAR"      `T.isInfixOf` name -> Just FlexGuitar
+    | "T1 GEMS"     `T.isInfixOf` name -> Just FlexGuitar
+    | "BASS"        `T.isInfixOf` name -> Just FlexBass
+    | "KEYS"        `T.isInfixOf` name -> Just FlexKeys
+    | "VOCAL"       `T.isInfixOf` name -> Just FlexVocal
+    | "HARM"        `T.isInfixOf` name -> Just FlexVocal
+    | "MELODY"      `T.isInfixOf` name -> Just $ FlexExtra "global"
+    | "KONGA"       `T.isInfixOf` name -> Just $ FlexExtra "global"
+    | "DANCE"       `T.isInfixOf` name -> Just $ FlexExtra "global"
+    | otherwise                        -> Nothing
 
 parseOnyxPart :: (SendMessage m) => FlexPartName -> FileCodec m U.Beats (OnyxPart U.Beats)
 parseOnyxPart partName = do
@@ -384,7 +379,7 @@ instance ParseFile OnyxFile where
     onyxParts    <- onyxParts =. Codec
       { codecIn = do
         trks <- lift get
-        let partNames = nubOrd $ mapMaybe (U.trackName >=> identifyFlexTrack) trks
+        let partNames = nubOrd $ mapMaybe (U.trackName >=> identifyFlexTrack . T.pack) trks
         results <- forM partNames $ \partName -> do
           part <- codecIn $ parseOnyxPart partName
           return (partName, part)

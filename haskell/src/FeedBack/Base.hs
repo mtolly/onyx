@@ -5,10 +5,8 @@ module FeedBack.Base where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Micro, Milli)
-import           Data.Foldable                    (Foldable)
 import qualified Data.HashMap.Strict              as Map
 import qualified Data.Text                        as T
-import           Data.Traversable                 (Traversable)
 import qualified Numeric.NonNegative.Wrapper      as NN
 
 data Atom

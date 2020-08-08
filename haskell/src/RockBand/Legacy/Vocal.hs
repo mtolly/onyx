@@ -14,7 +14,6 @@ module RockBand.Legacy.Vocal
 import           Data.DTA.Serialize.Magma         (Percussion (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (partition)
-import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.Vocal

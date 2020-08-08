@@ -13,7 +13,6 @@ import           Control.Monad.Trans.Writer
 import           Data.Char                      (isSpace)
 import qualified Data.HashMap.Strict            as HM
 import           Data.Maybe                     (catMaybes)
-import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import           RockBand.Common                (Key (..))
 import           Text.Read                      (readMaybe)

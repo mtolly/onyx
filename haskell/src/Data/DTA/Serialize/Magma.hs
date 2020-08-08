@@ -7,7 +7,6 @@ import           Control.Monad.Codec      ((=.))
 import           Control.Monad.Codec.Onyx
 import           Data.DTA
 import           Data.DTA.Serialize
-import           Data.Monoid              ((<>))
 import qualified Data.Text                as T
 
 data Metadata = Metadata

@@ -2524,7 +2524,7 @@ miscPageMIDI sink rect tab startTasks = do
       sink $ EventOnyx $ let
         task = do
           mid <- RBFile.loadMIDI input
-          lg $ closeShiftsFile mid
+          lg $ T.unpack $ closeShiftsFile mid
           return []
         in startTasks [("Pro Keys range check: " <> input, task)]
   padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do

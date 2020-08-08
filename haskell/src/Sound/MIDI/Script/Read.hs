@@ -1,11 +1,10 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
 module Sound.MIDI.Script.Read
 ( readStandardFile
 ) where
 
-import           Control.Applicative                   (liftA2, (<$>), (<|>))
+import           Control.Applicative                   (liftA2, (<|>))
 import           Control.Arrow                         (first, second)
 import           Data.List                             (groupBy, sortBy)
 import           Data.Maybe                            (mapMaybe)

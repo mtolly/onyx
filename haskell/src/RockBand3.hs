@@ -360,16 +360,17 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
   let targetPS = case target of
         Right tps -> tps
         Left trb3 -> TargetPS
-          { ps_Common     = rb3_Common trb3
-          , ps_FileVideo  = Nothing
-          , ps_Guitar     = rb3_Guitar trb3
-          , ps_Bass       = rb3_Bass trb3
-          , ps_Drums      = rb3_Drums trb3
-          , ps_Keys       = rb3_Keys trb3
-          , ps_Vocal      = rb3_Vocal trb3
-          , ps_Rhythm     = RBFile.FlexExtra "undefined"
-          , ps_GuitarCoop = RBFile.FlexExtra "undefined"
-          , ps_Dance      = RBFile.FlexExtra "undefined"
+          { ps_Common        = rb3_Common trb3
+          , ps_FileVideo     = Nothing
+          , ps_Guitar        = rb3_Guitar trb3
+          , ps_Bass          = rb3_Bass trb3
+          , ps_Drums         = rb3_Drums trb3
+          , ps_Keys          = rb3_Keys trb3
+          , ps_Vocal         = rb3_Vocal trb3
+          , ps_Rhythm        = RBFile.FlexExtra "undefined"
+          , ps_GuitarCoop    = RBFile.FlexExtra "undefined"
+          , ps_Dance         = RBFile.FlexExtra "undefined"
+          , ps_LoadingPhrase = Nothing
           }
       originalRanks = difficultyPS targetPS songYaml
 

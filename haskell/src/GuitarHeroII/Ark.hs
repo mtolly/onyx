@@ -7,7 +7,6 @@ import           ArkTool
 import           Control.Monad   (forM_)
 import qualified Data.ByteString as B
 import qualified Data.DTA        as D
-import           Data.Monoid     ((<>))
 import qualified System.IO       as IO
 import           System.IO.Temp  (withSystemTempFile)
 

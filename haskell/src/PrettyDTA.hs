@@ -24,7 +24,6 @@ import qualified Data.HashMap.Strict               as Map
 import           Data.List.HT                      (partitionMaybe)
 import           Data.Maybe                        (fromMaybe, listToMaybe,
                                                     mapMaybe)
-import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
 import qualified Data.Text.Encoding                as TE
 import           Data.Version                      (showVersion)

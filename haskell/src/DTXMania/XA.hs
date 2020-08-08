@@ -27,7 +27,6 @@ import           Data.Int
 import qualified Data.Vector.Storable         as V
 import           Data.Word                    (Word8)
 import           System.IO
-import           System.IO.Error              (ioError, userError)
 
 data XAState = XAState
   { xa_Prev0 :: Int16

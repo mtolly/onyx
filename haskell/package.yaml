@@ -43,7 +43,7 @@ library:
   - binary
   - array
   - base64-bytestring
-  - pretty
+  - prettyprinter
   - monad-loops
   - time
   - ini

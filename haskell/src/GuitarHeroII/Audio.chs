@@ -13,9 +13,8 @@ import qualified Data.ByteString              as B
 import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
 import qualified Data.Conduit                 as C
-import Data.Conduit ((.|))
+import           Data.Conduit                 ((.|))
 import qualified Data.Conduit.Audio           as A
-import           Data.Int                     (Int16)
 import qualified Data.Vector.Storable         as V
 import           Foreign
 import qualified System.IO                    as IO

@@ -47,7 +47,6 @@ import           Data.List.HT                     (partitionMaybe)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
-import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           GuitarHeroII.Audio               (readVGS)
@@ -533,7 +532,7 @@ commands =
       , "onyx hanging notes.mid"
       ]
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> do
-      let withMIDI mid = RBFile.loadMIDI mid >>= lg . closeShiftsFile
+      let withMIDI mid = RBFile.loadMIDI mid >>= lg . T.unpack . closeShiftsFile
       case ftype of
         FileSongYaml -> withProject (optIndex opts) fpath $ proKeysHanging $ getMaybePlan opts
         FileRBProj   -> do

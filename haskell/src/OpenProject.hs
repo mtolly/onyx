@@ -34,7 +34,6 @@ import           Data.Hashable
 import qualified Data.HashMap.Strict            as Map
 import           Data.List.Extra                (stripSuffix)
 import           Data.Maybe                     (fromMaybe, mapMaybe)
-import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Yaml                      as Y
 import           DTXMania.DTX

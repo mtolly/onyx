@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Reaper.Extract where
 
 import           Control.Monad.Extra                   (forM, mapMaybeM)
@@ -9,10 +10,11 @@ import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64                as B64
 import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
-import           Data.Char                             (toUpper)
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Maybe                            (fromMaybe, mapMaybe)
+import qualified Data.Text                             as T
+import qualified Data.Text.Encoding                    as TE
 import           Numeric                               (readHex)
 import qualified Numeric.NonNegative.Wrapper           as NN
 import           Reaper.Base
@@ -30,10 +32,10 @@ import           Text.Read                             (readMaybe)
 getChildren :: Element -> [Element]
 getChildren (Element _ _ children) = fromMaybe [] children
 
-args :: Element -> [String]
+args :: Element -> [T.Text]
 args (Element _ xs _) = xs
 
-isNamed :: String -> Element -> Bool
+isNamed :: T.Text -> Element -> Bool
 isNamed x (Element k _ _) = k == x
 
 getProject :: Element -> [Element]
@@ -46,15 +48,15 @@ getTiming e = case getProject e of
   children -> case filter (isNamed "TEMPOENVEX") children of
     [env] -> let
       evts = filter (isNamed "PT") $ getChildren env
-      readDouble :: String -> Double
-      readDouble = read
+      readDouble :: T.Text -> Double
+      readDouble = read . T.unpack -- TODO handle read failure
       in fmap ATB.fromPairList $ forM evts $ \pt -> do
         (secs, bpm) <- case args pt of
           secsArg : bpmArg : _ -> return (realToFrac $ readDouble secsArg, realToFrac (readDouble bpmArg) / 60)
           _ -> fatal "getTiming: couldn't parse a PT event"
         let tsig = case args pt of
               _ : _ : _ : tsigArg : _ -> Just $ let
-                (d, n) = quotRem (read tsigArg :: Integer) 0x10000
+                (d, n) = quotRem (read $ T.unpack tsigArg :: Integer) 0x10000 -- TODO handle read failure
                 unit = 4 / realToFrac d
                 in U.TimeSig (realToFrac n * unit) unit
               _ -> Nothing
@@ -79,10 +81,10 @@ timingToMaps timing = let
 
 parseEvent :: (SendMessage m) => Element -> StackTraceT m (Maybe (Integer, Maybe E.T))
 parseEvent elt@(Element etype eparams blk) = inside ("RPP line: " <> show elt) $ do
-  let unhex s = case readHex s of
+  let unhex s = case readHex $ T.unpack s of
         [(n, "")] -> Just n
         _         -> Nothing
-  case map toUpper etype of
+  case T.toUpper etype of
     -- lowercase event type just means the event is selected
     "E" -> do
       case blk of
@@ -90,7 +92,7 @@ parseEvent elt@(Element etype eparams blk) = inside ("RPP line: " <> show elt) $
         Nothing -> return ()
       case eparams of
         [] -> warn "E event has no parameters" >> return Nothing
-        tks : bytes -> case readMaybe tks of
+        tks : bytes -> case readMaybe $ T.unpack tks of
           Nothing -> warn "Couldn't read delta ticks from E event" >> return Nothing
           Just tks' -> case mapM unhex bytes of
             Nothing -> do
@@ -107,12 +109,12 @@ parseEvent elt@(Element etype eparams blk) = inside ("RPP line: " <> show elt) $
     "X" -> case eparams of
       [] -> warn "X event has no parameters" >> return Nothing
       tks : _ -> do
-        case readMaybe tks of
+        case readMaybe $ T.unpack tks of
           Nothing -> warn "Couldn't read delta ticks from X event" >> return Nothing
           Just tks' -> case blk of
             Nothing -> warn "X event has no indented block" >> return Nothing
             Just xdata -> do
-              let bytes = B.concat $ map (B64.decodeLenient . B8.pack)
+              let bytes = B.concat $ map (B64.decodeLenient . TE.encodeUtf8)
                     [ b64 | Element b64 [] Nothing <- xdata ]
                   text = B8.unpack $ B.drop 2 bytes
               mevt <- case B.unpack bytes of
@@ -143,7 +145,7 @@ getTracks proj = let
           else let
             srcLines = getChildren src
             isResolution = \case
-              Element "HASDATA" ["1", res, "QN"] Nothing -> readMaybe res :: Maybe Integer
+              Element "HASDATA" ["1", res, "QN"] Nothing -> readMaybe $ T.unpack res :: Maybe Integer
               _                                          -> Nothing
             in case mapMaybe isResolution srcLines of
               []             -> return RTB.empty

@@ -31,7 +31,6 @@ import           Data.List.Extra                  (nubOrd, sort)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe)
-import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import           Guitars
 import qualified Numeric.NonNegative.Class        as NNC
@@ -573,13 +572,13 @@ instance A.ToJSON (Vocal U.Seconds) where
     ] where voxEvent VocalEnd                 = A.Null
             voxEvent (VocalStart lyric pitch) = A.toJSON [A.toJSON lyric, maybe A.Null A.toJSON pitch]
 
-showTimestamp :: U.Seconds -> String
+showTimestamp :: U.Seconds -> T.Text
 showTimestamp secs = let
   minutes = floor $ secs / 60 :: Int
   seconds = secs - realToFrac minutes * 60
   milli = realToFrac seconds :: Milli
   pad = if milli < 10 then "0" else ""
-  in show minutes ++ ":" ++ pad ++ show milli
+  in T.pack $ show minutes ++ ":" ++ pad ++ show milli
 
 processVocal
   :: U.TempoMap

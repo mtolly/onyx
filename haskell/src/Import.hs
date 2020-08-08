@@ -41,7 +41,6 @@ import           Data.List                        (elemIndex, intercalate, nub)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    listToMaybe, mapMaybe)
-import           Data.Monoid                      ((<>))
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE

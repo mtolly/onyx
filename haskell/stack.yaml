@@ -14,6 +14,7 @@ extra-deps:
 - hsndfile-vector-0.5.2
 - wavefront-0.7.1.4
 - tcp-streams-1.0.1.1
+- prettyprinter-1.7.0 # just came out, snapshot has 1.6.2
 # local folders
 - game/
 - 3d/

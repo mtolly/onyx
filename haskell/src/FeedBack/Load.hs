@@ -21,7 +21,6 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd, partition, sort)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
-import           Data.Monoid                      (mconcat, (<>))
 import qualified Data.Text                        as T
 import           Data.Traversable                 (forM)
 import           FeedBack.Base

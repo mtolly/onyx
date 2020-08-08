@@ -14,14 +14,12 @@ import           Control.Monad.Trans.Writer
 import           Data.Binary.Put
 import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64                as B64
-import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (toLower)
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
-import           Data.List.Extra                       (find, findIndex,
-                                                        isInfixOf, isSuffixOf,
-                                                        nubOrd, sortOn, unsnoc)
+import           Data.List.Extra                       (find, findIndex, nubOrd,
+                                                        sortOn, unsnoc)
 import           Data.Maybe                            (fromMaybe)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
@@ -59,15 +57,15 @@ import           System.FilePath                       (makeRelative,
                                                         takeExtension,
                                                         takeFileName, (</>))
 
-line :: (Monad m) => String -> [String] -> WriterT [Element] m ()
+line :: (Monad m) => T.Text -> [T.Text] -> WriterT [Element] m ()
 line k atoms = tell [Element k atoms Nothing]
 
-block :: (Monad m) => String -> [String] -> WriterT [Element] m () -> WriterT [Element] m ()
+block :: (Monad m) => T.Text -> [T.Text] -> WriterT [Element] m () -> WriterT [Element] m ()
 block k atoms sub = do
   sublines <- lift $ execWriterT sub
   tell [Element k atoms $ Just sublines]
 
-rpp :: (Monad m) => String -> [String] -> WriterT [Element] m () -> m Element
+rpp :: (Monad m) => T.Text -> [T.Text] -> WriterT [Element] m () -> m Element
 rpp k atoms sub = do
   sublines <- execWriterT sub
   return $ Element k atoms $ Just sublines
@@ -92,9 +90,9 @@ tempoTrack trk = block "TEMPOENVEX" [] $ do
     let secs, bpm :: Double
         secs = realToFrac posn
         bpm = 60000000 / fromIntegral uspqn
-    line "PT" $ [show secs, show bpm, "1"] ++ case tsig of
+    line "PT" $ [T.pack $ show secs, T.pack $ show bpm, "1"] ++ case tsig of
       Nothing           -> []
-      Just (num, denom) -> [show $ num + denom * 0x10000, "0", "1"]
+      Just (num, denom) -> [T.pack $ show $ num + denom * 0x10000, "0", "1"]
 
 event :: (Monad m) => Int -> E.T -> WriterT [Element] m ()
 event tks = \case
@@ -110,10 +108,10 @@ event tks = \case
       C.Cons chan (C.Voice (V.NoteOn p v)) | V.fromVelocity v == 0 -> noteOff chan p
       C.Cons chan (C.Voice (V.NoteOff p _)) -> noteOff chan p
       _ -> e
-    showByte n = case showHex n "" of
+    showByte n = T.pack $ case showHex n "" of
       [c] -> ['0', c]
       s   -> s
-    in line "E" $ show tks : map showByte (BL.unpack bs)
+    in line "E" $ T.pack (show tks) : map showByte (BL.unpack bs)
   E.MetaEvent Meta.TimeSig{} -> return ()
   E.MetaEvent Meta.SetTempo{} -> return ()
   E.MetaEvent e -> let
@@ -135,8 +133,8 @@ event tks = \case
         (x, y) -> x : splitChunks y
     in case bytes of
       Nothing -> return ()
-      Just bs -> block "X" [show tks, "0"] $ forM_ (splitChunks bs) $ \chunk -> do
-        line (B8.unpack $ B64.encode chunk) []
+      Just bs -> block "X" [T.pack $ show tks, "0"] $ forM_ (splitChunks bs) $ \chunk -> do
+        line (TE.decodeUtf8 $ B64.encode chunk) []
   E.SystemExclusive sysex -> let
     bytes = B.pack $ case sysex of
       SysEx.Regular bs -> 0xF0 : bs
@@ -145,8 +143,8 @@ event tks = \case
       then [bs]
       else case B.splitAt 40 bs of
         (x, y) -> x : splitChunks y
-    in block "X" [show tks, "0"] $ forM_ (splitChunks bytes) $ \chunk -> do
-      line (B8.unpack $ B64.encode chunk) []
+    in block "X" [T.pack $ show tks, "0"] $ forM_ (splitChunks bytes) $ \chunk -> do
+      line (TE.decodeUtf8 $ B64.encode chunk) []
 
 data ReaSynth = ReaSynth
   -- TODO time values (attack, release, etc.) are stored in some weird format, not just seconds
@@ -186,7 +184,7 @@ reaSynthBytes rs = do
 
 track :: (Monad m, NNC.C t, Integral t) => TuningInfo -> NN.Int -> U.Seconds -> NN.Int -> RTB.T t E.T -> WriterT [Element] m ()
 track tunings lenTicks lenSecs resn trk = let
-  name = fromMaybe "untitled track" $ U.trackName trk
+  name = maybe "untitled track" T.pack $ U.trackName trk
   fpart = identifyFlexTrack name
   tuning = flip fromMaybe (fpart >>= (`lookup` tuningGuitars tunings)) $ case fpart of
     Just FlexBass -> GtrTuning Bass4   [] 0
@@ -212,49 +210,49 @@ track tunings lenTicks lenSecs resn trk = let
       Just (r, g, b) -> let
         encoded :: Int
         encoded = 0x1000000 + 0x10000 * b + 0x100 * g + r
-        in line "PEAKCOL" [show encoded]
+        in line "PEAKCOL" [T.pack $ show encoded]
     line "TRACKHEIGHT" ["0", "0"]
     let (fxActive, fxPresent, fx)
-          | "PART REAL_KEYS_" `isInfixOf` name
+          | "PART REAL_KEYS_" `T.isInfixOf` name
           = (False, True, mutePitches 0 47 >> mutePitches 73 127 >> transpose 12 >> pitchStandard)
-          | "PART KEYS_ANIM_RH" `isInfixOf` name
+          | "PART KEYS_ANIM_RH" `T.isInfixOf` name
           = (False, True, transpose 12 >> pitchStandard)
-          | "PART KEYS_ANIM_LH" `isInfixOf` name
+          | "PART KEYS_ANIM_LH" `T.isInfixOf` name
           = (False, True, pitchStandard)
-          | any (`isSuffixOf` name) ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
+          | any (`T.isSuffixOf` name) ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
           = (False, True, mutePitches 0 35 >> mutePitches 85 127 >> pitchStandard)
-          | any (`isSuffixOf` name) ["PART GUITAR", "PART GUITAR EXT", "PART BASS", "PART BASS EXT", "T1 GEMS"]
+          | any (`T.isSuffixOf` name) ["PART GUITAR", "PART GUITAR EXT", "PART BASS", "PART BASS EXT", "T1 GEMS"]
           = (True, True, previewGtr >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
-          | "PART KEYS" `isSuffixOf` name
+          | "PART KEYS" `T.isSuffixOf` name
           = (True, True, previewKeys >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
-          | any (`isSuffixOf` name) ["PART DRUMS", "PART DRUMS_2X", "PART REAL_DRUMS_PS"]
+          | any (`T.isSuffixOf` name) ["PART DRUMS", "PART DRUMS_2X", "PART REAL_DRUMS_PS"]
           = (True, True, previewDrums >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
-          | "PART REAL_GUITAR" `isInfixOf` name
+          | "PART REAL_GUITAR" `T.isInfixOf` name
           = (False, True, hearProtar False >> pitchProGtr)
-          | "PART REAL_BASS" `isInfixOf` name
+          | "PART REAL_BASS" `T.isInfixOf` name
           = (False, True, hearProtar True >> pitchProGtr)
           | otherwise
           = (False, False, return ())
         mutePitches pmin pmax = do
           line "BYPASS" ["0", "0", "0"]
           block "JS" ["IX/MIDI_Tool II", ""] $ do
-            line "0.000000" $ show (pmin :: Int) : show (pmax :: Int) : words "0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+            line "0.000000" $ T.pack (show (pmin :: Int)) : T.pack (show (pmax :: Int)) : T.words "0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
         transpose n = do
           line "BYPASS" ["0", "0", "0"]
           block "JS" ["IX/MIDI_Tool II", ""] $ do
             line "0.000000"
-              $ words "0.000000 127.000000 0.000000 127.000000 0.000000 100.000000 0.000000 0.000000 127.000000"
-              <> [show (n :: Int)]
-              <> words "0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+              $ T.words "0.000000 127.000000 0.000000 127.000000 0.000000 100.000000 0.000000 0.000000 127.000000"
+              <> [T.pack $ show (n :: Int)]
+              <> T.words "0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
         vst label dll num enabled bytes = do
           line "BYPASS" [if enabled then "0" else "1", "0", "0"]
-          block "VST" [label, dll, "0", label, show (num :: Integer)] $ do
+          block "VST" [label, dll, "0", label, T.pack $ show (num :: Integer)] $ do
             -- TODO is splitting into shorter lines required?
-            line (B8.unpack $ B64.encode $ BL.toStrict $ runPut bytes) []
+            line (TE.decodeUtf8 $ B64.encode $ BL.toStrict $ runPut bytes) []
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
         reasynth enabled = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 enabled . reaSynthBytes
@@ -328,48 +326,48 @@ track tunings lenTicks lenSecs resn trk = let
                 outChannel = 0 :: Int
                 passthroughNonNotes = True
             line (bool isBass)
-              $ [show expert]
-              ++ map show tuning'
-              ++ [show outChannel, bool passthroughNonNotes]
-              ++ words "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+              $ [T.pack $ show expert]
+              ++ map (T.pack . show) tuning'
+              ++ [T.pack $ show outChannel, bool passthroughNonNotes]
+              ++ T.words "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
     line "FX" [if fxActive then "1" else "0"]
     hasNoteNames <- case find (($ name) . fst)
-      [ (("PART DRUMS" `isSuffixOf`), drumNoteNames)
-      , (("PART DRUMS_2X" `isSuffixOf`), drumNoteNames)
-      , (("PART REAL_DRUMS_PS" `isSuffixOf`), drumNoteNames)
-      , (("PART GUITAR" `isSuffixOf`), gryboNoteNames False)
-      , (("PART GUITAR EXT" `isSuffixOf`), gryboNoteNames False)
-      , (("PART BASS" `isSuffixOf`), gryboNoteNames False)
-      , (("PART BASS EXT" `isSuffixOf`), gryboNoteNames False)
-      , (("T1 GEMS" `isSuffixOf`), gryboNoteNames False)
-      , (("PART RHYTHM" `isSuffixOf`), gryboNoteNames False)
-      , (("PART GUITAR COOP" `isSuffixOf`), gryboNoteNames False)
-      , (("PART KEYS" `isSuffixOf`), gryboNoteNames True)
-      , (("PART GUITAR GHL" `isSuffixOf`), ghlNoteNames)
-      , (("PART BASS GHL" `isSuffixOf`), ghlNoteNames)
-      , (("PART REAL_KEYS" `isInfixOf`), proKeysNoteNames)
-      , (("BEAT" `isSuffixOf`), [(13, "Up Beats"), (12, "Downbeat")])
-      , (("PART VOCALS" `isSuffixOf`), vocalNoteNames)
-      , (("HARM1" `isSuffixOf`), vocalNoteNames)
-      , (("HARM2" `isSuffixOf`), vocalNoteNames)
-      , (("HARM3" `isSuffixOf`), vocalNoteNames)
-      , (("PART REAL_GUITAR" `isInfixOf`), proGuitarNoteNames)
-      , (("PART REAL_BASS" `isInfixOf`), proGuitarNoteNames)
-      , (("MELODY'S ESCAPE" `isSuffixOf`), melodyNoteNames)
-      , (("DONKEY KONGA" `isInfixOf`), dkongaNoteNames)
-      , (("PART DANCE" `isSuffixOf`), danceNoteNames)
-      , (("LIGHTING" `isSuffixOf`), venuegenLightingNames)
-      , (("CAMERA" `isSuffixOf`), venuegenCameraNames)
-      , (("VENUE" `isSuffixOf`), venueNoteNames)
+      [ (("PART DRUMS" `T.isSuffixOf`), drumNoteNames)
+      , (("PART DRUMS_2X" `T.isSuffixOf`), drumNoteNames)
+      , (("PART REAL_DRUMS_PS" `T.isSuffixOf`), drumNoteNames)
+      , (("PART GUITAR" `T.isSuffixOf`), gryboNoteNames False)
+      , (("PART GUITAR EXT" `T.isSuffixOf`), gryboNoteNames False)
+      , (("PART BASS" `T.isSuffixOf`), gryboNoteNames False)
+      , (("PART BASS EXT" `T.isSuffixOf`), gryboNoteNames False)
+      , (("T1 GEMS" `T.isSuffixOf`), gryboNoteNames False)
+      , (("PART RHYTHM" `T.isSuffixOf`), gryboNoteNames False)
+      , (("PART GUITAR COOP" `T.isSuffixOf`), gryboNoteNames False)
+      , (("PART KEYS" `T.isSuffixOf`), gryboNoteNames True)
+      , (("PART GUITAR GHL" `T.isSuffixOf`), ghlNoteNames)
+      , (("PART BASS GHL" `T.isSuffixOf`), ghlNoteNames)
+      , (("PART REAL_KEYS" `T.isInfixOf`), proKeysNoteNames)
+      , (("BEAT" `T.isSuffixOf`), [(13, "Up Beats"), (12, "Downbeat")])
+      , (("PART VOCALS" `T.isSuffixOf`), vocalNoteNames)
+      , (("HARM1" `T.isSuffixOf`), vocalNoteNames)
+      , (("HARM2" `T.isSuffixOf`), vocalNoteNames)
+      , (("HARM3" `T.isSuffixOf`), vocalNoteNames)
+      , (("PART REAL_GUITAR" `T.isInfixOf`), proGuitarNoteNames)
+      , (("PART REAL_BASS" `T.isInfixOf`), proGuitarNoteNames)
+      , (("MELODY'S ESCAPE" `T.isSuffixOf`), melodyNoteNames)
+      , (("DONKEY KONGA" `T.isInfixOf`), dkongaNoteNames)
+      , (("PART DANCE" `T.isSuffixOf`), danceNoteNames)
+      , (("LIGHTING" `T.isSuffixOf`), venuegenLightingNames)
+      , (("CAMERA" `T.isSuffixOf`), venuegenCameraNames)
+      , (("VENUE" `T.isSuffixOf`), venueNoteNames)
       ] of
       Nothing -> return False
       Just (_, names) -> do
         block "MIDINOTENAMES" [] $ do
           -- Reaper 5 (or some newer version) supports starting these lines with -1, meaning all channels.
           -- Reaper 4.22 (C3 recommended) does not, so we have to stick with 0 (first channel).
-          forM_ names $ \(pitch, noteName) -> line "0" [show pitch, noteName]
+          forM_ names $ \(pitch, noteName) -> line "0" [T.pack $ show pitch, noteName]
         return True
     -- note: even if no FX, you still need empty FXCHAIN so note names work
     block "FXCHAIN" [] $ when fxPresent $ do
@@ -380,16 +378,16 @@ track tunings lenTicks lenSecs resn trk = let
     block "ITEM" [] $ do
       line "POSITION" ["0"]
       line "LOOP" ["0"]
-      line "LENGTH" [show (realToFrac lenSecs :: Double)]
+      line "LENGTH" [T.pack $ show (realToFrac lenSecs :: Double)]
       line "NAME" [name]
       block "SOURCE" ["MIDI"] $ do
-        line "HASDATA" ["1", show resn, "QN"]
+        line "HASDATA" ["1", T.pack $ show resn, "QN"]
         forM_ (RTB.toPairList trk) $ \(tks, e) -> event (fromIntegral tks) e
         let lastEvent = case reverse $ ATB.getTimes $ RTB.toAbsoluteEventList 0 trk of
               t : _ -> fromIntegral t
               []    -> 0
-        line "E" [show $ lenTicks NNC.-| lastEvent, "b0", "7b", "00"]
-        let colorMap = fmap snd $ find (\(sfx, _) -> sfx `isSuffixOf` name)
+        line "E" [T.pack $ show $ lenTicks NNC.-| lastEvent, "b0", "7b", "00"]
+        let colorMap = fmap snd $ find (\(sfx, _) -> sfx `T.isSuffixOf` name)
               [ ("PART DRUMS", "colormap_drums.png")
               , ("PART DRUMS_2X", "colormap_drums.png")
               , ("PART REAL_DRUMS_PS", "colormap_drums.png")
@@ -404,8 +402,8 @@ track tunings lenTicks lenSecs resn trk = let
               , ("PART GUITAR GHL", "colormap_ghl.png")
               , ("PART BASS GHL", "colormap_ghl.png")
               ]
-            isProtar = any (`isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS"]
-            isDance = "PART DANCE" `isSuffixOf` name
+            isProtar = any (`T.isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS"]
+            isDance = "PART DANCE" `T.isSuffixOf` name
         forM_ colorMap $ \cmap -> line "COLORMAP" [cmap]
         line "CFGEDIT"
           [ "1" -- ??? if i set to 0, gets reset to 1
@@ -480,7 +478,7 @@ audio :: (Monad m) => U.Seconds -> FilePath -> WriterT [Element] m ()
 audio len path = let
   name = takeFileName path
   in block "TRACK" [] $ do
-    line "NAME" [name]
+    line "NAME" [T.pack name]
     -- reapitch up 1 octave (disabled)
     line "FX" ["0"]
     block "FXCHAIN" [] $ do
@@ -497,8 +495,8 @@ audio len path = let
     block "ITEM" [] $ do
       line "POSITION" ["0"]
       line "LOOP" ["0"]
-      line "LENGTH" [show (realToFrac len :: Double)]
-      line "NAME" [name]
+      line "LENGTH" [T.pack $ show (realToFrac len :: Double)]
+      line "NAME" [T.pack name]
       let fmt = case map toLower $ takeExtension path of
             ".wav" -> "WAVE"
             ".mp3" -> "MP3"
@@ -506,9 +504,9 @@ audio len path = let
             ".flac" -> "FLAC"
             _ -> error $ "While generating a Reaper project: I don't know the audio format of this file: " ++ show path
       block "SOURCE" [fmt] $ do
-        line "FILE" [path]
+        line "FILE" [T.pack path]
 
-drumNoteNames :: [(Int, String)]
+drumNoteNames :: [(Int, T.Text)]
 drumNoteNames = execWriter $ do
   o 127 "Roll Marker 2-Lane"
   o 126 "Roll Marker 1-Lane"
@@ -584,7 +582,7 @@ drumNoteNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-gryboNoteNames :: Bool -> [(Int, String)]
+gryboNoteNames :: Bool -> [(Int, T.Text)]
 gryboNoteNames isKeys = execWriter $ do
   o 127 "Trill Marker"
   unless isKeys $ o 126 "Tremolo Marker"
@@ -646,7 +644,7 @@ gryboNoteNames isKeys = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-proKeysNoteNames :: [(Int, String)]
+proKeysNoteNames :: [(Int, T.Text)]
 proKeysNoteNames = execWriter $ do
   o 127 "Trill Marker"
   o 126 "Glissando Marker"
@@ -691,7 +689,7 @@ proKeysNoteNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-vocalNoteNames :: [(Int, String)]
+vocalNoteNames :: [(Int, T.Text)]
 vocalNoteNames = execWriter $ do
   o 116 "OVERDRIVE"
   o 106 "Phrase (Face-Off P2)"
@@ -716,7 +714,7 @@ vocalNoteNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-ghlNoteNames :: [(Int, String)]
+ghlNoteNames :: [(Int, T.Text)]
 ghlNoteNames = execWriter $ do
   o 116 "OVERDRIVE"
   x 115
@@ -763,7 +761,7 @@ ghlNoteNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-proGuitarNoteNames :: [(Int, String)]
+proGuitarNoteNames :: [(Int, T.Text)]
 proGuitarNoteNames = execWriter $ do
   o 127 "Trill"
   o 126 "Tremolo" -- not visible in game? see Roundabout
@@ -847,7 +845,7 @@ proGuitarNoteNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-venuegenLightingNames :: [(Int, String)]
+venuegenLightingNames :: [(Int, T.Text)]
 venuegenLightingNames = execWriter $ do
   o 71 "Default"
   o 70 "Color_Muted"
@@ -916,7 +914,7 @@ venuegenLightingNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-venuegenCameraNames :: [(Int, String)]
+venuegenCameraNames :: [(Int, T.Text)]
 venuegenCameraNames = execWriter $ do
   o 102 "RANDOM"
   x 101
@@ -1014,7 +1012,7 @@ venuegenCameraNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-venueNoteNames :: [(Int, String)]
+venueNoteNames :: [(Int, T.Text)]
 venueNoteNames = execWriter $ do
   o 110 "RB2 video_trails"
   o 109 "RB2 video_security"
@@ -1059,7 +1057,7 @@ venueNoteNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-danceNoteNames :: [(Int, String)]
+danceNoteNames :: [(Int, T.Text)]
 danceNoteNames = execWriter $ do
   o 99 "Challenge RIGHT"
   o 98 "Challenge UP"
@@ -1088,7 +1086,7 @@ danceNoteNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-melodyNoteNames :: [(Int, String)]
+melodyNoteNames :: [(Int, T.Text)]
 melodyNoteNames = execWriter $ do
   o 87 "Intensity FLYING"
   o 86 "Intensity RUNNING"
@@ -1108,7 +1106,7 @@ melodyNoteNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-dkongaNoteNames :: [(Int, String)]
+dkongaNoteNames :: [(Int, T.Text)]
 dkongaNoteNames = execWriter $ do
   -- These are actually General MIDI percussion!
   o 64 "RED" -- "Low Conga"
@@ -1117,7 +1115,7 @@ dkongaNoteNames = execWriter $ do
   where o k v = tell [(k, v)]
 
 sortTracks :: (NNC.C t) => [RTB.T t E.T] -> [RTB.T t E.T]
-sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`isSuffixOf` name)
+sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`T.isSuffixOf` T.pack name)
   [ "PART DRUMS"
   , "PART DRUMS_2X"
   , "PART REAL_DRUMS_PS"
@@ -1192,7 +1190,7 @@ makeReaperFromData tunings mid tempoMid audios out = do
         _ -> error "Unsupported MIDI format for Reaper project generation"
   project <- stackIO $ do
     time <- liftIO getCurrentTime
-    let timestamp = formatTime defaultTimeLocale "%s" time
+    let timestamp = T.pack $ formatTime defaultTimeLocale "%s" time
     rpp "REAPER_PROJECT" ["0.1", "5.0/Onyx", timestamp] $ do
       line "VZOOMEX" ["0"]
       line "SAMPLERATE" ["44100", "0", "0"]
@@ -1213,9 +1211,9 @@ makeReaperFromData tunings mid tempoMid audios out = do
         Element _ _ (Just sub) -> concatMap findColorMaps sub
   stackIO $ writeRPP out project
   stackIO $ forM_ (nubOrd $ findColorMaps project) $ \cmap -> case cmap of
-    "colormap_drums.png" -> colorMapDrums >>= (`copyFile` (takeDirectory out </> cmap))
-    "colormap_grybo.png" -> colorMapGRYBO >>= (`copyFile` (takeDirectory out </> cmap))
-    "colormap_ghl.png"   -> colorMapGHL   >>= (`copyFile` (takeDirectory out </> cmap))
+    "colormap_drums.png" -> colorMapDrums >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
+    "colormap_grybo.png" -> colorMapGRYBO >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
+    "colormap_ghl.png"   -> colorMapGHL   >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     _ -> return ()
 
 makeReaperShake :: TuningInfo -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()

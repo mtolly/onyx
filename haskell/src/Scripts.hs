@@ -6,17 +6,15 @@ import           Config                           (PreviewTime (..), SongYaml,
                                                    _metadata, _previewEnd,
                                                    _previewStart)
 import           Control.Monad                    (forM, guard, void)
-import           Control.Monad.IO.Class           (MonadIO (liftIO))
+import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
-import           Data.Bifunctor                   (first)
 import           Data.DTA.Serialize.Magma         (Percussion)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust,
                                                    listToMaybe, mapMaybe)
-import           Data.Monoid                      ((<>))
 import           Development.Shake
 import qualified FretsOnFire                      as FoF
 import           Guitars

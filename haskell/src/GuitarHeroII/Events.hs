@@ -12,7 +12,6 @@ module GuitarHeroII.Events where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)

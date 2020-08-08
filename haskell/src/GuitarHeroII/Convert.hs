@@ -10,7 +10,6 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
-import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import           GuitarHeroII.BandBass
 import           GuitarHeroII.BandDrums

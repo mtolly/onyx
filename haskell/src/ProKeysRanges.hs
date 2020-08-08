@@ -1,5 +1,6 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE LambdaCase    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 module ProKeysRanges (completeFile, completeRanges, closeShifts, closeShiftsFile) where
 
 import           Control.Monad                    (guard)
@@ -122,7 +123,7 @@ keyInPreRange RangeF p = RedYellow F  <= p && p <= BlueGreen As
 keyInPreRange RangeG p = RedYellow Fs <= p && p <= BlueGreen B
 keyInPreRange RangeA p = RedYellow Gs <= p && p <= OrangeC
 
-showPitch :: Pitch -> String
+showPitch :: Pitch -> T.Text
 showPitch = \case
   RedYellow k -> if k < F
     then "Red "    <> showKey False k
@@ -132,25 +133,25 @@ showPitch = \case
     else "Green " <> showKey False k
   OrangeC -> "Orange C"
 
-closeShiftsFile :: RBFile.Song (RBFile.OnyxFile U.Beats) -> String
-closeShiftsFile song = unlines $ do
+closeShiftsFile :: RBFile.Song (RBFile.OnyxFile U.Beats) -> T.Text
+closeShiftsFile song = T.unlines $ do
   (partName, part) <- Map.toAscList $ RBFile.onyxParts $ RBFile.s_tracks song
   let xpk = RBFile.onyxPartRealKeysX part
   guard $ not $ nullPK xpk
   let close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos song) xpk
-      showSeconds secs = show (realToFrac secs :: Milli) ++ "s"
-      showClose (t, (rng1, rng2, dt, p)) = unwords
-        [ showTimestamp (U.applyTempoMap (RBFile.s_tempos song) t) ++ ":"
+      showSeconds secs = T.pack (show (realToFrac secs :: Milli)) <> "s"
+      showClose (t, (rng1, rng2, dt, p)) = T.unwords
+        [ showTimestamp (U.applyTempoMap (RBFile.s_tempos song) t) <> ":"
         , "expert pro keys shift to"
-        , show rng2
+        , T.pack $ show rng2
         , "is"
         , showSeconds dt
         , "before"
-        , showPitch p ++ ","
+        , showPitch p <> ","
         , "which is outside previous range"
-        , show rng1
+        , T.pack $ show rng1
         ]
-      surround x = ["[" ++ T.unpack (RBFile.getPartName partName) ++ "]"] ++ x
+      surround x = ["[" <> RBFile.getPartName partName <> "]"] <> x
   surround $ case ATB.toPairList $ RTB.toAbsoluteEventList 0 close of
     []    -> ["No close shifts found."]
     pairs -> map showClose pairs

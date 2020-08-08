@@ -313,7 +313,7 @@ standardGuitar = [40, 45, 50, 55, 59, 64]
 
 -- | Replicates the Pro Guitar chord name algorithm from RB3.
 -- This has been verified to match RB3 for each of the 1486 possible chords.
-makeChordName :: Key -> Set.Set Key -> Bool -> String
+makeChordName :: Key -> Set.Set Key -> Bool -> T.Text
 makeChordName root notes flat = let
   s n = toEnum $ (fromEnum root + n) `rem` 12
   only n = Set.toList (Set.delete root notes) == [n]
@@ -343,26 +343,26 @@ makeChordName root notes flat = let
 
     | maj3 || min3 = let
 
-      sharp9 = guard (maj3 && min3) >> "#9"
-      four   = guard nat4           >> "4"
-      six    = guard nat6           >> "6"
+      sharp9 = if maj3 && min3 then "#9" else ""
+      four   = if nat4         then "4"  else ""
+      six    = if nat6         then "6"  else ""
 
       in if min7 || maj7
 
         then let
-          b = (if maj3 then "" else "m") ++ if
+          b = (if maj3 then "" else "m") <> if
             | maj7 && not min7           -> "M7"
             | not (nat2 || nat4 || nat6) -> "7"
             | maj7                       -> "M7"
             | otherwise                  -> ""
-          flat9  = guard dim2 >> "b9"
-          nine   = guard nat2 >> "9"
-          flat13 = guard aug5 >> "b13"
+          flat9  = if dim2 then "b9"  else ""
+          nine   = if nat2 then "9"   else ""
+          flat13 = if aug5 then "b13" else ""
           fives
             | aug5 && dim5 = "+-5"
             | dim5         = "b5"
             | otherwise    = ""
-          in (b, concat [fives, nine, flat9, sharp9, four, six, flat13])
+          in (b, T.concat [fives, nine, flat9, sharp9, four, six, flat13])
 
         else let
           (b, start) = if dim5
@@ -379,7 +379,7 @@ makeChordName root notes flat = let
             | dim2      = "b2"
             | nat2      = "2"
             | otherwise = ""
-          in (b, concat [start, sharp9, two, four, six])
+          in (b, T.concat [start, sharp9, two, four, six])
 
     | otherwise =
       ( if      min7 then "7"
@@ -394,9 +394,9 @@ makeChordName root notes flat = let
         else ""
       )
 
-  in showKey flat root ++ base ++ case super of
+  in showKey flat root <> base <> case super of
     "" -> ""
-    _  -> "<gtr>" ++ super ++ "</gtr>"
+    _  -> "<gtr>" <> super <> "</gtr>"
 
 data ChordData t = ChordData
   { chordFrets  :: Map.Map GtrString GtrFret
@@ -434,11 +434,11 @@ computeChordNames diff tuning flatDefault pg = let
         flat = flatDefault /= elem ModSwapAcc mods
         keys = Set.fromList $ map getKey chord'
         getKey (str, (_, fret, _)) = toEnum $ (indexTuning tuning str + fret) `rem` 12
-        name = T.pack $ makeChordName root keys flat
+        name = makeChordName root keys flat
         in case fmap getKey slash of
           -- Somebody to Love has a Bb chord, with leftmost note Bb,
           -- marked as slash for no reason. It's ignored in game, so we do that
-          Just k | k /= root -> name <> "/" <> T.pack (showKey flat k)
+          Just k | k /= root -> name <> "/" <> showKey flat k
           _                  -> name
       , chordMuted = any (\(_, (nt, _, _)) -> nt == Muted) chord
       , chordLength = minimum [ len | (_, (_, _, len)) <- chord ]

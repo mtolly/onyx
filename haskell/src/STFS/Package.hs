@@ -31,7 +31,6 @@ module STFS.Package
 import           Control.Monad                  (forM_, guard, replicateM,
                                                  unless, void)
 import           Control.Monad.Codec
-import           Control.Monad.Fail             (MonadFail)
 import           Control.Monad.Fix              (fix)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.StackTrace

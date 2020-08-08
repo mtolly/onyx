@@ -49,7 +49,6 @@ import qualified Data.List.NonEmpty                    as NE
 import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe, isJust,
                                                         isNothing, mapMaybe)
-import           Data.Monoid                           ((<>))
 import           Data.String                           (IsString, fromString)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
@@ -2130,7 +2129,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         -- Warn about notes that might hang off before a pro keys range shift
         phony (dir </> "hanging") $ do
           song <- shakeMIDI midprocessed
-          lg $ closeShiftsFile song
+          lg $ T.unpack $ closeShiftsFile song
 
         -- Print out a summary of (non-vocal) overdrive and unison phrases
         phony (dir </> "overdrive") $ printOverdrive midprocessed

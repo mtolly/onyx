@@ -20,7 +20,6 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Hashable                    (Hashable (..))
 import           Data.List                        (stripPrefix)
 import           Data.Maybe                       (fromMaybe, isJust)
-import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File.Event            as E
@@ -119,15 +118,15 @@ instance Command (Trainer, T.Text) where
 data Key = C | Cs | D | Ds | E | F | Fs | G | Gs | A | As | B
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-showKey :: Bool -> Key -> String
-showKey False k = map (\case 's' -> '#'; c -> c) $ show k
+showKey :: Bool -> Key -> T.Text
+showKey False k = T.pack $ map (\case 's' -> '#'; c -> c) $ show k
 showKey True  k = case k of
   Cs -> "Db"
   Ds -> "Eb"
   Fs -> "Gb"
   Gs -> "Ab"
   As -> "Bb"
-  _  -> show k
+  _  -> T.pack $ show k
 
 data Tonality = Major | Minor
   deriving (Eq, Ord, Show, Enum, Bounded)

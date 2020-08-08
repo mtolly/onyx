@@ -17,11 +17,11 @@ tokens :-
 \> { emit $ const AngleR }
 
 -- This is a bit ridiculous
-\" [^\"]* \" { emit $ Atom . dropEdges }
-\' [^\']* \' { emit $ Atom . dropEdges }
-\` [^\`]* \` { emit $ Atom . dropEdges }
+\" [^\"]* \" { emit $ Atom . T.pack . dropEdges }
+\' [^\']* \' { emit $ Atom . T.pack . dropEdges }
+\` [^\`]* \` { emit $ Atom . T.pack . dropEdges }
 
-(. # [ $white \" \' \` \< \> ]) (. # $white)* { emit Atom }
+(. # [ $white \" \' \` \< \> ]) (. # $white)* { emit $ Atom . T.pack }
 
 {
 
@@ -35,7 +35,7 @@ data Token
   = Newline
   | AngleL
   | AngleR
-  | Atom String
+  | Atom T.Text
   deriving (Eq, Ord, Show, Read)
 
 scanAll :: Alex [(AlexPosn, Token)]

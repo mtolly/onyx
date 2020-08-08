@@ -1,6 +1,5 @@
 {
 {-# LANGUAGE BangPatterns #-}
-{-# OPTIONS_GHC -fwarn-unused-imports #-}
 module Sound.MIDI.Script.Parse
 ( parse
 , File(..)

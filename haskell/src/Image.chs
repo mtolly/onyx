@@ -14,7 +14,6 @@ import qualified Data.ByteString            as B
 import qualified Data.ByteString.Builder    as BB
 import qualified Data.ByteString.Lazy       as BL
 import           Data.Maybe                 (fromMaybe)
-import           Data.Word                  (Word16, Word8)
 import           Foreign
 import           Foreign.C
 import           System.IO.Unsafe           (unsafePerformIO)

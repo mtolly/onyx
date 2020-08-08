@@ -34,7 +34,6 @@ import           Data.Foldable                  (toList)
 import           Data.Hashable                  (Hashable (..))
 import qualified Data.HashMap.Strict            as Map
 import           Data.Maybe                     (fromMaybe)
-import           Data.Monoid                    ((<>))
 import           Data.Scientific                (Scientific, toRealFloat)
 import qualified Data.Text                      as T
 import           Data.Traversable
@@ -64,7 +63,7 @@ parsePitch = Codec
 
 parseSongKey :: (SendMessage m) => ValueCodec m A.Value SongKey
 parseSongKey = Codec
-  { codecOut = makeOut $ \sk@(SongKey k t) -> A.toJSON $ concat
+  { codecOut = makeOut $ \sk@(SongKey k t) -> A.toJSON $ T.concat
     [ showKey (songKeyUsesFlats sk) k
     , case t of Major -> " major"; Minor -> " minor"
     ]
