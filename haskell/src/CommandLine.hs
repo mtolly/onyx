@@ -64,7 +64,8 @@ import           PrettyDTA                        (DTASingle (..),
                                                    readFileSongsDTA, readRB3DTA,
                                                    writeDTASingle)
 import           ProKeysRanges                    (closeShiftsFile)
-import           Reaper.Build                     (makeReaperFromData)
+import           Reaper.Build                     (TuningInfo (..),
+                                                   makeReaperFromData)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Vocal             (nullVox)
@@ -454,7 +455,7 @@ commands =
               loadedMid <- if OptVenueGen `elem` opts
                 then loadAsVenueGen mid
                 else RBFile.loadRawMIDI mid
-              makeReaperFromData [] loadedMid loadedMid audio rpp
+              makeReaperFromData (TuningInfo [] 0) loadedMid loadedMid audio rpp
               return [rpp]
             (_    , notAudio) -> fatal $ "onyx reap given non-MIDI, non-audio files: " <> show notAudio
           (mids, _) -> fatal $ "onyx reap expected 1 MIDI file, given " <> show (length mids)

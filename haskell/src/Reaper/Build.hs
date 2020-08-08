@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Reaper.Build (makeReaperShake, makeReaper, makeReaperFromData) where
+module Reaper.Build (makeReaperShake, makeReaper, makeReaperFromData, TuningInfo(..)) where
 
 import           Reaper.Base
 
@@ -11,6 +11,7 @@ import           Control.Monad.IO.Class                (MonadIO (liftIO))
 import           Control.Monad.Trans.Class             (lift)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
+import           Data.Binary.Put
 import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64                as B64
 import qualified Data.ByteString.Char8                 as B8
@@ -147,11 +148,47 @@ event tks = \case
     in block "X" [show tks, "0"] $ forM_ (splitChunks bytes) $ \chunk -> do
       line (B8.unpack $ B64.encode chunk) []
 
-track :: (Monad m, NNC.C t, Integral t) => [(FlexPartName, GtrTuning)] -> NN.Int -> U.Seconds -> NN.Int -> RTB.T t E.T -> WriterT [Element] m ()
+data ReaSynth = ReaSynth
+  -- TODO time values (attack, release, etc.) are stored in some weird format, not just seconds
+  { rs_attack       :: Float
+  , rs_release      :: Float
+  , rs_square       :: Float -- 0 to 1
+  , rs_sawtooth     :: Float -- 0 to 1
+  , rs_triangle     :: Float -- 0 to 1
+  , rs_volume       :: Float -- gain ratio
+  , rs_decay        :: Float
+  , rs_extra_volume :: Float -- gain ratio
+  , rs_extra_tuning :: Float -- 0 = -1200 cents, 1 = +1200 cents
+  , rs_sustain      :: Float -- gain ratio
+  , rs_pulse_width  :: Float
+  , rs_tuning       :: Float -- 0 = -1200 cents, 1 = +1200 cents
+  , rs_old_sine     :: Bool -- stored as float, 0 or 1
+  }
+
+reaSynthBytes :: ReaSynth -> Put
+reaSynthBytes rs = do
+  -- not sure what's in these bytes
+  putByteString $ B.pack [121,115,101,114,239,94,237,254,0,0,0,0,2,0,0,0,1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,60,0,0,0,0,0,0,0,0,0,16,0,239,190,173,222,13,240,173,222]
+  putFloatle $ rs_attack       rs
+  putFloatle $ rs_release      rs
+  putFloatle $ rs_square       rs
+  putFloatle $ rs_sawtooth     rs
+  putFloatle $ rs_triangle     rs
+  putFloatle $ rs_volume       rs
+  putFloatle $ rs_decay        rs
+  putFloatle $ rs_extra_volume rs
+  putFloatle $ rs_extra_tuning rs
+  putFloatle $ rs_sustain      rs
+  putFloatle $ rs_pulse_width  rs
+  putFloatle $ rs_tuning       rs
+  putFloatle $ if rs_old_sine rs then 1 else 0
+  putByteString $ B.pack [0,0,16,0,0,0]
+
+track :: (Monad m, NNC.C t, Integral t) => TuningInfo -> NN.Int -> U.Seconds -> NN.Int -> RTB.T t E.T -> WriterT [Element] m ()
 track tunings lenTicks lenSecs resn trk = let
   name = fromMaybe "untitled track" $ U.trackName trk
   fpart = identifyFlexTrack name
-  tuning = flip fromMaybe (fpart >>= (`lookup` tunings)) $ case fpart of
+  tuning = flip fromMaybe (fpart >>= (`lookup` tuningGuitars tunings)) $ case fpart of
     Just FlexBass -> GtrTuning Bass4   [] 0
     _             -> GtrTuning Guitar6 [] 0
   in block "TRACK" [] $ do
@@ -179,9 +216,9 @@ track tunings lenTicks lenSecs resn trk = let
     line "TRACKHEIGHT" ["0", "0"]
     let (fxActive, fxPresent, fx)
           | "PART REAL_KEYS_" `isInfixOf` name
-          = (False, True, mutePitches 0 47 >> mutePitches 73 127 >> pitchOctaveUp)
+          = (False, True, mutePitches 0 47 >> mutePitches 73 127 >> transpose 12 >> pitchStandard)
           | "PART KEYS_ANIM_RH" `isInfixOf` name
-          = (False, True, pitchOctaveUp)
+          = (False, True, transpose 12 >> pitchStandard)
           | "PART KEYS_ANIM_LH" `isInfixOf` name
           = (False, True, pitchStandard)
           | any (`isSuffixOf` name) ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
@@ -204,37 +241,79 @@ track tunings lenTicks lenSecs resn trk = let
             line "0.000000" $ show (pmin :: Int) : show (pmax :: Int) : words "0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
-        vst label dll num enabled b64 = do
-          line "BYPASS" [if enabled then "0" else "1", "0", "0"]
-          block "VST" [label, dll, "0", label, show (num :: Integer)] b64
+        transpose n = do
+          line "BYPASS" ["0", "0", "0"]
+          block "JS" ["IX/MIDI_Tool II", ""] $ do
+            line "0.000000"
+              $ words "0.000000 127.000000 0.000000 127.000000 0.000000 100.000000 0.000000 0.000000 127.000000"
+              <> [show (n :: Int)]
+              <> words "0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
-        pitchOctaveUp = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 True $ do
-          line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
-          line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
-        pitchStandard = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 True $ do
-          line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
-          line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
-        pitchProGtr = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 True $ do
-          line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=" []
-          line "776t3g3wrd6mm8Q7F7fROpzEQD8X2U4/AACAP6tyoz/O4BA8AAAAAAAAAD8MIJk+RItsPwAAAD8AAAAA" []
-          line "AAAQAAAA" [] -- pro guitar pitches: normal tuning, square + decay
-        woodblock = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 False $ do
-          line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=" []
-          line "776t3g3wrd6mm8Q7F7fROgAAAAAAAAAAAAAAAFmzJj8BTB06AAAAAAAAAD8AAAAAAACAPwAAAAAAAAAA" []
-          line "AAAQAAAA" []
-        previewGtr = vst "VSTi: RBN Preview (RBN)" "rbprev_vst.dll" 1919053942 True $ do
-          line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
-          line "AwCqAA==" []
-          line "AAAQAAAA" []
-        previewKeys = vst "VSTi: RBN Preview (RBN)" "rbprev_vst.dll" 1919053942 True $ do
-          line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
-          line "AwOqAA==" []
-          line "AAAQAAAA" []
-        previewDrums = vst "VSTi: RBN Preview (RBN)" "rbprev_vst.dll" 1919053942 True $ do
-          line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
-          line "AwGqAA==" []
-          line "AAAQAAAA" []
+        vst label dll num enabled bytes = do
+          line "BYPASS" [if enabled then "0" else "1", "0", "0"]
+          block "VST" [label, dll, "0", label, show (num :: Integer)] $ do
+            -- TODO is splitting into shorter lines required?
+            line (B8.unpack $ B64.encode $ BL.toStrict $ runPut bytes) []
+          line "FLOATPOS" ["0", "0", "0", "0"]
+          line "WAK" ["0"]
+        reasynth enabled = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 enabled . reaSynthBytes
+        rawB64 pieces = case mapM B64.decode pieces of
+          Right decs -> mapM_ putByteString decs
+          Left err   -> error $ "Couldn't decode vst base64: " <> err
+        synthTuning = (1200 + fromIntegral (tuningCents tunings)) / 2400
+        pitchStandard = reasynth True ReaSynth
+          -- vox and pro keys pitches: sine with some square
+          { rs_attack       = 6.0e-3
+          , rs_release      = 1.6e-3
+          , rs_square       = 0.575
+          , rs_sawtooth     = 0.0
+          , rs_triangle     = 0.0
+          , rs_volume       = 1.0
+          , rs_decay        = 6.660444e-2
+          , rs_extra_volume = 0.0
+          , rs_extra_tuning = 0.5
+          , rs_sustain      = 1.0
+          , rs_pulse_width  = 1.0
+          , rs_tuning       = synthTuning
+          , rs_old_sine     = True
+          }
+        pitchProGtr = reasynth True ReaSynth
+          -- pro guitar pitches: more square/sawtooth/triangle + decay
+          { rs_attack       = 6.0e-3
+          , rs_release      = 1.6e-3
+          , rs_square       = 0.753
+          , rs_sawtooth     = 0.808
+          , rs_triangle     = 1.0
+          , rs_volume       = 1.2769369
+          , rs_decay        = 8.84266e-3
+          , rs_extra_volume = 0.0
+          , rs_extra_tuning = 0.5
+          , rs_sustain      = 0.29907262
+          , rs_pulse_width  = 0.924
+          , rs_tuning       = synthTuning
+          , rs_old_sine     = False
+          }
+        woodblock = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 False $ rawB64
+          [ "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA="
+          , "776t3g3wrd6mm8Q7F7fROgAAAAAAAAAAAAAAAFmzJj8BTB06AAAAAAAAAD8AAAAAAACAPwAAAAAAAAAA"
+          , "AAAQAAAA"
+          ]
+        previewGtr = vst "VSTi: RBN Preview (RBN)" "rbprev_vst.dll" 1919053942 True $ rawB64
+          [ "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA="
+          , "AwCqAA=="
+          , "AAAQAAAA"
+          ]
+        previewKeys = vst "VSTi: RBN Preview (RBN)" "rbprev_vst.dll" 1919053942 True $ rawB64
+          [ "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA="
+          , "AwOqAA=="
+          , "AAAQAAAA"
+          ]
+        previewDrums = vst "VSTi: RBN Preview (RBN)" "rbprev_vst.dll" 1919053942 True $ rawB64
+          [ "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA="
+          , "AwGqAA=="
+          , "AAAQAAAA"
+          ]
         hearProtar isBass = do
           line "BYPASS" ["0", "0", "0"]
           block "JS" ["C3/progtr", ""] $ do
@@ -1069,13 +1148,18 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`isSuffixOf` name)
   , "BEAT"
   ]
 
-makeReaper :: (SendMessage m, MonadIO m) => [(FlexPartName, GtrTuning)] -> FilePath -> FilePath -> [FilePath] -> FilePath -> StackTraceT m ()
+data TuningInfo = TuningInfo
+  { tuningGuitars :: [(FlexPartName, GtrTuning)]
+  , tuningCents   :: Int
+  }
+
+makeReaper :: (SendMessage m, MonadIO m) => TuningInfo -> FilePath -> FilePath -> [FilePath] -> FilePath -> StackTraceT m ()
 makeReaper tunings evts tempo audios out = do
   mid <- loadRawMIDI evts
   tempoMid <- loadRawMIDI tempo
   makeReaperFromData tunings mid tempoMid audios out
 
-makeReaperFromData :: (SendMessage m, MonadIO m) => [(FlexPartName, GtrTuning)] -> F.T -> F.T -> [FilePath] -> FilePath -> StackTraceT m ()
+makeReaperFromData :: (SendMessage m, MonadIO m) => TuningInfo -> F.T -> F.T -> [FilePath] -> FilePath -> StackTraceT m ()
 makeReaperFromData tunings mid tempoMid audios out = do
   lenAudios <- stackIO $ flip mapMaybeM audios $ \aud -> do
     info <- Snd.getFileInfo aud
@@ -1134,7 +1218,7 @@ makeReaperFromData tunings mid tempoMid audios out = do
     "colormap_ghl.png"   -> colorMapGHL   >>= (`copyFile` (takeDirectory out </> cmap))
     _ -> return ()
 
-makeReaperShake :: [(FlexPartName, GtrTuning)] -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()
+makeReaperShake :: TuningInfo -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()
 makeReaperShake tunings evts tempo audios out = do
   lift $ lift $ need $ evts : tempo : audios
   lg $ "Generating a REAPER project at " ++ out

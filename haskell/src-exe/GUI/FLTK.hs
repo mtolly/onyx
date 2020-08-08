@@ -110,7 +110,8 @@ import           OSFiles                                   (commonDir,
                                                             osShowFolder)
 import           Paths_onyxite_customs_tool                (version)
 import           ProKeysRanges                             (closeShiftsFile)
-import           Reaper.Build                              (makeReaper)
+import           Reaper.Build                              (TuningInfo (..),
+                                                            makeReaper)
 import           Reductions                                (simpleReduce)
 import           Resources                                 (getResourcesPath)
 import           RhythmGame.Audio                          (AudioHandle (..),
@@ -2545,7 +2546,7 @@ miscPageMIDI sink rect tab startTasks = do
               else f <.> "RPP"
             in sink $ EventOnyx $ let
               task = do
-                makeReaper [] input input [] f'
+                makeReaper (TuningInfo [] 0) input input [] f'
                 return [f']
               in startTasks [("Make REAPER project: " <> input, task)]
         _ -> return ()

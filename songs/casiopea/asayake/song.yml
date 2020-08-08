@@ -17,6 +17,7 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    tuning-cents: 15 # this is just a guess for now
     countin:
       0|0: hihat
       0|2: hihat

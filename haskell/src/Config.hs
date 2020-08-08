@@ -112,6 +112,16 @@ data AudioFile f
     }
   deriving (Eq, Ord, Show)
 
+instance StackJSON (AudioInfo FilePath) where
+  stackJSON = asStrictObject "AudioInfo" $ do
+    _md5      <- _md5      =. opt Nothing "md5"       stackJSON
+    _frames   <- _frames   =. opt Nothing "frames"    stackJSON
+    _filePath <- _filePath =. opt Nothing "file-path" stackJSON
+    _commands <- _commands =. opt []      "commands"  stackJSON
+    _rate     <- _rate     =. opt Nothing "rate"      stackJSON
+    _channels <- _channels =. opt 2       "channels"  stackJSON
+    return AudioInfo{..}
+
 instance StackJSON (AudioFile FilePath) where
   stackJSON = Codec
     { codecIn = decideKey
@@ -120,24 +130,9 @@ instance StackJSON (AudioFile FilePath) where
         expectedKeys ["expr"]
         return AudioSnippet{..}
         )
-      ] $ object $ do
-        _md5      <- optionalKey "md5"       fromJSON
-        _frames   <- optionalKey "frames"    fromJSON
-        _filePath <- optionalKey "file-path" fromJSON
-        _commands <- fromMaybe [] <$> optionalKey "commands" fromJSON
-        _rate     <- optionalKey "rate"      fromJSON
-        _channels <- fromMaybe 2 <$> optionalKey "channels" fromJSON
-        expectedKeys ["md5", "frames", "file-path", "commands", "rate", "channels"]
-        return $ AudioFile AudioInfo{..}
+      ] $ AudioFile <$> codecIn stackJSON
     , codecOut = makeOut $ \case
-      AudioFile AudioInfo{..} -> A.object $ concat
-        [ map ("md5"       .=) $ toList _md5
-        , map ("frames"    .=) $ toList _frames
-        , map ("file-path" .=) $ toList _filePath
-        , ["commands" .= _commands | not $ null _commands]
-        , map ("rate"      .=) $ toList _rate
-        , ["channels"      .= _channels]
-        ]
+      AudioFile info   -> makeValue stackJSON info
       AudioSnippet{..} -> A.object
         [ "expr" .= toJSON _expr
         ]

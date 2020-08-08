@@ -79,7 +79,8 @@ import           Path                                  (parseAbsDir, toFilePath)
 import           Paths_onyxite_customs_lib             (version)
 import           PrettyDTA
 import           ProKeysRanges
-import           Reaper.Build                          (makeReaperShake)
+import           Reaper.Build                          (TuningInfo (..),
+                                                        makeReaperShake)
 import           RenderAudio
 import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
@@ -1083,14 +1084,17 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             pathMagmaRPP %> \out -> do
               auds <- magmaNeededAudio
               let auds' = filter (`notElem` [pathMagmaDryvox1, pathMagmaDryvox2, pathMagmaDryvox3]) auds
-                  tunings = do
-                    (fpart, part) <- HM.toList $ getParts $ _parts songYaml
-                    fpart' <- toList $ lookup fpart
-                      [ (rb3_Guitar rb3, RBFile.FlexGuitar)
-                      , (rb3_Bass   rb3, RBFile.FlexBass  )
-                      ]
-                    pg <- toList $ partProGuitar part
-                    return (fpart', pgTuning pg)
+                  tunings = TuningInfo
+                    { tuningGuitars = do
+                      (fpart, part) <- HM.toList $ getParts $ _parts songYaml
+                      fpart' <- toList $ lookup fpart
+                        [ (rb3_Guitar rb3, RBFile.FlexGuitar)
+                        , (rb3_Bass   rb3, RBFile.FlexBass  )
+                        ]
+                      pg <- toList $ partProGuitar part
+                      return (fpart', pgTuning pg)
+                    , tuningCents = _tuningCents plan
+                    }
               makeReaperShake tunings pathMagmaMid pathMagmaMid auds' out
             phony pathMagmaSetup $ do
               -- Just make all the Magma prereqs, but don't actually run Magma
@@ -2013,10 +2017,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         -- REAPER project
         rel ("notes-" ++ T.unpack planName ++ ".RPP") %> \out -> do
           let tempo = rel $ fromMaybe "gen/notes.mid" $ _fileTempo plan
-              tunings = do
-                (fpart, part) <- HM.toList $ getParts $ _parts songYaml
-                pg <- toList $ partProGuitar part
-                return (fpart, pgTuning pg)
+              tunings = TuningInfo
+                { tuningGuitars = do
+                  (fpart, part) <- HM.toList $ getParts $ _parts songYaml
+                  pg <- toList $ partProGuitar part
+                  return (fpart, pgTuning pg)
+                , tuningCents = _tuningCents plan
+                }
           makeReaperShake tunings (rel "gen/notes.mid") tempo allPlanAudio out
 
         dir </> "web/song.js" %> \out -> do
