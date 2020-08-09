@@ -965,6 +965,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
           case songPlaying ss of
             Nothing -> return ()
             Just ps -> void $ stopPlaying (songTime ss) ps
+          writeIORef varSong Nothing -- try to avoid holding onto the midi in memory
           _deleteGL -- TODO remove this when we delete the whole song window instead
     return (tab, cleanup)
     {-
@@ -1005,6 +1006,8 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
       let input = takeDirectory (projectLocation proj) </> "notes.mid"
       mid <- RBFile.loadMIDI input
       let foundTracks = getScoreTracks $ RBFile.s_tracks mid
+      -- TODO this is a hack to not hold onto the whole midi file in memory, should find a better way!
+      stackIO $ void $ Exc.evaluate $ length $ show foundTracks
       stackIO $ sink $ EventIO $ withMVar doesWindowExist $ \exist -> when exist $ mdo
         FL.begin pack
         getTracks <- padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
