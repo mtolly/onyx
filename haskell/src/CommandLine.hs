@@ -14,6 +14,7 @@ module CommandLine
 , blackVenue
 ) where
 
+import           Amplitude.PS2.Ark                (extractArk, readFileEntries, createArk)
 import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
@@ -1002,6 +1003,42 @@ commands =
         return $ blobDec : blobTxt : fmap fst dats
       ".iga" -> stackIO $ extractIGA arg
       _ -> fatal $ "Unrecognized iOS game file extension: " <> arg
+    }
+
+  , Command
+    { commandWord = "amp-list"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandRun = \args _opts -> case args of
+      [ark, fout] -> stackIO $ do
+        readFileEntries ark >>= writeFile fout . unlines . map show
+        return [fout]
+      _ -> fatal "Expected 2 args (.ark, output .txt)"
+    }
+
+  , Command
+    { commandWord = "amp-extract"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandRun = \args opts -> case args of
+      [ark] -> do
+        dout <- outputFile opts $ return $ ark <> "_extract"
+        stackIO $ Dir.createDirectoryIfMissing False dout
+        stackIO $ extractArk ark dout
+        return [dout]
+      _ -> fatal "Expected 1 arg (amplitude ps2 .ark)"
+    }
+
+  , Command
+    { commandWord = "amp-pack"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandRun = \args opts -> case args of
+      [dir] -> do
+        ark <- outputFile opts $ return $ dir <.> "ark"
+        stackIO $ createArk dir ark
+        return [ark]
+      _ -> fatal "Expected 1 arg (folder to make into .ark)"
     }
 
   ]
