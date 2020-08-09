@@ -4,6 +4,7 @@ module GuitarHeroII.Convert where
 
 import           Config
 import           Control.Monad                    (guard)
+import           Data.Bifunctor                   (bimap)
 import qualified Data.DTA.Serialize.GH2           as D
 import           Data.DTA.Serialize.RB3           (AnimTempo (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -163,7 +164,7 @@ makeGH2DTA song preview target = D.SongPackage
     , D.hopoThreshold = Nothing
     }
   , D.animTempo = KTempoMedium
-  , D.preview = (fromIntegral $ fst preview, fromIntegral $ snd preview)
+  , D.preview = bimap fromIntegral fromIntegral preview
   , D.quickplay = gh2_Quickplay target
   , D.practiceSpeeds = Just [100, 90, 75, 60]
   , D.songCoop = Nothing

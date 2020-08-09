@@ -8,7 +8,6 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE PatternSynonyms        #-}
-{-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE ViewPatterns           #-}
 module RockBand.Common where
 

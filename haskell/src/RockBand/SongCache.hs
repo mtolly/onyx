@@ -13,7 +13,7 @@ import           Data.DTA.Serialize             (DictList (..))
 import           Data.DTA.Serialize.Magma       (Gender (..))
 import qualified Data.DTA.Serialize.RB3         as D
 import qualified Data.HashMap.Strict            as HM
-import           Data.List                      (findIndex, sort)
+import           Data.List                      (elemIndex, sort)
 import           Data.Maybe                     (fromMaybe)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
@@ -243,7 +243,7 @@ matchOrder :: (Ord a, Ord b) => [a] -> [(a, b)] -> [(a, b)]
 matchOrder template xs = let
   xs' = do
     pair@(x, _) <- xs
-    let xi = case findIndex (== x) template of
+    let xi = case elemIndex x template of
           Just i  -> Left i
           Nothing -> Right x
     return (xi, pair)

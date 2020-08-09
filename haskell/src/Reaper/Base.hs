@@ -26,9 +26,10 @@ showElement :: Element -> PP.Doc ()
 showElement (Element k ks Nothing) = foldl' (<+>) (showAtom k) (map showAtom ks)
 showElement (Element k ks (Just sub)) = let
   start = "<" <> foldl' (<+>) (showAtom k) (map showAtom ks)
-  sublines = PP.nest 2 $ PP.vcat $ map showElement sub
   end = ">"
-  in PP.vcat [start, sublines, end]
+  in if null sub
+    then PP.vcat [start, end]
+    else PP.vcat [start, PP.indent 2 $ PP.vcat $ map showElement sub, end]
 
 showAtom :: T.Text -> PP.Doc ()
 showAtom s = PP.pretty $ case (T.any (== '"') s, T.any (== '\'') s, T.any (== ' ') s) of

@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -401,7 +400,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           else eventsBacking eventsInput
         }
       eventsTrackPS = eventsTrack
-        { eventsSections = (makePSSection . snd) <$> eventsSections eventsTrack
+        { eventsSections = makePSSection . snd <$> eventsSections eventsTrack
         }
       drumsPart = either rb3_Drums ps_Drums target
       drumsTrack = case buildDrums drumsPart target input timing songYaml of

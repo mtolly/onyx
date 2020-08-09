@@ -1,7 +1,5 @@
-{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
 module RockBand.Milo.Venue where
 
 import           Control.Monad                    (replicateM)

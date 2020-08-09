@@ -1,7 +1,5 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
 module RockBand.Milo.Compression where
 
 import qualified Codec.Compression.GZip          as GZ

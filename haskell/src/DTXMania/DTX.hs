@@ -1,4 +1,3 @@
-{-# LANGUAGE EmptyCase         #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}

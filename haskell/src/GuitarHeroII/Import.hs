@@ -57,7 +57,7 @@ getSongList gen = do
         _                                                           -> False
   fmap D.fromDictList
     $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
-    $ editDTB $ fmap decodeLatin1 $ dtb
+    $ editDTB $ decodeLatin1 <$> dtb
 
 getImports :: [(T.Text, SongPackage)] -> [(T.Text, (ImportMode, SongPackage))]
 getImports = concatMap $ \(t, pkg) -> case songCoop pkg of

@@ -19,10 +19,9 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (sort)
+import           Data.List                        (find, sort)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, listToMaybe,
-                                                   mapMaybe)
+import           Data.Maybe                       (catMaybes, mapMaybe)
 import qualified Data.Text                        as T
 import           Image                            (readDDS)
 import qualified RockBand.Codec.File              as RBFile
@@ -244,7 +243,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
     False -> return Nothing
     True -> do
       txt <- decodeGeneral <$> B.readFile toolkitPath
-      return $ listToMaybe $ filter (`notElem` ["", "Custom Song Creator"]) $ map T.strip
+      return $ find (`notElem` ["", "Custom Song Creator"]) $ map T.strip
         $ mapMaybe (T.stripPrefix "Package Author:") $ T.lines txt
 
   stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON (SongYaml

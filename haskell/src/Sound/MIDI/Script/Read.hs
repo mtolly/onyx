@@ -6,9 +6,8 @@ module Sound.MIDI.Script.Read
 
 import           Control.Applicative                   (liftA2, (<|>))
 import           Control.Arrow                         (first, second)
-import           Data.List                             (groupBy, sortBy)
+import           Data.List                             (groupBy, sortOn)
 import           Data.Maybe                            (mapMaybe)
-import           Data.Ord                              (comparing)
 
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
@@ -33,7 +32,7 @@ readStandardFile f = let
   tmps = getTempos msrs tempoTrk
   tempoTrk' = readTrack msrs tmps tempoTrk
   restTrks' = map (second $ readTrack msrs tmps) $ mergeNames restTrks
-  mergeNames = map mergeSame . groupBy (equating fst) . sortBy (comparing fst)
+  mergeNames = map mergeSame . groupBy (equating fst) . sortOn fst
   mergeSame ps = (fst $ head ps, concatMap snd ps)
   equating g x y = g x == g y
   in StandardMIDI tempoTrk' restTrks'
@@ -89,7 +88,7 @@ readTrack msrs tmps trk = let
     SysEx sys -> E.SystemExclusive $ case sys of
       Regular ns -> SysEx.Regular $ map int ns
       Escape ns  -> SysEx.Escape $ map int ns
-  in RTB.fromAbsoluteEventList $ ATB.fromPairList $ sortBy (comparing fst)
+  in RTB.fromAbsoluteEventList $ ATB.fromPairList $ sortOn fst
     [ (NN.fromNumber $ num n, readEvent e) | (n, e) <- trk ]
 
 -- | Tries to evaluate the number without using time signatures or tempos.
@@ -259,7 +258,7 @@ getTempos msrs evts = let
       in Just (secs', bts', tmp)
     isFuture _ = Nothing
     fst3 (x, _, _) = x
-    in case sortBy (comparing fst3) $ mapMaybe isFuture tmps of
+    in case sortOn fst3 $ mapMaybe isFuture tmps of
       []            -> []
       (s, b, u) : _ -> go s b u
   in dropSimultaneous $ go 0 0 initTempo

@@ -4,7 +4,6 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
-{-# LANGUAGE TupleSections             #-}
 module Build (shakeBuildFiles, shakeBuild, targetTitle, loadYaml, toValidFileName) where
 
 import           Audio

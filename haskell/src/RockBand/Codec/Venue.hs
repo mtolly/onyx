@@ -2,7 +2,6 @@
 Pre-RB3 venue format information from:
 <https://web.archive.org/web/20120109105129/http://creators.rockband.com:80/spec/Camera_And_Lights>
 -}
-{-# LANGUAGE DeriveFunctor      #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}

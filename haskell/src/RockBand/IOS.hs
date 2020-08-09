@@ -2,10 +2,11 @@
 {-# LANGUAGE TupleSections   #-}
 module RockBand.IOS where
 
-import           Control.Monad        (replicateM)
+import           Control.Monad        (replicateM, zipWithM)
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
+import           Data.Bifunctor       (bimap)
 import           Data.Binary.Get
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
@@ -73,7 +74,7 @@ loadBlob :: FilePath -> IO (Blob, [(FilePath, B.ByteString)])
 loadBlob blobPath = do
   let pathBase = dropExtension blobPath -- "path/to/a0" without .blob
   blob <- runGet getBlob . BL.fromStrict <$> decodeBlob blobPath -- TODO handle Get errors
-  let datPaths = map (\(x, y) -> (pathBase <> x, pathBase <> y))
+  let datPaths = map (bimap (pathBase <>) (pathBase <>))
         [ ("_mid.dat", ".mid")
         , ("_bass_solo.dat", "_bass_solo.ogg")
         , ("_bass_trks.dat", "_bass_trks.ogg")
@@ -88,5 +89,5 @@ loadBlob blobPath = do
         bs <- B.readFile datPath
         dec <- decodeFileWithIV key bs
         return (decPath, dec)
-  datContents <- sequence $ zipWith readDat (blobDATKeys blob) datPaths
+  datContents <- zipWithM readDat (blobDATKeys blob) datPaths
   return (blob, datContents)

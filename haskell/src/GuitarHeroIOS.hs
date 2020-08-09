@@ -1,10 +1,9 @@
-{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections   #-}
 module GuitarHeroIOS where
 
 import qualified Codec.Compression.Zlib.Raw as Raw
-import           Control.Monad              (forM, replicateM)
+import           Control.Monad              (forM, replicateM, zipWithM)
 import           Data.Binary.Get
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Char8      as B8
@@ -107,7 +106,7 @@ loadIGA f = do
                   ]
                 return uncompressed
           in (name,) <$> decodeFrom offset len
-  contents <- sequence $ zipWith sliceFile names $ igaFiles header
+  contents <- zipWithM sliceFile names $ igaFiles header
   return (header, contents)
 
 extractIGA :: FilePath -> IO [FilePath]

@@ -1081,7 +1081,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           , pgHopoThreshold = hopoThresh
           , pgTuning = GtrTuning
             { gtrBase = Guitar6
-            , gtrOffsets = fromMaybe [] $ map fromIntegral <$> D.realGuitarTuning pkg
+            , gtrOffsets = map fromIntegral $ fromMaybe [] $ D.realGuitarTuning pkg
             , gtrGlobal = 0
             }
           , pgFixFreeform = False
@@ -1100,7 +1100,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           , pgHopoThreshold = hopoThresh
           , pgTuning = GtrTuning
             { gtrBase = bassBase
-            , gtrOffsets = fromMaybe [] $ map fromIntegral <$> D.realBassTuning pkg
+            , gtrOffsets = map fromIntegral $ fromMaybe [] $ D.realBassTuning pkg
             , gtrGlobal = 0
             }
           , pgFixFreeform = False
@@ -1166,8 +1166,7 @@ importMagma fin dir = do
       then fmap Just $ stackIO (decodeGeneral <$> B8.readFile pathC3) >>= C3.readC3
       else return Nothing
 
-  let art = fromMaybe (T.unpack $ RBProj.albumArtFile $ RBProj.albumArt rbproj)
-        $ C3.songAlbumArt <$> c3
+  let art = maybe (T.unpack $ RBProj.albumArtFile $ RBProj.albumArt rbproj) C3.songAlbumArt c3
       art' = "album" <.> map toLower (takeExtension art)
   stackIO $ locate art >>= \a -> Dir.copyFile a (dir </> art')
 

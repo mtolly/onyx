@@ -22,14 +22,14 @@ import           Data.Binary.Get                   (runGetOrFail)
 import qualified Data.ByteString                   as B
 import qualified Data.ByteString.Lazy              as BL
 import qualified Data.EventList.Relative.TimeBody  as RTB
-import           Data.Foldable                     (toList)
+import           Data.Foldable                     (find, toList)
 import           Data.Functor.Identity             (Identity)
 import           Data.Hashable                     (Hashable (..))
 import           Data.List.Extra                   (nubOrd, partition, sortOn)
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (catMaybes, fromJust,
                                                     fromMaybe, isNothing,
-                                                    listToMaybe, mapMaybe)
+                                                    mapMaybe)
 import qualified Data.Text                         as T
 import           DeriveHelpers
 import           GHC.Generics                      (Generic)
@@ -286,7 +286,7 @@ selectGuitarTrack typ part = let
     FiveTypeGuitar    -> [gtr, ext, keys]
     FiveTypeKeys      -> [keys, ext, gtr] -- prefer ext due to sustains? or gtr due to no opens? dunno
     FiveTypeGuitarExt -> [ext, gtr, keys]
-  in fromMaybe (mempty, HOPOsRBGuitar) $ listToMaybe $ filter (not . nullFive . fst) trks
+  in fromMaybe (mempty, HOPOsRBGuitar) $ find (not . nullFive . fst) trks
   -- TODO maybe fill in lower difficulties from secondary tracks
 
 instance TraverseTrack OnyxPart where

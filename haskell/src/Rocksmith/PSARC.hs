@@ -117,7 +117,7 @@ zlibMaybe bs = runST $ let
       x : xs -> f x       >>= go xs
     Z.DecompressOutputAvailable out getNext  -> do
       next <- getNext
-      (fmap (BL.fromStrict out <>)) <$> go input next
+      fmap (BL.fromStrict out <>) <$> go input next
     Z.DecompressStreamEnd _unread            -> return $ Just BL.empty
     Z.DecompressStreamError _err              -> return Nothing
   in go (BL.toChunks bs) $ Z.decompressST Z.zlibFormat Z.defaultDecompressParams
