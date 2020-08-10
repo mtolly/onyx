@@ -14,7 +14,8 @@ module CommandLine
 , blackVenue
 ) where
 
-import           Amplitude.PS2.Ark                (extractArk, readFileEntries, createArk)
+import qualified Amplitude.PS2.Ark as AmpArk
+import qualified GuitarHeroII.Ark as GHArk
 import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
@@ -1006,27 +1007,41 @@ commands =
     }
 
   , Command
-    { commandWord = "amp-list"
-    , commandDesc = ""
-    , commandUsage = ""
-    , commandRun = \args _opts -> case args of
-      [ark, fout] -> stackIO $ do
-        readFileEntries ark >>= writeFile fout . unlines . map show
-        return [fout]
-      _ -> fatal "Expected 2 args (.ark, output .txt)"
-    }
-
-  , Command
-    { commandWord = "amp-extract"
+    { commandWord = "ark-contents"
     , commandDesc = ""
     , commandUsage = ""
     , commandRun = \args opts -> case args of
-      [ark] -> do
-        dout <- outputFile opts $ return $ ark <> "_extract"
+      [fin] -> do
+        fout <- outputFile opts $ return $ fin <> ".contents.txt"
+        arkVersion <- stackIO $ IO.withBinaryFile fin IO.ReadMode $ \h -> runGet getInt32le . BL.fromStrict <$> B.hGet h 4
+        case arkVersion of
+          2 -> stackIO $ AmpArk.readFileEntries fin >>= writeFile fout . unlines . map show
+          3 -> stackIO $ GHArk.readFileEntries fin >>= writeFile fout . unlines . map show
+          n -> fail $ "Unsupported ark version: " <> show n
+        return [fout]
+      _ -> fatal "Expected 1 arg (.hdr, or .ark if none)"
+    }
+
+  , Command
+    { commandWord = "ark-extract"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandRun = \args opts -> case args of
+      [fin] -> do
+        dout <- outputFile opts $ return $ fin <> "_extract"
+        arkVersion <- stackIO $ IO.withBinaryFile fin IO.ReadMode $ \h -> runGet getInt32le . BL.fromStrict <$> B.hGet h 4
+        (ark, entries) <- case arkVersion of
+          2 -> do
+            entries <- stackIO $ AmpArk.readFileEntries fin
+            return (fin, entries)
+          3 -> do
+            entries <- stackIO $ GHArk.readFileEntries fin
+            return (dropExtension fin <> "_0.ARK", entries)
+          n -> fail $ "Unsupported ark version: " <> show n
         stackIO $ Dir.createDirectoryIfMissing False dout
-        stackIO $ extractArk ark dout
+        stackIO $ AmpArk.extractArk entries ark dout
         return [dout]
-      _ -> fatal "Expected 1 arg (amplitude ps2 .ark)"
+      _ -> fatal "Expected 1 arg (.hdr, or .ark if none)"
     }
 
   , Command
@@ -1036,9 +1051,21 @@ commands =
     , commandRun = \args opts -> case args of
       [dir] -> do
         ark <- outputFile opts $ return $ dir <.> "ark"
-        stackIO $ createArk dir ark
+        stackIO $ AmpArk.createArk dir ark
         return [ark]
       _ -> fatal "Expected 1 arg (folder to make into .ark)"
+    }
+
+  , Command
+    { commandWord = "gh-pack"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandRun = \args _opts -> case args of
+      [dir, hdr] -> do
+        let ark = dropExtension hdr <> "_0.ARK"
+        stackIO $ GHArk.createHdrArk dir hdr ark
+        return [hdr, ark]
+      _ -> fatal "Expected 2 args (folder to pack, .hdr)"
     }
 
   ]

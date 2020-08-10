@@ -1,15 +1,16 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Amplitude.PS2.Ark where
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.HashMap.Strict as HM
-import Data.Binary.Get (runGet, getInt32le)
-import Data.Binary.Put (runPut, putInt32le)
-import Data.Int (Int32)
+import Data.Binary.Get (runGet, getWord32le, getInt32le)
+import Data.Binary.Put (runPut, putWord32le, putInt32le)
+import Data.Word (Word32)
 import System.IO (withBinaryFile, IOMode(..), hSeek, SeekMode(..), hTell)
 import Control.Monad.Extra (replicateM, forM_, concatForM, forM)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory)
@@ -20,39 +21,46 @@ import Data.List (isSuffixOf)
 import Data.Foldable (toList)
 
 data FileEntry = FileEntry
-  { fe_offset  :: Int32 -- offset in bytes into the full .ark file
+  { fe_offset  :: Word32 -- offset in bytes into the full .ark file
   , fe_name    :: B.ByteString
   , fe_folder  :: Maybe B.ByteString
-  , fe_size    :: Int32
-  , fe_inflate :: Int32 -- inflated size, or 0 if not gzipped.
+  , fe_size    :: Word32
+  , fe_inflate :: Word32 -- inflated size, or 0 if not gzipped.
   -- Only ".bmp.gz" files in "gen" folders are gzipped (and they all are).
   -- (Not actually .bmp -- likely the usual HMX image format like .png_xbox)
   } deriving (Eq, Show)
 
 readFileEntries :: FilePath -> IO [FileEntry]
 readFileEntries ark = withBinaryFile ark ReadMode $ \h -> do
-  let read32 = runGet getInt32le . BL.fromStrict <$> B.hGet h 4
-  2 <- read32
-  entryCount <- read32
+  let w32 = runGet getWord32le . BL.fromStrict <$> B.hGet h 4
+  2 <- w32
+  entryCount <- w32
   entryBytes <- B.hGet h $ fromIntegral entryCount * 20
-  stringSize <- read32
+  stringSize <- w32
   stringBytes <- B.hGet h $ fromIntegral stringSize
-  offsetCount <- read32
-  offsets <- replicateM (fromIntegral offsetCount) read32
+  offsetCount <- w32
+  offsets <- replicateM (fromIntegral offsetCount) w32
   let findString i = B.takeWhile (/= 0) $ B.drop (fromIntegral $ offsets !! fromIntegral i) stringBytes
   return $ flip runGet (BL.fromStrict entryBytes) $ replicateM (fromIntegral entryCount) $ do
-    fe_offset <- getInt32le
+    fe_offset <- getWord32le
     fe_name <- findString <$> getInt32le
     fe_folder <- (\i -> if i == -1 then Nothing else Just $ findString i) <$> getInt32le
-    fe_size <- getInt32le
-    fe_inflate <- getInt32le
+    fe_size <- getWord32le
+    fe_inflate <- getWord32le
     return FileEntry{..}
 
-extractArk :: FilePath -> FilePath -> IO ()
-extractArk ark dout = do
-  entries <- readFileEntries ark
+extractArk :: [FileEntry] -> FilePath -> FilePath -> IO ()
+extractArk entries ark dout = do
   withBinaryFile ark ReadMode $ \h -> forM_ entries $ \entry -> do
-    let dir = maybe dout ((dout </>) . B8.unpack) $ fe_folder entry
+    let dir
+          = maybe dout ((dout </>) . B8.unpack)
+          $ fmap replaceDotDot
+          $ fe_folder entry
+        -- handles guitar hero arks where weird paths start with "../../"
+        replaceDotDot b = case B.breakSubstring ".." b of
+          (x, y) -> if B.null y
+            then x
+            else x <> "dotdot" <> replaceDotDot (B.drop 2 y)
         fout = dir </> B8.unpack (fe_name entry)
     createDirectoryIfMissing True dir
     hSeek h AbsoluteSeek $ fromIntegral $ fe_offset entry
@@ -73,7 +81,12 @@ traverseFolder = go Nothing where
     concatForM files $ \f -> do
       let fullPath = dir </> f
       doesDirectoryExist fullPath >>= \case
-        True -> go (Just $ maybe f (<> "/" <> f) parent) fullPath
+        True -> let
+          -- match the way we extracted a guitar hero ark with "../../" paths
+          f' = case f of
+            "dotdot" -> ".."
+            _        -> f
+          in go (Just $ maybe f' (<> "/" <> f') parent) fullPath
         False -> do
           return [FoundFile
             { ff_onDisk = fullPath
@@ -82,7 +95,7 @@ traverseFolder = go Nothing where
             , ff_gzip = ".gz" `isSuffixOf` f
             }]
 
-makeStringBank :: [B.ByteString] -> (BL.ByteString, [Int32])
+makeStringBank :: [B.ByteString] -> (BL.ByteString, [Word32])
 makeStringBank = go (BL.singleton 0) [] where
   go !bank offs []       = (bank, reverse offs)
   go !bank offs (s : ss) = go
@@ -123,16 +136,17 @@ createArk dout ark = do
           else 0
         }
     hSeek h AbsoluteSeek 0
-    let write32 = BL.hPut h . runPut . putInt32le
-    write32 2
-    write32 $ fromIntegral fileCount
+    let w32 = BL.hPut h . runPut . putWord32le
+        i32 = BL.hPut h . runPut . putInt32le
+    w32 2
+    w32 $ fromIntegral fileCount
     forM_ entries $ \entry -> do
-      write32 $ fe_offset entry
-      getStringIndex (fe_name entry) >>= write32
-      maybe (return (-1)) getStringIndex (fe_folder entry) >>= write32
-      write32 $ fe_size entry
-      write32 $ fe_inflate entry
-    write32 $ fromIntegral $ BL.length stringBank
+      w32 $ fe_offset entry
+      getStringIndex (fe_name entry) >>= i32
+      maybe (return (-1)) getStringIndex (fe_folder entry) >>= i32
+      w32 $ fe_size entry
+      w32 $ fe_inflate entry
+    w32 $ fromIntegral $ BL.length stringBank
     BL.hPut h stringBank
-    write32 $ fromIntegral stringCount
-    mapM_ write32 offsets
+    w32 $ fromIntegral stringCount
+    mapM_ w32 offsets

@@ -1,14 +1,96 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
-module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH) where
+module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readFileEntries, extractArk, createHdrArk) where
 
 import           ArkTool
-import           Control.Monad   (forM_)
+import           Control.Monad   (forM_, replicateM, forM)
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.DTA        as D
 import qualified System.IO       as IO
 import           System.IO.Temp  (withSystemTempFile)
+import Amplitude.PS2.Ark (FileEntry(..), extractArk, FoundFile(..), traverseFolder, makeStringBank)
+import Data.Binary.Get (runGet, getInt32le, getWord32le)
+import qualified Data.HashMap.Strict as HM
+import Data.Binary.Put (runPut, putWord32le, putInt32le)
+import Data.Foldable (toList)
+import Data.List.Extra (nubOrd)
+import Codec.Compression.GZip (decompress)
+
+-- Haskell extract/repack stuff
+
+readFileEntries :: FilePath -> IO [FileEntry]
+readFileEntries hdr = IO.withBinaryFile hdr IO.ReadMode $ \h -> do
+  let w32 = runGet getWord32le . BL.fromStrict <$> B.hGet h 4
+  3 <- w32
+  arkCount <- w32
+  arkCount2 <- w32
+  -- arkCount should equal arkCount2
+  arkSizes <- replicateM (fromIntegral arkCount) w32
+  stringSize <- w32
+  stringBytes <- B.hGet h $ fromIntegral stringSize
+  offsetCount <- w32
+  offsets <- replicateM (fromIntegral offsetCount) w32
+  entryCount <- w32
+  entryBytes <- B.hGet h $ fromIntegral entryCount * 20
+  let findString i = B.takeWhile (/= 0) $ B.drop (fromIntegral $ offsets !! fromIntegral i) stringBytes
+  return $ flip runGet (BL.fromStrict entryBytes) $ replicateM (fromIntegral entryCount) $ do
+    fe_offset <- getWord32le
+    fe_name <- findString <$> getInt32le
+    fe_folder <- (\i -> if i == -1 then Nothing else Just $ findString i) <$> getInt32le
+    fe_size <- getWord32le
+    fe_inflate <- getWord32le
+    return FileEntry{..}
+
+createHdrArk :: FilePath -> FilePath -> FilePath -> IO ()
+createHdrArk dout hdr ark = do
+  files <- traverseFolder dout
+  let strings = nubOrd $ files >>= \ff -> ff_arkName ff : toList (ff_arkParent ff)
+      (stringBank, offsets) = makeStringBank strings
+      stringToIndex = HM.fromList $ zip strings [0..]
+      getStringIndex str = case HM.lookup str stringToIndex of
+        Nothing -> fail "panic! couldn't find string offset in bank"
+        Just i  -> return i
+      fileCount = length files
+      stringCount = HM.size stringToIndex
+  (entries, arkSize) <- IO.withBinaryFile ark IO.WriteMode $ \h -> do
+    entries <- forM files $ \ff -> do
+      posn <- IO.hTell h
+      contents <- BL.fromStrict <$> B.readFile (ff_onDisk ff)
+      BL.hPut h contents
+      return FileEntry
+        { fe_offset = fromIntegral posn
+        , fe_name = ff_arkName ff
+        , fe_folder = ff_arkParent ff
+        , fe_size = fromIntegral $ BL.length contents
+        , fe_inflate = if ff_gzip ff -- should always be false in GH files
+          then fromIntegral $ BL.length $ decompress contents
+          else 0
+        }
+    arkSize <- IO.hTell h
+    return (entries, arkSize)
+  IO.withBinaryFile hdr IO.WriteMode $ \h -> do
+    let w32 = BL.hPut h . runPut . putWord32le
+        i32 = BL.hPut h . runPut . putInt32le
+    w32 3
+    w32 1
+    w32 1
+    w32 $ fromIntegral arkSize
+    w32 $ fromIntegral $ BL.length stringBank
+    BL.hPut h stringBank
+    w32 $ fromIntegral stringCount
+    mapM_ w32 offsets
+    w32 $ fromIntegral fileCount
+    forM_ entries $ \entry -> do
+      w32 $ fe_offset entry
+      getStringIndex (fe_name entry) >>= i32
+      maybe (return (-1)) getStringIndex (fe_folder entry) >>= i32
+      w32 $ fe_size entry
+      w32 $ fe_inflate entry
+
+-- ArkTool stuff
 
 data GameGH = GameGH1 | GameGH2
 
