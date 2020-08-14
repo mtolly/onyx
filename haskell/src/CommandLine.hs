@@ -14,8 +14,7 @@ module CommandLine
 , blackVenue
 ) where
 
-import qualified Amplitude.PS2.Ark as AmpArk
-import qualified GuitarHeroII.Ark as GHArk
+import qualified Amplitude.PS2.Ark                as AmpArk
 import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
@@ -51,6 +50,7 @@ import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
+import qualified GuitarHeroII.Ark                 as GHArk
 import           GuitarHeroII.Audio               (readVGS)
 import           GuitarHeroIOS                    (extractIGA)
 import qualified Image
@@ -279,6 +279,7 @@ buildTarget yamlPath opts = do
         RB2   {} -> "gen/target" </> T.unpack targetName </> "rb2con"
         PS    {} -> "gen/target" </> T.unpack targetName </> "ps.zip"
         GH2   {} -> "gen/target" </> T.unpack targetName </> "gh2.zip"
+        RS    {} -> undefined -- TODO
         Melody{} -> undefined -- TODO
         Konga {} -> undefined -- TODO
   shakeBuildFiles audioDirs yamlPath [built]
@@ -395,6 +396,7 @@ commands =
                 RB3   {} -> FileSTFS
                 RB2   {} -> FileSTFS
                 GH2   {} -> undefined -- TODO
+                RS    {} -> undefined -- TODO
                 Melody{} -> undefined -- TODO
                 Konga {} -> undefined -- TODO
           doInstall ftype' built

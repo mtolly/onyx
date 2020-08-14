@@ -1223,6 +1223,34 @@ instance StackJSON TargetGH2 where
 instance Default TargetGH2 where
   def = fromEmptyObject
 
+data TargetRS = TargetRS
+  { rs_Common :: TargetCommon
+  , rs_Lead :: FlexPartName
+  , rs_Rhythm :: FlexPartName
+  , rs_Bass :: FlexPartName
+  , rs_BonusLead :: FlexPartName
+  , rs_BonusRhythm :: FlexPartName
+  , rs_BonusBass :: FlexPartName
+  -- TODO probably other fields
+  } deriving (Eq, Ord, Show, Generic, Hashable)
+
+parseTargetRS :: (SendMessage m) => ObjectCodec m A.Value TargetRS
+parseTargetRS = do
+  rs_Common      <- rs_Common      =. parseTargetCommon
+  rs_Lead        <- rs_Lead        =. opt FlexGuitar              "lead"         stackJSON
+  rs_Rhythm      <- rs_Rhythm      =. opt (FlexExtra "rhythm")    "rhythm"       stackJSON
+  rs_Bass        <- rs_Bass        =. opt FlexBass                "bass"         stackJSON
+  rs_BonusLead   <- rs_BonusLead   =. opt (FlexExtra "undefined") "bonus-lead"   stackJSON
+  rs_BonusRhythm <- rs_BonusRhythm =. opt (FlexExtra "undefined") "bonus-rhythm" stackJSON
+  rs_BonusBass   <- rs_BonusBass   =. opt (FlexExtra "undefined") "bonus-bass"   stackJSON
+  return TargetRS{..}
+
+instance StackJSON TargetRS where
+  stackJSON = asStrictObject "TargetRS" parseTargetRS
+
+instance Default TargetRS where
+  def = fromEmptyObject
+
 data TargetPart = TargetPart
   { tgt_Common :: TargetCommon
   , tgt_Part   :: FlexPartName
@@ -1245,6 +1273,7 @@ data Target f
   | RB2    TargetRB2
   | PS     (TargetPS f)
   | GH2    TargetGH2
+  | RS     TargetRS
   | Melody TargetPart
   | Konga  TargetPart
   deriving (Eq, Ord, Show, Generic, Hashable)
@@ -1262,6 +1291,7 @@ instance StackJSON (Target FilePath) where
         "rb2"    -> fmap RB2    fromJSON
         "ps"     -> fmap PS     fromJSON
         "gh2"    -> fmap GH2    fromJSON
+        "rs"     -> fmap RS     fromJSON
         "melody" -> fmap Melody fromJSON
         "konga"  -> fmap Konga  fromJSON
         _        -> fatal $ "Unrecognized target game: " ++ show target
@@ -1270,6 +1300,7 @@ instance StackJSON (Target FilePath) where
       RB2    rb2 -> addKey parseTargetRB2  "game" "rb2"    rb2
       PS     ps  -> addKey parseTargetPS   "game" "ps"     ps
       GH2    gh2 -> addKey parseTargetGH2  "game" "gh2"    gh2
+      RS     rs  -> addKey parseTargetRS   "game" "rs"     rs
       Melody tgt -> addKey parseTargetPart "game" "melody" tgt
       Konga  tgt -> addKey parseTargetPart "game" "konga"  tgt
     }

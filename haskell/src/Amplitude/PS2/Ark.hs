@@ -1,24 +1,26 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Amplitude.PS2.Ark where
 
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as B8
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.HashMap.Strict as HM
-import Data.Binary.Get (runGet, getWord32le, getInt32le)
-import Data.Binary.Put (runPut, putWord32le, putInt32le)
-import Data.Word (Word32)
-import System.IO (withBinaryFile, IOMode(..), hSeek, SeekMode(..), hTell)
-import Control.Monad.Extra (replicateM, forM_, concatForM, forM)
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory)
-import System.FilePath ((</>))
-import Data.List.Extra (nubOrd)
-import Codec.Compression.GZip (decompress)
-import Data.List (isSuffixOf)
-import Data.Foldable (toList)
+import           Codec.Compression.GZip (decompress)
+import           Control.Monad.Extra    (concatForM, forM, forM_, replicateM)
+import           Data.Binary.Get        (getInt32le, getWord32le, runGet)
+import           Data.Binary.Put        (putInt32le, putWord32le, runPut)
+import qualified Data.ByteString        as B
+import qualified Data.ByteString.Char8  as B8
+import qualified Data.ByteString.Lazy   as BL
+import           Data.Foldable          (toList)
+import qualified Data.HashMap.Strict    as HM
+import           Data.List              (isSuffixOf)
+import           Data.List.Extra        (nubOrd)
+import           Data.Word              (Word32)
+import           System.Directory       (createDirectoryIfMissing,
+                                         doesDirectoryExist, listDirectory)
+import           System.FilePath        ((</>))
+import           System.IO              (IOMode (..), SeekMode (..), hSeek,
+                                         hTell, withBinaryFile)
 
 data FileEntry = FileEntry
   { fe_offset  :: Word32 -- offset in bytes into the full .ark file

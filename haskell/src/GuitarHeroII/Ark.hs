@@ -1,23 +1,25 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readFileEntries, extractArk, createHdrArk) where
 
+import           Amplitude.PS2.Ark      (FileEntry (..), FoundFile (..),
+                                         extractArk, makeStringBank,
+                                         traverseFolder)
 import           ArkTool
-import           Control.Monad   (forM_, replicateM, forM)
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.DTA        as D
-import qualified System.IO       as IO
-import           System.IO.Temp  (withSystemTempFile)
-import Amplitude.PS2.Ark (FileEntry(..), extractArk, FoundFile(..), traverseFolder, makeStringBank)
-import Data.Binary.Get (runGet, getInt32le, getWord32le)
-import qualified Data.HashMap.Strict as HM
-import Data.Binary.Put (runPut, putWord32le, putInt32le)
-import Data.Foldable (toList)
-import Data.List.Extra (nubOrd)
-import Codec.Compression.GZip (decompress)
+import           Codec.Compression.GZip (decompress)
+import           Control.Monad          (forM, forM_, replicateM)
+import           Data.Binary.Get        (getInt32le, getWord32le, runGet)
+import           Data.Binary.Put        (putInt32le, putWord32le, runPut)
+import qualified Data.ByteString        as B
+import qualified Data.ByteString.Lazy   as BL
+import qualified Data.DTA               as D
+import           Data.Foldable          (toList)
+import qualified Data.HashMap.Strict    as HM
+import           Data.List.Extra        (nubOrd)
+import qualified System.IO              as IO
+import           System.IO.Temp         (withSystemTempFile)
 
 -- Haskell extract/repack stuff
 
@@ -26,9 +28,9 @@ readFileEntries hdr = IO.withBinaryFile hdr IO.ReadMode $ \h -> do
   let w32 = runGet getWord32le . BL.fromStrict <$> B.hGet h 4
   3 <- w32
   arkCount <- w32
-  arkCount2 <- w32
-  -- arkCount should equal arkCount2
-  arkSizes <- replicateM (fromIntegral arkCount) w32
+  _arkCount2 <- w32
+  -- arkCount should equal _arkCount2
+  _arkSizes <- replicateM (fromIntegral arkCount) w32
   stringSize <- w32
   stringBytes <- B.hGet h $ fromIntegral stringSize
   offsetCount <- w32

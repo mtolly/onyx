@@ -217,6 +217,7 @@ targetTitle songYaml target = let
     RB2    TargetRB2 {..} -> rb2_Common
     PS     TargetPS  {..} -> ps_Common
     GH2    TargetGH2 {..} -> gh2_Common
+    RS     TargetRS  {..} -> rs_Common
     Melody TargetPart{..} -> tgt_Common
     Konga  TargetPart{..} -> tgt_Common
   base = fromMaybe (getTitle $ _metadata songYaml) $ tgt_Title common
@@ -1960,6 +1961,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             phony (dir </> "melody") $ shk $ need [melodyAudio, melodyChart]
 
           Konga _ -> return () -- TODO
+          RS    _ -> return () -- TODO
 
       forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
 

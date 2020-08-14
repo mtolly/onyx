@@ -219,6 +219,7 @@ data Note = Note
   , n_linkNext       :: Bool
   , n_bend           :: Maybe Milli
   , n_bendValues     :: V.Vector BendValue
+  -- TODO did I miss non-pinch harmonics?
   , n_harmonicPinch  :: Bool
   , n_leftHand       :: Maybe Int -- only in chordNote
   , n_tap            :: Bool
