@@ -71,6 +71,7 @@ library:
   - unliftio-core
   - xml
   - zlib
+  - uuid
   # my libraries
   - jammittools
   - midi-util

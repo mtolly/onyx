@@ -581,11 +581,12 @@ instance StackJSON PartProKeys where
     pkFixFreeform <- pkFixFreeform =. opt  True     "fix-freeform" stackJSON
     return PartProKeys{..}
 
-data PartProGuitar = PartProGuitar
+data PartProGuitar f = PartProGuitar
   { pgDifficulty    :: Difficulty
   , pgHopoThreshold :: Int
   , pgTuning        :: GtrTuning
   , pgFixFreeform   :: Bool
+  , pgTones         :: Maybe (RSTones f)
   } deriving (Eq, Ord, Show)
 
 tuningBaseFormat :: (SendMessage m) => ValueCodec m A.Value GtrBase
@@ -617,13 +618,31 @@ tuningFormat = asStrictObject "GtrTuning" $ do
   gtrGlobal  <- gtrGlobal  =. opt 0       "global"  stackJSON
   return GtrTuning{..}
 
-instance StackJSON PartProGuitar where
+instance StackJSON (PartProGuitar FilePath) where
   stackJSON = asStrictObject "PartProGuitar" $ do
     pgDifficulty    <- pgDifficulty    =. fill (Tier 1) "difficulty"     stackJSON
     pgHopoThreshold <- pgHopoThreshold =. opt  170      "hopo-threshold" stackJSON
     pgTuning        <- pgTuning        =. opt  def      "tuning"         tuningFormat
     pgFixFreeform   <- pgFixFreeform   =. opt  True     "fix-freeform"   stackJSON
+    pgTones         <- pgTones         =. opt  Nothing  "tones"          stackJSON
     return PartProGuitar{..}
+
+data RSTones f = RSTones
+  { rsFileToneBase :: f
+  , rsFileToneA    :: Maybe f
+  , rsFileToneB    :: Maybe f
+  , rsFileToneC    :: Maybe f
+  , rsFileToneD    :: Maybe f
+  } deriving (Eq, Ord, Show, Foldable)
+
+instance StackJSON (RSTones FilePath) where
+  stackJSON = asStrictObject "RSTones" $ do
+    rsFileToneBase <- rsFileToneBase =. req         "file-tone-base" stackJSON
+    rsFileToneA    <- rsFileToneA    =. opt Nothing "file-tone-a"    stackJSON
+    rsFileToneB    <- rsFileToneB    =. opt Nothing "file-tone-b"    stackJSON
+    rsFileToneC    <- rsFileToneC    =. opt Nothing "file-tone-c"    stackJSON
+    rsFileToneD    <- rsFileToneD    =. opt Nothing "file-tone-d"    stackJSON
+    return RSTones{..}
 
 data PartGHL = PartGHL
   { ghlDifficulty    :: Difficulty
@@ -804,7 +823,7 @@ data Part f = Part
   { partGRYBO     :: Maybe PartGRYBO
   , partGHL       :: Maybe PartGHL
   , partProKeys   :: Maybe PartProKeys
-  , partProGuitar :: Maybe PartProGuitar
+  , partProGuitar :: Maybe (PartProGuitar f)
   , partDrums     :: Maybe PartDrums
   , partVocal     :: Maybe (PartVocal f)
   , partAmplitude :: Maybe PartAmplitude
@@ -1224,14 +1243,14 @@ instance Default TargetGH2 where
   def = fromEmptyObject
 
 data TargetRS = TargetRS
-  { rs_Common :: TargetCommon
-  , rs_Lead :: FlexPartName
-  , rs_Rhythm :: FlexPartName
-  , rs_Bass :: FlexPartName
-  , rs_BonusLead :: FlexPartName
+  { rs_Common      :: TargetCommon
+  , rs_Lead        :: FlexPartName
+  , rs_Rhythm      :: FlexPartName
+  , rs_Bass        :: FlexPartName
+  , rs_BonusLead   :: FlexPartName
   , rs_BonusRhythm :: FlexPartName
-  , rs_BonusBass :: FlexPartName
-  -- TODO probably other fields
+  , rs_BonusBass   :: FlexPartName
+  , rs_Vocal       :: FlexPartName
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetRS :: (SendMessage m) => ObjectCodec m A.Value TargetRS
@@ -1243,6 +1262,7 @@ parseTargetRS = do
   rs_BonusLead   <- rs_BonusLead   =. opt (FlexExtra "undefined") "bonus-lead"   stackJSON
   rs_BonusRhythm <- rs_BonusRhythm =. opt (FlexExtra "undefined") "bonus-rhythm" stackJSON
   rs_BonusBass   <- rs_BonusBass   =. opt (FlexExtra "undefined") "bonus-bass"   stackJSON
+  rs_Vocal       <- rs_Vocal       =. opt FlexVocal               "vocal"        stackJSON
   return TargetRS{..}
 
 instance StackJSON TargetRS where

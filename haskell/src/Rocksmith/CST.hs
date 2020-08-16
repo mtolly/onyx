@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Rocksmith.CST where
 
-import           Control.Monad                  (void)
+import           Control.Monad                  (join, void)
 import           Control.Monad.Codec
 import           Control.Monad.Codec.Onyx.XML
 import           Control.Monad.IO.Class         (MonadIO (..))
@@ -12,6 +12,7 @@ import qualified Data.ByteString                as B
 import           Data.Fixed                     (Milli)
 import           Data.Functor.Identity          (Identity)
 import           Data.Maybe                     (isNothing)
+import           Data.Profunctor                (dimap)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import qualified Data.Text.IO                   as T
@@ -91,7 +92,7 @@ data Tone2014 = Tone2014
   , t14_Key             :: T.Text
   , t14_Name            :: T.Text
   , t14_NameSeparator   :: T.Text
-  , t14_SortOrder       :: Int
+  , t14_SortOrder       :: Milli
   , t14_ToneDescriptors :: V.Vector T.Text
   , t14_Volume          :: Milli
   } deriving (Eq, Show)
@@ -103,7 +104,7 @@ instance IsInside Tone2014 where
     t14_Key             <- t14_Key             =. childTag (inSpace cstSpaceTone2014 "Key"            ) (parseInside' childText)
     t14_Name            <- t14_Name            =. childTag (inSpace cstSpaceTone2014 "Name"           ) (parseInside' childText)
     t14_NameSeparator   <- t14_NameSeparator   =. childTag (inSpace cstSpaceTone2014 "NameSeparator"  ) (parseInside' childTextRaw)
-    t14_SortOrder       <- t14_SortOrder       =. childTag (inSpace cstSpaceTone2014 "SortOrder"      ) (parseInside' $ intText childText)
+    t14_SortOrder       <- t14_SortOrder       =. childTag (inSpace cstSpaceTone2014 "SortOrder"      ) (parseInside' $ milliText childText)
     t14_ToneDescriptors <- t14_ToneDescriptors =. childTag (inSpace cstSpaceTone2014 "ToneDescriptors") (parseInside' toneDescriptors)
     t14_Volume          <- t14_Volume          =. childTag (inSpace cstSpaceTone2014 "Volume"         ) (parseInside' $ milliText childText)
     return Tone2014{..}
@@ -149,7 +150,7 @@ instance IsInside Gear2014 where
     return Gear2014{..}
 
 data Pedal2014 = Pedal2014
-  { p14_Category   :: T.Text
+  { p14_Category   :: Maybe T.Text
   , p14_KnobValues :: V.Vector (T.Text, Milli)
   , p14_PedalKey   :: T.Text
   , p14_Skin       :: Maybe T.Text
@@ -157,14 +158,17 @@ data Pedal2014 = Pedal2014
   , p14_Type       :: T.Text
   } deriving (Eq, Show)
 
+optNillable :: (SendMessage m) => ParseName -> InsideCodec m a -> InsideCodec m (Maybe a)
+optNillable pn vc = dimap (fmap Just) join $ childTagOpt pn $ parseInside' $ nillable vc
+
 instance IsInside Pedal2014 where
   insideCodec = do
-    p14_Category   <- p14_Category   =. childTag (inSpace cstSpaceTone2014 "Category"  ) (parseInside' childText)
-    p14_KnobValues <- p14_KnobValues =. childTag (inSpace cstSpaceTone2014 "KnobValues") (parseInside' knobValues)
-    p14_PedalKey   <- p14_PedalKey   =. childTag (inSpace cstSpaceTone2014 "PedalKey"  ) (parseInside' childText)
-    p14_Skin       <- p14_Skin       =. childTag (inSpace cstSpaceTone2014 "Skin"      ) (parseInside' $ nillable childText)
-    p14_SkinIndex  <- p14_SkinIndex  =. childTag (inSpace cstSpaceTone2014 "SkinIndex" ) (parseInside' $ nillable $ intText childText)
-    p14_Type       <- p14_Type       =. childTag (inSpace cstSpaceTone2014 "Type"      ) (parseInside' childText)
+    p14_Category   <- p14_Category   =. optNillable (inSpace cstSpaceTone2014 "Category"  ) childText
+    p14_KnobValues <- p14_KnobValues =. childTag    (inSpace cstSpaceTone2014 "KnobValues") (parseInside' knobValues)
+    p14_PedalKey   <- p14_PedalKey   =. childTag    (inSpace cstSpaceTone2014 "PedalKey"  ) (parseInside' childText)
+    p14_Skin       <- p14_Skin       =. optNillable (inSpace cstSpaceTone2014 "Skin"      ) childText
+    p14_SkinIndex  <- p14_SkinIndex  =. optNillable (inSpace cstSpaceTone2014 "SkinIndex" ) (intText childText)
+    p14_Type       <- p14_Type       =. childTag    (inSpace cstSpaceTone2014 "Type"      ) (parseInside' childText)
     return Pedal2014{..}
 
 knobValues :: (SendMessage m) => InsideCodec m (V.Vector (T.Text, Milli))
@@ -404,6 +408,13 @@ parseProject f = inside ("Loading: " <> f) $ do
     Nothing  -> fatal "Couldn't parse XML"
     Just elt -> mapStackTraceT (`runReaderT` elt)
       $ codecIn $ isTag (inSpace cstSpaceMain "DLCPackageData") $ parseInside' insideCodec
+
+parseTone :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m Tone2014
+parseTone f = inside ("Loading: " <> f) $ do
+  stackIO (T.readFile f) >>= \t -> case parseXMLDoc t of
+    Nothing  -> fatal "Couldn't parse XML"
+    Just elt -> mapStackTraceT (`runReaderT` elt)
+      $ codecIn $ isTag (inSpace cstSpaceTone2014 "Tone2014") $ parseInside' insideCodec
 
 writeProject :: (MonadIO m) => FilePath -> DLCPackageData -> m ()
 writeProject f proj = liftIO $ do

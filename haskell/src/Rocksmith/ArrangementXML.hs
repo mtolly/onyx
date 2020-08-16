@@ -462,9 +462,9 @@ parseFile :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m PartContent
 parseFile f = inside ("Loading: " <> f) $ do
   stackIO (T.readFile f) >>= \t -> case parseXMLDoc t of
     Nothing  -> fatal "Couldn't parse XML"
-    Just elt -> mapStackTraceT (`runReaderT` elt) $ case matchTag "vocals" elt of
-      Just _  -> fmap PartVocals      $ codecIn $ isTag "vocals" $ parseInside' insideCodec
-      Nothing -> fmap PartArrangement $ codecIn $ isTag "song"   $ parseInside' insideCodec
+    Just elt -> mapStackTraceT (`runReaderT` elt) $ if matchName "vocals" $ elName elt
+      then fmap PartVocals      $ codecIn $ isTag "vocals" $ parseInside' insideCodec
+      else fmap PartArrangement $ codecIn $ isTag "song"   $ parseInside' insideCodec
 
 writePart :: (MonadIO m) => FilePath -> PartContents -> m ()
 writePart f pc = liftIO $ do

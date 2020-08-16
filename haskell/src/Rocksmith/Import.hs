@@ -297,6 +297,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                   , gtrGlobal  = 0 -- TODO use arr_capo ?
                   }
               , pgFixFreeform   = False
+              , pgTones = Nothing -- TODO
               }
             }
       return (partName, part)

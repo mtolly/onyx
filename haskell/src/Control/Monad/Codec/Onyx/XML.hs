@@ -99,13 +99,20 @@ useNamespace dp uri = Codec
 matchName :: ParseName -> QName -> Bool
 matchName pn qn = qURI qn == pURI pn && qName qn == pName pn
 
-matchTag :: ParseName -> Element -> Maybe (StackTraceT m a -> StackTraceT m a)
-matchTag pn elt = do
-  guard $ matchName pn $ elName elt
-  return $ inside $ unwords $ concat
+matchTag :: (SendMessage m) => ParseName -> Element -> Maybe (StackTraceT m a -> StackTraceT m a)
+matchTag pn elt = let
+  layer = inside $ unwords $ concat
     [ toList (elLine elt) >>= \ln -> ["line", show ln]
-    , ["tag " <> show pn]
+    , ["namespace " <> uri | uri <- toList $ qURI $ elName elt]
+    , ["tag " <> show (qName $ elName elt)]
     ]
+  in if matchName pn $ elName elt
+    then Just layer
+    else if qName (elName elt) == pName pn
+      then Just $ \inner -> layer $ do
+        warn $ "Unexpected namespace URI; expected " <> show (pURI pn)
+        inner
+      else Nothing
 
 makeDoc :: ParseName -> InsideBuilder () -> Element
 makeDoc = makeTag []
@@ -133,7 +140,7 @@ makeTag' pn inner = do
   namespaces <- lift get
   return $ makeTag (NE.toList namespaces) pn inner
 
-isTag :: (Monad m) => ParseName -> ValueCodec' m Inside a -> ValueCodec' m Element a
+isTag :: (SendMessage m) => ParseName -> ValueCodec' m Inside a -> ValueCodec' m Element a
 isTag t cdc = Codec
   { codecIn = do
     elt <- lift ask
@@ -143,7 +150,7 @@ isTag t cdc = Codec
   , codecOut = fmapArg $ mapWriterT (fmap swap) . makeTag' t . void . codecOut cdc
   }
 
-childTagOpt :: (Monad m) => ParseName -> ValueCodec' m Inside a -> InsideCodec m (Maybe a)
+childTagOpt :: (SendMessage m) => ParseName -> ValueCodec' m Inside a -> InsideCodec m (Maybe a)
 childTagOpt t cdc = Codec
   { codecIn = do
     ins <- lift get
@@ -165,7 +172,7 @@ childTagOpt t cdc = Codec
         }
   }
 
-childTag :: (Monad m) => ParseName -> ValueCodec' m Inside a -> InsideCodec m a
+childTag :: (SendMessage m) => ParseName -> ValueCodec' m Inside a -> InsideCodec m a
 childTag t cdc = let
   o = childTagOpt t cdc
   in Codec

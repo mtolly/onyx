@@ -566,6 +566,7 @@ importFoF src dest = do
             , pgHopoThreshold = hopoThreshold
             , pgTuning = def
             , pgFixFreeform = False
+            , pgTones = Nothing
             }
         , partGHL = guard (isnt nullSix RBFile.fixedPartGuitarGHL && guardDifficulty FoF.diffGuitarGHL) >> Just PartGHL
           { ghlDifficulty = toTier $ FoF.diffGuitarGHL song
@@ -588,6 +589,7 @@ importFoF src dest = do
             , pgHopoThreshold = hopoThreshold
             , pgTuning = def
             , pgFixFreeform = False
+            , pgTones = Nothing
             }
         , partGHL = guard (isnt nullSix RBFile.fixedPartBassGHL && guardDifficulty FoF.diffBassGHL) >> Just PartGHL
           { ghlDifficulty = toTier $ FoF.diffBassGHL song
@@ -1085,6 +1087,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
             , gtrGlobal = 0
             }
           , pgFixFreeform = False
+          , pgTones = Nothing
           }
         })
       , ( FlexBass, def
@@ -1104,6 +1107,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
             , gtrGlobal = 0
             }
           , pgFixFreeform = False
+          , pgTones = Nothing
           }
         })
       , ( FlexKeys, def
@@ -1377,6 +1381,7 @@ importMagma fin dir = do
               , gtrGlobal = 0
               }
             , pgFixFreeform = False
+            , pgTones = Nothing
             }
         })
       , ( FlexBass, def
@@ -1398,6 +1403,7 @@ importMagma fin dir = do
               , gtrGlobal = 0
               }
             , pgFixFreeform = False
+            , pgTones = Nothing
             }
         })
       , ( FlexKeys, def
