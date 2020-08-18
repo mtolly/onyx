@@ -390,13 +390,22 @@ bpm :: (Monad m) => InsideCodec m T.Text -> InsideCodec m U.BPS
 bpm = dimap ((* 60) . U.fromBPS) (U.BPS . (/ 60)) . milliText
 
 plural' :: (SendMessage m, IsInside a) => ParseName -> ParseName -> InsideCodec m (V.Vector a)
-plural' many one = dimap (\xs -> guard (not $ null xs) >> Just xs) (fromMaybe V.empty)
+plural' many one = dimap Just (fromMaybe V.empty)
   $ childTagOpt many $ parseInside' $ countList $ isTag one $ parseInside' insideCodec
 
 plural :: (SendMessage m, IsInside a) => ParseName -> InsideCodec m (V.Vector a)
 plural one = let
   many = one { pName = pName one <> "s" }
   in plural' many one
+
+pluralOpt' :: (SendMessage m, IsInside a) => ParseName -> ParseName -> InsideCodec m (V.Vector a)
+pluralOpt' many one = dimap (\xs -> guard (not $ null xs) >> Just xs) (fromMaybe V.empty)
+  $ childTagOpt many $ parseInside' $ countList $ isTag one $ parseInside' insideCodec
+
+pluralOpt :: (SendMessage m, IsInside a) => ParseName -> InsideCodec m (V.Vector a)
+pluralOpt one = let
+  many = one { pName = pName one <> "s" }
+  in pluralOpt' many one
 
 flag :: (Monad m) => ParseName -> InsideCodec m Bool
 flag s = zoomValue flagValue $ optAttr s

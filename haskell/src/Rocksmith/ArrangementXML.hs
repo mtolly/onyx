@@ -44,6 +44,12 @@ data Arrangement = Arrangement
   , arr_phraseIterations       :: V.Vector PhraseIteration
   , arr_chordTemplates         :: V.Vector ChordTemplate
   , arr_ebeats                 :: V.Vector Ebeat
+  , arr_tonebase               :: Maybe T.Text
+  , arr_tonea                  :: Maybe T.Text
+  , arr_toneb                  :: Maybe T.Text
+  , arr_tonec                  :: Maybe T.Text
+  , arr_toned                  :: Maybe T.Text
+  , arr_tones                  :: V.Vector Tone
   , arr_sections               :: V.Vector Section
   , arr_events                 :: V.Vector Event
   , arr_transcriptionTrack     :: Level
@@ -70,15 +76,33 @@ instance IsInside Arrangement where
     arr_albumYear              <- arr_albumYear              =. childTag "albumYear"              (parseInside' $ maybeInside $ intText childText)
     arr_crowdSpeed             <- arr_crowdSpeed             =. childTag "crowdSpeed"             (parseInside' $ intText childText)
     arr_arrangementProperties  <- arr_arrangementProperties  =. childTag "arrangementProperties"  (parseInside' insideCodec)
+    -- probably best to have all of these lists even if empty
     arr_phrases                <- arr_phrases                =. plural "phrase"
     arr_phraseIterations       <- arr_phraseIterations       =. plural "phraseIteration"
     arr_chordTemplates         <- arr_chordTemplates         =. plural "chordTemplate"
     arr_ebeats                 <- arr_ebeats                 =. plural "ebeat"
+    arr_tonebase               <- arr_tonebase               =. childTagOpt "tonebase" (parseInside childText)
+    arr_tonea                  <- arr_tonea                  =. childTagOpt "tonea"    (parseInside childText)
+    arr_toneb                  <- arr_toneb                  =. childTagOpt "toneb"    (parseInside childText)
+    arr_tonec                  <- arr_tonec                  =. childTagOpt "tonec"    (parseInside childText)
+    arr_toned                  <- arr_toned                  =. childTagOpt "toned"    (parseInside childText)
+    arr_tones                  <- arr_tones                  =. plural "tone"
     arr_sections               <- arr_sections               =. plural "section"
     arr_events                 <- arr_events                 =. plural "event"
     arr_transcriptionTrack     <- arr_transcriptionTrack     =. childTag "transcriptionTrack"     (parseInside' insideCodec)
     arr_levels                 <- arr_levels                 =. plural "level"
     return Arrangement{..}
+
+data Tone = Tone
+  { tone_time :: U.Seconds
+  , tone_name :: T.Text
+  } deriving (Eq, Show)
+
+instance IsInside Tone where
+  insideCodec = do
+    tone_time <- tone_time =. seconds (reqAttr "time")
+    tone_name <- tone_name =. reqAttr "name"
+    return Tone{..}
 
 data Phrase = Phrase
   { ph_maxDifficulty :: Int
@@ -109,7 +133,7 @@ instance IsInside PhraseIteration where
     pi_time       <- pi_time       =. seconds (reqAttr "time")
     pi_phraseId   <- pi_phraseId   =. intText (reqAttr "phraseId")
     pi_variation  <- pi_variation  =. optAttr "variation"
-    pi_heroLevels <- pi_heroLevels =. plural "heroLevel"
+    pi_heroLevels <- pi_heroLevels =. pluralOpt "heroLevel" -- tag can be dropped if empty
     return PhraseIteration{..}
 
 data HeroLevel = HeroLevel
@@ -195,6 +219,7 @@ data Level = Level
 instance IsInside Level where
   insideCodec = do
     lvl_difficulty    <- lvl_difficulty    =. intText (reqAttr "difficulty")
+    -- probably best to have all of these lists even if empty
     lvl_notes         <- lvl_notes         =. plural "note"
     lvl_chords        <- lvl_chords        =. plural "chord"
     lvl_fretHandMutes <- lvl_fretHandMutes =. plural "fretHandMute"
@@ -274,7 +299,7 @@ instance IsInside Note where
     n_accent         <- n_accent         =. flag "accent"
     n_linkNext       <- n_linkNext       =. flag "linkNext"
     n_bend           <- n_bend           =. zoomValue (maybeValue milliValue) (optAttr "bend")
-    n_bendValues     <- n_bendValues     =. plural "bendValue"
+    n_bendValues     <- n_bendValues     =. pluralOpt "bendValue"  -- tag can be dropped if empty
     n_harmonicPinch  <- n_harmonicPinch  =. flag "harmonicPinch"
     n_leftHand       <- n_leftHand       =. zoomValue (maybeValue intValue) (optAttr "leftHand")
     n_tap            <- n_tap            =. flag "tap"

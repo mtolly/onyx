@@ -54,6 +54,7 @@ library:
   - scientific
   - template-haskell
   - MonadRandom
+  - random
   - zip-archive
   - silently
   - codec

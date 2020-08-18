@@ -11,6 +11,7 @@ import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                as B
 import           Data.Fixed                     (Milli)
 import           Data.Functor.Identity          (Identity)
+import           Data.Int                       (Int32)
 import           Data.Maybe                     (isNothing)
 import           Data.Profunctor                (dimap)
 import qualified Data.Text                      as T
@@ -199,7 +200,7 @@ data Arrangement = Arrangement
   , arr_GlyphsXmlPath        :: Maybe T.Text
   , arr_Id                   :: T.Text -- UUID
   , arr_LyricsArtPath        :: Maybe T.Text
-  , arr_MasterId             :: Int
+  , arr_MasterId             :: Int32 -- CST generates a random non-negative Int32 for this
   , arr_Metronome            :: T.Text
   , arr_PluckedType          :: T.Text
   , arr_Represent            :: Bool
@@ -303,7 +304,7 @@ data ArrangementPropeties = ArrangementPropeties
   , ap_PathBass          :: Bool
   , ap_PathLead          :: Bool
   , ap_PathRhythm        :: Bool
-  , ap_RouteMask         :: Bool
+  , ap_RouteMask         :: Int
   } deriving (Eq, Show)
 
 instance IsInside ArrangementPropeties where
@@ -341,7 +342,7 @@ instance IsInside ArrangementPropeties where
     ap_PathBass          <- ap_PathBass          =. childTag (inSpace cstSpaceArrProps "PathBass"         ) (parseInside' $ boolText childText)
     ap_PathLead          <- ap_PathLead          =. childTag (inSpace cstSpaceArrProps "PathLead"         ) (parseInside' $ boolText childText)
     ap_PathRhythm        <- ap_PathRhythm        =. childTag (inSpace cstSpaceArrProps "PathRhythm"       ) (parseInside' $ boolText childText)
-    ap_RouteMask         <- ap_RouteMask         =. childTag (inSpace cstSpaceArrProps "RouteMask"        ) (parseInside' $ boolText childText)
+    ap_RouteMask         <- ap_RouteMask         =. childTag (inSpace cstSpaceArrProps "RouteMask"        ) (parseInside' $ intText childText)
     return ArrangementPropeties{..}
 
 data SongInfo = SongInfo

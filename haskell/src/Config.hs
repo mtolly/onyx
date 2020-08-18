@@ -633,7 +633,7 @@ data RSTones f = RSTones
   , rsFileToneB    :: Maybe f
   , rsFileToneC    :: Maybe f
   , rsFileToneD    :: Maybe f
-  } deriving (Eq, Ord, Show, Foldable)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance StackJSON (RSTones FilePath) where
   stackJSON = asStrictObject "RSTones" $ do

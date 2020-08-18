@@ -43,6 +43,7 @@ import           Data.Fixed                            (Centi, Milli)
 import           Data.Foldable                         (toList)
 import           Data.Hashable                         (Hashable, hash)
 import qualified Data.HashMap.Strict                   as HM
+import           Data.Int                              (Int32)
 import           Data.List.Extra                       (intercalate, nubOrd,
                                                         sort)
 import qualified Data.List.NonEmpty                    as NE
@@ -127,6 +128,7 @@ import           System.Environment.Executable         (getExecutablePath)
 import           System.IO                             (IOMode (ReadMode),
                                                         hFileSize,
                                                         withBinaryFile)
+import           System.Random                         (randomRIO)
 import           Text.Transform                        (replaceCharsRB)
 import           WebPlayer                             (makeDisplay)
 import           YAMLTree
@@ -2001,6 +2003,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             forM_ presentParts $ \(fpart, pg, props@(lead, rhythm, bass, bonus)) -> do
               rsArr fpart %> \out -> do
                 mid <- shakeMIDI $ planDir </> "processed.mid"
+                mapM_ (shk . need . toList) $ pgTones pg
+                toneKeys <- forM (pgTones pg) $ mapM $ fmap CST.t14_Key . CST.parseTone
                 let ebeats = V.fromList $ numberBars 1 $ ATB.toPairList
                       $ RTB.toAbsoluteEventList 0
                       $ U.applyTempoTrack (RBFile.s_tempos mid)
@@ -2018,7 +2022,6 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       expert = fromMaybe mempty $ Map.lookup Expert $ pgDifficulties trk
                       notes = joinEdgesSimple $ U.applyTempoTrack (RBFile.s_tempos mid) $ pgNotes expert
                       -- TODO all the note properties
-                      -- TODO remove short sustains
                       in flip map (ATB.toPairList $ RTB.toAbsoluteEventList 0 notes) $ \(t, (fret, (str, _ntype), len)) -> Arr.Note
                         { Arr.n_time           = t
                         , Arr.n_string         = case str of
@@ -2030,7 +2033,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                           S1 -> 5
                           _  -> -1
                         , Arr.n_fret           = fret
-                        , Arr.n_sustain        = Just len
+                        , Arr.n_sustain        = let
+                          startBeats = U.unapplyTempoMap (RBFile.s_tempos mid) t
+                          endBeats = U.unapplyTempoMap (RBFile.s_tempos mid) $ t <> len
+                          in if endBeats - startBeats >= (1/3)
+                            then Just len
+                            else Nothing
                         , Arr.n_vibrato        = Nothing
                         , Arr.n_hopo           = False
                         , Arr.n_hammerOn       = False
@@ -2090,7 +2098,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   , Arr.arr_albumYear              = _year $ _metadata songYaml
                   , Arr.arr_crowdSpeed             = 1
                   , Arr.arr_arrangementProperties  = Arr.ArrangementProperties
-                    { Arr.ap_represent         = True -- TODO what is this?
+                    { Arr.ap_represent         = True -- this is always true in arrangement xmls, but false for bonus (+ vocal/lights) in the project xml?
                     , Arr.ap_bonusArr          = bonus
                     , Arr.ap_standardTuning    = False -- TODO :: Bool
                     , Arr.ap_nonStandardChords = False -- TODO :: Bool
@@ -2123,27 +2131,28 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , Arr.ap_pathBass          = bass
                     , Arr.ap_routeMask         = Nothing
                     }
-                  , Arr.arr_phrases                = V.singleton Arr.Phrase
-                    -- TODO
-                    { Arr.ph_maxDifficulty = 0
-                    , Arr.ph_name          = "COUNT"
-                    , Arr.ph_disparity     = Nothing
-                    , Arr.ph_ignore        = False
-                    , Arr.ph_solo          = False
-                    }
-                  , Arr.arr_phraseIterations       = V.singleton Arr.PhraseIteration
-                    -- TODO
-                    { Arr.pi_time       = 0
-                    , Arr.pi_phraseId   = 0
-                    , Arr.pi_variation  = Nothing
-                    , Arr.pi_heroLevels = V.empty
-                    }
+                  , Arr.arr_phrases                = mempty -- TODO
+                  , Arr.arr_phraseIterations       = mempty -- TODO
                   , Arr.arr_chordTemplates         = mempty -- TODO :: V.Vector ChordTemplate
+                  , Arr.arr_tonebase               = fmap rsFileToneBase toneKeys
+                  , Arr.arr_tonea                  = toneKeys >>= rsFileToneA
+                  , Arr.arr_toneb                  = toneKeys >>= rsFileToneB
+                  , Arr.arr_tonec                  = toneKeys >>= rsFileToneC
+                  , Arr.arr_toned                  = toneKeys >>= rsFileToneD
+                  , Arr.arr_tones                  = mempty -- TODO
                   , Arr.arr_ebeats                 = ebeats
                   , Arr.arr_sections               = mempty -- TODO :: V.Vector Section
                   , Arr.arr_events                 = mempty -- TODO :: V.Vector Event
                   , Arr.arr_transcriptionTrack     = Arr.Level
                     { Arr.lvl_difficulty    = -1
+                    , Arr.lvl_notes         = mempty
+                    , Arr.lvl_chords        = mempty
+                    , Arr.lvl_fretHandMutes = mempty
+                    , Arr.lvl_anchors       = mempty
+                    , Arr.lvl_handShapes    = mempty
+                    }
+                  , Arr.arr_levels                 = V.singleton Arr.Level
+                    { Arr.lvl_difficulty    = 0
                     , Arr.lvl_notes         = V.fromList allNotes
                     , Arr.lvl_chords        = mempty
                     , Arr.lvl_fretHandMutes = mempty -- this may not exist anymore?
@@ -2158,7 +2167,6 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         }
                     , Arr.lvl_handShapes    = mempty
                     }
-                  , Arr.arr_levels                 = mempty -- TODO :: V.Vector Level
                   }
 
             rsAudio %> shk . copyFile' (planDir </> "everything.wav")
@@ -2172,11 +2180,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               allTones <- forM allTonePaths $ \f -> do
                 tone <- CST.parseTone f
                 return (f, tone)
-              arrangements <- forM presentParts $ \(fpart, pg, props) -> do
+              arrangements <- forM presentParts $ \(fpart, _pg, props) -> do
                 contents <- Arr.parseFile $ rsArr fpart
                 arrID <- stackIO UUID.nextRandom
                 songFileID <- stackIO UUID.nextRandom
                 songXmlID <- stackIO UUID.nextRandom
+                arrMasterID <- stackIO $ randomRIO (0, maxBound :: Int32) -- this matches the range CST uses (C# Random.Next method)
                 return $ case contents of
                   Arr.PartVocals v -> undefined v -- TODO
                   Arr.PartArrangement arr -> CST.Arrangement
@@ -2198,7 +2207,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , CST.ap_PickDirection     = Arr.ap_pickDirection     $ Arr.arr_arrangementProperties arr
                       , CST.ap_PinchHarmonics    = Arr.ap_pinchHarmonics    $ Arr.arr_arrangementProperties arr
                       , CST.ap_PowerChords       = Arr.ap_powerChords       $ Arr.arr_arrangementProperties arr
-                      , CST.ap_Represent         = Arr.ap_represent         $ Arr.arr_arrangementProperties arr
+                      , CST.ap_Represent         = case props of
+                        (lead, rhythm, bass, bonus) -> (lead || rhythm || bass) && not bonus
                       , CST.ap_SlapPop           = Arr.ap_slapPop           $ Arr.arr_arrangementProperties arr
                       , CST.ap_Slides            = Arr.ap_slides            $ Arr.arr_arrangementProperties arr
                       , CST.ap_StandardTuning    = Arr.ap_standardTuning    $ Arr.arr_arrangementProperties arr
@@ -2214,25 +2224,35 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , CST.ap_PathLead          = Arr.ap_pathLead          $ Arr.arr_arrangementProperties arr
                       , CST.ap_PathRhythm        = Arr.ap_pathRhythm        $ Arr.arr_arrangementProperties arr
                       , CST.ap_Metronome         = False
-                      , CST.ap_RouteMask         = False -- TODO should this be Maybe something?
+                      , CST.ap_RouteMask         = case props of
+                        (True, _, _, _) -> 1
+                        (_, True, _, _) -> 2
+                        -- is there a 3?
+                        (_, _, True, _) -> 4
+                        _               -> 0 -- shouldn't happen (vocal/showlight have a nil ArrangementPropeties)
                       }
-                    , CST.arr_ArrangementSort      = 0 -- TODO
+                    , CST.arr_ArrangementSort      = 0 -- I would've thought this was unique per arrangement but apparently it can just all be 0?
                     , CST.arr_ArrangementType      = case props of
-                      (True, _, _, _) -> "Lead"
-                      (_, True, _, _) -> "Rhythm"
+                      (True, _, _, _) -> "Guitar"
+                      (_, True, _, _) -> "Guitar"
                       (_, _, True, _) -> "Bass"
-                      _               -> "Unknown" -- shouldn't happen
+                      _               -> "Unknown" -- shouldn't happen: others are "Vocal" and "ShowLight"
                     , CST.arr_BonusArr             = case props of
                       (_, _, _, bonus) -> bonus
-                    , CST.arr_CapoFret             = 0 -- TODO
+                    , CST.arr_CapoFret             = Arr.arr_capo arr
                     , CST.arr_GlyphsXmlPath        = Nothing
                     , CST.arr_Id                   = UUID.toText arrID
                     , CST.arr_LyricsArtPath        = Nothing
-                    , CST.arr_MasterId             = 0 -- TODO :: Int
+                    , CST.arr_MasterId             = arrMasterID
                     , CST.arr_Metronome            = "None"
                     , CST.arr_PluckedType          = "NotPicked" -- TODO
-                    , CST.arr_Represent            = True -- is this true if actual guitar/bass part? (not vocal/showlights?)
-                    , CST.arr_RouteMask            = "" -- TODO :: T.Text
+                    , CST.arr_Represent            = case props of
+                      (lead, rhythm, bass, bonus) -> (lead || rhythm || bass) && not bonus
+                    , CST.arr_RouteMask            = case props of
+                      (True, _, _, _) -> "Lead"
+                      (_, True, _, _) -> "Rhythm"
+                      (_, _, True, _) -> "Bass"
+                      _               -> "None" -- vocals or showlights
                     , CST.arr_ScrollSpeed          = 13 -- default?
                     , CST.arr_Sng2014              = Nothing
                     , CST.arr_SongFile             = CST.AggregateGraph
@@ -2245,11 +2265,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , CST.ag_File    = T.pack $ takeFileName $ rsArr fpart
                       , CST.ag_Version = Nothing
                       }
-                    , CST.arr_ToneA                = maybe "" CST.t14_Key $ pgTones pg >>= rsFileToneA >>= (`lookup` allTones)
-                    , CST.arr_ToneB                = maybe "" CST.t14_Key $ pgTones pg >>= rsFileToneB >>= (`lookup` allTones)
-                    , CST.arr_ToneBase             = maybe "" CST.t14_Key $ pgTones pg >>= (`lookup` allTones) . rsFileToneBase
-                    , CST.arr_ToneC                = maybe "" CST.t14_Key $ pgTones pg >>= rsFileToneC >>= (`lookup` allTones)
-                    , CST.arr_ToneD                = maybe "" CST.t14_Key $ pgTones pg >>= rsFileToneD >>= (`lookup` allTones)
+                    , CST.arr_ToneA                = fromMaybe "" $ Arr.arr_tonea arr
+                    , CST.arr_ToneB                = fromMaybe "" $ Arr.arr_toneb arr
+                    , CST.arr_ToneBase             = fromMaybe "" $ Arr.arr_tonebase arr
+                    , CST.arr_ToneC                = fromMaybe "" $ Arr.arr_tonec arr
+                    , CST.arr_ToneD                = fromMaybe "" $ Arr.arr_toned arr
                     , CST.arr_ToneMultiplayer      = Nothing
                     , CST.arr_Tuning               = "E Standard" -- TODO
                     , CST.arr_TuningPitch          = 440 -- TODO
