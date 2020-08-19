@@ -41,6 +41,7 @@ data EventsTrack t = EventsTrack
   , eventsMusicEnd   :: RTB.T t ()
   , eventsEnd        :: RTB.T t ()
   , eventsCoda       :: RTB.T t ()
+  , eventsCodaResume :: RTB.T t () -- onyx event: if present, notes between [coda] and [coda_resume] are removed for RB but not CH
   , eventsCrowd      :: RTB.T t CrowdMood
   , eventsCrowdClap  :: RTB.T t Bool
   , eventsSections   :: RTB.T t (SectionType, T.Text)
@@ -55,6 +56,7 @@ instance ChopTrack EventsTrack where
     , eventsMusicEnd   = U.trackDrop    t $ eventsMusicEnd   trk
     , eventsEnd        = U.trackDrop    t $ eventsEnd        trk
     , eventsCoda       = U.trackDrop    t $ eventsCoda       trk
+    , eventsCodaResume = U.trackDrop    t $ eventsCodaResume trk
     , eventsCrowd      = chopDropStatus t $ eventsCrowd      trk
     , eventsCrowdClap  = chopDropStatus t $ eventsCrowdClap  trk
     , eventsSections   = chopDropStatus t $ eventsSections   trk
@@ -62,8 +64,8 @@ instance ChopTrack EventsTrack where
     }
 
 instance TraverseTrack EventsTrack where
-  traverseTrack fn (EventsTrack a b c d e f g h) = EventsTrack
-    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
+  traverseTrack fn (EventsTrack a b c d e f g h i) = EventsTrack
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h <*> fn i
 
 instance ParseTrack EventsTrack where
   parseTrack = do
@@ -71,6 +73,7 @@ instance ParseTrack EventsTrack where
     eventsMusicEnd   <- eventsMusicEnd   =. commandMatch ["music_end"]
     eventsEnd        <- eventsEnd        =. commandMatch ["end"]
     eventsCoda       <- eventsCoda       =. commandMatch ["coda"]
+    eventsCodaResume <- eventsCodaResume =. commandMatch ["coda_resume"]
     eventsCrowd <- (eventsCrowd =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       CrowdRealtime -> ["crowd_realtime"]
       CrowdIntense  -> ["crowd_intense"]

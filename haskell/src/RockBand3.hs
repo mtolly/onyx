@@ -263,10 +263,19 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
         then makeMoods tempos timing $ Blip () () <$ drumAnimation dt
         else drumMood dt
       }
+    drumsRemoveBRE = case removeBRE target $ RBFile.onyxEvents trks of
+      Just BRERemover{..}
+        -> drumEachDiff (\dd -> dd { drumGems = breRemoveBlips $ drumGems dd })
+        . (\dt -> dt
+          { drumSingleRoll = breRemoveLanes $ drumSingleRoll dt
+          , drumDoubleRoll = breRemoveLanes $ drumDoubleRoll dt
+          })
+      Nothing -> id
     -- Note: drumMix must be applied *after* drumsComplete.
     -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
     in (if drumsFixFreeform pd then fixFreeformDrums else id)
       $ (\dt -> dt { drumPlayer1 = RTB.empty, drumPlayer2 = RTB.empty })
+      $ drumsRemoveBRE
       $ addMoods
       $ addAnims
       $ case target of
@@ -275,6 +284,34 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
             then rockBand2x ps2x
             else rockBand1x ps1x
         Right _ -> psPS
+
+data BRERemover t = BRERemover
+  { breRemoveEdges :: forall s a. (Ord s, Ord a) => RTB.T t (Edge s a) -> RTB.T t (Edge s a)
+  , breRemoveBools :: RTB.T t Bool -> RTB.T t Bool
+  , breRemoveLanes :: RTB.T t (Maybe LaneDifficulty) -> RTB.T t (Maybe LaneDifficulty)
+  , breRemoveBlips :: forall a. RTB.T t a -> RTB.T t a
+  }
+
+-- TODO make this more resilient, probably based on the "chop" functions
+-- so it can correctly handle stuff beyond just removing notes
+removeBRE :: (NNC.C t) => Either (TargetRB3 f) (TargetPS f) -> EventsTrack t -> Maybe (BRERemover t)
+removeBRE (Left _rb3) evts = case (eventsCoda evts, eventsCodaResume evts) of
+  (Wait t1 () _, Wait t2 () _) -> Just $ let
+    blips xs = trackGlue t2 (U.trackTake t1 xs) (U.trackDrop t2 xs)
+    in BRERemover
+      { breRemoveBlips = blips
+      , breRemoveEdges = splitEdgesSimple . blips . joinEdgesSimple
+      , breRemoveBools
+        = fmap (\case EdgeOn () () -> True; EdgeOff () -> False)
+        . splitEdgesSimple . blips . joinEdgesSimple
+        . fmap (\b -> if b then EdgeOn () () else EdgeOff ())
+      , breRemoveLanes
+        = fmap (\case EdgeOn ld () -> Just ld; EdgeOff () -> Nothing)
+        . splitEdgesSimple . blips . joinEdgesSimple
+        . fmap (\case Just ld -> EdgeOn ld (); Nothing -> EdgeOff ())
+      }
+  _                            -> Nothing
+removeBRE (Right _ps) _ = Nothing
 
 addFiveMoods
   :: U.TempoMap
@@ -313,6 +350,7 @@ buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml 
     ht = gryboHopoThreshold grybo
     fiveEachDiff f ft = ft { fiveDifficulties = fmap f $ fiveDifficulties ft }
     gap = fromIntegral (gryboSustainGap grybo) / 480
+    breRemover = removeBRE target $ RBFile.onyxEvents trks
     forRB3 = fiveEachDiff $ \fd ->
         emit5'
       . fromClosed'
@@ -323,6 +361,7 @@ buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml 
       . applyForces (getForces5 fd)
       . strumHOPOTap' algo (fromIntegral ht / 480)
       . fixSloppyNotes (10 / 480)
+      . maybe id breRemoveBlips breRemover
       . closeNotes'
       $ fd
     forPS = fiveEachDiff $ \fd ->
@@ -335,6 +374,10 @@ buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml 
     forAll
       = addFiveMoods tempos timing
       . (if gryboSmoothFrets grybo then smoothFrets else id)
+      . (\ft -> ft
+        { fiveTremolo = maybe id breRemoveLanes breRemover $ fiveTremolo ft
+        , fiveTrill   = maybe id breRemoveLanes breRemover $ fiveTrill   ft
+        })
     smoothFrets x = x
       { fiveFretPosition
         = U.unapplyTempoTrack tempos
@@ -385,6 +428,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         , eventsMusicEnd   = RTB.singleton timingMusicEnd ()
         , eventsEnd        = RTB.singleton timingEnd ()
         , eventsCoda       = eventsCoda eventsInput
+        , eventsCodaResume = RTB.empty
         , eventsCrowd      = crowd
         , eventsCrowdClap  = crowdClap
         , eventsSections   = eventsSections eventsInput
@@ -472,6 +516,16 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             . autoHandPosition . moveStrings
             . (if extendedTuning then freezeChordNames pitches defaultFlat else id)
             . autoChordRoot tuning
+            . pgRemoveBRE
+          pgRemoveBRE trk = case removeBRE target $ RBFile.onyxEvents trks of
+            Just BRERemover{..} -> trk
+              { pgDifficulties = flip fmap (pgDifficulties trk) $ \pgd -> pgd
+                { pgNotes = breRemoveEdges $ pgNotes pgd
+                }
+              , pgTremolo = breRemoveLanes $ pgTremolo trk
+              , pgTrill = breRemoveLanes $ pgTrill trk
+              }
+            Nothing -> trk
           src17 = RBFile.onyxPartRealGuitar   src
           src22 = RBFile.onyxPartRealGuitar22 src
           mustang = f $ fretLimit 17 $ if nullPG src17 then src22 else src17
@@ -499,7 +553,15 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
                 Expert -> RBFile.onyxPartRealKeysX fpart
               else keysToProKeys diff basicKeys
             pkd1 `orIfNull` pkd2 = if length (pkNotes pkd1) < 5 then pkd2 else pkd1
-            eachPKDiff = ffPro . fixPSRange . fixPKMood . completeRanges . (\pk -> pk { pkNotes = fixSloppyNotes (10 / 480) $ pkNotes pk })
+            eachPKDiff = ffPro . fixPSRange . fixPKMood . completeRanges
+              . (case removeBRE target $ RBFile.onyxEvents trks of
+                Just BRERemover{..} -> \pk -> pk
+                  { pkNotes     = breRemoveEdges $ pkNotes     pk
+                  , pkGlissando = breRemoveBools $ pkGlissando pk
+                  , pkTrill     = breRemoveBools $ pkTrill     pk
+                  }
+                Nothing -> id)
+              . (\pk -> pk { pkNotes = fixSloppyNotes (10 / 480) $ pkNotes pk })
             keysExpert = eachPKDiff $ keysDiff Expert
             keysHard   = eachPKDiff $ keysDiff Hard   `orIfNull` pkReduce Hard   mmap keysOD keysExpert
             keysMedium = eachPKDiff $ keysDiff Medium `orIfNull` pkReduce Medium mmap keysOD keysHard

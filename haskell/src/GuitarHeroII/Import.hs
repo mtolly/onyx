@@ -85,6 +85,7 @@ importGH2 mode pkg gen dout = do
           , RB.eventsMusicEnd   = RTB.empty
           , RB.eventsEnd        = void $ RTB.filter (== End) $ eventsOther $ gh2Events gh2
           , RB.eventsCoda       = RTB.empty
+          , RB.eventsCodaResume = RTB.empty
           , RB.eventsCrowd      = RTB.empty -- TODO
           , RB.eventsCrowdClap  = RTB.empty -- TODO
           , RB.eventsSections   = (\s -> (RB.SectionRB2, fromGH2Section s)) <$> eventsSections (gh2Events gh2)
