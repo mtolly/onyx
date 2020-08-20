@@ -109,6 +109,7 @@ def makeDifficulties(parts, song)
           'In the Presence of Enemies',
           'Temple (Zelda 2)',
           'New Millennium',
+          'The Great Debate',
         ].include?(song['project']['metadata']['title'])
           # hiding these pro guitar/bass charts since they haven't been released
           next

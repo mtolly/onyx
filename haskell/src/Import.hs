@@ -188,7 +188,7 @@ generateSwells notes = let
             $  go $ Wait 0 z rest'
   go (Wait t _ rest) = RTB.delay t $ go rest
   splitLane gem1 gem2 (Wait t (True, [x]) rest)
-    | x == gem1
+    | x == gem1 && t < maxDistance
     = case splitLane gem2 gem1 rest of
       (lane, after) -> (Wait t x lane, after)
   splitLane _ _ rest = (RNil, rest)
