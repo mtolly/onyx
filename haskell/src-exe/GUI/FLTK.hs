@@ -239,6 +239,7 @@ continueImport
   -> Onyx ()
 continueImport makeMenuBar hasAudio imp = do
   sink <- getEventSink
+  -- TODO this can potentially not clean up the temp folder if interrupted during import
   proj <- impProject imp
   void $ shakeBuild1 proj [] "gen/cover.png"
   maybeAudio <- if hasAudio then projectAudio proj else return Nothing
@@ -3102,6 +3103,7 @@ launchBatch sink makeMenuBar startFiles = mdo
     FL.setResizable tab $ Just group
     return (tab, getter)
   let doImport imp fn = do
+        -- TODO this can potentially not clean up the temp folder if interrupted during import
         proj <- impProject imp
         x <- fn proj
         mapM_ release $ projectRelease proj

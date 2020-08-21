@@ -42,63 +42,89 @@ import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropExtension, takeDirectory,
                                                    takeExtension, (<.>), (</>))
 
-data CymbalInstant a = CymbalInstant
+data CymbalInstant lc rd = CymbalInstant
   { instantHH :: Maybe D.PSGem -- always yellow (with ps real mods)
-  , instantLC :: Maybe a -- default yellow, can be pushed to blue
-  , instantRD :: Maybe a -- default blue, can be pushed to green
+  , instantLC :: Maybe lc -- default yellow, can be pushed to blue
+  , instantRD :: Maybe rd -- default blue, can be pushed to green
   , instantRC :: Bool -- always green
   } deriving (Show)
 
 placeCymbals :: (NNC.C t) => RTB.T t DrumLane -> RTB.T t D.RealDrum
-placeCymbals = RTB.flatten . go Nothing . RTB.filter hasCymbals . fmap makeInstant . RTB.collectCoincident where
+placeCymbals = RTB.flatten . fmap emitCymbals . assignFull . RTB.filter hasCymbals . fmap makeInstant . RTB.collectCoincident where
   makeInstant notes = CymbalInstant
     { instantHH = if
       | elem HihatClose notes -> Just D.HHSizzle
       | elem HihatOpen notes  -> Just D.HHOpen
       | elem LeftPedal notes  -> Just D.HHPedal
       | otherwise             -> Nothing
-    , instantLC = guard (elem LeftCymbal notes) >> Just ()
-    , instantRD = guard (elem RideCymbal notes) >> Just ()
+    , instantLC = guard (elem LeftCymbal notes) >> Just Nothing
+    , instantRD = guard (elem RideCymbal notes) >> Just Nothing
     , instantRC = elem Cymbal notes
     }
   hasCymbals = \case
     CymbalInstant Nothing Nothing Nothing False -> False
     _                                           -> True
-  go _    RNil                   = RNil
-  go prev (Wait dt instant rest) = let
-    assignedLC = flip fmap (instantLC instant) $ \() -> case instantHH instant of
-      Just _ -> D.Blue -- we have to pick B because there's a (Y) HH
-      Nothing -> case prev >>= instantHH of
-        Just _  -> D.Blue -- we'll pick B because there was a HH previously
-        Nothing -> case rest of
-          Wait _ CymbalInstant{ instantHH = Just _ } _ -> D.Blue -- we'll pick B because there's a HH next
-          -- TODO the above should look ahead more than one!
-          -- if next several notes are LC but then HH, we want to start on B.
-          _ -> fromMaybe D.Yellow $ prev >>= instantLC -- match previous LC, or pick Y by default
-    assignedRD = instantRD instant >>= \() -> case assignedLC of
-      Just D.Blue -> if instantRC instant
-        then Nothing -- LC RC RD all at same time! drop ourselves
-        else Just D.Green -- we have to pick G because there's a B LC
-      _ -> Just $ if instantRC instant
-        then D.Blue -- we have to pick B because there's a (G) RC
-        else case prev >>= instantLC of
-          Just D.Blue -> D.Green -- we'll pick G because there was a B LC previously
-          _           -> fromMaybe D.Blue $ prev >>= instantRD -- match previous RD, or pick B by default
-          -- TODO we could look ahead to pick G if there's a B LC next,
-          -- but we'd have to do some refactoring
-    assigned = CymbalInstant
-      { instantHH = instantHH instant
-      , instantLC = assignedLC
-      , instantRD = assignedRD
-      , instantRC = instantRC instant
-      }
-    out = catMaybes
-      [ Left <$> instantHH assigned
-      , (\color -> Right $ D.Pro color D.Cymbal) <$> instantLC assigned
-      , (\color -> Right $ D.Pro color D.Cymbal) <$> instantRD assigned
-      , guard (instantRC assigned) >> Just (Right $ D.Pro D.Green D.Cymbal)
-      ]
-    in Wait dt out $ go (Just assigned) rest
+
+  -- first, assign all the cymbals that only have one option due to other simultaneous cymbals.
+  -- any LC with HH is blue, any RD with RC is blue (or drop it if also LC)
+  assignInstant
+    :: RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
+    -> RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
+  assignInstant = fmap $ \now -> let
+    newLC = case (instantHH now, instantLC now) of
+      (Just _, Just Nothing) -> Just $ Just D.Blue
+      _                      -> instantLC now
+    newRD = case (newLC, instantRD now, instantRC now) of
+      (Just (Just D.Blue), Just _      , True ) -> Nothing -- already blue and green taken
+      (Just (Just D.Blue), Just Nothing, False) -> Just $ Just D.Green -- green because LC is blue
+      (_                 , Just Nothing, True ) -> Just $ Just D.Blue -- blue because RC is green
+      _                                         -> instantRD now
+    in now { instantLC = newLC, instantRD = newRD }
+
+  -- then, propagate info forward to do more cymbal assignments.
+  -- this gets run both forward and backward
+  propagatePass _    []           = []
+  propagatePass prev (now : rest) = let
+    newLC = case (prev >>= instantHH, prev >>= instantLC, instantLC now) of
+      (_, Just (Just prevLC), Just Nothing) -> Just $ Just prevLC -- match previous LC color
+      (Just _, _, Just Nothing) -> Just $ Just D.Blue -- make LC blue because there's a hihat previously
+      _ -> instantLC now
+    newRD = case (newLC, instantRD now) of
+      (Just (Just D.Blue), Just Nothing) -> Just $ Just D.Green -- green because now there's a blue LC
+      _ -> case (prev >>= instantLC, prev >>= instantRD, instantRD now) of
+        (_, Just (Just prevRD), Just Nothing) -> Just $ Just prevRD -- match previous RD color
+        (Just (Just D.Blue), _, Just Nothing) -> Just $ Just D.Green -- green because there's a blue LC previously
+        _ -> instantRD now
+    newNow = now { instantLC = newLC, instantRD = newRD }
+    in newNow : propagatePass (Just newNow) rest
+  assignPropagate
+    :: RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
+    -> RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
+  assignPropagate rtb = let
+    times = RTB.getTimes rtb
+    bodies = reverse $ propagatePass Nothing $ reverse $ propagatePass Nothing $ RTB.getBodies rtb
+    in RTB.fromPairList $ zip times bodies
+
+  -- finally, default to putting LC on yellow and RD on blue
+  assignFinal
+    :: RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
+    -> RTB.T t (CymbalInstant D.ProColor D.ProColor)
+  assignFinal = fmap $ \now -> now
+    { instantLC = fromMaybe D.Yellow <$> instantLC now
+    , instantRD = fromMaybe D.Blue   <$> instantRD now
+    }
+
+  assignFull
+    :: RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
+    -> RTB.T t (CymbalInstant D.ProColor D.ProColor)
+  assignFull = assignFinal . assignPropagate . assignInstant
+
+  emitCymbals now = catMaybes
+    [ Left <$> instantHH now
+    , (\color -> Right $ D.Pro color D.Cymbal) <$> instantLC now
+    , (\color -> Right $ D.Pro color D.Cymbal) <$> instantRD now
+    , guard (instantRC now) >> Just (Right $ D.Pro D.Green D.Cymbal)
+    ]
 
 placeToms :: (NNC.C t) => RTB.T t D.RealDrum -> RTB.T t DrumLane -> RTB.T t D.RealDrum
 placeToms cymbals notes = let
