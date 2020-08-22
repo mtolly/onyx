@@ -87,14 +87,14 @@ placeCymbals = RTB.flatten . fmap emitCymbals . assignFull . RTB.filter hasCymba
   propagatePass prev (now : rest) = let
     newLC = case (prev >>= instantHH, prev >>= instantLC, instantLC now) of
       (_, Just (Just prevLC), Just Nothing) -> Just $ Just prevLC -- match previous LC color
-      (Just _, _, Just Nothing) -> Just $ Just D.Blue -- make LC blue because there's a hihat previously
-      _ -> instantLC now
+      (Just _, _, Just Nothing)             -> Just $ Just D.Blue -- make LC blue because there's a hihat previously
+      _                                     -> instantLC now
     newRD = case (newLC, instantRD now) of
       (Just (Just D.Blue), Just Nothing) -> Just $ Just D.Green -- green because now there's a blue LC
       _ -> case (prev >>= instantLC, prev >>= instantRD, instantRD now) of
         (_, Just (Just prevRD), Just Nothing) -> Just $ Just prevRD -- match previous RD color
         (Just (Just D.Blue), _, Just Nothing) -> Just $ Just D.Green -- green because there's a blue LC previously
-        _ -> instantRD now
+        _                                     -> instantRD now
     newNow = now { instantLC = newLC, instantRD = newRD }
     in newNow : propagatePass (Just newNow) rest
   assignPropagate

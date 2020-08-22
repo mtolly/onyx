@@ -4,12 +4,15 @@
 module Sound.MIDI.File.FastParse (getMIDI) where
 
 import           Control.Applicative                   (liftA2, (<|>))
+import           Control.Monad                         (forM)
 import           Data.Binary.Get
 import           Data.Bits                             (shiftR, testBit, (.&.))
 import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import qualified Data.EventList.Relative.TimeBody      as RTB
+import           Data.Foldable                         (toList)
+import           Data.Int                              (Int64)
 import           Data.Word                             (Word32, Word8)
 import qualified Numeric.NonNegative.Wrapper           as NN
 import           RockBand.Common                       (pattern RNil,
@@ -23,26 +26,44 @@ import qualified Sound.MIDI.Message.Channel            as C
 import qualified Sound.MIDI.Message.Channel.Mode       as Mode
 import qualified Sound.MIDI.Message.Channel.Voice      as V
 
-getMIDI :: Get F.T
+getMIDI :: Get (F.T, [String])
 getMIDI = do
   chunks <- getChunks
   case chunks of
-    ("MThd", header) : rest -> do
-      let (fmt, ntrks, dvn) = runGet getHeader header
-          tracks = map (runGet getTrack . snd) $ filter ((== "MTrk") . fst) rest
-      return $ F.Cons fmt dvn $ take ntrks tracks
+    ("MThd", headerDataStart, header, _) : rest -> do
+      let errorAt n s = label ("file byte offset " <> show n) $ fail s
+      (fmt, ntrks, dvn) <- case runGetOrFail getHeader header of
+        Left (_, offset, err) -> errorAt (headerDataStart + offset) err
+        Right (_, _, x)       -> return x
+      tracks <- forM [(n, chunk) | ("MTrk", n, chunk, _) <- rest] $ \(chunkDataStart, chunk) -> do
+        case runGetOrFail getTrack chunk of
+          Left (_, offset, err) -> errorAt (chunkDataStart + offset) err
+          Right (_, _, trk)     -> return trk
+      let warnings = do
+            (cid, chunkDataStart, _, maybeWarning) <- rest
+            toList maybeWarning <> case cid of
+              "MTrk" -> []
+              _      -> ["Chunk starting at byte " <> show (chunkDataStart - 8)
+                <> " has unrecognized type: " <> show cid]
+      return (F.Cons fmt dvn $ take ntrks tracks, warnings)
     _ -> fail "Couldn't find MIDI header chunk at start"
 
-getChunks :: Get [(B.ByteString, BL.ByteString)]
+getChunks :: Get [(B.ByteString, Int64, BL.ByteString, Maybe String)]
 getChunks = isEmpty >>= \case
   True -> return []
   False -> let
     getChunk = do
+      rootPosn <- bytesRead
       magic <- getByteString 4
       size <- getWord32be
-      chunk <- getLazyByteString $ fromIntegral size
-      return (magic, chunk)
-    -- TODO handle various errors gracefully
+      posn <- bytesRead
+      chunk <- fmap Right (getLazyByteString $ fromIntegral size)
+        <|> fmap Left getRemainingLazyByteString
+      let (chunk', warning) = case chunk of
+            Right x -> (x, Nothing)
+            Left  x -> (x, Just $ "Chunk starting at byte " <> show rootPosn <>
+              " should be size " <> show size <> ", but there aren't enough bytes")
+      return (magic, posn, chunk', warning)
     in liftA2 (:) getChunk getChunks
 
 getHeader :: Get (F.Type, Int, F.Division)

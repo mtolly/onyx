@@ -1316,6 +1316,7 @@ blackVenue fcon = inside ("Inserting black VENUE in: " <> fcon) $ do
                           | all (< 10) fmts -> return False
                           | otherwise -> fatal
                             "Mix of RB3 and pre-RB3 songs found in pack (???)"
+              -- TODO this does not yet handle official-format (milo venue) songs
               let black = U.setTrackName "VENUE" $ if isRB3
                     then RTB.fromPairList $ map (\s -> (0, E.MetaEvent $ Meta.TextEvent s))
                       ["[lighting (blackout_fast)]", "[film_b+w.pp]", "[coop_all_far]"]

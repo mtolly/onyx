@@ -548,7 +548,9 @@ loadRawMIDI f = inside ("loading MIDI: " <> f) $ do
   bs <- stackIO $ BL.fromStrict <$> B.readFile f
   case runGetOrFail getMIDI bs of
     Left (_, off, err) -> inside ("byte offset " <> show off) $ fatal err
-    Right (_, _, mid)  -> return mid
+    Right (_, _, (mid, warnings)) -> do
+      mapM_ warn warnings
+      return mid
 
 loadMIDI :: (SendMessage m, MonadIO m, ParseFile f) => FilePath -> StackTraceT m (Song (f U.Beats))
 loadMIDI f = loadRawMIDI f >>= readMIDIFile'
