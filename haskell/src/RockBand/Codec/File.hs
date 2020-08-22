@@ -738,3 +738,35 @@ instance ChopTrack OnyxPart where
     , onyxMelody           = mapTrack (U.trackDrop t) $ onyxMelody           op -- TODO
     , onyxPartDance        = mapTrack (U.trackDrop t) $ onyxPartDance        op -- TODO
     }
+
+onyxToFixed :: OnyxFile U.Beats -> FixedFile U.Beats
+onyxToFixed o = FixedFile
+  { fixedPartDrums        = inPart FlexDrums                 onyxPartDrums
+  , fixedPartDrums2x      = inPart FlexDrums                 onyxPartDrums2x
+  , fixedPartRealDrumsPS  = inPart FlexDrums                 onyxPartRealDrumsPS
+  , fixedPartGuitar       = inPart FlexGuitar                onyxPartGuitar
+  , fixedPartBass         = inPart FlexBass                  onyxPartGuitar
+  , fixedPartKeys         = inPart FlexKeys                  onyxPartKeys
+  , fixedPartRhythm       = inPart (FlexExtra "rhythm")      onyxPartGuitar
+  , fixedPartGuitarCoop   = inPart (FlexExtra "guitar-coop") onyxPartGuitar
+  , fixedPartRealGuitar   = inPart FlexGuitar                onyxPartRealGuitar
+  , fixedPartRealGuitar22 = inPart FlexBass                  onyxPartRealGuitar22
+  , fixedPartRealBass     = inPart FlexGuitar                onyxPartRealGuitar
+  , fixedPartRealBass22   = inPart FlexBass                  onyxPartRealGuitar22
+  , fixedPartGuitarGHL    = inPart FlexGuitar                onyxPartSix
+  , fixedPartBassGHL      = inPart FlexBass                  onyxPartSix
+  , fixedPartRealKeysE    = inPart FlexKeys                  onyxPartRealKeysE
+  , fixedPartRealKeysM    = inPart FlexKeys                  onyxPartRealKeysM
+  , fixedPartRealKeysH    = inPart FlexKeys                  onyxPartRealKeysH
+  , fixedPartRealKeysX    = inPart FlexKeys                  onyxPartRealKeysX
+  , fixedPartKeysAnimLH   = inPart FlexKeys                  onyxPartKeysAnimLH
+  , fixedPartKeysAnimRH   = inPart FlexKeys                  onyxPartKeysAnimRH
+  , fixedPartVocals       = inPart FlexVocal                 onyxPartVocals
+  , fixedPartDance        = inPart (FlexExtra "global")      onyxPartDance
+  , fixedHarm1            = inPart FlexVocal                 onyxHarm1
+  , fixedHarm2            = inPart FlexVocal                 onyxHarm2
+  , fixedHarm3            = inPart FlexVocal                 onyxHarm3
+  , fixedEvents           = onyxEvents o
+  , fixedBeat             = onyxBeat o
+  , fixedVenue            = onyxVenue o
+  } where inPart p f = maybe mempty f $ Map.lookup p $ onyxParts o

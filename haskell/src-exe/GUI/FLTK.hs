@@ -1006,7 +1006,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     sink $ EventOnyx $ void $ forkOnyx $ do
       let input = takeDirectory (projectLocation proj) </> "notes.mid"
       mid <- RBFile.loadMIDI input
-      let foundTracks = getScoreTracks $ RBFile.s_tracks mid
+      let foundTracks = getScoreTracks $ RBFile.onyxToFixed $ RBFile.s_tracks mid
       -- TODO this is a hack to not hold onto the whole midi file in memory, should find a better way!
       stackIO $ void $ Exc.evaluate $ length $ show foundTracks
       stackIO $ sink $ EventIO $ withMVar doesWindowExist $ \exist -> when exist $ mdo

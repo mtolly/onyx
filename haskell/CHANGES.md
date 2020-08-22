@@ -1,5 +1,16 @@
 # Version history
 
+## 20200822
+
+* Fix some memory leaks caused by the single song window
+* Read Pro Drums format from `.chart` files
+* Fix a bug where lanes could be redrawn incorrectly when importing from PS/CH format
+* Be more lenient when reading some spec-incorrect MIDI files
+* Significantly faster REAPER project generation
+* Draw lanes and BREs in 3D preview
+* DTX import: better audio sample mixing, and a smarter algorithm for assigning cymbal colors
+* Pass tuning cents to REAPER project VSTs
+
 ## 20200513
 
 * Fix 3D preview not displaying in AMD graphics cards on Windows

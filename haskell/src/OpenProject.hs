@@ -308,7 +308,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".bms" -> foundBME fp
         ".bme" -> foundBME fp
         ".bml" -> foundBME fp
-        ".psarc" -> foundRS fp
+        ".psarc" -> return ([], []) -- foundRS fp {- disabled for release -}
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundIni fp
           "set.def" -> foundDTXSet fp
