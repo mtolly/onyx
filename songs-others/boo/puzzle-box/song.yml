@@ -1,0 +1,47 @@
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+  drums:
+    drums:
+      difficulty:
+        tier: 7
+      kicks: 2
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 74dfbd674a005fd0da099aac122d67cc
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 54.02
+  file-album-art: cover.png_xbox
+  track-number: 3
+  album: Vector
+  year: 2018
+  subgenre: metal
+  author: Boo, Onyxite
+  title: Puzzle Box
+  preview-end: 1:24.020
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Haken

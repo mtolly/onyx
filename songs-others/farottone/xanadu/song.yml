@@ -39,7 +39,8 @@ plans:
       keys: [8, 9]
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     karaoke: false
-    mogg-md5: d2235e06ac1496e20c4786ff9d77a6c4
+    mogg-md5: 2e9053016bba70643c684ed9e672b6fc
+    # mogg-md5: d2235e06ac1496e20c4786ff9d77a6c4 (enc)
     multitrack: false
     vols: [-3, -3, -3, -3, -3, -3, -3, -3, -3, -3, 0, 0]
 targets:
@@ -64,6 +65,7 @@ metadata:
   artist: Rush
   comments:
   - Time signatures added.
-  - Tempo map redone and drums edited up to measure 141.
+  - Tempo map redone up to measure 195.
+  - Drums mostly edited up to measure 141; rest is quantized and had kicks checked.
 global:
   anim-tempo: 32

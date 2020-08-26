@@ -9,7 +9,7 @@ audio:
     file-path: audio-youtube.wav
     commands:
     - ../../../scripts/youtube IE9I6NrE2S0 140
-    md5: d94c3a4c8b4279c9ac9ed10a0c23d99a
+    md5: a69a18afb372ed26c46843eb04993a25
     frames: 78235648
   hihat:
     file-path: ../../../sound/hihat-foot.wav

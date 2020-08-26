@@ -1,0 +1,39 @@
+metadata:
+  title: Shofukan
+  track-number: 1
+  author: Onyxite
+  file-include: ../../../albums/we-like-it-here.yml
+global:
+  autogen-theme: FeelGoodPopRock
+audio:
+  # bandcamp (not available anymore...)
+  album-track:
+    md5: 1147f0000d9c134c426fcd5b6833d484
+    frames: 17334074
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|2: hihat
+    song:
+      fade:
+      - end
+      - 5.029
+      - take:
+        - '6:29.579'
+        - pad: [5.496, album-track]
+parts:
+  drums:
+    drums:
+      kicks: 1
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps

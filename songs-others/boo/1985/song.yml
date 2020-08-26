@@ -1,0 +1,47 @@
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+  drums:
+    drums:
+      difficulty:
+        tier: 4
+      kicks: 2
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 8a192f68dac1a53e865562f8c26ace8f
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 2:15.343
+  file-album-art: cover.png_xbox
+  track-number: 3
+  album: Affinity
+  year: 2016
+  subgenre: metal
+  author: Boo, Onyxite
+  title: '1985'
+  preview-end: 2:45.343
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Haken
