@@ -115,6 +115,7 @@ import qualified RockBand2                             as RB2
 import qualified RockBand3                             as RB3
 import qualified Rocksmith.ArrangementXML              as Arr
 import qualified Rocksmith.CST                         as CST
+import           Rocksmith.MIDI
 import           Scripts
 import qualified Sound.File.Sndfile                    as Snd
 import qualified Sound.Jammit.Base                     as J
@@ -2014,52 +2015,14 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       = Arr.Ebeat t Nothing : numberBars measure rest
                     numberBars measure ((t, Bar) : rest)
                       = Arr.Ebeat t (Just measure) : numberBars (measure + 1) rest
-                    allNotes = let
+                    rso = let
                       opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
-                      trk = if nullPG $ RBFile.onyxPartRealGuitar22 opart
-                        then RBFile.onyxPartRealGuitar   opart
-                        else RBFile.onyxPartRealGuitar22 opart
-                      expert = fromMaybe mempty $ Map.lookup Expert $ pgDifficulties trk
-                      notes = joinEdgesSimple $ U.applyTempoTrack (RBFile.s_tempos mid) $ pgNotes expert
-                      -- TODO all the note properties
-                      in flip map (ATB.toPairList $ RTB.toAbsoluteEventList 0 notes) $ \(t, (fret, (str, _ntype), len)) -> Arr.Note
-                        { Arr.n_time           = t
-                        , Arr.n_string         = case str of
-                          S6 -> 0
-                          S5 -> 1
-                          S4 -> 2
-                          S3 -> 3
-                          S2 -> 4
-                          S1 -> 5
-                          _  -> -1
-                        , Arr.n_fret           = fret
-                        , Arr.n_sustain        = let
-                          startBeats = U.unapplyTempoMap (RBFile.s_tempos mid) t
-                          endBeats = U.unapplyTempoMap (RBFile.s_tempos mid) $ t <> len
-                          in if endBeats - startBeats >= (1/3)
-                            then Just len
-                            else Nothing
-                        , Arr.n_vibrato        = Nothing
-                        , Arr.n_hopo           = False
-                        , Arr.n_hammerOn       = False
-                        , Arr.n_pullOff        = False
-                        , Arr.n_slideTo        = Nothing
-                        , Arr.n_slideUnpitchTo = Nothing
-                        , Arr.n_mute           = False
-                        , Arr.n_palmMute       = False
-                        , Arr.n_accent         = False
-                        , Arr.n_linkNext       = False
-                        , Arr.n_bend           = Nothing
-                        , Arr.n_bendValues     = V.empty
-                        , Arr.n_harmonicPinch  = False
-                        , Arr.n_leftHand       = Nothing
-                        , Arr.n_tap            = False
-                        , Arr.n_slap           = Nothing
-                        , Arr.n_pluck          = Nothing
-                        , Arr.n_tremolo        = False
-                        , Arr.n_pickDirection  = Nothing
-                        , Arr.n_ignore         = False
-                        }
+                      trk = if bass
+                        then RBFile.onyxPartRSBass   opart
+                        else RBFile.onyxPartRSGuitar opart
+                        -- TODO maybe support using bass track for a guitar slot
+                      in buildRS (RBFile.s_tempos mid) trk
+                    allNotes = Arr.lvl_notes $ rso_level rso
                 Arr.writePart out $ Arr.PartArrangement Arr.Arrangement
                   { Arr.arr_version                = 7 -- this is what EOF has currently
                   , Arr.arr_title                  = getTitle $ _metadata songYaml
@@ -2131,17 +2094,32 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , Arr.ap_pathBass          = bass
                     , Arr.ap_routeMask         = Nothing
                     }
-                  , Arr.arr_phrases                = mempty -- TODO
-                  , Arr.arr_phraseIterations       = mempty -- TODO
-                  , Arr.arr_chordTemplates         = mempty -- TODO :: V.Vector ChordTemplate
+                  , Arr.arr_phrases                = rso_phrases rso
+                  , Arr.arr_phraseIterations       = rso_phraseIterations rso
+                  , Arr.arr_chordTemplates         = rso_chordTemplates rso
                   , Arr.arr_tonebase               = fmap rsFileToneBase toneKeys
                   , Arr.arr_tonea                  = toneKeys >>= rsFileToneA
                   , Arr.arr_toneb                  = toneKeys >>= rsFileToneB
                   , Arr.arr_tonec                  = toneKeys >>= rsFileToneC
                   , Arr.arr_toned                  = toneKeys >>= rsFileToneD
-                  , Arr.arr_tones                  = mempty -- TODO
+                  , Arr.arr_tones
+                    = V.fromList
+                    $ map (\(t, letter) -> let
+                      in Arr.Tone
+                        { tone_time = t
+                        , tone_id   = Just $ fromEnum letter
+                        , tone_name = fromMaybe "" $ toneKeys >>= case letter of
+                          ToneA -> rsFileToneA
+                          ToneB -> rsFileToneB
+                          ToneC -> rsFileToneC
+                          ToneD -> rsFileToneD
+                        }
+                      )
+                    $ ATB.toPairList
+                    $ RTB.toAbsoluteEventList 0
+                    $ rso_tones rso
                   , Arr.arr_ebeats                 = ebeats
-                  , Arr.arr_sections               = mempty -- TODO :: V.Vector Section
+                  , Arr.arr_sections               = rso_sections rso
                   , Arr.arr_events                 = mempty -- TODO :: V.Vector Event
                   , Arr.arr_transcriptionTrack     = Arr.Level
                     { Arr.lvl_difficulty    = -1
@@ -2151,22 +2129,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , Arr.lvl_anchors       = mempty
                     , Arr.lvl_handShapes    = mempty
                     }
-                  , Arr.arr_levels                 = V.singleton Arr.Level
-                    { Arr.lvl_difficulty    = 0
-                    , Arr.lvl_notes         = V.fromList allNotes
-                    , Arr.lvl_chords        = mempty
-                    , Arr.lvl_fretHandMutes = mempty -- this may not exist anymore?
-                    , Arr.lvl_anchors       = V.singleton $ let
-                      -- TODO real anchors (manual or auto)
-                      minFret = max 1 $ minimum $ map Arr.n_fret allNotes
-                      maxFret = maximum $ map Arr.n_fret allNotes
-                      in Arr.Anchor
-                        { Arr.an_time  = 0
-                        , Arr.an_fret  = minFret
-                        , Arr.an_width = fromIntegral $ max 1 $ maxFret - minFret
-                        }
-                    , Arr.lvl_handShapes    = mempty
-                    }
+                  , Arr.arr_levels                 = V.singleton $ rso_level rso
                   }
 
             rsAudio %> shk . copyFile' (planDir </> "everything.wav")

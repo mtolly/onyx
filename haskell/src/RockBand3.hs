@@ -346,7 +346,7 @@ buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml 
     track
       = (\fd -> fd { fivePlayer1 = RTB.empty, fivePlayer2 = RTB.empty })
       $ (if gryboFixFreeform grybo then fixFreeformFive else id)
-      $ gryboComplete (guard toKeys >> Just ht) mmap trackOrig
+      $ gryboComplete (guard (not toKeys) >> Just ht) mmap trackOrig
     ht = gryboHopoThreshold grybo
     fiveEachDiff f ft = ft { fiveDifficulties = fmap f $ fiveDifficulties ft }
     gap = fromIntegral (gryboSustainGap grybo) / 480

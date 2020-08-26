@@ -23,12 +23,15 @@ import           Data.List                        (find, sort)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, mapMaybe)
 import qualified Data.Text                        as T
+import qualified Data.Text.Encoding               as TE
+import           Data.Text.Encoding.Error         (lenientDecode)
 import           Image                            (readDDS)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProGuitar
-import           RockBand.Common                  (Difficulty (..), blipEdgesRB)
+import           RockBand.Common                  (blipEdgesRB)
 import           Rocksmith.BNK                    (extractRSOgg)
 import           Rocksmith.Crypt
+import           Rocksmith.MIDI
 import           Rocksmith.PSARC
 import           Rocksmith.Sng2014
 import qualified Sound.MIDI.File.Save             as Save
@@ -185,13 +188,15 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
   stackIO $ Save.toFile (dout </> "notes.mid") $ RBFile.showMIDIFile'
     $ RBFile.Song temps sigs mempty
       { RBFile.onyxParts = Map.fromList $ do
-        (partName, sng, _, _, _) <- parts
-        -- if transcriptionTrack is present we could use that, but not all songs have that
-        let getNotes note = let
-              ntype = NormalNote -- TODO
+        (partName, sng, _, _, isBass) <- parts
+        let toSeconds = realToFrac :: Float -> U.Seconds
+            getNotes note = let
+              secs = toSeconds $ notes_Time note
+              beats = U.unapplyTempoMap temps secs
               len = do
                 guard $ notes_Sustain note > 0
-                Just $ realToFrac $ notes_Sustain note
+                let endSecs = secs <> toSeconds (notes_Sustain note)
+                Just $ U.unapplyTempoMap temps endSecs - beats
               in do
                 (str, fret) <- case notes_ChordId note of
                   -1 -> let
@@ -212,27 +217,79 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                       $ sng_Chords sng !! fromIntegral chordID
                     guard $ fret >= 0
                     return pair
-                return (realToFrac $ notes_Time note, (fret, (str, ntype), len))
+                return (beats, (fret, str, len))
             iterBoundaries = zip (sng_PhraseIterations sng)
               (fmap Just (drop 1 $ sng_PhraseIterations sng) <> [Nothing])
-            getPhrase iter1 miter2 = let
+            getPhraseNotes iter1 miter2 = let
               phrase = sng_Phrases sng !! fromIntegral (pi_PhraseId iter1)
               lvl = sng_Arrangements sng !! fromIntegral (phrase_MaxDifficulty phrase)
               inBounds note = pi_StartTime iter1 <= notes_Time note
                 && all (\iter2 -> notes_Time note < pi_StartTime iter2) miter2
               in concatMap getNotes $ filter inBounds $ arr_Notes lvl
-            notes = let
-              in RTB.fromAbsoluteEventList
+            getPhraseAnchors iter1 miter2 = let
+              phrase = sng_Phrases sng !! fromIntegral (pi_PhraseId iter1)
+              lvl = sng_Arrangements sng !! fromIntegral (phrase_MaxDifficulty phrase)
+              inBounds anchor = pi_StartTime iter1 <= anchor_StartBeatTime anchor
+                && all (\iter2 -> anchor_StartBeatTime anchor < pi_StartTime iter2) miter2
+              in filter inBounds $ arr_Anchors lvl
+            notes = RTB.fromAbsoluteEventList
+              $ ATB.fromPairList
+              $ sort
+              $ concatMap (uncurry getPhraseNotes) iterBoundaries
+            anchors = U.unapplyTempoTrack temps
+              $ RTB.fromAbsoluteEventList
+              $ ATB.fromPairList
+              $ sort
+              $ fmap (\anc -> let
+                t = toSeconds $ anchor_StartBeatTime anc
+                lowFret = fromIntegral $ anchor_FretId anc
+                highFret = lowFret + fromIntegral (anchor_Width anc) - 1
+                in (t, (lowFret, highFret))
+                )
+              $ concatMap (uncurry getPhraseAnchors) iterBoundaries
+            trk = RocksmithTrack
+              { rsNotes = blipEdgesRB $ notes
+              , rsPhrases = U.unapplyTempoTrack temps
+                $ RTB.fromAbsoluteEventList
                 $ ATB.fromPairList
                 $ sort
-                $ concatMap (uncurry getPhrase) iterBoundaries
-            diff = mempty
-              { pgNotes = blipEdgesRB $ U.unapplyTempoTrack temps notes
+                $ flip map (sng_PhraseIterations sng)
+                $ \iter -> let
+                  t = toSeconds $ pi_StartTime iter
+                  phrase = sng_Phrases sng !! fromIntegral (pi_PhraseId iter)
+                  name = TE.decodeUtf8With lenientDecode $ phrase_Name phrase
+                  in (t, name)
+              , rsSections = U.unapplyTempoTrack temps
+                $ RTB.fromAbsoluteEventList
+                $ ATB.fromPairList
+                $ sort
+                $ flip map (sng_Sections sng)
+                $ \sect -> let
+                  t = toSeconds $ sect_StartTime sect
+                  name = TE.decodeUtf8With lenientDecode $ sect_Name sect
+                  in (t, name)
+              , rsAnchorLow  = fmap fst anchors
+              , rsAnchorHigh = fmap snd anchors
+              , rsModifiers  = RTB.empty -- TODO
+              , rsTones      = U.unapplyTempoTrack temps
+                $ RTB.fromAbsoluteEventList
+                $ ATB.fromPairList
+                $ sort
+                $ flip map (sng_Tones sng)
+                $ \tid -> let
+                  t = toSeconds $ tid_Time tid
+                  tone = case tid_ID tid of
+                    0 -> ToneA
+                    1 -> ToneB
+                    2 -> ToneC
+                    3 -> ToneD
+                    _ -> ToneA -- TODO error?
+                  in (t, tone)
+              , rsBends      = RTB.empty -- TODO
               }
-            trk = mempty
-              { pgDifficulties = Map.singleton Expert diff
-              }
-        return (partName, mempty { RBFile.onyxPartRealGuitar = trk })
+        return (partName, if isBass
+          then mempty { RBFile.onyxPartRSBass   = trk }
+          else mempty { RBFile.onyxPartRSGuitar = trk })
       }
 
   -- Lots of authors don't put their name into CST for some reason,

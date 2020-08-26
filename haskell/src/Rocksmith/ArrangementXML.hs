@@ -95,12 +95,14 @@ instance IsInside Arrangement where
 
 data Tone = Tone
   { tone_time :: U.Seconds
+  , tone_id   :: Maybe Int
   , tone_name :: T.Text
   } deriving (Eq, Show)
 
 instance IsInside Tone where
   insideCodec = do
     tone_time <- tone_time =. seconds (reqAttr "time")
+    tone_id   <- tone_id   =. zoomValue (maybeValue intValue) (optAttr "id")
     tone_name <- tone_name =. reqAttr "name"
     return Tone{..}
 
@@ -244,9 +246,10 @@ data Note = Note
   , n_linkNext       :: Bool
   , n_bend           :: Maybe Milli
   , n_bendValues     :: V.Vector BendValue
-  -- TODO did I miss non-pinch harmonics?
+  , n_harmonic       :: Bool
   , n_harmonicPinch  :: Bool
-  , n_leftHand       :: Maybe Int -- only in chordNote
+  , n_leftHand       :: Maybe Int
+  , n_rightHand      :: Maybe Int
   , n_tap            :: Bool
   , n_slap           :: Maybe Int
   , n_pluck          :: Maybe Int
@@ -264,6 +267,9 @@ data Chord = Chord
   , chd_fretHandMute :: Bool
   , chd_linkNext     :: Bool
   , chd_chordNotes   :: V.Vector Note
+  , chd_ignore       :: Bool
+  , chd_hopo         :: Bool
+  , chd_strum        :: Maybe T.Text -- either "up" or "down"
   } deriving (Eq, Show)
 
 -- TODO
@@ -300,8 +306,10 @@ instance IsInside Note where
     n_linkNext       <- n_linkNext       =. flag "linkNext"
     n_bend           <- n_bend           =. zoomValue (maybeValue milliValue) (optAttr "bend")
     n_bendValues     <- n_bendValues     =. pluralOpt "bendValue"  -- tag can be dropped if empty
+    n_harmonic       <- n_harmonic       =. flag "harmonic"
     n_harmonicPinch  <- n_harmonicPinch  =. flag "harmonicPinch"
     n_leftHand       <- n_leftHand       =. zoomValue (maybeValue intValue) (optAttr "leftHand")
+    n_rightHand      <- n_rightHand      =. zoomValue (maybeValue intValue) (optAttr "rightHand")
     n_tap            <- n_tap            =. flag "tap"
     n_slap           <- n_slap           =. zoomValue (maybeValue intValue) (optAttr "slap")
     n_pluck          <- n_pluck          =. zoomValue (maybeValue intValue) (optAttr "pluck")
@@ -320,6 +328,9 @@ instance IsInside Chord where
     chd_fretHandMute <- chd_fretHandMute =. flag "fretHandMute"
     chd_linkNext     <- chd_linkNext     =. flag "linkNext"
     chd_chordNotes   <- chd_chordNotes   =. bareList (isTag "chordNote" $ parseInside' insideCodec)
+    chd_ignore       <- chd_ignore       =. flag "ignore"
+    chd_hopo         <- chd_hopo         =. flag "hopo"
+    chd_strum        <- chd_strum        =. optAttr "strum"
     return Chord{..}
 
 -- TODO

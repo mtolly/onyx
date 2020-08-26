@@ -51,6 +51,7 @@ import           RockBand.Codec.Venue
 import           RockBand.Codec.VenueGen
 import           RockBand.Codec.Vocal
 import           RockBand.Common
+import           Rocksmith.MIDI
 import qualified Sound.MIDI.File                   as F
 import qualified Sound.MIDI.File.Event             as E
 import qualified Sound.MIDI.File.Event.Meta        as Meta
@@ -251,6 +252,8 @@ data OnyxPart t = OnyxPart
   , onyxPartSix          :: SixTrack t
   , onyxPartRealGuitar   :: ProGuitarTrack t
   , onyxPartRealGuitar22 :: ProGuitarTrack t
+  , onyxPartRSGuitar     :: RocksmithTrack t
+  , onyxPartRSBass       :: RocksmithTrack t
   , onyxPartRealKeysE    :: ProKeysTrack t
   , onyxPartRealKeysM    :: ProKeysTrack t
   , onyxPartRealKeysH    :: ProKeysTrack t
@@ -291,7 +294,7 @@ selectGuitarTrack typ part = let
 
 instance TraverseTrack OnyxPart where
   traverseTrack fn
-    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x y z)
+    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x y z aa ab)
     = OnyxPart
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -301,7 +304,8 @@ instance TraverseTrack OnyxPart where
       <*> traverseTrack fn p <*> traverseTrack fn q <*> traverseTrack fn r
       <*> traverseTrack fn s <*> traverseTrack fn t <*> traverseTrack fn u
       <*> traverseTrack fn v <*> traverseTrack fn w <*> traverseTrack fn x
-      <*> traverseTrack fn y <*> traverseTrack fn z
+      <*> traverseTrack fn y <*> traverseTrack fn z <*> traverseTrack fn aa
+      <*> traverseTrack fn ab
 
 getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
 getFlexPart part = fromMaybe mempty . Map.lookup part . onyxParts
@@ -355,6 +359,10 @@ parseOnyxPart partName = do
   onyxPartRealGuitar22 <- onyxPartRealGuitar22 =. names
     (FlexGuitar, "PART REAL_GUITAR_22")
     [ (FlexBass, "PART REAL_BASS_22") ]
+  onyxPartRSGuitar <- onyxPartRSGuitar =. names
+    (FlexGuitar, "PART RS LEAD")
+    [ (FlexExtra "rhythm", "PART RS RHYTHM") ]
+  onyxPartRSBass <- onyxPartRSBass =. names (FlexBass, "PART RS BASS") []
   onyxPartRealKeysE    <- onyxPartRealKeysE    =. names (FlexKeys, "PART REAL_KEYS_E") []
   onyxPartRealKeysM    <- onyxPartRealKeysM    =. names (FlexKeys, "PART REAL_KEYS_M") []
   onyxPartRealKeysH    <- onyxPartRealKeysH    =. names (FlexKeys, "PART REAL_KEYS_H") []
@@ -692,6 +700,8 @@ instance ChopTrack OnyxPart where
     , onyxPartSix          = mapTrack (U.trackTake t) $ onyxPartSix          op -- TODO
     , onyxPartRealGuitar   = chopTake t               $ onyxPartRealGuitar   op
     , onyxPartRealGuitar22 = chopTake t               $ onyxPartRealGuitar22 op
+    , onyxPartRSGuitar     = mapTrack (U.trackTake t) $ onyxPartRSGuitar     op -- TODO
+    , onyxPartRSBass       = mapTrack (U.trackTake t) $ onyxPartRSBass       op -- TODO
     , onyxPartRealKeysE    = mapTrack (U.trackTake t) $ onyxPartRealKeysE    op -- TODO
     , onyxPartRealKeysM    = mapTrack (U.trackTake t) $ onyxPartRealKeysM    op -- TODO
     , onyxPartRealKeysH    = mapTrack (U.trackTake t) $ onyxPartRealKeysH    op -- TODO
@@ -720,6 +730,8 @@ instance ChopTrack OnyxPart where
     , onyxPartSix          = mapTrack (U.trackDrop t) $ onyxPartSix          op -- TODO
     , onyxPartRealGuitar   = chopDrop t               $ onyxPartRealGuitar   op
     , onyxPartRealGuitar22 = chopDrop t               $ onyxPartRealGuitar22 op
+    , onyxPartRSGuitar     = mapTrack (U.trackDrop t) $ onyxPartRSGuitar     op -- TODO
+    , onyxPartRSBass       = mapTrack (U.trackDrop t) $ onyxPartRSBass       op -- TODO
     , onyxPartRealKeysE    = mapTrack (U.trackDrop t) $ onyxPartRealKeysE    op -- TODO
     , onyxPartRealKeysM    = mapTrack (U.trackDrop t) $ onyxPartRealKeysM    op -- TODO
     , onyxPartRealKeysH    = mapTrack (U.trackDrop t) $ onyxPartRealKeysH    op -- TODO

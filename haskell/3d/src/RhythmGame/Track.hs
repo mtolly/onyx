@@ -294,7 +294,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
         in drumDiffPairs >>= \(diff, letter) -> case drumTrack fpart pdrums diff of
           Nothing  -> []
           Just trk -> [(name <> " (" <> letter <> ")", PreviewDrums trk)]
-    pg = const [] {- disabled for release -} $ case partProGuitar part of
+    pg = case partProGuitar part of
       Nothing     -> []
       Just ppg -> let
         name = case fpart of

@@ -402,7 +402,7 @@ track tunings lenTicks lenSecs resn trk = let
               , ("PART GUITAR GHL", "colormap_ghl.png")
               , ("PART BASS GHL", "colormap_ghl.png")
               ]
-            isProtar = any (`T.isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS"]
+            isProtar = any (`T.isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS", "PART RS"]
             isDance = "PART DANCE" `T.isSuffixOf` name
         forM_ colorMap $ \cmap -> line "COLORMAP" [cmap]
         line "CFGEDIT"
