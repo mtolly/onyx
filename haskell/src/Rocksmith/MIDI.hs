@@ -11,6 +11,8 @@ module Rocksmith.MIDI
 , RSModifier(..)
 , buildRS
 , RSOutput(..)
+, ChordInfo(..)
+, ChordLocation(..)
 ) where
 
 import           Control.Monad                    (forM)
@@ -43,18 +45,35 @@ data RocksmithTrack t = RocksmithTrack
   , rsBends      :: RTB.T t ([GtrString], Milli) -- TODO I suspect we also need to support "unk5"
   , rsPhrases    :: RTB.T t T.Text -- phrase name; repeat same name for multiple iterations of one phrase
   , rsSections   :: RTB.T t T.Text
-  -- typically each phrase should have a section like so:
-  -- "solo" if it's a solo section
-  -- no section if initial section with no notes
-  -- "noguitar" if non-initial section with no notes
-  -- "riff" otherwise
-
-  -- TODO chords, both for notes and hand shapes
+  , rsHandShapes :: RTB.T t (Edge GtrFret GtrString)
+  , rsChords     :: RTB.T t ChordInfo
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (RocksmithTrack t)
 
+data ChordInfo = ChordInfo
+  { ciLocation :: ChordLocation
+  , ciFingers  :: [Finger] -- low string to high
+  , ciArpeggio :: Bool
+  , ciNop      :: Bool -- I don't know what this is but it's a flag in the sng chord
+  , ciName     :: Maybe T.Text
+  } deriving (Eq, Ord, Show)
+
+data ChordLocation
+  = ChordLocNotes
+  | ChordLocShape
+  | ChordLocAll
+  deriving (Eq, Ord, Show)
+
 data ToneLetter = ToneA | ToneB | ToneC | ToneD
   deriving (Eq, Ord, Show, Enum, Bounded)
+
+data Finger
+  = FingerThumb
+  | FingerIndex
+  | FingerMiddle
+  | FingerRing
+  | FingerPinky
+  deriving (Eq, Ord, Show, Enum)
 
 data RSModifier
   = ModSustain -- forces sustain even if short midi note
@@ -70,8 +89,8 @@ data RSModifier
   | ModBend Milli -- pre bend
   | ModHarmonic
   | ModHarmonicPinch
-  | ModLeftHand Int
-  | ModRightHand Int
+  -- left hand info is in rsChords
+  | ModRightHand Finger
   | ModTap
   | ModSlap Int -- what is the number? or is it just bool?
   | ModPluck Int -- what is the number? or is it just bool?
@@ -82,8 +101,9 @@ data RSModifier
   deriving (Eq, Ord, Show)
 
 instance TraverseTrack RocksmithTrack where
-  traverseTrack fn (RocksmithTrack a b c d e f g h) = RocksmithTrack
+  traverseTrack fn (RocksmithTrack a b c d e f g h i j) = RocksmithTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
+    <*> fn i <*> fn j
 
 parseStrings :: [T.Text] -> Maybe ([GtrString], [T.Text])
 parseStrings = \case
@@ -109,6 +129,16 @@ unparseStrings strs = let
     S8 -> 'E'
   in T.pack $ map eachStr strs
 
+lookupFinger :: T.Text -> Maybe Finger
+lookupFinger = \case
+  "T" -> Just FingerThumb
+  "0" -> Just FingerThumb
+  "1" -> Just FingerIndex
+  "2" -> Just FingerMiddle
+  "3" -> Just FingerRing
+  "4" -> Just FingerPinky
+  _   -> Nothing
+
 parseModifiers :: [T.Text] -> Maybe ([GtrString], [RSModifier])
 parseModifiers cmd = let
   go = \case
@@ -126,8 +156,7 @@ parseModifiers cmd = let
     "prebend"       : n : rest -> cont rest $      ModBend <$> readMaybe (T.unpack n)
     "harmonic"      :     rest -> cont rest $ pure ModHarmonic
     "harmonicpinch" :     rest -> cont rest $ pure ModHarmonicPinch
-    "lefthand"      : n : rest -> cont rest $      ModLeftHand <$> readMaybe (T.unpack n)
-    "righthand"     : n : rest -> cont rest $      ModRightHand <$> readMaybe (T.unpack n)
+    "righthand"     : f : rest -> cont rest $      ModRightHand <$> lookupFinger f
     "tap"           :     rest -> cont rest $ pure ModTap
     "slap"          : n : rest -> cont rest $      ModSlap <$> readMaybe (T.unpack n)
     "pluck"         : n : rest -> cont rest $      ModPluck <$> readMaybe (T.unpack n)
@@ -158,8 +187,7 @@ unparseModifiers (strs, mods) = let
     ModBend n         -> ["prebend"      , T.pack $ show n]
     ModHarmonic       -> ["harmonic"                      ]
     ModHarmonicPinch  -> ["harmonicpinch"                 ]
-    ModLeftHand n     -> ["lefthand"     , T.pack $ show n]
-    ModRightHand n    -> ["righthand"    , T.pack $ show n]
+    ModRightHand f    -> ["righthand"    , T.pack $ show $ fromEnum f]
     ModTap            -> ["tap"                           ]
     ModSlap n         -> ["slap"         , T.pack $ show n]
     ModPluck n        -> ["pluck"        , T.pack $ show n]
@@ -180,16 +208,57 @@ parseBend cmd = do
 unparseBend :: ([GtrString], Milli) -> [T.Text]
 unparseBend (strs, bend) = [unparseStrings strs, "bend", T.pack $ show bend]
 
+parseChord :: [T.Text] -> Maybe ChordInfo
+parseChord = go where
+  go = \case
+    "chord" : xs -> parseLocation xs
+    _            -> Nothing
+  parseLocation = \case
+    "notes" : xs -> parseFingers ChordLocNotes xs
+    "shape" : xs -> parseFingers ChordLocShape xs
+    xs           -> parseFingers ChordLocAll xs
+  parseFingers loc = \case
+    "_" : xs -> parseArp loc [] xs
+    x   : xs -> do
+      fingers <- mapM lookupFinger $ map T.singleton $ T.unpack x
+      parseArp loc fingers xs
+    _        -> Nothing
+  parseArp loc fingers = \case
+    "arp" : xs -> parseNop loc fingers True xs
+    xs         -> parseNop loc fingers False xs
+  parseNop loc fingers arp = \case
+    "nop" : xs -> parseName loc fingers arp True xs
+    xs         -> parseName loc fingers arp False xs
+  parseName loc fingers arp nop = Just . \case
+    [] -> ChordInfo loc fingers arp nop Nothing
+    xs -> ChordInfo loc fingers arp nop $ Just $ T.unwords xs
+
+unparseChord :: ChordInfo -> [T.Text]
+unparseChord ChordInfo{..} = concat
+  [ ["chord"]
+  , case ciLocation of
+    ChordLocAll   -> []
+    ChordLocNotes -> ["notes"]
+    ChordLocShape -> ["shape"]
+  , case ciFingers of
+    [] -> ["_"]
+    _  -> [T.pack $ ciFingers >>= show . fromEnum]
+  , ["arp" | ciArpeggio]
+  , ["nop" | ciNop]
+  , maybe [] T.words ciName
+  ]
+
 instance ParseTrack RocksmithTrack where
   parseTrack = do
-    rsNotes      <- rsNotes =. let
-      fs = \case
-        EdgeOn fret str -> (str, (0, Just $ fret + 100))
-        EdgeOff str -> (str, (0, Nothing))
-      fp = \case
-        (str, (_, Just v)) -> EdgeOn (v - 100) str
-        (str, (_, Nothing)) -> EdgeOff str
-      in dimap (fmap fs) (fmap fp) $ condenseMap $ eachKey each $ \str -> edgesCV $ 96 + getStringIndex 6 str
+    let parseNotes root = let
+          fs = \case
+            EdgeOn fret str -> (str, (0, Just $ fret + 100))
+            EdgeOff str -> (str, (0, Nothing))
+          fp = \case
+            (str, (_, Just v)) -> EdgeOn (v - 100) str
+            (str, (_, Nothing)) -> EdgeOff str
+          in dimap (fmap fs) (fmap fp) $ condenseMap $ eachKey each $ \str -> edgesCV $ root + getStringIndex 6 str
+    rsNotes      <- rsNotes =. parseNotes 96
     rsModifiers  <- rsModifiers =. commandMatch' parseModifiers unparseModifiers
     let fretNumber n = let
           fs fret = (0, fret + 100)
@@ -215,6 +284,8 @@ instance ParseTrack RocksmithTrack where
         _              -> Nothing
       )
       (\x -> ["section", x])
+    rsHandShapes <- rsHandShapes =. parseNotes 84
+    rsChords     <- rsChords     =. commandMatch' parseChord unparseChord
     return RocksmithTrack{..}
 
 data RSOutput = RSOutput
@@ -237,6 +308,7 @@ buildRS tmap trk = RSOutput
     , lvl_anchors       = V.singleton $ let
       -- TODO real anchors (manual or auto)
       -- TODO make sure we write out an anchor at the start of each phrase! (before its first note)
+      -- note: according to EOF, highest min-fret for an anchor is 21
       minFret = max 1 $ minimum $ map n_fret allNotes
       maxFret = maximum $ map n_fret allNotes
       in Anchor
@@ -286,7 +358,6 @@ buildRS tmap trk = RSOutput
       in concat [ mods | (strs, mods) <- atTime, null strs || elem str strs ]
     allNotes = let
       notes = joinEdgesSimple $ U.applyTempoTrack tmap $ rsNotes trk
-      -- TODO all the note properties
       in flip map (ATB.toPairList $ RTB.toAbsoluteEventList 0 notes) $ \(t, (fret, str, len)) -> let
         mods = lookupModifier t str
         in Note
@@ -320,8 +391,8 @@ buildRS tmap trk = RSOutput
           , n_bendValues     = V.empty -- TODO
           , n_harmonic       = elem ModHarmonic mods
           , n_harmonicPinch  = elem ModHarmonicPinch mods
-          , n_leftHand       = listToMaybe [ n | ModLeftHand n <- mods ]
-          , n_rightHand      = listToMaybe [ n | ModRightHand n <- mods ]
+          , n_leftHand       = Nothing -- TODO
+          , n_rightHand      = listToMaybe [ fromEnum n | ModRightHand n <- mods ]
           , n_tap            = elem ModTap mods
           , n_slap           = listToMaybe [ n | ModSlap n <- mods ]
           , n_pluck          = listToMaybe [ n | ModPluck n <- mods ]

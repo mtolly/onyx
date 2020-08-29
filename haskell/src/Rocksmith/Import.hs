@@ -11,6 +11,7 @@ import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                       as A
+import           Data.Bits                        ((.&.))
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isSpace)
@@ -28,7 +29,8 @@ import           Data.Text.Encoding.Error         (lenientDecode)
 import           Image                            (readDDS)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProGuitar
-import           RockBand.Common                  (blipEdgesRB)
+import           RockBand.Common                  (blipEdgesRB,
+                                                   splitEdgesSimple)
 import           Rocksmith.BNK                    (extractRSOgg)
 import           Rocksmith.Crypt
 import           Rocksmith.MIDI
@@ -218,6 +220,19 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                     guard $ fret >= 0
                     return pair
                 return (beats, (fret, str, len))
+            makeShape fprint = let
+              secs = toSeconds $ fp_StartTime fprint
+              beats = U.unapplyTempoMap temps secs
+              len = let
+                endSecs = toSeconds $ fp_EndTime fprint
+                in U.unapplyTempoMap temps endSecs - beats
+              in do
+                (str, fret) <- zip [S6, S5 ..]
+                  $ map fromIntegral
+                  $ chord_Frets
+                  $ sng_Chords sng !! fromIntegral (fp_ChordId fprint)
+                guard $ fret >= 0
+                return (beats, (fret, str, len))
             iterBoundaries = zip (sng_PhraseIterations sng)
               (fmap Just (drop 1 $ sng_PhraseIterations sng) <> [Nothing])
             getPhraseNotes iter1 miter2 = let
@@ -225,17 +240,26 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
               lvl = sng_Arrangements sng !! fromIntegral (phrase_MaxDifficulty phrase)
               inBounds note = pi_StartTime iter1 <= notes_Time note
                 && all (\iter2 -> notes_Time note < pi_StartTime iter2) miter2
-              in concatMap getNotes $ filter inBounds $ arr_Notes lvl
+              in filter inBounds $ arr_Notes lvl
             getPhraseAnchors iter1 miter2 = let
               phrase = sng_Phrases sng !! fromIntegral (pi_PhraseId iter1)
               lvl = sng_Arrangements sng !! fromIntegral (phrase_MaxDifficulty phrase)
               inBounds anchor = pi_StartTime iter1 <= anchor_StartBeatTime anchor
                 && all (\iter2 -> anchor_StartBeatTime anchor < pi_StartTime iter2) miter2
               in filter inBounds $ arr_Anchors lvl
+            getHandShapes iter1 miter2 = let
+              phrase = sng_Phrases sng !! fromIntegral (pi_PhraseId iter1)
+              lvl = sng_Arrangements sng !! fromIntegral (phrase_MaxDifficulty phrase)
+              inBounds fprint = pi_StartTime iter1 <= fp_StartTime fprint
+                && all (\iter2 -> fp_StartTime fprint < pi_StartTime iter2) miter2
+              in filter inBounds $ arr_Fingerprints1 lvl <> arr_Fingerprints2 lvl
+              -- arr_Fingerprints2 is arpeggios, but we'll get that from the mask later
+            maxLevelNotes = iterBoundaries >>= uncurry getPhraseNotes
+            maxLevelShapes = iterBoundaries >>= uncurry getHandShapes
             notes = RTB.fromAbsoluteEventList
               $ ATB.fromPairList
               $ sort
-              $ concatMap (uncurry getPhraseNotes) iterBoundaries
+              $ maxLevelNotes >>= getNotes
             anchors = U.unapplyTempoTrack temps
               $ RTB.fromAbsoluteEventList
               $ ATB.fromPairList
@@ -246,9 +270,36 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                 highFret = lowFret + fromIntegral (anchor_Width anc) - 1
                 in (t, (lowFret, highFret))
                 )
-              $ concatMap (uncurry getPhraseAnchors) iterBoundaries
+              $ iterBoundaries >>= uncurry getPhraseAnchors
+            shapes = RTB.fromAbsoluteEventList
+              $ ATB.fromPairList
+              $ sort
+              $ maxLevelShapes >>= makeShape
+            noteChordInfo = RTB.fromAbsoluteEventList
+              $ ATB.fromPairList
+              $ map (makeChordInfo ChordLocNotes)
+              $ sort
+              $ mapMaybe (\n -> guard (notes_ChordId n /= (-1)) >> Just (notes_Time n, notes_ChordId n))
+              $ maxLevelNotes
+            shapeChordInfo = RTB.fromAbsoluteEventList
+              $ ATB.fromPairList
+              $ map (makeChordInfo ChordLocShape)
+              $ sort
+              $ map (\fp -> (fp_StartTime fp, fp_ChordId fp))
+              $ maxLevelShapes
+            makeChordInfo loc (t, chordID) = (t', ChordInfo
+              { ciLocation    = loc
+              , ciName        = case TE.decodeUtf8With lenientDecode $ chord_Name chord of
+                ""   -> Nothing
+                name -> Just name
+              , ciFingers     = map (toEnum . fromIntegral) $ filter (/= (-1)) $ chord_Fingers chord
+              , ciArpeggio = chord_Mask chord .&. 0x00000001 /= 0
+              , ciNop      = chord_Mask chord .&. 0x00000002 /= 0
+              }) where
+                chord = sng_Chords sng !! fromIntegral chordID
+                t' = U.unapplyTempoMap temps $ toSeconds t
             trk = RocksmithTrack
-              { rsNotes = blipEdgesRB $ notes
+              { rsNotes = blipEdgesRB notes
               , rsPhrases = U.unapplyTempoTrack temps
                 $ RTB.fromAbsoluteEventList
                 $ ATB.fromPairList
@@ -286,6 +337,8 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                     _ -> ToneA -- TODO error?
                   in (t, tone)
               , rsBends      = RTB.empty -- TODO
+              , rsHandShapes = splitEdgesSimple shapes
+              , rsChords = RTB.merge noteChordInfo shapeChordInfo
               }
         return (partName, if isBass
           then mempty { RBFile.onyxPartRSBass   = trk }
