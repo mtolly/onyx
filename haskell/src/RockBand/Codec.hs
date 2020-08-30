@@ -9,7 +9,7 @@ import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State.Strict (State, StateT, execState,
-                                                   get, modify', put)
+                                                   get, modify', put, runState)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
@@ -333,7 +333,7 @@ fatBlips len cdc = cdc
 
 -- | Extends output notes within this group to go up to the next note on,
 -- or to the last current MIDI event written so far.
-statusBlips :: (NNC.C t, Monad m) => Codec (TrackParser m t) (TrackBuilder t) a -> Codec (TrackParser m t) (TrackBuilder t) a
+statusBlips :: (NNC.C t, Monad m) => CodecFor (TrackParser m t) (TrackBuilder t) c a -> CodecFor (TrackParser m t) (TrackBuilder t) c a
 statusBlips cdc = cdc
   { codecOut = \x -> do
     lastTime <- mconcat . RTB.getTimes <$> get
@@ -352,7 +352,9 @@ statusBlips cdc = cdc
               in RTB.cons dt (map adjustLen evs) $ go elapsed' rtb'
           edgeEvents = fmap makeEdge' $ splitEdgesSimple notes'
           in RTB.merge edgeEvents notNotes
-    makeTrackBuilder (extend . runTrackBuilder (codecOut cdc)) x
+        (a, output) = runState (codecOut cdc x) RTB.empty
+    _ <- makeTrackBuilder (\_ -> extend output) x
+    return a
   }
 
 eachKey

@@ -29,7 +29,7 @@ import           Data.Text.Encoding.Error         (lenientDecode)
 import           Image                            (readDDS)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProGuitar
-import           RockBand.Common                  (blipEdgesRB,
+import           RockBand.Common                  (blipEdgesRB, fixOverlaps,
                                                    splitEdgesSimple)
 import           Rocksmith.BNK                    (extractRSOgg)
 import           Rocksmith.Crypt
@@ -199,8 +199,32 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                 guard $ notes_Sustain note > 0
                 let endSecs = secs <> toSeconds (notes_Sustain note)
                 Just $ U.unapplyTempoMap temps endSecs - beats
+              parseMask mask = concat
+                [ [ModHammerOn | mask .&. 0x200 /= 0]
+                , [ModPullOff | mask .&. 0x400 /= 0]
+                , [ModMute | mask .&. 0x020000 /= 0]
+                , [ModPalmMute | mask .&. 0x40 /= 0]
+                , [ModAccent | mask .&. 0x04000000 /= 0]
+                , [ModLink | mask .&. 0x8000000 /= 0] -- also the next note has mask .&. 0x10000000
+                , [ModHarmonic | mask .&. 0x20 /= 0]
+                , [ModHarmonicPinch | mask .&. 0x8000 /= 0]
+                , [ModTremolo | mask .&. 0x10 /= 0]
+                , [ModIgnore | mask .&. 0x40000 /= 0]
+                , [ModTap | mask .&. 0x4000 /= 0]
+                , [ModSlap 1 | mask .&. 0x80 /= 0]
+                , [ModPluck 1 | mask .&. 0x0100 /= 0]
+                ]
+              -- TODO remaining modifiers to import:
+              -- ModTap -- how does notes_Tap relate to mask bit?
+              -- ModSlap -- how does notes_Slap relate to mask bit?
+              -- ModPluck -- how does notes_Pluck relate to mask bit?
+              -- ModPickUp -- from notes_PickDirection
+              -- ModPickDown -- from notes_PickDirection
+              -- ModBend
+              -- ModRightHand
+              numNot x n = guard (n /= x) >> Just n
               in do
-                (str, fret) <- case notes_ChordId note of
+                (str, fret, mods) <- case notes_ChordId note of
                   -1 -> let
                     fret = fromIntegral $ notes_FretId note
                     str = case notes_StringIndex note of
@@ -211,15 +235,29 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                       4 -> S2
                       5 -> S1
                       _ -> S7 -- TODO raise error
-                    in [(str, fret)]
+                    mods = parseMask (notes_NoteMask note) <> catMaybes
+                      [ ModVibrato      . fromIntegral <$> numNot 0    (notes_Vibrato        note)
+                      , ModSlide        . fromIntegral <$> numNot (-1) (notes_SlideTo        note)
+                      , ModSlideUnpitch . fromIntegral <$> numNot (-1) (notes_SlideUnpitchTo note)
+                      ]
+                    in [(str, fret, mods)]
                   chordID -> do
-                    pair@(_str, fret) <- zip [S6, S5 ..]
-                      $ map fromIntegral
-                      $ chord_Frets
-                      $ sng_Chords sng !! fromIntegral chordID
+                    let chord = sng_Chords sng !! fromIntegral chordID
+                        chordNotes = case notes_ChordNotesId note of
+                          -1   -> Nothing
+                          cnid -> Just $ sng_ChordNotes sng !! fromIntegral cnid
+                    (str, i) <- zip [S6, S5 ..] [0..]
+                    let fret = fromIntegral $ chord_Frets chord !! i
+                        mods = case chordNotes of
+                          Nothing -> []
+                          Just cn -> parseMask (cn_NoteMask cn !! i) <> catMaybes
+                            [ ModVibrato      . fromIntegral <$> numNot 0    (cn_Vibrato        cn !! i)
+                            , ModSlide        . fromIntegral <$> numNot (-1) (cn_SlideTo        cn !! i)
+                            , ModSlideUnpitch . fromIntegral <$> numNot (-1) (cn_SlideUnpitchTo cn !! i)
+                            ]
                     guard $ fret >= 0
-                    return pair
-                return (beats, (fret, str, len))
+                    return (str, fret, mods)
+                return (beats, ((fret, str, len), mods))
             makeShape fprint = let
               secs = toSeconds $ fp_StartTime fprint
               beats = U.unapplyTempoMap temps secs
@@ -299,7 +337,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                 chord = sng_Chords sng !! fromIntegral chordID
                 t' = U.unapplyTempoMap temps $ toSeconds t
             trk = RocksmithTrack
-              { rsNotes = blipEdgesRB notes
+              { rsNotes = blipEdgesRB $ fixOverlaps $ fmap fst notes
               , rsPhrases = U.unapplyTempoTrack temps
                 $ RTB.fromAbsoluteEventList
                 $ ATB.fromPairList
@@ -321,7 +359,11 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                   in (t, name)
               , rsAnchorLow  = fmap fst anchors
               , rsAnchorHigh = fmap snd anchors
-              , rsModifiers  = RTB.empty -- TODO
+              , rsModifiers  = flip RTB.mapMaybe notes $ \((_, str, len), mods) -> let
+                mods' = mods <> case len of
+                  Just n | n < 1/3 -> [ModSustain] -- force small note to sustain
+                  _                -> []
+                in guard (not $ null mods') >> Just ([str], mods')
               , rsTones      = U.unapplyTempoTrack temps
                 $ RTB.fromAbsoluteEventList
                 $ ATB.fromPairList
@@ -406,37 +448,12 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                   , gtrOffsets = map fromIntegral $ meta_Tuning $ sng_Metadata sng
                   , gtrGlobal  = 0 -- TODO use arr_capo ?
                   }
+              , pgTuningRSBass = Nothing
               , pgFixFreeform   = False
               , pgTones = Nothing -- TODO
               }
             }
       return (partName, part)
     } :: SongYaml FilePath)
-  {-
-  1. pick manifests/foo
-  2. load manifests/foo/foo.hsan (json)
-  3. parts located in values of the object.Entries object
-  4. for each part:
-    1. part.Attributes.ManifestUrn is "urn:database:json-db:thepartname"
-    2. load manifests/foo/thepartname.json
-    3. object.Entries should only have one key-value pair?
-    4. values to read to find the song files:
-      thatValue.Attributes.SongXml is "urn:application:xml:something"
-        points to songs/arr/something.xml
-      thatValue.Attributes.ShowlightsXML is "urn:application:xml:something"
-        points to songs/arr/something.xml
-      thatValue.Attributes.SongAsset is "urn:application:musicgame-song:something"
-        points to songs/bin/generic/something.sng
-      thatValue.Attributes.SongBank is "something.bnk"
-        points to audio/windows/something.bnk
-        (assuming windows could be xbox/ps/mac or something)
-      thatValue.Attributes.AlbumArt is "urn:image:dds:album_cuspikotaroppap"
-        points to gfxassets/album_art/something_size.dds
-        where size is 64, 128, 256
-        (this is also in the .hsan file)
-      (note that album art and audio could technically be different between parts,
-        but we don't need to support that for now)
-    5. use extractRSOgg to follow .bnk and extract .ogg
-    6. existing DXT code should work with .dds with some small additions
-  -}
+
   return ()

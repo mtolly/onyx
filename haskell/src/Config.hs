@@ -585,6 +585,7 @@ data PartProGuitar f = PartProGuitar
   { pgDifficulty    :: Difficulty
   , pgHopoThreshold :: Int
   , pgTuning        :: GtrTuning
+  , pgTuningRSBass  :: Maybe GtrTuning -- for 5/6-string bass which also has a 4-string arrangement
   , pgFixFreeform   :: Bool
   , pgTones         :: Maybe (RSTones f)
   } deriving (Eq, Ord, Show)
@@ -623,9 +624,13 @@ instance StackJSON (PartProGuitar FilePath) where
     pgDifficulty    <- pgDifficulty    =. fill (Tier 1) "difficulty"     stackJSON
     pgHopoThreshold <- pgHopoThreshold =. opt  170      "hopo-threshold" stackJSON
     pgTuning        <- pgTuning        =. opt  def      "tuning"         tuningFormat
+    pgTuningRSBass  <- pgTuningRSBass  =. opt  Nothing  "tuning-rs-bass" (maybeCodec tuningFormat)
     pgFixFreeform   <- pgFixFreeform   =. opt  True     "fix-freeform"   stackJSON
     pgTones         <- pgTones         =. opt  Nothing  "tones"          stackJSON
     return PartProGuitar{..}
+
+instance Default (PartProGuitar FilePath) where
+  def = fromEmptyObject
 
 data RSTones f = RSTones
   { rsFileToneBase :: f

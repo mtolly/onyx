@@ -39,7 +39,8 @@ import qualified Data.DTA.Serialize.Magma              as Magma
 import qualified Data.DTA.Serialize.RB3                as D
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
-import           Data.Fixed                            (Centi, Milli)
+import           Data.Fixed                            (Centi, Fixed (..),
+                                                        Milli)
 import           Data.Foldable                         (toList)
 import           Data.Hashable                         (Hashable, hash)
 import qualified Data.HashMap.Strict                   as HM
@@ -1981,7 +1982,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             let rsProject = dir </> "cst/project.dlc.xml"
                 rsAudio   = dir </> "cst/audio.wav"
                 rsArt     = dir </> "cst/cover.png"
-                rsArr p   = dir </> "cst/" <> T.unpack (RBFile.getPartName p) <> ".arr.xml"
+                rsArr p b = dir </> "cst/" <> T.unpack (RBFile.getPartName p) <> (if b then ".b" else ".g") <> ".arr.xml"
 
             let possibleParts =
                   --                     lead   rhythm bass   bonus
@@ -1999,10 +2000,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   return (fpart, pg, props)
 
             phony (dir </> "cst") $ shk $ need $
-              [rsProject, rsAudio, rsArt] ++ [ rsArr p | (p, _, _) <- presentParts ]
+              [rsProject, rsAudio, rsArt] ++ [ rsArr p bass | (p, _, (_, _, bass, _)) <- presentParts ]
 
             forM_ presentParts $ \(fpart, pg, props@(lead, rhythm, bass, bonus)) -> do
-              rsArr fpart %> \out -> do
+              rsArr fpart bass %> \out -> do
                 mid <- shakeMIDI $ planDir </> "processed.mid"
                 mapM_ (shk . need . toList) $ pgTones pg
                 toneKeys <- forM (pgTones pg) $ mapM $ fmap CST.t14_Key . CST.parseTone
@@ -2023,37 +2024,43 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         -- TODO maybe support using bass track for a guitar slot
                       in buildRS (RBFile.s_tempos mid) trk
                     allNotes = Arr.lvl_notes $ rso_level rso
+                    tuning1 = encodeTuningOffsets
+                      (case (bass, pgTuningRSBass pg) of
+                        (True, Just tun) -> tun
+                        _                -> pgTuning pg
+                      )
+                      (if bass then TypeBass else TypeGuitar)
+                    tuning2 = tuning1 <> repeat (last tuning1) -- so 5-string bass has a consistent dummy top string
+                    (tuning3, octaveDown) = if head tuning2 < (if bass then -4 else -8)
+                      then (map (+ 12) tuning2, True )
+                      else (tuning2           , False)
+                      -- NOTE: the cutoff is -4 for bass because for some reason CST fails
+                      -- when trying to apply the low bass fix
+                    lengthBeats = songLengthBeats mid
+                    lengthSeconds = U.applyTempoMap (RBFile.s_tempos mid) lengthBeats
                 Arr.writePart out $ Arr.PartArrangement Arr.Arrangement
                   { Arr.arr_version                = 7 -- this is what EOF has currently
                   , Arr.arr_title                  = getTitle $ _metadata songYaml
                   , Arr.arr_arrangement            = case props of
-                    (True, _, _, False) -> "Lead"
-                    (_, True, _, False) -> "Rhythm"
-                    (_, _, True, False) -> "Bass"
-                    (True, _, _, True)  -> "Bonus Lead"
-                    (_, True, _, True)  -> "Bonus Rhythm"
-                    (_, _, True, True)  -> "Bonus Bass"
-                    _                   -> "Unknown" -- shouldn't happen
+                    (True, _, _, _) -> "Lead"
+                    (_, True, _, _) -> "Rhythm"
+                    (_, _, True, _) -> "Bass"
+                    _               -> "Unknown" -- shouldn't happen
                   , Arr.arr_part                   = 1 -- TODO what is this?
                   , Arr.arr_offset                 = 0
-                  , Arr.arr_centOffset             = _tuningCents plan -- TODO handle bass on rhythm (probably -1200 cents)
-                  , Arr.arr_songLength             = case eventsEnd $ RBFile.onyxEvents $ RBFile.s_tracks mid of
-                    RNil        -> 0 -- shouldn't happen?
-                    Wait t () _ -> U.applyTempoMap (RBFile.s_tempos mid) t
+                  , Arr.arr_centOffset             = _tuningCents plan + if octaveDown then -1200 else 0
+                  , Arr.arr_songLength             = lengthSeconds
                   , Arr.arr_lastConversionDateTime = "" -- TODO
                   , Arr.arr_startBeat              = 0
-                  , Arr.arr_averageTempo           = 2 -- TODO :: U.BPS
-                  , Arr.arr_tuning                 = let
-                    -- TODO handle bass on rhythm
-                    offsets = encodeTuningOffsets (pgTuning pg) (if bass then TypeBass else TypeGuitar)
-                    in Arr.Tuning
-                      { Arr.tuning_string0 = fromMaybe 0 $ listToMaybe offsets
-                      , Arr.tuning_string1 = fromMaybe 0 $ listToMaybe $ drop 1 offsets
-                      , Arr.tuning_string2 = fromMaybe 0 $ listToMaybe $ drop 2 offsets
-                      , Arr.tuning_string3 = fromMaybe 0 $ listToMaybe $ drop 3 offsets
-                      , Arr.tuning_string4 = fromMaybe 0 $ listToMaybe $ drop 4 offsets
-                      , Arr.tuning_string5 = fromMaybe 0 $ listToMaybe $ drop 5 offsets
-                      }
+                  , Arr.arr_averageTempo           = U.makeTempo lengthBeats lengthSeconds
+                  , Arr.arr_tuning                 = Arr.Tuning
+                    { Arr.tuning_string0 = fromMaybe 0 $ listToMaybe tuning3
+                    , Arr.tuning_string1 = fromMaybe 0 $ listToMaybe $ drop 1 tuning3
+                    , Arr.tuning_string2 = fromMaybe 0 $ listToMaybe $ drop 2 tuning3
+                    , Arr.tuning_string3 = fromMaybe 0 $ listToMaybe $ drop 3 tuning3
+                    , Arr.tuning_string4 = fromMaybe 0 $ listToMaybe $ drop 4 tuning3
+                    , Arr.tuning_string5 = fromMaybe 0 $ listToMaybe $ drop 5 tuning3
+                    }
                   , Arr.arr_capo                   = 0 -- TODO :: Int
                   , Arr.arr_artistName             = getArtist $ _metadata songYaml
                   , Arr.arr_artistNameSort         = getArtist $ _metadata songYaml -- TODO
@@ -2139,12 +2146,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     (_, pg, _) <- presentParts
                     tones <- toList $ pgTones pg
                     toList tones
-              shk $ need $ [ rsArr fpart | (fpart, _, _) <- presentParts ] ++ allTonePaths
+              shk $ need $ [ rsArr fpart bass | (fpart, _, (_, _, bass, _)) <- presentParts ] ++ allTonePaths
               allTones <- forM allTonePaths $ \f -> do
                 tone <- CST.parseTone f
                 return (f, tone)
-              arrangements <- forM presentParts $ \(fpart, _pg, props) -> do
-                contents <- Arr.parseFile $ rsArr fpart
+              arrangements <- forM presentParts $ \(fpart, _pg, props@(_, _, isBass, _)) -> do
+                contents <- Arr.parseFile $ rsArr fpart isBass
                 arrID <- stackIO UUID.nextRandom
                 songFileID <- stackIO UUID.nextRandom
                 songXmlID <- stackIO UUID.nextRandom
@@ -2225,7 +2232,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       }
                     , CST.arr_SongXml              = CST.AggregateGraph
                       { CST.ag_UUID    = UUID.toText songXmlID
-                      , CST.ag_File    = T.pack $ takeFileName $ rsArr fpart
+                      , CST.ag_File    = T.pack $ takeFileName $ rsArr fpart isBass
                       , CST.ag_Version = Nothing
                       }
                     , CST.arr_ToneA                = fromMaybe "" $ Arr.arr_tonea arr
@@ -2234,8 +2241,34 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , CST.arr_ToneC                = fromMaybe "" $ Arr.arr_tonec arr
                     , CST.arr_ToneD                = fromMaybe "" $ Arr.arr_toned arr
                     , CST.arr_ToneMultiplayer      = Nothing
-                    , CST.arr_Tuning               = "E Standard" -- TODO
-                    , CST.arr_TuningPitch          = 440 -- TODO
+                    , CST.arr_Tuning               = let
+                      rs2014Tunings =
+                        [ ([0, 0, 0, 0, 0, 0], "E Standard")
+                        , ([-2, 0, 0, 0, 0, 0], "Drop D")
+                        , ([-2, 0, 0, -1, -2, -2], "Open D")
+                        , ([0, 0, 2, 2, 2, 0], "Open A")
+                        , ([-2, -2, 0, 0, 0, -2], "Open G")
+                        , ([0, 2, 2, 1, 0, 0], "Open E")
+                        , ([-1, -1, -1, -1, -1, -1], "Eb Standard")
+                        , ([-3, -1, -1, -1, -1, -1], "Eb Drop Db")
+                        , ([-2, -2, -2, -2, -2, -2], "D Standard")
+                        , ([-4, -2, -2, -2, -2, -2], "D Drop C")
+                        , ([-3, -3, -3, -3, -3, -3], "C# Standard")
+                        , ([-4, -4, -4, -4, -4, -4], "C Standard")
+                        ]
+                      thisTuning =
+                        [ Arr.tuning_string0 $ Arr.arr_tuning arr
+                        , Arr.tuning_string0 $ Arr.arr_tuning arr
+                        , Arr.tuning_string0 $ Arr.arr_tuning arr
+                        , Arr.tuning_string0 $ Arr.arr_tuning arr
+                        , Arr.tuning_string0 $ Arr.arr_tuning arr
+                        , Arr.tuning_string0 $ Arr.arr_tuning arr
+                        ]
+                      in fromMaybe "Custom Tuning" $ lookup thisTuning rs2014Tunings
+                    , CST.arr_TuningPitch          = let
+                      -- we use round instead of realToFrac to make sure that e.g. -1200 cents becomes 220 Hz and not 219.999
+                      hertzDouble = 440 * (2 ** (1 / 12)) ** (fromIntegral (Arr.arr_centOffset arr) / 100) :: Double
+                      in MkFixed $ round $ 1000 * hertzDouble :: Milli
                     , CST.arr_TuningStrings        = CST.TuningStrings
                       { CST.ts_String0 = Arr.tuning_string0 $ Arr.arr_tuning arr
                       , CST.ts_String1 = Arr.tuning_string1 $ Arr.arr_tuning arr
@@ -2245,6 +2278,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , CST.ts_String5 = Arr.tuning_string5 $ Arr.arr_tuning arr
                       }
                     }
+              randomNameID <- stackIO $ randomRIO (0, maxBound :: Int32)
               CST.writeProject out CST.DLCPackageData
                 { CST.dlc_AlbumArtPath      = "cover.png"
                 , CST.dlc_AppId             = 248750 -- Cherub Rock ID
@@ -2254,7 +2288,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 , CST.dlc_GameVersion       = "RS2014"
                 , CST.dlc_Inlay             = Nothing
                 , CST.dlc_Mac               = False
-                , CST.dlc_Name              = "CSTTest" -- TODO make a name like OnyASAMACrimsonRoseandaGinToni
+                , CST.dlc_Name              = T.pack $ "OnyxCST" <> show randomNameID -- TODO make a name like OnyASAMACrimsonRoseandaGinToni
                 , CST.dlc_OggPath           = "audio.wav"
                 , CST.dlc_OggPreviewPath    = "" -- TODO do we just leave this empty so it generates?
                 , CST.dlc_OggQuality        = 5

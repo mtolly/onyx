@@ -241,6 +241,15 @@ blipEdgesRB = let
   in splitEdgesSimple
     . fmap (\(s, a, mlen) -> (s, a, fromMaybe smallestBlip mlen))
 
+fixOverlaps :: (NNC.C t, Eq a) => RTB.T t (s, a, Maybe t) -> RTB.T t (s, a, Maybe t)
+fixOverlaps RNil = RNil
+fixOverlaps (Wait dt blip@(_, _, Nothing) rest) = Wait dt blip $ fixOverlaps rest
+fixOverlaps (Wait dt sust@(s, a, Just len) rest) = let
+  potentialOverlaps = U.trackTake len rest
+  in case RTB.filter (\(_, a', _) -> a == a') potentialOverlaps of
+    RNil          -> Wait dt sust $ fixOverlaps rest
+    Wait len' _ _ -> Wait dt (s, a, Just len') $ fixOverlaps rest
+
 blipEdgesRB_ :: (Ord a) => RTB.T U.Beats (a, Maybe U.Beats) -> RTB.T U.Beats (Edge () a)
 blipEdgesRB_ = blipEdgesRB . fmap (\(color, mlen) -> ((), color, mlen))
 

@@ -15,13 +15,14 @@ module Rocksmith.MIDI
 , ChordLocation(..)
 ) where
 
-import           Control.Monad                    (forM)
+import           Control.Applicative              (liftA2, (<|>))
+import           Control.Monad                    (forM, guard)
 import           Control.Monad.Codec
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
 import           Data.Foldable                    (toList)
-import           Data.List.Extra                  (elemIndex, nubOrd)
+import           Data.List.Extra                  (elemIndex, nubOrd, sort)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe)
 import           Data.Profunctor                  (dimap)
@@ -29,6 +30,7 @@ import qualified Data.Text                        as T
 import qualified Data.Vector                      as V
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
+import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Codec.ProGuitar
 import           RockBand.Common
@@ -264,8 +266,6 @@ instance ParseTrack RocksmithTrack where
           fs fret = (0, fret + 100)
           fp (_c, v) = v - 100
           in fatBlips (1/8) $ dimap (fmap fs) (fmap fp) $ blipCV n
-    rsAnchorLow  <- rsAnchorLow  =. fretNumber 108
-    rsAnchorHigh <- rsAnchorHigh =. fretNumber 109
     rsTones      <- (rsTones =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       ToneA -> ["tone", "a"]
       ToneB -> ["tone", "b"]
@@ -286,6 +286,9 @@ instance ParseTrack RocksmithTrack where
       (\x -> ["section", x])
     rsHandShapes <- rsHandShapes =. parseNotes 84
     rsChords     <- rsChords     =. commandMatch' parseChord unparseChord
+    (rsAnchorLow, rsAnchorHigh) <- statusBlips $ liftA2 (,)
+      (rsAnchorLow  =. fretNumber 108)
+      (rsAnchorHigh =. fretNumber 109)
     return RocksmithTrack{..}
 
 data RSOutput = RSOutput
@@ -297,24 +300,137 @@ data RSOutput = RSOutput
   , rso_chordTemplates   :: V.Vector ChordTemplate
   }
 
+data ChordBank = ChordBank
+  { cb_notes  :: Map.Map (Map.Map GtrString GtrFret) ChordInfo
+  , cb_shapes :: Map.Map (Map.Map GtrString GtrFret) ChordInfo
+  }
+
+data ChordsEvent
+  = CENote (GtrString, GtrFret)
+  | CEShape (GtrString, GtrFret)
+  | CEChord ChordInfo
+  deriving (Eq, Ord)
+
+buildChordBank :: (NNC.C t) => RocksmithTrack t -> RTB.T t ChordBank
+buildChordBank trk = let
+  events = foldr RTB.merge RTB.empty
+    [ RTB.mapMaybe (\case EdgeOn f s -> Just $ CENote (s, f); _ -> Nothing) $ rsNotes trk
+    , RTB.mapMaybe (\case EdgeOn f s -> Just $ CEShape (s, f); _ -> Nothing) $ rsHandShapes trk
+    , fmap CEChord $ rsChords trk
+    ]
+  go _    RNil               = RNil
+  go bank (Wait t evts rest) = let
+    funs = do
+      CEChord ci <- evts
+      concat
+        [ do
+          guard $ ciLocation ci /= ChordLocShape
+          let notes = [n | CENote n <- evts]
+          guard $ length notes >= 2
+          return $ \b -> b { cb_notes = Map.insert (Map.fromList notes) ci $ cb_notes b }
+        , do
+          guard $ ciLocation ci /= ChordLocNotes
+          let shapes = [n | CEShape n <- evts]
+          guard $ length shapes >= 2
+          return $ \b -> b { cb_shapes = Map.insert (Map.fromList shapes) ci $ cb_shapes b }
+        ]
+    bank' = foldr ($) bank funs
+    in Wait t bank' $ go bank' rest
+  in go (ChordBank Map.empty Map.empty) $ RTB.collectCoincident events
+
+data FretConstraint
+  = FretRelease Int
+  | FretBlip Int GtrFret
+  | FretHold Int GtrFret
+  deriving (Eq, Ord)
+
+autoAnchors :: [Note] -> Map.Map U.Seconds (GtrFret, GtrFret)
+autoAnchors allNotes = let
+  constraints = ATB.collectCoincident $ ATB.fromPairList $ sort $ allNotes >>= \note ->
+    case n_fret note of
+      0 -> []
+      _ -> case n_sustain note of
+        Nothing -> [(n_time note, FretBlip (n_string note) (n_fret note))]
+        Just sust -> concat
+          [ [(n_time note, FretHold (n_string note) (n_fret note))]
+          , [(n_time note <> sust, FretRelease $ n_string note)]
+          , case n_slideTo note <|> n_slideUnpitchTo note of
+            Just slide -> [(n_time note <> sust, FretBlip (n_string note) slide)]
+            Nothing -> []
+          ]
+  initialAnchor = (1, 4) -- TODO pick a better one
+  buildAnchors _ _ ANil = ANil
+  buildAnchors prevAnchor@(prevMin, prevMax) fretState (At t evts rest) = let
+    released = foldr Map.delete fretState [ s | FretRelease s <- evts ]
+    permState = foldr (uncurry Map.insert) released [ (s, f) | FretHold s f <- evts ]
+    fretsNow = case Map.elems $ foldr (uncurry Map.insert) permState [ (s, f) | FretBlip s f <- evts ] of
+      []    -> Nothing
+      frets -> Just (minimum frets, maximum frets)
+    thisAnchor = case fretsNow of
+      Nothing -> prevAnchor
+      Just (minFret, maxFret) -> case (prevMin <= minFret, maxFret <= prevMax) of
+        (True, True)   -> prevAnchor -- continue previous anchor because it works
+        (True, False)  -> (min minFret (maxFret - 3), maxFret) -- need to move up
+        (False, True)  -> (minFret, max (minFret + 3) maxFret) -- need to move down
+        (False, False) -> (minFret, maxFret) -- need to grow
+    in At t thisAnchor $ buildAnchors thisAnchor permState rest
+  in Map.fromList $ ATB.toPairList
+    $ RTB.toAbsoluteEventList 0
+    $ noRedundantStatus
+    $ RTB.fromAbsoluteEventList
+    $ buildAnchors initialAnchor Map.empty constraints
+
 buildRS :: U.TempoMap -> RocksmithTrack U.Beats -> RSOutput
 buildRS tmap trk = RSOutput
   { rso_level = Level
     { lvl_difficulty    = 0
-    , lvl_notes         = V.fromList allNotes
-    , lvl_chords        = mempty
-    , lvl_handShapes    = mempty
+    , lvl_notes         = V.fromList [ n | Left n <- notesAndChords ]
+    , lvl_chords        = V.fromList $ do
+      Right (template, notes) <- notesAndChords
+      return Chord
+        { chd_time         = n_time $ head notes
+        , chd_chordId      = fromMaybe (-1) $ Map.lookup template chordTemplateIndexes
+        , chd_accent       = all n_accent notes
+        , chd_highDensity  = False -- TODO what does this do exactly? is it visual or scoring?
+        , chd_palmMute     = all n_palmMute notes
+        , chd_fretHandMute = all n_mute notes
+        , chd_linkNext     = all n_linkNext notes
+        , chd_chordNotes   = V.fromList notes
+        , chd_ignore       = all n_ignore notes
+        , chd_hopo         = False -- is this required?
+        , chd_strum        = Nothing -- TODO get from n_pickDirection
+        }
+    , lvl_handShapes    = V.fromList $ do
+      (template, startTime, endTime) <- shapes
+      return HandShape
+        { hs_chordId   = fromMaybe (-1) $ Map.lookup template chordTemplateIndexes
+        , hs_startTime = startTime
+        , hs_endTime   = endTime
+        }
     , lvl_fretHandMutes = mempty
-    , lvl_anchors       = V.singleton $ let
-      -- TODO real anchors (manual or auto)
-      -- TODO make sure we write out an anchor at the start of each phrase! (before its first note)
+    , lvl_anchors       = let
       -- note: according to EOF, highest min-fret for an anchor is 21
-      minFret = max 1 $ minimum $ map n_fret allNotes
-      maxFret = maximum $ map n_fret allNotes
-      in Anchor
-        { an_time  = 0
-        , an_fret  = minFret
-        , an_width = fromIntegral $ max 1 $ maxFret - minFret
+      anchorMap = if RTB.null $ rsAnchorLow trk
+        then autoAnchors allNotes
+        else let
+          merged = RTB.collectCoincident $ RTB.merge (Left <$> rsAnchorLow trk) (Right <$> rsAnchorHigh trk)
+          bounds = U.applyTempoTrack tmap $ flip RTB.mapMaybe merged $ \evts ->
+            case ([ low | Left low <- evts ], [ high | Right high <- evts ]) of
+              (low : _, high : _) -> Just (low, high)
+              (low : _, []      ) -> Just (low, low + 3)
+              _                   -> Nothing
+          in Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 bounds
+      -- each phrase needs to have an anchor at the start (or at least before its first note)
+      addPhraseAnchors m []   = m
+      addPhraseAnchors m (t : ts) = case Map.lookupLE t m of
+        Nothing          -> addPhraseAnchors m ts
+        Just (_, anchor) -> addPhraseAnchors (Map.insert t anchor m) ts
+      anchorMap' = addPhraseAnchors anchorMap $ ATB.getTimes
+        $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap $ rsPhrases trk
+      in V.fromList $ flip map (Map.toList anchorMap') $ \(t, (low, high)) -> Anchor
+        { an_time  = t
+        , an_fret  = low
+        , an_width = fromIntegral $ max 1 $ high - low + 1
         }
     }
   , rso_tones = U.applyTempoTrack tmap $ rsTones trk
@@ -338,7 +454,7 @@ buildRS tmap trk = RSOutput
     $ ATB.toPairList
     $ RTB.toAbsoluteEventList 0
     $ rsPhrases trk
-  , rso_chordTemplates = V.empty
+  , rso_chordTemplates = V.fromList chordTemplates
   } where
     numberSections _ [] = []
     numberSections counts ((t, sect) : rest) = let
@@ -356,47 +472,114 @@ buildRS tmap trk = RSOutput
     lookupModifier t str = let
       atTime = fromMaybe [] $ Map.lookup t modifierMap
       in concat [ mods | (strs, mods) <- atTime, null strs || elem str strs ]
-    allNotes = let
-      notes = joinEdgesSimple $ U.applyTempoTrack tmap $ rsNotes trk
-      in flip map (ATB.toPairList $ RTB.toAbsoluteEventList 0 notes) $ \(t, (fret, str, len)) -> let
-        mods = lookupModifier t str
-        in Note
-          { n_time           = t
-          , n_string         = case str of
-            S6 -> 0
-            S5 -> 1
-            S4 -> 2
-            S3 -> 3
-            S2 -> 4
-            S1 -> 5
-            _  -> -1
-          , n_fret           = fret
-          , n_sustain        = let
-            startBeats = U.unapplyTempoMap tmap t
-            endBeats = U.unapplyTempoMap tmap $ t <> len
-            in if endBeats - startBeats >= (1/3)
-              then Just len
-              else Nothing
-          , n_vibrato        = listToMaybe [ n | ModVibrato n <- mods ]
-          , n_hopo           = False -- I don't think you need this?
-          , n_hammerOn       = elem ModHammerOn mods
-          , n_pullOff        = elem ModPullOff mods
-          , n_slideTo        = listToMaybe [ n | ModSlide n <- mods ]
-          , n_slideUnpitchTo = listToMaybe [ n | ModSlideUnpitch n <- mods ]
-          , n_mute           = elem ModMute mods
-          , n_palmMute       = elem ModPalmMute mods
-          , n_accent         = elem ModAccent mods
-          , n_linkNext       = elem ModLink mods
-          , n_bend           = listToMaybe [ n | ModBend n <- mods ]
-          , n_bendValues     = V.empty -- TODO
-          , n_harmonic       = elem ModHarmonic mods
-          , n_harmonicPinch  = elem ModHarmonicPinch mods
-          , n_leftHand       = Nothing -- TODO
-          , n_rightHand      = listToMaybe [ fromEnum n | ModRightHand n <- mods ]
-          , n_tap            = elem ModTap mods
-          , n_slap           = listToMaybe [ n | ModSlap n <- mods ]
-          , n_pluck          = listToMaybe [ n | ModPluck n <- mods ]
-          , n_tremolo        = elem ModTremolo mods
-          , n_pickDirection  = Nothing -- TODO
-          , n_ignore         = elem ModIgnore mods
-          }
+    makeNote t (fret, str, len) = let
+      mods = lookupModifier t str
+      in Note
+        { n_time           = t
+        , n_string         = case str of
+          S6 -> 0
+          S5 -> 1
+          S4 -> 2
+          S3 -> 3
+          S2 -> 4
+          S1 -> 5
+          _  -> -1
+        , n_fret           = fret
+        , n_sustain        = let
+          startBeats = U.unapplyTempoMap tmap t
+          endBeats = U.unapplyTempoMap tmap $ t <> len
+          in if endBeats - startBeats >= (1/3) || elem ModSustain mods
+            then Just len
+            else Nothing
+        , n_vibrato        = listToMaybe [ n | ModVibrato n <- mods ]
+        , n_hopo           = False -- I don't think you need this?
+        , n_hammerOn       = elem ModHammerOn mods
+        , n_pullOff        = elem ModPullOff mods
+        , n_slideTo        = listToMaybe [ n | ModSlide n <- mods ]
+        , n_slideUnpitchTo = listToMaybe [ n | ModSlideUnpitch n <- mods ]
+        , n_mute           = elem ModMute mods
+        , n_palmMute       = elem ModPalmMute mods
+        , n_accent         = elem ModAccent mods
+        , n_linkNext       = elem ModLink mods
+        , n_bend           = listToMaybe [ n | ModBend n <- mods ]
+        , n_bendValues     = V.empty -- TODO
+        , n_harmonic       = elem ModHarmonic mods
+        , n_harmonicPinch  = elem ModHarmonicPinch mods
+        , n_leftHand       = Nothing -- if chord, assigned later when we look up the chord info
+        , n_rightHand      = listToMaybe [ fromEnum n | ModRightHand n <- mods ]
+        , n_tap            = elem ModTap mods
+        , n_slap           = listToMaybe [ n | ModSlap n <- mods ]
+        , n_pluck          = listToMaybe [ n | ModPluck n <- mods ]
+        , n_tremolo        = elem ModTremolo mods
+        , n_pickDirection  = Nothing -- TODO
+        , n_ignore         = elem ModIgnore mods
+        }
+    chordBank = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap $ buildChordBank trk
+    makeTemplate cinfo notes = let
+      sortedNotes = sort [(str, fret) | (fret, str, _) <- notes]
+      assignFingers []       []                = []
+      assignFingers fs       ((str, 0) : rest) = (str, 0, Nothing) : assignFingers fs rest
+      assignFingers (f : fs) ((str, n) : rest) = (str, n, Just f ) : assignFingers fs rest
+      assignFingers _        _                 = error $ "Mismatched chord fingers: " <> show (cinfo, notes)
+      finish assigned = ChordTemplate
+        { ct_chordName   = fromMaybe "" $ ciName cinfo
+        , ct_displayName = fromMaybe "" (ciName cinfo)
+          <> (if ciArpeggio cinfo then "-arp" else "")
+          <> (if ciNop      cinfo then "-nop" else "")
+        , ct_finger0     = listToMaybe [fromEnum finger | (S6, _, Just finger) <- assigned]
+        , ct_finger1     = listToMaybe [fromEnum finger | (S5, _, Just finger) <- assigned]
+        , ct_finger2     = listToMaybe [fromEnum finger | (S4, _, Just finger) <- assigned]
+        , ct_finger3     = listToMaybe [fromEnum finger | (S3, _, Just finger) <- assigned]
+        , ct_finger4     = listToMaybe [fromEnum finger | (S2, _, Just finger) <- assigned]
+        , ct_finger5     = listToMaybe [fromEnum finger | (S1, _, Just finger) <- assigned]
+        , ct_fret0       = listToMaybe [fret | (S6, fret, _) <- assigned]
+        , ct_fret1       = listToMaybe [fret | (S5, fret, _) <- assigned]
+        , ct_fret2       = listToMaybe [fret | (S4, fret, _) <- assigned]
+        , ct_fret3       = listToMaybe [fret | (S3, fret, _) <- assigned]
+        , ct_fret4       = listToMaybe [fret | (S2, fret, _) <- assigned]
+        , ct_fret5       = listToMaybe [fret | (S1, fret, _) <- assigned]
+        }
+      in finish $ assignFingers (ciFingers cinfo) sortedNotes
+    notesAndChords = let
+      notes = RTB.collectCoincident $ joinEdgesSimple $ U.applyTempoTrack tmap $ rsNotes trk
+      in flip map (ATB.toPairList $ RTB.toAbsoluteEventList 0 $ notes) $ \(t, noteGroup) ->
+        case noteGroup of
+          [(fret, str, len)] -> Left $ makeNote t (fret, str, len)
+          _ -> let
+            key = Map.fromList [ (str, fret) | (fret, str, _) <- noteGroup ]
+            in case Map.lookupLE t chordBank >>= Map.lookup key . cb_notes . snd of
+              Just cinfo -> let
+                template = makeTemplate cinfo noteGroup
+                madeNotes = do
+                  triple <- noteGroup
+                  let note = makeNote t triple
+                  return note
+                    { n_leftHand = case n_string note of
+                      0 -> ct_finger0 template
+                      1 -> ct_finger1 template
+                      2 -> ct_finger2 template
+                      3 -> ct_finger3 template
+                      4 -> ct_finger4 template
+                      5 -> ct_finger5 template
+                      _ -> Nothing
+                    }
+                in Right (template, madeNotes)
+              Nothing -> error $ "Couldn't find chord mapping at " <> show t <> " for " <> show key
+    allNotes = notesAndChords >>= \case
+      Left  note       -> [note]
+      Right (_, notes) -> notes
+    shapes = let
+      shapeNotes = RTB.collectCoincident $ joinEdgesSimple $ U.applyTempoTrack tmap $ rsHandShapes trk
+      in flip map (ATB.toPairList $ RTB.toAbsoluteEventList 0 $ shapeNotes) $ \(t, noteGroup) -> let
+        key = Map.fromList [ (str, fret) | (fret, str, _) <- noteGroup ]
+        in case Map.lookupLE t chordBank >>= Map.lookup key . cb_notes . snd of
+          Just cinfo -> let
+            template = makeTemplate cinfo noteGroup
+            startTime = t
+            endTime = t <> case head noteGroup of (_, _, len) -> len
+            in (template, startTime, endTime)
+          Nothing -> error $ "Couldn't find chord mapping at " <> show t <> " for " <> show key
+    chordTemplates = nubOrd
+      $  [ template | Right (template, _) <- notesAndChords ]
+      <> [ template | (template, _, _)    <- shapes         ]
+    chordTemplateIndexes = Map.fromList $ zip chordTemplates [0..]

@@ -561,12 +561,11 @@ importFoF src dest = do
         , partProGuitar = let
           b =  (isnt nullPG RBFile.fixedPartRealGuitar   && guardDifficulty FoF.diffGuitarReal  )
             || (isnt nullPG RBFile.fixedPartRealGuitar22 && guardDifficulty FoF.diffGuitarReal22)
-          in guard b >> Just PartProGuitar
+          in guard b >> Just def
             { pgDifficulty = toTier $ FoF.diffGuitarReal song
             , pgHopoThreshold = hopoThreshold
-            , pgTuning = def
+            , pgTuning = def -- TODO actually import this
             , pgFixFreeform = False
-            , pgTones = Nothing
             }
         , partGHL = guard (isnt nullSix RBFile.fixedPartGuitarGHL && guardDifficulty FoF.diffGuitarGHL) >> Just PartGHL
           { ghlDifficulty = toTier $ FoF.diffGuitarGHL song
@@ -584,12 +583,11 @@ importFoF src dest = do
         , partProGuitar = let
           b =  (isnt nullPG RBFile.fixedPartRealBass   && guardDifficulty FoF.diffBassReal  )
             || (isnt nullPG RBFile.fixedPartRealBass22 && guardDifficulty FoF.diffBassReal22)
-          in guard b >> Just PartProGuitar
+          in guard b >> Just def
             { pgDifficulty = toTier $ FoF.diffBassReal song
             , pgHopoThreshold = hopoThreshold
-            , pgTuning = def
+            , pgTuning = def -- TODO actually import this
             , pgFixFreeform = False
-            , pgTones = Nothing
             }
         , partGHL = guard (isnt nullSix RBFile.fixedPartBassGHL && guardDifficulty FoF.diffBassGHL) >> Just PartGHL
           { ghlDifficulty = toTier $ FoF.diffBassGHL song
@@ -1078,7 +1076,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
           }
-        , partProGuitar = guard (hasRankStr "real_guitar") >> Just PartProGuitar
+        , partProGuitar = guard (hasRankStr "real_guitar") >> Just def
           { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_guitar" diffMap
           , pgHopoThreshold = hopoThresh
           , pgTuning = GtrTuning
@@ -1087,7 +1085,6 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
             , gtrGlobal = 0
             }
           , pgFixFreeform = False
-          , pgTones = Nothing
           }
         })
       , ( FlexBass, def
@@ -1098,7 +1095,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
           }
-        , partProGuitar = guard (hasRankStr "real_bass") >> Just PartProGuitar
+        , partProGuitar = guard (hasRankStr "real_bass") >> Just def
           { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_bass" diffMap
           , pgHopoThreshold = hopoThresh
           , pgTuning = GtrTuning
@@ -1107,7 +1104,6 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
             , gtrGlobal = 0
             }
           , pgFixFreeform = False
-          , pgTones = Nothing
           }
         })
       , ( FlexKeys, def
@@ -1372,7 +1368,7 @@ importMagma fin dir = do
           }
         , partProGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= C3.proGuitarDiff
-          Just PartProGuitar
+          Just def
             { pgDifficulty = Tier $ rankToTier proGuitarDiffMap $ fromIntegral diff
             , pgHopoThreshold = hopoThresh
             , pgTuning = GtrTuning
@@ -1381,7 +1377,6 @@ importMagma fin dir = do
               , gtrGlobal = 0
               }
             , pgFixFreeform = False
-            , pgTones = Nothing
             }
         })
       , ( FlexBass, def
@@ -1394,7 +1389,7 @@ importMagma fin dir = do
           }
         , partProGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= C3.proBassDiff
-          Just PartProGuitar
+          Just def
             { pgDifficulty = Tier $ rankToTier proBassDiffMap $ fromIntegral diff
             , pgHopoThreshold = hopoThresh
             , pgTuning = GtrTuning
@@ -1403,7 +1398,6 @@ importMagma fin dir = do
               , gtrGlobal = 0
               }
             , pgFixFreeform = False
-            , pgTones = Nothing
             }
         })
       , ( FlexKeys, def

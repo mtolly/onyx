@@ -165,7 +165,7 @@ data ChordTemplate = ChordTemplate
   , ct_fret3       :: Maybe Int
   , ct_fret4       :: Maybe Int
   , ct_fret5       :: Maybe Int
-  } deriving (Eq, Show)
+  } deriving (Eq, Ord, Show)
 
 instance IsInside ChordTemplate where
   insideCodec = do

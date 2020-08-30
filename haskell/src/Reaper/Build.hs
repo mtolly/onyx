@@ -227,9 +227,9 @@ track tunings lenTicks lenSecs resn trk = let
           = (True, True, previewKeys >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
           | any (`T.isSuffixOf` name) ["PART DRUMS", "PART DRUMS_2X", "PART REAL_DRUMS_PS"]
           = (True, True, previewDrums >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
-          | "PART REAL_GUITAR" `T.isInfixOf` name
+          | any (`T.isInfixOf` name) ["PART REAL_GUITAR", "PART RS LEAD", "PART RS RHYTHM"]
           = (False, True, hearProtar False >> pitchProGtr)
-          | "PART REAL_BASS" `T.isInfixOf` name
+          | any (`T.isInfixOf` name) ["PART REAL_BASS", "PART RS BASS"]
           = (False, True, hearProtar True >> pitchProGtr)
           | otherwise
           = (False, False, return ())
@@ -355,6 +355,9 @@ track tunings lenTicks lenSecs resn trk = let
       , (("HARM3" `T.isSuffixOf`), vocalNoteNames)
       , (("PART REAL_GUITAR" `T.isInfixOf`), proGuitarNoteNames)
       , (("PART REAL_BASS" `T.isInfixOf`), proGuitarNoteNames)
+      , (("PART RS LEAD" `T.isInfixOf`), rsGuitarNoteNames)
+      , (("PART RS RHYTHM" `T.isInfixOf`), rsGuitarNoteNames)
+      , (("PART RS BASS" `T.isInfixOf`), rsBassNoteNames)
       , (("MELODY'S ESCAPE" `T.isSuffixOf`), melodyNoteNames)
       , (("DONKEY KONGA" `T.isInfixOf`), dkongaNoteNames)
       , (("PART DANCE" `T.isSuffixOf`), danceNoteNames)
@@ -845,6 +848,44 @@ proGuitarNoteNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
+rsGuitarNoteNames :: [(Int, T.Text)]
+rsGuitarNoteNames = execWriter $ do
+  o 109 "Anchor High Fret"
+  o 108 "Anchor Low Fret"
+  x 107
+  o 101 "String 5 (e)"
+  o 100 "String 4 (B)"
+  o 99  "String 3 (G)"
+  o 98  "String 2 (D)"
+  o 97  "String 1 (A)"
+  o 96  "String 0 (E)"
+  x 95
+  o 89  "Shape String 5 (e)"
+  o 88  "Shape String 4 (B)"
+  o 87  "Shape String 3 (G)"
+  o 86  "Shape String 2 (D)"
+  o 85  "Shape String 1 (A)"
+  o 84  "Shape String 0 (E)"
+  where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
+
+rsBassNoteNames :: [(Int, T.Text)]
+rsBassNoteNames = execWriter $ do
+  o 109 "Anchor High Fret"
+  o 108 "Anchor Low Fret"
+  x 107
+  o 99  "String 3 (G)"
+  o 98  "String 2 (D)"
+  o 97  "String 1 (A)"
+  o 96  "String 0 (E)"
+  x 95
+  o 87  "Shape String 3 (G)"
+  o 86  "Shape String 2 (D)"
+  o 85  "Shape String 1 (A)"
+  o 84  "Shape String 0 (E)"
+  where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
+
 venuegenLightingNames :: [(Int, T.Text)]
 venuegenLightingNames = execWriter $ do
   o 71 "Default"
@@ -1123,11 +1164,14 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`T.isSuffixOf` T.pack 
   , "PART BASS EXT"
   , "PART REAL_BASS"
   , "PART REAL_BASS_22"
+  , "PART RS BASS"
   , "PART GUITAR"
   , "PART GUITAR EXT"
   , "PART REAL_GUITAR"
   , "PART REAL_GUITAR_22"
+  , "PART RS LEAD"
   , "PART RHYTHM"
+  , "PART RS RHYTHM"
   , "PART VOCALS"
   , "HARM1"
   , "HARM2"
