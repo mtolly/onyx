@@ -18,6 +18,7 @@ module Rocksmith.MIDI
 import           Control.Applicative              (liftA2, (<|>))
 import           Control.Monad                    (forM, guard)
 import           Control.Monad.Codec
+import           Data.Char                        (isDigit)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
@@ -44,7 +45,7 @@ data RocksmithTrack t = RocksmithTrack
   , rsAnchorLow  :: RTB.T t GtrFret
   , rsAnchorHigh :: RTB.T t GtrFret -- if not given, defaults to low + 3 (for a width of 4)
   , rsTones      :: RTB.T t ToneLetter
-  , rsBends      :: RTB.T t ([GtrString], Milli) -- TODO I suspect we also need to support "unk5"
+  , rsBends      :: RTB.T t ([GtrString], Milli)
   , rsPhrases    :: RTB.T t T.Text -- phrase name; repeat same name for multiple iterations of one phrase
   , rsSections   :: RTB.T t T.Text
   , rsHandShapes :: RTB.T t (Edge GtrFret GtrString)
@@ -88,14 +89,14 @@ data RSModifier
   | ModPalmMute
   | ModAccent
   | ModLink
-  | ModBend Milli -- pre bend
   | ModHarmonic
   | ModHarmonicPinch
   -- left hand info is in rsChords
   | ModRightHand Finger
+  -- these next 3 might have an extra int parameter in xml/sng? no idea if it matters
   | ModTap
-  | ModSlap Int -- what is the number? or is it just bool?
-  | ModPluck Int -- what is the number? or is it just bool?
+  | ModSlap
+  | ModPluck
   | ModTremolo
   | ModPickUp
   | ModPickDown
@@ -110,11 +111,11 @@ instance TraverseTrack RocksmithTrack where
 parseStrings :: [T.Text] -> Maybe ([GtrString], [T.Text])
 parseStrings = \case
   "*" : rest -> Just ([], rest)
-  ns  : rest -> do
+  ns  : rest | T.all isDigit ns -> do
     strs <- forM (T.unpack ns) $ \n -> lookup n
       [('0', S6), ('1', S5), ('2', S4), ('3', S3), ('4', S2), ('5', S1)]
     Just (strs, rest)
-  _ -> Nothing
+  rest -> Just ([], rest)
 
 unparseStrings :: [GtrString] -> T.Text
 unparseStrings [] = "*"
@@ -155,13 +156,12 @@ parseModifiers cmd = let
     "palmmute"      :     rest -> cont rest $ pure ModPalmMute
     "accent"        :     rest -> cont rest $ pure ModAccent
     "link"          :     rest -> cont rest $ pure ModLink
-    "prebend"       : n : rest -> cont rest $      ModBend <$> readMaybe (T.unpack n)
     "harmonic"      :     rest -> cont rest $ pure ModHarmonic
     "harmonicpinch" :     rest -> cont rest $ pure ModHarmonicPinch
     "righthand"     : f : rest -> cont rest $      ModRightHand <$> lookupFinger f
     "tap"           :     rest -> cont rest $ pure ModTap
-    "slap"          : n : rest -> cont rest $      ModSlap <$> readMaybe (T.unpack n)
-    "pluck"         : n : rest -> cont rest $      ModPluck <$> readMaybe (T.unpack n)
+    "slap"          :     rest -> cont rest $ pure ModSlap
+    "pluck"         :     rest -> cont rest $ pure ModPluck
     "tremolo"       :     rest -> cont rest $ pure ModTremolo
     "pickup"        :     rest -> cont rest $ pure ModPickUp
     "pickdown"      :     rest -> cont rest $ pure ModPickDown
@@ -186,13 +186,12 @@ unparseModifiers (strs, mods) = let
     ModPalmMute       -> ["palmmute"                      ]
     ModAccent         -> ["accent"                        ]
     ModLink           -> ["link"                          ]
-    ModBend n         -> ["prebend"      , T.pack $ show n]
     ModHarmonic       -> ["harmonic"                      ]
     ModHarmonicPinch  -> ["harmonicpinch"                 ]
     ModRightHand f    -> ["righthand"    , T.pack $ show $ fromEnum f]
     ModTap            -> ["tap"                           ]
-    ModSlap n         -> ["slap"         , T.pack $ show n]
-    ModPluck n        -> ["pluck"        , T.pack $ show n]
+    ModSlap           -> ["slap"                          ]
+    ModPluck          -> ["pluck"                         ]
     ModTremolo        -> ["tremolo"                       ]
     ModPickUp         -> ["pickup"                        ]
     ModPickDown       -> ["pickdown"                      ]
@@ -342,13 +341,14 @@ data FretConstraint
   = FretRelease Int
   | FretBlip Int GtrFret
   | FretHold Int GtrFret
+  | FretZero -- just used to ensure that we make an anchor even if the first note is open
   deriving (Eq, Ord)
 
 autoAnchors :: [Note] -> Map.Map U.Seconds (GtrFret, GtrFret)
 autoAnchors allNotes = let
   constraints = ATB.collectCoincident $ ATB.fromPairList $ sort $ allNotes >>= \note ->
     case n_fret note of
-      0 -> []
+      0 -> [(n_time note, FretZero)]
       _ -> case n_sustain note of
         Nothing -> [(n_time note, FretBlip (n_string note) (n_fret note))]
         Just sust -> concat
@@ -472,8 +472,22 @@ buildRS tmap trk = RSOutput
     lookupModifier t str = let
       atTime = fromMaybe [] $ Map.lookup t modifierMap
       in concat [ mods | (strs, mods) <- atTime, null strs || elem str strs ]
+    bendMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0
+      $ RTB.collectCoincident $ U.applyTempoTrack tmap $ rsBends trk
+    lookupBends t len str = let
+      (_, startBend, m1) = Map.splitLookup t bendMap
+      (m2, endBend, _) = Map.splitLookup (t <> len) m1
+      m3 = maybe id (Map.insert t) startBend
+        $ maybe id (Map.insert $ t <> len) endBend m2
+      -- TODO do we need a separate event for "bends right at the end of a sustain"?
+      in do
+        (bendTime, evts) <- Map.toList m3
+        (strs, bend) <- evts
+        guard $ null strs || elem str strs
+        return (bendTime, bend)
     makeNote t (fret, str, len) = let
       mods = lookupModifier t str
+      bends = lookupBends t len str
       in Note
         { n_time           = t
         , n_string         = case str of
@@ -488,7 +502,13 @@ buildRS tmap trk = RSOutput
         , n_sustain        = let
           startBeats = U.unapplyTempoMap tmap t
           endBeats = U.unapplyTempoMap tmap $ t <> len
-          in if endBeats - startBeats >= (1/3) || elem ModSustain mods
+          forcesSustain = \case
+            ModSustain        -> True
+            ModLink           -> True
+            ModSlide _        -> True
+            ModSlideUnpitch _ -> True
+            _                 -> False
+          in if endBeats - startBeats >= (1/3) || any forcesSustain mods
             then Just len
             else Nothing
         , n_vibrato        = listToMaybe [ n | ModVibrato n <- mods ]
@@ -501,15 +521,20 @@ buildRS tmap trk = RSOutput
         , n_palmMute       = elem ModPalmMute mods
         , n_accent         = elem ModAccent mods
         , n_linkNext       = elem ModLink mods
-        , n_bend           = listToMaybe [ n | ModBend n <- mods ]
-        , n_bendValues     = V.empty -- TODO
+        , n_bend           = case bends of
+          [] -> Nothing
+          _  -> Just $ maximum $ map snd bends
+        , n_bendValues     = V.fromList $ flip map bends $ \(bendTime, bend) -> BendValue
+          { bv_time = bendTime
+          , bv_step = Just bend
+          }
         , n_harmonic       = elem ModHarmonic mods
         , n_harmonicPinch  = elem ModHarmonicPinch mods
         , n_leftHand       = Nothing -- if chord, assigned later when we look up the chord info
         , n_rightHand      = listToMaybe [ fromEnum n | ModRightHand n <- mods ]
         , n_tap            = elem ModTap mods
-        , n_slap           = listToMaybe [ n | ModSlap n <- mods ]
-        , n_pluck          = listToMaybe [ n | ModPluck n <- mods ]
+        , n_slap           = if elem ModSlap mods then Just 1 else Nothing
+        , n_pluck          = if elem ModPluck mods then Just 1 else Nothing
         , n_tremolo        = elem ModTremolo mods
         , n_pickDirection  = Nothing -- TODO
         , n_ignore         = elem ModIgnore mods

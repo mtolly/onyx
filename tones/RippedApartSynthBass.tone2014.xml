@@ -1,0 +1,196 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Tone2014 xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone">
+  <GearList>
+    <Amp>
+      <Category i:nil="true" />
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT550_Bass</d4p1:Key>
+          <d4p1:Value>2</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT550_Mid</d4p1:Key>
+          <d4p1:Value>4</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT550_LoFreq</d4p1:Key>
+          <d4p1:Value>300</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT550_HiFreq</d4p1:Key>
+          <d4p1:Value>2.6</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT550_Lo</d4p1:Key>
+          <d4p1:Value>-4</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT550_Hi</d4p1:Key>
+          <d4p1:Value>1</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT550_MidFreq</d4p1:Key>
+          <d4p1:Value>1200</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT550_Treble</d4p1:Key>
+          <d4p1:Value>8</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT550_Enhance</d4p1:Key>
+          <d4p1:Value>49</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT550_Gain</d4p1:Key>
+          <d4p1:Value>14</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Bass_Amp_EdenWT550</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Amps</Type>
+    </Amp>
+    <Cabinet>
+      <Category i:nil="true" />
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays" />
+      <PedalKey>Bass_Cab_EdenD610XST_Condenser_Edge</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Cabinets</Type>
+    </Cabinet>
+    <PostPedal1>
+      <Category>30781</Category>
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_NoiseGate_Thresh</d4p1:Key>
+          <d4p1:Value>-53</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_NoiseGate_Rate</d4p1:Key>
+          <d4p1:Value>75</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Pedal_NoiseGate</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Pedals</Type>
+    </PostPedal1>
+    <PostPedal2 i:nil="true" />
+    <PostPedal3 i:nil="true" />
+    <PostPedal4 i:nil="true" />
+    <PrePedal1>
+      <Category i:nil="true" />
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Pedal_EdenWTDI_LoShift</d4p1:Key>
+          <d4p1:Value>1</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Pedal_EdenWTDI_MidShift</d4p1:Key>
+          <d4p1:Value>0</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Pedal_EdenWTDI_Gain</d4p1:Key>
+          <d4p1:Value>20</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Pedal_EdenWTDI_Enhance</d4p1:Key>
+          <d4p1:Value>1</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Pedal_EdenWTDI_Bass</d4p1:Key>
+          <d4p1:Value>4</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Pedal_EdenWTDI_Treble</d4p1:Key>
+          <d4p1:Value>7.5</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Pedal_EdenWTDI_Compression</d4p1:Key>
+          <d4p1:Value>0</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Pedal_EdenWTDI_Mid</d4p1:Key>
+          <d4p1:Value>6.5</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Bass_Pedal_EdenWTDI</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Pedals</Type>
+    </PrePedal1>
+    <PrePedal2>
+      <Category>30785</Category>
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BitCruncher_Release</d4p1:Key>
+          <d4p1:Value>15</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BitCruncher_FilterType</d4p1:Key>
+          <d4p1:Value>5</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BitCruncher_Mix</d4p1:Key>
+          <d4p1:Value>85</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BitCruncher_Attack</d4p1:Key>
+          <d4p1:Value>80</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BitCruncher_Sens</d4p1:Key>
+          <d4p1:Value>80</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Pedal_BitCruncher</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Pedals</Type>
+    </PrePedal2>
+    <PrePedal3>
+      <Category>30785</Category>
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BobFilter_Sens</d4p1:Key>
+          <d4p1:Value>90</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BobFilter_Release</d4p1:Key>
+          <d4p1:Value>400</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BobFilter_Mix</d4p1:Key>
+          <d4p1:Value>100</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BobFilter_Filter</d4p1:Key>
+          <d4p1:Value>0</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BobFilter_Attack</d4p1:Key>
+          <d4p1:Value>16</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Pedal_BobFilter</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Pedals</Type>
+    </PrePedal3>
+    <PrePedal4 i:nil="true" />
+    <Rack1 i:nil="true" />
+    <Rack2 i:nil="true" />
+    <Rack3 i:nil="true" />
+    <Rack4 i:nil="true" />
+  </GearList>
+  <IsCustom>true</IsCustom>
+  <Key>RippedApartSynthBass</Key>
+  <Name>RippedApartSynthBass</Name>
+  <NameSeparator> - </NameSeparator>
+  <SortOrder>46</SortOrder>
+  <ToneDescriptors xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+    <d2p1:string>$[35715]BASS</d2p1:string>
+    <d2p1:string>$[35729]FILTER</d2p1:string>
+  </ToneDescriptors>
+  <Volume>-9.83</Volume>
+</Tone2014>

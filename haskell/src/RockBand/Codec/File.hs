@@ -318,6 +318,7 @@ identifyFlexTrack name = case T.stripPrefix "[" name of
     | "GUITAR COOP" `T.isInfixOf` name -> Just $ FlexExtra "guitar-coop"
     | "DRUM"        `T.isInfixOf` name -> Just FlexDrums
     | "GUITAR"      `T.isInfixOf` name -> Just FlexGuitar
+    | "LEAD"        `T.isInfixOf` name -> Just FlexGuitar
     | "T1 GEMS"     `T.isInfixOf` name -> Just FlexGuitar
     | "BASS"        `T.isInfixOf` name -> Just FlexBass
     | "KEYS"        `T.isInfixOf` name -> Just FlexKeys

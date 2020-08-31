@@ -1,0 +1,168 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Tone2014 xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone">
+  <GearList>
+    <Amp>
+      <Category i:nil="true" />
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_Gain</d4p1:Key>
+          <d4p1:Value>8</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_7500</d4p1:Key>
+          <d4p1:Value>-4.5</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_250</d4p1:Key>
+          <d4p1:Value>-3.5</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_30</d4p1:Key>
+          <d4p1:Value>3</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_90</d4p1:Key>
+          <d4p1:Value>4</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_2500</d4p1:Key>
+          <d4p1:Value>2.5</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_Bass</d4p1:Key>
+          <d4p1:Value>68</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_Treble</d4p1:Key>
+          <d4p1:Value>58</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_15000</d4p1:Key>
+          <d4p1:Value>0.5</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_800</d4p1:Key>
+          <d4p1:Value>-1</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Bass_Amp_CH350B</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Amps</Type>
+    </Amp>
+    <Cabinet>
+      <Category i:nil="true" />
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays" />
+      <PedalKey>Bass_Cab_CH410BC_57_Cone</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Cabinets</Type>
+    </Cabinet>
+    <PostPedal1 i:nil="true" />
+    <PostPedal2 i:nil="true" />
+    <PostPedal3 i:nil="true" />
+    <PostPedal4 i:nil="true" />
+    <PrePedal1>
+      <Category>30791</Category>
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_Octavius_Tone</d4p1:Key>
+          <d4p1:Value>50</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key></d4p1:Key>
+          <d4p1:Value>-12</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_Octavius_Mix</d4p1:Key>
+          <d4p1:Value>100</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Pedal_Octavius</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Pedals</Type>
+    </PrePedal1>
+    <PrePedal2>
+      <Category>30785</Category>
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_RangeBooster_Boost</d4p1:Key>
+          <d4p1:Value>51</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Pedal_RangeBooster</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Pedals</Type>
+    </PrePedal2>
+    <PrePedal3>
+      <Category>30785</Category>
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BitCruncher_Release</d4p1:Key>
+          <d4p1:Value>15</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BitCruncher_FilterType</d4p1:Key>
+          <d4p1:Value>8</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BitCruncher_Mix</d4p1:Key>
+          <d4p1:Value>10</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BitCruncher_Attack</d4p1:Key>
+          <d4p1:Value>45</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Pedal_BitCruncher_Sens</d4p1:Key>
+          <d4p1:Value>80</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Pedal_BitCruncher</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Pedals</Type>
+    </PrePedal3>
+    <PrePedal4 i:nil="true" />
+    <Rack1>
+      <Category i:nil="true" />
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioCompressor_Attack</d4p1:Key>
+          <d4p1:Value>5</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioCompressor_Threshold</d4p1:Key>
+          <d4p1:Value>-18.5</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioCompressor_Release</d4p1:Key>
+          <d4p1:Value>40</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioCompressor_Ratio</d4p1:Key>
+          <d4p1:Value>2</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Rack_StudioCompressor</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Racks</Type>
+    </Rack1>
+    <Rack2 i:nil="true" />
+    <Rack3 i:nil="true" />
+    <Rack4 i:nil="true" />
+  </GearList>
+  <IsCustom>true</IsCustom>
+  <Key>HakenBassOctaveDown</Key>
+  <Name>HakenBassOctaveDown</Name>
+  <NameSeparator> - </NameSeparator>
+  <SortOrder>1</SortOrder>
+  <ToneDescriptors xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+    <d2p1:string>$[35715]BASS</d2p1:string>
+    <d2p1:string>$[35719]OCTAVE</d2p1:string>
+  </ToneDescriptors>
+  <Volume>-13.63</Volume>
+</Tone2014>

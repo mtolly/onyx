@@ -34,6 +34,8 @@ parts:
       difficulty: 7
       tuning:
         base: bass-4
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
     grybo:
       difficulty: 5
       # original by 2DHumanity, from Anti Hero (1)
@@ -57,3 +59,5 @@ targets:
   ps:
     game: ps
     loading-phrase: "Part of Onyxite's Jazz Pack 4. Recommended 5-fret part: Bass, though Keys is also fun throughout."
+  rs:
+    game: rs

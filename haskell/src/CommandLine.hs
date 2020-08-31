@@ -84,6 +84,7 @@ import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    testConvertLipsync,
                                                    unpackMilo)
 import           RockBand.Score
+import           Rocksmith.Import                 (importRS)
 import           Rocksmith.PSARC                  (extractPSARC)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File                  as F
@@ -434,13 +435,13 @@ commands =
             stackIO $ Dir.renameFile (yamlDir </> rpp) rppFull
             return [rppFull]
           doImport fn inputPath = do
-            let out = inputPath ++ "_reaper"
+            out <- outputFile opts $ return $ inputPath ++ "_reaper"
             stackIO $ Dir.createDirectoryIfMissing False out
             let f2x = listToMaybe [ f | Opt2x f <- opts ]
             void $ fn inputPath f2x out
             withSongYaml $ out </> "song.yml"
           pschart dir = do
-            let out = dir ++ "_reaper"
+            out <- outputFile opts $ return $ dir ++ "_reaper"
             stackIO $ Dir.createDirectoryIfMissing False out
             void $ importFoF dir out
             withSongYaml $ out </> "song.yml"
@@ -451,6 +452,7 @@ commands =
         [(FilePS, iniPath)] -> pschart $ takeDirectory iniPath
         [(FileChart, chartPath)] -> pschart $ takeDirectory chartPath
         [(FileSongYaml, yamlPath)] -> withSongYaml yamlPath
+        [(FilePSARC, psarcPath)] -> doImport (\fin _ fout -> importRS fin fout) psarcPath
         _ -> case partitionMaybe (isType [FileMidi]) files' of
           ([mid], notMid) -> case partitionMaybe (isType [FileOGG, FileWAV, FileFLAC]) notMid of
             (audio, []      ) -> do

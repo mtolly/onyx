@@ -44,6 +44,8 @@ parts:
       difficulty: 4
       tuning:
         base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   # visualizer: http://i.imgur.com/J2aeifp.jpg
   # download: http://www.mediafire.com/?h2o57o26d6o8041
@@ -60,3 +62,7 @@ targets:
     version: 2
   ps:
     game: ps
+  rs:
+    game: rs
+    bass: undefined
+    bonus-rhythm: bass

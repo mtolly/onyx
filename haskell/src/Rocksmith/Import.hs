@@ -210,9 +210,10 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                 , [ModHarmonicPinch | mask .&. 0x8000 /= 0]
                 , [ModTremolo | mask .&. 0x10 /= 0]
                 , [ModIgnore | mask .&. 0x40000 /= 0]
+                -- these next 3 might have more info to import
                 , [ModTap | mask .&. 0x4000 /= 0]
-                , [ModSlap 1 | mask .&. 0x80 /= 0]
-                , [ModPluck 1 | mask .&. 0x0100 /= 0]
+                , [ModSlap | mask .&. 0x80 /= 0]
+                , [ModPluck | mask .&. 0x0100 /= 0]
                 ]
               -- TODO remaining modifiers to import:
               -- ModTap -- how does notes_Tap relate to mask bit?
@@ -220,11 +221,10 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
               -- ModPluck -- how does notes_Pluck relate to mask bit?
               -- ModPickUp -- from notes_PickDirection
               -- ModPickDown -- from notes_PickDirection
-              -- ModBend
               -- ModRightHand
               numNot x n = guard (n /= x) >> Just n
               in do
-                (str, fret, mods) <- case notes_ChordId note of
+                (str, fret, mods, bends) <- case notes_ChordId note of
                   -1 -> let
                     fret = fromIntegral $ notes_FretId note
                     str = case notes_StringIndex note of
@@ -240,7 +240,8 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                       , ModSlide        . fromIntegral <$> numNot (-1) (notes_SlideTo        note)
                       , ModSlideUnpitch . fromIntegral <$> numNot (-1) (notes_SlideUnpitchTo note)
                       ]
-                    in [(str, fret, mods)]
+                    bends = map (\bd -> (bd32_Time bd, bd32_Step bd)) $ notes_BendData note
+                    in [(str, fret, mods, bends)]
                   chordID -> do
                     let chord = sng_Chords sng !! fromIntegral chordID
                         chordNotes = case notes_ChordNotesId note of
@@ -256,8 +257,8 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                             , ModSlideUnpitch . fromIntegral <$> numNot (-1) (cn_SlideUnpitchTo cn !! i)
                             ]
                     guard $ fret >= 0
-                    return (str, fret, mods)
-                return (beats, ((fret, str, len), mods))
+                    return (str, fret, mods, [] {- TODO -})
+                return (beats, ((fret, str, len), (mods, bends)))
             makeShape fprint = let
               secs = toSeconds $ fp_StartTime fprint
               beats = U.unapplyTempoMap temps secs
@@ -359,7 +360,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                   in (t, name)
               , rsAnchorLow  = fmap fst anchors
               , rsAnchorHigh = fmap snd anchors
-              , rsModifiers  = flip RTB.mapMaybe notes $ \((_, str, len), mods) -> let
+              , rsModifiers  = flip RTB.mapMaybe notes $ \((_, str, len), (mods, _)) -> let
                 mods' = mods <> case len of
                   Just n | n < 1/3 -> [ModSustain] -- force small note to sustain
                   _                -> []
@@ -378,7 +379,10 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                     3 -> ToneD
                     _ -> ToneA -- TODO error?
                   in (t, tone)
-              , rsBends      = RTB.empty -- TODO
+              , rsBends      = U.unapplyTempoTrack temps $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
+                ((_, str, _), (_, bends)) <- RTB.getBodies notes
+                (t, bend) <- bends
+                return (toSeconds t, ([str], realToFrac bend))
               , rsHandShapes = splitEdgesSimple shapes
               , rsChords = RTB.merge noteChordInfo shapeChordInfo
               }

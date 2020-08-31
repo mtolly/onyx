@@ -152,6 +152,7 @@ parts:
         base: guitar-6
         global: -1 # Eb standard
   bass:
+    # TODO bar 190 is wrong on grybo+protar, I think book was right
     grybo:
       difficulty: 5
       smooth-frets: true
@@ -160,6 +161,9 @@ parts:
       difficulty: 6
       tuning:
         base: bass-5
+      tones:
+        # TODO add octave tone for the sludge parts
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3:
     game: rb3
@@ -178,3 +182,9 @@ targets:
   ps-stems:
     game: ps
     plan: release
+  rs:
+    game: rs
+    plan: album
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass

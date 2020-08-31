@@ -5,10 +5,11 @@ parts:
     #   difficulty:
     #     tier: 3
     pro-guitar:
-      # TODO this was tabbed like Esiah plays it in standard BEADG,
-      # but Anthony probably used one whole step down (ADGCF), should check/fix
+      # TODO bar 82 and onward needs to be adjusted after moving to Anthony's tuning
+      # and probably there are still things that need to be fixed before that
       tuning:
         base: bass-5
+        global: -2 # Anthony always does this
   guitar:
     # grybo:
     #   fix-freeform: false
@@ -30,15 +31,43 @@ parts:
 plans:
   mogg:
     parts:
-      bass: [2, 3]
-      guitar: [4, 5]
-      drums: [0, 1]
-    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -2.5, 2.5]
+      bass:
+      - 2
+      - 3
+      guitar:
+      - 4
+      - 5
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
     karaoke: false
-    mogg-md5: a6cb925fadad88a8f0e26e0dffaa7185
+    mogg-md5: 1048ef2e82d6becd7127d68d1d9cb24b
     multitrack: false
-    crowd: [8, 9]
-    vols: [0, 0, 0, 0, 0, 0, 0, 0, -5, -5]
+    crowd:
+    - 8
+    - 9
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
 targets:
   rb3:
     game: rb3

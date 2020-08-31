@@ -35,6 +35,10 @@ parts:
       difficulty: 6
       tuning:
         base: bass-5
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+        file-tone-a: ../../../tones/SatchBoogie_bass.tone2014.xml
+        file-tone-b: ../../../tones/RippedApartSynthBass.tone2014.xml
   guitar:
     grybo:
       difficulty: 6
@@ -60,3 +64,8 @@ targets:
   ps:
     game: ps
     # file-video: video.avi
+  rs:
+    game: rs
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass

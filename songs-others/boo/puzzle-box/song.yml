@@ -3,6 +3,13 @@ parts:
     pro-guitar:
       tuning:
         base: bass-5
+      tuning-rs-bass:
+        base: bass-5 # BEAD
+      tones:
+        # should add another tone for clean section (right after the octave down part)
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+        file-tone-a: ../../../tones/SatchBoogie_bass.tone2014.xml
+        file-tone-b: ../../../tones/HakenBassOctaveDown.tone2014.xml
   drums:
     drums:
       difficulty:
@@ -31,6 +38,10 @@ targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+  rs:
+    game: rs
+    bonus-rhythm: bass # 5-string
+    bass: undefined # will make 4-string version once 5-string finalized
 metadata:
   preview-start: 54.02
   file-album-art: cover.png_xbox
