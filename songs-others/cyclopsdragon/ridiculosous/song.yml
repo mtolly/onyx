@@ -5,6 +5,10 @@ parts:
       fix-freeform: false
       difficulty:
         tier: 7
+    pro-guitar: # WIP
+      tuning:
+        base: bass-4
+        global: -1 # Eb standard. I think the guitar is this tuning too
   guitar:
     grybo:
       fix-freeform: false

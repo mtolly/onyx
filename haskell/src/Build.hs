@@ -2024,12 +2024,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         -- TODO maybe support using bass track for a guitar slot
                       in buildRS (RBFile.s_tempos mid) trk
                     allNotes = Arr.lvl_notes $ rso_level rso
-                    tuning1 = encodeTuningOffsets
-                      (case (bass, pgTuningRSBass pg) of
+                    tuning1 = let
+                      t = case (bass, pgTuningRSBass pg) of
                         (True, Just tun) -> tun
                         _                -> pgTuning pg
-                      )
-                      (if bass then TypeBass else TypeGuitar)
+                      in map (+ gtrGlobal t)
+                        $ encodeTuningOffsets t (if bass then TypeBass else TypeGuitar)
                     tuning2 = tuning1 <> repeat (last tuning1) -- so 5-string bass has a consistent dummy top string
                     (tuning3, octaveDown) = if head tuning2 < (if bass then -4 else -8)
                       then (map (+ 12) tuning2, True )

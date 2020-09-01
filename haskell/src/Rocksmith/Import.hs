@@ -167,14 +167,19 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
   stackIO $ extractRSOgg (temp </> "audio" </> audioDir </> bnk <.> "bnk") $ dout </> "song.ogg"
   let modifiedBeats = case sng_BPMs firstArr of
         ebeats@(BPM { bpm_Time = 0 } : _) -> ebeats
-        ebeats                            -> BPM
-          { bpm_Time            = 0
-          , bpm_Measure         = -1
-          , bpm_Beat            = 0
-          , bpm_PhraseIteration = 0
-          , bpm_Mask            = 0
-          } : ebeats
-        -- TODO maybe be smarter about the initial added tempo
+        ebeats@(BPM { bpm_Time = t } : _) -> let
+          newBeatCount = ceiling t
+          newBeatDuration = t / fromInteger newBeatCount
+          in (<> ebeats) $ do
+            i <- [0 .. newBeatCount - 1]
+            return BPM
+              { bpm_Time            = newBeatDuration * fromIntegral i
+              , bpm_Measure         = -1
+              , bpm_Beat            = 0
+              , bpm_PhraseIteration = 0
+              , bpm_Mask            = 0
+              }
+        [] -> [] -- probably shouldn't happen?
       temps = U.tempoMapFromBPS $ let
         makeTempo b1 b2 = U.makeTempo 1 (realToFrac $ bpm_Time b2 - bpm_Time b1)
         in RTB.fromPairList

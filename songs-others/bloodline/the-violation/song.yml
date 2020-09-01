@@ -1,42 +1,75 @@
-plans:
-  album:
-    song:
-      fade:
-      - start
-      - 4.748
-      - fade:
-        - end
-        - 0.215
-        - drop:
-          - 5:11.544
-          - concatenate: [track-deceit, track-violation]
-metadata:
-  file-album-art: cover.jpg
-  track-number: 5
-  album: Agony
-  year: 2011
-  subgenre: prog # ???
-  author: xBLooDLiNEx808x, Onyxite
-  title: The Violation
-  genre: metal
-  artist: Fleshgod Apocalypse
-  comments:
-  - Drums by xBLooDLiNEx808x.
-jammit: {}
-audio:
-  track-deceit:
-    md5: b75d6d6fb015f00dbf55abbf997c5f2c
-    frames: 16017708
-  track-violation:
-    md5: c4633a0d8e7b7c7aed9c54a5c322db4f
-    frames: 11416020
 parts:
+  # guitar:
+  #   grybo: {} # WIP, also should check from stems
+  # keys:
+  #   pro-keys: {} # TODO need to check/redo from stems
+  # vocal:
+  #   vocal: # WIP, also should check from stems
+  #     gender: male
+  #     count: 2
   drums:
     drums:
-      kicks: both
-      difficulty: 7
-  keys:
-    pro-keys: {}
-  # vocal:
-  #   vocal:
-  #     gender: male
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: 2
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+        global: -5 # BEAD
+      tones:
+        file-tone-base: ../../../tones/ViolationDrive.tone2014.xml
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    karaoke: false
+    mogg-md5: 6c5a133bbd6305838ba34795a8f8e0c2
+    multitrack: false
+    crowd:
+    - 4
+    - 5
+    vols:
+    - 0
+    - 0
+    - -0.1
+    - -0.1
+    - -5
+    - -5
+targets:
+  rb3-2x:
+    song-id: 1681601846
+    game: rb3
+    2x-bass-pedal: true
+    label: (B)
+  rs:
+    game: rs
+metadata:
+  rating: Supervision Recommended
+  preview-start: 1:00.000
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 1
+  album: Agony
+  year: 2011
+  subgenre: prog
+  author: Bloodline
+  title: The Violation
+  preview-end: 1:30.000
+  genre: metal
+  difficulty:
+    tier: 7
+  artist: Fleshgod Apocalypse
+global:
+  anim-tempo: 32

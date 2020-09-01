@@ -100,7 +100,7 @@ data RSModifier
   | ModTremolo
   | ModPickUp
   | ModPickDown
-  | ModIgnore -- does this mean don't try to detect it?
+  | ModIgnore
   deriving (Eq, Ord, Show)
 
 instance TraverseTrack RocksmithTrack where
@@ -537,7 +537,9 @@ buildRS tmap trk = RSOutput
         , n_pluck          = if elem ModPluck mods then Just 1 else Nothing
         , n_tremolo        = elem ModTremolo mods
         , n_pickDirection  = Nothing -- TODO
-        , n_ignore         = elem ModIgnore mods
+        , n_ignore         = elem ModIgnore mods || fret > 22
+        -- frets 23 and 24, you need to set to ignore or the scoring doesn't work right (can't get 100%).
+        -- EOF does the same thing
         }
     chordBank = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap $ buildChordBank trk
     makeTemplate cinfo notes = let

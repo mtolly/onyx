@@ -5,6 +5,7 @@
 module RhythmGame.Track where
 
 import           Config
+import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first)
 import           Control.Monad                    (guard)
 import           Control.Monad.IO.Class           (MonadIO (..))
@@ -14,11 +15,12 @@ import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (sortOn)
+import           Data.List                        (sort, sortOn)
 import qualified Data.Map.Strict                  as Map
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (catMaybes, fromMaybe)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
+import qualified Data.Vector                      as V
 import qualified FeedBack.Load                    as FB
 import           Guitars
 import           Numeric.NonNegative.Class        ((-|))
@@ -35,6 +37,8 @@ import qualified RockBand.Codec.ProGuitar         as PG
 import           RockBand.Common
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming)
+import           Rocksmith.ArrangementXML
+import           Rocksmith.MIDI
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension)
 import           Text.Decode                      (decodeGeneral)
@@ -62,11 +66,13 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
 
   parts = _parts songYaml
   rtbToMap
+    = rtbToMapSecs
+    . U.applyTempoTrack tempos
+  rtbToMapSecs
     = Map.fromList
     . map (first realToFrac)
     . ATB.toPairList
     . RTB.toAbsoluteEventList 0
-    . U.applyTempoTrack tempos
   tempos = RBFile.s_tempos song
   toggle
     = PNF.makeToggle
@@ -190,6 +196,85 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           `PNF.zipStateMaps` toggle (F.fiveSolo src)
           `PNF.zipStateMaps` fmap Just beats
 
+  pgRocksmith rso = let
+    notes = let
+      eachString str = let
+        stringNotes :: RTB.T U.Seconds (PNF.IsOverdrive, (StrumHOPOTap, (PG.GtrFret, PG.NoteType), Maybe (U.Seconds, Maybe PG.Slide)))
+        stringNotes = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
+          note <- V.toList (lvl_notes $ rso_level rso) <> do
+            V.toList (lvl_chords $ rso_level rso) >>= V.toList . chd_chordNotes
+          guard $ PG.getStringIndex 6 str == n_string note
+          let time = realToFrac $ n_time note
+              sht = if n_tap note then Tap
+                else if n_hammerOn note || n_pullOff note then HOPO
+                  else Strum
+              fret = n_fret note
+              ntype = PG.NormalNote -- TODO
+              sust = flip fmap (n_sustain note) $ \len -> let
+                slide = case n_slideTo note <|> n_slideUnpitchTo note of
+                  Nothing -> Nothing
+                  Just slideToFret -> case compare fret slideToFret of
+                    LT -> Just PG.SlideUp
+                    GT -> Just PG.SlideDown
+                    EQ -> Nothing
+                in (len, slide)
+          return (time, (False, (sht, (fret, ntype), sust)))
+        in rtbToMapSecs
+          $ PNF.buildPNF
+          $ RTB.fromAbsoluteEventList
+          $ ATB.fromPairList
+          $ fmap (\(t, (od, (sht, (fret, ntype), msust))) -> let
+            now = PNF.PGNote fret ntype sht
+            sust = case msust of
+              Just (len, Nothing) -> Just (PNF.PGSustain Nothing od, len)
+              Just (len, Just slide) -> let
+                secsStart = realToFrac t
+                secsEnd = realToFrac $ t <> len
+                in Just (PNF.PGSustain (Just (slide, secsStart, secsEnd)) od, len)
+              Nothing -> Nothing
+            in (t, (now, sust))
+            )
+          $ ATB.toPairList
+          $ RTB.toAbsoluteEventList 0 stringNotes
+      strSingletons = do
+        str <- [minBound .. maxBound]
+        return $ Map.singleton str <$> eachString str
+      in foldr (\x y -> fmap (uncurry Map.union) $ PNF.zipStateMaps x y) Map.empty strSingletons
+    pgStates = (\(((a, b), c), d) -> PNF.PGState a b c d) <$> do
+      notes
+        `PNF.zipStateMaps` Map.empty -- TODO pgArea :: Maybe PG.StrumArea
+        `PNF.zipStateMaps` Map.empty -- TODO pgChords :: PNF T.Text T.Text
+        `PNF.zipStateMaps` Map.empty -- TODO pgArpeggio :: PNF (Map.Map PG.GtrString PG.GtrFret) ()
+    in (\(((((a, b), c), d), e)) -> PNF.CommonState a b c d e) <$> do
+      pgStates
+        `PNF.zipStateMaps` Map.empty
+        `PNF.zipStateMaps` Map.empty
+        `PNF.zipStateMaps` Map.empty
+        `PNF.zipStateMaps` fmap Just beats
+
+  rsTracks fpart ppg = let
+    (srcG, srcB) = case Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song of
+      Nothing   -> (mempty, mempty)
+      Just part -> (RBFile.onyxPartRSGuitar part, RBFile.onyxPartRSBass part)
+    in catMaybes
+      [ do
+        guard $ not $ RTB.null $ rsNotes srcG
+        let name = case fpart of
+              RBFile.FlexGuitar               -> "RS Lead"
+              RBFile.FlexExtra "rhythm"       -> "RS Rhythm"
+              RBFile.FlexExtra "bonus-lead"   -> "RS Bonus Lead"
+              RBFile.FlexExtra "bonus-rhythm" -> "RS Bonus Rhythm"
+              _                               -> T.pack $ show fpart <> " [RS Guitar]"
+        return (name, PreviewPG $ pgRocksmith $ buildRS tempos srcG)
+      , do
+        guard $ not $ RTB.null $ rsNotes srcB
+        let name = case fpart of
+              RBFile.FlexBass               -> "RS Bass"
+              RBFile.FlexExtra "bonus-bass" -> "RS Bonus Bass"
+              _                             -> T.pack $ show fpart <> " [RS Bass]"
+        return (name, PreviewPG $ pgRocksmith $ buildRS tempos srcB)
+      ]
+
   pgTrack fpart ppg diff = let
     src = case Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song of
       Nothing -> mempty
@@ -304,7 +389,10 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
         in diffPairs >>= \(diff, letter) -> case pgTrack fpart ppg diff of
           Nothing  -> []
           Just trk -> [(name <> " (" <> letter <> ")", PreviewPG trk)]
-    in five ++ drums ++ pg
+    rs = case partProGuitar part of
+      Nothing  -> []
+      Just ppg -> rsTracks fpart ppg
+    in five ++ drums ++ pg ++ rs
 
   in return $ PreviewSong
     { previewTempo  = RBFile.s_tempos song
