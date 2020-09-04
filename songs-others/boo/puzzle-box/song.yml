@@ -1,5 +1,5 @@
 parts:
-  bass:
+  bass: # Onyxite
     pro-guitar:
       tuning:
         base: bass-5
@@ -10,11 +10,15 @@ parts:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
         file-tone-a: ../../../tones/SatchBoogie_bass.tone2014.xml
         file-tone-b: ../../../tones/HakenBassOctaveDown.tone2014.xml
-  drums:
+  drums: # Boo
     drums:
       difficulty:
         tier: 7
       kicks: 2
+  vocal: # Doxophobia
+    vocal:
+      count: 1 # TODO harmonies
+      gender: male
 plans:
   mogg:
     parts:
@@ -49,7 +53,7 @@ metadata:
   album: Vector
   year: 2018
   subgenre: metal
-  author: Boo, Onyxite
+  author: Boo, Onyxite, Doxophobia
   title: Puzzle Box
   preview-end: 1:24.020
   genre: metal

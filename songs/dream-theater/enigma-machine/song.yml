@@ -58,6 +58,8 @@ parts:
       difficulty: 6
       tuning:
         base: bass-6
+      tones:
+        file-tone-base: ../../../tones/ViolationDrive.tone2014.xml
   guitar:
     grybo:
       difficulty: 7
@@ -78,3 +80,8 @@ targets:
     song-id: 1660200106
   ps:
     game: ps
+  rs:
+    game: rs
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass

@@ -13,6 +13,7 @@ module Rocksmith.MIDI
 , RSOutput(..)
 , ChordInfo(..)
 , ChordLocation(..)
+, buildRSVocals
 ) where
 
 import           Control.Applicative              (liftA2, (<|>))
@@ -30,11 +31,14 @@ import           Data.Profunctor                  (dimap)
 import qualified Data.Text                        as T
 import qualified Data.Vector                      as V
 import           DeriveHelpers
+import           DryVox                           (vocalTubes)
 import           GHC.Generics                     (Generic)
+import           Guitars                          (applyStatus1)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Codec.ProGuitar
-import           RockBand.Common
+import           RockBand.Codec.Vocal
+import           RockBand.Common                  hiding (RB3Instrument (..))
 import           Rocksmith.ArrangementXML
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
@@ -595,11 +599,12 @@ buildRS tmap trk = RSOutput
     allNotes = notesAndChords >>= \case
       Left  note       -> [note]
       Right (_, notes) -> notes
+    -- note: if you have any chords in the notes, you need at least one handshape, otherwise CST crashes
     shapes = let
       shapeNotes = RTB.collectCoincident $ joinEdgesSimple $ U.applyTempoTrack tmap $ rsHandShapes trk
       in flip map (ATB.toPairList $ RTB.toAbsoluteEventList 0 $ shapeNotes) $ \(t, noteGroup) -> let
         key = Map.fromList [ (str, fret) | (fret, str, _) <- noteGroup ]
-        in case Map.lookupLE t chordBank >>= Map.lookup key . cb_notes . snd of
+        in case Map.lookupLE t chordBank >>= Map.lookup key . cb_shapes . snd of
           Just cinfo -> let
             template = makeTemplate cinfo noteGroup
             startTime = t
@@ -610,3 +615,41 @@ buildRS tmap trk = RSOutput
       $  [ template | Right (template, _) <- notesAndChords ]
       <> [ template | (template, _, _)    <- shapes         ]
     chordTemplateIndexes = Map.fromList $ zip chordTemplates [0..]
+
+data VocalEvent
+  = VocalNoteEnd
+  | VocalPhraseEnd
+  | VocalNote T.Text Int
+  deriving (Eq, Ord) -- constructor order is important
+
+buildRSVocals :: U.TempoMap -> VocalTrack U.Beats -> Vocals
+buildRSVocals tmap vox = Vocals $ V.fromList $ let
+  tubes = vocalTubes vox
+  pitches = fmap fst $ RTB.filter snd $ vocalNotes vox
+  tubeEvents = flip fmap (applyStatus1 (Octave60 C) pitches tubes) $ \case
+    (p, Just lyric) -> VocalNote lyric $ 36 + fromEnum p
+    (_, Nothing   ) -> VocalNoteEnd
+  phraseEnds = RTB.filter not $ RTB.merge (vocalPhrase1 vox) (vocalPhrase2 vox)
+  evts = U.applyTempoTrack tmap $ RTB.normalize $
+    RTB.merge tubeEvents $ fmap (const VocalPhraseEnd) phraseEnds
+  go = \case
+    Wait dt1 (VocalNote lyric pitch) (Wait dt2 VocalNoteEnd rest) -> let
+      lyric1 = fromMaybe lyric $ T.stripSuffix "#" lyric <|> T.stripSuffix "^" lyric
+      lyric2 = case T.stripSuffix "=" lyric1 of
+        Just x  -> x <> "-"
+        Nothing -> lyric1
+      lyric3 = case rest of
+        Wait _ VocalPhraseEnd _ -> lyric2 <> "+"
+        _                       -> lyric2
+      -- probably don't need to handle $ because this only runs on PART VOCALS.
+      -- TODO maybe fix the weird "two vowels in one syllable" char
+      noteFn = \t -> Vocal
+        { voc_time = t
+        , voc_note = pitch
+        , voc_length = dt2
+        , voc_lyric = lyric3
+        }
+      in Wait dt1 noteFn $ RTB.delay dt2 $ go rest
+    Wait dt _ rest -> RTB.delay dt $ go rest
+    RNil -> RNil
+  in map (\(t, f) -> f t) $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ go evts

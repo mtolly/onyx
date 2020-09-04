@@ -122,6 +122,8 @@ parts:
       tuning:
         base: bass-6
         offsets: [1, 0, 0, 0, 0, 0] # CEADGC
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo:
       difficulty: 7
@@ -162,3 +164,9 @@ targets:
   ps-stems:
     game: ps
     plan: release
+  rs:
+    game: rs
+    plan: album
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass

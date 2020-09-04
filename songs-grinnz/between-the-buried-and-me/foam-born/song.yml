@@ -50,6 +50,8 @@ parts:
       tuning:
         base: bass-5
         global: -3 # G# C# F# B E
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   keys:
     pro-keys: {} # onyxite, a bit of alextaylor
   vocal:
@@ -62,3 +64,9 @@ targets:
     2x-bass-pedal: true
     song-id: 1660200048
     version: 1
+  rs:
+    game: rs
+    lead: undefined
+    rhythm: undefined
+    bass: undefined
+    bonus-rhythm: bass

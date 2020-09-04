@@ -1979,185 +1979,278 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               Just pair -> return pair
             let planDir = rel $ "gen/plan" </> T.unpack planName
 
-            let rsProject = dir </> "cst/project.dlc.xml"
-                rsAudio   = dir </> "cst/audio.wav"
-                rsArt     = dir </> "cst/cover.png"
-                rsArr p b = dir </> "cst/" <> T.unpack (RBFile.getPartName p) <> (if b then ".b" else ".g") <> ".arr.xml"
-
             let possibleParts =
-                  --                     lead   rhythm bass   bonus
-                  [ (rs_Lead        rs, (True , False, False, False))
-                  , (rs_Rhythm      rs, (False, True , False, False))
-                  , (rs_Bass        rs, (False, False, True , False))
-                  , (rs_BonusLead   rs, (True , False, False, True ))
-                  , (rs_BonusRhythm rs, (False, True , False, True ))
-                  , (rs_BonusBass   rs, (False, False, True , True ))
-                  -- TODO vocal
+                  [ (rs_Lead        rs, RSLead       )
+                  , (rs_Rhythm      rs, RSRhythm     )
+                  , (rs_Bass        rs, RSBass       )
+                  , (rs_BonusLead   rs, RSBonusLead  )
+                  , (rs_BonusRhythm rs, RSBonusRhythm)
+                  , (rs_BonusBass   rs, RSBonusBass  )
+                  , (rs_Vocal       rs, RSVocal      )
                   ]
+                isBass = \case
+                  RSBass      -> True
+                  RSBonusBass -> True
+                  _           -> False
                 presentParts = do
-                  (fpart, props) <- possibleParts
-                  pg <- maybe [] (toList . partProGuitar) $ getPart fpart songYaml
-                  return (fpart, pg, props)
+                  (fpart, arrSlot) <- possibleParts
+                  case arrSlot of
+                    RSVocal -> do
+                      pv <- maybe [] (toList . partVocal) $ getPart fpart songYaml
+                      return (fpart, Left pv, arrSlot)
+                    _ -> do
+                      pg <- maybe [] (toList . partProGuitar) $ getPart fpart songYaml
+                      return (fpart, Right pg, arrSlot)
+                rsProject = dir </> "cst/project.dlc.xml"
+                rsAudio   = dir </> "cst/audio.wav"
+                rsPreview = dir </> "cst/audio_preview.wav" -- this has to be named same as audio + "_preview" for CST to load it
+                rsArt     = dir </> "cst/cover.png"
+                rsArr p arrSlot = let
+                  suffix = case arrSlot of
+                    RSVocal -> "vocals" -- NOTE this is required! CST breaks if the filename does not have "vocals"
+                    -- see https://github.com/rscustom/rocksmith-custom-song-toolkit/blob/fa63cc4e0075/RocksmithToolkitLib/XML/Song2014.cs#L347
+                    -- similarly, we'll need "showlights" when that is implemented
+                    _       -> if isBass arrSlot then "b" else "g"
+                  in dir </> "cst/" <> T.unpack (RBFile.getPartName p) <> "." <> suffix <> ".arr.xml"
 
             phony (dir </> "cst") $ shk $ need $
-              [rsProject, rsAudio, rsArt] ++ [ rsArr p bass | (p, _, (_, _, bass, _)) <- presentParts ]
+              [rsProject, rsAudio, rsPreview, rsArt] ++ [ rsArr p arrSlot | (p, _, arrSlot) <- presentParts ]
 
-            forM_ presentParts $ \(fpart, pg, props@(lead, rhythm, bass, bonus)) -> do
-              rsArr fpart bass %> \out -> do
+            forM_ presentParts $ \(fpart, pvg, arrSlot) -> do
+              rsArr fpart arrSlot %> \out -> do
                 mid <- shakeMIDI $ planDir </> "processed.mid"
-                mapM_ (shk . need . toList) $ pgTones pg
-                toneKeys <- forM (pgTones pg) $ mapM $ fmap CST.t14_Key . CST.parseTone
-                let ebeats = V.fromList $ numberBars 1 $ ATB.toPairList
-                      $ RTB.toAbsoluteEventList 0
-                      $ U.applyTempoTrack (RBFile.s_tempos mid)
-                      $ beatLines $ RBFile.onyxBeat $ RBFile.s_tracks mid
-                    numberBars _       [] = []
-                    numberBars measure ((t, Beat) : rest)
-                      = Arr.Ebeat t Nothing : numberBars measure rest
-                    numberBars measure ((t, Bar) : rest)
-                      = Arr.Ebeat t (Just measure) : numberBars (measure + 1) rest
-                    rso = let
-                      opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
-                      trk = if bass
-                        then RBFile.onyxPartRSBass   opart
-                        else RBFile.onyxPartRSGuitar opart
-                        -- TODO maybe support using bass track for a guitar slot
-                      in buildRS (RBFile.s_tempos mid) trk
-                    allNotes = Arr.lvl_notes $ rso_level rso
-                    tuning1 = let
-                      t = case (bass, pgTuningRSBass pg) of
-                        (True, Just tun) -> tun
-                        _                -> pgTuning pg
-                      in map (+ gtrGlobal t)
-                        $ encodeTuningOffsets t (if bass then TypeBass else TypeGuitar)
-                    tuning2 = tuning1 <> repeat (last tuning1) -- so 5-string bass has a consistent dummy top string
-                    (tuning3, octaveDown) = if head tuning2 < (if bass then -4 else -8)
-                      then (map (+ 12) tuning2, True )
-                      else (tuning2           , False)
-                      -- NOTE: the cutoff is -4 for bass because for some reason CST fails
-                      -- when trying to apply the low bass fix
-                    lengthBeats = songLengthBeats mid
-                    lengthSeconds = U.applyTempoMap (RBFile.s_tempos mid) lengthBeats
-                Arr.writePart out $ Arr.PartArrangement Arr.Arrangement
-                  { Arr.arr_version                = 7 -- this is what EOF has currently
-                  , Arr.arr_title                  = getTitle $ _metadata songYaml
-                  , Arr.arr_arrangement            = case props of
-                    (True, _, _, _) -> "Lead"
-                    (_, True, _, _) -> "Rhythm"
-                    (_, _, True, _) -> "Bass"
-                    _               -> "Unknown" -- shouldn't happen
-                  , Arr.arr_part                   = 1 -- TODO what is this?
-                  , Arr.arr_offset                 = 0
-                  , Arr.arr_centOffset             = _tuningCents plan + if octaveDown then -1200 else 0
-                  , Arr.arr_songLength             = lengthSeconds
-                  , Arr.arr_lastConversionDateTime = "" -- TODO
-                  , Arr.arr_startBeat              = 0
-                  , Arr.arr_averageTempo           = U.makeTempo lengthBeats lengthSeconds
-                  , Arr.arr_tuning                 = Arr.Tuning
-                    { Arr.tuning_string0 = fromMaybe 0 $ listToMaybe tuning3
-                    , Arr.tuning_string1 = fromMaybe 0 $ listToMaybe $ drop 1 tuning3
-                    , Arr.tuning_string2 = fromMaybe 0 $ listToMaybe $ drop 2 tuning3
-                    , Arr.tuning_string3 = fromMaybe 0 $ listToMaybe $ drop 3 tuning3
-                    , Arr.tuning_string4 = fromMaybe 0 $ listToMaybe $ drop 4 tuning3
-                    , Arr.tuning_string5 = fromMaybe 0 $ listToMaybe $ drop 5 tuning3
-                    }
-                  , Arr.arr_capo                   = 0 -- TODO :: Int
-                  , Arr.arr_artistName             = getArtist $ _metadata songYaml
-                  , Arr.arr_artistNameSort         = getArtist $ _metadata songYaml -- TODO
-                  , Arr.arr_albumName              = getAlbum $ _metadata songYaml
-                  , Arr.arr_albumYear              = _year $ _metadata songYaml
-                  , Arr.arr_crowdSpeed             = 1
-                  , Arr.arr_arrangementProperties  = Arr.ArrangementProperties
-                    { Arr.ap_represent         = True -- this is always true in arrangement xmls, but false for bonus (+ vocal/lights) in the project xml?
-                    , Arr.ap_bonusArr          = bonus
-                    , Arr.ap_standardTuning    = False -- TODO :: Bool
-                    , Arr.ap_nonStandardChords = False -- TODO :: Bool
-                    , Arr.ap_barreChords       = False -- TODO :: Bool
-                    , Arr.ap_powerChords       = False -- TODO :: Bool
-                    , Arr.ap_dropDPower        = False -- TODO :: Bool
-                    , Arr.ap_openChords        = False -- TODO :: Bool
-                    , Arr.ap_fingerPicking     = False -- TODO :: Bool
-                    , Arr.ap_pickDirection     = any (isJust . Arr.n_pickDirection) allNotes
-                    , Arr.ap_doubleStops       = False -- TODO :: Bool
-                    , Arr.ap_palmMutes         = any Arr.n_palmMute allNotes
-                    , Arr.ap_harmonics         = False -- TODO :: Bool
-                    , Arr.ap_pinchHarmonics    = any Arr.n_harmonicPinch allNotes
-                    , Arr.ap_hopo              = any Arr.n_hopo allNotes
-                    , Arr.ap_tremolo           = any Arr.n_tremolo allNotes
-                    , Arr.ap_slides            = any (isJust . Arr.n_slideTo) allNotes
-                    , Arr.ap_unpitchedSlides   = any (isJust . Arr.n_slideUnpitchTo) allNotes
-                    , Arr.ap_bends             = any (\n -> isJust (Arr.n_bend n) || not (V.null $ Arr.n_bendValues n)) allNotes
-                    , Arr.ap_tapping           = any Arr.n_tap allNotes
-                    , Arr.ap_vibrato           = any (isJust . Arr.n_vibrato) allNotes
-                    , Arr.ap_fretHandMutes     = False -- TODO :: Bool
-                    , Arr.ap_slapPop           = False -- TODO :: Bool
-                    , Arr.ap_twoFingerPicking  = False -- TODO :: Bool
-                    , Arr.ap_fifthsAndOctaves  = False -- TODO :: Bool
-                    , Arr.ap_syncopation       = False -- TODO :: Bool
-                    , Arr.ap_bassPick          = False -- TODO add this to PartProGuitar
-                    , Arr.ap_sustain           = any (isJust . Arr.n_sustain) allNotes
-                    , Arr.ap_pathLead          = lead
-                    , Arr.ap_pathRhythm        = rhythm
-                    , Arr.ap_pathBass          = bass
-                    , Arr.ap_routeMask         = Nothing
-                    }
-                  , Arr.arr_phrases                = rso_phrases rso
-                  , Arr.arr_phraseIterations       = rso_phraseIterations rso
-                  , Arr.arr_chordTemplates         = rso_chordTemplates rso
-                  , Arr.arr_tonebase               = fmap rsFileToneBase toneKeys
-                  , Arr.arr_tonea                  = toneKeys >>= rsFileToneA
-                  , Arr.arr_toneb                  = toneKeys >>= rsFileToneB
-                  , Arr.arr_tonec                  = toneKeys >>= rsFileToneC
-                  , Arr.arr_toned                  = toneKeys >>= rsFileToneD
-                  , Arr.arr_tones
-                    = V.fromList
-                    $ map (\(t, letter) -> let
-                      in Arr.Tone
-                        { tone_time = t
-                        , tone_id   = Just $ fromEnum letter
-                        , tone_name = fromMaybe "" $ toneKeys >>= case letter of
-                          ToneA -> rsFileToneA
-                          ToneB -> rsFileToneB
-                          ToneC -> rsFileToneC
-                          ToneD -> rsFileToneD
+                case pvg of
+                  Left _pv -> do
+                    let opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
+                        trk = if nullVox $ RBFile.onyxPartVocals opart
+                          then RBFile.onyxHarm1 opart
+                          else RBFile.onyxPartVocals opart
+                        vox = buildRSVocals (RBFile.s_tempos mid) trk
+                    Arr.writePart out $ Arr.PartVocals vox
+                  Right pg -> do
+                    mapM_ (shk . need . toList) $ pgTones pg
+                    toneKeys <- forM (pgTones pg) $ mapM $ fmap CST.t14_Key . CST.parseTone
+                    let ebeats = V.fromList $ numberBars 1 $ ATB.toPairList
+                          $ RTB.toAbsoluteEventList 0
+                          $ U.applyTempoTrack (RBFile.s_tempos mid)
+                          $ beatLines $ RBFile.onyxBeat $ RBFile.s_tracks mid
+                        numberBars _       [] = []
+                        numberBars measure ((t, Beat) : rest)
+                          = Arr.Ebeat t Nothing : numberBars measure rest
+                        numberBars measure ((t, Bar) : rest)
+                          = Arr.Ebeat t (Just measure) : numberBars (measure + 1) rest
+                        rso = let
+                          opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
+                          trk = if isBass arrSlot
+                            then RBFile.onyxPartRSBass   opart
+                            else RBFile.onyxPartRSGuitar opart
+                            -- TODO maybe support using bass track for a guitar slot
+                          in buildRS (RBFile.s_tempos mid) trk
+                        allNotes = Arr.lvl_notes $ rso_level rso
+                        tuning1 = let
+                          t = case (isBass arrSlot, pgTuningRSBass pg) of
+                            (True, Just tun) -> tun
+                            _                -> pgTuning pg
+                          in map (+ gtrGlobal t)
+                            $ encodeTuningOffsets t (if isBass arrSlot then TypeBass else TypeGuitar)
+                        tuning2 = tuning1 <> repeat (last tuning1) -- so 5-string bass has a consistent dummy top string
+                        (tuning3, octaveDown) = if head tuning2 < (if isBass arrSlot then -4 else -8)
+                          then (map (+ 12) tuning2, True )
+                          else (tuning2           , False)
+                          -- NOTE: the cutoff is -4 for bass because for some reason CST fails
+                          -- when trying to apply the low bass fix
+                        lengthBeats = songLengthBeats mid
+                        lengthSeconds = U.applyTempoMap (RBFile.s_tempos mid) lengthBeats
+                    Arr.writePart out $ Arr.PartArrangement Arr.Arrangement
+                      { Arr.arr_version                = 7 -- this is what EOF has currently
+                      , Arr.arr_title                  = getTitle $ _metadata songYaml
+                      , Arr.arr_arrangement            = case arrSlot of
+                        RSLead        -> "Lead"
+                        RSRhythm      -> "Rhythm"
+                        RSBass        -> "Bass"
+                        RSBonusLead   -> "Lead"
+                        RSBonusRhythm -> "Rhythm"
+                        RSBonusBass   -> "Bass"
+                        RSVocal       -> "" -- shouldn't happen
+                      , Arr.arr_part                   = 1 -- TODO what is this?
+                      , Arr.arr_offset                 = 0
+                      , Arr.arr_centOffset             = _tuningCents plan + if octaveDown then -1200 else 0
+                      , Arr.arr_songLength             = lengthSeconds
+                      , Arr.arr_lastConversionDateTime = "" -- TODO
+                      , Arr.arr_startBeat              = 0
+                      , Arr.arr_averageTempo           = U.makeTempo lengthBeats lengthSeconds
+                      , Arr.arr_tuning                 = Arr.Tuning
+                        { Arr.tuning_string0 = fromMaybe 0 $ listToMaybe tuning3
+                        , Arr.tuning_string1 = fromMaybe 0 $ listToMaybe $ drop 1 tuning3
+                        , Arr.tuning_string2 = fromMaybe 0 $ listToMaybe $ drop 2 tuning3
+                        , Arr.tuning_string3 = fromMaybe 0 $ listToMaybe $ drop 3 tuning3
+                        , Arr.tuning_string4 = fromMaybe 0 $ listToMaybe $ drop 4 tuning3
+                        , Arr.tuning_string5 = fromMaybe 0 $ listToMaybe $ drop 5 tuning3
                         }
-                      )
-                    $ ATB.toPairList
-                    $ RTB.toAbsoluteEventList 0
-                    $ rso_tones rso
-                  , Arr.arr_ebeats                 = ebeats
-                  , Arr.arr_sections               = rso_sections rso
-                  , Arr.arr_events                 = mempty -- TODO :: V.Vector Event
-                  , Arr.arr_transcriptionTrack     = Arr.Level
-                    { Arr.lvl_difficulty    = -1
-                    , Arr.lvl_notes         = mempty
-                    , Arr.lvl_chords        = mempty
-                    , Arr.lvl_fretHandMutes = mempty
-                    , Arr.lvl_anchors       = mempty
-                    , Arr.lvl_handShapes    = mempty
-                    }
-                  , Arr.arr_levels                 = V.singleton $ rso_level rso
-                  }
+                      , Arr.arr_capo                   = 0 -- TODO :: Int
+                      , Arr.arr_artistName             = getArtist $ _metadata songYaml
+                      , Arr.arr_artistNameSort         = getArtist $ _metadata songYaml -- TODO
+                      , Arr.arr_albumName              = getAlbum $ _metadata songYaml
+                      , Arr.arr_albumYear              = _year $ _metadata songYaml
+                      , Arr.arr_crowdSpeed             = 1
+                      , Arr.arr_arrangementProperties  = Arr.ArrangementProperties
+                        { Arr.ap_represent         = True -- this is always true in arrangement xmls, but false for bonus (+ vocal/lights) in the project xml?
+                        , Arr.ap_bonusArr          = case arrSlot of
+                          RSBonusLead   -> True
+                          RSBonusRhythm -> True
+                          RSBonusBass   -> True
+                          _             -> False
+                        , Arr.ap_standardTuning    = False -- TODO :: Bool
+                        , Arr.ap_nonStandardChords = False -- TODO :: Bool
+                        , Arr.ap_barreChords       = False -- TODO :: Bool
+                        , Arr.ap_powerChords       = False -- TODO :: Bool
+                        , Arr.ap_dropDPower        = False -- TODO :: Bool
+                        , Arr.ap_openChords        = False -- TODO :: Bool
+                        , Arr.ap_fingerPicking     = False -- TODO :: Bool
+                        , Arr.ap_pickDirection     = any (isJust . Arr.n_pickDirection) allNotes
+                        , Arr.ap_doubleStops       = False -- TODO :: Bool
+                        , Arr.ap_palmMutes         = any Arr.n_palmMute allNotes
+                        , Arr.ap_harmonics         = False -- TODO :: Bool
+                        , Arr.ap_pinchHarmonics    = any Arr.n_harmonicPinch allNotes
+                        , Arr.ap_hopo              = any Arr.n_hopo allNotes
+                        , Arr.ap_tremolo           = any Arr.n_tremolo allNotes
+                        , Arr.ap_slides            = any (isJust . Arr.n_slideTo) allNotes
+                        , Arr.ap_unpitchedSlides   = any (isJust . Arr.n_slideUnpitchTo) allNotes
+                        , Arr.ap_bends             = any (\n -> isJust (Arr.n_bend n) || not (V.null $ Arr.n_bendValues n)) allNotes
+                        , Arr.ap_tapping           = any Arr.n_tap allNotes
+                        , Arr.ap_vibrato           = any (isJust . Arr.n_vibrato) allNotes
+                        , Arr.ap_fretHandMutes     = False -- TODO :: Bool
+                        , Arr.ap_slapPop           = False -- TODO :: Bool
+                        , Arr.ap_twoFingerPicking  = False -- TODO :: Bool
+                        , Arr.ap_fifthsAndOctaves  = False -- TODO :: Bool
+                        , Arr.ap_syncopation       = False -- TODO :: Bool
+                        , Arr.ap_bassPick          = False -- TODO add this to PartProGuitar
+                        , Arr.ap_sustain           = any (isJust . Arr.n_sustain) allNotes
+                        , Arr.ap_pathLead          = case arrSlot of
+                          RSLead      -> True
+                          RSBonusLead -> True
+                          _           -> False
+                        , Arr.ap_pathRhythm        = case arrSlot of
+                          RSRhythm      -> True
+                          RSBonusRhythm -> True
+                          _             -> False
+                        , Arr.ap_pathBass          = case arrSlot of
+                          RSBass      -> True
+                          RSBonusBass -> True
+                          _           -> False
+                        , Arr.ap_routeMask         = Nothing
+                        }
+                      , Arr.arr_phrases                = rso_phrases rso
+                      , Arr.arr_phraseIterations       = rso_phraseIterations rso
+                      , Arr.arr_chordTemplates         = rso_chordTemplates rso
+                      , Arr.arr_tonebase               = fmap rsFileToneBase toneKeys
+                      , Arr.arr_tonea                  = toneKeys >>= rsFileToneA
+                      , Arr.arr_toneb                  = toneKeys >>= rsFileToneB
+                      , Arr.arr_tonec                  = toneKeys >>= rsFileToneC
+                      , Arr.arr_toned                  = toneKeys >>= rsFileToneD
+                      , Arr.arr_tones
+                        = V.fromList
+                        $ map (\(t, letter) -> let
+                          in Arr.Tone
+                            { tone_time = t
+                            , tone_id   = Just $ fromEnum letter
+                            , tone_name = fromMaybe "" $ toneKeys >>= case letter of
+                              ToneA -> rsFileToneA
+                              ToneB -> rsFileToneB
+                              ToneC -> rsFileToneC
+                              ToneD -> rsFileToneD
+                            }
+                          )
+                        $ ATB.toPairList
+                        $ RTB.toAbsoluteEventList 0
+                        $ rso_tones rso
+                      , Arr.arr_ebeats                 = ebeats
+                      , Arr.arr_sections               = rso_sections rso
+                      , Arr.arr_events                 = mempty -- TODO :: V.Vector Event
+                      , Arr.arr_transcriptionTrack     = Arr.Level
+                        { Arr.lvl_difficulty    = -1
+                        , Arr.lvl_notes         = mempty
+                        , Arr.lvl_chords        = mempty
+                        , Arr.lvl_fretHandMutes = mempty
+                        , Arr.lvl_anchors       = mempty
+                        , Arr.lvl_handShapes    = mempty
+                        }
+                      , Arr.arr_levels                 = V.singleton $ rso_level rso
+                      }
 
             rsAudio %> shk . copyFile' (planDir </> "everything.wav")
+            rsPreview %> \out -> do
+              mid <- shakeMIDI $ planDir </> "processed.mid"
+              let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))
+                  fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
+                  previewExpr
+                    = Fade End (Seconds 5)
+                    $ Fade Start (Seconds 2)
+                    $ Take Start (fromMS $ pend - pstart)
+                    $ Drop Start (fromMS pstart)
+                    $ Input rsAudio
+              buildAudio previewExpr out
             rsArt %> shk . copyFile' (rel "gen/cover.png")
             rsProject %> \out -> do
               let allTonePaths = nubOrd $ do
-                    (_, pg, _) <- presentParts
+                    (_, Right pg, _) <- presentParts
                     tones <- toList $ pgTones pg
                     toList tones
-              shk $ need $ [ rsArr fpart bass | (fpart, _, (_, _, bass, _)) <- presentParts ] ++ allTonePaths
+              shk $ need $ [ rsArr fpart arrSlot | (fpart, _, arrSlot) <- presentParts ] ++ allTonePaths
               allTones <- forM allTonePaths $ \f -> do
                 tone <- CST.parseTone f
                 return (f, tone)
-              arrangements <- forM presentParts $ \(fpart, _pg, props@(_, _, isBass, _)) -> do
-                contents <- Arr.parseFile $ rsArr fpart isBass
+              arrangements <- forM presentParts $ \(fpart, _, arrSlot) -> do
+                contents <- Arr.parseFile $ rsArr fpart arrSlot
                 arrID <- stackIO UUID.nextRandom
                 songFileID <- stackIO UUID.nextRandom
                 songXmlID <- stackIO UUID.nextRandom
                 arrMasterID <- stackIO $ randomRIO (0, maxBound :: Int32) -- this matches the range CST uses (C# Random.Next method)
                 return $ case contents of
-                  Arr.PartVocals v -> undefined v -- TODO
+                  Arr.PartVocals _ -> CST.Arrangement
+                    { CST.arr_ArrangementName      = "Vocals"
+                    , CST.arr_ArrangementPropeties = Nothing
+                    , CST.arr_ArrangementSort      = 0 -- I would've thought this was unique per arrangement but apparently it can just all be 0?
+                    , CST.arr_ArrangementType      = "Vocal"
+                    , CST.arr_BonusArr             = False
+                    , CST.arr_CapoFret             = 0
+                    , CST.arr_GlyphsXmlPath        = Nothing
+                    , CST.arr_Id                   = UUID.toText arrID
+                    , CST.arr_LyricsArtPath        = Nothing
+                    , CST.arr_MasterId             = arrMasterID
+                    , CST.arr_Metronome            = "None"
+                    , CST.arr_PluckedType          = "NotPicked"
+                    , CST.arr_Represent            = False
+                    , CST.arr_RouteMask            = "None"
+                    , CST.arr_ScrollSpeed          = 13
+                    , CST.arr_Sng2014              = Nothing
+                    , CST.arr_SongFile             = CST.AggregateGraph
+                      { CST.ag_UUID    = UUID.toText songFileID
+                      , CST.ag_File    = ""
+                      , CST.ag_Version = Nothing
+                      }
+                    , CST.arr_SongXml              = CST.AggregateGraph
+                      { CST.ag_UUID    = UUID.toText songXmlID
+                      , CST.ag_File    = T.pack $ takeFileName $ rsArr fpart arrSlot
+                      , CST.ag_Version = Nothing
+                      }
+                    , CST.arr_ToneA                = ""
+                    , CST.arr_ToneB                = ""
+                    , CST.arr_ToneBase             = "" -- is this fine?
+                    , CST.arr_ToneC                = ""
+                    , CST.arr_ToneD                = ""
+                    , CST.arr_ToneMultiplayer      = Nothing
+                    , CST.arr_Tuning               = "E Standard"
+                    , CST.arr_TuningPitch          = 440
+                    , CST.arr_TuningStrings        = CST.TuningStrings
+                      { CST.ts_String0 = 0
+                      , CST.ts_String1 = 0
+                      , CST.ts_String2 = 0
+                      , CST.ts_String3 = 0
+                      , CST.ts_String4 = 0
+                      , CST.ts_String5 = 0
+                      }
+                    }
                   Arr.PartArrangement arr -> CST.Arrangement
                     { CST.arr_ArrangementName      = Arr.arr_arrangement arr
                     , CST.arr_ArrangementPropeties = Just CST.ArrangementPropeties
@@ -2177,8 +2270,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , CST.ap_PickDirection     = Arr.ap_pickDirection     $ Arr.arr_arrangementProperties arr
                       , CST.ap_PinchHarmonics    = Arr.ap_pinchHarmonics    $ Arr.arr_arrangementProperties arr
                       , CST.ap_PowerChords       = Arr.ap_powerChords       $ Arr.arr_arrangementProperties arr
-                      , CST.ap_Represent         = case props of
-                        (lead, rhythm, bass, bonus) -> (lead || rhythm || bass) && not bonus
+                      , CST.ap_Represent         = case arrSlot of
+                        RSLead   -> True
+                        RSRhythm -> True
+                        RSBass   -> True
+                        _        -> False
                       , CST.ap_SlapPop           = Arr.ap_slapPop           $ Arr.arr_arrangementProperties arr
                       , CST.ap_Slides            = Arr.ap_slides            $ Arr.arr_arrangementProperties arr
                       , CST.ap_StandardTuning    = Arr.ap_standardTuning    $ Arr.arr_arrangementProperties arr
@@ -2194,21 +2290,31 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , CST.ap_PathLead          = Arr.ap_pathLead          $ Arr.arr_arrangementProperties arr
                       , CST.ap_PathRhythm        = Arr.ap_pathRhythm        $ Arr.arr_arrangementProperties arr
                       , CST.ap_Metronome         = False
-                      , CST.ap_RouteMask         = case props of
-                        (True, _, _, _) -> 1
-                        (_, True, _, _) -> 2
+                      , CST.ap_RouteMask         = case arrSlot of
+                        RSLead        -> 1
+                        RSBonusLead   -> 1
+                        RSRhythm      -> 2
+                        RSBonusRhythm -> 2
                         -- is there a 3?
-                        (_, _, True, _) -> 4
-                        _               -> 0 -- shouldn't happen (vocal/showlight have a nil ArrangementPropeties)
+                        RSBass        -> 4
+                        RSBonusBass   -> 4
+                        RSVocal       -> 0 -- shouldn't happen (vocal/showlight have a nil ArrangementPropeties)
                       }
                     , CST.arr_ArrangementSort      = 0 -- I would've thought this was unique per arrangement but apparently it can just all be 0?
-                    , CST.arr_ArrangementType      = case props of
-                      (True, _, _, _) -> "Guitar"
-                      (_, True, _, _) -> "Guitar"
-                      (_, _, True, _) -> "Bass"
-                      _               -> "Unknown" -- shouldn't happen: others are "Vocal" and "ShowLight"
-                    , CST.arr_BonusArr             = case props of
-                      (_, _, _, bonus) -> bonus
+                    , CST.arr_ArrangementType      = case arrSlot of
+                      RSLead        -> "Guitar"
+                      RSRhythm      -> "Guitar"
+                      RSBass        -> "Bass"
+                      RSBonusLead   -> "Guitar"
+                      RSBonusRhythm -> "Guitar"
+                      RSBonusBass   -> "Bass"
+                      RSVocal       -> "Vocal"
+                      -- last one is "ShowLight"
+                    , CST.arr_BonusArr             = case arrSlot of
+                      RSBonusLead   -> True
+                      RSBonusRhythm -> True
+                      RSBonusBass   -> True
+                      _             -> False
                     , CST.arr_CapoFret             = Arr.arr_capo arr
                     , CST.arr_GlyphsXmlPath        = Nothing
                     , CST.arr_Id                   = UUID.toText arrID
@@ -2216,13 +2322,20 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , CST.arr_MasterId             = arrMasterID
                     , CST.arr_Metronome            = "None"
                     , CST.arr_PluckedType          = "NotPicked" -- TODO
-                    , CST.arr_Represent            = case props of
-                      (lead, rhythm, bass, bonus) -> (lead || rhythm || bass) && not bonus
-                    , CST.arr_RouteMask            = case props of
-                      (True, _, _, _) -> "Lead"
-                      (_, True, _, _) -> "Rhythm"
-                      (_, _, True, _) -> "Bass"
-                      _               -> "None" -- vocals or showlights
+                    , CST.arr_Represent            = case arrSlot of
+                      RSLead   -> True
+                      RSRhythm -> True
+                      RSBass   -> True
+                      _        -> False
+                    , CST.arr_RouteMask            = case arrSlot of
+                      RSLead        -> "Lead"
+                      RSRhythm      -> "Rhythm"
+                      RSBass        -> "Bass"
+                      RSBonusLead   -> "Lead"
+                      RSBonusRhythm -> "Rhythm"
+                      RSBonusBass   -> "Bass"
+                      RSVocal       -> "None"
+                      -- showlights are also "None"
                     , CST.arr_ScrollSpeed          = 13 -- default?
                     , CST.arr_Sng2014              = Nothing
                     , CST.arr_SongFile             = CST.AggregateGraph
@@ -2232,7 +2345,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       }
                     , CST.arr_SongXml              = CST.AggregateGraph
                       { CST.ag_UUID    = UUID.toText songXmlID
-                      , CST.ag_File    = T.pack $ takeFileName $ rsArr fpart isBass
+                      , CST.ag_File    = T.pack $ takeFileName $ rsArr fpart arrSlot
                       , CST.ag_Version = Nothing
                       }
                     , CST.arr_ToneA                = fromMaybe "" $ Arr.arr_tonea arr
@@ -2290,7 +2403,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 , CST.dlc_Mac               = False
                 , CST.dlc_Name              = T.pack $ "OnyxCST" <> show randomNameID -- TODO make a name like OnyASAMACrimsonRoseandaGinToni
                 , CST.dlc_OggPath           = "audio.wav"
-                , CST.dlc_OggPreviewPath    = "" -- TODO maybe generate ourselves, doesn't seem to be a way to provide a timestamp to start from
+                , CST.dlc_OggPreviewPath    = "audio_preview.wav"
                 , CST.dlc_OggQuality        = 5
                 , CST.dlc_PS3               = False
                 , CST.dlc_Pc                = True
@@ -2507,6 +2620,16 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         -}
 
       lift $ want $ map rel buildables
+
+data RSArrangementType
+  = RSLead
+  | RSRhythm
+  | RSBass
+  | RSBonusLead
+  | RSBonusRhythm
+  | RSBonusBass
+  | RSVocal
+  -- TODO showlight
 
 shk :: Action a -> StackTraceT (QueueLog Action) a
 shk = lift . lift

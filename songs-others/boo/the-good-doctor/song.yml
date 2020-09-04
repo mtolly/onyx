@@ -1,20 +1,17 @@
 parts:
-  bass: # Onyxite
+  bass:
     pro-guitar:
       tuning:
         base: bass-5
+        offsets: [-1, 0, 0, 0, 0] # Bb E A D G
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
-        # TODO need octave pedal tone
-  drums: # Boo
+  drums:
     drums:
+      fix-freeform: false
       difficulty:
-        tier: 4
+        tier: 5
       kicks: 2
-  vocal: # Doxophobia
-    vocal:
-      count: 3
-      gender: male
 plans:
   mogg:
     parts:
@@ -27,7 +24,7 @@ plans:
     - -1
     - 1
     karaoke: false
-    mogg-md5: 8a192f68dac1a53e865562f8c26ace8f
+    mogg-md5: f5ec860b02ef030f4af8f1d77cecf5e0
     multitrack: false
     vols:
     - 0
@@ -36,22 +33,23 @@ plans:
     - 0
 targets:
   rb3-2x:
+    song-id: o568767371
     game: rb3
     2x-bass-pedal: true
   rs:
     game: rs
-    bonus-rhythm: bass
+    bonus-rhythm: bass # 5-string
     bass: undefined
 metadata:
-  preview-start: 2:15.343
+  preview-start: 59.828
   file-album-art: cover.png_xbox
-  track-number: 3
-  album: Affinity
-  year: 2016
+  track-number: 2
+  album: Vector
+  year: 2018
   subgenre: metal
-  author: Boo, Onyxite, Doxophobia
-  title: '1985'
-  preview-end: 2:45.343
+  author: Boo
+  title: The Good Doctor
+  preview-end: 1:29.828
   genre: metal
   difficulty:
     tier: 1
