@@ -2047,18 +2047,22 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                             -- TODO maybe support using bass track for a guitar slot
                           in buildRS (RBFile.s_tempos mid) trk
                         allNotes = Arr.lvl_notes $ rso_level rso
-                        tuning1 = let
-                          t = case (isBass arrSlot, pgTuningRSBass pg) of
-                            (True, Just tun) -> tun
-                            _                -> pgTuning pg
-                          in map (+ gtrGlobal t)
-                            $ encodeTuningOffsets t (if isBass arrSlot then TypeBass else TypeGuitar)
+                        tuning0 = case (isBass arrSlot, pgTuningRSBass pg) of
+                          (True, Just tun) -> tun
+                          _                -> pgTuning pg
+                        -- I'm not sure if we need a separate field at some point,
+                        -- but for now, negative global offset = downtune,
+                        -- positive global offset = capo
+                        (downtune, capo) = if gtrGlobal tuning0 < 0
+                          then (gtrGlobal tuning0, 0)
+                          else (0, gtrGlobal tuning0)
+                        tuning1 = map (+ downtune)
+                          $ encodeTuningOffsets tuning0 (if isBass arrSlot then TypeBass else TypeGuitar)
                         tuning2 = tuning1 <> repeat (last tuning1) -- so 5-string bass has a consistent dummy top string
-                        (tuning3, octaveDown) = if head tuning2 < (if isBass arrSlot then -4 else -8)
-                          then (map (+ 12) tuning2, True )
-                          else (tuning2           , False)
-                          -- NOTE: the cutoff is -4 for bass because for some reason CST fails
-                          -- when trying to apply the low bass fix
+                        octaveDown = head tuning2 < (if isBass arrSlot then -4 else -7)
+                        -- NOTE: the cutoff is -4 for bass because for some reason CST fails
+                        -- when trying to apply the low bass fix
+                        tuning3 = map (+ if octaveDown then 12 else 0) tuning2
                         lengthBeats = songLengthBeats mid
                         lengthSeconds = U.applyTempoMap (RBFile.s_tempos mid) lengthBeats
                     Arr.writePart out $ Arr.PartArrangement Arr.Arrangement
@@ -2087,7 +2091,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         , Arr.tuning_string4 = fromMaybe 0 $ listToMaybe $ drop 4 tuning3
                         , Arr.tuning_string5 = fromMaybe 0 $ listToMaybe $ drop 5 tuning3
                         }
-                      , Arr.arr_capo                   = 0 -- TODO :: Int
+                      , Arr.arr_capo                   = capo
                       , Arr.arr_artistName             = getArtist $ _metadata songYaml
                       , Arr.arr_artistNameSort         = getArtist $ _metadata songYaml -- TODO
                       , Arr.arr_albumName              = getAlbum $ _metadata songYaml
@@ -2100,7 +2104,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                           RSBonusRhythm -> True
                           RSBonusBass   -> True
                           _             -> False
-                        , Arr.ap_standardTuning    = False -- TODO :: Bool
+                        , Arr.ap_standardTuning    = all (== 0) tuning1
                         , Arr.ap_nonStandardChords = False -- TODO :: Bool
                         , Arr.ap_barreChords       = False -- TODO :: Bool
                         , Arr.ap_powerChords       = False -- TODO :: Bool
@@ -2110,7 +2114,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         , Arr.ap_pickDirection     = any (isJust . Arr.n_pickDirection) allNotes
                         , Arr.ap_doubleStops       = False -- TODO :: Bool
                         , Arr.ap_palmMutes         = any Arr.n_palmMute allNotes
-                        , Arr.ap_harmonics         = False -- TODO :: Bool
+                        , Arr.ap_harmonics         = any Arr.n_harmonic allNotes
                         , Arr.ap_pinchHarmonics    = any Arr.n_harmonicPinch allNotes
                         , Arr.ap_hopo              = any Arr.n_hopo allNotes
                         , Arr.ap_tremolo           = any Arr.n_tremolo allNotes
@@ -2119,12 +2123,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         , Arr.ap_bends             = any (\n -> isJust (Arr.n_bend n) || not (V.null $ Arr.n_bendValues n)) allNotes
                         , Arr.ap_tapping           = any Arr.n_tap allNotes
                         , Arr.ap_vibrato           = any (isJust . Arr.n_vibrato) allNotes
-                        , Arr.ap_fretHandMutes     = False -- TODO :: Bool
-                        , Arr.ap_slapPop           = False -- TODO :: Bool
+                        , Arr.ap_fretHandMutes     = any Arr.n_mute allNotes
+                        , Arr.ap_slapPop           = any (\n -> any isJust [Arr.n_slap n, Arr.n_pluck n]) allNotes
                         , Arr.ap_twoFingerPicking  = False -- TODO :: Bool
                         , Arr.ap_fifthsAndOctaves  = False -- TODO :: Bool
                         , Arr.ap_syncopation       = False -- TODO :: Bool
-                        , Arr.ap_bassPick          = False -- TODO add this to PartProGuitar
+                        , Arr.ap_bassPick          = pgPickedBass pg
                         , Arr.ap_sustain           = any (isJust . Arr.n_sustain) allNotes
                         , Arr.ap_pathLead          = case arrSlot of
                           RSLead      -> True

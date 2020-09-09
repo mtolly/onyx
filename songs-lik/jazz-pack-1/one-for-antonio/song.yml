@@ -61,6 +61,8 @@ parts:
       difficulty: 7
       tuning:
         base: bass-4
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   keys:
     pro-keys:
       difficulty: 7
@@ -76,3 +78,6 @@ targets:
     game: ps
     plan: final
     loading-phrase: "Part of Onyxite's Jazz Pack 4. Recommended 5-fret part: Keys, though Bass also has a solo."
+  rs:
+    game: rs
+    plan: final

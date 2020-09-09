@@ -447,19 +447,22 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
               { pgDifficulty    = Tier 1
               , pgHopoThreshold = 170
               , pgTuning        = if isBass
+                -- TODO set gtrGlobal smarter (use capo + detect number applied to all offsets)
+                -- TODO import bass-on-guitar correctly (threshold for very low offsets?)
                 then GtrTuning
                   { gtrBase    = Bass4
                   , gtrOffsets = map fromIntegral $ take 4 $ meta_Tuning $ sng_Metadata sng
-                  , gtrGlobal  = 0 -- TODO use arr_capo ?
+                  , gtrGlobal  = fromIntegral $ meta_CapoFretId $ sng_Metadata sng
                   }
                 else GtrTuning
                   { gtrBase    = Guitar6
                   , gtrOffsets = map fromIntegral $ meta_Tuning $ sng_Metadata sng
-                  , gtrGlobal  = 0 -- TODO use arr_capo ?
+                  , gtrGlobal  = fromIntegral $ meta_CapoFretId $ sng_Metadata sng
                   }
               , pgTuningRSBass = Nothing
               , pgFixFreeform   = False
               , pgTones = Nothing -- TODO
+              , pgPickedBass = False -- TODO
               }
             }
       return (partName, part)

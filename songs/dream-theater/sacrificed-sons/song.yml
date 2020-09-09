@@ -75,6 +75,9 @@ parts:
     pro-guitar: # WIP
       tuning:
         base: bass-5
+      tones:
+        # TODO get an overdrive tone for the start of the instrumental section
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     pro-guitar: # WIP
       tuning:
@@ -90,3 +93,9 @@ targets:
   ps:
     game: ps
     plan: jammit
+  rs:
+    game: rs
+    plan: album
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass

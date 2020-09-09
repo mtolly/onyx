@@ -588,6 +588,7 @@ data PartProGuitar f = PartProGuitar
   , pgTuningRSBass  :: Maybe GtrTuning -- for 5/6-string bass which also has a 4-string arrangement
   , pgFixFreeform   :: Bool
   , pgTones         :: Maybe (RSTones f)
+  , pgPickedBass    :: Bool
   } deriving (Eq, Ord, Show)
 
 tuningBaseFormat :: (SendMessage m) => ValueCodec m A.Value GtrBase
@@ -627,6 +628,7 @@ instance StackJSON (PartProGuitar FilePath) where
     pgTuningRSBass  <- pgTuningRSBass  =. opt  Nothing  "tuning-rs-bass" (maybeCodec tuningFormat)
     pgFixFreeform   <- pgFixFreeform   =. opt  True     "fix-freeform"   stackJSON
     pgTones         <- pgTones         =. opt  Nothing  "tones"          stackJSON
+    pgPickedBass    <- pgPickedBass    =. opt  False    "picked-bass"    stackJSON
     return PartProGuitar{..}
 
 instance Default (PartProGuitar FilePath) where

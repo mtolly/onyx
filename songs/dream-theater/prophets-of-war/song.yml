@@ -44,9 +44,7 @@ plans:
       vols: [-1, -1]
   drumcam:
     comments:
-    - >-
-      Portnoy's sysDRUMatic Chaos DVD.
-      See the project README for help on extracting the DVD audio.
+    - "Portnoy's sysDRUMatic Chaos DVD."
     countin: *countin
     song:
       gain:
@@ -99,6 +97,8 @@ parts:
       difficulty: 2
       tuning:
         base: bass-5
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   keys:
     grybo:
       difficulty: 2
@@ -119,3 +119,9 @@ targets:
   ps:
     game: ps
     plan: drumcam
+  rs:
+    game: rs
+    plan: album
+    lead: undefined
+    rhythm: undefined
+    bass: bass # BEAD on 4-string

@@ -25,6 +25,8 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
 import           Data.Foldable                    (toList)
 import           Data.List.Extra                  (elemIndex, nubOrd, sort)
+import           Data.List.NonEmpty               (NonEmpty (..))
+import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe)
 import           Data.Profunctor                  (dimap)
@@ -342,27 +344,67 @@ buildChordBank trk = let
   in go (ChordBank Map.empty Map.empty) $ RTB.collectCoincident events
 
 data FretConstraint
-  = FretRelease Int
-  | FretBlip Int GtrFret
-  | FretHold Int GtrFret
+  = FretRelease ConstraintString
+  | FretBlip    ConstraintString GtrFret
+  | FretHold    ConstraintString GtrFret
   | FretZero -- just used to ensure that we make an anchor even if the first note is open
   deriving (Eq, Ord)
 
-autoAnchors :: [Note] -> Map.Map U.Seconds (GtrFret, GtrFret)
-autoAnchors allNotes = let
-  constraints = ATB.collectCoincident $ ATB.fromPairList $ sort $ allNotes >>= \note ->
+data ConstraintString
+  = NoteString  Int
+  | ShapeString Int
+  deriving (Eq, Ord)
+
+initialAnchor :: ATB.T U.Seconds FretConstraint -> (Int, Int)
+initialAnchor consts = let
+  frets = map (\fs -> (minimum fs, maximum fs)) $ ATB.getBodies $ ATB.collectCoincident $ flip ATB.mapMaybe consts $ \case
+    FretBlip _ f -> Just f
+    FretHold _ f -> Just f
+    _            -> Nothing
+  go possibleMins []                          = (NE.head possibleMins, NE.head possibleMins + 3)
+  go possibleMins ((nextMin, nextMax) : rest) = let
+    valid anchorMin = anchorMin <= nextMin && nextMax <= anchorMin + 3
+    in case NE.nonEmpty $ NE.filter valid possibleMins of
+      Nothing          -> (NE.head possibleMins, NE.head possibleMins + 3)
+      Just newPossible -> go newPossible rest
+  in case frets of
+    []                                       -> (1, 4)
+    first@(fmin, fmax) : _ | fmax - fmin > 3 -> first
+    _                                        -> go (1 :| [2..21]) frets
+
+autoAnchors :: [Note] -> [(ChordTemplate, U.Seconds, U.Seconds)] -> Map.Map U.Seconds (GtrFret, GtrFret)
+autoAnchors allNotes shapes = let
+  noteConstraints = ATB.fromPairList $ sort $ allNotes >>= \note ->
     case n_fret note of
       0 -> [(n_time note, FretZero)]
       _ -> case n_sustain note of
-        Nothing -> [(n_time note, FretBlip (n_string note) (n_fret note))]
+        Nothing -> [(n_time note, FretBlip (NoteString $ n_string note) (n_fret note))]
         Just sust -> concat
-          [ [(n_time note, FretHold (n_string note) (n_fret note))]
-          , [(n_time note <> sust, FretRelease $ n_string note)]
+          [ [(n_time note, FretHold (NoteString $ n_string note) (n_fret note))]
+          , [(n_time note <> sust, FretRelease $ NoteString $ n_string note)]
           , case n_slideTo note <|> n_slideUnpitchTo note of
-            Just slide -> [(n_time note <> sust, FretBlip (n_string note) slide)]
+            Just slide -> [(n_time note <> sust, FretBlip (NoteString $ n_string note) slide)]
             Nothing -> []
           ]
-  initialAnchor = (1, 4) -- TODO pick a better one
+  shapeConstraints = ATB.fromPairList $ sort $ shapes >>= \(template, tstart, tend) -> let
+    pairs = do
+      (str, mfret) <-
+        [ (0, ct_fret0 template)
+        , (1, ct_fret1 template)
+        , (2, ct_fret2 template)
+        , (3, ct_fret3 template)
+        , (4, ct_fret4 template)
+        , (5, ct_fret5 template)
+        ]
+      fret <- toList mfret
+      guard $ fret /= 0
+      return (str, fret)
+    in case pairs of
+      [] -> [(tstart, FretZero)]
+      _  -> do
+        (str, fret) <- pairs
+        [(tstart, FretHold (ShapeString str) fret), (tend, FretRelease $ ShapeString str)]
+  constraints = ATB.merge noteConstraints shapeConstraints
   buildAnchors _ _ ANil = ANil
   buildAnchors prevAnchor@(prevMin, prevMax) fretState (At t evts rest) = let
     released = foldr Map.delete fretState [ s | FretRelease s <- evts ]
@@ -382,7 +424,8 @@ autoAnchors allNotes = let
     $ RTB.toAbsoluteEventList 0
     $ noRedundantStatus
     $ RTB.fromAbsoluteEventList
-    $ buildAnchors initialAnchor Map.empty constraints
+    $ buildAnchors (initialAnchor constraints) Map.empty
+    $ ATB.collectCoincident constraints
 
 buildRS :: U.TempoMap -> RocksmithTrack U.Beats -> RSOutput
 buildRS tmap trk = RSOutput
@@ -415,7 +458,7 @@ buildRS tmap trk = RSOutput
     , lvl_anchors       = let
       -- note: according to EOF, highest min-fret for an anchor is 21
       anchorMap = if RTB.null $ rsAnchorLow trk
-        then autoAnchors allNotes
+        then autoAnchors allNotes shapes
         else let
           merged = RTB.collectCoincident $ RTB.merge (Left <$> rsAnchorLow trk) (Right <$> rsAnchorHigh trk)
           bounds = U.applyTempoTrack tmap $ flip RTB.mapMaybe merged $ \evts ->
@@ -423,7 +466,7 @@ buildRS tmap trk = RSOutput
               (low : _, high : _) -> Just (low, high)
               (low : _, []      ) -> Just (low, low + 3)
               _                   -> Nothing
-          in Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 bounds
+          in Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ noRedundantStatus bounds
       -- each phrase needs to have an anchor at the start (or at least before its first note)
       addPhraseAnchors m []   = m
       addPhraseAnchors m (t : ts) = case Map.lookupLE t m of
@@ -571,31 +614,39 @@ buildRS tmap trk = RSOutput
         , ct_fret5       = listToMaybe [fret | (S1, fret, _) <- assigned]
         }
       in finish $ assignFingers (ciFingers cinfo) sortedNotes
+    -- TODO need to handle cases where e.g. you have 2 simultaneous notes,
+    -- but one is a actually linked to the previous note on that string.
+    -- see Lost Keys/Rosetta Stoned by shinyditto12.
+    -- I think we also need to have [chord] constructs apply to certain strings
     notesAndChords = let
       notes = RTB.collectCoincident $ joinEdgesSimple $ U.applyTempoTrack tmap $ rsNotes trk
-      in flip map (ATB.toPairList $ RTB.toAbsoluteEventList 0 $ notes) $ \(t, noteGroup) ->
+      in ATB.toPairList (RTB.toAbsoluteEventList 0 $ notes) >>= \(t, noteGroup) ->
         case noteGroup of
-          [(fret, str, len)] -> Left $ makeNote t (fret, str, len)
-          _ -> let
-            key = Map.fromList [ (str, fret) | (fret, str, _) <- noteGroup ]
-            in case Map.lookupLE t chordBank >>= Map.lookup key . cb_notes . snd of
-              Just cinfo -> let
-                template = makeTemplate cinfo noteGroup
-                madeNotes = do
-                  triple <- noteGroup
-                  let note = makeNote t triple
-                  return note
-                    { n_leftHand = case n_string note of
-                      0 -> ct_finger0 template
-                      1 -> ct_finger1 template
-                      2 -> ct_finger2 template
-                      3 -> ct_finger3 template
-                      4 -> ct_finger4 template
-                      5 -> ct_finger5 template
-                      _ -> Nothing
-                    }
-                in Right (template, madeNotes)
-              Nothing -> error $ "Couldn't find chord mapping at " <> show t <> " for " <> show key
+          [triple] -> [Left $ makeNote t triple]
+          _        -> case [ len | (_, _, len) <- noteGroup ] of
+            x : xs | any (/= x) xs ->
+              -- uneven lengths, emit as single notes. e.g. unison bend in 25 or 6 to 4 Lead
+              map (Left . makeNote t) noteGroup
+            _ -> let
+              key = Map.fromList [ (str, fret) | (fret, str, _) <- noteGroup ]
+              in case Map.lookupLE t chordBank >>= Map.lookup key . cb_notes . snd of
+                Just cinfo -> let
+                  template = makeTemplate cinfo noteGroup
+                  madeNotes = do
+                    triple <- noteGroup
+                    let note = makeNote t triple
+                    return note
+                      { n_leftHand = case n_string note of
+                        0 -> ct_finger0 template
+                        1 -> ct_finger1 template
+                        2 -> ct_finger2 template
+                        3 -> ct_finger3 template
+                        4 -> ct_finger4 template
+                        5 -> ct_finger5 template
+                        _ -> Nothing
+                      }
+                  in [Right (template, madeNotes)]
+                Nothing -> error $ "Couldn't find chord mapping at " <> show t <> " for " <> show key
     allNotes = notesAndChords >>= \case
       Left  note       -> [note]
       Right (_, notes) -> notes
