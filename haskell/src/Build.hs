@@ -2039,14 +2039,14 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                           = Arr.Ebeat t Nothing : numberBars measure rest
                         numberBars measure ((t, Bar) : rest)
                           = Arr.Ebeat t (Just measure) : numberBars (measure + 1) rest
-                        rso = let
-                          opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
-                          trk = if isBass arrSlot
-                            then RBFile.onyxPartRSBass   opart
-                            else RBFile.onyxPartRSGuitar opart
-                            -- TODO maybe support using bass track for a guitar slot
-                          in buildRS (RBFile.s_tempos mid) trk
-                        allNotes = Arr.lvl_notes $ rso_level rso
+                    rso <- let
+                      opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
+                      trk = if isBass arrSlot
+                        then RBFile.onyxPartRSBass   opart
+                        else RBFile.onyxPartRSGuitar opart
+                        -- TODO maybe support using bass track for a guitar slot
+                      in buildRS (RBFile.s_tempos mid) trk
+                    let allNotes = Arr.lvl_notes $ rso_level rso
                         tuning0 = case (isBass arrSlot, pgTuningRSBass pg) of
                           (True, Just tun) -> tun
                           _                -> pgTuning pg

@@ -54,6 +54,7 @@ import qualified RockBand.Legacy.Vocal            as Vox
 import           RockBand.Sections                (makePSSection)
 import           Scripts                          (songLengthBeats)
 import qualified Sound.MIDI.Util                  as U
+import           Text.Transform                   (showTimestamp)
 
 data Five t = Five
   { fiveNotes  :: Map.Map (Maybe Five.Color) (RTB.T t (LongNote StrumHOPOTap ()))
@@ -570,14 +571,6 @@ instance A.ToJSON (Vocal U.Seconds) where
     , (,) "tonic" $ maybe A.Null A.toJSON $ vocalTonic x
     ] where voxEvent VocalEnd                 = A.Null
             voxEvent (VocalStart lyric pitch) = A.toJSON [A.toJSON lyric, maybe A.Null A.toJSON pitch]
-
-showTimestamp :: U.Seconds -> T.Text
-showTimestamp secs = let
-  minutes = floor $ secs / 60 :: Int
-  seconds = secs - realToFrac minutes * 60
-  milli = realToFrac seconds :: Milli
-  pad = if milli < 10 then "0" else ""
-  in T.pack $ show minutes ++ ":" ++ pad ++ show milli
 
 processVocal
   :: U.TempoMap

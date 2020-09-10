@@ -30,6 +30,7 @@ import           Image                            (readDDS)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProGuitar
 import           RockBand.Common                  (blipEdgesRB, fixOverlaps,
+                                                   fixOverlapsSimple,
                                                    splitEdgesSimple)
 import           Rocksmith.BNK                    (extractRSOgg)
 import           Rocksmith.Crypt
@@ -165,7 +166,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
   -- TODO handle if the bnks are different in different parts?
   -- how does multiplayer handle this?
   stackIO $ extractRSOgg (temp </> "audio" </> audioDir </> bnk <.> "bnk") $ dout </> "song.ogg"
-  let modifiedBeats = case sng_BPMs firstArr of
+  let modifiedBeats = removeDupeTimes $ case sng_BPMs firstArr of
         ebeats@(BPM { bpm_Time = 0 } : _) -> ebeats
         ebeats@(BPM { bpm_Time = t } : _) -> let
           newBeatCount = ceiling t
@@ -180,6 +181,12 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
               , bpm_Mask            = 0
               }
         [] -> [] -- probably shouldn't happen?
+      -- this prevents divide-by-zero issues when a song has two adjacent ebeats
+      -- with the same timestamp. see In the Presence of Enemies on CF
+      removeDupeTimes (b1 : bs@(b2 : _)) = if bpm_Time b1 == bpm_Time b2
+        then removeDupeTimes bs
+        else b1 : removeDupeTimes bs
+      removeDupeTimes bs = bs
       temps = U.tempoMapFromBPS $ let
         makeTempo b1 b2 = U.makeTempo 1 (realToFrac $ bpm_Time b2 - bpm_Time b1)
         in RTB.fromPairList
@@ -388,7 +395,9 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                 ((_, str, _), (_, bends)) <- RTB.getBodies notes
                 (t, bend) <- bends
                 return (toSeconds t, ([str], realToFrac bend))
-              , rsHandShapes = splitEdgesSimple shapes
+              -- TODO verify/tweak the fixOverlapsSimple usage.
+              -- added to fix processing of In the Presence of Enemies on CF
+              , rsHandShapes = splitEdgesSimple $ fixOverlapsSimple shapes
               , rsChords = RTB.merge noteChordInfo shapeChordInfo
               }
         return (partName, if isBass

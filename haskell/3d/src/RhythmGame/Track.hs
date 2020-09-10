@@ -7,7 +7,7 @@ module RhythmGame.Track where
 import           Config
 import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first)
-import           Control.Monad                    (guard)
+import           Control.Monad                    (forM, guard)
 import           Control.Monad.IO.Class           (MonadIO (..))
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                  as B
@@ -252,7 +252,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
         `PNF.zipStateMaps` Map.empty
         `PNF.zipStateMaps` fmap Just beats
 
-  rsTracks fpart ppg = let
+  rsTracks fpart ppg = sequence $ let
     (srcG, srcB) = case Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song of
       Nothing   -> (mempty, mempty)
       Just part -> (RBFile.onyxPartRSGuitar part, RBFile.onyxPartRSBass part)
@@ -265,14 +265,14 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
               RBFile.FlexExtra "bonus-lead"   -> "RS Bonus Lead"
               RBFile.FlexExtra "bonus-rhythm" -> "RS Bonus Rhythm"
               _                               -> T.pack $ show fpart <> " [RS Guitar]"
-        return (name, PreviewPG $ pgRocksmith $ buildRS tempos srcG)
+        return $ (\rso -> (name, PreviewPG $ pgRocksmith rso)) <$> buildRS tempos srcG
       , do
         guard $ not $ RTB.null $ rsNotes srcB
         let name = case fpart of
               RBFile.FlexBass               -> "RS Bass"
               RBFile.FlexExtra "bonus-bass" -> "RS Bonus Bass"
               _                             -> T.pack $ show fpart <> " [RS Bass]"
-        return (name, PreviewPG $ pgRocksmith $ buildRS tempos srcB)
+        return $ (\rso -> (name, PreviewPG $ pgRocksmith rso)) <$> buildRS tempos srcB
       ]
 
   pgTrack fpart ppg diff = let
@@ -352,7 +352,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       $ RTB.toAbsoluteEventList 0
       $ makeBeats True source
 
-  tracks = filter (not . null) $ flip map (sortOn fst $ HM.toList $ getParts parts) $ \(fpart, part) -> let
+  tracks = fmap (filter $ not . null) $ forM (sortOn fst $ HM.toList $ getParts parts) $ \(fpart, part) -> let
     five = case partGRYBO part of
       Nothing     -> []
       Just pgrybo -> let
@@ -390,14 +390,14 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           Nothing  -> []
           Just trk -> [(name <> " (" <> letter <> ")", PreviewPG trk)]
     rs = case partProGuitar part of
-      Nothing  -> []
+      Nothing  -> return []
       Just ppg -> rsTracks fpart ppg
-    in five ++ drums ++ pg ++ rs
+    in ((five ++ drums ++ pg) ++) <$> rs
 
-  in return $ PreviewSong
+  in tracks >>= \trk -> return $ PreviewSong
     { previewTempo  = RBFile.s_tempos song
     , previewTiming = timing
-    , previewTracks = tracks
+    , previewTracks = trk
     }
 
 loadTracks

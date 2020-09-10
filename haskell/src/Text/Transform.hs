@@ -4,8 +4,10 @@ module Text.Transform where
 
 import           Control.Monad.IO.Class
 import           Data.Char              (isLatin1, toUpper)
+import           Data.Fixed             (Milli)
 import qualified Data.Text              as T
 import           DTXMania.ShiftJIS      (kakasi)
+import qualified Sound.MIDI.Util        as U
 
 -- | Transform a string to Latin-1.
 -- Allows Ÿ (not Latin-1) and ÿ (is Latin-1) for RB, but not in Magma .rbproj.
@@ -85,3 +87,11 @@ replaceCharsRB rbproj txt = liftIO $ let
         $ latinifier
         $ T.pack rom
     else return $ latinifier txt
+
+showTimestamp :: U.Seconds -> T.Text
+showTimestamp secs = let
+  minutes = floor $ secs / 60 :: Int
+  seconds = secs - realToFrac minutes * 60
+  milli = realToFrac seconds :: Milli
+  pad = if milli < 10 then "0" else ""
+  in T.pack $ show minutes ++ ":" ++ pad ++ show milli
