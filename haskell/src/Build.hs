@@ -2001,6 +2001,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     _ -> do
                       pg <- maybe [] (toList . partProGuitar) $ getPart fpart songYaml
                       return (fpart, Right pg, arrSlot)
+                rsPadding = dir </> "padding.txt"
                 rsProject = dir </> "cst/project.dlc.xml"
                 rsAudio   = dir </> "cst/audio.wav"
                 rsPreview = dir </> "cst/audio_preview.wav" -- this has to be named same as audio + "_preview" for CST to load it
@@ -2016,9 +2017,26 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             phony (dir </> "cst") $ shk $ need $
               [rsProject, rsAudio, rsPreview, rsArt] ++ [ rsArr p arrSlot | (p, _, arrSlot) <- presentParts ]
 
+            rsPadding %> \out -> do
+              mid <- shakeMIDI $ planDir </> "processed.mid"
+              let firstNoteBeats = do
+                    (fpart, Right _pg, _arrSlot) <- presentParts
+                    let opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
+                    trk <- [RBFile.onyxPartRSBass opart, RBFile.onyxPartRSGuitar opart]
+                    Wait dt _ _ <- [rsNotes trk]
+                    return dt
+                  targetTime = 10 :: U.Seconds
+                  firstNoteTime = case NE.nonEmpty firstNoteBeats of
+                    Nothing -> targetTime
+                    Just ts -> U.applyTempoMap (RBFile.s_tempos mid) $ minimum ts
+              stackIO $ writeFile out $ show $ if firstNoteTime >= targetTime
+                then 0
+                else realToFrac $ targetTime - firstNoteTime :: Milli
+
             forM_ presentParts $ \(fpart, pvg, arrSlot) -> do
               rsArr fpart arrSlot %> \out -> do
                 mid <- shakeMIDI $ planDir </> "processed.mid"
+                pad <- shk $ (realToFrac :: Milli -> U.Seconds) . read <$> readFile' rsPadding
                 case pvg of
                   Left _pv -> do
                     let opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
@@ -2026,7 +2044,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                           then RBFile.onyxHarm1 opart
                           else RBFile.onyxPartVocals opart
                         vox = buildRSVocals (RBFile.s_tempos mid) trk
-                    Arr.writePart out $ Arr.PartVocals vox
+                    Arr.writePart out $ Arr.addPadding pad $ Arr.PartVocals vox
                   Right pg -> do
                     mapM_ (shk . need . toList) $ pgTones pg
                     toneKeys <- forM (pgTones pg) $ mapM $ fmap CST.t14_Key . CST.parseTone
@@ -2065,7 +2083,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         tuning3 = map (+ if octaveDown then 12 else 0) tuning2
                         lengthBeats = songLengthBeats mid
                         lengthSeconds = U.applyTempoMap (RBFile.s_tempos mid) lengthBeats
-                    Arr.writePart out $ Arr.PartArrangement Arr.Arrangement
+                    Arr.writePart out $ Arr.addPadding pad $ Arr.PartArrangement Arr.Arrangement
                       { Arr.arr_version                = 7 -- this is what EOF has currently
                       , Arr.arr_title                  = getTitle $ _metadata songYaml
                       , Arr.arr_arrangement            = case arrSlot of
@@ -2182,7 +2200,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , Arr.arr_levels                 = V.singleton $ rso_level rso
                       }
 
-            rsAudio %> shk . copyFile' (planDir </> "everything.wav")
+            rsAudio %> \out -> do
+              pad <- shk $ (realToFrac :: Milli -> Seconds) . read <$> readFile' rsPadding
+              let wav = planDir </> "everything.wav"
+              case pad of
+                0 -> shk $ copyFile' wav out
+                _ -> buildAudio (Pad Start (Seconds pad) $ Input wav) out
             rsPreview %> \out -> do
               mid <- shakeMIDI $ planDir </> "processed.mid"
               let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))

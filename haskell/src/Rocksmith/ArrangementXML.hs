@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module Rocksmith.ArrangementXML where
@@ -512,3 +513,29 @@ writePart f pc = liftIO $ do
       xmlLines' = case break (any isSpace . take 1) $ lines xmlLines of
         (before, after) -> before <> ["<!-- Onyx v" <> showVersion version <> " -->"] <> after
   B.writeFile f $ TE.encodeUtf8 $ T.pack $ unlines xmlLines'
+
+addPadding :: U.Seconds -> PartContents -> PartContents
+addPadding pad = \case
+  PartVocals (Vocals vs) -> PartVocals $ Vocals $ fmap (\x -> x { voc_time = voc_time x + pad }) vs
+  PartArrangement arr    -> PartArrangement arr
+    { arr_songLength         = arr_songLength arr + pad
+    , arr_phraseIterations   = fmap (\x -> x { pi_time        = pi_time        x + pad }) $ arr_phraseIterations arr
+    , arr_ebeats             = fmap (\x -> x { eb_time        = eb_time        x + pad }) $ arr_ebeats           arr
+    , arr_tones              = fmap (\x -> x { tone_time      = tone_time      x + pad }) $ arr_tones            arr
+    , arr_sections           = fmap (\x -> x { sect_startTime = sect_startTime x + pad }) $ arr_sections         arr
+    , arr_events             = fmap (\x -> x { ev_time        = ev_time        x + pad }) $ arr_events           arr
+    , arr_transcriptionTrack = eachLevel $ arr_transcriptionTrack arr
+    , arr_levels             = fmap eachLevel $ arr_levels arr
+    } where
+      eachLevel lvl = lvl
+        { lvl_notes   = fmap (\x -> x { n_time  = n_time  x + pad }) $ lvl_notes   lvl
+        , lvl_anchors = fmap (\x -> x { an_time = an_time x + pad }) $ lvl_anchors lvl
+        , lvl_chords = flip fmap (lvl_chords lvl) $ \chd -> chd
+          { chd_time       = chd_time chd + pad
+          , chd_chordNotes = fmap (\x -> x { n_time = n_time x + pad }) $ chd_chordNotes chd
+          }
+        , lvl_handShapes = flip fmap (lvl_handShapes lvl) $ \hs -> hs
+          { hs_startTime = hs_startTime hs + pad
+          , hs_endTime   = hs_endTime   hs + pad
+          }
+        }
