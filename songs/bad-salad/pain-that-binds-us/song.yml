@@ -131,6 +131,9 @@ parts:
   bass:
     grybo:
       difficulty: 5
+    pro-guitar: # WIP
+      tuning:
+        base: bass-6 # change to bass-5 if it turns out we don't need top string
   vocal:
     vocal:
       count: 3

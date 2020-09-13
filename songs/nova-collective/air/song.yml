@@ -42,6 +42,9 @@ parts:
       difficulty: 5
       tuning:
         base: bass-5
+      tones:
+        # TODO octave tone at end, possibly others
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   keys:
     grybo:
       difficulty: 4
@@ -59,3 +62,8 @@ targets:
     version: 1
   ps:
     game: ps
+  rs:
+    game: rs
+    lead: undefined
+    bass: undefined # 4-string todo (EADG)
+    bonus-rhythm: bass

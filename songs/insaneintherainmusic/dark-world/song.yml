@@ -29,6 +29,10 @@ parts:
     pro-guitar:
       tuning:
         base: bass-4
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3:
     game: rb3
+  rs:
+    game: rs

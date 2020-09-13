@@ -98,6 +98,9 @@ parts:
       difficulty: 7
       tuning:
         base: bass-5
+      tones:
+        # TODO probably want a clean tone for the quiet parts
+        file-tone-base: ../../../tones/ViolationDrive.tone2014.xml
   guitar:
     grybo:
       difficulty: 7
@@ -134,3 +137,9 @@ targets:
   ps:
     game: ps
     plan: drumcam
+  rs:
+    game: rs
+    plan: album
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass

@@ -2215,7 +2215,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     $ Fade Start (Seconds 2)
                     $ Take Start (fromMS $ pend - pstart)
                     $ Drop Start (fromMS pstart)
-                    $ Input rsAudio
+                    $ Input (planDir </> "everything.wav")
               buildAudio previewExpr out
             rsArt %> shk . copyFile' (rel "gen/cover.png")
             rsProject %> \out -> do

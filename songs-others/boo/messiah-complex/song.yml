@@ -1,0 +1,55 @@
+parts:
+  bass: # Onyxite
+    pro-guitar:
+      tuning:
+        base: bass-5 # TODO will make version for F#BEADG after
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  drums: # Boo
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: 2
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: e4500807c862d96475e45d7b1e10033c
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3-2x:
+    song-id: o327790200
+    game: rb3
+    2x-bass-pedal: true
+  rs:
+    game: rs
+    bonus-rhythm: bass
+    bass: undefined
+metadata:
+  preview-start: 1:41.280
+  file-album-art: cover.png_xbox
+  track-number: 6
+  album: Virus
+  year: 2020
+  subgenre: metal
+  author: Boo
+  title: Messiah Complex
+  preview-end: 2:11.280
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Haken

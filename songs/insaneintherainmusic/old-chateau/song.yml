@@ -13,6 +13,7 @@ audio:
     frames: 14727962
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  # drumless backing track has about 166805 frames of silence in front of patreon-wav
 plans:
   patreon:
     countin:

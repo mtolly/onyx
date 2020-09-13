@@ -154,6 +154,9 @@ parts:
       difficulty: 6
       tuning:
         base: bass-5
+      tones:
+        # TODO might also want a cleaner tone for verse 1
+        file-tone-base: ../../../tones/ViolationDrive.tone2014.xml
   guitar:
     grybo:
       difficulty: 7
@@ -190,6 +193,12 @@ targets:
   ps-stems:
     game: ps
     plan: release
+  rs:
+    game: rs
+    plan: album
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass
 
 # table of some aligned samples
 # after dropping 22548825 samples from band and drums tracks...

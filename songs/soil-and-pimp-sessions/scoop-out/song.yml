@@ -41,6 +41,8 @@ parts:
       difficulty: 2
       tuning:
         base: bass-4
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo:
       difficulty: 4
@@ -59,3 +61,5 @@ targets:
   ps:
     game: ps
     # url: http://www.mediafire.com/file/ifcgzuq33h4g4zr/OJP1_ScoopOut_v2_rb3con
+  rs:
+    game: rs
