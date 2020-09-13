@@ -1,6 +1,8 @@
 module Rocksmith.Crypt where
 
+import Prelude hiding (fail)
 import           Codec.Compression.Zlib (decompress)
+import           Control.Monad.Fail (MonadFail(..))
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error

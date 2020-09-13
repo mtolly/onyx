@@ -34,6 +34,7 @@ module Control.Monad.Trans.StackTrace
 import           Control.Applicative
 import qualified Control.Exception                as Exc
 import           Control.Monad
+import           Control.Monad.Fail (MonadFail(..))
 import           Control.Monad.Except             (MonadError (..))
 import           Control.Monad.Fix                (MonadFix)
 import           Control.Monad.IO.Class

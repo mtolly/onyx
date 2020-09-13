@@ -46,7 +46,7 @@ win:
 	rm -rf win/
 	mkdir win/
 	stack exec which onyx | xargs -I{} cp {} win/
-	cp /mingw64/bin/*.dll win/
+	cp /mingw32/bin/*.dll win/
 	stack exec strip win/onyx.exe
 	cp LICENSE.txt win/LICENSE.txt
 	cp README.md win/README.txt
@@ -59,7 +59,7 @@ win:
 	"/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
 
 win-deps:
-	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-openal mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-rubberband mingw-w64-x86_64-mpg123 wget tar unzip zip man autoconf automake
+	pacman -Sy mingw-w64-i686-pkg-config mingw-w64-i686-openal mingw-w64-i686-libsndfile mingw-w64-i686-libsamplerate mingw-w64-i686-lame mingw-w64-i686-rubberband mingw-w64-i686-mpg123 wget tar unzip zip man autoconf automake
 
 icon/icon.o:
 	stack exec -- windres -i icon/icon.rc icon/icon.o

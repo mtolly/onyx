@@ -78,10 +78,10 @@ queueDirBack dir ast = if HS.member dir $ audioScannedDirs ast
 queueFileBack :: Path Abs File -> AudioState -> AudioState
 queueFileBack f ast = if HS.member f $ audioScannedFiles ast
   then ast
-  else case map toLower <$> fileExtension f of
-    Just ".flac" -> ast { audioQueueFLACs = audioQueueFLACs ast |> f }
-    Just ".wav" -> ast { audioQueueWAVs = audioQueueWAVs ast |> f }
-    Just ".mogg" -> ast { audioQueueMOGGs = audioQueueMOGGs ast |> f }
+  else case map toLower $ fileExtension f of
+    ".flac" -> ast { audioQueueFLACs = audioQueueFLACs ast |> f }
+    ".wav" -> ast { audioQueueWAVs = audioQueueWAVs ast |> f }
+    ".mogg" -> ast { audioQueueMOGGs = audioQueueMOGGs ast |> f }
     _ -> case toFilePath $ filename f of
       "info.plist" -> ast { audioQueueJammit = audioQueueJammit ast |> f }
       _            -> ast
@@ -164,10 +164,10 @@ processOne stype ast = case popFile stype ast of
       Just md5 -> ret ast'
         { audioFiles = HM.insert (T.pack md5) f $ audioFiles ast'
         }
-    in case map toLower <$> fileExtension f of
-      Just ".flac" -> computeMD5
-      Just ".wav" -> computeMD5
-      Just ".mogg" -> stackIO' (T.pack . show . MD5.md5 <$> BL.readFile (toFilePath f)) >>= \case
+    in case map toLower $ fileExtension f of
+      ".flac" -> computeMD5
+      ".wav" -> computeMD5
+      ".mogg" -> stackIO' (T.pack . show . MD5.md5 <$> BL.readFile (toFilePath f)) >>= \case
         Nothing -> ret ast'
         Just md5 -> ret ast'
           { audioMOGGs = HM.insert md5 f $ audioMOGGs ast'

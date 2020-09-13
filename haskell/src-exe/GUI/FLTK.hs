@@ -3304,9 +3304,9 @@ launchGUI = withAL $ \hasAudio -> do
     (Just "Onyx Console")
   FL.setXclass termWindow "Onyx" -- this sets it as the default
 #ifdef WINDOWS
-  peek fl_display >>= \disp -> do
-    icon <- loadIcon (Just disp) $ intPtrToPtr 1
-    FL.setIconRaw termWindow icon
+  -- replaced setIconRaw for 32-bit hack
+  Right icon <- getResourcesPath "icon.png" >>= FL.pngImageNew . T.pack
+  FL.setIcon termWindow $ Just icon
 #else
 #ifndef MACOSX
   -- linux icon (not working?)

@@ -3,6 +3,7 @@
 module RockBand.IOS where
 
 import           Control.Monad        (replicateM, zipWithM)
+import           Control.Monad.Fail (MonadFail(..))
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
