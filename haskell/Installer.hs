@@ -72,8 +72,8 @@ main = getArgs >>= \args -> case args of
 
     -- Create Windows installer script
     name "Onyx Music Game Toolkit"
-    outFile $ fromString $ "onyx-" ++ versionString ++ "-windows-x64.exe"
-    installDir "$PROGRAMFILES64/OnyxToolkit"
+    outFile $ fromString $ "onyx-" ++ versionString ++ "-windows-x86.exe"
+    installDir "$PROGRAMFILES32/OnyxToolkit"
     installDirRegKey HKLM "SOFTWARE/OnyxToolkit" "Install_Dir"
     requestExecutionLevel Admin
 
