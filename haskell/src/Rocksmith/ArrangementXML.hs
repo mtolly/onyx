@@ -280,7 +280,7 @@ data FretHandMute = FretHandMute
 data Anchor = Anchor
   { an_time  :: U.Seconds
   , an_fret  :: Int
-  , an_width :: Milli
+  , an_width :: Int
   } deriving (Eq, Show)
 
 data HandShape = HandShape
@@ -342,7 +342,7 @@ instance IsInside Anchor where
   insideCodec = do
     an_time  <- an_time  =. seconds (reqAttr "time")
     an_fret  <- an_fret  =. intText (reqAttr "fret")
-    an_width <- an_width =. milliText (reqAttr "width")
+    an_width <- an_width =. intText (reqAttr "width")
     return Anchor{..}
 
 instance IsInside HandShape where

@@ -2002,6 +2002,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       pg <- maybe [] (toList . partProGuitar) $ getPart fpart songYaml
                       return (fpart, Right pg, arrSlot)
                 rsPadding = dir </> "padding.txt"
+                rsAnchors = dir </> "anchors.mid"
                 rsProject = dir </> "cst/project.dlc.xml"
                 rsAudio   = dir </> "cst/audio.wav"
                 rsPreview = dir </> "cst/audio_preview.wav" -- this has to be named same as audio + "_preview" for CST to load it
@@ -2032,6 +2033,26 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               stackIO $ writeFile out $ show $ if firstNoteTime >= targetTime
                 then 0
                 else realToFrac $ targetTime - firstNoteTime :: Milli
+
+            rsAnchors %> \out -> do
+              mid <- shakeMIDI $ planDir </> "processed.mid"
+              let eachTrack trk = if RTB.null $ rsNotes trk
+                    then return trk
+                    else do
+                      rso <- buildRS (RBFile.s_tempos mid) trk
+                      return $ backportAnchors (RBFile.s_tempos mid) trk rso
+              newParts <- forM (RBFile.onyxParts $ RBFile.s_tracks mid) $ \opart -> do
+                gtr  <- eachTrack $ RBFile.onyxPartRSGuitar opart
+                bass <- eachTrack $ RBFile.onyxPartRSBass   opart
+                return opart
+                  { RBFile.onyxPartRSGuitar = gtr
+                  , RBFile.onyxPartRSBass   = bass
+                  }
+              saveMIDI out $ mid
+                { RBFile.s_tracks = (RBFile.s_tracks mid)
+                  { RBFile.onyxParts = newParts
+                  }
+                }
 
             forM_ presentParts $ \(fpart, pvg, arrSlot) -> do
               rsArr fpart arrSlot %> \out -> do

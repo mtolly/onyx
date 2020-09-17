@@ -14,6 +14,7 @@ module Rocksmith.MIDI
 , ChordInfo(..)
 , ChordLocation(..)
 , buildRSVocals
+, backportAnchors
 ) where
 
 import           Control.Applicative              (liftA2, (<|>))
@@ -415,9 +416,15 @@ autoAnchors allNotes shapes = let
       []    -> Nothing
       frets -> Just (minimum frets, maximum frets)
     thisAnchor = case fretsNow of
-      Nothing -> prevAnchor
+      Nothing -> (prevMin, min (prevMin + 3) prevMax) -- shrink if more wide than usual
       Just (minFret, maxFret) -> case (prevMin <= minFret, maxFret <= prevMax) of
-        (True, True)   -> prevAnchor -- continue previous anchor because it works
+        (True, True)   -> if prevMax - prevMin == 3
+          then prevAnchor -- continue previous anchor because it works
+          else let
+            -- shrink anchor, previous extra width not needed anymore
+            thisMin = min minFret $ prevMax - 3
+            thisMax = max (thisMin + 3) maxFret
+            in (thisMin, thisMax)
         (True, False)  -> (min minFret (maxFret - 3), maxFret) -- need to move up
         (False, True)  -> (minFret, max (minFret + 3) maxFret) -- need to move down
         (False, False) -> (minFret, maxFret) -- need to grow
@@ -428,6 +435,20 @@ autoAnchors allNotes shapes = let
     $ RTB.fromAbsoluteEventList
     $ buildAnchors (initialAnchor constraints) Map.empty
     $ ATB.collectCoincident constraints
+
+backportAnchors :: U.TempoMap -> RocksmithTrack U.Beats -> RSOutput -> RocksmithTrack U.Beats
+backportAnchors tmap trk rso = let
+  anchors
+    = U.unapplyTempoTrack tmap
+    $ RTB.fromAbsoluteEventList
+    $ ATB.fromPairList
+    $ sort
+    $ map (\a -> (an_time a, (an_fret a, an_fret a + an_width a - 1)))
+    $ toList $ lvl_anchors $ rso_level rso
+  in trk
+    { rsAnchorLow  = fmap fst anchors
+    , rsAnchorHigh = fmap snd anchors
+    }
 
 buildRS :: (SendMessage m) => U.TempoMap -> RocksmithTrack U.Beats -> StackTraceT m RSOutput
 buildRS tmap trk = do
@@ -654,7 +675,7 @@ buildRS tmap trk = do
         in V.fromList $ flip map (Map.toList anchorMap') $ \(t, (low, high)) -> Anchor
           { an_time  = t
           , an_fret  = low
-          , an_width = fromIntegral $ max 1 $ high - low + 1
+          , an_width = max 1 $ high - low + 1
           }
       }
     , rso_tones = U.applyTempoTrack tmap $ rsTones trk

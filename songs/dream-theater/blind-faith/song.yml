@@ -28,6 +28,11 @@ parts:
   bass:
     grybo: # onyxite
       difficulty: 6
+    pro-guitar:
+      tuning:
+        base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo: # GHFreak46
       difficulty: 7
@@ -53,3 +58,8 @@ targets:
     version: 2
   ps:
     game: ps
+  rs:
+    game: rs
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass

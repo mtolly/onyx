@@ -53,6 +53,13 @@ plans:
             - only: [Keys, jammit-track]
             - only: [Guitar 1, jammit-track]
             - only: [Guitar 2, jammit-track]
+  jammit-simple:
+    countin: *countin
+    parts:
+      bass:
+        pad: [1.193, only: [Bass, jammit-track]]
+    song:
+      pad: [1.193, without: [bass, jammit-track]]
 parts:
   drums:
     drums:
@@ -60,6 +67,11 @@ parts:
       difficulty: 6
   bass:
     grybo: {}
+    pro-guitar:
+      tuning:
+        base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo: {}
   keys:
@@ -75,3 +87,9 @@ targets:
   ps:
     game: ps
     plan: jammit
+  rs:
+    game: rs
+    plan: jammit-simple # for tempo map + ending
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass

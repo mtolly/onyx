@@ -26,8 +26,14 @@ plans:
     parts:
       drums:
         pad: [0.222, only: [Drums, jammit-track]]
+      bass:
+        pad: [0.222, only: [Bass, jammit-track]]
     song:
-      pad: [0.222, without: [drums, jammit-track]]
+      pad:
+      - 0.222
+      - mix:
+        - without: [drums, jammit-track]
+        - gain: [-1, only: [Bass, jammit-track]]
   album:
     countin: *countin
     song:
@@ -37,8 +43,20 @@ parts:
   drums:
     drums:
       kicks: 2
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5 # literally one below-E note lmao. explained in sheet as "4th string is retuned to D w/ headstock detuner."
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: jammit
+  rs:
+    game: rs
+    plan: jammit # maybe use one-instrument expression
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass

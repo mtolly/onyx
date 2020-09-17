@@ -75,6 +75,8 @@ targets:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
+  rs:
+    game: rs
 metadata:
   preview-start: 15
   file-album-art: cover.png_xbox
