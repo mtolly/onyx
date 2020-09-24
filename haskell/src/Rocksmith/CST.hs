@@ -4,13 +4,17 @@ module Rocksmith.CST where
 
 import           Control.Monad                  (join, void)
 import           Control.Monad.Codec
+import           Control.Monad.Codec.Onyx       (makeOut, opt, req)
+import           Control.Monad.Codec.Onyx.JSON
 import           Control.Monad.Codec.Onyx.XML
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
+import qualified Data.Aeson                     as A
 import qualified Data.ByteString                as B
 import           Data.Fixed                     (Milli)
 import           Data.Functor.Identity          (Identity)
+import qualified Data.HashMap.Strict            as HM
 import           Data.Int                       (Int32)
 import           Data.Maybe                     (isNothing)
 import           Data.Profunctor                (dimap)
@@ -18,6 +22,7 @@ import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import qualified Data.Text.IO                   as T
 import qualified Data.Vector                    as V
+import           Text.Read                      (readMaybe)
 import           Text.XML.Light
 
 cstSpaceW3, cstSpaceMain, cstSpaceArrProps, cstSpaceSng2014, cstSpaceAggGraph, cstSpaceTone, cstSpaceTone2014, cstSpaceArrays :: String
@@ -100,6 +105,8 @@ data Tone2014 = Tone2014
 
 instance IsInside Tone2014 where
   insideCodec = do
+    useNamespace (Just "i") cstSpaceW3
+    useNamespace (Just "") cstSpaceTone2014
     t14_GearList        <- t14_GearList        =. childTag (inSpace cstSpaceTone2014 "GearList"       ) (parseInside' insideCodec)
     t14_IsCustom        <- t14_IsCustom        =. childTag (inSpace cstSpaceTone2014 "IsCustom"       ) (parseInside' $ boolWordText childText)
     t14_Key             <- t14_Key             =. childTag (inSpace cstSpaceTone2014 "Key"            ) (parseInside' childText)
@@ -114,6 +121,24 @@ toneDescriptors :: (SendMessage m) => InsideCodec m (V.Vector T.Text)
 toneDescriptors = do
   useNamespace Nothing cstSpaceArrays
   bareList $ isTag (inSpace cstSpaceArrays "string") $ parseInside' childText
+
+-- | Format used in manifest .json
+instance StackJSON Tone2014 where
+  stackJSON = asStrictObject "Tone2014" $ do
+    t14_GearList        <- t14_GearList        =. req "GearList" stackJSON
+    t14_IsCustom        <- t14_IsCustom        =. req "IsCustom" stackJSON
+    t14_Key             <- t14_Key             =. req "Key" stackJSON
+    t14_Name            <- t14_Name            =. req "Name" stackJSON
+    t14_NameSeparator   <- t14_NameSeparator   =. req "NameSeparator" stackJSON
+    t14_SortOrder       <- t14_SortOrder       =. req "SortOrder" stackJSON
+    t14_ToneDescriptors <- t14_ToneDescriptors =. req "ToneDescriptors" stackJSON
+    t14_Volume          <- t14_Volume          =. req "Volume" Codec
+      { codecIn = codecIn stackJSON >>= \s -> case readMaybe s of
+        Nothing -> fatal "Couldn't read volume number from string"
+        Just v  -> return v
+      , codecOut = makeOut $ A.String . T.pack . show
+      }
+    return Tone2014{..}
 
 data Gear2014 = Gear2014
   { g14_Amp        :: Maybe Pedal2014
@@ -148,6 +173,25 @@ instance IsInside Gear2014 where
     g14_Rack2      <- g14_Rack2      =. childTag (inSpace cstSpaceTone2014 "Rack2"     ) (parseInside' $ nillable insideCodec)
     g14_Rack3      <- g14_Rack3      =. childTag (inSpace cstSpaceTone2014 "Rack3"     ) (parseInside' $ nillable insideCodec)
     g14_Rack4      <- g14_Rack4      =. childTag (inSpace cstSpaceTone2014 "Rack4"     ) (parseInside' $ nillable insideCodec)
+    return Gear2014{..}
+
+-- | Format used in manifest .json
+instance StackJSON Gear2014 where
+  stackJSON = asStrictObject "Gear2014" $ do
+    g14_Amp        <- g14_Amp        =. opt Nothing "Amp"        stackJSON
+    g14_Cabinet    <- g14_Cabinet    =. opt Nothing "Cabinet"    stackJSON
+    g14_PostPedal1 <- g14_PostPedal1 =. opt Nothing "PostPedal1" stackJSON
+    g14_PostPedal2 <- g14_PostPedal2 =. opt Nothing "PostPedal2" stackJSON
+    g14_PostPedal3 <- g14_PostPedal3 =. opt Nothing "PostPedal3" stackJSON
+    g14_PostPedal4 <- g14_PostPedal4 =. opt Nothing "PostPedal4" stackJSON
+    g14_PrePedal1  <- g14_PrePedal1  =. opt Nothing "PrePedal1"  stackJSON
+    g14_PrePedal2  <- g14_PrePedal2  =. opt Nothing "PrePedal2"  stackJSON
+    g14_PrePedal3  <- g14_PrePedal3  =. opt Nothing "PrePedal3"  stackJSON
+    g14_PrePedal4  <- g14_PrePedal4  =. opt Nothing "PrePedal4"  stackJSON
+    g14_Rack1      <- g14_Rack1      =. opt Nothing "Rack1"      stackJSON
+    g14_Rack2      <- g14_Rack2      =. opt Nothing "Rack2"      stackJSON
+    g14_Rack3      <- g14_Rack3      =. opt Nothing "Rack3"      stackJSON
+    g14_Rack4      <- g14_Rack4      =. opt Nothing "Rack4"      stackJSON
     return Gear2014{..}
 
 data Pedal2014 = Pedal2014
@@ -189,6 +233,18 @@ nillable c = do
       { codecIn = Just <$> codecIn c
       , codecOut = fmapArg $ mapM_ $ codecOut c
       }
+
+-- | Format used in manifest .json
+instance StackJSON Pedal2014 where
+  stackJSON = asStrictObject "Pedal2014" $ do
+    p14_Category   <- p14_Category   =. opt Nothing "Category" stackJSON
+    p14_KnobValues <- p14_KnobValues =. req "KnobValues"
+      (dimap (HM.fromList . V.toList) (V.fromList . HM.toList) $ dict stackJSON)
+    p14_PedalKey   <- p14_PedalKey   =. req "Key" stackJSON
+    p14_Skin       <- p14_Skin       =. opt Nothing "Skin" stackJSON
+    p14_SkinIndex  <- p14_SkinIndex  =. opt Nothing "SkinIndex" stackJSON
+    p14_Type       <- p14_Type       =. req "Type" stackJSON
+    return Pedal2014{..}
 
 data Arrangement = Arrangement
   { arr_ArrangementName      :: T.Text
@@ -421,4 +477,10 @@ writeProject :: (MonadIO m) => FilePath -> DLCPackageData -> m ()
 writeProject f proj = liftIO $ do
   let xml = makeDoc (inSpace cstSpaceMain "DLCPackageData")
         $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) DLCPackageData) proj
+  B.writeFile f $ TE.encodeUtf8 $ T.pack $ ppTopElement xml
+
+writeTone :: (MonadIO m) => FilePath -> Tone2014 -> m ()
+writeTone f tone = liftIO $ do
+  let xml = makeDoc (inSpace cstSpaceTone2014 "Tone2014")
+        $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Tone2014) tone
   B.writeFile f $ TE.encodeUtf8 $ T.pack $ ppTopElement xml

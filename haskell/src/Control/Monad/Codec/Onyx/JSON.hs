@@ -14,8 +14,10 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
 import qualified Data.Aeson                     as A
 import qualified Data.ByteString                as B
+import           Data.Fixed                     (Fixed, HasResolution)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as Set
+import           Data.Profunctor                (dimap)
 import           Data.Scientific
 import qualified Data.Text                      as T
 import qualified Data.Vector                    as V
@@ -108,12 +110,16 @@ instance StackJSON Integer
 instance StackJSON Scientific
 instance StackJSON Double
 instance StackJSON Float
+instance (HasResolution a) => StackJSON (Fixed a)
 instance StackJSON T.Text
 instance StackJSON Bool
 instance StackJSON A.Value
 
 instance (StackJSON a) => StackJSON [a] where
   stackJSON = stackJSONList
+
+instance (StackJSON a) => StackJSON (V.Vector a) where
+  stackJSON = dimap V.toList V.fromList stackJSONList
 
 instance StackJSON Char where
   stackJSONList = aesonCodec

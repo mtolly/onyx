@@ -6,8 +6,10 @@ module Rocksmith.Import where
 import           Audio                            (Audio (..))
 import           Codec.Picture                    (writePng)
 import           Config
-import           Control.Monad                    (forM, guard)
-import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
+import           Control.Monad                    (forM, forM_, guard)
+import           Control.Monad.Codec.Onyx.JSON    (fromJSON, toJSON,
+                                                   yamlEncodeFile)
+import           Control.Monad.Trans.Reader       (runReaderT)
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                       as A
@@ -34,6 +36,7 @@ import           RockBand.Common                  (blipEdgesRB, fixOverlaps,
                                                    splitEdgesSimple)
 import           Rocksmith.BNK                    (extractRSOgg)
 import           Rocksmith.Crypt
+import           Rocksmith.CST
 import           Rocksmith.MIDI
 import           Rocksmith.PSARC
 import           Rocksmith.Sng2014
@@ -143,6 +146,8 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
         isBass <- prop "pathBass" arrProps >>= getBool
         isBonus <- prop "bonusArr" arrProps >>= getBool
         arrName <- prop "ArrangementName" jsonAttrs >>= getString
+        -- TODO this needs to handle alt arrangements, and having multiple of a slot.
+        -- will need to rework song.yml target type
         let name = case (isLead, isRhythm, isBass, isBonus) of
               (True, _, _, False)      -> RBFile.FlexGuitar
               (_, True, _, False)      -> RBFile.FlexExtra "rhythm"
@@ -151,8 +156,19 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
               (_, True, _, True)       -> RBFile.FlexExtra "bonus-rhythm"
               (_, _, True, True)       -> RBFile.FlexExtra "bonus-bass"
               (False, False, False, _) -> RBFile.FlexExtra $ T.filter (not . isSpace) arrName
-        return $ Just (name, sng, bnkPath, (title, artist, album, year), isBass)
-  (_, firstArr, bnk, (title, artist, album, year), _) <- case parts of
+        toneList <- prop "Tones" jsonAttrs >>= \v -> mapStackTraceT (`runReaderT` v) fromJSON
+        let findTone k = case find ((== k) . t14_Key) (toneList :: [Tone2014]) of
+              Nothing -> fatal $ "Couldn't find tone for key: " <> show k
+              Just t  -> return t
+            findMaybeTone "" = return Nothing
+            findMaybeTone k  = Just <$> findTone k
+        rsFileToneBase <- prop "Tone_Base" jsonAttrs >>= getString >>= findTone
+        rsFileToneA    <- prop "Tone_A" jsonAttrs >>= getString >>= findMaybeTone
+        rsFileToneB    <- prop "Tone_B" jsonAttrs >>= getString >>= findMaybeTone
+        rsFileToneC    <- prop "Tone_C" jsonAttrs >>= getString >>= findMaybeTone
+        rsFileToneD    <- prop "Tone_D" jsonAttrs >>= getString >>= findMaybeTone
+        return $ Just (name, sng, bnkPath, (title, artist, album, year), isBass, RSTones{..})
+  (_, firstArr, bnk, (title, artist, album, year), _, _) <- case parts of
     []    -> fatal "No entries found in song"
     p : _ -> return p
   art <- case map rsAlbumArtLarge song of
@@ -202,7 +218,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
   stackIO $ Save.toFile (dout </> "notes.mid") $ RBFile.showMIDIFile'
     $ RBFile.Song temps sigs mempty
       { RBFile.onyxParts = Map.fromList $ do
-        (partName, sng, _, _, isBass) <- parts
+        (partName, sng, _, _, isBass, _) <- parts
         let toSeconds = realToFrac :: Float -> U.Seconds
             getNotes note = let
               secs = toSeconds $ notes_Time note
@@ -405,6 +421,14 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
           else mempty { RBFile.onyxPartRSGuitar = trk })
       }
 
+  let allTones = do
+        -- might want to deduplicate by key
+        (_, _, _, _, _, tones) <- parts
+        toList tones
+      toneFile t = T.unpack (t14_Key t) <.> "tone2014.xml"
+  forM_ allTones $ \tone -> do
+    writeTone (dout </> toneFile tone) tone
+
   -- Lots of authors don't put their name into CST for some reason,
   -- so it just shows up as Custom Song Creator...
   -- Is it a newer added feature?
@@ -450,7 +474,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
       , _fileTempo    = Nothing
       }
     , _parts = Parts $ HM.fromList $ do
-      (partName, sng, _, _, isBass) <- parts
+      (partName, sng, _, _, isBass, tones) <- parts
       let part = def
             { partProGuitar = Just PartProGuitar
               { pgDifficulty    = Tier 1
@@ -470,7 +494,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                   }
               , pgTuningRSBass = Nothing
               , pgFixFreeform   = False
-              , pgTones = Nothing -- TODO
+              , pgTones = Just $ fmap toneFile tones
               , pgPickedBass = False -- TODO
               }
             }
