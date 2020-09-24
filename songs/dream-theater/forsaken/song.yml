@@ -101,6 +101,8 @@ parts:
       tuning:
         base: bass-5
       difficulty: 2
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo:
       difficulty: 4
@@ -134,3 +136,9 @@ targets:
   ps:
     game: ps
     plan: drumcam
+  rs:
+    game: rs
+    plan: album
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass

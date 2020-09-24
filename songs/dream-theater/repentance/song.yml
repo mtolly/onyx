@@ -120,6 +120,10 @@ parts:
     pro-guitar:
       tuning:
         base: bass-5
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+        file-tone-a: ../../../tones/ViolationDrive.tone2014.xml
+        # don't need to switch back to the base tone
   guitar:
     grybo:
       difficulty: 2
@@ -152,3 +156,9 @@ targets:
   ps:
     game: ps
     plan: drumcam
+  rs:
+    game: rs
+    plan: album
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass

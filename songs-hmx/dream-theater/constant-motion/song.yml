@@ -133,7 +133,9 @@ parts:
     pro-guitar:
       difficulty: 6
       tuning:
-        base: bass-5
+        base: bass-5 # only uses BEAD, so it can fit in 4-string on RS
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo:
       difficulty: 7
@@ -169,3 +171,8 @@ targets:
     game: ps
     plan: final
     label: (O)
+  rs:
+    game: rs
+    plan: album
+    lead: undefined
+    bass: bass # BEAD

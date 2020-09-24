@@ -35,6 +35,8 @@ parts:
       difficulty: 6
       tuning:
         base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     pro-guitar:
       difficulty: 7
@@ -48,3 +50,8 @@ targets:
     2x-bass-pedal: true
   ps:
     game: ps
+  rs:
+    game: rs
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass

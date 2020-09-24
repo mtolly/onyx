@@ -34,6 +34,9 @@ parts:
   bass:
     grybo:
       difficulty: 5
+    pro-guitar: # WIP
+      tuning:
+        base: bass-4
   keys:
     grybo:
       difficulty: 7

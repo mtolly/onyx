@@ -3,6 +3,12 @@ parts:
     grybo:
       difficulty:
         tier: 7
+    pro-guitar:
+      tuning:
+        base: bass-4
+        offsets: [-2, 0, 0, 0] # drop D
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo:
       difficulty:
@@ -46,6 +52,11 @@ targets:
   ps:
     game: ps
     label: (O)
+  rs:
+    game: rs
+    lead: undefined
+    rhythm: undefined
+    bass: bass
 metadata:
   rating: Family Friendly
   preview-start: 34

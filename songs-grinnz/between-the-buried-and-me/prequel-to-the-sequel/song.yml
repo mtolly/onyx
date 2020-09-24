@@ -62,6 +62,8 @@ parts:
       tuning:
         base: bass-5
         global: -3 # G# C# F# B E
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   vocal:
     vocal:
       count: 3
@@ -75,3 +77,10 @@ targets:
     song-id: 1660200056
     version: 1
     plan: album
+  rs:
+    game: rs
+    plan: album
+    lead: undefined
+    rhythm: undefined
+    bass: undefined
+    bonus-rhythm: bass

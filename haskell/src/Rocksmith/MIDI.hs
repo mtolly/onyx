@@ -626,6 +626,8 @@ buildRS tmap trk = do
         $  [ template | Right (template, _) <- notesAndChords ]
         <> [ template | (template, _, _)    <- shapes         ]
       chordTemplateIndexes = Map.fromList $ zip chordTemplates [0..]
+  case length $ rsPhrases trk of
+    n -> when (n > 100) $ warn $ "There are " <> show n <> " phrases; more than 100 phrases won't display correctly in game"
   return RSOutput
     { rso_level = Level
       { lvl_difficulty    = 0

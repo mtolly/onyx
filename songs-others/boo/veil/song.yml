@@ -1,0 +1,56 @@
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5 # sheet has C string but never uses it!
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+      kicks: 2
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 6344456e41550f1254262d929d2e8804
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3-2x:
+    song-id: o129180338
+    game: rb3
+    2x-bass-pedal: true
+  rs:
+    game: rs
+    lead: undefined
+    bass: undefined
+    bonus-rhythm: bass
+metadata:
+  preview-start: 39.128
+  file-album-art: cover.png_xbox
+  track-number: 4
+  album: Vector
+  year: 2018
+  subgenre: metal
+  author: Boo, Onyxite
+  title: Veil
+  preview-end: 1:09.128
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Haken
