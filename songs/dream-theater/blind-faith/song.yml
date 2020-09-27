@@ -33,6 +33,13 @@ parts:
         base: bass-6
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  bass5:
+    # edit for 5-string bass
+    pro-guitar:
+      tuning:
+        base: bass-5
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo: # GHFreak46
       difficulty: 7
@@ -63,3 +70,4 @@ targets:
     lead: undefined
     bass: undefined
     bonus-rhythm: bass
+    rhythm: bass5 # TODO put this on Bonus Rhythm 2 when supported!

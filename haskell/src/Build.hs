@@ -55,6 +55,9 @@ import           Data.Maybe                            (fromMaybe, isJust,
 import           Data.String                           (IsString, fromString)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
+import           Data.Time                             (defaultTimeLocale,
+                                                        formatTime,
+                                                        getZonedTime)
 import qualified Data.UUID                             as UUID
 import qualified Data.UUID.V4                          as UUID
 import qualified Data.Vector                           as V
@@ -2104,6 +2107,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         tuning3 = map (+ if octaveDown then 12 else 0) tuning2
                         lengthBeats = songLengthBeats mid
                         lengthSeconds = U.applyTempoMap (RBFile.s_tempos mid) lengthBeats
+                    time <- stackIO getZonedTime
                     Arr.writePart out $ Arr.addPadding pad $ Arr.PartArrangement Arr.Arrangement
                       { Arr.arr_version                = 7 -- this is what EOF has currently
                       , Arr.arr_title                  = getTitle $ _metadata songYaml
@@ -2119,7 +2123,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , Arr.arr_offset                 = 0
                       , Arr.arr_centOffset             = _tuningCents plan + if octaveDown then -1200 else 0
                       , Arr.arr_songLength             = lengthSeconds
-                      , Arr.arr_lastConversionDateTime = "" -- TODO
+                      , Arr.arr_lastConversionDateTime = T.pack $ formatTime defaultTimeLocale
+                        "%-m-%d-%y %-H:%M"
+                        time
                       , Arr.arr_startBeat              = 0
                       , Arr.arr_averageTempo           = U.makeTempo lengthBeats lengthSeconds
                       , Arr.arr_tuning                 = Arr.Tuning
