@@ -64,6 +64,5 @@ targets:
     game: ps
   rs:
     game: rs
-    lead: undefined
-    bass: undefined # 4-string todo (EADG)
-    bonus-rhythm: bass
+    arrangements:
+    - [bonus-rhythm, bass]

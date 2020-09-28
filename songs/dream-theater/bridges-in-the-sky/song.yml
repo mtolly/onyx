@@ -56,6 +56,5 @@ targets:
     game: ps
   rs:
     game: rs
-    lead: undefined
-    bass: undefined
-    bonus-rhythm: bass
+    arrangements:
+    - [bonus-rhythm, bass]

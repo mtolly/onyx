@@ -54,9 +54,8 @@ targets:
     label: (O)
   rs:
     game: rs
-    lead: undefined
-    rhythm: undefined
-    bass: bass
+    arrangements:
+    - [bass, bass]
 metadata:
   rating: Family Friendly
   preview-start: 34

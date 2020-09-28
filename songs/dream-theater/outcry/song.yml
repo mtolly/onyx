@@ -40,6 +40,5 @@ targets:
     2x-bass-pedal: true
   rs:
     game: rs
-    lead: undefined
-    bass: undefined
-    bonus-rhythm: bass
+    arrangements:
+    - [bonus-rhythm, bass]

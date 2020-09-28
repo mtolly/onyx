@@ -36,3 +36,5 @@ targets:
     game: rb3
   rs:
     game: rs
+    arrangements:
+    - [bass, bass]

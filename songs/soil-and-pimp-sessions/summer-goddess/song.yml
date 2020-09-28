@@ -61,3 +61,5 @@ targets:
     # file-video: video.avi
   rs:
     game: rs
+    arrangements:
+    - [bass, bass]

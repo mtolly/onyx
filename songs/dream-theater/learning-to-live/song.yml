@@ -57,6 +57,5 @@ targets:
   rs:
     game: rs
     plan: jammit # maybe use one-instrument expression
-    lead: undefined
-    bass: undefined
-    bonus-rhythm: bass
+    arrangements:
+    - [bonus-rhythm, bass]

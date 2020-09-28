@@ -63,3 +63,5 @@ targets:
     # url: http://www.mediafire.com/file/ifcgzuq33h4g4zr/OJP1_ScoopOut_v2_rb3con
   rs:
     game: rs
+    arrangements:
+    - [bass, bass]

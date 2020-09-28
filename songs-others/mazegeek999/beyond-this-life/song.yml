@@ -103,10 +103,9 @@ targets:
     plan: mogg
   rs:
     game: rs
-    lead: undefined
-    bass: undefined
-    bonus-rhythm: bass
     plan: jammit-simple
+    arrangements:
+    - [bonus-rhythm, bass]
 metadata:
   rating: Supervision Recommended
   preview-start: 3:40.000

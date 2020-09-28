@@ -1982,28 +1982,18 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               Just pair -> return pair
             let planDir = rel $ "gen/plan" </> T.unpack planName
 
-            let possibleParts =
-                  [ (rs_Lead        rs, RSLead       )
-                  , (rs_Rhythm      rs, RSRhythm     )
-                  , (rs_Bass        rs, RSBass       )
-                  , (rs_BonusLead   rs, RSBonusLead  )
-                  , (rs_BonusRhythm rs, RSBonusRhythm)
-                  , (rs_BonusBass   rs, RSBonusBass  )
-                  , (rs_Vocal       rs, RSVocal      )
-                  ]
-                isBass = \case
-                  RSBass      -> True
-                  RSBonusBass -> True
-                  _           -> False
-                presentParts = do
-                  (fpart, arrSlot) <- possibleParts
-                  case arrSlot of
-                    RSVocal -> do
-                      pv <- maybe [] (toList . partVocal) $ getPart fpart songYaml
-                      return (fpart, Left pv, arrSlot)
-                    _ -> do
-                      pg <- maybe [] (toList . partProGuitar) $ getPart fpart songYaml
-                      return (fpart, Right pg, arrSlot)
+            let isBass = \case
+                  RSArrSlot _ RSBass -> True
+                  _                  -> False
+                presentPlayable = do
+                  (arrSlot, fpart) <- rs_Arrangements rs
+                  -- TODO warn if arrangement does not have pro guitar mode
+                  pg <- maybe [] (toList . partProGuitar) $ getPart fpart songYaml
+                  return (fpart, RSPlayable arrSlot pg)
+                presentParts = presentPlayable <> do
+                  let fpart = rs_Vocal rs
+                  pv <- maybe [] (toList . partVocal) $ getPart fpart songYaml
+                  return (fpart, RSVocal pv)
                 rsPadding = dir </> "padding.txt"
                 rsAnchors = dir </> "anchors.mid"
                 rsProject = dir </> "cst/project.dlc.xml"
@@ -2012,19 +2002,19 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 rsArt     = dir </> "cst/cover.png"
                 rsArr p arrSlot = let
                   suffix = case arrSlot of
-                    RSVocal -> "vocals" -- NOTE this is required! CST breaks if the filename does not have "vocals"
+                    RSVocal _         -> "vocals" -- NOTE this is required! CST breaks if the filename does not have "vocals"
                     -- see https://github.com/rscustom/rocksmith-custom-song-toolkit/blob/fa63cc4e0075/RocksmithToolkitLib/XML/Song2014.cs#L347
                     -- similarly, we'll need "showlights" when that is implemented
-                    _       -> if isBass arrSlot then "b" else "g"
+                    RSPlayable slot _ -> if isBass slot then "b" else "g"
                   in dir </> "cst/" <> T.unpack (RBFile.getPartName p) <> "." <> suffix <> ".arr.xml"
 
             phony (dir </> "cst") $ shk $ need $
-              [rsProject, rsAudio, rsPreview, rsArt] ++ [ rsArr p arrSlot | (p, _, arrSlot) <- presentParts ]
+              [rsProject, rsAudio, rsPreview, rsArt] ++ [ rsArr p arrSlot | (p, arrSlot) <- presentParts ]
 
             rsPadding %> \out -> do
               mid <- shakeMIDI $ planDir </> "processed.mid"
               let firstNoteBeats = do
-                    (fpart, Right _pg, _arrSlot) <- presentParts
+                    (fpart, RSPlayable _ _) <- presentParts
                     let opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
                     trk <- [RBFile.onyxPartRSBass opart, RBFile.onyxPartRSGuitar opart]
                     Wait dt _ _ <- [rsNotes trk]
@@ -2057,19 +2047,19 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   }
                 }
 
-            forM_ presentParts $ \(fpart, pvg, arrSlot) -> do
+            forM_ presentParts $ \(fpart, arrSlot) -> do
               rsArr fpart arrSlot %> \out -> do
                 mid <- shakeMIDI $ planDir </> "processed.mid"
                 pad <- shk $ (realToFrac :: Milli -> U.Seconds) . read <$> readFile' rsPadding
-                case pvg of
-                  Left _pv -> do
+                case arrSlot of
+                  RSVocal _pv -> do
                     let opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
                         trk = if nullVox $ RBFile.onyxPartVocals opart
                           then RBFile.onyxHarm1 opart
                           else RBFile.onyxPartVocals opart
                         vox = buildRSVocals (RBFile.s_tempos mid) trk
                     Arr.writePart out $ Arr.addPadding pad $ Arr.PartVocals vox
-                  Right pg -> do
+                  RSPlayable slot pg -> do
                     mapM_ (shk . need . toList) $ pgTones pg
                     toneKeys <- forM (pgTones pg) $ mapM $ fmap CST.t14_Key . CST.parseTone
                     let ebeats = V.fromList $ numberBars 1 $ ATB.toPairList
@@ -2083,13 +2073,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                           = Arr.Ebeat t (Just measure) : numberBars (measure + 1) rest
                     rso <- let
                       opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
-                      trk = if isBass arrSlot
+                      trk = if isBass slot
                         then RBFile.onyxPartRSBass   opart
                         else RBFile.onyxPartRSGuitar opart
                         -- TODO maybe support using bass track for a guitar slot
                       in buildRS (RBFile.s_tempos mid) trk
                     let allNotes = Arr.lvl_notes $ rso_level rso
-                        tuning0 = case (isBass arrSlot, pgTuningRSBass pg) of
+                        tuning0 = case (isBass slot, pgTuningRSBass pg) of
                           (True, Just tun) -> tun
                           _                -> pgTuning pg
                         -- I'm not sure if we need a separate field at some point,
@@ -2099,9 +2089,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                           then (gtrGlobal tuning0, 0)
                           else (0, gtrGlobal tuning0)
                         tuning1 = map (+ downtune)
-                          $ encodeTuningOffsets tuning0 (if isBass arrSlot then TypeBass else TypeGuitar)
+                          $ encodeTuningOffsets tuning0 (if isBass slot then TypeBass else TypeGuitar)
                         tuning2 = tuning1 <> repeat (last tuning1) -- so 5-string bass has a consistent dummy top string
-                        octaveDown = head tuning2 < (if isBass arrSlot then -4 else -7)
+                        octaveDown = head tuning2 < (if isBass slot then -4 else -7)
                         -- NOTE: the cutoff is -4 for bass because for some reason CST fails
                         -- when trying to apply the low bass fix
                         tuning3 = map (+ if octaveDown then 12 else 0) tuning2
@@ -2111,14 +2101,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     Arr.writePart out $ Arr.addPadding pad $ Arr.PartArrangement Arr.Arrangement
                       { Arr.arr_version                = 7 -- this is what EOF has currently
                       , Arr.arr_title                  = getTitle $ _metadata songYaml
-                      , Arr.arr_arrangement            = case arrSlot of
-                        RSLead        -> "Lead"
-                        RSRhythm      -> "Rhythm"
-                        RSBass        -> "Bass"
-                        RSBonusLead   -> "Lead"
-                        RSBonusRhythm -> "Rhythm"
-                        RSBonusBass   -> "Bass"
-                        RSVocal       -> "" -- shouldn't happen
+                      , Arr.arr_arrangement            = case slot of
+                        RSArrSlot _ RSLead        -> "Lead"
+                        RSArrSlot _ RSRhythm      -> "Rhythm"
+                        RSArrSlot _ RSComboLead   -> "Combo"
+                        RSArrSlot _ RSComboRhythm -> "Combo"
+                        RSArrSlot _ RSBass        -> "Bass"
                       , Arr.arr_part                   = 1 -- TODO what is this?
                       , Arr.arr_offset                 = 0
                       , Arr.arr_centOffset             = _tuningCents plan + if octaveDown then -1200 else 0
@@ -2144,11 +2132,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , Arr.arr_crowdSpeed             = 1
                       , Arr.arr_arrangementProperties  = Arr.ArrangementProperties
                         { Arr.ap_represent         = True -- this is always true in arrangement xmls, but false for bonus (+ vocal/lights) in the project xml?
-                        , Arr.ap_bonusArr          = case arrSlot of
-                          RSBonusLead   -> True
-                          RSBonusRhythm -> True
-                          RSBonusBass   -> True
-                          _             -> False
+                        , Arr.ap_bonusArr          = case slot of
+                          RSArrSlot RSDefault   _ -> False
+                          RSArrSlot RSBonus     _ -> True
+                          RSArrSlot RSAlternate _ -> True
                         , Arr.ap_standardTuning    = all (== 0) tuning1
                         , Arr.ap_nonStandardChords = False -- TODO :: Bool
                         , Arr.ap_barreChords       = False -- TODO :: Bool
@@ -2175,18 +2162,16 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         , Arr.ap_syncopation       = False -- TODO :: Bool
                         , Arr.ap_bassPick          = pgPickedBass pg
                         , Arr.ap_sustain           = any (isJust . Arr.n_sustain) allNotes
-                        , Arr.ap_pathLead          = case arrSlot of
-                          RSLead      -> True
-                          RSBonusLead -> True
-                          _           -> False
-                        , Arr.ap_pathRhythm        = case arrSlot of
-                          RSRhythm      -> True
-                          RSBonusRhythm -> True
-                          _             -> False
-                        , Arr.ap_pathBass          = case arrSlot of
-                          RSBass      -> True
-                          RSBonusBass -> True
-                          _           -> False
+                        -- TODO what does Combo select for these?
+                        , Arr.ap_pathLead          = case slot of
+                          RSArrSlot _ RSLead -> True
+                          _                  -> False
+                        , Arr.ap_pathRhythm        = case slot of
+                          RSArrSlot _ RSRhythm -> True
+                          _                    -> False
+                        , Arr.ap_pathBass          = case slot of
+                          RSArrSlot _ RSBass -> True
+                          _                  -> False
                         , Arr.ap_routeMask         = Nothing
                         }
                       , Arr.arr_phrases                = rso_phrases rso
@@ -2247,14 +2232,14 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             rsArt %> shk . copyFile' (rel "gen/cover.png")
             rsProject %> \out -> do
               let allTonePaths = nubOrd $ do
-                    (_, Right pg, _) <- presentParts
+                    (_, RSPlayable _ pg) <- presentParts
                     tones <- toList $ pgTones pg
                     toList tones
-              shk $ need $ [ rsArr fpart arrSlot | (fpart, _, arrSlot) <- presentParts ] ++ allTonePaths
+              shk $ need $ [ rsArr fpart arrSlot | (fpart, arrSlot) <- presentParts ] ++ allTonePaths
               allTones <- forM allTonePaths $ \f -> do
                 tone <- CST.parseTone f
                 return (f, tone)
-              arrangements <- forM presentParts $ \(fpart, _, arrSlot) -> do
+              arrangements <- forM presentParts $ \(fpart, arrSlot) -> do
                 contents <- Arr.parseFile $ rsArr fpart arrSlot
                 arrID <- stackIO UUID.nextRandom
                 songFileID <- stackIO UUID.nextRandom
@@ -2325,10 +2310,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , CST.ap_PinchHarmonics    = Arr.ap_pinchHarmonics    $ Arr.arr_arrangementProperties arr
                       , CST.ap_PowerChords       = Arr.ap_powerChords       $ Arr.arr_arrangementProperties arr
                       , CST.ap_Represent         = case arrSlot of
-                        RSLead   -> True
-                        RSRhythm -> True
-                        RSBass   -> True
-                        _        -> False
+                        RSPlayable (RSArrSlot RSDefault _) _ -> True
+                        _                                    -> False -- vocals, bonus/alt arrangements
                       , CST.ap_SlapPop           = Arr.ap_slapPop           $ Arr.arr_arrangementProperties arr
                       , CST.ap_Slides            = Arr.ap_slides            $ Arr.arr_arrangementProperties arr
                       , CST.ap_StandardTuning    = Arr.ap_standardTuning    $ Arr.arr_arrangementProperties arr
@@ -2345,30 +2328,23 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , CST.ap_PathRhythm        = Arr.ap_pathRhythm        $ Arr.arr_arrangementProperties arr
                       , CST.ap_Metronome         = False
                       , CST.ap_RouteMask         = case arrSlot of
-                        RSLead        -> 1
-                        RSBonusLead   -> 1
-                        RSRhythm      -> 2
-                        RSBonusRhythm -> 2
-                        -- is there a 3?
-                        RSBass        -> 4
-                        RSBonusBass   -> 4
-                        RSVocal       -> 0 -- shouldn't happen (vocal/showlight have a nil ArrangementPropeties)
+                        RSPlayable (RSArrSlot _ RSLead       ) _ -> 1
+                        RSPlayable (RSArrSlot _ RSRhythm     ) _ -> 2
+                        RSPlayable (RSArrSlot _ RSComboLead  ) _ -> 1
+                        RSPlayable (RSArrSlot _ RSComboRhythm) _ -> 2
+                        RSPlayable (RSArrSlot _ RSBass       ) _ -> 4
+                        RSVocal    _                             -> 0 -- shouldn't happen (vocal/showlight have a nil ArrangementPropeties)
                       }
                     , CST.arr_ArrangementSort      = 0 -- I would've thought this was unique per arrangement but apparently it can just all be 0?
                     , CST.arr_ArrangementType      = case arrSlot of
-                      RSLead        -> "Guitar"
-                      RSRhythm      -> "Guitar"
-                      RSBass        -> "Bass"
-                      RSBonusLead   -> "Guitar"
-                      RSBonusRhythm -> "Guitar"
-                      RSBonusBass   -> "Bass"
-                      RSVocal       -> "Vocal"
+                      RSPlayable (RSArrSlot _ RSBass) _ -> "Bass"
+                      RSPlayable (RSArrSlot _ _     ) _ -> "Guitar"
+                      RSVocal                         _ -> "Vocal"
                       -- last one is "ShowLight"
                     , CST.arr_BonusArr             = case arrSlot of
-                      RSBonusLead   -> True
-                      RSBonusRhythm -> True
-                      RSBonusBass   -> True
-                      _             -> False
+                      RSPlayable (RSArrSlot RSBonus     _) _ -> True
+                      RSPlayable (RSArrSlot RSAlternate _) _ -> False -- alt: both represent and bonus set to false
+                      _                                      -> False
                     , CST.arr_CapoFret             = Arr.arr_capo arr
                     , CST.arr_GlyphsXmlPath        = Nothing
                     , CST.arr_Id                   = UUID.toText arrID
@@ -2377,18 +2353,15 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , CST.arr_Metronome            = "None"
                     , CST.arr_PluckedType          = "NotPicked" -- TODO
                     , CST.arr_Represent            = case arrSlot of
-                      RSLead   -> True
-                      RSRhythm -> True
-                      RSBass   -> True
-                      _        -> False
+                      RSPlayable (RSArrSlot RSDefault _) _ -> True
+                      _                                    -> False -- vocals, bonus/alt arrangements
                     , CST.arr_RouteMask            = case arrSlot of
-                      RSLead        -> "Lead"
-                      RSRhythm      -> "Rhythm"
-                      RSBass        -> "Bass"
-                      RSBonusLead   -> "Lead"
-                      RSBonusRhythm -> "Rhythm"
-                      RSBonusBass   -> "Bass"
-                      RSVocal       -> "None"
+                      RSPlayable (RSArrSlot _ RSLead       ) _ -> "Lead"
+                      RSPlayable (RSArrSlot _ RSRhythm     ) _ -> "Rhythm"
+                      RSPlayable (RSArrSlot _ RSBass       ) _ -> "Bass"
+                      RSPlayable (RSArrSlot _ RSComboLead  ) _ -> "Lead"
+                      RSPlayable (RSArrSlot _ RSComboRhythm) _ -> "Rhythm"
+                      RSVocal _                                -> "None"
                       -- showlights are also "None"
                     , CST.arr_ScrollSpeed          = 13 -- default?
                     , CST.arr_Sng2014              = Nothing
@@ -2425,11 +2398,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         ]
                       thisTuning =
                         [ Arr.tuning_string0 $ Arr.arr_tuning arr
-                        , Arr.tuning_string0 $ Arr.arr_tuning arr
-                        , Arr.tuning_string0 $ Arr.arr_tuning arr
-                        , Arr.tuning_string0 $ Arr.arr_tuning arr
-                        , Arr.tuning_string0 $ Arr.arr_tuning arr
-                        , Arr.tuning_string0 $ Arr.arr_tuning arr
+                        , Arr.tuning_string1 $ Arr.arr_tuning arr
+                        , Arr.tuning_string2 $ Arr.arr_tuning arr
+                        , Arr.tuning_string3 $ Arr.arr_tuning arr
+                        , Arr.tuning_string4 $ Arr.arr_tuning arr
+                        , Arr.tuning_string5 $ Arr.arr_tuning arr
                         ]
                       in fromMaybe "Custom Tuning" $ lookup thisTuning rs2014Tunings
                     , CST.arr_TuningPitch          = let
@@ -2675,14 +2648,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
       lift $ want $ map rel buildables
 
-data RSArrangementType
-  = RSLead
-  | RSRhythm
-  | RSBass
-  | RSBonusLead
-  | RSBonusRhythm
-  | RSBonusBass
-  | RSVocal
+data RSArrangementType g v
+  = RSPlayable RSArrSlot g
+  | RSVocal v
   -- TODO showlight
 
 shk :: Action a -> StackTraceT (QueueLog Action) a

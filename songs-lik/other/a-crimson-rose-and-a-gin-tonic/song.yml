@@ -77,3 +77,5 @@ targets:
     game: ps
   rs:
     game: rs
+    arrangements:
+    - [bass, bass]

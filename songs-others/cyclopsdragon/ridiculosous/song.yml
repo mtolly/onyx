@@ -77,6 +77,8 @@ targets:
     label: (2x Bass Pedal) (O)
   rs:
     game: rs
+    arrangements:
+    - [bass, bass]
 metadata:
   preview-start: 15
   file-album-art: cover.png_xbox

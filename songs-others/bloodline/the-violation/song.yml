@@ -54,6 +54,8 @@ targets:
     label: (B)
   rs:
     game: rs
+    arrangements:
+    - [bass, bass]
 metadata:
   rating: Supervision Recommended
   preview-start: 1:00.000

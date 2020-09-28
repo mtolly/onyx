@@ -68,6 +68,6 @@ targets:
     # file-video: video.avi
   rs:
     game: rs
-    lead: guitar
-    bass: undefined # 4-string todo (EADG)
-    bonus-rhythm: bass
+    arrangements:
+    - [lead, guitar]
+    - [bonus-rhythm, bass]

@@ -196,9 +196,8 @@ targets:
   rs:
     game: rs
     plan: album
-    lead: undefined
-    bass: undefined
-    bonus-rhythm: bass
+    arrangements:
+    - [bonus-rhythm, bass]
 
 # table of some aligned samples
 # after dropping 22548825 samples from band and drums tracks...

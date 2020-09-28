@@ -174,5 +174,5 @@ targets:
   rs:
     game: rs
     plan: album
-    lead: undefined
-    bass: bass # BEAD
+    arrangements:
+    - [bass, bass] # BEAD

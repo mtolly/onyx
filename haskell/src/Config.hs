@@ -1,19 +1,23 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE DeriveFoldable     #-}
+{-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DeriveTraversable  #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE TupleSections      #-}
+{-# LANGUAGE ViewPatterns       #-}
 module Config where
 
 import qualified Amplitude.File                 as Amp
 import           Audio
+import           Control.Applicative            (liftA2)
 import           Control.Arrow                  (first)
 import           Control.Monad.Codec            (CodecFor (..), (=.))
 import           Control.Monad.Codec.Onyx
@@ -37,6 +41,7 @@ import           Data.Scientific                (Scientific, toRealFloat)
 import qualified Data.Text                      as T
 import           Data.Traversable
 import qualified Data.Vector                    as V
+import           DeriveHelpers
 import           GHC.Generics                   (Generic (..))
 import           RockBand.Codec.File            (FlexPartName (..), getPartName,
                                                  readPartName)
@@ -1249,27 +1254,64 @@ instance StackJSON TargetGH2 where
 instance Default TargetGH2 where
   def = fromEmptyObject
 
+data RSArrModifier
+  = RSDefault
+  | RSBonus
+  | RSAlternate
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
+
+data RSArrType
+  = RSLead
+  | RSRhythm
+  | RSComboLead -- ^ combo, set to be on the lead path
+  | RSComboRhythm -- ^ combo, set to be on the rhythm path
+  | RSBass
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
+
+data RSArrSlot = RSArrSlot RSArrModifier RSArrType
+  deriving (Eq, Ord, Show, Generic, Hashable)
+  deriving (Enum, Bounded) via GenericFullEnum RSArrSlot
+
 data TargetRS = TargetRS
-  { rs_Common      :: TargetCommon
-  , rs_Lead        :: FlexPartName
-  , rs_Rhythm      :: FlexPartName
-  , rs_Bass        :: FlexPartName
-  , rs_BonusLead   :: FlexPartName
-  , rs_BonusRhythm :: FlexPartName
-  , rs_BonusBass   :: FlexPartName
-  , rs_Vocal       :: FlexPartName
+  { rs_Common       :: TargetCommon
+  , rs_Arrangements :: [(RSArrSlot, FlexPartName)]
+  , rs_Vocal        :: FlexPartName
   } deriving (Eq, Ord, Show, Generic, Hashable)
+
+rsArrSlot :: RSArrSlot -> T.Text
+rsArrSlot (RSArrSlot arrmod arrtype) = let
+  base = case arrtype of
+    RSLead        -> "lead"
+    RSRhythm      -> "rhythm"
+    RSComboLead   -> "combo-lead"
+    RSComboRhythm -> "combo-rhythm"
+    RSBass        -> "bass"
+  in case arrmod of
+    RSDefault   -> base
+    RSBonus     -> "bonus-" <> base
+    RSAlternate -> "alt-" <> base
+
+parseRSArr :: (SendMessage m) => ValueCodec m A.Value (RSArrSlot, FlexPartName)
+parseRSArr = let
+  slotCodec = enumCodec
+    "arrangement slot like lead, bonus-rhythm, alt-bass, etc."
+    (A.String . rsArrSlot)
+  partCodec = stackJSON
+  in Codec
+    { codecIn = lift ask >>= \case
+      A.Array (V.toList -> [x, y]) -> liftA2 (,)
+        (inside "RS arrangement slot" $ parseFrom x $ codecIn slotCodec)
+        (inside "RS arrangement part" $ parseFrom y $ codecIn partCodec)
+      _ -> expected "2-element array for RS arrangement"
+    , codecOut = makeOut $ \case
+      (slot, fpart) -> A.toJSON [makeValue' slotCodec slot, makeValue' partCodec fpart]
+    }
 
 parseTargetRS :: (SendMessage m) => ObjectCodec m A.Value TargetRS
 parseTargetRS = do
-  rs_Common      <- rs_Common      =. parseTargetCommon
-  rs_Lead        <- rs_Lead        =. opt FlexGuitar              "lead"         stackJSON
-  rs_Rhythm      <- rs_Rhythm      =. opt (FlexExtra "rhythm")    "rhythm"       stackJSON
-  rs_Bass        <- rs_Bass        =. opt FlexBass                "bass"         stackJSON
-  rs_BonusLead   <- rs_BonusLead   =. opt (FlexExtra "undefined") "bonus-lead"   stackJSON
-  rs_BonusRhythm <- rs_BonusRhythm =. opt (FlexExtra "undefined") "bonus-rhythm" stackJSON
-  rs_BonusBass   <- rs_BonusBass   =. opt (FlexExtra "undefined") "bonus-bass"   stackJSON
-  rs_Vocal       <- rs_Vocal       =. opt FlexVocal               "vocal"        stackJSON
+  rs_Common       <- rs_Common       =. parseTargetCommon
+  rs_Arrangements <- rs_Arrangements =. opt [] "arrangements" (listCodec parseRSArr)
+  rs_Vocal        <- rs_Vocal        =. opt FlexVocal "vocal" stackJSON
   return TargetRS{..}
 
 instance StackJSON TargetRS where

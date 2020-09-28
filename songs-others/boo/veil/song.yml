@@ -37,9 +37,8 @@ targets:
     2x-bass-pedal: true
   rs:
     game: rs
-    lead: undefined
-    bass: undefined
-    bonus-rhythm: bass
+    arrangements:
+    - [bonus-rhythm, bass]
 metadata:
   preview-start: 39.128
   file-album-art: cover.png_xbox

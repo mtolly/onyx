@@ -90,6 +90,5 @@ targets:
   rs:
     game: rs
     plan: jammit-simple # for tempo map + ending
-    lead: undefined
-    bass: undefined
-    bonus-rhythm: bass
+    arrangements:
+    - [bonus-rhythm, bass]

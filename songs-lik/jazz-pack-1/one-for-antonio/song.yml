@@ -81,3 +81,5 @@ targets:
   rs:
     game: rs
     plan: final
+    arrangements:
+    - [bass, bass]

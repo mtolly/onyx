@@ -93,8 +93,8 @@ targets:
     2x-bass-pedal: true
   rs:
     game: rs
-    lead: undefined
-    bass: bass
+    arrangements:
+    - [bass, bass]
 metadata:
   preview-start: 1:19.000
   file-album-art: cover.png_xbox

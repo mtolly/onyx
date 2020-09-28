@@ -67,7 +67,6 @@ targets:
     game: ps
   rs:
     game: rs
-    lead: undefined
-    bass: undefined
-    bonus-rhythm: bass
-    rhythm: bass5 # TODO put this on Bonus Rhythm 2 when supported!
+    arrangements:
+    - [bonus-rhythm, bass]
+    - [bonus-rhythm, bass5]

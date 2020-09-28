@@ -16,7 +16,6 @@ import qualified Data.Aeson                       as A
 import           Data.Bits                        ((.&.))
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (isSpace)
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -145,29 +144,33 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
         isRhythm <- prop "pathRhythm" arrProps >>= getBool
         isBass <- prop "pathBass" arrProps >>= getBool
         isBonus <- prop "bonusArr" arrProps >>= getBool
+        isDefault <- prop "represent" arrProps >>= getBool
         arrName <- prop "ArrangementName" jsonAttrs >>= getString
-        -- TODO this needs to handle alt arrangements, and having multiple of a slot.
-        -- will need to rework song.yml target type
-        let name = case (isLead, isRhythm, isBass, isBonus) of
-              (True, _, _, False)      -> RBFile.FlexGuitar
-              (_, True, _, False)      -> RBFile.FlexExtra "rhythm"
-              (_, _, True, False)      -> RBFile.FlexBass
-              (True, _, _, True)       -> RBFile.FlexExtra "bonus-lead"
-              (_, True, _, True)       -> RBFile.FlexExtra "bonus-rhythm"
-              (_, _, True, True)       -> RBFile.FlexExtra "bonus-bass"
-              (False, False, False, _) -> RBFile.FlexExtra $ T.filter (not . isSpace) arrName
-        toneList <- prop "Tones" jsonAttrs >>= \v -> mapStackTraceT (`runReaderT` v) fromJSON
-        let findTone k = case find ((== k) . t14_Key) (toneList :: [Tone2014]) of
-              Nothing -> fatal $ "Couldn't find tone for key: " <> show k
-              Just t  -> return t
-            findMaybeTone "" = return Nothing
-            findMaybeTone k  = Just <$> findTone k
-        rsFileToneBase <- prop "Tone_Base" jsonAttrs >>= getString >>= findTone
-        rsFileToneA    <- prop "Tone_A" jsonAttrs >>= getString >>= findMaybeTone
-        rsFileToneB    <- prop "Tone_B" jsonAttrs >>= getString >>= findMaybeTone
-        rsFileToneC    <- prop "Tone_C" jsonAttrs >>= getString >>= findMaybeTone
-        rsFileToneD    <- prop "Tone_D" jsonAttrs >>= getString >>= findMaybeTone
-        return $ Just (name, sng, bnkPath, (title, artist, album, year), isBass, RSTones{..})
+        let arrmod = case (isDefault, isBonus) of
+              (True , _    ) -> RSDefault
+              (False, False) -> RSAlternate
+              (False, True ) -> RSBonus
+            marrtype = case (isLead, isRhythm, isBass, arrName == "Combo") of
+              (True , _    , _    , False) -> Just RSLead
+              (True , _    , _    , True ) -> Just RSComboLead
+              (_    , True , _    , False) -> Just RSRhythm
+              (_    , True , _    , True ) -> Just RSComboRhythm
+              (_    , _    , True , _    ) -> Just RSBass
+              (False, False, False, _    ) -> Nothing
+        -- TODO warn if marrtype is Nothing?
+        forM marrtype $ \arrtype -> do
+          toneList <- prop "Tones" jsonAttrs >>= \v -> mapStackTraceT (`runReaderT` v) fromJSON
+          let findTone k = case find ((== k) . t14_Key) (toneList :: [Tone2014]) of
+                Nothing -> fatal $ "Couldn't find tone for key: " <> show k
+                Just t  -> return t
+              findMaybeTone "" = return Nothing
+              findMaybeTone k  = Just <$> findTone k
+          rsFileToneBase <- prop "Tone_Base" jsonAttrs >>= getString >>= findTone
+          rsFileToneA    <- prop "Tone_A" jsonAttrs >>= getString >>= findMaybeTone
+          rsFileToneB    <- prop "Tone_B" jsonAttrs >>= getString >>= findMaybeTone
+          rsFileToneC    <- prop "Tone_C" jsonAttrs >>= getString >>= findMaybeTone
+          rsFileToneD    <- prop "Tone_D" jsonAttrs >>= getString >>= findMaybeTone
+          return $ (RSArrSlot arrmod arrtype, sng, bnkPath, (title, artist, album, year), isBass, RSTones{..})
   (_, firstArr, bnk, (title, artist, album, year), _, _) <- case parts of
     []    -> fatal "No entries found in song"
     p : _ -> return p
@@ -215,10 +218,22 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
           (inThisBar, rest) -> (1 + fromIntegral (length inThisBar)) : makeBarLengths rest
         assembleMMap lens = RTB.fromPairList $ zip (0 : lens) lens
         in assembleMMap $ makeBarLengths modifiedBeats
+      namedParts = goNameParts [] parts
+      goNameParts _ [] = []
+      goNameParts prev ((slot, sng, bnkPath, meta, isBass, tones) : rest) = let
+        n = length $ filter (== slot) prev
+        name = case (slot, n) of
+          (RSArrSlot RSDefault RSLead  , 0) -> RBFile.FlexGuitar
+          (RSArrSlot RSDefault RSRhythm, 0) -> RBFile.FlexExtra "rhythm"
+          (RSArrSlot RSDefault RSBass  , 0) -> RBFile.FlexBass
+          _ -> RBFile.FlexExtra $ rsArrSlot slot <> case n of
+            0 -> ""
+            _ -> "-" <> T.pack (show $ n + 1)
+        in ((slot, name), sng, bnkPath, meta, isBass, tones) : goNameParts (slot : prev) rest
   stackIO $ Save.toFile (dout </> "notes.mid") $ RBFile.showMIDIFile'
     $ RBFile.Song temps sigs mempty
       { RBFile.onyxParts = Map.fromList $ do
-        (partName, sng, _, _, isBass, _) <- parts
+        ((_, partName), sng, _, _, isBass, _) <- namedParts
         let toSeconds = realToFrac :: Float -> U.Seconds
             getNotes note = let
               secs = toSeconds $ notes_Time note
@@ -450,7 +465,11 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
       , _author       = author
       }
     , _jammit = HM.empty
-    , _targets = HM.empty
+    , _targets = HM.singleton "rs" $ RS def
+      { rs_Arrangements = do
+        ((slot, partName), _, _, _, _, _) <- namedParts
+        return (slot, partName)
+      }
     , _global = def
     , _audio = HM.singleton "song.ogg" $ AudioFile AudioInfo
       { _md5      = Nothing
@@ -474,7 +493,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
       , _fileTempo    = Nothing
       }
     , _parts = Parts $ HM.fromList $ do
-      (partName, sng, _, _, isBass, tones) <- parts
+      ((_, partName), sng, _, _, isBass, tones) <- namedParts
       let part = def
             { partProGuitar = Just PartProGuitar
               { pgDifficulty    = Tier 1

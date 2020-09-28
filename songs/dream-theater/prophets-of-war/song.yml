@@ -122,6 +122,5 @@ targets:
   rs:
     game: rs
     plan: album
-    lead: undefined
-    rhythm: undefined
-    bass: bass # BEAD on 4-string
+    arrangements:
+    - [bass, bass] # BEAD on 4-string

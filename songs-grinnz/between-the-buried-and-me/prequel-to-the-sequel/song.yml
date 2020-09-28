@@ -80,7 +80,5 @@ targets:
   rs:
     game: rs
     plan: album
-    lead: undefined
-    rhythm: undefined
-    bass: undefined
-    bonus-rhythm: bass
+    arrangements:
+    - [bonus-rhythm, bass]
