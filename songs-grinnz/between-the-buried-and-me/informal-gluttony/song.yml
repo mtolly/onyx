@@ -43,7 +43,7 @@ parts:
         base: guitar-6
         global: -3 # C# standard
   bass:
-    grybo: {} # alextaylor
+    grybo: {} # onyxite
     pro-guitar: # onyxite
       tuning:
         base: bass-5
@@ -58,6 +58,10 @@ parts:
       tuning:
         base: guitar-6
         global: -3 # C# standard
+  vocal:
+    vocal: # onyxite
+      count: 3
+      gender: male
 targets:
   rb3-2x:
     game: rb3

@@ -1,5 +1,5 @@
 metadata:
-  title: "Thick as a Brick, Part I"
+  title: "Thick as a Brick, Part II"
   file-include: ../../../albums/thick-as-a-brick.yml
   track-number: 1
   author: Onyxite
@@ -17,17 +17,19 @@ audio:
     channels: 2
     # rate: 96000
 
+  # TODO both the above versions have a serious error at 1:53,
+  # the flute+bells go too long and overlay onto the band reentering.
+  # Need to fix somehow (splice a correct version?) or use a different version
+
   surround-aligned:
     expr:
       pad:
-      - 3.626
-      - take: ['22:42.597', surround]
+      - 1.680
+      - drop: ['22:42.597', surround]
 
   stereo-wilson-aligned:
     expr:
-      pad:
-      - 2.868
-      - take: ['22:43.279', stereo-wilson]
+      drop: ['22:43.279', stereo-wilson]
 
 plans:
   reaper:
@@ -52,9 +54,6 @@ plans:
   stereo:
     song: stereo-wilson-aligned
 parts:
-  drums:
-    drums:
-      kicks: 1
   bass:
     pro-guitar:
       tuning:
@@ -62,9 +61,6 @@ parts:
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
-  rb3:
-    game: rb3
-    plan: stereo
   rs:
     game: rs
     plan: stereo

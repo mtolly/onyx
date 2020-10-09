@@ -45,6 +45,10 @@ parts:
         global: -3 # G# C# F# B E
   keys:
     grybo: {}
+  vocal:
+    vocal:
+      count: 3
+      gender: male
 targets:
   rb3-2x:
     game: rb3

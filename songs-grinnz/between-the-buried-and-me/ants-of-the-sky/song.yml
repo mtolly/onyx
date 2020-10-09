@@ -43,7 +43,7 @@ parts:
   guitar:
     grybo: {}
   bass:
-    grybo: {}
+    grybo: {} # onyxite
     pro-guitar: # onyxite
       tuning:
         base: bass-5
@@ -53,6 +53,10 @@ parts:
   keys:
     grybo: {}
     # pro-keys: {}
+  vocal:
+    vocal: # onyxite
+      count: 3
+      gender: male
 targets:
   rb3-2x:
     game: rb3

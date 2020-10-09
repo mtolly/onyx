@@ -242,6 +242,7 @@ continueImport makeMenuBar hasAudio imp = do
   -- TODO this can potentially not clean up the temp folder if interrupted during import
   proj <- impProject imp
   void $ shakeBuild1 proj [] "gen/cover.png"
+  -- TODO support popping up a window or something to ask which audio plan to use if multiple
   maybeAudio <- if hasAudio then projectAudio proj else return Nothing
   stackIO $ sink $ EventIO $ launchWindow sink makeMenuBar proj maybeAudio
 

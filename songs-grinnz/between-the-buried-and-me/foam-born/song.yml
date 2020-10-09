@@ -45,7 +45,7 @@ parts:
         base: guitar-6
         global: -3 # C# standard
   bass:
-    grybo: {} # alextaylor
+    grybo: {} # onyxite
     pro-guitar: # onyxite
       tuning:
         base: bass-5

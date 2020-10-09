@@ -30,8 +30,12 @@ plans:
     parts:
       drums:
         only: [Drums, jammit-track]
+      bass:
+        only: [Bass, jammit-track]
     song:
-      without: [drums, jammit-track]
+      mix:
+      - without: [drums, jammit-track]
+      - gain: [-1, only: [Bass, jammit-track]]
   album:
     countin: *countin
     song:
@@ -41,6 +45,10 @@ parts:
   drums:
     drums:
       kicks: 2
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
 targets:
   rb3-2x:
     game: rb3
