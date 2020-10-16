@@ -36,6 +36,11 @@ parts:
       difficulty: 7
       kicks: 1
       kit: VintageKit
+  blue-ride:
+    drums:
+      difficulty: 7
+      kicks: 1
+      kit: VintageKit
   bass:
     grybo: # TODO need to adjust from pro
       difficulty: 3
@@ -71,3 +76,8 @@ targets:
     game: rs
     arrangements:
     - [bass, bass]
+  rb3-blue-ride:
+    game: rb3
+    song-id: OnyxSabotageBlueRide
+    label: (Blue Ride)
+    drums: blue-ride

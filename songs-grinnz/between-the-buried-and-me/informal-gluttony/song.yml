@@ -37,7 +37,8 @@ parts:
     drums: # grinnz
       kicks: 2
   guitar:
-    grybo: {} # alextaylor
+    grybo: {} # onyxite
+  guitar-coop:
     pro-guitar: # onyxite
       tuning:
         base: guitar-6

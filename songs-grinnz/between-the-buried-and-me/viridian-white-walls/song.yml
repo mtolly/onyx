@@ -35,14 +35,18 @@ parts:
   drums:
     drums:
       kicks: 2
-  guitar:
-    grybo: {}
+  # alex:
+  #   grybo: {}
+  # moeller:
+  #   grybo: {}
   bass:
     grybo: {}
     pro-guitar:
       tuning:
         base: bass-5
         global: -3 # G# C# F# B E
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   keys:
     grybo: {}
   vocal:
@@ -55,3 +59,7 @@ targets:
     2x-bass-pedal: true
     song-id: 1660200058
     version: 1
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
