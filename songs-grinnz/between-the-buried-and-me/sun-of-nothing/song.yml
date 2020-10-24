@@ -2,7 +2,7 @@ metadata:
   title: Sun of Nothing
   file-include: "../../../albums/colors.yml"
   track-number: 4
-  author: Grinnz, Septekka
+  author: Grinnz, Onyxite, Septekka
   difficulty: 7
   # tempo map and practice sections by Grinnz, BEAT and rest of EVENTS by Septekka
   # drums and drum animations by Grinnz, except overdrive by Septekka
@@ -53,7 +53,7 @@ parts:
       gender: male
       difficulty: 3
   bass:
-    grybo: # septekka
+    grybo: # onyxite
       difficulty: 7
     pro-guitar: # onyxite
       tuning:
@@ -62,7 +62,7 @@ parts:
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
-    grybo: # septekka
+    grybo: # onyxite
       difficulty: 7
     pro-guitar: # onyxite
       tuning:
@@ -74,9 +74,9 @@ parts:
         base: guitar-6
         global: -3 # C# standard
   keys:
-    pro-keys: # septekka
+    pro-keys: # onyxite
       difficulty: 2
-    grybo: # septekka
+    grybo: # onyxite
       difficulty: 2
 targets:
   rb3-2x:

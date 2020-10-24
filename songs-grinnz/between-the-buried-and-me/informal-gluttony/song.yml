@@ -2,7 +2,7 @@ metadata:
   title: Informal Gluttony
   file-include: "../../../albums/colors.yml"
   track-number: 3
-  author: Grinnz (drums), AlexTaylor (rest)
+  author: Grinnz, Onyxite
 audio:
   album-the-decade-of-statues:
     md5: ff456218898121bc232d908de3f9457f
@@ -34,35 +34,36 @@ plans:
             - concatenate: [album-the-decade-of-statues, album-informal-gluttony, album-sun-of-nothing]
 parts:
   drums:
-    drums: # grinnz
+    drums:
       kicks: 2
   guitar:
-    grybo: {} # onyxite
-  guitar-coop:
-    pro-guitar: # onyxite
-      tuning:
-        base: guitar-6
-        global: -3 # C# standard
+    grybo: {}
   bass:
-    grybo: {} # onyxite
-    pro-guitar: # onyxite
+    grybo: {}
+    pro-guitar:
       tuning:
         base: bass-5
         global: -3 # G# C# F# B E
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   keys:
-    grybo: {} # alextaylor
-    pro-keys: {} # alextaylor
-  rhythm:
-    pro-guitar: # onyxite
+    grybo: {}
+    pro-keys: {}
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+  # separate paul and dustie parts to polish/finish later
+  guitar-coop:
+    pro-guitar:
       tuning:
         base: guitar-6
         global: -3 # C# standard
-  vocal:
-    vocal: # onyxite
-      count: 3
-      gender: male
+  rhythm:
+    pro-guitar:
+      tuning:
+        base: guitar-6
+        global: -3 # C# standard
 targets:
   rb3-2x:
     game: rb3

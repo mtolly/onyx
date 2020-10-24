@@ -2,7 +2,7 @@ metadata:
   title: "Viridian/White Walls"
   file-include: "../../../albums/colors.yml"
   track-number: 7
-  author: Grinnz (drums), AlexTaylor (rest)
+  author: Grinnz, Onyxite, Moellertechnique
 audio:
   album-prequel-to-the-sequel:
     md5: a1c2cc16b9119b5e1bb4a6d2d3890b17
@@ -35,10 +35,8 @@ parts:
   drums:
     drums:
       kicks: 2
-  # alex:
-  #   grybo: {}
-  # moeller:
-  #   grybo: {}
+  guitar:
+    grybo: {}
   bass:
     grybo: {}
     pro-guitar:
@@ -49,6 +47,7 @@ parts:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   keys:
     grybo: {}
+    pro-keys: {}
   vocal:
     vocal:
       count: 3

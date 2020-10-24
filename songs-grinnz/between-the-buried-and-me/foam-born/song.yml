@@ -2,7 +2,7 @@ metadata:
   title: "Foam Born (a) The Backtrack (b) The Decade of Statues"
   file-include: "../../../albums/colors.yml"
   track-number: 1
-  author: Grinnz, Onyxite, AlexTaylor
+  author: Grinnz, Onyxite
 audio:
   album-the-backtrack:
     md5: 04f58a2602f6544aa625beaa4665a2de
@@ -31,34 +31,35 @@ plans:
             - concatenate: [album-the-backtrack, album-the-decade-of-statues]
 parts:
   drums:
-    drums: # grinnz
+    drums:
       kicks: 2
   guitar:
-    grybo: {} # onyxite
-  guitar-coop:
-    pro-guitar: # onyxite
-      tuning:
-        base: guitar-6
-        global: -3 # C# standard
-  rhythm:
-    pro-guitar: # onyxite
-      tuning:
-        base: guitar-6
-        global: -3 # C# standard
+    grybo: {}
   bass:
-    grybo: {} # onyxite
-    pro-guitar: # onyxite
+    grybo: {}
+    pro-guitar:
       tuning:
         base: bass-5
         global: -3 # G# C# F# B E
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   keys:
-    pro-keys: {} # onyxite, a bit of alextaylor
+    grybo: {}
+    pro-keys: {}
   vocal:
-    vocal: # onyxite
+    vocal:
       count: 3
-      # TODO solo vox
+  # separate Paul and Dustie parts to polish/finish later
+  guitar-coop:
+    pro-guitar:
+      tuning:
+        base: guitar-6
+        global: -3 # C# standard
+  rhythm:
+    pro-guitar:
+      tuning:
+        base: guitar-6
+        global: -3 # C# standard
 targets:
   rb3-2x:
     game: rb3

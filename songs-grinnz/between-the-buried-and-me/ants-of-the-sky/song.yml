@@ -2,7 +2,7 @@ metadata:
   title: Ants of the Sky
   file-include: "../../../albums/colors.yml"
   track-number: 5
-  author: Grinnz (drums), AlexTaylor (rest)
+  author: Grinnz, Onyxite, AlexTaylor
 audio:
   album-sun-of-nothing:
     md5: bc09bcb9a21fc6c0d8fcc06f63c8fbc8
@@ -43,8 +43,8 @@ parts:
   guitar:
     grybo: {}
   bass:
-    grybo: {} # onyxite
-    pro-guitar: # onyxite
+    grybo: {}
+    pro-guitar:
       tuning:
         base: bass-5
         global: -3 # G# C# F# B E
@@ -52,9 +52,9 @@ parts:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   keys:
     grybo: {}
-    # pro-keys: {}
+    pro-keys: {}
   vocal:
-    vocal: # onyxite
+    vocal:
       count: 3
       gender: male
 targets:
