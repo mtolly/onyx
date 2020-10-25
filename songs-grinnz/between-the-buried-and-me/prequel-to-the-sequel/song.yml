@@ -2,13 +2,12 @@ metadata:
   title: Prequel to the Sequel
   file-include: "../../../albums/colors.yml"
   track-number: 6
-  author: "Grinnz, Harmonix, Galhenig, Espher, Onyxite"
+  author: "Grinnz, Harmonix, Guyshenig, Espher, Onyxite"
   comments:
   - "Drums by Grinnz."
-  - "First half guitar, bass, and solo vocals by Harmonix."
-  - "Second half guitar and bass by Galhenig."
-  - "First half harmonies by Espher (RBHP)."
-  - "Second half harmonies and all pro keys by Onyxite."
+  - "Guitar by Harmonix, Guyshenig, and Onyxite."
+  - "Bass and keys by Onyxite."
+  - "Vocals by Harmonix, Espher (RBHP), and Onyxite."
 audio:
   album-prequel-to-the-sequel:
     md5: a1c2cc16b9119b5e1bb4a6d2d3890b17
@@ -19,20 +18,20 @@ audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
-  mogg:
-    # only first half of song
-    parts:
-      drums:
-        kick: [0, 1]
-        snare: [2, 3]
-        kit: [4, 5]
-      bass: [6]
-      guitar: [7, 8]
-      vocal: [9, 10]
-    pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
-    vols: [-2, -2, -3, -3, -3, -3, -1, -3.5, -3.5, -2.5, -2.5, -3.5, -3.5]
-    mogg-md5: a7bf49dfb51e1be6bed1c5673e0aa424
-    multitrack: true
+  # mogg:
+  #   # only first half of song
+  #   parts:
+  #     drums:
+  #       kick: [0, 1]
+  #       snare: [2, 3]
+  #       kit: [4, 5]
+  #     bass: [6]
+  #     guitar: [7, 8]
+  #     vocal: [9, 10]
+  #   pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+  #   vols: [-2, -2, -3, -3, -3, -3, -1, -3.5, -3.5, -2.5, -2.5, -3.5, -3.5]
+  #   mogg-md5: a7bf49dfb51e1be6bed1c5673e0aa424
+  #   multitrack: true
   album:
     countin:
       0|0: hihat
@@ -67,6 +66,7 @@ parts:
   vocal:
     vocal:
       count: 3
+      gender: male
   keys:
     grybo: {}
     pro-keys: {}

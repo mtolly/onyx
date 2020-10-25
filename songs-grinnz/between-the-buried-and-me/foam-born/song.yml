@@ -49,6 +49,7 @@ parts:
   vocal:
     vocal:
       count: 3
+      gender: male
   # separate Paul and Dustie parts to polish/finish later
   guitar-coop:
     pro-guitar:

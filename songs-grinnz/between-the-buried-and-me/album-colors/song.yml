@@ -1,0 +1,74 @@
+metadata:
+  title: Colors
+  file-include: "../../../albums/colors.yml"
+  track-number: 9 # to put it after the 8 tracks
+  author: Grinnz, Onyxite, Septekka, AlexTaylor, Harmonix, Guyshenig, Espher, Moellertechnique
+audio:
+  album-the-backtrack:
+    md5: 04f58a2602f6544aa625beaa4665a2de
+    frames: 5901168
+  album-the-decade-of-statues:
+    md5: ff456218898121bc232d908de3f9457f
+    frames: 14126700
+  album-informal-gluttony:
+    md5: d468595b781ed178479d2183f72f9333
+    frames: 17985156
+  album-sun-of-nothing:
+    md5: bc09bcb9a21fc6c0d8fcc06f63c8fbc8
+    frames: 29060136
+  album-ants-of-the-sky:
+    md5: c33b76af226ce40d79ae66cb6a611651
+    frames: 34863696
+  album-prequel-to-the-sequel:
+    md5: a1c2cc16b9119b5e1bb4a6d2d3890b17
+    frames: 22782648
+  album-viridian:
+    md5: 1a1ca6914aa5756bca81be5a17bab222
+    frames: 7544628
+  album-white-walls:
+    md5: 487374f97abaafccc34c6a6b065062c6
+    frames: 37626708
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|1: hihat
+      0|2: hihat
+      0|3: hihat
+    song:
+      pad:
+      - 3.496
+      - concatenate:
+        - album-the-backtrack
+        - album-the-decade-of-statues
+        - album-informal-gluttony
+        - album-sun-of-nothing
+        - album-ants-of-the-sky
+        - album-prequel-to-the-sequel
+        - album-viridian
+        - album-white-walls
+parts:
+  drums:
+    drums:
+      kicks: 2
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
+  keys:
+    grybo: {}
+    pro-keys: {}
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

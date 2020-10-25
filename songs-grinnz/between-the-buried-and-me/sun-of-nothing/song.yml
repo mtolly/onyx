@@ -64,6 +64,13 @@ parts:
   guitar:
     grybo: # onyxite
       difficulty: 7
+  keys:
+    pro-keys: # onyxite
+      difficulty: 2
+    grybo: # onyxite
+      difficulty: 2
+  # separate paul and dustie parts to polish/finish later
+  guitar-coop:
     pro-guitar: # onyxite
       tuning:
         base: guitar-6
@@ -73,11 +80,6 @@ parts:
       tuning:
         base: guitar-6
         global: -3 # C# standard
-  keys:
-    pro-keys: # onyxite
-      difficulty: 2
-    grybo: # onyxite
-      difficulty: 2
 targets:
   rb3-2x:
     game: rb3
