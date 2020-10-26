@@ -260,6 +260,7 @@ cleanEdges = go . RTB.normalize where
 -- | Clone Hero (v0.22.5) does not apply tap-off until the next tick.
 -- So we move each tap-off earlier by one tick.
 -- (Moonscraper doesn't have this issue, so CH must be using an old version?)
+-- 2020-10-26: CH v0.24.0.2068-master also now has this bug with SP phrases...
 fixTapOff :: RTB.T U.Beats Bool -> RTB.T U.Beats Bool
 fixTapOff = \case
   Wait t False rest -> let

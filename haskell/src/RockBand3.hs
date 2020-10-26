@@ -283,7 +283,7 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
           if rb3_2xBassPedal rb3
             then rockBand2x ps2x
             else rockBand1x ps1x
-        Right _ -> psPS
+        Right _ -> psPS { drumOverdrive = fixTapOff $ drumOverdrive psPS }
 
 data BRERemover t = BRERemover
   { breRemoveEdges :: forall s a. (Ord s, Ord a) => RTB.T t (Edge s a) -> RTB.T t (Edge s a)
@@ -371,6 +371,7 @@ buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml 
       . fixSloppyNotes (10 / 480)
       . openNotes'
       $ fd
+    chSPFix ft = ft { fiveOverdrive = fixTapOff $ fiveOverdrive ft }
     forAll
       = addFiveMoods tempos timing
       . (if gryboSmoothFrets grybo then smoothFrets else id)
@@ -387,7 +388,7 @@ buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml 
       }
     in forAll $ case target of
       Left  _rb3 -> forRB3 track
-      Right _ps  -> forPS  track
+      Right _ps  -> chSPFix $ forPS track
 
 processMIDI
   :: (SendMessage m, MonadIO m)
@@ -474,7 +475,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       guitarCoopPart = either (const $ RBFile.FlexExtra "undefined") ps_GuitarCoop target
       guitarCoopPS = makeGRYBOTrack False guitarCoopPart
 
-      sixEachDiff f st = st { sixDifficulties = fmap f $ sixDifficulties st }
+      sixEachDiff f st = st
+        { sixDifficulties = fmap f $ sixDifficulties st
+        , sixOverdrive = fixTapOff $ sixOverdrive st
+        }
       guitarGHL = case getPart guitarPart songYaml >>= partGHL of
         Nothing  -> mempty
         Just ghl -> sixEachDiff

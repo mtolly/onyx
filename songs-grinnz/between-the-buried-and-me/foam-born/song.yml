@@ -32,7 +32,7 @@ plans:
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
   guitar:
     grybo: {}
   bass:

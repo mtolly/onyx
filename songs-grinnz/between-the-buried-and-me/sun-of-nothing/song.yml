@@ -46,7 +46,7 @@ parts:
   drums:
     drums: # grinnz
       difficulty: 7
-      kicks: 2
+      kicks: both
   vocal:
     vocal: # septekka
       count: 3
