@@ -3,6 +3,7 @@ metadata:
   file-include: "../../../albums/colors.yml"
   track-number: 7
   author: Grinnz, Onyxite, Moellertechnique
+  difficulty: 7
 audio:
   album-prequel-to-the-sequel:
     md5: a1c2cc16b9119b5e1bb4a6d2d3890b17
@@ -35,29 +36,42 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 7
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 7
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 7
     pro-guitar:
+      difficulty: 7
       tuning:
         base: bass-5
         global: -3 # G# C# F# B E
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   keys:
-    grybo: {}
-    pro-keys: {}
+    grybo:
+      difficulty: 4
+    pro-keys:
+      difficulty: 4
   vocal:
     vocal:
       count: 3
       gender: male
+      difficulty: 4
 targets:
+  rb3:
+    game: rb3
+    song-id: 1660200165
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    song-id: 1660200058
+    song-id: 1660200166
     version: 1
+  ps:
+    game: ps
   rs:
     game: rs
     arrangements:

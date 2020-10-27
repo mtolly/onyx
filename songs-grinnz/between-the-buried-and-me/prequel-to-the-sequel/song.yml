@@ -2,12 +2,13 @@ metadata:
   title: Prequel to the Sequel
   file-include: "../../../albums/colors.yml"
   track-number: 6
-  author: "Grinnz, Harmonix, Guyshenig, Espher, Onyxite"
+  author: "Grinnz, Onyxite, Harmonix, Guyshenig, Espher"
   comments:
   - "Drums by Grinnz."
   - "Guitar by Harmonix, Guyshenig, and Onyxite."
   - "Bass and keys by Onyxite."
   - "Vocals by Harmonix, Espher (RBHP), and Onyxite."
+  difficulty: 7
 audio:
   album-prequel-to-the-sequel:
     md5: a1c2cc16b9119b5e1bb4a6d2d3890b17
@@ -53,11 +54,15 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 7
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 7
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 7
     pro-guitar:
+      difficulty: 7
       tuning:
         base: bass-5
         global: -3 # G# C# F# B E
@@ -67,15 +72,26 @@ parts:
     vocal:
       count: 3
       gender: male
+      difficulty: 5
   keys:
-    grybo: {}
-    pro-keys: {}
+    grybo:
+      difficulty: 5
+    pro-keys:
+      difficulty: 6
 targets:
+  rb3:
+    game: rb3
+    song-id: 1660200163
+    version: 1
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    song-id: 1660200056
+    song-id: 1660200164
     version: 1
+    plan: album
+  ps:
+    game: ps
     plan: album
   rs:
     game: rs

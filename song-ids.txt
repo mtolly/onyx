@@ -94,6 +94,7 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200058 Viridian/White Walls (BTBAM) 2x
   Full band Colors (Grinnz/AlexTaylor/Harmonix/Galhenig/Onyxite)
   v1 (unfinished: AlexTaylor parts not quantized) sent to Jarod 2017-07-04
+  Superceded by new IDs for real release 2020-10-26, see below
 
 1660200059 Crowded Sky (Bad Salad) 1x
 1660200060 Crowded Sky (Bad Salad) 2x
@@ -226,6 +227,23 @@ onyxite's C3-format Song IDs (16602xxxxx)
   Onyxite's Jazz Pack 4
   v1 published 2019-07-18
   v2 of One for Antonio published 2019-07-19 (removed BRE)
+
+1660200155 Foam Born (BTBAM) 1x
+1660200156 Foam Born (BTBAM) 2x
+1660200157 Informal Gluttony (BTBAM) 1x
+1660200158 Informal Gluttony (BTBAM) 2x
+1660200159 Sun of Nothing (BTBAM) 1x
+1660200160 Sun of Nothing (BTBAM) 2x
+1660200161 Ants of the Sky (BTBAM) 1x
+1660200162 Ants of the Sky (BTBAM) 2x
+1660200163 Prequel to the Sequel (BTBAM) 1x
+1660200164 Prequel to the Sequel (BTBAM) 2x
+1660200165 Viridian/White Walls (BTBAM) 1x
+1660200166 Viridian/White Walls (BTBAM) 2x
+1660200167 Colors 1x
+1660200168 Colors 2x
+  Full band Colors (actual release)
+  v1 released 2020-10-26, except full album song
 
 BONUS SONGS (counting down from max)
 

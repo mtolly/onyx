@@ -3,6 +3,7 @@ metadata:
   file-include: "../../../albums/colors.yml"
   track-number: 5
   author: Grinnz, Onyxite, AlexTaylor
+  difficulty: 7
 audio:
   album-sun-of-nothing:
     md5: bc09bcb9a21fc6c0d8fcc06f63c8fbc8
@@ -40,29 +41,42 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 7
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 7
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 7
     pro-guitar:
+      difficulty: 7
       tuning:
         base: bass-5
         global: -3 # G# C# F# B E
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   keys:
-    grybo: {}
-    pro-keys: {}
+    grybo:
+      difficulty: 6
+    pro-keys:
+      difficulty: 6
   vocal:
     vocal:
       count: 3
       gender: male
+      difficulty: 3
 targets:
+  rb3:
+    game: rb3
+    song-id: 1660200161
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    song-id: 1660200054
+    song-id: 1660200162
     version: 1
+  ps:
+    game: ps
   rs:
     game: rs
     arrangements:

@@ -56,19 +56,20 @@ parts:
     grybo: # onyxite
       difficulty: 7
     pro-guitar: # onyxite
+      difficulty: 7
       tuning:
         base: bass-5
         global: -3 # G# C# F# B E
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
-    grybo: # onyxite
+    grybo: # septekka+onyxite
       difficulty: 7
   keys:
     pro-keys: # onyxite
-      difficulty: 2
+      difficulty: 3
     grybo: # onyxite
-      difficulty: 2
+      difficulty: 3
   # separate paul and dustie parts to polish/finish later
   guitar-coop:
     pro-guitar: # onyxite
@@ -81,11 +82,17 @@ parts:
         base: guitar-6
         global: -3 # C# standard
 targets:
+  rb3:
+    game: rb3
+    song-id: 1660200159
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    song-id: 1660200052
+    song-id: 1660200160
     version: 1
+  ps:
+    game: ps
   rs:
     game: rs
     arrangements:

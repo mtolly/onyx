@@ -3,6 +3,7 @@ metadata:
   file-include: "../../../albums/colors.yml"
   track-number: 9 # to put it after the 8 tracks
   author: Grinnz, Onyxite, Septekka, AlexTaylor, Harmonix, Guyshenig, Espher, Moellertechnique
+  difficulty: 7
 audio:
   album-the-backtrack:
     md5: 04f58a2602f6544aa625beaa4665a2de
@@ -53,22 +54,32 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 7
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 7
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 7
   keys:
-    grybo: {}
-    pro-keys: {}
+    grybo:
+      difficulty: 6
+    pro-keys:
+      difficulty: 6
   vocal:
     vocal:
       count: 3
       gender: male
+      difficulty: 5
 targets:
   rb3:
     game: rb3
+    song-id: 1660200167
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    song-id: 1660200168
+    version: 1
   ps:
     game: ps

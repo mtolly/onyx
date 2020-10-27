@@ -3,6 +3,7 @@ metadata:
   file-include: "../../../albums/colors.yml"
   track-number: 1
   author: Grinnz, Onyxite
+  difficulty: 7
 audio:
   album-the-backtrack:
     md5: 04f58a2602f6544aa625beaa4665a2de
@@ -33,23 +34,30 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 7
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 7
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 6
     pro-guitar:
+      difficulty: 7
       tuning:
         base: bass-5
         global: -3 # G# C# F# B E
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   keys:
-    grybo: {}
-    pro-keys: {}
+    grybo:
+      difficulty: 5
+    pro-keys:
+      difficulty: 6
   vocal:
     vocal:
       count: 3
       gender: male
+      difficulty: 4
   # separate Paul and Dustie parts to polish/finish later
   guitar-coop:
     pro-guitar:
@@ -62,11 +70,17 @@ parts:
         base: guitar-6
         global: -3 # C# standard
 targets:
+  rb3:
+    game: rb3
+    song-id: 1660200155
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    song-id: 1660200048
+    song-id: 1660200156
     version: 1
+  ps:
+    game: ps
   rs:
     game: rs
     arrangements:
