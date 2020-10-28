@@ -87,6 +87,7 @@ difficultyPS TargetPS{..} songYaml = let
     , rb3_Version = Nothing
     , rb3_Harmonix = False
     , rb3_FileMilo = Nothing
+    , rb3_Magma = True
     }
   psDifficultyRB3 = difficultyRB3 rb3 songYaml
   simpleTier flex getMode getDiff dmap = case getPart flex songYaml >>= getMode of

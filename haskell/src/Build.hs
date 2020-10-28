@@ -603,15 +603,16 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
       , Magma.metadata = Magma.Metadata
         -- "song_name: This field must be less than 100 characters."
         -- also, can't begin or end with whitespace
-        { Magma.songName = T.take 99 $ fixString songName
+        { Magma.songName = T.strip $ T.take 99 $ fixString songName
         -- "artist_name: This field must be less than 75 characters."
-        , Magma.artistName = T.take 74 $ fixString artistName
+        , Magma.artistName = T.strip $ T.take 74 $ fixString artistName
         , Magma.genre = rbn2Genre fullGenre
         , Magma.subGenre = "subgenre_" <> rbn2Subgenre fullGenre
         , Magma.yearReleased = fromIntegral $ max 1960 $ getYear $ _metadata songYaml
         -- "album_name: This field must be less than 75 characters."
-        , Magma.albumName = T.take 74 $ fixString albumName
-        , Magma.author = fixString $ getAuthor $ _metadata songYaml
+        , Magma.albumName = T.strip $ T.take 74 $ fixString albumName
+        -- "author: This field must be less than 75 characters."
+        , Magma.author = T.strip $ T.take 74 $ fixString $ getAuthor $ _metadata songYaml
         , Magma.releaseLabel = "Onyxite Customs"
         , Magma.country = "ugc_country_us"
         , Magma.price = 160
@@ -1149,7 +1150,19 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               -- so the only things we need to get from Magma are venue,
               -- and percent sections.
               userMid <- shakeMIDI pathMagmaMid
-              magmaMid <- shakeMIDI pathMagmaExport
+              magmaMid <- if rb3_Magma rb3
+                then shakeMIDI pathMagmaExport
+                else return userMid
+                  { RBFile.s_tracks = (RBFile.s_tracks userMid)
+                    { RBFile.fixedVenue = mempty
+                      -- TODO only do black venue if no venue supplied
+                      { venueCameraRB3        = RTB.singleton 0 V3_coop_all_far
+                      , venuePostProcessRB3   = RTB.singleton 0 V3_film_b_w
+                      , venueLighting         = RTB.singleton 0 Lighting_blackout_fast
+                      }
+                    -- TODO sections if midi didn't supply any
+                    }
+                  }
               sects <- getRealSections'
               let trackOr x y = if x == mergeEmpty then y else x
                   user = RBFile.s_tracks userMid
@@ -1639,9 +1652,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , rb3_Bass = rb2_Bass rb2
               , rb3_Drums = rb2_Drums rb2
               , rb3_Vocal = rb2_Vocal rb2
-              , rb3_Keys = RBFile.FlexKeys
+              , rb3_Keys = RBFile.FlexExtra "undefined"
               , rb3_Harmonix = False
               , rb3_FileMilo = Nothing
+              , rb3_Magma = rb2_Magma rb2
               }
             in rbRules dir rb3 $ Just rb2
           GH2 gh2 -> do

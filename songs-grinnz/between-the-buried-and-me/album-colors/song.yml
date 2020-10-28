@@ -76,10 +76,23 @@ targets:
     game: rb3
     song-id: 1660200167
     version: 1
+    magma: false # midi is under 1MB, but goes over when exporting (even if we supply a minimal venue)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     song-id: 1660200168
     version: 1
+    magma: false
+  rb2:
+    game: rb2
+    song-id: 1660200169
+    version: 1
+    magma: false
+  rb2-2x:
+    game: rb2
+    2x-bass-pedal: true
+    song-id: 1660200170
+    version: 1
+    magma: false
   ps:
     game: ps

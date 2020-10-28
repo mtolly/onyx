@@ -244,6 +244,10 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200168 Colors 2x
   Full band Colors (actual release)
   v1 released 2020-10-26, except full album song
+  Full album song released ?
+1660200169 Colors 1x (RB2)
+1660200170 Colors 2x (RB2)
+  Released ?
 
 BONUS SONGS (counting down from max)
 

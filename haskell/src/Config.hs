@@ -1050,6 +1050,7 @@ data TargetRB3 f = TargetRB3
   , rb3_Version     :: Maybe Integer
   , rb3_Harmonix    :: Bool
   , rb3_FileMilo    :: Maybe f
+  , rb3_Magma       :: Bool
   , rb3_Guitar      :: FlexPartName
   , rb3_Bass        :: FlexPartName
   , rb3_Drums       :: FlexPartName
@@ -1065,6 +1066,7 @@ parseTargetRB3 = do
   rb3_Version     <- rb3_Version     =. opt Nothing    "version"       stackJSON
   rb3_Harmonix    <- rb3_Harmonix    =. opt False      "harmonix"      stackJSON
   rb3_FileMilo    <- rb3_FileMilo    =. opt Nothing    "file-milo"     stackJSON
+  rb3_Magma       <- rb3_Magma       =. opt True       "magma"         stackJSON
   rb3_Guitar      <- rb3_Guitar      =. opt FlexGuitar "guitar"        stackJSON
   rb3_Bass        <- rb3_Bass        =. opt FlexBass   "bass"          stackJSON
   rb3_Drums       <- rb3_Drums       =. opt FlexDrums  "drums"         stackJSON
@@ -1142,6 +1144,7 @@ data TargetRB2 = TargetRB2
   , rb2_SongID      :: Maybe (Either Integer T.Text)
   , rb2_LabelRB2    :: Bool
   , rb2_Version     :: Maybe Integer
+  , rb2_Magma       :: Bool
   , rb2_Guitar      :: FlexPartName
   , rb2_Bass        :: FlexPartName
   , rb2_Drums       :: FlexPartName
@@ -1155,6 +1158,7 @@ parseTargetRB2 = do
   rb2_SongID      <- rb2_SongID      =. opt Nothing    "song-id"       stackJSON
   rb2_LabelRB2    <- rb2_LabelRB2    =. opt False      "label-rb2"     stackJSON
   rb2_Version     <- rb2_Version     =. opt Nothing    "version"       stackJSON
+  rb2_Magma       <- rb2_Magma       =. opt True       "magma"         stackJSON
   rb2_Guitar      <- rb2_Guitar      =. opt FlexGuitar "guitar"        stackJSON
   rb2_Bass        <- rb2_Bass        =. opt FlexBass   "bass"          stackJSON
   rb2_Drums       <- rb2_Drums       =. opt FlexDrums  "drums"         stackJSON
