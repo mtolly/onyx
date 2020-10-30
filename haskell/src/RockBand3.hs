@@ -20,6 +20,7 @@ import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.List.Extra                   (nubOrd)
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (fromMaybe, isJust)
+import qualified Data.Text                         as T
 import           Difficulty
 import           Guitars
 import qualified Numeric.NonNegative.Class         as NNC
@@ -675,8 +676,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       trkHarm1' = trkHarm1 { vocalMood = RTB.empty }
       trkHarm2' = trkHarm2 { vocalMood = RTB.empty }
       trkHarm3' = trkHarm3 { vocalMood = RTB.empty }
-      -- TODO: CH lyrics don't handle ^ correctly, might replace with #.
-      -- specifically "word-^" (hyphen is shown)
+      voxPSCH = hashTalkies . asciiLyrics -- ascii lyrics needed for PS, could remove for CH?
+      -- CH lyrics don't handle ^ correctly, so we replace with the standard #.
+      -- specifically "word-^" results in the hyphen being shown.
+      hashTalkies vt = vt { vocalLyrics = T.replace "^" "#" <$> vocalLyrics vt }
 
   drumsTrack' <- let
     fills = RTB.normalize $ drumActivation drumsTrack
@@ -751,10 +754,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
     , RBFile.fixedPartRealKeysM = tpkM
     , RBFile.fixedPartRealKeysH = tpkH
     , RBFile.fixedPartRealKeysX = tpkX
-    , RBFile.fixedPartVocals = (if isPS then asciiLyrics else id) trkVox'
-    , RBFile.fixedHarm1 = (if isPS then asciiLyrics else id) trkHarm1'
-    , RBFile.fixedHarm2 = (if isPS then asciiLyrics else id) trkHarm2'
-    , RBFile.fixedHarm3 = (if isPS then asciiLyrics else id) trkHarm3'
+    , RBFile.fixedPartVocals = (if isPS then voxPSCH else id) trkVox'
+    , RBFile.fixedHarm1 = (if isPS then voxPSCH else id) trkHarm1'
+    , RBFile.fixedHarm2 = (if isPS then voxPSCH else id) trkHarm2'
+    , RBFile.fixedHarm3 = (if isPS then voxPSCH else id) trkHarm3'
     , RBFile.fixedPartDance = mempty
     }, editRanks, editCount)
 

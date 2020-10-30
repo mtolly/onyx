@@ -82,13 +82,13 @@ targets:
   rb3:
     game: rb3
     song-id: 1660200163
-    version: 1
+    version: 2 # 2 not actually released for RB3, only CH (lyrics with ^)
     plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     song-id: 1660200164
-    version: 1
+    version: 2
     plan: album
   ps:
     game: ps
