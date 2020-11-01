@@ -13,6 +13,7 @@ load_yaml_tree('songs.yml').each do |song|
     'urls' => song['urls'],
     'video' => song['video'],
     'c3' => song['c3'],
+    'hide-parts' => song['hide-parts'],
   })
 end
 
@@ -79,6 +80,9 @@ def makeDifficulties(parts, song)
     next if %w{guitar-ch bass-ch}.include?(part) # hack in Nurture
     modes_output = []
     modes.sort_by(&mode_index).each do |mode, info|
+      if song['hide-parts'] and (song['hide-parts'].include?(part) or song['hide-parts'].include?("#{part}/#{mode}"))
+        next
+      end
       mode_name = '???'
       mode_image = 'no-image'
       case mode
@@ -91,29 +95,9 @@ def makeDifficulties(parts, song)
           else             'guitar'
           end
       when 'ghl'
-        if ['The Nag'].include?(song['project']['metadata']['title'])
-          # hiding since this hasn't been released
-          next
-        end
         mode_name = '6-Fret (GHL)'
         mode_image = 'ghl'
       when 'pro-guitar'
-        if [
-          'In the Presence of Enemies (Part 1)',
-          'Forsaken',
-          'The Dark Eternal Night',
-          'Repentance',
-          'Prophets of War',
-          'The Ministry of Lost Souls',
-          'In the Presence of Enemies (Part 2)',
-          'In the Presence of Enemies',
-          'Temple (Zelda 2)',
-          'New Millennium',
-          'The Great Debate',
-        ].include?(song['project']['metadata']['title'])
-          # hiding these pro guitar/bass charts since they haven't been released
-          next
-        end
         if part == 'bass'
           mode_name = 'Pro Bass'
           mode_image = 'pro-bass'

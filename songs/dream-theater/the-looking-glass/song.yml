@@ -42,6 +42,10 @@ parts:
       kicks: both
   guitar:
     ghl: {} # by FreeStyleGames, transcribed/edited by ErupTi0n
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
 targets:
   rb3:
     game: rb3

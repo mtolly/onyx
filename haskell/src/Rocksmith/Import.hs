@@ -504,12 +504,16 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                 then GtrTuning
                   { gtrBase    = Bass4
                   , gtrOffsets = map fromIntegral $ take 4 $ meta_Tuning $ sng_Metadata sng
-                  , gtrGlobal  = fromIntegral $ meta_CapoFretId $ sng_Metadata sng
+                  , gtrGlobal  = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
+                    -1 -> 0 -- is capo supposed to be -1? seen in albatross213's Vektor charts (F tuning)
+                    n  -> n
                   }
                 else GtrTuning
                   { gtrBase    = Guitar6
                   , gtrOffsets = map fromIntegral $ meta_Tuning $ sng_Metadata sng
-                  , gtrGlobal  = fromIntegral $ meta_CapoFretId $ sng_Metadata sng
+                  , gtrGlobal  = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
+                    -1 -> 0
+                    n  -> n
                   }
               , pgTuningRSBass = Nothing
               , pgFixFreeform   = False
