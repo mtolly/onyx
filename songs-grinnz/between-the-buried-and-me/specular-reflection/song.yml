@@ -1,0 +1,24 @@
+metadata:
+  title: Specular Reflection
+  file-include: "../../../albums/the-parallax.yml"
+  track-number: 1
+  author: Grinnz, HellAshes
+parts:
+  drums:
+    drums:
+      kicks: 2
+  guitar:
+    grybo: {}
+plans:
+  plan:
+    song:
+      pad:
+      - 2.821
+      - fade:
+        - end
+        - 3.551
+        - take: [10:47.070, album-track]
+audio:
+  album-track:
+    md5: 90d55b07d5d9be3b9e8cc74f6b0ea8a2
+    frames: 30034452

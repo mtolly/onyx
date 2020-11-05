@@ -48,6 +48,8 @@ parts:
       tuning:
         base: bass-5
       difficulty: 7
+      tones:
+        file-tone-base: ../../../tones/ViolationDrive.tone2014.xml
 targets:
   rb3:
     game: rb3
@@ -61,3 +63,7 @@ targets:
   ps:
     game: ps
     loading-phrase: "Part of Onyxite's Jazz Pack 4. Recommended 5-fret part: Keys (sax), though Bass also has a solo."
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

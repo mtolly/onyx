@@ -1,0 +1,28 @@
+metadata:
+  title: Augment of Rebirth
+  file-include: "../../../albums/the-parallax.yml"
+  track-number: 2
+  author: Grinnz
+parts:
+  drums:
+    drums:
+      kicks: 2
+plans:
+  plan:
+    song:
+      concatenate:
+      - fade:
+        - start
+        - 4.635
+        - take: [end, 4.635, album-specular]
+      - fade:
+        - end
+        - 2.984
+        - take: [10:18.825, album-augment]
+audio:
+  album-augment:
+    md5: 2245c4f41e1f122e3adc183aa17a2cfe
+    frames: 27314952
+  album-specular:
+    md5: 90d55b07d5d9be3b9e8cc74f6b0ea8a2
+    frames: 30034452

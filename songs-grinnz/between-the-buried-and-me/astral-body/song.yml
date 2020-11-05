@@ -1,0 +1,31 @@
+metadata:
+  title: Astral Body
+  file-include: "../../../albums/the-parallax-ii.yml"
+  track-number: 2
+  author: Grinnz, HellAshes
+parts:
+  drums:
+    drums:
+      kicks: 2
+  guitar:
+    grybo: {}
+plans:
+  plan:
+    parts: {}
+    song:
+      concatenate:
+      - fade:
+        - start
+        - 4.351
+        - take: [end, 4.351, album-goodbye]
+      - fade:
+        - end
+        - 0.414
+        - album-astral
+audio:
+  album-goodbye:
+    md5: 0f3ac95948e963cd81d9b65bcfff9c31
+    frames: 4382952
+  album-astral:
+    md5: 782249dfefc0f42d5340f8b94191abf3
+    frames: 13301148

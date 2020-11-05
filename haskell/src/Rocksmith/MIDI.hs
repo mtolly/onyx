@@ -20,7 +20,9 @@ module Rocksmith.MIDI
 import           Control.Applicative              (liftA2, (<|>))
 import           Control.Monad                    (forM, guard, when)
 import           Control.Monad.Codec
+import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
+import           Control.Monad.Trans.State.Strict (modify)
 import           Data.Char                        (isDigit)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -280,6 +282,20 @@ instance ParseTrack RocksmithTrack where
       ToneC -> ["tone", "c"]
       ToneD -> ["tone", "d"]
     rsBends      <- rsBends      =. commandMatch' parseBend unparseBend
+    -- short notation for phrase/section combinations
+    Codec
+      { codecIn = lift $ modify $ \mt -> mt
+        { midiCommands = let
+          f = \case
+            ["riff", x] -> [["section", "riff"], ["phrase", x]]
+            ["ng"     ] -> [["section", "noguitar"], ["phrase", "NG"]]
+            ["start"  ] -> [["phrase", "default"]]
+            ["end"    ] -> [["section", "noguitar"], ["phrase", "END"]]
+            x           -> [x]
+          in RTB.flatten $ f <$> midiCommands mt
+        }
+      , codecOut = const $ return ()
+      }
     rsPhrases    <- rsPhrases    =. commandMatch'
       (\case
         ["phrase", x] -> Just x

@@ -1,0 +1,26 @@
+metadata:
+  title: Lunar Wilderness
+  file-include: "../../../albums/the-parallax.yml"
+  track-number: 3
+  author: Grinnz
+parts:
+  drums:
+    drums:
+      kicks: 2
+plans:
+  plan:
+    parts: {}
+    song:
+      concatenate:
+      - fade:
+        - start
+        - 5.753
+        - take: [end, 5.753, album-augment]
+      - album-lunar
+audio:
+  album-lunar:
+    md5: 668a08677837b580e9187e3fadaa813a
+    frames: 22140552
+  album-augment:
+    md5: 2245c4f41e1f122e3adc183aa17a2cfe
+    frames: 27314952

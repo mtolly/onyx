@@ -1,0 +1,19 @@
+metadata:
+  title: Lay Your Ghosts to Rest
+  file-include: "../../../albums/the-parallax-ii.yml"
+  track-number: 3
+  author: Grinnz, HellAshes
+parts:
+  drums:
+    drums:
+      kicks: 2
+  guitar:
+    grybo: {}
+plans:
+  plan:
+    song:
+      pad: [4.412, album-track]
+audio:
+  album-track:
+    md5: 4b9b73b3bb43f43e4418aab6fa51e977
+    frames: 26567016

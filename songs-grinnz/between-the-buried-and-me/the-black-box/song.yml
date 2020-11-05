@@ -1,0 +1,32 @@
+metadata:
+  title: The Black Box
+  file-include: "../../../albums/the-parallax-ii.yml"
+  track-number: 7
+  author: Grinnz
+parts:
+  drums:
+    drums:
+      kicks: 2
+plans:
+  plan:
+    song:
+      concatenate:
+      - fade:
+        - start
+        - 2.883
+        - take: [end, 2.883, album-parallax]
+      - album-black-box
+      - fade:
+        - end
+        - 0.54
+        - take: [0.633, album-telos]
+audio:
+  album-parallax:
+    md5: 651f3c30e58ce67913e85eaffa2d8095
+    frames: 3326904
+  album-black-box:
+    md5: cee12e61677d18f62b63472f5b2be989
+    frames: 5770044
+  album-telos:
+    md5: 6502770419901af4c5446eb59a793edd
+    frames: 25816140

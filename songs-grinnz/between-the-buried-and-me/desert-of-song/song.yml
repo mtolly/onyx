@@ -1,0 +1,29 @@
+metadata:
+  title: Desert of Song
+  file-include: "../../../albums/the-great-misdirect.yml"
+  track-number: 5
+  author: Grinnz
+parts:
+  drums:
+    drums:
+      kicks: 1
+plans:
+  plan:
+    parts: {}
+    song:
+      concatenate:
+      - fade:
+        - start
+        - 2.040
+        - take: [end, 2.040, album-fossil]
+      - fade:
+        - end
+        - 1.66
+        - album-desert
+audio:
+  album-fossil:
+    md5: 3076093303750e6e3387835f0ba70143
+    frames: 32228280
+  album-desert:
+    md5: 9d91553c5ba8560e0a82cded6db8a0b2
+    frames: 14704704

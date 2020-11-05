@@ -1,0 +1,32 @@
+metadata:
+  title: Telos
+  file-include: "../../../albums/the-parallax-ii.yml"
+  track-number: 8
+  author: Grinnz
+parts:
+  drums:
+    drums:
+      kicks: 2
+plans:
+  plan:
+    song:
+      concatenate:
+      - fade:
+        - start
+        - 3.828
+        - take: [end, 3.828, album-black-box]
+      - album-telos
+      - fade:
+        - end
+        - 0.163
+        - take: [0.342, album-bloom]
+audio:
+  album-black-box:
+    md5: cee12e61677d18f62b63472f5b2be989
+    frames: 5770044
+  album-telos:
+    md5: 6502770419901af4c5446eb59a793edd
+    frames: 25816140
+  album-bloom:
+    md5: 19a60eefd22fdad77614c4eff93af65f
+    frames: 9215136

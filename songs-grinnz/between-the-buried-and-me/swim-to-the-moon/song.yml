@@ -1,0 +1,25 @@
+metadata:
+  title: Swim to the Moon
+  file-include: "../../../albums/the-great-misdirect.yml"
+  track-number: 6
+  author: Grinnz
+parts:
+  drums:
+    drums:
+      kicks: 2
+plans:
+  plan:
+    song:
+      concatenate:
+      - fade:
+        - start
+        - 2.091
+        - take: [end, 2.091, album-desert]
+      - album-swim
+audio:
+  album-desert:
+    md5: 9d91553c5ba8560e0a82cded6db8a0b2
+    frames: 14704704
+  album-swim:
+    md5: a90107f8ec26e03c52daef773fca0a46
+    frames: 47345172

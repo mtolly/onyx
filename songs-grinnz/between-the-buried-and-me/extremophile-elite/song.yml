@@ -1,0 +1,19 @@
+metadata:
+  title: Extremophile
+  file-include: "../../../albums/the-parallax-ii.yml"
+  track-number: 5
+  author: Grinnz, HellAshes
+parts:
+  drums:
+    drums:
+      kicks: 2
+  guitar:
+    grybo: {}
+plans:
+  album:
+    song:
+      pad: [4.507, album-track]
+audio:
+  album-track:
+    md5: 8242b704f6f3048fc348eeba2bde4d9c
+    frames: 26400024

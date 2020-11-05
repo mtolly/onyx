@@ -15,10 +15,12 @@ module CommandLine
 ) where
 
 import qualified Amplitude.PS2.Ark                as AmpArk
-import           Audio                            (applyPansVols, fadeEnd,
-                                                   fadeStart, runAudio)
+import           Audio                            (Audio (Input), applyPansVols,
+                                                   audioLength, audioMD5,
+                                                   fadeEnd, fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Config
+import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard,
                                                    when)
 import           Control.Monad.IO.Class
@@ -34,6 +36,7 @@ import           Data.Char                        (isAlphaNum, isAscii, isDigit,
                                                    isUpper, toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Conduit.Audio.Sndfile       (sinkSnd, sourceSndFrom)
+import           Data.Default.Class               (def)
 import qualified Data.Digest.Pure.MD5             as MD5
 import           Data.DTA.Lex                     (scanStack)
 import           Data.DTA.Parse                   (parseStack)
@@ -1070,6 +1073,52 @@ commands =
         stackIO $ GHArk.createHdrArk dir hdr ark
         return [hdr, ark]
       _ -> fatal "Expected 2 args (folder to pack, .hdr)"
+    }
+
+  , Command
+    { commandWord = "import-audio"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandRun = \args opts -> case args of
+      audios@(_ : _) -> do
+        pairs <- forM audios $ \audio -> inside ("audio file: " <> audio) $ do
+          md5 <- audioMD5 audio >>= maybe (fatal "Couldn't compute audio hash") return
+          len <- audioLength audio >>= maybe (fatal "Couldn't compute audio length") return
+          return (md5, len)
+        dir <- outputFile opts $ return "."
+        stackIO $ Dir.createDirectoryIfMissing False dir
+        stackIO $ yamlEncodeFile (dir </> "song.yml") $ toJSON (SongYaml
+          { _metadata = def
+          , _global   = def
+          , _audio    = HM.fromList $ flip map (zip [1..] pairs) $ \(i, (md5, len)) -> let
+            ainfo = AudioFile AudioInfo
+              { _md5      = Just $ T.pack md5
+              , _frames   = Just len
+              , _filePath = Nothing
+              , _commands = []
+              , _rate     = Nothing
+              , _channels = 2 -- TODO real channel count from audio
+              }
+            in (T.pack $ "audio-" <> show (i :: Int), ainfo)
+          , _jammit   = HM.empty
+          , _plans    = HM.singleton "plan" Plan
+            { _song         = Just PlanAudio
+              { _planExpr = Input $ Named "audio-1"
+              , _planPans = []
+              , _planVols = []
+              }
+            , _countin      = Countin []
+            , _planParts    = Parts HM.empty
+            , _crowd        = Nothing
+            , _planComments = []
+            , _tuningCents  = 0
+            , _fileTempo    = Nothing
+            }
+          , _targets  = HM.empty
+          , _parts    = Parts HM.empty
+          } :: SongYaml FilePath)
+        return [dir]
+      _ -> fatal "Expected at least 1 arg (flac or wav files)"
     }
 
   ]
