@@ -50,6 +50,7 @@ parts:
       difficulty: 7
       tones:
         file-tone-base: ../../../tones/ViolationDrive.tone2014.xml
+        # TODO clean tone for middle section, maybe other tones
 targets:
   rb3:
     game: rb3

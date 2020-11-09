@@ -10,7 +10,7 @@ parts:
   guitar:
     grybo: {}
 plans:
-  plan:
+  album:
     parts: {}
     song:
       concatenate:

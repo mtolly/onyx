@@ -2,7 +2,7 @@ metadata:
   title: Mirrors
   file-include: "../../../albums/the-great-misdirect.yml"
   track-number: 1
-  author: Grinnz
+  author: Grinnz, Onyxite
 audio:
   album-track:
     md5: f7ee2d02293a31d867449932d4c4d81b
@@ -18,3 +18,12 @@ parts:
   drums:
     drums:
       kicks: 1
+  vocal:
+    vocal:
+      count: 2
+      gender: male
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps

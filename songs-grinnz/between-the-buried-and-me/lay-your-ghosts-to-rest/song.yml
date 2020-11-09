@@ -10,7 +10,7 @@ parts:
   guitar:
     grybo: {}
 plans:
-  plan:
+  album:
     song:
       pad: [4.412, album-track]
 audio:

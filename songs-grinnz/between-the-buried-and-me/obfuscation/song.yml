@@ -2,7 +2,7 @@ metadata:
   title: Obfuscation
   file-include: "../../../albums/the-great-misdirect.yml"
   track-number: 2
-  author: Grinnz
+  author: Grinnz, Harmonix
 audio:
   album-mirrors:
     md5: f7ee2d02293a31d867449932d4c4d81b
@@ -12,9 +12,22 @@ audio:
     frames: 24490200
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  rbn-bass:
+    md5: 7a61310252cdf17e28b411fcfb4c328d
+    frames: 24692678
+  rbn-guitar:
+    md5: fc342c8968041266bafe9ab85151bee3
+    frames: 24692678
+  rbn-vocal:
+    md5: 564f9c94aa11f1ffa3dc1efb658e1efd
+    frames: 24692678
+  rbn-backing:
+    md5: fe9f07fb0d47739af25fe9182f2ba41b
+    frames: 24692678
 plans:
   album:
     countin:
+      &countin
       0|2+(2/3): hihat
       1|0: hihat
       1|1+(1/3): hihat
@@ -22,14 +35,42 @@ plans:
       1|2+(2/3): hihat
       1|3+(1/3): hihat
     song:
+      &song
       fade:
       - start
       - 2.756
       - trim:
         - '3:32.957'
         - concatenate: [album-mirrors, album-obfuscation]
+  dev:
+    countin: *countin
+    song: *song
+    parts:
+      rbn-bass: rbn-bass
+      rbn-guitar: rbn-guitar
+      rbn-vocal: rbn-vocal
+      rbn-backing: rbn-backing
 parts:
   drums:
     drums:
       kicks: 2
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
+  vocal:
+    vocal:
+      count: 1
+      gender: male
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: album
+  ps:
+    game: ps
+    plan: album
 

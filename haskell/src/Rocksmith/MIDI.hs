@@ -740,7 +740,7 @@ buildRSVocals tmap vox = Vocals $ V.fromList $ let
     Wait dt1 (VocalNote lyric pitch) (Wait dt2 VocalNoteEnd rest) -> let
       lyric1 = fromMaybe lyric $ T.stripSuffix "#" lyric <|> T.stripSuffix "^" lyric
       lyric2 = case T.stripSuffix "=" lyric1 of
-        Just x  -> x <> "-"
+        Just x  -> x <> "--"
         Nothing -> lyric1
       lyric3 = case rest of
         Wait _ VocalPhraseEnd _ -> lyric2 <> "+"

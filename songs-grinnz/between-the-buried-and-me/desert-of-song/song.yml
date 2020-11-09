@@ -7,9 +7,21 @@ parts:
   drums:
     drums:
       kicks: 1
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+        global: -3 # G# C# F# B E
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+        # TODO maybe a tone for the bowed notes in the beginning,
+        # and an overdrive tone for a few parts throughout
 plans:
-  plan:
-    parts: {}
+  album:
     song:
       concatenate:
       - fade:
@@ -27,3 +39,12 @@ audio:
   album-desert:
     md5: 9d91553c5ba8560e0a82cded6db8a0b2
     frames: 14704704
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
