@@ -6,6 +6,8 @@ metadata:
   author: Onyxite
   year: 2017
   track-number: 17
+  file-album-art: cover.jpg
+  album: Year 5
 audio:
   # https://www.patreon.com/insaneintherainmusic/
   patreon-wav:

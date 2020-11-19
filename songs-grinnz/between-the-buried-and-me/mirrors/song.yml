@@ -22,8 +22,19 @@ parts:
     vocal:
       count: 2
       gender: male
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+        global: -3 # G# C# F# B E
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3:
     game: rb3
   ps:
     game: ps
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

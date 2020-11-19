@@ -2076,6 +2076,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   RSPlayable slot pg -> do
                     mapM_ (shk . need . toList) $ pgTones pg
                     toneKeys <- forM (pgTones pg) $ mapM $ fmap CST.t14_Key . CST.parseTone
+                    -- TODO the first beat event needs to be a barline,
+                    -- otherwise DDC fails to run!
+                    -- also, notes can't go past the last beat event, or they disappear.
                     let ebeats = V.fromList $ numberBars 1 $ ATB.toPairList
                           $ RTB.toAbsoluteEventList 0
                           $ U.applyTempoTrack (RBFile.s_tempos mid)
@@ -2253,8 +2256,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               allTones <- forM allTonePaths $ \f -> do
                 tone <- CST.parseTone f
                 return (f, tone)
-              arrangements <- forM presentParts $ \(fpart, arrSlot) -> do
+              parsedArrFiles <- forM presentParts $ \(fpart, arrSlot) -> do
                 contents <- Arr.parseFile $ rsArr fpart arrSlot
+                return (fpart, arrSlot, contents)
+              let averageTempo = listToMaybe $ do
+                    (_, _, Arr.PartArrangement arr) <- parsedArrFiles
+                    return $ Arr.arr_averageTempo arr
+              arrangements <- forM (zip [0..] parsedArrFiles) $ \(i, (fpart, arrSlot, contents)) -> do
                 arrID <- stackIO UUID.nextRandom
                 songFileID <- stackIO UUID.nextRandom
                 songXmlID <- stackIO UUID.nextRandom
@@ -2263,7 +2271,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   Arr.PartVocals _ -> CST.Arrangement
                     { CST.arr_ArrangementName      = "Vocals"
                     , CST.arr_ArrangementPropeties = Nothing
-                    , CST.arr_ArrangementSort      = 0 -- I would've thought this was unique per arrangement but apparently it can just all be 0?
+                    , CST.arr_ArrangementSort      = i
                     , CST.arr_ArrangementType      = "Vocal"
                     , CST.arr_BonusArr             = False
                     , CST.arr_CapoFret             = 0
@@ -2349,7 +2357,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         RSPlayable (RSArrSlot _ RSBass       ) _ -> 4
                         RSVocal    _                             -> 0 -- shouldn't happen (vocal/showlight have a nil ArrangementPropeties)
                       }
-                    , CST.arr_ArrangementSort      = 0 -- I would've thought this was unique per arrangement but apparently it can just all be 0?
+                    , CST.arr_ArrangementSort      = i
                     , CST.arr_ArrangementType      = case arrSlot of
                       RSPlayable (RSArrSlot _ RSBass) _ -> "Bass"
                       RSPlayable (RSArrSlot _ _     ) _ -> "Guitar"
@@ -2432,7 +2440,23 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , CST.ts_String5 = Arr.tuning_string5 $ Arr.arr_tuning arr
                       }
                     }
-              randomNameID <- stackIO $ randomRIO (0, maxBound :: Int32)
+              key <- case rs_SongKey rs of
+                Nothing -> stackIO $ T.pack . ("OnyxCST" <>) . show <$> randomRIO (0, maxBound :: Int32)
+                -- TODO maybe autogenerate a CST-like key, e.g. OnyASAMACrimsonRoseandaGinToni
+                Just k  -> if T.length k <= 30
+                  then return k
+                  else do
+                    warn $ "RS song key of " <> show k <> " truncated, longer than max length of 30 characters"
+                    return $ T.take 30 k
+                {-
+                  Info from CST source on song key (+ tone key):
+
+                  Limited to a maximum length of 30 charactures, minimum of 6 charactures for uniqueness
+                  Only Ascii Alpha and Numeric may be used
+                  No spaces, no special characters, no puncuation
+                  All alpha lower, upper, or mixed case are allowed
+                  All numeric is allowed
+                -}
               CST.writeProject out CST.DLCPackageData
                 { CST.dlc_AlbumArtPath      = "cover.png"
                 , CST.dlc_AppId             = 248750 -- Cherub Rock ID
@@ -2442,7 +2466,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 , CST.dlc_GameVersion       = "RS2014"
                 , CST.dlc_Inlay             = Nothing
                 , CST.dlc_Mac               = False
-                , CST.dlc_Name              = T.pack $ "OnyxCST" <> show randomNameID -- TODO make a name like OnyASAMACrimsonRoseandaGinToni
+                , CST.dlc_Name              = key
                 , CST.dlc_OggPath           = "audio.wav"
                 , CST.dlc_OggPreviewPath    = "audio_preview.wav"
                 , CST.dlc_OggQuality        = 5
@@ -2455,20 +2479,32 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   , CST.si_AlbumSort           = getAlbum $ _metadata songYaml -- TODO
                   , CST.si_Artist              = getArtist $ _metadata songYaml
                   , CST.si_ArtistSort          = getArtist $ _metadata songYaml -- TODO
-                  , CST.si_AverageTempo        = 125 -- TODO get real number
+                  , CST.si_AverageTempo        = maybe 120 {- shouldn't happen -} ((round :: U.BPS -> Int) . (* 60)) averageTempo
                   , CST.si_JapaneseArtistName  = ""
                   , CST.si_JapaneseSongName    = ""
                   , CST.si_SongDisplayName     = getTitle $ _metadata songYaml
                   , CST.si_SongDisplayNameSort = getTitle $ _metadata songYaml -- TODO
                   , CST.si_SongYear            = fromMaybe 1960 $ _year $ _metadata songYaml -- TODO see if this can be empty
                   }
+                  {-
+                    Info from CST source on sortable text (might not need to do this though, CST appears to edit them itself):
+
+                    ( ) are always stripped
+                    / is replaced with a space
+                    - usage is inconsistent (so for consistency remove it)
+                    , is stripped (in titles)
+                    ' is not stripped
+                    . and ? usage are inconsistent (so for consistency leave these)
+                    Abbreviations/symbols like 'Mr.' and '&' are replaced with words
+                    Diacritics are replaced with their ASCII approximations if available
+                  -}
                 , CST.dlc_Tones             = mempty
                 , CST.dlc_TonesRS2014       = V.fromList $ map snd allTones
                 , CST.dlc_ToolkitInfo       = CST.ToolkitInfo
-                  { CST.tk_PackageAuthor  = Nothing
+                  { CST.tk_PackageAuthor  = Nothing -- TODO can this be filled in to override the author entered in the toolkit?
                   , CST.tk_PackageComment = Just $ "(Project generated by Onyx v" <> T.pack (showVersion version) <> ")"
                   , CST.tk_PackageRating  = Nothing
-                  , CST.tk_PackageVersion = Just "1" -- TODO add this to TargetRS
+                  , CST.tk_PackageVersion = Just $ fromMaybe "1" $ rs_Version rs
                   , CST.tk_ToolkitVersion = Nothing
                   }
                 , CST.dlc_Version           = "" -- TODO this should be e.g. "Toolkit Version 2.9.2.1-5a8cb74e"

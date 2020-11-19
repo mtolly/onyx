@@ -1,0 +1,57 @@
+parts:
+  bass: # Onyxite
+    pro-guitar:
+      # TODO this is a mix of recording and Tim's playthrough,
+      # should probably pick one!
+      tuning:
+        base: bass-4
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  drums: # Boo
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 3
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: ac9761a086d11beb5ce82171c97f1768
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3:
+    song-id: o883402152
+    game: rb3
+    version: 1
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
+metadata:
+  preview-start: 46.8
+  file-album-art: cover.png_xbox
+  track-number: 1
+  album: Head Hunter
+  year: 2019
+  subgenre: mathrock
+  author: Boo, Onyxite
+  title: Head Hunter
+  preview-end: 1:16.800
+  genre: indierock
+  difficulty:
+    tier: 1
+  artist: Dance Gavin Dance

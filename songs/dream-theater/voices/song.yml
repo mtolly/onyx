@@ -109,6 +109,25 @@ plans:
         - 2.893
         - fade: [begin, 0.538, album-track]
     file-tempo: tempo-album.mid
+  jammit-simple:
+    countin: *countin
+    parts:
+      bass:
+        pad:
+        - 2.877
+        - fade:
+          - begin
+          - 0.477
+          - trim: [3.183, only: [Bass, jammit-track]]
+    song:
+      pad:
+      - 2.877
+      - fade:
+        - begin
+        - 0.477
+        - trim:
+          - 3.183
+          - without: [bass, jammit-track]
 parts:
   drums:
     drums:
@@ -121,9 +140,18 @@ parts:
     pro-keys:
       difficulty: 5
   bass:
-    pro-guitar: # WIP
+    pro-guitar:
       tuning:
         base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  bass5:
+    # edit for 5-string bass
+    pro-guitar:
+      tuning:
+        base: bass-5
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3:
     game: rb3
@@ -135,3 +163,9 @@ targets:
   ps:
     game: ps
     plan: jammit
+  rs:
+    game: rs
+    plan: jammit-simple
+    arrangements:
+    - [bonus-rhythm, bass]
+    - [bonus-rhythm, bass5]

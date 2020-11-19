@@ -30,8 +30,20 @@ plans:
     parts:
       drums:
         only: [Drums, jammit-track]
+      bass:
+        only: [Bass, jammit-track]
     song:
-      without: [drums, jammit-track]
+      mix:
+      - without: [drums, jammit-track]
+      - gain: [-1, only: [Bass, jammit-track]]
+  jammit-simple:
+    countin: *countin
+    parts:
+      bass:
+        only: [Bass, jammit-track]
+    song:
+      mix:
+      - without: [bass, jammit-track]
   album:
     countin: *countin
     song:
@@ -49,8 +61,19 @@ parts:
     drums:
       kicks: 2
       difficulty: 4
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: jammit
+  rs:
+    game: rs
+    plan: jammit-simple
+    arrangements:
+    - [bonus-rhythm, bass]

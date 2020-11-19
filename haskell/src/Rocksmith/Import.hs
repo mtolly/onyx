@@ -165,12 +165,14 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                 Just t  -> return t
               findMaybeTone "" = return Nothing
               findMaybeTone k  = Just <$> findTone k
+          -- TODO support no base tone - this shouldn't happen,
+          -- but does if you compile a custom with no tones
           rsFileToneBase <- prop "Tone_Base" jsonAttrs >>= getString >>= findTone
           rsFileToneA    <- prop "Tone_A" jsonAttrs >>= getString >>= findMaybeTone
           rsFileToneB    <- prop "Tone_B" jsonAttrs >>= getString >>= findMaybeTone
           rsFileToneC    <- prop "Tone_C" jsonAttrs >>= getString >>= findMaybeTone
           rsFileToneD    <- prop "Tone_D" jsonAttrs >>= getString >>= findMaybeTone
-          return $ (RSArrSlot arrmod arrtype, sng, bnkPath, (title, artist, album, year), isBass, RSTones{..})
+          return (RSArrSlot arrmod arrtype, sng, bnkPath, (title, artist, album, year), isBass, RSTones{..})
   (_, firstArr, bnk, (title, artist, album, year), _, _) <- case parts of
     []    -> fatal "No entries found in song"
     p : _ -> return p

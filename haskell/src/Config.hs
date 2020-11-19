@@ -1280,6 +1280,8 @@ data TargetRS = TargetRS
   { rs_Common       :: TargetCommon
   , rs_Arrangements :: [(RSArrSlot, FlexPartName)]
   , rs_Vocal        :: FlexPartName
+  , rs_SongKey      :: Maybe T.Text
+  , rs_Version      :: Maybe T.Text
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 rsArrSlot :: RSArrSlot -> T.Text
@@ -1316,6 +1318,8 @@ parseTargetRS = do
   rs_Common       <- rs_Common       =. parseTargetCommon
   rs_Arrangements <- rs_Arrangements =. opt [] "arrangements" (listCodec parseRSArr)
   rs_Vocal        <- rs_Vocal        =. opt FlexVocal "vocal" stackJSON
+  rs_SongKey      <- rs_SongKey      =. opt Nothing "song-key" stackJSON
+  rs_Version      <- rs_Version      =. opt Nothing "version" stackJSON
   return TargetRS{..}
 
 instance StackJSON TargetRS where
