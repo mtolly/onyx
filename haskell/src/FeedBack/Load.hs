@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module FeedBack.Load where
 
-import           Control.Monad                    (guard)
+import           Control.Monad                    (guard, void)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
                                                    fatal, inside, stackIO, warn)
@@ -182,6 +182,7 @@ data TrackEvent t a
   | TrackForce t
   | TrackTap t
   | TrackCymbal D.ProColor
+  | TrackKick2x
   | TrackP1 t
   | TrackP2 t
   | TrackOD t
@@ -304,7 +305,8 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
                 2 -> return $ Just $ TrackNote (D.Pro D.Yellow ()) len
                 3 -> return $ Just $ TrackNote (D.Pro D.Blue   ()) len
                 4 -> return $ Just $ TrackNote (D.Pro D.Green  ()) len
-                5 -> return $ Just $ TrackNote D.Orange            len -- we'll flip green/orange later
+                5 -> return $ Just $ TrackNote D.Orange            len -- we'll flip green/orange later]
+                32 -> return $ Just TrackKick2x
                 66 -> return $ Just $ TrackCymbal D.Yellow
                 67 -> return $ Just $ TrackCymbal D.Blue
                 68 -> return $ Just $ TrackCymbal D.Green
@@ -331,6 +333,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
             $ \case TrackP1 t -> lengthToBools t; _ -> RTB.empty
           , D.drumPlayer2 = U.trackJoin $ flip fmap expert
             $ \case TrackP2 t -> lengthToBools t; _ -> RTB.empty
+          , D.drumKick2x = void $ RTB.filter (\case TrackKick2x -> True; _ -> False) expert
           , D.drumDifficulties = flip fmap diffs $ \parsed -> D.DrumDifficulty
             { drumMix         = RTB.empty
             , drumPSModifiers = RTB.empty
