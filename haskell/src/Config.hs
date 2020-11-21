@@ -1156,7 +1156,7 @@ data TargetRB2 = TargetRB2
   , rb2_SongID      :: Maybe (Either Integer T.Text)
   , rb2_LabelRB2    :: Bool
   , rb2_Version     :: Maybe Integer
-  , rb2_Magma       :: MagmaSetting
+  , rb2_Magma       :: MagmaSetting -- this currently only affects Magma v2; v1 is always tried but optional
   , rb2_Guitar      :: FlexPartName
   , rb2_Bass        :: FlexPartName
   , rb2_Drums       :: FlexPartName

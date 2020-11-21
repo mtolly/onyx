@@ -169,7 +169,8 @@ data Event
   | EventFail Message
   | EventMsg (MessageLevel, Message)
 
-type Onyx = StackTraceT (QueueLog (ReaderT (Event -> IO ()) (ResourceT IO)))
+type Onyx = StackTraceT OnyxInner
+type OnyxInner = QueueLog (ReaderT (Event -> IO ()) (ResourceT IO))
 
 getEventSink :: Onyx (Event -> IO ())
 getEventSink = lift $ lift ask
@@ -236,15 +237,26 @@ startLoad makeMenuBar hasAudio fs = do
       [imp] -> continueImport makeMenuBar hasAudio imp
       imps  -> stackIO $ sink $ EventIO $ multipleSongsWindow sink makeMenuBar hasAudio imps
 
+importWithVenueSetting :: Importable OnyxInner -> Onyx Project
+importWithVenueSetting imp = do
+  projInit <- impProject imp
+  fmap prefBlackVenue readPreferences >>= \case
+    False -> return projInit
+    True  -> stackIO $ saveProject projInit $ (projectSongYaml projInit)
+      { _global = (_global $ projectSongYaml projInit)
+        { _autogenTheme = Nothing
+        }
+      }
+
 continueImport
   :: (Width -> Bool -> IO Int)
   -> Bool
-  -> Importable (QueueLog (ReaderT (Event -> IO ()) (ResourceT IO)))
+  -> Importable OnyxInner
   -> Onyx ()
 continueImport makeMenuBar hasAudio imp = do
   sink <- getEventSink
   -- TODO this can potentially not clean up the temp folder if interrupted during import
-  proj <- impProject imp
+  proj <- importWithVenueSetting imp
   void $ shakeBuild1 proj [] "gen/cover.png"
   -- TODO support popping up a window or something to ask which audio plan to use if multiple
   maybeAudio <- if hasAudio then projectAudio proj else return Nothing
@@ -257,7 +269,7 @@ multipleSongsWindow
   :: (Event -> IO ())
   -> (Width -> Bool -> IO Int)
   -> Bool
-  -> [Importable (QueueLog (ReaderT (Event -> IO ()) (ResourceT IO)))]
+  -> [Importable OnyxInner]
   -> IO ()
 multipleSongsWindow sink makeMenuBar hasAudio imps = mdo
   let windowWidth = Width 500
@@ -1330,6 +1342,7 @@ batchPageRB2 sink rect tab build = do
             { rb2_Common = (rb2_Common def)
               { tgt_Speed = Just speed
               }
+            , rb2_Magma = prefMagma ?preferences
             }
           kicksConfigs = case (kicks, maybe Kicks1x drumsKicks $ getPart FlexDrums yaml >>= partDrums) of
             (_        , Kicks1x) -> [(False, ""   )]
@@ -1635,7 +1648,7 @@ songPageRB3 sink rect tab proj build = mdo
         )
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
       liftIO $ FL.setCallback box2x $ \_ -> controlInput
-  let makeTarget = fmap ($ def) targetModifier
+  let makeTarget = fmap ($ def { rb3_Magma = prefMagma ?preferences }) targetModifier
   fullWidth 35 $ \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- FL.buttonNew r1 $ Just "Create CON file"
@@ -1723,7 +1736,7 @@ songPageRB2 sink rect tab proj build = mdo
         )
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
       liftIO $ FL.setCallback box2x $ \_ -> controlInput
-  let makeTarget = fmap ($ def) targetModifier
+  let makeTarget = fmap ($ def { rb2_Magma = prefMagma ?preferences }) targetModifier
   fullWidth 35 $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Create CON file"
     FL.setCallback btn $ \_ -> do
@@ -1874,6 +1887,7 @@ batchPageRB3 sink rect tab build = do
             { rb3_Common = (rb3_Common defRB3)
               { tgt_Speed = Just speed
               }
+            , rb3_Magma = prefMagma ?preferences
             }
           kicksConfigs = case (kicks, maybe Kicks1x drumsKicks $ getPart FlexDrums yaml >>= partDrums) of
             (_        , Kicks1x) -> [(False, ""   )]
@@ -3137,7 +3151,7 @@ launchBatch sink makeMenuBar startFiles = mdo
     return (tab, getter)
   let doImport imp fn = do
         -- TODO this can potentially not clean up the temp folder if interrupted during import
-        proj <- impProject imp
+        proj <- importWithVenueSetting imp
         x <- fn proj
         mapM_ release $ projectRelease proj
         return x
