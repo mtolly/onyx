@@ -980,16 +980,16 @@ instance Default (Metadata FilePath) where
 data Global f = Global
   { _fileMidi     :: f
   , _fileSongAnim :: Maybe f -- ^ venue format found in RB3 milos
-  , _autogenTheme :: Magma.AutogenTheme
+  , _autogenTheme :: Maybe Magma.AutogenTheme -- ^ 'Nothing' means black venue
   , _animTempo    :: Either AnimTempo Integer
   } deriving (Eq, Show)
 
 instance StackJSON (Global FilePath) where
   stackJSON = asStrictObject "Global" $ do
-    _fileMidi     <- _fileMidi     =. opt "notes.mid"         "file-midi"      stackJSON
-    _fileSongAnim <- _fileSongAnim =. opt Nothing             "file-song-anim" stackJSON
-    _autogenTheme <- _autogenTheme =. opt Magma.DefaultTheme  "autogen-theme"  stackJSON
-    _animTempo    <- _animTempo    =. opt (Left KTempoMedium) "anim-tempo"     parseAnimTempo
+    _fileMidi     <- _fileMidi     =. opt "notes.mid"                "file-midi"      stackJSON
+    _fileSongAnim <- _fileSongAnim =. opt Nothing                    "file-song-anim" stackJSON
+    _autogenTheme <- _autogenTheme =. opt (Just Magma.DefaultTheme)  "autogen-theme"  stackJSON
+    _animTempo    <- _animTempo    =. opt (Left KTempoMedium)        "anim-tempo"     parseAnimTempo
     return Global{..}
 
 instance Default (Global FilePath) where
@@ -1043,6 +1043,18 @@ parseSegmentEdge = do
 instance StackJSON SegmentEdge where
   stackJSON = asStrictObject "SegmentEdge" parseSegmentEdge
 
+data MagmaSetting
+  = MagmaRequire
+  | MagmaTry
+  | MagmaDisable
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
+
+instance StackJSON MagmaSetting where
+  stackJSON = enumCodecFull "a Magma setting from {require, try, disable}" $ \case
+    MagmaRequire -> is "require" |?> is (A.Bool True)
+    MagmaTry     -> is "try"
+    MagmaDisable -> is "disable" |?> is (A.Bool False)
+
 data TargetRB3 f = TargetRB3
   { rb3_Common      :: TargetCommon
   , rb3_2xBassPedal :: Bool
@@ -1050,7 +1062,7 @@ data TargetRB3 f = TargetRB3
   , rb3_Version     :: Maybe Integer
   , rb3_Harmonix    :: Bool
   , rb3_FileMilo    :: Maybe f
-  , rb3_Magma       :: Bool
+  , rb3_Magma       :: MagmaSetting
   , rb3_Guitar      :: FlexPartName
   , rb3_Bass        :: FlexPartName
   , rb3_Drums       :: FlexPartName
@@ -1061,17 +1073,17 @@ data TargetRB3 f = TargetRB3
 parseTargetRB3 :: (SendMessage m) => ObjectCodec m A.Value (TargetRB3 FilePath)
 parseTargetRB3 = do
   rb3_Common      <- rb3_Common      =. parseTargetCommon
-  rb3_2xBassPedal <- rb3_2xBassPedal =. opt False      "2x-bass-pedal" stackJSON
-  rb3_SongID      <- rb3_SongID      =. opt Nothing    "song-id"       stackJSON
-  rb3_Version     <- rb3_Version     =. opt Nothing    "version"       stackJSON
-  rb3_Harmonix    <- rb3_Harmonix    =. opt False      "harmonix"      stackJSON
-  rb3_FileMilo    <- rb3_FileMilo    =. opt Nothing    "file-milo"     stackJSON
-  rb3_Magma       <- rb3_Magma       =. opt True       "magma"         stackJSON
-  rb3_Guitar      <- rb3_Guitar      =. opt FlexGuitar "guitar"        stackJSON
-  rb3_Bass        <- rb3_Bass        =. opt FlexBass   "bass"          stackJSON
-  rb3_Drums       <- rb3_Drums       =. opt FlexDrums  "drums"         stackJSON
-  rb3_Keys        <- rb3_Keys        =. opt FlexKeys   "keys"          stackJSON
-  rb3_Vocal       <- rb3_Vocal       =. opt FlexVocal  "vocal"         stackJSON
+  rb3_2xBassPedal <- rb3_2xBassPedal =. opt False        "2x-bass-pedal" stackJSON
+  rb3_SongID      <- rb3_SongID      =. opt Nothing      "song-id"       stackJSON
+  rb3_Version     <- rb3_Version     =. opt Nothing      "version"       stackJSON
+  rb3_Harmonix    <- rb3_Harmonix    =. opt False        "harmonix"      stackJSON
+  rb3_FileMilo    <- rb3_FileMilo    =. opt Nothing      "file-milo"     stackJSON
+  rb3_Magma       <- rb3_Magma       =. opt MagmaRequire "magma"         stackJSON
+  rb3_Guitar      <- rb3_Guitar      =. opt FlexGuitar   "guitar"        stackJSON
+  rb3_Bass        <- rb3_Bass        =. opt FlexBass     "bass"          stackJSON
+  rb3_Drums       <- rb3_Drums       =. opt FlexDrums    "drums"         stackJSON
+  rb3_Keys        <- rb3_Keys        =. opt FlexKeys     "keys"          stackJSON
+  rb3_Vocal       <- rb3_Vocal       =. opt FlexVocal    "vocal"         stackJSON
   return TargetRB3{..}
 
 instance StackJSON (TargetRB3 FilePath) where
@@ -1144,7 +1156,7 @@ data TargetRB2 = TargetRB2
   , rb2_SongID      :: Maybe (Either Integer T.Text)
   , rb2_LabelRB2    :: Bool
   , rb2_Version     :: Maybe Integer
-  , rb2_Magma       :: Bool
+  , rb2_Magma       :: MagmaSetting
   , rb2_Guitar      :: FlexPartName
   , rb2_Bass        :: FlexPartName
   , rb2_Drums       :: FlexPartName
@@ -1154,15 +1166,15 @@ data TargetRB2 = TargetRB2
 parseTargetRB2 :: (SendMessage m) => ObjectCodec m A.Value TargetRB2
 parseTargetRB2 = do
   rb2_Common      <- rb2_Common      =. parseTargetCommon
-  rb2_2xBassPedal <- rb2_2xBassPedal =. opt False      "2x-bass-pedal" stackJSON
-  rb2_SongID      <- rb2_SongID      =. opt Nothing    "song-id"       stackJSON
-  rb2_LabelRB2    <- rb2_LabelRB2    =. opt False      "label-rb2"     stackJSON
-  rb2_Version     <- rb2_Version     =. opt Nothing    "version"       stackJSON
-  rb2_Magma       <- rb2_Magma       =. opt True       "magma"         stackJSON
-  rb2_Guitar      <- rb2_Guitar      =. opt FlexGuitar "guitar"        stackJSON
-  rb2_Bass        <- rb2_Bass        =. opt FlexBass   "bass"          stackJSON
-  rb2_Drums       <- rb2_Drums       =. opt FlexDrums  "drums"         stackJSON
-  rb2_Vocal       <- rb2_Vocal       =. opt FlexVocal  "vocal"         stackJSON
+  rb2_2xBassPedal <- rb2_2xBassPedal =. opt False        "2x-bass-pedal" stackJSON
+  rb2_SongID      <- rb2_SongID      =. opt Nothing      "song-id"       stackJSON
+  rb2_LabelRB2    <- rb2_LabelRB2    =. opt False        "label-rb2"     stackJSON
+  rb2_Version     <- rb2_Version     =. opt Nothing      "version"       stackJSON
+  rb2_Magma       <- rb2_Magma       =. opt MagmaRequire "magma"         stackJSON
+  rb2_Guitar      <- rb2_Guitar      =. opt FlexGuitar   "guitar"        stackJSON
+  rb2_Bass        <- rb2_Bass        =. opt FlexBass     "bass"          stackJSON
+  rb2_Drums       <- rb2_Drums       =. opt FlexDrums    "drums"         stackJSON
+  rb2_Vocal       <- rb2_Vocal       =. opt FlexVocal    "vocal"         stackJSON
   return TargetRB2{..}
 
 instance StackJSON TargetRB2 where

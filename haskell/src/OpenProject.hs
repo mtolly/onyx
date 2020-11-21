@@ -12,8 +12,6 @@ import qualified Control.Monad.Catch            as MC
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
-import           Data.Aeson                     ((.:))
-import qualified Data.Aeson.Types               as A
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
@@ -34,7 +32,6 @@ import qualified Data.HashMap.Strict            as Map
 import           Data.List.Extra                (stripSuffix)
 import           Data.Maybe                     (fromMaybe, mapMaybe)
 import qualified Data.Text                      as T
-import qualified Data.Yaml                      as Y
 import           DTXMania.DTX
 import           DTXMania.Import
 import           DTXMania.Set
@@ -46,6 +43,7 @@ import           GuitarHeroII.Ark               (GameGH (..), detectGameGH,
 import qualified GuitarHeroII.Import            as GH2
 import           Import
 import           Magma                          (getRBAFileBS)
+import           Preferences
 import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingles)
 import           Rocksmith.Import               as RS
@@ -344,23 +342,11 @@ withProject i fp fn = do
   stackIO $ mapM_ release $ projectRelease proj
   return x
 
-readConfig :: (MonadIO m) => StackTraceT m (Map.HashMap T.Text Y.Value)
-readConfig = do
-  cfg <- stackIO $ Dir.getXdgDirectory Dir.XdgConfig "onyx.yml"
-  stackIO (Dir.doesFileExist cfg) >>= \case
-    False -> return Map.empty
-    True  -> stackIO (Y.decodeFileEither cfg) >>= \case
-      Left err -> fatal $ show err
-      Right x  -> return x
-
-getAudioDirs :: (MonadIO m) => Project -> StackTraceT m [FilePath]
+getAudioDirs :: (SendMessage m, MonadIO m) => Project -> StackTraceT m [FilePath]
 getAudioDirs proj = do
-  config <- readConfig
   jmt <- stackIO J.findJammitDir
   let addons = maybe id (:) jmt [takeDirectory $ projectLocation proj]
-  dirs <- case A.parseEither (.: "audio-dirs") config of
-    Left _    -> return []
-    Right obj -> either fatal return $ A.parseEither A.parseJSON obj
+  dirs <- prefAudioDirs <$> readPreferences
   mapM (stackIO . Dir.canonicalizePath) $ addons ++ dirs
 
 shakeBuild1 :: (MonadIO m) =>

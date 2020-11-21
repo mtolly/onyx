@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP               #-}
+{-# LANGUAGE ImplicitParams    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -109,6 +110,9 @@ import           OSFiles                                   (commonDir,
                                                             osOpenFile,
                                                             osShowFolder)
 import           Paths_onyxite_customs_tool                (version)
+import           Preferences                               (Preferences (..),
+                                                            readPreferences,
+                                                            savePreferences)
 import           ProKeysRanges                             (closeShiftsFile)
 import           Reaper.Build                              (TuningInfo (..),
                                                             makeReaper)
@@ -244,7 +248,10 @@ continueImport makeMenuBar hasAudio imp = do
   void $ shakeBuild1 proj [] "gen/cover.png"
   -- TODO support popping up a window or something to ask which audio plan to use if multiple
   maybeAudio <- if hasAudio then projectAudio proj else return Nothing
-  stackIO $ sink $ EventIO $ launchWindow sink makeMenuBar proj maybeAudio
+  stackIO $ sink $ EventOnyx $ do
+    prefs <- readPreferences
+    let ?preferences = prefs
+    stackIO $ launchWindow sink makeMenuBar proj maybeAudio
 
 multipleSongsWindow
   :: (Event -> IO ())
@@ -476,7 +483,8 @@ currentSongTime stime ss = case songPlaying ss of
 
 type BuildYamlControl a = WriterT (IO (Endo a)) IO
 
-launchWindow :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Project -> Maybe (Double -> Maybe Double -> Float -> IO AudioHandle) -> IO ()
+launchWindow :: (?preferences :: Preferences)
+  => (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Project -> Maybe (Double -> Maybe Double -> Float -> IO AudioHandle) -> IO ()
 launchWindow sink makeMenuBar proj maybeAudio = mdo
   let windowWidth = Width 800
       windowHeight = Height 500
@@ -1099,6 +1107,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
         FL.setTitle picker "Save web preview folder"
         FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_player"
+        forM_ (prefDirPreview ?preferences) $ FL.setDirectory picker . T.pack
         FL.showWidget picker >>= \case
           FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
             Nothing -> return ()
@@ -1287,7 +1296,8 @@ speedPercent :: Bool -> Rectangle -> IO (IO Double)
 speedPercent isConverter rect = fst <$> speedPercent' isConverter rect
 
 batchPageRB2
-  :: (Event -> IO ())
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
   -> ((Project -> ([(TargetRB2, FilePath)], SongYaml FilePath)) -> IO ())
@@ -1349,7 +1359,7 @@ batchPageRB2 sink rect tab build = do
   makeTemplateRunner
     sink
     "Create CON files"
-    "%input_dir%/%input_base%%modifiers%_rb2con"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_rb2con")
     (getTargetSong id >=> build)
   FL.end pack
   FL.setResizable tab $ Just pack
@@ -1360,7 +1370,8 @@ type MIDIFunction
   -> RBFile.Song (RBFile.FixedFile U.Beats)
 
 batchPageDolphin
-  :: (Event -> IO ())
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
   -> (FilePath -> Maybe MIDIFunction -> Bool -> IO ())
@@ -1395,6 +1406,7 @@ batchPageDolphin sink rect tab build = do
     FL.setCallback btn $ \_ -> sink $ EventIO $ do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
       FL.setTitle picker "Location for .app files"
+      forM_ (prefDirWii ?preferences) $ FL.setDirectory picker . T.pack
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
@@ -1408,7 +1420,8 @@ batchPageDolphin sink rect tab build = do
   return ()
 
 batchPagePS
-  :: (Event -> IO ())
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
   -> ((Project -> (TargetPS FilePath, PSCreate)) -> IO ())
@@ -1439,12 +1452,12 @@ batchPagePS sink rect tab build = do
   makeTemplateRunner
     sink
     "Create PS folders"
-    "%input_dir%/%artist% - %title%"
+    (maybe "%input_dir%" T.pack (prefDirCH ?preferences) <> "/%artist% - %title%")
     (getTargetSong PSDir >=> build)
   makeTemplateRunner
     sink
     "Create PS zips"
-    "%input_dir%/%input_base%%modifiers%_ps.zip"
+    (maybe "%input_dir%" T.pack (prefDirCH ?preferences) <> "/%input_base%%modifiers%_ps.zip")
     (getTargetSong PSZip >=> build)
   FL.end pack
   FL.setResizable tab $ Just pack
@@ -1566,7 +1579,8 @@ customTitleSuffix sink rect getSuffix setSuffix = do
   return controlInput
 
 songPageRB3
-  :: (Event -> IO ())
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
   -> Project
@@ -1630,6 +1644,7 @@ songPageRB3 sink rect tab proj build = mdo
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save RB3 CON file"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_rb3con" -- TODO add modifiers
+      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
@@ -1641,6 +1656,7 @@ songPageRB3 sink rect tab proj build = mdo
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
       FL.setTitle picker "Save Magma v2 project"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_project" -- TODO add modifiers
+      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
@@ -1654,7 +1670,8 @@ songPageRB3 sink rect tab proj build = mdo
   return ()
 
 songPageRB2
-  :: (Event -> IO ())
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
   -> Project
@@ -1714,6 +1731,7 @@ songPageRB2 sink rect tab proj build = mdo
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save RB2 CON file"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_rb2con" -- TODO add modifiers
+      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
@@ -1726,7 +1744,8 @@ songPageRB2 sink rect tab proj build = mdo
   return ()
 
 songPagePS
-  :: (Event -> IO ())
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
   -> Project
@@ -1788,6 +1807,7 @@ songPagePS sink rect tab proj build = mdo
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
       FL.setTitle picker "Save CH/PS song folder"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_chps" -- TODO add modifiers
+      forM_ (prefDirCH ?preferences) $ FL.setDirectory picker . T.pack
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
@@ -1799,6 +1819,7 @@ songPagePS sink rect tab proj build = mdo
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save CH/PS zip file"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_chps.zip" -- TODO add modifiers
+      forM_ (prefDirCH ?preferences) $ FL.setDirectory picker . T.pack
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
@@ -1812,7 +1833,8 @@ songPagePS sink rect tab proj build = mdo
   return ()
 
 batchPageRB3
-  :: (Event -> IO ())
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
   -> ((Project -> ([(TargetRB3 FilePath, RB3Create)], SongYaml FilePath)) -> IO ())
@@ -1881,12 +1903,12 @@ batchPageRB3 sink rect tab build = do
   makeTemplateRunner
     sink
     "Create CON files"
-    "%input_dir%/%input_base%%modifiers%_rb3con"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_rb3con")
     (getTargetSong RB3CON >=> build)
   makeTemplateRunner
     sink
     "Create Magma projects"
-    "%input_dir%/%input_base%%modifiers%_project"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_project")
     (getTargetSong RB3Magma >=> build)
   FL.end pack
   FL.setResizable tab $ Just pack
@@ -1953,7 +1975,8 @@ makeTemplateRunner sink buttonText defTemplate useTemplate = do
     return ()
 
 batchPagePreview
-  :: (Event -> IO ())
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
   -> ((Project -> FilePath) -> IO ())
@@ -1963,7 +1986,7 @@ batchPagePreview sink rect tab build = do
   makeTemplateRunner
     sink
     "Build web previews"
-    "%input_dir%/%input_base%_player"
+    (maybe "%input_dir%" T.pack (prefDirPreview ?preferences) <> "/%input_base%_player")
     (\template -> build $ \proj -> T.unpack $ templateApplyInput proj Nothing template)
   FL.end pack
   FL.setResizable tab $ Just pack
@@ -3037,7 +3060,16 @@ fileLoadWindow rect sink single plural modifyFiles startFiles step display = mdo
   FL.end group
   return group
 
-launchBatch :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> [FilePath] -> IO ()
+launchBatch'
+  :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> [FilePath] -> IO ()
+launchBatch' sink makeMenuBar startFiles = sink $ EventOnyx $ do
+  prefs <- readPreferences
+  let ?preferences = prefs
+  stackIO $ launchBatch sink makeMenuBar startFiles
+
+launchBatch
+  :: (?preferences :: Preferences)
+  => (Event -> IO ()) -> (Width -> Bool -> IO Int) -> [FilePath] -> IO ()
 launchBatch sink makeMenuBar startFiles = mdo
   loadedFiles <- newMVar []
   let windowWidth = Width 800
@@ -3286,6 +3318,108 @@ isNewestRelease cb = do
 foreign import ccall "&fl_display" fl_display :: Ptr HINSTANCE
 #endif
 
+launchPreferences :: (Event -> IO ()) -> Onyx ()
+launchPreferences sink = do
+  loadedPrefs <- readPreferences
+  let width = 700
+      padding = 10
+      lineHeight = 30
+      numLines = 9
+      height = (padding + lineHeight) * numLines + padding
+      lineBox i = Rectangle
+        (Position (X padding) (Y $ padding + (lineHeight + padding) * i))
+        (Size (Width $ width - padding * 2) (Height lineHeight))
+      folderBox rect label initValue = do
+        let (_, rectA) = chopLeft 150 rect
+            (inputRect, rectB) = chopRight 100 rectA
+            (_, rectC) = chopRight 90 rectB
+            (browseRect, _) = chopLeft 40 rectC
+            (_, rectD) = chopRight 50 rectC
+            (_, resetRect) = chopRight 40 rectD
+        input <- FL.inputNew
+          inputRect
+          (Just label)
+          (Just FL.FlNormalInput) -- required for labels to work
+        FL.setLabelsize input $ FL.FontSize 13
+        FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+        FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
+        void $ FL.setValue input initValue
+        browseButton <- FL.buttonNew browseRect $ Just "@fileopen"
+        FL.setCallback browseButton $ \_ -> sink $ EventIO $ do
+          picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
+          FL.setTitle picker "Location for output files"
+          FL.showWidget picker >>= \case
+            FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+              Nothing  -> return ()
+              Just dir -> void $ FL.setValue input $ T.pack dir
+            _ -> return ()
+        resetButton <- FL.buttonNew resetRect $ Just "@undo"
+        FL.setCallback resetButton $ \_ -> sink $ EventIO $ do
+          void $ FL.setValue input ""
+        return $ FL.getValue input
+  stackIO $ do
+    window <- FL.windowNew
+      (Size (Width width) (Height height))
+      Nothing
+      (Just "Onyx Preferences")
+
+    getMagma <- horizRadio (lineBox 0)
+      [ ("Magma required" , MagmaRequire, prefMagma loadedPrefs == MagmaRequire)
+      , ("Magma optional" , MagmaTry    , prefMagma loadedPrefs == MagmaTry    )
+      , ("Don't use Magma", MagmaDisable, prefMagma loadedPrefs == MagmaDisable)
+      ]
+
+    checkBlackVenue <- FL.checkButtonNew (lineBox 1) $ Just "Use black venue for all generated files"
+    void $ FL.setValue checkBlackVenue $ prefBlackVenue loadedPrefs
+
+    getMSAA <- horizRadio (lineBox 2)
+      [ ("No MSAA" , Nothing, prefMSAA loadedPrefs == Nothing)
+      , ("MSAA 2x" , Just 2 , prefMSAA loadedPrefs == Just 2 )
+      , ("MSAA 4x" , Just 4 , prefMSAA loadedPrefs == Just 4 )
+      , ("MSAA 8x" , Just 8 , prefMSAA loadedPrefs == Just 8 )
+      , ("MSAA 16x", Just 16, prefMSAA loadedPrefs == Just 16)
+      ]
+
+    checkFXAA <- FL.checkButtonNew (lineBox 3) $ Just "FXAA"
+    void $ FL.setValue checkFXAA $ prefFXAA loadedPrefs
+
+    getDirRB      <- folderBox (lineBox 4) "Default CON folder"     $ T.pack $ fromMaybe "" $ prefDirRB      loadedPrefs
+    getDirCH      <- folderBox (lineBox 5) "Default CH folder"      $ T.pack $ fromMaybe "" $ prefDirCH      loadedPrefs
+    getDirWii     <- folderBox (lineBox 6) "Default Wii folder"     $ T.pack $ fromMaybe "" $ prefDirWii     loadedPrefs
+    getDirPreview <- folderBox (lineBox 7) "Default preview folder" $ T.pack $ fromMaybe "" $ prefDirPreview loadedPrefs
+
+    let [_, saveRect, _, cancelRect, _] = splitHorizN 5 $ lineBox 8
+    saveButton <- FL.buttonNew saveRect $ Just "Save"
+    taskColor >>= FL.setColor saveButton
+    FL.setCallback saveButton $ \_ -> do
+      magma <- getMagma
+      black <- FL.getValue checkBlackVenue
+      msaa <- getMSAA
+      fxaa <- FL.getValue checkFXAA
+      let getPath = \case
+            "" -> Nothing
+            d  -> Just $ T.unpack d
+      dirRB <- getPath <$> getDirRB
+      dirCH <- getPath <$> getDirCH
+      dirWii <- getPath <$> getDirWii
+      dirPreview <- getPath <$> getDirPreview
+      savePreferences loadedPrefs
+        { prefMagma = fromMaybe (prefMagma loadedPrefs) magma
+        , prefBlackVenue = black
+        , prefMSAA = fromMaybe (prefMSAA loadedPrefs) msaa
+        , prefFXAA = fxaa
+        , prefDirRB = dirRB
+        , prefDirCH = dirCH
+        , prefDirWii = dirWii
+        , prefDirPreview = dirPreview
+        }
+      FL.hide window
+    cancelButton <- FL.buttonNew cancelRect $ Just "Cancel"
+    FL.setCallback cancelButton $ \_ -> FL.hide window
+
+    FL.end window
+    FL.showWidget window
+
 launchGUI :: IO ()
 launchGUI = withAL $ \hasAudio -> do
   _ <- FLTK.setScheme "gtk+"
@@ -3330,7 +3464,7 @@ launchGUI = withAL $ \hasAudio -> do
                 )
               , ( "File/Batch Process"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'b'
-                , Just $ launchBatch sink makeMenuBar []
+                , Just $ launchBatch' sink makeMenuBar []
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               , ( "File/Tools"
@@ -3357,6 +3491,11 @@ launchGUI = withAL $ \hasAudio -> do
                         Nothing -> FL.doCallback w
                         Just p  -> findRootWindow p
                     in mapM_ $ findRootWindow . FL.safeCast
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
+              , ( "Edit/Preferences"
+                , Nothing -- maybe Cmd+, on Mac
+                , Just $ sink $ EventOnyx $ launchPreferences sink
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               , ( "Help/Readme"
@@ -3446,10 +3585,10 @@ launchGUI = withAL $ \hasAudio -> do
     (Just "Batch process")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs
-      { FL.handleCustom = Just $ dragAndDrop (launchBatch sink makeMenuBar) . FL.handleButtonBase . FL.safeCast
+      { FL.handleCustom = Just $ dragAndDrop (launchBatch' sink makeMenuBar) . FL.handleButtonBase . FL.safeCast
       }
   batchProcessColor >>= FL.setColor buttonBatch
-  FL.setCallback buttonBatch $ \_ -> launchBatch sink makeMenuBar []
+  FL.setCallback buttonBatch $ \_ -> launchBatch' sink makeMenuBar []
   buttonMisc <- FL.buttonNew
     areaMisc
     (Just "Other tools")

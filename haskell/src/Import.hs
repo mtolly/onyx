@@ -1310,7 +1310,7 @@ importMagma fin dir = do
     , _global = Global
       { _fileMidi = "notes.mid"
       , _fileSongAnim = Nothing
-      , _autogenTheme = case RBProj.autogenTheme $ RBProj.midi rbproj of
+      , _autogenTheme = Just $ case RBProj.autogenTheme $ RBProj.midi rbproj of
         Left theme -> theme
         Right _str -> RBProj.DefaultTheme -- TODO
       , _animTempo    = Right $ RBProj.animTempo $ RBProj.gamedata rbproj

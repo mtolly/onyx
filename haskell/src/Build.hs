@@ -662,7 +662,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
       , Magma.destinationFile = T.pack $ T.unpack pkg <.> "rba"
       , Magma.midi = Magma.Midi
         { Magma.midiFile = "notes.mid"
-        , Magma.autogenTheme = Left $ _autogenTheme $ _global songYaml
+        , Magma.autogenTheme = Left $ fromMaybe Magma.DefaultTheme $ _autogenTheme $ _global songYaml
         }
       , Magma.dryVox = Magma.DryVox
         { Magma.part0 = case voxCount of
@@ -1150,19 +1150,22 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               -- so the only things we need to get from Magma are venue,
               -- and percent sections.
               userMid <- shakeMIDI pathMagmaMid
-              magmaMid <- if rb3_Magma rb3
-                then shakeMIDI pathMagmaExport
-                else return userMid
+              let blackVenueTrack = mempty
+                    { venueCameraRB3        = RTB.singleton 0 V3_coop_all_far
+                    , venuePostProcessRB3   = RTB.singleton 0 V3_film_b_w
+                    , venueLighting         = RTB.singleton 0 Lighting_blackout_fast
+                    }
+              magmaMid <- let
+                blackMid = userMid
                   { RBFile.s_tracks = (RBFile.s_tracks userMid)
-                    { RBFile.fixedVenue = mempty
-                      -- TODO only do black venue if no venue supplied
-                      { venueCameraRB3        = RTB.singleton 0 V3_coop_all_far
-                      , venuePostProcessRB3   = RTB.singleton 0 V3_film_b_w
-                      , venueLighting         = RTB.singleton 0 Lighting_blackout_fast
-                      }
+                    { RBFile.fixedVenue = blackVenueTrack
                     -- TODO sections if midi didn't supply any
                     }
                   }
+                in case rb3_Magma rb3 of
+                  MagmaRequire -> shakeMIDI pathMagmaExport
+                  MagmaTry     -> fromMaybe blackMid <$> errorToWarning (shakeMIDI pathMagmaExport)
+                  MagmaDisable -> return blackMid
               sects <- getRealSections'
               let trackOr x y = if x == mergeEmpty then y else x
                   user = RBFile.s_tracks userMid
@@ -1170,36 +1173,38 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   reauthor f = f user `trackOr` f magma
               saveMIDI out $ userMid
                 { RBFile.s_tracks = user
-                  { RBFile.fixedVenue = let
-                    onlyLightingPP venue = mempty
-                      { venueSpotKeys = venueSpotKeys venue
-                      , venueSpotVocal = venueSpotVocal venue
-                      , venueSpotGuitar = venueSpotGuitar venue
-                      , venueSpotDrums = venueSpotDrums venue
-                      , venueSpotBass = venueSpotBass venue
-                      , venuePostProcessRB3 = venuePostProcessRB3 venue
-                      , venuePostProcessRB2 = venuePostProcessRB2 venue
-                      , venueLighting = venueLighting venue
-                      , venueLightingCommands = venueLightingCommands venue
-                      }
-                    onlyCamera venue = mempty
-                      { venueCameraRB3 = venueCameraRB3 venue
-                      , venueCameraRB2 = venueCameraRB2 venue
-                      , venueDirectedRB2 = venueDirectedRB2 venue
-                      }
-                    onlyOther venue = mempty
-                      { venueSingGuitar = venueSingGuitar venue
-                      , venueSingDrums = venueSingDrums venue
-                      , venueSingBass = venueSingBass venue
-                      , venueBonusFX = venueBonusFX venue
-                      , venueBonusFXOptional = venueBonusFXOptional venue
-                      , venueFog = venueFog venue
-                      }
-                    in mconcat
-                      [ reauthor $ onlyLightingPP . RBFile.fixedVenue
-                      , reauthor $ onlyCamera . RBFile.fixedVenue
-                      , reauthor $ onlyOther . RBFile.fixedVenue
-                      ]
+                  { RBFile.fixedVenue = case _autogenTheme $ _global songYaml of
+                    Nothing -> blackVenueTrack
+                    Just _  -> let
+                      onlyLightingPP venue = mempty
+                        { venueSpotKeys = venueSpotKeys venue
+                        , venueSpotVocal = venueSpotVocal venue
+                        , venueSpotGuitar = venueSpotGuitar venue
+                        , venueSpotDrums = venueSpotDrums venue
+                        , venueSpotBass = venueSpotBass venue
+                        , venuePostProcessRB3 = venuePostProcessRB3 venue
+                        , venuePostProcessRB2 = venuePostProcessRB2 venue
+                        , venueLighting = venueLighting venue
+                        , venueLightingCommands = venueLightingCommands venue
+                        }
+                      onlyCamera venue = mempty
+                        { venueCameraRB3 = venueCameraRB3 venue
+                        , venueCameraRB2 = venueCameraRB2 venue
+                        , venueDirectedRB2 = venueDirectedRB2 venue
+                        }
+                      onlyOther venue = mempty
+                        { venueSingGuitar = venueSingGuitar venue
+                        , venueSingDrums = venueSingDrums venue
+                        , venueSingBass = venueSingBass venue
+                        , venueBonusFX = venueBonusFX venue
+                        , venueBonusFXOptional = venueBonusFXOptional venue
+                        , venueFog = venueFog venue
+                        }
+                      in mconcat
+                        [ reauthor $ onlyLightingPP . RBFile.fixedVenue
+                        , reauthor $ onlyCamera . RBFile.fixedVenue
+                        , reauthor $ onlyOther . RBFile.fixedVenue
+                        ]
                   , RBFile.fixedEvents = if RTB.null sects
                     then RBFile.fixedEvents magma
                     else (RBFile.fixedEvents magma)

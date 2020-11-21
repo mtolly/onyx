@@ -33,6 +33,8 @@ import           Graphics.GL.Types
 import           Linear                         (M44, V2 (..), V3 (..), V4 (..),
                                                  (!*!))
 import qualified Linear                         as L
+import           Preferences                    (Preferences (..),
+                                                 readPreferences)
 import           Resources                      (getResourcesPath)
 import qualified RhythmGame.Graphics.Config     as C
 import           RhythmGame.PNF
@@ -1054,6 +1056,7 @@ data GLStuff = GLStuff
   , models       :: [(ModelID, RenderObject)]
   , gfxConfig    :: C.Config
   , framebuffers :: Framebuffers
+  , fxaaEnabled  :: Bool
   } deriving (Show)
 
 data Framebuffers
@@ -1439,9 +1442,11 @@ loadGLStuff = do
         glBindFramebuffer GL_FRAMEBUFFER 0
         return fbufs
 
-  framebuffers <- case C.view_msaa $ C.cfg_view gfxConfig of
+  prefs <- readPreferences
+  framebuffers <- case prefMSAA prefs of
     Just n | n > 1 -> setupMSAA n
     _              -> setupSimple
+  let fxaaEnabled = prefFXAA prefs
 
   return GLStuff{..}
 
@@ -1512,7 +1517,7 @@ drawTexture' GLStuff{..} (fadeBottom, fadeTop) (WindowDims screenW screenH) (Tex
     (fromIntegral (h * scale) :: Float)
   sendUniformName quadShader "startFade" fadeBottom
   sendUniformName quadShader "endFade" fadeTop
-  sendUniformName quadShader "doFXAA" $ C.view_fxaa $ C.cfg_view gfxConfig
+  sendUniformName quadShader "doFXAA" fxaaEnabled
   checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
 freeTexture :: (MonadIO m) => Texture -> m ()
