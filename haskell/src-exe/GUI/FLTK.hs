@@ -3392,28 +3392,39 @@ launchPreferences sink = do
     saveButton <- FL.buttonNew saveRect $ Just "Save"
     taskColor >>= FL.setColor saveButton
     FL.setCallback saveButton $ \_ -> do
-      magma <- getMagma
-      black <- FL.getValue checkBlackVenue
-      msaa <- getMSAA
-      fxaa <- FL.getValue checkFXAA
-      let getPath = \case
-            "" -> Nothing
-            d  -> Just $ T.unpack d
-      dirRB <- getPath <$> getDirRB
-      dirCH <- getPath <$> getDirCH
-      dirWii <- getPath <$> getDirWii
-      dirPreview <- getPath <$> getDirPreview
-      savePreferences loadedPrefs
-        { prefMagma = fromMaybe (prefMagma loadedPrefs) magma
-        , prefBlackVenue = black
-        , prefMSAA = fromMaybe (prefMSAA loadedPrefs) msaa
-        , prefFXAA = fxaa
-        , prefDirRB = dirRB
-        , prefDirCH = dirCH
-        , prefDirWii = dirWii
-        , prefDirPreview = dirPreview
-        }
-      FL.hide window
+      magma <- fromMaybe (prefMagma loadedPrefs) <$> getMagma
+      let continueSave = do
+            black <- FL.getValue checkBlackVenue
+            msaa <- fromMaybe (prefMSAA loadedPrefs) <$> getMSAA
+            fxaa <- FL.getValue checkFXAA
+            let getPath = \case
+                  "" -> Nothing
+                  d  -> Just $ T.unpack d
+            dirRB <- getPath <$> getDirRB
+            dirCH <- getPath <$> getDirCH
+            dirWii <- getPath <$> getDirWii
+            dirPreview <- getPath <$> getDirPreview
+            savePreferences loadedPrefs
+              { prefMagma = magma
+              , prefBlackVenue = black
+              , prefMSAA = msaa
+              , prefFXAA = fxaa
+              , prefDirRB = dirRB
+              , prefDirCH = dirCH
+              , prefDirWii = dirWii
+              , prefDirPreview = dirPreview
+              }
+            FL.hide window
+          warningMsg = T.unlines
+            [ "Warning! Disabling Magma can result in Rock Band files that crash the game,"
+            , "as Onyx does not yet check all of the error cases that Magma does."
+            , "Please test any charts thoroughly before distributing to others!"
+            ]
+      if prefMagma loadedPrefs == MagmaRequire && magma /= MagmaRequire
+        then FL.flChoice warningMsg "Cancel" (Just "OK") Nothing >>= \case
+          1 -> continueSave
+          _ -> return ()
+        else continueSave
     cancelButton <- FL.buttonNew cancelRect $ Just "Cancel"
     FL.setCallback cancelButton $ \_ -> FL.hide window
 
