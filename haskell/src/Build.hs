@@ -1119,11 +1119,34 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               shk $ need [pathMagmaSetup]
               lg "# Running Magma v2 (C3)"
               mapStackTraceT (liftIO . runResourceT) (Magma.runMagma pathMagmaProj out) >>= lg
+            let blackVenueTrack = mempty
+                  { venueCameraRB3        = RTB.singleton 0 V3_coop_all_far
+                  , venuePostProcessRB3   = RTB.singleton 0 V3_film_b_w
+                  , venueLighting         = RTB.singleton 0 Lighting_blackout_fast
+                  }
             pathMagmaExport %> \out -> do
               shk $ need [pathMagmaMid, pathMagmaProj]
-              lg "# Running Magma v2 to export MIDI"
-              -- TODO: bypass Magma if it fails due to over 1MB midi
-              mapStackTraceT (liftIO . runResourceT) (Magma.runMagmaMIDI pathMagmaProj out) >>= lg
+              let magma = mapStackTraceT (liftIO . runResourceT) (Magma.runMagmaMIDI pathMagmaProj out) >>= lg
+                  fallback = do
+                    userMid <- shakeMIDI pathMagmaMid
+                    saveMIDI out userMid
+                      { RBFile.s_tracks = (RBFile.s_tracks userMid)
+                        { RBFile.fixedVenue = blackVenueTrack
+                        -- TODO sections if midi didn't supply any
+                        }
+                      }
+              case rb3_Magma rb3 of
+                MagmaRequire -> do
+                  lg "# Running Magma v2 to export MIDI"
+                  magma
+                MagmaTry -> do
+                  lg "# Running Magma v2 to export MIDI (with fallback)"
+                  errorToWarning magma >>= \case
+                    Nothing -> do
+                      lg "Falling back to black venue MIDI due to a Magma error"
+                      fallback
+                    Just () -> return ()
+                MagmaDisable -> fallback
             let midRealSections :: RBFile.Song (RBFile.OnyxFile U.Beats) -> Staction (RTB.T U.Beats T.Text)
                 midRealSections = notSingleSection . fmap snd . eventsSections . RBFile.onyxEvents . RBFile.s_tracks
                 -- also applies the computed pad + tempo hacks
@@ -1150,22 +1173,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               -- so the only things we need to get from Magma are venue,
               -- and percent sections.
               userMid <- shakeMIDI pathMagmaMid
-              let blackVenueTrack = mempty
-                    { venueCameraRB3        = RTB.singleton 0 V3_coop_all_far
-                    , venuePostProcessRB3   = RTB.singleton 0 V3_film_b_w
-                    , venueLighting         = RTB.singleton 0 Lighting_blackout_fast
-                    }
-              magmaMid <- let
-                blackMid = userMid
-                  { RBFile.s_tracks = (RBFile.s_tracks userMid)
-                    { RBFile.fixedVenue = blackVenueTrack
-                    -- TODO sections if midi didn't supply any
-                    }
-                  }
-                in case rb3_Magma rb3 of
-                  MagmaRequire -> shakeMIDI pathMagmaExport
-                  MagmaTry     -> fromMaybe blackMid <$> errorToWarning (shakeMIDI pathMagmaExport)
-                  MagmaDisable -> return blackMid
+              magmaMid <- shakeMIDI pathMagmaExport
               sects <- getRealSections'
               let trackOr x y = if x == mergeEmpty then y else x
                   user = RBFile.s_tracks userMid
