@@ -245,10 +245,10 @@ tempDir template fn = do
   fn dir <* release key
 
 stackProcess :: (MonadIO m) => CreateProcess -> StackTraceT m String
-stackProcess cp = mapStackTraceT liftIO $ do
+stackProcess cp = do
   -- Magma's output is Latin-1, so we read it as ByteString and B8.unpack.
   -- otherwise non-utf-8 chars crash with "invalid byte sequence".
-  liftIO (readCreateProcessWithExitCode cp B8.empty) >>= \case
+  stackIO (readCreateProcessWithExitCode cp B8.empty) >>= \case
     (ExitSuccess  , out, _  ) -> return $ stringNoCR out
     (ExitFailure n, out, err) -> fatal $ unlines
       [ "process exited with code " ++ show n
