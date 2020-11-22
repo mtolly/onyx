@@ -41,16 +41,21 @@ Onyx is currently compiled on:
 
 So these are likely the minimum supported versions of each OS.
 
-Creating RB3 or RB2 CON files requires running an embedded copy of Magma v2.
+By default, an embedded copy of Magma v2 is used to generate RB3 or RB2 files.
 This requires the Visual C++ runtime, and if on Mac or Linux, Wine.
 
   * On Mac, you can use the official installer, or you can use Homebrew
     (`brew install wine`).
 
     However, macOS Catalina (10.15) does not support running Magma in Wine due
-    to its lack of support for 32-bit programs. For this reason, I recommend Mac
-    users stay on Mojave or earlier if you wish to create Rock Band CON files
-    until a solution is found.
+    to its lack of support for 32-bit programs. To produce Rock Band files on
+    this OS you'll need to turn Magma compilation off.
+
+  * To bypass Magma compilation, go to `Edit > Preferences` in the top menu, and
+    change the Magma selection to an option other than "Magma required". Please
+    make sure and test any resulting files! If you're on Windows I recommend
+    leaving it on "Magma optional", so you can see any error messages; they'll
+    be converted to warnings and you'll still get the resulting song file.
 
 The Linux build is produced via an Ubuntu 14.04 Docker container, and should
 work on most any modern distribution. Older distributions might require
@@ -122,6 +127,8 @@ You can also drag and drop a file onto the button, or onto the app icon on Mac.
     in a full 3D graphical display. Currently 5-fret guitar/bass/keys (including
     tap/open notes) and 4-lane drums (including cymbals) are supported, with
     more to come.
+
+    You can configure MSAA and FXAA antialiasing in `Edit > Preferences`.
 
     Gem models and textures created by Inventor211. Most textures, models, and
     shaders are customizable, inside the `onyx-resources` folder.

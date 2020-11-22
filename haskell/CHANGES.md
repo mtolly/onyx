@@ -1,5 +1,16 @@
 # Version history
 
+## 20201121
+
+* Preferences screen in menu:
+  * Default folders for each output file type (RB, CH, Wii, web preview),
+    used in Save File dialogs and to prefill batch template inputs
+  * Antialiasing options for the 3D preview
+  * Ability to disable Magma, intended for advanced users or those running
+    newer macOS which does not support Wine
+  * Toggle to always produce black `VENUE` tracks in RB files
+* Read Expert+ extra kicks format in `.chart` files
+
 ## 20200822
 
 * Fix some memory leaks caused by the single song window
