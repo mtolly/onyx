@@ -388,7 +388,9 @@ importFoF src dest = do
   let (title, is2x) = case FoF.name song of
         Nothing   -> (Nothing, False)
         Just name -> first Just $ determine2xBass name
-      hasKicks = if isJust maybePath2x || not (RTB.null $ drumKick2x $ RBFile.fixedPartDrums $ RBFile.s_tracks parsed)
+      hasKicks = if isJust maybePath2x
+        || not (RTB.null $ drumKick2x $ RBFile.fixedPartDrums       $ RBFile.s_tracks parsed)
+        || not (RTB.null $ drumKick2x $ RBFile.fixedPartRealDrumsPS $ RBFile.s_tracks parsed)
         then KicksBoth
         else if is2x then Kicks2x else Kicks1x
 

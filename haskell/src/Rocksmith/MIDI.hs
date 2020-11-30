@@ -22,13 +22,15 @@ import           Control.Monad                    (forM, guard, when)
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
+import           Control.Monad.Trans.State.Lazy   (evalStateT, get, put)
 import           Control.Monad.Trans.State.Strict (modify)
 import           Data.Char                        (isDigit)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
 import           Data.Foldable                    (toList)
-import           Data.List.Extra                  (elemIndex, nubOrd, sort)
+import           Data.List.Extra                  (elemIndex, nubOrd, partition,
+                                                   sort)
 import           Data.List.NonEmpty               (NonEmpty (..))
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
@@ -66,9 +68,11 @@ data RocksmithTrack t = RocksmithTrack
 
 data ChordInfo = ChordInfo
   { ciLocation :: ChordLocation
-  , ciFingers  :: [Finger] -- low string to high
+  , ciOnce     :: Maybe [GtrString]
+  -- ^ only apply to this instant, and to certain strings (low to high, if empty then all strings)
+  , ciFingers  :: [Finger] -- ^ low string to high, only non-open strings
   , ciArpeggio :: Bool
-  , ciNop      :: Bool -- I don't know what this is but it's a flag in the sng chord
+  , ciNop      :: Bool -- ^ I don't know what this is but it's a flag in the sng chord
   , ciName     :: Maybe T.Text
   } deriving (Eq, Ord, Show)
 
@@ -221,29 +225,37 @@ unparseBend :: ([GtrString], Milli) -> [T.Text]
 unparseBend (strs, bend) = [unparseStrings strs, "bend", T.pack $ show bend]
 
 parseChord :: [T.Text] -> Maybe ChordInfo
-parseChord = go where
-  go = \case
-    "chord" : xs -> parseLocation xs
-    _            -> Nothing
-  parseLocation = \case
-    "notes" : xs -> parseFingers ChordLocNotes xs
-    "shape" : xs -> parseFingers ChordLocShape xs
-    xs           -> parseFingers ChordLocAll xs
-  parseFingers loc = \case
-    "_" : xs -> parseArp loc [] xs
+parseChord = evalStateT $ do
+  get >>= \case
+    "chord" : xs -> put xs
+    _            -> lift Nothing
+  ciLocation <- get >>= \case
+    "notes" : xs -> put xs >> return ChordLocNotes
+    "shape" : xs -> put xs >> return ChordLocShape
+    _            -> return ChordLocAll
+  ciOnce <- get >>= \case
+    "once" : xs -> do
+      (strs, rest) <- lift $ parseStrings xs
+      put rest
+      return $ Just strs
+    _           -> return Nothing
+  ciFingers <- get >>= \case
+    "_" : xs -> put xs >> return []
     x   : xs -> do
-      fingers <- mapM lookupFinger $ map T.singleton $ T.unpack x
-      parseArp loc fingers xs
-    _        -> Nothing
-  parseArp loc fingers = \case
-    "arp" : xs -> parseNop loc fingers True xs
-    xs         -> parseNop loc fingers False xs
-  parseNop loc fingers arp = \case
-    "nop" : xs -> parseName loc fingers arp True xs
-    xs         -> parseName loc fingers arp False xs
-  parseName loc fingers arp nop = Just . \case
-    [] -> ChordInfo loc fingers arp nop Nothing
-    xs -> ChordInfo loc fingers arp nop $ Just $ T.unwords xs
+      fingers <- lift $ mapM lookupFinger $ map T.singleton $ T.unpack x
+      put xs
+      return fingers
+    []       -> lift Nothing
+  ciArpeggio <- get >>= \case
+    "arp" : xs -> put xs >> return True
+    _          -> return False
+  ciNop <- get >>= \case
+    "nop" : xs -> put xs >> return True
+    _          -> return False
+  ciName <- get >>= return . \case
+    [] -> Nothing
+    xs -> Just $ T.unwords xs
+  return ChordInfo{..}
 
 unparseChord :: ChordInfo -> [T.Text]
 unparseChord ChordInfo{..} = concat
@@ -252,6 +264,9 @@ unparseChord ChordInfo{..} = concat
     ChordLocAll   -> []
     ChordLocNotes -> ["notes"]
     ChordLocShape -> ["shape"]
+  , case ciOnce of
+    Nothing   -> []
+    Just strs -> ["once", unparseStrings strs]
   , case ciFingers of
     [] -> ["_"]
     _  -> [T.pack $ ciFingers >>= show . fromEnum]
@@ -325,8 +340,10 @@ data RSOutput = RSOutput
   }
 
 data ChordBank = ChordBank
-  { cb_notes  :: Map.Map (Map.Map GtrString GtrFret) ChordInfo
-  , cb_shapes :: Map.Map (Map.Map GtrString GtrFret) ChordInfo
+  { cb_notes       :: Map.Map (Map.Map GtrString GtrFret) ChordInfo
+  , cb_notes_once  :: Map.Map [GtrString] ChordInfo
+  , cb_shapes      :: Map.Map (Map.Map GtrString GtrFret) ChordInfo
+  , cb_shapes_once :: Map.Map [GtrString] ChordInfo
   }
 
 data ChordsEvent
@@ -350,17 +367,29 @@ buildChordBank trk = let
         [ do
           guard $ ciLocation ci /= ChordLocShape
           let notes = [n | CENote n <- evts]
-          guard $ length notes >= 2
-          return $ \b -> b { cb_notes = Map.insert (Map.fromList notes) ci $ cb_notes b }
+          case ciOnce ci of
+            Nothing -> do
+              guard $ length notes >= 2
+              return $ \b -> b { cb_notes = Map.insert (Map.fromList notes) ci $ cb_notes b }
+            Just strs -> do
+              return $ \b -> b { cb_notes_once = Map.insert strs ci $ cb_notes_once b }
         , do
           guard $ ciLocation ci /= ChordLocNotes
           let shapes = [n | CEShape n <- evts]
-          guard $ length shapes >= 2
-          return $ \b -> b { cb_shapes = Map.insert (Map.fromList shapes) ci $ cb_shapes b }
+          case ciOnce ci of
+            Nothing -> do
+              guard $ length shapes >= 2
+              return $ \b -> b { cb_shapes = Map.insert (Map.fromList shapes) ci $ cb_shapes b }
+            Just strs -> do
+              return $ \b -> b { cb_shapes_once = Map.insert strs ci $ cb_shapes_once b }
         ]
-    bank' = foldr ($) bank funs
-    in Wait t bank' $ go bank' rest
-  in go (ChordBank Map.empty Map.empty) $ RTB.collectCoincident events
+    bankNew = foldr ($) bank funs
+    bankDropUnsaved = bankNew
+      { cb_notes_once  = Map.empty
+      , cb_shapes_once = Map.empty
+      }
+    in Wait t bankNew $ go bankDropUnsaved rest
+  in go (ChordBank Map.empty Map.empty Map.empty Map.empty) $ RTB.collectCoincident events
 
 data FretConstraint
   = FretRelease ConstraintString
@@ -374,7 +403,7 @@ data ConstraintString
   | ShapeString Int
   deriving (Eq, Ord)
 
-initialAnchor :: ATB.T U.Seconds FretConstraint -> (Int, Int)
+initialAnchor :: ATB.T U.Seconds FretConstraint -> Maybe (Int, Int)
 initialAnchor consts = let
   frets = map (\fs -> (minimum fs, maximum fs)) $ ATB.getBodies $ ATB.collectCoincident $ flip ATB.mapMaybe consts $ \case
     FretBlip _ f -> Just f
@@ -387,9 +416,9 @@ initialAnchor consts = let
       Nothing          -> (NE.head possibleMins, NE.head possibleMins + 3)
       Just newPossible -> go newPossible rest
   in case frets of
-    []                                       -> (1, 4)
-    first@(fmin, fmax) : _ | fmax - fmin > 3 -> first
-    _                                        -> go (1 :| [2..21]) frets
+    []                                       -> Nothing
+    first@(fmin, fmax) : _ | fmax - fmin > 3 -> Just first
+    _                                        -> Just $ go (1 :| [2..21]) frets
 
 autoAnchors :: [Note] -> [(ChordTemplate, U.Seconds, U.Seconds)] -> Map.Map U.Seconds (GtrFret, GtrFret)
 autoAnchors allNotes shapes = let
@@ -432,7 +461,10 @@ autoAnchors allNotes shapes = let
       []    -> Nothing
       frets -> Just (minimum frets, maximum frets)
     thisAnchor = case fretsNow of
-      Nothing -> (prevMin, min (prevMin + 3) prevMax) -- shrink if more wide than usual
+      Nothing -> case initialAnchor $ ATB.flatten rest of
+        Just anchor -> anchor -- jump to next position in advance
+        -- TODO maybe don't jump in advance unless there is an (open) note at this point?
+        Nothing     -> (prevMin, min (prevMin + 3) prevMax) -- shrink if more wide than usual
       Just (minFret, maxFret) -> case (prevMin <= minFret, maxFret <= prevMax) of
         (True, True)   -> if prevMax - prevMin == 3
           then prevAnchor -- continue previous anchor because it works
@@ -449,7 +481,7 @@ autoAnchors allNotes shapes = let
     $ RTB.toAbsoluteEventList 0
     $ noRedundantStatus
     $ RTB.fromAbsoluteEventList
-    $ buildAnchors (initialAnchor constraints) Map.empty
+    $ buildAnchors (fromMaybe (1, 4) $ initialAnchor constraints) Map.empty
     $ ATB.collectCoincident constraints
 
 backportAnchors :: U.TempoMap -> RocksmithTrack U.Beats -> RSOutput -> RocksmithTrack U.Beats
@@ -559,7 +591,7 @@ buildRS tmap trk = do
         sortedNotes = sort [(str, fret) | (fret, str, _) <- notes]
         assignFingers []       []                = return []
         assignFingers []       ns                = do
-          when (any ((/= 0) . snd) ns) $ warn $ "No fingers assigned for chord: " <> show ns
+          -- when (any ((/= 0) . snd) ns) $ warn $ "No fingers assigned for chord: " <> show ns
           return []
         assignFingers fs       ((str, 0) : rest) = ((str, 0, Nothing) :) <$> assignFingers fs rest
         assignFingers (f : fs) ((str, n) : rest) = ((str, n, Just f ) :) <$> assignFingers fs rest
@@ -588,53 +620,85 @@ buildRS tmap trk = do
           , ct_fret5       = listToMaybe [fret | (S1, fret, _) <- assigned]
           }
         in finish <$> assignFingers (ciFingers cinfo) sortedNotes
-      -- TODO need to handle cases where e.g. you have 2 simultaneous notes,
-      -- but one is a actually linked to the previous note on that string.
-      -- see Lost Keys/Rosetta Stoned by shinyditto12.
-      -- I think we also need to have [chord] constructs apply to certain strings
+      makeNoteChord t cinfo noteGroup = do
+        template <- makeTemplate cinfo noteGroup
+        let madeNotes = do
+              triple <- noteGroup
+              let note = makeNote t triple
+              return note
+                { n_leftHand = case n_string note of
+                  0 -> ct_finger0 template
+                  1 -> ct_finger1 template
+                  2 -> ct_finger2 template
+                  3 -> ct_finger3 template
+                  4 -> ct_finger4 template
+                  5 -> ct_finger5 template
+                  _ -> Nothing
+                }
+        return $ Right (template, madeNotes)
+      makeShapeChord t cinfo noteGroup = do
+        template <- makeTemplate cinfo noteGroup
+        let startTime = t
+            endTime = t <> case head noteGroup of (_, _, len) -> len
+        return (template, startTime, endTime)
+      findOnceChords makeChord = let
+        go chordsSoFar noteGroup [] = return $ Right (noteGroup, chordsSoFar)
+        go chordsSoFar noteGroup ((strs, cinfo) : cinfos) = let
+          noteStrings = [ str | (_, str, _) <- noteGroup ]
+          chordStrings = if null strs then noteStrings else strs
+          in if all (`elem` noteStrings) chordStrings
+            then do
+              let (usedNotes, unusedNotes) = partition (\(_, str, _) -> elem str chordStrings) noteGroup
+              chord <- makeChord cinfo usedNotes
+              go (chord : chordsSoFar) unusedNotes cinfos
+            else return $ Left cinfo
+        in go []
   notesAndChords <- let
     notes = RTB.collectCoincident $ joinEdgesSimple $ U.applyTempoTrack tmap $ rsNotes trk
     in fmap concat $ forM (ATB.toPairList $ RTB.toAbsoluteEventList 0 $ notes) $ \(t, noteGroup) -> insideTime t $ do
-      case noteGroup of
-        [triple] -> return [Left $ makeNote t triple]
-        _        -> case [ len | (_, _, len) <- noteGroup ] of
-          x : xs | any (/= x) xs ->
-            -- uneven lengths, emit as single notes. e.g. unison bend in 25 or 6 to 4 Lead
-            return $ map (Left . makeNote t) noteGroup
-          _ -> let
-            key = Map.fromList [ (str, fret) | (fret, str, _) <- noteGroup ]
-            in case Map.lookupLE t chordBank >>= Map.lookup key . cb_notes . snd of
-              Just cinfo -> do
-                template <- makeTemplate cinfo noteGroup
-                let madeNotes = do
-                      triple <- noteGroup
-                      let note = makeNote t triple
-                      return note
-                        { n_leftHand = case n_string note of
-                          0 -> ct_finger0 template
-                          1 -> ct_finger1 template
-                          2 -> ct_finger2 template
-                          3 -> ct_finger3 template
-                          4 -> ct_finger4 template
-                          5 -> ct_finger5 template
-                          _ -> Nothing
-                        }
-                return [Right (template, madeNotes)]
-              Nothing -> do
-                warn $ "Not making simultaneous notes into a chord due to no chord mapping:  " <> show key
-                return $ map (Left . makeNote t) noteGroup
+      let (bankTime, bankState) = fromMaybe
+            (t, ChordBank Map.empty Map.empty Map.empty Map.empty)
+            (Map.lookupLE t chordBank)
+          oneTimeChords = if bankTime == t then Map.toList $ cb_notes_once bankState else []
+      findOnceChords (makeNoteChord t) noteGroup oneTimeChords >>= \case
+        Left cinfo -> do
+          warn $ "Couldn't apply one-time chord (notes) event: " <> show cinfo
+          -- don't bother trying to make chords, at least for now
+          return $ map (Left . makeNote t) noteGroup
+        Right ([], onceChords) -> return onceChords
+        Right (noteGroup', onceChords) -> (onceChords <>) <$> case noteGroup' of
+          [triple] -> return [Left $ makeNote t triple]
+          _        -> case [ len | (_, _, len) <- noteGroup' ] of
+            x : xs | any (/= x) xs ->
+              -- uneven lengths, emit as single notes. e.g. unison bend in 25 or 6 to 4 Lead
+              return $ map (Left . makeNote t) noteGroup'
+            _ -> let
+              key = Map.fromList [ (str, fret) | (fret, str, _) <- noteGroup' ]
+              in case Map.lookupLE t chordBank >>= Map.lookup key . cb_notes . snd of
+                Just cinfo -> (: []) <$> makeNoteChord t cinfo noteGroup'
+                Nothing -> do
+                  warn $ "Not making simultaneous notes into a chord due to no chord mapping:  " <> show key
+                  return $ map (Left . makeNote t) noteGroup'
       -- note: if you have any chords in the notes, you need at least one handshape, otherwise CST crashes
-  shapes <- let
+  shapes <- concat <$> let
     shapeNotes = RTB.collectCoincident $ joinEdgesSimple $ U.applyTempoTrack tmap $ rsHandShapes trk
-    in forM (ATB.toPairList $ RTB.toAbsoluteEventList 0 $ shapeNotes) $ \(t, noteGroup) -> insideTime t $ let
-      key = Map.fromList [ (str, fret) | (fret, str, _) <- noteGroup ]
-      in case Map.lookupLE t chordBank >>= Map.lookup key . cb_shapes . snd of
-        Just cinfo -> do
-          template <- makeTemplate cinfo noteGroup
-          let startTime = t
-              endTime = t <> case head noteGroup of (_, _, len) -> len
-          return (template, startTime, endTime)
-        Nothing -> fatal $ "Couldn't find handshape chord mapping for " <> show key
+    in forM (ATB.toPairList $ RTB.toAbsoluteEventList 0 $ shapeNotes) $ \(t, noteGroup) -> insideTime t $ do
+      let (bankTime, bankState) = fromMaybe
+            (t, ChordBank Map.empty Map.empty Map.empty Map.empty)
+            (Map.lookupLE t chordBank)
+          oneTimeChords = if bankTime == t then Map.toList $ cb_shapes_once bankState else []
+      findOnceChords (makeShapeChord t) noteGroup oneTimeChords >>= \case
+        Left cinfo -> do
+          warn $ "Couldn't apply one-time chord (shape) event: " <> show cinfo
+          return []
+        Right ([], onceChords) -> return onceChords
+        Right (noteGroup', onceChords) -> (onceChords <>) <$> let
+          key = Map.fromList [ (str, fret) | (fret, str, _) <- noteGroup' ]
+          in case Map.lookupLE t chordBank >>= Map.lookup key . cb_shapes . snd of
+            Just cinfo -> (: []) <$> makeShapeChord t cinfo noteGroup'
+            Nothing -> do
+              warn $ "Couldn't find handshape chord mapping for " <> show key
+              return []
   let allNotes = notesAndChords >>= \case
         Left  note       -> [note]
         Right (_, notes) -> notes

@@ -167,12 +167,14 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
               findMaybeTone k  = Just <$> findTone k
           -- TODO support no base tone - this shouldn't happen,
           -- but does if you compile a custom with no tones
-          rsFileToneBase <- prop "Tone_Base" jsonAttrs >>= getString >>= findTone
-          rsFileToneA    <- prop "Tone_A" jsonAttrs >>= getString >>= findMaybeTone
-          rsFileToneB    <- prop "Tone_B" jsonAttrs >>= getString >>= findMaybeTone
-          rsFileToneC    <- prop "Tone_C" jsonAttrs >>= getString >>= findMaybeTone
-          rsFileToneD    <- prop "Tone_D" jsonAttrs >>= getString >>= findMaybeTone
-          return (RSArrSlot arrmod arrtype, sng, bnkPath, (title, artist, album, year), isBass, RSTones{..})
+          tones <- inside "Importing RS tones" $ errorToWarning $ do
+            rsFileToneBase <- prop "Tone_Base" jsonAttrs >>= getString >>= findTone
+            rsFileToneA    <- prop "Tone_A" jsonAttrs >>= getString >>= findMaybeTone
+            rsFileToneB    <- prop "Tone_B" jsonAttrs >>= getString >>= findMaybeTone
+            rsFileToneC    <- prop "Tone_C" jsonAttrs >>= getString >>= findMaybeTone
+            rsFileToneD    <- prop "Tone_D" jsonAttrs >>= getString >>= findMaybeTone
+            return RSTones{..}
+          return (RSArrSlot arrmod arrtype, sng, bnkPath, (title, artist, album, year), isBass, tones)
   (_, firstArr, bnk, (title, artist, album, year), _, _) <- case parts of
     []    -> fatal "No entries found in song"
     p : _ -> return p
@@ -377,8 +379,12 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                 ""   -> Nothing
                 name -> Just name
               , ciFingers     = map (toEnum . fromIntegral) $ filter (/= (-1)) $ chord_Fingers chord
-              , ciArpeggio = chord_Mask chord .&. 0x00000001 /= 0
-              , ciNop      = chord_Mask chord .&. 0x00000002 /= 0
+              , ciArpeggio    = chord_Mask chord .&. 0x00000001 /= 0
+              , ciNop         = chord_Mask chord .&. 0x00000002 /= 0
+              , ciOnce        = Just $ do
+                (str, fret) <- zip [S6, S5 ..] $ chord_Frets chord
+                guard $ fret >= 0
+                return str
               }) where
                 chord = sng_Chords sng !! fromIntegral chordID
                 t' = U.unapplyTempoMap temps $ toSeconds t
@@ -440,7 +446,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
 
   let allTones = do
         -- might want to deduplicate by key
-        (_, _, _, _, _, tones) <- parts
+        (_, _, _, _, _, Just tones) <- parts
         toList tones
       toneFile t = T.unpack (t14_Key t) <.> "tone2014.xml"
   forM_ allTones $ \tone -> do
@@ -519,7 +525,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                   }
               , pgTuningRSBass = Nothing
               , pgFixFreeform   = False
-              , pgTones = Just $ fmap toneFile tones
+              , pgTones = fmap toneFile <$> tones
               , pgPickedBass = False -- TODO
               }
             }

@@ -392,10 +392,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
     rs = case partProGuitar part of
       Nothing  -> return []
       Just ppg -> rsTracks fpart ppg
-    noPG = \case -- disabling pro guitar / rocksmith preview until it's done
-      (_, PreviewPG _) -> False
-      _                -> True
-    in filter noPG . ((five ++ drums ++ pg) ++) <$> rs
+    in ((five ++ drums ++ pg) ++) <$> rs
 
   in tracks >>= \trk -> return $ PreviewSong
     { previewTempo  = RBFile.s_tempos song
