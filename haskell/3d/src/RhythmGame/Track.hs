@@ -92,6 +92,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
 
   drumTrack fpart pdrums diff = let
     -- TODO support PS real
+    -- TODO if kicks = 2, don't emit an X track, only X+
     drumSrc   = maybe mempty RBFile.onyxPartDrums   $ Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song
     drumSrc2x = maybe mempty RBFile.onyxPartDrums2x $ Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song
     thisSrc = case diff of

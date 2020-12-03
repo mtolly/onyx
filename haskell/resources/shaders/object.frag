@@ -1,9 +1,11 @@
 #version 330 core
 
 struct ImageOrColor {
-    uint type; // 1 = color, 2 = texture
+    uint type; // 1 = color, 2 = texture, 3 = 2 textures, 4 = 3 textures
     vec4 color; // for type = 1
-    sampler2D image; // for type = 2
+    sampler2D image; // for type = 2, 3, 4
+    sampler2D image2; // for type = 2, 3
+    sampler2D image3; // for type = 4
 };
 
 struct Material {
@@ -30,20 +32,32 @@ in vec2 TexCoords;
 uniform vec3 viewPos;
 uniform Material material;
 uniform float alpha;
-uniform float texScaleX;
-uniform float texScaleY;
-uniform float texScaleW;
-uniform float texScaleH;
+
+vec4 colorOverlay(vec4 c1, vec4 c2)
+{
+    return vec4(c1.rgb * c1.a * (1.0 - c2.a) + c2.rgb * c2.a, c1.a * (1.0 - c2.a) + c2.a);
+}
 
 vec4 getColor(ImageOrColor ioc)
 {
     if (ioc.type == 1u) {
         return ioc.color;
-    } else if (ioc.type == 2u) {
-        vec2 scaledCoords = TexCoords * vec2(texScaleW, texScaleH) + vec2(texScaleX, texScaleY);
-        return texture(ioc.image, scaledCoords);
+    } else {
+        if (ioc.type == 2u) {
+            return texture(ioc.image, TexCoords);
+        } else if (ioc.type == 3u) {
+            vec4 color1 = texture(ioc.image , TexCoords);
+            vec4 color2 = texture(ioc.image2, TexCoords);
+            return colorOverlay(color1, color2);
+        } else if (ioc.type == 4u) {
+            vec4 color1 = texture(ioc.image , TexCoords);
+            vec4 color2 = texture(ioc.image2, TexCoords);
+            vec4 color3 = texture(ioc.image3, TexCoords);
+            return colorOverlay(colorOverlay(color1, color2), color3);
+        } else {
+            return vec4(1.0, 0.0, 1.0, 1.0); // magenta on invalid input
+        }
     }
-    return vec4(1.0, 0.0, 1.0, 1.0); // magenta on invalid input
 }
 
 void main()
