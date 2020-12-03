@@ -27,3 +27,18 @@ parts:
   drums:
     drums:
       kicks: 2
+  bass:
+    pro-guitar: # WIP
+      tuning:
+        base: bass-5
+        global: -3 # G# C# F# B E
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

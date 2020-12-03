@@ -11,17 +11,50 @@ audio:
     frames: 63504588
   hihat:
     file-path: ../../../sound/hihat-foot.wav
-# TODO: jammit
+jammit:
+  jammit-track: {}
 plans:
-  album:
+  jammit:
     countin:
+      &countin
       78|0: hihat
       78|2: hihat
       79|0: hihat
       79|1: hihat
       79|2: hihat
+    parts:
+      drums:
+        drop: [1.973, only: [Drums, jammit-track]]
+      bass:
+        drop: [1.973, only: [Bass, jammit-track]]
+    song:
+      drop:
+      - 1.973
+      - mix:
+        - without: [drums, jammit-track]
+        - gain:
+          - -1
+          - only: [Bass, jammit-track]
+  album:
+    countin: *countin
     song: album-track
 parts:
   drums:
     drums:
       kicks: 2
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: album
+  rs:
+    game: rs
+    plan: album
+    arrangements:
+    - [bonus-rhythm, bass]

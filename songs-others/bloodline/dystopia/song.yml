@@ -1,0 +1,66 @@
+parts:
+  vocal: {}
+  bass:
+    pro-guitar: # TODO imported sheet happens GPX; need to clean up, make RS version
+      tuning:
+        base: bass-5
+        offsets: [-2, 0, 0, 0, 0] # AEADG
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+      kicks: 2
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    karaoke: false
+    mogg-md5: 44cb18650b42a979b405211112d3f923
+    multitrack: false
+    crowd:
+    - 4
+    - 5
+    vols:
+    - -1
+    - -1
+    - 0
+    - 0
+    - -5
+    - -5
+targets:
+  rb3-2x:
+    song-id: 1681600530
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  rating: Supervision Recommended
+  preview-start: 2:30.000
+  expert-only: true
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 1
+  album: Polaris
+  year: 2015
+  subgenre: prog
+  author: Bloodline
+  title: Dystopia
+  preview-end: 3:00.000
+  genre: metal
+  difficulty:
+    tier: 6
+  artist: Tesseract
+global:
+  anim-tempo: 32

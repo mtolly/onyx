@@ -1,0 +1,28 @@
+parts:
+  drums:
+    drums:
+      kicks: both
+plans:
+  plan:
+    song:
+      pad: [1.612, bandcamp]
+audio:
+  bandcamp:
+    md5: b6cec2b3151a10d5cbc0d3704ae921ab
+    frames: 13847400
+metadata:
+  author: Onyxite
+  title: The Holiday Spirit Carries On
+  artist: Dream Theater
+  year: 2020
+  genre: metal
+  subgenre: prog
+  file-album-art: cover.jpg
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
