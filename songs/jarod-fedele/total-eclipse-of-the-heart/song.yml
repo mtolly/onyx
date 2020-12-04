@@ -1,0 +1,39 @@
+metadata:
+  title: Total Eclipse of the Heart [Bonnie Tyler]
+  artist: Jarod Fedele
+  year: 2020
+  author: Onyxite
+  file-album-art: cover.png
+  genre: poprock
+  subgenre: pop
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube un3ih1_ZCi4 140
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  youtube:
+    song:
+      pad:
+      - 3.184
+      - youtube
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|2: hihat
+parts:
+  drums:
+    drums:
+      kicks: both
+      difficulty: 5
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
