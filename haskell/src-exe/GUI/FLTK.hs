@@ -3410,7 +3410,7 @@ launchPreferences sink = do
     FL.setAlign sliderQuality $ FLE.Alignments [FLE.AlignTypeLeft]
     FL.setMinimum sliderQuality 0
     FL.setMaximum sliderQuality 10
-    FL.setValue sliderQuality $ prefOGGQuality loadedPrefs * 10
+    void $ FL.setValue sliderQuality $ prefOGGQuality loadedPrefs * 10
 
     let [_, saveRect, _, cancelRect, _] = splitHorizN 5 $ lineBox 9
     saveButton <- FL.buttonNew saveRect $ Just "Save"
