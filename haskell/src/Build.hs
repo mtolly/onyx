@@ -16,7 +16,7 @@ import           Config                                hiding (Difficulty)
 import           Control.Applicative                   (liftA2)
 import           Control.Arrow                         (second)
 import           Control.Monad.Codec.Onyx              (makeValue, valueId)
-import           Control.Monad.Codec.Onyx.JSON         (StackJSON, fromJSON)
+import           Control.Monad.Codec.Onyx.JSON         (loadYaml)
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class             (lift)
@@ -85,6 +85,7 @@ import           Overdrive                             (calculateUnisons,
                                                         printFlexParts)
 import           Path                                  (parseAbsDir, toFilePath)
 import           Paths_onyxite_customs_lib             (version)
+import           Preferences                           (MagmaSetting (..))
 import           PrettyDTA
 import           ProKeysRanges
 import           Reaper.Build                          (TuningInfo (..),
@@ -136,7 +137,6 @@ import           System.IO                             (IOMode (ReadMode),
 import           System.Random                         (randomRIO)
 import           Text.Transform                        (replaceCharsRB)
 import           WebPlayer                             (makeDisplay)
-import           YAMLTree
 
 applyTargetAudio :: (MonadResource m) => TargetCommon -> RBFile.Song f -> AudioSource m Float -> AudioSource m Float
 applyTargetAudio tgt mid = let
@@ -711,11 +711,6 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
         }
       }
     }
-
-loadYaml :: (SendMessage m, StackJSON a, MonadIO m) => FilePath -> StackTraceT m a
-loadYaml fp = do
-  yaml <- readYAMLTree fp
-  mapStackTraceT (`runReaderT` yaml) fromJSON
 
 shakeBuildFiles :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT (QueueLog m) ()
 shakeBuildFiles audioDirs yamlPath = shakeBuild audioDirs yamlPath []

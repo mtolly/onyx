@@ -43,6 +43,7 @@ import           Data.Traversable
 import qualified Data.Vector                    as V
 import           DeriveHelpers
 import           GHC.Generics                   (Generic (..))
+import           Preferences                    (MagmaSetting (..))
 import           RockBand.Codec.File            (FlexPartName (..), getPartName,
                                                  readPartName)
 import           RockBand.Codec.ProGuitar       (GtrBase (..), GtrTuning (..))
@@ -1042,18 +1043,6 @@ parseSegmentEdge = do
 
 instance StackJSON SegmentEdge where
   stackJSON = asStrictObject "SegmentEdge" parseSegmentEdge
-
-data MagmaSetting
-  = MagmaRequire
-  | MagmaTry
-  | MagmaDisable
-  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
-
-instance StackJSON MagmaSetting where
-  stackJSON = enumCodecFull "a Magma setting from {require, try, disable}" $ \case
-    MagmaRequire -> is "require" |?> is (A.Bool True)
-    MagmaTry     -> is "try"
-    MagmaDisable -> is "disable" |?> is (A.Bool False)
 
 data TargetRB3 f = TargetRB3
   { rb3_Common      :: TargetCommon

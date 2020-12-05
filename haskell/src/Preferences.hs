@@ -1,16 +1,19 @@
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module Preferences where
 
-import           Build                          (loadYaml)
-import           Config                         (MagmaSetting (..))
 import           Control.Monad.Codec            ((=.))
 import           Control.Monad.Codec.Onyx
 import           Control.Monad.Codec.Onyx.JSON
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.StackTrace
+import qualified Data.Aeson                     as A
 import           Data.Default.Class
+import           Data.Hashable                  (Hashable (..))
+import           GHC.Generics                   (Generic (..))
 import qualified System.Directory               as Dir
 
 data Preferences = Preferences
@@ -23,6 +26,7 @@ data Preferences = Preferences
   , prefDirWii     :: Maybe FilePath
   , prefDirPreview :: Maybe FilePath
   , prefAudioDirs  :: [FilePath]
+  , prefOGGQuality :: Double
   }
 
 instance StackJSON Preferences where
@@ -36,6 +40,7 @@ instance StackJSON Preferences where
     prefDirWii     <- prefDirWii     =. opt  Nothing      "dir-wii"     stackJSON
     prefDirPreview <- prefDirPreview =. opt  Nothing      "dir-preview" stackJSON
     prefAudioDirs  <- prefAudioDirs  =. opt  []           "audio-dirs"  stackJSON
+    prefOGGQuality <- prefOGGQuality =. fill 0.5          "ogg-quality" stackJSON
     return Preferences{..}
 
 instance Default Preferences where
@@ -52,3 +57,15 @@ savePreferences :: (MonadIO m) => Preferences -> m ()
 savePreferences prefs = liftIO $ do
   cfg <- Dir.getXdgDirectory Dir.XdgConfig "onyx.yml"
   yamlEncodeFile cfg $ toJSON prefs
+
+data MagmaSetting
+  = MagmaRequire
+  | MagmaTry
+  | MagmaDisable
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
+
+instance StackJSON MagmaSetting where
+  stackJSON = enumCodecFull "a Magma setting from {require, try, disable}" $ \case
+    MagmaRequire -> is "require" |?> is (A.Bool True)
+    MagmaTry     -> is "try"
+    MagmaDisable -> is "disable" |?> is (A.Bool False)

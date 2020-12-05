@@ -110,7 +110,8 @@ import           OSFiles                                   (commonDir,
                                                             osOpenFile,
                                                             osShowFolder)
 import           Paths_onyxite_customs_tool                (version)
-import           Preferences                               (Preferences (..),
+import           Preferences                               (MagmaSetting (..),
+                                                            Preferences (..),
                                                             readPreferences,
                                                             savePreferences)
 import           ProKeysRanges                             (closeShiftsFile)
@@ -3338,13 +3339,14 @@ launchPreferences sink = do
   let width = 700
       padding = 10
       lineHeight = 30
-      numLines = 9
+      numLines = 10
+      leftLabelSize = 160
       height = (padding + lineHeight) * numLines + padding
       lineBox i = Rectangle
         (Position (X padding) (Y $ padding + (lineHeight + padding) * i))
         (Size (Width $ width - padding * 2) (Height lineHeight))
       folderBox rect label initValue = do
-        let (_, rectA) = chopLeft 150 rect
+        let (_, rectA) = chopLeft leftLabelSize rect
             (inputRect, rectB) = chopRight 100 rectA
             (_, rectC) = chopRight 90 rectB
             (browseRect, _) = chopLeft 40 rectC
@@ -3402,7 +3404,15 @@ launchPreferences sink = do
     getDirWii     <- folderBox (lineBox 6) "Default Wii folder"     $ T.pack $ fromMaybe "" $ prefDirWii     loadedPrefs
     getDirPreview <- folderBox (lineBox 7) "Default preview folder" $ T.pack $ fromMaybe "" $ prefDirPreview loadedPrefs
 
-    let [_, saveRect, _, cancelRect, _] = splitHorizN 5 $ lineBox 8
+    sliderQuality <- FL.horValueSliderNew (snd $ chopLeft leftLabelSize $ lineBox 8) (Just "OGG Vorbis quality")
+    FL.setLabelsize sliderQuality $ FL.FontSize 13
+    FL.setLabeltype sliderQuality FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign sliderQuality $ FLE.Alignments [FLE.AlignTypeLeft]
+    FL.setMinimum sliderQuality 0
+    FL.setMaximum sliderQuality 10
+    FL.setValue sliderQuality $ prefOGGQuality loadedPrefs * 10
+
+    let [_, saveRect, _, cancelRect, _] = splitHorizN 5 $ lineBox 9
     saveButton <- FL.buttonNew saveRect $ Just "Save"
     taskColor >>= FL.setColor saveButton
     FL.setCallback saveButton $ \_ -> do
@@ -3418,6 +3428,7 @@ launchPreferences sink = do
             dirCH <- getPath <$> getDirCH
             dirWii <- getPath <$> getDirWii
             dirPreview <- getPath <$> getDirPreview
+            quality <- (/ 10) <$> FL.getValue sliderQuality
             savePreferences loadedPrefs
               { prefMagma = magma
               , prefBlackVenue = black
@@ -3427,6 +3438,7 @@ launchPreferences sink = do
               , prefDirCH = dirCH
               , prefDirWii = dirWii
               , prefDirPreview = dirPreview
+              , prefOGGQuality = quality
               }
             FL.hide window
           warningMsg = T.unlines
