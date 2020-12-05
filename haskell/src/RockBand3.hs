@@ -405,7 +405,6 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         Right tps -> tps
         Left trb3 -> TargetPS
           { ps_Common        = rb3_Common trb3
-          , ps_FileVideo     = Nothing
           , ps_Guitar        = rb3_Guitar trb3
           , ps_Bass          = rb3_Bass trb3
           , ps_Drums         = rb3_Drums trb3

@@ -17,6 +17,7 @@ import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import           Text.Decode                    (decodeGeneral)
 import           Text.Read                      (readMaybe)
+import Data.Fixed (Milli)
 
 data Song = Song
   { name             :: Maybe T.Text
@@ -55,14 +56,14 @@ data Song = Song
   , track            :: Maybe Int
   , sysexSlider      :: Maybe Bool
   , sysexOpenBass    :: Maybe Bool
-  , video            :: Maybe FilePath
   , fiveLaneDrums    :: Maybe Bool
   , drumFallbackBlue :: Maybe Bool
   , loadingPhrase    :: Maybe T.Text
+  , video            :: Maybe FilePath -- ^ only used by PS, CH only accepts @video.*@
+  , videoStartTime   :: Maybe Milli
+  , videoEndTime     :: Maybe Milli
+  , videoLoop        :: Maybe Bool
   {- TODO:
-  video_start_time
-  video_end_time
-  video_loop
   banner_link_a
   link_name_a
   banner_link_b
@@ -92,6 +93,7 @@ instance Default Song where
     def def def def def def def def def def
     def def def def def def def def def def
     def def def def def def def def def def
+    def def def
 
 -- | Strips <b>bold</b>, <i>italic</i>, and <color=red>colored</color>
 -- which are supported by CH in metadata, lyrics, and sections.
@@ -120,6 +122,8 @@ loadSong fp = do
       str k = either (const Nothing) Just $ lookupValue "song" k ini <|> lookupValue "Song" k ini
       int :: T.Text -> Maybe Int
       int = str >=> readMaybe . T.unpack
+      milli :: T.Text -> Maybe Milli
+      milli = str >=> readMaybe . T.unpack
       bool :: T.Text -> Maybe Bool
       bool = str >=> \s -> case T.strip s of
         "True"  -> Just True
@@ -164,10 +168,13 @@ loadSong fp = do
       track = int "track"
       sysexSlider = bool "sysex_slider"
       sysexOpenBass = bool "sysex_open_bass"
-      video = fmap T.unpack $ str "video"
       fiveLaneDrums = bool "five_lane_drums"
       drumFallbackBlue = bool "drum_fallback_blue"
       loadingPhrase = str "loading_phrase"
+      video = fmap T.unpack $ str "video"
+      videoStartTime = milli "video_start_time"
+      videoEndTime = milli "video_end_time"
+      videoLoop = bool "video_loop"
 
   return Song{..}
 
@@ -213,10 +220,13 @@ saveSong fp Song{..} = writePSIni fp $ flip Ini []
     shown "track" track
     shown "sysex_slider" sysexSlider
     shown "sysex_open_bass" sysexOpenBass
-    str "video" $ fmap T.pack video
     shown "five_lane_drums" fiveLaneDrums
     shown "drum_fallback_blue" drumFallbackBlue
     str "loading_phrase" loadingPhrase
+    str "video" $ fmap T.pack video
+    shown "video_start_time" videoStartTime
+    shown "video_end_time" videoEndTime
+    shown "video_loop" videoLoop
 
 writePSIni :: (MonadIO m) => FilePath -> Ini -> m ()
 writePSIni fp (Ini hmap _) = let

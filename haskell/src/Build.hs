@@ -1775,10 +1775,6 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   }
                 }
 
-            dir </> "ps/video.avi" %> \out -> case ps_FileVideo ps of
-              Nothing  -> fatal "requested Phase Shift video background, but target doesn't have one"
-              Just vid -> shk $ copyFile' vid out
-
             dir </> "ps/song.ini" %> \out -> do
               raw <- shakeMIDI $ planDir </> "raw.mid"
               song <- shakeMIDI $ dir </> "ps/notes.mid"
@@ -1853,8 +1849,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   five <- allFives
                   fd <- toList $ fiveDifficulties five
                   return $ not $ RTB.null $ fiveOpen fd
-                , FoF.video            = const "video.avi" <$> ps_FileVideo ps
                 , FoF.loadingPhrase    = ps_LoadingPhrase ps
+                 -- TODO fill these in if we have a video
+                , FoF.video            = Nothing
+                , FoF.videoStartTime   = Nothing
+                , FoF.videoEndTime     = Nothing
+                , FoF.videoLoop        = Nothing
                 }
 
             let psParts = map ($ ps) [ps_Drums, ps_Guitar, ps_Bass, ps_Keys, ps_Vocal, ps_Rhythm, ps_GuitarCoop]
@@ -1954,7 +1954,6 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     Plan{..}     -> isJust _crowd
                     MoggPlan{..} -> not $ null _moggCrowd
                   ]
-                , ["video.avi" | isJust $ ps_FileVideo ps]
                 ]
             dir </> "ps.zip" %> \out -> do
               let d = dir </> "ps"

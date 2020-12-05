@@ -25,6 +25,7 @@ import           Control.Monad.Codec.Onyx.JSON
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
+import Data.Profunctor (dimap)
 import qualified Data.Aeson                     as A
 import           Data.Char                      (isDigit, isSpace)
 import           Data.Conduit.Audio             (Duration (..))
@@ -978,22 +979,42 @@ instance Default (Metadata FilePath) where
   def = fromEmptyObject
 
 data Global f = Global
-  { _fileMidi     :: f
-  , _fileSongAnim :: Maybe f -- ^ venue format found in RB3 milos
-  , _autogenTheme :: Maybe Magma.AutogenTheme -- ^ 'Nothing' means black venue
-  , _animTempo    :: Either AnimTempo Integer
+  { _fileMidi        :: f
+  , _fileSongAnim    :: Maybe f -- ^ venue format found in RB3 milos
+  , _autogenTheme    :: Maybe Magma.AutogenTheme -- ^ 'Nothing' means black venue
+  , _animTempo       :: Either AnimTempo Integer
+  , _backgroundVideo :: Maybe (VideoInfo f)
+  , _backgroundImage :: Maybe f
   } deriving (Eq, Show)
 
 instance StackJSON (Global FilePath) where
   stackJSON = asStrictObject "Global" $ do
-    _fileMidi     <- _fileMidi     =. opt "notes.mid"                "file-midi"      stackJSON
-    _fileSongAnim <- _fileSongAnim =. opt Nothing                    "file-song-anim" stackJSON
-    _autogenTheme <- _autogenTheme =. opt (Just Magma.DefaultTheme)  "autogen-theme"  stackJSON
-    _animTempo    <- _animTempo    =. opt (Left KTempoMedium)        "anim-tempo"     parseAnimTempo
+    _fileMidi        <- _fileMidi        =. opt "notes.mid"                "file-midi"        stackJSON
+    _fileSongAnim    <- _fileSongAnim    =. opt Nothing                    "file-song-anim"   stackJSON
+    _autogenTheme    <- _autogenTheme    =. opt (Just Magma.DefaultTheme)  "autogen-theme"    stackJSON
+    _animTempo       <- _animTempo       =. opt (Left KTempoMedium)        "anim-tempo"       parseAnimTempo
+    _backgroundVideo <- _backgroundVideo =. opt Nothing                    "background-video" stackJSON
+    _backgroundImage <- _backgroundImage =. opt Nothing                    "background-image" stackJSON
     return Global{..}
 
 instance Default (Global FilePath) where
   def = fromEmptyObject
+
+data VideoInfo f = VideoInfo
+  { _fileVideo      :: f
+  , _videoStartTime :: Maybe U.Seconds
+  , _videoEndTime   :: Maybe U.Seconds
+  , _videoLoop      :: Bool
+  } deriving (Eq, Show)
+
+instance StackJSON (VideoInfo FilePath) where
+  stackJSON = asStrictObject "VideoInfo" $ do
+    _fileVideo      <- _fileVideo      =. req         "file-video" stackJSON
+    let maybeSecs = maybeCodec $ dimap (realToFrac :: U.Seconds -> Double) realToFrac stackJSON
+    _videoStartTime <- _videoStartTime =. opt Nothing "start-time" maybeSecs
+    _videoEndTime   <- _videoEndTime   =. opt Nothing "end-time"   maybeSecs
+    _videoLoop      <- _videoLoop      =. opt False   "loop"       stackJSON
+    return VideoInfo{..}
 
 getTitle, getArtist, getAlbum, getAuthor :: Metadata f -> T.Text
 getTitle  m = case _title  m of Just x | not $ T.null x -> x; _ -> "Untitled"
@@ -1185,7 +1206,6 @@ instance Default TargetRB2 where
 
 data TargetPS f = TargetPS
   { ps_Common        :: TargetCommon
-  , ps_FileVideo     :: Maybe f
   , ps_Guitar        :: FlexPartName
   , ps_Bass          :: FlexPartName
   , ps_Drums         :: FlexPartName
@@ -1200,7 +1220,6 @@ data TargetPS f = TargetPS
 parseTargetPS :: (SendMessage m) => ObjectCodec m A.Value (TargetPS FilePath)
 parseTargetPS = do
   ps_Common        <- ps_Common        =. parseTargetCommon
-  ps_FileVideo     <- ps_FileVideo     =. opt Nothing                   "file-video"     stackJSON
   ps_Guitar        <- ps_Guitar        =. opt FlexGuitar                "guitar"         stackJSON
   ps_Bass          <- ps_Bass          =. opt FlexBass                  "bass"           stackJSON
   ps_Drums         <- ps_Drums         =. opt FlexDrums                 "drums"          stackJSON

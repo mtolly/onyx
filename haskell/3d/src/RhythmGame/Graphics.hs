@@ -7,6 +7,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 module RhythmGame.Graphics where
 
+import RhythmGame.Graphics.Video
 import           Build                          (loadYaml)
 import           Codec.Picture
 import qualified Codec.Wavefront                as Obj
