@@ -2,8 +2,15 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module RhythmGame.Graphics.Video where
 
-import Foreign
+import Foreign hiding (void)
 import Foreign.C
+import Control.Monad.Trans.StackTrace
+import Control.Monad.Trans.Resource
+import qualified Codec.Picture as P
+import Control.Concurrent.Chan
+import Control.Concurrent (forkIO, threadDelay)
+import Data.IORef
+import Control.Monad (void, unless, when, filterM)
 
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
@@ -16,6 +23,7 @@ import Foreign.C
 deriving instance Storable AVFormatContext
 
 {#pointer *AVFrame as AVFrame newtype #}
+deriving instance Storable AVFrame
 deriving instance Show AVFrame
 
 {#pointer *AVPacket as AVPacket newtype #}
@@ -26,6 +34,7 @@ deriving instance Show AVPacket
 deriving instance Show AVCodec
 
 {#pointer *AVCodecContext as AVCodecContext newtype #}
+deriving instance Storable AVCodecContext
 deriving instance Show AVCodecContext
 
 {#pointer *AVStream as AVStream newtype #}
@@ -158,6 +167,11 @@ time_base s = do
   } -> `AVCodecContext'
 #}
 
+{#fun avcodec_free_context
+  { id `Ptr AVCodecContext'
+  } -> `()'
+#}
+
 {#fun avcodec_parameters_to_context
   { `AVCodecContext'
   , `AVCodecParameters'
@@ -215,7 +229,7 @@ stream_index = {#get AVPacket->stream_index #}
 {#fun sws_scale
   { `SwsContext'
   , id `Ptr (Ptr CUChar)'
-  , `CInt'
+  , id `Ptr CInt'
   , `CInt'
   , `CInt'
   , id `Ptr (Ptr CUChar)'
@@ -313,3 +327,137 @@ packet_data = {#get AVPacket->data #}
   { `CInt'
   } -> `()'
 #}
+
+----------------------------------------
+
+data FrameLoader = FrameLoader
+  { frameMessage :: FrameMessage -> IO ()
+  , getFrame     :: IO (Maybe (Double, P.Image P.PixelRGBA8))
+  }
+
+data FrameMessage
+  = RequestFrame Double
+  | CloseLoader
+
+forkFrameLoader :: ((MessageLevel, Message) -> IO ()) -> FilePath -> IO FrameLoader
+forkFrameLoader logger videoPath = do
+  queue <- newChan
+  ref <- newIORef Nothing
+  void $ forkIO $ void $ runResourceT $ logIO logger $ inside ("Playing video: " <> videoPath) $ do
+    let res a f = snd <$> allocate a f
+        check s p a = inside s $ do
+          code <- stackIO a
+          unless (p code) $ fatal $ "Return code: " <> show code
+        check_ s p a = void $ check s p a
+        checkRes s p a f = inside s $ do
+          let f' code = when (p code) f
+          code <- snd <$> allocate a f'
+          unless (p code) $ fatal $ "Return code: " <> show code
+    stackIO $ av_log_set_level 56 -- debug info
+    -- setup
+    ctx <- res avformat_alloc_context avformat_free_context
+    checkRes "avformat_open_input" (== 0)
+      (with ctx $ \pctx ->
+        withCString videoPath $ \pvid ->
+          avformat_open_input pctx pvid nullPtr nullPtr)
+      (with ctx avformat_close_input)
+    check_ "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info ctx nullPtr
+    stackIO $ withCString videoPath $ \pvid -> av_dump_format ctx 0 pvid 0
+    videoStreams <- stackIO $ getStreams ctx >>= filterM (\stream -> do
+      params <- codecpar stream
+      (AVMEDIA_TYPE_VIDEO ==) <$> codec_type params)
+    stream <- case videoStreams of
+      [s] -> return s
+      s : _ : _ -> do
+        warn "Multiple video streams; picking the first one"
+        return s
+      [] -> fatal "No video streams found"
+    params <- stackIO $ codecpar stream
+    codec <- stackIO $ codec_id params >>= avcodec_find_decoder
+    w <- stackIO $ cp_width params
+    h <- stackIO $ cp_height params
+    fmt <- stackIO $ cp_format params
+    (num, den) <- stackIO $ time_base stream
+    cctx <- res (avcodec_alloc_context3 codec) $ \c -> with c avcodec_free_context
+    check_ "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context cctx params
+    check_ "avcodec_open2 (input)" (>= 0) $ avcodec_open2 cctx codec nullPtr
+    frame <- res av_frame_alloc $ \f -> with f av_frame_free
+    frameRGBA <- res av_frame_alloc $ \f -> with f av_frame_free
+    packet <- res av_packet_alloc $ \p -> with p av_packet_free
+    stackIO $ print (cctx, frame, packet)
+
+    let demoImage = P.generateImage (\_ _ -> P.PixelRGBA8 255 0 255 255) 256 256
+    stackIO $ writeIORef ref $ Just (0, demoImage)
+
+    -- TODO fix crash caused by avformat_free_context
+    let loop = do
+          stackIO $ threadDelay 1000000
+          loop
+    loop
+
+    {-
+      -- read a frame
+      inData <- frame_data frame
+      inLinesize <- frame_linesize frame
+      void $ checkCode "av_image_alloc (input)" (>= 0) $ av_image_alloc inData inLinesize w h fmt 16
+      void $ checkCode "av_read_frame" (>= 0) $ av_read_frame ctx packet
+      void $ checkCode "stream_index" (== i) $ stream_index packet
+      void $ checkCode "avcodec_send_packet" (>= 0) $ avcodec_send_packet cctx packet
+      void $ checkCode "avcodec_receive_frame" (>= 0) $ avcodec_receive_frame cctx frame
+      pfmt <- pix_fmt cctx
+      print pfmt
+      outData <- frame_data frameRGBA
+      outLinesize <- frame_linesize frameRGBA
+      void $ checkCode "av_image_alloc (output)" (>= 0) $ av_image_alloc outData outLinesize w h AV_PIX_FMT_RGBA 1
+      frame_set_width frameRGBA w
+      frame_set_height frameRGBA h
+      frame_set_format frameRGBA AV_PIX_FMT_RGBA
+      sws_ctx <- sws_getContext
+        w
+        h
+        pfmt
+        w
+        h
+        AV_PIX_FMT_RGBA
+        sws_BILINEAR
+        nullPtr
+        nullPtr
+        nullPtr
+      peekArray 4 inData >>= print
+      peekArray 4 inLinesize >>= print
+      void $ checkCode "sws_scale" (>= 0) $ join $ sws_scale
+        <$> pure sws_ctx
+        <*> frame_data frame
+        <*> frame_linesize frame
+        <*> pure 0
+        <*> pure h
+        <*> frame_data frameRGBA
+        <*> frame_linesize frameRGBA
+      peekArray 4 inData >>= print
+      peekArray 4 inLinesize >>= print
+      -- save the png
+      codecOut <- avcodec_find_encoder AV_CODEC_ID_PNG
+      contextOut <- avcodec_alloc_context3 codecOut
+      ctx_set_pix_fmt contextOut AV_PIX_FMT_RGBA
+      ctx_set_width contextOut w
+      ctx_set_height contextOut h
+      ctx_set_codec_type contextOut AVMEDIA_TYPE_VIDEO
+      ctx_set_time_base_num contextOut num
+      ctx_set_time_base_den contextOut den
+      void $ checkCode "avcodec_open2 (output)" (>= 0) $ avcodec_open2 contextOut codecOut nullPtr
+      alloca $ \p -> do
+        let outPacket = AVPacket p
+        av_init_packet outPacket
+        packet_set_size outPacket 0
+        packet_set_data outPacket nullPtr
+        void $ checkCode "avcodec_send_frame" (>= 0) $ avcodec_send_frame contextOut frameRGBA
+        void $ checkCode "avcodec_receive_packet" (>= 0) $ avcodec_receive_packet contextOut outPacket
+        d <- packet_data outPacket
+        s <- packet_size outPacket
+        bs <- B.packCStringLen (castPtr d, fromIntegral s)
+        B.writeFile png bs
+    -}
+  return FrameLoader
+    { frameMessage = writeChan queue
+    , getFrame     = readIORef ref
+    }

@@ -88,7 +88,7 @@ main = do
             void $ checkCode "sws_scale" (>= 0) $ join $ sws_scale
               <$> pure sws_ctx
               <*> frame_data frame
-              <*> (frame_linesize frame >>= peek)
+              <*> frame_linesize frame
               <*> pure 0
               <*> pure h
               <*> frame_data frameRGBA

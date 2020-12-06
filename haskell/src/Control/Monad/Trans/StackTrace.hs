@@ -9,7 +9,7 @@ module Control.Monad.Trans.StackTrace
 ( Message(..), Messages(..)
 , MessageLevel(..), SendMessage(..)
 , PureLog(..), runPureLog, runPureLogT, withPureLog
-, QueueLog(..), mapQueueLog
+, QueueLog(..), mapQueueLog, getQueueLog
 , StackTraceT(..)
 , warn, warnMessage, sendMessage', lg
 , errorToWarning, errorToEither
@@ -104,6 +104,9 @@ withPureLog f st = do
 
 newtype QueueLog m a = QueueLog { fromQueueLog :: ReaderT ((MessageLevel, Message) -> IO ()) m a }
   deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus, MonadFix)
+
+getQueueLog :: (Monad m) => StackTraceT (QueueLog m) ((MessageLevel, Message) -> IO ())
+getQueueLog = lift $ QueueLog ask
 
 mapQueueLog :: (m a -> n b) -> QueueLog m a -> QueueLog n b
 mapQueueLog f = QueueLog . mapReaderT f . fromQueueLog
@@ -283,7 +286,7 @@ shakeEmbed opts rules = do
           Nothing   -> stackShowException exc
           Just msgs -> throwError msgs
         in go (Shake.shakeExceptionStack se) (Shake.shakeExceptionInner se)
-  writeMsg <- lift $ QueueLog ask
+  writeMsg <- getQueueLog
   stackCatchIO handleShakeErr $ Shake.shake opts $ runReaderT (fromQueueLog rules) writeMsg
 
 shakeTrace :: StackTraceT (QueueLog Shake.Action) a -> QueueLog Shake.Action a

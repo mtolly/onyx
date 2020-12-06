@@ -8,6 +8,7 @@
 module RhythmGame.Graphics where
 
 import RhythmGame.Graphics.Video
+import Data.Bits ((.|.))
 import           Build                          (loadYaml)
 import           Codec.Picture
 import qualified Codec.Wavefront                as Obj
@@ -17,7 +18,7 @@ import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Resource   (register, runResourceT)
 import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
                                                  fatal, inside, mapStackTraceT,
-                                                 stackIO, warn)
+                                                 stackIO, warn, getQueueLog, QueueLog)
 import qualified Data.ByteString                as B
 import           Data.Foldable                  (traverse_)
 import           Data.List                      (findIndex, partition, sort)
@@ -25,6 +26,7 @@ import           Data.List.HT                   (partitionMaybe)
 import qualified Data.Map.Strict                as Map
 import           Data.Maybe                     (fromMaybe, isJust)
 import qualified Data.Set                       as Set
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Vector                    as V
 import qualified Data.Vector.Storable           as VS
 import           Foreign                        hiding (void)
@@ -1065,6 +1067,24 @@ loadTexture linear img = liftIO $ do
   -- when linear $ glGenerateMipmap GL_TEXTURE_2D
   return $ Texture texture (imageWidth img) (imageHeight img)
 
+updateTexture :: (GLPixel a, MonadIO m) => Image a -> Texture -> m ()
+updateTexture img tex = liftIO $ do
+  let pixelProp :: (a -> b) -> Image a -> b
+      pixelProp f _ = f undefined
+      flippedVert = generateImage
+        (\x y -> pixelAt img x $ imageHeight img - y - 1)
+        (imageWidth img)
+        (imageHeight img)
+  let texture = textureGL tex
+  glBindTexture GL_TEXTURE_2D texture
+  VS.unsafeWith (imageData flippedVert) $ \p -> do
+    glTexSubImage2D GL_TEXTURE_2D 0 0 0
+      (fromIntegral $ imageWidth flippedVert)
+      (fromIntegral $ imageHeight flippedVert)
+      (pixelProp glPixelFormat img)
+      (pixelProp glPixelType img)
+      (castPtr p)
+
 data RenderObject = RenderObject
   { objVAO         :: GLuint
   , objVertexCount :: GLint
@@ -1081,7 +1101,17 @@ data GLStuff = GLStuff
   , gfxConfig    :: C.Config
   , framebuffers :: Framebuffers
   , fxaaEnabled  :: Bool
+  , videoInfo    :: Maybe VideoInfo
   } deriving (Show)
+
+data VideoInfo = VideoInfo
+  { videoFrameLoader :: FrameLoader
+  , videoTexture     :: IORef (Maybe (Double, Texture))
+  , videoFilePath    :: FilePath
+  }
+
+instance Show VideoInfo where
+  show vi = "VideoInfo[" <> show (videoFilePath vi) <> "]"
 
 data Framebuffers
   = SimpleFramebuffer
@@ -1239,7 +1269,7 @@ sortVertices = let
   sumZ = sum . map (getZ . vertexPosition)
   in concatMap snd . sort . map (\tri -> (sumZ tri, tri)) . getTris
 
-loadGLStuff :: (MonadIO m, SendMessage m) => StackTraceT m GLStuff
+loadGLStuff :: (MonadIO m) => StackTraceT (QueueLog m) GLStuff
 loadGLStuff = do
 
   gfxConfig <- load3DConfig
@@ -1540,6 +1570,16 @@ loadGLStuff = do
     _              -> setupSimple
   let fxaaEnabled = prefFXAA prefs
 
+  let testVideo = "/home/mtolly/ch-songs/t+pazolite - Marry me, Nightmare/video.webm"
+  writeMsg <- getQueueLog
+  frameLoader <- stackIO $ forkFrameLoader writeMsg testVideo
+  videoTexRef <- stackIO $ newIORef Nothing
+  let videoInfo = Just VideoInfo
+        { videoFrameLoader = frameLoader
+        , videoTexture     = videoTexRef
+        , videoFilePath    = testVideo
+        }
+
   return GLStuff{..}
 
 setFramebufferSize :: (MonadIO m) => Framebuffers -> GLsizei -> GLsizei -> m ()
@@ -1712,6 +1752,27 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
     V4 r g b a -> glClearColor r g b a
   glClear GL_COLOR_BUFFER_BIT
 
+  -- video background
+  forM_ videoInfo $ \VideoInfo{..} -> do
+    -- TODO maybe separate out the timestamp updates from drawing
+    -- frameMessage videoFrameLoader $ RequestFrame time
+    mtex <- getFrame videoFrameLoader >>= \case
+      Nothing -> return Nothing
+      Just (timeNew, image) -> readIORef videoTexture >>= \case
+        Nothing -> do
+          tex <- loadTexture True image
+          writeIORef videoTexture $ Just (timeNew, tex)
+          return $ Just tex
+        Just (timeCurrent, tex) -> do
+          when (timeNew /= timeCurrent) $ do
+            updateTexture image tex
+            writeIORef videoTexture $ Just (timeNew, tex)
+          return $ Just tex
+    forM_ mtex $ \tex -> do
+      glClear GL_DEPTH_BUFFER_BIT
+      glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
+      drawTexture glStuff dims tex (V2 0 0) 1 -- TODO stretch
+
   let spaces = case trks of
         [] -> []
         _  -> splitSpace (length trks)
@@ -1725,8 +1786,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
     setFramebufferSize framebuffers
       (fromIntegral w) (fromIntegral h)
     glViewport 0 0 (fromIntegral w) (fromIntegral h)
-    case C.view_background $ C.cfg_view gfxConfig of
-      V4 r g b a -> glClearColor r g b a
+    glClearColor 255 0 0 0
     glClear GL_COLOR_BUFFER_BIT
     setUpTrackView glStuff (WindowDims w h)
     case trk of
