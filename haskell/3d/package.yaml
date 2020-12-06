@@ -39,6 +39,7 @@ library:
   - codec
   - directory
   - path
+  - stm
   build-tools:
   - c2hs
   pkg-config-dependencies: [libavutil, libavformat, libavcodec, libswscale, libavdevice]

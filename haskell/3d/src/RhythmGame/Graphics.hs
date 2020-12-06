@@ -7,8 +7,6 @@
 {-# LANGUAGE ViewPatterns      #-}
 module RhythmGame.Graphics where
 
-import RhythmGame.Graphics.Video
-import Data.Bits ((.|.))
 import           Build                          (loadYaml)
 import           Codec.Picture
 import qualified Codec.Wavefront                as Obj
@@ -16,17 +14,20 @@ import           Control.Arrow                  (second)
 import           Control.Monad                  (forM, forM_, guard, void, when)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Resource   (register, runResourceT)
-import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
-                                                 fatal, inside, mapStackTraceT,
-                                                 stackIO, warn, getQueueLog, QueueLog)
+import           Control.Monad.Trans.StackTrace (QueueLog, SendMessage,
+                                                 StackTraceT, fatal,
+                                                 getQueueLog, inside,
+                                                 mapStackTraceT, stackIO, warn)
+import           Data.Bits                      ((.|.))
 import qualified Data.ByteString                as B
 import           Data.Foldable                  (traverse_)
+import           Data.IORef                     (IORef, newIORef, readIORef,
+                                                 writeIORef)
 import           Data.List                      (findIndex, partition, sort)
 import           Data.List.HT                   (partitionMaybe)
 import qualified Data.Map.Strict                as Map
 import           Data.Maybe                     (fromMaybe, isJust)
 import qualified Data.Set                       as Set
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Vector                    as V
 import qualified Data.Vector.Storable           as VS
 import           Foreign                        hiding (void)
@@ -40,6 +41,7 @@ import           Preferences                    (Preferences (..),
                                                  readPreferences)
 import           Resources                      (getResourcesPath)
 import qualified RhythmGame.Graphics.Config     as C
+import           RhythmGame.Graphics.Video
 import           RhythmGame.PNF
 import           RhythmGame.Track
 import           RockBand.Codec.Beat
@@ -678,7 +680,7 @@ drawPG glStuff@GLStuff{..} nowTime speed trk = do
           boxColor = if od
             then C.sc_energy sc
             else case lookup str allStrings of
-              Nothing                -> C.sc_red sc -- shouldn't happen
+              Nothing                   -> C.sc_red sc -- shouldn't happen
               Just (sustColor, _, _, _) -> sustColor
           (x1, x2) = let
             center = stringCenterX str
@@ -1584,21 +1586,20 @@ loadGLStuff = do
 
 setFramebufferSize :: (MonadIO m) => Framebuffers -> GLsizei -> GLsizei -> m ()
 setFramebufferSize fbufs w h = case fbufs of
-  -- TODO all or some of these GL_RGB should possibly be GL_RGBA?
   SimpleFramebuffer{..} -> do
     glBindTexture GL_TEXTURE_2D simpleFBOTex
-    glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
+    glTexImage2D GL_TEXTURE_2D 0 GL_RGBA w h 0 GL_RGBA GL_UNSIGNED_BYTE nullPtr
     glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
     glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
     glBindRenderbuffer GL_RENDERBUFFER simpleFBORender
     glRenderbufferStorage GL_RENDERBUFFER GL_DEPTH24_STENCIL8 w h
   MSAAFramebuffers{..} -> do
     glBindTexture GL_TEXTURE_2D_MULTISAMPLE msaaFBOTex
-    glTexImage2DMultisample GL_TEXTURE_2D_MULTISAMPLE multisamples GL_RGB w h GL_TRUE
+    glTexImage2DMultisample GL_TEXTURE_2D_MULTISAMPLE multisamples GL_RGBA w h GL_TRUE
     glBindRenderbuffer GL_RENDERBUFFER msaaFBORender
     glRenderbufferStorageMultisample GL_RENDERBUFFER multisamples GL_DEPTH24_STENCIL8 w h
     glBindTexture GL_TEXTURE_2D intermediateFBOTex
-    glTexImage2D GL_TEXTURE_2D 0 GL_RGB w h 0 GL_RGB GL_UNSIGNED_BYTE nullPtr
+    glTexImage2D GL_TEXTURE_2D 0 GL_RGBA w h 0 GL_RGBA GL_UNSIGNED_BYTE nullPtr
     glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR
     glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
 
@@ -1755,7 +1756,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
   -- video background
   forM_ videoInfo $ \VideoInfo{..} -> do
     -- TODO maybe separate out the timestamp updates from drawing
-    -- frameMessage videoFrameLoader $ RequestFrame time
+    frameMessage videoFrameLoader $ RequestFrame time
     mtex <- getFrame videoFrameLoader >>= \case
       Nothing -> return Nothing
       Just (timeNew, image) -> readIORef videoTexture >>= \case
@@ -1786,7 +1787,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
     setFramebufferSize framebuffers
       (fromIntegral w) (fromIntegral h)
     glViewport 0 0 (fromIntegral w) (fromIntegral h)
-    glClearColor 255 0 0 0
+    glClearColor 0 0 0 0
     glClear GL_COLOR_BUFFER_BIT
     setUpTrackView glStuff (WindowDims w h)
     case trk of

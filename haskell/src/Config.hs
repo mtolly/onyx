@@ -25,7 +25,6 @@ import           Control.Monad.Codec.Onyx.JSON
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
-import Data.Profunctor (dimap)
 import qualified Data.Aeson                     as A
 import           Data.Char                      (isDigit, isSpace)
 import           Data.Conduit.Audio             (Duration (..))
@@ -38,6 +37,7 @@ import           Data.Foldable                  (toList)
 import           Data.Hashable                  (Hashable (..))
 import qualified Data.HashMap.Strict            as Map
 import           Data.Maybe                     (fromMaybe)
+import           Data.Profunctor                (dimap)
 import           Data.Scientific                (Scientific, toRealFloat)
 import qualified Data.Text                      as T
 import           Data.Traversable

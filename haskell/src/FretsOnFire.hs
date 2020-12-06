@@ -9,6 +9,7 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                as B
 import           Data.Default.Class             (Default (..))
+import           Data.Fixed                     (Milli)
 import qualified Data.HashMap.Strict            as HM
 import           Data.Ini
 import           Data.List                      (stripPrefix)
@@ -17,7 +18,6 @@ import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import           Text.Decode                    (decodeGeneral)
 import           Text.Read                      (readMaybe)
-import Data.Fixed (Milli)
 
 data Song = Song
   { name             :: Maybe T.Text
