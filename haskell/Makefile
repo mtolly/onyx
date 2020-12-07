@@ -59,7 +59,11 @@ win:
 	"/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
 
 win-deps:
-	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-openal mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-rubberband mingw-w64-x86_64-mpg123 wget tar unzip zip man autoconf automake
+	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-openal \
+		mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate \
+		mingw-w64-x86_64-lame mingw-w64-x86_64-rubberband \
+		mingw-w64-x86_64-mpg123 mingw-w64-x86_64-ffmpeg \
+		wget tar unzip zip man autoconf automake
 
 icon/icon.o:
 	stack exec -- windres -i icon/icon.rc icon/icon.o

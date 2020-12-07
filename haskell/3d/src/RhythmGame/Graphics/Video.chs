@@ -401,6 +401,7 @@ forkFrameLoader logger vi = do
     duration <- stackIO $ avfc_duration ctx
     let videoStart = maybe 0 realToFrac $ _videoStartTime vi
         videoEnd = maybe duration realToFrac $ _videoEndTime vi
+        playLength = videoEnd - videoStart
     cctx <- res (avcodec_alloc_context3 codec) $ \c -> with c avcodec_free_context
     check_ "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context cctx params
     check_ "avcodec_open2 (input)" (>= 0) $ avcodec_open2 cctx codec nullPtr
@@ -429,13 +430,13 @@ forkFrameLoader logger vi = do
       nullPtr
       nullPtr
 
-    let readImage lastTime thisTimeMIDI = do
+    let readImage lastTimePTS thisTimeMIDI = do
           let thisTimeNoLoop = thisTimeMIDI + videoStart
               thisTimeMaybe = if thisTimeNoLoop < 0
                 then Nothing -- before start of video
                 else if thisTimeNoLoop >= videoEnd
                   then if _videoLoop vi
-                    then Just $ mod' thisTimeNoLoop videoEnd
+                    then Just $ videoStart + mod' thisTimeMIDI playLength
                     else Nothing -- after end of video
                   else Just thisTimeNoLoop
           case thisTimeMaybe of
@@ -443,18 +444,22 @@ forkFrameLoader logger vi = do
               stackIO $ writeIORef ref Nothing
               checkMessages Nothing
             Just thisTime -> do
-              let skipSeek = case lastTime of
-                    Nothing -> False
-                    Just t  -> t < thisTime && thisTime - t < seeklessDuration
+              let skipSeek = case lastTimePTS of
+                    Nothing     -> False
+                    Just (t, _) -> t < thisTime && thisTime - t < seeklessDuration
                   wantPTS = floor $ thisTime / resolution
               unless skipSeek $ check_ "av_seek_frame" (>= 0) $ av_seek_frame
                 ctx
                 streamIndex
                 wantPTS
                 {#const AVSEEK_FLAG_ANY #}
-              img <- readFrame wantPTS
-              stackIO $ writeIORef ref $ Just (thisTime, img)
-              checkMessages $ Just thisTime
+              case lastTimePTS of
+                Just (_, pts) | skipSeek && pts >= wantPTS
+                  -> checkMessages lastTimePTS -- previous frame is still good
+                _ -> do
+                  (pts, img) <- readFrame wantPTS
+                  stackIO $ writeIORef ref $ Just (thisTime, img)
+                  checkMessages $ Just (thisTime, pts)
 
         seeklessDuration = 1 :: Double
 
@@ -471,7 +476,9 @@ forkFrameLoader logger vi = do
                 else do
                   pts <- stackIO $ frame_pts frame
                   if pts >= wantPTS
-                    then convertImage -- image ready to go!
+                    then do
+                      img <- convertImage -- image ready to go!
+                      return (pts, img)
                     else readFrame wantPTS -- we need to skip some images
 
         convertImage = do

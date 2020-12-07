@@ -418,12 +418,10 @@ importFoF src dest = do
   stackIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI outputMIDI
 
   vidPath <- case FoF.video song of
-    Just v -> if all isSpace v -- PS video
-      then return Nothing
-      else do
-        v' <- stackIO $ fixFileCase (src </> v) >>= Dir.makeAbsolute
-        return $ Just v'
-    Nothing -> case filter ((== "video") . map toLower . dropExtension) $ allFiles of -- CH video
+    Just v | not $ all isSpace v -> do -- PS video
+      v' <- stackIO $ fixFileCase (src </> v) >>= Dir.makeAbsolute
+      return $ Just v'
+    _ -> case filter ((== "video") . map toLower . dropExtension) $ allFiles of -- CH video
       v : _ -> do
         v' <- stackIO $ Dir.makeAbsolute $ src </> v
         return $ Just v'
