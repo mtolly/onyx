@@ -37,7 +37,6 @@ import           Data.Foldable                  (toList)
 import           Data.Hashable                  (Hashable (..))
 import qualified Data.HashMap.Strict            as Map
 import           Data.Maybe                     (fromMaybe)
-import           Data.Profunctor                (dimap)
 import           Data.Scientific                (Scientific, toRealFloat)
 import qualified Data.Text                      as T
 import           Data.Traversable
@@ -1002,17 +1001,16 @@ instance Default (Global FilePath) where
 
 data VideoInfo f = VideoInfo
   { _fileVideo      :: f
-  , _videoStartTime :: Maybe U.Seconds
-  , _videoEndTime   :: Maybe U.Seconds
+  , _videoStartTime :: Maybe Milli -- seconds, can be negative
+  , _videoEndTime   :: Maybe Milli
   , _videoLoop      :: Bool
   } deriving (Eq, Show)
 
 instance StackJSON (VideoInfo FilePath) where
   stackJSON = asStrictObject "VideoInfo" $ do
     _fileVideo      <- _fileVideo      =. req         "file-video" stackJSON
-    let maybeSecs = maybeCodec $ dimap (realToFrac :: U.Seconds -> Double) realToFrac stackJSON
-    _videoStartTime <- _videoStartTime =. opt Nothing "start-time" maybeSecs
-    _videoEndTime   <- _videoEndTime   =. opt Nothing "end-time"   maybeSecs
+    _videoStartTime <- _videoStartTime =. opt Nothing "start-time" stackJSON
+    _videoEndTime   <- _videoEndTime   =. opt Nothing "end-time"   stackJSON
     _videoLoop      <- _videoLoop      =. opt False   "loop"       stackJSON
     return VideoInfo{..}
 

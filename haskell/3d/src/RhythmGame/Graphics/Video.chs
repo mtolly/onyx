@@ -15,6 +15,8 @@ import Data.IORef
 import Control.Monad (join, void, unless, when, filterM)
 import qualified Data.Vector.Storable.Mutable   as MV
 import qualified Data.Vector.Storable as V
+import Config (VideoInfo(..))
+import Data.Fixed (mod')
 
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
@@ -138,6 +140,11 @@ stream_index = {#get AVStream->index #}
 
 stream_codecpar :: AVStream -> IO AVCodecParameters
 stream_codecpar = {#get AVStream->codecpar #}
+
+avfc_duration :: AVFormatContext -> IO Double
+avfc_duration fc = do
+  n <- {#get AVFormatContext->duration #} fc
+  return $ realToFrac n / {#const AV_TIME_BASE #}
 
 codec_type :: AVCodecParameters -> IO AVMediaType
 codec_type = fmap (toEnum . fromIntegral) . {#get AVCodecParameters->codec_type #}
@@ -349,8 +356,9 @@ data FrameMessage
   = RequestFrame Double
   | CloseLoader
 
-forkFrameLoader :: ((MessageLevel, Message) -> IO ()) -> FilePath -> IO FrameLoader
-forkFrameLoader logger videoPath = do
+forkFrameLoader :: ((MessageLevel, Message) -> IO ()) -> VideoInfo FilePath -> IO FrameLoader
+forkFrameLoader logger vi = do
+  let videoPath = _fileVideo vi
   queue <- newTChanIO
   ref <- newIORef Nothing
   void $ forkIO $ void $ runResourceT $ logIO logger $ inside ("Playing video: " <> videoPath) $ do
@@ -390,18 +398,19 @@ forkFrameLoader logger videoPath = do
     fmt <- stackIO $ cp_format params
     (num, den) <- stackIO $ time_base stream
     let resolution = realToFrac num / realToFrac den :: Double
+    duration <- stackIO $ avfc_duration ctx
+    let videoStart = maybe 0 realToFrac $ _videoStartTime vi
+        videoEnd = maybe duration realToFrac $ _videoEndTime vi
     cctx <- res (avcodec_alloc_context3 codec) $ \c -> with c avcodec_free_context
     check_ "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context cctx params
     check_ "avcodec_open2 (input)" (>= 0) $ avcodec_open2 cctx codec nullPtr
     frame <- res av_frame_alloc $ \f -> with f av_frame_free
     frameRGBA <- res av_frame_alloc $ \f -> with f av_frame_free
     packet <- res av_packet_alloc $ \p -> with p av_packet_free
-    stackIO $ print (cctx, frame, packet)
     inData <- stackIO $ frame_data frame
     inLinesize <- stackIO $ frame_linesize frame
     check_ "av_image_alloc (input)" (>= 0) $ av_image_alloc inData inLinesize w h fmt 16
     pfmt <- stackIO $ pix_fmt cctx
-    stackIO $ print pfmt
     outData <- stackIO $ frame_data frameRGBA
     outLinesize <- stackIO $ frame_linesize frameRGBA
     check_ "av_image_alloc (output)" (>= 0) $ av_image_alloc outData outLinesize w h AV_PIX_FMT_RGBA 1
@@ -420,19 +429,32 @@ forkFrameLoader logger videoPath = do
       nullPtr
       nullPtr
 
-    let readImage lastTime thisTime = do
-          let skipSeek = case lastTime of
-                Nothing -> False
-                Just t  -> t < thisTime && thisTime - t < seeklessDuration
-              wantPTS = floor $ thisTime / resolution
-          unless skipSeek $ check_ "av_seek_frame" (>= 0) $ av_seek_frame
-            ctx
-            streamIndex
-            wantPTS
-            {#const AVSEEK_FLAG_ANY #}
-          img <- readFrame wantPTS
-          stackIO $ writeIORef ref $ Just (thisTime, img)
-          checkMessages thisTime
+    let readImage lastTime thisTimeMIDI = do
+          let thisTimeNoLoop = thisTimeMIDI + videoStart
+              thisTimeMaybe = if thisTimeNoLoop < 0
+                then Nothing -- before start of video
+                else if thisTimeNoLoop >= videoEnd
+                  then if _videoLoop vi
+                    then Just $ mod' thisTimeNoLoop videoEnd
+                    else Nothing -- after end of video
+                  else Just thisTimeNoLoop
+          case thisTimeMaybe of
+            Nothing -> do
+              stackIO $ writeIORef ref Nothing
+              checkMessages Nothing
+            Just thisTime -> do
+              let skipSeek = case lastTime of
+                    Nothing -> False
+                    Just t  -> t < thisTime && thisTime - t < seeklessDuration
+                  wantPTS = floor $ thisTime / resolution
+              unless skipSeek $ check_ "av_seek_frame" (>= 0) $ av_seek_frame
+                ctx
+                streamIndex
+                wantPTS
+                {#const AVSEEK_FLAG_ANY #}
+              img <- readFrame wantPTS
+              stackIO $ writeIORef ref $ Just (thisTime, img)
+              checkMessages $ Just thisTime
 
         seeklessDuration = 1 :: Double
 
@@ -474,7 +496,7 @@ forkFrameLoader logger videoPath = do
           mt <- stackIO $ atomically $ readTChan queue >>= \case
             CloseLoader    -> return Nothing
             RequestFrame t -> checkRestMessages t
-          mapM_ (readImage $ Just lastTime) mt
+          mapM_ (readImage lastTime) mt
 
         checkRestMessages t = tryReadTChan queue >>= \case
           Nothing                -> return $ Just t

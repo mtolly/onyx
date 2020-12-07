@@ -913,6 +913,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     (groupGL, redrawGL, _deleteGL) <- previewGroup
       sink
       glArea
+      (_backgroundVideo $ _global $ projectSongYaml proj)
       (maybe [] previewTracks <$> readIORef varSong)
       (currentSongTime <$> getSystemTime <*> readIORef varTime)
       getSpeed
@@ -2797,11 +2798,12 @@ data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLFailed
 previewGroup
   :: (Event -> IO ())
   -> Rectangle
+  -> Maybe (VideoInfo FilePath)
   -> IO [[(T.Text, PreviewTrack)]]
   -> IO Double
   -> IO Double
   -> IO (FL.Ref FL.Group, IO (), IO ())
-previewGroup sink rect getTracks getTime getSpeed = do
+previewGroup sink rect mvi getTracks getTime getSpeed = do
   let (glArea, bottomControlsArea) = chopBottom 40 rect
       partSelectArea = trimClock 6 15 6 15 bottomControlsArea
 
@@ -2843,7 +2845,7 @@ previewGroup sink rect getTracks getTime getSpeed = do
   let draw :: FL.Ref FL.GlWindow -> IO ()
       draw wind = do
         mstuff <- modifyMVar varStuff $ \case
-          GLPreload -> embedOnyx sink RGGraphics.loadGLStuff >>= \case
+          GLPreload -> embedOnyx sink (RGGraphics.loadGLStuff mvi) >>= \case
             Nothing -> return (GLFailed, Nothing)
             Just s  -> return (GLLoaded s, Just s)
           loaded@(GLLoaded s) -> return (loaded, Just s)
@@ -2919,6 +2921,7 @@ launchPreview sink makeMenuBar mid = mdo
     (groupGL, redrawGL, _deleteGL) <- previewGroup
       sink
       belowTopControls
+      Nothing
       getTracks
       (readIORef varTime)
       (return 1)

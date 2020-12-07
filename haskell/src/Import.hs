@@ -21,7 +21,7 @@ import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (toLower)
+import           Data.Char                        (isSpace, toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (Default, def)
 import qualified Data.Digest.Pure.MD5             as MD5
@@ -417,14 +417,23 @@ importFoF src dest = do
   let outputFixed = RBFile.s_tracks outputMIDI
   stackIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI outputMIDI
 
-  -- TODO get this working with Clone Hero videos
-  -- vid <- case FoF.video song of
-  --   Nothing -> return Nothing
-  --   Just s | all isSpace s -> return Nothing
-  --   Just v -> inside "copying PS video file to onyx project" $ do
-  --     v' <- fixFileCase $ src </> v
-  --     stackIO $ Dir.copyFile v' (dest </> "video.avi")
-  --     return $ Just "video.avi"
+  vidPath <- case FoF.video song of
+    Just v -> if all isSpace v -- PS video
+      then return Nothing
+      else do
+        v' <- stackIO $ fixFileCase (src </> v) >>= Dir.makeAbsolute
+        return $ Just v'
+    Nothing -> case filter ((== "video") . map toLower . dropExtension) $ allFiles of -- CH video
+      v : _ -> do
+        v' <- stackIO $ Dir.makeAbsolute $ src </> v
+        return $ Just v'
+      []    -> return Nothing
+  let videoInfo = flip fmap vidPath $ \f -> VideoInfo
+        { _fileVideo = f
+        , _videoStartTime = FoF.videoStartTime song
+        , _videoEndTime = FoF.videoEndTime song
+        , _videoLoop = fromMaybe False $ FoF.videoLoop song
+        }
   -- TODO need to check how video start/end time interacts with audio delay,
   -- so we can adjust based on how we imported the delay
 
@@ -483,7 +492,8 @@ importFoF src dest = do
       , _difficulty   = toTier $ FoF.diffBand song
       }
     , _global = def'
-      -- TODO put backgorund image/video info in here
+      { _backgroundVideo = videoInfo
+      }
     , _audio = HM.fromList $ flip map audioFilesWithChannels $ \(aud, chans) ->
       (T.pack aud, AudioFile AudioInfo
         { _md5 = Nothing

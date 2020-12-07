@@ -123,7 +123,7 @@ loadSong fp = do
       int :: T.Text -> Maybe Int
       int = str >=> readMaybe . T.unpack
       milli :: T.Text -> Maybe Milli
-      milli = str >=> readMaybe . T.unpack
+      milli = str >=> fmap (/ 1000) . readMaybe . T.unpack
       bool :: T.Text -> Maybe Bool
       bool = str >=> \s -> case T.strip s of
         "True"  -> Just True
@@ -183,6 +183,7 @@ saveSong fp Song{..} = writePSIni fp $ flip Ini []
   $ HM.singleton "song" $ execWriter $ do
     let str k = maybe (return ()) $ \v -> tell [(k, v)]
         shown k = str k . fmap (T.pack . show)
+        milli k = shown k . fmap ((floor :: Milli -> Int) . (* 1000))
     str "name" name
     str "artist" artist
     str "album" album
@@ -224,8 +225,8 @@ saveSong fp Song{..} = writePSIni fp $ flip Ini []
     shown "drum_fallback_blue" drumFallbackBlue
     str "loading_phrase" loadingPhrase
     str "video" $ fmap T.pack video
-    shown "video_start_time" videoStartTime
-    shown "video_end_time" videoEndTime
+    milli "video_start_time" videoStartTime
+    milli "video_end_time" videoEndTime
     shown "video_loop" videoLoop
 
 writePSIni :: (MonadIO m) => FilePath -> Ini -> m ()

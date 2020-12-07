@@ -10,6 +10,7 @@ module RhythmGame.Graphics where
 import           Build                          (loadYaml)
 import           Codec.Picture
 import qualified Codec.Wavefront                as Obj
+import           Config                         (VideoInfo (..))
 import           Control.Arrow                  (second)
 import           Control.Monad                  (forM, forM_, guard, void, when)
 import           Control.Monad.IO.Class         (MonadIO (..))
@@ -18,7 +19,6 @@ import           Control.Monad.Trans.StackTrace (QueueLog, SendMessage,
                                                  StackTraceT, fatal,
                                                  getQueueLog, inside,
                                                  mapStackTraceT, stackIO, warn)
-import           Data.Bits                      ((.|.))
 import qualified Data.ByteString                as B
 import           Data.Foldable                  (traverse_)
 import           Data.IORef                     (IORef, newIORef, readIORef,
@@ -1103,17 +1103,17 @@ data GLStuff = GLStuff
   , gfxConfig    :: C.Config
   , framebuffers :: Framebuffers
   , fxaaEnabled  :: Bool
-  , videoInfo    :: Maybe VideoInfo
+  , videoHandle  :: Maybe VideoHandle
   } deriving (Show)
 
-data VideoInfo = VideoInfo
+data VideoHandle = VideoHandle
   { videoFrameLoader :: FrameLoader
   , videoTexture     :: IORef (Maybe (Double, Texture))
   , videoFilePath    :: FilePath
   }
 
-instance Show VideoInfo where
-  show vi = "VideoInfo[" <> show (videoFilePath vi) <> "]"
+instance Show VideoHandle where
+  show vh = "VideoHandle[" <> show (videoFilePath vh) <> "]"
 
 data Framebuffers
   = SimpleFramebuffer
@@ -1271,8 +1271,8 @@ sortVertices = let
   sumZ = sum . map (getZ . vertexPosition)
   in concatMap snd . sort . map (\tri -> (sumZ tri, tri)) . getTris
 
-loadGLStuff :: (MonadIO m) => StackTraceT (QueueLog m) GLStuff
-loadGLStuff = do
+loadGLStuff :: (MonadIO m) => Maybe (VideoInfo FilePath) -> StackTraceT (QueueLog m) GLStuff
+loadGLStuff mvi = do
 
   gfxConfig <- load3DConfig
 
@@ -1572,15 +1572,15 @@ loadGLStuff = do
     _              -> setupSimple
   let fxaaEnabled = prefFXAA prefs
 
-  let testVideo = "/home/mtolly/ch-songs/t+pazolite - Marry me, Nightmare/video.webm"
-  writeMsg <- getQueueLog
-  frameLoader <- stackIO $ forkFrameLoader writeMsg testVideo
-  videoTexRef <- stackIO $ newIORef Nothing
-  let videoInfo = Just VideoInfo
-        { videoFrameLoader = frameLoader
-        , videoTexture     = videoTexRef
-        , videoFilePath    = testVideo
-        }
+  videoHandle <- forM mvi $ \vi -> do
+    writeMsg <- getQueueLog
+    frameLoader <- stackIO $ forkFrameLoader writeMsg vi
+    videoTexRef <- stackIO $ newIORef Nothing
+    return VideoHandle
+      { videoFrameLoader = frameLoader
+      , videoTexture     = videoTexRef
+      , videoFilePath    = _fileVideo vi
+      }
 
   return GLStuff{..}
 
@@ -1651,6 +1651,28 @@ drawTexture' GLStuff{..} (fadeBottom, fadeTop) (WindowDims screenW screenH) (Tex
   sendUniformName quadShader "startFade" fadeBottom
   sendUniformName quadShader "endFade" fadeTop
   sendUniformName quadShader "doFXAA" fxaaEnabled
+  checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
+
+-- | Covers the screen with the texture, preserving aspect ratio and possibly clipping some of the texture.
+drawBackground :: GLStuff -> WindowDims -> Texture -> IO ()
+drawBackground GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) = do
+  glUseProgram quadShader
+  glActiveTexture GL_TEXTURE0
+  checkGL "glBindTexture" $ glBindTexture GL_TEXTURE_2D tex
+  glBindVertexArray $ objVAO quadObject
+  let textureRatio = fromIntegral w       / fromIntegral h       :: Float
+      screenRatio  = fromIntegral screenW / fromIntegral screenH :: Float
+      scaleX = if textureRatio > screenRatio
+        then textureRatio / screenRatio -- texture may clip left/right
+        else 1                          -- texture may clip top/bottom
+      scaleY = if textureRatio > screenRatio
+        then 1                          -- texture may clip left/right
+        else screenRatio / textureRatio -- texture may clip top/bottom
+  sendUniformName quadShader "transform"
+    (L.scaled (V4 scaleX scaleY 1 1) :: M44 Float)
+  sendUniformName quadShader "startFade" (1 :: Float)
+  sendUniformName quadShader "endFade" (1 :: Float)
+  sendUniformName quadShader "doFXAA" False
   checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
 freeTexture :: (MonadIO m) => Texture -> m ()
@@ -1749,12 +1771,14 @@ drawTracks
 drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks = do
   glBindFramebuffer GL_FRAMEBUFFER 0
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-  case C.view_background $ C.cfg_view gfxConfig of
-    V4 r g b a -> glClearColor r g b a
+  case videoHandle of
+    Just _ -> glClearColor 0 0 0 255
+    Nothing -> case C.view_background $ C.cfg_view gfxConfig of
+      V4 r g b a -> glClearColor r g b a
   glClear GL_COLOR_BUFFER_BIT
 
   -- video background
-  forM_ videoInfo $ \VideoInfo{..} -> do
+  forM_ videoHandle $ \VideoHandle{..} -> do
     -- TODO maybe separate out the timestamp updates from drawing
     frameMessage videoFrameLoader $ RequestFrame time
     mtex <- getFrame videoFrameLoader >>= \case
@@ -1772,7 +1796,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks =
     forM_ mtex $ \tex -> do
       glClear GL_DEPTH_BUFFER_BIT
       glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-      drawTexture glStuff dims tex (V2 0 0) 1 -- TODO stretch
+      drawBackground glStuff dims tex
 
   let spaces = case trks of
         [] -> []
