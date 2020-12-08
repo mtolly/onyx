@@ -26,7 +26,7 @@ import           Data.IORef                     (IORef, newIORef, readIORef,
 import           Data.List                      (findIndex, partition, sort)
 import           Data.List.HT                   (partitionMaybe)
 import qualified Data.Map.Strict                as Map
-import           Data.Maybe                     (fromMaybe, isJust, catMaybes)
+import           Data.Maybe                     (catMaybes, fromMaybe, isJust)
 import qualified Data.Set                       as Set
 import qualified Data.Vector                    as V
 import qualified Data.Vector.Storable           as VS

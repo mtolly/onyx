@@ -55,7 +55,7 @@ data PreviewBG
   = PreviewBGVideo (VideoInfo FilePath)
   | PreviewBGImage FilePath
   -- TODO PreviewBGVenueRB
-  deriving (Show)
+  deriving (Eq, Show)
 
 data PreviewSong = PreviewSong
   { previewTempo  :: U.TempoMap

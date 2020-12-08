@@ -916,12 +916,11 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
       glArea
       (catMaybes
         -- TODO fix this to not have to compute backgrounds twice
-        [ fmap PreviewBGVideo $ _backgroundVideo $ _global $ projectSongYaml proj
-        , fmap PreviewBGImage $ _fileBackgroundImage $ _global $ projectSongYaml proj
+        [ (\bv -> ("Background Video", PreviewBGVideo bv)) <$> _backgroundVideo (_global $ projectSongYaml proj)
+        , (\f -> ("Background Image", PreviewBGImage f)) <$> _fileBackgroundImage (_global $ projectSongYaml proj)
         ]
       )
       (maybe [] previewTracks <$> readIORef varSong)
-      (maybe Nothing (fmap snd . listToMaybe . previewBG) <$> readIORef varSong)
       (currentSongTime <$> getSystemTime <*> readIORef varTime)
       getSpeed
     FL.setResizable tab $ Just groupGL
@@ -2805,13 +2804,12 @@ data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLFailed
 previewGroup
   :: (Event -> IO ())
   -> Rectangle
-  -> [PreviewBG]
+  -> [(T.Text, PreviewBG)]
   -> IO [[(T.Text, PreviewTrack)]]
-  -> IO (Maybe PreviewBG)
   -> IO Double
   -> IO Double
   -> IO (FL.Ref FL.Group, IO (), IO ())
-previewGroup sink rect bgs getTracks getBG getTime getSpeed = do
+previewGroup sink rect bgs getTracks getTime getSpeed = do
   let (glArea, bottomControlsArea) = chopBottom 40 rect
       [partSelectHalf, bgSelectHalf] = splitHorizN 2 bottomControlsArea
       partSelectArea = trimClock 6 7 6 14 partSelectHalf
@@ -2820,6 +2818,7 @@ previewGroup sink rect bgs getTracks getBG getTime getSpeed = do
   wholeGroup <- FL.groupNew rect Nothing
 
   bottomControlsGroup <- FL.groupNew bottomControlsArea Nothing
+  bottomSizeRef <- FL.boxNew bottomControlsArea Nothing
   trackMenu <- FL.menuButtonNew partSelectArea $ Just "Select Tracks"
   currentParts <- newIORef []
   let selectedNames = do
@@ -2849,14 +2848,21 @@ previewGroup sink rect bgs getTracks getBG getTime getSpeed = do
     sink $ EventIO $ FLTK.redraw
     sink $ EventIO $ void $ FL.popup trackMenu -- reopen menu (TODO find a way to not close it at all)
   bgMenu <- FL.menuButtonNew bgSelectArea $ Just "Background"
+  let initialBG = fmap snd $ listToMaybe bgs
+  currentBG <- newIORef initialBG
+  let allBGs = ("None", Nothing) : [(t, Just bg) | (t, bg) <- bgs]
+  forM_ allBGs $ \(t, bg) -> do
+    FL.add bgMenu t Nothing
+      ((Just $ \_ -> writeIORef currentBG bg) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
+      (FL.MenuItemFlags $ FL.MenuItemRadio : [FL.MenuItemValue | bg == initialBG])
   FL.end bottomControlsGroup
-  FL.setResizable bottomControlsGroup $ Just trackMenu -- fix this!
+  FL.setResizable bottomControlsGroup $ Just bottomSizeRef
 
   varStuff <- newMVar GLPreload
   let draw :: FL.Ref FL.GlWindow -> IO ()
       draw wind = do
         mstuff <- modifyMVar varStuff $ \case
-          GLPreload -> embedOnyx sink (RGGraphics.loadGLStuff bgs) >>= \case
+          GLPreload -> embedOnyx sink (RGGraphics.loadGLStuff $ map snd bgs) >>= \case
             Nothing -> return (GLFailed, Nothing)
             Just s  -> return (GLLoaded s, Just s)
           loaded@(GLLoaded s) -> return (loaded, Just s)
@@ -2865,7 +2871,7 @@ previewGroup sink rect bgs getTracks getBG getTime getSpeed = do
           t <- getTime
           speed <- getSpeed
           trks <- getTracks
-          bg <- getBG
+          bg <- readIORef currentBG
           updateParts True $ map (map fst) trks -- TODO does this need to be done in a sink event
           selected <- selectedNames
           w <- FL.pixelW wind
@@ -2935,7 +2941,6 @@ launchPreview sink makeMenuBar mid = mdo
       belowTopControls
       []
       getTracks
-      (return Nothing)
       (readIORef varTime)
       (return 1)
 
