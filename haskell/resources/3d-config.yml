@@ -40,7 +40,7 @@ track:
     z-now: 0
     z-future: -12 # point where objects spawn
     # events this many seconds in the future will be at z-future
-    secs-future: 1
+    secs-future: 1.35
   color:
     normal: '#333333'
     solo: '#333399'

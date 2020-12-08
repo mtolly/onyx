@@ -18,7 +18,6 @@ module Audio
 , buildSource, buildSource'
 , buildAudio
 , runAudio
-, audioIO
 , clampFloat
 , audioMD5
 , audioLength
@@ -42,7 +41,7 @@ import           Control.Concurrent               (threadDelay)
 import           Control.DeepSeq                  (($!!))
 import           Control.Exception                (evaluate)
 import           Control.Monad                    (ap, forM, replicateM_,
-                                                   unless, when)
+                                                   unless, void, when)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
@@ -80,6 +79,7 @@ import           GuitarHeroII.Audio               (readVGS)
 import           MoggDecrypt                      (sourceVorbisFile)
 import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Wrapper      as NN
+import           Preferences
 import           RockBand.Common                  (pattern RNil, pattern Wait)
 import           SndfileExtra
 import qualified Sound.File.Sndfile               as Snd
@@ -474,15 +474,19 @@ buildAudio aud out = do
   src <- lift $ lift $ buildSource aud
   runAudio src out
 
-audioIO :: AudioSource (ResourceT IO) Float -> FilePath -> IO ()
-audioIO src out = let
+audioIO :: Maybe Double -> AudioSource (ResourceT IO) Float -> FilePath -> IO ()
+audioIO oggQuality src out = let
   src' = clampFloat $ if takeExtension out == ".ogg" && channels src == 6
     then merge src $ silent (Frames 0) (rate src) 1
     -- this works around an issue with oggenc:
     -- it assumes 6 channels is 5.1 surround where the last channel
     -- is LFE, so instead we add a silent 7th channel
     else src
-  withSndFormat fmt = runResourceT $ sinkSnd out fmt src'
+  withSndFormat fmt = runResourceT $ case (takeExtension out, oggQuality) of
+    (".ogg", Just q) -> do
+      let setup hsnd = void $ liftIO $ setVBREncodingQuality hsnd q
+      sinkSndWithHandle out fmt setup src'
+    _ -> sinkSnd out fmt src'
   in case takeExtension out of
     ".ogg" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
     ".wav" -> withSndFormat $ Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
@@ -492,7 +496,8 @@ audioIO src out = let
 runAudio :: (SendMessage m, MonadIO m) => AudioSource (ResourceT IO) Float -> FilePath -> StackTraceT m ()
 runAudio src out = do
   lg $ "Writing audio to " ++ out
-  inside ("Writing audio to " ++ out) $ stackIO $ audioIO src out
+  oggQuality <- prefOGGQuality <$> readPreferences
+  inside ("Writing audio to " ++ out) $ stackIO $ audioIO (Just oggQuality) src out
   lg $ "Finished writing audio to " ++ out
 
 -- | Forces floating point samples to be in @[-1, 1]@.

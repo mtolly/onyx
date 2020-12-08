@@ -8,6 +8,7 @@ import qualified Control.Exception              as Exc
 import           Control.Monad                  (forM, unless)
 import           Control.Monad.Codec
 import           Control.Monad.Codec.Onyx
+import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
@@ -22,6 +23,7 @@ import           Data.Scientific
 import qualified Data.Text                      as T
 import qualified Data.Vector                    as V
 import qualified Data.Yaml                      as Y
+import           YAMLTree                       (readYAMLTree)
 
 type JSONCodec m a = ValueCodec m A.Value a
 
@@ -178,3 +180,8 @@ fromJSON = codecIn stackJSON
 -- because it does not truncate or remove an existing file at the location.
 yamlEncodeFile :: (Y.ToJSON a) => FilePath -> a -> IO ()
 yamlEncodeFile f x = B.writeFile f $ Y.encode x
+
+loadYaml :: (SendMessage m, StackJSON a, MonadIO m) => FilePath -> StackTraceT m a
+loadYaml fp = do
+  yaml <- readYAMLTree fp
+  mapStackTraceT (`runReaderT` yaml) fromJSON

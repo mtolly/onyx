@@ -2,6 +2,7 @@
 module Difficulty where
 
 import           Config
+import           Preferences (MagmaSetting (..))
 
 rankToTier :: DiffMap -> Integer -> Integer
 rankToTier dm rank = fromIntegral $ length $ takeWhile (<= rank) (1 : dm)

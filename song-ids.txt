@@ -243,11 +243,14 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200167 Colors 1x
 1660200168 Colors 2x
   Full band Colors (actual release)
-  v1 released 2020-10-26, except full album song
-  Full album song released ?
+  v1 released 2020-10-26, except full album song for RB
+  v2 of Informal, Sun, PTTS (CH only), and full album (now also RB) released 2020-10-31
 1660200169 Colors 1x (RB2)
 1660200170 Colors 2x (RB2)
-  Released ?
+  v2 released 2020-10-31
+
+1660200171 Danimal Across America (Danimal Cannon)
+  v2 released 2020-12-07 (v1 had no numeric song ID)
 
 BONUS SONGS (counting down from max)
 
