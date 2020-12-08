@@ -3,8 +3,8 @@ metadata:
   file-include: ../../../albums/roots.yml
   track-number: 6
   comments:
-  - "Chart confidence: *high*. Transcribed from the separated Game Boy channels."
-  - "All difficulties are charted on all instruments."
+  - "Transcribed from the LSDJ file."
+  - "Manual reductions done for all instruments."
   difficulty: 5
   rating: Family Friendly
   author: Onyxite
@@ -45,3 +45,12 @@ parts:
       difficulty: 6
     pro-keys:
       difficulty: 6
+targets:
+  rb3:
+    game: rb3
+    plan: album
+    version: 2
+    song-id: 1660200171
+  ps:
+    game: ps
+    plan: album

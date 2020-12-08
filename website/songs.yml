@@ -587,3 +587,10 @@
     rb2: download/ColorsFB_Album_v2_1x_rb2con
     rb2-2x: download/ColorsFB_Album_v2_2x_rb2con
     ps: download/ColorsFB_Album_v2_ch.zip
+
+# Danimal Across America
+- file-path: ../songs/danimal-cannon/danimal-across-america
+  video: https://www.youtube.com/watch?v=4_5bzcJzNZg
+  urls:
+    rb3: download/onyx_DanimalAcrossAmerica_v2_rb3con
+    ps: download/onyx_DanimalAcrossAmerica_v2_ch_ps.zip
