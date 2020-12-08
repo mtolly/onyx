@@ -1,7 +1,11 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
-module RhythmGame.Graphics.Video where
+module RhythmGame.Graphics.Video
+( forkFrameLoader
+, FrameLoader(..)
+, FrameMessage(..)
+) where
 
 import Foreign hiding (void)
 import Foreign.C
@@ -371,7 +375,7 @@ forkFrameLoader logger vi = do
           let f' code = when (p code) f
           code <- snd <$> allocate a f'
           unless (p code) $ fatal $ "Return code: " <> show code
-    stackIO $ av_log_set_level 56 -- debug info
+    -- stackIO $ av_log_set_level 56 -- debug info
     -- setup
     ctx <- res avformat_alloc_context (const $ return ()) -- avformat_free_context TODO figure out why this crashes
     checkRes "avformat_open_input" (== 0)
@@ -452,7 +456,7 @@ forkFrameLoader logger vi = do
                 ctx
                 streamIndex
                 wantPTS
-                {#const AVSEEK_FLAG_ANY #}
+                {#const AVSEEK_FLAG_BACKWARD #} -- I think this means "seek to the keyframe at or before the requested time"
               case lastTimePTS of
                 Just (_, pts) | skipSeek && pts >= wantPTS
                   -> checkMessages lastTimePTS -- previous frame is still good

@@ -978,22 +978,22 @@ instance Default (Metadata FilePath) where
   def = fromEmptyObject
 
 data Global f = Global
-  { _fileMidi        :: f
-  , _fileSongAnim    :: Maybe f -- ^ venue format found in RB3 milos
-  , _autogenTheme    :: Maybe Magma.AutogenTheme -- ^ 'Nothing' means black venue
-  , _animTempo       :: Either AnimTempo Integer
-  , _backgroundVideo :: Maybe (VideoInfo f)
-  , _backgroundImage :: Maybe f
+  { _fileMidi            :: f
+  , _fileSongAnim        :: Maybe f -- ^ venue format found in RB3 milos
+  , _autogenTheme        :: Maybe Magma.AutogenTheme -- ^ 'Nothing' means black venue
+  , _animTempo           :: Either AnimTempo Integer
+  , _backgroundVideo     :: Maybe (VideoInfo f)
+  , _fileBackgroundImage :: Maybe f
   } deriving (Eq, Show)
 
 instance StackJSON (Global FilePath) where
   stackJSON = asStrictObject "Global" $ do
-    _fileMidi        <- _fileMidi        =. opt "notes.mid"                "file-midi"        stackJSON
-    _fileSongAnim    <- _fileSongAnim    =. opt Nothing                    "file-song-anim"   stackJSON
-    _autogenTheme    <- _autogenTheme    =. opt (Just Magma.DefaultTheme)  "autogen-theme"    stackJSON
-    _animTempo       <- _animTempo       =. opt (Left KTempoMedium)        "anim-tempo"       parseAnimTempo
-    _backgroundVideo <- _backgroundVideo =. opt Nothing                    "background-video" stackJSON
-    _backgroundImage <- _backgroundImage =. opt Nothing                    "background-image" stackJSON
+    _fileMidi            <- _fileMidi            =. opt "notes.mid"                "file-midi"             stackJSON
+    _fileSongAnim        <- _fileSongAnim        =. opt Nothing                    "file-song-anim"        stackJSON
+    _autogenTheme        <- _autogenTheme        =. opt (Just Magma.DefaultTheme)  "autogen-theme"         stackJSON
+    _animTempo           <- _animTempo           =. opt (Left KTempoMedium)        "anim-tempo"            parseAnimTempo
+    _backgroundVideo     <- _backgroundVideo     =. opt Nothing                    "background-video"      stackJSON
+    _fileBackgroundImage <- _fileBackgroundImage =. opt Nothing                    "file-background-image" stackJSON
     return Global{..}
 
 instance Default (Global FilePath) where
@@ -1004,7 +1004,7 @@ data VideoInfo f = VideoInfo
   , _videoStartTime :: Maybe Milli -- seconds, can be negative
   , _videoEndTime   :: Maybe Milli
   , _videoLoop      :: Bool
-  } deriving (Eq, Show)
+  } deriving (Eq, Ord, Show)
 
 instance StackJSON (VideoInfo FilePath) where
   stackJSON = asStrictObject "VideoInfo" $ do

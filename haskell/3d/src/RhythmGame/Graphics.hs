@@ -26,7 +26,7 @@ import           Data.IORef                     (IORef, newIORef, readIORef,
 import           Data.List                      (findIndex, partition, sort)
 import           Data.List.HT                   (partitionMaybe)
 import qualified Data.Map.Strict                as Map
-import           Data.Maybe                     (fromMaybe, isJust)
+import           Data.Maybe                     (fromMaybe, isJust, catMaybes)
 import qualified Data.Set                       as Set
 import qualified Data.Vector                    as V
 import qualified Data.Vector.Storable           as VS
@@ -1103,7 +1103,8 @@ data GLStuff = GLStuff
   , gfxConfig    :: C.Config
   , framebuffers :: Framebuffers
   , fxaaEnabled  :: Bool
-  , videoHandle  :: Maybe VideoHandle
+  , videoBGs     :: Map.Map (VideoInfo FilePath) VideoHandle
+  , imageBGs     :: Map.Map FilePath Texture
   } deriving (Show)
 
 data VideoHandle = VideoHandle
@@ -1271,8 +1272,8 @@ sortVertices = let
   sumZ = sum . map (getZ . vertexPosition)
   in concatMap snd . sort . map (\tri -> (sumZ tri, tri)) . getTris
 
-loadGLStuff :: (MonadIO m) => Maybe (VideoInfo FilePath) -> StackTraceT (QueueLog m) GLStuff
-loadGLStuff mvi = do
+loadGLStuff :: (MonadIO m) => [PreviewBG] -> StackTraceT (QueueLog m) GLStuff
+loadGLStuff bgs = do
 
   gfxConfig <- load3DConfig
 
@@ -1572,15 +1573,22 @@ loadGLStuff mvi = do
     _              -> setupSimple
   let fxaaEnabled = prefFXAA prefs
 
-  videoHandle <- forM mvi $ \vi -> do
-    writeMsg <- getQueueLog
-    frameLoader <- stackIO $ forkFrameLoader writeMsg vi
-    videoTexRef <- stackIO $ newIORef Nothing
-    return VideoHandle
-      { videoFrameLoader = frameLoader
-      , videoTexture     = videoTexRef
-      , videoFilePath    = _fileVideo vi
-      }
+  videoBGs <- fmap (Map.fromList . catMaybes) $ forM bgs $ \case
+    PreviewBGVideo vi -> do
+      writeMsg <- getQueueLog
+      frameLoader <- stackIO $ forkFrameLoader writeMsg vi
+      videoTexRef <- stackIO $ newIORef Nothing
+      return $ Just (vi, VideoHandle
+        { videoFrameLoader = frameLoader
+        , videoTexture     = videoTexRef
+        , videoFilePath    = _fileVideo vi
+        })
+    _ -> return Nothing
+  imageBGs <- fmap (Map.fromList . catMaybes) $ forM bgs $ \case
+    PreviewBGImage f -> do
+      tex <- stackIO (readImage f) >>= either fatal return >>= loadTexture True . convertRGBA8
+      return $ Just (f, tex)
+    _ -> return Nothing
 
   return GLStuff{..}
 
@@ -1766,37 +1774,46 @@ drawTracks
   -> WindowDims
   -> Double
   -> Double
+  -> (Maybe PreviewBG)
   -> [PreviewTrack]
   -> IO ()
-drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed trks = do
+drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trks = do
   glBindFramebuffer GL_FRAMEBUFFER 0
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-  case videoHandle of
-    Just _ -> glClearColor 0 0 0 255
+  case bg of
+    Just _  -> glClearColor 0 0 0 255
     Nothing -> case C.view_background $ C.cfg_view gfxConfig of
       V4 r g b a -> glClearColor r g b a
   glClear GL_COLOR_BUFFER_BIT
 
-  -- video background
-  forM_ videoHandle $ \VideoHandle{..} -> do
-    -- TODO maybe separate out the timestamp updates from drawing
-    frameMessage videoFrameLoader $ RequestFrame time
-    mtex <- getFrame videoFrameLoader >>= \case
-      Nothing -> return Nothing
-      Just (timeNew, image) -> readIORef videoTexture >>= \case
-        Nothing -> do
-          tex <- loadTexture True image
-          writeIORef videoTexture $ Just (timeNew, tex)
-          return $ Just tex
-        Just (timeCurrent, tex) -> do
-          when (timeNew /= timeCurrent) $ do
-            updateTexture image tex
-            writeIORef videoTexture $ Just (timeNew, tex)
-          return $ Just tex
-    forM_ mtex $ \tex -> do
-      glClear GL_DEPTH_BUFFER_BIT
-      glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-      drawBackground glStuff dims tex
+  forM_ bg $ \case
+    PreviewBGVideo vi -> case Map.lookup vi videoBGs of
+      Just VideoHandle{..} -> do
+        -- TODO maybe separate out the timestamp updates from drawing
+        frameMessage videoFrameLoader $ RequestFrame time
+        mtex <- getFrame videoFrameLoader >>= \case
+          Nothing -> return Nothing
+          Just (timeNew, image) -> readIORef videoTexture >>= \case
+            Nothing -> do
+              tex <- loadTexture True image
+              writeIORef videoTexture $ Just (timeNew, tex)
+              return $ Just tex
+            Just (timeCurrent, tex) -> do
+              when (timeNew /= timeCurrent) $ do
+                updateTexture image tex
+                writeIORef videoTexture $ Just (timeNew, tex)
+              return $ Just tex
+        forM_ mtex $ \tex -> do
+          glClear GL_DEPTH_BUFFER_BIT
+          glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
+          drawBackground glStuff dims tex
+      Nothing -> return ()
+    PreviewBGImage f -> case Map.lookup f imageBGs of
+      Just tex -> do
+        glClear GL_DEPTH_BUFFER_BIT
+        glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
+        drawBackground glStuff dims tex
+      Nothing -> return ()
 
   let spaces = case trks of
         [] -> []

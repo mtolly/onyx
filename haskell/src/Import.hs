@@ -275,6 +275,15 @@ importFoF src dest = do
       f : _ -> do
         Dir.copyFile (src </> f) (dest </> map toLower f)
         return $ Just f
+  backgroundImage <- stackIO $ do
+    let isBackground f = case splitExtension $ map toLower f of
+          ("background", ext) -> elem ext [".png", ".jpg", ".jpeg"]
+          _                   -> False
+    case filter isBackground allFiles of
+      []    -> return Nothing
+      f : _ -> do
+        Dir.copyFile (src </> f) (dest </> map toLower f)
+        return $ Just f
 
   let loadAudioFile x = stackIO $ let
         tryExt ext = do
@@ -491,6 +500,7 @@ importFoF src dest = do
       }
     , _global = def'
       { _backgroundVideo = videoInfo
+      , _fileBackgroundImage = backgroundImage
       }
     , _audio = HM.fromList $ flip map audioFilesWithChannels $ \(aud, chans) ->
       (T.pack aud, AudioFile AudioInfo
@@ -1327,7 +1337,7 @@ importMagma fin dir = do
         Right _str -> RBProj.DefaultTheme -- TODO
       , _animTempo    = Right $ RBProj.animTempo $ RBProj.gamedata rbproj
       , _backgroundVideo = Nothing
-      , _backgroundImage = Nothing
+      , _fileBackgroundImage = Nothing
       }
     , _audio = HM.fromList allAudio
     , _jammit = HM.empty

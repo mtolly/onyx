@@ -51,15 +51,22 @@ data PreviewTrack
   | PreviewPG (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   deriving (Show)
 
+data PreviewBG
+  = PreviewBGVideo (VideoInfo FilePath)
+  | PreviewBGImage FilePath
+  -- TODO PreviewBGVenueRB
+  deriving (Show)
+
 data PreviewSong = PreviewSong
   { previewTempo  :: U.TempoMap
   , previewTiming :: BasicTiming
   , previewTracks :: [[(T.Text, PreviewTrack)]]
+  , previewBG     :: [(T.Text, PreviewBG)]
   }
 
 computeTracks
   :: (SendMessage m)
-  => SongYaml f
+  => SongYaml FilePath
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> StackTraceT m PreviewSong
 computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
@@ -395,15 +402,25 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       Just ppg -> rsTracks fpart ppg
     in ((five ++ drums ++ pg) ++) <$> rs
 
+  bgs = concat
+    [ case _backgroundVideo $ _global songYaml of
+      Nothing -> []
+      Just vi -> [("Background Video", PreviewBGVideo vi)]
+    , case _fileBackgroundImage $ _global songYaml of
+      Nothing -> []
+      Just f  -> [("Background Image", PreviewBGImage f)]
+    ]
+
   in tracks >>= \trk -> return $ PreviewSong
     { previewTempo  = RBFile.s_tempos song
     , previewTiming = timing
     , previewTracks = trk
+    , previewBG     = bgs
     }
 
 loadTracks
   :: (SendMessage m, MonadIO m)
-  => SongYaml f
+  => SongYaml FilePath
   -> FilePath
   -> StackTraceT m PreviewSong
 loadTracks songYaml f = do

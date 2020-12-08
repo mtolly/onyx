@@ -913,8 +913,14 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     (groupGL, redrawGL, _deleteGL) <- previewGroup
       sink
       glArea
-      (_backgroundVideo $ _global $ projectSongYaml proj)
+      (catMaybes
+        -- TODO fix this to not have to compute backgrounds twice
+        [ fmap PreviewBGVideo $ _backgroundVideo $ _global $ projectSongYaml proj
+        , fmap PreviewBGImage $ _fileBackgroundImage $ _global $ projectSongYaml proj
+        ]
+      )
       (maybe [] previewTracks <$> readIORef varSong)
+      (maybe Nothing (fmap snd . listToMaybe . previewBG) <$> readIORef varSong)
       (currentSongTime <$> getSystemTime <*> readIORef varTime)
       getSpeed
     FL.setResizable tab $ Just groupGL
@@ -2798,14 +2804,17 @@ data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLFailed
 previewGroup
   :: (Event -> IO ())
   -> Rectangle
-  -> Maybe (VideoInfo FilePath)
+  -> [PreviewBG]
   -> IO [[(T.Text, PreviewTrack)]]
+  -> IO (Maybe PreviewBG)
   -> IO Double
   -> IO Double
   -> IO (FL.Ref FL.Group, IO (), IO ())
-previewGroup sink rect mvi getTracks getTime getSpeed = do
+previewGroup sink rect bgs getTracks getBG getTime getSpeed = do
   let (glArea, bottomControlsArea) = chopBottom 40 rect
-      partSelectArea = trimClock 6 15 6 15 bottomControlsArea
+      [partSelectHalf, bgSelectHalf] = splitHorizN 2 bottomControlsArea
+      partSelectArea = trimClock 6 7 6 14 partSelectHalf
+      bgSelectArea   = trimClock 6 14 6 7 bgSelectHalf
 
   wholeGroup <- FL.groupNew rect Nothing
 
@@ -2838,14 +2847,15 @@ previewGroup sink rect mvi getTracks getTime getSpeed = do
   FL.setCallback trackMenu $ \_ -> do
     sink $ EventIO $ FLTK.redraw
     sink $ EventIO $ void $ FL.popup trackMenu -- reopen menu (TODO find a way to not close it at all)
+  bgMenu <- FL.menuButtonNew bgSelectArea $ Just "Background"
   FL.end bottomControlsGroup
-  FL.setResizable bottomControlsGroup $ Just trackMenu
+  FL.setResizable bottomControlsGroup $ Just trackMenu -- fix this!
 
   varStuff <- newMVar GLPreload
   let draw :: FL.Ref FL.GlWindow -> IO ()
       draw wind = do
         mstuff <- modifyMVar varStuff $ \case
-          GLPreload -> embedOnyx sink (RGGraphics.loadGLStuff mvi) >>= \case
+          GLPreload -> embedOnyx sink (RGGraphics.loadGLStuff bgs) >>= \case
             Nothing -> return (GLFailed, Nothing)
             Just s  -> return (GLLoaded s, Just s)
           loaded@(GLLoaded s) -> return (loaded, Just s)
@@ -2854,12 +2864,13 @@ previewGroup sink rect mvi getTracks getTime getSpeed = do
           t <- getTime
           speed <- getSpeed
           trks <- getTracks
+          bg <- getBG
           updateParts True $ map (map fst) trks -- TODO does this need to be done in a sink event
           selected <- selectedNames
           w <- FL.pixelW wind
           h <- FL.pixelH wind
           let flatTrks = concat trks
-          RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t speed
+          RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t speed bg
             $ mapMaybe (`lookup` flatTrks) selected
   -- TODO do we want to set "FL.setUseHighResGL True" here for mac?
   glwindow <- FLGL.glWindowCustom
@@ -2921,8 +2932,9 @@ launchPreview sink makeMenuBar mid = mdo
     (groupGL, redrawGL, _deleteGL) <- previewGroup
       sink
       belowTopControls
-      Nothing
+      []
       getTracks
+      (return Nothing)
       (readIORef varTime)
       (return 1)
 
