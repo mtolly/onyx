@@ -911,7 +911,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     let initState = SongState 0 Nothing
     varState <- newMVar initState
     varTime <- newIORef initState
-    (groupGL, redrawGL, _deleteGL) <- previewGroup
+    (groupGL, redrawGL, deleteGL) <- previewGroup
       sink
       glArea
       (catMaybes
@@ -995,7 +995,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
             Nothing -> return ()
             Just ps -> void $ stopPlaying (songTime ss) ps
           writeIORef varSong Nothing -- try to avoid holding onto the midi in memory
-          _deleteGL -- TODO remove this when we delete the whole song window instead
+          deleteGL -- TODO remove this when we delete the whole song window instead
     return (tab, cleanup)
     {-
 
@@ -2888,7 +2888,11 @@ previewGroup sink rect bgs getTracks getTime getSpeed = do
     FL.defaultCustomWidgetFuncs
     FL.defaultCustomWindowFuncs
   FL.end glwindow
-  let deleteGL = sink $ EventIO $ FLTK.deleteWidget glwindow
+  let deleteGL = do
+        withMVar varStuff $ \case
+          GLLoaded s -> RGGraphics.stopVideoLoaders s
+          _          -> return ()
+        sink $ EventIO $ FLTK.deleteWidget glwindow
   FL.setMode glwindow $ FLE.Modes [FLE.ModeOpenGL3, FLE.ModeDepth, FLE.ModeRGB8, FLE.ModeDouble, FLE.ModeAlpha, FLE.ModeMultisample]
 
   FL.end wholeGroup

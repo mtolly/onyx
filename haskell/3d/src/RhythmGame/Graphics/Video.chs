@@ -377,7 +377,10 @@ forkFrameLoader logger vi = do
           unless (p code) $ fatal $ "Return code: " <> show code
     -- stackIO $ av_log_set_level 56 -- debug info
     -- setup
-    ctx <- res avformat_alloc_context (const $ return ()) -- avformat_free_context TODO figure out why this crashes
+    ctx <- res avformat_alloc_context (const $ return ())
+    -- don't need avformat_free_context, because avformat_close_input does that.
+    -- but maybe we should fix so if avformat_open_input fails,
+    -- the context is still freed?
     checkRes "avformat_open_input" (== 0)
       (with ctx $ \pctx ->
         withCString videoPath $ \pvid ->

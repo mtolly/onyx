@@ -3,11 +3,11 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Main where
 
-import           Build                          (loadYaml)
 import           Config
 import           Control.Concurrent             (threadDelay)
 import           Control.Exception              (bracket, bracket_, throwIO)
 import           Control.Monad                  (forM, forM_, guard, void)
+import           Control.Monad.Codec.Onyx.JSON  (loadYaml)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.Trans.Resource   (runResourceT)
 import           Control.Monad.Trans.StackTrace
@@ -38,7 +38,8 @@ main = getArgs >>= \case
     res <- runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
       index <- maybe (fatal "Invalid track number") return $ readMaybe strIndex
       _ <- importSTFS 0 con Nothing dir
-      allTracks <- fmap (concat . previewTracks) $ loadTracks Nothing $ dir </> "notes.mid"
+      songYaml <- loadYaml $ dir </> "song.yml"
+      allTracks <- fmap (concat . previewTracks) $ loadTracks songYaml $ dir </> "notes.mid"
       drums <- case snd $ allTracks !! index of
         PreviewDrums drums -> return drums
         _                  -> fatal "Not a drums track"
@@ -68,7 +69,8 @@ main = getArgs >>= \case
 
   [con] -> void $ runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
     _ <- importSTFS 0 con Nothing dir
-    trks <- fmap (concat . previewTracks) $ loadTracks Nothing $ dir </> "notes.mid"
+    songYaml <- loadYaml $ dir </> "song.yml"
+    trks <- fmap (concat . previewTracks) $ loadTracks songYaml $ dir </> "notes.mid"
     stackIO $ forM_ (zip [0..] trks) $ \(i, (name, _)) -> do
       putStrLn $ show (i :: Int) <> ": " <> T.unpack name
 
@@ -76,7 +78,8 @@ main = getArgs >>= \case
     res <- runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
       indexes <- forM strIndexes $ maybe (fatal "Invalid track number") return . readMaybe
       _ <- importSTFS 0 con Nothing dir
-      allTracks <- fmap (concat . previewTracks) $ loadTracks Nothing $ dir </> "notes.mid"
+      songYaml <- loadYaml $ dir </> "song.yml"
+      allTracks <- fmap (concat . previewTracks) $ loadTracks songYaml $ dir </> "notes.mid"
       let trks = map (snd . (allTracks !!)) indexes
       yml <- loadYaml $ dir </> "song.yml"
       (pans, vols) <- case HM.toList $ _plans (yml :: SongYaml FilePath) of
@@ -117,7 +120,7 @@ playDrumTrack
   -> FilePath
   -> IO ()
 playDrumTrack window trk pans vols ogg = do
-  Right glStuff <- logStdout loadGLStuff
+  Right glStuff <- logStdout $ loadGLStuff []
   let ticksMilli :: IO Milli
       ticksMilli = MkFixed . fromIntegral <$> SDL.ticks
       delayMilli :: Milli -> IO ()
@@ -180,7 +183,7 @@ playDrumTrack window trk pans vols ogg = do
 
 playTracks :: SDL.Window -> [PreviewTrack] -> [Float] -> [Float] -> FilePath -> IO ()
 playTracks window trks pans vols ogg = do
-  Right glStuff <- logStdout loadGLStuff
+  Right glStuff <- logStdout $ loadGLStuff []
   let ticksMilli :: IO Milli
       ticksMilli = MkFixed . fromIntegral <$> SDL.ticks
       delayMilli :: Milli -> IO ()
@@ -222,6 +225,6 @@ playTracks window trks pans vols ogg = do
         _             -> processEvents s es
       draw t = do
         SDL.V2 w h <- fmap fromIntegral <$> SDL.glGetDrawableSize window
-        drawTracks glStuff (WindowDims w h) (realToFrac t) 1 trks
+        drawTracks glStuff (WindowDims w h) (realToFrac t) 1 Nothing trks
         SDL.glSwapWindow window
   loop $ AppState { songTime = 0, sdlStartedPlay = Nothing }

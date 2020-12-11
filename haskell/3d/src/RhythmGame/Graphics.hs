@@ -1043,14 +1043,27 @@ data Texture = Texture
   , textureHeight :: Int
   } deriving (Show)
 
+flipVertical :: (Pixel a) => Image a -> Image a
+flipVertical img = let
+  lineElements = componentCount (pixelAt img 0 0) * imageWidth img
+  splitLines v = let
+    len = VS.length v
+    in if len > lineElements
+      then case VS.splitAt (len - lineElements) v of
+        (x, y) -> y : splitLines x
+      else [v | not $ VS.null v]
+  in img { imageData = VS.concat $ splitLines $ imageData img }
+
 loadTexture :: (GLPixel a, MonadIO m) => Bool -> Image a -> m Texture
 loadTexture linear img = liftIO $ do
   let pixelProp :: (a -> b) -> Image a -> b
       pixelProp f _ = f undefined
-      flippedVert = generateImage
-        (\x y -> pixelAt img x $ imageHeight img - y - 1)
-        (imageWidth img)
-        (imageHeight img)
+      flippedVert = flipVertical img
+      -- Old implementation, this eats a ton of memory for some reason!
+      -- flippedVert = generateImage
+      --   (\x y -> pixelAt img x $ imageHeight img - y - 1)
+      --   (imageWidth img)
+      --   (imageHeight img)
   texture <- fillPtr $ glGenTextures 1
   glBindTexture GL_TEXTURE_2D texture
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_CLAMP_TO_EDGE
@@ -1612,7 +1625,7 @@ setFramebufferSize fbufs w h = case fbufs of
     glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR
 
 deleteGLStuff :: (MonadIO m) => GLStuff -> m ()
-deleteGLStuff GLStuff{..} = liftIO $ do
+deleteGLStuff glStuff@GLStuff{..} = liftIO $ do
   glDeleteProgram objectShader
   glDeleteProgram quadShader
   withArrayLen (map objVAO $ [boxObject, flatObject, quadObject] ++ map snd models)
@@ -1627,6 +1640,12 @@ deleteGLStuff GLStuff{..} = liftIO $ do
       withArrayLen [simpleFBOTex] $ glDeleteTextures . fromIntegral
       withArrayLen [simpleFBORender] $ glDeleteRenderbuffers . fromIntegral
   mapM_ (freeTexture . snd) textures
+  mapM_ freeTexture $ Map.elems imageBGs
+  stopVideoLoaders glStuff
+
+stopVideoLoaders :: (MonadIO m) => GLStuff -> m ()
+stopVideoLoaders GLStuff{..} = liftIO $ do
+  forM_ (Map.elems videoBGs) $ \vh -> frameMessage (videoFrameLoader vh) CloseLoader
 
 data WindowDims = WindowDims Int Int
 
