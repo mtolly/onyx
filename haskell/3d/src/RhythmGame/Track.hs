@@ -48,7 +48,7 @@ import           WebPlayer                        (findTremolos, findTrills,
 data PreviewTrack
   = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType))))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState (Maybe F.Color))))
-  | PreviewPG (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
+  | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   deriving (Show)
 
 data PreviewBG
@@ -273,14 +273,14 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
               RBFile.FlexExtra "bonus-lead"   -> "RS Bonus Lead"
               RBFile.FlexExtra "bonus-rhythm" -> "RS Bonus Rhythm"
               _                               -> T.pack $ show fpart <> " [RS Guitar]"
-        return $ (\rso -> (name, PreviewPG $ pgRocksmith rso)) <$> buildRS tempos srcG
+        return $ (\rso -> (name, PreviewPG (pgTuning ppg) $ pgRocksmith rso)) <$> buildRS tempos srcG
       , do
         guard $ not $ RTB.null $ rsNotes srcB
         let name = case fpart of
               RBFile.FlexBass               -> "RS Bass"
               RBFile.FlexExtra "bonus-bass" -> "RS Bonus Bass"
               _                             -> T.pack $ show fpart <> " [RS Bass]"
-        return $ (\rso -> (name, PreviewPG $ pgRocksmith rso)) <$> buildRS tempos srcB
+        return $ (\rso -> (name, PreviewPG (pgTuning ppg) $ pgRocksmith rso)) <$> buildRS tempos srcB
       ]
 
   pgTrack fpart ppg diff = let
@@ -396,7 +396,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           _                 -> T.pack $ show fpart <> " [PG]"
         in diffPairs >>= \(diff, letter) -> case pgTrack fpart ppg diff of
           Nothing  -> []
-          Just trk -> [(name <> " (" <> letter <> ")", PreviewPG trk)]
+          Just trk -> [(name <> " (" <> letter <> ")", PreviewPG (pgTuning ppg) trk)]
     rs = case partProGuitar part of
       Nothing  -> return []
       Just ppg -> rsTracks fpart ppg

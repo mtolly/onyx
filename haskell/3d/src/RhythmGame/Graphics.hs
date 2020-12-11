@@ -645,8 +645,8 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
   -- draw notes
   drawNotes farTime $ Map.toDescList zoomed
 
-drawPG :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (PGState Double)) -> IO ()
-drawPG glStuff@GLStuff{..} nowTime speed trk = do
+drawPG :: GLStuff -> Double -> Double -> PG.GtrTuning -> Map.Map Double (CommonState (PGState Double)) -> IO ()
+drawPG glStuff@GLStuff{..} nowTime speed tuning trk = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
   let drawObject' = drawObject glStuff
@@ -664,15 +664,25 @@ drawPG glStuff@GLStuff{..} nowTime speed trk = do
         - C.na_x_left  (C.trk_note_area $ C.cfg_track gfxConfig)
       fracToX f = C.na_x_left (C.trk_note_area $ C.cfg_track gfxConfig) + trackWidth * f
       sc = C.sust_colors $ C.obj_sustains $ C.cfg_objects gfxConfig
-      allStrings =
-        [ (PG.S6, (C.sc_red    sc, TextureTargetRed   , TextureTargetRedLight   , TextureRSRed   ))
-        , (PG.S5, (C.sc_yellow sc, TextureTargetYellow, TextureTargetYellowLight, TextureRSYellow))
-        , (PG.S4, (C.sc_blue   sc, TextureTargetBlue  , TextureTargetBlueLight  , TextureRSBlue  ))
-        , (PG.S3, (C.sc_orange sc, TextureTargetOrange, TextureTargetOrangeLight, TextureRSOrange))
-        , (PG.S2, (C.sc_green  sc, TextureTargetGreen , TextureTargetGreenLight , TextureRSGreen ))
-        , (PG.S1, (C.sc_blue   sc, TextureTargetBlue  , TextureTargetBlueLight  , TextureRSPurple)) -- TODO should be purple
-        ] -- TODO determine based on chart
+      strR = (C.sc_red    sc, TextureTargetRed   , TextureTargetRedLight   , TextureRSRed   )
+      strY = (C.sc_yellow sc, TextureTargetYellow, TextureTargetYellowLight, TextureRSYellow)
+      strB = (C.sc_blue   sc, TextureTargetBlue  , TextureTargetBlueLight  , TextureRSBlue  )
+      strO = (C.sc_orange sc, TextureTargetOrange, TextureTargetOrangeLight, TextureRSOrange)
+      strG = (C.sc_green  sc, TextureTargetGreen , TextureTargetGreenLight , TextureRSGreen )
+      strP = (C.sc_purple sc, TextureTargetPurple, TextureTargetPurpleLight, TextureRSPurple)
+      allStrings = case PG.gtrBase tuning of
+        PG.Guitar6      -> zip [PG.S6 ..] [            strR, strY, strB, strO, strG, strP]
+        PG.Guitar7      -> zip [PG.S7 ..] [      strP, strR, strY, strB, strO, strG, strP]
+        PG.Guitar8      -> zip [PG.S8 ..] [strG, strP, strR, strY, strB, strO, strG, strP]
+        PG.Bass4        -> zip [PG.S6 ..] [            strR, strY, strB, strO            ]
+        PG.Bass5        -> zip [PG.S6 ..] [      strP, strR, strY, strB, strO            ]
+        PG.Bass6        -> zip [PG.S6 ..] [      strP, strR, strY, strB, strO, strG      ]
+        PG.GtrCustom ns -> case length ns of
+          n | n <= 6 -> take n $ zip [PG.S6 ..]    [strR, strY, strB, strO, strG, strP]
+          7          -> zip [PG.S7 ..] [      strP, strR, strY, strB, strO, strG, strP]
+          _          -> zip [PG.S8 ..] [strG, strP, strR, strY, strB, strO, strG, strP]
       numStrings = fromIntegral $ length allStrings :: Float
+      -- TODO probably should center strings when less than 6, instead of stretching them
       stringCenterX str = fracToX $ maybe 0 fromIntegral (findIndex ((== str) . fst) allStrings) / numStrings + 1 / (numStrings * 2)
       drawSustain t1 t2 od str
         | t2 <= nowTime = return ()
@@ -1184,11 +1194,13 @@ data TextureID
   | TextureTargetYellow
   | TextureTargetBlue
   | TextureTargetOrange
+  | TextureTargetPurple
   | TextureTargetGreenLight
   | TextureTargetRedLight
   | TextureTargetYellowLight
   | TextureTargetBlueLight
   | TextureTargetOrangeLight
+  | TextureTargetPurpleLight
   | TextureNumber0
   | TextureNumber1
   | TextureNumber2
@@ -1420,11 +1432,13 @@ loadGLStuff bgs = do
           TextureTargetYellow      -> "target-yellow"
           TextureTargetBlue        -> "target-blue"
           TextureTargetOrange      -> "target-orange"
+          TextureTargetPurple      -> "target-purple"
           TextureTargetGreenLight  -> "target-green-light"
           TextureTargetRedLight    -> "target-red-light"
           TextureTargetYellowLight -> "target-yellow-light"
           TextureTargetBlueLight   -> "target-blue-light"
           TextureTargetOrangeLight -> "target-orange-light"
+          TextureTargetPurpleLight -> "target-purple-light"
           TextureNumber0           -> "number-0"
           TextureNumber1           -> "number-1"
           TextureNumber2           -> "number-2"
@@ -1851,9 +1865,9 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trk
     glClear GL_COLOR_BUFFER_BIT
     setUpTrackView glStuff (WindowDims w h)
     case trk of
-      PreviewDrums m -> drawDrums glStuff time speed m
-      PreviewFive  m -> drawFive  glStuff time speed m
-      PreviewPG    m -> drawPG    glStuff time speed m
+      PreviewDrums m -> drawDrums glStuff time speed   m
+      PreviewFive  m -> drawFive  glStuff time speed   m
+      PreviewPG  t m -> drawPG    glStuff time speed t m
 
     case framebuffers of
       SimpleFramebuffer{..} -> do

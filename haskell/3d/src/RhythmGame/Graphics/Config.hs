@@ -254,6 +254,7 @@ data SustainColors = SustainColors
   , sc_yellow :: Color
   , sc_blue   :: Color
   , sc_orange :: Color
+  , sc_purple :: Color
   , sc_energy :: Color
   } deriving (Show)
 
@@ -265,6 +266,7 @@ instance StackJSON SustainColors where
     sc_yellow <- sc_yellow =. req "yellow" stackColor
     sc_blue   <- sc_blue   =. req "blue"   stackColor
     sc_orange <- sc_orange =. req "orange" stackColor
+    sc_purple <- sc_purple =. req "purple" stackColor
     sc_energy <- sc_energy =. req "energy" stackColor
     return SustainColors{..}
 

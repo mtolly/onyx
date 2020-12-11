@@ -91,6 +91,7 @@ objects:
       yellow: '#f4e05d'
       blue: '#7a74f7'
       orange: '#f4b153'
+      purple: '#d650f2'
       energy: '#6cf7c6'
     # X span, centered in fret area
     width:
