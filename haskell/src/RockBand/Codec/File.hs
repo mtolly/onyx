@@ -26,6 +26,8 @@ import           Data.Foldable                     (find, toList)
 import           Data.Functor.Identity             (Identity)
 import           Data.Hashable                     (Hashable (..))
 import           Data.List.Extra                   (nubOrd, partition, sortOn)
+import           Data.List.NonEmpty                (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty                as NE
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (catMaybes, fromJust,
                                                     fromMaybe, isNothing,
@@ -68,8 +70,8 @@ fileId = id
 class ParseFile f where
   parseFile :: (SendMessage m) => FileCodec m U.Beats (f U.Beats)
 
-fileTrack :: (SendMessage m, ParseTrack trk) => T.Text -> [T.Text] -> FileCodec m U.Beats (trk U.Beats)
-fileTrack name otherNames = Codec
+fileTrack :: (SendMessage m, ParseTrack trk) => NonEmpty T.Text -> FileCodec m U.Beats (trk U.Beats)
+fileTrack (name :| otherNames) = Codec
   { codecIn = do
     trks <- lift get
     let (match, rest) = partition matchTrack trks
@@ -159,34 +161,34 @@ instance TraverseTrack FixedFile where
 
 instance ParseFile FixedFile where
   parseFile = do
-    fixedPartDrums        <- fixedPartDrums        =. fileTrack "PART DRUMS"          ["PART DRUM"]
-    fixedPartDrums2x      <- fixedPartDrums2x      =. fileTrack "PART DRUMS_2X"       []
-    fixedPartRealDrumsPS  <- fixedPartRealDrumsPS  =. fileTrack "PART REAL_DRUMS_PS"  []
-    fixedPartGuitar       <- fixedPartGuitar       =. fileTrack "PART GUITAR"         ["T1 GEMS"]
-    fixedPartBass         <- fixedPartBass         =. fileTrack "PART BASS"           []
-    fixedPartKeys         <- fixedPartKeys         =. fileTrack "PART KEYS"           []
-    fixedPartRhythm       <- fixedPartRhythm       =. fileTrack "PART RHYTHM"         []
-    fixedPartGuitarCoop   <- fixedPartGuitarCoop   =. fileTrack "PART GUITAR COOP"    []
-    fixedPartRealGuitar   <- fixedPartRealGuitar   =. fileTrack "PART REAL_GUITAR"    []
-    fixedPartRealGuitar22 <- fixedPartRealGuitar22 =. fileTrack "PART REAL_GUITAR_22" []
-    fixedPartRealBass     <- fixedPartRealBass     =. fileTrack "PART REAL_BASS"      []
-    fixedPartRealBass22   <- fixedPartRealBass22   =. fileTrack "PART REAL_BASS_22"   []
-    fixedPartGuitarGHL    <- fixedPartGuitarGHL    =. fileTrack "PART GUITAR GHL"     []
-    fixedPartBassGHL      <- fixedPartBassGHL      =. fileTrack "PART BASS GHL"       []
-    fixedPartRealKeysE    <- fixedPartRealKeysE    =. fileTrack "PART REAL_KEYS_E"    []
-    fixedPartRealKeysM    <- fixedPartRealKeysM    =. fileTrack "PART REAL_KEYS_M"    []
-    fixedPartRealKeysH    <- fixedPartRealKeysH    =. fileTrack "PART REAL_KEYS_H"    []
-    fixedPartRealKeysX    <- fixedPartRealKeysX    =. fileTrack "PART REAL_KEYS_X"    []
-    fixedPartKeysAnimLH   <- fixedPartKeysAnimLH   =. fileTrack "PART KEYS_ANIM_LH"   []
-    fixedPartKeysAnimRH   <- fixedPartKeysAnimRH   =. fileTrack "PART KEYS_ANIM_RH"   []
-    fixedPartVocals       <- fixedPartVocals       =. fileTrack "PART VOCALS"         []
-    fixedPartDance        <- fixedPartDance        =. fileTrack "PART DANCE"          []
-    fixedHarm1            <- fixedHarm1            =. fileTrack "HARM1"               ["PART HARM1"] -- PART is used in TBRB
-    fixedHarm2            <- fixedHarm2            =. fileTrack "HARM2"               ["PART HARM2"]
-    fixedHarm3            <- fixedHarm3            =. fileTrack "HARM3"               ["PART HARM3"]
-    fixedEvents           <- fixedEvents           =. fileTrack "EVENTS"              []
-    fixedBeat             <- fixedBeat             =. fileTrack "BEAT"                []
-    fixedVenue            <- fixedVenue            =. fileTrack "VENUE"               []
+    fixedPartDrums        <- fixedPartDrums        =. fileTrack ("PART DRUMS"          :| ["PART DRUM"])
+    fixedPartDrums2x      <- fixedPartDrums2x      =. fileTrack ("PART DRUMS_2X"       :| [])
+    fixedPartRealDrumsPS  <- fixedPartRealDrumsPS  =. fileTrack ("PART REAL_DRUMS_PS"  :| [])
+    fixedPartGuitar       <- fixedPartGuitar       =. fileTrack ("PART GUITAR"         :| ["T1 GEMS"])
+    fixedPartBass         <- fixedPartBass         =. fileTrack ("PART BASS"           :| [])
+    fixedPartKeys         <- fixedPartKeys         =. fileTrack ("PART KEYS"           :| [])
+    fixedPartRhythm       <- fixedPartRhythm       =. fileTrack ("PART RHYTHM"         :| [])
+    fixedPartGuitarCoop   <- fixedPartGuitarCoop   =. fileTrack ("PART GUITAR COOP"    :| [])
+    fixedPartRealGuitar   <- fixedPartRealGuitar   =. fileTrack ("PART REAL_GUITAR"    :| [])
+    fixedPartRealGuitar22 <- fixedPartRealGuitar22 =. fileTrack ("PART REAL_GUITAR_22" :| [])
+    fixedPartRealBass     <- fixedPartRealBass     =. fileTrack ("PART REAL_BASS"      :| [])
+    fixedPartRealBass22   <- fixedPartRealBass22   =. fileTrack ("PART REAL_BASS_22"   :| [])
+    fixedPartGuitarGHL    <- fixedPartGuitarGHL    =. fileTrack ("PART GUITAR GHL"     :| [])
+    fixedPartBassGHL      <- fixedPartBassGHL      =. fileTrack ("PART BASS GHL"       :| [])
+    fixedPartRealKeysE    <- fixedPartRealKeysE    =. fileTrack ("PART REAL_KEYS_E"    :| [])
+    fixedPartRealKeysM    <- fixedPartRealKeysM    =. fileTrack ("PART REAL_KEYS_M"    :| [])
+    fixedPartRealKeysH    <- fixedPartRealKeysH    =. fileTrack ("PART REAL_KEYS_H"    :| [])
+    fixedPartRealKeysX    <- fixedPartRealKeysX    =. fileTrack ("PART REAL_KEYS_X"    :| [])
+    fixedPartKeysAnimLH   <- fixedPartKeysAnimLH   =. fileTrack ("PART KEYS_ANIM_LH"   :| [])
+    fixedPartKeysAnimRH   <- fixedPartKeysAnimRH   =. fileTrack ("PART KEYS_ANIM_RH"   :| [])
+    fixedPartVocals       <- fixedPartVocals       =. fileTrack ("PART VOCALS"         :| [])
+    fixedPartDance        <- fixedPartDance        =. fileTrack ("PART DANCE"          :| [])
+    fixedHarm1            <- fixedHarm1            =. fileTrack ("HARM1"               :| ["PART HARM1"]) -- PART is used in TBRB
+    fixedHarm2            <- fixedHarm2            =. fileTrack ("HARM2"               :| ["PART HARM2"])
+    fixedHarm3            <- fixedHarm3            =. fileTrack ("HARM3"               :| ["PART HARM3"])
+    fixedEvents           <- fixedEvents           =. fileTrack ("EVENTS"              :| [])
+    fixedBeat             <- fixedBeat             =. fileTrack ("BEAT"                :| [])
+    fixedVenue            <- fixedVenue            =. fileTrack ("VENUE"               :| [])
     return FixedFile{..}
 
 data FlexPartName
@@ -331,56 +333,56 @@ identifyFlexTrack name = case T.stripPrefix "[" name of
 
 parseOnyxPart :: (SendMessage m) => FlexPartName -> FileCodec m U.Beats (OnyxPart U.Beats)
 parseOnyxPart partName = do
-  let names defPair otherPairs = case lookup partName $ defPair : otherPairs of
-        Just rawName -> fileTrack rawName $ map adorn $ defPair : otherPairs
-        Nothing      -> fileTrack (adorn defPair) (map adorn otherPairs)
+  let names pairs = let
+        rawNames = fmap snd $ NE.filter ((== partName) . fst) pairs
+        in fileTrack $ foldr NE.cons (fmap adorn pairs) rawNames
       adorn (_, trkName) = "[" <> getPartName partName <> "] " <> trkName
-  onyxPartDrums        <- onyxPartDrums        =. names (FlexDrums, "PART DRUMS") []
-  onyxPartDrums2x      <- onyxPartDrums2x      =. names (FlexDrums, "PART DRUMS_2X") []
-  onyxPartRealDrumsPS  <- onyxPartRealDrumsPS  =. names (FlexDrums, "PART REAL_DRUMS_PS") []
+  onyxPartDrums        <- onyxPartDrums        =. names (pure (FlexDrums, "PART DRUMS"))
+  onyxPartDrums2x      <- onyxPartDrums2x      =. names (pure (FlexDrums, "PART DRUMS_2X"))
+  onyxPartRealDrumsPS  <- onyxPartRealDrumsPS  =. names (pure (FlexDrums, "PART REAL_DRUMS_PS"))
   onyxPartGuitar       <- onyxPartGuitar       =. names
-    (FlexGuitar, "PART GUITAR")
+    ( (FlexGuitar, "PART GUITAR") :|
     [ (FlexBass, "PART BASS")
     , (FlexExtra "rhythm", "PART RHYTHM")
     , (FlexExtra "guitar-coop", "PART GUITAR COOP")
-    ]
-  onyxPartKeys         <- onyxPartKeys         =. names (FlexKeys, "PART KEYS") []
+    ])
+  onyxPartKeys         <- onyxPartKeys         =. names (pure (FlexKeys, "PART KEYS"))
   onyxPartGuitarExt    <- onyxPartGuitarExt    =. names
-    (FlexGuitar, "PART GUITAR EXT")
+    ( (FlexGuitar, "PART GUITAR EXT") :|
     [ (FlexBass, "PART BASS EXT")
     , (FlexExtra "rhythm", "PART RHYTHM EXT")
     , (FlexExtra "guitar-coop", "PART GUITAR COOP EXT")
-    ]
+    ])
   onyxPartSix          <- onyxPartSix          =. names
-    (FlexGuitar, "PART GUITAR GHL")
-    [ (FlexBass, "PART BASS GHL") ]
+    ((FlexGuitar, "PART GUITAR GHL") :|
+    [ (FlexBass, "PART BASS GHL") ])
   onyxPartRealGuitar   <- onyxPartRealGuitar   =. names
-    (FlexGuitar, "PART REAL_GUITAR")
-    [ (FlexBass, "PART REAL_BASS") ]
+    ( (FlexGuitar, "PART REAL_GUITAR") :|
+    [ (FlexBass, "PART REAL_BASS") ])
   onyxPartRealGuitar22 <- onyxPartRealGuitar22 =. names
-    (FlexGuitar, "PART REAL_GUITAR_22")
-    [ (FlexBass, "PART REAL_BASS_22") ]
+    ( (FlexGuitar, "PART REAL_GUITAR_22") :|
+    [ (FlexBass, "PART REAL_BASS_22") ])
   onyxPartRSGuitar <- onyxPartRSGuitar =. names
-    (FlexGuitar, "PART RS LEAD")
-    [ (FlexExtra "rhythm", "PART RS RHYTHM") ]
-  onyxPartRSBass <- onyxPartRSBass =. names (FlexBass, "PART RS BASS") []
-  onyxPartRealKeysE    <- onyxPartRealKeysE    =. names (FlexKeys, "PART REAL_KEYS_E") []
-  onyxPartRealKeysM    <- onyxPartRealKeysM    =. names (FlexKeys, "PART REAL_KEYS_M") []
-  onyxPartRealKeysH    <- onyxPartRealKeysH    =. names (FlexKeys, "PART REAL_KEYS_H") []
-  onyxPartRealKeysX    <- onyxPartRealKeysX    =. names (FlexKeys, "PART REAL_KEYS_X") []
-  onyxPartKeysAnimLH   <- onyxPartKeysAnimLH   =. names (FlexKeys, "PART KEYS_ANIM_LH") []
-  onyxPartKeysAnimRH   <- onyxPartKeysAnimRH   =. names (FlexKeys, "PART KEYS_ANIM_RH") []
-  onyxPartVocals       <- onyxPartVocals       =. names (FlexVocal, "PART VOCALS") []
-  onyxHarm1            <- onyxHarm1            =. names (FlexVocal, "HARM1") [(FlexVocal, "PART HARM1")]
-  onyxHarm2            <- onyxHarm2            =. names (FlexVocal, "HARM2") [(FlexVocal, "PART HARM2")]
-  onyxHarm3            <- onyxHarm3            =. names (FlexVocal, "HARM3") [(FlexVocal, "PART HARM3")]
-  onyxCatch            <- onyxCatch            =. names (FlexExtra "undefined", "CATCH") []
-  onyxMelody           <- onyxMelody           =. names (FlexExtra "global", "MELODY'S ESCAPE") []
-  onyxLipsync1         <- onyxLipsync1         =. names (FlexVocal, "LIPSYNC1") []
-  onyxLipsync2         <- onyxLipsync2         =. names (FlexVocal, "LIPSYNC2") []
-  onyxLipsync3         <- onyxLipsync3         =. names (FlexVocal, "LIPSYNC3") []
-  onyxLipsync4         <- onyxLipsync4         =. names (FlexVocal, "LIPSYNC4") []
-  onyxPartDance        <- onyxPartDance        =. names (FlexExtra "global", "PART DANCE") []
+    ( (FlexGuitar, "PART RS LEAD") :|
+    [ (FlexExtra "rhythm", "PART RS RHYTHM") ])
+  onyxPartRSBass <- onyxPartRSBass =. names (pure (FlexBass, "PART RS BASS"))
+  onyxPartRealKeysE    <- onyxPartRealKeysE    =. names (pure (FlexKeys, "PART REAL_KEYS_E"))
+  onyxPartRealKeysM    <- onyxPartRealKeysM    =. names (pure (FlexKeys, "PART REAL_KEYS_M"))
+  onyxPartRealKeysH    <- onyxPartRealKeysH    =. names (pure (FlexKeys, "PART REAL_KEYS_H"))
+  onyxPartRealKeysX    <- onyxPartRealKeysX    =. names (pure (FlexKeys, "PART REAL_KEYS_X"))
+  onyxPartKeysAnimLH   <- onyxPartKeysAnimLH   =. names (pure (FlexKeys, "PART KEYS_ANIM_LH"))
+  onyxPartKeysAnimRH   <- onyxPartKeysAnimRH   =. names (pure (FlexKeys, "PART KEYS_ANIM_RH"))
+  onyxPartVocals       <- onyxPartVocals       =. names (pure (FlexVocal, "PART VOCALS"))
+  onyxHarm1            <- onyxHarm1            =. names ((FlexVocal, "HARM1") :| [(FlexVocal, "PART HARM1")])
+  onyxHarm2            <- onyxHarm2            =. names ((FlexVocal, "HARM2") :| [(FlexVocal, "PART HARM2")])
+  onyxHarm3            <- onyxHarm3            =. names ((FlexVocal, "HARM3") :| [(FlexVocal, "PART HARM3")])
+  onyxCatch            <- onyxCatch            =. names (pure (FlexExtra "undefined", "CATCH"))
+  onyxMelody           <- onyxMelody           =. names (pure (FlexExtra "global", "MELODY'S ESCAPE"))
+  onyxLipsync1         <- onyxLipsync1         =. names (pure (FlexVocal, "LIPSYNC1"))
+  onyxLipsync2         <- onyxLipsync2         =. names (pure (FlexVocal, "LIPSYNC2"))
+  onyxLipsync3         <- onyxLipsync3         =. names (pure (FlexVocal, "LIPSYNC3"))
+  onyxLipsync4         <- onyxLipsync4         =. names (pure (FlexVocal, "LIPSYNC4"))
+  onyxPartDance        <- onyxPartDance        =. names (pure (FlexExtra "global", "PART DANCE"))
   return OnyxPart{..}
 
 instance ParseFile OnyxFile where
@@ -396,11 +398,11 @@ instance ParseFile OnyxFile where
       , codecOut = fmapArg $ \parts -> forM_ (Map.toAscList parts) $ \(partName, trk) ->
         codecOut (fileId $ parseOnyxPart partName) trk
       }
-    onyxEvents   <- onyxEvents   =. fileTrack "EVENTS"          []
-    onyxBeat     <- onyxBeat     =. fileTrack "BEAT"            []
-    onyxVenue    <- onyxVenue    =. fileTrack "VENUE"           []
-    onyxLighting <- onyxLighting =. fileTrack "LIGHTING"        []
-    onyxCamera   <- onyxCamera   =. fileTrack "CAMERA"          []
+    onyxEvents   <- onyxEvents   =. fileTrack (pure "EVENTS"  )
+    onyxBeat     <- onyxBeat     =. fileTrack (pure "BEAT"    )
+    onyxVenue    <- onyxVenue    =. fileTrack (pure "VENUE"   )
+    onyxLighting <- onyxLighting =. fileTrack (pure "LIGHTING")
+    onyxCamera   <- onyxCamera   =. fileTrack (pure "CAMERA"  )
     return OnyxFile{..}
 
 newtype RawFile t = RawFile { rawTracks :: [RTB.T t E.T] }
@@ -525,7 +527,7 @@ mergeCharts offset base new = let
 
 parseTracks :: (SendMessage m, ParseTrack trk) => [RTB.T U.Beats E.T] -> T.Text -> StackTraceT m (trk U.Beats)
 parseTracks trks name = do
-  (file, _unrec) <- flip mapStackTraceT (codecIn $ fileTrack name []) $ \f -> do
+  (file, _unrec) <- flip mapStackTraceT (codecIn $ fileTrack $ pure name) $ \f -> do
     flip fmap (runStateT f trks) $ \case
       (Left  err , _    ) -> Left  err
       (Right file, unrec) -> Right (file, unrec)

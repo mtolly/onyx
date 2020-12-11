@@ -88,7 +88,7 @@ instance StackChunks Song where
 data SongPackage = SongPackage
   -- rbn2 keys in c3 magma order:
   { name              :: T.Text
-  , artist            :: T.Text
+  , artist            :: Maybe T.Text -- absent in beatles
   , master            :: Bool
   , song              :: Song
   , songScrollSpeed   :: Integer
@@ -98,12 +98,12 @@ data SongPackage = SongPackage
   , songLength        :: Maybe Integer
   , preview           :: (Integer, Integer)
   , rank              :: Map.HashMap T.Text Integer
-  , genre             :: T.Text
+  , genre             :: Maybe T.Text -- absent in beatles
   , vocalGender       :: Maybe Gender
   , version           :: Integer
   , songFormat        :: Integer
   , albumArt          :: Maybe Bool
-  , yearReleased      :: Integer
+  , yearReleased      :: Maybe Integer -- absent in beatles (has date_released)
   , rating            :: Integer
   , subGenre          :: Maybe T.Text
   , songId            :: Maybe (Either Integer T.Text)
@@ -123,7 +123,7 @@ data SongPackage = SongPackage
   , fake              :: Maybe Bool
   , ugc               :: Maybe Bool
   , shortVersion      :: Maybe Integer
-  , yearRecorded      :: Maybe Integer
+  , yearRecorded      :: Maybe Integer -- beatles uses date_recorded
   , packName          :: Maybe T.Text
   , songKey           :: Maybe Key -- shows in pro gtr/keys trainer I think
   , extraAuthoring    :: Maybe [T.Text] -- added by rb3 update snippets
@@ -133,12 +133,14 @@ data SongPackage = SongPackage
   , basePoints        :: Maybe Integer
   , alternatePath     :: Maybe Bool
   , videoVenues       :: Maybe [T.Text] -- lego
+  , dateReleased      :: Maybe T.Text -- beatles, "YYYY-MM-DD" format
+  , dateRecorded      :: Maybe T.Text -- beatles, "YYYY-MM-DD" format
   } deriving (Eq, Show)
 
 instance StackChunks SongPackage where
   stackChunks = asWarnAssoc "SongPackage" $ do
     name              <- name              =. req         "name"                (single chunkString)
-    artist            <- artist            =. req         "artist"              (single chunkString)
+    artist            <- artist            =. opt Nothing "artist"              (chunksMaybe $ single chunkString)
     master            <- master            =. fill False  "master"              stackChunks
     song              <- song              =. req         "song"                stackChunks
     songScrollSpeed   <- songScrollSpeed   =. req         "song_scroll_speed"   stackChunks
@@ -148,12 +150,12 @@ instance StackChunks SongPackage where
     songLength        <- songLength        =. opt Nothing "song_length"         stackChunks
     preview           <- preview           =. req         "preview"             stackChunks
     rank              <- rank              =. req         "rank"                (chunksDict chunkSym stackChunks)
-    genre             <- genre             =. req         "genre"               (single chunkSym)
+    genre             <- genre             =. opt Nothing "genre"               (chunksMaybe $ single chunkSym)
     vocalGender       <- vocalGender       =. opt Nothing "vocal_gender"        stackChunks
     version           <- version           =. req         "version"             stackChunks
     songFormat        <- songFormat        =. req         "format"              stackChunks
     albumArt          <- albumArt          =. opt Nothing "album_art"           stackChunks
-    yearReleased      <- yearReleased      =. req         "year_released"       stackChunks
+    yearReleased      <- yearReleased      =. opt Nothing "year_released"       stackChunks
     rating            <- rating            =. fill 4      "rating"              stackChunks -- 4 is Unrated
     subGenre          <- subGenre          =. opt Nothing "sub_genre"           (chunksMaybe $ single chunkSym)
     songId            <- songId            =. opt Nothing "song_id"             (chunksMaybe $ eitherCodec stackChunks $ single chunkSym)
@@ -184,4 +186,6 @@ instance StackChunks SongPackage where
     basePoints        <- basePoints        =. opt Nothing "base_points"         stackChunks
     alternatePath     <- alternatePath     =. opt Nothing "alternate_path"      stackChunks
     videoVenues       <- videoVenues       =. opt Nothing "video_venues"        (chunksMaybe $ chunksParens $ chunksList chunkSym)
+    dateReleased      <- dateReleased      =. opt Nothing "date_released"       (chunksMaybe $ single chunkString)
+    dateRecorded      <- dateRecorded      =. opt Nothing "date_recorded"       (chunksMaybe $ single chunkString)
     return SongPackage{..}

@@ -83,8 +83,8 @@ instance ParseFile AmplitudeFile where
               ]
           in case P.readP_to_S parseName trackName of
             [(fn, "")] -> Just <$> case fn of
-              Left  n               -> (n,) . Freestyle       <$> codecIn (fileTrack (T.pack trackName) [])
-              Right (n, inst, name) -> (n,) . Catch inst name <$> codecIn (fileTrack (T.pack trackName) [])
+              Left  n               -> (n,) . Freestyle       <$> codecIn (fileTrack $ pure $ T.pack trackName)
+              Right (n, inst, name) -> (n,) . Catch inst name <$> codecIn (fileTrack $ pure $ T.pack trackName)
             _ -> return Nothing
       , codecOut = fmapArg $ \parts -> forM_ (Map.toAscList parts) $ \(ix, trk) -> undefined ix trk
       }

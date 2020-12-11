@@ -250,7 +250,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               index = guard (not $ null $ drop 1 singles) >> Just i
               in Importable
                 { impTitle = Just $ D.name $ dtaSongPackage single
-                , impArtist = Just $ D.artist $ dtaSongPackage single
+                , impArtist = D.artist $ dtaSongPackage single
                 , impAuthor = c3dtaAuthoredBy $ dtaC3Comments single
                 , impFormat = fmt
                 , impPath = loc

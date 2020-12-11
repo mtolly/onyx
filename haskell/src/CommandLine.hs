@@ -136,7 +136,7 @@ getInfoForSTFS dir stfs = do
   fromMaybe (T.pack $ takeFileName stfs, T.pack stfs) <$> if ex
     then errorToWarning $ do
       (_, pkg, _) <- readRB3DTA dta
-      return (D.name pkg, D.name pkg <> " (" <> D.artist pkg <> ")")
+      return (D.name pkg, D.name pkg <> maybe "" (\artist -> " (" <> artist <> ")") (D.artist pkg))
     else return Nothing
 
 installSTFS :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
@@ -1148,7 +1148,7 @@ runDolphin cons midfn makePreview out = do
             songsXX = T.unpack $ D.songName $ D.song pkg
             songsXgen = takeDirectory songsXX </> "gen"
             songsXgenX = songsXgen </> takeFileName songsXX
-        lg $ "Song: " <> T.unpack (D.name pkg) <> " (" <> T.unpack (D.artist pkg) <> ")"
+        lg $ "Song: " <> T.unpack (D.name pkg) <> maybe "" (\artist -> " (" <> T.unpack artist <> ")") (D.artist pkg)
         stackIO $ Dir.createDirectoryIfMissing True $ dir_meta </> "content" </> songsXgen
         stackIO $ Dir.createDirectoryIfMissing True $ dir_song </> "content" </> songsXgen
         -- .mid (use unchanged, or edit to remove fills and/or mustang PG)

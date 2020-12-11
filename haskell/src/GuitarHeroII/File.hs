@@ -42,14 +42,14 @@ instance TraverseTrack GH2File where
 
 instance ParseFile GH2File where
   parseFile = do
-    gh2PartGuitar     <- gh2PartGuitar     =. fileTrack "PART GUITAR"      []
-    gh2PartBass       <- gh2PartBass       =. fileTrack "PART BASS"        []
-    gh2PartRhythm     <- gh2PartRhythm     =. fileTrack "PART RHYTHM"      []
-    gh2PartGuitarCoop <- gh2PartGuitarCoop =. fileTrack "PART GUITAR COOP" []
-    gh2BandBass       <- gh2BandBass       =. fileTrack "BAND BASS"        []
-    gh2BandDrums      <- gh2BandDrums      =. fileTrack "BAND DRUMS"       []
-    gh2BandKeys       <- gh2BandKeys       =. fileTrack "BAND KEYS"        []
-    gh2BandSinger     <- gh2BandSinger     =. fileTrack "BAND SINGER"      []
-    gh2Events         <- gh2Events         =. fileTrack "EVENTS"           []
-    gh2Triggers       <- gh2Triggers       =. fileTrack "TRIGGERS"         []
+    gh2PartGuitar     <- gh2PartGuitar     =. fileTrack (pure "PART GUITAR"     )
+    gh2PartBass       <- gh2PartBass       =. fileTrack (pure "PART BASS"       )
+    gh2PartRhythm     <- gh2PartRhythm     =. fileTrack (pure "PART RHYTHM"     )
+    gh2PartGuitarCoop <- gh2PartGuitarCoop =. fileTrack (pure "PART GUITAR COOP")
+    gh2BandBass       <- gh2BandBass       =. fileTrack (pure "BAND BASS"       )
+    gh2BandDrums      <- gh2BandDrums      =. fileTrack (pure "BAND DRUMS"      )
+    gh2BandKeys       <- gh2BandKeys       =. fileTrack (pure "BAND KEYS"       )
+    gh2BandSinger     <- gh2BandSinger     =. fileTrack (pure "BAND SINGER"     )
+    gh2Events         <- gh2Events         =. fileTrack (pure "EVENTS"          )
+    gh2Triggers       <- gh2Triggers       =. fileTrack (pure "TRIGGERS"        )
     return GH2File{..}

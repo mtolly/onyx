@@ -708,11 +708,11 @@ importSTFSDir index temp mtemp2x dir = do
         Just $ temp </> takeDirectory base </> "gen" </> takeFileName base <.> "milo_xbox"
       missingArt = updateDir </> T.unpack top </> "gen" </> (T.unpack top ++ "_keep.png_xbox")
       with2xPath maybe2x = do
-        albumArtFile <- case D.albumArt pkg of
-          Just True -> stackIO (Dir.doesFileExist missingArt) >>= return . Just . \case
+        albumArtFile <- if fromMaybe False (D.albumArt pkg) || D.gameOrigin pkg == Just "beatles"
+          then stackIO (Dir.doesFileExist missingArt) >>= return . Just . \case
             True -> missingArt -- old rb1 song with album art on rb3 disc
             False -> temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox")
-          _ -> return Nothing
+          else return Nothing
         importRB3 pkg meta karaoke multitrack hasKicks
           (temp </> base <.> "mid") updateFile maybe2x (temp </> base <.> "mogg")
           ((, "cover.png_xbox") <$> albumArtFile) mmilo dir
@@ -794,7 +794,7 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
       Dir.removeFile $ temp </> "temp_songs.dta"
       Dir.removeFile $ temp </> "temp_cover.bmp"
       Dir.removeFile $ temp </> "temp_extra.dta"
-    let label = D.name pkg <> " (" <> D.artist pkg <> ")"
+    let label = D.name pkg <> maybe "" (\artist -> " (" <> artist <> ")") (D.artist pkg)
     rb3pkg label label temp con
 
 importRBA :: (SendMessage m, MonadResource m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m Kicks
@@ -1008,11 +1008,15 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
   stackIO $ yamlEncodeFile (dir </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
       { _title        = _title meta <|> Just (D.name pkg)
-      , _artist       = Just $ D.artist pkg
+      , _artist       = case (D.artist pkg, D.gameOrigin pkg) of
+        (Nothing, Just "beatles") -> Just "The Beatles"
+        _                         -> D.artist pkg
       , _album        = D.albumName pkg
-      , _genre        = Just $ D.genre pkg
+      , _genre        = D.genre pkg
       , _subgenre     = D.subGenre pkg >>= T.stripPrefix "subgenre_"
-      , _year         = Just $ fromIntegral $ D.yearReleased pkg
+      , _year         = case (D.yearReleased pkg, D.gameOrigin pkg, D.dateReleased pkg) of
+        (Nothing, Just "beatles", Just date) -> readMaybe $ T.unpack $ T.take 4 date
+        _ -> fromIntegral <$> D.yearReleased pkg
       , _fileAlbumArt = coverName
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , _comments     = []

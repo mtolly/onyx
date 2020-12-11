@@ -42,10 +42,10 @@ instance TraverseTrack GH1File where
 
 instance ParseFile GH1File where
   parseFile = do
-    gh1T1Gems   <- gh1T1Gems   =. fileTrack "T1 GEMS"  []
-    gh1Anim     <- gh1Anim     =. fileTrack "ANIM"     []
-    gh1Triggers <- gh1Triggers =. fileTrack "TRIGGERS" []
-    gh1Events   <- gh1Events   =. fileTrack "EVENTS"   []
+    gh1T1Gems   <- gh1T1Gems   =. fileTrack (pure "T1 GEMS" )
+    gh1Anim     <- gh1Anim     =. fileTrack (pure "ANIM"    )
+    gh1Triggers <- gh1Triggers =. fileTrack (pure "TRIGGERS")
+    gh1Events   <- gh1Events   =. fileTrack (pure "EVENTS"  )
     return GH1File{..}
 
 data GemsTrack t = GemsTrack
