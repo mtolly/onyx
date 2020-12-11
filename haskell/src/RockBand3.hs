@@ -43,6 +43,7 @@ import           RockBand.Codec.Vocal
 import           RockBand.Common
 import qualified RockBand.Legacy.Vocal             as RBVox
 import           RockBand.Sections                 (makePSSection)
+import           Rocksmith.MIDI
 import           Scripts
 import qualified Sound.MIDI.Util                   as U
 
@@ -453,18 +454,65 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         Just dt -> setDrumMix mixMode dt
       makeGRYBOTrack toKeys fpart = fromMaybe mempty $ buildFive fpart target input timing toKeys songYaml
 
-      hasProtarNotFive partName = case getPart partName songYaml of
+      guitarPart = either rb3_Guitar ps_Guitar target
+      bassPart = either rb3_Bass ps_Bass target
+
+      -- TODO: pgHopoThreshold
+      makeProGtrTracks gtype fpart = case getPart fpart songYaml >>= partProGuitar of
+        Nothing -> return (mempty, mempty)
+        Just pg -> let
+          src = RBFile.getFlexPart fpart trks
+          tuning = tuningPitches (pgTuning pg) { gtrGlobal = 0 }
+          applyType x = x
+            { pgTrainer = (\(_, trainer) -> (gtype, trainer)) <$> pgTrainer x
+            , pgBRE     = (\(_, b      ) -> (gtype, b      )) <$> pgBRE     x
+            }
+          extendedTuning = length pitches > case gtype of
+            TypeGuitar -> 6
+            TypeBass   -> 4
+          pitches = tuningPitches (pgTuning pg) { gtrGlobal = 0 }
+          defaultFlat = maybe False songKeyUsesFlats $ _key $ _metadata songYaml
+          f = applyType
+            . (if pgFixFreeform pg then fixFreeformPG else id) . protarComplete
+            . autoHandPosition . moveStrings
+            . (if extendedTuning then freezeChordNames pitches defaultFlat else id)
+            . autoChordRoot tuning
+            . pgRemoveBRE
+          pgRemoveBRE trk = case removeBRE target $ RBFile.onyxEvents trks of
+            Just BRERemover{..} -> trk
+              { pgDifficulties = flip fmap (pgDifficulties trk) $ \pgd -> pgd
+                { pgNotes = breRemoveEdges $ pgNotes pgd
+                }
+              , pgTremolo = breRemoveLanes $ pgTremolo trk
+              , pgTrill = breRemoveLanes $ pgTrill trk
+              }
+            Nothing -> trk
+          src17  = RBFile.onyxPartRealGuitar   src
+          src22  = RBFile.onyxPartRealGuitar22 src
+          srcRSG = RBFile.onyxPartRSGuitar     src
+          srcRSB = RBFile.onyxPartRSBass       src
+          in do
+            src22' <- case (nullPG src22, nullRS srcRSG, nullRS srcRSB) of
+              (True, False, _    ) -> convertRStoPG srcRSG
+              (True, True , False) -> convertRStoPG srcRSB
+              (_   , _    , _    ) -> return src22
+            let mustang = f $ fretLimit 17 $ if nullPG src17  then src22' else src17
+                squier  = f $ fretLimit 22 $ if nullPG src22' then src17  else src22'
+            return (mustang, if mustang == squier then mempty else squier)
+
+  (proGtr , proGtr22 ) <- makeProGtrTracks TypeGuitar guitarPart
+  (proBass, proBass22) <- makeProGtrTracks TypeBass   bassPart
+
+  let hasProtarNotFive partName = case getPart partName songYaml of
         Just part -> case (partGRYBO part, partProGuitar part) of
           (Nothing, Just _) -> True
           _                 -> False
         Nothing -> False
 
-      guitarPart = either rb3_Guitar ps_Guitar target
       guitar = if hasProtarNotFive guitarPart
         then addFiveMoods tempos timing $ protarToGrybo proGtr
         else makeGRYBOTrack False guitarPart
 
-      bassPart = either rb3_Bass ps_Bass target
       bass = if hasProtarNotFive bassPart
         then addFiveMoods tempos timing $ protarToGrybo proBass
         else makeGRYBOTrack False bassPart
@@ -499,44 +547,6 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           . edgeBlipsRB_
           $ sixGems sd
           ) $ RBFile.onyxPartSix $ RBFile.getFlexPart bassPart trks
-
-      -- TODO: pgHopoThreshold
-      makeProGtrTracks gtype fpart = case getPart fpart songYaml >>= partProGuitar of
-        Nothing -> (mempty, mempty)
-        Just pg -> let
-          src = RBFile.getFlexPart fpart trks
-          tuning = tuningPitches (pgTuning pg) { gtrGlobal = 0 }
-          applyType x = x
-            { pgTrainer = (\(_, trainer) -> (gtype, trainer)) <$> pgTrainer x
-            , pgBRE     = (\(_, b      ) -> (gtype, b      )) <$> pgBRE     x
-            }
-          extendedTuning = length pitches > case gtype of
-            TypeGuitar -> 6
-            TypeBass   -> 4
-          pitches = tuningPitches (pgTuning pg) { gtrGlobal = 0 }
-          defaultFlat = maybe False songKeyUsesFlats $ _key $ _metadata songYaml
-          f = applyType
-            . (if pgFixFreeform pg then fixFreeformPG else id) . protarComplete
-            . autoHandPosition . moveStrings
-            . (if extendedTuning then freezeChordNames pitches defaultFlat else id)
-            . autoChordRoot tuning
-            . pgRemoveBRE
-          pgRemoveBRE trk = case removeBRE target $ RBFile.onyxEvents trks of
-            Just BRERemover{..} -> trk
-              { pgDifficulties = flip fmap (pgDifficulties trk) $ \pgd -> pgd
-                { pgNotes = breRemoveEdges $ pgNotes pgd
-                }
-              , pgTremolo = breRemoveLanes $ pgTremolo trk
-              , pgTrill = breRemoveLanes $ pgTrill trk
-              }
-            Nothing -> trk
-          src17 = RBFile.onyxPartRealGuitar   src
-          src22 = RBFile.onyxPartRealGuitar22 src
-          mustang = f $ fretLimit 17 $ if nullPG src17 then src22 else src17
-          squier  = f $ fretLimit 22 $ if nullPG src22 then src17 else src22
-          in (mustang, if mustang == squier then mempty else squier)
-      (proGtr , proGtr22 ) = makeProGtrTracks TypeGuitar guitarPart
-      (proBass, proBass22) = makeProGtrTracks TypeBass   bassPart
 
       keysPart = either rb3_Keys ps_Keys target
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of

@@ -15,6 +15,8 @@ module Rocksmith.MIDI
 , ChordLocation(..)
 , buildRSVocals
 , backportAnchors
+, convertRStoPG
+, nullRS
 ) where
 
 import           Control.Applicative              (liftA2, (<|>))
@@ -41,7 +43,10 @@ import qualified Data.Vector                      as V
 import           DeriveHelpers
 import           DryVox                           (vocalTubes)
 import           GHC.Generics                     (Generic)
-import           Guitars                          (applyStatus1)
+import           Guitars                          (applyStatus1,
+                                                   noExtendedSustains,
+                                                   standardBlipThreshold,
+                                                   standardSustainGap)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Codec.ProGuitar
@@ -65,6 +70,9 @@ data RocksmithTrack t = RocksmithTrack
   , rsChords     :: RTB.T t ChordInfo
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (RocksmithTrack t)
+
+nullRS :: RocksmithTrack t -> Bool
+nullRS = RTB.null . rsNotes
 
 data ChordInfo = ChordInfo
   { ciLocation :: ChordLocation
@@ -821,3 +829,21 @@ buildRSVocals tmap vox = Vocals $ V.fromList $ let
     Wait dt _ rest -> RTB.delay dt $ go rest
     RNil -> RNil
   in map (\(t, f) -> f t) $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ go evts
+
+convertRStoPG :: (SendMessage m) => RocksmithTrack U.Beats -> StackTraceT m (ProGuitarTrack U.Beats)
+convertRStoPG rs = let
+  notes
+    = fmap (fmap $ \str -> (str, NormalNote)) -- TODO different note types
+    $ blipEdgesRB
+    $ joinEdges
+    $ noExtendedSustains standardBlipThreshold standardSustainGap
+    $ splitEdges
+    $ edgeBlipsRB
+    $ rsNotes rs
+  in return mempty
+    { pgDifficulties = Map.singleton Expert mempty
+      { pgNotes = notes
+      -- TODO pgChordName, pgForceHOPO (including force strums), pgSlide, pgArpeggio
+      }
+    -- TODO pgTremolo, pgHandPosition (maybe)
+    }
