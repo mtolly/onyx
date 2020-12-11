@@ -287,11 +287,11 @@ applyDTA single entry = let
           _        -> [] -- unrecognized instrument
       return TracksEntry { te_Instrument = inst, te_Channels = map fromIntegral chans }
     , se_Title            = D.name pkg
-    , se_Artist           = D.artist pkg
+    , se_Artist           = fromMaybe "" $ D.artist pkg
     , se_Album            = fromMaybe (se_Album entry) $ D.albumName pkg
     , se_AlbumTrackNumber = maybe (se_AlbumTrackNumber entry) fromIntegral $ D.albumTrackNumber pkg
     -- TODO se_MysteryDates
-    , se_Genre            = D.genre pkg
+    , se_Genre            = fromMaybe "" $ D.genre pkg
     , se_Ranks            = do
       (t, i) <- matchOrder (map re_Part $ se_Ranks entry) $ HM.toList $ D.rank pkg
       return RankEntry { re_Part = t, re_Rank = fromIntegral i }

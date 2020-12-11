@@ -329,7 +329,7 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
   albumName <- mapM (replaceCharsRB False) $ _album $ _metadata songYaml
   return D.SongPackage
     { D.name = songName
-    , D.artist = artistName
+    , D.artist = Just artistName
     , D.master = not $ _cover $ _metadata songYaml
     , D.songId = Just $ fromMaybe (Right filename) $ rb3_SongID rb3
     , D.song = D.Song
@@ -433,12 +433,12 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
     , D.gameOrigin = Just $ if rb3_Harmonix rb3 then "rb3_dlc" else "ugc_plus"
     , D.ugc = Nothing
     , D.rating = fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1
-    , D.genre = rbn2Genre fullGenre
+    , D.genre = Just $ rbn2Genre fullGenre
     , D.subGenre = Just $ "subgenre_" <> rbn2Subgenre fullGenre
     , D.vocalGender = Just $ fromMaybe Magma.Female $ getPart (rb3_Vocal rb3) songYaml >>= partVocal >>= vocalGender
     -- TODO is it safe to have no vocal_gender?
     , D.shortVersion = Nothing
-    , D.yearReleased = fromIntegral $ getYear $ _metadata songYaml
+    , D.yearReleased = Just $ fromIntegral $ getYear $ _metadata songYaml
     , D.yearRecorded = Nothing
     -- confirmed: you can have (album_art 1) with no album_name/album_track_number
     , D.albumArt = Just $ isJust $ _fileAlbumArt $ _metadata songYaml
@@ -463,6 +463,8 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
     , D.downloaded = Nothing
     , D.basePoints = Nothing
     , D.videoVenues = Nothing
+    , D.dateReleased = Nothing
+    , D.dateRecorded = Nothing
     }
 
 printOverdrive :: FilePath -> StackTraceT (QueueLog Action) ()
@@ -1502,15 +1504,17 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                               , D.songLength = D.songLength rb3DTA
                               , D.preview = D.preview rb3DTA
                               , D.rank = fixDict $ D.rank rb3DTA
-                              , D.genre = rbn1Genre fullGenre
-                              , D.decade = Just $ let y = D.yearReleased rb3DTA in if
-                                | 1960 <= y && y < 1970 -> "the60s"
-                                | 1970 <= y && y < 1980 -> "the70s"
-                                | 1980 <= y && y < 1990 -> "the80s"
-                                | 1990 <= y && y < 2000 -> "the90s"
-                                | 2000 <= y && y < 2010 -> "the00s"
-                                | 2010 <= y && y < 2020 -> "the10s"
-                                | otherwise -> "the10s"
+                              , D.genre = Just $ rbn1Genre fullGenre
+                              , D.decade = Just $ case D.yearReleased rb3DTA of
+                                Nothing -> "the10s"
+                                Just y
+                                  | 1960 <= y && y < 1970 -> "the60s"
+                                  | 1970 <= y && y < 1980 -> "the70s"
+                                  | 1980 <= y && y < 1990 -> "the80s"
+                                  | 1990 <= y && y < 2000 -> "the90s"
+                                  | 2000 <= y && y < 2010 -> "the00s"
+                                  | 2010 <= y && y < 2020 -> "the10s"
+                                  | otherwise -> "the10s"
                               , D.vocalGender = D.vocalGender rb3DTA
                               , D.version = 0
                               , D.fake = Nothing
@@ -1521,6 +1525,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                               , D.yearRecorded = D.yearRecorded rb3DTA
                               , D.basePoints = Just 0 -- TODO why did I put this?
                               , D.videoVenues = Nothing
+                              , D.dateReleased = Nothing
+                              , D.dateRecorded = Nothing
                               , D.rating = D.rating rb3DTA
                               , D.subGenre = Just $ "subgenre_" <> rbn1Subgenre fullGenre
                               , D.songId = D.songId rb3DTA
