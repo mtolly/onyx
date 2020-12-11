@@ -26,8 +26,9 @@ import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
-import           Guitars                          (applyStatus, applyStatus1,
-                                                   guitarify, trackState)
+import           Guitars                          (applyBlipStatus, applyStatus,
+                                                   applyStatus1, guitarify,
+                                                   trackState)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
@@ -44,7 +45,7 @@ data NoteType
   | PinchHarmonic
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-data SlideType = NormalSlide | ReversedSlide | MysterySlide3 | MysterySlide2
+data SlideType = NormalSlide | ReversedSlide
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 data StrumArea = High | Mid | Low | MysteryStrum0
@@ -120,8 +121,8 @@ instance ChannelType SlideType where
   encodeChannel = \case
     NormalSlide   -> 0
     ReversedSlide -> 11
-    MysterySlide3 -> 3
-    MysterySlide2 -> 2
+    -- I've also seen slides on other channels (2 and 3), but I think those are
+    -- because HMX forgot to reset after making notes on those channels
 
 instance ChannelType StrumArea where
   encodeChannel = \case
@@ -207,10 +208,10 @@ instance TraverseTrack ProGuitarTrack where
 
 data ProGuitarDifficulty t = ProGuitarDifficulty
   { pgChordName    :: RTB.T t (Maybe T.Text)
-  , pgForceHOPO    :: RTB.T t Bool -- TODO Ruggy found that ch13 (1-based probably) is actually a force strum marker
-  , pgSlide        :: RTB.T t (SlideType, Bool) -- TODO do these have to coincide with the note or can you cover a stretch of notes?
+  , pgForce        :: RTB.T t (Edge () PGForce) -- Found by Ruggy, ch13 (1-based?) is force strum
+  , pgSlide        :: RTB.T t SlideType -- TODO test to make sure this is a blip (has to coincide with the note, can't cover multiple)
   , pgArpeggio     :: RTB.T t Bool
-  , pgPartialChord :: RTB.T t (StrumArea, Bool) -- TODO these should be blips, need to be simultaneous with the note
+  , pgPartialChord :: RTB.T t StrumArea
   , pgAllFrets     :: RTB.T t Bool
   , pgMysteryBFlat :: RTB.T t Bool
   -- TODO EOF format sysexes
@@ -222,6 +223,14 @@ instance TraverseTrack ProGuitarDifficulty where
   traverseTrack fn (ProGuitarDifficulty a b c d e f g h) = ProGuitarDifficulty
     <$> fn a <*> fn b <*> fn c <*> fn d
     <*> fn e <*> fn f <*> fn g <*> fn h
+
+data PGForce = PGForceStrum | PGForceHOPO
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
+instance ChannelType PGForce where
+  encodeChannel PGForceHOPO  = 0
+  encodeChannel PGForceStrum = 14
+  channelMap = [ (c, if c == 14 then PGForceStrum else PGForceHOPO) | c <- [0..15] ]
 
 instance ParseTrack ProGuitarTrack where
   parseTrack = do
@@ -275,10 +284,15 @@ instance ParseTrack ProGuitarTrack where
           (str, (nt, Just v)) -> EdgeOn (v - 100) (str, nt)
           (str, (nt, Nothing)) -> EdgeOff (str, nt)
         in dimap (fmap fs) (fmap fp) $ condenseMap $ eachKey each $ \str -> channelEdges $ base + getStringIndex 6 str
-      pgForceHOPO    <- pgForceHOPO =. edges (base + 6)
-      pgSlide        <- pgSlide =. channelEdges_ (base + 7)
+      pgForce       <- pgForce =. let
+        fs = \case
+          EdgeOn () sh -> (sh, True )
+          EdgeOff   sh -> (sh, False)
+        fp (sh, b) = (if b then EdgeOn () else EdgeOff) sh
+        in dimap (fmap fs) (fmap fp) $ channelEdges_ (base + 6)
+      pgSlide        <- pgSlide =. channelBlip_ (base + 7)
       pgArpeggio     <- pgArpeggio =. edges (base + 8)
-      pgPartialChord <- pgPartialChord =. channelEdges_ (base + 9)
+      pgPartialChord <- pgPartialChord =. channelBlip_ (base + 9)
       pgMysteryBFlat <- pgMysteryBFlat =. edges (base + 10)
       pgAllFrets     <- pgAllFrets =. edges (base + 11)
       pgChordName    <- pgChordName =. let
@@ -449,10 +463,10 @@ computeChordNames diff tuning flatDefault pg = let
   -- But it'll still stick if there's another repetition after.
   slides :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
   slides = let
-    go (isSlide, mcd) = if isSlide
+    go (slideTypes, mcd) = if not $ null slideTypes
       then (\cd -> cd { chordLength = Nothing }) <$> mcd
       else mcd
-    in fmap go . applyStatus1 False (snd <$> pgSlide pgd)
+    in fmap go . applyBlipStatus (pgSlide pgd)
 
   -- For an arpeggio, get the chord computed at the start,
   -- and stretch it for the length of the arpeggio section.
@@ -574,7 +588,12 @@ guitarifyHOPO threshold pgd = let
     $ (\(fret, (str, ntype), len) -> ((), (str, fret, ntype), len))
     <$> edgeBlipsRB (pgNotes pgd)
     -- TODO above logic is inefficient (join, split, join)
-  withForce = applyStatus ((HOPO,) <$> pgForceHOPO pgd) gtr
+  withForce = applyStatus (forceEdge <$> pgForce pgd) gtr
+  forceEdge = \case
+    EdgeOn () PGForceStrum -> (Strum, True )
+    EdgeOff   PGForceStrum -> (Strum, False)
+    EdgeOn () PGForceHOPO  -> (HOPO , True )
+    EdgeOff   PGForceHOPO  -> (HOPO , False)
   fn prev dt (forces, ((), gems, len)) = let
     ntype = if all (\(_, _, nt) -> elem nt [Tapped, ArpeggioForm]) gems
       then Tap
@@ -601,8 +620,7 @@ computeSlides
   -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe U.Beats)
   -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe (U.Beats, Maybe Slide))
 computeSlides pgd hopo = let
-  slideMarkers = RTB.mapMaybe (\(dir, b) -> guard b >> return dir) $ pgSlide pgd
-  marked = RTB.collectCoincident $ RTB.merge (Left <$> hopo) (Right <$> slideMarkers)
+  marked = RTB.collectCoincident $ RTB.merge (Left <$> hopo) (Right <$> pgSlide pgd)
   marked' = RTB.flatten $ flip fmap marked $ \xs -> let
     notes = lefts xs
     slides = rights xs

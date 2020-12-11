@@ -442,6 +442,17 @@ class (Enum a, Bounded a) => ChannelType a where
   channelMap :: [(Int, a)]
   channelMap = [ (encodeChannel x, x) | x <- [minBound .. maxBound] ]
 
+lookupCV :: (Show a, ChannelType a, SendMessage m) => (Int, velocity) -> StackTraceT m (a, velocity)
+lookupCV (c, v) = do
+  c' <- case lookup c channelMap of
+    Just c' -> return c'
+    Nothing  -> do
+      -- TODO we should put the timestamp in here as a context layer
+      let c' = minBound
+      warn $ "Unrecognized channel " ++ show c ++ "; using default value of " ++ show c'
+      return c'
+  return (c', v)
+
 channelEdges
   :: (Show a, ChannelType a, SendMessage m, NNC.C t)
   => Int -> TrackEvent m t (a, Maybe Int)
@@ -450,15 +461,7 @@ channelEdges p = let
   in Codec
     { codecIn = do
       trk <- codecIn src
-      forM trk $ \(c, v) -> do
-        c' <- case lookup c channelMap of
-          Just c' -> return c'
-          Nothing  -> do
-            -- TODO we should put the timestamp in here as a context layer
-            let c' = minBound
-            warn $ "Unrecognized channel " ++ show c ++ "; using default value of " ++ show c'
-            return c'
-        return (c', v)
+      mapM lookupCV trk
     , codecOut = \x -> do
       _ <- codecOut src $ fmap (\(c', v) -> (encodeChannel c', v)) x
       return x
@@ -473,3 +476,22 @@ channelEdges_ = let
   fs (c, b) = (c, guard b >> Just 100)
   fp (c, v) = (c, isJust v)
   in dimap (fmap fs) (fmap fp) . channelEdges
+
+channelBlip
+  :: (Show a, ChannelType a, SendMessage m)
+  => Int -> TrackEvent m U.Beats (a, Int)
+channelBlip p = let
+  src = blipCV p
+  in Codec
+    { codecIn = do
+      trk <- codecIn src
+      mapM lookupCV trk
+    , codecOut = \x -> do
+      _ <- codecOut src $ fmap (\(c', v) -> (encodeChannel c', v)) x
+      return x
+    }
+
+channelBlip_
+  :: (Show a, ChannelType a, SendMessage m)
+  => Int -> TrackEvent m U.Beats a
+channelBlip_ = dimap (fmap (, 100)) (fmap fst) . channelBlip

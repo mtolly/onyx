@@ -7,6 +7,7 @@ module Guitars where
 
 import           Control.Monad                    (guard)
 import           Data.Bifunctor                   (first, second)
+import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.List                        (sort)
@@ -92,6 +93,13 @@ applyStatus status events = let
     Left  (s, False) -> (Set.delete s current, Nothing                     )
     Right x          -> (             current, Just (Set.toList current, x))
   in trackState Set.empty fn $ RTB.mergeBy compareStatus (fmap Left status) (fmap Right events)
+
+applyBlipStatus :: (NNC.C t, Ord a, Ord s) => RTB.T t s -> RTB.T t a -> RTB.T t ([s], a)
+applyBlipStatus status events
+  = RTB.flatten
+  $ fmap (\xs -> let thisStatus = lefts xs in map (thisStatus,) $ rights xs)
+  $ RTB.collectCoincident
+  $ RTB.merge (fmap Left status) (fmap Right events)
 
 -- | Computes the default strum or HOPO value for each note.
 strumHOPOTap' :: (NNC.C t, Ord color) => HOPOsAlgorithm -> t -> RTB.T t (color, len) -> RTB.T t ((color, StrumHOPOTap), len)
