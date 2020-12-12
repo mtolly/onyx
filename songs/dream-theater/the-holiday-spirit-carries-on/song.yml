@@ -3,25 +3,33 @@ parts:
     drums:
       kicks: both
       difficulty: 6
+      # TODO drum animations almost done
   bass:
     grybo: {}
     pro-guitar:
       tuning:
-        base: bass-5 # one part that might use C string but charted as 5 for now
+        base: bass-6
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo: # Miscellany, some parts moved to keys + gaps filled by Onyxite
       difficulty: 4
-  keys:
-    grybo: {} # WIP, some parts from Miscellany
-    pro-keys: {} # WIP
+  combo:
+    grybo: # Miscellany's original chart
+      difficulty: 4
+  # keys:
+  #   grybo: {} # WIP, some parts from Miscellany
+  #   pro-keys: {} # WIP
   vocal:
-    vocal: # WIP, imported lyrics from Miscellany
-      count: 3 # maybe only 2? will see
+    vocal: # Built on top of Miscellany's lyrics
+      count: 3
+      gender: male
+  misc-lyrics:
+    vocal: # Miscellany's original lyrics
+      count: 1
       gender: male
 plans:
-  plan:
+  bandcamp:
     song:
       pad: [1.612, bandcamp]
 audio:
@@ -39,14 +47,14 @@ metadata:
 targets:
   rb3:
     game: rb3
-    bass: undefined # until rs->pg is done
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    bass: undefined
   ps:
     game: ps
-    bass: undefined
+    guitar: combo
+    guitar-coop: guitar
+    vocal: misc-lyrics
   rs:
     game: rs
     arrangements:
