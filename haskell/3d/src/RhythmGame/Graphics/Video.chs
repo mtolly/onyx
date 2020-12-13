@@ -119,6 +119,11 @@ deriving instance Show SwsContext
   } -> `()'
 #}
 
+{#fun av_packet_unref
+  { `AVPacket'
+  } -> `()'
+#}
+
 {#fun av_read_frame
   { `AVFormatContext'
   , `AVPacket'
@@ -320,6 +325,11 @@ packet_set_data = {#set AVPacket->data #}
   } -> `CInt'
 #}
 
+{#fun av_freep
+  { castPtr `Ptr a'
+  } -> `()'
+#}
+
 frame_set_width :: AVFrame -> CInt -> IO ()
 frame_set_width = {#set AVFrame->width #}
 
@@ -415,13 +425,12 @@ forkFrameLoader logger vi = do
     frame <- res av_frame_alloc $ \f -> with f av_frame_free
     frameRGBA <- res av_frame_alloc $ \f -> with f av_frame_free
     packet <- res av_packet_alloc $ \p -> with p av_packet_free
-    inData <- stackIO $ frame_data frame
-    inLinesize <- stackIO $ frame_linesize frame
-    check_ "av_image_alloc (input)" (>= 0) $ av_image_alloc inData inLinesize w h fmt 16
     pfmt <- stackIO $ pix_fmt cctx
     outData <- stackIO $ frame_data frameRGBA
     outLinesize <- stackIO $ frame_linesize frameRGBA
-    check_ "av_image_alloc (output)" (>= 0) $ av_image_alloc outData outLinesize w h AV_PIX_FMT_RGBA 1
+    checkRes "av_image_alloc (output)" (>= 0)
+      (av_image_alloc outData outLinesize w h AV_PIX_FMT_RGBA 16)
+      (av_freep outData)
     stackIO $ frame_set_width frameRGBA w
     stackIO $ frame_set_height frameRGBA h
     stackIO $ frame_set_format frameRGBA AV_PIX_FMT_RGBA
@@ -474,9 +483,13 @@ forkFrameLoader logger vi = do
           check_ "av_read_frame" (>= 0) $ av_read_frame ctx packet
           packetIndex <- stackIO $ packet_stream_index packet
           if streamIndex /= packetIndex
-            then readFrame wantPTS -- not a packet for the video stream, probably audio
+            then do
+              -- not a packet for the video stream, probably audio
+              stackIO $ av_packet_unref packet
+              readFrame wantPTS
             else do
               check_ "avcodec_send_packet" (>= 0) $ avcodec_send_packet cctx packet
+              stackIO $ av_packet_unref packet
               code <- stackIO $ avcodec_receive_frame cctx frame
               if code < 0
                 then readFrame wantPTS -- no image received yet, need more packets
