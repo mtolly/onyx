@@ -4,6 +4,12 @@ parts:
   drums:
     drums:
       kicks: 1
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 plans:
   album:
     song:
@@ -11,14 +17,23 @@ plans:
 targets:
   rb3:
     game: rb3
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
 audio:
   youtube:
     file-path: audio-youtube.wav
     commands:
     - ../../../scripts/youtube n4pVtlJWrmA 140
-    md5: ccd3c914a4f4ebe7f006559a20a1a31e
     frames: 14777344
 metadata:
-  author: DragonTaser
-  title: The Least 333 Seconds
+  author: DragonTaser, Onyxite
+  title: The Least 333sec
   artist: Hirofumi Sasaki
+  album: "GUITARFREAKS 5thMIX & drummania 4thMIX Soundtracks"
+  year: 2001
+  track-number: 42 # 39 on first disc, this is 3rd track on second disc
+  genre: prog
+  subgenre: progrock
+  file-album-art: cover.jpg

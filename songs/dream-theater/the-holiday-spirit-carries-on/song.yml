@@ -3,7 +3,6 @@ parts:
     drums:
       kicks: both
       difficulty: 6
-      # TODO drum animations almost done
   bass:
     grybo: {}
     pro-guitar:
@@ -17,9 +16,9 @@ parts:
   combo:
     grybo: # Miscellany's original chart
       difficulty: 4
-  # keys:
-  #   grybo: {} # WIP, some parts from Miscellany
-  #   pro-keys: {} # WIP
+  keys:
+    pro-keys: {}
+    # grybo: {} # WIP, some parts from Miscellany
   vocal:
     vocal: # Built on top of Miscellany's lyrics
       count: 3

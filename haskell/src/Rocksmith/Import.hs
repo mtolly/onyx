@@ -159,7 +159,8 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
               (False, False, False, _    ) -> Nothing
         -- TODO warn if marrtype is Nothing?
         forM marrtype $ \arrtype -> do
-          toneList <- prop "Tones" jsonAttrs >>= \v -> mapStackTraceT (`runReaderT` v) fromJSON
+          -- I've seen CF files (Timepiece Phase II) that have a null in this tone list
+          toneList <- prop "Tones" jsonAttrs >>= \v -> catMaybes <$> mapStackTraceT (`runReaderT` v) fromJSON
           let findTone k = case find ((== k) . t14_Key) (toneList :: [Tone2014]) of
                 Nothing -> fatal $ "Couldn't find tone for key: " <> show k
                 Just t  -> return t

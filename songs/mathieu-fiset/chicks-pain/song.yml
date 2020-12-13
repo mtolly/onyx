@@ -1,0 +1,22 @@
+metadata:
+  title: Chick's Pain
+  artist: Mathieu Fiset
+  album: RoboJazz
+  track-number: 3
+  genre: jazz
+  subgenre: contemporary
+  author: Onyxite
+  year: 2012
+  file-album-art: cover.jpg
+parts:
+  drums:
+    drums:
+      kicks: 1
+plans:
+  plan:
+    song:
+      pad: [3.623, album-track]
+audio:
+  album-track:
+    md5: 4de0eff2e55fc6dd80fbbcb9ffd97550
+    frames: 9589206
