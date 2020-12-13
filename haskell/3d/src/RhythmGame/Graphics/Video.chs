@@ -375,12 +375,14 @@ forkFrameLoader logger vi = do
   let videoPath = _fileVideo vi
   queue <- newTChanIO
   ref <- newIORef Nothing
-  void $ forkIO $ void $ runResourceT $ logIO logger $ inside ("Playing video: " <> videoPath) $ do
+  let logResult f = f >>= \case
+        Right ()              -> return ()
+        Left  (Messages msgs) -> mapM_ (\m -> logger (MessageWarning, m)) msgs
+  void $ forkIO $ logResult $ runResourceT $ logIO logger $ inside ("Playing video: " <> videoPath) $ do
     let res a f = snd <$> allocate a f
-        check s p a = inside s $ do
+        check_ s p a = inside s $ do
           code <- stackIO a
           unless (p code) $ fatal $ "Return code: " <> show code
-        check_ s p a = void $ check s p a
         checkRes s p a f = inside s $ do
           let f' code = when (p code) f
           code <- snd <$> allocate a f'
@@ -472,34 +474,40 @@ forkFrameLoader logger vi = do
               case lastTimePTS of
                 Just (_, pts) | skipSeek && pts >= wantPTS
                   -> checkMessages lastTimePTS -- previous frame is still good
-                _ -> do
-                  (pts, img) <- readFrame wantPTS
-                  stackIO $ writeIORef ref $ Just (thisTime, img)
-                  checkMessages $ Just (thisTime, pts)
+                _ -> readFrame wantPTS >>= \case
+                  Nothing -> do
+                    stackIO $ writeIORef ref Nothing
+                    checkMessages Nothing
+                  Just (pts, img) -> do
+                    stackIO $ writeIORef ref $ Just (thisTime, img)
+                    checkMessages $ Just (thisTime, pts)
 
         seeklessDuration = 1 :: Double
 
         readFrame wantPTS = do
-          check_ "av_read_frame" (>= 0) $ av_read_frame ctx packet
-          packetIndex <- stackIO $ packet_stream_index packet
-          if streamIndex /= packetIndex
-            then do
-              -- not a packet for the video stream, probably audio
-              stackIO $ av_packet_unref packet
-              readFrame wantPTS
+          codePacket <- stackIO $ av_read_frame ctx packet
+          if codePacket < 0
+            then return Nothing -- probably reached end of file
             else do
-              check_ "avcodec_send_packet" (>= 0) $ avcodec_send_packet cctx packet
-              stackIO $ av_packet_unref packet
-              code <- stackIO $ avcodec_receive_frame cctx frame
-              if code < 0
-                then readFrame wantPTS -- no image received yet, need more packets
+              packetIndex <- stackIO $ packet_stream_index packet
+              if streamIndex /= packetIndex
+                then do
+                  -- not a packet for the video stream, probably audio
+                  stackIO $ av_packet_unref packet
+                  readFrame wantPTS
                 else do
-                  pts <- stackIO $ frame_pts frame
-                  if pts >= wantPTS
-                    then do
-                      img <- convertImage -- image ready to go!
-                      return (pts, img)
-                    else readFrame wantPTS -- we need to skip some images
+                  check_ "avcodec_send_packet" (>= 0) $ avcodec_send_packet cctx packet
+                  stackIO $ av_packet_unref packet
+                  codeFrame <- stackIO $ avcodec_receive_frame cctx frame
+                  if codeFrame < 0
+                    then readFrame wantPTS -- no image received yet, need more packets
+                    else do
+                      pts <- stackIO $ frame_pts frame
+                      if pts >= wantPTS
+                        then do
+                          img <- convertImage -- image ready to go!
+                          return $ Just (pts, img)
+                        else readFrame wantPTS -- we need to skip some images
 
         convertImage = do
           check_ "sws_scale" (>= 0) $ join $ sws_scale
