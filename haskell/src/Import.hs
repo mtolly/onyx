@@ -170,28 +170,40 @@ generateSwells
 generateSwells notes = let
   maxDistance = 0.155 :: U.Seconds -- actually 0.16 but being conservative
   go RNil = RNil
-  go (Wait t1 (True, [x]) (Wait t2 (True, [y]) rest)) | t2 < maxDistance = let
-    thisType = if x == y then LaneSingle else LaneDouble
-    in case splitLane x y rest of
-      (lane, after) -> let
-        laneBaseLength = t2 <> mconcat (RTB.getTimes lane)
-        in case after of
-          RNil
-            -- lane goes to end; just make it go a bit past last note
-            -> Wait t1 (thisType, True)
-            $  Wait (laneBaseLength <> maxDistance) (thisType, False)
-            $  RNil
-          Wait t3 z rest'
-            -- end lane at next note; we trim it back with fixFreeform later
-            -> Wait t1 (thisType, True)
-            $  Wait (laneBaseLength <> t3) (thisType, False)
-            $  go $ Wait 0 z rest'
+  go (Wait t1 (True, [mainGem]) secondOnward@(Wait t2 (True, secondSet) rest)) | t2 < maxDistance = let
+    makeLane altGem = let
+      thisType = if isJust altGem then LaneDouble else LaneSingle
+      (lane, after) = case altGem of
+        Nothing -> splitSingle mainGem rest
+        Just g  -> splitDouble mainGem g rest
+      laneBaseLength = t2 <> mconcat (RTB.getTimes lane)
+      in case after of
+        RNil
+          -- lane goes to end; just make it go a bit past last note
+          -> Wait t1 (thisType, True)
+          $  Wait (laneBaseLength <> maxDistance) (thisType, False)
+          $  RNil
+        Wait t3 z rest'
+          -- end lane at next note; we trim it back with fixFreeform later
+          -> Wait t1 (thisType, True)
+          $  Wait (laneBaseLength <> t3) (thisType, False)
+          $  go $ Wait 0 z rest'
+    in if elem mainGem secondSet -- the `elem` allows gravity blast lanes
+      then makeLane Nothing
+      else case secondSet of
+        [g] -> makeLane $ Just g
+        _   -> RTB.delay t1 $ go secondOnward
   go (Wait t _ rest) = RTB.delay t $ go rest
-  splitLane gem1 gem2 (Wait t (True, [x]) rest)
+  splitSingle gem (Wait t (True, xs) rest)
+    | elem gem xs && t < maxDistance -- the `elem` allows gravity blast lanes
+    = case splitSingle gem rest of
+      (lane, after) -> (Wait t xs lane, after)
+  splitSingle _ rest = (RNil, rest)
+  splitDouble gem1 gem2 (Wait t (True, [x]) rest)
     | x == gem1 && t < maxDistance
-    = case splitLane gem2 gem1 rest of
-      (lane, after) -> (Wait t x lane, after)
-  splitLane _ _ rest = (RNil, rest)
+    = case splitDouble gem2 gem1 rest of
+      (lane, after) -> (Wait t [x] lane, after)
+  splitDouble _ _ rest = (RNil, rest)
   result = go notes
   laneType typ = fmap snd $ RTB.filter ((== typ) . fst) result
   in (laneType LaneSingle, laneType LaneDouble)
