@@ -4,23 +4,27 @@ parts:
       kicks: both
       difficulty: 6
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 3
     pro-guitar:
+      difficulty: 4
       tuning:
         base: bass-6
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo: # Miscellany, some parts moved to keys + gaps filled by Onyxite
-      difficulty: 4
+      difficulty: 5
   combo:
     grybo: # Miscellany's original chart
-      difficulty: 4
+      difficulty: 3 # Miscellany's difficulty rating
   keys:
-    pro-keys: {}
+    pro-keys:
+      difficulty: 7
     # grybo: {} # WIP, some parts from Miscellany
   vocal:
     vocal: # Built on top of Miscellany's lyrics
+      difficulty: 5
       count: 3
       gender: male
   misc-lyrics:
@@ -43,6 +47,7 @@ metadata:
   genre: metal
   subgenre: prog
   file-album-art: cover.jpg
+  difficulty: 5
 targets:
   rb3:
     game: rb3

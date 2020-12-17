@@ -492,7 +492,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           srcRSG = RBFile.onyxPartRSGuitar     src
           srcRSB = RBFile.onyxPartRSBass       src
           in do
-            src22' <- case (nullPG src22, nullRS srcRSG, nullRS srcRSB) of
+            src22' <- case (nullPG src22 && nullPG src17, nullRS srcRSG, nullRS srcRSB) of
               (True, False, _    ) -> convertRStoPG srcRSG
               (True, True , False) -> convertRStoPG srcRSB
               (_   , _    , _    ) -> return src22
