@@ -18,10 +18,13 @@ parts:
   combo:
     grybo: # Miscellany's original chart
       difficulty: 3 # Miscellany's difficulty rating
+    # note: SP phrases don't form unisons with the main tracks,
+    # since this is only exported in the CH version
   keys:
     pro-keys:
       difficulty: 7
-    # grybo: {} # WIP, some parts from Miscellany
+    grybo: # Mostly me, a few parts from Miscellany
+      difficulty: 6
   vocal:
     vocal: # Built on top of Miscellany's lyrics
       difficulty: 5
@@ -51,9 +54,13 @@ metadata:
 targets:
   rb3:
     game: rb3
+    song-id: 1660200172
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    song-id: 1660200173
+    version: 1
   ps:
     game: ps
     guitar: combo

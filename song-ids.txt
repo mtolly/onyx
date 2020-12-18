@@ -252,6 +252,11 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200171 Danimal Across America (Danimal Cannon)
   v2 released 2020-12-07 (v1 had no numeric song ID)
 
+1660200172 The Holiday Spirit Carries On (Dream Theater) 1x
+1660200173 The Holiday Spirit Carries On (Dream Theater) 2x
+  earlier released just drums (no numeric ID)
+  v1 to be released 2020-12-24 for C3 12DOC
+
 BONUS SONGS (counting down from max)
 
 1660299999 hacked c3 6:00 drum chart

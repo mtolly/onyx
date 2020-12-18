@@ -8,15 +8,26 @@ metadata:
   author: Onyxite
   year: 2012
   file-album-art: cover.jpg
+  difficulty: 6
 parts:
   drums:
     drums:
       kicks: 1
+      difficulty: 6
+  # bass:
+  #   pro-guitar: # WIP
+  #     tuning:
+  #       base: bass-4
+  # keys:
+  #   pro-keys: {} # WIP
+  # guitar: # sax
+  #   grybo: {} # WIP
 plans:
-  plan:
+  album:
     song:
       pad: [3.623, album-track]
 audio:
   album-track:
+    # https://mathieufiset.bandcamp.com/album/robojazz
     md5: 4de0eff2e55fc6dd80fbbcb9ffd97550
     frames: 9589206
