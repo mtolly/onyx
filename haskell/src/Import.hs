@@ -706,6 +706,11 @@ importSTFSDir index temp mtemp2x dir = do
         }
       karaoke = fromMaybe False $ c3dtaKaraoke comments
       multitrack = fromMaybe False $ c3dtaMultitrack comments
+      -- TODO filenames based on the base should possibly be case-insensitive.
+      -- see the removed C3 chart for The One I Love (REM)
+      -- which has "songs/TheOneILove/TheOneILove" in songs.dta, but files named:
+      --   songs/theoneilove/theoneilove.{mid,mogg}
+      --   songs/theoneilove/gen/TheOneILove{.milo_xbox,_keep.png_xbox}
       base = T.unpack $ D.songName $ D.song pkg
       -- Note: the base path does NOT necessarily have to be songs/foo/foo
       -- where foo is the top key of songs.dta. foo can be different!

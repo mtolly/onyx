@@ -874,7 +874,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         _ -> FL.handleButtonBase (FL.safeCast ref) e
       }
     FL.deactivate playButton
-    scrubber <- FL.horNiceSliderNew scrubberArea Nothing
+    scrubber <- FL.horFillSliderNew scrubberArea Nothing
     homeTabColor >>= FL.setColor scrubber
     FL.setMinimum scrubber 0
     FL.setMaximum scrubber 100

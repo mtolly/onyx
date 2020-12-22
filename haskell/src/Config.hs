@@ -38,6 +38,7 @@ import           Data.Hashable                  (Hashable (..))
 import qualified Data.HashMap.Strict            as Map
 import           Data.Maybe                     (fromMaybe)
 import           Data.Scientific                (Scientific, toRealFloat)
+import           Data.String                    (IsString (..))
 import qualified Data.Text                      as T
 import           Data.Traversable
 import qualified Data.Vector                    as V
@@ -116,7 +117,7 @@ data AudioFile f
     }
   deriving (Eq, Ord, Show)
 
-instance StackJSON (AudioInfo FilePath) where
+instance (Eq f, StackJSON f) => StackJSON (AudioInfo f) where
   stackJSON = asStrictObject "AudioInfo" $ do
     _md5      <- _md5      =. opt Nothing "md5"       stackJSON
     _frames   <- _frames   =. opt Nothing "frames"    stackJSON
@@ -126,7 +127,7 @@ instance StackJSON (AudioInfo FilePath) where
     _channels <- _channels =. opt 2       "channels"  stackJSON
     return AudioInfo{..}
 
-instance StackJSON (AudioFile FilePath) where
+instance (Eq f, StackJSON f) => StackJSON (AudioFile f) where
   stackJSON = Codec
     { codecIn = decideKey
       [ ("expr", object $ do
@@ -301,7 +302,7 @@ parseMeasureBeats = lift ask >>= \t -> let
 showMeasureBeats :: U.MeasureBeats -> T.Text
 showMeasureBeats (msr, bts) = T.pack $ show msr ++ "|" ++ show (realToFrac bts :: Scientific)
 
-instance StackJSON (Plan FilePath) where
+instance (StackJSON f) => StackJSON (Plan f) where
   stackJSON = Codec
     { codecIn = decideKey
       [ ("mogg-md5", object $ do
@@ -626,7 +627,7 @@ tuningFormat = asStrictObject "GtrTuning" $ do
   gtrGlobal  <- gtrGlobal  =. opt 0       "global"  stackJSON
   return GtrTuning{..}
 
-instance StackJSON (PartProGuitar FilePath) where
+instance (Eq f, StackJSON f) => StackJSON (PartProGuitar f) where
   stackJSON = asStrictObject "PartProGuitar" $ do
     pgDifficulty    <- pgDifficulty    =. fill (Tier 1) "difficulty"     stackJSON
     pgHopoThreshold <- pgHopoThreshold =. opt  170      "hopo-threshold" stackJSON
@@ -637,7 +638,7 @@ instance StackJSON (PartProGuitar FilePath) where
     pgPickedBass    <- pgPickedBass    =. opt  False    "picked-bass"    stackJSON
     return PartProGuitar{..}
 
-instance Default (PartProGuitar FilePath) where
+instance (Eq f, StackJSON f) => Default (PartProGuitar f) where
   def = fromEmptyObject
 
 data RSTones f = RSTones
@@ -648,7 +649,7 @@ data RSTones f = RSTones
   , rsFileToneD    :: Maybe f
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance StackJSON (RSTones FilePath) where
+instance (Eq f, StackJSON f) => StackJSON (RSTones f) where
   stackJSON = asStrictObject "RSTones" $ do
     rsFileToneBase <- rsFileToneBase =. req         "file-tone-base" stackJSON
     rsFileToneA    <- rsFileToneA    =. opt Nothing "file-tone-a"    stackJSON
@@ -764,7 +765,7 @@ data PartVocal f = PartVocal
   , vocalLipsyncRB2 :: Maybe (LipsyncSource f)
   } deriving (Eq, Ord, Show)
 
-instance StackJSON (PartVocal FilePath) where
+instance (Eq f, StackJSON f) => StackJSON (PartVocal f) where
   stackJSON = asStrictObject "PartVocal" $ do
     vocalDifficulty <- vocalDifficulty =. fill (Tier 1) "difficulty"  stackJSON
     vocalCount      <- vocalCount      =. opt  Vocal1   "count"       stackJSON
@@ -845,7 +846,7 @@ data Part f = Part
   , partDance     :: Maybe PartDance
   } deriving (Eq, Ord, Show)
 
-instance StackJSON (Part FilePath) where
+instance (Eq f, StackJSON f) => StackJSON (Part f) where
   stackJSON = asStrictObject "Part" $ do
     partGRYBO     <- partGRYBO     =. opt Nothing "grybo"      stackJSON
     partGHL       <- partGHL       =. opt Nothing "ghl"        stackJSON
@@ -859,7 +860,7 @@ instance StackJSON (Part FilePath) where
     partDance     <- partDance     =. opt Nothing "dance"      stackJSON
     return Part{..}
 
-instance Default (Part FilePath) where
+instance (Eq f, StackJSON f) => Default (Part f) where
   def = fromEmptyObject
 
 instance StackJSON Magma.AutogenTheme where
@@ -948,7 +949,7 @@ parseAnimTempo = eitherCodec
   )
   stackJSON
 
-instance StackJSON (Metadata FilePath) where
+instance (Eq f, StackJSON f) => StackJSON (Metadata f) where
   stackJSON = asStrictObject "Metadata" $ do
     let stripped = fmap (fmap T.strip) stackJSON
     _title        <- _title        =. warning Nothing        "title"          stripped
@@ -975,7 +976,7 @@ instance StackJSON (Metadata FilePath) where
     _difficulty   <- _difficulty   =. fill    (Tier 1)       "difficulty"     stackJSON
     return Metadata{..}
 
-instance Default (Metadata FilePath) where
+instance (Eq f, StackJSON f) => Default (Metadata f) where
   def = fromEmptyObject
 
 data Global f = Global
@@ -987,7 +988,7 @@ data Global f = Global
   , _fileBackgroundImage :: Maybe f
   } deriving (Eq, Show)
 
-instance StackJSON (Global FilePath) where
+instance (Eq f, IsString f, StackJSON f) => StackJSON (Global f) where
   stackJSON = asStrictObject "Global" $ do
     _fileMidi            <- _fileMidi            =. opt "notes.mid"                "file-midi"             stackJSON
     _fileSongAnim        <- _fileSongAnim        =. opt Nothing                    "file-song-anim"        stackJSON
@@ -997,7 +998,7 @@ instance StackJSON (Global FilePath) where
     _fileBackgroundImage <- _fileBackgroundImage =. opt Nothing                    "file-background-image" stackJSON
     return Global{..}
 
-instance Default (Global FilePath) where
+instance (Eq f, IsString f, StackJSON f) => Default (Global f) where
   def = fromEmptyObject
 
 data VideoInfo f = VideoInfo
@@ -1007,7 +1008,7 @@ data VideoInfo f = VideoInfo
   , _videoLoop      :: Bool
   } deriving (Eq, Ord, Show)
 
-instance StackJSON (VideoInfo FilePath) where
+instance (StackJSON f) => StackJSON (VideoInfo f) where
   stackJSON = asStrictObject "VideoInfo" $ do
     _fileVideo      <- _fileVideo      =. req         "file-video" stackJSON
     _videoStartTime <- _videoStartTime =. opt Nothing "start-time" stackJSON
@@ -1078,7 +1079,7 @@ data TargetRB3 f = TargetRB3
   , rb3_Vocal       :: FlexPartName
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
-parseTargetRB3 :: (SendMessage m) => ObjectCodec m A.Value (TargetRB3 FilePath)
+parseTargetRB3 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetRB3 f)
 parseTargetRB3 = do
   rb3_Common      <- rb3_Common      =. parseTargetCommon
   rb3_2xBassPedal <- rb3_2xBassPedal =. opt False        "2x-bass-pedal" stackJSON
@@ -1094,10 +1095,10 @@ parseTargetRB3 = do
   rb3_Vocal       <- rb3_Vocal       =. opt FlexVocal    "vocal"         stackJSON
   return TargetRB3{..}
 
-instance StackJSON (TargetRB3 FilePath) where
+instance (Eq f, StackJSON f) => StackJSON (TargetRB3 f) where
   stackJSON = asStrictObject "TargetRB3" parseTargetRB3
 
-instance Default (TargetRB3 FilePath) where
+instance (Eq f, StackJSON f) => Default (TargetRB3 f) where
   def = fromEmptyObject
 
 data LipsyncMember = LipsyncGuitar | LipsyncBass | LipsyncDrums
@@ -1116,7 +1117,7 @@ data LipsyncRB3 f = LipsyncRB3
   , lipsyncMember4 :: LipsyncMember
   } deriving (Eq, Ord, Show)
 
-instance StackJSON (LipsyncRB3 FilePath) where
+instance (Eq f, StackJSON f) => StackJSON (LipsyncRB3 f) where
   stackJSON = asStrictObject "LipsyncRB3" $ do
     lipsyncSources <- lipsyncSources =. req "sources" stackJSON
     lipsyncMember2 <- lipsyncMember2 =. opt LipsyncGuitar "member-2" stackJSON
@@ -1133,7 +1134,7 @@ data LipsyncSource f
   | LipsyncFile f
   deriving (Eq, Ord, Show)
 
-instance StackJSON (LipsyncSource FilePath) where
+instance (Eq f, StackJSON f) => StackJSON (LipsyncSource f) where
   stackJSON = Codec
     { codecIn = lift ask >>= \case
       "track1" -> return LipsyncTrack1
@@ -1144,7 +1145,7 @@ instance StackJSON (LipsyncSource FilePath) where
       "harm1" -> return $ LipsyncVocal $ Just Vocal1
       "harm2" -> return $ LipsyncVocal $ Just Vocal2
       "harm3" -> return $ LipsyncVocal $ Just Vocal3
-      OneKey "file-lipsync" (A.String f) -> return $ LipsyncFile $ T.unpack f
+      OneKey "file-lipsync" x -> LipsyncFile <$> parseFrom x (codecIn stackJSON)
       _ -> expected "a lipsync source"
     , codecOut = makeOut $ \case
       LipsyncTrack1 -> "track1"
@@ -1155,7 +1156,7 @@ instance StackJSON (LipsyncSource FilePath) where
       LipsyncVocal (Just Vocal1) -> "harm1"
       LipsyncVocal (Just Vocal2) -> "harm2"
       LipsyncVocal (Just Vocal3) -> "harm3"
-      LipsyncFile f -> OneKey "file-lipsync" $ A.String $ T.pack f
+      LipsyncFile f -> OneKey "file-lipsync" $ makeValue stackJSON f
     }
 
 data TargetRB2 = TargetRB2
@@ -1204,7 +1205,7 @@ data TargetPS f = TargetPS
   , ps_LoadingPhrase :: Maybe T.Text
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
-parseTargetPS :: (SendMessage m) => ObjectCodec m A.Value (TargetPS FilePath)
+parseTargetPS :: (SendMessage m, StackJSON f) => ObjectCodec m A.Value (TargetPS f)
 parseTargetPS = do
   ps_Common        <- ps_Common        =. parseTargetCommon
   ps_Guitar        <- ps_Guitar        =. opt FlexGuitar                "guitar"         stackJSON
@@ -1218,10 +1219,10 @@ parseTargetPS = do
   ps_LoadingPhrase <- ps_LoadingPhrase =. opt Nothing                   "loading-phrase" stackJSON
   return TargetPS{..}
 
-instance StackJSON (TargetPS FilePath) where
+instance (StackJSON f) => StackJSON (TargetPS f) where
   stackJSON = asStrictObject "TargetPS" parseTargetPS
 
-instance Default (TargetPS FilePath) where
+instance (StackJSON f) => Default (TargetPS f) where
   def = fromEmptyObject
 
 data GH2Coop = GH2Bass | GH2Rhythm
@@ -1376,7 +1377,7 @@ data Target f
 addKey :: (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
 addKey codec k v x = A.Object $ Map.insert k v $ Map.fromList $ makeObject (objectId codec) x
 
-instance StackJSON (Target FilePath) where
+instance (Eq f, StackJSON f) => StackJSON (Target f) where
   stackJSON = Codec
     { codecIn = object $ do
       target <- requiredKey "game" fromJSON
@@ -1410,7 +1411,7 @@ data SongYaml f = SongYaml
   , _parts    :: Parts (Part f)
   } deriving (Eq, Show)
 
-instance StackJSON (SongYaml FilePath) where
+instance (Eq f, IsString f, StackJSON f) => StackJSON (SongYaml f) where
   stackJSON = asStrictObject "SongYaml" $ do
     _metadata <- _metadata =. opt def       "metadata" stackJSON
     _global   <- _global   =. opt def       "global"   stackJSON

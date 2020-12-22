@@ -20,6 +20,8 @@ import qualified Data.Vector.Storable.Mutable   as MV
 import qualified Data.Vector.Storable as V
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Audio as CA
+import Data.SimpleHandle (useHandle, subHandle, saveHandleFile)
+import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
 
 #include "vorbis/codec.h"
 #include "vorbis/vorbisfile.h"
@@ -27,11 +29,17 @@ import qualified Data.Conduit.Audio as CA
 -- | Just strips the header off an unencrypted MOGG for now.
 moggToOgg :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 moggToOgg mogg ogg = do
-  bs <- liftIO $ BL.readFile mogg
+  let moggHandle = openBinaryFile mogg ReadMode
+  oggHandle <- moggToOggHandle moggHandle
+  stackIO $ useHandle oggHandle $ \h -> saveHandleFile h ogg
+
+moggToOggHandle :: (MonadIO m) => IO Handle -> StackTraceT m (IO Handle)
+moggToOggHandle ioh = do
+  bs <- stackIO $ useHandle ioh $ \h -> BL.hGet h 8
   let (moggType, oggStart) = runGet (liftA2 (,) getWord32le getWord32le) bs
       hex = "0x" <> map toUpper (showHex moggType "")
   if moggType == 0xA
-    then liftIO $ BL.writeFile ogg $ BL.drop (fromIntegral oggStart) bs
+    then return $ subHandle (<> " | mogg -> ogg") (fromIntegral oggStart) Nothing ioh
     else fatal $ "moggToOgg: encrypted MOGG (type " <> hex <> ") not supported"
 
 {#pointer *OggVorbis_File as OggVorbis_File newtype #}

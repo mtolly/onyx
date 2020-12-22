@@ -12,16 +12,14 @@ This code was written with the help of
 {-# LANGUAGE RecordWildCards   #-}
 module STFS.Package
 ( extractSTFS
-, withSTFS
-, STFSContents(..)
+, withSTFSFolder
 , rb3pkg
 , rb2pkg
 , makeCON
 , makeCONMemory
-, MemoryEntry(..)
 , CreateOptions(..)
 , stfsFolder
-, openSTFS
+, withSTFSPackage
 , STFSPackage(..)
 , LicenseEntry(..)
 , Header(..)
@@ -31,7 +29,6 @@ module STFS.Package
 import           Control.Monad                  (forM_, guard, replicateM,
                                                  unless, void)
 import           Control.Monad.Codec
-import           Control.Monad.Fix              (fix)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
@@ -48,19 +45,21 @@ import qualified Data.ByteString                as B
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Foldable                  (toList)
 import           Data.Int
+import           Data.IORef                     (newIORef, readIORef,
+                                                 writeIORef)
 import qualified Data.Map                       as Map
-import           Data.Maybe                     (fromMaybe, isNothing, mapMaybe)
+import           Data.Maybe                     (fromMaybe, isNothing)
 import           Data.Profunctor                (dimap)
 import           Data.Sequence                  ((|>))
 import qualified Data.Sequence                  as Seq
+import           Data.SimpleHandle
 import qualified Data.Text                      as T
 import           Data.Text.Encoding
 import           Data.Time
+import qualified Data.Vector.Unboxed            as VU
 import           Data.Word
 import           Resources                      (rb2Thumbnail, rb3Thumbnail,
                                                  xboxKV)
-import qualified System.Directory               as Dir
-import           System.FilePath                ((</>))
 import           System.IO
 
 class Bin a where
@@ -448,11 +447,6 @@ instance Bin BlockHashRecord where
     bhr_NextBlock <- bhr_NextBlock =. int24be
     return BlockHashRecord{..}
 
-data STFSContents = STFSContents
-  { stfsDirectories :: [FilePath]
-  , stfsFiles       :: [(FilePath, IO BL.ByteString)]
-  }
-
 data TableSizeShift = Shift0 | Shift1
   deriving (Eq, Show, Enum)
 
@@ -543,8 +537,8 @@ runGetM g bs = case runGetOrFail g bs of
   Left (_, pos, err) -> fail $ "Binary Get at position " <> show pos <> ": " <> err
   Right (_, _, x) -> return x
 
-openSTFS :: FilePath -> (STFSPackage -> IO a) -> IO a
-openSTFS stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
+withSTFSPackage :: FilePath -> (STFSPackage -> IO a) -> IO a
+withSTFSPackage stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
   headerMetaBytes <- BL.hGet fd 0x971A
   (header, meta) <- flip runGetM headerMetaBytes $ (,)
     <$> (codecIn bin :: Get Header)
@@ -643,43 +637,67 @@ getFileEntries stfs = let
       $ replicateM (fromIntegral (BL.length filesBytes) `div` 0x40)
       $ codecIn bin
 
-extractFile :: FileEntry -> STFSPackage -> IO BL.ByteString
-extractFile fe stfs = let
+-- extractFile :: FileEntry -> STFSPackage -> IO BL.ByteString
+-- extractFile fe stfs = getFileHandle fe stfs >>= handleToByteString
+
+getFileHandle :: FileEntry -> STFSPackage -> IO Handle
+getFileHandle fe stfs = let
   stfsDesc = md_VolumeDescriptor $ stfsMetadata stfs
-  readBlocks :: Word32 -> Int32 -> BlockStatus -> IO BL.ByteString
-  readBlocks size blk info
+  getBlockSequence :: Word32 -> FileBlock -> BlockStatus -> IO [Int32]
+  getBlockSequence size fb@(FileBlock blk) info
     | size <= 0
       || blk <= 0
       || blk >= sd_TotalAllocatedBlockCount stfsDesc
       || info < BlockUsed
-      = return BL.empty
+      = return []
     | otherwise = do
       let len = min 0x1000 size
-      seekToFileBlock (FileBlock blk) stfs
-      blockData <- BL.fromStrict <$> readBlock len stfs
-      blkHash <- getCorrectBlockHash (FileBlock blk) stfs
-      BL.append blockData <$> readBlocks (size - len) (bhr_NextBlock blkHash) (bhr_Status blkHash)
-  in readBlocks (fe_Size fe) (fe_FirstBlock fe) BlockUsed
+      blkHash <- getCorrectBlockHash fb stfs
+      (blk :) <$> getBlockSequence (size - len) (FileBlock $ bhr_NextBlock blkHash) (bhr_Status blkHash)
+  in do
+    blks <- VU.fromList <$> getBlockSequence (fe_Size fe) (FileBlock $ fe_FirstBlock fe) BlockUsed
+    posn <- newIORef 0
+    makeHandle (T.unpack $ fe_FileName fe) SimpleHandle
+      { shSize  = fromIntegral $ fe_Size fe
+      , shSeek  = writeIORef posn
+      , shTell  = readIORef posn
+      , shClose = return ()
+      , shRead  = \n -> do
+        p <- readIORef posn
+        writeIORef posn $ p + n
+        let readBlocks [] _ _ = return []
+            readBlocks (fblk : fblks) offset bytesLeft = if bytesLeft <= 0
+              then return []
+              else do
+                seekToFileBlock (FileBlock fblk) stfs
+                blockData <- B.take bytesLeft . B.drop offset <$> readBlock 0x1000 stfs
+                (blockData :) <$> readBlocks fblks 0 (bytesLeft - fromIntegral (B.length blockData))
+        case quotRem p 0x1000 of
+          (q, r) -> B.concat <$> readBlocks
+            (VU.toList $ VU.drop (fromIntegral q) blks)
+            (fromIntegral r)
+            (fromIntegral n)
+      }
 
-withSTFS :: FilePath -> (STFSContents -> IO a) -> IO a
-withSTFS stfsPath fn = openSTFS stfsPath $ \stfs -> do
+withSTFSFolder :: FilePath -> (Folder T.Text (IO Handle) -> IO a) -> IO a
+withSTFSFolder stfsPath fn = withSTFSPackage stfsPath $ \stfs -> do
   files <- getFileEntries stfs
-  let locateFile fe = if fe_PathIndex fe == -1
-        then T.unpack $ fe_FileName fe
-        else locateFile (files !! fromIntegral (fe_PathIndex fe)) </> T.unpack (fe_FileName fe)
-      stfsFiles = flip mapMaybe files $ \fe -> do
-        guard $ not $ fe_Directory fe
-        return (locateFile fe, extractFile fe stfs)
-      stfsDirectories = flip mapMaybe files $ \fe -> do
-        guard $ fe_Directory fe
-        return $ locateFile fe
-  fn STFSContents{..}
+  let getFolder pathIndex = let
+        contents = [ (i, fe) | (i, fe) <- zip [0..] files, fe_PathIndex fe == pathIndex ]
+        in Folder
+          { folderFiles = do
+            (_, fe) <- contents
+            guard $ not $ fe_Directory fe
+            return (fe_FileName fe, getFileHandle fe stfs)
+          , folderSubfolders = do
+            (i, fe) <- contents
+            guard $ fe_Directory fe
+            return (fe_FileName fe, getFolder i)
+          }
+  fn $ getFolder (-1)
 
 extractSTFS :: FilePath -> FilePath -> IO ()
-extractSTFS stfs dir = withSTFS stfs $ \contents -> do
-  forM_ (stfsDirectories contents) $ Dir.createDirectoryIfMissing True . (dir </>)
-  forM_ (stfsFiles contents) $ \(path, getFile) -> do
-    getFile >>= BL.writeFile (dir </> path)
+extractSTFS stfs dir = withSTFSFolder stfs $ \folder -> saveHandleFolder folder dir
 
 data BlockContents a
   = L0Hashes a -- ^ hashes of 0xAA data blocks
@@ -828,48 +846,35 @@ loadKVbin bs = let
 --   msg' <- B.readFile msg
 --   print $ sign Nothing (Just SHA1) (kv_PrivateKey kv') msg'
 
-readAsBlocks :: FilePath -> IO (Integer, [B.ByteString])
-readAsBlocks f = do
-  size <- Dir.getFileSize f
-  blocks <- withBinaryFile f ReadMode $ \h -> fix $ \go -> do
-    blk <- B.hGet h 0x1000
-    if B.null blk
-      then return []
-      else let
-        blk' = if B.length blk == 0x1000
-          then blk
-          else blk <> B.replicate (0x1000 - B.length blk) 0
-        in (blk' :) <$> go
-  return (size, blocks)
+-- readAsBlocks :: FilePath -> IO (Integer, [B.ByteString])
+-- readAsBlocks f = do
+--   size <- Dir.getFileSize f
+--   blocks <- withBinaryFile f ReadMode $ \h -> fix $ \go -> do
+--     blk <- B.hGet h 0x1000
+--     if B.null blk
+--       then return []
+--       else let
+--         blk' = if B.length blk == 0x1000
+--           then blk
+--           else blk <> B.replicate (0x1000 - B.length blk) 0
+--         in (blk' :) <$> go
+--   return (size, blocks)
 
 -- parent index, name, maybe (length, data blocks)
 type BlocksPlan = [(Int, T.Text, Maybe (Integer, [B.ByteString]))]
 
 traverseFolder :: FilePath -> IO BlocksPlan
-traverseFolder top = toList <$> execStateT (go (-1) top) Seq.empty where
-  go parentIndex dir = do
-    contents <- liftIO $ Dir.listDirectory dir
-    forM_ contents $ \f -> do
-      isDir <- liftIO $ Dir.doesDirectoryExist $ dir </> f
-      if isDir
-        then do
-          thisIndex <- gets Seq.length
-          modify (|> (parentIndex, T.pack f, Nothing))
-          go thisIndex (dir </> f)
-        else do
-          sizeBlocks <- liftIO $ readAsBlocks $ dir </> f
-          modify (|> (parentIndex, T.pack f, Just sizeBlocks))
+traverseFolder top = traverseMemory <$> do
+  crawlFolder top >>= traverse (\h -> useHandle h handleToByteString)
 
-data MemoryEntry a = MemoryFolder T.Text [MemoryEntry a] | MemoryFile T.Text a
-
-traverseMemory :: [MemoryEntry BL.ByteString] -> BlocksPlan
+traverseMemory :: Folder T.Text BL.ByteString -> BlocksPlan
 traverseMemory top = toList $ execState (go (-1) top) Seq.empty where
-  go parentIndex contents = forM_ contents $ \case
-    MemoryFolder f contents' -> do
+  go parentIndex folder = do
+    forM_ (folderSubfolders folder) $ \(f, sub) -> do
       thisIndex <- gets Seq.length
       modify (|> (parentIndex, f, Nothing))
-      go thisIndex contents'
-    MemoryFile f bs -> do
+      go thisIndex sub
+    forM_ (folderFiles folder) $ \(f, bs) -> do
       modify (|> (parentIndex, f, Just (fromIntegral $ BL.length bs, splitIntoBlocks bs)))
   splitIntoBlocks bs = if BL.null bs
     then []
@@ -930,7 +935,7 @@ makeCON opts dir con = do
   fileList <- traverseFolder dir
   makeCONGeneral opts fileList con
 
-makeCONMemory :: CreateOptions -> [MemoryEntry BL.ByteString] -> FilePath -> IO ()
+makeCONMemory :: CreateOptions -> Folder T.Text BL.ByteString -> FilePath -> IO ()
 makeCONMemory opts mem con = makeCONGeneral opts (traverseMemory mem) con
 
 makeCONGeneral :: CreateOptions -> BlocksPlan -> FilePath -> IO ()

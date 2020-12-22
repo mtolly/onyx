@@ -30,7 +30,9 @@ import           Data.Functor.Identity
 import           Data.Hashable
 import qualified Data.HashMap.Strict            as Map
 import           Data.List.Extra                (stripSuffix)
+import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe                     (fromMaybe, mapMaybe)
+import           Data.SimpleHandle              (findByteString)
 import qualified Data.Text                      as T
 import           DTXMania.DTX
 import           DTXMania.Import
@@ -48,7 +50,7 @@ import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingles)
 import           Rocksmith.Import               as RS
 import qualified Sound.Jammit.Base              as J
-import           STFS.Package                   (STFSContents (..), withSTFS)
+import           STFS.Package                   (withSTFSFolder)
 import qualified System.Directory               as Dir
 import           System.FilePath                (dropExtension,
                                                  dropTrailingPathSeparator,
@@ -259,8 +261,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                 }
         foundMany $ zipWith eachSong [0..] singles
       foundSTFS loc = do
-        dta <- stackIO $ withSTFS loc $ \stfs ->
-          sequence $ lookup ("songs" </> "songs.dta") $ stfsFiles stfs
+        dta <- stackIO $ withSTFSFolder loc $ findByteString $ "songs" :| pure "songs.dta"
         case dta of
           Just bs -> foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc False $ \i -> void . importSTFS i loc Nothing
           Nothing -> return ([], [])

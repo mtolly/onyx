@@ -14,7 +14,10 @@ import           Data.DTA.Serialize.Magma       (Gender (..))
 import qualified Data.DTA.Serialize.RB3         as D
 import qualified Data.HashMap.Strict            as HM
 import           Data.List                      (elemIndex, sort)
+import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe                     (fromMaybe)
+import           Data.SimpleHandle              (Folder (..))
+import           Data.SimpleHandle              (findByteString)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import           PrettyDTA
@@ -324,8 +327,8 @@ applyDTA single entry = let
 
 fixSongCache :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m ()
 fixSongCache path = do
-  mcache <- stackIO $ withSTFS path $ \stfs -> do
-    sequence $ lookup "songcache" $ stfsFiles stfs
+  mcache <- stackIO $ withSTFSFolder path
+    $ findByteString (pure "songcache")
   origCache <- case mcache of
     Nothing -> fatal "Couldn't find song cache file inside STFS"
     Just bs -> case runGetOrFail (codecIn bin) bs of
@@ -342,8 +345,8 @@ fixSongCache path = do
             magic <- stackIO $ IO.withBinaryFile conFull IO.ReadMode $ \h -> B.hGet h 4
             if elem magic ["CON ", "LIVE"]
               then do
-                dta <- fmap join $ errorToWarning $ stackIO $ withSTFS conFull $ \stfs ->
-                  sequence $ lookup ("songs" </> "songs.dta") $ stfsFiles stfs
+                dta <- fmap join $ errorToWarning $ stackIO $ withSTFSFolder conFull
+                  $ findByteString ("songs" :| pure "songs.dta")
                 case dta of
                   Nothing -> return cache
                   Just bs -> do
@@ -398,4 +401,7 @@ fixSongCache path = do
         , createVersion       = 1025
         , createBaseVersion   = 1
         , createTransferFlags = 64
-        } [MemoryFile "songcache" $ runPut $ void $ codecOut bin newCache] path
+        } Folder
+          { folderSubfolders = []
+          , folderFiles = [("songcache", runPut $ void $ codecOut bin newCache)]
+          } path
