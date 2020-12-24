@@ -51,6 +51,9 @@ metadata:
   subgenre: prog
   file-album-art: cover.jpg
   difficulty: 5
+  preview-start: 42.069 # I sense this was a joke
+  comments:
+  - Clone Hero package has Miscellany's chart (guitar with some keys parts) on Guitar, and "just guitar" on Guitar Coop.
 targets:
   rb3:
     game: rb3
@@ -66,7 +69,13 @@ targets:
     guitar: combo
     guitar-coop: guitar
     vocal: misc-lyrics
+    loading-phrase: >-
+      "The Holiday Spirit Carries On" is a medley of various Christmas songs
+      that was recorded with the intent of raising money for Dream Theater's
+      road crew. The track is available on Bandcamp.
   rs:
     game: rs
     arrangements:
     - [bonus-rhythm, bass]
+global:
+  file-background-image: background.jpg

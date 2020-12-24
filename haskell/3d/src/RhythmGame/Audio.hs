@@ -234,13 +234,13 @@ oggSecsSpeed pos mspeed ogg = do
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 
-projectAudio :: (MonadIO m) => Project -> StackTraceT (QueueLog m) (Maybe (Double -> Maybe Double -> Float -> IO AudioHandle))
-projectAudio proj = case HM.toList $ _plans $ projectSongYaml proj of
-  [(k, MoggPlan{..})] -> errorToWarning $ do
+projectAudio :: (MonadIO m) => T.Text -> Project -> StackTraceT (QueueLog m) (Maybe (Double -> Maybe Double -> Float -> IO AudioHandle))
+projectAudio k proj = case lookup k $ HM.toList $ _plans $ projectSongYaml proj of
+  Just MoggPlan{..} -> errorToWarning $ do
     -- TODO maybe silence crowd channels
     ogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.ogg"
     return $ \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac _pans) (map realToFrac _vols) gain
-  [(_, Plan{..})] -> errorToWarning $ do
+  Just Plan{..} -> errorToWarning $ do
     let planAudios = toList _song ++ (toList _planParts >>= toList) -- :: [PlanAudio Duration AudioInput]
     lib <- newAudioLibrary
     audioDirs <- getAudioDirs proj
@@ -278,8 +278,8 @@ projectAudio proj = case HM.toList $ _plans $ projectSongYaml proj of
         $ CA.mapSamples CA.integralSample
         $ maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed src
   {-
-  [(k, _)] -> errorToWarning $ do
+  Just _ -> errorToWarning $ do
     wav <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/everything.wav"
     return $ \t speed -> sndSecsSpeed t speed wav >>= playSource [-1, 1] [0, 0]
   -}
-  _ -> return Nothing
+  Nothing -> return Nothing

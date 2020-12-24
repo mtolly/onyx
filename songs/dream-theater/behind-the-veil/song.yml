@@ -7,6 +7,7 @@ audio:
   hdtracks-track:
     md5: 8ec1b6619eecd454b7166c016f7e18bf
     frames: 39612622
+  # to decode mp3s and get these md5s: lame --decode file.mp3; flac file.wav
   stem-bass:
     md5: e3916b665b8712705efabeb97fa7b5ae
     frames: 14521583

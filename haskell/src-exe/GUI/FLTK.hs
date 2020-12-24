@@ -259,12 +259,21 @@ continueImport makeMenuBar hasAudio imp = do
   -- TODO this can potentially not clean up the temp folder if interrupted during import
   proj <- importWithVenueSetting imp
   void $ shakeBuild1 proj [] "gen/cover.png"
-  -- TODO support popping up a window or something to ask which audio plan to use if multiple
-  maybeAudio <- if hasAudio then projectAudio proj else return Nothing
-  stackIO $ sink $ EventOnyx $ do
-    prefs <- readPreferences
-    let ?preferences = prefs
-    stackIO $ launchWindow sink makeMenuBar proj maybeAudio
+  -- quick hack to select an audio plan on my projects
+  let withAudio maybeAudio = stackIO $ sink $ EventOnyx $ do
+        prefs <- readPreferences
+        let ?preferences = prefs
+        stackIO $ launchWindow sink makeMenuBar proj maybeAudio
+      selectPlan [] = withAudio Nothing
+      selectPlan [k] = void $ forkOnyx $ projectAudio k proj >>= withAudio
+      selectPlan (k : ks) = stackIO $ sink $ EventIO $ do
+        n <- FL.flChoice "Select an audio plan" (T.pack $ show ks) (Just $ T.pack $ show k) Nothing
+        sink $ EventOnyx $ case n of
+          1 -> void $ forkOnyx $ projectAudio k proj >>= withAudio
+          _ -> selectPlan ks
+  if hasAudio
+    then selectPlan $ HM.keys $ _plans $ projectSongYaml proj
+    else withAudio Nothing
 
 multipleSongsWindow
   :: (Event -> IO ())

@@ -34,67 +34,45 @@ parts:
 plans:
   mogg:
     parts:
-      bass:
-      - 6
-      - 7
-      guitar:
-      - 8
-      - 9
-      keys:
-      - 10
-      - 11
       drums:
-        kick:
-        - 0
-        - 1
-        snare:
-        - 2
-        - 3
-        kit:
-        - 4
-        - 5
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
+      keys: [10, 11]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     karaoke: false
     mogg-md5: 94ff69c2b330c42e80afc30179f735e0
-    multitrack: false
-    vols:
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
+    multitrack: true
+    vols: [-3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3]
+  sheet-music:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
+    song:
+      pad: [3.581, sheet-music]
+audio:
+  sheet-music:
+    md5: 2698940fa537a40adaf03f7a844eabf8
+    frames: 12743136
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 targets:
   rb3-2x:
     song-id: 5010498
     game: rb3
     2x-bass-pedal: true
+    plan: mogg
   rs:
     game: rs
     arrangements:
     - [bass, bass]
+    plan: sheet-music
 metadata:
   preview-start: 1:19.000
   file-album-art: cover.png_xbox

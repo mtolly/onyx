@@ -78,6 +78,7 @@ def makeDifficulties(parts, song)
   output = []
   parts.sort_by(&part_index).each do |part, modes|
     next if %w{guitar-ch bass-ch}.include?(part) # hack in Nurture
+    next if %w{combo misc-lyrics}.include?(part) # hack in The Holiday Spirit Carries On
     modes_output = []
     modes.sort_by(&mode_index).each do |mode, info|
       if song['hide-parts'] and (song['hide-parts'].include?(part) or song['hide-parts'].include?("#{part}/#{mode}"))

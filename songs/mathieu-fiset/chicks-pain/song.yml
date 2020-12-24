@@ -31,3 +31,6 @@ audio:
     # https://mathieufiset.bandcamp.com/album/robojazz
     md5: 4de0eff2e55fc6dd80fbbcb9ffd97550
     frames: 9589206
+targets:
+  rb3:
+    game: rb3

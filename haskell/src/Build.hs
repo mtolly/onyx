@@ -1917,6 +1917,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 , (ps_Vocal      ps, rb3VocalTier    )
                 ] out
             dir </> "ps/album.png"   %> shk . copyFile' (rel "gen/cover.png")
+            bgimg <- forM (_fileBackgroundImage $ _global songYaml) $ \f -> do
+              let psImage = "background" <> takeExtension f
+              dir </> "ps" </> psImage %> shk . copyFile' (rel f)
+              return psImage
             phony (dir </> "ps") $ do
               (_, mixMode) <- computeDrumsPart (ps_Drums ps) plan songYaml
               shk $ need $ map (\f -> dir </> "ps" </> f) $ concat
@@ -1955,6 +1959,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     Plan{..}     -> isJust _crowd
                     MoggPlan{..} -> not $ null _moggCrowd
                   ]
+                , toList bgimg
                 ]
             dir </> "ps.zip" %> \out -> do
               let d = dir </> "ps"

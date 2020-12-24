@@ -37,25 +37,45 @@ plans:
     mogg-md5: 4ea0ea89454213d207ed5dc9ece906f7
     multitrack: false
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  sheet-music:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [2.099, sheet-music]
+audio:
+  sheet-music:
+    md5: be753394a9871664c9810c2ffc9519fa
+    frames: 13545168
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 targets:
   rb3:
     game: rb3
     label: (O)
     version: 2
     song-id: SunOfPearl1xO200215
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
     song-id: SunOfPearl2xO200215
     version: 2
+    plan: mogg
   ps:
     game: ps
     label: (O)
+    plan: mogg
   rs:
     game: rs
     arrangements:
     - [bass, bass]
+    plan: sheet-music
 metadata:
   rating: Family Friendly
   preview-start: 34
