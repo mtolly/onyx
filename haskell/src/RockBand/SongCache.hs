@@ -327,8 +327,7 @@ applyDTA single entry = let
 
 fixSongCache :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m ()
 fixSongCache path = do
-  mcache <- stackIO $ withSTFSFolder path
-    $ findByteString (pure "songcache")
+  mcache <- stackIO $ getSTFSFolder path >>= findByteString (pure "songcache")
   origCache <- case mcache of
     Nothing -> fatal "Couldn't find song cache file inside STFS"
     Just bs -> case runGetOrFail (codecIn bin) bs of
@@ -345,8 +344,8 @@ fixSongCache path = do
             magic <- stackIO $ IO.withBinaryFile conFull IO.ReadMode $ \h -> B.hGet h 4
             if elem magic ["CON ", "LIVE"]
               then do
-                dta <- fmap join $ errorToWarning $ stackIO $ withSTFSFolder conFull
-                  $ findByteString ("songs" :| pure "songs.dta")
+                dta <- fmap join $ errorToWarning $ stackIO $ getSTFSFolder conFull
+                  >>= findByteString ("songs" :| pure "songs.dta")
                 case dta of
                   Nothing -> return cache
                   Just bs -> do

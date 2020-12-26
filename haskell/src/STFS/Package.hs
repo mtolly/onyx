@@ -12,7 +12,7 @@ This code was written with the help of
 {-# LANGUAGE RecordWildCards   #-}
 module STFS.Package
 ( extractSTFS
-, withSTFSFolder
+, getSTFSFolder
 , rb3pkg
 , rb2pkg
 , makeCON
@@ -637,31 +637,32 @@ getFileEntries stfs = let
       $ replicateM (fromIntegral (BL.length filesBytes) `div` 0x40)
       $ codecIn bin
 
--- extractFile :: FileEntry -> STFSPackage -> IO BL.ByteString
--- extractFile fe stfs = getFileHandle fe stfs >>= handleToByteString
-
-getFileHandle :: FileEntry -> STFSPackage -> IO Handle
-getFileHandle fe stfs = let
-  stfsDesc = md_VolumeDescriptor $ stfsMetadata stfs
-  getBlockSequence :: Word32 -> FileBlock -> BlockStatus -> IO [Int32]
-  getBlockSequence size fb@(FileBlock blk) info
-    | size <= 0
-      || blk <= 0
-      || blk >= sd_TotalAllocatedBlockCount stfsDesc
-      || info < BlockUsed
-      = return []
-    | otherwise = do
-      let len = min 0x1000 size
-      blkHash <- getCorrectBlockHash fb stfs
-      (blk :) <$> getBlockSequence (size - len) (FileBlock $ bhr_NextBlock blkHash) (bhr_Status blkHash)
-  in do
+getFileHandle :: FileEntry -> STFSPackage -> Readable -> Readable
+getFileHandle fe stfs readable = Readable
+  { rFilePath = Nothing
+  , rOpen = do
+    h <- rOpen readable
+    let stfs' = stfs { stfsHandle = h }
+        stfsDesc = md_VolumeDescriptor $ stfsMetadata stfs'
+        getBlockSequence :: Word32 -> FileBlock -> BlockStatus -> IO [Int32]
+        getBlockSequence size fb@(FileBlock blk) info
+          | size <= 0
+            || blk <= 0
+            || blk >= sd_TotalAllocatedBlockCount stfsDesc
+            || info < BlockUsed
+            = return []
+          | otherwise = do
+            let len = min 0x1000 size
+            blkHash <- getCorrectBlockHash fb stfs'
+            (blk :) <$> getBlockSequence (size - len) (FileBlock $ bhr_NextBlock blkHash) (bhr_Status blkHash)
     blks <- VU.fromList <$> getBlockSequence (fe_Size fe) (FileBlock $ fe_FirstBlock fe) BlockUsed
     posn <- newIORef 0
-    makeHandle (T.unpack $ fe_FileName fe) SimpleHandle
+    -- TODO include the whole directory in the new label, not just fe_FileName
+    openSimpleHandle (handleLabel h <> " | " <> T.unpack (fe_FileName fe)) SimpleHandle
       { shSize  = fromIntegral $ fe_Size fe
       , shSeek  = writeIORef posn
       , shTell  = readIORef posn
-      , shClose = return ()
+      , shClose = hClose h
       , shRead  = \n -> do
         p <- readIORef posn
         writeIORef posn $ p + n
@@ -669,8 +670,8 @@ getFileHandle fe stfs = let
             readBlocks (fblk : fblks) offset bytesLeft = if bytesLeft <= 0
               then return []
               else do
-                seekToFileBlock (FileBlock fblk) stfs
-                blockData <- B.take bytesLeft . B.drop offset <$> readBlock 0x1000 stfs
+                seekToFileBlock (FileBlock fblk) stfs'
+                blockData <- B.take bytesLeft . B.drop offset <$> readBlock 0x1000 stfs'
                 (blockData :) <$> readBlocks fblks 0 (bytesLeft - fromIntegral (B.length blockData))
         case quotRem p 0x1000 of
           (q, r) -> B.concat <$> readBlocks
@@ -678,9 +679,10 @@ getFileHandle fe stfs = let
             (fromIntegral r)
             (fromIntegral n)
       }
+  }
 
-withSTFSFolder :: FilePath -> (Folder T.Text (IO Handle) -> IO a) -> IO a
-withSTFSFolder stfsPath fn = withSTFSPackage stfsPath $ \stfs -> do
+getSTFSFolder :: FilePath -> IO (Folder T.Text Readable)
+getSTFSFolder stfsPath = withSTFSPackage stfsPath $ \stfs -> do
   files <- getFileEntries stfs
   let getFolder pathIndex = let
         contents = [ (i, fe) | (i, fe) <- zip [0..] files, fe_PathIndex fe == pathIndex ]
@@ -688,16 +690,16 @@ withSTFSFolder stfsPath fn = withSTFSPackage stfsPath $ \stfs -> do
           { folderFiles = do
             (_, fe) <- contents
             guard $ not $ fe_Directory fe
-            return (fe_FileName fe, getFileHandle fe stfs)
+            return (fe_FileName fe, getFileHandle fe stfs $ fileReadable stfsPath)
           , folderSubfolders = do
             (i, fe) <- contents
             guard $ fe_Directory fe
             return (fe_FileName fe, getFolder i)
           }
-  fn $ getFolder (-1)
+  return $ getFolder (-1)
 
 extractSTFS :: FilePath -> FilePath -> IO ()
-extractSTFS stfs dir = withSTFSFolder stfs $ \folder -> saveHandleFolder folder dir
+extractSTFS stfs dir = getSTFSFolder stfs >>= \folder -> saveHandleFolder folder dir
 
 data BlockContents a
   = L0Hashes a -- ^ hashes of 0xAA data blocks

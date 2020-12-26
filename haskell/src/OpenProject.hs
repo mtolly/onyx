@@ -50,7 +50,7 @@ import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingles)
 import           Rocksmith.Import               as RS
 import qualified Sound.Jammit.Base              as J
-import           STFS.Package                   (withSTFSFolder)
+import           STFS.Package                   (getSTFSFolder)
 import qualified System.Directory               as Dir
 import           System.FilePath                (dropExtension,
                                                  dropTrailingPathSeparator,
@@ -261,7 +261,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                 }
         foundMany $ zipWith eachSong [0..] singles
       foundSTFS loc = do
-        dta <- stackIO $ withSTFSFolder loc $ findByteString $ "songs" :| pure "songs.dta"
+        dta <- stackIO $ getSTFSFolder loc >>= findByteString ("songs" :| pure "songs.dta")
         case dta of
           Just bs -> foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc False $ \i -> void . importSTFS i loc Nothing
           Nothing -> return ([], [])

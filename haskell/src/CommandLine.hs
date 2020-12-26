@@ -1352,7 +1352,7 @@ blackVenue fcon = inside ("Inserting black VENUE in: " <> fcon) $ do
   (hdr, meta) <- stackIO $ withSTFSPackage fcon $ \pkg -> return (stfsHeader pkg, stfsMetadata pkg)
   case hdr of
     CON _ -> do
-      topFolder <- stackIO $ withSTFSFolder fcon $ traverse $ \ioh -> useHandle ioh handleToByteString
+      topFolder <- stackIO $ getSTFSFolder fcon >>= traverse (\ioh -> useHandle ioh handleToByteString)
       isRB3 <- case findFile ("songs" :| pure "songs.dta") topFolder of
         Nothing -> fatal "Couldn't find songs.dta in package"
         Just dtaBS -> do

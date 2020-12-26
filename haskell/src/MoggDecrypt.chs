@@ -20,8 +20,7 @@ import qualified Data.Vector.Storable.Mutable   as MV
 import qualified Data.Vector.Storable as V
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Audio as CA
-import Data.SimpleHandle (useHandle, subHandle, saveHandleFile)
-import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
+import Data.SimpleHandle (Readable, useHandle, subHandle, saveReadable, fileReadable)
 
 #include "vorbis/codec.h"
 #include "vorbis/vorbisfile.h"
@@ -29,11 +28,10 @@ import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
 -- | Just strips the header off an unencrypted MOGG for now.
 moggToOgg :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 moggToOgg mogg ogg = do
-  let moggHandle = openBinaryFile mogg ReadMode
-  oggHandle <- moggToOggHandle moggHandle
-  stackIO $ useHandle oggHandle $ \h -> saveHandleFile h ogg
+  oggHandle <- moggToOggHandle $ fileReadable mogg
+  stackIO $ saveReadable oggHandle ogg
 
-moggToOggHandle :: (MonadIO m) => IO Handle -> StackTraceT m (IO Handle)
+moggToOggHandle :: (MonadIO m) => Readable -> StackTraceT m Readable
 moggToOggHandle ioh = do
   bs <- stackIO $ useHandle ioh $ \h -> BL.hGet h 8
   let (moggType, oggStart) = runGet (liftA2 (,) getWord32le getWord32le) bs

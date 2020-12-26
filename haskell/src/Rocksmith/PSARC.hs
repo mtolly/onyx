@@ -11,17 +11,16 @@ module Rocksmith.PSARC where
 
 import qualified Codec.Compression.Zlib.Internal as Z
 import           Control.Applicative             (liftA2)
-import           Control.Monad                   (forM_, replicateM)
+import           Control.Monad                   (replicateM)
 import           Control.Monad.ST.Lazy           (runST)
 import           Data.Binary.Codec.Class
 import qualified Data.ByteString                 as B
 import qualified Data.ByteString.Lazy            as BL
 import           Data.Maybe                      (fromMaybe)
+import qualified Data.SimpleHandle               as SH
 import qualified Data.Text                       as T
 import qualified Data.Text.Encoding              as TE
 import           Rocksmith.Crypt
-import qualified System.Directory                as Dir
-import           System.FilePath                 (takeDirectory, (</>))
 
 data Header = Header
   { hdr_magic        :: B.ByteString
@@ -74,14 +73,15 @@ word40be = Codec
 
 extractPSARC :: FilePath -> FilePath -> IO ()
 extractPSARC fin dout = do
-  entries <- loadPSARC fin
-  forM_ entries $ \(f, bs) -> do
-    Dir.createDirectoryIfMissing True $ dout </> takeDirectory f
-    BL.writeFile (dout </> f) bs
+  folder <- readPSARCFolder $ SH.fileReadable fin
+  SH.saveHandleFolder folder dout
 
-loadPSARC :: FilePath -> IO [(FilePath, BL.ByteString)]
-loadPSARC f = do
-  bs <- BL.fromStrict <$> B.readFile f
+readPSARCFolder :: SH.Readable -> IO (SH.Folder T.Text SH.Readable)
+readPSARCFolder readable = do
+  -- TODO maybe improve this to not read the whole file into memory
+  (bs, origLabel) <- SH.useHandle readable $ \h -> do
+    bs <- SH.handleToByteString h
+    return (bs, SH.handleLabel h)
   (hdr, tocBytes) <- return $ flip runGet bs $ do
     hdr <- codecIn (bin :: BinaryCodec Header)
     tocEnc <- getByteString (fromIntegral (hdr_tocLength hdr) - 32)
@@ -107,7 +107,13 @@ loadPSARC f = do
             chunk' = fromMaybe chunk $ zlibMaybe chunk
             in chunk' <> readEntry zs afterChunk (len + fromIntegral (BL.length chunk'))
     readEntry lens seeked 0
-  return $ zip (map T.unpack $ T.lines $ TE.decodeLatin1 $ BL.toStrict listing) pieces
+  let filenames = T.lines $ TE.decodeLatin1 $ BL.toStrict listing
+      folder = SH.fromFiles $ do
+        (path, piece) <- zip filenames pieces
+        Just spath <- [SH.splitPath path] -- error if Nothing?
+        let newLabel = origLabel <> " | " <> T.unpack path
+        return (spath, SH.makeHandle newLabel $ SH.byteStringSimpleHandle piece)
+  return folder
 
 zlibMaybe :: BL.ByteString -> Maybe BL.ByteString
 zlibMaybe bs = runST $ let

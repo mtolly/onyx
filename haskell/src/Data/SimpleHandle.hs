@@ -2,16 +2,19 @@
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Data.SimpleHandle where
 
 import           Control.Exception        (bracket, throwIO)
 import           Control.Monad            (forM, forM_, guard)
+import           Data.Bifunctor           (Bifunctor (..))
 import qualified Data.ByteString          as B
 import           Data.ByteString.Internal (memcpy)
 import qualified Data.ByteString.Lazy     as BL
 import           Data.ByteString.Unsafe   (unsafeUseAsCStringLen)
 import           Data.Either              (lefts, rights)
 import           Data.IORef
+import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty       as NE
 import           Data.Maybe               (fromMaybe)
 import qualified Data.Text                as T
@@ -70,13 +73,30 @@ instance BufferedIO SimpleHandle where
   flushWriteBuffer     = writeBuf
   flushWriteBuffer0    = writeBufNonBlocking
 
-makeHandle :: String -> SimpleHandle -> IO Handle
-makeHandle str sh = H.mkFileHandle
+data Readable = Readable
+  { rOpen     :: IO Handle
+  , rFilePath :: Maybe FilePath
+  }
+
+fileReadable :: FilePath -> Readable
+fileReadable f = Readable
+  { rOpen     = openBinaryFile f ReadMode
+  , rFilePath = Just f
+  }
+
+openSimpleHandle :: String -> SimpleHandle -> IO Handle
+openSimpleHandle str sh = H.mkFileHandle
   sh
   str
   ReadMode
   Nothing
   H.noNewlineTranslation
+
+makeHandle :: String -> IO SimpleHandle -> Readable
+makeHandle str iosh = Readable
+  { rFilePath = Nothing
+  , rOpen = iosh >>= openSimpleHandle str
+  }
 
 byteStringSimpleHandle :: BL.ByteString -> IO SimpleHandle
 byteStringSimpleHandle bs = do
@@ -99,27 +119,35 @@ handleToByteString h = do
   hSeek h AbsoluteSeek 0
   BL.hGet h $ fromIntegral len
 
-useHandle :: IO Handle -> (Handle -> IO a) -> IO a
-useHandle getHandle = bracket getHandle hClose
+useHandle :: Readable -> (Handle -> IO a) -> IO a
+useHandle readable = bracket (rOpen readable) hClose
 
-saveHandleFile :: Handle -> FilePath -> IO ()
-saveHandleFile hin dest = withBinaryFile dest WriteMode $ \hout -> do
+saveReadable :: Readable -> FilePath -> IO ()
+saveReadable r dest = withBinaryFile dest WriteMode $ \hout -> do
   -- TODO replace this with a better version that doesn't load the whole file at once
-  handleToByteString hin >>= BL.hPut hout
+  useHandle r handleToByteString >>= BL.hPut hout
 
-saveHandleFolder :: Folder T.Text (IO Handle) -> FilePath -> IO ()
+saveHandleFolder :: Folder T.Text Readable -> FilePath -> IO ()
 saveHandleFolder folder dest = do
-  forM_ (folderFiles folder) $ \(name, ioh) -> do
-    useHandle ioh $ \h -> saveHandleFile h $ dest </> T.unpack name
+  Dir.createDirectoryIfMissing False dest
   forM_ (folderSubfolders folder) $ \(name, sub) -> do
     let subdest = dest </> T.unpack name
     Dir.createDirectoryIfMissing False subdest
     saveHandleFolder sub subdest
+  forM_ (folderFiles folder) $ \(name, file) -> do
+    saveReadable file $ dest </> T.unpack name
 
 data Folder name a = Folder
   { folderSubfolders :: [(name, Folder name a)]
   , folderFiles      :: [(name, a)]
   } deriving (Eq, Show, Functor, Foldable, Traversable)
+
+instance Bifunctor Folder where
+  first f folder = Folder
+    { folderSubfolders = map (bimap f $ first f) $ folderSubfolders folder
+    , folderFiles = map (first f) $ folderFiles folder
+    }
+  second = fmap
 
 type SplitPath = NE.NonEmpty T.Text
 
@@ -139,6 +167,21 @@ allFiles folder = let
     return (NE.cons sub spath, file)
   in inHere <> inSub
 
+splitPath :: T.Text -> Maybe SplitPath
+splitPath t = NE.nonEmpty $ T.splitOn "/" t >>= T.splitOn "\\"
+
+unsplitPath :: SplitPath -> T.Text
+unsplitPath = T.pack . foldr1 ((</>)) . fmap T.unpack
+
+fromFiles :: [(SplitPath, a)] -> Folder T.Text a
+fromFiles pairs = Folder
+  { folderFiles = [ (name, file) | (name :| [], file) <- pairs ]
+  , folderSubfolders = do
+    group <- NE.groupAllWith fst [ (name, (x :| xs, file)) | (name :| (x : xs), file) <- pairs ]
+    let (sub, _) :| _ = group
+    return (sub, fromFiles $ map snd $ NE.toList group)
+  }
+
 findFile :: SplitPath -> Folder T.Text a -> Maybe a
 findFile spath folder = case NE.uncons spath of
   (dir, Just rest) -> do
@@ -146,11 +189,11 @@ findFile spath folder = case NE.uncons spath of
     findFile rest sub
   (name, Nothing) -> lookup name $ folderFiles folder
 
-crawlFolder :: FilePath -> IO (Folder T.Text (IO Handle))
+crawlFolder :: FilePath -> IO (Folder T.Text Readable)
 crawlFolder f = do
   ents <- Dir.listDirectory f
   results <- forM ents $ \ent -> Dir.doesFileExist (f </> ent) >>= \case
-    True  -> return $ Left (T.pack ent, openBinaryFile (f </> ent) ReadMode)
+    True  -> return $ Left (T.pack ent, fileReadable $ f </> ent)
     False -> do
       sub <- crawlFolder $ f </> ent
       return $ Right (T.pack ent, sub)
@@ -159,9 +202,9 @@ crawlFolder f = do
     , folderSubfolders = rights results
     }
 
-findByteString :: SplitPath -> Folder T.Text (IO Handle) -> IO (Maybe BL.ByteString)
+findByteString :: SplitPath -> Folder T.Text Readable -> IO (Maybe BL.ByteString)
 findByteString spath folder
-  = mapM (\ioh -> useHandle ioh handleToByteString)
+  = mapM (\readable -> useHandle readable handleToByteString)
   $ findFile spath folder
 
 handleLabel :: Handle -> String
@@ -169,14 +212,17 @@ handleLabel = \case
   FileHandle   s _   -> s
   DuplexHandle s _ _ -> s
 
-subHandle :: (String -> String) -> Integer -> Maybe Integer -> IO Handle -> IO Handle
-subHandle addLabel pos mlen ioh = do
-  h <- ioh
-  origSize <- hFileSize h
-  makeHandle (addLabel $ handleLabel h) SimpleHandle
-    { shSize  = fromMaybe (origSize - pos) mlen
-    , shSeek  = \n -> hSeek h AbsoluteSeek $ n + pos
-    , shTell  = (\(H.HandlePosn _ n) -> n - pos) <$> H.hGetPosn h
-    , shClose = hClose h
-    , shRead  = B.hGet h . fromIntegral
-    }
+subHandle :: (String -> String) -> Integer -> Maybe Integer -> Readable -> Readable
+subHandle addLabel pos mlen readable = Readable
+  { rFilePath = Nothing -- because it no longer refers to a simple file
+  , rOpen = do
+    h <- rOpen readable
+    origSize <- hFileSize h
+    openSimpleHandle (addLabel $ handleLabel h) SimpleHandle
+      { shSize  = fromMaybe (origSize - pos) mlen
+      , shSeek  = \n -> hSeek h AbsoluteSeek $ n + pos
+      , shTell  = (\(H.HandlePosn _ n) -> n - pos) <$> H.hGetPosn h
+      , shClose = hClose h
+      , shRead  = B.hGet h . fromIntegral
+      }
+  }
