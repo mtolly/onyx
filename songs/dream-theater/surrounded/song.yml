@@ -24,7 +24,21 @@ plans:
       1|2: hihat
       1|3: hihat
     parts:
-      drums: {only: [Drums, jammit-track]}
+      drums:
+        only: [Drums, jammit-track]
+      bass:
+        only: [Bass, jammit-track]
+    song:
+      mix:
+      - without: [drums, jammit-track]
+      - gain:
+        - -1
+        - only: [Bass, jammit-track]
+  jammit-simple:
+    countin: *countin
+    parts:
+      drums:
+        only: [Drums, jammit-track]
     song:
       without: [drums, jammit-track]
   album:
@@ -36,7 +50,18 @@ parts:
   drums:
     drums:
       kicks: 1
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3:
     game: rb3
     plan: jammit
+  rs:
+    game: rs
+    plan: jammit-simple
+    arrangements:
+    - [bass, bass]

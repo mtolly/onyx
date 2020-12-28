@@ -14,10 +14,13 @@ parts:
     drums:
       kicks: 1
       difficulty: 6
-  # bass:
-  #   pro-guitar: # WIP
-  #     tuning:
-  #       base: bass-4
+  bass:
+    pro-guitar:
+      difficulty: 6
+      tuning:
+        base: bass-4
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   # keys:
   #   pro-keys: {} # WIP
   # guitar: # sax
@@ -34,3 +37,7 @@ audio:
 targets:
   rb3:
     game: rb3
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

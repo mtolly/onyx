@@ -908,6 +908,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     FL.setResizable topControls $ Just scrubber
     varSong <- newIORef Nothing
     sink $ EventOnyx $ void $ forkOnyx $ do
+      -- TODO fix this to use the plan-specific mid (for alternate tempo map)
       song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> "notes.mid"
       stackIO $ sink $ EventIO $ withMVar doesWindowExist $ \exist -> when exist $ do
         writeIORef varSong $ Just song
