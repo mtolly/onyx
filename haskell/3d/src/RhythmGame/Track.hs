@@ -30,11 +30,12 @@ import qualified Reaper.Scan                      as RPP
 import qualified RhythmGame.PNF                   as PNF
 import qualified RockBand.Codec.Beat              as Beat
 import qualified RockBand.Codec.Drums             as D
-import           RockBand.Codec.Events            (eventsCoda)
+import           RockBand.Codec.Events            (eventsCoda, eventsSections)
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
 import qualified RockBand.Codec.ProGuitar         as PG
 import           RockBand.Common
+import           RockBand.Sections                (makePSSection)
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming)
 import           Rocksmith.ArrangementXML
@@ -58,10 +59,11 @@ data PreviewBG
   deriving (Eq, Show)
 
 data PreviewSong = PreviewSong
-  { previewTempo  :: U.TempoMap
-  , previewTiming :: BasicTiming
-  , previewTracks :: [[(T.Text, PreviewTrack)]]
-  , previewBG     :: [(T.Text, PreviewBG)]
+  { previewTempo    :: U.TempoMap
+  , previewTiming   :: BasicTiming
+  , previewTracks   :: [[(T.Text, PreviewTrack)]]
+  , previewBG       :: [(T.Text, PreviewBG)]
+  , previewSections :: Map.Map Double T.Text
   }
 
 computeTracks
@@ -412,10 +414,13 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
     ]
 
   in tracks >>= \trk -> return $ PreviewSong
-    { previewTempo  = RBFile.s_tempos song
-    , previewTiming = timing
-    , previewTracks = trk
-    , previewBG     = bgs
+    { previewTempo    = RBFile.s_tempos song
+    , previewTiming   = timing
+    , previewTracks   = trk
+    , previewBG       = bgs
+    , previewSections = rtbToMap
+      $ fmap (snd . makePSSection . snd)
+      $ eventsSections $ RBFile.onyxEvents $ RBFile.s_tracks song
     }
 
 loadTracks

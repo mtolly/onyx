@@ -71,6 +71,7 @@ import           Data.IORef                                (IORef, newIORef,
                                                             readIORef,
                                                             writeIORef)
 import           Data.List.Extra                           (findIndex)
+import qualified Data.Map                                  as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
                                                             listToMaybe,
@@ -883,7 +884,32 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         _ -> FL.handleButtonBase (FL.safeCast ref) e
       }
     FL.deactivate playButton
-    scrubber <- FL.horFillSliderNew scrubberArea Nothing
+    varSong <- newIORef Nothing
+    scrubber <- FL.sliderCustom scrubberArea Nothing
+      (Just $ \s -> do
+        FL.drawSliderBase $ FL.safeCast s
+        let drawSections times end = do
+              Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h)) <- FL.getRectangle s
+              FL.flcLineStyle
+                (FL.LineDrawStyle Nothing Nothing Nothing)
+                (Just $ Width 1)
+                Nothing
+              FL.flcSetColor FLE.blackColor
+              forM_ times $ \t -> let
+                x' = x + xPadding + floor (realToFrac (w - xPadding * 2) * (t / end))
+                in FL.flcLine
+                  (Position (X x') (Y $ y + yPadding))
+                  (Position (X x') (Y $ y + h - yPadding))
+            xPadding = 3 -- this is fudged based on how the fill slider is drawn
+            yPadding = 4 -- this can be whatever based on taste
+        readIORef varSong >>= \case
+          Nothing -> return ()
+          Just song -> case Map.keys $ previewSections song of
+            []    -> return ()
+            times -> drawSections times $ realToFrac $ U.applyTempoMap (previewTempo song) $ timingEnd $ previewTiming song
+      ) Nothing
+    FL.setType scrubber FL.HorFillSliderType
+    -- FL.setSelectionColor scrubber FLE.cyanColor
     homeTabColor >>= FL.setColor scrubber
     FL.setMinimum scrubber 0
     FL.setMaximum scrubber 100
@@ -906,7 +932,6 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     (getSpeed, counter) <- speedPercent' False speedArea
     FL.end topControls
     FL.setResizable topControls $ Just scrubber
-    varSong <- newIORef Nothing
     sink $ EventOnyx $ void $ forkOnyx $ do
       -- TODO fix this to use the plan-specific mid (for alternate tempo map)
       song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> "notes.mid"
