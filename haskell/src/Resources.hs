@@ -88,52 +88,65 @@ cmuDict = unsafePerformIO $ do
             phones' <- mapM (`HM.lookup` phonemeTable) phones
             Just (word', [phones'])
       phonemeTable :: HM.HashMap B.ByteString CMUPhoneme
-      phonemeTable = HM.fromList $ do
-        phone <- [minBound .. maxBound]
-        stress <- ["", "0", "1", "2"]
-        return (B8.pack $ drop 4 (show phone) <> stress, phone)
+      phonemeTable = HM.fromList $ let
+        consonants = do
+          phone <- [minBound .. maxBound]
+          return (B8.pack $ drop 4 $ show phone, CMUConsonant phone)
+        vowels = do
+          phone <- [minBound .. maxBound]
+          stress <- ["", "0", "1", "2"]
+          return (B8.pack $ drop 4 (show phone) <> stress, CMUVowel phone)
+        in consonants <> vowels
   getResourcesPath "cmudict-0.7b" >>=
     fmap (HM.fromListWith (flip (<>)) . mapMaybe parseLine . B8.lines) . B.readFile
     -- flip is because fromListWith calls "f newVal oldVal"
 
-data CMUPhoneme
-  = CMU_AA -- vowel
-  | CMU_AE -- vowel
-  | CMU_AH -- vowel
-  | CMU_AO -- vowel
-  | CMU_AW -- vowel
-  | CMU_AY -- vowel
-  | CMU_B  -- stop
+data CMUConsonant
+  = CMU_B  -- stop
   | CMU_CH -- affricate
   | CMU_D  -- stop
   | CMU_DH -- fricative
-  | CMU_EH -- vowel
-  | CMU_ER -- vowel
-  | CMU_EY -- vowel
   | CMU_F  -- fricative
   | CMU_G  -- stop
   | CMU_HH -- aspirate
-  | CMU_IH -- vowel
-  | CMU_IY -- vowel
   | CMU_JH -- affricate
   | CMU_K  -- stop
   | CMU_L  -- liquid
   | CMU_M  -- nasal
   | CMU_N  -- nasal
   | CMU_NG -- nasal
-  | CMU_OW -- vowel
-  | CMU_OY -- vowel
   | CMU_P  -- stop
   | CMU_R  -- liquid
   | CMU_S  -- fricative
   | CMU_SH -- fricative
   | CMU_T  -- stop
   | CMU_TH -- fricative
-  | CMU_UH -- vowel
-  | CMU_UW -- vowel
   | CMU_V  -- fricative
   | CMU_W  -- semivowel
   | CMU_Y  -- semivowel
   | CMU_Z  -- fricative
   | CMU_ZH -- fricative
   deriving (Eq, Ord, Show, Enum, Bounded)
+
+data CMUVowel
+  = CMU_AA -- vowel
+  | CMU_AE -- vowel
+  | CMU_AH -- vowel
+  | CMU_AO -- vowel
+  | CMU_AW -- vowel
+  | CMU_AY -- vowel
+  | CMU_EH -- vowel
+  | CMU_ER -- vowel
+  | CMU_EY -- vowel
+  | CMU_IH -- vowel
+  | CMU_IY -- vowel
+  | CMU_OW -- vowel
+  | CMU_OY -- vowel
+  | CMU_UH -- vowel
+  | CMU_UW -- vowel
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
+data CMUPhoneme
+  = CMUConsonant !CMUConsonant
+  | CMUVowel     !CMUVowel
+  deriving (Eq, Ord, Show)
