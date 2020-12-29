@@ -133,7 +133,7 @@ import qualified RockBand.Common                           as RB
 import           RockBand.Milo                             (autoLipsync,
                                                             beatlesLipsync,
                                                             defaultTransition,
-                                                            englishVowels,
+                                                            englishSyllables,
                                                             germanVowels,
                                                             gh2Lipsync,
                                                             packMilo,
@@ -2337,7 +2337,7 @@ miscPageLipsync sink rect tab startTasks = do
   (getVowels, getTransition) <- padded 2 10 2 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     let (trimClock 0 100 0 0 -> langArea, transArea) = chopRight 150 rect'
     getVowels <- horizRadio langArea
-      [ ("English", englishVowels, True)
+      [ ("English", englishSyllables, True)
       , ("German", germanVowels, False)
       , ("Spanish", spanishVowels, False)
       ]
@@ -2349,7 +2349,7 @@ miscPageLipsync sink rect tab startTasks = do
     FL.setLstep counter 5
     FL.setMinimum counter 0
     void $ FL.setValue counter $ fromInteger $ round $ defaultTransition * 1000
-    return (fromMaybe englishVowels <$> getVowels, (/ 1000) . realToFrac <$> FL.getValue counter)
+    return (fromMaybe englishSyllables <$> getVowels, (/ 1000) . realToFrac <$> FL.getValue counter)
   padded 5 5 5 5 (Size (Width 800) (Height 35)) $ \rect' -> do
     let [areaVoc, areaRB, areaTBRB] = map (trimClock 0 5 0 5) $ splitHorizN 3 rect'
         lipsyncButton area label ext fn = do

@@ -252,29 +252,58 @@ lipsyncToMIDITrack lip
     let lookupViseme i = TE.decodeLatin1 $ lipsyncVisemes lip !! i
     return (dt, map (fmap lookupViseme) $ keyframeEvents key)
 
-cmuToVisemes :: CMUVowel -> [MagmaViseme]
-cmuToVisemes = \case
+cmuToRB3 :: CMUSyllable -> VisemeSyllable [(MagmaViseme, Word8)]
+cmuToRB3 cmu = let
   -- ipa and examples from https://en.wikipedia.org/wiki/ARPABET
+  on viseme = (viseme, 140) -- this seems to be a sensible setting for most visemes
+  vowelMapping = \case
+    CMU_AA -> ([on Viseme_Ox_hi, on Viseme_Ox_lo], Nothing) -- ɑ : balm bot
+    CMU_AH -> ([on Viseme_If_hi, on Viseme_If_lo], Nothing) -- ʌ : butt
+    CMU_AY -> ([on Viseme_Ox_hi, on Viseme_Ox_lo], Just [on Viseme_If_hi, on Viseme_If_lo]) -- aɪ : bite, diphthong
+    CMU_EH -> ([on Viseme_Cage_hi, on Viseme_Cage_lo], Nothing) -- ɛ : bet
+    CMU_ER -> ([on Viseme_Church_hi, on Viseme_Church_lo], Nothing) -- ɝ : bird
+    CMU_EY -> ([on Viseme_Cage_hi, on Viseme_Cage_lo], Nothing) -- eɪ : bait
+    CMU_IH -> ([on Viseme_If_hi, on Viseme_If_lo], Nothing) -- ɪ : bit
+    CMU_IY -> ([on Viseme_Eat_hi, on Viseme_Eat_lo], Nothing) -- i : beat
+    CMU_OW -> ([on Viseme_Oat_hi, on Viseme_Oat_lo], Just [on Viseme_Wet_hi, on Viseme_Wet_lo]) -- oʊ : boat, diphthong (slight)
+    CMU_UW -> ([on Viseme_Wet_hi, on Viseme_Wet_lo], Nothing) -- u : boot
+    CMU_AE -> ([on Viseme_Cage_hi, on Viseme_Cage_lo], Nothing) -- æ : bat
+    CMU_AO -> ([on Viseme_Earth_hi, on Viseme_Earth_lo], Nothing) -- ɔ : story
+    CMU_AW -> ([on Viseme_Ox_hi, on Viseme_Ox_lo], Just [on Viseme_Wet_hi, on Viseme_Wet_lo]) -- aʊ : bout, diphthong
+    CMU_OY -> ([on Viseme_Oat_hi, on Viseme_Oat_lo], Just [on Viseme_If_hi, on Viseme_If_lo]) -- ɔɪ : boy, diphthong
+    CMU_UH -> ([on Viseme_Though_hi, on Viseme_Though_lo], Nothing) -- ʊ : book
+  consonantMapping = \case
+    CMU_B  -> [[on Viseme_Bump_hi, on Viseme_Bump_lo]]
+    CMU_CH -> [[on Viseme_Told_hi, on Viseme_Told_lo]] -- approximate
+    CMU_D  -> [[on Viseme_Told_hi, on Viseme_Told_lo]]
+    CMU_DH -> [[on Viseme_Told_hi, on Viseme_Told_lo]] -- approximate
+    CMU_F  -> [[on Viseme_Fave_hi, on Viseme_Fave_lo]]
+    CMU_G  -> []
+    CMU_HH -> []
+    CMU_JH -> [[on Viseme_Told_hi, on Viseme_Told_lo]] -- approximate
+    CMU_K  -> []
+    CMU_L  -> [[on Viseme_Told_hi, on Viseme_Told_lo]]
+    CMU_M  -> [[on Viseme_Bump_hi, on Viseme_Bump_lo]]
+    CMU_N  -> [[on Viseme_Told_hi, on Viseme_Told_lo]]
+    CMU_NG -> []
+    CMU_P  -> [[on Viseme_Bump_hi, on Viseme_Bump_lo]]
+    CMU_R  -> [[on Viseme_Roar_hi, on Viseme_Roar_lo]]
+    CMU_S  -> [[on Viseme_Size_hi, on Viseme_Size_lo]]
+    CMU_SH -> [[on Viseme_Size_hi, on Viseme_Size_lo]] -- approximate
+    CMU_T  -> [[on Viseme_Told_hi, on Viseme_Told_lo]]
+    CMU_TH -> [[on Viseme_Told_hi, on Viseme_Told_lo]] -- approximate
+    CMU_V  -> [[on Viseme_Fave_hi, on Viseme_Fave_lo]]
+    CMU_W  -> [[on Viseme_Wet_hi, on Viseme_Wet_lo]]
+    CMU_Y  -> [[on Viseme_Eat_hi, on Viseme_Eat_lo]]
+    CMU_Z  -> [[on Viseme_Size_hi, on Viseme_Size_lo]]
+    CMU_ZH -> [[on Viseme_Size_hi, on Viseme_Size_lo]] -- approximate
+  in Syllable
+    { sylInitial = concatMap consonantMapping $ sylInitial cmu
+    , sylVowel   = vowelMapping $ sylVowel cmu
+    , sylFinal   = concatMap consonantMapping $ sylFinal cmu
+    }
 
-  CMU_AA -> [Viseme_Ox_hi, Viseme_Ox_lo] -- ɑ : balm bot
-  CMU_AH -> [Viseme_If_hi, Viseme_If_lo] -- ʌ : butt
-  CMU_AY -> [Viseme_Ox_hi, Viseme_Ox_lo] -- aɪ : bite
-  -- probably should be a diphthong
-  CMU_EH -> [Viseme_Cage_hi, Viseme_Cage_lo] -- ɛ : bet
-  CMU_ER -> [Viseme_Church_hi, Viseme_Church_lo] -- ɝ : bird
-  CMU_EY -> [Viseme_Cage_hi, Viseme_Cage_lo] -- eɪ : bait
-  CMU_IH -> [Viseme_If_hi, Viseme_If_lo] -- ɪ : bit
-  CMU_IY -> [Viseme_Eat_hi, Viseme_Eat_lo] -- i : beat
-  CMU_OW -> [Viseme_Earth_hi, Viseme_Earth_lo] -- oʊ : boat
-  CMU_UW -> [Viseme_Wet_hi, Viseme_Wet_lo] -- u : boot
-  CMU_AE -> [Viseme_Cage_hi, Viseme_Cage_lo] -- æ : bat
-  CMU_AO -> [Viseme_Earth_hi, Viseme_Earth_lo] -- ɔ : story
-  CMU_AW -> [Viseme_If_hi, Viseme_If_lo] -- aʊ : bout
-  -- probably should be a diphthong
-  CMU_OY -> [Viseme_Oat_hi, Viseme_Oat_lo] -- ɔɪ : boy
-  -- probably should be a diphthong
-  CMU_UH -> [Viseme_Though_hi, Viseme_Though_lo] -- ʊ : book
-
+-- TODO add diphthongs and consonants
 cmuToGH2Viseme :: CMUVowel -> Maybe GH2Viseme
 cmuToGH2Viseme = \case
   CMU_AA -> Just GH2_Ox -- ɑ : balm bot
@@ -485,18 +514,36 @@ germanVowels = fmap $ \t -> let
       "ü" -> CMU_UW
       _   -> CMU_AH -- default
 
-englishVowels :: Transcribe
-englishVowels syllables = let
+splitSyllables :: [CMUPhoneme] -> [CMUSyllable]
+splitSyllables [] = []
+splitSyllables (CMUConsonant c : ps) = case splitSyllables ps of
+  []         -> []
+  syl : syls -> syl { sylInitial = c : sylInitial syl } : syls
+splitSyllables (CMUVowel v : ps) = case ps of
+  CMUConsonant _ : CMUVowel _ : _ -> noFinal
+  -- TODO smarter rules for consuming final consonants
+  CMUConsonant c : rest           -> Syllable
+    { sylInitial = []
+    , sylVowel   = v
+    , sylFinal   = [c]
+    } : splitSyllables rest
+  _                               -> noFinal
+  where noFinal = Syllable
+          { sylInitial = []
+          , sylVowel = v
+          , sylFinal = []
+          } : splitSyllables ps
+
+englishSyllables :: Transcribe
+englishSyllables syllables = let
   numSyllables = length syllables
-  isVowel (CMUVowel     v) = Just v
-  isVowel (CMUConsonant _) = Nothing
   filterLyric
     = T.map (\case '=' -> '-'; c -> c)
     . T.filter (`notElem` ("-#^$!?" :: String))
   word = B8.pack $ T.unpack $ T.toUpper $ T.concat $ map filterLyric syllables
-  in case filter ((== numSyllables) . length) $ map (mapMaybe isVowel) $ fromMaybe [] $ HM.lookup word cmuDict of
-    match : _ -> map justVowel match
-    []        -> const (justVowel CMU_AH) <$> syllables -- TODO
+  in case filter ((== numSyllables) . length) $ map splitSyllables $ fromMaybe [] $ HM.lookup word cmuDict of
+    match : _ -> match
+    []        -> const (justVowel CMU_AH) <$> syllables -- TODO better default syllables
 
 runTranscribe :: RTB.T t (Maybe (Transcribe, T.Text)) -> RTB.T t (Maybe CMUSyllable)
 runTranscribe = let
@@ -547,6 +594,28 @@ data VisemeAnimation v
   | VisemeFall v v -- diphthong with main vowel then secondary one, "easeInExpo"
   deriving (Show, Functor, Foldable)
 
+-- each list in the event list is an absolute set of visemes, not just changes
+simpleAnimations
+  :: U.Seconds
+  -> RTB.T U.Seconds [pair]
+  -> RTB.T U.Seconds (VisemeAnimation [pair])
+simpleAnimations transition = go [] where
+  halfTransition = transition / 2
+  go prev = \case
+    RNil -> RNil
+    Wait t1 s (Wait t2 x rest) -> let
+      front = min halfTransition t1
+      back = min halfTransition (t2 / 2)
+      in Wait (t1 - front) (VisemeLine prev s) $ if back == t2 / 2
+        then go s $ Wait (t2 - back) x rest -- don't need to hold, will immediately do another transition
+        else Wait (front + back) (VisemeHold s)
+          $ go s $ Wait (t2 - back) x rest
+    Wait t1 s RNil -> let
+      front = min halfTransition t1
+      back = halfTransition
+      in Wait (t1 - front) (VisemeLine prev s)
+        $ Wait (front + back) (VisemeHold s) RNil
+
 syllablesToAnimations
   :: U.Seconds
   -> RTB.T U.Seconds (Maybe (VisemeSyllable [pair]))
@@ -569,11 +638,18 @@ syllablesToAnimations transition = go where
       vowelEnd = case sylVowel syl of
         (v1, Nothing) -> v1
         (_, Just v2)  -> v2
-      -- TODO add the consonants (sylInitial and sylFinal)
-      in Wait (t1 - initialFront) (VisemeLine [] vowelStart)
-        $ Wait (initialFront + initialBack) vowelBody
-        $ Wait (t2 - initialBack - finalFront) (VisemeLine vowelEnd [])
-        $ Wait (finalFront + finalBack) (VisemeHold [])
+      lineSequence len x [] z continue = Wait 0 (VisemeLine x z) $ RTB.delay len continue
+      lineSequence len x (y : ys) z continue = let
+        segments = length ys + 2
+        firstLen = len / fromIntegral segments
+        in Wait 0 (VisemeLine x y) $ RTB.delay firstLen
+          $ lineSequence (len - firstLen) y ys z continue
+      in RTB.delay (t1 - initialFront)
+        $ lineSequence (initialFront + initialBack) [] (sylInitial syl) vowelStart
+        $ Wait 0 vowelBody
+        $ RTB.delay (t2 - initialBack - finalFront)
+        $ lineSequence (finalFront + finalBack) vowelEnd (sylFinal syl) []
+        $ Wait 0 (VisemeHold [])
         $ go $ U.trackDrop finalBack rest
     Wait t1 Nothing rest -> RTB.delay t1 $ go rest -- shouldn't happen
     Wait t1 (Just syl1) (Wait t2 (Just syl2) rest) -- shouldn't happen
@@ -627,45 +703,8 @@ animationsToStates anims = let
     Wait t1 (VisemeFall v1 _) RNil -> Wait t1 (makeVisemeEvent v1) RNil -- shouldn't happen
   in lipEventsStates $ RTB.flatten $ go anims
 
--- each list in the event list is an absolute set of visemes, not just changes
-visemesToStates :: U.Seconds -> RTB.T U.Seconds [(T.Text, Word8)] -> LipsyncStates
-visemesToStates transition rtb = let
-  halfTransition = transition / 2
-  transitionSteps = ceiling $ transition * 30 :: Int
-  pairs = ATB.toPairList $ RTB.toAbsoluteEventList 0 rtb
-  triples = zip3
-    ((0, []) : pairs) -- previous time and viseme
-    pairs
-    (map Just (drop 1 $ map fst pairs) ++ [Nothing]) -- time of next viseme
-  withTransitions = flip concatMap triples $ \((prevTime, prevVisemes), (thisTime, thisVisemes), mNextTime) -> let
-    dt = thisTime - prevTime
-    transitionBefore = min halfTransition (dt / 2)
-    transitionAfter = case mNextTime of
-      Nothing       -> halfTransition
-      Just nextTime -> min halfTransition ((nextTime - thisTime) / 2)
-    transitionStart = thisTime - transitionBefore
-    transitionLength = transitionBefore + transitionAfter
-    transitionVisemes = do
-      vis <- nubOrd $ map fst $ prevVisemes ++ thisVisemes
-      let startValue = maybe 0 fromIntegral $ lookup vis prevVisemes
-          endValue = maybe 0 fromIntegral $ lookup vis thisVisemes
-          change = endValue - startValue
-      return (vis, startValue :: Rational, change :: Rational)
-    in flip map [0 .. transitionSteps] $ \i -> let
-      frac = fromIntegral i / fromIntegral transitionSteps
-      newTime = transitionStart + transitionLength * fromRational frac
-      newVisemes = do
-        (vis, startValue, change) <- transitionVisemes
-        let thisValue = round $ startValue + change * frac
-        return $ VisemeEvent vis thisValue
-      in (newTime, newVisemes)
-  in lipEventsStates
-    $ RTB.flatten
-    $ RTB.fromAbsoluteEventList
-    $ ATB.fromPairList withTransitions
-
 visemesToLipsync :: U.Seconds -> RTB.T U.Seconds [(T.Text, Word8)] -> Lipsync
-visemesToLipsync transition = lipsyncFromStates . visemesToStates transition
+visemesToLipsync transition = lipsyncFromStates . animationsToStates . simpleAnimations transition
 
 defaultTransition :: U.Seconds
 defaultTransition = 0.12
@@ -673,12 +712,14 @@ defaultTransition = 0.12
 autoLipsync :: U.Seconds -> Transcribe -> VocalTrack U.Seconds -> Lipsync
 autoLipsync transition trans vt = let
   eyes
-    = visemesToStates transition
+    = animationsToStates
+    $ simpleAnimations transition
     $ fmap (\b -> guard b >> [("Blink", 255)])
     $ vocalEyesClosed vt
   mouth
-    = visemesToStates transition
-    $ fmap (maybe [] $ map (\v -> (T.pack $ drop 7 $ show v, 140)) . cmuToVisemes . sylVowel)
+    = animationsToStates
+    $ syllablesToAnimations transition
+    $ fmap (fmap $ mapVisemeSyllable (T.pack . drop 7 . show) . cmuToRB3)
     $ runTranscribe
     $ fmap (fmap (trans,))
     $ vocalTubes vt
@@ -701,7 +742,8 @@ setBeatles lip = lip
 beatlesLipsync :: U.Seconds -> Transcribe -> VocalTrack U.Seconds -> Lipsync
 beatlesLipsync transition trans vt = let
   eyes
-    = visemesToStates transition
+    = animationsToStates
+    $ simpleAnimations transition
     $ fmap (\b -> guard b >> [("l_lids", 255), ("r_lids", 255)])
     $ vocalEyesClosed vt
   mouth
@@ -749,12 +791,12 @@ lipLyricsStates tgt lip = let
   withLang = applyStatus1 LyricEnglish (lipLanguage lip) tubes
   transcribed = runTranscribe $ flip fmap withLang $ \(lang, mtext) -> let
     trans = case lang of
-      LyricEnglish -> englishVowels
+      LyricEnglish -> englishSyllables
       LyricGerman  -> germanVowels
       LyricSpanish -> spanishVowels
     in (trans,) <$> mtext
   fromCMU = case tgt of
-    LipsyncRB3 -> fmap $ justVowel . (, Nothing) . map (\v -> (T.pack $ drop 7 $ show v, 140)) . cmuToVisemes . sylVowel
+    LipsyncRB3 -> fmap $ mapVisemeSyllable (T.pack . drop 7 . show) . cmuToRB3
     LipsyncTBRB -> fmap $ mapVisemeSyllable (T.pack . drop 7 . show) . cmuToBeatles
   in animationsToStates
     $ syllablesToAnimations defaultTransition

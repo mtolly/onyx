@@ -108,7 +108,7 @@ import           RockBand.Common
 import           RockBand.Milo                         (MagmaLipsync (..),
                                                         autoLipsync,
                                                         defaultTransition,
-                                                        englishVowels,
+                                                        englishSyllables,
                                                         gh2Lipsync,
                                                         lipsyncFromMIDITrack,
                                                         magmaMilo, putVocFile)
@@ -1304,7 +1304,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 midi <- shakeMIDI $ planDir </> "raw.mid"
                 let vox = RBFile.getFlexPart (rb3_Vocal rb3) $ RBFile.s_tracks midi
                     lip = lipsyncFromMIDITrack . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
-                    auto = autoLipsync defaultTransition englishVowels . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
+                    auto = autoLipsync defaultTransition englishSyllables . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
                     write = stackIO . BL.writeFile out
                 if
                   | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync3 vox -> write $ magmaMilo $ MagmaLipsync3
@@ -1731,7 +1731,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             dir </> "gh2/lipsync.voc" %> \out -> do
               midi <- shakeMIDI $ planDir </> "raw.mid"
               let vox = RBFile.getFlexPart (gh2_Vocal gh2) $ RBFile.s_tracks midi
-                  auto = gh2Lipsync englishVowels . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
+                  auto = gh2Lipsync englishSyllables . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
               stackIO $ BL.writeFile out $ runPut $ putVocFile
                 $ auto $ RBFile.onyxPartVocals vox
 
