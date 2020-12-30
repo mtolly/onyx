@@ -28,10 +28,13 @@ import           Data.List.HT                   (partitionMaybe)
 import qualified Data.Map.Strict                as Map
 import           Data.Maybe                     (catMaybes, fromMaybe, isJust)
 import qualified Data.Set                       as Set
+import qualified Data.Text                      as T
 import qualified Data.Vector                    as V
 import qualified Data.Vector.Storable           as VS
+import qualified Data.Vector.Storable.Mutable   as MV
 import           Foreign                        hiding (void)
 import           Foreign.C
+import           FreeType
 import           Graphics.GL.Core33
 import           Graphics.GL.Types
 import           Linear                         (M44, V2 (..), V3 (..), V4 (..),
@@ -51,6 +54,7 @@ import qualified RockBand.Codec.ProGuitar       as PG
 import           RockBand.Common                (StrumHOPOTap (..), each)
 import           System.Directory               (doesFileExist)
 import           System.FilePath                ((<.>), (</>))
+import           Text.Transform                 (showTimestamp)
 
 data Object
   = Box
@@ -1128,6 +1132,9 @@ data GLStuff = GLStuff
   , fxaaEnabled  :: Bool
   , videoBGs     :: Map.Map (VideoInfo FilePath) VideoHandle
   , imageBGs     :: Map.Map FilePath Texture
+  , fontLib      :: FT_Library
+  , fontFace     :: FT_Face
+  , fontSlot     :: FT_GlyphSlot
   } deriving (Show)
 
 data VideoHandle = VideoHandle
@@ -1617,6 +1624,13 @@ loadGLStuff bgs = do
       return $ Just (f, tex)
     _ -> return Nothing
 
+  -- font
+  fontLib <- stackIO ft_Init_FreeType
+  fontPath <- stackIO $ getResourcesPath "diffusion-bold.ttf"
+  fontFace <- stackIO $ ft_New_Face fontLib fontPath 0
+  stackIO $ ft_Set_Char_Size fontFace (20 * 64) 0 72 0
+  fontSlot <- stackIO $ frGlyph <$> peek fontFace
+
   return GLStuff{..}
 
 setFramebufferSize :: (MonadIO m) => Framebuffers -> GLsizei -> GLsizei -> m ()
@@ -1802,6 +1816,41 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
   drawNumber (gameScore gps) (wWhole - digitWidth * digitScale) (hWhole - digitHeight * digitScale)
   drawNumber (gameCombo gps) (quot wWhole 2) 0
 
+drawText
+  :: GLStuff
+  -> WindowDims
+  -> T.Text
+  -> V2 Int
+  -> IO ()
+drawText glStuff@GLStuff{..} dims str penStart = do
+  chars <- fmap catMaybes $ forM (T.unpack str) $ \c -> do
+    ft_Load_Char fontFace (fromIntegral $ fromEnum c) FT_LOAD_RENDER
+    gsr <- peek fontSlot
+    case bPixel_mode $ gsrBitmap gsr of
+      FT_PIXEL_MODE_GRAY -> do
+        let w = bWidth $ gsrBitmap gsr
+            h = bRows $ gsrBitmap gsr
+        fptr <- newForeignPtr_ $ bBuffer $ gsrBitmap gsr
+        v <- VS.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral $ w * h
+        tex <- loadTexture False $ pixelMap (PixelRGBA8 255 255 255) $ Image
+          { imageWidth  = fromIntegral w
+          , imageHeight = fromIntegral h
+          , imageData   = v
+          }
+        return $ Just (gsr, tex)
+      _ -> do
+        putStrLn "freetype output isn't FT_PIXEL_MODE_GRAY"
+        return Nothing
+  let drawLoop _   [] = return ()
+      drawLoop pen ((gsr, tex) : rest) = do
+        let penOffset  = fromIntegral <$> V2 (gsrBitmap_left gsr) (gsrBitmap_top gsr)
+            penOffsetH = V2 0 (negate $ textureHeight tex)
+            penAdvance = fromIntegral . (`shiftR` 6) <$> V2 (vX $ gsrAdvance gsr) (vY $ gsrAdvance gsr)
+        drawTexture glStuff dims tex (pen + penOffset + penOffsetH) 1
+        drawLoop (pen + penAdvance) rest
+  drawLoop penStart chars
+  mapM_ (freeTexture . snd) chars
+
 drawTracks
   :: GLStuff
   -> WindowDims
@@ -1847,6 +1896,10 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trk
         glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
         drawBackground glStuff dims tex
       Nothing -> return ()
+
+  glClear GL_DEPTH_BUFFER_BIT
+  glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
+  drawText glStuff dims (showTimestamp $ realToFrac time) (V2 10 $ hWhole - 30)
 
   let spaces = case trks of
         [] -> []

@@ -41,7 +41,7 @@ extra-deps:
   commit: 9733cb44c3d92fd65dbbf421eb58753150e3ea3b
 - git: git://github.com/mtolly/mpg123-haskell-binding
   commit: 4790b92549b7db51801a67cf1055259e3abcf60e
-resolver: lts-15.8
+resolver: lts-16.27
 flags:
   fltkhs:
     bundled: true
