@@ -30,7 +30,6 @@ executables:
     - midi-util
     - gl
     - JuicyPixels
-    - file-embed
     - linear
     - text
     - onyx-game-3d

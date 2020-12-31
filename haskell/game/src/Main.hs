@@ -39,7 +39,8 @@ main = getArgs >>= \case
       index <- maybe (fatal "Invalid track number") return $ readMaybe strIndex
       _ <- importSTFS 0 con Nothing dir
       songYaml <- loadYaml $ dir </> "song.yml"
-      allTracks <- fmap (concat . previewTracks) $ loadTracks songYaml $ dir </> "notes.mid"
+      song <- loadTracks songYaml $ dir </> "notes.mid"
+      let allTracks = concat $ previewTracks song
       drums <- case snd $ allTracks !! index of
         PreviewDrums drums -> return drums
         _                  -> fatal "Not a drums track"
@@ -62,7 +63,7 @@ main = getArgs >>= \case
           bracket (SDL.glCreateContext window) (\ctx -> glFinish >> SDL.glDeleteContext ctx) $ \_ctx -> do
             RGAudio.withAL $ \_openedAudio -> do
               RGAudio.withMOGG (dir </> "audio.mogg") $ \ogg -> do
-                playDrumTrack window drums pans vols ogg
+                playDrumTrack window song drums pans vols ogg
     case res of
       Left err -> throwIO err
       Right () -> return ()
@@ -79,8 +80,9 @@ main = getArgs >>= \case
       indexes <- forM strIndexes $ maybe (fatal "Invalid track number") return . readMaybe
       _ <- importSTFS 0 con Nothing dir
       songYaml <- loadYaml $ dir </> "song.yml"
-      allTracks <- fmap (concat . previewTracks) $ loadTracks songYaml $ dir </> "notes.mid"
-      let trks = map (snd . (allTracks !!)) indexes
+      song <- loadTracks songYaml $ dir </> "notes.mid"
+      let allTracks = concat $ previewTracks song
+          trks = map (snd . (allTracks !!)) indexes
       yml <- loadYaml $ dir </> "song.yml"
       (pans, vols) <- case HM.toList $ _plans (yml :: SongYaml FilePath) of
         [(_, MoggPlan{..})] -> return (map realToFrac _pans, map realToFrac _vols)
@@ -100,7 +102,7 @@ main = getArgs >>= \case
           bracket (SDL.glCreateContext window) (\ctx -> glFinish >> SDL.glDeleteContext ctx) $ \_ctx -> do
             RGAudio.withAL $ \_openedAudio -> do
               RGAudio.withMOGG (dir </> "audio.mogg") $ \ogg -> do
-                playTracks window trks pans vols ogg
+                playTracks window song trks pans vols ogg
     case res of
       Left err -> throwIO err
       Right () -> return ()
@@ -114,13 +116,14 @@ data AppState = AppState
 
 playDrumTrack
   :: SDL.Window
+  -> PreviewSong
   -> Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType)))
   -> [Float]
   -> [Float]
   -> FilePath
   -> IO ()
-playDrumTrack window trk pans vols ogg = do
-  Right glStuff <- logStdout $ loadGLStuff []
+playDrumTrack window song trk pans vols ogg = do
+  Right glStuff <- logStdout $ loadGLStuff song
   let ticksMilli :: IO Milli
       ticksMilli = MkFixed . fromIntegral <$> SDL.ticks
       delayMilli :: Milli -> IO ()
@@ -181,9 +184,9 @@ playDrumTrack window trk pans vols ogg = do
       return cst
     }
 
-playTracks :: SDL.Window -> [PreviewTrack] -> [Float] -> [Float] -> FilePath -> IO ()
-playTracks window trks pans vols ogg = do
-  Right glStuff <- logStdout $ loadGLStuff []
+playTracks :: SDL.Window -> PreviewSong -> [PreviewTrack] -> [Float] -> [Float] -> FilePath -> IO ()
+playTracks window song trks pans vols ogg = do
+  Right glStuff <- logStdout $ loadGLStuff song
   let ticksMilli :: IO Milli
       ticksMilli = MkFixed . fromIntegral <$> SDL.ticks
       delayMilli :: Milli -> IO ()

@@ -179,6 +179,7 @@ playSource pans vols initGain ca = do
                     case audioState of
                       Filling -> liftIO $ putMVar firstFull ()
                       _       -> return ()
+                    liftIO $ threadDelay waitTime
                     loop currentBuffers Playing
                   Just chunk -> do
                     bufs <- liftIO $ doAL "playSource genObjectNames buffers" $ AL.genObjectNames srcCount

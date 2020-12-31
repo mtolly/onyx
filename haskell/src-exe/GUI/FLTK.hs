@@ -260,23 +260,29 @@ continueImport makeMenuBar hasAudio imp = do
   -- TODO this can potentially not clean up the temp folder if interrupted during import
   proj <- importWithVenueSetting imp
   void $ shakeBuild1 proj [] "gen/cover.png"
-  -- TODO fix this to use the plan-specific mid (for alternate tempo map)
-  song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> "notes.mid"
   -- quick hack to select an audio plan on my projects
-  let withAudio maybeAudio = stackIO $ sink $ EventOnyx $ do
+  let withPlan k = do
+        let planMidi = "gen/plan" </> T.unpack k </> "processed.mid"
+        void $ shakeBuild1 proj [] planMidi
+        song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> planMidi
+        void $ forkOnyx $ projectAudio k proj >>= withAudio song
+      withNoPlan = do
+        song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> "notes.mid"
+        withAudio song Nothing
+      withAudio song maybeAudio = stackIO $ sink $ EventOnyx $ do
         prefs <- readPreferences
         let ?preferences = prefs
         stackIO $ launchWindow sink makeMenuBar proj song maybeAudio
-      selectPlan [] = withAudio Nothing
-      selectPlan [k] = void $ forkOnyx $ projectAudio k proj >>= withAudio
+      selectPlan [] = withNoPlan
+      selectPlan [k] = withPlan k
       selectPlan (k : ks) = stackIO $ sink $ EventIO $ do
         n <- FL.flChoice "Select an audio plan" (T.pack $ show ks) (Just $ T.pack $ show k) Nothing
         sink $ EventOnyx $ case n of
-          1 -> void $ forkOnyx $ projectAudio k proj >>= withAudio
+          1 -> withPlan k
           _ -> selectPlan ks
   if hasAudio
     then selectPlan $ HM.keys $ _plans $ projectSongYaml proj
-    else withAudio Nothing
+    else withNoPlan
 
 multipleSongsWindow
   :: (Event -> IO ())
@@ -477,12 +483,19 @@ makeTab rect name fn = do
 startAnimation :: IO () -> IO (IO ())
 startAnimation redraw = do
   stopper <- newIORef False
-  let loop = readIORef stopper >>= \case
-        True -> return ()
-        False -> do
-          redraw
-          threadDelay 16666
-          loop
+  let loop = do
+        t1 <- getSystemTime
+        readIORef stopper >>= \case
+          True -> return ()
+          False -> do
+            redraw
+            t2 <- getSystemTime
+            let nanoDiff = fromIntegral (systemSeconds t2 - systemSeconds t1) * 1000000000
+                  + fromIntegral (systemNanoseconds t2) - fromIntegral (systemNanoseconds t1)
+                milliDiff = quot nanoDiff 1000
+                milliFrame = 16666
+            when (milliDiff < milliFrame) $ threadDelay $ milliFrame - milliDiff
+            loop
   _ <- forkIO loop
   return $ writeIORef stopper True
 

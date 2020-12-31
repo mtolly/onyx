@@ -163,30 +163,32 @@ sourceVorbisFile pos ogg = liftIO $ runVorbisFile ogg $ \case
           CA.Seconds secs -> CA.secondsToFrames secs (fromIntegral rate)
           CA.Frames fms -> fms
     return $ CA.reorganize CA.chunkSize $ CA.AudioSource
-      { CA.source = loadVorbisFile ogg >>= \case
-        Nothing -> return () -- failed to load, maybe log somewhere?
-        Just (releaseOV, ov) -> let
-          loop = do
-            (numRead, ppfloat) <- liftIO $ alloca $ \pppfloat -> do
-              with (-1) $ \psection -> do
-                numRead <- ov_read_float ov pppfloat (fromIntegral CA.chunkSize) psection
-                ppfloat <- peek pppfloat
-                return (numRead, ppfloat)
-            if numRead <= 0
-              then return ()
-              else do
-                pfloats <- liftIO $ peekArray (fromIntegral chans) ppfloat
-                vchans <- liftIO $ forM pfloats $ \pfloat -> do
-                  fptr <- newForeignPtr_ ((castPtr :: Ptr CFloat -> Ptr Float) pfloat)
-                  let mv = MV.unsafeFromForeignPtr0 fptr $ fromIntegral numRead
-                  V.freeze mv
-                C.yield $ CA.interleave vchans
-                loop
-          in do
-            void $ liftIO $ ov_pcm_seek ov seekTo
-            loop
-            releaseOV
+      { CA.source = if total <= seekTo
+        then return () -- seeked past end of file
+        else loadVorbisFile ogg >>= \case
+          Nothing -> return () -- failed to load, maybe log somewhere?
+          Just (releaseOV, ov) -> let
+            loop = do
+              (numRead, ppfloat) <- liftIO $ alloca $ \pppfloat -> do
+                with (-1) $ \psection -> do
+                  numRead <- ov_read_float ov pppfloat (fromIntegral CA.chunkSize) psection
+                  ppfloat <- peek pppfloat
+                  return (numRead, ppfloat)
+              if numRead <= 0
+                then return ()
+                else do
+                  pfloats <- liftIO $ peekArray (fromIntegral chans) ppfloat
+                  vchans <- liftIO $ forM pfloats $ \pfloat -> do
+                    fptr <- newForeignPtr_ ((castPtr :: Ptr CFloat -> Ptr Float) pfloat)
+                    let mv = MV.unsafeFromForeignPtr0 fptr $ fromIntegral numRead
+                    V.freeze mv
+                  C.yield $ CA.interleave vchans
+                  loop
+            in do
+              void $ liftIO $ ov_pcm_seek ov seekTo
+              loop
+              releaseOV
       , CA.rate = fromIntegral rate
       , CA.channels = fromIntegral chans
-      , CA.frames = fromIntegral total - fromIntegral seekTo
+      , CA.frames = max 0 $ fromIntegral total - fromIntegral seekTo
       }
