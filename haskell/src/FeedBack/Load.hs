@@ -305,7 +305,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
                 2 -> return $ Just $ TrackNote (D.Pro D.Yellow ()) len
                 3 -> return $ Just $ TrackNote (D.Pro D.Blue   ()) len
                 4 -> return $ Just $ TrackNote (D.Pro D.Green  ()) len
-                5 -> return $ Just $ TrackNote D.Orange            len -- we'll flip green/orange later]
+                5 -> return $ Just $ TrackNote D.Orange            len -- we'll flip green/orange later
                 32 -> return $ Just TrackKick2x
                 66 -> return $ Just $ TrackCymbal D.Yellow
                 67 -> return $ Just $ TrackCymbal D.Blue

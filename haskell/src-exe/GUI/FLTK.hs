@@ -260,11 +260,13 @@ continueImport makeMenuBar hasAudio imp = do
   -- TODO this can potentially not clean up the temp folder if interrupted during import
   proj <- importWithVenueSetting imp
   void $ shakeBuild1 proj [] "gen/cover.png"
+  -- TODO fix this to use the plan-specific mid (for alternate tempo map)
+  song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> "notes.mid"
   -- quick hack to select an audio plan on my projects
   let withAudio maybeAudio = stackIO $ sink $ EventOnyx $ do
         prefs <- readPreferences
         let ?preferences = prefs
-        stackIO $ launchWindow sink makeMenuBar proj maybeAudio
+        stackIO $ launchWindow sink makeMenuBar proj song maybeAudio
       selectPlan [] = withAudio Nothing
       selectPlan [k] = void $ forkOnyx $ projectAudio k proj >>= withAudio
       selectPlan (k : ks) = stackIO $ sink $ EventIO $ do
@@ -507,8 +509,8 @@ currentSongTime stime ss = case songPlaying ss of
 type BuildYamlControl a = WriterT (IO (Endo a)) IO
 
 launchWindow :: (?preferences :: Preferences)
-  => (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Project -> Maybe (Double -> Maybe Double -> Float -> IO AudioHandle) -> IO ()
-launchWindow sink makeMenuBar proj maybeAudio = mdo
+  => (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Project -> PreviewSong -> Maybe (Double -> Maybe Double -> Float -> IO AudioHandle) -> IO ()
+launchWindow sink makeMenuBar proj song maybeAudio = mdo
   let windowWidth = Width 800
       windowHeight = Height 500
       windowSize = Size windowWidth windowHeight
@@ -858,8 +860,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     let (topControlsArea1, glArea) = chopTop 40 rect
         (trimClock 0 5 0 5 -> volPlayButtonArea, topControlsArea2) = chopLeft 160 topControlsArea1
         (trimClock 8 5 8 0 -> volSliderArea, trimClock 5 0 5 5 -> playButtonArea) = chopRight 50 volPlayButtonArea
-        (trimClock 8 5 8 5 -> scrubberArea, topControlsArea3) = chopRight 255 topControlsArea2
-        (trimClock 5 5 5 5 -> timestampArea, trimClock 5 5 5 5 -> speedArea) = chopLeft 105 topControlsArea3
+        (trimClock 8 5 8 5 -> scrubberArea, trimClock 5 5 5 5 -> speedArea) = chopRight 150 topControlsArea2
     topControls <- FL.groupNew topControlsArea1 Nothing
     volSlider <- FL.horNiceSliderNew volSliderArea Nothing
     homeTabColor >>= FL.setColor volSlider
@@ -884,7 +885,6 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
         _ -> FL.handleButtonBase (FL.safeCast ref) e
       }
     FL.deactivate playButton
-    varSong <- newIORef Nothing
     scrubber <- FL.sliderCustom scrubberArea Nothing
       (Just $ \s -> do
         FL.drawSliderBase $ FL.safeCast s
@@ -902,11 +902,9 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
                   (Position (X x') (Y $ y + h - yPadding))
             xPadding = 3 -- this is fudged based on how the fill slider is drawn
             yPadding = 4 -- this can be whatever based on taste
-        readIORef varSong >>= \case
-          Nothing -> return ()
-          Just song -> case Map.keys $ previewSections song of
-            []    -> return ()
-            times -> drawSections times $ realToFrac $ U.applyTempoMap (previewTempo song) $ timingEnd $ previewTiming song
+        case Map.keys $ previewSections song of
+          []    -> return ()
+          times -> drawSections times $ realToFrac $ U.applyTempoMap (previewTempo song) $ timingEnd $ previewTiming song
       ) Nothing
     FL.setType scrubber FL.HorFillSliderType
     -- FL.setSelectionColor scrubber FLE.cyanColor
@@ -916,46 +914,23 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
     FL.setStep scrubber 1
     void $ FL.setValue scrubber 0
     FL.deactivate scrubber
-    timestampLabel <- FL.boxNew timestampArea Nothing
-    let updateTimestamp = do
-          tcur <- FL.getValue scrubber
-          tmax <- FL.getMaximum scrubber
-          let formatTime n = T.pack $ case quotRem (floor n :: Int) 60 of
-                (m, s) -> show m <> ":" <> if s < 10
-                  then "0" <> show s
-                  else show s
-          FL.setLabel timestampLabel $ T.concat
-            [ formatTime $ min tcur tmax
-            , " / "
-            , formatTime tmax
-            ]
     (getSpeed, counter) <- speedPercent' False speedArea
     FL.end topControls
     FL.setResizable topControls $ Just scrubber
-    sink $ EventOnyx $ void $ forkOnyx $ do
-      -- TODO fix this to use the plan-specific mid (for alternate tempo map)
-      song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> "notes.mid"
-      stackIO $ sink $ EventIO $ withMVar doesWindowExist $ \exist -> when exist $ do
-        writeIORef varSong $ Just song
-        FL.setMaximum scrubber $ fromInteger $ ceiling $ U.applyTempoMap
-          (previewTempo song)
-          (timingEnd $ previewTiming song)
-        updateTimestamp
-        FL.activate scrubber
-        FL.activate playButton
+    -- the following used to be done in a thread, to call loadTracks after window launch
+    FL.setMaximum scrubber $ fromInteger $ ceiling $ U.applyTempoMap
+      (previewTempo song)
+      (timingEnd $ previewTiming song)
+    FL.activate scrubber
+    FL.activate playButton
+    -- end separate thread section
     let initState = SongState 0 Nothing
     varState <- newMVar initState
     varTime <- newIORef initState
     (groupGL, redrawGL, deleteGL) <- previewGroup
       sink
       glArea
-      (catMaybes
-        -- TODO fix this to not have to compute backgrounds twice
-        [ (\bv -> ("Background Video", PreviewBGVideo bv)) <$> _backgroundVideo (_global $ projectSongYaml proj)
-        , (\f -> ("Background Image", PreviewBGImage f)) <$> _fileBackgroundImage (_global $ projectSongYaml proj)
-        ]
-      )
-      (maybe [] previewTracks <$> readIORef varSong)
+      (return song)
       (currentSongTime <$> getSystemTime <*> readIORef varTime)
       getSpeed
     FL.setResizable tab $ Just groupGL
@@ -985,7 +960,6 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
             t' <- currentSongTime <$> getSystemTime <*> readIORef varTime
             sink $ EventIO $ withMVar doesWindowExist $ \exist -> when exist $ do
               void $ FL.setValue scrubber t'
-              updateTimestamp
               redrawGL
           let ps = Playing
                 { playStarted = curTime
@@ -998,9 +972,7 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
       secs <- FL.getValue scrubber
       ss <- takeState
       ss' <- case songPlaying ss of
-        Nothing -> do
-          sink $ EventIO updateTimestamp
-          return ss { songTime = secs }
+        Nothing -> return ss { songTime = secs }
         Just ps -> do
           _ <- stopPlaying (songTime ss) ps
           startPlaying secs
@@ -1029,7 +1001,6 @@ launchWindow sink makeMenuBar proj maybeAudio = mdo
           case songPlaying ss of
             Nothing -> return ()
             Just ps -> void $ stopPlaying (songTime ss) ps
-          writeIORef varSong Nothing -- try to avoid holding onto the midi in memory
           deleteGL -- TODO remove this when we delete the whole song window instead
     return (tab, cleanup)
     {-
@@ -2744,7 +2715,7 @@ launchMisc sink makeMenuBar = mdo
   FL.setCallback window $ windowCloser cancelTasks
   FL.showWidget window
 
-watchSong :: IO () -> FilePath -> Onyx (IO [[(T.Text, PreviewTrack)]], IO ())
+watchSong :: IO () -> FilePath -> Onyx (IO PreviewSong, IO ())
 watchSong notify mid = do
   let fakeYaml = undefined -- TODO
   varTrack <- loadTracks fakeYaml mid >>= liftIO . newIORef
@@ -2769,7 +2740,7 @@ watchSong notify mid = do
               liftIO notify
             go
     go
-  return (previewTracks <$> readIORef varTrack, sendClose)
+  return (readIORef varTrack, sendClose)
 
 launchTimeServer
   :: (Event -> IO ())
@@ -2839,12 +2810,11 @@ data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLFailed
 previewGroup
   :: (Event -> IO ())
   -> Rectangle
-  -> [(T.Text, PreviewBG)]
-  -> IO [[(T.Text, PreviewTrack)]]
+  -> IO PreviewSong
   -> IO Double
   -> IO Double
   -> IO (FL.Ref FL.Group, IO (), IO ())
-previewGroup sink rect bgs getTracks getTime getSpeed = do
+previewGroup sink rect getSong getTime getSpeed = do
   let (glArea, bottomControlsArea) = chopBottom 40 rect
       [partSelectHalf, bgSelectHalf] = splitHorizN 2 bottomControlsArea
       partSelectArea = trimClock 6 7 6 14 partSelectHalf
@@ -2878,12 +2848,14 @@ previewGroup sink rect bgs getTracks getTime getSpeed = do
               (FL.MenuItemFlags flags)
           writeIORef currentParts names
           when redraw $ sink $ EventIO FLTK.redraw
-  getTracks >>= updateParts False . map (map fst)
+  initSong <- getSong
+  updateParts False $ map (map fst) $ previewTracks initSong
   FL.setCallback trackMenu $ \_ -> do
     sink $ EventIO $ FLTK.redraw
     sink $ EventIO $ void $ FL.popup trackMenu -- reopen menu (TODO find a way to not close it at all)
   bgMenu <- FL.menuButtonNew bgSelectArea $ Just "Background"
-  let initialBG = fmap snd $ listToMaybe bgs
+  let bgs = previewBG initSong
+      initialBG = fmap snd $ listToMaybe bgs
   currentBG <- newIORef initialBG
   let allBGs = ("None", Nothing) : [(t, Just bg) | (t, bg) <- bgs]
   forM_ allBGs $ \(t, bg) -> do
@@ -2897,7 +2869,7 @@ previewGroup sink rect bgs getTracks getTime getSpeed = do
   let draw :: FL.Ref FL.GlWindow -> IO ()
       draw wind = do
         mstuff <- modifyMVar varStuff $ \case
-          GLPreload -> embedOnyx sink (RGGraphics.loadGLStuff $ map snd bgs) >>= \case
+          GLPreload -> embedOnyx sink (RGGraphics.loadGLStuff initSong) >>= \case
             Nothing -> return (GLFailed, Nothing)
             Just s  -> return (GLLoaded s, Just s)
           loaded@(GLLoaded s) -> return (loaded, Just s)
@@ -2905,7 +2877,7 @@ previewGroup sink rect bgs getTracks getTime getSpeed = do
         forM_ mstuff $ \stuff -> do
           t <- getTime
           speed <- getSpeed
-          trks <- getTracks
+          trks <- fmap previewTracks getSong
           bg <- readIORef currentBG
           updateParts True $ map (map fst) trks -- TODO does this need to be done in a sink event
           selected <- selectedNames
@@ -2978,7 +2950,6 @@ launchPreview sink makeMenuBar mid = mdo
     (groupGL, redrawGL, _deleteGL) <- previewGroup
       sink
       belowTopControls
-      []
       getTracks
       (readIORef varTime)
       (return 1)

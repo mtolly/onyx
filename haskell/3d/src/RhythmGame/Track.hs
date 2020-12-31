@@ -60,11 +60,12 @@ data PreviewBG
 
 data PreviewSong = PreviewSong
   { previewTempo    :: U.TempoMap
+  , previewMeasures :: U.MeasureMap
   , previewTiming   :: BasicTiming
   , previewTracks   :: [[(T.Text, PreviewTrack)]]
   , previewBG       :: [(T.Text, PreviewBG)]
   , previewSections :: Map.Map Double T.Text
-  }
+  } deriving (Show)
 
 computeTracks
   :: (SendMessage m)
@@ -415,6 +416,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
 
   in tracks >>= \trk -> return $ PreviewSong
     { previewTempo    = RBFile.s_tempos song
+    , previewMeasures = RBFile.s_signatures song
     , previewTiming   = timing
     , previewTracks   = trk
     , previewBG       = bgs

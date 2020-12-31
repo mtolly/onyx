@@ -88,7 +88,7 @@ data BasicTiming = BasicTiming
   , timingMusicStart :: U.Beats
   , timingMusicEnd   :: U.Beats
   , timingBeat       :: BeatTrack U.Beats
-  }
+  } deriving (Show)
 
 processTiming
   :: (SendMessage m)

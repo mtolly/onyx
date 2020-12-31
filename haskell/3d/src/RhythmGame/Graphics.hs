@@ -20,7 +20,7 @@ import           Control.Monad.Trans.StackTrace (QueueLog, SendMessage,
                                                  getQueueLog, inside,
                                                  mapStackTraceT, stackIO, warn)
 import qualified Data.ByteString                as B
-import           Data.Foldable                  (traverse_)
+import           Data.Foldable                  (toList, traverse_)
 import           Data.IORef                     (IORef, newIORef, readIORef,
                                                  writeIORef)
 import           Data.List                      (findIndex, partition, sort)
@@ -49,9 +49,12 @@ import           RhythmGame.PNF
 import           RhythmGame.Track
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums           as D
+import           RockBand.Codec.File            (showPosition)
 import qualified RockBand.Codec.Five            as F
 import qualified RockBand.Codec.ProGuitar       as PG
 import           RockBand.Common                (StrumHOPOTap (..), each)
+import           RockBand3                      (BasicTiming (..))
+import qualified Sound.MIDI.Util                as U
 import           System.Directory               (doesFileExist)
 import           System.FilePath                ((<.>), (</>))
 import           Text.Transform                 (showTimestamp)
@@ -1135,6 +1138,7 @@ data GLStuff = GLStuff
   , fontLib      :: FT_Library
   , fontFace     :: FT_Face
   , fontSlot     :: FT_GlyphSlot
+  , previewSong  :: PreviewSong
   } deriving (Show)
 
 data VideoHandle = VideoHandle
@@ -1304,8 +1308,8 @@ sortVertices = let
   sumZ = sum . map (getZ . vertexPosition)
   in concatMap snd . sort . map (\tri -> (sumZ tri, tri)) . getTris
 
-loadGLStuff :: (MonadIO m) => [PreviewBG] -> StackTraceT (QueueLog m) GLStuff
-loadGLStuff bgs = do
+loadGLStuff :: (MonadIO m) => PreviewSong -> StackTraceT (QueueLog m) GLStuff
+loadGLStuff previewSong = do
 
   gfxConfig <- load3DConfig
 
@@ -1607,7 +1611,7 @@ loadGLStuff bgs = do
     _              -> setupSimple
   let fxaaEnabled = prefFXAA prefs
 
-  videoBGs <- fmap (Map.fromList . catMaybes) $ forM bgs $ \case
+  videoBGs <- fmap (Map.fromList . catMaybes) $ forM (map snd $ previewBG previewSong) $ \case
     PreviewBGVideo vi -> do
       writeMsg <- getQueueLog
       frameLoader <- stackIO $ forkFrameLoader writeMsg vi
@@ -1618,7 +1622,7 @@ loadGLStuff bgs = do
         , videoFilePath    = _fileVideo vi
         })
     _ -> return Nothing
-  imageBGs <- fmap (Map.fromList . catMaybes) $ forM bgs $ \case
+  imageBGs <- fmap (Map.fromList . catMaybes) $ forM (map snd $ previewBG previewSong) $ \case
     PreviewBGImage f -> do
       tex <- stackIO (readImage f) >>= either fatal return >>= loadTexture True . convertRGBA8
       return $ Just (f, tex)
@@ -1706,6 +1710,29 @@ drawTexture' GLStuff{..} (fadeBottom, fadeTop) (WindowDims screenW screenH) (Tex
   sendUniformName quadShader "startFade" fadeBottom
   sendUniformName quadShader "endFade" fadeTop
   sendUniformName quadShader "doFXAA" fxaaEnabled
+  sendUniformName quadShader "isColor" False
+  checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
+
+drawColor :: GLStuff -> WindowDims -> V2 Int -> V2 Int -> V4 Float -> IO ()
+drawColor GLStuff{..} (WindowDims screenW screenH) (V2 x y) (V2 w h) color = do
+  glUseProgram quadShader
+  glBindVertexArray $ objVAO quadObject
+  let scaleX = fromIntegral w / fromIntegral screenW
+      scaleY = fromIntegral h / fromIntegral screenH
+      translateX = (fromIntegral x / fromIntegral screenW) * 2 - 1 + scaleX
+      translateY = (fromIntegral y / fromIntegral screenH) * 2 - 1 + scaleY
+  sendUniformName quadShader "transform"
+    (   translate4 (V3 translateX translateY 0)
+    !*! L.scaled (V4 scaleX scaleY 1 1)
+    :: M44 Float
+    )
+  sendUniformName quadShader "inResolution" $ V2
+    (fromIntegral w :: Float)
+    (fromIntegral h :: Float)
+  sendUniformName quadShader "startFade" (1 :: Float)
+  sendUniformName quadShader "endFade" (1 :: Float)
+  sendUniformName quadShader "isColor" True
+  sendUniformName quadShader "color" color
   checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
 -- | Covers the screen with the texture, preserving aspect ratio and possibly clipping some of the texture.
@@ -1728,6 +1755,7 @@ drawBackground GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) = do
   sendUniformName quadShader "startFade" (1 :: Float)
   sendUniformName quadShader "endFade" (1 :: Float)
   sendUniformName quadShader "doFXAA" False
+  sendUniformName quadShader "isColor" False
   checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
 freeTexture :: (MonadIO m) => Texture -> m ()
@@ -1816,40 +1844,59 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
   drawNumber (gameScore gps) (wWhole - digitWidth * digitScale) (hWhole - digitHeight * digitScale)
   drawNumber (gameCombo gps) (quot wWhole 2) 0
 
-drawText
+prepareText
+  :: GLStuff
+  -> T.Text
+  -> IO [(FT_GlyphSlotRec, Texture)]
+prepareText GLStuff{..} str = fmap catMaybes $ forM (T.unpack str) $ \c -> do
+  ft_Load_Char fontFace (fromIntegral $ fromEnum c) FT_LOAD_RENDER
+  gsr <- peek fontSlot
+  case bPixel_mode $ gsrBitmap gsr of
+    FT_PIXEL_MODE_GRAY -> do
+      let w = bWidth $ gsrBitmap gsr
+          h = bRows $ gsrBitmap gsr
+      fptr <- newForeignPtr_ $ bBuffer $ gsrBitmap gsr
+      v <- VS.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral $ w * h
+      tex <- loadTexture False $ pixelMap (PixelRGBA8 255 255 255) $ Image
+        { imageWidth  = fromIntegral w
+        , imageHeight = fromIntegral h
+        , imageData   = v
+        }
+      return $ Just (gsr, tex)
+    _ -> do
+      putStrLn "freetype output isn't FT_PIXEL_MODE_GRAY"
+      return Nothing
+
+drawTextLine
   :: GLStuff
   -> WindowDims
-  -> T.Text
+  -> [(FT_GlyphSlotRec, Texture)]
   -> V2 Int
   -> IO ()
-drawText glStuff@GLStuff{..} dims str penStart = do
-  chars <- fmap catMaybes $ forM (T.unpack str) $ \c -> do
-    ft_Load_Char fontFace (fromIntegral $ fromEnum c) FT_LOAD_RENDER
-    gsr <- peek fontSlot
-    case bPixel_mode $ gsrBitmap gsr of
-      FT_PIXEL_MODE_GRAY -> do
-        let w = bWidth $ gsrBitmap gsr
-            h = bRows $ gsrBitmap gsr
-        fptr <- newForeignPtr_ $ bBuffer $ gsrBitmap gsr
-        v <- VS.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral $ w * h
-        tex <- loadTexture False $ pixelMap (PixelRGBA8 255 255 255) $ Image
-          { imageWidth  = fromIntegral w
-          , imageHeight = fromIntegral h
-          , imageData   = v
-          }
-        return $ Just (gsr, tex)
-      _ -> do
-        putStrLn "freetype output isn't FT_PIXEL_MODE_GRAY"
-        return Nothing
-  let drawLoop _   [] = return ()
-      drawLoop pen ((gsr, tex) : rest) = do
-        let penOffset  = fromIntegral <$> V2 (gsrBitmap_left gsr) (gsrBitmap_top gsr)
-            penOffsetH = V2 0 (negate $ textureHeight tex)
-            penAdvance = fromIntegral . (`shiftR` 6) <$> V2 (vX $ gsrAdvance gsr) (vY $ gsrAdvance gsr)
-        drawTexture glStuff dims tex (pen + penOffset + penOffsetH) 1
-        drawLoop (pen + penAdvance) rest
-  drawLoop penStart chars
-  mapM_ (freeTexture . snd) chars
+drawTextLine glStuff dims chars penStart = let
+  drawLoop _   [] = return ()
+  drawLoop pen ((gsr, tex) : rest) = do
+    let penOffset  = fromIntegral <$> V2 (gsrBitmap_left gsr) (gsrBitmap_top gsr)
+        penOffsetH = V2 0 (negate $ textureHeight tex)
+        penAdvance = fromIntegral . (`shiftR` 6) <$> V2 (vX $ gsrAdvance gsr) (vY $ gsrAdvance gsr)
+    drawTexture glStuff dims tex (pen + penOffset + penOffsetH) 1
+    drawLoop (pen + penAdvance) rest
+  in drawLoop penStart chars
+
+drawTimeBox
+  :: GLStuff
+  -> WindowDims
+  -> [T.Text]
+  -> IO ()
+drawTimeBox glStuff dims@(WindowDims _ hWhole) timeLines = do
+  texLines <- mapM (prepareText glStuff) timeLines
+  let maxTextWidth = foldr max 0 $ map (sum . map (vX . gsrAdvance . fst)) texLines
+      boxWidth = 20 + fromIntegral (maxTextWidth `shiftR` 6)
+      boxHeight = 30 * length texLines + 10
+  drawColor glStuff dims (V2 0 $ hWhole - boxHeight) (V2 boxWidth boxHeight) (V4 0 0 0 0.5)
+  forM_ (zip [1..] texLines) $ \(i, texLine) -> do
+    drawTextLine glStuff dims texLine $ V2 10 $ hWhole - 30 * i
+  mapM_ (freeTexture . snd) $ concat texLines
 
 drawTracks
   :: GLStuff
@@ -1868,6 +1915,8 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trk
       V4 r g b a -> glClearColor r g b a
   glClear GL_COLOR_BUFFER_BIT
 
+  glDepthFunc GL_ALWAYS -- turn off z to draw backgrounds + time box
+
   forM_ bg $ \case
     PreviewBGVideo vi -> case Map.lookup vi videoBGs of
       Just VideoHandle{..} -> do
@@ -1885,21 +1934,23 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trk
                 updateTexture image tex
                 writeIORef videoTexture $ Just (timeNew, tex)
               return $ Just tex
-        forM_ mtex $ \tex -> do
-          glClear GL_DEPTH_BUFFER_BIT
-          glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-          drawBackground glStuff dims tex
+        forM_ mtex $ drawBackground glStuff dims
       Nothing -> return ()
-    PreviewBGImage f -> case Map.lookup f imageBGs of
-      Just tex -> do
-        glClear GL_DEPTH_BUFFER_BIT
-        glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-        drawBackground glStuff dims tex
-      Nothing -> return ()
+    PreviewBGImage f -> forM_ (Map.lookup f imageBGs) $ drawBackground glStuff dims
 
-  glClear GL_DEPTH_BUFFER_BIT
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-  drawText glStuff dims (showTimestamp $ realToFrac time) (V2 10 $ hWhole - 30)
+  let songLength = U.applyTempoMap (previewTempo previewSong) $ timingEnd $ previewTiming previewSong
+      currentMB = showPosition (previewMeasures previewSong)
+        $ U.unapplyTempoMap (previewTempo previewSong) $ realToFrac time
+      lengthMB = showPosition (previewMeasures previewSong) $ timingEnd $ previewTiming previewSong
+  drawTimeBox glStuff dims $ concat
+    [ [showTimestamp (realToFrac time) <> " / " <> showTimestamp songLength]
+    , [T.pack $ currentMB <> " / " <> lengthMB]
+    , toList $ fmap snd $ Map.lookupLE time $ previewSections previewSong
+    ]
+
+  glDepthFunc GL_LESS
+  glClear GL_DEPTH_BUFFER_BIT
 
   let spaces = case trks of
         [] -> []
