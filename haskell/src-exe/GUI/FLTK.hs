@@ -1142,7 +1142,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
       btn <- FL.buttonNew rect' $ Just "Build web preview"
       taskColor >>= FL.setColor btn
       FL.setCallback btn $ \_ -> sink $ EventIO $ do
-        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
         FL.setTitle picker "Save web preview folder"
         FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_player"
         forM_ (prefDirPreview ?preferences) $ FL.setDirectory picker . T.pack
@@ -1692,7 +1692,7 @@ songPageRB3 sink rect tab proj build = mdo
     btn2 <- FL.buttonNew r2 $ Just "Create Magma project"
     FL.setCallback btn2 $ \_ -> do
       tgt <- makeTarget
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save Magma v2 project"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_project" -- TODO add modifiers
       forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
@@ -1843,7 +1843,7 @@ songPagePS sink rect tab proj build = mdo
     btn1 <- FL.buttonNew r1 $ Just "Create CH/PS song folder"
     FL.setCallback btn1 $ \_ -> do
       tgt <- makeTarget
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save CH/PS song folder"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_chps" -- TODO add modifiers
       forM_ (prefDirCH ?preferences) $ FL.setDirectory picker . T.pack
@@ -2200,7 +2200,7 @@ miscPageMilo sink rect tab startTasks = do
         FL.NativeFileChooserPicked -> FL.getFilename picker1 >>= \case
           Nothing  -> return ()
           Just finText@(T.unpack -> fin) -> do
-            picker2 <- FL.nativeFileChooserNew $ Just FL.BrowseSaveDirectory
+            picker2 <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
             FL.setTitle picker2 "Create folder"
             FL.setPresetFile picker2 $ finText <> "-extract"
             FL.showWidget picker2 >>= \case
