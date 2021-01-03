@@ -23,8 +23,8 @@ parts:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   # keys:
   #   pro-keys: {} # WIP
-  # guitar: # sax
-  #   grybo: {} # WIP
+  guitar: # sax
+    grybo: {}
 plans:
   album:
     song:
