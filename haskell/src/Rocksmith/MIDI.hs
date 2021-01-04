@@ -411,12 +411,13 @@ data ConstraintString
   | ShapeString Int
   deriving (Eq, Ord)
 
-initialAnchor :: ATB.T U.Seconds FretConstraint -> Maybe (Int, Int)
-initialAnchor consts = let
+initialAnchor :: Int -> ATB.T U.Seconds FretConstraint -> Maybe (Int, Int)
+initialAnchor capo consts = let
   frets = map (\fs -> (minimum fs, maximum fs)) $ ATB.getBodies $ ATB.collectCoincident $ flip ATB.mapMaybe consts $ \case
     FretBlip _ f -> Just f
     FretHold _ f -> Just f
     _            -> Nothing
+  -- TODO replace NE.head with NE.last or something more complicated? (closer to previous anchor)
   go possibleMins []                          = (NE.head possibleMins, NE.head possibleMins + 3)
   go possibleMins ((nextMin, nextMax) : rest) = let
     valid anchorMin = anchorMin <= nextMin && nextMax <= anchorMin + 3
@@ -426,10 +427,12 @@ initialAnchor consts = let
   in case frets of
     []                                       -> Nothing
     first@(fmin, fmax) : _ | fmax - fmin > 3 -> Just first
-    _                                        -> Just $ go (1 :| [2..21]) frets
+    _                                        -> Just $ let
+      possibleMins = (capo + 1) :| [ capo + 2 .. 21 ]
+      in go possibleMins frets
 
-autoAnchors :: [Note] -> [(ChordTemplate, U.Seconds, U.Seconds)] -> Map.Map U.Seconds (GtrFret, GtrFret)
-autoAnchors allNotes shapes = let
+autoAnchors :: [Note] -> Int -> [(ChordTemplate, U.Seconds, U.Seconds)] -> Map.Map U.Seconds (GtrFret, GtrFret)
+autoAnchors allNotes capo shapes = let
   noteConstraints = ATB.fromPairList $ sort $ allNotes >>= \note ->
     case n_fret note of
       0 -> [(n_time note, FretZero)]
@@ -469,7 +472,7 @@ autoAnchors allNotes shapes = let
       []    -> Nothing
       frets -> Just (minimum frets, maximum frets)
     thisAnchor = case fretsNow of
-      Nothing -> case initialAnchor $ ATB.flatten rest of
+      Nothing -> case initialAnchor capo $ ATB.flatten rest of
         Just anchor -> anchor -- jump to next position in advance
         -- TODO maybe don't jump in advance unless there is an (open) note at this point?
         Nothing     -> (prevMin, min (prevMin + 3) prevMax) -- shrink if more wide than usual
@@ -489,7 +492,7 @@ autoAnchors allNotes shapes = let
     $ RTB.toAbsoluteEventList 0
     $ noRedundantStatus
     $ RTB.fromAbsoluteEventList
-    $ buildAnchors (fromMaybe (1, 4) $ initialAnchor constraints) Map.empty
+    $ buildAnchors (fromMaybe (capo + 1, capo + 4) $ initialAnchor capo constraints) Map.empty
     $ ATB.collectCoincident constraints
 
 backportAnchors :: U.TempoMap -> RocksmithTrack U.Beats -> RSOutput -> RocksmithTrack U.Beats
@@ -506,9 +509,11 @@ backportAnchors tmap trk rso = let
     , rsAnchorHigh = fmap snd anchors
     }
 
-buildRS :: (SendMessage m) => U.TempoMap -> RocksmithTrack U.Beats -> StackTraceT m RSOutput
-buildRS tmap trk = do
-  let insideTime t = inside $ T.unpack $ showTimestamp t
+buildRS :: (SendMessage m) => U.TempoMap -> Int -> RocksmithTrack U.Beats -> StackTraceT m RSOutput
+buildRS tmap capo trk = do
+  let applyCapo 0 = 0
+      applyCapo f = f + capo
+      insideTime t = inside $ T.unpack $ showTimestamp t
       numberSections _ [] = []
       numberSections counts ((t, sect) : rest) = let
         n = fromMaybe 0 $ Map.lookup sect counts
@@ -551,7 +556,7 @@ buildRS tmap trk = do
             S2 -> 4
             S1 -> 5
             _  -> -1
-          , n_fret           = fret
+          , n_fret           = applyCapo fret
           , n_sustain        = let
             startBeats = U.unapplyTempoMap tmap t
             endBeats = U.unapplyTempoMap tmap $ t <> len
@@ -568,8 +573,8 @@ buildRS tmap trk = do
           , n_hopo           = False -- I don't think you need this?
           , n_hammerOn       = elem ModHammerOn mods
           , n_pullOff        = elem ModPullOff mods
-          , n_slideTo        = listToMaybe [ n | ModSlide n <- mods ]
-          , n_slideUnpitchTo = listToMaybe [ n | ModSlideUnpitch n <- mods ]
+          , n_slideTo        = listToMaybe [ applyCapo n | ModSlide n <- mods ]
+          , n_slideUnpitchTo = listToMaybe [ applyCapo n | ModSlideUnpitch n <- mods ]
           , n_mute           = elem ModMute mods
           , n_palmMute       = elem ModPalmMute mods
           , n_accent         = elem ModAccent mods
@@ -620,12 +625,12 @@ buildRS tmap trk = do
           , ct_finger3     = listToMaybe [fromEnum finger | (S3, _, Just finger) <- assigned]
           , ct_finger4     = listToMaybe [fromEnum finger | (S2, _, Just finger) <- assigned]
           , ct_finger5     = listToMaybe [fromEnum finger | (S1, _, Just finger) <- assigned]
-          , ct_fret0       = listToMaybe [fret | (S6, fret, _) <- assigned]
-          , ct_fret1       = listToMaybe [fret | (S5, fret, _) <- assigned]
-          , ct_fret2       = listToMaybe [fret | (S4, fret, _) <- assigned]
-          , ct_fret3       = listToMaybe [fret | (S3, fret, _) <- assigned]
-          , ct_fret4       = listToMaybe [fret | (S2, fret, _) <- assigned]
-          , ct_fret5       = listToMaybe [fret | (S1, fret, _) <- assigned]
+          , ct_fret0       = listToMaybe [applyCapo fret | (S6, fret, _) <- assigned]
+          , ct_fret1       = listToMaybe [applyCapo fret | (S5, fret, _) <- assigned]
+          , ct_fret2       = listToMaybe [applyCapo fret | (S4, fret, _) <- assigned]
+          , ct_fret3       = listToMaybe [applyCapo fret | (S3, fret, _) <- assigned]
+          , ct_fret4       = listToMaybe [applyCapo fret | (S2, fret, _) <- assigned]
+          , ct_fret5       = listToMaybe [applyCapo fret | (S1, fret, _) <- assigned]
           }
         in finish <$> assignFingers (ciFingers cinfo) sortedNotes
       makeNoteChord t cinfo noteGroup = do
@@ -746,13 +751,13 @@ buildRS tmap trk = do
       , lvl_anchors       = let
         -- note: according to EOF, highest min-fret for an anchor is 21
         anchorMap = if RTB.null $ rsAnchorLow trk
-          then autoAnchors allNotes shapes
+          then autoAnchors allNotes capo shapes
           else let
             merged = RTB.collectCoincident $ RTB.merge (Left <$> rsAnchorLow trk) (Right <$> rsAnchorHigh trk)
             bounds = U.applyTempoTrack tmap $ flip RTB.mapMaybe merged $ \evts ->
               case ([ low | Left low <- evts ], [ high | Right high <- evts ]) of
-                (low : _, high : _) -> Just (low, high)
-                (low : _, []      ) -> Just (low, low + 3)
+                (low : _, high : _) -> Just (applyCapo low, applyCapo high)
+                (low : _, []      ) -> Just (applyCapo low, applyCapo $ low + 3)
                 _                   -> Nothing
             in Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ noRedundantStatus bounds
         -- each phrase needs to have an anchor at the start (or at least before its first note)

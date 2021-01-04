@@ -240,6 +240,12 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
       { RBFile.onyxParts = Map.fromList $ do
         ((_, partName), sng, _, _, isBass, _) <- namedParts
         let toSeconds = realToFrac :: Float -> U.Seconds
+            capoOffset :: Int
+            capoOffset = case meta_CapoFretId $ sng_Metadata sng of
+              -1 -> 0
+              n  -> fromIntegral n
+            unapplyCapo 0    = 0
+            unapplyCapo fret = fret - capoOffset
             getNotes note = let
               secs = toSeconds $ notes_Time note
               beats = U.unapplyTempoMap temps secs
@@ -274,7 +280,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
               in do
                 (str, fret, mods, bends) <- case notes_ChordId note of
                   -1 -> let
-                    fret = fromIntegral $ notes_FretId note
+                    fret = unapplyCapo $ fromIntegral $ notes_FretId note
                     str = case notes_StringIndex note of
                       0 -> S6
                       1 -> S5
@@ -284,9 +290,9 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                       5 -> S1
                       _ -> S7 -- TODO raise error
                     mods = parseMask (notes_NoteMask note) <> catMaybes
-                      [ ModVibrato      . fromIntegral <$> numNot 0    (notes_Vibrato        note)
-                      , ModSlide        . fromIntegral <$> numNot (-1) (notes_SlideTo        note)
-                      , ModSlideUnpitch . fromIntegral <$> numNot (-1) (notes_SlideUnpitchTo note)
+                      [ ModVibrato      .               fromIntegral <$> numNot 0    (notes_Vibrato        note)
+                      , ModSlide        . unapplyCapo . fromIntegral <$> numNot (-1) (notes_SlideTo        note)
+                      , ModSlideUnpitch . unapplyCapo . fromIntegral <$> numNot (-1) (notes_SlideUnpitchTo note)
                       ]
                     bends = map (\bd -> (bd32_Time bd, bd32_Step bd)) $ notes_BendData note
                     in [(str, fret, mods, bends)]
@@ -296,13 +302,13 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                           -1   -> Nothing
                           cnid -> Just $ sng_ChordNotes sng !! fromIntegral cnid
                     (str, i) <- zip [S6, S5 ..] [0..]
-                    let fret = fromIntegral $ chord_Frets chord !! i
+                    let fret = unapplyCapo $ fromIntegral $ chord_Frets chord !! i
                         mods = case chordNotes of
                           Nothing -> []
                           Just cn -> parseMask (cn_NoteMask cn !! i) <> catMaybes
-                            [ ModVibrato      . fromIntegral <$> numNot 0    (cn_Vibrato        cn !! i)
-                            , ModSlide        . fromIntegral <$> numNot (-1) (cn_SlideTo        cn !! i)
-                            , ModSlideUnpitch . fromIntegral <$> numNot (-1) (cn_SlideUnpitchTo cn !! i)
+                            [ ModVibrato      .               fromIntegral <$> numNot 0    (cn_Vibrato        cn !! i)
+                            , ModSlide        . unapplyCapo . fromIntegral <$> numNot (-1) (cn_SlideTo        cn !! i)
+                            , ModSlideUnpitch . unapplyCapo . fromIntegral <$> numNot (-1) (cn_SlideUnpitchTo cn !! i)
                             ]
                     guard $ fret >= 0
                     return (str, fret, mods, [] {- TODO -})
@@ -319,7 +325,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                   $ chord_Frets
                   $ sng_Chords sng !! fromIntegral (fp_ChordId fprint)
                 guard $ fret >= 0
-                return (beats, (fret, str, len))
+                return (beats, (unapplyCapo fret, str, len))
             iterBoundaries = zip (sng_PhraseIterations sng)
               (fmap Just (drop 1 $ sng_PhraseIterations sng) <> [Nothing])
             getPhraseNotes iter1 miter2 = let
@@ -353,7 +359,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
               $ sort
               $ fmap (\anc -> let
                 t = toSeconds $ anchor_StartBeatTime anc
-                lowFret = fromIntegral $ anchor_FretId anc
+                lowFret = unapplyCapo $ fromIntegral $ anchor_FretId anc
                 highFret = lowFret + fromIntegral (anchor_Width anc) - 1
                 in (t, (lowFret, highFret))
                 )
@@ -508,19 +514,21 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
               { pgDifficulty    = Tier 1
               , pgHopoThreshold = 170
               , pgTuning        = if isBass
-                -- TODO set gtrGlobal smarter (use capo + detect number applied to all offsets)
+                -- TODO set gtrGlobal smarter (detect number applied to all offsets)
                 -- TODO import bass-on-guitar correctly (threshold for very low offsets?)
                 then GtrTuning
                   { gtrBase    = Bass4
                   , gtrOffsets = map fromIntegral $ take 4 $ meta_Tuning $ sng_Metadata sng
-                  , gtrGlobal  = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
+                  , gtrGlobal  = 0
+                  , gtrCapo    = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
                     -1 -> 0 -- is capo supposed to be -1? seen in albatross213's Vektor charts (F tuning)
                     n  -> n
                   }
                 else GtrTuning
                   { gtrBase    = Guitar6
                   , gtrOffsets = map fromIntegral $ meta_Tuning $ sng_Metadata sng
-                  , gtrGlobal  = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
+                  , gtrGlobal  = 0
+                  , gtrCapo    = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
                     -1 -> 0
                     n  -> n
                   }

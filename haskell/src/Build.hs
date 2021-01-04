@@ -2064,7 +2064,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               let eachTrack trk = if RTB.null $ rsNotes trk
                     then return trk
                     else do
-                      rso <- buildRS (RBFile.s_tempos mid) trk
+                      rso <- buildRS (RBFile.s_tempos mid) 0 trk
                       return $ backportAnchors (RBFile.s_tempos mid) trk rso
               newParts <- forM (RBFile.onyxParts $ RBFile.s_tracks mid) $ \opart -> do
                 gtr  <- eachTrack $ RBFile.onyxPartRSGuitar opart
@@ -2106,24 +2106,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                           = Arr.Ebeat t Nothing : numberBars measure rest
                         numberBars measure ((t, Bar) : rest)
                           = Arr.Ebeat t (Just measure) : numberBars (measure + 1) rest
-                    rso <- let
-                      opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
-                      trk = if isBass slot
-                        then RBFile.onyxPartRSBass   opart
-                        else RBFile.onyxPartRSGuitar opart
-                        -- TODO maybe support using bass track for a guitar slot
-                      in buildRS (RBFile.s_tempos mid) trk
-                    let allNotes = Arr.lvl_notes $ rso_level rso
                         tuning0 = case (isBass slot, pgTuningRSBass pg) of
                           (True, Just tun) -> tun
                           _                -> pgTuning pg
-                        -- I'm not sure if we need a separate field at some point,
-                        -- but for now, negative global offset = downtune,
-                        -- positive global offset = capo
-                        (downtune, capo) = if gtrGlobal tuning0 < 0
-                          then (gtrGlobal tuning0, 0)
-                          else (0, gtrGlobal tuning0)
-                        tuning1 = map (+ downtune)
+                        tuning1 = map (+ gtrGlobal tuning0)
                           $ encodeTuningOffsets tuning0 (if isBass slot then TypeBass else TypeGuitar)
                         tuning2 = tuning1 <> repeat (last tuning1) -- so 5-string bass has a consistent dummy top string
                         octaveDown = head tuning2 < (if isBass slot then -4 else -7)
@@ -2132,6 +2118,14 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         tuning3 = map (+ if octaveDown then 12 else 0) tuning2
                         lengthBeats = songLengthBeats mid
                         lengthSeconds = U.applyTempoMap (RBFile.s_tempos mid) lengthBeats
+                    rso <- let
+                      opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
+                      trk = if isBass slot
+                        then RBFile.onyxPartRSBass   opart
+                        else RBFile.onyxPartRSGuitar opart
+                        -- TODO maybe support using bass track for a guitar slot
+                      in buildRS (RBFile.s_tempos mid) (gtrCapo tuning0) trk
+                    let allNotes = Arr.lvl_notes $ rso_level rso
                     time <- stackIO getZonedTime
                     Arr.writePart out $ Arr.addPadding pad $ Arr.PartArrangement Arr.Arrangement
                       { Arr.arr_version                = 7 -- this is what EOF has currently
@@ -2159,7 +2153,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         , Arr.tuning_string4 = fromMaybe 0 $ listToMaybe $ drop 4 tuning3
                         , Arr.tuning_string5 = fromMaybe 0 $ listToMaybe $ drop 5 tuning3
                         }
-                      , Arr.arr_capo                   = capo
+                      , Arr.arr_capo                   = gtrCapo tuning0
                       , Arr.arr_artistName             = getArtist $ _metadata songYaml
                       , Arr.arr_artistNameSort         = getArtist $ _metadata songYaml -- TODO
                       , Arr.arr_albumName              = getAlbum $ _metadata songYaml

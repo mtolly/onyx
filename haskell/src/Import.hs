@@ -1126,6 +1126,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
             { gtrBase = Guitar6
             , gtrOffsets = map fromIntegral $ fromMaybe [] $ D.realGuitarTuning pkg
             , gtrGlobal = 0
+            , gtrCapo = 0
             }
           , pgFixFreeform = False
           }
@@ -1145,6 +1146,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
             { gtrBase = bassBase
             , gtrOffsets = map fromIntegral $ fromMaybe [] $ D.realBassTuning pkg
             , gtrGlobal = 0
+            , gtrCapo = 0
             }
           , pgFixFreeform = False
           }
@@ -1420,6 +1422,7 @@ importMagma fin dir = do
               { gtrBase = Guitar6
               , gtrOffsets = fromMaybe [] tuneGtr
               , gtrGlobal = 0
+              , gtrCapo = 0
               }
             , pgFixFreeform = False
             }
@@ -1441,6 +1444,7 @@ importMagma fin dir = do
               { gtrBase = bassBase
               , gtrOffsets = fromMaybe [] tuneBass
               , gtrGlobal = 0
+              , gtrCapo = 0
               }
             , pgFixFreeform = False
             }

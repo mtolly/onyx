@@ -276,14 +276,14 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
               RBFile.FlexExtra "bonus-lead"   -> "RS Bonus Lead"
               RBFile.FlexExtra "bonus-rhythm" -> "RS Bonus Rhythm"
               _                               -> T.pack $ show fpart <> " [RS Guitar]"
-        return $ (\rso -> (name, PreviewPG (pgTuning ppg) $ pgRocksmith rso)) <$> buildRS tempos srcG
+        return $ (\rso -> (name, PreviewPG (pgTuning ppg) $ pgRocksmith rso)) <$> buildRS tempos 0 srcG
       , do
         guard $ not $ RTB.null $ rsNotes srcB
         let name = case fpart of
               RBFile.FlexBass               -> "RS Bass"
               RBFile.FlexExtra "bonus-bass" -> "RS Bonus Bass"
               _                             -> T.pack $ show fpart <> " [RS Bass]"
-        return $ (\rso -> (name, PreviewPG (pgTuning ppg) $ pgRocksmith rso)) <$> buildRS tempos srcB
+        return $ (\rso -> (name, PreviewPG (pgTuning ppg) $ pgRocksmith rso)) <$> buildRS tempos 0 srcB
       ]
 
   pgTrack fpart ppg diff = let

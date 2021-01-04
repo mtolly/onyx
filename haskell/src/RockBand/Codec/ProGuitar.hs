@@ -84,14 +84,15 @@ data GtrTuning = GtrTuning
   { gtrBase    :: GtrBase
   , gtrOffsets :: [Int]
   , gtrGlobal  :: Int
+  , gtrCapo    :: Int
   } deriving (Eq, Ord, Show)
 
 instance Default GtrTuning where
-  def = GtrTuning Guitar6 [] 0
+  def = GtrTuning Guitar6 [] 0 0
 
 tuningPitches :: GtrTuning -> [Int]
 tuningPitches t
-  = map (+ gtrGlobal t)
+  = map (+ (gtrGlobal t + gtrCapo t))
   $ zipWith (+) (gtrOffsets t ++ repeat 0)
   $ case gtrBase t of
     Guitar6      -> [40, 45, 50, 55, 59, 64]
@@ -102,16 +103,16 @@ tuningPitches t
     Bass6        -> [23, 28, 33, 38, 43, 48]
     GtrCustom ps -> ps
 
--- | Does not include 'gtrGlobal'.
+-- | RB3 style (does not include 'gtrGlobal' or 'gtrCapo').
 encodeTuningOffsets :: GtrTuning -> GuitarType -> [Int]
 encodeTuningOffsets tun typ = let
   std  = tuningPitches $ case typ of
-    TypeGuitar -> GtrTuning Guitar6 [] 0
-    TypeBass   -> GtrTuning Bass4   [] 0
+    TypeGuitar -> GtrTuning Guitar6 [] 0 0
+    TypeBass   -> GtrTuning Bass4   [] 0 0
   n = case typ of
     TypeGuitar -> 6
     TypeBass   -> 4
-  this = take n $ tuningPitches tun { gtrGlobal = 0 }
+  this = take n $ tuningPitches tun { gtrGlobal = 0, gtrCapo = 0 }
   in map fromIntegral $ zipWith (-) this std
 
 instance ChannelType NoteType where

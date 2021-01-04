@@ -187,8 +187,8 @@ track tunings lenTicks lenSecs resn trk = let
   name = maybe "untitled track" T.pack $ U.trackName trk
   fpart = identifyFlexTrack name
   tuning = flip fromMaybe (fpart >>= (`lookup` tuningGuitars tunings)) $ case fpart of
-    Just FlexBass -> GtrTuning Bass4   [] 0
-    _             -> GtrTuning Guitar6 [] 0
+    Just FlexBass -> GtrTuning Bass4   [] 0 0
+    _             -> GtrTuning Guitar6 [] 0 0
   in block "TRACK" [] $ do
     line "NAME" [name]
     let yellow = (255, 221, 0)
@@ -318,7 +318,7 @@ track tunings lenTicks lenSecs resn trk = let
             let bool b = if b then "1" else "0"
                 tuning' = reverse $ take 6 $ let
                   std   = (if isBass then map $ subtract 12 else id)
-                    $ tuningPitches $ GtrTuning Guitar6 [] 0
+                    $ tuningPitches $ GtrTuning Guitar6 [] 0 0
                   this  = tuningPitches tuning
                   this' = drop (length this - 6) this
                   in zipWith (-) this' std ++ repeat 0
