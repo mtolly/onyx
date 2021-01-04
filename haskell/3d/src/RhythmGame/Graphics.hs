@@ -21,6 +21,7 @@ import           Control.Monad.Trans.StackTrace (QueueLog, SendMessage,
                                                  mapStackTraceT, stackIO, warn)
 import qualified Data.ByteString                as B
 import           Data.Foldable                  (toList, traverse_)
+import qualified Data.HashMap.Strict            as HM
 import           Data.IORef                     (IORef, newIORef, readIORef,
                                                  writeIORef)
 import           Data.List                      (findIndex, partition, sort)
@@ -1138,8 +1139,9 @@ data GLStuff = GLStuff
   , fontLib      :: FT_Library
   , fontFace     :: FT_Face
   , fontSlot     :: FT_GlyphSlot
+  , fontGlyphs   :: IORef (HM.HashMap Char (FT_GlyphSlotRec, Texture))
   , previewSong  :: PreviewSong
-  } deriving (Show)
+  }
 
 data VideoHandle = VideoHandle
   { videoFrameLoader :: FrameLoader
@@ -1632,8 +1634,9 @@ loadGLStuff previewSong = do
   fontLib <- stackIO ft_Init_FreeType
   fontPath <- stackIO $ getResourcesPath "diffusion-bold.ttf"
   fontFace <- stackIO $ ft_New_Face fontLib fontPath 0
-  stackIO $ ft_Set_Char_Size fontFace (20 * 64) 0 72 0
+  stackIO $ ft_Set_Char_Size fontFace (15 * 64) 0 72 0
   fontSlot <- stackIO $ frGlyph <$> peek fontFace
+  fontGlyphs <- stackIO $ newIORef HM.empty
 
   return GLStuff{..}
 
@@ -1673,6 +1676,7 @@ deleteGLStuff glStuff@GLStuff{..} = liftIO $ do
       withArrayLen [simpleFBORender] $ glDeleteRenderbuffers . fromIntegral
   mapM_ (freeTexture . snd) textures
   mapM_ freeTexture $ Map.elems imageBGs
+  readIORef fontGlyphs >>= mapM_ (freeTexture . snd) . HM.elems
   stopVideoLoaders glStuff
 
 stopVideoLoaders :: (MonadIO m) => GLStuff -> m ()
@@ -1844,28 +1848,33 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
   drawNumber (gameScore gps) (wWhole - digitWidth * digitScale) (hWhole - digitHeight * digitScale)
   drawNumber (gameCombo gps) (quot wWhole 2) 0
 
-prepareText
-  :: GLStuff
-  -> T.Text
-  -> IO [(FT_GlyphSlotRec, Texture)]
-prepareText GLStuff{..} str = fmap catMaybes $ forM (T.unpack str) $ \c -> do
-  ft_Load_Char fontFace (fromIntegral $ fromEnum c) FT_LOAD_RENDER
-  gsr <- peek fontSlot
-  case bPixel_mode $ gsrBitmap gsr of
-    FT_PIXEL_MODE_GRAY -> do
-      let w = bWidth $ gsrBitmap gsr
-          h = bRows $ gsrBitmap gsr
-      fptr <- newForeignPtr_ $ bBuffer $ gsrBitmap gsr
-      v <- VS.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral $ w * h
-      tex <- loadTexture False $ pixelMap (PixelRGBA8 255 255 255) $ Image
-        { imageWidth  = fromIntegral w
-        , imageHeight = fromIntegral h
-        , imageData   = v
-        }
-      return $ Just (gsr, tex)
-    _ -> do
-      putStrLn "freetype output isn't FT_PIXEL_MODE_GRAY"
-      return Nothing
+getGlyph :: GLStuff -> Char -> IO (Maybe (FT_GlyphSlotRec, Texture))
+getGlyph GLStuff{..} c = do
+  table <- readIORef fontGlyphs
+  case HM.lookup c table of
+    Just pair -> return $ Just pair
+    Nothing   -> do
+      ft_Load_Char fontFace (fromIntegral $ fromEnum c) FT_LOAD_RENDER
+      gsr <- peek fontSlot
+      case bPixel_mode $ gsrBitmap gsr of
+        FT_PIXEL_MODE_GRAY -> do
+          let w = bWidth $ gsrBitmap gsr
+              h = bRows $ gsrBitmap gsr
+          fptr <- newForeignPtr_ $ bBuffer $ gsrBitmap gsr
+          v <- VS.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral $ w * h
+          tex <- loadTexture False $ pixelMap (PixelRGBA8 255 255 255) $ Image
+            { imageWidth  = fromIntegral w
+            , imageHeight = fromIntegral h
+            , imageData   = v
+            }
+          writeIORef fontGlyphs $ HM.insert c (gsr, tex) table
+          return $ Just (gsr, tex)
+        _ -> do
+          putStrLn "freetype output isn't FT_PIXEL_MODE_GRAY"
+          return Nothing
+
+prepareText :: GLStuff -> T.Text -> IO [(FT_GlyphSlotRec, Texture)]
+prepareText glStuff = fmap catMaybes . mapM (getGlyph glStuff) . T.unpack
 
 drawTextLine
   :: GLStuff
@@ -1891,12 +1900,13 @@ drawTimeBox
 drawTimeBox glStuff dims@(WindowDims _ hWhole) timeLines = do
   texLines <- mapM (prepareText glStuff) timeLines
   let maxTextWidth = foldr max 0 $ map (sum . map (vX . gsrAdvance . fst)) texLines
-      boxWidth = 20 + fromIntegral (maxTextWidth `shiftR` 6)
-      boxHeight = 30 * length texLines + 10
+      boxWidth = 2 * margin + fromIntegral (maxTextWidth `shiftR` 6)
+      boxHeight = (margin + fontSize) * length texLines + margin
+      margin = 10
+      fontSize = 15
   drawColor glStuff dims (V2 0 $ hWhole - boxHeight) (V2 boxWidth boxHeight) (V4 0 0 0 0.5)
   forM_ (zip [1..] texLines) $ \(i, texLine) -> do
-    drawTextLine glStuff dims texLine $ V2 10 $ hWhole - 30 * i
-  mapM_ (freeTexture . snd) $ concat texLines
+    drawTextLine glStuff dims texLine $ V2 margin $ hWhole - (margin + fontSize) * i
 
 drawTracks
   :: GLStuff
