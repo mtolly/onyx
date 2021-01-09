@@ -84,9 +84,16 @@ import           Text.Read                        (readMaybe)
 
 removeDummyTracks :: (NNC.C t) => RBFile.FixedFile t -> RBFile.FixedFile t
 removeDummyTracks trks = let
-  five  fd = fd { RBFive.fiveDifficulties  = scan RBFive.fiveGems  $ RBFive.fiveDifficulties  fd }
-  drums dd = dd { RBDrums.drumDifficulties = scan RBDrums.drumGems $ RBDrums.drumDifficulties dd }
-  scan getGems = Map.filter $ (> 5) . length . getGems
+  five  fd = fd { RBFive.fiveDifficulties  = scan (onlyOn . RBFive.fiveGems) $ RBFive.fiveDifficulties  fd }
+  drums dd = dd { RBDrums.drumDifficulties = scan RBDrums.drumGems           $ RBDrums.drumDifficulties dd }
+  onlyOn = RTB.filter $ \case EdgeOn{} -> True; _ -> False
+  scan getGems = Map.filter
+    $ not
+    . null
+    . drop 5
+    . RTB.toPairList
+    . RTB.collectCoincident
+    . getGems
   in trks
     { RBFile.fixedPartGuitar      = five  $ RBFile.fixedPartGuitar      trks
     , RBFile.fixedPartBass        = five  $ RBFile.fixedPartBass        trks
@@ -644,6 +651,15 @@ importFoF src dest = do
       , ( FlexExtra "rhythm", def
         { partGRYBO = guard hasRhythm >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffRhythm song
+          , gryboHopoThreshold = hopoThreshold
+          , gryboFixFreeform = False
+          , gryboSmoothFrets = False
+          , gryboSustainGap = 60
+          }
+        })
+      , ( FlexExtra "guitar-coop", def
+        { partGRYBO = guard (isnt RBFive.nullFive RBFile.fixedPartGuitarCoop && guardDifficulty FoF.diffGuitarCoop) >> Just PartGRYBO
+          { gryboDifficulty = toTier $ FoF.diffGuitarCoop song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboSmoothFrets = False

@@ -542,7 +542,6 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
   behindTabsColor >>= FL.setColor window
   FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
   FL.sizeRange window $ Size (Width 800) (Height 500)
-  doesWindowExist <- newMVar True
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   (modifyMeta, metaTab) <- makeTab windowRect "Metadata" $ \rect tab -> do
@@ -572,19 +571,15 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
             void $ FL.setValue input $ fromMaybe "" $ getter $ _metadata $ projectSongYaml proj
             return input
           applyToMetadata :: (Maybe T.Text -> Metadata f -> Metadata f) -> FL.Ref FL.Input -> BuildYamlControl (SongYaml f) ()
-          applyToMetadata setter input = tell $ withMVar doesWindowExist $ \exist -> if exist
-            then do
-              val <- FL.getValue input
-              let val' = guard (val /= "") >> Just val
-              return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
-            else return $ Endo id
+          applyToMetadata setter input = tell $ do
+            val <- FL.getValue input
+            let val' = guard (val /= "") >> Just val
+            return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
           applyIntToMetadata :: (Maybe Int -> Metadata f -> Metadata f) -> FL.Ref FL.Input -> BuildYamlControl (SongYaml f) ()
-          applyIntToMetadata setter input = tell $ withMVar doesWindowExist $ \exist -> if exist
-            then do
-              val <- FL.getValue input
-              let val' = readMaybe $ T.unpack val
-              return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
-            else return $ Endo id
+          applyIntToMetadata setter input = tell $ do
+            val <- FL.getValue input
+            let val' = readMaybe $ T.unpack val
+            return $ Endo $ \yaml -> yaml { _metadata = setter val' $ _metadata yaml }
           simpleTextGet lbl getter setter rect' = do
             input <- simpleText lbl getter rect'
             applyToMetadata setter input
@@ -595,11 +590,9 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
             input <- liftIO $ FL.checkButtonNew rect' $ Just lbl
             liftIO $ void $ FL.setValue input $ getter $ _metadata $ projectSongYaml proj
             liftIO $ FL.setLabelsize input $ FL.FontSize 13
-            tell $ withMVar doesWindowExist $ \exist -> if exist
-              then do
-                b <- FL.getValue input
-                return $ Endo $ \yaml -> yaml { _metadata = setter b $ _metadata yaml }
-              else return $ Endo id
+            tell $ do
+              b <- FL.getValue input
+              return $ Endo $ \yaml -> yaml { _metadata = setter b $ _metadata yaml }
       void $ liftIO $ FL.boxNew (Rectangle (Position (X 0) (Y 0)) (Size (Width 800) (Height 5))) Nothing
       fullWidth $ simpleTextGet "Title"  _title  $ \mstr meta -> meta { _title  = mstr }
       fullWidth $ \rect' -> do
@@ -898,23 +891,37 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
         _ -> FL.handleButtonBase (FL.safeCast ref) e
       }
     FL.deactivate playButton
+    filledColor <- FLE.rgbColorWithRgb (13, 131, 216)
+    emptyColor <- FLE.rgbColorWithRgb (75, 75, 75)
     scrubber <- FL.sliderCustom scrubberArea Nothing
       (Just $ \s -> do
-        FL.drawSliderBase $ FL.safeCast s
+        rect@(Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) <- FL.getRectangle s
+        FL.flcSetColor emptyColor
+        FL.flcRectf rect
+        FL.flcSetColor FLE.blackColor
+        FL.flcRect rect
+        -- TODO the following 2 functions might need to be made unsafe c2hs bindings to solve the flickering!
+        v <- FL.getValue s
+        vmax <- FL.getMaximum s
+        let progressWidth = floor $ realToFrac w * (v / vmax)
+            progressRect = Rectangle (Position (X x) (Y y)) (Size (Width progressWidth) (Height h))
+        when (progressWidth >= 2) $ do
+          FL.flcSetColor filledColor
+          FL.flcRectf progressRect
+          FL.flcSetColor FLE.blackColor
+          FL.flcRect progressRect
+        -- FL.drawSliderBase $ FL.safeCast s
         let drawSections times end = do
-              Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h)) <- FL.getRectangle s
               FL.flcLineStyle
                 (FL.LineDrawStyle Nothing Nothing Nothing)
                 (Just $ Width 1)
                 Nothing
-              FL.flcSetColor FLE.blackColor
+              FL.flcSetColor FLE.whiteColor
               forM_ times $ \t -> let
-                x' = x + xPadding + floor (realToFrac (w - xPadding * 2) * (t / end))
-                in FL.flcLine
-                  (Position (X x') (Y $ y + yPadding))
-                  (Position (X x') (Y $ y + h - yPadding))
-            xPadding = 3 -- this is fudged based on how the fill slider is drawn
-            yPadding = 4 -- this can be whatever based on taste
+                x' = x + floor (realToFrac w * (t / end)) - 1
+                in when (x' > x) $ FL.flcLine
+                  (Position (X x') (Y $ y + 3))
+                  (Position (X x') (Y $ y + h - 4))
         case Map.keys $ previewSections song of
           []    -> return ()
           times -> drawSections times $ realToFrac $ U.applyTempoMap (previewTempo song) $ timingEnd $ previewTiming song
@@ -971,7 +978,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
           curTime <- getSystemTime
           stopAnim <- startAnimation $ do
             t' <- currentSongTime <$> getSystemTime <*> readIORef varTime
-            sink $ EventIO $ withMVar doesWindowExist $ \exist -> when exist $ do
+            sink $ EventIO $ do
               void $ FL.setValue scrubber t'
               redrawGL
           let ps = Playing
@@ -1056,7 +1063,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
       let foundTracks = getScoreTracks $ RBFile.onyxToFixed $ RBFile.s_tracks mid
       -- TODO this is a hack to not hold onto the whole midi file in memory, should find a better way!
       stackIO $ void $ Exc.evaluate $ length $ show foundTracks
-      stackIO $ sink $ EventIO $ withMVar doesWindowExist $ \exist -> when exist $ mdo
+      stackIO $ sink $ EventIO $ mdo
         FL.begin pack
         getTracks <- padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
           starSelectors rect' foundTracks updateLabel
