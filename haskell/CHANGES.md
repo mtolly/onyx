@@ -1,5 +1,21 @@
 # Version history
 
+## ???
+
+* 3D preview improvements:
+  * Support displaying background videos and images from CH/PS format
+  * Display MIDI `measures:beats:ticks` timestamp and practice sections
+  * Fix some issues with animation smoothness and audio playback
+* Add option for OGG Vorbis quality level to Preferences screen,
+  which affects both RB `.mogg` and CH `.ogg` output
+* Fix a bug that removed or incorrectly translated lanes on gravity blasts
+  when importing from CH/PS format
+* Fix CH and web player functions to use the Save File dialog with a default
+  filename, instead of the less useful Save Folder dialog
+* The Beatles: Rock Band custom songs (Xbox 360) import correctly
+* Improvements to lipsync files: vowel diphthongs (RB3, TBRB)
+  and consonant shapes (RB3)
+
 ## 20201121
 
 * Preferences screen in menu:

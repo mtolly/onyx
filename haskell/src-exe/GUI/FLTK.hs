@@ -492,9 +492,9 @@ startAnimation redraw = do
             t2 <- getSystemTime
             let nanoDiff = fromIntegral (systemSeconds t2 - systemSeconds t1) * 1000000000
                   + fromIntegral (systemNanoseconds t2) - fromIntegral (systemNanoseconds t1)
-                milliDiff = quot nanoDiff 1000
-                milliFrame = 16666
-            when (milliDiff < milliFrame) $ threadDelay $ milliFrame - milliDiff
+                microDiff = quot nanoDiff 1000
+                microFrame = 16666
+            when (microDiff < microFrame) $ threadDelay $ microFrame - microDiff
             loop
   _ <- forkIO loop
   return $ writeIORef stopper True
@@ -895,11 +895,11 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
     emptyColor <- FLE.rgbColorWithRgb (75, 75, 75)
     scrubber <- FL.sliderCustom scrubberArea Nothing
       (Just $ \s -> do
-        rect@(Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) <- FL.getRectangle s
+        scrubberRect@(Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) <- FL.getRectangle s
         FL.flcSetColor emptyColor
-        FL.flcRectf rect
+        FL.flcRectf scrubberRect
         FL.flcSetColor FLE.blackColor
-        FL.flcRect rect
+        FL.flcRect scrubberRect
         -- TODO the following 2 functions might need to be made unsafe c2hs bindings to solve the flickering!
         v <- FL.getValue s
         vmax <- FL.getMaximum s

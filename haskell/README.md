@@ -345,9 +345,12 @@ compilation errors.
 
     Use simple phonetic analysis to convert from a vocals chart to a lipsync
     file. Uses a dictionary to look up English lyrics, or spelling-based rules
-    for German or Spanish lyrics. Currently only one vowel shape is produced
-    per lyric; in the future this will be improved to create consonant shapes
-    and vowel diphthongs.
+    for German or Spanish lyrics. English supports these phonetic features at
+    the moment:
+
+      * RB3: simple vowels, vowel diphthongs, consonants
+      * TBRB: simple vowels, vowel diphthongs
+      * GH2: simple vowels
 
     Supports generating `.voc` files (used in GH2), as well as `.lipsync` files
     for later RB games. `.lipsync` files can be inserted into `.milo_xxx` files
