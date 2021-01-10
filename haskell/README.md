@@ -35,11 +35,11 @@ https://creativecommons.org/licenses/by-sa/4.0/
 
 Onyx is currently compiled on:
 
-  * Windows 7
+  * Windows 10
   * macOS High Sierra
-  * Linux kernel 3.16 (Ubuntu 14.04)
+  * Linux kernel 4.4 (Ubuntu 16.04)
 
-So these are likely the minimum supported versions of each OS.
+It may work on previous versions (such as Windows 7) but this is not certain.
 
 By default, an embedded copy of Magma v2 is used to generate RB3 or RB2 files.
 This requires the Visual C++ runtime, and if on Mac or Linux, Wine.

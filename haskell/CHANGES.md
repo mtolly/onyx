@@ -1,6 +1,6 @@
 # Version history
 
-## ???
+## 20210110
 
 * 3D preview improvements:
   * Support displaying background videos and images from CH/PS format
