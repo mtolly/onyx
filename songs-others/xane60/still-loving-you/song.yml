@@ -1,0 +1,58 @@
+parts:
+  vocal: {}
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+        global: -1 # Eb standard
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: 2
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: da0ec5e4938b1527170cceaf33a9bb1d
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3-2x:
+    song-id: stilllovingyouidx1
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 30
+  expert-only: true
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 5
+  album: Resurrection
+  year: 2010
+  subgenre: power
+  author: Xane60
+  title: Still Loving You
+  preview-end: 1:00.000
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Galneryus
+global:
+  anim-tempo: 32

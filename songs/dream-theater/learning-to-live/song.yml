@@ -59,3 +59,5 @@ targets:
     plan: jammit # maybe use one-instrument expression
     arrangements:
     - [bonus-rhythm, bass]
+    song-key: OnyxDTLearningToLive
+    version: "1.0"

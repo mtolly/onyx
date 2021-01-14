@@ -40,3 +40,5 @@ targets:
     game: rs
     arrangements:
     - [bass, bass]
+    song-key: OnyxIITRMDarkWorld
+    version: "1.0"

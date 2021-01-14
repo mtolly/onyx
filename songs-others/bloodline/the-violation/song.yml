@@ -56,6 +56,8 @@ targets:
     game: rs
     arrangements:
     - [bass, bass]
+    song-key: OnyxFleshgodTheViolation
+    version: "1.0"
 metadata:
   rating: Supervision Recommended
   preview-start: 1:00.000

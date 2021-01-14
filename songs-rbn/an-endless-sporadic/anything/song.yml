@@ -73,6 +73,8 @@ targets:
     arrangements:
     - [bass, bass]
     plan: sheet-music
+    song-key: OnyxAESAnything
+    version: "1.0"
 metadata:
   preview-start: 1:19.000
   file-album-art: cover.png_xbox

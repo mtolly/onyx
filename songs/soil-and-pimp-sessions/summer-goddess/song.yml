@@ -63,3 +63,5 @@ targets:
     game: rs
     arrangements:
     - [bass, bass]
+    song-key: OnyxSoilPimpSummerGoddess
+    version: "1.0"

@@ -76,6 +76,8 @@ targets:
     arrangements:
     - [bass, bass]
     plan: sheet-music
+    song-key: OnyxAESSunOfPearl
+    version: "1.0"
 metadata:
   rating: Family Friendly
   preview-start: 34

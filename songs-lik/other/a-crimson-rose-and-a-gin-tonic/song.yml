@@ -79,3 +79,5 @@ targets:
     game: rs
     arrangements:
     - [bass, bass]
+    song-key: OnyxKatamariCrimsonRose
+    version: "1.0"
