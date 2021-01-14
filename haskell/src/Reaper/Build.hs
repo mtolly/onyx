@@ -32,7 +32,8 @@ import qualified Numeric.NonNegative.Class             as NNC
 import qualified Numeric.NonNegative.Wrapper           as NN
 import           Resources                             (colorMapDrums,
                                                         colorMapGHL,
-                                                        colorMapGRYBO)
+                                                        colorMapGRYBO,
+                                                        colorMapRS)
 import           RockBand.Codec.File                   (FlexPartName (..),
                                                         identifyFlexTrack,
                                                         loadRawMIDI)
@@ -404,8 +405,11 @@ track tunings lenTicks lenSecs resn trk = let
               , ("PART KEYS", "colormap_grybo.png")
               , ("PART GUITAR GHL", "colormap_ghl.png")
               , ("PART BASS GHL", "colormap_ghl.png")
+              , ("PART RS GUITAR", "colormap_rs.png")
+              , ("PART RS BASS", "colormap_rs.png")
               ]
-            isProtar = any (`T.isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS", "PART RS"]
+            isProtar = any (`T.isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS"]
+            isRS = "PART RS" `T.isInfixOf` name
             isDance = "PART DANCE" `T.isSuffixOf` name
         forM_ colorMap $ \cmap -> line "COLORMAP" [cmap]
         line "CFGEDIT"
@@ -464,7 +468,7 @@ track tunings lenTicks lenSecs resn trk = let
             -- 0 = off
             -- 1 = re-use MIDI editor window
             -- 2 = re-use MIDI editor window, keeping current item secondary
-          , if isProtar then "1" else "0"
+          , if isProtar || isRS then "1" else "0"
             -- 0 = no velocity numbers, 1 = velocity numbers
           {-
           , "0" -- ???
@@ -1258,6 +1262,7 @@ makeReaperFromData tunings mid tempoMid audios out = do
     "colormap_drums.png" -> colorMapDrums >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     "colormap_grybo.png" -> colorMapGRYBO >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     "colormap_ghl.png"   -> colorMapGHL   >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
+    "colormap_rs.png"    -> colorMapRS    >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     _ -> return ()
 
 makeReaperShake :: TuningInfo -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()

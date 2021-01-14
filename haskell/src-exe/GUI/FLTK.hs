@@ -2374,6 +2374,60 @@ miscPageLipsync sink rect tab startTasks = do
     void $ lipsyncButton areaTBRB "Make .lipsync (TBRB)" "lipsync"
       $ \trans vowels -> runPut . putLipsync . beatlesLipsync trans vowels
     return ()
+  FL.end pack
+  FL.setResizable tab $ Just pack
+
+miscPageDryVox
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageDryVox sink rect tab startTasks = do
+  pack <- FL.packNew rect Nothing
+  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    let (_, rectA) = chopLeft 100 rect'
+        (inputRect, rectB) = chopRight 50 rectA
+        (_, pickRect) = chopRight 40 rectB
+    input <- FL.inputNew
+      inputRect
+      (Just "MIDI file")
+      (Just FL.FlNormalInput) -- required for labels to work
+    FL.setLabelsize input $ FL.FontSize 13
+    FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
+    pick <- FL.buttonNew pickRect $ Just "@fileopen"
+    FL.setCallback pick $ \_ -> sink $ EventIO $ do
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+      FL.setTitle picker "Load MIDI file"
+      FL.setFilter picker "*.{mid,midi}" -- TODO also handle .chart?
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
+          Nothing -> return ()
+          Just f  -> void $ FL.setValue input f
+        _                          -> return ()
+    return $ fmap T.unpack $ FL.getValue input
+  getVocalTrack <- padded 2 10 2 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    fn <- horizRadio rect'
+      [ ("PART VOCALS", Just Nothing, True)
+      , ("[PART] HARM1", Just $ Just Vocal1, False)
+      , ("[PART] HARM2", Just $ Just Vocal2, False)
+      , ("[PART] HARM3", Just $ Just Vocal3, False)
+      , ("(blank)", Nothing, False)
+      ]
+    return $ join <$> fn
+  let getSelectedVox = \case
+        Nothing            -> const mempty
+        Just Nothing       -> RBFile.fixedPartVocals . RBFile.s_tracks
+        Just (Just Vocal1) -> RBFile.fixedHarm1      . RBFile.s_tracks
+        Just (Just Vocal2) -> RBFile.fixedHarm2      . RBFile.s_tracks
+        Just (Just Vocal3) -> RBFile.fixedHarm3      . RBFile.s_tracks
+      defaultSuffix = \case
+        Nothing            -> "-blank"
+        Just Nothing       -> "-solovox"
+        Just (Just Vocal1) -> "-harm1"
+        Just (Just Vocal2) -> "-harm2"
+        Just (Just Vocal3) -> "-harm3"
   let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
         btn <- FL.buttonNew rect' $ Just label
         taskColor >>= FL.setColor btn
@@ -2696,9 +2750,13 @@ launchMisc sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       miscPageMOGG sink rect tab startTasks
       return tab
-    , makeTab windowRect "Lipsync + dry vox" $ \rect tab -> do
+    , makeTab windowRect "Lipsync" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageLipsync sink rect tab startTasks
+      return tab
+    , makeTab windowRect "Dry vox" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      miscPageDryVox sink rect tab startTasks
       return tab
     , makeTab windowRect ".milo functions" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

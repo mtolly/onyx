@@ -789,6 +789,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             Nothing -> stackIO onyxAlbum
       rel "gen/cover.bmp"      %> \out -> loadRGB8 >>= stackIO . writeBitmap  out . STBIR.resize STBIR.defaultOptions 256 256
       rel "gen/cover.png"      %> \out -> loadRGB8 >>= stackIO . writePng     out . STBIR.resize STBIR.defaultOptions 256 256
+      rel "gen/cover-full.png" %> \out -> loadRGB8 >>= stackIO . writePng     out
       rel "gen/cover.png_wii"  %> \out -> loadRGB8 >>= stackIO . BL.writeFile out . toDXT1File PNGWii
       rel "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of
         Just f | takeExtension f == ".png_xbox" -> do
@@ -1916,7 +1917,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 , (ps_Keys       ps, rb3KeysTier     )
                 , (ps_Vocal      ps, rb3VocalTier    )
                 ] out
-            dir </> "ps/album.png"   %> shk . copyFile' (rel "gen/cover.png")
+            dir </> "ps/album.png"   %> shk . copyFile' (rel "gen/cover-full.png")
             bgimg <- forM (_fileBackgroundImage $ _global songYaml) $ \f -> do
               let psImage = "background" <> takeExtension f
               dir </> "ps" </> psImage %> shk . copyFile' (rel f)
@@ -2258,7 +2259,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     $ Drop Start (fromMS pstart)
                     $ Input (planDir </> "everything.wav")
               buildAudio previewExpr out
-            rsArt %> shk . copyFile' (rel "gen/cover.png")
+            rsArt %> shk . copyFile' (rel "gen/cover-full.png")
             rsProject %> \out -> do
               let allTonePaths = nubOrd $ do
                     (_, RSPlayable _ pg) <- presentParts
@@ -2520,7 +2521,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   , CST.tk_ToolkitVersion = Nothing
                   }
                 , CST.dlc_Version           = "" -- TODO this should be e.g. "Toolkit Version 2.9.2.1-5a8cb74e"
-                , CST.dlc_Volume            = -7 -- default?
+                , CST.dlc_Volume            = -7 -- TODO this should be the adjustment from the audio's EBU R 128 integrated loudness to a target of -16
                 , CST.dlc_XBox360           = False
                 , CST.dlc_XBox360Licenses   = mempty
                 }
