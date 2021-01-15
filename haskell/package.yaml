@@ -87,6 +87,7 @@ library:
   - kakasi
   - gamecube-dsp
   - ww2ogg
+  - ffmpeg-binding
 
   ghc-options: -O
   build-tools:

@@ -1,0 +1,21 @@
+cabal-version:  1.12
+name:           ffmpeg-binding
+version:        0.1
+build-type:     Simple
+
+library
+  exposed-modules:
+    FFMPEG
+  hs-source-dirs:
+    src
+  ghc-options: -Wall
+  build-tools: c2hs
+  build-depends:
+    base
+  default-language: Haskell2010
+  pkgconfig-depends:
+      libavutil
+    , libavformat
+    , libavcodec
+    , libswscale
+    , libavfilter

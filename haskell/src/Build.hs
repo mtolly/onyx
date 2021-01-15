@@ -70,6 +70,7 @@ import           Difficulty
 import           DryVox                                (clipDryVox,
                                                         toDryVoxFormat,
                                                         vocalTubes)
+import           FFMPEG                                (audioIntegratedVolume)
 import qualified FretsOnFire                           as FoF
 import           Genre
 import           GuitarHeroII.Audio                    (writeVGS)
@@ -2470,6 +2471,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   All alpha lower, upper, or mixed case are allowed
                   All numeric is allowed
                 -}
+              shk $ need [rsAudio]
+              volume <- stackIO $ audioIntegratedVolume rsAudio
+              when (isNothing volume) $ warn "Unable to calculate integrated volume of audio file"
               CST.writeProject out CST.DLCPackageData
                 { CST.dlc_AlbumArtPath      = "cover.png"
                 , CST.dlc_AppId             = 248750 -- Cherub Rock ID
@@ -2521,7 +2525,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   , CST.tk_ToolkitVersion = Nothing
                   }
                 , CST.dlc_Version           = "" -- TODO this should be e.g. "Toolkit Version 2.9.2.1-5a8cb74e"
-                , CST.dlc_Volume            = -7 -- TODO this should be the adjustment from the audio's EBU R 128 integrated loudness to a target of -16
+                , CST.dlc_Volume            = case volume of
+                  Nothing -> -7 -- default in CST
+                  Just v  -> realToFrac $ (-16) - v -- -16 is the target ODLC uses
                 , CST.dlc_XBox360           = False
                 , CST.dlc_XBox360Licenses   = mempty
                 }

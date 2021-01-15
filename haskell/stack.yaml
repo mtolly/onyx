@@ -1,6 +1,7 @@
 packages:
 - '.'
 - 'src-exe/'
+- 'ffmpeg-binding/'
 extra-deps:
 - conduit-audio-0.2.0.3
 - conduit-audio-lame-0.1.2.1

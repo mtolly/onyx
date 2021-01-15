@@ -14,6 +14,7 @@ library:
   dependencies:
   - base
   - onyxite-customs-lib
+  - ffmpeg-binding
   - containers
   - vector
   - async
@@ -41,6 +42,3 @@ library:
   - path
   - stm
   - freetype2
-  build-tools:
-  - c2hs
-  pkg-config-dependencies: [libavutil, libavformat, libavcodec, libswscale, libavdevice]
