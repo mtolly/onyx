@@ -3,14 +3,16 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NegativeLiterals #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NondecreasingIndentation #-}
 module FFMPEG where
 
 import Foreign
 import Foreign.C
 import Data.Coerce (coerce)
-import Control.Monad ((>=>), forM_)
+import Control.Monad ((>=>), forM_, unless)
 import Text.Read (readMaybe)
 import Data.IORef (newIORef, writeIORef, readIORef)
+import Control.Exception (bracket)
 
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
@@ -526,27 +528,31 @@ av_opt_set_int_list obj name vals flags = do
   } -> `CInt'
 #}
 
+{#fun av_get_channel_layout_nb_channels
+  { `Word64'
+  } -> `CInt'
+#}
+
 -- TODO clean up, better resource allocation, get rid of unnecessary audio format conversion from sample code
 audioIntegratedVolume :: FilePath -> IO (Maybe Float)
 audioIntegratedVolume f = do
 
-  fmt_ctx <- avformat_alloc_context
+  let check s test act = act >>= \ret -> unless (test ret) $ error $ s <> " returned " <> show ret
+
+  bracket avformat_alloc_context (\p -> with p avformat_close_input) $ \fmt_ctx -> do
   with fmt_ctx $ \pctx -> do
     withCString f $ \s -> do
-      avformat_open_input pctx s nullPtr nullPtr >>= print
-  avformat_find_stream_info fmt_ctx nullPtr >>= print
+      check "avformat_open_input" (== 0) $ avformat_open_input pctx s nullPtr nullPtr
+  check "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info fmt_ctx nullPtr
   (audio_stream_index, dec) <- alloca $ \pdec -> do
     audio_stream_index <- av_find_best_stream fmt_ctx AVMEDIA_TYPE_AUDIO -1 -1 pdec 0
     dec <- peek pdec
     return (audio_stream_index, dec)
-  -- print audio_stream_index
-  -- print dec
-  dec_ctx <- avcodec_alloc_context3 dec
-  -- print dec_ctx
+  bracket (avcodec_alloc_context3 dec) (\p -> with p avcodec_free_context) $ \dec_ctx -> do
   stream <- (!! fromIntegral (audio_stream_index)) <$> getStreams fmt_ctx
   params <- stream_codecpar stream
-  avcodec_parameters_to_context dec_ctx params >>= print
-  avcodec_open2 dec_ctx dec nullPtr >>= print
+  check "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context dec_ctx params
+  check "avcodec_open2" (== 0) $ avcodec_open2 dec_ctx dec nullPtr
 
   let filters_descr = "ebur128=metadata=1,aresample=8000,aformat=sample_fmts=s16:channel_layouts=mono"
   abuffersrc <- withCString "abuffer" avfilter_get_by_name
@@ -559,7 +565,7 @@ audioIntegratedVolume f = do
       out_sample_rates = [8000] :: [CInt]
   (num, den) <- time_base stream
 
-  filter_graph <- avfilter_graph_alloc
+  bracket avfilter_graph_alloc (\p -> with p avfilter_graph_free) $ \filter_graph -> do
   -- print filter_graph
 
   -- buffer audio source: the decoded frames from the decoder will be inserted here.
@@ -577,19 +583,24 @@ audioIntegratedVolume f = do
   buffersrc_ctx <- alloca $ \p -> do
     withCString "in" $ \pname -> do
       withCString args $ \pargs -> do
-        avfilter_graph_create_filter p abuffersrc pname pargs nullPtr filter_graph >>= print
+        check "avfilter_graph_create_filter" (>= 0) $ do
+          avfilter_graph_create_filter p abuffersrc pname pargs nullPtr filter_graph
     peek p
   -- print buffersrc_ctx
 
   -- buffer audio sink: to terminate the filter chain.
   buffersink_ctx <- alloca $ \p -> do
     withCString "out" $ \pname -> do
-      avfilter_graph_create_filter p abuffersink pname nullPtr nullPtr filter_graph >>= print
+      check "avfilter_graph_create_filter" (>= 0) $ do
+        avfilter_graph_create_filter p abuffersink pname nullPtr nullPtr filter_graph
     peek p
 
-  av_opt_set_int_list (coerce buffersink_ctx) "sample_fmts"     out_sample_fmts     av_OPT_SEARCH_CHILDREN >>= print
-  av_opt_set_int_list (coerce buffersink_ctx) "channel_layouts" out_channel_layouts av_OPT_SEARCH_CHILDREN >>= print
-  av_opt_set_int_list (coerce buffersink_ctx) "sample_rates"    out_sample_rates    av_OPT_SEARCH_CHILDREN >>= print
+  check "av_opt_set_int_list (sample_fmts)" (>= 0) $ do
+    av_opt_set_int_list (coerce buffersink_ctx) "sample_fmts"     out_sample_fmts     av_OPT_SEARCH_CHILDREN
+  check "av_opt_set_int_list (channel_layouts)" (>= 0) $ do
+    av_opt_set_int_list (coerce buffersink_ctx) "channel_layouts" out_channel_layouts av_OPT_SEARCH_CHILDREN
+  check "av_opt_set_int_list (sample_rates)" (>= 0) $ do
+    av_opt_set_int_list (coerce buffersink_ctx) "sample_rates"    out_sample_rates    av_OPT_SEARCH_CHILDREN
 
   -- Set the endpoints for the filter graph. The filter_graph will
   -- be linked to the graph described by filters_descr.
@@ -615,10 +626,11 @@ audioIntegratedVolume f = do
   (inputs', outputs') <- withCString filters_descr $ \cstr -> do
     with inputs $ \pinputs -> do
       with outputs $ \poutputs -> do
-        avfilter_graph_parse_ptr filter_graph cstr pinputs poutputs nullPtr >>= print
+        check "avfilter_graph_parse_ptr" (>= 0) $ do
+          avfilter_graph_parse_ptr filter_graph cstr pinputs poutputs nullPtr
         (,) <$> peek pinputs <*> peek poutputs
 
-  avfilter_graph_config filter_graph nullPtr >>= print
+  check "avfilter_graph_config" (>= 0) $ avfilter_graph_config filter_graph nullPtr
 
   -- Print summary of the sink buffer
   -- Note: args buffer is reused to store channel layout string
@@ -634,8 +646,8 @@ audioIntegratedVolume f = do
   with outputs' avfilter_inout_free
 
   -- read all packets
-  frame <- av_frame_alloc
-  filt_frame <- av_frame_alloc
+  bracket av_frame_alloc (\p -> with p av_frame_free) $ \frame -> do
+  bracket av_frame_alloc (\p -> with p av_frame_free) $ \filt_frame -> do
   vol <- newIORef Nothing
   alloca $ \(AVPacket -> packet) -> let
     readFrame = do
@@ -673,6 +685,13 @@ audioIntegratedVolume f = do
       if ret < 0
         then return () -- no data available, graph needs more input
         else do
+
+          -- nsamples <- {#get AVFrame->nb_samples #} filt_frame
+          -- nchannels <- {#get AVFrame->channel_layout #} filt_frame >>= av_get_channel_layout_nb_channels . fromIntegral
+          -- let nbytes = nsamples * nchannels * 2
+          -- p <- frame_data filt_frame >>= peek
+          -- B.packCStringLen (castPtr p, fromIntegral nbytes) >>= B.hPut h
+
           meta <- {#get AVFrame->metadata #} filt_frame
           entry <- withCString "lavfi.r128.I" $ \k -> av_dict_get meta k (AVDictionaryEntry nullPtr) 0
           case entry of
@@ -683,11 +702,5 @@ audioIntegratedVolume f = do
           av_frame_unref filt_frame
           pullAudio
     in readFrame
-
-  with filter_graph avfilter_graph_free
-  with dec_ctx avcodec_free_context
-  with fmt_ctx avformat_close_input
-  with frame av_frame_free
-  with filt_frame av_frame_free
 
   readIORef vol

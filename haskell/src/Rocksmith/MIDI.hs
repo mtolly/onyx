@@ -185,6 +185,7 @@ parseModifiers cmd = let
     "tap"           :     rest -> cont rest $ pure ModTap
     "slap"          :     rest -> cont rest $ pure ModSlap
     "pluck"         :     rest -> cont rest $ pure ModPluck
+    "pop"           :     rest -> cont rest $ pure ModPluck
     "tremolo"       :     rest -> cont rest $ pure ModTremolo
     "pickup"        :     rest -> cont rest $ pure ModPickUp
     "pickdown"      :     rest -> cont rest $ pure ModPickDown
@@ -565,6 +566,7 @@ buildRS tmap capo trk = do
               ModLink           -> True
               ModSlide _        -> True
               ModSlideUnpitch _ -> True
+              ModTremolo        -> True
               _                 -> False
             in if endBeats - startBeats >= (1/3) || any forcesSustain mods
               then Just len

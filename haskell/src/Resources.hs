@@ -64,11 +64,12 @@ missingSongData :: D.DTA T.Text
 missingSongData = unsafePerformIO $ do
   getResourcesPath "missing_song_data.dta" >>= fmap (D.readDTA . decodeUtf8) . B.readFile
 
-colorMapDrums, colorMapGRYBO, colorMapGHL, colorMapRS :: IO FilePath
+colorMapDrums, colorMapGRYBO, colorMapGHL, colorMapRS, colorMapRSLow :: IO FilePath
 colorMapDrums = getResourcesPath "rockband_drums.png"
 colorMapGRYBO = getResourcesPath "rockband_guitarbass.png"
 colorMapGHL   = getResourcesPath "rockband_ghl.png"
 colorMapRS    = getResourcesPath "rocksmith_standard.png"
+colorMapRSLow = getResourcesPath "rocksmith_lowbass.png"
 
 {-# NOINLINE shiftJISTable #-}
 shiftJISTable :: HM.HashMap B.ByteString Char

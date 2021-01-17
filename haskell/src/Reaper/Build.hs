@@ -33,7 +33,8 @@ import qualified Numeric.NonNegative.Wrapper           as NN
 import           Resources                             (colorMapDrums,
                                                         colorMapGHL,
                                                         colorMapGRYBO,
-                                                        colorMapRS)
+                                                        colorMapRS,
+                                                        colorMapRSLow)
 import           RockBand.Codec.File                   (FlexPartName (..),
                                                         identifyFlexTrack,
                                                         loadRawMIDI)
@@ -405,9 +406,14 @@ track tunings lenTicks lenSecs resn trk = let
               , ("PART KEYS", "colormap_grybo.png")
               , ("PART GUITAR GHL", "colormap_ghl.png")
               , ("PART BASS GHL", "colormap_ghl.png")
-              , ("PART RS GUITAR", "colormap_rs.png")
-              , ("PART RS BASS", "colormap_rs.png")
+              , ("PART RS LEAD", rsColors)
+              , ("PART RS RHYTHM", rsColors)
+              , ("PART RS BASS", rsColors)
               ]
+            rsColors = case gtrBase tuning of
+              Bass5 -> "colormap_rslow.png"
+              Bass6 -> "colormap_rslow.png"
+              _     -> "colormap_rs.png"
             isProtar = any (`T.isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS"]
             isRS = "PART RS" `T.isInfixOf` name
             isDance = "PART DANCE" `T.isSuffixOf` name
@@ -1263,6 +1269,7 @@ makeReaperFromData tunings mid tempoMid audios out = do
     "colormap_grybo.png" -> colorMapGRYBO >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     "colormap_ghl.png"   -> colorMapGHL   >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     "colormap_rs.png"    -> colorMapRS    >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
+    "colormap_rslow.png" -> colorMapRSLow >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     _ -> return ()
 
 makeReaperShake :: TuningInfo -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()
