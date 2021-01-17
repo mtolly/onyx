@@ -59,13 +59,16 @@ plans:
         pad:
           - 2.496
           - gain: [0.9, deluxe-drum]
+      bass:
+        pad:
+          - 2.496
+          - gain: [0.52, deluxe-bass]
     song:
       pad:
         - 2.496
         - gain:
           - 0.4
           - mix:
-            - gain: [1.3, deluxe-bass]
             - gain: [1.1, deluxe-guitar]
             - gain: [1.0, deluxe-keys]
             - gain: [1.5, deluxe-solo]
@@ -77,3 +80,7 @@ parts:
   keys:
     pro-keys:
       difficulty: 7
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6

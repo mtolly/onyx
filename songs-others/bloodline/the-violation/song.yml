@@ -20,6 +20,16 @@ parts:
         global: -5 # BEAD
       tones:
         file-tone-base: ../../../tones/ViolationDrive.tone2014.xml
+  guitar: # Cristiano Trionfera; higher parts + solo
+    pro-guitar: # WIP
+      tuning:
+        base: guitar-6
+        global: -5
+  rhythm: # Tommaso Riccardi; lower parts
+    pro-guitar:
+      tuning:
+        base: guitar-6
+        global: -5
 plans:
   mogg:
     parts:

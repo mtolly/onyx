@@ -92,8 +92,20 @@ parts:
         global: -2 # D standard
   bass:
     grybo: {} # probably needs some cleanup
+    pro-guitar:
+      tuning:
+        base: bass-6
+        offsets: [3, 0, 0, 0, 0, 0] # DEADGC
+      tones:
+        # TODO need a few fancy tones
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: album # change to deluxe once keyboard solo is fixed
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
+    plan: album

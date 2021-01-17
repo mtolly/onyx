@@ -1,0 +1,83 @@
+parts:
+  vocal: {}
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+        offsets: [0, -2, 0, 0, 0] # BDADG
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      guitar:
+      - 2
+      - 3
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    karaoke: false
+    mogg-md5: 10189907bac7e9bfc87789ab44c258df
+    multitrack: false
+    crowd:
+    - 6
+    - 7
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+targets:
+  rb3:
+    song-id: 1681602338
+    game: rb3
+    version: 30
+    label: (Combined Guitar) (B)
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
+metadata:
+  preview-start: 1:13.000
+  expert-only: true
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 2
+  album: New Levels New Devils
+  year: 2018
+  subgenre: indierock
+  author: Bloodline
+  title: O.D.
+  preview-end: 1:43.000
+  genre: indierock
+  difficulty:
+    tier: 7
+  artist: Polyphia
+global:
+  anim-tempo: 32

@@ -23,11 +23,17 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
 parts:
   bass:
-    pro-guitar: # WIP
+    pro-guitar:
       tuning:
         base: bass-4
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3:
     game: rb3
   ps:
     game: ps
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
