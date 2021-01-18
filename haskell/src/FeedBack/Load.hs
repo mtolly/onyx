@@ -399,6 +399,10 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       fixedHarm1            = mempty
       fixedHarm2            = mempty
       fixedHarm3            = mempty
+      fixedLipsync1         = mempty
+      fixedLipsync2         = mempty
+      fixedLipsync3         = mempty
+      fixedLipsync4         = mempty
       fixedBeat             = mempty
       fixedVenue            = mempty
   return FixedFile{..}

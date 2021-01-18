@@ -136,7 +136,10 @@ import           RockBand.Milo                             (autoLipsync,
                                                             englishSyllables,
                                                             germanVowels,
                                                             gh2Lipsync,
+                                                            lipsyncFromMIDITrack,
+                                                            lipsyncToMIDITrack,
                                                             packMilo,
+                                                            parseLipsync,
                                                             putLipsync,
                                                             putVocFile,
                                                             spanishVowels,
@@ -144,8 +147,10 @@ import           RockBand.Milo                             (autoLipsync,
 import           RockBand.Score
 import           RockBand.SongCache                        (fixSongCache)
 import           RockBand3                                 (BasicTiming (..))
+import           Scripts                                   (saveMIDI)
 import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.Util                           as U
+import           STFS.Package                              (runGetM)
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (dropExtension,
                                                             takeDirectory,
@@ -2274,6 +2279,15 @@ miscPageMilo sink rect tab startTasks = do
   FL.end pack
   FL.setResizable tab $ Just pack
 
+data LipsyncSource
+  = LipsyncSolo
+  | LipsyncHarm VocalCount
+  | LipsyncRaw1
+  | LipsyncRaw2
+  | LipsyncRaw3
+  | LipsyncRaw4
+  | LipsyncEmpty
+
 miscPageLipsync
   :: (Event -> IO ())
   -> Rectangle
@@ -2306,25 +2320,27 @@ miscPageLipsync sink rect tab startTasks = do
     return $ fmap T.unpack $ FL.getValue input
   getVocalTrack <- padded 2 10 2 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     fn <- horizRadio rect'
-      [ ("PART VOCALS", Just Nothing, True)
-      , ("[PART] HARM1", Just $ Just Vocal1, False)
-      , ("[PART] HARM2", Just $ Just Vocal2, False)
-      , ("[PART] HARM3", Just $ Just Vocal3, False)
-      , ("(blank)", Nothing, False)
+      [ ("Solo vox", LipsyncSolo, True)
+      , ("HARM1", LipsyncHarm Vocal1, False)
+      , ("HARM2", LipsyncHarm Vocal2, False)
+      , ("HARM3", LipsyncHarm Vocal3, False)
+      , ("LIPSYNC1", LipsyncRaw1, False)
+      , ("LIPSYNC2", LipsyncRaw2, False)
+      , ("LIPSYNC3", LipsyncRaw3, False)
+      , ("LIPSYNC4", LipsyncRaw4, False)
+      , ("(blank)", LipsyncEmpty, False)
       ]
-    return $ join <$> fn
-  let getSelectedVox = \case
-        Nothing            -> const mempty
-        Just Nothing       -> RBFile.fixedPartVocals . RBFile.s_tracks
-        Just (Just Vocal1) -> RBFile.fixedHarm1      . RBFile.s_tracks
-        Just (Just Vocal2) -> RBFile.fixedHarm2      . RBFile.s_tracks
-        Just (Just Vocal3) -> RBFile.fixedHarm3      . RBFile.s_tracks
-      defaultSuffix = \case
-        Nothing            -> "-blank"
-        Just Nothing       -> "-solovox"
-        Just (Just Vocal1) -> "-harm1"
-        Just (Just Vocal2) -> "-harm2"
-        Just (Just Vocal3) -> "-harm3"
+    return $ fromMaybe LipsyncEmpty <$> fn
+  let defaultSuffix = \case
+        LipsyncSolo        -> "-solovox"
+        LipsyncHarm Vocal1 -> "-harm1"
+        LipsyncHarm Vocal2 -> "-harm2"
+        LipsyncHarm Vocal3 -> "-harm3"
+        LipsyncRaw1        -> "-1"
+        LipsyncRaw2        -> "-2"
+        LipsyncRaw3        -> "-3"
+        LipsyncRaw4        -> "-4"
+        LipsyncEmpty       -> "-blank"
   (getVowels, getTransition) <- padded 2 10 2 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     let (trimClock 0 100 0 0 -> langArea, transArea) = chopRight 150 rect'
     getVowels <- horizRadio langArea
@@ -2342,7 +2358,7 @@ miscPageLipsync sink rect tab startTasks = do
     void $ FL.setValue counter $ fromInteger $ round $ defaultTransition * 1000
     return (fromMaybe englishSyllables <$> getVowels, (/ 1000) . realToFrac <$> FL.getValue counter)
   padded 5 5 5 5 (Size (Width 800) (Height 35)) $ \rect' -> do
-    let [areaVoc, areaRB, areaTBRB] = map (trimClock 0 5 0 5) $ splitHorizN 3 rect'
+    let [areaRB, areaTBRB] = map (trimClock 0 5 0 5) $ splitHorizN 2 rect'
         lipsyncButton area label ext fn = do
           btn <- FL.buttonNew area $ Just label
           taskColor >>= FL.setColor btn
@@ -2361,19 +2377,76 @@ miscPageLipsync sink rect tab startTasks = do
                 Just f -> sink $ EventOnyx $ let
                   task = do
                     mid <- RBFile.loadMIDI input
-                    stackIO $ BL.writeFile f $ fn trans vowels $
-                      mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) $ getSelectedVox voc mid
+                    let fromVocals getter = fn trans vowels
+                          $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid)
+                          $ getter $ RBFile.s_tracks mid
+                        fromLipsync getter = lipsyncFromMIDITrack
+                          $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid)
+                          $ getter $ RBFile.s_tracks mid
+                    stackIO $ BL.writeFile f $ runPut $ putLipsync $ case voc of
+                      LipsyncSolo        -> fromVocals RBFile.fixedPartVocals
+                      LipsyncHarm Vocal1 -> fromVocals RBFile.fixedHarm1
+                      LipsyncHarm Vocal2 -> fromVocals RBFile.fixedHarm2
+                      LipsyncHarm Vocal3 -> fromVocals RBFile.fixedHarm3
+                      LipsyncEmpty       -> fromLipsync $ const mempty
+                      LipsyncRaw1        -> fromLipsync RBFile.fixedLipsync1
+                      LipsyncRaw2        -> fromLipsync RBFile.fixedLipsync2
+                      LipsyncRaw3        -> fromLipsync RBFile.fixedLipsync3
+                      LipsyncRaw4        -> fromLipsync RBFile.fixedLipsync4
                     return [f]
                   in startTasks [(T.unpack label <> ": " <> input, task)]
               _ -> return ()
           return btn
-    void $ lipsyncButton areaVoc "Make .voc (GH2)" "voc"
-      $ \_trans vowels -> runPut . putVocFile . gh2Lipsync vowels
     void $ lipsyncButton areaRB "Make .lipsync (RB2/RB3)" "lipsync"
-      $ \trans vowels -> runPut . putLipsync . autoLipsync trans vowels
+      $ \trans vowels -> autoLipsync trans vowels
     void $ lipsyncButton areaTBRB "Make .lipsync (TBRB)" "lipsync"
-      $ \trans vowels -> runPut . putLipsync . beatlesLipsync trans vowels
-    return ()
+      $ \trans vowels -> beatlesLipsync trans vowels
+  padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Add back viseme tracks"
+    taskColor >>= FL.setColor btn
+    FL.setCallback btn $ \_ -> sink $ EventIO $ do
+      input <- pickedFile
+      let pickLipsyncs xs = if length xs >= 4
+            then useLipsyncs xs
+            else do
+              picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+              FL.setTitle picker $ T.pack $ "Select lipsync file #" <> show (length xs + 1) <> ", or cancel if done"
+              FL.setFilter picker "*.lipsync"
+              FL.showWidget picker >>= \case
+                FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+                  Nothing -> return ()
+                  Just f -> sink $ EventIO $ pickLipsyncs (xs ++ [f])
+                _ -> useLipsyncs xs
+          useLipsyncs [] = return ()
+          useLipsyncs fvocs = do
+            picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+            FL.setTitle picker "Save new MIDI file"
+            FL.setFilter picker "*.mid"
+            FL.showWidget picker >>= \case
+              FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+                Nothing -> return ()
+                Just fout -> sink $ EventOnyx $ let
+                  task = do
+                    mid <- RBFile.loadMIDI input
+                    trks <- forM fvocs $ \fvoc -> do
+                      lipsync <- stackIO (BL.readFile fvoc) >>= runGetM parseLipsync
+                      return $ mapTrack (U.unapplyTempoTrack $ RBFile.s_tempos mid) $ lipsyncToMIDITrack lipsync
+                    saveMIDI fout mid
+                      { RBFile.s_tracks = let
+                        newTracks = RBFile.s_tracks $ RBFile.showMIDITracks mid
+                          { RBFile.s_tracks = mempty
+                            { RBFile.fixedLipsync1 = fromMaybe mempty $ listToMaybe trks
+                            , RBFile.fixedLipsync2 = fromMaybe mempty $ listToMaybe $ drop 1 trks
+                            , RBFile.fixedLipsync3 = fromMaybe mempty $ listToMaybe $ drop 2 trks
+                            , RBFile.fixedLipsync4 = fromMaybe mempty $ listToMaybe $ drop 3 trks
+                            }
+                          }
+                        in RBFile.RawFile $ RBFile.rawTracks (RBFile.s_tracks mid) <> newTracks
+                      }
+                    return [fout]
+                  in startTasks [("Add back viseme tracks: " <> input, task)]
+              _ -> return ()
+      pickLipsyncs []
   FL.end pack
   FL.setResizable tab $ Just pack
 
@@ -2728,7 +2801,7 @@ miscPageSongCache sink rect tab startTasks = do
 
 launchMisc :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
 launchMisc sink makeMenuBar = mdo
-  let windowWidth = Width 800
+  let windowWidth = Width 900
       windowHeight = Height 400
       windowSize = Size windowWidth windowHeight
   window <- FL.windowNew windowSize Nothing $ Just "Tools"

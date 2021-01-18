@@ -241,6 +241,9 @@ blipEdgesRB = let
   in splitEdgesSimple
     . fmap (\(s, a, mlen) -> (s, a, fromMaybe smallestBlip mlen))
 
+blipEdgesRBNice :: (Ord s, Ord a) => RTB.T U.Beats (s, a, Maybe U.Beats) -> RTB.T U.Beats (Edge s a)
+blipEdgesRBNice = showEdgesNice (1/8) . splitEdges
+
 fixOverlaps :: (NNC.C t, Eq a) => RTB.T t (s, a, Maybe t) -> RTB.T t (s, a, Maybe t)
 fixOverlaps RNil = RNil
 fixOverlaps (Wait dt blip@(_, _, Nothing) rest) = Wait dt blip $ fixOverlaps rest

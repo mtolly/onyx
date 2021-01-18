@@ -30,7 +30,7 @@ import           Data.Text.Encoding.Error         (lenientDecode)
 import           Image                            (readDDS)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProGuitar
-import           RockBand.Common                  (blipEdgesRB, fixOverlaps,
+import           RockBand.Common                  (blipEdgesRBNice, fixOverlaps,
                                                    fixOverlapsSimple,
                                                    splitEdgesSimple)
 import           Rocksmith.BNK                    (extractRSOgg)
@@ -396,7 +396,7 @@ importRS psarc dout = tempDir "onyx_rocksmith" $ \temp -> do
                 chord = sng_Chords sng !! fromIntegral chordID
                 t' = U.unapplyTempoMap temps $ toSeconds t
             trk = RocksmithTrack
-              { rsNotes = blipEdgesRB $ fixOverlaps $ fmap fst notes
+              { rsNotes = blipEdgesRBNice $ fixOverlaps $ fmap fst notes
               , rsPhrases = U.unapplyTempoTrack temps
                 $ RTB.fromAbsoluteEventList
                 $ ATB.fromPairList

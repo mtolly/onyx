@@ -768,6 +768,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
     , RBFile.fixedHarm2 = (if isPS then voxPSCH else id) trkHarm2'
     , RBFile.fixedHarm3 = (if isPS then voxPSCH else id) trkHarm3'
     , RBFile.fixedPartDance = mempty
+    , RBFile.fixedLipsync1 = mempty
+    , RBFile.fixedLipsync2 = mempty
+    , RBFile.fixedLipsync3 = mempty
+    , RBFile.fixedLipsync4 = mempty
     }, editRanks, editCount)
 
 magmaLegalTemposFile :: (SendMessage m) => RBFile.Song (RBFile.FixedFile U.Beats) -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats))

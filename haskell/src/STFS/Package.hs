@@ -24,6 +24,7 @@ module STFS.Package
 , LicenseEntry(..)
 , Header(..)
 , Metadata(..)
+, runGetM
 ) where
 
 import           Control.Monad                  (forM_, guard, replicateM,
