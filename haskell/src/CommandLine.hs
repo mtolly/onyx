@@ -86,8 +86,9 @@ import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    defaultTransition,
                                                    englishSyllables,
                                                    lipsyncFromMIDITrack,
-                                                   packMilo, putLipsync,
-                                                   setBeatles,
+                                                   loadVisemesRB3,
+                                                   loadVisemesTBRB, packMilo,
+                                                   putLipsync, setBeatles,
                                                    testConvertLipsync,
                                                    unpackMilo)
 import           RockBand.Score
@@ -840,6 +841,11 @@ commands =
     , commandRun = \args opts -> case args of
       [fmid] -> do
         mid <- RBFile.loadMIDI fmid
+        let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
+        vmap <- case game of
+          GameRB3  -> loadVisemesRB3
+          GameRB2  -> loadVisemesRB3
+          GameTBRB -> loadVisemesTBRB
         let template = dropExtension fmid
             tracks =
               [ (RBFile.fixedPartVocals, "_solovox.lipsync", False)
@@ -848,11 +854,10 @@ commands =
               , (RBFile.fixedHarm3, "_harm3.lipsync", False)
               , (const mempty, "_empty.lipsync", True)
               ]
-            game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
             voxToLip = case game of
-              GameRB3  -> autoLipsync defaultTransition englishSyllables
-              GameRB2  -> autoLipsync defaultTransition englishSyllables
-              GameTBRB -> beatlesLipsync defaultTransition englishSyllables
+              GameRB3  -> autoLipsync    defaultTransition vmap englishSyllables
+              GameRB2  -> autoLipsync    defaultTransition vmap englishSyllables
+              GameTBRB -> beatlesLipsync defaultTransition vmap englishSyllables
         fmap catMaybes $ forM tracks $ \(getter, suffix, alwaysWrite) -> do
           let trk = getter $ RBFile.s_tracks mid
               fout = template <> suffix
@@ -872,16 +877,21 @@ commands =
     , commandRun = \args opts -> case args of
       [fmid] -> do
         mid <- RBFile.loadMIDI fmid
+        let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
+        vmap <- case game of
+          GameRB3  -> loadVisemesRB3
+          GameRB2  -> loadVisemesRB3
+          GameTBRB -> loadVisemesTBRB
         let template = dropExtension fmid
             tracks =
               [ (RBFile.onyxLipsync1, "_1.lipsync")
               , (RBFile.onyxLipsync2, "_2.lipsync")
               , (RBFile.onyxLipsync3, "_3.lipsync")
+              , (RBFile.onyxLipsync4, "_4.lipsync")
               ]
-            game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
             voxToLip
               = (if game == GameTBRB then setBeatles else id)
-              . lipsyncFromMIDITrack
+              . lipsyncFromMIDITrack vmap
         fmap concat $ forM (Map.toList $ RBFile.onyxParts $ RBFile.s_tracks mid) $ \(fpart, opart) -> do
           fmap catMaybes $ forM tracks $ \(getter, suffix) -> do
             let trk = getter opart

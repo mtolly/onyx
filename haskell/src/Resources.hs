@@ -128,7 +128,7 @@ data CMUConsonant
   | CMU_Y  -- semivowel
   | CMU_Z  -- fricative
   | CMU_ZH -- fricative
-  deriving (Eq, Ord, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data CMUVowel
   = CMU_AA -- vowel
@@ -146,7 +146,7 @@ data CMUVowel
   | CMU_OY -- vowel
   | CMU_UH -- vowel
   | CMU_UW -- vowel
-  deriving (Eq, Ord, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data CMUPhoneme
   = CMUConsonant !CMUConsonant

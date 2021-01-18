@@ -1,0 +1,52 @@
+# ipa and examples from https://en.wikipedia.org/wiki/ARPABET
+vowels:
+  CMU_AA: {Ox_hi: 140, Ox_lo: 140} # ɑ : balm bot
+  CMU_AH: {If_hi: 140, If_lo: 140} # ʌ : butt
+  CMU_AY: # aɪ : bite, diphthong
+    main: {Ox_hi: 140, Ox_lo: 140}
+    end: {If_hi: 140, If_lo: 140}
+  CMU_EH: {Cage_hi: 140, Cage_lo: 140} # ɛ : bet
+  CMU_ER: {Church_hi: 140, Church_lo: 140} # ɝ : bird
+  CMU_EY: # eɪ : bait, diphthong
+    main: {Cage_hi: 140, Cage_lo: 140}
+    end: {If_hi: 140, If_lo: 140}
+  CMU_IH: {If_hi: 140, If_lo: 140} # ɪ : bit
+  CMU_IY: {Eat_hi: 140, Eat_lo: 140} # i : beat
+  CMU_OW: # oʊ : boat, diphthong (slight)
+    main: {Oat_hi: 140, Oat_lo: 140}
+    end: {Wet_hi: 140, Wet_lo: 140}
+  CMU_UW: {Wet_hi: 140, Wet_lo: 140} # u : boot
+  CMU_AE: {Cage_hi: 140, Cage_lo: 140} # æ : bat
+  CMU_AO: {Earth_hi: 140, Earth_lo: 140} # ɔ : story
+  CMU_AW: # aʊ : bout, diphthong
+    main: {Ox_hi: 140, Ox_lo: 140}
+    end: {Wet_hi: 140, Wet_lo: 140}
+  CMU_OY: # ɔɪ : boy, diphthong
+    main: {Oat_hi: 140, Oat_lo: 140}
+    end: {If_hi: 140, If_lo: 140}
+  CMU_UH: {Though_hi: 140, Though_lo: 140} # ʊ : book
+consonants:
+  CMU_B: {Bump_hi: 140, Bump_lo: 140}
+  CMU_CH: {Told_hi: 140, Told_lo: 140} # approximate
+  CMU_D: {Told_hi: 140, Told_lo: 140}
+  CMU_DH: {Told_hi: 140, Told_lo: 140} # approximate
+  CMU_F: {Fave_hi: 140, Fave_lo: 140}
+  CMU_G: null
+  CMU_HH: null
+  CMU_JH: {Told_hi: 140, Told_lo: 140} # approximate
+  CMU_K: null
+  CMU_L: {Told_hi: 140, Told_lo: 140}
+  CMU_M: {Bump_hi: 140, Bump_lo: 140}
+  CMU_N: {Told_hi: 140, Told_lo: 140}
+  CMU_NG: null
+  CMU_P: {Bump_hi: 140, Bump_lo: 140}
+  CMU_R: {Roar_hi: 140, Roar_lo: 140}
+  CMU_S: {Size_hi: 140, Size_lo: 140}
+  CMU_SH: {Size_hi: 140, Size_lo: 140} # approximate
+  CMU_T: {Told_hi: 140, Told_lo: 140}
+  CMU_TH: {Told_hi: 140, Told_lo: 140} # approximate
+  CMU_V: {Fave_hi: 140, Fave_lo: 140}
+  CMU_W: {Wet_hi: 140, Wet_lo: 140}
+  CMU_Y: {Eat_hi: 140, Eat_lo: 140}
+  CMU_Z: {Size_hi: 140, Size_lo: 140}
+  CMU_ZH: {Size_hi: 140, Size_lo: 140} # approximate

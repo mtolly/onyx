@@ -138,6 +138,8 @@ import           RockBand.Milo                             (autoLipsync,
                                                             gh2Lipsync,
                                                             lipsyncFromMIDITrack,
                                                             lipsyncToMIDITrack,
+                                                            loadVisemesRB3,
+                                                            loadVisemesTBRB,
                                                             packMilo,
                                                             parseLipsync,
                                                             putLipsync,
@@ -2359,7 +2361,7 @@ miscPageLipsync sink rect tab startTasks = do
     return (fromMaybe englishSyllables <$> getVowels, (/ 1000) . realToFrac <$> FL.getValue counter)
   padded 5 5 5 5 (Size (Width 800) (Height 35)) $ \rect' -> do
     let [areaRB, areaTBRB] = map (trimClock 0 5 0 5) $ splitHorizN 2 rect'
-        lipsyncButton area label ext fn = do
+        lipsyncButton area label ext loadVmap fn = do
           btn <- FL.buttonNew area $ Just label
           taskColor >>= FL.setColor btn
           FL.setCallback btn $ \_ -> sink $ EventIO $ do
@@ -2377,10 +2379,11 @@ miscPageLipsync sink rect tab startTasks = do
                 Just f -> sink $ EventOnyx $ let
                   task = do
                     mid <- RBFile.loadMIDI input
-                    let fromVocals getter = fn trans vowels
+                    vmap <- loadVmap
+                    let fromVocals getter = fn trans vmap vowels
                           $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid)
                           $ getter $ RBFile.s_tracks mid
-                        fromLipsync getter = lipsyncFromMIDITrack
+                        fromLipsync getter = lipsyncFromMIDITrack vmap
                           $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid)
                           $ getter $ RBFile.s_tracks mid
                     stackIO $ BL.writeFile f $ runPut $ putLipsync $ case voc of
@@ -2397,10 +2400,8 @@ miscPageLipsync sink rect tab startTasks = do
                   in startTasks [(T.unpack label <> ": " <> input, task)]
               _ -> return ()
           return btn
-    void $ lipsyncButton areaRB "Make .lipsync (RB2/RB3)" "lipsync"
-      $ \trans vowels -> autoLipsync trans vowels
-    void $ lipsyncButton areaTBRB "Make .lipsync (TBRB)" "lipsync"
-      $ \trans vowels -> beatlesLipsync trans vowels
+    void $ lipsyncButton areaRB "Make .lipsync (RB2/RB3)" "lipsync" loadVisemesRB3 autoLipsync
+    void $ lipsyncButton areaTBRB "Make .lipsync (TBRB)" "lipsync" loadVisemesTBRB beatlesLipsync
   padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Add back viseme tracks"
     taskColor >>= FL.setColor btn

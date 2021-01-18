@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
@@ -10,7 +11,12 @@ module RockBand.Milo.Lipsync where
 import           Control.Arrow                    (first)
 import           Control.Monad                    (forM, forM_, guard,
                                                    replicateM, void)
-import           Control.Monad.Trans.StackTrace   (logStdout)
+import           Control.Monad.IO.Class           (MonadIO)
+import           Control.Monad.Trans.StackTrace   (StackTraceT, fatal, inside,
+                                                   logStdout, stackIO)
+import           Data.Aeson                       ((.:), (.:?))
+import qualified Data.Aeson                       as A
+import qualified Data.Aeson.Types                 as A
 import           Data.Binary.Codec.Class
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
@@ -27,18 +33,19 @@ import           Data.Maybe                       (fromMaybe, isNothing,
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
+import qualified Data.Vector                      as V
+import qualified Data.Yaml                        as Y
 import           DryVox                           (vocalTubes)
 import           Guitars                          (applyStatus1)
 import           Resources                        (CMUConsonant (..),
                                                    CMUPhoneme (..),
-                                                   CMUVowel (..), cmuDict)
+                                                   CMUVowel (..), cmuDict,
+                                                   getResourcesPath)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
-import           RockBand.Codec.Lipsync           (BeatlesViseme (..),
-                                                   GH2Viseme (..),
+import           RockBand.Codec.Lipsync           (GH2Viseme (..),
                                                    LipsyncTrack (..),
                                                    LyricLanguage (..),
-                                                   MagmaViseme (..),
                                                    VisemeEvent (..))
 import           RockBand.Codec.Vocal
 import           RockBand.Common                  (pattern RNil, pattern Wait,
@@ -48,6 +55,7 @@ import           RockBand.Milo.Dir
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension)
+import           Text.Read                        (readMaybe)
 
 data MagmaLipsync
   = MagmaLipsync1 Lipsync
@@ -252,56 +260,69 @@ lipsyncToMIDITrack lip
     let lookupViseme i = TE.decodeLatin1 $ lipsyncVisemes lip !! i
     return (dt, map (fmap lookupViseme) $ keyframeEvents key)
 
-cmuToRB3 :: CMUSyllable -> VisemeSyllable [(MagmaViseme, Word8)]
-cmuToRB3 cmu = let
-  -- ipa and examples from https://en.wikipedia.org/wiki/ARPABET
-  on viseme = (viseme, 140) -- this seems to be a sensible setting for most visemes
-  vowelMapping = \case
-    CMU_AA -> ([on Viseme_Ox_hi, on Viseme_Ox_lo], Nothing) -- ɑ : balm bot
-    CMU_AH -> ([on Viseme_If_hi, on Viseme_If_lo], Nothing) -- ʌ : butt
-    CMU_AY -> ([on Viseme_Ox_hi, on Viseme_Ox_lo], Just [on Viseme_If_hi, on Viseme_If_lo]) -- aɪ : bite, diphthong
-    CMU_EH -> ([on Viseme_Cage_hi, on Viseme_Cage_lo], Nothing) -- ɛ : bet
-    CMU_ER -> ([on Viseme_Church_hi, on Viseme_Church_lo], Nothing) -- ɝ : bird
-    CMU_EY -> ([on Viseme_Cage_hi, on Viseme_Cage_lo], Nothing) -- eɪ : bait
-    CMU_IH -> ([on Viseme_If_hi, on Viseme_If_lo], Nothing) -- ɪ : bit
-    CMU_IY -> ([on Viseme_Eat_hi, on Viseme_Eat_lo], Nothing) -- i : beat
-    CMU_OW -> ([on Viseme_Oat_hi, on Viseme_Oat_lo], Just [on Viseme_Wet_hi, on Viseme_Wet_lo]) -- oʊ : boat, diphthong (slight)
-    CMU_UW -> ([on Viseme_Wet_hi, on Viseme_Wet_lo], Nothing) -- u : boot
-    CMU_AE -> ([on Viseme_Cage_hi, on Viseme_Cage_lo], Nothing) -- æ : bat
-    CMU_AO -> ([on Viseme_Earth_hi, on Viseme_Earth_lo], Nothing) -- ɔ : story
-    CMU_AW -> ([on Viseme_Ox_hi, on Viseme_Ox_lo], Just [on Viseme_Wet_hi, on Viseme_Wet_lo]) -- aʊ : bout, diphthong
-    CMU_OY -> ([on Viseme_Oat_hi, on Viseme_Oat_lo], Just [on Viseme_If_hi, on Viseme_If_lo]) -- ɔɪ : boy, diphthong
-    CMU_UH -> ([on Viseme_Though_hi, on Viseme_Though_lo], Nothing) -- ʊ : book
-  consonantMapping = \case
-    CMU_B  -> [[on Viseme_Bump_hi, on Viseme_Bump_lo]]
-    CMU_CH -> [[on Viseme_Told_hi, on Viseme_Told_lo]] -- approximate
-    CMU_D  -> [[on Viseme_Told_hi, on Viseme_Told_lo]]
-    CMU_DH -> [[on Viseme_Told_hi, on Viseme_Told_lo]] -- approximate
-    CMU_F  -> [[on Viseme_Fave_hi, on Viseme_Fave_lo]]
-    CMU_G  -> []
-    CMU_HH -> []
-    CMU_JH -> [[on Viseme_Told_hi, on Viseme_Told_lo]] -- approximate
-    CMU_K  -> []
-    CMU_L  -> [[on Viseme_Told_hi, on Viseme_Told_lo]]
-    CMU_M  -> [[on Viseme_Bump_hi, on Viseme_Bump_lo]]
-    CMU_N  -> [[on Viseme_Told_hi, on Viseme_Told_lo]]
-    CMU_NG -> []
-    CMU_P  -> [[on Viseme_Bump_hi, on Viseme_Bump_lo]]
-    CMU_R  -> [[on Viseme_Roar_hi, on Viseme_Roar_lo]]
-    CMU_S  -> [[on Viseme_Size_hi, on Viseme_Size_lo]]
-    CMU_SH -> [[on Viseme_Size_hi, on Viseme_Size_lo]] -- approximate
-    CMU_T  -> [[on Viseme_Told_hi, on Viseme_Told_lo]]
-    CMU_TH -> [[on Viseme_Told_hi, on Viseme_Told_lo]] -- approximate
-    CMU_V  -> [[on Viseme_Fave_hi, on Viseme_Fave_lo]]
-    CMU_W  -> [[on Viseme_Wet_hi, on Viseme_Wet_lo]]
-    CMU_Y  -> [[on Viseme_Eat_hi, on Viseme_Eat_lo]]
-    CMU_Z  -> [[on Viseme_Size_hi, on Viseme_Size_lo]]
-    CMU_ZH -> [[on Viseme_Size_hi, on Viseme_Size_lo]] -- approximate
-  in Syllable
-    { sylInitial = concatMap consonantMapping $ sylInitial cmu
-    , sylVowel   = vowelMapping $ sylVowel cmu
-    , sylFinal   = concatMap consonantMapping $ sylFinal cmu
-    }
+data VisemeMap vis = VisemeMap
+  { vmVowels     :: CMUVowel     -> (vis, Maybe vis)
+  , vmConsonants :: CMUConsonant -> [vis]
+  } deriving (Functor)
+
+applyVisemeMap :: VisemeMap vis -> CMUSyllable -> VisemeSyllable vis
+applyVisemeMap vmap cmu = Syllable
+  { sylInitial = concatMap (vmConsonants vmap) $ sylInitial cmu
+  , sylVowel   = vmVowels vmap $ sylVowel cmu
+  , sylFinal   = concatMap (vmConsonants vmap) $ sylFinal cmu
+  }
+
+loadVisemesRB3 :: (MonadIO m) => StackTraceT m (VisemeMap [(T.Text, Word8)])
+loadVisemesRB3 = stackIO (getResourcesPath "visemes/rb3.yml") >>= loadVisemeMap
+
+loadVisemesTBRB :: (MonadIO m) => StackTraceT m (VisemeMap [(T.Text, Word8)])
+loadVisemesTBRB = stackIO (getResourcesPath "visemes/beatles.yml") >>= loadVisemeMap
+
+loadVisemeMap :: (MonadIO m) => FilePath -> StackTraceT m (VisemeMap [(T.Text, Word8)])
+loadVisemeMap f = inside ("Loading viseme map from: " <> f) $ do
+  stackIO (Y.decodeFileEither f) >>= \case
+    Right v -> return v
+    Left  e -> fatal $ Y.prettyPrintParseException e
+
+instance A.FromJSON (VisemeMap [(T.Text, Word8)]) where
+  parseJSON = A.withObject "VisemeMap" $ \o -> do
+    let readMap m = forM (HM.toList m) $ \(k, v) -> do
+          v' <- A.parseJSON v
+          return (k, v')
+        readVowel A.Null = return ([], Nothing)
+        readVowel (A.Object obj) = (obj .:? "main") >>= \case
+          Just objMain -> do
+            objEnd <- obj .: "end"
+            vMain <- A.withObject "vowel main part" readMap objMain
+            vEnd <- A.withObject "vowel end part" readMap objEnd
+            return (vMain, Just vEnd)
+          Nothing -> do
+            vMain <- readMap obj
+            return (vMain, Nothing)
+        readVowel v = A.typeMismatch "object/null" v
+        readConsonant A.Null = return []
+        readConsonant (A.Array xs) = mapM (A.withObject "consonant viseme sequence" readMap) $ V.toList xs
+        readConsonant (A.Object obj) = (: []) <$> readMap obj
+        readConsonant v = A.typeMismatch "object/array/null" v
+    objVowels <- o .: "vowels"
+    vmVowels <- do
+      m <- fmap Map.fromList $ forM (HM.toList objVowels) $ \(k, v) -> do
+        cmuv <- case readMaybe $ T.unpack k of
+          Just cmuv -> return cmuv
+          Nothing   -> fail $ "Unrecognized vowel: " <> show k
+        vm <- readVowel v
+        return (cmuv, vm)
+      return $ \vowel -> fromMaybe ([], Nothing) $ Map.lookup vowel m
+    objConsonants <- o .: "consonants"
+    vmConsonants <- do
+      m <- fmap Map.fromList $ forM (HM.toList objConsonants) $ \(k, v) -> do
+        cmuc <- case readMaybe $ T.unpack k of
+          Just cmuc -> return cmuc
+          Nothing   -> fail $ "Unrecognized consonant: " <> show k
+        cm <- readConsonant v
+        return (cmuc, cm)
+      return $ \consonant -> fromMaybe [] $ Map.lookup consonant m
+    return VisemeMap{..}
 
 -- TODO add diphthongs and consonants
 cmuToGH2Viseme :: CMUVowel -> Maybe GH2Viseme
@@ -321,124 +342,6 @@ cmuToGH2Viseme = \case
   CMU_AW -> Just GH2_If -- aʊ : bout
   CMU_OY -> Just GH2_Oat -- ɔɪ : boy
   CMU_UH -> Just GH2_Though -- ʊ : book
-
-cmuToBeatles :: CMUSyllable -> VisemeSyllable [(BeatlesViseme, Word8)]
-cmuToBeatles cmu = let
-
-  vowelMapping = \case
-    CMU_AA -> (aa, Nothing) -- ɑ : balm bot
-    CMU_AH -> (ah, Nothing) -- ʌ : butt
-    CMU_AY -> (aa, Just ih) -- aɪ : bite, diphthong
-    CMU_EH -> (eh, Nothing) -- ɛ : bet
-    CMU_ER -> (er, Nothing) -- ɝ : bird
-    CMU_EY -> (ey, Nothing) -- eɪ : bait
-    CMU_IH -> (ih, Nothing) -- ɪ : bit
-    CMU_IY -> (iy, Nothing) -- i : beat
-    CMU_OW -> (ow, Just uw) -- oʊ : boat, diphthong (slight)
-    CMU_UW -> (uw, Nothing) -- u : boot
-    CMU_AE -> (ae, Nothing) -- æ : bat
-    CMU_AO -> (aa, Nothing) -- ɔ : story (closer to ɑ in british pronunciation)
-    CMU_AW -> (aa, Just uw) -- aʊ : bout, diphthong
-    CMU_OY -> (ow, Just ih) -- ɔɪ : boy, diphthong
-    CMU_UH -> (uh, Nothing) -- ʊ : book
-
-  -- samples collected from a hard day's night
-  ah = -- it's been _a_ hard day's night
-    [ (Viseme_l_uplip_up, 10), (Viseme_r_uplip_up, 10)
-    , (Viseme_l_smile_open, 19), (Viseme_r_smile_open, 19)
-    , (Viseme_l_smile_closed, 72), (Viseme_r_smile_closed, 72)
-    , (Viseme_l_lolip_up, 40), (Viseme_r_lolip_up, 40)
-    , (Viseme_jaw_open, 100)
-    ]
-  aa = -- it's been a _hard_ day's night
-    [ (Viseme_jaw_open, 239)
-    , (Viseme_l_smile_closed, 28), (Viseme_r_smile_closed, 28)
-    , (Viseme_l_uplip_up, 44), (Viseme_r_uplip_up, 44)
-    , (Viseme_l_lolip_up, 94), (Viseme_r_lolip_up, 94)
-    ]
-  ih = -- it's _been_ a hard day's night
-    [ (Viseme_jaw_open, 50)
-    , (Viseme_tongue_up, 200)
-    , (Viseme_l_uplip_up, 35), (Viseme_r_uplip_up, 35)
-    , (Viseme_l_smile_open, 26), (Viseme_r_smile_open, 26)
-    , (Viseme_l_lolip_up, 50), (Viseme_r_lolip_up, 50)
-    , (Viseme_jaw_fwd, 13)
-    , (Viseme_l_mouth_pucker, 15), (Viseme_r_mouth_pucker, 15)
-    ]
-  ae = -- _and_ i've been working
-    [ (Viseme_tongue_up, 200)
-    , (Viseme_l_smile_closed, 120), (Viseme_r_smile_closed, 120)
-    , (Viseme_l_uplip_up, 30), (Viseme_r_uplip_up, 30)
-    , (Viseme_l_mouth_pucker, 40), (Viseme_r_mouth_pucker, 40)
-    , (Viseme_l_lolip_dn, 40), (Viseme_r_lolip_dn, 40)
-    , (Viseme_jaw_open, 100)
-    ]
-  eh = -- when i _get_ home to you
-    [ (Viseme_l_uplip_up, 40), (Viseme_r_uplip_up, 40)
-    , (Viseme_l_smile_open, 16), (Viseme_r_smile_open, 16)
-    , (Viseme_l_smile_closed, 80), (Viseme_r_smile_closed, 80)
-    , (Viseme_l_mouth_pucker, 40), (Viseme_r_mouth_pucker, 40)
-    , (Viseme_l_lolip_up, 40), (Viseme_r_lolip_up, 40)
-    , (Viseme_l_lolip_dn, 20), (Viseme_r_lolip_dn, 20)
-    , (Viseme_jaw_open, 120)
-    , (Viseme_jaw_fwd, 15)
-    ]
-  uw = -- when i get home to _you_
-    [ (Viseme_l_uplip_up, 49), (Viseme_r_uplip_up, 49)
-    , (Viseme_l_smile_closed, 40), (Viseme_r_smile_closed, 40)
-    , (Viseme_l_mouth_pucker, 160), (Viseme_r_mouth_pucker, 160)
-    , (Viseme_l_lolip_up, 40), (Viseme_r_lolip_up, 40)
-    , (Viseme_jaw_open, 80)
-    , (Viseme_jaw_fwd, 8)
-    ]
-  iy = -- will make me _be_ here
-    [ (Viseme_l_uplip_up, 60), (Viseme_r_uplip_up, 60)
-    , (Viseme_l_smile_open, 19), (Viseme_r_smile_open, 19)
-    , (Viseme_l_smile_closed, 130), (Viseme_r_smile_closed, 130)
-    , (Viseme_l_lolip_up, 10), (Viseme_r_lolip_up, 10)
-    , (Viseme_l_lolip_roll, 30), (Viseme_r_lolip_roll, 30)
-    , (Viseme_l_lolip_dn, 37), (Viseme_r_lolip_dn, 37)
-    , (Viseme_l_lip_pull, 19), (Viseme_r_lip_pull, 19)
-    , (Viseme_jaw_open, 100)
-    ]
-  ey = -- it's been a hard _day's_ night
-    [ (Viseme_l_uplip_up, 50), (Viseme_r_uplip_up, 50)
-    , (Viseme_l_smile_open, 20), (Viseme_r_smile_open, 20)
-    , (Viseme_l_smile_closed, 125), (Viseme_r_smile_closed, 125)
-    , (Viseme_l_mouth_pucker, 10), (Viseme_r_mouth_pucker, 10)
-    , (Viseme_l_lip_pull, 20), (Viseme_r_lip_pull, 20)
-    , (Viseme_jaw_open, 166)
-    ]
-  er = -- and i've been _work_ing
-    [ (Viseme_tongue_up, 50)
-    , (Viseme_l_uplip_up, 46), (Viseme_r_uplip_up, 46)
-    , (Viseme_l_smile_closed, 31), (Viseme_r_smile_closed, 31)
-    , (Viseme_l_mouth_pucker, 15), (Viseme_r_mouth_pucker, 15)
-    , (Viseme_l_lolip_up, 91), (Viseme_r_lolip_up, 91)
-    , (Viseme_jaw_open, 200)
-    ]
-  uh = -- _to_ get you money
-    [ (Viseme_tongue_up, 200)
-    , (Viseme_l_uplip_up, 40), (Viseme_r_uplip_up, 40)
-    , (Viseme_l_smile_open, 23), (Viseme_r_smile_open, 23)
-    , (Viseme_l_smile_closed, 80), (Viseme_r_smile_closed, 80)
-    , (Viseme_l_mouth_pucker, 23), (Viseme_r_mouth_pucker, 23)
-    , (Viseme_l_lolip_up, 50), (Viseme_r_lolip_up, 50)
-    , (Viseme_jaw_open, 70)
-    , (Viseme_jaw_fwd, 14)
-    ]
-  ow = -- when i'm _home_
-    [ (Viseme_l_open_pucker, 150), (Viseme_r_open_pucker, 150)
-    , (Viseme_l_smile_open, 23), (Viseme_r_smile_open, 23)
-    , (Viseme_l_mouth_pucker, 80), (Viseme_r_mouth_pucker, 80)
-    , (Viseme_jaw_open, 180)
-    ]
-
-  in Syllable
-    { sylInitial = [] -- TODO
-    , sylVowel   = vowelMapping $ sylVowel cmu
-    , sylFinal   = [] -- TODO
-    }
 
 data Syllable c v = Syllable
   { sylInitial :: [c]
@@ -709,8 +612,8 @@ visemesToLipsync transition = lipsyncFromStates . animationsToStates . simpleAni
 defaultTransition :: U.Seconds
 defaultTransition = 0.12
 
-autoLipsync :: U.Seconds -> Transcribe -> VocalTrack U.Seconds -> Lipsync
-autoLipsync transition trans vt = let
+autoLipsync :: U.Seconds -> VisemeMap [(T.Text, Word8)] -> Transcribe -> VocalTrack U.Seconds -> Lipsync
+autoLipsync transition vmap trans vt = let
   eyes
     = animationsToStates
     $ simpleAnimations transition
@@ -719,7 +622,7 @@ autoLipsync transition trans vt = let
   mouth
     = animationsToStates
     $ syllablesToAnimations transition
-    $ fmap (fmap $ mapVisemeSyllable (T.pack . drop 7 . show) . cmuToRB3)
+    $ fmap (fmap $ applyVisemeMap vmap)
     $ runTranscribe
     $ fmap (fmap (trans,))
     $ vocalTubes vt
@@ -739,8 +642,8 @@ setBeatles lip = lip
   , lipsyncDTAImport = "proj9"
   }
 
-beatlesLipsync :: U.Seconds -> Transcribe -> VocalTrack U.Seconds -> Lipsync
-beatlesLipsync transition trans vt = let
+beatlesLipsync :: U.Seconds -> VisemeMap [(T.Text, Word8)] -> Transcribe -> VocalTrack U.Seconds -> Lipsync
+beatlesLipsync transition vmap trans vt = let
   eyes
     = animationsToStates
     $ simpleAnimations transition
@@ -749,7 +652,7 @@ beatlesLipsync transition trans vt = let
   mouth
     = animationsToStates
     $ syllablesToAnimations transition
-    $ fmap (fmap $ mapVisemeSyllable (T.pack . drop 7 . show) . cmuToBeatles)
+    $ fmap (fmap $ applyVisemeMap vmap)
     $ runTranscribe
     $ fmap (fmap (trans,))
     $ vocalTubes vt
@@ -782,8 +685,8 @@ data LipsyncTarget
   = LipsyncRB3
   | LipsyncTBRB
 
-lipLyricsStates :: LipsyncTarget -> LipsyncTrack U.Seconds -> LipsyncStates
-lipLyricsStates tgt lip = let
+lipLyricsStates :: VisemeMap [(T.Text, Word8)] -> LipsyncTrack U.Seconds -> LipsyncStates
+lipLyricsStates vmap lip = let
   tubes = vocalTubes mempty
     { vocalLyrics = lipLyrics lip
     , vocalNotes  = lipNotes  lip
@@ -795,20 +698,18 @@ lipLyricsStates tgt lip = let
       LyricGerman  -> germanVowels
       LyricSpanish -> spanishVowels
     in (trans,) <$> mtext
-  fromCMU = case tgt of
-    LipsyncRB3 -> fmap $ mapVisemeSyllable (T.pack . drop 7 . show) . cmuToRB3
-    LipsyncTBRB -> fmap $ mapVisemeSyllable (T.pack . drop 7 . show) . cmuToBeatles
+  fromCMU = fmap $ applyVisemeMap vmap
   in animationsToStates
     $ syllablesToAnimations defaultTransition
     $ fmap fromCMU transcribed
 
-lipsyncFromMIDITrack' :: LipsyncTarget -> LipsyncTrack U.Seconds -> Lipsync
-lipsyncFromMIDITrack' tgt lip
+lipsyncFromMIDITrack' :: LipsyncTarget -> VisemeMap [(T.Text, Word8)] -> LipsyncTrack U.Seconds -> Lipsync
+lipsyncFromMIDITrack' tgt vmap lip
   = (case tgt of LipsyncTBRB -> setBeatles; LipsyncRB3 -> setRB3)
   $ lipsyncFromStates
-  $ addLipsyncStates (lipEventsStates $ lipEvents lip) (lipLyricsStates tgt lip)
+  $ addLipsyncStates (lipEventsStates $ lipEvents lip) (lipLyricsStates vmap lip)
 
-lipsyncFromMIDITrack :: LipsyncTrack U.Seconds -> Lipsync
+lipsyncFromMIDITrack :: VisemeMap [(T.Text, Word8)] -> LipsyncTrack U.Seconds -> Lipsync
 lipsyncFromMIDITrack = lipsyncFromMIDITrack' LipsyncRB3
 
 testConvertLipsync :: FilePath -> [FilePath] -> FilePath -> IO ()

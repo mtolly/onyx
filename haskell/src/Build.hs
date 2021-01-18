@@ -112,6 +112,7 @@ import           RockBand.Milo                         (MagmaLipsync (..),
                                                         englishSyllables,
                                                         gh2Lipsync,
                                                         lipsyncFromMIDITrack,
+                                                        loadVisemesRB3,
                                                         magmaMilo, putVocFile)
 import qualified RockBand.ProGuitar.Play               as PGPlay
 import           RockBand.Sections                     (makeRB2Section,
@@ -1304,9 +1305,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             pathMilo %> \out -> case rb3_FileMilo rb3 of
               Nothing   -> do
                 midi <- shakeMIDI $ planDir </> "raw.mid"
+                vmap <- loadVisemesRB3
                 let vox = RBFile.getFlexPart (rb3_Vocal rb3) $ RBFile.s_tracks midi
-                    lip = lipsyncFromMIDITrack . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
-                    auto = autoLipsync defaultTransition englishSyllables . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
+                    lip = lipsyncFromMIDITrack vmap . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
+                    auto = autoLipsync defaultTransition vmap englishSyllables . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
                     write = stackIO . BL.writeFile out
                 if
                   | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync3 vox -> write $ magmaMilo $ MagmaLipsync3

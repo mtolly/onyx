@@ -1,0 +1,271 @@
+# ipa and examples from https://en.wikipedia.org/wiki/ARPABET
+# vowel samples collected from a hard day's night
+vowels:
+  CMU_AA: # ɑ : balm bot
+    # it's been a _hard_ day's night
+    jaw_open: 239
+    l_smile_closed: 28
+    r_smile_closed: 28
+    l_uplip_up: 44
+    r_uplip_up: 44
+    l_lolip_up: 94
+    r_lolip_up: 94
+  CMU_AH: # ʌ : butt
+    # it's been _a_ hard day's night
+    l_uplip_up: 10
+    r_uplip_up: 10
+    l_smile_open: 19
+    r_smile_open: 19
+    l_smile_closed: 72
+    r_smile_closed: 72
+    l_lolip_up: 40
+    r_lolip_up: 40
+    jaw_open: 100
+  CMU_AY: # aɪ : bite, diphthong
+    main:
+      # it's been a _hard_ day's night
+      jaw_open: 239
+      l_smile_closed: 28
+      r_smile_closed: 28
+      l_uplip_up: 44
+      r_uplip_up: 44
+      l_lolip_up: 94
+      r_lolip_up: 94
+    end:
+      # it's _been_ a hard day's night
+      jaw_open: 50
+      tongue_up: 200
+      l_uplip_up: 35
+      r_uplip_up: 35
+      l_smile_open: 26
+      r_smile_open: 26
+      l_lolip_up: 50
+      r_lolip_up: 50
+      jaw_fwd: 13
+      l_mouth_pucker: 15
+      r_mouth_pucker: 15
+  CMU_EH: # ɛ : bet
+    # when i _get_ home to you
+    l_uplip_up: 40
+    r_uplip_up: 40
+    l_smile_open: 16
+    r_smile_open: 16
+    l_smile_closed: 80
+    r_smile_closed: 80
+    l_mouth_pucker: 40
+    r_mouth_pucker: 40
+    l_lolip_up: 40
+    r_lolip_up: 40
+    l_lolip_dn: 20
+    r_lolip_dn: 20
+    jaw_open: 120
+    jaw_fwd: 15
+  CMU_ER: # ɝ : bird (non-rhotic in british pronunciation)
+    # and i've been _work_ing
+    tongue_up: 50
+    l_uplip_up: 46
+    r_uplip_up: 46
+    l_smile_closed: 31
+    r_smile_closed: 31
+    l_mouth_pucker: 15
+    r_mouth_pucker: 15
+    l_lolip_up: 91
+    r_lolip_up: 91
+    jaw_open: 200
+  CMU_EY: # eɪ : bait, diphthong
+    main:
+      # it's been a hard _day's_ night
+      l_uplip_up: 50
+      r_uplip_up: 50
+      l_smile_open: 20
+      r_smile_open: 20
+      l_smile_closed: 125
+      r_smile_closed: 125
+      l_mouth_pucker: 10
+      r_mouth_pucker: 10
+      l_lip_pull: 20
+      r_lip_pull: 20
+      jaw_open: 166
+    end:
+      # it's _been_ a hard day's night
+      jaw_open: 50
+      tongue_up: 200
+      l_uplip_up: 35
+      r_uplip_up: 35
+      l_smile_open: 26
+      r_smile_open: 26
+      l_lolip_up: 50
+      r_lolip_up: 50
+      jaw_fwd: 13
+      l_mouth_pucker: 15
+      r_mouth_pucker: 15
+  CMU_IH: # ɪ : bit
+    # it's _been_ a hard day's night
+    jaw_open: 50
+    tongue_up: 200
+    l_uplip_up: 35
+    r_uplip_up: 35
+    l_smile_open: 26
+    r_smile_open: 26
+    l_lolip_up: 50
+    r_lolip_up: 50
+    jaw_fwd: 13
+    l_mouth_pucker: 15
+    r_mouth_pucker: 15
+  CMU_IY: # i : beat
+    # will make me _be_ here
+    l_uplip_up: 60
+    r_uplip_up: 60
+    l_smile_open: 19
+    r_smile_open: 19
+    l_smile_closed: 130
+    r_smile_closed: 130
+    l_lolip_up: 10
+    r_lolip_up: 10
+    l_lolip_roll: 30
+    r_lolip_roll: 30
+    l_lolip_dn: 37
+    r_lolip_dn: 37
+    l_lip_pull: 19
+    r_lip_pull: 19
+    jaw_open: 100
+  CMU_OW: # oʊ : boat, diphthong (slight)
+    main:
+      # when i'm _home_
+      l_open_pucker: 150
+      r_open_pucker: 150
+      l_smile_open: 23
+      r_smile_open: 23
+      l_mouth_pucker: 80
+      r_mouth_pucker: 80
+      jaw_open: 180
+    end:
+      # when i get home to _you_
+      l_uplip_up: 49
+      r_uplip_up: 49
+      l_smile_closed: 40
+      r_smile_closed: 40
+      l_mouth_pucker: 160
+      r_mouth_pucker: 160
+      l_lolip_up: 40
+      r_lolip_up: 40
+      jaw_open: 80
+      jaw_fwd: 8
+  CMU_UW: # u : boot
+    # when i get home to _you_
+    l_uplip_up: 49
+    r_uplip_up: 49
+    l_smile_closed: 40
+    r_smile_closed: 40
+    l_mouth_pucker: 160
+    r_mouth_pucker: 160
+    l_lolip_up: 40
+    r_lolip_up: 40
+    jaw_open: 80
+    jaw_fwd: 8
+  CMU_AE: # æ : bat
+    # _and_ i've been working
+    tongue_up: 200
+    l_smile_closed: 120
+    r_smile_closed: 120
+    l_uplip_up: 30
+    r_uplip_up: 30
+    l_mouth_pucker: 40
+    r_mouth_pucker: 40
+    l_lolip_dn: 40
+    r_lolip_dn: 40
+    jaw_open: 100
+  CMU_AO: # ɔ : story (closer to ɑ in british pronunciation)
+    # it's been a _hard_ day's night
+    jaw_open: 239
+    l_smile_closed: 28
+    r_smile_closed: 28
+    l_uplip_up: 44
+    r_uplip_up: 44
+    l_lolip_up: 94
+    r_lolip_up: 94
+  CMU_AW: # aʊ : bout, diphthong
+    main:
+      # it's been a _hard_ day's night
+      jaw_open: 239
+      l_smile_closed: 28
+      r_smile_closed: 28
+      l_uplip_up: 44
+      r_uplip_up: 44
+      l_lolip_up: 94
+      r_lolip_up: 94
+    end:
+      # when i get home to _you_
+      l_uplip_up: 49
+      r_uplip_up: 49
+      l_smile_closed: 40
+      r_smile_closed: 40
+      l_mouth_pucker: 160
+      r_mouth_pucker: 160
+      l_lolip_up: 40
+      r_lolip_up: 40
+      jaw_open: 80
+      jaw_fwd: 8
+  CMU_OY: # ɔɪ : boy, diphthong
+    main:
+      # when i'm _home_
+      l_open_pucker: 150
+      r_open_pucker: 150
+      l_smile_open: 23
+      r_smile_open: 23
+      l_mouth_pucker: 80
+      r_mouth_pucker: 80
+      jaw_open: 180
+    end:
+      # it's _been_ a hard day's night
+      jaw_open: 50
+      tongue_up: 200
+      l_uplip_up: 35
+      r_uplip_up: 35
+      l_smile_open: 26
+      r_smile_open: 26
+      l_lolip_up: 50
+      r_lolip_up: 50
+      jaw_fwd: 13
+      l_mouth_pucker: 15
+      r_mouth_pucker: 15
+  CMU_UH: # ʊ : book
+    # _to_ get you money
+    tongue_up: 200
+    l_uplip_up: 40
+    r_uplip_up: 40
+    l_smile_open: 23
+    r_smile_open: 23
+    l_smile_closed: 80
+    r_smile_closed: 80
+    l_mouth_pucker: 23
+    r_mouth_pucker: 23
+    l_lolip_up: 50
+    r_lolip_up: 50
+    jaw_open: 70
+    jaw_fwd: 14
+consonants:
+  CMU_B: null
+  CMU_CH: null
+  CMU_D: null
+  CMU_DH: null
+  CMU_F: null
+  CMU_G: null
+  CMU_HH: null
+  CMU_JH: null
+  CMU_K: null
+  CMU_L: null
+  CMU_M: null
+  CMU_N: null
+  CMU_NG: null
+  CMU_P: null
+  CMU_R: null
+  CMU_S: null
+  CMU_SH: null
+  CMU_T: null
+  CMU_TH: null
+  CMU_V: null
+  CMU_W: null
+  CMU_Y: null
+  CMU_Z: null
+  CMU_ZH: null
