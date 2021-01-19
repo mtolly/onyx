@@ -69,11 +69,8 @@ executables:
     - condition: os(darwin)
       then:
         cpp-options: -DMACOSX
-        ld-options: -lto_library
-        # ^ this fixes C++ exception catching on mac.
-        # see https://ghc.haskell.org/trac/ghc/ticket/11829
-        extra-libraries:
-        - fltkc # TODO breaks ghci
+        # copied from fltkhs-hello-world, also unwind is to avoid https://gitlab.haskell.org/ghc/ghc/issues/11829
+        ghc-options: "-optl-Wl,-lfltkc -optl-Wl,-keep_dwarf_unwind"
       else:
         # copied from fltkhs-hello-world
         ghc-options: '-pgml g++ "-optl-Wl,--allow-multiple-definition" "-optl-Wl,--whole-archive" "-optl-Wl,-Bstatic" "-optl-Wl,-lfltkc" "-optl-Wl,-Bdynamic" "-optl-Wl,--no-whole-archive"'

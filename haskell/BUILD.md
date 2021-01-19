@@ -42,24 +42,6 @@ These instructions also expect the web player to be built. If you don't want to 
 
 6. Program is packaged as `Onyx.app`.
 
-# Mac - High Sierra hack
-
-To build on macOS High Sierra as I am doing currently, the following steps must be done after the first failed attempt to compile.
-
-1. Make a folder next to `haskell` (so, in the repo root) called `c-lib`
-
-2. Find this folder: `~/.stack/snapshots/x86_64-osx/(random hash)/(ghc version)/lib/x86_64-osx-ghc-(ghc version)/fltkhs-(version)-(random hash)/`
-
-3. From there, copy `libfltkc-dyn.dylib` to both of these:
-
-  * `haskell/libfltkc.dylib`
-
-  * `c-lib/libfltkc-dyn.dylib`
-
-4. `stack build --extra-lib-dirs=.`
-
-5. Comment out the stack build line in the `Makefile` under `make mac`, then run `make mac`
-
 # Linux - Docker
 
 ## Requirements
