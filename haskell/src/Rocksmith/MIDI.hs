@@ -627,12 +627,12 @@ buildRS tmap capo trk = do
           , ct_finger3     = listToMaybe [fromEnum finger | (S3, _, Just finger) <- assigned]
           , ct_finger4     = listToMaybe [fromEnum finger | (S2, _, Just finger) <- assigned]
           , ct_finger5     = listToMaybe [fromEnum finger | (S1, _, Just finger) <- assigned]
-          , ct_fret0       = listToMaybe [applyCapo fret | (S6, fret, _) <- assigned]
-          , ct_fret1       = listToMaybe [applyCapo fret | (S5, fret, _) <- assigned]
-          , ct_fret2       = listToMaybe [applyCapo fret | (S4, fret, _) <- assigned]
-          , ct_fret3       = listToMaybe [applyCapo fret | (S3, fret, _) <- assigned]
-          , ct_fret4       = listToMaybe [applyCapo fret | (S2, fret, _) <- assigned]
-          , ct_fret5       = listToMaybe [applyCapo fret | (S1, fret, _) <- assigned]
+          , ct_fret0       = listToMaybe [applyCapo fret | (S6, fret) <- sortedNotes]
+          , ct_fret1       = listToMaybe [applyCapo fret | (S5, fret) <- sortedNotes]
+          , ct_fret2       = listToMaybe [applyCapo fret | (S4, fret) <- sortedNotes]
+          , ct_fret3       = listToMaybe [applyCapo fret | (S3, fret) <- sortedNotes]
+          , ct_fret4       = listToMaybe [applyCapo fret | (S2, fret) <- sortedNotes]
+          , ct_fret5       = listToMaybe [applyCapo fret | (S1, fret) <- sortedNotes]
           }
         in finish <$> assignFingers (ciFingers cinfo) sortedNotes
       makeNoteChord t cinfo noteGroup = do

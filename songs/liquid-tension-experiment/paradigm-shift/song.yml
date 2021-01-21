@@ -35,9 +35,11 @@ parts:
   bass:
     grybo:
       difficulty: 5
-    pro-guitar: # WIP
+    pro-guitar:
       tuning:
         base: bass-5
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo:
       difficulty: 7
@@ -64,3 +66,7 @@ targets:
   ps:
     game: ps
     # url: http://www.mediafire.com/file/57jesm0rnya64sg/ParadigmShift_v3_ps.zip
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

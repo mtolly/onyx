@@ -1,0 +1,19 @@
+metadata:
+  title: La de da de da de da de day oh
+  artist: Bill Wurtz
+  year: 2018
+  author: Onyxite
+  genre: popdanceelectronic
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+plans:
+  plan:
+    song:
+      pad: [2.277, website-mp3]
+audio:
+  website-mp3:
+    md5: 62d57034972e924a19fe4577114f44f6
+    frames: 8437248

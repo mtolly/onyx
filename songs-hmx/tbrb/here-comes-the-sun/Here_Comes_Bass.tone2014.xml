@@ -1,0 +1,101 @@
+<?xml version='1.0' ?>
+<Tone2014 xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone">
+  <GearList>
+    <Amp>
+      <Category>Amp</Category>
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT800_Bass</d4p1:Key>
+          <d4p1:Value>6.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT800_LoFreq</d4p1:Key>
+          <d4p1:Value>220.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT800_Gain</d4p1:Key>
+          <d4p1:Value>12.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT800_Hi</d4p1:Key>
+          <d4p1:Value>-4.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT800_Treble</d4p1:Key>
+          <d4p1:Value>3.500</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT800_Mid</d4p1:Key>
+          <d4p1:Value>3.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT800_Lo</d4p1:Key>
+          <d4p1:Value>-9.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT800_HiFreq</d4p1:Key>
+          <d4p1:Value>1.600</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT800_Enhance</d4p1:Key>
+          <d4p1:Value>35.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_EdenWT800_MidFreq</d4p1:Key>
+          <d4p1:Value>1200.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Bass_Amp_EdenWT800</PedalKey>
+      <Type>Amps</Type>
+    </Amp>
+    <Cabinet>
+      <Category>Tube_Cone</Category>
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays" />
+      <PedalKey>Bass_Cab_EdenD212XLT_Tube_Cone</PedalKey>
+      <Type>Cabinets</Type>
+    </Cabinet>
+    <PostPedal1 i:nil="true" />
+    <PostPedal2 i:nil="true" />
+    <PostPedal3 i:nil="true" />
+    <PostPedal4 i:nil="true" />
+    <PrePedal1 i:nil="true" />
+    <PrePedal2 i:nil="true" />
+    <PrePedal3 i:nil="true" />
+    <PrePedal4 i:nil="true" />
+    <Rack1>
+      <Category>Dynamics</Category>
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioCompressor_Release</d4p1:Key>
+          <d4p1:Value>170.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioCompressor_Ratio</d4p1:Key>
+          <d4p1:Value>2.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioCompressor_Threshold</d4p1:Key>
+          <d4p1:Value>-22.500</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioCompressor_Attack</d4p1:Key>
+          <d4p1:Value>75.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Rack_StudioCompressor</PedalKey>
+      <Type>Racks</Type>
+    </Rack1>
+    <Rack2 i:nil="true" />
+    <Rack3 i:nil="true" />
+    <Rack4 i:nil="true" />
+  </GearList>
+  <IsCustom>true</IsCustom>
+  <Key>Here_Comes_Bass</Key>
+  <Name>Here_Comes_Bass</Name>
+  <NameSeparator> - </NameSeparator>
+  <SortOrder>0.000</SortOrder>
+  <ToneDescriptors xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+    <d2p1:string>$[35715]BASS</d2p1:string>
+  </ToneDescriptors>
+  <Volume>-19.500</Volume>
+</Tone2014>

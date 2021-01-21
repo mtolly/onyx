@@ -1,0 +1,68 @@
+metadata:
+  title: Here Comes the Sun
+  artist: The Beatles
+  author: Harmonix, Onyxite
+  difficulty:
+    rank: 279
+  year: 1969
+  album: Abbey Road
+  file-album-art: cover.png_xbox
+  key: A major
+  genre: rock
+parts:
+  drums:
+    drums:
+      difficulty:
+        rank: 151
+      kicks: 1
+  guitar:
+    grybo:
+      difficulty:
+        rank: 351
+  bass:
+    grybo:
+      difficulty:
+        rank: 257
+    pro-guitar:
+      tuning:
+        base: bass-4
+      tones:
+        file-tone-base: Here_Comes_Bass.tone2014.xml # from Tysylio's chart on CF
+      picked-bass: true
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        rank: 313
+audio:
+  recorded:
+    file-path: "Here Comes The Sun.ogg"
+    channels: 10
+plans:
+  recorded:
+    parts:
+      drums:
+        trim: [0.075, channels: [[0, 1], recorded]]
+      bass:
+        trim: [0.075, channels: [[2, 3], recorded]]
+      guitar:
+        trim: [0.075, channels: [[4, 5], recorded]]
+      vocal:
+        trim: [0.075, channels: [[6, 7], recorded]]
+    song:
+      trim: [0.075, channels: [[8, 9], recorded]]
+    tuning-cents: 40
+  recorded-no-stems:
+    song:
+      expr:
+        trim: [0.075, recorded]
+      pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+      vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    tuning-cents: 40
+targets:
+  rs:
+    game: rs
+    plan: recorded-no-stems
+    arrangements:
+    - [bass, bass]
