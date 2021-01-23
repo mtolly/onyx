@@ -7,6 +7,7 @@ metadata:
   subgenre: progrock
   year: 2003
   file-album-art: cover.jpg
+  preview-start: prc_gtr_solo_1
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -31,6 +32,7 @@ parts:
   drums:
     drums:
       kicks: 1
+      difficulty: 4
   bass:
     pro-guitar:
       tuning:
@@ -43,3 +45,7 @@ targets:
     game: rs
     arrangements:
     - [bass, bass]
+  rb3:
+    game: rb3
+  ps:
+    game: ps

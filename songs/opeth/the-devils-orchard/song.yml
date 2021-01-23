@@ -10,8 +10,14 @@ audio:
 plans:
   album:
     song:
-      pad: [3.929, album-track]
+      fade:
+      - end
+      - 10.403
+      - take:
+        - '6:39.908'
+        - pad: [3.929, album-track]
 parts:
   drums:
     drums:
       kicks: both
+      difficulty: 5

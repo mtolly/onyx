@@ -1,7 +1,14 @@
 metadata:
   title: The Grand Conjuration
   artist: Opeth
+  album: Ghost Reveries
+  year: 2005
+  track-number: 7
   author: Onyxite, JackDaMaster
+  genre: metal
+  subgenre: prog
+  file-album-art: ../../../songs-hmx/opeth/ghost-of-perdition/cover.png_xbox
+  preview-start: prc_main_riff_1
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -24,6 +31,7 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 6
   bass:
     pro-guitar:
       tuning:
@@ -36,3 +44,13 @@ targets:
     game: rs
     arrangements:
     - [bass, bass]
+  rb3:
+    game: rb3
+    bass: undefined
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    bass: undefined
+  ps:
+    game: ps
+    bass: undefined

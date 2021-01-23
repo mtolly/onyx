@@ -25,7 +25,8 @@ plans:
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
+      difficulty: 7
   guitar:
     grybo: {}
   keys:
