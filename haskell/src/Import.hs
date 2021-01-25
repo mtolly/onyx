@@ -151,7 +151,7 @@ fixShortVoxPhrases song@(RBFile.Song tmap mmap ps)
                       RNil       -> minLength
                       Wait t _ _ -> t
                     len3 = min minLength $ len2 + futureSpace
-                    usedSpace = len3 - len
+                    usedSpace = len3 - len2
                     in Wait dt2 on $ Wait len3 off $ fixPhrases $ U.trackDrop usedSpace rest
           Wait dt x rest -> Wait dt x $ fixPhrases rest -- shouldn't happen
         vox' = vox

@@ -611,7 +611,7 @@ padFixedFile seconds (Song temps sigs ff) = let
       Wait dt next rest'
         | dt == len -> Wait (dt + beats) next rest'
         | otherwise -> Wait (len + beats) sig $ Wait (dt - len) next rest'
-      RNil -> RNil
+      RNil -> Wait (len + beats) sig RNil
     -- TODO: timesig numerator can only go up to 255 so this could fail for long delay values
     _ -> error "RockBand.Codec.File.padFixedFile: internal error (no time signature at MIDI start)"
   padSimple = RTB.delay beats

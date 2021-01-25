@@ -2493,30 +2493,33 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 , CST.dlc_Pc                = True
                 , CST.dlc_PreviewVolume     = -5 -- default?
                 , CST.dlc_SignatureType     = "CON"
-                , CST.dlc_SongInfo          = CST.SongInfo
-                  { CST.si_Album               = getAlbum $ _metadata songYaml
-                  , CST.si_AlbumSort           = getAlbum $ _metadata songYaml -- TODO
-                  , CST.si_Artist              = getArtist $ _metadata songYaml
-                  , CST.si_ArtistSort          = getArtist $ _metadata songYaml -- TODO
-                  , CST.si_AverageTempo        = maybe 120 {- shouldn't happen -} ((round :: U.BPS -> Int) . (* 60)) averageTempo
-                  , CST.si_JapaneseArtistName  = ""
-                  , CST.si_JapaneseSongName    = ""
-                  , CST.si_SongDisplayName     = getTitle $ _metadata songYaml
-                  , CST.si_SongDisplayNameSort = getTitle $ _metadata songYaml -- TODO
-                  , CST.si_SongYear            = fromMaybe 1960 $ _year $ _metadata songYaml -- TODO see if this can be empty
-                  }
-                  {-
-                    Info from CST source on sortable text (might not need to do this though, CST appears to edit them itself):
+                , CST.dlc_SongInfo          = let
+                  -- not sure why brackets aren't allowed, CST removes them on compile
+                  textReplace = T.replace "[" "(" . T.replace "]" ")"
+                  in CST.SongInfo
+                    { CST.si_Album               = textReplace $ getAlbum $ _metadata songYaml
+                    , CST.si_AlbumSort           = textReplace $ getAlbum $ _metadata songYaml -- TODO
+                    , CST.si_Artist              = textReplace $ getArtist $ _metadata songYaml
+                    , CST.si_ArtistSort          = textReplace $ getArtist $ _metadata songYaml -- TODO
+                    , CST.si_AverageTempo        = maybe 120 {- shouldn't happen -} ((round :: U.BPS -> Int) . (* 60)) averageTempo
+                    , CST.si_JapaneseArtistName  = ""
+                    , CST.si_JapaneseSongName    = ""
+                    , CST.si_SongDisplayName     = textReplace $ getTitle $ _metadata songYaml
+                    , CST.si_SongDisplayNameSort = textReplace $ getTitle $ _metadata songYaml -- TODO
+                    , CST.si_SongYear            = fromMaybe 1960 $ _year $ _metadata songYaml -- TODO see if this can be empty
+                    }
+                    {-
+                      Info from CST source on sortable text (might not need to do this though, CST appears to edit them itself):
 
-                    ( ) are always stripped
-                    / is replaced with a space
-                    - usage is inconsistent (so for consistency remove it)
-                    , is stripped (in titles)
-                    ' is not stripped
-                    . and ? usage are inconsistent (so for consistency leave these)
-                    Abbreviations/symbols like 'Mr.' and '&' are replaced with words
-                    Diacritics are replaced with their ASCII approximations if available
-                  -}
+                      ( ) are always stripped
+                      / is replaced with a space
+                      - usage is inconsistent (so for consistency remove it)
+                      , is stripped (in titles)
+                      ' is not stripped
+                      . and ? usage are inconsistent (so for consistency leave these)
+                      Abbreviations/symbols like 'Mr.' and '&' are replaced with words
+                      Diacritics are replaced with their ASCII approximations if available
+                    -}
                 , CST.dlc_Tones             = mempty
                 , CST.dlc_TonesRS2014       = V.fromList $ map snd allTones
                 , CST.dlc_ToolkitInfo       = CST.ToolkitInfo
