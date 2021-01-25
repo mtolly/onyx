@@ -17,3 +17,4 @@ colormap_*.png
 .cabal-sandbox/
 cabal.sandbox.config
 .stack-work/
+rsproj/

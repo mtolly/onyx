@@ -39,3 +39,15 @@ parts:
         global: -3 # G# C# F# B E
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

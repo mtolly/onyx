@@ -29,5 +29,13 @@ parts:
       difficulty: 7
   guitar:
     grybo: {}
-  keys:
-    pro-keys: {}
+  # keys:
+  #   pro-keys: {}
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

@@ -35,6 +35,9 @@ parts:
   bass:
     grybo:
       difficulty: 5
+    pro-guitar:
+      tuning:
+        base: bass-5 # WIP arrangement, we'll see how this goes!
   guitar:
     grybo:
       difficulty: 6
