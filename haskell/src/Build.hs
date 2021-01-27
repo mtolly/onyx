@@ -1855,6 +1855,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   fd <- toList $ fiveDifficulties five
                   return $ not $ RTB.null $ fiveOpen fd
                 , FoF.loadingPhrase    = ps_LoadingPhrase ps
+                , FoF.cassetteColor    = Nothing
                  -- TODO fill these in if we have a video
                 , FoF.video            = Nothing
                 , FoF.videoStartTime   = Nothing

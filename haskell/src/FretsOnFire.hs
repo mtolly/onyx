@@ -63,6 +63,7 @@ data Song = Song
   , videoStartTime   :: Maybe Milli
   , videoEndTime     :: Maybe Milli
   , videoLoop        :: Maybe Bool
+  , cassetteColor    :: Maybe T.Text -- ^ old FoF background color that label.png goes on top of
   {- TODO:
   banner_link_a
   link_name_a
@@ -93,7 +94,7 @@ instance Default Song where
     def def def def def def def def def def
     def def def def def def def def def def
     def def def def def def def def def def
-    def def def
+    def def def def
 
 -- | Strips <b>bold</b>, <i>italic</i>, and <color=red>colored</color>
 -- which are supported by CH in metadata, lyrics, and sections.
@@ -175,6 +176,7 @@ loadSong fp = do
       videoStartTime = milli "video_start_time"
       videoEndTime = milli "video_end_time"
       videoLoop = bool "video_loop"
+      cassetteColor = str "cassettecolor"
 
   return Song{..}
 
@@ -228,6 +230,7 @@ saveSong fp Song{..} = writePSIni fp $ flip Ini []
     milli "video_start_time" videoStartTime
     milli "video_end_time" videoEndTime
     shown "video_loop" videoLoop
+    str "cassettecolor" cassetteColor
 
 writePSIni :: (MonadIO m) => FilePath -> Ini -> m ()
 writePSIni fp (Ini hmap _) = let

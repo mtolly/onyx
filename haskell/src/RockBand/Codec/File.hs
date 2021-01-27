@@ -172,7 +172,7 @@ instance ParseFile FixedFile where
     fixedPartDrums        <- fixedPartDrums        =. fileTrack ("PART DRUMS"          :| ["PART DRUM"])
     fixedPartDrums2x      <- fixedPartDrums2x      =. fileTrack ("PART DRUMS_2X"       :| [])
     fixedPartRealDrumsPS  <- fixedPartRealDrumsPS  =. fileTrack ("PART REAL_DRUMS_PS"  :| [])
-    fixedPartGuitar       <- fixedPartGuitar       =. fileTrack ("PART GUITAR"         :| ["T1 GEMS"])
+    fixedPartGuitar       <- fixedPartGuitar       =. fileTrack ("PART GUITAR"         :| ["T1 GEMS", "Click"])
     fixedPartBass         <- fixedPartBass         =. fileTrack ("PART BASS"           :| [])
     fixedPartKeys         <- fixedPartKeys         =. fileTrack ("PART KEYS"           :| [])
     fixedPartRhythm       <- fixedPartRhythm       =. fileTrack ("PART RHYTHM"         :| [])
@@ -334,6 +334,7 @@ identifyFlexTrack name = case T.stripPrefix "[" name of
     | "GUITAR"      `T.isInfixOf` name -> Just FlexGuitar
     | "LEAD"        `T.isInfixOf` name -> Just FlexGuitar
     | "T1 GEMS"     `T.isInfixOf` name -> Just FlexGuitar
+    | "Click"       `T.isInfixOf` name -> Just FlexGuitar
     | "BASS"        `T.isInfixOf` name -> Just FlexBass
     | "KEYS"        `T.isInfixOf` name -> Just FlexKeys
     | "VOCAL"       `T.isInfixOf` name -> Just FlexVocal

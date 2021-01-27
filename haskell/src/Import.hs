@@ -3,12 +3,17 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Import (importFoF, importRBA, importSTFSDir, importSTFS, importMagma, importAmplitude, simpleRBAtoCON, Kicks(..)) where
 
 import qualified Amplitude.File                   as Amp
 import           Audio
 import qualified C3
-import           Codec.Picture                    (convertRGB8, readImage)
+import           Codec.Picture                    (Image (..), PixelRGBA8 (..),
+                                                   convertRGB8, convertRGBA8,
+                                                   generateImage, pixelAt,
+                                                   readImage, writePng)
+import           Codec.Picture.Types              (promotePixel)
 import           Config                           hiding (Difficulty)
 import qualified Config
 import           Control.Applicative              ((<|>))
@@ -52,6 +57,7 @@ import           Guitars                          (applyStatus)
 import           Image                            (DXTFormat (PNGXbox),
                                                    toDXT1File)
 import           Magma                            (getRBAFile)
+import           Numeric                          (readHex)
 import qualified Numeric.NonNegative.Class        as NNC
 import           OSFiles                          (fixFileCase)
 import           PhaseShift.Dance                 (nullDance)
@@ -286,14 +292,58 @@ importFoF src dest = do
         return (FB.chartToIni chart, mid, True)
       False -> fatal "No song.ini or notes.chart found"
 
-  albumArt <- stackIO $ do
+  albumArt <- do
     let isImage f = case splitExtension $ map toLower f of
           (x, y) -> elem x ["album", "image"] && elem y [".png", ".jpg", ".jpeg"]
     case filter isImage allFiles of
-      []    -> return Nothing
       f : _ -> do
-        Dir.copyFile (src </> f) (dest </> map toLower f)
+        stackIO $ Dir.copyFile (src </> f) (dest </> map toLower f)
         return $ Just f
+      []    -> case filter ((== "label.png") . map toLower) allFiles of
+        []    -> return Nothing
+        f : _ -> inside "Converting label.png + cassettecolor to square art" $ do
+          -- overlay label.png onto cassettecolor
+          let hex s = case readHex s of
+                [(n, "")] -> return n
+                _         -> do
+                  warn $ "Couldn't read hex number: " <> s
+                  return 0
+          bgColor <- case T.unpack <$> FoF.cassetteColor song of
+            -- these are the only 2 formats FoF supports (Theme.py, function hexToColor)
+            Just ['#', r, g, b] -> PixelRGBA8
+              <$> hex [r] <*> hex [g] <*> hex [b] <*> return 255
+            Just ['#', r1, r2, g1, g2, b1, b2] -> PixelRGBA8
+              <$> hex [r1, r2] <*> hex [g1, g2] <*> hex [b1, b2] <*> return 255
+            Nothing -> return $ PixelRGBA8 0 0 0 255
+            Just s -> do
+              warn $ "Unrecognized cassettecolor format: " <> s
+              return $ PixelRGBA8 0 0 0 255
+          img <- stackIO (readImage $ src </> f) >>= either fatal (return . convertRGBA8)
+          let squareSize = max (imageWidth img) (imageHeight img) + 30
+              adjustX x = x - quot (squareSize - imageWidth  img) 2
+              adjustY y = y - quot (squareSize - imageHeight img) 2
+              floatToByte c
+                | c < 0     = 0
+                | c > 1     = 255
+                | otherwise = round $ (c :: Float) * 255
+              overlay
+                (PixelRGBA8 (promotePixel -> r1) (promotePixel -> g1) (promotePixel -> b1) (promotePixel -> a1))
+                (PixelRGBA8 (promotePixel -> r2) (promotePixel -> g2) (promotePixel -> b2) (promotePixel -> a2))
+                = PixelRGBA8
+                  (floatToByte $ r1 * a1 * (1 - a2) + r2 * a2)
+                  (floatToByte $ g1 * a1 * (1 - a2) + g2 * a2)
+                  (floatToByte $ b1 * a1 * (1 - a2) + b2 * a2)
+                  (floatToByte $ a1 * (1 - a2) + a2)
+              img' = generateImage
+                (\(adjustX -> x) (adjustY -> y) ->
+                  if 0 <= x && x < imageWidth img && 0 <= y && y < imageHeight img
+                    then overlay bgColor $ pixelAt img x y
+                    else bgColor
+                )
+                squareSize
+                squareSize
+          stackIO $ writePng (dest </> "cover.png") img'
+          return $ Just "cover.png"
   backgroundImage <- stackIO $ do
     let isBackground f = case splitExtension $ map toLower f of
           ("background", ext) -> elem ext [".png", ".jpg", ".jpeg"]
