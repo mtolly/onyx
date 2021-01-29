@@ -13,6 +13,8 @@ import Control.Monad ((>=>), forM_, unless)
 import Text.Read (readMaybe)
 import Data.IORef (newIORef, writeIORef, readIORef)
 import Control.Exception (bracket)
+import System.IO (Handle, hIsWritable, hGetBuf, hPutBuf, hSeek, SeekMode(..), hTell, hFileSize)
+import System.Posix.Internals (sEEK_CUR, sEEK_END, sEEK_SET)
 
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
@@ -23,6 +25,8 @@ import Control.Exception (bracket)
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
 
+#include "ffmacros.h"
+
 ----------------------------
 
 {#pointer *AVFormatContext as AVFormatContext newtype #}
@@ -31,6 +35,10 @@ deriving instance Storable AVFormatContext
 {#pointer *AVFrame as AVFrame newtype #}
 deriving instance Storable AVFrame
 deriving instance Show AVFrame
+
+{#pointer *AVIOContext as AVIOContext newtype #}
+deriving instance Storable AVIOContext
+deriving instance Show AVIOContext
 
 {#pointer *AVPacket as AVPacket newtype #}
 deriving instance Storable AVPacket
@@ -532,6 +540,80 @@ av_opt_set_int_list obj name vals flags = do
   { `Word64'
   } -> `CInt'
 #}
+
+{#fun avio_alloc_context
+  { id `Ptr CUChar'
+  , `CInt'
+  , `CInt'
+  , `Ptr ()'
+  -- TODO find a better way to cast these so we can use Word8/Int64 instead of CUChar/CLong
+  , id `FunPtr (Ptr () -> Ptr CUChar -> CInt -> IO CInt)'
+  , id `FunPtr (Ptr () -> Ptr CUChar -> CInt -> IO CInt)'
+  , id `FunPtr (Ptr () -> CLong -> CInt -> IO CLong)'
+  } -> `AVIOContext'
+#}
+
+{#fun avio_context_free
+  { id `Ptr AVIOContext'
+  } -> `()'
+#}
+
+{#fun av_malloc
+  { fromIntegral `CSize'
+  } -> `Ptr ()'
+#}
+
+foreign import ccall "wrapper"
+  makeReadWriteFn
+    ::            (Ptr () -> Ptr CUChar -> CInt -> IO CInt)
+    -> IO (FunPtr (Ptr () -> Ptr CUChar -> CInt -> IO CInt))
+
+foreign import ccall "wrapper"
+  makeSeekFn
+    ::            (Ptr () -> CLong -> CInt -> IO CLong)
+    -> IO (FunPtr (Ptr () -> CLong -> CInt -> IO CLong))
+
+{#fun hs_AVERROR_EOF
+  {} -> `CInt'
+#}
+
+withHandleAVIO :: Handle -> (AVIOContext -> IO a) -> IO a
+withHandleAVIO h f = do
+  canWrite <- hIsWritable h
+  let initSize = 4096
+  initBuf <- av_malloc initSize -- TODO do we need to free the buffer?
+  let readFunction _ buf size = do
+        -- putStrLn $ "read: " <> show (buf, size)
+        hGetBuf h buf (fromIntegral size) >>= \case
+          0 -> hs_AVERROR_EOF -- if we return 0 you get "Invalid return value 0 for stream protocol"
+          n -> return $ fromIntegral n
+  bracket (makeReadWriteFn readFunction) freeHaskellFunPtr $ \reader -> do
+  let writeFunction _ buf size = do
+        -- putStrLn $ "write: " <> show (buf, size)
+        hPutBuf h buf (fromIntegral size) >> return size -- is this right? hPutBuf returns ()
+  bracket (makeReadWriteFn writeFunction) freeHaskellFunPtr $ \writer -> do
+  let modeMap =
+        [ (sEEK_END, SeekFromEnd)
+        , (sEEK_CUR, RelativeSeek)
+        , (sEEK_SET, AbsoluteSeek)
+        ]
+      seekFunction _ posn whence = if whence .&. {#const AVSEEK_SIZE #} == {#const AVSEEK_SIZE #}
+        then fmap fromIntegral $ hFileSize h
+        else do
+          -- TODO is there a more reliable way to get rid of all extra ffmpeg stuff?
+          -- AVSEEK_SIZE is 0x10000 and AVSEEK_FORCE is 0x20000
+          mode <- case lookup (whence .&. 0xFFFF) modeMap of
+            Nothing -> do
+              putStrLn $ "Warning: ffmpeg passed us an unrecognized seek mode " <> show whence
+              return AbsoluteSeek
+            Just mode -> return mode
+          -- putStrLn $ "seek: " <> show (posn, whence)
+          hSeek h mode (fromIntegral posn) >> fmap fromIntegral (hTell h)
+  bracket (makeSeekFn seekFunction) freeHaskellFunPtr $ \seeker -> do
+  bracket
+    (avio_alloc_context (castPtr initBuf) (fromIntegral initSize) (if canWrite then 1 else 0) nullPtr reader writer seeker)
+    (\p -> with p avio_context_free)
+    f
 
 -- TODO clean up, better resource allocation, get rid of unnecessary audio format conversion from sample code
 audioIntegratedVolume :: FilePath -> IO (Maybe Float)

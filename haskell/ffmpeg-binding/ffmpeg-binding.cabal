@@ -19,3 +19,7 @@ library
     , libavcodec
     , libswscale
     , libavfilter
+  c-sources:
+    cbits/ffmacros.c
+  include-dirs:
+    cbits
