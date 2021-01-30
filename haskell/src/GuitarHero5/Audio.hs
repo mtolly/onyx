@@ -4,11 +4,17 @@ https://www.fretsonfire.org/forums/viewtopic.php?t=60499
 -}
 module GuitarHero5.Audio where
 
-import           Control.Monad       (guard)
+import           Audio                (audioIO)
+import           Control.Monad        (guard)
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
-import qualified Data.ByteString     as B
+import qualified Data.ByteString      as B
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.Conduit.Audio   as CA
+import           Data.SimpleHandle    (byteStringSimpleHandle, makeHandle,
+                                       useHandle)
+import           FFMPEG               (ffSource)
 
 keys :: [B.ByteString]
 keys = map B.pack
@@ -285,3 +291,19 @@ aesDecrypt bs = do
   return $ ctrCombine key iv cipherData
 
 -- TODO also port the FsbDecrypter class
+
+convertAudio :: FilePath -> FilePath -> IO ()
+convertAudio fin fout = do
+  enc <- B.readFile fin
+  dec <- case aesDecrypt enc of
+    Nothing  -> error "Couldn't decrypt GH .fsb.xen audio"
+    Just dec -> return dec
+  let dec' = BL.concat
+        [ BL.fromStrict $ B.take 0x62 dec
+        , BL.singleton 0x10 -- this is a hack so ffmpeg recognizes the fsb's xma encoding. TODO send a PR to fix
+        , BL.fromStrict $ B.drop 0x63 dec
+        ]
+      readable = makeHandle (fin <> " | decoded") $ byteStringSimpleHandle dec'
+  useHandle readable $ \h -> do
+    src <- ffSource (Left h)
+    audioIO Nothing (CA.mapSamples CA.fractionalSample src) fout

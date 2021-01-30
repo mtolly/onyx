@@ -11,7 +11,12 @@ library
   ghc-options: -Wall
   build-tools: c2hs
   build-depends:
-    base
+      base
+    , conduit-audio
+    , conduit
+    , unliftio
+    , resourcet
+    , vector
   default-language: Haskell2010
   pkgconfig-depends:
       libavutil

@@ -18,6 +18,7 @@ module Audio
 , buildSource, buildSource'
 , buildAudio
 , runAudio
+, audioIO
 , clampFloat
 , audioMD5
 , audioLength

@@ -4,17 +4,25 @@
 {-# LANGUAGE NegativeLiterals #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NondecreasingIndentation #-}
+{-# LANGUAGE RankNTypes #-}
 module FFMPEG where
 
 import Foreign
 import Foreign.C
 import Data.Coerce (coerce)
-import Control.Monad ((>=>), forM_, unless)
+import Control.Monad ((>=>), forM_, unless, forM)
 import Text.Read (readMaybe)
 import Data.IORef (newIORef, writeIORef, readIORef)
-import Control.Exception (bracket)
+import Data.Typeable (Typeable)
+import Control.Exception (Exception(..), throwIO)
 import System.IO (Handle, hIsWritable, hGetBuf, hPutBuf, hSeek, SeekMode(..), hTell, hFileSize)
 import System.Posix.Internals (sEEK_CUR, sEEK_END, sEEK_SET)
+import Data.Conduit
+import qualified Data.Conduit.Audio as CA
+import UnliftIO (MonadUnliftIO, MonadIO, bracket, liftIO)
+import Control.Monad.Trans.Resource (MonadResource)
+import qualified Data.Vector.Storable as V
+import qualified Data.Vector.Storable.Mutable as MV
 
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
@@ -577,64 +585,180 @@ foreign import ccall "wrapper"
   {} -> `CInt'
 #}
 
-withHandleAVIO :: Handle -> (AVIOContext -> IO a) -> IO a
-withHandleAVIO h f = do
-  canWrite <- hIsWritable h
+{#fun av_get_bytes_per_sample
+  { `AVSampleFormat'
+  } -> `CInt'
+#}
+
+newtype Bracket m = Bracket { runBracket :: forall a b. IO a -> (a -> IO ()) -> (a -> m b) -> m b }
+
+conduitBracket :: (MonadResource m) => Bracket (ConduitM i o m)
+conduitBracket = Bracket bracketP
+
+unliftBracket :: (MonadUnliftIO m) => Bracket m
+unliftBracket = Bracket $ \acq rel -> bracket (liftIO acq) (liftIO . rel)
+
+withHandleAVIO :: (MonadIO m) => Bracket m -> Handle -> (AVIOContext -> m a) -> m a
+withHandleAVIO (runBracket -> brkt) h f = do
+  liftIO $ hSeek h AbsoluteSeek 0
+  canWrite <- liftIO $ hIsWritable h
   let initSize = 4096
-  initBuf <- av_malloc initSize -- TODO do we need to free the buffer?
+  initBuf <- liftIO $ av_malloc initSize -- TODO do we need to free the buffer?
   let readFunction _ buf size = do
         -- putStrLn $ "read: " <> show (buf, size)
         hGetBuf h buf (fromIntegral size) >>= \case
           0 -> hs_AVERROR_EOF -- if we return 0 you get "Invalid return value 0 for stream protocol"
           n -> return $ fromIntegral n
-  bracket (makeReadWriteFn readFunction) freeHaskellFunPtr $ \reader -> do
-  let writeFunction _ buf size = do
-        -- putStrLn $ "write: " <> show (buf, size)
-        hPutBuf h buf (fromIntegral size) >> return size -- is this right? hPutBuf returns ()
-  bracket (makeReadWriteFn writeFunction) freeHaskellFunPtr $ \writer -> do
-  let modeMap =
-        [ (sEEK_END, SeekFromEnd)
-        , (sEEK_CUR, RelativeSeek)
-        , (sEEK_SET, AbsoluteSeek)
-        ]
-      seekFunction _ posn whence = if whence .&. {#const AVSEEK_SIZE #} == {#const AVSEEK_SIZE #}
-        then fmap fromIntegral $ hFileSize h
-        else do
-          -- TODO is there a more reliable way to get rid of all extra ffmpeg stuff?
-          -- AVSEEK_SIZE is 0x10000 and AVSEEK_FORCE is 0x20000
-          mode <- case lookup (whence .&. 0xFFFF) modeMap of
-            Nothing -> do
-              putStrLn $ "Warning: ffmpeg passed us an unrecognized seek mode " <> show whence
-              return AbsoluteSeek
-            Just mode -> return mode
-          -- putStrLn $ "seek: " <> show (posn, whence)
-          hSeek h mode (fromIntegral posn) >> fmap fromIntegral (hTell h)
-  bracket (makeSeekFn seekFunction) freeHaskellFunPtr $ \seeker -> do
-  bracket
-    (avio_alloc_context (castPtr initBuf) (fromIntegral initSize) (if canWrite then 1 else 0) nullPtr reader writer seeker)
-    (\p -> with p avio_context_free)
-    f
+  brkt (makeReadWriteFn readFunction) freeHaskellFunPtr $ \reader -> do
+    let writeFunction _ buf size = do
+          -- putStrLn $ "write: " <> show (buf, size)
+          hPutBuf h buf (fromIntegral size) >> return size -- is this right? hPutBuf returns ()
+    brkt (makeReadWriteFn writeFunction) freeHaskellFunPtr $ \writer -> do
+      let modeMap =
+            [ (sEEK_END, SeekFromEnd)
+            , (sEEK_CUR, RelativeSeek)
+            , (sEEK_SET, AbsoluteSeek)
+            ]
+          seekFunction _ posn whence = if whence .&. {#const AVSEEK_SIZE #} == {#const AVSEEK_SIZE #}
+            then fmap fromIntegral $ hFileSize h
+            else do
+              -- TODO is there a more reliable way to get rid of all extra ffmpeg stuff?
+              -- AVSEEK_SIZE is 0x10000 and AVSEEK_FORCE is 0x20000
+              mode <- case lookup (whence .&. 0xFFFF) modeMap of
+                Nothing -> do
+                  putStrLn $ "Warning: ffmpeg passed us an unrecognized seek mode " <> show whence
+                  return AbsoluteSeek
+                Just mode -> return mode
+              -- putStrLn $ "seek: " <> show (posn, whence)
+              hSeek h mode (fromIntegral posn) >> fmap fromIntegral (hTell h)
+      brkt (makeSeekFn seekFunction) freeHaskellFunPtr $ \seeker -> do
+        brkt
+          (avio_alloc_context (castPtr initBuf) (fromIntegral initSize) (if canWrite then 1 else 0) nullPtr reader writer seeker)
+          (\p -> with p avio_context_free)
+          f
+
+data FFMPEGError = FFMPEGError
+  { ffContext :: String -- usually a function name
+  , ffCode    :: Int
+  } deriving (Show, Typeable)
+instance Exception FFMPEGError
+
+ffCheck :: (Integral a) => String -> (a -> Bool) -> IO a -> IO ()
+ffCheck ctx test act = act >>= \ret -> unless (test ret) $ throwIO FFMPEGError
+  { ffContext = ctx
+  , ffCode    = fromIntegral ret
+  }
+
+withStream
+  :: (MonadIO m)
+  => Bracket m
+  -> AVMediaType
+  -> Either Handle FilePath
+  -> (AVFormatContext -> AVCodecContext -> AVStream -> m a)
+  -> m a
+withStream brkt mediaType input fn = do
+  runBracket brkt avformat_alloc_context (\p -> with p avformat_close_input) $ \fmt_ctx -> let
+    openInput = case input of
+      Right f -> do
+        liftIO $ with fmt_ctx $ \pctx -> do
+          withCString f $ \s -> do
+            ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx s nullPtr nullPtr
+        afterOpenInput
+      Left h -> withHandleAVIO brkt h $ \avio -> do
+        liftIO $ {#set AVFormatContext->pb #} fmt_ctx avio
+        liftIO $ with fmt_ctx $ \pctx -> do
+          ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx nullPtr nullPtr nullPtr
+        afterOpenInput
+    afterOpenInput = do
+      liftIO $ ffCheck "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info fmt_ctx nullPtr
+      (audio_stream_index, dec) <- liftIO $ alloca $ \pdec -> do
+        audio_stream_index <- av_find_best_stream fmt_ctx mediaType -1 -1 pdec 0
+        dec <- peek pdec
+        return (audio_stream_index, dec)
+      runBracket brkt (avcodec_alloc_context3 dec) (\p -> with p avcodec_free_context) $ \dec_ctx -> do
+        stream <- liftIO $ (!! fromIntegral (audio_stream_index)) <$> getStreams fmt_ctx
+        params <- liftIO $ stream_codecpar stream
+        liftIO $ ffCheck "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context dec_ctx params
+        liftIO $ ffCheck "avcodec_open2" (== 0) $ avcodec_open2 dec_ctx dec nullPtr
+        fn fmt_ctx dec_ctx stream
+    in openInput
+
+ffSource :: (MonadResource m) => Either Handle FilePath -> IO (CA.AudioSource m Int16)
+ffSource input = do
+  (rate, channels, frames) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \_fmt_ctx dec_ctx stream -> do
+    rate <- {#get AVCodecContext->sample_rate #} dec_ctx
+    channels <- {#get AVCodecContext->channels #} dec_ctx
+    frames <- {#get AVStream->nb_frames #} stream
+    return (rate, channels, frames)
+  return CA.AudioSource
+    { CA.source   = withStream conduitBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx dec_ctx stream -> do
+      audio_stream_index <- liftIO $ stream_index stream
+      sampleFormat <- liftIO $ toEnum . fromIntegral <$> {#get AVCodecContext->sample_fmt #} dec_ctx
+      bracketP av_frame_alloc (\f -> with f av_frame_free) $ \frame -> do
+        bracketP av_packet_alloc (\p -> with p av_packet_free) $ \packet -> let
+          loop = do
+            codePacket <- liftIO $ av_read_frame fmt_ctx packet
+            if codePacket < 0
+              then return () -- probably reached end of file
+              else do
+                packetIndex <- liftIO $ packet_stream_index packet
+                if packetIndex /= audio_stream_index
+                  then do
+                    liftIO $ av_packet_unref packet
+                    loop
+                  else do
+                    liftIO $ ffCheck "avcodec_send_packet" (>= 0) $ avcodec_send_packet dec_ctx packet
+                    liftIO $ av_packet_unref packet
+                    codeFrame <- liftIO $ avcodec_receive_frame dec_ctx frame
+                    if codeFrame < 0
+                      then loop -- no audio received yet? maybe need more packets
+                      else do
+                        -- TODO use swresample to do this
+                        countSamples <- liftIO $ {#get AVFrame->nb_samples #} frame
+                        case sampleFormat of
+                          AV_SAMPLE_FMT_S16 -> do
+                            p <- liftIO $ frame_data frame >>= peek
+                            channelVector <- liftIO $ do
+                              fptr <- newForeignPtr_ $ (castPtr :: Ptr CUChar -> Ptr Int16) p
+                              V.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral $ countSamples * channels
+                            yield channelVector
+                          AV_SAMPLE_FMT_S32 -> do
+                            p <- liftIO $ frame_data frame >>= peek
+                            channelVector <- liftIO $ do
+                              fptr <- newForeignPtr_ $ (castPtr :: Ptr CUChar -> Ptr Int32) p
+                              V.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral $ countSamples * channels
+                            yield $ V.map (fromIntegral . (`shiftR` 16)) channelVector
+                          AV_SAMPLE_FMT_S16P -> do
+                            ps <- liftIO $ frame_data frame >>= peekArray (fromIntegral channels)
+                            channelVectors <- liftIO $ forM ps $ \p -> do
+                              fptr <- newForeignPtr_ $ (castPtr :: Ptr CUChar -> Ptr Int16) p
+                              V.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral countSamples
+                            yield $ CA.interleave channelVectors
+                          AV_SAMPLE_FMT_FLT -> do
+                            p <- liftIO $ frame_data frame >>= peek
+                            channelVector <- liftIO $ do
+                              fptr <- newForeignPtr_ $ (castPtr :: Ptr CUChar -> Ptr Float) p
+                              V.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral $ countSamples * channels
+                            yield $ V.map CA.integralSample channelVector
+                          AV_SAMPLE_FMT_FLTP -> do
+                            ps <- liftIO $ frame_data frame >>= peekArray (fromIntegral channels)
+                            channelVectors <- liftIO $ forM ps $ \p -> do
+                              fptr <- newForeignPtr_ $ (castPtr :: Ptr CUChar -> Ptr Float) p
+                              V.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral countSamples
+                            yield $ V.map CA.integralSample $ CA.interleave channelVectors
+                          _ -> error $ "Unsupported AVSampleFormat: " <> show sampleFormat
+                        loop
+          in loop
+    , CA.rate     = fromIntegral rate
+    , CA.channels = fromIntegral channels
+    , CA.frames   = fromIntegral frames
+    }
 
 -- TODO clean up, better resource allocation, get rid of unnecessary audio format conversion from sample code
 audioIntegratedVolume :: FilePath -> IO (Maybe Float)
 audioIntegratedVolume f = do
 
-  let check s test act = act >>= \ret -> unless (test ret) $ error $ s <> " returned " <> show ret
-
-  bracket avformat_alloc_context (\p -> with p avformat_close_input) $ \fmt_ctx -> do
-  with fmt_ctx $ \pctx -> do
-    withCString f $ \s -> do
-      check "avformat_open_input" (== 0) $ avformat_open_input pctx s nullPtr nullPtr
-  check "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info fmt_ctx nullPtr
-  (audio_stream_index, dec) <- alloca $ \pdec -> do
-    audio_stream_index <- av_find_best_stream fmt_ctx AVMEDIA_TYPE_AUDIO -1 -1 pdec 0
-    dec <- peek pdec
-    return (audio_stream_index, dec)
-  bracket (avcodec_alloc_context3 dec) (\p -> with p avcodec_free_context) $ \dec_ctx -> do
-  stream <- (!! fromIntegral (audio_stream_index)) <$> getStreams fmt_ctx
-  params <- stream_codecpar stream
-  check "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context dec_ctx params
-  check "avcodec_open2" (== 0) $ avcodec_open2 dec_ctx dec nullPtr
+  withStream unliftBracket AVMEDIA_TYPE_AUDIO (Right f) $ \fmt_ctx dec_ctx stream -> do
 
   let filters_descr = "ebur128=metadata=1,aresample=8000,aformat=sample_fmts=s16:channel_layouts=mono"
   abuffersrc <- withCString "abuffer" avfilter_get_by_name
@@ -665,7 +789,7 @@ audioIntegratedVolume f = do
   buffersrc_ctx <- alloca $ \p -> do
     withCString "in" $ \pname -> do
       withCString args $ \pargs -> do
-        check "avfilter_graph_create_filter" (>= 0) $ do
+        ffCheck "avfilter_graph_create_filter" (>= 0) $ do
           avfilter_graph_create_filter p abuffersrc pname pargs nullPtr filter_graph
     peek p
   -- print buffersrc_ctx
@@ -673,15 +797,15 @@ audioIntegratedVolume f = do
   -- buffer audio sink: to terminate the filter chain.
   buffersink_ctx <- alloca $ \p -> do
     withCString "out" $ \pname -> do
-      check "avfilter_graph_create_filter" (>= 0) $ do
+      ffCheck "avfilter_graph_create_filter" (>= 0) $ do
         avfilter_graph_create_filter p abuffersink pname nullPtr nullPtr filter_graph
     peek p
 
-  check "av_opt_set_int_list (sample_fmts)" (>= 0) $ do
+  ffCheck "av_opt_set_int_list (sample_fmts)" (>= 0) $ do
     av_opt_set_int_list (coerce buffersink_ctx) "sample_fmts"     out_sample_fmts     av_OPT_SEARCH_CHILDREN
-  check "av_opt_set_int_list (channel_layouts)" (>= 0) $ do
+  ffCheck "av_opt_set_int_list (channel_layouts)" (>= 0) $ do
     av_opt_set_int_list (coerce buffersink_ctx) "channel_layouts" out_channel_layouts av_OPT_SEARCH_CHILDREN
-  check "av_opt_set_int_list (sample_rates)" (>= 0) $ do
+  ffCheck "av_opt_set_int_list (sample_rates)" (>= 0) $ do
     av_opt_set_int_list (coerce buffersink_ctx) "sample_rates"    out_sample_rates    av_OPT_SEARCH_CHILDREN
 
   -- Set the endpoints for the filter graph. The filter_graph will
@@ -708,11 +832,11 @@ audioIntegratedVolume f = do
   (inputs', outputs') <- withCString filters_descr $ \cstr -> do
     with inputs $ \pinputs -> do
       with outputs $ \poutputs -> do
-        check "avfilter_graph_parse_ptr" (>= 0) $ do
+        ffCheck "avfilter_graph_parse_ptr" (>= 0) $ do
           avfilter_graph_parse_ptr filter_graph cstr pinputs poutputs nullPtr
         (,) <$> peek pinputs <*> peek poutputs
 
-  check "avfilter_graph_config" (>= 0) $ avfilter_graph_config filter_graph nullPtr
+  ffCheck "avfilter_graph_config" (>= 0) $ avfilter_graph_config filter_graph nullPtr
 
   -- Print summary of the sink buffer
   -- Note: args buffer is reused to store channel layout string
@@ -731,6 +855,7 @@ audioIntegratedVolume f = do
   bracket av_frame_alloc (\p -> with p av_frame_free) $ \frame -> do
   bracket av_frame_alloc (\p -> with p av_frame_free) $ \filt_frame -> do
   vol <- newIORef Nothing
+  audio_stream_index <- stream_index stream
   alloca $ \(AVPacket -> packet) -> let
     readFrame = do
       ret <- av_read_frame fmt_ctx packet
