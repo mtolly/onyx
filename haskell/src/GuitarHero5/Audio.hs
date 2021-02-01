@@ -2,19 +2,28 @@
 Ported from FsbDecrypt.java by Quidrex
 https://www.fretsonfire.org/forums/viewtopic.php?t=60499
 -}
+{-# LANGUAGE OverloadedStrings #-}
 module GuitarHero5.Audio where
 
-import           Audio                (audioIO)
-import           Control.Monad        (guard)
+import           Audio                       (audioIO)
+import           Control.Monad               (forM_, guard)
+import           Control.Monad.ST
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
-import qualified Data.ByteString      as B
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.Conduit.Audio   as CA
-import           Data.SimpleHandle    (byteStringSimpleHandle, makeHandle,
-                                       useHandle)
-import           FFMPEG               (ffSource)
+import           Data.Bits
+import qualified Data.ByteString             as B
+import qualified Data.ByteString.Lazy        as BL
+import qualified Data.Conduit.Audio          as CA
+import           Data.List.Extra             (stripSuffix)
+import           Data.SimpleHandle           (byteStringSimpleHandle,
+                                              makeHandle, useHandle)
+import           Data.STRef
+import qualified Data.Vector.Unboxed         as VU
+import qualified Data.Vector.Unboxed.Mutable as MVU
+import           Data.Word
+import           FFMPEG                      (ffSource)
+import           System.FilePath             (takeFileName)
 
 keys :: [B.ByteString]
 keys = map B.pack
@@ -276,6 +285,9 @@ keys = map B.pack
   , [0x83, 0x0c, 0x2b, 0x6f, 0x44, 0x71, 0x77, 0xfb, 0xd1, 0x6c, 0x0e, 0x7c, 0x63, 0x83, 0x7b, 0x18]
   ]
 
+checkFSB4 :: B.ByteString -> Maybe B.ByteString
+checkFSB4 b = guard ("FSB4" `B.isPrefixOf` b) >> return b
+
 aesDecrypt :: B.ByteString -> Maybe B.ByteString
 aesDecrypt bs = do
   guard $ B.length bs >= 0x800
@@ -288,15 +300,15 @@ aesDecrypt bs = do
   let footer = ctrCombine cipher iv cipherFooter
       keyIndex = sum $ map (B.index footer) [4..7]
   key <- makeKey $ keys !! fromIntegral keyIndex
-  return $ ctrCombine key iv cipherData
-
--- TODO also port the FsbDecrypter class
+  checkFSB4 $ ctrCombine key iv cipherData
 
 convertAudio :: FilePath -> FilePath -> IO ()
 convertAudio fin fout = do
   enc <- B.readFile fin
   dec <- case aesDecrypt enc of
-    Nothing  -> error "Couldn't decrypt GH .fsb.xen audio"
+    Nothing  -> case stripSuffix ".fsb.xen" (takeFileName fin) >>= \base -> fsbDecrypt base enc of
+      Nothing  -> error "Couldn't decrypt GH .fsb.xen audio"
+      Just dec -> return dec
     Just dec -> return dec
   let dec' = BL.concat
         [ BL.fromStrict $ B.take 0x62 dec
@@ -307,3 +319,63 @@ convertAudio fin fout = do
   useHandle readable $ \h -> do
     src <- ffSource (Left h)
     audioIO Nothing (CA.mapSamples CA.fractionalSample src) fout
+
+reverseMapping :: B.ByteString
+reverseMapping = B.pack $ flip map [0 .. 0xFF] $ \i -> foldr (.|.) 0
+  -- i is a Word8 so shiftR fills with zeroes, matching the Java >>>
+  [  i `shiftR` 7
+  , (i `shiftR` 5) .&. 0x02
+  , (i `shiftR` 3) .&. 0x04
+  , (i `shiftR` 1) .&. 0x08
+  , (i `shiftL` 7)
+  , (i `shiftL` 5) .&. 0x40
+  , (i `shiftL` 3) .&. 0x20
+  , (i `shiftL` 1) .&. 0x10
+  ]
+
+crcTable :: VU.Vector Word32
+crcTable = VU.fromList $ flip map [0..255] $ let
+  poly = 0xEDB88320 :: Word32
+  crcStep crc = if crc `testBit` 0
+    then (crc `shiftR` 1) `xor` poly
+    else crc `shiftR` 1
+  in foldr (.) id $ replicate 8 crcStep
+
+qbKeyCRC :: B.ByteString -> Word32
+qbKeyCRC = go 0xFFFFFFFF where
+  go crc bs = case B.uncons bs of
+    Nothing -> crc
+    Just (b, bs') -> let
+      index = fromIntegral crc `xor` b
+      entry = crcTable VU.! fromIntegral index
+      crc' = (crc `shiftR` 8) `xor` entry
+      in go crc' bs'
+
+crc32 :: B.ByteString -> Word32
+crc32 = (`xor` 0xFFFFFFFF) . qbKeyCRC
+
+-- Haven't successfully tested this yet
+fsbDecrypt :: String -> B.ByteString -> Maybe B.ByteString
+fsbDecrypt basename ciphertext = runST $ do
+
+  let x = VU.fromList $ map (fromIntegral . fromEnum) basename
+  y <- MVU.new 32
+  z <- MVU.new 31
+  let l = VU.length x
+  a <- newSTRef (0xFFFFFFFF :: Word32)
+
+  forM_ [0..31] $ \i -> do
+    modifySTRef a (`xor` complement (crc32 $ B.singleton $ x VU.! (i `rem` l)))
+    aVal <- readSTRef a
+    MVU.write y i (x VU.! (fromIntegral aVal `rem` l) :: Word8)
+
+  forM_ [0..30] $ \i -> do
+    yVal <- MVU.read y i
+    modifySTRef a (`xor` complement (crc32 $ B.singleton yVal))
+    modifySTRef a (`shiftR` (i .&. 0x03))
+    aVal <- readSTRef a
+    MVU.write z i (fromIntegral aVal :: Word8)
+
+  zVals <- VU.freeze z
+  return $ checkFSB4 $ B.pack $ flip map (zip [0..] $ B.unpack ciphertext) $ \(i, c) ->
+    (B.index reverseMapping $ fromIntegral c) `xor` (zVals VU.! (i `rem` 31))

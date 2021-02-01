@@ -806,15 +806,17 @@ bytesFromInteger len n = if len <= 0
   else bytesFromInteger (len - 1) (n `shiftR` 8)
     <> B.singleton (fromIntegral $ n .&. 0xFF)
 
-xk0 :: B.ByteString
+xk0, xk3, xk4 :: B.ByteString
 xk0 = B.pack [81,236,31,157,86,38,194,252,16,166,103,100,203,58,109,77,161,231,78,168,66,240,244,253,250,102,239,199,142,16,47,228,28,163,29,208,206,57,46,195,25,45,208,88,116,121,172,8,231,144,193,172,45,198,235,71,232,61,207,76,109,255,81,101,212,110,189,15,21,121,55,149,196,175,144,158,43,80,138,10,34,74,179,65,229,137,128,115,205,250,33,2,245,221,48,221,7,42,111,52,7,129,151,126,178,251,114,233,234,193,136,57,172,72,43,168,77,252,215,237,155,249,222,194,69,147,76,76]
+xk3 = B.pack [31,134,143,212,255,128,118,98,205,60,200,172,170,166,104,67,176,19,125,175,0,67,246,14,197,155,196,208,213,163,80,44,129,207,141,172,234,16,7,18,26,14,85,27,200,167,221,17,17,64,100,183,69,50,218,177,176,178,243,210,221,183,24,158,24,215,105,3,48,243,119,138,224,101,191,168,244,24,201,51,136,133,117,249,194,159,105,166,22,56,128,140,28,96,45,238,68,90,142,119,104,112,161,82,145,90,161,158,212,76,199,151,229,125,20,168,91,26,97,126,93,52,68,95,146,114,108,53,15,77,71,204,91,8,98,245,64,230,221,173,141,60,158,239,68,45,51,86,58,188,22,127,131,147,53,41,1,79,174,25,235,177,15,18,222,22,146,104,233,54,164,77,85,107,144,139,34,12,129,114,156,134,235,209,50,73,34,113,52,235,176,208,51,31,121,31,230,13,94,38,66,196,202,83,49,145,41,53,172,6,128,125,158,93,167,9,235,68,22,192,68,26,85,62,156,66,34,233,142,151,79,107,12,205,197,138,38,158,47,102,17,62,152,71,68,155,112,56,86,34,199,60,61,102,78,153]
+xk4 = B.pack [181,255,98,235,236,123,195,61,221,160,246,230,6,142,28,132,31,63,53,213,48,161,74,192,119,88,214,132,78,88,136,198,150,2,247,130,204,73,188,247,120,232,152,168,239,168,99,110,110,60,122,255,24,179,170,254,142,252,118,42,151,197,232,0,99,210,97,91,49,186,221,180,92,167,238,111,128,218,120,51,125,214,157,144,189,220,209,86,221,161,63,135,33,118,176,177,167,77,250,123,145,17,245,169,130,239,145,116,104,176,85,93,125,5,25,79,190,57,153,119,119,130,226,92,48,144,36,206,168,247,4,199,2,249,243,149,184,26,94,238,35,146,125,180,78,68,169,86,163,210,253,64,7,202,113,163,151,62,211,141,37,158,152,66,67,60,178,99,251,138,49,84,50,204,82,136,109,197,134,174,72,76,249,25,202,174,129,4,25,41,240,4,98,221,146,89,66,109,233,62,196,38,200,57,97,60,236,229,120,7,56,178,249,235,100,24,193,10,70,22,102,84,67,172,47,91,47,127,99,137,169,148,101,48,98,178,209,180,45,126,179,186,209,221,47,89,168,63,146,18,205,135,39,241,41,165,234,183,23,109,53,32,215,214,169,156,187,121,78,56,161,156,74,252,84,95,124,108,4,23,118,154,27,211,13,224,15,9,158,145,129,210,51,6,58,61,14,255,168,26,7,34,159,39,119,102,255,204,234,30,157,131,79,47,103,155,185,1,133,176,38,83,14,69,132,92,168,108,205,12,246,30,43,202,244,45,166,81,17,106,43,191,132,202,71,223,30,167,125,57,47,59,188,236,221,24,35,84,131,73,3,172,110,32,219,142,79,231,174,126,4,155,90,11,186,226,91,14,63,223,25,27,237,123,198,128,116,251,181,197,75,142,243,80,225,123,142,254,4,76,22,154,236,253,203,174,35,210,251,137,38,205,176,210,94,231,200,254,94,81,172,13,238,71,56,217,6,182,178,3,76,241,57,236,200,142,230,203,190,75,248,199,215,233,56,135,204,223,253,23,230,206,41,170,45,192,74,13,101,176,166,155,13,155,180,253,171,242,71,4,224,37,250,207,58,24,141,47,241,169,188,253,63,25,174,242,168,197,158,166,234,240,183,109,0,173,80,5,199,165,182,79,247,207,139,235,141,237,97,179,75,95,156,122,15,158,35,107,58,143,27,189,210,80,222,208,107,189,135,82,226,234,82,242,173,100,249,188,18,140,179,234,180,177,20,97,1,54,204,174,209,126,9,255,197,102,175,108,106,26,79,153,255,221,241,105,190,87,138,31,154,103,208,171,174,117,110,226,9,131,173,147,26,243,51,93,249,105,114,135,77,115,196,54,11,156,29,42,88,134,218,148,191,26,83,123,116,210,125,243,62,16,23,141,172,219,87,200,73,107,61,9,138,154,116,84,3,18,60,7,209,236,60,180,42,148,187,103,243,167,132,85,163,82,121,46,50,95,76,224,150,82,95,84,2,221,100,103,72,169,50,116,23,225,253,6,25,222,117,225,148,154,133,254,233,139,200,9,73,132,208,144,175,36,118,172,221,246,38,157,219,9,239,50,126,221,80,133,58,155,123,5,51,63,254,15,239,52,27,198,201,42,220,8,238,117,196,103,94,103,205,254,114,161,132,173,234,195,252,138,38,187,8,202,161,27,211,83,127,102,116,161,197,217,20,111,71,75,36,243,85,200,224,3,218,110,121,138,165,53,7,242,94,158,65,34,50,63,91,254,121,244,25,41,169,127,10,150,26,196,120,92,131,10,43,18,221,181,5,12,127,73,114,163,99,202,76,188,84,61,61,213,43,187,180,204,232,21,234,203,19,201,26,120,199,146,224,167,225,134,4,217,213,239,59,40,27,248,245,51,169,168,97,194,218,130,11,165,251,248,122,142,102,28,33,16,168,102,88,97,184,220,51,211,78,21,94,131,173,71,181,255,9,53,163,237,228,196,65,210,51,142,110,49,44,254,76,216,253,158,43,208,60,78,39,143,71,36,165,165,199,55,146,208,216,141]
 
-loadKVbin :: B.ByteString -> KV
-loadKVbin bs = let
+loadKVbinCON :: B.ByteString -> KV
+loadKVbinCON bs = let
   base = case B.length bs of
     0x3FF0 -> bs
     0x4000 -> B.drop 0x10 bs
-    _      -> error "loadKVbin: incorrect size"
+    _      -> error "loadKVbinCON: incorrect size"
   xc = B.take 0x1A8 $ B.drop 0x9B8 base
   d = bytesToInteger xk0 -- constant
   e = bytesToInteger $ B.take 4 $ B.drop 0x28C base
@@ -840,6 +842,36 @@ loadKVbin bs = let
       , private_qinv = inverseq
       }
     , kv_PackageMagic = "CON "
+    }
+
+loadKVbinLIVE :: KV
+loadKVbinLIVE = let
+  base = xk4
+  e = 3
+  d = bytesToInteger xk3
+  modulus = bytesToInteger $ B.take 0x100 base
+  p = bytesToInteger $ B.take 0x80 $ B.drop 0x100 base
+  q = bytesToInteger $ B.take 0x80 $ B.drop (0x100 + 0x80) base
+  dp = bytesToInteger $ B.take 0x80 $ B.drop (0x100 + 0x80 * 2) base
+  dq = bytesToInteger $ B.take 0x80 $ B.drop (0x100 + 0x80 * 3) base
+  inverseq = bytesToInteger $ B.take 0x80 $ B.drop (0x100 + 0x80 * 4) base
+  xc = B.replicate 0x1A8 0
+  in KV
+    { kv_Certificate = xc
+    , kv_PrivateKey = PrivateKey
+      { private_pub = PublicKey
+        { public_size = 0x100 -- I think?
+        , public_n = modulus
+        , public_e = e
+        }
+      , private_d = d
+      , private_p = p
+      , private_q = q
+      , private_dP = dp
+      , private_dQ = dq
+      , private_qinv = inverseq
+      }
+    , kv_PackageMagic = "LIVE"
     }
 
 -- testSign :: FilePath -> FilePath -> IO ()
@@ -897,6 +929,7 @@ data CreateOptions = CreateOptions
   , createVersion       :: Int32
   , createBaseVersion   :: Int32
   , createTransferFlags :: Word8
+  , createLIVE          :: Bool -- TODO creating LIVE files doesn't work yet
   }
 
 rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
@@ -914,6 +947,7 @@ rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ do
     , createVersion       = 0
     , createBaseVersion   = 0
     , createTransferFlags = 0xC0
+    , createLIVE = False
     } dir fout
 
 rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
@@ -931,6 +965,7 @@ rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ do
     , createVersion       = 0
     , createBaseVersion   = 0
     , createTransferFlags = 0xC0
+    , createLIVE = False
     } dir fout
 
 makeCON :: CreateOptions -> FilePath -> FilePath -> IO ()
@@ -1000,26 +1035,31 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
   BL.hPut fd $ runPut $ void $ codecOut bin metadata
 
   kv <- xboxKV >>= B.readFile
-  let key = loadKVbin kv
-      initHeader = CONHeader
-        { ch_PublicKeyCertSize       = B.pack [0x01, 0xA8]
-        , ch_CertOwnerConsoleID      = B.pack [0x09, 0x12, 0xBA, 0x26, 0xE3]
-        , ch_CertOwnerConsolePartNum = "X803395-001"
-        , ch_CertOwnerConsoleType    = Retail
-        , ch_CertDateGeneration      = "09-18-06"
-        , ch_PublicExponent          = bytesFromInteger 4 $ public_e $ private_pub $ kv_PrivateKey key
-        , ch_PublicModulus           = stockScramble $ bytesFromInteger 0x80 $ public_n $ private_pub $ kv_PrivateKey key
-        , ch_CertSignature           = B.take 0x100 $ B.drop 0xA60 kv
-        , ch_Signature               = B.replicate 0x80 0 -- gets filled in when package is done
-        }
+  let key = if createLIVE opts then loadKVbinLIVE else loadKVbinCON kv
+      header maybeSig = if createLIVE opts
+        then LIVE LIVEHeader
+          { lh_PackageSignature = fromMaybe (B.replicate 0x100 0) maybeSig
+          }
+        else CON CONHeader
+          { ch_PublicKeyCertSize       = B.pack [0x01, 0xA8]
+          , ch_CertOwnerConsoleID      = B.pack [0x09, 0x12, 0xBA, 0x26, 0xE3]
+          , ch_CertOwnerConsolePartNum = "X803395-001"
+          , ch_CertOwnerConsoleType    = Retail
+          , ch_CertDateGeneration      = "09-18-06"
+          , ch_PublicExponent          = bytesFromInteger 4 $ public_e $ private_pub $ kv_PrivateKey key
+          , ch_PublicModulus           = stockScramble $ bytesFromInteger 0x80 $ public_n $ private_pub $ kv_PrivateKey key
+          , ch_CertSignature           = B.take 0x100 $ B.drop 0xA60 kv
+          , ch_Signature               = fromMaybe (B.replicate 0x80 0) maybeSig
+          }
+      initHeader = header Nothing
       initPackage = STFSPackage
         { stfsHandle   = fd
-        , stfsHeader   = CON initHeader
+        , stfsHeader   = initHeader
         , stfsMetadata = metadata
         }
 
   hSeek fd AbsoluteSeek 0
-  BL.hPut fd $ runPut $ void $ codecOut bin $ CON initHeader
+  BL.hPut fd $ runPut $ void $ codecOut bin initHeader
 
   let makeFileEntries _ [] = (:[]) $ FileEntry
         { fe_FileName        = ""
@@ -1131,12 +1171,10 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
     hSeek fd AbsoluteSeek 0x22C
     signedStuff <- B.hGet fd 0x118
     case sign Nothing (Just SHA1) (kv_PrivateKey key) signedStuff of
-      Left err -> error $ show err
-      Right signature -> return initHeader
-        { ch_Signature = B.reverse signature
-        }
+      Left err        -> error $ show err
+      Right signature -> return $ header $ Just $ B.reverse signature
   hSeek fd AbsoluteSeek 0
-  BL.hPut fd $ runPut $ void $ codecOut bin $ CON finalHeader
+  BL.hPut fd $ runPut $ void $ codecOut bin finalHeader
 
 stfsFolder :: (MonadIO m) => FilePath -> m (Word32, Word32)
 stfsFolder f = liftIO $ withBinaryFile f ReadMode $ \h -> do

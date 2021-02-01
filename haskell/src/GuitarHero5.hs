@@ -21,32 +21,14 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (listToMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import qualified Data.Vector                      as V
 import           Data.Word
+import           GuitarHero5.Audio                (qbKeyCRC)
 import           Guitars                          (emit5')
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
 import           RockBand.Common                  (Difficulty (..),
                                                    StrumHOPOTap (..))
 import qualified Sound.MIDI.Util                  as U
-
-crcTable :: V.Vector Word32
-crcTable = V.fromList $ flip map [0..255] $ let
-  poly = 0xEDB88320 :: Word32
-  crcStep crc = if crc `testBit` 0
-    then (crc `shiftR` 1) `xor` poly
-    else crc `shiftR` 1
-  in foldr (.) id $ replicate 8 crcStep
-
-qbKeyCRC :: B.ByteString -> Word32
-qbKeyCRC = go 0xFFFFFFFF where
-  go crc bs = case B.uncons bs of
-    Nothing -> crc
-    Just (b, bs') -> let
-      index = fromIntegral crc `xor` b
-      entry = crcTable V.! fromIntegral index
-      crc' = (crc `shiftR` 8) `xor` entry
-      in go crc' bs'
 
 data Node = Node
   { nodeFileType       :: Word32

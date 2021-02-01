@@ -2280,6 +2280,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     (_, _, Arr.PartArrangement arr) <- parsedArrFiles
                     return $ Arr.arr_averageTempo arr
               arrangements <- forM (zip [0..] parsedArrFiles) $ \(i, (fpart, arrSlot, contents)) -> do
+                -- TODO ArrangementSort doesn't appear to work for multiples of the same arrangement label.
+                -- Instead it sorts by the arrangement ID UUID!
+                -- So, we could just use the first character or so to encode `i`.
                 arrID <- stackIO UUID.nextRandom
                 songFileID <- stackIO UUID.nextRandom
                 songXmlID <- stackIO UUID.nextRandom

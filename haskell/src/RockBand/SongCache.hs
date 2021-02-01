@@ -400,6 +400,7 @@ fixSongCache path = do
         , createVersion       = 1025
         , createBaseVersion   = 1
         , createTransferFlags = 64
+        , createLIVE = False
         } Folder
           { folderSubfolders = []
           , folderFiles = [("songcache", runPut $ void $ codecOut bin newCache)]

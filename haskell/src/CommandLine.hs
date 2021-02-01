@@ -1424,6 +1424,7 @@ blackVenue fcon = inside ("Inserting black VENUE in: " <> fcon) $ do
             , createVersion       = 0
             , createBaseVersion   = 0
             , createTransferFlags = 0xC0
+            , createLIVE          = False
             }
           ftemp = fcon <> ".tmp"
       stackIO $ makeCONMemory opts topFolder' ftemp
