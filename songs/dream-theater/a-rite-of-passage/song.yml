@@ -99,6 +99,14 @@ parts:
       tones:
         # TODO need a few fancy tones
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  bass5:
+    pro-guitar:
+      tuning:
+        base: bass-5
+        offsets: [3, 0, 0, 0, 0] # DEADG
+      tones:
+        # TODO need a few fancy tones
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3-2x:
     game: rb3
@@ -108,4 +116,5 @@ targets:
     game: rs
     arrangements:
     - [bonus-rhythm, bass]
+    - [bonus-rhythm, bass5]
     plan: album

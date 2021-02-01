@@ -34,6 +34,8 @@ end
 # build songs-others/bloodline/od # needs 4-string
 # build songs-hmx/tbrb/here-comes-the-sun
 # build songs/opeth/windowpane
+build songs/dream-theater/a-rite-of-passage # needs 4-string
+build songs/dream-theater/6-00 # needs 4-string
 
 # phrases not done:
 
@@ -50,7 +52,7 @@ end
 # build songs/trioscapes/blast-off # needs 4-string
 # build songs-grinnz/between-the-buried-and-me/mirrors # needs 4-string
 # build songs-grinnz/between-the-buried-and-me/obfuscation # needs 4-string
-# build songs-grinnz/between-the-buried-and-me/disease-injury-madness # needs 4-string
+build songs-grinnz/between-the-buried-and-me/disease-injury-madness # needs 4-string
 # build songs-grinnz/between-the-buried-and-me/desert-of-song # needs 4-string
 # build songs/dream-theater/another-day
 # build songs/dream-theater/take-the-time # needs 4-string
@@ -58,7 +60,6 @@ end
 # build songs/dream-theater/caught-in-a-web
 # build songs/juliaplaysgroove/break-my-heart
 # build songs/liquid-tension-experiment/paradigm-shift
-# build songs/dream-theater/a-rite-of-passage # needs 4-string (and 5-string)
 
 # phrases unknown:
 
