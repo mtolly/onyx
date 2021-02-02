@@ -122,7 +122,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           , impFormat = "Clone Hero"
           , impPath = dir
           , impIndex = Nothing
-          , impProject = importFrom Nothing dir True $ void . importFoF dir
+          , impProject = importFrom Nothing dir True $ importFoF dir
           }
       foundIni loc = do
         let dir = takeDirectory loc
@@ -134,7 +134,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           , impFormat = "Frets on Fire/Phase Shift/Clone Hero"
           , impPath = dir
           , impIndex = Nothing
-          , impProject = importFrom Nothing dir True $ void . importFoF dir
+          , impProject = importFrom Nothing dir True $ importFoF dir
           }
       foundGH loc = do
         let dir = takeDirectory loc
@@ -232,7 +232,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           , impFormat = "Magma Project"
           , impPath = loc
           , impIndex = Nothing
-          , impProject = importFrom Nothing loc False $ void . importMagma loc
+          , impProject = importFrom Nothing loc False $ importMagma loc
           }
       foundAmplitude loc = do
         let dir = takeDirectory loc
@@ -263,7 +263,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       foundSTFS loc = do
         dta <- stackIO $ getSTFSFolder loc >>= findByteString ("songs" :| pure "songs.dta")
         case dta of
-          Just bs -> foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc False $ \i -> void . importSTFS i loc Nothing
+          Just bs -> foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc False $ \i -> importSTFS i loc
           Nothing -> return ([], [])
       foundRS psarc = do
         -- TODO fill in data
@@ -283,7 +283,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       let lookFor [] = stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
             True  -> do
               bs <- stackIO $ B.readFile $ fp </> "songs/songs.dta"
-              foundDTA bs "Rock Band Extracted" fp True $ \i -> void . importSTFSDir i fp Nothing
+              foundDTA bs "Rock Band Extracted" fp True $ \i -> importSTFSDir i fp
             False -> return (map (fp </>) ents, [])
           lookFor ((file, use) : rest) = case filter ((== file) . map toLower) ents of
             match : _ -> use $ fp </> match
@@ -317,7 +317,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             case magic of
               "RBSF" -> do
                 bs <- getRBAFileBS 0 fp
-                foundDTA (BL.toStrict bs) "Magma RBA" fp False $ \_ -> void . importRBA fp Nothing
+                foundDTA (BL.toStrict bs) "Magma RBA" fp False $ \_ -> importRBA fp
               "CON " -> foundSTFS fp
               "LIVE" -> foundSTFS fp
               _ -> return ([], [])
@@ -376,10 +376,10 @@ buildRB2CON rb2 = buildCommon (RB2 rb2) $ \targetHash -> "gen/target" </> target
 buildMagmaV2 :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildMagmaV2 rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> targetHash </> "magma"
 
-buildPSDir :: (MonadIO m) => TargetPS FilePath -> Project -> StackTraceT (QueueLog m) FilePath
+buildPSDir :: (MonadIO m) => TargetPS -> Project -> StackTraceT (QueueLog m) FilePath
 buildPSDir ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps"
 
-buildPSZip :: (MonadIO m) => TargetPS FilePath -> Project -> StackTraceT (QueueLog m) FilePath
+buildPSZip :: (MonadIO m) => TargetPS -> Project -> StackTraceT (QueueLog m) FilePath
 buildPSZip ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps.zip"
 
 buildGH2Dir :: (MonadIO m) => TargetGH2 -> Project -> StackTraceT (QueueLog m) FilePath

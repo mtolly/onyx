@@ -108,14 +108,14 @@ data AudioInfo f = AudioInfo
   , _commands :: [T.Text]
   , _rate     :: Maybe Int
   , _channels :: Int
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 data AudioFile f
   = AudioFile (AudioInfo f)
   | AudioSnippet
     { _expr :: Audio Duration AudioInput
     }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (AudioInfo f) where
   stackJSON = asStrictObject "AudioInfo" $ do
@@ -229,7 +229,8 @@ data Plan f
     , _fileTempo    :: Maybe f
     }
   | MoggPlan
-    { _moggMD5      :: T.Text
+    { _fileMOGG     :: Maybe f
+    , _moggMD5      :: Maybe T.Text
     , _moggParts    :: Parts (PartAudio [Int])
     , _moggCrowd    :: [Int]
     , _pans         :: [Double]
@@ -240,7 +241,7 @@ data Plan f
     , _tuningCents  :: Int
     , _fileTempo    :: Maybe f
     }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 getKaraoke, getMultitrack :: Plan f -> Bool
 getKaraoke = \case
@@ -304,9 +305,10 @@ showMeasureBeats (msr, bts) = T.pack $ show msr ++ "|" ++ show (realToFrac bts :
 
 instance (StackJSON f) => StackJSON (Plan f) where
   stackJSON = Codec
-    { codecIn = decideKey
-      [ ("mogg-md5", object $ do
-        _moggMD5 <- requiredKey "mogg-md5" fromJSON
+    { codecIn = let
+      parseMOGG = object $ do
+        _fileMOGG <- optionalKey "file-mogg" fromJSON
+        _moggMD5 <- optionalKey "mogg-md5" fromJSON
         _moggParts <- requiredKey "parts" fromJSON
         _moggCrowd <- fromMaybe [] <$> optionalKey "crowd" fromJSON
         _pans <- requiredKey "pans" fromJSON
@@ -316,10 +318,9 @@ instance (StackJSON f) => StackJSON (Plan f) where
         _multitrack <- fromMaybe (not _karaoke) <$> optionalKey "multitrack" fromJSON
         _tuningCents <- fromMaybe 0 <$> optionalKey "tuning-cents" fromJSON
         _fileTempo <- fromMaybe Nothing <$> optionalKey "file-tempo" fromJSON
-        expectedKeys ["mogg-md5", "parts", "crowd", "pans", "vols", "comments", "karaoke", "multitrack", "silent", "tuning-cents", "file-tempo"]
+        expectedKeys ["file-mogg", "mogg-md5", "parts", "crowd", "pans", "vols", "comments", "karaoke", "multitrack", "silent", "tuning-cents", "file-tempo"]
         return MoggPlan{..}
-        )
-      ] $ object $ do
+      parseNormal = object $ do
         _song <- optionalKey "song" fromJSON
         _countin <- fromMaybe (Countin []) <$> optionalKey "countin" fromJSON
         _planParts <- fromMaybe (Parts Map.empty) <$> optionalKey "parts" fromJSON
@@ -329,6 +330,7 @@ instance (StackJSON f) => StackJSON (Plan f) where
         _fileTempo <- fromMaybe Nothing <$> optionalKey "file-tempo" fromJSON
         expectedKeys ["song", "countin", "parts", "crowd", "comments", "tuning-cents", "file-tempo"]
         return Plan{..}
+      in decideKey [("mogg-md5", parseMOGG), ("file-mogg", parseMOGG)] parseNormal
     , codecOut = makeOut $ \case
       Plan{..} -> A.object $ concat
         [ map ("song" .=) $ toList _song
@@ -340,7 +342,8 @@ instance (StackJSON f) => StackJSON (Plan f) where
         , map ("file-tempo" .=) $ toList _fileTempo
         ]
       MoggPlan{..} -> A.object $ concat
-        [ ["mogg-md5" .= _moggMD5]
+        [ map ("file-mogg" .=) $ toList _fileMOGG
+        , map ("mogg-md5" .=) $ toList _moggMD5
         , ["parts" .= _moggParts]
         , ["crowd" .= _moggCrowd | not $ null _moggCrowd]
         , ["pans" .= _pans]
@@ -596,7 +599,7 @@ data PartProGuitar f = PartProGuitar
   , pgFixFreeform   :: Bool
   , pgTones         :: Maybe (RSTones f)
   , pgPickedBass    :: Bool
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 tuningBaseFormat :: (SendMessage m) => ValueCodec m A.Value GtrBase
 tuningBaseFormat = Codec
@@ -764,7 +767,7 @@ data PartVocal f = PartVocal
   , vocalKey        :: Maybe Key
   , vocalLipsyncRB3 :: Maybe (LipsyncRB3 f)
   , vocalLipsyncRB2 :: Maybe (LipsyncSource f)
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (PartVocal f) where
   stackJSON = asStrictObject "PartVocal" $ do
@@ -845,7 +848,7 @@ data Part f = Part
   , partMelody    :: Maybe PartMelody
   , partKonga     :: Maybe PartKonga
   , partDance     :: Maybe PartDance
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (Part f) where
   stackJSON = asStrictObject "Part" $ do
@@ -861,8 +864,8 @@ instance (Eq f, StackJSON f) => StackJSON (Part f) where
     partDance     <- partDance     =. opt Nothing "dance"      stackJSON
     return Part{..}
 
-instance (Eq f, StackJSON f) => Default (Part f) where
-  def = fromEmptyObject
+instance Default (Part f) where
+  def = Part Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 instance StackJSON Magma.AutogenTheme where
   stackJSON = enumCodecFull "the name of an autogen theme or null" $ \case
@@ -939,7 +942,7 @@ data Metadata f = Metadata
   , _expertOnly   :: Bool
   , _cover        :: Bool
   , _difficulty   :: Difficulty
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Functor, Foldable, Traversable)
 
 parseAnimTempo :: (SendMessage m) => ValueCodec m A.Value (Either AnimTempo Integer)
 parseAnimTempo = eitherCodec
@@ -987,7 +990,7 @@ data Global f = Global
   , _animTempo           :: Either AnimTempo Integer
   , _backgroundVideo     :: Maybe (VideoInfo f)
   , _fileBackgroundImage :: Maybe f
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, IsString f, StackJSON f) => StackJSON (Global f) where
   stackJSON = asStrictObject "Global" $ do
@@ -1007,7 +1010,7 @@ data VideoInfo f = VideoInfo
   , _videoStartTime :: Maybe Milli -- seconds, can be negative
   , _videoEndTime   :: Maybe Milli
   , _videoLoop      :: Bool
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (StackJSON f) => StackJSON (VideoInfo f) where
   stackJSON = asStrictObject "VideoInfo" $ do
@@ -1078,7 +1081,7 @@ data TargetRB3 f = TargetRB3
   , rb3_Drums       :: FlexPartName
   , rb3_Keys        :: FlexPartName
   , rb3_Vocal       :: FlexPartName
-  } deriving (Eq, Ord, Show, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 parseTargetRB3 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetRB3 f)
 parseTargetRB3 = do
@@ -1116,7 +1119,7 @@ data LipsyncRB3 f = LipsyncRB3
   , lipsyncMember2 :: LipsyncMember
   , lipsyncMember3 :: LipsyncMember
   , lipsyncMember4 :: LipsyncMember
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (LipsyncRB3 f) where
   stackJSON = asStrictObject "LipsyncRB3" $ do
@@ -1133,7 +1136,7 @@ data LipsyncSource f
   | LipsyncTrack4
   | LipsyncVocal (Maybe VocalCount)
   | LipsyncFile f
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (LipsyncSource f) where
   stackJSON = Codec
@@ -1193,7 +1196,7 @@ instance StackJSON TargetRB2 where
 instance Default TargetRB2 where
   def = fromEmptyObject
 
-data TargetPS f = TargetPS
+data TargetPS = TargetPS
   { ps_Common        :: TargetCommon
   , ps_Guitar        :: FlexPartName
   , ps_Bass          :: FlexPartName
@@ -1206,7 +1209,7 @@ data TargetPS f = TargetPS
   , ps_LoadingPhrase :: Maybe T.Text
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
-parseTargetPS :: (SendMessage m, StackJSON f) => ObjectCodec m A.Value (TargetPS f)
+parseTargetPS :: (SendMessage m) => ObjectCodec m A.Value TargetPS
 parseTargetPS = do
   ps_Common        <- ps_Common        =. parseTargetCommon
   ps_Guitar        <- ps_Guitar        =. opt FlexGuitar                "guitar"         stackJSON
@@ -1220,10 +1223,10 @@ parseTargetPS = do
   ps_LoadingPhrase <- ps_LoadingPhrase =. opt Nothing                   "loading-phrase" stackJSON
   return TargetPS{..}
 
-instance (StackJSON f) => StackJSON (TargetPS f) where
+instance StackJSON TargetPS where
   stackJSON = asStrictObject "TargetPS" parseTargetPS
 
-instance (StackJSON f) => Default (TargetPS f) where
+instance Default TargetPS where
   def = fromEmptyObject
 
 data GH2Coop = GH2Bass | GH2Rhythm
@@ -1368,12 +1371,12 @@ instance Default TargetPart where
 data Target f
   = RB3    (TargetRB3 f)
   | RB2    TargetRB2
-  | PS     (TargetPS f)
+  | PS     TargetPS
   | GH2    TargetGH2
   | RS     TargetRS
   | Melody TargetPart
   | Konga  TargetPart
-  deriving (Eq, Ord, Show, Generic, Hashable)
+  deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 addKey :: (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
 addKey codec k v x = A.Object $ Map.insert k v $ Map.fromList $ makeObject (objectId codec) x
@@ -1410,7 +1413,7 @@ data SongYaml f = SongYaml
   , _plans    :: Map.HashMap T.Text (Plan f)
   , _targets  :: Map.HashMap T.Text (Target f)
   , _parts    :: Parts (Part f)
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, IsString f, StackJSON f) => StackJSON (SongYaml f) where
   stackJSON = asStrictObject "SongYaml" $ do

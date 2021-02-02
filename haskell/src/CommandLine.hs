@@ -444,13 +444,13 @@ commands =
           doImport fn inputPath = do
             out <- outputFile opts $ return $ inputPath ++ "_reaper"
             stackIO $ Dir.createDirectoryIfMissing False out
-            let f2x = listToMaybe [ f | Opt2x f <- opts ]
-            void $ fn inputPath f2x out
+            void $ fn inputPath out
+            -- TODO re-add support for Opt2x here
             withSongYaml $ out </> "song.yml"
           pschart dir = do
             out <- outputFile opts $ return $ dir ++ "_reaper"
             stackIO $ Dir.createDirectoryIfMissing False out
-            void $ importFoF dir out
+            importFoF dir out
             withSongYaml $ out </> "song.yml"
       case files' of
         [(FileSTFS, stfsPath)] -> doImport (importSTFS 0) stfsPath
@@ -459,7 +459,7 @@ commands =
         [(FilePS, iniPath)] -> pschart $ takeDirectory iniPath
         [(FileChart, chartPath)] -> pschart $ takeDirectory chartPath
         [(FileSongYaml, yamlPath)] -> withSongYaml yamlPath
-        [(FilePSARC, psarcPath)] -> doImport (\fin _ fout -> importRS fin fout) psarcPath
+        [(FilePSARC, psarcPath)] -> doImport importRS psarcPath
         _ -> case partitionMaybe (isType [FileMidi]) files' of
           ([mid], notMid) -> case partitionMaybe (isType [FileOGG, FileWAV, FileFLAC]) notMid of
             (audio, []      ) -> do

@@ -1,4 +1,4 @@
-module Magma (runMagmaMIDI, runMagma, runMagmaV1, getRBAFile, getRBAFileBS) where
+module Magma (runMagmaMIDI, runMagma, runMagmaV1, getRBAFile, getRBAFileBS, rbaContents) where
 
 import           Control.Monad                  (forM_, replicateM)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
@@ -6,6 +6,9 @@ import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Get                (getWord32le, runGet)
 import qualified Data.ByteString.Lazy           as BL
+import           Data.SimpleHandle              (Readable,
+                                                 byteStringSimpleHandle,
+                                                 makeHandle)
 import           Resources                      (magmaCommonDir, magmaV1Dir,
                                                  magmaV2Dir)
 import qualified System.Directory               as Dir
@@ -76,3 +79,15 @@ getRBAFileBS i rba = liftIO $ IO.withBinaryFile rba IO.ReadMode $ \h -> do
 
 getRBAFile :: (MonadIO m) => Int -> FilePath -> FilePath -> m ()
 getRBAFile i rba out = getRBAFileBS i rba >>= liftIO . BL.writeFile out
+
+rbaContents :: FilePath -> [(Int, Readable)]
+rbaContents rba =
+  -- TODO edit these to not load the whole file in advance, but instead shrink a Handle to a specific subfile
+  [ (0, makeHandle (rba <> " | songs.dta") $ getRBAFileBS 0 rba >>= byteStringSimpleHandle)
+  , (1, makeHandle (rba <> " | MIDI file") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
+  , (2, makeHandle (rba <> " | MOGG file") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
+  , (3, makeHandle (rba <> " | .milo file") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
+  , (4, makeHandle (rba <> " | album art (.bmp)") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
+  , (5, makeHandle (rba <> " | unknown file 5") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
+  , (6, makeHandle (rba <> " | extra info DTA") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
+  ]

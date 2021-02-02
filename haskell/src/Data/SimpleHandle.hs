@@ -123,9 +123,11 @@ useHandle :: Readable -> (Handle -> IO a) -> IO a
 useHandle readable = bracket (rOpen readable) hClose
 
 saveReadable :: Readable -> FilePath -> IO ()
-saveReadable r dest = withBinaryFile dest WriteMode $ \hout -> do
-  -- TODO replace this with a better version that doesn't load the whole file at once
-  useHandle r handleToByteString >>= BL.hPut hout
+saveReadable r dest = case rFilePath r of
+  Just src -> Dir.copyFile src dest
+  Nothing  -> withBinaryFile dest WriteMode $ \hout -> do
+    -- TODO replace this with a better version that doesn't load the whole file at once
+    useHandle r handleToByteString >>= BL.hPut hout
 
 saveHandleFolder :: Folder T.Text Readable -> FilePath -> IO ()
 saveHandleFolder folder dest = do

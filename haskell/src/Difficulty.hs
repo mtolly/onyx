@@ -74,7 +74,7 @@ data DifficultyPS = DifficultyPS
   , chBassGHLTier    :: Integer
   } deriving (Eq, Ord, Show, Read)
 
-difficultyPS :: TargetPS f -> SongYaml f -> DifficultyPS
+difficultyPS :: TargetPS -> SongYaml f -> DifficultyPS
 difficultyPS TargetPS{..} songYaml = let
   rb3 = TargetRB3
     { rb3_Common = ps_Common

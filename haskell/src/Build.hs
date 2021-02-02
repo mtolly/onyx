@@ -2693,10 +2693,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               moggToOgg mogg out
             wav %> buildAudio (Input ogg)
             mogg %> \out -> do
-              p <- inside "Searching for MOGG file" $ searchMOGG audioLib _moggMD5
-              lg $ "Found the MOGG file: " ++ toFilePath p
+              p <- inside "Searching for MOGG file" $ case (_fileMOGG, _moggMD5) of
+                (Nothing, Nothing ) -> fatal "No file path or MD5 hash specified for MOGG file"
+                (Just f , _       ) -> return f -- TODO maybe check md5 if it is specified
+                (Nothing, Just md5) -> toFilePath <$> searchMOGG audioLib md5
+              lg $ "Found the MOGG file: " <> p
               -- TODO: check if it's actually an OGG (starts with OggS)
-              shk $ copyFile' (toFilePath p) out
+              shk $ copyFile' p out
               forceRW out
 
         -- Audio files for the online preview app

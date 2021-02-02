@@ -1477,7 +1477,7 @@ batchPagePS
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> (TargetPS FilePath, PSCreate)) -> IO ())
+  -> ((Project -> (TargetPS, PSCreate)) -> IO ())
   -> IO ()
 batchPagePS sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -1487,7 +1487,7 @@ batchPagePS sink rect tab build = do
   let getTargetSong usePath template = do
         speed <- getSpeed
         return $ \proj -> let
-          defPS = def :: TargetPS FilePath
+          defPS = def :: TargetPS
           tgt = defPS
             { ps_Common = (ps_Common defPS)
               { tgt_Speed = Just speed
@@ -1802,7 +1802,7 @@ songPagePS
   -> Rectangle
   -> FL.Ref FL.Group
   -> Project
-  -> (TargetPS FilePath -> PSCreate -> IO ())
+  -> (TargetPS -> PSCreate -> IO ())
   -> IO ()
 songPagePS sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing

@@ -19,8 +19,6 @@ import           Control.Monad.Trans.State.Strict  (StateT, execState, get, put,
                                                     runStateT)
 import           Control.Monad.Trans.Writer.Strict (Writer, execWriter, tell)
 import           Data.Binary.Get                   (runGetOrFail)
-import qualified Data.ByteString                   as B
-import qualified Data.ByteString.Lazy              as BL
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (find, toList)
 import           Data.Functor.Identity             (Identity)
@@ -32,6 +30,9 @@ import qualified Data.Map                          as Map
 import           Data.Maybe                        (catMaybes, fromJust,
                                                     fromMaybe, isNothing,
                                                     mapMaybe)
+import           Data.SimpleHandle                 (Readable (..), fileReadable,
+                                                    handleToByteString,
+                                                    useHandle)
 import qualified Data.Text                         as T
 import           DeriveHelpers
 import           GHC.Generics                      (Generic)
@@ -568,16 +569,23 @@ readMIDIFile' :: (SendMessage m, ParseFile f) => F.T -> StackTraceT m (Song (f U
 readMIDIFile' mid = readMIDIFile mid >>= interpretMIDIFile
 
 loadRawMIDI :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m F.T
-loadRawMIDI f = inside ("loading MIDI: " <> f) $ do
-  bs <- stackIO $ BL.fromStrict <$> B.readFile f
-  case runGetOrFail getMIDI bs of
-    Left (_, off, err) -> inside ("byte offset " <> show off) $ fatal err
-    Right (_, _, (mid, warnings)) -> do
-      mapM_ warn warnings
-      return mid
+loadRawMIDI = loadRawMIDIReadable . fileReadable
+
+loadRawMIDIReadable :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m F.T
+loadRawMIDIReadable r = do
+  maybe id (\f -> inside $ "loading MIDI: " <> f) (rFilePath r) $ do
+    bs <- stackIO $ useHandle r handleToByteString
+    case runGetOrFail getMIDI bs of
+      Left (_, off, err) -> inside ("byte offset " <> show off) $ fatal err
+      Right (_, _, (mid, warnings)) -> do
+        mapM_ warn warnings
+        return mid
 
 loadMIDI :: (SendMessage m, MonadIO m, ParseFile f) => FilePath -> StackTraceT m (Song (f U.Beats))
 loadMIDI f = loadRawMIDI f >>= readMIDIFile'
+
+loadMIDIReadable :: (SendMessage m, MonadIO m, ParseFile f) => Readable -> StackTraceT m (Song (f U.Beats))
+loadMIDIReadable r = loadRawMIDIReadable r >>= readMIDIFile'
 
 showMIDIFile :: Song [RTB.T U.Beats E.T] -> F.T
 showMIDIFile s = let
@@ -802,3 +810,59 @@ onyxToFixed o = FixedFile
   , fixedBeat             = onyxBeat o
   , fixedVenue            = onyxVenue o
   } where inPart p f = maybe mempty f $ Map.lookup p $ onyxParts o
+
+fixedToOnyx :: FixedFile U.Beats -> OnyxFile U.Beats
+fixedToOnyx f = OnyxFile
+  { onyxParts    = Map.fromList
+    [ (FlexGuitar, mempty
+      { onyxPartGuitar       = fixedPartGuitar       f
+      , onyxPartRealGuitar   = fixedPartRealGuitar   f
+      , onyxPartRealGuitar22 = fixedPartRealGuitar22 f
+      , onyxPartSix          = fixedPartGuitarGHL    f
+      })
+    , (FlexBass, mempty
+      { onyxPartGuitar       = fixedPartBass       f
+      , onyxPartRealGuitar   = fixedPartRealBass   f
+      , onyxPartRealGuitar22 = fixedPartRealBass22 f
+      , onyxPartSix          = fixedPartBassGHL    f
+      })
+    , (FlexKeys, mempty
+      { onyxPartKeys       = fixedPartKeys       f
+      , onyxPartRealKeysE  = fixedPartRealKeysE  f
+      , onyxPartRealKeysM  = fixedPartRealKeysM  f
+      , onyxPartRealKeysH  = fixedPartRealKeysH  f
+      , onyxPartRealKeysX  = fixedPartRealKeysX  f
+      , onyxPartKeysAnimLH = fixedPartKeysAnimLH f
+      , onyxPartKeysAnimRH = fixedPartKeysAnimRH f
+      })
+    , (FlexDrums, mempty
+      { onyxPartDrums       = fixedPartDrums       f
+      , onyxPartDrums2x     = fixedPartDrums2x     f
+      , onyxPartRealDrumsPS = fixedPartRealDrumsPS f
+      })
+    , (FlexVocal, mempty
+      { onyxPartVocals = fixedPartVocals f
+      , onyxHarm1      = fixedHarm1      f
+      , onyxHarm2      = fixedHarm2      f
+      , onyxHarm3      = fixedHarm3      f
+      , onyxLipsync1   = fixedLipsync1   f
+      , onyxLipsync2   = fixedLipsync2   f
+      , onyxLipsync3   = fixedLipsync3   f
+      , onyxLipsync4   = fixedLipsync4   f
+      })
+    , (FlexExtra "rhythm", mempty
+      { onyxPartGuitar = fixedPartRhythm f
+      })
+    , (FlexExtra "guitar-coop", mempty
+      { onyxPartGuitar = fixedPartGuitarCoop f
+      })
+    , (FlexExtra "global", mempty
+      { onyxPartDance = fixedPartDance f
+      })
+    ]
+  , onyxEvents   = fixedEvents f
+  , onyxBeat     = fixedBeat f
+  , onyxVenue    = fixedVenue f
+  , onyxLighting = mempty
+  , onyxCamera   = mempty
+  }
