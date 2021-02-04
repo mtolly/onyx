@@ -85,9 +85,9 @@ rbaContents rba =
   -- TODO edit these to not load the whole file in advance, but instead shrink a Handle to a specific subfile
   [ (0, makeHandle (rba <> " | songs.dta") $ getRBAFileBS 0 rba >>= byteStringSimpleHandle)
   , (1, makeHandle (rba <> " | MIDI file") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
-  , (2, makeHandle (rba <> " | MOGG file") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
-  , (3, makeHandle (rba <> " | .milo file") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
-  , (4, makeHandle (rba <> " | album art (.bmp)") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
-  , (5, makeHandle (rba <> " | unknown file 5") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
-  , (6, makeHandle (rba <> " | extra info DTA") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
+  , (2, makeHandle (rba <> " | MOGG file") $ getRBAFileBS 2 rba >>= byteStringSimpleHandle)
+  , (3, makeHandle (rba <> " | .milo file") $ getRBAFileBS 3 rba >>= byteStringSimpleHandle)
+  , (4, makeHandle (rba <> " | album art (.bmp)") $ getRBAFileBS 4 rba >>= byteStringSimpleHandle)
+  , (5, makeHandle (rba <> " | unknown file 5") $ getRBAFileBS 5 rba >>= byteStringSimpleHandle)
+  , (6, makeHandle (rba <> " | extra info DTA") $ getRBAFileBS 6 rba >>= byteStringSimpleHandle)
   ]

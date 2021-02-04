@@ -1,13 +1,13 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
-module GuitarHeroII.Import where
+module Import.GuitarHero2 where
 
-import           ArkTool
-import           Audio                            (Audio (..), runAudio)
+import           Amplitude.PS2.Ark                (FileEntry (..), entryFolder,
+                                                   readFileEntry)
+import           Audio                            (Audio (..))
 import           Config
-import           Control.Monad                    (forM, guard, void)
-import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
+import           Control.Monad                    (guard, void)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
@@ -15,6 +15,7 @@ import qualified Data.ByteString.Char8            as B8
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.DTA                         as D
+import           Data.DTA.Crypt                   (decrypt, oldCrypt)
 import qualified Data.DTA.Serialize               as D
 import           Data.DTA.Serialize.GH2
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -22,31 +23,31 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.List                        ((\\))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe)
+import           Data.SimpleHandle                (findFile, handleToByteString,
+                                                   splitPath, useHandle)
 import qualified Data.Text                        as T
 import           Data.Text.Encoding               (decodeLatin1)
-import           GuitarHeroII.Audio               (readVGS)
+import           GuitarHeroII.Ark                 (readFileEntries)
+import           GuitarHeroII.Audio               (readVGSReadable)
 import           GuitarHeroII.Events
 import           GuitarHeroII.File
 import           GuitarHeroII.PartGuitar
 import           GuitarHeroII.Triggers
+import           Import.Base
 import qualified RockBand.Codec.Events            as RB
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as RB
 import           RockBand.Common                  (Difficulty (..))
 import           RockBand.Sections                (fromGH2Section)
-import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
-import           System.FilePath                  ((</>))
-import qualified System.IO                        as IO
-import           System.IO.Temp                   (withSystemTempFile)
+import           System.FilePath                  ((<.>), (</>))
 
 getSongList :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(T.Text, SongPackage)]
 getSongList gen = do
-  dtb <- stackIO $ withArk gen $ \ark -> do
-    withSystemTempFile "songs.dtb" $ \fdtb hdl -> do
-      IO.hClose hdl
-      ark_GetFile' ark fdtb "config/gen/songs.dtb" True
-      D.readFileDTB fdtb
+  entries <- stackIO $ readFileEntries $ gen </> "MAIN.HDR"
+  dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") entries of
+    entry : _ -> stackIO $ useHandle (readFileEntry entry $ gen </> "MAIN_0.ARK") handleToByteString
+    []        -> fatal "Couldn't find songs.dtb"
   let editDTB d = d { D.topTree = editTree $ D.topTree d }
       editTree t = t { D.treeChunks = filter keepChunk $ D.treeChunks t }
       keepChunk = \case
@@ -57,7 +58,7 @@ getSongList gen = do
         _                                                           -> False
   fmap D.fromDictList
     $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
-    $ editDTB $ decodeLatin1 <$> dtb
+    $ editDTB $ decodeLatin1 <$> D.decodeDTB (decrypt oldCrypt dtb)
 
 getImports :: [(T.Text, SongPackage)] -> [(T.Text, (ImportMode, SongPackage))]
 getImports = concatMap $ \(t, pkg) -> case songCoop pkg of
@@ -67,19 +68,34 @@ getImports = concatMap $ \(t, pkg) -> case songCoop pkg of
 data ImportMode = ImportSolo | ImportCoop
 
 importGH2 :: (SendMessage m, MonadResource m) => ImportMode -> SongPackage -> FilePath -> FilePath -> StackTraceT m ()
-importGH2 mode pkg gen dout = do
+importGH2 mode pkg gen dout = newImportGH2Song mode pkg gen ImportFull >>= void . stackIO . saveImport dout
+
+newImportGH2 :: (SendMessage m, MonadResource m) => FilePath -> StackTraceT m [Import m]
+newImportGH2 gen = map (\(_, (mode, pkg)) -> newImportGH2Song mode pkg gen) . getImports <$> getSongList gen
+
+newImportGH2Song :: (SendMessage m, MonadResource m) => ImportMode -> SongPackage -> FilePath -> Import m
+newImportGH2Song mode pkg gen level = do
+  entries <- stackIO $ readFileEntries $ gen </> "MAIN.HDR"
+  let folder = fmap (\entry -> readFileEntry entry $ gen </> "MAIN_0.ARK") $ entryFolder entries
+      encLatin1 = B8.pack . T.unpack
+      split s = case splitPath s of
+        Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
+        Just p  -> return p
+      need p = case findFile p folder of
+        Just r  -> return r
+        Nothing -> fatal $ "Required file not found: " <> show p
   songChunk <- case mode of
     ImportSolo -> return $ song pkg
     ImportCoop -> case songCoop pkg of
       Nothing -> fatal "Tried to import coop version from a song that doesn't have one"
       Just coop -> return coop
-  stackIO $ withArk gen $ \ark -> do
-    let encLatin1 = B8.pack . T.unpack
-    ark_GetFile' ark (dout </> "gh2.mid") (encLatin1 $ midiFile songChunk) True
-    ark_GetFile' ark (dout </> "audio.vgs") (encLatin1 (songName songChunk) <> ".vgs") True
-  RBFile.Song tmap mmap gh2 <- RBFile.loadMIDI $ dout </> "gh2.mid"
-  let convmid :: RBFile.Song (RBFile.FixedFile U.Beats)
-      convmid = RBFile.Song tmap mmap mempty
+  midi <- split (midiFile songChunk) >>= need . fmap encLatin1
+  vgs <- split (songName songChunk <> ".vgs") >>= need . fmap encLatin1
+  RBFile.Song tmap mmap gh2 <- case level of
+    ImportFull  -> RBFile.loadMIDIReadable midi
+    ImportQuick -> return emptyChart
+  let convmid :: RBFile.Song (RBFile.OnyxFile U.Beats)
+      convmid = RBFile.Song tmap mmap $ RBFile.fixedToOnyx mempty
         { RBFile.fixedEvents = RB.EventsTrack
           { RB.eventsMusicStart = void $ RTB.filter (== MusicStart) $ eventsOther $ gh2Events gh2
           , RB.eventsMusicEnd   = RTB.empty
@@ -124,28 +140,32 @@ importGH2 mode pkg gen dout = do
         , RB.fivePlayer1      = maybe RTB.empty partPlayer1 $ Map.lookup Expert $ partDifficulties part
         , RB.fivePlayer2      = maybe RTB.empty partPlayer2 $ Map.lookup Expert $ partDifficulties part
         }
-  stackIO $ Save.toFile (dout </> "notes.mid") $ RBFile.showMIDIFile' convmid
-  srcs <- stackIO $ readVGS $ dout </> "audio.vgs"
-  wavs <- forM (zip [0..] srcs) $ \(i, src) -> do
-    let f = "vgs-" <> show (i :: Int) <> ".wav"
-    runAudio (CA.mapSamples CA.fractionalSample src) $ dout </> f
-    return f
-  stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON SongYaml
-    { _metadata = def
+  srcs <- stackIO $ readVGSReadable vgs
+  let namedSrcs = zip (map (\i -> "vgs-" <> show (i :: Int)) [0..]) srcs
+  return SongYaml
+    { _metadata = def'
       { _title  = Just $ name pkg <> case mode of
         ImportSolo -> ""
         ImportCoop -> " (Co-op)"
       , _artist = Just $ artist pkg
       , _cover = caption pkg /= Just "performed_by"
+      , _fileAlbumArt = Nothing
       }
-    , _global = def
+    , _global = Global
+      { _fileMidi            = SoftFile "notes.mid" $ SoftChart convmid
+      , _animTempo           = _animTempo def'
+      , _fileSongAnim        = Nothing
+      , _autogenTheme        = Nothing
+      , _backgroundVideo     = Nothing
+      , _fileBackgroundImage = Nothing
+      }
     , _audio = HM.fromList $ do
-      wav <- wavs
-      return $ (T.pack wav ,) $ AudioFile AudioInfo
+      (srcName, src) <- namedSrcs
+      return $ (T.pack srcName ,) $ AudioFile AudioInfo
         { _md5 = Nothing
         , _frames = Nothing
         , _commands = []
-        , _filePath = Just wav
+        , _filePath = Just $ SoftFile (srcName <.> "wav") $ SoftAudio $ CA.mapSamples CA.fractionalSample src
         , _rate = Nothing
         , _channels = 1
         }
@@ -158,12 +178,12 @@ importGH2 mode pkg gen dout = do
         \\ (guitarChans ++ bassChans ++ rhythmChans)
       mixChans _ [] = Nothing
       mixChans v [c] = Just PlanAudio
-        { _planExpr = Input $ Named $ T.pack $ wavs !! c
+        { _planExpr = Input $ Named $ T.pack $ fst $ namedSrcs !! c
         , _planPans = map realToFrac [pans songChunk !! c]
         , _planVols = map realToFrac [(vols songChunk !! c) + v]
         }
       mixChans v cs = Just PlanAudio
-        { _planExpr = Merge $ map (Input . Named . T.pack . (wavs !!)) cs
+        { _planExpr = Merge $ map (Input . Named . T.pack . fst . (namedSrcs !!)) cs
         , _planPans = map realToFrac [ pans songChunk !! c | c <- cs ]
         , _planVols = map realToFrac [ (vols songChunk !! c) + v | c <- cs ]
         }

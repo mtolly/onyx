@@ -57,17 +57,23 @@ data RBImport = RBImport
 importSTFS :: (SendMessage m, MonadIO m) => Int -> FilePath -> FilePath -> StackTraceT m ()
 importSTFS i src dest = do
   lg $ "Importing Rock Band CON/LIVE file from: " <> src
-  stackIO (getSTFSFolder src) >>= newImportSTFSFolder >>= void . stackIO . saveImport dest . (!! i)
+  stackIO (getSTFSFolder src)
+    >>= newImportSTFSFolder
+    >>= \imps -> (imps !! i) ImportFull
+    >>= void . stackIO . saveImport dest
 
 importSTFSDir :: (SendMessage m, MonadIO m) => Int -> FilePath -> FilePath -> StackTraceT m ()
-importSTFSDir i src dest = stackIO (crawlFolder src) >>= newImportSTFSFolder >>= void . stackIO . saveImport dest . (!! i)
+importSTFSDir i src dest = stackIO (crawlFolder src)
+  >>= newImportSTFSFolder
+  >>= \imps -> (imps !! i) ImportFull
+  >>= void . stackIO . saveImport dest
 
 importRBA :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 importRBA src dest = do
   lg $ "Importing RBA file from: " <> src
-  newImportRBA src >>= void . stackIO . saveImport dest
+  newImportRBA src ImportFull >>= void . stackIO . saveImport dest
 
-newImportSTFSFolder :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> Imports m
+newImportSTFSFolder :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [Import m]
 newImportSTFSFolder folder = do
   packSongs <- stackIO (findByteString ("songs" :| ["songs.dta"]) folder) >>= \case
     Nothing -> fatal "songs/songs.dta not found"
@@ -105,7 +111,7 @@ newImportSTFSFolder folder = do
           warn $ "Expected to find disc update MIDI but it's not installed: " <> updateMid
           return Nothing
       else return Nothing
-    importRB RBImport
+    return $ importRB RBImport
       { rbiSongPackage = pkg
       , rbiComments = comments
       , rbiMOGG = mogg
@@ -116,7 +122,7 @@ newImportSTFSFolder folder = do
       }
 
 newImportRBA :: (SendMessage m, MonadIO m) => FilePath -> Import m
-newImportRBA rba = do
+newImportRBA rba level = do
   let contents = rbaContents rba
       need i = case lookup i contents of
         Just r  -> return r
@@ -151,7 +157,7 @@ newImportRBA rba = do
     , rbiMilo = Just milo
     , rbiMIDI = midi
     , rbiMIDIUpdate = Nothing
-    }
+    } level
 
 dtaIsRB3 :: D.SongPackage -> Bool
 dtaIsRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc", "ugc_plus"]) $ D.gameOrigin pkg
@@ -161,7 +167,7 @@ dtaIsHarmonixRB3 :: D.SongPackage -> Bool
 dtaIsHarmonixRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc"]) $ D.gameOrigin pkg
 
 importRB :: (SendMessage m, MonadIO m) => RBImport -> Import m
-importRB rbi = do
+importRB rbi level = do
 
   let pkg = rbiSongPackage rbi
       files2x = Nothing
@@ -174,16 +180,19 @@ importRB rbi = do
       is2x = fromMaybe auto2x $ c3dta2xBass $ rbiComments rbi
       hasKicks = if is2x then Kicks2x else Kicks1x
 
-  RBFile.Song temps sigs (RBFile.RawFile trks1x) <- RBFile.loadMIDIReadable $ rbiMIDI rbi
-  trksUpdate <- case rbiMIDIUpdate rbi of
-    Nothing -> return []
-    Just umid -> RBFile.rawTracks . RBFile.s_tracks <$> RBFile.loadMIDIReadable umid
-  let updatedNames = map Just $ mapMaybe U.trackName trksUpdate
-      trksUpdated
-        = filter ((`notElem` updatedNames) . U.trackName) trks1x
-        ++ trksUpdate
-  midiFixed <- RBFile.interpretMIDIFile $ RBFile.Song temps sigs trksUpdated
-  let midiOnyx = midiFixed { RBFile.s_tracks = RBFile.fixedToOnyx $ RBFile.s_tracks midiFixed }
+  (midiFixed, midiOnyx) <- case level of
+    ImportFull -> do
+      RBFile.Song temps sigs (RBFile.RawFile trks1x) <- RBFile.loadMIDIReadable $ rbiMIDI rbi
+      trksUpdate <- case rbiMIDIUpdate rbi of
+        Nothing -> return []
+        Just umid -> RBFile.rawTracks . RBFile.s_tracks <$> RBFile.loadMIDIReadable umid
+      let updatedNames = map Just $ mapMaybe U.trackName trksUpdate
+          trksUpdated
+            = filter ((`notElem` updatedNames) . U.trackName) trks1x
+            ++ trksUpdate
+      midiFixed <- RBFile.interpretMIDIFile $ RBFile.Song temps sigs trksUpdated
+      return (midiFixed, midiFixed { RBFile.s_tracks = RBFile.fixedToOnyx $ RBFile.s_tracks midiFixed })
+    ImportQuick -> return (emptyChart, emptyChart)
 
   drumkit <- case D.drumBank pkg of
     Nothing -> return HardRockKit
@@ -227,9 +236,7 @@ importRB rbi = do
     else return Nothing
   let hopoThresh = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
 
-  fixedTracks <- RBFile.s_tracks <$> RBFile.loadMIDIReadable (rbiMIDI rbi)
-
-  let drumEvents = RBFile.fixedPartDrums fixedTracks
+  let drumEvents = RBFile.fixedPartDrums $ RBFile.s_tracks midiFixed
   foundMix <- let
     drumMixes = do
       (_, dd) <- Map.toList $ drumDifficulties drumEvents
@@ -284,7 +291,7 @@ importRB rbi = do
         (Nothing, Just vtn) -> (Just $ SongKey vtn tone, Nothing )
         (Nothing, Nothing ) -> (Nothing                , Nothing )
 
-  let bassBase = detectExtProBass fixedTracks
+  let bassBase = detectExtProBass $ RBFile.s_tracks midiFixed
 
   return SongYaml
     { _metadata = Metadata

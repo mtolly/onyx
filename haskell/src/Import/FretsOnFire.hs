@@ -129,10 +129,10 @@ data LaneNotes = LaneSingle | LaneDouble
   deriving (Eq, Ord)
 
 importFoF :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-importFoF src dest = newImportFoF src >>= void . stackIO . saveImport dest
+importFoF src dest = newImportFoF src ImportFull >>= void . stackIO . saveImport dest
 
 newImportFoF :: (SendMessage m, MonadIO m) => FilePath -> Import m
-newImportFoF src = do
+newImportFoF src level = do
   lg $ "Importing FoF/PS/CH song from folder: " <> src
   allFiles <- stackIO $ Dir.listDirectory src
   pathMid <- fixFileCase $ src </> "notes.mid"
@@ -141,32 +141,36 @@ newImportFoF src = do
   (song, parsed, isChart) <- stackIO (Dir.doesFileExist pathIni) >>= \case
     True -> do
       ini <- FoF.loadSong pathIni
-      stackIO (Dir.doesFileExist pathMid) >>= \case
-        True -> do
-          lg "Found song.ini and notes.mid"
-          mid <- loadFoFMIDI ini pathMid
-          return (ini, mid, False)
-        False -> stackIO (Dir.doesFileExist pathChart) >>= \case
+      case level of
+        ImportQuick -> return (ini, emptyChart, False)
+        ImportFull  -> stackIO (Dir.doesFileExist pathMid) >>= \case
           True -> do
-            lg "Found song.ini and notes.chart"
-            chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
-            mid <- FB.chartToMIDI chart
-            -- if .ini delay is 0 or absent, CH uses .chart Offset
-            ini' <- if fromMaybe 0 (FoF.delay ini) == 0
-              then case FoF.delay $ FB.chartToIni chart of
-                Just 0     -> return ini
-                Nothing    -> return ini
-                chartDelay -> do
-                  lg "Using .chart 'Offset' because .ini 'delay' is 0 or absent"
-                  return ini{ FoF.delay = chartDelay }
-              else return ini
-            return (ini', mid, True)
-          False -> fatal "Found song.ini, but no notes.mid or notes.chart"
+            lg "Found song.ini and notes.mid"
+            mid <- loadFoFMIDI ini pathMid
+            return (ini, mid, False)
+          False -> stackIO (Dir.doesFileExist pathChart) >>= \case
+            True -> do
+              lg "Found song.ini and notes.chart"
+              chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
+              mid <- FB.chartToMIDI chart
+              -- if .ini delay is 0 or absent, CH uses .chart Offset
+              ini' <- if fromMaybe 0 (FoF.delay ini) == 0
+                then case FoF.delay $ FB.chartToIni chart of
+                  Just 0     -> return ini
+                  Nothing    -> return ini
+                  chartDelay -> do
+                    lg "Using .chart 'Offset' because .ini 'delay' is 0 or absent"
+                    return ini{ FoF.delay = chartDelay }
+                else return ini
+              return (ini', mid, True)
+            False -> fatal "Found song.ini, but no notes.mid or notes.chart"
     False -> stackIO (Dir.doesFileExist pathChart) >>= \case
       True -> do
         lg "Found notes.chart but no song.ini. Metadata will come from .chart"
         chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
-        mid <- FB.chartToMIDI chart
+        mid <- case level of
+          ImportQuick -> return emptyChart
+          ImportFull  -> FB.chartToMIDI chart
         return (FB.chartToIni chart, mid, True)
       False -> fatal "No song.ini or notes.chart found"
 

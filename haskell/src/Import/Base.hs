@@ -5,6 +5,7 @@ import           Audio                            (audioIO)
 import           Codec.Picture
 import           Config
 import           Control.Applicative              ((<|>))
+import           Control.Concurrent.Async         (async, wait)
 import           Control.Monad                    (forM)
 import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
 import           Control.Monad.Trans.Resource
@@ -32,14 +33,24 @@ data SoftContents
   | SoftImage (Image PixelRGB8)
   | SoftChart (RBFile.Song (RBFile.OnyxFile U.Beats))
 
-data SoftFile = SoftFile FilePath SoftContents
+instance Show SoftContents where
+  show (SoftReadable r) = "SoftReadable{" <> show r <> "}"
+  show (SoftAudio _)    = "SoftAudio{}" -- TODO rate/channels/duration
+  show (SoftImage _)    = "SoftImage{}" -- TODO dimensions
+  show (SoftChart _)    = "SoftChart{}" -- probably leave empty
 
-type Import  m = StackTraceT m (SongYaml SoftFile)
-type Imports m = StackTraceT m [SongYaml SoftFile]
+data SoftFile = SoftFile FilePath SoftContents
+  deriving (Show)
+
+data ImportLevel
+  = ImportFull  -- ^ Actually load the whole chart, parse MIDIs, etc.
+  | ImportQuick -- ^ Only load basic metadata, as fast as possible
+
+type Import m = ImportLevel -> StackTraceT m (SongYaml SoftFile)
 
 saveImport :: FilePath -> SongYaml SoftFile -> IO (SongYaml FilePath)
 saveImport dout yaml = do
-  yaml' <- forM yaml $ \(SoftFile newName contents) -> do
+  yaml2 <- forM yaml $ \(SoftFile newName contents) -> async $ do
     let newNameFull = dout </> newName
     case contents of
       SoftReadable r -> saveReadable r newNameFull
@@ -49,8 +60,9 @@ saveImport dout yaml = do
       SoftChart song -> Save.toFile newNameFull $ RBFile.showMIDIFile' song
       SoftAudio aud -> audioIO Nothing aud newNameFull
     return newName
-  yamlEncodeFile (dout </> "song.yml") $ toJSON yaml'
-  return yaml'
+  yaml3 <- traverse wait yaml2
+  yamlEncodeFile (dout </> "song.yml") $ toJSON yaml3
+  return yaml3
 
 determine2xBass :: T.Text -> (T.Text, Bool)
 determine2xBass s = let
@@ -91,3 +103,10 @@ detectExtProBass trks = let
     else if elem PG.S2 strs
       then PG.GtrCustom [28, 33, 38, 43, 47] -- bass with 1 high gtr string
       else PG.Bass4
+
+emptyChart :: (Monoid a) => RBFile.Song a
+emptyChart = RBFile.Song
+  { RBFile.s_tempos = U.makeTempoMap RTB.empty
+  , RBFile.s_signatures = U.makeMeasureMap U.Ignore RTB.empty
+  , RBFile.s_tracks = mempty
+  }

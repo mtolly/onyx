@@ -311,7 +311,7 @@ instance ParseTrack RocksmithTrack where
       { codecIn = lift $ modify $ \mt -> mt
         { midiCommands = let
           f = \case
-            ["riff", x] -> [["section", "riff"], ["phrase", x]]
+            "riff" : xs -> [["section", "riff"], ("phrase" : xs)]
             ["ng"     ] -> [["section", "noguitar"], ["phrase", "NG"]]
             ["start"  ] -> [["phrase", "default"]]
             ["end"    ] -> [["section", "noguitar"], ["phrase", "END"]]
@@ -322,16 +322,16 @@ instance ParseTrack RocksmithTrack where
       }
     rsPhrases    <- rsPhrases    =. commandMatch'
       (\case
-        ["phrase", x] -> Just x
+        "phrase" : xs -> Just $ T.unwords xs
         _             -> Nothing
       )
-      (\x -> ["phrase", x])
+      (\xs -> "phrase" : T.words xs)
     rsSections   <- rsSections   =. commandMatch'
       (\case
-        ["section", x] -> Just x
-        _              -> Nothing
+        "section" : xs -> Just $ T.unwords xs
+        _             -> Nothing
       )
-      (\x -> ["section", x])
+      (\xs -> "section" : T.words xs)
     rsHandShapes <- rsHandShapes =. parseNotes 84
     rsChords     <- rsChords     =. commandMatch' parseChord unparseChord
     (rsAnchorLow, rsAnchorHigh) <- statusBlips $ liftA2 (,)

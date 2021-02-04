@@ -35,10 +35,10 @@ import           Text.Decode                    (decodeGeneral)
 import           Text.Read                      (readMaybe)
 
 importMagma :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-importMagma src dest = newImportMagma src >>= void . stackIO . saveImport dest
+importMagma src dest = newImportMagma src ImportFull >>= void . stackIO . saveImport dest
 
 newImportMagma :: (SendMessage m, MonadIO m) => FilePath -> Import m
-newImportMagma fin = do
+newImportMagma fin level = do
   lg $ "Importing Magma project from: " <> fin
 
   let oldDir = takeDirectory fin
@@ -47,7 +47,9 @@ newImportMagma fin = do
 
   midiLoc <- locate $ T.unpack $ RBProj.midiFile $ RBProj.midi rbproj
   let midi = SoftFile "notes.mid" $ SoftReadable $ fileReadable midiLoc
-  bassBase <- detectExtProBass . RBFile.s_tracks <$> RBFile.loadMIDI midiLoc
+  bassBase <- detectExtProBass . RBFile.s_tracks <$> case level of
+    ImportFull  -> RBFile.loadMIDI midiLoc
+    ImportQuick -> return emptyChart
 
   c3 <- do
     pathC3 <- fixFileCase $ fin -<.> "c3"

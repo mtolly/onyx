@@ -6,6 +6,7 @@ module Amplitude.PS2.Ark where
 
 import           Codec.Compression.GZip (decompress)
 import           Control.Monad.Extra    (concatForM, forM, forM_, replicateM)
+import           Data.Bifunctor         (bimap)
 import           Data.Binary.Get        (getInt32le, getWord32le, runGet)
 import           Data.Binary.Put        (putInt32le, putWord32le, runPut)
 import qualified Data.ByteString        as B
@@ -15,9 +16,12 @@ import           Data.Foldable          (toList)
 import qualified Data.HashMap.Strict    as HM
 import           Data.List              (isSuffixOf)
 import           Data.List.Extra        (nubOrd)
+import qualified Data.List.NonEmpty     as NE
+import           Data.SimpleHandle      (Folder, Readable, fileReadable,
+                                         fromFiles, saveHandleFolder, subHandle)
+import qualified Data.Text              as T
 import           Data.Word              (Word32)
-import           System.Directory       (createDirectoryIfMissing,
-                                         doesDirectoryExist, listDirectory)
+import           System.Directory       (doesDirectoryExist, listDirectory)
 import           System.FilePath        ((</>))
 import           System.IO              (IOMode (..), SeekMode (..), hSeek,
                                          hTell, withBinaryFile)
@@ -51,23 +55,30 @@ readFileEntries ark = withBinaryFile ark ReadMode $ \h -> do
     fe_inflate <- getWord32le
     return FileEntry{..}
 
+entryFolder :: [FileEntry] -> Folder B.ByteString FileEntry
+entryFolder entries = fromFiles $ flip map entries $ \entry -> let
+  path = case fe_folder entry >>= NE.nonEmpty . B8.split '/' of
+    Just dir -> dir <> return (fe_name entry)
+    Nothing  -> return (fe_name entry)
+  in (path, entry)
+
+readFileEntry :: FileEntry -> FilePath -> Readable
+readFileEntry entry ark = let
+  path = maybe id (\dir f -> dir <> "/" <> f) (fe_folder entry) (fe_name entry)
+  in subHandle
+    (<> (" | " <> B8.unpack path))
+    (fromIntegral $ fe_offset entry)
+    (Just $ fromIntegral $ fe_size entry)
+    (fileReadable ark)
+
 extractArk :: [FileEntry] -> FilePath -> FilePath -> IO ()
-extractArk entries ark dout = do
-  withBinaryFile ark ReadMode $ \h -> forM_ entries $ \entry -> do
-    let dir
-          = maybe dout ((dout </>) . B8.unpack)
-          $ fmap replaceDotDot
-          $ fe_folder entry
-        -- handles guitar hero arks where weird paths start with "../../"
-        replaceDotDot b = case B.breakSubstring ".." b of
-          (x, y) -> if B.null y
-            then x
-            else x <> "dotdot" <> replaceDotDot (B.drop 2 y)
-        fout = dir </> B8.unpack (fe_name entry)
-    createDirectoryIfMissing True dir
-    hSeek h AbsoluteSeek $ fromIntegral $ fe_offset entry
-    bytes <- BL.hGet h $ fromIntegral $ fe_size entry
-    BL.writeFile fout bytes
+extractArk entries ark dout = let
+  folder = bimap
+    -- handles guitar hero arks where weird paths start with "../../"
+    (\case ".." -> "dotdot"; p -> T.pack $ B8.unpack p)
+    (\entry -> readFileEntry entry ark)
+    (entryFolder entries)
+  in saveHandleFolder folder dout
 
 data FoundFile = FoundFile
   { ff_onDisk    :: FilePath

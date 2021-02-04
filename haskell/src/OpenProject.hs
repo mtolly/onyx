@@ -39,11 +39,11 @@ import           DTXMania.Import
 import           DTXMania.Set
 import qualified FeedBack.Load                  as FB
 import qualified FretsOnFire                    as FoF
-import qualified GuitarHeroI.Import             as GH1
 import           GuitarHeroII.Ark               (GameGH (..), detectGameGH,
                                                  replaceSong)
-import qualified GuitarHeroII.Import            as GH2
 import           Import
+import qualified Import.GuitarHero1             as GH1
+import qualified Import.GuitarHero2             as GH2
 import           Magma                          (getRBAFileBS)
 import           Preferences
 import           PrettyDTA                      (C3DTAComments (..),

@@ -554,10 +554,9 @@ av_opt_set_int_list obj name vals flags = do
   , `CInt'
   , `CInt'
   , `Ptr ()'
-  -- TODO find a better way to cast these so we can use Word8/Int64 instead of CUChar/CLong
-  , id `FunPtr (Ptr () -> Ptr CUChar -> CInt -> IO CInt)'
-  , id `FunPtr (Ptr () -> Ptr CUChar -> CInt -> IO CInt)'
-  , id `FunPtr (Ptr () -> CLong -> CInt -> IO CLong)'
+  , castFunPtr `FunPtr (Ptr () -> Ptr Word8 -> CInt -> IO CInt)'
+  , castFunPtr `FunPtr (Ptr () -> Ptr Word8 -> CInt -> IO CInt)'
+  , castFunPtr `FunPtr (Ptr () -> Int64 -> CInt -> IO Int64)'
   } -> `AVIOContext'
 #}
 
@@ -573,13 +572,13 @@ av_opt_set_int_list obj name vals flags = do
 
 foreign import ccall "wrapper"
   makeReadWriteFn
-    ::            (Ptr () -> Ptr CUChar -> CInt -> IO CInt)
-    -> IO (FunPtr (Ptr () -> Ptr CUChar -> CInt -> IO CInt))
+    ::            (Ptr () -> Ptr Word8 -> CInt -> IO CInt)
+    -> IO (FunPtr (Ptr () -> Ptr Word8 -> CInt -> IO CInt))
 
 foreign import ccall "wrapper"
   makeSeekFn
-    ::            (Ptr () -> CLong -> CInt -> IO CLong)
-    -> IO (FunPtr (Ptr () -> CLong -> CInt -> IO CLong))
+    ::            (Ptr () -> Int64 -> CInt -> IO Int64)
+    -> IO (FunPtr (Ptr () -> Int64 -> CInt -> IO Int64))
 
 {#fun hs_AVERROR_EOF
   {} -> `CInt'

@@ -78,6 +78,11 @@ data Readable = Readable
   , rFilePath :: Maybe FilePath
   }
 
+instance Show Readable where
+  show r = case rFilePath r of
+    Nothing -> "Readable{...}"
+    Just f  -> "Readable{" <> show f <> "}"
+
 fileReadable :: FilePath -> Readable
 fileReadable f = Readable
   { rOpen     = openBinaryFile f ReadMode
@@ -151,14 +156,12 @@ instance Bifunctor Folder where
     }
   second = fmap
 
-type SplitPath = NE.NonEmpty T.Text
-
-allFolders :: Folder T.Text a -> [SplitPath]
+allFolders :: Folder p a -> [NE.NonEmpty p]
 allFolders folder = do
   (sub, subf) <- folderSubfolders folder
   pure sub : map (NE.cons sub) (allFolders subf)
 
-allFiles :: Folder T.Text a -> [(SplitPath, a)]
+allFiles :: Folder p a -> [(NE.NonEmpty p, a)]
 allFiles folder = let
   inHere = do
     (name, file) <- folderFiles folder
@@ -169,13 +172,13 @@ allFiles folder = let
     return (NE.cons sub spath, file)
   in inHere <> inSub
 
-splitPath :: T.Text -> Maybe SplitPath
+splitPath :: T.Text -> Maybe (NE.NonEmpty T.Text)
 splitPath t = NE.nonEmpty $ T.splitOn "/" t >>= T.splitOn "\\"
 
-unsplitPath :: SplitPath -> T.Text
+unsplitPath :: NE.NonEmpty T.Text -> T.Text
 unsplitPath = T.pack . foldr1 ((</>)) . fmap T.unpack
 
-fromFiles :: [(SplitPath, a)] -> Folder T.Text a
+fromFiles :: (Ord p) => [(NE.NonEmpty p, a)] -> Folder p a
 fromFiles pairs = Folder
   { folderFiles = [ (name, file) | (name :| [], file) <- pairs ]
   , folderSubfolders = do
@@ -184,7 +187,7 @@ fromFiles pairs = Folder
     return (sub, fromFiles $ map snd $ NE.toList group)
   }
 
-findFile :: SplitPath -> Folder T.Text a -> Maybe a
+findFile :: (Eq p) => NE.NonEmpty p -> Folder p a -> Maybe a
 findFile spath folder = case NE.uncons spath of
   (dir, Just rest) -> do
     sub <- lookup dir $ folderSubfolders folder
@@ -204,7 +207,7 @@ crawlFolder f = do
     , folderSubfolders = rights results
     }
 
-findByteString :: SplitPath -> Folder T.Text Readable -> IO (Maybe BL.ByteString)
+findByteString :: (Eq p) => NE.NonEmpty p -> Folder p Readable -> IO (Maybe BL.ByteString)
 findByteString spath folder
   = mapM (\readable -> useHandle readable handleToByteString)
   $ findFile spath folder
@@ -220,6 +223,7 @@ subHandle addLabel pos mlen readable = Readable
   , rOpen = do
     h <- rOpen readable
     origSize <- hFileSize h
+    hSeek h AbsoluteSeek pos
     openSimpleHandle (addLabel $ handleLabel h) SimpleHandle
       { shSize  = fromMaybe (origSize - pos) mlen
       , shSeek  = \n -> hSeek h AbsoluteSeek $ n + pos

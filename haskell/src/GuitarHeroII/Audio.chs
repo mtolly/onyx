@@ -2,7 +2,7 @@
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE OverloadedStrings #-}
-module GuitarHeroII.Audio (writeVGS, readVGS) where
+module GuitarHeroII.Audio (writeVGS, readVGS, readVGSReadable) where
 
 import           Control.Monad                (liftM4, replicateM_, forM)
 import           Control.Monad.IO.Class       (liftIO)
@@ -21,6 +21,7 @@ import qualified System.IO                    as IO
 import           System.IO.Unsafe             (unsafePerformIO)
 import Control.Monad.Trans.State (StateT, get, put, runStateT)
 import Data.Binary.Get (Get, getByteString, runGet, getWord32le)
+import Data.SimpleHandle (Readable(..), useHandle, fileReadable)
 
 #include "encode_vag.h"
 
@@ -114,9 +115,9 @@ vagFilter =
   , (122.0 / 64.0, -60.0 / 64.0)
   ]
 
-readVGS :: (MonadResource m) => FilePath -> IO [A.AudioSource m Int16]
-readVGS fp = do
-  header <- IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 0x80
+readVGSReadable :: (MonadResource m) => Readable -> IO [A.AudioSource m Int16]
+readVGSReadable r = do
+  header <- useHandle r $ \h -> BL.hGet h 0x80
   let readHeader = do
         "VgS!" <- getByteString 4
         2 <- getWord32le
@@ -130,7 +131,7 @@ readVGS fp = do
   let chans = runGet readHeader header
       totalBlocks = sum $ map snd chans
   return $ flip map (zip [0..] chans) $ \(i, (rate, blocks)) -> let
-    src = C.bracketP (IO.openBinaryFile fp IO.ReadMode) IO.hClose $ \h -> do
+    src = C.bracketP (rOpen r) IO.hClose $ \h -> do
       _ <- liftIO $ BL.hGet h 0x80
       let go _    0          = return ()
           go dbls blocksLeft = do
@@ -142,3 +143,6 @@ readVGS fp = do
                 go dbls' $ blocksLeft - 1
       go (0, 0) totalBlocks
     in A.AudioSource src (realToFrac rate) 1 $ blocks * xaBlockSamples
+
+readVGS :: (MonadResource m) => FilePath -> IO [A.AudioSource m Int16]
+readVGS = readVGSReadable . fileReadable
