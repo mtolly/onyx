@@ -6,6 +6,7 @@
 #endif
 #include <string>
 #include <iostream>
+#include <sstream>
 #include <fstream>
 #include "Bit_stream.h"
 #include "stdint.h"
@@ -26,7 +27,7 @@ class Wwise_RIFF_Vorbis
 {
     string _file_name;
     string _codebooks_name;
-    ifstream _infile;
+    istringstream _infile;
     long _file_size;
 
     bool _little_endian;
@@ -66,7 +67,7 @@ class Wwise_RIFF_Vorbis
     uint32_t (*_read_32)(std::istream &is);
 public:
     Wwise_RIFF_Vorbis(
-      const string& name,
+      const string& input,
       const string& _codebooks_name,
       bool inline_codebooks,
       bool full_setup,
@@ -75,7 +76,7 @@ public:
 
     void print_info(void);
 
-    void generate_ogg(ofstream& of);
+    void generate_ogg(ostream& of);
     void generate_ogg_header(Bit_oggstream& os, bool * & mode_blockflag, int & mode_bits);
     void generate_ogg_header_with_triad(Bit_oggstream& os);
 };

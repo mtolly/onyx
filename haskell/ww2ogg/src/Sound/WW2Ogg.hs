@@ -11,19 +11,23 @@ data WW2OggConfig = WW2OggConfig
   -- TODO other options
   }
 
-ww2ogg :: WW2OggConfig -> FilePath -> FilePath -> IO Bool
-ww2ogg cfg fin fout = do
-  withCString fin $ \fin' -> do
-    withCString fout $ \fout' -> do
-      withCString (wwCodebook cfg) $ \cbook -> do
-        n <- hs_ww2ogg fin' fout' cbook
-        if n == 0
-          then do
-            bs <- B.readFile fout
-            revorb bs >>= \case
-              Nothing -> return False
-              Just bs' -> B.writeFile fout bs' >> return True
-          else return False
+ww2ogg :: WW2OggConfig -> B.ByteString -> IO (Maybe B.ByteString)
+ww2ogg cfg inBytes = do
+  BU.unsafeUseAsCStringLen inBytes $ \(p, len) -> do
+    alloca $ \pStream -> do
+      alloca $ \pOutLen -> do
+        withCString (wwCodebook cfg) $ \cbook -> do
+          n <- hs_ww2ogg p (fromIntegral len) pStream pOutLen cbook
+          if n == 0
+            then do
+              stream <- peek pStream
+              outLen <- peek pOutLen
+              bs <- allocaBytes (fromIntegral outLen) $ \pout -> do
+                hs_fill_stream stream pout
+                hs_delete_stream stream
+                B.packCStringLen (pout, fromIntegral outLen)
+              revorb bs
+            else return Nothing
 
 revorb :: B.ByteString -> IO (Maybe B.ByteString)
 revorb bs = BU.unsafeUseAsCStringLen bs $ \(p, inlen) -> do
@@ -40,7 +44,13 @@ revorb bs = BU.unsafeUseAsCStringLen bs $ \(p, inlen) -> do
         else return Nothing
 
 foreign import ccall "hs_ww2ogg"
-  hs_ww2ogg :: CString -> CString -> CString -> IO CInt
+  hs_ww2ogg :: CString -> CSize -> Ptr (Ptr ()) -> Ptr CSize -> CString -> IO CInt
+
+foreign import ccall "hs_fill_stream"
+  hs_fill_stream :: Ptr () -> Ptr CChar -> IO ()
+
+foreign import ccall "hs_delete_stream"
+  hs_delete_stream :: Ptr () -> IO ()
 
 -- If we don't run Revorb then my current ogg loading code hangs.
 foreign import ccall "hs_revorb"

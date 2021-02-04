@@ -528,12 +528,12 @@ instance BinEndian SNG2014 where
     sng_Metadata          <- sng_Metadata          =. binEndian
     return SNG2014{..}
 
-loadSNG :: GamePlatform -> FilePath -> IO SNG2014
-loadSNG plat fp = do
-  bs <- unpackSNG plat fp
+loadSNG :: GamePlatform -> B.ByteString -> IO SNG2014
+loadSNG plat bs = do
+  bs' <- unpackSNG plat bs
   let ?endian = case plat of
         PC      -> LittleEndian
         Mac     -> LittleEndian
         Xbox360 -> BigEndian
         PS3     -> BigEndian
-  return $ runGet (codecIn binEndian) bs
+  return $ runGet (codecIn binEndian) bs'

@@ -187,6 +187,12 @@ fromFiles pairs = Folder
     return (sub, fromFiles $ map snd $ NE.toList group)
   }
 
+findFolder :: (Eq p) => [p] -> Folder p a -> Maybe (Folder p a)
+findFolder []           folder = Just folder
+findFolder (dir : rest) folder = do
+  sub <- lookup dir $ folderSubfolders folder
+  findFolder rest sub
+
 findFile :: (Eq p) => NE.NonEmpty p -> Folder p a -> Maybe a
 findFile spath folder = case NE.uncons spath of
   (dir, Just rest) -> do

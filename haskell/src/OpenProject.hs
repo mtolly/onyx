@@ -44,11 +44,11 @@ import           GuitarHeroII.Ark               (GameGH (..), detectGameGH,
 import           Import
 import qualified Import.GuitarHero1             as GH1
 import qualified Import.GuitarHero2             as GH2
+import           Import.Rocksmith               as RS
 import           Magma                          (getRBAFileBS)
 import           Preferences
 import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingles)
-import           Rocksmith.Import               as RS
 import qualified Sound.Jammit.Base              as J
 import           STFS.Package                   (getSTFSFolder)
 import qualified System.Directory               as Dir

@@ -17,7 +17,7 @@ class Packet
     uint32_t _absolute_granule;
     bool _no_granule;
 public:
-    Packet(ifstream& i, long o, bool little_endian, bool no_granule = false) : _offset(o), _size(-1), _absolute_granule(0), _no_granule(no_granule) {
+    Packet(istream& i, long o, bool little_endian, bool no_granule = false) : _offset(o), _size(-1), _absolute_granule(0), _no_granule(no_granule) {
         i.seekg(_offset);
 
         if (little_endian)
@@ -52,7 +52,7 @@ class Packet_8
     uint32_t _size;
     uint32_t _absolute_granule;
 public:
-    Packet_8(ifstream& i, long o, bool little_endian) : _offset(o), _size(-1), _absolute_granule(0) {
+    Packet_8(istream& i, long o, bool little_endian) : _offset(o), _size(-1), _absolute_granule(0) {
         i.seekg(_offset);
 
         if (little_endian)
@@ -100,16 +100,16 @@ public:
 const char Vorbis_packet_header::vorbis_str[6] = {'v','o','r','b','i','s'};
 
 Wwise_RIFF_Vorbis::Wwise_RIFF_Vorbis(
-    const string& name,
+    const string& input,
     const string& codebooks_name,
     bool inline_codebooks,
     bool full_setup,
     ForcePacketFormat force_packet_format
     )
   :
-    _file_name(name),
+    _file_name("wem file"),
     _codebooks_name(codebooks_name),
-    _infile(name.c_str(), ios::binary),
+    _infile(input),
     _file_size(-1),
     _little_endian(true),
     _riff_size(-1),
@@ -149,8 +149,6 @@ Wwise_RIFF_Vorbis::Wwise_RIFF_Vorbis(
     _read_16(NULL),
     _read_32(NULL)
 {
-    if (!_infile) throw File_open_error(name);
-
     _infile.seekg(0, ios::end);
     _file_size = _infile.tellg();
 
@@ -1017,7 +1015,7 @@ void Wwise_RIFF_Vorbis::generate_ogg_header(Bit_oggstream& os, bool * & mode_blo
     }
 }
 
-void Wwise_RIFF_Vorbis::generate_ogg(ofstream& of)
+void Wwise_RIFF_Vorbis::generate_ogg(ostream& of)
 {
     Bit_oggstream os(of);
 

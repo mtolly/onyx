@@ -484,3 +484,9 @@ writeTone f tone = liftIO $ do
   let xml = makeDoc (inSpace cstSpaceTone2014 "Tone2014")
         $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Tone2014) tone
   B.writeFile f $ TE.encodeUtf8 $ T.pack $ ppTopElement xml
+
+toneBytes :: Tone2014 -> B.ByteString
+toneBytes tone = let
+  xml = makeDoc (inSpace cstSpaceTone2014 "Tone2014")
+    $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Tone2014) tone
+  in TE.encodeUtf8 $ T.pack $ ppTopElement xml

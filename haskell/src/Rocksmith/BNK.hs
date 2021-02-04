@@ -14,15 +14,19 @@ import           Control.Monad        (replicateM)
 import           Data.Binary.Get
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
+import           Data.SimpleHandle    (Folder, Readable, byteStringSimpleHandle,
+                                       findFile, handleToByteString, makeHandle,
+                                       useHandle)
+import qualified Data.Text            as T
 import           Data.Word
 import           Resources
 import           Sound.WW2Ogg
-import           System.FilePath      (takeDirectory, (<.>), (</>))
+import           System.FilePath      ((<.>))
 
-extractRSOgg :: FilePath -> FilePath -> IO ()
-extractRSOgg fbnk fout = do
+extractRSOgg :: Readable -> Folder T.Text Readable -> IO Readable
+extractRSOgg bnk audioDir = do
   codebook <- getResourcesPath "packed_codebooks_aoTuV_603.bin"
-  chunks <- parseBNK . BL.fromStrict <$> B.readFile fbnk
+  chunks <- parseBNK <$> useHandle bnk handleToByteString
   let hirc = chunks >>= \case
         ChunkHIRC h -> hirc_objects h
         _           -> []
@@ -36,10 +40,12 @@ extractRSOgg fbnk fout = do
   sourceID <- case [ s | HIRCSound s <- hirc, snd_id s == soundID ] of
     [s] -> return $ snd_sourceID s
     _   -> fail "Sound referenced by play action not found in .bnk HIRC"
-  res <- ww2ogg (WW2OggConfig { wwCodebook = codebook })
-    (takeDirectory fbnk </> show sourceID <.> "wem")
-    fout
-  if res then return () else fail "ww2ogg failed"
+  wem <- case findFile (return $ T.pack $ show sourceID <.> "wem") audioDir of
+    Nothing -> fail "Couldn't locate .wem audio file"
+    Just r  -> BL.toStrict <$> useHandle r handleToByteString
+  ww2ogg (WW2OggConfig { wwCodebook = codebook }) wem >>= \case
+    Nothing  -> fail "ww2ogg failed"
+    Just ogg -> return $ makeHandle "converted .wem audio" $ byteStringSimpleHandle $ BL.fromStrict ogg
 
 parseBNK :: BL.ByteString -> [Chunk]
 parseBNK bs = flip map (splitChunks bs) $ \(magic, chunk) -> case magic of

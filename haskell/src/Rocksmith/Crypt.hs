@@ -15,9 +15,8 @@ data GamePlatform
   | PS3 -- is PS4 same?
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-unpackSNG :: GamePlatform -> FilePath -> IO BL.ByteString
-unpackSNG plat fp = do
-  bs <- B.readFile fp
+unpackSNG :: GamePlatform -> B.ByteString -> IO BL.ByteString
+unpackSNG plat bs = do
   bs' <- case plat of
     PC  -> decryptSNGData bs sngKeyPC
     Mac -> decryptSNGData bs sngKeyMac

@@ -62,6 +62,7 @@ import           GuitarHeroII.Audio               (readVGS)
 import           GuitarHeroIOS                    (extractIGA)
 import qualified Image
 import           Import
+import           Import.Rocksmith                 (importRS)
 import           Magma                            (getRBAFile, runMagma,
                                                    runMagmaMIDI, runMagmaV1)
 import           MoggDecrypt                      (moggToOgg, oggToMogg)
@@ -92,7 +93,6 @@ import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    testConvertLipsync,
                                                    unpackMilo)
 import           RockBand.Score
-import           Rocksmith.Import                 (importRS)
 import           Rocksmith.PSARC                  (extractPSARC)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File                  as F
