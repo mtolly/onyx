@@ -3,11 +3,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE TupleSections     #-}
-module DTXMania.Import where
+module Import.DTXMania where
 
 import           Audio
 import           Config
-import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
 import           Control.Monad.Extra              (forM, guard, mapMaybeM,
                                                    unless, void, when)
 import           Control.Monad.IO.Class           (MonadIO)
@@ -23,10 +22,13 @@ import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    mapMaybe)
+import           Data.SimpleHandle                (fileReadable)
 import qualified Data.Text                        as T
+import           Data.Tuple.Extra                 (fst3)
 import           DTXMania.DTX
 import           DTXMania.Set
 import           Guitars                          (emit5')
+import           Import.Base
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.File              (FlexPartName (..))
@@ -36,7 +38,6 @@ import           RockBand.Common                  (Difficulty (..),
                                                    pattern RNil,
                                                    StrumHOPOTap (..),
                                                    pattern Wait)
-import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropExtension, takeDirectory,
@@ -185,8 +186,8 @@ dtxConvertGB getter setter dtx (RBFile.Song tmap mmap fixed) = let
 dtxBaseMIDI :: DTX -> RBFile.Song (RBFile.FixedFile U.Beats)
 dtxBaseMIDI dtx = RBFile.Song (dtx_TempoMap dtx) (dtx_MeasureMap dtx) mempty
 
-dtxToAudio :: (SendMessage m, MonadIO m) => DTX -> FilePath -> FilePath -> StackTraceT m (SongYaml FilePath -> SongYaml FilePath)
-dtxToAudio dtx fin dout = do
+newDtxToAudio :: (SendMessage m, MonadIO m) => DTX -> FilePath -> StackTraceT m (SongYaml SoftFile -> SongYaml SoftFile)
+newDtxToAudio dtx fin = do
   let simpleAudio f overlap chips = if RTB.null chips
         then return Nothing
         else do
@@ -196,8 +197,7 @@ dtxToAudio dtx fin dout = do
         []         -> return Nothing
         xs@(x : _) -> do
           let src = mixMany (CA.rate x) (CA.channels x) Nothing $ foldr (Wait 0) RNil xs
-          runAudio src $ dout </> f
-          return $ Just (f, CA.channels src)
+          return $ Just (f, src, CA.channels src)
       drumSrc lanes = let
         chips = RTB.mapMaybe (\(l, chip) -> guard (elem l lanes) >> Just chip) $ dtx_Drums dtx
         in if RTB.null chips
@@ -221,24 +221,24 @@ dtxToAudio dtx fin dout = do
   extra  <- forM (HM.toList $ dtx_BGMExtra dtx) $ \(chan, chips) -> do
     let f = "song-" <> T.unpack chan <> ".wav"
     simpleAudio f False chips
-  let audioExpr (aud, _) = PlanAudio
+  let audioExpr (aud, _, _) = PlanAudio
         { _planExpr = Input $ Named $ T.pack aud
         , _planPans = []
         , _planVols = []
         }
       audiosExpr pairs = PlanAudio
-        { _planExpr = Mix $ map (Input . Named . T.pack . fst) pairs
+        { _planExpr = Mix $ map (Input . Named . T.pack . fst3) pairs
         , _planPans = []
         , _planVols = []
         }
   return $ \songYaml -> songYaml
     { _audio = HM.fromList $ do
-      (f, chans) <- catMaybes $ [kick, snare, kit, guitar, bass, song] ++ extra
+      (f, src, chans) <- catMaybes $ [kick, snare, kit, guitar, bass, song] ++ extra
       return $ (T.pack f ,) $ AudioFile AudioInfo
         { _md5 = Nothing
         , _frames = Nothing
         , _commands = []
-        , _filePath = Just f
+        , _filePath = Just $ SoftFile f $ SoftAudio src
         , _rate = Nothing
         , _channels = chans
         }
@@ -260,7 +260,7 @@ dtxToAudio dtx fin dout = do
         , (FlexBass   ,) . PartSingle . audioExpr <$> bass
         ] ++ do
           ex <- catMaybes extra
-          return $ Just (FlexExtra (T.pack $ dropExtension $ fst ex), PartSingle $ audioExpr ex)
+          return $ Just (FlexExtra (T.pack $ dropExtension $ fst3 ex), PartSingle $ audioExpr ex)
       , _crowd = Nothing
       , _planComments = []
       , _tuningCents = 0
@@ -268,15 +268,18 @@ dtxToAudio dtx fin dout = do
       }
     }
 
-importSet :: (SendMessage m, MonadIO m) => Int -> FilePath -> FilePath -> StackTraceT m ()
-importSet i setDefPath dout = inside ("Loading DTX set.def from: " <> setDefPath) $ do
-  song <- stackIO (loadSet setDefPath) >>= \songs -> case drop i songs of
-    []       -> fatal $ "Couldn't find song index " <> show i <> " in set.def"
-    song : _ -> return song
-  importSetDef (Just setDefPath) song dout
+newImportSet :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [Import m]
+newImportSet setDefPath = inside ("Loading DTX set.def from: " <> setDefPath) $ do
+  songs <- stackIO $ loadSet setDefPath
+  return $ map (newImportSetDef $ Just setDefPath) songs
 
-importSetDef :: (SendMessage m, MonadIO m) => Maybe FilePath -> SetDef -> FilePath -> StackTraceT m ()
-importSetDef setDefPath song dout = do
+importSet :: (SendMessage m, MonadIO m) => Int -> FilePath -> FilePath -> StackTraceT m ()
+importSet i setDefPath dout = newImportSet setDefPath
+    >>= \imps -> (imps !! i) ImportFull
+    >>= void . stackIO . saveImport dout
+
+newImportSetDef :: (SendMessage m, MonadIO m) => Maybe FilePath -> SetDef -> Import m
+newImportSetDef setDefPath song level = do
   -- TODO need to fix path separators (both backslash and yen)
   let relToSet = maybe id (\sdp -> (takeDirectory sdp </>)) setDefPath
       fs = map (relToSet . T.unpack)
@@ -295,7 +298,7 @@ importSetDef setDefPath song dout = do
   (topDiffPath, topDiffDTX) <- case diffs of
     []    -> fatal "No difficulties found for song"
     d : _ -> return d
-  addAudio <- dtxToAudio topDiffDTX topDiffPath dout
+  addAudio <- newDtxToAudio topDiffDTX topDiffPath
   let hasDrums  = not . RTB.null . dtx_Drums
       hasGuitar = not . RTB.null . dtx_Guitar
       hasBass   = not . RTB.null . dtx_Bass
@@ -317,13 +320,14 @@ importSetDef setDefPath song dout = do
       unless (path == topDiffPath) $ warn
         "Highest difficulty does not contain bass, but a lower one does. Audio might not be separated"
       return $ Just diff
-  stackIO
-    $ Save.toFile (dout </> "notes.mid")
-    $ RBFile.showMIDIFile'
-    $ maybe id dtxConvertDrums topDrumDiff
-    $ maybe id dtxConvertGuitar topGuitarDiff
-    $ maybe id dtxConvertBass topBassDiff
-    $ dtxBaseMIDI topDiffDTX
+  let midiFixed
+        = maybe id dtxConvertDrums topDrumDiff
+        $ maybe id dtxConvertGuitar topGuitarDiff
+        $ maybe id dtxConvertBass topBassDiff
+        $ dtxBaseMIDI topDiffDTX
+      midiOnyx = case level of
+        ImportFull  -> midiFixed { RBFile.s_tracks = RBFile.fixedToOnyx $ RBFile.s_tracks midiFixed }
+        ImportQuick -> emptyChart
   art <- case (takeDirectory topDiffPath </>) <$> dtx_PREIMAGE topDiffDTX of
     Nothing -> return Nothing
     Just f  -> stackIO (Dir.doesFileExist f) >>= \case
@@ -332,14 +336,13 @@ importSetDef setDefPath song dout = do
         return Nothing
       True -> do
         let loc = "cover" <.> takeExtension f
-        stackIO $ Dir.copyFile f $ dout </> loc
-        return $ Just loc
+        return $ Just $ SoftFile loc $ SoftReadable $ fileReadable f
   let translateDifficulty Nothing    _   = Rank 1
       translateDifficulty (Just lvl) dec = let
         lvl' = (fromIntegral lvl + maybe 0 ((/ 10) . fromIntegral) dec) / 100 :: Rational
         in Rank $ max 1 $ round $ lvl' * 525 -- arbitrary scaling factor
-  stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON $ addAudio SongYaml
-    { _metadata = (def :: Metadata FilePath)
+  return $ addAudio SongYaml
+    { _metadata = def'
       { _title        = case setTitle song of
         ""    -> dtx_TITLE topDiffDTX
         title -> Just title
@@ -348,7 +351,12 @@ importSetDef setDefPath song dout = do
       , _genre        = dtx_GENRE topDiffDTX
       , _fileAlbumArt = art
       }
-    , _global = def
+    , _global = def'
+      { _backgroundVideo = Nothing
+      , _fileBackgroundImage = Nothing
+      , _fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
+      , _fileSongAnim = Nothing
+      }
     , _audio = HM.empty
     , _jammit = HM.empty
     , _plans = HM.empty
@@ -380,8 +388,8 @@ importSetDef setDefPath song dout = do
       ]
     }
 
-importDTX :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-importDTX fin dout = do
+newImportDTX :: (SendMessage m, MonadIO m) => FilePath -> Import m
+newImportDTX fin level = do
   dtxLines <- stackIO $ loadDTXLines fin
   let setDef = SetDef
         { setTitle   = fromMaybe "" $ lookup "TITLE" dtxLines
@@ -396,4 +404,7 @@ importDTX fin dout = do
         , setL5Label = Nothing
         , setL5File  = Nothing
         }
-  importSetDef Nothing setDef dout
+  newImportSetDef Nothing setDef level
+
+importDTX :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
+importDTX fin dout = newImportDTX fin ImportFull >>= void . stackIO . saveImport dout

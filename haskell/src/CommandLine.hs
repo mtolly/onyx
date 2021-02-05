@@ -61,7 +61,9 @@ import qualified GuitarHeroII.Ark                 as GHArk
 import           GuitarHeroII.Audio               (readVGS)
 import           GuitarHeroIOS                    (extractIGA)
 import qualified Image
-import           Import
+import           Import.FretsOnFire               (importFoF)
+import           Import.RockBand                  (importRBA, importSTFS,
+                                                   importSTFSDir)
 import           Import.Rocksmith                 (importRS)
 import           Magma                            (getRBAFile, runMagma,
                                                    runMagmaMIDI, runMagmaV1)

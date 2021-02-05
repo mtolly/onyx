@@ -3,7 +3,6 @@
 module OpenProject where
 
 import           Beatmania.BMS                  (BMS (..), readBMSLines)
-import           Beatmania.Import               (importBMS)
 import           Build
 import           Config
 import           Control.Applicative            ((<|>))
@@ -35,15 +34,20 @@ import           Data.Maybe                     (fromMaybe, mapMaybe)
 import           Data.SimpleHandle              (findByteString)
 import qualified Data.Text                      as T
 import           DTXMania.DTX
-import           DTXMania.Import
 import           DTXMania.Set
 import qualified FeedBack.Load                  as FB
 import qualified FretsOnFire                    as FoF
 import           GuitarHeroII.Ark               (GameGH (..), detectGameGH,
                                                  replaceSong)
-import           Import
+import           Import.Amplitude2016           (importAmplitude)
+import           Import.BMS                     (importBMS)
+import           Import.DTXMania                (importDTX, importSet)
+import           Import.FretsOnFire             (importFoF)
 import qualified Import.GuitarHero1             as GH1
 import qualified Import.GuitarHero2             as GH2
+import           Import.Magma                   (importMagma)
+import           Import.RockBand                (importRBA, importSTFS,
+                                                 importSTFSDir)
 import           Import.Rocksmith               as RS
 import           Magma                          (getRBAFileBS)
 import           Preferences

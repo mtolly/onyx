@@ -1,23 +1,24 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
-module Beatmania.Import where
+module Import.BMS where
 
 import           Audio
 import           Beatmania.BMS
 import           Config
 import           Control.Monad                    (guard)
-import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     (void)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes)
 import qualified Data.Text                        as T
 import           DTXMania.DTX
+import           Import.Base
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
@@ -25,8 +26,6 @@ import           RockBand.Codec.ProKeys
 import           RockBand.Common                  (Edge (..), Key (..),
                                                    blipEdgesRB_,
                                                    joinEdgesSimple)
-import qualified Sound.MIDI.File.Save             as Save
-import           System.FilePath                  ((</>))
 
 joinLongNotes :: (NNC.C t) =>
   RTB.T t (BMKey, Chip, Bool) -> RTB.T t (BMKey, Chip, t)
@@ -36,14 +35,16 @@ joinLongNotes
   . fmap (\(key, chip, b) -> if b then EdgeOn chip key else EdgeOff key)
 
 importBMS :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-importBMS bmsPath dout = do
+importBMS bmsPath dout = newImportBMS bmsPath ImportFull >>= void . stackIO . saveImport dout
+
+newImportBMS :: (SendMessage m, MonadIO m) => FilePath -> Import m
+newImportBMS bmsPath level = do
   bms <- stackIO $ readBMSLines <$> loadDTXLines bmsPath
   let simpleAudio f chips = if RTB.null chips
         then return Nothing
         else do
           src <- getBMSAudio chips bmsPath bms
-          runAudio src $ dout </> f
-          return $ Just (f, CA.channels src)
+          return $ Just (f, src, CA.channels src)
   audioSong <- simpleAudio "song.wav" $ bms_BGM bms
   audioPlayer1 <- simpleAudio "player1.wav" $ RTB.merge
     (snd <$> bms_Player1 bms)
@@ -51,57 +52,62 @@ importBMS bmsPath dout = do
   audioPlayer2 <- simpleAudio "player2.wav" $ RTB.merge
     (snd <$> bms_Player2 bms)
     (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ bms_Player2Long bms)
-  let audioExpr (aud, _) = PlanAudio
+  let audioExpr (aud, _, _) = PlanAudio
         { _planExpr = Input $ Named $ T.pack aud
         , _planPans = []
         , _planVols = []
         }
-  stackIO
-    $ Save.toFile (dout </> "notes.mid")
-    $ RBFile.showMIDIFile'
-    $ RBFile.Song (bms_TempoMap bms) (bms_MeasureMap bms) mempty
-      { RBFile.onyxParts = Map.fromList $ do
-        (fpart, chips, chipsLong) <-
-          [ (FlexExtra "player1", bms_Player1 bms, bms_Player1Long bms)
-          , (FlexExtra "player2", bms_Player2 bms, bms_Player2Long bms)
-          ]
-        guard $ not $ RTB.null chips && RTB.null chipsLong
-        let opart = mempty
-              { RBFile.onyxPartRealKeysX = mempty
-                { pkLanes = RTB.singleton 0 RangeC
-                , pkNotes = let
-                  lookupKey = \case
-                    BMScratch -> RedYellow E
-                    BMKey1    -> RedYellow F
-                    BMKey2    -> RedYellow Fs
-                    BMKey3    -> RedYellow G
-                    BMKey4    -> RedYellow Gs
-                    BMKey5    -> RedYellow A
-                    BMKey6    -> RedYellow As
-                    BMKey7    -> RedYellow B
-                  short = flip fmap chips
-                    $ \(key, _) -> (lookupKey key, Nothing)
-                  long = flip fmap (joinLongNotes chipsLong)
-                    $ \(key, _, len) -> (lookupKey key, Just len)
-                  in blipEdgesRB_ $ RTB.merge short long
-                }
-              }
-        return (fpart, opart)
-      }
-  stackIO $ yamlEncodeFile (dout </> "song.yml") $ toJSON SongYaml
-    { _metadata = def
+      midi = case level of
+        ImportQuick -> emptyChart
+        ImportFull -> RBFile.Song (bms_TempoMap bms) (bms_MeasureMap bms) mempty
+          { RBFile.onyxParts = Map.fromList $ do
+            (fpart, chips, chipsLong) <-
+              [ (FlexExtra "player1", bms_Player1 bms, bms_Player1Long bms)
+              , (FlexExtra "player2", bms_Player2 bms, bms_Player2Long bms)
+              ]
+            guard $ not $ RTB.null chips && RTB.null chipsLong
+            let opart = mempty
+                  { RBFile.onyxPartRealKeysX = mempty
+                    { pkLanes = RTB.singleton 0 RangeC
+                    , pkNotes = let
+                      lookupKey = \case
+                        BMScratch -> RedYellow E
+                        BMKey1    -> RedYellow F
+                        BMKey2    -> RedYellow Fs
+                        BMKey3    -> RedYellow G
+                        BMKey4    -> RedYellow Gs
+                        BMKey5    -> RedYellow A
+                        BMKey6    -> RedYellow As
+                        BMKey7    -> RedYellow B
+                      short = flip fmap chips
+                        $ \(key, _) -> (lookupKey key, Nothing)
+                      long = flip fmap (joinLongNotes chipsLong)
+                        $ \(key, _, len) -> (lookupKey key, Just len)
+                      in blipEdgesRB_ $ RTB.merge short long
+                    }
+                  }
+            return (fpart, opart)
+          }
+  return SongYaml
+    { _metadata = def'
       { _title        = bms_TITLE bms
       , _artist       = bms_ARTIST bms
       , _genre        = bms_GENRE bms
+      , _fileAlbumArt = Nothing
       }
-    , _global = def
+    , _global = def'
+      { _backgroundVideo = Nothing
+      , _fileBackgroundImage = Nothing
+      , _fileMidi = SoftFile "notes.mid" $ SoftChart midi
+      , _fileSongAnim = Nothing
+      }
     , _audio = HM.fromList $ do
-      (f, chans) <- catMaybes [audioSong, audioPlayer1, audioPlayer2]
+      (f, src, chans) <- catMaybes [audioSong, audioPlayer1, audioPlayer2]
       return $ (T.pack f ,) $ AudioFile AudioInfo
         { _md5 = Nothing
         , _frames = Nothing
         , _commands = []
-        , _filePath = Just f
+        , _filePath = Just $ SoftFile f $ SoftAudio src
         , _rate = Nothing
         , _channels = chans
         }
