@@ -44,7 +44,6 @@ import           RockBand.Common
 import qualified RockBand.Legacy.Vocal             as RBVox
 import           RockBand.Sections                 (makePSSection)
 import           Rocksmith.MIDI
-import           Scripts
 import qualified Sound.MIDI.Util                   as U
 
 processRB3Pad
@@ -275,7 +274,7 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
       Nothing -> id
     -- Note: drumMix must be applied *after* drumsComplete.
     -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
-    in (if drumsFixFreeform pd then fixFreeformDrums else id)
+    in (if drumsFixFreeform pd then RBFile.fixFreeformDrums else id)
       $ (\dt -> dt { drumPlayer1 = RTB.empty, drumPlayer2 = RTB.empty })
       $ drumsRemoveBRE
       $ addMoods
@@ -347,7 +346,7 @@ buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml 
     (trackOrig, algo) = RBFile.selectGuitarTrack gtrType src
     track
       = (\fd -> fd { fivePlayer1 = RTB.empty, fivePlayer2 = RTB.empty })
-      $ (if gryboFixFreeform grybo then fixFreeformFive else id)
+      $ (if gryboFixFreeform grybo then RBFile.fixFreeformFive else id)
       $ gryboComplete (guard (not toKeys) >> Just ht) mmap trackOrig
     ht = gryboHopoThreshold grybo
     fiveEachDiff f ft = ft { fiveDifficulties = fmap f $ fiveDifficulties ft }
@@ -473,7 +472,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           pitches = tuningPitches (pgTuning pg) { gtrGlobal = 0 }
           defaultFlat = maybe False songKeyUsesFlats $ _key $ _metadata songYaml
           f = applyType
-            . (if pgFixFreeform pg then fixFreeformPG else id) . protarComplete
+            . (if pgFixFreeform pg then RBFile.fixFreeformPG else id) . protarComplete
             . autoHandPosition . moveStrings
             . (if extendedTuning then freezeChordNames pitches defaultFlat else id)
             . autoChordRoot tuning
@@ -510,11 +509,11 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         Nothing -> False
 
       guitar = if hasProtarNotFive guitarPart
-        then addFiveMoods tempos timing $ protarToGrybo proGtr
+        then addFiveMoods tempos timing $ RBFile.protarToGrybo proGtr
         else makeGRYBOTrack False guitarPart
 
       bass = if hasProtarNotFive bassPart
-        then addFiveMoods tempos timing $ protarToGrybo proBass
+        then addFiveMoods tempos timing $ RBFile.protarToGrybo proBass
         else makeGRYBOTrack False bassPart
 
       rhythmPart = either (const $ RBFile.FlexExtra "undefined") ps_Rhythm target
@@ -556,7 +555,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           _ -> let
             basicKeys = gryboComplete Nothing mmap
               $ case partGRYBO part of
-                Nothing -> addFiveMoods tempos timing $ expertProKeysToKeys keysExpert
+                Nothing -> addFiveMoods tempos timing $ RBFile.expertProKeysToKeys keysExpert
                 Just _  -> makeGRYBOTrack True keysPart
             fpart = RBFile.getFlexPart keysPart trks
             keysDiff diff = if isJust $ partProKeys part
@@ -565,7 +564,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
                 Medium -> RBFile.onyxPartRealKeysM fpart
                 Hard   -> RBFile.onyxPartRealKeysH fpart
                 Expert -> RBFile.onyxPartRealKeysX fpart
-              else keysToProKeys diff basicKeys
+              else RBFile.keysToProKeys diff basicKeys
             pkd1 `orIfNull` pkd2 = if length (pkNotes pkd1) < 5 then pkd2 else pkd1
             eachPKDiff = ffPro . fixPSRange . fixPKMood . completeRanges
               . (case removeBRE target $ RBFile.onyxEvents trks of
@@ -588,10 +587,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               then (mempty { pkNotes = pkNotes keysExpert }, mempty)
               else (originalRH, originalLH)
             ffBasic = if fmap gryboFixFreeform (partGRYBO part) == Just True
-              then fixFreeformFive
+              then RBFile.fixFreeformFive
               else id
             ffPro = if fmap pkFixFreeform (partProKeys part) == Just True
-              then fixFreeformPK
+              then RBFile.fixFreeformPK
               else id
             -- nemo's checker doesn't like if you include this stuff on PART KEYS
             removeGtrStuff ft = ft
@@ -616,7 +615,6 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
   let vocalPart = either rb3_Vocal ps_Vocal target
       voxCount = fmap vocalCount $ getPart vocalPart songYaml >>= partVocal
       partVox = RBFile.onyxPartVocals $ RBFile.getFlexPart vocalPart trks
-      -- partVox' = if nullVox partVox then harm1ToPartVocals harm1 else partVox
       harm1   = RBFile.onyxHarm1 $ RBFile.getFlexPart vocalPart trks
       harm2   = RBFile.onyxHarm2 $ RBFile.getFlexPart vocalPart trks
       harm3   = RBFile.onyxHarm3 $ RBFile.getFlexPart vocalPart trks
@@ -669,7 +667,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         lg "Vocals (3) is empty; disabling"
         return (Nothing, mempty, mempty, mempty, mempty)
   let trkVox = if editCount >= Just Vocal2 && nullVox trkPV
-        then harm1ToPartVocals trkHarm1
+        then RBVox.harm1ToPartVocals trkHarm1
         else trkPV
       autoVoxMood vox = makeMoods tempos timing $ flip fmap (vocalNotes vox) $ \case
         (_, True) -> NoteOn () ()

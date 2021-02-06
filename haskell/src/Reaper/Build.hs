@@ -43,7 +43,6 @@ import           RockBand.Codec.ProGuitar              (GtrBase (..),
                                                         tuningPitches)
 import qualified RockBand.Codec.Vocal                  as Vox
 import           RockBand.Common                       (Key (..), showKey)
-import           Scripts                               (getTempos)
 import qualified Sound.File.Sndfile                    as Snd
 import qualified Sound.MIDI.File                       as F
 import qualified Sound.MIDI.File.Event                 as E
@@ -1210,6 +1209,12 @@ makeReaper tunings evts tempo audios out = do
   mid <- loadRawMIDI evts
   tempoMid <- loadRawMIDI tempo
   makeReaperFromData tunings mid tempoMid audios out
+
+getTempos :: (Monad m) => F.T -> StackTraceT m U.TempoMap
+getTempos mid = case U.decodeFile mid of
+  Left []           -> return $ U.makeTempoMap RTB.empty
+  Left (master : _) -> return $ U.makeTempoMap master
+  Right _           -> fatal "SMPTE midi not supported"
 
 makeReaperFromData :: (SendMessage m, MonadIO m) => TuningInfo -> F.T -> F.T -> [FilePath] -> FilePath -> StackTraceT m ()
 makeReaperFromData tunings mid tempoMid audios out = do

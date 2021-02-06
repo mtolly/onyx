@@ -149,7 +149,6 @@ import           RockBand.Milo                             (autoLipsync,
 import           RockBand.Score
 import           RockBand.SongCache                        (fixSongCache)
 import           RockBand3                                 (BasicTiming (..))
-import           Scripts                                   (saveMIDI)
 import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.Util                           as U
 import           STFS.Package                              (runGetM)
@@ -2432,7 +2431,7 @@ miscPageLipsync sink rect tab startTasks = do
                     trks <- forM fvocs $ \fvoc -> do
                       lipsync <- stackIO (BL.readFile fvoc) >>= runGetM parseLipsync
                       return $ mapTrack (U.unapplyTempoTrack $ RBFile.s_tempos mid) $ lipsyncToMIDITrack lipsync
-                    saveMIDI fout mid
+                    RBFile.saveMIDI fout mid
                       { RBFile.s_tracks = let
                         newTracks = RBFile.s_tracks $ RBFile.showMIDITracks mid
                           { RBFile.s_tracks = mempty

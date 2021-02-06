@@ -15,47 +15,49 @@
 {-# LANGUAGE ViewPatterns       #-}
 module Config where
 
-import qualified Amplitude.File                 as Amp
+import qualified Amplitude.File                   as Amp
 import           Audio
-import           Control.Applicative            (liftA2)
-import           Control.Arrow                  (first)
-import           Control.Monad.Codec            (CodecFor (..), (=.))
+import           Control.Applicative              (liftA2)
+import           Control.Arrow                    (first)
+import           Control.Monad.Codec              (CodecFor (..), (=.))
 import           Control.Monad.Codec.Onyx
 import           Control.Monad.Codec.Onyx.JSON
-import           Control.Monad.Trans.Class      (lift)
+import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
-import qualified Data.Aeson                     as A
-import           Data.Char                      (isDigit, isSpace)
-import           Data.Conduit.Audio             (Duration (..))
+import qualified Data.Aeson                       as A
+import           Data.Char                        (isDigit, isSpace)
+import           Data.Conduit.Audio               (Duration (..))
 import           Data.Default.Class
-import qualified Data.DTA.Serialize.GH2         as GH2
-import qualified Data.DTA.Serialize.Magma       as Magma
-import           Data.DTA.Serialize.RB3         (AnimTempo (..))
-import           Data.Fixed                     (Milli)
-import           Data.Foldable                  (toList)
-import           Data.Hashable                  (Hashable (..))
-import qualified Data.HashMap.Strict            as Map
-import           Data.Maybe                     (fromMaybe)
-import           Data.Scientific                (Scientific, toRealFloat)
-import           Data.String                    (IsString (..))
-import qualified Data.Text                      as T
+import qualified Data.DTA.Serialize.GH2           as GH2
+import qualified Data.DTA.Serialize.Magma         as Magma
+import           Data.DTA.Serialize.RB3           (AnimTempo (..))
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Fixed                       (Milli)
+import           Data.Foldable                    (toList)
+import           Data.Hashable                    (Hashable (..))
+import qualified Data.HashMap.Strict              as Map
+import           Data.Maybe                       (fromMaybe, mapMaybe)
+import           Data.Scientific                  (Scientific, toRealFloat)
+import           Data.String                      (IsString (..))
+import qualified Data.Text                        as T
 import           Data.Traversable
-import qualified Data.Vector                    as V
+import qualified Data.Vector                      as V
 import           DeriveHelpers
-import           GHC.Generics                   (Generic (..))
-import           Preferences                    (MagmaSetting (..))
-import           RockBand.Codec.File            (FlexPartName (..), getPartName,
-                                                 readPartName)
-import           RockBand.Codec.ProGuitar       (GtrBase (..), GtrTuning (..))
-import           RockBand.Common                (Key (..), SongKey (..),
-                                                 Tonality (..), readpKey,
-                                                 showKey, songKeyUsesFlats)
-import qualified Sound.Jammit.Base              as J
-import qualified Sound.MIDI.Util                as U
-import qualified Text.ParserCombinators.ReadP   as ReadP
-import           Text.Read                      (readMaybe)
-import qualified Text.Read.Lex                  as Lex
+import           GHC.Generics                     (Generic (..))
+import           Preferences                      (MagmaSetting (..))
+import           RockBand.Codec.Events
+import           RockBand.Codec.File              (FlexPartName (..))
+import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.ProGuitar         (GtrBase (..), GtrTuning (..))
+import           RockBand.Common                  (Key (..), SongKey (..),
+                                                   Tonality (..), readpKey,
+                                                   showKey, songKeyUsesFlats)
+import qualified Sound.Jammit.Base                as J
+import qualified Sound.MIDI.Util                  as U
+import qualified Text.ParserCombinators.ReadP     as ReadP
+import           Text.Read                        (readMaybe)
+import qualified Text.Read.Lex                    as Lex
 
 parsePitch :: (SendMessage m) => ValueCodec m A.Value Key
 parsePitch = Codec
@@ -214,8 +216,10 @@ newtype Parts a = Parts { getParts :: Map.HashMap FlexPartName a }
 
 instance (StackJSON a) => StackJSON (Parts a) where
   stackJSON = Codec
-    { codecIn = Parts . Map.fromList . map (first readPartName) . Map.toList <$> mapping fromJSON
-    , codecOut = makeOut $ \(Parts hm) -> mappingToJSON $ Map.fromList $ map (first getPartName) $ Map.toList hm
+    { codecIn = Parts . Map.fromList . map (first RBFile.readPartName) . Map.toList
+      <$> mapping fromJSON
+    , codecOut = makeOut $ \(Parts hm) -> mappingToJSON $ Map.fromList
+      $ map (first RBFile.getPartName) $ Map.toList hm
     }
 
 data Plan f
@@ -539,8 +543,8 @@ instance StackJSON Duration where
 
 instance StackJSON FlexPartName where
   stackJSON = Codec
-    { codecIn = fmap readPartName fromJSON
-    , codecOut = makeOut $ A.toJSON . getPartName
+    { codecIn = RBFile.readPartName <$> fromJSON
+    , codecOut = makeOut $ A.toJSON . RBFile.getPartName
     }
 
 data Difficulty
@@ -1428,3 +1432,32 @@ instance (Eq f, IsString f, StackJSON f) => StackJSON (SongYaml f) where
 
 getPart :: FlexPartName -> SongYaml f -> Maybe (Part f)
 getPart fpart = Map.lookup fpart . getParts . _parts
+
+-- | Returns the start and end of the preview audio in milliseconds.
+previewBounds :: (RBFile.HasEvents f) => SongYaml file -> RBFile.Song (f U.Beats) -> (Int, Int)
+previewBounds syaml song = let
+  len = RBFile.songLengthMS song
+  secsToMS s = floor $ s * 1000
+  evalTime t = secsToMS <$> evalPreviewTime True (Just RBFile.getEventsTrack) song t
+  evalTime' pt = fromMaybe (error $ "Couldn't evaluate preview bound: " ++ show pt) $ evalTime pt
+  defStartTime = case mapMaybe (evalTime . PreviewSection) ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"] of
+    []    -> max 0 $ quot len 2 - 15000
+    t : _ -> min (len - 30000) t
+  in case (_previewStart $ _metadata syaml, _previewEnd $ _metadata syaml) of
+    (Nothing, Nothing) -> (defStartTime, defStartTime + 30000)
+    (Just ps, Just pe) -> (evalTime' ps, evalTime' pe)
+    (Just ps, Nothing) -> let start = evalTime' ps in (start, start + 30000)
+    (Nothing, Just pe) -> let end = evalTime' pe in (end - 30000, end)
+
+evalPreviewTime :: Bool -> Maybe (f -> EventsTrack U.Beats) -> RBFile.Song f -> PreviewTime -> Maybe U.Seconds
+evalPreviewTime leadin getEvents song = \case
+  PreviewSeconds secs -> Just secs
+  PreviewMIDI mb -> Just $ addLeadin
+    $ U.applyTempoMap (RBFile.s_tempos song)
+    $ U.unapplyMeasureMap (RBFile.s_signatures song) mb
+  PreviewSection str -> addLeadin . U.applyTempoMap (RBFile.s_tempos song)
+    <$> findSection str
+  where addLeadin = if leadin then max 0 . subtract 0.6 else id
+        findSection sect = getEvents >>= \f ->
+          fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . snd)
+            $ eventsSections $ f $ RBFile.s_tracks song

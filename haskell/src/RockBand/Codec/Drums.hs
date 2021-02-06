@@ -468,3 +468,18 @@ expertWith2x dt = let
     { drumDifficulties = add2x $ drumDifficulties dt
     , drumKick2x = RTB.empty
     }
+
+-- | Changes all existing drum mix events to use the given config (not changing
+-- stuff like discobeat), and places ones at the beginning if they don't exist
+-- already.
+setDrumMix :: (NNC.C t) => Audio -> DrumTrack t -> DrumTrack t
+setDrumMix audio trk = let
+  f dd = dd
+    { drumMix = let
+      mixSet = fmap (\(_, disco) -> (audio, disco)) $ drumMix dd
+      alreadyMixed = case (RTB.viewL $ drumMix dd, RTB.viewL $ drumGems dd) of
+        (Just ((tmix, _), _), Just ((tnote, _), _)) -> tmix <= tnote
+        _                                           -> False
+      in if alreadyMixed then mixSet else RTB.cons NNC.zero (audio, NoDisco) mixSet
+    }
+  in trk { drumDifficulties = fmap f $ drumDifficulties trk }

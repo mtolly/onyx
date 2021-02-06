@@ -33,3 +33,23 @@ instance ParseTrack BeatTrack where
 
 instance TraverseTrack BeatTrack where
   traverseTrack fn (BeatTrack a) = BeatTrack <$> fn a
+
+-- | Given a measure map, produces an infinite BEAT track.
+makeBeatTrack :: U.MeasureMap -> RTB.T U.Beats BeatEvent
+makeBeatTrack mmap = go 0 where
+  go i = let
+    len = U.unapplyMeasureMap mmap (i + 1, 0) - U.unapplyMeasureMap mmap (i, 0)
+    -- the rounding below ensures that
+    -- e.g. the sig must be at least 3.5 to get bar-beat-beat-beat.
+    -- if it's 3.25, then you would get a beat 0.25 before the next bar,
+    -- which Magma doesn't like...
+    thisMeasure = U.trackTake (fromInteger $ simpleRound len) infiniteMeasure
+    -- simpleRound always rounds 0.5 up,
+    -- unlike round which rounds to the nearest even number.
+    simpleRound frac = case properFraction frac :: (Integer, U.Beats) of
+      (_, 0.5) -> ceiling frac
+      _        -> round frac
+    in trackGlue len thisMeasure $ go $ i + 1
+  infiniteMeasure, infiniteBeats :: RTB.T U.Beats BeatEvent
+  infiniteMeasure = RTB.cons 0 Bar  $ RTB.delay 1 infiniteBeats
+  infiniteBeats   = RTB.cons 0 Beat $ RTB.delay 1 infiniteBeats

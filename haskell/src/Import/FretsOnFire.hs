@@ -46,7 +46,7 @@ import           RockBand.Codec.Six               (nullSix)
 import           RockBand.Codec.Vocal
 import           RockBand.Common
 import qualified RockBand.Legacy.Vocal            as RBVox
-import           Scripts                          (fixFreeform, loadFoFMIDI)
+import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.Util                  as U
 import qualified System.Directory                 as Dir
 import           System.FilePath
@@ -113,10 +113,10 @@ redoSwells (RBFile.Song tmap mmap ps) = let
       $ U.applyTempoTrack tmap notesWithLanes
     in trk
       { drumSingleRoll = fmap (\b -> guard b >> Just LaneExpert)
-        $ fixFreeform (void notes)
+        $ RBFile.fixFreeform (void notes)
         $ U.unapplyTempoTrack tmap lanes1
       , drumDoubleRoll = fmap (\b -> guard b >> Just LaneExpert)
-        $ fixFreeform (void notes)
+        $ RBFile.fixFreeform (void notes)
         $ U.unapplyTempoTrack tmap lanes2
       }
   in RBFile.Song tmap mmap ps
@@ -706,3 +706,60 @@ fixShortVoxPhrases song@(RBFile.Song tmap mmap ps)
       _  -> inside (intercalate ", " $ map (RBFile.showPosition mmap) differenceTimes) $ do
         warn "Vocal phrase edges extended to be a minimum length of 1 beat"
     return $ RBFile.Song tmap mmap ps { RBFile.fixedPartVocals = vox' }
+
+-- | Moves star power from the GH 1/2 format to the RB format, either if it is
+-- specified in the song.ini, or automatically detected from the MIDI.
+loadFoFMIDI :: (SendMessage m, MonadIO m, RBFile.ParseFile f) => FoF.Song -> FilePath -> StackTraceT m (RBFile.Song (f U.Beats))
+loadFoFMIDI ini fp = do
+  mid <- RBFile.loadRawMIDI fp
+  let isGtrTrack trk = U.trackName trk `elem` map Just ["PART GUITAR", "PART BASS", "PART RHYTHM", "T1 GEMS"]
+      midGH = case mid of
+        F.Cons typ dvn trks -> F.Cons typ dvn $ flip map trks $ \trk -> if isGtrTrack trk
+          then flip RTB.mapMaybe trk $ \e -> case isNoteEdgeCPV e of
+            Just (c, 103, v) -> Just $ makeEdgeCPV c 116 v
+            Just (_, 116, _) -> Nothing
+            _                -> Just e
+          else trk
+      -- look for and remove fake OD notes used in lieu of star_power_note;
+      -- this was seen in Bocaj Hero V
+      midRB = case mid of
+        F.Cons typ dvn trks -> fmap (F.Cons typ dvn) $ forM trks $ \trk -> if isGtrTrack trk
+          then let
+            od = flip RTB.mapMaybe trk $ \e -> case isNoteEdgeCPV e of
+              Just (_, 116, Just _) -> Just ()
+              _                     -> Nothing
+            odless = flip RTB.filter trk $ \e -> case isNoteEdgeCPV e of
+              Just (_, 116, _) -> False
+              _                -> True
+            in case RTB.toPairList od of
+              -- look for 2 tiny OD phrases right next to each other
+              [(_, ()), (x, ())] | x < (480 * 5) -> do
+                lg "Removing thebocaj-style fake OD notes"
+                return odless
+              _                          -> return trk
+          else return trk
+      hasPitch n = not $ null $ do
+        trk <- case mid of F.Cons _ _ trks -> trks
+        guard $ isGtrTrack trk
+        e <- toList trk
+        case isNoteEdgeCPV e of
+          Just (_, n', _) | n == n' -> [()]
+          _                         -> []
+  mid' <- case FoF.starPowerNote ini of
+    Just 103 -> do
+      lg "Star Power note specified in song.ini to be 103 (old GH format), converting to RB"
+      return midGH
+    Just 116 -> do
+      lg "Star Power note specified in song.ini to be 116 (RB format)"
+      midRB
+    Nothing -> if hasPitch 103 && not (hasPitch 116)
+      then do
+        lg "MIDI auto-detected as old GH Star Power format, converting to RB"
+        return midGH
+      else do
+        lg "MIDI auto-detected as RB Overdrive format, passing through unmodified"
+        midRB
+    Just n -> do
+      warn $ "song.ini has unsupported Star Power pitch of " <> show n <> ", assuming RB format"
+      midRB
+  RBFile.readMIDIFile' mid'

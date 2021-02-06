@@ -5,9 +5,8 @@
 module RockBand.Legacy.Vocal
 ( Percussion(..), Pitch(..)
 , Event(..)
-, asciify
-, asciiLyrics
 , fixGHVocals
+, harm1ToPartVocals
 , vocalFromLegacy, vocalToLegacy
 ) where
 
@@ -143,3 +142,22 @@ fixGHVocals
     Just ((dt, evts), rtb') -> if not $ null [ () | Note False _ <- evts ]
       then RTB.cons dt (Phrase False : evts) rtb' -- note off is here, push complete
       else RTB.cons dt evts $ pushPhraseEnd True rtb'
+
+-- This doesn't currently handle
+-- [note start, phrase boundary, phrase boundary, note end]
+-- i.e. a note that spans 3 phrases. But you shouldn't be doing that anyways!
+harm1ToPartVocals :: (NNC.C t) => VocalTrack t -> VocalTrack t
+harm1ToPartVocals = vocalFromLegacy . go . RTB.normalize . vocalToLegacy where
+  go rtb = case RTB.viewL rtb of
+    Just ((dt, phstart@(Phrase True)), rtb') -> case U.extractFirst isPhraseEnd rtb' of
+      Nothing -> error "harm1ToPartVocals: found a HARM1 phrase with no end"
+      Just ((phlen, phend), rtb'') -> if any isNote $ RTB.getBodies $ U.trackTake phlen rtb''
+        then RTB.merge (RTB.fromPairList [(dt, phstart), (phlen, phend)])
+          $ RTB.delay dt $ go rtb''
+        else RTB.delay dt $ go rtb''
+    Just ((dt, evt), rtb') -> RTB.cons dt evt $ go rtb'
+    Nothing -> RTB.empty
+  isPhraseEnd e = case e of
+    Phrase False -> Just e
+    _            -> Nothing
+  isNote = \case Note _ _ -> True; _ -> False

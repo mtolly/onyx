@@ -52,7 +52,6 @@ import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    songKeyUsesFlats, splitEdges)
 import qualified RockBand.Legacy.Vocal            as Vox
 import           RockBand.Sections                (makePSSection)
-import           Scripts                          (songLengthBeats)
 import qualified Sound.MIDI.Util                  as U
 import           Text.Transform                   (showTimestamp)
 
@@ -822,7 +821,7 @@ makeDisplay songYaml song = let
     <|> fmap (fromEnum . songKey) (C._key $ C._metadata songYaml)
   beat = processBeat (RBFile.s_tempos song)
     $ Beat.beatLines $ RBFile.onyxBeat $ RBFile.s_tracks song
-  end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats song
+  end = U.applyTempoMap (RBFile.s_tempos song) $ RBFile.songLengthBeats song
   title  = fromMaybe "" $ C._title  $ C._metadata songYaml
   artist = fromMaybe "" $ C._artist $ C._metadata songYaml
   author = fromMaybe "" $ C._author $ C._metadata songYaml

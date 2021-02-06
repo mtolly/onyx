@@ -99,6 +99,7 @@ import           RockBand.Codec                        (mapTrack)
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums                  as RBDrums
 import           RockBand.Codec.Events
+import           RockBand.Codec.File                   (saveMIDI, shakeMIDI)
 import qualified RockBand.Codec.File                   as RBFile
 import           RockBand.Codec.Five
 import           RockBand.Codec.Lipsync                (LipsyncTrack (..))
@@ -123,7 +124,6 @@ import qualified RockBand3                             as RB3
 import qualified Rocksmith.ArrangementXML              as Arr
 import qualified Rocksmith.CST                         as CST
 import           Rocksmith.MIDI
-import           Scripts
 import qualified Sound.File.Sndfile                    as Snd
 import qualified Sound.Jammit.Base                     as J
 import qualified Sound.Jammit.Export                   as J
@@ -297,8 +297,8 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
   let thresh = 170 -- everything gets forced anyway
       (pstart, pend) = previewBounds songYaml song
-      len = songLengthMS song
-      perctype = getPercType song
+      len = RBFile.songLengthMS song
+      perctype = RBFile.getPercType song
       fullGenre = interpretGenre
         (_genre    $ _metadata songYaml)
         (_subgenre $ _metadata songYaml)
@@ -422,11 +422,11 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
     , D.solo = let
       kwds :: [T.Text]
       kwds = concat
-        [ ["guitar" | hasSolo Guitar song]
-        , ["bass" | hasSolo Bass song]
-        , ["drum" | hasSolo Drums song]
-        , ["keys" | hasSolo Keys song]
-        , ["vocal_percussion" | hasSolo Vocal song]
+        [ ["guitar" | RBFile.hasSolo Guitar song]
+        , ["bass" | RBFile.hasSolo Bass song]
+        , ["drum" | RBFile.hasSolo Drums song]
+        , ["keys" | RBFile.hasSolo Keys song]
+        , ["vocal_percussion" | RBFile.hasSolo Vocal song]
         ]
       in guard (not $ null kwds) >> Just kwds
     , D.songFormat = 10
@@ -532,11 +532,11 @@ makeC3 songYaml plan rb3 midi pkg = do
     , C3.hopoThresholdIndex = 2 -- 170 ticks (everything gets forced anyway)
     , C3.muteVol = -96
     , C3.vocalMuteVol = -12
-    , C3.soloDrums = hasSolo Drums midi
-    , C3.soloGuitar = hasSolo Guitar midi
-    , C3.soloBass = hasSolo Bass midi
-    , C3.soloKeys = hasSolo Keys midi
-    , C3.soloVocals = hasSolo Vocal midi
+    , C3.soloDrums = RBFile.hasSolo Drums midi
+    , C3.soloGuitar = RBFile.hasSolo Guitar midi
+    , C3.soloBass = RBFile.hasSolo Bass midi
+    , C3.soloKeys = RBFile.hasSolo Keys midi
+    , C3.soloVocals = RBFile.hasSolo Vocal midi
     , C3.songPreview = Just $ fromIntegral pstart
     , C3.checkTempoMap = True
     , C3.wiiMode = False
@@ -565,7 +565,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
       fullGenre = interpretGenre
         (_genre    $ _metadata songYaml)
         (_subgenre $ _metadata songYaml)
-      perctype = getPercType song
+      perctype = RBFile.getPercType song
       silentDryVox :: Int -> Magma.DryVoxPart
       silentDryVox n = Magma.DryVoxPart
         { Magma.dryVoxFile = "dryvox" <> T.pack (show n) <> ".wav"
@@ -1785,7 +1785,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               song <- shakeMIDI $ dir </> "ps/notes.mid"
               (DifficultyPS{..}, _) <- loadEditedParts
               let (pstart, _) = previewBounds songYaml (raw :: RBFile.Song (RBFile.OnyxFile U.Beats))
-                  len = songLengthMS song
+                  len = RBFile.songLengthMS song
                   pd = getPart (ps_Drums ps) songYaml >>= partDrums
                   dmode = fmap drumsMode pd
                   DifficultyRB3{..} = psDifficultyRB3
@@ -2121,7 +2121,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         -- NOTE: the cutoff is -4 for bass because for some reason CST fails
                         -- when trying to apply the low bass fix
                         tuning3 = map (+ if octaveDown then 12 else 0) tuning2
-                        lengthBeats = songLengthBeats mid
+                        lengthBeats = RBFile.songLengthBeats mid
                         lengthSeconds = U.applyTempoMap (RBFile.s_tempos mid) lengthBeats
                     rso <- let
                       opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid

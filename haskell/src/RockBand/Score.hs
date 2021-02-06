@@ -23,8 +23,8 @@ import qualified RockBand.Codec.ProKeys           as PK
 import qualified RockBand.Codec.Vocal             as Vox
 import           RockBand.Common                  (Difficulty (..),
                                                    pattern RNil, pattern Wait,
-                                                   edgeBlipsRB, edgeBlipsRB_)
-import           Scripts                          (trackGlue)
+                                                   edgeBlipsRB, edgeBlipsRB_,
+                                                   trackGlue)
 import qualified Sound.MIDI.Util                  as U
 
 data ScoreTrack

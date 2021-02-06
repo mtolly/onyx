@@ -426,3 +426,9 @@ noRedundantStatus = go Nothing where
     = go (Just k) (RTB.delay dt rest)
   go _ (Wait dt k rest)
     = Wait dt k $ go (Just k) rest
+
+trackGlue :: (NNC.C t) => t -> RTB.T t a -> RTB.T t a -> RTB.T t a
+trackGlue t xs ys = let
+  xs' = U.trackTake t xs
+  gap = t NNC.-| NNC.sum (RTB.getTimes xs')
+  in RTB.append xs' $ RTB.delay gap ys

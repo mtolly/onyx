@@ -10,17 +10,20 @@
 module RockBand.Codec.File where
 
 import           Amplitude.Track
-import           Control.Monad                     (forM, forM_, unless, (>=>))
+import           Control.Monad                     (forM, forM_, guard, unless,
+                                                    (>=>))
 import           Control.Monad.Codec
-import           Control.Monad.IO.Class            (MonadIO)
+import           Control.Monad.IO.Class            (MonadIO, liftIO)
 import           Control.Monad.Trans.Class         (lift)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State.Strict  (StateT, execState, get, put,
                                                     runStateT)
 import           Control.Monad.Trans.Writer.Strict (Writer, execWriter, tell)
 import           Data.Binary.Get                   (runGetOrFail)
+import           Data.DTA.Serialize.Magma          (Percussion)
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (find, toList)
+import           Data.Functor                      (void)
 import           Data.Functor.Identity             (Identity)
 import           Data.Hashable                     (Hashable (..))
 import           Data.List.Extra                   (nubOrd, partition, sortOn)
@@ -28,15 +31,20 @@ import           Data.List.NonEmpty                (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty                as NE
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (catMaybes, fromJust,
-                                                    fromMaybe, isNothing,
+                                                    fromMaybe, isJust,
+                                                    isNothing, listToMaybe,
                                                     mapMaybe)
 import           Data.SimpleHandle                 (Readable (..), fileReadable,
                                                     handleToByteString,
                                                     useHandle)
 import qualified Data.Text                         as T
 import           DeriveHelpers
+import           Development.Shake                 (Action, need)
 import           GHC.Generics                      (Generic)
-import           Guitars                           (HOPOsAlgorithm (..))
+import           Guitars                           (HOPOsAlgorithm (..),
+                                                    noExtendedSustains',
+                                                    standardBlipThreshold,
+                                                    standardSustainGap)
 import           MelodysEscape                     (MelodyTrack)
 import qualified Numeric.NonNegative.Class         as NNC
 import           PhaseShift.Dance
@@ -46,6 +54,7 @@ import           RockBand.Codec.Beat
 import           RockBand.Codec.Drums
 import           RockBand.Codec.Events
 import           RockBand.Codec.Five
+import qualified RockBand.Codec.Five               as Five
 import           RockBand.Codec.Lipsync
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
@@ -59,6 +68,7 @@ import qualified Sound.MIDI.File                   as F
 import qualified Sound.MIDI.File.Event             as E
 import qualified Sound.MIDI.File.Event.Meta        as Meta
 import           Sound.MIDI.File.FastParse         (getMIDI)
+import qualified Sound.MIDI.File.Save              as Save
 import qualified Sound.MIDI.Util                   as U
 
 type FileParser m t = StackTraceT (StateT [RTB.T t E.T] m)
@@ -865,4 +875,161 @@ fixedToOnyx f = OnyxFile
   , onyxVenue    = fixedVenue f
   , onyxLighting = mempty
   , onyxCamera   = mempty
+  }
+
+songLengthBeats :: (HasEvents f) => Song (f U.Beats) -> U.Beats
+songLengthBeats s = case RTB.getTimes $ eventsEnd $ getEventsTrack $ s_tracks s of
+  [bts] -> bts
+  _     -> 0 -- eh
+
+-- | Returns the time of the [end] event in milliseconds.
+songLengthMS :: (HasEvents f) => Song (f U.Beats) -> Int
+songLengthMS song = floor $ U.applyTempoMap (s_tempos song) (songLengthBeats song) * 1000
+
+saveMIDI :: (MonadIO m, ParseFile f) => FilePath -> Song (f U.Beats) -> m ()
+saveMIDI fp song = liftIO $ Save.toFile fp $ showMIDIFile' song
+
+shakeMIDI :: (ParseFile f) => FilePath -> StackTraceT (QueueLog Action) (Song (f U.Beats))
+shakeMIDI fp = lift (lift $ need [fp]) >> loadMIDI fp
+
+hasSolo :: (NNC.C t) => RB3Instrument -> Song (FixedFile t) -> Bool
+hasSolo Guitar song = any (not . null)
+  [ fiveSolo $ fixedPartGuitar $ s_tracks song
+  , pgSolo $ fixedPartRealGuitar $ s_tracks song
+  , pgSolo $ fixedPartRealGuitar22 $ s_tracks song
+  ]
+hasSolo Bass song = any (not . null)
+  [ fiveSolo $ fixedPartBass $ s_tracks song
+  , pgSolo $ fixedPartRealBass $ s_tracks song
+  , pgSolo $ fixedPartRealBass22 $ s_tracks song
+  ]
+hasSolo Drums song = any (not . null)
+  [ drumSolo $ fixedPartDrums $ s_tracks song
+  ]
+hasSolo Keys song = any (not . null)
+  [ fiveSolo $ fixedPartKeys $ s_tracks song
+  , pkSolo $ fixedPartRealKeysX $ s_tracks song
+  ]
+hasSolo Vocal song = any (not . null)
+  [ vocalPerc $ fixedPartVocals $ s_tracks song
+  , vocalPerc $ fixedHarm1 $ s_tracks song
+  ]
+
+fixFreeformDrums :: DrumTrack U.Beats -> DrumTrack U.Beats
+fixFreeformDrums ft = ft
+  { drumSingleRoll = fixFreeform' gems $ drumSingleRoll ft
+  , drumDoubleRoll = fixFreeform' gems $ drumDoubleRoll ft
+  } where gems = maybe RTB.empty (void . drumGems) $ Map.lookup Expert $ drumDifficulties ft
+
+fixFreeformFive :: FiveTrack U.Beats -> FiveTrack U.Beats
+fixFreeformFive ft = ft
+  { fiveTremolo = fixFreeform' gems $ fiveTremolo ft
+  , fiveTrill   = fixFreeform' gems $ fiveTrill   ft
+  } where gems = maybe RTB.empty (void . fiveGems) $ Map.lookup Expert $ fiveDifficulties ft
+
+fixFreeformPK :: ProKeysTrack U.Beats -> ProKeysTrack U.Beats
+fixFreeformPK ft = ft
+  { pkGlissando = fixFreeform gems $ pkGlissando ft
+  , pkTrill     = fixFreeform gems $ pkTrill     ft
+  } where gems = void $ pkNotes ft
+
+fixFreeformPG :: ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats
+fixFreeformPG ft = ft
+  { pgTremolo = fixFreeform' gems $ pgTremolo ft
+  , pgTrill   = fixFreeform' gems $ pgTrill   ft
+  } where gems = maybe RTB.empty (void . pgNotes) $ Map.lookup Expert $ pgDifficulties ft
+
+-- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
+--- their last gem note-on.
+fixFreeform :: RTB.T U.Beats () -> RTB.T U.Beats Bool -> RTB.T U.Beats Bool
+fixFreeform initGems = fmap isJust . fixFreeform' initGems . fmap (\b -> guard b >> Just ())
+
+fixFreeform' :: (Ord a) => RTB.T U.Beats () -> RTB.T U.Beats (Maybe a) -> RTB.T U.Beats (Maybe a)
+fixFreeform' initGems = go initGems . RTB.normalize where
+  go gems lanes = case RTB.viewL lanes of
+    Just ((dt, Just x), lanes') -> case RTB.viewL lanes' of
+      Just ((len, Nothing), lanes'') -> let
+        covered = U.trackTake len $ U.trackDrop dt gems
+        len' = case sum $ RTB.getTimes covered of
+          0 -> len -- no gems, shouldn't happen
+          s -> s + 1/32
+        in RTB.cons dt (Just x) $ RTB.insert len' Nothing $
+          go (U.trackDrop dt gems) (RTB.delay len lanes'')
+      _ -> lanes -- on not followed by off, abort
+    Just ((_, Nothing), _) -> lanes -- off not preceded by on, abort
+    Nothing -> RTB.empty -- done
+
+getPercType :: (NNC.C t) => Song (FixedFile t) -> Maybe Percussion
+getPercType song = listToMaybe $ do
+  trk <-
+    [ fixedPartVocals $ s_tracks song
+    , fixedHarm1      $ s_tracks song
+    , fixedHarm2      $ s_tracks song
+    , fixedHarm3      $ s_tracks song
+    ]
+  (perc, _) <- RTB.getBodies $ vocalPercAnimation trk
+  return perc
+
+-- | Makes a dummy Basic Guitar/Bass track, for parts with only Pro Guitar/Bass charted.
+protarToGrybo :: ProGuitarTrack U.Beats -> FiveTrack U.Beats
+protarToGrybo pg = mempty
+  { fiveDifficulties = flip fmap (pgDifficulties pg) $ \pgd -> mempty
+    { fiveGems
+      = blipEdgesRB_
+      $ fmap head
+      $ RTB.collectCoincident
+      $ noExtendedSustains' standardBlipThreshold standardSustainGap
+      $ fmap (\(_, _, len) -> (Five.Green, len))
+      $ edgeBlipsRB
+      $ pgNotes pgd
+    }
+  , fiveOverdrive    = pgOverdrive pg
+  , fiveBRE          = fmap snd $ pgBRE pg
+  , fiveSolo         = pgSolo pg
+  }
+
+-- | Makes a dummy Basic Keys track, for parts with only Pro Keys charted.
+expertProKeysToKeys :: ProKeysTrack U.Beats -> FiveTrack U.Beats
+expertProKeysToKeys pk = mempty
+  { fiveDifficulties = let
+    fd = mempty
+      { fiveGems
+        = blipEdgesRB_
+        $ fmap head
+        $ RTB.collectCoincident
+        $ noExtendedSustains' standardBlipThreshold standardSustainGap
+        $ fmap (\(_, len) -> (Five.Green, len))
+        $ edgeBlipsRB_
+        $ pkNotes pk
+      }
+    in Map.fromList [ (diff, fd) | diff <- [minBound .. maxBound] ]
+  , fiveOverdrive    = pkOverdrive pk
+  , fiveBRE          = pkBRE pk
+  , fiveSolo         = pkSolo pk
+  }
+
+-- | Makes a Pro Keys track, for parts with only Basic Keys charted.
+keysToProKeys :: (NNC.C t) => Difficulty -> FiveTrack t -> ProKeysTrack t
+keysToProKeys d ft = ProKeysTrack
+  { pkLanes     = RTB.singleton NNC.zero RangeA
+  , pkTrainer   = RTB.empty
+  , pkMood      = RTB.empty
+  , pkSolo      = if d == Expert then fiveSolo ft else RTB.empty
+  , pkGlissando = RTB.empty
+  , pkTrill     = case d of
+    Expert -> isJust <$> fiveTrill ft
+    -- TODO add Hard trills
+    _      -> RTB.empty
+  , pkOverdrive = if d == Expert then fiveOverdrive ft else RTB.empty
+  , pkBRE       = if d == Expert then fiveBRE ft else RTB.empty
+  , pkNotes     = case Map.lookup d $ fiveDifficulties ft of
+    Nothing -> RTB.empty
+    Just fd -> let
+      colorToKey = BlueGreen . \case
+        Five.Green  -> C
+        Five.Red    -> D
+        Five.Yellow -> E
+        Five.Blue   -> F
+        Five.Orange -> G
+      in fmap colorToKey <$> fiveGems fd
   }

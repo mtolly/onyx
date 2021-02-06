@@ -25,8 +25,8 @@ import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys           as PK
 import           RockBand.Common                  (Difficulty (..), Key (..),
                                                    StrumHOPOTap (..),
-                                                   blipEdgesRB_, edgeBlipsRB_)
-import           Scripts                          (trackGlue)
+                                                   blipEdgesRB_, edgeBlipsRB_,
+                                                   trackGlue)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 
