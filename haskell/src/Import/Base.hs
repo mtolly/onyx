@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Import.Base where
 
@@ -8,8 +9,10 @@ import           Control.Applicative              ((<|>))
 import           Control.Concurrent.Async         (async, wait)
 import           Control.Monad                    (forM)
 import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
+import           Control.Monad.IO.Class           (liftIO)
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
+import           Control.Monad.Trans.State        (evalStateT, gets, modify)
 import           Data.Char                        (toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (Default, def)
@@ -45,21 +48,28 @@ data SoftFile = SoftFile FilePath SoftContents
 data ImportLevel
   = ImportFull  -- ^ Actually load the whole chart, parse MIDIs, etc.
   | ImportQuick -- ^ Only load basic metadata, as fast as possible
+  deriving (Eq)
 
 type Import m = ImportLevel -> StackTraceT m (SongYaml SoftFile)
 
 saveImport :: FilePath -> SongYaml SoftFile -> IO (SongYaml FilePath)
 saveImport dout yaml = do
-  yaml2 <- forM yaml $ \(SoftFile newName contents) -> async $ do
-    let newNameFull = dout </> newName
-    case contents of
-      SoftReadable r -> saveReadable r newNameFull
-      SoftImage img -> case map toLower $ takeExtension newName of
-        ".png" -> writePng newNameFull img
-        ext    -> error $ "saveImport: unhandled image extension " <> show ext
-      SoftChart song -> Save.toFile newNameFull $ RBFile.showMIDIFile' song
-      SoftAudio aud -> audioIO Nothing aud newNameFull
-    return newName
+  yaml2 <- flip evalStateT [] $ forM yaml $ \(SoftFile newName contents) -> do
+    gets (lookup newName) >>= \case
+      Just prev -> return prev
+      Nothing -> do
+        newAsync <- liftIO $ async $ do
+          let newNameFull = dout </> newName
+          case contents of
+            SoftReadable r -> saveReadable r newNameFull
+            SoftImage img -> case map toLower $ takeExtension newName of
+              ".png" -> writePng newNameFull img
+              ext    -> error $ "saveImport: unhandled image extension " <> show ext
+            SoftChart song -> Save.toFile newNameFull $ RBFile.showMIDIFile' song
+            SoftAudio aud -> audioIO Nothing aud newNameFull
+          return newName
+        modify ((newName, newAsync) :)
+        return newAsync
   yaml3 <- traverse wait yaml2
   yamlEncodeFile (dout </> "song.yml") $ toJSON yaml3
   return yaml3

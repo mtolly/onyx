@@ -231,7 +231,8 @@ newImportFoF src level = do
       []    -> return Nothing
       f : _ -> return $ Just $ SoftFile (map toLower f) $ SoftReadable $ fileReadable $ src </> f
 
-  let loadAudioFile x = stackIO $ let
+  let loadAudioFile _ | level == ImportQuick = return Nothing
+      loadAudioFile x = stackIO $ let
         tryExt ext = do
           let template = x <.> ext
           path <- fixFileCase $ src </> template
@@ -321,10 +322,12 @@ newImportFoF src level = do
 
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
-  let maybePath2x = listToMaybe $ flip filter allFiles $ \f -> let
-        lower = T.toLower $ T.pack f
-        in map toLower (takeExtension f) == ".mid"
-          && any (`T.isInfixOf` lower) ["expert+", "expertplus", "notes+"]
+  let maybePath2x = do
+        guard $ level == ImportFull
+        listToMaybe $ flip filter allFiles $ \f -> let
+          lower = T.toLower $ T.pack f
+          in map toLower (takeExtension f) == ".mid"
+            && any (`T.isInfixOf` lower) ["expert+", "expertplus", "notes+"]
       -- expert+.mid is most common but Drum Projects 2 and 3 also have:
       -- expertplus.mid, notesexpert+.mid, (name of song)Expert+.mid
       -- some also have expert+.chart but we shouldn't have to support that
@@ -373,6 +376,7 @@ newImportFoF src level = do
         RBFile.Song tempos sigs fixed -> RBFile.Song tempos sigs $ RBFile.fixedToOnyx fixed
 
   vidPath <- case FoF.video song of
+    _ | level == ImportQuick -> return Nothing
     Just v | not $ all isSpace v -> do -- PS video
       v' <- stackIO $ fixFileCase (src </> v) >>= Dir.makeAbsolute
       return $ Just v'

@@ -207,8 +207,8 @@ newImportRSSong folder song level = do
   bnkFile <- case findFile (return $ T.pack $ bnk <.> "bnk") audioDir of
     Just r  -> return r
     Nothing -> fatal "Couldn't find .bnk file"
-  oggFile <- stackIO $ extractRSOgg bnkFile audioDir
-  let modifiedBeats = removeDupeTimes $ case sng_BPMs firstArr of
+  let oggFile = extractRSOgg bnkFile audioDir
+      modifiedBeats = removeDupeTimes $ case sng_BPMs firstArr of
         ebeats@(BPM { bpm_Time = 0 } : _) -> ebeats
         ebeats@(BPM { bpm_Time = t } : _) -> let
           newBeatCount = ceiling t

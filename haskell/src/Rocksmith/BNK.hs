@@ -23,8 +23,8 @@ import           Resources
 import           Sound.WW2Ogg
 import           System.FilePath      ((<.>))
 
-extractRSOgg :: Readable -> Folder T.Text Readable -> IO Readable
-extractRSOgg bnk audioDir = do
+extractRSOgg :: Readable -> Folder T.Text Readable -> Readable
+extractRSOgg bnk audioDir = makeHandle "converted .wem audio" $ do
   codebook <- getResourcesPath "packed_codebooks_aoTuV_603.bin"
   chunks <- parseBNK <$> useHandle bnk handleToByteString
   let hirc = chunks >>= \case
@@ -45,7 +45,7 @@ extractRSOgg bnk audioDir = do
     Just r  -> BL.toStrict <$> useHandle r handleToByteString
   ww2ogg (WW2OggConfig { wwCodebook = codebook }) wem >>= \case
     Nothing  -> fail "ww2ogg failed"
-    Just ogg -> return $ makeHandle "converted .wem audio" $ byteStringSimpleHandle $ BL.fromStrict ogg
+    Just ogg -> byteStringSimpleHandle $ BL.fromStrict ogg
 
 parseBNK :: BL.ByteString -> [Chunk]
 parseBNK bs = flip map (splitChunks bs) $ \(magic, chunk) -> case magic of

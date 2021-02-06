@@ -1,12 +1,12 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections     #-}
 module OpenProject where
 
-import           Beatmania.BMS                  (BMS (..), readBMSLines)
 import           Build
 import           Config
 import           Control.Applicative            ((<|>))
-import           Control.Monad                  (guard)
+import           Control.Monad                  (forM, guard)
 import qualified Control.Monad.Catch            as MC
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Resource
@@ -17,42 +17,29 @@ import qualified Data.ByteString.Lazy           as BL
 import           Data.Char                      (isAlpha, toLower)
 import           Data.DTA                       (DTA (..), Tree (..),
                                                  readFileDTA)
-import qualified Data.DTA.Serialize             as DTA
-import qualified Data.DTA.Serialize.Amplitude   as Amp
-import qualified Data.DTA.Serialize.GH1         as GH1
-import qualified Data.DTA.Serialize.GH2         as GH2
-import qualified Data.DTA.Serialize.Magma       as RBProj
-import qualified Data.DTA.Serialize.RB3         as D
 import           Data.Foldable                  (toList)
 import           Data.Functor                   (void)
 import           Data.Functor.Identity
 import           Data.Hashable
 import qualified Data.HashMap.Strict            as Map
 import           Data.List.Extra                (stripSuffix)
-import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe                     (fromMaybe, mapMaybe)
-import           Data.SimpleHandle              (findByteString)
+import           Data.SimpleHandle              (crawlFolder)
 import qualified Data.Text                      as T
-import           DTXMania.DTX
-import           DTXMania.Set
-import qualified FeedBack.Load                  as FB
-import qualified FretsOnFire                    as FoF
 import           GuitarHeroII.Ark               (GameGH (..), detectGameGH,
                                                  replaceSong)
-import           Import.Amplitude2016           (importAmplitude)
-import           Import.BMS                     (importBMS)
-import           Import.DTXMania                (importDTX, importSet)
-import           Import.FretsOnFire             (importFoF)
+import           Import.Amplitude2016           (newImportAmplitude)
+import           Import.Base                    (ImportLevel (..), saveImport)
+import           Import.BMS                     (newImportBMS)
+import           Import.DTXMania                (newImportDTX, newImportSet)
+import           Import.FretsOnFire             (newImportFoF)
 import qualified Import.GuitarHero1             as GH1
 import qualified Import.GuitarHero2             as GH2
-import           Import.Magma                   (importMagma)
-import           Import.RockBand                (importRBA, importSTFS,
-                                                 importSTFSDir)
+import           Import.Magma                   (newImportMagma)
+import           Import.RockBand                (newImportRBA,
+                                                 newImportSTFSFolder)
 import           Import.Rocksmith               as RS
-import           Magma                          (getRBAFileBS)
 import           Preferences
-import           PrettyDTA                      (C3DTAComments (..),
-                                                 DTASingle (..), readDTASingles)
 import qualified Sound.Jammit.Base              as J
 import           STFS.Package                   (getSTFSFolder)
 import qualified System.Directory               as Dir
@@ -116,104 +103,23 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         (key, tmp) <- resourceTempDir
         () <- fn tmp
         withYaml index loc isDir (Just key) (tmp </> "song.yml")
-      foundChart loc = do
+      foundFoF loc = do
+        -- loc can be a .ini or .chart
         let dir = takeDirectory loc
-        ini <- fmap FB.chartToIni $ FB.loadChartFile loc
-        found Importable
-          { impTitle = FoF.name ini
-          , impArtist = FoF.artist ini
-          , impAuthor = FoF.charter ini
-          , impFormat = "Clone Hero"
-          , impPath = dir
-          , impIndex = Nothing
-          , impProject = importFrom Nothing dir True $ importFoF dir
-          }
-      foundIni loc = do
-        let dir = takeDirectory loc
-        ini <- FoF.loadSong loc
-        found Importable
-          { impTitle = FoF.name ini
-          , impArtist = FoF.artist ini
-          , impAuthor = FoF.charter ini
-          , impFormat = "Frets on Fire/Phase Shift/Clone Hero"
-          , impPath = dir
-          , impIndex = Nothing
-          , impProject = importFrom Nothing dir True $ importFoF dir
-          }
+        foundImport "Frets on Fire/Phase Shift/Clone Hero" dir $ newImportFoF dir
       foundGH loc = do
         let dir = takeDirectory loc
         stackIO (detectGameGH dir) >>= \case
           Nothing -> do
             warn $ "Couldn't detect GH game version for: " <> dir
             return ([], [])
-          Just GameGH2 -> do
-            songs <- GH2.getImports <$> GH2.getSongList dir
-            let eachSong i (_, (mode, pkg)) = let
-                  index = Just i
-                  in Importable
-                    { impTitle = Just $ GH2.name pkg <> case mode of
-                      GH2.ImportSolo -> ""
-                      GH2.ImportCoop -> " (Co-op)"
-                    , impArtist = Just $ GH2.artist pkg
-                    , impAuthor = Nothing
-                    , impFormat = "Guitar Hero II"
-                    , impPath = dir
-                    , impIndex = index
-                    , impProject = importFrom index dir True $ GH2.importGH2 mode pkg dir
-                    }
-            foundMany $ zipWith eachSong [0..] songs
-          Just GameGH1 -> do
-            songs <- GH1.getSongList dir
-            let eachSong i (_, pkg) = let
-                  index = Just i
-                  in Importable
-                    { impTitle = Just $ GH1.name pkg
-                    , impArtist = Just $ GH1.artist pkg
-                    , impAuthor = Nothing
-                    , impFormat = "Guitar Hero (1)"
-                    , impPath = dir
-                    , impIndex = index
-                    , impProject = importFrom index dir True $ GH1.importGH1 pkg dir
-                    }
-            foundMany $ zipWith eachSong [0..] songs
+          Just GameGH2 -> GH2.newImportGH2 dir >>= foundImports "Guitar Hero II" dir
+          Just GameGH1 -> GH1.newImportGH1 dir >>= foundImports "Guitar Hero (1)" dir
       foundDTXSet loc = do
         let dir = takeDirectory loc
-        songs <- stackIO $ loadSet loc
-        -- TODO get the artist from the top found difficulty
-        let eachSong i song = let
-              index = guard (not $ null $ drop 1 songs) >> Just i
-              in Importable
-                { impTitle = Just $ setTitle song
-                , impArtist = Nothing
-                , impAuthor = Nothing
-                , impFormat = "DTXMania (set.def)"
-                , impPath = dir
-                , impIndex = index
-                , impProject = importFrom index dir True $ importSet i loc
-                }
-        foundMany $ zipWith eachSong [0..] songs
-      foundDTX fmt loc = do
-        dtx <- stackIO $ readDTXLines fmt <$> loadDTXLines loc
-        found Importable
-          { impTitle = dtx_TITLE dtx
-          , impArtist = dtx_ARTIST dtx
-          , impAuthor = Nothing
-          , impFormat = "DTXMania"
-          , impPath = loc
-          , impIndex = Nothing
-          , impProject = importFrom Nothing loc False $ importDTX loc
-          }
-      foundBME loc = do
-        bms <- stackIO $ readBMSLines <$> loadDTXLines loc
-        found Importable
-          { impTitle = bms_TITLE bms
-          , impArtist = bms_ARTIST bms
-          , impAuthor = Nothing
-          , impFormat = "Be-Music Source"
-          , impPath = loc
-          , impIndex = Nothing
-          , impProject = importFrom Nothing loc False $ importBMS loc
-          }
+        newImportSet dir >>= foundImports "DTXMania (set.def)" dir
+      foundDTX loc = foundImport "DTXMania" loc $ newImportDTX loc
+      foundBME loc = foundImport "Be-Music Source" loc $ newImportBMS loc
       foundYaml loc = do
         let dir = takeDirectory loc
         yml <- loadYaml loc
@@ -227,75 +133,47 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           , impIndex = Nothing
           , impProject = withYaml Nothing dir True Nothing loc
           }
-      foundRBProj loc = do
-        RBProj.RBProj proj <- stackIO (readFileDTA loc) >>= DTA.unserialize DTA.stackChunks
-        found Importable
-          { impTitle = Just $ RBProj.songName $ RBProj.metadata proj
-          , impArtist = Just $ RBProj.artistName $ RBProj.metadata proj
-          , impAuthor = Just $ RBProj.author $ RBProj.metadata proj
-          , impFormat = "Magma Project"
-          , impPath = loc
-          , impIndex = Nothing
-          , impProject = importFrom Nothing loc False $ importMagma loc
-          }
+      foundRBProj loc = foundImport "Magma Project" loc $ newImportMagma loc
       foundAmplitude loc = do
         let dir = takeDirectory loc
-        song <- stackIO (readFileDTA loc) >>= DTA.unserialize DTA.stackChunks
-        found Importable
-          { impTitle = Just $ Amp.title song
-          , impArtist = Just $ Amp.artist song
-          , impAuthor = Nothing
-          , impFormat = "Amplitude (2016)"
-          , impPath = dir
-          , impIndex = Nothing
-          , impProject = importFrom Nothing dir True $ importAmplitude loc
-          }
-      foundDTA bs fmt loc isDir imp = do
-        singles <- map fst <$> readDTASingles bs
-        let eachSong i single = let
-              index = guard (not $ null $ drop 1 singles) >> Just i
-              in Importable
-                { impTitle = Just $ D.name $ dtaSongPackage single
-                , impArtist = D.artist $ dtaSongPackage single
-                , impAuthor = c3dtaAuthoredBy $ dtaC3Comments single
-                , impFormat = fmt
-                , impPath = loc
-                , impIndex = index
-                , impProject = importFrom index loc isDir $ imp i
-                }
-        foundMany $ zipWith eachSong [0..] singles
-      foundSTFS loc = do
-        dta <- stackIO $ getSTFSFolder loc >>= findByteString ("songs" :| pure "songs.dta")
-        case dta of
-          Just bs -> foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc False $ \i -> importSTFS i loc
-          Nothing -> return ([], [])
-      foundRS psarc = do
-        -- TODO fill in data
-        found Importable
-          { impTitle = Just "(rocksmith song)"
-          , impArtist = Nothing
-          , impAuthor = Nothing
-          , impFormat = "Rocksmith"
-          , impPath = psarc
-          , impIndex = Nothing
-          , impProject = importFrom Nothing psarc False $ RS.importRS psarc
-          }
+        foundImport "Amplitude (2016)" dir $ newImportAmplitude dir
+      foundSTFS loc = stackIO (getSTFSFolder loc)
+        >>= newImportSTFSFolder
+        >>= foundImports "Xbox 360 STFS (CON/LIVE)" loc
+      foundRS psarc = newImportRS psarc >>= foundImports "Rocksmith" psarc
+      foundImports fmt path imports = do
+        isDir <- stackIO $ Dir.doesDirectoryExist path
+        let single = null $ drop 1 imports
+        fmap ([],) $ forM (zip [0..] imports) $ \(i, imp) -> do
+          quick <- imp ImportQuick
+          let index = guard (not single) >> Just i
+          return Importable
+            { impTitle = _title $ _metadata quick
+            , impArtist = _artist $ _metadata quick
+            , impAuthor = _author $ _metadata quick
+            , impFormat = fmt
+            , impPath = path
+            , impIndex = index
+            , impProject = importFrom index path isDir $ \dout ->
+              void $ imp ImportFull >>= stackIO . saveImport dout
+            }
+      foundImport fmt path imp = foundImports fmt path [imp]
   isDir <- stackIO $ Dir.doesDirectoryExist fp
   if isDir
     then do
       ents <- stackIO $ Dir.listDirectory fp
       let lookFor [] = stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
-            True  -> do
-              bs <- stackIO $ B.readFile $ fp </> "songs/songs.dta"
-              foundDTA bs "Rock Band Extracted" fp True $ \i -> importSTFSDir i fp
+            True  -> stackIO (crawlFolder fp)
+              >>= newImportSTFSFolder
+              >>= foundImports "Rock Band Extracted" fp
             False -> return (map (fp </>) ents, [])
           lookFor ((file, use) : rest) = case filter ((== file) . map toLower) ents of
             match : _ -> use $ fp </> match
             []        -> lookFor rest
       lookFor
         [ ("song.yml", foundYaml)
-        , ("song.ini", foundIni)
-        , ("notes.chart", foundChart)
+        , ("song.ini", foundFoF)
+        , ("notes.chart", foundFoF)
         , ("set.def", foundDTXSet)
         , ("main.hdr", foundGH)
         ]
@@ -305,26 +183,24 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".yaml" -> foundYaml fp
         ".rbproj" -> foundRBProj fp
         ".moggsong" -> foundAmplitude fp
-        ".chart" -> foundChart fp
-        ".dtx" -> foundDTX FormatDTX fp
-        ".gda" -> foundDTX FormatGDA fp
+        ".chart" -> foundFoF fp
+        ".dtx" -> foundDTX fp
+        ".gda" -> foundDTX fp
         ".bms" -> foundBME fp
         ".bme" -> foundBME fp
         ".bml" -> foundBME fp
         ".psarc" -> foundRS fp
         _ -> case map toLower $ takeFileName fp of
-          "song.ini" -> foundIni fp
+          "song.ini" -> foundFoF fp
           "set.def" -> foundDTXSet fp
           "main.hdr" -> foundGH fp
           _ -> do
             magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 4
             case magic of
-              "RBSF" -> do
-                bs <- getRBAFileBS 0 fp
-                foundDTA (BL.toStrict bs) "Magma RBA" fp False $ \_ -> importRBA fp
+              "RBSF" -> foundImport "Magma RBA" fp $ newImportRBA fp
               "CON " -> foundSTFS fp
               "LIVE" -> foundSTFS fp
-              _ -> return ([], [])
+              _      -> return ([], [])
 
 openProject :: (SendMessage m, MonadResource m) =>
   Maybe Int -> FilePath -> StackTraceT m Project
