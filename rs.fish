@@ -52,14 +52,15 @@ build songs/dream-theater/6-00 # needs 4-string
 # build songs/trioscapes/blast-off # needs 4-string
 # build songs-grinnz/between-the-buried-and-me/mirrors # needs 4-string
 # build songs-grinnz/between-the-buried-and-me/obfuscation # needs 4-string
-build songs-grinnz/between-the-buried-and-me/disease-injury-madness # needs 4-string
+# build songs-grinnz/between-the-buried-and-me/disease-injury-madness # needs 4-string
 # build songs-grinnz/between-the-buried-and-me/desert-of-song # needs 4-string
 # build songs/dream-theater/another-day
 # build songs/dream-theater/take-the-time # needs 4-string
 # build songs/dream-theater/surrounded
 # build songs/dream-theater/caught-in-a-web
 # build songs/juliaplaysgroove/break-my-heart
-# build songs/liquid-tension-experiment/paradigm-shift
+build songs/liquid-tension-experiment/paradigm-shift
+build songs-others/dragontaser/the-least-333-seconds
 
 # phrases unknown:
 

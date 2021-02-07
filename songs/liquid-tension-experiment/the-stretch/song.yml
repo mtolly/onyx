@@ -1,0 +1,37 @@
+metadata:
+  title: The Stretch
+  file-include: ../../../albums/liquid-tension-experiment.yml
+  track-number: 4
+  rating: Family Friendly
+  author: Onyxite
+audio:
+  album-prev: # Kindred Spirits
+    md5: a7d421dbe4377c9270246bcebca1bb0a
+    frames: 17181360
+  album-track:
+    md5: 4602394d78e1bdf9d2aaa802d6456a0a
+    frames: 5327280
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|1: hihat
+      0|2: hihat
+      0|3: hihat
+    song:
+      fade:
+      - start
+      - 2.796
+      - concatenate:
+        - drop: [6:27.039, album-prev]
+        - album-track
+parts:
+  drums:
+    drums:
+      kicks: 1
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
