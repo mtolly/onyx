@@ -4,16 +4,21 @@ https://github.com/AerialX/rawksd
 https://github.com/Nanook/Queen-Bee
 expertarraytochart.bms by GHFear
 -}
+{-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module GuitarHero5 where
 
-import           Control.Monad                    (replicateM)
+import           Control.Applicative              ((<|>))
+import           Control.Monad                    (forM, guard, replicateM,
+                                                   unless, when)
+import           Data.Bifunctor
 import           Data.Binary.Get
 import           Data.Bits
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
+import           Data.Char                        (isSpace)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (sort)
@@ -24,6 +29,8 @@ import qualified Data.Text.Encoding               as TE
 import           Data.Word
 import           GuitarHero5.Audio                (qbKeyCRC)
 import           Guitars                          (emit5')
+import           Numeric                          (showHex)
+import           Numeric                          (readHex)
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
 import           RockBand.Common                  (Difficulty (..),
@@ -194,16 +201,24 @@ data GH5SongPak = GH5SongPak
 
   } deriving (Show)
 
+qsBank :: [(Node, BL.ByteString)] -> Map.Map Word32 T.Text
+qsBank nodes = Map.fromList $ do
+  (node, nodeData) <- nodes
+  guard $ nodeFileType node == qbKeyCRC ".qs.en"
+  -- first 2 chars are "\xFF\xFE"
+  line <- T.lines $ TE.decodeUtf16LE $ BL.toStrict $ BL.drop 2 nodeData
+  guard $ T.length line > 8
+  (x, s) <- readHex $ T.unpack $ T.take 8 line
+  guard $ all isSpace s
+  return (x, T.drop 9 line) -- TODO strip quotes and weird escapes
+
 -- Load a _song.pak.xen
 testChart :: FilePath -> IO GH5SongPak
 testChart f = do
   nodes <- splitNodes <$> BL.readFile f
   let findNodeKey = findNodeCRC . qbKeyCRC
       findNodeCRC crc = listToMaybe $ filter (\(n, _) -> nodeFileType n == crc) nodes
-      stringBank = nodes >>= \(node, nodeData) ->
-        if "\xFF\xFE" `BL.isPrefixOf` nodeData
-          then [(node, T.lines $ TE.decodeUtf16LE $ BL.toStrict $ BL.drop 2 nodeData)]
-          else []
+      stringBank = qsBank nodes
   -- mapM_ print stringBank
   case findNodeKey ".note" of
     Nothing               -> error ".note not found"
@@ -304,3 +319,240 @@ gh5ToMidi pak = let
     , RBFile.s_signatures = U.measureMapFromLengths U.Truncate RTB.empty -- TODO
     , RBFile.s_tracks = fixed
     }
+
+data QBSection qs k
+  = QBSectionArray k k (QBArray qs k)
+  | QBSectionStruct k k [QBStructItem qs k]
+  deriving (Show, Functor)
+
+data QBArray qs k
+  = QBArrayOfQbKey [k]
+  | QBArrayOfInteger [Word32]
+  | QBArrayOfStruct [[QBStructItem qs k]]
+  deriving (Show, Functor)
+
+data QBStructItem qs k
+  = QBStructHeader -- empty
+  | QBStructItemStruct k [QBStructItem qs k]
+  | QBStructItemQbKey k k
+  | QBStructItemString k B.ByteString
+  | QBStructItemQbKeyString k k
+  | QBStructItemQbKeyStringQs k qs
+  | QBStructItemInteger k Word32
+  | QBStructItemFloat k Float
+  | QBStructItemArray k (QBArray qs k)
+  deriving (Show, Functor)
+
+instance Bifunctor QBSection where
+  first f = \case
+    QBSectionArray x y arr -> QBSectionArray x y $ first f arr
+    QBSectionStruct x y items -> QBSectionStruct x y $ map (first f) items
+  second = fmap
+
+instance Bifunctor QBArray where
+  first f = \case
+    QBArrayOfQbKey ks -> QBArrayOfQbKey ks
+    QBArrayOfInteger ns -> QBArrayOfInteger ns
+    QBArrayOfStruct structs -> QBArrayOfStruct $ map (map $ first f) structs
+  second = fmap
+
+instance Bifunctor QBStructItem where
+  first f = \case
+    QBStructHeader -> QBStructHeader
+    QBStructItemStruct x items -> QBStructItemStruct x $ map (first f) items
+    QBStructItemQbKey x y -> QBStructItemQbKey x y
+    QBStructItemString x y -> QBStructItemString x y
+    QBStructItemQbKeyString x y -> QBStructItemQbKeyString x y
+    QBStructItemQbKeyStringQs x qs -> QBStructItemQbKeyStringQs x $ f qs
+    QBStructItemInteger x y -> QBStructItemInteger x y
+    QBStructItemFloat x y -> QBStructItemFloat x y
+    QBStructItemArray x arr -> QBStructItemArray x $ first f arr
+  second = fmap
+
+shouldBeAt :: Word32 -> Get ()
+shouldBeAt w = do
+  p <- fromIntegral <$> bytesRead
+  unless (p == w) $ fail $ unwords
+    [ "QB parser position expected to be"
+    , "0x" <> showHex w ""
+    , "but we're at"
+    , "0x" <> showHex p ""
+    ]
+
+parseQBArray :: Get (QBArray Word32 Word32, Word32)
+parseQBArray = do
+  p1 <- getWord32be
+  p2 <- getWord32be
+  shouldBeAt p1
+  arrayType <- getWord32be
+  array <- case arrayType of
+    0x00010D00 -> do
+      len <- fromIntegral <$> getWord32be
+      -- TODO figure out why this pointer is sometimes absent
+      hasPointer <- lookAhead $ do
+        p3 <- getWord32be
+        (shouldBeAt p3 >> return True) <|> return False
+      when hasPointer $ skip 4
+      QBArrayOfQbKey <$> replicateM len getWord32be
+    0x00010100 -> do
+      len <- fromIntegral <$> getWord32be
+      p3 <- getWord32be
+      shouldBeAt p3
+      QBArrayOfInteger <$> replicateM len getWord32be
+    0x00010A00 -> do
+      len <- fromIntegral <$> getWord32be
+      p3 <- getWord32be
+      shouldBeAt p3
+      structStarts <- replicateM len getWord32be
+      fmap QBArrayOfStruct $ forM structStarts $ \p4 -> do
+        shouldBeAt p4
+        parseQBStruct
+    _ -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
+  return (array, p2)
+
+parseQBStruct :: Get [QBStructItem Word32 Word32]
+parseQBStruct = do
+  itemType <- getWord32be
+  (item, nextPosition) <- case itemType of
+    0x00000100 -> do
+      p <- getWord32be
+      -- assuming these are always empty?
+      return (QBStructHeader, p)
+    0x00010D00 -> do
+      x <- getWord32be
+      y <- getWord32be
+      p <- getWord32be
+      return (QBStructItemQbKey x y, p)
+    0x00011C00 -> do
+      x <- getWord32be
+      y <- getWord32be
+      p <- getWord32be
+      return (QBStructItemQbKeyStringQs x y, p)
+    0x00011A00 -> do
+      x <- getWord32be
+      y <- getWord32be
+      p <- getWord32be
+      return (QBStructItemQbKeyString x y, p)
+    0x00010100 -> do
+      x <- getWord32be
+      y <- getWord32be
+      p <- getWord32be
+      return (QBStructItemInteger x y, p)
+    0x00010300 -> do
+      x <- getWord32be
+      start <- getWord32be
+      end <- getWord32be
+      shouldBeAt start
+      -- TODO what if a string is the last element in a struct?
+      -- shouldn't end be 0 in that case?
+      b <- getByteString $ fromIntegral $ end - start
+      let nullTerm = B.takeWhile (/= 0) b
+      return (QBStructItemString x nullTerm, end)
+    0x00010200 -> do
+      x <- getWord32be
+      f <- getFloatbe
+      p <- getWord32be
+      return (QBStructItemFloat x f, p)
+    0x00010C00 -> do
+      x <- getWord32be
+      (array, p) <- parseQBArray
+      return (QBStructItemArray x array, p)
+    0x00010A00 -> do
+      x <- getWord32be
+      p1 <- getWord32be
+      p2 <- getWord32be
+      shouldBeAt p1
+      items <- parseQBStruct
+      return (QBStructItemStruct x items, p2)
+    _ -> fail $ "Unrecognized struct item type: 0x" <> showHex itemType ""
+  case nextPosition of
+    0 -> return [item] -- this is the last item
+    _ -> do
+      shouldBeAt nextPosition
+      (item :) <$> parseQBStruct
+
+parseQBSection :: Get (QBSection Word32 Word32)
+parseQBSection = do
+  sectionType <- getWord32be
+  case sectionType of
+    0x00200C00 {- SectionArray -} -> do
+      itemQbKeyCrc <- getWord32be
+      fileId <- getWord32be
+      (array, _) <- parseQBArray
+      -- the snd above should be 0, I think
+      return $ QBSectionArray itemQbKeyCrc fileId array
+    0x00200A00 {- SectionStruct -} -> do
+      itemQbKeyCrc <- getWord32be
+      fileId <- getWord32be
+      p1 <- getWord32be
+      _reserved <- getWord32be
+      shouldBeAt p1
+      QBSectionStruct itemQbKeyCrc fileId <$> parseQBStruct
+    _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
+
+parseQB :: Get [QBSection Word32 Word32]
+parseQB = do
+  _magic <- getWord32be
+  fileSize <- getWord32be
+  _unknown <- getByteString 20
+  let parseSections = do
+        pos <- fromIntegral <$> bytesRead
+        if pos >= fileSize
+          then return []
+          else (:) <$> parseQBSection <*> parseSections
+  parseSections
+
+type QsResult = Either Word32 T.Text
+
+loadTextPakXen :: FilePath -> IO [QBSection QsResult Word32]
+loadTextPakXen f = do
+  nodes <- splitNodes <$> BL.readFile f
+  (_, qbFile) <- case filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb") nodes of
+    [qb] -> return qb
+    ns   -> fail $ show (length ns) <> " .qb files found in " <> f
+  let qs = qsBank nodes
+      qb = runGet parseQB qbFile
+      lookupN mapping n = case Map.lookup n mapping of
+        Nothing -> Left n
+        Just s  -> Right s
+  return $ map (first $ lookupN qs) qb
+
+data SongInfo = SongInfo
+  { songName       :: B.ByteString -- this is an id like "dlc747"
+  , songTitle      :: T.Text
+  , songArtist     :: T.Text
+  , songYear       :: Int
+  , songAlbumTitle :: T.Text
+  , songDoubleKick :: Bool
+  } deriving (Show)
+
+parseSongInfo :: [QBSection QsResult Word32] -> Either String [SongInfo]
+parseSongInfo sections = case sections of
+  [_, QBSectionStruct _ _ items] -> let
+    itemToInfos = \case
+      QBStructItemStruct _ songEntries -> do
+        songName <- case [ s | QBStructItemString k s <- songEntries, k == qbKeyCRC "name" ] of
+          s : _ -> Right s
+          []    -> Left "parseSongInfo: couldn't get song internal name"
+        songTitle <- case [ s | QBStructItemQbKeyStringQs k (Right s) <- songEntries, k == qbKeyCRC "title" ] of
+          s : _ -> Right s
+          []    -> Left "parseSongInfo: couldn't get song title"
+        songArtist <- case [ s | QBStructItemQbKeyStringQs k (Right s) <- songEntries, k == qbKeyCRC "artist" ] of
+          s : _ -> Right s
+          []    -> Left "parseSongInfo: couldn't get song artist"
+        songYear <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "year" ] of
+          n : _ -> Right $ fromIntegral n
+          []    -> Left "parseSongInfo: couldn't get song year"
+        songAlbumTitle <- case [ s | QBStructItemQbKeyStringQs k (Right s) <- songEntries, k == qbKeyCRC "album_title" ] of
+          s : _ -> Right s
+          []    -> Left "parseSongInfo: couldn't get song album_title"
+        songDoubleKick <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "double_kick" ] of
+          0 : _ -> Right False
+          1 : _ -> Right True
+          [] -> Right False
+          _ -> Left "parseSongInfo: couldn't understand double_kick field"
+        Right [SongInfo{..}]
+      QBStructHeader -> Right []
+      _ -> Left "parseSongInfo: entry in song list that isn't a struct or header"
+    in concat <$> mapM itemToInfos items
+  _ -> Left "parseSongInfo: unexpected sections"
