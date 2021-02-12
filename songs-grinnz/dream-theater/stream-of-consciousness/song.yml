@@ -163,7 +163,7 @@ parts:
         base: bass-5
       tones:
         # TODO add octave tone for the sludge parts
-        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+        file-tone-base: ../../../tones/CockroachKingBass.tone2014.xml
 targets:
   rb3:
     game: rb3

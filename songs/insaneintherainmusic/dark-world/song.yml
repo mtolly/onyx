@@ -32,7 +32,10 @@ parts:
       tuning:
         base: bass-4
       tones:
-        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+        # TODO replace EchoSolo with just a little bit of reverb
+        file-tone-base: ../../../tones/EchoSolo.tone2014.xml
+        file-tone-a: ../../../tones/SatchBoogie_bass.tone2014.xml
+        file-tone-b: ../../../tones/EchoSolo.tone2014.xml
 targets:
   rb3:
     game: rb3

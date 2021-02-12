@@ -35,7 +35,7 @@ parts:
       tuning:
         base: bass-4
       tones:
-        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+        file-tone-base: ../../../tones/SequenceStartBass.xml
     grybo:
       difficulty: 5
       # original by 2DHumanity, from Anti Hero (1)

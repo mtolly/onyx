@@ -48,7 +48,7 @@ parts:
       tuning:
         base: bass-5 # literally one below-E note lmao. explained in sheet as "4th string is retuned to D w/ headstock detuner."
       tones:
-        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+        file-tone-base: ../../../tones/dreametr_bass.tone2014.xml
 targets:
   rb3-2x:
     game: rb3

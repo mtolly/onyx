@@ -1,4 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+Synth bass tone with bit crunch and filter,
+intended for lots of parts in Trioscapes and Nova Collective songs
+-->
 <Tone2014 xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone">
   <GearList>
     <Amp>

@@ -36,8 +36,8 @@ parts:
       tuning:
         base: bass-5
       tones:
-        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
-        file-tone-a: ../../../tones/SatchBoogie_bass.tone2014.xml
+        file-tone-base: ../../../tones/CockroachKingBass.tone2014.xml
+        file-tone-a: ../../../tones/CockroachKingBass.tone2014.xml
         file-tone-b: ../../../tones/RippedApartSynthBass.tone2014.xml
   guitar:
     grybo:

@@ -1,5 +1,4 @@
 parts:
-  vocal: {}
   bass:
     grybo:
       fix-freeform: false
@@ -10,7 +9,7 @@ parts:
         base: bass-4
         offsets: [-2, 0, 0, 0] # drop D
       tones:
-        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+        file-tone-base: ../../../tones/fallfcpr_bass.tone2014.xml
   guitar:
     grybo:
       fix-freeform: false
