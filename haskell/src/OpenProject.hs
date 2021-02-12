@@ -23,8 +23,10 @@ import           Data.Functor.Identity
 import           Data.Hashable
 import qualified Data.HashMap.Strict            as Map
 import           Data.List.Extra                (stripSuffix)
+import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe                     (fromMaybe, mapMaybe)
-import           Data.SimpleHandle              (crawlFolder)
+import           Data.SimpleHandle              (Folder (..), crawlFolder,
+                                                 findFile)
 import qualified Data.Text                      as T
 import           GuitarHeroII.Ark               (GameGH (..), detectGameGH,
                                                  replaceSong)
@@ -36,6 +38,7 @@ import           Import.FretsOnFire             (newImportFoF)
 import qualified Import.GuitarHero1             as GH1
 import qualified Import.GuitarHero2             as GH2
 import           Import.Magma                   (newImportMagma)
+import           Import.Neversoft               (importGH5WoR)
 import           Import.RockBand                (newImportRBA,
                                                  newImportSTFSFolder)
 import           Import.Rocksmith               as RS
@@ -137,9 +140,17 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       foundAmplitude loc = do
         let dir = takeDirectory loc
         foundImport "Amplitude (2016)" dir $ newImportAmplitude dir
-      foundSTFS loc = stackIO (getSTFSFolder loc)
-        >>= newImportSTFSFolder
-        >>= foundImports "Xbox 360 STFS (CON/LIVE)" loc
+      foundSTFS loc = do
+        folder <- stackIO $ getSTFSFolder loc
+        case findFile ("songs" :| ["songs.dta"]) folder of
+          Just _ -> do
+            imps <- newImportSTFSFolder folder
+            foundImports "Rock Band (Xbox 360 CON/LIVE)" loc imps
+          Nothing -> if any (\(name, _) -> ".xen" `T.isSuffixOf` name) $ folderFiles folder
+            then do
+              imps <- importGH5WoR folder
+              foundImports "Guitar Hero (5 or WoR)" loc imps
+            else return ([], [])
       foundRS psarc = newImportRS psarc >>= foundImports "Rocksmith" psarc
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path

@@ -3,27 +3,30 @@ Ported from FsbDecrypt.java by Quidrex
 https://www.fretsonfire.org/forums/viewtopic.php?t=60499
 -}
 {-# LANGUAGE OverloadedStrings #-}
-module GuitarHero5.Audio where
+module Neversoft.Audio where
 
-import           Audio                       (audioIO)
-import           Control.Monad               (forM_, guard)
+import           Audio                        (audioIO)
+import           Control.Monad                (forM_, guard)
 import           Control.Monad.ST
+import           Control.Monad.Trans.Resource (MonadResource)
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
 import           Data.Bits
-import qualified Data.ByteString             as B
-import qualified Data.ByteString.Lazy        as BL
-import qualified Data.Conduit.Audio          as CA
-import           Data.List.Extra             (stripSuffix)
-import           Data.SimpleHandle           (byteStringSimpleHandle,
-                                              makeHandle, useHandle)
+import qualified Data.ByteString              as B
+import qualified Data.ByteString.Lazy         as BL
+import qualified Data.Conduit.Audio           as CA
+import           Data.Int
+import           Data.List.Extra              (stripSuffix)
+import           Data.SimpleHandle            (byteStringSimpleHandle,
+                                               makeHandle)
 import           Data.STRef
-import qualified Data.Vector.Unboxed         as VU
-import qualified Data.Vector.Unboxed.Mutable as MVU
+import qualified Data.Vector.Unboxed          as VU
+import qualified Data.Vector.Unboxed.Mutable  as MVU
 import           Data.Word
-import           FFMPEG                      (ffSource)
-import           System.FilePath             (takeFileName)
+import           FFMPEG                       (ffSource)
+import           Neversoft.Checksum
+import           System.FilePath              (takeFileName)
 
 keys :: [B.ByteString]
 keys = map B.pack
@@ -302,6 +305,16 @@ aesDecrypt bs = do
   key <- makeKey $ keys !! fromIntegral keyIndex
   checkFSB4 $ ctrCombine key iv cipherData
 
+readFSB :: (MonadResource m) => BL.ByteString -> IO (CA.AudioSource m Int16)
+readFSB dec = let
+  dec' = BL.concat
+    [ BL.take 0x62 dec
+    , BL.singleton 0x10 -- this is a hack so ffmpeg recognizes the fsb's xma encoding. TODO send a PR to fix
+    , BL.drop 0x63 dec
+    ]
+  readable = makeHandle "decoded FSB audio" $ byteStringSimpleHandle dec'
+  in ffSource $ Left readable
+
 convertAudio :: FilePath -> FilePath -> IO ()
 convertAudio fin fout = do
   enc <- B.readFile fin
@@ -310,15 +323,8 @@ convertAudio fin fout = do
       Nothing  -> error "Couldn't decrypt GH .fsb.xen audio"
       Just dec -> return dec
     Just dec -> return dec
-  let dec' = BL.concat
-        [ BL.fromStrict $ B.take 0x62 dec
-        , BL.singleton 0x10 -- this is a hack so ffmpeg recognizes the fsb's xma encoding. TODO send a PR to fix
-        , BL.fromStrict $ B.drop 0x63 dec
-        ]
-      readable = makeHandle (fin <> " | decoded") $ byteStringSimpleHandle dec'
-  useHandle readable $ \h -> do
-    src <- ffSource (Left h)
-    audioIO Nothing (CA.mapSamples CA.fractionalSample src) fout
+  src <- readFSB $ BL.fromStrict dec
+  audioIO Nothing (CA.mapSamples CA.fractionalSample src) fout
 
 reverseMapping :: B.ByteString
 reverseMapping = B.pack $ flip map [0 .. 0xFF] $ \i -> foldr (.|.) 0
@@ -332,27 +338,6 @@ reverseMapping = B.pack $ flip map [0 .. 0xFF] $ \i -> foldr (.|.) 0
   , (i `shiftL` 3) .&. 0x20
   , (i `shiftL` 1) .&. 0x10
   ]
-
-crcTable :: VU.Vector Word32
-crcTable = VU.fromList $ flip map [0..255] $ let
-  poly = 0xEDB88320 :: Word32
-  crcStep crc = if crc `testBit` 0
-    then (crc `shiftR` 1) `xor` poly
-    else crc `shiftR` 1
-  in foldr (.) id $ replicate 8 crcStep
-
-qbKeyCRC :: B.ByteString -> Word32
-qbKeyCRC = go 0xFFFFFFFF where
-  go crc bs = case B.uncons bs of
-    Nothing -> crc
-    Just (b, bs') -> let
-      index = fromIntegral crc `xor` b
-      entry = crcTable VU.! fromIntegral index
-      crc' = (crc `shiftR` 8) `xor` entry
-      in go crc' bs'
-
-crc32 :: B.ByteString -> Word32
-crc32 = (`xor` 0xFFFFFFFF) . qbKeyCRC
 
 -- Haven't successfully tested this yet
 fsbDecrypt :: String -> B.ByteString -> Maybe B.ByteString

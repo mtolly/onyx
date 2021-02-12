@@ -1,0 +1,19 @@
+cabal-version:  1.12
+name:           simple-handle
+version:        0.1
+build-type:     Simple
+
+library
+  exposed-modules:
+    Data.SimpleHandle
+  hs-source-dirs:
+    src
+  ghc-options: -Wall
+  build-tools: c2hs
+  build-depends:
+      base
+    , text
+    , filepath
+    , directory
+    , bytestring
+  default-language: Haskell2010

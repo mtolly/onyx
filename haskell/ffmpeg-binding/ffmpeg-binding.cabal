@@ -17,6 +17,7 @@ library
     , unliftio
     , resourcet
     , vector
+    , simple-handle
   default-language: Haskell2010
   pkgconfig-depends:
       libavutil

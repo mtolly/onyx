@@ -15,7 +15,7 @@ import Text.Read (readMaybe)
 import Data.IORef (newIORef, writeIORef, readIORef)
 import Data.Typeable (Typeable)
 import Control.Exception (Exception(..), throwIO)
-import System.IO (Handle, hIsWritable, hGetBuf, hPutBuf, hSeek, SeekMode(..), hTell, hFileSize)
+import System.IO (Handle, hIsWritable, hGetBuf, hPutBuf, hSeek, SeekMode(..), hTell, hFileSize, hClose)
 import System.Posix.Internals (sEEK_CUR, sEEK_END, sEEK_SET)
 import Data.Conduit
 import qualified Data.Conduit.Audio as CA
@@ -23,6 +23,7 @@ import UnliftIO (MonadUnliftIO, MonadIO, bracket, liftIO)
 import Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.Vector.Storable as V
 import qualified Data.Vector.Storable.Mutable as MV
+import Data.SimpleHandle (Readable, rOpen)
 
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
@@ -652,7 +653,7 @@ withStream
   :: (MonadIO m)
   => Bracket m
   -> AVMediaType
-  -> Either Handle FilePath
+  -> Either Readable FilePath
   -> (AVFormatContext -> AVCodecContext -> AVStream -> m a)
   -> m a
 withStream brkt mediaType input fn = do
@@ -663,7 +664,7 @@ withStream brkt mediaType input fn = do
           withCString f $ \s -> do
             ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx s nullPtr nullPtr
         afterOpenInput
-      Left h -> withHandleAVIO brkt h $ \avio -> do
+      Left r -> runBracket brkt (rOpen r) hClose $ \h -> withHandleAVIO brkt h $ \avio -> do
         liftIO $ {#set AVFormatContext->pb #} fmt_ctx avio
         liftIO $ with fmt_ctx $ \pctx -> do
           ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx nullPtr nullPtr nullPtr
@@ -682,7 +683,7 @@ withStream brkt mediaType input fn = do
         fn fmt_ctx dec_ctx stream
     in openInput
 
-ffSource :: (MonadResource m) => Either Handle FilePath -> IO (CA.AudioSource m Int16)
+ffSource :: (MonadResource m) => Either Readable FilePath -> IO (CA.AudioSource m Int16)
 ffSource input = do
   (rate, channels, frames) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \_fmt_ctx dec_ctx stream -> do
     rate <- {#get AVCodecContext->sample_rate #} dec_ctx
