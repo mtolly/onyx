@@ -62,8 +62,15 @@ win-deps:
 	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-openal \
 		mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate \
 		mingw-w64-x86_64-lame mingw-w64-x86_64-rubberband \
-		mingw-w64-x86_64-mpg123 mingw-w64-x86_64-ffmpeg \
+		mingw-w64-x86_64-mpg123 \
 		wget tar unzip zip man autoconf automake
+	# the -c method below might not be needed inside "stack exec make",
+	# but if you run that line directly in git bash, it mangles it into the wrong folder
+	# (C:/Program Files/Git/mingw64 instead of the stack msys2 one)
+	cd ffmpeg && \
+		stack exec -- bash -c "./configure --prefix=/mingw64 --enable-shared --disable-encoders" && \
+		stack exec -- make && \
+		stack exec -- make install
 
 icon/icon.o:
 	stack exec -- windres -i icon/icon.rc icon/icon.o

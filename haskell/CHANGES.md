@@ -1,5 +1,20 @@
 # Version history
 
+## 20210213
+
+* Prerelease version
+* Fixes to importing FoF/PS/CH format
+  * Fix a bug that could incorrectly move vocal phrases when attempting to
+    extend them to at least one quarter note
+  * Fix implementation of `delay`/`Offset` sometimes changing time signatures
+  * Fix not detecting the MIDI track from songs included with the original
+    Frets on Fire, and import "cassette" art into square format
+* Speed up most song format import code, especially DTX and GH1/GH2 audio
+  processing
+* Able to convert lipsync files back to a raw viseme MIDI track format,
+  which can then be edited and used as a lipsync source
+* Split off RB3 and TBRB viseme mappings to files in the resources folder
+
 ## 20210110
 
 * 3D preview improvements:
@@ -31,11 +46,13 @@
 
 * Fix some memory leaks caused by the single song window
 * Read Pro Drums format from `.chart` files
-* Fix a bug where lanes could be redrawn incorrectly when importing from PS/CH format
+* Fix a bug where lanes could be redrawn incorrectly when importing from PS/CH
+  format
 * Be more lenient when reading some spec-incorrect MIDI files
 * Significantly faster REAPER project generation
 * Draw lanes and BREs in 3D preview
-* DTX import: better audio sample mixing, and a smarter algorithm for assigning cymbal colors
+* DTX import: better audio sample mixing, and a smarter algorithm for assigning
+  cymbal colors
 * Pass tuning cents to REAPER project VSTs
 
 ## 20200513
