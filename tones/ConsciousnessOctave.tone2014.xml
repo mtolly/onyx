@@ -1,0 +1,177 @@
+<?xml version='1.0' ?>
+<!--
+Octave + overdrive bass tone,
+intended for sludge sections in Stream of Consciousness (Dream Theater)
+-->
+<Tone2014 xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone">
+  <GearList>
+    <Amp>
+      <Category i:nil="true" />
+      <KnobValues xmlns:d6p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_Gain</d6p1:Key>
+          <d6p1:Value>5</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_7500</d6p1:Key>
+          <d6p1:Value>-1</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_250</d6p1:Key>
+          <d6p1:Value>0</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_30</d6p1:Key>
+          <d6p1:Value>0.5</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_90</d6p1:Key>
+          <d6p1:Value>3.5</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_2500</d6p1:Key>
+          <d6p1:Value>2</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_Bass</d6p1:Key>
+          <d6p1:Value>84</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_Treble</d6p1:Key>
+          <d6p1:Value>73</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_15000</d6p1:Key>
+          <d6p1:Value>0</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_800</d6p1:Key>
+          <d6p1:Value>-1.5</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Bass_Amp_CH350B</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Amps</Type>
+    </Amp>
+    <Cabinet>
+      <Category i:nil="true" />
+      <KnobValues xmlns:d6p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays" />
+      <PedalKey>Bass_Cab_BT212BC_Tube_Cone</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Cabinets</Type>
+    </Cabinet>
+    <PostPedal1>
+      <Category>30780</Category>
+      <KnobValues xmlns:d6p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Pedal_BassOverdrive_Blend</d6p1:Key>
+          <d6p1:Value>60</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Pedal_BassOverdrive_Gain</d6p1:Key>
+          <d6p1:Value>89</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Pedal_BassOverdrive_Tone</d6p1:Key>
+          <d6p1:Value>78</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Pedal_BassOverdrive_Filter</d6p1:Key>
+          <d6p1:Value>75</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Bass_Pedal_BassOverdrive</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Pedals</Type>
+    </PostPedal1>
+    <PostPedal2 i:nil="true" />
+    <PostPedal3 i:nil="true" />
+    <PostPedal4 i:nil="true" />
+    <PrePedal1>
+      <Category>30791</Category>
+      <KnobValues xmlns:d6p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Pedal_BassSubOctave_Tone</d6p1:Key>
+          <d6p1:Value>88</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Pedal_BassSubOctave_Mix</d6p1:Key>
+          <d6p1:Value>55</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Bass_Pedal_BassSubOctave</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Pedals</Type>
+    </PrePedal1>
+    <PrePedal2 i:nil="true" />
+    <PrePedal3 i:nil="true" />
+    <PrePedal4 i:nil="true" />
+    <Rack1>
+      <Category>30785</Category>
+      <KnobValues xmlns:d6p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioEQ_BassFreq</d6p1:Key>
+          <d6p1:Value>355</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioEQ_HiMidFreq</d6p1:Key>
+          <d6p1:Value>1.200003</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioEQ_TrebleFreq</d6p1:Key>
+          <d6p1:Value>2.600001</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioEQ_LoMidFreq</d6p1:Key>
+          <d6p1:Value>800</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioEQ_Treble</d6p1:Key>
+          <d6p1:Value>2.5</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioEQ_LoMidQ</d6p1:Key>
+          <d6p1:Value>0</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioEQ_Bass</d6p1:Key>
+          <d6p1:Value>3</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioEQ_HiMid</d6p1:Key>
+          <d6p1:Value>2.5</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioEQ_LoMid</d6p1:Key>
+          <d6p1:Value>-2</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioEQ_HiMidQ</d6p1:Key>
+          <d6p1:Value>1</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Rack_StudioEQ</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Racks</Type>
+    </Rack1>
+    <Rack2 i:nil="true" />
+    <Rack3 i:nil="true" />
+    <Rack4 i:nil="true" />
+  </GearList>
+  <IsCustom>true</IsCustom>
+  <Key>ConsciousnessOctave</Key>
+  <Name>ConsciousnessOctave</Name>
+  <NameSeparator> - </NameSeparator>
+  <SortOrder>39</SortOrder>
+  <ToneDescriptors xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+    <d2p1:string>$[35715]BASS</d2p1:string>
+    <d2p1:string>$[35719]OCTAVE</d2p1:string>
+    <d2p1:string>$[35716]OVERDRIVE</d2p1:string>
+  </ToneDescriptors>
+  <Volume>-27.5203838</Volume>
+</Tone2014>

@@ -172,6 +172,10 @@ intended for e.g. Dancing Machines (Nova Collective) bass solo
   <Name>EchoSolo</Name>
   <NameSeparator> - </NameSeparator>
   <SortOrder>5</SortOrder>
-  <ToneDescriptors xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays" />
+  <ToneDescriptors xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+    <d2p1:string>$[35715]BASS</d2p1:string>
+    <d2p1:string>$[35754]ECHO</d2p1:string>
+    <d2p1:string>$[35724]LEAD</d2p1:string>
+  </ToneDescriptors>
   <Volume>-24.3548412</Volume>
 </Tone2014>

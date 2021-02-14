@@ -71,9 +71,9 @@ targets:
     game: rs
     arrangements:
     - [bass, bass]
-    plan: sheet-music
+    plan: mogg
     song-key: OnyxAESAnything
-    version: "1.0"
+    version: "1.1"
 metadata:
   preview-start: 1:19.000
   file-album-art: cover.png_xbox

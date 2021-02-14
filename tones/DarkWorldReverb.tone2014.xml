@@ -1,0 +1,136 @@
+<?xml version='1.0' ?>
+<!--
+Satch Boogie bass tone with some slight reverb added,
+intended for Dark World (insaneintherainmusic) bass solos
+-->
+<Tone2014 xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone">
+  <GearList>
+    <Amp>
+      <Category i:nil="true" />
+      <KnobValues xmlns:d6p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_Gain</d6p1:Key>
+          <d6p1:Value>8</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_7500</d6p1:Key>
+          <d6p1:Value>-4.5</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_250</d6p1:Key>
+          <d6p1:Value>-3.5</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_30</d6p1:Key>
+          <d6p1:Value>3</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_90</d6p1:Key>
+          <d6p1:Value>4</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_2500</d6p1:Key>
+          <d6p1:Value>2.5</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_Bass</d6p1:Key>
+          <d6p1:Value>68</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_Treble</d6p1:Key>
+          <d6p1:Value>58</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_15000</d6p1:Key>
+          <d6p1:Value>0.5</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Bass_Amp_CH350B_800</d6p1:Key>
+          <d6p1:Value>-1</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Bass_Amp_CH350B</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Amps</Type>
+    </Amp>
+    <Cabinet>
+      <Category i:nil="true" />
+      <KnobValues xmlns:d6p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays" />
+      <PedalKey>Bass_Cab_CH410BC_57_Cone</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Cabinets</Type>
+    </Cabinet>
+    <PostPedal1 i:nil="true" />
+    <PostPedal2 i:nil="true" />
+    <PostPedal3 i:nil="true" />
+    <PostPedal4 i:nil="true" />
+    <PrePedal1 i:nil="true" />
+    <PrePedal2 i:nil="true" />
+    <PrePedal3 i:nil="true" />
+    <PrePedal4 i:nil="true" />
+    <Rack1>
+      <Category i:nil="true" />
+      <KnobValues xmlns:d6p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioCompressor_Attack</d6p1:Key>
+          <d6p1:Value>5</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioCompressor_Threshold</d6p1:Key>
+          <d6p1:Value>-18.5</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioCompressor_Release</d6p1:Key>
+          <d6p1:Value>40</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioCompressor_Ratio</d6p1:Key>
+          <d6p1:Value>2</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Rack_StudioCompressor</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Racks</Type>
+    </Rack1>
+    <Rack2>
+      <Category>30792</Category>
+      <KnobValues xmlns:d6p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioPlate_Tone</d6p1:Key>
+          <d6p1:Value>60</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioPlate_Time</d6p1:Key>
+          <d6p1:Value>50</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioPlate_Depth</d6p1:Key>
+          <d6p1:Value>80</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+        <d6p1:KeyValueOfstringfloat>
+          <d6p1:Key>Rack_StudioPlate_Mix</d6p1:Key>
+          <d6p1:Value>50</d6p1:Value>
+        </d6p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Rack_StudioPlate</PedalKey>
+      <Skin i:nil="true" />
+      <SkinIndex i:nil="true" />
+      <Type>Racks</Type>
+    </Rack2>
+    <Rack3 i:nil="true" />
+    <Rack4 i:nil="true" />
+  </GearList>
+  <IsCustom>true</IsCustom>
+  <Key>DarkWorldReverb</Key>
+  <Name>DarkWorldReverb</Name>
+  <NameSeparator> - </NameSeparator>
+  <SortOrder>43</SortOrder>
+  <ToneDescriptors xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+    <d2p1:string>$[35715]BASS</d2p1:string>
+    <d2p1:string>$[35726]REVERB</d2p1:string>
+  </ToneDescriptors>
+  <Volume>-21.7012978</Volume>
+</Tone2014>

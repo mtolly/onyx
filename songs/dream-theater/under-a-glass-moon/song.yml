@@ -73,3 +73,5 @@ targets:
     plan: jammit-simple
     arrangements:
     - [bass, bass]
+    song-key: OnyxDTUnderAGlassMoon
+    version: "1.0"

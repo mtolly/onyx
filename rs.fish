@@ -13,29 +13,29 @@ end
 # phrases done:
 
 # build songs/dream-theater/repentance # needs 4-string
-# build songs/dream-theater/learning-to-live # needs 4-string
+build songs/dream-theater/learning-to-live # needs 4-string
 # build songs/dream-theater/forsaken # needs 4-string
 # build songs/dream-theater/blind-faith # needs 4-string
-# build songs/soil-and-pimp-sessions/summer-goddess
+build songs/soil-and-pimp-sessions/summer-goddess
 # build songs/soil-and-pimp-sessions/scoop-out
 # build songs/hiromi-uehara/spark # needs 4-string
 # build songs-others/boo/puzzle-box # needs 4-string
-# build songs-others/bloodline/the-violation
-# build songs-lik/other/a-crimson-rose-and-a-gin-tonic
-# build songs/nova-collective/ripped-apart-and-reassembled # needs 4-string, still need to do guitar phrases
-# build songs-grinnz/dream-theater/stream-of-consciousness # needs 4-string
-# build songs/sungazer/sequence-start
-# build songs/insaneintherainmusic/dark-world
+build songs-others/bloodline/the-violation
+build songs-lik/other/a-crimson-rose-and-a-gin-tonic
+build songs/nova-collective/ripped-apart-and-reassembled # needs 4-string, still need to do guitar phrases
+build songs-grinnz/dream-theater/stream-of-consciousness # needs 4-string
+build songs/sungazer/sequence-start
+build songs/insaneintherainmusic/dark-world
 # build songs-others/boo/head-hunter
-# build songs-others/gigakoops/sun-of-pearl
-# build songs-rbn/an-endless-sporadic/anything
-# build songs/dream-theater/under-a-glass-moon
+build songs-others/gigakoops/sun-of-pearl
+build songs-rbn/an-endless-sporadic/anything
+build songs/dream-theater/under-a-glass-moon
 # build songs/mathieu-fiset/chicks-pain
 # build songs-others/bloodline/od # needs 4-string
-# build songs-hmx/tbrb/here-comes-the-sun
-# build songs/opeth/windowpane
-build songs/dream-theater/a-rite-of-passage # needs 4-string
-build songs/dream-theater/6-00 # needs 4-string
+build songs-hmx/tbrb/here-comes-the-sun
+build songs/opeth/windowpane
+# build songs/dream-theater/a-rite-of-passage # needs 4-string
+# build songs/dream-theater/6-00 # needs 4-string
 
 # phrases not done:
 
@@ -59,8 +59,8 @@ build songs/dream-theater/6-00 # needs 4-string
 # build songs/dream-theater/surrounded
 # build songs/dream-theater/caught-in-a-web
 # build songs/juliaplaysgroove/break-my-heart
-build songs/liquid-tension-experiment/paradigm-shift
-build songs-others/dragontaser/the-least-333-seconds
+# build songs/liquid-tension-experiment/paradigm-shift
+# build songs-others/dragontaser/the-least-333-seconds
 
 # phrases unknown:
 

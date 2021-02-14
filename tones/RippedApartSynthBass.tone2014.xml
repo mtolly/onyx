@@ -194,6 +194,7 @@ intended for lots of parts in Trioscapes and Nova Collective songs
   <SortOrder>46</SortOrder>
   <ToneDescriptors xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
     <d2p1:string>$[35715]BASS</d2p1:string>
+    <d2p1:string>$[35750]SPECIAL EFFECT</d2p1:string>
     <d2p1:string>$[35729]FILTER</d2p1:string>
   </ToneDescriptors>
   <Volume>-9.83</Volume>

@@ -161,9 +161,11 @@ parts:
       difficulty: 6
       tuning:
         base: bass-5
+      # 4-string is BEAD
       tones:
-        # TODO add octave tone for the sludge parts
-        file-tone-base: ../../../tones/CockroachKingBass.tone2014.xml
+        file-tone-base: ../../../tones/MuseTime_bass.tone2014.xml
+        file-tone-a: ../../../tones/MuseTime_bass.tone2014.xml
+        file-tone-b: ../../../tones/ConsciousnessOctave.tone2014.xml
 targets:
   rb3:
     game: rb3
@@ -187,3 +189,6 @@ targets:
     plan: album
     arrangements:
     - [bonus-rhythm, bass]
+    - [bass, bass]
+    song-key: OnyxDTStreamOfConsciousness
+    version: "1.0"

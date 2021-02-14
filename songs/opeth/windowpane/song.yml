@@ -45,6 +45,8 @@ targets:
     game: rs
     arrangements:
     - [bass, bass]
+    song-key: OnyxOpethWindowpane
+    version: "1.0"
   rb3:
     game: rb3
   ps:

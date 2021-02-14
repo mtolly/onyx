@@ -1,0 +1,124 @@
+<?xml version='1.0' ?>
+<!-- ODLC tone from Time Is Running Out (Muse) -->
+<Tone2014 xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone">
+  <GearList>
+    <Amp>
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_Bass</d4p1:Key>
+          <d4p1:Value>84.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_30</d4p1:Key>
+          <d4p1:Value>0.500</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_800</d4p1:Key>
+          <d4p1:Value>-1.500</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_Treble</d4p1:Key>
+          <d4p1:Value>73.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_7500</d4p1:Key>
+          <d4p1:Value>-1.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_250</d4p1:Key>
+          <d4p1:Value>0.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_2500</d4p1:Key>
+          <d4p1:Value>2.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_15000</d4p1:Key>
+          <d4p1:Value>0.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_90</d4p1:Key>
+          <d4p1:Value>3.500</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Bass_Amp_CH350B_Gain</d4p1:Key>
+          <d4p1:Value>5.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Bass_Amp_CH350B</PedalKey>
+      <Type>Amps</Type>
+    </Amp>
+    <Cabinet>
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays" />
+      <PedalKey>Bass_Cab_BT212BC_Tube_Cone</PedalKey>
+      <Type>Cabinets</Type>
+    </Cabinet>
+    <PostPedal1 i:nil="true" />
+    <PostPedal2 i:nil="true" />
+    <PostPedal3 i:nil="true" />
+    <PostPedal4 i:nil="true" />
+    <PrePedal1 i:nil="true" />
+    <PrePedal2 i:nil="true" />
+    <PrePedal3 i:nil="true" />
+    <PrePedal4 i:nil="true" />
+    <Rack1>
+      <Category>30785</Category>
+      <KnobValues xmlns:d4p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioEQ_BassFreq</d4p1:Key>
+          <d4p1:Value>355.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioEQ_LoMidFreq</d4p1:Key>
+          <d4p1:Value>800.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioEQ_TrebleFreq</d4p1:Key>
+          <d4p1:Value>2.600</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioEQ_HiMidQ</d4p1:Key>
+          <d4p1:Value>1.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioEQ_HiMidFreq</d4p1:Key>
+          <d4p1:Value>1.200</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioEQ_Bass</d4p1:Key>
+          <d4p1:Value>3.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioEQ_LoMid</d4p1:Key>
+          <d4p1:Value>-2.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioEQ_Treble</d4p1:Key>
+          <d4p1:Value>2.500</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioEQ_LoMidQ</d4p1:Key>
+          <d4p1:Value>0.000</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+        <d4p1:KeyValueOfstringfloat>
+          <d4p1:Key>Rack_StudioEQ_HiMid</d4p1:Key>
+          <d4p1:Value>2.500</d4p1:Value>
+        </d4p1:KeyValueOfstringfloat>
+      </KnobValues>
+      <PedalKey>Rack_StudioEQ</PedalKey>
+      <Type>Racks</Type>
+    </Rack1>
+    <Rack2 i:nil="true" />
+    <Rack3 i:nil="true" />
+    <Rack4 i:nil="true" />
+  </GearList>
+  <IsCustom>true</IsCustom>
+  <Key>MuseTime_bass</Key>
+  <Name>MuseTime_bass</Name>
+  <NameSeparator> - </NameSeparator>
+  <SortOrder>39.000</SortOrder>
+  <ToneDescriptors xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+    <d2p1:string>$[35715]BASS</d2p1:string>
+  </ToneDescriptors>
+  <Volume>-14.550</Volume>
+</Tone2014>

@@ -1199,6 +1199,7 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`T.isSuffixOf` T.pack 
   , "BEAT"
   ]
 
+-- TODO this should be extended to support pgTuningRSBass
 data TuningInfo = TuningInfo
   { tuningGuitars :: [(FlexPartName, GtrTuning)]
   , tuningCents   :: Int

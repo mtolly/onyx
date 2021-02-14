@@ -47,6 +47,8 @@ parts:
     pro-guitar:
       tuning:
         base: bass-5 # literally one below-E note lmao. explained in sheet as "4th string is retuned to D w/ headstock detuner."
+      tuning-rs-bass:
+        base: bass-4
       tones:
         file-tone-base: ../../../tones/dreametr_bass.tone2014.xml
 targets:
@@ -59,5 +61,6 @@ targets:
     plan: jammit # maybe use one-instrument expression
     arrangements:
     - [bonus-rhythm, bass]
+    - [bass, bass]
     song-key: OnyxDTLearningToLive
     version: "1.0"

@@ -35,10 +35,14 @@ parts:
       difficulty: 6
       tuning:
         base: bass-5
+      tuning-rs-bass:
+        base: bass-4
       tones:
-        file-tone-base: ../../../tones/CockroachKingBass.tone2014.xml
-        file-tone-a: ../../../tones/CockroachKingBass.tone2014.xml
+        file-tone-base: ../../../tones/MuseTime_bass.tone2014.xml
+        file-tone-a: ../../../tones/MuseTime_bass.tone2014.xml
         file-tone-b: ../../../tones/RippedApartSynthBass.tone2014.xml
+        file-tone-c: ../../../tones/RippedApartWah.tone2014.xml
+        file-tone-d: ../../../tones/SequenceStartBass.tone2014.xml
   guitar:
     grybo:
       difficulty: 6
@@ -69,5 +73,8 @@ targets:
   rs:
     game: rs
     arrangements:
-    - [lead, guitar]
+    # - [lead, guitar]
     - [bonus-rhythm, bass]
+    - [bass, bass]
+    song-key: OnyxNCRippedApart
+    version: "1.0"

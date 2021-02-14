@@ -66,3 +66,5 @@ targets:
     plan: recorded-no-stems
     arrangements:
     - [bass, bass]
+    song-key: OnyxBeatlesHereComesTheSun
+    version: "1.0"
