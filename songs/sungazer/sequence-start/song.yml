@@ -35,7 +35,7 @@ parts:
       tuning:
         base: bass-4
       tones:
-        file-tone-base: ../../../tones/SequenceStartBass.xml
+        file-tone-base: ../../../tones/SequenceStartBass.tone2014.xml
     grybo:
       difficulty: 5
       # original by 2DHumanity, from Anti Hero (1)

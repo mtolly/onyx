@@ -1,0 +1,45 @@
+metadata:
+  title: Three Minute Warning
+  file-include: ../../../albums/liquid-tension-experiment.yml
+  track-number: 9 # 9 through 13
+  rating: Family Friendly
+  author: Onyxite
+audio:
+  album-track-1:
+    md5: 235d1c7e74a9425ef75db3c793567666
+    frames: 22061760
+  album-track-2:
+    md5: 31f0e1785c3dc951eb6b5035d0a3c09b
+    frames: 10713360
+  album-track-3:
+    md5: e0202cee99d892c86a65d2604a768121
+    frames: 14062020
+  album-track-4:
+    md5: 661fe1917c4a25f38d392a22c1b9f8db
+    frames: 11496576
+  album-track-5:
+    md5: 877b9dec74dadd744b50c5f390347cda
+    frames: 17350704
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    song:
+      concatenate:
+      - album-track-1
+      - album-track-2
+      - album-track-3
+      - album-track-4
+      - album-track-5
+parts:
+  drums:
+    drums:
+      kicks: both
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
