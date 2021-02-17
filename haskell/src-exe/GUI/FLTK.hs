@@ -67,6 +67,7 @@ import           Data.Default.Class                        (Default, def)
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
+import           Data.Int                                  (Int64)
 import           Data.IORef                                (IORef, newIORef,
                                                             readIORef,
                                                             writeIORef)
@@ -80,11 +81,11 @@ import           Data.Monoid                               (Endo (..))
 import qualified Data.Text                                 as T
 import qualified Data.Text.Encoding                        as TE
 import           Data.Time                                 (getCurrentTime)
-import           Data.Time.Clock.System                    (SystemTime (..),
-                                                            getSystemTime)
+import           Data.Time.Clock.System                    (SystemTime (..))
 import           Data.Version                              (showVersion)
+import           Data.Word                                 (Word32)
 import           DryVox
-import           Foreign                                   (Ptr)
+import           Foreign                                   (Ptr, alloca, peek)
 import           Foreign.C                                 (CString)
 import           Genre                                     (FullGenre (..),
                                                             interpretGenre)
@@ -486,16 +487,29 @@ makeTab rect name fn = do
   FL.end group
   return res
 
+foreign import ccall unsafe "hs_getTimeMonotonic"
+  hs_getTimeMonotonic :: Ptr Int64 -> Ptr Word32 -> IO ()
+
+getTimeMonotonic :: IO SystemTime
+getTimeMonotonic = alloca $ \psecs -> alloca $ \pnsecs -> do
+  hs_getTimeMonotonic psecs pnsecs
+  secs <- peek psecs
+  nsecs <- peek pnsecs
+  return MkSystemTime
+    { systemSeconds     = secs
+    , systemNanoseconds = nsecs
+    }
+
 startAnimation :: IO () -> IO (IO ())
 startAnimation redraw = do
   stopper <- newIORef False
   let loop = do
-        t1 <- getSystemTime
+        t1 <- getTimeMonotonic
         readIORef stopper >>= \case
           True -> return ()
           False -> do
             redraw
-            t2 <- getSystemTime
+            t2 <- getTimeMonotonic
             let nanoDiff = fromIntegral (systemSeconds t2 - systemSeconds t1) * 1000000000
                   + fromIntegral (systemNanoseconds t2) - fromIntegral (systemNanoseconds t1)
                 microDiff = quot nanoDiff 1000
@@ -957,7 +971,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
       sink
       glArea
       (return song)
-      (currentSongTime <$> getSystemTime <*> readIORef varTime)
+      (currentSongTime <$> getTimeMonotonic <*> readIORef varTime)
       getSpeed
     FL.setResizable tab $ Just groupGL
     let takeState = takeMVar varState
@@ -966,7 +980,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
           writeIORef varTime ss
         stopPlaying :: Double -> Playing -> IO Double
         stopPlaying t ps = do
-          stime <- getSystemTime
+          stime <- getTimeMonotonic
           playStopAnimation ps
           audioStop $ playAudioHandle ps
           return $ currentSongTime stime $ SongState t $ Just ps
@@ -981,9 +995,9 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               { audioStop = return ()
               , audioSetGain = \_ -> return ()
               }
-          curTime <- getSystemTime
+          curTime <- getTimeMonotonic
           stopAnim <- startAnimation $ do
-            t' <- currentSongTime <$> getSystemTime <*> readIORef varTime
+            t' <- currentSongTime <$> getTimeMonotonic <*> readIORef varTime
             sink $ EventIO $ do
               void $ FL.setValue scrubber t'
               redrawGL

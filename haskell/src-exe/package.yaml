@@ -16,6 +16,8 @@ executables:
   onyx:
     source-dirs: '.'
     main: Main.hs
+    c-sources:
+    - cbits/time_monotonic.c
 
     dependencies:
     - base

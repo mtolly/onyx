@@ -4,7 +4,6 @@ import           Prelude
 
 import           Control.Monad.Except  (runExcept)
 import           Data.Array            (uncons, (:), concat, take, drop, concatMap)
-import           Data.DateTime.Instant (unInstant)
 import           Data.Either           (Either (..))
 import           Data.Int              (round, toNumber)
 import           Data.Maybe            (Maybe (..))
@@ -13,7 +12,6 @@ import           Data.Time.Duration    (Milliseconds (..), Seconds (..),
 import           Data.Tuple            (Tuple (..), fst, snd)
 import           Effect                (Effect)
 import           Effect.Exception      (catchException, error, throwException)
-import           Effect.Now            (now)
 import           Effect.Ref            as Ref
 import           Foreign               (Foreign, isUndefined)
 import           Graphics.Canvas       as C
@@ -32,7 +30,7 @@ import           Draw.Protar        (drawProtar, eachChordsWidth)
 import           Draw.Six           (drawSix)
 import           Draw.Vocal         (drawVocal)
 import           Draw.Amplitude     (drawAmplitude)
-import           Draw.Dance     (drawDance)
+import           Draw.Dance         (drawDance)
 
 foreign import onyxSong :: Foreign
 
@@ -53,6 +51,8 @@ foreign import fillMenu
   -> Effect Unit
 foreign import readMenu :: Effect Settings
 
+foreign import performanceNow :: Effect Number
+
 drawLoading :: C.CanvasElement -> Effect Unit
 drawLoading canvas = do
   ctx <- C.getContext2D canvas
@@ -63,7 +63,7 @@ drawLoading canvas = do
   void $ C.setFillStyle ctx customize.loadingBackground
   void $ C.fillRect ctx { x: 0.0, y: 0.0, width: windowW, height: windowH }
 
-  Milliseconds ms <- unInstant <$> now
+  ms <- performanceNow
   let loopTime = customize.loadingLoopTime_ms
       loopTime8 = customize.loadingLoopTime_ms / 8.0
       t = numMod ms loopTime
@@ -252,7 +252,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
           Nothing -> requestAnimationFrame continueLoading
       makeLoop imageGetter audio = let
         loop app = do
-          ms <- unInstant <$> now
+          ms <- Milliseconds <$> performanceNow
           let nowTheory = case app.time of
                 Paused  o -> o.pausedSongTime
                 -- Calculate what time should be so it moves nice and smooth
@@ -287,7 +287,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                             then if windowH - _M * 2 - _B * 2 <= y && y <= windowH - _M * 2 - _B
                               then case app_.time of -- play/pause button
                                 Paused o -> do
-                                  ms' <- unInstant <$> now
+                                  ms' <- Milliseconds <$> performanceNow
                                   playFrom audio nowTheory do
                                     handle et app_
                                       { time = Playing
@@ -317,7 +317,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                                           }
                                         }
                                       Playing o -> do
-                                        ms' <- unInstant <$> now
+                                        ms' <- Milliseconds <$> performanceNow
                                         stop audio
                                         playFrom audio t do
                                           handle et app_

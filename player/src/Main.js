@@ -156,3 +156,7 @@ exports.fillMenu = function(song) {
 exports.readMenu = function() {
   return menuImmutable;
 };
+
+exports.performanceNow = function() {
+  return performance.now();
+};
