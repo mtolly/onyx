@@ -52,6 +52,7 @@ import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums           as D
 import           RockBand.Codec.File            (showPosition)
 import qualified RockBand.Codec.Five            as F
+import qualified RockBand.Codec.FullDrums       as FD
 import qualified RockBand.Codec.ProGuitar       as PG
 import           RockBand.Common                (StrumHOPOTap (..), each)
 import           RockBand3                      (BasicTiming (..))
@@ -179,7 +180,7 @@ makeToggleBounds t1 t2 m = let
   simplify (x : xs) = x : simplify xs
   in simplify zipped
 
-drawDrums :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType))) -> IO ()
+drawDrums :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType) (D.Gem D.ProType))) -> IO ()
 drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPlayState
   { drumEvents = do
     (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
@@ -193,7 +194,235 @@ drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPla
   , drumNoteTimes = Set.empty -- not used
   }
 
-drawDrumPlay :: GLStuff -> Double -> Double -> DrumPlayState Double (D.Gem D.ProType) -> IO ()
+drawFullDrums :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState (FD.FullGem, FD.FullGemType, FD.FullVelocity) FD.FullGem)) -> IO ()
+drawFullDrums glStuff nowTime speed trk = drawFullDrumPlay glStuff nowTime speed DrumPlayState
+  { drumEvents = do
+    (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
+    pad <- Set.toList $ drumNotes $ commonState cs
+    let res = EventResult
+          { eventHit = Just (pad, Just cst)
+          , eventMissed = []
+          }
+    return (cst, (res, initialState)) -- score/combo state not used
+  , drumTrack = trk
+  , drumNoteTimes = Set.empty -- not used
+  }
+
+drawFullDrumPlay :: GLStuff -> Double -> Double -> DrumPlayState Double (FD.FullGem, FD.FullGemType, FD.FullVelocity) FD.FullGem -> IO ()
+drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
+  glUseProgram objectShader
+  -- view and projection matrices should already have been set
+  let drawObject' = drawObject glStuff
+      globalLight = LightGlobal $ C.trk_light $ C.cfg_track gfxConfig
+      nearZ = C.tt_z_past $ C.trk_time $ C.cfg_track gfxConfig
+      nowZ = C.tt_z_now $ C.trk_time $ C.cfg_track gfxConfig
+      farZ = C.tt_z_future $ C.trk_time $ C.cfg_track gfxConfig
+      farTime = nowTime + speed * realToFrac (C.tt_secs_future $ C.trk_time $ C.cfg_track gfxConfig) :: Double
+      timeToZ t = nowZ + (farZ - nowZ) * realToFrac ((t - nowTime) / (farTime - nowTime))
+      zToTime z = nowTime + (farTime - nowTime) * realToFrac ((z - nowZ) / (farZ - nowZ))
+      nearTime = zToTime nearZ
+      zoomed = zoomMap nearTime farTime $ drumTrack dps
+      adjustedLeft = C.na_x_left (C.trk_note_area $ C.cfg_track gfxConfig) * 1.3
+      adjustedRight = C.na_x_right (C.trk_note_area $ C.cfg_track gfxConfig) * 1.3
+      trackWidth = adjustedRight - adjustedLeft
+      fracToX f = adjustedLeft + trackWidth * f
+      drawBeat t cs = case commonBeats cs of
+        Nothing -> return ()
+        Just e -> let
+          tex = case e of
+            Just Bar  -> TextureLine1
+            Just Beat -> TextureLine2
+            Nothing   -> TextureLine3
+          z = timeToZ t
+          xyz1 = V3
+            (fracToX 0)
+            (C.trk_y $ C.cfg_track gfxConfig)
+            (z + C.beats_z_past (C.trk_beats $ C.cfg_track gfxConfig))
+          xyz2 = V3
+            (fracToX 1)
+            (C.trk_y $ C.cfg_track gfxConfig)
+            (z + C.beats_z_future (C.trk_beats $ C.cfg_track gfxConfig))
+          in drawObject' Flat (ObjectStretch xyz1 xyz2) (CSImage tex) 1 globalLight
+      drawTargetSquare x1 x2 tex alpha = let
+        y = C.trk_y $ C.cfg_track gfxConfig
+        z1 = C.tgt_z_past $ C.trk_targets $ C.cfg_track gfxConfig
+        z2 = C.tgt_z_future $ C.trk_targets $ C.cfg_track gfxConfig
+        in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
+      gemBounds :: FD.FullGem -> (Float, Float)
+      gemBounds = \case
+        FD.Kick      -> (fracToX 0        , fracToX 1       )
+        FD.Snare     -> (fracToX 0        , fracToX 0.15    )
+        FD.Hihat     -> (fracToX 0.15     , fracToX 0.275   )
+        FD.HihatFoot -> (fracToX 0.15     , fracToX 0.275   )
+        FD.CrashL    -> (fracToX 0.275    , fracToX 0.4     )
+        FD.Tom1      -> (fracToX 0.4      , fracToX 0.516666)
+        FD.Tom2      -> (fracToX 0.516666 , fracToX 0.633333)
+        FD.Tom3      -> (fracToX 0.633333 , fracToX 0.75    )
+        FD.CrashR    -> (fracToX 0.75     , fracToX 0.875   )
+        FD.Ride      -> (fracToX 0.875    , fracToX 1       )
+      drawGem t od gemTrio@(gem, _, velocity) alpha = let
+        (texid, obj) = case gemTrio of
+          (FD.Kick     , _, _) -> (TextureLongKick, Model ModelDrumKick)
+          (FD.Snare    , _, _) -> (TextureRedGem, Model ModelDrumTom)
+          (FD.Hihat    , _, _) -> (TextureYellowCymbal, Model ModelDrumCymbal)
+          (FD.HihatFoot, _, _) -> (TextureYellowCymbal, Model ModelDrumCymbal) -- TODO
+          (FD.CrashL   , _, _) -> (TextureBlueCymbal, Model ModelDrumCymbal)
+          (FD.Tom1     , _, _) -> (TextureOrangeGem, Model ModelDrumTom)
+          (FD.Tom2     , _, _) -> (TextureOrangeGem, Model ModelDrumTom)
+          (FD.Tom3     , _, _) -> (TextureOrangeGem, Model ModelDrumTom)
+          (FD.CrashR   , _, _) -> (TextureGreenCymbal, Model ModelDrumCymbal)
+          (FD.Ride     , _, _) -> (TexturePurpleCymbal, Model ModelDrumCymbal)
+        shade = case alpha of
+          Nothing -> CSImage texid
+          Just _  -> CSColor $ C.gems_color_hit $ C.obj_gems $ C.cfg_objects gfxConfig
+        velocityAdjust = case velocity of
+          FD.VelocityGhost -> 0.3
+          _                -> 1
+        (x1, x2) = gemBounds gem
+        reference = case gem of
+          FD.Kick -> (x2 - x1) / 2
+          _       -> 0.5 / 2
+        (y1, y2) = (y - reference, y + reference)
+        y = C.trk_y $ C.cfg_track gfxConfig
+        (z1, z2) = (z - reference, z + reference)
+        z = timeToZ t
+        posn = ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2)
+        in drawObject' obj posn shade (velocityAdjust * fromMaybe 1 alpha) $ LightOffset
+          $ C.gems_light $ C.obj_gems $ C.cfg_objects gfxConfig
+      drawNotes t cs = let
+        od = case commonOverdrive cs of
+          ToggleEmpty -> False
+          ToggleEnd   -> False
+          _           -> True
+        fadeTime = C.gems_secs_fade $ C.obj_gems $ C.cfg_objects gfxConfig
+        in forM_ (drumNotes $ commonState cs) $ \gem ->
+          case noteStatus t gem $ drumEvents dps of
+            NoteFuture -> drawGem t od gem Nothing
+            NoteMissed -> drawGem t od gem Nothing
+            NoteHitAt hitTime -> if nowTime - hitTime < realToFrac fadeTime
+              then drawGem nowTime od gem $ Just $ 1 - realToFrac (nowTime - hitTime) / fadeTime
+              else return ()
+  -- draw highway
+  forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
+    let highwayColor = (if isSolo then C.tc_solo else C.tc_normal)
+          $ C.trk_color $ C.cfg_track gfxConfig
+    drawObject'
+      Flat
+      (ObjectStretch
+        (V3
+          adjustedLeft
+          (C.trk_y $ C.cfg_track gfxConfig)
+          (timeToZ t1)
+        )
+        (V3
+          adjustedRight
+          (C.trk_y $ C.cfg_track gfxConfig)
+          (timeToZ t2)
+        )
+      )
+      (CSColor highwayColor)
+      1
+      globalLight
+  -- draw railings
+  let rail = C.trk_railings $ C.cfg_track gfxConfig
+      noteArea = C.trk_note_area $ C.cfg_track gfxConfig
+  drawObject' Box
+    (ObjectStretch
+      (V3
+        (adjustedLeft - C.rail_x_width rail)
+        (C.rail_y_top rail)
+        nearZ
+      )
+      (V3
+        adjustedLeft
+        (C.rail_y_bottom rail)
+        farZ
+      )
+    )
+    (CSColor $ C.rail_color rail) 1 globalLight
+  drawObject' Box
+    (ObjectStretch
+      (V3
+        adjustedRight
+        (C.rail_y_top rail)
+        nearZ
+      )
+      (V3
+        (adjustedRight + C.rail_x_width rail)
+        (C.rail_y_bottom rail)
+        farZ
+      )
+    )
+    (CSColor $ C.rail_color rail) 1 globalLight
+  -- draw beat lines
+  glDepthFunc GL_ALWAYS
+  void $ Map.traverseWithKey drawBeat zoomed
+  -- draw lanes
+  let drawLane startTime endTime gem = let
+        (x1, x2) = gemBounds gem
+        y = C.trk_y $ C.cfg_track gfxConfig
+        z1 = timeToZ startTime
+        z2 = timeToZ endTime
+        tex = case gem of
+          FD.Kick      -> TextureLaneOrange
+          FD.Snare     -> TextureLaneRed
+          FD.Hihat     -> TextureLaneYellow
+          FD.HihatFoot -> TextureLaneYellow
+          FD.CrashL    -> TextureLaneBlue
+          FD.Tom1      -> TextureLaneOrange
+          FD.Tom2      -> TextureLaneOrange
+          FD.Tom3      -> TextureLaneOrange
+          FD.CrashR    -> TextureLaneGreen
+          FD.Ride      -> TextureLanePurple
+        in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) 1 globalLight
+      drawLanes _        []                      = return ()
+      drawLanes nextTime ((thisTime, cs) : rest) = do
+        let lanes = Map.toList $ drumLanes $ commonState cs
+            bre = commonBRE cs
+        -- draw following lanes
+        forM_ lanes $ \(pad, tog) -> when (elem tog [ToggleStart, ToggleRestart, ToggleOn]) $ do
+          drawLane thisTime nextTime pad
+        when (elem bre [ToggleStart, ToggleRestart, ToggleOn]) $ do
+          mapM_ (drawLane thisTime nextTime) [FD.Snare, FD.Hihat, FD.CrashL, FD.Tom1, FD.Tom2, FD.Tom3, FD.CrashR, FD.Ride]
+        -- draw past lanes if rest is empty
+        when (null rest) $ do
+          forM_ lanes $ \(pad, tog) -> when (elem tog [ToggleEnd, ToggleRestart, ToggleOn]) $ do
+            drawLane nearTime thisTime pad
+          when (elem bre [ToggleEnd, ToggleRestart, ToggleOn]) $ do
+            mapM_ (drawLane nearTime thisTime) [FD.Snare, FD.Hihat, FD.CrashL, FD.Tom1, FD.Tom2, FD.Tom3, FD.CrashR, FD.Ride]
+        drawLanes thisTime rest
+  drawLanes farTime $ Map.toDescList zoomed
+  -- draw target
+  let targets =
+        [ ([FD.Snare], TextureTargetRed, TextureTargetRedLight)
+        , ([FD.Hihat], TextureTargetYellow, TextureTargetYellowLight)
+        , ([FD.CrashL], TextureTargetBlue, TextureTargetBlueLight)
+        , ([FD.Tom1, FD.Tom2, FD.Tom3], TextureTargetOrange, TextureTargetOrangeLight)
+        , ([FD.CrashR], TextureTargetGreen, TextureTargetGreenLight)
+        , ([FD.Ride], TextureTargetPurple, TextureTargetPurpleLight)
+        ]
+  forM_ targets $ \(pads, tex, _) -> do
+    let x1 = minimum $ map (fst . gemBounds) pads
+        x2 = maximum $ map (snd . gemBounds) pads
+    drawTargetSquare x1 x2 tex 1
+  let drawLights [] _ = return ()
+      drawLights _ [] = return ()
+      drawLights ((t, (pad, _, _)) : states) colors = let
+        (colorsYes, colorsNo) = partition (\(pads, _, _) -> elem pad pads) colors
+        alpha = 1 - realToFrac (nowTime - t) / C.tgt_secs_light
+          (C.trk_targets $ C.cfg_track gfxConfig)
+        in when (t > nearTime) $ do
+          forM_ colorsYes $ \(pads, _, light) -> let
+            x1 = minimum $ map (fst . gemBounds) pads
+            x2 = minimum $ map (snd . gemBounds) pads
+            in drawTargetSquare x1 x2 light alpha
+          drawLights states colorsNo
+  drawLights [ (t, padTrio) | (t, (res, _)) <- drumEvents dps, Just (padTrio, _) <- [eventHit res] ] targets
+  glDepthFunc GL_LESS
+  -- draw notes
+  traverseDescWithKey_ drawNotes zoomed
+
+drawDrumPlay :: GLStuff -> Double -> Double -> DrumPlayState Double (D.Gem D.ProType) (D.Gem D.ProType) -> IO ()
 drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
@@ -225,15 +454,19 @@ drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
         shade = case alpha of
           Nothing -> CSImage texid
           Just _  -> CSColor $ C.gems_color_hit $ C.obj_gems $ C.cfg_objects gfxConfig
-        posn = case gem of
-          D.Kick           -> gemAtX $ fracToX 0.5
-          D.Red            -> gemAtX $ fracToX $ 1 / 8
-          D.Pro D.Yellow _ -> gemAtX $ fracToX $ 3 / 8
-          D.Pro D.Blue _   -> gemAtX $ fracToX $ 5 / 8
-          D.Pro D.Green _  -> gemAtX $ fracToX $ 7 / 8
-          D.Orange         -> gemAtX $ fracToX 0.5 -- TODO
-        gemAtX x = ObjectMove $ V3 x (C.trk_y $ C.cfg_track gfxConfig) z
+        (x1, x2) = case gem of
+          D.Kick           -> (-1, 1)
+          D.Red            -> (-1, -0.5)
+          D.Pro D.Yellow _ -> (-0.5, 0)
+          D.Pro D.Blue _   -> (0, 0.5)
+          D.Pro D.Green _  -> (0.5, 1)
+          D.Orange         -> (0.25, 0.75) -- TODO
+        reference = (x2 - x1) / 2
+        (y1, y2) = (y - reference, y + reference)
+        y = C.trk_y $ C.cfg_track gfxConfig
+        (z1, z2) = (z - reference, z + reference)
         z = timeToZ t
+        posn = ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2)
         in drawObject' obj posn shade (fromMaybe 1 alpha) $ LightOffset
           $ C.gems_light $ C.obj_gems $ C.cfg_objects gfxConfig
       drawNotes t cs = let
@@ -1198,6 +1431,8 @@ data TextureID
   | TextureYellowCymbal
   | TextureBlueCymbal
   | TextureGreenCymbal
+  | TexturePurpleCymbal
+  | TextureOrangeCymbal
   | TextureEnergyCymbal
   | TextureLine1
   | TextureLine2
@@ -1436,6 +1671,8 @@ loadGLStuff previewSong = do
           TextureYellowCymbal      -> "cymbal-yellow"
           TextureBlueCymbal        -> "cymbal-blue"
           TextureGreenCymbal       -> "cymbal-green"
+          TexturePurpleCymbal      -> "cymbal-purple"
+          TextureOrangeCymbal      -> "cymbal-orange"
           TextureEnergyCymbal      -> "cymbal-energy"
           TextureLine1             -> "line-1"
           TextureLine2             -> "line-2"
@@ -1818,7 +2055,7 @@ drawDrumPlayFull
   -> WindowDims
   -> Double
   -> Double
-  -> DrumPlayState Double (D.Gem D.ProType)
+  -> DrumPlayState Double (D.Gem D.ProType) (D.Gem D.ProType)
   -> IO ()
 drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed dps = do
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
@@ -1979,9 +2216,10 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trk
     glClear GL_COLOR_BUFFER_BIT
     setUpTrackView glStuff (WindowDims w h)
     case trk of
-      PreviewDrums m -> drawDrums glStuff time speed   m
-      PreviewFive  m -> drawFive  glStuff time speed   m
-      PreviewPG  t m -> drawPG    glStuff time speed t m
+      PreviewDrums m     -> drawDrums glStuff time speed   m
+      PreviewDrumsFull m -> drawFullDrums glStuff time speed m
+      PreviewFive  m     -> drawFive  glStuff time speed   m
+      PreviewPG  t m     -> drawPG    glStuff time speed t m
 
     case framebuffers of
       SimpleFramebuffer{..} -> do

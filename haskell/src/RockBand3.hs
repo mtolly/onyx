@@ -233,6 +233,7 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
         ]
       }
     changeMode = case (drumsMode pd, target) of
+      (DrumsFull, _         ) -> id
       (DrumsReal, _         ) -> id
       (DrumsPro , _         ) -> id
       -- TODO convert 5 to pro, not just basic.
@@ -241,6 +242,7 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
       (Drums4   , Right _ps ) -> noToms
       (Drums4   , Left  _rb3) -> allToms
     flex = RBFile.getFlexPart drumsPart trks
+    -- TODO support DrumsFull
     trk1x = RBFile.onyxPartDrums flex
     trk2x = RBFile.onyxPartDrums2x flex
     trkReal = RBFile.onyxPartRealDrumsPS flex

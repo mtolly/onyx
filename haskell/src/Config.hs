@@ -708,14 +708,16 @@ data DrumMode
   | Drums5
   | DrumsPro
   | DrumsReal
+  | DrumsFull
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON DrumMode where
-  stackJSON = enumCodec "a drum mode (4, 5, pro, real)" $ \case
+  stackJSON = enumCodec "a drum mode (4, 5, pro, real, full)" $ \case
     Drums4    -> A.Number 4
     Drums5    -> A.Number 5
     DrumsPro  -> "pro"
     DrumsReal -> "real"
+    DrumsFull -> "full"
 
 data OrangeFallback = FallbackBlue | FallbackGreen
   deriving (Eq, Ord, Show, Enum, Bounded)

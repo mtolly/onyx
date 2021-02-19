@@ -55,6 +55,7 @@ import           RockBand.Codec.Drums
 import           RockBand.Codec.Events
 import           RockBand.Codec.Five
 import qualified RockBand.Codec.Five               as Five
+import           RockBand.Codec.FullDrums          (FullDrumTrack)
 import           RockBand.Codec.Lipsync
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
@@ -271,6 +272,7 @@ data OnyxPart t = OnyxPart
   { onyxPartDrums        :: DrumTrack t
   , onyxPartDrums2x      :: DrumTrack t
   , onyxPartRealDrumsPS  :: DrumTrack t
+  , onyxPartFullDrums    :: FullDrumTrack t
   , onyxPartGuitar       :: FiveTrack t
   , onyxPartKeys         :: FiveTrack t
   , onyxPartGuitarExt    :: FiveTrack t
@@ -319,7 +321,7 @@ selectGuitarTrack typ part = let
 
 instance TraverseTrack OnyxPart where
   traverseTrack fn
-    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x y z aa ab)
+    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x y z aa ab ac)
     = OnyxPart
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -330,7 +332,7 @@ instance TraverseTrack OnyxPart where
       <*> traverseTrack fn s <*> traverseTrack fn t <*> traverseTrack fn u
       <*> traverseTrack fn v <*> traverseTrack fn w <*> traverseTrack fn x
       <*> traverseTrack fn y <*> traverseTrack fn z <*> traverseTrack fn aa
-      <*> traverseTrack fn ab
+      <*> traverseTrack fn ab <*> traverseTrack fn ac
 
 getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
 getFlexPart part = fromMaybe mempty . Map.lookup part . onyxParts
@@ -364,6 +366,7 @@ parseOnyxPart partName = do
   onyxPartDrums        <- onyxPartDrums        =. names (pure (FlexDrums, "PART DRUMS"))
   onyxPartDrums2x      <- onyxPartDrums2x      =. names (pure (FlexDrums, "PART DRUMS_2X"))
   onyxPartRealDrumsPS  <- onyxPartRealDrumsPS  =. names (pure (FlexDrums, "PART REAL_DRUMS_PS"))
+  onyxPartFullDrums    <- onyxPartFullDrums    =. names (pure (FlexDrums, "PART FULL DRUMS"))
   onyxPartGuitar       <- onyxPartGuitar       =. names
     ( (FlexGuitar, "PART GUITAR") :|
     [ (FlexBass, "PART BASS")
@@ -728,6 +731,7 @@ instance ChopTrack OnyxPart where
     { onyxPartDrums        = chopTake t               $ onyxPartDrums        op
     , onyxPartDrums2x      = chopTake t               $ onyxPartDrums2x      op
     , onyxPartRealDrumsPS  = chopTake t               $ onyxPartRealDrumsPS  op
+    , onyxPartFullDrums    = mapTrack (U.trackTake t) $ onyxPartFullDrums    op -- TODO
     , onyxPartGuitar       = mapTrack (U.trackTake t) $ onyxPartGuitar       op -- TODO
     , onyxPartKeys         = mapTrack (U.trackTake t) $ onyxPartKeys         op -- TODO
     , onyxPartGuitarExt    = mapTrack (U.trackTake t) $ onyxPartGuitarExt    op -- TODO
@@ -758,6 +762,7 @@ instance ChopTrack OnyxPart where
     { onyxPartDrums        = chopDrop t               $ onyxPartDrums        op
     , onyxPartDrums2x      = chopDrop t               $ onyxPartDrums2x      op
     , onyxPartRealDrumsPS  = chopDrop t               $ onyxPartRealDrumsPS  op
+    , onyxPartFullDrums    = mapTrack (U.trackDrop t) $ onyxPartFullDrums    op -- TODO
     , onyxPartGuitar       = mapTrack (U.trackDrop t) $ onyxPartGuitar       op -- TODO
     , onyxPartKeys         = mapTrack (U.trackDrop t) $ onyxPartKeys         op -- TODO
     , onyxPartGuitarExt    = mapTrack (U.trackDrop t) $ onyxPartGuitarExt    op -- TODO

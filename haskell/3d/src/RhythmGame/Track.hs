@@ -33,6 +33,7 @@ import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events            (eventsCoda, eventsSections)
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
+import qualified RockBand.Codec.FullDrums         as FD
 import qualified RockBand.Codec.ProGuitar         as PG
 import           RockBand.Common
 import           RockBand.Sections                (makePSSection)
@@ -47,7 +48,8 @@ import           WebPlayer                        (findTremolos, findTrills,
                                                    laneDifficulty)
 
 data PreviewTrack
-  = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType))))
+  = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType) (D.Gem D.ProType))))
+  | PreviewDrumsFull (Map.Map Double (PNF.CommonState (PNF.DrumState (FD.FullGem, FD.FullGemType, FD.FullVelocity) FD.FullGem)))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState (Maybe F.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   deriving (Show)
@@ -120,6 +122,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           ddiff
         DrumsPro  -> D.computePro diff thisSrc
         DrumsReal -> D.computePro diff $ D.psRealToPro thisSrc
+        DrumsFull -> D.computePro diff thisSrc -- TODO support convert from full track
     hands = RTB.filter (/= D.Kick) drumPro
     (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song of
       Nothing   -> (D.drumActivation thisSrc, RTB.empty)
@@ -143,6 +146,31 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           `PNF.zipStateMaps` toggle (D.drumOverdrive thisSrc)
           `PNF.zipStateMaps` toggle bres
           `PNF.zipStateMaps` toggle (D.drumSolo thisSrc)
+          `PNF.zipStateMaps` fmap Just beats
+
+  drumTrackFull fpart pdrums diff = let
+    -- TODO if kicks = 2, don't emit an X track, only X+
+    thisSrc = maybe mempty RBFile.onyxPartFullDrums $ Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song
+    drumMap :: Map.Map Double [(FD.FullGem, FD.FullGemType, FD.FullVelocity)]
+    drumMap = rtbToMap $ RTB.collectCoincident $ FD.getDifficulty diff thisSrc
+    (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song of
+      Nothing   -> (FD.fdActivation thisSrc, RTB.empty)
+      Just coda ->
+        ( U.trackTake coda $ FD.fdActivation thisSrc
+        , RTB.delay coda $ U.trackDrop coda $ FD.fdActivation thisSrc
+        )
+    drumStates = (\((a, b), c) -> PNF.DrumState a b c) <$> do
+      (Set.fromList <$> drumMap)
+        `PNF.zipStateMaps` (makeLanes each $ fmap (\((), gem, len) -> (gem, len)) $ joinEdgesSimple $ FD.fdLanes thisSrc)
+        `PNF.zipStateMaps` toggle acts
+    in do
+      guard $ not $ Map.null drumMap
+      guard $ not $ diff == Nothing && drumsKicks pdrums == Kicks1x
+      Just $ (\((((a, b), c), d), e) -> PNF.CommonState a b c d e) <$> do
+        drumStates
+          `PNF.zipStateMaps` toggle (FD.fdOverdrive thisSrc)
+          `PNF.zipStateMaps` toggle bres
+          `PNF.zipStateMaps` toggle (FD.fdSolo thisSrc)
           `PNF.zipStateMaps` fmap Just beats
 
   fiveTrack fpart pgrybo diff = let
@@ -386,10 +414,19 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
             Drums5    -> "Drums"
             DrumsPro  -> "Pro Drums"
             DrumsReal -> "Pro Drums"
+            DrumsFull -> "Pro Drums"
           _                -> T.pack $ show fpart <> " [D]"
         in drumDiffPairs >>= \(diff, letter) -> case drumTrack fpart pdrums diff of
           Nothing  -> []
-          Just trk -> [(name <> " (" <> letter <> ")", PreviewDrums trk)]
+          Just trk -> [(name <> " (" <> letter <> ")", PreviewDrums trk)] ++ case drumsMode pdrums of
+            DrumsFull -> case drumTrackFull fpart pdrums diff of
+              Nothing -> []
+              Just trkFull ->
+                [ ( T.pack (show fpart) <> " Full Drums (" <> letter <> ")"
+                  , PreviewDrumsFull trkFull
+                  )
+                ]
+            _         -> []
     pg = case partProGuitar part of
       Nothing     -> []
       Just ppg -> let

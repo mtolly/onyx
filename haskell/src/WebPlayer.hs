@@ -137,6 +137,7 @@ instance A.ToJSON (Drums U.Seconds) where
       C.Drums5    -> "5"
       C.DrumsPro  -> "pro"
       C.DrumsReal -> "real"
+      C.DrumsFull -> "full"
     , (,) "disco" $ eventList (drumDisco x) A.toJSON
     ]
 
@@ -414,6 +415,7 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
     C.Drums5    -> fmap Right $ nonPro True
     C.DrumsPro  -> fmap Right $ D.computePro diff trk
     C.DrumsReal -> D.computePSReal diff trk
+    C.DrumsFull -> mempty -- TODO
   notesS = realTrack tmap notes
   notesB = RTB.normalize notes
   solo   = realTrack tmap $ D.drumSolo trk

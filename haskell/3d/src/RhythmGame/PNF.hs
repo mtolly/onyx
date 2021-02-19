@@ -122,12 +122,12 @@ data CommonState a = CommonState
   } deriving (Show, Generic)
     deriving (TimeState) via GenericTimeState (CommonState a)
 
-data DrumState pad = DrumState
+data DrumState pad lane = DrumState
   { drumNotes      :: Set.Set pad
-  , drumLanes      :: Map.Map pad Toggle
+  , drumLanes      :: Map.Map lane Toggle
   , drumActivation :: Toggle
   } deriving (Show, Generic)
-    deriving (TimeState) via GenericTimeState (DrumState pad)
+    deriving (TimeState) via GenericTimeState (DrumState pad lane)
 
 data GuitarState fret = GuitarState
   { guitarNotes   :: Map.Map fret (PNF IsOverdrive StrumHOPOTap)
@@ -310,9 +310,9 @@ initialState = GamePlayState
   , gameCombo = 0
   }
 
-data DrumPlayState t pad = DrumPlayState
+data DrumPlayState t pad lane = DrumPlayState
   { drumEvents    :: [(t, (EventResult t pad, GamePlayState))]
-  , drumTrack     :: Map.Map t (CommonState (DrumState pad))
+  , drumTrack     :: Map.Map t (CommonState (DrumState pad lane))
   , drumNoteTimes :: Set.Set t
   } deriving (Show)
 
@@ -347,7 +347,7 @@ zoomMapList kmin kmax (Bin _ k v ml mr)
   ++ [(k, v) | kmin <= k && k <= kmax]
   ++ (if kmax <= k then [] else zoomMapList kmin kmax mr)
 
-applyDrumEvent :: (Show t, Ord t, Num t, Ord pad) => t -> Maybe pad -> t -> DrumPlayState t pad -> DrumPlayState t pad
+applyDrumEvent :: (Show t, Ord t, Num t, Ord pad) => t -> Maybe pad -> t -> DrumPlayState t pad lane -> DrumPlayState t pad lane
 applyDrumEvent tNew mpadNew halfWindow dps = let
   applyNoRewind (t, mpad) evts = let
     mClosestTime = case (Set.lookupLE t $ drumNoteTimes dps, Set.lookupGE t $ drumNoteTimes dps) of

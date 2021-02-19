@@ -34,10 +34,12 @@ import           Resources                             (colorMapDrums,
                                                         colorMapGHL,
                                                         colorMapGRYBO,
                                                         colorMapRS,
-                                                        colorMapRSLow)
+                                                        colorMapRSLow,
+                                                        getResourcesPath)
 import           RockBand.Codec.File                   (FlexPartName (..),
                                                         identifyFlexTrack,
                                                         loadRawMIDI)
+import           RockBand.Codec.FullDrums              (fullDrumNoteNames)
 import           RockBand.Codec.ProGuitar              (GtrBase (..),
                                                         GtrTuning (..),
                                                         tuningPitches)
@@ -338,6 +340,7 @@ track tunings lenTicks lenSecs resn trk = let
       [ (("PART DRUMS" `T.isSuffixOf`), drumNoteNames)
       , (("PART DRUMS_2X" `T.isSuffixOf`), drumNoteNames)
       , (("PART REAL_DRUMS_PS" `T.isSuffixOf`), drumNoteNames)
+      , (("PART FULL DRUMS" `T.isSuffixOf`), fullDrumNoteNames)
       , (("PART GUITAR" `T.isSuffixOf`), gryboNoteNames False)
       , (("PART GUITAR EXT" `T.isSuffixOf`), gryboNoteNames False)
       , (("PART BASS" `T.isSuffixOf`), gryboNoteNames False)
@@ -395,6 +398,7 @@ track tunings lenTicks lenSecs resn trk = let
               [ ("PART DRUMS", "colormap_drums.png")
               , ("PART DRUMS_2X", "colormap_drums.png")
               , ("PART REAL_DRUMS_PS", "colormap_drums.png")
+              , ("PART FULL DRUMS", "colormap_fulldrums.png")
               , ("PART GUITAR", "colormap_grybo.png")
               , ("PART GUITAR EXT", "colormap_grybo.png")
               , ("PART BASS", "colormap_grybo.png")
@@ -1276,6 +1280,7 @@ makeReaperFromData tunings mid tempoMid audios out = do
     "colormap_ghl.png"   -> colorMapGHL   >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     "colormap_rs.png"    -> colorMapRS    >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     "colormap_rslow.png" -> colorMapRSLow >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
+    "colormap_fulldrums.png" -> getResourcesPath "fulldrums.png" >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     _ -> return ()
 
 makeReaperShake :: TuningInfo -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()

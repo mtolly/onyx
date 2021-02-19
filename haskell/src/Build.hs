@@ -1806,6 +1806,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 , FoF.proDrums         = flip fmap dmode $ \case
                   DrumsPro  -> True
                   DrumsReal -> True
+                  DrumsFull -> True
                   Drums4    -> False
                   Drums5    -> False
                 , FoF.fiveLaneDrums    = Nothing
