@@ -17,7 +17,6 @@ import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
-import           Data.Functor                     (void)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (find, sort)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
@@ -53,13 +52,8 @@ data RSSong = RSSong
   , rsAlbumArtLarge :: String
   } deriving (Eq, Show)
 
-importRS :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-importRS psarc dout = newImportRS psarc >>= \case
-  [imp] -> imp ImportFull >>= void . stackIO . saveImport dout
-  _     -> fatal "Not exactly 1 song in .psarc"
-
-newImportRS :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [Import m]
-newImportRS psarc = do
+importRS :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [Import m]
+importRS psarc = do
   folder <- stackIO $ readPSARCFolder $ fileReadable psarc
   let subfolder p = case findFolder p folder of
         Just sub -> return sub
@@ -86,10 +80,10 @@ newImportRS psarc = do
       rsSoundBank <- toList $ lookup "SoundBank" mapping
       rsAlbumArtLarge <- toList $ lookup "AlbumArtLarge" mapping
       return RSSong{..}
-  return $ map (newImportRSSong folder) xblockSongs
+  return $ map (importRSSong folder) xblockSongs
 
-newImportRSSong :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> [RSSong] -> Import m
-newImportRSSong folder song level = do
+importRSSong :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> [RSSong] -> Import m
+importRSSong folder song level = do
 
   let need p = case findFile p folder of
         Just r  -> return r

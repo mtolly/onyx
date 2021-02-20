@@ -12,7 +12,6 @@ import           Control.Monad.Trans.StackTrace
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Functor                     (void)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes)
@@ -34,11 +33,8 @@ joinLongNotes
   . joinEdgesSimple
   . fmap (\(key, chip, b) -> if b then EdgeOn chip key else EdgeOff key)
 
-importBMS :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-importBMS bmsPath dout = newImportBMS bmsPath ImportFull >>= void . stackIO . saveImport dout
-
-newImportBMS :: (SendMessage m, MonadIO m) => FilePath -> Import m
-newImportBMS bmsPath level = do
+importBMS :: (SendMessage m, MonadIO m) => FilePath -> Import m
+importBMS bmsPath level = do
   bms <- stackIO $ readBMSLines <$> loadDTXLines bmsPath
   let simpleAudio f chips = if RTB.null chips
         then return Nothing

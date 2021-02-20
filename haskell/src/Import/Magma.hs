@@ -6,7 +6,7 @@ module Import.Magma where
 import           Audio
 import qualified C3
 import           Config                         hiding (Difficulty)
-import           Control.Monad.Extra            (guard, void)
+import           Control.Monad                  (guard, when)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString.Char8          as B8
@@ -34,12 +34,9 @@ import           System.FilePath
 import           Text.Decode                    (decodeGeneral)
 import           Text.Read                      (readMaybe)
 
-importMagma :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-importMagma src dest = newImportMagma src ImportFull >>= void . stackIO . saveImport dest
-
-newImportMagma :: (SendMessage m, MonadIO m) => FilePath -> Import m
-newImportMagma fin level = do
-  lg $ "Importing Magma project from: " <> fin
+importMagma :: (SendMessage m, MonadIO m) => FilePath -> Import m
+importMagma fin level = do
+  when (level == ImportFull) $ lg $ "Importing Magma project from: " <> fin
 
   let oldDir = takeDirectory fin
       locate f = fixFileCase $ oldDir </> f
@@ -160,7 +157,9 @@ newImportMagma fin level = do
   return SongYaml
     { _metadata = Metadata
       { _title        = Just title
+      , _titleJP      = Nothing
       , _artist       = Just $ maybe (RBProj.artistName $ RBProj.metadata rbproj) C3.artist c3
+      , _artistJP     = Nothing
       , _album        = Just $ maybe (RBProj.albumName $ RBProj.metadata rbproj) C3.album c3
       , _genre        = Just $ RBProj.genre $ RBProj.metadata rbproj
       , _subgenre     = Just $ RBProj.subGenre $ RBProj.metadata rbproj

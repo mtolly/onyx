@@ -12,7 +12,7 @@ audio:
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
 plans:
   album:
     countin:

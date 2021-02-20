@@ -44,10 +44,8 @@ import qualified Data.DTA.Serialize               as D
 import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Functor                     (void)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (stripSuffix, unsnoc)
-import           Data.List.HT                     (partitionMaybe)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
@@ -61,10 +59,6 @@ import qualified GuitarHeroII.Ark                 as GHArk
 import           GuitarHeroII.Audio               (readVGS)
 import           GuitarHeroIOS                    (extractIGA)
 import qualified Image
-import           Import.FretsOnFire               (importFoF)
-import           Import.RockBand                  (importRBA, importSTFS,
-                                                   importSTFSDir)
-import           Import.Rocksmith                 (importRS)
 import           Magma                            (getRBAFile, runMagma,
                                                    runMagmaMIDI, runMagmaV1)
 import           MoggDecrypt                      (moggToOgg, oggToMogg)
@@ -75,8 +69,6 @@ import           PrettyDTA                        (DTASingle (..),
                                                    readFileSongsDTA, readRB3DTA,
                                                    writeDTASingle)
 import           ProKeysRanges                    (closeShiftsFile)
-import           Reaper.Build                     (TuningInfo (..),
-                                                   makeReaperFromData)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Vocal             (nullVox)
@@ -338,11 +330,6 @@ changeToVenueGen dir = do
   mid <- RBFile.loadMIDI midPath
   stackIO $ Save.toFile midPath $ RBFile.showMIDIFile' $ RBFile.convertToVenueGen mid
 
-loadAsVenueGen :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m F.T
-loadAsVenueGen midPath = do
-  mid <- RBFile.loadMIDI midPath
-  return $ RBFile.showMIDIFile' $ RBFile.convertToVenueGen mid
-
 commands :: [Command]
 commands =
 
@@ -429,50 +416,27 @@ commands =
     , commandDesc = "Open a MIDI file (with audio) in REAPER."
     , commandUsage = ""
     , commandRun = \files opts -> do
-      files' <- mapM identifyFile' $ case files of
-        [] -> ["."]
-        _  -> files
-      let isType types (ftype, fpath) = guard (elem ftype types) >> Just fpath
-          withSongYaml yamlPath = do
-            audioDirs <- withProject (optIndex opts) yamlPath getAudioDirs
-            planName <- getPlanName (Just "author") yamlPath opts
-            let rpp = "notes-" <> T.unpack planName <> ".RPP"
-                yamlDir = takeDirectory yamlPath
-            when (OptVenueGen `elem` opts) $ changeToVenueGen yamlDir
-            shakeBuildFiles audioDirs yamlPath [rpp]
-            let rppFull = yamlDir </> "notes.RPP"
-            stackIO $ Dir.renameFile (yamlDir </> rpp) rppFull
-            return [rppFull]
-          doImport fn inputPath = do
-            out <- outputFile opts $ return $ inputPath ++ "_reaper"
-            stackIO $ Dir.createDirectoryIfMissing False out
-            void $ fn inputPath out
-            -- TODO re-add support for Opt2x here
-            withSongYaml $ out </> "song.yml"
-          pschart dir = do
-            out <- outputFile opts $ return $ dir ++ "_reaper"
-            stackIO $ Dir.createDirectoryIfMissing False out
-            importFoF dir out
-            withSongYaml $ out </> "song.yml"
-      case files' of
-        [(FileSTFS, stfsPath)] -> doImport (importSTFS 0) stfsPath
-        [(FileDTA, dtaPath)] -> doImport (importSTFSDir 0) $ takeDirectory $ takeDirectory dtaPath
-        [(FileRBA, rbaPath)] -> doImport importRBA rbaPath
-        [(FilePS, iniPath)] -> pschart $ takeDirectory iniPath
-        [(FileChart, chartPath)] -> pschart $ takeDirectory chartPath
-        [(FileSongYaml, yamlPath)] -> withSongYaml yamlPath
-        [(FilePSARC, psarcPath)] -> doImport importRS psarcPath
-        _ -> case partitionMaybe (isType [FileMidi]) files' of
-          ([mid], notMid) -> case partitionMaybe (isType [FileOGG, FileWAV, FileFLAC]) notMid of
-            (audio, []      ) -> do
-              rpp <- outputFile opts $ return $ mid -<.> "RPP"
-              loadedMid <- if OptVenueGen `elem` opts
-                then loadAsVenueGen mid
-                else RBFile.loadRawMIDI mid
-              makeReaperFromData (TuningInfo [] 0) loadedMid loadedMid audio rpp
-              return [rpp]
-            (_    , notAudio) -> fatal $ "onyx reap given non-MIDI, non-audio files: " <> show notAudio
-          (mids, _) -> fatal $ "onyx reap expected 1 MIDI file, given " <> show (length mids)
+      fpath <- case files of
+        []  -> return "."
+        [x] -> return x
+        _   -> fatal "Expected 0 or 1 files/folders"
+      proj <- openProject (optIndex opts) fpath
+      yamlDir <- case projectRelease proj of
+        Nothing -> return $ takeDirectory $ projectLocation proj
+        Just _  -> do
+          out <- outputFile opts $ return $ projectTemplate proj ++ "_reaper"
+          stackIO $ Dir.createDirectoryIfMissing False out
+          copyDirRecursive (takeDirectory $ projectLocation proj) out
+          return out
+      let yamlPath = yamlDir </> "song.yml"
+      planName <- getPlanName (Just "author") yamlPath opts
+      let rpp = "notes-" <> T.unpack planName <> ".RPP"
+      when (OptVenueGen `elem` opts) $ changeToVenueGen yamlDir
+      audioDirs <- withProject (optIndex opts) yamlPath getAudioDirs
+      shakeBuildFiles audioDirs yamlPath [rpp]
+      let rppFull = yamlDir </> "notes.RPP"
+      stackIO $ Dir.renameFile (yamlDir </> rpp) rppFull
+      return [rppFull]
     }
 
   , Command

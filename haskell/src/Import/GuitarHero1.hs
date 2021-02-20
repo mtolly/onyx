@@ -54,14 +54,11 @@ getSongList gen = do
     $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
     $ editDTB $ decodeLatin1 <$> D.decodeDTB (decrypt oldCrypt dtb)
 
-importGH1 :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> FilePath -> StackTraceT m ()
-importGH1 pkg gen dout = newImportGH1Song pkg gen ImportFull >>= void . stackIO . saveImport dout
+importGH1 :: (SendMessage m, MonadResource m) => FilePath -> StackTraceT m [Import m]
+importGH1 gen = map (\(_, pkg) -> importGH1Song pkg gen) <$> getSongList gen
 
-newImportGH1 :: (SendMessage m, MonadResource m) => FilePath -> StackTraceT m [Import m]
-newImportGH1 gen = map (\(_, pkg) -> newImportGH1Song pkg gen) <$> getSongList gen
-
-newImportGH1Song :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> Import m
-newImportGH1Song pkg gen level = do
+importGH1Song :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> Import m
+importGH1Song pkg gen level = do
   entries <- stackIO $ readFileEntries $ gen </> "MAIN.HDR"
   let folder = fmap (\entry -> readFileEntry entry $ gen </> "MAIN_0.ARK") $ entryFolder entries
       encLatin1 = B8.pack . T.unpack

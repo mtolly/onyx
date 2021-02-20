@@ -12,7 +12,6 @@ import           Data.Default.Class             (def)
 import qualified Data.DTA                       as D
 import qualified Data.DTA.Serialize             as D
 import qualified Data.DTA.Serialize.Amplitude   as Amp
-import           Data.Functor                   (void)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Map                       as Map
 import           Data.SimpleHandle
@@ -22,11 +21,8 @@ import           RockBand.Codec.File            (FlexPartName (..))
 import qualified RockBand.Codec.File            as RBFile
 import           System.FilePath
 
-importAmplitude :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-importAmplitude fin dout = newImportAmplitude fin ImportFull >>= void . stackIO . saveImport dout
-
-newImportAmplitude :: (SendMessage m, MonadIO m) => FilePath -> Import m
-newImportAmplitude fin _level = do
+importAmplitude :: (SendMessage m, MonadIO m) => FilePath -> Import m
+importAmplitude fin _level = do
   song <- stackIO (D.readFileDTA fin) >>= D.unserialize D.stackChunks
   let moggPath = takeDirectory fin </> T.unpack (Amp.mogg_path song)
       midPath  = takeDirectory fin </> T.unpack (Amp.midi_path song)

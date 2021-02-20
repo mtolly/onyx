@@ -34,7 +34,7 @@ extra-deps:
 - git: git://github.com/deech/fltkhs
   commit: 71af56f7194946a495e0d9d6457470f97988f754
 - git: git://github.com/mtolly/midi-util
-  commit: 61f7617237817aee68433ae9395088200ba8a6b7
+  commit: 1ea0f72a3795375e4b9eafcaef2500d105faf20f
 - git: git://github.com/mtolly/OpenAL
   commit: 3c74c9807c2d126cbbd2596082f9b9345a247ec5
 - git: git://github.com/tfausak/binary-bits # ghc 8.8 pull req
