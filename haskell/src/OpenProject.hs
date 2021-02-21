@@ -118,9 +118,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             return ([], [])
           Just GameGH2 -> GH2.newImportGH2 dir >>= foundImports "Guitar Hero II" dir
           Just GameGH1 -> GH1.newImportGH1 dir >>= foundImports "Guitar Hero (1)" dir
-      foundDTXSet loc = do
-        let dir = takeDirectory loc
-        newImportSet dir >>= foundImports "DTXMania (set.def)" dir
+      foundDTXSet loc = newImportSet loc >>= foundImports "DTXMania (set.def)" loc
       foundDTX loc = foundImport "DTXMania" loc $ newImportDTX loc
       foundBME loc = foundImport "Be-Music Source" loc $ newImportBMS loc
       foundYaml loc = do

@@ -107,9 +107,12 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
     -- TODO if kicks = 2, don't emit an X track, only X+
     drumSrc   = maybe mempty RBFile.onyxPartDrums   $ Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song
     drumSrc2x = maybe mempty RBFile.onyxPartDrums2x $ Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song
-    thisSrc = case diff of
-      Nothing -> if D.nullDrums drumSrc2x then drumSrc else drumSrc2x
-      Just _  -> drumSrc
+    thisSrc = if drumsMode pdrums == DrumsFull && D.nullDrums drumSrc && D.nullDrums drumSrc2x
+      then maybe mempty (FD.convertFullDrums False . RBFile.onyxPartFullDrums)
+        $ Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song
+      else case diff of
+        Nothing -> if D.nullDrums drumSrc2x then drumSrc else drumSrc2x
+        Just _  -> drumSrc
     drumMap :: Map.Map Double [D.Gem D.ProType]
     drumMap = rtbToMap $ RTB.collectCoincident drumPro
     drumPro = let

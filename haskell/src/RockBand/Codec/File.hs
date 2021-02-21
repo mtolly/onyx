@@ -301,6 +301,14 @@ data OnyxPart t = OnyxPart
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxPart t)
 
+editOnyxPart :: (NNC.C t) => FlexPartName -> (OnyxPart t -> OnyxPart t) -> OnyxFile t -> OnyxFile t
+editOnyxPart pname edit onyx = onyx
+  { onyxParts = Map.alter
+    (Just . edit . fromMaybe mempty)
+    pname
+    (onyxParts onyx)
+  }
+
 data FiveType
   = FiveTypeGuitar
   | FiveTypeKeys

@@ -8,14 +8,12 @@ module Import.DTXMania where
 import           Audio
 import           Config
 import           Control.Monad.Extra              (forM, guard, mapMaybeM,
-                                                   unless, void, when)
+                                                   unless, void)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.State
 import           Data.Char                        (toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
-import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
@@ -29,11 +27,10 @@ import           DTXMania.DTX
 import           DTXMania.Set
 import           Guitars                          (emit5')
 import           Import.Base
-import qualified Numeric.NonNegative.Class        as NNC
-import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Five
+import qualified RockBand.Codec.FullDrums         as FD
 import           RockBand.Common                  (Difficulty (..),
                                                    pattern RNil,
                                                    StrumHOPOTap (..),
@@ -43,137 +40,46 @@ import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropExtension, takeDirectory,
                                                    takeExtension, (<.>), (</>))
 
-data CymbalInstant lc rd = CymbalInstant
-  { instantHH :: Maybe D.PSGem -- always yellow (with ps real mods)
-  , instantLC :: Maybe lc -- default yellow, can be pushed to blue
-  , instantRD :: Maybe rd -- default blue, can be pushed to green
-  , instantRC :: Bool -- always green
-  } deriving (Show)
-
-placeCymbals :: (NNC.C t) => RTB.T t DrumLane -> RTB.T t D.RealDrum
-placeCymbals = RTB.flatten . fmap emitCymbals . assignFull . RTB.filter hasCymbals . fmap makeInstant . RTB.collectCoincident where
-  makeInstant notes = CymbalInstant
-    { instantHH = if
-      | elem HihatClose notes -> Just D.HHSizzle
-      | elem HihatOpen notes  -> Just D.HHOpen
-      | elem LeftPedal notes  -> Just D.HHPedal
-      | otherwise             -> Nothing
-    , instantLC = guard (elem LeftCymbal notes) >> Just Nothing
-    , instantRD = guard (elem RideCymbal notes) >> Just Nothing
-    , instantRC = elem Cymbal notes
-    }
-  hasCymbals = \case
-    CymbalInstant Nothing Nothing Nothing False -> False
-    _                                           -> True
-
-  -- first, assign all the cymbals that only have one option due to other simultaneous cymbals.
-  -- any LC with HH is blue, any RD with RC is blue (or drop it if also LC)
-  assignInstant
-    :: RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
-    -> RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
-  assignInstant = fmap $ \now -> let
-    newLC = case (instantHH now, instantLC now) of
-      (Just _, Just Nothing) -> Just $ Just D.Blue
-      _                      -> instantLC now
-    newRD = case (newLC, instantRD now, instantRC now) of
-      (Just (Just D.Blue), Just _      , True ) -> Nothing -- already blue and green taken
-      (Just (Just D.Blue), Just Nothing, False) -> Just $ Just D.Green -- green because LC is blue
-      (_                 , Just Nothing, True ) -> Just $ Just D.Blue -- blue because RC is green
-      _                                         -> instantRD now
-    in now { instantLC = newLC, instantRD = newRD }
-
-  -- then, propagate info forward to do more cymbal assignments.
-  -- this gets run both forward and backward
-  propagatePass _    []           = []
-  propagatePass prev (now : rest) = let
-    newLC = case (prev >>= instantHH, prev >>= instantLC, instantLC now) of
-      (_, Just (Just prevLC), Just Nothing) -> Just $ Just prevLC -- match previous LC color
-      (Just _, _, Just Nothing)             -> Just $ Just D.Blue -- make LC blue because there's a hihat previously
-      _                                     -> instantLC now
-    newRD = case (newLC, instantRD now) of
-      (Just (Just D.Blue), Just Nothing) -> Just $ Just D.Green -- green because now there's a blue LC
-      _ -> case (prev >>= instantLC, prev >>= instantRD, instantRD now) of
-        (_, Just (Just prevRD), Just Nothing) -> Just $ Just prevRD -- match previous RD color
-        (Just (Just D.Blue), _, Just Nothing) -> Just $ Just D.Green -- green because there's a blue LC previously
-        _                                     -> instantRD now
-    newNow = now { instantLC = newLC, instantRD = newRD }
-    in newNow : propagatePass (Just newNow) rest
-  assignPropagate
-    :: RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
-    -> RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
-  assignPropagate rtb = let
-    times = RTB.getTimes rtb
-    bodies = reverse $ propagatePass Nothing $ reverse $ propagatePass Nothing $ RTB.getBodies rtb
-    in RTB.fromPairList $ zip times bodies
-
-  -- finally, default to putting LC on yellow and RD on blue
-  assignFinal
-    :: RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
-    -> RTB.T t (CymbalInstant D.ProColor D.ProColor)
-  assignFinal = fmap $ \now -> now
-    { instantLC = fromMaybe D.Yellow <$> instantLC now
-    , instantRD = fromMaybe D.Blue   <$> instantRD now
-    }
-
-  assignFull
-    :: RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
-    -> RTB.T t (CymbalInstant D.ProColor D.ProColor)
-  assignFull = assignFinal . assignPropagate . assignInstant
-
-  emitCymbals now = catMaybes
-    [ Left <$> instantHH now
-    , (\color -> Right $ D.Pro color D.Cymbal) <$> instantLC now
-    , (\color -> Right $ D.Pro color D.Cymbal) <$> instantRD now
-    , guard (instantRC now) >> Just (Right $ D.Pro D.Green D.Cymbal)
-    ]
-
-placeToms :: (NNC.C t) => RTB.T t D.RealDrum -> RTB.T t DrumLane -> RTB.T t D.RealDrum
-placeToms cymbals notes = let
-  basicGem = \case
-    Left D.Rimshot -> D.Red
-    Left _         -> D.Pro D.Yellow ()
-    Right rb       -> void rb
-  conflict x y = basicGem x == basicGem y
-  tomsInstant stuff = let
-    thisCymbals = lefts stuff
-    thisNotes = rights stuff
-    add x choices = when (elem x thisNotes) $ modify $ \cur ->
-      case filter (\y -> all (not . conflict y) $ thisCymbals <> cur) choices of
-        []    -> cur -- no options!
-        y : _ -> y : cur
-    in flip execState [] $ do
-      add HighTom $ map (\c -> Right $ D.Pro c D.Tom) [D.Yellow, D.Blue, D.Green]
-      add LowTom $ map (\c -> Right $ D.Pro c D.Tom) [D.Blue, D.Yellow, D.Green]
-      add FloorTom $ map (\c -> Right $ D.Pro c D.Tom) [D.Green, D.Blue, D.Yellow]
-  in RTB.flatten $ fmap tomsInstant $ RTB.collectCoincident $ RTB.merge (Left <$> cymbals) (Right <$> notes)
-
 dtxConvertDrums, dtxConvertGuitar, dtxConvertBass
-  :: DTX -> RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats)
-dtxConvertDrums dtx (RBFile.Song tmap mmap fixed) = let
-  importDrums notes = let
-    cymbals = placeCymbals notes
-    kicksSnares = flip RTB.mapMaybe notes $ \case
-      BassDrum -> Just $ Right D.Kick
-      Snare    -> Just $ Right D.Red
-      _        -> Nothing
-    toms = placeToms cymbals notes
-    real = D.encodePSReal (1/32) Expert $ RTB.merge cymbals $ RTB.merge kicksSnares toms
-    in real
-      { D.drumKick2x = RTB.mapMaybe (\case LeftBass -> Just (); _ -> Nothing) notes
+  :: DTX -> RBFile.Song (RBFile.OnyxFile U.Beats) -> RBFile.Song (RBFile.OnyxFile U.Beats)
+dtxConvertDrums dtx (RBFile.Song tmap mmap onyx) = let
+  importFullDrums notes = mempty
+    { FD.fdDifficulties = Map.singleton Expert FD.FullDrumDifficulty
+      { FD.fdGems = flip RTB.mapMaybe notes $ \case
+        HihatClose -> Just (FD.Hihat    , FD.GemHihatClosed, FD.VelocityNormal)
+        Snare      -> Just (FD.Snare    , FD.GemNormal     , FD.VelocityNormal)
+        BassDrum   -> Just (FD.Kick     , FD.GemNormal     , FD.VelocityNormal)
+        HighTom    -> Just (FD.Tom1     , FD.GemNormal     , FD.VelocityNormal)
+        LowTom     -> Just (FD.Tom2     , FD.GemNormal     , FD.VelocityNormal)
+        Cymbal     -> Just (FD.CrashR   , FD.GemNormal     , FD.VelocityNormal)
+        FloorTom   -> Just (FD.Tom3     , FD.GemNormal     , FD.VelocityNormal)
+        HihatOpen  -> Just (FD.Hihat    , FD.GemHihatOpen  , FD.VelocityNormal)
+        RideCymbal -> Just (FD.Ride     , FD.GemNormal     , FD.VelocityNormal)
+        LeftCymbal -> Just (FD.CrashL   , FD.GemNormal     , FD.VelocityNormal)
+        LeftPedal  -> Just (FD.HihatFoot, FD.GemNormal     , FD.VelocityNormal)
+        LeftBass   -> Nothing
+      , FD.fdFlam = RTB.empty
       }
-  in RBFile.Song tmap mmap fixed
-    { RBFile.fixedPartRealDrumsPS = importDrums $ fmap fst $ dtx_Drums dtx
-    , RBFile.fixedPartDrums = importDrums $ RTB.filter (/= LeftPedal) $ fmap fst $ dtx_Drums dtx
+    , FD.fdKick2 = RTB.mapMaybe (\case LeftBass -> Just (); _ -> Nothing) notes
     }
-dtxConvertGuitar = dtxConvertGB dtx_Guitar $ \fixed five -> fixed { RBFile.fixedPartGuitar = five }
-dtxConvertBass   = dtxConvertGB dtx_Bass   $ \fixed five -> fixed { RBFile.fixedPartBass   = five }
+  in RBFile.Song tmap mmap $ RBFile.editOnyxPart FlexDrums
+    (\opart -> opart { RBFile.onyxPartFullDrums = importFullDrums $ fmap fst $ dtx_Drums dtx })
+    onyx
+dtxConvertGuitar = dtxConvertGB dtx_Guitar $ \onyx five -> RBFile.editOnyxPart
+  FlexGuitar
+  (\opart -> opart { RBFile.onyxPartGuitar = five })
+  onyx
+dtxConvertBass   = dtxConvertGB dtx_Bass   $ \onyx five -> RBFile.editOnyxPart
+  FlexBass
+  (\opart -> opart { RBFile.onyxPartGuitar = five })
+  onyx
 
 dtxConvertGB
   :: (DTX -> RTB.T U.Beats ([Color], Chip))
-  -> (RBFile.FixedFile U.Beats -> FiveTrack U.Beats -> RBFile.FixedFile U.Beats)
+  -> (f U.Beats -> FiveTrack U.Beats -> f U.Beats)
   -> DTX
-  -> RBFile.Song (RBFile.FixedFile U.Beats)
-  -> RBFile.Song (RBFile.FixedFile U.Beats)
+  -> RBFile.Song (f U.Beats)
+  -> RBFile.Song (f U.Beats)
 dtxConvertGB getter setter dtx (RBFile.Song tmap mmap fixed) = let
   -- TODO we should be able to add sustains by looking at the length of audio chips
   guitarToFive notes = mempty
@@ -183,7 +89,7 @@ dtxConvertGB getter setter dtx (RBFile.Song tmap mmap fixed) = let
     }
   in RBFile.Song tmap mmap $ setter fixed $ guitarToFive $ fmap fst $ getter dtx
 
-dtxBaseMIDI :: DTX -> RBFile.Song (RBFile.FixedFile U.Beats)
+dtxBaseMIDI :: DTX -> RBFile.Song (RBFile.OnyxFile U.Beats)
 dtxBaseMIDI dtx = RBFile.Song (dtx_TempoMap dtx) (dtx_MeasureMap dtx) mempty
 
 newDtxToAudio :: (SendMessage m, MonadIO m) => DTX -> FilePath -> StackTraceT m (SongYaml SoftFile -> SongYaml SoftFile)
@@ -279,7 +185,7 @@ importSet i setDefPath dout = newImportSet setDefPath
     >>= void . stackIO . saveImport dout
 
 newImportSetDef :: (SendMessage m, MonadIO m) => Maybe FilePath -> SetDef -> Import m
-newImportSetDef setDefPath song level = do
+newImportSetDef setDefPath song _level = do
   -- TODO need to fix path separators (both backslash and yen)
   let relToSet = maybe id (\sdp -> (takeDirectory sdp </>)) setDefPath
       fs = map (relToSet . T.unpack)
@@ -320,14 +226,11 @@ newImportSetDef setDefPath song level = do
       unless (path == topDiffPath) $ warn
         "Highest difficulty does not contain bass, but a lower one does. Audio might not be separated"
       return $ Just diff
-  let midiFixed
+  let midiOnyx
         = maybe id dtxConvertDrums topDrumDiff
         $ maybe id dtxConvertGuitar topGuitarDiff
         $ maybe id dtxConvertBass topBassDiff
         $ dtxBaseMIDI topDiffDTX
-      midiOnyx = case level of
-        ImportFull  -> midiFixed { RBFile.s_tracks = RBFile.fixedToOnyx $ RBFile.s_tracks midiFixed }
-        ImportQuick -> emptyChart
   art <- case (takeDirectory topDiffPath </>) <$> dtx_PREIMAGE topDiffDTX of
     Nothing -> return Nothing
     Just f  -> stackIO (Dir.doesFileExist f) >>= \case
@@ -365,7 +268,7 @@ newImportSetDef setDefPath song level = do
       [ flip fmap topDrumDiff $ \diff -> (FlexDrums ,) def
         { partDrums = Just PartDrums
           { drumsDifficulty  = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
-          , drumsMode        = DrumsReal
+          , drumsMode        = DrumsFull
           , drumsKicks       = if any ((== LeftBass) . fst) $ dtx_Drums diff
             then KicksBoth
             else Kicks1x
