@@ -19,6 +19,7 @@ import           Control.Monad.Trans.StackTrace (QueueLog, SendMessage,
                                                  StackTraceT, fatal,
                                                  getQueueLog, inside,
                                                  mapStackTraceT, stackIO, warn)
+import           Data.Bifunctor                 (bimap)
 import qualified Data.ByteString                as B
 import           Data.Foldable                  (toList, traverse_)
 import qualified Data.HashMap.Strict            as HM
@@ -194,7 +195,7 @@ drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPla
   , drumNoteTimes = Set.empty -- not used
   }
 
-drawFullDrums :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState (FD.FullGem, FD.FullGemType, FD.FullVelocity) FD.FullGem)) -> IO ()
+drawFullDrums :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState (FD.FullGem, FD.FullGemType, FD.FullVelocity, Bool) FD.FullGem)) -> IO ()
 drawFullDrums glStuff nowTime speed trk = drawFullDrumPlay glStuff nowTime speed DrumPlayState
   { drumEvents = do
     (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
@@ -208,7 +209,7 @@ drawFullDrums glStuff nowTime speed trk = drawFullDrumPlay glStuff nowTime speed
   , drumNoteTimes = Set.empty -- not used
   }
 
-drawFullDrumPlay :: GLStuff -> Double -> Double -> DrumPlayState Double (FD.FullGem, FD.FullGemType, FD.FullVelocity) FD.FullGem -> IO ()
+drawFullDrumPlay :: GLStuff -> Double -> Double -> DrumPlayState Double (FD.FullGem, FD.FullGemType, FD.FullVelocity, Bool) FD.FullGem -> IO ()
 drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
@@ -260,35 +261,54 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
         FD.Tom3      -> (fracToX 0.633333 , fracToX 0.75    )
         FD.CrashR    -> (fracToX 0.75     , fracToX 0.875   )
         FD.Ride      -> (fracToX 0.875    , fracToX 1       )
-      drawGem t od gemTrio@(gem, _, velocity) alpha = let
+      drawGem t od gemTrio@(gem, _gemType, velocity, flam) alpha = let
         (texid, obj) = case gemTrio of
-          (FD.Kick     , _, _) -> (TextureLongKick, Model ModelDrumKick)
-          (FD.Snare    , _, _) -> (TextureRedGem, Model ModelDrumTom)
-          (FD.Hihat    , _, _) -> (TextureYellowCymbal, Model ModelDrumCymbal)
-          (FD.HihatFoot, _, _) -> (TextureYellowCymbal, Model ModelDrumCymbal) -- TODO
-          (FD.CrashL   , _, _) -> (TextureBlueCymbal, Model ModelDrumCymbal)
-          (FD.Tom1     , _, _) -> (TextureOrangeGem, Model ModelDrumTom)
-          (FD.Tom2     , _, _) -> (TextureOrangeGem, Model ModelDrumTom)
-          (FD.Tom3     , _, _) -> (TextureOrangeGem, Model ModelDrumTom)
-          (FD.CrashR   , _, _) -> (TextureGreenCymbal, Model ModelDrumCymbal)
-          (FD.Ride     , _, _) -> (TexturePurpleCymbal, Model ModelDrumCymbal)
+          (FD.Kick     , _, _, _) -> (TextureLongKick, Model ModelDrumKick)
+          (FD.Snare    , _, _, _) -> (TextureRedGem, Model ModelDrumTom)
+          (FD.Hihat    , _, _, _) -> (TextureYellowCymbal, Model ModelDrumCymbal)
+          (FD.HihatFoot, _, _, _) -> (TextureHihatFoot, Model ModelDrumHihatFoot)
+          (FD.CrashL   , _, _, _) -> (TextureBlueCymbal, Model ModelDrumCymbal)
+          (FD.Tom1     , _, _, _) -> (TextureOrangeGem, Model ModelDrumTom)
+          (FD.Tom2     , _, _, _) -> (TextureOrangeGem, Model ModelDrumTom)
+          (FD.Tom3     , _, _, _) -> (TextureOrangeGem, Model ModelDrumTom)
+          (FD.CrashR   , _, _, _) -> (TextureGreenCymbal, Model ModelDrumCymbal)
+          (FD.Ride     , _, _, _) -> (TexturePurpleCymbal, Model ModelDrumCymbal)
         shade = case alpha of
-          Nothing -> CSImage texid
+          Nothing -> case velocity of
+            FD.VelocityGhost -> CSImage2 texid TextureOverlayGhost
+            _                -> CSImage texid
           Just _  -> CSColor $ C.gems_color_hit $ C.obj_gems $ C.cfg_objects gfxConfig
-        velocityAdjust = case velocity of
-          FD.VelocityGhost -> 0.3
-          _                -> 1
         (x1, x2) = gemBounds gem
+        xCenter = x1 + (x2 - x1) / 2
+        (x1', x2') = case velocity of
+          FD.VelocityGhost -> let
+            adjustX v = xCenter + (v - xCenter) * 0.7
+            in (adjustX x1, adjustX x2)
+          _ -> (x1, x2)
         reference = case gem of
-          FD.Kick -> (x2 - x1) / 2
+          FD.Kick -> (x2' - x1') / 2
           _       -> 0.5 / 2
+        xPairs = if flam
+          then let
+            -- make 2 slightly narrower notes, and adjust to keep it within the track
+            flamWidth = (x2 - x1) * 0.75
+            noteLeft = (xCenter - flamWidth, xCenter)
+            noteRight = (xCenter, xCenter + flamWidth)
+            xAdjustment
+              | fst noteLeft < adjustedLeft = adjustedLeft - fst noteLeft
+              | snd noteRight > adjustedRight = adjustedRight - snd noteRight
+              | otherwise = 0
+            in map (bimap (+ xAdjustment) (+ xAdjustment)) [noteLeft, noteRight]
+          else [(x1', x2')]
         (y1, y2) = (y - reference, y + reference)
         y = C.trk_y $ C.cfg_track gfxConfig
         (z1, z2) = (z - reference, z + reference)
         z = timeToZ t
-        posn = ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2)
-        in drawObject' obj posn shade (velocityAdjust * fromMaybe 1 alpha) $ LightOffset
-          $ C.gems_light $ C.obj_gems $ C.cfg_objects gfxConfig
+        in forM_ xPairs $ \(thisX1, thisX2) -> drawObject' obj
+          (ObjectStretch (V3 thisX1 y1 z1) (V3 thisX2 y2 z2))
+          shade
+          (fromMaybe 1 alpha)
+          (LightOffset $ C.gems_light $ C.obj_gems $ C.cfg_objects gfxConfig)
       drawNotes t cs = let
         od = case commonOverdrive cs of
           ToggleEmpty -> False
@@ -302,6 +322,16 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
             NoteHitAt hitTime -> if nowTime - hitTime < realToFrac fadeTime
               then drawGem nowTime od gem $ Just $ 1 - realToFrac (nowTime - hitTime) / fadeTime
               else return ()
+      targets =
+        [ ([FD.Snare ], TextureTargetRed         , TextureTargetRedLight         , Just $ V4 0 0 0 0.2)
+        , ([FD.Hihat ], TextureTargetYellow      , TextureTargetYellowLight      , Just $ V4 1 1 1 0.2)
+        , ([FD.CrashL], TextureTargetBlue        , TextureTargetBlueLight        , Just $ V4 0 0 0 0.2)
+        , ([FD.Tom1  ], TextureTargetOrangeLeft  , TextureTargetOrangeLeftLight  , Just $ V4 1 1 1 0.2)
+        , ([FD.Tom2  ], TextureTargetOrangeCenter, TextureTargetOrangeCenterLight, Just $ V4 1 1 1 0.2)
+        , ([FD.Tom3  ], TextureTargetOrangeRight , TextureTargetOrangeLightRight , Just $ V4 1 1 1 0.2)
+        , ([FD.CrashR], TextureTargetGreen       , TextureTargetGreenLight       , Just $ V4 0 0 0 0.2)
+        , ([FD.Ride  ], TextureTargetPurple      , TextureTargetPurpleLight      , Just $ V4 1 1 1 0.2)
+        ]
   -- draw highway
   forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
     let highwayColor = (if isSolo then C.tc_solo else C.tc_normal)
@@ -323,6 +353,20 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
       (CSColor highwayColor)
       1
       globalLight
+  glDepthFunc GL_ALWAYS
+  forM_ targets $ \(pads, _, _, mtint) -> forM_ mtint $ \tint -> do
+    let x1 = minimum $ map (fst . gemBounds) pads
+        x2 = maximum $ map (snd . gemBounds) pads
+    drawObject'
+      Flat
+      (ObjectStretch
+        (V3 x1 (C.trk_y $ C.cfg_track gfxConfig) nearZ)
+        (V3 x2 (C.trk_y $ C.cfg_track gfxConfig) farZ)
+      )
+      (CSColor tint)
+      1
+      globalLight
+  glDepthFunc GL_LESS
   -- draw railings
   let rail = C.trk_railings $ C.cfg_track gfxConfig
       noteArea = C.trk_note_area $ C.cfg_track gfxConfig
@@ -393,26 +437,18 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
         drawLanes thisTime rest
   drawLanes farTime $ Map.toDescList zoomed
   -- draw target
-  let targets =
-        [ ([FD.Snare], TextureTargetRed, TextureTargetRedLight)
-        , ([FD.Hihat], TextureTargetYellow, TextureTargetYellowLight)
-        , ([FD.CrashL], TextureTargetBlue, TextureTargetBlueLight)
-        , ([FD.Tom1, FD.Tom2, FD.Tom3], TextureTargetOrange, TextureTargetOrangeLight)
-        , ([FD.CrashR], TextureTargetGreen, TextureTargetGreenLight)
-        , ([FD.Ride], TextureTargetPurple, TextureTargetPurpleLight)
-        ]
-  forM_ targets $ \(pads, tex, _) -> do
+  forM_ targets $ \(pads, tex, _, _) -> do
     let x1 = minimum $ map (fst . gemBounds) pads
         x2 = maximum $ map (snd . gemBounds) pads
     drawTargetSquare x1 x2 tex 1
   let drawLights [] _ = return ()
       drawLights _ [] = return ()
-      drawLights ((t, (pad, _, _)) : states) colors = let
-        (colorsYes, colorsNo) = partition (\(pads, _, _) -> elem pad pads) colors
+      drawLights ((t, (pad, _, _, _)) : states) colors = let
+        (colorsYes, colorsNo) = partition (\(pads, _, _, _) -> elem pad pads) colors
         alpha = 1 - realToFrac (nowTime - t) / C.tgt_secs_light
           (C.trk_targets $ C.cfg_track gfxConfig)
         in when (t > nearTime) $ do
-          forM_ colorsYes $ \(pads, _, light) -> let
+          forM_ colorsYes $ \(pads, _, light, _) -> let
             x1 = minimum $ map (fst . gemBounds) pads
             x2 = minimum $ map (snd . gemBounds) pads
             in drawTargetSquare x1 x2 light alpha
@@ -1409,6 +1445,7 @@ data TextureID
   | TextureLongEnergy
   | TextureLongEnergyHopo
   | TextureLongEnergyTap
+  | TextureHihatFoot
   | TextureGreenGem
   | TextureRedGem
   | TextureYellowGem
@@ -1449,6 +1486,12 @@ data TextureID
   | TextureTargetBlueLight
   | TextureTargetOrangeLight
   | TextureTargetPurpleLight
+  | TextureTargetOrangeLeft
+  | TextureTargetOrangeLeftLight
+  | TextureTargetOrangeCenter
+  | TextureTargetOrangeCenterLight
+  | TextureTargetOrangeRight
+  | TextureTargetOrangeLightRight
   | TextureNumber0
   | TextureNumber1
   | TextureNumber2
@@ -1500,12 +1543,14 @@ data TextureID
   | TextureRSTap
   | TextureRSPalmMute
   | TextureRSFretHandMute
+  | TextureOverlayGhost
   deriving (Eq, Show, Enum, Bounded)
 
 data ModelID
   = ModelDrumTom
   | ModelDrumCymbal
   | ModelDrumKick
+  | ModelDrumHihatFoot
   | ModelGuitarStrum
   | ModelGuitarHOPOTap
   | ModelGuitarOpen
@@ -1642,104 +1687,112 @@ loadGLStuff previewSong = do
 
   textures <- forM [minBound .. maxBound] $ \texID -> do
     let imageName = case texID of
-          TextureLongKick          -> "long-kick"
-          TextureLongOpen          -> "long-open"
-          TextureLongOpenHopo      -> "long-open-hopo"
-          TextureLongOpenTap       -> "long-open-tap"
-          TextureLongEnergy        -> "long-energy"
-          TextureLongEnergyHopo    -> "long-energy-hopo"
-          TextureLongEnergyTap     -> "long-energy-tap"
-          TextureGreenGem          -> "box-green"
-          TextureRedGem            -> "box-red"
-          TextureYellowGem         -> "box-yellow"
-          TextureBlueGem           -> "box-blue"
-          TextureOrangeGem         -> "box-orange"
-          TextureEnergyGem         -> "box-energy"
-          TextureGreenHopo         -> "hopo-green"
-          TextureRedHopo           -> "hopo-red"
-          TextureYellowHopo        -> "hopo-yellow"
-          TextureBlueHopo          -> "hopo-blue"
-          TextureOrangeHopo        -> "hopo-orange"
-          TextureEnergyHopo        -> "hopo-energy"
-          TextureGreenTap          -> "tap-green"
-          TextureRedTap            -> "tap-red"
-          TextureYellowTap         -> "tap-yellow"
-          TextureBlueTap           -> "tap-blue"
-          TextureOrangeTap         -> "tap-orange"
-          TextureEnergyTap         -> "tap-energy"
-          TextureRedCymbal         -> "cymbal-red"
-          TextureYellowCymbal      -> "cymbal-yellow"
-          TextureBlueCymbal        -> "cymbal-blue"
-          TextureGreenCymbal       -> "cymbal-green"
-          TexturePurpleCymbal      -> "cymbal-purple"
-          TextureOrangeCymbal      -> "cymbal-orange"
-          TextureEnergyCymbal      -> "cymbal-energy"
-          TextureLine1             -> "line-1"
-          TextureLine2             -> "line-2"
-          TextureLine3             -> "line-3"
-          TextureTargetGreen       -> "target-green"
-          TextureTargetRed         -> "target-red"
-          TextureTargetYellow      -> "target-yellow"
-          TextureTargetBlue        -> "target-blue"
-          TextureTargetOrange      -> "target-orange"
-          TextureTargetPurple      -> "target-purple"
-          TextureTargetGreenLight  -> "target-green-light"
-          TextureTargetRedLight    -> "target-red-light"
-          TextureTargetYellowLight -> "target-yellow-light"
-          TextureTargetBlueLight   -> "target-blue-light"
-          TextureTargetOrangeLight -> "target-orange-light"
-          TextureTargetPurpleLight -> "target-purple-light"
-          TextureNumber0           -> "number-0"
-          TextureNumber1           -> "number-1"
-          TextureNumber2           -> "number-2"
-          TextureNumber3           -> "number-3"
-          TextureNumber4           -> "number-4"
-          TextureNumber5           -> "number-5"
-          TextureNumber6           -> "number-6"
-          TextureNumber7           -> "number-7"
-          TextureNumber8           -> "number-8"
-          TextureNumber9           -> "number-9"
-          TextureLaneGreen         -> "lane-green"
-          TextureLaneRed           -> "lane-red"
-          TextureLaneYellow        -> "lane-yellow"
-          TextureLaneBlue          -> "lane-blue"
-          TextureLaneOrange        -> "lane-orange"
-          TextureLanePurple        -> "lane-purple"
-          TextureRS0               -> "rs-0"
-          TextureRS1               -> "rs-1"
-          TextureRS2               -> "rs-2"
-          TextureRS3               -> "rs-3"
-          TextureRS4               -> "rs-4"
-          TextureRS5               -> "rs-5"
-          TextureRS6               -> "rs-6"
-          TextureRS7               -> "rs-7"
-          TextureRS8               -> "rs-8"
-          TextureRS9               -> "rs-9"
-          TextureRS10              -> "rs-10"
-          TextureRS11              -> "rs-11"
-          TextureRS12              -> "rs-12"
-          TextureRS13              -> "rs-13"
-          TextureRS14              -> "rs-14"
-          TextureRS15              -> "rs-15"
-          TextureRS16              -> "rs-16"
-          TextureRS17              -> "rs-17"
-          TextureRS18              -> "rs-18"
-          TextureRS19              -> "rs-19"
-          TextureRS20              -> "rs-20"
-          TextureRS21              -> "rs-21"
-          TextureRS22              -> "rs-22"
-          TextureRS23              -> "rs-23"
-          TextureRS24              -> "rs-24"
-          TextureRSRed             -> "rs-red"
-          TextureRSYellow          -> "rs-yellow"
-          TextureRSBlue            -> "rs-blue"
-          TextureRSOrange          -> "rs-orange"
-          TextureRSGreen           -> "rs-green"
-          TextureRSPurple          -> "rs-purple"
-          TextureRSHopo            -> "rs-hopo"
-          TextureRSTap             -> "rs-tap"
-          TextureRSPalmMute        -> "rs-palm-mute"
-          TextureRSFretHandMute    -> "rs-fret-hand-mute"
+          TextureLongKick                -> "long-kick"
+          TextureLongOpen                -> "long-open"
+          TextureLongOpenHopo            -> "long-open-hopo"
+          TextureLongOpenTap             -> "long-open-tap"
+          TextureLongEnergy              -> "long-energy"
+          TextureLongEnergyHopo          -> "long-energy-hopo"
+          TextureLongEnergyTap           -> "long-energy-tap"
+          TextureHihatFoot               -> "hihat-foot"
+          TextureGreenGem                -> "box-green"
+          TextureRedGem                  -> "box-red"
+          TextureYellowGem               -> "box-yellow"
+          TextureBlueGem                 -> "box-blue"
+          TextureOrangeGem               -> "box-orange"
+          TextureEnergyGem               -> "box-energy"
+          TextureGreenHopo               -> "hopo-green"
+          TextureRedHopo                 -> "hopo-red"
+          TextureYellowHopo              -> "hopo-yellow"
+          TextureBlueHopo                -> "hopo-blue"
+          TextureOrangeHopo              -> "hopo-orange"
+          TextureEnergyHopo              -> "hopo-energy"
+          TextureGreenTap                -> "tap-green"
+          TextureRedTap                  -> "tap-red"
+          TextureYellowTap               -> "tap-yellow"
+          TextureBlueTap                 -> "tap-blue"
+          TextureOrangeTap               -> "tap-orange"
+          TextureEnergyTap               -> "tap-energy"
+          TextureRedCymbal               -> "cymbal-red"
+          TextureYellowCymbal            -> "cymbal-yellow"
+          TextureBlueCymbal              -> "cymbal-blue"
+          TextureGreenCymbal             -> "cymbal-green"
+          TexturePurpleCymbal            -> "cymbal-purple"
+          TextureOrangeCymbal            -> "cymbal-orange"
+          TextureEnergyCymbal            -> "cymbal-energy"
+          TextureLine1                   -> "line-1"
+          TextureLine2                   -> "line-2"
+          TextureLine3                   -> "line-3"
+          TextureTargetGreen             -> "target-green"
+          TextureTargetRed               -> "target-red"
+          TextureTargetYellow            -> "target-yellow"
+          TextureTargetBlue              -> "target-blue"
+          TextureTargetOrange            -> "target-orange"
+          TextureTargetPurple            -> "target-purple"
+          TextureTargetGreenLight        -> "target-green-light"
+          TextureTargetRedLight          -> "target-red-light"
+          TextureTargetYellowLight       -> "target-yellow-light"
+          TextureTargetBlueLight         -> "target-blue-light"
+          TextureTargetOrangeLight       -> "target-orange-light"
+          TextureTargetPurpleLight       -> "target-purple-light"
+          TextureTargetOrangeLeft        -> "target-orange-left"
+          TextureTargetOrangeLeftLight   -> "target-orange-left-light"
+          TextureTargetOrangeCenter      -> "target-orange-center"
+          TextureTargetOrangeCenterLight -> "target-orange-center-light"
+          TextureTargetOrangeRight       -> "target-orange-right"
+          TextureTargetOrangeLightRight  -> "target-orange-right-light"
+          TextureNumber0                 -> "number-0"
+          TextureNumber1                 -> "number-1"
+          TextureNumber2                 -> "number-2"
+          TextureNumber3                 -> "number-3"
+          TextureNumber4                 -> "number-4"
+          TextureNumber5                 -> "number-5"
+          TextureNumber6                 -> "number-6"
+          TextureNumber7                 -> "number-7"
+          TextureNumber8                 -> "number-8"
+          TextureNumber9                 -> "number-9"
+          TextureLaneGreen               -> "lane-green"
+          TextureLaneRed                 -> "lane-red"
+          TextureLaneYellow              -> "lane-yellow"
+          TextureLaneBlue                -> "lane-blue"
+          TextureLaneOrange              -> "lane-orange"
+          TextureLanePurple              -> "lane-purple"
+          TextureRS0                     -> "rs-0"
+          TextureRS1                     -> "rs-1"
+          TextureRS2                     -> "rs-2"
+          TextureRS3                     -> "rs-3"
+          TextureRS4                     -> "rs-4"
+          TextureRS5                     -> "rs-5"
+          TextureRS6                     -> "rs-6"
+          TextureRS7                     -> "rs-7"
+          TextureRS8                     -> "rs-8"
+          TextureRS9                     -> "rs-9"
+          TextureRS10                    -> "rs-10"
+          TextureRS11                    -> "rs-11"
+          TextureRS12                    -> "rs-12"
+          TextureRS13                    -> "rs-13"
+          TextureRS14                    -> "rs-14"
+          TextureRS15                    -> "rs-15"
+          TextureRS16                    -> "rs-16"
+          TextureRS17                    -> "rs-17"
+          TextureRS18                    -> "rs-18"
+          TextureRS19                    -> "rs-19"
+          TextureRS20                    -> "rs-20"
+          TextureRS21                    -> "rs-21"
+          TextureRS22                    -> "rs-22"
+          TextureRS23                    -> "rs-23"
+          TextureRS24                    -> "rs-24"
+          TextureRSRed                   -> "rs-red"
+          TextureRSYellow                -> "rs-yellow"
+          TextureRSBlue                  -> "rs-blue"
+          TextureRSOrange                -> "rs-orange"
+          TextureRSGreen                 -> "rs-green"
+          TextureRSPurple                -> "rs-purple"
+          TextureRSHopo                  -> "rs-hopo"
+          TextureRSTap                   -> "rs-tap"
+          TextureRSPalmMute              -> "rs-palm-mute"
+          TextureRSFretHandMute          -> "rs-fret-hand-mute"
+          TextureOverlayGhost            -> "overlay-ghost"
     base <- stackIO $ getResourcesPath $ "textures" </> imageName
     let isLinear = case texID of
           TextureNumber0 -> False
@@ -1768,6 +1821,7 @@ loadGLStuff previewSong = do
       ModelDrumTom       -> "models/drum-tom.obj"
       ModelDrumCymbal    -> "models/drum-cymbal.obj"
       ModelDrumKick      -> "models/drum-kick.obj"
+      ModelDrumHihatFoot -> "models/drum-hihat-foot.obj"
       ModelGuitarStrum   -> "models/gtr-strum.obj"
       ModelGuitarHOPOTap -> "models/gtr-hopotap.obj"
       ModelGuitarOpen    -> "models/gtr-open.obj"

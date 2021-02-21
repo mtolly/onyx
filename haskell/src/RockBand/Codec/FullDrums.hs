@@ -180,9 +180,28 @@ fullDrumNoteNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-getDifficulty :: (NNC.C t) => Maybe Difficulty -> FullDrumTrack t -> RTB.T t (FullGem, FullGemType, FullVelocity)
+data MergedEvent n1 n2
+  = MergedNote n1
+  | MergedNote2 n2
+  | MergedFlam
+  deriving (Eq, Ord)
+
+getDifficulty :: (NNC.C t) => Maybe Difficulty -> FullDrumTrack t -> RTB.T t (FullGem, FullGemType, FullVelocity, Bool)
 getDifficulty diff trk = let
-  base = fdGems $ fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) $ fdDifficulties trk
-  in case diff of
-    Nothing -> RTB.merge base $ fmap (\() -> (Kick, GemNormal, VelocityNormal)) $ fdKick2 trk
-    _       -> base
+  base = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) $ fdDifficulties trk
+  events = foldr RTB.merge RTB.empty
+    $ fmap MergedNote (fdGems base)
+    : fmap (const MergedFlam) (fdFlam base)
+    : case diff of
+      Nothing -> [fmap MergedNote2 $ fdKick2 trk]
+      _       -> []
+  processSlice evts = let
+    notKick = [ trio | MergedNote trio@(gem, _, _) <- evts, gem /= Kick ]
+    kick = [ trio | MergedNote trio@(Kick, _, _) <- evts ]
+    flam = any (\case MergedFlam -> True; _ -> False) evts
+    kick2 = any (\case MergedNote2 () -> True; _ -> False) evts
+    in fmap (\(gem, gtype, vel) -> (gem, gtype, vel, flam && gem /= HihatFoot)) notKick
+      <> case (kick, kick2) of
+        ([], True) -> [(Kick, GemNormal, VelocityNormal, False)]
+        _          -> fmap (\(gem, gtype, vel) -> (gem, gtype, vel, kick2)) kick
+  in RTB.flatten $ fmap processSlice $ RTB.collectCoincident events
