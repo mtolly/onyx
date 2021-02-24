@@ -67,14 +67,11 @@ getImports = concatMap $ \(t, pkg) -> case songCoop pkg of
 
 data ImportMode = ImportSolo | ImportCoop
 
-importGH2 :: (SendMessage m, MonadResource m) => ImportMode -> SongPackage -> FilePath -> FilePath -> StackTraceT m ()
-importGH2 mode pkg gen dout = newImportGH2Song mode pkg gen ImportFull >>= void . stackIO . saveImport dout
+importGH2 :: (SendMessage m, MonadResource m) => FilePath -> StackTraceT m [Import m]
+importGH2 gen = map (\(_, (mode, pkg)) -> importGH2Song mode pkg gen) . getImports <$> getSongList gen
 
-newImportGH2 :: (SendMessage m, MonadResource m) => FilePath -> StackTraceT m [Import m]
-newImportGH2 gen = map (\(_, (mode, pkg)) -> newImportGH2Song mode pkg gen) . getImports <$> getSongList gen
-
-newImportGH2Song :: (SendMessage m, MonadResource m) => ImportMode -> SongPackage -> FilePath -> Import m
-newImportGH2Song mode pkg gen level = do
+importGH2Song :: (SendMessage m, MonadResource m) => ImportMode -> SongPackage -> FilePath -> Import m
+importGH2Song mode pkg gen level = do
   entries <- stackIO $ readFileEntries $ gen </> "MAIN.HDR"
   let folder = fmap (\entry -> readFileEntry entry $ gen </> "MAIN_0.ARK") $ entryFolder entries
       encLatin1 = B8.pack . T.unpack

@@ -10,7 +10,7 @@ import           Codec.Picture                  (convertRGB8, readImage)
 import           Config
 import           Control.Arrow                  (second)
 import           Control.Exception              (evaluate)
-import           Control.Monad                  (forM, guard, void, when)
+import           Control.Monad                  (forM, guard, when)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
@@ -27,10 +27,10 @@ import           Data.List.Extra                (elemIndex, nubOrd)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.Map                       as Map
 import           Data.Maybe                     (fromMaybe, isNothing, mapMaybe)
-import           Data.SimpleHandle              (Folder, Readable, crawlFolder,
-                                                 fileReadable, findByteString,
-                                                 findFile, handleToByteString,
-                                                 splitPath, useHandle)
+import           Data.SimpleHandle              (Folder, Readable, fileReadable,
+                                                 findByteString, findFile,
+                                                 handleToByteString, splitPath,
+                                                 useHandle)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeLatin1, decodeUtf8With,
                                                  encodeUtf8)
@@ -51,7 +51,6 @@ import qualified RockBand.Codec.File            as RBFile
 import           RockBand.Codec.ProGuitar       (GtrBase (..), GtrTuning (..))
 import           RockBand.Common
 import qualified Sound.MIDI.Util                as U
-import           STFS.Package                   (getSTFSFolder)
 import           STFS.Package                   (rb3pkg)
 import qualified System.Directory               as Dir
 import           System.FilePath                (takeDirectory, takeFileName,
@@ -68,27 +67,8 @@ data RBImport = RBImport
   , rbiMIDIUpdate  :: Maybe Readable
   }
 
-importSTFS :: (SendMessage m, MonadIO m) => Int -> FilePath -> FilePath -> StackTraceT m ()
-importSTFS i src dest = do
-  lg $ "Importing Rock Band CON/LIVE file from: " <> src
-  stackIO (getSTFSFolder src)
-    >>= newImportSTFSFolder
-    >>= \imps -> (imps !! i) ImportFull
-    >>= void . stackIO . saveImport dest
-
-importSTFSDir :: (SendMessage m, MonadIO m) => Int -> FilePath -> FilePath -> StackTraceT m ()
-importSTFSDir i src dest = stackIO (crawlFolder src)
-  >>= newImportSTFSFolder
-  >>= \imps -> (imps !! i) ImportFull
-  >>= void . stackIO . saveImport dest
-
-importRBA :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-importRBA src dest = do
-  lg $ "Importing RBA file from: " <> src
-  newImportRBA src ImportFull >>= void . stackIO . saveImport dest
-
-newImportSTFSFolder :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [Import m]
-newImportSTFSFolder folder = do
+importSTFSFolder :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [Import m]
+importSTFSFolder folder = do
   packSongs <- stackIO (findByteString ("songs" :| ["songs.dta"]) folder) >>= \case
     Nothing -> fatal "songs/songs.dta not found"
     Just bs -> readDTASingles $ BL.toStrict bs
@@ -135,8 +115,8 @@ newImportSTFSFolder folder = do
       , rbiMIDIUpdate = update
       }
 
-newImportRBA :: (SendMessage m, MonadIO m) => FilePath -> Import m
-newImportRBA rba level = do
+importRBA :: (SendMessage m, MonadIO m) => FilePath -> Import m
+importRBA rba level = do
   let contents = rbaContents rba
       need i = case lookup i contents of
         Just r  -> return r
@@ -310,9 +290,11 @@ importRB rbi level = do
   return SongYaml
     { _metadata = Metadata
       { _title        = Just title
+      , _titleJP      = Nothing
       , _artist       = case (D.artist pkg, D.gameOrigin pkg) of
         (Nothing, Just "beatles") -> Just "The Beatles"
         _                         -> D.artist pkg
+      , _artistJP     = Nothing
       , _album        = D.albumName pkg
       , _genre        = D.genre pkg
       , _subgenre     = D.subGenre pkg >>= T.stripPrefix "subgenre_"

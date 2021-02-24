@@ -11,7 +11,8 @@ import           Codec.Picture                    (Image (..), PixelRGBA8 (..),
 import           Codec.Picture.Types              (dropAlphaLayer, promotePixel)
 import           Config                           hiding (Difficulty)
 import           Control.Arrow                    (first)
-import           Control.Monad.Extra              (forM, forM_, guard, void)
+import           Control.Monad                    (forM, forM_, guard, void,
+                                                   when)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import           Data.Char                        (isSpace, toLower)
@@ -28,6 +29,7 @@ import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
 import qualified Data.Set                         as Set
 import           Data.SimpleHandle                (fileReadable)
 import qualified Data.Text                        as T
+import qualified FeedBack.Base                    as FB
 import qualified FeedBack.Load                    as FB
 import qualified FretsOnFire                      as FoF
 import           Guitars                          (applyStatus)
@@ -128,26 +130,28 @@ redoSwells (RBFile.Song tmap mmap ps) = let
 data LaneNotes = LaneSingle | LaneDouble
   deriving (Eq, Ord)
 
-importFoF :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-importFoF src dest = newImportFoF src ImportFull >>= void . stackIO . saveImport dest
-
-newImportFoF :: (SendMessage m, MonadIO m) => FilePath -> Import m
-newImportFoF src level = do
-  lg $ "Importing FoF/PS/CH song from folder: " <> src
+importFoF :: (SendMessage m, MonadIO m) => FilePath -> Import m
+importFoF src level = do
+  when (level == ImportFull) $ lg $ "Importing FoF/PS/CH song from folder: " <> src
   allFiles <- stackIO $ Dir.listDirectory src
   pathMid <- fixFileCase $ src </> "notes.mid"
   pathChart <- fixFileCase $ src </> "notes.chart"
   pathIni <- fixFileCase $ src </> "song.ini"
-  (song, parsed, isChart) <- stackIO (Dir.doesFileExist pathIni) >>= \case
+  let hasCymbalMarkers chart = flip any (FB.chartTracks chart) $ any $ \case
+        FB.Note 66 _ -> True
+        FB.Note 67 _ -> True
+        FB.Note 68 _ -> True
+        _            -> False
+  (song, parsed, isChart, chartWithCymbals) <- stackIO (Dir.doesFileExist pathIni) >>= \case
     True -> do
       ini <- FoF.loadSong pathIni
       case level of
-        ImportQuick -> return (ini, emptyChart, False)
+        ImportQuick -> return (ini, emptyChart, False, False)
         ImportFull  -> stackIO (Dir.doesFileExist pathMid) >>= \case
           True -> do
             lg "Found song.ini and notes.mid"
             mid <- loadFoFMIDI ini pathMid
-            return (ini, mid, False)
+            return (ini, mid, False, False)
           False -> stackIO (Dir.doesFileExist pathChart) >>= \case
             True -> do
               lg "Found song.ini and notes.chart"
@@ -162,7 +166,7 @@ newImportFoF src level = do
                     lg "Using .chart 'Offset' because .ini 'delay' is 0 or absent"
                     return ini{ FoF.delay = chartDelay }
                 else return ini
-              return (ini', mid, True)
+              return (ini', mid, True, hasCymbalMarkers chart)
             False -> fatal "Found song.ini, but no notes.mid or notes.chart"
     False -> stackIO (Dir.doesFileExist pathChart) >>= \case
       True -> do
@@ -171,7 +175,7 @@ newImportFoF src level = do
         mid <- case level of
           ImportQuick -> return emptyChart
           ImportFull  -> FB.chartToMIDI chart
-        return (FB.chartToIni chart, mid, True)
+        return (FB.chartToIni chart, mid, True, hasCymbalMarkers chart)
       False -> fatal "No song.ini or notes.chart found"
 
   albumArt <- do
@@ -422,30 +426,20 @@ newImportFoF src level = do
           _         -> 170
 
   return SongYaml
-    { _metadata = Metadata
+    { _metadata = def'
       { _title        = title
       , _artist       = FoF.artist song
       , _album        = FoF.album song
       , _genre        = FoF.genre song
-      , _subgenre     = Nothing
       , _year         = FoF.year song
       , _fileAlbumArt = albumArt
       , _trackNumber  = FoF.track song
       , _comments     = []
-      , _key          = Nothing
       , _author       = FoF.charter song
-      , _rating       = Unrated
       , _previewStart = case FoF.previewStartTime song of
         Just ms | ms >= 0 -> Just $ PreviewSeconds $ fromIntegral ms / 1000
         _                 -> Nothing
       , _previewEnd   = Nothing
-      , _languages    = _languages def'
-      , _convert      = _convert def'
-      , _rhythmKeys   = _rhythmKeys def'
-      , _rhythmBass   = _rhythmBass def'
-      , _catEMH       = _catEMH def'
-      , _expertOnly   = _expertOnly def'
-      , _cover        = _cover def'
       , _difficulty   = toTier $ FoF.diffBand song
       }
     , _global = def'
@@ -510,7 +504,8 @@ newImportFoF src level = do
             isReal = isnt nullDrums RBFile.fixedPartRealDrumsPS
             isPro = case FoF.proDrums song of
               Just b  -> b
-              Nothing -> not $ RTB.null $ drumToms $ RBFile.fixedPartDrums outputFixed
+              Nothing -> not (RTB.null $ drumToms $ RBFile.fixedPartDrums outputFixed)
+                || chartWithCymbals -- handle the case where a .chart has cymbal markers, and no toms
             in if isFiveLane then Drums5
               else if isReal then DrumsReal
                 else if isPro then DrumsPro

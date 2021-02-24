@@ -174,18 +174,13 @@ newDtxToAudio dtx fin = do
       }
     }
 
-newImportSet :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [Import m]
-newImportSet setDefPath = inside ("Loading DTX set.def from: " <> setDefPath) $ do
+importSet :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [Import m]
+importSet setDefPath = inside ("Loading DTX set.def from: " <> setDefPath) $ do
   songs <- stackIO $ loadSet setDefPath
-  return $ map (newImportSetDef $ Just setDefPath) songs
+  return $ map (importSetDef $ Just setDefPath) songs
 
-importSet :: (SendMessage m, MonadIO m) => Int -> FilePath -> FilePath -> StackTraceT m ()
-importSet i setDefPath dout = newImportSet setDefPath
-    >>= \imps -> (imps !! i) ImportFull
-    >>= void . stackIO . saveImport dout
-
-newImportSetDef :: (SendMessage m, MonadIO m) => Maybe FilePath -> SetDef -> Import m
-newImportSetDef setDefPath song _level = do
+importSetDef :: (SendMessage m, MonadIO m) => Maybe FilePath -> SetDef -> Import m
+importSetDef setDefPath song level = do
   -- TODO need to fix path separators (both backslash and yen)
   let relToSet = maybe id (\sdp -> (takeDirectory sdp </>)) setDefPath
       fs = map (relToSet . T.unpack)
@@ -291,8 +286,8 @@ newImportSetDef setDefPath song _level = do
       ]
     }
 
-newImportDTX :: (SendMessage m, MonadIO m) => FilePath -> Import m
-newImportDTX fin level = do
+importDTX :: (SendMessage m, MonadIO m) => FilePath -> Import m
+importDTX fin level = do
   dtxLines <- stackIO $ loadDTXLines fin
   let setDef = SetDef
         { setTitle   = fromMaybe "" $ lookup "TITLE" dtxLines
@@ -307,7 +302,4 @@ newImportDTX fin level = do
         , setL5Label = Nothing
         , setL5File  = Nothing
         }
-  newImportSetDef Nothing setDef level
-
-importDTX :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-importDTX fin dout = newImportDTX fin ImportFull >>= void . stackIO . saveImport dout
+  importSetDef Nothing setDef level

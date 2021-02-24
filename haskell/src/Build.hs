@@ -46,7 +46,7 @@ import           Data.Hashable                         (Hashable, hash)
 import qualified Data.HashMap.Strict                   as HM
 import           Data.Int                              (Int32)
 import           Data.List.Extra                       (intercalate, nubOrd,
-                                                        sort)
+                                                        sort, sortOn)
 import qualified Data.List.NonEmpty                    as NE
 import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe, isJust,
@@ -347,12 +347,13 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
           -- getChannels rank fpart = case filter (== fpart) allParts of
           --   _ : _ : _ -> [] -- more than 1 game part maps to this flex part
           --   _         -> maybe [] (concat . toList) $ lookupPart rank fpart _moggParts
-          in  [ ("drum"  , getChannels rb3DrumsRank  $ rb3_Drums  rb3)
-              , ("bass"  , getChannels rb3BassRank   $ rb3_Bass   rb3)
-              , ("guitar", getChannels rb3GuitarRank $ rb3_Guitar rb3)
-              , ("keys"  , getChannels rb3KeysRank   $ rb3_Keys   rb3)
-              , ("vocals", getChannels rb3VocalRank  $ rb3_Vocal  rb3)
-              ]
+          in sortOn snd -- sorting numerically for ForgeTool (RB4) compatibility
+            [ ("drum"  , getChannels rb3DrumsRank  $ rb3_Drums  rb3)
+            , ("bass"  , getChannels rb3BassRank   $ rb3_Bass   rb3)
+            , ("guitar", getChannels rb3GuitarRank $ rb3_Guitar rb3)
+            , ("keys"  , getChannels rb3KeysRank   $ rb3_Keys   rb3)
+            , ("vocals", getChannels rb3VocalRank  $ rb3_Vocal  rb3)
+            ]
         Plan{..} ->
           [ ("drum"  , channelIndices [] drumChannels)
           , ("bass"  , channelIndices [drumChannels] bassChannels)
@@ -2394,7 +2395,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , CST.arr_LyricsArtPath        = Nothing
                     , CST.arr_MasterId             = arrMasterID
                     , CST.arr_Metronome            = "None"
-                    , CST.arr_PluckedType          = "NotPicked" -- TODO
+                    , CST.arr_PluckedType          = if Arr.ap_bassPick $ Arr.arr_arrangementProperties arr
+                      then "Picked"
+                      else "NotPicked"
                     , CST.arr_Represent            = case arrSlot of
                       RSPlayable (RSArrSlot RSDefault _) _ -> True
                       _                                    -> False -- vocals, bonus/alt arrangements
@@ -2507,8 +2510,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , CST.si_Artist              = textReplace $ getArtist $ _metadata songYaml
                     , CST.si_ArtistSort          = textReplace $ getArtist $ _metadata songYaml -- TODO
                     , CST.si_AverageTempo        = maybe 120 {- shouldn't happen -} ((round :: U.BPS -> Int) . (* 60)) averageTempo
-                    , CST.si_JapaneseArtistName  = ""
-                    , CST.si_JapaneseSongName    = ""
+                    , CST.si_JapaneseArtistName  = case _artistJP $ _metadata songYaml of
+                      Nothing -> ""
+                      Just s  -> textReplace s
+                    , CST.si_JapaneseSongName    = case _titleJP $ _metadata songYaml of
+                      Nothing -> ""
+                      Just s  -> textReplace s
                     , CST.si_SongDisplayName     = textReplace $ getTitle $ _metadata songYaml
                     , CST.si_SongDisplayNameSort = textReplace $ getTitle $ _metadata songYaml -- TODO
                     , CST.si_SongYear            = fromMaybe 1960 $ _year $ _metadata songYaml -- TODO see if this can be empty

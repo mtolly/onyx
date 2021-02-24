@@ -927,7 +927,9 @@ instance StackJSON PreviewTime where
 -- | Extra information with no gameplay effect.
 data Metadata f = Metadata
   { _title        :: Maybe T.Text
+  , _titleJP      :: Maybe T.Text
   , _artist       :: Maybe T.Text
+  , _artistJP     :: Maybe T.Text
   , _album        :: Maybe T.Text
   , _genre        :: Maybe T.Text
   , _subgenre     :: Maybe T.Text
@@ -963,7 +965,9 @@ instance (Eq f, StackJSON f) => StackJSON (Metadata f) where
   stackJSON = asStrictObject "Metadata" $ do
     let stripped = fmap (fmap T.strip) stackJSON
     _title        <- _title        =. warning Nothing        "title"          stripped
+    _titleJP      <- _titleJP      =. opt     Nothing        "title-jp"       stripped
     _artist       <- _artist       =. warning Nothing        "artist"         stripped
+    _artistJP     <- _artistJP     =. opt     Nothing        "artist-jp"      stripped
     _album        <- _album        =. opt     Nothing        "album"          stripped
     _genre        <- _genre        =. warning Nothing        "genre"          stripped
     _subgenre     <- _subgenre     =. opt     Nothing        "subgenre"       stripped

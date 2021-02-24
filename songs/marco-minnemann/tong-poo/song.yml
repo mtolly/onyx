@@ -1,0 +1,39 @@
+metadata:
+  title: Tong Poo [Ryuichi Sakamoto]
+  artist: Marco Minnemann
+  year: 2021
+  author: Onyxite
+  file-album-art: cover.jpg
+  genre: fusion
+  subgenre: fusion
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube 4USfh9GP3-4 140
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [2.594, youtube]
+parts:
+  drums:
+    drums:
+      kicks: both
+      # mode: full
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
