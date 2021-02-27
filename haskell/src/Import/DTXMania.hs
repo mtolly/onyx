@@ -8,7 +8,7 @@ module Import.DTXMania where
 import           Audio
 import           Config
 import           Control.Monad.Extra              (forM, guard, mapMaybeM,
-                                                   unless, void)
+                                                   unless)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import           Data.Char                        (toLower)
@@ -92,8 +92,8 @@ dtxConvertGB getter setter dtx (RBFile.Song tmap mmap fixed) = let
 dtxBaseMIDI :: DTX -> RBFile.Song (RBFile.OnyxFile U.Beats)
 dtxBaseMIDI dtx = RBFile.Song (dtx_TempoMap dtx) (dtx_MeasureMap dtx) mempty
 
-newDtxToAudio :: (SendMessage m, MonadIO m) => DTX -> FilePath -> StackTraceT m (SongYaml SoftFile -> SongYaml SoftFile)
-newDtxToAudio dtx fin = do
+dtxToAudio :: (SendMessage m, MonadIO m) => DTX -> FilePath -> StackTraceT m (SongYaml SoftFile -> SongYaml SoftFile)
+dtxToAudio dtx fin = do
   let simpleAudio f overlap chips = if RTB.null chips
         then return Nothing
         else do
@@ -180,7 +180,7 @@ importSet setDefPath = inside ("Loading DTX set.def from: " <> setDefPath) $ do
   return $ map (importSetDef $ Just setDefPath) songs
 
 importSetDef :: (SendMessage m, MonadIO m) => Maybe FilePath -> SetDef -> Import m
-importSetDef setDefPath song level = do
+importSetDef setDefPath song _level = do
   -- TODO need to fix path separators (both backslash and yen)
   let relToSet = maybe id (\sdp -> (takeDirectory sdp </>)) setDefPath
       fs = map (relToSet . T.unpack)
@@ -199,7 +199,7 @@ importSetDef setDefPath song level = do
   (topDiffPath, topDiffDTX) <- case diffs of
     []    -> fatal "No difficulties found for song"
     d : _ -> return d
-  addAudio <- newDtxToAudio topDiffDTX topDiffPath
+  addAudio <- dtxToAudio topDiffDTX topDiffPath
   let hasDrums  = not . RTB.null . dtx_Drums
       hasGuitar = not . RTB.null . dtx_Guitar
       hasBass   = not . RTB.null . dtx_Bass
