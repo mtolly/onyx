@@ -263,16 +263,21 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
         FD.Ride      -> (fracToX 0.875    , fracToX 1       )
       drawGem t od gemTrio@(gem, _gemType, velocity, flam) alpha = let
         (texid, obj) = case gemTrio of
-          (FD.Kick     , _, _, _) -> (TextureLongKick, Model ModelDrumKick)
-          (FD.Snare    , _, _, _) -> (TextureRedGem, Model ModelDrumTom)
-          (FD.Hihat    , _, _, _) -> (TextureYellowCymbal, Model ModelDrumCymbal)
-          (FD.HihatFoot, _, _, _) -> (TextureHihatFoot, Model ModelDrumHihatFoot)
-          (FD.CrashL   , _, _, _) -> (TextureBlueCymbal, Model ModelDrumCymbal)
-          (FD.Tom1     , _, _, _) -> (TextureOrangeGem, Model ModelDrumTom)
-          (FD.Tom2     , _, _, _) -> (TextureOrangeGem, Model ModelDrumTom)
-          (FD.Tom3     , _, _, _) -> (TextureOrangeGem, Model ModelDrumTom)
-          (FD.CrashR   , _, _, _) -> (TextureGreenCymbal, Model ModelDrumCymbal)
-          (FD.Ride     , _, _, _) -> (TexturePurpleCymbal, Model ModelDrumCymbal)
+          (FD.Kick     , _              , _, _) -> (TextureLongKick    , Model ModelDrumKick     )
+          (FD.Snare    , FD.GemRim      , _, _) -> (TextureRedGem      , Model ModelDrumRim      )
+          (FD.Snare    , _              , _, _) -> (TextureRedGem      , Model ModelDrumTom      )
+          (FD.Hihat    , FD.GemHihatOpen, _, _) -> (TextureYellowCymbal, Model ModelDrumHihatOpen)
+          (FD.Hihat    , _              , _, _) -> (TextureYellowCymbal, Model ModelDrumCymbal   )
+          (FD.HihatFoot, _              , _, _) -> (TextureHihatFoot   , Model ModelDrumHihatFoot)
+          (FD.CrashL   , _              , _, _) -> (TextureBlueCymbal  , Model ModelDrumCymbal   )
+          (FD.Tom1     , FD.GemRim      , _, _) -> (TextureOrangeGem   , Model ModelDrumRim      )
+          (FD.Tom1     , _              , _, _) -> (TextureOrangeGem   , Model ModelDrumTom      )
+          (FD.Tom2     , FD.GemRim      , _, _) -> (TextureOrangeGem   , Model ModelDrumRim      )
+          (FD.Tom2     , _              , _, _) -> (TextureOrangeGem   , Model ModelDrumTom      )
+          (FD.Tom3     , FD.GemRim      , _, _) -> (TextureOrangeGem   , Model ModelDrumRim      )
+          (FD.Tom3     , _              , _, _) -> (TextureOrangeGem   , Model ModelDrumTom      )
+          (FD.CrashR   , _              , _, _) -> (TextureGreenCymbal , Model ModelDrumCymbal   )
+          (FD.Ride     , _              , _, _) -> (TexturePurpleCymbal, Model ModelDrumCymbal   )
         shade = case alpha of
           Nothing -> case velocity of
             FD.VelocityGhost -> CSImage2 texid TextureOverlayGhost
@@ -289,16 +294,18 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
           FD.Kick -> (x2' - x1') / 2
           _       -> 0.5 / 2
         xPairs = if flam
-          then let
-            -- make 2 slightly narrower notes, and adjust to keep it within the track
-            flamWidth = (x2 - x1) * 0.75
-            noteLeft = (xCenter - flamWidth, xCenter)
-            noteRight = (xCenter, xCenter + flamWidth)
-            xAdjustment
-              | fst noteLeft < adjustedLeft = adjustedLeft - fst noteLeft
-              | snd noteRight > adjustedRight = adjustedRight - snd noteRight
-              | otherwise = 0
-            in map (bimap (+ xAdjustment) (+ xAdjustment)) [noteLeft, noteRight]
+          then case gem of
+            FD.Kick -> [(x1', x1' + (x2' - x1') * (1/3)), (x1' + (x2' - x1') * (2/3), x2')]
+            _       -> let
+              -- make 2 slightly narrower notes, and adjust to keep it within the track
+              flamWidth = (x2' - x1') * 0.75
+              noteLeft = (xCenter - flamWidth, xCenter)
+              noteRight = (xCenter, xCenter + flamWidth)
+              xAdjustment
+                | fst noteLeft < adjustedLeft = adjustedLeft - fst noteLeft
+                | snd noteRight > adjustedRight = adjustedRight - snd noteRight
+                | otherwise = 0
+              in map (bimap (+ xAdjustment) (+ xAdjustment)) [noteLeft, noteRight]
           else [(x1', x2')]
         (y1, y2) = (y - reference, y + reference)
         y = C.trk_y $ C.cfg_track gfxConfig
@@ -1548,7 +1555,9 @@ data TextureID
 
 data ModelID
   = ModelDrumTom
+  | ModelDrumRim
   | ModelDrumCymbal
+  | ModelDrumHihatOpen
   | ModelDrumKick
   | ModelDrumHihatFoot
   | ModelGuitarStrum
@@ -1819,7 +1828,9 @@ loadGLStuff previewSong = do
   models <- forM [minBound .. maxBound] $ \modID -> do
     path <- liftIO $ getResourcesPath $ case modID of
       ModelDrumTom       -> "models/drum-tom.obj"
+      ModelDrumRim       -> "models/drum-rim.obj"
       ModelDrumCymbal    -> "models/drum-cymbal.obj"
+      ModelDrumHihatOpen -> "models/drum-hihat-open.obj"
       ModelDrumKick      -> "models/drum-kick.obj"
       ModelDrumHihatFoot -> "models/drum-hihat-foot.obj"
       ModelGuitarStrum   -> "models/gtr-strum.obj"
