@@ -235,6 +235,22 @@ importSetDef setDefPath song _level = do
       True -> do
         let loc = "cover" <.> takeExtension f
         return $ Just $ SoftFile loc $ SoftReadable $ fileReadable f
+  video <- case dtx_Video topDiffDTX of
+    RNil -> return Nothing
+    Wait posn chip RNil -> case HM.lookup chip $ dtx_AVI topDiffDTX of
+      Just videoPath -> return $ Just VideoInfo
+        { _fileVideo      = SoftFile ("video" <.> takeExtension videoPath)
+          $ SoftReadable $ fileReadable $ takeDirectory topDiffPath </> videoPath
+        , _videoStartTime = Just $ realToFrac $ U.applyTempoMap (dtx_TempoMap topDiffDTX) posn
+        , _videoEndTime   = Nothing
+        , _videoLoop      = False
+        }
+      Nothing        -> do
+        warn $ "Video chip not found: " <> T.unpack chip
+        return Nothing
+    _ -> do
+      warn $ "Multiple video backgrounds, not importing"
+      return Nothing
   let translateDifficulty Nothing    _   = Rank 1
       translateDifficulty (Just lvl) dec = let
         lvl' = (fromIntegral lvl + maybe 0 ((/ 10) . fromIntegral) dec) / 100 :: Rational
@@ -250,7 +266,7 @@ importSetDef setDefPath song _level = do
       , _fileAlbumArt = art
       }
     , _global = def'
-      { _backgroundVideo = Nothing
+      { _backgroundVideo = video
       , _fileBackgroundImage = Nothing
       , _fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
       , _fileSongAnim = Nothing

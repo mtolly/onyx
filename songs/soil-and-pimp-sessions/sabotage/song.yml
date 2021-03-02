@@ -36,6 +36,7 @@ parts:
       difficulty: 7
       kicks: 1
       kit: VintageKit
+      mode: full
   blue-ride:
     drums:
       difficulty: 7

@@ -335,7 +335,7 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
         , ([FD.CrashL], TextureTargetBlue        , TextureTargetBlueLight        , Just $ V4 0 0 0 0.2)
         , ([FD.Tom1  ], TextureTargetOrangeLeft  , TextureTargetOrangeLeftLight  , Just $ V4 1 1 1 0.2)
         , ([FD.Tom2  ], TextureTargetOrangeCenter, TextureTargetOrangeCenterLight, Just $ V4 1 1 1 0.2)
-        , ([FD.Tom3  ], TextureTargetOrangeRight , TextureTargetOrangeLightRight , Just $ V4 1 1 1 0.2)
+        , ([FD.Tom3  ], TextureTargetOrangeRight , TextureTargetOrangeRightLight , Just $ V4 1 1 1 0.2)
         , ([FD.CrashR], TextureTargetGreen       , TextureTargetGreenLight       , Just $ V4 0 0 0 0.2)
         , ([FD.Ride  ], TextureTargetPurple      , TextureTargetPurpleLight      , Just $ V4 1 1 1 0.2)
         ]
@@ -361,6 +361,7 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
       1
       globalLight
   glDepthFunc GL_ALWAYS
+  -- TODO fix this making the track transparent
   forM_ targets $ \(pads, _, _, mtint) -> forM_ mtint $ \tint -> do
     let x1 = minimum $ map (fst . gemBounds) pads
         x2 = maximum $ map (snd . gemBounds) pads
@@ -1498,7 +1499,7 @@ data TextureID
   | TextureTargetOrangeCenter
   | TextureTargetOrangeCenterLight
   | TextureTargetOrangeRight
-  | TextureTargetOrangeLightRight
+  | TextureTargetOrangeRightLight
   | TextureNumber0
   | TextureNumber1
   | TextureNumber2
@@ -1749,7 +1750,7 @@ loadGLStuff previewSong = do
           TextureTargetOrangeCenter      -> "target-orange-center"
           TextureTargetOrangeCenterLight -> "target-orange-center-light"
           TextureTargetOrangeRight       -> "target-orange-right"
-          TextureTargetOrangeLightRight  -> "target-orange-right-light"
+          TextureTargetOrangeRightLight  -> "target-orange-right-light"
           TextureNumber0                 -> "number-0"
           TextureNumber1                 -> "number-1"
           TextureNumber2                 -> "number-2"

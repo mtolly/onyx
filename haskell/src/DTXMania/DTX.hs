@@ -74,6 +74,7 @@ data DTX = DTX
   , dtx_WAV           :: HM.HashMap Chip FilePath
   , dtx_VOLUME        :: HM.HashMap Chip Int
   , dtx_PAN           :: HM.HashMap Chip Int
+  , dtx_AVI           :: HM.HashMap Chip FilePath
   , dtx_MeasureMap    :: U.MeasureMap
   , dtx_TempoMap      :: U.TempoMap
   , dtx_Drums         :: RTB.T U.Beats (DrumLane, Chip)
@@ -84,6 +85,7 @@ data DTX = DTX
   , dtx_BassWailing   :: RTB.T U.Beats ()
   , dtx_BGM           :: RTB.T U.Beats Chip
   , dtx_BGMExtra      :: HM.HashMap Channel (RTB.T U.Beats Chip)
+  , dtx_Video         :: RTB.T U.Beats Chip
   } deriving (Show)
 
 textFloat :: (RealFrac a) => T.Text -> Maybe a
@@ -285,6 +287,7 @@ readDTXLines fmt lns = DTX
   , dtx_GLVDEC     = lookup "GLVDEC" lns >>= readMaybe . T.unpack
   , dtx_BLVDEC     = lookup "BLVDEC" lns >>= readMaybe . T.unpack
   , dtx_WAV        = fmap T.unpack $ HM.fromList $ getReferences "WAV" lns
+  , dtx_AVI        = fmap T.unpack $ HM.fromList $ getReferences "AVI" lns <> getReferences "VIDEO" lns
   , dtx_VOLUME     = HM.mapMaybe (readMaybe . T.unpack) $ HM.fromList $
     getReferences "VOLUME" lns ++ getReferences "WAVVOL" lns
   , dtx_PAN        = HM.mapMaybe (readMaybe . T.unpack) $ HM.fromList $
@@ -301,6 +304,7 @@ readDTXLines fmt lns = DTX
   , dtx_BGMExtra   = HM.fromList $ filter (not . RTB.null . snd) $ do
     chan <- map (T.pack . show) ([61..69] ++ [70..79] ++ [80..89] ++ [90..92] :: [Int])
     return (chan, getChannel chan)
+  , dtx_Video      = getChannel "54"
   } where
 
     objects :: Map.Map BarNumber (HM.HashMap Channel [T.Text])

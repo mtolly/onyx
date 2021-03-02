@@ -10,6 +10,14 @@ parts:
       fix-freeform: false
       difficulty:
         rank: 340
+    pro-guitar:
+      tuning:
+        # C# Drop B
+        base: bass-4
+        global: -3
+        offsets: [-2, 0, 0, 0]
+      tones:
+        file-tone-base: ../../../tones/ViolationDrive.tone2014.xml
   guitar:
     grybo:
       fix-freeform: false
@@ -57,6 +65,10 @@ targets:
     label: (2x Bass Pedal) (O)
     file-milo: lipsync-venue.milo_xbox
     harmonix: true
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
 metadata:
   rating: SupervisionRecommended
   preview-start: 52.17
