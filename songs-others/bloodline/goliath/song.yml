@@ -1,0 +1,72 @@
+parts:
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: 1
+      mode: full
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+      tones:
+        # TODO bunch of weird tones
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    karaoke: false
+    multitrack: false
+    crowd:
+    - 4
+    - 5
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+    file-mogg: audio.mogg
+targets:
+  rb3:
+    song-id: 1681601404
+    game: rb3
+    version: 30
+    label: (B)
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
+metadata:
+  rating: Supervision Recommended
+  preview-start: 2:07.000
+  expert-only: true
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 5
+  album: The Bedlam in Goliath
+  year: 2008
+  subgenre: progrock
+  author: Bloodline
+  title: Goliath
+  preview-end: 2:37.000
+  genre: prog
+  difficulty:
+    tier: 6
+  artist: The Mars Volta
+global:
+  autogen-theme: null
+  anim-tempo: 32
