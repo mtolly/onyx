@@ -10,9 +10,8 @@ module FFMPEG where
 import Foreign
 import Foreign.C
 import Data.Coerce (coerce)
-import Control.Monad ((>=>), forM_, unless, forM)
+import Control.Monad (forM_, unless, forM, when)
 import Text.Read (readMaybe)
-import Data.IORef (newIORef, writeIORef, readIORef)
 import Data.Typeable (Typeable)
 import Control.Exception (Exception(..), throwIO)
 import System.IO (Handle, hIsWritable, hGetBuf, hPutBuf, hSeek, SeekMode(..), hTell, hFileSize, hClose)
@@ -24,6 +23,8 @@ import Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.Vector.Storable as V
 import qualified Data.Vector.Storable.Mutable as MV
 import Data.SimpleHandle (Readable, rOpen)
+import Control.Concurrent.Async (forConcurrently)
+import Data.Maybe (catMaybes)
 
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
@@ -590,6 +591,14 @@ foreign import ccall "wrapper"
   } -> `CInt'
 #}
 
+{#fun avfilter_link
+  { `AVFilterContext'
+  , `CUInt'
+  , `AVFilterContext'
+  , `CUInt'
+  } -> `CInt'
+#}
+
 newtype Bracket m = Bracket { runBracket :: forall a b. IO a -> (a -> IO ()) -> (a -> m b) -> m b }
 
 conduitBracket :: (MonadResource m) => Bracket (ConduitM i o m)
@@ -754,27 +763,20 @@ ffSource input = do
     , CA.frames   = fromIntegral frames
     }
 
--- TODO clean up, better resource allocation, get rid of unnecessary audio format conversion from sample code
-audioIntegratedVolume :: FilePath -> IO (Maybe Float)
-audioIntegratedVolume f = do
+graphCreateFilter :: String -> Maybe String -> Maybe String -> AVFilterGraph -> IO AVFilterContext
+graphCreateFilter filterType name args graph = do
+  avfilter <- withCString filterType avfilter_get_by_name
+  when (coerce avfilter == nullPtr) $ error $ "graphCreateFilter: no filter type named " <> show filterType
+  alloca $ \p -> do
+    maybe ($ nullPtr) withCString name $ \pname -> do
+      maybe ($ nullPtr) withCString args $ \pargs -> do
+        ffCheck "avfilter_graph_create_filter" (>= 0) $ do
+          avfilter_graph_create_filter p avfilter pname pargs nullPtr graph
+    peek p
 
-  withStream unliftBracket AVMEDIA_TYPE_AUDIO (Right f) $ \fmt_ctx dec_ctx stream -> do
-
-  let filters_descr = "ebur128=metadata=1,aresample=8000,aformat=sample_fmts=s16:channel_layouts=mono"
-  abuffersrc <- withCString "abuffer" avfilter_get_by_name
-  abuffersink <- withCString "abuffersink" avfilter_get_by_name
-  outputs <- avfilter_inout_alloc
-  inputs <- avfilter_inout_alloc
-  -- print (abuffersrc, abuffersink, outputs, inputs)
-  let out_sample_fmts = [fromIntegral $ fromEnum AV_SAMPLE_FMT_S16] :: [CInt]
-      out_channel_layouts = [{#const AV_CH_LAYOUT_MONO #}] :: [Int64]
-      out_sample_rates = [8000] :: [CInt]
+addFilterSource :: AVCodecContext -> AVStream -> AVFilterGraph -> IO AVFilterContext
+addFilterSource dec_ctx stream graph = do
   (num, den) <- time_base stream
-
-  bracket avfilter_graph_alloc (\p -> with p avfilter_graph_free) $ \filter_graph -> do
-  -- print filter_graph
-
-  -- buffer audio source: the decoded frames from the decoder will be inserted here.
   {#get AVCodecContext->channel_layout #} dec_ctx >>= \case
     0 -> {#get AVCodecContext->channels #} dec_ctx
       >>= av_get_default_channel_layout
@@ -785,129 +787,123 @@ audioIntegratedVolume f = do
     fmt <- {#get AVCodecContext->sample_fmt #} dec_ctx >>= av_get_sample_fmt_name . toEnum . fromIntegral >>= peekCString
     layout <- {#get AVCodecContext->channel_layout #} dec_ctx
     return $ concat ["time_base=", show num, "/", show den, ":sample_rate=", show rate, ":sample_fmt=", fmt, ":channel_layout=", show layout]
-  -- print args
-  buffersrc_ctx <- alloca $ \p -> do
-    withCString "in" $ \pname -> do
-      withCString args $ \pargs -> do
-        ffCheck "avfilter_graph_create_filter" (>= 0) $ do
-          avfilter_graph_create_filter p abuffersrc pname pargs nullPtr filter_graph
-    peek p
-  -- print buffersrc_ctx
+  graphCreateFilter "abuffer" Nothing (Just args) graph
+
+filterOutputs :: AVFilterContext -> IO [AVFilterLink]
+filterOutputs avfc = do
+  n <- {#get AVFilterContext->nb_outputs #} avfc
+  {#get AVFilterContext->outputs #} avfc >>= peekArray (fromIntegral n)
+
+data GraphInput = GraphInput
+  { giFormat :: AVFormatContext
+  , giCodec :: AVCodecContext
+  , giStream :: AVStream
+  , giPacket :: AVPacket
+  , giBuffer :: AVFilterContext -- of type "abuffer"
+  }
+
+supplyAudio :: [GraphInput] -> IO ()
+supplyAudio inputs = do
+  newFrames <- forConcurrently inputs $ \input -> do
+    audio_stream_index <- stream_index $ giStream input
+    output <- filterOutputs (giBuffer input) >>= \case
+      [output] -> return output
+      _        -> error "supplyAudio: not exactly 1 output on this filter"
+    {#get AVFilterLink->frame_wanted_out #} output >>= \case
+      0 -> return Nothing -- no data needed for this input
+      _ -> let
+        readFrame = do
+          ret <- av_read_frame (giFormat input) (giPacket input)
+          if ret < 0
+            then do -- out of frames
+              -- passing NULL to av_buffersrc_add_frame_flags means EOF
+              return $ Just (AVFrame nullPtr, giBuffer input)
+            else do
+              si <- packet_stream_index $ giPacket input
+              if si == audio_stream_index
+                then do
+                  -- this is an audio packet
+                  avcodec_send_packet (giCodec input) (giPacket input) >>= \case
+                    0 -> return ()
+                    n -> putStrLn $ "avcodec_send_packet: " <> show n
+                  av_packet_unref $ giPacket input
+                  receiveFrame
+                else do
+                  av_packet_unref $ giPacket input
+                  readFrame
+        receiveFrame = do
+          frame <- av_frame_alloc
+          ret <- avcodec_receive_frame (giCodec input) frame
+          if ret < 0
+            then readFrame -- need more packets
+            else return $ Just (frame, giBuffer input)
+        in readFrame
+  forM_ (catMaybes newFrames) $ \(frame, buffer) -> do
+    av_buffersrc_add_frame_flags buffer frame 0 >>= \case
+      0 -> return ()
+      n -> putStrLn $ "av_buffersrc_add_frame_flags: " <> show n
+    when (coerce frame /= nullPtr) $ do
+      av_frame_unref frame
+      with frame av_frame_free
+
+data GraphOutput a
+  = GraphEOF
+  | GraphNeedInput
+  | GraphOutput a
+
+tryGetGraphOutput :: AVFilterContext -> (AVFrame -> IO a) -> IO (GraphOutput a)
+tryGetGraphOutput buffersink_ctx withFrame = bracket av_frame_alloc (\p -> with p av_frame_free) $ \filt_frame -> do
+  ret <- av_buffersink_get_frame buffersink_ctx filt_frame
+  eof <- hs_AVERROR_EOF
+  if ret < 0
+    then return $ if ret == eof then GraphEOF else GraphNeedInput
+    else do
+      x <- withFrame filt_frame
+      av_frame_unref filt_frame
+      return $ GraphOutput x
+
+audioIntegratedVolume :: FilePath -> IO (Maybe Float)
+audioIntegratedVolume f = do
+
+  withStream unliftBracket AVMEDIA_TYPE_AUDIO (Right f) $ \fmt_ctx dec_ctx stream -> do
+
+  bracket avfilter_graph_alloc (\p -> with p avfilter_graph_free) $ \graph -> do
+
+  -- buffer audio source: the decoded frames from the decoder will be inserted here.
+  buffersrc_ctx <- addFilterSource dec_ctx stream graph
+
+  -- make ebur128 filter
+  ebur128_ctx <- graphCreateFilter "ebur128" Nothing (Just "metadata=1") graph
 
   -- buffer audio sink: to terminate the filter chain.
-  buffersink_ctx <- alloca $ \p -> do
-    withCString "out" $ \pname -> do
-      ffCheck "avfilter_graph_create_filter" (>= 0) $ do
-        avfilter_graph_create_filter p abuffersink pname nullPtr nullPtr filter_graph
-    peek p
+  buffersink_ctx <- graphCreateFilter "abuffersink" (Just "out") Nothing graph
 
-  ffCheck "av_opt_set_int_list (sample_fmts)" (>= 0) $ do
-    av_opt_set_int_list (coerce buffersink_ctx) "sample_fmts"     out_sample_fmts     av_OPT_SEARCH_CHILDREN
-  ffCheck "av_opt_set_int_list (channel_layouts)" (>= 0) $ do
-    av_opt_set_int_list (coerce buffersink_ctx) "channel_layouts" out_channel_layouts av_OPT_SEARCH_CHILDREN
-  ffCheck "av_opt_set_int_list (sample_rates)" (>= 0) $ do
-    av_opt_set_int_list (coerce buffersink_ctx) "sample_rates"    out_sample_rates    av_OPT_SEARCH_CHILDREN
+  ffCheck "avfilter_link (abuffer to ebur128)" (== 0) $ avfilter_link buffersrc_ctx 0 ebur128_ctx 0
+  ffCheck "avfilter_link (ebur128 to abuffersink)" (== 0) $ avfilter_link ebur128_ctx 0 buffersink_ctx 0
 
-  -- Set the endpoints for the filter graph. The filter_graph will
-  -- be linked to the graph described by filters_descr.
-
-  -- The buffer source output must be connected to the input pad of
-  -- the first filter described by filters_descr; since the first
-  -- filter input label is not specified, it is set to "in" by
-  -- default.
-  withCString "in" $ av_strdup >=> {#set AVFilterInOut->name #} outputs
-  {#set AVFilterInOut->filter_ctx #} outputs buffersrc_ctx
-  {#set AVFilterInOut->pad_idx #} outputs 0
-  {#set AVFilterInOut->next #} outputs $ AVFilterInOut nullPtr
-
-  -- The buffer sink input must be connected to the output pad of
-  -- the last filter described by filters_descr; since the last
-  -- filter output label is not specified, it is set to "out" by
-  -- default.
-  withCString "out" $ av_strdup >=> {#set AVFilterInOut->name #} inputs
-  {#set AVFilterInOut->filter_ctx #} inputs buffersink_ctx
-  {#set AVFilterInOut->pad_idx #} inputs 0
-  {#set AVFilterInOut->next #} inputs $ AVFilterInOut nullPtr
-
-  (inputs', outputs') <- withCString filters_descr $ \cstr -> do
-    with inputs $ \pinputs -> do
-      with outputs $ \poutputs -> do
-        ffCheck "avfilter_graph_parse_ptr" (>= 0) $ do
-          avfilter_graph_parse_ptr filter_graph cstr pinputs poutputs nullPtr
-        (,) <$> peek pinputs <*> peek poutputs
-
-  ffCheck "avfilter_graph_config" (>= 0) $ avfilter_graph_config filter_graph nullPtr
-
-  -- Print summary of the sink buffer
-  -- Note: args buffer is reused to store channel layout string
-
-  -- outlink = buffersink_ctx->inputs[0];
-  -- av_get_channel_layout_string(args, sizeof(args), -1, outlink->channel_layout);
-  -- av_log(NULL, AV_LOG_INFO, "Output: srate:%dHz fmt:%s chlayout:%s\n",
-  --        (int)outlink->sample_rate,
-  --        (char *)av_x_if_null(av_get_sample_fmt_name(outlink->format), "?"),
-  --        args);
-
-  with inputs' avfilter_inout_free
-  with outputs' avfilter_inout_free
+  ffCheck "avfilter_graph_config" (>= 0) $ avfilter_graph_config graph nullPtr
 
   -- read all packets
-  bracket av_frame_alloc (\p -> with p av_frame_free) $ \frame -> do
-  bracket av_frame_alloc (\p -> with p av_frame_free) $ \filt_frame -> do
-  vol <- newIORef Nothing
-  audio_stream_index <- stream_index stream
-  alloca $ \(AVPacket -> packet) -> let
-    readFrame = do
-      ret <- av_read_frame fmt_ctx packet
-      if ret < 0
-        then return () -- out of frames
-        else do
-          si <- packet_stream_index packet
-          if si == audio_stream_index
-            then do
-              -- this is an audio packet
-              avcodec_send_packet dec_ctx packet >>= \case
-                0 -> return ()
-                n -> putStrLn $ "avcodec_send_packet: " <> show n
-              av_packet_unref packet
-              receiveFrame
-              readFrame
-            else do
-              av_packet_unref packet
-              readFrame
-    receiveFrame = do
-      ret <- avcodec_receive_frame dec_ctx frame
-      if ret < 0
-        then return () -- need more packets
-        else do
-          -- push the audio data from decoded frame into the filtergraph
-          av_buffersrc_add_frame_flags buffersrc_ctx frame (fromIntegral $ fromEnum AV_BUFFERSRC_FLAG_KEEP_REF) >>= \case
-            0 -> return ()
-            n -> putStrLn $ "av_buffersrc_add_frame_flags: " <> show n
-          -- pull filtered audio from the filtergraph
-          pullAudio
-          av_frame_unref frame
-    pullAudio = do
-      ret <- av_buffersink_get_frame buffersink_ctx filt_frame
-      if ret < 0
-        then return () -- no data available, graph needs more input
-        else do
-
-          -- nsamples <- {#get AVFrame->nb_samples #} filt_frame
-          -- nchannels <- {#get AVFrame->channel_layout #} filt_frame >>= av_get_channel_layout_nb_channels . fromIntegral
-          -- let nbytes = nsamples * nchannels * 2
-          -- p <- frame_data filt_frame >>= peek
-          -- B.packCStringLen (castPtr p, fromIntegral nbytes) >>= B.hPut h
-
+  alloca $ \(AVPacket -> packet) -> do
+  let loop vol = do
+        result <- tryGetGraphOutput buffersink_ctx $ \filt_frame -> do
           meta <- {#get AVFrame->metadata #} filt_frame
           entry <- withCString "lavfi.r128.I" $ \k -> av_dict_get meta k (AVDictionaryEntry nullPtr) 0
           case entry of
-            AVDictionaryEntry p | p == nullPtr -> return ()
-            _ -> do
-              s <- {#get AVDictionaryEntry->value #} entry >>= peekCString
-              forM_ (readMaybe s) $ writeIORef vol . Just
-          av_frame_unref filt_frame
-          pullAudio
-    in readFrame
-
-  readIORef vol
+            AVDictionaryEntry p | p == nullPtr -> return Nothing
+            _ -> fmap readMaybe $ {#get AVDictionaryEntry->value #} entry >>= peekCString
+        case result of
+          GraphNeedInput -> do
+            let input = GraphInput
+                  { giFormat = fmt_ctx
+                  , giCodec = dec_ctx
+                  , giStream = stream
+                  , giPacket = packet
+                  , giBuffer = buffersrc_ctx
+                  }
+            supplyAudio [input]
+            loop vol
+          GraphEOF -> return vol
+          GraphOutput Nothing  -> loop vol
+          GraphOutput (Just v) -> loop $ Just v
+  loop Nothing

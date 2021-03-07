@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE TupleSections     #-}
@@ -238,18 +237,24 @@ importSetDef setDefPath song _level = do
   video <- case dtx_Video topDiffDTX of
     RNil -> return Nothing
     Wait posn chip RNil -> case HM.lookup chip $ dtx_AVI topDiffDTX of
-      Just videoPath -> return $ Just VideoInfo
-        { _fileVideo      = SoftFile ("video" <.> takeExtension videoPath)
-          $ SoftReadable $ fileReadable $ takeDirectory topDiffPath </> videoPath
-        , _videoStartTime = Just $ realToFrac $ U.applyTempoMap (dtx_TempoMap topDiffDTX) posn
-        , _videoEndTime   = Nothing
-        , _videoLoop      = False
-        }
+      Just videoPath -> let
+        fullVideoPath = takeDirectory topDiffPath </> videoPath
+        in stackIO (Dir.doesFileExist fullVideoPath) >>= \case
+          False -> do
+            warn $ "Video file does not exist, skipping: " <> fullVideoPath
+            return Nothing
+          True -> return $ Just VideoInfo
+            { _fileVideo      = SoftFile ("video" <.> takeExtension videoPath)
+              $ SoftReadable $ fileReadable $ takeDirectory topDiffPath </> videoPath
+            , _videoStartTime = Just $ realToFrac $ U.applyTempoMap (dtx_TempoMap topDiffDTX) posn
+            , _videoEndTime   = Nothing
+            , _videoLoop      = False
+            }
       Nothing        -> do
         warn $ "Video chip not found: " <> T.unpack chip
         return Nothing
     _ -> do
-      warn $ "Multiple video backgrounds, not importing"
+      warn "Multiple video backgrounds, not importing"
       return Nothing
   let translateDifficulty Nothing    _   = Rank 1
       translateDifficulty (Just lvl) dec = let

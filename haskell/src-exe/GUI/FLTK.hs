@@ -2562,7 +2562,7 @@ miscPageDryVox sink rect tab startTasks = do
         _                          -> return ()
     return $ fmap T.unpack $ FL.getValue input
   dryvoxButton "Make clipped dry vox from MIDI and audio" $ \trk -> do
-    audio <- stackIO $ pickedAudio
+    audio <- stackIO pickedAudio
     src <- buildSource' $ Input audio
     return $ clipDryVox (isJust <$> vocalTubes trk) src
   FL.end pack
