@@ -2,7 +2,7 @@ metadata:
   title: "Thick as a Brick, Part II"
   file-include: ../../../albums/thick-as-a-brick.yml
   track-number: 1
-  author: Onyxite
+  author: Onyxite, MrBurpler, bsbloom
 audio:
   # this is the fixed surround sound ADVD
   # magnet:?xt=urn:btih:b9cc9d37876eadc53b89d2fc4c5dd2245d353334&dn=Jethro%20Tull%20-%201972%20-%20Thick%20As%20A%20Brick%2040th%20Anniversary%20Set%20%282012%29%20%5BADVD%5D&tr=http%3A%2F%2Fbt2.rutracker.cc%2Fann&tr=http%3A%2F%2Fretracker.local%2Fannounce
@@ -16,10 +16,13 @@ audio:
     frames: 251842080
     channels: 2
     # rate: 96000
-
-  # TODO both the above versions have a serious error at 1:53,
-  # the flute+bells go too long and overlay onto the band reentering.
-  # Need to fix somehow (splice a correct version?) or use a different version
+  stereo-wilson-fixed:
+    # output of fixed-audio.RPP.
+    # fixes a serious error at 1:53 in part 2;
+    # the flute+bells go too long and overlay onto the band reentering.
+    md5: 693afbd44aa116869e446d97acf2bb5c
+    frames: 115734056
+    channels: 2
 
   surround-aligned:
     expr:
@@ -30,6 +33,9 @@ audio:
   stereo-wilson-aligned:
     expr:
       drop: ['22:43.279', stereo-wilson]
+  fixed-aligned:
+    expr:
+      drop: ['22:43.279', stereo-wilson-fixed]
 
 plans:
   reaper:
@@ -53,6 +59,8 @@ plans:
       stereo: stereo-wilson-aligned
   stereo:
     song: stereo-wilson-aligned
+  fixed:
+    song: fixed-aligned
 parts:
   bass:
     pro-guitar:
@@ -60,9 +68,15 @@ parts:
         base: bass-4
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  vocal:
+    vocal:
+      # by MrBurpler/bsbloom
+      # imported for RS lyrics; needs some minor pitch/timing fixes for RB
+      count: 1
+      gender: male
 targets:
   rs:
     game: rs
-    plan: stereo
+    plan: fixed
     arrangements:
     - [bass, bass]

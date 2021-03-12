@@ -275,19 +275,19 @@ readDTXLines :: DTXFormat -> [(T.Text, T.Text)] -> DTX
 readDTXLines fmt lns = DTX
   { dtx_TITLE      = lookup "TITLE" lns
   , dtx_ARTIST     = lookup "ARTIST" lns
-  , dtx_PREIMAGE   = T.unpack <$> lookup "PREIMAGE" lns
+  , dtx_PREIMAGE   = fixPath . T.unpack <$> lookup "PREIMAGE" lns
   , dtx_COMMENT    = lookup "COMMENT" lns
   , dtx_GENRE      = lookup "GENRE" lns
-  , dtx_PREVIEW    = T.unpack <$> lookup "PREVIEW" lns
-  , dtx_STAGEFILE  = T.unpack <$> lookup "STAGEFILE" lns
+  , dtx_PREVIEW    = fixPath . T.unpack <$> lookup "PREVIEW" lns
+  , dtx_STAGEFILE  = fixPath . T.unpack <$> lookup "STAGEFILE" lns
   , dtx_DLEVEL     = lookup "DLEVEL" lns >>= readMaybe . T.unpack
   , dtx_GLEVEL     = lookup "GLEVEL" lns >>= readMaybe . T.unpack
   , dtx_BLEVEL     = lookup "BLEVEL" lns >>= readMaybe . T.unpack
   , dtx_DLVDEC     = lookup "DLVDEC" lns >>= readMaybe . T.unpack
   , dtx_GLVDEC     = lookup "GLVDEC" lns >>= readMaybe . T.unpack
   , dtx_BLVDEC     = lookup "BLVDEC" lns >>= readMaybe . T.unpack
-  , dtx_WAV        = fmap T.unpack $ HM.fromList $ getReferences "WAV" lns
-  , dtx_AVI        = fmap T.unpack $ HM.fromList $ getReferences "AVI" lns <> getReferences "VIDEO" lns
+  , dtx_WAV        = fmap (fixPath . T.unpack) $ HM.fromList $ getReferences "WAV" lns
+  , dtx_AVI        = fmap (fixPath . T.unpack) $ HM.fromList $ getReferences "AVI" lns <> getReferences "VIDEO" lns
   , dtx_VOLUME     = HM.mapMaybe (readMaybe . T.unpack) $ HM.fromList $
     getReferences "VOLUME" lns ++ getReferences "WAVVOL" lns
   , dtx_PAN        = HM.mapMaybe (readMaybe . T.unpack) $ HM.fromList $
@@ -306,6 +306,9 @@ readDTXLines fmt lns = DTX
     return (chan, getChannel chan)
   , dtx_Video      = getChannel "54"
   } where
+
+    -- ¥ is the backslash when Shift-JIS decoded
+    fixPath = map $ \case '¥' -> '/'; '\\' -> '/'; c -> c
 
     objects :: Map.Map BarNumber (HM.HashMap Channel [T.Text])
     objects = getObjects lns
@@ -382,10 +385,7 @@ getAudio polyphony chips dtxPath dtx = do
   let usedChips = nubOrd $ RTB.getBodies chips
       wavs = HM.filterWithKey (\k _ -> elem k usedChips) $ dtx_WAV dtx
   srcs <- fmap (HM.mapMaybe id) $ forM wavs $ \fp -> do
-    dtxAudioSource
-      $ takeDirectory dtxPath
-      </> map (\case '¥' -> '/'; '\\' -> '/'; c -> c) fp
-      -- ¥ is the backslash when Shift-JIS decoded
+    dtxAudioSource $ takeDirectory dtxPath </> fp
   cachedSrcs <- forM srcs $ \src -> if fromIntegral (frames src) < rate src * 5
     then stackIO $ cacheAudio src
     else return src
