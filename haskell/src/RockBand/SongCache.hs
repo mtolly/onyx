@@ -13,11 +13,11 @@ import           Data.DTA.Serialize             (DictList (..))
 import           Data.DTA.Serialize.Magma       (Gender (..))
 import qualified Data.DTA.Serialize.RB3         as D
 import qualified Data.HashMap.Strict            as HM
-import           Data.List                      (elemIndex, sort)
+import           Data.List.Extra                (elemIndex, nubOrd, sort)
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
-import           Data.Maybe                     (fromMaybe)
-import           Data.SimpleHandle              (Folder (..))
-import           Data.SimpleHandle              (findByteString)
+import           Data.Maybe                     (fromMaybe, listToMaybe)
+import           Data.SimpleHandle              (Folder (..), findByteString,
+                                                 handleToByteString, useHandle)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import           PrettyDTA
@@ -76,15 +76,13 @@ instance Bin SongCache where
 
 data FileEntry = FileEntry
   { fe_Name    :: T.Text
-  , fe_Mystery :: Word32 -- 1 on every song in my cache. maybe index into multi-song pack?
-  , fe_SongID  :: Word32
+  , fe_SongIDs :: [Word32]
   } deriving (Eq, Show)
 
 instance Bin FileEntry where
   bin = do
     fe_Name    <- fe_Name    =. string
-    fe_Mystery <- fe_Mystery =. word32le
-    fe_SongID  <- fe_SongID  =. word32le
+    fe_SongIDs <- fe_SongIDs =. lenArray word32le
     return FileEntry{..}
 
 data SongEntry = SongEntry
@@ -356,7 +354,7 @@ fixSongCache path = do
         let numericID = case D.songId $ dtaSongPackage single of
               Just (Left nid) -> Just $ fromIntegral nid
               _               -> Nothing
-        case [ fe_SongID fe | fe <- sc_Files cache, fe_Name fe == name, fe_Mystery fe == i ] of
+        case concat [ take 1 $ drop i $ fe_SongIDs fe | fe <- sc_Files cache, fe_Name fe == name ] of
           [] -> case numericID of
             Just nid -> checkSongID name nid single cache
             Nothing  -> return cache -- non-numeric ID, no generated ID, nothing to do
@@ -368,8 +366,11 @@ fixSongCache path = do
                 checkSongID name nid single cache
                   { sc_Files = flip map (sc_Files cache) $ \fe ->
                     -- replace the existing numeric ID with a new one
-                    if fe_Name fe == name && fe_Mystery fe == i
-                      then fe { fe_SongID = nid }
+                    if fe_Name fe == name
+                      then fe
+                        { fe_SongIDs = flip map (zip [0..] $ fe_SongIDs fe) $ \(j, origID) ->
+                          if i == j then nid else origID
+                        }
                       else fe
                   }
             Nothing -> checkSongID name cid single cache -- keep the generated ID
@@ -405,3 +406,95 @@ fixSongCache path = do
           { folderSubfolders = []
           , folderFiles = [("songcache", runPut $ void $ codecOut bin newCache)]
           } path
+
+hardcodeSongCacheIDs :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> StackTraceT m ()
+hardcodeSongCacheIDs pathCache pathCONs = do
+  mcache <- stackIO $ getSTFSFolder pathCache >>= findByteString (pure "songcache")
+  cache <- case mcache of
+    Nothing -> fatal "Couldn't find song cache file inside STFS"
+    Just bs -> case runGetOrFail (codecIn bin) bs of
+      Left  (_, _, err  ) -> fatal $ "Couldn't parse song cache file: " <> err
+      Right (_, _, cache) -> return (cache :: SongCache)
+  cons <- stackIO $ filter (/= "songcache") <$> listDirectory pathCONs
+  forM_ cons $ \pathCON -> inside pathCON $ errorToWarning $ do
+    let fullPathCON = pathCONs </> pathCON
+    hdrMeta <- errorToEither $ stackIO $ withSTFSPackage fullPathCON $ \pkg ->
+      return (stfsHeader pkg, stfsMetadata pkg)
+    case hdrMeta of
+      Right (CON _, meta) -> do
+        topFolder <- stackIO $ getSTFSFolder fullPathCON
+        dtaBS <- stackIO (findByteString ("songs" :| pure "songs.dta") topFolder) >>= \case
+          Nothing -> fatal "Couldn't find songs/songs.dta in the CON file"
+          Just bs -> return bs
+        songs <- fmap (map fst) $ readDTASingles $ BL.toStrict dtaBS
+        songs' <- forM (zip ([0..] :: [Int]) songs) $ \(i, single) -> let
+          logLabel = pathCON <> " (" <> show i <> ")"
+          insertID newID = single
+            { dtaSongPackage = (dtaSongPackage single) { D.songId = Just $ Left $ fromIntegral newID }
+            }
+          in case D.songId $ dtaSongPackage single of
+            Just (Left n) -> do
+              lg $ logLabel <> ": already has number ID " <> show n
+              return single
+            _ -> case concat [ take 1 $ drop i $ fe_SongIDs fe | fe <- sc_Files cache, fe_Name fe == T.pack pathCON ] of
+              cid : _ -> do
+                lg $ logLabel <> ": found filename cache ID " <> show cid
+                return $ insertID cid
+              [] -> let
+                entryIDs = nubOrd $ do
+                  se <- sc_Songs cache
+                  guard $ se_Title se == D.name (dtaSongPackage single)
+                  guard $ Just (se_Artist se) == D.artist (dtaSongPackage single)
+                  return $ se_SongID se
+                fileForID cid = maybe "(no filename found)" show $ listToMaybe $ do
+                  fe <- sc_Files cache
+                  guard $ elem cid $ fe_SongIDs fe
+                  return $ fe_Name fe
+                in case entryIDs of
+                  [] -> do
+                    lg $ logLabel <> ": couldn't find matching ID"
+                    return single
+                  [cid] -> do
+                    lg $ logLabel <> ": matched title/artist to ID " <> show cid <> " with previous filename " <> fileForID cid
+                    return $ insertID cid
+                  cids -> do
+                    lg $ logLabel <> ": found multiple matches for title/artist. To select an ID, rename to one of these choices:"
+                    forM_ cids $ \cid -> do
+                      lg $ "  * " <> fileForID cid <> " (" <> show cid <> ")"
+                    return single
+        when (songs /= songs') $ let
+          songsUTF8 = flip map songs' $ \single -> single
+            { dtaSongPackage = (dtaSongPackage single) { D.encoding = Just "utf8" }
+            }
+          newDTABytes = TE.encodeUtf8 $ T.unlines $ map writeDTASingle songsUTF8
+          updateFolder folder = do
+            newFiles <- forM (folderFiles folder) $ \(name, readable) -> do
+              bs <- if name == "songs.dta"
+                then return $ BL.fromStrict newDTABytes
+                else useHandle readable handleToByteString
+              return (name, bs)
+            newSubs <- forM (folderSubfolders folder) $ \(name, sub) -> do
+              sub' <- updateFolder sub
+              return (name, sub')
+            return Folder
+              { folderFiles = newFiles
+              , folderSubfolders = newSubs
+              }
+          opts = CreateOptions
+            { createName          = head $ md_DisplayName meta
+            , createDescription   = head $ md_DisplayDescription meta
+            , createTitleID       = md_TitleID meta
+            , createTitleName     = md_TitleName meta
+            , createThumb         = md_ThumbnailImage meta
+            , createTitleThumb    = md_TitleThumbnailImage meta
+            , createLicense       = LicenseEntry (-1) 1 0 -- unlocked
+            , createMediaID       = 0
+            , createVersion       = 0
+            , createBaseVersion   = 0
+            , createTransferFlags = 0xC0
+            , createLIVE          = False
+            }
+          in stackIO $ do
+            topFolder' <- updateFolder topFolder
+            makeCONMemory opts topFolder' fullPathCON
+      _ -> warn "Does not appear to be a CON file"
