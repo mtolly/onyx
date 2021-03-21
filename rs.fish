@@ -36,6 +36,7 @@ end
 # build songs/opeth/windowpane
 # build songs/dream-theater/a-rite-of-passage # needs 4-string
 # build songs/dream-theater/6-00 # needs 4-string
+# build songs-others/moochalacho/camel-dancefloor # needs 4-string
 
 # phrases not done:
 
@@ -49,7 +50,7 @@ end
 # build songs-others/boo/1985 # needs 4-string
 # build songs-others/mazegeek999/beyond-this-life # needs 4-string (and 5-string)
 # build songs/jethro-tull/thick-as-a-brick-pt-1
-build songs/jethro-tull/thick-as-a-brick-pt-2
+# build songs/jethro-tull/thick-as-a-brick-pt-2
 # build songs/trioscapes/blast-off # needs 4-string
 # build songs-grinnz/between-the-buried-and-me/mirrors # needs 4-string
 # build songs-grinnz/between-the-buried-and-me/obfuscation # needs 4-string
@@ -64,6 +65,8 @@ build songs/jethro-tull/thick-as-a-brick-pt-2
 # build songs-others/dragontaser/the-least-333-seconds
 # build songs-hmx/slipknot/pulse-of-the-maggots
 # build songs-others/bloodline/goliath
+# build songs-others/moochalacho/musette-maximum # needs 4-string
+build songs-grinnz/dream-theater/the-ytse-jam
 
 # phrases unknown:
 
