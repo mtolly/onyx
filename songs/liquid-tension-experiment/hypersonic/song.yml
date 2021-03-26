@@ -1,0 +1,43 @@
+metadata:
+  title: Hypersonic
+  artist: Liquid Tension Experiment
+  album: Liquid Tension Experiment 3
+  track-number: 1
+  year: 2021
+  author: Onyxite
+  genre: metal
+  subgenre: prog
+  file-album-art: ../the-passage-of-time/cover.jpg
+  preview-start: prc_verse_2
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube OSNVo6bZGUs 140
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
+    song:
+      pad: [3.266, youtube]
+parts:
+  drums:
+    drums:
+      kicks: both
+      mode: full
+      difficulty: 7
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

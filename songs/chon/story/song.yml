@@ -1,0 +1,25 @@
+metadata:
+  title: Story
+  artist: CHON
+  year: 2015
+  track-number: 2
+  author: Onyxite
+  genre: prog
+  subgenre: progrock
+  album: Grow
+  file-album-art: ../../../covers/grow.jpg
+  preview-start: prc_verse_2
+parts:
+  drums:
+    drums:
+      kicks: 1
+      mode: full
+      difficulty: 6
+audio:
+  album-track:
+    md5: 8badfedc6c4b41983afc6e502419e5d1
+    frames: 10160913
+plans:
+  album:
+    song:
+      pad: [3.026, album-track]

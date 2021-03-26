@@ -67,6 +67,7 @@ end
 # build songs-others/bloodline/goliath
 # build songs-others/moochalacho/musette-maximum # needs 4-string
 build songs-grinnz/dream-theater/the-ytse-jam
+build songs-others/xane60/still-loving-you
 
 # phrases unknown:
 

@@ -42,11 +42,13 @@ instance StackChunks DrumSounds where
 
 channelList :: (SendMessage m) => ChunksCodec m [Integer]
 channelList = Codec
-  { codecOut = codecOut fmt
-  , codecIn = codecIn fmt <|> fmap (: []) (codecIn fmt')
+  { codecOut = codecOut fmt1
+  , codecIn = codecIn fmt1 <|> fmap (: []) (codecIn fmt2) <|> codecIn fmt3
     <|> expected "a number or a list of numbers"
-  } where fmt  = chunksParens (stackChunks :: (SendMessage m) => ChunksCodec m [Integer])
-          fmt' = stackChunks :: (SendMessage m) => ChunksCodec m Integer
+  } where fmt1 = chunksParens (stackChunks :: (SendMessage m) => ChunksCodec m [Integer])
+          fmt2 = stackChunks :: (SendMessage m) => ChunksCodec m Integer
+          -- this format (multiple numbers with no parens) seen in GH80s 2007-05-18 prototype
+          fmt3 = stackChunks :: (SendMessage m) => ChunksCodec m [Integer]
 
 data Song = Song
   -- rbn2 keys in c3 magma order:

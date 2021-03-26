@@ -2,17 +2,13 @@ parts:
   bass:
     pro-guitar:
       tuning:
-        base: bass-4
-        global: -1 # Eb standard
-      tones:
-        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+        base: bass-5 # album version might have been 4-string? playthrough uses B string though
   drums:
     drums:
       fix-freeform: false
       difficulty:
-        tier: 7
+        tier: 6
       kicks: 2
-      mode: full
 plans:
   mogg:
     parts:
@@ -25,38 +21,32 @@ plans:
     - -1
     - 1
     karaoke: false
-    mogg-md5: da0ec5e4938b1527170cceaf33a9bb1d
     multitrack: false
     vols:
     - 0
     - 0
     - 0
     - 0
+    file-mogg: audio.mogg
 targets:
   rb3-2x:
-    song-id: stilllovingyouidx1
+    song-id: 2057704226
     game: rb3
     2x-bass-pedal: true
-  rs:
-    game: rs
-    arrangements:
-    - [bass, bass]
 metadata:
-  preview-start: 30
+  preview-start: 1:53.000
   expert-only: true
   file-album-art: cover.png_xbox
   languages:
   - English
-  track-number: 5
-  album: Resurrection
-  year: 2010
+  track-number: 4
+  album: Rebirth
+  year: 2001
   subgenre: power
-  author: Xane60, Onyxite
-  title: Still Loving You
-  preview-end: 1:00.000
+  author: Xane60
+  title: Acid Rain
+  preview-end: 2:23.000
   genre: metal
   difficulty:
     tier: 1
-  artist: Galneryus
-global:
-  anim-tempo: 32
+  artist: Angra

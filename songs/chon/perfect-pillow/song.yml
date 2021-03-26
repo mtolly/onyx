@@ -1,0 +1,25 @@
+metadata:
+  title: Perfect Pillow
+  artist: CHON
+  year: 2015
+  track-number: 10
+  author: Onyxite
+  genre: prog
+  subgenre: progrock
+  album: Grow
+  file-album-art: ../../../covers/grow.jpg
+  preview-start: prc_intro_b
+parts:
+  drums:
+    drums:
+      kicks: 1
+      mode: full
+      difficulty: 6
+audio:
+  album-track:
+    md5: dd14c0e869a06798a8b82ce9f176cfcc
+    frames: 9508848
+plans:
+  album:
+    song:
+      pad: [3.878, album-track]

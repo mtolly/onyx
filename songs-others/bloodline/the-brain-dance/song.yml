@@ -1,18 +1,19 @@
 parts:
+  vocal: {}
   bass:
     pro-guitar:
       tuning:
-        base: bass-4
-        global: -1 # Eb standard
-      tones:
-        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+        # F# B E A D G
+        base: bass-6
+        global: -5
+  guitar: {}
+  keys: {}
   drums:
     drums:
       fix-freeform: false
       difficulty:
         tier: 7
       kicks: 2
-      mode: full
 plans:
   mogg:
     parts:
@@ -24,39 +25,45 @@ plans:
     - 1
     - -1
     - 1
+    - -2.5
+    - 2.5
     karaoke: false
-    mogg-md5: da0ec5e4938b1527170cceaf33a9bb1d
     multitrack: false
+    crowd:
+    - 4
+    - 5
     vols:
     - 0
     - 0
     - 0
     - 0
+    - -5
+    - -5
+    file-mogg: audio.mogg
 targets:
   rb3-2x:
-    song-id: stilllovingyouidx1
+    song-id: 1681600961
     game: rb3
     2x-bass-pedal: true
-  rs:
-    game: rs
-    arrangements:
-    - [bass, bass]
+    label: (B)
 metadata:
-  preview-start: 30
+  rating: Family Friendly
+  preview-start: 3:05.000
   expert-only: true
   file-album-art: cover.png_xbox
   languages:
   - English
-  track-number: 5
-  album: Resurrection
-  year: 2010
-  subgenre: power
-  author: Xane60, Onyxite
-  title: Still Loving You
-  preview-end: 1:00.000
+  track-number: 9
+  album: The Madness of Many
+  year: 2016
+  subgenre: prog
+  author: Bloodline
+  title: The Brain Dance
+  preview-end: 3:35.000
   genre: metal
   difficulty:
-    tier: 1
-  artist: Galneryus
+    tier: 7
+  artist: Animals as Leaders
 global:
+  autogen-theme: null
   anim-tempo: 32
