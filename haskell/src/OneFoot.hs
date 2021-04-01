@@ -48,7 +48,7 @@ assignFeet timeX timeY = RTB.fromPairList . rule4 . rule3 . rule2 . RTB.toPairLi
 phaseShiftKicks :: U.Seconds -> U.Seconds -> DrumTrack U.Seconds -> DrumTrack U.Seconds
 phaseShiftKicks tx ty dt = let
   kicks = RTB.merge
-    (RTB.mapMaybe (\case Kick -> Just RH; _ -> Nothing)
+    (RTB.mapMaybe (\case (Kick, _) -> Just RH; _ -> Nothing)
       $ drumGems $ fromMaybe mempty $ Map.lookup Expert $ drumDifficulties dt)
     (fmap (const LH) $ drumKick2x dt)
   in if LH `elem` kicks
@@ -56,13 +56,13 @@ phaseShiftKicks tx ty dt = let
     else let
       auto = assignFeet tx ty kicks
       lf = RTB.mapMaybe (\case LH -> Just (); RH -> Nothing) auto
-      rf = RTB.mapMaybe (\case LH -> Nothing; RH -> Just Kick) auto
+      rf = RTB.mapMaybe (\case LH -> Nothing; RH -> Just (Kick, VelocityNormal)) auto
       in dt
         { drumKick2x = lf
         , drumDifficulties = flip Map.mapWithKey (drumDifficulties dt) $ \diff dd ->
           case diff of
             Expert -> dd
-              { drumGems = RTB.merge rf $ RTB.filter (\case Kick -> False; _ -> True) $ drumGems dd
+              { drumGems = RTB.merge rf $ RTB.filter (\case (Kick, _) -> False; _ -> True) $ drumGems dd
               }
             _ -> dd
         }
@@ -81,7 +81,7 @@ rockBand2x dt = dt
           $ fmap nubOrd -- this is in case you have 95 + 96 kicks simultaneously
           $ RTB.collectCoincident
           $ RTB.merge (drumGems dd)
-          $ fmap (const Kick)
+          $ fmap (const (Kick, VelocityNormal))
           $ drumKick2x dt
         }
       _ -> dd

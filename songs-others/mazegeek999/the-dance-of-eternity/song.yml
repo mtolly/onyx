@@ -1,0 +1,76 @@
+parts:
+  bass:
+    grybo: # mazegeek999
+      fix-freeform: false
+      difficulty:
+        tier: 7
+    pro-guitar: # onyxite - WIP
+      tuning:
+        base: bass-6
+      tones: # TODO replace with fuzz tone
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  guitar: # mazegeek999
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  keys: # mazegeek999
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  drums: # grinnz
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: 2
+jammit:
+  jammit-track: {}
+plans:
+  jammit-simple:
+    parts:
+      bass:
+        pad: [2.664, only: [Bass, jammit-track]]
+    song:
+      pad: [2.664, without: [bass, jammit-track]]
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      keys: [6, 7]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    karaoke: false
+    multitrack: false
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    file-mogg: audio.mogg
+targets:
+  rb3-2x:
+    song-id: TheDanceofEternityV252xv25
+    game: rb3
+    2x-bass-pedal: true
+    plan: mogg
+metadata:
+  rating: Family Friendly
+  preview-start: 2:30.000
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 9
+  album: 'Metropolis, Pt. 2: Scenes from a Memory'
+  year: 1999
+  subgenre: progrock
+  author: mazegeek999, Grinnz, Onyxite
+  title: The Dance of Eternity
+  preview-end: 3:00.000
+  genre: prog
+  difficulty:
+    tier: 7
+  artist: Dream Theater
+global:
+  anim-tempo: 32

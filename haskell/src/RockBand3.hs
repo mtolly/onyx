@@ -256,6 +256,7 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
     autoAnims
       = U.unapplyTempoTrack tempos
       $ autoDrumAnimation (0.25 :: U.Seconds)
+      $ fmap fst
       $ U.applyTempoTrack tempos
       $ computePro (Just Expert) ps1x
     addAnims dt = if RTB.null $ drumAnimation dt
@@ -437,7 +438,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         , eventsSections   = eventsSections eventsInput
         , eventsBacking    = if RTB.null (eventsBacking eventsInput) && not (nullDrums drumsTrack)
           then let
-            makeBacking evts = nubOrd $ flip map evts $ \case
+            makeBacking evts = nubOrd $ flip map evts $ \(gem, _vel) -> case gem of
               RBDrums.Kick                 -> BackingKick
               RBDrums.Red                  -> BackingSnare
               RBDrums.Pro _ RBDrums.Cymbal -> BackingHihat
@@ -998,9 +999,9 @@ findProblems song = execWriter $ do
         Just ((_, evts), _) | any isDiscoGem evts -> True
         _                                         -> False
       isDiscoGem = \case
-        RBDrums.Red -> True
-        RBDrums.Pro RBDrums.Yellow _ -> True
-        _ -> False
+        (RBDrums.Red                 , _) -> True
+        (RBDrums.Pro RBDrums.Yellow _, _) -> True
+        _                                 -> False
   -- Don't have a vocal phrase that ends simultaneous with a lyric event.
   -- In static vocals, this puts the lyric in the wrong phrase.
   let vox = RBVox.vocalToLegacy $ RBFile.onyxPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song

@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TupleSections     #-}
 module FeedBack.Load where
 
 import           Control.Monad                    (guard, void)
@@ -186,6 +187,7 @@ data TrackEvent t a
   | TrackP1 t
   | TrackP2 t
   | TrackOD t
+  | TrackActivation t
   | TrackSolo Bool
   deriving (Eq, Ord, Show, Functor, Foldable)
 
@@ -222,6 +224,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
             0 -> return $ Just $ TrackP1 len'
             1 -> return $ Just $ TrackP2 len'
             2 -> return $ Just $ TrackOD len'
+            64 -> return $ Just $ TrackActivation len'
             _ -> do
               warn $ "Unrecognized special type: S " <> show n <> " " <> show len
               return Nothing
@@ -327,6 +330,8 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
         return (mempty :: D.DrumTrack U.Beats)
           { D.drumOverdrive = U.trackJoin $ flip fmap expert
             $ \case TrackOD t -> lengthToBools t; _ -> RTB.empty
+          , D.drumActivation = U.trackJoin $ flip fmap expert
+            $ \case TrackActivation t -> lengthToBools t; _ -> RTB.empty
           , D.drumSolo = flip RTB.mapMaybe expert
             $ \case TrackSolo b -> Just b; _ -> Nothing
           , D.drumPlayer1 = U.trackJoin $ flip fmap expert
@@ -337,7 +342,8 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
           , D.drumDifficulties = flip fmap diffs $ \parsed -> D.DrumDifficulty
             { drumMix         = RTB.empty
             , drumPSModifiers = RTB.empty
-            , drumGems        = RTB.flatten $ toList <$> parsed
+            -- TODO implement velocity format whenever that exists
+            , drumGems        = fmap (, D.VelocityNormal) $ RTB.flatten $ toList <$> parsed
             }
           -- TODO this doesn't handle cymbal markers on E/M/H since .mid can't separate them by difficulty
           , D.drumToms = if any (\case TrackCymbal _ -> True; _ -> False) expert

@@ -2,12 +2,11 @@
 {-# LANGUAGE TupleSections #-}
 module Reductions (gryboComplete, pkReduce, drumsComplete, protarComplete, simpleReduce) where
 
-import           Control.Monad                    (guard)
+import           Control.Monad                    (guard, void)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Functor                     (($>))
 import           Data.List                        (nub, sort, sortOn)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isNothing)
@@ -349,7 +348,7 @@ drumsComplete
   -> D.DrumTrack U.Beats
 drumsComplete mmap sections trk = let
   od       = D.drumOverdrive trk
-  getPro d = D.computePro (Just d) trk
+  getPro d = fmap fst $ D.computePro (Just d) trk
   getRaw d = fromMaybe mempty $ Map.lookup d $ D.drumDifficulties trk
   reduceStep diff source = let
     raw = getRaw diff
@@ -362,7 +361,7 @@ drumsComplete mmap sections trk = let
   (hardRaw  , hard  ) = reduceStep Hard   expert
   (mediumRaw, _     ) = reduceStep Medium hard
   (easyRaw  , _     ) = reduceStep Easy   hard -- we want kicks that medium might've removed
-  proToDiff pro = mempty { D.drumGems = fmap ($> ()) pro }
+  proToDiff pro = mempty { D.drumGems = fmap (\gem -> (void gem, D.VelocityNormal)) pro }
   in trk
     { D.drumDifficulties = Map.fromList
       [ (Easy  , easyRaw  )

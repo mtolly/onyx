@@ -2,34 +2,51 @@ metadata:
   title: Work Shit Out
   artist: Dirty Loops
   author: Onyxite
-  year: 2019
+  year: 2020
   genre: fusion
   subgenre: fusion
   file-album-art: cover.jpg
   difficulty: 7
   key: D minor
-  preview-start: '1:14.900' # just before prc_verse_2
+  preview-start: '1:11.590' # just before prc_verse_2
   rating: SR
+  album: Phoenix
+  track-number: 2
 audio:
-  youtube:
-    file-path: audio-youtube.wav
-    commands:
-    - ../../../scripts/youtube r_GTgpdoCh0 140
+  album-track:
+    md5: 300e53829176ae7a0dac1baaaf8b6b06
+    frames: 20675298
+  # youtube:
+  #   file-path: audio-youtube.wav
+  #   commands:
+  #   - ../../../scripts/youtube r_GTgpdoCh0 140
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:
-      2|0: hihat
-      2|2: hihat
-      3|0: hihat
-      3|1: hihat
-      3|2: hihat
-      3|3: hihat
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad:
-      - 0.804
-      - youtube
+      - 2.889
+      - album-track
+  # youtube:
+  #   countin:
+  #     2|0: hihat
+  #     2|2: hihat
+  #     3|0: hihat
+  #     3|1: hihat
+  #     3|2: hihat
+  #     3|3: hihat
+  #   song:
+  #     pad:
+  #     - 0.804
+  #     - youtube
 parts:
   drums:
     drums:

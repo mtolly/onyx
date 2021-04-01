@@ -1,0 +1,96 @@
+parts:
+  vocal: # mazegeek999
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        tier: 6
+  bass:
+    grybo: # mazegeek999
+      fix-freeform: false
+      difficulty:
+        tier: 7
+    pro-guitar: # onyxite
+      tuning:
+        base: bass-6
+      tones:
+        # TODO replace with fuzz tone
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  guitar: # mazegeek999
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  keys: # mazegeek999
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: 2
+jammit:
+  jammit-track:
+    title: "Through My Words_Fatal Tragedy"
+plans:
+  # TODO full jammit with other instruments
+  jammit-simple:
+    # TODO countin
+    parts:
+      bass:
+        drop: ['1:17.790', only: [Bass, jammit-track]]
+    song:
+      fade:
+      - start
+      - 3.884
+      - drop: ['1:17.790', without: [bass, jammit-track]]
+  mogg:
+    parts:
+      vocal: [6, 7]
+      bass: [2, 3]
+      guitar: [4, 5]
+      keys: [8, 9]
+      drums: [0, 1]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    karaoke: false
+    multitrack: false
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    file-mogg: audio.mogg
+targets:
+  rb3-2x:
+    song-id: FatalTragedyV162xv16
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    2x-bass-pedal: true
+    plan: mogg
+  rs:
+    game: rs
+    plan: jammit-simple
+    arrangements:
+    - [bonus-rhythm, bass]
+metadata:
+  rating: Supervision Recommended
+  preview-start: 52
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 5
+  album: 'Metropolis, Pt. 2: Scenes from a Memory'
+  year: 1999
+  subgenre: progrock
+  author: mazegeek999, Grinnz, Onyxite
+  title: Fatal Tragedy
+  preview-end: 1:22.000
+  genre: prog
+  difficulty:
+    tier: 7
+  artist: Dream Theater
+global:
+  anim-tempo: 32

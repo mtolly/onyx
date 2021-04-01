@@ -184,3 +184,32 @@ makeGH2DTA song preview target = D.SongPackage
       , D.midiFile = "songs/$SONGKEY/$SONGKEY.mid"
       , D.hopoThreshold = Nothing
       }
+
+makeGH2DTA360 :: SongYaml f -> (Int, Int) -> TargetGH2 -> D.SongPackage
+makeGH2DTA360 song preview target = D.SongPackage
+  { D.name = getTitle $ _metadata song
+  , D.artist = getArtist $ _metadata song
+  , D.caption = guard (not $ _cover $ _metadata song) >> Just "performed_by"
+  , D.song = D.Song
+    { D.songName      = "songs/" <> key <> "/" <> key
+    , D.tracks        = HM.fromList [("guitar", [2, 3]), (coop, [4, 5])]
+    , D.pans          = [-1, 1, -1, 1, -1, 1]
+    , D.vols          = [0, 0, 0, 0, 0, 0]
+    , D.cores         = [-1, -1, 1, 1, -1, -1]
+    , D.midiFile      = "songs/" <> key <> "/" <> key <> ".mid"
+    , D.hopoThreshold = Nothing
+    }
+  , D.animTempo = KTempoMedium
+  , D.preview = bimap fromIntegral fromIntegral preview
+  , D.quickplay = gh2_Quickplay target
+  , D.practiceSpeeds = Nothing
+  , D.songCoop = Nothing
+  , D.songPractice1 = Nothing
+  , D.songPractice2 = Nothing
+  , D.songPractice3 = Nothing
+  , D.band = Nothing -- TODO
+  } where
+    coop = case gh2_Coop target of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
+    key = case gh2_Key target of
+      Nothing -> error "makeGH2DTA360: no top key given for GH2 target"
+      Just k  -> k

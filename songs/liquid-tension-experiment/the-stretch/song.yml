@@ -4,6 +4,7 @@ metadata:
   track-number: 4
   rating: Family Friendly
   author: Onyxite
+  preview-start: prc_synth_solo
 audio:
   album-prev: # Kindred Spirits
     md5: a7d421dbe4377c9270246bcebca1bb0a
@@ -30,6 +31,7 @@ parts:
   drums:
     drums:
       kicks: 1
+      difficulty: 2
 targets:
   rb3:
     game: rb3

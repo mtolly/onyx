@@ -5,12 +5,14 @@
 {-# LANGUAGE MultiWayIf         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE TupleSections      #-}
 module RockBand.Codec.FullDrums where
 
 import           Control.Monad                    (guard, void, when)
 import           Control.Monad.Codec
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer       (execWriter, tell)
+import           Data.Bifunctor                   (first)
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
@@ -21,6 +23,7 @@ import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
+import           RockBand.Codec.Drums             (DrumVelocity (..))
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Common
 import qualified Sound.MIDI.Util                  as U
@@ -42,7 +45,7 @@ instance TraverseTrack FullDrumTrack where
     <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g
 
 data FullDrumDifficulty t = FullDrumDifficulty
-  { fdGems :: RTB.T t (FullGem, FullGemType, FullVelocity)
+  { fdGems :: RTB.T t (FullGem, FullGemType, DrumVelocity)
   , fdFlam :: RTB.T t ()
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (FullDrumDifficulty t)
@@ -69,12 +72,6 @@ data FullGemType
   | GemHihatClosed
   | GemCymbalChoke
   | GemRim
-  deriving (Eq, Ord, Show, Enum, Bounded)
-
-data FullVelocity
-  = VelocityGhost
-  | VelocityNormal
-  | VelocityAccent
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance ParseTrack FullDrumTrack where
@@ -191,7 +188,7 @@ data MergedEvent n1 n2
   | MergedFlam
   deriving (Eq, Ord)
 
-getDifficulty :: (NNC.C t) => Maybe Difficulty -> FullDrumTrack t -> RTB.T t (FullGem, FullGemType, FullVelocity, Bool)
+getDifficulty :: (NNC.C t) => Maybe Difficulty -> FullDrumTrack t -> RTB.T t (FullGem, FullGemType, DrumVelocity, Bool)
 getDifficulty diff trk = let
   base = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) $ fdDifficulties trk
   events = foldr RTB.merge RTB.empty
@@ -220,8 +217,14 @@ data CymbalInstant lc rd = CymbalInstant
   , instantRC :: Bool -- always green
   } deriving (Show)
 
-placeCymbals :: (NNC.C t) => RTB.T t (FullGem, FullGemType) -> RTB.T t D.RealDrum
-placeCymbals = RTB.flatten . fmap emitCymbals . assignFull . RTB.filter hasCymbals . fmap makeInstant . RTB.collectCoincident where
+placeCymbals :: (NNC.C t) => RTB.T t (FullGem, FullGemType, DrumVelocity) -> RTB.T t (D.RealDrum, DrumVelocity)
+placeCymbals
+  -- TODO actually preserve the velocities
+  = fmap (, VelocityNormal)
+  . RTB.flatten . fmap emitCymbals . assignFull . RTB.filter hasCymbals . fmap makeInstant . RTB.collectCoincident
+  . fmap (\(gem, gtype, _vel) -> (gem, gtype))
+  where
+
   makeInstant notes = CymbalInstant
     { instantHH = if
       | elem (Hihat, GemHihatClosed) notes -> Just $ Left D.HHSizzle
@@ -298,7 +301,7 @@ placeCymbals = RTB.flatten . fmap emitCymbals . assignFull . RTB.filter hasCymba
     , guard (instantRC now) >> Just (Right $ D.Pro D.Green D.Cymbal)
     ]
 
-placeToms :: (NNC.C t) => RTB.T t D.RealDrum -> RTB.T t (FullGem, FullGemType) -> RTB.T t D.RealDrum
+placeToms :: (NNC.C t) => RTB.T t (D.RealDrum, DrumVelocity) -> RTB.T t (FullGem, FullGemType, DrumVelocity) -> RTB.T t (D.RealDrum, DrumVelocity)
 placeToms cymbals notes = let
   basicGem = \case
     Left D.Rimshot -> D.Red
@@ -316,39 +319,45 @@ placeToms cymbals notes = let
       add Tom1 $ map (\c -> Right $ D.Pro c D.Tom) [D.Yellow, D.Blue, D.Green]
       add Tom2 $ map (\c -> Right $ D.Pro c D.Tom) [D.Blue, D.Yellow, D.Green]
       add Tom3 $ map (\c -> Right $ D.Pro c D.Tom) [D.Green, D.Blue, D.Yellow]
-  in RTB.flatten $ fmap tomsInstant $ RTB.collectCoincident $ RTB.merge (Left <$> cymbals) (Right <$> notes)
+  -- TODO actually preserve the velocities
+  in fmap (, VelocityNormal)
+    $ RTB.flatten $ fmap tomsInstant $ RTB.collectCoincident $ RTB.merge
+      (Left . fst <$> cymbals)
+      (Right . (\(gem, gtype, _vel) -> (gem, gtype)) <$> notes)
 
-splitFlams :: (NNC.C t) => RTB.T t (FullGem, FullGemType, FullVelocity, Bool) -> RTB.T t (FullGem, FullGemType)
-splitFlams = fmap (\(g, t, _, _) -> (g, t)) -- TODO
+splitFlams :: (NNC.C t) => RTB.T t (FullGem, FullGemType, DrumVelocity, Bool) -> RTB.T t (FullGem, FullGemType, DrumVelocity)
+splitFlams = fmap (\(g, t, vel, _) -> (g, t, vel)) -- TODO
 
-fullDrumsToPS :: (NNC.C t) => RTB.T t (FullGem, FullGemType, FullVelocity, Bool) -> RTB.T t D.RealDrum
+fullDrumsToPS :: (NNC.C t) => RTB.T t (FullGem, FullGemType, DrumVelocity, Bool) -> RTB.T t (D.RealDrum, DrumVelocity)
 fullDrumsToPS input = let
   notes = splitFlams input
   cymbals = placeCymbals notes
   kicksSnares = flip RTB.mapMaybe notes $ \case
-    (Kick , _) -> Just $ Right D.Kick
-    (Snare, _) -> Just $ Right D.Red
-    _          -> Nothing
+    (Kick , _, vel) -> Just (Right D.Kick, vel)
+    (Snare, _, vel) -> Just (Right D.Red , vel)
+    _               -> Nothing
   toms = placeToms cymbals notes
   in RTB.merge cymbals $ RTB.merge kicksSnares toms
 
-fullDrumsToRB :: (NNC.C t) => RTB.T t (FullGem, FullGemType, FullVelocity, Bool) -> RTB.T t (D.Gem D.ProType)
+fullDrumsToRB :: (NNC.C t) => RTB.T t (FullGem, FullGemType, DrumVelocity, Bool) -> RTB.T t (D.Gem D.ProType, DrumVelocity)
 fullDrumsToRB gems = let
   real = fullDrumsToPS $ RTB.filter (\case (HihatFoot, _, _, _) -> False; _ -> True) gems
-  in flip fmap real $ \case
-    Left ps -> case ps of
-      D.Rimshot  -> D.Red
-      D.HHOpen   -> D.Pro D.Yellow D.Cymbal
-      D.HHSizzle -> D.Pro D.Yellow D.Cymbal
-      D.HHPedal  -> D.Pro D.Yellow D.Cymbal
-    Right rb -> rb
+  in flip fmap real $ \(gem, vel) -> let
+    gem' = case gem of
+      Left ps -> case ps of
+        D.Rimshot  -> D.Red
+        D.HHOpen   -> D.Pro D.Yellow D.Cymbal
+        D.HHSizzle -> D.Pro D.Yellow D.Cymbal
+        D.HHPedal  -> D.Pro D.Yellow D.Cymbal
+      Right rb -> rb
+    in (gem', vel)
 
 convertFullDrums :: Bool -> FullDrumTrack U.Beats -> D.DrumTrack U.Beats
 convertFullDrums isPS trk = let
   expert = getDifficulty (Just Expert) trk
   encoded = D.encodePSReal (1/32) Expert $ if isPS
     then fullDrumsToPS expert
-    else fmap Right $ fullDrumsToRB expert
+    else fmap (first Right) $ fullDrumsToRB expert
   in encoded
     { D.drumOverdrive  = fdOverdrive trk
     , D.drumActivation = fdActivation trk

@@ -46,28 +46,37 @@ plans:
       6|3: hihat
     song:
       pad: [2.086, album-track]
-  # deluxe:
-  #   # TODO: mix
-  #   #   beginning: no thunderstorm
-  #   #   14:32 - 14:47: 2nd keyboard part (the one playing 16th notes) is missing
-  #   parts:
-  #     drums:
-  #       pad:
-  #         - 28.173
-  #         - deluxe-drum
-  #   song:
-  #     pad:
-  #       - 28.173
-  #       - gain:
-  #         - 0.5
-  #         - mix:
-  #           - deluxe-bass
-  #           - deluxe-guitar
-  #           - deluxe-keys
-  #           - deluxe-solo
-  #           - deluxe-vocal
-  #   comments:
-  #   - "Stems from the deluxe edition of Black Clouds & Silver Linings."
+  deluxe:
+    # TODO: mix
+    #   beginning: no thunderstorm
+    #   14:32 - 14:47: 2nd keyboard part (the one playing 16th notes) is missing
+    parts:
+      drums:
+        pad:
+          - 28.173
+          - deluxe-drum
+      bass:
+        pad:
+          - 28.173
+          - gain: [0.5, deluxe-bass]
+      todo-guitar:
+        pad:
+          - 28.173
+          - gain: [0.5, deluxe-guitar]
+      todo-keys:
+        pad:
+          - 28.173
+          - gain: [0.5, deluxe-keys]
+      todo-solo:
+        pad:
+          - 28.173
+          - gain: [0.5, deluxe-solo]
+      vocal:
+        pad:
+          - 28.173
+          - gain: [0.5, deluxe-vocal]
+    comments:
+    - "Stems from the deluxe edition of Black Clouds & Silver Linings."
 parts:
   drums:
     drums:
@@ -76,3 +85,7 @@ parts:
   keys:
     pro-keys:
       difficulty: 7
+  bass:
+    pro-guitar: # WIP
+      tuning:
+        base: bass-6

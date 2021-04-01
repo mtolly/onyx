@@ -15,6 +15,7 @@ module STFS.Package
 , getSTFSFolder
 , rb3pkg
 , rb2pkg
+, gh2pkg
 , makeCON
 , makeCONMemory
 , CreateOptions(..)
@@ -931,6 +932,24 @@ data CreateOptions = CreateOptions
   , createTransferFlags :: Word8
   , createLIVE          :: Bool -- TODO creating LIVE files doesn't work yet
   }
+
+gh2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
+gh2pkg title desc dir fout = inside "making GH2 LIVE package" $ stackIO $ do
+  thumb <- rb3Thumbnail >>= B.readFile -- TODO replace with GH2 thumbnail
+  makeCON CreateOptions
+    { createName = title
+    , createDescription = desc
+    , createTitleID = 0x415607E7
+    , createTitleName = "Guitar Hero II"
+    , createThumb = thumb
+    , createTitleThumb = thumb
+    , createLicense = LicenseEntry (-1) 1 0 -- unlocked
+    , createMediaID       = 0
+    , createVersion       = 0
+    , createBaseVersion   = 0
+    , createTransferFlags = 0xC0
+    , createLIVE = True
+    } dir fout
 
 rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
 rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ do

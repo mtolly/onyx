@@ -105,7 +105,7 @@ redoSwells
 redoSwells (RBFile.Song tmap mmap ps) = let
   fixTrack trk = let
     notes = RTB.collectCoincident
-      $ RTB.filter (/= RBDrums.Kick) $ drumGems $ fromMaybe mempty
+      $ RTB.filter (\(gem, _vel) -> gem /= RBDrums.Kick) $ drumGems $ fromMaybe mempty
       $ Map.lookup Expert $ drumDifficulties trk
     notesWithLanes = fmap (first $ not . null)
       $ flip applyStatus notes $ RTB.merge
@@ -367,9 +367,9 @@ importFoF src level = do
       swapFiveLaneTrack trk = trk { drumDifficulties = fmap swapFiveLaneDiff $ drumDifficulties trk }
       swapFiveLaneDiff dd = dd
         { drumGems = flip fmap (drumGems dd) $ \case
-          RBDrums.Orange               -> RBDrums.Pro RBDrums.Green ()
-          RBDrums.Pro RBDrums.Green () -> RBDrums.Orange
-          x                            -> x
+          (RBDrums.Orange              , vel) -> (RBDrums.Pro RBDrums.Green (), vel)
+          (RBDrums.Pro RBDrums.Green (), vel) -> (RBDrums.Orange              , vel)
+          x                                   -> x
         }
 
   outputMIDI <- fixShortVoxPhrases $ redoSwells parsed
@@ -499,7 +499,7 @@ importFoF src level = do
           { drumsDifficulty = toTier $ FoF.diffDrums song
           , drumsMode = let
             isFiveLane = FoF.fiveLaneDrums song == Just True || any
-              (\(_, dd) -> RBDrums.Orange `elem` drumGems dd)
+              (\(_, dd) -> any (\(gem, _vel) -> gem == RBDrums.Orange) $ drumGems dd)
               (Map.toList $ drumDifficulties $ RBFile.fixedPartDrums outputFixed)
             isReal = isnt nullDrums RBFile.fixedPartRealDrumsPS
             isPro = case FoF.proDrums song of

@@ -26,6 +26,7 @@ import           DTXMania.DTX
 import           DTXMania.Set
 import           Guitars                          (emit5')
 import           Import.Base
+import           RockBand.Codec.Drums             (DrumVelocity (..))
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Five
@@ -45,17 +46,17 @@ dtxConvertDrums dtx (RBFile.Song tmap mmap onyx) = let
   importFullDrums notes = mempty
     { FD.fdDifficulties = Map.singleton Expert FD.FullDrumDifficulty
       { FD.fdGems = flip RTB.mapMaybe notes $ \case
-        HihatClose -> Just (FD.Hihat    , FD.GemHihatClosed, FD.VelocityNormal)
-        Snare      -> Just (FD.Snare    , FD.GemNormal     , FD.VelocityNormal)
-        BassDrum   -> Just (FD.Kick     , FD.GemNormal     , FD.VelocityNormal)
-        HighTom    -> Just (FD.Tom1     , FD.GemNormal     , FD.VelocityNormal)
-        LowTom     -> Just (FD.Tom2     , FD.GemNormal     , FD.VelocityNormal)
-        Cymbal     -> Just (FD.CrashR   , FD.GemNormal     , FD.VelocityNormal)
-        FloorTom   -> Just (FD.Tom3     , FD.GemNormal     , FD.VelocityNormal)
-        HihatOpen  -> Just (FD.Hihat    , FD.GemHihatOpen  , FD.VelocityNormal)
-        RideCymbal -> Just (FD.Ride     , FD.GemNormal     , FD.VelocityNormal)
-        LeftCymbal -> Just (FD.CrashL   , FD.GemNormal     , FD.VelocityNormal)
-        LeftPedal  -> Just (FD.HihatFoot, FD.GemNormal     , FD.VelocityNormal)
+        HihatClose -> Just (FD.Hihat    , FD.GemHihatClosed, VelocityNormal)
+        Snare      -> Just (FD.Snare    , FD.GemNormal     , VelocityNormal)
+        BassDrum   -> Just (FD.Kick     , FD.GemNormal     , VelocityNormal)
+        HighTom    -> Just (FD.Tom1     , FD.GemNormal     , VelocityNormal)
+        LowTom     -> Just (FD.Tom2     , FD.GemNormal     , VelocityNormal)
+        Cymbal     -> Just (FD.CrashR   , FD.GemNormal     , VelocityNormal)
+        FloorTom   -> Just (FD.Tom3     , FD.GemNormal     , VelocityNormal)
+        HihatOpen  -> Just (FD.Hihat    , FD.GemHihatOpen  , VelocityNormal)
+        RideCymbal -> Just (FD.Ride     , FD.GemNormal     , VelocityNormal)
+        LeftCymbal -> Just (FD.CrashL   , FD.GemNormal     , VelocityNormal)
+        LeftPedal  -> Just (FD.HihatFoot, FD.GemNormal     , VelocityNormal)
         LeftBass   -> Nothing
       , FD.fdFlam = RTB.empty
       }

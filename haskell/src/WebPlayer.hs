@@ -403,7 +403,7 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
     (False, False, Just _ ) -> trk1x
   drumDiff = Map.lookup (fromMaybe Expert diff) $ D.drumDifficulties trk
   nonPro is5 = (if diff == Nothing then RTB.merge $ const D.Kick <$> D.drumKick2x trk else id)
-    $ flip fmap (maybe RTB.empty D.drumGems drumDiff) $ \case
+    $ flip fmap (fmap fst $ maybe RTB.empty D.drumGems drumDiff) $ \case
       D.Kick            -> D.Kick
       D.Red             -> D.Red
       D.Pro D.Yellow () -> D.Pro D.Yellow $ if is5 then D.Cymbal else D.Tom
@@ -413,8 +413,8 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
   notes = fmap sort $ RTB.collectCoincident $ case mode of
     C.Drums4    -> fmap Right $ nonPro False
     C.Drums5    -> fmap Right $ nonPro True
-    C.DrumsPro  -> fmap Right $ D.computePro diff trk
-    C.DrumsReal -> D.computePSReal diff trk
+    C.DrumsPro  -> fmap (Right . fst) $ D.computePro diff trk
+    C.DrumsReal -> fmap fst $ D.computePSReal diff trk
     C.DrumsFull -> mempty -- TODO
   notesS = realTrack tmap notes
   notesB = RTB.normalize notes

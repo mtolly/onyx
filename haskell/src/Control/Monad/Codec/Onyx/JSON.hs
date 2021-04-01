@@ -4,6 +4,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 module Control.Monad.Codec.Onyx.JSON where
 
+import           Control.Applicative            (liftA2)
 import qualified Control.Exception              as Exc
 import           Control.Monad                  (forM, unless)
 import           Control.Monad.Codec
@@ -163,6 +164,19 @@ dict c = Codec
 pattern OneKey :: T.Text -> A.Value -> A.Value
 pattern OneKey k v <- A.Object (HM.toList -> [(k, v)]) where
   OneKey k v = A.Object $ HM.fromList [(k, v)]
+
+pair :: (Monad m) => JSONCodec m a -> JSONCodec m b -> JSONCodec m (a, b)
+pair xf yf = Codec
+  { codecOut = makeOut $ \(x, y) -> toJSON [makeValue' xf x, makeValue' yf y]
+  , codecIn = lift ask >>= \case
+    A.Array (V.toList -> [x, y]) -> liftA2 (,)
+      (inside "first item of a pair"  $ parseFrom x $ codecIn xf)
+      (inside "second item of a pair" $ parseFrom y $ codecIn yf)
+    _ -> expected "exactly 2 chunks"
+  }
+
+instance (StackJSON a, StackJSON b) => StackJSON (a, b) where
+  stackJSON = pair stackJSON stackJSON
 
 -- TODO find a safer way to do this
 fromEmptyObject :: (StackJSON a) => a

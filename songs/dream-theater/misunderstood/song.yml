@@ -10,13 +10,11 @@ audio:
 plans:
   album:
     song:
-      pad: [0, album-track]
+      pad: [7.211, album-track]
 parts:
   drums:
     drums: # WIP
       kicks: both
-  guitar:
-    pro-guitar: {} # WIP
 targets:
   rb3:
     game: rb3

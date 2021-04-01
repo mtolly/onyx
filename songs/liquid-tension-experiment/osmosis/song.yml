@@ -4,6 +4,7 @@ metadata:
   track-number: 2
   rating: Family Friendly
   author: Onyxite
+  preview-start: prc_verse
 audio:
   album-track:
     md5: eac8eb934bf854166edf49a8da0b245a
@@ -25,6 +26,7 @@ parts:
   drums:
     drums:
       kicks: 1
+      difficulty: 3
 targets:
   rb3:
     game: rb3

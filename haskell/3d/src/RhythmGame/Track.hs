@@ -14,6 +14,7 @@ import qualified Data.ByteString                  as B
 import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     (($>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort, sortOn)
 import qualified Data.Map.Strict                  as Map
@@ -48,8 +49,8 @@ import           WebPlayer                        (findTremolos, findTrills,
                                                    laneDifficulty)
 
 data PreviewTrack
-  = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType) (D.Gem D.ProType))))
-  | PreviewDrumsFull (Map.Map Double (PNF.CommonState (PNF.DrumState (FD.FullGem, FD.FullGemType, FD.FullVelocity, Bool) FD.FullGem)))
+  = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))))
+  | PreviewDrumsFull (Map.Map Double (PNF.CommonState (PNF.DrumState (FD.FullGem, FD.FullGemType, D.DrumVelocity, Bool) FD.FullGem)))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState (Maybe F.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   deriving (Show)
@@ -113,20 +114,20 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       else case diff of
         Nothing -> if D.nullDrums drumSrc2x then drumSrc else drumSrc2x
         Just _  -> drumSrc
-    drumMap :: Map.Map Double [D.Gem D.ProType]
+    drumMap :: Map.Map Double [(D.Gem D.ProType, D.DrumVelocity)]
     drumMap = rtbToMap $ RTB.collectCoincident drumPro
     drumPro = let
       -- quick 5 lane to 4 hack, eventually should actually support drawing 5-lane drums
       ddiff = D.getDrumDifficulty diff thisSrc
       in case drumsMode pdrums of
-        Drums4    -> fmap (const D.Tom) <$> ddiff
-        Drums5    -> fmap (const D.Tom) <$> D.fiveToFour
+        Drums4    -> (\(gem, vel) -> (gem $> D.Tom, vel)) <$> ddiff
+        Drums5    -> (\(gem, vel) -> (gem $> D.Tom, vel)) <$> D.fiveToFour
           (case drumsFallback pdrums of FallbackBlue -> D.Blue; FallbackGreen -> D.Green)
           ddiff
         DrumsPro  -> D.computePro diff thisSrc
         DrumsReal -> D.computePro diff $ D.psRealToPro thisSrc
         DrumsFull -> D.computePro diff thisSrc -- TODO support convert from full track
-    hands = RTB.filter (/= D.Kick) drumPro
+    hands = RTB.filter (/= D.Kick) $ fmap fst drumPro
     (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song of
       Nothing   -> (D.drumActivation thisSrc, RTB.empty)
       Just coda ->
@@ -154,7 +155,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
   drumTrackFull fpart pdrums diff = let
     -- TODO if kicks = 2, don't emit an X track, only X+
     thisSrc = maybe mempty RBFile.onyxPartFullDrums $ Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song
-    drumMap :: Map.Map Double [(FD.FullGem, FD.FullGemType, FD.FullVelocity, Bool)]
+    drumMap :: Map.Map Double [(FD.FullGem, FD.FullGemType, D.DrumVelocity, Bool)]
     drumMap = rtbToMap $ RTB.collectCoincident $ FD.getDifficulty diff thisSrc
     (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song of
       Nothing   -> (FD.fdActivation thisSrc, RTB.empty)

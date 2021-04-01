@@ -4,6 +4,7 @@ metadata:
   track-number: 7
   rating: Family Friendly
   author: Onyxite
+  preview-start: prc_a2
 global:
   autogen-theme: Psych Jam Rock
 audio:
@@ -36,6 +37,7 @@ parts:
     drums:
       kicks: 1
       mode: full
+      difficulty: 5
 targets:
   rb3:
     game: rb3

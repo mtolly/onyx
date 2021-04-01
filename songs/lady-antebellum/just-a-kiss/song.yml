@@ -1,0 +1,39 @@
+metadata:
+  title: Just a Kiss
+  artist: Lady Antebellum
+  author: Onyxite
+  year: 2011
+  genre: country
+  subgenre: contemporary
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube Xs9X8NhQJF4 140
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [2.195, youtube]
+parts:
+  drums:
+    drums: # WIP
+      kicks: 1
+      mode: full
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5 # really!
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps

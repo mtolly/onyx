@@ -132,12 +132,12 @@ useColorFive newColor rtb = do
 
 fixDrumColors :: DrumTrack U.Beats -> DrumTrack U.Beats
 fixDrumColors trk = let
-  expert = maybe RTB.empty drumGems $ Map.lookup Expert $ drumDifficulties trk
+  expert = fmap fst $ maybe RTB.empty drumGems $ Map.lookup Expert $ drumDifficulties trk
   usedColors = Set.fromList $ RTB.getBodies expert
   in trk
     { drumDifficulties = flip Map.mapWithKey (drumDifficulties trk) $ \diff dd -> case diff of
       Expert -> dd
-      _      -> dd { drumGems = useColorsDrums usedColors expert $ drumGems dd }
+      _      -> dd { drumGems = fmap (, VelocityNormal) $ useColorsDrums usedColors expert $ fmap fst $ drumGems dd }
     }
 
 useColorsDrums :: Set.Set (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ())

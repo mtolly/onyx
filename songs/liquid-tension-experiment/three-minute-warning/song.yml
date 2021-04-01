@@ -4,6 +4,7 @@ metadata:
   track-number: 9 # 9 through 13
   rating: Family Friendly
   author: Onyxite
+  preview-start: prc_a5
 audio:
   album-track-1:
     md5: 235d1c7e74a9425ef75db3c793567666
@@ -35,6 +36,7 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 7
 targets:
   rb3:
     game: rb3

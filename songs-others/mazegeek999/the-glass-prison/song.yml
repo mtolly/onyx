@@ -1,0 +1,83 @@
+parts:
+  vocal:
+    vocal:
+      count: 2
+      gender: male
+      difficulty:
+        tier: 5
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+    pro-guitar:
+      tuning:
+        base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  drums:
+    # TODO merge previous drum chart / fix up
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: 2
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
+    song:
+      drop: [7.366, album-track]
+targets:
+  rb3-2x:
+    song-id: 1684700120
+    game: rb3
+    2x-bass-pedal: true
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
+metadata:
+  rating: Supervision Recommended
+  preview-start: 5:56.000
+  file-album-art: ../../../covers/six-degrees-of-inner-turbulence.bmp
+  languages:
+  - English
+  track-number: 1
+  album: Six Degrees of Inner Turbulence
+  year: 2002
+  subgenre: progrock
+  author: mazegeek999, Onyxite
+  title: The Glass Prison
+  preview-end: 6:26.000
+  genre: prog
+  difficulty:
+    tier: 7
+  artist: Dream Theater
+global:
+  anim-tempo: 32
+audio:
+  album-track:
+    md5: ecd81eb9497bc5e4689e6f43582fa8b7
+    frames: 36724716
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
