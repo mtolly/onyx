@@ -26,6 +26,7 @@ import           Data.Tuple.Extra                 (fst3, snd3, thd3)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.ProGuitar         as PG
+import           RockBand.Codec.Drums
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension, (</>))
@@ -120,3 +121,20 @@ emptyChart = RBFile.Song
   , RBFile.s_signatures = U.makeMeasureMap U.Ignore RTB.empty
   , RBFile.s_tracks = mempty
   }
+
+-- | Discards drum accents/ghosts unless [ENABLE_CHART_DYNAMICS] is present.
+checkEnableDynamics
+  :: RBFile.Song (RBFile.FixedFile U.Beats)
+  -> RBFile.Song (RBFile.FixedFile U.Beats)
+checkEnableDynamics (RBFile.Song tmap mmap ps) = let
+  checkTrack trk = if RTB.null $ drumEnableDynamics trk
+    then trk { drumDifficulties = noDynamics <$> drumDifficulties trk }
+    else trk
+  noDynamics dd = dd
+    { drumGems = (\(gem, _) -> (gem, VelocityNormal)) <$> drumGems dd
+    }
+  in RBFile.Song tmap mmap ps
+    { RBFile.fixedPartDrums       = checkTrack $ RBFile.fixedPartDrums       ps
+    , RBFile.fixedPartDrums2x     = checkTrack $ RBFile.fixedPartDrums2x     ps
+    , RBFile.fixedPartRealDrumsPS = checkTrack $ RBFile.fixedPartRealDrumsPS ps
+    }

@@ -275,6 +275,14 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
           , drumDoubleRoll = breRemoveLanes $ drumDoubleRoll dt
           })
       Nothing -> id
+    hasDynamics dt = flip any (drumDifficulties dt) $ \dd ->
+      flip any (drumGems dd) $ \(_gem, vel) ->
+        vel /= VelocityNormal
+    enableDynamics dt = dt
+      { drumEnableDynamics = case target of
+        Left _rb3 -> RTB.empty
+        Right _ps -> if hasDynamics dt then RTB.singleton 0 () else RTB.empty
+      }
     -- Note: drumMix must be applied *after* drumsComplete.
     -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
     in (if drumsFixFreeform pd then RBFile.fixFreeformDrums else id)
@@ -282,6 +290,7 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
       $ drumsRemoveBRE
       $ addMoods
       $ addAnims
+      $ enableDynamics
       $ case target of
         Left rb3 -> drumEachDiff (\dd -> dd { drumPSModifiers = RTB.empty }) $
           if rb3_2xBassPedal rb3

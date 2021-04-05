@@ -44,7 +44,7 @@ parts:
     drums:
       difficulty: 5
       kicks: 1
-      mode: real
+      mode: full
   keys:
     pro-keys:
       difficulty: 5

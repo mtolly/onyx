@@ -1012,7 +1012,7 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
           : repeat (LicenseEntry 0 0 0)
         , md_HeaderSHA1 = B.replicate 0x14 0 -- filled in later
         , md_HeaderSize = 0xAD0E
-        , md_ContentType = CT_SavedGame
+        , md_ContentType = if createLIVE opts then CT_MarketplaceContent else CT_SavedGame
         , md_MetadataVersion = 2
         , md_ContentSize = 0 -- filled in later
         , md_MediaID = createMediaID opts

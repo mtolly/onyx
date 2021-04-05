@@ -1,0 +1,33 @@
+metadata:
+  title: Solar Groove
+  artist: John Myung
+  author: Onyxite
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    # TODO get better audio without ends cut off
+    commands:
+    - ../../../scripts/youtube 8A1pTvDI3l4 140
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.614, youtube]
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

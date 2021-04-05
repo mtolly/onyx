@@ -372,7 +372,7 @@ importFoF src level = do
           x                                   -> x
         }
 
-  outputMIDI <- fixShortVoxPhrases $ redoSwells parsed
+  outputMIDI <- fixShortVoxPhrases $ checkEnableDynamics $ redoSwells parsed
     { RBFile.s_tracks = fixGHVox $ swapFiveLane $ removeDummyTracks $ add2x $ RBFile.s_tracks parsed
     }
   let outputFixed = RBFile.s_tracks outputMIDI

@@ -11,7 +11,7 @@ audio:
   album-track:
     file-path: audio-album.wav
     commands:
-    - ../../../scripts/youtube 617HDrw21N8 140 audio-album.wav
+    - ../../../scripts/youtube mNSXuy-hZsk 140 audio-album.wav
   meinl-track:
     file-path: audio-meinl.wav
     commands:
@@ -42,7 +42,9 @@ plans:
           - concatenate:
             - gain:
               - 0.586
-              - take: [42.266, album-track]
+              - take:
+                - 42.266
+                - pad: [1.2, album-track]
             - drop: [1.641, meinl-track]
 targets:
   rb3:
