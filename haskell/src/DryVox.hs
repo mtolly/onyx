@@ -36,6 +36,7 @@ vocalTubes vox = let
   go rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
     Just ((dt, (on, off, lyric)), rtb')
+      | on && off -> RTB.cons dt Nothing $ RTB.cons NNC.zero (Just $ fromMaybe "" lyric) $ go rtb'
       | on        -> RTB.cons dt (Just $ fromMaybe "" lyric) $ go rtb'
       | off       -> RTB.cons  dt Nothing $ go rtb'
       | otherwise -> RTB.delay dt $ go rtb'

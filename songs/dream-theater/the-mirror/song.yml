@@ -42,6 +42,13 @@ plans:
       vocal-2:
         pad: [0.786, only: [B Vocals, jammit-track]]
     # nothing in subtracted backing track
+  jammit-simple:
+    countin: *countin
+    parts:
+      bass:
+        pad: [0.786, only: [Bass, jammit-track]]
+    song:
+      pad: [0.786, without: [bass, jammit-track]]
   album:
     countin: *countin
     song:
@@ -52,6 +59,10 @@ parts:
     drums:
       kicks: both
       difficulty: 6
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6
 targets:
   rb3:
     game: rb3
@@ -63,3 +74,8 @@ targets:
   ps:
     game: ps
     plan: jammit
+  rs:
+    game: rs
+    plan: jammit-simple
+    arrangements:
+    - [bonus-rhythm, bass]

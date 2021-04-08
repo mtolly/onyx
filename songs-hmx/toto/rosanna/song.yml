@@ -86,6 +86,9 @@ targets:
     label: (O)
     file-milo: lipsync-venue.milo_xbox
     harmonix: true
+  ps:
+    game: ps
+    label: (O)
 metadata:
   rating: FamilyFriendly
   preview-start: 1:14.353

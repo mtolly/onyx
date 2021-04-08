@@ -68,8 +68,11 @@ end
 # build songs-others/moochalacho/musette-maximum # needs 4-string
 # build songs-grinnz/dream-theater/the-ytse-jam
 # build songs-others/xane60/still-loving-you
-build songs-others/mazegeek999/the-glass-prison
-build songs-others/mazegeek999/fatal-tragedy
+# build songs-others/mazegeek999/the-glass-prison
+# build songs-others/mazegeek999/fatal-tragedy
+# build songs/dream-theater/the-mirror
+# build songs/dream-theater/in-the-presence-of-enemies-pt-2
+# build songs/dream-theater/the-holiday-spirit-carries-on
 
 # phrases unknown:
 
