@@ -269,3 +269,4 @@ consonants:
   CMU_Y: null
   CMU_Z: null
   CMU_ZH: null
+default: {}

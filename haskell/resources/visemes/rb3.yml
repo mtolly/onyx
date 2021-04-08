@@ -50,3 +50,4 @@ consonants:
   CMU_Y: {Eat_hi: 140, Eat_lo: 140}
   CMU_Z: {Size_hi: 140, Size_lo: 140}
   CMU_ZH: {Size_hi: 140, Size_lo: 140} # approximate
+default: {}

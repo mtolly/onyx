@@ -263,6 +263,7 @@ lipsyncToMIDITrack lip
 data VisemeMap vis = VisemeMap
   { vmVowels     :: CMUVowel     -> (vis, Maybe vis)
   , vmConsonants :: CMUConsonant -> [vis]
+  , vmDefault    :: vis
   } deriving (Functor)
 
 applyVisemeMap :: VisemeMap vis -> CMUSyllable -> VisemeSyllable vis
@@ -322,6 +323,8 @@ instance A.FromJSON (VisemeMap [(T.Text, Word8)]) where
         cm <- readConsonant v
         return (cmuc, cm)
       return $ \consonant -> fromMaybe [] $ Map.lookup consonant m
+    objDefault <- o .: "default"
+    vmDefault <- A.withObject "default viseme setting" readMap objDefault
     return VisemeMap{..}
 
 -- TODO add diphthongs and consonants
@@ -521,9 +524,10 @@ simpleAnimations transition = go [] where
 
 syllablesToAnimations
   :: U.Seconds
+  -> VisemeMap [pair]
   -> RTB.T U.Seconds (Maybe (VisemeSyllable [pair]))
   -> RTB.T U.Seconds (VisemeAnimation [pair])
-syllablesToAnimations transition = go where
+syllablesToAnimations transition vmap = Wait 0 (VisemeHold $ vmDefault vmap) . go where
   halfTransition = transition / 2
   go = \case
     RNil -> RNil
@@ -548,11 +552,11 @@ syllablesToAnimations transition = go where
         in Wait 0 (VisemeLine x y) $ RTB.delay firstLen
           $ lineSequence (len - firstLen) y ys z continue
       in RTB.delay (t1 - initialFront)
-        $ lineSequence (initialFront + initialBack) [] (sylInitial syl) vowelStart
+        $ lineSequence (initialFront + initialBack) (vmDefault vmap) (sylInitial syl) vowelStart
         $ Wait 0 vowelBody
         $ RTB.delay (t2 - initialBack - finalFront)
-        $ lineSequence (finalFront + finalBack) vowelEnd (sylFinal syl) []
-        $ Wait 0 (VisemeHold [])
+        $ lineSequence (finalFront + finalBack) vowelEnd (sylFinal syl) (vmDefault vmap)
+        $ Wait 0 (VisemeHold $ vmDefault vmap)
         $ go $ U.trackDrop finalBack rest
     Wait t1 Nothing rest -> RTB.delay t1 $ go rest -- shouldn't happen
     Wait t1 (Just syl1) (Wait t2 (Just syl2) rest) -- shouldn't happen
@@ -621,7 +625,7 @@ autoLipsync transition vmap trans vt = let
     $ vocalEyesClosed vt
   mouth
     = animationsToStates
-    $ syllablesToAnimations transition
+    $ syllablesToAnimations transition vmap
     $ fmap (fmap $ applyVisemeMap vmap)
     $ runTranscribe
     $ fmap (fmap (trans,))
@@ -651,7 +655,7 @@ beatlesLipsync transition vmap trans vt = let
     $ vocalEyesClosed vt
   mouth
     = animationsToStates
-    $ syllablesToAnimations transition
+    $ syllablesToAnimations transition vmap
     $ fmap (fmap $ applyVisemeMap vmap)
     $ runTranscribe
     $ fmap (fmap (trans,))
@@ -700,7 +704,7 @@ lipLyricsStates vmap lip = let
     in (trans,) <$> mtext
   fromCMU = fmap $ applyVisemeMap vmap
   in animationsToStates
-    $ syllablesToAnimations defaultTransition
+    $ syllablesToAnimations defaultTransition vmap
     $ fmap fromCMU transcribed
 
 lipsyncFromMIDITrack' :: LipsyncTarget -> VisemeMap [(T.Text, Word8)] -> LipsyncTrack U.Seconds -> Lipsync
