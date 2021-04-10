@@ -185,8 +185,8 @@ makeGH2DTA song preview target = D.SongPackage
       , D.hopoThreshold = Nothing
       }
 
-makeGH2DTA360 :: SongYaml f -> (Int, Int) -> TargetGH2 -> D.SongPackage
-makeGH2DTA360 song preview target = D.SongPackage
+makeGH2DTA360 :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 -> D.SongPackage
+makeGH2DTA360 song key preview target = D.SongPackage
   { D.name = getTitle $ _metadata song
   , D.artist = getArtist $ _metadata song
   , D.caption = guard (not $ _cover $ _metadata song) >> Just "performed_by"
@@ -210,6 +210,3 @@ makeGH2DTA360 song preview target = D.SongPackage
   , D.band = Nothing -- TODO
   } where
     coop = case gh2_Coop target of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
-    key = case gh2_Key target of
-      Nothing -> error "makeGH2DTA360: no top key given for GH2 target"
-      Just k  -> k

@@ -24,9 +24,9 @@ import           Data.SimpleHandle                (Readable, saveReadable)
 import qualified Data.Text                        as T
 import           Data.Tuple.Extra                 (fst3, snd3, thd3)
 import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Codec.Drums
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.ProGuitar         as PG
-import           RockBand.Codec.Drums
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension, (</>))

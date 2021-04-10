@@ -32,5 +32,3 @@ instance ParseTrack BandSingerTrack where
     singerIdle     <- singerIdle     =. commandMatch ["idle"]
     singerPlay     <- singerPlay     =. commandMatch ["play"]
     return BandSingerTrack{..}
-
-

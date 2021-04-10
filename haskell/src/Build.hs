@@ -75,6 +75,7 @@ import qualified FretsOnFire                           as FoF
 import           Genre
 import           GuitarHeroII.Audio                    (writeVGS)
 import           GuitarHeroII.Convert
+import           GuitarHeroII.File
 import           Image
 import qualified Magma
 import qualified MelodysEscape                         as Melody
@@ -116,6 +117,7 @@ import           RockBand.Milo                         (MagmaLipsync (..),
                                                         loadVisemesRB3,
                                                         magmaMilo, putVocFile)
 import qualified RockBand.ProGuitar.Play               as PGPlay
+import           RockBand.Score                        (gh2Base)
 import           RockBand.Sections                     (makeRB2Section,
                                                         makeRB3Section,
                                                         makeRBN2Sections)
@@ -278,6 +280,15 @@ hashRB3 songYaml rb3 = let
     -- TODO this should use more info, or find a better way to come up with hashes.
     )
   in hash hashed `mod` 1000000000
+
+hashGH2 :: (Hashable f) => SongYaml f -> TargetGH2 -> Int
+hashGH2 songYaml gh2 = let
+  hashed =
+    ( gh2
+    , _title $ _metadata songYaml
+    , _artist $ _metadata songYaml
+    )
+  in 1000000000 + (hash hashed `mod` 1000000000)
 
 getPlan :: Maybe T.Text -> SongYaml f -> Maybe (T.Text, Plan f)
 getPlan Nothing songYaml = case HM.toList $ _plans songYaml of
@@ -1684,11 +1695,19 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               Just pair -> return pair
             let planDir = rel $ "gen/plan" </> T.unpack planName
 
-            dir </> "gh2/notes.mid" %> \out -> do
+            [dir </> "gh2/notes.mid", dir </> "gh2/coop_max_scores.dta"] &%> \[out, coop] -> do
               -- TODO support speed
               input <- shakeMIDI $ planDir </> "raw.mid"
               -- TODO use rb-processed mid
-              saveMIDI out $ midiRB3toGH2 songYaml gh2 input
+              let mid = midiRB3toGH2 songYaml gh2 input
+              saveMIDI out mid
+              let p1 = gh2PartGuitar $ RBFile.s_tracks mid
+                  p2 = case gh2_Coop gh2 of
+                    GH2Bass   -> gh2PartBass   $ RBFile.s_tracks mid
+                    GH2Rhythm -> gh2PartRhythm $ RBFile.s_tracks mid
+                  scores = map (\diff -> gh2Base diff p1 + gh2Base diff p2) [Easy .. Expert]
+                  dta = "(" <> unwords (map show scores) <> ")"
+              stackIO $ writeFile coop dta
 
             let gh2Source = do
                   -- TODO support speed
@@ -1755,80 +1774,72 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               ]
 
             -- Xbox 360 DLC
-            forM_ (gh2_Key gh2) $ \key -> do
-              let pkg = T.unpack key
-              dir </> "stfs/config/contexts.dta" %> \out -> do
-                case gh2_Context gh2 of
-                  Nothing  -> fatal "No context number specified for GH2 target"
-                  Just ctx -> stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
-                    [ D.Parens $ D.Tree 0
-                      [ D.Sym key
-                      , D.Int $ fromIntegral ctx
-                      ]
-                    ]
-              dir </> "stfs/config/coop_max_scores.dta" %> \out -> do
-                stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
-                  [ D.Parens $ D.Tree 0
-                    [ D.Sym key
-                    , D.Parens $ D.Tree 0
-                      -- TODO figure out how to compute these
-                      [ D.Int 0
-                      , D.Int 0
-                      , D.Int 0
-                      , D.Int 0
-                      ]
+            let defaultID = hashGH2 songYaml gh2
+                defaultLBP = defaultID + 1
+                defaultLBW = defaultID + 2
+                key = fromMaybe (T.pack $ "o" <> show defaultID) $ gh2_Key gh2
+                pkg = T.unpack key
+
+            dir </> "stfs/config/contexts.dta" %> \out -> do
+              let ctx = fromMaybe defaultID $ gh2_Context gh2
+              stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
+                [ D.Parens $ D.Tree 0
+                  [ D.Sym key
+                  , D.Int $ fromIntegral ctx
+                  ]
+                ]
+            dir </> "stfs/config/coop_max_scores.dta" %> \out -> do
+              scores <- shk $ readFile' $ dir </> "gh2/coop_max_scores.dta"
+              stackIO $ writeFile out $ "(" <> T.unpack key <> " " <> scores <> ")"
+            dir </> "stfs/config/leaderboards.dta" %> \out -> do
+              let (lbp, lbw) = fromMaybe (defaultLBP, defaultLBW) $ gh2_Leaderboard gh2
+              stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
+                [ D.Parens $ D.Tree 0
+                  [ D.Sym key
+                  , D.Parens $ D.Tree 0
+                    [ D.Int $ fromIntegral lbp
+                    , D.Int $ fromIntegral lbw
                     ]
                   ]
-              dir </> "stfs/config/leaderboards.dta" %> \out -> do
-                case gh2_Leaderboard gh2 of
-                  Nothing  -> fatal "No context number specified for GH2 target"
-                  Just (lbp, lbw) -> stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
-                    [ D.Parens $ D.Tree 0
-                      [ D.Sym key
-                      , D.Parens $ D.Tree 0
-                        [ D.Int $ fromIntegral lbp
-                        , D.Int $ fromIntegral lbw
-                        ]
-                      ]
-                    ]
-              dir </> "stfs/config/songs.dta" %> \out -> do
-                input <- shakeMIDI $ planDir </> "raw.mid"
-                let songPackage = makeGH2DTA360
-                      songYaml
-                      (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)))
-                      gh2
-                stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
-                  [ D.Parens $ D.Tree 0
-                    $ D.Sym key
-                    : makeValue (valueId D.stackChunks) songPackage
-                  ]
-              dir </> "stfs/songs" </> pkg </> pkg <.> "mid" %> \out -> do
-                shk $ copyFile' (dir </> "gh2/notes.mid") out
-              dir </> "audio.ogg" %> \out -> do
-                src <- gh2Source
-                runAudio src out
-              dir </> "stfs/songs" </> pkg </> pkg <.> "mogg" %> \out -> do
-                shk $ need [dir </> "audio.ogg"]
-                oggToMogg (dir </> "audio.ogg") out
-              dir </> "stfs/songs" </> pkg </> pkg <.> "voc" %> \out -> do
-                shk $ copyFile' (dir </> "gh2/lipsync.voc") out
-              dir </> "gh2live" %> \out -> do
-                shk $ need
-                  [ dir </> "stfs/config/contexts.dta"
-                  , dir </> "stfs/config/coop_max_scores.dta"
-                  , dir </> "stfs/config/leaderboards.dta"
-                  , dir </> "stfs/config/songs.dta"
-                  , dir </> "stfs/songs" </> pkg </> pkg <.> "mid"
-                  , dir </> "audio.ogg"
-                  , dir </> "stfs/songs" </> pkg </> pkg <.> "mogg"
-                  , dir </> "stfs/songs" </> pkg </> pkg <.> "voc"
-                  ]
-                lg "# Producing GH2 CON file"
-                mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ gh2pkg
-                  (getArtist (_metadata songYaml) <> " - " <> getTitle (_metadata songYaml))
-                  (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
-                  (dir </> "stfs")
-                  out
+                ]
+            dir </> "stfs/config/songs.dta" %> \out -> do
+              input <- shakeMIDI $ planDir </> "raw.mid"
+              let songPackage = makeGH2DTA360
+                    songYaml
+                    key
+                    (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)))
+                    gh2
+              stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
+                [ D.Parens $ D.Tree 0
+                  $ D.Sym key
+                  : makeValue (valueId D.stackChunks) songPackage
+                ]
+            dir </> "stfs/songs" </> pkg </> pkg <.> "mid" %> \out -> do
+              shk $ copyFile' (dir </> "gh2/notes.mid") out
+            dir </> "audio.ogg" %> \out -> do
+              src <- gh2Source
+              runAudio src out
+            dir </> "stfs/songs" </> pkg </> pkg <.> "mogg" %> \out -> do
+              shk $ need [dir </> "audio.ogg"]
+              oggToMogg (dir </> "audio.ogg") out
+            dir </> "stfs/songs" </> pkg </> pkg <.> "voc" %> \out -> do
+              shk $ copyFile' (dir </> "gh2/lipsync.voc") out
+            dir </> "gh2live" %> \out -> do
+              shk $ need
+                [ dir </> "stfs/config/contexts.dta"
+                , dir </> "stfs/config/coop_max_scores.dta"
+                , dir </> "stfs/config/leaderboards.dta"
+                , dir </> "stfs/config/songs.dta"
+                , dir </> "stfs/songs" </> pkg </> pkg <.> "mid"
+                , dir </> "stfs/songs" </> pkg </> pkg <.> "mogg"
+                , dir </> "stfs/songs" </> pkg </> pkg <.> "voc"
+                ]
+              lg "# Producing GH2 LIVE file"
+              mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ gh2pkg
+                (getArtist (_metadata songYaml) <> " - " <> getTitle (_metadata songYaml))
+                (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
+                (dir </> "stfs")
+                out
 
           PS ps -> do
 

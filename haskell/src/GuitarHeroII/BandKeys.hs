@@ -33,5 +33,3 @@ instance ParseTrack BandKeysTrack where
     keysIdle     <- keysIdle     =. commandMatch ["idle"]
     keysPlay     <- keysPlay     =. commandMatch ["play"]
     return BandKeysTrack{..}
-
-

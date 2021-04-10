@@ -22,7 +22,7 @@ data TriggersTrack t = TriggersTrack
   , triggersUnknown48 :: RTB.T t () -- this is next lighting keyframe like RBN1 venue
   , triggersUnknown49 :: RTB.T t () -- this is prev lighting keyframe like RBN1 venue
   , triggersUnknown50 :: RTB.T t () -- this is first lighting keyframe like RBN1 venue
-  , triggersUnknown52 :: RTB.T t Bool
+  , triggersUnknown52 :: RTB.T t Bool -- "venue effect"
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (TriggersTrack t)
 

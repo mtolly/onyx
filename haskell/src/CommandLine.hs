@@ -838,8 +838,8 @@ commands =
 
   , Command
     { commandWord = "lipsync-track-gen"
-    , commandDesc = "Make lipsync files from LIPSYNC{1,2,3} in a MIDI file."
-    , commandUsage = "onyx lipsync-gen in.mid"
+    , commandDesc = "Make lipsync files from LIPSYNC{1,2,3,4} in a MIDI file."
+    , commandUsage = "onyx lipsync-track-gen in.mid"
     , commandRun = \args opts -> case args of
       [fmid] -> do
         mid <- RBFile.loadMIDI fmid

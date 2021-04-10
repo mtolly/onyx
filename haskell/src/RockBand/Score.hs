@@ -12,6 +12,7 @@ import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
+import           GuitarHeroII.PartGuitar
 import           Guitars                          (applyStatus, fixSloppyNotes)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Codec.Drums             as RBDrums
@@ -238,3 +239,17 @@ starCutoffs mid trks = tracksToStars $ do
   pair@(strack, diff) <- trks
   let (base, solo) = baseAndSolo mid pair
   return (strack, diff, base, solo)
+
+-- GH2 stuff
+
+gh2Base :: Difficulty -> PartTrack U.Beats -> Int
+gh2Base diff pt = case Map.lookup diff $ partDifficulties pt of
+  Nothing -> 0
+  Just pd -> let
+    gems = fixSloppyNotes (10 / 480) $ edgeBlipsRB_ $ partGems pd
+    in gbkBase 50 25 1 $ fmap snd gems
+
+-- In GH2 coop_max_scores (either a .dtb on disc or .dta in 360 DLC)
+-- each song has an entry:
+--   (the_song_key (easy medium hard expert))
+-- where each difficulty is an int of "gh2Base(lead) + gh2Base(bass/rhythm)"
