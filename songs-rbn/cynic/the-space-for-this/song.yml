@@ -1,0 +1,133 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        tier: 3
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+    # pro-guitar: # WIP
+    #   tuning:
+    #     base: bass-5
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+  drums:
+    drums:
+      difficulty:
+        tier: 7
+      kicks: both
+audio:
+  rbn:
+    file-path: audio.ogg
+    channels: 14
+plans:
+  mogg:
+    parts:
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
+      vocal: [10, 11]
+    pans:
+    # flipping the drums so they are drummer panned
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    # rest of channels
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    multitrack: true
+    vols: [-3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3]
+    file-mogg: audio.mogg
+  edited:
+    parts:
+      drums:
+        # flipping the drums so they are drummer panned
+        kick:
+          expr:
+            channels: [[1, 0], rbn]
+          vols: [-3, -3]
+        snare:
+          expr:
+            channels: [[3, 2], rbn]
+          vols: [-3, -3]
+        kit:
+          expr:
+            channels: [[5, 4], rbn]
+          vols: [-3, -3]
+      bass:
+        expr:
+          channels: [[6, 7], rbn]
+        vols: [-3, -3]
+      guitar:
+        expr:
+          channels: [[8, 9], rbn]
+        vols: [-3, -3]
+      vocal:
+        expr:
+          channels: [[10, 11], rbn]
+        vols: [-3, -3]
+    song:
+      expr:
+        # get rid of duplicated harsh vocal line
+        mask:
+        - [keep]
+        - - center: 0
+            tag: keep
+          - center: '2:27'
+            tag: drop
+          - center: '2:33'
+            tag: keep
+        - channels: [[12, 13], rbn]
+      vols: [-3, -3]
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    label: (O)
+    plan: edited
+  rb3-2x:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+    plan: edited
+  ps:
+    game: ps
+    label: (O)
+    plan: edited
+metadata:
+  preview-start: 1:40.000
+  file-album-art: cover.png_xbox
+  track-number: 2
+  album: Traced in Air
+  year: 2008
+  subgenre: prog
+  author: ThatAuthoringGroup, Onyxite
+  title: The Space for This
+  preview-end: 2:10.000
+  genre: metal
+  difficulty:
+    tier: 6
+  artist: Cynic
+global:
+  anim-tempo: 32
