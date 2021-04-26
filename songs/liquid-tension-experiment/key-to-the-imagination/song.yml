@@ -1,44 +1,42 @@
 metadata:
-  title: Hypersonic
+  title: Key to the Imagination
   artist: Liquid Tension Experiment
   album: Liquid Tension Experiment 3
-  track-number: 1
+  track-number: 8
   year: 2021
   author: Onyxite
   genre: metal
   subgenre: prog
   file-album-art: ../the-passage-of-time/cover.jpg
-  preview-start: prc_verse_2
+  preview-start: prc_intro_heavy_b
 audio:
   album-track:
-    md5: 3f0be7285362e7267ed4d0bf0018c178
-    frames: 22124794
+    md5: 2c224fce557a187072dea94656ade4dc
+    frames: 35027088
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:
+      0|0: hihat
+      0|2: hihat
       1|0: hihat
+      1|1: hihat
       1|2: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
-      2|3: hihat
+      1|3: hihat
     song:
-      pad: [3.969, album-track]
+      pad: [4.752, album-track]
 parts:
   drums:
     drums:
       kicks: both
       mode: full
-      difficulty: 7
+      difficulty: 6
 targets:
   rb3:
     game: rb3
-    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    version: 2
   ps:
     game: ps

@@ -65,27 +65,27 @@ plans:
         kick:
           expr:
             channels: [[1, 0], rbn]
-          vols: [-3, -3]
+          vols: [-1, -1]
         snare:
           expr:
             channels: [[3, 2], rbn]
-          vols: [-3, -3]
+          vols: [-1, -1]
         kit:
           expr:
             channels: [[5, 4], rbn]
-          vols: [-3, -3]
+          vols: [-1, -1]
       bass:
         expr:
           channels: [[6, 7], rbn]
-        vols: [-3, -3]
+        vols: [-1, -1]
       guitar:
         expr:
           channels: [[8, 9], rbn]
-        vols: [-3, -3]
+        vols: [-1, -1]
       vocal:
         expr:
           channels: [[10, 11], rbn]
-        vols: [-3, -3]
+        vols: [-1, -1]
     song:
       expr:
         # get rid of duplicated harsh vocal line
@@ -105,12 +105,14 @@ targets:
     file-milo: lipsync.milo_xbox
     label: (O)
     plan: edited
+    version: 2
   rb3-2x:
     game: rb3
     file-milo: lipsync.milo_xbox
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
     plan: edited
+    version: 2
   ps:
     game: ps
     label: (O)

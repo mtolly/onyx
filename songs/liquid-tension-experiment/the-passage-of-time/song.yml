@@ -8,11 +8,11 @@ metadata:
   genre: metal
   subgenre: prog
   file-album-art: cover.jpg
+  preview-start: prc_melody
 audio:
-  youtube:
-    file-path: audio-youtube.wav
-    commands:
-    - ../../../scripts/youtube jWP4JLUxiqY 140
+  album-track:
+    md5: 450a582523aa74b6249fc8106f1e48f0
+    frames: 19950535
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -25,7 +25,7 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [4.668, youtube]
+      pad: [4.905, album-track]
 parts:
   drums:
     drums:
@@ -34,8 +34,10 @@ parts:
 targets:
   rb3:
     game: rb3
+    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    version: 2
   ps:
     game: ps

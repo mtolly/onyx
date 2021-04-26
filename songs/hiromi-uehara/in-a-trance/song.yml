@@ -29,6 +29,10 @@ parts:
       kit: HardRockKit
       difficulty: 7
       kicks: both
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6
 targets:
   rb3:
     game: rb3
