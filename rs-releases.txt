@@ -2,30 +2,30 @@ Onyxite Rocksmith song release history
 
 [OnyxKatamariCrimsonRose] A Crimson Rose and a Gin Tonic (Asuka Sakai, Ado Mizumori)
   1.0: bass; test version released on CustomsForge Discord 2021-01-13
-  1.1: ???
+  1.1: released on Ignition 2021-04-27
 [OnyxIITRMDarkWorld] Dark World (Zelda: A Link to the Past) (insaneintherainmusic)
   1.0: bass; test version released on CustomsForge Discord 2021-01-13
-  1.1: ???
+  1.1: released on Ignition 2021-04-27
 [OnyxAESAnything] Anything (An Endless Sporadic)
   1.0: bass; test version released on CustomsForge Discord 2021-01-13
   1.1: ???
 [OnyxAESSunOfPearl] Sun of Pearl (An Endless Sporadic)
-  1.0: bass; ???
+  1.0: bass, released on Ignition 2021-04-27
 [OnyxSungazerSequenceStart] Sequence Start (sungazer)
-  1.0: bass; ???
+  1.0: bass, released on Ignition 2021-04-27
 [OnyxFleshgodTheViolation] The Violation (Fleshgod Apocalypse)
-  1.0: bass; ???
+  1.0: bass, released on Ignition 2021-04-27
 [OnyxSoilPimpSummerGoddess] Summer Goddess (Soil & "Pimp" Sessions)
-  1.0: bass; ???
+  1.0: bass, released on Ignition 2021-04-27
 [OnyxDTUnderAGlassMoon] Under a Glass Moon (Dream Theater)
-  1.0: bass; ???
+  1.0: bass, released on Ignition 2021-04-27
 [OnyxDTLearningToLive] Learning to Live (Dream Theater)
-  1.0: bass; ???
+  1.0: bass, released on Ignition 2021-04-27
 [OnyxDTStreamOfConsciousness] Stream of Consciousness (Dream Theater)
-  1.0: bass; ???
+  1.0: bass, released on Ignition 2021-04-27
 [OnyxOpethWindowpane] Windowpane (Opeth)
-  1.0: bass; ???
+  1.0: bass, released on Ignition 2021-04-27
 [OnyxBeatlesHereComesTheSun] Here Comes the Sun (The Beatles)
-  1.0: bass; ???
+  1.0: bass, released on Ignition 2021-04-27
 [OnyxNCRippedApart] Ripped Apart and Reassembled (Nova Collective)
-  1.0: bass; ???
+  1.0: bass, released on Ignition 2021-04-27

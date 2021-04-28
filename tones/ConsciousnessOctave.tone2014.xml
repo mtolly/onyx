@@ -67,11 +67,11 @@ intended for sludge sections in Stream of Consciousness (Dream Theater)
       <KnobValues xmlns:d6p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
         <d6p1:KeyValueOfstringfloat>
           <d6p1:Key>Bass_Pedal_BassOverdrive_Blend</d6p1:Key>
-          <d6p1:Value>60</d6p1:Value>
+          <d6p1:Value>20</d6p1:Value>
         </d6p1:KeyValueOfstringfloat>
         <d6p1:KeyValueOfstringfloat>
           <d6p1:Key>Bass_Pedal_BassOverdrive_Gain</d6p1:Key>
-          <d6p1:Value>89</d6p1:Value>
+          <d6p1:Value>60</d6p1:Value>
         </d6p1:KeyValueOfstringfloat>
         <d6p1:KeyValueOfstringfloat>
           <d6p1:Key>Bass_Pedal_BassOverdrive_Tone</d6p1:Key>

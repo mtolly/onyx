@@ -10,6 +10,7 @@ parts:
         offsets: [-2, 0, 0, 0] # drop D
       tones:
         file-tone-base: ../../../tones/fallfcpr_bass.tone2014.xml
+      picked-bass: true
   guitar:
     grybo:
       fix-freeform: false

@@ -1,5 +1,8 @@
 <?xml version='1.0' ?>
-<!-- ODLC tone from Time Is Running Out (Muse) -->
+<!--
+ODLC tone from Time Is Running Out (Muse)
+with lowered volume
+ -->
 <Tone2014 xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/RocksmithToolkitLib.DLCPackage.Manifest2014.Tone">
   <GearList>
     <Amp>
@@ -120,5 +123,5 @@
   <ToneDescriptors xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
     <d2p1:string>$[35715]BASS</d2p1:string>
   </ToneDescriptors>
-  <Volume>-14.550</Volume>
+  <Volume>-10.1884289</Volume>
 </Tone2014>
