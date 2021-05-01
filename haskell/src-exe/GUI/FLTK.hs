@@ -134,33 +134,12 @@ import           RockBand.Codec.Lipsync
 import           RockBand.Codec.Vocal                      (nullVox)
 import           RockBand.Common                           (RB3Instrument (..))
 import qualified RockBand.Common                           as RB
-import           RockBand.Milo                             (LipsyncTarget (..),
-                                                            MiloDir (..),
-                                                            autoLipsync,
-                                                            beatlesLipsync',
-                                                            defaultTransition,
-                                                            englishSyllables,
-                                                            germanVowels,
-                                                            gh2Lipsync,
-                                                            lipsyncFromMIDITrack,
-                                                            lipsyncFromMIDITrack',
-                                                            lipsyncToMIDITrack,
-                                                            loadMilo,
-                                                            loadVisemesRB3,
-                                                            loadVisemesTBRB,
-                                                            makeMiloFile,
-                                                            packMilo,
-                                                            parseLipsync,
-                                                            putLipsync,
-                                                            putVocFile,
-                                                            spanishVowels,
-                                                            unpackMilo)
+import           RockBand.Milo
 import           RockBand.Score
 import           RockBand.SongCache                        (hardcodeSongCacheIDs)
 import           RockBand3                                 (BasicTiming (..))
 import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.Util                           as U
-import           STFS.Package                              (runGetM)
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (dropExtension,
                                                             takeDirectory,
@@ -2358,6 +2337,7 @@ miscPageLipsync sink rect tab startTasks = do
       trans <- getTransition
       sink $ EventOnyx $ let
         task = do
+          stackIO $ Dir.copyFile input $ input <> ".bak"
           mid <- RBFile.loadMIDI input
           midRaw <- RBFile.loadMIDI input
           vmap <- loadVisemesTBRB
@@ -2419,6 +2399,7 @@ miscPageLipsync sink rect tab startTasks = do
       milo <- pickedMilo
       sink $ EventOnyx $ let
         task = do
+          stackIO $ Dir.copyFile milo $ milo <> ".bak"
           mid <- RBFile.loadMIDI input
           topDir <- loadMilo milo
           vmapBeatles <- loadVisemesTBRB
@@ -2431,10 +2412,10 @@ miscPageLipsync sink rect tab startTasks = do
                     "paul.lipsync"   -> getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncPaul
                     "george.lipsync" -> getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncGeorge
                     "ringo.lipsync"  -> getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncRingo
-                    "song.lipsync"   -> getLipsync RockBand.Milo.LipsyncRB3  vmapBeatles RBFile.fixedLipsync1
-                    "part2.lipsync"  -> getLipsync RockBand.Milo.LipsyncRB3  vmapBeatles RBFile.fixedLipsync2
-                    "part3.lipsync"  -> getLipsync RockBand.Milo.LipsyncRB3  vmapBeatles RBFile.fixedLipsync3
-                    "part4.lipsync"  -> getLipsync RockBand.Milo.LipsyncRB3  vmapBeatles RBFile.fixedLipsync4
+                    "song.lipsync"   -> getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync1
+                    "part2.lipsync"  -> getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync2
+                    "part3.lipsync"  -> getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync3
+                    "part4.lipsync"  -> getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync4
                     _                -> contents
                 , miloSubdirs = map editDir $ miloSubdirs dir
                 }
@@ -2443,7 +2424,7 @@ miscPageLipsync sink rect tab startTasks = do
                 $ lipsyncFromMIDITrack' tgt vmap
                 $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid)
                 $ getTrack $ RBFile.s_tracks mid
-          stackIO $ BL.writeFile milo $ makeMiloFile $ editDir topDir
+          stackIO $ BL.writeFile milo $ addMiloHeader $ makeMiloFile $ editDir topDir
           return [milo]
         in startTasks [("Update Milo with LIPSYNC tracks: " <> milo, task)]
   FL.end pack
