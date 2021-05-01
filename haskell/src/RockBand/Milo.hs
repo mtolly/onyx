@@ -11,6 +11,7 @@ module RockBand.Milo
 , module RockBand.Milo.Venue
 , unpackMilo
 , packMilo
+, loadMilo
 ) where
 
 import           Control.Monad                  (forM_)
@@ -35,6 +36,16 @@ pieceName n = let
     [c1, c2] -> ['0', c1, c2]
     s        -> s
   in "piece" <> num <.> "bin"
+
+loadMilo :: (MonadIO m) => FilePath -> StackTraceT m MiloDir
+loadMilo fin = do
+  bs <- stackIO $ BL.readFile fin
+  dec <- case runGetOrFail decompressMilo bs of
+    Left (_, pos, err) -> fatal $ "Failed to decompress the milo. Error at position " <> show pos <> ": " <> err
+    Right (_, _, x)    -> return x
+  case runGetOrFail parseMiloFile dec of
+    Left (_, pos, err)   -> inside "Parsing .milo structure" $ inside ("position " <> show pos) $ fatal err
+    Right (_, _, topdir) -> return topdir
 
 -- | Decompresses a milo and tries to parse the directory structure inside.
 -- Extracts either the parsed structure and its files, or the raw split pieces.

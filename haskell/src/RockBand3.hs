@@ -782,6 +782,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
     , RBFile.fixedLipsync2 = mempty
     , RBFile.fixedLipsync3 = mempty
     , RBFile.fixedLipsync4 = mempty
+    , RBFile.fixedLipsyncJohn = mempty
+    , RBFile.fixedLipsyncPaul = mempty
+    , RBFile.fixedLipsyncGeorge = mempty
+    , RBFile.fixedLipsyncRingo = mempty
     }, editRanks, editCount)
 
 magmaLegalTemposFile :: (SendMessage m) => RBFile.Song (RBFile.FixedFile U.Beats) -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats))

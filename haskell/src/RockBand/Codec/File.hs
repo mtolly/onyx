@@ -150,6 +150,10 @@ data FixedFile t = FixedFile
   , fixedLipsync2         :: LipsyncTrack t
   , fixedLipsync3         :: LipsyncTrack t
   , fixedLipsync4         :: LipsyncTrack t
+  , fixedLipsyncJohn      :: LipsyncTrack t
+  , fixedLipsyncPaul      :: LipsyncTrack t
+  , fixedLipsyncGeorge    :: LipsyncTrack t
+  , fixedLipsyncRingo     :: LipsyncTrack t
   , fixedEvents           :: EventsTrack t
   , fixedBeat             :: BeatTrack t
   , fixedVenue            :: VenueTrack t
@@ -162,7 +166,7 @@ instance HasEvents FixedFile where
 
 instance TraverseTrack FixedFile where
   traverseTrack fn
-    (FixedFile a b c d e f g h i j k l m n o p q r s t u v w x y z aa bb cc dd ee ff)
+    (FixedFile a b c d e f g h i j k l m n o p q r s t u v w x y z aa bb cc dd ee ff gg hh ii jj)
     = FixedFile
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -178,6 +182,10 @@ instance TraverseTrack FixedFile where
       <*> traverseTrack fn dd
       <*> traverseTrack fn ee
       <*> traverseTrack fn ff
+      <*> traverseTrack fn gg
+      <*> traverseTrack fn hh
+      <*> traverseTrack fn ii
+      <*> traverseTrack fn jj
 
 instance ParseFile FixedFile where
   parseFile = do
@@ -210,6 +218,10 @@ instance ParseFile FixedFile where
     fixedLipsync2         <- fixedLipsync2         =. fileTrack ("LIPSYNC2"            :| [])
     fixedLipsync3         <- fixedLipsync3         =. fileTrack ("LIPSYNC3"            :| [])
     fixedLipsync4         <- fixedLipsync4         =. fileTrack ("LIPSYNC4"            :| [])
+    fixedLipsyncJohn      <- fixedLipsyncJohn      =. fileTrack ("LIPSYNC_JOHN"        :| [])
+    fixedLipsyncPaul      <- fixedLipsyncPaul      =. fileTrack ("LIPSYNC_PAUL"        :| [])
+    fixedLipsyncGeorge    <- fixedLipsyncGeorge    =. fileTrack ("LIPSYNC_GEORGE"      :| [])
+    fixedLipsyncRingo     <- fixedLipsyncRingo     =. fileTrack ("LIPSYNC_RINGO"       :| [])
     fixedEvents           <- fixedEvents           =. fileTrack ("EVENTS"              :| [])
     fixedBeat             <- fixedBeat             =. fileTrack ("BEAT"                :| [])
     fixedVenue            <- fixedVenue            =. fileTrack ("VENUE"               :| [])
@@ -829,6 +841,10 @@ onyxToFixed o = FixedFile
   , fixedLipsync2         = inPart FlexVocal                 onyxLipsync2
   , fixedLipsync3         = inPart FlexVocal                 onyxLipsync3
   , fixedLipsync4         = inPart FlexVocal                 onyxLipsync4
+  , fixedLipsyncJohn      = mempty
+  , fixedLipsyncPaul      = mempty
+  , fixedLipsyncGeorge    = mempty
+  , fixedLipsyncRingo     = mempty
   , fixedEvents           = onyxEvents o
   , fixedBeat             = onyxBeat o
   , fixedVenue            = onyxVenue o

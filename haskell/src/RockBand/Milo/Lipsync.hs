@@ -26,7 +26,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List.Extra                  (foldl', nubOrd, sort)
+import           Data.List.Extra                  (foldl', nubOrd, sort, (\\))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isNothing,
                                                    listToMaybe, mapMaybe)
@@ -37,6 +37,7 @@ import qualified Data.Vector                      as V
 import qualified Data.Yaml                        as Y
 import           DryVox                           (vocalTubes)
 import           Guitars                          (applyStatus1)
+import qualified Numeric.NonNegative.Class        as NNC
 import           Resources                        (CMUConsonant (..),
                                                    CMUPhoneme (..),
                                                    CMUVowel (..), cmuDict,
@@ -46,7 +47,8 @@ import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Lipsync           (GH2Viseme (..),
                                                    LipsyncTrack (..),
                                                    LyricLanguage (..),
-                                                   VisemeEvent (..))
+                                                   VisemeEvent (..),
+                                                   VisemeGraph (..))
 import           RockBand.Codec.Vocal
 import           RockBand.Common                  (pattern RNil, pattern Wait,
                                                    noRedundantStatus)
@@ -156,7 +158,7 @@ data Lipsync = Lipsync
   } deriving (Eq, Show)
 
 newtype Keyframe = Keyframe
-  { keyframeEvents :: [VisemeEvent Int]
+  { keyframeEvents :: [VisemeEvent () Int]
   } deriving (Eq, Show)
 
 type LipsyncStates = [Map.Map B.ByteString Word8] -- each map is an absolute state of visemes
@@ -166,7 +168,7 @@ lipsyncToStates l = go Map.empty $ lipsyncKeyframes l where
   go _ [] = []
   go m (kf : rest) = let
     m' = Map.filter (/= 0) $
-      foldr (\(VisemeEvent i w) -> Map.insert (lipsyncVisemes l !! i) w) m (keyframeEvents kf)
+      foldr (\(VisemeEvent i w ()) -> Map.insert (lipsyncVisemes l !! i) w) m (keyframeEvents kf)
     in m' : go m' rest
 
 lipsyncFromStates :: LipsyncStates -> Lipsync
@@ -188,6 +190,7 @@ lipsyncFromStates ms = let
       return $ Keyframe $ sort $ flip map frame $ \(bs, w) -> VisemeEvent
         { visemeKey = Set.findIndex bs visemes
         , visemeWeight = w
+        , visemeGraph = ()
         }
     }
 
@@ -227,6 +230,7 @@ parseLipsync = do
     keyframeEvents <- replicateM (fromIntegral eventCount) $ do
       visemeKey <- fromIntegral <$> getWord8
       visemeWeight <- getWord8
+      let visemeGraph = ()
       return VisemeEvent{..}
     return Keyframe{..}
   return Lipsync{..}
@@ -258,7 +262,8 @@ lipsyncToMIDITrack lip
   $ do
     (dt, key) <- zip (0 : repeat (1/30 :: U.Seconds)) $ lipsyncKeyframes lip
     let lookupViseme i = TE.decodeLatin1 $ lipsyncVisemes lip !! i
-    return (dt, map (fmap lookupViseme) $ keyframeEvents key)
+        modifyEvent (VisemeEvent i w ()) = VisemeEvent (lookupViseme i) w GraphHold
+    return (dt, map modifyEvent $ keyframeEvents key)
 
 data VisemeMap vis = VisemeMap
   { vmVowels     :: CMUVowel     -> (vis, Maybe vis)
@@ -527,7 +532,7 @@ syllablesToAnimations
   -> VisemeMap [pair]
   -> RTB.T U.Seconds (Maybe (VisemeSyllable [pair]))
   -> RTB.T U.Seconds (VisemeAnimation [pair])
-syllablesToAnimations transition vmap = Wait 0 (VisemeHold $ vmDefault vmap) . go where
+syllablesToAnimations transition vmap = removeCancelled . Wait 0 (VisemeHold $ vmDefault vmap) . go where
   halfTransition = transition / 2
   go = \case
     RNil -> RNil
@@ -562,6 +567,70 @@ syllablesToAnimations transition vmap = Wait 0 (VisemeHold $ vmDefault vmap) . g
     Wait t1 (Just syl1) (Wait t2 (Just syl2) rest) -- shouldn't happen
       -> go $ Wait t1 (Just syl1) $ Wait t2 Nothing $ Wait 0 (Just syl2) rest
     Wait _t1 (Just _syl1) RNil -> RNil -- shouldn't happen
+  removeCancelled = \case
+    Wait t _ (Wait 0 anim rest) -> removeCancelled $ Wait t anim rest
+    Wait t x rest -> Wait t x $ removeCancelled rest
+    RNil -> RNil
+
+singleAnimsToStates
+  :: T.Text
+  -> RTB.T U.Seconds (VisemeAnimation Word8)
+  -> LipsyncStates
+singleAnimsToStates vis anims = let
+  makeVisemeEvent weight = VisemeEvent vis weight ()
+  animate animFunction len thisViseme1 thisViseme2 rest = let
+    transitionSteps = ceiling $ len * 30 :: Int
+    normalStep = len / fromIntegral transitionSteps
+    inBetween i = makeVisemeEvent $ let
+      animProgress = animFunction $ realToFrac i / realToFrac transitionSteps
+      in thisViseme1 + round ((realToFrac thisViseme2 - realToFrac thisViseme1) * animProgress)
+    steps = do
+      (i, step) <- zip [0 .. transitionSteps - 1] (0 : repeat normalStep)
+      return $ Wait step [inBetween i]
+    in foldr ($) (go $ RTB.delay normalStep rest) steps
+  easeInExpo :: Double -> Double
+  easeInExpo t = if t == 0 then 0 else 2 ** (10 * t - 10)
+  go = \case
+    RNil -> RNil
+    Wait t1 (VisemeHold v) rest -> Wait t1 [makeVisemeEvent v] $ go rest
+    Wait t1 (VisemeLine v1 v2) (Wait t2 x xs) -> if t2 /= 0
+      then RTB.delay t1 $ animate id t2 v1 v2 $ Wait 0 x xs
+      else go $ Wait t1 (VisemeHold v1) $ let -- probably shouldn't happen
+        x' = case x of
+          VisemeLine next1 next2 | next1 == v2 -> VisemeLine v1 next2
+          VisemeFall next1 next2 | next1 == v2 -> VisemeFall v1 next2
+          _                                    -> x
+        in Wait t2 x' xs
+    Wait t1 (VisemeFall v1 v2) (Wait t2 x xs) -> if t2 /= 0
+      then RTB.delay t1 $ animate easeInExpo t2 v1 v2 $ Wait 0 x xs
+      else go $ Wait t1 (VisemeHold v1) $ let -- can happen if a diphthong has zero time to do its transition
+        x' = case x of
+          VisemeLine next1 next2 | next1 == v2 -> VisemeLine v1 next2
+          VisemeFall next1 next2 | next1 == v2 -> VisemeFall v1 next2
+          _                                    -> x
+        in Wait t2 x' xs
+    Wait t1 (VisemeLine v1 _) RNil -> Wait t1 [makeVisemeEvent v1] RNil -- shouldn't happen
+    Wait t1 (VisemeFall v1 _) RNil -> Wait t1 [makeVisemeEvent v1] RNil -- shouldn't happen
+  in lipEventsStates $ RTB.flatten $ go anims
+
+animationsToEvents
+  :: (NNC.C t)
+  => RTB.T t (VisemeAnimation [(T.Text, Word8)])
+  -> RTB.T t (VisemeEvent VisemeGraph T.Text)
+animationsToEvents = let
+  go _  RNil             = RNil
+  go on (Wait dt x rest) = let
+    (startState, graph) = case x of
+      VisemeHold va    -> (va                , GraphHold      )
+      VisemeLine va vb -> (va <> zeroes va vb, GraphLinear    )
+      VisemeFall va vb -> (va <> zeroes va vb, GraphEaseInExpo)
+    zeroes va vb = map (, 0) $ map fst vb \\ map fst va
+    x' = map (\(a, w) -> VisemeEvent a w graph) startState
+    needToClear = Set.toList $ Set.difference on (Set.fromList $ map fst startState)
+    clears = map (\a -> VisemeEvent a 0 GraphHold) needToClear
+    on' = Set.fromList $ map fst startState
+    in Wait dt (x' <> clears) $ go on' rest
+  in RTB.flatten . go Set.empty
 
 animationsToStates
   :: RTB.T U.Seconds (VisemeAnimation [(T.Text, Word8)])
@@ -571,7 +640,7 @@ animationsToStates anims = let
   allVisemes = nubOrd $ toList anims >>= toList >>= map fst
   makeVisemeEvent pairs = do
     vis <- allVisemes
-    return $ VisemeEvent vis $ fromMaybe 0 $ lookup vis pairs
+    return $ VisemeEvent vis (fromMaybe 0 $ lookup vis pairs) ()
   animate animFunction len v1 v2 rest = let
     transitionSteps = ceiling $ len * 30 :: Int
     normalStep = len / fromIntegral transitionSteps
@@ -662,6 +731,23 @@ beatlesLipsync transition vmap trans vt = let
     $ vocalTubes vt
   in setBeatles $ lipsyncFromStates $ addLipsyncStates eyes mouth
 
+beatlesLipsync' :: U.Seconds -> VisemeMap [(T.Text, Word8)] -> Transcribe -> VocalTrack U.Seconds
+  -> RTB.T U.Seconds (VisemeEvent VisemeGraph T.Text)
+beatlesLipsync' transition vmap trans vt = let
+  eyes
+    = animationsToEvents
+    $ simpleAnimations transition
+    $ fmap (\b -> guard b >> [("l_lids", 255), ("r_lids", 255)])
+    $ vocalEyesClosed vt
+  mouth
+    = animationsToEvents
+    $ syllablesToAnimations transition vmap
+    $ fmap (fmap $ applyVisemeMap vmap)
+    $ runTranscribe
+    $ fmap (fmap (trans,))
+    $ vocalTubes vt
+  in RTB.merge eyes mouth
+
 gh2Lipsync :: Transcribe -> VocalTrack U.Seconds -> VocFile
 gh2Lipsync trans
   = visemesToVoc
@@ -673,17 +759,31 @@ gh2Lipsync trans
   . fmap (fmap (trans,))
   . vocalTubes
 
-lipEventsStates :: RTB.T U.Seconds (VisemeEvent T.Text) -> LipsyncStates
+lipEventsStates :: RTB.T U.Seconds (VisemeEvent () T.Text) -> LipsyncStates
 lipEventsStates = let
   makeKeyframes cur rest = let
     (frame, after) = U.trackSplit (1/30 :: U.Seconds) rest
-    next = Map.filter (/= 0) $ foldl' (\m (VisemeEvent k w) -> Map.insert k w m) cur frame
+    next = Map.filter (/= 0) $ foldl' (\m (VisemeEvent k w ()) -> Map.insert k w m) cur frame
     in next : if RTB.null after
       then []
       else makeKeyframes next after
   in map (Map.mapKeys TE.encodeUtf8)
     . makeKeyframes Map.empty
     . RTB.delay (1/60 :: U.Seconds) -- this is so we can process the first 1/30 and end up in the center of the first frame
+
+lipEventsStates' :: RTB.T U.Seconds (VisemeEvent VisemeGraph T.Text) -> LipsyncStates
+lipEventsStates' events = let
+  allVisemes :: [T.Text]
+  allVisemes = nubOrd $ map visemeKey $ toList events
+  getSingleStates k = singleAnimsToStates k $ toAnimations $ RTB.filter (\e -> visemeKey e == k) events
+  toAnimations = \case
+    RNil -> RNil
+    Wait t (VisemeEvent _ w _) RNil -> Wait t (VisemeHold w) RNil
+    Wait t (VisemeEvent _ w1 graph) rest@(Wait _ (VisemeEvent _ w2 _) _) -> case graph of
+      GraphHold       -> Wait t (VisemeHold w1)    $ toAnimations rest
+      GraphLinear     -> Wait t (VisemeLine w1 w2) $ toAnimations rest
+      GraphEaseInExpo -> Wait t (VisemeFall w1 w2) $ toAnimations rest
+  in foldr addLipsyncStates [] $ map getSingleStates allVisemes
 
 data LipsyncTarget
   = LipsyncRB3
@@ -711,7 +811,7 @@ lipsyncFromMIDITrack' :: LipsyncTarget -> VisemeMap [(T.Text, Word8)] -> Lipsync
 lipsyncFromMIDITrack' tgt vmap lip
   = (case tgt of LipsyncTBRB -> setBeatles; LipsyncRB3 -> setRB3)
   $ lipsyncFromStates
-  $ addLipsyncStates (lipEventsStates $ lipEvents lip) (lipLyricsStates vmap lip)
+  $ addLipsyncStates (lipEventsStates' $ lipEvents lip) (lipLyricsStates vmap lip)
 
 lipsyncFromMIDITrack :: VisemeMap [(T.Text, Word8)] -> LipsyncTrack U.Seconds -> Lipsync
 lipsyncFromMIDITrack = lipsyncFromMIDITrack' LipsyncRB3
@@ -917,7 +1017,7 @@ vocToMIDITrack voc
           | veWeight evt < 0 = 0
           | veWeight evt > 1 = 255
           | otherwise        = round $ veWeight evt * 255
-        in (time, VisemeEvent name weight)
+        in (time, VisemeEvent name weight GraphHold)
 
 visemesToVoc :: RTB.T U.Seconds [(T.Text, Float)] -> VocFile
 visemesToVoc visemes = VocFile

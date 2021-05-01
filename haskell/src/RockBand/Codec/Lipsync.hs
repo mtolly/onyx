@@ -23,7 +23,7 @@ data LipsyncTrack t = LipsyncTrack
   { lipLyrics   :: RTB.T t T.Text
   , lipNotes    :: RTB.T t (Pitch, Bool)
   , lipLanguage :: RTB.T t LyricLanguage
-  , lipEvents   :: RTB.T t (VisemeEvent T.Text)
+  , lipEvents   :: RTB.T t (VisemeEvent VisemeGraph T.Text)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (LipsyncTrack t)
 
@@ -50,16 +50,30 @@ data LyricLanguage
   | LyricSpanish
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-data VisemeEvent a = VisemeEvent
+data VisemeGraph
+  = GraphHold -- ^ hold this weight until its next event
+  | GraphLinear -- ^ linear transition from this weight to the next one
+  | GraphEaseInExpo -- ^ exponential transition from this weight to the next one
+  deriving (Eq, Ord, Show)
+
+data VisemeEvent g a = VisemeEvent
   { visemeKey    :: a
   , visemeWeight :: Word8
+  , visemeGraph  :: g
   } deriving (Eq, Ord, Show, Functor)
 
-instance Command (VisemeEvent T.Text) where
+instance Command (VisemeEvent VisemeGraph T.Text) where
   toCommand = \case
-    [v, w] -> VisemeEvent v <$> readMaybe (T.unpack w)
+    v : w : rest -> VisemeEvent v <$> readMaybe (T.unpack w) <*> case rest of
+      []       -> Just GraphLinear
+      ["hold"] -> Just GraphHold
+      ["ease"] -> Just GraphEaseInExpo
+      _        -> Nothing
     _      -> Nothing
-  fromCommand (VisemeEvent v w) = [v, T.pack $ show w]
+  fromCommand (VisemeEvent v w g) = v : T.pack (show w) : case g of
+    GraphLinear     -> []
+    GraphHold       -> ["hold"]
+    GraphEaseInExpo -> ["ease"]
 
 data MagmaViseme
   = Viseme_Blink
