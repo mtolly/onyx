@@ -1,16 +1,22 @@
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Import.GuitarHero2 where
 
 import           Amplitude.PS2.Ark                (FileEntry (..), entryFolder,
                                                    readFileEntry)
 import           Audio                            (Audio (..))
 import           Config
-import           Control.Monad                    (guard, void)
+import           Control.Monad                    (forM, guard, void)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
+import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
@@ -20,7 +26,8 @@ import qualified Data.DTA.Serialize               as D
 import           Data.DTA.Serialize.GH2
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        ((\\))
+import           Data.Int
+import           Data.List.Extra                  (firstJust, (\\))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe)
 import           Data.SimpleHandle                (findFile, handleToByteString,
@@ -217,3 +224,42 @@ importGH2Song mode pkg gen level = do
           }
       ]
     }
+
+data Setlist a = Setlist
+  { set_campaign :: [(B.ByteString, [a])]
+  , set_bonus    :: [(a, Int32)]
+  } deriving (Show, Functor, Foldable, Traversable)
+
+loadSetlist :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (Setlist B.ByteString)
+loadSetlist gen = do
+  entries <- stackIO $ readFileEntries $ gen </> "MAIN.HDR"
+  let loadDTB name = case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == name) entries of
+        entry : _ -> do
+          dtb <- stackIO $ useHandle (readFileEntry entry $ gen </> "MAIN_0.ARK") handleToByteString
+          return $ D.decodeDTB (decrypt oldCrypt dtb)
+        []        -> fatal $ "Couldn't find " <> show name
+  dtbCampaign <- loadDTB "campaign.dtb"
+  dtbBonus    <- loadDTB "store.dtb"
+  let isKeyMatch k = \case
+        D.Parens (D.Tree _ (D.Sym k' : rest)) | k == k' -> Just rest
+        _                                     -> Nothing
+      findKey k = firstJust (isKeyMatch k) . D.treeChunks
+      parseTier (D.Parens (D.Tree _ (D.Sym x : xs))) = return (x, [song | D.Sym song <- xs])
+      parseTier _                              = fatal "Couldn't extract info from a tier in campaign.dtb"
+      parseBonusSong (D.Parens (D.Tree _ [D.Sym x, isKeyMatch "price" -> Just [D.Int n]])) = return (x, n)
+      parseBonusSong _ = fatal "Couldn't extract info from a bonus song in store.dtb"
+  set_campaign <- case findKey "order" $ D.topTree dtbCampaign of
+    Nothing    -> fatal "Couldn't find 'order' in campaign.dtb"
+    Just order -> mapM parseTier order
+  set_bonus <- case findKey "song" $ D.topTree dtbBonus of
+    Nothing    -> fatal "Couldn't find bonus songs in store.dtb"
+    Just songs -> mapM parseBonusSong songs
+  return Setlist{..}
+
+loadSetlistFull :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (Setlist (B.ByteString, SongPackage))
+loadSetlistFull gen = do
+  setlist <- loadSetlist gen
+  songs <- HM.fromList <$> getSongList gen
+  forM setlist $ \k -> case HM.lookup (decodeLatin1 k) songs of
+    Just pkg -> return (k, pkg)
+    Nothing  -> fatal $ "Couldn't locate setlist song " <> show k

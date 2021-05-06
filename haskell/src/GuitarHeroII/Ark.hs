@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readFileEntries, extractArk, createHdrArk) where
+module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readFileEntries, extractArk, createHdrArk, GH2InstallLocation(..)) where
 
 import           Amplitude.PS2.Ark      (FileEntry (..), FoundFile (..),
                                          extractArk, makeStringBank,
@@ -117,6 +117,11 @@ detectGameGH gen = withArk gen $ \ark -> do
           | "PART GUITAR" `B.isInfixOf` bs -> return $ Just GameGH2
           | otherwise                      -> go rest
     in go
+
+data GH2InstallLocation
+  = GH2Replace B.ByteString
+  | GH2AddTier Int
+  | GH2AddBonus
 
 -- | Replaces a song in Guitar Hero II (U).
 replaceSong

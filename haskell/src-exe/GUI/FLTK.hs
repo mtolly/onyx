@@ -65,12 +65,13 @@ import           Data.Char                                 (isSpace, toLower,
                                                             toUpper)
 import qualified Data.Connection                           as Conn
 import           Data.Default.Class                        (Default, def)
+import qualified Data.DTA.Serialize.GH2                    as D
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
 import           Data.Int                                  (Int64)
-import           Data.IORef                                (IORef, newIORef,
-                                                            readIORef,
+import           Data.IORef                                (IORef, modifyIORef,
+                                                            newIORef, readIORef,
                                                             writeIORef)
 import           Data.List.Extra                           (findIndex)
 import qualified Data.Map                                  as Map
@@ -102,7 +103,10 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Graphics.UI.FLTK.LowLevel.GlWindow        ()
 import           Graphics.UI.FLTK.LowLevel.X               (openCallback)
+import           GuitarHeroII.Ark                          (GH2InstallLocation (..))
 import           Image                                     (readRBImageMaybe)
+import           Import.GuitarHero2                        (Setlist (..),
+                                                            loadSetlistFull)
 import           MoggDecrypt                               (oggToMogg)
 import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
@@ -1150,6 +1154,18 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
+  gh2Tab <- makeTab windowRect "GH2" $ \rect tab -> do
+    functionTabColor >>= setTabColor tab
+    songPageGH2 sink rect tab proj $ \tgt create -> do
+      proj' <- fullProjModify proj
+      let name = case create of
+            GH2LIVE _  -> "Building GH2 LIVE file"
+            GH2ARK _ _ -> "Adding to GH2 ARK file"
+          task = case create of
+            GH2LIVE fout    -> undefined
+            GH2ARK fout loc -> undefined
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
@@ -1208,7 +1224,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, utilsTab]
+  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, gh2Tab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskColor >>= setTabColor tab
     FL.deactivate tab
@@ -1309,6 +1325,11 @@ data RB3Create
 data PSCreate
   = PSDir FilePath
   | PSZip FilePath
+
+data GH2Create
+  = GH2LIVE FilePath
+  | GH2ARK FilePath GH2InstallLocation
+  -- TODO folders of stuff for 360/PS2
 
 horizRadio' :: Rectangle -> Maybe (IO ()) -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
 horizRadio' _    _  []   = error "horizRadio: empty option list"
@@ -1576,7 +1597,7 @@ partSelectors
   => Rectangle
   -> Project
   -> [(T.Text, tgt -> FlexPartName, FlexPartName -> tgt -> tgt, Part FilePath -> Bool)]
-  -> BuildYamlControl tgt ()
+  -> BuildYamlControl tgt (Bool -> IO ())
 partSelectors rect proj slots = let
   rects = splitHorizN (length slots) rect
   fparts = do
@@ -1601,7 +1622,10 @@ partSelectors rect proj slots = let
       return $ Endo $ setter $ case drop (i - 1) fparts' of
         (fpart, _, _) : _ | i /= 0 -> fpart
         _                          -> FlexExtra "undefined"
-  in mapM_ instSelector $ zip slots rects
+    return $ \b -> if b then FL.activate choice else FL.deactivate choice
+  in do
+    controls <- mapM instSelector $ zip slots rects
+    return $ \b -> mapM_ ($ b) controls
 
 customTitleSuffix
   :: (Event -> IO ())
@@ -1658,7 +1682,7 @@ songPageRB3 sink rect tab proj build = mdo
       return box
     fullWidth 35 $ \rect' -> songIDBox rect' $ \sid rb3 ->
       rb3 { rb3_SongID = sid }
-    fullWidth 50 $ \rect' -> partSelectors rect' proj
+    fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", rb3_Guitar, (\v rb3 -> rb3 { rb3_Guitar = v })
         , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
         )
@@ -1749,7 +1773,7 @@ songPageRB2 sink rect tab proj build = mdo
       return box
     fullWidth 35 $ \rect' -> songIDBox rect' $ \sid rb2 ->
       rb2 { rb2_SongID = sid }
-    fullWidth 50 $ \rect' -> partSelectors rect' proj
+    fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", rb2_Guitar, (\v rb2 -> rb2 { rb2_Guitar = v })
         , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
         )
@@ -1816,7 +1840,7 @@ songPagePS sink rect tab proj build = mdo
       tell $ getSpeed >>= \speed -> return $ Endo $ \ps ->
         ps { ps_Common = (ps_Common ps) { tgt_Speed = Just speed } }
       return counter
-    fullWidth 50 $ \rect' -> partSelectors rect' proj
+    fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar"     , ps_Guitar    , (\v ps -> ps { ps_Guitar       = v })
         , (\p -> isJust (partGRYBO p) || isJust (partGHL p) || isJust (partProGuitar p))
         )
@@ -1878,6 +1902,211 @@ songPagePS sink rect tab proj build = mdo
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
           Just f  -> build tgt $ PSZip f
+        _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn1 color
+    FL.setColor btn2 color
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+selectArkDestination
+  :: (Event -> IO ())
+  -> FilePath
+  -> (GH2InstallLocation -> IO ())
+  -> Onyx ()
+selectArkDestination sink gen withLocation = do
+  setlist <- loadSetlistFull gen
+  stackIO $ mdo
+
+    let windowWidth = Width 500
+        windowHeight = Height 400
+        windowSize = Size windowWidth windowHeight
+    window <- FL.windowNew
+      windowSize
+      Nothing
+      (Just "Select destination in .ARK")
+    let windowRect = Rectangle (Position (X 0) (Y 0)) windowSize
+
+    scroll <- FL.scrolledCustom
+      windowRect
+      Nothing
+      Nothing
+      $ Just FL.defaultCustomWidgetFuncs
+        { FL.resizeCustom = Just $ \this newRect -> do
+          Rectangle pos (Size (Width _) h) <- FL.getRectangle pack
+          let newWidth = case rectangleSize newRect of
+                Size (Width w') _ -> Width $ w' - barSize
+          FL.resize pack $ Rectangle pos $ Size newWidth h
+          FL.resizeScrolledBase (FL.safeCast this) newRect
+        }
+    FL.setBox scroll FLE.EngravedBox
+    FL.setType scroll FL.VerticalAlwaysScrollBar
+    let barSize = 15
+    FL.setScrollbarSize scroll barSize
+    let (songsInnerArea, _) = chopRight barSize windowRect
+    pack <- FL.packNew songsInnerArea Nothing
+
+    let dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 400) (Height 25))
+        songButton (k, pkg) = do
+          btn <- FL.buttonNew dummyRect $ Just $ D.name pkg <> " (" <> D.artist pkg <> ")"
+          void $ FL.setCallback btn $ \_ -> do
+            withLocation $ GH2Replace k
+            FL.hide window
+        addButton maybeTier = do
+          btn <- FL.buttonNew dummyRect $ Just $ T.pack $ case maybeTier of
+            Nothing -> "Add to Bonus"
+            Just i  -> "Add to Tier " <> show (i + 1)
+          void $ FL.setCallback btn $ \_ -> do
+            withLocation $ maybe GH2AddBonus GH2AddTier maybeTier
+            FL.hide window
+
+    forM_ (zip [0..] $ set_campaign setlist) $ \(tierIndex, (_, songs)) -> do
+      _ <- FL.boxNew dummyRect $ Just $ T.pack $ "Tier " <> show (tierIndex + 1 :: Int)
+      addButton $ Just tierIndex
+      mapM_ songButton songs
+
+    _ <- FL.boxNew dummyRect $ Just "Bonus Songs"
+    addButton Nothing
+    mapM_ (songButton . fst) $ set_bonus setlist
+
+    FL.end pack
+    FL.end scroll
+    FLE.rgbColorWithRgb (255,255,255) >>= FL.setColor scroll
+
+    FL.end window
+    FL.setResizable window $ Just scroll
+    FL.sizeRange window windowSize
+    FL.showWidget window
+
+songPageGH2
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> Project
+  -> (TargetGH2 -> GH2Create -> IO ())
+  -> IO ()
+songPageGH2 sink rect tab proj build = mdo
+  pack <- FL.packNew rect Nothing
+  let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
+  targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
+      tell $ getSpeed >>= \speed -> return $ Endo $ \gh2 ->
+        gh2 { gh2_Common = (gh2_Common gh2) { tgt_Speed = Just speed } }
+      return counter
+    fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
+      [ ( "Guitar"     , gh2_Guitar    , (\v gh2 -> gh2 { gh2_Guitar       = v })
+        , isJust . partGRYBO
+        )
+      ]
+    fullWidth 50 $ \rect' -> do
+      let [bassArea, coopArea, rhythmArea] = splitHorizN 3 rect'
+      void $ partSelectors bassArea proj
+        [ ( "Bass"       , gh2_Bass      , (\v gh2 -> gh2 { gh2_Bass         = v })
+          , isJust . partGRYBO
+          )
+        ]
+      controlRhythm <- partSelectors rhythmArea proj
+        [ ( "Rhythm"     , gh2_Rhythm      , (\v gh2 -> gh2 { gh2_Rhythm         = v })
+          , isJust . partGRYBO
+          )
+        ]
+      coopPart <- liftIO $ newIORef GH2Bass
+      liftIO $ do
+        coopButton <- FL.buttonNew coopArea Nothing
+        let updateCoopButton = do
+              coop <- readIORef coopPart
+              FL.setLabel coopButton $ case coop of
+                GH2Bass   -> "Coop: Bass"
+                GH2Rhythm -> "Coop: Rhythm"
+              controlRhythm $ coop == GH2Rhythm
+        updateCoopButton
+        FL.setCallback coopButton $ \_ -> sink $ EventIO $ do
+          modifyIORef coopPart $ \case
+            GH2Bass   -> GH2Rhythm
+            GH2Rhythm -> GH2Bass
+          updateCoopButton
+      tell $ readIORef coopPart >>= \coop -> return $ Endo $ \gh2 -> gh2 { gh2_Coop = coop }
+    fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
+      [ ( "Keys"       , gh2_Keys      , (\v gh2 -> gh2 { gh2_Keys         = v })
+        , isJust . partGRYBO
+        )
+      , ( "Drums"      , gh2_Drums     , (\v gh2 -> gh2 { gh2_Drums        = v })
+        , isJust . partDrums
+        )
+      , ( "Vocal"      , gh2_Vocal     , (\v gh2 -> gh2 { gh2_Vocal        = v })
+        , isJust . partVocal
+        )
+      ]
+    fullWidth 35 $ \rect' -> do
+      controlInput <- customTitleSuffix sink rect'
+        (makeTarget >>= \gh2 -> return $ targetTitle
+          (projectSongYaml proj)
+          (GH2 gh2 { gh2_Common = (gh2_Common gh2) { tgt_Title = Just "" } })
+        )
+        (\msfx gh2 -> gh2
+          { gh2_Common = (gh2_Common gh2)
+            { tgt_Label = msfx
+            }
+          }
+        )
+      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+  let makeTarget = fmap ($ def) targetModifier
+  fullWidth 35 $ \rect' -> do
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    btn1 <- FL.buttonNew r1 $ Just "Add to GH2 ARK"
+    FL.setCallback btn1 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+      FL.setTitle picker "Select .HDR file"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> let
+            gen = takeDirectory f
+            in sink $ EventOnyx $ selectArkDestination sink gen $ \dest -> do
+              build tgt $ GH2ARK gen dest
+        _ -> return ()
+    btn2 <- FL.buttonNew r2 $ Just "Create GH2 (360) LIVE file"
+    FL.setCallback btn2 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save GH2 LIVE file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_gh2live" -- TODO add modifiers
+      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ GH2LIVE f
+        _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn1 color
+    FL.setColor btn2 color
+  fullWidth 35 $ \rect' -> do
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    btn1 <- FL.buttonNew r1 $ Just "Create PS2 DIY folder"
+    FL.setCallback btn1 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Create DIY folder"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> undefined -- TODO
+        _ -> return ()
+    btn2 <- FL.buttonNew r2 $ Just "Create 360 DIY folder"
+    FL.setCallback btn2 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Create DIY folder"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> undefined -- TODO
         _ -> return ()
     color <- FLE.rgbColorWithRgb (179,221,187)
     FL.setColor btn1 color
