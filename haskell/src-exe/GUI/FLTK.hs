@@ -2637,22 +2637,25 @@ miscPageLipsync sink rect tab startTasks = do
                 { miloFiles = do
                   ((_, name), contents) <- zip (miloEntryNames dir) (miloFiles dir)
                   return $ case name of
-                    "john.lipsync"   -> getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncJohn
-                    "paul.lipsync"   -> getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncPaul
-                    "george.lipsync" -> getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncGeorge
-                    "ringo.lipsync"  -> getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncRingo
-                    "song.lipsync"   -> getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync1
-                    "part2.lipsync"  -> getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync2
-                    "part3.lipsync"  -> getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync3
-                    "part4.lipsync"  -> getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync4
+                    "john.lipsync"   -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncJohn
+                    "paul.lipsync"   -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncPaul
+                    "george.lipsync" -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncGeorge
+                    "ringo.lipsync"  -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncRingo
+                    "song.lipsync"   -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync1
+                    "part2.lipsync"  -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync2
+                    "part3.lipsync"  -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync3
+                    "part4.lipsync"  -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync4
                     _                -> contents
                 , miloSubdirs = map editDir $ miloSubdirs dir
                 }
-              getLipsync tgt vmap getTrack
-                = runPut $ putLipsync
-                $ lipsyncFromMIDITrack' tgt vmap
-                $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid)
-                $ getTrack $ RBFile.s_tracks mid
+              getLipsync tgt vmap getTrack = let
+                trk = getTrack $ RBFile.s_tracks mid
+                in do
+                  guard $ trk /= mempty
+                  Just
+                    $ runPut $ putLipsync
+                    $ lipsyncFromMIDITrack' tgt vmap
+                    $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
           stackIO $ BL.writeFile milo $ addMiloHeader $ makeMiloFile $ editDir topDir
           return [milo]
         in startTasks [("Update Milo with LIPSYNC tracks: " <> milo, task)]
