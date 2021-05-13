@@ -1162,8 +1162,12 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
             GH2LIVE _  -> "Building GH2 LIVE file"
             GH2ARK _ _ -> "Adding to GH2 ARK file"
           task = case create of
-            GH2LIVE fout    -> undefined
-            GH2ARK fout loc -> undefined
+            GH2LIVE fout    -> fatal "TODO make GH2 LIVE files"
+            GH2ARK fout loc -> case loc of
+              GH2Replace k -> do
+                installGH2 tgt proj' k fout
+                return [fout]
+              _ -> fatal "TODO add new GH2 songs without replacing"
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do

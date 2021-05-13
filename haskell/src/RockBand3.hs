@@ -3,7 +3,7 @@
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE RecordWildCards   #-}
 module RockBand3
-( processRB3Pad, processPS, processTiming
+( processRB3Pad, processRB3, processPS, processTiming
 , findProblems
 , TrackAdjust(..)
 , magmaLegalTempos
@@ -59,6 +59,20 @@ processRB3Pad a b c d e = do
   -- TODO we probably should run fixBrokenUnisons before autoreductions
   (mid', pad) <- magmaLegalTemposFile mid >>= fixNotelessOD >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
   return (mid', psDifficultyRB3 diffs, vc, pad)
+
+processRB3
+  :: (SendMessage m, MonadIO m)
+  => TargetRB3 f
+  -> SongYaml f
+  -> RBFile.Song (RBFile.OnyxFile U.Beats)
+  -> RBDrums.Audio
+  -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
+  -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats), DifficultyRB3, Maybe VocalCount)
+processRB3 a b c d e = do
+  (mid, diffs, vc) <- processMIDI (Left a) b c d e
+  -- TODO we probably should run fixBrokenUnisons before autoreductions
+  mid' <- fmap fixBeatTrack' $ magmaLegalTemposFile mid >>= fixNotelessOD >>= fixBrokenUnisons
+  return (mid', psDifficultyRB3 diffs, vc)
 
 processPS
   :: (SendMessage m, MonadIO m)
@@ -985,9 +999,8 @@ magmaPad rb3@(RBFile.Song tmap _ trks) = let
       ]
     ]
   firstNoteSeconds = U.applyTempoMap tmap firstNoteBeats
-  -- magma says 2.45s but account for some float error
-  -- TODO this needs to be bumped! even 2.571 causes problems on non-bns expert
-  padSeconds = max 0 $ ceiling $ 2.451 - (realToFrac firstNoteSeconds :: Rational)
+  -- magma says 2.45s but even 2.571 can cause problems on non-bns expert!
+  padSeconds = max 0 $ ceiling $ 2.6 - (realToFrac firstNoteSeconds :: Rational)
   in case padSeconds of
     0 -> do
       return (rb3, 0)

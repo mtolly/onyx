@@ -1,0 +1,35 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+metadata:
+  title: Chris & Kevin's Amazing Odyssey # inconsistent "&"/"and" from Excellent Adventure...
+  artist: Liquid Tension Experiment
+  album: Liquid Tension Experiment 3
+  track-number: 5
+  year: 2021
+  author: Onyxite
+  genre: metal
+  subgenre: prog
+  file-album-art: ../the-passage-of-time/cover.jpg
+plans:
+  album:
+    song:
+      pad: [3.934, album-track]
+  dev:
+    song:
+      pad: [3.934, album-track]
+    parts:
+      drums-only:
+        take:
+        - '5:00'
+        - drop: ['22:35.532', drumcam-drums]
+audio:
+  album-track:
+    md5: ecd07a735a1dab3360233274bf87d4e7
+    frames: 13413339
+  drumcam-drums:
+    md5: 321ce6abea8b7fd59de8ff122d47955f
+    frames: 205624320
+    # rate: 48000

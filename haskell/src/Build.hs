@@ -75,6 +75,7 @@ import qualified FretsOnFire                           as FoF
 import           Genre
 import           GuitarHeroII.Audio                    (writeVGS)
 import           GuitarHeroII.Convert
+import qualified GuitarHeroII.Events                   as GH2
 import           GuitarHeroII.File
 import           Image
 import qualified Magma
@@ -842,9 +843,18 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           adjustSpec False [(0, 0)] = [(0, 0)]
           adjustSpec False _        = [(-1, 0), (1, 0)]
 
+          padAudio :: (Monad m) => Int -> AudioSource m Float -> AudioSource m Float
           padAudio pad src = if frames src == 0
             then src
-            else padStart (Seconds $ realToFrac (pad :: Int)) src
+            else padStart (Seconds $ realToFrac pad) src
+          setAudioLength :: (Monad m) => U.Seconds -> AudioSource m Float -> AudioSource m Float
+          setAudioLength len src = let
+            currentLength = fromIntegral (frames src) / rate src
+            requiredLength = realToFrac len
+            in case compare currentLength requiredLength of
+              EQ -> src
+              LT -> padEnd (Seconds $ requiredLength - currentLength) src
+              GT -> takeStart (Seconds requiredLength) src
           -- Silences out an audio stream if more than 1 game part maps to the same flex part
           zeroIfMultiple fparts fpart src = case filter (== fpart) fparts of
             _ : _ : _ -> takeStart (Frames 0) src
@@ -1245,12 +1255,21 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       }
                     }
                   input' = input { RBFile.s_tracks = adjustEvents $ RBFile.s_tracks input }
-              (output, diffs, vc, pad) <- RB3.processRB3Pad
-                rb3
-                songYaml
-                (applyTargetMIDI (rb3_Common rb3) input')
-                mixMode
-                (applyTargetLength (rb3_Common rb3) input <$> getAudioLength planName plan)
+              (output, diffs, vc, pad) <- case plan of
+                MoggPlan{} -> do
+                  (output, diffs, vc) <- RB3.processRB3
+                    rb3
+                    songYaml
+                    (applyTargetMIDI (rb3_Common rb3) input')
+                    mixMode
+                    (applyTargetLength (rb3_Common rb3) input <$> getAudioLength planName plan)
+                  return (output, diffs, vc, 0)
+                Plan{} -> RB3.processRB3Pad
+                  rb3
+                  songYaml
+                  (applyTargetMIDI (rb3_Common rb3) input')
+                  mixMode
+                  (applyTargetLength (rb3_Common rb3) input <$> getAudioLength planName plan)
               liftIO $ writeFile pathMagmaPad $ show pad
               liftIO $ writeFile pathMagmaEditedParts $ show (diffs, vc)
               case invalid of
@@ -1695,11 +1714,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               Just pair -> return pair
             let planDir = rel $ "gen/plan" </> T.unpack planName
 
-            [dir </> "gh2/notes.mid", dir </> "gh2/coop_max_scores.dta"] &%> \[out, coop] -> do
-              -- TODO support speed
+            [dir </> "gh2/notes.mid", dir </> "gh2/coop_max_scores.dta", dir </> "gh2/pad.txt"] &%> \[out, coop, pad] -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
-              -- TODO use rb-processed mid
-              let mid = midiRB3toGH2 songYaml gh2 input
+              audio <- computeGH2Audio songYaml gh2 plan
+              (mid, padSeconds) <- midiRB3toGH2 songYaml gh2 audio $ applyTargetMIDI (gh2_Common gh2) input
               saveMIDI out mid
               let p1 = gh2PartGuitar $ RBFile.s_tracks mid
                   p2 = case gh2_Coop gh2 of
@@ -1708,19 +1726,27 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   scores = map (\diff -> gh2Base diff p1 + gh2Base diff p2) [Easy .. Expert]
                   dta = "(" <> unwords (map show scores) <> ")"
               stackIO $ writeFile coop dta
+              stackIO $ writeFile pad $ show padSeconds
 
             let gh2Source = do
-                  -- TODO support speed
-                  let coopPart = case gh2_Coop gh2 of
-                        GH2Bass   -> gh2_Bass   gh2
-                        GH2Rhythm -> gh2_Rhythm gh2
-                  -- TODO support no coop part
-                  -- TODO audio has to go past [end], otherwise the track stops in place!
-                  mid <- shakeMIDI $ planDir </> "raw.mid" :: Staction (RBFile.Song (RBFile.OnyxFile U.Beats))
-                  srcGtr  <- getPartSource [(-1, 0), (1, 0)] planName plan (gh2_Guitar gh2) 1
-                  srcCoop <- getPartSource [(-1, 0), (1, 0)] planName plan coopPart 1
-                  srcSong <- sourceSongCountin (gh2_Common gh2) mid 0 True planName plan [(gh2_Guitar gh2, 1), (coopPart, 1)]
-                  return $ merge srcSong $ merge srcGtr srcCoop
+                  audio <- computeGH2Audio songYaml gh2 plan
+                  mid <- shakeMIDI $ dir </> "gh2/notes.mid" :: Staction (RBFile.Song (GH2File U.Beats))
+                  srcs <- forM (gh2AudioSections audio) $ \case
+                    GH2Part part -> getPartSource [(-1, 0), (1, 0)] planName plan part 1
+                    GH2Band -> sourceSongCountin (gh2_Common gh2) mid 0 True planName plan
+                      [ (gh2LeadTrack audio, 1)
+                      , (gh2CoopTrack audio, 1)
+                      ]
+                    GH2Silent -> shk $ buildSource $ Silence 1 $ Seconds 0
+                  pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
+                  endTime <- case RTB.filter (== GH2.End) $ GH2.eventsOther $ gh2Events $ RBFile.s_tracks mid of
+                    RNil       -> fatal "panic! couldn't find [end] event in GH2 output midi"
+                    Wait t _ _ -> return $ U.applyTempoMap (RBFile.s_tempos mid) t
+                  return
+                    $ setAudioLength (endTime + 0.5)
+                    $ padAudio pad
+                    $ applyTargetAudio (gh2_Common gh2) mid
+                    $ foldr1 merge srcs
 
             dir </> "gh2/audio.vgs" %> \out -> do
               src <- gh2Source
@@ -1728,11 +1754,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
             forM_ ([90, 75, 60] :: [Int]) $ \speed -> do
               dir </> ("gh2/audio_p" ++ show speed ++ ".vgs") %> \out -> do
-                let coopPart = case gh2_Coop gh2 of
-                      GH2Bass   -> gh2_Bass   gh2
-                      GH2Rhythm -> gh2_Rhythm gh2
-                srcCoop <- applyVolsMono [0] <$> getPartSource [(-1, 0), (1, 0)] planName plan coopPart 1
-                srcGtr  <- applyVolsMono [0] <$> getPartSource [(-1, 0), (1, 0)] planName plan (gh2_Guitar gh2) 1
+                audio <- computeGH2Audio songYaml gh2 plan
+                mid <- shakeMIDI $ dir </> "gh2/notes.mid" :: Staction (RBFile.Song (GH2File U.Beats))
+                srcs <- forM (gh2Practice audio) $ \case
+                  Nothing   -> applyVolsMono [0] <$> shk (buildSource $ Input $ planDir </> "everything.wav")
+                  Just part -> applyVolsMono [0] <$> getPartSource [(-1, 0), (1, 0)] planName plan part 1
+                pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
                 rate <- case speed of
                   60 -> return 19875
                   75 -> return 16125
@@ -1746,15 +1773,20 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   $ mapSamples integralSample
                   $ resampleTo rate SincMediumQuality
                   $ stretchFull 1 (100 / fromIntegral speed)
-                  $ merge srcCoop srcGtr
+                  $ padAudio pad
+                  $ applyTargetAudio (gh2_Common gh2) mid
+                  $ foldr1 merge srcs
                 lg $ "Finished writing GH2 practice audio for " ++ show speed ++ "% speed"
 
             dir </> "gh2/songs.dta" %> \out -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
+              audio <- computeGH2Audio songYaml gh2 plan
               stackIO $ D.writeFileDTA_latin1 out $ D.serialize (valueId D.stackChunks) $ makeGH2DTA
                 songYaml
                 (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)))
                 gh2
+                audio
+                (targetTitle songYaml target)
 
             dir </> "gh2/lipsync.voc" %> \out -> do
               midi <- shakeMIDI $ planDir </> "raw.mid"
@@ -1804,11 +1836,14 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 ]
             dir </> "stfs/config/songs.dta" %> \out -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
+              audio <- computeGH2Audio songYaml gh2 plan
               let songPackage = makeGH2DTA360
                     songYaml
                     key
                     (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)))
                     gh2
+                    audio
+                    (targetTitle songYaml target)
               stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
                 [ D.Parens $ D.Tree 0
                   $ D.Sym key

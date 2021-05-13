@@ -12,6 +12,7 @@ module Overdrive
 , printFlexParts
 , notesFromRB3
 , fixNotelessOD
+, removeNotelessOD
 ) where
 
 import           Control.Arrow                    ((>>>))
@@ -26,6 +27,7 @@ import           Data.List.NonEmpty               (NonEmpty (..))
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe)
+import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.Drums
 import           RockBand.Codec.File
@@ -330,7 +332,7 @@ removeNotelessOD mmap notes allOD = foldr RTB.merge RTB.empty <$> do
               -- this really shouldn't be a problem but Magma will fail
               inside (showPosition mmap t) $ warn $ unwords
                 [ "Removing an OD phrase on"
-                , show fpart
+                , T.unpack $ getPartName fpart
                 , "because there are no notes between it and the previous phrase on"
                 , diff
                 ]
@@ -339,7 +341,7 @@ removeNotelessOD mmap notes allOD = foldr RTB.merge RTB.empty <$> do
               Just diff -> do
                 inside (showPosition mmap t) $ warn $ unwords
                   [ "Removing an OD phrase on"
-                  , show fpart
+                  , T.unpack $ getPartName fpart
                   , "because it has no notes on"
                   , diff
                   ]

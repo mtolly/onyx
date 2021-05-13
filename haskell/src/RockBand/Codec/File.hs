@@ -637,9 +637,9 @@ showMIDIFile' :: (ParseFile f) => Song (f U.Beats) -> F.T
 showMIDIFile' = showMIDIFile . showMIDITracks
 
 -- | Adds a given amount of 1 second increments to the start of the MIDI.
-padFixedFile :: Int -> Song (FixedFile U.Beats) -> Song (FixedFile U.Beats)
-padFixedFile 0       song                        = song
-padFixedFile seconds (Song temps sigs ff) = let
+padAnyFile :: (TraverseTrack f) => Int -> Song (f U.Beats) -> Song (f U.Beats)
+padAnyFile 0       song                 = song
+padAnyFile seconds (Song temps sigs ff) = let
   beats = fromIntegral seconds * 2
   temps'
     = U.tempoMapFromBPS
@@ -655,13 +655,21 @@ padFixedFile seconds (Song temps sigs ff) = let
         | otherwise -> Wait (len + beats) sig $ Wait (dt - len) next rest'
       RNil -> Wait (len + beats) sig RNil
     -- TODO: timesig numerator can only go up to 255 so this could fail for long delay values
-    _ -> error "RockBand.Codec.File.padFixedFile: internal error (no time signature at MIDI start)"
+    _ -> error "RockBand.Codec.File.padAnyFile: internal error (no time signature at MIDI start)"
   padSimple = RTB.delay beats
+  in Song temps' sigs' $ mapTrack padSimple ff
+
+-- | Adds a given amount of 1 second increments to the start of the MIDI.
+-- Also puts new beatlines in front of the BEAT track.
+padFixedFile :: Int -> Song (FixedFile U.Beats) -> Song (FixedFile U.Beats)
+padFixedFile 0       song               = song
+padFixedFile seconds song@(Song _ _ ff) = let
+  Song temps' sigs' ff' = padAnyFile seconds song
   padBeat
     = RTB.cons  0 Bar
     . foldr (.) id (replicate (seconds * 2 - 1) $ RTB.cons 1 Beat)
     . RTB.delay 1
-  in Song temps' sigs' $ (mapTrack padSimple ff)
+  in Song temps' sigs' ff'
     { fixedBeat = BeatTrack $ if RTB.null $ beatLines $ fixedBeat ff
       then RTB.empty
       else padBeat $ beatLines $ fixedBeat ff
