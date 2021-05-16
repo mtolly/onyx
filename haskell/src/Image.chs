@@ -6,10 +6,12 @@ module Image (toDXT1File, DXTFormat(..), readRBImage, readRBImageMaybe, readDDS)
 
 import           Codec.Picture
 import qualified Codec.Picture.STBIR        as STBIR
+import           Codec.Picture.Types        (promotePixel)
 import           Control.Monad              (forM_, guard, replicateM, unless)
 import           Control.Monad.Trans.Writer (execWriter, tell)
 import           Data.Array                 (listArray, (!))
 import           Data.Binary.Get
+import           Data.Bits
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Builder    as BB
 import qualified Data.ByteString.Lazy       as BL
@@ -17,6 +19,7 @@ import           Data.Maybe                 (fromMaybe)
 import           Foreign
 import           Foreign.C
 import           System.IO.Unsafe           (unsafePerformIO)
+import qualified Data.Vector.Storable as V
 
 #include "stb_dxt.h"
 
@@ -72,7 +75,7 @@ data DXTFormat
   | PNGWii
   deriving (Eq)
 
-readDXTChunk :: DXTFormat -> Bool -> Get (Image PixelRGB8)
+readDXTChunk :: DXTFormat -> Bool -> Get (Image PixelRGBA8)
 readDXTChunk fmt isDXT1 = do
   let getColors = case fmt of DDS -> getWord16le; _ -> getWord16be
   c0w <- getColors
@@ -98,7 +101,7 @@ readDXTChunk fmt isDXT1 = do
           (False,  True) -> c1
           ( True, False) -> c2
           ( True,  True) -> c3
-  return $ generateImage gen 4 4
+  return $ pixelMap promotePixel $ generateImage gen 4 4
 
 writeDXT1Chunk :: DXTFormat -> Image PixelRGB8 -> BB.Builder
 writeDXT1Chunk fmt chunk = let
@@ -177,7 +180,7 @@ arrangeRows cols rows xs = let
   in generateImage gen (w * cols) (h * rows)
 
 -- | Currently just hacked together for Rocksmith album art, otherwise untested
-readDDS :: BL.ByteString -> Maybe (Image PixelRGB8)
+readDDS :: BL.ByteString -> Maybe (Image PixelRGBA8)
 readDDS bs = let
   parseImage = do
     magic <- getByteString 4 -- "DDS "
@@ -221,7 +224,7 @@ readDDS bs = let
     Right (_, _, img) -> Just img
 
 -- | Supports .png_xbox in both official DXT1 and C3 DXT2/3, and also .png_wii.
-readRBImageMaybe :: BL.ByteString -> Maybe (Image PixelRGB8)
+readRBImageMaybe :: BL.ByteString -> Maybe (Image PixelRGBA8)
 readRBImageMaybe bs = let
   readWiiChunk = fmap (arrangeRows 2 2) $ replicateM 4 $ readDXTChunk PNGWii True
   parseImage = do
@@ -244,12 +247,27 @@ readRBImageMaybe bs = let
       -- Wii DXT1
       (0x04, 0x48) -> fmap (arrangeRows (quot width 8) (quot height 8))
         $ replicateM (quot (width * height) 64) readWiiChunk
+      -- PS2 BMP
+      (0x08, 0x03) -> do
+        palette <- replicateM 256 $ do
+          r <- getWord8
+          g <- getWord8
+          b <- getWord8
+          a <- getWord8 -- goes from 0 to 0x80
+          return [r, g, b, if a >= 0x80 then 0xFF else a * 2]
+        fmap (Image width height . V.fromList . concat) $ replicateM (width * height) $ do
+          i <- getWord8
+          -- swap bits 3 and 4 for some reason
+          let i' = (if i `testBit` 3 then (`setBit` 4) else (`clearBit` 4))
+                .  (if i `testBit` 4 then (`setBit` 3) else (`clearBit` 3))
+                $ i
+          return $ palette !! fromIntegral i'
       _ -> fail "Unrecognized HMX image format"
   in case runGetOrFail parseImage bs of
     Left  _           -> Nothing
     Right (_, _, img) -> Just img
 
-readRBImage :: BL.ByteString -> Image PixelRGB8
+readRBImage :: BL.ByteString -> Image PixelRGBA8
 readRBImage = let
-  magenta = generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256
+  magenta = generateImage (\_ _ -> PixelRGBA8 255 0 255 255) 256 256
   in fromMaybe magenta . readRBImageMaybe

@@ -11,14 +11,13 @@ import           Data.DTA
 import           Data.DTA.Serialize
 import           Data.DTA.Serialize.RB3   (AnimTempo, channelList)
 import           Data.Hashable            (Hashable (..))
-import qualified Data.HashMap.Strict      as Map
 import qualified Data.Text                as T
 import           GHC.Generics             (Generic (..))
 import           RockBand.Codec           (reprPrefix)
 
 data Song = Song
   { songName      :: T.Text
-  , tracks        :: Map.HashMap T.Text [Integer]
+  , tracks        :: DictList T.Text [Integer]
   , pans          :: [Float]
   , vols          :: [Float]
   , cores         :: [Integer]
@@ -29,7 +28,7 @@ data Song = Song
 instance StackChunks Song where
   stackChunks = asWarnAssoc "Song" $ do
     songName      <- songName      =. req         "name"           (single chunkString)
-    tracks        <- tracks        =. req         "tracks"         (chunksParens $ chunksDict chunkSym channelList)
+    tracks        <- tracks        =. req         "tracks"         (chunksParens $ chunksDictList chunkSym channelList)
     pans          <- pans          =. req         "pans"           (chunksParens stackChunks)
     vols          <- vols          =. req         "vols"           (chunksParens stackChunks)
     cores         <- cores         =. req         "cores"          (chunksParens stackChunks)

@@ -4,6 +4,7 @@
 module Import.Rocksmith where
 
 import           Audio                            (Audio (..))
+import           Codec.Picture.Types              (dropTransparency, pixelMap)
 import           Config
 import           Control.Monad                    (forM, guard)
 import           Control.Monad.Codec.Onyx.JSON    (fromJSON)
@@ -195,7 +196,7 @@ importRSSong folder song level = do
       f <- urn art -- urn:image:dds
       bs <- need ("gfxassets" :| ["album_art", T.pack $ f <.> "dds"]) >>= \r ->
         stackIO $ useHandle r handleToByteString
-      return $ SoftFile "cover.png" . SoftImage <$> readDDS bs
+      return $ SoftFile "cover.png" . SoftImage . pixelMap dropTransparency <$> readDDS bs
   -- TODO handle if the bnks are different in different parts?
   -- how does multiplayer handle this?
   bnkFile <- case findFile (return $ T.pack $ bnk <.> "bnk") audioDir of

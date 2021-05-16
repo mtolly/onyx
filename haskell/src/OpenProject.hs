@@ -15,8 +15,8 @@ import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Char                      (isAlpha, toLower)
-import           Data.DTA                       (DTA (..), Tree (..),
-                                                 readFileDTA)
+import           Data.DTA                       (Chunk (..), DTA (..),
+                                                 Tree (..), readFileDTA)
 import           Data.Foldable                  (toList)
 import           Data.Functor                   (void)
 import           Data.Functor.Identity
@@ -28,8 +28,8 @@ import           Data.Maybe                     (fromMaybe, mapMaybe)
 import           Data.SimpleHandle              (Folder (..), crawlFolder,
                                                  findFile)
 import qualified Data.Text                      as T
-import           GuitarHeroII.Ark               (GameGH (..), detectGameGH,
-                                                 replaceSong)
+import           GuitarHeroII.Ark               (GameGH (..), addBonusSong,
+                                                 detectGameGH)
 import           Import.Amplitude2016           (importAmplitude)
 import           Import.Base                    (ImportLevel (..), saveImport)
 import           Import.BMS                     (importBMS)
@@ -273,16 +273,32 @@ buildPSZip ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash
 buildGH2Dir :: (MonadIO m) => TargetGH2 -> Project -> StackTraceT (QueueLog m) FilePath
 buildGH2Dir gh2 = buildCommon (GH2 gh2) $ \targetHash -> "gen/target" </> targetHash </> "gh2"
 
-installGH2 :: (MonadIO m) => TargetGH2 -> Project -> B.ByteString -> FilePath -> StackTraceT (QueueLog m) ()
-installGH2 gh2 proj song gen = do
+installGH2 :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
+installGH2 gh2 proj gen = do
   dir <- buildGH2Dir gh2 proj
   files <- stackIO $ Dir.listDirectory dir
   dta <- stackIO $ readFileDTA $ dir </> "songs.dta"
+  sym <- stackIO $ B.readFile $ dir </> "symbol"
+  coop <- stackIO $ readFileDTA $ dir </> "coop_max_scores.dta"
   let chunks = treeChunks $ topTree $ fmap (B8.pack . T.unpack) dta
       filePairs = flip mapMaybe files $ \f -> do
-        guard $ f /= "songs.dta"
-        return (song <> B8.pack (dropWhile isAlpha f), dir </> f)
-  stackIO $ replaceSong gen song chunks filePairs
+        guard $ notElem f ["songs.dta", "coop_max_scores.dta", "symbol", "pad.txt"]
+        return (sym <> B8.pack (dropWhile isAlpha f), dir </> f)
+  coopNums <- case coop of
+    DTA 0 (Tree _ [Parens (Tree _ nums)]) -> forM nums $ \case
+      Int n -> return $ fromIntegral n
+      _     -> fatal "unexcepted non-int in coop scores list"
+    _ -> fatal "Couldn't read coop scores list"
+  let toBytes = B8.pack . T.unpack
+  stackIO $ addBonusSong gen sym chunks coopNums
+    (toBytes $ targetTitle (projectSongYaml proj) $ GH2 gh2)
+    (toBytes $ T.unlines
+      [ "Artist: " <> getArtist (_metadata $ projectSongYaml proj)
+      , "Album: "  <> getAlbum  (_metadata $ projectSongYaml proj)
+      , "Author: " <> getAuthor (_metadata $ projectSongYaml proj)
+      ]
+    )
+    filePairs
 
 buildPlayer :: (MonadIO m) => Maybe T.Text -> Project -> StackTraceT (QueueLog m) FilePath
 buildPlayer mplan proj = do

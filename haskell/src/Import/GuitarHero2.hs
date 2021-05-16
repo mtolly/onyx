@@ -29,7 +29,7 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.Int
 import           Data.List.Extra                  (firstJust, (\\))
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, fromMaybe)
+import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
 import           Data.SimpleHandle                (findFile, handleToByteString,
                                                    splitPath, useHandle)
 import qualified Data.Text                        as T
@@ -114,10 +114,10 @@ importGH2Song mode pkg gen level = do
         , RBFile.fixedPartGuitar = convertPart $ case mode of
           ImportSolo -> gh2PartGuitar     gh2
           ImportCoop -> gh2PartGuitarCoop gh2
-        , RBFile.fixedPartBass = if HM.member "bass" $ tracks songChunk
+        , RBFile.fixedPartBass = if isJust $ lookup "bass" $ D.fromDictList $ tracks songChunk
           then convertPart $ gh2PartBass gh2
           else mempty
-        , RBFile.fixedPartRhythm = if HM.member "rhythm" $ tracks songChunk
+        , RBFile.fixedPartRhythm = if isJust $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
           then convertPart $ gh2PartRhythm gh2
           else mempty
         }
@@ -175,9 +175,9 @@ importGH2Song mode pkg gen level = do
         }
     , _jammit = HM.empty
     , _plans = HM.singleton "vgs" $ let
-      guitarChans = map fromIntegral $ fromMaybe [] $ HM.lookup "guitar" $ tracks songChunk
-      bassChans = map fromIntegral $ fromMaybe [] $ HM.lookup "bass" $ tracks songChunk
-      rhythmChans = map fromIntegral $ fromMaybe [] $ HM.lookup "rhythm" $ tracks songChunk
+      guitarChans = map fromIntegral $ fromMaybe [] $ lookup "guitar" $ D.fromDictList $ tracks songChunk
+      bassChans = map fromIntegral $ fromMaybe [] $ lookup "bass" $ D.fromDictList $ tracks songChunk
+      rhythmChans = map fromIntegral $ fromMaybe [] $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
       songChans = zipWith const [0..] (pans songChunk)
         \\ (guitarChans ++ bassChans ++ rhythmChans)
       mixChans _ [] = Nothing
@@ -208,17 +208,17 @@ importGH2Song mode pkg gen level = do
     , _targets = HM.empty -- TODO add gh2 target
     , _parts = Parts $ HM.fromList $ catMaybes
       [ do
-        guard $ maybe False (not . null) $ HM.lookup "guitar" $ tracks songChunk
+        guard $ maybe False (not . null) $ lookup "guitar" $ D.fromDictList $ tracks songChunk
         return $ (RBFile.FlexGuitar ,) def
           { partGRYBO = Just def { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk }
           }
       , do
-        guard $ maybe False (not . null) $ HM.lookup "bass" $ tracks songChunk
+        guard $ maybe False (not . null) $ lookup "bass" $ D.fromDictList $ tracks songChunk
         return $ (RBFile.FlexBass ,) def
           { partGRYBO = Just def { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk }
           }
       , do
-        guard $ maybe False (not . null) $ HM.lookup "rhythm" $ tracks songChunk
+        guard $ maybe False (not . null) $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
         return $ (RBFile.FlexExtra "rhythm" ,) def
           { partGRYBO = Just def { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk }
           }

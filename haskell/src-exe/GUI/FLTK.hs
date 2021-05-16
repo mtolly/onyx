@@ -1164,10 +1164,10 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
           task = case create of
             GH2LIVE fout    -> fatal "TODO make GH2 LIVE files"
             GH2ARK fout loc -> case loc of
-              GH2Replace k -> do
-                installGH2 tgt proj' k fout
+              GH2AddBonus -> do
+                installGH2 tgt proj' fout
                 return [fout]
-              _ -> fatal "TODO add new GH2 songs without replacing"
+              _ -> fatal "TODO other GH2 destinations"
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
@@ -1530,14 +1530,69 @@ batchPagePS sink rect tab build = do
           in (tgt, usePath fout)
   makeTemplateRunner
     sink
-    "Create PS folders"
+    "Create CH folders"
     (maybe "%input_dir%" T.pack (prefDirCH ?preferences) <> "/%artist% - %title%")
     (getTargetSong PSDir >=> build)
   makeTemplateRunner
     sink
-    "Create PS zips"
+    "Create CH zips"
     (maybe "%input_dir%" T.pack (prefDirCH ?preferences) <> "/%input_base%%modifiers%_ps.zip")
     (getTargetSong PSZip >=> build)
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+batchPageGH2
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ((Project -> (TargetGH2, GH2Create)) -> IO ())
+  -> IO ()
+batchPageGH2 sink rect tab build = do
+  pack <- FL.packNew rect Nothing
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+    centerRect = trimClock 0 250 0 250 rect'
+    in centerFixed rect' $ speedPercent True centerRect
+  let getTargetSong usePath template = do
+        speed <- getSpeed
+        return $ \proj -> let
+          defGH2 = def :: TargetGH2
+          tgt = defGH2
+            { gh2_Common = (gh2_Common defGH2)
+              { tgt_Speed = Just speed
+              }
+            }
+          fout = T.unpack $ foldr ($) template
+            [ templateApplyInput proj $ Just $ GH2 tgt
+            , let
+              modifiers = T.pack $ case tgt_Speed $ gh2_Common tgt of
+                Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
+                _               -> ""
+              in T.intercalate modifiers . T.splitOn "%modifiers%"
+            ]
+          in (tgt, usePath fout)
+  padded 5 10 5 100 (Size (Width 500) (Height 30)) $ \r -> do
+    btn1 <- FL.buttonNew r $ Just "Add to GH2 ARK"
+    FL.setCallback btn1 $ \_ -> do
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+      FL.setTitle picker "Select .HDR file"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> let
+            gen = takeDirectory f
+            in do
+              song <- getTargetSong id ""
+              build $ \proj -> let
+                (tgt, _) = song proj
+                in (tgt, GH2ARK gen GH2AddBonus)
+        _ -> return ()
+  makeTemplateRunner
+    sink
+    "Create GH2 (360) LIVE files"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_gh2live")
+    (getTargetSong GH2LIVE >=> build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -1920,6 +1975,8 @@ selectArkDestination
   -> (GH2InstallLocation -> IO ())
   -> Onyx ()
 selectArkDestination sink gen withLocation = do
+  stackIO $ withLocation GH2AddBonus
+  {-
   setlist <- loadSetlistFull gen
   stackIO $ mdo
 
@@ -1982,6 +2039,7 @@ selectArkDestination sink gen withLocation = do
     FL.setResizable window $ Just scroll
     FL.sizeRange window windowSize
     FL.showWidget window
+  -}
 
 songPageGH2
   :: (?preferences :: Preferences)
@@ -3608,7 +3666,7 @@ launchBatch sink makeMenuBar startFiles = mdo
             stackIO $ Dir.copyFile tmp fout
             return fout
       return tab
-    , makeTab windowRect "Clone Hero/Phase Shift" $ \rect tab -> do
+    , makeTab windowRect "Clone Hero" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPagePS sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
@@ -3624,6 +3682,21 @@ launchBatch sink makeMenuBar startFiles = mdo
               tmp <- buildPSZip target proj'
               stackIO $ Dir.copyFile tmp fout
               return [fout]
+      return tab
+    , makeTab windowRect "Guitar Hero II" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      batchPageGH2 sink rect tab $ \settings -> sink $ EventOnyx $ do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
+          let (target, creator) = settings proj
+          proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
+          case creator of
+            GH2LIVE fout    -> fatal "TODO make GH2 LIVE files"
+            GH2ARK fout loc -> case loc of
+              GH2AddBonus -> do
+                installGH2 target proj' fout
+                return [fout]
+              _ -> fatal "TODO other GH2 destinations"
       return tab
     , makeTab windowRect "Rock Band 3 (Wii)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

@@ -19,6 +19,8 @@ import           Audio                            (Audio (Input), applyPansVols,
                                                    audioLength, audioMD5,
                                                    fadeEnd, fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
+import           Codec.Picture                    (writePng)
+import           Codec.Picture.Types              (dropTransparency, pixelMap)
 import           Config
 import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard,
@@ -29,7 +31,6 @@ import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Codec.Class
 import qualified Data.ByteString                  as B
-import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.ByteString.Lazy.Char8       ()
 import           Data.Char                        (isAlphaNum, isAscii, isDigit,
@@ -772,9 +773,9 @@ commands =
   , Command
     { commandWord = "install-ark"
     , commandDesc = "Install a song into GH2 (PS2)."
-    , commandUsage = "onyx install-ark song GEN/ songtoreplace --target gh2"
+    , commandUsage = "onyx install-ark song GEN/ --target gh2"
     , commandRun = \args opts -> case args of
-      [song, gen, replace] -> withProject (optIndex opts) song $ \proj -> do
+      [song, gen] -> withProject (optIndex opts) song $ \proj -> do
         targetName <- case [ t | OptTarget t <- opts ] of
           []    -> fatal "command requires --target, none given"
           t : _ -> return t
@@ -784,9 +785,9 @@ commands =
         gh2 <- case target of
           GH2 gh2 -> return gh2
           _       -> fatal $ "Target is not for GH2: " <> show targetName
-        installGH2 gh2 proj (B8.pack replace) gen
+        installGH2 gh2 proj gen
         return [gen]
-      _ -> fatal "Expected 3 arguments (input song, GEN, song to replace)"
+      _ -> fatal "Expected 2 arguments (input song, GEN)"
     }
 
   , Command
@@ -1055,6 +1056,22 @@ commands =
     }
 
   , Command
+    { commandWord = "decode-image"
+    , commandDesc = "Converts from HMX image format to PNG."
+    , commandUsage = "onyx decode-image input.ext_platform {--to output.png}"
+    , commandRun = \args opts -> case args of
+      [fin] -> do
+        bs <- stackIO $ fmap BL.fromStrict $ B.readFile fin
+        case Image.readRBImageMaybe bs of
+          Just img -> do
+            fout <- outputFile opts $ return $ fin <> ".png"
+            stackIO $ writePng fout img
+            return [fout]
+          Nothing -> fatal "Couldn't decode image file"
+      _ -> fatal "Expected 1 arg (HMX image file)"
+    }
+
+  , Command
     { commandWord = "import-audio"
     , commandDesc = ""
     , commandUsage = ""
@@ -1169,7 +1186,7 @@ runDolphin cons midfn makePreview out = do
           else silentPreview
         oggToMogg prevOgg $ dir_meta </> "content" </> (songsXX ++ "_prev.mogg")
         -- .png_wii (convert from .png_xbox)
-        img <- stackIO $ Image.readRBImage . BL.fromStrict <$> B.readFile (extract </> (songsXgenX ++ "_keep.png_xbox"))
+        img <- stackIO $ pixelMap dropTransparency . Image.readRBImage . BL.fromStrict <$> B.readFile (extract </> (songsXgenX ++ "_keep.png_xbox"))
         stackIO $ BL.writeFile (dir_meta </> "content" </> (songsXgenX ++ "_keep.png_wii")) $ Image.toDXT1File Image.PNGWii img
         -- .milo_wii (copy)
         stackIO $ Dir.renameFile (extract </> songsXgenX <.> "milo_xbox") (dir_song </> "content" </> songsXgenX <.> "milo_wii")
