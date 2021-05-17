@@ -17,6 +17,7 @@ extra-deps:
 - wavefront-0.7.1.4
 - tcp-streams-1.0.1.1
 - prettyprinter-1.7.0 # just came out, snapshot has 1.6.2
+- caerbannog-0.6.0.5
 # local folders
 - game/
 - 3d/
@@ -37,10 +38,8 @@ extra-deps:
   commit: 1ea0f72a3795375e4b9eafcaef2500d105faf20f
 - git: git://github.com/mtolly/OpenAL
   commit: 3c74c9807c2d126cbbd2596082f9b9345a247ec5
-- git: git://github.com/tfausak/binary-bits # ghc 8.8 pull req
-  commit: b7480fd7023d9d3adb1862309dd7bc9276e778ed
 - git: git://github.com/mtolly/codec # ghc 8.8 patch
-  commit: 9733cb44c3d92fd65dbbf421eb58753150e3ea3b
+  commit: 7415d2224135574fafaec533b7507e4276dd7c70
 - git: git://github.com/mtolly/mpg123-haskell-binding
   commit: 4790b92549b7db51801a67cf1055259e3abcf60e
 resolver: lts-16.27
