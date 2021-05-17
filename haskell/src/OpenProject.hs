@@ -282,7 +282,7 @@ installGH2 gh2 proj gen = do
   coop <- stackIO $ readFileDTA $ dir </> "coop_max_scores.dta"
   let chunks = treeChunks $ topTree $ fmap (B8.pack . T.unpack) dta
       filePairs = flip mapMaybe files $ \f -> do
-        guard $ notElem f ["songs.dta", "coop_max_scores.dta", "symbol", "pad.txt"]
+        guard $ elem (takeExtension f) [".mid", ".vgs", ".voc"]
         return (sym <> B8.pack (dropWhile isAlpha f), dir </> f)
   coopNums <- case coop of
     DTA 0 (Tree _ [Parens (Tree _ nums)]) -> forM nums $ \case
@@ -298,6 +298,7 @@ installGH2 gh2 proj gen = do
       , "Author: " <> getAuthor (_metadata $ projectSongYaml proj)
       ]
     )
+    (Just $ dir </> "cover.png_ps2")
     filePairs
 
 buildPlayer :: (MonadIO m) => Maybe T.Text -> Project -> StackTraceT (QueueLog m) FilePath

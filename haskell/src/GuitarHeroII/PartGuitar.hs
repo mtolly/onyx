@@ -11,6 +11,7 @@ module GuitarHeroII.PartGuitar where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
 import           DeriveHelpers
@@ -76,6 +77,9 @@ instance TraverseTrack PartTrack where
     <$> traverse (traverseTrack fn) a
     <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
     <*> fn g <*> fn h <*> fn i <*> fn j <*> fn k
+
+nullPart :: PartTrack t -> Bool
+nullPart = all (RTB.null . partGems) . toList . partDifficulties
 
 data PartDifficulty t = PartDifficulty
   { partStarPower :: RTB.T t Bool

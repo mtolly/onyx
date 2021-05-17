@@ -169,9 +169,10 @@ addBonusSong
   -- TODO maybe contexts and leaderboards numbers for Xbox only
   -> B.ByteString -- ^ song title for shop
   -> B.ByteString -- ^ song description for shop
+  -> Maybe FilePath -- ^ album art
   -> [(B.ByteString, FilePath)] -- ^ files to copy into the song folder, e.g. @("songsym.mid", "some/dir/notes.mid")@
   -> IO ()
-addBonusSong gen sym song coop title desc files = withArk gen $ \ark -> do
+addBonusSong gen sym song coop title desc art files = withArk gen $ \ark -> do
   withSystemTempFile "songs.dtb"             $ \fdtb1 hdl1 -> do
     withSystemTempFile "coop_max_scores.dtb" $ \fdtb2 hdl2 -> do
       withSystemTempFile "store.dtb"         $ \fdtb3 hdl3 -> do
@@ -199,13 +200,12 @@ addBonusSong gen sym song coop title desc files = withArk gen $ \ark -> do
               chunk -> return chunk
           editDTB fdtb4 "ui/eng/gen/locale.dtb" $ \chunks -> do
             return
-              -- TODO fill these in
               $ D.Parens (D.Tree 0 [D.Sym sym, D.String title])
               : D.Parens (D.Tree 0 [D.Sym $ sym <> "_shop_desc", D.String desc])
               : chunks
           forM_ files $ \(arkName, localPath) -> do
             let arkPath = "songs/" <> sym <> "/" <> arkName
             ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
-          -- TODO place album art at: ui/image/og/gen/us_logo_<sym>_keep.png_ps2
-          -- optionally turned into "distressed photo" look
+          forM_ art $ \img -> do
+            ark_AddFile' ark img ("ui/image/og/gen/us_logo_" <> sym <> "_keep.png_ps2") True
           ark_Save' ark

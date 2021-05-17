@@ -36,6 +36,8 @@ module Audio
 , mixMany, mixMany'
 , clampIfSilent
 , stereoPanRatios
+, emptyChannels
+, remapChannels
 ) where
 
 import           Control.Concurrent               (threadDelay)
@@ -391,7 +393,7 @@ renderMask tags seams (AudioSource s r c l) = let
             masker m
   in AudioSource (s .| masker sections) r c l
 
-remapChannels :: (Monad m) => [Maybe Int] -> AudioSource m Float -> AudioSource m Float
+remapChannels :: (Monad m, Num a, V.Storable a) => [Maybe Int] -> AudioSource m a -> AudioSource m a
 remapChannels cs (AudioSource s r c f) = let
   adjustBlock v = let
     chans = deinterleave c v

@@ -12,7 +12,6 @@ import qualified Data.DTA.Serialize               as D
 import qualified Data.DTA.Serialize.GH2           as D
 import           Data.DTA.Serialize.RB3           (AnimTempo (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
@@ -84,13 +83,9 @@ computeGH2Audio
   :: (Monad m)
   => SongYaml f
   -> TargetGH2
-  -> Plan f
+  -> (F.FlexPartName -> Bool) -- True if part has own audio
   -> StackTraceT m GH2Audio
-computeGH2Audio song target plan = do
-  let hasAudio part = case plan of
-        Plan{..}     -> HM.member part $ getParts _planParts
-        -- TODO this needs to be fixed to not count silent channels
-        MoggPlan{..} -> HM.member part $ getParts _moggParts
+computeGH2Audio song target hasAudio = do
   gh2LeadTrack <- case getPart (gh2_Guitar target) song >>= partGRYBO of
     Nothing -> fatal "computeGH2Audio: no lead guitar part selected"
     Just _  -> return $ gh2_Guitar target

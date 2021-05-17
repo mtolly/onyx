@@ -26,6 +26,7 @@ import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Put                       (runPut)
 import qualified Data.ByteString                       as B
+import Data.Conduit (runConduit)
 import qualified Data.ByteString.Base64.Lazy           as B64
 import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
@@ -1721,9 +1722,18 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 key = fromMaybe (T.pack $ "o" <> show defaultID) $ gh2_Key gh2
                 pkg = T.unpack key
 
+            let loadPartAudioCheck = case plan of
+                  Plan{..}     -> return $ \part -> HM.member part $ getParts _planParts
+                  MoggPlan{..} -> do
+                    silentChans <- shk $ read <$> readFile' (planDir </> "silent-channels.txt")
+                    return $ \part -> case HM.lookup part $ getParts _moggParts of
+                      Nothing    -> False
+                      Just chans -> any (`notElem` (silentChans :: [Int])) $ concat $ toList chans
+
             [dir </> "gh2/notes.mid", dir </> "gh2/coop_max_scores.dta", dir </> "gh2/pad.txt"] &%> \[out, coop, pad] -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
-              audio <- computeGH2Audio songYaml gh2 plan
+              hasAudio <- loadPartAudioCheck
+              audio <- computeGH2Audio songYaml gh2 hasAudio
               (mid, padSeconds) <- midiRB3toGH2 songYaml gh2 audio
                 (applyTargetMIDI (gh2_Common gh2) input)
                 (getAudioLength planName plan)
@@ -1738,7 +1748,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               stackIO $ writeFile pad $ show padSeconds
 
             let gh2Source = do
-                  audio <- computeGH2Audio songYaml gh2 plan
+                  hasAudio <- loadPartAudioCheck
+                  audio <- computeGH2Audio songYaml gh2 hasAudio
                   mid <- shakeMIDI $ dir </> "gh2/notes.mid" :: Staction (RBFile.Song (GH2File U.Beats))
                   srcs <- forM (gh2AudioSections audio) $ \case
                     GH2Part part -> getPartSource [(-1, 0), (1, 0)] planName plan part 1
@@ -1763,11 +1774,19 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
             forM_ ([90, 75, 60] :: [Int]) $ \speed -> do
               dir </> ("gh2/audio_p" ++ show speed ++ ".vgs") %> \out -> do
-                audio <- computeGH2Audio songYaml gh2 plan
+                hasAudio <- loadPartAudioCheck
+                audio <- computeGH2Audio songYaml gh2 hasAudio
                 mid <- shakeMIDI $ dir </> "gh2/notes.mid" :: Staction (RBFile.Song (GH2File U.Beats))
-                srcs <- forM (gh2Practice audio) $ \case
-                  Nothing   -> applyVolsMono [0] <$> shk (buildSource $ Input $ planDir </> "everything.wav")
-                  Just part -> applyVolsMono [0] <$> getPartSource [(-1, 0), (1, 0)] planName plan part 1
+                (src, dupe) <- case gh2Practice audio of
+                  [Nothing, Nothing] -> do
+                    -- just compute it once and duplicate later
+                    src <- applyVolsMono [0] <$> shk (buildSource $ Input $ planDir </> "everything.wav")
+                    return (src, True)
+                  _ -> do
+                    srcs <- forM (gh2Practice audio) $ \case
+                      Nothing   -> applyVolsMono [0] <$> shk (buildSource $ Input $ planDir </> "everything.wav")
+                      Just part -> applyVolsMono [0] <$> getPartSource [(-1, 0), (1, 0)] planName plan part 1
+                    return (foldr1 merge srcs, False)
                 pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
                 rate <- case speed of
                   60 -> return 19875
@@ -1779,17 +1798,18 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   _  -> fatal $ "No known rate for GH2 practice speed: " ++ show speed ++ "%"
                 lg $ "Writing GH2 practice audio for " ++ show speed ++ "% speed"
                 stackIO $ runResourceT $ writeVGS out
+                  $ (if dupe then remapChannels [Just 0, Just 0] else id)
                   $ mapSamples integralSample
                   $ resampleTo rate SincMediumQuality
                   $ stretchFull 1 (100 / fromIntegral speed)
                   $ padAudio pad
-                  $ applyTargetAudio (gh2_Common gh2) mid
-                  $ foldr1 merge srcs
+                  $ applyTargetAudio (gh2_Common gh2) mid src
                 lg $ "Finished writing GH2 practice audio for " ++ show speed ++ "% speed"
 
             dir </> "gh2/songs.dta" %> \out -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
-              audio <- computeGH2Audio songYaml gh2 plan
+              hasAudio <- loadPartAudioCheck
+              audio <- computeGH2Audio songYaml gh2 hasAudio
               stackIO $ D.writeFileDTA_latin1 out $ D.serialize (valueId D.stackChunks) $ makeGH2DTA
                 songYaml
                 key
@@ -1808,6 +1828,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             dir </> "gh2/symbol" %> \out -> do
               stackIO $ B.writeFile out $ B8.pack pkg
 
+            -- TODO give this the "distressed photo" look like the other bonus songs
+            dir </> "gh2/cover.png_ps2" %> \out -> do
+              img <- loadRGB8
+              stackIO $ BL.writeFile out $ toHMXPS2 img
+
             phony (dir </> "gh2") $ shk $ need
               [ dir </> "gh2/notes.mid"
               , dir </> "gh2/audio.vgs"
@@ -1818,6 +1843,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , dir </> "gh2/lipsync.voc"
               , dir </> "gh2/coop_max_scores.dta"
               , dir </> "gh2/symbol"
+              , dir </> "gh2/cover.png_ps2"
               ]
 
             dir </> "stfs/config/contexts.dta" %> \out -> do
@@ -1844,7 +1870,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 ]
             dir </> "stfs/config/songs.dta" %> \out -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
-              audio <- computeGH2Audio songYaml gh2 plan
+              hasAudio <- loadPartAudioCheck
+              audio <- computeGH2Audio songYaml gh2 hasAudio
               let songPackage = makeGH2DTA360
                     songYaml
                     key
@@ -2843,6 +2870,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               -- TODO: check if it's actually an OGG (starts with OggS)
               shk $ copyFile' p out
               forceRW out
+            (dir </> "silent-channels.txt") %> \out -> do
+              src <- lift $ lift $ buildSource $ Input ogg
+              chans <- stackIO $ runResourceT $ runConduit $ emptyChannels src
+              stackIO $ writeFile out $ show chans
 
         -- Audio files for the online preview app
         dir </> "preview-audio.mp3" %> \out -> do

@@ -58,6 +58,8 @@ import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import qualified GuitarHeroII.Ark                 as GHArk
 import           GuitarHeroII.Audio               (readVGS)
+import           GuitarHeroII.File                (GH2File (..))
+import           GuitarHeroII.PartGuitar          (nullPart)
 import           GuitarHeroIOS                    (extractIGA)
 import qualified Image
 import           Magma                            (getRBAFile, runMagma,
@@ -1069,6 +1071,30 @@ commands =
             return [fout]
           Nothing -> fatal "Couldn't decode image file"
       _ -> fatal "Expected 1 arg (HMX image file)"
+    }
+
+  , Command
+    { commandWord = "coop-max-scores"
+    , commandDesc = ""
+    , commandUsage = "onyx coop-max-scores notes.mid"
+    , commandRun = \args _opts -> case args of
+      [fin] -> do
+        mid <- RBFile.loadMIDI fin
+        let p1 = if nullPart $ gh2PartGuitarCoop $ RBFile.s_tracks mid
+              then gh2PartGuitar     $ RBFile.s_tracks mid
+              else gh2PartGuitarCoop $ RBFile.s_tracks mid
+            p2 = if nullPart $ gh2PartBass $ RBFile.s_tracks mid
+              then gh2PartRhythm $ RBFile.s_tracks mid
+              else gh2PartBass   $ RBFile.s_tracks mid
+            scores1 = map (\diff -> gh2Base diff p1) [Easy .. Expert]
+            scores2 = map (\diff -> gh2Base diff p2) [Easy .. Expert]
+            scoresCoop = map (\diff -> gh2Base diff p1 + gh2Base diff p2) [Easy .. Expert]
+            dta scores = "(" <> unwords (map show scores) <> ")"
+        lg $ "p1: " <> dta scores1
+        lg $ "p2: " <> dta scores2
+        lg $ "coop: " <> dta scoresCoop
+        return []
+      _ -> fatal "Expected 1 arg (midi)"
     }
 
   , Command

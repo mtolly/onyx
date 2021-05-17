@@ -2,7 +2,7 @@
 {-# LANGUAGE BinaryLiterals    #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Image (toDXT1File, DXTFormat(..), readRBImage, readRBImageMaybe, readDDS) where
+module Image (toDXT1File, toHMXPS2, DXTFormat(..), readRBImage, readRBImageMaybe, readDDS) where
 
 import           Codec.Picture
 import qualified Codec.Picture.STBIR        as STBIR
@@ -148,6 +148,30 @@ toDXT1File fmt img_ = BB.toLazyByteString $ execWriter $ do
     PNGXbox -> mipmaps
     PNGWii  -> go 256
 
+-- TODO support alpha pixels (needed for "distressed photo" bonus song art)
+toHMXPS2 :: Image PixelRGB8 -> BL.ByteString
+toHMXPS2 img_ = BB.toLazyByteString $ execWriter $ do
+  tell $ BB.byteString $ B.pack
+    [ 0x01, 0x08, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00
+    , 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00
+    , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    ]
+  let img = STBIR.resize STBIR.defaultOptions 256 256 img_
+      (indexed, palette) = palettize PaletteOptions
+        { paletteCreationMethod = MedianMeanCut
+        , enableImageDithering = True
+        , paletteColorCount = 256
+        } img
+      paletteColors = do
+        x <- [0 .. imageWidth  palette - 1]
+        y <- [0 .. imageHeight palette - 1]
+        return $ pixelAt palette x y
+  forM_ (take 256 $ paletteColors <> repeat (PixelRGB8 0 0 0)) $ \(PixelRGB8 r g b) -> do
+    tell $ BB.byteString $ B.pack [r, g, b, 0x80]
+  forM_ (V.toList $ imageData indexed) $ \i -> do
+    tell $ BB.word8 $ flip34 i
+
 ddsDXT1Signature :: B.ByteString
 ddsDXT1Signature = B.pack -- header stolen from an imagemagick-output file
   [0x44,0x44,0x53,0x20,0x7C,0x00,0x00,0x00,0x07,0x10,0x0A,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x09,0x00,0x00,0x00,0x49,0x4D,0x41,0x47,0x45,0x4D,0x41,0x47,0x49,0x43,0x4B,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x20,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x44,0x58,0x54,0x31,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x08,0x10,0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]
@@ -257,15 +281,18 @@ readRBImageMaybe bs = let
           return [r, g, b, if a >= 0x80 then 0xFF else a * 2]
         fmap (Image width height . V.fromList . concat) $ replicateM (width * height) $ do
           i <- getWord8
-          -- swap bits 3 and 4 for some reason
-          let i' = (if i `testBit` 3 then (`setBit` 4) else (`clearBit` 4))
-                .  (if i `testBit` 4 then (`setBit` 3) else (`clearBit` 3))
-                $ i
-          return $ palette !! fromIntegral i'
+          return $ palette !! fromIntegral (flip34 i)
       _ -> fail "Unrecognized HMX image format"
   in case runGetOrFail parseImage bs of
     Left  _           -> Nothing
     Right (_, _, img) -> Just img
+
+-- PS2 palette indices swap bits 3 and 4 for some reason
+flip34 :: Word8 -> Word8
+flip34 i
+  = (if i `testBit` 3 then (`setBit` 4) else (`clearBit` 4))
+  . (if i `testBit` 4 then (`setBit` 3) else (`clearBit` 3))
+  $ i
 
 readRBImage :: BL.ByteString -> Image PixelRGBA8
 readRBImage = let
