@@ -12,6 +12,7 @@ module CommandLine
 , copyDirRecursive
 , runDolphin
 , blackVenue
+, trimFileName
 ) where
 
 import qualified Amplitude.PS2.Ark                as AmpArk
@@ -45,7 +46,7 @@ import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
-import           Data.List.Extra                  (stripSuffix, unsnoc)
+import           Data.List.Extra                  (stripSuffix, unsnoc, trim)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
@@ -322,7 +323,7 @@ trimFileName :: FilePath -> Int -> String -> String -> FilePath
 trimFileName fp len sfxOld sfx = let
   fp' = fromMaybe fp $ stripSuffix sfxOld fp
   (dir, file) = splitFileName fp'
-  in dir </> take (len - length sfx) file ++ sfx
+  in dir </> trim (take (len - length sfx) file) ++ sfx
 
 changeToVenueGen :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m ()
 changeToVenueGen dir = do
