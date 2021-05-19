@@ -12,13 +12,13 @@ import           Audio                                     (Audio (..),
                                                             buildSource',
                                                             runAudio)
 import           Build                                     (targetTitle,
-                                                            toValidFileName)
+                                                            toValidFileName, hashRB3)
 import           Codec.Picture                             (readImage,
                                                             savePngImage,
                                                             writePng)
 import           CommandLine                               (blackVenue,
                                                             copyDirRecursive,
-                                                            runDolphin)
+                                                            runDolphin, trimFileName)
 import           Config
 import           Control.Applicative                       ((<|>))
 import           Control.Concurrent                        (MVar, ThreadId,
@@ -2268,10 +2268,17 @@ templateApplyInput proj mtgt txt = foldr ($) txt
   , T.intercalate (toValidFileName $ getArtist $ _metadata $ projectSongYaml proj) . T.splitOn "%artist%"
   , T.intercalate (toValidFileName $ getAlbum $ _metadata $ projectSongYaml proj) . T.splitOn "%album%"
   , T.intercalate (toValidFileName $ getAuthor $ _metadata $ projectSongYaml proj) . T.splitOn "%author%"
+  , T.intercalate (toValidFileName songID) . T.splitOn "%song_id%"
   ] where
     title = case mtgt of
       Nothing  -> getTitle $ _metadata $ projectSongYaml proj
       Just tgt -> targetTitle (projectSongYaml proj) tgt
+    songID = case mtgt of
+      Just (RB3 rb3) -> case rb3_SongID rb3 of
+        Just (Left  n) -> T.pack $ show n
+        Just (Right s) -> s
+        Nothing        -> T.pack $ show $ hashRB3 (projectSongYaml proj) rb3
+      _              -> ""
 
 makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
 makeTemplateRunner sink buttonText defTemplate useTemplate = do
@@ -2302,6 +2309,7 @@ makeTemplateRunner sink buttonText defTemplate useTemplate = do
       , "  %artist% - artist from song's metadata"
       , "  %album% - album from song's metadata"
       , "  %author% - author from song's metadata"
+      , "  %song_id% - unique song ID"
       ]
     FL.setCallback button $ \_ -> FL.getValue input >>= useTemplate
     browseButton <- FL.buttonNew browseRect $ Just "@fileopen"

@@ -42,6 +42,8 @@ extra-deps:
   commit: 7415d2224135574fafaec533b7507e4276dd7c70
 - git: git://github.com/mtolly/mpg123-haskell-binding
   commit: 4790b92549b7db51801a67cf1055259e3abcf60e
+- git: git://github.com/mtolly/language-c
+  commit: 5e40d962fb71b7e1256ff607194c53544709e761
 resolver: lts-16.27
 flags:
   fltkhs:
