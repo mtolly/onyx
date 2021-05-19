@@ -33,7 +33,9 @@ extra-deps:
   subdirs:
   - conduit-audio-mpg123
 - git: git://github.com/deech/fltkhs
-  commit: 71af56f7194946a495e0d9d6457470f97988f754
+  commit: 272d225e641e9b6161df82066e9a4b919c0e812a
+  subdirs:
+  - fltkhs
 - git: git://github.com/mtolly/midi-util
   commit: 1ea0f72a3795375e4b9eafcaef2500d105faf20f
 - git: git://github.com/mtolly/OpenAL
@@ -49,5 +51,4 @@ flags:
   fltkhs:
     bundled: true
     opengl: true
-    demos: false
 allow-newer: true
