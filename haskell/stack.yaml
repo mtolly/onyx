@@ -50,3 +50,4 @@ flags:
     bundled: true
     opengl: true
     demos: false
+allow-newer: true
