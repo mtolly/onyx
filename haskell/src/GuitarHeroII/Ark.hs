@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readFileEntries, extractArk, createHdrArk, GH2InstallLocation(..)) where
+module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readFileEntries, extractArk, createHdrArk, GH2InstallLocation(..), addBonusSong) where
 
 import           Amplitude.PS2.Ark      (FileEntry (..), FoundFile (..),
                                          extractArk, makeStringBank,
@@ -159,3 +159,53 @@ replaceSong gen sym snippet files = withArk gen $ \ark -> do
       let arkPath = "songs/" <> sym <> "/" <> arkName
       ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
     ark_Save' ark
+
+-- | Adds a song to a GH2 ARK, and registers it as a bonus song with price 0.
+addBonusSong
+  :: FilePath
+  -> B.ByteString -- ^ folder name, and key symbol in songs.dta
+  -> [D.Chunk B.ByteString] -- ^ info for songs.dta
+  -> [Int] -- ^ coop max scores
+  -- TODO maybe contexts and leaderboards numbers for Xbox only
+  -> B.ByteString -- ^ song title for shop
+  -> B.ByteString -- ^ song description for shop
+  -> [(B.ByteString, FilePath)] -- ^ files to copy into the song folder, e.g. @("songsym.mid", "some/dir/notes.mid")@
+  -> IO ()
+addBonusSong gen sym song coop title desc files = withArk gen $ \ark -> do
+  withSystemTempFile "songs.dtb"             $ \fdtb1 hdl1 -> do
+    withSystemTempFile "coop_max_scores.dtb" $ \fdtb2 hdl2 -> do
+      withSystemTempFile "store.dtb"         $ \fdtb3 hdl3 -> do
+        withSystemTempFile "locale.dtb"      $ \fdtb4 hdl4 -> do
+          IO.hClose hdl1
+          IO.hClose hdl2
+          IO.hClose hdl3
+          IO.hClose hdl4
+          let editDTB tmp path f = do
+                ark_GetFile' ark tmp path True
+                D.DTA z (D.Tree _ chunks) <- D.readFileDTB tmp
+                chunks' <- f chunks
+                D.writeFileDTB tmp $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 chunks'
+                ark_ReplaceAFile' ark tmp path True
+          editDTB fdtb1 "config/gen/songs.dtb" $ \chunks -> do
+            return $ D.Parens (D.Tree 0 (D.Sym sym : song)) : chunks
+          editDTB fdtb2 "config/gen/coop_max_scores.dtb" $ \chunks -> do
+            return $ D.Parens (D.Tree 0 [D.Sym sym, D.Parens $ D.Tree 0 (map (D.Int . fromIntegral) coop)]) : chunks
+          editDTB fdtb3 "config/gen/store.dtb" $ \chunks -> do
+            forM chunks $ \case
+              D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> return
+                $ D.Parens
+                $ D.Tree 0
+                $ bonus <> [D.Parens $ D.Tree 0 [D.Sym sym, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
+              chunk -> return chunk
+          editDTB fdtb4 "ui/eng/gen/locale.dtb" $ \chunks -> do
+            return
+              -- TODO fill these in
+              $ D.Parens (D.Tree 0 [D.Sym sym, D.String title])
+              : D.Parens (D.Tree 0 [D.Sym $ sym <> "_shop_desc", D.String desc])
+              : chunks
+          forM_ files $ \(arkName, localPath) -> do
+            let arkPath = "songs/" <> sym <> "/" <> arkName
+            ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
+          -- TODO place album art at: ui/image/og/gen/us_logo_<sym>_keep.png_ps2
+          -- optionally turned into "distressed photo" look
+          ark_Save' ark

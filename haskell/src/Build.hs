@@ -12,6 +12,7 @@ import qualified C3
 import qualified Codec.Archive.Zip                     as Zip
 import           Codec.Picture
 import qualified Codec.Picture.STBIR                   as STBIR
+import           Codec.Picture.Types                   (dropTransparency)
 import           Config                                hiding (Difficulty)
 import           Control.Applicative                   (liftA2)
 import           Control.Arrow                         (second)
@@ -26,6 +27,7 @@ import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Put                       (runPut)
 import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64.Lazy           as B64
+import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (isAscii, isControl,
                                                         isSpace)
@@ -797,7 +799,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             Just img -> do
               shk $ need [img]
               stackIO $ if takeExtension img `elem` [".png_xbox", ".png_wii"]
-                then readRBImage <$> BL.readFile img
+                then pixelMap dropTransparency . readRBImage <$> BL.readFile img
                 else readImage img >>= \case
                   Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
                   Right dyn -> return $ convertRGB8 dyn
@@ -1713,11 +1715,18 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               Nothing   -> error $ "Couldn't locate a plan for this target: " ++ show gh2
               Just pair -> return pair
             let planDir = rel $ "gen/plan" </> T.unpack planName
+                defaultID = hashGH2 songYaml gh2
+                defaultLBP = defaultID + 1
+                defaultLBW = defaultID + 2
+                key = fromMaybe (T.pack $ "o" <> show defaultID) $ gh2_Key gh2
+                pkg = T.unpack key
 
             [dir </> "gh2/notes.mid", dir </> "gh2/coop_max_scores.dta", dir </> "gh2/pad.txt"] &%> \[out, coop, pad] -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
               audio <- computeGH2Audio songYaml gh2 plan
-              (mid, padSeconds) <- midiRB3toGH2 songYaml gh2 audio $ applyTargetMIDI (gh2_Common gh2) input
+              (mid, padSeconds) <- midiRB3toGH2 songYaml gh2 audio
+                (applyTargetMIDI (gh2_Common gh2) input)
+                (getAudioLength planName plan)
               saveMIDI out mid
               let p1 = gh2PartGuitar $ RBFile.s_tracks mid
                   p2 = case gh2_Coop gh2 of
@@ -1783,6 +1792,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               audio <- computeGH2Audio songYaml gh2 plan
               stackIO $ D.writeFileDTA_latin1 out $ D.serialize (valueId D.stackChunks) $ makeGH2DTA
                 songYaml
+                key
                 (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)))
                 gh2
                 audio
@@ -1795,6 +1805,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               stackIO $ BL.writeFile out $ runPut $ putVocFile
                 $ auto $ RBFile.onyxPartVocals vox
 
+            dir </> "gh2/symbol" %> \out -> do
+              stackIO $ B.writeFile out $ B8.pack pkg
+
             phony (dir </> "gh2") $ shk $ need
               [ dir </> "gh2/notes.mid"
               , dir </> "gh2/audio.vgs"
@@ -1803,14 +1816,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , dir </> "gh2/audio_p60.vgs"
               , dir </> "gh2/songs.dta"
               , dir </> "gh2/lipsync.voc"
+              , dir </> "gh2/coop_max_scores.dta"
+              , dir </> "gh2/symbol"
               ]
-
-            -- Xbox 360 DLC
-            let defaultID = hashGH2 songYaml gh2
-                defaultLBP = defaultID + 1
-                defaultLBW = defaultID + 2
-                key = fromMaybe (T.pack $ "o" <> show defaultID) $ gh2_Key gh2
-                pkg = T.unpack key
 
             dir </> "stfs/config/contexts.dta" %> \out -> do
               let ctx = fromMaybe defaultID $ gh2_Context gh2
