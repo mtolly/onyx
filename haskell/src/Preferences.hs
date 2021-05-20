@@ -19,6 +19,9 @@ import qualified System.Directory               as Dir
 data Preferences = Preferences
   { prefMagma      :: MagmaSetting
   , prefBlackVenue :: Bool
+  , prefLabel2x    :: Bool
+  , prefTrimXbox   :: Bool
+  , prefRBNumberID :: Bool
   , prefMSAA       :: Maybe Int
   , prefFXAA       :: Bool
   , prefDirRB      :: Maybe FilePath
@@ -31,16 +34,19 @@ data Preferences = Preferences
 
 instance StackJSON Preferences where
   stackJSON = asObject "Preferences" $ do
-    prefMagma      <- prefMagma      =. fill MagmaRequire "magma"       stackJSON
-    prefBlackVenue <- prefBlackVenue =. fill False        "black-venue" stackJSON
-    prefMSAA       <- prefMSAA       =. fill (Just 4)     "msaa"        stackJSON
-    prefFXAA       <- prefFXAA       =. fill True         "fxaa"        stackJSON
-    prefDirRB      <- prefDirRB      =. opt  Nothing      "dir-rb"      stackJSON
-    prefDirCH      <- prefDirCH      =. opt  Nothing      "dir-ch"      stackJSON
-    prefDirWii     <- prefDirWii     =. opt  Nothing      "dir-wii"     stackJSON
-    prefDirPreview <- prefDirPreview =. opt  Nothing      "dir-preview" stackJSON
-    prefAudioDirs  <- prefAudioDirs  =. opt  []           "audio-dirs"  stackJSON
-    prefOGGQuality <- prefOGGQuality =. fill 0.5          "ogg-quality" stackJSON
+    prefMagma      <- prefMagma      =. fill MagmaRequire "magma"        stackJSON
+    prefBlackVenue <- prefBlackVenue =. fill False        "black-venue"  stackJSON
+    prefLabel2x    <- prefLabel2x    =. fill True         "label-2x"     stackJSON
+    prefTrimXbox   <- prefTrimXbox   =. fill False        "trim-xbox"    stackJSON
+    prefRBNumberID <- prefRBNumberID =. fill False        "rb-number-id" stackJSON
+    prefMSAA       <- prefMSAA       =. fill (Just 4)     "msaa"         stackJSON
+    prefFXAA       <- prefFXAA       =. fill True         "fxaa"         stackJSON
+    prefDirRB      <- prefDirRB      =. opt  Nothing      "dir-rb"       stackJSON
+    prefDirCH      <- prefDirCH      =. opt  Nothing      "dir-ch"       stackJSON
+    prefDirWii     <- prefDirWii     =. opt  Nothing      "dir-wii"      stackJSON
+    prefDirPreview <- prefDirPreview =. opt  Nothing      "dir-preview"  stackJSON
+    prefAudioDirs  <- prefAudioDirs  =. opt  []           "audio-dirs"   stackJSON
+    prefOGGQuality <- prefOGGQuality =. fill 0.5          "ogg-quality"  stackJSON
     return Preferences{..}
 
 instance Default Preferences where

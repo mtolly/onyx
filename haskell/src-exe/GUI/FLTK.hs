@@ -1162,7 +1162,10 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
             GH2LIVE _  -> "Building GH2 LIVE file"
             GH2ARK _ _ -> "Adding to GH2 ARK file"
           task = case create of
-            GH2LIVE fout    -> fatal "TODO make GH2 LIVE files"
+            GH2LIVE fout    -> do
+              tmp <- buildGH2LIVE tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
             GH2ARK fout loc -> case loc of
               GH2AddBonus -> do
                 installGH2 tgt proj' fout
@@ -1407,15 +1410,19 @@ batchPageRB2 sink rect tab build = do
           tgt = applyGBK2 gbk yaml def
             { rb2_Common = (rb2_Common def)
               { tgt_Speed = Just speed
+              , tgt_Label2x = prefLabel2x ?preferences
               }
             , rb2_Magma = prefMagma ?preferences
+            , rb2_SongID = if prefRBNumberID ?preferences
+              then SongIDAutoInt
+              else SongIDAutoSymbol
             }
           kicksConfigs = case (kicks, maybe Kicks1x drumsKicks $ getPart FlexDrums yaml >>= partDrums) of
             (_        , Kicks1x) -> [(False, ""   )]
             (Kicks1x  , _      ) -> [(False, "_1x")]
             (Kicks2x  , _      ) -> [(True , "_2x")]
             (KicksBoth, _      ) -> [(False, "_1x"), (True, "_2x")]
-          fout kicksLabel = T.unpack $ foldr ($) template
+          fout kicksLabel = trimXbox $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ RB2 tgt
             , let
               modifiers = T.concat
@@ -1563,7 +1570,7 @@ batchPageGH2 sink rect tab build = do
               { tgt_Speed = Just speed
               }
             }
-          fout = T.unpack $ foldr ($) template
+          fout = trimXbox $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH2 tgt
             , let
               modifiers = T.pack $ case tgt_Speed $ gh2_Common tgt of
@@ -1572,9 +1579,11 @@ batchPageGH2 sink rect tab build = do
               in T.intercalate modifiers . T.splitOn "%modifiers%"
             ]
           in (tgt, usePath fout)
-  padded 5 10 5 100 (Size (Width 500) (Height 30)) $ \r -> do
-    btn1 <- FL.buttonNew r $ Just "Add to GH2 ARK"
-    FL.setCallback btn1 $ \_ -> do
+  padded 5 10 5 10 (Size (Width 500) (Height 35)) $ \r -> do
+    btn <- FL.buttonNew r $ Just "Add to GH2 (PS2) ARK as Bonus Songs"
+    color <- taskColor
+    FL.setColor btn color
+    FL.setCallback btn $ \_ -> do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
       FL.setTitle picker "Select .HDR file"
       FL.showWidget picker >>= \case
@@ -1598,8 +1607,9 @@ batchPageGH2 sink rect tab build = do
   return ()
 
 songIDBox
-  :: Rectangle
-  -> (Maybe (Either Integer T.Text) -> tgt -> tgt)
+  :: (?preferences :: Preferences)
+  => Rectangle
+  -> (RBSongID -> tgt -> tgt)
   -> BuildYamlControl tgt ()
 songIDBox rect f = do
   let (checkArea, inputArea) = chopLeft 200 rect
@@ -1616,11 +1626,13 @@ songIDBox rect f = do
   tell $ do
     b <- FL.getValue check
     s <- FL.getValue input
-    return $ Endo $ f $ do
-      guard $ b && s /= ""
-      Just $ case readMaybe $ T.unpack s of
-        Nothing -> Right s
-        Just i  -> Left i
+    return $ Endo $ f $ if b && s /= ""
+      then case readMaybe $ T.unpack s of
+        Nothing -> SongIDSymbol s
+        Just i  -> SongIDInt i
+      else if prefRBNumberID ?preferences
+        then SongIDAutoInt
+        else SongIDAutoSymbol
 
 starSelectors
   :: Rectangle
@@ -1772,7 +1784,13 @@ songPageRB3 sink rect tab proj build = mdo
         )
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
       liftIO $ FL.setCallback box2x $ \_ -> controlInput
-  let makeTarget = fmap ($ def { rb3_Magma = prefMagma ?preferences }) targetModifier
+  let initTarget = def
+        { rb3_Magma = prefMagma ?preferences
+        , rb3_Common = def
+          { tgt_Label2x = prefLabel2x ?preferences
+          }
+        }
+      makeTarget = fmap ($ initTarget) targetModifier
   fullWidth 35 $ \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- FL.buttonNew r1 $ Just "Create CON file"
@@ -1785,7 +1803,7 @@ songPageRB3 sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt $ RB3CON f
+          Just f  -> build tgt $ RB3CON $ trimXbox f
         _ -> return ()
     btn2 <- FL.buttonNew r2 $ Just "Create Magma project"
     FL.setCallback btn2 $ \_ -> do
@@ -1860,7 +1878,13 @@ songPageRB2 sink rect tab proj build = mdo
         )
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
       liftIO $ FL.setCallback box2x $ \_ -> controlInput
-  let makeTarget = fmap ($ def { rb2_Magma = prefMagma ?preferences }) targetModifier
+  let initTarget = def
+        { rb2_Magma = prefMagma ?preferences
+        , rb2_Common = def
+          { tgt_Label2x = prefLabel2x ?preferences
+          }
+        }
+      makeTarget = fmap ($ initTarget) targetModifier
   fullWidth 35 $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Create CON file"
     FL.setCallback btn $ \_ -> do
@@ -1872,7 +1896,7 @@ songPageRB2 sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt f
+          Just f  -> build tgt $ trimXbox f
         _ -> return ()
     color <- FLE.rgbColorWithRgb (179,221,187)
     FL.setColor btn color
@@ -2120,7 +2144,7 @@ songPageGH2 sink rect tab proj build = mdo
   let makeTarget = fmap ($ def) targetModifier
   fullWidth 35 $ \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
-    btn1 <- FL.buttonNew r1 $ Just "Add to GH2 ARK"
+    btn1 <- FL.buttonNew r1 $ Just "Add to GH2 (PS2) ARK"
     FL.setCallback btn1 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
@@ -2143,7 +2167,7 @@ songPageGH2 sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt $ GH2LIVE f
+          Just f  -> build tgt $ GH2LIVE $ trimXbox f
         _ -> return ()
     color <- FLE.rgbColorWithRgb (179,221,187)
     FL.setColor btn1 color
@@ -2176,6 +2200,14 @@ songPageGH2 sink rect tab proj build = mdo
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
+
+trimXbox
+  :: (?preferences :: Preferences)
+  => FilePath
+  -> FilePath
+trimXbox f = if prefTrimXbox ?preferences
+  then trimFileName f 42 "" ""
+  else f
 
 batchPageRB3
   :: (?preferences :: Preferences)
@@ -2218,15 +2250,19 @@ batchPageRB3 sink rect tab build = do
           tgt = applyGBK gbk yaml defRB3
             { rb3_Common = (rb3_Common defRB3)
               { tgt_Speed = Just speed
+              , tgt_Label2x = prefLabel2x ?preferences
               }
             , rb3_Magma = prefMagma ?preferences
+            , rb3_SongID = if prefRBNumberID ?preferences
+              then SongIDAutoInt
+              else SongIDAutoSymbol
             }
           kicksConfigs = case (kicks, maybe Kicks1x drumsKicks $ getPart FlexDrums yaml >>= partDrums) of
             (_        , Kicks1x) -> [(False, ""   )]
             (Kicks1x  , _      ) -> [(False, "_1x")]
             (Kicks2x  , _      ) -> [(True , "_2x")]
             (KicksBoth, _      ) -> [(False, "_1x"), (True, "_2x")]
-          fout kicksLabel = T.unpack $ foldr ($) template
+          fout kicksLabel = trimXbox $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ RB3 tgt
             , let
               modifiers = T.concat
@@ -2275,9 +2311,9 @@ templateApplyInput proj mtgt txt = foldr ($) txt
       Just tgt -> targetTitle (projectSongYaml proj) tgt
     songID = case mtgt of
       Just (RB3 rb3) -> case rb3_SongID rb3 of
-        Just (Left  n) -> T.pack $ show n
-        Just (Right s) -> s
-        Nothing        -> T.pack $ show $ hashRB3 (projectSongYaml proj) rb3
+        SongIDInt    n -> T.pack $ show n
+        SongIDSymbol s -> s
+        _              -> T.pack $ show $ hashRB3 (projectSongYaml proj) rb3
       _              -> ""
 
 makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
@@ -3699,7 +3735,10 @@ launchBatch sink makeMenuBar startFiles = mdo
           let (target, creator) = settings proj
           proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
           case creator of
-            GH2LIVE fout    -> fatal "TODO make GH2 LIVE files"
+            GH2LIVE fout    -> do
+              tmp <- buildGH2LIVE target proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
             GH2ARK fout loc -> case loc of
               GH2AddBonus -> do
                 installGH2 target proj' fout
@@ -3841,7 +3880,7 @@ launchPreferences sink = do
   let width = 700
       padding = 10
       lineHeight = 30
-      numLines = 10
+      numLines = 11
       leftLabelSize = 160
       height = (padding + lineHeight) * numLines + padding
       lineBox i = Rectangle
@@ -3887,10 +3926,18 @@ launchPreferences sink = do
       , ("Don't use Magma", MagmaDisable, prefMagma loadedPrefs == MagmaDisable)
       ]
 
-    checkBlackVenue <- FL.checkButtonNew (lineBox 1) $ Just "Use black venue for all generated files"
+    let [check1, check2] = splitHorizN 2 (lineBox 1)
+        [check3, check4] = splitHorizN 2 (lineBox 2)
+    checkBlackVenue <- FL.checkButtonNew check1 $ Just "Use black venue in RB files"
+    checkLabel2x    <- FL.checkButtonNew check2 $ Just "Label (2x Bass Pedal) by default"
+    checkTrimXbox   <- FL.checkButtonNew check3 $ Just "Trim Xbox 360 files to 42 characters"
+    checkRBNumberID <- FL.checkButtonNew check4 $ Just "Use true number IDs in RB files"
     void $ FL.setValue checkBlackVenue $ prefBlackVenue loadedPrefs
+    void $ FL.setValue checkLabel2x    $ prefLabel2x    loadedPrefs
+    void $ FL.setValue checkTrimXbox   $ prefTrimXbox   loadedPrefs
+    void $ FL.setValue checkRBNumberID $ prefRBNumberID loadedPrefs
 
-    getMSAA <- horizRadio (lineBox 2)
+    getMSAA <- horizRadio (lineBox 3)
       [ ("No MSAA" , Nothing, prefMSAA loadedPrefs == Nothing)
       , ("MSAA 2x" , Just 2 , prefMSAA loadedPrefs == Just 2 )
       , ("MSAA 4x" , Just 4 , prefMSAA loadedPrefs == Just 4 )
@@ -3898,15 +3945,15 @@ launchPreferences sink = do
       , ("MSAA 16x", Just 16, prefMSAA loadedPrefs == Just 16)
       ]
 
-    checkFXAA <- FL.checkButtonNew (lineBox 3) $ Just "FXAA"
+    checkFXAA <- FL.checkButtonNew (lineBox 4) $ Just "FXAA"
     void $ FL.setValue checkFXAA $ prefFXAA loadedPrefs
 
-    getDirRB      <- folderBox (lineBox 4) "Default CON folder"     $ T.pack $ fromMaybe "" $ prefDirRB      loadedPrefs
-    getDirCH      <- folderBox (lineBox 5) "Default CH folder"      $ T.pack $ fromMaybe "" $ prefDirCH      loadedPrefs
-    getDirWii     <- folderBox (lineBox 6) "Default Wii folder"     $ T.pack $ fromMaybe "" $ prefDirWii     loadedPrefs
-    getDirPreview <- folderBox (lineBox 7) "Default preview folder" $ T.pack $ fromMaybe "" $ prefDirPreview loadedPrefs
+    getDirRB      <- folderBox (lineBox 5) "Default CON folder"     $ T.pack $ fromMaybe "" $ prefDirRB      loadedPrefs
+    getDirCH      <- folderBox (lineBox 6) "Default CH folder"      $ T.pack $ fromMaybe "" $ prefDirCH      loadedPrefs
+    getDirWii     <- folderBox (lineBox 7) "Default Wii folder"     $ T.pack $ fromMaybe "" $ prefDirWii     loadedPrefs
+    getDirPreview <- folderBox (lineBox 8) "Default preview folder" $ T.pack $ fromMaybe "" $ prefDirPreview loadedPrefs
 
-    sliderQuality <- FL.horValueSliderNew (snd $ chopLeft leftLabelSize $ lineBox 8) (Just "OGG Vorbis quality")
+    sliderQuality <- FL.horValueSliderNew (snd $ chopLeft leftLabelSize $ lineBox 9) (Just "OGG Vorbis quality")
     FL.setLabelsize sliderQuality $ FL.FontSize 13
     FL.setLabeltype sliderQuality FLE.NormalLabelType FL.ResolveImageLabelDoNothing
     FL.setAlign sliderQuality $ FLE.Alignments [FLE.AlignTypeLeft]
@@ -3914,31 +3961,37 @@ launchPreferences sink = do
     FL.setMaximum sliderQuality 10
     void $ FL.setValue sliderQuality $ prefOGGQuality loadedPrefs * 10
 
-    let [_, saveRect, _, cancelRect, _] = splitHorizN 5 $ lineBox 9
+    let [_, saveRect, _, cancelRect, _] = splitHorizN 5 $ lineBox 10
     saveButton <- FL.buttonNew saveRect $ Just "Save"
     taskColor >>= FL.setColor saveButton
     FL.setCallback saveButton $ \_ -> do
       magma <- fromMaybe (prefMagma loadedPrefs) <$> getMagma
       let continueSave = do
-            black <- FL.getValue checkBlackVenue
-            msaa <- fromMaybe (prefMSAA loadedPrefs) <$> getMSAA
-            fxaa <- FL.getValue checkFXAA
             let getPath = \case
                   "" -> Nothing
                   d  -> Just $ T.unpack d
-            dirRB <- getPath <$> getDirRB
-            dirCH <- getPath <$> getDirCH
-            dirWii <- getPath <$> getDirWii
+            black      <- FL.getValue checkBlackVenue
+            label2x    <- FL.getValue checkLabel2x
+            trim       <- FL.getValue checkTrimXbox
+            rbNumberID <- FL.getValue checkRBNumberID
+            msaa       <- fromMaybe (prefMSAA loadedPrefs) <$> getMSAA
+            fxaa       <- FL.getValue checkFXAA
+            dirRB      <- getPath <$> getDirRB
+            dirCH      <- getPath <$> getDirCH
+            dirWii     <- getPath <$> getDirWii
             dirPreview <- getPath <$> getDirPreview
-            quality <- (/ 10) <$> FL.getValue sliderQuality
+            quality    <- (/ 10) <$> FL.getValue sliderQuality
             savePreferences loadedPrefs
-              { prefMagma = magma
+              { prefMagma      = magma
               , prefBlackVenue = black
-              , prefMSAA = msaa
-              , prefFXAA = fxaa
-              , prefDirRB = dirRB
-              , prefDirCH = dirCH
-              , prefDirWii = dirWii
+              , prefLabel2x    = label2x
+              , prefTrimXbox   = trim
+              , prefRBNumberID = rbNumberID
+              , prefMSAA       = msaa
+              , prefFXAA       = fxaa
+              , prefDirRB      = dirRB
+              , prefDirCH      = dirCH
+              , prefDirWii     = dirWii
               , prefDirPreview = dirPreview
               , prefOGGQuality = quality
               }

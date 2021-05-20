@@ -349,14 +349,16 @@ importRB rbi level = do
       }
     , _targets = let
       getSongID = \case
-        Left  i -> guard (i /= 0) >> Just (Left i)
-        Right k -> Just $ Right k
-      songID1x = D.songId pkg >>= getSongID
+        Left  i -> if i /= 0
+          then SongIDInt $ fromIntegral i
+          else SongIDAutoSymbol
+        Right k -> SongIDSymbol k
+      songID1x = maybe SongIDAutoSymbol getSongID $ D.songId pkg
       songID2x = if hasKicks == Kicks2x
         then songID1x
-        else files2x >>= D.songId . fst >>= getSongID
-      version1x = songID1x >> Just (D.version pkg)
-      version2x = songID2x >> fmap (D.version . fst) files2x
+        else maybe SongIDAutoSymbol getSongID $ files2x >>= D.songId . fst
+      version1x = guard (songID1x /= SongIDAutoSymbol) >> Just (D.version pkg)
+      version2x = guard (songID2x /= SongIDAutoSymbol) >> fmap (D.version . fst) files2x
       targetShared = def'
         { rb3_Harmonix = dtaIsHarmonixRB3 pkg
         , rb3_FileMilo = localMilo

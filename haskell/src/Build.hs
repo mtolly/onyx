@@ -258,7 +258,7 @@ targetTitle songYaml target = let
           intSpeed :: Int
           intSpeed = round $ spd * 100
           in ["(" <> T.pack (show intSpeed) <> "% Speed)"]
-      , ["(2x Bass Pedal)" | is2x]
+      , ["(2x Bass Pedal)" | is2x && tgt_Label2x common]
       , sfxs
       ]
   in T.intercalate " " segments
@@ -307,7 +307,7 @@ forceRW f = stackIO $ do
   p <- Dir.getPermissions f
   Dir.setPermissions f $ Dir.setOwnerReadable True $ Dir.setOwnerWritable True p
 
-makeRB3DTA :: (MonadIO m) => SongYaml f -> Plan f -> TargetRB3 f -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
+makeRB3DTA :: (MonadIO m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 f -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
 makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
   let thresh = 170 -- everything gets forced anyway
@@ -348,7 +348,11 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
     { D.name = songName
     , D.artist = Just artistName
     , D.master = not $ _cover $ _metadata songYaml
-    , D.songId = Just $ fromMaybe (Right filename) $ rb3_SongID rb3
+    , D.songId = Just $ case rb3_SongID rb3 of
+      SongIDSymbol s   -> Right s
+      SongIDInt i      -> Left $ fromIntegral i
+      SongIDAutoSymbol -> Right filename
+      SongIDAutoInt    -> Left $ fromIntegral $ hashRB3 songYaml rb3
     , D.song = D.Song
       { D.songName = "songs/" <> filename <> "/" <> filename
       , D.tracksCount = Nothing
@@ -504,8 +508,8 @@ makeC3 songYaml plan rb3 midi pkg = do
       DifficultyRB3{..} = difficultyRB3 rb3 songYaml
       title = targetTitle songYaml $ RB3 rb3
       numSongID = case rb3_SongID rb3 of
-        Just (Left i) -> Just i
-        _             -> Nothing
+        SongIDInt i -> Just i
+        _           -> Nothing
       hasCrowd = case plan of
         MoggPlan{..} -> not $ null _moggCrowd
         Plan{..}     -> isJust _crowd
@@ -1614,7 +1618,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                             , D.cores = D.cores $ D.song rb3DTA
                             , D.crowdChannels = D.crowdChannels $ D.song rb3DTA
                             }
-                          , D.songId = Just $ fromMaybe (Right pkg) $ rb2_SongID rb2
+                          , D.songId = Just $ case rb2_SongID rb2 of
+                              SongIDSymbol s   -> Right s
+                              SongIDInt i      -> Left $ fromIntegral i
+                              SongIDAutoSymbol -> Right pkg
+                              SongIDAutoInt    -> Left $ fromIntegral $ hashRB3 songYaml rb3
                           , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
                           , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
                           }

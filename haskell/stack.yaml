@@ -32,10 +32,8 @@ extra-deps:
   commit: 0a90a9541b261583a09e5d5f9f416bc7ae59d07d
   subdirs:
   - conduit-audio-mpg123
-- git: git://github.com/deech/fltkhs
-  commit: 272d225e641e9b6161df82066e9a4b919c0e812a
-  subdirs:
-  - fltkhs
+- git: git://github.com/mtolly/fltkhs
+  commit: 02f6a2477c7b0fdc49844e6757d1b97d6868ebf8
 - git: git://github.com/mtolly/midi-util
   commit: 1ea0f72a3795375e4b9eafcaef2500d105faf20f
 - git: git://github.com/mtolly/OpenAL
