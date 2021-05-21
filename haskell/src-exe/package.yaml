@@ -58,7 +58,7 @@ executables:
     - onyxite-customs-lib
     - onyx-game-3d
 
-    ghc-options: -threaded -O
+    ghc-options: -threaded -O -with-rtsopts=-N
 
     when:
     - condition: os(mingw32)

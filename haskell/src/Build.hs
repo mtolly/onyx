@@ -26,12 +26,12 @@ import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Put                       (runPut)
 import qualified Data.ByteString                       as B
-import Data.Conduit (runConduit)
 import qualified Data.ByteString.Base64.Lazy           as B64
 import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (isAscii, isControl,
                                                         isSpace)
+import           Data.Conduit                          (runConduit)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile

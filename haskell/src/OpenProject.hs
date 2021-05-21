@@ -141,7 +141,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         folder <- stackIO $ getSTFSFolder loc
         case findFile ("songs" :| ["songs.dta"]) folder of
           Just _ -> do
-            imps <- importSTFSFolder folder
+            imps <- importSTFSFolder loc folder
             foundImports "Rock Band (Xbox 360 CON/LIVE)" loc imps
           Nothing -> if any (\(name, _) -> ".xen" `T.isSuffixOf` name) $ folderFiles folder
             then do
@@ -172,7 +172,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       ents <- stackIO $ Dir.listDirectory fp
       let lookFor [] = stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
             True  -> stackIO (crawlFolder fp)
-              >>= importSTFSFolder
+              >>= importSTFSFolder fp
               >>= foundImports "Rock Band Extracted" fp
             False -> return (map (fp </>) ents, [])
           lookFor ((file, use) : rest) = case filter ((== file) . map toLower) ents of

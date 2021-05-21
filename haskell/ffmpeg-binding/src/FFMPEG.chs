@@ -810,7 +810,8 @@ supplyAudio inputs = do
       [output] -> return output
       _        -> error "supplyAudio: not exactly 1 output on this filter"
     {#get AVFilterLink->frame_wanted_out #} output >>= \case
-      0 -> return Nothing -- no data needed for this input
+      -- This used to work, but now doesn't...?
+      -- 0 -> return Nothing -- no data needed for this input
       _ -> let
         readFrame = do
           ret <- av_read_frame (giFormat input) (giPacket input)

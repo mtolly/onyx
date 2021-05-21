@@ -47,7 +47,7 @@ import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
-import           Data.List.Extra                  (stripSuffix, unsnoc, trim)
+import           Data.List.Extra                  (stripSuffix, trim, unsnoc)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,

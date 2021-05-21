@@ -32,12 +32,12 @@ import           Data.Default.Class
 import qualified Data.DTA.Serialize.GH2           as GH2
 import qualified Data.DTA.Serialize.Magma         as Magma
 import           Data.DTA.Serialize.RB3           (AnimTempo (..))
-import Data.Int (Int32)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
 import           Data.Foldable                    (toList)
 import           Data.Hashable                    (Hashable (..))
 import qualified Data.HashMap.Strict              as Map
+import           Data.Int                         (Int32)
 import           Data.Maybe                       (fromMaybe, mapMaybe)
 import           Data.Scientific                  (Scientific, toRealFloat)
 import           Data.String                      (IsString (..))

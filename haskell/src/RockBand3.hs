@@ -293,9 +293,8 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
       flip any (drumGems dd) $ \(_gem, vel) ->
         vel /= VelocityNormal
     enableDynamics dt = dt
-      { drumEnableDynamics = case target of
-        Left _rb3 -> RTB.empty
-        Right _ps -> if hasDynamics dt then RTB.singleton 0 () else RTB.empty
+      -- this will use the no-brackets version, so Magma is ok with it
+      { drumEnableDynamics = if hasDynamics dt then RTB.singleton 0 () else RTB.empty
       }
     -- Note: drumMix must be applied *after* drumsComplete.
     -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.

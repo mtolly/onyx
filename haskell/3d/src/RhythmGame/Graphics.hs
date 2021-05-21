@@ -280,8 +280,9 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
           (FD.Ride     , _              , _, _) -> (TexturePurpleCymbal, Model ModelDrumCymbal   )
         shade = case alpha of
           Nothing -> case velocity of
-            D.VelocityGhost -> CSImage2 texid TextureOverlayGhost
-            _               -> CSImage texid
+            D.VelocityNormal -> CSImage texid
+            D.VelocityGhost  -> CSImage2 texid TextureOverlayGhost
+            D.VelocityAccent -> CSImage2 texid TextureOverlayAccent
           Just _  -> CSColor $ C.gems_color_hit $ C.obj_gems $ C.cfg_objects gfxConfig
         (x1, x2) = gemBounds gem
         xCenter = x1 + (x2 - x1) / 2
@@ -497,8 +498,9 @@ drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
           D.Orange                -> (if od then TextureEnergyCymbal else TextureGreenCymbal  , Model ModelDrumCymbal)
         shade = case alpha of
           Nothing -> case velocity of
-            D.VelocityGhost -> CSImage2 texid TextureOverlayGhost
-            _               -> CSImage  texid
+            D.VelocityNormal -> CSImage texid
+            D.VelocityGhost  -> CSImage2 texid TextureOverlayGhost
+            D.VelocityAccent -> CSImage2 texid TextureOverlayAccent
           Just _  -> CSColor $ C.gems_color_hit $ C.obj_gems $ C.cfg_objects gfxConfig
         (x1, x2) = case gem of
           D.Kick           -> (-1, 1)
@@ -1562,6 +1564,7 @@ data TextureID
   | TextureRSPalmMute
   | TextureRSFretHandMute
   | TextureOverlayGhost
+  | TextureOverlayAccent
   deriving (Eq, Show, Enum, Bounded)
 
 data ModelID
@@ -1813,6 +1816,7 @@ loadGLStuff previewSong = do
           TextureRSPalmMute              -> "rs-palm-mute"
           TextureRSFretHandMute          -> "rs-fret-hand-mute"
           TextureOverlayGhost            -> "overlay-ghost"
+          TextureOverlayAccent           -> "overlay-accent"
     base <- stackIO $ getResourcesPath $ "textures" </> imageName
     let isLinear = case texID of
           TextureNumber0 -> False

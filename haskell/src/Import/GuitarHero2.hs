@@ -12,7 +12,7 @@ import           Amplitude.PS2.Ark                (FileEntry (..), entryFolder,
                                                    readFileEntry)
 import           Audio                            (Audio (..))
 import           Config
-import           Control.Monad                    (forM, guard, void)
+import           Control.Monad                    (forM, guard, void, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
@@ -93,6 +93,7 @@ importGH2Song mode pkg gen level = do
     ImportCoop -> case songCoop pkg of
       Nothing -> fatal "Tried to import coop version from a song that doesn't have one"
       Just coop -> return coop
+  when (level == ImportFull) $ lg $ "Importing GH2 song [" <> T.unpack (songName songChunk) <> "] from folder: " <> gen
   midi <- split (midiFile songChunk) >>= need . fmap encLatin1
   vgs <- split (songName songChunk <> ".vgs") >>= need . fmap encLatin1
   RBFile.Song tmap mmap gh2 <- case level of

@@ -40,6 +40,7 @@ end
 # build songs/dream-theater/a-rite-of-passage # needs 4-string
 # build songs/dream-theater/6-00 # needs 4-string
 # build songs-others/moochalacho/camel-dancefloor # needs 4-string
+build songs/toe/last-night
 
 # phrases not done:
 

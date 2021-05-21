@@ -1,5 +1,6 @@
 metadata:
   title: Last Night
+  title-jp: ラストナイト
   file-include: ../../../albums/for-long-tomorrow.yml
   track-number: 9
   author: Onyxite
@@ -33,6 +34,11 @@ parts:
   bass:
     grybo:
       difficulty: 3
+    pro-guitar:
+      tuning:
+        base: bass-4
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo:
       difficulty: 3
@@ -52,3 +58,7 @@ targets:
     game: ps
   melody:
     game: melody
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

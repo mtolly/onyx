@@ -28,6 +28,8 @@ import qualified Numeric.NonNegative.Class        as NNC
 import qualified PhaseShift.Message               as PS
 import           RockBand.Codec
 import           RockBand.Common
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
 
 data DrumTrack t = DrumTrack
@@ -274,7 +276,20 @@ instance ParseTrack DrumTrack where
       FloorTom RH -> blip 51
       RideSide True -> commandMatch ["ride_side_true"]
       RideSide False -> commandMatch ["ride_side_false"]
-    drumEnableDynamics <- drumEnableDynamics =. commandMatch ["ENABLE_CHART_DYNAMICS"]
+    drumEnableDynamics <- drumEnableDynamics =. Codec
+      -- support text event both with and without brackets
+      -- (the no-brackets version gets turned into a lyric by preprocessing)
+      { codecIn = slurpTrack $ \mt -> let
+        (brackets  , cmds'  ) = RTB.partition (== ["ENABLE_CHART_DYNAMICS"]) $ midiCommands mt
+        (noBrackets, lyrics') = RTB.partition (== "ENABLE_CHART_DYNAMICS") $ midiLyrics mt
+        mt' = mt
+          { midiCommands = cmds'
+          , midiLyrics   = lyrics'
+          }
+        in (RTB.merge (void brackets) (void noBrackets), mt')
+      -- always emit the no-brackets version, so Magma is ok with it
+      , codecOut = makeTrackBuilder $ fmap $ \() -> E.MetaEvent $ Meta.TextEvent "ENABLE_CHART_DYNAMICS"
+      }
     return DrumTrack{..}
 
 fiveToFour :: (NNC.C t) => ProColor -> RTB.T t (Gem (), DrumVelocity) -> RTB.T t (Gem (), DrumVelocity)

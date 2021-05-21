@@ -10,7 +10,7 @@ import           Codec.Picture                  (convertRGB8, readImage)
 import           Config
 import           Control.Arrow                  (second)
 import           Control.Exception              (evaluate)
-import           Control.Monad                  (forM, guard, when)
+import           Control.Monad                  (forM, forM_, guard, when)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
@@ -65,10 +65,11 @@ data RBImport = RBImport
   , rbiMilo        :: Maybe SoftContents
   , rbiMIDI        :: Readable
   , rbiMIDIUpdate  :: Maybe Readable
+  , rbiSource      :: Maybe FilePath
   }
 
-importSTFSFolder :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [Import m]
-importSTFSFolder folder = do
+importSTFSFolder :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
+importSTFSFolder src folder = do
   packSongs <- stackIO (findByteString ("songs" :| ["songs.dta"]) folder) >>= \case
     Nothing -> fatal "songs/songs.dta not found"
     Just bs -> readDTASingles $ BL.toStrict bs
@@ -113,10 +114,12 @@ importSTFSFolder folder = do
       , rbiMilo = SoftReadable <$> findFile miloPath folder
       , rbiMIDI = midi
       , rbiMIDIUpdate = update
+      , rbiSource = Just src
       }
 
 importRBA :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importRBA rba level = do
+  when (level == ImportFull) $ lg $ "Importing RBA from: " <> rba
   let contents = rbaContents rba
       need i = case lookup i contents of
         Just r  -> return r
@@ -151,6 +154,7 @@ importRBA rba level = do
     , rbiMilo = Just milo
     , rbiMIDI = midi
     , rbiMIDIUpdate = Nothing
+    , rbiSource = Nothing
     } level
 
 dtaIsRB3 :: D.SongPackage -> Bool
@@ -173,6 +177,9 @@ importRB rbi level = do
       (title, auto2x) = determine2xBass $ D.name pkg
       is2x = fromMaybe auto2x $ c3dta2xBass $ rbiComments rbi
       hasKicks = if is2x then Kicks2x else Kicks1x
+
+  when (level == ImportFull) $ forM_ (rbiSource rbi) $ \src -> do
+    lg $ "Importing Rock Band song [" <> T.unpack (D.songName $ D.song pkg) <> "] from: " <> src
 
   (midiFixed, midiOnyx) <- case level of
     ImportFull -> do
