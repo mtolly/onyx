@@ -11,14 +11,16 @@ module GUI.FLTK (launchGUI) where
 import           Audio                                     (Audio (..),
                                                             buildSource',
                                                             runAudio)
-import           Build                                     (targetTitle,
-                                                            toValidFileName, hashRB3)
+import           Build                                     (hashRB3,
+                                                            targetTitle,
+                                                            toValidFileName)
 import           Codec.Picture                             (readImage,
                                                             savePngImage,
                                                             writePng)
 import           CommandLine                               (blackVenue,
                                                             copyDirRecursive,
-                                                            runDolphin, trimFileName)
+                                                            runDolphin,
+                                                            trimFileName)
 import           Config
 import           Control.Applicative                       ((<|>))
 import           Control.Concurrent                        (MVar, ThreadId,
@@ -63,6 +65,8 @@ import qualified Data.ByteString.Char8                     as B8
 import qualified Data.ByteString.Lazy                      as BL
 import           Data.Char                                 (isSpace, toLower,
                                                             toUpper)
+import           Data.Conduit.Audio                        (integralSample,
+                                                            mapSamples)
 import qualified Data.Connection                           as Conn
 import           Data.Default.Class                        (Default, def)
 import qualified Data.DTA.Serialize.GH2                    as D
@@ -104,6 +108,7 @@ import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Graphics.UI.FLTK.LowLevel.GlWindow        ()
 import           Graphics.UI.FLTK.LowLevel.X               (openCallback)
 import           GuitarHeroII.Ark                          (GH2InstallLocation (..))
+import           GuitarHeroII.Audio                        (writeVGS)
 import           Image                                     (readRBImageMaybe)
 import           Import.GuitarHero2                        (Setlist (..),
                                                             loadSetlistFull)
@@ -1159,8 +1164,9 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
     songPageGH2 sink rect tab proj $ \tgt create -> do
       proj' <- fullProjModify proj
       let name = case create of
-            GH2LIVE _  -> "Building GH2 LIVE file"
-            GH2ARK _ _ -> "Adding to GH2 ARK file"
+            GH2LIVE{}   -> "Building GH2 LIVE file"
+            GH2ARK{}    -> "Adding to GH2 ARK file"
+            GH2DIYPS2{} -> "Creating GH2 DIY folder (PS2)"
           task = case create of
             GH2LIVE fout    -> do
               tmp <- buildGH2LIVE tgt proj'
@@ -1171,6 +1177,9 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
                 installGH2 tgt proj' fout
                 return [fout]
               _ -> fatal "TODO other GH2 destinations"
+            GH2DIYPS2 fout -> do
+              makeGH2DIY tgt proj' fout
+              return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
@@ -1336,7 +1345,7 @@ data PSCreate
 data GH2Create
   = GH2LIVE FilePath
   | GH2ARK FilePath GH2InstallLocation
-  -- TODO folders of stuff for 360/PS2
+  | GH2DIYPS2 FilePath
 
 horizRadio' :: Rectangle -> Maybe (IO ()) -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
 horizRadio' _    _  []   = error "horizRadio: empty option list"
@@ -1561,14 +1570,19 @@ batchPageGH2 sink rect tab build = do
   getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
+  getPracticeAudio <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    box <- liftIO $ FL.checkButtonNew rect' (Just "Make practice mode audio for PS2")
+    return $ FL.getValue box
   let getTargetSong usePath template = do
         speed <- getSpeed
+        practiceAudio <- getPracticeAudio
         return $ \proj -> let
           defGH2 = def :: TargetGH2
           tgt = defGH2
             { gh2_Common = (gh2_Common defGH2)
               { tgt_Speed = Just speed
               }
+            , gh2_PracticeAudio = practiceAudio
             }
           fout = trimXbox $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH2 tgt
@@ -1580,7 +1594,7 @@ batchPageGH2 sink rect tab build = do
             ]
           in (tgt, usePath fout)
   padded 5 10 5 10 (Size (Width 500) (Height 35)) $ \r -> do
-    btn <- FL.buttonNew r $ Just "Add to GH2 (PS2) ARK as Bonus Songs"
+    btn <- FL.buttonNew r $ Just "Add to GH2 PS2 ARK as Bonus Songs"
     color <- taskColor
     FL.setColor btn color
     FL.setCallback btn $ \_ -> do
@@ -1597,6 +1611,11 @@ batchPageGH2 sink rect tab build = do
                 (tgt, _) = song proj
                 in (tgt, GH2ARK gen GH2AddBonus)
         _ -> return ()
+  makeTemplateRunner
+    sink
+    "Create PS2 DIY folders"
+    ("%input_dir%/%input_base%%modifiers%_gh2")
+    (getTargetSong GH2DIYPS2 >=> build)
   makeTemplateRunner
     sink
     "Create GH2 (360) LIVE files"
@@ -1999,8 +2018,6 @@ selectArkDestination
   -> (GH2InstallLocation -> IO ())
   -> Onyx ()
 selectArkDestination sink gen withLocation = do
-  stackIO $ withLocation GH2AddBonus
-  {-
   setlist <- loadSetlistFull gen
   stackIO $ mdo
 
@@ -2063,7 +2080,6 @@ selectArkDestination sink gen withLocation = do
     FL.setResizable window $ Just scroll
     FL.sizeRange window windowSize
     FL.showWidget window
-  -}
 
 songPageGH2
   :: (?preferences :: Preferences)
@@ -2141,10 +2157,15 @@ songPageGH2 sink rect tab proj build = mdo
           }
         )
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+    fullWidth 35 $ \rect' -> do
+      box <- liftIO $ FL.checkButtonNew rect' (Just "Make practice mode audio for PS2")
+      tell $ FL.getValue box >>= \b -> return $ Endo $ \gh2 ->
+        gh2 { gh2_PracticeAudio = b }
+      return box
   let makeTarget = fmap ($ def) targetModifier
   fullWidth 35 $ \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
-    btn1 <- FL.buttonNew r1 $ Just "Add to GH2 (PS2) ARK"
+    btn1 <- FL.buttonNew r1 $ Just "Add to GH2 PS2 ARK as Bonus Song"
     FL.setCallback btn1 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
@@ -2154,10 +2175,24 @@ songPageGH2 sink rect tab proj build = mdo
           Nothing -> return ()
           Just f  -> let
             gen = takeDirectory f
-            in sink $ EventOnyx $ selectArkDestination sink gen $ \dest -> do
-              build tgt $ GH2ARK gen dest
+            in build tgt $ GH2ARK gen GH2AddBonus
         _ -> return ()
-    btn2 <- FL.buttonNew r2 $ Just "Create GH2 (360) LIVE file"
+    btn2 <- FL.buttonNew r2 $ Just "Create PS2 DIY folder"
+    FL.setCallback btn2 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Create DIY folder"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_gh2"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ GH2DIYPS2 f
+        _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn1 color
+    FL.setColor btn2 color
+  fullWidth 35 $ \rect' -> do
+    btn2 <- FL.buttonNew rect' $ Just "Create GH2 Xbox 360 LIVE file"
     FL.setCallback btn2 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
@@ -2170,32 +2205,6 @@ songPageGH2 sink rect tab proj build = mdo
           Just f  -> build tgt $ GH2LIVE $ trimXbox f
         _ -> return ()
     color <- FLE.rgbColorWithRgb (179,221,187)
-    FL.setColor btn1 color
-    FL.setColor btn2 color
-  fullWidth 35 $ \rect' -> do
-    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
-    btn1 <- FL.buttonNew r1 $ Just "Create PS2 DIY folder"
-    FL.setCallback btn1 $ \_ -> do
-      tgt <- makeTarget
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-      FL.setTitle picker "Create DIY folder"
-      FL.showWidget picker >>= \case
-        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-          Nothing -> return ()
-          Just f  -> undefined -- TODO
-        _ -> return ()
-    btn2 <- FL.buttonNew r2 $ Just "Create 360 DIY folder"
-    FL.setCallback btn2 $ \_ -> do
-      tgt <- makeTarget
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-      FL.setTitle picker "Create DIY folder"
-      FL.showWidget picker >>= \case
-        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-          Nothing -> return ()
-          Just f  -> undefined -- TODO
-        _ -> return ()
-    color <- FLE.rgbColorWithRgb (179,221,187)
-    FL.setColor btn1 color
     FL.setColor btn2 color
   FL.end pack
   FL.setResizable tab $ Just pack
@@ -3014,7 +3023,7 @@ miscPageMOGG
 miscPageMOGG sink rect tab startTasks = mdo
   loadedAudio <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
-      startRect' = trimClock 5 10 10 10 startRect
+      [chopRight 5 -> (moggRect, _), chopLeft 5 -> (_, vgsRect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
       isSingleOgg = \case
         [aud] | audioFormat aud == "Ogg Vorbis" -> Just aud
         _                                       -> Nothing
@@ -3023,14 +3032,15 @@ miscPageMOGG sink rect tab startTasks = mdo
         newAudio <- modifyMVar loadedAudio $ \auds -> (\x -> (x, x)) <$> f auds
         let chans = sum $ map audioChannels newAudio
         sink $ EventIO $ do
-          FL.setLabel btn $ let
+          FL.setLabel btnMogg $ let
             op = case isSingleOgg newAudio of
               Just _  -> "Ogg to MOGG, no re-encode"
               Nothing -> "Combine into MOGG"
             in op <> " (" <> T.pack (show chans) <> " channels)"
+          FL.setLabel btnVgs $ "Combine into VGS (" <> T.pack (show chans) <> " channels)"
           if chans == 0
-            then FL.deactivate btn
-            else FL.activate   btn
+            then mapM_ FL.deactivate [btnMogg, btnVgs]
+            else mapM_ FL.activate   [btnMogg, btnVgs]
   group <- fileLoadWindow filesRect sink "Audio" "Audio" modifyAudio []
     (\f -> liftIO $ ([],) . toList <$> getAudioSpec f)
     $ \info -> let
@@ -3048,10 +3058,11 @@ miscPageMOGG sink rect tab startTasks = mdo
           in stamp <> " (" <> T.pack (show $ audioFrames info) <> " frames @ " <> T.pack (show $ audioRate info) <> "Hz)"
         ]
       in (entry, sublines)
-  btn <- FL.buttonNew startRect' Nothing
-  taskColor >>= FL.setColor btn
+
+  btnMogg <- FL.buttonNew moggRect Nothing
+  taskColor >>= FL.setColor btnMogg
   FL.setResizable tab $ Just group
-  FL.setCallback btn $ \_ -> sink $ EventIO $ do
+  FL.setCallback btnMogg $ \_ -> sink $ EventIO $ do
     audio <- readMVar loadedAudio
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
     FL.setTitle picker "Save MOGG file"
@@ -3080,6 +3091,36 @@ miscPageMOGG sink rect tab startTasks = mdo
                 oggToMogg ogg f'
                 return [f']
               in [("MOGG file creation", task)]
+      _ -> return ()
+
+  btnVgs <- FL.buttonNew vgsRect Nothing
+  taskColor >>= FL.setColor btnVgs
+  FL.setResizable tab $ Just group
+  FL.setCallback btnVgs $ \_ -> sink $ EventIO $ do
+    audio <- readMVar loadedAudio
+    picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+    FL.setTitle picker "Save VGS file"
+    case audio of
+      [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory $ audioPath aud
+      _     -> return ()
+    FL.setFilter picker "*.vgs"
+    FL.setPresetFile picker $ case audio of
+      [aud] -> T.pack $ takeFileName (audioPath aud) -<.> "vgs"
+      _     -> "out.vgs"
+    FL.showWidget picker >>= \case
+      FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+        Nothing -> return ()
+        Just f  -> let
+          ext = map toLower $ takeExtension f
+          f' = if ext == ".vgs"
+            then f
+            else f <.> "vgs"
+          in sink $ EventOnyx $ startTasks $ let
+            task = do
+              src <- buildSource' $ Merge $ map (Input . audioPath) audio
+              stackIO $ runResourceT $ writeVGS f' $ mapSamples integralSample src
+              return [f']
+            in [("VGS file creation", task)]
       _ -> return ()
 
 miscPageMIDI
@@ -3262,7 +3303,7 @@ launchMisc sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       miscPageMIDI sink rect tab startTasks
       return tab
-    , makeTab windowRect "MOGG creator" $ \rect tab -> do
+    , makeTab windowRect "MOGG/VGS creator" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageMOGG sink rect tab startTasks
       return tab
@@ -3843,6 +3884,9 @@ launchBatch sink makeMenuBar startFiles = mdo
                 installGH2 target proj' fout
                 return [fout]
               _ -> fatal "TODO other GH2 destinations"
+            GH2DIYPS2 fout -> do
+              makeGH2DIY target proj' fout
+              return [fout]
       return tab
     , makeTab windowRect "Rock Band 3 (Wii)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

@@ -426,7 +426,9 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
             DrumsFull -> case drumTrackFull fpart pdrums diff of
               Nothing -> []
               Just trkFull ->
-                [ ( T.pack (show fpart) <> " Full Drums (" <> letter <> ")"
+                [ ( case fpart of
+                    RBFile.FlexDrums -> "DTXMania Drums (" <> letter <> ")"
+                    _                -> T.pack (show fpart) <> " Full Drums (" <> letter <> ")"
                   , PreviewDrumsFull trkFull
                   )
                 ]

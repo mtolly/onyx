@@ -336,7 +336,7 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
       keysChannels   = case rb3KeysRank   of 0 -> []; _ -> computeSimplePart (rb3_Keys   rb3) plan songYaml
       vocalChannels  = case rb3VocalRank  of 0 -> []; _ -> computeSimplePart (rb3_Vocal  rb3) plan songYaml
       crowdChannels = case plan of
-        MoggPlan{..} -> undefined -- not used
+        MoggPlan{}   -> undefined -- not used
         Plan    {..} -> case _crowd of
           Nothing -> []
           Just _  -> [(-1, 0), (1, 0)]
@@ -373,7 +373,7 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
             , ("keys"  , getChannels rb3KeysRank   $ rb3_Keys   rb3)
             , ("vocals", getChannels rb3VocalRank  $ rb3_Vocal  rb3)
             ]
-        Plan{..} ->
+        Plan{} ->
           [ ("drum"  , channelIndices [] drumChannels)
           , ("bass"  , channelIndices [drumChannels] bassChannels)
           , ("guitar", channelIndices [drumChannels, bassChannels] guitarChannels)
@@ -387,13 +387,13 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
         Just Vocal3 -> 3
       , D.pans = map realToFrac $ case plan of
         MoggPlan{..} -> _pans
-        Plan{..}     -> map fst $ partChannels ++ crowdChannels ++ songChannels
+        Plan{}       -> map fst $ partChannels ++ crowdChannels ++ songChannels
       , D.vols = map realToFrac $ case plan of
         MoggPlan{..} -> _vols
-        Plan{..}     -> map snd $ partChannels ++ crowdChannels ++ songChannels
+        Plan{}       -> map snd $ partChannels ++ crowdChannels ++ songChannels
       , D.cores = case plan of
         MoggPlan{..} -> map (const (-1)) _pans
-        Plan{..}     -> map (const (-1)) $ partChannels ++ crowdChannels ++ songChannels
+        Plan{}       -> map (const (-1)) $ partChannels ++ crowdChannels ++ songChannels
         -- TODO: 1 for guitar channels?
       , D.drumSolo = D.DrumSounds $ T.words $ case fmap drumsLayout $ getPart (rb3_Drums rb3) songYaml >>= partDrums of
         Nothing             -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
@@ -404,7 +404,7 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
       , D.crowdChannels = let
         chans = case plan of
           MoggPlan{..} -> _moggCrowd
-          Plan{..}     -> take (length crowdChannels) [length partChannels ..]
+          Plan{}       -> take (length crowdChannels) [length partChannels ..]
         in guard (not $ null chans) >> Just (map fromIntegral chans)
       , D.hopoThreshold = Just thresh
       , D.muteVolume = Nothing
@@ -1056,7 +1056,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               (mid, DifficultyRB3{..}, _, pad) <- loadMidiResults
               writeSimplePart  magmaParts (rb3_Common rb3) mid pad True planName plan (rb3_Vocal  rb3) rb3VocalRank out
             pathMagmaCrowd  %> \out -> do
-              (mid, DifficultyRB3{..}, _, pad) <- loadMidiResults
+              (mid, DifficultyRB3{}, _, pad) <- loadMidiResults
               writeCrowd                  (rb3_Common rb3) mid pad      planName plan out
             pathMagmaSong   %> \out -> do
               (mid, DifficultyRB3{..}, _, pad) <- loadMidiResults
@@ -1299,7 +1299,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan rb3
             pathMid %> shk . copyFile' pathMagmaExport2
             pathOgg %> \out -> case plan of
-              MoggPlan{..} -> do
+              MoggPlan{} -> do
                 -- TODO apply segment boundaries
                 let speed = fromMaybe 1 $ tgt_Speed $ rb3_Common rb3
                 pad <- shk $ read <$> readFile' (dir </> "magma/pad.txt")
@@ -1310,7 +1310,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     let src = padStart (Seconds $ realToFrac pad)
                           $ stretchFullSmart (1 / speed) 1 input
                     runAudio src out
-              Plan{..}   -> do
+              Plan{..} -> do
                 (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
                 (DifficultyRB3{..}, _) <- loadEditedParts
                 let parts = concat
@@ -1336,7 +1336,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   _      -> do
                     shk $ need [pathOgg]
                     mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
-              Plan{..}   -> do
+              Plan{} -> do
                 shk $ need [pathOgg]
                 mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
             pathPng  %> shk . copyFile' (rel "gen/cover.png_xbox")
@@ -1751,14 +1751,20 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     GH2Bass   -> gh2PartBass   $ RBFile.s_tracks mid
                     GH2Rhythm -> gh2PartRhythm $ RBFile.s_tracks mid
                   scores = map (\diff -> gh2Base diff p1 + gh2Base diff p2) [Easy .. Expert]
-                  dta = "(" <> unwords (map show scores) <> ")"
+                  dta = "(" <> T.unpack key <> " (" <> unwords (map show scores) <> "))"
               stackIO $ writeFile coop dta
               stackIO $ writeFile pad $ show padSeconds
 
-            let gh2Source = do
+            let loadGH2Midi = shakeMIDI $ dir </> "gh2/notes.mid" :: Staction (RBFile.Song (GH2File U.Beats))
+                correctAudioLength mid = do
+                  endTime <- case RTB.filter (== GH2.End) $ GH2.eventsOther $ gh2Events $ RBFile.s_tracks mid of
+                    RNil       -> fatal "panic! couldn't find [end] event in GH2 output midi"
+                    Wait t _ _ -> return $ U.applyTempoMap (RBFile.s_tempos mid) t
+                  return $ endTime + 0.5
+                gh2Source = do
                   hasAudio <- loadPartAudioCheck
                   audio <- computeGH2Audio songYaml gh2 hasAudio
-                  mid <- shakeMIDI $ dir </> "gh2/notes.mid" :: Staction (RBFile.Song (GH2File U.Beats))
+                  mid <- loadGH2Midi
                   srcs <- forM (gh2AudioSections audio) $ \case
                     GH2Part part -> getPartSource [(-1, 0), (1, 0)] planName plan part 1
                     GH2Band -> sourceSongCountin (gh2_Common gh2) mid 0 True planName plan
@@ -1767,11 +1773,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       ]
                     GH2Silent -> shk $ buildSource $ Silence 1 $ Seconds 0
                   pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
-                  endTime <- case RTB.filter (== GH2.End) $ GH2.eventsOther $ gh2Events $ RBFile.s_tracks mid of
-                    RNil       -> fatal "panic! couldn't find [end] event in GH2 output midi"
-                    Wait t _ _ -> return $ U.applyTempoMap (RBFile.s_tempos mid) t
+                  audioLen <- correctAudioLength mid
                   return
-                    $ setAudioLength (endTime + 0.5)
+                    $ setAudioLength audioLen
                     $ padAudio pad
                     $ applyTargetAudio (gh2_Common gh2) mid
                     $ foldr1 merge srcs
@@ -1780,11 +1784,15 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               src <- gh2Source
               stackIO $ runResourceT $ writeVGS out $ mapSamples integralSample src
 
+            dir </> "gh2/audio_empty.vgs" %> \out -> do
+              audioLen <- loadGH2Midi >>= correctAudioLength
+              stackIO $ runResourceT $ writeVGS out
+                $ silent (Seconds $ realToFrac audioLen) 1024 1
             forM_ ([90, 75, 60] :: [Int]) $ \speed -> do
               dir </> ("gh2/audio_p" ++ show speed ++ ".vgs") %> \out -> do
                 hasAudio <- loadPartAudioCheck
                 audio <- computeGH2Audio songYaml gh2 hasAudio
-                mid <- shakeMIDI $ dir </> "gh2/notes.mid" :: Staction (RBFile.Song (GH2File U.Beats))
+                mid <- loadGH2Midi
                 (src, dupe) <- case gh2Practice audio of
                   [Nothing, Nothing] -> do
                     -- just compute it once and duplicate later
@@ -1841,18 +1849,21 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               img <- loadRGB8
               stackIO $ BL.writeFile out $ toHMXPS2 img
 
-            phony (dir </> "gh2") $ shk $ need
+            phony (dir </> "gh2") $ shk $ need $
               [ dir </> "gh2/notes.mid"
               , dir </> "gh2/audio.vgs"
-              , dir </> "gh2/audio_p90.vgs"
-              , dir </> "gh2/audio_p75.vgs"
-              , dir </> "gh2/audio_p60.vgs"
               , dir </> "gh2/songs.dta"
               , dir </> "gh2/lipsync.voc"
               , dir </> "gh2/coop_max_scores.dta"
               , dir </> "gh2/symbol"
               , dir </> "gh2/cover.png_ps2"
-              ]
+              ] <> if gh2_PracticeAudio gh2
+                then
+                  [ dir </> "gh2/audio_p90.vgs"
+                  , dir </> "gh2/audio_p75.vgs"
+                  , dir </> "gh2/audio_p60.vgs"
+                  ]
+                else [dir </> "gh2/audio_empty.vgs"]
 
             dir </> "stfs/config/contexts.dta" %> \out -> do
               let ctx = fromMaybe defaultID $ gh2_Context gh2
@@ -1863,8 +1874,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   ]
                 ]
             dir </> "stfs/config/coop_max_scores.dta" %> \out -> do
-              scores <- shk $ readFile' $ dir </> "gh2/coop_max_scores.dta"
-              stackIO $ writeFile out $ "(" <> T.unpack key <> " " <> scores <> ")"
+              shk $ copyFile' (dir </> "gh2/coop_max_scores.dta") out
             dir </> "stfs/config/leaderboards.dta" %> \out -> do
               let (lbp, lbw) = fromMaybe (defaultLBP, defaultLBW) $ gh2_Leaderboard gh2
               stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
@@ -2047,16 +2057,16 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             --   drums_1 (kick) and drums_2 (kit). currently we create
             --   drums_1 (kick) drums_2 (snare, empty) drums_3 (kit)
             dir </> "ps/drums.ogg"   %> \out -> do
-              (mid, DifficultyPS{..}, DifficultyRB3{..}) <- loadPSMidi
+              (mid, DifficultyPS{}, DifficultyRB3{..}) <- loadPSMidi
               writeStereoParts psParts (ps_Common ps) mid 0 planName plan [(ps_Drums  ps, rb3DrumsRank)] out
             dir </> "ps/drums_1.ogg" %> \out -> do
-              (mid, DifficultyPS{..}, DifficultyRB3{..}) <- loadPSMidi
+              (mid, DifficultyPS{}, DifficultyRB3{..}) <- loadPSMidi
               writeKick  psParts (ps_Common ps) mid 0 False planName plan  (ps_Drums  ps) rb3DrumsRank out
             dir </> "ps/drums_2.ogg" %> \out -> do
-              (mid, DifficultyPS{..}, DifficultyRB3{..}) <- loadPSMidi
+              (mid, DifficultyPS{}, DifficultyRB3{..}) <- loadPSMidi
               writeSnare psParts (ps_Common ps) mid 0 False planName plan  (ps_Drums  ps) rb3DrumsRank out
             dir </> "ps/drums_3.ogg" %> \out -> do
-              (mid, DifficultyPS{..}, DifficultyRB3{..}) <- loadPSMidi
+              (mid, DifficultyPS{}, DifficultyRB3{..}) <- loadPSMidi
               writeKit   psParts (ps_Common ps) mid 0 False planName plan  (ps_Drums  ps) rb3DrumsRank out
             dir </> "ps/guitar.ogg"  %> \out -> do
               (mid, DifficultyPS{..}, DifficultyRB3{..}) <- loadPSMidi
@@ -2064,7 +2074,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 [(ps_Guitar ps, eitherDiff rb3GuitarRank chGuitarGHLTier), (ps_GuitarCoop ps, psGuitarCoopTier)]
                 out
             dir </> "ps/keys.ogg"    %> \out -> do
-              (mid, DifficultyPS{..}, DifficultyRB3{..}) <- loadPSMidi
+              (mid, DifficultyPS{}, DifficultyRB3{..}) <- loadPSMidi
               writeStereoParts psParts (ps_Common ps) mid 0 planName plan
                 [(ps_Keys ps, rb3KeysRank)]
                 out
@@ -2074,12 +2084,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 [(ps_Bass ps, eitherDiff rb3BassRank chBassGHLTier), (ps_Rhythm ps, psRhythmTier)]
                 out
             dir </> "ps/vocals.ogg"  %> \out -> do
-              (mid, DifficultyPS{..}, DifficultyRB3{..}) <- loadPSMidi
+              (mid, DifficultyPS{}, DifficultyRB3{..}) <- loadPSMidi
               writeStereoParts psParts (ps_Common ps) mid 0 planName plan
                 [(ps_Vocal  ps, rb3VocalRank)]
                 out
             dir </> "ps/crowd.ogg"   %> \out -> do
-              (mid, DifficultyPS{..}, DifficultyRB3{..}) <- loadPSMidi
+              (mid, DifficultyPS{}, DifficultyRB3{}) <- loadPSMidi
               writeCrowd       (ps_Common ps) mid 0 planName plan out
             dir </> "ps/song.ogg"    %> \out -> do
               (mid, DifficultyPS{..}, DifficultyRB3{..}) <- loadPSMidi

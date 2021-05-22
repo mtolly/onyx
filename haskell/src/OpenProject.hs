@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
 module OpenProject where
@@ -6,7 +7,7 @@ module OpenProject where
 import           Build
 import           Config
 import           Control.Applicative            ((<|>))
-import           Control.Monad                  (forM, guard)
+import           Control.Monad                  (forM, forM_, guard)
 import qualified Control.Monad.Catch            as MC
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Resource
@@ -22,7 +23,7 @@ import           Data.Functor                   (void)
 import           Data.Functor.Identity
 import           Data.Hashable
 import qualified Data.HashMap.Strict            as Map
-import           Data.List.Extra                (stripSuffix)
+import           Data.List.Extra                (intercalate, stripSuffix)
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe                     (fromMaybe, mapMaybe)
 import           Data.SimpleHandle              (Folder (..), crawlFolder,
@@ -288,7 +289,7 @@ installGH2 gh2 proj gen = do
         guard $ elem (takeExtension f) [".mid", ".vgs", ".voc"]
         return (sym <> B8.pack (dropWhile isAlpha f), dir </> f)
   coopNums <- case coop of
-    DTA 0 (Tree _ [Parens (Tree _ nums)]) -> forM nums $ \case
+    DTA 0 (Tree _ [Parens (Tree _ [Sym _, Parens (Tree _ nums)])]) -> forM nums $ \case
       Int n -> return $ fromIntegral n
       _     -> fatal "unexcepted non-int in coop scores list"
     _ -> fatal "Couldn't read coop scores list"
@@ -303,6 +304,32 @@ installGH2 gh2 proj gen = do
     )
     (Just $ dir </> "cover.png_ps2")
     filePairs
+
+makeGH2DIY :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
+makeGH2DIY gh2 proj dout = do
+  dir <- buildGH2Dir gh2 proj
+  stackIO $ Dir.createDirectoryIfMissing False dout
+  files <- stackIO $ Dir.listDirectory dir
+  sym <- stackIO $ fmap B8.unpack $ B.readFile $ dir </> "symbol"
+  let filePairs = flip mapMaybe files $ \f -> let ext = takeExtension f in if
+        | elem ext [".voc", ".vgs", ".mid"] -> Just (sym <> dropWhile isAlpha f          , dir </> f)
+        | ext == ".dta"                     -> Just (f                                   , dir </> f)
+        | ext == ".png_ps2"                 -> Just ("us_logo_" <> sym <> "_keep.png_ps2", dir </> f)
+        | otherwise                         -> Nothing
+  stackIO $ forM_ filePairs $ \(dest, src) -> Dir.copyFile src $ dout </> dest
+  stackIO $ writeFile (dout </> "README.txt") $ intercalate "\r\n"
+    [ "Instructions for GH2 song installation"
+    , ""
+    , "You must have a tool that can edit .ARK files such as arkhelper,"
+    , "and a tool that can edit .dtb files such as dtab (which arkhelper can use automatically)."
+    , ""
+    , "1. Add the contents of songs.dta to: config/gen/songs.dtb"
+    , "2. (possibly optional) Add the contents of coop_max_scores.dta to: config/gen/coop_max_scores.dtb"
+    , "3. Make a new folder: songs/" <> sym <> "/ and copy all .mid, .vgs, and .voc files into it"
+    , "4. Edit either config/gen/campaign.dtb or config/gen/store.dtb to add your song as a career or bonus song respectively"
+    , "5. If added as a bonus song, copy the .png_ps2 to ui/image/og/gen/us_logo_" <> sym <> "_keep.png_ps2 if you want album art in the shop"
+    , "6. If added as a bonus song, edit ui/eng/gen/locale.dtb with keys '" <> sym <> "' and '" <> sym <> "_shop_desc' if you want a title/description in the shop"
+    ]
 
 buildPlayer :: (MonadIO m) => Maybe T.Text -> Project -> StackTraceT (QueueLog m) FilePath
 buildPlayer mplan proj = do

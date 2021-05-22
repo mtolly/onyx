@@ -113,14 +113,16 @@ computeGH2Audio song target hasAudio = do
       gh2CoopChannels = if coopAudio
         then indexes (concat [bandSection, leadSection]) coopSection
         else indexes (concat [bandSection, leadSection, coopSection]) silentSection
-      (gh2Practice, gh2LeadPractice, gh2CoopPractice) = case (leadAudio, coopAudio) of
-        -- From testing, you can't just have 1 channel and assign it to both lead and bass/rhythm;
-        -- you get no audio. I'm guessing any channels for an instrument other than the one
-        -- you're playing are muted, even if they're also assigned to the one you're playing.
-        (False, False) -> ([Nothing          , Nothing          ], 0, 1)
-        (True , False) -> ([Just gh2LeadTrack, Nothing          ], 0, 1)
-        (False, True)  -> ([Just gh2CoopTrack, Nothing          ], 0, 1)
-        (True , True)  -> ([Just gh2LeadTrack, Just gh2CoopTrack], 0, 1)
+      (gh2Practice, gh2LeadPractice, gh2CoopPractice) = if gh2_PracticeAudio target
+        then case (leadAudio, coopAudio) of
+          -- From testing, you can't just have 1 channel and assign it to both lead and bass/rhythm;
+          -- you get no audio. I'm guessing any channels for an instrument other than the one
+          -- you're playing are muted, even if they're also assigned to the one you're playing.
+          (False, False) -> ([Nothing          , Nothing          ], 0, 1)
+          (True , False) -> ([Just gh2LeadTrack, Nothing          ], 0, 1)
+          (False, True)  -> ([Just gh2CoopTrack, Nothing          ], 0, 1)
+          (True , True)  -> ([Just gh2LeadTrack, Just gh2CoopTrack], 0, 1)
+        else ([Nothing], 0, 0) -- we'll make a single mono silent track
   return GH2Audio{..}
 
 midiRB3toGH2
@@ -301,7 +303,9 @@ makeGH2DTA song key preview target audio title = D.SongPackage
     coop = case gh2CoopType audio of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
     prac :: Int -> D.Song
     prac speed = D.Song
-      { D.songName = "songs/" <> key <> "/" <> key <> "_p" <> T.pack (show speed)
+      { D.songName = if gh2_PracticeAudio target
+        then "songs/" <> key <> "/" <> key <> "_p" <> T.pack (show speed)
+        else "songs/" <> key <> "/" <> key <> "_empty"
       , D.tracks = D.DictList
         [ ("guitar", [fromIntegral $ gh2LeadPractice audio])
         , (coop    , [fromIntegral $ gh2CoopPractice audio])

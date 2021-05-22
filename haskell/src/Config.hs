@@ -1274,18 +1274,19 @@ instance StackJSON GH2Coop where
     GH2Rhythm -> is "rhythm"
 
 data TargetGH2 = TargetGH2
-  { gh2_Common      :: TargetCommon
-  , gh2_Guitar      :: FlexPartName
-  , gh2_Bass        :: FlexPartName
-  , gh2_Rhythm      :: FlexPartName
-  , gh2_Drums       :: FlexPartName
-  , gh2_Vocal       :: FlexPartName
-  , gh2_Keys        :: FlexPartName
-  , gh2_Coop        :: GH2Coop
-  , gh2_Quickplay   :: GH2.Quickplay
-  , gh2_Key         :: Maybe T.Text -- top symbol for 360 DLC
-  , gh2_Context     :: Maybe Int -- contexts.dta for 360 DLC
-  , gh2_Leaderboard :: Maybe (Int, Int) -- leaderboards.dta for 360 DLC
+  { gh2_Common        :: TargetCommon
+  , gh2_Guitar        :: FlexPartName
+  , gh2_Bass          :: FlexPartName
+  , gh2_Rhythm        :: FlexPartName
+  , gh2_Drums         :: FlexPartName
+  , gh2_Vocal         :: FlexPartName
+  , gh2_Keys          :: FlexPartName
+  , gh2_Coop          :: GH2Coop
+  , gh2_Quickplay     :: GH2.Quickplay
+  , gh2_Key           :: Maybe T.Text -- top symbol for 360 DLC
+  , gh2_Context       :: Maybe Int -- contexts.dta for 360 DLC
+  , gh2_Leaderboard   :: Maybe (Int, Int) -- leaderboards.dta for 360 DLC
+  , gh2_PracticeAudio :: Bool -- should we make slow audio for PS2
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 instance Default GH2.Quickplay where
@@ -1303,18 +1304,19 @@ instance StackJSON GH2.Quickplay where
 
 parseTargetGH2 :: (SendMessage m) => ObjectCodec m A.Value TargetGH2
 parseTargetGH2 = do
-  gh2_Common      <- gh2_Common      =. parseTargetCommon
-  gh2_Guitar      <- gh2_Guitar      =. opt FlexGuitar           "guitar"      stackJSON
-  gh2_Bass        <- gh2_Bass        =. opt FlexBass             "bass"        stackJSON
-  gh2_Rhythm      <- gh2_Rhythm      =. opt (FlexExtra "rhythm") "rhythm"      stackJSON
-  gh2_Drums       <- gh2_Drums       =. opt FlexDrums            "drums"       stackJSON
-  gh2_Keys        <- gh2_Keys        =. opt FlexKeys             "keys"        stackJSON
-  gh2_Vocal       <- gh2_Vocal       =. opt FlexVocal            "vocal"       stackJSON
-  gh2_Coop        <- gh2_Coop        =. opt GH2Bass              "coop"        stackJSON
-  gh2_Quickplay   <- gh2_Quickplay   =. opt def                  "quickplay"   stackJSON
-  gh2_Key         <- gh2_Key         =. opt Nothing              "key"         stackJSON
-  gh2_Context     <- gh2_Context     =. opt Nothing              "context"     stackJSON
-  gh2_Leaderboard <- gh2_Leaderboard =. opt Nothing              "leaderboard" stackJSON
+  gh2_Common        <- gh2_Common        =. parseTargetCommon
+  gh2_Guitar        <- gh2_Guitar        =. opt FlexGuitar           "guitar"         stackJSON
+  gh2_Bass          <- gh2_Bass          =. opt FlexBass             "bass"           stackJSON
+  gh2_Rhythm        <- gh2_Rhythm        =. opt (FlexExtra "rhythm") "rhythm"         stackJSON
+  gh2_Drums         <- gh2_Drums         =. opt FlexDrums            "drums"          stackJSON
+  gh2_Keys          <- gh2_Keys          =. opt FlexKeys             "keys"           stackJSON
+  gh2_Vocal         <- gh2_Vocal         =. opt FlexVocal            "vocal"          stackJSON
+  gh2_Coop          <- gh2_Coop          =. opt GH2Bass              "coop"           stackJSON
+  gh2_Quickplay     <- gh2_Quickplay     =. opt def                  "quickplay"      stackJSON
+  gh2_Key           <- gh2_Key           =. opt Nothing              "key"            stackJSON
+  gh2_Context       <- gh2_Context       =. opt Nothing              "context"        stackJSON
+  gh2_Leaderboard   <- gh2_Leaderboard   =. opt Nothing              "leaderboard"    stackJSON
+  gh2_PracticeAudio <- gh2_PracticeAudio =. opt True                 "practice-audio" stackJSON
   return TargetGH2{..}
 
 instance StackJSON TargetGH2 where
