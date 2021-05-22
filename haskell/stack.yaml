@@ -16,7 +16,6 @@ extra-deps:
 - hsndfile-vector-0.5.2
 - wavefront-0.7.1.4
 - tcp-streams-1.0.1.1
-- prettyprinter-1.7.0 # just came out, snapshot has 1.6.2
 - caerbannog-0.6.0.5
 # local folders
 - game/
@@ -32,8 +31,10 @@ extra-deps:
   commit: 0a90a9541b261583a09e5d5f9f416bc7ae59d07d
   subdirs:
   - conduit-audio-mpg123
-- git: git://github.com/mtolly/fltkhs
-  commit: 02f6a2477c7b0fdc49844e6757d1b97d6868ebf8
+- git: git://github.com/deech/fltkhs
+  commit: 272d225e641e9b6161df82066e9a4b919c0e812a
+  subdirs:
+  - fltkhs
 - git: git://github.com/mtolly/midi-util
   commit: 1ea0f72a3795375e4b9eafcaef2500d105faf20f
 - git: git://github.com/mtolly/OpenAL
@@ -44,7 +45,7 @@ extra-deps:
   commit: 4790b92549b7db51801a67cf1055259e3abcf60e
 - git: git://github.com/mtolly/language-c
   commit: 5e40d962fb71b7e1256ff607194c53544709e761
-resolver: lts-16.27
+resolver: lts-17.12
 flags:
   fltkhs:
     bundled: true

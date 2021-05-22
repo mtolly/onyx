@@ -37,8 +37,7 @@ import           Control.Monad
 import           Control.Monad.Except             (MonadError (..))
 import           Control.Monad.Fix                (MonadFix)
 import           Control.Monad.IO.Class
-import           Control.Monad.IO.Unlift          (MonadUnliftIO (..),
-                                                   UnliftIO (..))
+import           Control.Monad.IO.Unlift          (MonadUnliftIO (..))
 import           Control.Monad.State              (MonadState (..))
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
@@ -103,16 +102,13 @@ withPureLog f st = do
   return x
 
 newtype QueueLog m a = QueueLog { fromQueueLog :: ReaderT ((MessageLevel, Message) -> IO ()) m a }
-  deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus, MonadFix)
+  deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus, MonadFix, MonadUnliftIO)
 
 getQueueLog :: (Monad m) => StackTraceT (QueueLog m) ((MessageLevel, Message) -> IO ())
 getQueueLog = lift $ QueueLog ask
 
 mapQueueLog :: (m a -> n b) -> QueueLog m a -> QueueLog n b
 mapQueueLog f = QueueLog . mapReaderT f . fromQueueLog
-
-instance (MonadUnliftIO m) => MonadUnliftIO (QueueLog m) where
-  askUnliftIO = QueueLog $ fmap (\(UnliftIO f) -> UnliftIO $ f . fromQueueLog) askUnliftIO
 
 instance MonadTrans QueueLog where
   lift = QueueLog . lift
