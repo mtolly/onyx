@@ -2663,82 +2663,119 @@ miscPageLipsync sink rect tab startTasks = do
     FL.setMinimum counter 0
     void $ FL.setValue counter $ fromInteger $ round $ defaultTransition * 1000
     return (fromMaybe englishSyllables <$> getVowels, (/ 1000) . realToFrac <$> FL.getValue counter)
+
+  let saveVoc input go = do
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+        FL.setTitle picker "Save .voc file"
+        FL.setFilter picker "*.voc"
+        FL.setPresetFile picker $ T.pack $ dropExtension input <.> "voc"
+        FL.showWidget picker >>= \case
+          FL.NativeFileChooserPicked -> FL.getFilename picker >>= mapM_ (go . T.unpack)
+          _                          -> return ()
+
   padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Convert vocal tracks to TBRB LIPSYNC tracks"
+    btn <- FL.buttonNew rect' $ Just "Make GH2 .voc from PART VOCALS"
     taskColor >>= FL.setColor btn
     FL.setCallback btn $ \_ -> sink $ EventIO $ do
       input <- pickedFile
       vowels <- getVowels
-      trans <- getTransition
-      sink $ EventOnyx $ let
+      saveVoc input $ \voc -> sink $ EventOnyx $ let
         task = do
-          stackIO $ Dir.copyFile input $ input <> ".bak"
           mid <- RBFile.loadMIDI input
-          midRaw <- RBFile.loadMIDI input
-          vmap <- loadVisemesTBRB
-          let makeLipsync vox = if nullVox vox
-                then Nothing
-                else Just mempty
-                  { lipEvents
-                    = U.unapplyTempoTrack (RBFile.s_tempos mid)
-                    $ beatlesLipsync' trans vmap vowels
-                    $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) vox
-                  }
-              lipsync1 = makeLipsync (RBFile.fixedHarm1 $ RBFile.s_tracks mid)
-                <|> makeLipsync (RBFile.fixedPartVocals $ RBFile.s_tracks mid)
-              lipsync2 = makeLipsync (RBFile.fixedHarm2 $ RBFile.s_tracks mid)
-              lipsync3 = makeLipsync (RBFile.fixedHarm3 $ RBFile.s_tracks mid)
-              notLipsync trk = notElem (U.trackName trk) [Just "LIPSYNC1", Just "LIPSYNC2", Just "LIPSYNC3", Just "LIPSYNC4"]
-              lipsyncRaw = RBFile.showMIDITracks mid
-                { RBFile.s_tracks = mempty
-                  { RBFile.fixedLipsync1 = fromMaybe mempty lipsync1
-                  , RBFile.fixedLipsync2 = fromMaybe mempty lipsync2
-                  , RBFile.fixedLipsync3 = fromMaybe mempty lipsync3
-                  }
-                }
-              combinedRaw = midRaw
-                { RBFile.s_tracks = RBFile.RawFile
-                  $ filter notLipsync (RBFile.rawTracks $ RBFile.s_tracks midRaw)
-                  <> RBFile.s_tracks lipsyncRaw
-                }
-          RBFile.saveMIDI input combinedRaw
-          return [input]
-        in startTasks [("Convert vocal tracks to LIPSYNC tracks: " <> input, task)]
-  pickedMilo <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    let (_, rectA) = chopLeft 100 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- FL.inputNew
-      inputRect
-      (Just "Milo file")
-      (Just FL.FlNormalInput) -- required for labels to work
-    FL.setLabelsize input $ FL.FontSize 13
-    FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
-    FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
-    pick <- FL.buttonNew pickRect $ Just "@fileopen"
-    FL.setCallback pick $ \_ -> sink $ EventIO $ do
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
-      FL.setTitle picker "Load Milo file"
-      FL.setFilter picker "*.{milo_xbox,milo_ps3,milo_wii}"
-      FL.showWidget picker >>= \case
-        FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
-          Nothing -> return ()
-          Just f  -> void $ FL.setValue input f
-        _                          -> return ()
-    return $ fmap T.unpack $ FL.getValue input
+          stackIO
+            $ BL.writeFile voc
+            $ runPut $ putVocFile
+            $ gh2Lipsync vowels
+            $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid)
+            $ RBFile.fixedPartVocals $ RBFile.s_tracks mid
+          return [voc]
+        in startTasks [("Make GH2 .voc: " <> voc, task)]
+
+  let pickMilo go = do
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+        FL.setTitle picker "Load Milo file"
+        FL.setFilter picker "*.{milo_xbox,milo_ps3,milo_wii}"
+        FL.showWidget picker >>= \case
+          FL.NativeFileChooserPicked -> FL.getFilename picker >>= mapM_ (go . T.unpack)
+          _                          -> return ()
+      saveMilo input go = do
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+        FL.setTitle picker "Save Milo file"
+        FL.setFilter picker "*.{milo_xbox,milo_ps3,milo_wii}"
+        FL.setPresetFile picker $ T.pack $ dropExtension input <.> "milo_xbox"
+        FL.showWidget picker >>= \case
+          FL.NativeFileChooserPicked -> FL.getFilename picker >>= mapM_ (go . T.unpack)
+          _                          -> return ()
+      hasLipsyncTracks mid = let
+        lipsyncTracks =
+          [ RBFile.fixedLipsyncJohn, RBFile.fixedLipsyncPaul, RBFile.fixedLipsyncGeorge, RBFile.fixedLipsyncRingo
+          , RBFile.fixedLipsync1, RBFile.fixedLipsync2, RBFile.fixedLipsync3, RBFile.fixedLipsync4
+          ]
+        in if any (\t -> t (RBFile.s_tracks mid) /= mempty) lipsyncTracks
+          then do
+            lg "Updating milo from LIPSYNC* tracks."
+            return True
+          else do
+            lg "Updating milo from vocal chart tracks."
+            return False
   padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Update Milo with LIPSYNC tracks"
-    taskColor >>= FL.setColor btn
-    FL.setCallback btn $ \_ -> sink $ EventIO $ do
+    let [chopRight 5 -> (makeArea, _), chopLeft 5 -> (_, updateArea)] = splitHorizN 2 rect'
+    makeButton <- FL.buttonNew makeArea $ Just "Make RB3 .milo_*"
+    taskColor >>= FL.setColor makeButton
+    FL.setCallback makeButton $ \_ -> sink $ EventIO $ do
       input <- pickedFile
-      milo <- pickedMilo
-      sink $ EventOnyx $ let
+      vowels <- getVowels
+      trans <- getTransition
+      saveMilo input $ \milo -> sink $ EventOnyx $ let
+        task = do
+          mid <- RBFile.loadMIDI input
+          vmapRB3 <- loadVisemesRB3
+          useLipsyncTracks <- hasLipsyncTracks mid
+          stackIO $ BL.writeFile milo $ magmaMilo $ let
+            lip1 = if useLipsyncTracks
+              then getLipsync RBFile.fixedLipsync1
+              else getVocal [RBFile.fixedHarm1, RBFile.fixedPartVocals]
+            lip2 = if useLipsyncTracks
+              then getLipsync RBFile.fixedLipsync2
+              else getVocal [RBFile.fixedHarm2]
+            lip3 = if useLipsyncTracks
+              then getLipsync RBFile.fixedLipsync3
+              else getVocal [RBFile.fixedHarm3]
+            lip4 = getLipsync RBFile.fixedLipsync4
+            empty = lipsyncFromStates []
+            getVocal getTracks = do
+              trk <- listToMaybe $ filter (/= mempty) $ map ($ RBFile.s_tracks mid) getTracks
+              Just
+                $ autoLipsync trans vmapRB3 vowels
+                $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
+            getLipsync getTrack = let
+              trk = getTrack $ RBFile.s_tracks mid
+              in do
+                guard $ trk /= mempty
+                Just
+                  $ lipsyncFromMIDITrack' RockBand.Milo.LipsyncRB3 vmapRB3
+                  $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
+            in case (lip1, lip2, lip3, lip4) of
+              (_, _     , _      , Just _ ) -> MagmaLipsync4 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3) (fromMaybe empty lip4)
+              (_, _     , Just _ , Nothing) -> MagmaLipsync3 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3)
+              (_, Just _, Nothing, Nothing) -> MagmaLipsync2 (fromMaybe empty lip1) (fromMaybe empty lip2)
+              _                             -> MagmaLipsync1 (fromMaybe empty lip1)
+          return [milo]
+        in startTasks [("Create .milo from MIDI lipsync: " <> milo, task)]
+    updateButton <- FL.buttonNew updateArea $ Just "Update RB3/TBRB .milo_*"
+    taskColor >>= FL.setColor updateButton
+    FL.setCallback updateButton $ \_ -> sink $ EventIO $ do
+      input <- pickedFile
+      vowels <- getVowels
+      trans <- getTransition
+      pickMilo $ \milo -> sink $ EventOnyx $ let
         task = do
           stackIO $ Dir.copyFile milo $ milo <> ".bak"
           mid <- RBFile.loadMIDI input
           topDir <- loadMilo milo
           vmapBeatles <- loadVisemesTBRB
           vmapRB3 <- loadVisemesRB3
+          useLipsyncTracks <- hasLipsyncTracks mid
           let editDir dir = dir
                 { miloFiles = do
                   ((_, name), contents) <- zip (miloEntryNames dir) (miloFiles dir)
@@ -2747,13 +2784,25 @@ miscPageLipsync sink rect tab startTasks = do
                     "paul.lipsync"   -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncPaul
                     "george.lipsync" -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncGeorge
                     "ringo.lipsync"  -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncRingo
-                    "song.lipsync"   -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync1
-                    "part2.lipsync"  -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync2
-                    "part3.lipsync"  -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync3
-                    "part4.lipsync"  -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncRB3  vmapRB3     RBFile.fixedLipsync4
+                    "song.lipsync"   -> fromMaybe contents $ if useLipsyncTracks
+                      then getLipsync RockBand.Milo.LipsyncRB3 vmapRB3 RBFile.fixedLipsync1
+                      else getVocal [RBFile.fixedHarm1, RBFile.fixedPartVocals]
+                    "part2.lipsync"  -> fromMaybe contents $ if useLipsyncTracks
+                      then getLipsync RockBand.Milo.LipsyncRB3 vmapRB3 RBFile.fixedLipsync2
+                      else getVocal [RBFile.fixedHarm2]
+                    "part3.lipsync"  -> fromMaybe contents $ if useLipsyncTracks
+                      then getLipsync RockBand.Milo.LipsyncRB3 vmapRB3 RBFile.fixedLipsync3
+                      else getVocal [RBFile.fixedHarm3]
+                    "part4.lipsync"  -> fromMaybe contents $ getLipsync RockBand.Milo.LipsyncRB3 vmapRB3 RBFile.fixedLipsync4
                     _                -> contents
                 , miloSubdirs = map editDir $ miloSubdirs dir
                 }
+              getVocal getTracks = do
+                trk <- listToMaybe $ filter (/= mempty) $ map ($ RBFile.s_tracks mid) getTracks
+                Just
+                  $ runPut $ putLipsync
+                  $ autoLipsync trans vmapRB3 vowels
+                  $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
               getLipsync tgt vmap getTrack = let
                 trk = getTrack $ RBFile.s_tracks mid
                 in do
@@ -2764,7 +2813,57 @@ miscPageLipsync sink rect tab startTasks = do
                     $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
           stackIO $ BL.writeFile milo $ addMiloHeader $ makeMiloFile $ editDir topDir
           return [milo]
-        in startTasks [("Update Milo with LIPSYNC tracks: " <> milo, task)]
+        in startTasks [("Update .milo with MIDI lipsync: " <> milo, task)]
+
+  let makeLipsyncTracks loadVisemes toEvents = do
+        input <- pickedFile
+        vowels <- getVowels
+        trans <- getTransition
+        sink $ EventOnyx $ let
+          task = do
+            stackIO $ Dir.copyFile input $ input <> ".bak"
+            mid <- RBFile.loadMIDI input
+            midRaw <- RBFile.loadMIDI input
+            vmap <- loadVisemes
+            let makeLipsync vox = if nullVox vox
+                  then Nothing
+                  else Just mempty
+                    { lipEvents
+                      = U.unapplyTempoTrack (RBFile.s_tempos mid)
+                      $ toEvents trans vmap vowels
+                      $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) vox
+                    }
+                lipsync1 = makeLipsync (RBFile.fixedHarm1 $ RBFile.s_tracks mid)
+                  <|> makeLipsync (RBFile.fixedPartVocals $ RBFile.s_tracks mid)
+                lipsync2 = makeLipsync (RBFile.fixedHarm2 $ RBFile.s_tracks mid)
+                lipsync3 = makeLipsync (RBFile.fixedHarm3 $ RBFile.s_tracks mid)
+                notLipsync trk = notElem (U.trackName trk) [Just "LIPSYNC1", Just "LIPSYNC2", Just "LIPSYNC3", Just "LIPSYNC4"]
+                lipsyncRaw = RBFile.showMIDITracks mid
+                  { RBFile.s_tracks = mempty
+                    { RBFile.fixedLipsync1 = fromMaybe mempty lipsync1
+                    , RBFile.fixedLipsync2 = fromMaybe mempty lipsync2
+                    , RBFile.fixedLipsync3 = fromMaybe mempty lipsync3
+                    }
+                  }
+                combinedRaw = midRaw
+                  { RBFile.s_tracks = RBFile.RawFile
+                    $ filter notLipsync (RBFile.rawTracks $ RBFile.s_tracks midRaw)
+                    <> RBFile.s_tracks lipsyncRaw
+                  }
+            RBFile.saveMIDI input combinedRaw
+            return [input]
+          in startTasks [("Convert vocal tracks to LIPSYNC tracks: " <> input, task)]
+
+  padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Turn vocal tracks into LIPSYNC* tracks for RB3"
+    taskColor >>= FL.setColor btn
+    FL.setCallback btn $ \_ -> sink $ EventIO $ makeLipsyncTracks loadVisemesRB3 autoLipsync'
+
+  padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Turn vocal tracks into LIPSYNC* tracks for TBRB"
+    taskColor >>= FL.setColor btn
+    FL.setCallback btn $ \_ -> sink $ EventIO $ makeLipsyncTracks loadVisemesTBRB beatlesLipsync'
+
   FL.end pack
   FL.setResizable tab $ Just pack
 

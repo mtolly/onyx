@@ -63,6 +63,7 @@ data MagmaLipsync
   = MagmaLipsync1 Lipsync
   | MagmaLipsync2 Lipsync Lipsync
   | MagmaLipsync3 Lipsync Lipsync Lipsync
+  | MagmaLipsync4 Lipsync Lipsync Lipsync Lipsync
   deriving (Eq, Show)
 
 magmaMiloDir :: MagmaLipsync -> MiloDir
@@ -74,16 +75,22 @@ magmaMiloDir ml = MiloDir
     MagmaLipsync1{} -> 4
     MagmaLipsync2{} -> 6
     MagmaLipsync3{} -> 8
+    MagmaLipsync4{} -> 10 -- not verified!
   , miloU2 = case ml of
     MagmaLipsync1{} -> 0x15
     MagmaLipsync2{} -> 0x23
     MagmaLipsync3{} -> 0x31
+    MagmaLipsync4{} -> 0x3F -- not verified!
   , miloEntryNames = concat
     [ case ml of
       MagmaLipsync1{} -> []
       _               -> [("CharLipSync", "part2.lipsync")]
     , case ml of
-      MagmaLipsync3{} -> [("CharLipSync", "part3.lipsync")]
+      MagmaLipsync1{} -> []
+      MagmaLipsync2{} -> []
+      _               -> [("CharLipSync", "part3.lipsync")]
+    , case ml of
+      MagmaLipsync4{} -> [("CharLipSync", "part4.lipsync")]
       _               -> []
     , [("CharLipSync", "song.lipsync")]
     ]
@@ -141,9 +148,10 @@ magmaMiloDir ml = MiloDir
   , miloSubdirs = []
   , miloUnknownBytes = BL.replicate 13 0
   , miloFiles = map (runPut . putLipsync) $ case ml of
-    MagmaLipsync1 h1       -> [h1]
-    MagmaLipsync2 h1 h2    -> [h2, h1]
-    MagmaLipsync3 h1 h2 h3 -> [h2, h3, h1]
+    MagmaLipsync1 h1          -> [h1]
+    MagmaLipsync2 h1 h2       -> [h2, h1]
+    MagmaLipsync3 h1 h2 h3    -> [h2, h3, h1]
+    MagmaLipsync4 h1 h2 h3 h4 -> [h2, h3, h4, h1]
   }
 
 magmaMilo :: MagmaLipsync -> BL.ByteString
@@ -700,6 +708,23 @@ autoLipsync transition vmap trans vt = let
     $ fmap (fmap (trans,))
     $ vocalTubes vt
   in lipsyncFromStates $ addLipsyncStates eyes mouth
+
+autoLipsync' :: U.Seconds -> VisemeMap [(T.Text, Word8)] -> Transcribe -> VocalTrack U.Seconds
+  -> RTB.T U.Seconds (VisemeEvent VisemeGraph T.Text)
+autoLipsync' transition vmap trans vt = let
+  eyes
+    = animationsToEvents
+    $ simpleAnimations transition
+    $ fmap (\b -> guard b >> [("Blink", 255)])
+    $ vocalEyesClosed vt
+  mouth
+    = animationsToEvents
+    $ syllablesToAnimations transition vmap
+    $ fmap (fmap $ applyVisemeMap vmap)
+    $ runTranscribe
+    $ fmap (fmap (trans,))
+    $ vocalTubes vt
+  in RTB.merge eyes mouth
 
 setRB3 :: Lipsync -> Lipsync
 setRB3 lip = lip
