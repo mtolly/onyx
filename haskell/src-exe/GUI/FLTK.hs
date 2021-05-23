@@ -1578,11 +1578,34 @@ batchPageGH2 sink rect tab build = do
         practiceAudio <- getPracticeAudio
         return $ \proj -> let
           defGH2 = def :: TargetGH2
+          hasPart p = isJust $ HM.lookup p (getParts $ _parts $ projectSongYaml proj) >>= partGRYBO
+          leadPart = listToMaybe $ filter hasPart
+            [ FlexGuitar
+            , FlexExtra "rhythm"
+            , FlexKeys
+            , FlexBass
+            ]
+          coopPart = listToMaybe $ filter (\(p, _) -> hasPart p && leadPart /= Just p)
+            [ (FlexGuitar        , GH2Rhythm)
+            , (FlexExtra "rhythm", GH2Rhythm)
+            , (FlexBass          , GH2Bass  )
+            , (FlexKeys          , GH2Rhythm)
+            ]
           tgt = defGH2
             { gh2_Common = (gh2_Common defGH2)
               { tgt_Speed = Just speed
               }
             , gh2_PracticeAudio = practiceAudio
+            , gh2_Guitar = fromMaybe (FlexExtra "undefined") leadPart
+            , gh2_Bass = case coopPart of
+              Just (x, GH2Bass) -> x
+              _                 -> gh2_Bass defGH2
+            , gh2_Rhythm = case coopPart of
+              Just (x, GH2Rhythm) -> x
+              _                   -> gh2_Rhythm defGH2
+            , gh2_Coop = case coopPart of
+              Just (_, coop) -> coop
+              _              -> gh2_Coop defGH2
             }
           fout = trimXbox $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH2 tgt
@@ -2731,6 +2754,7 @@ miscPageLipsync sink rect tab startTasks = do
     let [chopRight 5 -> (makeArea, _), chopLeft 5 -> (_, updateArea)] = splitHorizN 2 rect'
     makeButton <- FL.buttonNew makeArea $ Just "Make RB3 .milo_*"
     taskColor >>= FL.setColor makeButton
+    FL.setTooltip makeButton "Create a RB3 .milo_* file from the first present out of: LIPSYNC* tracks, HARM* tracks, or PART VOCALS."
     FL.setCallback makeButton $ \_ -> sink $ EventIO $ do
       input <- pickedFile
       vowels <- getVowels
@@ -2773,6 +2797,7 @@ miscPageLipsync sink rect tab startTasks = do
         in startTasks [("Create .milo from MIDI lipsync: " <> milo, task)]
     updateButton <- FL.buttonNew updateArea $ Just "Update RB3/TBRB .milo_*"
     taskColor >>= FL.setColor updateButton
+    FL.setTooltip updateButton "Update a RB3 .milo_* file from LIPSYNC* tracks, HARM* tracks, or PART VOCALS. Or, update a TBRB .milo_* file from LIPSYNC_[beatle] tracks."
     FL.setCallback updateButton $ \_ -> sink $ EventIO $ do
       input <- pickedFile
       vowels <- getVowels
@@ -2866,11 +2891,13 @@ miscPageLipsync sink rect tab startTasks = do
   padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Turn vocal tracks into LIPSYNC* tracks for RB3"
     taskColor >>= FL.setColor btn
+    FL.setTooltip btn "Uses HARM* or PART VOCALS to produce LIPSYNC{1-3} tracks containing viseme information, using the standard RB viseme set."
     FL.setCallback btn $ \_ -> sink $ EventIO $ makeLipsyncTracks loadVisemesRB3 autoLipsync'
 
   padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Turn vocal tracks into LIPSYNC* tracks for TBRB"
     taskColor >>= FL.setColor btn
+    FL.setTooltip btn "Uses HARM* or PART VOCALS to produce LIPSYNC{1-3} tracks containing viseme information, using the Beatles RB viseme set."
     FL.setCallback btn $ \_ -> sink $ EventIO $ makeLipsyncTracks loadVisemesTBRB beatlesLipsync'
 
   FL.end pack

@@ -10,10 +10,12 @@ import           Control.Monad.Trans.StackTrace
 import           Data.Bifunctor                   (bimap)
 import qualified Data.DTA.Serialize               as D
 import qualified Data.DTA.Serialize.GH2           as D
+import qualified Data.DTA.Serialize.Magma         as Magma
 import           Data.DTA.Serialize.RB3           (AnimTempo (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromMaybe, isJust, isNothing)
 import qualified Data.Text                        as T
 import           GuitarHeroII.BandBass
 import           GuitarHeroII.BandDrums
@@ -32,10 +34,12 @@ import qualified RockBand.Codec.File              as F
 import qualified RockBand.Codec.Five              as RB
 import qualified RockBand.Codec.Vocal             as RB
 import           RockBand.Common                  (Difficulty (..), Edge (..),
-                                                   Mood (..))
+                                                   LongNote (..), Mood (..),
+                                                   edgeBlipsRB, splitEdges)
 import           RockBand.Sections                (makeGH2Section)
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming)
+import qualified RockBand3                        as RB3
 import qualified Sound.MIDI.Util                  as U
 
 gh2Pad
@@ -74,6 +78,10 @@ data GH2Audio = GH2Audio
   , gh2LeadTrack     :: F.FlexPartName
   , gh2CoopTrack     :: F.FlexPartName
   , gh2CoopType      :: GH2Coop
+  , gh2AnimBass      :: Maybe F.FlexPartName
+  , gh2AnimDrums     :: Maybe F.FlexPartName
+  , gh2AnimVocal     :: Maybe F.FlexPartName
+  , gh2AnimKeys      :: Maybe F.FlexPartName
   , gh2Practice      :: [Maybe F.FlexPartName]
   , gh2LeadPractice  :: Int
   , gh2CoopPractice  :: Int
@@ -123,6 +131,10 @@ computeGH2Audio song target hasAudio = do
           (False, True)  -> ([Just gh2CoopTrack, Nothing          ], 0, 1)
           (True , True)  -> ([Just gh2LeadTrack, Just gh2CoopTrack], 0, 1)
         else ([Nothing], 0, 0) -- we'll make a single mono silent track
+      gh2AnimBass  = gh2_Bass  target <$ (getPart (gh2_Bass  target) song >>= partGRYBO)
+      gh2AnimDrums = gh2_Drums target <$ (getPart (gh2_Drums target) song >>= partDrums)
+      gh2AnimVocal = gh2_Vocal target <$ (getPart (gh2_Vocal target) song >>= partVocal)
+      gh2AnimKeys  = gh2_Keys  target <$ (getPart (gh2_Keys  target) song >>= partGRYBO)
   return GH2Audio{..}
 
 midiRB3toGH2
@@ -133,9 +145,12 @@ midiRB3toGH2
   -> F.Song (F.OnyxFile U.Beats)
   -> StackTraceT m U.Seconds
   -> StackTraceT m (F.Song (GH2File U.Beats), Int)
-midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength = do
+midiRB3toGH2 song _target audio inputMid@(F.Song tmap mmap onyx) getAudioLength = do
   timing <- basicTiming inputMid getAudioLength
-  let makeMoods moods = let
+  let makeMoods origMoods gems = let
+        moods = if RTB.null origMoods
+          then RB3.makeMoods tmap timing gems
+          else origMoods
         bools = flip fmap moods $ \case
           Mood_idle_realtime -> False
           Mood_idle          -> False
@@ -157,7 +172,9 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
                 , partPlayer2   = RB.fivePlayer2 rbg
                 , partGems      = RB.fiveGems fdiff
                 }
-            (idle, play) = makeMoods $ RB.fiveMood rbg
+            (idle, play) = makeMoods (RB.fiveMood rbg)
+              $ maybe mempty (splitEdges . edgeBlipsRB . RB.fiveGems)
+              $ Map.lookup Expert $ RB.fiveDifficulties rbg
         diffs <- fmap Map.fromList
           $ mapM (\(diff, fdiff) -> (diff,) <$> makeDiff diff fdiff)
           $ Map.toList $ RB.fiveDifficulties rbg
@@ -210,25 +227,32 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
           . fromMaybe mempty
           . Map.lookup Expert
           $ RB.fiveDifficulties trk
-        } where (idle, play) = makeMoods $ RB.fiveMood trk
+        } where (idle, play) = makeMoods (RB.fiveMood trk)
+                  $ maybe mempty (splitEdges . edgeBlipsRB . RB.fiveGems)
+                  $ Map.lookup Expert $ RB.fiveDifficulties trk
       makeBandDrums trk = mempty
         { drumsIdle = idle
         , drumsPlay = play
-        , drumsKick  = fmap (const ()) $ flip RTB.filter (RB.drumAnimation trk) $ \case
+        , drumsKick  = void $ flip RTB.filter anims $ \case
           RB.KickRF -> True
           _         -> False
-        , drumsCrash = fmap (const ()) $ flip RTB.filter (RB.drumAnimation trk) $ \case
+        , drumsCrash = void $ RTB.collectCoincident $ flip RTB.filter anims $ \case
           RB.Crash1{}        -> True
           RB.Crash2{}        -> True
           RB.Crash1RHChokeLH -> True
           RB.Crash2RHChokeLH -> True
           _                  -> False
-        } where (idle, play) = makeMoods $ RB.drumMood trk
+        } where (idle, play) = makeMoods (RB.drumMood trk) $ Blip () () <$ anims
+                anims = RB.drumAnimation $ RB.fillDrumAnimation (0.25 :: U.Seconds) tmap trk
       makeBandKeys trk = let
-        (idle, play) = makeMoods $ RB.fiveMood trk
+        (idle, play) = makeMoods (RB.fiveMood trk)
+          $ maybe mempty (splitEdges . edgeBlipsRB . RB.fiveGems)
+          $ Map.lookup Expert $ RB.fiveDifficulties trk
         in mempty { keysIdle = idle, keysPlay = play }
       makeBandSinger trk = let
-        (idle, play) = makeMoods $ RB.vocalMood trk
+        (idle, play) = makeMoods (RB.vocalMood trk)
+          $ fmap (\case (p, True) -> NoteOn () p; (p, False) -> NoteOff p)
+          $ RB.vocalNotes trk
         in mempty { singerIdle = idle, singerPlay = play }
       events = mempty
         { eventsSections      = fmap (makeGH2Section . snd)
@@ -254,15 +278,32 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
         , gh2PartRhythm = case gh2CoopType audio of
             GH2Rhythm -> coopTrack
             GH2Bass   -> mempty
-        , gh2BandBass       = makeBandBass $ fst $ getFive $ F.getFlexPart (gh2_Bass target) onyx
-        , gh2BandDrums      = makeBandDrums $ F.onyxPartDrums $ F.getFlexPart (gh2_Drums target) onyx
-        , gh2BandKeys       = makeBandKeys $ fst $ getFive $ F.getFlexPart (gh2_Keys target) onyx
-        , gh2BandSinger     = makeBandSinger $ F.onyxPartVocals $ F.getFlexPart (gh2_Vocal target) onyx
+        , gh2BandBass       = maybe mempty (\part -> makeBandBass $ fst $ getFive      $ F.getFlexPart part onyx) $ gh2AnimBass  audio
+        , gh2BandDrums      = maybe mempty (\part -> makeBandDrums $ F.onyxPartDrums   $ F.getFlexPart part onyx) $ gh2AnimDrums audio
+        , gh2BandKeys       = maybe mempty (\part -> makeBandKeys $ fst $ getFive      $ F.getFlexPart part onyx) $ gh2AnimKeys  audio
+        , gh2BandSinger     = maybe mempty (\part -> makeBandSinger $ F.onyxPartVocals $ F.getFlexPart part onyx) $ gh2AnimVocal audio
         , gh2Events         = events
         , gh2Triggers       = triggers
         , ..
         }
   gh2Pad $ F.Song tmap mmap gh2
+
+bandMembers :: SongYaml f -> GH2Audio -> Maybe [Either D.BandMember T.Text]
+bandMembers song audio = let
+  vocal = case gh2AnimVocal audio of
+    Nothing    -> Nothing
+    Just fpart -> Just $ fromMaybe Magma.Male $ getPart fpart song >>= partVocal >>= vocalGender
+  bass = True -- we'll just assume there's always a bassist (not required though - Jordan)
+  keys = isJust $ gh2AnimKeys audio
+  drums = True -- crashes if missing
+  in case (vocal, bass, keys, drums) of
+    (Just Magma.Male, True, False, True) -> Nothing -- the default configuration
+    _                                    -> Just $ map Left $ concat
+      [ toList $ (\case Magma.Male -> D.MetalSinger; Magma.Female -> D.FemaleSinger) <$> vocal
+      , [D.MetalBass     | bass ]
+      , [D.MetalKeyboard | keys && isNothing vocal] -- singer overrides keyboard, can't have both
+      , [D.MetalDrummer  | drums]
+      ]
 
 makeGH2DTA :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 -> GH2Audio -> T.Text -> D.SongPackage
 makeGH2DTA song key preview target audio title = D.SongPackage
@@ -298,7 +339,7 @@ makeGH2DTA song key preview target audio title = D.SongPackage
   , D.songPractice1 = Just $ prac 90
   , D.songPractice2 = Just $ prac 75
   , D.songPractice3 = Just $ prac 60
-  , D.band = Nothing -- TODO
+  , D.band = bandMembers song audio
   } where
     coop = case gh2CoopType audio of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
     prac :: Int -> D.Song
@@ -351,6 +392,6 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
   , D.songPractice1 = Nothing
   , D.songPractice2 = Nothing
   , D.songPractice3 = Nothing
-  , D.band = Nothing -- TODO
+  , D.band = bandMembers song audio
   } where
     coop = case gh2_Coop target of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"

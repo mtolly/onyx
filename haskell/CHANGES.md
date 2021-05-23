@@ -1,19 +1,40 @@
 # Version history
 
-## 20210213
+## 20210522
 
-* Prerelease version
+* Initial support for converting to Guitar Hero II (PS2 .ARK, Xbox 360 DLC)
+* Add support for drum ghosts and accents to 3D player and CH import/export
 * Fixes to importing FoF/PS/CH format
   * Fix a bug that could incorrectly move vocal phrases when attempting to
     extend them to at least one quarter note
   * Fix implementation of `delay`/`Offset` sometimes changing time signatures
   * Fix not detecting the MIDI track from songs included with the original
     Frets on Fire, and import "cassette" art into square format
-* Speed up most song format import code, especially DTX and GH1/GH2 audio
-  processing
-* Able to convert lipsync files back to a raw viseme MIDI track format,
-  which can then be edited and used as a lipsync source
-* Split off RB3 and TBRB viseme mappings to files in the resources folder
+  * Fix `.chart` files with cymbals and no toms being marked as missing
+    Pro Drums
+* Sort MOGG channel indexes for better compatibility with ForgeTool RB4
+  conversion
+* Fix time jumps in both 3D and web preview tools
+  due to the system clock being changed
+* Fix time signatures being discarded due to a `*/1` or `*/2` time signature
+* Speed up most song format import code,
+  especially DTX and GH1/GH2 audio processing
+* New tool to write temporary numeric IDs from an RB3 song cache
+  back into song files
+* Lipsync additions
+  * Simpler interface that converts a MIDI to a .milo in one step,
+    or updates an existing one
+  * New MIDI track format for lipsync visemes, to support manual edits when
+    converting vocal tracks to lipsync
+  * Split off RB3 and TBRB viseme mappings to files in the resources folder
+* New tool to hardcode the random numeric IDs from a song cache
+  to songs without them
+* Support including RB `song_id` in output filenames
+* Option to not add (2x Bass Pedal) to filenames
+* Option to use true numeric IDs for Rock Band files
+  (like `1234` instead of `'o1234'`)
+* Option to limit Xbox 360 CON/LIVE filenames to 42 characters
+  as required by the console
 
 ## 20210110
 

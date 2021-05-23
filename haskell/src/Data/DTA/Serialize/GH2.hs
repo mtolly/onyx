@@ -94,6 +94,7 @@ data BandMember
   = MetalBass
   | MetalDrummer
   | MetalKeyboard
+  | MetalSinger -- I think this is male singer but it isn't used (on PS2 at least)
   | FemaleSinger
   deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
@@ -102,6 +103,7 @@ instance StackChunk BandMember where
     MetalBass     -> "metal_bass"
     MetalDrummer  -> "metal_drummer"
     MetalKeyboard -> "metal_keyboard"
+    MetalSinger   -> "metal_singer"
     FemaleSinger  -> "female_singer"
 instance StackChunks BandMember
 

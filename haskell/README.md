@@ -143,11 +143,11 @@ You can also drag and drop a file onto the button, or onto the app icon on Mac.
     more games planned to come. Select any tracks you want to include, and
     all star cutoffs will be computed.
 
-  * The *RB3*, *RB2*, and *CH/PS* tabs convert your song to the given game's
-    format. All tabs let you change the song speed (if supported), and can also
-    redirect any instrument parts to new "slots". For example, in a Rock Band 3
-    file, the 5-fret tracks for guitar, bass, and keys can be moved around,
-    or even applied to more than 1 slot.
+  * The *RB3*, *RB2*, *CH/PS*, and *GH2* tabs convert your song to the given
+    game's format. All tabs let you change the song speed (if supported), and
+    can also redirect any instrument parts to new "slots". For example, in a
+    Rock Band 3 file, the 5-fret tracks for guitar, bass, and keys can be moved
+    around, or even applied to more than 1 slot.
 
     Note that if your song is a Rock Band file with an encrypted MOGG, you can
     only convert it to a Rock Band output format at 100% speed; Clone Hero
@@ -266,6 +266,38 @@ compilation errors.
     However other 5-fret charts such as `PART RHYTHM`, as well as Clone Hero
     6-fret tracks, should remain.
 
+  * Guitar Hero II
+
+    Includes a variety of formats for Guitar Hero II on PS2 and Xbox 360:
+
+      * Add a new bonus song to a PS2 GH2 or GH80s ARK file. Note that Xbox 360
+        is not yet supported but is planned at a later date.
+
+      * Create a folder of files ready to add manually to an ARK. Currently this
+        only supports the PS2 song format but an Xbox 360 version will also be
+        added in the future.
+
+      * Create a DLC LIVE file for GH2 for Xbox 360. This requires an RGH or
+        JTAG console to load.
+
+    PS2 songs have been tested with standard GH2, as well as Guitar Hero II
+    Deluxe.
+
+    For PS2 output, practice mode audio generation can be enabled or disabled.
+    Disabling it saves some space, and a significant amount of conversion time.
+    If disabled, practice mode will still work, just with no audio. If enabled,
+    songs with no instrument stems will use the full track as their practice
+    audio.
+
+    In batch mode, lead and coop parts are assigned automatically based on
+    what parts are present.
+
+      * Lead will be assigned to the first of [guitar, rhythm, keys, bass]
+      * Coop will be assigned to the first of [rhythm, bass, keys]
+        which is not already used for Lead
+
+    To customize part assignment, use the "Load a song" mode.
+
   * Rock Band 3 (Wii)
 
     Converts a collection of songs to a single RB3 pack in the format used by
@@ -326,20 +358,21 @@ compilation errors.
     own MIDI import function, and applies track names and note colors similar to
     the RBN or C3 project templates.
 
-  * MOGG creator
+  * MOGG/VGS creator
 
-    Generates an unencrypted MOGG file from a set of input audio files. The
-    created files should work on Rock Band games, Guitar Hero II for Xbox 360,
-    and newer games such as Audica, with a proper seek header.
+    Generates an unencrypted MOGG or VGS file from a set of input audio files.
+    Created MOGG files should work on Rock Band games, Guitar Hero II for Xbox
+    360, and newer games such as Audica, with a proper seek header. Created VGS
+    files should work on the PS2 games GH1, GH2, and GH80s; I have not tested
+    with PS2 Rock Band games.
 
     The channels of all the input files, which can be WAV, OGG, MP3, or FLAC,
-    will be merged into one multichannel OGG file, and then prefixed with the
-    MOGG header. As with the batch load screen, you can select a song row, and
-    press Delete to remove it, Ctrl+Up to move it up in the list, or Ctrl+Down
-    to move it down.
+    will be merged into one multichannel file. As with the batch load screen,
+    you can select a song row, and press Delete to remove it, Ctrl+Up to move it
+    up in the list, or Ctrl+Down to move it down.
 
-    As a special case, if you provide a single OGG file, it will not be
-    reencoded, and will go unchanged into the MOGG file.
+    As a special case, if you provide a single OGG file and convert to MOGG, it
+    will not be reencoded, but will go straight into the MOGG.
 
   * Lipsync file generation
 
@@ -352,9 +385,32 @@ compilation errors.
       * TBRB: simple vowels, vowel diphthongs
       * GH2: simple vowels
 
-    Supports generating `.voc` files (used in GH2), as well as `.lipsync` files
-    for later RB games. `.lipsync` files can be inserted into `.milo_xxx` files
-    with the milo tools described further down.
+    Supports generating `.voc` files (used in GH2), as well as `.milo_*` files
+    for later RB games.
+
+    There is also a MIDI track format for encoding lipsync information, which
+    lets you make manual edits before converting the rest of the way to the
+    animation files. The workflow is as follows:
+
+      1. Turn vocal tracks into LIPSYNC* tracks for either RB3 or TBRB.
+
+      2. Edit the text events to modify the animations. The meaning of text
+        events is as follows:
+
+        * `[viseme_name N]` moves linearly from weight N to this viseme's next
+          event
+
+        * `[viseme_name N hold]` continues weight N until this viseme's next
+          event
+
+        * `[viseme_name N ease]` moves from weight N to this viseme's next
+          event, using an "easeInExpo" transition function
+
+      3. For TBRB, rename the tracks from LIPSYNC1, LIPSYNC2, etc. to one of
+        LIPSYNC_JOHN, LIPSYNC_PAUL, LIPSYNC_GEORGE, or LIPSYNC_RINGO.
+
+      4. Make or update a .milo_* file, and it will use the LIPSYNC tracks
+        as input.
 
   * Lipsync dry vocals audio creation for Magma
 
@@ -385,3 +441,16 @@ compilation errors.
 
     Modifies existing CON files so the `VENUE` track is replaced with a static
     black background. Should work on both RB3 and RB2 format songs.
+
+  * RB3 song cache ID application
+
+    When a Rock Band custom song contains a symbol rather than a number in the
+    `song_id` field, a random number is generated by the game, and saved in the
+    song cache file. This ID is used for associating songs with scores. If you
+    regenerate the song cache file, new IDs will be assigned, and the scores
+    will be disconnected.
+
+    This tool allows you to hardcode the random IDs back into the song files,
+    replacing the symbol IDs that they originally had. Then, even if the song
+    cache is regenerated from scratch, all scores will still be associated with
+    their songs.

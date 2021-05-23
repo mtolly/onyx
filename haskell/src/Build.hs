@@ -989,7 +989,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             let pkg :: (IsString a) => a
                 pkg = fromString $ "o" <> show (hashRB3 songYaml rb3)
             (planName, plan) <- case getPlan (tgt_Plan $ rb3_Common rb3) songYaml of
-              Nothing   -> error $ "Couldn't locate a plan for this target: " ++ show rb3
+              Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rb3
               Just pair -> return pair
             let planDir = rel $ "gen/plan" </> T.unpack planName
 
@@ -1721,7 +1721,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           GH2 gh2 -> do
 
             (planName, plan) <- case getPlan (tgt_Plan $ gh2_Common gh2) songYaml of
-              Nothing   -> error $ "Couldn't locate a plan for this target: " ++ show gh2
+              Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh2
               Just pair -> return pair
             let planDir = rel $ "gen/plan" </> T.unpack planName
                 defaultID = hashGH2 songYaml gh2
@@ -1932,7 +1932,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           PS ps -> do
 
             (planName, plan) <- case getPlan (tgt_Plan $ ps_Common ps) songYaml of
-              Nothing   -> error $ "Couldn't locate a plan for this target: " ++ show ps
+              Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show ps
               Just pair -> return pair
             let planDir = rel $ "gen/plan" </> T.unpack planName
                 pathPSEditedParts = dir </> "edited-parts.txt"
@@ -2158,7 +2158,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           Melody tgt -> do
 
             (planName, _) <- case getPlan (tgt_Plan $ tgt_Common tgt) songYaml of
-              Nothing   -> error $ "Couldn't locate a plan for this target: " ++ show tgt
+              Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show tgt
               Just pair -> return pair
             let planDir = rel $ "gen/plan" </> T.unpack planName
                 midraw = planDir </> "raw.mid"
@@ -2196,7 +2196,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           RS rs -> do
 
             (planName, plan) <- case getPlan (tgt_Plan $ rs_Common rs) songYaml of
-              Nothing   -> error $ "Couldn't locate a plan for this target: " ++ show rs
+              Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rs
               Just pair -> return pair
             let planDir = rel $ "gen/plan" </> T.unpack planName
 

@@ -8,6 +8,7 @@ module RockBand3
 , TrackAdjust(..)
 , magmaLegalTempos
 , basicTiming, BasicTiming(..)
+, makeMoods
 ) where
 
 import           Config
