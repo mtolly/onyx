@@ -1,0 +1,51 @@
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+      tones:
+        file-tone-base: ../../../tones/fallfcpr_bass.tone2014.xml
+  drums:
+    drums:
+      difficulty:
+        tier: 7
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      drums: [0, 1]
+    pans: [-1, 1, -1, 1, -2.5, 2.5]
+    karaoke: false
+    multitrack: false
+    crowd: [4, 5]
+    vols: [0, 0, 0, 0, -5, -5]
+    file-mogg: audio.mogg
+targets:
+  rb3:
+    song-id: 1681601898
+    game: rb3
+    label: (B)
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
+metadata:
+  rating: Family Friendly
+  preview-start: 1:30.000
+  expert-only: true
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 3
+  album: American Graffiti
+  year: 2015
+  subgenre: rock
+  author: Bloodline, Onyxite
+  title: Spanish Bay
+  preview-end: 2:00.000
+  genre: rock
+  difficulty:
+    tier: 7
+  artist: Strawberry Girls
+global:
+  anim-tempo: 32

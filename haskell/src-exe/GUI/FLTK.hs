@@ -3919,7 +3919,8 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageDolphin sink rect tab $ \dirout midfn preview -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
-        let task = case filter (not . ("STFS" `T.isInfixOf`) . impFormat) files of
+        -- TODO make this better instead of matching the string. had a bug in 20210522 due to mismatch
+        let task = case filter ((/= "Rock Band (Xbox 360 CON/LIVE)") . impFormat) files of
               []   -> runDolphin (map impPath files) midfn preview dirout
               imps -> fatal $ unlines
                 $ "Dolphin conversion currently only supports STFS files. The following files should be converted first:"

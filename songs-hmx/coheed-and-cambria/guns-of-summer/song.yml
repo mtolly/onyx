@@ -10,6 +10,10 @@ parts:
     grybo:
       difficulty:
         rank: 232
+    pro-guitar:
+      tuning:
+        base: bass-4
+        offsets: [-2, 0, 0, 0] # I think drop D is right, it makes sense and is what tabs have for the guitar
   guitar:
     grybo:
       difficulty:
@@ -40,6 +44,10 @@ targets:
   ps:
     game: ps
     label: (O)
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
 metadata:
   rating: Family Friendly
   preview-start: 1:05.944

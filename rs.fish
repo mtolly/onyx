@@ -40,7 +40,7 @@ end
 # build songs/dream-theater/a-rite-of-passage # needs 4-string
 # build songs/dream-theater/6-00 # needs 4-string
 # build songs-others/moochalacho/camel-dancefloor # needs 4-string
-build songs/toe/last-night
+# build songs/toe/last-night
 
 # phrases not done:
 
@@ -77,6 +77,12 @@ build songs/toe/last-night
 # build songs/dream-theater/the-mirror
 # build songs/dream-theater/in-the-presence-of-enemies-pt-2
 # build songs/dream-theater/the-holiday-spirit-carries-on
+build songs/game-soundtracks/kagekiyo
+# build songs-grinnz/dream-theater/as-i-am
+# build songs-grinnz/dream-theater/a-nightmare-to-remember
+build songs-hmx/coheed-and-cambria/guns-of-summer
+# build songs/lady-antebellum/just-a-kiss
+build songs-others/bloodline/spanish-bay
 
 # phrases unknown:
 

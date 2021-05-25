@@ -129,6 +129,9 @@ parts:
       tuning:
         base: bass-6
         offsets: [1, 0, 0, 0, 0, 0] # CEADGC
+      tones:
+        # TODO probably more overdriven tone for the intro
+        file-tone-base: ../../../tones/MuseTime_bass.tone2014.xml
     grybo:
       difficulty: 4
       smooth-frets: true
@@ -163,3 +166,8 @@ targets:
   ps-stems:
     game: ps
     plan: release
+  rs:
+    game: rs
+    plan: album
+    arrangements:
+    - [bonus-rhythm, bass]

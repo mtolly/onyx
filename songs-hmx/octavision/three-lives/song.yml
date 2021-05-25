@@ -26,8 +26,8 @@ audio:
     file-path: audio-youtube.wav
     commands:
     - ../../../scripts/youtube _z-ZrQPfY5o 140
-    md5: 1417de1dfb56575e51c1524b555e7ad9
-    frames: 25458688
+    # md5: 1417de1dfb56575e51c1524b555e7ad9
+    # frames: 25458688
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 parts:
@@ -38,6 +38,10 @@ parts:
   bass:
     grybo:
       difficulty: 7
+    # WIP
+    pro-guitar:
+      tuning:
+        base: bass-5
   guitar:
     grybo:
       difficulty: 7

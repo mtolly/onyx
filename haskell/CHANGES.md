@@ -30,7 +30,7 @@
 * New tool to hardcode the random numeric IDs from a song cache
   to songs without them
 * Support including RB `song_id` in output filenames
-* Option to not add (2x Bass Pedal) to filenames
+* Option to not add (2x Bass Pedal) to song titles
 * Option to use true numeric IDs for Rock Band files
   (like `1234` instead of `'o1234'`)
 * Option to limit Xbox 360 CON/LIVE filenames to 42 characters

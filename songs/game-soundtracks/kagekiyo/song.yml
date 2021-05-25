@@ -1,6 +1,8 @@
 metadata:
   title: "KAGEKIYO ~Genpei Touma Den Medley~"
+  title-jp: "KAGEKIYO ～源平討魔伝メドレー～"
   artist: Yuji Masubuchi
+  artist-jp: 増渕 裕二
   file-include: ../../../albums/taiko-no-tatsujin-soundtrack-2008.yml
   author: Onyxite
   track-number: 32 # disc 1
@@ -19,6 +21,11 @@ parts:
   bass:
     grybo:
       difficulty: 5
+    pro-guitar:
+      tuning:
+        base: bass-4
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo:
       difficulty: 5
@@ -61,3 +68,7 @@ targets:
     game: ps
   konga:
     game: konga
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

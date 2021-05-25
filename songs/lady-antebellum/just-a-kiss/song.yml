@@ -1,10 +1,13 @@
 metadata:
   title: Just a Kiss
-  artist: Lady Antebellum
+  artist: Lady A
   author: Onyxite
   year: 2011
   genre: country
   subgenre: contemporary
+  track-number: 2
+  album: Own the Night
+  file-album-art: cover.jpg
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -32,8 +35,14 @@ parts:
     pro-guitar:
       tuning:
         base: bass-5 # really!
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3:
     game: rb3
   ps:
     game: ps
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

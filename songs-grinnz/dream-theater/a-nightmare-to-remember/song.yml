@@ -86,6 +86,14 @@ parts:
     pro-keys:
       difficulty: 7
   bass:
-    pro-guitar: # WIP
+    pro-guitar:
       tuning:
-        base: bass-6
+        base: bass-5
+      tones:
+        file-tone-base: ../../../tones/MuseTime_bass.tone2014.xml
+targets:
+  rs:
+    game: rs
+    plan: album
+    arrangements:
+    - [bonus-rhythm, bass]
