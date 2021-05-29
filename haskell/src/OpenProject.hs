@@ -295,13 +295,14 @@ installGH2 gh2 proj gen = do
     _ -> fatal "Couldn't read coop scores list"
   let toBytes = B8.pack . T.unpack
   stackIO $ addBonusSong gen sym chunks coopNums
-    (toBytes $ targetTitle (projectSongYaml proj) $ GH2 gh2)
-    (toBytes $ T.unlines
+    (Just $ toBytes $ targetTitle (projectSongYaml proj) $ GH2 gh2)
+    (Just $ toBytes $ T.unlines
       [ "Artist: " <> getArtist (_metadata $ projectSongYaml proj)
       , "Album: "  <> getAlbum  (_metadata $ projectSongYaml proj)
       , "Author: " <> getAuthor (_metadata $ projectSongYaml proj)
       ]
     )
+    (toBytes <$> _author (_metadata $ projectSongYaml proj))
     (Just $ dir </> "cover.png_ps2")
     filePairs
 

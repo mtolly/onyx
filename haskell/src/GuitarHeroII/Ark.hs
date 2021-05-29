@@ -18,6 +18,7 @@ import qualified Data.DTA               as D
 import           Data.Foldable          (toList)
 import qualified Data.HashMap.Strict    as HM
 import           Data.List.Extra        (nubOrd)
+import           Data.Maybe
 import qualified System.IO              as IO
 import           System.IO.Temp         (withSystemTempFile)
 
@@ -167,12 +168,13 @@ addBonusSong
   -> [D.Chunk B.ByteString] -- ^ info for songs.dta
   -> [Int] -- ^ coop max scores
   -- TODO maybe contexts and leaderboards numbers for Xbox only
-  -> B.ByteString -- ^ song title for shop
-  -> B.ByteString -- ^ song description for shop
+  -> Maybe B.ByteString -- ^ song title for shop
+  -> Maybe B.ByteString -- ^ song description for shop
+  -> Maybe B.ByteString -- ^ author name, supported by GH2DX
   -> Maybe FilePath -- ^ album art
   -> [(B.ByteString, FilePath)] -- ^ files to copy into the song folder, e.g. @("songsym.mid", "some/dir/notes.mid")@
   -> IO ()
-addBonusSong gen sym song coop title desc art files = withArk gen $ \ark -> do
+addBonusSong gen sym song coop title desc author art files = withArk gen $ \ark -> do
   withSystemTempFile "songs.dtb"             $ \fdtb1 hdl1 -> do
     withSystemTempFile "coop_max_scores.dtb" $ \fdtb2 hdl2 -> do
       withSystemTempFile "store.dtb"         $ \fdtb3 hdl3 -> do
@@ -199,10 +201,11 @@ addBonusSong gen sym song coop title desc art files = withArk gen $ \ark -> do
                 $ bonus <> [D.Parens $ D.Tree 0 [D.Sym sym, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
               chunk -> return chunk
           editDTB fdtb4 "ui/eng/gen/locale.dtb" $ \chunks -> do
-            return
-              $ D.Parens (D.Tree 0 [D.Sym sym, D.String title])
-              : D.Parens (D.Tree 0 [D.Sym $ sym <> "_shop_desc", D.String desc])
-              : chunks
+            return $ catMaybes
+              [ (\x -> D.Parens (D.Tree 0 [D.Sym sym, D.String x])) <$> title
+              , (\x -> D.Parens (D.Tree 0 [D.Sym $ sym <> "_shop_desc", D.String x])) <$> desc
+              , (\x -> D.Parens (D.Tree 0 [D.Sym $ sym <> "_author", D.String x])) <$> author -- only used by GH2DX
+              ] <> chunks
           forM_ files $ \(arkName, localPath) -> do
             let arkPath = "songs/" <> sym <> "/" <> arkName
             ark_AddFile' ark localPath arkPath True -- encryption doesn't matter

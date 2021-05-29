@@ -206,7 +206,6 @@ midiRB3toGH2 song _target audio inputMid@(F.Song tmap mmap onyx) getAudioLength 
           toGtr = fiveEachDiff $ \fd ->
               emit5'
             . fromClosed'
-            . no5NoteChords'
             . noOpenNotes'
             . noTaps'
             . noExtendedSustains' standardBlipThreshold gap
@@ -305,10 +304,15 @@ bandMembers song audio = let
       , [D.MetalDrummer  | drums]
       ]
 
+adjustSongText :: T.Text -> T.Text
+adjustSongText = T.replace "&" "+"
+  -- GH2 doesn't have & in the start-of-song-display font.
+  -- In the song list it just displays as + anyway
+
 makeGH2DTA :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 -> GH2Audio -> T.Text -> D.SongPackage
 makeGH2DTA song key preview target audio title = D.SongPackage
-  { D.name = title
-  , D.artist = getArtist $ _metadata song
+  { D.name = adjustSongText title
+  , D.artist = adjustSongText $ getArtist $ _metadata song
   , D.caption = guard (not $ _cover $ _metadata song) >> Just "performed_by"
   , D.song = D.Song
     { D.songName      = "songs/" <> key <> "/" <> key
@@ -360,8 +364,8 @@ makeGH2DTA song key preview target audio title = D.SongPackage
 
 makeGH2DTA360 :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 -> GH2Audio -> T.Text -> D.SongPackage
 makeGH2DTA360 song key preview target audio title = D.SongPackage
-  { D.name = title
-  , D.artist = getArtist $ _metadata song
+  { D.name = adjustSongText title
+  , D.artist = adjustSongText $ getArtist $ _metadata song
   , D.caption = guard (not $ _cover $ _metadata song) >> Just "performed_by"
   , D.song = D.Song
     { D.songName      = "songs/" <> key <> "/" <> key
