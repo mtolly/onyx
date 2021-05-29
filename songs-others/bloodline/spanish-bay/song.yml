@@ -1,6 +1,7 @@
 parts:
   bass:
     pro-guitar:
+      picked-bass: true
       tuning:
         base: bass-4
       tones:

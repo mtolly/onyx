@@ -233,17 +233,9 @@ applyTargetLength tgt mid = let
   applySpeed t = t / realToFrac (fromMaybe 1 $ tgt_Speed tgt)
   in applySpeed . applyStart . applyEnd
 
-targetTitle :: SongYaml f -> Target f -> T.Text
-targetTitle songYaml target = let
-  common = case target of
-    RB3    TargetRB3 {..} -> rb3_Common
-    RB2    TargetRB2 {..} -> rb2_Common
-    PS     TargetPS  {..} -> ps_Common
-    GH2    TargetGH2 {..} -> gh2_Common
-    RS     TargetRS  {..} -> rs_Common
-    Melody TargetPart{..} -> tgt_Common
-    Konga  TargetPart{..} -> tgt_Common
-  base = fromMaybe (getTitle $ _metadata songYaml) $ tgt_Title common
+addTitleSuffix :: Target f -> T.Text -> T.Text
+addTitleSuffix target base = let
+  common = targetCommon target
   segments = base : case target of
     RB3 TargetRB3{..} -> makeLabel []                               rb3_2xBassPedal
     RB2 TargetRB2{..} -> makeLabel ["(RB2 version)" | rb2_LabelRB2] rb2_2xBassPedal
@@ -262,6 +254,18 @@ targetTitle songYaml target = let
       , sfxs
       ]
   in T.intercalate " " segments
+
+targetTitle :: SongYaml f -> Target f -> T.Text
+targetTitle songYaml target = let
+  base = fromMaybe (getTitle $ _metadata songYaml) $ tgt_Title $ targetCommon target
+  in addTitleSuffix target base
+
+targetTitleJP :: SongYaml f -> Target f -> Maybe T.Text
+targetTitleJP songYaml target = case tgt_Title $ targetCommon target of
+  Just _  -> Nothing -- TODO do we need JP title on targets also
+  Nothing -> case _titleJP $ _metadata songYaml of
+    Nothing   -> Nothing
+    Just base -> Just $ addTitleSuffix target base
 
 toValidFileName :: T.Text -> T.Text
 toValidFileName t = let
@@ -1924,7 +1928,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 ]
               lg "# Producing GH2 LIVE file"
               mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ gh2pkg
-                (getArtist (_metadata songYaml) <> " - " <> getTitle (_metadata songYaml))
+                (getArtist (_metadata songYaml) <> " - " <> targetTitle songYaml target)
                 (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
                 (dir </> "stfs")
                 out
@@ -2315,7 +2319,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     time <- stackIO getZonedTime
                     Arr.writePart out $ Arr.addPadding pad $ Arr.PartArrangement Arr.Arrangement
                       { Arr.arr_version                = 7 -- this is what EOF has currently
-                      , Arr.arr_title                  = getTitle $ _metadata songYaml
+                      , Arr.arr_title                  = targetTitle songYaml target
                       , Arr.arr_arrangement            = case slot of
                         RSArrSlot _ RSLead        -> "Lead"
                         RSArrSlot _ RSRhythm      -> "Rhythm"
@@ -2692,11 +2696,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , CST.si_JapaneseArtistName  = case _artistJP $ _metadata songYaml of
                       Nothing -> ""
                       Just s  -> textReplace s
-                    , CST.si_JapaneseSongName    = case _titleJP $ _metadata songYaml of
-                      Nothing -> ""
-                      Just s  -> textReplace s
-                    , CST.si_SongDisplayName     = textReplace $ getTitle $ _metadata songYaml
-                    , CST.si_SongDisplayNameSort = textReplace $ getTitle $ _metadata songYaml -- TODO
+                    , CST.si_JapaneseSongName    = maybe "" textReplace $ targetTitleJP songYaml target
+                    , CST.si_SongDisplayName     = textReplace $ targetTitle songYaml target
+                    , CST.si_SongDisplayNameSort = textReplace $ targetTitle songYaml target
                     , CST.si_SongYear            = fromMaybe 1960 $ _year $ _metadata songYaml -- TODO see if this can be empty
                     }
                     {-

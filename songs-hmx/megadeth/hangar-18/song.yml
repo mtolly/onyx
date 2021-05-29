@@ -1,0 +1,65 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 193
+  bass:
+    grybo:
+      difficulty:
+        rank: 419
+    pro-guitar:
+      tuning:
+        base: bass-5
+      tones:
+        file-tone-base: hangar18_bass.tone2014.xml # from ODLC
+  guitar:
+    grybo:
+      difficulty:
+        rank: 422
+  drums:
+    drums:
+      difficulty:
+        rank: 406
+      kicks: 2
+plans:
+  mogg:
+    parts:
+      vocal: [8, 9]
+      bass: [5]
+      guitar: [6, 7]
+      drums:
+        kick: [0]
+        snare: [1, 2]
+        kit: [3, 4]
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    karaoke: false
+    multitrack: true
+    vols: [-1.5, -3.7, -3.7, -4, -4, -1.3, -3, -3, -3, -3, -4, -4]
+    file-mogg: audio.mogg
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    file-milo: lipsync.milo_xbox
+    label: (Rh)
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
+    label: (O)
+metadata:
+  rating: Family Friendly
+  preview-start: 1:03.251
+  file-album-art: cover.png_xbox
+  track-number: 2
+  key: D minor
+  album: Rust in Peace
+  year: 1990
+  author: Harmonix, MMSRhino
+  title: Hangar 18
+  preview-end: 1:33.251
+  genre: metal
+  difficulty:
+    rank: 418
+  artist: Megadeth

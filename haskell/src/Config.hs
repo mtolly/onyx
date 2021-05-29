@@ -1422,6 +1422,16 @@ data Target f
   | Konga  TargetPart
   deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
+targetCommon :: Target f -> TargetCommon
+targetCommon = \case
+  RB3    TargetRB3 {..} -> rb3_Common
+  RB2    TargetRB2 {..} -> rb2_Common
+  PS     TargetPS  {..} -> ps_Common
+  GH2    TargetGH2 {..} -> gh2_Common
+  RS     TargetRS  {..} -> rs_Common
+  Melody TargetPart{..} -> tgt_Common
+  Konga  TargetPart{..} -> tgt_Common
+
 addKey :: (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
 addKey codec k v x = A.Object $ Map.insert k v $ Map.fromList $ makeObject (objectId codec) x
 

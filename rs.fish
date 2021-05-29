@@ -41,6 +41,7 @@ end
 # build songs/dream-theater/6-00 # needs 4-string
 # build songs-others/moochalacho/camel-dancefloor # needs 4-string
 # build songs/toe/last-night
+build songs-hmx/megadeth/hangar-18 # can't put on CF
 
 # phrases not done:
 
@@ -77,12 +78,15 @@ end
 # build songs/dream-theater/the-mirror
 # build songs/dream-theater/in-the-presence-of-enemies-pt-2
 # build songs/dream-theater/the-holiday-spirit-carries-on
-build songs/game-soundtracks/kagekiyo
+# build songs/game-soundtracks/kagekiyo
 # build songs-grinnz/dream-theater/as-i-am
 # build songs-grinnz/dream-theater/a-nightmare-to-remember
 build songs-hmx/coheed-and-cambria/guns-of-summer
 # build songs/lady-antebellum/just-a-kiss
-build songs-others/bloodline/spanish-bay
+# build songs-others/bloodline/spanish-bay
+build songs/dream-theater/the-great-debate
+build songs/dream-theater/lifting-shadows-off-a-dream
+# build songs/dream-theater/lie
 
 # phrases unknown:
 

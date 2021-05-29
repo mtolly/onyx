@@ -43,6 +43,13 @@ plans:
       vocal-2:
         pad: [2.613, only: [B Vocals, jammit-track]]
     # nothing in subtracted backing track
+  jammit-simple:
+    countin: *countin
+    parts:
+      bass:
+        pad: [2.613, only: [Bass, jammit-track]]
+    song:
+      pad: [2.613, without: [bass, jammit-track]]
   album:
     countin: *countin
     song:
@@ -56,6 +63,12 @@ parts:
     drums:
       kicks: both
       difficulty: 7
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3:
     game: rb3
@@ -67,3 +80,8 @@ targets:
   ps:
     game: ps
     plan: jammit
+  rs:
+    game: rs
+    plan: jammit-simple
+    arrangements:
+    - [bass, bass] # BEAD on 4-string

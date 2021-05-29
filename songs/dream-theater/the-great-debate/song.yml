@@ -39,6 +39,8 @@ parts:
       difficulty: 7
       tuning:
         base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo: # onyxite
       difficulty: 7
@@ -84,3 +86,7 @@ targets:
     song-id: 1660200079
   ps:
     game: ps
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

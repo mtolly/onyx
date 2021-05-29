@@ -56,6 +56,13 @@ plans:
             - only: [Keys 2, jammit-track]
             - only: [Vocal, jammit-track]
             - only: [B Vocals, jammit-track]
+  jammit-simple:
+    countin: *countin
+    parts:
+      bass:
+        pad: [2.178, only: [Bass, jammit-track]]
+    song:
+      pad: [2.178, without: [bass, jammit-track]]
   album:
     countin: *countin
     song:
@@ -72,6 +79,12 @@ parts:
       difficulty: 4
     pro-keys:
       difficulty: 5
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
   rb3:
     game: rb3
@@ -79,3 +92,8 @@ targets:
   ps:
     game: ps
     plan: jammit
+  rs:
+    game: rs
+    plan: jammit-simple # for tempo map + ending
+    arrangements:
+    - [bonus-rhythm, bass]
