@@ -99,6 +99,7 @@ instance Default Song where
 
 -- | Strips <b>bold</b>, <i>italic</i>, and <color=red>colored</color>
 -- which are supported by CH in metadata, lyrics, and sections.
+-- Also replaces <br> with newline characters.
 stripTags :: T.Text -> T.Text
 stripTags = let
   -- TODO also remove <size=3></size>
@@ -106,7 +107,9 @@ stripTags = let
   go "" = ""
   go s@(c:cs) = case mapMaybe (`stripPrefix` s) simple of
     [] -> case stripPrefix "<color=" s of
-      Nothing -> c : go cs
+      Nothing -> case stripPrefix "<br>" s of
+        Nothing -> c : go cs
+        Just after -> '\n' : go after
       Just after -> case break (== '>') after of
         (_, '>' : after') -> go after'
         _                 -> c : go cs

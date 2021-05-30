@@ -1,5 +1,20 @@
 # Version history
 
+## 20210530
+
+* Fix Dolphin conversion that broke in `20210522`
+* Fix some generated invalid filenames, such as ones that end in a period
+* Read cover version tag from FoF/PS/CH songs
+* GH2 export changes:
+  * Make audio a bit longer to fix some hangs, particularly in practice mode
+  * Use `+` instead of `&` in title/artist (no ampersand in font)
+  * Add author name that can be read by an upcoming GH2 Deluxe build
+  * Allow 5-note chords that were previously being changed to `GRBO`
+  * Option (default on) to sort bonus songs alphabetically by title when saving
+  * Option to apply a global audio offset only for GH2 export,
+    intended to offset emulator delay
+  * Add loading phrase from FoF/PS/CH import
+
 ## 20210522
 
 * Initial support for converting to Guitar Hero II (PS2 .ARK, Xbox 360 DLC)

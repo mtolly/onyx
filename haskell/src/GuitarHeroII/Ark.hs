@@ -229,7 +229,7 @@ addBonusSong GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
                   then logStdout (readSongList $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
                     Right newSongList -> let
                       f = \case
-                        D.Parens (D.Tree 0 [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
+                        D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
                           Just pkg -> name pkg
                           Nothing  -> ""
                         _                                  -> ""

@@ -92,6 +92,7 @@ import           Data.Word                                 (Word32)
 import           DryVox
 import           Foreign                                   (Ptr, alloca, peek)
 import           Foreign.C                                 (CString)
+import           FretsOnFire                               (stripTags)
 import           Genre                                     (FullGenre (..),
                                                             interpretGenre)
 import qualified Graphics.UI.FLTK.LowLevel.Base.GlWindow   as FLGL
@@ -1557,6 +1558,13 @@ batchPagePS sink rect tab build = do
   FL.setResizable tab $ Just pack
   return ()
 
+loadingPhraseCHtoGH2
+  :: Project
+  -> Maybe T.Text
+loadingPhraseCHtoGH2 proj = listToMaybe $ catMaybes $ do
+  PS ps <- toList $ _targets $ projectSongYaml proj
+  return $ stripTags <$> ps_LoadingPhrase ps
+
 batchPageGH2
   :: (?preferences :: Preferences)
   => (Event -> IO ())
@@ -1606,9 +1614,7 @@ batchPageGH2 sink rect tab build = do
               Just (_, coop) -> coop
               _              -> gh2_Coop defGH2
             , gh2_Offset = prefGH2Offset ?preferences
-            , gh2_LoadingPhrase = listToMaybe $ catMaybes $ do
-              PS ps <- toList $ toList $ _targets $ projectSongYaml proj
-              return $ ps_LoadingPhrase ps
+            , gh2_LoadingPhrase = loadingPhraseCHtoGH2 proj
             }
           fout = trimXbox $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH2 tgt
@@ -2190,9 +2196,7 @@ songPageGH2 sink rect tab proj build = mdo
       return box
   let initTarget = def
         { gh2_Offset = prefGH2Offset ?preferences
-        , gh2_LoadingPhrase = listToMaybe $ catMaybes $ do
-          PS ps <- toList $ _targets $ projectSongYaml proj
-          return $ ps_LoadingPhrase ps
+        , gh2_LoadingPhrase = loadingPhraseCHtoGH2 proj
         }
       makeTarget = fmap ($ initTarget) targetModifier
   fullWidth 35 $ \rect' -> do
@@ -4143,6 +4147,7 @@ launchPreferences sink = do
 
     let [trimClock 0 5 0 leftLabelSize -> gh2OffsetArea, trimClock 0 0 0 5 -> gh2SortArea] = splitHorizN 2 $ lineBox 10
     gh2OffsetCounter <- FL.counterNew gh2OffsetArea $ Just "GH2 Audio Offset (ms)"
+    FL.setLabelsize sliderQuality $ FL.FontSize 13
     FL.setLabeltype gh2OffsetCounter FLE.NormalLabelType FL.ResolveImageLabelDoNothing
     FL.setAlign gh2OffsetCounter $ FLE.Alignments [FLE.AlignTypeLeft]
     FL.setStep gh2OffsetCounter 1
@@ -4153,7 +4158,7 @@ launchPreferences sink = do
       , "Negative values mean audio will be pushed later."
       ]
     void $ FL.setValue gh2OffsetCounter $ prefGH2Offset loadedPrefs * 1000
-    checkGH2Sort <- FL.checkButtonNew gh2SortArea $ Just "Sort GH2 Songs"
+    checkGH2Sort <- FL.checkButtonNew gh2SortArea $ Just "Sort GH2 bonus songs when adding to .ARK"
     void $ FL.setValue checkGH2Sort $ prefSortGH2 loadedPrefs
 
     let [_, saveRect, _, cancelRect, _] = splitHorizN 5 $ lineBox 11

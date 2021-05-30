@@ -1775,7 +1775,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   endTime <- case RTB.filter (== GH2.End) $ GH2.eventsOther $ gh2Events $ RBFile.s_tracks mid of
                     RNil       -> fatal "panic! couldn't find [end] event in GH2 output midi"
                     Wait t _ _ -> return $ U.applyTempoMap (RBFile.s_tempos mid) t
-                  return $ endTime + 0.5
+                  return $ endTime + 5
+                  -- previously we went 0.5s past [end], but that still had issues,
+                  -- particularly in practice mode when playing the last section
                 gh2Source = do
                   hasAudio <- loadPartAudioCheck
                   audio <- computeGH2Audio songYaml gh2 hasAudio
