@@ -12,7 +12,6 @@ module CommandLine
 , copyDirRecursive
 , runDolphin
 , blackVenue
-, trimFileName
 ) where
 
 import qualified Amplitude.PS2.Ark                as AmpArk
@@ -47,7 +46,7 @@ import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
-import           Data.List.Extra                  (stripSuffix, trim, unsnoc)
+import           Data.List.Extra                  (unsnoc)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
@@ -109,9 +108,9 @@ import           System.Console.GetOpt
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropExtension,
                                                    dropTrailingPathSeparator,
-                                                   splitFileName, takeDirectory,
-                                                   takeExtension, takeFileName,
-                                                   (-<.>), (<.>), (</>))
+                                                   takeDirectory, takeExtension,
+                                                   takeFileName, (-<.>), (<.>),
+                                                   (</>))
 import qualified System.IO                        as IO
 import           Text.Decode                      (decodeGeneral)
 import           Text.Printf                      (printf)
@@ -319,14 +318,6 @@ getInputMIDI files = optionalFile files >>= \case
 
 undone :: (Monad m) => StackTraceT m a
 undone = fatal "Feature not built yet..."
-
--- | Ensure that a \"dir/original-file_suffix\" filename stays within a length limit
--- by trimming \"original-file\".
-trimFileName :: FilePath -> Int -> String -> String -> FilePath
-trimFileName fp len sfxOld sfx = let
-  fp' = fromMaybe fp $ stripSuffix sfxOld fp
-  (dir, file) = splitFileName fp'
-  in dir </> trim (take (len - length sfx) file) ++ sfx
 
 changeToVenueGen :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m ()
 changeToVenueGen dir = do
@@ -546,13 +537,12 @@ commands =
       [dir] -> stackIO (Dir.doesDirectoryExist dir) >>= \case
         True -> do
           let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
-              suffix = case game of GameRB3 -> "_rb3con"; GameRB2 -> "_rb2con"; GameTBRB -> "_tbrbcon"
           pkg <- case game of
             GameRB3  -> return rb3pkg
             GameRB2  -> return rb2pkg
             GameTBRB -> fatal "TBRB unsupported as game for stfs command"
           stfs <- outputFile opts
-            $   (\f -> trimFileName f 42 "" suffix) . dropTrailingPathSeparator
+            $   dropTrailingPathSeparator
             <$> stackIO (Dir.makeAbsolute dir)
           (title, desc) <- getInfoForSTFS dir stfs
           tempDir "onyx_stfs" $ \tmp -> do

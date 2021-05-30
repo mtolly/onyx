@@ -29,7 +29,8 @@ import           Data.Maybe                     (fromMaybe, mapMaybe)
 import           Data.SimpleHandle              (Folder (..), crawlFolder,
                                                  findFile)
 import qualified Data.Text                      as T
-import           GuitarHeroII.Ark               (GameGH (..), addBonusSong,
+import           GuitarHeroII.Ark               (GH2Installation (..),
+                                                 GameGH (..), addBonusSong,
                                                  detectGameGH)
 import           Import.Amplitude2016           (importAmplitude)
 import           Import.Base                    (ImportLevel (..), saveImport)
@@ -294,17 +295,24 @@ installGH2 gh2 proj gen = do
       _     -> fatal "unexcepted non-int in coop scores list"
     _ -> fatal "Couldn't read coop scores list"
   let toBytes = B8.pack . T.unpack
-  stackIO $ addBonusSong gen sym chunks coopNums
-    (Just $ toBytes $ targetTitle (projectSongYaml proj) $ GH2 gh2)
-    (Just $ toBytes $ T.unlines
+  sortBonus <- prefSortGH2 <$> readPreferences
+  stackIO $ addBonusSong GH2Installation
+    { gh2i_GEN              = gen
+    , gh2i_symbol           = sym
+    , gh2i_song             = chunks
+    , gh2i_coop_max_scores  = coopNums
+    , gh2i_shop_title       = Just $ toBytes $ targetTitle (projectSongYaml proj) $ GH2 gh2
+    , gh2i_shop_description = Just $ toBytes $ T.unlines
       [ "Artist: " <> getArtist (_metadata $ projectSongYaml proj)
       , "Album: "  <> getAlbum  (_metadata $ projectSongYaml proj)
       , "Author: " <> getAuthor (_metadata $ projectSongYaml proj)
       ]
-    )
-    (toBytes <$> _author (_metadata $ projectSongYaml proj))
-    (Just $ dir </> "cover.png_ps2")
-    filePairs
+    , gh2i_author           = toBytes <$> _author (_metadata $ projectSongYaml proj)
+    , gh2i_album_art        = Just $ dir </> "cover.png_ps2"
+    , gh2i_files            = filePairs
+    , gh2i_sort             = sortBonus
+    , gh2i_loading_phrase   = toBytes <$> gh2_LoadingPhrase gh2
+    }
 
 makeGH2DIY :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 makeGH2DIY gh2 proj dout = do

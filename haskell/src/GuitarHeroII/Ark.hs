@@ -2,25 +2,33 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readFileEntries, extractArk, createHdrArk, GH2InstallLocation(..), addBonusSong) where
+module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readSongList, readFileEntries, extractArk, createHdrArk, GH2InstallLocation(..), addBonusSong, GH2Installation(..)) where
 
-import           Amplitude.PS2.Ark      (FileEntry (..), FoundFile (..),
-                                         extractArk, makeStringBank,
-                                         traverseFolder)
+import           Amplitude.PS2.Ark              (FileEntry (..), FoundFile (..),
+                                                 extractArk, makeStringBank,
+                                                 traverseFolder)
 import           ArkTool
-import           Codec.Compression.GZip (decompress)
-import           Control.Monad          (forM, forM_, replicateM)
-import           Data.Binary.Get        (getInt32le, getWord32le, runGet)
-import           Data.Binary.Put        (putInt32le, putWord32le, runPut)
-import qualified Data.ByteString        as B
-import qualified Data.ByteString.Lazy   as BL
-import qualified Data.DTA               as D
-import           Data.Foldable          (toList)
-import qualified Data.HashMap.Strict    as HM
-import           Data.List.Extra        (nubOrd)
+import           Codec.Compression.GZip         (decompress)
+import           Control.Monad                  (forM, forM_, replicateM, void)
+import           Control.Monad.Trans.StackTrace
+import           Data.Binary.Get                (getInt32le, getWord32le,
+                                                 runGet)
+import           Data.Binary.Put                (putInt32le, putWord32le,
+                                                 runPut)
+import qualified Data.ByteString                as B
+import qualified Data.ByteString.Char8          as B8
+import qualified Data.ByteString.Lazy           as BL
+import qualified Data.DTA                       as D
+import qualified Data.DTA.Serialize             as D
+import           Data.DTA.Serialize.GH2
+import           Data.Foldable                  (toList)
+import qualified Data.HashMap.Strict            as HM
+import           Data.List.Extra                (nubOrd, sortOn)
 import           Data.Maybe
-import qualified System.IO              as IO
-import           System.IO.Temp         (withSystemTempFile)
+import qualified Data.Text                      as T
+import           Data.Text.Encoding             (decodeLatin1)
+import qualified System.IO                      as IO
+import           System.IO.Temp                 (withSystemTempFile)
 
 -- Haskell extract/repack stuff
 
@@ -93,6 +101,20 @@ createHdrArk dout hdr ark = do
       w32 $ fe_size entry
       w32 $ fe_inflate entry
 
+readSongList :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m [(T.Text, SongPackage)]
+readSongList dta = let
+  editDTB d = d { D.topTree = editTree $ D.topTree d }
+  editTree t = t { D.treeChunks = filter keepChunk $ D.treeChunks t }
+  keepChunk = \case
+    D.Parens tree -> not $ any isIgnore $ D.treeChunks tree
+    _             -> False
+  isIgnore = \case
+    D.Parens (D.Tree _ [D.Sym "validate_ignore", D.Sym "TRUE"]) -> True
+    _                                                           -> False
+  in fmap D.fromDictList
+    $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
+    $ editDTB $ decodeLatin1 <$> dta
+
 -- ArkTool stuff
 
 data GameGH = GameGH1 | GameGH2
@@ -161,20 +183,24 @@ replaceSong gen sym snippet files = withArk gen $ \ark -> do
       ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
     ark_Save' ark
 
+data GH2Installation = GH2Installation
+  { gh2i_GEN              :: FilePath
+  , gh2i_symbol           :: B.ByteString -- ^ folder name, and key symbol in songs.dta
+  , gh2i_song             :: [D.Chunk B.ByteString] -- ^ info for songs.dta
+  , gh2i_coop_max_scores  :: [Int]
+  -- TODO maybe contexts and leaderboards for Xbox only
+  , gh2i_shop_title       :: Maybe B.ByteString
+  , gh2i_shop_description :: Maybe B.ByteString
+  , gh2i_author           :: Maybe B.ByteString
+  , gh2i_album_art        :: Maybe FilePath
+  , gh2i_files            :: [(B.ByteString, FilePath)] -- ^ files to copy into the song folder, e.g. @("songsym.mid", "some/dir/notes.mid")@
+  , gh2i_sort             :: Bool -- ^ should bonus songs be sorted alphabetically
+  , gh2i_loading_phrase   :: Maybe B.ByteString
+  }
+
 -- | Adds a song to a GH2 ARK, and registers it as a bonus song with price 0.
-addBonusSong
-  :: FilePath
-  -> B.ByteString -- ^ folder name, and key symbol in songs.dta
-  -> [D.Chunk B.ByteString] -- ^ info for songs.dta
-  -> [Int] -- ^ coop max scores
-  -- TODO maybe contexts and leaderboards numbers for Xbox only
-  -> Maybe B.ByteString -- ^ song title for shop
-  -> Maybe B.ByteString -- ^ song description for shop
-  -> Maybe B.ByteString -- ^ author name, supported by GH2DX
-  -> Maybe FilePath -- ^ album art
-  -> [(B.ByteString, FilePath)] -- ^ files to copy into the song folder, e.g. @("songsym.mid", "some/dir/notes.mid")@
-  -> IO ()
-addBonusSong gen sym song coop title desc author art files = withArk gen $ \ark -> do
+addBonusSong :: GH2Installation -> IO ()
+addBonusSong GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
   withSystemTempFile "songs.dtb"             $ \fdtb1 hdl1 -> do
     withSystemTempFile "coop_max_scores.dtb" $ \fdtb2 hdl2 -> do
       withSystemTempFile "store.dtb"         $ \fdtb3 hdl3 -> do
@@ -189,26 +215,39 @@ addBonusSong gen sym song coop title desc author art files = withArk gen $ \ark 
                 chunks' <- f chunks
                 D.writeFileDTB tmp $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 chunks'
                 ark_ReplaceAFile' ark tmp path True
-          editDTB fdtb1 "config/gen/songs.dtb" $ \chunks -> do
-            return $ D.Parens (D.Tree 0 (D.Sym sym : song)) : chunks
-          editDTB fdtb2 "config/gen/coop_max_scores.dtb" $ \chunks -> do
-            return $ D.Parens (D.Tree 0 [D.Sym sym, D.Parens $ D.Tree 0 (map (D.Int . fromIntegral) coop)]) : chunks
-          editDTB fdtb3 "config/gen/store.dtb" $ \chunks -> do
+                return chunks'
+          newSongs <- editDTB fdtb1 "config/gen/songs.dtb" $ \chunks -> do
+            return $ D.Parens (D.Tree 0 (D.Sym gh2i_symbol : gh2i_song)) : chunks
+          void $ editDTB fdtb2 "config/gen/coop_max_scores.dtb" $ \chunks -> do
+            return $ D.Parens (D.Tree 0 [D.Sym gh2i_symbol, D.Parens $ D.Tree 0 (map (D.Int . fromIntegral) gh2i_coop_max_scores)]) : chunks
+          void $ editDTB fdtb3 "config/gen/store.dtb" $ \chunks -> do
             forM chunks $ \case
-              D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> return
-                $ D.Parens
-                $ D.Tree 0
-                $ bonus <> [D.Parens $ D.Tree 0 [D.Sym sym, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
+              D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> do
+                let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i_symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
+                bonusSorted <- if gh2i_sort
+                  -- TODO handle warnings/errors better
+                  then logStdout (readSongList $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
+                    Right newSongList -> let
+                      f = \case
+                        D.Parens (D.Tree 0 [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
+                          Just pkg -> name pkg
+                          Nothing  -> ""
+                        _                                  -> ""
+                      in return $ sortOn f bonus'
+                    Left _ -> return bonus'
+                  else return bonus'
+                return $ D.Parens $ D.Tree 0 bonusSorted
               chunk -> return chunk
-          editDTB fdtb4 "ui/eng/gen/locale.dtb" $ \chunks -> do
+          void $ editDTB fdtb4 "ui/eng/gen/locale.dtb" $ \chunks -> do
             return $ catMaybes
-              [ (\x -> D.Parens (D.Tree 0 [D.Sym sym, D.String x])) <$> title
-              , (\x -> D.Parens (D.Tree 0 [D.Sym $ sym <> "_shop_desc", D.String x])) <$> desc
-              , (\x -> D.Parens (D.Tree 0 [D.Sym $ sym <> "_author", D.String x])) <$> author -- only used by GH2DX
+              [ (\x -> D.Parens (D.Tree 0 [D.Sym gh2i_symbol                    , D.String x])) <$> gh2i_shop_title
+              , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i_symbol <> "_shop_desc"  , D.String x])) <$> gh2i_shop_description
+              , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i_symbol <> "_author"     , D.String x])) <$> gh2i_author -- only used by GH2DX
+              , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i_symbol, D.String x])) <$> gh2i_loading_phrase
               ] <> chunks
-          forM_ files $ \(arkName, localPath) -> do
-            let arkPath = "songs/" <> sym <> "/" <> arkName
+          forM_ gh2i_files $ \(arkName, localPath) -> do
+            let arkPath = "songs/" <> gh2i_symbol <> "/" <> arkName
             ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
-          forM_ art $ \img -> do
-            ark_AddFile' ark img ("ui/image/og/gen/us_logo_" <> sym <> "_keep.png_ps2") True
+          forM_ gh2i_album_art $ \img -> do
+            ark_AddFile' ark img ("ui/image/og/gen/us_logo_" <> gh2i_symbol <> "_keep.png_ps2") True
           ark_Save' ark

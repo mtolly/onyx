@@ -13,14 +13,13 @@ import           Audio                                     (Audio (..),
                                                             runAudio)
 import           Build                                     (hashRB3,
                                                             targetTitle,
-                                                            toValidFileName)
+                                                            validFileName)
 import           Codec.Picture                             (readImage,
                                                             savePngImage,
                                                             writePng)
 import           CommandLine                               (blackVenue,
                                                             copyDirRecursive,
-                                                            runDolphin,
-                                                            trimFileName)
+                                                            runDolphin)
 import           Config
 import           Control.Applicative                       ((<|>))
 import           Control.Concurrent                        (MVar, ThreadId,
@@ -1606,6 +1605,10 @@ batchPageGH2 sink rect tab build = do
             , gh2_Coop = case coopPart of
               Just (_, coop) -> coop
               _              -> gh2_Coop defGH2
+            , gh2_Offset = prefGH2Offset ?preferences
+            , gh2_LoadingPhrase = listToMaybe $ catMaybes $ do
+              PS ps <- toList $ toList $ _targets $ projectSongYaml proj
+              return $ ps_LoadingPhrase ps
             }
           fout = trimXbox $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH2 tgt
@@ -2185,7 +2188,13 @@ songPageGH2 sink rect tab proj build = mdo
       tell $ FL.getValue box >>= \b -> return $ Endo $ \gh2 ->
         gh2 { gh2_PracticeAudio = b }
       return box
-  let makeTarget = fmap ($ def) targetModifier
+  let initTarget = def
+        { gh2_Offset = prefGH2Offset ?preferences
+        , gh2_LoadingPhrase = listToMaybe $ catMaybes $ do
+          PS ps <- toList $ _targets $ projectSongYaml proj
+          return $ ps_LoadingPhrase ps
+        }
+      makeTarget = fmap ($ initTarget) targetModifier
   fullWidth 35 $ \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- FL.buttonNew r1 $ Just "Add to GH2 PS2 ARK as Bonus Song"
@@ -2238,7 +2247,7 @@ trimXbox
   => FilePath
   -> FilePath
 trimXbox f = if prefTrimXbox ?preferences
-  then trimFileName f 42 "" ""
+  then validFileName (Just 42) f
   else f
 
 batchPageRB3
@@ -2329,14 +2338,14 @@ batchPageRB3 sink rect tab build = do
   return ()
 
 templateApplyInput :: Project -> Maybe (Target FilePath) -> T.Text -> T.Text
-templateApplyInput proj mtgt txt = foldr ($) txt
+templateApplyInput proj mtgt txt = T.pack $ validFileName Nothing $ T.unpack $ foldr ($) txt
   [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
   , T.intercalate (T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
-  , T.intercalate (toValidFileName title) . T.splitOn "%title%"
-  , T.intercalate (toValidFileName $ getArtist $ _metadata $ projectSongYaml proj) . T.splitOn "%artist%"
-  , T.intercalate (toValidFileName $ getAlbum $ _metadata $ projectSongYaml proj) . T.splitOn "%album%"
-  , T.intercalate (toValidFileName $ getAuthor $ _metadata $ projectSongYaml proj) . T.splitOn "%author%"
-  , T.intercalate (toValidFileName songID) . T.splitOn "%song_id%"
+  , T.intercalate title . T.splitOn "%title%"
+  , T.intercalate (getArtist $ _metadata $ projectSongYaml proj) . T.splitOn "%artist%"
+  , T.intercalate (getAlbum $ _metadata $ projectSongYaml proj) . T.splitOn "%album%"
+  , T.intercalate (getAuthor $ _metadata $ projectSongYaml proj) . T.splitOn "%author%"
+  , T.intercalate songID . T.splitOn "%song_id%"
   ] where
     title = case mtgt of
       Nothing  -> getTitle $ _metadata $ projectSongYaml proj
@@ -4051,7 +4060,7 @@ launchPreferences sink = do
   let width = 700
       padding = 10
       lineHeight = 30
-      numLines = 11
+      numLines = 12
       leftLabelSize = 160
       height = (padding + lineHeight) * numLines + padding
       lineBox i = Rectangle
@@ -4132,7 +4141,22 @@ launchPreferences sink = do
     FL.setMaximum sliderQuality 10
     void $ FL.setValue sliderQuality $ prefOGGQuality loadedPrefs * 10
 
-    let [_, saveRect, _, cancelRect, _] = splitHorizN 5 $ lineBox 10
+    let [trimClock 0 5 0 leftLabelSize -> gh2OffsetArea, trimClock 0 0 0 5 -> gh2SortArea] = splitHorizN 2 $ lineBox 10
+    gh2OffsetCounter <- FL.counterNew gh2OffsetArea $ Just "GH2 Audio Offset (ms)"
+    FL.setLabeltype gh2OffsetCounter FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign gh2OffsetCounter $ FLE.Alignments [FLE.AlignTypeLeft]
+    FL.setStep gh2OffsetCounter 1
+    FL.setLstep gh2OffsetCounter 10
+    FL.setTooltip gh2OffsetCounter $ T.unwords
+      [ "Adjust audio offset only for Guitar Hero II output, intended to compensate for emulator delay."
+      , "Positive values mean audio will be pulled earlier, to account for delay."
+      , "Negative values mean audio will be pushed later."
+      ]
+    void $ FL.setValue gh2OffsetCounter $ prefGH2Offset loadedPrefs * 1000
+    checkGH2Sort <- FL.checkButtonNew gh2SortArea $ Just "Sort GH2 Songs"
+    void $ FL.setValue checkGH2Sort $ prefSortGH2 loadedPrefs
+
+    let [_, saveRect, _, cancelRect, _] = splitHorizN 5 $ lineBox 11
     saveButton <- FL.buttonNew saveRect $ Just "Save"
     taskColor >>= FL.setColor saveButton
     FL.setCallback saveButton $ \_ -> do
@@ -4152,6 +4176,8 @@ launchPreferences sink = do
             dirWii     <- getPath <$> getDirWii
             dirPreview <- getPath <$> getDirPreview
             quality    <- (/ 10) <$> FL.getValue sliderQuality
+            gh2Offset  <- (/ 1000) <$> FL.getValue gh2OffsetCounter
+            gh2Sort    <- FL.getValue checkGH2Sort
             savePreferences loadedPrefs
               { prefMagma      = magma
               , prefBlackVenue = black
@@ -4165,6 +4191,8 @@ launchPreferences sink = do
               , prefDirWii     = dirWii
               , prefDirPreview = dirPreview
               , prefOGGQuality = quality
+              , prefGH2Offset  = gh2Offset
+              , prefSortGH2    = gh2Sort
               }
             FL.hide window
           warningMsg = T.unlines

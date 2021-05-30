@@ -4,7 +4,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
-module Build (shakeBuildFiles, shakeBuild, targetTitle, loadYaml, toValidFileName, hashRB3) where
+module Build (shakeBuildFiles, shakeBuild, targetTitle, loadYaml, validFileName, hashRB3) where
 
 import           Audio
 import           AudioSearch
@@ -267,17 +267,28 @@ targetTitleJP songYaml target = case tgt_Title $ targetCommon target of
     Nothing   -> Nothing
     Just base -> Just $ addTitleSuffix target base
 
-toValidFileName :: T.Text -> T.Text
-toValidFileName t = let
+validFileNamePiece :: Maybe Int -> T.Text -> T.Text
+validFileNamePiece maxLen s = let
   eachChar c = if isAscii c && not (isControl c) && notElem c ("<>:\"/\\|?*" :: String)
     then c
     else '_'
-  -- TODO better char filter
-  in case T.map eachChar t of
-    ""   -> "nothing"
-    "."  -> "dot"
-    ".." -> "dots"
-    t'   -> t'
+  fixEnds = T.dropWhile isSpace . T.dropWhileEnd (\c -> isSpace c || c == '.')
+  reserved =
+    [ ""
+    -- rest are invalid names on Windows
+    , "CON", "PRN", "AUX", "NUL"
+    , "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "COM0"
+    , "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "LPT0"
+    ]
+  s' = fixEnds $ maybe id T.take maxLen $ T.map eachChar s
+  in if elem (T.toUpper s') reserved
+    then s' <> "_"
+    else s'
+
+validFileName :: Maybe Int -> FilePath -> FilePath
+validFileName maxLen f = let
+  (dir, file) = splitFileName f
+  in dir </> T.unpack (validFileNamePiece maxLen $ T.pack file)
 
 hashRB3 :: (Hashable f) => SongYaml f -> TargetRB3 f -> Int
 hashRB3 songYaml rb3 = let
@@ -1778,8 +1789,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     GH2Silent -> shk $ buildSource $ Silence 1 $ Seconds 0
                   pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
                   audioLen <- correctAudioLength mid
+                  let applyOffset = case compare (gh2_Offset gh2) 0 of
+                        EQ -> id
+                        GT -> dropStart $ Seconds          $ gh2_Offset gh2
+                        LT -> padStart  $ Seconds $ negate $ gh2_Offset gh2
                   return
                     $ setAudioLength audioLen
+                    $ applyOffset
                     $ padAudio pad
                     $ applyTargetAudio (gh2_Common gh2) mid
                     $ foldr1 merge srcs
@@ -2041,6 +2057,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   return $ not $ RTB.null $ fiveOpen fd
                 , FoF.loadingPhrase    = ps_LoadingPhrase ps
                 , FoF.cassetteColor    = Nothing
+                , FoF.tags             = guard (_cover $ _metadata songYaml) >> Just "cover"
                  -- TODO fill these in if we have a video
                 , FoF.video            = Nothing
                 , FoF.videoStartTime   = Nothing
@@ -2155,7 +2172,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               let d = dir </> "ps"
               shk $ need [d]
               files <- shk $ map (d </>) <$> getDirectoryContents d
-              let folderInZip = T.unpack $ toValidFileName $ getArtist (_metadata songYaml) <> " - " <> targetTitle songYaml target
+              let folderInZip = T.unpack $ validFileNamePiece Nothing
+                    $ getArtist (_metadata songYaml) <> " - " <> targetTitle songYaml target
               z <- stackIO $ Zip.addFilesToArchive [Zip.OptLocation folderInZip False] Zip.emptyArchive files
               stackIO $ BL.writeFile out $ Zip.fromArchive z
 

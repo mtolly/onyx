@@ -34,7 +34,8 @@ import           Data.SimpleHandle                (findFile, handleToByteString,
                                                    splitPath, useHandle)
 import qualified Data.Text                        as T
 import           Data.Text.Encoding               (decodeLatin1)
-import           GuitarHeroII.Ark                 (readFileEntries)
+import           GuitarHeroII.Ark                 (readFileEntries,
+                                                   readSongList)
 import           GuitarHeroII.Audio               (readVGSReadable)
 import           GuitarHeroII.Events
 import           GuitarHeroII.File
@@ -55,17 +56,7 @@ getSongList gen = do
   dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") entries of
     entry : _ -> stackIO $ useHandle (readFileEntry entry $ gen </> "MAIN_0.ARK") handleToByteString
     []        -> fatal "Couldn't find songs.dtb"
-  let editDTB d = d { D.topTree = editTree $ D.topTree d }
-      editTree t = t { D.treeChunks = filter keepChunk $ D.treeChunks t }
-      keepChunk = \case
-        D.Parens tree -> not $ any isIgnore $ D.treeChunks tree
-        _             -> False
-      isIgnore = \case
-        D.Parens (D.Tree _ [D.Sym "validate_ignore", D.Sym "TRUE"]) -> True
-        _                                                           -> False
-  fmap D.fromDictList
-    $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
-    $ editDTB $ decodeLatin1 <$> D.decodeDTB (decrypt oldCrypt dtb)
+  readSongList $ D.decodeDTB $ decrypt oldCrypt dtb
 
 getImports :: [(T.Text, SongPackage)] -> [(T.Text, (ImportMode, SongPackage))]
 getImports = concatMap $ \(t, pkg) -> case songCoop pkg of

@@ -1287,6 +1287,8 @@ data TargetGH2 = TargetGH2
   , gh2_Context       :: Maybe Int -- contexts.dta for 360 DLC
   , gh2_Leaderboard   :: Maybe (Int, Int) -- leaderboards.dta for 360 DLC
   , gh2_PracticeAudio :: Bool -- should we make slow audio for PS2
+  , gh2_LoadingPhrase :: Maybe T.Text
+  , gh2_Offset        :: Double -- in seconds, positive means pull audio earlier, negative means push later
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 instance Default GH2.Quickplay where
@@ -1317,6 +1319,8 @@ parseTargetGH2 = do
   gh2_Context       <- gh2_Context       =. opt Nothing              "context"        stackJSON
   gh2_Leaderboard   <- gh2_Leaderboard   =. opt Nothing              "leaderboard"    stackJSON
   gh2_PracticeAudio <- gh2_PracticeAudio =. opt True                 "practice-audio" stackJSON
+  gh2_LoadingPhrase <- gh2_LoadingPhrase =. opt Nothing              "loading-phrase" stackJSON
+  gh2_Offset        <- gh2_Offset        =. opt 0                    "offset"         stackJSON
   return TargetGH2{..}
 
 instance StackJSON TargetGH2 where

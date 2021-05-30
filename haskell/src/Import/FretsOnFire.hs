@@ -441,6 +441,7 @@ importFoF src level = do
         _                 -> Nothing
       , _previewEnd   = Nothing
       , _difficulty   = toTier $ FoF.diffBand song
+      , _cover        = maybe False ("cover" `T.isInfixOf`) $ FoF.tags song
       }
     , _global = def'
       { _backgroundVideo = videoInfo
