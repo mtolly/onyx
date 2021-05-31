@@ -24,7 +24,7 @@ import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
-                                                 Staction, fatal, inside, lg)
+                                                 Staction, fatal, inside, lg, warn)
 import           Data.Char                      (toLower)
 import           Data.Conduit.Audio
 import           Data.Foldable                  (toList)
@@ -216,7 +216,7 @@ buildPartAudioToSpec rel alib songYaml specPV = \case
 -- | Computing a drums instrument's audio for CON/Magma.
 -- Always returns a valid drum mix configuration, with all volumes 0.
 computeDrumsPart
-  :: (Monad m)
+  :: (SendMessage m)
   => FlexPartName
   -> Plan f
   -> SongYaml f
@@ -224,42 +224,47 @@ computeDrumsPart
 computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case plan of
   MoggPlan{..} -> case HM.lookup fpart $ getParts _moggParts of
     Nothing -> return stereo
-    Just (PartSingle kit) -> case length kit of
-      2 -> return stereo
-      n -> fatal $ "MOGG plan has single drums audio with " ++ show n ++ " channels (2 required)"
+    Just (PartSingle _) -> return stereo
     Just (PartDrumKit kick snare kit) -> do
-      mixMode <- lookupSplit (maybe 0 length kick, maybe 0 length snare, length kit)
-      return
-        ( ( standardIndexes _pans $ fromMaybe [] kick
-          , standardIndexes _pans $ fromMaybe [] snare
-          , standardIndexes _pans kit
+      maybeMix <- lookupSplit (maybe 0 length kick, maybe 0 length snare, length kit)
+      case maybeMix of
+        Nothing -> return stereo
+        Just mixMode -> return
+          ( ( standardIndexes _pans $ fromMaybe [] kick
+            , standardIndexes _pans $ fromMaybe [] snare
+            , standardIndexes _pans kit
+            )
+          , mixMode
           )
-        , mixMode
-        )
   Plan{..} -> case HM.lookup fpart $ getParts _planParts of
     Nothing -> return stereo
     Just (PartSingle _) -> return stereo -- any number will be remixed to stereo
     Just (PartDrumKit kick snare kit) -> do
-      mixMode <- lookupSplit
+      maybeMix <- lookupSplit
         ( maybe 0 (computeChannelsPlan songYaml . _planExpr) kick
         , maybe 0 (computeChannelsPlan songYaml . _planExpr) snare
         , computeChannelsPlan songYaml $ _planExpr kit
         )
-      kickPV <- case kick of
-        Nothing -> return []
-        Just pa -> (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml pa
-      snarePV <- case snare of
-        Nothing -> return []
-        Just pa -> (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml pa
-      kitPV <- (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml kit
-      return ((kickPV, snarePV, kitPV), mixMode)
+      case maybeMix of
+        Nothing -> return stereo
+        Just mixMode -> do
+          kickPV <- case kick of
+            Nothing -> return []
+            Just pa -> (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml pa
+          snarePV <- case snare of
+            Nothing -> return []
+            Just pa -> (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml pa
+          kitPV <- (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml kit
+          return ((kickPV, snarePV, kitPV), mixMode)
   where lookupSplit = \case
-          (0, 0, 2) -> return RBDrums.D0
-          (1, 1, 2) -> return RBDrums.D1
-          (1, 2, 2) -> return RBDrums.D2
-          (2, 2, 2) -> return RBDrums.D3
-          (1, 0, 2) -> return RBDrums.D4
-          trio -> fatal $ "Plan with split drum kit has invalid channel counts: (kick,snare,kit) = " ++ show trio
+          (0, 0, 2) -> return $ Just RBDrums.D0
+          (1, 1, 2) -> return $ Just RBDrums.D1
+          (1, 2, 2) -> return $ Just RBDrums.D2
+          (2, 2, 2) -> return $ Just RBDrums.D3
+          (1, 0, 2) -> return $ Just RBDrums.D4
+          trio -> do
+            warn $ "Split drum kit audio will be mixed down due to a non-RB channel configuration: (kick,snare,kit) = " ++ show trio
+            return Nothing
         stereo = (([], [], [(-1, 0), (1, 0)]), RBDrums.D0)
         standardIndexes pans = \case
           []  -> []

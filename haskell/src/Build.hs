@@ -322,7 +322,7 @@ forceRW f = stackIO $ do
   p <- Dir.getPermissions f
   Dir.setPermissions f $ Dir.setOwnerReadable True $ Dir.setOwnerWritable True p
 
-makeRB3DTA :: (MonadIO m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 f -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
+makeRB3DTA :: (MonadIO m, SendMessage m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 f -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
 makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
   let thresh = 170 -- everything gets forced anyway
@@ -917,21 +917,35 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   _                            -> Nothing
             runAudio (clampIfSilent $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src) out
           writeKit gameParts tgt mid pad supportsOffMono planName plan fpart rank out = do
-            ((_, _, spec'), _) <- computeDrumsPart fpart plan songYaml
+            ((_, _, spec'), mixMode) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec (oggWavForPlan planName) (zip _pans _vols) $ do
-                guard $ rank /= 0
-                case HM.lookup fpart $ getParts _moggParts of
-                  Just (PartDrumKit _ _ kit) -> kit
-                  Just (PartSingle      kit) -> kit
-                  _                          -> []
-              Plan{..}     -> buildAudioToSpec yamlDir audioLib songYaml spec $ do
-                guard $ rank /= 0
-                case HM.lookup fpart $ getParts _planParts of
-                  Just (PartDrumKit _ _ kit) -> Just kit
-                  Just (PartSingle      kit) -> Just kit
-                  _                          -> Nothing
+              MoggPlan{..} -> let
+                build = channelsToSpec spec (oggWavForPlan planName) (zip _pans _vols)
+                indexSets = do
+                  guard $ rank /= 0
+                  case HM.lookup fpart $ getParts _moggParts of
+                    Just (PartDrumKit kick snare kit) -> case mixMode of
+                      RBDrums.D0 -> toList kick <> toList snare <> [kit]
+                      _          -> [kit]
+                    Just (PartSingle             kit) -> [kit]
+                    _                                 -> []
+                in mapM build indexSets >>= \case
+                  []     -> build []
+                  s : ss -> return $ foldr mix s ss
+              Plan{..}     -> let
+                build = buildAudioToSpec yamlDir audioLib songYaml spec
+                exprs = do
+                  guard $ rank /= 0
+                  case HM.lookup fpart $ getParts _planParts of
+                    Just (PartDrumKit kick snare kit) -> case mixMode of
+                      RBDrums.D0 -> toList kick <> toList snare <> [kit]
+                      _          -> [kit]
+                    Just (PartSingle             kit) -> [kit]
+                    _                                 -> []
+                in mapM (build . Just) exprs >>= \case
+                  []     -> build Nothing
+                  s : ss -> return $ foldr mix s ss
             runAudio (clampIfSilent $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src) out
           getPartSource :: (MonadResource m) => [(Double, Double)] -> T.Text -> Plan FilePath -> RBFile.FlexPartName -> Integer -> Staction (AudioSource m Float)
           getPartSource spec planName plan fpart rank = case plan of
