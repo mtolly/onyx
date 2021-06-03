@@ -42,6 +42,13 @@ plans:
           - only: [Keys 2, jammit-track]
           - only: [Vocal, jammit-track]
           - only: [B Vocals, jammit-track]
+  jammit-simple:
+    parts:
+      bass:
+        only: [Bass, jammit-track]
+    song:
+      mix:
+      - without: [bass, jammit-track]
 parts:
   drums:
     drums: # seil
@@ -51,6 +58,11 @@ parts:
     grybo: {} # onyxite
   bass:
     grybo: {} # seil
+    pro-guitar: # WIP
+      tuning:
+        base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
     grybo: {} # seil
   vocal:
@@ -60,5 +72,12 @@ parts:
 targets:
   rb3:
     game: rb3
+    plan: jammit
   ps:
     game: ps
+    plan: jammit
+  rs:
+    game: rs
+    plan: jammit-simple
+    arrangements:
+    - [bonus-rhythm, bass]

@@ -1,7 +1,12 @@
 metadata:
   title: Solar Groove
   artist: John Myung
+  album: Progressive Bass Concepts
   author: Onyxite
+  year: 1996
+  genre: prog
+  subgenre: progrock
+  file-album-art: cover.jpg
 audio:
   youtube:
     file-path: audio-youtube.wav

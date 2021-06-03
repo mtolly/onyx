@@ -6,6 +6,7 @@ metadata:
   comments:
   - "Timing and all instruments by Harmonix."
   - "Heavily edited drum chart (+ 2x Bass Pedal) by me."
+  - "Pro Bass (5-string) by me, from Hal Leonard Dream Theater Bass Play-Along Vol. 47."
   difficulty:
     rank: 445
 audio:
@@ -29,7 +30,8 @@ plans:
         - 3.477
         - drop: [10.201, album-track]
   mogg:
-    mogg-md5: 6d567a62087b53a3a93ad22df69f564f
+    # mogg-md5: 6d567a62087b53a3a93ad22df69f564f
+    file-mogg: onthebacksofangels.mogg
     pans: [-1.0,  1.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0]
     vols: [-5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -4.5, -4.5, -5.0, -5.0]
     parts:
@@ -51,11 +53,13 @@ parts:
     grybo:
       difficulty:
         rank: 450
-    pro-guitar: # TODO did 5-string bass chart, need to check and swap in
+    pro-guitar:
       difficulty:
         rank: 460
       tuning:
-        base: bass-4
+        base: bass-5
+      tones:
+        file-tone-base: dreaonth_bass.tone2014.xml # from Rocksmith ODLC
   guitar:
     grybo:
       difficulty:
@@ -96,3 +100,9 @@ targets:
     game: ps
     label: (O)
     plan: mogg
+  rs:
+    game: rs
+    label: (O)
+    plan: album
+    arrangements:
+    - [bonus-rhythm, bass]

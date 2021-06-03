@@ -258,6 +258,13 @@ plans:
         - jammit-game-vox
         - jammit-game-keys
         - jammit-bass
+  jammit-simple:
+    parts:
+      bass:
+        only: [Bass, jammit-track]
+    song:
+      mix:
+      - without: [bass, jammit-track]
   album:
     song:
       trim: [0.072, album-track]
@@ -275,6 +282,11 @@ parts:
   bass:
     grybo: # vpetrucci93, edited by onyxite
       difficulty: 4
+    pro-guitar: # WIP
+      tuning:
+        base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   vocal:
     vocal: # onyxite
       count: 3
@@ -309,3 +321,8 @@ targets:
   ps:
     game: ps
     plan: jammit
+  rs:
+    game: rs
+    plan: jammit-simple
+    arrangements:
+    - [bonus-rhythm, bass]

@@ -1,0 +1,64 @@
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: 2
+  guitar:
+    grybo:
+      difficulty: 7
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    file-mogg: audio.mogg
+targets:
+  rb3-2x:
+    game: rb3
+    song-id: 2057704214
+    2x-bass-pedal: true
+  ps:
+    game: ps
+    loading-phrase: I hope you warmed up your picking hand.
+  rs:
+    game: rs
+    label: (O)
+    arrangements:
+    - [bonus-rhythm, bass]
+metadata:
+  preview-start: 3:45.000
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 4
+  album: The Lucid Collective
+  year: 2014
+  subgenre: death
+  author: Xane60, 2DHumanity, theoogy70, Onyxite
+  title: Fathom Infinite Depth
+  preview-end: 4:15.000
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Archspire
+global:
+  anim-tempo: 32

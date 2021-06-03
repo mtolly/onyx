@@ -42,6 +42,7 @@ end
 # build songs-others/moochalacho/camel-dancefloor # needs 4-string
 # build songs/toe/last-night
 build songs-hmx/megadeth/hangar-18 # can't put on CF
+build songs/john-myung/solar-groove
 
 # phrases not done:
 
@@ -84,9 +85,11 @@ build songs-hmx/megadeth/hangar-18 # can't put on CF
 build songs-hmx/coheed-and-cambria/guns-of-summer
 # build songs/lady-antebellum/just-a-kiss
 # build songs-others/bloodline/spanish-bay
-build songs/dream-theater/the-great-debate
-build songs/dream-theater/lifting-shadows-off-a-dream
+# build songs/dream-theater/the-great-debate
+# build songs/dream-theater/lifting-shadows-off-a-dream
 # build songs/dream-theater/lie
+build songs-hmx/dream-theater/on-the-backs-of-angels # can't put on CF
+build songs-others/xane60/fathom-infinite-depth
 
 # phrases unknown:
 
