@@ -108,7 +108,7 @@ stripTags = let
   go s@(c:cs) = case mapMaybe (`stripPrefix` s) simple of
     [] -> case stripPrefix "<color=" s of
       Nothing -> case stripPrefix "<br>" s of
-        Nothing -> c : go cs
+        Nothing    -> c : go cs
         Just after -> '\n' : go after
       Just after -> case break (== '>') after of
         (_, '>' : after') -> go after'

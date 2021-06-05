@@ -325,12 +325,11 @@ importRB rbi level = do
       , _expertOnly   = fromMaybe False $ c3dtaExpertOnly $ rbiComments rbi
       , _cover        = not $ D.master pkg
       }
-    , _global = Global
+    , _global = def'
       { _animTempo = D.animTempo pkg
       , _fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
       , _fileSongAnim        = Nothing -- TODO actually extract this
-      , _autogenTheme        = Nothing
-      , _backgroundVideo     = Nothing
+      , _backgroundVideo = Nothing
       , _fileBackgroundImage = Nothing
       }
     , _audio = HM.empty

@@ -10,6 +10,7 @@ This code was written with the help of
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TupleSections     #-}
 module STFS.Package
 ( extractSTFS
 , getSTFSFolder
@@ -26,9 +27,10 @@ module STFS.Package
 , Header(..)
 , Metadata(..)
 , runGetM
+, makePack
 ) where
 
-import           Control.Monad                  (forM_, guard, replicateM,
+import           Control.Monad                  (forM, forM_, guard, replicateM,
                                                  unless, void)
 import           Control.Monad.Codec
 import           Control.Monad.IO.Class
@@ -45,12 +47,14 @@ import           Data.Bits
 import           Data.ByteArray                 (convert)
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Lazy           as BL
+import           Data.Either                    (lefts, rights)
 import           Data.Foldable                  (toList)
 import           Data.Int
 import           Data.IORef                     (newIORef, readIORef,
                                                  writeIORef)
+import           Data.List.Extra                (nubOrd)
 import qualified Data.Map                       as Map
-import           Data.Maybe                     (fromMaybe, isNothing)
+import           Data.Maybe                     (fromMaybe, isNothing, mapMaybe)
 import           Data.Profunctor                (dimap)
 import           Data.Sequence                  ((|>))
 import qualified Data.Sequence                  as Seq
@@ -60,8 +64,8 @@ import           Data.Text.Encoding
 import           Data.Time
 import qualified Data.Vector.Unboxed            as VU
 import           Data.Word
-import           Resources                      (rb2Thumbnail, rb3Thumbnail,
-                                                 xboxKV)
+import           Resources                      (gh2Thumbnail, rb2Thumbnail,
+                                                 rb3Thumbnail, xboxKV)
 import           System.IO
 
 class Bin a where
@@ -930,12 +934,12 @@ data CreateOptions = CreateOptions
   , createVersion       :: Int32
   , createBaseVersion   :: Int32
   , createTransferFlags :: Word8
-  , createLIVE          :: Bool -- TODO creating LIVE files doesn't work yet
+  , createLIVE          :: Bool
   }
 
 gh2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
 gh2pkg title desc dir fout = inside "making GH2 LIVE package" $ stackIO $ do
-  thumb <- rb3Thumbnail >>= B.readFile -- TODO replace with GH2 thumbnail
+  thumb <- gh2Thumbnail >>= B.readFile
   makeCON CreateOptions
     { createName = title
     , createDescription = desc
@@ -1205,3 +1209,45 @@ stfsFolder f = liftIO $ withBinaryFile f ReadMode $ \h -> do
   [a, b, c, d] <- map fromIntegral . B.unpack <$> B.hGet h 4
   let titleID = a * 0x1000000 + b * 0x10000 + c * 0x100 + d
   return (titleID, ftype)
+
+makePack :: [FilePath] -> (CreateOptions -> CreateOptions) -> FilePath -> IO ()
+makePack []                 _         _    = fail "Need at least 1 file for STFS pack"
+makePack inputs@(input : _) applyOpts fout = do
+  opts <- withSTFSPackage input $ \stfs -> return $ applyOpts CreateOptions
+    { createName          = "Package"
+    , createDescription   = ""
+    , createTitleID       = md_TitleID             $ stfsMetadata stfs
+    , createTitleName     = md_TitleName           $ stfsMetadata stfs
+    , createThumb         = md_TitleThumbnailImage $ stfsMetadata stfs -- use title thumb for package as well
+    , createTitleThumb    = md_TitleThumbnailImage $ stfsMetadata stfs
+    , createLicense       = LicenseEntry (-1) 1 0 -- unlocked
+    , createMediaID       = 0
+    , createVersion       = 0
+    , createBaseVersion   = 0
+    , createTransferFlags = 0xC0
+    , createLIVE          = case stfsHeader stfs of
+      CON{} -> False
+      _     -> True
+    }
+  roots <- forM inputs $ \f -> getSTFSFolder f >>= mapM (\r -> useHandle r handleToByteString)
+  let combineFolders parents folders = do
+        let allNames = nubOrd $ folders >>= \f -> map fst (folderSubfolders f) <> map fst (folderFiles f)
+        newContents <- forM allNames $ \name -> let
+          matchFolders = mapMaybe (lookup name . folderSubfolders) folders
+          matchFiles   = mapMaybe (lookup name . folderFiles     ) folders
+          in case (matchFolders, matchFiles) of
+            (_    , []   ) -> Left  . (name,) <$> combineFolders (name : parents) matchFolders
+            ([]   , _    ) -> Right . (name,) <$> combineFiles parents name matchFiles
+            (_ : _, _ : _) -> fail $ "Name refers to a folder in some input CON/LIVE, but a file in others: " <> T.unpack (showPath parents name)
+        return Folder
+          { folderSubfolders = lefts  newContents
+          , folderFiles      = rights newContents
+          }
+      combineFiles parents name contents = if ".dta" `T.isSuffixOf` name
+        then return $ BL.intercalate "\n" contents
+        else case contents of
+          [b] -> return b
+          _   -> fail $ "Multiple input CON/LIVE files contain: " <> T.unpack (showPath parents name)
+      showPath parents name = T.intercalate "/" $ reverse $ name : parents
+  merged <- combineFolders [] roots
+  makeCONMemory opts merged fout

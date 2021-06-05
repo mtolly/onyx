@@ -42,6 +42,9 @@ rb3Thumbnail = getResourcesPath "rb3.png"
 rb2Thumbnail :: IO FilePath
 rb2Thumbnail = getResourcesPath "rb2.png"
 
+gh2Thumbnail :: IO FilePath
+gh2Thumbnail = getResourcesPath "gh2.png"
+
 emptyMilo :: IO FilePath
 emptyMilo = getResourcesPath "empty.milo_xbox"
 

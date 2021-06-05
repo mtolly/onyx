@@ -4,7 +4,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
-module Build (shakeBuildFiles, shakeBuild, targetTitle, loadYaml, validFileName, hashRB3) where
+module Build (shakeBuildFiles, shakeBuild, targetTitle, loadYaml, validFileName, validFileNamePiece, hashRB3) where
 
 import           Audio
 import           AudioSearch

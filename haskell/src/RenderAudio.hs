@@ -24,7 +24,8 @@ import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
-                                                 Staction, fatal, inside, lg, warn)
+                                                 Staction, fatal, inside, lg,
+                                                 warn)
 import           Data.Char                      (toLower)
 import           Data.Conduit.Audio
 import           Data.Foldable                  (toList)

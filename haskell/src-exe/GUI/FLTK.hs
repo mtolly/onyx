@@ -13,7 +13,8 @@ import           Audio                                     (Audio (..),
                                                             runAudio)
 import           Build                                     (hashRB3,
                                                             targetTitle,
-                                                            validFileName)
+                                                            validFileName,
+                                                            validFileNamePiece)
 import           Codec.Picture                             (readImage,
                                                             savePngImage,
                                                             writePng)
@@ -116,7 +117,7 @@ import           MoggDecrypt                               (oggToMogg)
 import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
 import qualified Network.Socket                            as Socket
-import           Numeric                                   (readHex)
+import           Numeric                                   (readHex, showHex)
 import           OpenProject
 import           OSFiles                                   (commonDir,
                                                             osOpenFile,
@@ -149,6 +150,7 @@ import           RockBand.SongCache                        (hardcodeSongCacheIDs
 import           RockBand3                                 (BasicTiming (..))
 import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.Util                           as U
+import qualified STFS.Package                              as STFS
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (dropExtension,
                                                             takeDirectory,
@@ -2344,12 +2346,12 @@ batchPageRB3 sink rect tab build = do
 templateApplyInput :: Project -> Maybe (Target FilePath) -> T.Text -> T.Text
 templateApplyInput proj mtgt txt = T.pack $ validFileName Nothing $ T.unpack $ foldr ($) txt
   [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
-  , T.intercalate (T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
-  , T.intercalate title . T.splitOn "%title%"
-  , T.intercalate (getArtist $ _metadata $ projectSongYaml proj) . T.splitOn "%artist%"
-  , T.intercalate (getAlbum $ _metadata $ projectSongYaml proj) . T.splitOn "%album%"
-  , T.intercalate (getAuthor $ _metadata $ projectSongYaml proj) . T.splitOn "%author%"
-  , T.intercalate songID . T.splitOn "%song_id%"
+  , T.intercalate (validFileNamePiece Nothing $ T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
+  , T.intercalate (validFileNamePiece Nothing title) . T.splitOn "%title%"
+  , T.intercalate (validFileNamePiece Nothing $ getArtist $ _metadata $ projectSongYaml proj) . T.splitOn "%artist%"
+  , T.intercalate (validFileNamePiece Nothing $ getAlbum $ _metadata $ projectSongYaml proj) . T.splitOn "%album%"
+  , T.intercalate (validFileNamePiece Nothing $ getAuthor $ _metadata $ projectSongYaml proj) . T.splitOn "%author%"
+  , T.intercalate (validFileNamePiece Nothing songID) . T.splitOn "%song_id%"
   ] where
     title = case mtgt of
       Nothing  -> getTitle $ _metadata $ projectSongYaml proj
@@ -2575,6 +2577,21 @@ getAudioSpec f = Exc.try (Snd.getFileInfo f) >>= \case
       Snd.HeaderFormatOgg  -> withFormat "Ogg Vorbis"
       Snd.HeaderFormatFlac -> withFormat "FLAC"
       _                    -> return Nothing
+
+data STFSSpec = STFSSpec
+  { stfsPath :: FilePath
+  , stfsMeta :: STFS.Metadata
+  }
+
+getSTFSSpec :: FilePath -> IO (Maybe STFSSpec)
+getSTFSSpec f = Exc.try (STFS.withSTFSPackage f $ return . STFS.stfsMetadata) >>= \case
+  Left e -> let
+    _ = e :: Exc.IOException
+    in return Nothing
+  Right meta -> return $ Just STFSSpec
+    { stfsPath = f
+    , stfsMeta = meta
+    }
 
 miscPageMilo
   :: (Event -> IO ())
@@ -3054,6 +3071,71 @@ miscPageBlack sink rect tab startTasks = do
       f <- files
       return (f, blackVenue f >> return [f])
 
+miscPagePacks
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPagePacks sink rect tab startTasks = mdo
+  loadedSTFS <- newMVar []
+  let (filesRect, startRect) = chopBottom 50 rect
+      [chopRight 5 -> (conRect, _), chopLeft 5 -> (_, liveRect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
+      modifyButtons :: ([STFSSpec] -> IO [STFSSpec]) -> IO ()
+      modifyButtons f = do
+        newSTFS <- modifyMVar loadedSTFS $ \stfs -> (\x -> (x, x)) <$> f stfs
+        sink $ EventIO $ do
+          if length newSTFS == 0
+            then mapM_ FL.deactivate [btnCON, btnLIVE]
+            else mapM_ FL.activate   [btnCON, btnLIVE]
+  group <- fileLoadWindow filesRect sink "CON/LIVE" "CON/LIVE" modifyButtons []
+    (\f -> liftIO $ Dir.doesDirectoryExist f >>= \case
+      True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+      False -> (\mspec -> ([], toList mspec)) <$> getSTFSSpec f
+    )
+    $ \info -> let
+      entry = T.pack $ stfsPath info
+      sublines = concat
+        [ take 1 $ STFS.md_DisplayName $ stfsMeta info
+        , return $ T.unwords
+          [ "Game:"
+          , STFS.md_TitleName $ stfsMeta info
+          , "(" <> T.toUpper (T.pack $ showHex (STFS.md_TitleID $ stfsMeta info) "") <> ")"
+          ]
+        ]
+      in (entry, sublines)
+
+  let doPrompt isLIVE = sink $ EventIO $ do
+        stfs <- readMVar loadedSTFS
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+        FL.setTitle picker "Save STFS file"
+        case stfs of
+          f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory $ stfsPath f
+          _     -> return ()
+        FL.showWidget picker >>= \case
+          FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+            Nothing -> return ()
+            Just f  -> sink $ EventOnyx $ startTasks $ let
+              task = do
+                -- TODO add fields for package title/description
+                let applyOpts o = o
+                      { STFS.createLIVE = isLIVE
+                      }
+                stackIO $ STFS.makePack (map stfsPath stfs) applyOpts f
+                return [f]
+              in [("STFS file creation", task)]
+          _ -> return ()
+
+  btnCON <- FL.buttonNew conRect $ Just "Make CON pack"
+  taskColor >>= FL.setColor btnCON
+  FL.setResizable tab $ Just group
+  FL.setCallback btnCON $ \_ -> doPrompt False
+
+  btnLIVE <- FL.buttonNew liveRect $ Just "Make LIVE pack"
+  taskColor >>= FL.setColor btnLIVE
+  FL.setResizable tab $ Just group
+  FL.setCallback btnLIVE $ \_ -> doPrompt True
+
 miscPageMOGG
   :: (Event -> IO ())
   -> Rectangle
@@ -3343,9 +3425,13 @@ launchMisc sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       miscPageMIDI sink rect tab startTasks
       return tab
-    , makeTab windowRect "MOGG/VGS creator" $ \rect tab -> do
+    , makeTab windowRect "Make MOGG/VGS" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageMOGG sink rect tab startTasks
+      return tab
+    , makeTab windowRect "Make a pack" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      miscPagePacks sink rect tab startTasks
       return tab
     , makeTab windowRect "Lipsync" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

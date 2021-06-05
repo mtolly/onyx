@@ -74,11 +74,9 @@ importGH5WoR folder = do
               , _album = Just $ songAlbumTitle info
               , _fileAlbumArt = Nothing
               }
-            , _global = Global
+            , _global = def'
               { _fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
               , _fileSongAnim = Nothing
-              , _autogenTheme = Nothing
-              , _animTempo = _animTempo def'
               , _backgroundVideo = Nothing
               , _fileBackgroundImage = Nothing
               }

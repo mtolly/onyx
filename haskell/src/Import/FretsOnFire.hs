@@ -712,7 +712,7 @@ fixShortVoxPhrases song@(RBFile.Song tmap mmap ps)
 loadFoFMIDI :: (SendMessage m, MonadIO m, RBFile.ParseFile f) => FoF.Song -> FilePath -> StackTraceT m (RBFile.Song (f U.Beats))
 loadFoFMIDI ini fp = do
   mid <- RBFile.loadRawMIDI fp
-  let isGtrTrack trk = U.trackName trk `elem` map Just ["PART GUITAR", "PART BASS", "PART RHYTHM", "T1 GEMS"]
+  let isGtrTrack trk = U.trackName trk `elem` map Just ["PART GUITAR", "PART BASS", "PART RHYTHM", "PART GUITAR COOP", "T1 GEMS"]
       midGH = case mid of
         F.Cons typ dvn trks -> F.Cons typ dvn $ flip map trks $ \trk -> if isGtrTrack trk
           then flip RTB.mapMaybe trk $ \e -> case isNoteEdgeCPV e of

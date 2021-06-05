@@ -490,11 +490,9 @@ importRSSong folder song level = do
         ((slot, partName), _, _, _, _, _) <- namedParts
         return (slot, partName)
       }
-    , _global = Global
+    , _global = def'
       { _fileMidi            = SoftFile "notes.mid" $ SoftChart midi
-      , _animTempo           = _animTempo def'
       , _fileSongAnim        = Nothing
-      , _autogenTheme        = Nothing
       , _backgroundVideo     = Nothing
       , _fileBackgroundImage = Nothing
       }

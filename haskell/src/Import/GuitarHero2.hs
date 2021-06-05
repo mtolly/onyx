@@ -147,11 +147,9 @@ importGH2Song mode pkg gen level = do
       , _cover = caption pkg /= Just "performed_by"
       , _fileAlbumArt = Nothing
       }
-    , _global = Global
+    , _global = def'
       { _fileMidi            = SoftFile "notes.mid" $ SoftChart convmid
-      , _animTempo           = _animTempo def'
       , _fileSongAnim        = Nothing
-      , _autogenTheme        = Nothing
       , _backgroundVideo     = Nothing
       , _fileBackgroundImage = Nothing
       }

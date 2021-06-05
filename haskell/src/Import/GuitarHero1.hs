@@ -111,11 +111,9 @@ importGH1Song pkg gen level = do
       , _cover = False -- TODO this doesn't appear to be in songs.dta, where is it?
       , _fileAlbumArt = Nothing
       }
-    , _global = Global
+    , _global = def'
       { _fileMidi            = SoftFile "notes.mid" $ SoftChart convmid
-      , _animTempo           = _animTempo def'
       , _fileSongAnim        = Nothing
-      , _autogenTheme        = Nothing
       , _backgroundVideo     = Nothing
       , _fileBackgroundImage = Nothing
       }
