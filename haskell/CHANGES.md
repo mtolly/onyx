@@ -1,5 +1,15 @@
 # Version history
 
+## 20210606
+
+* New tool for combining RB or GH2 Xbox 360 files into packs
+* Fix game thumbnail of GH2 Xbox 360 files
+* GH2 output picks a random GH2 character/guitar/venue for quickplay
+* Fix Rock Band VENUE tracks always being replaced with a black background
+* Fix invalid filenames caused by slash or backslash in song metadata
+* Mix down drum stem configurations not supported by RB instead of failing
+* Fix importing songs containing non-Latin-1 characters on Windows
+
 ## 20210530
 
 * Fix Dolphin conversion that broke in `20210522`

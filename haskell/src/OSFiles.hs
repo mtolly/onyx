@@ -2,7 +2,7 @@
 {-# LANGUAGE LambdaCase   #-}
 {-# LANGUAGE ViewPatterns #-}
 -- | OS-specific functions to open and show files.
-module OSFiles (osOpenFile, osShowFolder, commonDir, fixFileCase, copyDirRecursive) where
+module OSFiles (osOpenFile, osShowFolder, commonDir, fixFileCase, copyDirRecursive, shortWindowsPath) where
 
 import           Control.Monad            (forM_)
 import           Control.Monad.IO.Class   (MonadIO (..))
@@ -14,6 +14,7 @@ import           Foreign                  (Ptr, nullPtr, ptrToIntPtr,
 import           Foreign.C                (CInt (..), CWString, withCWString)
 import           Graphics.Win32.GDI.Types (HWND)
 import           System.Win32.Types       (HINSTANCE, INT, LPCWSTR)
+import           System.Win32.Info        (getShortPathName)
 #else
 import           System.Process           (callProcess)
 #ifdef MACOSX
@@ -56,6 +57,9 @@ commonDir fs = do
 -- | On case-sensitive systems, finds a file in a case-insensitive manner.
 fixFileCase :: (MonadIO m) => FilePath -> m FilePath
 
+-- | On Windows, get a DOS short path so Unixy C code can deal with it.
+shortWindowsPath :: (MonadIO m) => FilePath -> m FilePath
+
 #ifdef WINDOWS
 
 -- TODO this should be ccall on 64-bit, see Win32 package
@@ -81,6 +85,9 @@ osShowFolder dir fs = liftIO $
 
 fixFileCase = return
 
+shortWindowsPath f = liftIO $ getShortPathName $ "\\\\?\\" <> f
+-- the weird prefix lets you go beyond MAX_PATH
+
 #else
 
 #ifdef MACOSX
@@ -97,6 +104,8 @@ osShowFolder _   fs = do
       c_ShowFiles pcstrs $ fromIntegral len
 
 fixFileCase = return
+
+shortWindowsPath = return
 
 #else
 
@@ -127,6 +136,8 @@ fixFileCaseMaybe (dropTrailingPathSeparator -> f) = liftIO $ do
           case filter ((== entry') . compForm) entries of
             []    -> return Nothing
             e : _ -> return $ Just $ dir' </> e
+
+shortWindowsPath = return
 
 #endif
 

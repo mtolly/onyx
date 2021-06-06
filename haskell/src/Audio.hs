@@ -82,6 +82,7 @@ import           GuitarHeroII.Audio               (readVGS)
 import           MoggDecrypt                      (sourceVorbisFile)
 import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Wrapper      as NN
+import           OSFiles                          (shortWindowsPath)
 import           Preferences
 import           RockBand.Common                  (pattern RNil, pattern Wait)
 import           SndfileExtra
@@ -549,12 +550,12 @@ audioMD5 f = liftIO $ case takeExtension f of
 
 audioLength :: (MonadIO m) => FilePath -> m (Maybe Integer)
 audioLength f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
-  then liftIO $ Just . fromIntegral . Snd.frames <$> Snd.getFileInfo f
+  then liftIO $ Just . fromIntegral . Snd.frames <$> (shortWindowsPath f >>= Snd.getFileInfo)
   else return Nothing -- TODO mp3
 
 audioChannels :: (MonadIO m) => FilePath -> m (Maybe Int)
 audioChannels f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
-  then liftIO $ Just . Snd.channels <$> Snd.getFileInfo f
+  then liftIO $ Just . Snd.channels <$> (shortWindowsPath f >>= Snd.getFileInfo)
   else case takeExtension f of
     ".mp3" -> do
       src <- liftIO $ sourceMpg f
@@ -567,12 +568,12 @@ audioChannels f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
 
 audioRate :: (MonadIO m) => FilePath -> m (Maybe Int)
 audioRate f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
-  then liftIO $ Just . Snd.samplerate <$> Snd.getFileInfo f
+  then liftIO $ Just . Snd.samplerate <$> (shortWindowsPath f >>= Snd.getFileInfo)
   else return Nothing -- TODO mp3
 
 audioSeconds :: (MonadIO m) => FilePath -> m U.Seconds
 audioSeconds f = do
-  info <- liftIO $ Snd.getFileInfo f
+  info <- liftIO $ shortWindowsPath f >>= Snd.getFileInfo
   return $ realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info)
 
 -- | Applies Rock Band's pan and volume lists
