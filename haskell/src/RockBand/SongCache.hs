@@ -16,8 +16,9 @@ import qualified Data.HashMap.Strict            as HM
 import           Data.List.Extra                (elemIndex, nubOrd, sort)
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe                     (fromMaybe, listToMaybe)
-import           Data.SimpleHandle              (Folder (..), findByteString,
-                                                 handleToByteString, useHandle)
+import           Data.SimpleHandle              (Folder (..),
+                                                 byteStringSimpleHandle,
+                                                 findByteString, makeHandle)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import           PrettyDTA
@@ -469,10 +470,11 @@ hardcodeSongCacheIDs pathCache pathCONs = do
           newDTABytes = TE.encodeUtf8 $ T.unlines $ map writeDTASingle songsUTF8
           updateFolder folder = do
             newFiles <- forM (folderFiles folder) $ \(name, readable) -> do
-              bs <- if name == "songs.dta"
-                then return $ BL.fromStrict newDTABytes
-                else useHandle readable handleToByteString
-              return (name, bs)
+              let r = if name == "songs.dta"
+                    then makeHandle "songs.dta updated with new ID"
+                      $ byteStringSimpleHandle $ BL.fromStrict newDTABytes
+                    else readable
+              return (name, r)
             newSubs <- forM (folderSubfolders folder) $ \(name, sub) -> do
               sub' <- updateFolder sub
               return (name, sub')
@@ -496,5 +498,5 @@ hardcodeSongCacheIDs pathCache pathCONs = do
             }
           in stackIO $ do
             topFolder' <- updateFolder topFolder
-            makeCONMemory opts topFolder' fullPathCON
+            makeCONReadable opts topFolder' fullPathCON
       _ -> warn "Does not appear to be a CON file"

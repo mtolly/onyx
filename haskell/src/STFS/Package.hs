@@ -19,6 +19,7 @@ module STFS.Package
 , gh2pkg
 , makeCON
 , makeCONMemory
+, makeCONReadable
 , CreateOptions(..)
 , stfsFolder
 , withSTFSPackage
@@ -901,11 +902,30 @@ loadKVbinLIVE = let
 --   return (size, blocks)
 
 -- parent index, name, maybe (length, data blocks)
-type BlocksPlan = [(Int, T.Text, Maybe (Integer, [B.ByteString]))]
+type BlocksPlan = [(Int, T.Text, Maybe (Integer, IO [B.ByteString]))]
 
 traverseFolder :: FilePath -> IO BlocksPlan
-traverseFolder top = traverseMemory <$> do
-  crawlFolder top >>= traverse (\h -> useHandle h handleToByteString)
+traverseFolder top = crawlFolder top >>= traverseReadable
+
+traverseReadable :: Folder T.Text Readable -> IO BlocksPlan
+traverseReadable top = toList <$> execStateT (go (-1) top) Seq.empty where
+  go parentIndex folder = do
+    forM_ (folderSubfolders folder) $ \(f, sub) -> do
+      thisIndex <- gets Seq.length
+      modify (|> (parentIndex, f, Nothing))
+      go thisIndex sub
+    forM_ (folderFiles folder) $ \(f, r) -> do
+      lenBlocks <- splitIntoBlocks r
+      modify (|> (parentIndex, f, Just lenBlocks))
+  splitIntoBlocks r = do
+    len <- liftIO $ useHandle r hFileSize
+    let continueSplit bs = if BL.null bs
+          then []
+          else let
+            (h, t) = BL.splitAt 0x1000 bs
+            in BL.toStrict h : continueSplit t
+        getBlocks = continueSplit <$> useHandle r handleToByteString
+    return (len, getBlocks)
 
 traverseMemory :: Folder T.Text BL.ByteString -> BlocksPlan
 traverseMemory top = toList $ execState (go (-1) top) Seq.empty where
@@ -915,7 +935,7 @@ traverseMemory top = toList $ execState (go (-1) top) Seq.empty where
       modify (|> (parentIndex, f, Nothing))
       go thisIndex sub
     forM_ (folderFiles folder) $ \(f, bs) -> do
-      modify (|> (parentIndex, f, Just (fromIntegral $ BL.length bs, splitIntoBlocks bs)))
+      modify (|> (parentIndex, f, Just (fromIntegral $ BL.length bs, return $ splitIntoBlocks bs)))
   splitIntoBlocks bs = if BL.null bs
     then []
     else let
@@ -999,6 +1019,9 @@ makeCON opts dir con = do
 makeCONMemory :: CreateOptions -> Folder T.Text BL.ByteString -> FilePath -> IO ()
 makeCONMemory opts mem con = makeCONGeneral opts (traverseMemory mem) con
 
+makeCONReadable :: CreateOptions -> Folder T.Text Readable -> FilePath -> IO ()
+makeCONReadable opts mem con = traverseReadable mem >>= \plan -> makeCONGeneral opts plan con
+
 makeCONGeneral :: CreateOptions -> BlocksPlan -> FilePath -> IO ()
 makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
   hSetFileSize fd 0
@@ -1007,8 +1030,9 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
   -- and then we need one at the end for the final (null) entry
   let listBlocks = ((length fileList + 1) `quot` 64) + 1
       totalBlocks = sum $ listBlocks : do
-        (_, _, Just (_, blocks)) <- fileList
-        return $ length blocks
+        (_, _, Just (size, _)) <- fileList
+        return $ fileSizeToBlocks size
+      fileSizeToBlocks fileSize = fromIntegral $ div (fileSize - 1) 0x1000 + 1
 
   let metadata = Metadata
         { md_LicenseEntries = take 0x10
@@ -1097,7 +1121,7 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
         , fe_AccessTimestamp = timestamp
         }
       makeFileEntries used ((parent, name, blocks) : rest) = let
-        thisBlocks = maybe 0 (fromIntegral . length . snd) blocks
+        thisBlocks = maybe 0 (fileSizeToBlocks . fst) blocks
         in FileEntry
           { fe_FileName        = name
           , fe_Consecutive     = False
@@ -1145,7 +1169,8 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
 
       writeFiles _ [] = return ()
       writeFiles n ((_, _, Nothing) : rest) = writeFiles n rest
-      writeFiles n ((_, _, Just (_size, blocks)) : rest) = do
+      writeFiles n ((_, _, Just (_size, getBlocks)) : rest) = do
+        blocks <- getBlocks
         forM_ (addHasNext $ zip [n..] blocks) $ \((n', block), hasNext) -> do
           writeFileBlock n' hasNext $ BL.fromStrict block
         writeFiles (n + fromIntegral (length blocks)) rest
@@ -1229,7 +1254,7 @@ makePack inputs@(input : _) applyOpts fout = do
       CON{} -> False
       _     -> True
     }
-  roots <- forM inputs $ \f -> getSTFSFolder f >>= mapM (\r -> useHandle r handleToByteString)
+  roots <- mapM getSTFSFolder inputs
   let combineFolders parents folders = do
         let allNames = nubOrd $ folders >>= \f -> map fst (folderSubfolders f) <> map fst (folderFiles f)
         newContents <- forM allNames $ \name -> let
@@ -1238,16 +1263,19 @@ makePack inputs@(input : _) applyOpts fout = do
           in case (matchFolders, matchFiles) of
             (_    , []   ) -> Left  . (name,) <$> combineFolders (name : parents) matchFolders
             ([]   , _    ) -> Right . (name,) <$> combineFiles parents name matchFiles
-            (_ : _, _ : _) -> fail $ "Name refers to a folder in some input CON/LIVE, but a file in others: " <> T.unpack (showPath parents name)
+            (_ : _, _ : _) -> fail $ "Name refers to a folder in some input CON/LIVE, but a file in others: " <> showPath parents name
         return Folder
           { folderSubfolders = lefts  newContents
           , folderFiles      = rights newContents
           }
       combineFiles parents name contents = if ".dta" `T.isSuffixOf` name
-        then return $ BL.intercalate "\n" contents
+        then do
+          bytes <- forM contents $ \r -> useHandle r handleToByteString
+          return $ makeHandle ("Pack-merged contents for " <> showPath parents name)
+            $ byteStringSimpleHandle $ BL.intercalate "\n" bytes
         else case contents of
-          [b] -> return b
-          _   -> fail $ "Multiple input CON/LIVE files contain: " <> T.unpack (showPath parents name)
-      showPath parents name = T.intercalate "/" $ reverse $ name : parents
+          [r] -> return r
+          _   -> fail $ "Multiple input CON/LIVE files contain: " <> showPath parents name
+      showPath parents name = T.unpack $ T.intercalate "/" $ reverse $ name : parents
   merged <- combineFolders [] roots
-  makeCONMemory opts merged fout
+  makeCONReadable opts merged fout

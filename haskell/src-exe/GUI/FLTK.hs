@@ -77,7 +77,7 @@ import           Data.Int                                  (Int64)
 import           Data.IORef                                (IORef, modifyIORef,
                                                             newIORef, readIORef,
                                                             writeIORef)
-import           Data.List.Extra                           (findIndex)
+import           Data.List.Extra                           (findIndex, nubOrd)
 import qualified Data.Map                                  as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
@@ -3046,30 +3046,23 @@ miscPageBlack sink rect tab startTasks = do
   loadedFiles <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
       startRect' = trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink "Song" "Songs" (modifyMVar_ loadedFiles) [] findSongs $ \imp -> let
-    entry = T.concat
-      [ fromMaybe "Untitled" $ impTitle imp
-      , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
-      ]
-    sublines = concat
-      [ case impAuthor imp of
-        Just author | T.any (not . isSpace) author -> ["Author: " <> author]
-        _                                          -> []
-      , ["Format: " <> impFormat imp]
-      , ["Path: " <> T.pack (impPath imp) <> index]
-      ]
-    index = case impIndex imp of
-      Nothing -> ""
-      Just i  -> T.pack $ " (#" <> show i <> ")"
+  group <- fileLoadWindow filesRect sink "Song" "Songs" (modifyMVar_ loadedFiles) [] searchSTFS $ \info -> let
+    entry = T.pack $ stfsPath info
+    sublines = take 1 $ STFS.md_DisplayName $ stfsMeta info
     in (entry, sublines)
   btn <- FL.buttonNew startRect' $ Just "Modify CON files"
   taskColor >>= FL.setColor btn
   FL.setResizable tab $ Just group
   FL.setCallback btn $ \_ -> sink $ EventIO $ do
-    files <- map impPath <$> readMVar loadedFiles
+    files <- map stfsPath <$> readMVar loadedFiles
     sink $ EventOnyx $ startTasks $ do
       f <- files
       return (f, blackVenue f >> return [f])
+
+searchSTFS :: FilePath -> Onyx ([FilePath], [STFSSpec])
+searchSTFS f = stackIO $ Dir.doesDirectoryExist f >>= \case
+  True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+  False -> (\mspec -> ([], toList mspec)) <$> getSTFSSpec f
 
 miscPagePacks
   :: (Event -> IO ())
@@ -3079,7 +3072,10 @@ miscPagePacks
   -> IO ()
 miscPagePacks sink rect tab startTasks = mdo
   loadedSTFS <- newMVar []
-  let (filesRect, startRect) = chopBottom 50 rect
+  let (filesRect, bottomRect) = chopBottom 140 rect
+      (metaRect, startRect) = chopBottom 50 bottomRect
+      (trimClock 0 5 5 10 -> gameRect, chopLeft 100 -> (_, nameDescRect)) = chopLeft 250 metaRect
+      [trimClock 0 10 5 5 -> nameRect, trimClock 0 10 5 5 -> descRect] = splitVertN 2 nameDescRect
       [chopRight 5 -> (conRect, _), chopLeft 5 -> (_, liveRect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
       modifyButtons :: ([STFSSpec] -> IO [STFSSpec]) -> IO ()
       modifyButtons f = do
@@ -3088,11 +3084,14 @@ miscPagePacks sink rect tab startTasks = mdo
           if length newSTFS == 0
             then mapM_ FL.deactivate [btnCON, btnLIVE]
             else mapM_ FL.activate   [btnCON, btnLIVE]
-  group <- fileLoadWindow filesRect sink "CON/LIVE" "CON/LIVE" modifyButtons []
-    (\f -> liftIO $ Dir.doesDirectoryExist f >>= \case
-      True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
-      False -> (\mspec -> ([], toList mspec)) <$> getSTFSSpec f
-    )
+          FL.setLabel gameBox $ case newSTFS of
+            info : _ -> T.unlines
+              [ "Game (from first in list):"
+              , STFS.md_TitleName $ stfsMeta info
+              , "(" <> T.toUpper (T.pack $ showHex (STFS.md_TitleID $ stfsMeta info) "") <> ")"
+              ]
+            []       -> ""
+  group <- fileLoadWindow filesRect sink "CON/LIVE" "CON/LIVE" modifyButtons [] searchSTFS
     $ \info -> let
       entry = T.pack $ stfsPath info
       sublines = concat
@@ -3117,14 +3116,28 @@ miscPagePacks sink rect tab startTasks = mdo
             Nothing -> return ()
             Just f  -> sink $ EventOnyx $ startTasks $ let
               task = do
-                -- TODO add fields for package title/description
+                packName <- stackIO $ FL.getValue nameInput
+                packDesc <- stackIO $ FL.getValue descInput
                 let applyOpts o = o
-                      { STFS.createLIVE = isLIVE
+                      { STFS.createName        = packName
+                      , STFS.createDescription = packDesc
+                      , STFS.createLIVE        = isLIVE
                       }
                 stackIO $ STFS.makePack (map stfsPath stfs) applyOpts f
                 return [f]
               in [("STFS file creation", task)]
           _ -> return ()
+
+  gameBox <- FL.boxNew gameRect Nothing
+
+  nameInput <- liftIO $ FL.inputNew
+    nameRect
+    (Just "Pack name")
+    (Just FL.FlNormalInput) -- required for labels to work
+  descInput <- liftIO $ FL.inputNew
+    descRect
+    (Just "Pack description")
+    (Just FL.FlNormalInput) -- required for labels to work
 
   btnCON <- FL.buttonNew conRect $ Just "Make CON pack"
   taskColor >>= FL.setColor btnCON
@@ -3408,7 +3421,7 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
 launchMisc :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
 launchMisc sink makeMenuBar = mdo
   let windowWidth = Width 900
-      windowHeight = Height 400
+      windowHeight = Height 600
       windowSize = Size windowWidth windowHeight
   window <- FL.windowNew windowSize Nothing $ Just "Tools"
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
@@ -3441,7 +3454,7 @@ launchMisc sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       miscPageDryVox sink rect tab startTasks
       return tab
-    , makeTab windowRect ".milo functions" $ \rect tab -> do
+    , makeTab windowRect ".milo" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageMilo sink rect tab startTasks
       return tab
@@ -4019,8 +4032,9 @@ launchBatch sink makeMenuBar startFiles = mdo
       batchPageDolphin sink rect tab $ \dirout midfn preview -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         -- TODO make this better instead of matching the string. had a bug in 20210522 due to mismatch
+        -- TODO also should add support for song indices, to select individual songs from packs
         let task = case filter ((/= "Rock Band (Xbox 360 CON/LIVE)") . impFormat) files of
-              []   -> runDolphin (map impPath files) midfn preview dirout
+              []   -> runDolphin (nubOrd $ map impPath files) midfn preview dirout
               imps -> fatal $ unlines
                 $ "Dolphin conversion currently only supports STFS files. The following files should be converted first:"
                 : map impPath imps
