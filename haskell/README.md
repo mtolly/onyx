@@ -280,6 +280,11 @@ compilation errors.
       * Create a DLC LIVE file for GH2 for Xbox 360. This requires an RGH or
         JTAG console to load.
 
+        NOTE: GH2 is only able to load 16 individual DLC package files. Trying
+        to load more than 16 will not only fail to load the ones past 16, but
+        the game will corrupt your save data when saving. To avoid this, please
+        use the pack creator in "Other tools" to combine songs before playing.
+
     PS2 songs have been tested with standard GH2, as well as Guitar Hero II
     Deluxe.
 
@@ -373,6 +378,27 @@ compilation errors.
 
     As a special case, if you provide a single OGG file and convert to MOGG, it
     will not be reencoded, but will go straight into the MOGG.
+
+  * Pack creator
+
+    Combines Xbox 360 CON/LIVE files into packages containing multiple songs.
+    Works with both Rock Band, and Guitar Hero II.
+
+    Packs are useful for RB songs because they can load faster on game launch.
+    For GH2, they are required due to a hard limit of 16 total package files.
+
+    To use, drag in the existing files to be combined, give the package a name
+    to identify it, and click the appropriate button below: CON packs for
+    RB2 or RB3 (TU4 or RB3 Enhanced), LIVE packs for GH2.
+
+    All files from the inputs are combined into one tree for the package.
+    If more than one input contains the same file:
+
+      * If the file ends in `.dta`, the contents are combined into one file.
+      * Otherwise, an error is raised.
+
+    The game information (name, title ID, thumbnail) are taken from the first
+    input package in the list.
 
   * Lipsync file generation
 

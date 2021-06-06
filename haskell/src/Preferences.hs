@@ -32,6 +32,7 @@ data Preferences = Preferences
   , prefAudioDirs  :: [FilePath]
   , prefOGGQuality :: Double
   , prefGH2Offset  :: Double -- in seconds
+  , prefWarnedXbox :: Bool
   }
 
 instance StackJSON Preferences where
@@ -51,6 +52,7 @@ instance StackJSON Preferences where
     prefAudioDirs  <- prefAudioDirs  =. opt  []           "audio-dirs"   stackJSON
     prefOGGQuality <- prefOGGQuality =. fill 0.5          "ogg-quality"  stackJSON
     prefGH2Offset  <- prefGH2Offset  =. fill 0            "gh2-offset"   stackJSON
+    prefWarnedXbox <- prefWarnedXbox =. opt  False        "warned-xbox"  stackJSON
     return Preferences{..}
 
 instance Default Preferences where

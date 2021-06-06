@@ -6,6 +6,7 @@ module GuitarHeroII.Convert where
 
 import           Config
 import           Control.Monad                    (guard, void)
+import           Control.Monad.Random             (evalRand, mkStdGen)
 import           Control.Monad.Trans.StackTrace
 import           Data.Bifunctor                   (bimap)
 import qualified Data.DTA.Serialize               as D
@@ -14,6 +15,7 @@ import qualified Data.DTA.Serialize.Magma         as Magma
 import           Data.DTA.Serialize.RB3           (AnimTempo (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Hashable                    (hash)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing)
 import qualified Data.Text                        as T
@@ -337,7 +339,7 @@ makeGH2DTA song key preview target audio title = D.SongPackage
     }
   , D.animTempo = KTempoMedium
   , D.preview = bimap fromIntegral fromIntegral preview
-  , D.quickplay = gh2_Quickplay target
+  , D.quickplay = evalRand D.randomQuickplay $ mkStdGen $ hash key
   , D.practiceSpeeds = Just [100, 90, 75, 60]
   , D.songCoop = Nothing
   , D.songPractice1 = Just $ prac 90
@@ -390,7 +392,7 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
     }
   , D.animTempo = KTempoMedium
   , D.preview = bimap fromIntegral fromIntegral preview
-  , D.quickplay = gh2_Quickplay target
+  , D.quickplay = evalRand D.randomQuickplay $ mkStdGen $ hash key
   , D.practiceSpeeds = Nothing
   , D.songCoop = Nothing
   , D.songPractice1 = Nothing

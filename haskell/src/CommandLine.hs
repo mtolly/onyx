@@ -537,20 +537,16 @@ commands =
       [dir] -> stackIO (Dir.doesDirectoryExist dir) >>= \case
         True -> do
           let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
-          pkg <- case game of
-            GameRB3  -> return rb3pkg
-            GameRB2  -> return rb2pkg
+          (pkg, suffix) <- case game of
+            GameRB3  -> return (rb3pkg, "_rb3con")
+            GameRB2  -> return (rb2pkg, "_rb2con")
+            GameGH2  -> return (gh2pkg, "_gh2live")
             GameTBRB -> fatal "TBRB unsupported as game for stfs command"
           stfs <- outputFile opts
-            $   dropTrailingPathSeparator
+            $ (<> suffix) . dropTrailingPathSeparator
             <$> stackIO (Dir.makeAbsolute dir)
           (title, desc) <- getInfoForSTFS dir stfs
-          tempDir "onyx_stfs" $ \tmp -> do
-            -- because X360 fails if the files aren't writable,
-            -- as a hack we copy everything to a new dir,
-            -- and force r/w permissions (see copyDirRecursive)
-            copyDirRecursive dir tmp
-            pkg title desc tmp stfs
+          pkg title desc dir stfs
           return [stfs]
         False -> fatal $ "onyx stfs expected directory; given: " <> dir
       _ -> fatal $ "onyx stfs expected 1 argument, given " <> show (length files)
@@ -802,10 +798,11 @@ commands =
       [fmid] -> do
         mid <- RBFile.loadMIDI fmid
         let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
-        vmap <- case game of
-          GameRB3  -> loadVisemesRB3
-          GameRB2  -> loadVisemesRB3
-          GameTBRB -> loadVisemesTBRB
+        voxToLip <- case game of
+          GameRB3  -> (\vmap -> autoLipsync    defaultTransition vmap englishSyllables) <$> loadVisemesRB3
+          GameRB2  -> (\vmap -> autoLipsync    defaultTransition vmap englishSyllables) <$> loadVisemesRB3
+          GameTBRB -> (\vmap -> beatlesLipsync defaultTransition vmap englishSyllables) <$> loadVisemesTBRB
+          GameGH2  -> fatal "Can't select GH2 for lipsync-gen"
         let template = dropExtension fmid
             tracks =
               [ (RBFile.fixedPartVocals, "_solovox.lipsync", False)
@@ -814,10 +811,6 @@ commands =
               , (RBFile.fixedHarm3, "_harm3.lipsync", False)
               , (const mempty, "_empty.lipsync", True)
               ]
-            voxToLip = case game of
-              GameRB3  -> autoLipsync    defaultTransition vmap englishSyllables
-              GameRB2  -> autoLipsync    defaultTransition vmap englishSyllables
-              GameTBRB -> beatlesLipsync defaultTransition vmap englishSyllables
         fmap catMaybes $ forM tracks $ \(getter, suffix, alwaysWrite) -> do
           let trk = getter $ RBFile.s_tracks mid
               fout = template <> suffix
@@ -842,6 +835,7 @@ commands =
           GameRB3  -> loadVisemesRB3
           GameRB2  -> loadVisemesRB3
           GameTBRB -> loadVisemesTBRB
+          GameGH2  -> fatal "Can't select GH2 for lipsync-track-gen"
         let template = dropExtension fmid
             tracks =
               [ (RBFile.onyxLipsync1, "_1.lipsync")
@@ -1290,6 +1284,7 @@ optDescrs =
       "rb3"  -> GameRB3
       "rb2"  -> GameRB2
       "tbrb" -> GameTBRB
+      "gh2"  -> GameGH2
       g      -> error $ "Unrecognized --game value: " ++ show g
 
 data OnyxOption
@@ -1343,6 +1338,7 @@ data Game
   = GameRB3
   | GameRB2
   | GameTBRB
+  | GameGH2
   deriving (Eq, Ord, Show)
 
 midiOptions :: [OnyxOption] -> MS.Options

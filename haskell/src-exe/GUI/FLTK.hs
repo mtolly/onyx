@@ -1173,6 +1173,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
             GH2LIVE fout    -> do
               tmp <- buildGH2LIVE tgt proj'
               stackIO $ Dir.copyFile tmp fout
+              warn "Make sure you combine songs into packs before playing! Loading more than 16 package files will corrupt your GH2 save."
               return [fout]
             GH2ARK fout loc -> case loc of
               GH2AddBonus -> do
@@ -1567,6 +1568,17 @@ loadingPhraseCHtoGH2 proj = listToMaybe $ catMaybes $ do
   PS ps <- toList $ _targets $ projectSongYaml proj
   return $ stripTags <$> ps_LoadingPhrase ps
 
+warnCombineXboxGH2 :: (Event -> IO ()) -> IO () -> IO ()
+warnCombineXboxGH2 sink go = sink $ EventOnyx $ do
+  prefs <- readPreferences
+  stackIO $ unless (prefWarnedXbox prefs) $ do
+    void $ FL.flChoice (T.unlines
+      [ "Note! When loading songs into Guitar Hero II for Xbox 360, you *must* combine them into packs (go to \"Other tools\")."
+      , "Loading more than 16 packages will fail to load some songs, and will corrupt your save!"
+      ]) "OK" Nothing Nothing
+    savePreferences prefs { prefWarnedXbox = True }
+  stackIO go
+
 batchPageGH2
   :: (?preferences :: Preferences)
   => (Event -> IO ())
@@ -1582,10 +1594,10 @@ batchPageGH2 sink rect tab build = do
   getPracticeAudio <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     box <- liftIO $ FL.checkButtonNew rect' (Just "Make practice mode audio for PS2")
     return $ FL.getValue box
-  let getTargetSong usePath template = do
+  let getTargetSong usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
         speed <- getSpeed
         practiceAudio <- getPracticeAudio
-        return $ \proj -> let
+        go $ \proj -> let
           defGH2 = def :: TargetGH2
           hasPart p = isJust $ HM.lookup p (getParts $ _parts $ projectSongYaml proj) >>= partGRYBO
           leadPart = listToMaybe $ filter hasPart
@@ -1615,7 +1627,7 @@ batchPageGH2 sink rect tab build = do
             , gh2_Coop = case coopPart of
               Just (_, coop) -> coop
               _              -> gh2_Coop defGH2
-            , gh2_Offset = prefGH2Offset ?preferences
+            , gh2_Offset = prefGH2Offset newPrefs
             , gh2_LoadingPhrase = loadingPhraseCHtoGH2 proj
             }
           fout = trimXbox $ T.unpack $ foldr ($) template
@@ -1639,8 +1651,7 @@ batchPageGH2 sink rect tab build = do
           Nothing -> return ()
           Just f  -> let
             gen = takeDirectory f
-            in do
-              song <- getTargetSong id ""
+            in getTargetSong id "" $ \song -> do
               build $ \proj -> let
                 (tgt, _) = song proj
                 in (tgt, GH2ARK gen GH2AddBonus)
@@ -1649,12 +1660,12 @@ batchPageGH2 sink rect tab build = do
     sink
     "Create PS2 DIY folders"
     ("%input_dir%/%input_base%%modifiers%_gh2")
-    (getTargetSong GH2DIYPS2 >=> build)
+    (\template -> getTargetSong GH2DIYPS2 template build)
   makeTemplateRunner
     sink
     "Create GH2 (360) LIVE files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_gh2live")
-    (getTargetSong GH2LIVE >=> build)
+    (\template -> warnCombineXboxGH2 sink $ getTargetSong GH2LIVE template build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -2240,7 +2251,7 @@ songPageGH2 sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt $ GH2LIVE $ trimXbox f
+          Just f  -> warnCombineXboxGH2 sink $ build tgt $ GH2LIVE $ trimXbox f
         _ -> return ()
     color <- FLE.rgbColorWithRgb (179,221,187)
     FL.setColor btn2 color
@@ -4017,6 +4028,7 @@ launchBatch sink makeMenuBar startFiles = mdo
             GH2LIVE fout    -> do
               tmp <- buildGH2LIVE target proj'
               stackIO $ Dir.copyFile tmp fout
+              warn "Make sure you combine songs into packs before playing! Loading more than 16 package files will corrupt your GH2 save."
               return [fout]
             GH2ARK fout loc -> case loc of
               GH2AddBonus -> do
@@ -4123,12 +4135,14 @@ toTermMessage (MessageWarning, msg) = TermWarning msg
 
 addTerm :: FL.Ref FL.SimpleTerminal -> TermMessage -> IO ()
 addTerm term pair = do
-  let newtxt = T.pack $ case pair of
+  let newtxt = filterUserError $ T.pack $ case pair of
         TermStart x y   -> "\ESC[46m" <> x <> "\ESC[0m" <> ": " <> y
         TermLog str     -> str
         TermWarning msg -> "\ESC[33mWarning\ESC[0m: " <> Exc.displayException msg
         TermError msg   -> "\ESC[41mERROR!\ESC[0m " <> Exc.displayException msg
         TermSuccess str -> "\ESC[42mSuccess!\ESC[0m " <> str
+      -- this comes from the default exception type but it's confusing to users
+      filterUserError = T.replace "user error " ""
   FL.withRef term $ \ptr ->
     B.useAsCString (TE.encodeUtf8 $ T.strip newtxt <> "\n") $ \cs ->
       c_append ptr cs

@@ -47,8 +47,7 @@ plans:
       bass:
         only: [Bass, jammit-track]
     song:
-      mix:
-      - without: [bass, jammit-track]
+      without: [bass, jammit-track]
 parts:
   drums:
     drums: # seil
@@ -58,7 +57,7 @@ parts:
     grybo: {} # onyxite
   bass:
     grybo: {} # seil
-    pro-guitar: # WIP
+    pro-guitar: # onyxite
       tuning:
         base: bass-6
       tones:

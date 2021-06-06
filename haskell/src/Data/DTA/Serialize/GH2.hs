@@ -7,6 +7,7 @@ module Data.DTA.Serialize.GH2 where
 
 import           Control.Monad.Codec      ((=.))
 import           Control.Monad.Codec.Onyx (enumCodec, opt, req)
+import           Control.Monad.Random     (MonadRandom, uniform)
 import           Data.DTA
 import           Data.DTA.Serialize
 import           Data.DTA.Serialize.RB3   (AnimTempo, channelList)
@@ -14,6 +15,7 @@ import           Data.Hashable            (Hashable (..))
 import qualified Data.Text                as T
 import           GHC.Generics             (Generic (..))
 import           RockBand.Codec           (reprPrefix)
+import           RockBand.Common          (each)
 
 data Song = Song
   { songName      :: T.Text
@@ -37,22 +39,43 @@ instance StackChunks Song where
     return Song{..}
 
 data CharacterOutfit
-  = Char_funk1
-  | Char_goth2
-  | Char_classic
-  | Char_punk1
-  | Char_glam1
+  -- Johnny Napalm
+  = Char_punk1
+  | Char_punk2
+  -- Judy Nails
   | Char_alterna1
+  | Char_alterna2
+  -- Izzy Sparks
+  | Char_glam1
+  | Char_glam2
+  -- Pandora
+  | Char_goth2
+  | Char_goth1
+  -- Axel Steel
   | Char_metal1
-  | Char_rock2
-  | Char_deathmetal1
+  | Char_metal2
+  -- Eddie Knox
   | Char_rockabill1
+  | Char_rockabill2
+  -- Casey Lynch
+  | Char_rock2
+  | Char_rock1
+  -- Lars Umlaut
+  | Char_deathmetal1
+  | Char_deathmetal2
+  -- Clive Winston
+  | Char_classic
+  -- Xavier Stone
+  | Char_funk1
+  -- Grim Ripper
+  | Char_grim
   deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackChunk CharacterOutfit where
   stackChunk = enumCodec "CharacterOutfit" $ Sym . reprPrefix "Char_"
 instance StackChunks CharacterOutfit
 
+-- TODO add the other guitars from guitars.dta
 data Guitar
   = Guitar_flying_v
   | Guitar_lespaul
@@ -89,6 +112,12 @@ instance StackChunks Quickplay where
     guitar          <- guitar          =. req "guitar"           stackChunks
     venue           <- venue           =. req "venue"            stackChunks
     return Quickplay{..}
+
+randomQuickplay :: (MonadRandom m) => m Quickplay
+randomQuickplay = Quickplay
+  <$> (Left <$> uniform each)
+  <*> (Left <$> uniform each)
+  <*> (Left <$> uniform each)
 
 data BandMember
   = MetalBass

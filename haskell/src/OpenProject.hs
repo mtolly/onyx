@@ -282,7 +282,7 @@ installGH2 :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (Qu
 installGH2 gh2 proj gen = do
   dir <- buildGH2Dir gh2 proj
   files <- stackIO $ Dir.listDirectory dir
-  dta <- stackIO $ readFileDTA $ dir </> "songs.dta"
+  dta <- stackIO $ readFileDTA $ dir </> "songs-inner.dta"
   sym <- stackIO $ B.readFile $ dir </> "symbol"
   coop <- stackIO $ readFileDTA $ dir </> "coop_max_scores.dta"
   let chunks = treeChunks $ topTree $ fmap (B8.pack . T.unpack) dta
@@ -321,10 +321,10 @@ makeGH2DIY gh2 proj dout = do
   files <- stackIO $ Dir.listDirectory dir
   sym <- stackIO $ fmap B8.unpack $ B.readFile $ dir </> "symbol"
   let filePairs = flip mapMaybe files $ \f -> let ext = takeExtension f in if
-        | elem ext [".voc", ".vgs", ".mid"] -> Just (sym <> dropWhile isAlpha f          , dir </> f)
-        | ext == ".dta"                     -> Just (f                                   , dir </> f)
-        | ext == ".png_ps2"                 -> Just ("us_logo_" <> sym <> "_keep.png_ps2", dir </> f)
-        | otherwise                         -> Nothing
+        | elem ext [".voc", ".vgs", ".mid"]       -> Just (sym <> dropWhile isAlpha f          , dir </> f)
+        | ext == ".dta" && f /= "songs-inner.dta" -> Just (f                                   , dir </> f)
+        | ext == ".png_ps2"                       -> Just ("us_logo_" <> sym <> "_keep.png_ps2", dir </> f)
+        | otherwise                               -> Nothing
   stackIO $ forM_ filePairs $ \(dest, src) -> Dir.copyFile src $ dout </> dest
   stackIO $ writeFile (dout </> "README.txt") $ intercalate "\r\n"
     [ "Instructions for GH2 song installation"
