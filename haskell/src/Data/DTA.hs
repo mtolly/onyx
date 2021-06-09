@@ -9,7 +9,7 @@ module Data.DTA
 , readDTA, showDTA
 , readFileDTA, readFileDTA_latin1, readFileDTA_utf8
 , readFileDTA_latin1', readFileDTA_utf8'
-, readDTABytes, readDTASections
+, readDTABytes, readDTASections, readDTA_latin1
 , writeFileDTA_latin1, writeFileDTA_utf8
 , renumberFrom
 , removeBOM
@@ -61,10 +61,11 @@ readFileDTA_latin1' f = inside ("DTA file: " ++ show f) $ do
     Left err -> fatal $ show err
     Right bs -> scanStack (removeBOM $ decodeLatin1 bs) >>= parseStack
 
+readDTA_latin1 :: (Monad m) => B.ByteString -> StackTraceT m (DTA T.Text)
+readDTA_latin1 bs = scanStack (removeBOM $ decodeLatin1 bs) >>= parseStack
+
 readDTABytes :: (Monad m) => B.ByteString -> StackTraceT m (DTA B.ByteString)
-readDTABytes bs = do
-  dta <- scanStack (removeBOM $ decodeLatin1 bs) >>= parseStack
-  return $ B8.pack . T.unpack <$> dta
+readDTABytes bs = fmap (B8.pack . T.unpack) <$> readDTA_latin1 bs
 
 readDTASections :: (Monad m) => B.ByteString -> StackTraceT m [(B.ByteString, Chunk B.ByteString)]
 readDTASections bs = do

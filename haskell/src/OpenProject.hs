@@ -145,11 +145,15 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           Just _ -> do
             imps <- importSTFSFolder loc folder
             foundImports "Rock Band (Xbox 360 CON/LIVE)" loc imps
-          Nothing -> if any (\(name, _) -> ".xen" `T.isSuffixOf` name) $ folderFiles folder
-            then do
-              imps <- importGH5WoR folder
-              foundImports "Guitar Hero (5 or WoR)" loc imps
-            else return ([], [])
+          Nothing -> case findFile ("config" :| ["songs.dta"]) folder of
+            Just _ -> do
+              imps <- GH2.importGH2DLC loc folder
+              foundImports "Guitar Hero II (Xbox 360 DLC)" loc imps
+            Nothing -> if any (\(name, _) -> ".xen" `T.isSuffixOf` name) $ folderFiles folder
+              then do
+                imps <- importGH5WoR folder
+                foundImports "Guitar Hero (5 or WoR)" loc imps
+              else return ([], [])
       foundRS psarc = importRS psarc >>= foundImports "Rocksmith" psarc
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path

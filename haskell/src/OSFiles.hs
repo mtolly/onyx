@@ -13,8 +13,8 @@ import           Foreign                  (Ptr, nullPtr, ptrToIntPtr,
                                            withArrayLen, withMany)
 import           Foreign.C                (CInt (..), CWString, withCWString)
 import           Graphics.Win32.GDI.Types (HWND)
-import           System.Win32.Types       (HINSTANCE, INT, LPCWSTR)
 import           System.Win32.Info        (getShortPathName)
+import           System.Win32.Types       (HINSTANCE, INT, LPCWSTR)
 #else
 import           System.Process           (callProcess)
 #ifdef MACOSX

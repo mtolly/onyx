@@ -2207,16 +2207,19 @@ songPageGH2 sink rect tab proj build = mdo
       tell $ FL.getValue box >>= \b -> return $ Endo $ \gh2 ->
         gh2 { gh2_PracticeAudio = b }
       return box
-  let initTarget = def
-        { gh2_Offset = prefGH2Offset ?preferences
+  let initTarget prefs = def
+        { gh2_Offset = prefGH2Offset prefs
         , gh2_LoadingPhrase = loadingPhraseCHtoGH2 proj
         }
-      makeTarget = fmap ($ initTarget) targetModifier
+      makeTarget = fmap ($ initTarget ?preferences) targetModifier
+      -- make sure we reload offset before compiling
+      makeTargetUpdatePrefs go = targetModifier >>= \modifier -> sink $ EventOnyx $ do
+        newPrefs <- readPreferences
+        stackIO $ go $ modifier $ initTarget newPrefs
   fullWidth 35 $ \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- FL.buttonNew r1 $ Just "Add to GH2 PS2 ARK as Bonus Song"
-    FL.setCallback btn1 $ \_ -> do
-      tgt <- makeTarget
+    FL.setCallback btn1 $ \_ -> makeTargetUpdatePrefs $ \tgt -> do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
       FL.setTitle picker "Select .HDR file"
       FL.showWidget picker >>= \case
@@ -2227,8 +2230,7 @@ songPageGH2 sink rect tab proj build = mdo
             in build tgt $ GH2ARK gen GH2AddBonus
         _ -> return ()
     btn2 <- FL.buttonNew r2 $ Just "Create PS2 DIY folder"
-    FL.setCallback btn2 $ \_ -> do
-      tgt <- makeTarget
+    FL.setCallback btn2 $ \_ -> makeTargetUpdatePrefs $ \tgt -> do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Create DIY folder"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_gh2"
@@ -2242,8 +2244,7 @@ songPageGH2 sink rect tab proj build = mdo
     FL.setColor btn2 color
   fullWidth 35 $ \rect' -> do
     btn2 <- FL.buttonNew rect' $ Just "Create GH2 Xbox 360 LIVE file"
-    FL.setCallback btn2 $ \_ -> do
-      tgt <- makeTarget
+    FL.setCallback btn2 $ \_ -> makeTargetUpdatePrefs $ \tgt -> do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save GH2 LIVE file"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_gh2live" -- TODO add modifiers
