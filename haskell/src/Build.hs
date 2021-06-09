@@ -45,6 +45,7 @@ import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Fixed                            (Centi, Fixed (..),
                                                         Milli)
 import           Data.Foldable                         (toList)
+import           Data.Functor.Identity                 (Identity (..))
 import           Data.Hashable                         (Hashable, hash)
 import qualified Data.HashMap.Strict                   as HM
 import           Data.Int                              (Int32)
@@ -76,7 +77,8 @@ import           DryVox                                (clipDryVox,
 import           FFMPEG                                (audioIntegratedVolume)
 import qualified FretsOnFire                           as FoF
 import           Genre
-import           GuitarHeroII.Audio                    (writeVGS)
+import           GuitarHeroII.Audio                    (writeVGS,
+                                                        writeVGSMultiRate)
 import           GuitarHeroII.Convert
 import qualified GuitarHeroII.Events                   as GH2
 import           GuitarHeroII.File
@@ -1792,7 +1794,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   return $ endTime + 5
                   -- previously we went 0.5s past [end], but that still had issues,
                   -- particularly in practice mode when playing the last section
-                gh2Source = do
+                gh2SourceGeneral lowRateSilence withSources = do
                   hasAudio <- loadPartAudioCheck
                   audio <- computeGH2Audio songYaml gh2 hasAudio
                   mid <- loadGH2Midi
@@ -1802,23 +1804,27 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       [ (gh2LeadTrack audio, 1)
                       , (gh2CoopTrack audio, 1)
                       ]
-                    GH2Silent -> shk $ buildSource $ Silence 1 $ Seconds 0
+                    GH2Silent -> return $ silent (Seconds 0) (if lowRateSilence then 100 else 44100) 1
                   pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
                   audioLen <- correctAudioLength mid
                   let applyOffset = case compare (gh2_Offset gh2) 0 of
                         EQ -> id
                         GT -> dropStart $ Seconds          $ gh2_Offset gh2
                         LT -> padStart  $ Seconds $ negate $ gh2_Offset gh2
-                  return
-                    $ setAudioLength audioLen
-                    $ applyOffset
-                    $ padAudio pad
-                    $ applyTargetAudio (gh2_Common gh2) mid
-                    $ foldr1 merge srcs
+                      toEachSource
+                        = setAudioLength audioLen
+                        . applyOffset
+                        . padAudio pad
+                        . applyTargetAudio (gh2_Common gh2) mid
+                  return $ fmap toEachSource $ withSources srcs
+                -- for vgs, separate sources so silence can be encoded at low sample rate
+                gh2SourcesVGS = gh2SourceGeneral True id
+                -- for mogg, single source
+                gh2Source = fmap runIdentity $ gh2SourceGeneral False $ Identity . foldr1 merge
 
             dir </> "gh2/audio.vgs" %> \out -> do
-              src <- gh2Source
-              stackIO $ runResourceT $ writeVGS out $ mapSamples integralSample src
+              srcs <- gh2SourcesVGS
+              stackIO $ runResourceT $ writeVGSMultiRate out $ map (mapSamples integralSample) srcs
 
             dir </> "gh2/audio_empty.vgs" %> \out -> do
               audioLen <- loadGH2Midi >>= correctAudioLength

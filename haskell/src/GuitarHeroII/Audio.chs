@@ -1,27 +1,30 @@
-{-# LANGUAGE BangPatterns             #-}
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
-{-# LANGUAGE OverloadedStrings #-}
-module GuitarHeroII.Audio (writeVGS, readVGS, readVGSReadable) where
+{-# LANGUAGE OverloadedStrings        #-}
+module GuitarHeroII.Audio (writeVGS, writeVGSMultiRate, readVGS, readVGSReadable) where
 
-import           Control.Monad                (liftM4, replicateM_, forM)
+import           Control.Monad                (forM, forM_, forever, liftM4,
+                                               replicateM_, zipWithM)
 import           Control.Monad.IO.Class       (liftIO)
+import           Control.Monad.Trans.Class    (lift)
 import           Control.Monad.Trans.Resource
-import           Control.Monad.Trans.Class (lift)
+import           Control.Monad.Trans.State    (StateT, get, put, runStateT)
+import           Data.Binary.Get              (Get, getByteString, getWord32le,
+                                               runGet)
 import           Data.Binary.Put
 import qualified Data.ByteString              as B
 import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
-import qualified Data.Conduit                 as C
 import           Data.Conduit                 ((.|))
+import qualified Data.Conduit                 as C
 import qualified Data.Conduit.Audio           as A
+import           Data.Maybe                   (isNothing)
+import           Data.SimpleHandle            (Readable (..), fileReadable,
+                                               useHandle)
 import qualified Data.Vector.Storable         as V
 import           Foreign
 import qualified System.IO                    as IO
 import           System.IO.Unsafe             (unsafePerformIO)
-import Control.Monad.Trans.State (StateT, get, put, runStateT)
-import Data.Binary.Get (Get, getByteString, runGet, getWord32le)
-import Data.SimpleHandle (Readable(..), useHandle, fileReadable)
 
 #include "encode_vag.h"
 
@@ -54,31 +57,59 @@ makeXABlock (channel, v, (a, b, c, d)) = unsafePerformIO $ do
     newState <- liftM4 (,,,) (peek pa) (peek pb) (peek pc) (peek pd)
     return (bs, newState)
 
-writeVGS :: (MonadResource m) => FilePath -> A.AudioSource m Int16 -> m ()
-writeVGS fp src = let
-  A.AudioSource s r c _ = A.reorganize xaBlockSamples src
-  header blocksPerChannel = BL.take 0x80 $ runPut $ do
+data VGSInputState = VGSInputState
+  { vgsXAStates      :: [(Double, Double, Double, Double)]
+  , vgsBlocksWritten :: !Word32
+  , vgsFirstChannel  :: !Int
+  , vgsChannels      :: !Int
+  }
+
+writeVGSMultiRate :: (MonadResource m) => FilePath -> [A.AudioSource m Int16] -> m ()
+writeVGSMultiRate fp srcs = let
+  extendSrc src = do
+    C.mapOutput Just $ A.source $ A.reorganize xaBlockSamples src
+    forever $ C.yield Nothing
+  header blocksPerSource = BL.take 0x80 $ runPut $ do
     putByteString $ B8.pack "VgS!"
     putWord32le 2
-    replicateM_ c $ do
-      putWord32le $ round r
-      putWord32le blocksPerChannel
+    forM_ (zip srcs blocksPerSource) $ \(src, numBlocks) -> do
+      replicateM_ (A.channels src) $ do
+        putWord32le $ round $ A.rate src
+        putWord32le numBlocks
     putByteString $ B.replicate 0x80 0
-  writeBlock h input = do
-    let (bs, newState) = makeXABlock input
-    liftIO $ B.hPut h bs
-    return newState
-  writeBlocks h xaStates !soFar = C.await >>= \case
-    Nothing  -> return soFar
-    Just blk -> do
-      xaStates' <- mapM (writeBlock h) $ zip3 [0..] (A.deinterleave c blk) xaStates
-      writeBlocks h xaStates' $ soFar + 1
+  writeBlock _ inputState Nothing = return inputState
+  writeBlock h inputState (Just blk) = do
+    let chans = A.deinterleave (vgsChannels inputState) blk
+    newStates <- forM (zip3 [vgsFirstChannel inputState ..] chans $ vgsXAStates inputState) $ \input -> do
+      let (bs, newState) = makeXABlock input
+      liftIO $ B.hPut h bs
+      return newState
+    return inputState
+      { vgsXAStates      = newStates
+      , vgsBlocksWritten = vgsBlocksWritten inputState + 1
+      }
+  writeBlocks h inputStates = C.await >>= \case
+    Nothing -> return inputStates -- shouldn't happen
+    Just blks -> if all isNothing blks
+      then return inputStates -- all channels are done
+      else zipWithM (writeBlock h) inputStates blks >>= writeBlocks h
+  initialStates _              []       = []
+  initialStates currentChannel (s : ss) = VGSInputState
+    { vgsXAStates      = repeat (0, 0, 0, 0)
+    , vgsBlocksWritten = 0
+    , vgsFirstChannel  = currentChannel
+    , vgsChannels      = A.channels s
+    } : initialStates (currentChannel + A.channels s) ss
   go h = do
     liftIO $ IO.hSeek h IO.AbsoluteSeek 0x80
-    blocksPerChannel <- writeBlocks h (repeat (0, 0, 0, 0)) 0
+    finalStates <- writeBlocks h $ initialStates 0 srcs
     liftIO $ IO.hSeek h IO.AbsoluteSeek 0
-    liftIO $ BL.hPut h $ header blocksPerChannel
-  in C.runConduit $ s .| C.bracketP (IO.openBinaryFile fp IO.WriteMode) IO.hClose go
+    liftIO $ BL.hPut h $ header $ map vgsBlocksWritten finalStates
+  in C.runConduit $ C.sequenceSources (map extendSrc srcs)
+    .| C.bracketP (IO.openBinaryFile fp IO.WriteMode) IO.hClose go
+
+writeVGS :: (MonadResource m) => FilePath -> A.AudioSource m Int16 -> m ()
+writeVGS fp src = writeVGSMultiRate fp [src]
 
 decodeVAGBlock :: Word8 -> StateT (Double, Double) Get [Int16]
 decodeVAGBlock targetChannel = do
