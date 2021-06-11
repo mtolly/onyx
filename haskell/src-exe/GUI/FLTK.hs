@@ -109,7 +109,7 @@ import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Graphics.UI.FLTK.LowLevel.GlWindow        ()
 import           Graphics.UI.FLTK.LowLevel.X               (openCallback)
 import           GuitarHeroII.Ark                          (GH2InstallLocation (..))
-import           GuitarHeroII.Audio                        (writeVGS)
+import           GuitarHeroII.Audio                        (writeVGSMultiRate)
 import           Image                                     (readRBImageMaybe)
 import           Import.GuitarHero2                        (Setlist (..),
                                                             loadSetlistFull)
@@ -3233,6 +3233,10 @@ miscPageMOGG sink rect tab startTasks = mdo
             Nothing  -> let
               task = tempDir "makemogg" $ \tmp -> do
                 let ogg = tmp </> "temp.ogg"
+                case map audioRate audio of
+                  []             -> return () -- shouldn't happen
+                  rates@(r : rs) -> unless (all (== r) rs) $ do
+                    fatal $ "All files must have the same sample rate, but found: " <> show (nubOrd rates)
                 src <- buildSource' $ Merge $ map (Input . audioPath) audio
                 runAudio src ogg
                 oggToMogg ogg f'
@@ -3264,8 +3268,8 @@ miscPageMOGG sink rect tab startTasks = mdo
             else f <.> "vgs"
           in sink $ EventOnyx $ startTasks $ let
             task = do
-              src <- buildSource' $ Merge $ map (Input . audioPath) audio
-              stackIO $ runResourceT $ writeVGS f' $ mapSamples integralSample src
+              srcs <- mapM (buildSource' . Input . audioPath) audio
+              stackIO $ runResourceT $ writeVGSMultiRate f' $ map (mapSamples integralSample) srcs
               return [f']
             in [("VGS file creation", task)]
       _ -> return ()

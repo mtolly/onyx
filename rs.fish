@@ -43,6 +43,7 @@ end
 # build songs/toe/last-night
 # build songs-hmx/megadeth/hangar-18 # can't put on CF
 # build songs/john-myung/solar-groove
+# build songs/billy-cobham/quadrant-4
 
 # phrases not done:
 
@@ -90,7 +91,7 @@ end
 # build songs/dream-theater/lie
 # build songs-hmx/dream-theater/on-the-backs-of-angels # can't put on CF
 # build songs-others/xane60/fathom-infinite-depth
-build songs/dream-theater/anna-lee
+# build songs/dream-theater/anna-lee
 
 # phrases unknown:
 

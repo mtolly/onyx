@@ -470,7 +470,7 @@ instance (StackJSON t, StackJSON a) => StackJSON (Audio t a) where
         , ("resample", algebraic1 "resample" Resample fromJSON)
         , ("channels", algebraic2 "channels" Channels fromJSON fromJSON)
         , ("stretch", algebraic2 "stretch" StretchSimple fromJSON fromJSON)
-        , ("stretch", algebraic3 "stretch" StretchFull fromJSON fromJSON fromJSON)
+        , ("stretch-full", algebraic3 "stretch-full" StretchFull fromJSON fromJSON fromJSON)
         , ("mask", algebraic3 "mask" Mask fromJSON fromJSON fromJSON)
         ] (fmap Input fromJSON `catchError` \_ -> expected "an audio expression")
     , codecOut = makeOut $ \case
@@ -487,7 +487,7 @@ instance (StackJSON t, StackJSON a) => StackJSON (Audio t a) where
       Resample aud -> A.object ["resample" .= aud]
       Channels ns aud -> A.object ["channels" .= [toJSON ns, toJSON aud]]
       StretchSimple d aud -> A.object ["stretch" .= [toJSON d, toJSON aud]]
-      StretchFull t p aud -> A.object ["stretch" .= [toJSON t, toJSON p, toJSON aud]]
+      StretchFull t p aud -> A.object ["stretch-full" .= [toJSON t, toJSON p, toJSON aud]]
       Mask tags seams aud -> A.object ["mask" .= [toJSON tags, toJSON seams, toJSON aud]]
     }
 

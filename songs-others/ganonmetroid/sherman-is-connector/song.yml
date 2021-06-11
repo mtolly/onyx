@@ -1,0 +1,49 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: 1
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    file-mogg: audio.mogg
+targets:
+  rb3:
+    song-id: o738503235
+    game: rb3
+    version: 1
+metadata:
+  preview-start: 50.216
+  file-album-art: cover.png_xbox
+  track-number: 1
+  album: Eunoia
+  year: 2012
+  subgenre: mathrock
+  author: GanonMetroid
+  title: Sherman Is Connector
+  preview-end: 1:20.216
+  genre: indierock
+  difficulty:
+    tier: 7
+  artist: Invalids

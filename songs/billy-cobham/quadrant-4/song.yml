@@ -1,0 +1,87 @@
+metadata:
+  title: Quadrant 4
+  artist: Billy Cobham
+  album: Spectrum
+  track-number: 1
+  year: 1973
+  genre: fusion
+  subgenre: fusion
+  author: Onyxite
+  file-album-art: cover.jpg
+audio:
+  album-track: # Audio Fidelity 2016
+    md5: 703ec50fddaa30c2c63932de3a7af54c
+    frames: 11992260
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+jammit:
+  jammit-track:
+    title: Quadrant Four
+plans:
+  jammit:
+    countin:
+      &countin
+      2|0: hihat
+      2|2: hihat
+      3|0: hihat
+      3|1: hihat
+      3|2: hihat
+    parts:
+      drums:
+        pad: [2.054, only: [Drums, jammit-track]]
+      gutar:
+        pad: [2.054, only: [Guitar, jammit-track]]
+      bass:
+        # fix weird off-time stem at ending
+        &fixedbass
+        concatenate:
+        - pad: [2.054, take: ['4:15.239', only: [Bass, jammit-track]]]
+        - stretch-full:
+          - 0.9390623 # time
+          - 1 # pitch
+          - drop: ['4:15.239', only: [Bass, jammit-track]]
+      keys:
+        pad: [2.054, only: [Keys, jammit-track]]
+    song:
+      # this should actually just go in keys
+      pad:
+      - 2.054
+      - mix:
+        - without: [drums, jammit-track]
+        - gain:
+          - -1
+          - mix:
+            - only: [Guitar, jammit-track]
+            - only: [Bass, jammit-track]
+            - only: [Keys, jammit-track]
+  jammit-simple:
+    countin: *countin
+    parts:
+      bass: *fixedbass
+    song:
+      pad: [2.054, without: [bass, jammit-track]]
+  album:
+    countin: *countin
+    song:
+      stretch:
+      - 0.9987984454700994
+      - drop: [7.732, album-track]
+parts:
+  drums:
+    drums:
+      kicks: both
+      mode: full
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: jammit
+  rs:
+    game: rs
+    plan: album
+    arrangements:
+    - [bass, bass]

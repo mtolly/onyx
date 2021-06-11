@@ -1,14 +1,13 @@
 metadata:
-  title: Fall
+  title: But (feat. Matt Garstka)
   artist: CHON
   year: 2015
-  track-number: 3
+  track-number: 12
   author: Onyxite
   genre: prog
   subgenre: progrock
   album: Grow
   file-album-art: ../../../covers/grow.jpg
-  preview-start: prc_a1
 parts:
   drums:
     drums:
@@ -16,8 +15,8 @@ parts:
       mode: full
 audio:
   album-track:
-    md5: 4d3d4e1f2f6e05e3210883f6a3c1a015
-    frames: 9666017
+    md5: bf38fdbdef7e92d7442ec876b96a22b5
+    frames: 10274578
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -30,7 +29,7 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [3.785, album-track]
+      pad: [5.002, album-track]
 targets:
   rb3:
     game: rb3
