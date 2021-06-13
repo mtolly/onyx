@@ -22,7 +22,7 @@ import qualified RockBand.Codec.Five              as RBFive
 import qualified RockBand.Codec.ProGuitar         as PG
 import qualified RockBand.Codec.ProKeys           as PK
 import qualified RockBand.Codec.Vocal             as Vox
-import           RockBand.Common                  (Difficulty (..),
+import           RockBand.Common                  (Difficulty (..), Edge,
                                                    pattern RNil, pattern Wait,
                                                    edgeBlipsRB, edgeBlipsRB_,
                                                    trackGlue)
@@ -211,15 +211,15 @@ gbkBase headPoints tailPoints maxStreak evts = let
     let tailTicks = maybe 0 (\bts -> floor $ toRational bts * toRational tailPoints) mlen
     return $ mult * (headPoints + tailTicks)
 
-getScoreTracks :: RBFile.FixedFile U.Beats -> [(ScoreTrack, Difficulty, Int, Int)]
+getScoreTracks :: RBFile.FixedFile U.Beats -> [(ScoreTrack, Difficulty, (Int, Int))]
 getScoreTracks mid = do
   strack <- [minBound .. maxBound]
   diff   <- [minBound .. maxBound]
   let (base, solo) = baseAndSolo mid (strack, diff)
   guard $ base /= 0
-  return (strack, diff, base, solo)
+  return (strack, diff, (base, solo))
 
-tracksToStars :: [(ScoreTrack, Difficulty, Int, Int)] -> Stars (Maybe Int)
+tracksToStars :: [(ScoreTrack, Difficulty, (Int, Int))] -> Stars (Maybe Int)
 tracksToStars trks = let
   new_num_instruments_multiplier = case length trks of
     1 -> 1.0
@@ -227,29 +227,60 @@ tracksToStars trks = let
     3 -> 1.52
     _ -> 1.8
   sumOfBases :: Stars Float
-  sumOfBases = foldr (liftA2 (+)) (pure 0) $ flip map trks $ \(scoreTrack, _, base, solo) -> liftA2 (+)
+  sumOfBases = foldr (liftA2 (+)) (pure 0) $ flip map trks $ \(scoreTrack, _, (base, solo)) -> liftA2 (+)
     (((fromIntegral base * new_num_instruments_multiplier) *) <$> new_instrument_thresholds scoreTrack)
     ((fromIntegral solo *) <$> new_bonus_thresholds)
   allCutoffs = Just . (floor :: Float -> Int) <$> sumOfBases
-  allExpert = all (\(_, diff, _, _) -> diff == Expert) trks
+  allExpert = all (\(_, diff, _) -> diff == Expert) trks
   in allCutoffs { starsGold = guard allExpert >> starsGold allCutoffs }
 
 starCutoffs :: RBFile.FixedFile U.Beats -> [(ScoreTrack, Difficulty)] -> Stars (Maybe Int)
 starCutoffs mid trks = tracksToStars $ do
   pair@(strack, diff) <- trks
   let (base, solo) = baseAndSolo mid pair
-  return (strack, diff, base, solo)
+  return (strack, diff, (base, solo))
 
 -- GH2 stuff
+
+gh2BaseGems :: RTB.T U.Beats (Edge () RBFive.Color) -> Int
+gh2BaseGems edges = let
+  gems = fixSloppyNotes (10 / 480) $ edgeBlipsRB_ edges
+  in gbkBase 50 25 1 $ fmap snd gems
 
 gh2Base :: Difficulty -> PartTrack U.Beats -> Int
 gh2Base diff pt = case Map.lookup diff $ partDifficulties pt of
   Nothing -> 0
-  Just pd -> let
-    gems = fixSloppyNotes (10 / 480) $ edgeBlipsRB_ $ partGems pd
-    in gbkBase 50 25 1 $ fmap snd gems
+  Just pd -> gh2BaseGems $ partGems pd
+
+gh2BaseFixed :: Difficulty -> RBFive.FiveTrack U.Beats -> Int
+gh2BaseFixed diff ft = case Map.lookup diff $ RBFive.fiveDifficulties ft of
+  Nothing -> 0
+  Just fd -> gh2BaseGems $ RBFive.fiveGems fd
 
 -- In GH2 coop_max_scores (either a .dtb on disc or .dta in 360 DLC)
 -- each song has an entry:
 --   (the_song_key (easy medium hard expert))
 -- where each difficulty is an int of "gh2Base(lead) + gh2Base(bass/rhythm)"
+
+data ScoreTrackGH2
+  = ScoreGH2Guitar
+  | ScoreGH2Bass
+  | ScoreGH2Rhythm
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
+scoreTrackNameGH2 :: ScoreTrackGH2 -> T.Text
+scoreTrackNameGH2 = \case
+  ScoreGH2Guitar -> "Guitar"
+  ScoreGH2Bass   -> "Bass"
+  ScoreGH2Rhythm -> "Rhythm"
+
+getScoreTracksGH2 :: RBFile.FixedFile U.Beats -> [(ScoreTrackGH2, Difficulty, Int)]
+getScoreTracksGH2 mid = do
+  strack <- [minBound .. maxBound]
+  diff   <- [minBound .. maxBound]
+  let base = gh2BaseFixed diff $ case strack of
+        ScoreGH2Guitar -> RBFile.fixedPartGuitar mid
+        ScoreGH2Bass   -> RBFile.fixedPartBass   mid
+        ScoreGH2Rhythm -> RBFile.fixedPartRhythm mid
+  guard $ base /= 0
+  return (strack, diff, base)

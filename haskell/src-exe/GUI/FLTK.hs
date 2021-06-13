@@ -1073,19 +1073,28 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
   _starsTab <- makeTab windowRect "Stars" $ \rect tab -> do
     homeTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
-    padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
-      void $ FL.boxNew rect' $ Just "Rock Band 3 Star Cutoffs"
     FL.end pack
     sink $ EventOnyx $ void $ forkOnyx $ do
       let input = takeDirectory (projectLocation proj) </> "notes.mid"
       mid <- RBFile.loadMIDI input
-      let foundTracks = getScoreTracks $ RBFile.onyxToFixed $ RBFile.s_tracks mid
+      let fixed = RBFile.onyxToFixed $ RBFile.s_tracks mid
+          foundTracksRB3 = getScoreTracks    fixed
+          foundTracksGH2 = getScoreTracksGH2 fixed
       -- TODO this is a hack to not hold onto the whole midi file in memory, should find a better way!
-      stackIO $ void $ Exc.evaluate $ length $ show foundTracks
+      stackIO $ void $ Exc.evaluate $ length $ show (foundTracksRB3, foundTracksGH2)
       stackIO $ sink $ EventIO $ mdo
         FL.begin pack
-        getTracks <- padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
-          starSelectors rect' foundTracks updateLabel
+
+        let commafy n = T.pack $ reverse $ go $ reverse $ show n
+            go (x : y : z : rest@(_ : _))
+              = [x, y, z, ','] ++ go rest
+            go xs = xs
+
+        -- RB3
+        padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
+          void $ FL.boxNew rect' $ Just "Rock Band 3 Star Cutoffs"
+        getTracksRB3 <- padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
+          starSelectors rect' foundTracksRB3 updateLabelRB3 scoreTrackName
             [ ("Guitar", [ScoreGuitar, ScoreProGuitar])
             , ("Bass"  , [ScoreBass  , ScoreProBass  ])
             , ("Keys"  , [ScoreKeys  , ScoreProKeys  ])
@@ -1097,19 +1106,48 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
             cutoffLabel <- FL.boxNew cell Nothing
             FL.setLabelfont cutoffLabel FLE.helveticaBold
             return cutoffLabel
-        let updateLabel = do
-              stars <- tracksToStars <$> getTracks
-              let commafy n = T.pack $ reverse $ go $ reverse $ show n
-                  go (x : y : z : rest@(_ : _))
-                    = [x, y, z, ','] ++ go rest
-                  go xs = xs
+        let updateLabelRB3 = do
+              stars <- tracksToStars <$> getTracksRB3
               FL.setLabel l1S $ maybe "" (\n -> "1*: " <> commafy n) $ stars1    stars
               FL.setLabel l2S $ maybe "" (\n -> "2*: " <> commafy n) $ stars2    stars
               FL.setLabel l3S $ maybe "" (\n -> "3*: " <> commafy n) $ stars3    stars
               FL.setLabel l4S $ maybe "" (\n -> "4*: " <> commafy n) $ stars4    stars
               FL.setLabel l5S $ maybe "" (\n -> "5*: " <> commafy n) $ stars5    stars
               FL.setLabel lGS $ maybe "" (\n -> "G*: " <> commafy n) $ starsGold stars
-        updateLabel
+        updateLabelRB3
+
+        -- GH2
+        padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
+          void $ FL.boxNew rect' $ Just "Guitar Hero 1/2 Star Cutoffs"
+        getTracksGH2 <- padded 5 150 5 150 (Size (Width 800) (Height 50)) $ \rect' -> do
+          starSelectors rect' foundTracksGH2 updateLabelGH2 scoreTrackNameGH2
+            [ ("Lead", [ScoreGH2Guitar])
+            , ("Coop", [ScoreGH2Bass, ScoreGH2Rhythm])
+            ]
+        [ghBase, ghFour, gh2Five, gh1Five] <- padded 3 10 3 10 (Size (Width 800) (Height 40)) $ \bottomArea -> do
+          forM (splitHorizN 4 bottomArea) $ \cell -> do
+            cutoffLabel <- FL.boxNew cell Nothing
+            FL.setLabelfont cutoffLabel FLE.helveticaBold
+            return cutoffLabel
+        let updateLabelGH2 = do
+              bases <- map (\(_, _, base) -> base) <$> getTracksGH2
+              let base = sum bases
+                  mult n = floor $ toRational base * n :: Int
+              if length bases <= 1
+                then do
+                  -- single player
+                  FL.setLabel ghBase  $ "Base: "       <> commafy base
+                  FL.setLabel ghFour  $ "4*: "         <> commafy (mult 2  )
+                  FL.setLabel gh2Five $ "5* (GH2): "   <> commafy (mult 2.8)
+                  FL.setLabel gh1Five $ "5* (GH1): "   <> commafy (mult 3  )
+                else do
+                  -- coop
+                  FL.setLabel ghBase  $ "Base: " <> commafy base
+                  FL.setLabel ghFour  "" -- 4 is the lowest score in coop
+                  FL.setLabel gh2Five $ "5* (GH2): " <> commafy (mult 2)
+                  FL.setLabel gh1Five ""
+        updateLabelGH2
+
         FL.end pack
         FLTK.redraw
     FL.setResizable tab $ Just pack
@@ -1699,21 +1737,23 @@ songIDBox rect f = do
         else SongIDAutoSymbol
 
 starSelectors
-  :: Rectangle
-  -> [(ScoreTrack, RB.Difficulty, Int, Int)]
+  :: (Eq track)
+  => Rectangle
+  -> [(track, RB.Difficulty, base)]
   -> IO ()
-  -> [(T.Text, [ScoreTrack])]
-  -> IO (IO [(ScoreTrack, RB.Difficulty, Int, Int)])
-starSelectors rect foundTracks updateLabel slots = let
+  -> (track -> T.Text)
+  -> [(T.Text, [track])]
+  -> IO (IO [(track, RB.Difficulty, base)])
+starSelectors rect foundTracks updateLabel trackToName slots = let
   rects = splitHorizN (length slots) rect
   instSelector ((lbl, trackFilter), r) = do
     let r' = trimClock 20 5 5 5 r
-        matchTracks = [ t | t@(strack, _, _, _) <- foundTracks, elem strack trackFilter ]
+        matchTracks = [ t | t@(strack, _, _) <- foundTracks, elem strack trackFilter ]
     choice <- FL.choiceNew r' $ Just lbl
     FL.setAlign choice $ FLE.Alignments [FLE.AlignTypeTop]
     FL.addName choice "(none)"
-    forM_ matchTracks $ \(strack, diff, _, _) -> FL.addName choice $
-      scoreTrackName strack <> " " <> case diff of
+    forM_ matchTracks $ \(strack, diff, _) -> FL.addName choice $
+      trackToName strack <> " " <> case diff of
         RB.Easy   -> "(E)"
         RB.Medium -> "(M)"
         RB.Hard   -> "(H)"
