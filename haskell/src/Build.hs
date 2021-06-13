@@ -358,6 +358,9 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
           Nothing -> []
           Just _  -> [(-1, 0), (1, 0)]
       songChannels = [(-1, 0), (1, 0)]
+      -- If there are 6 channels in total, the actual mogg will have an extra 7th to avoid oggenc 5.1 issue.
+      -- Leaving off pan/vol/core for the last channel is fine in RB3, but may cause issues with RB4 (ForgeTool).
+      extend6 seven xs = if length xs == 6 then xs <> [seven] else xs
   songName <- replaceCharsRB False $ targetTitle songYaml $ RB3 rb3
   artistName <- replaceCharsRB False $ getArtist $ _metadata songYaml
   albumName <- mapM (replaceCharsRB False) $ _album $ _metadata songYaml
@@ -404,13 +407,13 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
         Just Vocal3 -> 3
       , D.pans = map realToFrac $ case plan of
         MoggPlan{..} -> _pans
-        Plan{}       -> map fst $ partChannels ++ crowdChannels ++ songChannels
+        Plan{}       -> extend6 0 $ map fst $ partChannels ++ crowdChannels ++ songChannels
       , D.vols = map realToFrac $ case plan of
         MoggPlan{..} -> _vols
-        Plan{}       -> map snd $ partChannels ++ crowdChannels ++ songChannels
+        Plan{}       -> extend6 0 $ map snd $ partChannels ++ crowdChannels ++ songChannels
       , D.cores = case plan of
         MoggPlan{..} -> map (const (-1)) _pans
-        Plan{}       -> map (const (-1)) $ partChannels ++ crowdChannels ++ songChannels
+        Plan{}       -> extend6 (-1) $ map (const (-1)) $ partChannels ++ crowdChannels ++ songChannels
         -- TODO: 1 for guitar channels?
       , D.drumSolo = D.DrumSounds $ T.words $ case fmap drumsLayout $ getPart (rb3_Drums rb3) songYaml >>= partDrums of
         Nothing             -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
