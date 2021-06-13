@@ -92,6 +92,7 @@ end
 # build songs-hmx/dream-theater/on-the-backs-of-angels # can't put on CF
 # build songs-others/xane60/fathom-infinite-depth
 # build songs/dream-theater/anna-lee
+build songs/dream-theater/trial-of-tears
 
 # phrases unknown:
 

@@ -98,7 +98,7 @@ data Tone2014 = Tone2014
   , t14_Key             :: T.Text
   , t14_Name            :: T.Text
   , t14_NameSeparator   :: T.Text
-  , t14_SortOrder       :: Milli
+  , t14_SortOrder       :: Maybe Milli -- can be missing in manifest .json
   , t14_ToneDescriptors :: V.Vector T.Text
   , t14_Volume          :: Milli
   } deriving (Eq, Show)
@@ -107,14 +107,14 @@ instance IsInside Tone2014 where
   insideCodec = do
     useNamespace (Just "i") cstSpaceW3
     useNamespace (Just "") cstSpaceTone2014
-    t14_GearList        <- t14_GearList        =. childTag (inSpace cstSpaceTone2014 "GearList"       ) (parseInside' insideCodec)
-    t14_IsCustom        <- t14_IsCustom        =. childTag (inSpace cstSpaceTone2014 "IsCustom"       ) (parseInside' $ boolWordText childText)
-    t14_Key             <- t14_Key             =. childTag (inSpace cstSpaceTone2014 "Key"            ) (parseInside' childText)
-    t14_Name            <- t14_Name            =. childTag (inSpace cstSpaceTone2014 "Name"           ) (parseInside' childText)
-    t14_NameSeparator   <- t14_NameSeparator   =. childTag (inSpace cstSpaceTone2014 "NameSeparator"  ) (parseInside' childTextRaw)
-    t14_SortOrder       <- t14_SortOrder       =. childTag (inSpace cstSpaceTone2014 "SortOrder"      ) (parseInside' $ milliText childText)
-    t14_ToneDescriptors <- t14_ToneDescriptors =. childTag (inSpace cstSpaceTone2014 "ToneDescriptors") (parseInside' toneDescriptors)
-    t14_Volume          <- t14_Volume          =. childTag (inSpace cstSpaceTone2014 "Volume"         ) (parseInside' $ milliText childText)
+    t14_GearList        <- t14_GearList        =. childTag    (inSpace cstSpaceTone2014 "GearList"       ) (parseInside' insideCodec)
+    t14_IsCustom        <- t14_IsCustom        =. childTag    (inSpace cstSpaceTone2014 "IsCustom"       ) (parseInside' $ boolWordText childText)
+    t14_Key             <- t14_Key             =. childTag    (inSpace cstSpaceTone2014 "Key"            ) (parseInside' childText)
+    t14_Name            <- t14_Name            =. childTag    (inSpace cstSpaceTone2014 "Name"           ) (parseInside' childText)
+    t14_NameSeparator   <- t14_NameSeparator   =. childTag    (inSpace cstSpaceTone2014 "NameSeparator"  ) (parseInside' childTextRaw)
+    t14_SortOrder       <- t14_SortOrder       =. optNillable (inSpace cstSpaceTone2014 "SortOrder"      ) (milliText childText)
+    t14_ToneDescriptors <- t14_ToneDescriptors =. childTag    (inSpace cstSpaceTone2014 "ToneDescriptors") (parseInside' toneDescriptors)
+    t14_Volume          <- t14_Volume          =. childTag    (inSpace cstSpaceTone2014 "Volume"         ) (parseInside' $ milliText childText)
     return Tone2014{..}
 
 toneDescriptors :: (SendMessage m) => InsideCodec m (V.Vector T.Text)
@@ -130,7 +130,7 @@ instance StackJSON Tone2014 where
     t14_Key             <- t14_Key             =. req "Key" stackJSON
     t14_Name            <- t14_Name            =. req "Name" stackJSON
     t14_NameSeparator   <- t14_NameSeparator   =. req "NameSeparator" stackJSON
-    t14_SortOrder       <- t14_SortOrder       =. req "SortOrder" stackJSON
+    t14_SortOrder       <- t14_SortOrder       =. opt Nothing "SortOrder" stackJSON
     t14_ToneDescriptors <- t14_ToneDescriptors =. req "ToneDescriptors" stackJSON
     t14_Volume          <- t14_Volume          =. req "Volume" Codec
       { codecIn = codecIn stackJSON >>= \s -> case readMaybe s of
