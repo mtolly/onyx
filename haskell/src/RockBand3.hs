@@ -35,6 +35,7 @@ import           RockBand.Codec.Drums              as RBDrums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File               as RBFile
 import           RockBand.Codec.Five
+import           RockBand.Codec.FullDrums          (convertFullDrums)
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Six
@@ -257,10 +258,13 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
       (Drums4   , Right _ps ) -> noToms
       (Drums4   , Left  _rb3) -> allToms
     flex = RBFile.getFlexPart drumsPart trks
-    -- TODO support DrumsFull
-    trk1x = RBFile.onyxPartDrums flex
+    trk1x = if RBDrums.nullDrums (RBFile.onyxPartDrums flex) && drumsMode pd == DrumsFull
+      then convertFullDrums False $ RBFile.onyxPartFullDrums flex
+      else RBFile.onyxPartDrums flex
     trk2x = RBFile.onyxPartDrums2x flex
-    trkReal = RBFile.onyxPartRealDrumsPS flex
+    trkReal = if RBDrums.nullDrums (RBFile.onyxPartRealDrumsPS flex) && drumsMode pd == DrumsFull
+      then convertFullDrums True $ RBFile.onyxPartFullDrums flex
+      else RBFile.onyxPartRealDrumsPS flex
     trkReal' = RBDrums.psRealToPro trkReal
     onlyPSReal = all nullDrums [trk1x, trk2x] && not (nullDrums trkReal)
     pro1x = if onlyPSReal then trkReal' else trk1x
