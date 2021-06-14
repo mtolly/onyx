@@ -3,8 +3,7 @@
 {-# LANGUAGE OverloadedStrings        #-}
 module GuitarHeroII.Audio (writeVGS, writeVGSMultiRate, readVGS, readVGSReadable) where
 
-import           Control.Monad                (forM, forM_, forever, liftM4,
-                                               replicateM_, zipWithM)
+import           Control.Monad                (forM, forM_, liftM4, replicateM_)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Trans.Class    (lift)
 import           Control.Monad.Trans.Resource
@@ -15,10 +14,10 @@ import           Data.Binary.Put
 import qualified Data.ByteString              as B
 import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
-import           Data.Conduit                 ((.|))
+import           Data.Conduit                 (($$++))
 import qualified Data.Conduit                 as C
 import qualified Data.Conduit.Audio           as A
-import           Data.Maybe                   (isNothing)
+import           Data.List.Extra              (minimumOn)
 import           Data.SimpleHandle            (Readable (..), fileReadable,
                                                useHandle)
 import qualified Data.Vector.Storable         as V
@@ -57,18 +56,18 @@ makeXABlock (channel, v, (a, b, c, d)) = unsafePerformIO $ do
     newState <- liftM4 (,,,) (peek pa) (peek pb) (peek pc) (peek pd)
     return (bs, newState)
 
-data VGSInputState = VGSInputState
+data VGSInputState m = VGSInputState
   { vgsXAStates      :: [(Double, Double, Double, Double)]
   , vgsBlocksWritten :: !Word32
   , vgsFirstChannel  :: !Int
   , vgsChannels      :: !Int
+  , vgsRate          :: !Double
+  , vgsSealedInput   :: !(C.SealedConduitT () (V.Vector Int16) m ())
   }
 
 writeVGSMultiRate :: (MonadResource m) => FilePath -> [A.AudioSource m Int16] -> m ()
 writeVGSMultiRate fp srcs = let
-  extendSrc src = do
-    C.mapOutput Just $ A.source $ A.reorganize xaBlockSamples src
-    forever $ C.yield Nothing
+  maxSeconds = maximum $ map (\src -> A.framesToSeconds (A.frames src) (A.rate src)) srcs
   header blocksPerSource = BL.take 0x80 $ runPut $ do
     putByteString $ B8.pack "VgS!"
     putWord32le 2
@@ -77,9 +76,11 @@ writeVGSMultiRate fp srcs = let
         putWord32le $ round $ A.rate src
         putWord32le numBlocks
     putByteString $ B.replicate 0x80 0
-  writeBlock _ inputState Nothing = return inputState
-  writeBlock h inputState (Just blk) = do
-    let chans = A.deinterleave (vgsChannels inputState) blk
+  writeBlock h inputState = do
+    mblk <- C.await
+    let chans = case mblk of
+          Just blk -> A.deinterleave (vgsChannels inputState) blk
+          Nothing  -> replicate (vgsChannels inputState) V.empty
     newStates <- forM (zip3 [vgsFirstChannel inputState ..] chans $ vgsXAStates inputState) $ \input -> do
       let (bs, newState) = makeXABlock input
       liftIO $ B.hPut h bs
@@ -88,25 +89,34 @@ writeVGSMultiRate fp srcs = let
       { vgsXAStates      = newStates
       , vgsBlocksWritten = vgsBlocksWritten inputState + 1
       }
-  writeBlocks h inputStates = C.await >>= \case
-    Nothing -> return inputStates -- shouldn't happen
-    Just blks -> if all isNothing blks
-      then return inputStates -- all channels are done
-      else zipWithM (writeBlock h) inputStates blks >>= writeBlocks h
+  secondsWritten st = fromIntegral (vgsBlocksWritten st * 28) / vgsRate st
+  writeBlocks h inputStates = do
+    let (nextIndex, nextInput) = minimumOn (\(_, st) -> secondsWritten st) $ zip [0..] inputStates
+    if secondsWritten nextInput < maxSeconds
+      then do
+        (newSealed, newInput) <- vgsSealedInput nextInput $$++ writeBlock h nextInput
+        let inputStates' = flip map (zip [0..] inputStates) $ \(i, st) ->
+              if i == (nextIndex :: Int) then newInput { vgsSealedInput = newSealed } else st
+        writeBlocks h inputStates'
+      else return inputStates
   initialStates _              []       = []
   initialStates currentChannel (s : ss) = VGSInputState
     { vgsXAStates      = repeat (0, 0, 0, 0)
     , vgsBlocksWritten = 0
     , vgsFirstChannel  = currentChannel
     , vgsChannels      = A.channels s
+    , vgsRate          = A.rate s
+    , vgsSealedInput   = C.sealConduitT $ A.source s
     } : initialStates (currentChannel + A.channels s) ss
   go h = do
     liftIO $ IO.hSeek h IO.AbsoluteSeek 0x80
-    finalStates <- writeBlocks h $ initialStates 0 srcs
+    finalStates <- writeBlocks h $ initialStates 0 $ map (A.reorganize xaBlockSamples) srcs
     liftIO $ IO.hSeek h IO.AbsoluteSeek 0
     liftIO $ BL.hPut h $ header $ map vgsBlocksWritten finalStates
-  in C.runConduit $ C.sequenceSources (map extendSrc srcs)
-    .| C.bracketP (IO.openBinaryFile fp IO.WriteMode) IO.hClose go
+  in do
+    (key, h) <- allocate (IO.openBinaryFile fp IO.WriteMode) IO.hClose
+    go h
+    release key
 
 writeVGS :: (MonadResource m) => FilePath -> A.AudioSource m Int16 -> m ()
 writeVGS fp src = writeVGSMultiRate fp [src]
