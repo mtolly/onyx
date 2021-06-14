@@ -1,5 +1,16 @@
 # Version history
 
+## 20210614
+
+* Support import from GH2 Xbox 360 DLC
+* Smaller VGS files for GH2 output
+  (silent channel encoded at a lower sample rate)
+* Support differing sample rates in VGS creator
+* Add GH1 + GH2 star cutoffs in song view
+* Fix DTX drums not being converted to RB/CH (broke in `20210522`)
+* Minor fix for RB4/ForgeTool compatibility
+  when working around the 6-channel MOGG issue
+
 ## 20210606
 
 * New tool for combining RB or GH2 Xbox 360 files into packs
