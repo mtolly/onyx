@@ -10,6 +10,8 @@
 * Fix DTX drums not being converted to RB/CH (broke in `20210522`)
 * Minor fix for RB4/ForgeTool compatibility
   when working around the 6-channel MOGG issue
+* Fix lead guitar not being imported right from GH2 co-op tracks like Trogdor
+  which have separate co-op audio but not a distinct `PART GUITAR COOP` chart
 
 ## 20210606
 

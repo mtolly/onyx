@@ -114,8 +114,10 @@ importGH2MIDI mode songChunk (RBFile.Song tmap mmap gh2) = RBFile.Song tmap mmap
       , RB.eventsBacking    = triggersBacking $ gh2Triggers gh2
       }
     , RBFile.fixedPartGuitar = convertPart $ case mode of
-      ImportSolo -> gh2PartGuitar     gh2
-      ImportCoop -> gh2PartGuitarCoop gh2
+      ImportSolo -> gh2PartGuitar gh2
+      ImportCoop -> if nullPart $ gh2PartGuitarCoop gh2
+        then gh2PartGuitar gh2
+        else gh2PartGuitarCoop gh2
     , RBFile.fixedPartBass = if isJust $ lookup "bass" $ D.fromDictList $ tracks songChunk
       then convertPart $ gh2PartBass gh2
       else mempty
