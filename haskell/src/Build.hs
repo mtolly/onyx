@@ -1807,7 +1807,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       [ (gh2LeadTrack audio, 1)
                       , (gh2CoopTrack audio, 1)
                       ]
-                    GH2Silent -> return $ silent (Seconds 0) (if lowRateSilence then 100 else 44100) 1
+                    GH2Silent -> return $ silent (Seconds 0) (if lowRateSilence then 11025 else 44100) 1
                   pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
                   audioLen <- correctAudioLength mid
                   let applyOffset = case compare (gh2_Offset gh2) 0 of

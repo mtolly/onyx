@@ -1,6 +1,6 @@
 # Version history
 
-## 20210614
+## 20210615
 
 * Support import from GH2 Xbox 360 DLC
 * Smaller VGS files for GH2 output

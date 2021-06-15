@@ -1632,7 +1632,7 @@ batchPageGH2 sink rect tab build = do
   getPracticeAudio <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     box <- liftIO $ FL.checkButtonNew rect' (Just "Make practice mode audio for PS2")
     return $ FL.getValue box
-  let getTargetSong usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
+  let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
         speed <- getSpeed
         practiceAudio <- getPracticeAudio
         go $ \proj -> let
@@ -1668,7 +1668,7 @@ batchPageGH2 sink rect tab build = do
             , gh2_Offset = prefGH2Offset newPrefs
             , gh2_LoadingPhrase = loadingPhraseCHtoGH2 proj
             }
-          fout = trimXbox $ T.unpack $ foldr ($) template
+          fout = (if xbox then trimXbox else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH2 tgt
             , let
               modifiers = T.pack $ case tgt_Speed $ gh2_Common tgt of
@@ -1689,7 +1689,7 @@ batchPageGH2 sink rect tab build = do
           Nothing -> return ()
           Just f  -> let
             gen = takeDirectory f
-            in getTargetSong id "" $ \song -> do
+            in getTargetSong False id "" $ \song -> do
               build $ \proj -> let
                 (tgt, _) = song proj
                 in (tgt, GH2ARK gen GH2AddBonus)
@@ -1698,12 +1698,12 @@ batchPageGH2 sink rect tab build = do
     sink
     "Create PS2 DIY folders"
     ("%input_dir%/%input_base%%modifiers%_gh2")
-    (\template -> getTargetSong GH2DIYPS2 template build)
+    (\template -> getTargetSong False GH2DIYPS2 template build)
   makeTemplateRunner
     sink
     "Create GH2 (360) LIVE files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_gh2live")
-    (\template -> warnCombineXboxGH2 sink $ getTargetSong GH2LIVE template build)
+    (\template -> warnCombineXboxGH2 sink $ getTargetSong True GH2LIVE template build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()

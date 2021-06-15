@@ -409,7 +409,12 @@ buildSource aud = need (toList aud) >> buildSource' aud
 standardRate :: (MonadResource m) => AudioSource m Float -> AudioSource m Float
 standardRate src = if rate src == 44100
   then src
-  else resampleTo 44100 SincMediumQuality $ reorganize chunkSize src
+  else if rate src < 1000
+    -- this is a quick hack because libsamplerate breaks if you try to resample
+    -- by a factor less than 1/256 or greater than 256.
+    -- shouldn't happen ever but found out while messing with VGS low sample rates
+    then silent (Seconds 0) 44100 (channels src)
+    else resampleTo 44100 SincMediumQuality $ reorganize chunkSize src
 
 buildSource' :: (MonadResource m, MonadIO f) =>
   Audio Duration FilePath -> f (AudioSource m Float)

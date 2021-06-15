@@ -378,8 +378,10 @@ compilation errors.
     you can select a song row, and press Delete to remove it, Ctrl+Up to move it
     up in the list, or Ctrl+Down to move it down.
 
-    VGS files can be created with inputs of differing sample rates, while MOGG
-    files must have the same sample rate among all input files.
+    VGS files can be created with inputs of differing sample rates, but it is
+    recommended that all your rates be multiples of a large common factor so
+    that channels are interleaved in a regular pattern. MOGG files must have the
+    same sample rate among all input files.
 
     As a special case, if you provide a single OGG file and convert to MOGG, it
     will not be reencoded, but will go straight into the MOGG.
