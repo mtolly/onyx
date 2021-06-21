@@ -305,6 +305,20 @@ aesDecrypt bs = do
   key <- makeKey $ keys !! fromIntegral keyIndex
   checkFSB4 $ ctrCombine key iv cipherData
 
+aesEncrypt :: B.ByteString -> B.ByteString -> Maybe B.ByteString
+aesEncrypt src bs = do
+  guard $ B.length src >= 0x800
+  let (_, cipherFooter) = B.splitAt (B.length src - 0x800) src
+      makeKey k = case cipherInit k of
+        CryptoPassed cipher -> Just (cipher :: AES128)
+        _                   -> Nothing
+  iv <- makeIV $ B.replicate 16 0
+  cipher <- makeKey $ head keys
+  let footer = ctrCombine cipher iv cipherFooter
+      keyIndex = sum $ map (B.index footer) [4..7]
+  key <- makeKey $ keys !! fromIntegral keyIndex
+  return $ ctrCombine key iv bs <> cipherFooter
+
 readFSB :: (MonadResource m) => BL.ByteString -> IO (CA.AudioSource m Int16)
 readFSB dec = let
   dec' = BL.concat

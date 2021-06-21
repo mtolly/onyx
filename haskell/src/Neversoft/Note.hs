@@ -9,8 +9,10 @@ expertarraytochart.bms by GHFear
 {-# LANGUAGE RecordWildCards   #-}
 module Neversoft.Note where
 
-import           Control.Monad                    (replicateM)
-import           Data.Binary.Get
+import           Control.Monad                    (forM, guard, replicateM,
+                                                   void)
+import           Control.Monad.Trans.Writer       (execWriter, tell)
+import           Data.Binary.Codec.Class
 import           Data.Bits
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
@@ -18,10 +20,9 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (listToMaybe)
+import           Data.Maybe                       (listToMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import           Data.Word
 import           Guitars                          (emit5')
 import           Neversoft.Checksum               (qbKeyCRC)
 import           Neversoft.Pak
@@ -39,22 +40,24 @@ data NoteEntry = NoteEntry
   , entryContents    :: [B.ByteString]
   } deriving (Show)
 
-readNote :: Get (B.ByteString, [NoteEntry])
+readNote :: Get (Word32, [NoteEntry])
 readNote = do
-  header <- getByteString 0x1C
-  entries <- let
-    getEntries = isEmpty >>= \case
-      True -> return []
-      False -> do
-        entryIdentifier <- getWord32be
-        entryCount <- getWord32be
-        entryType <- getWord32be
-        entryElementSize <- getWord32be
-        entryContents <- replicateM (fromIntegral entryCount)
-          $ getByteString $ fromIntegral entryElementSize
-        (NoteEntry{..} :) <$> getEntries
-    in getEntries
-  return (header, entries)
+  0x40C001A3 <- getWord32be
+  dlcKey <- getWord32be -- qb key for e.g. "dlc784"
+  count <- getWord32be
+  note <- getWord32be
+  guard $ note == qbKeyCRC "note"
+  zeroes <- getByteString 12
+  guard $ B.all (== 0) zeroes
+  entries <- replicateM (fromIntegral count) $ do
+    entryIdentifier <- getWord32be
+    entryCount <- getWord32be
+    entryType <- getWord32be
+    entryElementSize <- getWord32be
+    entryContents <- replicateM (fromIntegral entryCount)
+      $ getByteString $ fromIntegral entryElementSize
+    return NoteEntry{..}
+  return (dlcKey, entries)
 
 data TimeSig = TimeSig
   { tsTimestamp   :: Word32
@@ -62,41 +65,70 @@ data TimeSig = TimeSig
   , tsDenominator :: Word8
   } deriving (Show)
 
-getTimeSig :: Get TimeSig
-getTimeSig = do
-  tsTimestamp <- getWord32be
-  tsNumerator <- getWord8
-  tsDenominator <- getWord8
-  return TimeSig{..}
+instance Bin TimeSig where
+  bin = do
+    tsTimestamp   <- tsTimestamp   =. word32be
+    tsNumerator   <- tsNumerator   =. word8
+    tsDenominator <- tsDenominator =. word8
+    return TimeSig{..}
 
+-- entryType = gh5_instrument_note
 data Note = Note
   { noteTimeOffset :: Word32
   , noteDuration   :: Word16
   , noteBits       :: Word8
-  , noteUnknown    :: Word8
-  , noteUnknown2   :: Maybe Word8 -- extra byte seen in some drum tracks, maybe X+?
+  -- 0 - green
+  -- 1 - red
+  -- 2 - yellow
+  -- 3 - blue
+  -- 4 - orange
+  -- guitar/bass:
+  --   5 - open
+  --   6 - hopo
+  -- drums:
+  --   5 - kick
+  --   6 - kick 2 (only X+)
+  -- 7 - ???
+  , noteAccent     :: Word8
+  -- always 31 on That's What You Get X guitar
+  -- usually 0 on That's What You Get X drums
+  -- 31 (0b11111) on drums means accent (all non-kick gems?)
+  -- 29 (0b11101) on drums means yellow accent, but not snare accent
   } deriving (Show)
 
-getNote :: Get Note
-getNote = do
-  noteTimeOffset <- getWord32be
-  noteDuration <- getWord16be
-  noteBits <- getWord8
-  noteUnknown <- getWord8
-  noteUnknown2 <- isEmpty >>= \case
-    True -> return Nothing
-    False -> Just <$> getWord8
-  return Note{..}
+instance Bin Note where
+  bin = do
+    noteTimeOffset <- noteTimeOffset =. word32be
+    noteDuration   <- noteDuration   =. word16be
+    noteBits       <- noteBits       =. word8
+    noteAccent     <- noteAccent     =. word8
+    return Note{..}
 
+-- entryType = gh6_expert_drum_note
+data NoteExpertDrums = NoteExpertDrums
+  { xdNote  :: Note
+  , xdGhost :: Word8
+  -- Usually 0; 2 means ghost snare, probably matches noteBits
+  } deriving (Show)
+
+instance Bin NoteExpertDrums where
+  bin = do
+    xdNote  <- xdNote  =. bin
+    xdGhost <- xdGhost =. word8
+    return NoteExpertDrums{..}
+
+-- entryType = gh5_star_note (singleValue :: Word16)
+-- entryType = gh5_tapping_note (singleValue :: Word32)
+-- others...
 data Single a = Single
   { singleTimeOffset :: Word32
   , singleValue      :: a
   } deriving (Show)
 
-getSingle :: Get a -> Get (Single a)
-getSingle val = do
-  singleTimeOffset <- getWord32be
-  singleValue      <- val
+binSingle :: BinaryCodec a -> BinaryCodec (Single a)
+binSingle val = do
+  singleTimeOffset <- singleTimeOffset =. word32be
+  singleValue      <- singleValue      =. val
   return Single{..}
 
 data GuitarBass = GuitarBass
@@ -106,8 +138,9 @@ data GuitarBass = GuitarBass
   } deriving (Show)
 
 data Drums = Drums
-  { drums_instrument :: [Note]
+  { drums_instrument :: Either [Note] [NoteExpertDrums]
   , drums_starpower  :: [Single Word16]
+  , drums_drumfill   :: [Single Word32]
   } deriving (Show)
 
 data VocalNote = VocalNote
@@ -125,90 +158,205 @@ data VocalNote = VocalNote
 -- VocalNote t3 (t4 - t3) p2
 -- and only 1 lyric (at t1)
 
-getVocalNote :: Get VocalNote
-getVocalNote = do
-  vnTimeOffset <- getWord32be
-  vnDuration <- getWord16be
-  vnPitch <- getWord8
-  return VocalNote{..}
+instance Bin VocalNote where
+  bin = do
+    vnTimeOffset <- vnTimeOffset =. word32be
+    vnDuration   <- vnDuration   =. word16be
+    vnPitch      <- vnPitch      =. word8
+    return VocalNote{..}
 
-data GHSongPak = GHSongPak
+binLyric :: Int -> BinaryCodec T.Text
+binLyric size = Codec
+  { codecIn  = T.takeWhile (/= '\0') . TE.decodeUtf16BE . BL.toStrict <$> getRemainingLazyByteString
+  , codecOut = fmapArg $ \t -> putByteString $ B.take size $ TE.encodeUtf16BE t <> B.replicate size 0
+  }
 
-  { gh_guitareasy     :: GuitarBass
-  , gh_guitarmedium   :: GuitarBass
-  , gh_guitarhard     :: GuitarBass
-  , gh_guitarexpert   :: GuitarBass
+data GHNoteFile = GHNoteFile
 
-  , gh_basseasy       :: GuitarBass
-  , gh_bassmedium     :: GuitarBass
-  , gh_basshard       :: GuitarBass
-  , gh_bassexpert     :: GuitarBass
+  { gh_guitareasy            :: GuitarBass
+  , gh_guitarmedium          :: GuitarBass
+  , gh_guitarhard            :: GuitarBass
+  , gh_guitarexpert          :: GuitarBass
 
-  , gh_drumseasy      :: Drums
-  , gh_drumsmedium    :: Drums
-  , gh_drumshard      :: Drums
-  , gh_drumsexpert    :: Drums
+  , gh_basseasy              :: GuitarBass
+  , gh_bassmedium            :: GuitarBass
+  , gh_basshard              :: GuitarBass
+  , gh_bassexpert            :: GuitarBass
 
-  , gh_vocals         :: [VocalNote]
-  , gh_vocallyrics    :: [Single T.Text]
-  , gh_vocalstarpower :: [Single Word16]
+  , gh_drumseasy             :: Drums
+  , gh_drumsmedium           :: Drums
+  , gh_drumshard             :: Drums
+  , gh_drumsexpert           :: Drums
 
-  , gh_sections       :: [T.Text]
-  , gh_fretbar        :: [Word32]
-  , gh_timesig        :: [TimeSig]
+  , gh_vocals                :: [VocalNote]
+  , gh_vocallyrics           :: [Single T.Text]
+  , gh_vocalstarpower        :: [Single Word16]
+  , gh_vocalphrase           :: [Word32]
+  , gh_vocalfreeform         :: [B.ByteString] -- TODO real format. 10 bytes long
+
+  -- harmonies were planned for GH apparently!?
+  -- these are only in some songs like That's What You Get (dlc784)
+  , gh_backup_vocalphrase    :: Maybe [Word32]
+  , gh_backup_vocals         :: Maybe [VocalNote]
+  , gh_backup_vocalfreeform  :: Maybe [B.ByteString]
+  , gh_backup_vocallyrics    :: Maybe [Single T.Text]
+  , gh_backup_vocalstarpower :: Maybe [Single Word16]
+
+  , gh_fretbar               :: [Word32]
+  , gh_timesig               :: [TimeSig]
+  , gh_bandmoment            :: [Single Word32]
+
+  -- unknown entryIdentifier strings
+  , gh_markers               :: [Single Word32] -- these match IDs in .qs.en
+  , gh_vocalmarkers          :: [Single T.Text]
+  , gh_backup_vocalmarkers   :: Maybe [Single T.Text]
 
   } deriving (Show)
 
--- Load from a _song.pak.xen
-loadSongPak :: (MonadFail m) => BL.ByteString -> m GHSongPak
+-- Load from an uncompressed _song.pak.xen
+loadSongPak :: (MonadFail m) => BL.ByteString -> m GHNoteFile
 loadSongPak bs = do
   let nodes = splitPakNodes bs
       findNodeKey = findNodeCRC . qbKeyCRC
       findNodeCRC crc = listToMaybe $ filter (\(n, _) -> nodeFileType n == crc) nodes
       stringBank = qsBank nodes
   case findNodeKey ".note" of
-    Nothing               -> fail ".note not found"
-    Just (node, noteData) -> do
-      let (header, entries) = runGet readNote noteData
-          findEntryKey = findEntryCRC . qbKeyCRC
-          findEntryCRC crc = listToMaybe $ filter ((== crc) . entryIdentifier) entries
-          getEntryKey k = case findEntryKey k of
-            Nothing    -> fail $ ".note entry not found: " <> show k
-            Just entry -> return entry
-          interpret sizes getter entry = if elem (entryElementSize entry) sizes
-            then return $ map (runGet getter . BL.fromStrict) $ entryContents entry
-            else fail $ "Invalid size of note entry elements: " <> show (entryElementSize entry) <> " but expected " <> show sizes
-          getGB prefix = do
-            gb_instrument <- getEntryKey (prefix <> "instrument") >>= interpret [8] getNote
-            gb_tapping <- getEntryKey (prefix <> "tapping") >>= interpret [8] (getSingle getWord32be)
-            gb_starpower <- getEntryKey (prefix <> "starpower") >>= interpret [6] (getSingle getWord16be)
-            return GuitarBass{..}
-          getDrums prefix = do
-            drums_instrument <- getEntryKey (prefix <> "instrument") >>= interpret [8, 9] getNote
-            drums_starpower <- getEntryKey (prefix <> "starpower") >>= interpret [6] (getSingle getWord16be)
-            return Drums{..}
-      gh_fretbar <- getEntryKey "fretbar" >>= interpret [4] getWord32be
-      gh_timesig <- getEntryKey "timesig" >>= interpret [6] getTimeSig
-      gh_guitareasy <- getGB "guitareasy"
-      gh_guitarmedium <- getGB "guitarmedium"
-      gh_guitarhard <- getGB "guitarhard"
-      gh_guitarexpert <- getGB "guitarexpert"
-      gh_basseasy <- getGB "basseasy"
-      gh_bassmedium <- getGB "bassmedium"
-      gh_basshard <- getGB "basshard"
-      gh_bassexpert <- getGB "bassexpert"
-      gh_drumseasy <- getDrums "drumseasy"
-      gh_drumsmedium <- getDrums "drumsmedium"
-      gh_drumshard <- getDrums "drumshard"
-      gh_drumsexpert <- getDrums "drumsexpert"
-      gh_vocals <- getEntryKey "vocals" >>= interpret [7] getVocalNote
-      gh_vocalstarpower <- getEntryKey "vocalstarpower" >>= interpret [6] (getSingle getWord16be)
-      let getLyric = T.takeWhile (/= '\0') . TE.decodeUtf16BE . BL.toStrict <$> getRemainingLazyByteString
-      gh_vocallyrics <- getEntryKey "vocallyrics" >>= interpret [68] (getSingle getLyric)
-      gh_sections <- return [] -- TODO
-      return GHSongPak{..}
+    Nothing                -> fail ".note not found"
+    Just (_node, noteData) -> loadNoteFile noteData
 
-ghToMidi :: GHSongPak -> RBFile.Song (RBFile.FixedFile U.Beats)
+loadNoteFile :: (MonadFail m) => BL.ByteString -> m GHNoteFile
+loadNoteFile noteData = do
+  let (_dlcKey, entries) = runGet readNote noteData
+      findEntryKey = findEntryCRC . qbKeyCRC
+      findEntryCRC crc = listToMaybe $ filter ((== crc) . entryIdentifier) entries
+      getEntryKey k = case findEntryKey k of
+        Nothing    -> fail $ ".note entry not found: " <> show k
+        Just entry -> return entry
+      getEntryCRC n = case findEntryCRC n of
+        Nothing    -> fail $ ".note entry not found: " <> show n
+        Just entry -> return entry
+      readEntry cdc entry = map (runGet (codecIn cdc) . BL.fromStrict) $ entryContents entry
+      interpret options entry = let
+        isMatch (aType, len, reader) = do
+          guard $ entryType entry == qbKeyCRC aType
+          guard $ entryElementSize entry == len
+          return reader
+        in case mapMaybe isMatch options of
+          []         -> fail $ "Couldn't match one of these types/sizes: " <> show [(aType, len) | (aType, len, _) <- options]
+          reader : _ -> return $ reader entry
+      getGB prefix = do
+        gb_instrument <- getEntryKey (prefix <> "instrument") >>= interpret [("gh5_instrument_note", 8, readEntry bin)]
+        gb_tapping <- getEntryKey (prefix <> "tapping") >>= interpret [("gh5_tapping_note", 8, readEntry $ binSingle word32be)]
+        gb_starpower <- getEntryKey (prefix <> "starpower") >>= interpret [("gh5_star_note", 6, readEntry $ binSingle word16be)]
+        return GuitarBass{..}
+      getDrums diff = do
+        drums_instrument <- getEntryKey ("drums" <> diff <> "instrument") >>= interpret
+          [ ("gh5_instrument_note", 8, Left <$> readEntry bin)
+          , ("gh6_expert_drum_note", 9, Right <$> readEntry bin)
+          ]
+        drums_starpower <- getEntryKey ("drums" <> diff <> "starpower") >>= interpret [("gh5_star_note", 6, readEntry $ binSingle word16be)]
+        drums_drumfill <- getEntryKey (diff <> "drumfill") >>= interpret [("gh5_drumfill_note", 8, readEntry $ binSingle word32be)]
+        return Drums{..}
+  gh_fretbar <- getEntryKey "fretbar" >>= interpret [("gh5_fretbar_note", 4, readEntry word32be)]
+  gh_timesig <- getEntryKey "timesig" >>= interpret [("gh5_timesig_note", 6, readEntry bin)]
+  gh_guitareasy <- getGB "guitareasy"
+  gh_guitarmedium <- getGB "guitarmedium"
+  gh_guitarhard <- getGB "guitarhard"
+  gh_guitarexpert <- getGB "guitarexpert"
+  gh_basseasy <- getGB "basseasy"
+  gh_bassmedium <- getGB "bassmedium"
+  gh_basshard <- getGB "basshard"
+  gh_bassexpert <- getGB "bassexpert"
+  gh_drumseasy <- getDrums "easy"
+  gh_drumsmedium <- getDrums "medium"
+  gh_drumshard <- getDrums "hard"
+  gh_drumsexpert <- getDrums "expert"
+  gh_vocals <- getEntryKey "vocals" >>= interpret [("gh5_vocal_note", 7, readEntry bin)]
+  gh_vocalstarpower <- getEntryKey "vocalstarpower" >>= interpret [("gh5_star_note", 6, readEntry $ binSingle word16be)]
+  gh_vocallyrics <- getEntryKey "vocallyrics" >>= interpret [("gh5_vocal_lyric", 68, readEntry $ binSingle $ binLyric 64)]
+  gh_vocalphrase <- getEntryKey "vocalphrase" >>= interpret [("gh5_vocal_phrase", 4, readEntry word32be)]
+  gh_vocalfreeform <- getEntryKey "vocalfreeform" >>= interpret [("gh5_vocal_freeform_note", 10, readEntry $ byteString 10)]
+  gh_bandmoment <- getEntryKey "bandmoment" >>= interpret [("gh5_band_moment_note", 8, readEntry $ binSingle word32be)]
+  gh_markers <- getEntryCRC 0x92511d84 >>= interpret [("gh5_marker_note", 8, readEntry $ binSingle word32be)]
+  gh_vocalmarkers <- getEntryCRC 0x032292a7 >>= interpret [("gh5_vocal_marker_note", 260, readEntry $ binSingle $ binLyric 256)]
+  gh_backup_vocalmarkers <- forM (findEntryCRC 1140412083) $ interpret [("gh5_vocal_marker_note", 260, readEntry $ binSingle $ binLyric 256)]
+  gh_backup_vocalphrase <- forM (findEntryKey "backup_vocalphrase") $ interpret [("gh5_vocal_phrase", 4, readEntry word32be)]
+  gh_backup_vocals <- forM (findEntryKey "backup_vocals") $ interpret [("gh5_vocal_note", 7, readEntry bin)]
+  gh_backup_vocalfreeform <- forM (findEntryKey "backup_vocalfreeform") $ interpret [("gh5_vocal_freeform_note", 10, readEntry $ byteString 10)]
+  gh_backup_vocallyrics <- forM (findEntryKey "backup_vocallyrics") $ interpret [("gh5_vocal_lyric", 68, readEntry $ binSingle $ binLyric 64)]
+  gh_backup_vocalstarpower <- forM (findEntryKey "backup_vocalstarpower") $ interpret [("gh5_star_note", 6, readEntry $ binSingle word16be)]
+
+  return GHNoteFile{..}
+
+makeWoRNoteFile :: GHNoteFile -> [NoteEntry]
+makeWoRNoteFile GHNoteFile{..} = execWriter $ do
+  let makeEntry = makeEntryCRC . qbKeyCRC
+      makeEntryCRC n aType size cdc xs = tell $ return $ NoteEntry
+        { entryIdentifier = n
+        , entryCount = fromIntegral $ length xs
+        , entryType = qbKeyCRC aType
+        , entryElementSize = size
+        , entryContents = map (BL.toStrict . runPut . void . codecOut cdc) xs
+        }
+      makeDrums k = \case
+        Left  gh5  -> makeEntry k "gh5_instrument_note"  8 bin gh5
+        Right gh6x -> makeEntry k "gh6_expert_drum_note" 9 bin gh6x
+  -- this order probably doesn't matter but just matching what some official files have
+  makeEntry "drumshardstarpower"      "gh5_star_note"           6   (binSingle word16be)       (drums_starpower gh_drumshard)
+  makeEntry "bassmediumstarpower"     "gh5_star_note"           6   (binSingle word16be)       (gb_starpower gh_bassmedium)
+  makeEntryCRC 0x032292a7             "gh5_vocal_marker_note"   260 (binSingle $ binLyric 256) gh_vocalmarkers
+  makeEntry "drumsexpertstarpower"    "gh5_star_note"           6   (binSingle word16be)       (drums_starpower gh_drumsexpert)
+  makeEntry "guitarhardinstrument"    "gh5_instrument_note"     8   bin                        (gb_instrument gh_guitarhard)
+  makeEntry "guitarhardtapping"       "gh5_tapping_note"        8   (binSingle word32be)       (gb_tapping gh_guitarhard)
+  makeEntry "mediumdrumfill"          "gh5_drumfill_note"       8   (binSingle word32be)       (drums_drumfill gh_drumsmedium)
+  makeEntry "guitarmediumtapping"     "gh5_tapping_note"        8   (binSingle word32be)       (gb_tapping gh_guitarmedium)
+  makeEntry "guitarexperttapping"     "gh5_tapping_note"        8   (binSingle word32be)       (gb_tapping gh_guitarexpert)
+  makeEntry "basshardstarpower"       "gh5_star_note"           6   (binSingle word16be)       (gb_starpower gh_basshard)
+  makeEntry "vocalstarpower"          "gh5_star_note"           6   (binSingle word16be)       gh_vocalstarpower
+  makeEntry "vocalphrase"             "gh5_vocal_phrase"        4   word32be                   gh_vocalphrase
+  makeEntry "guitarhardstarpower"     "gh5_star_note"           6   (binSingle word16be)       (gb_starpower gh_guitarhard)
+  makeEntryCRC 0x92511d84             "gh5_marker_note"         8   (binSingle word32be)       gh_markers
+  makeEntry "fretbar"                 "gh5_fretbar_note"        4   word32be                   gh_fretbar
+  makeEntry "vocals"                  "gh5_vocal_note"          7   bin                        gh_vocals
+  makeEntry "harddrumfill"            "gh5_drumfill_note"       8   (binSingle word32be)       (drums_drumfill gh_drumshard)
+  makeDrums "drumseasyinstrument"                                                              (drums_instrument gh_drumseasy)
+  makeEntry "guitareasytapping"       "gh5_tapping_note"        8   (binSingle word32be)       (gb_tapping gh_guitareasy)
+  makeEntry "guitarmediumstarpower"   "gh5_star_note"           6   (binSingle word16be)       (gb_starpower gh_guitarmedium)
+  makeEntry "basseasyinstrument"      "gh5_instrument_note"     8   bin                        (gb_instrument gh_basseasy)
+  makeEntry "guitarexpertinstrument"  "gh5_instrument_note"     8   bin                        (gb_instrument gh_guitarexpert)
+  makeEntry "guitarexpertstarpower"   "gh5_star_note"           6   (binSingle word16be)       (gb_starpower gh_guitarexpert)
+  makeDrums "drumsexpertinstrument"                                                            (drums_instrument gh_drumsexpert)
+  makeEntry "bassmediumtapping"       "gh5_tapping_note"        8   (binSingle word32be)       (gb_tapping gh_bassmedium)
+  makeEntry "vocalfreeform"           "gh5_vocal_freeform_note" 10  (byteString 10)            gh_vocalfreeform
+  makeEntry "basseasystarpower"       "gh5_star_note"           6   (binSingle word16be)       (gb_starpower gh_basseasy)
+  makeDrums "drumsmediuminstrument"                                                            (drums_instrument gh_drumsmedium)
+  makeEntry "basshardinstrument"      "gh5_instrument_note"     8   bin                        (gb_instrument gh_basshard)
+  makeEntry "vocallyrics"             "gh5_vocal_lyric"         68  (binSingle $ binLyric 64)  gh_vocallyrics
+  makeEntry "timesig"                 "gh5_timesig_note"        6   bin                        gh_timesig
+  makeEntry "basseasytapping"         "gh5_tapping_note"        8   (binSingle word32be)       (gb_tapping gh_basseasy)
+  makeEntry "drumseasystarpower"      "gh5_star_note"           6   (binSingle word16be)       (drums_starpower gh_drumseasy)
+  makeEntry "bassmediuminstrument"    "gh5_instrument_note"     8   bin                        (gb_instrument gh_bassmedium)
+  makeEntry "guitarmediuminstrument"  "gh5_instrument_note"     8   bin                        (gb_instrument gh_guitarmedium)
+  makeEntry "bassexperttapping"       "gh5_tapping_note"        8   (binSingle word32be)       (gb_tapping gh_bassexpert)
+  makeEntry "drumsmediumstarpower"    "gh5_star_note"           6   (binSingle word16be)       (drums_starpower gh_drumsmedium)
+  makeEntry "easydrumfill"            "gh5_drumfill_note"       8   (binSingle word32be)       (drums_drumfill gh_drumseasy)
+  makeEntry "bandmoment"              "gh5_band_moment_note"    8   (binSingle word32be)       gh_bandmoment
+  makeEntry "bassexpertinstrument"    "gh5_instrument_note"     8   bin                        (gb_instrument gh_bassexpert)
+  makeDrums "drumshardinstrument"                                                              (drums_instrument gh_drumshard)
+  makeEntry "expertdrumfill"          "gh5_drumfill_note"       8   (binSingle word32be)       (drums_drumfill gh_drumsexpert)
+  makeEntry "basshardtapping"         "gh5_tapping_note"        8   (binSingle word32be)       (gb_tapping gh_basshard)
+  makeEntry "bassexpertstarpower"     "gh5_star_note"           6   (binSingle word16be)       (gb_starpower gh_bassexpert)
+  makeEntry "guitareasystarpower"     "gh5_star_note"           6   (binSingle word16be)       (gb_starpower gh_guitareasy)
+  makeEntry "guitareasyinstrument"    "gh5_instrument_note"     8   bin                        (gb_instrument gh_guitareasy)
+  -- only in some songs
+  mapM_ (makeEntry "backup_vocalphrase"    "gh5_vocal_phrase"        4   word32be                  ) gh_backup_vocalphrase
+  mapM_ (makeEntry "backup_vocals"         "gh5_vocal_note"          7   bin                       ) gh_backup_vocals
+  mapM_ (makeEntry "backup_vocalfreeform"  "gh5_vocal_freeform_note" 10  (byteString 10)           ) gh_backup_vocalfreeform
+  mapM_ (makeEntry "backup_vocallyrics"    "gh5_vocal_lyric"         68  (binSingle $ binLyric 64) ) gh_backup_vocallyrics
+  mapM_ (makeEntry "backup_vocalstarpower" "gh5_star_note"           6   (binSingle word16be)      ) gh_backup_vocalstarpower
+  mapM_ (makeEntry "backup_vocalmarkers"   "gh5_vocal_marker_note"   260 (binSingle $ binLyric 256)) gh_backup_vocalmarkers
+
+ghToMidi :: GHNoteFile -> RBFile.Song (RBFile.FixedFile U.Beats)
 ghToMidi pak = let
   toSeconds :: Word32 -> U.Seconds
   toSeconds = (/ 1000) . fromIntegral
@@ -264,4 +412,53 @@ ghToMidi pak = let
     { RBFile.s_tempos = tempos
     , RBFile.s_signatures = U.measureMapFromLengths U.Truncate RTB.empty -- TODO
     , RBFile.s_tracks = fixed
+    }
+
+ghFromMidi :: RBFile.Song (RBFile.FixedFile U.Beats) -> GHNoteFile
+ghFromMidi (RBFile.Song tmap mmap fixed) = let
+  makeGB trk diff = GuitarBass
+    { gb_instrument = [] -- TODO
+    , gb_tapping = [] -- TODO
+    , gb_starpower = [] -- TODO
+    }
+  makeDrums trk diff = Drums
+    { drums_instrument = Right [] -- TODO
+    , drums_starpower = [] -- TODO
+    , drums_drumfill = [] -- TODO
+    }
+  in GHNoteFile
+    { gh_guitareasy            = makeGB (RBFile.fixedPartGuitar fixed) Easy
+    , gh_guitarmedium          = makeGB (RBFile.fixedPartGuitar fixed) Medium
+    , gh_guitarhard            = makeGB (RBFile.fixedPartGuitar fixed) Hard
+    , gh_guitarexpert          = makeGB (RBFile.fixedPartGuitar fixed) Expert
+
+    , gh_basseasy              = makeGB (RBFile.fixedPartBass fixed) Easy
+    , gh_bassmedium            = makeGB (RBFile.fixedPartBass fixed) Medium
+    , gh_basshard              = makeGB (RBFile.fixedPartBass fixed) Hard
+    , gh_bassexpert            = makeGB (RBFile.fixedPartBass fixed) Expert
+
+    , gh_drumseasy             = makeDrums (RBFile.fixedPartDrums fixed) Easy
+    , gh_drumsmedium           = makeDrums (RBFile.fixedPartDrums fixed) Medium
+    , gh_drumshard             = makeDrums (RBFile.fixedPartDrums fixed) Hard
+    , gh_drumsexpert           = makeDrums (RBFile.fixedPartDrums fixed) Expert
+
+    , gh_vocals                = [] -- TODO
+    , gh_vocallyrics           = [] -- TODO
+    , gh_vocalstarpower        = [] -- TODO
+    , gh_vocalphrase           = [] -- TODO
+    , gh_vocalfreeform         = [] -- TODO
+
+    , gh_backup_vocalphrase    = Nothing
+    , gh_backup_vocals         = Nothing
+    , gh_backup_vocalfreeform  = Nothing
+    , gh_backup_vocallyrics    = Nothing
+    , gh_backup_vocalstarpower = Nothing
+
+    , gh_fretbar               = [] -- TODO
+    , gh_timesig               = [] -- TODO
+    , gh_bandmoment            = [] -- TODO
+
+    , gh_markers               = [] -- TODO
+    , gh_vocalmarkers          = [] -- TODO
+    , gh_backup_vocalmarkers   = Nothing
     }

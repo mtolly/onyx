@@ -31,6 +31,7 @@ import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Codec.Class
 import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.ByteString.Lazy.Char8       ()
 import           Data.Char                        (isAlphaNum, isAscii, isDigit,
@@ -46,7 +47,7 @@ import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
-import           Data.List.Extra                  (unsnoc)
+import           Data.List.Extra                  (find, stripSuffix, unsnoc)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
@@ -66,6 +67,11 @@ import qualified Image
 import           Magma                            (getRBAFile, runMagma,
                                                    runMagmaMIDI, runMagmaV1)
 import           MoggDecrypt                      (moggToOgg, oggToMogg)
+import           Neversoft.Audio                  (aesDecrypt, aesEncrypt,
+                                                   fsbDecrypt)
+import           Neversoft.Checksum               (qbKeyCRC)
+import           Neversoft.Note                   (loadNoteFile)
+import           Neversoft.Pak                    (nodeFileType, splitPakNodes)
 import           OpenProject
 import           OSFiles                          (copyDirRecursive)
 import           PrettyDTA                        (DTASingle (..),
@@ -1126,6 +1132,64 @@ commands =
           } :: SongYaml FilePath)
         return [dir]
       _ -> fatal "Expected at least 1 arg (flac or wav files)"
+    }
+
+  , Command
+    { commandWord = "decrypt-wor"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandRun = \args opts -> forM args $ \xen -> do
+      enc <- stackIO $ B.readFile xen
+      dec <- case aesDecrypt enc of
+        Nothing  -> case stripSuffix ".fsb.xen" (takeFileName xen) >>= \base -> fsbDecrypt base enc of
+          Nothing  -> fatal "Couldn't decrypt GH .fsb.xen audio"
+          Just dec -> return dec
+        Just dec -> return dec
+      out <- outputFile opts $ return $ case stripSuffix ".fsb.xen" xen of
+        Just root -> root <.> "fsb"
+        Nothing   -> xen <.> "fsb"
+      stackIO $ B.writeFile out dec
+      return out
+    }
+
+  , Command
+    { commandWord = "encrypt-wor"
+    , commandDesc = "Use the encryption key from one .fsb.xen file to make a new one."
+    , commandUsage = "onyx encrypt-wor original.fsb.xen new.fsb [--to new.fsb.xen]"
+    , commandRun = \args opts -> case args of
+      [base, fsb] -> do
+        base' <- stackIO $ B.readFile base
+        fsb' <- stackIO $ B.readFile fsb
+        case aesEncrypt base' fsb' of
+          Nothing -> fatal "Couldn't encrypt into .fsb.xen"
+          Just xen -> do
+            out <- outputFile opts $ return $ fsb <.> "xen"
+            stackIO $ B.writeFile out xen
+            return [out]
+      _ -> fatal "Expected 2 arguments (original.fsb.xen and new.fsb)"
+    }
+
+  , Command
+    { commandWord = "extract-song-pak"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandRun = \args opts -> case args of
+      [pak] -> do
+        dout <- outputFile opts $ return $ pak <> "_extract"
+        stackIO $ Dir.createDirectoryIfMissing False dout
+        nodes <- stackIO $ splitPakNodes <$> BL.readFile pak
+        stackIO $ writeFile (dout </> "pak-contents.txt") $ unlines $ map (show . fst) nodes
+        let knownExts = [".ska", ".qb", ".qs.en", ".qs.fr", ".qs.it", ".qs.de", ".qs.es", ".note", ".perf"]
+        forM_ (zip [0..] nodes) $ \(i, (node, contents)) -> do
+          let ext = fromMaybe ("." <> show (nodeFileType node))
+                $ find ((== nodeFileType node) . qbKeyCRC . B8.pack) knownExts
+              name = reverse (take 3 $ reverse (show (i :: Int)) <> repeat '0') <> ext
+          stackIO $ BL.writeFile (dout </> name) contents
+          when (nodeFileType node == qbKeyCRC ".note") $ do
+            note <- loadNoteFile contents
+            stackIO $ writeFile (dout </> name <.> "parsed.txt") $ show note
+        return [dout]
+      _ -> fatal "Expected 1 argument (_song.pak.xen)"
     }
 
   ]

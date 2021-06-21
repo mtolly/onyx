@@ -335,3 +335,17 @@ loadSetlistFull gen = do
   forM setlist $ \k -> case HM.lookup (decodeLatin1 k) songs of
     Just pkg -> return (k, pkg)
     Nothing  -> fatal $ "Couldn't locate setlist song " <> show k
+
+{-
+Note for whenever we import .voc files.
+Arterial Black has:
+
+ (song
+  (name songs/arterialblack/arterialblack_sp)
+  ...
+  (midi_file songs/arterialblack/arterialblack.mid))
+
+And the lipsync file is named `arterialblack.voc`. So maybe the `midi_file` is
+the template to find it, instead of `name`? Or maybe it just doesn't load and
+nobody noticed...
+-}
