@@ -9,8 +9,8 @@ expertarraytochart.bms by GHFear
 {-# LANGUAGE RecordWildCards   #-}
 module Neversoft.Note where
 
-import           Control.Monad                    (forM, guard, replicateM,
-                                                   void)
+import           Control.Monad                    (forM, forM_, guard,
+                                                   replicateM, void)
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import           Data.Binary.Codec.Class
 import           Data.Bits
@@ -40,8 +40,8 @@ data NoteEntry = NoteEntry
   , entryContents    :: [B.ByteString]
   } deriving (Show)
 
-readNote :: Get (Word32, [NoteEntry])
-readNote = do
+getNote :: Get (Word32, [NoteEntry])
+getNote = do
   0x40C001A3 <- getWord32be
   dlcKey <- getWord32be -- qb key for e.g. "dlc784"
   count <- getWord32be
@@ -58,6 +58,20 @@ readNote = do
       $ getByteString $ fromIntegral entryElementSize
     return NoteEntry{..}
   return (dlcKey, entries)
+
+putNote :: Word32 -> [NoteEntry] -> Put
+putNote dlcKey entries = do
+  putWord32be 0x40C001A3
+  putWord32be dlcKey
+  putWord32be $ fromIntegral $ length entries
+  putWord32be $ qbKeyCRC "note"
+  putByteString $ B.replicate 12 0
+  forM_ entries $ \entry -> do
+    putWord32be $ entryIdentifier entry
+    putWord32be $ entryCount entry
+    putWord32be $ entryType entry
+    putWord32be $ entryElementSize entry
+    mapM_ putByteString $ entryContents entry
 
 data TimeSig = TimeSig
   { tsTimestamp   :: Word32
@@ -226,7 +240,7 @@ loadSongPak bs = do
 
 loadNoteFile :: (MonadFail m) => BL.ByteString -> m GHNoteFile
 loadNoteFile noteData = do
-  let (_dlcKey, entries) = runGet readNote noteData
+  let (_dlcKey, entries) = runGet getNote noteData
       findEntryKey = findEntryCRC . qbKeyCRC
       findEntryCRC crc = listToMaybe $ filter ((== crc) . entryIdentifier) entries
       getEntryKey k = case findEntryKey k of
@@ -412,53 +426,4 @@ ghToMidi pak = let
     { RBFile.s_tempos = tempos
     , RBFile.s_signatures = U.measureMapFromLengths U.Truncate RTB.empty -- TODO
     , RBFile.s_tracks = fixed
-    }
-
-ghFromMidi :: RBFile.Song (RBFile.FixedFile U.Beats) -> GHNoteFile
-ghFromMidi (RBFile.Song tmap mmap fixed) = let
-  makeGB trk diff = GuitarBass
-    { gb_instrument = [] -- TODO
-    , gb_tapping = [] -- TODO
-    , gb_starpower = [] -- TODO
-    }
-  makeDrums trk diff = Drums
-    { drums_instrument = Right [] -- TODO
-    , drums_starpower = [] -- TODO
-    , drums_drumfill = [] -- TODO
-    }
-  in GHNoteFile
-    { gh_guitareasy            = makeGB (RBFile.fixedPartGuitar fixed) Easy
-    , gh_guitarmedium          = makeGB (RBFile.fixedPartGuitar fixed) Medium
-    , gh_guitarhard            = makeGB (RBFile.fixedPartGuitar fixed) Hard
-    , gh_guitarexpert          = makeGB (RBFile.fixedPartGuitar fixed) Expert
-
-    , gh_basseasy              = makeGB (RBFile.fixedPartBass fixed) Easy
-    , gh_bassmedium            = makeGB (RBFile.fixedPartBass fixed) Medium
-    , gh_basshard              = makeGB (RBFile.fixedPartBass fixed) Hard
-    , gh_bassexpert            = makeGB (RBFile.fixedPartBass fixed) Expert
-
-    , gh_drumseasy             = makeDrums (RBFile.fixedPartDrums fixed) Easy
-    , gh_drumsmedium           = makeDrums (RBFile.fixedPartDrums fixed) Medium
-    , gh_drumshard             = makeDrums (RBFile.fixedPartDrums fixed) Hard
-    , gh_drumsexpert           = makeDrums (RBFile.fixedPartDrums fixed) Expert
-
-    , gh_vocals                = [] -- TODO
-    , gh_vocallyrics           = [] -- TODO
-    , gh_vocalstarpower        = [] -- TODO
-    , gh_vocalphrase           = [] -- TODO
-    , gh_vocalfreeform         = [] -- TODO
-
-    , gh_backup_vocalphrase    = Nothing
-    , gh_backup_vocals         = Nothing
-    , gh_backup_vocalfreeform  = Nothing
-    , gh_backup_vocallyrics    = Nothing
-    , gh_backup_vocalstarpower = Nothing
-
-    , gh_fretbar               = [] -- TODO
-    , gh_timesig               = [] -- TODO
-    , gh_bandmoment            = [] -- TODO
-
-    , gh_markers               = [] -- TODO
-    , gh_vocalmarkers          = [] -- TODO
-    , gh_backup_vocalmarkers   = Nothing
     }

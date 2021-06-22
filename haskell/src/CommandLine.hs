@@ -46,6 +46,7 @@ import qualified Data.DTA.Serialize               as D
 import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (find, stripSuffix, unsnoc)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
@@ -71,7 +72,8 @@ import           Neversoft.Audio                  (aesDecrypt, aesEncrypt,
                                                    fsbDecrypt)
 import           Neversoft.Checksum               (qbKeyCRC)
 import           Neversoft.Note                   (loadNoteFile)
-import           Neversoft.Pak                    (nodeFileType, splitPakNodes)
+import           Neversoft.Pak                    (buildPak, nodeFileType,
+                                                   splitPakNodes)
 import           OpenProject
 import           OSFiles                          (copyDirRecursive)
 import           PrettyDTA                        (DTASingle (..),
@@ -290,6 +292,7 @@ buildTarget yamlPath opts = do
         RB2   {} -> "gen/target" </> T.unpack targetName </> "rb2con"
         PS    {} -> "gen/target" </> T.unpack targetName </> "ps.zip"
         GH2   {} -> "gen/target" </> T.unpack targetName </> "gh2.zip"
+        GH5   {} -> undefined -- TODO
         RS    {} -> undefined -- TODO
         Melody{} -> undefined -- TODO
         Konga {} -> undefined -- TODO
@@ -394,6 +397,7 @@ commands =
                 RB3   {} -> FileSTFS
                 RB2   {} -> FileSTFS
                 GH2   {} -> undefined -- TODO
+                GH5   {} -> undefined -- TODO
                 RS    {} -> undefined -- TODO
                 Melody{} -> undefined -- TODO
                 Konga {} -> undefined -- TODO
@@ -544,10 +548,11 @@ commands =
         True -> do
           let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
           (pkg, suffix) <- case game of
-            GameRB3  -> return (rb3pkg, "_rb3con")
-            GameRB2  -> return (rb2pkg, "_rb2con")
-            GameGH2  -> return (gh2pkg, "_gh2live")
-            GameTBRB -> fatal "TBRB unsupported as game for stfs command"
+            GameRB3   -> return (rb3pkg, "_rb3con")
+            GameRB2   -> return (rb2pkg, "_rb2con")
+            GameGH2   -> return (gh2pkg, "_gh2live")
+            GameGHWOR -> return (ghworpkg, "_ghworlive")
+            GameTBRB  -> fatal "TBRB unsupported as game for stfs command"
           stfs <- outputFile opts
             $ (<> suffix) . dropTrailingPathSeparator
             <$> stackIO (Dir.makeAbsolute dir)
@@ -808,7 +813,7 @@ commands =
           GameRB3  -> (\vmap -> autoLipsync    defaultTransition vmap englishSyllables) <$> loadVisemesRB3
           GameRB2  -> (\vmap -> autoLipsync    defaultTransition vmap englishSyllables) <$> loadVisemesRB3
           GameTBRB -> (\vmap -> beatlesLipsync defaultTransition vmap englishSyllables) <$> loadVisemesTBRB
-          GameGH2  -> fatal "Can't select GH2 for lipsync-gen"
+          _        -> fatal "Unsupported game for lipsync-gen"
         let template = dropExtension fmid
             tracks =
               [ (RBFile.fixedPartVocals, "_solovox.lipsync", False)
@@ -841,7 +846,7 @@ commands =
           GameRB3  -> loadVisemesRB3
           GameRB2  -> loadVisemesRB3
           GameTBRB -> loadVisemesTBRB
-          GameGH2  -> fatal "Can't select GH2 for lipsync-track-gen"
+          _        -> fatal "Unsupported game for lipsync-track-gen"
         let template = dropExtension fmid
             tracks =
               [ (RBFile.onyxLipsync1, "_1.lipsync")
@@ -1170,7 +1175,7 @@ commands =
     }
 
   , Command
-    { commandWord = "extract-song-pak"
+    { commandWord = "extract-pak"
     , commandDesc = ""
     , commandUsage = ""
     , commandRun = \args opts -> case args of
@@ -1179,7 +1184,7 @@ commands =
         stackIO $ Dir.createDirectoryIfMissing False dout
         nodes <- stackIO $ splitPakNodes <$> BL.readFile pak
         stackIO $ writeFile (dout </> "pak-contents.txt") $ unlines $ map (show . fst) nodes
-        let knownExts = [".ska", ".qb", ".qs.en", ".qs.fr", ".qs.it", ".qs.de", ".qs.es", ".note", ".perf"]
+        let knownExts = [".ska", ".qb", ".qs.en", ".qs.fr", ".qs.it", ".qs.de", ".qs.es", ".note", ".perf", ".last"]
         forM_ (zip [0..] nodes) $ \(i, (node, contents)) -> do
           let ext = fromMaybe ("." <> show (nodeFileType node))
                 $ find ((== nodeFileType node) . qbKeyCRC . B8.pack) knownExts
@@ -1190,6 +1195,31 @@ commands =
             stackIO $ writeFile (dout </> name <.> "parsed.txt") $ show note
         return [dout]
       _ -> fatal "Expected 1 argument (_song.pak.xen)"
+    }
+
+  , Command
+    { commandWord = "rebuild-pak"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandRun = \args opts -> case args of
+      [dir] -> do
+        fout <- outputFile opts $ return $ dir <.> "pak"
+        contents <- stackIO $ readFile $ dir </> "pak-contents.txt"
+        let nodes = map read $ lines contents
+        files <- stackIO $ Dir.listDirectory dir
+        let fileMap = Map.fromList $ do
+              f <- files
+              n <- toList $ readMaybe $ takeWhile isDigit f
+              guard $ not $ "parsed.txt" `T.isSuffixOf` T.pack f
+              return (n, f)
+        newContents <- forM (zip [0..] nodes) $ \(i, node) -> case Map.lookup (i :: Int) fileMap of
+          Just f -> do
+            bs <- stackIO $ BL.fromStrict <$> B.readFile (dir </> f)
+            return (node, bs)
+          Nothing -> fatal $ "Couldn't find pak content #" <> show i
+        stackIO $ BL.writeFile fout $ buildPak newContents
+        return [fout]
+      _ -> fatal "Expected 1 argument (extracted .pak folder)"
     }
 
   ]
@@ -1349,6 +1379,7 @@ optDescrs =
       "rb2"  -> GameRB2
       "tbrb" -> GameTBRB
       "gh2"  -> GameGH2
+      "ghwor" -> GameGHWOR
       g      -> error $ "Unrecognized --game value: " ++ show g
 
 data OnyxOption
@@ -1403,6 +1434,7 @@ data Game
   | GameRB2
   | GameTBRB
   | GameGH2
+  | GameGHWOR
   deriving (Eq, Ord, Show)
 
 midiOptions :: [OnyxOption] -> MS.Options
@@ -1482,7 +1514,7 @@ blackVenue fcon = inside ("Inserting black VENUE in: " <> fcon) $ do
         , createTitleName     = md_TitleName meta
         , createThumb         = md_ThumbnailImage meta
         , createTitleThumb    = md_TitleThumbnailImage meta
-        , createLicense       = LicenseEntry (-1) 1 0 -- unlocked
+        , createLicenses      = [LicenseEntry (-1) 1 0] -- unlocked
         , createMediaID       = 0
         , createVersion       = 0
         , createBaseVersion   = 0

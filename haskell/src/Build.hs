@@ -86,6 +86,10 @@ import           Image
 import qualified Magma
 import qualified MelodysEscape                         as Melody
 import           MoggDecrypt
+import           Neversoft.Checksum                    (qbKeyCRC)
+import           Neversoft.Export                      (makeGHWoRNote)
+import           Neversoft.Note                        (makeWoRNoteFile,
+                                                        putNote)
 import qualified Numeric.NonNegative.Class             as NNC
 import           OSFiles                               (copyDirRecursive)
 import           Overdrive                             (calculateUnisons,
@@ -2776,6 +2780,19 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 , CST.dlc_XBox360           = False
                 , CST.dlc_XBox360Licenses   = mempty
                 }
+
+          GH5 gh5 -> do
+
+            (planName, plan) <- case getPlan (tgt_Plan $ gh5_Common gh5) songYaml of
+              Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh5
+              Just pair -> return pair
+            let planDir = rel $ "gen/plan" </> T.unpack planName
+
+            dir </> "ghwor.note" %> \out -> do
+              mid <- shakeMIDI $ planDir </> "raw.mid"
+              note <- makeGHWoRNote songYaml gh5 mid $ getAudioLength planName plan
+              stackIO $ BL.writeFile out $ runPut $
+                putNote (qbKeyCRC $ TE.encodeUtf8 $ gh5_DLC gh5) $ makeWoRNoteFile note
 
           Konga _ -> return () -- TODO
 

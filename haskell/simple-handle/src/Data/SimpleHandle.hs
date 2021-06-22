@@ -14,6 +14,7 @@ import qualified Data.ByteString.Lazy     as BL
 import           Data.ByteString.Unsafe   (unsafeUseAsCStringLen)
 import           Data.Either              (lefts, rights)
 import           Data.IORef
+import           Data.List                (sort)
 import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty       as NE
 import           Data.Maybe               (fromMaybe)
@@ -202,7 +203,7 @@ findFile spath folder = case NE.uncons spath of
 
 crawlFolder :: FilePath -> IO (Folder T.Text Readable)
 crawlFolder f = do
-  ents <- Dir.listDirectory f
+  ents <- sort <$> Dir.listDirectory f
   results <- forM ents $ \ent -> Dir.doesFileExist (f </> ent) >>= \case
     True  -> return $ Left (T.pack ent, fileReadable $ f </> ent)
     False -> do

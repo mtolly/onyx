@@ -1313,6 +1313,29 @@ instance StackJSON TargetGH2 where
 instance Default TargetGH2 where
   def = fromEmptyObject
 
+-- gh5 or ghwor, mostly same formats
+data TargetGH5 = TargetGH5
+  { gh5_Common :: TargetCommon
+  , gh5_Guitar :: FlexPartName
+  , gh5_Bass   :: FlexPartName
+  , gh5_Drums  :: FlexPartName
+  , gh5_Vocal  :: FlexPartName
+  , gh5_DLC    :: T.Text
+  } deriving (Eq, Ord, Show, Generic, Hashable)
+
+parseTargetGH5 :: (SendMessage m) => ObjectCodec m A.Value TargetGH5
+parseTargetGH5 = do
+  gh5_Common        <- gh5_Common        =. parseTargetCommon
+  gh5_Guitar        <- gh5_Guitar        =. opt FlexGuitar           "guitar"         stackJSON
+  gh5_Bass          <- gh5_Bass          =. opt FlexBass             "bass"           stackJSON
+  gh5_Drums         <- gh5_Drums         =. opt FlexDrums            "drums"          stackJSON
+  gh5_Vocal         <- gh5_Vocal         =. opt FlexVocal            "vocal"          stackJSON
+  gh5_DLC           <- gh5_DLC           =. req                      "dlc"            stackJSON
+  return TargetGH5{..}
+
+instance StackJSON TargetGH5 where
+  stackJSON = asStrictObject "TargetGH5" parseTargetGH5
+
 data RSArrModifier
   = RSDefault
   | RSBonus
@@ -1405,6 +1428,7 @@ data Target f
   | RB2    TargetRB2
   | PS     TargetPS
   | GH2    TargetGH2
+  | GH5    TargetGH5
   | RS     TargetRS
   | Melody TargetPart
   | Konga  TargetPart
@@ -1416,6 +1440,7 @@ targetCommon = \case
   RB2    TargetRB2 {..} -> rb2_Common
   PS     TargetPS  {..} -> ps_Common
   GH2    TargetGH2 {..} -> gh2_Common
+  GH5    TargetGH5 {..} -> gh5_Common
   RS     TargetRS  {..} -> rs_Common
   Melody TargetPart{..} -> tgt_Common
   Konga  TargetPart{..} -> tgt_Common
@@ -1433,6 +1458,7 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
         "rb2"    -> fmap RB2    fromJSON
         "ps"     -> fmap PS     fromJSON
         "gh2"    -> fmap GH2    fromJSON
+        "gh5"    -> fmap GH5    fromJSON
         "rs"     -> fmap RS     fromJSON
         "melody" -> fmap Melody fromJSON
         "konga"  -> fmap Konga  fromJSON
@@ -1442,6 +1468,7 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
       RB2    rb2 -> addKey parseTargetRB2  "game" "rb2"    rb2
       PS     ps  -> addKey parseTargetPS   "game" "ps"     ps
       GH2    gh2 -> addKey parseTargetGH2  "game" "gh2"    gh2
+      GH5    gh5 -> addKey parseTargetGH5  "game" "gh5"    gh5
       RS     rs  -> addKey parseTargetRS   "game" "rs"     rs
       Melody tgt -> addKey parseTargetPart "game" "melody" tgt
       Konga  tgt -> addKey parseTargetPart "game" "konga"  tgt

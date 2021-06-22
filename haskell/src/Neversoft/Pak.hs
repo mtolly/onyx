@@ -4,6 +4,7 @@ module Neversoft.Pak where
 
 import           Control.Monad        (guard)
 import           Data.Binary.Get
+import           Data.Binary.Put
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char            (isSpace)
 import qualified Data.Map             as Map
@@ -22,7 +23,7 @@ data Node = Node
   , nodeFilenameCRC    :: Word32
   , nodeUnknown        :: Word32
   , nodeFlags          :: Word32
-  } deriving (Show)
+  } deriving (Show, Read)
 
 splitPakNodes :: BL.ByteString -> [(Node, BL.ByteString)]
 splitPakNodes bs = let
@@ -30,24 +31,52 @@ splitPakNodes bs = let
   end2 = qbKeyCRC ".last"
   getNodes = do
     posn <- fromIntegral <$> bytesRead
-    nodeFileType <- getWord32be
-    if elem nodeFileType [end, end2]
+    nodeFileType       <- getWord32be
+    nodeOffset         <- (+ posn) <$> getWord32be
+    nodeSize           <- getWord32be
+    nodeFilenamePakKey <- getWord32be
+    nodeFilenameKey    <- getWord32be
+    nodeFilenameCRC    <- getWord32be
+    nodeUnknown        <- getWord32be
+    nodeFlags          <- getWord32be
+    (Node{..} :) <$> if elem nodeFileType [end, end2]
       then return []
-      else do
-        nodeOffset         <- (+ posn) <$> getWord32be
-        nodeSize           <- getWord32be
-        nodeFilenamePakKey <- getWord32be
-        nodeFilenameKey    <- getWord32be
-        nodeFilenameCRC    <- getWord32be
-        nodeUnknown        <- getWord32be
-        nodeFlags          <- getWord32be
-        (Node{..} :) <$> getNodes
+      else getNodes
   attachData node = let
     goToData
       = BL.take (fromIntegral $ nodeSize node)
       . BL.drop (fromIntegral $ nodeOffset node)
     in (node, goToData bs)
   in map attachData $ runGet getNodes bs
+
+buildPak :: [(Node, BL.ByteString)] -> BL.ByteString
+buildPak nodes = let
+  fixNodes _    []                  = []
+  fixNodes posn ((node, bs) : rest) = let
+    len = fromIntegral $ BL.length bs
+    in node
+      { nodeOffset = posn
+      , nodeSize = len
+      } : fixNodes (padLength $ posn + len) rest
+  dataStart = 0x1000 -- TODO support if this needs to be higher
+  padLength n = 0x10 + case quotRem n 0x10 of
+    (_, 0) -> n
+    (q, _) -> (q + 1) * 0x10
+  padData bs = bs <> let
+    len = BL.length bs
+    in BL.replicate (padLength len - len) 0
+  putHeader (i, Node{..}) = do
+    putWord32be nodeFileType
+    putWord32be $ nodeOffset - 32 * i
+    putWord32be nodeSize
+    putWord32be nodeFilenamePakKey
+    putWord32be nodeFilenameKey
+    putWord32be nodeFilenameCRC
+    putWord32be nodeUnknown
+    putWord32be nodeFlags
+  header = runPut $ mapM_ putHeader $ zip [0..] $ fixNodes dataStart nodes
+  header' = BL.take (fromIntegral dataStart) $ header <> BL.replicate (fromIntegral dataStart) 0
+  in BL.concat $ [header'] <> map (padData . snd) nodes <> [BL.replicate 0xCF0 0xAB]
 
 qsBank :: [(Node, BL.ByteString)] -> Map.Map Word32 T.Text
 qsBank nodes = Map.fromList $ do

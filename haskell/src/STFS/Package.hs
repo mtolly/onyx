@@ -17,6 +17,7 @@ module STFS.Package
 , rb3pkg
 , rb2pkg
 , gh2pkg
+, ghworpkg
 , makeCON
 , makeCONMemory
 , makeCONReadable
@@ -32,7 +33,7 @@ module STFS.Package
 ) where
 
 import           Control.Monad                  (forM, forM_, guard, replicateM,
-                                                 unless, void)
+                                                 unless, void, when)
 import           Control.Monad.Codec
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.StackTrace
@@ -65,8 +66,9 @@ import           Data.Text.Encoding
 import           Data.Time
 import qualified Data.Vector.Unboxed            as VU
 import           Data.Word
-import           Resources                      (gh2Thumbnail, rb2Thumbnail,
-                                                 rb3Thumbnail, xboxKV)
+import           Resources                      (gh2Thumbnail, ghWoRthumbnail,
+                                                 rb2Thumbnail, rb3Thumbnail,
+                                                 xboxKV)
 import           System.IO
 
 class Bin a where
@@ -474,36 +476,34 @@ data FileEntry = FileEntry
   , fe_FirstBlock      :: Int32
   , fe_PathIndex       :: Int16
   , fe_Size            :: Word32
-  , fe_UpdateTimestamp :: LocalTime
-  , fe_AccessTimestamp :: LocalTime
+  , fe_UpdateTimestamp :: Word32
+  , fe_AccessTimestamp :: Word32
   } deriving (Eq, Show)
 
-instance Bin LocalTime where -- dunno if utc or local
-  bin = dimap
-    (\lt -> let
-      (y, m, d) = toGregorian $ localDay lt
-      in foldr (.|.) 0
-        [ fromIntegral (y - 1980) `shiftL` 25
-        , fromIntegral m `shiftL` 21
-        , fromIntegral d `shiftL` 16
-        , fromIntegral (todHour $ localTimeOfDay lt) `shiftL` 11
-        , fromIntegral (todMin $ localTimeOfDay lt) `shiftL` 6
-        , floor $ todSec $ localTimeOfDay lt
-        ]
-    )
-    (\ts -> LocalTime
-      { localDay = fromGregorian
-        (1980 + fromIntegral (ts `shiftR` 25)) -- year
-        (fromIntegral $ (ts `shiftR` 21) .&. 0xF) -- month
-        (fromIntegral $ (ts `shiftR` 16) .&. 0x1F) -- day
-      , localTimeOfDay = TimeOfDay
-        { todHour = fromIntegral $ (ts `shiftR` 11) .&. 0x1F
-        , todMin = fromIntegral $ (ts `shiftR` 6) .&. 0x3F
-        , todSec = fromIntegral $ ts .&. 0x1F
-        }
-      }
-    )
-    word32le
+readFatTime :: Word32 -> LocalTime
+readFatTime ts = LocalTime
+  { localDay = fromGregorian
+    (1980 + fromIntegral (ts `shiftR` 25)) -- year
+    (fromIntegral $ (ts `shiftR` 21) .&. 0xF) -- month
+    (fromIntegral $ (ts `shiftR` 16) .&. 0x1F) -- day
+  , localTimeOfDay = TimeOfDay
+    { todHour = fromIntegral $ (ts `shiftR` 11) .&. 0x1F
+    , todMin = fromIntegral $ (ts `shiftR` 6) .&. 0x3F
+    , todSec = fromIntegral $ ts .&. 0x1F
+    }
+  }
+
+showFatTime :: LocalTime -> Word32
+showFatTime lt = let
+  (y, m, d) = toGregorian $ localDay lt
+  in foldr (.|.) 0
+    [ fromIntegral (y - 1980) `shiftL` 25
+    , fromIntegral m `shiftL` 21
+    , fromIntegral d `shiftL` 16
+    , fromIntegral (todHour $ localTimeOfDay lt) `shiftL` 11
+    , fromIntegral (todMin $ localTimeOfDay lt) `shiftL` 6
+    , floor $ todSec $ localTimeOfDay lt
+    ]
 
 instance Bin FileEntry where
   bin = do
@@ -529,8 +529,8 @@ instance Bin FileEntry where
     fe_FirstBlock      <- fe_FirstBlock      =. int24le
     fe_PathIndex       <- fe_PathIndex       =. int16be
     fe_Size            <- fe_Size            =. word32be
-    fe_UpdateTimestamp <- fe_UpdateTimestamp =. bin
-    fe_AccessTimestamp <- fe_AccessTimestamp =. bin
+    fe_UpdateTimestamp <- fe_UpdateTimestamp =. word32le
+    fe_AccessTimestamp <- fe_AccessTimestamp =. word32le
     return FileEntry{..}
 
 data STFSPackage = STFSPackage
@@ -773,19 +773,32 @@ verifyHashes fixHashes stfs = let
               ]
   in do
     forM_ patternWithIndexes $ \(contents, rblk) -> case contents of
-      L0Hashes i -> forM_ [0 .. 0xA9] $ \j -> do
-        let hashedIndex = i * 0xAA + fromIntegral j
-        verify (DataBlock hashedIndex) rblk j
+      L0Hashes i -> do
+        forM_ [0 .. 0xA9] $ \j -> do
+          let hashedIndex = i * 0xAA + fromIntegral j
+          verify (DataBlock hashedIndex) rblk j
       _ -> return ()
     forM_ patternWithIndexes $ \(contents, rblk) -> case contents of
-      L1Hashes i -> forM_ [0 .. 0xA9] $ \j -> do
-        let hashedIndex = i * 0xAA + fromIntegral j
-        verify (L0Hashes hashedIndex) rblk j
+      L1Hashes i -> do
+        forM_ [0 .. 0xA9] $ \j -> do
+          let hashedIndex = i * 0xAA + fromIntegral j
+          verify (L0Hashes hashedIndex) rblk j
+        -- add a count of data blocks covered by this hash, seen in (some?) DLC files
+        when fixHashes $ do
+          seekToRealBlock rblk stfs
+          hSeek (stfsHandle stfs) RelativeSeek 0xFF0
+          BL.hPut (stfsHandle stfs) $ runPut $ putInt32be $ min (0xAA * 0xAA) $ sd_TotalAllocatedBlockCount sd - 0xAA * 0xAA * i
       _ -> return ()
     forM_ patternWithIndexes $ \(contents, rblk) -> case contents of
-      L2Hashes i -> forM_ [0 .. 0xA9] $ \j -> do
-        let hashedIndex = i * 0xAA + fromIntegral j
-        verify (L1Hashes hashedIndex) rblk j
+      L2Hashes i -> do
+        forM_ [0 .. 0xA9] $ \j -> do
+          let hashedIndex = i * 0xAA + fromIntegral j
+          verify (L1Hashes hashedIndex) rblk j
+        -- add a count of data blocks covered by this hash (which is all of them), seen in (some?) DLC files
+        when fixHashes $ do
+          seekToRealBlock rblk stfs
+          hSeek (stfsHandle stfs) RelativeSeek 0xFF0
+          BL.hPut (stfsHandle stfs) $ runPut $ putInt32be $ sd_TotalAllocatedBlockCount sd
       _ -> return ()
 
 stockScramble :: B.ByteString -> B.ByteString
@@ -949,7 +962,7 @@ data CreateOptions = CreateOptions
   , createTitleName     :: T.Text
   , createThumb         :: B.ByteString
   , createTitleThumb    :: B.ByteString
-  , createLicense       :: LicenseEntry
+  , createLicenses      :: [LicenseEntry]
   , createMediaID       :: Word32
   , createVersion       :: Int32
   , createBaseVersion   :: Int32
@@ -967,7 +980,25 @@ gh2pkg title desc dir fout = inside "making GH2 LIVE package" $ stackIO $ do
     , createTitleName = "Guitar Hero II"
     , createThumb = thumb
     , createTitleThumb = thumb
-    , createLicense = LicenseEntry (-1) 1 0 -- unlocked
+    , createLicenses = [LicenseEntry (-1) 1 0] -- unlocked
+    , createMediaID       = 0
+    , createVersion       = 0
+    , createBaseVersion   = 0
+    , createTransferFlags = 0xC0
+    , createLIVE = True
+    } dir fout
+
+ghworpkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
+ghworpkg title desc dir fout = inside "making GH:WoR LIVE package" $ stackIO $ do
+  thumb <- ghWoRthumbnail >>= B.readFile
+  makeCON CreateOptions
+    { createName = title
+    , createDescription = desc
+    , createTitleID = 0x41560883
+    , createTitleName = "Guitar Hero : Warriors of Rock" -- save data might be under "GH™: Warriors of Rock"?
+    , createThumb = thumb
+    , createTitleThumb = thumb
+    , createLicenses = [LicenseEntry (-1) 1 1, LicenseEntry (-1) 1 0]
     , createMediaID       = 0
     , createVersion       = 0
     , createBaseVersion   = 0
@@ -985,7 +1016,7 @@ rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ do
     , createTitleName = "Rock Band 3"
     , createThumb = thumb
     , createTitleThumb = thumb
-    , createLicense = LicenseEntry (-1) 1 0 -- unlocked
+    , createLicenses = [LicenseEntry (-1) 1 0] -- unlocked
     , createMediaID       = 0
     , createVersion       = 0
     , createBaseVersion   = 0
@@ -1003,7 +1034,7 @@ rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ do
     , createTitleName = "Rock Band 2"
     , createThumb = thumb
     , createTitleThumb = thumb
-    , createLicense = LicenseEntry (-1) 1 0 -- unlocked
+    , createLicenses = [LicenseEntry (-1) 1 0] -- unlocked
     , createMediaID       = 0
     , createVersion       = 0
     , createBaseVersion   = 0
@@ -1036,8 +1067,8 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
 
   let metadata = Metadata
         { md_LicenseEntries = take 0x10
-          $ createLicense opts
-          : repeat (LicenseEntry 0 0 0)
+          $ createLicenses opts
+          <> repeat (LicenseEntry 0 0 0)
         , md_HeaderSHA1 = B.replicate 0x14 0 -- filled in later
         , md_HeaderSize = 0xAD0E
         , md_ContentType = if createLIVE opts then CT_MarketplaceContent else CT_SavedGame
@@ -1117,27 +1148,24 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
         , fe_FirstBlock      = 0
         , fe_PathIndex       = 0
         , fe_Size            = 0
-        , fe_UpdateTimestamp = timestamp
-        , fe_AccessTimestamp = timestamp
+        , fe_UpdateTimestamp = 0
+        , fe_AccessTimestamp = 0
         }
       makeFileEntries used ((parent, name, blocks) : rest) = let
         thisBlocks = maybe 0 (fileSizeToBlocks . fst) blocks
         in FileEntry
           { fe_FileName        = name
-          , fe_Consecutive     = False
+          , fe_Consecutive     = True
           , fe_Directory       = isNothing blocks
           , fe_Blocks1         = thisBlocks
           , fe_Blocks2         = thisBlocks
           , fe_FirstBlock      = if isNothing blocks then 0 else used
           , fe_PathIndex       = fromIntegral parent
           , fe_Size            = maybe 0 (fromIntegral . fst) blocks
-          , fe_UpdateTimestamp = timestamp
-          , fe_AccessTimestamp = timestamp
+          -- these are from GHWoR DLC, probably not necessary but was trying a lot of things to make it work
+          , fe_UpdateTimestamp = 0x20006F2D
+          , fe_AccessTimestamp = 0x20006F2D
           } : makeFileEntries (used + thisBlocks) rest
-      timestamp = LocalTime
-        { localDay = fromGregorian 2019 8 8
-        , localTimeOfDay = TimeOfDay 0 0 0
-        }
       fileEntries = makeFileEntries (fromIntegral listBlocks) fileList
 
       writeFileBlock n hasNext bs = do
@@ -1245,7 +1273,7 @@ makePack inputs@(input : _) applyOpts fout = do
     , createTitleName     = md_TitleName           $ stfsMetadata stfs
     , createThumb         = md_TitleThumbnailImage $ stfsMetadata stfs -- use title thumb for package as well
     , createTitleThumb    = md_TitleThumbnailImage $ stfsMetadata stfs
-    , createLicense       = LicenseEntry (-1) 1 0 -- unlocked
+    , createLicenses      = [LicenseEntry (-1) 1 0] -- unlocked
     , createMediaID       = 0
     , createVersion       = 0
     , createBaseVersion   = 0
