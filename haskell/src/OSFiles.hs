@@ -9,6 +9,8 @@ import           Control.Monad.IO.Class   (MonadIO (..))
 import qualified System.Directory         as Dir
 import           System.FilePath          (takeDirectory, (</>))
 #ifdef WINDOWS
+import           Data.List                (intercalate)
+import           Data.List.Split          (splitOn)
 import           Foreign                  (Ptr, nullPtr, ptrToIntPtr,
                                            withArrayLen, withMany)
 import           Foreign.C                (CInt (..), CWString, withCWString)
@@ -85,8 +87,11 @@ osShowFolder dir fs = liftIO $
 
 fixFileCase = return
 
-shortWindowsPath f = liftIO $ getShortPathName $ "\\\\?\\" <> f
--- the weird prefix lets you go beyond MAX_PATH
+shortWindowsPath f = liftIO $ let
+  -- Can't use forward slashes, you get invalid path error
+  allBackslash = intercalate "\\" $ splitOn "/" f
+  -- The weird prefix lets you go beyond MAX_PATH
+  in getShortPathName $ "\\\\?\\" <> allBackslash
 
 #else
 
