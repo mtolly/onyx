@@ -20,16 +20,19 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (listToMaybe, mapMaybe)
+import           Data.Maybe                       (listToMaybe, mapMaybe, fromMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Guitars                          (emit5')
 import           Neversoft.Checksum               (qbKeyCRC)
 import           Neversoft.Pak
+import qualified RockBand.Codec.Drums             as D
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
-import           RockBand.Common                  (Difficulty (..),
-                                                   StrumHOPOTap (..))
+import qualified RockBand.Codec.Vocal             as V
+import           RockBand.Common                  (Difficulty (..), Edge (..),
+                                                   StrumHOPOTap (..),
+                                                   splitEdgesSimple)
 import qualified Sound.MIDI.Util                  as U
 
 data NoteEntry = NoteEntry
@@ -147,13 +150,13 @@ binSingle val = do
 
 data GuitarBass = GuitarBass
   { gb_instrument :: [Note]
-  , gb_tapping    :: [Single Word32]
-  , gb_starpower  :: [Single Word16]
+  , gb_tapping    :: [Single Word32] -- values are durations
+  , gb_starpower  :: [Single Word16] -- values are durations
   } deriving (Show)
 
 data Drums = Drums
   { drums_instrument :: Either [Note] [NoteExpertDrums]
-  , drums_starpower  :: [Single Word16]
+  , drums_starpower  :: [Single Word16] -- values are durations
   , drums_drumfill   :: [Single Word32]
   } deriving (Show)
 
@@ -204,7 +207,7 @@ data GHNoteFile = GHNoteFile
 
   , gh_vocals                :: [VocalNote]
   , gh_vocallyrics           :: [Single T.Text]
-  , gh_vocalstarpower        :: [Single Word16]
+  , gh_vocalstarpower        :: [Single Word16] -- values are durations
   , gh_vocalphrase           :: [Word32]
   , gh_vocalfreeform         :: [B.ByteString] -- TODO real format. 10 bytes long
 
@@ -370,6 +373,12 @@ makeWoRNoteFile GHNoteFile{..} = execWriter $ do
   mapM_ (makeEntry "backup_vocalstarpower" "gh5_star_note"           6   (binSingle word16be)      ) gh_backup_vocalstarpower
   mapM_ (makeEntry "backup_vocalmarkers"   "gh5_vocal_marker_note"   260 (binSingle $ binLyric 256)) gh_backup_vocalmarkers
 
+tappingToFunction :: [Single Word32] -> (Word32 -> Bool)
+-- TODO make a map or something to optimize this
+tappingToFunction taps w = any
+  (\tap -> singleTimeOffset tap <= w && w < singleTimeOffset tap + singleValue tap)
+  taps
+
 ghToMidi :: GHNoteFile -> RBFile.Song (RBFile.FixedFile U.Beats)
 ghToMidi pak = let
   toSeconds :: Word32 -> U.Seconds
@@ -382,8 +391,9 @@ ghToMidi pak = let
       $ zipWith makeTempo fretbarSecs (drop 1 fretbarSecs)
   toBeats :: Word32 -> U.Beats
   toBeats = U.unapplyTempoMap tempos . toSeconds
-  getGB gb = emit5' $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ let
-    isTap _ = False -- TODO
+  fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
+  getGB gb = emit5' $ fromPairs $ let
+    isTap = tappingToFunction $ gb_tapping gb
     in gb_instrument gb >>= \note -> do
       fret <- if noteBits note `testBit` 5
         then [Nothing] -- open note
@@ -395,13 +405,53 @@ ghToMidi pak = let
           , [Just F.Orange | noteBits note `testBit` 4]
           ]
       let pos = toBeats $ noteTimeOffset note
-          sht = if noteBits note `testBit` 6
-            then HOPO
-            else Strum
+          sht | isTap $ noteTimeOffset note = Tap
+              | noteBits note `testBit` 6   = HOPO
+              | otherwise                   = Strum
           len = toBeats (noteTimeOffset note + fromIntegral (noteDuration note)) - pos
       return (pos, ((fret, sht), Just len))
+  getDrums drum = mempty
+    { D.drumGems = let
+      expert = either (map $ \note -> NoteExpertDrums note 0) id $ drums_instrument drum
+      in fromPairs $ expert >>= \note -> let
+        noteBit gem b = do
+          guard $ noteBits (xdNote note) `testBit` b
+          let vel | noteAccent (xdNote note) `testBit` b = D.VelocityAccent
+                  | xdGhost note `testBit` b = D.VelocityGhost
+                  | otherwise = D.VelocityNormal
+          return (toBeats $ noteTimeOffset $ xdNote note, (gem, vel))
+        in concat
+          [ noteBit (D.Pro D.Green ()) 0
+          , noteBit D.Red 1
+          , noteBit (D.Pro D.Yellow ()) 2
+          , noteBit (D.Pro D.Blue ()) 3
+          , noteBit D.Orange 4
+          , noteBit D.Kick 5
+          ]
+    }
+  getKick2x drum = fromPairs $ either id (map xdNote) (drums_instrument drum) >>= \note -> do
+    guard $ noteBits note `testBit` 6
+    return (toBeats $ noteTimeOffset note, ())
   getOD = RTB.fromAbsoluteEventList . ATB.fromPairList . sort . concatMap
     (\(Single t len) -> [(toBeats t, True), (toBeats $ t + fromIntegral len, False)])
+  -- TODO fix slides (convert from pitch 2 format)
+  -- and multisyllable word format (move = on 2nd syllable to - on 1st)
+  getVocal vox lyrics _phrases sp = mempty
+    { V.vocalLyrics = fromPairs $ flip map lyrics $ \single ->
+      (toBeats $ singleTimeOffset single, singleValue single)
+    , V.vocalPhrase1 = RTB.empty -- TODO
+    , V.vocalOverdrive = getOD sp
+    , V.vocalNotes = fmap (\case EdgeOn () p -> (p, True); EdgeOff p -> (p, False))
+      $ splitEdgesSimple $ fromPairs $ flip map vox $ \vn -> let
+        pos = toBeats $ vnTimeOffset vn
+        len = toBeats (vnTimeOffset vn + fromIntegral (vnDuration vn)) - pos
+        pitch
+          -- TODO GH might use a different octave reference? or maybe it's flexible
+          | vnPitch vn < 36 = minBound
+          | vnPitch vn > 84 = maxBound
+          | otherwise       = toEnum $ fromIntegral (vnPitch vn) - 36
+        in (pos, ((), pitch, len))
+    }
   fixed = mempty
     { RBFile.fixedPartGuitar = mempty
       { F.fiveDifficulties = Map.fromList
@@ -421,6 +471,27 @@ ghToMidi pak = let
         ]
       , F.fiveOverdrive = getOD $ gb_starpower $ gh_bassexpert pak
       }
+    , RBFile.fixedPartDrums = mempty
+      { D.drumDifficulties = Map.fromList
+        [ (Expert, getDrums $ gh_drumsexpert pak)
+        , (Hard  , getDrums $ gh_drumshard   pak)
+        , (Medium, getDrums $ gh_drumsmedium pak)
+        , (Easy  , getDrums $ gh_drumseasy   pak)
+        ]
+      , D.drumOverdrive = getOD $ drums_starpower $ gh_drumsexpert pak
+      , D.drumKick2x = getKick2x $ gh_drumsexpert pak
+      }
+    , RBFile.fixedPartVocals = getVocal
+      (gh_vocals         pak)
+      (gh_vocallyrics    pak)
+      (gh_vocalphrase    pak)
+      (gh_vocalstarpower pak)
+    , RBFile.fixedHarm2      = fromMaybe mempty $ getVocal
+      <$> gh_backup_vocals         pak
+      <*> gh_backup_vocallyrics    pak
+      <*> gh_backup_vocalphrase    pak
+      <*> gh_backup_vocalstarpower pak
+    -- TODO practice sections
     }
   in RBFile.Song
     { RBFile.s_tempos = tempos

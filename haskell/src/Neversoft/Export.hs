@@ -23,7 +23,7 @@ import           RockBand.Common                  (Difficulty (..),
                                                    pattern RNil,
                                                    StrumHOPOTap (..),
                                                    pattern Wait,
-                                                   noRedundantStatus)
+                                                   noRedundantStatus, joinEdgesSimple, Edge(..))
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming)
 import qualified Sound.MIDI.Util                  as U
@@ -38,6 +38,13 @@ makeGHWoRNote
 makeGHWoRNote songYaml target song@(RBFile.Song tmap _mmap ofile) getAudioLength = let
   beatsToMS :: U.Beats -> Word32
   beatsToMS = floor . (* 1000) . U.applyTempoMap tmap
+  makeStarPower od = do
+    (t, ((), (), len)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ flip fmap od $ \case
+      True  -> EdgeOn () ()
+      False -> EdgeOff ()
+    let start = beatsToMS t
+        end   = beatsToMS $ t + len
+    return $ Single start (fromIntegral $ end - start)
   makeGB fpart diff = case getPart fpart songYaml >>= partGRYBO of
     Just grybo -> let
       opart = fromMaybe mempty $ Map.lookup fpart $ RBFile.onyxParts ofile
@@ -72,8 +79,8 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap _mmap ofile) getAudioLength
               return $ shtBit .|. colorBit
             , noteAccent = 31 -- probably doesn't do anything
             }
-        , gb_tapping = [] -- TODO
-        , gb_starpower = [] -- TODO
+        , gb_tapping = makeStarPower $ F.fiveTap fd
+        , gb_starpower = makeStarPower $ F.fiveOverdrive trk
         }
     Nothing -> GuitarBass [] [] []
   makeDrums fpart diff = case getPart fpart songYaml >>= partDrums of
@@ -142,7 +149,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap _mmap ofile) getAudioLength
         { drums_instrument = case diff of
           Expert -> Right withGhost
           _      -> Left $ map xdNote withGhost
-        , drums_starpower = [] -- TODO
+        , drums_starpower = makeStarPower $ D.drumOverdrive trk
         , drums_drumfill = [] -- TODO
         }
     Nothing -> Drums (case diff of Expert -> Right []; _ -> Left []) [] []

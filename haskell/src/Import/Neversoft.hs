@@ -133,5 +133,26 @@ importGH5WoR folder = do
               , (RBFile.FlexBass, def
                 { partGRYBO = Just def
                 })
+              , (RBFile.FlexDrums, def
+                { partDrums = Just PartDrums
+                  { drumsMode        = Drums5
+                  , drumsDifficulty  = Tier 1
+                  , drumsKicks       = Kicks1x -- TODO
+                  , drumsFixFreeform = True
+                  , drumsKit         = HardRockKit
+                  , drumsLayout      = StandardLayout
+                  , drumsFallback    = FallbackGreen
+                  }
+                })
+              , (RBFile.FlexVocal, def
+                { partVocal = Just PartVocal
+                  { vocalDifficulty = Tier 1
+                  , vocalCount      = Vocal1
+                  , vocalGender     = Nothing -- TODO is this stored somewhere?
+                  , vocalKey        = Nothing
+                  , vocalLipsyncRB3 = Nothing
+                  , vocalLipsyncRB2 = Nothing
+                  }
+                })
               ]
             }

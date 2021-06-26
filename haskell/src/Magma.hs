@@ -1,4 +1,4 @@
-module Magma (runMagmaMIDI, runMagma, runMagmaV1, getRBAFile, getRBAFileBS, rbaContents) where
+module Magma (runMagmaMIDI, runMagma, runMagmaV1, getRBAFile, getRBAFileBS, rbaContents, withWin32Exe) where
 
 import           Control.Monad                  (forM_, replicateM)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))

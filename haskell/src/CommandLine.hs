@@ -437,7 +437,7 @@ commands =
       planName <- getPlanName (Just "author") yamlPath opts
       let rpp = "notes-" <> T.unpack planName <> ".RPP"
       when (OptVenueGen `elem` opts) $ changeToVenueGen yamlDir
-      audioDirs <- withProject (optIndex opts) yamlPath getAudioDirs
+      audioDirs <- withProject Nothing yamlPath getAudioDirs
       shakeBuildFiles audioDirs yamlPath [rpp]
       let rppFull = yamlDir </> "notes.RPP"
       stackIO $ Dir.renameFile (yamlDir </> rpp) rppFull
@@ -1184,7 +1184,14 @@ commands =
         stackIO $ Dir.createDirectoryIfMissing False dout
         nodes <- stackIO $ splitPakNodes <$> BL.readFile pak
         stackIO $ writeFile (dout </> "pak-contents.txt") $ unlines $ map (show . fst) nodes
-        let knownExts = [".ska", ".qb", ".qs.en", ".qs.fr", ".qs.it", ".qs.de", ".qs.es", ".note", ".perf", ".last"]
+        let knownExts =
+              [ ".cam", ".clt", ".col", ".dbg", ".empty", ".fam", ".fnc", ".fnt", ".fnv"
+              , ".gap", ".hkc", ".img", ".imv", ".jam", ".last", ".mcol", ".mdl", ".mdv"
+              , ".mqb", ".nav", ".note", ".nqb", ".oba", ".perf", ".pfx", ".pimg", ".pimv"
+              , ".qb", ".qd", ".qs", ".qs.br", ".qs.de", ".qs.en", ".qs.es", ".qs.fr", ".qs.it"
+              , ".rag", ".raw", ".rgn", ".rnb", ".scn", ".scv", ".shd", ".ska", ".ske", ".skin"
+              , ".skiv", ".snp", ".sqb", ".stat", ".stex", ".table", ".tex", ".trkobj", ".tvx", ".wav", ".xml"
+              ]
         forM_ (zip [0..] nodes) $ \(i, (node, contents)) -> do
           let ext = fromMaybe ("." <> show (nodeFileType node))
                 $ find ((== nodeFileType node) . qbKeyCRC . B8.pack) knownExts

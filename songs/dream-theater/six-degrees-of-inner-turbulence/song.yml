@@ -1,0 +1,74 @@
+metadata:
+  title: Six Degrees of Inner Turbulence
+  file-include: ../../../albums/six-degrees-of-inner-turbulence.yml
+  track-number: 6
+  author: Atupomaruru, Onyxite, Grinnz
+audio:
+  album-track-1:
+    md5: c7fee2a426ec18f47077156be7186e7e
+    frames: 18101580
+  album-track-2:
+    md5: 7765150f186300559913807149b35ecf
+    frames: 15477336
+  album-track-3:
+    md5: 5038c30547deab0ea41cb4e96cd1b504
+    frames: 5649504
+  album-track-4:
+    md5: 6d147dbc5fdd28e6ed4946b3adc13b78
+    frames: 13372296
+  album-track-5:
+    md5: 4927aa619af0ace9989fdbfbb9ddc646
+    frames: 16645104
+  album-track-6:
+    md5: 790b7112ff050355dc1a877401f5c49d
+    frames: 15339156
+  album-track-7:
+    md5: b98c6b4e49d775107f3f1468ac850b83
+    frames: 10798620
+  album-track-8:
+    md5: da12120b5fd4f6efa3bcbd7c2ec04a9e
+    frames: 15851304
+plans:
+  album:
+    song:
+      concatenate:
+      - trim: [0.445, album-track-1]
+      - album-track-2
+      - album-track-3
+      - album-track-4
+      - album-track-5
+      - album-track-6
+      - album-track-7
+      - album-track-8
+parts:
+  drums:
+    drums:
+      kicks: both
+  bass:
+    grybo: {}
+    pro-guitar:
+      tuning:
+        base: bass-6
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  guitar:
+    grybo: {}
+  keys:
+    grybo: {}
+    pro-keys: {}
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

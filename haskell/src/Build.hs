@@ -86,6 +86,7 @@ import           Image
 import qualified Magma
 import qualified MelodysEscape                         as Melody
 import           MoggDecrypt
+import           Neversoft.Audio                       (aesEncrypt, worFSBKey)
 import           Neversoft.Checksum                    (qbKeyCRC)
 import           Neversoft.Export                      (makeGHWoRNote)
 import           Neversoft.Note                        (makeWoRNoteFile,
@@ -2793,6 +2794,34 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               note <- makeGHWoRNote songYaml gh5 mid $ getAudioLength planName plan
               stackIO $ BL.writeFile out $ runPut $
                 putNote (qbKeyCRC $ TE.encodeUtf8 $ gh5_DLC gh5) $ makeWoRNoteFile note
+
+            -- Not supporting stems yet due to FSB generator issue;
+            -- it will fail with memory errors on large WAVs, so we have to keep them small.
+            -- However they do have to be the full length of the song!
+            -- Otherwise pausing doesn't pause the audio once you pass the end of any of the FSBs.
+            dir </> "audio1.wav" %> \out -> do
+              len <- getAudioLength planName plan
+              runAudio (silent (Seconds $ realToFrac len) 1000 8) out
+            dir </> "audio2.wav" %> \out -> do
+              len <- getAudioLength planName plan
+              runAudio (silent (Seconds $ realToFrac len) 1000 6) out
+            dir </> "audio3.wav" %> buildAudio (Merge
+              [ Input $ planDir </> "everything.wav"
+              , Silence 2 $ Seconds 0
+              ])
+
+            forM_ ["audio1", "audio2", "audio3"] $ \audio -> do
+              let wav = dir </> audio <.> "wav"
+                  fsb = dir </> audio <.> "fsb"
+              fsb %> \out -> do
+                shk $ need [wav]
+                makeFSB4 wav out >>= lg
+              fsb <.> "xen" %> \out -> do
+                shk $ need [fsb]
+                bs <- stackIO $ B.readFile fsb
+                case aesEncrypt worFSBKey bs of
+                  Nothing  -> fatal "Unable to encrypt .fsb to .fsb.xen"
+                  Just enc -> stackIO $ B.writeFile out enc
 
           Konga _ -> return () -- TODO
 

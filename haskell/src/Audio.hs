@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE ViewPatterns      #-}
@@ -38,6 +39,7 @@ module Audio
 , stereoPanRatios
 , emptyChannels
 , remapChannels
+, makeFSB4
 ) where
 
 import           Control.Concurrent               (threadDelay)
@@ -51,8 +53,9 @@ import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
                                                    Staction, inside, lg,
-                                                   stackIO)
+                                                   stackIO, stackProcess)
 import           Data.Binary.Get                  (getWord32le, runGetOrFail)
+import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.ByteString.Lazy.Char8       as BL8
 import           Data.Char                        (toLower)
@@ -79,16 +82,20 @@ import           Data.Word                        (Word8)
 import           Development.Shake                (Action, need)
 import           Development.Shake.FilePath       (takeExtension)
 import           GuitarHeroII.Audio               (readVGS)
+import           Magma                            (withWin32Exe)
 import           MoggDecrypt                      (sourceVorbisFile)
 import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Wrapper      as NN
 import           OSFiles                          (shortWindowsPath)
 import           Preferences
+import           Resources                        (makeFSB4exe)
 import           RockBand.Common                  (pattern RNil, pattern Wait)
 import           SndfileExtra
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.Util                  as U
 import qualified Sound.RubberBand                 as RB
+import qualified System.IO                        as IO
+import           System.Process                   (proc)
 
 data Audio t a
   = Silence Int t
@@ -770,3 +777,14 @@ mixMany' r c polyphony srcs = let
           go nextSources $ Wait (dt - fromIntegral sizeToGet) next rest
       in go [] $ (\(asrc, group) -> (source asrc, group)) <$> srcs'
     }
+
+makeFSB4 :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m String
+makeFSB4 wav fsb = do
+  exe <- stackIO makeFSB4exe
+  let createProc = withWin32Exe proc exe [wav, fsb]
+  inside "converting WAV to FSB4" $ do
+    str <- stackProcess createProc
+    stackIO $ IO.withBinaryFile fsb IO.ReadWriteMode $ \h -> do
+      IO.hSeek h IO.AbsoluteSeek 0x32
+      B.hPut h $ "multichannel sound" <> B.replicate 12 0
+    return str
