@@ -1,0 +1,8 @@
+/.vs/
+/Build/
+/Release/
+/Debug/
+*.wav
+*.fsb
+*.user
+*.tmp
