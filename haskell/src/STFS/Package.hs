@@ -56,7 +56,8 @@ import           Data.IORef                     (newIORef, readIORef,
                                                  writeIORef)
 import           Data.List.Extra                (nubOrd)
 import qualified Data.Map                       as Map
-import           Data.Maybe                     (fromMaybe, isNothing, mapMaybe)
+import           Data.Maybe                     (catMaybes, fromMaybe,
+                                                 isNothing, mapMaybe)
 import           Data.Profunctor                (dimap)
 import           Data.Sequence                  ((|>))
 import qualified Data.Sequence                  as Seq
@@ -1285,12 +1286,12 @@ makePack inputs@(input : _) applyOpts fout = do
   roots <- mapM getSTFSFolder inputs
   let combineFolders parents folders = do
         let allNames = nubOrd $ folders >>= \f -> map fst (folderSubfolders f) <> map fst (folderFiles f)
-        newContents <- forM allNames $ \name -> let
+        newContents <- fmap catMaybes $ forM allNames $ \name -> let
           matchFolders = mapMaybe (lookup name . folderSubfolders) folders
           matchFiles   = mapMaybe (lookup name . folderFiles     ) folders
           in case (matchFolders, matchFiles) of
-            (_    , []   ) -> Left  . (name,) <$> combineFolders (name : parents) matchFolders
-            ([]   , _    ) -> Right . (name,) <$> combineFiles parents name matchFiles
+            (_    , []   ) -> Just . Left . (name,)  <$> combineFolders (name : parents) matchFolders
+            ([]   , _    ) -> fmap (Right . (name,)) <$> combineFiles parents name matchFiles
             (_ : _, _ : _) -> fail $ "Name refers to a folder in some input CON/LIVE, but a file in others: " <> showPath parents name
         return Folder
           { folderSubfolders = lefts  newContents
@@ -1299,11 +1300,13 @@ makePack inputs@(input : _) applyOpts fout = do
       combineFiles parents name contents = if ".dta" `T.isSuffixOf` name
         then do
           bytes <- forM contents $ \r -> useHandle r handleToByteString
-          return $ makeHandle ("Pack-merged contents for " <> showPath parents name)
+          return $ Just $ makeHandle ("Pack-merged contents for " <> showPath parents name)
             $ byteStringSimpleHandle $ BL.intercalate "\n" bytes
         else case contents of
-          [r] -> return r
-          _   -> fail $ "Multiple input CON/LIVE files contain: " <> showPath parents name
+          [r] -> return $ Just r
+          _   -> if name == "spa.bin"
+            then return Nothing
+            else fail $ "Multiple input CON/LIVE files contain: " <> showPath parents name
       showPath parents name = T.unpack $ T.intercalate "/" $ reverse $ name : parents
   merged <- combineFolders [] roots
   makeCONReadable opts merged fout
