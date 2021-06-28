@@ -7,7 +7,7 @@ import           Data.Binary.Get
 import           Data.Binary.Put
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char            (isSpace)
-import qualified Data.Map             as Map
+import qualified Data.HashMap.Strict  as HM
 import qualified Data.Text            as T
 import qualified Data.Text.Encoding   as TE
 import           Data.Word
@@ -78,8 +78,8 @@ buildPak nodes = let
   header' = BL.take (fromIntegral dataStart) $ header <> BL.replicate (fromIntegral dataStart) 0
   in BL.concat $ [header'] <> map (padData . snd) nodes <> [BL.replicate 0xCF0 0xAB]
 
-qsBank :: [(Node, BL.ByteString)] -> Map.Map Word32 T.Text
-qsBank nodes = Map.fromList $ do
+qsBank :: [(Node, BL.ByteString)] -> HM.HashMap Word32 T.Text
+qsBank nodes = HM.fromList $ do
   (node, nodeData) <- nodes
   guard $ nodeFileType node == qbKeyCRC ".qs.en"
   -- first 2 chars should be "\xFF\xFE"

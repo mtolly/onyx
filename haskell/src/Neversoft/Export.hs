@@ -19,11 +19,12 @@ import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums             as D
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
-import           RockBand.Common                  (Difficulty (..),
+import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    pattern RNil,
                                                    StrumHOPOTap (..),
                                                    pattern Wait,
-                                                   noRedundantStatus, joinEdgesSimple, Edge(..))
+                                                   joinEdgesSimple,
+                                                   noRedundantStatus)
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming)
 import qualified Sound.MIDI.Util                  as U

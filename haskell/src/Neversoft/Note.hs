@@ -20,7 +20,8 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (listToMaybe, mapMaybe, fromMaybe)
+import           Data.Maybe                       (fromMaybe, listToMaybe,
+                                                   mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Guitars                          (emit5')
@@ -236,7 +237,6 @@ loadSongPak bs = do
   let nodes = splitPakNodes bs
       findNodeKey = findNodeCRC . qbKeyCRC
       findNodeCRC crc = listToMaybe $ filter (\(n, _) -> nodeFileType n == crc) nodes
-      stringBank = qsBank nodes
   case findNodeKey ".note" of
     Nothing                -> fail ".note not found"
     Just (_node, noteData) -> loadNoteFile noteData
@@ -383,12 +383,15 @@ ghToMidi :: GHNoteFile -> RBFile.Song (RBFile.FixedFile U.Beats)
 ghToMidi pak = let
   toSeconds :: Word32 -> U.Seconds
   toSeconds = (/ 1000) . fromIntegral
-  fretbarSecs = map toSeconds $ gh_fretbar pak
+  sigMap = Map.fromList [ (tsTimestamp ts, (tsNumerator ts, tsDenominator ts)) | ts <- gh_timesig pak ]
+  barSigs = [ (t, maybe 4 (snd . snd) $ Map.lookupLE t sigMap) | t <- gh_fretbar pak ]
   tempos = U.tempoMapFromBPS $ let
-    makeTempo t1 t2 = U.makeTempo 1 (realToFrac $ t2 - t1)
-    in RTB.fromPairList
-      $ zip (0 : repeat 1)
-      $ zipWith makeTempo fretbarSecs (drop 1 fretbarSecs)
+    makeTempo (t1, denom) (t2, _) = let
+      secs = toSeconds t2 - toSeconds t1
+      beats = 4 / fromIntegral denom
+      in (U.makeTempo beats secs, beats)
+    temposGaps = zipWith makeTempo barSigs (drop 1 barSigs)
+    in RTB.fromPairList $ zip (0 : map snd temposGaps) (map fst temposGaps)
   toBeats :: Word32 -> U.Beats
   toBeats = U.unapplyTempoMap tempos . toSeconds
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
@@ -430,7 +433,8 @@ ghToMidi pak = let
           ]
     }
   getKick2x drum = fromPairs $ either id (map xdNote) (drums_instrument drum) >>= \note -> do
-    guard $ noteBits note `testBit` 6
+    guard $ (noteBits note `testBit` 6) && not (noteBits note `testBit` 5)
+    -- the not-bit-5 is because some songs like Tom Sawyer have both set for the Expert kicks
     return (toBeats $ noteTimeOffset note, ())
   getOD = RTB.fromAbsoluteEventList . ATB.fromPairList . sort . concatMap
     (\(Single t len) -> [(toBeats t, True), (toBeats $ t + fromIntegral len, False)])
@@ -495,6 +499,10 @@ ghToMidi pak = let
     }
   in RBFile.Song
     { RBFile.s_tempos = tempos
-    , RBFile.s_signatures = U.measureMapFromLengths U.Truncate RTB.empty -- TODO
+    , RBFile.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+      ts <- gh_timesig pak
+      let unit = 4 / fromIntegral (tsDenominator ts)
+          len = fromIntegral (tsNumerator ts) * unit
+      return (toBeats $ tsTimestamp ts, U.TimeSig len unit)
     , RBFile.s_tracks = fixed
     }

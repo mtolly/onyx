@@ -59,6 +59,7 @@ import           Data.SimpleHandle                (Folder (..),
                                                    makeHandle, useHandle)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
+import qualified Data.Yaml                        as Y
 import qualified GuitarHeroII.Ark                 as GHArk
 import           GuitarHeroII.Audio               (readVGS)
 import           GuitarHeroII.File                (GH2File (..))
@@ -70,10 +71,12 @@ import           Magma                            (getRBAFile, runMagma,
 import           MoggDecrypt                      (moggToOgg, oggToMogg)
 import           Neversoft.Audio                  (aesDecrypt, aesEncrypt,
                                                    fsbDecrypt)
-import           Neversoft.Checksum               (qbKeyCRC)
+import           Neversoft.Checksum               (knownKeys, qbKeyCRC)
 import           Neversoft.Note                   (loadNoteFile)
-import           Neversoft.Pak                    (buildPak, nodeFileType,
+import           Neversoft.Pak                    (Node (..), buildPak,
+                                                   nodeFileType, qsBank,
                                                    splitPakNodes)
+import           Neversoft.QB                     (lookupQB, lookupQS, parseQB)
 import           OpenProject
 import           OSFiles                          (copyDirRecursive)
 import           PrettyDTA                        (DTASingle (..),
@@ -1179,7 +1182,7 @@ commands =
     , commandDesc = ""
     , commandUsage = ""
     , commandRun = \args opts -> case args of
-      [pak] -> do
+      [pak] -> inside ("extracting pak " <> pak) $ do
         dout <- outputFile opts $ return $ pak <> "_extract"
         stackIO $ Dir.createDirectoryIfMissing False dout
         nodes <- stackIO $ splitPakNodes <$> BL.readFile pak
@@ -1200,6 +1203,18 @@ commands =
           when (nodeFileType node == qbKeyCRC ".note") $ do
             note <- loadNoteFile contents
             stackIO $ writeFile (dout </> name <.> "parsed.txt") $ show note
+          when (nodeFileType node == qbKeyCRC ".qb") $ do
+            let matchingQS = flip filter nodes $ \(otherNode, _) ->
+                  nodeFilenameCRC node == nodeFilenameCRC otherNode
+                    && nodeFileType otherNode == qbKeyCRC ".qs.en"
+                mappingQS = qsBank matchingQS
+            case runGetOrFail parseQB contents of
+              Left (_, posn, err) -> inside ("Attempting to parse QB file " <> show name) $ do
+                inside ("Byte position " <> show posn) $ do
+                  warn err
+              Right (_, _, qb) -> do
+                let filled = map (lookupQB knownKeys . lookupQS mappingQS) qb
+                stackIO $ Y.encodeFile (dout </> name <.> "parsed.yaml") filled
         return [dout]
       _ -> fatal "Expected 1 argument (_song.pak.xen)"
     }
