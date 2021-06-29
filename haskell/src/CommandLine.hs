@@ -72,6 +72,8 @@ import           MoggDecrypt                      (moggToOgg, oggToMogg)
 import           Neversoft.Audio                  (aesDecrypt, aesEncrypt,
                                                    fsbDecrypt)
 import           Neversoft.Checksum               (knownKeys, qbKeyCRC)
+import           Neversoft.Export                 (GHWoRInput (..),
+                                                   replaceGHWoRDLC)
 import           Neversoft.Note                   (loadNoteFile)
 import           Neversoft.Pak                    (Node (..), buildPak,
                                                    nodeFileType, qsBank,
@@ -551,11 +553,10 @@ commands =
         True -> do
           let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
           (pkg, suffix) <- case game of
-            GameRB3   -> return (rb3pkg, "_rb3con")
-            GameRB2   -> return (rb2pkg, "_rb2con")
-            GameGH2   -> return (gh2pkg, "_gh2live")
-            GameGHWOR -> return (ghworpkg, "_ghworlive")
-            GameTBRB  -> fatal "TBRB unsupported as game for stfs command"
+            GameRB3 -> return (rb3pkg, "_rb3con")
+            GameRB2 -> return (rb2pkg, "_rb2con")
+            GameGH2 -> return (gh2pkg, "_gh2live")
+            _       -> fatal "Unsupported as game for stfs command"
           stfs <- outputFile opts
             $ (<> suffix) . dropTrailingPathSeparator
             <$> stackIO (Dir.makeAbsolute dir)
@@ -1244,6 +1245,63 @@ commands =
       _ -> fatal "Expected 1 argument (extracted .pak folder)"
     }
 
+  , Command
+    { commandWord = "install-ghwor"
+    , commandDesc = ""
+    , commandUsage = "onyx install-ghwor song-dir replace_key --target target --to dlc_file"
+    , commandRun = \args opts -> case args of
+      [song, key] -> do
+        yml <- identifyFile' song >>= \case
+          (FileSongYaml, yml) -> return yml
+          _ -> fatal "First argument must be a song.yml or folder containing it"
+        let songDir = takeDirectory yml
+        songYaml <- loadYaml yml
+        let _ = songYaml :: SongYaml FilePath
+        dlc <- outputFile opts $ fatal "--to required"
+        targetName <- case [ t | OptTarget t <- opts ] of
+          []    -> fatal "command requires --target, none given"
+          t : _ -> return t
+        let pathNote = "gen/target" </> T.unpack targetName </> "ghwor.note"
+            pathFSB1 = "gen/target" </> T.unpack targetName </> "audio1.fsb.xen"
+            pathFSB2 = "gen/target" </> T.unpack targetName </> "audio2.fsb.xen"
+            pathFSB3 = "gen/target" </> T.unpack targetName </> "audio3.fsb.xen"
+        audioDirs <- withProject Nothing yml getAudioDirs
+        shakeBuildFiles audioDirs yml [pathNote, pathFSB1, pathFSB2, pathFSB3]
+        fsb1 <- stackIO $ fmap BL.fromStrict $ B.readFile pathFSB1
+        fsb2 <- stackIO $ fmap BL.fromStrict $ B.readFile pathFSB2
+        fsb3 <- stackIO $ fmap BL.fromStrict $ B.readFile pathFSB3
+        contents <- stackIO $ getSTFSFolder dlc
+        note <- stackIO (BL.readFile $ songDir </> pathNote) >>= loadNoteFile
+        contents' <- replaceGHWoRDLC (B8.pack key) GHWoRInput
+          { ghworNote   = note
+          , ghworTitle  = getTitle $ _metadata songYaml
+          , ghworArtist = getArtist $ _metadata songYaml
+          , ghworAlbum  = getAlbum $ _metadata songYaml
+          , ghworFSB1   = fsb1
+          , ghworFSB2   = fsb2
+          , ghworFSB3   = fsb3
+          } contents
+        meta <- stackIO $ withSTFSPackage dlc $ return . stfsMetadata
+        stackIO $ makeCONReadable CreateOptions
+          { createNames         = md_DisplayName meta
+          , createDescriptions  = md_DisplayDescription meta
+          , createTitleID       = md_TitleID meta
+          , createTitleName     = md_TitleName meta
+          , createThumb         = md_ThumbnailImage meta
+          , createTitleThumb    = md_TitleThumbnailImage meta
+          , createLicenses      = md_LicenseEntries meta
+          , createMediaID       = md_MediaID meta
+          , createVersion       = md_Version meta
+          , createBaseVersion   = md_BaseVersion meta
+          , createTransferFlags = md_TransferFlags meta
+          , createLIVE          = True
+          } contents' (dlc <.> "tmp")
+        stackIO $ Dir.renameFile dlc (dlc <.> "bak")
+        stackIO $ Dir.renameFile (dlc <.> "tmp") dlc
+        return [dlc]
+      _ -> fatal "Expected 2 arguments (song folder, dlc key)"
+    }
+
   ]
 
 runDolphin
@@ -1530,8 +1588,8 @@ blackVenue fcon = inside ("Inserting black VENUE in: " <> fcon) $ do
           }
   topFolder' <- updateMids topFolder
   let opts = CreateOptions
-        { createName          = head $ md_DisplayName meta
-        , createDescription   = head $ md_DisplayDescription meta
+        { createNames         = md_DisplayName meta
+        , createDescriptions  = md_DisplayDescription meta
         , createTitleID       = md_TitleID meta
         , createTitleName     = md_TitleName meta
         , createThumb         = md_ThumbnailImage meta

@@ -68,10 +68,10 @@ importGH5WoR folder = do
         return $ Just $ \_level -> do
           return SongYaml
             { _metadata = def'
-              { _title = Just $ songTitle info
-              , _artist = Just $ songArtist info
+              { _title = Just $ snd $ songTitle info
+              , _artist = Just $ snd $ songArtist info
               , _year = Just $ songYear info
-              , _album = Just $ songAlbumTitle info
+              , _album = Just $ snd $ songAlbumTitle info
               , _fileAlbumArt = Nothing
               }
             , _global = def'

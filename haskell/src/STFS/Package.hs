@@ -957,8 +957,8 @@ traverseMemory top = toList $ execState (go (-1) top) Seq.empty where
       in BL.toStrict h : splitIntoBlocks t
 
 data CreateOptions = CreateOptions
-  { createName          :: T.Text
-  , createDescription   :: T.Text
+  { createNames         :: [T.Text]
+  , createDescriptions  :: [T.Text]
   , createTitleID       :: Word32
   , createTitleName     :: T.Text
   , createThumb         :: B.ByteString
@@ -975,8 +975,8 @@ gh2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT
 gh2pkg title desc dir fout = inside "making GH2 LIVE package" $ stackIO $ do
   thumb <- gh2Thumbnail >>= B.readFile
   makeCON CreateOptions
-    { createName = title
-    , createDescription = desc
+    { createNames = [title]
+    , createDescriptions = [desc]
     , createTitleID = 0x415607E7
     , createTitleName = "Guitar Hero II"
     , createThumb = thumb
@@ -989,12 +989,12 @@ gh2pkg title desc dir fout = inside "making GH2 LIVE package" $ stackIO $ do
     , createLIVE = True
     } dir fout
 
-ghworpkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
-ghworpkg title desc dir fout = inside "making GH:WoR LIVE package" $ stackIO $ do
+ghworpkg :: (MonadIO m) => [T.Text] -> [T.Text] -> FilePath -> FilePath -> StackTraceT m ()
+ghworpkg titles descs dir fout = inside "making GH:WoR LIVE package" $ stackIO $ do
   thumb <- ghWoRthumbnail >>= B.readFile
   makeCON CreateOptions
-    { createName = title
-    , createDescription = desc
+    { createNames = titles
+    , createDescriptions = descs
     , createTitleID = 0x41560883
     , createTitleName = "Guitar Hero : Warriors of Rock" -- save data might be under "GH™: Warriors of Rock"?
     , createThumb = thumb
@@ -1011,8 +1011,8 @@ rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT
 rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ do
   thumb <- rb3Thumbnail >>= B.readFile
   makeCON CreateOptions
-    { createName = title
-    , createDescription = desc
+    { createNames = [title]
+    , createDescriptions = [desc]
     , createTitleID = 0x45410914
     , createTitleName = "Rock Band 3"
     , createThumb = thumb
@@ -1029,8 +1029,8 @@ rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT
 rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ do
   thumb <- rb2Thumbnail >>= B.readFile
   makeCON CreateOptions
-    { createName = title
-    , createDescription = desc
+    { createNames = [title]
+    , createDescriptions = [desc]
     , createTitleID = 0x45410869
     , createTitleName = "Rock Band 2"
     , createThumb = thumb
@@ -1102,8 +1102,8 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
         , md_Reserved = 0
         , md_Padding = B.replicate 0x4C 0
         , md_DeviceID = B.replicate 0x14 0
-        , md_DisplayName = take 9 $ createName opts : repeat ""
-        , md_DisplayDescription = take 9 $ createDescription opts : repeat ""
+        , md_DisplayName = take 9 $ createNames opts <> repeat ""
+        , md_DisplayDescription = take 9 $ createDescriptions opts <> repeat ""
         , md_PublisherName = ""
         , md_TitleName = createTitleName opts
         , md_TransferFlags = createTransferFlags opts
@@ -1268,8 +1268,8 @@ makePack :: [FilePath] -> (CreateOptions -> CreateOptions) -> FilePath -> IO ()
 makePack []                 _         _    = fail "Need at least 1 file for STFS pack"
 makePack inputs@(input : _) applyOpts fout = do
   opts <- withSTFSPackage input $ \stfs -> return $ applyOpts CreateOptions
-    { createName          = "Package"
-    , createDescription   = ""
+    { createNames         = ["Package"]
+    , createDescriptions  = []
     , createTitleID       = md_TitleID             $ stfsMetadata stfs
     , createTitleName     = md_TitleName           $ stfsMetadata stfs
     , createThumb         = md_TitleThumbnailImage $ stfsMetadata stfs -- use title thumb for package as well

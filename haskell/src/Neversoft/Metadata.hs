@@ -24,10 +24,10 @@ readTextPakXen bs = do
 
 data SongInfo = SongInfo
   { songName       :: B.ByteString -- this is an id like "dlc747"
-  , songTitle      :: T.Text
-  , songArtist     :: T.Text
+  , songTitle      :: (Word32, T.Text)
+  , songArtist     :: (Word32, T.Text)
   , songYear       :: Int
-  , songAlbumTitle :: T.Text
+  , songAlbumTitle :: (Word32, T.Text)
   , songDoubleKick :: Bool
   } deriving (Show)
 
@@ -39,17 +39,17 @@ parseSongInfo = \case
         songName <- case [ s | QBStructItemString k s <- songEntries, k == qbKeyCRC "name" ] of
           s : _ -> Right s
           []    -> Left "parseSongInfo: couldn't get song internal name"
-        songTitle <- case [ s | QBStructItemQbKeyStringQs k (KnownQS _ s) <- songEntries, k == qbKeyCRC "title" ] of
-          s : _ -> Right s
+        songTitle <- case [ (w, s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "title" ] of
+          p : _ -> Right p
           []    -> Left "parseSongInfo: couldn't get song title"
-        songArtist <- case [ s | QBStructItemQbKeyStringQs k (KnownQS _ s) <- songEntries, k == qbKeyCRC "artist" ] of
-          s : _ -> Right s
+        songArtist <- case [ (w, s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "artist" ] of
+          p : _ -> Right p
           []    -> Left "parseSongInfo: couldn't get song artist"
         songYear <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "year" ] of
           n : _ -> Right $ fromIntegral n
           []    -> Left "parseSongInfo: couldn't get song year"
-        songAlbumTitle <- case [ s | QBStructItemQbKeyStringQs k (KnownQS _ s) <- songEntries, k == qbKeyCRC "album_title" ] of
-          s : _ -> Right s
+        songAlbumTitle <- case [ (w, s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "album_title" ] of
+          p : _ -> Right p
           []    -> Left "parseSongInfo: couldn't get song album_title"
         songDoubleKick <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "double_kick" ] of
           0 : _ -> Right False

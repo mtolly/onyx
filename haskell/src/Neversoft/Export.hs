@@ -1,20 +1,42 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
 module Neversoft.Export where
 
 import           Config
-import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT)
+import           Control.Monad.IO.Class           (MonadIO)
+import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
+                                                   fatal, stackIO)
+import           Data.Binary.Get                  (runGetOrFail)
+import           Data.Binary.Put                  (runPut)
 import           Data.Bits
+import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Char8            as B8
+import qualified Data.ByteString.Lazy             as BL
+import           Data.Either                      (rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (partition)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
+import           Data.SimpleHandle                (Folder (..), Readable,
+                                                   byteStringSimpleHandle,
+                                                   handleToByteString,
+                                                   makeHandle, useHandle)
+import qualified Data.Text                        as T
+import qualified Data.Text.Encoding               as TE
 import           Data.Word
 import           Guitars                          (applyForces, fixSloppyNotes,
                                                    getForces5, openNotes',
                                                    strumHOPOTap')
+import           Neversoft.Checksum               (qbKeyCRC)
+import           Neversoft.Metadata               (SongInfo (..), parseSongInfo)
 import           Neversoft.Note
+import           Neversoft.Pak                    (Node (..), buildPak, makeQS,
+                                                   parseQS, splitPakNodes)
+import           Neversoft.QB                     (lookupQS, parseQB)
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums             as D
 import qualified RockBand.Codec.File              as RBFile
@@ -78,7 +100,9 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap _mmap ofile) getAudioLength
                     Just F.Orange -> 4
                     Nothing       -> 5
               return $ shtBit .|. colorBit
-            , noteAccent = 31 -- probably doesn't do anything
+            , noteAccent = 31
+            -- TODO noteAccent is required for extended sustains to work.
+            -- Clear bits for colors with notes that overlap this one
             }
         , gb_tapping = makeStarPower $ F.fiveTap fd
         , gb_starpower = makeStarPower $ F.fiveOverdrive trk
@@ -206,3 +230,78 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap _mmap ofile) getAudioLength
       , gh_vocalmarkers          = [] -- TODO
       , gh_backup_vocalmarkers   = Nothing
       }
+
+data GHWoRInput = GHWoRInput
+  { ghworNote   :: GHNoteFile
+  , ghworTitle  :: T.Text
+  , ghworArtist :: T.Text
+  , ghworAlbum  :: T.Text
+  , ghworFSB1   :: BL.ByteString
+  , ghworFSB2   :: BL.ByteString
+  , ghworFSB3   :: BL.ByteString
+  }
+
+replaceGHWoRDLC
+  :: (MonadIO m)
+  => B.ByteString
+  -> GHWoRInput
+  -> Folder T.Text Readable
+  -> StackTraceT m (Folder T.Text Readable)
+replaceGHWoRDLC k input folder = do
+  -- find song pak, replace .note file (add key in front)
+  -- swap out fsbs
+  -- find text pak
+  --   load .qb
+  --     find metadata for song we are replacing, get QS for title/artist/album
+  --   edit .qs.en with same name as lone .qb, replace the QS
+  let findOnlyType ftype nodes = case partition (\(node, _) -> nodeFileType node == qbKeyCRC ftype) nodes of
+        ([pair], rest) -> return (pair, rest)
+        (matches, _) -> fatal $ "Expected 1 " <> B8.unpack ftype <> " file in .pak, but found " <> show (length matches)
+  (textPakName, newTextPak) <- case filter (\(name, _) -> "_text.pak.xen" `T.isSuffixOf` name) $ folderFiles folder of
+    [(name, r)] -> do
+      bs <- stackIO $ useHandle r handleToByteString
+      (qbPair@(qbNode, qb), notQb) <- findOnlyType ".qb" $ splitPakNodes bs
+      let isMatchingQs node = nodeFileType node == qbKeyCRC ".qs.en" && nodeFilenameCRC node == nodeFilenameCRC qbNode
+      ((qsNode, qs), notQs) <- case partition (\(node, _) -> isMatchingQs node) notQb of
+        ([pair], rest) -> return (pair, rest)
+        (matches, _) -> fatal $ "Expected 1 .qs.en file to go with .qb in .pak, but found " <> show (length matches)
+      qbSections <- case runGetOrFail parseQB qb of
+        Left _                 -> fatal "Couldn't parse .qb"
+        Right (_, _, sections) -> return sections
+      qsList <- maybe (fatal "Couldn't parse .qs.en") return $ parseQS qs
+      let qsBank = HM.fromList qsList
+          qbSections' = map (lookupQS qsBank) qbSections
+          songInfos = concat $ rights $ map parseSongInfo qbSections'
+      songInfo <- case filter (\si -> songName si == k) songInfos of
+        info : _ -> return info
+        []       -> fatal "Couldn't find existing song info in _text.pak.xen"
+      let replacingQS (w, _) = elem w $ map fst [songTitle songInfo, songArtist songInfo, songAlbumTitle songInfo]
+          qsList' = filter (not . replacingQS) qsList <>
+            [ (fst $ songTitle songInfo, "\\L" <> ghworTitle input)
+            , (fst $ songArtist songInfo, "\\L" <> ghworArtist input)
+            , (fst $ songAlbumTitle songInfo, "\\L" <> ghworAlbum input)
+            ]
+          newNodes = (qsNode, makeQS qsList') : qbPair : notQs
+      return (name, buildPak newNodes)
+    _ -> fatal "Not exactly 1 _text.pak.xen"
+  let songPakName = "b" <> TE.decodeUtf8 k <> "_song.pak.xen"
+      fsb1Name = "a" <> TE.decodeUtf8 k <> "_1.fsb.xen"
+      fsb2Name = "a" <> TE.decodeUtf8 k <> "_2.fsb.xen"
+      fsb3Name = "a" <> TE.decodeUtf8 k <> "_3.fsb.xen"
+  newSongPak <- do
+    bs <- case lookup songPakName $ folderFiles folder of
+      Nothing -> fatal $ "Couldn't find " <> T.unpack songPakName
+      Just r  -> stackIO $ useHandle r handleToByteString
+    ((node, _), notNotes) <- findOnlyType ".note" $ splitPakNodes bs
+    let newNotePair = (node, runPut $ putNote (qbKeyCRC k) $ makeWoRNoteFile $ ghworNote input)
+    return $ buildPak $ newNotePair : notNotes
+  let newPair name bs = (name, makeHandle ("New contents for " <> T.unpack name) $ byteStringSimpleHandle bs)
+  return folder
+    { folderFiles = filter (\(name, _) -> notElem name [textPakName, songPakName, fsb1Name, fsb2Name, fsb3Name]) (folderFiles folder) <>
+      [ newPair textPakName newTextPak
+      , newPair songPakName newSongPak
+      , newPair fsb1Name $ ghworFSB1 input
+      , newPair fsb2Name $ ghworFSB2 input
+      , newPair fsb3Name $ ghworFSB3 input
+      ]
+    }

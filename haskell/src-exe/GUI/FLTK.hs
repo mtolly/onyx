@@ -3171,9 +3171,9 @@ miscPagePacks sink rect tab startTasks = mdo
                 packName <- stackIO $ FL.getValue nameInput
                 packDesc <- stackIO $ FL.getValue descInput
                 let applyOpts o = o
-                      { STFS.createName        = packName
-                      , STFS.createDescription = packDesc
-                      , STFS.createLIVE        = isLIVE
+                      { STFS.createNames        = [packName]
+                      , STFS.createDescriptions = [packDesc]
+                      , STFS.createLIVE         = isLIVE
                       }
                 stackIO $ STFS.makePack (map stfsPath stfs) applyOpts f
                 return [f]

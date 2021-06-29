@@ -108,10 +108,11 @@ data Note = Note
   --   6 - kick 2 (only X+)
   -- 7 - ???
   , noteAccent     :: Word8
-  -- always 31 on That's What You Get X guitar
-  -- usually 0 on That's What You Get X drums
-  -- 31 (0b11111) on drums means accent (all non-kick gems?)
-  -- 29 (0b11101) on drums means yellow accent, but not snare accent
+  -- On drums, usually 0. Set bits 0-4 (matching noteBits) for accent.
+  -- Official songs usually just set 31 for accent, and turn off exceptions.
+  -- So e.g. 29 (0b11101) when red+yellow and yellow is accented.
+  -- On guitar/bass, usually 31. Clear bits 0-4 (matching noteBits) for extended sustain support.
+  -- A bit should be cleared if there's a separate note of that color that overlaps this one.
   } deriving (Show)
 
 instance Bin Note where

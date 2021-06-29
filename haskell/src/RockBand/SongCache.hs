@@ -391,8 +391,8 @@ fixSongCache path = do
       lg "Saving updated cache file."
       thumb <- stackIO $ rb3Thumbnail >>= B.readFile
       stackIO $ makeCONMemory CreateOptions
-        { createName = "Rock Band 3 Song Cache"
-        , createDescription = ""
+        { createNames = ["Rock Band 3 Song Cache"]
+        , createDescriptions = []
         , createTitleID = 0x45410914
         , createTitleName = "Rock Band 3"
         , createThumb = thumb
@@ -483,8 +483,8 @@ hardcodeSongCacheIDs pathCache pathCONs = do
               , folderSubfolders = newSubs
               }
           opts = CreateOptions
-            { createName          = head $ md_DisplayName meta
-            , createDescription   = head $ md_DisplayDescription meta
+            { createNames         = md_DisplayName meta
+            , createDescriptions  = md_DisplayDescription meta
             , createTitleID       = md_TitleID meta
             , createTitleName     = md_TitleName meta
             , createThumb         = md_ThumbnailImage meta
