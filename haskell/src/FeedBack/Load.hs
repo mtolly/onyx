@@ -237,7 +237,9 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
         go False RNil             = RNil -- normal end
         go True  RNil             = Wait NNC.zero (TrackSolo False) RNil -- solo goes to end of song without ending
         go b     (Wait dt x rest) = case x of
-          TrackSolo False -> Wait dt x $ go False rest
+          TrackSolo False -> if b
+            then Wait dt x $ go False rest
+            else RTB.delay dt $ go False rest -- ended a solo without starting one...?
           TrackSolo True  -> if b
             then Wait dt (TrackSolo False) $ Wait NNC.zero x $ go True rest
             else                             Wait dt       x $ go True rest
@@ -371,6 +373,8 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       _       -> Nothing
     }
   -- CH-format lyrics
+  -- TODO remove lyrics entirely when they're non-Latin-1, e.g. Japanese.
+  -- Or, actually support MIDIs with UTF-8 text events (could be useful for Rocksmith lyrics)
   fixedPartVocals <- insideTrack "Events" $ \trk -> let
     lyrics = flip RTB.mapMaybe trk $ \case
       Event t -> flip fmap (T.stripPrefix "lyric " t) $ T.replace "’" "'" . T.strip
