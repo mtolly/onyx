@@ -243,9 +243,11 @@ importFoF src level = do
           Dir.doesFileExist path >>= \case
             True -> return $ Just (template, path)
             False -> return Nothing
-        in tryExt "ogg" >>= \case
-          Nothing -> tryExt "mp3" >>= \case
-            Nothing -> tryExt "wav"
+        in tryExt "opus" >>= \case
+          Nothing -> tryExt "ogg" >>= \case
+            Nothing -> tryExt "mp3" >>= \case
+              Nothing -> tryExt "wav"
+              found@(Just _) -> return found
             found@(Just _) -> return found
           found@(Just _) -> return found
   audio_drums <- loadAudioFile "drums"

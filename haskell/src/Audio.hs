@@ -561,12 +561,12 @@ audioMD5 f = liftIO $ case takeExtension f of
   _ -> return Nothing
 
 audioLength :: (MonadIO m) => FilePath -> m (Maybe Integer)
-audioLength f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
+audioLength f = if takeExtension f `elem` [".flac", ".wav", ".ogg", ".opus"]
   then liftIO $ Just . fromIntegral . Snd.frames <$> (shortWindowsPath f >>= Snd.getFileInfo)
   else return Nothing -- TODO mp3
 
 audioChannels :: (MonadIO m) => FilePath -> m (Maybe Int)
-audioChannels f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
+audioChannels f = if takeExtension f `elem` [".flac", ".wav", ".ogg", ".opus"]
   then liftIO $ Just . Snd.channels <$> (shortWindowsPath f >>= Snd.getFileInfo)
   else case takeExtension f of
     ".mp3" -> do
@@ -579,7 +579,7 @@ audioChannels f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
     _ -> return Nothing
 
 audioRate :: (MonadIO m) => FilePath -> m (Maybe Int)
-audioRate f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
+audioRate f = if takeExtension f `elem` [".flac", ".wav", ".ogg", ".opus"]
   then liftIO $ Just . Snd.samplerate <$> (shortWindowsPath f >>= Snd.getFileInfo)
   else return Nothing -- TODO mp3
 
