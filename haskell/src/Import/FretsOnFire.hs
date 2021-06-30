@@ -11,8 +11,8 @@ import           Codec.Picture                    (Image (..), PixelRGBA8 (..),
 import           Codec.Picture.Types              (dropAlphaLayer, promotePixel)
 import           Config                           hiding (Difficulty)
 import           Control.Arrow                    (first)
-import           Control.Monad                    (forM, forM_, guard, void,
-                                                   when)
+import           Control.Monad                    (forM, forM_, guard, unless,
+                                                   void, when)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import           Data.Char                        (isSpace, toLower)
@@ -383,7 +383,9 @@ importFoF src level = do
     _ | level == ImportQuick -> return Nothing
     Just v | not $ all isSpace v -> do -- PS video
       v' <- stackIO $ fixFileCase (src </> v) >>= Dir.makeAbsolute
-      return $ Just v'
+      exists <- stackIO $ Dir.doesFileExist v'
+      unless exists $ warn $ "song.ini references video " <> show v <> " but it wasn't found"
+      return $ guard exists >> Just v'
     _ -> case filter ((== "video") . map toLower . dropExtension) $ allFiles of -- CH video
       v : _ -> do
         v' <- stackIO $ Dir.makeAbsolute $ src </> v
