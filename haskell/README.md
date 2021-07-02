@@ -86,7 +86,7 @@ Onyx can import the following song formats:
   * Frets on Fire / Phase Shift / Clone Hero formats
 
     * Both `notes.mid` and `notes.chart` are supported.
-    * Both OGG Vorbis and MP3 audio are supported.
+    * OGG Vorbis, MP3, Opus, and WAV audio are supported.
     * `song.ini` can be absent if using `notes.chart`.
     * Audio files must be named according to PS/CH conventions.
 
@@ -402,6 +402,7 @@ compilation errors.
     If more than one input contains the same file:
 
       * If the file ends in `.dta`, the contents are combined into one file.
+      * If the file is `spa.bin` (seen in GH2 360 files), it is ignored.
       * Otherwise, an error is raised.
 
     The game information (name, title ID, thumbnail) are taken from the first
