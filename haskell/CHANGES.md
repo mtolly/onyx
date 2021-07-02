@@ -1,5 +1,17 @@
 # Version history
 
+## 20210702
+
+* Fix converting to CH/PS format on Windows
+  (broke due to non-Latin-1 character fix in `20210606`)
+* In Xbox 360 pack creator, ignore `spa.bin` file seen in GH2 DLC
+* Add support for Opus audio in CH songs
+* Fix importing CH/PS songs referencing a `video` in `song.ini`
+  which does not exist
+* Fix importing `.chart` files which end a solo without starting one
+* Fix importing RB songs containing `songs.dta` scripting,
+  such as from the TBRB CDLC project
+
 ## 20210615
 
 * Support import from GH2 Xbox 360 DLC

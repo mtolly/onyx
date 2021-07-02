@@ -2819,11 +2819,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   , nodeSize = 0
                   , nodeFilenamePakKey = 0
                   , nodeFilenameKey = 434211646 -- this number (and repeated below) might need to differ
-                  , nodeFilenameCRC = 2997346177
+                  , nodeFilenameCRC = 2997346177 -- same across packs
                   , nodeUnknown = 0
                   , nodeFlags = 0
                   }
                 , putQB
+                  -- first number in each of these sections is same across packs
                   [ QBSectionInteger 3850140781 434211646 2
                   , QBSectionInteger 1403615505 434211646 0
                   , QBSectionArray 2706631909 434211646 $ QBArrayOfStruct
@@ -2833,7 +2834,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         (QBArrayOfQbKey [titleHashHex])
                       , QBStructItemQbKey
                         (qbKeyCRC "format")
-                        654834362
+                        654834362 -- all WoR dlc has this, gh5 might be different
                       , QBStructItemString
                         (qbKeyCRC "song_pak_stem")
                         (TE.encodeUtf8 $ gh5_CDL gh5)
@@ -2859,6 +2860,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               ]
 
             dir </> "cdl.pak.xen" %> \out -> stackIO $ BL.writeFile out $ buildPak
+              -- all of this is constant across packs
               [ ( Node
                   { nodeFileType = qbKeyCRC ".qb"
                   , nodeOffset = 0
@@ -2893,6 +2895,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   albumQS  = makeQSPair $ getAlbum  $ _metadata songYaml
                   qs = makeQS [titleQS, artistQS, albumQS]
                   qb =
+                    -- the 1032902983 here differs across packs, and matches the nodeFilenameKey of the .qb in the .pak
                     [ QBSectionArray 3796209450 1032902983 $
                       QBArrayOfQbKey [songKeyQB]
                     , QBSectionStruct 4087958085 1032902983
@@ -2931,10 +2934,18 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         , QBStructItemString (qbKeyCRC "drum_kit") "ModernRock"
                         , QBStructItemString 4094319878 "Sticks_Normal"
                         , QBStructItemFloat 1179677752 0
+                        -- - QBStructItemStruct:
+                        --   - vocals_pitch_score_shift
+                        --   - - QBStructHeader
+                        --     - QBStructItemInteger:
+                        --       - cents
+                        --       - 30
                         ]
                       ]
                     ]
                   nodes =
+                    -- all these nodeFilenameCRC are same across packs.
+                    -- the nodeFilenameKey are different for the first 6 files, and the .stat file. rest are same
                     [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 1032902983, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
                       , putQB qb
                       )
