@@ -90,6 +90,8 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap _mmap ofile) getAudioLength
             { noteTimeOffset = beatsToMS t
             , noteDuration = fromIntegral $ end - start
             , noteBits = foldr (.|.) 0 $ do
+              -- TODO open pulloff notes only work on bass for some reason.
+              -- Should probably convert to no-opens if any on guitar
               ((mcolor, sht), _len) <- evts
               let shtBit = if sht /= Strum then bit 6 else 0
                   colorBit = bit $ case mcolor of
@@ -232,13 +234,14 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap _mmap ofile) getAudioLength
       }
 
 data GHWoRInput = GHWoRInput
-  { ghworNote   :: GHNoteFile
-  , ghworTitle  :: T.Text
-  , ghworArtist :: T.Text
-  , ghworAlbum  :: T.Text
-  , ghworFSB1   :: BL.ByteString
-  , ghworFSB2   :: BL.ByteString
-  , ghworFSB3   :: BL.ByteString
+  { ghworNote    :: GHNoteFile
+  , ghworTitle   :: T.Text
+  , ghworArtist  :: T.Text
+  , ghworAlbum   :: T.Text
+  , ghworFSB1    :: BL.ByteString
+  , ghworFSB2    :: BL.ByteString
+  , ghworFSB3    :: BL.ByteString
+  , ghworPreview :: BL.ByteString
   }
 
 replaceGHWoRDLC
@@ -288,6 +291,7 @@ replaceGHWoRDLC k input folder = do
       fsb1Name = "a" <> TE.decodeUtf8 k <> "_1.fsb.xen"
       fsb2Name = "a" <> TE.decodeUtf8 k <> "_2.fsb.xen"
       fsb3Name = "a" <> TE.decodeUtf8 k <> "_3.fsb.xen"
+      previewName = "a" <> TE.decodeUtf8 k <> "_preview.fsb.xen"
   newSongPak <- do
     bs <- case lookup songPakName $ folderFiles folder of
       Nothing -> fatal $ "Couldn't find " <> T.unpack songPakName
@@ -297,11 +301,12 @@ replaceGHWoRDLC k input folder = do
     return $ buildPak $ newNotePair : notNotes
   let newPair name bs = (name, makeHandle ("New contents for " <> T.unpack name) $ byteStringSimpleHandle bs)
   return folder
-    { folderFiles = filter (\(name, _) -> notElem name [textPakName, songPakName, fsb1Name, fsb2Name, fsb3Name]) (folderFiles folder) <>
+    { folderFiles = filter (\(name, _) -> notElem name [textPakName, songPakName, fsb1Name, fsb2Name, fsb3Name, previewName]) (folderFiles folder) <>
       [ newPair textPakName newTextPak
       , newPair songPakName newSongPak
       , newPair fsb1Name $ ghworFSB1 input
       , newPair fsb2Name $ ghworFSB2 input
       , newPair fsb3Name $ ghworFSB3 input
+      , newPair previewName $ ghworPreview input
       ]
     }

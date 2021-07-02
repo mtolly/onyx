@@ -56,6 +56,8 @@ import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe, isJust,
                                                         isNothing, listToMaybe,
                                                         mapMaybe)
+import           Data.SimpleHandle                     (Folder (..),
+                                                        fileReadable)
 import           Data.String                           (IsString, fromString)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
@@ -91,6 +93,12 @@ import           Neversoft.Checksum                    (qbKeyCRC)
 import           Neversoft.Export                      (makeGHWoRNote)
 import           Neversoft.Note                        (makeWoRNoteFile,
                                                         putNote)
+import           Neversoft.Pak                         (Node (..), buildPak,
+                                                        makeQS)
+import           Neversoft.QB                          (QBArray (..),
+                                                        QBSection (..),
+                                                        QBStructItem (..),
+                                                        putQB)
 import qualified Numeric.NonNegative.Class             as NNC
 import           OSFiles                               (copyDirRecursive)
 import           Overdrive                             (calculateUnisons,
@@ -106,6 +114,7 @@ import           Reaper.Build                          (TuningInfo (..),
 import           RenderAudio
 import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
+                                                        ghWoRthumbnail,
                                                         onyxAlbum, webDisplay)
 import           RockBand.Codec                        (mapTrack)
 import           RockBand.Codec.Beat
@@ -143,7 +152,10 @@ import qualified Sound.Jammit.Export                   as J
 import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
 import qualified Sound.MIDI.Util                       as U
-import           STFS.Package                          (gh2pkg, rb2pkg, rb3pkg)
+import           STFS.Package                          (CreateOptions (..),
+                                                        LicenseEntry (..),
+                                                        gh2pkg, makeCONReadable,
+                                                        rb2pkg, rb3pkg)
 import qualified System.Directory                      as Dir
 import           System.Environment.Executable         (getExecutablePath)
 import           System.IO                             (IOMode (ReadMode),
@@ -2789,11 +2801,249 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               Just pair -> return pair
             let planDir = rel $ "gen/plan" </> T.unpack planName
 
+            let songKey = "dlc" <> show (gh5_SongID gh5)
+                songKeyQB = qbKeyCRC $ B8.pack songKey
+                -- TODO figure out how to compute the hash so we can do different titles
+                packageTitle = let s = "Darkest Hour Track Pack" in [s, "", s, s, s, s]
+                -- packageTitle = let s = "Emo Edge Track Pack" in [s, "", s, s, s, s]
+                packageDesc = let s = "new PACK" in [s, "", s, s, s, s]
+                titleHash = "135de722"
+                -- titleHash = "b2b8e6de"
+                titleHashHex = 0x135de722
+                -- titleHashHex = 0xb2b8e6de
+
+            dir </> "cmanifest.pak.xen" %> \out -> stackIO $ BL.writeFile out $ buildPak
+              [ ( Node
+                  { nodeFileType = qbKeyCRC ".qb"
+                  , nodeOffset = 0
+                  , nodeSize = 0
+                  , nodeFilenamePakKey = 0
+                  , nodeFilenameKey = 434211646 -- this number (and repeated below) might need to differ
+                  , nodeFilenameCRC = 2997346177
+                  , nodeUnknown = 0
+                  , nodeFlags = 0
+                  }
+                , putQB
+                  [ QBSectionInteger 3850140781 434211646 2
+                  , QBSectionInteger 1403615505 434211646 0
+                  , QBSectionArray 2706631909 434211646 $ QBArrayOfStruct
+                    [ [ QBStructHeader
+                      , QBStructItemArray
+                        (qbKeyCRC "package_name_checksums")
+                        (QBArrayOfQbKey [titleHashHex])
+                      , QBStructItemQbKey
+                        (qbKeyCRC "format")
+                        654834362
+                      , QBStructItemString
+                        (qbKeyCRC "song_pak_stem")
+                        (TE.encodeUtf8 $ gh5_CDL gh5)
+                      , QBStructItemArray
+                        (qbKeyCRC "songs")
+                        (QBArrayOfInteger [fromIntegral $ gh5_SongID gh5])
+                      ]
+                    ]
+                  ]
+                )
+              , ( Node
+                  { nodeFileType = qbKeyCRC ".last"
+                  , nodeOffset = 1
+                  , nodeSize = 0
+                  , nodeFilenamePakKey = 0
+                  , nodeFilenameKey = 2306521930
+                  , nodeFilenameCRC = 1794739921
+                  , nodeUnknown = 0
+                  , nodeFlags = 0
+                  }
+                , BL.replicate 4 0xAB
+                )
+              ]
+
+            dir </> "cdl.pak.xen" %> \out -> stackIO $ BL.writeFile out $ buildPak
+              [ ( Node
+                  { nodeFileType = qbKeyCRC ".qb"
+                  , nodeOffset = 0
+                  , nodeSize = 0
+                  , nodeFilenamePakKey = 0
+                  , nodeFilenameKey = 2973311508
+                  , nodeFilenameCRC = 24767173
+                  , nodeUnknown = 0
+                  , nodeFlags = 0
+                  }
+                , putQB []
+                )
+              , ( Node
+                  { nodeFileType = qbKeyCRC ".last"
+                  , nodeOffset = 1
+                  , nodeSize = 0
+                  , nodeFilenamePakKey = 0
+                  , nodeFilenameKey = 2306521930
+                  , nodeFilenameCRC = 1794739921
+                  , nodeUnknown = 0
+                  , nodeFlags = 0
+                  }
+                , BL.replicate 4 0xAB
+                )
+              ]
+
+            dir </> "cdl_text.pak.xen" %> \out -> do
+              let makeQSPair s = (fromIntegral $ hash s, s)
+                  -- not sure what the \L does; it works without it but we'll just match official songs
+                  titleQS  = makeQSPair $ "\\L" <> targetTitle songYaml target
+                  artistQS = makeQSPair $ "\\L" <> getArtist (_metadata songYaml)
+                  albumQS  = makeQSPair $ getAlbum  $ _metadata songYaml
+                  qs = makeQS [titleQS, artistQS, albumQS]
+                  qb =
+                    [ QBSectionArray 3796209450 1032902983 $
+                      QBArrayOfQbKey [songKeyQB]
+                    , QBSectionStruct 4087958085 1032902983
+                      [ QBStructHeader
+                      , QBStructItemStruct songKeyQB
+                        [ QBStructHeader
+                        , QBStructItemQbKey (qbKeyCRC "checksum") songKeyQB
+                        , QBStructItemString (qbKeyCRC "name") $ B8.pack songKey
+                        , QBStructItemQbKeyStringQs (qbKeyCRC "title") $ fst titleQS
+                        , QBStructItemQbKeyStringQs (qbKeyCRC "artist") $ fst artistQS
+                        , QBStructItemQbKeyString 2026561191 2714706322
+                        , QBStructItemInteger 2916764328 1
+                        , QBStructItemInteger (qbKeyCRC "year") $ fromIntegral $ getYear $ _metadata songYaml
+                        , QBStructItemQbKeyStringQs (qbKeyCRC "album_title") $ fst albumQS
+                        , QBStructItemQbKey 1732896360 3045815699
+                        , QBStructItemQbKey (qbKeyCRC "genre") 2543700849 -- TODO
+                        , QBStructItemInteger (qbKeyCRC "leaderboard") 1
+                        , QBStructItemInteger (qbKeyCRC "duration") 219 -- TODO
+                        , QBStructItemInteger (qbKeyCRC "flags") 0
+                        , QBStructItemInteger (qbKeyCRC "double_kick") 1 -- TODO
+                        , QBStructItemInteger (qbKeyCRC "thin_fretbar_8note_params_low_bpm") 1
+                        , QBStructItemInteger (qbKeyCRC "thin_fretbar_8note_params_high_bpm") 150
+                        , QBStructItemInteger (qbKeyCRC "thin_fretbar_16note_params_low_bpm") 1
+                        , QBStructItemInteger (qbKeyCRC "thin_fretbar_16note_params_high_bpm") 120
+                        , QBStructItemInteger 437674840 6 -- guitar tier (or maybe vocals)
+                        , QBStructItemInteger 3733500155 4 -- bass tier
+                        , QBStructItemInteger 945984381 6 -- vocals tier (or maybe guitar)
+                        , QBStructItemInteger 178662704 7 -- drums tier
+                        , QBStructItemInteger 3512970546 10 -- band difficulty? dunno
+                        , QBStructItemString (qbKeyCRC "snare") "ModernRock"
+                        , QBStructItemString (qbKeyCRC "kick") "ModernRock"
+                        , QBStructItemString (qbKeyCRC "tom1") "ModernRock"
+                        , QBStructItemString (qbKeyCRC "tom2") "ModernRock"
+                        , QBStructItemString (qbKeyCRC "hihat") "ModernRock"
+                        , QBStructItemString (qbKeyCRC "cymbal") "ModernRock"
+                        , QBStructItemString (qbKeyCRC "drum_kit") "ModernRock"
+                        , QBStructItemString 4094319878 "Sticks_Normal"
+                        , QBStructItemFloat 1179677752 0
+                        ]
+                      ]
+                    ]
+                  nodes =
+                    [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 1032902983, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+                      , putQB qb
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3184983751, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+                      , qs
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2197483851, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+                      , qs
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3959507121, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+                      , qs
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 857675278, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+                      , qs
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3738210846, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+                      , qs
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2339261848, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+                      , makeQS []
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3024241172, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+                      , makeQS []
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3669621742, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+                      , makeQS []
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 94872913, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+                      , makeQS []
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3899138369, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+                      , makeQS []
+                      )
+                    -- Not sure what this file does
+                    -- , ( Node {nodeFileType = qbKeyCRC ".stat", nodeOffset = 11, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 243885942, nodeFilenameCRC = 2759140561, nodeUnknown = 0, nodeFlags = 0}
+                    --   , stat
+                    --   )
+                    , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 12, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0}
+                      , BL.replicate 4 0xAB
+                      )
+                    ]
+              stackIO $ BL.writeFile out $ buildPak nodes
+
+            dir </> "song.pak.xen" %> \out -> do
+              shk $ need [dir </> "ghwor.note"]
+              note <- stackIO $ BL.readFile $ dir </> "ghwor.note"
+              let qsSections = [] -- TODO
+                  qb =
+                    [ QBSectionArray 1441618440 2434304849 $ QBArrayOfInteger []
+                    , QBSectionArray 2961626425 2434304849 $ QBArrayOfFloat []
+                    , QBSectionArray 3180084209 2434304849 $ QBArrayOfInteger []
+                    , QBSectionArray 3250951858 2434304849 $ QBArrayOfFloat []
+                    , QBSectionArray 2096871117 2434304849 $ QBArrayOfInteger []
+                    , QBSectionArray 1487281764 2434304849 $ QBArrayOfStruct
+                      [ [ QBStructHeader
+                        , QBStructItemInteger (qbKeyCRC "time") 0
+                        , QBStructItemQbKey (qbKeyCRC "scr") 1861295691
+                        , QBStructItemStruct (qbKeyCRC "params")
+                          [ QBStructHeader
+                          , QBStructItemInteger (qbKeyCRC "time") 3
+                          ]
+                        ]
+                      ]
+                    , QBSectionArray 926843683 2434304849 $ QBArrayOfStruct []
+                    , QBSectionArray 183728976 2434304849 $ QBArrayOfQbKeyStringQs $ map fst qsSections
+                    ]
+                  nodes =
+                    [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 2434304849, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                      , putQB qb
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4222135203, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                      , makeQS qsSections
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4222135203, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                      , makeQS qsSections
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4222135203, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                      , makeQS qsSections
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4222135203, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                      , makeQS qsSections
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4222135203, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                      , makeQS qsSections
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".note", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 2262680234, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                      , note
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4208822249, nodeFilenameCRC = 662273024, nodeUnknown = 0, nodeFlags = 0}
+                      , putQB [QBSectionInteger 2519306321 4208822249 5377]
+                      )
+                    , ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 3748754942, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                      , putQB [QBSectionArray 1148198227 3748754942 $ QBArrayOfStruct []]
+                      )
+                    -- Not including this file gives you a free black background :)
+                    -- , ( Node {nodeFileType = qbKeyCRC ".perf", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4108292588, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                    --   , perf
+                    --   )
+                    , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0}
+                      , BL.replicate 4 0xAB
+                      )
+                    ]
+              stackIO $ BL.writeFile out $ buildPak nodes
+
             dir </> "ghwor.note" %> \out -> do
-              mid <- shakeMIDI $ planDir </> "raw.mid"
+              mid <- shakeMIDI $ planDir </> "processed.mid"
               note <- makeGHWoRNote songYaml gh5 mid $ getAudioLength planName plan
               stackIO $ BL.writeFile out $ runPut $
-                putNote (qbKeyCRC $ TE.encodeUtf8 $ gh5_DLC gh5) $ makeWoRNoteFile note
+                putNote songKeyQB $ makeWoRNoteFile note
 
             -- Not supporting stems yet due to FSB generator issue;
             -- it will fail with memory errors on large WAVs, so we have to keep them small.
@@ -2810,7 +3060,19 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , Silence 2 $ Seconds 0
               ])
 
-            forM_ ["audio1", "audio2", "audio3"] $ \audio -> do
+            dir </> "preview.wav" %> \out -> do
+              mid <- shakeMIDI $ planDir </> "processed.mid"
+              let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))
+                  fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
+                  previewExpr
+                    = Fade End (Seconds 5)
+                    $ Fade Start (Seconds 2)
+                    $ Take Start (fromMS $ pend - pstart)
+                    $ Drop Start (fromMS pstart)
+                    $ Input (planDir </> "everything.wav")
+              buildAudio previewExpr out
+
+            forM_ ["audio1", "audio2", "audio3", "preview"] $ \audio -> do
               let wav = dir </> audio <.> "wav"
                   fsb = dir </> audio <.> "fsb"
               fsb %> \out -> do
@@ -2822,6 +3084,38 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 case aesEncrypt worFSBKey bs of
                   Nothing  -> fatal "Unable to encrypt .fsb to .fsb.xen"
                   Just enc -> stackIO $ B.writeFile out enc
+
+            dir </> "ghworlive" %> \out -> do
+              let files =
+                    [ ("cmanifest_" <> titleHash <> ".pak.xen", dir </> "cmanifest.pak.xen")
+                    , (T.unpack (gh5_CDL gh5) <> ".pak.xen", dir </> "cdl.pak.xen")
+                    , (T.unpack (gh5_CDL gh5) <> "_text.pak.xen", dir </> "cdl_text.pak.xen")
+                    , ("b" <> songKey <> "_song.pak.xen", dir </> "song.pak.xen")
+                    , ("a" <> songKey <> "_preview.fsb.xen", dir </> "preview.fsb.xen")
+                    , ("a" <> songKey <> "_1.fsb.xen", dir </> "audio1.fsb.xen")
+                    , ("a" <> songKey <> "_2.fsb.xen", dir </> "audio2.fsb.xen")
+                    , ("a" <> songKey <> "_3.fsb.xen", dir </> "audio3.fsb.xen")
+                    ]
+                  folder = Folder
+                    { folderSubfolders = []
+                    , folderFiles = map (\(dest, src) -> (T.pack dest, fileReadable src)) files
+                    }
+              shk $ need $ map snd files
+              thumb <- stackIO $ ghWoRthumbnail >>= B.readFile
+              stackIO $ makeCONReadable CreateOptions
+                { createNames = packageTitle
+                , createDescriptions = packageDesc
+                , createTitleID = 0x41560883
+                , createTitleName = "Guitar Hero : Warriors of Rock"
+                , createThumb = thumb
+                , createTitleThumb = thumb
+                , createLicenses = [LicenseEntry (-1) 1 1, LicenseEntry (-1) 1 0]
+                , createMediaID       = 0
+                , createVersion       = 0
+                , createBaseVersion   = 0
+                , createTransferFlags = 0xC0
+                , createLIVE = True
+                } folder out
 
           Konga _ -> return () -- TODO
 

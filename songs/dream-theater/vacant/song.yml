@@ -70,7 +70,7 @@ parts:
     vocal:
       difficulty: 2
       count: 1
-    gender: male
+      gender: male
   keys:
     grybo:
       difficulty: 3

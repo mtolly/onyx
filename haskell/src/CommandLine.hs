@@ -1261,25 +1261,28 @@ commands =
         targetName <- case [ t | OptTarget t <- opts ] of
           []    -> fatal "command requires --target, none given"
           t : _ -> return t
-        let pathNote = "gen/target" </> T.unpack targetName </> "ghwor.note"
-            pathFSB1 = "gen/target" </> T.unpack targetName </> "audio1.fsb.xen"
-            pathFSB2 = "gen/target" </> T.unpack targetName </> "audio2.fsb.xen"
-            pathFSB3 = "gen/target" </> T.unpack targetName </> "audio3.fsb.xen"
+        let pathNote    = "gen/target" </> T.unpack targetName </> "ghwor.note"
+            pathFSB1    = "gen/target" </> T.unpack targetName </> "audio1.fsb.xen"
+            pathFSB2    = "gen/target" </> T.unpack targetName </> "audio2.fsb.xen"
+            pathFSB3    = "gen/target" </> T.unpack targetName </> "audio3.fsb.xen"
+            pathPreview = "gen/target" </> T.unpack targetName </> "preview.fsb.xen"
         audioDirs <- withProject Nothing yml getAudioDirs
-        shakeBuildFiles audioDirs yml [pathNote, pathFSB1, pathFSB2, pathFSB3]
-        fsb1 <- stackIO $ fmap BL.fromStrict $ B.readFile pathFSB1
-        fsb2 <- stackIO $ fmap BL.fromStrict $ B.readFile pathFSB2
-        fsb3 <- stackIO $ fmap BL.fromStrict $ B.readFile pathFSB3
+        shakeBuildFiles audioDirs yml [pathNote, pathFSB1, pathFSB2, pathFSB3, pathPreview]
+        fsb1    <- stackIO $ fmap BL.fromStrict $ B.readFile $ songDir </> pathFSB1
+        fsb2    <- stackIO $ fmap BL.fromStrict $ B.readFile $ songDir </> pathFSB2
+        fsb3    <- stackIO $ fmap BL.fromStrict $ B.readFile $ songDir </> pathFSB3
+        preview <- stackIO $ fmap BL.fromStrict $ B.readFile $ songDir </> pathPreview
         contents <- stackIO $ getSTFSFolder dlc
         note <- stackIO (BL.readFile $ songDir </> pathNote) >>= loadNoteFile
         contents' <- replaceGHWoRDLC (B8.pack key) GHWoRInput
-          { ghworNote   = note
-          , ghworTitle  = getTitle $ _metadata songYaml
-          , ghworArtist = getArtist $ _metadata songYaml
-          , ghworAlbum  = getAlbum $ _metadata songYaml
-          , ghworFSB1   = fsb1
-          , ghworFSB2   = fsb2
-          , ghworFSB3   = fsb3
+          { ghworNote    = note
+          , ghworTitle   = getTitle $ _metadata songYaml
+          , ghworArtist  = getArtist $ _metadata songYaml
+          , ghworAlbum   = getAlbum $ _metadata songYaml
+          , ghworFSB1    = fsb1
+          , ghworFSB2    = fsb2
+          , ghworFSB3    = fsb3
+          , ghworPreview = preview
           } contents
         meta <- stackIO $ withSTFSPackage dlc $ return . stfsMetadata
         stackIO $ makeCONReadable CreateOptions

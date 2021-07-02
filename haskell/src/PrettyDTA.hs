@@ -101,6 +101,18 @@ removeOldDTAKeys = filter $ \case
   D.Parens (D.Tree _ (D.Sym "tuning_offset"  : _)) -> False -- in a few songs. changed to 'tuning_offset_cents'
   _                                                -> True
 
+-- | Ignore DTA scripts used in songs such as TBRB's All You Need Is Love,
+-- as well as songs produced by the TBRB Custom DLC Project.
+skipScripting :: [D.Chunk T.Text] -> [D.Chunk T.Text]
+skipScripting = map $ \chunk -> case chunk of
+  D.Braces (D.Tree _ (D.Sym "do" : xs)) -> case reverse xs of
+    val : _ -> val
+    []      -> chunk
+  D.Parens   (D.Tree w xs) -> D.Parens   $ D.Tree w $ skipScripting xs
+  D.Braces   (D.Tree w xs) -> D.Braces   $ D.Tree w $ skipScripting xs
+  D.Brackets (D.Tree w xs) -> D.Brackets $ D.Tree w $ skipScripting xs
+  _ -> chunk
+
 missingMapping :: Map.HashMap T.Text [D.Chunk T.Text]
 missingMapping = case missingSongData of
   D.DTA _ (D.Tree _ chunks) -> let
@@ -153,7 +165,8 @@ readDTASingles bs = do
             D.Parens (D.Tree _ (D.Sym k : chunks)) -> do
               let missingChunks = fromMaybe [] $ Map.lookup k missingMapping
               pkg <- unserialize stackChunks $ D.DTA 0 $ D.Tree 0
-                $ removeOldDTAKeys $ fixTracksCount $ applyUpdate chunks missingChunks
+                $ removeOldDTAKeys $ fixTracksCount $ skipScripting
+                $ applyUpdate chunks missingChunks
               return (k, pkg)
             _ -> fatal "Not a valid song chunk in the format (topkey ...)"
       (latinKey, latinPkg) <- readTextChunk $ fmap TE.decodeLatin1 chunk

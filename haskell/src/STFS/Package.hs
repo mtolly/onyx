@@ -32,14 +32,14 @@ module STFS.Package
 , makePack
 ) where
 
-import           Control.Monad                  (forM, forM_, guard, replicateM,
-                                                 unless, void, when)
 import           Control.Monad.Codec
+import           Control.Monad.Extra            (allM, forM, forM_, guard,
+                                                 replicateM, unless, void, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
 import           Crypto.Hash                    (Digest, hash)
-import           Crypto.Hash.Algorithms         (SHA1 (..))
+import           Crypto.Hash.Algorithms         (MD5, SHA1 (..))
 import           Crypto.PubKey.RSA.PKCS15       (sign)
 import           Crypto.PubKey.RSA.Types
 import           Data.Binary.Codec
@@ -1303,10 +1303,16 @@ makePack inputs@(input : _) applyOpts fout = do
           return $ Just $ makeHandle ("Pack-merged contents for " <> showPath parents name)
             $ byteStringSimpleHandle $ BL.intercalate "\n" bytes
         else case contents of
-          [r] -> return $ Just r
-          _   -> if name == "spa.bin"
+          []     -> return Nothing -- shouldn't happen
+          [r]    -> return $ Just r
+          r : rs -> if name == "spa.bin"
             then return Nothing
-            else fail $ "Multiple input CON/LIVE files contain: " <> showPath parents name
+            else do
+              let hashContents rdbl = hash . BL.toStrict <$> useHandle rdbl handleToByteString :: IO (Digest MD5)
+              firstHash <- hashContents r
+              allM (fmap (== firstHash) . hashContents) rs >>= \case
+                True  -> return $ Just r
+                False -> fail $ "File contains different contents across input CON/LIVE files: " <> showPath parents name
       showPath parents name = T.unpack $ T.intercalate "/" $ reverse $ name : parents
   merged <- combineFolders [] roots
   makeCONReadable opts merged fout
