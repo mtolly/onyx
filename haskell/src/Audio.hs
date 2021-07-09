@@ -54,7 +54,7 @@ import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
 import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
                                                    Staction, inside, lg,
                                                    stackIO, stackProcess)
-import           Data.Binary.Get                  (getWord32le, runGetOrFail)
+import           Data.Binary.Get                  (getWord32le)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.ByteString.Lazy.Char8       as BL8
@@ -94,6 +94,7 @@ import           SndfileExtra
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.Util                  as U
 import qualified Sound.RubberBand                 as RB
+import           STFS.Package                     (runGetM)
 import qualified System.IO                        as IO
 import           System.Process                   (proc)
 
@@ -546,9 +547,7 @@ audioMD5 f = liftIO $ case takeExtension f of
       then Nothing
       else let
         thisTag = BL.take 4 bytes
-        len = case runGetOrFail getWord32le $ BL.drop 4 bytes of
-          Left  _         -> Nothing
-          Right (_, _, l) -> Just $ fromIntegral l
+        len = fmap fromIntegral $ runGetM getWord32le $ BL.drop 4 bytes
         in if tag == thisTag
           then len >>= \l -> Just $ BL.take l $ BL.drop 8 bytes
           else len >>= \l -> findChunk tag $ BL.drop (8 + l) bytes

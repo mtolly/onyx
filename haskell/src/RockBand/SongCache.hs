@@ -329,9 +329,7 @@ fixSongCache path = do
   mcache <- stackIO $ getSTFSFolder path >>= findByteString (pure "songcache")
   origCache <- case mcache of
     Nothing -> fatal "Couldn't find song cache file inside STFS"
-    Just bs -> case runGetOrFail (codecIn bin) bs of
-      Left  (_, _, err  ) -> fatal $ "Couldn't parse song cache file: " <> err
-      Right (_, _, cache) -> return (cache :: SongCache)
+    Just bs -> inside "Parsing song cache file" $ runGetM (codecIn bin) bs
   cons <- fmap (filter $ \s -> take 1 s /= ".")
     $ stackIO $ listDirectory $ takeDirectory path
   let checkCON cache con = do
@@ -413,9 +411,7 @@ hardcodeSongCacheIDs pathCache pathCONs = do
   mcache <- stackIO $ getSTFSFolder pathCache >>= findByteString (pure "songcache")
   cache <- case mcache of
     Nothing -> fatal "Couldn't find song cache file inside STFS"
-    Just bs -> case runGetOrFail (codecIn bin) bs of
-      Left  (_, _, err  ) -> fatal $ "Couldn't parse song cache file: " <> err
-      Right (_, _, cache) -> return (cache :: SongCache)
+    Just bs -> inside "Parsing song cache file" $ runGetM (codecIn bin) bs
   cons <- stackIO $ filter (/= "songcache") <$> listDirectory pathCONs
   forM_ cons $ \pathCON -> inside pathCON $ errorToWarning $ do
     let fullPathCON = pathCONs </> pathCON

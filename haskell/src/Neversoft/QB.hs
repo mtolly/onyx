@@ -32,24 +32,29 @@ data QBSection qs k
   = QBSectionInteger k k Word32
   | QBSectionArray k k (QBArray qs k)
   | QBSectionStruct k k [QBStructItem qs k]
+  | QBSectionScript k k Word32 B.ByteString -- decompressed size, then compressed bytestring (not bothering with decompression)
   deriving (Eq, Show, Functor)
 
 instance (ToJSON qs, ToJSON k) => ToJSON (QBSection qs k) where
   toJSON = \case
-    QBSectionInteger x y z -> OneKey "QBSectionInteger" $ toJSON [toJSON x, toJSON y, toJSON z]
-    QBSectionArray x y z -> OneKey "QBSectionArray" $ toJSON [toJSON x, toJSON y, toJSON z]
-    QBSectionStruct x y z -> OneKey "QBSectionStruct" $ toJSON [toJSON x, toJSON y, toJSON z]
+    QBSectionInteger x y z -> OneKey "SectionInteger" $ toJSON [toJSON x, toJSON y, toJSON z]
+    QBSectionArray x y z -> OneKey "SectionArray" $ toJSON [toJSON x, toJSON y, toJSON z]
+    QBSectionStruct x y z -> OneKey "SectionStruct" $ toJSON [toJSON x, toJSON y, toJSON z]
+    QBSectionScript w x y z -> OneKey "SectionScript" $ toJSON [toJSON w, toJSON x, toJSON y, toJSON $ B8.unpack z]
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBSection qs k) where
   parseJSON = \case
-    OneKey "QBSectionInteger" xs -> parseJSON xs >>= \case
+    OneKey "SectionInteger" xs -> parseJSON xs >>= \case
       [x, y, z] -> QBSectionInteger <$> parseJSON x <*> parseJSON y <*> parseJSON z
       _ -> fail "QB json error"
-    OneKey "QBSectionArray" xs -> parseJSON xs >>= \case
+    OneKey "SectionArray" xs -> parseJSON xs >>= \case
       [x, y, z] -> QBSectionArray <$> parseJSON x <*> parseJSON y <*> parseJSON z
       _ -> fail "QB json error"
-    OneKey "QBSectionStruct" xs -> parseJSON xs >>= \case
+    OneKey "SectionStruct" xs -> parseJSON xs >>= \case
       [x, y, z] -> QBSectionStruct <$> parseJSON x <*> parseJSON y <*> parseJSON z
+      _ -> fail "QB json error"
+    OneKey "SectionScript" xs -> parseJSON xs >>= \case
+      [w, x, y, z] -> QBSectionScript <$> parseJSON w <*> parseJSON x <*> parseJSON y <*> fmap B8.pack (parseJSON z)
       _ -> fail "QB json error"
     _ -> fail "QB json error"
 
@@ -63,19 +68,19 @@ data QBArray qs k
 
 instance (ToJSON qs, ToJSON k) => ToJSON (QBArray qs k) where
   toJSON = \case
-    QBArrayOfQbKey x -> OneKey "QBArrayOfQbKey" $ toJSON x
-    QBArrayOfInteger x -> OneKey "QBArrayOfInteger" $ toJSON x
-    QBArrayOfStruct x -> OneKey "QBArrayOfStruct" $ toJSON x
-    QBArrayOfFloat x -> OneKey "QBArrayOfFloat" $ toJSON x
-    QBArrayOfQbKeyStringQs x -> OneKey "QBArrayOfQbKeyStringQs" $ toJSON x
+    QBArrayOfQbKey x -> OneKey "ArrayOfQbKey" $ toJSON x
+    QBArrayOfInteger x -> OneKey "ArrayOfInteger" $ toJSON x
+    QBArrayOfStruct x -> OneKey "ArrayOfStruct" $ toJSON x
+    QBArrayOfFloat x -> OneKey "ArrayOfFloat" $ toJSON x
+    QBArrayOfQbKeyStringQs x -> OneKey "ArrayOfQbKeyStringQs" $ toJSON x
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBArray qs k) where
   parseJSON = \case
-    OneKey "QBArrayOfQbKey" x -> QBArrayOfQbKey <$> parseJSON x
-    OneKey "QBArrayOfInteger" x -> QBArrayOfInteger <$> parseJSON x
-    OneKey "QBArrayOfStruct" x -> QBArrayOfStruct <$> parseJSON x
-    OneKey "QBArrayOfFloat" x -> QBArrayOfFloat <$> parseJSON x
-    OneKey "QBArrayOfQbKeyStringQs" x -> QBArrayOfQbKeyStringQs <$> parseJSON x
+    OneKey "ArrayOfQbKey" x -> QBArrayOfQbKey <$> parseJSON x
+    OneKey "ArrayOfInteger" x -> QBArrayOfInteger <$> parseJSON x
+    OneKey "ArrayOfStruct" x -> QBArrayOfStruct <$> parseJSON x
+    OneKey "ArrayOfFloat" x -> QBArrayOfFloat <$> parseJSON x
+    OneKey "ArrayOfQbKeyStringQs" x -> QBArrayOfQbKeyStringQs <$> parseJSON x
     _ -> fail "QB json error"
 
 data QBStructItem qs k
@@ -92,41 +97,41 @@ data QBStructItem qs k
 
 instance (ToJSON qs, ToJSON k) => ToJSON (QBStructItem qs k) where
   toJSON = \case
-    QBStructHeader -> "QBStructHeader"
-    QBStructItemStruct x y -> OneKey "QBStructItemStruct" $ toJSON [toJSON x, toJSON y]
-    QBStructItemQbKey x y -> OneKey "QBStructItemQbKey" $ toJSON [toJSON x, toJSON y]
-    QBStructItemString x y -> OneKey "QBStructItemString" $ toJSON [toJSON x, toJSON $ B8.unpack y]
-    QBStructItemQbKeyString x y -> OneKey "QBStructItemQbKeyString" $ toJSON [toJSON x, toJSON y]
-    QBStructItemQbKeyStringQs x y -> OneKey "QBStructItemQbKeyStringQs" $ toJSON [toJSON x, toJSON y]
-    QBStructItemInteger x y -> OneKey "QBStructItemInteger" $ toJSON [toJSON x, toJSON y]
-    QBStructItemFloat x y -> OneKey "QBStructItemFloat" $ toJSON [toJSON x, toJSON y]
-    QBStructItemArray x y -> OneKey "QBStructItemArray" $ toJSON [toJSON x, toJSON y]
+    QBStructHeader -> "StructHeader"
+    QBStructItemStruct x y -> OneKey "StructItemStruct" $ toJSON [toJSON x, toJSON y]
+    QBStructItemQbKey x y -> OneKey "StructItemQbKey" $ toJSON [toJSON x, toJSON y]
+    QBStructItemString x y -> OneKey "StructItemString" $ toJSON [toJSON x, toJSON $ B8.unpack y]
+    QBStructItemQbKeyString x y -> OneKey "StructItemQbKeyString" $ toJSON [toJSON x, toJSON y]
+    QBStructItemQbKeyStringQs x y -> OneKey "StructItemQbKeyStringQs" $ toJSON [toJSON x, toJSON y]
+    QBStructItemInteger x y -> OneKey "StructItemInteger" $ toJSON [toJSON x, toJSON y]
+    QBStructItemFloat x y -> OneKey "StructItemFloat" $ toJSON [toJSON x, toJSON y]
+    QBStructItemArray x y -> OneKey "StructItemArray" $ toJSON [toJSON x, toJSON y]
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBStructItem qs k) where
   parseJSON = \case
-    "QBStructHeader" -> return QBStructHeader
-    OneKey "QBStructItemStruct" xs -> parseJSON xs >>= \case
+    "StructHeader" -> return QBStructHeader
+    OneKey "StructItemStruct" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemStruct <$> parseJSON x <*> parseJSON y
       _ -> fail "QB json error"
-    OneKey "QBStructItemQbKey" xs -> parseJSON xs >>= \case
+    OneKey "StructItemQbKey" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemQbKey <$> parseJSON x <*> parseJSON y
       _ -> fail "QB json error"
-    OneKey "QBStructItemString" xs -> parseJSON xs >>= \case
+    OneKey "StructItemString" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemString <$> parseJSON x <*> fmap B8.pack (parseJSON y)
       _ -> fail "QB json error"
-    OneKey "QBStructItemQbKeyString" xs -> parseJSON xs >>= \case
+    OneKey "StructItemQbKeyString" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemQbKeyString <$> parseJSON x <*> parseJSON y
       _ -> fail "QB json error"
-    OneKey "QBStructItemQbKeyStringQs" xs -> parseJSON xs >>= \case
+    OneKey "StructItemQbKeyStringQs" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemQbKeyStringQs <$> parseJSON x <*> parseJSON y
       _ -> fail "QB json error"
-    OneKey "QBStructItemInteger" xs -> parseJSON xs >>= \case
+    OneKey "StructItemInteger" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemInteger <$> parseJSON x <*> parseJSON y
       _ -> fail "QB json error"
-    OneKey "QBStructItemFloat" xs -> parseJSON xs >>= \case
+    OneKey "StructItemFloat" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemFloat <$> parseJSON x <*> parseJSON y
       _ -> fail "QB json error"
-    OneKey "QBStructItemArray" xs -> parseJSON xs >>= \case
+    OneKey "StructItemArray" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemArray <$> parseJSON x <*> parseJSON y
       _ -> fail "QB json error"
     _ -> fail "QB json error"
@@ -136,6 +141,7 @@ instance Bifunctor QBSection where
     QBSectionInteger x y n -> QBSectionInteger x y n
     QBSectionArray x y arr -> QBSectionArray x y $ first f arr
     QBSectionStruct x y items -> QBSectionStruct x y $ map (first f) items
+    QBSectionScript w x y z -> QBSectionScript w x y z
   second = fmap
 
 instance Bifunctor QBArray where
@@ -196,6 +202,16 @@ parseQBArray = do
     _ -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
   return (array, p2)
 
+-- Skip to next position divisible by 4
+jumpTo4 :: Get ()
+jumpTo4 = do
+  posn <- bytesRead
+  case rem posn 4 of
+    0 -> return ()
+    1 -> skip 3
+    2 -> skip 2
+    _ -> skip 1
+
 parseQBStruct :: Get [QBStructItem Word32 Word32]
 parseQBStruct = do
   itemType <- getWord32be
@@ -234,12 +250,7 @@ parseQBStruct = do
           c <- getWord8
           if c == 0
             then do
-              posn <- bytesRead
-              case rem posn 4 of
-                0 -> return () -- we already read the one zero
-                1 -> skip 3
-                2 -> skip 2
-                _ -> skip 1
+              jumpTo4
               return []
             else (c :) <$> getNullTerm
         in B.pack <$> getNullTerm
@@ -270,27 +281,33 @@ parseQBStruct = do
 parseQBSection :: Get (QBSection Word32 Word32)
 parseQBSection = do
   sectionType <- getWord32be
+  itemQbKeyCrc <- getWord32be
+  fileId <- getWord32be
   case sectionType of
     0x00200100 {- SectionInteger -} -> do
-      itemQbKeyCrc <- getWord32be
-      fileId <- getWord32be
       n1 <- getWord32be
       n2 <- getWord32be
       when (n2 /= 0) $ fail "SectionInteger: expected 0 for second number"
       return $ QBSectionInteger itemQbKeyCrc fileId n1
     0x00200C00 {- SectionArray -} -> do
-      itemQbKeyCrc <- getWord32be
-      fileId <- getWord32be
       (array, _) <- parseQBArray
       -- the snd above should be 0, I think
       return $ QBSectionArray itemQbKeyCrc fileId array
     0x00200A00 {- SectionStruct -} -> do
-      itemQbKeyCrc <- getWord32be
-      fileId <- getWord32be
       p1 <- getWord32be
       _reserved <- getWord32be
       shouldBeAt p1
       QBSectionStruct itemQbKeyCrc fileId <$> parseQBStruct
+    0x00200700 {- SectionScript -} -> do
+      p1 <- getWord32be
+      _reserved <- getWord32be -- 0
+      shouldBeAt p1
+      _unknown <- getWord32be -- 0xFFFFFFFF
+      decompressedSize <- getWord32be
+      compressedSize <- getWord32be
+      bs <- getByteString $ fromIntegral compressedSize
+      jumpTo4
+      return $ QBSectionScript itemQbKeyCrc fileId decompressedSize bs
     _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
 
 parseQB :: Get [QBSection Word32 Word32]
@@ -438,6 +455,11 @@ putQBArray ary = do
       mapM_ w32 qs
   return p2
 
+padTo4 :: B.ByteString -> B.ByteString
+padTo4 bs = case rem (B.length bs) 4 of
+  0 -> bs
+  r -> bs <> B.replicate (4 - r) 0
+
 putQBStruct :: [QBStructItem Word32 Word32] -> PutSeek s ()
 putQBStruct = let
   go prevPointer [] = forM_ prevPointer $ \p -> setPointer p 0
@@ -473,11 +495,7 @@ putQBStruct = let
         start <- reservePointer
         p <- reservePointer
         fillPointer start
-        let nullTerm = b <> B.singleton 0
-            padded = case rem (B.length nullTerm) 4 of
-              0 -> nullTerm
-              r -> nullTerm <> B.replicate (4 - r) 0
-        append padded
+        append $ padTo4 $ b <> B.singleton 0
         return p
       QBStructItemFloat x f -> do
         w32 0x00010200
@@ -521,6 +539,17 @@ putQBSection = \case
     w32 0
     fillPointer p
     putQBStruct struct
+  QBSectionScript itemQbKeyCrc fileId decompressedSize bs -> do
+    w32 0x00200700
+    w32 itemQbKeyCrc
+    w32 fileId
+    p <- reservePointer
+    w32 0
+    fillPointer p
+    w32 0xFFFFFFFF
+    w32 decompressedSize
+    w32 $ fromIntegral $ B.length bs
+    append $ padTo4 bs
 
 putQB :: [QBSection Word32 Word32] -> BL.ByteString
 putQB sects = let

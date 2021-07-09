@@ -28,8 +28,11 @@ module STFS.Package
 , LicenseEntry(..)
 , Header(..)
 , Metadata(..)
-, runGetM
+, runGetM, runGetMOffset
 , makePack
+, repackOptions
+, saveCreateOptions
+, loadCreateOptions
 ) where
 
 import           Control.Monad.Codec
@@ -54,7 +57,7 @@ import           Data.Foldable                  (toList)
 import           Data.Int
 import           Data.IORef                     (newIORef, readIORef,
                                                  writeIORef)
-import           Data.List.Extra                (nubOrd)
+import           Data.List.Extra                (nubOrd, partition)
 import qualified Data.Map                       as Map
 import           Data.Maybe                     (catMaybes, fromMaybe,
                                                  isNothing, mapMaybe)
@@ -67,6 +70,8 @@ import           Data.Text.Encoding
 import           Data.Time
 import qualified Data.Vector.Unboxed            as VU
 import           Data.Word
+import           Data.Yaml                      ((.:))
+import qualified Data.Yaml                      as Y
 import           Resources                      (gh2Thumbnail, ghWoRthumbnail,
                                                  rb2Thumbnail, rb3Thumbnail,
                                                  xboxKV)
@@ -541,8 +546,11 @@ data STFSPackage = STFSPackage
   }
 
 runGetM :: (MonadFail m) => Get a -> BL.ByteString -> m a
-runGetM g bs = case runGetOrFail g bs of
-  Left (_, pos, err) -> fail $ "Binary Get at position " <> show pos <> ": " <> err
+runGetM = runGetMOffset 0
+
+runGetMOffset :: (MonadFail m) => Int64 -> Get a -> BL.ByteString -> m a
+runGetMOffset offset g bs = case runGetOrFail g bs of
+  Left (_, pos, err) -> fail $ "Binary parse error at position " <> show (pos + offset) <> ": " <> err
   Right (_, _, x) -> return x
 
 withSTFSPackage :: FilePath -> (STFSPackage -> IO a) -> IO a
@@ -918,9 +926,6 @@ loadKVbinLIVE = let
 -- parent index, name, maybe (length, data blocks)
 type BlocksPlan = [(Int, T.Text, Maybe (Integer, IO [B.ByteString]))]
 
-traverseFolder :: FilePath -> IO BlocksPlan
-traverseFolder top = crawlFolder top >>= traverseReadable
-
 traverseReadable :: Folder T.Text Readable -> IO BlocksPlan
 traverseReadable top = toList <$> execStateT (go (-1) top) Seq.empty where
   go parentIndex folder = do
@@ -1045,8 +1050,16 @@ rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ do
 
 makeCON :: CreateOptions -> FilePath -> FilePath -> IO ()
 makeCON opts dir con = do
-  fileList <- traverseFolder dir
-  makeCONGeneral opts fileList con
+  folder <- crawlFolder dir
+  (opts', folder') <- case partition ((== "onyx-repack") . fst) $ folderSubfolders folder of
+    ([], _) -> return (opts, folder)
+    ((_, sub) : _, otherSubs) -> do
+      let folder' = folder { folderSubfolders = otherSubs }
+      loadCreateOptions sub >>= \case
+        Nothing -> return (opts, folder')
+        Just opts' -> return (opts', folder')
+  fileList <- traverseReadable folder'
+  makeCONGeneral opts' fileList con
 
 makeCONMemory :: CreateOptions -> Folder T.Text BL.ByteString -> FilePath -> IO ()
 makeCONMemory opts mem con = makeCONGeneral opts (traverseMemory mem) con
@@ -1316,3 +1329,81 @@ makePack inputs@(input : _) applyOpts fout = do
       showPath parents name = T.unpack $ T.intercalate "/" $ reverse $ name : parents
   merged <- combineFolders [] roots
   makeCONReadable opts merged fout
+
+repackOptions :: STFSPackage -> CreateOptions
+repackOptions stfs = CreateOptions
+  { createNames         = md_DisplayName         $ stfsMetadata stfs
+  , createDescriptions  = md_DisplayDescription  $ stfsMetadata stfs
+  , createTitleID       = md_TitleID             $ stfsMetadata stfs
+  , createTitleName     = md_TitleName           $ stfsMetadata stfs
+  , createThumb         = md_ThumbnailImage      $ stfsMetadata stfs
+  , createTitleThumb    = md_TitleThumbnailImage $ stfsMetadata stfs
+  , createLicenses      = md_LicenseEntries      $ stfsMetadata stfs
+  , createMediaID       = md_MediaID             $ stfsMetadata stfs
+  , createVersion       = md_Version             $ stfsMetadata stfs
+  , createBaseVersion   = md_BaseVersion         $ stfsMetadata stfs
+  , createTransferFlags = md_TransferFlags       $ stfsMetadata stfs
+  , createLIVE          = case stfsHeader stfs of
+    CON{} -> False
+    _     -> True
+  }
+
+saveCreateOptions :: CreateOptions -> Folder T.Text Readable
+saveCreateOptions copts = Folder
+  { folderSubfolders = []
+  , folderFiles =
+    [ ("thumbnail.png", makeHandle "thumbnail.png" $ byteStringSimpleHandle $ BL.fromStrict $ createThumb copts)
+    , ("title-thumbnail.png", makeHandle "thumbnail.png" $ byteStringSimpleHandle $ BL.fromStrict $ createTitleThumb copts)
+    , ("repack-stfs.yaml", makeHandle "repack-stfs.yaml" $ byteStringSimpleHandle $ BL.fromStrict $ Y.encode $ Y.object
+      [ ("package-name", Y.toJSON $ createNames copts)
+      , ("package-description", Y.toJSON $ createDescriptions copts)
+      , ("title-id", Y.toJSON $ createTitleID copts) -- TODO maybe replace with hex
+      , ("title-name", Y.toJSON $ createTitleName copts)
+      , ("licenses", Y.toJSON $ flip map (createLicenses copts) $ \license -> Y.object
+        [ ("id", Y.toJSON $ le_LicenseID license)
+        , ("bits", Y.toJSON $ le_LicenseBits license)
+        , ("flags", Y.toJSON $ le_LicenseFlags license)
+        ])
+      , ("media-id", Y.toJSON $ createMediaID copts)
+      , ("version", Y.toJSON $ createVersion copts)
+      , ("base-version", Y.toJSON $ createBaseVersion copts)
+      , ("transfer-flags", Y.toJSON $ createTransferFlags copts)
+      , ("sign-live", Y.toJSON $ createLIVE copts)
+      ])
+    ]
+  }
+
+loadCreateOptions :: Folder T.Text Readable -> IO (Maybe CreateOptions)
+loadCreateOptions folder = do
+  findByteString (return "repack-stfs.yaml") folder >>= \case
+    Nothing    -> return Nothing
+    Just byaml -> do
+      createThumb <- findByteString (return "thumbnail.png") folder >>= \case
+        Nothing -> rb3Thumbnail >>= B.readFile
+        Just b  -> return $ BL.toStrict b
+      createTitleThumb <- findByteString (return "title-thumbnail.png") folder >>= \case
+        Nothing -> rb3Thumbnail >>= B.readFile
+        Just b  -> return $ BL.toStrict b
+      obj <- case Y.decodeEither' $ BL.toStrict byaml of
+        Left  e -> fail $ "Failed parsing repack-stfs.yaml: " <> show e
+        Right o -> return o
+      let parseCreate o = do
+            createNames <- o .: "package-name"
+            createDescriptions <- o .: "package-description"
+            createTitleID <- o .: "title-id"
+            createTitleName <- o .: "title-name"
+            createMediaID <- o .: "media-id"
+            createVersion <- o .: "version"
+            createBaseVersion <- o .: "base-version"
+            createTransferFlags <- o .: "transfer-flags"
+            createLIVE <- o .: "sign-live"
+            licenseObjects <- o .: "licenses"
+            createLicenses <- forM (licenseObjects :: [Y.Object]) $ \lobj -> do
+              le_LicenseID <- lobj .: "id"
+              le_LicenseBits <- lobj .: "bits"
+              le_LicenseFlags <- lobj .: "flags"
+              return LicenseEntry{..}
+            return CreateOptions{..}
+      case Y.parseEither parseCreate obj of
+        Left e -> fail $ "Failed getting data from repack-stfs.yaml: " <> e
+        Right opts -> return $ Just opts

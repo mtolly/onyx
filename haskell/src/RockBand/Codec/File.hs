@@ -19,7 +19,6 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State.Strict  (StateT, execState, get, put,
                                                     runStateT)
 import           Control.Monad.Trans.Writer.Strict (Writer, execWriter, tell)
-import           Data.Binary.Get                   (runGetOrFail)
 import           Data.DTA.Serialize.Magma          (Percussion)
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (find, toList)
@@ -71,6 +70,7 @@ import qualified Sound.MIDI.File.Event.Meta        as Meta
 import           Sound.MIDI.File.FastParse         (getMIDI)
 import qualified Sound.MIDI.File.Save              as Save
 import qualified Sound.MIDI.Util                   as U
+import           STFS.Package                      (runGetM)
 
 type FileParser m t = StackTraceT (StateT [RTB.T t E.T] m)
 type FileBuilder t = Writer [RTB.T t E.T]
@@ -608,11 +608,9 @@ loadRawMIDIReadable :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m F
 loadRawMIDIReadable r = do
   maybe id (\f -> inside $ "loading MIDI: " <> f) (rFilePath r) $ do
     bs <- stackIO $ useHandle r handleToByteString
-    case runGetOrFail getMIDI bs of
-      Left (_, off, err) -> inside ("byte offset " <> show off) $ fatal err
-      Right (_, _, (mid, warnings)) -> do
-        mapM_ warn warnings
-        return mid
+    (mid, warnings) <- runGetM getMIDI bs
+    mapM_ warn warnings
+    return mid
 
 loadMIDI :: (SendMessage m, MonadIO m, ParseFile f) => FilePath -> StackTraceT m (Song (f U.Beats))
 loadMIDI f = loadRawMIDI f >>= readMIDIFile'

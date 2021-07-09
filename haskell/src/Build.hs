@@ -2812,22 +2812,37 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 titleHashHex = 0x135de722
                 -- titleHashHex = 0xb2b8e6de
 
+                -- more IDs that might need to be unique
+                manifestQBFilenameKey
+                  : textQBFilenameKey
+                  : textQS1FilenameKey
+                  : textQS2FilenameKey
+                  : textQS3FilenameKey
+                  : textQS4FilenameKey
+                  : textQS5FilenameKey
+                  : songQBFilenameKey
+                  : songQSFilenameKey
+                  : songNoteFilenameKey
+                  : songQB2FilenameKey
+                  : _
+                  = [songKeyQB + 1 ..]
+
             dir </> "cmanifest.pak.xen" %> \out -> stackIO $ BL.writeFile out $ buildPak
               [ ( Node
                   { nodeFileType = qbKeyCRC ".qb"
                   , nodeOffset = 0
                   , nodeSize = 0
                   , nodeFilenamePakKey = 0
-                  , nodeFilenameKey = 434211646 -- this number (and repeated below) might need to differ
+                  , nodeFilenameKey = manifestQBFilenameKey
                   , nodeFilenameCRC = 2997346177 -- same across packs
                   , nodeUnknown = 0
                   , nodeFlags = 0
                   }
                 , putQB
                   -- first number in each of these sections is same across packs
-                  [ QBSectionInteger 3850140781 434211646 2
-                  , QBSectionInteger 1403615505 434211646 0
-                  , QBSectionArray 2706631909 434211646 $ QBArrayOfStruct
+                  [ QBSectionInteger 3850140781 manifestQBFilenameKey 2
+                  , QBSectionInteger 1403615505 manifestQBFilenameKey 0
+                  , QBSectionArray 2706631909 manifestQBFilenameKey $ QBArrayOfStruct
                     [ [ QBStructHeader
                       , QBStructItemArray
                         (qbKeyCRC "package_name_checksums")
@@ -2896,9 +2911,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   qs = makeQS [titleQS, artistQS, albumQS]
                   qb =
                     -- the 1032902983 here differs across packs, and matches the nodeFilenameKey of the .qb in the .pak
-                    [ QBSectionArray 3796209450 1032902983 $
+                    [ QBSectionArray 3796209450 textQBFilenameKey $
                       QBArrayOfQbKey [songKeyQB]
-                    , QBSectionStruct 4087958085 1032902983
+                    , QBSectionStruct 4087958085 textQBFilenameKey
                       [ QBStructHeader
                       , QBStructItemStruct songKeyQB
                         [ QBStructHeader
@@ -2920,11 +2935,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         , QBStructItemInteger (qbKeyCRC "thin_fretbar_8note_params_high_bpm") 150
                         , QBStructItemInteger (qbKeyCRC "thin_fretbar_16note_params_low_bpm") 1
                         , QBStructItemInteger (qbKeyCRC "thin_fretbar_16note_params_high_bpm") 120
-                        , QBStructItemInteger 437674840 6 -- guitar tier (or maybe vocals)
+                        -- these tiers are 0 for missing instruments
+                        , QBStructItemInteger 437674840 6 -- guitar tier
                         , QBStructItemInteger 3733500155 4 -- bass tier
-                        , QBStructItemInteger 945984381 6 -- vocals tier (or maybe guitar)
+                        , QBStructItemInteger 945984381 6 -- vocals tier
                         , QBStructItemInteger 178662704 7 -- drums tier
-                        , QBStructItemInteger 3512970546 10 -- band difficulty? dunno
+                        , QBStructItemInteger 3512970546 10
                         , QBStructItemString (qbKeyCRC "snare") "ModernRock"
                         , QBStructItemString (qbKeyCRC "kick") "ModernRock"
                         , QBStructItemString (qbKeyCRC "tom1") "ModernRock"
@@ -2946,22 +2962,22 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   nodes =
                     -- all these nodeFilenameCRC are same across packs.
                     -- the nodeFilenameKey are different for the first 6 files, and the .stat file. rest are same
-                    [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 1032902983, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+                    [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = textQBFilenameKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
                       , putQB qb
                       )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3184983751, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = textQS1FilenameKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
                       , qs
                       )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2197483851, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = textQS2FilenameKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
                       , qs
                       )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3959507121, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = textQS3FilenameKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
                       , qs
                       )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 857675278, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = textQS4FilenameKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
                       , qs
                       )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3738210846, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = textQS5FilenameKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
                       , qs
                       )
                     , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2339261848, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
@@ -2994,12 +3010,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               note <- stackIO $ BL.readFile $ dir </> "ghwor.note"
               let qsSections = [] -- TODO
                   qb =
-                    [ QBSectionArray 1441618440 2434304849 $ QBArrayOfInteger []
-                    , QBSectionArray 2961626425 2434304849 $ QBArrayOfFloat []
-                    , QBSectionArray 3180084209 2434304849 $ QBArrayOfInteger []
-                    , QBSectionArray 3250951858 2434304849 $ QBArrayOfFloat []
-                    , QBSectionArray 2096871117 2434304849 $ QBArrayOfInteger []
-                    , QBSectionArray 1487281764 2434304849 $ QBArrayOfStruct
+                    [ QBSectionArray 1441618440 songQBFilenameKey $ QBArrayOfInteger []
+                    , QBSectionArray 2961626425 songQBFilenameKey $ QBArrayOfFloat []
+                    , QBSectionArray 3180084209 songQBFilenameKey $ QBArrayOfInteger []
+                    , QBSectionArray 3250951858 songQBFilenameKey $ QBArrayOfFloat []
+                    , QBSectionArray 2096871117 songQBFilenameKey $ QBArrayOfInteger []
+                    , QBSectionArray 1487281764 songQBFilenameKey $ QBArrayOfStruct
                       [ [ QBStructHeader
                         , QBStructItemInteger (qbKeyCRC "time") 0
                         , QBStructItemQbKey (qbKeyCRC "scr") 1861295691
@@ -3009,35 +3025,36 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                           ]
                         ]
                       ]
-                    , QBSectionArray 926843683 2434304849 $ QBArrayOfStruct []
-                    , QBSectionArray 183728976 2434304849 $ QBArrayOfQbKeyStringQs $ map fst qsSections
+                    , QBSectionArray 926843683 songQBFilenameKey $ QBArrayOfStruct []
+                    , QBSectionArray 183728976 songQBFilenameKey $ QBArrayOfQbKeyStringQs $ map fst qsSections
                     ]
                   nodes =
-                    [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 2434304849, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                    [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQBFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                       , putQB qb
                       )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4222135203, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                       , makeQS qsSections
                       )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4222135203, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                       , makeQS qsSections
                       )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4222135203, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                       , makeQS qsSections
                       )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4222135203, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                       , makeQS qsSections
                       )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4222135203, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                    , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                       , makeQS qsSections
                       )
-                    , ( Node {nodeFileType = qbKeyCRC ".note", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 2262680234, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                    , ( Node {nodeFileType = qbKeyCRC ".note", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songNoteFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                       , note
                       )
                     , ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4208822249, nodeFilenameCRC = 662273024, nodeUnknown = 0, nodeFlags = 0}
+                      -- nodeFilenameKey and nodeFilenameCRC here are same across songs
                       , putQB [QBSectionInteger 2519306321 4208822249 5377]
                       )
-                    , ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 3748754942, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                    , ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQB2FilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                       , putQB [QBSectionArray 1148198227 3748754942 $ QBArrayOfStruct []]
                       )
                     -- Not including this file gives you a free black background :)

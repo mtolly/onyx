@@ -7,6 +7,7 @@ expertarraytochart.bms by GHFear
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Neversoft.Note where
 
 import           Control.Monad                    (forM, forM_, guard,
@@ -18,15 +19,17 @@ import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (sort)
+import           Data.List                        (partition, sort)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
+import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Guitars                          (emit5')
 import           Neversoft.Checksum               (qbKeyCRC)
 import           Neversoft.Pak
+import           Numeric                          (showHex)
 import qualified RockBand.Codec.Drums             as D
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
@@ -35,6 +38,7 @@ import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    StrumHOPOTap (..),
                                                    splitEdgesSimple)
 import qualified Sound.MIDI.Util                  as U
+import           STFS.Package                     (runGetM)
 
 data NoteEntry = NoteEntry
   { entryIdentifier  :: Word32
@@ -46,7 +50,11 @@ data NoteEntry = NoteEntry
 
 getNote :: Get (Word32, [NoteEntry])
 getNote = do
-  0x40C001A3 <- getWord32be
+  magic <- getWord32be
+  case magic of
+    0x40C001A3 -> return () -- GHWOR
+    0x40A000D2 -> return () -- GH5
+    _          -> fail $ "Unrecognized .note magic: 0x" <> showHex magic ""
   dlcKey <- getWord32be -- qb key for e.g. "dlc784"
   count <- getWord32be
   note <- getWord32be
@@ -244,8 +252,8 @@ loadSongPak bs = do
 
 loadNoteFile :: (MonadFail m) => BL.ByteString -> m GHNoteFile
 loadNoteFile noteData = do
-  let (_dlcKey, entries) = runGet getNote noteData
-      findEntryKey = findEntryCRC . qbKeyCRC
+  (_dlcKey, entries) <- runGetM getNote noteData
+  let findEntryKey = findEntryCRC . qbKeyCRC
       findEntryCRC crc = listToMaybe $ filter ((== crc) . entryIdentifier) entries
       getEntryKey k = case findEntryKey k of
         Nothing    -> fail $ ".note entry not found: " <> show k
@@ -253,7 +261,7 @@ loadNoteFile noteData = do
       getEntryCRC n = case findEntryCRC n of
         Nothing    -> fail $ ".note entry not found: " <> show n
         Just entry -> return entry
-      readEntry cdc entry = map (runGet (codecIn cdc) . BL.fromStrict) $ entryContents entry
+      readEntry cdc entry = mapM (runGetM (codecIn cdc) . BL.fromStrict) $ entryContents entry
       interpret options entry = let
         isMatch (aType, len, reader) = do
           guard $ entryType entry == qbKeyCRC aType
@@ -261,7 +269,7 @@ loadNoteFile noteData = do
           return reader
         in case mapMaybe isMatch options of
           []         -> fail $ "Couldn't match one of these types/sizes: " <> show [(aType, len) | (aType, len, _) <- options]
-          reader : _ -> return $ reader entry
+          reader : _ -> reader entry
       getGB prefix = do
         gb_instrument <- getEntryKey (prefix <> "instrument") >>= interpret [("gh5_instrument_note", 8, readEntry bin)]
         gb_tapping <- getEntryKey (prefix <> "tapping") >>= interpret [("gh5_tapping_note", 8, readEntry $ binSingle word32be)]
@@ -269,8 +277,8 @@ loadNoteFile noteData = do
         return GuitarBass{..}
       getDrums diff = do
         drums_instrument <- getEntryKey ("drums" <> diff <> "instrument") >>= interpret
-          [ ("gh5_instrument_note", 8, Left <$> readEntry bin)
-          , ("gh6_expert_drum_note", 9, Right <$> readEntry bin)
+          [ ("gh5_instrument_note", 8, fmap Left <$> readEntry bin)
+          , ("gh6_expert_drum_note", 9, fmap Right <$> readEntry bin)
           ]
         drums_starpower <- getEntryKey ("drums" <> diff <> "starpower") >>= interpret [("gh5_star_note", 6, readEntry $ binSingle word16be)]
         drums_drumfill <- getEntryKey (diff <> "drumfill") >>= interpret [("gh5_drumfill_note", 8, readEntry $ binSingle word32be)]
@@ -439,24 +447,54 @@ ghToMidi pak = let
     return (toBeats $ noteTimeOffset note, ())
   getOD = RTB.fromAbsoluteEventList . ATB.fromPairList . sort . concatMap
     (\(Single t len) -> [(toBeats t, True), (toBeats $ t + fromIntegral len, False)])
-  -- TODO fix slides (convert from pitch 2 format)
-  -- and multisyllable word format (move = on 2nd syllable to - on 1st)
-  getVocal vox lyrics _phrases sp = mempty
-    { V.vocalLyrics = fromPairs $ flip map lyrics $ \single ->
-      (toBeats $ singleTimeOffset single, singleValue single)
-    , V.vocalPhrase1 = RTB.empty -- TODO
-    , V.vocalOverdrive = getOD sp
-    , V.vocalNotes = fmap (\case EdgeOn () p -> (p, True); EdgeOff p -> (p, False))
-      $ splitEdgesSimple $ fromPairs $ flip map vox $ \vn -> let
-        pos = toBeats $ vnTimeOffset vn
-        len = toBeats (vnTimeOffset vn + fromIntegral (vnDuration vn)) - pos
-        pitch
-          -- TODO GH might use a different octave reference? or maybe it's flexible
-          | vnPitch vn < 36 = minBound
-          | vnPitch vn > 84 = maxBound
-          | otherwise       = toEnum $ fromIntegral (vnPitch vn) - 36
-        in (pos, ((), pitch, len))
-    }
+  getVocal vox lyrics phrases sp = let
+    -- GH uses = before 2nd syllable, instead of - after 1st syllable like RB
+    fixDash = \case
+      (t1, lyric1) : (t2, T.uncons -> Just ('=', lyric2)) : rest
+        -> fixDash $ (t1, lyric1 <> "-") : (t2, lyric2) : rest
+      x : xs -> x : fixDash xs
+      [] -> []
+    -- Slides use a note connecting the two flat notes with special pitch 2,
+    -- so we just remove those and put a + lyric at the end of each one
+    (slideNotes, notSlides) = partition (\vn -> vnPitch vn == 2) vox
+    pluses = flip map slideNotes $ \vn ->
+      ( toBeats $ vnTimeOffset vn + fromIntegral (vnDuration vn)
+      , "+"
+      )
+    -- Talkies have a special pitch of 26, so we add the # to those
+    talkyPositions = Set.fromList $ map (toBeats . vnTimeOffset) $ filter (\vn -> vnPitch vn == 26) vox
+    addTalkies = map $ \pair@(t, lyric) -> if Set.member t talkyPositions
+      then (t, lyric <> "#")
+      else pair
+    -- Each phrase will be drawn between two adjacent points in the phrase points list,
+    -- if there are vocal notes in it. Then determine SP phrases so they match
+    drawnPhrases = flip mapMaybe (zip phrases $ drop 1 phrases) $ \(start, end) -> let
+      notesInPhrase = filter (\vn -> start <= vnTimeOffset vn && vnTimeOffset vn < end) vox
+      isStarPower = case notesInPhrase of
+        [] -> False
+        vn : _ -> any (\(Single t len) -> t <= vnTimeOffset vn && vnTimeOffset vn < t + fromIntegral len) sp
+      in do
+        guard $ not $ null notesInPhrase
+        return (start, end, isStarPower)
+    in mempty
+      { V.vocalLyrics = fromPairs $ (pluses <>) $ addTalkies $ fixDash $ flip map lyrics $ \single ->
+        (toBeats $ singleTimeOffset single, singleValue single)
+      , V.vocalPhrase1 = fromPairs $ drawnPhrases >>= \(start, end, _) ->
+        [(toBeats start, True), (toBeats end, False)]
+      , V.vocalOverdrive = fromPairs $ drawnPhrases >>= \(start, end, isSP) -> do
+        guard isSP
+        [(toBeats start, True), (toBeats end, False)]
+      , V.vocalNotes = fmap (\case EdgeOn () p -> (p, True); EdgeOff p -> (p, False))
+        $ splitEdgesSimple $ fromPairs $ flip map notSlides $ \vn -> let
+          pos = toBeats $ vnTimeOffset vn
+          len = toBeats (vnTimeOffset vn + fromIntegral (vnDuration vn)) - pos
+          pitch
+            -- TODO GH might use a different octave reference? or maybe it's flexible
+            | vnPitch vn < 36 = minBound
+            | vnPitch vn > 84 = maxBound
+            | otherwise       = toEnum $ fromIntegral (vnPitch vn) - 36
+          in (pos, ((), pitch, len))
+      }
   fixed = mempty
     { RBFile.fixedPartGuitar = mempty
       { F.fiveDifficulties = Map.fromList

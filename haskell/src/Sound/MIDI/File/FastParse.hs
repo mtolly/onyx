@@ -25,20 +25,16 @@ import qualified Sound.MIDI.KeySignature               as Key
 import qualified Sound.MIDI.Message.Channel            as C
 import qualified Sound.MIDI.Message.Channel.Mode       as Mode
 import qualified Sound.MIDI.Message.Channel.Voice      as V
+import           STFS.Package                          (runGetMOffset)
 
 getMIDI :: Get (F.T, [String])
 getMIDI = do
   chunks <- getChunks
   case chunks of
     ("MThd", headerDataStart, header, _) : rest -> do
-      let errorAt n s = label ("file byte offset " <> show n) $ fail s
-      (fmt, ntrks, dvn) <- case runGetOrFail getHeader header of
-        Left (_, offset, err) -> errorAt (headerDataStart + offset) err
-        Right (_, _, x)       -> return x
+      (fmt, ntrks, dvn) <- runGetMOffset headerDataStart getHeader header
       tracks <- forM [(n, chunk) | ("MTrk", n, chunk, _) <- rest] $ \(chunkDataStart, chunk) -> do
-        case runGetOrFail getTrack chunk of
-          Left (_, offset, err) -> errorAt (chunkDataStart + offset) err
-          Right (_, _, trk)     -> return trk
+        runGetMOffset chunkDataStart getTrack chunk
       let warnings = do
             (cid, chunkDataStart, _, maybeWarning) <- rest
             toList maybeWarning <> case cid of

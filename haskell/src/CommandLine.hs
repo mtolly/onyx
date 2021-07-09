@@ -56,7 +56,8 @@ import           Data.Maybe                       (catMaybes, fromMaybe,
 import           Data.SimpleHandle                (Folder (..),
                                                    byteStringSimpleHandle,
                                                    findFile, handleToByteString,
-                                                   makeHandle, useHandle)
+                                                   makeHandle, saveHandleFolder,
+                                                   useHandle)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import qualified Data.Yaml                        as Y
@@ -78,7 +79,8 @@ import           Neversoft.Note                   (loadNoteFile)
 import           Neversoft.Pak                    (Node (..), buildPak,
                                                    nodeFileType, qsBank,
                                                    splitPakNodes)
-import           Neversoft.QB                     (lookupQB, lookupQS, parseQB)
+import           Neversoft.QB                     (discardStrings, lookupQB,
+                                                   lookupQS, parseQB, putQB)
 import           OpenProject
 import           OSFiles                          (copyDirRecursive)
 import           PrettyDTA                        (DTASingle (..),
@@ -86,6 +88,7 @@ import           PrettyDTA                        (DTASingle (..),
                                                    readFileSongsDTA, readRB3DTA,
                                                    writeDTASingle)
 import           ProKeysRanges                    (closeShiftsFile)
+import           Reaper.Build                     (TuningInfo (..), makeReaper)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Vocal             (nullVox)
@@ -430,23 +433,29 @@ commands =
         []  -> return "."
         [x] -> return x
         _   -> fatal "Expected 0 or 1 files/folders"
-      proj <- openProject (optIndex opts) fpath
-      yamlDir <- case projectRelease proj of
-        Nothing -> return $ takeDirectory $ projectLocation proj
-        Just _  -> do
-          out <- outputFile opts $ return $ projectTemplate proj ++ "_reaper"
-          stackIO $ Dir.createDirectoryIfMissing False out
-          copyDirRecursive (takeDirectory $ projectLocation proj) out
-          return out
-      let yamlPath = yamlDir </> "song.yml"
-      planName <- getPlanName (Just "author") yamlPath opts
-      let rpp = "notes-" <> T.unpack planName <> ".RPP"
-      when (OptVenueGen `elem` opts) $ changeToVenueGen yamlDir
-      audioDirs <- withProject Nothing yamlPath getAudioDirs
-      shakeBuildFiles audioDirs yamlPath [rpp]
-      let rppFull = yamlDir </> "notes.RPP"
-      stackIO $ Dir.renameFile (yamlDir </> rpp) rppFull
-      return [rppFull]
+      if takeExtension fpath == ".mid"
+        then do
+          rpp <- outputFile opts $ return $ fpath -<.> "RPP"
+          makeReaper (TuningInfo [] 0) fpath fpath [] rpp
+          return [rpp]
+        else do
+          proj <- openProject (optIndex opts) fpath
+          yamlDir <- case projectRelease proj of
+            Nothing -> return $ takeDirectory $ projectLocation proj
+            Just _  -> do
+              out <- outputFile opts $ return $ projectTemplate proj ++ "_reaper"
+              stackIO $ Dir.createDirectoryIfMissing False out
+              copyDirRecursive (takeDirectory $ projectLocation proj) out
+              return out
+          let yamlPath = yamlDir </> "song.yml"
+          planName <- getPlanName (Just "author") yamlPath opts
+          let rpp = "notes-" <> T.unpack planName <> ".RPP"
+          when (OptVenueGen `elem` opts) $ changeToVenueGen yamlDir
+          audioDirs <- withProject Nothing yamlPath getAudioDirs
+          shakeBuildFiles audioDirs yamlPath [rpp]
+          let rppFull = yamlDir </> "notes.RPP"
+          stackIO $ Dir.renameFile (yamlDir </> rpp) rppFull
+          return [rppFull]
     }
 
   , Command
@@ -579,6 +588,8 @@ commands =
         out <- outputFile opts $ return $ stfs ++ "_extract"
         stackIO $ Dir.createDirectoryIfMissing False out
         stackIO $ extractSTFS stfs out
+        repack <- stackIO $ withSTFSPackage stfs $ return . repackOptions
+        stackIO $ saveHandleFolder (saveCreateOptions repack) $ out </> "onyx-repack"
         return out
       (FilePSARC, psarc) -> do
         out <- outputFile opts $ return $ psarc ++ "_extract"
@@ -882,9 +893,8 @@ commands =
       [fin] -> do
         fout <- outputFile opts $ return $ fin <.> "txt"
         bs <- stackIO $ BL.readFile fin
-        case runGetOrFail (codecIn bin) bs of
-          Right (_, _, pref) -> stackIO $ writeFile fout $ show (pref :: SongPref)
-          Left (_, pos, err) -> fatal $ "Binary Get at position " <> show pos <> ": " <> err
+        pref <- runGetM (codecIn bin) bs
+        stackIO $ writeFile fout $ show (pref :: SongPref)
         return [fout]
       _ -> fatal "Expected 1 argument (BandSongPref file)"
     }
@@ -1181,7 +1191,7 @@ commands =
   , Command
     { commandWord = "extract-pak"
     , commandDesc = ""
-    , commandUsage = ""
+    , commandUsage = "onyx extract-pak in.pak.xen [--to out-folder]"
     , commandRun = \args opts -> case args of
       [pak] -> inside ("extracting pak " <> pak) $ do
         dout <- outputFile opts $ return $ pak <> "_extract"
@@ -1209,11 +1219,9 @@ commands =
                   nodeFilenameCRC node == nodeFilenameCRC otherNode
                     && nodeFileType otherNode == qbKeyCRC ".qs.en"
                 mappingQS = qsBank matchingQS
-            case runGetOrFail parseQB contents of
-              Left (_, posn, err) -> inside ("Attempting to parse QB file " <> show name) $ do
-                inside ("Byte position " <> show posn) $ do
-                  warn err
-              Right (_, _, qb) -> do
+            inside ("Parsing QB file: " <> show name) $ do
+              mqb <- errorToWarning $ runGetM parseQB contents
+              forM_ mqb $ \qb -> do
                 let filled = map (lookupQB knownKeys . lookupQS mappingQS) qb
                 stackIO $ Y.encodeFile (dout </> name <.> "parsed.yaml") filled
         return [dout]
@@ -1223,7 +1231,7 @@ commands =
   , Command
     { commandWord = "rebuild-pak"
     , commandDesc = ""
-    , commandUsage = ""
+    , commandUsage = "onyx rebuild-pak in-folder [--to out.pak.xen]"
     , commandRun = \args opts -> case args of
       [dir] -> do
         fout <- outputFile opts $ return $ dir <.> "pak"
@@ -1233,7 +1241,7 @@ commands =
         let fileMap = Map.fromList $ do
               f <- files
               n <- toList $ readMaybe $ takeWhile isDigit f
-              guard $ not $ "parsed.txt" `T.isSuffixOf` T.pack f
+              guard $ not $ ".parsed." `T.isInfixOf` T.pack f
               return (n, f)
         newContents <- forM (zip [0..] nodes) $ \(i, node) -> case Map.lookup (i :: Int) fileMap of
           Just f -> do
@@ -1243,6 +1251,19 @@ commands =
         stackIO $ BL.writeFile fout $ buildPak newContents
         return [fout]
       _ -> fatal "Expected 1 argument (extracted .pak folder)"
+    }
+
+  , Command
+    { commandWord = "make-qb"
+    , commandDesc = "Compile a .yaml file back into a .qb"
+    , commandUsage = "onyx make-qb in.qb.parsed.yaml [--to out.qb]"
+    , commandRun = \args opts -> case args of
+      [fin] -> do
+        fout <- outputFile opts $ return $ fin <.> "qb"
+        qb <- stackIO (Y.decodeFileEither fout) >>= either (\e -> fatal $ show e) return
+        stackIO $ BL.writeFile fout $ putQB $ discardStrings qb
+        return [fout]
+      _ -> fatal "Expected 1 argument (.yaml)"
     }
 
   , Command
@@ -1553,9 +1574,9 @@ blackVenue fcon = inside ("Inserting black VENUE in: " <> fcon) $ do
             then do
               bs <- stackIO $ useHandle r handleToByteString
               F.Cons typ dvn trks <- inside ("loading " <> T.unpack name) $ do
-                case runGetOrFail getMIDI bs of
-                  Left (_, pos, err)         -> fatal $ "MIDI parse error at position " <> show pos <> ": " <> err
-                  Right (_, _, (mid, warns)) -> mapM_ warn warns >> return mid
+                (mid, warns) <- runGetM getMIDI bs
+                mapM_ warn warns
+                return mid
               -- TODO this does not yet handle official-format (milo venue) songs
               let black = U.setTrackName "VENUE" $ if isRB3
                     then RTB.fromPairList $ map (\s -> (0, E.MetaEvent $ Meta.TextEvent s))

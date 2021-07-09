@@ -26,6 +26,7 @@ import           RockBand.Milo.Dir
 import           RockBand.Milo.Lipsync
 import           RockBand.Milo.SongPref
 import           RockBand.Milo.Venue
+import           STFS.Package                   (runGetM)
 import qualified System.Directory               as Dir
 import           System.FilePath                ((<.>), (</>))
 
@@ -40,21 +41,15 @@ pieceName n = let
 loadMilo :: (MonadIO m) => FilePath -> StackTraceT m MiloDir
 loadMilo fin = do
   bs <- stackIO $ BL.readFile fin
-  dec <- case runGetOrFail decompressMilo bs of
-    Left (_, pos, err) -> fatal $ "Failed to decompress the milo. Error at position " <> show pos <> ": " <> err
-    Right (_, _, x)    -> return x
-  case runGetOrFail parseMiloFile dec of
-    Left (_, pos, err)   -> inside "Parsing .milo structure" $ inside ("position " <> show pos) $ fatal err
-    Right (_, _, topdir) -> return topdir
+  dec <- inside ("Decompressing milo file: " <> fin) $ runGetM decompressMilo bs
+  inside ("Parsing milo file: " <> fin) $ runGetM parseMiloFile dec
 
 -- | Decompresses a milo and tries to parse the directory structure inside.
 -- Extracts either the parsed structure and its files, or the raw split pieces.
 unpackMilo :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> StackTraceT m ()
 unpackMilo fin dout = do
   bs <- stackIO $ BL.readFile fin
-  dec <- case runGetOrFail decompressMilo bs of
-    Left (_, pos, err) -> fatal $ "Failed to decompress the milo. Error at position " <> show pos <> ": " <> err
-    Right (_, _, x)    -> return x
+  dec <- inside ("Decompressing milo file: " <> fin) $ runGetM decompressMilo bs
   stackIO $ Dir.createDirectoryIfMissing False dout
   stackIO $ BL.writeFile (dout </> "decompressed.bin") dec
   case runGetOrFail parseMiloFile dec of

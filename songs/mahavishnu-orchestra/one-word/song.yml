@@ -25,13 +25,16 @@ plans:
       2|2: hihat
       2|3: hihat
     song:
-      pad: [3.655, album-track]
+      expr:
+        pad: [3.655, album-track]
+      pans: [1, -1]
 parts:
   drums:
     drums:
       difficulty: 7
       kit: VintageKit
       kicks: both
+      mode: full
 targets:
   rb3:
     game: rb3

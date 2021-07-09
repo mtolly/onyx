@@ -1,0 +1,34 @@
+metadata:
+  title: Searching for the Right Door
+  artist: Billy Cobham
+  album: Spectrum
+  track-number: 2
+  year: 1973
+  genre: fusion
+  subgenre: fusion
+  author: Onyxite
+  file-album-art: ../quadrant-4/cover.jpg
+audio:
+  album-track: # Audio Fidelity 2016 (contains Spectrum also)
+    md5: 77c1649095572c239d3b0eb2b0a2cb98
+    frames: 17360112
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin: {}
+    parts:
+      drums:
+        expr:
+          pad:
+          - 3.754
+          - take: ['1:24.438', album-track]
+        pans: [1, -1]
+parts:
+  drums:
+    drums:
+      kicks: 1 # technically he uses 2 kick drums, but can just be one version
+      mode: full
+targets:
+  rb3:
+    game: rb3

@@ -6,8 +6,7 @@ module Neversoft.Export where
 import           Config
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
-                                                   fatal, stackIO)
-import           Data.Binary.Get                  (runGetOrFail)
+                                                   fatal, inside, stackIO)
 import           Data.Binary.Put                  (runPut)
 import           Data.Bits
 import qualified Data.ByteString                  as B
@@ -50,6 +49,7 @@ import           RockBand.Common                  (Difficulty (..), Edge (..),
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming)
 import qualified Sound.MIDI.Util                  as U
+import           STFS.Package                     (runGetM)
 
 makeGHWoRNote
   :: (SendMessage m)
@@ -268,9 +268,7 @@ replaceGHWoRDLC k input folder = do
       ((qsNode, qs), notQs) <- case partition (\(node, _) -> isMatchingQs node) notQb of
         ([pair], rest) -> return (pair, rest)
         (matches, _) -> fatal $ "Expected 1 .qs.en file to go with .qb in .pak, but found " <> show (length matches)
-      qbSections <- case runGetOrFail parseQB qb of
-        Left _                 -> fatal "Couldn't parse .qb"
-        Right (_, _, sections) -> return sections
+      qbSections <- inside "Parsing .qb" $ runGetM parseQB qb
       qsList <- maybe (fatal "Couldn't parse .qs.en") return $ parseQS qs
       let qsBank = HM.fromList qsList
           qbSections' = map (lookupQS qsBank) qbSections

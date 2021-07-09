@@ -20,6 +20,7 @@ import           Foreign
 import           Foreign.C
 import           System.IO.Unsafe           (unsafePerformIO)
 import qualified Data.Vector.Storable as V
+import STFS.Package (runGetM)
 
 #include "stb_dxt.h"
 
@@ -243,9 +244,7 @@ readDDS bs = let
       f | elem f ["DXT2", "DXT3", "DXT4", "DXT5"] -> fmap (arrangeRows (quot width 4) (quot height 4))
         $ replicateM (quot (width * height) 16) $ readDXTChunk DDS False
       _ -> fail "Unrecognized DDS compression format"
-  in case runGetOrFail parseImage bs of
-    Left  _           -> Nothing
-    Right (_, _, img) -> Just img
+  in runGetM parseImage bs
 
 -- | Supports .png_xbox in both official DXT1 and C3 DXT2/3, and also .png_wii.
 readRBImageMaybe :: BL.ByteString -> Maybe (Image PixelRGBA8)
@@ -283,9 +282,7 @@ readRBImageMaybe bs = let
           i <- getWord8
           return $ palette !! fromIntegral (flip34 i)
       _ -> fail "Unrecognized HMX image format"
-  in case runGetOrFail parseImage bs of
-    Left  _           -> Nothing
-    Right (_, _, img) -> Just img
+  in runGetM parseImage bs
 
 -- PS2 palette indices swap bits 3 and 4 for some reason
 flip34 :: Word8 -> Word8

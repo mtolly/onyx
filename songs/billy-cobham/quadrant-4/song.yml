@@ -29,7 +29,7 @@ plans:
     parts:
       drums:
         pad: [2.054, only: [Drums, jammit-track]]
-      gutar:
+      guitar:
         pad: [2.054, only: [Guitar, jammit-track]]
       bass:
         # fix weird off-time stem at ending
@@ -63,9 +63,11 @@ plans:
   album:
     countin: *countin
     song:
-      stretch:
-      - 0.9987984454700994
-      - drop: [7.732, album-track]
+      expr:
+        stretch:
+        - 0.9987984454700994
+        - drop: [7.732, album-track]
+      pans: [1, -1]
 parts:
   drums:
     drums:
