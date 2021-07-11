@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns       #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}
@@ -9,6 +10,7 @@ module RockBand.Codec.Vocal where
 
 import           Control.Monad                    ((>=>))
 import           Control.Monad.Codec
+import           Control.Monad.Trans.StackTrace
 import           Data.Char                        (isAscii)
 import           Data.DTA.Serialize.Magma         (Percussion (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -20,6 +22,7 @@ import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
+import qualified Sound.MIDI.Util                  as U
 
 data Pitch
   = Octave36 Key
@@ -117,4 +120,68 @@ asciiLyrics vt = vt { vocalLyrics = fmap asciify $ vocalLyrics vt }
 stripTags :: VocalTrack t -> VocalTrack t
 stripTags vt = vt
   { vocalLyrics = FoF.stripTags <$> vocalLyrics vt
+  }
+
+data TalkyDifficulty
+  = TalkyNormal -- hash
+  | TalkyEasy -- caret
+  deriving (Show)
+
+data Lyric = Lyric
+  { lyricText      :: T.Text
+  , lyricContinues :: Bool -- True if not the end of a word
+  } deriving (Show)
+
+data LyricNote
+  = Pitched Pitch           Lyric
+  | Talky   TalkyDifficulty Lyric
+  | SlideTo Pitch
+  deriving (Show)
+
+joinMatchingTracks :: (NNC.C t) => RTB.T t a -> RTB.T t b -> Either (t, Bool) (RTB.T t (a, b))
+joinMatchingTracks = go NNC.zero [] where
+  go !elapsed pairs (Wait tx x xs) (Wait ty y ys) = case compare tx ty of
+    EQ -> go (elapsed <> tx) ((tx, (x, y)) : pairs) xs ys
+    LT -> Left (elapsed <> tx, False)
+    GT -> Left (elapsed <> ty, True)
+  go !elapsed _ (Wait tx _ _) RNil = Left (elapsed <> tx, False)
+  go !elapsed _ RNil (Wait ty _ _) = Left (elapsed <> ty, True)
+  go _ pairs RNil RNil = Right $ RTB.fromPairList $ reverse pairs
+
+getLyricNotes :: (Monad m) => U.MeasureMap -> VocalTrack U.Beats -> StackTraceT m (RTB.T U.Beats (LyricNote, U.Beats))
+getLyricNotes mmap vox = let
+  joinedNotes = joinEdgesSimple $ flip fmap (vocalNotes vox) $ \(p, b) -> if b then EdgeOn () p else EdgeOff p
+  in case joinMatchingTracks joinedNotes $ vocalLyrics vox of
+    Left (errorTime, isLyricNoNote) -> fatal $ if isLyricNoNote
+      then "Lyric without a corresponding note at " <> showPosition mmap errorTime
+      else "Note without a corresponding lyric at " <> showPosition mmap errorTime
+    Right joined -> return $ flip fmap joined $ \(((), pitch, len), lyric) -> let
+      lyricNote = case lyric of
+        "+" -> SlideTo pitch
+        _   -> case T.stripSuffix "#" lyric of
+          Just talky -> Talky TalkyNormal $ makeLyric talky
+          Nothing -> case T.stripSuffix "^" lyric of
+            Just talky -> Talky TalkyEasy $ makeLyric talky
+            Nothing    -> Pitched pitch $ makeLyric lyric
+      makeLyric str = case T.stripSuffix "-" str of
+        Just str' -> Lyric { lyricText = str', lyricContinues = True  }
+        Nothing   -> Lyric { lyricText = str , lyricContinues = False }
+      in (lyricNote, len)
+  -- TODO handle the section-symbol-encoded spanish vowel elision char?
+  -- TODO handle Footloose and Fancy Free style space hack (strip lyric)?
+
+putLyricNotes :: RTB.T U.Beats (LyricNote, U.Beats) -> VocalTrack U.Beats
+putLyricNotes lnotes = mempty
+  { vocalLyrics = flip fmap lnotes $ \(lnote, _) -> case lnote of
+    Pitched _  (Lyric t cont) -> t <> if cont then "-" else ""
+    Talky diff (Lyric t cont) -> t
+      <> (if cont then "-" else "")
+      <> (case diff of TalkyNormal -> "#"; TalkyEasy -> "^")
+    SlideTo _                 -> "+"
+  , vocalNotes = U.trackJoin $ flip fmap lnotes $ \(lnote, dur) -> let
+    pitch = case lnote of
+      Pitched p _ -> p
+      Talky   _ _ -> minBound
+      SlideTo p   -> p
+    in RTB.fromPairList [(0, (pitch, True)), (dur, (pitch, False))]
   }

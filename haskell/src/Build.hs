@@ -94,7 +94,7 @@ import           Neversoft.Export                      (makeGHWoRNote)
 import           Neversoft.Note                        (makeWoRNoteFile,
                                                         putNote)
 import           Neversoft.Pak                         (Node (..), buildPak,
-                                                        makeQS)
+                                                        makeQS, parseQS)
 import           Neversoft.QB                          (QBArray (..),
                                                         QBSection (..),
                                                         QBStructItem (..),
@@ -532,7 +532,7 @@ printOverdrive mid = do
   let _ = song :: RBFile.Song (RBFile.OnyxFile U.Beats)
   od <- calculateUnisons <$> getOverdrive (RBFile.s_tracks song)
   forM_ (ATB.toPairList $ RTB.toAbsoluteEventList 0 od) $ \(posn, unison) -> do
-    let posn' = RBFile.showPosition (RBFile.s_signatures song) posn
+    let posn' = showPosition (RBFile.s_signatures song) posn
     if all (== 0) [ t | (t, _, _) <- NE.toList unison ]
       then lg $ posn' <> ": " <> printFlexParts [ inst | (_, inst, _) <- NE.toList unison ]
       else lg $ intercalate "\n" $ (posn' <> ":") : do
@@ -2903,14 +2903,16 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               ]
 
             dir </> "cdl_text.pak.xen" %> \out -> do
-              let makeQSPair s = (fromIntegral $ hash s, s)
+              mid <- shakeMIDI $ planDir </> "processed.mid"
+              let _ = mid :: RBFile.Song (RBFile.OnyxFile U.Beats)
+                  makeQSPair s = (fromIntegral $ hash s, s)
                   -- not sure what the \L does; it works without it but we'll just match official songs
                   titleQS  = makeQSPair $ "\\L" <> targetTitle songYaml target
                   artistQS = makeQSPair $ "\\L" <> getArtist (_metadata songYaml)
                   albumQS  = makeQSPair $ getAlbum  $ _metadata songYaml
                   qs = makeQS [titleQS, artistQS, albumQS]
+                  difficulties = difficultyGH5 gh5 songYaml
                   qb =
-                    -- the 1032902983 here differs across packs, and matches the nodeFilenameKey of the .qb in the .pak
                     [ QBSectionArray 3796209450 textQBFilenameKey $
                       QBArrayOfQbKey [songKeyQB]
                     , QBSectionStruct 4087958085 textQBFilenameKey
@@ -2921,26 +2923,34 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         , QBStructItemString (qbKeyCRC "name") $ B8.pack songKey
                         , QBStructItemQbKeyStringQs (qbKeyCRC "title") $ fst titleQS
                         , QBStructItemQbKeyStringQs (qbKeyCRC "artist") $ fst artistQS
-                        , QBStructItemQbKeyString 2026561191 2714706322
-                        , QBStructItemInteger 2916764328 1
+                        , QBStructItemQbKeyString 2026561191 2714706322 -- dunno
+                        , QBStructItemInteger 2916764328 1 -- dunno
                         , QBStructItemInteger (qbKeyCRC "year") $ fromIntegral $ getYear $ _metadata songYaml
                         , QBStructItemQbKeyStringQs (qbKeyCRC "album_title") $ fst albumQS
-                        , QBStructItemQbKey 1732896360 3045815699
-                        , QBStructItemQbKey (qbKeyCRC "genre") 2543700849 -- TODO
-                        , QBStructItemInteger (qbKeyCRC "leaderboard") 1
-                        , QBStructItemInteger (qbKeyCRC "duration") 219 -- TODO
-                        , QBStructItemInteger (qbKeyCRC "flags") 0
-                        , QBStructItemInteger (qbKeyCRC "double_kick") 1 -- TODO
+                        , QBStructItemQbKey 1732896360 3045815699 -- dunno
+                        , QBStructItemQbKey (qbKeyCRC "genre") 2543700849 -- TODO make a list of the options (and try to decode QB keys?)
+                        , QBStructItemInteger (qbKeyCRC "leaderboard") 0 -- does setting this to 0 work?
+                        , QBStructItemInteger (qbKeyCRC "duration")
+                          (fromIntegral $ quot (RBFile.songLengthMS mid + 500) 1000) -- this is just displayed in song list
+                        , QBStructItemInteger (qbKeyCRC "flags") 0 -- what is this?
+                        , QBStructItemInteger (qbKeyCRC "double_kick") $
+                          case getPart (gh5_Drums gh5) songYaml >>= partDrums of
+                            Nothing -> 0
+                            Just pd -> case drumsKicks pd of
+                              Kicks1x   -> 0
+                              Kicks2x   -> 1
+                              KicksBoth -> 1
+                        -- meaning of these seems clear but not sure what criteria you'd use to set them
                         , QBStructItemInteger (qbKeyCRC "thin_fretbar_8note_params_low_bpm") 1
                         , QBStructItemInteger (qbKeyCRC "thin_fretbar_8note_params_high_bpm") 150
                         , QBStructItemInteger (qbKeyCRC "thin_fretbar_16note_params_low_bpm") 1
                         , QBStructItemInteger (qbKeyCRC "thin_fretbar_16note_params_high_bpm") 120
-                        -- these tiers are 0 for missing instruments
-                        , QBStructItemInteger 437674840 6 -- guitar tier
-                        , QBStructItemInteger 3733500155 4 -- bass tier
-                        , QBStructItemInteger 945984381 6 -- vocals tier
-                        , QBStructItemInteger 178662704 7 -- drums tier
-                        , QBStructItemInteger 3512970546 10
+                        , QBStructItemInteger 437674840 $ fromIntegral $ gh5GuitarTier difficulties
+                        , QBStructItemInteger 3733500155 $ fromIntegral $ gh5BassTier difficulties
+                        , QBStructItemInteger 945984381 $ fromIntegral $ gh5VocalsTier difficulties
+                        , QBStructItemInteger 178662704 $ fromIntegral $ gh5DrumsTier difficulties
+                        , QBStructItemInteger 3512970546 10 -- what is this?
+                        -- maybe we could figure out the options for these and match them to the RB kit options?
                         , QBStructItemString (qbKeyCRC "snare") "ModernRock"
                         , QBStructItemString (qbKeyCRC "kick") "ModernRock"
                         , QBStructItemString (qbKeyCRC "tom1") "ModernRock"
@@ -2948,8 +2958,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         , QBStructItemString (qbKeyCRC "hihat") "ModernRock"
                         , QBStructItemString (qbKeyCRC "cymbal") "ModernRock"
                         , QBStructItemString (qbKeyCRC "drum_kit") "ModernRock"
-                        , QBStructItemString 4094319878 "Sticks_Normal"
-                        , QBStructItemFloat 1179677752 0
+                        , QBStructItemString 4094319878 "Sticks_Normal" -- think this is for the countin hits
+                        , QBStructItemFloat 1179677752 0 -- dunno
                         -- - QBStructItemStruct:
                         --   - vocals_pitch_score_shift
                         --   - - QBStructHeader
@@ -3008,8 +3018,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             dir </> "song.pak.xen" %> \out -> do
               shk $ need [dir </> "ghwor.note"]
               note <- stackIO $ BL.readFile $ dir </> "ghwor.note"
-              let qsSections = [] -- TODO
-                  qb =
+              qsSections <- stackIO $ BL.readFile $ dir </> "ghwor.qs"
+              qsIDs <- case parseQS qsSections of
+                Just pairs -> return $ map fst pairs
+                Nothing    -> fatal "Couldn't reparse practice sections .qs file"
+              let qb =
                     [ QBSectionArray 1441618440 songQBFilenameKey $ QBArrayOfInteger []
                     , QBSectionArray 2961626425 songQBFilenameKey $ QBArrayOfFloat []
                     , QBSectionArray 3180084209 songQBFilenameKey $ QBArrayOfInteger []
@@ -3026,26 +3039,26 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         ]
                       ]
                     , QBSectionArray 926843683 songQBFilenameKey $ QBArrayOfStruct []
-                    , QBSectionArray 183728976 songQBFilenameKey $ QBArrayOfQbKeyStringQs $ map fst qsSections
+                    , QBSectionArray 183728976 songQBFilenameKey $ QBArrayOfQbKeyStringQs qsIDs
                     ]
                   nodes =
                     [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQBFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                       , putQB qb
                       )
                     , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
-                      , makeQS qsSections
+                      , qsSections
                       )
                     , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
-                      , makeQS qsSections
+                      , qsSections
                       )
                     , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
-                      , makeQS qsSections
+                      , qsSections
                       )
                     , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
-                      , makeQS qsSections
+                      , qsSections
                       )
                     , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
-                      , makeQS qsSections
+                      , qsSections
                       )
                     , ( Node {nodeFileType = qbKeyCRC ".note", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songNoteFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                       , note
@@ -3067,11 +3080,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     ]
               stackIO $ BL.writeFile out $ buildPak nodes
 
-            dir </> "ghwor.note" %> \out -> do
+            [dir </> "ghwor.note", dir </> "ghwor.qs"] &%> \[outNote, outQS] -> do
               mid <- shakeMIDI $ planDir </> "processed.mid"
-              note <- makeGHWoRNote songYaml gh5 mid $ getAudioLength planName plan
-              stackIO $ BL.writeFile out $ runPut $
+              (note, qs) <- makeGHWoRNote songYaml gh5 mid $ getAudioLength planName plan
+              stackIO $ BL.writeFile outNote $ runPut $
                 putNote songKeyQB $ makeWoRNoteFile note
+              stackIO $ BL.writeFile outQS $ makeQS $ HM.toList qs
 
             -- Not supporting stems yet due to FSB generator issue;
             -- it will fail with memory errors on large WAVs, so we have to keep them small.

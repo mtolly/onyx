@@ -130,7 +130,7 @@ basicTiming
   -> StackTraceT m U.Seconds
   -> StackTraceT m BasicTiming
 basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
-  let showPosition = RBFile.showPosition mmap
+  let showPosn = showPosition mmap
   -- If there's no @[end]@, put it after all MIDI events and audio files.
   timingEnd <- case RTB.viewL $ eventsEnd $ RBFile.getEventsTrack trks of
     Just ((t, _), _) -> return t
@@ -143,10 +143,10 @@ basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
             ++ absTimes (U.tempoMapToBPS tempos)
           endPosn = fromInteger $ ceiling $ max thirtySecs $ max audLen lastMIDIEvent + 4
       warn $ unwords
-        [ "Placing [end] at " <> showPosition endPosn <> "."
-        , "Last MIDI event is at " <> showPosition lastMIDIEvent <> ","
-        , "longest audio file ends at " <> showPosition audLen <> ","
-        , "minimum Magma length (30s) is " <> showPosition thirtySecs
+        [ "Placing [end] at " <> showPosn endPosn <> "."
+        , "Last MIDI event is at " <> showPosn lastMIDIEvent <> ","
+        , "longest audio file ends at " <> showPosn audLen <> ","
+        , "minimum Magma length (30s) is " <> showPosn thirtySecs
         ]
       return endPosn
   timingBeat <- let
@@ -162,20 +162,20 @@ basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
   timingMusicStart <- case RTB.viewL $ eventsMusicStart $ RBFile.getEventsTrack trks of
     Just ((t, _), _) -> if t < musicStartMin
       then do
-        warn $ "[music_start] is too early. Moving to " ++ showPosition musicStartMin
+        warn $ "[music_start] is too early. Moving to " ++ showPosn musicStartMin
         return musicStartMin
       else return t
     Nothing -> do
-      warn $ "[music_start] is missing. Placing at " ++ showPosition musicStartMin
+      warn $ "[music_start] is missing. Placing at " ++ showPosn musicStartMin
       return musicStartMin
   timingMusicEnd <- case RTB.viewL $ eventsMusicEnd $ RBFile.getEventsTrack trks of
     Just ((t, _), _) -> return t
     Nothing -> do
       warn $ unwords
         [ "[music_end] is missing. [end] is at"
-        , showPosition timingEnd
+        , showPosn timingEnd
         , "so [music_end] will be at"
-        , showPosition $ timingEnd - 2
+        , showPosn $ timingEnd - 2
         ]
       return $ timingEnd - 2
   return BasicTiming{..}
@@ -1052,7 +1052,7 @@ findProblems song = execWriter $ do
   -- Put it all together and show the error positions.
   let showPositions :: RTB.T U.Beats () -> [String]
       showPositions
-        = map (RBFile.showPosition $ RBFile.s_signatures song)
+        = map (showPosition $ RBFile.s_signatures song)
         . ATB.getTimes
         . RTB.toAbsoluteEventList 0
       message rtb msg = forM_ (showPositions rtb) $ \pos ->

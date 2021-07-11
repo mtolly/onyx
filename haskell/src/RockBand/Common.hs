@@ -432,3 +432,14 @@ trackGlue t xs ys = let
   xs' = U.trackTake t xs
   gap = t NNC.-| NNC.sum (RTB.getTimes xs')
   in RTB.append xs' $ RTB.delay gap ys
+
+-- | Magma format, assuming 480 ticks per quarter note
+showPosition :: U.MeasureMap -> U.Beats -> String
+showPosition mmap bts = let
+  (m, b) = U.applyMeasureMap mmap bts
+  U.TimeSig _len unit = U.timeSigAt bts mmap
+  whole = floor $ b / unit :: Int
+  frac = b - fromIntegral whole * unit
+  ticks = floor $ frac * 480 :: Int
+  padded = reverse $ take 3 $ reverse (show ticks) ++ repeat '0'
+  in "[" ++ show (m + 1) ++ ":" ++ show (whole + 1) ++ ":" ++ padded ++ "]"

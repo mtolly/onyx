@@ -1,8 +1,11 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Difficulty where
 
 import           Config
-import           Preferences (MagmaSetting (..))
+import           Preferences         (MagmaSetting (..))
+import           RockBand.Codec.File (FlexPartName (..))
 
 rankToTier :: DiffMap -> Integer -> Integer
 rankToTier dm rank = fromIntegral $ length $ takeWhile (<= rank) (1 : dm)
@@ -77,18 +80,18 @@ data DifficultyPS = DifficultyPS
 difficultyPS :: TargetPS -> SongYaml f -> DifficultyPS
 difficultyPS TargetPS{..} songYaml = let
   rb3 = TargetRB3
-    { rb3_Common = ps_Common
-    , rb3_Drums = ps_Drums
-    , rb3_Guitar = ps_Guitar
-    , rb3_Keys = ps_Keys
-    , rb3_Vocal = ps_Vocal
-    , rb3_Bass = ps_Bass
+    { rb3_Common      = ps_Common
+    , rb3_Drums       = ps_Drums
+    , rb3_Guitar      = ps_Guitar
+    , rb3_Keys        = ps_Keys
+    , rb3_Vocal       = ps_Vocal
+    , rb3_Bass        = ps_Bass
     , rb3_2xBassPedal = False
-    , rb3_SongID = SongIDAutoSymbol
-    , rb3_Version = Nothing
-    , rb3_Harmonix = False
-    , rb3_FileMilo = Nothing
-    , rb3_Magma = MagmaRequire
+    , rb3_SongID      = SongIDAutoSymbol
+    , rb3_Version     = Nothing
+    , rb3_Harmonix    = False
+    , rb3_FileMilo    = Nothing
+    , rb3_Magma       = MagmaRequire
     }
   psDifficultyRB3 = difficultyRB3 rb3 songYaml
   simpleTier flex getMode getDiff dmap = case getPart flex songYaml >>= getMode of
@@ -101,3 +104,38 @@ difficultyPS TargetPS{..} songYaml = let
   chGuitarGHLTier  = simpleTier ps_Guitar     partGHL   ghlDifficulty   guitarDiffMap
   chBassGHLTier    = simpleTier ps_Bass       partGHL   ghlDifficulty   guitarDiffMap
   in DifficultyPS{..}
+
+-- tiers go from 1 to 10, or 0 for no part
+data DifficultyGH5 = DifficultyGH5
+  { gh5GuitarTier :: Integer
+  , gh5BassTier   :: Integer
+  , gh5DrumsTier  :: Integer
+  , gh5VocalsTier :: Integer
+  }
+
+difficultyGH5 :: TargetGH5 -> SongYaml f -> DifficultyGH5
+difficultyGH5 TargetGH5{..} songYaml = let
+  rb3 = TargetRB3
+    { rb3_Common      = gh5_Common
+    , rb3_Drums       = gh5_Drums
+    , rb3_Guitar      = gh5_Guitar
+    , rb3_Keys        = FlexExtra "undefined"
+    , rb3_Vocal       = gh5_Vocal
+    , rb3_Bass        = gh5_Bass
+    , rb3_2xBassPedal = False
+    , rb3_SongID      = SongIDAutoSymbol
+    , rb3_Version     = Nothing
+    , rb3_Harmonix    = False
+    , rb3_FileMilo    = Nothing
+    , rb3_Magma       = MagmaRequire
+    }
+  DifficultyRB3{..} = difficultyRB3 rb3 songYaml
+  rb3RankToGH5 = \case
+    0 -> 0
+    n -> min 10 $ quot (n - 1) 50 + 1
+  in DifficultyGH5
+    { gh5GuitarTier = rb3RankToGH5 rb3GuitarRank
+    , gh5BassTier   = rb3RankToGH5 rb3BassRank
+    , gh5DrumsTier  = rb3RankToGH5 rb3DrumsRank
+    , gh5VocalsTier = rb3RankToGH5 rb3VocalRank
+    }

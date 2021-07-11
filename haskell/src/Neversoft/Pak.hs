@@ -9,7 +9,7 @@ import qualified Data.ByteString.Lazy as BL
 import           Data.Char            (isSpace)
 import qualified Data.HashMap.Strict  as HM
 import           Data.List            (sortOn)
-import           Data.Maybe           (listToMaybe)
+import           Data.Maybe           (fromMaybe, listToMaybe)
 import qualified Data.Text            as T
 import qualified Data.Text.Encoding   as TE
 import           Data.Word
@@ -85,12 +85,7 @@ qsBank :: [(Node, BL.ByteString)] -> HM.HashMap Word32 T.Text
 qsBank nodes = HM.fromList $ do
   (node, nodeData) <- nodes
   guard $ nodeFileType node == qbKeyCRC ".qs.en"
-  -- first 2 chars should be "\xFF\xFE"
-  line <- T.lines $ TE.decodeUtf16LE $ BL.toStrict $ BL.drop 2 nodeData
-  guard $ T.length line > 8
-  (x, s) <- readHex $ T.unpack $ T.take 8 line
-  guard $ all isSpace s
-  return (x, T.drop 9 line) -- TODO strip quotes and weird escapes
+  fromMaybe [] $ parseQS nodeData
 
 parseQS :: BL.ByteString -> Maybe [(Word32, T.Text)]
 parseQS bs = do

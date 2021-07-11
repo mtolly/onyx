@@ -707,7 +707,7 @@ fixShortVoxPhrases song@(RBFile.Song tmap mmap ps)
             $ RTB.collectCoincident only1
     case differenceTimes of
       [] -> return ()
-      _  -> inside (intercalate ", " $ map (RBFile.showPosition mmap) differenceTimes) $ do
+      _  -> inside (intercalate ", " $ map (showPosition mmap) differenceTimes) $ do
         warn "Vocal phrase edges extended to be a minimum length of 1 beat"
     return $ RBFile.Song tmap mmap ps { RBFile.fixedPartVocals = vox' }
 

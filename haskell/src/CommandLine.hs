@@ -1260,7 +1260,7 @@ commands =
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ return $ fin <.> "qb"
-        qb <- stackIO (Y.decodeFileEither fout) >>= either (\e -> fatal $ show e) return
+        qb <- stackIO (Y.decodeFileEither fin) >>= either (\e -> fatal $ show e) return
         stackIO $ BL.writeFile fout $ putQB $ discardStrings qb
         return [fout]
       _ -> fatal "Expected 1 argument (.yaml)"

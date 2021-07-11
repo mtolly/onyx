@@ -51,11 +51,11 @@ import           RhythmGame.PNF
 import           RhythmGame.Track
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums           as D
-import           RockBand.Codec.File            (showPosition)
 import qualified RockBand.Codec.Five            as F
 import qualified RockBand.Codec.FullDrums       as FD
 import qualified RockBand.Codec.ProGuitar       as PG
-import           RockBand.Common                (StrumHOPOTap (..), each)
+import           RockBand.Common                (StrumHOPOTap (..), each,
+                                                 showPosition)
 import           RockBand3                      (BasicTiming (..))
 import qualified Sound.MIDI.Util                as U
 import           System.Directory               (doesFileExist)

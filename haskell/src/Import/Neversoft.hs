@@ -38,8 +38,8 @@ importGH5WoR folder = do
     case findFolded $ "b" <> TE.decodeUtf8 (songName info) <> "_song.pak.xen" of
       Nothing      -> return Nothing -- song which is listed in the database, but not actually in this package
       Just pakFile -> do
-        songPak <- stackIO (useHandle pakFile handleToByteString) >>= loadSongPak
-        let midiFixed = ghToMidi songPak
+        (bank, songPak) <- stackIO (useHandle pakFile handleToByteString) >>= loadSongPak
+        let midiFixed = ghToMidi bank songPak
             midiOnyx = midiFixed
               { RBFile.s_tracks = RBFile.fixedToOnyx $ RBFile.s_tracks midiFixed
               }
@@ -65,6 +65,8 @@ importGH5WoR folder = do
           n -> fatal $ "Unrecognized number of backing/crowd audio channels: " <> show n
         let chans name cs = PlanAudio (Channels (map Just cs) $ Input $ Named name) [] []
             chansMix name inputs = PlanAudio (Mix $ map (\cs -> Channels (map Just cs) $ Input $ Named name) inputs) [] []
+            readTier 0 _ = Nothing
+            readTier n f = Just $ f $ Rank $ fromIntegral n * 50
         return $ Just $ \_level -> do
           return SongYaml
             { _metadata = def'
@@ -128,16 +130,18 @@ importGH5WoR folder = do
             , _targets = HM.empty
             , _parts = Parts $ HM.fromList
               [ (RBFile.FlexGuitar, def
-                { partGRYBO = Just def
+                { partGRYBO = readTier (songTierGuitar info) $ \diff -> def { gryboDifficulty = diff }
                 })
               , (RBFile.FlexBass, def
-                { partGRYBO = Just def
+                { partGRYBO = readTier (songTierBass info) $ \diff -> def { gryboDifficulty = diff }
                 })
               , (RBFile.FlexDrums, def
-                { partDrums = Just PartDrums
+                { partDrums = readTier (songTierDrums info) $ \diff -> PartDrums
                   { drumsMode        = Drums5
-                  , drumsDifficulty  = Tier 1
-                  , drumsKicks       = Kicks1x -- TODO
+                  , drumsDifficulty  = diff
+                  -- TODO are there any WoR songs that have ghost note X+ with no double kicks?
+                  -- if so, do they have `double_kick` on?
+                  , drumsKicks       = if songDoubleKick info then KicksBoth else Kicks1x
                   , drumsFixFreeform = True
                   , drumsKit         = HardRockKit
                   , drumsLayout      = StandardLayout
@@ -145,8 +149,8 @@ importGH5WoR folder = do
                   }
                 })
               , (RBFile.FlexVocal, def
-                { partVocal = Just PartVocal
-                  { vocalDifficulty = Tier 1
+                { partVocal = readTier (songTierVocals info) $ \diff -> PartVocal
+                  { vocalDifficulty = diff
                   , vocalCount      = Vocal1
                   , vocalGender     = Nothing -- TODO is this stored somewhere?
                   , vocalKey        = Nothing

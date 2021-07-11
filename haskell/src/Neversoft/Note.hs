@@ -19,6 +19,7 @@ import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (partition, sort)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
@@ -31,6 +32,7 @@ import           Neversoft.Checksum               (qbKeyCRC)
 import           Neversoft.Pak
 import           Numeric                          (showHex)
 import qualified RockBand.Codec.Drums             as D
+import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
 import qualified RockBand.Codec.Vocal             as V
@@ -241,14 +243,17 @@ data GHNoteFile = GHNoteFile
   } deriving (Show)
 
 -- Load from an uncompressed _song.pak.xen
-loadSongPak :: (MonadFail m) => BL.ByteString -> m GHNoteFile
+loadSongPak :: (MonadFail m) => BL.ByteString -> m (HM.HashMap Word32 T.Text, GHNoteFile)
 loadSongPak bs = do
   let nodes = splitPakNodes bs
-      findNodeKey = findNodeCRC . qbKeyCRC
-      findNodeCRC crc = listToMaybe $ filter (\(n, _) -> nodeFileType n == crc) nodes
+      findNodeKey = listToMaybe . nodesOfType
+      nodesOfType t = filter (\(n, _) -> nodeFileType n == qbKeyCRC t) nodes
+      bank = qsBank $ nodesOfType ".qs.en"
   case findNodeKey ".note" of
     Nothing                -> fail ".note not found"
-    Just (_node, noteData) -> loadNoteFile noteData
+    Just (_node, noteData) -> do
+      noteFile <- loadNoteFile noteData
+      return (bank, noteFile)
 
 loadNoteFile :: (MonadFail m) => BL.ByteString -> m GHNoteFile
 loadNoteFile noteData = do
@@ -388,8 +393,8 @@ tappingToFunction taps w = any
   (\tap -> singleTimeOffset tap <= w && w < singleTimeOffset tap + singleValue tap)
   taps
 
-ghToMidi :: GHNoteFile -> RBFile.Song (RBFile.FixedFile U.Beats)
-ghToMidi pak = let
+ghToMidi :: HM.HashMap Word32 T.Text -> GHNoteFile -> RBFile.Song (RBFile.FixedFile U.Beats)
+ghToMidi bank pak = let
   toSeconds :: Word32 -> U.Seconds
   toSeconds = (/ 1000) . fromIntegral
   sigMap = Map.fromList [ (tsTimestamp ts, (tsNumerator ts, tsDenominator ts)) | ts <- gh_timesig pak ]
@@ -433,12 +438,12 @@ ghToMidi pak = let
                   | otherwise = D.VelocityNormal
           return (toBeats $ noteTimeOffset $ xdNote note, (gem, vel))
         in concat
-          [ noteBit (D.Pro D.Green ()) 0
-          , noteBit D.Red 1
+          [ noteBit (D.Pro D.Green ())  0
+          , noteBit D.Red               1
           , noteBit (D.Pro D.Yellow ()) 2
-          , noteBit (D.Pro D.Blue ()) 3
-          , noteBit D.Orange 4
-          , noteBit D.Kick 5
+          , noteBit (D.Pro D.Blue ())   3
+          , noteBit D.Orange            4
+          , noteBit D.Kick              5
           ]
     }
   getKick2x drum = fromPairs $ either id (map xdNote) (drums_instrument drum) >>= \note -> do
@@ -534,7 +539,16 @@ ghToMidi pak = let
       <*> gh_backup_vocallyrics    pak
       <*> gh_backup_vocalphrase    pak
       <*> gh_backup_vocalstarpower pak
-    -- TODO practice sections
+    , RBFile.fixedEvents = mempty
+      { eventsSections = fromPairs
+        $ map (\(Single t qsID) -> let
+          txt = case HM.lookup qsID bank of
+            Just str -> fromMaybe str $ T.stripPrefix "\\u[m]" str
+            Nothing  -> T.pack $ "x" <> showHex qsID ""
+            -- think I remember Emh saying sections can't start with a number?
+          in (toBeats t, (SectionRB2, txt)))
+        $ gh_markers pak
+      }
     }
   in RBFile.Song
     { RBFile.s_tempos = tempos

@@ -15,6 +15,7 @@ import qualified Data.ByteString.Lazy             as BL
 import           Data.Either                      (rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Hashable                    (hash)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (partition)
 import qualified Data.List.NonEmpty               as NE
@@ -38,14 +39,18 @@ import           Neversoft.Pak                    (Node (..), buildPak, makeQS,
 import           Neversoft.QB                     (lookupQS, parseQB)
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums             as D
+import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
+import           RockBand.Codec.Vocal
 import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    pattern RNil,
                                                    StrumHOPOTap (..),
                                                    pattern Wait,
                                                    joinEdgesSimple,
                                                    noRedundantStatus)
+import           RockBand.Legacy.Vocal            (harm1ToPartVocals)
+import           RockBand.Sections                (makePSSection)
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming)
 import qualified Sound.MIDI.Util                  as U
@@ -57,8 +62,8 @@ makeGHWoRNote
   -> TargetGH5
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> StackTraceT m U.Seconds -- ^ get longest audio length
-  -> StackTraceT m GHNoteFile
-makeGHWoRNote songYaml target song@(RBFile.Song tmap _mmap ofile) getAudioLength = let
+  -> StackTraceT m (GHNoteFile, HM.HashMap Word32 T.Text)
+makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength = let
   beatsToMS :: U.Beats -> Word32
   beatsToMS = floor . (* 1000) . U.applyTempoMap tmap
   makeStarPower od = do
@@ -181,6 +186,56 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap _mmap ofile) getAudioLength
         }
     Nothing -> Drums (case diff of Expert -> Right []; _ -> Left []) [] []
   in do
+    (voxNotes, voxLyrics, voxSP, voxPhrases) <- case getPart (gh5_Vocal target) songYaml >>= partVocal of
+      Just _pv -> do
+        let opart = fromMaybe mempty $ Map.lookup (gh5_Vocal target) $ RBFile.onyxParts ofile
+            trk = if nullVox $ RBFile.onyxPartVocals opart
+              then harm1ToPartVocals $ RBFile.onyxHarm1 opart
+              else RBFile.onyxPartVocals opart
+            sp = makeStarPower $ vocalOverdrive trk
+            -- TODO include vocalPhrase2
+            phrases = map beatsToMS $ ATB.getTimes $ RTB.toAbsoluteEventList 0
+              $ RTB.collectCoincident $ vocalPhrase1 trk
+        lyricNotes <- getLyricNotes mmap trk
+        let lyrics
+              = map (\(t, txt) -> Single (beatsToMS t) txt)
+              $ ATB.toPairList
+              $ RTB.toAbsoluteEventList 0
+              $ makeLyrics False $ fmap fst lyricNotes
+            makeLyrics continuing = let
+              emitLyric lyric = if continuing
+                then "=" <> lyricText lyric
+                else lyricText lyric
+              in \case
+                Wait t (Pitched _ lyric) rest -> Wait t (emitLyric lyric)
+                  $ makeLyrics (lyricContinues lyric) rest
+                Wait t (Talky _ lyric) rest -> Wait t (emitLyric lyric)
+                  $ makeLyrics (lyricContinues lyric) rest
+                Wait t (SlideTo _) rest -> RTB.delay t $ makeLyrics continuing rest
+                RNil -> RNil
+            notes
+              = map (\(t, (p, len)) -> VocalNote
+                { vnTimeOffset = beatsToMS t
+                , vnDuration = fromIntegral $ beatsToMS (t <> len) - beatsToMS t
+                , vnPitch = p
+                })
+              $ ATB.toPairList
+              $ RTB.toAbsoluteEventList 0
+              $ makeNotes lyricNotes
+            makeNotes = let
+              makeNote t mpitch len rest = let
+                ghPitch = maybe 26 (fromIntegral . fromEnum) (mpitch :: Maybe Pitch)
+                in Wait t (ghPitch, len) $ case rest of
+                  Wait t2 next@(SlideTo _, _) rest2 -> Wait len (2, t2 - len)
+                    $ makeNotes $ Wait (t2 - len) next rest2
+                  _ -> makeNotes rest
+              in \case
+                Wait t (Pitched p _, len) rest -> makeNote t (Just p) len rest
+                Wait t (Talky   _ _, len) rest -> makeNote t Nothing  len rest
+                Wait t (SlideTo p  , len) rest -> makeNote t (Just p) len rest
+                RNil -> RNil
+        return (notes, lyrics, sp, phrases)
+      Nothing -> return ([], [], [], [])
     timing <- basicTiming song getAudioLength
     let fretbars = map beatsToMS $ ATB.getTimes $ RTB.toAbsoluteEventList 0 $ beatLines $ timingBeat timing
         beatToTimesigs = \case
@@ -196,7 +251,16 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap _mmap ofile) getAudioLength
             , tsNumerator = fromIntegral num
             , tsDenominator = 4
             }
-    return GHNoteFile
+        sections = flip fmap (eventsSections $ RBFile.onyxEvents ofile) $ \(_, section) -> let
+          (_, sectionPrint) = makePSSection section
+          sectionGH = "\\u[m]" <> sectionPrint
+          in (fromIntegral $ hash sectionGH, sectionGH)
+        sectionMarkers
+          = map (\(t, (qsid, _)) -> Single (beatsToMS t) qsid)
+          $ ATB.toPairList
+          $ RTB.toAbsoluteEventList 0 sections
+        sectionBank = HM.fromList $ RTB.getBodies sections
+    return (GHNoteFile
       { gh_guitareasy            = makeGB (gh5_Guitar target) Easy
       , gh_guitarmedium          = makeGB (gh5_Guitar target) Medium
       , gh_guitarhard            = makeGB (gh5_Guitar target) Hard
@@ -212,10 +276,10 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap _mmap ofile) getAudioLength
       , gh_drumshard             = makeDrums (gh5_Drums target) Hard
       , gh_drumsexpert           = makeDrums (gh5_Drums target) Expert
 
-      , gh_vocals                = [] -- TODO
-      , gh_vocallyrics           = [] -- TODO
-      , gh_vocalstarpower        = [] -- TODO
-      , gh_vocalphrase           = [] -- TODO
+      , gh_vocals                = voxNotes
+      , gh_vocallyrics           = voxLyrics
+      , gh_vocalstarpower        = voxSP
+      , gh_vocalphrase           = voxPhrases
       , gh_vocalfreeform         = [] -- TODO
 
       , gh_backup_vocalphrase    = Nothing
@@ -228,10 +292,11 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap _mmap ofile) getAudioLength
       , gh_timesig               = timesig
       , gh_bandmoment            = [] -- TODO
 
-      , gh_markers               = [] -- TODO
+      , gh_markers               = sectionMarkers
       , gh_vocalmarkers          = [] -- TODO
       , gh_backup_vocalmarkers   = Nothing
-      }
+
+      }, sectionBank)
 
 data GHWoRInput = GHWoRInput
   { ghworNote    :: GHNoteFile

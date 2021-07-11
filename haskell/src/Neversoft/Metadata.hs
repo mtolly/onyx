@@ -6,6 +6,7 @@ module Neversoft.Metadata where
 import           Data.Binary.Get
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
+import           Data.Maybe           (fromMaybe)
 import qualified Data.Text            as T
 import           Data.Word
 import           Neversoft.Checksum
@@ -29,20 +30,25 @@ data SongInfo = SongInfo
   , songYear       :: Int
   , songAlbumTitle :: (Word32, T.Text)
   , songDoubleKick :: Bool
+  , songTierGuitar :: Int
+  , songTierBass   :: Int
+  , songTierVocals :: Int
+  , songTierDrums  :: Int
   } deriving (Show)
 
 parseSongInfo :: QBSection QSResult Word32 -> Either String [SongInfo]
 parseSongInfo = \case
   QBSectionStruct _ _ items -> let
+    removeL s = fromMaybe s $ T.stripPrefix "\\L" s
     itemToInfos = \case
       QBStructItemStruct _ songEntries -> do
         songName <- case [ s | QBStructItemString k s <- songEntries, k == qbKeyCRC "name" ] of
           s : _ -> Right s
           []    -> Left "parseSongInfo: couldn't get song internal name"
-        songTitle <- case [ (w, s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "title" ] of
+        songTitle <- case [ (w, removeL s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "title" ] of
           p : _ -> Right p
           []    -> Left "parseSongInfo: couldn't get song title"
-        songArtist <- case [ (w, s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "artist" ] of
+        songArtist <- case [ (w, removeL s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "artist" ] of
           p : _ -> Right p
           []    -> Left "parseSongInfo: couldn't get song artist"
         songYear <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "year" ] of
@@ -56,6 +62,18 @@ parseSongInfo = \case
           1 : _ -> Right True
           [] -> Right False
           _ -> Left "parseSongInfo: couldn't understand double_kick field"
+        songTierGuitar <- case [ n | QBStructItemInteger 437674840 n <- songEntries ] of
+          n : _ -> Right $ fromIntegral n
+          []    -> Left "parseSongInfo: couldn't get guitar tier"
+        songTierBass <- case [ n | QBStructItemInteger 3733500155 n <- songEntries ] of
+          n : _ -> Right $ fromIntegral n
+          []    -> Left "parseSongInfo: couldn't get bass tier"
+        songTierVocals <- case [ n | QBStructItemInteger 945984381 n <- songEntries ] of
+          n : _ -> Right $ fromIntegral n
+          []    -> Left "parseSongInfo: couldn't get vocals tier"
+        songTierDrums <- case [ n | QBStructItemInteger 178662704 n <- songEntries ] of
+          n : _ -> Right $ fromIntegral n
+          []    -> Left "parseSongInfo: couldn't get drums tier"
         Right [SongInfo{..}]
       QBStructHeader -> Right []
       _ -> Left "parseSongInfo: entry in song list that isn't a struct or header"
