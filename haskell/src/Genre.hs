@@ -1,11 +1,17 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Genre (interpretGenre, FullGenre(..)) where
+module Genre
+( interpretGenre, FullGenre(..)
+, GenreWoR(..), displayWoRGenre, qbWoRGenre, rbn2ToWoRGenre
+) where
 
-import           Control.Monad (guard)
-import           Data.Char     (isAlphaNum)
-import           Data.Maybe    (catMaybes, fromMaybe, listToMaybe)
-import qualified Data.Text     as T
+import           Control.Monad      (guard)
+import           Data.Char          (isAlphaNum)
+import           Data.Maybe         (catMaybes, fromMaybe, listToMaybe)
+import qualified Data.Text          as T
+import qualified Data.Text.Encoding as TE
+import           Data.Word          (Word32)
+import           Neversoft.Checksum (qbKeyCRC)
 
 data Genre = Genre T.Text T.Text [Subgenre]
   deriving (Eq, Ord, Show)
@@ -19,13 +25,16 @@ data FullGenre = FullGenre
   , rbn2Subgenre :: T.Text
   , rbn1Genre    :: T.Text
   , rbn1Subgenre :: T.Text
+  , worGenre     :: GenreWoR
   } deriving (Eq, Ord, Show)
 
 interpretGenre :: Maybe T.Text -> Maybe T.Text -> FullGenre
 interpretGenre mg ms = let
   -- TODO: make sure e.g. prog metal is "Prog Metal" not "Metal" in FoF
   defGenre fof = fill fof "other" "other"
-  fill fof gen sub = uncurry (FullGenre fof gen sub) $ magmaV1Genre (gen, sub)
+  fill fof gen sub = let
+    (g1, s1) = magmaV1Genre (gen, sub)
+    in FullGenre fof gen sub g1 s1 $ rbn2ToWoRGenre (gen, sub)
   std = T.filter isAlphaNum . T.toLower
   findRBN2Genre g = [ gen | gen@(Genre key disp _) <- allGenres, elem (std g) [std key, std disp] ]
   findRBN2Subgenre subs s = [ sub | sub@(Subgenre key disp) <- subs, elem (std s) [std key, std disp] ]
@@ -424,3 +433,148 @@ defaultSubgenre = \case
   "world" -> "world"
   "other" -> "other"
   g -> error $ "defaultSubgenre: couldn't recognize the genre " ++ show g
+
+-- List from data/compressed/PAK/qs.pak.xen file "genres.qs" (crc = "genres")
+data GenreWoR
+  = WoR_Alternative
+  | WoR_Big_Band
+  | WoR_Black_Metal
+  | WoR_Blues
+  | WoR_Blues_Rock
+  | WoR_Classic_Rock
+  | WoR_Country
+  | WoR_Dance
+  | WoR_Death_Metal
+  | WoR_Disco
+  | WoR_Electronic
+  | WoR_Experimental
+  | WoR_Funk
+  | WoR_Glam_Rock
+  | WoR_Grunge
+  | WoR_Hard_Rock
+  | WoR_Hardcore_Punk
+  | WoR_Heavy_Metal
+  | WoR_Hip_Hop
+  | WoR_Indie_Rock
+  | WoR_Industrial
+  | WoR_International
+  | WoR_Jazz
+  | WoR_Metal
+  | WoR_Modern_Rock
+  | WoR_New_Wave
+  | WoR_Nu_Metal
+  | WoR_Other
+  | WoR_Pop
+  | WoR_Pop_Punk
+  | WoR_Pop_Rock
+  | WoR_Prog_Rock
+  | WoR_Punk
+  | WoR_R_n_B
+  | WoR_Reggae
+  | WoR_Rock
+  | WoR_Rockabilly
+  | WoR_Ska_Punk
+  | WoR_Southern_Rock
+  | WoR_Speed_Metal
+  | WoR_Surf_Rock
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
+displayWoRGenre :: GenreWoR -> T.Text
+displayWoRGenre = \case
+  WoR_Alternative   -> "Alternative"
+  WoR_Big_Band      -> "Big Band"
+  WoR_Black_Metal   -> "Black Metal"
+  WoR_Blues         -> "Blues"
+  WoR_Blues_Rock    -> "Blues Rock"
+  WoR_Classic_Rock  -> "Classic Rock"
+  WoR_Country       -> "Country"
+  WoR_Dance         -> "Dance"
+  WoR_Death_Metal   -> "Death Metal"
+  WoR_Disco         -> "Disco"
+  WoR_Electronic    -> "Electronic"
+  WoR_Experimental  -> "Experimental"
+  WoR_Funk          -> "Funk"
+  WoR_Glam_Rock     -> "Glam Rock"
+  WoR_Grunge        -> "Grunge"
+  WoR_Hard_Rock     -> "Hard Rock"
+  WoR_Hardcore_Punk -> "Hardcore Punk"
+  WoR_Heavy_Metal   -> "Heavy Metal"
+  WoR_Hip_Hop       -> "Hip Hop"
+  WoR_Indie_Rock    -> "Indie Rock"
+  WoR_Industrial    -> "Industrial"
+  WoR_International -> "International"
+  WoR_Jazz          -> "Jazz"
+  WoR_Metal         -> "Metal"
+  WoR_Modern_Rock   -> "Modern Rock"
+  WoR_New_Wave      -> "New Wave"
+  WoR_Nu_Metal      -> "Nu Metal"
+  WoR_Other         -> "Other"
+  WoR_Pop           -> "Pop"
+  WoR_Pop_Punk      -> "Pop Punk"
+  WoR_Pop_Rock      -> "Pop Rock"
+  WoR_Prog_Rock     -> "Prog Rock"
+  WoR_Punk          -> "Punk"
+  WoR_R_n_B         -> "R & B"
+  WoR_Reggae        -> "Reggae"
+  WoR_Rock          -> "Rock"
+  WoR_Rockabilly    -> "Rockabilly"
+  WoR_Ska_Punk      -> "Ska Punk"
+  WoR_Southern_Rock -> "Southern Rock"
+  WoR_Speed_Metal   -> "Speed Metal"
+  WoR_Surf_Rock     -> "Surf Rock"
+
+qbWoRGenre :: GenreWoR -> Word32
+qbWoRGenre = qbKeyCRC . TE.encodeUtf8 . T.toLower . displayWoRGenre
+-- TODO verify "R & B"
+
+rbn2ToWoRGenre :: (T.Text, T.Text) -> GenreWoR
+rbn2ToWoRGenre (g, s) = case g of
+  "alternative" -> WoR_Alternative
+  "blues" -> WoR_Blues
+  "classical" -> WoR_Other
+  "classicrock" -> WoR_Classic_Rock
+  "country" -> WoR_Country
+  "emo" -> WoR_Pop_Punk
+  "fusion" -> WoR_Jazz
+  "glam" -> WoR_Glam_Rock
+  "grunge" -> WoR_Grunge
+  "hiphoprap" -> WoR_Hip_Hop
+  "indierock" -> WoR_Indie_Rock
+  "inspirational" -> WoR_Other
+  "jazz" -> WoR_Jazz
+  "jrock" -> WoR_International
+  "latin" -> WoR_International
+  "metal" -> case s of
+    "black" -> WoR_Black_Metal
+    "death" -> WoR_Death_Metal
+    "speed" -> WoR_Speed_Metal
+    _       -> WoR_Metal
+  "new_wave" -> WoR_New_Wave
+  "novelty" -> WoR_Other
+  "numetal" -> WoR_Nu_Metal
+  "popdanceelectronic" -> case s of
+    "dance"         -> WoR_Dance
+    "dub"           -> WoR_Reggae
+    "hardcoredance" -> WoR_Dance
+    "industrial"    -> WoR_Industrial
+    _               -> WoR_Electronic
+  "poprock" -> WoR_Pop_Rock
+  "prog" -> WoR_Prog_Rock
+  "punk" -> WoR_Punk
+  "rbsoulfunk" -> case s of
+    "disco" -> WoR_Disco
+    "funk"  -> WoR_Funk
+    _       -> WoR_R_n_B
+  "reggaeska" -> case s of
+    "ska" -> WoR_Ska_Punk
+    _     -> WoR_Reggae
+  "rock" -> case s of
+    "blues"      -> WoR_Blues_Rock
+    "hard"       -> WoR_Hard_Rock
+    "rockabilly" -> WoR_Rockabilly
+    "surf"       -> WoR_Surf_Rock
+    _            -> WoR_Rock
+  "southernrock" -> WoR_Southern_Rock
+  "world" -> WoR_International
+  "other" -> WoR_Other
+  _ -> WoR_Other

@@ -4,39 +4,28 @@
 module Neversoft.Export where
 
 import           Config
+import           Control.Monad                    (forM, forM_)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
-                                                   fatal, inside, stackIO)
-import           Data.Binary.Put                  (runPut)
+                                                   stackIO, warn)
 import           Data.Bits
-import qualified Data.ByteString                  as B
-import qualified Data.ByteString.Char8            as B8
-import qualified Data.ByteString.Lazy             as BL
-import           Data.Either                      (rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Hashable                    (hash)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (partition)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe)
-import           Data.SimpleHandle                (Folder (..), Readable,
-                                                   byteStringSimpleHandle,
-                                                   handleToByteString,
-                                                   makeHandle, useHandle)
+import           Data.Maybe                       (catMaybes, fromMaybe,
+                                                   isNothing)
+import           Data.SimpleHandle
 import qualified Data.Text                        as T
-import qualified Data.Text.Encoding               as TE
 import           Data.Word
-import           Guitars                          (applyForces, fixSloppyNotes,
-                                                   getForces5, openNotes',
-                                                   strumHOPOTap')
-import           Neversoft.Checksum               (qbKeyCRC)
-import           Neversoft.Metadata               (SongInfo (..), parseSongInfo)
+import           Guitars                          (applyForces, emit5',
+                                                   fixSloppyNotes, getForces5,
+                                                   openNotes', strumHOPOTap')
+import           Neversoft.Metadata
 import           Neversoft.Note
-import           Neversoft.Pak                    (Node (..), buildPak, makeQS,
-                                                   parseQS, splitPakNodes)
-import           Neversoft.QB                     (lookupQS, parseQB)
+import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events
@@ -54,7 +43,29 @@ import           RockBand.Sections                (makePSSection)
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming)
 import qualified Sound.MIDI.Util                  as U
-import           STFS.Package                     (runGetM)
+import           STFS.Package
+import qualified System.Directory                 as Dir
+import           System.FilePath                  ((<.>))
+
+worGuitarEdits
+  :: (NNC.C t)
+  => RTB.T t ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
+  -> RTB.T t ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
+worGuitarEdits
+  = RTB.flatten
+  . fmap (\instant ->
+    -- Tapping sections have limitations due to compatibility with the "slider strip".
+    -- Tap chords produce notes that look right but can't be hit, so we make them HOPO.
+    -- Tap opens also aren't supported (they "work" but make a bizarre "dust cloud" visual),
+    -- so we make those HOPO too, but they will actually come out as strums on Guitar
+    -- (but correct HOPOs on Bass).
+    if any (\((_color, sht), _len) -> sht == Tap) instant
+      then if not (null $ drop 1 instant) || any (\((color, _sht), _len) -> isNothing color) instant
+        then [ ((color, HOPO), len) | ((color, _), len) <- instant ]
+        else instant
+      else instant
+    )
+  . RTB.collectCoincident
 
 makeGHWoRNote
   :: (SendMessage m)
@@ -79,15 +90,17 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
       (trk, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitarExt opart
       fd = fromMaybe mempty $ Map.lookup diff $ F.fiveDifficulties trk
       notes
-        = applyForces (getForces5 fd)
+        = worGuitarEdits
+        . applyForces (getForces5 fd)
         . strumHOPOTap' algo (fromIntegral (gryboHopoThreshold grybo) / 480)
         . fixSloppyNotes (10 / 480)
         . openNotes'
         $ fd
         :: RTB.T U.Beats ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
+      taps = F.fiveTap $ emit5' notes
       in GuitarBass
         { gb_instrument = do
-          (t, evts) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.collectCoincident $ notes
+          (t, evts) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.collectCoincident notes
           let start = beatsToMS t
               maybeLen = NE.nonEmpty (map snd evts) >>= minimum
               end = maybe (start + 1) (\bts -> beatsToMS $ t + bts) maybeLen
@@ -95,8 +108,10 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
             { noteTimeOffset = beatsToMS t
             , noteDuration = fromIntegral $ end - start
             , noteBits = foldr (.|.) 0 $ do
-              -- TODO open pulloff notes only work on bass for some reason.
-              -- Should probably convert to no-opens if any on guitar
+              -- Open pulloff notes only work on bass for some reason.
+              -- For now we just leave them in on guitar to become strums;
+              -- could also consider modifying the no-opens algorithm to only
+              -- adjust pulloffs and not open strums.
               ((mcolor, sht), _len) <- evts
               let shtBit = if sht /= Strum then bit 6 else 0
                   colorBit = bit $ case mcolor of
@@ -111,7 +126,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
             -- TODO noteAccent is required for extended sustains to work.
             -- Clear bits for colors with notes that overlap this one
             }
-        , gb_tapping = makeStarPower $ F.fiveTap fd
+        , gb_tapping = makeStarPower taps
         , gb_starpower = makeStarPower $ F.fiveOverdrive trk
         }
     Nothing -> GuitarBass [] [] []
@@ -298,78 +313,27 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
 
       }, sectionBank)
 
-data GHWoRInput = GHWoRInput
-  { ghworNote    :: GHNoteFile
-  , ghworTitle   :: T.Text
-  , ghworArtist  :: T.Text
-  , ghworAlbum   :: T.Text
-  , ghworFSB1    :: BL.ByteString
-  , ghworFSB2    :: BL.ByteString
-  , ghworFSB3    :: BL.ByteString
-  , ghworPreview :: BL.ByteString
-  }
-
-replaceGHWoRDLC
-  :: (MonadIO m)
-  => B.ByteString
-  -> GHWoRInput
-  -> Folder T.Text Readable
-  -> StackTraceT m (Folder T.Text Readable)
-replaceGHWoRDLC k input folder = do
-  -- find song pak, replace .note file (add key in front)
-  -- swap out fsbs
-  -- find text pak
-  --   load .qb
-  --     find metadata for song we are replacing, get QS for title/artist/album
-  --   edit .qs.en with same name as lone .qb, replace the QS
-  let findOnlyType ftype nodes = case partition (\(node, _) -> nodeFileType node == qbKeyCRC ftype) nodes of
-        ([pair], rest) -> return (pair, rest)
-        (matches, _) -> fatal $ "Expected 1 " <> B8.unpack ftype <> " file in .pak, but found " <> show (length matches)
-  (textPakName, newTextPak) <- case filter (\(name, _) -> "_text.pak.xen" `T.isSuffixOf` name) $ folderFiles folder of
-    [(name, r)] -> do
+shareMetadata :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m ()
+shareMetadata lives = do
+  library <- fmap (combineTextPakQBs . concat) $ forM lives $ \live -> do
+    folder <- stackIO $ getSTFSFolder live
+    let texts = [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` name ]
+    fmap catMaybes $ forM texts $ \r -> do
       bs <- stackIO $ useHandle r handleToByteString
-      (qbPair@(qbNode, qb), notQb) <- findOnlyType ".qb" $ splitPakNodes bs
-      let isMatchingQs node = nodeFileType node == qbKeyCRC ".qs.en" && nodeFilenameCRC node == nodeFilenameCRC qbNode
-      ((qsNode, qs), notQs) <- case partition (\(node, _) -> isMatchingQs node) notQb of
-        ([pair], rest) -> return (pair, rest)
-        (matches, _) -> fatal $ "Expected 1 .qs.en file to go with .qb in .pak, but found " <> show (length matches)
-      qbSections <- inside "Parsing .qb" $ runGetM parseQB qb
-      qsList <- maybe (fatal "Couldn't parse .qs.en") return $ parseQS qs
-      let qsBank = HM.fromList qsList
-          qbSections' = map (lookupQS qsBank) qbSections
-          songInfos = concat $ rights $ map parseSongInfo qbSections'
-      songInfo <- case filter (\si -> songName si == k) songInfos of
-        info : _ -> return info
-        []       -> fatal "Couldn't find existing song info in _text.pak.xen"
-      let replacingQS (w, _) = elem w $ map fst [songTitle songInfo, songArtist songInfo, songAlbumTitle songInfo]
-          qsList' = filter (not . replacingQS) qsList <>
-            [ (fst $ songTitle songInfo, "\\L" <> ghworTitle input)
-            , (fst $ songArtist songInfo, "\\L" <> ghworArtist input)
-            , (fst $ songAlbumTitle songInfo, "\\L" <> ghworAlbum input)
-            ]
-          newNodes = (qsNode, makeQS qsList') : qbPair : notQs
-      return (name, buildPak newNodes)
-    _ -> fatal "Not exactly 1 _text.pak.xen"
-  let songPakName = "b" <> TE.decodeUtf8 k <> "_song.pak.xen"
-      fsb1Name = "a" <> TE.decodeUtf8 k <> "_1.fsb.xen"
-      fsb2Name = "a" <> TE.decodeUtf8 k <> "_2.fsb.xen"
-      fsb3Name = "a" <> TE.decodeUtf8 k <> "_3.fsb.xen"
-      previewName = "a" <> TE.decodeUtf8 k <> "_preview.fsb.xen"
-  newSongPak <- do
-    bs <- case lookup songPakName $ folderFiles folder of
-      Nothing -> fatal $ "Couldn't find " <> T.unpack songPakName
-      Just r  -> stackIO $ useHandle r handleToByteString
-    ((node, _), notNotes) <- findOnlyType ".note" $ splitPakNodes bs
-    let newNotePair = (node, runPut $ putNote (qbKeyCRC k) $ makeWoRNoteFile $ ghworNote input)
-    return $ buildPak $ newNotePair : notNotes
-  let newPair name bs = (name, makeHandle ("New contents for " <> T.unpack name) $ byteStringSimpleHandle bs)
-  return folder
-    { folderFiles = filter (\(name, _) -> notElem name [textPakName, songPakName, fsb1Name, fsb2Name, fsb3Name, previewName]) (folderFiles folder) <>
-      [ newPair textPakName newTextPak
-      , newPair songPakName newSongPak
-      , newPair fsb1Name $ ghworFSB1 input
-      , newPair fsb2Name $ ghworFSB2 input
-      , newPair fsb3Name $ ghworFSB3 input
-      , newPair previewName $ ghworPreview input
-      ]
-    }
+      case readTextPakQB bs of
+        Left  err      -> warn err >> return Nothing
+        Right contents -> return $ Just contents
+  forM_ lives $ \live -> do
+    folder <- stackIO $ getSTFSFolder live
+    repack <- stackIO $ withSTFSPackage live $ return . repackOptions
+    files' <- forM (folderFiles folder) $ \pair@(name, r) ->
+      if "_text.pak.xen" `T.isSuffixOf` name
+        then do
+          bs <- stackIO $ useHandle r handleToByteString
+          let bs' = updateTextPakQB library bs
+          return (name, makeHandle ("New contents for " <> T.unpack name) $ byteStringSimpleHandle bs')
+        else return pair
+    let folder' = folder { folderFiles = files' }
+    stackIO $ makeCONReadable repack folder' (live <.> "tmp")
+    stackIO $ Dir.renameFile live (live <.> "bak")
+    stackIO $ Dir.renameFile (live <.> "tmp") live

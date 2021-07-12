@@ -1320,8 +1320,8 @@ data TargetGH5 = TargetGH5
   , gh5_Bass   :: FlexPartName
   , gh5_Drums  :: FlexPartName
   , gh5_Vocal  :: FlexPartName
-  , gh5_SongID :: Int -- like 783 in "adlc783_1.fsb.xen"
-  , gh5_CDL    :: T.Text -- official content has e.g. "cdl511"
+  , gh5_SongID :: Maybe Int -- like 783 in "adlc783_1.fsb.xen"
+  , gh5_CDL    :: Maybe Int -- like 511 in "cdl511"
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetGH5 :: (SendMessage m) => ObjectCodec m A.Value TargetGH5
@@ -1331,12 +1331,15 @@ parseTargetGH5 = do
   gh5_Bass          <- gh5_Bass          =. opt FlexBass             "bass"           stackJSON
   gh5_Drums         <- gh5_Drums         =. opt FlexDrums            "drums"          stackJSON
   gh5_Vocal         <- gh5_Vocal         =. opt FlexVocal            "vocal"          stackJSON
-  gh5_SongID        <- gh5_SongID        =. req                      "song-id"        stackJSON
-  gh5_CDL           <- gh5_CDL           =. req                      "cdl"            stackJSON
+  gh5_SongID        <- gh5_SongID        =. opt Nothing              "song-id"        stackJSON
+  gh5_CDL           <- gh5_CDL           =. opt Nothing              "cdl"            stackJSON
   return TargetGH5{..}
 
 instance StackJSON TargetGH5 where
   stackJSON = asStrictObject "TargetGH5" parseTargetGH5
+
+instance Default TargetGH5 where
+  def = fromEmptyObject
 
 data RSArrModifier
   = RSDefault

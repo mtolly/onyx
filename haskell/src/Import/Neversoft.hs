@@ -14,6 +14,7 @@ import           Data.Maybe                     (catMaybes, listToMaybe)
 import           Data.SimpleHandle
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
+import           Genre                          (displayWoRGenre)
 import           Import.Base
 import           Neversoft.Audio                (aesDecrypt, readFSB)
 import           Neversoft.Metadata
@@ -27,13 +28,13 @@ importGH5WoR folder = do
       findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
   qbSections <- fmap concat $ forM texts $ \r -> do
     bs <- stackIO $ useHandle r handleToByteString
-    case readTextPakXen bs of
+    case readTextPakQB bs of
       Left  err      -> warn err >> return []
-      Right sections -> return sections
-  songInfo <- fmap concat $ forM qbSections $ \sect -> do
-    case parseSongInfo sect of
-      Left  err   -> warn err >> return []
-      Right infos -> return infos
+      Right contents -> return $ textPakSongStructs contents
+  songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do
+    case parseSongInfoStruct items of
+      Left  err  -> warn err >> return []
+      Right info -> return [info]
   fmap catMaybes $ forM songInfo $ \info -> do
     case findFolded $ "b" <> TE.decodeUtf8 (songName info) <> "_song.pak.xen" of
       Nothing      -> return Nothing -- song which is listed in the database, but not actually in this package
@@ -75,6 +76,7 @@ importGH5WoR folder = do
               , _year = Just $ songYear info
               , _album = Just $ snd $ songAlbumTitle info
               , _fileAlbumArt = Nothing
+              , _genre = displayWoRGenre <$> songGenre info
               }
             , _global = def'
               { _fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx

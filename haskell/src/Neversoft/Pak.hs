@@ -2,19 +2,20 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Neversoft.Pak where
 
-import           Control.Monad        (forM, guard)
+import qualified Codec.Compression.Zlib.Raw as Raw
+import           Control.Monad              (forM, guard, replicateM)
 import           Data.Binary.Get
 import           Data.Binary.Put
-import qualified Data.ByteString.Lazy as BL
-import           Data.Char            (isSpace)
-import qualified Data.HashMap.Strict  as HM
-import           Data.List            (sortOn)
-import           Data.Maybe           (fromMaybe, listToMaybe)
-import qualified Data.Text            as T
-import qualified Data.Text.Encoding   as TE
+import qualified Data.ByteString.Lazy       as BL
+import           Data.Char                  (isSpace)
+import qualified Data.HashMap.Strict        as HM
+import           Data.List                  (sortOn)
+import           Data.Maybe                 (fromMaybe, listToMaybe)
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as TE
 import           Data.Word
-import           Neversoft.Checksum   (qbKeyCRC)
-import           Numeric              (readHex, showHex)
+import           Neversoft.Checksum         (qbKeyCRC)
+import           Numeric                    (readHex, showHex)
 
 data Node = Node
   { nodeFileType       :: Word32
@@ -27,8 +28,25 @@ data Node = Node
   , nodeFlags          :: Word32
   } deriving (Show, Read)
 
+-- Credit to unpak.pl by Tarragon Allen (tma)
+decompressPak :: BL.ByteString -> BL.ByteString
+decompressPak bs = let
+  -- conveniently, start and next are relative to this CHNK, not the whole file
+  [magic, start, len, next, _flags, _size] = runGet (replicateM 6 getWord32be) bs
+  in if magic /= 0x43484e4b -- CHNK
+    then BL.empty
+    else let
+      buf = BL.take (fromIntegral len) $ BL.drop (fromIntegral start) bs
+      in Raw.decompress buf <> case next of
+        0xffffffff -> BL.empty
+        _          -> decompressPak $ BL.drop (fromIntegral next) bs
+
+-- TODO handle runGet failure
 splitPakNodes :: BL.ByteString -> [(Node, BL.ByteString)]
 splitPakNodes bs = let
+  bs' = if BL.take 4 bs == "CHNK"
+    then decompressPak bs
+    else bs
   end = qbKeyCRC "last"
   end2 = qbKeyCRC ".last"
   getNodes = do
@@ -48,8 +66,8 @@ splitPakNodes bs = let
     goToData
       = BL.take (fromIntegral $ nodeSize node)
       . BL.drop (fromIntegral $ nodeOffset node)
-    in (node, goToData bs)
-  in map attachData $ runGet getNodes bs
+    in (node, goToData bs')
+  in map attachData $ runGet getNodes bs'
 
 buildPak :: [(Node, BL.ByteString)] -> BL.ByteString
 buildPak nodes = let

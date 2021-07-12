@@ -1426,6 +1426,46 @@ speedPercent' isConverter rect = do
 speedPercent :: Bool -> Rectangle -> IO (IO Double)
 speedPercent isConverter rect = fst <$> speedPercent' isConverter rect
 
+batchPageGHWOR
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ((Project -> ((TargetGH5, FilePath), SongYaml FilePath)) -> IO ())
+  -> IO ()
+batchPageGHWOR sink rect tab build = do
+  pack <- FL.packNew rect Nothing
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+    centerRect = trimClock 0 250 0 250 rect'
+    in centerFixed rect' $ speedPercent True centerRect
+  let getTargetSong usePath template = do
+        speed <- getSpeed
+        return $ \proj -> let
+          tgt = def
+            { gh5_Common = (gh5_Common def)
+              { tgt_Speed = Just speed
+              }
+            }
+          fout = trimXbox $ T.unpack $ foldr ($) template
+            [ templateApplyInput proj $ Just $ GH5 tgt
+            , let
+              modifiers = T.concat
+                [ T.pack $ case tgt_Speed $ gh5_Common tgt of
+                  Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
+                  _               -> ""
+                ]
+              in T.intercalate modifiers . T.splitOn "%modifiers%"
+            ]
+          in ((tgt, usePath fout), projectSongYaml proj)
+  makeTemplateRunner
+    sink
+    "Create LIVE files"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_ghwor")
+    (getTargetSong id >=> build)
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
 batchPageRB2
   :: (?preferences :: Preferences)
   => (Event -> IO ())
@@ -4083,6 +4123,19 @@ launchBatch sink makeMenuBar startFiles = mdo
             GH2DIYPS2 fout -> do
               makeGH2DIY target proj' fout
               return [fout]
+      return tab
+    , makeTab windowRect "Guitar Hero: Warriors of Rock" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      batchPageGHWOR sink rect tab $ \settings -> sink $ EventOnyx $ do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
+          let ((target, fout), yaml) = settings proj
+          proj' <- stackIO $ filterParts yaml >>= saveProject proj
+          tmp <- buildGHWORLIVE target proj'
+          stackIO $ Dir.copyFile tmp fout
+          warn "Make sure you run \"Sync WoR Metadata\" on all your customs and DLC together, so everything shows up in game!"
+          return [fout]
+        -- TODO maybe do a metadata-sync on the results after we're done
       return tab
     , makeTab windowRect "Rock Band 3 (Wii)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

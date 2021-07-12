@@ -14,6 +14,7 @@ import           Control.Monad.ST              (ST)
 import           Control.Monad.Trans.State     (StateT, execStateT, get, gets,
                                                 put)
 import           Data.Aeson
+import           Data.Bifoldable
 import           Data.Bifunctor
 import           Data.Binary.Get
 import           Data.Binary.Put
@@ -29,7 +30,7 @@ import           Neversoft.Checksum            (qbKeyCRC)
 import           Numeric                       (showHex)
 
 data QBSection qs k
-  = QBSectionInteger k k Word32
+  = QBSectionInteger k k Word32 -- TODO all these "Integer" data should probably be signed, e.g. vocals_pitch_score_shift
   | QBSectionArray k k (QBArray qs k)
   | QBSectionStruct k k [QBStructItem qs k]
   | QBSectionScript k k Word32 B.ByteString -- decompressed size, then compressed bytestring (not bothering with decompression)
@@ -63,6 +64,7 @@ data QBArray qs k
   | QBArrayOfInteger [Word32]
   | QBArrayOfStruct [[QBStructItem qs k]]
   | QBArrayOfFloat [Float]
+  | QBArrayOfFloatRaw [Float] -- QueenBee says "this isn't really an array, just a simple type", I don't know what that means
   | QBArrayOfQbKeyStringQs [qs]
   deriving (Eq, Show, Functor)
 
@@ -72,6 +74,7 @@ instance (ToJSON qs, ToJSON k) => ToJSON (QBArray qs k) where
     QBArrayOfInteger x -> OneKey "ArrayOfInteger" $ toJSON x
     QBArrayOfStruct x -> OneKey "ArrayOfStruct" $ toJSON x
     QBArrayOfFloat x -> OneKey "ArrayOfFloat" $ toJSON x
+    QBArrayOfFloatRaw x -> OneKey "ArrayOfFloatRaw" $ toJSON x
     QBArrayOfQbKeyStringQs x -> OneKey "ArrayOfQbKeyStringQs" $ toJSON x
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBArray qs k) where
@@ -80,6 +83,7 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBArray qs k) where
     OneKey "ArrayOfInteger" x -> QBArrayOfInteger <$> parseJSON x
     OneKey "ArrayOfStruct" x -> QBArrayOfStruct <$> parseJSON x
     OneKey "ArrayOfFloat" x -> QBArrayOfFloat <$> parseJSON x
+    OneKey "ArrayOfFloatRaw" x -> QBArrayOfFloatRaw <$> parseJSON x
     OneKey "ArrayOfQbKeyStringQs" x -> QBArrayOfQbKeyStringQs <$> parseJSON x
     _ -> fail "QB json error"
 
@@ -150,6 +154,7 @@ instance Bifunctor QBArray where
     QBArrayOfInteger ns -> QBArrayOfInteger ns
     QBArrayOfStruct structs -> QBArrayOfStruct $ map (map $ first f) structs
     QBArrayOfFloat ns -> QBArrayOfFloat ns
+    QBArrayOfFloatRaw ns -> QBArrayOfFloatRaw ns
     QBArrayOfQbKeyStringQs qs -> QBArrayOfQbKeyStringQs $ map f qs
   second = fmap
 
@@ -165,6 +170,37 @@ instance Bifunctor QBStructItem where
     QBStructItemFloat x y -> QBStructItemFloat x y
     QBStructItemArray x arr -> QBStructItemArray x $ first f arr
   second = fmap
+
+instance Bifoldable QBSection where
+  bifoldMap f g = \case
+    QBSectionInteger x y _     -> g x <> g y
+    QBSectionArray   x y arr   -> g x <> g y <> bifoldMap f g arr
+    QBSectionStruct  x y items -> g x <> g y <> mconcat (map (bifoldMap f g) items)
+    QBSectionScript  x y _ _   -> g x <> g y
+
+instance Bifoldable QBArray where
+  bifoldMap f g = \case
+    QBArrayOfQbKey         ks      -> mconcat (map g ks)
+    QBArrayOfInteger       _       -> mempty
+    QBArrayOfStruct        structs -> mconcat $ mconcat $ map (map $ bifoldMap f g) structs
+    QBArrayOfFloat         _       -> mempty
+    QBArrayOfFloatRaw      _       -> mempty
+    QBArrayOfQbKeyStringQs qs      -> mconcat $ map f qs
+
+instance Bifoldable QBStructItem where
+  bifoldMap f g = \case
+    QBStructHeader                    -> mempty
+    QBStructItemStruct        x items -> g x <> mconcat (map (bifoldMap f g) items)
+    QBStructItemQbKey         x y     -> g x <> g y
+    QBStructItemString        x _     -> g x
+    QBStructItemQbKeyString   x y     -> g x <> g y
+    QBStructItemQbKeyStringQs x qs    -> g x <> f qs
+    QBStructItemInteger       x _     -> g x
+    QBStructItemFloat         x _     -> g x
+    QBStructItemArray         x arr   -> g x <> bifoldMap f g arr
+
+allQS :: (Bifoldable obj) => obj qs k -> [qs]
+allQS = bifoldMap (: []) (const [])
 
 shouldBeAt :: Word32 -> Get ()
 shouldBeAt w = do
@@ -197,7 +233,8 @@ parseQBArray = do
       fmap QBArrayOfStruct $ forM structStarts $ \p4 -> do
         shouldBeAt p4
         parseQBStruct
-    0x00010000 -> QBArrayOfFloat <$> replicateM len getFloatbe
+    0x00010200 -> QBArrayOfFloat <$> replicateM len getFloatbe
+    0x00010000 -> QBArrayOfFloatRaw <$> replicateM len getFloatbe
     0x00011C00 -> QBArrayOfQbKeyStringQs <$> replicateM len getWord32be
     _ -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
   return (array, p2)
@@ -446,6 +483,10 @@ putQBArray ary = do
         fillPointer p
         putQBStruct s
     QBArrayOfFloat floats -> do
+      w32 0x00010200
+      writeLen floats
+      mapM_ (append . BL.toStrict . runPut . putFloatbe) floats
+    QBArrayOfFloatRaw floats -> do
       w32 0x00010000
       writeLen floats
       mapM_ (append . BL.toStrict . runPut . putFloatbe) floats
@@ -572,7 +613,11 @@ putQB sects = let
     (v', used) <- execStateT go (v, 0)
     return $ MV.take used v'
 
+discardQS :: [QBSection QSResult k] -> [QBSection Word32 k]
+discardQS = map $ first $ \case UnknownQS qs -> qs; KnownQS qs _ -> qs
+
+discardQB :: [QBSection qs QBResult] -> [QBSection qs Word32]
+discardQB = map $ second $ \case UnknownQB qb -> qb; KnownQB b -> qbKeyCRC b
+
 discardStrings :: [QBSection QSResult QBResult] -> [QBSection Word32 Word32]
-discardStrings = map $ bimap
-  (\case UnknownQS qs -> qs; KnownQS qs _ -> qs)
-  (\case UnknownQB qb -> qb; KnownQB b -> qbKeyCRC b)
+discardStrings = discardQS . discardQB

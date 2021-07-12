@@ -30,7 +30,7 @@ import qualified Data.ByteString.Base64.Lazy           as B64
 import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (isAscii, isControl,
-                                                        isSpace)
+                                                        isSpace, toUpper)
 import           Data.Conduit                          (runConduit)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
@@ -99,6 +99,7 @@ import           Neversoft.QB                          (QBArray (..),
                                                         QBSection (..),
                                                         QBStructItem (..),
                                                         putQB)
+import           Numeric                               (showHex)
 import qualified Numeric.NonNegative.Class             as NNC
 import           OSFiles                               (copyDirRecursive)
 import           Overdrive                             (calculateUnisons,
@@ -323,6 +324,15 @@ hashGH2 :: (Hashable f) => SongYaml f -> TargetGH2 -> Int
 hashGH2 songYaml gh2 = let
   hashed =
     ( gh2
+    , _title $ _metadata songYaml
+    , _artist $ _metadata songYaml
+    )
+  in 1000000000 + (hash hashed `mod` 1000000000)
+
+hashGH5 :: (Hashable f) => SongYaml f -> TargetGH5 -> Int
+hashGH5 songYaml gh5 = let
+  hashed =
+    ( gh5
     , _title $ _metadata songYaml
     , _artist $ _metadata songYaml
     )
@@ -2801,16 +2811,27 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               Just pair -> return pair
             let planDir = rel $ "gen/plan" </> T.unpack planName
 
-            let songKey = "dlc" <> show (gh5_SongID gh5)
+            let hashed = hashGH5 songYaml gh5
+                songID = fromMaybe hashed $ gh5_SongID gh5
+                cdl = "cdl" <> show (fromMaybe hashed $ gh5_CDL gh5)
+                songKey = "dlc" <> show songID
                 songKeyQB = qbKeyCRC $ B8.pack songKey
-                -- TODO figure out how to compute the hash so we can do different titles
-                packageTitle = let s = "Darkest Hour Track Pack" in [s, "", s, s, s, s]
-                -- packageTitle = let s = "Emo Edge Track Pack" in [s, "", s, s, s, s]
-                packageDesc = let s = "new PACK" in [s, "", s, s, s, s]
-                titleHash = "135de722"
-                -- titleHash = "b2b8e6de"
-                titleHashHex = 0x135de722
-                -- titleHashHex = 0xb2b8e6de
+                packageTitle = T.pack $ "Custom " <> songKey -- TODO more descriptive
+                packageTitles = [packageTitle, "", packageTitle, packageTitle, packageTitle, packageTitle]
+                -- don't think this is important but it's what official DLC has
+                packageDescs = let s = "new PACK" in [s, "", s, s, s, s]
+                -- "Emo Edge Track Pack" becomes "emo_edge_track_pack"
+                -- "\"Addicted\"" becomes "_addicted_"
+                -- "GH: Warriors of Rock 1 Track Pack" becomes "gh__warriors_of_rock_1_track_pack"
+                titleHashLookup = HM.fromList $ do
+                  c <- ['a' .. 'z'] <> ['0' .. '9']
+                  [(c, c), (toUpper c, c)]
+                titleHashHex = qbKeyCRC $ B8.pack
+                  $ map (\c -> fromMaybe '_' $ HM.lookup c titleHashLookup)
+                  $ T.unpack packageTitle
+                titleHash = let
+                  str = showHex titleHashHex ""
+                  in replicate (length str - 8) '0' <> str
 
                 -- more IDs that might need to be unique
                 manifestQBFilenameKey
@@ -2852,10 +2873,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         654834362 -- all WoR dlc has this, gh5 might be different
                       , QBStructItemString
                         (qbKeyCRC "song_pak_stem")
-                        (TE.encodeUtf8 $ gh5_CDL gh5)
+                        (TE.encodeUtf8 $ T.pack cdl)
                       , QBStructItemArray
                         (qbKeyCRC "songs")
-                        (QBArrayOfInteger [fromIntegral $ gh5_SongID gh5])
+                        (QBArrayOfInteger [fromIntegral songID])
                       ]
                     ]
                   ]
@@ -2912,6 +2933,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   albumQS  = makeQSPair $ getAlbum  $ _metadata songYaml
                   qs = makeQS [titleQS, artistQS, albumQS]
                   difficulties = difficultyGH5 gh5 songYaml
+                  genre = worGenre $ interpretGenre
+                    (_genre    $ _metadata songYaml)
+                    (_subgenre $ _metadata songYaml)
                   qb =
                     [ QBSectionArray 3796209450 textQBFilenameKey $
                       QBArrayOfQbKey [songKeyQB]
@@ -2928,7 +2952,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         , QBStructItemInteger (qbKeyCRC "year") $ fromIntegral $ getYear $ _metadata songYaml
                         , QBStructItemQbKeyStringQs (qbKeyCRC "album_title") $ fst albumQS
                         , QBStructItemQbKey 1732896360 3045815699 -- dunno
-                        , QBStructItemQbKey (qbKeyCRC "genre") 2543700849 -- TODO make a list of the options (and try to decode QB keys?)
+                        , QBStructItemQbKey (qbKeyCRC "genre") $ qbWoRGenre genre
                         , QBStructItemInteger (qbKeyCRC "leaderboard") 0 -- does setting this to 0 work?
                         , QBStructItemInteger (qbKeyCRC "duration")
                           (fromIntegral $ quot (RBFile.songLengthMS mid + 500) 1000) -- this is just displayed in song list
@@ -3024,9 +3048,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 Nothing    -> fatal "Couldn't reparse practice sections .qs file"
               let qb =
                     [ QBSectionArray 1441618440 songQBFilenameKey $ QBArrayOfInteger []
-                    , QBSectionArray 2961626425 songQBFilenameKey $ QBArrayOfFloat []
+                    , QBSectionArray 2961626425 songQBFilenameKey $ QBArrayOfFloatRaw []
                     , QBSectionArray 3180084209 songQBFilenameKey $ QBArrayOfInteger []
-                    , QBSectionArray 3250951858 songQBFilenameKey $ QBArrayOfFloat []
+                    , QBSectionArray 3250951858 songQBFilenameKey $ QBArrayOfFloatRaw []
                     , QBSectionArray 2096871117 songQBFilenameKey $ QBArrayOfInteger []
                     , QBSectionArray 1487281764 songQBFilenameKey $ QBArrayOfStruct
                       [ [ QBStructHeader
@@ -3070,7 +3094,6 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQB2FilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                       , putQB [QBSectionArray 1148198227 3748754942 $ QBArrayOfStruct []]
                       )
-                    -- Not including this file gives you a free black background :)
                     -- , ( Node {nodeFileType = qbKeyCRC ".perf", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4108292588, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                     --   , perf
                     --   )
@@ -3097,12 +3120,14 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             dir </> "audio2.wav" %> \out -> do
               len <- getAudioLength planName plan
               runAudio (silent (Seconds $ realToFrac len) 1000 6) out
+            -- TODO support speed
             dir </> "audio3.wav" %> buildAudio (Merge
               [ Input $ planDir </> "everything.wav"
               , Silence 2 $ Seconds 0
               ])
 
             dir </> "preview.wav" %> \out -> do
+              -- TODO this should be quieter, to match official previews
               mid <- shakeMIDI $ planDir </> "processed.mid"
               let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))
                   fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
@@ -3130,8 +3155,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             dir </> "ghworlive" %> \out -> do
               let files =
                     [ ("cmanifest_" <> titleHash <> ".pak.xen", dir </> "cmanifest.pak.xen")
-                    , (T.unpack (gh5_CDL gh5) <> ".pak.xen", dir </> "cdl.pak.xen")
-                    , (T.unpack (gh5_CDL gh5) <> "_text.pak.xen", dir </> "cdl_text.pak.xen")
+                    , (cdl <> ".pak.xen", dir </> "cdl.pak.xen")
+                    , (cdl <> "_text.pak.xen", dir </> "cdl_text.pak.xen")
                     , ("b" <> songKey <> "_song.pak.xen", dir </> "song.pak.xen")
                     , ("a" <> songKey <> "_preview.fsb.xen", dir </> "preview.fsb.xen")
                     , ("a" <> songKey <> "_1.fsb.xen", dir </> "audio1.fsb.xen")
@@ -3145,8 +3170,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               shk $ need $ map snd files
               thumb <- stackIO $ ghWoRthumbnail >>= B.readFile
               stackIO $ makeCONReadable CreateOptions
-                { createNames = packageTitle
-                , createDescriptions = packageDesc
+                { createNames = packageTitles
+                , createDescriptions = packageDescs
                 , createTitleID = 0x41560883
                 , createTitleName = "Guitar Hero : Warriors of Rock"
                 , createThumb = thumb
