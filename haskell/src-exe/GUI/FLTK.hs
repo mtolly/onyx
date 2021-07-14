@@ -1441,10 +1441,26 @@ batchPageGHWOR sink rect tab build = do
   let getTargetSong usePath template = do
         speed <- getSpeed
         return $ \proj -> let
-          tgt = def
-            { gh5_Common = (gh5_Common def)
+          hasPart p = isJust $ HM.lookup p (getParts $ _parts $ projectSongYaml proj) >>= partGRYBO
+          pickedGuitar = listToMaybe $ filter hasPart
+            [ FlexGuitar
+            , FlexExtra "rhythm"
+            , FlexKeys
+            , FlexBass
+            ]
+          pickedBass = listToMaybe $ filter (\p -> hasPart p && pickedGuitar /= Just p)
+            [ FlexGuitar
+            , FlexExtra "rhythm"
+            , FlexBass
+            , FlexKeys
+            ]
+          defGH5 = def :: TargetGH5
+          tgt = defGH5
+            { gh5_Common = (gh5_Common defGH5)
               { tgt_Speed = Just speed
               }
+            , gh5_Guitar = fromMaybe (gh5_Guitar defGH5) pickedGuitar
+            , gh5_Bass = fromMaybe (gh5_Bass defGH5) $ pickedBass <|> pickedGuitar
             }
           fout = trimXbox $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH5 tgt
@@ -4055,7 +4071,7 @@ launchBatch sink makeMenuBar startFiles = mdo
         mapM_ release $ projectRelease proj
         return x
   functionTabs <- sequence
-    [ makeTab windowRect "Rock Band 3 (360)" $ \rect tab -> do
+    [ makeTab windowRect "RB3 (360)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageRB3 sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
@@ -4073,7 +4089,7 @@ launchBatch sink makeMenuBar startFiles = mdo
                 copyDirRecursive tmp dout
                 return dout
       return tab
-    , makeTab windowRect "Rock Band 2 (360)" $ \rect tab -> do
+    , makeTab windowRect "RB2 (360)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageRB2 sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
@@ -4102,7 +4118,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               stackIO $ Dir.copyFile tmp fout
               return [fout]
       return tab
-    , makeTab windowRect "Guitar Hero II" $ \rect tab -> do
+    , makeTab windowRect "GH2" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageGH2 sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
@@ -4113,7 +4129,7 @@ launchBatch sink makeMenuBar startFiles = mdo
             GH2LIVE fout    -> do
               tmp <- buildGH2LIVE target proj'
               stackIO $ Dir.copyFile tmp fout
-              warn "Make sure you combine songs into packs before playing! Loading more than 16 package files will corrupt your GH2 save."
+              warn "Make sure you combine songs into packs (go to 'Other tools') before playing! Loading more than 16 package files will corrupt your GH2 save."
               return [fout]
             GH2ARK fout loc -> case loc of
               GH2AddBonus -> do
@@ -4124,7 +4140,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               makeGH2DIY target proj' fout
               return [fout]
       return tab
-    , makeTab windowRect "Guitar Hero: Warriors of Rock" $ \rect tab -> do
+    , makeTab windowRect "GH:WoR (360)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageGHWOR sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
@@ -4133,11 +4149,10 @@ launchBatch sink makeMenuBar startFiles = mdo
           proj' <- stackIO $ filterParts yaml >>= saveProject proj
           tmp <- buildGHWORLIVE target proj'
           stackIO $ Dir.copyFile tmp fout
-          warn "Make sure you run \"Sync WoR Metadata\" on all your customs and DLC together, so everything shows up in game!"
+          warn "Make sure you create a WoR Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
           return [fout]
-        -- TODO maybe do a metadata-sync on the results after we're done
       return tab
-    , makeTab windowRect "Rock Band 3 (Wii)" $ \rect tab -> do
+    , makeTab windowRect "RB3 (Wii)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageDolphin sink rect tab $ \dirout midfn preview -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles

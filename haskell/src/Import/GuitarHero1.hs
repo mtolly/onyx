@@ -19,6 +19,7 @@ import           Data.DTA.Crypt                   (decrypt, oldCrypt)
 import qualified Data.DTA.Serialize               as D
 import           Data.DTA.Serialize.GH1
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        ((\\))
 import qualified Data.Map                         as Map
@@ -68,7 +69,7 @@ importGH1Song pkg gen level = do
         Just p  -> return p
       need p = case findFile p folder of
         Just r  -> return r
-        Nothing -> fatal $ "Required file not found: " <> show p
+        Nothing -> fatal $ "Required file not found: " <> B8.unpack (B8.intercalate "/" $ toList p)
   midi <- split (midiFile pkg) >>= need . fmap encLatin1
   vgs <- split (songName (song pkg) <> ".vgs") >>= need . fmap encLatin1
   RBFile.Song tmap mmap gh1 <- case level of

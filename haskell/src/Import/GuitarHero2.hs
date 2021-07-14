@@ -38,6 +38,7 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
 import           Data.SimpleHandle                (Folder, Readable,
                                                    findByteString, findFile,
+                                                   findFileCI,
                                                    handleToByteString,
                                                    splitPath, useHandle)
 import qualified Data.Text                        as T
@@ -175,7 +176,7 @@ importGH2Song mode pkg gen level = do
         Just p  -> return p
       need p = case findFile p folder of
         Just r  -> return r
-        Nothing -> fatal $ "Required file not found: " <> show p
+        Nothing -> fatal $ "Required file not found: " <> B8.unpack (B8.intercalate "/" $ toList p)
   songChunk <- case mode of
     ImportSolo -> return $ song pkg
     ImportCoop -> case songCoop pkg of
@@ -246,9 +247,9 @@ importGH2DLC src folder = do
         split s = case splitPath $ T.pack s of
           Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
           Just p  -> return p
-        need p = case findFile p folder of
+        need p = case findFileCI p folder of
           Just r  -> return r
-          Nothing -> fatal $ "Required file not found: " <> show p
+          Nothing -> fatal $ "Required file not found: " <> T.unpack (T.intercalate "/" $ toList p)
     moggPath <- split $ base <.> "mogg"
     mogg <- SoftReadable <$> need moggPath
     let modes = case songCoop pkg of

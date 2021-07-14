@@ -13,8 +13,9 @@ import           Control.Monad.Codec
 import           Control.Monad.Trans.StackTrace
 import           Data.Char                        (isAscii)
 import           Data.DTA.Serialize.Magma         (Percussion (..))
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import           DeriveHelpers
 import qualified FretsOnFire                      as FoF
@@ -165,7 +166,9 @@ getLyricNotes mmap vox = let
             Nothing    -> Pitched pitch $ makeLyric lyric
       makeLyric str = case T.stripSuffix "-" str of
         Just str' -> Lyric { lyricText = str', lyricContinues = True  }
-        Nothing   -> Lyric { lyricText = str , lyricContinues = False }
+        Nothing   -> case T.stripSuffix "=" str of
+          Just str' -> Lyric { lyricText = str' <> "-", lyricContinues = True  }
+          Nothing   -> Lyric { lyricText = str        , lyricContinues = False }
       in (lyricNote, len)
   -- TODO handle the section-symbol-encoded spanish vowel elision char?
   -- TODO handle Footloose and Fancy Free style space hack (strip lyric)?
@@ -174,9 +177,13 @@ putLyricNotes :: RTB.T U.Beats (LyricNote, U.Beats) -> VocalTrack U.Beats
 putLyricNotes lnotes = mempty
   { vocalLyrics = flip fmap lnotes $ \(lnote, _) -> case lnote of
     Pitched _  (Lyric t cont) -> t <> if cont then "-" else ""
-    Talky diff (Lyric t cont) -> t
-      <> (if cont then "-" else "")
-      <> (case diff of TalkyNormal -> "#"; TalkyEasy -> "^")
+    Talky diff (Lyric t cont) -> T.concat
+      [ case (T.stripSuffix "-" t, cont) of
+        (Just undashed, True ) -> undashed <> "="
+        (Nothing      , True ) -> t <> "-"
+        (_            , False) -> t
+      , case diff of TalkyNormal -> "#"; TalkyEasy -> "^"
+      ]
     SlideTo _                 -> "+"
   , vocalNotes = U.trackJoin $ flip fmap lnotes $ \(lnote, dur) -> let
     pitch = case lnote of
@@ -185,3 +192,22 @@ putLyricNotes lnotes = mempty
       SlideTo p   -> p
     in RTB.fromPairList [(0, (pitch, True)), (dur, (pitch, False))]
   }
+
+getPhraseLabels :: RTB.T U.Beats Bool -> RTB.T U.Beats (LyricNote, U.Beats) -> RTB.T U.Beats T.Text
+getPhraseLabels phrases lnotes = let
+  eachPhrase lnoteList = let
+    lyricList = flip mapMaybe lnoteList $ \case
+      Pitched _ lyric -> Just lyric
+      Talky   _ lyric -> Just lyric
+      SlideTo _       -> Nothing
+    in T.strip $ T.concat $ flip map lyricList $ \lyric ->
+      if lyricContinues lyric
+        then lyricText lyric
+        else lyricText lyric <> " "
+  joinedPhrases = joinEdgesSimple $ flip fmap phrases $ \b -> if b then EdgeOn () () else EdgeOff ()
+  getPhrase start len = map fst $ RTB.getBodies $ U.trackTake len $ U.trackDrop start lnotes
+  in RTB.fromAbsoluteEventList
+    $ ATB.fromPairList
+    $ map (\(start, ((), (), len)) -> (start, eachPhrase $ getPhrase start len))
+    $ ATB.toPairList
+    $ RTB.toAbsoluteEventList 0 joinedPhrases

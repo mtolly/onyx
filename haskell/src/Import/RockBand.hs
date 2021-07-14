@@ -28,7 +28,7 @@ import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.Map                       as Map
 import           Data.Maybe                     (fromMaybe, isNothing, mapMaybe)
 import           Data.SimpleHandle              (Folder, Readable, fileReadable,
-                                                 findByteString, findFile,
+                                                 findByteString, findFileCI,
                                                  handleToByteString, splitPath,
                                                  useHandle)
 import qualified Data.Text                      as T
@@ -79,9 +79,9 @@ importSTFSFolder src folder = do
         split s = case splitPath $ T.pack s of
           Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
           Just p  -> return p
-        need p = case findFile p folder of
+        need p = case findFileCI p folder of
           Just r  -> return r
-          Nothing -> fatal $ "Required file not found: " <> show p
+          Nothing -> fatal $ "Required file not found: " <> T.unpack (T.intercalate "/" $ toList p)
     miloPath <- split $ takeDirectory base </> "gen" </> takeFileName base <.> "milo_xbox"
     moggPath <- split $ base <.> "mogg"
     midiPath <- split $ base <.> "mid"
@@ -94,7 +94,7 @@ importSTFSFolder src folder = do
       then stackIO (Dir.doesFileExist missingArt) >>= \case
         True -> return $ Just $ fileReadable missingArt -- old rb1 song with album art on rb3 disc
         False -> do
-          let res = findFile artPath folder
+          let res = findFileCI artPath folder
           when (isNothing res) $
             warn $ "Expected album art, but didn't find it: " <> show artPath
           return res
@@ -111,7 +111,7 @@ importSTFSFolder src folder = do
       , rbiComments = comments
       , rbiMOGG = mogg
       , rbiAlbumArt = SoftFile "cover.png_xbox" . SoftReadable <$> art
-      , rbiMilo = SoftReadable <$> findFile miloPath folder
+      , rbiMilo = SoftReadable <$> findFileCI miloPath folder
       , rbiMIDI = midi
       , rbiMIDIUpdate = update
       , rbiSource = Just src

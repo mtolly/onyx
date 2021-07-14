@@ -55,7 +55,8 @@ import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
 import           Data.SimpleHandle                (Folder (..),
                                                    byteStringSimpleHandle,
-                                                   findFile, handleToByteString,
+                                                   findFileCI,
+                                                   handleToByteString,
                                                    makeHandle, saveHandleFolder,
                                                    useHandle)
 import qualified Data.Text                        as T
@@ -73,7 +74,8 @@ import           MoggDecrypt                      (moggToOgg, oggToMogg)
 import           Neversoft.Audio                  (aesDecrypt, aesEncrypt,
                                                    fsbDecrypt)
 import           Neversoft.Checksum               (knownKeys, qbKeyCRC)
-import           Neversoft.Export                 (shareMetadata)
+import           Neversoft.Export                 (makeMetadataLIVE,
+                                                   shareMetadata)
 import           Neversoft.Note                   (loadNoteFile)
 import           Neversoft.Pak                    (Node (..), buildPak,
                                                    nodeFileType, qsBank,
@@ -1274,6 +1276,16 @@ commands =
       return args
     }
 
+  , Command
+    { commandWord = "make-wor-database"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandRun = \args opts -> do
+      fout <- outputFile opts $ fatal "make-wor-database requires --to argument"
+      makeMetadataLIVE args fout
+      return [fout]
+    }
+
   ]
 
 runDolphin
@@ -1505,7 +1517,7 @@ blackVenue :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m ()
 blackVenue fcon = inside ("Inserting black VENUE in: " <> fcon) $ do
   (hdr, meta) <- stackIO $ withSTFSPackage fcon $ \pkg -> return (stfsHeader pkg, stfsMetadata pkg)
   topFolder <- stackIO $ getSTFSFolder fcon
-  isRB3 <- case findFile ("songs" :| pure "songs.dta") topFolder of
+  isRB3 <- case findFileCI ("songs" :| pure "songs.dta") topFolder of
     Nothing -> fatal "Couldn't find songs.dta in package"
     Just r  -> do
       dtaBS <- stackIO $ useHandle r handleToByteString

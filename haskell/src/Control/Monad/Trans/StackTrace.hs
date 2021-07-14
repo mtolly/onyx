@@ -166,7 +166,9 @@ lg s = sendMessage' MessageLog $ Message s []
 
 errorToWarning :: (SendMessage m) => StackTraceT m a -> StackTraceT m (Maybe a)
 errorToWarning p = errorToEither p >>= \case
-  Left (Messages msgs) -> mapM_ warnMessage msgs >> return Nothing
+  Left (Messages msgs) -> do
+    mapM_ (StackTraceT . lift . lift . sendMessage MessageWarning) msgs
+    return Nothing
   Right x              -> return $ Just x
 
 errorToEither :: (Monad m) => StackTraceT m a -> StackTraceT m (Either Messages a)

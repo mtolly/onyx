@@ -88,10 +88,10 @@ importRSSong folder song level = do
 
   let need p = case findFile p folder of
         Just r  -> return r
-        Nothing -> fatal $ "Required file not found: " <> show p
+        Nothing -> fatal $ "Required file not found: " <> T.unpack (T.intercalate "/" $ toList p)
       subfolder p = case findFolder p folder of
         Just sub -> return sub
-        Nothing  -> fatal $ "Required subfolder not found: " <> show p
+        Nothing  -> fatal $ "Required subfolder not found: " <> T.unpack (T.intercalate "/" $ toList p)
 
   audioDirs <- folderSubfolders <$> subfolder (return "audio")
   (audioDir, platform) <- case audioDirs of

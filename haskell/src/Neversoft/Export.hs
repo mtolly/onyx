@@ -9,6 +9,10 @@ import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
                                                    stackIO, warn)
 import           Data.Bits
+import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Char8            as B8
+import qualified Data.ByteString.Lazy             as BL
+import           Data.Char                        (toUpper)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Hashable                    (hash)
@@ -19,13 +23,19 @@ import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    isNothing)
 import           Data.SimpleHandle
 import qualified Data.Text                        as T
+import qualified Data.Text.Encoding               as TE
 import           Data.Word
 import           Guitars                          (applyForces, emit5',
                                                    fixSloppyNotes, getForces5,
                                                    openNotes', strumHOPOTap')
+import           Neversoft.Checksum
 import           Neversoft.Metadata
 import           Neversoft.Note
+import           Neversoft.Pak
+import           Neversoft.QB
+import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Class        as NNC
+import           Resources                        (ghWoRthumbnail)
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events
@@ -201,7 +211,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
         }
     Nothing -> Drums (case diff of Expert -> Right []; _ -> Left []) [] []
   in do
-    (voxNotes, voxLyrics, voxSP, voxPhrases) <- case getPart (gh5_Vocal target) songYaml >>= partVocal of
+    (voxNotes, voxLyrics, voxSP, voxPhrases, voxMarkers) <- case getPart (gh5_Vocal target) songYaml >>= partVocal of
       Just _pv -> do
         let opart = fromMaybe mempty $ Map.lookup (gh5_Vocal target) $ RBFile.onyxParts ofile
             trk = if nullVox $ RBFile.onyxPartVocals opart
@@ -209,7 +219,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
               else RBFile.onyxPartVocals opart
             sp = makeStarPower $ vocalOverdrive trk
             -- TODO include vocalPhrase2
-            phrases = map beatsToMS $ ATB.getTimes $ RTB.toAbsoluteEventList 0
+            phrases = (0 :) $ map beatsToMS $ ATB.getTimes $ RTB.toAbsoluteEventList 0
               $ RTB.collectCoincident $ vocalPhrase1 trk
         lyricNotes <- getLyricNotes mmap trk
         let lyrics
@@ -239,7 +249,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
               $ makeNotes lyricNotes
             makeNotes = let
               makeNote t mpitch len rest = let
-                ghPitch = maybe 26 (fromIntegral . fromEnum) (mpitch :: Maybe Pitch)
+                ghPitch = maybe 26 (\p -> fromIntegral $ fromEnum p + 36) (mpitch :: Maybe Pitch)
                 in Wait t (ghPitch, len) $ case rest of
                   Wait t2 next@(SlideTo _, _) rest2 -> Wait len (2, t2 - len)
                     $ makeNotes $ Wait (t2 - len) next rest2
@@ -249,8 +259,12 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
                 Wait t (Talky   _ _, len) rest -> makeNote t Nothing  len rest
                 Wait t (SlideTo p  , len) rest -> makeNote t (Just p) len rest
                 RNil -> RNil
-        return (notes, lyrics, sp, phrases)
-      Nothing -> return ([], [], [], [])
+            markers
+              = map (\(t, label) -> Single (beatsToMS t) label)
+              $ ATB.toPairList $ RTB.toAbsoluteEventList 0
+              $ getPhraseLabels (vocalPhrase1 trk) lyricNotes
+        return (notes, lyrics, sp, phrases, markers)
+      Nothing -> return ([], [], [], [], [])
     timing <- basicTiming song getAudioLength
     let fretbars = map beatsToMS $ ATB.getTimes $ RTB.toAbsoluteEventList 0 $ beatLines $ timingBeat timing
         beatToTimesigs = \case
@@ -308,32 +322,236 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
       , gh_bandmoment            = [] -- TODO
 
       , gh_markers               = sectionMarkers
-      , gh_vocalmarkers          = [] -- TODO
+      , gh_vocalmarkers          = voxMarkers
       , gh_backup_vocalmarkers   = Nothing
 
       }, sectionBank)
 
 shareMetadata :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m ()
 shareMetadata lives = do
-  library <- fmap (combineTextPakQBs . concat) $ forM lives $ \live -> do
-    folder <- stackIO $ getSTFSFolder live
-    let texts = [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` name ]
-    fmap catMaybes $ forM texts $ \r -> do
-      bs <- stackIO $ useHandle r handleToByteString
-      case readTextPakQB bs of
-        Left  err      -> warn err >> return Nothing
-        Right contents -> return $ Just contents
-  forM_ lives $ \live -> do
-    folder <- stackIO $ getSTFSFolder live
-    repack <- stackIO $ withSTFSPackage live $ return . repackOptions
-    files' <- forM (folderFiles folder) $ \pair@(name, r) ->
-      if "_text.pak.xen" `T.isSuffixOf` name
-        then do
-          bs <- stackIO $ useHandle r handleToByteString
-          let bs' = updateTextPakQB library bs
-          return (name, makeHandle ("New contents for " <> T.unpack name) $ byteStringSimpleHandle bs')
-        else return pair
-    let folder' = folder { folderFiles = files' }
-    stackIO $ makeCONReadable repack folder' (live <.> "tmp")
-    stackIO $ Dir.renameFile live (live <.> "bak")
-    stackIO $ Dir.renameFile (live <.> "tmp") live
+  library <- getAllMetadata lives
+  stackIO $ updateMetadata library lives
+
+getAllMetadata :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m [(Word32, [QBStructItem QSResult Word32])]
+getAllMetadata lives = fmap (combineTextPakQBs . concat) $ forM lives $ \live -> do
+  folder <- stackIO $ getSTFSFolder live
+  let texts = [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` name ]
+  fmap catMaybes $ forM texts $ \r -> do
+    bs <- stackIO $ useHandle r handleToByteString
+    case readTextPakQB bs of
+      Left  err      -> warn err >> return Nothing
+      Right contents -> return $ Just contents
+
+updateMetadata :: [(Word32, [QBStructItem QSResult Word32])] -> [FilePath] -> IO ()
+updateMetadata library lives = forM_ lives $ \live -> do
+  folder <- getSTFSFolder live
+  repack <- withSTFSPackage live $ return . repackOptions
+  files' <- forM (folderFiles folder) $ \pair@(name, r) ->
+    if "_text.pak.xen" `T.isSuffixOf` name
+      then do
+        bs <- useHandle r handleToByteString
+        let bs' = updateTextPakQB library bs
+        return (name, makeHandle ("New contents for " <> T.unpack name) $ byteStringSimpleHandle bs')
+      else return pair
+  let folder' = folder { folderFiles = files' }
+  makeCONReadable repack folder' (live <.> "tmp")
+  Dir.renameFile live (live <.> "bak")
+  Dir.renameFile (live <.> "tmp") live
+
+makeMetadataLIVE :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> StackTraceT m ()
+makeMetadataLIVE lives fout = do
+  library <- getAllMetadata lives
+  stackIO $ saveMetadataLIVE library fout
+
+worFileManifest :: Word32 -> T.Text -> Word32 -> [Word32] -> BL.ByteString
+worFileManifest titleHashHex cdl manifestQBFilenameKey songIDs = buildPak
+  [ ( Node
+      { nodeFileType = qbKeyCRC ".qb"
+      , nodeOffset = 0
+      , nodeSize = 0
+      , nodeFilenamePakKey = 0
+      , nodeFilenameKey = manifestQBFilenameKey
+      , nodeFilenameCRC = 2997346177 -- same across packs
+      , nodeUnknown = 0
+      , nodeFlags = 0
+      }
+    , putQB
+      -- first number in each of these sections is same across packs
+      [ QBSectionInteger 3850140781 manifestQBFilenameKey 2
+      , QBSectionInteger 1403615505 manifestQBFilenameKey 0
+      , QBSectionArray 2706631909 manifestQBFilenameKey $ QBArrayOfStruct
+        [ [ QBStructHeader
+          , QBStructItemArray
+            (qbKeyCRC "package_name_checksums")
+            (QBArrayOfQbKey [titleHashHex])
+          , QBStructItemQbKey
+            (qbKeyCRC "format")
+            654834362 -- all WoR dlc has this, gh5 might be different
+          , QBStructItemString
+            (qbKeyCRC "song_pak_stem")
+            (TE.encodeUtf8 cdl)
+          , QBStructItemArray
+            (qbKeyCRC "songs")
+            (QBArrayOfInteger songIDs)
+          ]
+        ]
+      ]
+    )
+  , ( Node
+      { nodeFileType = qbKeyCRC ".last"
+      , nodeOffset = 1
+      , nodeSize = 0
+      , nodeFilenamePakKey = 0
+      , nodeFilenameKey = 2306521930
+      , nodeFilenameCRC = 1794739921
+      , nodeUnknown = 0
+      , nodeFlags = 0
+      }
+    , BL.replicate 4 0xAB
+    )
+  ]
+
+worFileBarePak :: BL.ByteString
+worFileBarePak = buildPak
+  -- all of this is constant across packs
+  [ ( Node
+      { nodeFileType = qbKeyCRC ".qb"
+      , nodeOffset = 0
+      , nodeSize = 0
+      , nodeFilenamePakKey = 0
+      , nodeFilenameKey = 2973311508
+      , nodeFilenameCRC = 24767173
+      , nodeUnknown = 0
+      , nodeFlags = 0
+      }
+    , putQB []
+    )
+  , ( Node
+      { nodeFileType = qbKeyCRC ".last"
+      , nodeOffset = 1
+      , nodeSize = 0
+      , nodeFilenamePakKey = 0
+      , nodeFilenameKey = 2306521930
+      , nodeFilenameCRC = 1794739921
+      , nodeUnknown = 0
+      , nodeFlags = 0
+      }
+    , BL.replicate 4 0xAB
+    )
+  ]
+
+worFileTextPak
+  :: (Word32, BL.ByteString) -- QB file
+  -> (Word32, Word32, Word32, Word32, Word32, BL.ByteString) -- QS file
+  -> BL.ByteString
+worFileTextPak (qbKey, qb) (qsKey1, qsKey2, qsKey3, qsKey4, qsKey5, qs) = buildPak
+  -- all these nodeFilenameCRC are same across packs.
+  -- the nodeFilenameKey are different for the first 6 files, and the .stat file (not included). rest are same
+  [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+    , qb
+    )
+  , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey1, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+    , qs
+    )
+  , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey2, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+    , qs
+    )
+  , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey3, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+    , qs
+    )
+  , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey4, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+    , qs
+    )
+  , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey5, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+    , qs
+    )
+  , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2339261848, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+    , makeQS []
+    )
+  , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3024241172, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+    , makeQS []
+    )
+  , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3669621742, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+    , makeQS []
+    )
+  , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 94872913, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+    , makeQS []
+    )
+  , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3899138369, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+    , makeQS []
+    )
+  , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 12, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0}
+    , BL.replicate 4 0xAB
+    )
+  ]
+
+saveMetadataLIVE :: [(Word32, [QBStructItem QSResult Word32])] -> FilePath -> IO ()
+saveMetadataLIVE library fout = let
+
+  packageTitle = "GH:WoR Customs Database"
+  packageTitles = [packageTitle, "", packageTitle, packageTitle, packageTitle, packageTitle]
+  packageDescs = let s = "new PACK" in [s, "", s, s, s, s]
+  (titleHashHex, titleHash) = packageNameHash packageTitle
+  cdl = "cdl2000000000"
+  manifestQBFilenameKey
+    : textQBFilenameKey
+    : textQS1FilenameKey
+    : textQS2FilenameKey
+    : textQS3FilenameKey
+    : textQS4FilenameKey
+    : textQS5FilenameKey
+    : _
+    = [2000000001 ..]
+
+  (qb, qs) = showTextPakQBQS $ TextPakQB textQBFilenameKey library
+  textPak = worFileTextPak
+    (textQBFilenameKey, qb)
+    (textQS1FilenameKey, textQS2FilenameKey, textQS3FilenameKey, textQS4FilenameKey, textQS5FilenameKey, qs)
+
+  files =
+    [ ( "cmanifest_" <> titleHash <> ".pak.xen"
+      , worFileManifest titleHashHex (T.pack cdl) manifestQBFilenameKey []
+      )
+    , ( cdl <> ".pak.xen"
+      , worFileBarePak
+      )
+    , ( cdl <> "_text.pak.xen"
+      , textPak
+      )
+    ]
+  folder = Folder
+    { folderSubfolders = []
+    , folderFiles = map (\(name, bs) -> (T.pack name, makeHandle name $ byteStringSimpleHandle bs)) files
+    }
+
+  in do
+    thumb <- ghWoRthumbnail >>= B.readFile
+    makeCONReadable CreateOptions
+      { createNames = packageTitles
+      , createDescriptions = packageDescs
+      , createTitleID = 0x41560883
+      , createTitleName = "Guitar Hero : Warriors of Rock"
+      , createThumb = thumb
+      , createTitleThumb = thumb
+      , createLicenses = [LicenseEntry (-1) 1 1, LicenseEntry (-1) 1 0]
+      , createMediaID       = 0
+      , createVersion       = 0
+      , createBaseVersion   = 0
+      , createTransferFlags = 0xC0
+      , createLIVE = True
+      } folder fout
+
+-- The STFS package display name is used to make the hash in the manifest file's name.
+packageNameHash :: T.Text -> (Word32, String)
+packageNameHash t = let
+  titleHashLookup = HM.fromList $ do
+    c <- ['a' .. 'z'] <> ['0' .. '9']
+    [(c, c), (toUpper c, c)]
+  titleHashHex = qbKeyCRC $ B8.pack
+    $ take 42 -- odd cutoff
+    $ map (\c -> fromMaybe '_' $ HM.lookup c titleHashLookup)
+    $ T.unpack t
+  titleHashStr = let
+    str = showHex titleHashHex ""
+    in replicate (length str - 8) '0' <> str
+  in (titleHashHex, titleHashStr)

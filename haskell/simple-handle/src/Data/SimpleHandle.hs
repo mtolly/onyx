@@ -14,7 +14,7 @@ import qualified Data.ByteString.Lazy     as BL
 import           Data.ByteString.Unsafe   (unsafeUseAsCStringLen)
 import           Data.Either              (lefts, rights)
 import           Data.IORef
-import           Data.List                (sort)
+import           Data.List                (find, sort)
 import           Data.List.NonEmpty       (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty       as NE
 import           Data.Maybe               (fromMaybe)
@@ -200,6 +200,17 @@ findFile spath folder = case NE.uncons spath of
     sub <- lookup dir $ folderSubfolders folder
     findFile rest sub
   (name, Nothing) -> lookup name $ folderFiles folder
+
+-- Case-insensitive
+findFileCI :: NE.NonEmpty T.Text -> Folder T.Text a -> Maybe a
+findFileCI spath folder = case NE.uncons spath of
+  (dir, Just rest) -> do
+    sub <- lookup' dir $ folderSubfolders folder
+    findFileCI rest sub
+  (name, Nothing) -> lookup' name $ folderFiles folder
+  where lookup' x xs = let
+          x' = T.toCaseFold x
+          in fmap snd $ find (\(y, _) -> x' == T.toCaseFold y) xs
 
 crawlFolder :: FilePath -> IO (Folder T.Text Readable)
 crawlFolder f = do

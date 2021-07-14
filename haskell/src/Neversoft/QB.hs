@@ -66,6 +66,7 @@ data QBArray qs k
   | QBArrayOfFloat [Float]
   | QBArrayOfFloatRaw [Float] -- QueenBee says "this isn't really an array, just a simple type", I don't know what that means
   | QBArrayOfQbKeyStringQs [qs]
+  | QBArrayOfArray [QBArray qs k]
   deriving (Eq, Show, Functor)
 
 instance (ToJSON qs, ToJSON k) => ToJSON (QBArray qs k) where
@@ -76,6 +77,7 @@ instance (ToJSON qs, ToJSON k) => ToJSON (QBArray qs k) where
     QBArrayOfFloat x -> OneKey "ArrayOfFloat" $ toJSON x
     QBArrayOfFloatRaw x -> OneKey "ArrayOfFloatRaw" $ toJSON x
     QBArrayOfQbKeyStringQs x -> OneKey "ArrayOfQbKeyStringQs" $ toJSON x
+    QBArrayOfArray x -> OneKey "ArrayOfArray" $ toJSON x
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBArray qs k) where
   parseJSON = \case
@@ -156,6 +158,7 @@ instance Bifunctor QBArray where
     QBArrayOfFloat ns -> QBArrayOfFloat ns
     QBArrayOfFloatRaw ns -> QBArrayOfFloatRaw ns
     QBArrayOfQbKeyStringQs qs -> QBArrayOfQbKeyStringQs $ map f qs
+    QBArrayOfArray arrs -> QBArrayOfArray $ map (first f) arrs
   second = fmap
 
 instance Bifunctor QBStructItem where
@@ -186,6 +189,7 @@ instance Bifoldable QBArray where
     QBArrayOfFloat         _       -> mempty
     QBArrayOfFloatRaw      _       -> mempty
     QBArrayOfQbKeyStringQs qs      -> mconcat $ map f qs
+    QBArrayOfArray         arrs    -> mconcat $ map (bifoldMap f g) arrs
 
 instance Bifoldable QBStructItem where
   bifoldMap f g = \case
@@ -212,11 +216,8 @@ shouldBeAt w = do
     , "0x" <> showHex p ""
     ]
 
-parseQBArray :: Get (QBArray Word32 Word32, Word32)
-parseQBArray = do
-  p1 <- getWord32be
-  p2 <- getWord32be
-  shouldBeAt p1
+parseQBSubArray :: Get (QBArray Word32 Word32)
+parseQBSubArray = do
   arrayType <- getWord32be
   len <- fromIntegral <$> getWord32be
   case len of
@@ -225,7 +226,7 @@ parseQBArray = do
     _ -> do
       p3 <- getWord32be
       shouldBeAt p3
-  array <- case arrayType of
+  case arrayType of
     0x00010D00 -> QBArrayOfQbKey <$> replicateM len getWord32be
     0x00010100 -> QBArrayOfInteger <$> replicateM len getWord32be
     0x00010A00 -> do
@@ -236,7 +237,19 @@ parseQBArray = do
     0x00010200 -> QBArrayOfFloat <$> replicateM len getFloatbe
     0x00010000 -> QBArrayOfFloatRaw <$> replicateM len getFloatbe
     0x00011C00 -> QBArrayOfQbKeyStringQs <$> replicateM len getWord32be
+    0x00010C00 -> do
+      arrayStarts <- replicateM len getWord32be
+      fmap QBArrayOfArray $ forM arrayStarts $ \p4 -> do
+        shouldBeAt p4
+        parseQBSubArray
     _ -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
+
+parseQBArray :: Get (QBArray Word32 Word32, Word32)
+parseQBArray = do
+  p1 <- getWord32be
+  p2 <- getWord32be
+  shouldBeAt p1
+  array <- parseQBSubArray
   return (array, p2)
 
 -- Skip to next position divisible by 4
@@ -459,14 +472,19 @@ putQBArray ary = do
   p1 <- reservePointer
   p2 <- reservePointer
   fillPointer p1
-  let writeLen xs = do
-        let len = length xs
-        w32 $ fromIntegral len
-        case len of
-          0 -> w32 0
-          1 -> return ()
-          _ -> reservePointer >>= fillPointer
-  case ary of
+  putQBSubArray ary
+  return p2
+
+putQBSubArray :: QBArray Word32 Word32 -> PutSeek s ()
+putQBSubArray ary = let
+  writeLen xs = do
+    let len = length xs
+    w32 $ fromIntegral len
+    case len of
+      0 -> w32 0
+      1 -> return ()
+      _ -> reservePointer >>= fillPointer
+  in case ary of
     QBArrayOfQbKey ks -> do
       w32 0x00010D00
       writeLen ks
@@ -494,7 +512,13 @@ putQBArray ary = do
       w32 0x00011C00
       writeLen qs
       mapM_ w32 qs
-  return p2
+    QBArrayOfArray arrs -> do
+      w32 0x00010C00
+      writeLen arrs
+      ptrArrayPairs <- mapM (\a -> (\p -> (p, a)) <$> reservePointer) arrs
+      forM_ ptrArrayPairs $ \(p, a) -> do
+        fillPointer p
+        putQBSubArray a
 
 padTo4 :: B.ByteString -> B.ByteString
 padTo4 bs = case rem (B.length bs) 4 of

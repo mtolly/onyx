@@ -30,7 +30,7 @@ import qualified Data.ByteString.Base64.Lazy           as B64
 import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (isAscii, isControl,
-                                                        isSpace, toUpper)
+                                                        isSpace)
 import           Data.Conduit                          (runConduit)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
@@ -90,7 +90,11 @@ import qualified MelodysEscape                         as Melody
 import           MoggDecrypt
 import           Neversoft.Audio                       (aesEncrypt, worFSBKey)
 import           Neversoft.Checksum                    (qbKeyCRC)
-import           Neversoft.Export                      (makeGHWoRNote)
+import           Neversoft.Export                      (makeGHWoRNote,
+                                                        packageNameHash,
+                                                        worFileBarePak,
+                                                        worFileManifest,
+                                                        worFileTextPak)
 import           Neversoft.Note                        (makeWoRNoteFile,
                                                         putNote)
 import           Neversoft.Pak                         (Node (..), buildPak,
@@ -99,7 +103,6 @@ import           Neversoft.QB                          (QBArray (..),
                                                         QBSection (..),
                                                         QBStructItem (..),
                                                         putQB)
-import           Numeric                               (showHex)
 import qualified Numeric.NonNegative.Class             as NNC
 import           OSFiles                               (copyDirRecursive)
 import           Overdrive                             (calculateUnisons,
@@ -178,10 +181,13 @@ applyTargetAudio tgt mid = let
   applyStart = case tgt_Start tgt >>= bounds of
     Nothing           -> id
     Just (start, end) -> fadeStart (toDuration $ end - start) . dropStart (toDuration start)
-  applySpeed = case fromMaybe 1 $ tgt_Speed tgt of
-    1 -> id
-    n -> stretchFull (1 / n) 1
+  applySpeed = applySpeedAudio tgt
   in applySpeed . applyStart . applyEnd
+
+applySpeedAudio :: (MonadResource m) => TargetCommon -> AudioSource m Float -> AudioSource m Float
+applySpeedAudio tgt = case fromMaybe 1 $ tgt_Speed tgt of
+  1 -> id
+  n -> stretchFull (1 / n) 1
 
 lastEvent :: (NNC.C t) => RTB.T t a -> Maybe (t, a)
 lastEvent (Wait !t x RNil) = Just (t, x)
@@ -2816,22 +2822,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 cdl = "cdl" <> show (fromMaybe hashed $ gh5_CDL gh5)
                 songKey = "dlc" <> show songID
                 songKeyQB = qbKeyCRC $ B8.pack songKey
-                packageTitle = T.pack $ "Custom " <> songKey -- TODO more descriptive
+                packageTitle = targetTitle songYaml target <> " (" <> getArtist (_metadata songYaml) <> ")"
                 packageTitles = [packageTitle, "", packageTitle, packageTitle, packageTitle, packageTitle]
-                -- don't think this is important but it's what official DLC has
-                packageDescs = let s = "new PACK" in [s, "", s, s, s, s]
+                packageDescs = let s = "Custom song created by Onyx Music Game Toolkit" in [s, "", s, s, s, s]
                 -- "Emo Edge Track Pack" becomes "emo_edge_track_pack"
                 -- "\"Addicted\"" becomes "_addicted_"
                 -- "GH: Warriors of Rock 1 Track Pack" becomes "gh__warriors_of_rock_1_track_pack"
-                titleHashLookup = HM.fromList $ do
-                  c <- ['a' .. 'z'] <> ['0' .. '9']
-                  [(c, c), (toUpper c, c)]
-                titleHashHex = qbKeyCRC $ B8.pack
-                  $ map (\c -> fromMaybe '_' $ HM.lookup c titleHashLookup)
-                  $ T.unpack packageTitle
-                titleHash = let
-                  str = showHex titleHashHex ""
-                  in replicate (length str - 8) '0' <> str
+                (titleHashHex, titleHash) = packageNameHash packageTitle
 
                 -- more IDs that might need to be unique
                 manifestQBFilenameKey
@@ -2848,80 +2845,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   : _
                   = [songKeyQB + 1 ..]
 
-            dir </> "cmanifest.pak.xen" %> \out -> stackIO $ BL.writeFile out $ buildPak
-              [ ( Node
-                  { nodeFileType = qbKeyCRC ".qb"
-                  , nodeOffset = 0
-                  , nodeSize = 0
-                  , nodeFilenamePakKey = 0
-                  , nodeFilenameKey = manifestQBFilenameKey
-                  , nodeFilenameCRC = 2997346177 -- same across packs
-                  , nodeUnknown = 0
-                  , nodeFlags = 0
-                  }
-                , putQB
-                  -- first number in each of these sections is same across packs
-                  [ QBSectionInteger 3850140781 manifestQBFilenameKey 2
-                  , QBSectionInteger 1403615505 manifestQBFilenameKey 0
-                  , QBSectionArray 2706631909 manifestQBFilenameKey $ QBArrayOfStruct
-                    [ [ QBStructHeader
-                      , QBStructItemArray
-                        (qbKeyCRC "package_name_checksums")
-                        (QBArrayOfQbKey [titleHashHex])
-                      , QBStructItemQbKey
-                        (qbKeyCRC "format")
-                        654834362 -- all WoR dlc has this, gh5 might be different
-                      , QBStructItemString
-                        (qbKeyCRC "song_pak_stem")
-                        (TE.encodeUtf8 $ T.pack cdl)
-                      , QBStructItemArray
-                        (qbKeyCRC "songs")
-                        (QBArrayOfInteger [fromIntegral songID])
-                      ]
-                    ]
-                  ]
-                )
-              , ( Node
-                  { nodeFileType = qbKeyCRC ".last"
-                  , nodeOffset = 1
-                  , nodeSize = 0
-                  , nodeFilenamePakKey = 0
-                  , nodeFilenameKey = 2306521930
-                  , nodeFilenameCRC = 1794739921
-                  , nodeUnknown = 0
-                  , nodeFlags = 0
-                  }
-                , BL.replicate 4 0xAB
-                )
-              ]
+            dir </> "cmanifest.pak.xen" %> \out -> stackIO $ BL.writeFile out
+              $ worFileManifest titleHashHex (T.pack cdl) manifestQBFilenameKey [fromIntegral songID]
 
-            dir </> "cdl.pak.xen" %> \out -> stackIO $ BL.writeFile out $ buildPak
-              -- all of this is constant across packs
-              [ ( Node
-                  { nodeFileType = qbKeyCRC ".qb"
-                  , nodeOffset = 0
-                  , nodeSize = 0
-                  , nodeFilenamePakKey = 0
-                  , nodeFilenameKey = 2973311508
-                  , nodeFilenameCRC = 24767173
-                  , nodeUnknown = 0
-                  , nodeFlags = 0
-                  }
-                , putQB []
-                )
-              , ( Node
-                  { nodeFileType = qbKeyCRC ".last"
-                  , nodeOffset = 1
-                  , nodeSize = 0
-                  , nodeFilenamePakKey = 0
-                  , nodeFilenameKey = 2306521930
-                  , nodeFilenameCRC = 1794739921
-                  , nodeUnknown = 0
-                  , nodeFlags = 0
-                  }
-                , BL.replicate 4 0xAB
-                )
-              ]
+            dir </> "cdl.pak.xen" %> \out -> stackIO $ BL.writeFile out worFileBarePak
 
             dir </> "cdl_text.pak.xen" %> \out -> do
               mid <- shakeMIDI $ planDir </> "processed.mid"
@@ -2993,51 +2920,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         ]
                       ]
                     ]
-                  nodes =
-                    -- all these nodeFilenameCRC are same across packs.
-                    -- the nodeFilenameKey are different for the first 6 files, and the .stat file. rest are same
-                    [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = textQBFilenameKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
-                      , putQB qb
-                      )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = textQS1FilenameKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
-                      , qs
-                      )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = textQS2FilenameKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
-                      , qs
-                      )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = textQS3FilenameKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
-                      , qs
-                      )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = textQS4FilenameKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
-                      , qs
-                      )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = textQS5FilenameKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
-                      , qs
-                      )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2339261848, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
-                      , makeQS []
-                      )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3024241172, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
-                      , makeQS []
-                      )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3669621742, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
-                      , makeQS []
-                      )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 94872913, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
-                      , makeQS []
-                      )
-                    , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3899138369, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
-                      , makeQS []
-                      )
-                    -- Not sure what this file does
-                    -- , ( Node {nodeFileType = qbKeyCRC ".stat", nodeOffset = 11, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 243885942, nodeFilenameCRC = 2759140561, nodeUnknown = 0, nodeFlags = 0}
-                    --   , stat
-                    --   )
-                    , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 12, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0}
-                      , BL.replicate 4 0xAB
-                      )
-                    ]
-              stackIO $ BL.writeFile out $ buildPak nodes
+              stackIO $ BL.writeFile out $ worFileTextPak
+                (textQBFilenameKey, putQB qb)
+                (textQS1FilenameKey, textQS2FilenameKey, textQS3FilenameKey, textQS4FilenameKey, textQS5FilenameKey, qs)
 
             dir </> "song.pak.xen" %> \out -> do
               shk $ need [dir </> "ghwor.note"]
@@ -3105,7 +2990,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
             [dir </> "ghwor.note", dir </> "ghwor.qs"] &%> \[outNote, outQS] -> do
               mid <- shakeMIDI $ planDir </> "processed.mid"
-              (note, qs) <- makeGHWoRNote songYaml gh5 mid $ getAudioLength planName plan
+              (note, qs) <- makeGHWoRNote songYaml gh5
+                (applyTargetMIDI (gh5_Common gh5) mid)
+                $ getAudioLength planName plan
               stackIO $ BL.writeFile outNote $ runPut $
                 putNote songKeyQB $ makeWoRNoteFile note
               stackIO $ BL.writeFile outQS $ makeQS $ HM.toList qs
@@ -3116,28 +3003,32 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             -- Otherwise pausing doesn't pause the audio once you pass the end of any of the FSBs.
             dir </> "audio1.wav" %> \out -> do
               len <- getAudioLength planName plan
-              runAudio (silent (Seconds $ realToFrac len) 1000 8) out
+              runAudio (applySpeedAudio (gh5_Common gh5) $ silent (Seconds $ realToFrac len) 1000 8) out
             dir </> "audio2.wav" %> \out -> do
               len <- getAudioLength planName plan
-              runAudio (silent (Seconds $ realToFrac len) 1000 6) out
+              runAudio (applySpeedAudio (gh5_Common gh5) $ silent (Seconds $ realToFrac len) 1000 6) out
             -- TODO support speed
-            dir </> "audio3.wav" %> buildAudio (Merge
-              [ Input $ planDir </> "everything.wav"
-              , Silence 2 $ Seconds 0
-              ])
+            dir </> "audio3.wav" %> \out -> do
+              mid <- shakeMIDI $ planDir </> "processed.mid"
+              let _ = mid :: RBFile.Song (RBFile.OnyxFile U.Beats)
+              src <- shk $ buildSource $ Merge
+                [ Input $ planDir </> "everything.wav"
+                , Silence 2 $ Seconds 0
+                ]
+              runAudio (applyTargetAudio (gh5_Common gh5) mid src) out
 
             dir </> "preview.wav" %> \out -> do
-              -- TODO this should be quieter, to match official previews
               mid <- shakeMIDI $ planDir </> "processed.mid"
               let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))
                   fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
-                  previewExpr
-                    = Fade End (Seconds 5)
-                    $ Fade Start (Seconds 2)
-                    $ Take Start (fromMS $ pend - pstart)
-                    $ Drop Start (fromMS pstart)
-                    $ Input (planDir </> "everything.wav")
-              buildAudio previewExpr out
+              src <- shk $ buildSource
+                $ Gain 0.7 -- just guessing at this. without it previews are too loud
+                $ Fade End (Seconds 5)
+                $ Fade Start (Seconds 2)
+                $ Take Start (fromMS $ pend - pstart)
+                $ Drop Start (fromMS pstart)
+                $ Input (planDir </> "everything.wav")
+              runAudio (applySpeedAudio (gh5_Common gh5) src) out
 
             forM_ ["audio1", "audio2", "audio3", "preview"] $ \audio -> do
               let wav = dir </> audio <.> "wav"
