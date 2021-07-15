@@ -169,7 +169,7 @@ data GuitarBass = GuitarBass
 data Drums = Drums
   { drums_instrument :: Either [Note] [NoteExpertDrums]
   , drums_starpower  :: [Single Word16] -- values are durations
-  , drums_drumfill   :: [Single Word32]
+  , drums_drumfill   :: [Single Word32] -- values are end points
   } deriving (Show)
 
 data VocalNote = VocalNote

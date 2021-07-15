@@ -1277,10 +1277,10 @@ stfsFolder f = liftIO $ withBinaryFile f ReadMode $ \h -> do
   let titleID = a * 0x1000000 + b * 0x10000 + c * 0x100 + d
   return (titleID, ftype)
 
-makePack :: [FilePath] -> (CreateOptions -> CreateOptions) -> FilePath -> IO ()
-makePack []                 _         _    = fail "Need at least 1 file for STFS pack"
+makePack :: (MonadIO m) => [FilePath] -> (CreateOptions -> CreateOptions) -> FilePath -> StackTraceT m ()
+makePack []                 _         _    = fatal "Need at least 1 file for STFS pack"
 makePack inputs@(input : _) applyOpts fout = do
-  opts <- withSTFSPackage input $ \stfs -> return $ applyOpts CreateOptions
+  opts <- stackIO $ withSTFSPackage input $ \stfs -> return $ applyOpts CreateOptions
     { createNames         = ["Package"]
     , createDescriptions  = []
     , createTitleID       = md_TitleID             $ stfsMetadata stfs
@@ -1296,7 +1296,7 @@ makePack inputs@(input : _) applyOpts fout = do
       CON{} -> False
       _     -> True
     }
-  roots <- mapM getSTFSFolder inputs
+  roots <- stackIO $ mapM getSTFSFolder inputs
   let combineFolders parents folders = do
         let allNames = nubOrd $ folders >>= \f -> map fst (folderSubfolders f) <> map fst (folderFiles f)
         newContents <- fmap catMaybes $ forM allNames $ \name -> let
@@ -1305,30 +1305,31 @@ makePack inputs@(input : _) applyOpts fout = do
           in case (matchFolders, matchFiles) of
             (_    , []   ) -> Just . Left . (name,)  <$> combineFolders (name : parents) matchFolders
             ([]   , _    ) -> fmap (Right . (name,)) <$> combineFiles parents name matchFiles
-            (_ : _, _ : _) -> fail $ "Name refers to a folder in some input CON/LIVE, but a file in others: " <> showPath parents name
+            (_ : _, _ : _) -> fatal $ "Name refers to a folder in some input CON/LIVE, but a file in others: " <> showPath parents name
         return Folder
           { folderSubfolders = lefts  newContents
           , folderFiles      = rights newContents
           }
-      combineFiles parents name contents = if ".dta" `T.isSuffixOf` name
-        then do
-          bytes <- forM contents $ \r -> useHandle r handleToByteString
+      combineFiles parents name contents
+        | ".dta" `T.isSuffixOf` name = do
+          bytes <- stackIO $ forM contents $ \r -> useHandle r handleToByteString
           return $ Just $ makeHandle ("Pack-merged contents for " <> showPath parents name)
             $ byteStringSimpleHandle $ BL.intercalate "\n" bytes
-        else case contents of
+        | ".pak.xen" `T.isSuffixOf` name = fatal "Pack creator does not yet support Neversoft GH files."
+        | otherwise = case contents of
           []     -> return Nothing -- shouldn't happen
           [r]    -> return $ Just r
           r : rs -> if name == "spa.bin"
             then return Nothing
             else do
               let hashContents rdbl = hash . BL.toStrict <$> useHandle rdbl handleToByteString :: IO (Digest MD5)
-              firstHash <- hashContents r
-              allM (fmap (== firstHash) . hashContents) rs >>= \case
+              firstHash <- stackIO $ hashContents r
+              stackIO (allM (fmap (== firstHash) . hashContents) rs) >>= \case
                 True  -> return $ Just r
-                False -> fail $ "File contains different contents across input CON/LIVE files: " <> showPath parents name
+                False -> fatal $ "File contains different contents across input CON/LIVE files: " <> showPath parents name
       showPath parents name = T.unpack $ T.intercalate "/" $ reverse $ name : parents
   merged <- combineFolders [] roots
-  makeCONReadable opts merged fout
+  stackIO $ makeCONReadable opts merged fout
 
 repackOptions :: STFSPackage -> CreateOptions
 repackOptions stfs = CreateOptions

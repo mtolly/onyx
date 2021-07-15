@@ -15,6 +15,7 @@ import           Data.Char                        (isAscii)
 import           Data.DTA.Serialize.Magma         (Percussion (..))
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.List.Extra                  (nubOrd)
 import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import           DeriveHelpers
@@ -173,7 +174,7 @@ getLyricNotes mmap vox = let
   -- TODO handle the section-symbol-encoded spanish vowel elision char?
   -- TODO handle Footloose and Fancy Free style space hack (strip lyric)?
 
-putLyricNotes :: RTB.T U.Beats (LyricNote, U.Beats) -> VocalTrack U.Beats
+putLyricNotes :: (NNC.C t) => RTB.T t (LyricNote, t) -> VocalTrack t
 putLyricNotes lnotes = mempty
   { vocalLyrics = flip fmap lnotes $ \(lnote, _) -> case lnote of
     Pitched _  (Lyric t cont) -> t <> if cont then "-" else ""
@@ -190,10 +191,10 @@ putLyricNotes lnotes = mempty
       Pitched p _ -> p
       Talky   _ _ -> minBound
       SlideTo p   -> p
-    in RTB.fromPairList [(0, (pitch, True)), (dur, (pitch, False))]
+    in RTB.fromPairList [(NNC.zero, (pitch, True)), (dur, (pitch, False))]
   }
 
-getPhraseLabels :: RTB.T U.Beats Bool -> RTB.T U.Beats (LyricNote, U.Beats) -> RTB.T U.Beats T.Text
+getPhraseLabels :: (Num t, NNC.C t) => RTB.T t Bool -> RTB.T t (LyricNote, t) -> RTB.T t T.Text
 getPhraseLabels phrases lnotes = let
   eachPhrase lnoteList = let
     lyricList = flip mapMaybe lnoteList $ \case
@@ -211,3 +212,8 @@ getPhraseLabels phrases lnotes = let
     $ map (\(start, ((), (), len)) -> (start, eachPhrase $ getPhrase start len))
     $ ATB.toPairList
     $ RTB.toAbsoluteEventList 0 joinedPhrases
+
+vocalPhraseAll :: (NNC.C t) => VocalTrack t -> RTB.T t Bool
+vocalPhraseAll vt = RTB.flatten $ fmap nubOrd $ RTB.collectCoincident $ RTB.merge
+  (vocalPhrase1 vt)
+  (vocalPhrase2 vt)

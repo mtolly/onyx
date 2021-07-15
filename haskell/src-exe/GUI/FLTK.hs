@@ -3231,7 +3231,7 @@ miscPagePacks sink rect tab startTasks = mdo
                       , STFS.createDescriptions = [packDesc]
                       , STFS.createLIVE         = isLIVE
                       }
-                stackIO $ STFS.makePack (map stfsPath stfs) applyOpts f
+                STFS.makePack (map stfsPath stfs) applyOpts f
                 return [f]
               in [("STFS file creation", task)]
           _ -> return ()

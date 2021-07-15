@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE TupleSections     #-}
 module Neversoft.Export where
 
 import           Config
@@ -17,10 +18,10 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Hashable                    (hash)
 import qualified Data.HashMap.Strict              as HM
-import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    isNothing)
+import qualified Data.Set                         as Set
 import           Data.SimpleHandle
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
@@ -34,6 +35,7 @@ import           Neversoft.Note
 import           Neversoft.Pak
 import           Neversoft.QB
 import           Numeric                          (showHex)
+import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
 import           Resources                        (ghWoRthumbnail)
 import           RockBand.Codec.Beat
@@ -47,7 +49,7 @@ import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    StrumHOPOTap (..),
                                                    pattern Wait,
                                                    joinEdgesSimple,
-                                                   noRedundantStatus)
+                                                   noRedundantStatus, trackGlue)
 import           RockBand.Legacy.Vocal            (harm1ToPartVocals)
 import           RockBand.Sections                (makePSSection)
 import           RockBand3                        (BasicTiming (..),
@@ -77,6 +79,64 @@ worGuitarEdits
     )
   . RTB.collectCoincident
 
+makePhrasePoints :: RTB.T U.Seconds Bool -> [U.Seconds]
+makePhrasePoints edges = let
+  closeStartTime = 1 :: U.Seconds
+  dropCloseStarts = \case
+    Wait t1 False (Wait t2 True rest) | t2 < closeStartTime
+      -> dropCloseStarts $ Wait t1 False $ RTB.delay t2 rest
+    Wait t x rest -> Wait t x $ dropCloseStarts rest
+    RNil -> RNil
+  in (0 :) $ ATB.getTimes $ RTB.toAbsoluteEventList 0
+    $ dropCloseStarts $ RTB.normalize edges
+
+makeDrumFill :: RTB.T U.Seconds gem -> U.Seconds -> [(U.Seconds, U.Seconds)]
+makeDrumFill notes end = let
+  notePosns = ATB.getTimes $ RTB.toAbsoluteEventList 0 $ RTB.collectCoincident notes
+  gaps = zip (0 : notePosns) (notePosns <> [end])
+  potentialFills = flip map gaps $ \(gapStart, gapEnd) ->
+    ( if gapStart == 0 then 0 else gapStart + 0.15 -- NS actually appear to use a gap of "32nd note and then 100ms" but this should work
+    , if gapEnd == end then end else gapEnd -| 0.1
+    )
+  minimumFill = 5 :: U.Seconds -- just guessing at a good value
+  in filter (\(gapStart, gapEnd) -> gapEnd -| gapStart >= minimumFill) potentialFills
+
+joinChords
+  :: (NNC.C t)
+  => RTB.T t ((Maybe F.Color, StrumHOPOTap), Maybe t)
+  -> RTB.T t ([Maybe F.Color], StrumHOPOTap, Maybe t)
+joinChords = fmap joinChord . RTB.collectCoincident where
+  joinChord notes = let
+    -- these should all be safe due to collectCoincident
+    colors = map (fst . fst) notes
+    sht = snd $ fst $ head notes
+    len = minimum $ map snd notes
+    in (colors, sht, len)
+
+annotateOverlaps
+  :: (NNC.C t)
+  => RTB.T t ([Maybe F.Color], StrumHOPOTap, Maybe t)
+  -> RTB.T t ([Maybe F.Color], StrumHOPOTap, Maybe t, [Maybe F.Color])
+annotateOverlaps = go . fmap (, Set.empty) where
+  go = \case
+    RNil -> RNil
+    Wait t ((colors, sht, mlen), preheld) rest -> let
+      postheld = Set.fromList $ case mlen of
+        Nothing  -> []
+        Just len -> do
+          ((colors', _, _), _) <- RTB.getBodies $ U.trackTake len rest
+          colors'
+      held = Set.difference (Set.union preheld postheld) $ Set.fromList colors
+      rest' = case mlen of
+        Nothing -> rest
+        Just len -> let
+          (duringThis, afterThis) = U.trackSplit len rest
+          duringThis' = (\(triple, otherPreheld) -> (triple, Set.union otherPreheld $ Set.fromList colors))
+            <$> duringThis
+          in trackGlue len duringThis' afterThis
+      in Wait t (colors, sht, mlen, Set.toList held) $ go rest'
+  -- TODO might need more overlaps marked? weird dropped sustains on Chorus 1 of Informal Gluttony on guitar
+
 makeGHWoRNote
   :: (SendMessage m)
   => SongYaml f
@@ -85,8 +145,10 @@ makeGHWoRNote
   -> StackTraceT m U.Seconds -- ^ get longest audio length
   -> StackTraceT m (GHNoteFile, HM.HashMap Word32 T.Text)
 makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength = let
+  secondsToMS :: U.Seconds -> Word32
+  secondsToMS = floor . (* 1000)
   beatsToMS :: U.Beats -> Word32
-  beatsToMS = floor . (* 1000) . U.applyTempoMap tmap
+  beatsToMS = secondsToMS . U.applyTempoMap tmap
   makeStarPower od = do
     (t, ((), (), len)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ flip fmap od $ \case
       True  -> EdgeOn () ()
@@ -108,11 +170,18 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
         $ fd
         :: RTB.T U.Beats ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
       taps = F.fiveTap $ emit5' notes
+      colorToBit = \case
+        Just F.Green  -> 0
+        Just F.Red    -> 1
+        Just F.Yellow -> 2
+        Just F.Blue   -> 3
+        Just F.Orange -> 4
+        Nothing       -> 5
       in GuitarBass
         { gb_instrument = do
-          (t, evts) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.collectCoincident notes
+          (t, (colors, sht, maybeLen, overlaps)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0
+            $ annotateOverlaps $ joinChords notes
           let start = beatsToMS t
-              maybeLen = NE.nonEmpty (map snd evts) >>= minimum
               end = maybe (start + 1) (\bts -> beatsToMS $ t + bts) maybeLen
           return Note
             { noteTimeOffset = beatsToMS t
@@ -122,36 +191,31 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
               -- For now we just leave them in on guitar to become strums;
               -- could also consider modifying the no-opens algorithm to only
               -- adjust pulloffs and not open strums.
-              ((mcolor, sht), _len) <- evts
+              mcolor <- colors
               let shtBit = if sht /= Strum then bit 6 else 0
-                  colorBit = bit $ case mcolor of
-                    Just F.Green  -> 0
-                    Just F.Red    -> 1
-                    Just F.Yellow -> 2
-                    Just F.Blue   -> 3
-                    Just F.Orange -> 4
-                    Nothing       -> 5
+                  colorBit = bit $ colorToBit mcolor
               return $ shtBit .|. colorBit
-            , noteAccent = 31
-            -- TODO noteAccent is required for extended sustains to work.
+            -- noteAccent is required for extended sustains to work.
             -- Clear bits for colors with notes that overlap this one
+            , noteAccent = foldr (\mcolor n -> n `clearBit` colorToBit mcolor) 31 overlaps
             }
         , gb_tapping = makeStarPower taps
         , gb_starpower = makeStarPower $ F.fiveOverdrive trk
         }
     Nothing -> GuitarBass [] [] []
-  makeDrums fpart diff = case getPart fpart songYaml >>= partDrums of
+  makeDrums fpart diff timing = case getPart fpart songYaml >>= partDrums of
     Just pd -> let
       opart = fromMaybe mempty $ Map.lookup fpart $ RBFile.onyxParts ofile
       trk = RBFile.onyxPartDrums opart -- TODO use other tracks potentially
       dd = fromMaybe mempty $ Map.lookup diff $ D.drumDifficulties trk
       add2x xs = case diff of
-        Expert -> RTB.merge xs $ Nothing <$ D.drumKick2x trk
-        _      -> xs
+        Expert -> RTB.merge (fmap Just xs) $ Nothing <$ D.drumKick2x trk
+        _      -> fmap Just xs
       fiveLane = case drumsMode pd of
-        Drums5 -> add2x $ fmap Just $ D.drumGems dd
+        Drums4 -> add2x $ D.drumGems dd
+        Drums5 -> add2x $ D.drumGems dd
         DrumsPro -> let
-          pro = add2x $ fmap Just $ D.computePro (Just diff) trk
+          pro = add2x $ D.computePro (Just diff) trk
           eachGroup evts = concat
             [ [Just (D.Kick, vel) | Just (D.Kick, vel) <- evts]
             , [Nothing | Nothing <- evts]
@@ -174,7 +238,8 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
               in concat [ytom, gtom, btom]
             ]
           in RTB.flatten $ fmap eachGroup $ RTB.collectCoincident pro
-        _ -> RTB.empty -- TODO handle basic, real, full
+        _ -> RTB.empty -- TODO handle real, full
+      fills = makeDrumFill (U.applyTempoTrack tmap fiveLane) (U.applyTempoMap tmap $ timingEnd timing)
       drumBit = bit . \case
         Just (D.Pro D.Green () , _) -> 0
         Just (D.Red            , _) -> 1
@@ -207,7 +272,8 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
           Expert -> Right withGhost
           _      -> Left $ map xdNote withGhost
         , drums_starpower = makeStarPower $ D.drumOverdrive trk
-        , drums_drumfill = [] -- TODO
+        , drums_drumfill = flip map fills $ \(gapStart, gapEnd) ->
+          Single (secondsToMS gapStart) (secondsToMS gapEnd)
         }
     Nothing -> Drums (case diff of Expert -> Right []; _ -> Left []) [] []
   in do
@@ -218,9 +284,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
               then harm1ToPartVocals $ RBFile.onyxHarm1 opart
               else RBFile.onyxPartVocals opart
             sp = makeStarPower $ vocalOverdrive trk
-            -- TODO include vocalPhrase2
-            phrases = (0 :) $ map beatsToMS $ ATB.getTimes $ RTB.toAbsoluteEventList 0
-              $ RTB.collectCoincident $ vocalPhrase1 trk
+            phrases = map secondsToMS $ makePhrasePoints $ U.applyTempoTrack tmap $ vocalPhraseAll trk
         lyricNotes <- getLyricNotes mmap trk
         let lyrics
               = map (\(t, txt) -> Single (beatsToMS t) txt)
@@ -300,10 +364,10 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
       , gh_basshard              = makeGB (gh5_Bass target) Hard
       , gh_bassexpert            = makeGB (gh5_Bass target) Expert
 
-      , gh_drumseasy             = makeDrums (gh5_Drums target) Easy
-      , gh_drumsmedium           = makeDrums (gh5_Drums target) Medium
-      , gh_drumshard             = makeDrums (gh5_Drums target) Hard
-      , gh_drumsexpert           = makeDrums (gh5_Drums target) Expert
+      , gh_drumseasy             = makeDrums (gh5_Drums target) Easy   timing
+      , gh_drumsmedium           = makeDrums (gh5_Drums target) Medium timing
+      , gh_drumshard             = makeDrums (gh5_Drums target) Hard   timing
+      , gh_drumsexpert           = makeDrums (gh5_Drums target) Expert timing
 
       , gh_vocals                = voxNotes
       , gh_vocallyrics           = voxLyrics
