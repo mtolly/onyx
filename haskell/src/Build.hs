@@ -24,7 +24,7 @@ import           Control.Monad.Trans.Class             (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
-import           Data.Binary.Put                       (runPut)
+import           Data.Binary.Put                       (putWord32be, runPut)
 import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64.Lazy           as B64
 import qualified Data.ByteString.Char8                 as B8
@@ -118,6 +118,7 @@ import           Reaper.Build                          (TuningInfo (..),
 import           RenderAudio
 import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
+                                                        ghWoRSamplePerf,
                                                         ghWoRthumbnail,
                                                         onyxAlbum, webDisplay)
 import           RockBand.Codec                        (mapTrack)
@@ -2842,6 +2843,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   : songQSFilenameKey
                   : songNoteFilenameKey
                   : songQB2FilenameKey
+                  : songPerfFilenameKey
                   : _
                   = [songKeyQB + 1 ..]
 
@@ -2931,7 +2933,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               qsIDs <- case parseQS qsSections of
                 Just pairs -> return $ map fst pairs
                 Nothing    -> fatal "Couldn't reparse practice sections .qs file"
-              let qb =
+              perf <- stackIO $ ghWoRSamplePerf >>= BL.readFile
+              let perf' = BL.take 4 perf <> runPut (putWord32be songKeyQB) <> BL.drop 8 perf
+                  qb =
                     [ QBSectionArray 1441618440 songQBFilenameKey $ QBArrayOfInteger []
                     , QBSectionArray 2961626425 songQBFilenameKey $ QBArrayOfFloatRaw []
                     , QBSectionArray 3180084209 songQBFilenameKey $ QBArrayOfInteger []
@@ -2979,9 +2983,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQB2FilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
                       , putQB [QBSectionArray 1148198227 3748754942 $ QBArrayOfStruct []]
                       )
-                    -- , ( Node {nodeFileType = qbKeyCRC ".perf", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4108292588, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
-                    --   , perf
-                    --   )
+                    , ( Node {nodeFileType = qbKeyCRC ".perf", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songPerfFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0}
+                      , perf'
+                      )
                     , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0}
                       , BL.replicate 4 0xAB
                       )

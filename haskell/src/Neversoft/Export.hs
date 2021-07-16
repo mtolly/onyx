@@ -38,6 +38,7 @@ import           Numeric                          (showHex)
 import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
 import           Resources                        (ghWoRthumbnail)
+import           RockBand.Codec                   (mapTrack)
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events
@@ -79,17 +80,39 @@ worGuitarEdits
     )
   . RTB.collectCoincident
 
-makePhrasePoints :: RTB.T U.Seconds Bool -> [U.Seconds]
-makePhrasePoints edges = let
+data PhrasePoint
+  = PhraseNotes Bool
+  | PhraseBarLine
+  deriving (Eq, Ord)
+
+-- Turn RB vocal phrases into GH phrase boundaries.
+-- Empty space is also split into phrases using barlines as potential splits.
+makePhrasePoints :: BeatTrack U.Seconds -> RTB.T U.Seconds Bool -> [U.Seconds]
+makePhrasePoints beat edges = let
   closeStartTime = 1 :: U.Seconds
   dropCloseStarts = \case
     Wait t1 False (Wait t2 True rest) | t2 < closeStartTime
-      -> dropCloseStarts $ Wait t1 False $ RTB.delay t2 rest
-    Wait t x rest -> Wait t x $ dropCloseStarts rest
+      -> Wait t1 (PhraseNotes True) $ dropCloseStarts $ RTB.delay t2 rest
+    Wait t b rest -> Wait t (PhraseNotes b) $ dropCloseStarts rest
+    RNil -> RNil
+  minEmptyPhrase = 3 :: U.Seconds
+  barLines = RTB.mapMaybe (\case Bar -> Just PhraseBarLine; _ -> Nothing) $ beatLines beat
+  filterBarLines inNotes = \case
+    Wait t PhraseBarLine rest -> let
+      canSplit = not inNotes && t >= minEmptyPhrase && case RTB.filter (/= PhraseBarLine) rest of
+        Wait t2 _ _ -> t2 >= minEmptyPhrase
+        RNil        -> True
+      in if canSplit
+        then Wait t PhraseBarLine $ filterBarLines inNotes rest
+        else filterBarLines inNotes $ RTB.delay t rest
+    Wait t p@(PhraseNotes b) rest -> Wait t p $ filterBarLines b rest
     RNil -> RNil
   in (0 :) $ ATB.getTimes $ RTB.toAbsoluteEventList 0
-    $ dropCloseStarts $ RTB.normalize edges
+    $ filterBarLines False
+    $ RTB.merge barLines $ dropCloseStarts $ RTB.normalize edges
 
+-- Puts drum freestyle sections when there are long enough gaps of no notes.
+-- TODO fills aren't ending?? disabling for now
 makeDrumFill :: RTB.T U.Seconds gem -> U.Seconds -> [(U.Seconds, U.Seconds)]
 makeDrumFill notes end = let
   notePosns = ATB.getTimes $ RTB.toAbsoluteEventList 0 $ RTB.collectCoincident notes
@@ -101,6 +124,7 @@ makeDrumFill notes end = let
   minimumFill = 5 :: U.Seconds -- just guessing at a good value
   in filter (\(gapStart, gapEnd) -> gapEnd -| gapStart >= minimumFill) potentialFills
 
+-- GH doesn't support chords of different lengths, so we can join all simultaneous notes together
 joinChords
   :: (NNC.C t)
   => RTB.T t ((Maybe F.Color, StrumHOPOTap), Maybe t)
@@ -239,7 +263,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
             ]
           in RTB.flatten $ fmap eachGroup $ RTB.collectCoincident pro
         _ -> RTB.empty -- TODO handle real, full
-      fills = makeDrumFill (U.applyTempoTrack tmap fiveLane) (U.applyTempoMap tmap $ timingEnd timing)
+      fills = [] -- makeDrumFill (U.applyTempoTrack tmap fiveLane) (U.applyTempoMap tmap $ timingEnd timing)
       drumBit = bit . \case
         Just (D.Pro D.Green () , _) -> 0
         Just (D.Red            , _) -> 1
@@ -277,6 +301,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
         }
     Nothing -> Drums (case diff of Expert -> Right []; _ -> Left []) [] []
   in do
+    timing <- basicTiming song getAudioLength
     (voxNotes, voxLyrics, voxSP, voxPhrases, voxMarkers) <- case getPart (gh5_Vocal target) songYaml >>= partVocal of
       Just _pv -> do
         let opart = fromMaybe mempty $ Map.lookup (gh5_Vocal target) $ RBFile.onyxParts ofile
@@ -284,7 +309,9 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
               then harm1ToPartVocals $ RBFile.onyxHarm1 opart
               else RBFile.onyxPartVocals opart
             sp = makeStarPower $ vocalOverdrive trk
-            phrases = map secondsToMS $ makePhrasePoints $ U.applyTempoTrack tmap $ vocalPhraseAll trk
+            phrases = map secondsToMS $ makePhrasePoints
+              (mapTrack (U.applyTempoTrack tmap) $ timingBeat timing)
+              (U.applyTempoTrack tmap $ vocalPhraseAll trk)
         lyricNotes <- getLyricNotes mmap trk
         let lyrics
               = map (\(t, txt) -> Single (beatsToMS t) txt)
@@ -329,7 +356,6 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
               $ getPhraseLabels (vocalPhrase1 trk) lyricNotes
         return (notes, lyrics, sp, phrases, markers)
       Nothing -> return ([], [], [], [], [])
-    timing <- basicTiming song getAudioLength
     let fretbars = map beatsToMS $ ATB.getTimes $ RTB.toAbsoluteEventList 0 $ beatLines $ timingBeat timing
         beatToTimesigs = \case
           Wait t _bar rest -> case RTB.span (== Beat) rest of
@@ -554,7 +580,11 @@ saveMetadataLIVE library fout = let
 
   packageTitle = "GH:WoR Customs Database"
   packageTitles = [packageTitle, "", packageTitle, packageTitle, packageTitle, packageTitle]
-  packageDescs = let s = "new PACK" in [s, "", s, s, s, s]
+  packageDescs = let
+    s = "Onyx cache file containing metadata for " <> case length library of
+      1 -> "1 song"
+      n -> T.pack (show n) <> " songs"
+    in [s, "", s, s, s, s]
   (titleHashHex, titleHash) = packageNameHash packageTitle
   cdl = "cdl2000000000"
   manifestQBFilenameKey

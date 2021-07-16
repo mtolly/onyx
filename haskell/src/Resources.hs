@@ -66,6 +66,9 @@ onyxAlbum = getResourcesPath "album.png" >>= P.readImage >>= \case
   Left  err -> error $ "panic! couldn't decode default album art into image: " ++ err
   Right dyn -> return $ P.convertRGB8 dyn
 
+ghWoRSamplePerf :: IO FilePath
+ghWoRSamplePerf = getResourcesPath "ghwor-ignorance.perf"
+
 {-# NOINLINE missingSongData #-}
 missingSongData :: D.DTA T.Text
 missingSongData = unsafePerformIO $ do

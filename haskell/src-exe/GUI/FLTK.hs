@@ -117,6 +117,7 @@ import           MoggDecrypt                               (oggToMogg)
 import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
 import qualified Network.Socket                            as Socket
+import           Neversoft.Export                          (makeMetadataLIVE)
 import           Numeric                                   (readHex, showHex)
 import           OpenProject
 import           OSFiles                                   (commonDir,
@@ -3167,6 +3168,41 @@ miscPageBlack sink rect tab startTasks = do
       f <- files
       return (f, blackVenue f >> return [f])
 
+miscPageWoRSongCache
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageWoRSongCache sink rect tab startTasks = do
+  loadedFiles <- newMVar []
+  let (filesRect, startRect) = chopBottom 50 rect
+      startRect' = trimClock 5 10 10 10 startRect
+  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchSTFS $ \info -> let
+    entry = T.pack $ stfsPath info
+    sublines = take 1 $ STFS.md_DisplayName $ stfsMeta info
+    in (entry, sublines)
+  btn <- FL.buttonNew startRect' $ Just "Create GH:WoR song cache file"
+  taskColor >>= FL.setColor btn
+  FL.setResizable tab $ Just group
+  FL.setCallback btn $ \_ -> sink $ EventIO $ do
+    inputs <- readMVar loadedFiles
+    picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+    FL.setTitle picker "Save WoR cache file"
+    case inputs of
+      f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory $ stfsPath f
+      _     -> return ()
+    FL.setPresetFile picker "ghwor_custom_cache"
+    FL.showWidget picker >>= \case
+      FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+        Nothing -> return ()
+        Just f  -> sink $ EventOnyx $ startTasks $ let
+          task = do
+            makeMetadataLIVE (map stfsPath inputs) f
+            return [f]
+          in [("Make WoR cache file", task)]
+      _ -> return ()
+
 searchSTFS :: FilePath -> Onyx ([FilePath], [STFSSpec])
 searchSTFS f = stackIO $ Dir.doesDirectoryExist f >>= \case
   True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
@@ -3546,11 +3582,11 @@ launchMisc sink makeMenuBar = mdo
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   functionTabs <- sequence
-    [ makeTab windowRect "MIDI functions" $ \rect tab -> do
+    [ makeTab windowRect "MIDI stuff" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageMIDI sink rect tab startTasks
       return tab
-    , makeTab windowRect "Make MOGG/VGS" $ \rect tab -> do
+    , makeTab windowRect "MOGG/VGS" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageMOGG sink rect tab startTasks
       return tab
@@ -3574,9 +3610,13 @@ launchMisc sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       miscPageBlack sink rect tab startTasks
       return tab
-    , makeTab windowRect "RB3 song cache" $ \rect tab -> do
+    , makeTab windowRect "RB3 cache" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageHardcodeSongCache sink rect tab startTasks
+      return tab
+    , makeTab windowRect "GH:WoR cache" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      miscPageWoRSongCache sink rect tab startTasks
       return tab
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
