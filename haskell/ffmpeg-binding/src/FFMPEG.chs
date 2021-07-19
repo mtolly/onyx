@@ -1,30 +1,34 @@
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE NegativeLiterals #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NondecreasingIndentation #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE NegativeLiterals           #-}
+{-# LANGUAGE NondecreasingIndentation   #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE ViewPatterns               #-}
 module FFMPEG where
 
-import Foreign
-import Foreign.C
-import Data.Coerce (coerce)
-import Control.Monad (forM_, unless, forM, when)
-import Text.Read (readMaybe)
-import Data.Typeable (Typeable)
-import Control.Exception (Exception(..), throwIO)
-import System.IO (Handle, hIsWritable, hGetBuf, hPutBuf, hSeek, SeekMode(..), hTell, hFileSize, hClose)
-import System.Posix.Internals (sEEK_CUR, sEEK_END, sEEK_SET)
-import Data.Conduit
-import qualified Data.Conduit.Audio as CA
-import UnliftIO (MonadUnliftIO, MonadIO, bracket, liftIO)
-import Control.Monad.Trans.Resource (MonadResource)
-import qualified Data.Vector.Storable as V
+import           Control.Concurrent.Async     (forConcurrently)
+import           Control.Exception            (Exception (..), throwIO)
+import           Control.Monad                (forM_, unless, when)
+import           Control.Monad.Trans.Resource (MonadResource)
+import           Data.Coerce                  (coerce)
+import           Data.Conduit
+import qualified Data.Conduit.Audio           as CA
+import           Data.Maybe                   (catMaybes)
+import           Data.SimpleHandle            (Readable, rOpen)
+import           Data.Typeable                (Typeable)
+import qualified Data.Vector.Storable         as V
 import qualified Data.Vector.Storable.Mutable as MV
-import Data.SimpleHandle (Readable, rOpen)
-import Control.Concurrent.Async (forConcurrently)
-import Data.Maybe (catMaybes)
+import           Foreign
+import           Foreign.C
+import           System.IO                    (Handle, SeekMode (..), hClose,
+                                               hFileSize, hGetBuf, hIsWritable,
+                                               hPutBuf, hSeek, hTell)
+import           System.Posix.Internals       (sEEK_CUR, sEEK_END, sEEK_SET)
+import           Text.Read                    (readMaybe)
+import           UnliftIO                     (MonadIO, MonadUnliftIO, bracket,
+                                               liftIO)
 
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
@@ -34,6 +38,7 @@ import Data.Maybe (catMaybes)
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
+#include "libswresample/swresample.h"
 
 #include "ffmacros.h"
 
@@ -102,6 +107,8 @@ deriving instance Show AVDictionaryEntry
 
 {#enum AVSampleFormat {} deriving (Eq, Show) #}
 
+{#enum AVPacketSideDataType {} deriving (Eq, Show) #}
+
 {#enum AV_BUFFERSRC_FLAG_NO_CHECK_FORMAT as AV_BUFFERSRC_FLAG {}
   deriving (Eq, Show) #}
 
@@ -111,7 +118,25 @@ deriving instance Storable AVCodecParameters
 {#pointer *SwsContext as SwsContext newtype #}
 deriving instance Show SwsContext
 
+{#pointer *SwrContext as SwrContext newtype #}
+deriving instance Show SwrContext
+deriving instance Storable SwrContext
+
 -----------------------------
+
+{#fun av_packet_get_side_data
+  { `AVPacket'
+  , `AVPacketSideDataType'
+  , id `Ptr CInt'
+  } -> `Ptr Word8' castPtr
+#}
+
+{#fun av_packet_new_side_data
+  { `AVPacket'
+  , `AVPacketSideDataType'
+  , `CInt'
+  } -> `Ptr Word8' castPtr
+#}
 
 {#fun avformat_alloc_context
   {} -> `AVFormatContext'
@@ -232,8 +257,8 @@ cp_height = {#get AVCodecParameters->height #}
   } -> `AVCodec'
 #}
 
-time_base :: AVStream -> IO (CInt, CInt)
-time_base s = do
+stream_time_base :: AVStream -> IO (CInt, CInt)
+stream_time_base s = do
   num <- {#get AVStream->time_base.num #} s
   den <- {#get AVStream->time_base.den #} s
   return (num, den)
@@ -339,6 +364,9 @@ frame_linesize = {#get AVFrame->linesize #}
 frame_pts :: AVFrame -> IO Int64
 frame_pts = fmap fromIntegral . {#get AVFrame->pts #}
 
+packet_pts :: AVPacket -> IO Int64
+packet_pts = fmap fromIntegral . {#get AVPacket->pts #}
+
 ctx_set_pix_fmt :: AVCodecContext -> AVPixelFormat -> IO ()
 ctx_set_pix_fmt c = {#set AVCodecContext->pix_fmt #} c . fromIntegral . fromEnum
 
@@ -350,6 +378,12 @@ ctx_set_width = {#set AVCodecContext->width #}
 
 ctx_set_codec_type :: AVCodecContext -> AVMediaType -> IO ()
 ctx_set_codec_type c = {#set AVCodecContext->codec_type #} c . fromIntegral . fromEnum
+
+ctx_time_base :: AVCodecContext -> IO (CInt, CInt)
+ctx_time_base c = do
+  num <- {#get AVCodecContext->time_base.num #} c
+  den <- {#get AVCodecContext->time_base.den #} c
+  return (num, den)
 
 ctx_set_time_base_num :: AVCodecContext -> CInt -> IO ()
 ctx_set_time_base_num = {#set AVCodecContext->time_base.num #}
@@ -419,6 +453,12 @@ packet_data = {#get AVPacket->data #}
 
 avseek_FLAG_BACKWARD :: CInt
 avseek_FLAG_BACKWARD = {#const AVSEEK_FLAG_BACKWARD #}
+
+avseek_FLAG_FRAME :: CInt
+avseek_FLAG_FRAME = {#const AVSEEK_FLAG_FRAME #}
+
+avseek_FLAG_ANY :: CInt
+avseek_FLAG_ANY = {#const AVSEEK_FLAG_ANY #}
 
 {#fun av_find_best_stream
   { `AVFormatContext'
@@ -599,6 +639,38 @@ foreign import ccall "wrapper"
   } -> `CInt'
 #}
 
+{#fun swr_alloc_set_opts
+  { `SwrContext'
+  , `Int64'
+  , `AVSampleFormat'
+  , `CInt'
+  , `Int64'
+  , `AVSampleFormat'
+  , `CInt'
+  , `CInt'
+  , `Ptr ()'
+  } -> `SwrContext'
+#}
+
+{#fun swr_init
+  { `SwrContext'
+  } -> `CInt'
+#}
+
+{#fun swr_convert
+  { `SwrContext'
+  , castPtr `Ptr (Ptr Word8)'
+  , `CInt'
+  , castPtr `Ptr (Ptr Word8)'
+  , `CInt'
+  } -> `CInt'
+#}
+
+{#fun swr_free
+  { id `Ptr SwrContext'
+  } -> `()'
+#}
+
 newtype Bracket m = Bracket { runBracket :: forall a b. IO a -> (a -> IO ()) -> (a -> m b) -> m b }
 
 conduitBracket :: (MonadResource m) => Bracket (ConduitM i o m)
@@ -692,17 +764,63 @@ withStream brkt mediaType input fn = do
         fn fmt_ctx dec_ctx stream
     in openInput
 
-ffSource :: (MonadResource m) => Either Readable FilePath -> IO (CA.AudioSource m Int16)
-ffSource input = do
+class (Storable a) => FFSourceSample a where
+  ffSourceSampleFormat :: a -> AVSampleFormat
+
+instance FFSourceSample Int16 where
+  ffSourceSampleFormat _ = AV_SAMPLE_FMT_S16
+
+instance FFSourceSample Float where
+  ffSourceSampleFormat _ = AV_SAMPLE_FMT_FLT
+
+ffSource :: (MonadResource m, FFSourceSample a) => Either Readable FilePath -> IO (CA.AudioSource m a)
+ffSource = ffSourceFrom $ CA.Frames 0
+
+ffSourceFrom :: forall m a. (MonadResource m, FFSourceSample a) =>
+  CA.Duration -> Either Readable FilePath -> IO (CA.AudioSource m a)
+ffSourceFrom dur input = do
   (rate, channels, frames) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \_fmt_ctx dec_ctx stream -> do
     rate <- {#get AVCodecContext->sample_rate #} dec_ctx
     channels <- {#get AVCodecContext->channels #} dec_ctx
     frames <- {#get AVStream->nb_frames #} stream
     return (rate, channels, frames)
+  let startFrame = case dur of
+        CA.Frames  f -> f
+        CA.Seconds s -> floor $ s * fromIntegral rate
+      startSecs = fromIntegral startFrame / fromIntegral rate
   return CA.AudioSource
     { CA.source   = withStream conduitBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx dec_ctx stream -> do
+      seekInfo <- if startSecs == 0
+        then return Nothing
+        else liftIO $ do
+          -- not sure if these can be different
+          streamRes <- (\(num, den) -> realToFrac num / realToFrac den) <$> stream_time_base stream
+          codecRes <- (\(num, den) -> realToFrac num / realToFrac den) <$> stream_time_base stream
+          -- putStrLn $ "Resolution = " <> show (streamRes :: Double, codecRes :: Double)
+          streamIndex <- stream_index stream
+          let wantPTS = floor $ startSecs / streamRes
+          _code <- av_seek_frame
+            fmt_ctx
+            streamIndex
+            wantPTS
+            avseek_FLAG_BACKWARD
+          -- TODO warn if code < 0
+          return $ Just (wantPTS, streamRes :: Double, codecRes :: Double)
       audio_stream_index <- liftIO $ stream_index stream
-      sampleFormat <- liftIO $ toEnum . fromIntegral <$> {#get AVCodecContext->sample_fmt #} dec_ctx
+      channelLayout <- liftIO $ fromIntegral <$> {#get AVCodecContext->channel_layout #} dec_ctx
+      inSampleFormat <- liftIO $ toEnum . fromIntegral <$> {#get AVCodecContext->sample_fmt #} dec_ctx
+      let swrChangeFormat = swr_alloc_set_opts
+            (SwrContext nullPtr)
+            channelLayout
+            (ffSourceSampleFormat (undefined :: a))
+            rate
+            channelLayout
+            inSampleFormat
+            rate
+            0
+            nullPtr
+      bracketP swrChangeFormat (\f -> with f swr_free) $ \swr -> do
+      liftIO $ ffCheck "swr_init" (>= 0) $ swr_init swr
       bracketP av_frame_alloc (\f -> with f av_frame_free) $ \frame -> do
         bracketP av_packet_alloc (\p -> with p av_packet_free) $ \packet -> let
           loop = do
@@ -716,51 +834,59 @@ ffSource input = do
                     liftIO $ av_packet_unref packet
                     loop
                   else do
+                    -- skip frames if needed
+                    -- thanks to https://stackoverflow.com/a/60317000/509936
+                    skipManual <- case seekInfo of
+                      Nothing -> return 0
+                      Just (wantPTS, streamRes, codecRes) -> do
+                        pts <- liftIO $ packet_pts packet
+                        if pts < wantPTS
+                          then liftIO $ do
+                            let skipFrames = round $ fromIntegral (wantPTS - pts) / streamRes * codecRes
+                            -- putStrLn $ "Should skip " <> show skipFrames <> " frames"
+                            return skipFrames
+                          else return 0
+                          {-
+                          -- This method worked for opus and probably vorbis, but not mp3.
+                          -- So instead we drop from the vector ourselves
+                          side <- av_packet_get_side_data packet AV_PKT_DATA_SKIP_SAMPLES nullPtr
+                          side' <- if side == nullPtr
+                            then av_packet_new_side_data packet AV_PKT_DATA_SKIP_SAMPLES 10
+                            else return side
+                          {-
+                            u32le number of samples to skip from start of this packet
+                            u32le number of samples to skip from end of this packet
+                            u8    reason for start skip
+                            u8    reason for end   skip (0=padding silence, 1=convergence)
+                          -}
+                          poke (castPtr side') (skipFrames :: Word32)
+                          poke (side' `plusPtr` 8) (1 :: Word8)
+                          -}
                     liftIO $ ffCheck "avcodec_send_packet" (>= 0) $ avcodec_send_packet dec_ctx packet
                     liftIO $ av_packet_unref packet
                     codeFrame <- liftIO $ avcodec_receive_frame dec_ctx frame
                     if codeFrame < 0
                       then loop -- no audio received yet? maybe need more packets
                       else do
-                        -- TODO use swresample to do this
                         countSamples <- liftIO $ {#get AVFrame->nb_samples #} frame
-                        case sampleFormat of
-                          AV_SAMPLE_FMT_S16 -> do
-                            p <- liftIO $ frame_data frame >>= peek
-                            channelVector <- liftIO $ do
-                              fptr <- newForeignPtr_ $ (castPtr :: Ptr CUChar -> Ptr Int16) p
-                              V.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral $ countSamples * channels
-                            yield channelVector
-                          AV_SAMPLE_FMT_S32 -> do
-                            p <- liftIO $ frame_data frame >>= peek
-                            channelVector <- liftIO $ do
-                              fptr <- newForeignPtr_ $ (castPtr :: Ptr CUChar -> Ptr Int32) p
-                              V.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral $ countSamples * channels
-                            yield $ V.map (fromIntegral . (`shiftR` 16)) channelVector
-                          AV_SAMPLE_FMT_S16P -> do
-                            ps <- liftIO $ frame_data frame >>= peekArray (fromIntegral channels)
-                            channelVectors <- liftIO $ forM ps $ \p -> do
-                              fptr <- newForeignPtr_ $ (castPtr :: Ptr CUChar -> Ptr Int16) p
-                              V.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral countSamples
-                            yield $ CA.interleave channelVectors
-                          AV_SAMPLE_FMT_FLT -> do
-                            p <- liftIO $ frame_data frame >>= peek
-                            channelVector <- liftIO $ do
-                              fptr <- newForeignPtr_ $ (castPtr :: Ptr CUChar -> Ptr Float) p
-                              V.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral $ countSamples * channels
-                            yield $ V.map CA.integralSample channelVector
-                          AV_SAMPLE_FMT_FLTP -> do
-                            ps <- liftIO $ frame_data frame >>= peekArray (fromIntegral channels)
-                            channelVectors <- liftIO $ forM ps $ \p -> do
-                              fptr <- newForeignPtr_ $ (castPtr :: Ptr CUChar -> Ptr Float) p
-                              V.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral countSamples
-                            yield $ V.map CA.integralSample $ CA.interleave channelVectors
-                          _ -> error $ "Unsupported AVSampleFormat: " <> show sampleFormat
+                        when (countSamples > skipManual) $ do
+                          -- when (skipManual > 0) $ liftIO $ putStrLn $ "Frame has " <> show countSamples <> " samples"
+                          mvec <- liftIO $ MV.new $ fromIntegral $ countSamples * channels
+                          liftIO $ MV.unsafeWith mvec $ \p -> do
+                            inputPlanes <- frame_data frame
+                            withArray [p] $ \outputPlanes -> do
+                              liftIO $ ffCheck "swr_convert" (>= 0) $ swr_convert
+                                swr
+                                (castPtr outputPlanes)
+                                countSamples
+                                (castPtr inputPlanes)
+                                countSamples
+                          liftIO (V.freeze mvec) >>= yield . V.drop (fromIntegral skipManual)
                         loop
           in loop
     , CA.rate     = fromIntegral rate
     , CA.channels = fromIntegral channels
-    , CA.frames   = fromIntegral frames
+    , CA.frames   = max 0 $ fromIntegral frames - fromIntegral startFrame
     }
 
 graphCreateFilter :: String -> Maybe String -> Maybe String -> AVFilterGraph -> IO AVFilterContext
@@ -776,7 +902,7 @@ graphCreateFilter filterType name args graph = do
 
 addFilterSource :: AVCodecContext -> AVStream -> AVFilterGraph -> IO AVFilterContext
 addFilterSource dec_ctx stream graph = do
-  (num, den) <- time_base stream
+  (num, den) <- stream_time_base stream
   {#get AVCodecContext->channel_layout #} dec_ctx >>= \case
     0 -> {#get AVCodecContext->channels #} dec_ctx
       >>= av_get_default_channel_layout

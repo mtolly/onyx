@@ -63,7 +63,6 @@ import           Data.Conduit
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding  as L
-import           Data.Conduit.Audio.Mpg123        (sourceMpg, sourceMpgFrom)
 import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
 import qualified Data.Conduit.List                as CL
@@ -81,6 +80,7 @@ import qualified Data.Vector.Storable             as V
 import           Data.Word                        (Word8)
 import           Development.Shake                (Action, need)
 import           Development.Shake.FilePath       (takeExtension)
+import           FFMPEG                           (ffSource, ffSourceFrom)
 import           GuitarHeroII.Audio               (readVGS)
 import           Magma                            (withWin32Exe)
 import           MoggDecrypt                      (sourceVorbisFile)
@@ -433,10 +433,9 @@ buildSource' aud = case aud of
   Drop Start (Frames  t1) (Pad Start (Frames  t2) x) -> dropPad Start Frames  t1 t2 x
   Drop End   (Frames  t1) (Pad End   (Frames  t2) x) -> dropPad End   Frames  t1 t2 x
   Drop Start t (Input fin) -> liftIO $ case takeExtension fin of
-    ".mp3" -> sourceMpgFrom t fin
     ".ogg" -> sourceVorbisFile t fin
     ".vgs" -> dropStart t <$> buildSource' (Input fin)
-    _      -> sourceSndFrom t fin
+    _      -> ffSourceFrom t (Right fin)
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
   Drop Start t (Merge xs) -> buildSource' $ Merge $ map (Drop Start t) xs
   Drop Start t (Mix   xs) -> buildSource' $ Mix   $ map (Drop Start t) xs
@@ -450,14 +449,13 @@ buildSource' aud = case aud of
   -- normal cases
   Silence c t -> return $ silent t 44100 c
   Input fin -> liftIO $ case takeExtension fin of
-    ".mp3" -> sourceMpg fin
     ".ogg" -> sourceVorbisFile (Frames 0) fin
     ".vgs" -> do
       chans <- readVGS fin
       case map (standardRate . mapSamples fractionalSample) chans of
         src : srcs -> return $ foldl merge src srcs
         []         -> error "buildSource: VGS has 0 channels"
-    _      -> sourceSnd fin
+    _      -> ffSource (Right fin)
   Mix         xs -> combine (\a b -> uncurry mix $ sameChannels (a, b)) xs
   Merge       xs -> combine merge xs
   Concatenate xs -> combine (\a b -> uncurry concatenate $ sameChannels (a, b)) xs
@@ -559,33 +557,41 @@ audioMD5 f = liftIO $ case takeExtension f of
         return $ show $ MD5.md5 data_
   _ -> return Nothing
 
+ffSourceSimple :: FilePath -> IO (AudioSource (ResourceT IO) Int16)
+-- is shortWindowsPath needed or can ffmpeg take UTF-8 char* on windows?
+ffSourceSimple f = shortWindowsPath f >>= ffSource . Right
+
+supportedFFExt :: FilePath -> Bool
+supportedFFExt f = map toLower (takeExtension f) `elem`
+  [".flac", ".wav", ".ogg", ".opus", ".mp3"]
+
 audioLength :: (MonadIO m) => FilePath -> m (Maybe Integer)
-audioLength f = if takeExtension f `elem` [".flac", ".wav", ".ogg", ".opus"]
-  then liftIO $ Just . fromIntegral . Snd.frames <$> (shortWindowsPath f >>= Snd.getFileInfo)
-  else return Nothing -- TODO mp3
+audioLength f = if supportedFFExt f
+  then liftIO $ Just . fromIntegral . frames <$> ffSourceSimple f
+  else return Nothing
 
 audioChannels :: (MonadIO m) => FilePath -> m (Maybe Int)
-audioChannels f = if takeExtension f `elem` [".flac", ".wav", ".ogg", ".opus"]
-  then liftIO $ Just . Snd.channels <$> (shortWindowsPath f >>= Snd.getFileInfo)
+audioChannels f = if supportedFFExt f
+  then liftIO $ Just . channels <$> ffSourceSimple f
   else case takeExtension f of
-    ".mp3" -> do
-      src <- liftIO $ sourceMpg f
-      let _ = src :: AudioSource (ResourceT IO) Float
-      return $ Just $ channels src
     ".vgs" -> do
       chans <- liftIO (readVGS f :: IO [AudioSource (ResourceT IO) Int16])
       return $ Just $ length chans
     _ -> return Nothing
 
 audioRate :: (MonadIO m) => FilePath -> m (Maybe Int)
-audioRate f = if takeExtension f `elem` [".flac", ".wav", ".ogg", ".opus"]
-  then liftIO $ Just . Snd.samplerate <$> (shortWindowsPath f >>= Snd.getFileInfo)
-  else return Nothing -- TODO mp3
+audioRate f = if supportedFFExt f
+  then liftIO $ Just . round . rate <$> ffSourceSimple f
+  else return Nothing
 
-audioSeconds :: (MonadIO m) => FilePath -> m U.Seconds
+audioSeconds :: (MonadIO m, MonadFail m) => FilePath -> m U.Seconds
 audioSeconds f = do
-  info <- liftIO $ shortWindowsPath f >>= Snd.getFileInfo
-  return $ realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info)
+  maybeFms <- audioLength f
+  maybeRate <- audioRate f
+  case (maybeFms, maybeRate) of
+    (Nothing , _      ) -> fail $ "Couldn't obtain audio frame count: " <> f
+    (_       , Nothing) -> fail $ "Couldn't obtain audio sample rate: " <> f
+    (Just fms, Just r ) -> return $ fromIntegral fms / fromIntegral r
 
 -- | Applies Rock Band's pan and volume lists
 -- to turn a multichannel OGG input into a stereo output.

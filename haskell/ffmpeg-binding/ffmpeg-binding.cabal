@@ -26,6 +26,7 @@ library
     , libavcodec
     , libswscale
     , libavfilter
+    , libswresample
   c-sources:
     cbits/ffmacros.c
   include-dirs:

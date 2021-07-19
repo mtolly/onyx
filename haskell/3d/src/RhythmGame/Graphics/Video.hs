@@ -75,7 +75,7 @@ forkFrameLoader logger vi = do
     codec <- stackIO $ codec_id params >>= avcodec_find_decoder
     w <- stackIO $ cp_width params
     h <- stackIO $ cp_height params
-    (num, den) <- stackIO $ time_base stream
+    (num, den) <- stackIO $ stream_time_base stream
     let resolution = realToFrac num / realToFrac den :: Double
     duration <- stackIO $ avfc_duration ctx
     let videoStart = maybe 0 realToFrac $ _videoStartTime vi
