@@ -752,12 +752,12 @@ withStream brkt mediaType input fn = do
         afterOpenInput
     afterOpenInput = do
       liftIO $ ffCheck "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info fmt_ctx nullPtr
-      (audio_stream_index, dec) <- liftIO $ alloca $ \pdec -> do
-        audio_stream_index <- av_find_best_stream fmt_ctx mediaType -1 -1 pdec 0
+      (streamIndex, dec) <- liftIO $ alloca $ \pdec -> do
+        streamIndex <- av_find_best_stream fmt_ctx mediaType -1 -1 pdec 0
         dec <- peek pdec
-        return (audio_stream_index, dec)
+        return (streamIndex, dec)
       runBracket brkt (avcodec_alloc_context3 dec) (\p -> with p avcodec_free_context) $ \dec_ctx -> do
-        stream <- liftIO $ (!! fromIntegral (audio_stream_index)) <$> getStreams fmt_ctx
+        stream <- liftIO $ (!! fromIntegral streamIndex) <$> getStreams fmt_ctx
         params <- liftIO $ stream_codecpar stream
         liftIO $ ffCheck "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context dec_ctx params
         liftIO $ ffCheck "avcodec_open2" (== 0) $ avcodec_open2 dec_ctx dec nullPtr
@@ -782,7 +782,14 @@ ffSourceFrom dur input = do
   (rate, channels, frames) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \_fmt_ctx dec_ctx stream -> do
     rate <- {#get AVCodecContext->sample_rate #} dec_ctx
     channels <- {#get AVCodecContext->channels #} dec_ctx
-    frames <- {#get AVStream->nb_frames #} stream
+    frames <- {#get AVStream->nb_frames #} stream >>= \case
+      0 -> do
+        -- nb_frames appears to be 0 in ogg files? so we do this as backup
+        streamRes <- (\(num, den) -> realToFrac num / realToFrac den) <$> stream_time_base stream
+        streamDur <- {#get AVStream->duration #} stream
+        -- streamRes might be 1 / rate? but better to be sure
+        return $ round ((fromIntegral streamDur * streamRes) * fromIntegral rate :: Double)
+      frames -> return frames
     return (rate, channels, frames)
   let startFrame = case dur of
         CA.Frames  f -> f
@@ -807,7 +814,14 @@ ffSourceFrom dur input = do
           -- TODO warn if code < 0
           return $ Just (wantPTS, streamRes :: Double, codecRes :: Double)
       audio_stream_index <- liftIO $ stream_index stream
-      channelLayout <- liftIO $ fromIntegral <$> {#get AVCodecContext->channel_layout #} dec_ctx
+      -- channel_layout is set in opus, mp3, others; but unset in e.g. wav
+      channelLayout <- liftIO $ {#get AVCodecContext->channel_layout #} dec_ctx >>= \case
+        0 -> av_get_default_channel_layout channels >>= \case
+          -- 0 means probably a mogg with a weird large channel count
+          -- Might also be some other way to set channel count directly, but this works
+          0 -> return $ foldr (.|.) 0 $ map bit [0 .. fromIntegral channels - 1]
+          n -> return $ fromIntegral n
+        n -> return $ fromIntegral n
       inSampleFormat <- liftIO $ toEnum . fromIntegral <$> {#get AVCodecContext->sample_fmt #} dec_ctx
       let swrChangeFormat = swr_alloc_set_opts
             (SwrContext nullPtr)
@@ -875,13 +889,13 @@ ffSourceFrom dur input = do
                           liftIO $ MV.unsafeWith mvec $ \p -> do
                             inputPlanes <- frame_data frame
                             withArray [p] $ \outputPlanes -> do
-                              liftIO $ ffCheck "swr_convert" (>= 0) $ swr_convert
+                              ffCheck "swr_convert" (>= 0) $ swr_convert
                                 swr
                                 (castPtr outputPlanes)
                                 countSamples
                                 (castPtr inputPlanes)
                                 countSamples
-                          liftIO (V.freeze mvec) >>= yield . V.drop (fromIntegral skipManual)
+                          liftIO (V.unsafeFreeze mvec) >>= yield . V.drop (fromIntegral skipManual)
                         loop
           in loop
     , CA.rate     = fromIntegral rate
