@@ -1224,6 +1224,17 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
+  worTab <- makeTab windowRect "GH:WoR (360)" $ \rect tab -> do
+    functionTabColor >>= setTabColor tab
+    songPageGHWOR sink rect tab proj $ \tgt fout -> do
+      proj' <- fullProjModify proj
+      let name = "Building GH:WoR LIVE file"
+          task = do
+            tmp <- buildGHWORLIVE tgt proj'
+            stackIO $ Dir.copyFile tmp fout
+            return [fout]
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
@@ -1282,7 +1293,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, gh2Tab, utilsTab]
+  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, gh2Tab, worTab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskColor >>= setTabColor tab
     FL.deactivate tab
@@ -1793,6 +1804,31 @@ songIDBox rect f = do
         then SongIDAutoInt
         else SongIDAutoSymbol
 
+numberBox
+  :: (?preferences :: Preferences)
+  => Rectangle
+  -> T.Text
+  -> (Maybe Int -> tgt -> tgt)
+  -> BuildYamlControl tgt ()
+numberBox rect lbl f = do
+  let (checkArea, inputArea) = chopLeft 250 rect
+  check <- liftIO $ FL.checkButtonNew checkArea (Just lbl)
+  input <- liftIO $ FL.inputNew
+    inputArea
+    Nothing
+    (Just FL.FlNormalInput) -- required for labels to work
+  let controlInput = do
+        b <- FL.getValue check
+        (if b then FL.activate else FL.deactivate) input
+  liftIO controlInput
+  liftIO $ FL.setCallback check $ \_ -> controlInput
+  tell $ do
+    b <- FL.getValue check
+    s <- FL.getValue input
+    return $ Endo $ f $ if b && s /= ""
+      then readMaybe $ T.unpack s
+      else Nothing
+
 starSelectors
   :: (Eq track)
   => Rectangle
@@ -2053,6 +2089,77 @@ songPageRB2 sink rect tab proj build = mdo
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save RB2 CON file"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_rb2con" -- TODO add modifiers
+      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ trimXbox f
+        _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn color
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+songPageGHWOR
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> Project
+  -> (TargetGH5 -> FilePath -> IO ())
+  -> IO ()
+songPageGHWOR sink rect tab proj build = mdo
+  pack <- FL.packNew rect Nothing
+  let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
+  targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
+      tell $ getSpeed >>= \speed -> return $ Endo $ \gh5 ->
+        gh5 { gh5_Common = (gh5_Common gh5) { tgt_Speed = Just speed } }
+      return counter
+    fullWidth 35 $ \rect' -> numberBox rect' "Custom Song ID (dlc)" $ \sid gh5 ->
+      gh5 { gh5_SongID = sid }
+    fullWidth 35 $ \rect' -> numberBox rect' "Custom Package ID (cdl)" $ \sid gh5 ->
+      gh5 { gh5_CDL = sid }
+    fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
+      [ ( "Guitar", gh5_Guitar, (\v gh5 -> gh5 { gh5_Guitar = v })
+        , (\p -> isJust $ partGRYBO p)
+        )
+      , ( "Bass"  , gh5_Bass  , (\v gh5 -> gh5 { gh5_Bass   = v })
+        , (\p -> isJust $ partGRYBO p)
+        )
+      , ( "Drums" , gh5_Drums , (\v gh5 -> gh5 { gh5_Drums  = v })
+        , (\p -> isJust $ partDrums p)
+        )
+      , ( "Vocal" , gh5_Vocal , (\v gh5 -> gh5 { gh5_Vocal  = v })
+        , (\p -> isJust $ partVocal p)
+        )
+      ]
+    fullWidth 35 $ \rect' -> do
+      controlInput <- customTitleSuffix sink rect'
+        (makeTarget >>= \gh5 -> return $ targetTitle
+          (projectSongYaml proj)
+          (GH5 gh5 { gh5_Common = (gh5_Common gh5) { tgt_Title = Just "" } })
+        )
+        (\msfx gh5 -> gh5
+          { gh5_Common = (gh5_Common gh5)
+            { tgt_Label = msfx
+            }
+          }
+        )
+      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+  let initTarget = def
+      makeTarget = fmap ($ initTarget) targetModifier
+  fullWidth 35 $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Create LIVE file"
+    FL.setCallback btn $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save GH:WoR LIVE file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_ghwor" -- TODO add modifiers
       forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
@@ -4107,9 +4214,9 @@ launchBatch sink makeMenuBar startFiles = mdo
   let doImport imp fn = do
         -- TODO this can potentially not clean up the temp folder if interrupted during import
         proj <- importWithVenueSetting imp
-        x <- fn proj
+        res <- errorToEither $ fn proj
         mapM_ release $ projectRelease proj
-        return x
+        either throwNoContext return res
   functionTabs <- sequence
     [ makeTab windowRect "RB3 (360)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

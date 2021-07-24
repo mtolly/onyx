@@ -193,6 +193,24 @@ noExtendedSustains blipThreshold sustainGap = let
       in RTB.cons dt [ (s, x, len3) | (s, x, _) <- gems ] $ go rtb'
   in splitEdges . RTB.flatten . go . RTB.collectCoincident . joinEdges
 
+-- Used for GH:WoR where extended sustains only work when the held note is lower.
+-- So we trim sustains when a lower note than the sustain appears
+noLowerExtSustains :: (NNC.C t, Ord color) => t -> t -> RTB.T t ((color, sht), Maybe t) -> RTB.T t ((color, sht), Maybe t)
+noLowerExtSustains blipThreshold sustainGap = go where
+  go = \case
+    Wait t x rest -> Wait t (pullBack rest x) $ go rest
+    RNil -> RNil
+  pullBack _    note@((_    , _  ), Nothing ) = note
+  pullBack rest note@((color, sht), Just len) = let
+    possibleConflicts = U.trackTake len $ U.trackDropZero rest
+    conflict ((color', _), _) = color' < color
+    in case RTB.filter conflict possibleConflicts of
+      Wait t _ _ -> let
+        len1 = t NNC.-| sustainGap
+        len2 = guard (len1 >= blipThreshold) >> Just len1
+        in ((color, sht), len2)
+      RNil -> note
+
 standardBlipThreshold :: U.Beats
 standardBlipThreshold = 3/8 -- is this correct? I think 1/3 sustains might be possible in games
 

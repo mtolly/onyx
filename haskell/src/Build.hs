@@ -89,7 +89,7 @@ import qualified Magma
 import qualified MelodysEscape                         as Melody
 import           MoggDecrypt
 import           Neversoft.Audio                       (aesEncrypt, worFSBKey)
-import           Neversoft.Checksum                    (qbKeyCRC)
+import           Neversoft.Checksum                    (qbKeyCRC, qsKey)
 import           Neversoft.Export                      (makeGHWoRNote,
                                                         packageNameHash,
                                                         worFileBarePak,
@@ -98,7 +98,8 @@ import           Neversoft.Export                      (makeGHWoRNote,
 import           Neversoft.Note                        (makeWoRNoteFile,
                                                         putNote)
 import           Neversoft.Pak                         (Node (..), buildPak,
-                                                        makeQS, parseQS)
+                                                        makeQS, parseQS,
+                                                        qsFancyQuotes)
 import           Neversoft.QB                          (QBArray (..),
                                                         QBSection (..),
                                                         QBStructItem (..),
@@ -2855,7 +2856,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             dir </> "cdl_text.pak.xen" %> \out -> do
               mid <- shakeMIDI $ planDir </> "processed.mid"
               let _ = mid :: RBFile.Song (RBFile.OnyxFile U.Beats)
-                  makeQSPair s = (fromIntegral $ hash s, s)
+                  makeQSPair s = let s' = qsFancyQuotes s in (qsKey s', s')
                   -- not sure what the \L does; it works without it but we'll just match official songs
                   titleQS  = makeQSPair $ "\\L" <> targetTitle songYaml target
                   artistQS = makeQSPair $ "\\L" <> getArtist (_metadata songYaml)

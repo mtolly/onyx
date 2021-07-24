@@ -113,11 +113,13 @@ instance StackChunks Quickplay where
     venue           <- venue           =. req "venue"            stackChunks
     return Quickplay{..}
 
+-- For now, limiting to what's in 80s so it doesn't crash.
+-- In the future, should actually read from config/gen/gh2.dtb and config/gen/guitars.dtb
 randomQuickplay :: (MonadRandom m) => m Quickplay
 randomQuickplay = Quickplay
-  <$> (Left <$> uniform each)
+  <$> (Left <$> uniform [Char_punk1, Char_alterna1, Char_glam1, Char_goth2, Char_metal1, Char_grim])
   <*> (Left <$> uniform each)
-  <*> (Left <$> uniform each)
+  <*> (Left <$> uniform [Venue_battle, Venue_small1, Venue_small2, Venue_theatre, Venue_fest, Venue_arena])
 
 data BandMember
   = MetalBass

@@ -16,7 +16,6 @@ import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toUpper)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Hashable                    (hash)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
@@ -28,7 +27,11 @@ import qualified Data.Text.Encoding               as TE
 import           Data.Word
 import           Guitars                          (applyForces, emit5',
                                                    fixSloppyNotes, getForces5,
-                                                   openNotes', strumHOPOTap')
+                                                   noLowerExtSustains,
+                                                   openNotes',
+                                                   standardBlipThreshold,
+                                                   standardSustainGap,
+                                                   strumHOPOTap')
 import           Neversoft.Checksum
 import           Neversoft.Metadata
 import           Neversoft.Note
@@ -61,9 +64,8 @@ import qualified System.Directory                 as Dir
 import           System.FilePath                  ((<.>))
 
 worGuitarEdits
-  :: (NNC.C t)
-  => RTB.T t ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
-  -> RTB.T t ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
+  :: RTB.T U.Beats ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
+  -> RTB.T U.Beats ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
 worGuitarEdits
   = RTB.flatten
   . fmap (\instant ->
@@ -79,6 +81,8 @@ worGuitarEdits
       else instant
     )
   . RTB.collectCoincident
+  -- Holding higher notes and playing lower ones doesn't work
+  . noLowerExtSustains standardBlipThreshold standardSustainGap
 
 data PhrasePoint
   = PhraseNotes Bool
@@ -227,7 +231,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
         , gb_starpower = makeStarPower $ F.fiveOverdrive trk
         }
     Nothing -> GuitarBass [] [] []
-  makeDrums fpart diff timing = case getPart fpart songYaml >>= partDrums of
+  makeDrums fpart diff _timing = case getPart fpart songYaml >>= partDrums of
     Just pd -> let
       opart = fromMaybe mempty $ Map.lookup fpart $ RBFile.onyxParts ofile
       trk = RBFile.onyxPartDrums opart -- TODO use other tracks potentially
@@ -373,12 +377,17 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
         sections = flip fmap (eventsSections $ RBFile.onyxEvents ofile) $ \(_, section) -> let
           (_, sectionPrint) = makePSSection section
           sectionGH = "\\u[m]" <> sectionPrint
-          in (fromIntegral $ hash sectionGH, sectionGH)
+          in (qsKey sectionGH, sectionGH)
+        sections' = RTB.merge sections $ let
+          -- Not all songs have this event, but it lets you place the song end precisely.
+          -- Otherwise it just ends right after the last playable note
+          sectionGH = "\\L_ENDOFSONG"
+          in RTB.singleton (timingEnd timing) (qsKey sectionGH, sectionGH)
         sectionMarkers
           = map (\(t, (qsid, _)) -> Single (beatsToMS t) qsid)
           $ ATB.toPairList
-          $ RTB.toAbsoluteEventList 0 sections
-        sectionBank = HM.fromList $ RTB.getBodies sections
+          $ RTB.toAbsoluteEventList 0 sections'
+        sectionBank = HM.fromList $ RTB.getBodies sections'
     return (GHNoteFile
       { gh_guitareasy            = makeGB (gh5_Guitar target) Easy
       , gh_guitarmedium          = makeGB (gh5_Guitar target) Medium

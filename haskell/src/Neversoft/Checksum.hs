@@ -6,6 +6,8 @@ import           Data.Bits
 import qualified Data.ByteString       as B
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.HashMap.Strict   as HM
+import qualified Data.Text             as T
+import qualified Data.Text.Encoding    as TE
 import qualified Data.Vector.Unboxed   as VU
 import           Data.Word
 import           Resources
@@ -40,3 +42,8 @@ knownKeys = unsafePerformIO $ do
         <> ["dlc" <> B8.pack (show (n :: Int)) | n <- [0..999]]
         <> ["album_title", "metal", "grunge"]
   return $ HM.fromList $ map (\k -> (qbKeyCRC k, k)) allKeys
+
+-- This appears to be how most .qs / .qs.(lang) keys are calculated, but some are different?
+-- Escape sequences are given to this as backslash + char. So "\LSong Title" is ['\\', 'L', 'S', ...]
+qsKey :: T.Text -> Word32
+qsKey = qbKeyCRC . TE.encodeUtf16LE

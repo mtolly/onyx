@@ -14,6 +14,7 @@ module Control.Monad.Trans.StackTrace
 , warn, warnMessage, sendMessage', lg
 , errorToWarning, errorToEither
 , fatal
+, throwNoContext
 , MonadError(..)
 , inside
 , runStackTraceT
@@ -185,6 +186,9 @@ instance (Monad m) => MonadError Messages (StackTraceT m) where
     upper <- lift ask
     throwE $ Messages [ Message s (ctx ++ upper) | Message s ctx <- msgs ]
   StackTraceT ex `catchError` f = StackTraceT $ ex `catchE` (fromStackTraceT . f)
+
+throwNoContext :: (Monad m) => Messages -> StackTraceT m a
+throwNoContext = StackTraceT . throwE
 
 instance (Monad m) => MonadThrow (StackTraceT m) where
   throwM = stackShowException

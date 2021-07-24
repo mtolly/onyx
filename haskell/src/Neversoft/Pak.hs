@@ -124,3 +124,13 @@ makeQS entries = BL.fromStrict $ TE.encodeUtf16LE $ let
         hex' = T.replicate (8 - T.length hex) "0" <> hex
     return $ hex' <> " \"" <> t <> "\""
   in "\xFEFF" <> lns <> "\n\n" -- Extra newlines probably not necessary
+
+-- I don't yet know how to do simple double quotes inside a qs string (if it's possible).
+-- \q \Q \" don't work
+-- So for now, we replace with left/right quotes, which are supported by WoR, in a simple alternating pattern.
+qsFancyQuotes :: T.Text -> T.Text
+qsFancyQuotes t
+  = T.concat
+  $ concat
+  $ map (\(x, y) -> [x, y])
+  $ zip ("" : cycle ["“", "”"]) (T.splitOn "\"" t)
