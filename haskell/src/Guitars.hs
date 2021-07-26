@@ -211,6 +211,21 @@ noLowerExtSustains blipThreshold sustainGap = go where
         in ((color, sht), len2)
       RNil -> note
 
+-- Used for .chart import where you can "hold" open then play other notes on top.
+-- MIDI doesn't support this, so we have to trim the opens back before emitting
+noOpenExtSustains :: (NNC.C t, Num t) => t -> t -> RTB.T t ((Maybe color, sht), Maybe t) -> RTB.T t ((Maybe color, sht), Maybe t)
+noOpenExtSustains blipThreshold sustainGap = let
+  go rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, [((Nothing, sht), len1)]), rtb') -> let
+      len2 = case RTB.viewL rtb' of
+        Nothing            -> len1
+        Just ((dt', _), _) -> min (dt' NNC.-| sustainGap) <$> len1
+      len3 = len2 >>= \l2 -> guard (l2 >= blipThreshold) >> len2
+      in RTB.cons dt [((Nothing, sht), len3)] $ go rtb'
+    Just ((dt, xs), rtb') -> RTB.cons dt xs $ go rtb'
+  in RTB.flatten . go . RTB.collectCoincident
+
 standardBlipThreshold :: U.Beats
 standardBlipThreshold = 3/8 -- is this correct? I think 1/3 sustains might be possible in games
 

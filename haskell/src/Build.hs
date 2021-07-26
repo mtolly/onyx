@@ -2824,7 +2824,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 cdl = "cdl" <> show (fromMaybe hashed $ gh5_CDL gh5)
                 songKey = "dlc" <> show songID
                 songKeyQB = qbKeyCRC $ B8.pack songKey
-                packageTitle = targetTitle songYaml target <> " (" <> getArtist (_metadata songYaml) <> ")"
+                -- Limiting to one-byte chars because I don't know the right way to hash chars beyond U+00FF
+                packageTitle = T.map (\c -> if fromEnum c <= 0xFF then c else '_')
+                  $ targetTitle songYaml target <> " (" <> getArtist (_metadata songYaml) <> ")"
                 packageTitles = [packageTitle, "", packageTitle, packageTitle, packageTitle, packageTitle]
                 packageDescs = let s = "Custom song created by Onyx Music Game Toolkit" in [s, "", s, s, s, s]
                 -- "Emo Edge Track Pack" becomes "emo_edge_track_pack"
@@ -3027,7 +3029,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))
                   fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
               src <- shk $ buildSource
-                $ Gain 0.7 -- just guessing at this. without it previews are too loud
+                $ Gain 0.5 -- just guessing at this. without it previews are too loud
                 $ Fade End (Seconds 5)
                 $ Fade Start (Seconds 2)
                 $ Take Start (fromMS $ pend - pstart)

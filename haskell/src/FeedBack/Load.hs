@@ -272,7 +272,11 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
             $ \case TrackP1 t -> lengthToBools t; _ -> RTB.empty
           , fivePlayer2 = U.trackJoin $ flip fmap expert
             $ \case TrackP2 t -> lengthToBools t; _ -> RTB.empty
-          , fiveDifficulties = G.emit5' . emitTrack hopoThreshold <$> diffs
+          , fiveDifficulties
+            = G.emit5'
+            . G.noOpenExtSustains G.standardBlipThreshold G.standardSustainGap
+            . emitTrack hopoThreshold
+            <$> diffs
           }
       parseGHL label = do
         diffs <- fmap Map.fromList $ forM [Easy, Medium, Hard, Expert] $ \diff -> do

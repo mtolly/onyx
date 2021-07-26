@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE TupleSections     #-}
@@ -13,10 +14,11 @@ import           Data.Bits
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (toUpper)
+import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (sort)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    isNothing)
@@ -68,6 +70,19 @@ worGuitarEdits
   -> RTB.T U.Beats ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
 worGuitarEdits
   = RTB.flatten
+  . (let
+    -- Repeated hopo chords can't be hit without strumming, so make them strums.
+    -- (No tap chords due to below)
+    go = \case
+      Wait t1 c1 rest1@(Wait t2 c2 rest2) -> Wait t1 c1 $ go $
+        if not (null $ drop 1 c1)
+            && sort (map (fst . fst) c1) == sort (map (fst . fst) c2)
+            && any (\((_color, sht), _len) -> sht == HOPO) c2
+          then Wait t2 [ ((color, Strum), len) | ((color, _), len) <- c2 ] rest2
+          else rest1
+      oneOrEmpty -> oneOrEmpty
+    in go
+    )
   . fmap (\instant ->
     -- Tapping sections have limitations due to compatibility with the "slider strip".
     -- Tap chords produce notes that look right but can't be hit, so we make them HOPO.
@@ -165,6 +180,40 @@ annotateOverlaps = go . fmap (, Set.empty) where
       in Wait t (colors, sht, mlen, Set.toList held) $ go rest'
   -- TODO might need more overlaps marked? weird dropped sustains on Chorus 1 of Informal Gluttony on guitar
 
+data TapFixEvent
+  = NoteOff
+  | TapEnd
+  | TapStart
+  | NoteBlip
+  | NoteOn
+  deriving (Eq, Ord)
+
+-- Normally we put tap end events right at the next non-tap note.
+-- But this appears to mess up the hit window if the next note is a hopo chord,
+-- removing the front end of its window. So we pull back the tap end to fix
+pullBackTapEnds :: (NNC.C t, Fractional t) => RTB.T t TapFixEvent -> RTB.T t TapFixEvent
+pullBackTapEnds = go . RTB.normalize where
+  go rtb = case rtb of
+    Wait t1 NoteBlip (Wait t2 TapEnd rest) -> case rest of
+      RNil -> rtb
+      _    -> Wait t1 NoteBlip $ Wait (t2 / 2) TapEnd $ pullBackTapEnds $ RTB.delay (t2 / 2) rest
+    Wait t1 NoteOff (Wait t2 TapEnd rest) -> Wait t1 NoteOff $ Wait 0 TapEnd $ pullBackTapEnds $ RTB.delay t2 rest
+    Wait t x rest -> Wait t x $ go rest
+    RNil -> RNil
+
+pullBackTapEnds' :: (NNC.C t, Fractional t) => RTB.T t (note, Maybe t) -> RTB.T t Bool -> RTB.T t Bool
+pullBackTapEnds' notes taps = let
+  result = pullBackTapEnds $ RTB.merge
+    (U.trackJoin $ flip fmap notes $ \case
+      (_, Just len) -> Wait 0 NoteOn $ Wait len NoteOff RNil
+      (_, Nothing ) -> Wait 0 NoteBlip RNil
+    )
+    (fmap (\b -> if b then TapStart else TapEnd) taps)
+  in flip RTB.mapMaybe result $ \case
+    TapStart -> Just True
+    TapEnd   -> Just False
+    _        -> Nothing
+
 makeGHWoRNote
   :: (SendMessage m)
   => SongYaml f
@@ -197,7 +246,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
         . openNotes'
         $ fd
         :: RTB.T U.Beats ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
-      taps = F.fiveTap $ emit5' notes
+      taps = pullBackTapEnds' notes $ F.fiveTap $ emit5' notes
       colorToBit = \case
         Just F.Green  -> 0
         Just F.Red    -> 1
@@ -645,15 +694,15 @@ saveMetadataLIVE library fout = let
       } folder fout
 
 -- The STFS package display name is used to make the hash in the manifest file's name.
+-- TODO does not work for (I think) characters beyond U+00FF. Seen with U+2019 (right single quote)
 packageNameHash :: T.Text -> (Word32, String)
 packageNameHash t = let
-  titleHashLookup = HM.fromList $ do
-    c <- ['a' .. 'z'] <> ['0' .. '9']
-    [(c, c), (toUpper c, c)]
-  titleHashHex = qbKeyCRC $ B8.pack
-    $ take 42 -- odd cutoff
-    $ map (\c -> fromMaybe '_' $ HM.lookup c titleHashLookup)
-    $ T.unpack t
+  titleHashHex = qbKeyCRC $ B8.pack $ do
+    c <- take 42 $ T.unpack t -- not sure if cutoff is 42 chars, 96 bytes, 42 non-zero bytes, or something else
+    let inRange x y = x <= c && c <= y
+    if  | inRange 'a' 'z' || inRange '0' '9' -> [c]
+        | inRange 'A' 'Z' -> [toLower c]
+        | otherwise -> "_"
   titleHashStr = let
     str = showHex titleHashHex ""
     in replicate (length str - 8) '0' <> str

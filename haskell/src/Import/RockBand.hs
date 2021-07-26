@@ -191,7 +191,7 @@ importRB rbi level = do
           trksUpdated
             = filter ((`notElem` updatedNames) . U.trackName) trks1x
             ++ trksUpdate
-      midiFixed <- RBFile.interpretMIDIFile $ RBFile.Song temps sigs trksUpdated
+      midiFixed <- fmap checkEnableDynamics $ RBFile.interpretMIDIFile $ RBFile.Song temps sigs trksUpdated
       return (midiFixed, midiFixed { RBFile.s_tracks = RBFile.fixedToOnyx $ RBFile.s_tracks midiFixed })
     ImportQuick -> return (emptyChart, emptyChart)
 

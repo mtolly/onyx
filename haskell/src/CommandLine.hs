@@ -1213,6 +1213,7 @@ commands =
               name = reverse (take 3 $ reverse (show (i :: Int)) <> repeat '0') <> ext
           stackIO $ BL.writeFile (dout </> name) contents
           when (nodeFileType node == qbKeyCRC ".note") $ do
+            -- TODO handle failure
             note <- loadNoteFile contents
             stackIO $ writeFile (dout </> name <.> "parsed.txt") $ show note
           when (nodeFileType node == qbKeyCRC ".qb") $ do

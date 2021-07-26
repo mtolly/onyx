@@ -16,6 +16,7 @@ import           Control.Monad.Trans.Writer       (execWriter, tell)
 import           Data.Binary.Codec.Class
 import           Data.Bits
 import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -200,6 +201,13 @@ binLyric size = Codec
   , codecOut = fmapArg $ \t -> putByteString $ B.take size $ TE.encodeUtf16BE t <> B.replicate size 0
   }
 
+-- Latin-1 is a guess, might actually be UTF-8
+binLyricWii :: Int -> BinaryCodec T.Text
+binLyricWii size = Codec
+  { codecIn  = T.takeWhile (/= '\0') . TE.decodeLatin1 . BL.toStrict <$> getRemainingLazyByteString
+  , codecOut = fmapArg $ \t -> putByteString $ B.take size $ B8.pack (T.unpack t) <> B.replicate size 0
+  }
+
 data GHNoteFile = GHNoteFile
 
   { gh_guitareasy            :: GuitarBass
@@ -304,12 +312,18 @@ loadNoteFile noteData = do
   gh_drumsexpert <- getDrums "expert"
   gh_vocals <- getEntryKey "vocals" >>= interpret [("gh5_vocal_note", 7, readEntry bin)]
   gh_vocalstarpower <- getEntryKey "vocalstarpower" >>= interpret [("gh5_star_note", 6, readEntry $ binSingle word16be)]
-  gh_vocallyrics <- getEntryKey "vocallyrics" >>= interpret [("gh5_vocal_lyric", 68, readEntry $ binSingle $ binLyric 64)]
+  gh_vocallyrics <- getEntryKey "vocallyrics" >>= interpret
+    [ ("gh5_vocal_lyric", 68, readEntry $ binSingle $ binLyric    64) -- typical
+    , ("gh5_vocal_lyric", 36, readEntry $ binSingle $ binLyricWii 32) -- seen in gh5 wii free bird, maybe all wii?
+    ]
   gh_vocalphrase <- getEntryKey "vocalphrase" >>= interpret [("gh5_vocal_phrase", 4, readEntry word32be)]
   gh_vocalfreeform <- getEntryKey "vocalfreeform" >>= interpret [("gh5_vocal_freeform_note", 10, readEntry $ byteString 10)]
   gh_bandmoment <- getEntryKey "bandmoment" >>= interpret [("gh5_band_moment_note", 8, readEntry $ binSingle word32be)]
   gh_markers <- getEntryCRC 0x92511d84 >>= interpret [("gh5_marker_note", 8, readEntry $ binSingle word32be)]
-  gh_vocalmarkers <- getEntryCRC 0x032292a7 >>= interpret [("gh5_vocal_marker_note", 260, readEntry $ binSingle $ binLyric 256)]
+  gh_vocalmarkers <- getEntryCRC 0x032292a7 >>= interpret
+    [ ("gh5_vocal_marker_note", 260, readEntry $ binSingle $ binLyric    256) -- typical
+    , ("gh5_vocal_marker_note", 132, readEntry $ binSingle $ binLyricWii 128) -- seen in gh5 wii free bird, maybe all wii?
+    ]
   gh_backup_vocalmarkers <- forM (findEntryCRC 1140412083) $ interpret [("gh5_vocal_marker_note", 260, readEntry $ binSingle $ binLyric 256)]
   gh_backup_vocalphrase <- forM (findEntryKey "backup_vocalphrase") $ interpret [("gh5_vocal_phrase", 4, readEntry word32be)]
   gh_backup_vocals <- forM (findEntryKey "backup_vocals") $ interpret [("gh5_vocal_note", 7, readEntry bin)]
@@ -500,6 +514,18 @@ ghToMidi bank pak = let
             | otherwise       = toEnum $ fromIntegral (vnPitch vn) - 36
           in (pos, ((), pitch, len))
       }
+  markers
+    = fromPairs
+    $ mapMaybe (\(Single t qsID) -> let
+      mevent = case HM.lookup qsID bank of
+        Nothing  -> Nothing
+        Just str -> case T.stripPrefix "\\u[m]" str of
+          Just sect -> Just $ Right (SectionRB2, sect)
+          Nothing -> case str of
+            "\\L_ENDOFSONG" -> Just $ Left ()
+            _               -> Nothing
+      in (\x -> (toBeats t, x)) <$> mevent)
+    $ gh_markers pak
   fixed = mempty
     { RBFile.fixedPartGuitar = mempty
       { F.fiveDifficulties = Map.fromList
@@ -540,14 +566,8 @@ ghToMidi bank pak = let
       <*> gh_backup_vocalphrase    pak
       <*> gh_backup_vocalstarpower pak
     , RBFile.fixedEvents = mempty
-      { eventsSections = fromPairs
-        $ map (\(Single t qsID) -> let
-          txt = case HM.lookup qsID bank of
-            Just str -> fromMaybe str $ T.stripPrefix "\\u[m]" str
-            Nothing  -> T.pack $ "x" <> showHex qsID ""
-            -- think I remember Emh saying sections can't start with a number?
-          in (toBeats t, (SectionRB2, txt)))
-        $ gh_markers pak
+      { eventsSections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers
+      , eventsEnd      = RTB.mapMaybe (\case Left  ()   -> Just ()  ; _ -> Nothing) markers
       }
     }
   in RBFile.Song
