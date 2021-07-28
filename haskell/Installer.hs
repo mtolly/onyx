@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import           CMark                      (commonmarkToHtml)
 import           Control.Monad              (forM_, unless)
 import qualified Data.Set                   as Set
 import           Data.String                (IsString (..))
@@ -20,6 +21,16 @@ import           System.Process             (readProcess)
 versionString :: (IsString a) => a
 versionString = fromString $ showVersion version
 
+insertInfo :: T.Text -> IO T.Text
+insertInfo txt = do
+  date <- case versionString of
+    [y1, y2, y3, y4, m1, m2, d1, d2] -> return
+      [y1, y2, y3, y4, '-', m1, m2, '-', d1, d2]
+    _ -> fail "Version string not in 8-character date format"
+  return
+    $ T.replace "_ONYXDATE_" (T.pack date)
+    $ T.replace "_ONYXVERSION_" versionString txt
+
 main :: IO ()
 main = getArgs >>= \args -> case args of
 
@@ -38,15 +49,13 @@ main = getArgs >>= \args -> case args of
   "version-write" : files -> do
 
     -- Insert version string into files specified on command line
-    forM_ files $ \f -> do
-      txt <- T.readFile f
-      date <- case versionString of
-        [y1, y2, y3, y4, m1, m2, d1, d2] -> return
-          [y1, y2, y3, y4, '-', m1, m2, '-', d1, d2]
-        _ -> error "Version string not in 8-character date format"
-      T.writeFile f
-        $ T.replace "_ONYXDATE_" (T.pack date)
-        $ T.replace "_ONYXVERSION_" versionString txt
+    forM_ files $ \f -> T.readFile f >>= insertInfo >>= T.writeFile f
+
+  ["readme-html", markdown, template, out] -> do
+
+    md <- T.readFile markdown >>= insertInfo
+    tpl <- T.readFile template
+    T.writeFile out $ T.replace "_MARKDOWN_" (commonmarkToHtml [] md) tpl
 
   ["dlls", exe] -> do
 

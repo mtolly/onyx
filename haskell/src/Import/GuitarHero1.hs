@@ -60,7 +60,9 @@ importGH1 gen = map (\(_, pkg) -> importGH1Song pkg gen) <$> getSongList gen
 
 importGH1Song :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> Import m
 importGH1Song pkg gen level = do
-  when (level == ImportFull) $ lg $ "Importing GH1 song [" <> T.unpack (songName $ song pkg) <> "] from folder: " <> gen
+  when (level == ImportFull) $ do
+    lg $ "Importing GH1 song [" <> T.unpack (songName $ song pkg) <> "] from folder: " <> gen
+    lg $ "Converting audio may take a while!"
   entries <- stackIO $ readFileEntries $ gen </> "MAIN.HDR"
   let folder = fmap (\entry -> readFileEntry entry $ gen </> "MAIN_0.ARK") $ entryFolder entries
       encLatin1 = B8.pack . T.unpack

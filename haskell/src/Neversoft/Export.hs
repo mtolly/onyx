@@ -291,6 +291,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
       fiveLane = case drumsMode pd of
         Drums4 -> add2x $ D.drumGems dd
         Drums5 -> add2x $ D.drumGems dd
+        DrumsPro | gh5_ProTo4 target -> add2x $ D.drumGems dd
         DrumsPro -> let
           pro = add2x $ D.computePro (Just diff) trk
           eachGroup evts = concat

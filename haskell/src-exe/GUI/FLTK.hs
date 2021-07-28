@@ -11,7 +11,8 @@ module GUI.FLTK (launchGUI) where
 import           Audio                                     (Audio (..),
                                                             buildSource',
                                                             runAudio)
-import           Build                                     (hashRB3,
+import           Build                                     (NameRule (..),
+                                                            hashRB3,
                                                             targetTitle,
                                                             validFileName,
                                                             validFileNamePiece)
@@ -1450,8 +1451,15 @@ batchPageGHWOR sink rect tab build = do
   getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
+  getProTo4 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    fn <- horizRadio rect'
+      [ ("Pro Drums to 5 lane", False, not $ prefGH4Lane ?preferences)
+      , ("Pro Drums to 4 lane", True, prefGH4Lane ?preferences)
+      ]
+    return $ fromMaybe False <$> fn
   let getTargetSong usePath template = do
         speed <- getSpeed
+        proTo4 <- getProTo4
         return $ \proj -> let
           hasPart p = isJust $ HM.lookup p (getParts $ _parts $ projectSongYaml proj) >>= partGRYBO
           pickedGuitar = listToMaybe $ filter hasPart
@@ -1473,6 +1481,7 @@ batchPageGHWOR sink rect tab build = do
               }
             , gh5_Guitar = fromMaybe (gh5_Guitar defGH5) pickedGuitar
             , gh5_Bass = fromMaybe (gh5_Bass defGH5) $ pickedBass <|> pickedGuitar
+            , gh5_ProTo4 = proTo4
             }
           fout = trimXbox $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH5 tgt
@@ -1489,7 +1498,7 @@ batchPageGHWOR sink rect tab build = do
     sink
     "Create LIVE files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_ghwor")
-    (getTargetSong id >=> build)
+    (\template -> warnXboxGHWoR sink $ getTargetSong id template >>= build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -1677,12 +1686,27 @@ loadingPhraseCHtoGH2 proj = listToMaybe $ catMaybes $ do
 warnCombineXboxGH2 :: (Event -> IO ()) -> IO () -> IO ()
 warnCombineXboxGH2 sink go = sink $ EventOnyx $ do
   prefs <- readPreferences
-  stackIO $ unless (prefWarnedXbox prefs) $ do
+  stackIO $ unless (prefWarnedXboxGH2 prefs) $ do
     void $ FL.flChoice (T.unlines
       [ "Note! When loading songs into Guitar Hero II for Xbox 360, you *must* combine them into packs (go to \"Other tools\")."
       , "Loading more than 16 packages will fail to load some songs, and will corrupt your save!"
       ]) "OK" Nothing Nothing
-    savePreferences prefs { prefWarnedXbox = True }
+    savePreferences prefs { prefWarnedXboxGH2 = True }
+  stackIO go
+
+warnXboxGHWoR :: (Event -> IO ()) -> IO () -> IO ()
+warnXboxGHWoR sink go = sink $ EventOnyx $ do
+  prefs <- readPreferences
+  stackIO $ unless (prefWarnedXboxWoR prefs) $ do
+    void $ FL.flChoice (T.unlines
+      [ "Please use the \"WoR Song Cache\" tab in Other Tools after conversion,"
+      , "to produce the extra file needed to load your songs."
+      , ""
+      , "IMPORTANT: There may be an issue with loading too many custom songs"
+      , "into Guitar Hero: Warriors of Rock, that could corrupt your save."
+      , "Please back up any save data you care about before loading custom songs!"
+      ]) "OK" Nothing Nothing
+    savePreferences prefs { prefWarnedXboxWoR = True }
   stackIO go
 
 batchPageGH2
@@ -2120,6 +2144,14 @@ songPageGHWOR sink rect tab proj build = mdo
       tell $ getSpeed >>= \speed -> return $ Endo $ \gh5 ->
         gh5 { gh5_Common = (gh5_Common gh5) { tgt_Speed = Just speed } }
       return counter
+    fullWidth 35 $ \rect' -> do
+      getProTo4 <- liftIO $ horizRadio rect'
+        [ ("Pro Drums to 5 lane", False, not $ prefGH4Lane ?preferences)
+        , ("Pro Drums to 4 lane", True, prefGH4Lane ?preferences)
+        ]
+      tell $ do
+        b <- getProTo4
+        return $ Endo $ \gh5 -> gh5 { gh5_ProTo4 = fromMaybe False b }
     fullWidth 35 $ \rect' -> numberBox rect' "Custom Song ID (dlc)" $ \sid gh5 ->
       gh5 { gh5_SongID = sid }
     fullWidth 35 $ \rect' -> numberBox rect' "Custom Package ID (cdl)" $ \sid gh5 ->
@@ -2152,6 +2184,8 @@ songPageGHWOR sink rect tab proj build = mdo
         )
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
   let initTarget = def
+        { gh5_ProTo4 = prefGH4Lane ?preferences
+        }
       makeTarget = fmap ($ initTarget) targetModifier
   fullWidth 35 $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Create LIVE file"
@@ -2164,7 +2198,7 @@ songPageGHWOR sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt $ trimXbox f
+          Just f  -> warnXboxGHWoR sink $ build tgt $ trimXbox f
         _ -> return ()
     color <- FLE.rgbColorWithRgb (179,221,187)
     FL.setColor btn color
@@ -2469,7 +2503,7 @@ trimXbox
   => FilePath
   -> FilePath
 trimXbox f = if prefTrimXbox ?preferences
-  then validFileName (Just 42) f
+  then validFileName NameRuleXbox f
   else f
 
 batchPageRB3
@@ -2560,14 +2594,14 @@ batchPageRB3 sink rect tab build = do
   return ()
 
 templateApplyInput :: Project -> Maybe (Target FilePath) -> T.Text -> T.Text
-templateApplyInput proj mtgt txt = T.pack $ validFileName Nothing $ T.unpack $ foldr ($) txt
+templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ T.unpack $ foldr ($) txt
   [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
-  , T.intercalate (validFileNamePiece Nothing $ T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
-  , T.intercalate (validFileNamePiece Nothing title) . T.splitOn "%title%"
-  , T.intercalate (validFileNamePiece Nothing $ getArtist $ _metadata $ projectSongYaml proj) . T.splitOn "%artist%"
-  , T.intercalate (validFileNamePiece Nothing $ getAlbum $ _metadata $ projectSongYaml proj) . T.splitOn "%album%"
-  , T.intercalate (validFileNamePiece Nothing $ getAuthor $ _metadata $ projectSongYaml proj) . T.splitOn "%author%"
-  , T.intercalate (validFileNamePiece Nothing songID) . T.splitOn "%song_id%"
+  , T.intercalate (validFileNamePiece NameRulePC $ T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
+  , T.intercalate (validFileNamePiece NameRulePC title) . T.splitOn "%title%"
+  , T.intercalate (validFileNamePiece NameRulePC $ getArtist $ _metadata $ projectSongYaml proj) . T.splitOn "%artist%"
+  , T.intercalate (validFileNamePiece NameRulePC $ getAlbum $ _metadata $ projectSongYaml proj) . T.splitOn "%album%"
+  , T.intercalate (validFileNamePiece NameRulePC $ getAuthor $ _metadata $ projectSongYaml proj) . T.splitOn "%author%"
+  , T.intercalate (validFileNamePiece NameRulePC songID) . T.splitOn "%song_id%"
   ] where
     title = case mtgt of
       Nothing  -> getTitle $ _metadata $ projectSongYaml proj
@@ -4488,12 +4522,25 @@ launchPreferences sink = do
         [check3, check4] = splitHorizN 2 (lineBox 2)
     checkBlackVenue <- FL.checkButtonNew check1 $ Just "Use black venue in RB files"
     checkLabel2x    <- FL.checkButtonNew check2 $ Just "Label (2x Bass Pedal) by default"
-    checkTrimXbox   <- FL.checkButtonNew check3 $ Just "Trim Xbox 360 files to 42 characters"
+    checkTrimXbox   <- FL.checkButtonNew check3 $ Just "Ensure valid Xbox 360 filenames"
     checkRBNumberID <- FL.checkButtonNew check4 $ Just "Use true number IDs in RB files"
     void $ FL.setValue checkBlackVenue $ prefBlackVenue loadedPrefs
     void $ FL.setValue checkLabel2x    $ prefLabel2x    loadedPrefs
     void $ FL.setValue checkTrimXbox   $ prefTrimXbox   loadedPrefs
     void $ FL.setValue checkRBNumberID $ prefRBNumberID loadedPrefs
+
+    FL.setTooltip checkTrimXbox $ T.unwords
+      [ "When checked, the filenames of CON or LIVE files will be trimmed to a"
+      , "max of 42 characters, and will also have plus and comma characters"
+      , "replaced (a restriction for files on a 360 hard drive, but not USB)."
+      ]
+    FL.setTooltip checkRBNumberID $ T.unwords
+      [ "When checked, Rock Band files will use a random integer for song_id."
+      , "Otherwise, an 'o' is prefixed to form a symbol, and the game will"
+      , "generate a random ID. A true integer is required for some contexts"
+      , "such as RGH online play and PS3 conversion, and also maintains scores"
+      , "even if the song cache is regenerated."
+      ]
 
     getMSAA <- horizRadio (lineBox 3)
       [ ("No MSAA" , Nothing, prefMSAA loadedPrefs == Nothing)

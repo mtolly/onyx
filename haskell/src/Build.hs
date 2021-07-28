@@ -4,7 +4,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
-module Build (shakeBuildFiles, shakeBuild, targetTitle, loadYaml, validFileName, validFileNamePiece, hashRB3) where
+module Build (shakeBuildFiles, shakeBuild, targetTitle, loadYaml, validFileName, validFileNamePiece, NameRule(..), hashRB3) where
 
 import           Audio
 import           AudioSearch
@@ -30,7 +30,7 @@ import qualified Data.ByteString.Base64.Lazy           as B64
 import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (isAscii, isControl,
-                                                        isSpace)
+                                                        isDigit, isSpace)
 import           Data.Conduit                          (runConduit)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
@@ -295,9 +295,33 @@ targetTitleJP songYaml target = case tgt_Title $ targetCommon target of
     Nothing   -> Nothing
     Just base -> Just $ addTitleSuffix target base
 
-validFileNamePiece :: Maybe Int -> T.Text -> T.Text
-validFileNamePiece maxLen s = let
-  eachChar c = if isAscii c && not (isControl c) && notElem c ("<>:\"/\\|?*" :: String)
+data NameRule
+  = NameRulePC -- mostly windows but also mac/linux
+  | NameRuleXbox -- stfs files on hard drive. includes pc rules too
+
+-- Smarter length trim that keeps 1x, 2x, 125, rb3con, etc. at end of name
+makeLength :: Int -> T.Text -> T.Text
+makeLength n t = if n >= T.length t
+  then t
+  else case reverse $ T.splitOn "_" t of
+    lastPiece : rest@(_ : _) -> let
+      (modifiers, notModifiers) = span (\x -> x == "1x" || x == "2x" || T.all isDigit x) rest
+      base = T.intercalate "_" $ reverse notModifiers
+      suffix = T.intercalate "_" $ reverse $ lastPiece : modifiers
+      base' = T.dropWhileEnd (== '_') $ T.take (max 1 $ n - (T.length suffix + 1)) base
+      in T.take n $ base' <> "_" <> suffix
+    _ -> T.take n t
+
+validFileNamePiece :: NameRule -> T.Text -> T.Text
+validFileNamePiece rule s = let
+  trimLength = case rule of
+    NameRulePC   -> id
+    NameRuleXbox -> makeLength 42
+  invalidChars :: String
+  invalidChars = "<>:\"/\\|?*" <> case rule of
+    NameRulePC   -> ""
+    NameRuleXbox -> "+," -- these are only invalid on hard drives? not usb drives apparently
+  eachChar c = if isAscii c && not (isControl c) && notElem c invalidChars
     then c
     else '_'
   fixEnds = T.dropWhile isSpace . T.dropWhileEnd (\c -> isSpace c || c == '.')
@@ -308,15 +332,15 @@ validFileNamePiece maxLen s = let
     , "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "COM0"
     , "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "LPT0"
     ]
-  s' = fixEnds $ maybe id T.take maxLen $ T.map eachChar s
+  s' = fixEnds $ trimLength $ T.map eachChar s
   in if elem (T.toUpper s') reserved
     then s' <> "_"
     else s'
 
-validFileName :: Maybe Int -> FilePath -> FilePath
-validFileName maxLen f = let
+validFileName :: NameRule -> FilePath -> FilePath
+validFileName rule f = let
   (dir, file) = splitFileName f
-  in dir </> T.unpack (validFileNamePiece maxLen $ T.pack file)
+  in dir </> T.unpack (validFileNamePiece rule $ T.pack file)
 
 hashRB3 :: (Hashable f) => SongYaml f -> TargetRB3 f -> Int
 hashRB3 songYaml rb3 = let
@@ -326,7 +350,7 @@ hashRB3 songYaml rb3 = let
     , _artist $ _metadata songYaml
     -- TODO this should use more info, or find a better way to come up with hashes.
     )
-  in hash hashed `mod` 1000000000
+  in hash hashed `mod` 1000000000 -- TODO this should be moved to a better range, in case true numbers are used
 
 hashGH2 :: (Hashable f) => SongYaml f -> TargetGH2 -> Int
 hashGH2 songYaml gh2 = let
@@ -2236,7 +2260,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               let d = dir </> "ps"
               shk $ need [d]
               files <- shk $ map (d </>) <$> getDirectoryContents d
-              let folderInZip = T.unpack $ validFileNamePiece Nothing
+              let folderInZip = T.unpack $ validFileNamePiece NameRulePC
                     $ getArtist (_metadata songYaml) <> " - " <> targetTitle songYaml target
               z <- stackIO $ Zip.addFilesToArchive [Zip.OptLocation folderInZip False] Zip.emptyArchive files
               stackIO $ BL.writeFile out $ Zip.fromArchive z

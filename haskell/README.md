@@ -9,7 +9,7 @@ change song speed, fill in missing details, and assist with song authoring.
 Built on work and research by:
 
   * Harmonix
-  * Inventor211 (3D assets, design, QA)
+  * Inventor211 (3D assets, design, QA, CH format assistance)
   * TrojanNemo, emist (C3 CON Tools, Magma v2 mod)
   * No1mann (Magma v1 mod)
   * maxton, PikminGuts92 (LibForge/ForgeTool, milo lipsync help)
@@ -17,12 +17,16 @@ Built on work and research by:
   * xorloser (ArkTool/DtbCrypt)
   * deimos (dtb2dta)
   * qwertymodo (Magma MOGG redirect)
-  * Bloodline, Inventor211 (GHL MIDI format help)
   * DJ Shepherd (X360)
   * arkem (py360)
+  * GHFear (note2chart)
+  * AerialX (RawkSD)
+  * Nanook (Queen Bee)
+  * Quidrex (FSB Decrypter)
+  * SoundHaven, BirdmanExe, Freg, aWiseMoose, Guyshenig (QA/testing)
   * and many others!
 
-New versions and source at: https://github.com/mtolly/onyxite-customs/releases
+New versions and source at: <https://github.com/mtolly/onyxite-customs/releases>
 
 Onyx is free software via the GNU General Public License v3;
 see LICENSE.txt or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -57,7 +61,10 @@ This requires the Visual C++ runtime, and if on Mac or Linux, Wine.
     leaving it on "Magma optional", so you can see any error messages; they'll
     be converted to warnings and you'll still get the resulting song file.
 
-The Linux build is produced via an Ubuntu 14.04 Docker container, and should
+  * Wine is also required to produce Guitar Hero: Warriors of Rock files at the
+    moment, due to the audio encoding process. This may be fixed in the future.
+
+The Linux build is produced via an Ubuntu 16.04 Docker container, and should
 work on most any modern distribution. Older distributions might require
 additional installations:
 
@@ -73,11 +80,15 @@ additional installations:
   * On Linux, make the `.AppImage` executable, place it wherever you like,
     and run it. Your system may also offer to install desktop integration.
 
+  * Both Windows and macOS may label the program as malware or untrustworthy.
+    Hopefully there should be ways of working around this.
+    On Mac, right click `Onyx.app` and select Open, to add a security exception.
+
 ## Supported Formats
 
 Onyx can import the following song formats:
 
-  * Rock Band 1/2/3 STFS (CON or LIVE) files
+  * Rock Band 1, 2, or 3 STFS (CON or LIVE) files
 
     * Both single-song files and packs are supported.
 
@@ -97,6 +108,8 @@ Onyx can import the following song formats:
     * Extract the `.iso` contents, and then import either `GEN` or `MAIN.HDR`.
 
   * Guitar Hero II (Xbox 360) DLC (LIVE files)
+
+  * Guitar Hero: Warriors of Rock (Xbox 360) DLC (LIVE files)
 
   * DTXMania (DrumMania / GuitarFreaks) simfiles (.dtx/.gda)
 
@@ -145,9 +158,9 @@ You can also drag and drop a file onto the button, or onto the app icon on Mac.
     Guitar Hero (1), and Guitar Hero 2 / 80s, with more games planned to come.
     Select the tracks you want to include, and star cutoffs will be computed.
 
-  * The *RB3*, *RB2*, *CH/PS*, and *GH2* tabs convert your song to the given
-    game's format. All tabs let you change the song speed (if supported), and
-    can also redirect any instrument parts to new "slots". For example, in a
+  * The *RB3*, *RB2*, *CH/PS*, *GH2*, and *GH:WoR* tabs convert your song to the
+    given game's format. All tabs let you change the song speed (if supported),
+    and can also redirect any instrument parts to new "slots". For example, in a
     Rock Band 3 file, the 5-fret tracks for guitar, bass, and keys can be moved
     around, or even applied to more than 1 slot.
 
@@ -304,6 +317,77 @@ compilation errors.
         which is not already used for Lead
 
     To customize part assignment, use the "Load a song" mode.
+
+  * Guitar Hero: Warriors of Rock
+
+    Creates DLC files for Guitar Hero: Warriors of Rock for Xbox 360, for use
+    on a jailbroken (RGH or JTAG) console.
+
+    * There appears to be a limit of slightly over 700 songs' metadata in one
+      file; any more causes a crash on game launch.
+
+      **IMPORTANT**: In addition, it may be possible to corrupt a save somewhat
+      by loading too many new songs over multiple sessions. When this happens,
+      loading any more new songs will crash the game. So, it is recommended you
+      back up any save data you care about before loading custom songs, in case
+      this happens, until the issue can be researched in more detail.
+
+    * After creating DLC files, you *must* take your files, plus any WoR DLC you
+      want, and create a "WoR Song Cache" from them. See the Other Tools section
+      for information. This is required to load your songs!
+
+    * Guitar and bass support some of the Clone Hero feature set, with caveats.
+
+      * Extended sustains can only move upward (hold a lower note and play
+        higher notes). Ones that move downward will be trimmed back.
+      * Tap notes only support single fretted notes, likely for compatibility
+        with the slider control. Open notes and chords will become HOPOs.
+      * Open notes work on both guitar and bass, but HOPO open notes only work
+        on bass for some reason. On guitar, they become strums.
+
+    * Drums can be created from 4-lane, 5-lane, Pro Drums, or Real Drums inputs.
+
+      * Pro/Real can be converted to 5-lane, or simply copied as 4-lane.
+        Select the appropriate option on the WoR conversion tabs.
+      * Pro to 5-lane conversion is simple, but will be improved in the future:
+        * Yellow cymbal becomes yellow
+        * Green cymbal becomes orange
+        * Blue cymbal becomes orange, or yellow if there's already an orange
+        * Toms work the same, targeting blue and green
+      * Drum sustains are not supported yet. In the future, these should be
+        generated from Rock Band style drum lanes.
+      * Freestyle sections during chart gaps are not added yet
+        due to some technical difficulties.
+      * Velocity (accent and ghost) is supported if the Clone Hero dynamics
+        event is present, and 2x Bass Pedal charts are translated to Expert+.
+        A future version will add control over whether to restrict the ghost
+        notes to Expert+, or discard the ghost information and include them on
+        Expert.
+
+    * Vocals work basically the same as Rock Band, translating phrases, talkies,
+      and slides. Phrases are encoded in a slightly different way;
+      longer stretches of empty space are broken up into multiple empty phrases,
+      and short gaps between phrases are appended to the following phrase.
+
+    * Band animations and lighting/camera are not controlled yet, so a generic
+      camera cut rotation is used, and the drummer and singer do not have
+      animations.
+
+    * In batch mode, guitar and bass will be selected automatically from the
+      available tracks. If there is no suitable track for bass, guitar will be
+      copied to bass due to the lack of open pulloff support on guitar.
+
+    * There is an audio length limit of about 13 minutes, not due to the game
+      but due to the audio encoding process. This may be fixed in the future.
+
+      In addition, stems are not supported for now, because it would have an
+      even smaller maximum audio length. All audio will be mixed to the backing
+      track.
+
+      The stemless audio may behave oddly in multiplayer. It appears the backing
+      track is moved towards the center (mono), while the instrument tracks are
+      positioned in space to match their highway position. Currently researching
+      whether this behavior can be disabled.
 
   * Rock Band 3 (Wii)
 
@@ -488,3 +572,21 @@ compilation errors.
     replacing the symbol IDs that they originally had. Then, even if the song
     cache is regenerated from scratch, all scores will still be associated with
     their songs.
+
+  * GH:WoR song cache generation
+
+    This is a required step to load more than one custom song into Warriors of
+    Rock. The game loads song metadata by finding the highest ID DLC package,
+    and getting all metadata from that. Neversoft used this to avoid a lengthy
+    song scan process that some of the Rock Band games had, by including all
+    previous DLC information in each new DLC package that was released.
+
+    So, to load customs, we create a "cache" file which is just a DLC package
+    containing only metadata and no songs. This cache package will have a higher
+    ID than any custom or DLC (the cache ID is set to 2 billion, and customs
+    will be between 1 and 2 billion). You must provide all custom songs as well
+    as any WoR-format DLC (GH5 DLC is not necessary). Then, simply place this
+    cache package next to your DLC on your storage device.
+
+    You can also use previous cache files as an input to create new ones, so you
+    don't have to keep around already-processed customs on your computer.

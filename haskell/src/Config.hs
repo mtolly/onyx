@@ -1322,6 +1322,7 @@ data TargetGH5 = TargetGH5
   , gh5_Vocal  :: FlexPartName
   , gh5_SongID :: Maybe Int -- like 783 in "adlc783_1.fsb.xen"
   , gh5_CDL    :: Maybe Int -- like 511 in "cdl511"
+  , gh5_ProTo4 :: Bool -- true if pro drums should just use RYBG
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetGH5 :: (SendMessage m) => ObjectCodec m A.Value TargetGH5
@@ -1333,6 +1334,7 @@ parseTargetGH5 = do
   gh5_Vocal         <- gh5_Vocal         =. opt FlexVocal            "vocal"          stackJSON
   gh5_SongID        <- gh5_SongID        =. opt Nothing              "song-id"        stackJSON
   gh5_CDL           <- gh5_CDL           =. opt Nothing              "cdl"            stackJSON
+  gh5_ProTo4        <- gh5_ProTo4        =. opt False                "pro-to-4"       stackJSON
   return TargetGH5{..}
 
 instance StackJSON TargetGH5 where

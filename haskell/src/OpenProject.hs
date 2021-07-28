@@ -151,8 +151,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               foundImports "Guitar Hero II (Xbox 360 DLC)" loc imps
             Nothing -> if any (\(name, _) -> ".xen" `T.isSuffixOf` name) $ folderFiles folder
               then do
-                imps <- importGH5WoR folder
-                foundImports "Guitar Hero (5 or WoR)" loc imps
+                imps <- importGH5WoR loc folder
+                foundImports "Guitar Hero (Neversoft)" loc imps
               else return ([], [])
       foundRS psarc = importRS psarc >>= foundImports "Rocksmith" psarc
       foundImports fmt path imports = do

@@ -17,42 +17,46 @@ import           GHC.Generics                   (Generic (..))
 import qualified System.Directory               as Dir
 
 data Preferences = Preferences
-  { prefMagma      :: MagmaSetting
-  , prefBlackVenue :: Bool
-  , prefLabel2x    :: Bool
-  , prefTrimXbox   :: Bool
-  , prefRBNumberID :: Bool
-  , prefSortGH2    :: Bool
-  , prefMSAA       :: Maybe Int
-  , prefFXAA       :: Bool
-  , prefDirRB      :: Maybe FilePath
-  , prefDirCH      :: Maybe FilePath
-  , prefDirWii     :: Maybe FilePath
-  , prefDirPreview :: Maybe FilePath
-  , prefAudioDirs  :: [FilePath]
-  , prefOGGQuality :: Double
-  , prefGH2Offset  :: Double -- in seconds
-  , prefWarnedXbox :: Bool
+  { prefMagma         :: MagmaSetting
+  , prefBlackVenue    :: Bool
+  , prefLabel2x       :: Bool
+  , prefTrimXbox      :: Bool
+  , prefRBNumberID    :: Bool
+  , prefSortGH2       :: Bool
+  , prefMSAA          :: Maybe Int
+  , prefFXAA          :: Bool
+  , prefDirRB         :: Maybe FilePath
+  , prefDirCH         :: Maybe FilePath
+  , prefDirWii        :: Maybe FilePath
+  , prefDirPreview    :: Maybe FilePath
+  , prefAudioDirs     :: [FilePath]
+  , prefOGGQuality    :: Double
+  , prefGH2Offset     :: Double -- in seconds
+  , prefWarnedXboxGH2 :: Bool
+  , prefWarnedXboxWoR :: Bool
+  , prefGH4Lane       :: Bool
   }
 
 instance StackJSON Preferences where
   stackJSON = asObject "Preferences" $ do
-    prefMagma      <- prefMagma      =. fill MagmaRequire "magma"        stackJSON
-    prefBlackVenue <- prefBlackVenue =. fill False        "black-venue"  stackJSON
-    prefLabel2x    <- prefLabel2x    =. fill True         "label-2x"     stackJSON
-    prefTrimXbox   <- prefTrimXbox   =. fill False        "trim-xbox"    stackJSON
-    prefSortGH2    <- prefSortGH2    =. fill True         "sort-gh2"     stackJSON
-    prefRBNumberID <- prefRBNumberID =. fill False        "rb-number-id" stackJSON
-    prefMSAA       <- prefMSAA       =. fill (Just 4)     "msaa"         stackJSON
-    prefFXAA       <- prefFXAA       =. fill True         "fxaa"         stackJSON
-    prefDirRB      <- prefDirRB      =. opt  Nothing      "dir-rb"       stackJSON
-    prefDirCH      <- prefDirCH      =. opt  Nothing      "dir-ch"       stackJSON
-    prefDirWii     <- prefDirWii     =. opt  Nothing      "dir-wii"      stackJSON
-    prefDirPreview <- prefDirPreview =. opt  Nothing      "dir-preview"  stackJSON
-    prefAudioDirs  <- prefAudioDirs  =. opt  []           "audio-dirs"   stackJSON
-    prefOGGQuality <- prefOGGQuality =. fill 0.5          "ogg-quality"  stackJSON
-    prefGH2Offset  <- prefGH2Offset  =. fill 0            "gh2-offset"   stackJSON
-    prefWarnedXbox <- prefWarnedXbox =. opt  False        "warned-xbox"  stackJSON
+    prefMagma         <- prefMagma         =. fill MagmaRequire "magma"           stackJSON
+    prefBlackVenue    <- prefBlackVenue    =. fill False        "black-venue"     stackJSON
+    prefLabel2x       <- prefLabel2x       =. fill True         "label-2x"        stackJSON
+    prefTrimXbox      <- prefTrimXbox      =. fill False        "trim-xbox"       stackJSON
+    prefSortGH2       <- prefSortGH2       =. fill True         "sort-gh2"        stackJSON
+    prefRBNumberID    <- prefRBNumberID    =. fill False        "rb-number-id"    stackJSON
+    prefMSAA          <- prefMSAA          =. fill (Just 4)     "msaa"            stackJSON
+    prefFXAA          <- prefFXAA          =. fill True         "fxaa"            stackJSON
+    prefDirRB         <- prefDirRB         =. opt  Nothing      "dir-rb"          stackJSON
+    prefDirCH         <- prefDirCH         =. opt  Nothing      "dir-ch"          stackJSON
+    prefDirWii        <- prefDirWii        =. opt  Nothing      "dir-wii"         stackJSON
+    prefDirPreview    <- prefDirPreview    =. opt  Nothing      "dir-preview"     stackJSON
+    prefAudioDirs     <- prefAudioDirs     =. opt  []           "audio-dirs"      stackJSON
+    prefOGGQuality    <- prefOGGQuality    =. fill 0.5          "ogg-quality"     stackJSON
+    prefGH2Offset     <- prefGH2Offset     =. fill 0            "gh2-offset"      stackJSON
+    prefWarnedXboxGH2 <- prefWarnedXboxGH2 =. opt  False        "warned-xbox"     stackJSON
+    prefWarnedXboxWoR <- prefWarnedXboxWoR =. opt  False        "warned-xbox-wor" stackJSON
+    prefGH4Lane       <- prefGH4Lane       =. opt  False        "gh-4-lane"       stackJSON
     return Preferences{..}
 
 instance Default Preferences where
