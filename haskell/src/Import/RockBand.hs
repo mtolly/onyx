@@ -323,7 +323,7 @@ importRB rbi level = do
       , _rhythmBass   = fromMaybe False $ c3dtaRhythmBass $ rbiComments rbi
       , _catEMH       = fromMaybe False $ c3dtaCATemh $ rbiComments rbi
       , _expertOnly   = fromMaybe False $ c3dtaExpertOnly $ rbiComments rbi
-      , _cover        = not $ D.master pkg
+      , _cover        = not $ D.master pkg || D.gameOrigin pkg == Just "beatles"
       }
     , _global = def'
       { _animTempo = D.animTempo pkg

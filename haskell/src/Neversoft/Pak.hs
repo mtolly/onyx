@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module Neversoft.Pak where
@@ -7,7 +8,7 @@ import           Control.Monad              (forM, guard, replicateM)
 import           Data.Binary.Get
 import           Data.Binary.Put
 import qualified Data.ByteString.Lazy       as BL
-import           Data.Char                  (isSpace)
+import           Data.Char                  (isAlphaNum, isAscii, isSpace)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (sortOn)
 import           Data.Maybe                 (fromMaybe, listToMaybe)
@@ -119,18 +120,39 @@ parseQS bs = do
 makeQS :: [(Word32, T.Text)] -> BL.ByteString
 makeQS entries = BL.fromStrict $ TE.encodeUtf16LE $ let
   lns = T.unlines $ do
-    (w, t) <- sortOn snd entries -- Need to sort, otherwise game crashes!
+    (w, t) <- sortOn snd entries -- Sort not necessary, but official ones are
     let hex = T.pack $ showHex w ""
         hex' = T.replicate (8 - T.length hex) "0" <> hex
     return $ hex' <> " \"" <> t <> "\""
   in "\xFEFF" <> lns <> "\n\n" -- Extra newlines probably not necessary
 
--- I don't yet know how to do simple double quotes inside a qs string (if it's possible).
--- \q \Q \" don't work
--- So for now, we replace with left/right quotes, which are supported by WoR, in a simple alternating pattern.
-qsFancyQuotes :: T.Text -> T.Text
-qsFancyQuotes t
-  = T.concat
-  $ concat
-  $ map (\(x, y) -> [x, y])
-  $ zip ("" : cycle ["“", "”"]) (T.splitOn "\"" t)
+worMetadataString :: T.Text -> T.Text
+worMetadataString = noSortCrash . noBrackets . fancyQuotes where
+  -- I don't yet know how to do simple double quotes inside a qs string (if it's possible).
+  -- \q \Q \" don't work
+  -- So for now, we replace with left/right quotes, which are supported by WoR, in a simple alternating pattern.
+  fancyQuotes t
+    = T.concat
+    $ concat
+    $ map (\(x, y) -> [x, y])
+    $ zip ("" : cycle ["“", "”"]) (T.splitOn "\"" t)
+  -- These aren't in the fonts used for title/artist
+  noBrackets = T.replace "[" "(" . T.replace "]" ")"
+  -- The first character (after ignored words) of title/artist must be ASCII.
+  -- Otherwise WoR crashes when you sort by title/artist in the song list.
+  -- Æ and “ were observed to crash; ASCII punctuation appears to be fine.
+  -- Likely it's in the code that is supposed to put it under a category header.
+  noSortCrash t = case T.stripPrefix "\\L" t of
+    Nothing -> noSortCrash' t
+    Just t' -> "\\L" <> noSortCrash' t'
+  noSortCrash' t = case dropIgnored $ T.unpack $ T.toLower t of
+    c : _ -> if isAscii c
+      then t
+      else ". " <> t
+    "" -> "."
+  dropIgnored = \case
+    -- dunno if any other leading words are ignored
+    't' : 'h' : 'e' : ' ' : xs -> dropIgnored xs
+    'a' :             ' ' : xs -> dropIgnored xs
+    'a' : 'n' :       ' ' : xs -> dropIgnored xs
+    xs                         -> xs

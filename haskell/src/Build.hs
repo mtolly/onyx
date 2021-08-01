@@ -99,7 +99,7 @@ import           Neversoft.Note                        (makeWoRNoteFile,
                                                         putNote)
 import           Neversoft.Pak                         (Node (..), buildPak,
                                                         makeQS, parseQS,
-                                                        qsFancyQuotes)
+                                                        worMetadataString)
 import           Neversoft.QB                          (QBArray (..),
                                                         QBSection (..),
                                                         QBStructItem (..),
@@ -305,7 +305,10 @@ makeLength n t = if n >= T.length t
   then t
   else case reverse $ T.splitOn "_" t of
     lastPiece : rest@(_ : _) -> let
-      (modifiers, notModifiers) = span (\x -> x == "1x" || x == "2x" || T.all isDigit x) rest
+      (modifiers, notModifiers) = flip span rest $ \x ->
+        x == "1x" || x == "2x" || T.all isDigit x || case T.uncons x of
+          Just ('v', v) -> T.all isDigit v
+          _             -> False
       base = T.intercalate "_" $ reverse notModifiers
       suffix = T.intercalate "_" $ reverse $ lastPiece : modifiers
       base' = T.dropWhileEnd (== '_') $ T.take (max 1 $ n - (T.length suffix + 1)) base
@@ -2882,7 +2885,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             dir </> "cdl_text.pak.xen" %> \out -> do
               mid <- shakeMIDI $ planDir </> "processed.mid"
               let _ = mid :: RBFile.Song (RBFile.OnyxFile U.Beats)
-                  makeQSPair s = let s' = qsFancyQuotes s in (qsKey s', s')
+                  makeQSPair s = let s' = worMetadataString s in (qsKey s', s')
                   -- not sure what the \L does; it works without it but we'll just match official songs
                   titleQS  = makeQSPair $ "\\L" <> targetTitle songYaml target
                   artistQS = makeQSPair $ "\\L" <> getArtist (_metadata songYaml)

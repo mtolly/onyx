@@ -61,8 +61,9 @@ This requires the Visual C++ runtime, and if on Mac or Linux, Wine.
     leaving it on "Magma optional", so you can see any error messages; they'll
     be converted to warnings and you'll still get the resulting song file.
 
-  * Wine is also required to produce Guitar Hero: Warriors of Rock files at the
-    moment, due to the audio encoding process. This may be fixed in the future.
+  * Wine is also required to produce Guitar Hero: Warriors of Rock files on Mac
+    and Linux at the moment, due to the audio encoding process. This may be
+    fixed in the future.
 
 The Linux build is produced via an Ubuntu 16.04 Docker container, and should
 work on most any modern distribution. Older distributions might require
@@ -388,6 +389,10 @@ compilation errors.
       track is moved towards the center (mono), while the instrument tracks are
       positioned in space to match their highway position. Currently researching
       whether this behavior can be disabled.
+
+    * Song titles and artists may sometimes get a prefix added in front;
+      this is to prevent a game crash when sorting by title or artist caused by
+      non-ASCII characters (even those that are supported by the game fonts).
 
   * Rock Band 3 (Wii)
 
