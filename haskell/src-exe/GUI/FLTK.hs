@@ -2184,8 +2184,6 @@ songPageGHWOR sink rect tab proj build = mdo
         )
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
   let initTarget = def
-        { gh5_ProTo4 = prefGH4Lane ?preferences
-        }
       makeTarget = fmap ($ initTarget) targetModifier
   fullWidth 35 $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Create LIVE file"

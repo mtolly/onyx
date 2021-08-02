@@ -222,6 +222,7 @@ buildDrums
 buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..} songYaml = case getPart drumsPart songYaml >>= partDrums of
   Nothing -> Nothing
   Just pd -> Just $ let
+    -- TODO replace all this with buildDrumTarget which I copied most of the logic to
     psKicks = case drumsKicks pd of
       Kicks2x -> mapTrack (U.unapplyTempoTrack tempos) . phaseShiftKicks 0.18 0.11 . mapTrack (U.applyTempoTrack tempos)
       _       -> id

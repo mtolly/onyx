@@ -33,7 +33,7 @@ import qualified Data.DTA.Serialize.Magma         as Magma
 import           Data.DTA.Serialize.RB3           (AnimTempo (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
-import           Data.Foldable                    (toList)
+import           Data.Foldable                    (find, toList)
 import           Data.Hashable                    (Hashable (..))
 import qualified Data.HashMap.Strict              as Map
 import           Data.Int                         (Int32)
@@ -45,10 +45,14 @@ import           Data.Traversable
 import qualified Data.Vector                      as V
 import           DeriveHelpers
 import           GHC.Generics                     (Generic (..))
+import           OneFoot                          (phaseShiftKicks)
 import           Preferences                      (MagmaSetting (..))
+import           RockBand.Codec                   (mapTrack)
+import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.FullDrums         (convertFullDrums)
 import           RockBand.Codec.ProGuitar         (GtrBase (..), GtrTuning (..))
 import           RockBand.Common                  (Key (..), SongKey (..),
                                                    Tonality (..), readpKey,
@@ -1533,3 +1537,79 @@ evalPreviewTime leadin getEvents song = \case
         findSection sect = getEvents >>= \f ->
           fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . snd)
             $ eventsSections $ f $ RBFile.s_tracks song
+
+data DrumTarget
+  = DrumTargetRB1x -- pro, 1x
+  | DrumTargetRB2x -- pro, 2x
+  | DrumTargetCH -- pro, x+
+  | DrumTargetGH -- 5-lane, x+
+
+buildDrumTarget
+  :: DrumTarget
+  -> PartDrums
+  -> U.Beats
+  -> U.TempoMap
+  -> RBFile.OnyxPart U.Beats
+  -> D.DrumTrack U.Beats
+buildDrumTarget tgt pd timingEnd tmap opart = let
+
+  src1x   =                          RBFile.onyxPartDrums       opart
+  src2x   =                          RBFile.onyxPartDrums2x     opart
+  srcReal = D.psRealToPro          $ RBFile.onyxPartRealDrumsPS opart
+  srcFull = convertFullDrums False $ RBFile.onyxPartFullDrums   opart
+  srcsRB = case tgt of
+    DrumTargetRB1x -> [src1x, src2x]
+    _              -> [src2x, src1x]
+  srcList = case drumsMode pd of
+    DrumsReal -> srcReal : srcsRB
+    DrumsFull -> srcFull : srcsRB
+    _         -> srcsRB
+  src = fromMaybe mempty $ find (not . D.nullDrums) srcList
+
+  stepAddKicks = case drumsKicks pd of
+    Kicks2x -> mapTrack (U.unapplyTempoTrack tmap) . phaseShiftKicks 0.18 0.11 . mapTrack (U.applyTempoTrack tmap)
+    _       -> id
+
+  isRBTarget = case tgt of
+    DrumTargetRB1x -> True
+    DrumTargetRB2x -> True
+    _              -> False
+
+  drumEachDiff f dt = dt { D.drumDifficulties = fmap f $ D.drumDifficulties dt }
+  step5to4 = if drumsMode pd == Drums5 && isRBTarget
+    then drumEachDiff $ \dd -> dd
+      { D.drumGems = D.fiveToFour
+        (case drumsFallback pd of
+          FallbackBlue  -> D.Blue
+          FallbackGreen -> D.Green
+        )
+        (D.drumGems dd)
+      }
+    else id
+
+  isBasicSource = case drumsMode pd of
+    Drums4 -> True
+    Drums5 -> True
+    _      -> False
+
+  noToms dt = dt { D.drumToms = RTB.empty }
+  allToms dt = dt
+    { D.drumToms = RTB.fromPairList
+      [ (0        , (D.Yellow, D.Tom   ))
+      , (0        , (D.Blue  , D.Tom   ))
+      , (0        , (D.Green , D.Tom   ))
+      , (timingEnd, (D.Yellow, D.Cymbal))
+      , (0        , (D.Blue  , D.Cymbal))
+      , (0        , (D.Green , D.Cymbal))
+      ]
+    }
+  stepToms = if isBasicSource
+    then if isRBTarget
+      then allToms
+      else noToms
+    else id
+
+  -- TODO pro to 5 conversion (for GH target)
+  -- Move logic from Neversoft.Export to here
+
+  in stepToms $ step5to4 $ stepAddKicks src

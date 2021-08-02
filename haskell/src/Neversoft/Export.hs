@@ -280,10 +280,15 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
         , gb_starpower = makeStarPower $ F.fiveOverdrive trk
         }
     Nothing -> GuitarBass [] [] []
-  makeDrums fpart diff _timing = case getPart fpart songYaml >>= partDrums of
+  makeDrums fpart diff timing = case getPart fpart songYaml >>= partDrums of
     Just pd -> let
       opart = fromMaybe mempty $ Map.lookup fpart $ RBFile.onyxParts ofile
-      trk = RBFile.onyxPartDrums opart -- TODO use other tracks potentially
+      trk = buildDrumTarget
+        DrumTargetGH
+        pd
+        (timingEnd timing)
+        tmap
+        opart
       dd = fromMaybe mempty $ Map.lookup diff $ D.drumDifficulties trk
       add2x xs = case diff of
         Expert -> RTB.merge (fmap Just xs) $ Nothing <$ D.drumKick2x trk
@@ -291,8 +296,9 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
       fiveLane = case drumsMode pd of
         Drums4 -> add2x $ D.drumGems dd
         Drums5 -> add2x $ D.drumGems dd
-        DrumsPro | gh5_ProTo4 target -> add2x $ D.drumGems dd
-        DrumsPro -> let
+        _ | gh5_ProTo4 target -> add2x $ D.drumGems dd
+        _ -> let
+          -- TODO this logic should be moved to buildDrumTarget
           pro = add2x $ D.computePro (Just diff) trk
           eachGroup evts = concat
             [ [Just (D.Kick, vel) | Just (D.Kick, vel) <- evts]
@@ -316,7 +322,6 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
               in concat [ytom, gtom, btom]
             ]
           in RTB.flatten $ fmap eachGroup $ RTB.collectCoincident pro
-        _ -> RTB.empty -- TODO handle real, full
       fills = [] -- makeDrumFill (U.applyTempoTrack tmap fiveLane) (U.applyTempoMap tmap $ timingEnd timing)
       drumBit = bit . \case
         Just (D.Pro D.Green () , _) -> 0
