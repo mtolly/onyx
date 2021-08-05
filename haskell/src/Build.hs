@@ -2852,8 +2852,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 songKey = "dlc" <> show songID
                 songKeyQB = qbKeyCRC $ B8.pack songKey
                 -- Limiting to one-byte chars because I don't know the right way to hash chars beyond U+00FF
-                packageTitle = T.map (\c -> if fromEnum c <= 0xFF then c else '_')
+                packageInfo = T.map (\c -> if fromEnum c <= 0xFF then c else '_')
                   $ targetTitle songYaml target <> " (" <> getArtist (_metadata songYaml) <> ")"
+                -- We put the cdl in as well, otherwise 2 titles that share the first 42 chars can conflict
+                -- (for example, a long-title song converted to 2 different speeds)
+                packageTitle = T.pack cdl <> " " <> packageInfo
                 packageTitles = [packageTitle, "", packageTitle, packageTitle, packageTitle, packageTitle]
                 packageDescs = let s = "Custom song created by Onyx Music Game Toolkit" in [s, "", s, s, s, s]
                 -- "Emo Edge Track Pack" becomes "emo_edge_track_pack"

@@ -3422,12 +3422,12 @@ miscPagePacks sink rect tab startTasks = mdo
     (Just "Pack description")
     (Just FL.FlNormalInput) -- required for labels to work
 
-  btnCON <- FL.buttonNew conRect $ Just "Make CON pack"
+  btnCON <- FL.buttonNew conRect $ Just "Make CON pack (RB3/RB2)"
   taskColor >>= FL.setColor btnCON
   FL.setResizable tab $ Just group
   FL.setCallback btnCON $ \_ -> doPrompt False
 
-  btnLIVE <- FL.buttonNew liveRect $ Just "Make LIVE pack"
+  btnLIVE <- FL.buttonNew liveRect $ Just "Make LIVE pack (all other games)"
   taskColor >>= FL.setColor btnLIVE
   FL.setResizable tab $ Just group
   FL.setCallback btnLIVE $ \_ -> doPrompt True

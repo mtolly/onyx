@@ -73,11 +73,17 @@ worGuitarEdits
   . (let
     -- Repeated hopo chords can't be hit without strumming, so make them strums.
     -- (No tap chords due to below)
+    -- Also making chords immediately after tap notes strums, because they are
+    -- weirdly hard to hit when hopos (have to play late, even if you strum)
     go = \case
-      Wait t1 c1 rest1@(Wait t2 c2 rest2) -> Wait t1 c1 $ go $
-        if not (null $ drop 1 c1)
-            && sort (map (fst . fst) c1) == sort (map (fst . fst) c2)
-            && any (\((_color, sht), _len) -> sht == HOPO) c2
+      Wait t1 c1 rest1@(Wait t2 c2 rest2) -> Wait t1 c1 $ go $ let
+        isRepeatedChord = not (null $ drop 1 c1)
+          && sort (map (fst . fst) c1) == sort (map (fst . fst) c2)
+          && any (\((_color, sht), _len) -> sht == HOPO) c2
+        isChordAfterTap = not (null $ drop 1 c2)
+          && any (\((_color, sht), _len) -> sht == Tap) c1
+          && any (\((_color, sht), _len) -> sht == HOPO) c2
+        in if isRepeatedChord || isChordAfterTap
           then Wait t2 [ ((color, Strum), len) | ((color, _), len) <- c2 ] rest2
           else rest1
       oneOrEmpty -> oneOrEmpty
@@ -188,9 +194,9 @@ data TapFixEvent
   | NoteOn
   deriving (Eq, Ord)
 
--- Normally we put tap end events right at the next non-tap note.
--- But this appears to mess up the hit window if the next note is a hopo chord,
--- removing the front end of its window. So we pull back the tap end to fix
+-- This was an attempt to fix hopo chords after tap being hard to hit,
+-- by pulling back the tap length a bit. It doesn't appear to work, but it's
+-- still probably a good idea
 pullBackTapEnds :: (NNC.C t, Fractional t) => RTB.T t TapFixEvent -> RTB.T t TapFixEvent
 pullBackTapEnds = go . RTB.normalize where
   go rtb = case rtb of
