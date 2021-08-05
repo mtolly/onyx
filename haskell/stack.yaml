@@ -45,6 +45,8 @@ extra-deps:
   commit: 4790b92549b7db51801a67cf1055259e3abcf60e
 - git: git://github.com/mtolly/language-c
   commit: 5e40d962fb71b7e1256ff607194c53544709e761
+- git: git://github.com/mtolly/hashable # https://github.com/haskell-unordered-containers/hashable/pull/211
+  commit: 2ffe4f68356f7f1a48159a182201812e12520f10
 resolver: lts-17.12
 flags:
   fltkhs:
