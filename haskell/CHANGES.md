@@ -1,5 +1,36 @@
 # Version history
 
+## 20210806
+
+* First demo of conversion to Guitar Hero: Warriors of Rock (Xbox 360) DLC
+  for RGH/JTAG consoles
+  * Convert songs in either single view or batch mode, then generate a
+    "song cache" file in Other Tools - this is required to load multiple songs
+  * Currently internally uses a separate Windows program to encode audio,
+    meaning Wine is required on Linux and Mac
+  * Audio has roughly a 13 minute limit at the moment (not a game limit,
+    a limitation of the audio encoding tool)
+  * Various missing features and game limitations, see `README` for details
+  * There appears to be a limit of slightly over 700 songs' metadata in one
+    file; any more causes a crash
+  * **IMPORTANT**: it also may be possible to corrupt a save by loading too many
+    songs over multiple sessions, such that loading any more new songs crashes
+    on launch until you delete your save. Until this can be figured out, please
+    back up any saves you care about before loading any custom songs!
+* Also can import from GH:WoR (360) DLC
+* Fix Opus import prematurely cutting off audio tracks sometimes
+* Actually include Opus support in Linux build
+* Fix GH2 export sometimes specifying characters and venues
+  that don't exist in GH:80s
+* Fix batch mode temporary folders sometimes not being cleaned up until app exit
+* Smarter filename trimming for Xbox filenames (keeps suffixes and game type);
+  also remove plus and comma which are disallowed on 360 internal drives
+* Fix The Beatles: Rock Band songs being marked as covers
+* Fix a hashing bug that could cause song ID conflicts,
+  such as between different speedups of the same song
+* Fix drum dynamics being applied to RB import even
+  without the CH text event to enable them
+
 ## 20210702
 
 * Fix converting to CH/PS format on Windows
