@@ -34,6 +34,7 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.Int
 import           Data.List.Extra                  (firstJust, (\\))
 import           Data.List.NonEmpty               (NonEmpty (..))
+import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
 import           Data.SimpleHandle                (Folder, Readable,
@@ -209,17 +210,19 @@ importGH2Song mode pkg gen level = do
       rhythmChans = map fromIntegral $ fromMaybe [] $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
       songChans = zipWith const [0..] (pans songChunk)
         \\ (guitarChans ++ bassChans ++ rhythmChans)
-      mixChans _ [] = Nothing
-      mixChans v [c] = Just PlanAudio
-        { _planExpr = Input $ Named $ T.pack $ fst $ namedSrcs !! c
-        , _planPans = map realToFrac [pans songChunk !! c]
-        , _planVols = map realToFrac [(vols songChunk !! c) + v]
-        }
-      mixChans v cs = Just PlanAudio
-        { _planExpr = Merge $ map (Input . Named . T.pack . fst . (namedSrcs !!)) cs
-        , _planPans = map realToFrac [ pans songChunk !! c | c <- cs ]
-        , _planVols = map realToFrac [ (vols songChunk !! c) + v | c <- cs ]
-        }
+      mixChans v cs = do
+        cs' <- NE.nonEmpty cs
+        Just $ case cs' of
+          c :| [] -> PlanAudio
+            { _planExpr = Input $ Named $ T.pack $ fst $ namedSrcs !! c
+            , _planPans = map realToFrac [pans songChunk !! c]
+            , _planVols = map realToFrac [(vols songChunk !! c) + v]
+            }
+          _ -> PlanAudio
+            { _planExpr = Merge $ fmap (Input . Named . T.pack . fst . (namedSrcs !!)) cs'
+            , _planPans = map realToFrac [ pans songChunk !! c | c <- cs ]
+            , _planVols = map realToFrac [ (vols songChunk !! c) + v | c <- cs ]
+            }
       in Plan
         { _song = mixChans 0 songChans
         , _countin = Countin []

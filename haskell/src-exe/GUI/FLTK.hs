@@ -79,6 +79,7 @@ import           Data.IORef                                (IORef, modifyIORef,
                                                             newIORef, readIORef,
                                                             writeIORef)
 import           Data.List.Extra                           (findIndex, nubOrd)
+import qualified Data.List.NonEmpty                        as NE
 import qualified Data.Map                                  as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
@@ -3508,7 +3509,8 @@ miscPageMOGG sink rect tab startTasks = mdo
                   []             -> return () -- shouldn't happen
                   rates@(r : rs) -> unless (all (== r) rs) $ do
                     fatal $ "All files must have the same sample rate, but found: " <> show (nubOrd rates)
-                src <- buildSource' $ Merge $ map (Input . audioPath) audio
+                ne <- maybe (fatal "No input files") return $ NE.nonEmpty audio
+                src <- buildSource' $ Merge $ fmap (Input . audioPath) ne
                 runAudio src ogg
                 oggToMogg ogg f'
                 return [f']

@@ -243,7 +243,6 @@ data GHNoteFile = GHNoteFile
   , gh_timesig               :: [TimeSig]
   , gh_bandmoment            :: [Single Word32]
 
-  -- unknown entryIdentifier strings
   , gh_markers               :: [Single Word32] -- these match IDs in .qs.en
   , gh_vocalmarkers          :: [Single T.Text]
   , gh_backup_vocalmarkers   :: Maybe [Single T.Text]
@@ -270,9 +269,6 @@ loadNoteFile noteData = do
       findEntryCRC crc = listToMaybe $ filter ((== crc) . entryIdentifier) entries
       getEntryKey k = case findEntryKey k of
         Nothing    -> fail $ ".note entry not found: " <> show k
-        Just entry -> return entry
-      getEntryCRC n = case findEntryCRC n of
-        Nothing    -> fail $ ".note entry not found: " <> show n
         Just entry -> return entry
       readEntry cdc entry = mapM (runGetM (codecIn cdc) . BL.fromStrict) $ entryContents entry
       interpret options entry = let
@@ -319,12 +315,12 @@ loadNoteFile noteData = do
   gh_vocalphrase <- getEntryKey "vocalphrase" >>= interpret [("gh5_vocal_phrase", 4, readEntry word32be)]
   gh_vocalfreeform <- getEntryKey "vocalfreeform" >>= interpret [("gh5_vocal_freeform_note", 10, readEntry $ byteString 10)]
   gh_bandmoment <- getEntryKey "bandmoment" >>= interpret [("gh5_band_moment_note", 8, readEntry $ binSingle word32be)]
-  gh_markers <- getEntryCRC 0x92511d84 >>= interpret [("gh5_marker_note", 8, readEntry $ binSingle word32be)]
-  gh_vocalmarkers <- getEntryCRC 0x032292a7 >>= interpret
+  gh_markers <- getEntryKey "guitarmarkers" >>= interpret [("gh5_marker_note", 8, readEntry $ binSingle word32be)]
+  gh_vocalmarkers <- getEntryKey "vocalsmarkers" >>= interpret
     [ ("gh5_vocal_marker_note", 260, readEntry $ binSingle $ binLyric    256) -- typical
     , ("gh5_vocal_marker_note", 132, readEntry $ binSingle $ binLyricWii 128) -- seen in gh5 wii free bird, maybe all wii?
     ]
-  gh_backup_vocalmarkers <- forM (findEntryCRC 1140412083) $ interpret [("gh5_vocal_marker_note", 260, readEntry $ binSingle $ binLyric 256)]
+  gh_backup_vocalmarkers <- forM (findEntryKey "backup_vocalsmarkers") $ interpret [("gh5_vocal_marker_note", 260, readEntry $ binSingle $ binLyric 256)]
   gh_backup_vocalphrase <- forM (findEntryKey "backup_vocalphrase") $ interpret [("gh5_vocal_phrase", 4, readEntry word32be)]
   gh_backup_vocals <- forM (findEntryKey "backup_vocals") $ interpret [("gh5_vocal_note", 7, readEntry bin)]
   gh_backup_vocalfreeform <- forM (findEntryKey "backup_vocalfreeform") $ interpret [("gh5_vocal_freeform_note", 10, readEntry $ byteString 10)]
@@ -349,7 +345,7 @@ makeWoRNoteFile GHNoteFile{..} = execWriter $ do
   -- this order probably doesn't matter but just matching what some official files have
   makeEntry "drumshardstarpower"      "gh5_star_note"           6   (binSingle word16be)       (drums_starpower gh_drumshard)
   makeEntry "bassmediumstarpower"     "gh5_star_note"           6   (binSingle word16be)       (gb_starpower gh_bassmedium)
-  makeEntryCRC 0x032292a7             "gh5_vocal_marker_note"   260 (binSingle $ binLyric 256) gh_vocalmarkers
+  makeEntry "vocalsmarkers"           "gh5_vocal_marker_note"   260 (binSingle $ binLyric 256) gh_vocalmarkers
   makeEntry "drumsexpertstarpower"    "gh5_star_note"           6   (binSingle word16be)       (drums_starpower gh_drumsexpert)
   makeEntry "guitarhardinstrument"    "gh5_instrument_note"     8   bin                        (gb_instrument gh_guitarhard)
   makeEntry "guitarhardtapping"       "gh5_tapping_note"        8   (binSingle word32be)       (gb_tapping gh_guitarhard)
@@ -360,7 +356,7 @@ makeWoRNoteFile GHNoteFile{..} = execWriter $ do
   makeEntry "vocalstarpower"          "gh5_star_note"           6   (binSingle word16be)       gh_vocalstarpower
   makeEntry "vocalphrase"             "gh5_vocal_phrase"        4   word32be                   gh_vocalphrase
   makeEntry "guitarhardstarpower"     "gh5_star_note"           6   (binSingle word16be)       (gb_starpower gh_guitarhard)
-  makeEntryCRC 0x92511d84             "gh5_marker_note"         8   (binSingle word32be)       gh_markers
+  makeEntry "guitarmarkers"           "gh5_marker_note"         8   (binSingle word32be)       gh_markers
   makeEntry "fretbar"                 "gh5_fretbar_note"        4   word32be                   gh_fretbar
   makeEntry "vocals"                  "gh5_vocal_note"          7   bin                        gh_vocals
   makeEntry "harddrumfill"            "gh5_drumfill_note"       8   (binSingle word32be)       (drums_drumfill gh_drumshard)
@@ -399,7 +395,7 @@ makeWoRNoteFile GHNoteFile{..} = execWriter $ do
   mapM_ (makeEntry "backup_vocalfreeform"  "gh5_vocal_freeform_note" 10  (byteString 10)           ) gh_backup_vocalfreeform
   mapM_ (makeEntry "backup_vocallyrics"    "gh5_vocal_lyric"         68  (binSingle $ binLyric 64) ) gh_backup_vocallyrics
   mapM_ (makeEntry "backup_vocalstarpower" "gh5_star_note"           6   (binSingle word16be)      ) gh_backup_vocalstarpower
-  mapM_ (makeEntry "backup_vocalmarkers"   "gh5_vocal_marker_note"   260 (binSingle $ binLyric 256)) gh_backup_vocalmarkers
+  mapM_ (makeEntry "backup_vocalsmarkers"  "gh5_vocal_marker_note"   260 (binSingle $ binLyric 256)) gh_backup_vocalmarkers
 
 tappingToFunction :: [Single Word32] -> (Word32 -> Bool)
 -- TODO make a map or something to optimize this

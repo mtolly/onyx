@@ -111,6 +111,7 @@ readSongList dta = let
   isIgnore = \case
     D.Parens (D.Tree _ [D.Sym "validate_ignore", D.Sym "TRUE"]) -> True
     _                                                           -> False
+  -- TODO duplicate nodes here to handle GH2DX 2.0 {if_else $egg5 "Speed Test (HalfDuck Cover)" "Speed Test"}
   in fmap D.fromDictList
     $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
     $ editDTB $ decodeLatin1 <$> dta

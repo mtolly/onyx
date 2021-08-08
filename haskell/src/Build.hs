@@ -51,6 +51,7 @@ import qualified Data.HashMap.Strict                   as HM
 import           Data.Int                              (Int32)
 import           Data.List.Extra                       (intercalate, nubOrd,
                                                         sort, sortOn)
+import           Data.List.NonEmpty                    (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty                    as NE
 import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe, isJust,
@@ -917,15 +918,18 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               let ogg = rel $ "gen/plan" </> T.unpack planName </> "audio.ogg"
               shk $ need [ogg]
               liftIO $ audioSeconds ogg
-            Plan{..} -> do
-              let expr = Mix $ map _planExpr $ concat
-                    [ toList _song
-                    , toList _crowd
-                    , toList _planParts >>= toList
-                    ]
-              src <- mapM (manualLeaf yamlDir audioLib songYaml) expr >>= lift . lift . buildSource . join
-              let _ = src :: AudioSource (ResourceT IO) Float
-              return $ realToFrac $ fromIntegral (frames src) / rate src
+            Plan{..} -> let
+              parts = fmap _planExpr $ concat
+                [ toList _song
+                , toList _crowd
+                , toList _planParts >>= toList
+                ]
+              in case NE.nonEmpty parts of
+                Nothing -> return 0
+                Just parts' -> do
+                  src <- mapM (manualLeaf yamlDir audioLib songYaml) (Mix parts') >>= lift . lift . buildSource . join
+                  let _ = src :: AudioSource (ResourceT IO) Float
+                  return $ realToFrac $ fromIntegral (frames src) / rate src
 
           adjustSpec :: Bool -> [(Double, Double)] -> [(Double, Double)]
           adjustSpec True  spec     = spec
@@ -1409,7 +1413,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               Plan{..} -> do
                 (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
                 (DifficultyRB3{..}, _) <- loadEditedParts
-                let parts = concat
+                let partsBeforeSong = concat
                       [ [pathMagmaKick   | rb3DrumsRank  /= 0 && mixMode /= RBDrums.D0]
                       , [pathMagmaSnare  | rb3DrumsRank  /= 0 && notElem mixMode [RBDrums.D0, RBDrums.D4]]
                       , [pathMagmaDrums  | rb3DrumsRank  /= 0]
@@ -1418,9 +1422,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       , [pathMagmaKeys   | rb3KeysRank   /= 0]
                       , [pathMagmaVocal  | rb3VocalRank  /= 0]
                       , [pathMagmaCrowd  | isJust _crowd]
-                      , [pathMagmaSong]
                       ]
-                src <- shk $ buildSource $ Merge $ map Input parts
+                    parts = case NE.nonEmpty partsBeforeSong of
+                      Nothing -> return pathMagmaSong
+                      Just ne -> ne <> return pathMagmaSong
+                src <- shk $ buildSource $ Merge $ fmap Input parts
                 runAudio src out
             pathMogg %> \out -> case plan of
               MoggPlan{} -> do
@@ -1864,10 +1870,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   audio <- computeGH2Audio songYaml gh2 hasAudio
                   mid <- loadGH2Midi
                   srcs <- forM (gh2AudioSections audio) $ \case
-                    GH2Part part -> getPartSource [(-1, 0), (1, 0)] planName plan part 1
-                    GH2Band -> sourceSongCountin (gh2_Common gh2) mid 0 True planName plan
-                      [ (gh2LeadTrack audio, 1)
-                      , (gh2CoopTrack audio, 1)
+                    GH2PartStereo part -> getPartSource [(-1, 0), (1, 0)] planName plan part 1
+                    -- This halves the volume, so we set vols in .dta to compensate
+                    GH2PartMono part -> applyVolsMono [0] <$> getPartSource [(-1, 0), (1, 0)] planName plan part 1
+                    GH2Band -> sourceSongCountin (gh2_Common gh2) mid 0 True planName plan $ concat
+                      [ [(gh2LeadTrack audio, 1)]
+                      , [(gh2CoopTrack audio, 1)]
+                      , maybe [] (\t -> [(t, 1)]) $ gh2DrumTrack audio
                       ]
                     GH2Silent -> return $ silent (Seconds 0) (if lowRateSilence then 11025 else 44100) 1
                   pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
@@ -3044,14 +3053,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             dir </> "audio2.wav" %> \out -> do
               len <- getAudioLength planName plan
               runAudio (applySpeedAudio (gh5_Common gh5) $ silent (Seconds $ realToFrac len) 1000 6) out
-            -- TODO support speed
             dir </> "audio3.wav" %> \out -> do
               mid <- shakeMIDI $ planDir </> "processed.mid"
               let _ = mid :: RBFile.Song (RBFile.OnyxFile U.Beats)
               src <- shk $ buildSource $ Merge
-                [ Input $ planDir </> "everything.wav"
-                , Silence 2 $ Seconds 0
-                ]
+                $ Input (planDir </> "everything.wav")
+                :| [Silence 2 $ Seconds 0]
               runAudio (applyTargetAudio (gh5_Common gh5) mid src) out
 
             dir </> "preview.wav" %> \out -> do
@@ -3240,12 +3247,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         -- count-in audio
         dir </> "countin.wav" %> \out -> do
           let hits = case plan of MoggPlan{} -> []; Plan{..} -> case _countin of Countin h -> h
-          src <- buildAudioToSpec yamlDir audioLib songYaml [(-1, 0), (1, 0)] =<< case hits of
-            [] -> return Nothing
-            _  -> Just . (\expr -> PlanAudio expr [] []) <$> do
+          src <- buildAudioToSpec yamlDir audioLib songYaml [(-1, 0), (1, 0)] =<< case NE.nonEmpty hits of
+            Nothing    -> return Nothing
+            Just hits' -> Just . (\expr -> PlanAudio expr [] []) <$> do
               mid <- shakeMIDI $ dir </> "raw.mid"
               let _ = mid :: RBFile.Song (RBFile.RawFile U.Beats)
-              return $ Mix $ flip map hits $ \(posn, aud) -> let
+              return $ Mix $ flip fmap hits' $ \(posn, aud) -> let
                 time = Seconds $ realToFrac $ case posn of
                   Left  mb   -> U.applyTempoMap (RBFile.s_tempos mid) $ U.unapplyMeasureMap (RBFile.s_signatures mid) mb
                   Right secs -> secs

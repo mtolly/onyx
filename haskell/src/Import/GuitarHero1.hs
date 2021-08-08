@@ -22,6 +22,8 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        ((\\))
+import           Data.List.NonEmpty               (NonEmpty (..))
+import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes)
 import           Data.SimpleHandle                (findFile, handleToByteString,
@@ -134,17 +136,19 @@ importGH1Song pkg gen level = do
     , _plans = HM.singleton "vgs" $ let
       guitarChans = map fromIntegral $ concat $ take 1 $ slip_tracks $ song pkg
       songChans = zipWith const [0..] (pans $ song pkg) \\ guitarChans
-      mixChans [] = Nothing
-      mixChans [c] = Just PlanAudio
-        { _planExpr = Input $ Named $ T.pack $ fst $ namedSrcs !! c
-        , _planPans = map realToFrac [pans (song pkg) !! c]
-        , _planVols = map realToFrac [vols (song pkg) !! c]
-        }
-      mixChans cs = Just PlanAudio
-        { _planExpr = Merge $ map (Input . Named . T.pack . fst . (namedSrcs !!)) cs
-        , _planPans = map realToFrac [ pans (song pkg) !! c | c <- cs ]
-        , _planVols = map realToFrac [ vols (song pkg) !! c | c <- cs ]
-        }
+      mixChans cs = do
+        cs' <- NE.nonEmpty cs
+        Just $ case cs' of
+          c :| [] -> PlanAudio
+            { _planExpr = Input $ Named $ T.pack $ fst $ namedSrcs !! c
+            , _planPans = map realToFrac [pans (song pkg) !! c]
+            , _planVols = map realToFrac [vols (song pkg) !! c]
+            }
+          _ -> PlanAudio
+            { _planExpr = Merge $ fmap (Input . Named . T.pack . fst . (namedSrcs !!)) cs'
+            , _planPans = map realToFrac [ pans (song pkg) !! c | c <- cs ]
+            , _planVols = map realToFrac [ vols (song pkg) !! c | c <- cs ]
+            }
       in Plan
         { _song = mixChans songChans
         , _countin = Countin []

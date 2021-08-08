@@ -27,6 +27,7 @@ import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as HM
 import           Data.Int                       (Int16)
 import           Data.IORef
+import qualified Data.List.NonEmpty             as NE
 import qualified Data.Set                       as Set
 import qualified Data.Text                      as T
 import qualified Data.Vector.Storable           as V
@@ -188,7 +189,7 @@ playSource pans vols initGain ca = do
                           (ratioL, ratioR) = stereoPanRatios pan
                           newStereo = V.generate (V.length chan * 2) $ \i -> case quotRem i 2 of
                             (j, 0) -> CA.integralSample $ ratioL * CA.fractionalSample (chan V.! j)
-                            (j, _) -> CA.integralSample $ ratioR * CA.fractionalSample(chan V.! j)
+                            (j, _) -> CA.integralSample $ ratioR * CA.fractionalSample (chan V.! j)
                           in newStereo : groupChannels xs ys
                         groupChannels (AssignedStereo{} : xs) (c1 : c2 : ys) = let
                           interleaved = CA.interleave [c1, c2]
@@ -270,14 +271,16 @@ projectAudio k proj = case lookup k $ HM.toList $ _plans $ projectSongYaml proj 
             volsSpecified -> volsSpecified
       return $ PlanAudio expr pans vols
       -- :: [PlanAudio Duration FilePath]
-    return $ \t mspeed gain -> do
-      src <- buildSource' $ Merge $ map (Drop Start (CA.Seconds t) . _planExpr) planAudios'
-      playSource
-        (map realToFrac $ planAudios' >>= _planPans)
-        (map realToFrac $ planAudios' >>= _planVols)
-        gain
-        $ CA.mapSamples CA.integralSample
-        $ maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed src
+    case NE.nonEmpty planAudios' of
+      Nothing -> fatal "No audio in plan"
+      Just ne -> return $ \t mspeed gain -> do
+        src <- buildSource' $ Merge $ fmap (Drop Start (CA.Seconds t) . _planExpr) ne
+        playSource
+          (map realToFrac $ planAudios' >>= _planPans)
+          (map realToFrac $ planAudios' >>= _planVols)
+          gain
+          $ CA.mapSamples CA.integralSample
+          $ maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed src
   {-
   Just _ -> errorToWarning $ do
     wav <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/everything.wav"

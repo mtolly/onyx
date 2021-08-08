@@ -42,9 +42,9 @@ computeChannels :: Audio Duration Int -> Int
 computeChannels = \case
   Silence n _ -> n
   Input n -> n
-  Mix auds -> foldr max 0 $ map computeChannels auds
-  Merge auds -> sum $ map computeChannels auds
-  Concatenate auds -> foldr max 0 $ map computeChannels auds
+  Mix auds -> foldr max 0 $ fmap computeChannels auds
+  Merge auds -> sum $ fmap computeChannels auds
+  Concatenate auds -> foldr max 0 $ fmap computeChannels auds
   Gain _ aud -> computeChannels aud
   Take _ _ aud -> computeChannels aud
   Drop _ _ aud -> computeChannels aud

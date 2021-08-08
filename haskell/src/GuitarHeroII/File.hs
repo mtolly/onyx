@@ -13,6 +13,7 @@ import           GuitarHeroII.BandDrums
 import           GuitarHeroII.BandKeys
 import           GuitarHeroII.BandSinger
 import           GuitarHeroII.Events
+import           GuitarHeroII.PartDrum
 import           GuitarHeroII.PartGuitar
 import           GuitarHeroII.Triggers
 import           RockBand.Codec
@@ -22,6 +23,7 @@ data GH2File t = GH2File
   { gh2PartGuitar     :: PartTrack t
   , gh2PartBass       :: PartTrack t
   , gh2PartRhythm     :: PartTrack t
+  , gh2PartDrum       :: GH2DrumTrack t
   , gh2PartGuitarCoop :: PartTrack t
   , gh2BandBass       :: BandBassTrack t
   , gh2BandDrums      :: BandDrumsTrack t
@@ -34,17 +36,19 @@ data GH2File t = GH2File
 
 instance TraverseTrack GH2File where
   traverseTrack fn
-    (GH2File a b c d e f g h i j)
+    (GH2File a b c d e f g h i j k)
     = GH2File <$> traverseTrack fn a
       <*> traverseTrack fn b <*> traverseTrack fn c <*> traverseTrack fn d
       <*> traverseTrack fn e <*> traverseTrack fn f <*> traverseTrack fn g
       <*> traverseTrack fn h <*> traverseTrack fn i <*> traverseTrack fn j
+      <*> traverseTrack fn k
 
 instance ParseFile GH2File where
   parseFile = do
     gh2PartGuitar     <- gh2PartGuitar     =. fileTrack (pure "PART GUITAR"     )
     gh2PartBass       <- gh2PartBass       =. fileTrack (pure "PART BASS"       )
     gh2PartRhythm     <- gh2PartRhythm     =. fileTrack (pure "PART RHYTHM"     )
+    gh2PartDrum       <- gh2PartDrum       =. fileTrack (pure "PART DRUM"       )
     gh2PartGuitarCoop <- gh2PartGuitarCoop =. fileTrack (pure "PART GUITAR COOP")
     gh2BandBass       <- gh2BandBass       =. fileTrack (pure "BAND BASS"       )
     gh2BandDrums      <- gh2BandDrums      =. fileTrack (pure "BAND DRUMS"      )

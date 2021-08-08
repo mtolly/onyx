@@ -16,6 +16,8 @@ import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
+import           Data.List.NonEmpty               (NonEmpty (..))
+import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    mapMaybe)
@@ -133,7 +135,7 @@ dtxToAudio dtx fin = do
         , _planVols = []
         }
       audiosExpr pairs = PlanAudio
-        { _planExpr = Mix $ map (Input . Named . T.pack . fst3) pairs
+        { _planExpr = Mix $ fmap (Input . Named . T.pack . fst3) pairs
         , _planPans = []
         , _planVols = []
         }
@@ -158,10 +160,11 @@ dtxToAudio dtx fin = do
             , drumsSplitSnare = audioExpr <$> snare
             , drumsSplitKit   = audioExpr k
             }
-          Nothing -> case catMaybes [kick, snare, kit] of
-            []  -> Nothing
-            [x] -> Just $ PartSingle $ audioExpr x
-            xs  -> Just $ PartSingle $ audiosExpr xs
+          Nothing -> do
+            xs <- NE.nonEmpty $ catMaybes [kick, snare, kit]
+            Just $ PartSingle $ case xs of
+              x :| [] -> audioExpr x
+              _       -> audiosExpr xs
         , (FlexGuitar ,) . PartSingle . audioExpr <$> guitar
         , (FlexBass   ,) . PartSingle . audioExpr <$> bass
         ] ++ do

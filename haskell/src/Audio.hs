@@ -73,6 +73,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Int                         (Int16)
 import           Data.List                        (elemIndex, sortOn)
+import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
@@ -101,9 +102,9 @@ import           System.Process                   (proc)
 data Audio t a
   = Silence Int t
   | Input a
-  | Mix                       [Audio t a]
-  | Merge                     [Audio t a]
-  | Concatenate               [Audio t a]
+  | Mix                       (NonEmpty (Audio t a))
+  | Merge                     (NonEmpty (Audio t a))
+  | Concatenate               (NonEmpty (Audio t a))
   | Gain Double               (Audio t a)
   | Take Edge t               (Audio t a)
   | Drop Edge t               (Audio t a)
@@ -132,9 +133,9 @@ instance Monad (Audio t) where
     join_ = \case
       Silence c t          -> Silence c t
       Input           sub  -> sub
-      Mix             auds -> Mix $ map join_ auds
-      Merge           auds -> Merge $ map join_ auds
-      Concatenate     auds -> Concatenate $ map join_ auds
+      Mix             auds -> Mix $ fmap join_ auds
+      Merge           auds -> Merge $ fmap join_ auds
+      Concatenate     auds -> Concatenate $ fmap join_ auds
       Gain      d     aud  -> Gain d $ join_ aud
       Take    e t     aud  -> Take e t $ join_ aud
       Drop    e t     aud  -> Drop e t $ join_ aud
@@ -154,9 +155,9 @@ mapTime :: (t -> u) -> Audio t a -> Audio u a
 mapTime f aud = case aud of
   Silence c t       -> Silence c $ f t
   Input   x         -> Input x
-  Mix         xs    -> Mix         $ map (mapTime f) xs
-  Merge       xs    -> Merge       $ map (mapTime f) xs
-  Concatenate xs    -> Concatenate $ map (mapTime f) xs
+  Mix         xs    -> Mix         $ fmap (mapTime f) xs
+  Merge       xs    -> Merge       $ fmap (mapTime f) xs
+  Concatenate xs    -> Concatenate $ fmap (mapTime f) xs
   Gain g x          -> Gain g $ mapTime f x
   Take e t x        -> Take e (f t) $ mapTime f x
   Drop e t x        -> Drop e (f t) $ mapTime f x
@@ -437,8 +438,8 @@ buildSource' aud = case aud of
     ".vgs" -> dropStart t <$> buildSource' (Input fin)
     _      -> ffSourceFrom t (Right fin)
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
-  Drop Start t (Merge xs) -> buildSource' $ Merge $ map (Drop Start t) xs
-  Drop Start t (Mix   xs) -> buildSource' $ Mix   $ map (Drop Start t) xs
+  Drop Start t (Merge xs) -> buildSource' $ Merge $ fmap (Drop Start t) xs
+  Drop Start t (Mix   xs) -> buildSource' $ Mix   $ fmap (Drop Start t) xs
   Drop edge t (Gain d x) -> buildSource' $ Gain d $ Drop edge t x
   Drop edge t (Channels cs x) -> buildSource' $ Channels cs $ Drop edge t x
   Channels (sequence -> Just cs) (Input fin) | takeExtension fin == ".vgs" -> do
@@ -473,11 +474,9 @@ buildSource' aud = case aud of
   StretchSimple d x -> stretchSimple d <$> buildSource' x
   StretchFull t p x -> stretchFull t p <$> buildSource' x
   Mask tags seams x -> renderMask tags seams <$> buildSource' x
-  where combine meth xs = mapM buildSource' xs >>= \srcs -> case srcs of
-          []     -> error "buildSource: can't combine 0 files"
-          s : ss -> return $ foldl meth s ss
-          -- TODO just have this make an empty mono source,
-          -- and make sure mono can mix with a source of any channel count
+  where combine meth xs = do
+          s :| ss <- mapM buildSource' xs
+          return $ foldl meth s ss
         dropPad edge dur t1 t2 x = buildSource' $ case compare t1 t2 of
           EQ -> x
           GT -> Drop edge (dur $ t1 - t2) x

@@ -19,6 +19,8 @@ import qualified Data.ByteString                as B
 import           Data.Fixed                     (Fixed, HasResolution)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as Set
+import           Data.List.NonEmpty             (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty             as NE
 import           Data.Profunctor                (dimap)
 import           Data.Scientific
 import qualified Data.Text                      as T
@@ -120,6 +122,14 @@ instance StackJSON A.Value
 
 instance (StackJSON a) => StackJSON [a] where
   stackJSON = stackJSONList
+
+instance (StackJSON a) => StackJSON (NonEmpty a) where
+  stackJSON = Codec
+    { codecIn = codecIn c >>= \case
+      x : xs -> return $ x :| xs
+      []     -> expected "non-empty array"
+    , codecOut = makeOut $ makeValue' c . NE.toList
+    } where c = stackJSONList
 
 instance (StackJSON a) => StackJSON (V.Vector a) where
   stackJSON = dimap V.toList V.fromList stackJSONList

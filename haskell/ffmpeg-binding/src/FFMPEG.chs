@@ -895,7 +895,7 @@ ffSourceFrom dur input = do
                                 countSamples
                                 (castPtr inputPlanes)
                                 countSamples
-                          liftIO (V.unsafeFreeze mvec) >>= yield . V.drop (fromIntegral skipManual)
+                          liftIO (V.unsafeFreeze mvec) >>= yield . V.drop (fromIntegral $ skipManual * channels)
                         loop
           in loop
     , CA.rate     = fromIntegral rate

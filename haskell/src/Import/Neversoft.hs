@@ -10,6 +10,7 @@ import qualified Data.ByteString.Lazy           as BL
 import qualified Data.Conduit.Audio             as CA
 import           Data.Default.Class             (def)
 import qualified Data.HashMap.Strict            as HM
+import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe                     (catMaybes, listToMaybe)
 import           Data.SimpleHandle
 import qualified Data.Text                      as T
@@ -66,7 +67,7 @@ importGH5WoR src folder = do
           src2 <- getAudio 6 $ "a" <> TE.decodeUtf8 (songName info) <> "_2.fsb.xen"
           src3 <- getAudio 4 $ "a" <> TE.decodeUtf8 (songName info) <> "_3.fsb.xen"
           (kickChans, snareChans, kitChansMix) <- case CA.channels src1 of
-            8 -> return ([0, 1], [2, 3], [[4, 5], [6, 7]]) -- last 4 are 2 tom channels, 2 cymbal channels
+            8 -> return ([0, 1], [2, 3], [4, 5] :| [[6, 7]]) -- last 4 are 2 tom channels, 2 cymbal channels
             n -> fatal $ "Unrecognized number of drum audio channels: " <> show n
           (gtrChans, bassChans, voxChans) <- case CA.channels src2 of
             6 -> return ([0, 1], [2, 3], [4, 5])
@@ -75,7 +76,7 @@ importGH5WoR src folder = do
             4 -> return ([0, 1], [2, 3])
             n -> fatal $ "Unrecognized number of backing/crowd audio channels: " <> show n
           let chans name cs = PlanAudio (Channels (map Just cs) $ Input $ Named name) [] []
-              chansMix name inputs = PlanAudio (Mix $ map (\cs -> Channels (map Just cs) $ Input $ Named name) inputs) [] []
+              chansMix name inputs = PlanAudio (Mix $ fmap (\cs -> Channels (map Just cs) $ Input $ Named name) inputs) [] []
               readTier 0 _ = Nothing
               readTier n f = Just $ f $ Rank $ fromIntegral n * 50
           return SongYaml

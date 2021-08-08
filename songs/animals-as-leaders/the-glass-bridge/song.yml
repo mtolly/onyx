@@ -1,0 +1,17 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+audio:
+  album-track:
+    md5: 00927bf759a60fbbba0dced29c6883ce
+    frames: 13479900
+plans:
+  plan:
+    song:
+      pad: [3.750, album-track]
+metadata:
+  title: The Glass Bridge
+  artist: Animals as Leaders
+  album: The Madness of Many

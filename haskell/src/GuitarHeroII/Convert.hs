@@ -25,6 +25,7 @@ import           GuitarHeroII.BandKeys
 import           GuitarHeroII.BandSinger
 import           GuitarHeroII.Events
 import           GuitarHeroII.File
+import           GuitarHeroII.PartDrum
 import           GuitarHeroII.PartGuitar
 import           GuitarHeroII.Triggers
 import           Guitars
@@ -69,7 +70,8 @@ gh2Pad rb3@(F.Song tmap _ trks) = let
       return (F.padAnyFile padSeconds rb3, padSeconds)
 
 data GH2AudioSection
-  = GH2Part F.FlexPartName -- stereo
+  = GH2PartStereo F.FlexPartName
+  | GH2PartMono F.FlexPartName
   | GH2Band -- stereo
   | GH2Silent -- mono
 
@@ -77,8 +79,10 @@ data GH2Audio = GH2Audio
   { gh2AudioSections :: [GH2AudioSection]
   , gh2LeadChannels  :: [Int]
   , gh2CoopChannels  :: [Int]
+  , gh2DrumChannels  :: [Int]
   , gh2LeadTrack     :: F.FlexPartName
   , gh2CoopTrack     :: F.FlexPartName
+  , gh2DrumTrack     :: Maybe F.FlexPartName
   , gh2CoopType      :: GH2Coop
   , gh2AnimBass      :: Maybe F.FlexPartName
   , gh2AnimDrums     :: Maybe F.FlexPartName
@@ -87,6 +91,7 @@ data GH2Audio = GH2Audio
   , gh2Practice      :: [Maybe F.FlexPartName]
   , gh2LeadPractice  :: Int
   , gh2CoopPractice  :: Int
+  , gh2DrumPractice  :: Maybe Int
   }
 
 computeGH2Audio
@@ -99,6 +104,9 @@ computeGH2Audio song target hasAudio = do
   gh2LeadTrack <- case getPart (gh2_Guitar target) song >>= partGRYBO of
     Nothing -> fatal "computeGH2Audio: no lead guitar part selected"
     Just _  -> return $ gh2_Guitar target
+  gh2DrumTrack <- case getPart (gh2_Drums target) song >>= partDrums of
+    Nothing -> return Nothing
+    Just _  -> return $ Just $ gh2_Drums target
   let specifiedCoop = case gh2_Coop target of
         GH2Bass   -> gh2_Bass   target
         GH2Rhythm -> gh2_Rhythm target
@@ -107,32 +115,60 @@ computeGH2Audio song target hasAudio = do
         Just _  -> (specifiedCoop, gh2_Coop target)
       leadAudio = hasAudio gh2LeadTrack
       coopAudio = gh2LeadTrack /= gh2CoopTrack && hasAudio gh2CoopTrack
-      bandSection   = [GH2Band                                              ]
-      leadSection   = [GH2Part gh2LeadTrack | leadAudio                     ]
-      coopSection   = [GH2Part gh2CoopTrack | coopAudio                     ]
-      silentSection = [GH2Silent            | not leadAudio || not coopAudio]
-      gh2AudioSections = concat [bandSection, leadSection, coopSection, silentSection]
+      drumAudio = maybe False hasAudio gh2DrumTrack
       count = \case
-        GH2Part _ -> 2
-        GH2Band   -> 2
-        GH2Silent -> 1
+        GH2PartStereo _ -> 2
+        GH2PartMono   _ -> 1
+        GH2Band         -> 2
+        GH2Silent       -> 1
+      maxVGSChannels = 6
+
+      -- order: band, guitar, bass, drums, silent
+      bandSection = [GH2Band]
+      silentSection = do
+        guard $ not leadAudio || not coopAudio || (isJust gh2DrumTrack && not drumAudio)
+        [GH2Silent]
+      drumSection = do
+        guard drumAudio
+        GH2PartStereo <$> toList gh2DrumTrack
+      remainingLeadCoop = maxVGSChannels - sum (map count $ concat [bandSection, silentSection, drumSection])
+      leadSection = do
+        guard leadAudio
+        if (coopAudio && remainingLeadCoop >= 3) || (not coopAudio && remainingLeadCoop >= 2)
+          then [GH2PartStereo gh2LeadTrack]
+          else [GH2PartMono   gh2LeadTrack]
+      coopSection = do
+        guard coopAudio
+        if maxVGSChannels - sum (map count $ concat [bandSection, silentSection, drumSection, leadSection]) >= 2
+          then [GH2PartStereo gh2CoopTrack]
+          else [GH2PartMono   gh2CoopTrack]
+
+      gh2AudioSections = concat [bandSection, leadSection, coopSection, drumSection, silentSection]
       indexes before section = take (sum $ map count section) [sum (map count before) ..]
       gh2LeadChannels = if leadAudio
         then indexes bandSection leadSection
-        else indexes (concat [bandSection, leadSection, coopSection]) silentSection
+        else indexes (concat [bandSection, leadSection, coopSection, drumSection]) silentSection
       gh2CoopChannels = if coopAudio
         then indexes (concat [bandSection, leadSection]) coopSection
-        else indexes (concat [bandSection, leadSection, coopSection]) silentSection
-      (gh2Practice, gh2LeadPractice, gh2CoopPractice) = if gh2_PracticeAudio target
-        then case (leadAudio, coopAudio) of
+        else indexes (concat [bandSection, leadSection, coopSection, drumSection]) silentSection
+      gh2DrumChannels = if drumAudio
+        then indexes (concat [bandSection, leadSection, coopSection]) drumSection
+        else if isJust gh2DrumTrack
+          then indexes (concat [bandSection, leadSection, coopSection, drumSection]) silentSection
+          else []
+      (gh2Practice, gh2LeadPractice, gh2CoopPractice, gh2DrumPractice) = if gh2_PracticeAudio target
+        then let
           -- From testing, you can't just have 1 channel and assign it to both lead and bass/rhythm;
           -- you get no audio. I'm guessing any channels for an instrument other than the one
           -- you're playing are muted, even if they're also assigned to the one you're playing.
-          (False, False) -> ([Nothing          , Nothing          ], 0, 1)
-          (True , False) -> ([Just gh2LeadTrack, Nothing          ], 0, 1)
-          (False, True)  -> ([Just gh2CoopTrack, Nothing          ], 0, 1)
-          (True , True)  -> ([Just gh2LeadTrack, Just gh2CoopTrack], 0, 1)
-        else ([Nothing], 0, 0) -- we'll make a single mono silent track
+          contentsLead = guard leadAudio >> Just gh2LeadTrack
+          contentsCoop = guard coopAudio >> Just gh2CoopTrack
+          contentsDrum = case gh2DrumTrack of
+            Nothing -> []
+            Just _  -> [guard drumAudio >> gh2DrumTrack]
+          allContents = [contentsLead, contentsCoop] <> contentsDrum
+          in (allContents, 0, 1, guard (not $ null contentsDrum) >> Just 2)
+        else ([Nothing], 0, 0, 0 <$ gh2DrumTrack) -- we'll make a single mono silent track
       gh2AnimBass  = gh2_Bass  target <$ (getPart (gh2_Bass  target) song >>= partGRYBO)
       gh2AnimDrums = gh2_Drums target <$ (getPart (gh2_Drums target) song >>= partDrums)
       gh2AnimVocal = gh2_Vocal target <$ (getPart (gh2_Vocal target) song >>= partVocal)
@@ -217,6 +253,23 @@ midiRB3toGH2 song _target audio inputMid@(F.Song tmap mmap onyx) getAudioLength 
             . closeNotes'
             $ fd
           in makePartGuitar fpart $ gryboComplete (Just ht) mmap $ toGtr trackOrig
+      makeDrum fpart = case getPart fpart song >>= partDrums of
+        Nothing -> mempty
+        Just pd -> let
+          trackOrig = buildDrumTarget
+            DrumTargetRB1x
+            pd
+            (timingEnd timing)
+            tmap
+            (F.getFlexPart fpart onyx)
+          in GH2DrumTrack
+            { gh2drumDifficulties = flip fmap (RB.drumDifficulties trackOrig) $ \diff -> GH2DrumDifficulty
+              { gh2drumStarPower = RB.drumOverdrive trackOrig
+              , gh2drumPlayer1   = RB.drumPlayer1 trackOrig
+              , gh2drumPlayer2   = RB.drumPlayer2 trackOrig
+              , gh2drumGems      = fmap fst $ RB.drumGems diff
+              }
+            }
       makeBandBass trk = mempty
         { bassIdle  = idle
         , bassPlay  = play
@@ -279,6 +332,7 @@ midiRB3toGH2 song _target audio inputMid@(F.Song tmap mmap onyx) getAudioLength 
         , gh2PartRhythm = case gh2CoopType audio of
             GH2Rhythm -> coopTrack
             GH2Bass   -> mempty
+        , gh2PartDrum = maybe mempty makeDrum $ gh2DrumTrack audio
         , gh2BandBass       = maybe mempty (\part -> makeBandBass $ fst $ getFive      $ F.getFlexPart part onyx) $ gh2AnimBass  audio
         , gh2BandDrums      = maybe mempty (\part -> makeBandDrums $ F.onyxPartDrums   $ F.getFlexPart part onyx) $ gh2AnimDrums audio
         , gh2BandKeys       = maybe mempty (\part -> makeBandKeys $ fst $ getFive      $ F.getFlexPart part onyx) $ gh2AnimKeys  audio
@@ -318,20 +372,24 @@ makeGH2DTA song key preview target audio title = D.SongPackage
   , D.caption = guard (not $ _cover $ _metadata song) >> Just "performed_by"
   , D.song = D.Song
     { D.songName      = "songs/" <> key <> "/" <> key
-    , D.tracks        = D.DictList
+    , D.tracks        = D.DictList $ filter (\(_, ns) -> not $ null ns)
       [ ("guitar", map fromIntegral $ gh2LeadChannels audio)
       , (coop    , map fromIntegral $ gh2CoopChannels audio)
+      , ("drum"  , map fromIntegral $ gh2DrumChannels audio)
       ]
     , D.pans          = gh2AudioSections audio >>= \case
-      GH2Part _ -> [-1, 1]
-      GH2Band   -> [-1, 1]
-      GH2Silent -> [0]
+      GH2PartStereo _ -> [-1, 1]
+      GH2PartMono   _ -> [0]
+      GH2Band         -> [-1, 1]
+      GH2Silent       -> [0]
     , D.vols          = gh2AudioSections audio >>= \case
-      GH2Part _ -> [0, 0]
-      GH2Band   -> [0, 0]
-      GH2Silent -> [0]
+      GH2PartStereo _ -> [0, 0]
+      GH2PartMono   _ -> [20 * (log 2 / log 10)] -- compensate for half volume later
+      GH2Band         -> [0, 0]
+      GH2Silent       -> [0]
     , D.cores         = gh2AudioSections audio >>= \case
-      GH2Part p -> if p == gh2LeadTrack audio then [1, 1] else [-1, -1]
+      GH2PartStereo p -> if p == gh2LeadTrack audio then [1, 1] else [-1, -1]
+      GH2PartMono p -> if p == gh2LeadTrack audio then [1] else [-1]
       GH2Band   -> [-1, -1]
       GH2Silent -> [-1]
     , D.midiFile      = "songs/" <> key <> "/" <> key <> ".mid"
@@ -353,9 +411,10 @@ makeGH2DTA song key preview target audio title = D.SongPackage
       { D.songName = if gh2_PracticeAudio target
         then "songs/" <> key <> "/" <> key <> "_p" <> T.pack (show speed)
         else "songs/" <> key <> "/" <> key <> "_empty"
-      , D.tracks = D.DictList
+      , D.tracks = D.DictList $ filter (\(_, ns) -> not $ null ns)
         [ ("guitar", [fromIntegral $ gh2LeadPractice audio])
         , (coop    , [fromIntegral $ gh2CoopPractice audio])
+        , ("drum"  , maybe [] (\n -> [fromIntegral n]) $ gh2DrumPractice audio)
         ]
       , D.pans = 0 <$ gh2Practice audio
       , D.vols = 0 <$ gh2Practice audio
@@ -371,22 +430,26 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
   , D.caption = guard (not $ _cover $ _metadata song) >> Just "performed_by"
   , D.song = D.Song
     { D.songName      = "songs/" <> key <> "/" <> key
-    , D.tracks        = D.DictList
+    , D.tracks        = D.DictList $ filter (\(_, ns) -> not $ null ns)
       [ ("guitar", map fromIntegral $ gh2LeadChannels audio)
       , (coop    , map fromIntegral $ gh2CoopChannels audio)
+      , ("drum"  , map fromIntegral $ gh2DrumChannels audio)
       ]
     , D.pans          = gh2AudioSections audio >>= \case
-      GH2Part _ -> [-1, 1]
-      GH2Band   -> [-1, 1]
-      GH2Silent -> [0]
+      GH2PartStereo _ -> [-1, 1]
+      GH2PartMono   _ -> [0]
+      GH2Band         -> [-1, 1]
+      GH2Silent       -> [0]
     , D.vols          = gh2AudioSections audio >>= \case
-      GH2Part _ -> [0, 0]
-      GH2Band   -> [0, 0]
-      GH2Silent -> [0]
+      GH2PartStereo _ -> [0, 0]
+      GH2PartMono   _ -> [20 * (log 2 / log 10)] -- compensate for half volume later
+      GH2Band         -> [0, 0]
+      GH2Silent       -> [0]
     , D.cores         = gh2AudioSections audio >>= \case
-      GH2Part p -> if p == gh2LeadTrack audio then [1, 1] else [-1, -1]
-      GH2Band   -> [-1, -1]
-      GH2Silent -> [-1]
+      GH2PartStereo p -> if p == gh2LeadTrack audio then [1, 1] else [-1, -1]
+      GH2PartMono p -> if p == gh2LeadTrack audio then [1] else [-1]
+      GH2Band       -> [-1, -1]
+      GH2Silent     -> [-1]
     , D.midiFile      = "songs/" <> key <> "/" <> key <> ".mid"
     , D.hopoThreshold = Nothing
     }

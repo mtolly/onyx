@@ -1,0 +1,19 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: 1
+audio:
+  album-track:
+    md5: 31b0b2f0d1b38e483a092efbb6acb14e
+    frames: 13401108
+plans:
+  plan:
+    song:
+      pad: [3.664, album-track]
+metadata:
+  title: By Fire
+  artist: Hiatus Kaiyote
+  album: Choose Your Weapon
+  year: 2015
+  author: Onyxite

@@ -23,6 +23,8 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (intercalate)
+import           Data.List.NonEmpty               (NonEmpty (..))
+import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    listToMaybe)
@@ -314,17 +316,19 @@ importFoF src level = do
             ( Pad Start $ CA.Seconds $ fromIntegral (abs n) / 1000
             , id
             )
-      audioExpr [] = Nothing
-      audioExpr [(aud, _)] = Just PlanAudio
-        { _planExpr = delayAudio $ Input $ Named $ T.pack aud
-        , _planPans = []
-        , _planVols = []
-        }
-      audioExpr auds = Just PlanAudio
-        { _planExpr = delayAudio $ Mix $ map (Input . Named . T.pack . fst) auds
-        , _planPans = []
-        , _planVols = []
-        }
+      audioExpr auds = do
+        auds' <- NE.nonEmpty $ map fst auds
+        Just $ case auds' of
+          aud :| [] -> PlanAudio
+            { _planExpr = delayAudio $ Input $ Named $ T.pack aud
+            , _planPans = []
+            , _planVols = []
+            }
+          _ -> PlanAudio
+            { _planExpr = delayAudio $ Mix $ fmap (Input . Named . T.pack) auds'
+            , _planPans = []
+            , _planVols = []
+            }
 
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
