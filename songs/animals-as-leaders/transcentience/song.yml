@@ -3,14 +3,10 @@ parts:
     drums:
       mode: full
       kicks: both
-  bass:
-    pro-guitar:
-      tuning:
-        base: bass-6
 audio:
   album-track:
-    md5: 00927bf759a60fbbba0dced29c6883ce
-    frames: 13479900
+    md5: 6cea86da3322a36d35c39eb1b27e44a3
+    frames: 14721168
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -23,7 +19,7 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [3.750, album-track]
+      pad: [0.291, album-track]
 metadata:
   title: The Glass Bridge
   artist: Animals as Leaders
@@ -32,6 +28,6 @@ metadata:
   year: 2016
   genre: metal
   subgenre: prog
-  file-album-art: cover.png_xbox
+  file-album-art: ../the-glass-bridge/cover.png_xbox
   rating: Family Friendly
-  track-number: 8
+  track-number: 7

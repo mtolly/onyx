@@ -1722,12 +1722,15 @@ batchPageGH2 sink rect tab build = do
   getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
-  getPracticeAudio <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    box <- liftIO $ FL.checkButtonNew rect' (Just "Make practice mode audio for PS2")
-    return $ FL.getValue box
+  (getPracticeAudio, getDrumChart) <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    let [rectA, rectB] = splitHorizN 2 rect'
+    boxA <- liftIO $ FL.checkButtonNew rectA (Just "Make practice mode audio for PS2")
+    boxB <- liftIO $ FL.checkButtonNew rectB (Just "Include drum chart (GH2DX)")
+    return (FL.getValue boxA, FL.getValue boxB)
   let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
         speed <- getSpeed
         practiceAudio <- getPracticeAudio
+        drumChart <- getDrumChart
         go $ \proj -> let
           defGH2 = def :: TargetGH2
           hasPart p = isJust $ HM.lookup p (getParts $ _parts $ projectSongYaml proj) >>= partGRYBO
@@ -1760,6 +1763,7 @@ batchPageGH2 sink rect tab build = do
               _              -> gh2_Coop defGH2
             , gh2_Offset = prefGH2Offset newPrefs
             , gh2_LoadingPhrase = loadingPhraseCHtoGH2 proj
+            , gh2_DrumChart = drumChart
             }
           fout = (if xbox then trimXbox else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH2 tgt
@@ -2440,10 +2444,13 @@ songPageGH2 sink rect tab proj build = mdo
         )
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
     fullWidth 35 $ \rect' -> do
-      box <- liftIO $ FL.checkButtonNew rect' (Just "Make practice mode audio for PS2")
-      tell $ FL.getValue box >>= \b -> return $ Endo $ \gh2 ->
+      let [rectA, rectB] = splitHorizN 2 rect'
+      boxA <- liftIO $ FL.checkButtonNew rectA (Just "Make practice mode audio for PS2")
+      tell $ FL.getValue boxA >>= \b -> return $ Endo $ \gh2 ->
         gh2 { gh2_PracticeAudio = b }
-      return box
+      boxB <- liftIO $ FL.checkButtonNew rectB (Just "Include drum chart (GH2DX)")
+      tell $ FL.getValue boxB >>= \b -> return $ Endo $ \gh2 ->
+        gh2 { gh2_DrumChart = b }
   let initTarget prefs = def
         { gh2_Offset = prefGH2Offset prefs
         , gh2_LoadingPhrase = loadingPhraseCHtoGH2 proj

@@ -7,6 +7,7 @@ Written with much assistance from https://github.com/Nanook/Queen-Bee
 {-# LANGUAGE PatternSynonyms   #-}
 module Neversoft.QB where
 
+import           Control.Exception             (evaluate, try)
 import           Control.Monad                 (forM, forM_, replicateM, unless,
                                                 when)
 import           Control.Monad.Codec.Onyx.JSON (pattern OneKey)
@@ -23,17 +24,22 @@ import qualified Data.ByteString.Char8         as B8
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.HashMap.Strict           as HM
 import qualified Data.Text                     as T
+import qualified Data.Text.Encoding            as TE
+import           Data.Text.Encoding.Error      (UnicodeException (..),
+                                                strictDecode)
 import qualified Data.Vector.Storable          as V
 import qualified Data.Vector.Storable.Mutable  as MV
 import           Data.Word
 import           Neversoft.Checksum            (qbKeyCRC)
 import           Numeric                       (showHex)
+import           System.IO.Unsafe              (unsafePerformIO)
 
 data QBSection qs k
   = QBSectionInteger k k Word32 -- TODO all these "Integer" data should probably be signed, e.g. vocals_pitch_score_shift
   | QBSectionArray k k (QBArray qs k)
   | QBSectionStruct k k [QBStructItem qs k]
   | QBSectionScript k k Word32 B.ByteString -- decompressed size, then compressed bytestring (not bothering with decompression)
+  | QBSectionStringW k k T.Text -- seen in gh3
   deriving (Eq, Show, Functor)
 
 instance (ToJSON qs, ToJSON k) => ToJSON (QBSection qs k) where
@@ -41,7 +47,8 @@ instance (ToJSON qs, ToJSON k) => ToJSON (QBSection qs k) where
     QBSectionInteger x y z -> OneKey "SectionInteger" $ toJSON [toJSON x, toJSON y, toJSON z]
     QBSectionArray x y z -> OneKey "SectionArray" $ toJSON [toJSON x, toJSON y, toJSON z]
     QBSectionStruct x y z -> OneKey "SectionStruct" $ toJSON [toJSON x, toJSON y, toJSON z]
-    QBSectionScript w x y z -> OneKey "SectionScript" $ toJSON [toJSON w, toJSON x, toJSON y, toJSON $ B8.unpack z]
+    QBSectionScript w x y z -> OneKey "SectionScript" $ toJSON [toJSON w, toJSON x, toJSON y, toJSON $ B.unpack z]
+    QBSectionStringW x y z -> OneKey "SectionStringW" $ toJSON [toJSON x, toJSON y, toJSON z]
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBSection qs k) where
   parseJSON = \case
@@ -55,7 +62,10 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBSection qs k) where
       [x, y, z] -> QBSectionStruct <$> parseJSON x <*> parseJSON y <*> parseJSON z
       _ -> fail "QB json error"
     OneKey "SectionScript" xs -> parseJSON xs >>= \case
-      [w, x, y, z] -> QBSectionScript <$> parseJSON w <*> parseJSON x <*> parseJSON y <*> fmap B8.pack (parseJSON z)
+      [w, x, y, z] -> QBSectionScript <$> parseJSON w <*> parseJSON x <*> parseJSON y <*> fmap B.pack (parseJSON z)
+      _ -> fail "QB json error"
+    OneKey "SectionStringW" xs -> parseJSON xs >>= \case
+      [x, y, z] -> QBSectionStringW <$> parseJSON x <*> parseJSON y <*> parseJSON z
       _ -> fail "QB json error"
     _ -> fail "QB json error"
 
@@ -99,6 +109,16 @@ data QBStructItem qs k
   | QBStructItemInteger k Word32
   | QBStructItemFloat k Float
   | QBStructItemArray k (QBArray qs k)
+  -- remaining ones are seen in older games like gh3.
+  -- should come up with better naming once more is known
+  | QBStructItemInteger810000 k Word32
+  | QBStructItemQbKeyString9A0000 k k
+  | QBStructItemQbKey8D0000 k k
+  | QBStructItemStruct8A0000 k [QBStructItem qs k]
+  | QBStructItemFloat820000 k Float
+  | QBStructItemString830000 k B.ByteString
+  | QBStructItemStringW k T.Text
+  | QBStructItemArray8C0000 k (QBArray qs k)
   deriving (Eq, Show, Functor)
 
 instance (ToJSON qs, ToJSON k) => ToJSON (QBStructItem qs k) where
@@ -112,6 +132,14 @@ instance (ToJSON qs, ToJSON k) => ToJSON (QBStructItem qs k) where
     QBStructItemInteger x y -> OneKey "StructItemInteger" $ toJSON [toJSON x, toJSON y]
     QBStructItemFloat x y -> OneKey "StructItemFloat" $ toJSON [toJSON x, toJSON y]
     QBStructItemArray x y -> OneKey "StructItemArray" $ toJSON [toJSON x, toJSON y]
+    QBStructItemInteger810000 x y -> OneKey "StructItemInteger810000" $ toJSON [toJSON x, toJSON y]
+    QBStructItemQbKeyString9A0000 x y -> OneKey "StructItemQbKeyString9A0000" $ toJSON [toJSON x, toJSON y]
+    QBStructItemQbKey8D0000 x y -> OneKey "StructItemQbKey8D0000" $ toJSON [toJSON x, toJSON y]
+    QBStructItemStruct8A0000 x y -> OneKey "StructItemStruct8A0000" $ toJSON [toJSON x, toJSON y]
+    QBStructItemFloat820000 x y -> OneKey "StructItemFloat820000" $ toJSON [toJSON x, toJSON y]
+    QBStructItemString830000 x y -> OneKey "StructItemString830000" $ toJSON [toJSON x, toJSON $ B8.unpack y]
+    QBStructItemStringW x y -> OneKey "StructItemStringW" $ toJSON [toJSON x, toJSON y]
+    QBStructItemArray8C0000 x y -> OneKey "StructItemArray8C0000" $ toJSON [toJSON x, toJSON y]
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBStructItem qs k) where
   parseJSON = \case
@@ -140,6 +168,18 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBStructItem qs k) where
     OneKey "StructItemArray" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemArray <$> parseJSON x <*> parseJSON y
       _ -> fail "QB json error"
+    OneKey "StructItemInteger810000" xs -> parseJSON xs >>= \case
+      [x, y] -> QBStructItemInteger810000 <$> parseJSON x <*> parseJSON y
+      _ -> fail "QB json error"
+    OneKey "StructItemQbKeyString9A0000" xs -> parseJSON xs >>= \case
+      [x, y] -> QBStructItemQbKeyString9A0000 <$> parseJSON x <*> parseJSON y
+      _ -> fail "QB json error"
+    OneKey "StructItemQbKey8D0000" xs -> parseJSON xs >>= \case
+      [x, y] -> QBStructItemQbKey8D0000 <$> parseJSON x <*> parseJSON y
+      _ -> fail "QB json error"
+    OneKey "StructItemStruct8A0000" xs -> parseJSON xs >>= \case
+      [x, y] -> QBStructItemStruct8A0000 <$> parseJSON x <*> parseJSON y
+      _ -> fail "QB json error"
     _ -> fail "QB json error"
 
 instance Bifunctor QBSection where
@@ -148,6 +188,7 @@ instance Bifunctor QBSection where
     QBSectionArray x y arr -> QBSectionArray x y $ first f arr
     QBSectionStruct x y items -> QBSectionStruct x y $ map (first f) items
     QBSectionScript w x y z -> QBSectionScript w x y z
+    QBSectionStringW x y s -> QBSectionStringW x y s
   second = fmap
 
 instance Bifunctor QBArray where
@@ -172,6 +213,14 @@ instance Bifunctor QBStructItem where
     QBStructItemInteger x y -> QBStructItemInteger x y
     QBStructItemFloat x y -> QBStructItemFloat x y
     QBStructItemArray x arr -> QBStructItemArray x $ first f arr
+    QBStructItemInteger810000 x y -> QBStructItemInteger810000 x y
+    QBStructItemQbKeyString9A0000 x y -> QBStructItemQbKeyString9A0000 x y
+    QBStructItemQbKey8D0000 x y -> QBStructItemQbKey8D0000 x y
+    QBStructItemStruct8A0000 x items -> QBStructItemStruct8A0000 x $ map (first f) items
+    QBStructItemFloat820000 x y -> QBStructItemFloat820000 x y
+    QBStructItemString830000 x y -> QBStructItemString830000 x y
+    QBStructItemStringW x y -> QBStructItemStringW x y
+    QBStructItemArray8C0000 x arr -> QBStructItemArray8C0000 x $ first f arr
   second = fmap
 
 instance Bifoldable QBSection where
@@ -180,6 +229,7 @@ instance Bifoldable QBSection where
     QBSectionArray   x y arr   -> g x <> g y <> bifoldMap f g arr
     QBSectionStruct  x y items -> g x <> g y <> mconcat (map (bifoldMap f g) items)
     QBSectionScript  x y _ _   -> g x <> g y
+    QBSectionStringW x y _     -> g x <> g y
 
 instance Bifoldable QBArray where
   bifoldMap f g = \case
@@ -202,6 +252,14 @@ instance Bifoldable QBStructItem where
     QBStructItemInteger       x _     -> g x
     QBStructItemFloat         x _     -> g x
     QBStructItemArray         x arr   -> g x <> bifoldMap f g arr
+    QBStructItemInteger810000 x _     -> g x
+    QBStructItemQbKeyString9A0000 x y -> g x <> g y
+    QBStructItemQbKey8D0000   x y     -> g x <> g y
+    QBStructItemStruct8A0000  x items -> g x <> mconcat (map (bifoldMap f g) items)
+    QBStructItemFloat820000   x _     -> g x
+    QBStructItemString830000  x _     -> g x
+    QBStructItemStringW       x _     -> g x
+    QBStructItemArray8C0000   x arr   -> g x <> bifoldMap f g arr
 
 allQS :: (Bifoldable obj) => obj qs k -> [qs]
 allQS = bifoldMap (: []) (const [])
@@ -321,12 +379,81 @@ parseQBStruct = do
       shouldBeAt p1
       items <- parseQBStruct
       return (QBStructItemStruct x items, p2)
+    0x00810000 -> do
+      x <- getWord32be
+      y <- getWord32be
+      p <- getWord32be
+      return (QBStructItemInteger810000 x y, p)
+    0x009A0000 -> do
+      x <- getWord32be
+      y <- getWord32be
+      p <- getWord32be
+      return (QBStructItemQbKeyString9A0000 x y, p)
+    0x008D0000 -> do
+      x <- getWord32be
+      y <- getWord32be
+      p <- getWord32be
+      return (QBStructItemQbKey8D0000 x y, p)
+    0x008A0000 -> do
+      x <- getWord32be
+      p1 <- getWord32be
+      p2 <- getWord32be
+      shouldBeAt p1
+      items <- parseQBStruct
+      return (QBStructItemStruct8A0000 x items, p2)
+    0x00820000 -> do
+      x <- getWord32be
+      f <- getFloatbe
+      p <- getWord32be
+      return (QBStructItemFloat820000 x f, p)
+    0x00830000 -> do
+      x <- getWord32be
+      start <- getWord32be
+      p <- getWord32be
+      shouldBeAt start
+      b <- let
+        -- get a null-terminated string, then jump to the next 4-divisible position
+        getNullTerm = do
+          c <- getWord8
+          if c == 0
+            then do
+              jumpTo4
+              return []
+            else (c :) <$> getNullTerm
+        in B.pack <$> getNullTerm
+      return (QBStructItemString830000 x b, p)
+    0x00840000 -> do
+      x <- getWord32be
+      start <- getWord32be
+      p <- getWord32be
+      shouldBeAt start
+      str <- getUtf16BE
+      jumpTo4
+      return (QBStructItemStringW x str, p)
+    0x008C0000 -> do
+      x <- getWord32be
+      (array, p) <- parseQBArray
+      return (QBStructItemArray8C0000 x array, p)
     _ -> fail $ "Unrecognized struct item type: 0x" <> showHex itemType ""
   case nextPosition of
     0 -> return [item] -- this is the last item
     _ -> do
       shouldBeAt nextPosition
       (item :) <$> parseQBStruct
+
+getUtf16BE :: Get T.Text
+getUtf16BE = do
+  let go = do
+        x <- getWord8
+        y <- getWord8
+        if x == 0 && y == 0
+          then return []
+          else ([x, y] <>) <$> go
+  bytes <- B.pack <$> go
+  case unsafePerformIO $ try $ evaluate $ TE.decodeUtf16BEWith strictDecode bytes of
+    Left (DecodeError err _) -> fail $ "getUtf16BE: text decode failed; " <> err
+    Left _ -> fail "shouldn't happen!" -- deprecated EncodeError
+    Right t  -> return t
 
 parseQBSection :: Get (QBSection Word32 Word32)
 parseQBSection = do
@@ -358,6 +485,13 @@ parseQBSection = do
       bs <- getByteString $ fromIntegral compressedSize
       jumpTo4
       return $ QBSectionScript itemQbKeyCrc fileId decompressedSize bs
+    0x00200400 {- SectionStringW -} -> do
+      p1 <- getWord32be
+      _reserved <- getWord32be -- 0
+      shouldBeAt p1
+      str <- getUtf16BE
+      jumpTo4
+      return $ QBSectionStringW itemQbKeyCrc fileId str
     _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
 
 parseQB :: Get [QBSection Word32 Word32]
@@ -579,6 +713,54 @@ putQBStruct = let
         fillPointer p1
         putQBStruct sub
         return p2
+      QBStructItemInteger810000 x y -> do
+        w32 0x00810000
+        w32 x
+        w32 y
+        reservePointer
+      QBStructItemQbKeyString9A0000 x y -> do
+        w32 0x009A0000
+        w32 x
+        w32 y
+        reservePointer
+      QBStructItemQbKey8D0000 x y -> do
+        w32 0x008D0000
+        w32 x
+        w32 y
+        reservePointer
+      QBStructItemStruct8A0000 x sub -> do
+        w32 0x008A0000
+        w32 x
+        p1 <- reservePointer
+        p2 <- reservePointer
+        fillPointer p1
+        putQBStruct sub
+        return p2
+      QBStructItemFloat820000 x f -> do
+        w32 0x00820000
+        w32 x
+        append $ BL.toStrict $ runPut $ putFloatbe f
+        reservePointer
+      QBStructItemString830000 x b -> do
+        w32 0x00830000
+        w32 x
+        start <- reservePointer
+        p <- reservePointer
+        fillPointer start
+        append $ padTo4 $ b <> B.singleton 0
+        return p
+      QBStructItemStringW x str -> do
+        w32 0x00840000
+        w32 x
+        start <- reservePointer
+        p <- reservePointer
+        fillPointer start
+        append $ padTo4 $ TE.encodeUtf16BE $ str <> "\0"
+        return p
+      QBStructItemArray8C0000 x array -> do
+        w32 0x008C0000
+        w32 x
+        putQBArray array
     go (Just p) items
   in go Nothing
 
@@ -615,6 +797,14 @@ putQBSection = \case
     w32 decompressedSize
     w32 $ fromIntegral $ B.length bs
     append $ padTo4 bs
+  QBSectionStringW itemQbKeyCrc fileId str -> do
+    w32 0x00200400
+    w32 itemQbKeyCrc
+    w32 fileId
+    p <- reservePointer
+    w32 0
+    fillPointer p
+    append $ padTo4 $ TE.encodeUtf16BE $ str <> "\0"
 
 putQB :: [QBSection Word32 Word32] -> BL.ByteString
 putQB sects = let

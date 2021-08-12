@@ -1291,6 +1291,7 @@ data TargetGH2 = TargetGH2
   , gh2_PracticeAudio :: Bool -- should we make slow audio for PS2
   , gh2_LoadingPhrase :: Maybe T.Text
   , gh2_Offset        :: Double -- in seconds, positive means pull audio earlier, negative means push later
+  , gh2_DrumChart     :: Bool
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetGH2 :: (SendMessage m) => ObjectCodec m A.Value TargetGH2
@@ -1309,6 +1310,7 @@ parseTargetGH2 = do
   gh2_PracticeAudio <- gh2_PracticeAudio =. opt True                 "practice-audio" stackJSON
   gh2_LoadingPhrase <- gh2_LoadingPhrase =. opt Nothing              "loading-phrase" stackJSON
   gh2_Offset        <- gh2_Offset        =. opt 0                    "offset"         stackJSON
+  gh2_DrumChart     <- gh2_DrumChart     =. opt False                "drum-chart"     stackJSON
   return TargetGH2{..}
 
 instance StackJSON TargetGH2 where

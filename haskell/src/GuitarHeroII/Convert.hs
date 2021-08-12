@@ -106,7 +106,9 @@ computeGH2Audio song target hasAudio = do
     Just _  -> return $ gh2_Guitar target
   gh2DrumTrack <- case getPart (gh2_Drums target) song >>= partDrums of
     Nothing -> return Nothing
-    Just _  -> return $ Just $ gh2_Drums target
+    Just _  -> return $ do
+      guard $ gh2_DrumChart target
+      Just $ gh2_Drums target
   let specifiedCoop = case gh2_Coop target of
         GH2Bass   -> gh2_Bass   target
         GH2Rhythm -> gh2_Rhythm target
@@ -224,7 +226,7 @@ midiRB3toGH2 song _target audio inputMid@(F.Song tmap mmap onyx) getAudioLength 
           , partHandMap      = flip fmap (RB.fiveHandMap rbg) $ \case
             RB.HandMap_Default   -> HandMap_Default
             RB.HandMap_NoChords  -> HandMap_NoChords
-            RB.HandMap_AllChords -> HandMap_Default
+            RB.HandMap_AllChords -> HandMap_AllChords
             RB.HandMap_Solo      -> HandMap_Solo
             RB.HandMap_DropD     -> HandMap_DropD2
             RB.HandMap_DropD2    -> HandMap_DropD2
