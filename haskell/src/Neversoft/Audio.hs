@@ -12,6 +12,7 @@ https://www.scorehero.com/forum/viewtopic.php?t=110650
 module Neversoft.Audio where
 
 import           Audio                        (audioIO)
+import           Control.Applicative          ((<|>))
 import           Control.Monad                (forM, guard)
 import           Control.Monad.ST
 import           Control.Monad.Trans.Resource (MonadResource)
@@ -333,14 +334,11 @@ readFSB dec = let
   readable = makeHandle "decoded FSB audio" $ byteStringSimpleHandle dec'
   in ffSource $ Left readable
 
+decryptFSB' :: FilePath -> B.ByteString -> Maybe B.ByteString
+decryptFSB' name enc = ghworDecrypt enc <|> ghwtDecrypt name enc <|> gh3Decrypt enc
+
 decryptFSB :: FilePath -> IO (Maybe B.ByteString)
-decryptFSB fin = do
-  enc <- B.readFile fin
-  case ghworDecrypt enc of
-    Just dec -> return $ Just dec
-    Nothing  -> case ghwtDecrypt fin enc of
-      Just dec -> return $ Just dec
-      Nothing  -> return $ gh3Decrypt enc
+decryptFSB fin = decryptFSB' fin <$> B.readFile fin
 
 convertAudio :: FilePath -> FilePath -> IO ()
 convertAudio fin fout = do
@@ -420,13 +418,13 @@ ghwtKey str = runST $ do
 
 ghwtKeyFromFile :: FilePath -> B.ByteString
 ghwtKeyFromFile f = ghwtKey $ let
-  s1 = T.pack $ takeFileName f
+  s1 = T.toLower $ T.pack $ takeFileName f
   s2 = fromMaybe s1 $ T.stripSuffix ".xen" s1
   s3 = fromMaybe s2 $ T.stripSuffix ".fsb" s2
-  s4 = case T.stripPrefix "aDLC" s3 of
+  s4 = case T.stripPrefix "adlc" s3 of
     Nothing -> s3
-    Just s  -> "DLC" <> s
-  in TE.encodeUtf8 $ T.toLower s4
+    Just s  -> "dlc" <> s
+  in TE.encodeUtf8 s4
 
 ghwtDecrypt :: FilePath -> B.ByteString -> Maybe B.ByteString
 ghwtDecrypt name bs = checkFSB $ B.pack $ zipWith xor

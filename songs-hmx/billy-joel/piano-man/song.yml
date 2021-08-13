@@ -1,0 +1,117 @@
+metadata:
+  rating: Supervision Recommended
+  key: C major
+  album: The Hits
+  track-number: 2
+  genre: classicrock
+  title: Piano Man
+  preview-end: 2:48.000
+  author: Harmonix, Onyxite
+  year: 1973
+  preview-start: 2:18.000
+  artist: Billy Joel
+  file-album-art: cover.png_xbox
+  difficulty:
+    rank: 256
+targets:
+  rb3:
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    game: rb3
+    label: (O)
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
+parts:
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 202
+    pro-guitar: # WIP
+      tuning:
+        base: bass-4
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 283
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        rank: 342
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 340
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 280
+  drums:
+    drums:
+      kicks: 1
+      fix-freeform: false
+      difficulty:
+        rank: 242
+global:
+  anim-tempo: fast
+plans:
+  mogg:
+    pans:
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    file-mogg: audio.mogg
+    vols:
+    - -1
+    - -3.799999952316284
+    - -3.799999952316284
+    - -3.799999952316284
+    - -3.799999952316284
+    - -1
+    - -3
+    - -3
+    - -3.799999952316284
+    - -3.799999952316284
+    - -3.299999952316284
+    - -3.299999952316284
+    - -3.799999952316284
+    - -3.799999952316284
+    parts:
+      bass:
+      - 5
+      vocal:
+      - 8
+      - 9
+      keys:
+      - 10
+      - 11
+      guitar:
+      - 6
+      - 7
+      drums:
+        kit:
+        - 3
+        - 4
+        kick:
+        - 0
+        snare:
+        - 1
+        - 2
+    multitrack: true
+    karaoke: false

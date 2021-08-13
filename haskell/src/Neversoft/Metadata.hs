@@ -4,7 +4,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Neversoft.Metadata where
 
-import           Control.Monad        (forM)
+import           Control.Monad        (forM, guard)
 import           Data.Binary.Get
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
@@ -17,6 +17,8 @@ import           Neversoft.Checksum
 import           Neversoft.Pak
 import           Neversoft.QB
 
+-- Metadata in _text.pak.qb for GH5 and WoR
+
 data TextPakQB = TextPakQB
   { textPakFileKey     :: Word32
   , textPakSongStructs :: [(Word32, [QBStructItem QSResult Word32])]
@@ -25,27 +27,40 @@ data TextPakQB = TextPakQB
 readTextPakQB :: BL.ByteString -> Either String TextPakQB
 readTextPakQB bs = do
   let nodes = splitPakNodes bs
-  (_, qbFile) <- case filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb" && nodeFilenameCRC n == 1379803300) nodes of
-    [qb] -> return qb
-    ns   -> Left $ show (length ns) <> " .qb files found"
-  qsPair <- case filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qs.en" && nodeFilenameCRC n == 1379803300) nodes of
-    [qs] -> return qs
-    ns   -> Left $ show (length ns) <> " .qs.en files found"
-  let mappingQS = qsBank [qsPair]
+      _qbFilenameCRC isWoR = if isWoR then 1379803300 else 3130519416 -- actually GH5 apparently has different ones per package
+      qbFiles _isWoR = filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb") nodes
+  (qbFile, _isWoR) <- case (qbFiles True, qbFiles False) of
+    ([qb], _) -> return (snd qb, True)
+    (_, [qb]) -> return (snd qb, False)
+    _         -> Left "Couldn't locate metadata .qb"
+  let mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
       qb = map (lookupQS mappingQS) $ runGet parseQB qbFile
-  case qb of
-    [   QBSectionArray  3796209450 n1 (QBArrayOfQbKey keys)
-      , QBSectionStruct 4087958085 n2 (QBStructHeader : structs)
-      ] -> if n1 /= n2
-        then Left "File keys don't match in the sections of _text.pak"
-        else do
-          structs' <- forM structs $ \case
-            QBStructItemStruct k struct -> Right (k, struct)
-            item -> Left $ "Unexpected item in _text.pak instead of song struct: " <> show item
-          if keys /= map fst structs'
-            then Left "Initial keys list does not match keys in the struct list in _text.pak"
-            else Right $ TextPakQB n1 structs'
-    _ -> Left "Couldn't match QB node pattern in _text.pak"
+      arrayStructIDPairs =
+        [ (3796209450, 4087958085) -- WoR DLC
+        -- rest are seen in GH5 only
+        , (53169031, 963067081) -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
+        , (1716953558, 1268271471) -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
+        , (305235591, 178417183) -- gh5 disc, starts with dlc502, All The Pretty Faces (The Killers)
+        , (4260621753, 2764767118) -- band hero, starts with dlc601, ABC (Jackson 5)
+        , (2371951317, 1649474973) -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
+        , (3712298883, 2460628824) -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
+        , (2653203185, 1543505807) -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)
+        ]
+      _arrays = do
+        QBSectionArray arrayID fileID (QBArrayOfQbKey keys) <- qb
+        guard $ elem arrayID $ map fst arrayStructIDPairs
+        return (fileID, keys)
+      structs = do
+        QBSectionStruct structID fileID (QBStructHeader : songs) <- qb
+        guard $ elem structID $ map snd arrayStructIDPairs
+        return (fileID, songs)
+  case structs of
+    [] -> Left "Couldn't find any song structs"
+    (fileID, _) : _ -> do
+      structs' <- forM (concat $ map snd structs) $ \case
+        QBStructItemStruct k struct -> Right (k, struct)
+        item -> Left $ "Unexpected item in _text.pak instead of song struct: " <> show item
+      return $ TextPakQB fileID structs'
 
 combineTextPakQBs :: [TextPakQB] -> [(Word32, [QBStructItem QSResult Word32])]
 combineTextPakQBs = nubOrdOn fst . concatMap textPakSongStructs
@@ -83,7 +98,7 @@ data SongInfo = SongInfo
   , songTitle      :: (Word32, T.Text)
   , songArtist     :: (Word32, T.Text)
   , songYear       :: Int
-  , songAlbumTitle :: (Word32, T.Text)
+  , songAlbumTitle :: Maybe (Word32, T.Text) -- not all songs have one
   , songDoubleKick :: Bool
   , songTierGuitar :: Int
   , songTierBass   :: Int
@@ -107,9 +122,9 @@ parseSongInfoStruct songEntries = do
   songYear <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "year" ] of
     n : _ -> Right $ fromIntegral n
     []    -> Left "parseSongInfo: couldn't get song year"
-  songAlbumTitle <- case [ (w, s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "album_title" ] of
-    p : _ -> Right p
-    []    -> Left "parseSongInfo: couldn't get song album_title"
+  songAlbumTitle <- case [ (w, removeL s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "album_title" ] of
+    p : _ -> Right $ Just p
+    []    -> Right Nothing
   songDoubleKick <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "double_kick" ] of
     0 : _ -> Right False
     1 : _ -> Right True

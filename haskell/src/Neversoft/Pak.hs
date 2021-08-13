@@ -8,7 +8,7 @@ import           Control.Monad              (forM, guard, replicateM)
 import           Data.Binary.Get
 import           Data.Binary.Put
 import qualified Data.ByteString.Lazy       as BL
-import           Data.Char                  (isAlphaNum, isAscii, isSpace)
+import           Data.Char                  (isAscii, isSpace)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (sortOn)
 import           Data.Maybe                 (fromMaybe, listToMaybe)
@@ -103,7 +103,7 @@ buildPak nodes = let
 qsBank :: [(Node, BL.ByteString)] -> HM.HashMap Word32 T.Text
 qsBank nodes = HM.fromList $ do
   (node, nodeData) <- nodes
-  guard $ nodeFileType node == qbKeyCRC ".qs.en"
+  guard $ elem (nodeFileType node) [qbKeyCRC ".qs.en", qbKeyCRC ".qs"]
   fromMaybe [] $ parseQS nodeData
 
 parseQS :: BL.ByteString -> Maybe [(Word32, T.Text)]

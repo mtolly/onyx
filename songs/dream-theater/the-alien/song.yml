@@ -1,0 +1,41 @@
+metadata:
+  title: The Alien
+  artist: Dream Theater
+  album: A View from the Top of the World
+  year: 2021
+  author: Onyxite
+  genre: metal
+  subgenre: prog
+  track-number: 1
+  file-album-art: cover.jpg
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube V462IsOV3js 140
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
+    song:
+      pad: [2.499, youtube]
+parts:
+  drums:
+    drums:
+      kicks: both
+      mode: full
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

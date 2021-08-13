@@ -459,6 +459,7 @@ ghToMidi bank pak = let
   getKick2x drum = fromPairs $ either id (map xdNote) (drums_instrument drum) >>= \note -> do
     guard $ (noteBits note `testBit` 6) && not (noteBits note `testBit` 5)
     -- the not-bit-5 is because some songs like Tom Sawyer have both set for the Expert kicks
+    -- TODO detect this and import as separate kick track, to fix songs like The Shortest Straw
     return (toBeats $ noteTimeOffset note, ())
   getOD = RTB.fromAbsoluteEventList . ATB.fromPairList . sort . concatMap
     (\(Single t len) -> [(toBeats t, True), (toBeats $ t + fromIntegral len, False)])

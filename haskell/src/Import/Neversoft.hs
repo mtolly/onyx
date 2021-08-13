@@ -17,7 +17,7 @@ import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import           Genre                          (displayWoRGenre)
 import           Import.Base
-import           Neversoft.Audio                (ghworDecrypt, readFSB)
+import           Neversoft.Audio                (decryptFSB', readFSB)
 import           Neversoft.Metadata
 import           Neversoft.Note
 import qualified RockBand.Codec.File            as RBFile
@@ -58,7 +58,7 @@ importGH5WoR src folder = do
                   bs <- case findFolded name of
                     Nothing -> fatal $ "Couldn't find audio file: " <> show name
                     Just r  -> stackIO $ useHandle r handleToByteString
-                  dec <- case ghworDecrypt $ BL.toStrict bs of
+                  dec <- case decryptFSB' (T.unpack name) $ BL.toStrict bs of
                     Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show name
                     Just dec -> return dec
                   stackIO $ readFSB $ BL.fromStrict dec
@@ -84,7 +84,7 @@ importGH5WoR src folder = do
               { _title = Just $ snd $ songTitle info
               , _artist = Just $ snd $ songArtist info
               , _year = Just $ songYear info
-              , _album = Just $ snd $ songAlbumTitle info
+              , _album = fmap snd $ songAlbumTitle info
               , _fileAlbumArt = Nothing
               , _genre = displayWoRGenre <$> songGenre info
               }
