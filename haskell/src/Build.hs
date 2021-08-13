@@ -89,7 +89,7 @@ import           Image
 import qualified Magma
 import qualified MelodysEscape                         as Melody
 import           MoggDecrypt
-import           Neversoft.Audio                       (aesEncrypt, worFSBKey)
+import           Neversoft.Audio                       (ghworEncrypt)
 import           Neversoft.Checksum                    (qbKeyCRC, qsKey)
 import           Neversoft.Export                      (makeGHWoRNote,
                                                         packageNameHash,
@@ -3083,7 +3083,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               fsb <.> "xen" %> \out -> do
                 shk $ need [fsb]
                 bs <- stackIO $ B.readFile fsb
-                case aesEncrypt worFSBKey bs of
+                case ghworEncrypt bs of
                   Nothing  -> fatal "Unable to encrypt .fsb to .fsb.xen"
                   Just enc -> stackIO $ B.writeFile out enc
 

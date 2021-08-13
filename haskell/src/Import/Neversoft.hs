@@ -17,7 +17,7 @@ import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import           Genre                          (displayWoRGenre)
 import           Import.Base
-import           Neversoft.Audio                (aesDecrypt, readFSB)
+import           Neversoft.Audio                (ghworDecrypt, readFSB)
 import           Neversoft.Metadata
 import           Neversoft.Note
 import qualified RockBand.Codec.File            as RBFile
@@ -58,7 +58,7 @@ importGH5WoR src folder = do
                   bs <- case findFolded name of
                     Nothing -> fatal $ "Couldn't find audio file: " <> show name
                     Just r  -> stackIO $ useHandle r handleToByteString
-                  dec <- case aesDecrypt $ BL.toStrict bs of
+                  dec <- case ghworDecrypt $ BL.toStrict bs of
                     Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show name
                     Just dec -> return dec
                   stackIO $ readFSB $ BL.fromStrict dec

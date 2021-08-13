@@ -1,12 +1,18 @@
 {- |
-Ported from FsbDecrypt.java by Quidrex
+WoR encryption from FsbDecrypt.java by Quidrex
 https://www.fretsonfire.org/forums/viewtopic.php?t=60499
+
+GH3 encryption from GHIII FSB Decryptor by Invo aka NvNv12
+https://www.scorehero.com/forum/viewtopic.php?t=39923
+
+GHWT/GH5 encryption from GHWT Importer by Buldy, originally from GHWT All in One mod by .ocz
+https://www.scorehero.com/forum/viewtopic.php?t=110650
 -}
 {-# LANGUAGE OverloadedStrings #-}
 module Neversoft.Audio where
 
 import           Audio                        (audioIO)
-import           Control.Monad                (forM_, guard)
+import           Control.Monad                (forM, guard)
 import           Control.Monad.ST
 import           Control.Monad.Trans.Resource (MonadResource)
 import           Crypto.Cipher.AES
@@ -17,19 +23,19 @@ import qualified Data.ByteString              as B
 import qualified Data.ByteString.Lazy         as BL
 import qualified Data.Conduit.Audio           as CA
 import           Data.Int
-import           Data.List.Extra              (stripSuffix)
+import           Data.Maybe                   (fromMaybe)
 import           Data.SimpleHandle            (byteStringSimpleHandle,
                                                makeHandle)
 import           Data.STRef
-import qualified Data.Vector.Unboxed          as VU
-import qualified Data.Vector.Unboxed.Mutable  as MVU
+import qualified Data.Text                    as T
+import qualified Data.Text.Encoding           as TE
 import           Data.Word
 import           FFMPEG                       (ffSource)
 import           Neversoft.Checksum
 import           System.FilePath              (takeFileName)
 
-keys :: [B.ByteString]
-keys = map B.pack
+ghworKeys :: [B.ByteString]
+ghworKeys = map B.pack
   [ [0x52, 0xaa, 0xa1, 0x32, 0x01, 0x75, 0x9c, 0x0f, 0x5d, 0x5e, 0x7d, 0x7c, 0x23, 0xc8, 0x1d, 0x3c]
   , [0xb7, 0x5c, 0xb8, 0x9c, 0xf6, 0xd5, 0x49, 0xb8, 0x98, 0x1d, 0xf4, 0xb6, 0xf7, 0xb8, 0xc6, 0x65]
   , [0x66, 0x48, 0x87, 0x0d, 0x9a, 0x5c, 0x02, 0x92, 0x98, 0x0a, 0xdc, 0xfb, 0xa9, 0x32, 0xae, 0x37]
@@ -288,36 +294,34 @@ keys = map B.pack
   , [0x83, 0x0c, 0x2b, 0x6f, 0x44, 0x71, 0x77, 0xfb, 0xd1, 0x6c, 0x0e, 0x7c, 0x63, 0x83, 0x7b, 0x18]
   ]
 
-checkFSB4 :: B.ByteString -> Maybe B.ByteString
-checkFSB4 b = guard ("FSB4" `B.isPrefixOf` b) >> return b
+checkFSB :: B.ByteString -> Maybe B.ByteString
+checkFSB b = guard ("FSB" `B.isPrefixOf` b) >> return b
 
-aesDecrypt :: B.ByteString -> Maybe B.ByteString
-aesDecrypt bs = do
+ghworDecrypt :: B.ByteString -> Maybe B.ByteString
+ghworDecrypt bs = do
   guard $ B.length bs >= 0x800
   let (cipherData, cipherFooter) = B.splitAt (B.length bs - 0x800) bs
       makeKey k = case cipherInit k of
         CryptoPassed cipher -> Just (cipher :: AES128)
         _                   -> Nothing
   iv <- makeIV $ B.replicate 16 0
-  cipher <- makeKey $ head keys
+  cipher <- makeKey $ head ghworKeys
   let footer = ctrCombine cipher iv cipherFooter
       keyIndex = sum $ map (B.index footer) [4..7]
-  key <- makeKey $ keys !! fromIntegral keyIndex
-  checkFSB4 $ ctrCombine key iv cipherData
+  key <- makeKey $ ghworKeys !! fromIntegral keyIndex
+  checkFSB $ ctrCombine key iv cipherData
 
-aesEncrypt :: B.ByteString -> B.ByteString -> Maybe B.ByteString
-aesEncrypt src bs = do
-  guard $ B.length src >= 0x800
-  let (_, cipherFooter) = B.splitAt (B.length src - 0x800) src
-      makeKey k = case cipherInit k of
+ghworEncrypt :: B.ByteString -> Maybe B.ByteString
+ghworEncrypt bs = do
+  let makeKey k = case cipherInit k of
         CryptoPassed cipher -> Just (cipher :: AES128)
         _                   -> Nothing
   iv <- makeIV $ B.replicate 16 0
-  cipher <- makeKey $ head keys
-  let footer = ctrCombine cipher iv cipherFooter
+  cipher <- makeKey $ head ghworKeys
+  let footer = ctrCombine cipher iv ghworCipher
       keyIndex = sum $ map (B.index footer) [4..7]
-  key <- makeKey $ keys !! fromIntegral keyIndex
-  return $ ctrCombine key iv bs <> cipherFooter
+  key <- makeKey $ ghworKeys !! fromIntegral keyIndex
+  return $ ctrCombine key iv bs <> ghworCipher
 
 readFSB :: (MonadResource m) => BL.ByteString -> IO (CA.AudioSource m Int16)
 readFSB dec = let
@@ -329,14 +333,18 @@ readFSB dec = let
   readable = makeHandle "decoded FSB audio" $ byteStringSimpleHandle dec'
   in ffSource $ Left readable
 
+decryptFSB :: FilePath -> IO (Maybe B.ByteString)
+decryptFSB fin = do
+  enc <- B.readFile fin
+  case ghworDecrypt enc of
+    Just dec -> return $ Just dec
+    Nothing  -> case ghwtDecrypt fin enc of
+      Just dec -> return $ Just dec
+      Nothing  -> return $ gh3Decrypt enc
+
 convertAudio :: FilePath -> FilePath -> IO ()
 convertAudio fin fout = do
-  enc <- B.readFile fin
-  dec <- case aesDecrypt enc of
-    Nothing  -> case stripSuffix ".fsb.xen" (takeFileName fin) >>= \base -> fsbDecrypt base enc of
-      Nothing  -> error "Couldn't decrypt GH .fsb.xen audio"
-      Just dec -> return dec
-    Just dec -> return dec
+  dec <- decryptFSB fin >>= maybe (error "Couldn't decrypt GH .fsb.xen audio") return
   src <- readFSB $ BL.fromStrict dec
   audioIO Nothing (CA.mapSamples CA.fractionalSample src) fout
 
@@ -353,37 +361,17 @@ reverseMapping = B.pack $ flip map [0 .. 0xFF] $ \i -> foldr (.|.) 0
   , (i `shiftL` 1) .&. 0x10
   ]
 
--- Haven't successfully tested this yet
-fsbDecrypt :: String -> B.ByteString -> Maybe B.ByteString
-fsbDecrypt basename ciphertext = runST $ do
+revByte :: Word8 -> Word8
+revByte = B.index reverseMapping . fromIntegral
 
-  let x = VU.fromList $ map (fromIntegral . fromEnum) basename
-  y <- MVU.new 32
-  z <- MVU.new 31
-  let l = VU.length x
-  a <- newSTRef (0xFFFFFFFF :: Word32)
-
-  forM_ [0..31] $ \i -> do
-    modifySTRef a (`xor` complement (crc32 $ B.singleton $ x VU.! (i `rem` l)))
-    aVal <- readSTRef a
-    MVU.write y i (x VU.! (fromIntegral aVal `rem` l) :: Word8)
-
-  forM_ [0..30] $ \i -> do
-    yVal <- MVU.read y i
-    modifySTRef a (`xor` complement (crc32 $ B.singleton yVal))
-    modifySTRef a (`shiftR` (i .&. 0x03))
-    aVal <- readSTRef a
-    MVU.write z i (fromIntegral aVal :: Word8)
-
-  zVals <- VU.freeze z
-  return $ checkFSB4 $ B.pack $ flip map (zip [0..] $ B.unpack ciphertext) $ \(i, c) ->
-    (B.index reverseMapping $ fromIntegral c) `xor` (zVals VU.! (i `rem` 31))
+revBytes :: B.ByteString -> B.ByteString
+revBytes = B.map revByte
 
 -- Taken from adlc783_1.fsb.xen (Paramore - Ignorance, drums audio)
 -- Not sure what is special about it, different keys aren't song specific,
 -- but IIRC, trying to encode with an all zero key failed.
-worFSBKey :: B.ByteString
-worFSBKey = B.pack
+ghworCipher :: B.ByteString
+ghworCipher = B.pack
   [ 92,113,247,179,25,193,117,66,167,59,75,58,1,210,26,194,9,38,141,132,150,92,120,247,226,143,171,243,28,185,93,157,49,7,58,194,84,150,212,254,87,141,129,31,172,252,4,191,246,142,195,58,4,155,217,59,135,3,205,241,10,92,52,35,113,116,248,191,13,100,143,134,50,77,86,43,55,104,222,156,123,12,76,103,220,9,197,105,85,255,112,48,56,197,206,60,217,26,93,242,227,195,79,50,157,202,107,236,84,174,49,155,181,214,226,248,33,236,17,67,166,38,200,232,229,29,77,43,47,147,198,156,242,222,46,34,184,115,108,93,240,232,173,172,15,192,242,35,180,140,40,72,147,81,245,165,216,155,30,248,152,105,36,35,235,134,180,121,58,178,96,17,91,83,220,96,166,21,24,251,5,213,250,79,137,146,232,150,100,167,74,131,212,100,192,156,132,133,38,71,177,244,191,70,192,172,179,14,96,93,36,195,253,149,16,111,117,29,254,110,214,46,139,230,106,127,140,154,239,69,81,163,147,226,55,131,170,65,224,166,161,72,235,5,109,184
   , 43,18,239,44,43,17,169,159,211,47,130,215,77,156,97,21,234,185,55,10,163,129,21,169,200,36,129,2,24,118,160,144,170,162,53,181,164,87,33,96,239,212,76,133,201,197,103,35,121,76,214,43,156,174,180,111,248,68,188,38,34,208,3,136,237,168,214,50,168,184,51,19,70,184,149,177,94,213,23,230,197,30,80,115,251,46,32,184,150,212,42,206,214,44,142,144,77,41,231,16,42,121,218,1,245,99,130,207,52,118,104,208,228,35,195,68,173,59,220,31,184,98,208,4,82,246,210,28,189,161,94,179,14,61,77,227,19,49,117,91,144,183,155,49,11,113,38,158,176,106,220,75,132,83,185,255,153,193,131,64,106,105,252,233,30,99,138,189,64,5,30,145,1,30,6,145,67,78,182,206,117,70,102,47,21,238,203,254,217,201,38,222,136,127,165,228,170,19,147,205,222,247,118,188,88,226,35,132,166,138,199,248,250,25,139,171,29,94,91,81,176,181,175,213,22,199,19,37,57,51,32,156,107,194,159,220,113,64,22,50,10,128,247,248,157,38,140
   , 30,146,168,34,243,133,106,248,83,8,234,90,163,183,73,235,168,83,8,48,51,162,220,183,132,252,86,68,26,157,46,147,126,201,60,29,141,145,7,34,129,214,22,133,41,208,218,235,123,244,39,22,148,115,63,133,175,163,9,172,80,94,181,57,249,165,67,73,122,194,85,178,52,43,47,168,163,241,199,240,129,134,232,123,81,192,78,37,8,70,101,64,180,146,169,168,14,116,26,28,101,236,101,208,178,216,98,178,184,231,121,107,99,62,190,253,41,245,205,220,189,192,225,191,105,210,15,17,191,153,160,169,75,144,193,117,43,36,97,118,45,33,55,202,12,27,179,109,38,167,100,154,10,62,206,34,111,86,205,126,129,48,40,18,223,100,161,58,201,167,207,51,43,5,19,100,223,169,156,194,6,249,221,28,141,201,184,179,169,40,23,86,163,161,68,12,91,151,234,64,32,39,65,101,171,185,171,79,212,76,144,70,197,147,149,5,160,104,114,80,89,60,123,27,190,78,56,11,68,1,34,68,79,64,50,109,123,132,84,203,169,79,38,105,154,183,251,118
@@ -394,3 +382,58 @@ worFSBKey = B.pack
   , 106,69,182,7,14,32,208,174,195,70,150,160,231,59,102,108,115,63,181,164,122,79,73,127,159,188,53,20,218,245,24,92,32,134,228,16,111,95,170,0,194,110,186,109,236,207,74,88,16,24,132,228,182,87,42,11,122,220,117,222,112,16,169,248,70,201,252,72,48,157,228,131,121,164,211,60,136,95,18,27,35,180,174,238,43,31,205,172,135,227,114,113,129,191,139,186,227,213,212,137,225,103,40,189,197,10,149,150,194,23,149,171,38,56,57,155,91,133,234,95,16,86,46,33,97,122,242,143,2,28,193,56,2,233,5,223,198,183,215,190,92,133,167,231,7,125,35,77,217,55,101,142,238,121,225,235,59,155,162,152,30,243,180,58,155,32,12,140,168,139,68,89,145,67,231,155,245,85,15,79,126,201,159,174,152,165,247,39,66,149,221,181,106,36,137,29,193,186,62,82,255,68,124,165,45,121,216,5,0,0,172,34,195,255,250,242,171,47,194,14,10,152,0,170,3,25,109,174,216,127,65,63,66,91,126,12,98,198,30,193,224,51,35,146,159,134,198
   , 119,107,103,108,251,112,175,8,121,194,82,175,219,141,22,24,168,79,171,153,98,246,185,26,164,139,78,44,178,99,185,238,214,5,94,188,83,231,133,59,94,116,234,124,88,164,110,194,43,230,204,143,238,213,206,227,212,54,149,128,111,112,157,104,41,18,198,149,158,254,186
   ]
+
+gh3Decrypt :: B.ByteString -> Maybe B.ByteString
+gh3Decrypt bs = let
+  cipher = cycle $ B.unpack "5atu6w4zaw"
+  in checkFSB $ B.pack $ map revByte $ zipWith xor (B.unpack bs) cipher
+
+gh3Encrypt :: B.ByteString -> B.ByteString
+gh3Encrypt bs = let
+  cipher = cycle $ B.unpack "5atu6w4zaw"
+  in B.pack $ zipWith xor (B.unpack $ revBytes bs) cipher
+
+-- GHWT == GH5
+
+ghwtKey :: B.ByteString -> B.ByteString
+ghwtKey str = runST $ do
+  let ncycle = 32
+  vxor <- newSTRef (0xFFFFFFFF :: Word32)
+  encstr <- fmap B.pack $ forM [0 .. ncycle - 1] $ \i -> do
+    let ch = B.index str $ i `rem` B.length str
+        crc = qbKeyCRC $ B.singleton ch
+    xorOld <- readSTRef vxor
+    let xorNew = crc `xor` xorOld
+    writeSTRef vxor xorNew
+    let index = fromIntegral $ xorNew `rem` fromIntegral (B.length str)
+    return $ B.index str index
+  key <- forM [0 .. ncycle - 2] $ \i -> do
+    let ch = B.index encstr i
+        crc = qbKeyCRC $ B.singleton ch
+    xorOld <- readSTRef vxor
+    let xorNew1 = crc `xor` xorOld
+        c = i .&. 3
+        xorNew2 = xorNew1 `shiftR` c
+    writeSTRef vxor xorNew2
+    return $ fromIntegral xorNew2
+  return $ B.pack $ takeWhile (/= 0) key
+
+ghwtKeyFromFile :: FilePath -> B.ByteString
+ghwtKeyFromFile f = ghwtKey $ let
+  s1 = T.pack $ takeFileName f
+  s2 = fromMaybe s1 $ T.stripSuffix ".xen" s1
+  s3 = fromMaybe s2 $ T.stripSuffix ".fsb" s2
+  s4 = case T.stripPrefix "aDLC" s3 of
+    Nothing -> s3
+    Just s  -> "DLC" <> s
+  in TE.encodeUtf8 $ T.toLower s4
+
+ghwtDecrypt :: FilePath -> B.ByteString -> Maybe B.ByteString
+ghwtDecrypt name bs = checkFSB $ B.pack $ zipWith xor
+  (map revByte $ B.unpack bs)
+  (cycle $ B.unpack $ ghwtKeyFromFile name)
+
+ghwtEncrypt :: FilePath -> B.ByteString -> B.ByteString
+ghwtEncrypt name bs = B.pack $ map revByte $ zipWith xor
+  (B.unpack bs)
+  (cycle $ B.unpack $ ghwtKeyFromFile name)

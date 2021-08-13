@@ -71,8 +71,7 @@ import qualified Image
 import           Magma                            (getRBAFile, runMagma,
                                                    runMagmaMIDI, runMagmaV1)
 import           MoggDecrypt                      (moggToOgg, oggToMogg)
-import           Neversoft.Audio                  (aesDecrypt, aesEncrypt,
-                                                   fsbDecrypt)
+import           Neversoft.Audio                  (ghworEncrypt, decryptFSB)
 import           Neversoft.Checksum               (knownKeys, qbKeyCRC)
 import           Neversoft.Export                 (makeMetadataLIVE,
                                                    shareMetadata)
@@ -1155,16 +1154,11 @@ commands =
     }
 
   , Command
-    { commandWord = "decrypt-wor"
-    , commandDesc = ""
+    { commandWord = "decrypt-fsb"
+    , commandDesc = "Decrypt an .fsb.xen from a Neversoft GH game."
     , commandUsage = ""
     , commandRun = \args opts -> forM args $ \xen -> do
-      enc <- stackIO $ B.readFile xen
-      dec <- case aesDecrypt enc of
-        Nothing  -> case stripSuffix ".fsb.xen" (takeFileName xen) >>= \base -> fsbDecrypt base enc of
-          Nothing  -> fatal "Couldn't decrypt GH .fsb.xen audio"
-          Just dec -> return dec
-        Just dec -> return dec
+      dec <- stackIO (decryptFSB xen) >>= maybe (fatal "Couldn't decrypt GH .fsb.xen audio") return
       out <- outputFile opts $ return $ case stripSuffix ".fsb.xen" xen of
         Just root -> root <.> "fsb"
         Nothing   -> xen <.> "fsb"
@@ -1174,13 +1168,12 @@ commands =
 
   , Command
     { commandWord = "encrypt-wor"
-    , commandDesc = "Use the encryption key from one .fsb.xen file to make a new one."
-    , commandUsage = "onyx encrypt-wor original.fsb.xen new.fsb [--to new.fsb.xen]"
+    , commandDesc = "Produce an encrypted .fsb.xen for GH:WoR."
+    , commandUsage = "onyx encrypt-wor audio.fsb [--to audio.fsb.xen]"
     , commandRun = \args opts -> case args of
-      [base, fsb] -> do
-        base' <- stackIO $ B.readFile base
+      [fsb] -> do
         fsb' <- stackIO $ B.readFile fsb
-        case aesEncrypt base' fsb' of
+        case ghworEncrypt fsb' of
           Nothing -> fatal "Couldn't encrypt into .fsb.xen"
           Just xen -> do
             out <- outputFile opts $ return $ fsb <.> "xen"
