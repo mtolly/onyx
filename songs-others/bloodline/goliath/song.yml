@@ -1,18 +1,24 @@
 parts:
-  drums:
+  drums: # SoundHaven
     drums:
       fix-freeform: false
       difficulty:
         tier: 7
       kicks: 1
       mode: full
-  bass:
+  bass: # Onyxite
     pro-guitar:
       tuning:
         base: bass-4
       tones:
         # TODO bunch of weird tones
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  vocal:
+    vocal: {} # only lyrics, by xX760Xx
+  guitar: # xX760Xx
+    grybo:
+      difficulty:
+        tier: 5
 plans:
   mogg:
     parts:
@@ -41,10 +47,9 @@ plans:
     file-mogg: audio.mogg
 targets:
   rb3:
-    song-id: 1681601404
     game: rb3
-    version: 30
-    label: (B)
+  ps:
+    game: ps
   rs:
     game: rs
     arrangements:
@@ -60,13 +65,10 @@ metadata:
   album: The Bedlam in Goliath
   year: 2008
   subgenre: progrock
-  author: Bloodline
+  author: SoundHaven, xX760Xx, Onyxite
   title: Goliath
   preview-end: 2:37.000
   genre: prog
   difficulty:
     tier: 6
   artist: The Mars Volta
-global:
-  autogen-theme: null
-  anim-tempo: 32

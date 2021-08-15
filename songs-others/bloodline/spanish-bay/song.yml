@@ -1,16 +1,20 @@
 parts:
-  bass:
+  bass: # Onyxite
     pro-guitar:
       picked-bass: true
       tuning:
         base: bass-4
       tones:
         file-tone-base: ../../../tones/fallfcpr_bass.tone2014.xml
-  drums:
+  drums: # SoundHaven
     drums:
       difficulty:
         tier: 7
       kicks: 1
+  guitar: # XEntombmentX
+    grybo:
+      difficulty:
+        tier: 4
 plans:
   mogg:
     parts:
@@ -23,9 +27,10 @@ plans:
     file-mogg: audio.mogg
 targets:
   rb3:
-    song-id: 1681601898
     game: rb3
-    label: (B)
+  ps:
+    loading-phrase: Strawberry Girls consists of members from Dance Gavin Dance, Eternity Forever, and The Trees.
+    game: ps
   rs:
     game: rs
     arrangements:
@@ -41,12 +46,10 @@ metadata:
   album: American Graffiti
   year: 2015
   subgenre: rock
-  author: Bloodline, Onyxite
+  author: Bloodline, XEntombmentX, Onyxite
   title: Spanish Bay
   preview-end: 2:00.000
   genre: rock
   difficulty:
     tier: 7
   artist: Strawberry Girls
-global:
-  anim-tempo: 32
