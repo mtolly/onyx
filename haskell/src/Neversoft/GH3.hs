@@ -3,27 +3,28 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Neversoft.GH3 where
 
-import           Control.Monad                  (forM)
+import           Control.Monad                    (forM)
 import           Control.Monad.Trans.StackTrace
-import qualified Data.ByteString                as B
-import qualified Data.ByteString.Lazy as BL
-import STFS.Package (runGetM)
-import           Data.Word
-import           Neversoft.Checksum             (qbKeyCRC)
-import           Neversoft.QB
-import qualified RockBand.Codec.File as RBFile
-import qualified  Sound.MIDI.Util as U
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Map as Map
-import qualified Data.Text as T
-import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Bits                        (testBit)
+import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
-import Data.List (sort)
-import qualified RockBand.Codec.Five as F
-import RockBand.Common (Difficulty(..), StrumHOPOTap(..))
-import Guitars (emit5')
-import Data.Bits
-import System.FilePath ((<.>))
+import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (sort)
+import qualified Data.Map                         as Map
+import qualified Data.Text                        as T
+import           Data.Word                        (Word32)
+import           FeedBack.Load                    (TrackEvent (..), emitTrack)
+import           Guitars                          (emit5')
+import           Neversoft.Checksum               (qbKeyCRC)
+import           Neversoft.QB
+import qualified RockBand.Codec.File              as RBFile
+import qualified RockBand.Codec.Five              as F
+import           RockBand.Common                  (Difficulty (..))
+import qualified Sound.MIDI.Util                  as U
+import           STFS.Package                     (runGetM)
+import           System.FilePath                  ((<.>))
 
 data GH3Track = GH3Track
   { gh3Notes       :: [(Word32, Word32, Word32)]
@@ -70,7 +71,7 @@ data GH3MidQB = GH3MidQB
   , gh3FretBars        :: [Word32]
   , gh3Markers         :: [(Word32, Word32)] -- time, marker
 
-  , gh3BackgroundNotes :: GH3Background (Word32, Word32, Word32)
+  , gh3BackgroundNotes :: GH3Background [Word32] -- usually 3 ints, but some dlcX_drums_notes are 4 ints?
   , gh3Background      :: GH3Background GH3AnimEvent
   } deriving (Show)
 
@@ -136,8 +137,8 @@ parseAnimEvent = \case
       _     -> fatal "Couldn't get scr of anim event"
     gh3AnimParams <- case [v | QBStructItemStruct8A0000 k v <- struct, k == qbKeyCRC "params"] of
       [QBStructHeader : params] -> return params
-      [] -> return []
-      _ -> fatal "Couldn't get params of anim event"
+      []                        -> return []
+      _                         -> fatal "Couldn't get params of anim event"
     return GH3AnimEvent{..}
   _ -> fatal "Expected struct header in anim event"
 
@@ -190,7 +191,12 @@ parseMidQB dlc qb = do
     _ -> fatal "Expected array of structs for markers"
 
 
-  gh3BackgroundNotes <- parseBackground dlc qb "_notes" listOfTriples
+  gh3BackgroundNotes <- parseBackground dlc qb "_notes" $ \case
+    QBArrayOfFloatRaw [] -> return []
+    QBArrayOfArray arys -> forM arys $ \case
+      QBArrayOfInteger xs -> return xs
+      _                   -> fatal "Expected array of integers"
+    _                   -> fatal "Expected array of arrays"
   gh3Background      <- parseBackground dlc qb "" $ \case
     QBArrayOfFloatRaw [] -> return []
     QBArrayOfStruct entries -> mapM parseAnimEvent entries
@@ -226,18 +232,19 @@ gh3ToMidi bank gh3 = let
   toBeats :: Word32 -> U.Beats
   toBeats = U.unapplyTempoMap tempos . toSeconds
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
-  getTrack trk = emit5' $ fromPairs $ gh3Notes trk >>= \(time, len, bits) -> do
-    fret <- concat
-      [ [Just F.Green  | bits `testBit` 0]
-      , [Just F.Red    | bits `testBit` 1]
-      , [Just F.Yellow | bits `testBit` 2]
-      , [Just F.Blue   | bits `testBit` 3]
-      , [Just F.Orange | bits `testBit` 4]
-      ]
+  hopoThreshold = 65/192 :: U.Beats -- TODO this is from .chart, is gh3 the same?
+  getTrack trk = emit5' $ emitTrack hopoThreshold $ fromPairs $ do
+    (time, len, bits) <- gh3Notes trk
     let pos = toBeats time
-        sht = if bits `testBit` 5 then HOPO else Strum -- TODO actual force algorithm
         len' = toBeats (time + len) - pos
-    return (pos, ((fret, sht), Just len'))
+    concat
+      [ [(pos, TrackNote (Just F.Green ) len') | bits `testBit` 0]
+      , [(pos, TrackNote (Just F.Red   ) len') | bits `testBit` 1]
+      , [(pos, TrackNote (Just F.Yellow) len') | bits `testBit` 2]
+      , [(pos, TrackNote (Just F.Blue  ) len') | bits `testBit` 3]
+      , [(pos, TrackNote (Just F.Orange) len') | bits `testBit` 4]
+      , [(pos, TrackForce                len') | bits `testBit` 5]
+      ]
   getPart part = mempty
     { F.fiveDifficulties = Map.fromList
       [ (Expert, getTrack $ gh3Expert part)
@@ -251,7 +258,7 @@ gh3ToMidi bank gh3 = let
     }
   fixed = mempty
     { RBFile.fixedPartGuitar = getPart $ gh3Guitar gh3
-    , RBFile.fixedPartRhythm = getPart $ gh3Rhythm gh3 -- TODO find when to put it on bass
+    , RBFile.fixedPartRhythm = getPart $ gh3Rhythm gh3 -- TODO find when to put it on bass, also gh3Rhythm vs gh3CoopRhythm?
     , RBFile.fixedPartGuitarCoop = getPart $ gh3CoopGuitar gh3
     -- , RBFile.fixedEvents = mempty
     --   { eventsSections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers

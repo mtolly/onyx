@@ -9,7 +9,7 @@ import           Control.Exception              (bracket, bracket_, throwIO)
 import           Control.Monad                  (forM, forM_, guard, void)
 import           Control.Monad.Codec.Onyx.JSON  (loadYaml)
 import           Control.Monad.IO.Class         (liftIO)
-import           Control.Monad.Trans.Resource   (runResourceT)
+import           Control.Monad.Trans.Resource   (MonadResource, runResourceT)
 import           Control.Monad.Trans.StackTrace
 import           Data.Fixed
 import qualified Data.HashMap.Strict            as HM
@@ -17,7 +17,7 @@ import qualified Data.Map.Strict                as Map
 import qualified Data.Set                       as Set
 import qualified Data.Text                      as T
 import           Graphics.GL.Core33
-import           Import                         (importSTFS)
+import           OpenProject
 import qualified RhythmGame.Audio               as RGAudio
 import           RhythmGame.Graphics            (WindowDims (..),
                                                  drawDrumPlayFull, drawTracks,
@@ -31,15 +31,21 @@ import           System.Environment             (getArgs)
 import           System.FilePath                ((</>))
 import           Text.Read                      (readMaybe)
 
+importOne :: (SendMessage m, MonadResource m) => FilePath -> StackTraceT m Project
+importOne f = findAllSongs f >>= \case
+  [imp] -> impProject imp
+  [] -> fatal "No songs"
+  _ -> fatal "More than 1 song"
+
 main :: IO ()
 main = getArgs >>= \case
 
   ["play", con, strIndex] -> do
-    res <- runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
+    res <- runResourceT $ logStdout $ do
       index <- maybe (fatal "Invalid track number") return $ readMaybe strIndex
-      _ <- importSTFS 0 con Nothing dir
-      songYaml <- loadYaml $ dir </> "song.yml"
-      song <- loadTracks songYaml $ dir </> "notes.mid"
+      proj <- importOne con
+      let dir = projectLocation proj
+      song <- loadTracks (projectSongYaml proj) $ dir </> "notes.mid"
       let allTracks = concat $ previewTracks song
       drums <- case snd $ allTracks !! index of
         PreviewDrums drums -> return drums
@@ -68,19 +74,19 @@ main = getArgs >>= \case
       Left err -> throwIO err
       Right () -> return ()
 
-  [con] -> void $ runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
-    _ <- importSTFS 0 con Nothing dir
-    songYaml <- loadYaml $ dir </> "song.yml"
-    trks <- fmap (concat . previewTracks) $ loadTracks songYaml $ dir </> "notes.mid"
+  [con] -> void $ runResourceT $ logStdout $ do
+    proj <- importOne con
+    let dir = projectLocation proj
+    trks <- fmap (concat . previewTracks) $ loadTracks (projectSongYaml proj) $ dir </> "notes.mid"
     stackIO $ forM_ (zip [0..] trks) $ \(i, (name, _)) -> do
       putStrLn $ show (i :: Int) <> ": " <> T.unpack name
 
   con : strIndexes -> do
-    res <- runResourceT $ logStdout $ tempDir "onyx_game" $ \dir -> do
+    res <- runResourceT $ logStdout $ do
       indexes <- forM strIndexes $ maybe (fatal "Invalid track number") return . readMaybe
-      _ <- importSTFS 0 con Nothing dir
-      songYaml <- loadYaml $ dir </> "song.yml"
-      song <- loadTracks songYaml $ dir </> "notes.mid"
+      proj <- importOne con
+      let dir = projectLocation proj
+      song <- loadTracks (projectSongYaml proj) $ dir </> "notes.mid"
       let allTracks = concat $ previewTracks song
           trks = map (snd . (allTracks !!)) indexes
       yml <- loadYaml $ dir </> "song.yml"
@@ -117,7 +123,7 @@ data AppState = AppState
 playDrumTrack
   :: SDL.Window
   -> PreviewSong
-  -> Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType)))
+  -> Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType)))
   -> [Float]
   -> [Float]
   -> FilePath

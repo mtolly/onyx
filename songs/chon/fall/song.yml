@@ -8,12 +8,13 @@ metadata:
   subgenre: progrock
   album: Grow
   file-album-art: ../../../covers/grow.jpg
-  preview-start: prc_a1
+  preview-start: prc_d1
 parts:
   drums:
     drums:
       kicks: 1
       mode: full
+      difficulty: 5
 audio:
   album-track:
     md5: 4d3d4e1f2f6e05e3210883f6a3c1a015

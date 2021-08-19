@@ -8,6 +8,7 @@ metadata:
   subgenre: prog
   track-number: 1
   file-album-art: cover.jpg
+  preview-start: prc_prechorus_1
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -31,6 +32,7 @@ parts:
     drums:
       kicks: both
       mode: full
+      difficulty: 6
 targets:
   rb3:
     game: rb3

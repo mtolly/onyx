@@ -3,6 +3,7 @@ parts:
     drums:
       mode: full
       kicks: both
+      difficulty: 6
 audio:
   album-track:
     md5: 6cea86da3322a36d35c39eb1b27e44a3
@@ -21,7 +22,7 @@ plans:
     song:
       pad: [0.291, album-track]
 metadata:
-  title: The Glass Bridge
+  title: Transcentience
   artist: Animals as Leaders
   album: The Madness of Many
   author: Onyxite
@@ -31,3 +32,12 @@ metadata:
   file-album-art: ../the-glass-bridge/cover.png_xbox
   rating: Family Friendly
   track-number: 7
+  preview-start: prc_chorus_1
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

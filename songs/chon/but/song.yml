@@ -8,11 +8,13 @@ metadata:
   subgenre: progrock
   album: Grow
   file-album-art: ../../../covers/grow.jpg
+  preview-start: prc_verse_2a
 parts:
   drums:
     drums:
       kicks: 1
       mode: full
+      difficulty: 5
 audio:
   album-track:
     md5: bf38fdbdef7e92d7442ec876b96a22b5
@@ -29,7 +31,13 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [5.002, album-track]
+      # cut off lengthy ambient ending
+      fade:
+      - end
+      - 10
+      - take:
+        - '3:36'
+        - pad: [5.002, album-track]
 targets:
   rb3:
     game: rb3
