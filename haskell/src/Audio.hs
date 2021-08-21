@@ -39,7 +39,7 @@ module Audio
 , stereoPanRatios
 , emptyChannels
 , remapChannels
-, makeFSB4
+, makeFSB4, makeFSB4'
 ) where
 
 import           Control.Concurrent               (threadDelay)
@@ -80,7 +80,7 @@ import qualified Data.Text                        as T
 import qualified Data.Vector.Storable             as V
 import           Data.Word                        (Word8)
 import           Development.Shake                (Action, need)
-import           Development.Shake.FilePath       (takeExtension)
+import           Development.Shake.FilePath       (takeExtension, (-<.>))
 import           FFMPEG                           (ffSource, ffSourceFrom)
 import           GuitarHeroII.Audio               (readVGS)
 import           Magma                            (withWin32Exe)
@@ -89,10 +89,11 @@ import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Wrapper      as NN
 import           OSFiles                          (shortWindowsPath)
 import           Preferences
-import           Resources                        (makeFSB4exe)
+import           Resources                        (makeFSB4exe, xma2encodeExe)
 import           RockBand.Common                  (pattern RNil, pattern Wait)
 import           SndfileExtra
 import qualified Sound.File.Sndfile               as Snd
+import           Sound.FSB                        (emitFSB, xmaToFSB)
 import qualified Sound.MIDI.Util                  as U
 import qualified Sound.RubberBand                 as RB
 import           STFS.Package                     (runGetM)
@@ -791,4 +792,20 @@ makeFSB4 wav fsb = do
     stackIO $ IO.withBinaryFile fsb IO.ReadWriteMode $ \h -> do
       IO.hSeek h IO.AbsoluteSeek 0x32
       B.hPut h $ "multichannel sound" <> B.replicate 12 0
+    return str
+
+makeFSB4' :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> StackTraceT m String
+makeFSB4' wav fsb = do
+  exe <- stackIO xma2encodeExe
+  let xma = fsb -<.> "xma"
+  -- this is required for wine, otherwise it messes up the unix paths somehow.
+  -- TODO don't do winepath on Windows
+  wav' <- fmap (concat . take 1 . lines) $ stackProcess $ proc "winepath" ["-w", wav]
+  xma' <- fmap (concat . take 1 . lines) $ stackProcess $ proc "winepath" ["-w", xma]
+  let createProc = withWin32Exe proc exe [wav', "/TargetFile", xma']
+  inside ("converting WAV to FSB4 (XMA)") $ do
+    str <- stackProcess createProc
+    lg str
+    madeFSB <- stackIO (BL.readFile xma) >>= xmaToFSB
+    stackIO $ BL.writeFile fsb $ emitFSB madeFSB
     return str

@@ -3,12 +3,12 @@ parts:
     drums:
       mode: full
       kicks: both
-      difficulty: 6
+      difficulty: 7
   # bass: # WIP
   #   pro-guitar:
   #     tuning:
   #       base: bass-6
-  guitar: # by Dillski, should clean up a few more areas
+  guitar: # by Dillski
     grybo:
       difficulty: 6
 audio:

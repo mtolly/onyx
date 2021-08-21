@@ -25,7 +25,7 @@ getResourcesPath f = do
     else return $ takeDirectory exe </> "onyx-resources"
   return $ resDir </> f
 
-magmaV1Dir, magmaV2Dir, magmaCommonDir, rb3Updates, kanwadict, itaijidict, makeFSB4exe :: IO FilePath
+magmaV1Dir, magmaV2Dir, magmaCommonDir, rb3Updates, kanwadict, itaijidict, makeFSB4exe, xma2encodeExe :: IO FilePath
 magmaV1Dir       = getResourcesPath "magma-v1"
 magmaV2Dir       = getResourcesPath "magma-v2"
 magmaCommonDir   = getResourcesPath "magma-common"
@@ -33,6 +33,7 @@ rb3Updates       = getResourcesPath "rb3-updates"
 kanwadict        = getResourcesPath "kanwadict"
 itaijidict       = getResourcesPath "itaijidict"
 makeFSB4exe      = getResourcesPath "makefsb4/makefsb4.exe"
+xma2encodeExe    = getResourcesPath "xma2encode.exe"
 
 xboxKV :: IO FilePath
 xboxKV = getResourcesPath "KV.bin"

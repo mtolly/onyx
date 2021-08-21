@@ -71,7 +71,7 @@ import qualified Image
 import           Magma                            (getRBAFile, runMagma,
                                                    runMagmaMIDI, runMagmaV1)
 import           MoggDecrypt                      (moggToOgg, oggToMogg)
-import           Neversoft.Audio                  (ghworEncrypt, decryptFSB)
+import           Neversoft.Audio                  (decryptFSB, ghworEncrypt)
 import           Neversoft.Checksum               (knownKeys, qbKeyCRC)
 import           Neversoft.Export                 (makeMetadataLIVE,
                                                    shareMetadata)

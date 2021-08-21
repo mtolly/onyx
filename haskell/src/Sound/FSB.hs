@@ -13,6 +13,7 @@ import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import qualified Data.Conduit.Audio             as CA
+import           Data.Hashable                  (hash)
 import           Data.Int
 import           Data.SimpleHandle
 import           Data.Word
@@ -325,3 +326,90 @@ fsbToXMAs f dir = do
       (fromIntegral $ fsbSongSamples song)
       (BL.fromStrict $ fsbSongExtraData song)
       sdata
+
+getXMAChunks :: (MonadFail m) => BL.ByteString -> m (BL.ByteString, BL.ByteString)
+getXMAChunks b = let
+  findChunk tag bytes = if BL.null bytes
+    then fail $ "Couldn't find RIFF chunk: " <> show tag
+    else let
+      thisTag = BL.take 4 bytes
+      len = fmap fromIntegral $ runGetM getWord32le $ BL.drop 4 bytes
+      in if tag == thisTag
+        then len >>= \l -> return $ BL.take l $ BL.drop 8 bytes
+        else len >>= \l -> findChunk tag $ BL.drop (8 + l) bytes
+  in do
+    riff <- BL.drop 4 <$> findChunk "RIFF" b
+    seek <- findChunk "seek" riff
+    data_ <- findChunk "data" riff
+    return (seek, data_)
+
+-- Does not work yet, something is different in the seek section I think.
+-- Attempts to make GHWT/5/WOR files (one xma per fsb)
+xmaToFSB :: (MonadFail m) => BL.ByteString -> m FSB
+xmaToFSB b = let
+  findChunk tag bytes = if BL.null bytes
+    then fail $ "Couldn't find RIFF chunk: " <> show tag
+    else let
+      thisTag = BL.take 4 bytes
+      len = fmap fromIntegral $ runGetM getWord32le $ BL.drop 4 bytes
+      in if tag == thisTag
+        then len >>= \l -> return $ BL.take l $ BL.drop 8 bytes
+        else len >>= \l -> findChunk tag $ BL.drop (8 + l) bytes
+  in do
+    riff <- BL.drop 4 <$> findChunk "RIFF" b
+    fmt <- findChunk "fmt " riff
+    seek <- findChunk "seek" riff
+    data_ <- findChunk "data" riff
+    (channels, rate, len) <- flip runGetM fmt $ do
+      -- WAVEFORMATEX
+      0x166    <- getWord16le -- wFormatTag;      // Audio format type; always WAVE_FORMAT_XMA2
+      channels <- getWord16le -- nChannels;       // Channel count of the decoded audio
+      rate     <- getWord32le -- nSamplesPerSec;  // Sample rate of the decoded audio
+      _        <- getWord32le -- nAvgBytesPerSec; // Used internally by the XMA encoder
+      _        <- getWord16le -- nBlockAlign;     // Decoded sample size; channels * wBitsPerSample / 8
+      0x10     <- getWord16le -- wBitsPerSample;  // Bits per decoded mono sample; always 16 for XMA
+      0x22     <- getWord16le -- cbSize;          // Size in bytes of the rest of this structure (34)
+      -- rest
+      _        <- getWord16le -- NumStreams;     // Number of audio streams (1 or 2 channels each)
+      _        <- getWord32le -- ChannelMask;    // Spatial positions of the channels in this file
+      len      <- getWord32le -- SamplesEncoded; // Total number of PCM samples the file decodes to
+      _        <- getWord32le -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
+      _        <- getWord32le -- PlayBegin;      // First valid sample in the decoded audio
+      _        <- getWord32le -- PlayLength;     // Length of the valid part of the decoded audio
+      _        <- getWord32le -- LoopBegin;      // Beginning of the loop region in decoded sample terms
+      _        <- getWord32le -- LoopLength;     // Length of the loop region in decoded sample terms
+      _        <- getWord8    -- LoopCount;      // Number of loop repetitions; 255 = infinite
+      _        <- getWord8    -- EncoderVersion; // Version of XMA encoder that generated the file
+      _        <- getWord16le -- BlockCount;     // XMA blocks in file (and entries in its seek table)
+      return (channels, rate, len)
+    return $ fixFSB $ FSB
+      { fsbHeader = Right $ FSB4Header
+        { fsb4SongCount   = 1
+        , fsb4HeadersSize = 0
+        , fsb4DataSize    = 0
+        , fsb4Version     = 0x40000
+        , fsb4Flags       = 32
+        , fsb4Hash        = B.replicate 8 0
+        , fsb4GUID        = B.take 16 $ "GUID" <> B8.pack (show $ hash b) <> "................"
+        , fsb4Songs       = return FSBSong
+          { fsbSongHeaderSize = 0
+          , fsbSongName       = "multichannel audio"
+          , fsbSongSamples    = len
+          , fsbSongDataSize   = 0
+          , fsbSongLoopStart  = 0
+          , fsbSongLoopEnd    = maxBound -- should be -1
+          , fsbSongMode       = 0x5000000
+          , fsbSongSampleRate = rate
+          , fsbSongDefVol     = 255
+          , fsbSongDefPan     = 128
+          , fsbSongDefPri     = 128
+          , fsbSongChannels   = channels
+          , fsbSongExtraData  = let
+            flipBy4 rest = if BL.null rest
+              then BL.empty
+              else BL.reverse (BL.take 4 rest) <> flipBy4 (BL.drop 4 rest)
+            in BL.toStrict $ flipBy4 seek
+          }
+        }
+      , fsbSongData = [data_]
+      }

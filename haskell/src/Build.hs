@@ -2223,6 +2223,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 , (ps_Keys       ps, rb3KeysTier     )
                 , (ps_Vocal      ps, rb3VocalTier    )
                 ] out
+            useJPEG <- case _fileAlbumArt $ _metadata songYaml of
+              Just img | elem (takeExtension img) [".jpg", ".jpeg"] -> do
+                dir </> "ps/album.jpg" %> shk . copyFile' img
+                return True
+              _ -> return False
             dir </> "ps/album.png"   %> shk . copyFile' (rel "gen/cover-full.png")
             bgimg <- forM (_fileBackgroundImage $ _global songYaml) $ \f -> do
               let psImage = "background" <> takeExtension f
@@ -2232,7 +2237,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               (_, mixMode) <- computeDrumsPart (ps_Drums ps) plan songYaml
               shk $ need $ map (\f -> dir </> "ps" </> f) $ concat
                 -- TODO replace (/= def), should actually check whether the right PS play mode is present
-                [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
+                [ ["song.ini", "notes.mid", "song.ogg", if useJPEG then "album.jpg" else "album.png"]
                 , ["expert+.mid"
                   | maybe False ((/= Kicks1x) . drumsKicks)
                   $ getPart (ps_Drums ps) songYaml >>= partDrums
