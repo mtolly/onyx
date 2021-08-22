@@ -17,7 +17,8 @@ module CommandLine
 import qualified Amplitude.PS2.Ark                as AmpArk
 import           Audio                            (Audio (Input), applyPansVols,
                                                    audioLength, audioMD5,
-                                                   fadeEnd, fadeStart, runAudio)
+                                                   fadeEnd, fadeStart, makeFSB4,
+                                                   makeFSB4', runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Codec.Picture                    (writePng)
 import           Codec.Picture.Types              (dropTransparency, pixelMap)
@@ -109,6 +110,7 @@ import           RockBand.Milo                    (SongPref, autoLipsync,
 import           RockBand.Score
 import           Rocksmith.PSARC                  (extractPSARC)
 import qualified Sound.File.Sndfile               as Snd
+import           Sound.FSB                        (fsbToXMAs)
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
@@ -1180,6 +1182,28 @@ commands =
             stackIO $ B.writeFile out xen
             return [out]
       _ -> fatal "Expected 2 arguments (original.fsb.xen and new.fsb)"
+    }
+
+  , Command
+    { commandWord = "make-fsb"
+    , commandDesc = ""
+    , commandUsage = T.unlines
+      [ "onyx make-fsb fmod in.wav --to out.fsb"
+      , "onyx make-fsb xdk  in.wav --to out.fsb"
+      ]
+    , commandRun = \args opts -> case args of
+      ["fmod", fin] -> do
+        fout <- outputFile opts $ return $ fin <.> "fsb"
+        makeFSB4 fin fout >>= lg
+        let xmaDir = fout <> "_xma"
+        stackIO $ Dir.createDirectoryIfMissing False xmaDir
+        stackIO $ fsbToXMAs fout xmaDir
+        return [fout, xmaDir]
+      ["xdk", fin] -> do
+        fout <- outputFile opts $ return $ fin <.> "fsb"
+        makeFSB4' fin fout >>= lg
+        return [fout]
+      _ -> fatal "Invalid format"
     }
 
   , Command

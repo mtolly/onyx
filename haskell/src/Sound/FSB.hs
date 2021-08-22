@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Sound.FSB where
 
-import           Control.Monad                  (forM, forM_, guard, replicateM)
+import           Control.Monad
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Get
@@ -24,19 +24,31 @@ import           System.FilePath                ((-<.>), (</>))
 import qualified System.IO                      as IO
 
 data FSBSong = FSBSong
-  { fsbSongHeaderSize :: Word16
-  , fsbSongName       :: B.ByteString
-  , fsbSongSamples    :: Word32
-  , fsbSongDataSize   :: Word32
-  , fsbSongLoopStart  :: Word32
-  , fsbSongLoopEnd    :: Word32
-  , fsbSongMode       :: Word32
-  , fsbSongSampleRate :: Word32
-  , fsbSongDefVol     :: Word16
-  , fsbSongDefPan     :: Word16
-  , fsbSongDefPri     :: Word16
-  , fsbSongChannels   :: Word16
-  , fsbSongExtraData  :: B.ByteString
+  { fsbSongHeaderSize  :: Word16
+  , fsbSongName        :: B.ByteString
+  , fsbSongSamples     :: Word32
+  , fsbSongDataSize    :: Word32
+  , fsbSongLoopStart   :: Word32
+  , fsbSongLoopEnd     :: Word32
+  , fsbSongMode        :: Word32
+  , fsbSongSampleRate  :: Word32
+  , fsbSongDefVol      :: Word16
+  , fsbSongDefPan      :: Word16
+  , fsbSongDefPri      :: Word16
+  , fsbSongChannels    :: Word16
+  -- rest is less certain, see http://wiki.xentax.com/index.php/FSB_FSB4
+  , fsbSongMinDistance :: Word32 -- 00 00 80 3F (big endian?) in WT
+  , fsbSongMaxDistance :: Word32 -- 00 40 1C 46 (big endian?) in WT
+  -- rest is specific to XMA, different in MP3
+  , fsbSongUnknown1    :: Word32 -- in GH3 dlc82 and WT dlc3, 0. WoR dlc721, same as fsbSongHeaderSize?
+  , fsbSongUnknown2    :: Word32 -- in GH3 dlc82, WT dlc3, and WoR dlc721, 0
+  , fsbSongUnknown3    :: Word32 -- in GH3 dlc82, 20 00 00 00. WT dlc3 and WoR dlc721, 0
+  , fsbSongUnknown4    :: Word32 -- in GH3 dlc82, 71 49 69 03. WT dlc3 and WoR dlc721, 0
+  , fsbSongUnknown5    :: Word32 -- in GH3 dlc82, 33 00 00 00. WT dlc3 and WoR dlc721, 0
+  , fsbSongUnknown6    :: Word32 -- think this is size of rest of song struct (unk7, unk8, seek table)
+  , fsbSongUnknown7    :: Word32 -- think this is number of XMA streams (channels / 2, rounded up)
+  , fsbSongUnknown8    :: Word32 -- think this is number of seek entries + 1?
+  , fsbSongSeek        :: [Word32] -- LE (they are BE in .xma files)
   } deriving (Show)
 
 getFSBSong :: Get FSBSong
@@ -54,9 +66,30 @@ getFSBSong = do
   fsbSongDefPan     <- getWord16le
   fsbSongDefPri     <- getWord16le
   fsbSongChannels   <- getWord16le
-  pos2              <- bytesRead
-  fsbSongExtraData  <- getByteString $
-    fromIntegral fsbSongHeaderSize - fromIntegral (pos2 - pos1)
+
+  fsbSongMinDistance <- getWord32be
+  fsbSongMaxDistance <- getWord32be
+  fsbSongUnknown1 <- getWord32le
+  fsbSongUnknown2 <- getWord32le
+  fsbSongUnknown3 <- getWord32le
+  fsbSongUnknown4 <- getWord32le
+  fsbSongUnknown5 <- getWord32le
+  fsbSongUnknown6 <- getWord32le
+  fsbSongUnknown7 <- getWord32le
+  fsbSongUnknown8 <- getWord32le
+
+  pos2 <- bytesRead
+  let numEntries = fromIntegral $ fsbSongUnknown8 - 1
+      bytesLeft = fromIntegral fsbSongHeaderSize - fromIntegral (pos2 - pos1)
+  unless (numEntries * 4 == bytesLeft) $ fail $ unwords
+    [ "Incorrect size left for XMA seek table."
+    , show bytesLeft
+    , "bytes left but we want to parse"
+    , show numEntries
+    , "entries"
+    ]
+  fsbSongSeek <- replicateM numEntries getWord32le
+
   return FSBSong{..}
 
 putFSBSong :: FSBSong -> Put
@@ -73,7 +106,19 @@ putFSBSong FSBSong{..} = do
   putWord16le fsbSongDefPan
   putWord16le fsbSongDefPri
   putWord16le fsbSongChannels
-  putByteString fsbSongExtraData
+
+  putWord32be fsbSongMinDistance
+  putWord32be fsbSongMaxDistance
+  putWord32le fsbSongUnknown1
+  putWord32le fsbSongUnknown2
+  putWord32le fsbSongUnknown3
+  putWord32le fsbSongUnknown4
+  putWord32le fsbSongUnknown5
+  putWord32le fsbSongUnknown6
+  putWord32le fsbSongUnknown7
+  putWord32le fsbSongUnknown8
+
+  mapM_ putWord32le fsbSongSeek
 
 data FSB3Header = FSB3Header
   { fsb3SongCount   :: Word32
@@ -144,7 +189,7 @@ putFSB4Header FSB4Header{..} = do
   mapM_ putFSBSong fsb4Songs
 
 songHeaderSize :: FSBSong -> Word16
-songHeaderSize song = 64 + fromIntegral (B.length $ fsbSongExtraData song)
+songHeaderSize song = 64 + 40 + fromIntegral (length $ fsbSongSeek song) * 4
 
 fixFSB3 :: FSB3Header -> FSB3Header
 fixFSB3 FSB3Header{..} = let
@@ -172,6 +217,11 @@ parseFSB = runGetM $ do
     "FSB3" -> Left  <$> getFSB3Header
     "FSB4" -> Right <$> getFSB4Header
     _      -> fail $ "Unrecognized FSB magic: " <> show magic
+  -- see GHWT aDLC3_1.fsb; this should skip zeroes to get to 0x10-alignment
+  let dataStart = case fsbHeader of
+        Left  fsb3 -> 0x20 + fsb3HeadersSize fsb3
+        Right fsb4 -> 0x30 + fsb4HeadersSize fsb4
+  bytesRead >>= \n -> skip $ fromIntegral dataStart - fromIntegral n
   fsbSongData <- forM (either fsb3Songs fsb4Songs fsbHeader) $ \song -> do
     getLazyByteString $ fromIntegral $ fsbSongDataSize song
   return FSB{..}
@@ -187,6 +237,7 @@ fixFSB fsb = let
       songs = fixSongs $ fsb3Songs header3
       in Left header3
         { fsb3SongCount   = fromIntegral $ length songs
+        -- TODO pad to 0x10
         , fsb3HeadersSize = sum $ map (fromIntegral . fsbSongHeaderSize) songs
         , fsb3DataSize    = sum $ map fsbSongDataSize songs
         , fsb3Songs       = songs
@@ -195,6 +246,7 @@ fixFSB fsb = let
       songs = fixSongs $ fsb4Songs header4
       in Right header4
         { fsb4SongCount   = fromIntegral $ length songs
+        -- TODO pad to 0x10
         , fsb4HeadersSize = sum $ map (fromIntegral . fsbSongHeaderSize) songs
         , fsb4DataSize    = sum $ map fsbSongDataSize songs
         , fsb4Songs       = songs
@@ -205,6 +257,7 @@ emitFSB :: FSB -> BL.ByteString
 emitFSB fsb = runPut $ do
   let fsb' = fixFSB fsb
   either putFSB3Header putFSB4Header $ fsbHeader fsb'
+  -- TODO pad to 0x10 to match fsbXHeadersSize
   mapM_ putLazyByteString $ fsbSongData fsb'
 
 readGH3FSB3 :: (MonadResource m) => BL.ByteString -> IO [(B.ByteString, CA.AudioSource m Int16)]
@@ -324,7 +377,7 @@ fsbToXMAs f dir = do
       (fromIntegral $ fsbSongSampleRate song)
       (fromIntegral $ fsbSongChannels song)
       (fromIntegral $ fsbSongSamples song)
-      (BL.fromStrict $ fsbSongExtraData song)
+      (runPut $ mapM_ putWord32be $ fsbSongSeek song)
       sdata
 
 getXMAChunks :: (MonadFail m) => BL.ByteString -> m (BL.ByteString, BL.ByteString)
@@ -343,7 +396,22 @@ getXMAChunks b = let
     data_ <- findChunk "data" riff
     return (seek, data_)
 
--- Does not work yet, something is different in the seek section I think.
+-- This assumes the block size is 32 KB (16 packets) which appears to be what FSB uses
+makeXMASeekTable :: (MonadFail m) => BL.ByteString -> m [Word32]
+makeXMASeekTable bs = do
+  pkts <- splitXMA2Packets bs
+  let getStream0Counts _ [] = []
+      getStream0Counts skipping ((frameCount, _, _, newSkip, _) : rest) = if skipping > 0
+        then 0 : getStream0Counts (skipping - 1) rest
+        else frameCount : getStream0Counts newSkip rest
+      stream0Counts = getStream0Counts 0 pkts
+  return $ do
+    -- Packets are 2048 bytes in all XMA. Each packet is 512 samples.
+    -- FSB appear to use 16-packet blocks. (Maybe this is stored somewhere?)
+    -- Each entry in the seek table is "how many samples would you have decoded by block N"
+    packetIndex <- [0, 16 .. length stream0Counts]
+    return $ sum (take packetIndex stream0Counts) * 512
+
 -- Attempts to make GHWT/5/WOR files (one xma per fsb)
 xmaToFSB :: (MonadFail m) => BL.ByteString -> m FSB
 xmaToFSB b = let
@@ -358,7 +426,7 @@ xmaToFSB b = let
   in do
     riff <- BL.drop 4 <$> findChunk "RIFF" b
     fmt <- findChunk "fmt " riff
-    seek <- findChunk "seek" riff
+    _seek <- findChunk "seek" riff -- we'll make our own seek table anyway
     data_ <- findChunk "data" riff
     (channels, rate, len) <- flip runGetM fmt $ do
       -- WAVEFORMATEX
@@ -382,6 +450,12 @@ xmaToFSB b = let
       _        <- getWord8    -- EncoderVersion; // Version of XMA encoder that generated the file
       _        <- getWord16le -- BlockCount;     // XMA blocks in file (and entries in its seek table)
       return (channels, rate, len)
+
+    -- We could probably also just use the seek table from the .xma,
+    -- since we make them as the 32 KB blocks (16-packet) to match FSB.
+    seekTable <- makeXMASeekTable data_
+    let lenSeekTable = fromIntegral $ length seekTable
+
     return $ fixFSB $ FSB
       { fsbHeader = Right $ FSB4Header
         { fsb4SongCount   = 1
@@ -393,7 +467,7 @@ xmaToFSB b = let
         , fsb4GUID        = B.take 16 $ "GUID" <> B8.pack (show $ hash b) <> "................"
         , fsb4Songs       = return FSBSong
           { fsbSongHeaderSize = 0
-          , fsbSongName       = "multichannel audio"
+          , fsbSongName       = "multichannel sound" -- does not appear to matter. for gh3 even, looks like only position matters
           , fsbSongSamples    = len
           , fsbSongDataSize   = 0
           , fsbSongLoopStart  = 0
@@ -404,11 +478,19 @@ xmaToFSB b = let
           , fsbSongDefPan     = 128
           , fsbSongDefPri     = 128
           , fsbSongChannels   = channels
-          , fsbSongExtraData  = let
-            flipBy4 rest = if BL.null rest
-              then BL.empty
-              else BL.reverse (BL.take 4 rest) <> flipBy4 (BL.drop 4 rest)
-            in BL.toStrict $ flipBy4 seek
+
+          , fsbSongMinDistance = 0x803F
+          , fsbSongMaxDistance = 0x401C46
+          , fsbSongUnknown1 = 0
+          , fsbSongUnknown2 = 0
+          , fsbSongUnknown3 = 0
+          , fsbSongUnknown4 = 0
+          , fsbSongUnknown5 = 0
+          , fsbSongUnknown6 = 8 + 4 * lenSeekTable
+          , fsbSongUnknown7 = fromIntegral (channels + 1) `quot` 2
+          , fsbSongUnknown8 = lenSeekTable + 1
+
+          , fsbSongSeek = seekTable
           }
         }
       , fsbSongData = [data_]

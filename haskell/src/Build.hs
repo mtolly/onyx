@@ -3084,7 +3084,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   fsb = dir </> audio <.> "fsb"
               fsb %> \out -> do
                 shk $ need [wav]
-                makeFSB4 wav out >>= lg
+                makeFSB4' wav out >>= lg
               fsb <.> "xen" %> \out -> do
                 shk $ need [fsb]
                 bs <- stackIO $ B.readFile fsb

@@ -97,6 +97,7 @@ import           Sound.FSB                        (emitFSB, xmaToFSB)
 import qualified Sound.MIDI.Util                  as U
 import qualified Sound.RubberBand                 as RB
 import           STFS.Package                     (runGetM)
+import           System.Info                      (os)
 import qualified System.IO                        as IO
 import           System.Process                   (proc)
 
@@ -799,10 +800,12 @@ makeFSB4' wav fsb = do
   exe <- stackIO xma2encodeExe
   let xma = fsb -<.> "xma"
   -- this is required for wine, otherwise it messes up the unix paths somehow.
-  -- TODO don't do winepath on Windows
-  wav' <- fmap (concat . take 1 . lines) $ stackProcess $ proc "winepath" ["-w", wav]
-  xma' <- fmap (concat . take 1 . lines) $ stackProcess $ proc "winepath" ["-w", xma]
-  let createProc = withWin32Exe proc exe [wav', "/TargetFile", xma']
+  let windowsPath s = if os == "mingw32"
+        then return s
+        else fmap (takeWhile (/= '\n')) $ stackProcess $ proc "winepath" ["-w", s]
+  wav' <- windowsPath wav
+  xma' <- windowsPath xma
+  let createProc = withWin32Exe proc exe [wav', "/TargetFile", xma', "/BlockSize", "32"]
   inside ("converting WAV to FSB4 (XMA)") $ do
     str <- stackProcess createProc
     lg str
