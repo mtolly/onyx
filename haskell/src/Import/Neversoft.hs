@@ -61,7 +61,7 @@ importGH5WoR src folder = do
                   dec <- case decryptFSB' (T.unpack name) $ BL.toStrict bs of
                     Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show name
                     Just dec -> return dec
-                  stackIO $ readFSB $ BL.fromStrict dec
+                  stackIO $ readFSB dec
                 ImportQuick -> return $ CA.AudioSource (return ()) 48000 dummyCount 0
           src1 <- getAudio 8 $ "a" <> TE.decodeUtf8 (songName info) <> "_1.fsb.xen"
           src2 <- getAudio 6 $ "a" <> TE.decodeUtf8 (songName info) <> "_2.fsb.xen"

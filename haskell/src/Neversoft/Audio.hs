@@ -295,10 +295,10 @@ ghworKeys = map B.pack
   , [0x83, 0x0c, 0x2b, 0x6f, 0x44, 0x71, 0x77, 0xfb, 0xd1, 0x6c, 0x0e, 0x7c, 0x63, 0x83, 0x7b, 0x18]
   ]
 
-checkFSB :: B.ByteString -> Maybe B.ByteString
-checkFSB b = guard ("FSB" `B.isPrefixOf` b) >> return b
+checkFSB :: BL.ByteString -> Maybe BL.ByteString
+checkFSB b = guard ("FSB" `BL.isPrefixOf` b) >> return b
 
-ghworDecrypt :: B.ByteString -> Maybe B.ByteString
+ghworDecrypt :: B.ByteString -> Maybe BL.ByteString
 ghworDecrypt bs = do
   guard $ B.length bs >= 0x800
   let (cipherData, cipherFooter) = B.splitAt (B.length bs - 0x800) bs
@@ -310,7 +310,7 @@ ghworDecrypt bs = do
   let footer = ctrCombine cipher iv cipherFooter
       keyIndex = sum $ map (B.index footer) [4..7]
   key <- makeKey $ ghworKeys !! fromIntegral keyIndex
-  checkFSB $ ctrCombine key iv cipherData
+  checkFSB $ BL.fromStrict $ ctrCombine key iv cipherData
 
 ghworEncrypt :: B.ByteString -> Maybe B.ByteString
 ghworEncrypt bs = do
@@ -334,16 +334,20 @@ readFSB dec = let
   readable = makeHandle "decoded FSB audio" $ byteStringSimpleHandle dec'
   in ffSource $ Left readable
 
-decryptFSB' :: FilePath -> B.ByteString -> Maybe B.ByteString
-decryptFSB' name enc = ghworDecrypt enc <|> ghwtDecrypt name enc <|> gh3Decrypt enc
+decryptFSB' :: FilePath -> B.ByteString -> Maybe BL.ByteString
+decryptFSB' name enc = let
+  lazy = BL.fromStrict enc
+  in ghworDecrypt enc
+    <|> ghwtDecrypt name lazy
+    <|> gh3Decrypt lazy
 
-decryptFSB :: FilePath -> IO (Maybe B.ByteString)
+decryptFSB :: FilePath -> IO (Maybe BL.ByteString)
 decryptFSB fin = decryptFSB' fin <$> B.readFile fin
 
 convertAudio :: FilePath -> FilePath -> IO ()
 convertAudio fin fout = do
   dec <- decryptFSB fin >>= maybe (error "Couldn't decrypt GH .fsb.xen audio") return
-  src <- readFSB $ BL.fromStrict dec
+  src <- readFSB dec
   audioIO Nothing (CA.mapSamples CA.fractionalSample src) fout
 
 reverseMapping :: B.ByteString
@@ -362,8 +366,8 @@ reverseMapping = B.pack $ flip map [0 .. 0xFF] $ \i -> foldr (.|.) 0
 revByte :: Word8 -> Word8
 revByte = B.index reverseMapping . fromIntegral
 
-revBytes :: B.ByteString -> B.ByteString
-revBytes = B.map revByte
+revBytes :: BL.ByteString -> BL.ByteString
+revBytes = BL.map revByte
 
 -- Taken from adlc783_1.fsb.xen (Paramore - Ignorance, drums audio)
 -- Not sure what is special about it, different keys aren't song specific,
@@ -381,15 +385,15 @@ ghworCipher = B.pack
   , 119,107,103,108,251,112,175,8,121,194,82,175,219,141,22,24,168,79,171,153,98,246,185,26,164,139,78,44,178,99,185,238,214,5,94,188,83,231,133,59,94,116,234,124,88,164,110,194,43,230,204,143,238,213,206,227,212,54,149,128,111,112,157,104,41,18,198,149,158,254,186
   ]
 
-gh3Decrypt :: B.ByteString -> Maybe B.ByteString
+gh3Decrypt :: BL.ByteString -> Maybe BL.ByteString
 gh3Decrypt bs = let
-  cipher = cycle $ B.unpack "5atu6w4zaw"
-  in checkFSB $ B.pack $ map revByte $ zipWith xor (B.unpack bs) cipher
+  cipher = cycle $ BL.unpack "5atu6w4zaw"
+  in checkFSB $ BL.pack $ map revByte $ zipWith xor (BL.unpack bs) cipher
 
-gh3Encrypt :: B.ByteString -> B.ByteString
+gh3Encrypt :: BL.ByteString -> BL.ByteString
 gh3Encrypt bs = let
-  cipher = cycle $ B.unpack "5atu6w4zaw"
-  in B.pack $ zipWith xor (B.unpack $ revBytes bs) cipher
+  cipher = cycle $ BL.unpack "5atu6w4zaw"
+  in BL.pack $ zipWith xor (BL.unpack $ revBytes bs) cipher
 
 -- GHWT == GH5
 
@@ -426,12 +430,12 @@ ghwtKeyFromFile f = ghwtKey $ let
     Just s  -> "dlc" <> s
   in TE.encodeUtf8 s4
 
-ghwtDecrypt :: FilePath -> B.ByteString -> Maybe B.ByteString
-ghwtDecrypt name bs = checkFSB $ B.pack $ zipWith xor
-  (map revByte $ B.unpack bs)
+ghwtDecrypt :: FilePath -> BL.ByteString -> Maybe BL.ByteString
+ghwtDecrypt name bs = checkFSB $ BL.pack $ zipWith xor
+  (map revByte $ BL.unpack bs)
   (cycle $ B.unpack $ ghwtKeyFromFile name)
 
-ghwtEncrypt :: FilePath -> B.ByteString -> B.ByteString
-ghwtEncrypt name bs = B.pack $ map revByte $ zipWith xor
-  (B.unpack bs)
+ghwtEncrypt :: FilePath -> BL.ByteString -> BL.ByteString
+ghwtEncrypt name bs = revBytes $ BL.pack $ zipWith xor
+  (BL.unpack bs)
   (cycle $ B.unpack $ ghwtKeyFromFile name)

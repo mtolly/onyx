@@ -18,7 +18,8 @@ import qualified Amplitude.PS2.Ark                as AmpArk
 import           Audio                            (Audio (Input), applyPansVols,
                                                    audioLength, audioMD5,
                                                    fadeEnd, fadeStart, makeFSB4,
-                                                   makeFSB4', runAudio)
+                                                   makeFSB4', makeGH3FSB,
+                                                   runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Codec.Picture                    (writePng)
 import           Codec.Picture.Types              (dropTransparency, pixelMap)
@@ -72,7 +73,8 @@ import qualified Image
 import           Magma                            (getRBAFile, runMagma,
                                                    runMagmaMIDI, runMagmaV1)
 import           MoggDecrypt                      (moggToOgg, oggToMogg)
-import           Neversoft.Audio                  (decryptFSB, ghworEncrypt)
+import           Neversoft.Audio                  (decryptFSB, gh3Encrypt,
+                                                   ghworEncrypt)
 import           Neversoft.Checksum               (knownKeys, qbKeyCRC)
 import           Neversoft.Export                 (makeMetadataLIVE,
                                                    shareMetadata)
@@ -302,6 +304,7 @@ buildTarget yamlPath opts = do
         RB2   {} -> "gen/target" </> T.unpack targetName </> "rb2con"
         PS    {} -> "gen/target" </> T.unpack targetName </> "ps.zip"
         GH2   {} -> "gen/target" </> T.unpack targetName </> "gh2.zip"
+        GH3   {} -> undefined -- TODO
         GH5   {} -> undefined -- TODO
         RS    {} -> undefined -- TODO
         Melody{} -> undefined -- TODO
@@ -407,6 +410,7 @@ commands =
                 RB3   {} -> FileSTFS
                 RB2   {} -> FileSTFS
                 GH2   {} -> undefined -- TODO
+                GH3   {} -> undefined -- TODO
                 GH5   {} -> undefined -- TODO
                 RS    {} -> undefined -- TODO
                 Melody{} -> undefined -- TODO
@@ -1159,13 +1163,16 @@ commands =
     { commandWord = "decrypt-fsb"
     , commandDesc = "Decrypt an .fsb.xen from a Neversoft GH game."
     , commandUsage = ""
-    , commandRun = \args opts -> forM args $ \xen -> do
+    , commandRun = \args opts -> fmap concat $ forM args $ \xen -> do
       dec <- stackIO (decryptFSB xen) >>= maybe (fatal "Couldn't decrypt GH .fsb.xen audio") return
       out <- outputFile opts $ return $ case stripSuffix ".fsb.xen" xen of
         Just root -> root <.> "fsb"
         Nothing   -> xen <.> "fsb"
-      stackIO $ B.writeFile out dec
-      return out
+      stackIO $ BL.writeFile out dec
+      let xmaDir = out <> "_xma"
+      stackIO $ Dir.createDirectoryIfMissing False xmaDir
+      stackIO $ fsbToXMAs out xmaDir
+      return [out, xmaDir]
     }
 
   , Command
@@ -1185,6 +1192,19 @@ commands =
     }
 
   , Command
+    { commandWord = "encrypt-gh3"
+    , commandDesc = "Produce an encrypted .fsb.xen for GH3."
+    , commandUsage = "onyx encrypt-gh3 audio.fsb [--to audio.fsb.xen]"
+    , commandRun = \args opts -> case args of
+      [fsb] -> do
+        fsb' <- stackIO $ BL.readFile fsb
+        out <- outputFile opts $ return $ fsb <.> "xen"
+        stackIO $ BL.writeFile out $ gh3Encrypt fsb'
+        return [out]
+      _ -> fatal "Expected 2 arguments (original.fsb.xen and new.fsb)"
+    }
+
+  , Command
     { commandWord = "make-fsb"
     , commandDesc = ""
     , commandUsage = T.unlines
@@ -1194,14 +1214,18 @@ commands =
     , commandRun = \args opts -> case args of
       ["fmod", fin] -> do
         fout <- outputFile opts $ return $ fin <.> "fsb"
-        makeFSB4 fin fout >>= lg
+        makeFSB4 fin fout
         let xmaDir = fout <> "_xma"
         stackIO $ Dir.createDirectoryIfMissing False xmaDir
         stackIO $ fsbToXMAs fout xmaDir
         return [fout, xmaDir]
       ["xdk", fin] -> do
         fout <- outputFile opts $ return $ fin <.> "fsb"
-        makeFSB4' fin fout >>= lg
+        makeFSB4' fin fout
+        return [fout]
+      ["gh3", gtr, preview, rhythm, song] -> do
+        fout <- outputFile opts $ fatal "Need --to"
+        makeGH3FSB gtr preview rhythm song fout
         return [fout]
       _ -> fatal "Invalid format"
     }

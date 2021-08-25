@@ -1349,6 +1349,37 @@ instance StackJSON TargetGH5 where
 instance Default TargetGH5 where
   def = fromEmptyObject
 
+data TargetGH3 = TargetGH3
+  { gh3_Common :: TargetCommon
+  , gh3_Guitar :: FlexPartName
+  , gh3_Bass   :: FlexPartName
+  , gh3_Rhythm :: FlexPartName
+  , gh3_Coop   :: GH2Coop
+  , gh3_Drums  :: FlexPartName
+  , gh3_Vocal  :: FlexPartName
+  , gh3_SongID :: Maybe Int -- like 37 in "DLC37"
+  , gh3_DL     :: Maybe Int -- like 15 in "dl15"
+  } deriving (Eq, Ord, Show, Generic, Hashable)
+
+parseTargetGH3 :: (SendMessage m) => ObjectCodec m A.Value TargetGH3
+parseTargetGH3 = do
+  gh3_Common        <- gh3_Common        =. parseTargetCommon
+  gh3_Guitar        <- gh3_Guitar        =. opt FlexGuitar           "guitar"         stackJSON
+  gh3_Bass          <- gh3_Bass          =. opt FlexBass             "bass"           stackJSON
+  gh3_Rhythm        <- gh3_Rhythm        =. opt (FlexExtra "rhythm") "rhythm"         stackJSON
+  gh3_Coop          <- gh3_Coop          =. opt GH2Bass              "coop"           stackJSON
+  gh3_Drums         <- gh3_Drums         =. opt FlexDrums            "drums"          stackJSON
+  gh3_Vocal         <- gh3_Vocal         =. opt FlexVocal            "vocal"          stackJSON
+  gh3_SongID        <- gh3_SongID        =. opt Nothing              "song-id"        stackJSON
+  gh3_DL            <- gh3_DL            =. opt Nothing              "dl"             stackJSON
+  return TargetGH3{..}
+
+instance StackJSON TargetGH3 where
+  stackJSON = asStrictObject "TargetGH3" parseTargetGH3
+
+instance Default TargetGH3 where
+  def = fromEmptyObject
+
 data RSArrModifier
   = RSDefault
   | RSBonus
@@ -1441,6 +1472,7 @@ data Target f
   | RB2    TargetRB2
   | PS     TargetPS
   | GH2    TargetGH2
+  | GH3    TargetGH3
   | GH5    TargetGH5
   | RS     TargetRS
   | Melody TargetPart
@@ -1453,6 +1485,7 @@ targetCommon = \case
   RB2    TargetRB2 {..} -> rb2_Common
   PS     TargetPS  {..} -> ps_Common
   GH2    TargetGH2 {..} -> gh2_Common
+  GH3    TargetGH3 {..} -> gh3_Common
   GH5    TargetGH5 {..} -> gh5_Common
   RS     TargetRS  {..} -> rs_Common
   Melody TargetPart{..} -> tgt_Common
@@ -1471,6 +1504,7 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
         "rb2"    -> fmap RB2    fromJSON
         "ps"     -> fmap PS     fromJSON
         "gh2"    -> fmap GH2    fromJSON
+        "gh3"    -> fmap GH3    fromJSON
         "gh5"    -> fmap GH5    fromJSON
         "rs"     -> fmap RS     fromJSON
         "melody" -> fmap Melody fromJSON
@@ -1481,6 +1515,7 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
       RB2    rb2 -> addKey parseTargetRB2  "game" "rb2"    rb2
       PS     ps  -> addKey parseTargetPS   "game" "ps"     ps
       GH2    gh2 -> addKey parseTargetGH2  "game" "gh2"    gh2
+      GH3    gh3 -> addKey parseTargetGH3  "game" "gh3"    gh3
       GH5    gh5 -> addKey parseTargetGH5  "game" "gh5"    gh5
       RS     rs  -> addKey parseTargetRS   "game" "rs"     rs
       Melody tgt -> addKey parseTargetPart "game" "melody" tgt

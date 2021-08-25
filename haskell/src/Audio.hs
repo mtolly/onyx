@@ -39,7 +39,7 @@ module Audio
 , stereoPanRatios
 , emptyChannels
 , remapChannels
-, makeFSB4, makeFSB4'
+, makeFSB4, makeFSB4', makeGH3FSB
 ) where
 
 import           Control.Concurrent               (threadDelay)
@@ -58,7 +58,7 @@ import           Data.Binary.Get                  (getWord32le)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.ByteString.Lazy.Char8       as BL8
-import           Data.Char                        (toLower)
+import           Data.Char                        (isSpace, toLower)
 import           Data.Conduit
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
@@ -93,7 +93,8 @@ import           Resources                        (makeFSB4exe, xma2encodeExe)
 import           RockBand.Common                  (pattern RNil, pattern Wait)
 import           SndfileExtra
 import qualified Sound.File.Sndfile               as Snd
-import           Sound.FSB                        (emitFSB, xmaToFSB)
+import           Sound.FSB                        (emitFSB, ghBandFSB, parseXMA,
+                                                   toGH3FSB, xmasToFSB)
 import qualified Sound.MIDI.Util                  as U
 import qualified Sound.RubberBand                 as RB
 import           STFS.Package                     (runGetM)
@@ -784,18 +785,21 @@ mixMany' r c polyphony srcs = let
       in go [] $ (\(asrc, group) -> (source asrc, group)) <$> srcs'
     }
 
-makeFSB4 :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m String
+-- Use official FMOD generator
+makeFSB4 :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> StackTraceT m ()
 makeFSB4 wav fsb = do
   exe <- stackIO makeFSB4exe
   let createProc = withWin32Exe proc exe [wav, fsb]
   inside "converting WAV to FSB4" $ do
     str <- stackProcess createProc
+    when (any (not . isSpace) str) $ lg str
     stackIO $ IO.withBinaryFile fsb IO.ReadWriteMode $ \h -> do
       IO.hSeek h IO.AbsoluteSeek 0x32
       B.hPut h $ "multichannel sound" <> B.replicate 12 0
-    return str
+    lg $ "Created XMA (Xbox 360) FSB4 at: " <> fsb
 
-makeFSB4' :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> StackTraceT m String
+-- Use Microsoft generator, then repackage xma as fsb
+makeFSB4' :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> StackTraceT m ()
 makeFSB4' wav fsb = do
   exe <- stackIO xma2encodeExe
   let xma = fsb -<.> "xma"
@@ -808,7 +812,35 @@ makeFSB4' wav fsb = do
   let createProc = withWin32Exe proc exe [wav', "/TargetFile", xma', "/BlockSize", "32"]
   inside ("converting WAV to FSB4 (XMA)") $ do
     str <- stackProcess createProc
-    lg str
-    madeFSB <- stackIO (BL.readFile xma) >>= xmaToFSB
+    when (any (not . isSpace) str) $ lg str
+    madeFSB <- stackIO (BL.readFile xma) >>= parseXMA >>= ghBandFSB
     stackIO $ BL.writeFile fsb $ emitFSB madeFSB
-    return str
+    lg $ "Created XMA (Xbox 360) FSB4 at: " <> fsb
+
+makeGH3FSB :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
+makeGH3FSB gtr preview rhythm song fsb = do
+  exe <- stackIO xma2encodeExe
+  let inputs =
+        -- don't think the names matter, just the positions
+        [ ("onyx_guitar.xma", gtr)
+        , ("onyx_preview.xma", preview)
+        , ("onyx_rhythm.xma", rhythm)
+        , ("onyx_song.xma", song)
+        ]
+  inputs' <- forM inputs $ \(name, wav) -> do
+    let xma = wav -<.> "xma"
+    -- this is required for wine, otherwise it messes up the unix paths somehow.
+    let windowsPath s = if os == "mingw32"
+          then return s
+          else fmap (takeWhile (/= '\n')) $ stackProcess $ proc "winepath" ["-w", s]
+    wav' <- windowsPath wav
+    xma' <- windowsPath xma
+    let createProc = withWin32Exe proc exe [wav', "/TargetFile", xma', "/BlockSize", "32"]
+    madeXMA <- inside ("converting WAV to XMA: " <> wav) $ do
+      str <- stackProcess createProc
+      when (any (not . isSpace) str) $ lg str
+      stackIO (BL.readFile xma) >>= parseXMA
+    return (name, madeXMA)
+  madeFSB <- toGH3FSB <$> xmasToFSB inputs'
+  stackIO $ BL.writeFile fsb $ emitFSB madeFSB
+  lg $ "Created XMA (Xbox 360) FSB3 at: " <> fsb

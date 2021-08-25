@@ -89,7 +89,8 @@ import           Image
 import qualified Magma
 import qualified MelodysEscape                         as Melody
 import           MoggDecrypt
-import           Neversoft.Audio                       (ghworEncrypt)
+import           Neversoft.Audio                       (gh3Encrypt,
+                                                        ghworEncrypt)
 import           Neversoft.Checksum                    (qbKeyCRC, qsKey)
 import           Neversoft.Export                      (makeGHWoRNote,
                                                         packageNameHash,
@@ -369,6 +370,15 @@ hashGH5 :: (Hashable f) => SongYaml f -> TargetGH5 -> Int
 hashGH5 songYaml gh5 = let
   hashed =
     ( gh5
+    , _title $ _metadata songYaml
+    , _artist $ _metadata songYaml
+    )
+  in 1000000000 + (hash hashed `mod` 1000000000)
+
+hashGH3 :: (Hashable f) => SongYaml f -> TargetGH3 -> Int
+hashGH3 songYaml gh3 = let
+  hashed =
+    ( gh3
     , _title $ _metadata songYaml
     , _artist $ _metadata songYaml
     )
@@ -3084,7 +3094,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   fsb = dir </> audio <.> "fsb"
               fsb %> \out -> do
                 shk $ need [wav]
-                makeFSB4' wav out >>= lg
+                makeFSB4' wav out
               fsb <.> "xen" %> \out -> do
                 shk $ need [fsb]
                 bs <- stackIO $ B.readFile fsb
@@ -3123,6 +3133,69 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 , createTransferFlags = 0xC0
                 , createLIVE = True
                 } folder out
+
+          GH3 gh3 -> do
+
+            (planName, plan) <- case getPlan (tgt_Plan $ gh3_Common gh3) songYaml of
+              Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh3
+              Just pair -> return pair
+            let planDir = rel $ "gen/plan" </> T.unpack planName
+
+            let hashed = hashGH3 songYaml gh3
+                songID = fromMaybe hashed $ gh3_SongID gh3
+                dl = "dl" <> show (fromMaybe hashed $ gh3_DL gh3)
+
+            let coopPart = case gh3_Coop gh3 of
+                  GH2Bass   -> gh3_Bass   gh3
+                  GH2Rhythm -> gh3_Rhythm gh3
+                gh3Parts = [gh3_Guitar gh3, coopPart]
+                loadPSMidi :: Staction (RBFile.Song (RBFile.OnyxFile U.Beats))
+                loadPSMidi = shakeMIDI $ planDir </> "raw.mid"
+
+            let pathGuitar  = dir </> "guitar.wav"
+                pathRhythm  = dir </> "rhythm.wav"
+                pathSong    = dir </> "song.wav"
+                pathPreview = dir </> "preview.wav"
+            pathGuitar %> \out -> do
+              mid <- loadPSMidi
+              writeStereoParts gh3Parts (gh3_Common gh3) mid 0 planName plan
+                [(gh3_Guitar gh3, 1)]
+                out
+            pathRhythm %> \out -> do
+              mid <- loadPSMidi
+              writeStereoParts gh3Parts (gh3_Common gh3) mid 0 planName plan
+                [(coopPart, 1)]
+                out
+            pathSong %> \out -> do
+              mid <- loadPSMidi
+              writeSongCountin (gh3_Common gh3) mid 0 True planName plan
+                [ (gh3_Guitar gh3, 1)
+                , (coopPart      , 1)
+                ] out
+            pathPreview %> \out -> do
+              mid <- shakeMIDI $ planDir </> "processed.mid"
+              let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))
+                  fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
+                  previewExpr
+                    = Fade End (Seconds 5)
+                    $ Fade Start (Seconds 2)
+                    $ Take Start (fromMS $ pend - pstart)
+                    $ Drop Start (fromMS pstart)
+                    $ Input (planDir </> "everything.wav")
+              buildAudio previewExpr out
+
+            let pathFsb = dir </> "audio.fsb"
+                pathFsbXen = dir </> "gh3" </> ("DLC" <> show songID <> ".fsb.xen")
+            pathFsb %> \out -> do
+              shk $ need [pathGuitar, pathPreview, pathRhythm, pathSong]
+              makeGH3FSB pathGuitar pathPreview pathRhythm pathSong out
+            pathFsbXen %> \out -> do
+              shk $ need [pathFsb]
+              fsb <- stackIO $ BL.readFile pathFsb
+              stackIO $ BL.writeFile out $ gh3Encrypt fsb
+
+            phony (dir </> "gh3") $ do
+              shk $ need [pathFsbXen]
 
           Konga _ -> return () -- TODO
 
