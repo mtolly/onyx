@@ -39,6 +39,10 @@ parts:
         global: -3 # G# C# F# B E
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  vocal:
+    vocal: # WIP
+      count: 3
+      gender: male
 targets:
   rb3:
     game: rb3

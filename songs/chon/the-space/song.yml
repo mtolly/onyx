@@ -1,0 +1,18 @@
+parts:
+  drums:
+    drums:
+      kicks: 1
+      mode: full
+audio:
+  album-track:
+    md5: 5aa196cc333904dabfe442af2f401d47
+    frames: 7379764
+plans:
+  plan:
+    song:
+      pad: [3.593, album-track]
+metadata:
+  title: The Space
+  artist: CHON
+  album: Homey
+  track-number: 8

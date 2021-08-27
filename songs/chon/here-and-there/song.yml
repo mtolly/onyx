@@ -1,0 +1,18 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: 1
+audio:
+  album-track:
+    md5: bd7e62d770dfe96ce59855c75d3d1ae6
+    frames: 9733032
+plans:
+  plan:
+    song:
+      pad: [2.715, album-track]
+metadata:
+  title: Here and There
+  artist: CHON
+  album: Homey
+  track-number: 7

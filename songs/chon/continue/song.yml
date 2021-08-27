@@ -1,0 +1,18 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: 1
+audio:
+  album-track:
+    md5: c4b0b77744f70265007c95c464c9dff8
+    frames: 11286386
+plans:
+  plan:
+    song:
+      pad: [1.683, album-track]
+metadata:
+  title: Continue?
+  artist: CHON
+  album: Homey
+  track-number: 10
