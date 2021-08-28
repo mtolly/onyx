@@ -339,15 +339,22 @@ fsbToXMAs f dir = do
       , xmaData     = sdata
       }
 
+markStream0Packets
+  :: [(Word32, Word32, Word32, Word32, B.ByteString)]
+  -> [(Bool, (Word32, Word32, Word32, Word32, B.ByteString))]
+markStream0Packets = go 0 where
+  go _ [] = []
+  go skipping (pkt@(_, _, _, newSkip, _) : rest) = if skipping > 0
+    then (False, pkt) : go (skipping - 1) rest
+    else (True , pkt) : go newSkip rest
+
 -- This assumes the block size is 32 KB (16 packets) which appears to be what FSB uses
 makeXMASeekTable :: (MonadFail m) => BL.ByteString -> m [Word32]
 makeXMASeekTable bs = do
   pkts <- splitXMA2Packets bs
-  let getStream0Counts _ [] = []
-      getStream0Counts skipping ((frameCount, _, _, newSkip, _) : rest) = if skipping > 0
-        then 0 : getStream0Counts (skipping - 1) rest
-        else frameCount : getStream0Counts newSkip rest
-      stream0Counts = getStream0Counts 0 pkts
+  let stream0Counts = map
+        (\(isStream0, (frameCount, _, _, _, _)) -> if isStream0 then frameCount else 0)
+        (markStream0Packets pkts)
   return $ do
     -- Packets are 2048 bytes in all XMA. Each packet is 512 samples.
     -- FSB appear to use 16-packet blocks. (Maybe this is stored somewhere?)

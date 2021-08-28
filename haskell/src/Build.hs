@@ -155,6 +155,7 @@ import qualified Rocksmith.ArrangementXML              as Arr
 import qualified Rocksmith.CST                         as CST
 import           Rocksmith.MIDI
 import qualified Sound.File.Sndfile                    as Snd
+import           Sound.FSB                             (emitFSB, ghBandFSB)
 import qualified Sound.Jammit.Base                     as J
 import qualified Sound.Jammit.Export                   as J
 import qualified Sound.MIDI.File.Event                 as E
@@ -3094,7 +3095,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   fsb = dir </> audio <.> "fsb"
               fsb %> \out -> do
                 shk $ need [wav]
-                makeFSB4' wav out
+                xma <- mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ makeXMAPieces $ Right wav
+                ghBandFSB xma >>= stackIO . BL.writeFile out . emitFSB
               fsb <.> "xen" %> \out -> do
                 shk $ need [fsb]
                 bs <- stackIO $ B.readFile fsb

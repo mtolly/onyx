@@ -39,7 +39,7 @@ module Audio
 , stereoPanRatios
 , emptyChannels
 , remapChannels
-, makeFSB4, makeFSB4', makeGH3FSB
+, makeFSB4, makeFSB4', makeGH3FSB, makeXMAPieces
 ) where
 
 import           Control.Concurrent               (threadDelay)
@@ -53,7 +53,8 @@ import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
                                                    Staction, inside, lg,
-                                                   stackIO, stackProcess)
+                                                   stackIO, stackProcess,
+                                                   tempDir)
 import           Data.Binary.Get                  (getWord32le)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
@@ -76,6 +77,7 @@ import           Data.List                        (elemIndex, sortOn)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, mapMaybe)
+import           Data.SimpleHandle                (Readable)
 import qualified Data.Text                        as T
 import qualified Data.Vector.Storable             as V
 import           Data.Word                        (Word8)
@@ -93,11 +95,11 @@ import           Resources                        (makeFSB4exe, xma2encodeExe)
 import           RockBand.Common                  (pattern RNil, pattern Wait)
 import           SndfileExtra
 import qualified Sound.File.Sndfile               as Snd
-import           Sound.FSB                        (emitFSB, ghBandFSB, parseXMA,
-                                                   toGH3FSB, xmasToFSB)
+import           Sound.FSB
 import qualified Sound.MIDI.Util                  as U
 import qualified Sound.RubberBand                 as RB
 import           STFS.Package                     (runGetM)
+import           System.FilePath                  ((</>))
 import           System.Info                      (os)
 import qualified System.IO                        as IO
 import           System.Process                   (proc)
@@ -816,6 +818,69 @@ makeFSB4' wav fsb = do
     madeFSB <- stackIO (BL.readFile xma) >>= parseXMA >>= ghBandFSB
     stackIO $ BL.writeFile fsb $ emitFSB madeFSB
     lg $ "Created XMA (Xbox 360) FSB4 at: " <> fsb
+
+-- Ensures the XMA ends on a full 16-packet (32 Kb) block
+trimXMA :: (MonadFail m) => XMAContents -> m XMAContents
+trimXMA xma = do
+  let blockSize = 32 * 1024
+  newSize <- case quotRem (BL.length $ xmaData xma) blockSize of
+    (q, 0) -> if q >= 2
+      then return $ (q - 1) * blockSize
+      else fail "trimXMA: not enough XMA data to trim off a block safely"
+    (0, _) -> fail "trimXMA: not a full block in XMA data"
+    (q, _) -> return $ q * blockSize
+  let newData = BL.take newSize $ xmaData xma
+  packets <- markStream0Packets <$> splitXMA2Packets newData
+  return xma
+    { xmaSamples = fromIntegral $ sum [ if isStream0 then fms else 0 | (isStream0, (fms, _, _, _, _)) <- packets ] * 512
+    , xmaData    = newData
+    }
+
+-- All are assumed to be same rate and channels.
+-- All except last one should end in a full block
+concatenateXMA :: [XMAContents] -> XMAContents
+concatenateXMA xmas = (head xmas)
+  { xmaSamples = sum $ map xmaSamples xmas
+  , xmaData    = BL.concat $ map xmaData xmas
+  }
+
+-- Encode an XMA file, possibly splitting the input up into pieces to avoid xma2encode's memory limit.
+-- The seams between pieces will have very small audio gaps.
+makeXMAPieces :: (MonadResource m, SendMessage m) => Either Readable FilePath -> StackTraceT m XMAContents
+makeXMAPieces input = do
+  exe <- stackIO xma2encodeExe
+  c <- stackIO $ channels <$> (ffSource input :: IO (AudioSource (ResourceT IO) Int16))
+  let maxSamples = 15 * 60 * 44100 * 4
+      -- probably could go a bit higher; xma2encode limit is somewhere between 20 and 60 minutes of 4-channel 44100 Hz
+      maxFrames  = quot maxSamples c
+  tempDir "onyx-xma" $ \temp -> do
+    let windowsPath s = if os == "mingw32"
+          then return s
+          else fmap (takeWhile (/= '\n')) $ stackProcess $ proc "winepath" ["-w", s]
+        wav = temp </> "audio.wav"
+        xma = temp </> "audio.xma"
+    wav' <- windowsPath wav
+    xma' <- windowsPath xma
+    let runXMA = do
+          str <- stackProcess $ withWin32Exe proc exe [wav', "/TargetFile", xma', "/BlockSize", "32"]
+          when (any (not . isSpace) str) $ lg str
+        go contents startFrame = do
+          src <- stackIO $ ffSourceFrom (Frames startFrame) input
+          case frames src of
+            0 -> return $ concatenateXMA contents
+            n -> if n < maxFrames
+              then do
+                runAudio src wav
+                runXMA
+                newData <- stackIO (BL.readFile xma) >>= parseXMA
+                return $ concatenateXMA $ contents <> [newData]
+              else do
+                runAudio (takeStart (Frames maxFrames) src) wav
+                runXMA
+                origData <- stackIO (BL.readFile xma) >>= parseXMA
+                newData <- trimXMA origData
+                go (contents <> [newData]) $ startFrame + xmaSamples newData
+    go [] 0
 
 makeGH3FSB :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
 makeGH3FSB gtr preview rhythm song fsb = do
