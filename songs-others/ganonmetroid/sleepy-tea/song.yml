@@ -76,15 +76,10 @@ targets:
 metadata:
   rating: FamilyFriendly
   preview-start: 30.001
-  file-album-art: cover.png_xbox
   track-number: 1
-  album: Homey
-  year: 2017
-  subgenre: progrock
   author: SoundHaven, Onyxite, GanonMetroid, captaintoasty
   title: Sleepy Tea
   preview-end: 1:00.001
-  genre: prog
   difficulty:
     tier: 6
-  artist: CHON
+  file-include: ../../../albums/homey.yml

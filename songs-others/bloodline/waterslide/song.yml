@@ -50,23 +50,16 @@ targets:
     song-id: 1681601027
     game: rb3
     version: 30
+    label: (B)
 metadata:
   rating: Family Friendly
   preview-start: 40
-  expert-only: true
-  file-album-art: cover.png_xbox
-  languages:
-  - English
   track-number: 2
-  album: Homey
-  year: 2017
-  subgenre: progrock
   author: Bloodline
-  title: Waterslide (B)
+  title: Waterslide
   preview-end: 1:10.000
-  genre: prog
   difficulty:
     tier: 7
-  artist: CHON
+  file-include: ../../../albums/homey.yml
 global:
   anim-tempo: 32

@@ -3,18 +3,21 @@ metadata:
   artist: CHON
   year: 2015
   track-number: 4
-  author: Onyxite
+  author: Onyxite, NicolasPL
   genre: prog
   subgenre: progrock
   album: Grow
   file-album-art: ../../../covers/grow.jpg
   preview-start: prc_verse_2
 parts:
-  drums:
+  drums: # Onyxite
     drums:
       kicks: 1
       mode: full
       difficulty: 4
+  guitar: # NicolasPL
+    grybo:
+      difficulty: 3
 audio:
   album-track:
     md5: e3c068d359dba9ccf36cde6fce689883

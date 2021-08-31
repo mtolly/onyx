@@ -7,12 +7,19 @@ audio:
   album-track:
     md5: bd7e62d770dfe96ce59855c75d3d1ae6
     frames: 9733032
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
-  plan:
+  album:
     song:
       pad: [2.715, album-track]
 metadata:
   title: Here and There
-  artist: CHON
-  album: Homey
   track-number: 7
+  file-include: ../../../albums/homey.yml
+  author: Onyxite
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps

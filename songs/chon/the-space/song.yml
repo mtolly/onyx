@@ -7,12 +7,26 @@ audio:
   album-track:
     md5: 5aa196cc333904dabfe442af2f401d47
     frames: 7379764
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
-  plan:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad: [3.593, album-track]
 metadata:
   title: The Space
-  artist: CHON
-  album: Homey
   track-number: 8
+  file-include: ../../../albums/homey.yml
+  author: Onyxite
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps

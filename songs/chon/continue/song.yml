@@ -7,12 +7,19 @@ audio:
   album-track:
     md5: c4b0b77744f70265007c95c464c9dff8
     frames: 11286386
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
-  plan:
+  album:
     song:
       pad: [1.683, album-track]
 metadata:
   title: Continue?
-  artist: CHON
-  album: Homey
   track-number: 10
+  file-include: ../../../albums/homey.yml
+  author: Onyxite
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
