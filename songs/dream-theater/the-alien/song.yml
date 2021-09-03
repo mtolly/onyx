@@ -36,8 +36,10 @@ parts:
 targets:
   rb3:
     game: rb3
+    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    version: 2
   ps:
     game: ps

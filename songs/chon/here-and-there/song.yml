@@ -3,6 +3,7 @@ parts:
     drums:
       mode: full
       kicks: 1
+      difficulty: 6
 audio:
   album-track:
     md5: bd7e62d770dfe96ce59855c75d3d1ae6
@@ -11,6 +12,13 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad: [2.715, album-track]
 metadata:

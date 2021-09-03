@@ -3,6 +3,7 @@ parts:
     drums:
       kicks: 1
       mode: full
+      difficulty: 4
 audio:
   album-track:
     md5: 5aa196cc333904dabfe442af2f401d47
