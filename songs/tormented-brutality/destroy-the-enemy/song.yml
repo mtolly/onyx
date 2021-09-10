@@ -1,0 +1,22 @@
+metadata:
+  title: Destroy the Enemy
+  artist: Tormented Brutality
+  album: Chronicles of Apocalypse
+  file-album-art: cover.jpg
+  year: 2020
+  genre: metal
+  subgenre: death
+  author: Onyxite
+  track-number: 1
+parts:
+  drums:
+    drums:
+      kicks: both
+      mode: full
+audio:
+  bandcamp:
+    file-path: audio.mp3
+plans:
+  bandcamp:
+    song:
+      pad: [2.611, bandcamp]

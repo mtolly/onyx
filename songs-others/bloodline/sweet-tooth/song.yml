@@ -1,0 +1,67 @@
+metadata:
+  rating: Family Friendly
+  album: The Shape of Colour
+  track-number: 4
+  genre: prog
+  title: Sweet Tooth (B)
+  preview-end: 1:47.000
+  author: Bloodline
+  expert-only: true
+  year: 2015
+  subgenre: progrock
+  preview-start: 1:17.000
+  artist: Intervals
+  languages:
+  - English
+  file-album-art: ../../../covers/the-shape-of-colour.png_xbox
+  difficulty:
+    tier: 6
+targets:
+  rb3-2x:
+    song-id: 1681602180
+    game: rb3
+    2x-bass-pedal: true
+    label: (B)
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+  drums:
+    drums:
+      kicks: 2
+      fix-freeform: false
+      difficulty:
+        tier: 6
+global:
+  anim-tempo: 32
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    file-mogg: audio.mogg
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+    parts:
+      drums:
+      - 0
+      - 1
+    multitrack: false
+    karaoke: false
+    crowd:
+    - 4
+    - 5

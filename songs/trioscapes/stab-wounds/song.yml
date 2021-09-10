@@ -37,3 +37,7 @@ targets:
     2x-bass-pedal: true
   ps:
     game: ps
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

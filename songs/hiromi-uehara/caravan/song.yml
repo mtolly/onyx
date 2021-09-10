@@ -1,0 +1,19 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: 1
+audio:
+  album-track:
+    md5: 165815a58c167a7d6ffe7971de28dede
+    frames: 23347716
+plans:
+  plan:
+    song:
+      pad: [2.478, album-track]
+metadata:
+  title: Caravan
+  artist: Hiromi's Sonicbloom
+  album: Beyond Standard
+  track-number: 4
+  author: Onyxite

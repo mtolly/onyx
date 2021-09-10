@@ -1,0 +1,30 @@
+metadata:
+  album: Avenged Sevenfold
+  title: A Little Piece of Heaven
+  author: Sodamlazy
+  year: 2007
+  artist: Avenged Sevenfold
+  file-album-art: album.png
+  difficulty:
+    tier: 1
+targets:
+  ps:
+    game: ps
+parts:
+  drums:
+    drums:
+      kicks: 2
+      mode: real
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+        offsets: [-3, -1, -1, -1] # Drop C#
+audio:
+  album-track:
+    md5: a2c49e146c5f88b13abceab051c331c9
+    frames: 21198576
+plans:
+  album:
+    song:
+      pad: [3.054, album-track]
