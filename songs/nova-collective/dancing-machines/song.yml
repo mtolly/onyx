@@ -68,4 +68,5 @@ targets:
   rs:
     game: rs
     arrangements:
+    - [lead, guitar]
     - [bonus-rhythm, bass]

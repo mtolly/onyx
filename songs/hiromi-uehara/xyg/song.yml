@@ -1,0 +1,20 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: 1
+audio:
+  album-track:
+    md5: 35915c095b582d76a0dae34d41e7a445
+    frames: 17287200
+plans:
+  plan:
+    song:
+      pad: [2.968, album-track]
+metadata:
+  title: XYG
+  artist: Hiromi's Sonicbloom
+  album: Beyond Standard
+  track-number: 8
+  author: Onyxite
+

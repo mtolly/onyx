@@ -59,3 +59,7 @@ targets:
     version: 3
   ps:
     game: ps
+  rs:
+    game: rs
+    arrangements:
+    - [lead, guitar]

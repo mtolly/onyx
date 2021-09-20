@@ -25,25 +25,37 @@ end
 # build songs-hmx/tbrb/here-comes-the-sun
 # build songs/opeth/windowpane
 
+# maybe next release:
+
+# build songs/dream-theater/a-rite-of-passage # needs 4-string, also needs tone
+# build songs/toe/last-night
+# build songs/billy-cobham/quadrant-4
+# build songs/soil-and-pimp-sessions/scoop-out
+# build songs/hiromi-uehara/spark # needs 4-string
+
+# maybe next release but needs phrases:
+
+# build songs/jethro-tull/thick-as-a-brick-pt-1
+# build songs/jethro-tull/thick-as-a-brick-pt-2
+# build songs-others/dragontaser/the-least-333-seconds
+# build songs-others/bloodline/goliath # need heavy drive tone
+# build songs/game-soundtracks/kagekiyo # need drive tone
+# build songs-hmx/coheed-and-cambria/guns-of-summer # need synth/drive tone
+
 # phrases done:
 
 # build songs/dream-theater/repentance # needs 4-string
 # build songs/dream-theater/forsaken # needs 4-string
 # build songs/dream-theater/blind-faith # needs 4-string
-# build songs/soil-and-pimp-sessions/scoop-out
-# build songs/hiromi-uehara/spark # needs 4-string
 # build songs-others/boo/puzzle-box # needs 4-string
 # build songs-others/boo/head-hunter
 # build songs-rbn/an-endless-sporadic/anything
 # build songs/mathieu-fiset/chicks-pain
 # build songs-others/bloodline/od # needs 4-string
-# build songs/dream-theater/a-rite-of-passage # needs 4-string
 # build songs/dream-theater/6-00 # needs 4-string
 # build songs-others/moochalacho/camel-dancefloor # needs 4-string
-# build songs/toe/last-night
 # build songs-hmx/megadeth/hangar-18 # can't put on CF
 # build songs/john-myung/solar-groove
-# build songs/billy-cobham/quadrant-4
 
 # phrases not done:
 
@@ -56,8 +68,6 @@ end
 # build songs/nova-collective/dancing-machines # needs 4-string
 # build songs-others/boo/1985 # needs 4-string
 # build songs-others/mazegeek999/beyond-this-life # needs 4-string (and 5-string)
-# build songs/jethro-tull/thick-as-a-brick-pt-1
-# build songs/jethro-tull/thick-as-a-brick-pt-2
 # build songs/trioscapes/blast-off # needs 4-string
 # build songs-grinnz/between-the-buried-and-me/mirrors # needs 4-string
 # build songs-grinnz/between-the-buried-and-me/obfuscation # needs 4-string
@@ -69,9 +79,7 @@ end
 # build songs/dream-theater/caught-in-a-web
 # build songs/juliaplaysgroove/break-my-heart
 # build songs/liquid-tension-experiment/paradigm-shift
-# build songs-others/dragontaser/the-least-333-seconds
 # build songs-hmx/slipknot/pulse-of-the-maggots
-# build songs-others/bloodline/goliath
 # build songs-others/moochalacho/musette-maximum # needs 4-string
 # build songs-grinnz/dream-theater/the-ytse-jam
 # build songs-others/xane60/still-loving-you
@@ -80,10 +88,8 @@ end
 # build songs/dream-theater/the-mirror
 # build songs/dream-theater/in-the-presence-of-enemies-pt-2
 # build songs/dream-theater/the-holiday-spirit-carries-on
-# build songs/game-soundtracks/kagekiyo
 # build songs-grinnz/dream-theater/as-i-am
 # build songs-grinnz/dream-theater/a-nightmare-to-remember
-# build songs-hmx/coheed-and-cambria/guns-of-summer
 # build songs/lady-antebellum/just-a-kiss
 # build songs-others/bloodline/spanish-bay
 # build songs/dream-theater/the-great-debate
@@ -92,7 +98,10 @@ end
 # build songs-hmx/dream-theater/on-the-backs-of-angels # can't put on CF
 # build songs-others/xane60/fathom-infinite-depth
 # build songs/dream-theater/anna-lee
-build songs/dream-theater/trial-of-tears
+# build songs/dream-theater/trial-of-tears
+# build songs-hmx/billy-joel/piano-man
+# build songs-others/bloodline/sure-shot
+# build songs/trioscapes/stab-wounds
 
 # phrases unknown:
 

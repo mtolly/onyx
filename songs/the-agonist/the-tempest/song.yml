@@ -31,6 +31,10 @@ parts:
   bass:
     grybo:
       difficulty: 5
+    pro-guitar:
+      tuning:
+        base: bass-4
+        offsets: [-2, 0, 0, 0] # drop D
   keys:
     grybo:
       difficulty: 2
