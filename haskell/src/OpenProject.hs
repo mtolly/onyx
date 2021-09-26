@@ -23,12 +23,13 @@ import           Data.Functor                   (void)
 import           Data.Functor.Identity
 import           Data.Hashable
 import qualified Data.HashMap.Strict            as Map
-import           Data.List.Extra                (intercalate, stripSuffix)
+import           Data.List.Extra                (stripSuffix)
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe                     (fromMaybe, mapMaybe)
 import           Data.SimpleHandle              (Folder (..), crawlFolder,
                                                  findFile)
 import qualified Data.Text                      as T
+import           Data.Text.Encoding             (encodeUtf8)
 import           GuitarHeroII.Ark               (GH2Installation (..),
                                                  GameGH (..), addBonusSong,
                                                  detectGameGH)
@@ -333,7 +334,8 @@ makeGH2DIY gh2 proj dout = do
         | ext == ".png_ps2"                       -> Just ("us_logo_" <> sym <> "_keep.png_ps2", dir </> f)
         | otherwise                               -> Nothing
   stackIO $ forM_ filePairs $ \(dest, src) -> Dir.copyFile src $ dout </> dest
-  stackIO $ writeFile (dout </> "README.txt") $ intercalate "\r\n"
+  let s = T.pack sym
+  stackIO $ B.writeFile (dout </> "README.txt") $ encodeUtf8 $ T.intercalate "\r\n"
     [ "Instructions for GH2 song installation"
     , ""
     , "You must have a tool that can edit .ARK files such as arkhelper,"
@@ -341,10 +343,10 @@ makeGH2DIY gh2 proj dout = do
     , ""
     , "1. Add the contents of songs.dta to: config/gen/songs.dtb"
     , "2. (possibly optional) Add the contents of coop_max_scores.dta to: config/gen/coop_max_scores.dtb"
-    , "3. Make a new folder: songs/" <> sym <> "/ and copy all .mid, .vgs, and .voc files into it"
+    , "3. Make a new folder: songs/" <> s <> "/ and copy all .mid, .vgs, and .voc files into it"
     , "4. Edit either config/gen/campaign.dtb or config/gen/store.dtb to add your song as a career or bonus song respectively"
-    , "5. If added as a bonus song, copy the .png_ps2 to ui/image/og/gen/us_logo_" <> sym <> "_keep.png_ps2 if you want album art in the shop"
-    , "6. If added as a bonus song, edit ui/eng/gen/locale.dtb with keys '" <> sym <> "' and '" <> sym <> "_shop_desc' if you want a title/description in the shop"
+    , "5. If added as a bonus song, copy the .png_ps2 to ui/image/og/gen/us_logo_" <> s <> "_keep.png_ps2 if you want album art in the shop"
+    , "6. If added as a bonus song, edit ui/eng/gen/locale.dtb with keys '" <> s <> "' and '" <> s <> "_shop_desc' if you want a title/description in the shop"
     ]
 
 buildPlayer :: (MonadIO m) => Maybe T.Text -> Project -> StackTraceT (QueueLog m) FilePath

@@ -1,5 +1,10 @@
 # Version history
 
+## 20210925
+
+* Prerelease version
+* Fixes for GH2DX 2.0
+
 ## 20210806
 
 * First demo of conversion to Guitar Hero: Warriors of Rock (Xbox 360) DLC
