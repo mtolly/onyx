@@ -135,7 +135,26 @@ instance TraverseTrack FiveDifficulty where
 
 instance ParseTrack FiveTrack where
   parseTrack = do
+    -- preprocess CH pitch 104 format for tap sections
+    Codec
+      { codecIn = lift $ modify $ \mt -> let
+        p104 = fromMaybe RTB.empty $ Map.lookup (V.toPitch 104) (midiNotes mt)
+        in if RTB.null p104 then mt else let
+          newPS = flip fmap p104 $ PS.PSMessage Nothing PS.TapNotes . \case
+            EdgeOn {} -> True
+            EdgeOff{} -> False
+          in mt
+            { midiPhaseShift = RTB.merge newPS $ midiPhaseShift mt
+            , midiNotes = Map.delete (V.toPitch 104) $ midiNotes mt
+            }
+      , codecOut = const $ return ()
+      }
     -- preprocess pitch 95 as a shortcut for 96 + open note sysex
+    -- TODO edit this for new CH format to:
+    -- 1. look for ENHANCED_OPENS or [ENHANCED_OPENS] events at start
+    -- 2. if present, also support this on easy/medium/hard
+    --    (do it on expert regardless for my existing charts)
+    -- 3. for now, trim back "extended open sustains" just like we do for .chart
     Codec
       { codecIn = lift $ modify $ \mt -> let
         p95 = fromMaybe RTB.empty $ Map.lookup (V.toPitch 95) (midiNotes mt)

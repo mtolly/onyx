@@ -104,14 +104,31 @@ createHdrArk dout hdr ark = do
 readSongList :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m [(T.Text, SongPackage)]
 readSongList dta = let
   editDTB d = d { D.topTree = editTree $ D.topTree d }
-  editTree t = t { D.treeChunks = filter keepChunk $ D.treeChunks t }
+  editTree t = t { D.treeChunks = concatMap createEggs $ filter keepChunk $ D.treeChunks t }
   keepChunk = \case
     D.Parens tree -> not $ any isIgnore $ D.treeChunks tree
     _             -> False
   isIgnore = \case
     D.Parens (D.Tree _ [D.Sym "validate_ignore", D.Sym "TRUE"]) -> True
     _                                                           -> False
-  -- TODO duplicate nodes here to handle GH2DX 2.0 {if_else $egg5 "Speed Test (HalfDuck Cover)" "Speed Test"}
+  -- Look for GH2DX 2.0 scripting like: {if_else $egg5 "Speed Test (HalfDuck Cover)" "Speed Test"}
+  -- and duplicate songs into: (songkey ...) (songkey_egg5 ...)
+  createEggs = \case
+    D.Parens (D.Tree x (D.Sym topKey : chunks)) -> do
+      pattern <- sequence $ map (\v -> [(v, False), (v, True)]) $ nubOrd $ findEggs chunks
+      let topKey' = T.intercalate "_" $ topKey : map fst (filter snd pattern)
+          chunks' = foldr ($) chunks $ map (uncurry evalEgg) pattern
+      return $ D.Parens $ D.Tree x $ D.Sym topKey' : chunks'
+    x -> return x -- shouldn't happen
+  findEggs chunks = chunks >>= \case
+    D.Parens (D.Tree _ sub)                                -> findEggs sub
+    D.Braces (D.Tree _ [D.Sym "if_else", D.Var var, _, _]) -> [var]
+    _                                                      -> []
+  evalEgg var bool = map $ \case
+    D.Parens (D.Tree x sub) -> D.Parens $ D.Tree x $ evalEgg var bool sub
+    D.Braces (D.Tree _ [D.Sym "if_else", D.Var var', t, f]) | var == var'
+      -> if bool then t else f
+    x -> x
   in fmap D.fromDictList
     $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
     $ editDTB $ decodeLatin1 <$> dta

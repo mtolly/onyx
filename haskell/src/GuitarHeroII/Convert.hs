@@ -80,6 +80,7 @@ data GH2Audio = GH2Audio
   , gh2LeadChannels  :: [Int]
   , gh2CoopChannels  :: [Int]
   , gh2DrumChannels  :: [Int]
+  , gh2BackChannels  :: [Int]
   , gh2LeadTrack     :: F.FlexPartName
   , gh2CoopTrack     :: F.FlexPartName
   , gh2DrumTrack     :: Maybe F.FlexPartName
@@ -158,6 +159,7 @@ computeGH2Audio song target hasAudio = do
         else if isJust gh2DrumTrack
           then indexes (concat [bandSection, leadSection, coopSection, drumSection]) silentSection
           else []
+      gh2BackChannels = [0, 1] -- should always be this for our output
       (gh2Practice, gh2LeadPractice, gh2CoopPractice, gh2DrumPractice) = if gh2_PracticeAudio target
         then let
           -- From testing, you can't just have 1 channel and assign it to both lead and bass/rhythm;
@@ -377,7 +379,10 @@ makeGH2DTA song key preview target audio title = D.SongPackage
     , D.tracks        = D.DictList $ filter (\(_, ns) -> not $ null ns)
       [ ("guitar", map fromIntegral $ gh2LeadChannels audio)
       , (coop    , map fromIntegral $ gh2CoopChannels audio)
-      , ("drum"  , map fromIntegral $ gh2DrumChannels audio)
+      , if null $ gh2DrumChannels audio
+        -- GH2DX in some configurations requires a third tracks entry, even when there is no drum part
+        then ("fake", map fromIntegral $ gh2BackChannels audio)
+        else ("drum", map fromIntegral $ gh2DrumChannels audio)
       ]
     , D.pans          = gh2AudioSections audio >>= \case
       GH2PartStereo _ -> [-1, 1]
