@@ -225,7 +225,11 @@ openProject i fp = do
     Nothing -> case imps of
       [imp] -> impProject imp
       []    -> fatal $ "Couldn't find a song at location: " <> fp
-      _     -> fatal $ "Found more than 1 song at location: " <> fp
+      _     -> fatal $ unlines
+        $ ("Found more than 1 song at location: " <> fp) : do
+          (j, imp) <- zip [0 :: Int ..] imps
+          let f = maybe "?" T.unpack
+          return $ show j <> ": " <> f (impTitle imp) <> " (" <> f (impArtist imp) <> ")"
     Just j  -> case drop j imps of
       imp : _ -> impProject imp
       []      -> fatal $ "Couldn't find song #" <> show j <> " at location: " <> fp

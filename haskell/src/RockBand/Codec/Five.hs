@@ -4,16 +4,17 @@
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE TupleSections      #-}
 module RockBand.Codec.Five where
 
-import           Control.Monad                    (guard, (>=>))
+import           Control.Monad                    (guard, void, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.State.Strict (modify)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromMaybe, isNothing)
 import qualified Data.Text                        as T
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
@@ -135,6 +136,7 @@ instance TraverseTrack FiveDifficulty where
 
 instance ParseTrack FiveTrack where
   parseTrack = do
+
     -- preprocess CH pitch 104 format for tap sections
     Codec
       { codecIn = lift $ modify $ \mt -> let
@@ -149,26 +151,21 @@ instance ParseTrack FiveTrack where
             }
       , codecOut = const $ return ()
       }
-    -- preprocess pitch 95 as a shortcut for 96 + open note sysex
-    -- TODO edit this for new CH format to:
-    -- 1. look for ENHANCED_OPENS or [ENHANCED_OPENS] events at start
-    -- 2. if present, also support this on easy/medium/hard
-    --    (do it on expert regardless for my existing charts)
-    -- 3. for now, trim back "extended open sustains" just like we do for .chart
-    Codec
-      { codecIn = lift $ modify $ \mt -> let
-        p95 = fromMaybe RTB.empty $ Map.lookup (V.toPitch 95) (midiNotes mt)
-        in if RTB.null p95 then mt else let
-          newPS = flip fmap p95 $ PS.PSMessage (Just Expert) PS.OpenStrum . \case
-            EdgeOn {} -> True
-            EdgeOff{} -> False
-          in mt
-            { midiPhaseShift = RTB.merge newPS $ midiPhaseShift mt
-            , midiNotes = Map.insertWith RTB.merge (V.toPitch 96) p95
-              $ Map.delete (V.toPitch 95) $ midiNotes mt
+    -- check for CH text event to determine whether to read new open note format on all difficulties
+    enhancedOpens <- Codec
+      { codecIn = do
+        evts <- slurpTrack $ \mt -> let
+          (brackets  , cmds'  ) = RTB.partition (== ["ENHANCED_OPENS"]) $ midiCommands mt
+          (noBrackets, lyrics') = RTB.partition (== "ENHANCED_OPENS") $ midiLyrics mt
+          mt' = mt
+            { midiCommands = cmds'
+            , midiLyrics   = lyrics'
             }
-      , codecOut = const $ return ()
+          in (RTB.merge (void brackets) (void noBrackets), mt')
+        return $ not $ RTB.null evts
+      , codecOut = const $ return False
       }
+
     fiveMood         <- fiveMood         =. command
     fiveHandMap      <- fiveHandMap      =. command
     fiveStrumMap     <- fiveStrumMap     =. command
@@ -190,17 +187,37 @@ instance ParseTrack FiveTrack where
       fiveForceStrum <- fiveForceStrum =. edges (base + 6)
       fiveForceHOPO  <- fiveForceHOPO  =. edges (base + 5)
       fiveTap        <- fiveTap        =. sysexPS diff PS.TapNotes
-      fiveOpen       <- fiveOpen       =. sysexPS diff PS.OpenStrum
+      fiveOpen'      <- fiveOpen       =. sysexPS diff PS.OpenStrum
       fiveOnyxClose  <- fiveOnyxClose  =. let
         parse = toCommand >=> \(OnyxCloseEvent diff' n) -> guard (diff == diff') >> Just n
         unparse n = fromCommand $ OnyxCloseEvent diff n
         in commandMatch' parse unparse
-      fiveGems       <- (fiveGems =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
+      fiveGems'      <- (fiveGems =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
         Green  -> base + 0
         Red    -> base + 1
         Yellow -> base + 2
         Blue   -> base + 3
         Orange -> base + 4
+      -- Always support pitch 95 opens for expert since I am already using it in my midis
+      (fiveGems, fiveOpen) <- if enhancedOpens || diff == Expert
+        then do
+          opens <- Codec
+            { codecIn  = codecIn $ matchEdges (edges $ base - 1)
+            , codecOut = const $ return RTB.empty
+            }
+          if RTB.null opens
+            then return (fiveGems', fiveOpen')
+            else let
+              -- Need to pull back the opens to not overlap with any other notes
+              pulledBack = splitEdgesBool
+                $ fmap snd
+                $ RTB.filter (\(color, _) -> isNothing color)
+                $ noOpenExtSustainsSimple $ RTB.merge
+                  ((Nothing,) <$> opens)
+                  (RTB.mapMaybe (\case EdgeOn () color -> Just (Just color, 0); _ -> Nothing) fiveGems')
+              newGems = (\b -> if b then EdgeOn () Green else EdgeOff Green) <$> pulledBack
+              in return (RTB.merge fiveGems' newGems, RTB.merge fiveOpen' pulledBack)
+        else return (fiveGems', fiveOpen')
       return FiveDifficulty{..}
     return FiveTrack{..}
 
@@ -221,3 +238,16 @@ smoothFretPosition = \case
       $ map (\fret -> Wait 0 (fret, True) . Wait stepDuration (fret, False)) steps
   Wait t pb rest -> Wait t pb $ smoothFretPosition rest
   RNil -> RNil
+
+-- Doesn't care about blips vs sustains, just pulls back CH-format opens to next note-on
+noOpenExtSustainsSimple :: (NNC.C t, Num t) => RTB.T t (Maybe color, t) -> RTB.T t (Maybe color, t)
+noOpenExtSustainsSimple = let
+  go rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, [(Nothing, len1)]), rtb') -> let
+      len2 = case RTB.viewL rtb' of
+        Nothing            -> len1
+        Just ((dt', _), _) -> min dt' len1
+      in RTB.cons dt [(Nothing, len2)] $ go rtb'
+    Just ((dt, xs), rtb') -> RTB.cons dt xs $ go rtb'
+  in RTB.flatten . go . RTB.collectCoincident

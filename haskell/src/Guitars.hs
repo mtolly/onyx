@@ -212,7 +212,7 @@ noLowerExtSustains blipThreshold sustainGap = go where
       RNil -> note
 
 -- Used for .chart import where you can "hold" open then play other notes on top.
--- MIDI doesn't support this, so we have to trim the opens back before emitting
+-- (PS) MIDI doesn't support this, so we have to trim the opens back before emitting
 noOpenExtSustains :: (NNC.C t, Num t) => t -> t -> RTB.T t ((Maybe color, sht), Maybe t) -> RTB.T t ((Maybe color, sht), Maybe t)
 noOpenExtSustains blipThreshold sustainGap = let
   go rtb = case RTB.viewL rtb of

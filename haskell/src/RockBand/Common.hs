@@ -314,6 +314,9 @@ splitEdges = U.trackJoin . fmap f where
       , (t       , NoteOff  a)
       ]
 
+splitEdgesBool :: (NNC.C t) => RTB.T t t -> RTB.T t Bool
+splitEdgesBool = U.trackJoin . fmap (\len -> RTB.fromPairList [(NNC.zero, True), (len, False)])
+
 isNoteEdge' :: E.T -> Maybe (Edge Int (Int, Int))
 isNoteEdge' = fmap (\(c, p, mv) -> maybe (EdgeOff (c, p)) (`EdgeOn` (c, p)) mv) . isNoteEdgeCPV
 

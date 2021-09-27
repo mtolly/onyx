@@ -49,7 +49,8 @@ import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    StrumHOPOTap (..),
                                                    edgeBlipsRB_,
                                                    joinEdgesSimple,
-                                                   songKeyUsesFlats, splitEdges)
+                                                   songKeyUsesFlats, splitEdges,
+                                                   splitEdgesBool)
 import qualified RockBand.Legacy.Vocal            as Vox
 import           RockBand.Sections                (makePSSection)
 import qualified Sound.MIDI.Util                  as U
@@ -317,9 +318,6 @@ laneDifficulty Hard   lanes
   = RTB.mapMaybe (\(d, (), len) -> guard (d == LaneHard) >> Just len)
   $ joinEdgesSimple $ maybe (EdgeOff ()) (`EdgeOn` ()) <$> lanes
 laneDifficulty _      _     = RTB.empty
-
-splitEdgesBool :: (NNC.C t) => RTB.T t t -> RTB.T t Bool
-splitEdgesBool = U.trackJoin . fmap (\len -> RTB.fromPairList [(NNC.zero, True), (len, False)])
 
 processFive :: HOPOsAlgorithm -> U.Beats -> U.TempoMap -> Five.FiveTrack U.Beats -> Difficulties Five U.Seconds
 processFive algo hopoThreshold tmap trk = makeDifficulties $ \diff -> let
