@@ -1,0 +1,97 @@
+metadata:
+  rating: Supervision Recommended
+  album: This Is Exile
+  track-number: 2
+  genre: metal
+  title: This Is Exile
+  preview-end: 1:09.009
+  author: Harmonix, Grinnz, Onyxite
+  year: 2008
+  preview-start: 39.009
+  artist: Whitechapel
+  file-album-art: cover.png_xbox
+  difficulty:
+    rank: 520
+targets:
+  rb3:
+    file-milo: lipsync.milo_xbox
+    song-id: 1005694
+    version: 3
+    game: rb3
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 390
+    pro-guitar: # onyxite
+      tuning:
+        base: bass-5 # is this right?
+        offsets: [-2, 0, 0, 0, 0] # AEADG
+      picked-bass: true
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 120
+  guitar:
+    grybo:
+      difficulty:
+        rank: 394
+  drums:
+    drums: # grinnz
+      kicks: 2
+      difficulty:
+        rank: 600
+plans:
+  mogg:
+    pans:
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    file-mogg: audio.mogg
+    vols:
+    - -1.5
+    - -3
+    - -3
+    - -2
+    - -2
+    - -2
+    - -2.7
+    - -2.7
+    - -2.5
+    - -2.5
+    - -3.8
+    - -3.8
+    parts:
+      bass:
+      - 5
+      vocal:
+      - 8
+      - 9
+      guitar:
+      - 6
+      - 7
+      drums:
+        kit:
+        - 3
+        - 4
+        kick:
+        - 0
+        snare:
+        - 1
+        - 2
+    multitrack: true
+    karaoke: false

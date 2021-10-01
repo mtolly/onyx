@@ -1,0 +1,104 @@
+metadata:
+  rating: Supervision Recommended
+  album: Nocturnal
+  track-number: 2
+  genre: metal
+  title: What a Horrible Night to Have a Curse
+  preview-end: 1:02.200
+  author: Harmonix, Grinnz, Onyxite
+  year: 2007
+  preview-start: 42.3
+  artist: The Black Dahlia Murder
+  file-album-art: cover.png_xbox
+  difficulty:
+    rank: 526
+targets:
+  rb3:
+    file-milo: lipsync.milo_xbox
+    song-id: 1005689
+    version: 3
+    game: rb3
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
+parts:
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 510
+      hopo-threshold: 250
+    pro-guitar: # onyxite
+      tuning:
+        base: bass-4
+        global: -4 # C standard
+      picked-bass: true
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 119
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 458
+      hopo-threshold: 250
+  drums:
+    drums: # grinnz
+      kicks: 2
+      fix-freeform: false
+      difficulty:
+        rank: 599
+global:
+  anim-tempo: slow
+plans:
+  mogg:
+    pans:
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    file-mogg: audio.mogg
+    vols:
+    - -0.7
+    - -4
+    - -4
+    - -3
+    - -3
+    - -3.3
+    - -2.2
+    - -2.2
+    - -3.8
+    - -3.8
+    - -3
+    - -3
+    parts:
+      bass:
+      - 5
+      vocal:
+      - 8
+      - 9
+      guitar:
+      - 6
+      - 7
+      drums:
+        kit:
+        - 3
+        - 4
+        kick:
+        - 0
+        snare:
+        - 1
+        - 2
+    multitrack: true
+    karaoke: false

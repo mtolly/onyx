@@ -10,6 +10,9 @@ parts:
       fix-freeform: false
       difficulty:
         tier: 4
+    pro-guitar: # onyxite
+      tuning:
+        base: bass-4
   guitar:
     grybo:
       fix-freeform: false
@@ -25,7 +28,7 @@ parts:
       difficulty:
         tier: 7
   drums:
-    drums:
+    drums: # onyxite
       difficulty:
         tier: 6
       kicks: both
@@ -42,7 +45,7 @@ plans:
       keys: [12, 13]
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [-2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -1, -1, -1, -1, -1, -1]
-    mogg-md5: 4e8d964a2ed300a584dbc01790753277
+    file-mogg: audio.mogg
     multitrack: true
 targets:
   rb3:
@@ -57,6 +60,10 @@ targets:
   ps:
     game: ps
     label: (O)
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
 metadata:
   preview-start: 3:15.000
   preview-end: 3:45.000

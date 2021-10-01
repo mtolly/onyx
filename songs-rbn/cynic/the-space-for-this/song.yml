@@ -10,9 +10,9 @@ parts:
       fix-freeform: false
       difficulty:
         tier: 6
-    # pro-guitar: # WIP
-    #   tuning:
-    #     base: bass-5
+    pro-guitar: # WIP
+      tuning:
+        base: bass-5
   guitar:
     grybo:
       fix-freeform: false
