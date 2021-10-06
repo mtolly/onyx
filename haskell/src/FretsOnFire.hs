@@ -53,7 +53,7 @@ data Song = Song
   , starPowerNote    :: Maybe Int -- ^ can be @star_power_note@ or @multiplier_note@
   , eighthNoteHOPO   :: Maybe Bool
   , hopoFrequency    :: Maybe Int
-  , track            :: Maybe Int
+  , track            :: Maybe Int -- ^ either @track@ or @album_track@
   , sysexSlider      :: Maybe Bool
   , sysexOpenBass    :: Maybe Bool
   , fiveLaneDrums    :: Maybe Bool
@@ -86,6 +86,7 @@ data Song = Song
   sysex_high_hat_ctrl
   sysex_rimshot
   icon
+  playlist_track
   -}
   } deriving (Eq, Ord, Show)
 
@@ -170,7 +171,7 @@ loadSong fp = do
       starPowerNote = int "star_power_note" <|> int "multiplier_note"
       eighthNoteHOPO = bool "eighthnote_hopo"
       hopoFrequency = int "hopo_frequency"
-      track = int "track"
+      track = int "track" <|> int "album_track"
       sysexSlider = bool "sysex_slider"
       sysexOpenBass = bool "sysex_open_bass"
       fiveLaneDrums = bool "five_lane_drums"
@@ -226,6 +227,7 @@ saveSong fp Song{..} = writePSIni fp $ flip Ini []
     shown "multiplier_note" starPowerNote
     shown "eighthnote_hopo" eighthNoteHOPO
     shown "track" track
+    shown "album_track" track
     shown "sysex_slider" sysexSlider
     shown "sysex_open_bass" sysexOpenBass
     shown "five_lane_drums" fiveLaneDrums
