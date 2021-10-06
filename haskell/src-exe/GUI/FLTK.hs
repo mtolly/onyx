@@ -1710,6 +1710,30 @@ warnXboxGHWoR sink go = sink $ EventOnyx $ do
     savePreferences prefs { prefWarnedXboxWoR = True }
   stackIO go
 
+gh2DrumChartSelector
+  :: (Event -> IO ())
+  -> Rectangle
+  -> IO (IO (Maybe Bool)) -- Bool is True if 2x
+gh2DrumChartSelector sink rect = do
+  let (checkArea, kicksArea) = chopRight 100 rect
+  check <- FL.checkButtonNew checkArea $ Just "Include drum chart (GH2DX)"
+  kicks <- FL.choiceNew kicksArea Nothing
+  mapM_ (FL.addName kicks) ["1x", "2x"]
+  void $ FL.setValue kicks $ FL.MenuItemByIndex $ FL.AtIndex 0
+  let updateKicks = do
+        enabled <- FL.getValue check
+        (if enabled then FL.activate else FL.deactivate) kicks
+  FL.setCallback check $ \_ -> sink $ EventIO updateKicks
+  updateKicks
+  void $ FL.setValue check False
+  return $ do
+    enableDrumChart <- FL.getValue check
+    if enableDrumChart
+      then do
+        FL.AtIndex i <- FL.getValue kicks
+        return $ Just $ i == 1
+      else return Nothing
+
 batchPageGH2
   :: (?preferences :: Preferences)
   => (Event -> IO ())
@@ -1722,15 +1746,15 @@ batchPageGH2 sink rect tab build = do
   getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
-  (getPracticeAudio, getDrumChart) <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  (getPracticeAudio, getDrumChoice) <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     let [rectA, rectB] = splitHorizN 2 rect'
-    boxA <- liftIO $ FL.checkButtonNew rectA (Just "Make practice mode audio for PS2")
-    boxB <- liftIO $ FL.checkButtonNew rectB (Just "Include drum chart (GH2DX)")
-    return (FL.getValue boxA, FL.getValue boxB)
+    boxA <- FL.checkButtonNew rectA $ Just "Make practice mode audio for PS2"
+    getDrumChoice <- gh2DrumChartSelector sink rectB
+    return (FL.getValue boxA, getDrumChoice)
   let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
         speed <- getSpeed
         practiceAudio <- getPracticeAudio
-        drumChart <- getDrumChart
+        drumChoice <- getDrumChoice
         go $ \proj -> let
           defGH2 = def :: TargetGH2
           hasPart p = isJust $ HM.lookup p (getParts $ _parts $ projectSongYaml proj) >>= partGRYBO
@@ -1763,7 +1787,8 @@ batchPageGH2 sink rect tab build = do
               _              -> gh2_Coop defGH2
             , gh2_Offset = prefGH2Offset newPrefs
             , gh2_LoadingPhrase = loadingPhraseCHtoGH2 proj
-            , gh2_DrumChart = drumChart
+            , gh2_DrumChart = isJust drumChoice
+            , gh2_2xBassPedal = fromMaybe False drumChoice
             }
           fout = (if xbox then trimXbox else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH2 tgt
@@ -2448,9 +2473,10 @@ songPageGH2 sink rect tab proj build = mdo
       boxA <- liftIO $ FL.checkButtonNew rectA (Just "Make practice mode audio for PS2")
       tell $ FL.getValue boxA >>= \b -> return $ Endo $ \gh2 ->
         gh2 { gh2_PracticeAudio = b }
-      boxB <- liftIO $ FL.checkButtonNew rectB (Just "Include drum chart (GH2DX)")
-      tell $ FL.getValue boxB >>= \b -> return $ Endo $ \gh2 ->
-        gh2 { gh2_DrumChart = b }
+      getDrumOption <- liftIO $ gh2DrumChartSelector sink rectB
+      tell $ getDrumOption >>= \opt -> return $ Endo $ \gh2 -> case opt of
+        Nothing   -> gh2 { gh2_DrumChart = False, gh2_2xBassPedal = False }
+        Just is2x -> gh2 { gh2_DrumChart = True , gh2_2xBassPedal = is2x  }
   let initTarget prefs = def
         { gh2_Offset = prefGH2Offset prefs
         , gh2_LoadingPhrase = loadingPhraseCHtoGH2 proj

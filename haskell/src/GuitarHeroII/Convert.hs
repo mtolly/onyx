@@ -187,7 +187,7 @@ midiRB3toGH2
   -> F.Song (F.OnyxFile U.Beats)
   -> StackTraceT m U.Seconds
   -> StackTraceT m (F.Song (GH2File U.Beats), Int)
-midiRB3toGH2 song _target audio inputMid@(F.Song tmap mmap onyx) getAudioLength = do
+midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength = do
   timing <- basicTiming inputMid getAudioLength
   let makeMoods origMoods gems = let
         moods = if RTB.null origMoods
@@ -261,7 +261,7 @@ midiRB3toGH2 song _target audio inputMid@(F.Song tmap mmap onyx) getAudioLength 
         Nothing -> mempty
         Just pd -> let
           trackOrig = buildDrumTarget
-            DrumTargetRB1x
+            (if gh2_2xBassPedal target then DrumTargetRB2x else DrumTargetRB1x)
             pd
             (timingEnd timing)
             tmap
