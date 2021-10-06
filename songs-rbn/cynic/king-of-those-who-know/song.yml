@@ -1,0 +1,85 @@
+metadata:
+  album: Traced in Air
+  track-number: 7
+  genre: metal
+  title: King of Those Who Know
+  preview-end: 2:39.000
+  author: null
+  year: 2008
+  subgenre: prog
+  preview-start: 2:09.000
+  artist: Cynic
+  file-album-art: ../../../covers/traced-in-air.png_xbox
+  difficulty:
+    tier: 6
+targets:
+  rb3:
+    file-milo: lipsync.milo_xbox
+    song-id: 5011713
+    version: 30
+    game: rb3
+parts:
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+  vocal:
+    vocal:
+      gender: male
+      count: 3
+      difficulty:
+        tier: 4
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+  drums:
+    drums:
+      kicks: 1
+      fix-freeform: false
+      difficulty:
+        tier: 7
+global:
+  anim-tempo: 64
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    file-mogg: audio.mogg
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    parts:
+      bass:
+      - 2
+      - 3
+      vocal:
+      - 6
+      - 7
+      guitar:
+      - 4
+      - 5
+      drums:
+      - 0
+      - 1
+    multitrack: true
+    karaoke: false

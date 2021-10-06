@@ -10,7 +10,7 @@ parts:
       fix-freeform: false
       difficulty:
         tier: 6
-    pro-guitar: # WIP
+    pro-guitar:
       tuning:
         base: bass-5
   guitar:
@@ -27,6 +27,9 @@ audio:
   rbn:
     file-path: audio.ogg
     channels: 14
+  album-track: # Traced in Air Remixed
+    md5: 1ebcfef9396c9f026b17eb37c9abadc1
+    frames: 15289851
 plans:
   mogg:
     parts:
@@ -99,6 +102,9 @@ plans:
             tag: keep
         - channels: [[12, 13], rbn]
       vols: [-3, -3]
+  album:
+    song:
+      pad: [4.376, album-track]
 targets:
   rb3:
     game: rb3
@@ -117,9 +123,14 @@ targets:
     game: ps
     label: (O)
     plan: edited
+  rs:
+    game: rs
+    plan: edited
+    arrangements:
+    - [bonus-rhythm, bass]
 metadata:
   preview-start: 1:40.000
-  file-album-art: cover.png_xbox
+  file-album-art: ../../../covers/traced-in-air.png_xbox
   track-number: 2
   album: Traced in Air
   year: 2008

@@ -1,0 +1,23 @@
+parts:
+  drums:
+    drums:
+      kicks: both
+      mode: full
+audio:
+  album-track: # Traced in Air Remixed
+    md5: 6f75c7f260c127da02a372dafdaa8745
+    frames: 9227571
+plans:
+  plan:
+    song:
+      pad: [3.118, album-track]
+metadata:
+  album: Traced in Air
+  track-number: 6
+  genre: metal
+  title: Adam's Murmur
+  author: Onyxite
+  year: 2008
+  subgenre: prog
+  artist: Cynic
+  file-album-art: ../../../covers/traced-in-air.png_xbox

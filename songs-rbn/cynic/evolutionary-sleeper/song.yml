@@ -1,0 +1,92 @@
+metadata:
+  album: Traced in Air
+  track-number: 3
+  genre: metal
+  title: Evolutionary Sleeper
+  preview-end: 1:37.000
+  author: null
+  year: 2008
+  subgenre: prog
+  preview-start: 1:07.000
+  artist: Cynic
+  file-album-art: ../../../covers/traced-in-air.png_xbox
+  difficulty:
+    tier: 6
+targets:
+  rb3-2x:
+    file-milo: lipsync.milo_xbox
+    game: rb3
+    2x-bass-pedal: true
+    plan: mogg
+parts:
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 5
+  vocal:
+    vocal:
+      gender: male
+      count: 3
+      difficulty:
+        tier: 4
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+  drums:
+    drums:
+      kicks: 2
+      fix-freeform: false
+      difficulty:
+        tier: 6
+global:
+  anim-tempo: 32
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    file-mogg: audio.mogg
+    vols:
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    parts:
+      bass:
+      - 2
+      - 3
+      vocal:
+      - 6
+      - 7
+      guitar:
+      - 4
+      - 5
+      drums:
+      - 0
+      - 1
+    multitrack: true
+    karaoke: false
+  album:
+    song:
+      pad: [6.175, album-track]
+audio:
+  album-track: # Traced in Air Remixed
+    md5: efe722992fe4b054d90861783c4ca174
+    frames: 9516867

@@ -105,6 +105,7 @@ end
 build songs-hmx/the-black-dahlia-murder/what-a-horrible-night-to-have-a-curse
 build songs-hmx/whitechapel/this-is-exile
 build songs-rbn/the-dillinger-escape-plan/widower
+build songs-rbn/cynic/the-space-for-this
 
 # phrases unknown:
 
