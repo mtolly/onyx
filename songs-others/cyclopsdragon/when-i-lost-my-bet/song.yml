@@ -1,0 +1,48 @@
+metadata:
+  album: One of Us Is the Killer
+  track-number: 2
+  genre: metal
+  title: When I Lost My Bet
+  preview-end: 1:28.000
+  author: CyclopsDragon, Onyxite
+  year: 2013
+  subgenre: other
+  preview-start: 58
+  artist: The Dillinger Escape Plan
+  file-album-art: cover.png_xbox
+  difficulty:
+    tier: 7
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    label: (O)
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
+parts:
+  guitar:
+    grybo: {}
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+  drums:
+    drums:
+      kicks: both
+      difficulty:
+        tier: 6
+      mode: full
+global:
+  anim-tempo: 64
+plans:
+  mogg:
+    pans: [1, -1, -1, 1, -1, 1, 1, -1]
+    file-mogg: audio.mogg
+    vols: [-3, -3, -3, -3, -3, -3, -3, -3]
+    parts:
+      drums: [2, 3]
+      guitar: [4]
+    multitrack: false
+    karaoke: false

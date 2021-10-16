@@ -15,6 +15,10 @@ parts:
       difficulty:
         tier: 7
       kicks: both
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
 plans:
   album:
     countin:
@@ -37,6 +41,10 @@ targets:
   ps:
     game: ps
     label: (O)
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
 metadata:
   preview-start: 48
   file-album-art: ../../../covers/option-paralysis.png_xbox

@@ -14,9 +14,18 @@ parts:
       kicks: both
       mode: full
 audio:
-  bandcamp:
-    file-path: audio.mp3
+  album-track: # bandcamp
+    md5: 795fb38033a6e809873c6e84e7c8f232
+    frames: 6849343
 plans:
-  bandcamp:
+  album:
     song:
-      pad: [2.611, bandcamp]
+      pad: [2.611, album-track]
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

@@ -1,0 +1,60 @@
+metadata:
+  genre: popdanceelectronic
+  title: Rock You (B)
+  preview-end: 3:00.000
+  author: Bloodline
+  expert-only: true
+  year: 2020
+  subgenre: other
+  preview-start: 2:30.000
+  artist: Dirty Loops
+  languages:
+  - English
+  file-album-art: cover.png_xbox
+  difficulty:
+    tier: 6
+targets:
+  rb3:
+    song-id: b248081195
+    version: 30
+    game: rb3
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+        global: 1 # C F Bb Eb Ab
+  drums:
+    drums:
+      kicks: 1
+      fix-freeform: false
+      difficulty:
+        tier: 6
+global:
+  anim-tempo: 32
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    file-mogg: audio.mogg
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+    parts:
+      drums:
+      - 0
+      - 1
+    multitrack: false
+    karaoke: false
+    crowd:
+    - 4
+    - 5

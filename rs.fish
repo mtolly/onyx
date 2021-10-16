@@ -102,10 +102,13 @@ end
 # build songs-hmx/billy-joel/piano-man
 # build songs-others/bloodline/sure-shot
 # build songs/trioscapes/stab-wounds
-build songs-hmx/the-black-dahlia-murder/what-a-horrible-night-to-have-a-curse
-build songs-hmx/whitechapel/this-is-exile
-build songs-rbn/the-dillinger-escape-plan/widower
-build songs-rbn/cynic/the-space-for-this
+# build songs-hmx/the-black-dahlia-murder/what-a-horrible-night-to-have-a-curse
+# build songs-hmx/whitechapel/this-is-exile
+# build songs-rbn/the-dillinger-escape-plan/widower
+# build songs-rbn/cynic/the-space-for-this
+build songs-others/cyclopsdragon/good-neighbor
+build songs-others/bloodline/circus
+build songs-others/cyclopsdragon/when-i-lost-my-bet
 
 # phrases unknown:
 

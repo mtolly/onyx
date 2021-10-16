@@ -1,5 +1,5 @@
 metadata:
-  title: Of Lies and Deception
+  title: Dominate
   artist: Tormented Brutality
   album: Chronicles of Apocalypse
   file-album-art: ../destroy-the-enemy/cover.jpg
@@ -7,20 +7,20 @@ metadata:
   genre: metal
   subgenre: death
   author: Onyxite
-  track-number: 2
+  track-number: 5
 parts:
   drums:
     drums:
-      kicks: both
       mode: full
+      kicks: both
 audio:
   album-track: # bandcamp
-    md5: 352a43e4c7cc87dac74f7073eff9a105
-    frames: 9311333
+    md5: f8d79be95622fa20d121d7f02426dfc8
+    frames: 10036370
 plans:
   album:
     song:
-      pad: [2.695, album-track]
+      pad: [3.743, album-track]
 targets:
   rb3:
     game: rb3

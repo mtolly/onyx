@@ -1,0 +1,66 @@
+metadata:
+  rating: Family Friendly
+  album: Loopified
+  track-number: 13
+  genre: jazz
+  title: Circus [Britney Spears]
+  preview-end: 2:30.000
+  author: Bloodline
+  expert-only: true
+  year: 2014
+  subgenre: other
+  preview-start: 2:00.000
+  artist: Dirty Loops
+  languages:
+  - English
+  file-album-art: cover.png_xbox
+  difficulty:
+    tier: 6
+targets:
+  rb3:
+    song-id: 1681602058
+    game: rb3
+    label: (B)
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6
+  drums:
+    drums:
+      kicks: 1
+      fix-freeform: false
+      difficulty:
+        tier: 6
+global:
+  anim-tempo: 32
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    file-mogg: audio.mogg
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+    parts:
+      drums:
+      - 0
+      - 1
+    multitrack: false
+    karaoke: false
+    crowd:
+    - 4
+    - 5
