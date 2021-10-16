@@ -8,19 +8,30 @@ metadata:
   subgenre: death
   author: Onyxite
   track-number: 6
+  preview-start: prc_chorus_2a
 parts:
   drums:
     drums:
       mode: full
       kicks: both
+      difficulty: 6
 audio:
   album-track: # bandcamp
     md5: 1e830acec832660d2d96edfd6f6e963d
     frames: 9753516
+  china:
+    file-path: ../../../sound/china-cymbal.wav
 plans:
   album:
     song:
       pad: [2.660, album-track]
+    countin:
+      0|0: china
+      0|2: china
+      1|0: china
+      1|1: china
+      1|2: china
+      1|3: china
 targets:
   rb3:
     game: rb3
