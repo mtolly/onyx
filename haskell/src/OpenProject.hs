@@ -142,19 +142,23 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         foundImport "Amplitude (2016)" dir $ importAmplitude dir
       foundSTFS loc = do
         folder <- stackIO $ getSTFSFolder loc
-        case findFile ("songs" :| ["songs.dta"]) folder of
-          Just _ -> do
-            imps <- importSTFSFolder loc folder
-            foundImports "Rock Band (Xbox 360 CON/LIVE)" loc imps
-          Nothing -> case findFile ("config" :| ["songs.dta"]) folder of
+        mconcat <$> sequence
+          [ case findFile ("songs" :| ["songs.dta"]) folder of
+            Just _ -> do
+              imps <- importSTFSFolder loc folder
+              foundImports "Rock Band (Xbox 360 CON/LIVE)" loc imps
+            Nothing -> return ([], [])
+          , case findFile ("config" :| ["songs.dta"]) folder of
             Just _ -> do
               imps <- GH2.importGH2DLC loc folder
               foundImports "Guitar Hero II (Xbox 360 DLC)" loc imps
-            Nothing -> if any (\(name, _) -> ".xen" `T.isSuffixOf` name) $ folderFiles folder
-              then do
-                imps <- importGH5WoR loc folder
-                foundImports "Guitar Hero (Neversoft)" loc imps
-              else return ([], [])
+            Nothing -> return ([], [])
+          , if any (\(name, _) -> ".xen" `T.isSuffixOf` name) $ folderFiles folder
+            then do
+              imps <- importGH5WoR loc folder
+              foundImports "Guitar Hero (Neversoft)" loc imps
+            else return ([], [])
+          ]
       foundRS psarc = importRS psarc >>= foundImports "Rocksmith" psarc
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
