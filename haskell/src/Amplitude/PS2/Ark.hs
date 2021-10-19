@@ -21,8 +21,10 @@ import           Data.SimpleHandle      (Folder, Readable, fileReadable,
                                          fromFiles, saveHandleFolder, subHandle)
 import qualified Data.Text              as T
 import           Data.Word              (Word32)
-import           System.Directory       (doesDirectoryExist, listDirectory)
-import           System.FilePath        ((</>))
+import           OSFiles                (fixFileCase)
+import           System.Directory       (doesDirectoryExist, doesFileExist,
+                                         getFileSize, listDirectory)
+import           System.FilePath        (dropExtension, (</>))
 import           System.IO              (IOMode (..), SeekMode (..), hSeek,
                                          hTell, withBinaryFile)
 
@@ -62,21 +64,54 @@ entryFolder entries = fromFiles $ flip map entries $ \entry -> let
     Nothing  -> return (fe_name entry)
   in (path, entry)
 
-readFileEntry :: FileEntry -> FilePath -> Readable
-readFileEntry entry ark = let
+data ArkSet
+  = ArkSingle FilePath
+  | ArkSplit (NE.NonEmpty (FilePath, Integer))
+
+selectArk :: ArkSet -> Integer -> (FilePath, Integer)
+selectArk (ArkSingle f    ) offset = (f, offset)
+selectArk (ArkSplit  split) offset = let
+  go parts curOffset = case NE.uncons parts of
+    ((part, _), Nothing) -> (part, curOffset)
+    ((part, size), Just rest) -> if size > curOffset
+      then (part, curOffset)
+      else go rest $ curOffset - size
+  in go split offset
+
+readFileEntry :: FileEntry -> ArkSet -> Readable
+readFileEntry entry arks = let
   path = maybe id (\dir f -> dir <> "/" <> f) (fe_folder entry) (fe_name entry)
+  (ark, offset) = selectArk arks $ fromIntegral $ fe_offset entry
   in subHandle
     (<> (" | " <> B8.unpack path))
-    (fromIntegral $ fe_offset entry)
+    offset
     (Just $ fromIntegral $ fe_size entry)
     (fileReadable ark)
 
-extractArk :: [FileEntry] -> FilePath -> FilePath -> IO ()
-extractArk entries ark dout = let
+-- For multi part arks, GH(2?) and later
+findSplitArk :: FilePath -> IO [(FilePath, Integer)]
+findSplitArk hdr = let
+  arkPath n = dropExtension hdr <> "_" <> show (n :: Int) <> ".ark"
+  startFinding n = do
+    f <- fixFileCase $ arkPath n
+    doesFileExist f >>= \case
+      False -> return []
+      True  -> do
+        len <- getFileSize f
+        ((f, len) :) <$> startFinding (n + 1)
+  in startFinding 0
+
+findSplitArk' :: FilePath -> IO ArkSet
+findSplitArk' hdr = findSplitArk hdr >>= \arks -> case NE.nonEmpty arks of
+  Nothing -> fail $ "Couldn't find any ark pieces for hdr: " <> hdr
+  Just ne -> return $ ArkSplit ne
+
+extractArk :: [FileEntry] -> ArkSet -> FilePath -> IO ()
+extractArk entries arks dout = let
   folder = bimap
     -- handles guitar hero arks where weird paths start with "../../"
     (\case ".." -> "dotdot"; p -> T.pack $ B8.unpack p)
-    (\entry -> readFileEntry entry ark)
+    (\entry -> readFileEntry entry arks)
     (entryFolder entries)
   in saveHandleFolder folder dout
 

@@ -10,7 +10,7 @@
 module Import.GuitarHero2 where
 
 import           Amplitude.PS2.Ark                (FileEntry (..), entryFolder,
-                                                   readFileEntry)
+                                                   findSplitArk', readFileEntry)
 import           Audio                            (Audio (..))
 import           Config
 import           Control.Arrow                    (second)
@@ -52,6 +52,7 @@ import           GuitarHeroII.File
 import           GuitarHeroII.PartGuitar
 import           GuitarHeroII.Triggers
 import           Import.Base
+import           OSFiles                          (fixFileCase)
 import qualified RockBand.Codec.Events            as RB
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as RB
@@ -62,9 +63,11 @@ import           System.FilePath                  ((<.>), (</>))
 
 getSongList :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(T.Text, SongPackage)]
 getSongList gen = do
-  entries <- stackIO $ readFileEntries $ gen </> "MAIN.HDR"
+  hdr <- fixFileCase $ gen </> "MAIN.HDR"
+  entries <- stackIO $ readFileEntries hdr
+  arks <- stackIO $ findSplitArk' hdr
   dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") entries of
-    entry : _ -> stackIO $ useHandle (readFileEntry entry $ gen </> "MAIN_0.ARK") handleToByteString
+    entry : _ -> stackIO $ useHandle (readFileEntry entry arks) handleToByteString
     []        -> fatal "Couldn't find songs.dtb"
   readSongList $ D.decodeDTB $ decrypt oldCrypt dtb
 
@@ -169,8 +172,10 @@ gh2SongYaml mode pkg songChunk onyxMidi = SongYaml
 
 importGH2Song :: (SendMessage m, MonadResource m) => ImportMode -> SongPackage -> FilePath -> Import m
 importGH2Song mode pkg gen level = do
-  entries <- stackIO $ readFileEntries $ gen </> "MAIN.HDR"
-  let folder = fmap (\entry -> readFileEntry entry $ gen </> "MAIN_0.ARK") $ entryFolder entries
+  hdr <- fixFileCase $ gen </> "MAIN.HDR"
+  entries <- stackIO $ readFileEntries hdr
+  arks <- stackIO $ findSplitArk' hdr
+  let folder = fmap (\entry -> readFileEntry entry arks) $ entryFolder entries
       encLatin1 = B8.pack . T.unpack
       split s = case splitPath s of
         Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
@@ -310,10 +315,12 @@ data Setlist a = Setlist
 
 loadSetlist :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (Setlist B.ByteString)
 loadSetlist gen = do
-  entries <- stackIO $ readFileEntries $ gen </> "MAIN.HDR"
+  hdr <- fixFileCase $ gen </> "MAIN.HDR"
+  entries <- stackIO $ readFileEntries hdr
+  arks <- stackIO $ findSplitArk' hdr
   let loadDTB name = case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == name) entries of
         entry : _ -> do
-          dtb <- stackIO $ useHandle (readFileEntry entry $ gen </> "MAIN_0.ARK") handleToByteString
+          dtb <- stackIO $ useHandle (readFileEntry entry arks) handleToByteString
           return $ D.decodeDTB (decrypt oldCrypt dtb)
         []        -> fatal $ "Couldn't find " <> show name
   dtbCampaign <- loadDTB "campaign.dtb"

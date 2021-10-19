@@ -1035,16 +1035,17 @@ commands =
       [fin] -> do
         dout <- outputFile opts $ return $ fin <> "_extract"
         arkVersion <- stackIO $ IO.withBinaryFile fin IO.ReadMode $ \h -> runGet getInt32le . BL.fromStrict <$> B.hGet h 4
-        (ark, entries) <- case arkVersion of
+        (arks, entries) <- case arkVersion of
           2 -> do
             entries <- stackIO $ AmpArk.readFileEntries fin
-            return (fin, entries)
+            return (AmpArk.ArkSingle fin, entries)
           3 -> do
             entries <- stackIO $ GHArk.readFileEntries fin
-            return (dropExtension fin <> "_0.ARK", entries)
+            arks <- stackIO $ AmpArk.findSplitArk' fin
+            return (arks, entries)
           n -> fail $ "Unsupported ark version: " <> show n
         stackIO $ Dir.createDirectoryIfMissing False dout
-        stackIO $ AmpArk.extractArk entries ark dout
+        stackIO $ AmpArk.extractArk entries arks dout
         return [dout]
       _ -> fatal "Expected 1 arg (.hdr, or .ark if none)"
     }

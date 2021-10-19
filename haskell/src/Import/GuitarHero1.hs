@@ -4,7 +4,7 @@
 module Import.GuitarHero1 where
 
 import           Amplitude.PS2.Ark                (FileEntry (..), entryFolder,
-                                                   readFileEntry)
+                                                   findSplitArk', readFileEntry)
 import           Audio                            (Audio (..))
 import           Config
 import           Control.Monad                    (void, when)
@@ -35,6 +35,7 @@ import           GuitarHeroII.Ark                 (readFileEntries)
 import           GuitarHeroII.Audio               (readVGSReadable)
 import           GuitarHeroII.PartGuitar
 import           Import.Base
+import           OSFiles                          (fixFileCase)
 import qualified RockBand.Codec.Events            as RB
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as RB
@@ -44,9 +45,11 @@ import           System.FilePath                  ((<.>), (</>))
 
 getSongList :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(T.Text, SongPackage)]
 getSongList gen = do
-  entries <- stackIO $ readFileEntries $ gen </> "MAIN.HDR"
+  hdr <- fixFileCase $ gen </> "MAIN.HDR"
+  entries <- stackIO $ readFileEntries hdr
+  arks <- stackIO $ findSplitArk' hdr
   dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") entries of
-    entry : _ -> stackIO $ useHandle (readFileEntry entry $ gen </> "MAIN_0.ARK") handleToByteString
+    entry : _ -> stackIO $ useHandle (readFileEntry entry arks) handleToByteString
     []        -> fatal "Couldn't find songs.dtb"
   let editDTB d = d { D.topTree = editTree $ D.topTree d }
       editTree t = t { D.treeChunks = filter keepChunk $ D.treeChunks t }
@@ -65,8 +68,10 @@ importGH1Song pkg gen level = do
   when (level == ImportFull) $ do
     lg $ "Importing GH1 song [" <> T.unpack (songName $ song pkg) <> "] from folder: " <> gen
     lg $ "Converting audio may take a while!"
-  entries <- stackIO $ readFileEntries $ gen </> "MAIN.HDR"
-  let folder = fmap (\entry -> readFileEntry entry $ gen </> "MAIN_0.ARK") $ entryFolder entries
+  hdr <- fixFileCase $ gen </> "MAIN.HDR"
+  entries <- stackIO $ readFileEntries hdr
+  arks <- stackIO $ findSplitArk' hdr
+  let folder = fmap (\entry -> readFileEntry entry arks) $ entryFolder entries
       encLatin1 = B8.pack . T.unpack
       split s = case splitPath s of
         Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s

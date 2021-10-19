@@ -5,11 +5,13 @@
 module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readSongList, readFileEntries, extractArk, createHdrArk, GH2InstallLocation(..), addBonusSong, GH2Installation(..)) where
 
 import           Amplitude.PS2.Ark              (FileEntry (..), FoundFile (..),
-                                                 extractArk, makeStringBank,
-                                                 traverseFolder)
+                                                 entryFolder, extractArk,
+                                                 findSplitArk', makeStringBank,
+                                                 readFileEntry, traverseFolder)
 import           ArkTool
 import           Codec.Compression.GZip         (decompress)
-import           Control.Monad                  (forM, forM_, replicateM, void)
+import           Control.Monad.Extra            (firstJustM, forM, forM_, guard,
+                                                 replicateM, void)
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Get                (getInt32le, getWord32le,
                                                  runGet)
@@ -25,8 +27,12 @@ import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as HM
 import           Data.List.Extra                (nubOrd, sortOn)
 import           Data.Maybe
+import           Data.SimpleHandle              (Folder (..), findFolder,
+                                                 handleToByteString, useHandle)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeLatin1)
+import           OSFiles                        (fixFileCase)
+import           System.FilePath                ((</>))
 import qualified System.IO                      as IO
 import           System.IO.Temp                 (withSystemTempFile)
 
@@ -136,6 +142,7 @@ readSongList dta = let
 -- ArkTool stuff
 
 data GameGH = GameGH1 | GameGH2
+  deriving (Show)
 
 -- TODO: find better way to do this.
 -- for comparison, Guitar Wizard looked for existence of
@@ -143,21 +150,24 @@ data GameGH = GameGH1 | GameGH2
 detectGameGH
   :: FilePath
   -> IO (Maybe GameGH)
-detectGameGH gen = withArk gen $ \ark -> do
-  searchFiles ark "songs/*/*.mid" >>= let
-    go []           = return Nothing
-    go (ent : rest) = do
-      midInArk <- ark_Arkname ent
-      withSystemTempFile "ghtest.mid" $ \fmid hdl -> do
-        IO.hClose hdl
-        ark_GetFile' ark fmid midInArk True
+detectGameGH gen = do
+  hdr <- fixFileCase $ gen </> "MAIN.HDR"
+  arks <- findSplitArk' hdr
+  folder <- entryFolder <$> readFileEntries hdr
+  let mids = do
+        songDir <- toList $ findFolder ["songs"] folder
+        song <- map snd $ folderSubfolders songDir
+        (name, entry) <- folderFiles song
+        guard $ ".mid" `B.isSuffixOf` name
+        return entry
+      checkEntry entry = do
         -- could parse whole midi but this is fine
-        bs <- B.readFile fmid
-        if
-          | "T1 GEMS"     `B.isInfixOf` bs -> return $ Just GameGH1
-          | "PART GUITAR" `B.isInfixOf` bs -> return $ Just GameGH2
-          | otherwise                      -> go rest
-    in go
+        bs <- BL.toStrict <$> useHandle (readFileEntry entry arks) handleToByteString
+        return $ if
+          | "T1 GEMS"     `B.isInfixOf` bs -> Just GameGH1
+          | "PART GUITAR" `B.isInfixOf` bs -> Just GameGH2
+          | otherwise                      -> Nothing
+  firstJustM checkEntry mids
 
 data GH2InstallLocation
   = GH2Replace B.ByteString
