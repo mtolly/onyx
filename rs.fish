@@ -106,9 +106,9 @@ end
 # build songs-hmx/whitechapel/this-is-exile
 # build songs-rbn/the-dillinger-escape-plan/widower
 # build songs-rbn/cynic/the-space-for-this
-build songs-others/cyclopsdragon/good-neighbor
-build songs-others/bloodline/circus
-build songs-others/cyclopsdragon/when-i-lost-my-bet
+# build songs-others/cyclopsdragon/good-neighbor
+# build songs-others/bloodline/circus
+# build songs-others/cyclopsdragon/when-i-lost-my-bet
 
 # phrases unknown:
 

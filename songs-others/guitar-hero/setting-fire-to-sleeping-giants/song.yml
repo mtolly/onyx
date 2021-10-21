@@ -42,13 +42,14 @@ plans:
 targets:
   rb3:
     game: rb3
+    label: (O)
   ps:
     game: ps
 metadata:
   file-album-art: album.jpg
   album: Miss Machine
   year: 2004
-  author: Neversoft
+  author: Neversoft, Onyxite
   title: Setting Fire to Sleeping Giants
   genre: Metal
   difficulty:
