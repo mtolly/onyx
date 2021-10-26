@@ -50,7 +50,7 @@ import           WebPlayer                        (findTremolos, findTrills,
 
 data PreviewTrack
   = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))))
-  | PreviewDrumsFull (Map.Map Double (PNF.CommonState (PNF.DrumState (FD.FullGem, FD.FullGemType, D.DrumVelocity, Bool) FD.FullGem)))
+  | PreviewDrumsFull (Map.Map Double (PNF.CommonState (PNF.DrumState FD.FullDrumNote FD.FullGem)))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState (Maybe F.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   deriving (Show)
@@ -155,7 +155,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
   drumTrackFull fpart pdrums diff = let
     -- TODO if kicks = 2, don't emit an X track, only X+
     thisSrc = maybe mempty RBFile.onyxPartFullDrums $ Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song
-    drumMap :: Map.Map Double [(FD.FullGem, FD.FullGemType, D.DrumVelocity, Bool)]
+    drumMap :: Map.Map Double [FD.FullDrumNote]
     drumMap = rtbToMap $ RTB.collectCoincident $ FD.getDifficulty diff thisSrc
     (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song of
       Nothing   -> (FD.fdActivation thisSrc, RTB.empty)

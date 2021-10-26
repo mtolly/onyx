@@ -188,7 +188,14 @@ data MergedEvent n1 n2
   | MergedFlam
   deriving (Eq, Ord)
 
-getDifficulty :: (NNC.C t) => Maybe Difficulty -> FullDrumTrack t -> RTB.T t (FullGem, FullGemType, DrumVelocity, Bool)
+data FullDrumNote = FullDrumNote
+  { fdn_gem      :: FullGem
+  , fdn_type     :: FullGemType
+  , fdn_velocity :: DrumVelocity
+  , fdn_flam     :: Bool
+  } deriving (Eq, Ord, Show)
+
+getDifficulty :: (NNC.C t) => Maybe Difficulty -> FullDrumTrack t -> RTB.T t FullDrumNote
 getDifficulty diff trk = let
   base = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) $ fdDifficulties trk
   events = foldr RTB.merge RTB.empty
@@ -202,10 +209,10 @@ getDifficulty diff trk = let
     kick = [ trio | MergedNote trio@(Kick, _, _) <- evts ]
     flam = any (\case MergedFlam -> True; _ -> False) evts
     kick2 = any (\case MergedNote2 () -> True; _ -> False) evts
-    in fmap (\(gem, gtype, vel) -> (gem, gtype, vel, flam && gem /= HihatFoot)) notKick
+    in fmap (\(gem, gtype, vel) -> FullDrumNote gem gtype vel $ flam && gem /= HihatFoot) notKick
       <> case (kick, kick2) of
-        ([], True) -> [(Kick, GemNormal, VelocityNormal, False)]
-        _          -> fmap (\(gem, gtype, vel) -> (gem, gtype, vel, kick2)) kick
+        ([], True) -> [FullDrumNote Kick GemNormal VelocityNormal False]
+        _          -> fmap (\(gem, gtype, vel) -> FullDrumNote gem gtype vel kick2) kick
   in RTB.flatten $ fmap processSlice $ RTB.collectCoincident events
 
 -- full to PS/RB conversion
@@ -325,10 +332,10 @@ placeToms cymbals notes = let
       (Left . fst <$> cymbals)
       (Right . (\(gem, gtype, _vel) -> (gem, gtype)) <$> notes)
 
-splitFlams :: (NNC.C t) => RTB.T t (FullGem, FullGemType, DrumVelocity, Bool) -> RTB.T t (FullGem, FullGemType, DrumVelocity)
-splitFlams = fmap (\(g, t, vel, _) -> (g, t, vel)) -- TODO
+splitFlams :: (NNC.C t) => RTB.T t FullDrumNote -> RTB.T t (FullGem, FullGemType, DrumVelocity)
+splitFlams = fmap (\(FullDrumNote g t vel _) -> (g, t, vel)) -- TODO
 
-fullDrumsToPS :: (NNC.C t) => RTB.T t (FullGem, FullGemType, DrumVelocity, Bool) -> RTB.T t (D.RealDrum, DrumVelocity)
+fullDrumsToPS :: (NNC.C t) => RTB.T t FullDrumNote -> RTB.T t (D.RealDrum, DrumVelocity)
 fullDrumsToPS input = let
   notes = splitFlams input
   cymbals = placeCymbals notes
@@ -339,9 +346,9 @@ fullDrumsToPS input = let
   toms = placeToms cymbals notes
   in RTB.merge cymbals $ RTB.merge kicksSnares toms
 
-fullDrumsToRB :: (NNC.C t) => RTB.T t (FullGem, FullGemType, DrumVelocity, Bool) -> RTB.T t (D.Gem D.ProType, DrumVelocity)
+fullDrumsToRB :: (NNC.C t) => RTB.T t FullDrumNote -> RTB.T t (D.Gem D.ProType, DrumVelocity)
 fullDrumsToRB gems = let
-  real = fullDrumsToPS $ RTB.filter (\case (HihatFoot, _, _, _) -> False; _ -> True) gems
+  real = fullDrumsToPS $ RTB.filter (\note -> fdn_gem note /= HihatFoot) gems
   in flip fmap real $ \(gem, vel) -> let
     gem' = case gem of
       Left ps -> case ps of

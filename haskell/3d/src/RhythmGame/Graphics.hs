@@ -4,6 +4,7 @@
 {-# LANGUAGE NegativeLiterals  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE ViewPatterns      #-}
 module RhythmGame.Graphics where
 
@@ -52,6 +53,7 @@ import           RhythmGame.Track
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums           as D
 import qualified RockBand.Codec.Five            as F
+import           RockBand.Codec.FullDrums       (FullDrumNote (..))
 import qualified RockBand.Codec.FullDrums       as FD
 import qualified RockBand.Codec.ProGuitar       as PG
 import           RockBand.Common                (StrumHOPOTap (..), each,
@@ -195,22 +197,22 @@ drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPla
   , drumNoteTimes = Set.empty -- not used
   }
 
-drawFullDrums :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState (FD.FullGem, FD.FullGemType, D.DrumVelocity, Bool) FD.FullGem)) -> IO ()
-drawFullDrums glStuff nowTime speed trk = drawFullDrumPlay glStuff nowTime speed DrumPlayState
-  { drumEvents = do
-    (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
-    pad <- Set.toList $ drumNotes $ commonState cs
-    let res = EventResult
-          { eventHit = Just (pad, Just cst)
-          , eventMissed = []
-          }
-    return (cst, (res, initialState)) -- score/combo state not used
-  , drumTrack = trk
-  , drumNoteTimes = Set.empty -- not used
+drawFullDrums :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState FullDrumNote FD.FullGem)) -> IO ()
+drawFullDrums glStuff nowTime speed trk = drawFullDrumPlay glStuff nowTime speed FullDrumPlayState
+  { fdEvents = let
+    -- dummy game state with no inputs, but all notes marked as hit on time
+    hitResults = do
+      (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
+      let notes = Set.toList $ drumNotes $ commonState cs
+      guard $ not $ null notes
+      return (cst, Map.fromList $ map (, FDHit cst) notes)
+    in [(nowTime, (Nothing, initialFDState { fdNoteResults = hitResults }))]
+  , fdTrack = trk
+  , fdNoteTimes = Set.empty -- not used
   }
 
-drawFullDrumPlay :: GLStuff -> Double -> Double -> DrumPlayState Double (FD.FullGem, FD.FullGemType, D.DrumVelocity, Bool) FD.FullGem -> IO ()
-drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
+drawFullDrumPlay :: GLStuff -> Double -> Double -> FullDrumPlayState Double -> IO ()
+drawFullDrumPlay glStuff@GLStuff{..} nowTime speed fdps = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
   let drawObject' = drawObject glStuff
@@ -222,7 +224,7 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
       timeToZ t = nowZ + (farZ - nowZ) * realToFrac ((t - nowTime) / (farTime - nowTime))
       zToTime z = nowTime + (farTime - nowTime) * realToFrac ((z - nowZ) / (farZ - nowZ))
       nearTime = zToTime nearZ
-      zoomed = zoomMap nearTime farTime $ drumTrack dps
+      zoomed = zoomMap nearTime farTime $ fdTrack fdps
       adjustedLeft = C.na_x_left (C.trk_note_area $ C.cfg_track gfxConfig) * 1.3
       adjustedRight = C.na_x_right (C.trk_note_area $ C.cfg_track gfxConfig) * 1.3
       trackWidth = adjustedRight - adjustedLeft
@@ -261,41 +263,41 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
         FD.Tom3      -> (fracToX 0.633333 , fracToX 0.75    )
         FD.CrashR    -> (fracToX 0.75     , fracToX 0.875   )
         FD.Ride      -> (fracToX 0.875    , fracToX 1       )
-      drawGem t od gemQuad@(gem, _gemType, velocity, flam) alpha = let
-        (texid, obj) = case gemQuad of
-          (FD.Kick     , _              , _, _) -> (TextureLongKick    , Model ModelDrumKick     )
-          (FD.Snare    , FD.GemRim      , _, _) -> (TextureRedGem      , Model ModelDrumRim      )
-          (FD.Snare    , _              , _, _) -> (TextureRedGem      , Model ModelDrumTom      )
-          (FD.Hihat    , FD.GemHihatOpen, _, _) -> (TextureYellowCymbal, Model ModelDrumHihatOpen)
-          (FD.Hihat    , _              , _, _) -> (TextureYellowCymbal, Model ModelDrumCymbal   )
-          (FD.HihatFoot, _              , _, _) -> (TextureHihatFoot   , Model ModelDrumHihatFoot)
-          (FD.CrashL   , _              , _, _) -> (TextureBlueCymbal  , Model ModelDrumCymbal   )
-          (FD.Tom1     , FD.GemRim      , _, _) -> (TextureOrangeGem   , Model ModelDrumRim      )
-          (FD.Tom1     , _              , _, _) -> (TextureOrangeGem   , Model ModelDrumTom      )
-          (FD.Tom2     , FD.GemRim      , _, _) -> (TextureOrangeGem   , Model ModelDrumRim      )
-          (FD.Tom2     , _              , _, _) -> (TextureOrangeGem   , Model ModelDrumTom      )
-          (FD.Tom3     , FD.GemRim      , _, _) -> (TextureOrangeGem   , Model ModelDrumRim      )
-          (FD.Tom3     , _              , _, _) -> (TextureOrangeGem   , Model ModelDrumTom      )
-          (FD.CrashR   , _              , _, _) -> (TextureGreenCymbal , Model ModelDrumCymbal   )
-          (FD.Ride     , _              , _, _) -> (TexturePurpleCymbal, Model ModelDrumCymbal   )
+      drawGem t od note alpha = let
+        (texid, obj) = case (fdn_gem note, fdn_type note) of
+          (FD.Kick     , _              ) -> (TextureLongKick    , Model ModelDrumKick     )
+          (FD.Snare    , FD.GemRim      ) -> (TextureRedGem      , Model ModelDrumRim      )
+          (FD.Snare    , _              ) -> (TextureRedGem      , Model ModelDrumTom      )
+          (FD.Hihat    , FD.GemHihatOpen) -> (TextureYellowCymbal, Model ModelDrumHihatOpen)
+          (FD.Hihat    , _              ) -> (TextureYellowCymbal, Model ModelDrumCymbal   )
+          (FD.HihatFoot, _              ) -> (TextureHihatFoot   , Model ModelDrumHihatFoot)
+          (FD.CrashL   , _              ) -> (TextureBlueCymbal  , Model ModelDrumCymbal   )
+          (FD.Tom1     , FD.GemRim      ) -> (TextureOrangeGem   , Model ModelDrumRim      )
+          (FD.Tom1     , _              ) -> (TextureOrangeGem   , Model ModelDrumTom      )
+          (FD.Tom2     , FD.GemRim      ) -> (TextureOrangeGem   , Model ModelDrumRim      )
+          (FD.Tom2     , _              ) -> (TextureOrangeGem   , Model ModelDrumTom      )
+          (FD.Tom3     , FD.GemRim      ) -> (TextureOrangeGem   , Model ModelDrumRim      )
+          (FD.Tom3     , _              ) -> (TextureOrangeGem   , Model ModelDrumTom      )
+          (FD.CrashR   , _              ) -> (TextureGreenCymbal , Model ModelDrumCymbal   )
+          (FD.Ride     , _              ) -> (TexturePurpleCymbal, Model ModelDrumCymbal   )
         shade = case alpha of
-          Nothing -> case velocity of
+          Nothing -> case fdn_velocity note of
             D.VelocityNormal -> CSImage texid
             D.VelocityGhost  -> CSImage2 texid TextureOverlayGhost
             D.VelocityAccent -> CSImage2 texid TextureOverlayAccent
           Just _  -> CSColor $ C.gems_color_hit $ C.obj_gems $ C.cfg_objects gfxConfig
-        (x1, x2) = gemBounds gem
+        (x1, x2) = gemBounds $ fdn_gem note
         xCenter = x1 + (x2 - x1) / 2
-        (x1', x2') = case velocity of
+        (x1', x2') = case fdn_velocity note of
           D.VelocityGhost -> let
             adjustX v = xCenter + (v - xCenter) * 0.7
             in (adjustX x1, adjustX x2)
           _ -> (x1, x2)
-        reference = case gem of
+        reference = case fdn_gem note of
           FD.Kick -> (x2' - x1') / 2
           _       -> 0.5 / 2
-        xPairs = if flam
-          then case gem of
+        xPairs = if fdn_flam note
+          then case fdn_gem note of
             FD.Kick -> [(x1', x1' + (x2' - x1') * (1/3)), (x1' + (x2' - x1') * (2/3), x2')]
             _       -> let
               -- make 2 slightly narrower notes, and adjust to keep it within the track
@@ -324,7 +326,7 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
           _           -> True
         fadeTime = C.gems_secs_fade $ C.obj_gems $ C.cfg_objects gfxConfig
         in forM_ (drumNotes $ commonState cs) $ \gem ->
-          case noteStatus t gem $ drumEvents dps of
+          case fullNoteStatus t gem $ fdEvents fdps of
             NoteFuture -> drawGem t od gem Nothing
             NoteMissed -> drawGem t od gem Nothing
             NoteHitAt hitTime -> if nowTime - hitTime < realToFrac fadeTime
@@ -452,7 +454,8 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
     drawTargetSquare x1 x2 tex 1
   let drawLights [] _ = return ()
       drawLights _ [] = return ()
-      drawLights ((t, (pad, _, _, _)) : states) colors = let
+      drawLights ((t, note) : states) colors = let
+        pad = fdh_gem note
         (colorsYes, colorsNo) = partition (\(pads, _, _, _) -> elem pad pads) colors
         alpha = 1 - realToFrac (nowTime - t) / C.tgt_secs_light
           (C.trk_targets $ C.cfg_track gfxConfig)
@@ -462,7 +465,7 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
             x2 = minimum $ map (snd . gemBounds) pads
             in drawTargetSquare x1 x2 light alpha
           drawLights states colorsNo
-  drawLights [ (t, padTrio) | (t, (res, _)) <- drumEvents dps, Just (padTrio, _) <- [eventHit res] ] targets
+  drawLights [ (t, hit) | (t, (Just (FDInputHit hit), _)) <- fdEvents fdps ] targets
   glDepthFunc GL_LESS
   -- draw notes
   traverseDescWithKey_ drawNotes zoomed
