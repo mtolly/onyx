@@ -74,7 +74,7 @@ targets:
   rs:
     game: rs
     arrangements:
-    # - [lead, guitar]
+    - [lead, guitar]
     - [bonus-rhythm, bass]
     - [bass, bass]
     song-key: OnyxNCRippedApart

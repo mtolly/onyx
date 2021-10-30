@@ -2138,7 +2138,7 @@ drawDrumPlayFull
   -> WindowDims
   -> Double
   -> Double
-  -> DrumPlayState Double (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType)
+  -> FullDrumPlayState Double
   -> IO ()
 drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed dps = do
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
@@ -2147,12 +2147,12 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
   glClear GL_COLOR_BUFFER_BIT
 
   setUpTrackView glStuff dims
-  drawDrumPlay glStuff time speed dps
+  drawFullDrumPlay glStuff time speed dps
 
   glClear GL_DEPTH_BUFFER_BIT
-  let gps = case drumEvents dps of
+  let fdgs = case fdEvents dps of
         (_, (_, s)) : _ -> s
-        _               -> initialState
+        _               -> initialFDState
       digitScale = 2
       digitWidth = 14
       digitHeight = 18
@@ -2165,8 +2165,8 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
               Nothing  -> return ()
             [] -> return ()
           drawNumber' False q (x - digitWidth * digitScale) y
-  drawNumber (gameScore gps) (wWhole - digitWidth * digitScale) (hWhole - digitHeight * digitScale)
-  drawNumber (gameCombo gps) (quot wWhole 2) 0
+  drawNumber (fdScore fdgs) (wWhole - digitWidth * digitScale) (hWhole - digitHeight * digitScale)
+  drawNumber (fdCombo fdgs) (quot wWhole 2) 0
 
 getGlyph :: GLStuff -> Char -> IO (Maybe (FT_GlyphSlotRec, Texture))
 getGlyph GLStuff{..} c = do
