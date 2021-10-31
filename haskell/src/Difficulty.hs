@@ -41,11 +41,16 @@ difficultyRB3 TargetRB3{..} songYaml = let
       Rank r -> r
       Tier t -> tierToRank dmap t
 
+  x `rankOr` y = if x == 0 then y else x
+
   rb3DrumsRank     = simpleRank rb3_Drums  partDrums     drumsDifficulty drumsDiffMap
   rb3BassRank'     = simpleRank rb3_Bass   partGRYBO     gryboDifficulty bassDiffMap
+    `rankOr`         simpleRank rb3_Bass   partDrums     drumsDifficulty drumsDiffMap
   rb3GuitarRank'   = simpleRank rb3_Guitar partGRYBO     gryboDifficulty guitarDiffMap
+    `rankOr`         simpleRank rb3_Guitar partDrums     drumsDifficulty drumsDiffMap
   rb3VocalRank     = simpleRank rb3_Vocal  partVocal     vocalDifficulty vocalDiffMap
   rb3KeysRank'     = simpleRank rb3_Keys   partGRYBO     gryboDifficulty keysDiffMap
+    `rankOr`         simpleRank rb3_Keys   partDrums     drumsDifficulty drumsDiffMap
   rb3ProKeysRank'  = simpleRank rb3_Keys   partProKeys   pkDifficulty    keysDiffMap
   rb3KeysRank      = if rb3KeysRank' == 0 then rb3ProKeysRank' else rb3KeysRank'
   rb3ProKeysRank   = if rb3ProKeysRank' == 0 then rb3KeysRank' else rb3ProKeysRank'

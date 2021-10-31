@@ -239,7 +239,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
     let start = beatsToMS t
         end   = beatsToMS $ t + len
     return $ Single start (fromIntegral $ end - start)
-  makeGB fpart diff = case getPart fpart songYaml >>= partGRYBO of
+  makeGB fpart diff = case getPart fpart songYaml >>= partGRYBO of -- TODO support drums->guitar
     Just grybo -> let
       opart = fromMaybe mempty $ Map.lookup fpart $ RBFile.onyxParts ofile
       (trk, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitarExt opart

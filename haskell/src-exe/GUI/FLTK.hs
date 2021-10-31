@@ -2006,13 +2006,13 @@ songPageRB3 sink rect tab proj build = mdo
       rb3 { rb3_SongID = sid }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", rb3_Guitar, (\v rb3 -> rb3 { rb3_Guitar = v })
-        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
+        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p) || isJust (partDrums p))
         )
       , ( "Bass"  , rb3_Bass  , (\v rb3 -> rb3 { rb3_Bass   = v })
-        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
+        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p) || isJust (partDrums p))
         )
       , ( "Keys"  , rb3_Keys  , (\v rb3 -> rb3 { rb3_Keys   = v })
-        , (\p -> isJust (partGRYBO p) || isJust (partProKeys p))
+        , (\p -> isJust (partGRYBO p) || isJust (partProKeys p) || isJust (partDrums p))
         )
       , ( "Drums" , rb3_Drums , (\v rb3 -> rb3 { rb3_Drums  = v })
         , (\p -> isJust $ partDrums p)
@@ -2103,10 +2103,10 @@ songPageRB2 sink rect tab proj build = mdo
       rb2 { rb2_SongID = sid }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", rb2_Guitar, (\v rb2 -> rb2 { rb2_Guitar = v })
-        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
+        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p) || isJust (partDrums p))
         )
       , ( "Bass"  , rb2_Bass  , (\v rb2 -> rb2 { rb2_Bass   = v })
-        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p))
+        , (\p -> isJust (partGRYBO p) || isJust (partProGuitar p) || isJust (partDrums p))
         )
       , ( "Drums" , rb2_Drums , (\v rb2 -> rb2 { rb2_Drums  = v })
         , (\p -> isJust $ partDrums p)
@@ -2255,13 +2255,13 @@ songPagePS sink rect tab proj build = mdo
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar"     , ps_Guitar    , (\v ps -> ps { ps_Guitar       = v })
-        , (\p -> isJust (partGRYBO p) || isJust (partGHL p) || isJust (partProGuitar p))
+        , (\p -> isJust (partGRYBO p) || isJust (partGHL p) || isJust (partProGuitar p) || isJust (partDrums p))
         )
       , ( "Bass"       , ps_Bass      , (\v ps -> ps { ps_Bass         = v })
-        , (\p -> isJust (partGRYBO p) || isJust (partGHL p) || isJust (partProGuitar p))
+        , (\p -> isJust (partGRYBO p) || isJust (partGHL p) || isJust (partProGuitar p) || isJust (partDrums p))
         )
       , ( "Keys"       , ps_Keys      , (\v ps -> ps { ps_Keys         = v })
-        , (\p -> isJust (partGRYBO p) || isJust (partProKeys p))
+        , (\p -> isJust (partGRYBO p) || isJust (partProKeys p) || isJust (partDrums p))
         )
       , ( "Drums"      , ps_Drums     , (\v ps -> ps { ps_Drums        = v })
         , (\p -> isJust $ partDrums p)
@@ -2270,10 +2270,10 @@ songPagePS sink rect tab proj build = mdo
         , (\p -> isJust $ partVocal p)
         )
       , ( "Rhythm"     , ps_Rhythm    , (\v ps -> ps { ps_Rhythm       = v })
-        , (\p -> isJust $ partGRYBO p)
+        , (\p -> isJust (partGRYBO p) || isJust (partDrums p))
         )
       , ( "Guitar Coop", ps_GuitarCoop, (\v ps -> ps { ps_GuitarCoop   = v })
-        , (\p -> isJust $ partGRYBO p)
+        , (\p -> isJust (partGRYBO p) || isJust (partDrums p))
         )
       ]
     fullWidth 35 $ \rect' -> do

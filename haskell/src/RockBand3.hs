@@ -27,6 +27,7 @@ import           Guitars
 import qualified Numeric.NonNegative.Class         as NNC
 import           OneFoot
 import           Overdrive
+import           Preferences                       (MagmaSetting (..))
 import           ProKeysRanges
 import           Reductions
 import           RockBand.Codec                    (mapTrack)
@@ -34,7 +35,7 @@ import           RockBand.Codec.Beat
 import           RockBand.Codec.Drums              as RBDrums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File               as RBFile
-import           RockBand.Codec.Five
+import           RockBand.Codec.Five               as RBFive
 import           RockBand.Codec.FullDrums          (convertFullDrums)
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
@@ -366,8 +367,55 @@ buildFive
   -> Bool
   -> SongYaml f
   -> Maybe (FiveTrack U.Beats)
-buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml = case getPart fivePart songYaml >>= partGRYBO of
-  Nothing    -> Nothing
+buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys songYaml = case getPart fivePart songYaml >>= partGRYBO of
+  Nothing    -> let
+    target' = case target of
+      Left _rb3 -> target
+      Right ps  -> Left TargetRB3
+        { rb3_Common      = ps_Common ps
+        , rb3_2xBassPedal = True -- assume 2x
+        , rb3_SongID      = SongIDAutoSymbol
+        , rb3_Version     = Nothing
+        , rb3_Harmonix    = False
+        , rb3_FileMilo    = Nothing
+        , rb3_Magma       = MagmaRequire
+        , rb3_Guitar      = ps_Guitar ps
+        , rb3_Bass        = ps_Bass ps
+        , rb3_Drums       = ps_Drums ps
+        , rb3_Keys        = ps_Keys ps
+        , rb3_Vocal       = ps_Vocal ps
+        }
+    in case buildDrums fivePart target' song timing songYaml of
+      Nothing    -> Nothing
+      Just drums -> Just FiveTrack
+        -- Simple conversion of drums chart to 5-fret
+        { fiveDifficulties = flip fmap (drumDifficulties drums) $ \dd ->
+          emit5' $ strumHOPOTap' HOPOsRBGuitar (170/480) $ flip fmap (drumGems dd) $ \(gem, _velocity) -> let
+            color = case gem of
+              RBDrums.Kick                 -> RBFive.Green
+              RBDrums.Red                  -> RBFive.Red
+              RBDrums.Pro RBDrums.Yellow _ -> RBFive.Yellow
+              RBDrums.Pro RBDrums.Blue   _ -> RBFive.Blue
+              RBDrums.Pro RBDrums.Green  _ -> RBFive.Orange
+              RBDrums.Orange               -> RBFive.Orange -- won't happen because we called buildDrums with RB3 target
+            in (Just color, Nothing)
+        , fiveMood         = drumMood drums
+        , fiveHandMap      = RTB.empty
+        , fiveStrumMap     = RTB.empty
+        , fiveFretPosition = RTB.empty
+        , fiveTremolo      = RTB.empty -- TODO include these sometimes?
+        , fiveTrill        = RTB.empty -- TODO include these sometimes?
+        , fiveOverdrive    = drumOverdrive drums
+        , fiveBRE          = let
+          -- only copy over a fill that is actually a BRE
+          coda = fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song
+          in case coda of
+            Nothing -> RTB.empty
+            Just c  -> RTB.delay c $ U.trackDrop c $ drumActivation drums
+        , fiveSolo         = drumSolo drums
+        , fivePlayer1      = drumPlayer1 drums
+        , fivePlayer2      = drumPlayer2 drums
+        }
   Just grybo -> Just $ let
     src = RBFile.getFlexPart fivePart trks
     gtrType = case (target, toKeys) of
@@ -581,13 +629,13 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       keysPart = either rb3_Keys ps_Keys target
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of
         Nothing -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
-        Just part -> case (partGRYBO part, partProKeys part) of
-          (Nothing, Nothing) -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
+        Just part -> case (partGRYBO part, partDrums part, partProKeys part) of
+          (Nothing, Nothing, Nothing) -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
           _ -> let
             basicKeys = gryboComplete Nothing mmap
-              $ case partGRYBO part of
-                Nothing -> addFiveMoods tempos timing $ RBFile.expertProKeysToKeys keysExpert
-                Just _  -> makeGRYBOTrack True keysPart
+              $ if isJust (partGRYBO part) || isJust (partDrums part)
+                then makeGRYBOTrack True keysPart
+                else addFiveMoods tempos timing $ RBFile.expertProKeysToKeys keysExpert
             fpart = RBFile.getFlexPart keysPart trks
             keysDiff diff = if isJust $ partProKeys part
               then case diff of

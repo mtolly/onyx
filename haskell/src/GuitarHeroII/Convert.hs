@@ -102,6 +102,7 @@ computeGH2Audio
   -> (F.FlexPartName -> Bool) -- True if part has own audio
   -> StackTraceT m GH2Audio
 computeGH2Audio song target hasAudio = do
+  -- TODO support drums->guitar
   gh2LeadTrack <- case getPart (gh2_Guitar target) song >>= partGRYBO of
     Nothing -> fatal "computeGH2Audio: no lead guitar part selected"
     Just _  -> return $ gh2_Guitar target
