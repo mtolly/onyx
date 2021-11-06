@@ -1,9 +1,21 @@
 # Version history
 
-## 20210925
+## 20211105
 
 * Prerelease version
-* Fixes for GH2DX 2.0
+* Fixed length limit on GH:WoR audio generation
+  * In very long files, there may be tiny gaps caused by
+    stitching encoded audio segments together
+  * Stems will be supported in a future release
+* Support new Clone Hero MIDI formats for tap and open notes
+* Import and export `album_track` in CH/PS `song.ini`
+  (previously only `track` was supported)
+* Fix importing from GH1/GH2 ARK files split into multiple pieces
+* Allow turning a drums chart into a guitar/bass/keys chart for RB3/RB2/CH
+* Additions for an upcoming version of Guitar Hero II Deluxe
+  * Option to add drums charts
+  * Fix parsing certain DTA scripting constructs in `songs.dtb`
+  * Add a dummy `tracks` entry to prevent some crashes
 
 ## 20210806
 

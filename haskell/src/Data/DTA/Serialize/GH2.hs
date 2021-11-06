@@ -161,7 +161,7 @@ instance StackChunks SongPackage where
     artist         <- artist         =. req         "artist"          (single chunkString)
     caption        <- caption        =. opt Nothing "caption"         (chunksMaybe $ single chunkSym)
     song           <- song           =. req         "song"            stackChunks
-    song_vs        <- song_vs        =. req         "song_vs"         stackChunks
+    song_vs        <- song_vs        =. opt Nothing "song_vs"         stackChunks
     animTempo      <- animTempo      =. req         "anim_tempo"      stackChunks
     preview        <- preview        =. req         "preview"         stackChunks
     quickplay      <- quickplay      =. req         "quickplay"       stackChunks

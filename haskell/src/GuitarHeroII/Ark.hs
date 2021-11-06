@@ -169,7 +169,7 @@ detectGameGH gen = do
           | otherwise                      -> Nothing
       isStockGH2 = isJust $ do
         configGen <- findFolder ["config", "gen"] folder
-        lookup "gh2_version.dta" $ folderFiles configGen
+        lookup "gh2_version.dtb" $ folderFiles configGen
   firstJustM checkEntry mids
 
 data GH2InstallLocation
