@@ -1949,20 +1949,26 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   $ applyTargetAudio (gh2_Common gh2) mid src
                 lg $ "Finished writing GH2 practice audio for " ++ show speed ++ "% speed"
 
-            [dir </> "gh2/songs.dta", dir </> "gh2/songs-inner.dta"] &%> \[out, outInner] -> do
+            [dir </> "gh2/songs.dta", dir </> "gh2/songs-dx2.dta", dir </> "gh2/songs-inner.dta", dir </> "gh2/songs-inner-dx2.dta"] &%> \[out, outDX2, outInner, outInnerDX2] -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
               hasAudio <- loadPartAudioCheck
               audio <- computeGH2Audio songYaml gh2 hasAudio
-              let inner = D.serialize (valueId D.stackChunks) $ makeGH2DTA
+              let inner isDX2 = D.serialize (valueId D.stackChunks) $ makeGH2DTA
                     songYaml
                     key
                     (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)))
                     gh2
                     audio
                     (targetTitle songYaml target)
+                    isDX2
+                  innerStandard = inner False
+                  innerDX2      = inner True
               stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
-                [ D.Parens $ D.Tree 0 $ D.Sym key : D.treeChunks (D.topTree inner) ]
-              stackIO $ D.writeFileDTA_latin1 outInner inner
+                [ D.Parens $ D.Tree 0 $ D.Sym key : D.treeChunks (D.topTree innerStandard) ]
+              stackIO $ D.writeFileDTA_latin1 outDX2 $ D.DTA 0 $ D.Tree 0
+                [ D.Parens $ D.Tree 0 $ D.Sym key : D.treeChunks (D.topTree innerDX2) ]
+              stackIO $ D.writeFileDTA_latin1 outInner innerStandard
+              stackIO $ D.writeFileDTA_latin1 outInnerDX2 innerDX2
 
             dir </> "gh2/lipsync.voc" %> \out -> do
               midi <- shakeMIDI $ planDir </> "raw.mid"

@@ -370,39 +370,13 @@ adjustSongText = T.replace "&" "+"
   -- GH2 doesn't have & in the start-of-song-display font.
   -- In the song list it just displays as + anyway
 
-makeGH2DTA :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 -> GH2Audio -> T.Text -> D.SongPackage
-makeGH2DTA song key preview target audio title = D.SongPackage
+makeGH2DTA :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 -> GH2Audio -> T.Text -> Bool -> D.SongPackage
+makeGH2DTA song key preview target audio title isDX2 = D.SongPackage
   { D.name = adjustSongText title
   , D.artist = adjustSongText $ getArtist $ _metadata song
   , D.caption = guard (not $ _cover $ _metadata song) >> Just "performed_by"
-  , D.song = D.Song
-    { D.songName      = "songs/" <> key <> "/" <> key
-    , D.tracks        = D.DictList $ filter (\(_, ns) -> not $ null ns)
-      [ ("guitar", map fromIntegral $ gh2LeadChannels audio)
-      , (coop    , map fromIntegral $ gh2CoopChannels audio)
-      , if null $ gh2DrumChannels audio
-        -- GH2DX in some configurations requires a third tracks entry, even when there is no drum part
-        then ("fake", map fromIntegral $ gh2BackChannels audio)
-        else ("drum", map fromIntegral $ gh2DrumChannels audio)
-      ]
-    , D.pans          = gh2AudioSections audio >>= \case
-      GH2PartStereo _ -> [-1, 1]
-      GH2PartMono   _ -> [0]
-      GH2Band         -> [-1, 1]
-      GH2Silent       -> [0]
-    , D.vols          = gh2AudioSections audio >>= \case
-      GH2PartStereo _ -> [0, 0]
-      GH2PartMono   _ -> [20 * (log 2 / log 10)] -- compensate for half volume later
-      GH2Band         -> [0, 0]
-      GH2Silent       -> [0]
-    , D.cores         = gh2AudioSections audio >>= \case
-      GH2PartStereo p -> if p == gh2LeadTrack audio then [1, 1] else [-1, -1]
-      GH2PartMono p -> if p == gh2LeadTrack audio then [1] else [-1]
-      GH2Band   -> [-1, -1]
-      GH2Silent -> [-1]
-    , D.midiFile      = "songs/" <> key <> "/" <> key <> ".mid"
-    , D.hopoThreshold = Nothing
-    }
+  , D.song = makeSong isDX2
+  , D.song_vs = if isDX2 then Just $ makeSong False else Nothing
   , D.animTempo = KTempoMedium
   , D.preview = bimap fromIntegral fromIntegral preview
   , D.quickplay = evalRand D.randomQuickplay $ mkStdGen $ hash key
@@ -428,6 +402,35 @@ makeGH2DTA song key preview target audio title = D.SongPackage
       , D.vols = 0 <$ gh2Practice audio
       , D.cores = (-1) <$ gh2Practice audio
       , D.midiFile = "songs/" <> key <> "/" <> key <> ".mid"
+      , D.hopoThreshold = Nothing
+      }
+    makeSong includeTrack3 = D.Song
+      { D.songName      = "songs/" <> key <> "/" <> key
+      , D.tracks        = D.DictList $ filter (\(_, ns) -> not $ null ns) $
+        [ ("guitar", map fromIntegral $ gh2LeadChannels audio)
+        , (coop    , map fromIntegral $ gh2CoopChannels audio)
+        ] <> if includeTrack3
+          then if null $ gh2DrumChannels audio
+            -- GH2DX2 in some configurations requires a third tracks entry, even when there is no drum part
+            then [("fake", map fromIntegral $ gh2BackChannels audio)]
+            else [("drum", map fromIntegral $ gh2DrumChannels audio)]
+          else []
+      , D.pans          = gh2AudioSections audio >>= \case
+        GH2PartStereo _ -> [-1, 1]
+        GH2PartMono   _ -> [0]
+        GH2Band         -> [-1, 1]
+        GH2Silent       -> [0]
+      , D.vols          = gh2AudioSections audio >>= \case
+        GH2PartStereo _ -> [0, 0]
+        GH2PartMono   _ -> [20 * (log 2 / log 10)] -- compensate for half volume later
+        GH2Band         -> [0, 0]
+        GH2Silent       -> [0]
+      , D.cores         = gh2AudioSections audio >>= \case
+        GH2PartStereo p -> if p == gh2LeadTrack audio then [1, 1] else [-1, -1]
+        GH2PartMono p -> if p == gh2LeadTrack audio then [1] else [-1]
+        GH2Band   -> [-1, -1]
+        GH2Silent -> [-1]
+      , D.midiFile      = "songs/" <> key <> "/" <> key <> ".mid"
       , D.hopoThreshold = Nothing
       }
 
@@ -461,6 +464,7 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
     , D.midiFile      = "songs/" <> key <> "/" <> key <> ".mid"
     , D.hopoThreshold = Nothing
     }
+  , D.song_vs = Nothing
   , D.animTempo = KTempoMedium
   , D.preview = bimap fromIntegral fromIntegral preview
   , D.quickplay = evalRand D.randomQuickplay $ mkStdGen $ hash key

@@ -118,6 +118,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           Nothing -> do
             warn $ "Couldn't detect GH game version for: " <> dir
             return ([], [])
+          Just GameGH2DX2 -> GH2.importGH2 dir >>= foundImports "Guitar Hero II (DX)" dir
           Just GameGH2 -> GH2.importGH2 dir >>= foundImports "Guitar Hero II" dir
           Just GameGH1 -> GH1.importGH1 dir >>= foundImports "Guitar Hero (1)" dir
       foundDTXSet loc = importSet loc >>= foundImports "DTXMania (set.def)" (takeDirectory loc)
@@ -296,9 +297,20 @@ buildGHWORLIVE gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> tar
 
 installGH2 :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 installGH2 gh2 proj gen = do
+  isDX2 <- stackIO (detectGameGH gen) >>= \case
+    Nothing         -> fatal "Couldn't detect what game this ARK is for."
+    Just GameGH1    -> fatal "This appears to be a Guitar Hero (1) ARK!"
+    Just GameGH2    -> do
+      lg "ARK detected as GH2, no drums support."
+      return False
+    Just GameGH2DX2 -> do
+      lg "ARK detected as GH2 Deluxe with drums support."
+      return True
   dir <- buildGH2Dir gh2 proj
   files <- stackIO $ Dir.listDirectory dir
-  dta <- stackIO $ readFileDTA $ dir </> "songs-inner.dta"
+  dta <- stackIO $ readFileDTA $ if isDX2
+    then dir </> "songs-inner-dx2.dta"
+    else dir </> "songs-inner.dta"
   sym <- stackIO $ B.readFile $ dir </> "symbol"
   coop <- stackIO $ readFileDTA $ dir </> "coop_max_scores.dta"
   let chunks = treeChunks $ topTree $ fmap (B8.pack . T.unpack) dta
@@ -338,7 +350,8 @@ makeGH2DIY gh2 proj dout = do
   sym <- stackIO $ fmap B8.unpack $ B.readFile $ dir </> "symbol"
   let filePairs = flip mapMaybe files $ \f -> let ext = takeExtension f in if
         | elem ext [".voc", ".vgs", ".mid"]       -> Just (sym <> dropWhile isAlpha f          , dir </> f)
-        | ext == ".dta" && f /= "songs-inner.dta" -> Just (f                                   , dir </> f)
+        | ext == ".dta" && f /= "songs-inner.dta" && f /= "songs-inner-dx2.dta"
+          -> Just (f, dir </> f)
         | ext == ".png_ps2"                       -> Just ("us_logo_" <> sym <> "_keep.png_ps2", dir </> f)
         | otherwise                               -> Nothing
   stackIO $ forM_ filePairs $ \(dest, src) -> Dir.copyFile src $ dout </> dest
@@ -350,6 +363,7 @@ makeGH2DIY gh2 proj dout = do
     , "and a tool that can edit .dtb files such as dtab (which arkhelper can use automatically)."
     , ""
     , "1. Add the contents of songs.dta to: config/gen/songs.dtb"
+    , "  (For GH2 Deluxe 2.0, use songs-dx2.dta instead)"
     , "2. (possibly optional) Add the contents of coop_max_scores.dta to: config/gen/coop_max_scores.dtb"
     , "3. Make a new folder: songs/" <> s <> "/ and copy all .mid, .vgs, and .voc files into it"
     , "4. Edit either config/gen/campaign.dtb or config/gen/store.dtb to add your song as a career or bonus song respectively"

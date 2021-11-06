@@ -141,7 +141,7 @@ readSongList dta = let
 
 -- ArkTool stuff
 
-data GameGH = GameGH1 | GameGH2
+data GameGH = GameGH1 | GameGH2 | GameGH2DX2
   deriving (Show)
 
 -- TODO: find better way to do this.
@@ -165,8 +165,11 @@ detectGameGH gen = do
         bs <- BL.toStrict <$> useHandle (readFileEntry entry arks) handleToByteString
         return $ if
           | "T1 GEMS"     `B.isInfixOf` bs -> Just GameGH1
-          | "PART GUITAR" `B.isInfixOf` bs -> Just GameGH2
+          | "PART GUITAR" `B.isInfixOf` bs -> Just $ if isStockGH2 then GameGH2 else GameGH2DX2
           | otherwise                      -> Nothing
+      isStockGH2 = isJust $ do
+        configGen <- findFolder ["config", "gen"] folder
+        lookup "gh2_version.dta" $ folderFiles configGen
   firstJustM checkEntry mids
 
 data GH2InstallLocation

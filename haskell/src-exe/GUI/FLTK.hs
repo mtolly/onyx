@@ -1356,6 +1356,30 @@ saveProject proj song = do
     when b $ Dir.removeDirectoryRecursive genDir
   return proj { projectSongYaml = song }
 
+-- TODO new batch presets:
+
+-- RB3:
+-- No change
+-- Copy guitar to bass/keys
+-- Copy guitar to bass/keys if empty
+-- Copy drums to guitar/bass/keys
+-- Copy drums to guitar/bass/keys if empty
+
+-- RB2:
+-- No change
+-- Copy guitar to bass if empty
+-- Copy guitar to bass
+-- Keys on guitar/bass if empty
+-- Keys on guitar
+-- Keys on bass
+-- Copy drums to guitar/bass
+-- Copy drums to guitar/bass if empty
+
+-- CH:
+-- No change
+-- Copy drums to guitar
+-- Copy drums to guitar if empty
+
 data GBKOption
   = GBKUnchanged
   | CopyGuitarToKeys

@@ -4,7 +4,7 @@ metadata:
   album: Mint Jams
   year: 1982
   track-number: 2
-  author: Onyxite
+  author: Onyxite, 7777villain
   genre: fusion
   subgenre: fusion
   file-album-art: cover.png
@@ -36,6 +36,7 @@ parts:
     drums:
       kicks: 1
       difficulty: 5
+  # TODO split 7777villain's chart into guitar/keys
 targets:
   rb3:
     game: rb3
