@@ -1356,29 +1356,89 @@ saveProject proj song = do
     when b $ Dir.removeDirectoryRecursive genDir
   return proj { projectSongYaml = song }
 
--- TODO new batch presets:
+-- Batch mode presets for changing parts around
 
--- RB3:
--- No change
--- Copy guitar to bass/keys
--- Copy guitar to bass/keys if empty
--- Copy drums to guitar/bass/keys
--- Copy drums to guitar/bass/keys if empty
+partHasFive :: SongYaml f -> FlexPartName -> Bool
+partHasFive song flex = isJust $ getPart flex song >>= partGRYBO
 
--- RB2:
--- No change
--- Copy guitar to bass if empty
--- Copy guitar to bass
--- Keys on guitar/bass if empty
--- Keys on guitar
--- Keys on bass
--- Copy drums to guitar/bass
--- Copy drums to guitar/bass if empty
+batchPartPresetsRB3 :: [(T.Text, SongYaml f -> TargetRB3 f -> TargetRB3 f)]
+batchPartPresetsRB3 =
+  [ ("Default part configuration", \_ -> id)
+  , ("Copy guitar to bass/keys if empty", \song tgt -> tgt
+    { rb3_Bass = if partHasFive song FlexBass then FlexBass else FlexGuitar
+    , rb3_Keys = if partHasFive song FlexKeys then FlexKeys else FlexGuitar
+    })
+  , ("Copy guitar to bass/keys", \song tgt -> tgt
+    { rb3_Bass = FlexGuitar
+    , rb3_Keys = FlexGuitar
+    })
+  , ("Copy drums to guitar/bass/keys if empty", \song tgt -> tgt
+    { rb3_Guitar = if partHasFive song FlexGuitar then FlexGuitar else FlexDrums
+    , rb3_Bass   = if partHasFive song FlexBass   then FlexBass   else FlexDrums
+    , rb3_Keys   = if partHasFive song FlexKeys   then FlexKeys   else FlexDrums
+    })
+  , ("Copy drums to guitar/bass/keys", \song tgt -> tgt
+    { rb3_Guitar = FlexGuitar
+    , rb3_Bass   = FlexGuitar
+    , rb3_Keys   = FlexGuitar
+    })
+  ]
 
--- CH:
--- No change
--- Copy drums to guitar
--- Copy drums to guitar if empty
+batchPartPresetsRB2 :: [(T.Text, SongYaml f -> TargetRB2 -> TargetRB2)]
+batchPartPresetsRB2 =
+  [ ("Default part configuration", \_ -> id)
+  , ("Copy guitar to bass if empty", \song tgt -> tgt
+    { rb2_Bass = if partHasFive song FlexBass then FlexBass else FlexGuitar
+    })
+  , ("Copy guitar to bass", \song tgt -> tgt
+    { rb2_Bass = FlexGuitar
+    })
+  , ("Keys on guitar/bass if empty", \song tgt -> tgt
+    { rb2_Guitar = if partHasFive song FlexGuitar then FlexGuitar else FlexKeys
+    , rb2_Bass   = if partHasFive song FlexBass   then FlexBass else FlexKeys
+    })
+  , ("Keys on guitar", \song tgt -> tgt
+    { rb2_Guitar = FlexKeys
+    })
+  , ("Keys on bass", \song tgt -> tgt
+    { rb2_Bass = FlexGuitar
+    })
+  , ("Copy drums to guitar/bass if empty", \song tgt -> tgt
+    { rb2_Guitar = if partHasFive song FlexGuitar then FlexGuitar else FlexDrums
+    , rb2_Bass   = if partHasFive song FlexBass   then FlexBass   else FlexDrums
+    })
+  , ("Copy drums to guitar/bass", \song tgt -> tgt
+    { rb2_Guitar = FlexGuitar
+    , rb2_Bass   = FlexGuitar
+    })
+  ]
+
+batchPartPresetsCH :: [(T.Text, SongYaml f -> TargetPS -> TargetPS)]
+batchPartPresetsCH =
+  [ ("Default part configuration", \_ -> id)
+  , ("Copy drums to guitar if empty", \song tgt -> tgt
+    { ps_Guitar = if partHasFive song FlexGuitar then FlexGuitar else FlexDrums
+    })
+  , ("Copy drums to guitar", \song tgt -> tgt
+    { ps_Guitar = FlexGuitar
+    })
+  ]
+
+makePresetDropdown :: Rectangle -> [(T.Text, a)] -> IO (IO a)
+makePresetDropdown rect opts = do
+  let (initialLabel, initialOpt) = head opts
+  menu <- FL.menuButtonNew rect $ Just initialLabel
+  ref <- newIORef $ snd $ head opts
+  forM_ opts $ \(label, opt) -> do
+    -- need to escape in menu items (but not button label) to not make submenus
+    let label' = T.replace "/" "\\/" label
+    FL.add menu label' Nothing
+      ((Just $ \_ -> do
+        writeIORef ref opt
+        FL.setLabel menu label
+      ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
+      (FL.MenuItemFlags [])
+  return $ readIORef ref
 
 data GBKOption
   = GBKUnchanged
@@ -1540,13 +1600,8 @@ batchPageRB2 sink rect tab build = do
   getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
-  getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    fn <- horizRadio rect'
-      [ ("Guitar/Bass", GBKUnchanged, True)
-      , ("Keys on Guitar", SwapGuitarKeys, False)
-      , ("Keys on Bass", SwapBassKeys, False)
-      ]
-    return $ fromMaybe GBKUnchanged <$> fn
+  getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    makePresetDropdown rect' batchPartPresetsRB2
   getKicks <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     fn <- horizRadio rect'
       [ ("1x Bass Pedal", Kicks1x, False)
@@ -1556,10 +1611,10 @@ batchPageRB2 sink rect tab build = do
     return $ fromMaybe KicksBoth <$> fn
   let getTargetSong usePath template = do
         speed <- getSpeed
-        gbk <- getGBK
+        preset <- getPreset
         kicks <- getKicks
         return $ \proj -> let
-          tgt = applyGBK2 gbk yaml def
+          tgt = preset yaml def
             { rb2_Common = (rb2_Common def)
               { tgt_Speed = Just speed
               , tgt_Label2x = prefLabel2x ?preferences
@@ -1669,11 +1724,14 @@ batchPagePS sink rect tab build = do
   getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
+  getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    makePresetDropdown rect' batchPartPresetsCH
   let getTargetSong usePath template = do
         speed <- getSpeed
+        preset <- getPreset
         return $ \proj -> let
           defPS = def :: TargetPS
-          tgt = defPS
+          tgt = preset (projectSongYaml proj) defPS
             { ps_Common = (ps_Common defPS)
               { tgt_Speed = Just speed
               }
@@ -2578,14 +2636,8 @@ batchPageRB3 sink rect tab build = do
     box <- FL.checkButtonNew rect' (Just "Convert non-Pro Drums to all toms")
     FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
     return $ FL.getValue box
-  getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    fn <- horizRadio rect'
-      [ ("G/B/K unchanged", GBKUnchanged, True)
-      , ("Copy G to K", CopyGuitarToKeys, False)
-      , ("Swap G and K", SwapGuitarKeys, False)
-      , ("Swap B and K", SwapBassKeys, False)
-      ]
-    return $ fromMaybe GBKUnchanged <$> fn
+  getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    makePresetDropdown rect' batchPartPresetsRB3
   getKicks <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     fn <- horizRadio rect'
       [ ("1x Bass Pedal", Kicks1x, False)
@@ -2596,11 +2648,11 @@ batchPageRB3 sink rect tab build = do
   let getTargetSong usePath template = do
         speed <- getSpeed
         toms <- getToms
-        gbk <- getGBK
+        preset <- getPreset
         kicks <- getKicks
         return $ \proj -> let
           defRB3 = def :: TargetRB3 FilePath
-          tgt = applyGBK gbk yaml defRB3
+          tgt = preset yaml defRB3
             { rb3_Common = (rb3_Common defRB3)
               { tgt_Speed = Just speed
               , tgt_Label2x = prefLabel2x ?preferences

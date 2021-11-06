@@ -1,11 +1,13 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
 module DTXMania.DTX where
 
 import           Audio                            (applyPansVols, mixMany)
 import           Control.Applicative              ((<|>))
+import           Control.Arrow                    (first, second)
 import           Control.Concurrent.MVar          (newEmptyMVar, tryPutMVar,
                                                    tryReadMVar)
 import           Control.Monad                    (forM, forM_, guard, void)
@@ -24,12 +26,17 @@ import           Data.Conduit.Audio.SampleRate    (ConverterType (SincMediumQual
                                                    resampleTo)
 import           Data.Conduit.Audio.Sndfile       (sourceSnd)
 import qualified Data.Conduit.List                as CL
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Fixed                       (Pico)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List.Extra                  (nubOrd)
+import           Data.List.Extra                  (groupOn, nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Maybe
+import           Data.Ratio                       (denominator)
+import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
+import           Data.Tuple                       (swap)
 import qualified Data.Vector.Storable             as V
 import           DTXMania.ShiftJIS                (decodeShiftJIS)
 import           DTXMania.XA                      (sourceXA)
@@ -476,3 +483,145 @@ sourceCompressedWAV f = liftIO $ do
           src' <- liftIO $ getSource temp
           source src'
         }
+
+makeDTX :: DTX -> T.Text
+makeDTX DTX{..} = T.unlines $ execWriter $ do
+
+  let gap = tell [""]
+      pair k v = tell ["#" <> k <> ": " <> v]
+      opt k = mapM_ $ pair k
+      bar n channel = pair $ T.takeEnd 3 ("000" <> T.pack (show n)) <> channel
+
+  tell ["; Created by Onyx"] -- TODO add version
+  gap
+
+  opt "TITLE" dtx_TITLE
+  opt "ARTIST" dtx_ARTIST
+  opt "PREIMAGE" $ T.pack <$> dtx_PREIMAGE
+  opt "COMMENT" dtx_COMMENT
+  opt "GENRE" dtx_GENRE
+  opt "PREVIEW" $ T.pack <$> dtx_PREVIEW
+  opt "STAGEFILE" $ T.pack <$> dtx_STAGEFILE
+  gap
+
+  opt "DLEVEL" $ T.pack . show <$> dtx_DLEVEL
+  opt "GLEVEL" $ T.pack . show <$> dtx_GLEVEL
+  opt "BLEVEL" $ T.pack . show <$> dtx_BLEVEL
+  opt "DLVDEC" $ T.pack . show <$> dtx_DLVDEC
+  opt "GLVDEC" $ T.pack . show <$> dtx_GLVDEC
+  opt "BLVDEC" $ T.pack . show <$> dtx_BLVDEC
+  gap
+
+  let allWAVs = Set.toList $ Set.fromList $ HM.keys dtx_WAV <> HM.keys dtx_VOLUME <> HM.keys dtx_PAN
+  forM_ allWAVs $ \chip -> do
+    opt ("WAV" <> chip) $ T.pack <$> HM.lookup chip dtx_WAV
+    opt ("VOLUME" <> chip) $ T.pack . show <$> HM.lookup chip dtx_VOLUME
+    opt ("PAN" <> chip) $ T.pack . show <$> HM.lookup chip dtx_PAN
+  gap
+
+  forM_ (HM.toList dtx_AVI) $ \(chip, f) -> pair ("AVI" <> chip) (T.pack f)
+  gap
+
+  let showDecimal r = T.dropWhileEnd (== '.') $ T.dropWhileEnd (== '0') $ T.pack $ show (realToFrac r :: Pico)
+
+  tell ["; Time signatures"]
+  forM_ (ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.measureMapToLengths dtx_MeasureMap) $ \(sigPosn, len) -> let
+    (sigBar, _sigBeats) = U.applyMeasureMap dtx_MeasureMap sigPosn -- _sigBeats should be 0
+    fraction44 = len / 4
+    in bar sigBar "02" $ showDecimal fraction44
+  gap
+
+  let alphaNumChips = do
+        let chars = ['0' .. '9'] <> ['A' .. 'Z']
+        x <- chars
+        y <- chars
+        guard $ x /= '0' || y /= '0'
+        return $ T.pack [x, y]
+      tempoRefs = zip alphaNumChips $ Set.toList $ Set.fromList $ RTB.getBodies $ U.tempoMapToBPS dtx_TempoMap
+      tempoLookup = Map.fromList $ map swap tempoRefs
+  forM_ tempoRefs $ \(chip, bps) -> pair ("BPM" <> chip) $ showDecimal $ bps * 60
+  gap
+
+  let eachBar rtb f = let
+        barGroups
+          = groupOn (\((msr, _), _) -> msr)
+          $ map (first $ U.applyMeasureMap dtx_MeasureMap)
+          $ ATB.toPairList
+          $ RTB.toAbsoluteEventList 0 rtb
+        in forM_ barGroups $ \barGroup -> case barGroup of
+          [] -> return () -- shouldn't happen
+          ((i, _), _) : _ -> let
+            barLength = U.unapplyMeasureMap dtx_MeasureMap (i + 1, 0) - U.unapplyMeasureMap dtx_MeasureMap (i, 0)
+            barOffsetToFraction :: U.Beats -> Rational
+            barOffsetToFraction bts = realToFrac $ bts / barLength
+            in f i $ map (\((_, bts), x) -> (barOffsetToFraction bts, x)) barGroup
+      makeBar :: [(Rational, Chip)] -> T.Text
+      makeBar chips = let
+        denom = foldr lcm 1 $ map (denominator . fst) chips
+        chips' = map (first $ round . (* realToFrac denom)) chips
+        in T.concat $ do
+          num <- [0 .. denom - 1]
+          return $ fromMaybe "00" $ lookup num chips'
+
+  tell ["; BPM changes"]
+  eachBar (U.tempoMapToBPS dtx_TempoMap) $ \barNumber changes -> do
+    bar barNumber "08" $ makeBar $ map (second $ \bps -> fromMaybe "ZZ" $ Map.lookup bps tempoLookup) changes
+  gap
+
+  let splitEvents events = do
+        group <- nubOrd $ map (\(_, (g, _)) -> g) events
+        return (group, mapMaybe (\(t, (g, x)) -> guard (g == group) >> Just (t, x)) events)
+
+  eachBar dtx_Drums $ \barNumber chips -> do
+    tell ["; Drums bar " <> T.pack (show barNumber)]
+    forM_ (splitEvents chips) $ \(lane, laneChips) -> do
+      bar barNumber (T.pack ['1', drumChar lane]) $ makeBar laneChips
+    gap
+
+  eachBar dtx_DrumsDummy $ \barNumber chips -> do
+    tell ["; Drums (dummy) bar " <> T.pack (show barNumber)]
+    forM_ (splitEvents chips) $ \(lane, laneChips) -> do
+      bar barNumber (T.pack ['3', drumChar lane]) $ makeBar laneChips
+    gap
+
+  -- TODO maybe ensure sort before lookup
+  let guitarTable = Map.fromList $ map swap guitarMapping
+  eachBar dtx_Guitar $ \barNumber chips -> do
+    tell ["; Guitar bar " <> T.pack (show barNumber)]
+    forM_ (splitEvents chips) $ \(colors, colorsChips) -> do
+      bar barNumber (fromMaybe "ZZ" $ Map.lookup colors guitarTable) $ makeBar colorsChips
+    gap
+
+  eachBar dtx_GuitarWailing $ \barNumber wails -> do
+    tell ["; Guitar wailing bar " <> T.pack (show barNumber)]
+    bar barNumber "28" $ makeBar $ map (\(t, _) -> (t, "01")) wails
+    gap
+
+  -- TODO maybe ensure sort before lookup
+  let bassTable = Map.fromList $ map swap bassMapping
+  eachBar dtx_Bass $ \barNumber chips -> do
+    tell ["; Bass bar " <> T.pack (show barNumber)]
+    forM_ (splitEvents chips) $ \(colors, colorsChips) -> do
+      bar barNumber (fromMaybe "ZZ" $ Map.lookup colors bassTable) $ makeBar colorsChips
+    gap
+
+  eachBar dtx_BassWailing $ \barNumber wails -> do
+    tell ["; Bass wailing bar " <> T.pack (show barNumber)]
+    bar barNumber "A8" $ makeBar $ map (\(t, _) -> (t, "01")) wails
+    gap
+
+  tell ["; BGM"]
+  eachBar dtx_BGM $ \barNumber chips -> do
+    bar barNumber "01" $ makeBar chips
+  gap
+
+  forM_ (HM.toList dtx_BGMExtra) $ \(chan, extra) -> do
+    tell ["; BGM extra channel " <> chan]
+    eachBar extra $ \barNumber chips -> do
+      bar barNumber chan $ makeBar chips
+    gap
+
+  eachBar dtx_Video $ \barNumber chips -> do
+    tell ["; Video bar " <> T.pack (show barNumber)]
+    bar barNumber "54" $ makeBar chips
+  gap
