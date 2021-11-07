@@ -225,13 +225,14 @@ compilation errors.
     If this happens, you can produce a Magma project and then make the needed
     changes before compiling with Magma.
 
-    A few options are available for moving Guitar/Bass/Keys parts:
-    `Copy G to K`, `Swap G and K`, and `Swap B and K`. In all cases, force notes
-    will be applied so charts keep their strum/HOPO notes correct when switched
-    between Keys and Guitar/Bass. If `Copy G to K` is selected and a guitar stem
-    is present, depending on the input format, the guitar audio will either be
-    linked to both guitar and keys (for CON or RBA inputs) or moved to the
-    backing track (for FoF/PS/CH and .rbproj inputs).
+    A few options are available for moving/copying Guitar/Bass/Keys parts,
+    as well as converting drums parts into guitar for an interesting challenge.
+    When moving Keys parts to Guitar/Bass, force notes will be applied so charts
+    keep their correct strum/HOPO notes according to the RB3 keytar algorithm.
+    Note that in some cases (when the input and output both use MOGG audio)
+    the output may assign multiple instruments to the same audio channel
+    indexes, which works in game but will cut out the audio if either player
+    misses.
 
     By default, an input format like Phase Shift that can contain both 1x and
     2x Bass Pedal drums charts will generate two separate songs. If you are
@@ -302,7 +303,7 @@ compilation errors.
         use the pack creator in "Other tools" to combine songs before playing.
 
     PS2 songs have been tested with standard GH2, as well as Guitar Hero II
-    Deluxe.
+    Deluxe. For Guitar Hero II Deluxe 2.0, you can also include drum charts.
 
     For PS2 output, practice mode audio generation can be enabled or disabled.
     Disabling it saves some space, and a significant amount of conversion time.
@@ -378,12 +379,11 @@ compilation errors.
       available tracks. If there is no suitable track for bass, guitar will be
       copied to bass due to the lack of open pulloff support on guitar.
 
-    * There is an audio length limit of about 13 minutes, not due to the game
-      but due to the audio encoding process. This may be fixed in the future.
+    * Stems are not yet supported; all audio goes to the backing track. This
+      will be fixed in a future release.
 
-      In addition, stems are not supported for now, because it would have an
-      even smaller maximum audio length. All audio will be mixed to the backing
-      track.
+      In very long audio tracks, there may be tiny gaps in the audio, almost
+      unnoticeable, due to stitching encoded segments back together.
 
       The stemless audio may behave oddly in multiplayer. It appears the backing
       track is moved towards the center (mono), while the instrument tracks are

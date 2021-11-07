@@ -1,8 +1,7 @@
 # Version history
 
-## 20211105
+## 20211107
 
-* Prerelease version
 * Fixed length limit on GH:WoR audio generation
   * In very long files, there may be tiny gaps caused by
     stitching encoded audio segments together
@@ -12,10 +11,11 @@
   (previously only `track` was supported)
 * Fix importing from GH1/GH2 ARK files split into multiple pieces
 * Allow turning a drums chart into a guitar/bass/keys chart for RB3/RB2/CH
-* Additions for an upcoming version of Guitar Hero II Deluxe
+  * Added a few more options for redirecting parts in batch mode
+* Additions for Guitar Hero II Deluxe 2.0
   * Option to add drums charts
-  * Fix parsing certain DTA scripting constructs in `songs.dtb`
-  * Add a dummy `tracks` entry to prevent some crashes
+  * Fix parsing certain DTA scripting constructs in `songs.dtb` when importing
+  * Tweaks to generated `songs.dtb` data when installing into a DX 2.0 ARK
 
 ## 20210806
 
