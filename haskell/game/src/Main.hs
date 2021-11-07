@@ -125,7 +125,7 @@ startMIDIListen :: (IO [VS.Vector Word8] -> IO a) -> IO a
 startMIDIListen inner = do
   dev <- Rt.defaultInput
   ports <- Rt.listPorts dev
-  case filter (\(_, name) -> "mio:mio" `isPrefixOf` name) ports of
+  case filter (\(_, name) -> "mio" `isPrefixOf` name) ports of
     [] -> do
       putStrLn "Warning: couldn't find the MIDI input"
       inner $ return []

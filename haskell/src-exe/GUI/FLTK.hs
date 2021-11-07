@@ -168,7 +168,7 @@ import qualified System.IO.Streams.TCP                     as TCP
 import           Text.Read                                 (readMaybe)
 
 #ifdef WINDOWS
-import           Foreign                                   (intPtrToPtr, peek)
+import           Foreign                                   (intPtrToPtr)
 import           Graphics.Win32                            (loadIcon)
 import           System.Win32                              (HINSTANCE)
 #endif
@@ -1368,7 +1368,7 @@ batchPartPresetsRB3 =
     { rb3_Bass = if partHasFive song FlexBass then FlexBass else FlexGuitar
     , rb3_Keys = if partHasFive song FlexKeys then FlexKeys else FlexGuitar
     })
-  , ("Copy guitar to bass/keys", \song tgt -> tgt
+  , ("Copy guitar to bass/keys", \_ tgt -> tgt
     { rb3_Bass = FlexGuitar
     , rb3_Keys = FlexGuitar
     })
@@ -1377,10 +1377,10 @@ batchPartPresetsRB3 =
     , rb3_Bass   = if partHasFive song FlexBass   then FlexBass   else FlexDrums
     , rb3_Keys   = if partHasFive song FlexKeys   then FlexKeys   else FlexDrums
     })
-  , ("Copy drums to guitar/bass/keys", \song tgt -> tgt
-    { rb3_Guitar = FlexGuitar
-    , rb3_Bass   = FlexGuitar
-    , rb3_Keys   = FlexGuitar
+  , ("Copy drums to guitar/bass/keys", \_ tgt -> tgt
+    { rb3_Guitar = FlexDrums
+    , rb3_Bass   = FlexDrums
+    , rb3_Keys   = FlexDrums
     })
   ]
 
@@ -1390,26 +1390,26 @@ batchPartPresetsRB2 =
   , ("Copy guitar to bass if empty", \song tgt -> tgt
     { rb2_Bass = if partHasFive song FlexBass then FlexBass else FlexGuitar
     })
-  , ("Copy guitar to bass", \song tgt -> tgt
+  , ("Copy guitar to bass", \_ tgt -> tgt
     { rb2_Bass = FlexGuitar
     })
   , ("Keys on guitar/bass if empty", \song tgt -> tgt
     { rb2_Guitar = if partHasFive song FlexGuitar then FlexGuitar else FlexKeys
-    , rb2_Bass   = if partHasFive song FlexBass   then FlexBass else FlexKeys
+    , rb2_Bass   = if partHasFive song FlexBass   then FlexBass   else FlexKeys
     })
-  , ("Keys on guitar", \song tgt -> tgt
+  , ("Keys on guitar", \_ tgt -> tgt
     { rb2_Guitar = FlexKeys
     })
-  , ("Keys on bass", \song tgt -> tgt
-    { rb2_Bass = FlexGuitar
+  , ("Keys on bass", \_ tgt -> tgt
+    { rb2_Bass = FlexKeys
     })
   , ("Copy drums to guitar/bass if empty", \song tgt -> tgt
     { rb2_Guitar = if partHasFive song FlexGuitar then FlexGuitar else FlexDrums
     , rb2_Bass   = if partHasFive song FlexBass   then FlexBass   else FlexDrums
     })
-  , ("Copy drums to guitar/bass", \song tgt -> tgt
-    { rb2_Guitar = FlexGuitar
-    , rb2_Bass   = FlexGuitar
+  , ("Copy drums to guitar/bass", \_ tgt -> tgt
+    { rb2_Guitar = FlexDrums
+    , rb2_Bass   = FlexDrums
     })
   ]
 
@@ -1419,8 +1419,14 @@ batchPartPresetsCH =
   , ("Copy drums to guitar if empty", \song tgt -> tgt
     { ps_Guitar = if partHasFive song FlexGuitar then FlexGuitar else FlexDrums
     })
-  , ("Copy drums to guitar", \song tgt -> tgt
-    { ps_Guitar = FlexGuitar
+  , ("Copy drums to guitar", \_ tgt -> tgt
+    { ps_Guitar = FlexDrums
+    })
+  , ("Copy drums to rhythm if empty", \song tgt -> tgt
+    { ps_Rhythm = if partHasFive song $ FlexExtra "rhythm" then FlexExtra "rhythm" else FlexDrums
+    })
+  , ("Copy drums to rhythm", \_ tgt -> tgt
+    { ps_Rhythm = FlexDrums
     })
   ]
 
@@ -1428,7 +1434,7 @@ makePresetDropdown :: Rectangle -> [(T.Text, a)] -> IO (IO a)
 makePresetDropdown rect opts = do
   let (initialLabel, initialOpt) = head opts
   menu <- FL.menuButtonNew rect $ Just initialLabel
-  ref <- newIORef $ snd $ head opts
+  ref <- newIORef initialOpt
   forM_ opts $ \(label, opt) -> do
     -- need to escape in menu items (but not button label) to not make submenus
     let label' = T.replace "/" "\\/" label
@@ -1439,39 +1445,6 @@ makePresetDropdown rect opts = do
       ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
       (FL.MenuItemFlags [])
   return $ readIORef ref
-
-data GBKOption
-  = GBKUnchanged
-  | CopyGuitarToKeys
-  | SwapGuitarKeys
-  | SwapBassKeys
-  deriving (Eq, Show)
-
-applyGBK :: GBKOption -> SongYaml f -> TargetRB3 f -> TargetRB3 f
-applyGBK gbk song tgt = case gbk of
-  GBKUnchanged -> tgt
-  CopyGuitarToKeys -> if hasFive FlexGuitar
-    then tgt { rb3_Keys = FlexGuitar }
-    else tgt
-  SwapGuitarKeys -> if hasFive FlexKeys
-    then tgt { rb3_Guitar = FlexKeys, rb3_Keys = FlexGuitar }
-    else tgt
-  SwapBassKeys -> if hasFive FlexKeys
-    then tgt { rb3_Bass = FlexKeys, rb3_Keys = FlexBass }
-    else tgt
-  where hasFive flex = isJust $ getPart flex song >>= partGRYBO
-
-applyGBK2 :: GBKOption -> SongYaml f -> TargetRB2 -> TargetRB2
-applyGBK2 gbk song tgt = case gbk of
-  GBKUnchanged -> tgt
-  CopyGuitarToKeys -> tgt
-  SwapGuitarKeys -> if hasFive FlexKeys
-    then tgt { rb2_Guitar = FlexKeys }
-    else tgt
-  SwapBassKeys -> if hasFive FlexKeys
-    then tgt { rb2_Bass = FlexKeys }
-    else tgt
-  where hasFive flex = isJust $ getPart flex song >>= partGRYBO
 
 data RB3Create
   = RB3CON FilePath
