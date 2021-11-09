@@ -41,7 +41,7 @@ import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    edgeBlipsRB, splitEdges)
 import           RockBand.Sections                (makeGH2Section)
 import           RockBand3                        (BasicTiming (..),
-                                                   basicTiming)
+                                                   basicTiming, drumsToFive)
 import qualified RockBand3                        as RB3
 import qualified Sound.MIDI.Util                  as U
 
@@ -102,10 +102,12 @@ computeGH2Audio
   -> (F.FlexPartName -> Bool) -- True if part has own audio
   -> StackTraceT m GH2Audio
 computeGH2Audio song target hasAudio = do
-  -- TODO support drums->guitar
-  gh2LeadTrack <- case getPart (gh2_Guitar target) song >>= partGRYBO of
-    Nothing -> fatal "computeGH2Audio: no lead guitar part selected"
-    Just _  -> return $ gh2_Guitar target
+  let hasFiveOrDrums = \case
+        Nothing   -> False
+        Just part -> isJust (partGRYBO part) || isJust (partDrums part)
+  gh2LeadTrack <- if hasFiveOrDrums $ getPart (gh2_Guitar target) song
+    then return $ gh2_Guitar target
+    else fatal "computeGH2Audio: no lead guitar part selected"
   gh2DrumTrack <- case getPart (gh2_Drums target) song >>= partDrums of
     Nothing -> return Nothing
     Just _  -> return $ do
@@ -114,9 +116,9 @@ computeGH2Audio song target hasAudio = do
   let specifiedCoop = case gh2_Coop target of
         GH2Bass   -> gh2_Bass   target
         GH2Rhythm -> gh2_Rhythm target
-      (gh2CoopTrack, gh2CoopType) = case getPart specifiedCoop song >>= partGRYBO of
-        Nothing -> (gh2LeadTrack , GH2Rhythm      )
-        Just _  -> (specifiedCoop, gh2_Coop target)
+      (gh2CoopTrack, gh2CoopType) = if hasFiveOrDrums $ getPart specifiedCoop song
+        then (specifiedCoop, gh2_Coop target)
+        else (gh2LeadTrack , GH2Rhythm      )
       leadAudio = hasAudio gh2LeadTrack
       coopAudio = gh2LeadTrack /= gh2CoopTrack && hasAudio gh2CoopTrack
       drumAudio = maybe False hasAudio gh2DrumTrack
@@ -239,7 +241,16 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
             RB.HandMap_Chord_A   -> HandMap_Default
           }
       makeGRYBO fpart = case getPart fpart song >>= partGRYBO of
-        Nothing -> return mempty
+        Nothing -> case getPart fpart song >>= partDrums of
+          Nothing -> return mempty
+          Just pd -> let
+            trackOrig = buildDrumTarget
+              (if gh2_2xBassPedal target then DrumTargetRB2x else DrumTargetRB1x)
+              pd
+              (timingEnd timing)
+              tmap
+              (F.getFlexPart fpart onyx)
+            in makePartGuitar fpart $ drumsToFive inputMid trackOrig
         Just grybo -> let
           src = F.getFlexPart fpart onyx
           (trackOrig, algo) = getFive src

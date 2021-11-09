@@ -1812,18 +1812,22 @@ batchPageGH2 sink rect tab build = do
         drumChoice <- getDrumChoice
         go $ \proj -> let
           defGH2 = def :: TargetGH2
-          hasPart p = isJust $ HM.lookup p (getParts $ _parts $ projectSongYaml proj) >>= partGRYBO
+          hasPart p = case HM.lookup p $ getParts $ _parts $ projectSongYaml proj of
+            Nothing   -> False
+            Just part -> isJust (partGRYBO part) || isJust (partDrums part)
           leadPart = listToMaybe $ filter hasPart
             [ FlexGuitar
             , FlexExtra "rhythm"
             , FlexKeys
             , FlexBass
+            , FlexDrums
             ]
           coopPart = listToMaybe $ filter (\(p, _) -> hasPart p && leadPart /= Just p)
             [ (FlexGuitar        , GH2Rhythm)
             , (FlexExtra "rhythm", GH2Rhythm)
             , (FlexBass          , GH2Bass  )
             , (FlexKeys          , GH2Rhythm)
+            , (FlexDrums         , GH2Rhythm)
             ]
           tgt = defGH2
             { gh2_Common = (gh2_Common defGH2)
@@ -2466,21 +2470,22 @@ songPageGH2 sink rect tab proj build = mdo
       tell $ getSpeed >>= \speed -> return $ Endo $ \gh2 ->
         gh2 { gh2_Common = (gh2_Common gh2) { tgt_Speed = Just speed } }
       return counter
+    let hasFiveOrDrums p = isJust (partGRYBO p) || isJust (partDrums p)
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar"     , gh2_Guitar    , (\v gh2 -> gh2 { gh2_Guitar       = v })
-        , isJust . partGRYBO
+        , hasFiveOrDrums
         )
       ]
     fullWidth 50 $ \rect' -> do
       let [bassArea, coopArea, rhythmArea] = splitHorizN 3 rect'
       void $ partSelectors bassArea proj
         [ ( "Bass"       , gh2_Bass      , (\v gh2 -> gh2 { gh2_Bass         = v })
-          , isJust . partGRYBO
+          , hasFiveOrDrums
           )
         ]
       controlRhythm <- partSelectors rhythmArea proj
         [ ( "Rhythm"     , gh2_Rhythm      , (\v gh2 -> gh2 { gh2_Rhythm         = v })
-          , isJust . partGRYBO
+          , hasFiveOrDrums
           )
         ]
       coopPart <- liftIO $ newIORef GH2Bass

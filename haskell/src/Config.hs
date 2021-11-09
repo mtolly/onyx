@@ -45,7 +45,8 @@ import           Data.Traversable
 import qualified Data.Vector                      as V
 import           DeriveHelpers
 import           GHC.Generics                     (Generic (..))
-import           OneFoot                          (phaseShiftKicks)
+import           OneFoot                          (phaseShiftKicks, rockBand1x,
+                                                   rockBand2x)
 import           Preferences                      (MagmaSetting (..))
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.Drums             as D
@@ -1614,6 +1615,11 @@ buildDrumTarget tgt pd timingEnd tmap opart = let
     DrumTargetRB2x -> True
     _              -> False
 
+  stepRBKicks = case tgt of
+    DrumTargetRB1x -> rockBand1x
+    DrumTargetRB2x -> rockBand2x
+    _              -> id
+
   drumEachDiff f dt = dt { D.drumDifficulties = fmap f $ D.drumDifficulties dt }
   step5to4 = if drumsMode pd == Drums5 && isRBTarget
     then drumEachDiff $ \dd -> dd
@@ -1651,4 +1657,4 @@ buildDrumTarget tgt pd timingEnd tmap opart = let
   -- TODO pro to 5 conversion (for GH target)
   -- Move logic from Neversoft.Export to here
 
-  in stepToms $ step5to4 $ stepAddKicks src
+  in stepToms $ step5to4 $ stepRBKicks $ stepAddKicks src

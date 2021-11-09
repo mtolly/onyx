@@ -33,6 +33,7 @@ import           Data.Text.Encoding             (encodeUtf8)
 import           GuitarHeroII.Ark               (GH2Installation (..),
                                                  GameGH (..), addBonusSong,
                                                  detectGameGH)
+import           GuitarHeroII.Convert           (adjustSongText)
 import           Import.Amplitude2016           (importAmplitude)
 import           Import.Base                    (ImportLevel (..), saveImport)
 import           Import.BMS                     (importBMS)
@@ -335,7 +336,7 @@ installGH2 gh2 proj gen = do
       , "Album: "  <> getAlbum  (_metadata $ projectSongYaml proj)
       , "Author: " <> getAuthor (_metadata $ projectSongYaml proj)
       ]
-    , gh2i_author           = toBytes <$> _author (_metadata $ projectSongYaml proj)
+    , gh2i_author           = toBytes . adjustSongText <$> _author (_metadata $ projectSongYaml proj)
     , gh2i_album_art        = Just $ dir </> "cover.png_ps2"
     , gh2i_files            = filePairs
     , gh2i_sort             = sortBonus

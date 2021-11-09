@@ -9,6 +9,7 @@ module RockBand3
 , magmaLegalTempos
 , basicTiming, BasicTiming(..)
 , makeMoods
+, drumsToFive
 ) where
 
 import           Config
@@ -359,6 +360,40 @@ addFiveMoods tempos timing ft = ft
     else fiveMood ft
   }
 
+drumsToFive
+  :: RBFile.Song (RBFile.OnyxFile U.Beats)
+  -> DrumTrack U.Beats
+  -> FiveTrack U.Beats
+drumsToFive song drums = FiveTrack
+  -- Simple conversion of drums chart to 5-fret
+  { fiveDifficulties = flip fmap (drumDifficulties drums) $ \dd ->
+    emit5' $ strumHOPOTap' HOPOsRBGuitar (170/480) $ flip fmap (drumGems dd) $ \(gem, _velocity) -> let
+      color = case gem of
+        RBDrums.Kick                 -> RBFive.Green
+        RBDrums.Red                  -> RBFive.Red
+        RBDrums.Pro RBDrums.Yellow _ -> RBFive.Yellow
+        RBDrums.Pro RBDrums.Blue   _ -> RBFive.Blue
+        RBDrums.Pro RBDrums.Green  _ -> RBFive.Orange
+        RBDrums.Orange               -> RBFive.Orange -- won't happen because we called buildDrums with RB3 target
+      in (Just color, Nothing)
+  , fiveMood         = drumMood drums
+  , fiveHandMap      = RTB.empty
+  , fiveStrumMap     = RTB.empty
+  , fiveFretPosition = RTB.empty
+  , fiveTremolo      = RTB.empty -- TODO include these sometimes?
+  , fiveTrill        = RTB.empty -- TODO include these sometimes?
+  , fiveOverdrive    = drumOverdrive drums
+  , fiveBRE          = let
+    -- only copy over a fill that is actually a BRE
+    coda = fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song
+    in case coda of
+      Nothing -> RTB.empty
+      Just c  -> RTB.delay c $ U.trackDrop c $ drumActivation drums
+  , fiveSolo         = drumSolo drums
+  , fivePlayer1      = drumPlayer1 drums
+  , fivePlayer2      = drumPlayer2 drums
+  }
+
 buildFive
   :: RBFile.FlexPartName
   -> Either (TargetRB3 f) TargetPS
@@ -387,35 +422,7 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
         }
     in case buildDrums fivePart target' song timing songYaml of
       Nothing    -> Nothing
-      Just drums -> Just FiveTrack
-        -- Simple conversion of drums chart to 5-fret
-        { fiveDifficulties = flip fmap (drumDifficulties drums) $ \dd ->
-          emit5' $ strumHOPOTap' HOPOsRBGuitar (170/480) $ flip fmap (drumGems dd) $ \(gem, _velocity) -> let
-            color = case gem of
-              RBDrums.Kick                 -> RBFive.Green
-              RBDrums.Red                  -> RBFive.Red
-              RBDrums.Pro RBDrums.Yellow _ -> RBFive.Yellow
-              RBDrums.Pro RBDrums.Blue   _ -> RBFive.Blue
-              RBDrums.Pro RBDrums.Green  _ -> RBFive.Orange
-              RBDrums.Orange               -> RBFive.Orange -- won't happen because we called buildDrums with RB3 target
-            in (Just color, Nothing)
-        , fiveMood         = drumMood drums
-        , fiveHandMap      = RTB.empty
-        , fiveStrumMap     = RTB.empty
-        , fiveFretPosition = RTB.empty
-        , fiveTremolo      = RTB.empty -- TODO include these sometimes?
-        , fiveTrill        = RTB.empty -- TODO include these sometimes?
-        , fiveOverdrive    = drumOverdrive drums
-        , fiveBRE          = let
-          -- only copy over a fill that is actually a BRE
-          coda = fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song
-          in case coda of
-            Nothing -> RTB.empty
-            Just c  -> RTB.delay c $ U.trackDrop c $ drumActivation drums
-        , fiveSolo         = drumSolo drums
-        , fivePlayer1      = drumPlayer1 drums
-        , fivePlayer2      = drumPlayer2 drums
-        }
+      Just drums -> Just $ drumsToFive song drums
   Just grybo -> Just $ let
     src = RBFile.getFlexPart fivePart trks
     gtrType = case (target, toKeys) of

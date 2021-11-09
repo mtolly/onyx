@@ -1,12 +1,19 @@
 # Version history
 
+## 20211108
+
+* Minor fixes to Guitar Hero II Deluxe support
+  * Fix transferring 2x Bass Pedal from Clone Hero X+ format
+  * Replace ampersand with plus in author name
+  * Allow converting drums to guitar for GH2, and use it for drums-only songs
+
 ## 20211107
 
 * Fixed length limit on GH:WoR audio generation
   * In very long files, there may be tiny gaps caused by
     stitching encoded audio segments together
   * Stems will be supported in a future release
-* Support new Clone Hero MIDI formats for tap and open notes
+* Support (on import) new Clone Hero MIDI formats for tap and open notes
 * Import and export `album_track` in CH/PS `song.ini`
   (previously only `track` was supported)
 * Fix importing from GH1/GH2 ARK files split into multiple pieces
