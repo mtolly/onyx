@@ -741,7 +741,7 @@ instance StackJSON Kicks where
     Kicks2x   -> is (A.Number 2) |?> is "2"
     KicksBoth -> is "both"
 
-data PartDrums = PartDrums
+data PartDrums f = PartDrums
   { drumsDifficulty  :: Difficulty
   , drumsMode        :: DrumMode
   , drumsKicks       :: Kicks
@@ -749,9 +749,10 @@ data PartDrums = PartDrums
   , drumsKit         :: DrumKit
   , drumsLayout      :: DrumLayout
   , drumsFallback    :: OrangeFallback
-  } deriving (Eq, Ord, Show)
+  , drumsFileDTXKit  :: Maybe f
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance StackJSON PartDrums where
+instance (Eq f, StackJSON f) => StackJSON (PartDrums f) where
   stackJSON = asStrictObject "PartDrums" $ do
     drumsDifficulty  <- drumsDifficulty  =. fill    (Tier 1)       "difficulty"   stackJSON
     drumsMode        <- drumsMode        =. opt     DrumsPro       "mode"         stackJSON
@@ -760,6 +761,7 @@ instance StackJSON PartDrums where
     drumsKit         <- drumsKit         =. opt     HardRockKit    "kit"          stackJSON
     drumsLayout      <- drumsLayout      =. opt     StandardLayout "layout"       stackJSON
     drumsFallback    <- drumsFallback    =. opt     FallbackGreen  "fallback"     stackJSON
+    drumsFileDTXKit  <- drumsFileDTXKit  =. opt     Nothing        "file-dtx-kit" stackJSON
     return PartDrums{..}
 
 data VocalCount = Vocal1 | Vocal2 | Vocal3
@@ -853,7 +855,7 @@ data Part f = Part
   , partGHL       :: Maybe PartGHL
   , partProKeys   :: Maybe PartProKeys
   , partProGuitar :: Maybe (PartProGuitar f)
-  , partDrums     :: Maybe PartDrums
+  , partDrums     :: Maybe (PartDrums f)
   , partVocal     :: Maybe (PartVocal f)
   , partAmplitude :: Maybe PartAmplitude
   , partMelody    :: Maybe PartMelody
@@ -1383,6 +1385,27 @@ instance StackJSON TargetGH3 where
 instance Default TargetGH3 where
   def = fromEmptyObject
 
+data TargetDTX = TargetDTX
+  { dtx_Common :: TargetCommon
+  , dtx_Drums  :: FlexPartName
+  , dtx_Guitar :: FlexPartName
+  , dtx_Bass   :: FlexPartName
+  } deriving (Eq, Ord, Show, Generic, Hashable)
+
+parseTargetDTX :: (SendMessage m) => ObjectCodec m A.Value TargetDTX
+parseTargetDTX = do
+  dtx_Common  <- dtx_Common  =. parseTargetCommon
+  dtx_Guitar  <- dtx_Guitar  =. opt FlexGuitar    "guitar"       stackJSON
+  dtx_Bass    <- dtx_Bass    =. opt FlexBass      "bass"         stackJSON
+  dtx_Drums   <- dtx_Drums   =. opt FlexDrums     "drums"        stackJSON
+  return TargetDTX{..}
+
+instance StackJSON TargetDTX where
+  stackJSON = asStrictObject "TargetDTX" parseTargetDTX
+
+instance Default TargetDTX where
+  def = fromEmptyObject
+
 data RSArrModifier
   = RSDefault
   | RSBonus
@@ -1478,6 +1501,7 @@ data Target f
   | GH3    TargetGH3
   | GH5    TargetGH5
   | RS     TargetRS
+  | DTX    TargetDTX
   | Melody TargetPart
   | Konga  TargetPart
   deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
@@ -1491,6 +1515,7 @@ targetCommon = \case
   GH3    TargetGH3 {..} -> gh3_Common
   GH5    TargetGH5 {..} -> gh5_Common
   RS     TargetRS  {..} -> rs_Common
+  DTX    TargetDTX {..} -> dtx_Common
   Melody TargetPart{..} -> tgt_Common
   Konga  TargetPart{..} -> tgt_Common
 
@@ -1510,6 +1535,7 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
         "gh3"    -> fmap GH3    fromJSON
         "gh5"    -> fmap GH5    fromJSON
         "rs"     -> fmap RS     fromJSON
+        "dtx"    -> fmap DTX    fromJSON
         "melody" -> fmap Melody fromJSON
         "konga"  -> fmap Konga  fromJSON
         _        -> fatal $ "Unrecognized target game: " ++ show target
@@ -1521,6 +1547,7 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
       GH3    gh3 -> addKey parseTargetGH3  "game" "gh3"    gh3
       GH5    gh5 -> addKey parseTargetGH5  "game" "gh5"    gh5
       RS     rs  -> addKey parseTargetRS   "game" "rs"     rs
+      DTX    dtx -> addKey parseTargetDTX  "game" "dtx"    dtx
       Melody tgt -> addKey parseTargetPart "game" "melody" tgt
       Konga  tgt -> addKey parseTargetPart "game" "konga"  tgt
     }
@@ -1586,7 +1613,7 @@ data DrumTarget
 
 buildDrumTarget
   :: DrumTarget
-  -> PartDrums
+  -> PartDrums f
   -> U.Beats
   -> U.TempoMap
   -> RBFile.OnyxPart U.Beats

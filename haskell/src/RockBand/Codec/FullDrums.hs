@@ -64,7 +64,7 @@ data FullGem
   | Tom3
   | CrashR
   | Ride
-  deriving (Eq, Ord, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data FullGemType
   = GemNormal
@@ -72,7 +72,7 @@ data FullGemType
   | GemHihatClosed
   | GemCymbalChoke
   | GemRim
-  deriving (Eq, Ord, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance ParseTrack FullDrumTrack where
   parseTrack = do

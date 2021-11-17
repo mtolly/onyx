@@ -307,6 +307,7 @@ buildTarget yamlPath opts = do
         GH3   {} -> undefined -- TODO
         GH5   {} -> undefined -- TODO
         RS    {} -> undefined -- TODO
+        DTX   {} -> undefined -- TODO
         Melody{} -> undefined -- TODO
         Konga {} -> undefined -- TODO
   shakeBuildFiles audioDirs yamlPath [built]
@@ -413,6 +414,7 @@ commands =
                 GH3   {} -> undefined -- TODO
                 GH5   {} -> undefined -- TODO
                 RS    {} -> undefined -- TODO
+                DTX   {} -> undefined -- TODO
                 Melody{} -> undefined -- TODO
                 Konga {} -> undefined -- TODO
           doInstall ftype' built

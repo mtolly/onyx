@@ -42,7 +42,9 @@ import           DTXMania.ShiftJIS                (decodeShiftJIS)
 import           DTXMania.XA                      (sourceXA)
 import           Numeric
 import           OSFiles                          (fixFileCase)
+import qualified RockBand.Codec.Drums             as D
 import qualified RockBand.Codec.Five              as Five
+import qualified RockBand.Codec.FullDrums         as FD
 import           RockBand.Common                  (pattern RNil, pattern Wait)
 import qualified Sound.MIDI.Util                  as U
 import qualified System.Directory                 as Dir
@@ -152,15 +154,18 @@ drumGDA = \case
   LeftPedal  -> Just "LP" -- guess from DTXC
   LeftBass   -> Just "LB" -- guess from DTXC
 
-guitarMapping :: [(Channel, [Five.Color])]
-guitarMapping = execWriter $ do
+guitarMapping :: DTXFormat -> [(Channel, [Five.Color])]
+guitarMapping fmt = execWriter $ do
   let x chan cols = tell [(chan, cols)]
       n1 = Five.Green  -- red in GF
       n2 = Five.Red    -- green in GF
       n3 = Five.Yellow -- blue in GF
       n4 = Five.Blue   -- yellow in GF
       n5 = Five.Orange -- purple in GF
-  forM_ ['2', 'G'] $ \c -> do
+      lowFretChars = case fmt of
+        FormatDTX -> ['2']
+        FormatGDA -> ['2', 'G']
+  forM_ lowFretChars $ \c -> do
     x (T.cons c "0") []
     x (T.cons c "1") [n3]
     x (T.cons c "2") [n2]
@@ -303,7 +308,7 @@ readDTXLines fmt lns = DTX
   , dtx_TempoMap   = tmap
   , dtx_Drums      = readDrums [Just '1', Nothing]
   , dtx_DrumsDummy = readDrums [Just '3']
-  , dtx_Guitar     = readGuitar guitarMapping
+  , dtx_Guitar     = readGuitar $ guitarMapping fmt
   , dtx_GuitarWailing = void $ foldr RTB.merge RTB.empty $ map getChannel ["28", "G8", "GW"]
   , dtx_Bass       = readGuitar bassMapping
   , dtx_BassWailing = void $ getChannel "A8"
@@ -585,7 +590,7 @@ makeDTX DTX{..} = T.unlines $ execWriter $ do
     gap
 
   -- TODO maybe ensure sort before lookup
-  let guitarTable = Map.fromList $ map swap guitarMapping
+  let guitarTable = Map.fromList $ map swap $ guitarMapping FormatDTX
   eachBar dtx_Guitar $ \barNumber chips -> do
     tell ["; Guitar bar " <> T.pack (show barNumber)]
     forM_ (splitEvents chips) $ \(colors, colorsChips) -> do
@@ -625,3 +630,24 @@ makeDTX DTX{..} = T.unlines $ execWriter $ do
     tell ["; Video bar " <> T.pack (show barNumber)]
     bar barNumber "54" $ makeBar chips
   gap
+
+-- System for hooking up a template (e.g. from APPROVED) to auto-keysound Full Drums
+
+data DTXMapping = DTXMapping FilePath [DTXCondition]
+  deriving (Read)
+
+data DTXCondition
+  = MatchNote     FD.FullGem     DTXCondition
+  | MatchType     FD.FullGemType DTXCondition
+  | MatchVelocity D.DrumVelocity DTXCondition
+  | Chip          Chip
+  | Branch        [DTXCondition]
+  deriving (Read)
+
+lookupDTXMapping :: DTXMapping -> FD.FullDrumNote -> Maybe Chip
+lookupDTXMapping (DTXMapping _ conds) fdn = go $ Branch conds where
+  go (Chip chip)           = Just chip
+  go (MatchNote     n sub) = if n == FD.fdn_gem      fdn then go sub else Nothing
+  go (MatchType     t sub) = if t == FD.fdn_type     fdn then go sub else Nothing
+  go (MatchVelocity v sub) = if v == FD.fdn_velocity fdn then go sub else Nothing
+  go (Branch subs)         = listToMaybe $ mapMaybe go subs

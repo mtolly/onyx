@@ -526,6 +526,7 @@ importFoF src level = do
           , drumsFallback = if fromMaybe False $ FoF.drumFallbackBlue song
             then FallbackBlue
             else FallbackGreen
+          , drumsFileDTXKit = Nothing
           }
         })
       , ( FlexGuitar, def

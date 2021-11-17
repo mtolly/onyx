@@ -158,6 +158,7 @@ importGH5WoR src folder = do
                   , drumsKit         = HardRockKit
                   , drumsLayout      = StandardLayout
                   , drumsFallback    = FallbackGreen
+                  , drumsFileDTXKit  = Nothing
                   }
                 })
               , (RBFile.FlexVocal, def

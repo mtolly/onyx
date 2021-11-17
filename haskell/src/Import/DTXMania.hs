@@ -5,7 +5,7 @@
 module Import.DTXMania where
 
 import           Audio
-import           Config
+import           Config                           hiding (TargetDTX (..))
 import           Control.Monad.Extra              (forM, guard, mapMaybeM,
                                                    unless)
 import           Control.Monad.IO.Class           (MonadIO)
@@ -296,6 +296,7 @@ importSetDef setDefPath song _level = do
           , drumsKit         = HardRockKit
           , drumsLayout      = StandardLayout
           , drumsFallback    = FallbackGreen
+          , drumsFileDTXKit  = Nothing
           }
         }
       , flip fmap topGuitarDiff $ \diff -> (FlexGuitar ,) def

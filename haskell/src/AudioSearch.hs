@@ -1,5 +1,6 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module AudioSearch
 ( AudioLibrary
 , newAudioLibrary
@@ -14,7 +15,7 @@ import           Audio
 import           Config
 import           Control.Concurrent.MVar        (MVar, modifyMVar_, newMVar,
                                                  putMVar, takeMVar)
-import           Control.Monad                  (forM_, join, unless)
+import           Control.Monad                  (forM, forM_, join, unless)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString.Lazy           as BL
@@ -24,6 +25,7 @@ import qualified Data.Digest.Pure.MD5           as MD5
 import           Data.Hashable                  (Hashable)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.HashSet                   as HS
+import           Data.List.Extra                (nubOrd)
 import           Data.Sequence                  (Seq ((:<|)), (<|), (|>))
 import qualified Data.Sequence                  as S
 import qualified Data.Text                      as T
@@ -217,8 +219,8 @@ searchJammit :: (MonadIO m) => AudioLibrary -> (T.Text, T.Text, RB3Instrument) -
 searchJammit = searchCommon SearchJammit audioJammit
 
 searchInfo :: (SendMessage m, MonadIO m) =>
-  FilePath -> AudioLibrary -> AudioInfo FilePath -> StackTraceT m (Audio Duration FilePath)
-searchInfo dir lib ainfo@AudioInfo{..} = let
+  FilePath -> AudioLibrary -> (T.Text -> StackTraceT m FilePath) -> AudioInfo FilePath -> StackTraceT m (Audio Duration FilePath)
+searchInfo dir lib buildDependency ainfo@AudioInfo{..} = let
   finishFile p = do
     verifyFile ainfo p
     return $ case _rate of
@@ -235,7 +237,16 @@ searchInfo dir lib ainfo@AudioInfo{..} = let
         False -> case _commands of
           [] -> fatal $ "File does not exist: " ++ toFilePath p
           _ -> do
-            forM_ _commands $ \c -> do
+            let allVariables = nubOrd $ do
+                  c <- _commands
+                  map (T.takeWhile (/= ')')) $ drop 1 $ T.splitOn "AUDIO(" c
+            variableMapping <- forM allVariables $ \var -> do
+              built <- buildDependency var
+              -- TODO figure out better approach to quoting?
+              return ("AUDIO(" <> var <> ")", T.pack $ "\"" <> built <> "\"")
+            let replaceVar (from, to) c = T.intercalate to $ T.splitOn from c
+                newCommands = flip map _commands $ \c -> foldr replaceVar c variableMapping
+            forM_ newCommands $ \c -> do
               out <- stackProcess (shell $ T.unpack c) { cwd = Just dir }
               lg $ "# " ++ T.unpack c ++ "\n" ++ out
             doesFileExist p >>= \case

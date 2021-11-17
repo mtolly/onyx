@@ -163,7 +163,7 @@ data DrumVelocity
   = VelocityGhost
   | VelocityNormal
   | VelocityAccent
-  deriving (Eq, Ord, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data DrumDifficulty t = DrumDifficulty
   { drumMix         :: RTB.T t (Audio, Disco)

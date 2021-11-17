@@ -96,16 +96,16 @@ jammitPath name (J.Without inst)
   = "gen/jammit" </> T.unpack name </> "without" </> map toLower (show inst) <.> "wav"
 
 -- | Looking up single audio files and Jammit parts in the work directory
-manualLeaf :: (SendMessage m, MonadIO m) => FilePath -> AudioLibrary -> SongYaml FilePath -> AudioInput -> StackTraceT m (Audio Duration FilePath)
-manualLeaf rel alib songYaml (Named name) = case HM.lookup name $ _audio songYaml of
+manualLeaf :: (SendMessage m, MonadIO m) => FilePath -> AudioLibrary -> (T.Text -> StackTraceT m FilePath) -> SongYaml FilePath -> AudioInput -> StackTraceT m (Audio Duration FilePath)
+manualLeaf rel alib buildDependency songYaml (Named name) = case HM.lookup name $ _audio songYaml of
   Just audioQuery -> case audioQuery of
     AudioFile ainfo -> inside ("Looking for the audio file named " ++ show name) $ do
-      aud <- searchInfo rel alib ainfo
+      aud <- searchInfo rel alib buildDependency ainfo
       lg $ "Found audio file " ++ show name ++ " at: " ++ show (toList aud)
       return aud
-    AudioSnippet expr -> join <$> mapM (manualLeaf rel alib songYaml) expr
+    AudioSnippet expr -> join <$> mapM (manualLeaf rel alib buildDependency songYaml) expr
   Nothing -> fatal $ "Couldn't find an audio source named " ++ show name
-manualLeaf rel _ songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
+manualLeaf rel _alib _buildDependency songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
   Just _  -> return $ Input $ rel </> jammitPath name audpart
   Nothing -> fatal $ "Couldn't find a Jammit source named " ++ show name
 
@@ -187,31 +187,33 @@ buildAudioToSpec
   :: (MonadResource m)
   => FilePath
   -> AudioLibrary
+  -> (T.Text -> Staction FilePath)
   -> SongYaml FilePath
   -> [(Double, Double)]
   -> Maybe (PlanAudio Duration AudioInput)
   -> Staction (AudioSource m Float)
-buildAudioToSpec rel alib songYaml pvOut mpa = inside "conforming audio file to output spec" $ do
+buildAudioToSpec rel alib buildDependency songYaml pvOut mpa = inside "conforming audio file to output spec" $ do
   (expr, pans, vols) <- completePlanAudio songYaml
     $ fromMaybe (PlanAudio (Silence 1 $ Frames 0) [] []) mpa
-  src <- mapM (manualLeaf rel alib songYaml) expr >>= lift . lift . buildSource . join
+  src <- mapM (manualLeaf rel alib buildDependency songYaml) expr >>= lift . lift . buildSource . join
   fitToSpec (zip pans vols) pvOut src
 
 buildPartAudioToSpec
   :: (MonadResource m)
   => FilePath
   -> AudioLibrary
+  -> (T.Text -> Staction FilePath)
   -> SongYaml FilePath
   -> [(Double, Double)]
   -> Maybe (PartAudio (PlanAudio Duration AudioInput))
   -> Staction (AudioSource m Float)
-buildPartAudioToSpec rel alib songYaml specPV = \case
-  Nothing -> buildAudioToSpec rel alib songYaml specPV Nothing
-  Just (PartSingle pa) -> buildAudioToSpec rel alib songYaml specPV $ Just pa
+buildPartAudioToSpec rel alib buildDependency songYaml specPV = \case
+  Nothing -> buildAudioToSpec rel alib buildDependency songYaml specPV Nothing
+  Just (PartSingle pa) -> buildAudioToSpec rel alib buildDependency songYaml specPV $ Just pa
   Just (PartDrumKit kick snare kit) -> do
-    kickSrc  <- buildAudioToSpec rel alib songYaml specPV kick
-    snareSrc <- buildAudioToSpec rel alib songYaml specPV snare
-    kitSrc   <- buildAudioToSpec rel alib songYaml specPV $ Just kit
+    kickSrc  <- buildAudioToSpec rel alib buildDependency songYaml specPV kick
+    snareSrc <- buildAudioToSpec rel alib buildDependency songYaml specPV snare
+    kitSrc   <- buildAudioToSpec rel alib buildDependency songYaml specPV $ Just kit
     return $ mix kickSrc $ mix snareSrc kitSrc
 
 -- | Computing a drums instrument's audio for CON/Magma.

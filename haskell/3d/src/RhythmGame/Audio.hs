@@ -40,7 +40,7 @@ import           Path                           (parseAbsDir)
 import           RenderAudio                    (computeChannelsPlan)
 import           Sound.OpenAL                   (($=))
 import qualified Sound.OpenAL                   as AL
-import           System.FilePath                (takeDirectory, (</>))
+import           System.FilePath                (takeDirectory, (<.>), (</>))
 import           System.IO.Temp
 
 {-
@@ -253,7 +253,7 @@ projectAudio k proj = case lookup k $ HM.toList $ _plans $ projectSongYaml proj 
           Named name -> do
             afile <- maybe (fatal "Undefined audio name") return $ HM.lookup name $ _audio $ projectSongYaml proj
             case afile of
-              AudioFile ainfo -> searchInfo (takeDirectory $ projectLocation proj) lib ainfo
+              AudioFile ainfo -> searchInfo (takeDirectory $ projectLocation proj) lib (\n -> shakeBuild1 proj [] $ "gen/audio" </> T.unpack n <.> "wav") ainfo
               AudioSnippet expr -> join <$> mapM evalAudioInput expr
           JammitSelect{} -> fatal "Jammit audio not supported in preview yet" -- TODO
     planAudios' <- forM planAudios $ \planAudio -> do

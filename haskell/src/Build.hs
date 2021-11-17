@@ -54,9 +54,9 @@ import           Data.List.Extra                       (intercalate, nubOrd,
 import           Data.List.NonEmpty                    (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty                    as NE
 import qualified Data.Map                              as Map
-import           Data.Maybe                            (fromMaybe, isJust,
-                                                        isNothing, listToMaybe,
-                                                        mapMaybe)
+import           Data.Maybe                            (catMaybes, fromMaybe,
+                                                        isJust, isNothing,
+                                                        listToMaybe, mapMaybe)
 import           Data.SimpleHandle                     (Folder (..),
                                                         fileReadable)
 import           Data.String                           (IsString, fromString)
@@ -77,6 +77,7 @@ import           Difficulty
 import           DryVox                                (clipDryVox,
                                                         toDryVoxFormat,
                                                         vocalTubes)
+import qualified DTXMania.DTX                          as DTX
 import           FFMPEG                                (audioIntegratedVolume)
 import qualified FretsOnFire                           as FoF
 import           Genre
@@ -85,6 +86,7 @@ import           GuitarHeroII.Audio                    (writeVGS,
 import           GuitarHeroII.Convert
 import qualified GuitarHeroII.Events                   as GH2
 import           GuitarHeroII.File
+import           Guitars                               (guitarify', openNotes')
 import           Image
 import qualified Magma
 import qualified MelodysEscape                         as Melody
@@ -131,6 +133,7 @@ import           RockBand.Codec.Events
 import           RockBand.Codec.File                   (saveMIDI, shakeMIDI)
 import qualified RockBand.Codec.File                   as RBFile
 import           RockBand.Codec.Five
+import qualified RockBand.Codec.FullDrums              as FD
 import           RockBand.Codec.Lipsync                (LipsyncTrack (..))
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.Venue
@@ -171,6 +174,8 @@ import           System.IO                             (IOMode (ReadMode),
                                                         hFileSize,
                                                         withBinaryFile)
 import           System.Random                         (randomRIO)
+import           Text.Decode                           (decodeGeneral)
+import           Text.Read                             (readMaybe)
 import           Text.Transform                        (replaceCharsRB)
 import           WebPlayer                             (makeDisplay)
 
@@ -923,6 +928,16 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             , RBFile.s_tracks = mempty :: RBFile.OnyxFile U.Beats
             }
 
+      let audioDependPath name = rel $ "gen/audio" </> T.unpack name <.> "wav"
+          audioDepend name = do
+            let path = audioDependPath name
+            shk $ need [path]
+            return path
+      forM_ (HM.toList $ _audio songYaml) $ \(name, _) -> do
+        audioDependPath name %> \out -> do
+          src <- manualLeaf yamlDir audioLib audioDepend songYaml $ Named name
+          buildAudio src out
+
       let getAudioLength :: T.Text -> Plan f -> Staction U.Seconds
           getAudioLength planName = \case
             MoggPlan{} -> do
@@ -938,7 +953,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               in case NE.nonEmpty parts of
                 Nothing -> return 0
                 Just parts' -> do
-                  src <- mapM (manualLeaf yamlDir audioLib songYaml) (Mix parts') >>= lift . lift . buildSource . join
+                  src <- mapM (manualLeaf yamlDir audioLib audioDepend songYaml) (Mix parts') >>= lift . lift . buildSource . join
                   let _ = src :: AudioSource (ResourceT IO) Float
                   return $ realToFrac $ fromIntegral (frames src) / rate src
 
@@ -977,7 +992,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit kick _ _) -> fromMaybe [] kick
                   _                           -> []
-              Plan{..}     -> buildAudioToSpec yamlDir audioLib songYaml spec $ do
+              Plan{..}     -> buildAudioToSpec yamlDir audioLib audioDepend songYaml spec $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit kick _ _) -> kick
@@ -992,7 +1007,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit _ snare _) -> fromMaybe [] snare
                   _                            -> []
-              Plan{..}     -> buildAudioToSpec yamlDir audioLib songYaml spec $ do
+              Plan{..}     -> buildAudioToSpec yamlDir audioLib audioDepend songYaml spec $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit _ snare _) -> snare
@@ -1016,7 +1031,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   []     -> build []
                   s : ss -> return $ foldr mix s ss
               Plan{..}     -> let
-                build = buildAudioToSpec yamlDir audioLib songYaml spec
+                build = buildAudioToSpec yamlDir audioLib audioDepend songYaml spec
                 exprs = do
                   guard $ rank /= 0
                   case HM.lookup fpart $ getParts _planParts of
@@ -1034,7 +1049,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             MoggPlan{..} -> channelsToSpec spec (oggWavForPlan planName) (zip _pans _vols) $ do
               guard $ rank /= 0
               toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
-            Plan{..} -> buildPartAudioToSpec yamlDir audioLib songYaml spec $ do
+            Plan{..} -> buildPartAudioToSpec yamlDir audioLib audioDepend songYaml spec $ do
               guard $ rank /= 0
               HM.lookup fpart $ getParts _planParts
           writeStereoParts gameParts tgt mid pad planName plan fpartranks out = do
@@ -1043,7 +1058,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               -> zeroIfMultiple gameParts fpart
               <$> getPartSource spec planName plan fpart rank
             src <- case srcs of
-              []     -> buildAudioToSpec yamlDir audioLib songYaml spec Nothing
+              []     -> buildAudioToSpec yamlDir audioLib audioDepend songYaml spec Nothing
               s : ss -> return $ foldr mix s ss
             runAudio (clampIfSilent $ padAudio pad $ applyTargetAudio tgt mid src) out
           writeSimplePart gameParts tgt mid pad supportsOffMono planName plan fpart rank out = do
@@ -1053,7 +1068,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           writeCrowd tgt mid pad planName plan out = do
             src <- case plan of
               MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] (oggWavForPlan planName) (zip _pans _vols) _moggCrowd
-              Plan{..}     -> buildAudioToSpec yamlDir audioLib songYaml [(-1, 0), (1, 0)] _crowd
+              Plan{..}     -> buildAudioToSpec yamlDir audioLib audioDepend songYaml [(-1, 0), (1, 0)] _crowd
             runAudio (clampIfSilent $ padAudio pad $ applyTargetAudio tgt mid src) out
           sourceSongCountin :: (MonadResource m) => TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan g -> [(RBFile.FlexPartName, Integer)] -> Staction (AudioSource m Float)
           sourceSongCountin tgt mid pad includeCountin planName plan fparts = do
@@ -1081,13 +1096,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 partAudios = maybe id (\pa -> (PartSingle pa :)) _song unusedParts
                 countinPath = rel $ "gen/plan" </> T.unpack planName </> "countin.wav"
                 in do
-                  unusedSrcs <- mapM (buildPartAudioToSpec yamlDir audioLib songYaml spec . Just) partAudios
+                  unusedSrcs <- mapM (buildPartAudioToSpec yamlDir audioLib audioDepend songYaml spec . Just) partAudios
                   if includeCountin
                     then do
                       countinSrc <- shk $ buildSource $ Input countinPath
                       return $ foldr mix countinSrc unusedSrcs
                     else case unusedSrcs of
-                      []     -> buildPartAudioToSpec yamlDir audioLib songYaml spec Nothing
+                      []     -> buildPartAudioToSpec yamlDir audioLib audioDepend songYaml spec Nothing
                       s : ss -> return $ foldr mix s ss
             return $ padAudio pad $ applyTargetAudio tgt mid src
           writeSongCountin :: TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan g -> [(RBFile.FlexPartName, Integer)] -> FilePath -> Staction ()
@@ -3205,6 +3220,156 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             phony (dir </> "gh3") $ do
               shk $ need [pathFsbXen]
 
+          DTX dtx -> do
+
+            (planName, plan) <- case getPlan (tgt_Plan $ dtx_Common dtx) songYaml of
+              Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show dtx
+              Just pair -> return pair
+            let planDir = rel $ "gen/plan" </> T.unpack planName
+
+            let dtxPartDrums  = case getPart (dtx_Drums dtx) songYaml >>= partDrums of
+                  Just pd -> Just (dtx_Drums  dtx, pd)
+                  Nothing -> Nothing
+                dtxPartGuitar = case getPart (dtx_Guitar dtx) songYaml >>= partGRYBO of
+                  Just pg -> Just (dtx_Guitar dtx, pg)
+                  Nothing -> Nothing
+                dtxPartBass   = case getPart (dtx_Bass dtx) songYaml >>= partGRYBO of
+                  Just pg -> Just (dtx_Bass dtx, pg)
+                  Nothing -> Nothing
+
+            dir </> "dtx/empty.wav" %> \out -> do
+              buildAudio (Silence 1 $ Seconds 0) out
+
+            dir </> "dtx/bgm.ogg" %> \out -> do
+              let wav = planDir </> "everything.wav"
+              buildAudio (Input wav) out
+
+            dir </> "dtx/preview.ogg" %> \out -> do
+              mid <- shakeMIDI $ planDir </> "processed.mid"
+              let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))
+                  fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
+                  previewExpr
+                    = Fade End (Seconds 5)
+                    $ Fade Start (Seconds 2)
+                    $ Take Start (fromMS $ pend - pstart)
+                    $ Drop Start (fromMS pstart)
+                    $ Input (planDir </> "everything.wav")
+              buildAudio previewExpr out
+
+            artPath <- case _fileAlbumArt $ _metadata songYaml of
+              Just img | elem (takeExtension img) [".jpg", ".jpeg"] -> do
+                dir </> "dtx/cover.jpg" %> shk . copyFile' img
+                return "cover.jpg"
+              _ -> return "cover.png"
+            dir </> "dtx/cover.png" %> shk . copyFile' (rel "gen/cover-full.png")
+
+            mapping <- forM (dtxPartDrums >>= \(_, pd) -> drumsFileDTXKit pd) $ \f -> do
+              bs <- liftIO $ B.readFile f
+              case readMaybe $ T.unpack $ decodeGeneral bs of
+                Nothing -> fail $ "Couldn't parse mapping of full drums to DTX template from: " <> f
+                Just m  -> return (f, m)
+            template <- forM mapping $ \(f, DTX.DTXMapping templateRel _) -> liftIO $ do
+              let templateFixed = takeDirectory f </> templateRel
+              templateDTX <- DTX.readDTXLines DTX.FormatDTX <$> DTX.loadDTXLines templateFixed
+              return (templateFixed, templateDTX)
+
+            dir </> "dtx/mstr.dtx" %> \out -> do
+              mid <- shakeMIDI $ planDir </> "processed.mid"
+              let bgmChip   = "0X" -- TODO read this from BGMWAV in mapping
+                  emptyChip = "ZZ"
+                  makeGuitarBass = \case
+                    Nothing          -> RTB.empty
+                    Just (part, _pg) -> let
+                      notes
+                        = maybe RTB.empty (guitarify' . openNotes')
+                        $ Map.lookup Expert
+                        $ fiveDifficulties
+                        $ maybe mempty (fst . RBFile.selectGuitarTrack RBFile.FiveTypeGuitarExt)
+                        $ Map.lookup part
+                        $ RBFile.onyxParts
+                        $ RBFile.s_tracks mid
+                      toDTXNotes = fmap $ \(mcolors, _len) -> (sort $ catMaybes mcolors, emptyChip)
+                      in toDTXNotes notes
+              liftIO $ B.writeFile out $ TE.encodeUtf16LE $ T.cons '\xFEFF' $ DTX.makeDTX DTX.DTX
+                { DTX.dtx_TITLE         = Just $ targetTitle songYaml target
+                , DTX.dtx_ARTIST        = Just $ getArtist $ _metadata songYaml
+                , DTX.dtx_PREIMAGE      = Just artPath
+                , DTX.dtx_COMMENT       = Nothing
+                , DTX.dtx_GENRE         = _genre $ _metadata songYaml
+                , DTX.dtx_PREVIEW       = Just "preview.ogg"
+                , DTX.dtx_STAGEFILE     = Nothing
+                , DTX.dtx_DLEVEL        = Nothing
+                , DTX.dtx_GLEVEL        = Nothing
+                , DTX.dtx_BLEVEL        = Nothing
+                , DTX.dtx_DLVDEC        = Nothing
+                , DTX.dtx_GLVDEC        = Nothing
+                , DTX.dtx_BLVDEC        = Nothing
+                , DTX.dtx_WAV           = let
+                  initWAV = HM.fromList
+                    [ (emptyChip, "empty.wav")
+                    , (bgmChip  , "bgm.ogg"  )
+                    ]
+                  -- TODO maybe make sure all template WAV paths are local
+                  in maybe initWAV (HM.union initWAV . DTX.dtx_WAV . snd) template
+                , DTX.dtx_VOLUME        = maybe HM.empty (DTX.dtx_VOLUME . snd) template
+                , DTX.dtx_PAN           = maybe HM.empty (DTX.dtx_PAN    . snd) template
+                , DTX.dtx_AVI           = HM.empty
+                , DTX.dtx_MeasureMap    = RBFile.s_signatures mid
+                , DTX.dtx_TempoMap      = RBFile.s_tempos mid
+                , DTX.dtx_Drums         = case dtxPartDrums of
+                  Nothing          -> RTB.empty
+                  Just (part, _pd) -> let
+                    -- TODO split flams
+                    -- TODO figure out what to do for Left Bass
+                    fullNotes
+                      = FD.getDifficulty Nothing
+                      $ maybe mempty RBFile.onyxPartFullDrums
+                      $ Map.lookup part
+                      $ RBFile.onyxParts
+                      $ RBFile.s_tracks mid
+                    toDTXNotes = fmap $ \fdn -> let
+                      lane = case FD.fdn_gem fdn of
+                        FD.Kick      -> DTX.BassDrum
+                        FD.Snare     -> DTX.Snare
+                        FD.Hihat     -> case FD.fdn_type fdn of
+                          FD.GemHihatOpen -> DTX.HihatOpen
+                          _               -> DTX.HihatClose
+                        FD.HihatFoot -> DTX.LeftPedal
+                        FD.CrashL    -> DTX.LeftCymbal
+                        FD.Tom1      -> DTX.HighTom
+                        FD.Tom2      -> DTX.LowTom
+                        FD.Tom3      -> DTX.FloorTom
+                        FD.CrashR    -> DTX.Cymbal
+                        FD.Ride      -> DTX.RideCymbal
+                      chip = fromMaybe emptyChip $ mapping >>= \(_, m) -> DTX.lookupDTXMapping m fdn
+                      in (lane, chip)
+                    in toDTXNotes fullNotes
+                , DTX.dtx_DrumsDummy    = RTB.empty
+                , DTX.dtx_Guitar        = makeGuitarBass dtxPartGuitar
+                , DTX.dtx_GuitarWailing = RTB.empty
+                , DTX.dtx_Bass          = makeGuitarBass dtxPartBass
+                , DTX.dtx_BassWailing   = RTB.empty
+                , DTX.dtx_BGM           = RTB.singleton 0 bgmChip
+                , DTX.dtx_BGMExtra      = HM.empty
+                , DTX.dtx_Video         = RTB.empty
+                }
+
+            phony (dir </> "dtx") $ do
+              shk $ need
+                [ dir </> "dtx/empty.wav"
+                , dir </> "dtx/bgm.ogg"
+                , dir </> "dtx/preview.ogg"
+                , dir </> "dtx" </> artPath
+                , dir </> "dtx/mstr.dtx"
+                ]
+              forM_ template $ \(templatePath, templateDTX) -> do
+                forM_ (HM.toList $ DTX.dtx_WAV templateDTX) $ \(_, path) -> do
+                  -- again, maybe make sure path is local
+                  when (path /= "bgm.ogg") $ do
+                    shk $ copyFile'
+                      (takeDirectory templatePath </> path)
+                      (rel $ dir </> "dtx" </> path)
+
           Konga _ -> return () -- TODO
 
       forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
@@ -3302,7 +3467,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   [ toList _song
                   , toList _planParts >>= toList
                   ]
-            srcs <- mapM (buildAudioToSpec yamlDir audioLib songYaml [(-1, 0), (1, 0)] . Just) planAudios
+            srcs <- mapM (buildAudioToSpec yamlDir audioLib audioDepend songYaml [(-1, 0), (1, 0)] . Just) planAudios
             count <- shk $ buildSource $ Input $ dir </> "countin.wav"
             runAudio (foldr mix count srcs) out
         dir </> "everything.ogg" %> buildAudio (Input $ dir </> "everything.wav")
@@ -3333,7 +3498,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         -- count-in audio
         dir </> "countin.wav" %> \out -> do
           let hits = case plan of MoggPlan{} -> []; Plan{..} -> case _countin of Countin h -> h
-          src <- buildAudioToSpec yamlDir audioLib songYaml [(-1, 0), (1, 0)] =<< case NE.nonEmpty hits of
+          src <- buildAudioToSpec yamlDir audioLib audioDepend songYaml [(-1, 0), (1, 0)] =<< case NE.nonEmpty hits of
             Nothing    -> return Nothing
             Just hits' -> Just . (\expr -> PlanAudio expr [] []) <$> do
               mid <- shakeMIDI $ dir </> "raw.mid"
