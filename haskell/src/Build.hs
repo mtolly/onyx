@@ -108,6 +108,8 @@ import           Neversoft.QB                          (QBArray (..),
                                                         QBSection (..),
                                                         QBStructItem (..),
                                                         putQB)
+import           NPData                                (packNPData,
+                                                        rb2MidEdatConfig)
 import qualified Numeric.NonNegative.Class             as NNC
 import           OSFiles                               (copyDirRecursive)
 import           Overdrive                             (calculateUnisons,
@@ -903,20 +905,27 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             Just img -> do
               shk $ need [img]
               stackIO $ if takeExtension img `elem` [".png_xbox", ".png_wii"]
-                then pixelMap dropTransparency . readRBImage <$> BL.readFile img
-                else readImage img >>= \case
-                  Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
-                  Right dyn -> return $ convertRGB8 dyn
+                then pixelMap dropTransparency . readRBImage False <$> BL.readFile img
+                else if takeExtension img == ".png_ps3"
+                  then pixelMap dropTransparency . readRBImage True <$> BL.readFile img
+                  else readImage img >>= \case
+                    Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
+                    Right dyn -> return $ convertRGB8 dyn
             Nothing -> stackIO onyxAlbum
       rel "gen/cover.bmp"      %> \out -> loadRGB8 >>= stackIO . writeBitmap  out . STBIR.resize STBIR.defaultOptions 256 256
       rel "gen/cover.png"      %> \out -> loadRGB8 >>= stackIO . writePng     out . STBIR.resize STBIR.defaultOptions 256 256
       rel "gen/cover-full.png" %> \out -> loadRGB8 >>= stackIO . writePng     out
-      rel "gen/cover.png_wii"  %> \out -> loadRGB8 >>= stackIO . BL.writeFile out . toDXT1File PNGWii
-      rel "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of
-        Just f | takeExtension f == ".png_xbox" -> do
-          shk $ copyFile' f out
-          forceRW out
-        _      -> loadRGB8 >>= stackIO . BL.writeFile out . toDXT1File PNGXbox
+      let hmxImageTypes =
+            [ (".png_xbox", PNGXbox)
+            , (".png_ps3" , PNGPS3 )
+            , (".png_wii" , PNGWii )
+            ]
+      forM_ hmxImageTypes $ \(ext, pngType) -> do
+        rel ("gen/cover" <> ext) %> \out -> case _fileAlbumArt $ _metadata songYaml of
+          Just f | takeExtension f == ext -> do
+            shk $ copyFile' f out
+            forceRW out
+          _      -> loadRGB8 >>= stackIO . BL.writeFile out . toDXT1File pngType
 
       rel "gen/notes.mid" %> \out -> shk $ do
         let f = rel $ _fileMidi $ _global songYaml
@@ -1825,6 +1834,26 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
                       (dir </> "rb2")
                       out
+
+                  let rb2ps3DTA = dir </> "rb2-ps3/songs/songs.dta"
+                      rb2ps3Mogg = dir </> "rb2-ps3/songs" </> pkg </> pkg <.> "mogg"
+                      rb2ps3Mid = dir </> "rb2-ps3/songs" </> pkg </> pkg <.> "mid.edat"
+                      rb2ps3Art = dir </> "rb2-ps3/songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_ps3")
+                      rb2ps3Weights = dir </> "rb2-ps3/songs" </> pkg </> "gen" </> (pkg ++ "_weights.bin")
+                      rb2ps3Milo = dir </> "rb2-ps3/songs" </> pkg </> "gen" </> pkg <.> "milo_ps3"
+                      rb2ps3Pan = dir </> "rb2-ps3/songs" </> pkg </> pkg <.> "pan"
+
+                  rb2ps3DTA %> shk . copyFile' rb2DTA -- TODO need to always use numeric song_id, also use rating 1=FF or 2=SR (not 4=UR)
+                  rb2ps3Mid %> \out -> do
+                    shk $ need [rb2Mid]
+                    stackIO $ packNPData rb2MidEdatConfig rb2Mid out $ B8.pack pkg <> ".mid.edat"
+                  rb2ps3Art %> shk . copyFile' (rel "gen/cover.png_ps3")
+                  rb2ps3Mogg %> shk . copyFile' rb2Mogg -- TODO need to ensure it is encrypted
+                  rb2ps3Weights %> shk . copyFile' rb2Weights
+                  rb2ps3Milo %> shk . copyFile' rb2Milo
+                  rb2ps3Pan %> shk . copyFile' rb2Pan
+                  phony (dir </> "rb2-ps3") $ do
+                    shk $ need [rb2ps3DTA, rb2ps3Mogg, rb2ps3Mid, rb2ps3Art, rb2ps3Weights, rb2ps3Milo, rb2ps3Pan]
 
       forM_ (extraTargets ++ HM.toList (_targets songYaml)) $ \(targetName, target) -> do
         let dir = rel $ "gen/target" </> T.unpack targetName

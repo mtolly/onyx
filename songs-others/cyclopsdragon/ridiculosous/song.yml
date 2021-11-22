@@ -79,6 +79,8 @@ targets:
     game: rs
     arrangements:
     - [bass, bass]
+  ps:
+    game: ps
 metadata:
   preview-start: 15
   file-album-art: cover.png_xbox
@@ -86,7 +88,7 @@ metadata:
   album: Electric Cartoon Music from Hell
   year: 2003
   subgenre: other
-  author: CyclopsDragon
+  author: CyclopsDragon, Onyxite
   title: Ridiculosous
   preview-end: 45
   genre: metal

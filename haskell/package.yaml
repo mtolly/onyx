@@ -89,6 +89,7 @@ library:
   - ww2ogg
   - ffmpeg-binding
   - simple-handle
+  - make-npdata
 
   ghc-options: -O
   build-tools:

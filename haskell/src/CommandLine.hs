@@ -84,6 +84,7 @@ import           Neversoft.Pak                    (Node (..), buildPak,
                                                    splitPakNodes)
 import           Neversoft.QB                     (discardStrings, lookupQB,
                                                    lookupQS, parseQB, putQB)
+import           NPData
 import           OpenProject
 import           OSFiles                          (copyDirRecursive)
 import           PrettyDTA                        (DTASingle (..),
@@ -1082,8 +1083,9 @@ commands =
     , commandUsage = "onyx decode-image input.ext_platform {--to output.png}"
     , commandRun = \args opts -> case args of
       [fin] -> do
+        let isPS3 = takeExtension fin == ".png_ps3"
         bs <- stackIO $ fmap BL.fromStrict $ B.readFile fin
-        case Image.readRBImageMaybe bs of
+        case Image.readRBImageMaybe isPS3 bs of
           Just img -> do
             fout <- outputFile opts $ return $ fin <> ".png"
             stackIO $ writePng fout img
@@ -1331,6 +1333,22 @@ commands =
       return [fout]
     }
 
+  , Command
+    { commandWord = "rb2-ps3-encrypt"
+    , commandDesc = ""
+    , commandUsage = "onyx rb2-ps3-encrypt file-in [file-out] [filename-for-hash]"
+    , commandRun = \args opts -> do
+      (fin, fout, fhash) <- case args of
+        [fin] -> return $ let
+          fout = fin <> ".edat"
+          in (fin, fout, B8.pack $ takeFileName fout)
+        [fin, fout] -> return (fin, fout, B8.pack $ takeFileName fout)
+        [fin, fout, fhash] -> return (fin, fout, B8.pack fhash)
+        _ -> fatal "Expected 1-3 arguments"
+      stackIO $ packNPData rb2MidEdatConfig fin fout fhash
+      return [fout]
+    }
+
   ]
 
 runDolphin
@@ -1400,7 +1418,7 @@ runDolphin cons midfn makePreview out = do
           else silentPreview
         oggToMogg prevOgg $ dir_meta </> "content" </> (songsXX ++ "_prev.mogg")
         -- .png_wii (convert from .png_xbox)
-        img <- stackIO $ pixelMap dropTransparency . Image.readRBImage . BL.fromStrict <$> B.readFile (extract </> (songsXgenX ++ "_keep.png_xbox"))
+        img <- stackIO $ pixelMap dropTransparency . Image.readRBImage False . BL.fromStrict <$> B.readFile (extract </> (songsXgenX ++ "_keep.png_xbox"))
         stackIO $ BL.writeFile (dir_meta </> "content" </> (songsXgenX ++ "_keep.png_wii")) $ Image.toDXT1File Image.PNGWii img
         -- .milo_wii (copy)
         stackIO $ Dir.renameFile (extract </> songsXgenX <.> "milo_xbox") (dir_song </> "content" </> songsXgenX <.> "milo_wii")

@@ -73,12 +73,17 @@ mixProportions f0 f1 = mixWith $ \_ p0 p1 ->
 data DXTFormat
   = DDS
   | PNGXbox
+  | PNGPS3
   | PNGWii
   deriving (Eq)
 
 readDXTChunk :: DXTFormat -> Bool -> Get (Image PixelRGBA8)
 readDXTChunk fmt isDXT1 = do
-  let getColors = case fmt of DDS -> getWord16le; _ -> getWord16be
+  let getColors = case fmt of
+        DDS     -> getWord16le
+        PNGPS3  -> getWord16le
+        PNGXbox -> getWord16be
+        PNGWii  -> getWord16be
   c0w <- getColors
   c1w <- getColors
   let c0 = pixelFrom565 c0w
@@ -109,6 +114,7 @@ writeDXT1Chunk fmt chunk = let
   dds = compressDXTBlock chunk
   in case fmt of
     DDS     -> BB.byteString dds
+    PNGPS3  -> BB.byteString dds
     PNGXbox -> mconcat $ map (BB.word8 . B.index dds) [1, 0, 3, 2, 5, 4, 7, 6]
     PNGWii  -> let
       cols = map (BB.word8 . B.index dds) [1, 0, 3, 2]
@@ -125,6 +131,7 @@ toDXT1File fmt img_ = BB.toLazyByteString $ execWriter $ do
   tell $ BB.byteString $ case fmt of
     DDS     -> ddsDXT1Signature
     PNGXbox -> pngXboxDXT1Signature
+    PNGPS3  -> pngXboxDXT1Signature -- identical, apparently
     PNGWii  -> pngWii256DXT1Signature
   let mipmaps = forM_ [256, 128, 64, 32, 16, 8, 4] go
       go size = do
@@ -147,6 +154,7 @@ toDXT1File fmt img_ = BB.toLazyByteString $ execWriter $ do
   case fmt of
     DDS     -> mipmaps
     PNGXbox -> mipmaps
+    PNGPS3  -> mipmaps
     PNGWii  -> go 256
 
 -- TODO support alpha pixels (needed for "distressed photo" bonus song art)
@@ -247,8 +255,8 @@ readDDS bs = let
   in runGetM parseImage bs
 
 -- | Supports .png_xbox in both official DXT1 and C3 DXT2/3, and also .png_wii.
-readRBImageMaybe :: BL.ByteString -> Maybe (Image PixelRGBA8)
-readRBImageMaybe bs = let
+readRBImageMaybe :: Bool -> BL.ByteString -> Maybe (Image PixelRGBA8)
+readRBImageMaybe isPS3 bs = let
   readWiiChunk = fmap (arrangeRows 2 2) $ replicateM 4 $ readDXTChunk PNGWii True
   parseImage = do
     1             <- getWord8
@@ -260,13 +268,14 @@ readRBImageMaybe bs = let
     _bytesPerLine <- getWord16le
     zeroes        <- getByteString 19
     guard $ B.all (== 0) zeroes
+    let xboxOrPS3 = if isPS3 then PNGPS3 else PNGXbox
     case (bitsPerPixel, format) of
       -- Xbox DXT1
       (0x04, 0x08) -> fmap (arrangeRows (quot width 4) (quot height 4))
-        $ replicateM (quot (width * height) 16) $ readDXTChunk PNGXbox True
+        $ replicateM (quot (width * height) 16) $ readDXTChunk xboxOrPS3 True
       -- Xbox DXT3
       (0x08, 0x18) -> fmap (arrangeRows (quot width 4) (quot height 4))
-        $ replicateM (quot (width * height) 16) $ skip 8 >> readDXTChunk PNGXbox False
+        $ replicateM (quot (width * height) 16) $ skip 8 >> readDXTChunk xboxOrPS3 False
       -- Wii DXT1
       (0x04, 0x48) -> fmap (arrangeRows (quot width 8) (quot height 8))
         $ replicateM (quot (width * height) 64) readWiiChunk
@@ -291,7 +300,7 @@ flip34 i
   . (if i `testBit` 4 then (`setBit` 3) else (`clearBit` 3))
   $ i
 
-readRBImage :: BL.ByteString -> Image PixelRGBA8
-readRBImage = let
+readRBImage :: Bool -> BL.ByteString -> Image PixelRGBA8
+readRBImage isPS3 = let
   magenta = generateImage (\_ _ -> PixelRGBA8 255 0 255 255) 256 256
-  in fromMaybe magenta . readRBImageMaybe
+  in fromMaybe magenta . readRBImageMaybe isPS3

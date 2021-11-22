@@ -1,0 +1,35 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  # vocal:
+  #   vocal:
+  #     difficulty:
+  #       tier: 1
+audio:
+  song.ogg:
+    file-path: song.ogg
+metadata:
+  title: Tempo of Time
+  author: HenryMan73, TFG85, Onyxite
+  year: 2017
+  album: Tempo of Time
+  genre: Progressive Rock
+  artist: Dr. Pez and Marc Papeghin
+plans:
+  youtube:
+    song: song.ogg
+targets:
+  ps:
+    game: ps
+    loading-phrase: Here it is, my biggest charting project to date. One month went
+      into the making of this monsterous chart. I would like to give a big thank you
+      to TFG85, because without them, this project wouldn't be done yet. They helped
+      out so much, with charting and giving feedback. Also, shoutout to Ardebitis
+      for the tempo map. Hope you all enjoy this as much as we did making it.

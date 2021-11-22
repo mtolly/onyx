@@ -659,7 +659,8 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
                   then stackIO (BL.readFile f) >>= maybe
                     (fatal "Couldn't read RB image file")
                     (stackIO . writePng newPath)
-                    . readRBImageMaybe
+                    . readRBImageMaybe False
+                    -- TODO support .png_ps3
                   else stackIO (readImage f) >>= either fatal (stackIO . savePngImage newPath)
                 stackIO $ sink $ EventIO $ do
                   oldImage <- modifyMVar currentImage $ \(oldImage, _) -> do
