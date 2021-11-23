@@ -278,6 +278,9 @@ buildRB3CON rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> target
 buildRB2CON :: (MonadIO m) => TargetRB2 -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB2CON rb2 = buildCommon (RB2 rb2) $ \targetHash -> "gen/target" </> targetHash </> "rb2con"
 
+buildRB2PS3 :: (MonadIO m) => TargetRB2 -> Project -> StackTraceT (QueueLog m) FilePath
+buildRB2PS3 rb2 = buildCommon (RB2 rb2) $ \targetHash -> "gen/target" </> targetHash </> "rb2-ps3"
+
 buildMagmaV2 :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildMagmaV2 rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> targetHash </> "magma"
 

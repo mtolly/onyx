@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 module MoggDecrypt
 ( moggToOgg, oggToMogg, sourceVorbisFile
+, encryptRB1
 ) where
 
 import           Control.Applicative            (liftA2)
@@ -21,6 +22,7 @@ import qualified Data.Vector.Storable as V
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Audio as CA
 import Data.SimpleHandle (Readable, useHandle, subHandle, saveReadable, fileReadable)
+import Sound.MOGG.EncryptRB1 (encryptRB1)
 
 #include "vorbis/codec.h"
 #include "vorbis/vorbisfile.h"

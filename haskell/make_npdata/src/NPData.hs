@@ -54,16 +54,35 @@ rb2MidEdatConfig = NPDataConfig
   , npdSDAT      = False
   }
 
+{-
+
+TODO rb3 stuff from c3
+
+NTSC
+content id: UP8802-BLUS30463_00-RBHMXBANDCCFF0D6
+klic: 0B72B62DABA8CAFDA3352FF979C6D5C2
+rap: cf 1e a0 da 36 eb 82 d9 6d c2 68 6c d9 17 44 ea
+
+PAL
+content id: EP0006-BLES00986_00-RBHMXBANDCCFF0D6
+klic: 0B72B62DABA8CAFDA3352FF979C6D5C2
+rap: 59 de 7e 02 16 a6 7b fb 0c ff 90 c2 6b f5 52 4b
+
+-}
+
 packNPData :: NPDataConfig -> FilePath -> FilePath -> B.ByteString -> IO ()
 packNPData cfg fin fout hashName = do
   withCString fin $ \pin -> do
     withCString fout $ \pout -> do
-      BU.unsafeUseAsCString hashName $ \pname -> do
+      -- must be null-terminated
+      B.useAsCString hashName $ \pname -> do
+        -- content ID must be padded to 0x30 bytes with zeroes at end
         BU.unsafeUseAsCString (npdContentID cfg <> B.replicate 0x30 0) $ \pcid -> do
-          BU.unsafeUseAsCString (npdKLIC cfg) $ \pklic -> do
+          -- klic, RAP, and RIF are all 0x10 bytes
+          BU.unsafeUseAsCString (npdKLIC cfg <> B.replicate 0x10 0) $ \pklic -> do
             withArray (replicate 0x10 0) $ \prif -> do
               forM_ (npdRAP cfg) $ \rap -> do
-                BU.unsafeUseAsCString rap $ \prap -> do
+                BU.unsafeUseAsCString (rap <> B.replicate 0x10 0) $ \prap -> do
                   c_get_rif_key (castPtr prap) (castPtr prif)
               err <- c_pack_data_from_paths
                 pin

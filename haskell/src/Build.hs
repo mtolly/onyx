@@ -1732,38 +1732,44 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                               , D.alternatePath = Nothing
                               }
                         liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Sym pkg : makeValue D.stackChunks newDTA))]
-                  rb2DTA %> \out -> do
-                    shk $ need [rb2OriginalDTA, pathDta]
-                    (_, magmaDTA, _) <- readRB3DTA rb2OriginalDTA
-                    (_, rb3DTA, _) <- readRB3DTA pathDta
-                    let newDTA :: D.SongPackage
-                        newDTA = magmaDTA
-                          { D.name = targetTitle songYaml $ RB2 rb2
-                          , D.artist = D.artist rb3DTA
-                          , D.albumName = D.albumName rb3DTA
-                          , D.master = not $ _cover $ _metadata songYaml
-                          , D.version = 0
-                          -- if version is not 0, you get a message
-                          -- "can't play this song until all players in your session purchase it!"
-                          , D.song = (D.song magmaDTA)
-                            { D.tracksCount = Nothing
-                            , D.tracks = fixDictList $ D.tracks $ D.song rb3DTA
-                            , D.midiFile = Just $ "songs/" <> pkg <> "/" <> pkg <> ".mid"
-                            , D.songName = "songs/" <> pkg <> "/" <> pkg
-                            , D.pans = D.pans $ D.song rb3DTA
-                            , D.vols = D.vols $ D.song rb3DTA
-                            , D.cores = D.cores $ D.song rb3DTA
-                            , D.crowdChannels = D.crowdChannels $ D.song rb3DTA
-                            }
-                          , D.songId = Just $ case rb2_SongID rb2 of
-                              SongIDSymbol s   -> Right s
-                              SongIDInt i      -> Left $ fromIntegral i
-                              SongIDAutoSymbol -> Right pkg
-                              SongIDAutoInt    -> Left $ fromIntegral $ hashRB3 songYaml rb3
-                          , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
-                          , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
-                          }
-                    liftIO $ writeLatin1CRLF out $ prettyDTA pkg newDTA $ makeC3DTAComments (_metadata songYaml) plan rb3
+                  let writeRB2DTA isPS3 out = do
+                        shk $ need [rb2OriginalDTA, pathDta]
+                        (_, magmaDTA, _) <- readRB3DTA rb2OriginalDTA
+                        (_, rb3DTA, _) <- readRB3DTA pathDta
+                        let newDTA :: D.SongPackage
+                            newDTA = magmaDTA
+                              { D.name = targetTitle songYaml $ RB2 rb2
+                              , D.artist = D.artist rb3DTA
+                              , D.albumName = D.albumName rb3DTA
+                              , D.master = not $ _cover $ _metadata songYaml
+                              , D.version = 0
+                              -- if version is not 0, you get a message
+                              -- "can't play this song until all players in your session purchase it!"
+                              , D.song = (D.song magmaDTA)
+                                { D.tracksCount = Nothing
+                                , D.tracks = fixDictList $ D.tracks $ D.song rb3DTA
+                                , D.midiFile = Just $ "songs/" <> pkg <> "/" <> pkg <> ".mid"
+                                , D.songName = "songs/" <> pkg <> "/" <> pkg
+                                , D.pans = D.pans $ D.song rb3DTA
+                                , D.vols = D.vols $ D.song rb3DTA
+                                , D.cores = D.cores $ D.song rb3DTA
+                                , D.crowdChannels = D.crowdChannels $ D.song rb3DTA
+                                }
+                              , D.songId = Just $ case rb2_SongID rb2 of
+                                  SongIDSymbol s   -> Right s -- could override on PS3 but shouldn't happen
+                                  SongIDInt i      -> Left $ fromIntegral i
+                                  SongIDAutoSymbol -> if isPS3
+                                    then Left $ fromIntegral $ hashRB3 songYaml rb3 -- PS3 needs real number ID
+                                    else Right pkg
+                                  SongIDAutoInt    -> Left $ fromIntegral $ hashRB3 songYaml rb3
+                              , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
+                              , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
+                              , D.rating = case (isPS3, D.rating rb3DTA) of
+                                (True, 4) -> 2 -- Unrated causes it to be locked in game on PS3
+                                (_   , x) -> x
+                              }
+                        liftIO $ writeLatin1CRLF out $ prettyDTA pkg newDTA $ makeC3DTAComments (_metadata songYaml) plan rb3
+                  rb2DTA %> writeRB2DTA False
                   rb2Mid %> \out -> do
                     ex <- doesRBAExist
                     RBFile.Song tempos sigs trks <- if ex
@@ -1843,12 +1849,18 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       rb2ps3Milo = dir </> "rb2-ps3/songs" </> pkg </> "gen" </> pkg <.> "milo_ps3"
                       rb2ps3Pan = dir </> "rb2-ps3/songs" </> pkg </> pkg <.> "pan"
 
-                  rb2ps3DTA %> shk . copyFile' rb2DTA -- TODO need to always use numeric song_id, also use rating 1=FF or 2=SR (not 4=UR)
+                  rb2ps3DTA %> writeRB2DTA True
                   rb2ps3Mid %> \out -> do
                     shk $ need [rb2Mid]
                     stackIO $ packNPData rb2MidEdatConfig rb2Mid out $ B8.pack pkg <> ".mid.edat"
                   rb2ps3Art %> shk . copyFile' (rel "gen/cover.png_ps3")
-                  rb2ps3Mogg %> shk . copyFile' rb2Mogg -- TODO need to ensure it is encrypted
+                  rb2ps3Mogg %> \out -> do
+                    -- PS3 can't play unencrypted moggs
+                    shk $ need [rb2Mogg]
+                    moggType <- stackIO $ withBinaryFile rb2Mogg ReadMode $ \h -> B.hGet h 1
+                    case B.unpack moggType of
+                      [0xA] -> stackIO $ encryptRB1 rb2Mogg out
+                      _     -> shk $ copyFile' rb2Mogg out
                   rb2ps3Weights %> shk . copyFile' rb2Weights
                   rb2ps3Milo %> shk . copyFile' rb2Milo
                   rb2ps3Pan %> shk . copyFile' rb2Pan

@@ -1156,7 +1156,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
         FLTK.redraw
     FL.setResizable tab $ Just pack
     return tab
-  rb3Tab <- makeTab windowRect "RB3 (360)" $ \rect tab -> do
+  rb3Tab <- makeTab windowRect "RB3" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageRB3 sink rect tab proj $ \tgt create -> do
       proj' <- fullProjModify proj
@@ -1174,15 +1174,22 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               return [dout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  rb2Tab <- makeTab windowRect "RB2 (360)" $ \rect tab -> do
+  rb2Tab <- makeTab windowRect "RB2" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
-    songPageRB2 sink rect tab proj $ \tgt fout -> do
+    songPageRB2 sink rect tab proj $ \tgt create -> do
       proj' <- fullProjModify proj
-      let name = "Building RB2 CON"
-          task = do
-            tmp <- buildRB2CON tgt proj'
-            stackIO $ Dir.copyFile tmp fout
-            return [fout]
+      let name = case create of
+            RB2CON _ -> "Building RB2 CON"
+            RB2PS3 _ -> "Building RB2 PS3 folder"
+          task = case create of
+            RB2CON fout -> do
+              tmp <- buildRB2CON tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            RB2PS3 dout -> do
+              tmp <- buildRB2PS3 tgt proj'
+              copyDirRecursive tmp dout
+              return [dout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   psTab <- makeTab windowRect "CH/PS" $ \rect tab -> do
@@ -1227,7 +1234,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  worTab <- makeTab windowRect "GH:WoR (360)" $ \rect tab -> do
+  worTab <- makeTab windowRect "GH:WoR" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageGHWOR sink rect tab proj $ \tgt fout -> do
       proj' <- fullProjModify proj
@@ -1451,6 +1458,10 @@ data RB3Create
   = RB3CON FilePath
   | RB3Magma FilePath
 
+data RB2Create
+  = RB2CON FilePath
+  | RB2PS3 FilePath
+
 data PSCreate
   = PSDir FilePath
   | PSZip FilePath
@@ -1555,7 +1566,7 @@ batchPageGHWOR sink rect tab build = do
           in ((tgt, usePath fout), projectSongYaml proj)
   makeTemplateRunner
     sink
-    "Create LIVE files"
+    "Create Xbox 360 LIVE files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_ghwor")
     (\template -> warnXboxGHWoR sink $ getTargetSong id template >>= build)
   FL.end pack
@@ -1567,7 +1578,7 @@ batchPageRB2
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> ([(TargetRB2, FilePath)], SongYaml FilePath)) -> IO ())
+  -> ((Project -> ([(TargetRB2, RB2Create)], SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageRB2 sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -1583,7 +1594,7 @@ batchPageRB2 sink rect tab build = do
       , ("Both", KicksBoth, True)
       ]
     return $ fromMaybe KicksBoth <$> fn
-  let getTargetSong usePath template = do
+  let getTargetSong trimPath usePath template = do
         speed <- getSpeed
         preset <- getPreset
         kicks <- getKicks
@@ -1603,7 +1614,7 @@ batchPageRB2 sink rect tab build = do
             (Kicks1x  , _      ) -> [(False, "_1x")]
             (Kicks2x  , _      ) -> [(True , "_2x")]
             (KicksBoth, _      ) -> [(False, "_1x"), (True, "_2x")]
-          fout kicksLabel = trimXbox $ T.unpack $ foldr ($) template
+          fout kicksLabel = trimPath $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ RB2 tgt
             , let
               modifiers = T.concat
@@ -1625,9 +1636,14 @@ batchPageRB2 sink rect tab build = do
             )
   makeTemplateRunner
     sink
-    "Create CON files"
+    "Create Xbox 360 CON files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_rb2con")
-    (getTargetSong id >=> build)
+    (getTargetSong trimXbox RB2CON >=> build)
+  makeTemplateRunner
+    sink
+    "Create PS3 folders"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_ps3")
+    (getTargetSong id RB2PS3 >=> build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -1668,7 +1684,7 @@ batchPageDolphin sink rect tab build = do
             . (if force22 then RBFile.wiiMustang22 else id)
             . (if unmute22 then RBFile.wiiUnmute22 else id)
   padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Create .app files"
+    btn <- FL.buttonNew rect' $ Just "Create Wii .app files"
     taskColor >>= FL.setColor btn
     FL.setCallback btn $ \_ -> sink $ EventIO $ do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
@@ -1860,7 +1876,7 @@ batchPageGH2 sink rect tab build = do
             ]
           in (tgt, usePath fout)
   padded 5 10 5 10 (Size (Width 500) (Height 35)) $ \r -> do
-    btn <- FL.buttonNew r $ Just "Add to GH2 PS2 ARK as Bonus Songs"
+    btn <- FL.buttonNew r $ Just "Add to PS2 ARK as Bonus Songs"
     color <- taskColor
     FL.setColor btn color
     FL.setCallback btn $ \_ -> do
@@ -1883,7 +1899,7 @@ batchPageGH2 sink rect tab build = do
     (\template -> getTargetSong False GH2DIYPS2 template build)
   makeTemplateRunner
     sink
-    "Create GH2 (360) LIVE files"
+    "Create Xbox 360 LIVE files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_gh2live")
     (\template -> warnCombineXboxGH2 sink $ getTargetSong True GH2LIVE template build)
   FL.end pack
@@ -2104,7 +2120,7 @@ songPageRB3 sink rect tab proj build = mdo
       makeTarget = fmap ($ initTarget) targetModifier
   fullWidth 35 $ \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
-    btn1 <- FL.buttonNew r1 $ Just "Create CON file"
+    btn1 <- FL.buttonNew r1 $ Just "Create Xbox 360 CON file"
     FL.setCallback btn1 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
@@ -2141,7 +2157,7 @@ songPageRB2
   -> Rectangle
   -> FL.Ref FL.Group
   -> Project
-  -> (TargetRB2 -> FilePath -> IO ())
+  -> (TargetRB2 -> RB2Create -> IO ())
   -> IO ()
 songPageRB2 sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
@@ -2196,9 +2212,11 @@ songPageRB2 sink rect tab proj build = mdo
           }
         }
       makeTarget = fmap ($ initTarget) targetModifier
+
   fullWidth 35 $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Create CON file"
-    FL.setCallback btn $ \_ -> do
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    btn1 <- FL.buttonNew r1 $ Just "Create Xbox 360 CON file"
+    FL.setCallback btn1 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save RB2 CON file"
@@ -2207,10 +2225,22 @@ songPageRB2 sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt $ trimXbox f
+          Just f  -> build tgt $ RB2CON $ trimXbox f
         _ -> return ()
-    color <- FLE.rgbColorWithRgb (179,221,187)
-    FL.setColor btn color
+    btn2 <- FL.buttonNew r2 $ Just "Create PS3 folder"
+    FL.setCallback btn2 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save PS3 content folder"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_ps3" -- TODO add modifiers
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ RB2PS3 f
+        _ -> return ()
+    color <- taskColor
+    FL.setColor btn1 color
+    FL.setColor btn2 color
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -2276,7 +2306,7 @@ songPageGHWOR sink rect tab proj build = mdo
   let initTarget = def
       makeTarget = fmap ($ initTarget) targetModifier
   fullWidth 35 $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Create LIVE file"
+    btn <- FL.buttonNew rect' $ Just "Create Xbox 360 LIVE file"
     FL.setCallback btn $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
@@ -2549,7 +2579,7 @@ songPageGH2 sink rect tab proj build = mdo
         stackIO $ go $ modifier $ initTarget newPrefs
   fullWidth 35 $ \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
-    btn1 <- FL.buttonNew r1 $ Just "Add to GH2 PS2 ARK as Bonus Song"
+    btn1 <- FL.buttonNew r1 $ Just "Add to PS2 ARK as Bonus Song"
     FL.setCallback btn1 $ \_ -> makeTargetUpdatePrefs $ \tgt -> do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
       FL.setTitle picker "Select .HDR file"
@@ -2574,7 +2604,7 @@ songPageGH2 sink rect tab proj build = mdo
     FL.setColor btn1 color
     FL.setColor btn2 color
   fullWidth 35 $ \rect' -> do
-    btn2 <- FL.buttonNew rect' $ Just "Create GH2 Xbox 360 LIVE file"
+    btn2 <- FL.buttonNew rect' $ Just "Create Xbox 360 LIVE file"
     FL.setCallback btn2 $ \_ -> makeTargetUpdatePrefs $ \tgt -> do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save GH2 LIVE file"
@@ -2668,7 +2698,7 @@ batchPageRB3 sink rect tab build = do
             )
   makeTemplateRunner
     sink
-    "Create CON files"
+    "Create Xbox 360 CON files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_rb3con")
     (getTargetSong RB3CON >=> build)
   makeTemplateRunner
@@ -4358,17 +4388,23 @@ launchBatch sink makeMenuBar startFiles = mdo
                 copyDirRecursive tmp dout
                 return dout
       return tab
-    , makeTab windowRect "RB2 (360)" $ \rect tab -> do
+    , makeTab windowRect "RB2" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageRB2 sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (targets, yaml) = settings proj
-          forM targets $ \(target, fout) -> do
-            proj' <- stackIO $ filterParts yaml >>= saveProject proj
-            tmp <- buildRB2CON target proj'
-            stackIO $ Dir.copyFile tmp fout
-            return fout
+          proj' <- stackIO $ filterParts yaml >>= saveProject proj
+          forM targets $ \(target, creator) -> do
+            case creator of
+              RB2CON fout -> do
+                tmp <- buildRB2CON target proj'
+                stackIO $ Dir.copyFile tmp fout
+                return fout
+              RB2PS3 dout -> do
+                tmp <- buildRB2PS3 target proj'
+                copyDirRecursive tmp dout
+                return dout
       return tab
     , makeTab windowRect "Clone Hero" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
@@ -4409,7 +4445,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               makeGH2DIY target proj' fout
               return [fout]
       return tab
-    , makeTab windowRect "GH:WoR (360)" $ \rect tab -> do
+    , makeTab windowRect "GH:WoR" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageGHWOR sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles

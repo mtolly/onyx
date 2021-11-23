@@ -90,6 +90,7 @@ library:
   - ffmpeg-binding
   - simple-handle
   - make-npdata
+  - rb1-mogg-encrypt
 
   ghc-options: -O
   build-tools:

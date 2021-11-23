@@ -72,7 +72,8 @@ import           GuitarHeroIOS                    (extractIGA)
 import qualified Image
 import           Magma                            (getRBAFile, runMagma,
                                                    runMagmaMIDI, runMagmaV1)
-import           MoggDecrypt                      (moggToOgg, oggToMogg)
+import           MoggDecrypt                      (encryptRB1, moggToOgg,
+                                                   oggToMogg)
 import           Neversoft.Audio                  (decryptFSB, gh3Encrypt,
                                                    ghworEncrypt)
 import           Neversoft.Checksum               (knownKeys, qbKeyCRC)
@@ -1337,7 +1338,7 @@ commands =
     { commandWord = "rb2-ps3-encrypt"
     , commandDesc = ""
     , commandUsage = "onyx rb2-ps3-encrypt file-in [file-out] [filename-for-hash]"
-    , commandRun = \args opts -> do
+    , commandRun = \args _opts -> do
       (fin, fout, fhash) <- case args of
         [fin] -> return $ let
           fout = fin <> ".edat"
@@ -1347,6 +1348,18 @@ commands =
         _ -> fatal "Expected 1-3 arguments"
       stackIO $ packNPData rb2MidEdatConfig fin fout fhash
       return [fout]
+    }
+
+  , Command
+    { commandWord = "rb1-moggcrypt"
+    , commandDesc = ""
+    , commandUsage = "onyx rb1-moggcrypt file-in --to file-out"
+    , commandRun = \args opts -> case args of
+      [fin] -> do
+        fout <- outputFile opts $ fatal "Requires --to argument"
+        stackIO $ encryptRB1 fin fout
+        return [fout]
+      _ -> fatal "Expected 1 argument"
     }
 
   ]
