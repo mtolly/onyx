@@ -1216,6 +1216,7 @@ data TargetRB2 = TargetRB2
   , rb2_Bass        :: FlexPartName
   , rb2_Drums       :: FlexPartName
   , rb2_Vocal       :: FlexPartName
+  , rb2_PS3Encrypt  :: Bool
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetRB2 :: (SendMessage m) => ObjectCodec m A.Value TargetRB2
@@ -1230,6 +1231,7 @@ parseTargetRB2 = do
   rb2_Bass        <- rb2_Bass        =. opt FlexBass     "bass"          stackJSON
   rb2_Drums       <- rb2_Drums       =. opt FlexDrums    "drums"         stackJSON
   rb2_Vocal       <- rb2_Vocal       =. opt FlexVocal    "vocal"         stackJSON
+  rb2_PS3Encrypt  <- rb2_PS3Encrypt  =. opt True         "ps3-encrypt"   stackJSON
   return TargetRB2{..}
 
 instance StackJSON TargetRB2 where

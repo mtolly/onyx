@@ -122,10 +122,10 @@ import           Neversoft.Export                          (makeMetadataLIVE)
 import           Numeric                                   (readHex, showHex)
 import           OpenProject
 import           OSFiles                                   (commonDir,
-                                                            osOpenFile,
-                                                            osShowFolder,
                                                             copyDirRecursive,
-                                                            copyDirRecursiveMergeDTA)
+                                                            copyDirRecursiveMergeDTA,
+                                                            osOpenFile,
+                                                            osShowFolder)
 import           Paths_onyxite_customs_tool                (version)
 import           Preferences                               (MagmaSetting (..),
                                                             Preferences (..),
@@ -156,8 +156,7 @@ import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.Util                           as U
 import qualified STFS.Package                              as STFS
 import qualified System.Directory                          as Dir
-import           System.FilePath                           (dropExtension,
-                                                            dropTrailingPathSeparator,
+import           System.FilePath                           (dropExtension, dropTrailingPathSeparator,
                                                             takeDirectory,
                                                             takeExtension,
                                                             takeFileName,
@@ -1610,6 +1609,7 @@ batchPageRB2 sink rect tab build = do
             , rb2_SongID = if prefRBNumberID ?preferences
               then SongIDAutoInt
               else SongIDAutoSymbol
+            , rb2_PS3Encrypt = prefPS3Encrypt ?preferences
             }
           kicksConfigs = case (kicks, maybe Kicks1x drumsKicks $ getPart FlexDrums yaml >>= partDrums) of
             (_        , Kicks1x) -> [(False, ""   )]
@@ -2212,6 +2212,7 @@ songPageRB2 sink rect tab proj build = mdo
         , rb2_Common = def
           { tgt_Label2x = prefLabel2x ?preferences
           }
+        , rb2_PS3Encrypt = prefPS3Encrypt ?preferences
         }
       makeTarget = fmap ($ initTarget) targetModifier
 
@@ -4598,7 +4599,7 @@ launchPreferences sink = do
   let width = 700
       padding = 10
       lineHeight = 30
-      numLines = 12
+      numLines = 13
       leftLabelSize = 160
       height = (padding + lineHeight) * numLines + padding
       lineBox i = Rectangle
@@ -4646,14 +4647,17 @@ launchPreferences sink = do
 
     let [check1, check2] = splitHorizN 2 (lineBox 1)
         [check3, check4] = splitHorizN 2 (lineBox 2)
+        [check5, _     ] = splitHorizN 2 (lineBox 3)
     checkBlackVenue <- FL.checkButtonNew check1 $ Just "Use black venue in RB files"
     checkLabel2x    <- FL.checkButtonNew check2 $ Just "Label (2x Bass Pedal) by default"
     checkTrimXbox   <- FL.checkButtonNew check3 $ Just "Ensure valid Xbox 360 filenames"
     checkRBNumberID <- FL.checkButtonNew check4 $ Just "Use true number IDs in RB files"
+    checkPS3Encrypt <- FL.checkButtonNew check5 $ Just "Encrypt .mid.edat files for PS3"
     void $ FL.setValue checkBlackVenue $ prefBlackVenue loadedPrefs
     void $ FL.setValue checkLabel2x    $ prefLabel2x    loadedPrefs
     void $ FL.setValue checkTrimXbox   $ prefTrimXbox   loadedPrefs
     void $ FL.setValue checkRBNumberID $ prefRBNumberID loadedPrefs
+    void $ FL.setValue checkPS3Encrypt $ prefPS3Encrypt loadedPrefs
 
     FL.setTooltip checkTrimXbox $ T.unwords
       [ "When checked, the filenames of CON or LIVE files will be trimmed to a"
@@ -4667,8 +4671,13 @@ launchPreferences sink = do
       , "such as RGH online play and PS3 conversion, and also maintains scores"
       , "even if the song cache is regenerated."
       ]
+    FL.setTooltip checkPS3Encrypt $ T.unwords
+      [ "When checked, .mid.edat files for PS3 customs will be encrypted."
+      , "This is required for a real console, but optional (and can be less"
+      , "convenient) when playing on emulator."
+      ]
 
-    getMSAA <- horizRadio (lineBox 3)
+    getMSAA <- horizRadio (lineBox 4)
       [ ("No MSAA" , Nothing, prefMSAA loadedPrefs == Nothing)
       , ("MSAA 2x" , Just 2 , prefMSAA loadedPrefs == Just 2 )
       , ("MSAA 4x" , Just 4 , prefMSAA loadedPrefs == Just 4 )
@@ -4676,15 +4685,15 @@ launchPreferences sink = do
       , ("MSAA 16x", Just 16, prefMSAA loadedPrefs == Just 16)
       ]
 
-    checkFXAA <- FL.checkButtonNew (lineBox 4) $ Just "FXAA"
+    checkFXAA <- FL.checkButtonNew (lineBox 5) $ Just "FXAA"
     void $ FL.setValue checkFXAA $ prefFXAA loadedPrefs
 
-    getDirRB      <- folderBox (lineBox 5) "Default CON folder"     $ T.pack $ fromMaybe "" $ prefDirRB      loadedPrefs
-    getDirCH      <- folderBox (lineBox 6) "Default CH folder"      $ T.pack $ fromMaybe "" $ prefDirCH      loadedPrefs
-    getDirWii     <- folderBox (lineBox 7) "Default Wii folder"     $ T.pack $ fromMaybe "" $ prefDirWii     loadedPrefs
-    getDirPreview <- folderBox (lineBox 8) "Default preview folder" $ T.pack $ fromMaybe "" $ prefDirPreview loadedPrefs
+    getDirRB      <- folderBox (lineBox 6) "Default CON folder"     $ T.pack $ fromMaybe "" $ prefDirRB      loadedPrefs
+    getDirCH      <- folderBox (lineBox 7) "Default CH folder"      $ T.pack $ fromMaybe "" $ prefDirCH      loadedPrefs
+    getDirWii     <- folderBox (lineBox 8) "Default Wii folder"     $ T.pack $ fromMaybe "" $ prefDirWii     loadedPrefs
+    getDirPreview <- folderBox (lineBox 9) "Default preview folder" $ T.pack $ fromMaybe "" $ prefDirPreview loadedPrefs
 
-    sliderQuality <- FL.horValueSliderNew (snd $ chopLeft leftLabelSize $ lineBox 9) (Just "OGG Vorbis quality")
+    sliderQuality <- FL.horValueSliderNew (snd $ chopLeft leftLabelSize $ lineBox 10) (Just "OGG Vorbis quality")
     FL.setLabelsize sliderQuality $ FL.FontSize 13
     FL.setLabeltype sliderQuality FLE.NormalLabelType FL.ResolveImageLabelDoNothing
     FL.setAlign sliderQuality $ FLE.Alignments [FLE.AlignTypeLeft]
@@ -4692,7 +4701,7 @@ launchPreferences sink = do
     FL.setMaximum sliderQuality 10
     void $ FL.setValue sliderQuality $ prefOGGQuality loadedPrefs * 10
 
-    let [trimClock 0 5 0 leftLabelSize -> gh2OffsetArea, trimClock 0 0 0 5 -> gh2SortArea] = splitHorizN 2 $ lineBox 10
+    let [trimClock 0 5 0 leftLabelSize -> gh2OffsetArea, trimClock 0 0 0 5 -> gh2SortArea] = splitHorizN 2 $ lineBox 11
     gh2OffsetCounter <- FL.counterNew gh2OffsetArea $ Just "GH2 Audio Offset (ms)"
     FL.setLabelsize sliderQuality $ FL.FontSize 13
     FL.setLabeltype gh2OffsetCounter FLE.NormalLabelType FL.ResolveImageLabelDoNothing
@@ -4708,7 +4717,7 @@ launchPreferences sink = do
     checkGH2Sort <- FL.checkButtonNew gh2SortArea $ Just "Sort GH2 bonus songs when adding to .ARK"
     void $ FL.setValue checkGH2Sort $ prefSortGH2 loadedPrefs
 
-    let [_, saveRect, _, cancelRect, _] = splitHorizN 5 $ lineBox 11
+    let [_, saveRect, _, cancelRect, _] = splitHorizN 5 $ lineBox 12
     saveButton <- FL.buttonNew saveRect $ Just "Save"
     taskColor >>= FL.setColor saveButton
     FL.setCallback saveButton $ \_ -> do
@@ -4721,6 +4730,7 @@ launchPreferences sink = do
             label2x    <- FL.getValue checkLabel2x
             trim       <- FL.getValue checkTrimXbox
             rbNumberID <- FL.getValue checkRBNumberID
+            ps3Encrypt <- FL.getValue checkPS3Encrypt
             msaa       <- fromMaybe (prefMSAA loadedPrefs) <$> getMSAA
             fxaa       <- FL.getValue checkFXAA
             dirRB      <- getPath <$> getDirRB
@@ -4736,6 +4746,7 @@ launchPreferences sink = do
               , prefLabel2x    = label2x
               , prefTrimXbox   = trim
               , prefRBNumberID = rbNumberID
+              , prefPS3Encrypt = ps3Encrypt
               , prefMSAA       = msaa
               , prefFXAA       = fxaa
               , prefDirRB      = dirRB

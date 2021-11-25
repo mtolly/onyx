@@ -1850,9 +1850,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       rb2ps3Pan = dir </> "rb2-ps3/songs" </> pkg </> pkg <.> "pan"
 
                   rb2ps3DTA %> writeRB2DTA True
-                  rb2ps3Mid %> \out -> do
-                    shk $ need [rb2Mid]
-                    stackIO $ packNPData rb2MidEdatConfig rb2Mid out $ B8.pack pkg <> ".mid.edat"
+                  rb2ps3Mid %> \out -> if rb2_PS3Encrypt rb2
+                    then do
+                      shk $ need [rb2Mid]
+                      stackIO $ packNPData rb2MidEdatConfig rb2Mid out $ B8.pack pkg <> ".mid.edat"
+                    else shk $ copyFile' rb2Mid out
                   rb2ps3Art %> shk . copyFile' (rel "gen/cover.png_ps3")
                   rb2ps3Mogg %> \out -> do
                     -- PS3 can't play unencrypted moggs

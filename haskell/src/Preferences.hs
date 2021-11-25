@@ -23,6 +23,7 @@ data Preferences = Preferences
   , prefTrimXbox      :: Bool
   , prefRBNumberID    :: Bool
   , prefSortGH2       :: Bool
+  , prefPS3Encrypt    :: Bool
   , prefMSAA          :: Maybe Int
   , prefFXAA          :: Bool
   , prefDirRB         :: Maybe FilePath
@@ -44,6 +45,7 @@ instance StackJSON Preferences where
     prefLabel2x       <- prefLabel2x       =. fill True         "label-2x"        stackJSON
     prefTrimXbox      <- prefTrimXbox      =. fill False        "trim-xbox"       stackJSON
     prefSortGH2       <- prefSortGH2       =. fill True         "sort-gh2"        stackJSON
+    prefPS3Encrypt    <- prefPS3Encrypt    =. fill True         "ps3-encrypt"     stackJSON
     prefRBNumberID    <- prefRBNumberID    =. fill False        "rb-number-id"    stackJSON
     prefMSAA          <- prefMSAA          =. fill (Just 4)     "msaa"            stackJSON
     prefFXAA          <- prefFXAA          =. fill True         "fxaa"            stackJSON
