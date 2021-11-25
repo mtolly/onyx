@@ -20,7 +20,6 @@ import           Codec.Picture                             (readImage,
                                                             savePngImage,
                                                             writePng)
 import           CommandLine                               (blackVenue,
-                                                            copyDirRecursive,
                                                             runDolphin)
 import           Config
 import           Control.Applicative                       ((<|>))
@@ -124,7 +123,9 @@ import           Numeric                                   (readHex, showHex)
 import           OpenProject
 import           OSFiles                                   (commonDir,
                                                             osOpenFile,
-                                                            osShowFolder)
+                                                            osShowFolder,
+                                                            copyDirRecursive,
+                                                            copyDirRecursiveMergeDTA)
 import           Paths_onyxite_customs_tool                (version)
 import           Preferences                               (MagmaSetting (..),
                                                             Preferences (..),
@@ -156,6 +157,7 @@ import qualified Sound.MIDI.Util                           as U
 import qualified STFS.Package                              as STFS
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (dropExtension,
+                                                            dropTrailingPathSeparator,
                                                             takeDirectory,
                                                             takeExtension,
                                                             takeFileName,
@@ -1188,7 +1190,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               return [fout]
             RB2PS3 dout -> do
               tmp <- buildRB2PS3 tgt proj'
-              copyDirRecursive tmp dout
+              copyDirRecursiveMergeDTA tmp dout
               return [dout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
@@ -2711,7 +2713,7 @@ batchPageRB3 sink rect tab build = do
   return ()
 
 templateApplyInput :: Project -> Maybe (Target FilePath) -> T.Text -> T.Text
-templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ T.unpack $ foldr ($) txt
+templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
   [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
   , T.intercalate (validFileNamePiece NameRulePC $ T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
   , T.intercalate (validFileNamePiece NameRulePC title) . T.splitOn "%title%"
@@ -4403,7 +4405,7 @@ launchBatch sink makeMenuBar startFiles = mdo
                 return fout
               RB2PS3 dout -> do
                 tmp <- buildRB2PS3 target proj'
-                copyDirRecursive tmp dout
+                copyDirRecursiveMergeDTA tmp dout
                 return dout
       return tab
     , makeTab windowRect "Clone Hero" $ \rect tab -> do

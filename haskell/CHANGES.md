@@ -1,5 +1,10 @@
 # Version history
 
+## 20211124
+
+* Prerelease version
+* Demo of PS3 RB2 export
+
 ## 20211108
 
 * Minor fixes to Guitar Hero II Deluxe support

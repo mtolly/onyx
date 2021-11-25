@@ -9,7 +9,6 @@ module CommandLine
 ( commandLine
 , identifyFile'
 , FileType(..)
-, copyDirRecursive
 , runDolphin
 , blackVenue
 ) where

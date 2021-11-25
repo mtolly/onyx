@@ -2,12 +2,13 @@
 {-# LANGUAGE LambdaCase   #-}
 {-# LANGUAGE ViewPatterns #-}
 -- | OS-specific functions to open and show files.
-module OSFiles (osOpenFile, osShowFolder, commonDir, fixFileCase, copyDirRecursive, shortWindowsPath) where
+module OSFiles (osOpenFile, osShowFolder, commonDir, fixFileCase, copyDirRecursive, copyDirRecursiveMergeDTA, shortWindowsPath) where
 
 import           Control.Monad            (forM_)
 import           Control.Monad.IO.Class   (MonadIO (..))
+import qualified Data.ByteString.Char8    as B8
 import qualified System.Directory         as Dir
-import           System.FilePath          (takeDirectory, (</>))
+import           System.FilePath          (takeDirectory, takeExtension, (</>))
 #ifdef WINDOWS
 import           Data.List                (intercalate)
 import           Data.List.Split          (splitOn)
@@ -45,6 +46,24 @@ copyDirRecursive src dst = liftIO $ do
     if isDir
       then copyDirRecursive pathFrom pathTo
       else Dir.copyFile pathFrom pathTo
+
+copyDirRecursiveMergeDTA :: (MonadIO m) => FilePath -> FilePath -> m ()
+copyDirRecursiveMergeDTA src dst = liftIO $ do
+  Dir.createDirectoryIfMissing False dst
+  ents <- Dir.listDirectory src
+  forM_ ents $ \ent -> do
+    let pathFrom = src </> ent
+        pathTo = dst </> ent
+    isDir <- Dir.doesDirectoryExist pathFrom
+    destExists <- Dir.doesFileExist pathTo
+    if isDir
+      then copyDirRecursiveMergeDTA pathFrom pathTo
+      else if takeExtension pathTo == ".dta" && destExists
+        then do
+          x <- B8.readFile pathFrom
+          y <- B8.readFile pathTo
+          B8.writeFile pathTo $ x <> B8.singleton '\n' <> y
+        else Dir.copyFile pathFrom pathTo
 
 osOpenFile :: (MonadIO m) => FilePath -> m ()
 osShowFolder :: (MonadIO m) => FilePath -> [FilePath] -> m ()
