@@ -1,0 +1,40 @@
+metadata:
+  title: Mythical Serpents
+  artist: Cynic
+  album: Ascension Codes
+  author: Onyxite
+  year: 2021
+  genre: prog
+  subgenre: progrock
+  track-number: 6
+  file-album-art: ../in-a-multiverse-where-atoms-sing-drum-playthrough/cover.jpg
+audio:
+  album-track: # https://cyniconline.bandcamp.com/
+    md5: d0bc174005b542cffa9da8a705a300f7
+    frames: 18435840
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
+    song:
+      pad: [1.428, album-track]
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

@@ -95,7 +95,6 @@ difficultyPS TargetPS{..} songYaml = let
     , rb3_SongID      = SongIDAutoSymbol
     , rb3_Version     = Nothing
     , rb3_Harmonix    = False
-    , rb3_FileMilo    = Nothing
     , rb3_Magma       = MagmaRequire
     }
   psDifficultyRB3 = difficultyRB3 rb3 songYaml
@@ -131,7 +130,6 @@ difficultyGH5 TargetGH5{..} songYaml = let
     , rb3_SongID      = SongIDAutoSymbol
     , rb3_Version     = Nothing
     , rb3_Harmonix    = False
-    , rb3_FileMilo    = Nothing
     , rb3_Magma       = MagmaRequire
     }
   DifficultyRB3{..} = difficultyRB3 rb3 songYaml

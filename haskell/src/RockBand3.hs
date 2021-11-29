@@ -412,7 +412,6 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
         , rb3_SongID      = SongIDAutoSymbol
         , rb3_Version     = Nothing
         , rb3_Harmonix    = False
-        , rb3_FileMilo    = Nothing
         , rb3_Magma       = MagmaRequire
         , rb3_Guitar      = ps_Guitar ps
         , rb3_Bass        = ps_Bass ps

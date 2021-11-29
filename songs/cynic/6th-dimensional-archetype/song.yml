@@ -1,0 +1,46 @@
+metadata:
+  title: 6th Dimensional Archetype
+  artist: Cynic
+  album: Ascension Codes
+  author: Onyxite
+  year: 2021
+  genre: prog
+  subgenre: progrock
+  track-number: 8
+  file-album-art: ../in-a-multiverse-where-atoms-sing-drum-playthrough/cover.jpg
+audio:
+  # https://cyniconline.bandcamp.com/
+  album-prev: # Sha48*
+    md5: fbd64bf639cc43a17f96c57a47b82d33
+    frames: 900480
+  album-track:
+    md5: 830a3ec515a70a6de489a90255ca927a
+    frames: 11828480
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      concatenate:
+      - fade: [start, 2.9, take: [end, 2.933, album-prev]]
+      - album-track
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

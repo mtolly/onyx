@@ -14,6 +14,7 @@ import           Control.Monad                  (forM, forM_, guard, when)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
+import           Data.Binary.Codec.Class        (bin, codecIn)
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Default.Class             (def)
@@ -27,9 +28,11 @@ import           Data.List.Extra                (elemIndex, nubOrd)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.Map                       as Map
 import           Data.Maybe                     (fromMaybe, isNothing, mapMaybe)
-import           Data.SimpleHandle              (Folder, Readable, fileReadable,
-                                                 findByteString, findFileCI,
-                                                 handleToByteString, splitPath,
+import           Data.SimpleHandle              (Folder (..), Readable,
+                                                 byteStringSimpleHandle,
+                                                 fileReadable, findByteString,
+                                                 findFileCI, handleToByteString,
+                                                 makeHandle, splitPath,
                                                  useHandle)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeLatin1, decodeUtf8With,
@@ -50,8 +53,10 @@ import           RockBand.Codec.File            (FlexPartName (..))
 import qualified RockBand.Codec.File            as RBFile
 import           RockBand.Codec.ProGuitar       (GtrBase (..), GtrTuning (..))
 import           RockBand.Common
+import           RockBand.Milo                  (SongPref (..), decompressMilo,
+                                                 miloToFolder, parseMiloFile)
 import qualified Sound.MIDI.Util                as U
-import           STFS.Package                   (rb3pkg)
+import           STFS.Package                   (rb3pkg, runGetM)
 import qualified System.Directory               as Dir
 import           System.FilePath                (takeDirectory, takeFileName,
                                                  (<.>), (</>))
@@ -62,7 +67,7 @@ data RBImport = RBImport
   , rbiComments    :: C3DTAComments
   , rbiMOGG        :: SoftContents
   , rbiAlbumArt    :: Maybe SoftFile
-  , rbiMilo        :: Maybe SoftContents
+  , rbiMilo        :: Maybe Readable
   , rbiMIDI        :: Readable
   , rbiMIDIUpdate  :: Maybe Readable
   , rbiSource      :: Maybe FilePath
@@ -111,7 +116,7 @@ importSTFSFolder src folder = do
       , rbiComments = comments
       , rbiMOGG = mogg
       , rbiAlbumArt = SoftFile "cover.png_xbox" . SoftReadable <$> art
-      , rbiMilo = SoftReadable <$> findFileCI miloPath folder
+      , rbiMilo = findFileCI miloPath folder
       , rbiMIDI = midi
       , rbiMIDIUpdate = update
       , rbiSource = Just src
@@ -130,7 +135,7 @@ importRBA rba level = do
     _      -> fatal $ "Expected 1 song in RBA, found " <> show (length packSongs)
   midi <- need 1
   mogg <- SoftReadable <$> need 2
-  milo <- SoftReadable <$> need 3
+  milo <- need 3
   bmp <- SoftFile "cover.bmp" . SoftReadable <$> need 4
   extraBS <- need 6 >>= \r -> stackIO $ useHandle r handleToByteString
   extra <- fmap (if isUTF8 then decodeUtf8With lenientDecode else decodeLatin1)
@@ -169,11 +174,6 @@ importRB rbi level = do
 
   let pkg = rbiSongPackage rbi
       files2x = Nothing
-      localMilo = do
-        -- if rbn2 and no vox, don't import milo
-        guard $ dtaIsHarmonixRB3 pkg || maybe False (/= 0) (HM.lookup "vocals" $ D.rank pkg)
-        let miloName = if dtaIsHarmonixRB3 pkg then "lipsync-venue.milo_xbox" else "lipsync.milo_xbox"
-        SoftFile miloName <$> rbiMilo rbi
       (title, auto2x) = determine2xBass $ D.name pkg
       is2x = fromMaybe auto2x $ c3dta2xBass $ rbiComments rbi
       hasKicks = if is2x then Kicks2x else Kicks1x
@@ -287,12 +287,58 @@ importRB rbi level = do
   let tone = fromMaybe Minor $ D.songTonality pkg
       -- Minor verified as default for PG chords if SK/VTN present and no song_tonality
       (skey, vkey) = case (D.songKey pkg, D.vocalTonicNote pkg) of
-        (Just sk, Just vtn) -> (Just $ SongKey sk tone , Just vtn)
-        (Just sk, Nothing ) -> (Just $ SongKey sk tone , Nothing )
+        (Just sk, Just vtn) -> (Just $ SongKey sk  tone, Just vtn)
+        (Just sk, Nothing ) -> (Just $ SongKey sk  tone, Nothing )
         (Nothing, Just vtn) -> (Just $ SongKey vtn tone, Nothing )
         (Nothing, Nothing ) -> (Nothing                , Nothing )
 
-  let bassBase = detectExtProBass $ RBFile.s_tracks midiFixed
+      bassBase = detectExtProBass $ RBFile.s_tracks midiFixed
+
+  miloFolder <- case (level, rbiMilo rbi) of
+    (ImportFull, Just milo) -> errorToWarning $ do
+      bs <- stackIO $ useHandle milo handleToByteString
+      dec <- runGetM decompressMilo bs
+      snd . miloToFolder <$> runGetM parseMiloFile dec
+    _ -> return Nothing
+  let flatten folder = folderFiles folder <> concatMap (flatten . snd) (folderSubfolders folder)
+      flat = maybe [] flatten miloFolder
+      lipsyncNames = ["song.lipsync", "part2.lipsync", "part3.lipsync", "part4.lipsync"]
+      getLipsyncFile name = do
+        bs <- lookup name flat
+        return
+          $ LipsyncFile
+          $ SoftFile (B8.unpack name)
+          $ SoftReadable
+          $ makeHandle (B8.unpack name)
+          $ byteStringSimpleHandle bs
+      takeWhileJust (Just x : xs) = x : takeWhileJust xs
+      takeWhileJust _             = []
+  songPref <- case lookup "BandSongPref" flat of
+    Nothing -> return Nothing
+    Just bs -> do
+      lg "Loading BandSongPref"
+      errorToWarning $ runGetM (codecIn bin) bs
+  let lookupPref fn defAssign = case songPref of
+        Nothing -> return defAssign
+        Just pref -> case fn pref of
+          "guitar" -> return LipsyncGuitar
+          "bass" -> return LipsyncBass
+          "drum" -> return LipsyncDrums
+          x -> do
+            warn $ "Unrecognized lipsync part assignment: " <> show x
+            return defAssign
+  pref2 <- lookupPref prefPart2 LipsyncGuitar
+  pref3 <- lookupPref prefPart3 LipsyncBass
+  pref4 <- lookupPref prefPart4 LipsyncDrums
+  -- TODO also import the animation style parameter
+  let lipsync = case takeWhileJust $ map getLipsyncFile lipsyncNames of
+        []   -> Nothing
+        srcs -> Just $ LipsyncRB3 srcs pref2 pref3 pref4
+  songAnim <- case lookup "song.anim" flat of
+    Nothing -> return Nothing
+    Just bs -> do
+      lg "Loading song.anim"
+      return $ Just $ SoftFile "song.anim" $ SoftReadable $ makeHandle "song.anim" $ byteStringSimpleHandle bs
 
   return SongYaml
     { _metadata = Metadata
@@ -326,10 +372,10 @@ importRB rbi level = do
       , _cover        = not $ D.master pkg || D.gameOrigin pkg == Just "beatles"
       }
     , _global = def'
-      { _animTempo = D.animTempo pkg
-      , _fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
-      , _fileSongAnim        = Nothing -- TODO actually extract this
-      , _backgroundVideo = Nothing
+      { _animTempo           = D.animTempo pkg
+      , _fileMidi            = SoftFile "notes.mid" $ SoftChart midiOnyx
+      , _fileSongAnim        = songAnim
+      , _backgroundVideo     = Nothing
       , _fileBackgroundImage = Nothing
       }
     , _audio = HM.empty
@@ -367,7 +413,6 @@ importRB rbi level = do
       version2x = guard (songID2x /= SongIDAutoSymbol) >> fmap (D.version . fst) files2x
       targetShared = def'
         { rb3_Harmonix = dtaIsHarmonixRB3 pkg
-        , rb3_FileMilo = localMilo
         }
       target1x = ("rb3", RB3 targetShared
         { rb3_2xBassPedal = False
@@ -458,9 +503,7 @@ importRB rbi level = do
           , vocalCount = vc
           , vocalGender = D.vocalGender pkg
           , vocalKey = vkey
-          -- TODO actually extract lipsync
-          , vocalLipsyncRB3 = Nothing
-          , vocalLipsyncRB2 = Nothing
+          , vocalLipsyncRB3 = lipsync
           }
         })
       ]

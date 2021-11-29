@@ -83,7 +83,7 @@ size_t VorbisEncrypter::ReadRaw(void* buf, size_t elementSize, size_t elements)
 	if (position + count > encrypted_length) {
 		count = encrypted_length - position;
 	}
-	if (count == 0) return 0;
+	if (count == 0) return bytesRead / elementSize;
 
 	int32_t size_diff = (int32_t)original_file_header.offset - hmx_header.size();
 	cb_struct.seek_func(file_ref, position + size_diff, SEEK_SET);

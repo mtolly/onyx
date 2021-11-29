@@ -142,7 +142,6 @@ importMagma fin level = do
             then maybe SongIDAutoSymbol SongIDSymbol $ readMaybe $ T.unpack (C3.uniqueNumericID c3file)
             else case C3.customID c3file of "" -> SongIDAutoSymbol; cid -> SongIDSymbol cid
         , rb3_Version = fromIntegral . C3.version <$> c3
-        , rb3_FileMilo = Nothing
         }
 
   let readTuning c3fn k = case c3 >>= c3fn of
@@ -325,7 +324,6 @@ importMagma fin level = do
           , vocalGender = Just $ RBProj.vocalGender $ RBProj.gamedata rbproj
           , vocalKey = Nothing
           , vocalLipsyncRB3 = Nothing
-          , vocalLipsyncRB2 = Nothing
           }
         })
       ]

@@ -2113,7 +2113,7 @@ songPageRB3 sink rect tab proj build = mdo
         )
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
       liftIO $ FL.setCallback box2x $ \_ -> controlInput
-  let initTarget = def
+  let initTarget = (def :: TargetRB3 FilePath)
         { rb3_Magma = prefMagma ?preferences
         , rb3_Common = def
           { tgt_Label2x = prefLabel2x ?preferences

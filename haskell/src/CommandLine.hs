@@ -86,7 +86,8 @@ import           Neversoft.QB                     (discardStrings, lookupQB,
                                                    lookupQS, parseQB, putQB)
 import           NPData
 import           OpenProject
-import           OSFiles                          (copyDirRecursive)
+import           OSFiles                          (copyDirRecursive,
+                                                   shortWindowsPath)
 import           PrettyDTA                        (DTASingle (..),
                                                    readDTASingles,
                                                    readFileSongsDTA, readRB3DTA,
@@ -1345,7 +1346,9 @@ commands =
         [fin, fout] -> return (fin, fout, B8.pack $ takeFileName fout)
         [fin, fout, fhash] -> return (fin, fout, B8.pack fhash)
         _ -> fatal "Expected 1-3 arguments"
-      stackIO $ packNPData rb2MidEdatConfig fin fout fhash
+      fin'  <- shortWindowsPath fin
+      fout' <- shortWindowsPath fout
+      stackIO $ packNPData rb2MidEdatConfig fin' fout' fhash
       return [fout]
     }
 
@@ -1356,7 +1359,9 @@ commands =
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ fatal "Requires --to argument"
-        stackIO $ encryptRB1 fin fout
+        fin'  <- shortWindowsPath fin
+        fout' <- shortWindowsPath fout
+        stackIO $ encryptRB1 fin' fout'
         return [fout]
       _ -> fatal "Expected 1 argument"
     }

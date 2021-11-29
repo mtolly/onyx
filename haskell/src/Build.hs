@@ -111,7 +111,8 @@ import           Neversoft.QB                          (QBArray (..),
 import           NPData                                (packNPData,
                                                         rb2MidEdatConfig)
 import qualified Numeric.NonNegative.Class             as NNC
-import           OSFiles                               (copyDirRecursive)
+import           OSFiles                               (copyDirRecursive,
+                                                        shortWindowsPath)
 import           Overdrive                             (calculateUnisons,
                                                         getOverdrive,
                                                         printFlexParts)
@@ -136,7 +137,6 @@ import           RockBand.Codec.File                   (saveMIDI, shakeMIDI)
 import qualified RockBand.Codec.File                   as RBFile
 import           RockBand.Codec.Five
 import qualified RockBand.Codec.FullDrums              as FD
-import           RockBand.Codec.Lipsync                (LipsyncTrack (..))
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal                  (nullVox)
@@ -146,9 +146,12 @@ import           RockBand.Milo                         (MagmaLipsync (..),
                                                         defaultTransition,
                                                         englishSyllables,
                                                         gh2Lipsync,
+                                                        lipsyncAdjustSpeed,
                                                         lipsyncFromMIDITrack,
+                                                        lipsyncPad,
                                                         loadVisemesRB3,
-                                                        magmaMilo, putVocFile)
+                                                        magmaMilo, parseLipsync,
+                                                        putVocFile)
 import qualified RockBand.ProGuitar.Play               as PGPlay
 import           RockBand.Score                        (gh2Base)
 import           RockBand.Sections                     (makeRB2Section,
@@ -169,7 +172,7 @@ import qualified Sound.MIDI.Util                       as U
 import           STFS.Package                          (CreateOptions (..),
                                                         LicenseEntry (..),
                                                         gh2pkg, makeCONReadable,
-                                                        rb2pkg, rb3pkg)
+                                                        rb2pkg, rb3pkg, runGetM)
 import qualified System.Directory                      as Dir
 import           System.Environment.Executable         (getExecutablePath)
 import           System.IO                             (IOMode (ReadMode),
@@ -1477,37 +1480,44 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 shk $ need [pathOgg]
                 mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
             pathPng  %> shk . copyFile' (rel "gen/cover.png_xbox")
-            pathMilo %> \out -> case rb3_FileMilo rb3 of
-              Nothing   -> do
+            pathMilo %> \out -> case getPart (rb3_Vocal rb3) songYaml >>= partVocal of
+              -- TODO apply segment boundaries
+              -- TODO add member assignments and anim style in BandSongPref, and anim style
+              -- TODO include rb3 format venue in milo (with speed/pad adjustments)
+              Nothing   -> stackIO emptyMilo >>= \mt -> shk $ copyFile' mt out
+              Just pvox -> do
+                let srcs = case (vocalLipsyncRB3 pvox, vocalCount pvox) of
+                      (Just lrb3, _     ) -> lipsyncSources lrb3
+                      (Nothing  , Vocal1) -> [LipsyncVocal Nothing]
+                      (Nothing  , Vocal2) -> [LipsyncVocal $ Just Vocal1, LipsyncVocal $ Just Vocal2]
+                      (Nothing  , Vocal3) -> [LipsyncVocal $ Just Vocal1, LipsyncVocal $ Just Vocal2, LipsyncVocal $ Just Vocal3]
                 midi <- shakeMIDI $ planDir </> "raw.mid"
                 vmap <- loadVisemesRB3
+                pad <- shk $ read <$> readFile' (dir </> "magma/pad.txt")
                 let vox = RBFile.getFlexPart (rb3_Vocal rb3) $ RBFile.s_tracks midi
                     lip = lipsyncFromMIDITrack vmap . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
                     auto = autoLipsync defaultTransition vmap englishSyllables . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
                     write = stackIO . BL.writeFile out
-                if
-                  | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync3 vox -> write $ magmaMilo $ MagmaLipsync3
-                    (lip $ RBFile.onyxLipsync1 vox)
-                    (lip $ RBFile.onyxLipsync2 vox)
-                    (lip $ RBFile.onyxLipsync3 vox)
-                  | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync2 vox -> write $ magmaMilo $ MagmaLipsync2
-                    (lip $ RBFile.onyxLipsync1 vox)
-                    (lip $ RBFile.onyxLipsync2 vox)
-                  | not $ RTB.null $ lipEvents $ RBFile.onyxLipsync1 vox -> write $ magmaMilo $ MagmaLipsync1
-                    (lip $ RBFile.onyxLipsync1 vox)
-                  | not $ nullVox $ RBFile.onyxHarm3 vox -> write $ magmaMilo $ MagmaLipsync3
-                    (auto $ RBFile.onyxHarm1 vox)
-                    (auto $ RBFile.onyxHarm2 vox)
-                    (auto $ RBFile.onyxHarm3 vox)
-                  | not $ nullVox $ RBFile.onyxHarm2 vox -> write $ magmaMilo $ MagmaLipsync2
-                    (auto $ RBFile.onyxHarm1 vox)
-                    (auto $ RBFile.onyxHarm2 vox)
-                  | not $ nullVox $ RBFile.onyxPartVocals vox -> write $ magmaMilo $ MagmaLipsync1
-                    (auto $ RBFile.onyxPartVocals vox)
-                  | otherwise -> stackIO emptyMilo >>= \mt -> shk $ copyFile' mt out
-              Just milo -> do
-                shk $ copyFile' milo out
-                forceRW out
+                    padSeconds = fromIntegral (pad :: Int) :: U.Seconds
+                    speed = realToFrac $ fromMaybe 1 $ tgt_Speed $ rb3_Common rb3 :: Rational
+                    fromSource = fmap (lipsyncPad padSeconds . lipsyncAdjustSpeed speed) . \case
+                      LipsyncTrack1 -> return $ lip $ RBFile.onyxLipsync1 vox
+                      LipsyncTrack2 -> return $ lip $ RBFile.onyxLipsync2 vox
+                      LipsyncTrack3 -> return $ lip $ RBFile.onyxLipsync3 vox
+                      LipsyncTrack4 -> return $ lip $ RBFile.onyxLipsync4 vox
+                      LipsyncVocal mvc -> return $ auto $ case mvc of
+                        Nothing     -> RBFile.onyxPartVocals vox
+                        Just Vocal1 -> RBFile.onyxHarm1 vox
+                        Just Vocal2 -> RBFile.onyxHarm2 vox
+                        Just Vocal3 -> RBFile.onyxHarm3 vox
+                      LipsyncFile f -> stackIO (BL.fromStrict <$> B.readFile f) >>= runGetM parseLipsync
+                lips <- mapM fromSource srcs
+                case lips of
+                  []                    -> stackIO emptyMilo >>= \mt -> shk $ copyFile' mt out
+                  [l1]                  -> write $ magmaMilo $ MagmaLipsync1 l1
+                  [l1, l2]              -> write $ magmaMilo $ MagmaLipsync2 l1 l2
+                  [l1, l2, l3]          -> write $ magmaMilo $ MagmaLipsync3 l1 l2 l3
+                  l1 : l2 : l3 : l4 : _ -> write $ magmaMilo $ MagmaLipsync4 l1 l2 l3 l4
             pathCon %> \out -> do
               let files = [pathDta, pathMid, pathMogg, pathMilo]
                     ++ [pathPng | isJust $ _fileAlbumArt $ _metadata songYaml]
@@ -1613,6 +1623,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                         }
                       }
                     }
+                  -- TODO patch this
+                  -- ERROR: Metadata Compiler: [...] track_number: value is 16000, which is greater than the maximum value of 99.
 
                 pathMagmaRbaV1 %> \out -> do
                   shk $ need [pathMagmaDummyMono, pathMagmaDummyStereo, pathMagmaDryvoxSine, pathMagmaCoverV1, pathMagmaMidV1, pathMagmaProjV1]
@@ -1821,6 +1833,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     saveMIDI out mid
                   rb2Mogg %> shk . copyFile' pathMogg
                   rb2Milo %> \out -> do
+                    -- TODO replace this with our own lipsync milo, ignore magma
                     ex <- doesRBAExist
                     if ex
                       then stackIO $ Magma.getRBAFile 3 pathMagmaRbaV1 out
@@ -1853,15 +1866,19 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   rb2ps3Mid %> \out -> if rb2_PS3Encrypt rb2
                     then do
                       shk $ need [rb2Mid]
-                      stackIO $ packNPData rb2MidEdatConfig rb2Mid out $ B8.pack pkg <> ".mid.edat"
+                      fin  <- shortWindowsPath rb2Mid
+                      fout <- shortWindowsPath out
+                      stackIO $ packNPData rb2MidEdatConfig fin fout $ B8.pack pkg <> ".mid.edat"
                     else shk $ copyFile' rb2Mid out
                   rb2ps3Art %> shk . copyFile' (rel "gen/cover.png_ps3")
                   rb2ps3Mogg %> \out -> do
                     -- PS3 can't play unencrypted moggs
                     shk $ need [rb2Mogg]
                     moggType <- stackIO $ withBinaryFile rb2Mogg ReadMode $ \h -> B.hGet h 1
+                    fin  <- shortWindowsPath rb2Mogg
+                    fout <- shortWindowsPath out
                     case B.unpack moggType of
-                      [0xA] -> stackIO $ encryptRB1 rb2Mogg out
+                      [0xA] -> stackIO $ encryptRB1 fin fout
                       _     -> shk $ copyFile' rb2Mogg out
                   rb2ps3Weights %> shk . copyFile' rb2Weights
                   rb2ps3Milo %> shk . copyFile' rb2Milo
@@ -1885,7 +1902,6 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , rb3_Vocal = rb2_Vocal rb2
               , rb3_Keys = RBFile.FlexExtra "undefined"
               , rb3_Harmonix = False
-              , rb3_FileMilo = Nothing
               , rb3_Magma = rb2_Magma rb2
               }
             in rbRules dir rb3 $ Just rb2

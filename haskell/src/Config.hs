@@ -779,7 +779,6 @@ data PartVocal f = PartVocal
   , vocalGender     :: Maybe Magma.Gender
   , vocalKey        :: Maybe Key
   , vocalLipsyncRB3 :: Maybe (LipsyncRB3 f)
-  , vocalLipsyncRB2 :: Maybe (LipsyncSource f)
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (PartVocal f) where
@@ -789,7 +788,6 @@ instance (Eq f, StackJSON f) => StackJSON (PartVocal f) where
     vocalGender     <- vocalGender     =. opt  Nothing  "gender"      (maybeCodec parseGender)
     vocalKey        <- vocalKey        =. opt  Nothing  "key"         (maybeCodec parsePitch)
     vocalLipsyncRB3 <- vocalLipsyncRB3 =. opt  Nothing  "lipsync-rb3" stackJSON
-    vocalLipsyncRB2 <- vocalLipsyncRB2 =. opt  Nothing  "lipsync-rb2" stackJSON
     return PartVocal{..}
 
 data PartAmplitude = PartAmplitude
@@ -1116,7 +1114,6 @@ data TargetRB3 f = TargetRB3
   , rb3_SongID      :: RBSongID
   , rb3_Version     :: Maybe Integer
   , rb3_Harmonix    :: Bool
-  , rb3_FileMilo    :: Maybe f
   , rb3_Magma       :: MagmaSetting
   , rb3_Guitar      :: FlexPartName
   , rb3_Bass        :: FlexPartName
@@ -1132,7 +1129,6 @@ parseTargetRB3 = do
   rb3_SongID      <- rb3_SongID      =. fill SongIDAutoSymbol "song-id"  stackJSON
   rb3_Version     <- rb3_Version     =. opt Nothing      "version"       stackJSON
   rb3_Harmonix    <- rb3_Harmonix    =. opt False        "harmonix"      stackJSON
-  rb3_FileMilo    <- rb3_FileMilo    =. opt Nothing      "file-milo"     stackJSON
   rb3_Magma       <- rb3_Magma       =. opt MagmaRequire "magma"         stackJSON
   rb3_Guitar      <- rb3_Guitar      =. opt FlexGuitar   "guitar"        stackJSON
   rb3_Bass        <- rb3_Bass        =. opt FlexBass     "bass"          stackJSON

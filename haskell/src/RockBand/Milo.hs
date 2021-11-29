@@ -12,15 +12,21 @@ module RockBand.Milo
 , unpackMilo
 , packMilo
 , loadMilo
+, miloToFolder
 ) where
 
 import           Control.Monad                  (forM_)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.StackTrace
+import           Data.Bifunctor                 (bimap)
 import           Data.Binary.Get                (runGetOrFail)
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
+import           Data.SimpleHandle              (Folder (..),
+                                                 byteStringSimpleHandle,
+                                                 makeHandle, saveHandleFolder)
+import qualified Data.Text.Encoding             as TE
 import           RockBand.Milo.Compression
 import           RockBand.Milo.Dir
 import           RockBand.Milo.Lipsync
@@ -44,6 +50,12 @@ loadMilo fin = do
   dec <- inside ("Decompressing milo file: " <> fin) $ runGetM decompressMilo bs
   inside ("Parsing milo file: " <> fin) $ runGetM parseMiloFile dec
 
+miloToFolder :: MiloDir -> (B.ByteString, Folder B.ByteString BL.ByteString)
+miloToFolder dir = (miloName dir, Folder
+  { folderFiles      = zip (map snd $ miloEntryNames dir) (miloFiles dir)
+  , folderSubfolders = map miloToFolder $ miloSubdirs dir
+  })
+
 -- | Decompresses a milo and tries to parse the directory structure inside.
 -- Extracts either the parsed structure and its files, or the raw split pieces.
 unpackMilo :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> StackTraceT m ()
@@ -59,17 +71,13 @@ unpackMilo fin dout = do
       inside "Parsing .milo structure" $ inside ("position " <> show pos) $ warn err
       lg "Couldn't parse milo structure; split into simple pieces."
     Right (_, _, topdir) -> do
-      let go parent milodir = do
-            let thisout = parent </> B8.unpack (miloName milodir)
-            Dir.createDirectoryIfMissing False thisout
-            forM_ (zip (miloEntryNames milodir) (miloFiles milodir)) $ \((_typ, name), fileBytes) -> do
-              BL.writeFile (thisout </> B8.unpack name) fileBytes
-            mapM_ (go thisout) $ miloSubdirs milodir
-          removeFiles dir = dir
+      let (topname, folder) = miloToFolder topdir
+          folder' = bimap TE.decodeLatin1 (makeHandle "" . byteStringSimpleHandle) folder
+      stackIO $ saveHandleFolder folder' $ dout </> B8.unpack topname
+      let removeFiles dir = dir
             { miloSubdirs = map removeFiles $ miloSubdirs dir
             , miloFiles = map (const "(file contents)") $ miloFiles dir
             }
-      stackIO $ go dout topdir
       stackIO $ writeFile (dout </> "parsed.txt") $ show $ removeFiles topdir
       lg "Recognized and extracted milo contents."
 

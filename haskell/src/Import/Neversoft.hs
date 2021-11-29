@@ -168,7 +168,6 @@ importGH5WoR src folder = do
                   , vocalGender     = Nothing -- TODO is this stored somewhere?
                   , vocalKey        = Nothing
                   , vocalLipsyncRB3 = Nothing
-                  , vocalLipsyncRB2 = Nothing
                   }
                 })
               ]

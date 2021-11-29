@@ -841,6 +841,28 @@ lipsyncFromMIDITrack' tgt vmap lip
 lipsyncFromMIDITrack :: VisemeMap [(T.Text, Word8)] -> LipsyncTrack U.Seconds -> Lipsync
 lipsyncFromMIDITrack = lipsyncFromMIDITrack' LipsyncRB3
 
+lipsyncAdjustSpeed :: Rational -> Lipsync -> Lipsync
+lipsyncAdjustSpeed 1 lip = lip
+lipsyncAdjustSpeed r lip = let
+  emptyMap = VisemeMap
+    { vmVowels     = \_ -> ([], Nothing)
+    , vmConsonants = \_ -> []
+    , vmDefault    = []
+    }
+  r' = realToFrac r :: U.Seconds
+  adjust = mapTrack $ RTB.mapTime (* r')
+  in (lipsyncFromMIDITrack emptyMap $ adjust $ lipsyncToMIDITrack lip)
+    { lipsyncVersion    = lipsyncVersion    lip
+    , lipsyncSubversion = lipsyncSubversion lip
+    , lipsyncDTAImport  = lipsyncDTAImport  lip
+    }
+
+lipsyncPad :: U.Seconds -> Lipsync -> Lipsync
+lipsyncPad 0    lip = lip
+lipsyncPad secs lip = let
+  pad = replicate (round $ secs * 30) $ Keyframe []
+  in lip { lipsyncKeyframes = pad <> lipsyncKeyframes lip }
+
 testConvertLipsync :: FilePath -> [FilePath] -> FilePath -> IO ()
 testConvertLipsync fmid fvocs fout = do
   res <- logStdout $ RBFile.loadMIDI fmid

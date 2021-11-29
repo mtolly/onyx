@@ -617,7 +617,6 @@ importFoF src level = do
           , vocalGender = Nothing
           , vocalKey = Nothing
           , vocalLipsyncRB3 = Nothing
-          , vocalLipsyncRB2 = Nothing
           }
         })
       , ( FlexExtra "global", def
