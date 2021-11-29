@@ -563,7 +563,7 @@ audioMD5 f = liftIO $ case takeExtension f of
 
 ffSourceSimple :: FilePath -> IO (AudioSource (ResourceT IO) Int16)
 -- is shortWindowsPath needed or can ffmpeg take UTF-8 char* on windows?
-ffSourceSimple f = shortWindowsPath f >>= ffSource . Right
+ffSourceSimple f = shortWindowsPath False f >>= ffSource . Right
 
 supportedFFExt :: FilePath -> Bool
 supportedFFExt f = map toLower (takeExtension f) `elem`

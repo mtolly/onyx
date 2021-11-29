@@ -9,20 +9,30 @@ import           Control.Monad.IO.Class   (MonadIO (..))
 import qualified Data.ByteString.Char8    as B8
 import qualified System.Directory         as Dir
 import           System.FilePath          (takeDirectory, takeExtension, (</>))
+
+-- Windows only
 #ifdef WINDOWS
+import           Control.Monad            (when)
 import           Data.List                (intercalate)
 import           Data.List.Split          (splitOn)
 import           Foreign                  (Ptr, nullPtr, ptrToIntPtr,
                                            withArrayLen, withMany)
 import           Foreign.C                (CInt (..), CWString, withCWString)
 import           Graphics.Win32.GDI.Types (HWND)
+import           System.IO                (withBinaryFile, IOMode(ReadWriteMode))
 import           System.Win32.Info        (getShortPathName)
 import           System.Win32.Types       (HINSTANCE, INT, LPCWSTR)
+
+-- Mac/Linux only
 #else
 import           System.Process           (callProcess)
+
+-- Mac only
 #ifdef MACOSX
 import           Foreign                  (Ptr, withArrayLen, withMany)
 import           Foreign.C                (CInt (..), CString, withCString)
+
+-- Linux only
 #else
 import           Data.Maybe               (fromMaybe)
 import qualified Data.Text                as T
@@ -32,6 +42,7 @@ import           System.FilePath          (dropTrailingPathSeparator,
 import           System.Info              (os)
 import           System.IO                (stderr, stdout)
 import           System.IO.Silently       (hSilence)
+
 #endif
 #endif
 
@@ -79,7 +90,7 @@ commonDir fs = do
 fixFileCase :: (MonadIO m) => FilePath -> m FilePath
 
 -- | On Windows, get a DOS short path so Unixy C code can deal with it.
-shortWindowsPath :: (MonadIO m) => FilePath -> m FilePath
+shortWindowsPath :: (MonadIO m) => Bool -> FilePath -> m FilePath
 
 #ifdef WINDOWS
 
@@ -106,11 +117,13 @@ osShowFolder dir fs = liftIO $
 
 fixFileCase = return
 
-shortWindowsPath f = liftIO $ let
+shortWindowsPath create f = liftIO $ do
+  -- First ensure the file exists (if we're intending to write to it)
+  when create $ withBinaryFile f ReadWriteMode $ \_ -> return ()
   -- Can't use forward slashes, you get invalid path error
-  allBackslash = intercalate "\\" $ splitOn "/" f
+  let allBackslash = intercalate "\\" $ splitOn "/" f
   -- The weird prefix lets you go beyond MAX_PATH
-  in getShortPathName $ "\\\\?\\" <> allBackslash
+  getShortPathName $ "\\\\?\\" <> allBackslash
 
 #else
 

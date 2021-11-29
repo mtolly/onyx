@@ -1866,8 +1866,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   rb2ps3Mid %> \out -> if rb2_PS3Encrypt rb2
                     then do
                       shk $ need [rb2Mid]
-                      fin  <- shortWindowsPath rb2Mid
-                      fout <- shortWindowsPath out
+                      fin  <- shortWindowsPath False rb2Mid
+                      fout <- shortWindowsPath True  out
                       stackIO $ packNPData rb2MidEdatConfig fin fout $ B8.pack pkg <> ".mid.edat"
                     else shk $ copyFile' rb2Mid out
                   rb2ps3Art %> shk . copyFile' (rel "gen/cover.png_ps3")
@@ -1875,8 +1875,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     -- PS3 can't play unencrypted moggs
                     shk $ need [rb2Mogg]
                     moggType <- stackIO $ withBinaryFile rb2Mogg ReadMode $ \h -> B.hGet h 1
-                    fin  <- shortWindowsPath rb2Mogg
-                    fout <- shortWindowsPath out
+                    fin  <- shortWindowsPath False rb2Mogg
+                    fout <- shortWindowsPath True  out
                     case B.unpack moggType of
                       [0xA] -> stackIO $ encryptRB1 fin fout
                       _     -> shk $ copyFile' rb2Mogg out

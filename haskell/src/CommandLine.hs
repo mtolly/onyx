@@ -1346,8 +1346,8 @@ commands =
         [fin, fout] -> return (fin, fout, B8.pack $ takeFileName fout)
         [fin, fout, fhash] -> return (fin, fout, B8.pack fhash)
         _ -> fatal "Expected 1-3 arguments"
-      fin'  <- shortWindowsPath fin
-      fout' <- shortWindowsPath fout
+      fin'  <- shortWindowsPath False fin
+      fout' <- shortWindowsPath True  fout
       stackIO $ packNPData rb2MidEdatConfig fin' fout' fhash
       return [fout]
     }
@@ -1359,8 +1359,8 @@ commands =
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ fatal "Requires --to argument"
-        fin'  <- shortWindowsPath fin
-        fout' <- shortWindowsPath fout
+        fin'  <- shortWindowsPath False fin
+        fout' <- shortWindowsPath True  fout
         stackIO $ encryptRB1 fin' fout'
         return [fout]
       _ -> fatal "Expected 1 argument"
