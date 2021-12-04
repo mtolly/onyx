@@ -28,14 +28,21 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      concatenate:
-      - fade: [start, 2.9, take: [end, 2.933, album-prev]]
-      - album-track
+      # cut off a bit early and fade out
+      fade:
+      - end
+      - 16.0
+      - take:
+        - '3:56.400'
+        - concatenate:
+          - fade: [start, 2.9, take: [end, 2.933, album-prev]]
+          - album-track
 parts:
   drums:
     drums:
       mode: full
       kicks: both
+      difficulty: 5
 targets:
   rb3:
     game: rb3
