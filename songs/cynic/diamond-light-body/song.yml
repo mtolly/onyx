@@ -1,0 +1,50 @@
+metadata:
+  title: Diamond Light Body
+  artist: Cynic
+  album: Ascension Codes
+  author: Onyxite
+  year: 2021
+  genre: prog
+  subgenre: progrock
+  track-number: 17
+  file-album-art: ../in-a-multiverse-where-atoms-sing-drum-playthrough/cover.jpg
+audio:
+  # https://cyniconline.bandcamp.com/
+  album-prev: # A'jha108
+    md5: 30928edf162c727696896a68c21be7f1
+    frames: 1329920
+  album-track:
+    md5: 5436fe98dabdc956c8bd3b992ccbd107
+    frames: 16448000
+  album-next: # Ec-ka72
+    md5: 5d199e9cabc4dcda231b4c90a60e8cf6
+    frames: 2175360
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      concatenate:
+      - fade: [start, 2.33, take: [end, 3.471, album-prev]]
+      - album-track
+      - album-next
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

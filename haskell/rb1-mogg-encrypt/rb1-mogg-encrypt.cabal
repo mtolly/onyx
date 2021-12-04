@@ -17,3 +17,4 @@ library
     cbits/MoggcryptCpp.cpp
   build-depends: base, bytestring
   default-language: Haskell2010
+  extra-libraries: stdc++

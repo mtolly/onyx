@@ -850,7 +850,7 @@ lipsyncAdjustSpeed r lip = let
     , vmDefault    = []
     }
   r' = realToFrac r :: U.Seconds
-  adjust = mapTrack $ RTB.mapTime (* r')
+  adjust = mapTrack $ RTB.mapTime (/ r')
   in (lipsyncFromMIDITrack emptyMap $ adjust $ lipsyncToMIDITrack lip)
     { lipsyncVersion    = lipsyncVersion    lip
     , lipsyncSubversion = lipsyncSubversion lip

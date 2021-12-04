@@ -108,9 +108,10 @@ import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    lipsyncFromMIDITrack,
                                                    loadVisemesRB3,
                                                    loadVisemesTBRB, packMilo,
-                                                   putLipsync, setBeatles,
+                                                   parseVenue, putLipsync,
+                                                   setBeatles,
                                                    testConvertLipsync,
-                                                   unpackMilo)
+                                                   testConvertVenue, unpackMilo)
 import           RockBand.Score
 import           Rocksmith.PSARC                  (extractPSARC)
 import qualified Sound.File.Sndfile               as Snd
@@ -1364,6 +1365,26 @@ commands =
         stackIO $ encryptRB1 fin' fout'
         return [fout]
       _ -> fatal "Expected 1 argument"
+    }
+
+  , Command
+    { commandWord = "test-rb3-venue"
+    , commandDesc = ""
+    , commandUsage = T.unlines
+      [ "onyx test-rb3-venue song.anim --to out.txt"
+      , "onyx test-rb3-venue song.anim in.mid --to out.mid"
+      ]
+    , commandRun = \args opts -> case args of
+      [fin] -> do
+        fout <- outputFile opts $ return $ fin <.> "txt"
+        venue <- stackIO (BL.readFile fin) >>= runGetM parseVenue
+        stackIO $ writeFile fout $ show venue
+        return [fout]
+      [fin, mid] -> do
+        fout <- outputFile opts $ return $ mid <> ".venue.mid"
+        stackIO $ testConvertVenue mid fin fout
+        return [fout]
+      _ -> fatal "Expected 1 or 2 arguments"
     }
 
   ]

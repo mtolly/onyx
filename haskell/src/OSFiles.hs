@@ -19,7 +19,8 @@ import           Foreign                  (Ptr, nullPtr, ptrToIntPtr,
                                            withArrayLen, withMany)
 import           Foreign.C                (CInt (..), CWString, withCWString)
 import           Graphics.Win32.GDI.Types (HWND)
-import           System.IO                (withBinaryFile, IOMode(ReadWriteMode))
+import           System.IO                (IOMode (ReadWriteMode),
+                                           withBinaryFile)
 import           System.Win32.Info        (getShortPathName)
 import           System.Win32.Types       (HINSTANCE, INT, LPCWSTR)
 
@@ -142,7 +143,7 @@ osShowFolder _   fs = do
 
 fixFileCase = return
 
-shortWindowsPath = return
+shortWindowsPath _ = return
 
 #else
 
@@ -174,7 +175,7 @@ fixFileCaseMaybe (dropTrailingPathSeparator -> f) = liftIO $ do
             []    -> return Nothing
             e : _ -> return $ Just $ dir' </> e
 
-shortWindowsPath = return
+shortWindowsPath _ = return
 
 #endif
 
