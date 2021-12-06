@@ -73,6 +73,7 @@ parts:
     drums:
       kicks: both
       mode: full
+      full-layout: open-hand
   bass:
     pro-guitar:
       tuning:

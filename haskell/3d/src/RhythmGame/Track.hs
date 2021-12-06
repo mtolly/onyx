@@ -50,7 +50,7 @@ import           WebPlayer                        (findTremolos, findTrills,
 
 data PreviewTrack
   = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))))
-  | PreviewDrumsFull (Map.Map Double (PNF.CommonState (PNF.DrumState FD.FullDrumNote FD.FullGem)))
+  | PreviewDrumsFull FullDrumLayout (Map.Map Double (PNF.CommonState (PNF.DrumState FD.FullDrumNote FD.FullGem)))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState (Maybe F.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   deriving (Show)
@@ -429,7 +429,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
                 [ ( case fpart of
                     RBFile.FlexDrums -> "DTXMania Drums (" <> letter <> ")"
                     _                -> T.pack (show fpart) <> " Full Drums (" <> letter <> ")"
-                  , PreviewDrumsFull trkFull
+                  , PreviewDrumsFull (drumsFullLayout pdrums) trkFull
                   )
                 ]
             _         -> []

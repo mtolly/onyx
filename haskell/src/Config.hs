@@ -708,6 +708,16 @@ instance StackJSON DrumLayout where
     StandardLayout -> is A.Null |?> is "standard-layout"
     FlipYBToms     -> is "flip-yb-toms"
 
+data FullDrumLayout
+  = FDStandard -- snare, hihat, left crash
+  | FDOpenHand -- left crash, hihat, snare
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
+instance StackJSON FullDrumLayout where
+  stackJSON = enumCodec "a full drums layout" $ \case
+    FDStandard -> "standard"
+    FDOpenHand -> "open-hand"
+
 data DrumMode
   = Drums4
   | Drums5
@@ -750,6 +760,7 @@ data PartDrums f = PartDrums
   , drumsLayout      :: DrumLayout
   , drumsFallback    :: OrangeFallback
   , drumsFileDTXKit  :: Maybe f
+  , drumsFullLayout  :: FullDrumLayout
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (PartDrums f) where
@@ -762,6 +773,7 @@ instance (Eq f, StackJSON f) => StackJSON (PartDrums f) where
     drumsLayout      <- drumsLayout      =. opt     StandardLayout "layout"       stackJSON
     drumsFallback    <- drumsFallback    =. opt     FallbackGreen  "fallback"     stackJSON
     drumsFileDTXKit  <- drumsFileDTXKit  =. opt     Nothing        "file-dtx-kit" stackJSON
+    drumsFullLayout  <- drumsFullLayout  =. opt     FDStandard     "full-layout"  stackJSON
     return PartDrums{..}
 
 data VocalCount = Vocal1 | Vocal2 | Vocal3

@@ -56,6 +56,7 @@ end
 # build songs-others/moochalacho/camel-dancefloor # needs 4-string
 # build songs-hmx/megadeth/hangar-18 # can't put on CF
 # build songs/john-myung/solar-groove
+build songs/jizue/marten # needs 4-string
 
 # phrases not done:
 
@@ -109,6 +110,7 @@ end
 # build songs-others/cyclopsdragon/good-neighbor
 # build songs-others/bloodline/circus
 # build songs-others/cyclopsdragon/when-i-lost-my-bet
+build songs/billy-cobham/stratus
 
 # phrases unknown:
 

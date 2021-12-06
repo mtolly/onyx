@@ -249,6 +249,7 @@ importMagma fin level = do
           , drumsLayout = StandardLayout
           , drumsFallback = FallbackGreen
           , drumsFileDTXKit = Nothing
+          , drumsFullLayout = FDStandard
           }
         })
       , ( FlexGuitar, def

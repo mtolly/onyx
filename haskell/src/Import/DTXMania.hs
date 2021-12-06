@@ -297,6 +297,7 @@ importSetDef setDefPath song _level = do
           , drumsLayout      = StandardLayout
           , drumsFallback    = FallbackGreen
           , drumsFileDTXKit  = Nothing
+          , drumsFullLayout  = FDStandard
           }
         }
       , flip fmap topGuitarDiff $ \diff -> (FlexGuitar ,) def

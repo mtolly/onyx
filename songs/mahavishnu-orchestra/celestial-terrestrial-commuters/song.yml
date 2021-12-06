@@ -72,7 +72,9 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [4.381, album-track]
+      expr:
+        pad: [4.381, album-track]
+      pans: [1, -1]
     file-tempo: tempo-album.mid
   jammit-all:
     comments:
@@ -120,6 +122,8 @@ parts:
       difficulty: 7
       kit: VintageKit
       kicks: both
+      mode: full
+      full-layout: open-hand
   guitar:
     grybo:
       difficulty: 6

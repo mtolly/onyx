@@ -11,7 +11,7 @@ module RhythmGame.Graphics where
 import           Build                          (loadYaml)
 import           Codec.Picture
 import qualified Codec.Wavefront                as Obj
-import           Config                         (VideoInfo (..))
+import           Config                         (VideoInfo (..), FullDrumLayout(..))
 import           Control.Arrow                  (second)
 import           Control.Monad                  (forM, forM_, guard, void, when)
 import           Control.Monad.IO.Class         (MonadIO (..))
@@ -197,8 +197,8 @@ drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPla
   , drumNoteTimes = Set.empty -- not used
   }
 
-drawFullDrums :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState FullDrumNote FD.FullGem)) -> IO ()
-drawFullDrums glStuff nowTime speed trk = drawFullDrumPlay glStuff nowTime speed FullDrumPlayState
+drawFullDrums :: GLStuff -> Double -> Double -> FullDrumLayout -> Map.Map Double (CommonState (DrumState FullDrumNote FD.FullGem)) -> IO ()
+drawFullDrums glStuff nowTime speed layout trk = drawFullDrumPlay glStuff nowTime speed layout FullDrumPlayState
   { fdEvents = let
     -- dummy game state with no inputs, but all notes marked as hit on time
     hitResults = do
@@ -211,8 +211,8 @@ drawFullDrums glStuff nowTime speed trk = drawFullDrumPlay glStuff nowTime speed
   , fdNoteTimes = Set.empty -- not used
   }
 
-drawFullDrumPlay :: GLStuff -> Double -> Double -> FullDrumPlayState Double -> IO ()
-drawFullDrumPlay glStuff@GLStuff{..} nowTime speed fdps = do
+drawFullDrumPlay :: GLStuff -> Double -> Double -> FullDrumLayout -> FullDrumPlayState Double -> IO ()
+drawFullDrumPlay glStuff@GLStuff{..} nowTime speed layout fdps = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
   let drawObject' = drawObject glStuff
@@ -251,18 +251,28 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed fdps = do
         z1 = C.tgt_z_past $ C.trk_targets $ C.cfg_track gfxConfig
         z2 = C.tgt_z_future $ C.trk_targets $ C.cfg_track gfxConfig
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
+      highwayParts = case layout of
+        FDStandard -> [FD.Snare , FD.Hihat, FD.CrashL, FD.Tom1, FD.Tom2, FD.Tom3, FD.CrashR, FD.Ride]
+        FDOpenHand -> [FD.CrashL, FD.Hihat, FD.Snare , FD.Tom1, FD.Tom2, FD.Tom3, FD.CrashR, FD.Ride]
+      partWidth = \case
+        FD.Snare  -> 0.15
+        FD.Hihat  -> 0.125
+        FD.CrashL -> 0.125
+        FD.CrashR -> 0.125
+        FD.Ride   -> 0.125
+        FD.Tom1   -> 0.116666
+        FD.Tom2   -> 0.116666
+        FD.Tom3   -> 0.116666
+        _         -> 1 -- not used
+      widthSum = sum $ map partWidth highwayParts
+      lookupGemBounds g = let
+        onLeft = sum $ map partWidth $ takeWhile (/= g) highwayParts
+        in (fracToX $ onLeft / widthSum, fracToX $ (onLeft + partWidth g) / widthSum)
       gemBounds :: FD.FullGem -> (Float, Float)
       gemBounds = \case
-        FD.Kick      -> (fracToX 0        , fracToX 1       )
-        FD.Snare     -> (fracToX 0        , fracToX 0.15    )
-        FD.Hihat     -> (fracToX 0.15     , fracToX 0.275   )
-        FD.HihatFoot -> (fracToX 0.15     , fracToX 0.275   )
-        FD.CrashL    -> (fracToX 0.275    , fracToX 0.4     )
-        FD.Tom1      -> (fracToX 0.4      , fracToX 0.516666)
-        FD.Tom2      -> (fracToX 0.516666 , fracToX 0.633333)
-        FD.Tom3      -> (fracToX 0.633333 , fracToX 0.75    )
-        FD.CrashR    -> (fracToX 0.75     , fracToX 0.875   )
-        FD.Ride      -> (fracToX 0.875    , fracToX 1       )
+        FD.Kick      -> (fracToX 0, fracToX 1)
+        FD.HihatFoot -> lookupGemBounds FD.Hihat
+        gem          -> lookupGemBounds gem
       drawGem t od note alpha = let
         (texid, obj) = case (fdn_gem note, fdn_type note) of
           (FD.Kick     , _              ) -> (TextureLongKick    , Model ModelDrumKick     )
@@ -2138,16 +2148,17 @@ drawDrumPlayFull
   -> WindowDims
   -> Double
   -> Double
+  -> FullDrumLayout
   -> FullDrumPlayState Double
   -> IO ()
-drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed dps = do
+drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed layout dps = do
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
   case C.view_background $ C.cfg_view gfxConfig of
     V4 r g b a -> glClearColor r g b a
   glClear GL_COLOR_BUFFER_BIT
 
   setUpTrackView glStuff dims
-  drawFullDrumPlay glStuff time speed dps
+  drawFullDrumPlay glStuff time speed layout dps
 
   glClear GL_DEPTH_BUFFER_BIT
   let fdgs = case fdEvents dps of
@@ -2300,7 +2311,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trk
     setUpTrackView glStuff (WindowDims w h)
     case trk of
       PreviewDrums m     -> drawDrums glStuff time speed   m
-      PreviewDrumsFull m -> drawFullDrums glStuff time speed m
+      PreviewDrumsFull layout m -> drawFullDrums glStuff time speed layout m
       PreviewFive  m     -> drawFive  glStuff time speed   m
       PreviewPG  t m     -> drawPG    glStuff time speed t m
 

@@ -29,6 +29,7 @@ parts:
     drums:
       kicks: 1 # technically he uses 2 kick drums, but can just be one version
       mode: full
+      full-layout: open-hand
 targets:
   rb3:
     game: rb3

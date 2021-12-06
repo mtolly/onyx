@@ -35,6 +35,7 @@ parts:
       kit: VintageKit
       kicks: both
       mode: full
+      full-layout: open-hand
 targets:
   rb3:
     game: rb3

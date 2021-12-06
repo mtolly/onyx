@@ -527,6 +527,7 @@ importFoF src level = do
             then FallbackBlue
             else FallbackGreen
           , drumsFileDTXKit = Nothing
+          , drumsFullLayout = FDStandard
           }
         })
       , ( FlexGuitar, def

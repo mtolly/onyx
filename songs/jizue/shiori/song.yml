@@ -1,0 +1,38 @@
+metadata:
+  title: shiori
+  artist: jizue
+  album: shiori
+  author: Onyxite
+  year: 2014
+  genre: indierock
+  subgenre: mathrock
+  file-album-art: cover.jpg
+audio:
+  album-track:
+    frames: 11981676
+    md5: c4360b9e2decfb9829d6337111acc4f0
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [2.936, album-track]
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+      tones:
+        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

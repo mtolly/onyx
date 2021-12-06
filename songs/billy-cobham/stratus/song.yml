@@ -60,8 +60,9 @@ plans:
 parts:
   drums:
     drums:
-      kicks: both # needed?
+      kicks: both
       mode: full
+      full-layout: open-hand
   bass:
     pro-guitar:
       tuning:

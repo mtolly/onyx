@@ -436,6 +436,7 @@ importRB rbi level = do
           , drumsLayout = StandardLayout -- TODO import this
           , drumsFallback = FallbackGreen
           , drumsFileDTXKit = Nothing
+          , drumsFullLayout = FDStandard
           }
         })
       , ( FlexGuitar, def
