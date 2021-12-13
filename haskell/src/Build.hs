@@ -1926,7 +1926,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       Just chans -> any (`notElem` (silentChans :: [Int])) $ concat $ toList chans
 
             [dir </> "gh2/notes.mid", dir </> "gh2/coop_max_scores.dta", dir </> "gh2/pad.txt"] &%> \[out, coop, pad] -> do
-              input <- shakeMIDI $ planDir </> "raw.mid"
+              input <- shakeMIDI $ planDir </> "processed.mid"
               hasAudio <- loadPartAudioCheck
               audio <- computeGH2Audio songYaml gh2 hasAudio
               (mid, padSeconds) <- midiRB3toGH2 songYaml gh2 audio
@@ -2024,7 +2024,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 lg $ "Finished writing GH2 practice audio for " ++ show speed ++ "% speed"
 
             [dir </> "gh2/songs.dta", dir </> "gh2/songs-dx2.dta", dir </> "gh2/songs-inner.dta", dir </> "gh2/songs-inner-dx2.dta"] &%> \[out, outDX2, outInner, outInnerDX2] -> do
-              input <- shakeMIDI $ planDir </> "raw.mid"
+              input <- shakeMIDI $ planDir </> "processed.mid"
               hasAudio <- loadPartAudioCheck
               audio <- computeGH2Audio songYaml gh2 hasAudio
               let inner isDX2 = D.serialize (valueId D.stackChunks) $ makeGH2DTA

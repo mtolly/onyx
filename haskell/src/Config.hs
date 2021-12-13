@@ -1593,14 +1593,14 @@ previewBounds syaml song = let
   secsToMS s = floor $ s * 1000
   evalTime t = secsToMS <$> evalPreviewTime True (Just RBFile.getEventsTrack) song t
   evalTime' pt = fromMaybe (error $ "Couldn't evaluate preview bound: " ++ show pt) $ evalTime pt
-  defStartTime = case mapMaybe (evalTime . PreviewSection) ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"] of
-    []    -> max 0 $ quot len 2 - 15000
+  defStartTime = max 0 $ case mapMaybe (evalTime . PreviewSection) ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"] of
+    []    -> quot len 2 - 15000
     t : _ -> min (len - 30000) t
   in case (_previewStart $ _metadata syaml, _previewEnd $ _metadata syaml) of
     (Nothing, Nothing) -> (defStartTime, defStartTime + 30000)
     (Just ps, Just pe) -> (evalTime' ps, evalTime' pe)
     (Just ps, Nothing) -> let start = evalTime' ps in (start, start + 30000)
-    (Nothing, Just pe) -> let end = evalTime' pe in (end - 30000, end)
+    (Nothing, Just pe) -> let end = evalTime' pe in (max 0 $ end - 30000, end)
 
 evalPreviewTime :: Bool -> Maybe (f -> EventsTrack U.Beats) -> RBFile.Song f -> PreviewTime -> Maybe U.Seconds
 evalPreviewTime leadin getEvents song = \case
