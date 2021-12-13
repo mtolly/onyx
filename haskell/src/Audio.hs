@@ -77,19 +77,18 @@ import           Data.List                        (elemIndex, sortOn)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, mapMaybe)
-import           Data.SimpleHandle                (Readable)
+import           Data.SimpleHandle                (Readable, fileReadable)
 import qualified Data.Text                        as T
 import qualified Data.Vector.Storable             as V
 import           Data.Word                        (Word8)
 import           Development.Shake                (Action, need)
 import           Development.Shake.FilePath       (takeExtension, (-<.>))
-import           FFMPEG                           (ffSource, ffSourceFrom)
+import           FFMPEG                           (ffSource, ffSourceFrom, FFSourceSample)
 import           GuitarHeroII.Audio               (readVGS)
 import           Magma                            (withWin32Exe)
 import           MoggDecrypt                      (sourceVorbisFile)
 import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Wrapper      as NN
-import           OSFiles                          (shortWindowsPath)
 import           Preferences
 import           Resources                        (makeFSB4exe, xma2encodeExe)
 import           RockBand.Common                  (pattern RNil, pattern Wait)
@@ -441,7 +440,7 @@ buildSource' aud = case aud of
   Drop Start t (Input fin) -> liftIO $ case takeExtension fin of
     ".ogg" -> sourceVorbisFile t fin
     ".vgs" -> dropStart t <$> buildSource' (Input fin)
-    _      -> ffSourceFrom t (Right fin)
+    _      -> ffSourceFixPath t fin
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
   Drop Start t (Merge xs) -> buildSource' $ Merge $ fmap (Drop Start t) xs
   Drop Start t (Mix   xs) -> buildSource' $ Mix   $ fmap (Drop Start t) xs
@@ -461,7 +460,7 @@ buildSource' aud = case aud of
       case map (standardRate . mapSamples fractionalSample) chans of
         src : srcs -> return $ foldl merge src srcs
         []         -> error "buildSource: VGS has 0 channels"
-    _      -> ffSource (Right fin)
+    _      -> ffSourceFixPath (Frames 0) fin
   Mix         xs -> combine (\a b -> uncurry mix $ sameChannels (a, b)) xs
   Merge       xs -> combine merge xs
   Concatenate xs -> combine (\a b -> uncurry concatenate $ sameChannels (a, b)) xs
@@ -561,9 +560,15 @@ audioMD5 f = liftIO $ case takeExtension f of
         return $ show $ MD5.md5 data_
   _ -> return Nothing
 
+-- previously we used shortWindowsPath, because ffmpeg cannot take UTF-8 char* on windows.
+-- but short paths are not guaranteed to exist, and they usually don't on non-system drive letters.
+-- so now we use a Readable on the Haskell side so ffmpeg doesn't have to see the path.
+
+ffSourceFixPath :: (MonadResource m, FFSourceSample a) => Duration -> FilePath -> IO (AudioSource m a)
+ffSourceFixPath dur = ffSourceFrom dur . Left . fileReadable
+
 ffSourceSimple :: FilePath -> IO (AudioSource (ResourceT IO) Int16)
--- is shortWindowsPath needed or can ffmpeg take UTF-8 char* on windows?
-ffSourceSimple f = shortWindowsPath False f >>= ffSource . Right
+ffSourceSimple = ffSourceFixPath $ Frames 0
 
 supportedFFExt :: FilePath -> Bool
 supportedFFExt f = map toLower (takeExtension f) `elem`
@@ -848,6 +853,8 @@ concatenateXMA xmas = (head xmas)
 -- The seams between pieces will have very small audio gaps.
 makeXMAPieces :: (MonadResource m, SendMessage m) => Either Readable FilePath -> StackTraceT m XMAContents
 makeXMAPieces input = do
+  -- TODO fix the ffSource/ffSourceFrom here to use the windows path fix versions
+  -- (maybe not crucial because this is only called on temp folder inputs)
   exe <- stackIO xma2encodeExe
   c <- stackIO $ channels <$> (ffSource input :: IO (AudioSource (ResourceT IO) Int16))
   let maxSamples = 15 * 60 * 44100 * 4

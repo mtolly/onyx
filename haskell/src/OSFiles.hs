@@ -91,6 +91,9 @@ commonDir fs = do
 fixFileCase :: (MonadIO m) => FilePath -> m FilePath
 
 -- | On Windows, get a DOS short path so Unixy C code can deal with it.
+-- TODO this doesn't consistently work!
+-- For example short paths are not enabled by default on non-system drive letters.
+-- The only consistent solution is to read files on the Haskell side instead of C.
 shortWindowsPath :: (MonadIO m) => Bool -> FilePath -> m FilePath
 
 #ifdef WINDOWS
