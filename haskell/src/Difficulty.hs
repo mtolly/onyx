@@ -96,6 +96,7 @@ difficultyPS TargetPS{..} songYaml = let
     , rb3_Version     = Nothing
     , rb3_Harmonix    = False
     , rb3_Magma       = MagmaRequire
+    , rb3_PS3Encrypt  = True
     }
   psDifficultyRB3 = difficultyRB3 rb3 songYaml
   simpleTier flex getMode getDiff dmap = case getPart flex songYaml >>= getMode of
@@ -131,6 +132,7 @@ difficultyGH5 TargetGH5{..} songYaml = let
     , rb3_Version     = Nothing
     , rb3_Harmonix    = False
     , rb3_Magma       = MagmaRequire
+    , rb3_PS3Encrypt  = True
     }
   DifficultyRB3{..} = difficultyRB3 rb3 songYaml
   rb3RankToGH5 = \case

@@ -418,6 +418,7 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
         , rb3_Drums       = ps_Drums ps
         , rb3_Keys        = ps_Keys ps
         , rb3_Vocal       = ps_Vocal ps
+        , rb3_PS3Encrypt  = True
         }
     in case buildDrums fivePart target' song timing songYaml of
       Nothing    -> Nothing

@@ -24,7 +24,9 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [3.102, youtube]
+      expr:
+        pad: [3.102, youtube]
+      pans: [1, -1]
 parts:
   bass:
     pro-guitar:
@@ -32,6 +34,10 @@ parts:
         base: bass-5
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  drums:
+    drums:
+      mode: full
+      kicks: 1
 targets:
   rs:
     game: rs

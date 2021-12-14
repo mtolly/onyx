@@ -46,15 +46,13 @@ import           Crypto.Hash.Algorithms         (MD5, SHA1 (..))
 import           Crypto.PubKey.RSA.PKCS15       (sign)
 import           Crypto.PubKey.RSA.Types
 import           Data.Binary.Codec
-import           Data.Binary.Get
-import           Data.Binary.Put
+import           Data.Binary.Codec.Class
 import           Data.Bits
 import           Data.ByteArray                 (convert)
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Either                    (lefts, rights)
 import           Data.Foldable                  (toList)
-import           Data.Int
 import           Data.IORef                     (newIORef, readIORef,
                                                  writeIORef)
 import           Data.List.Extra                (nubOrd, partition)
@@ -69,16 +67,12 @@ import qualified Data.Text                      as T
 import           Data.Text.Encoding
 import           Data.Time
 import qualified Data.Vector.Unboxed            as VU
-import           Data.Word
 import           Data.Yaml                      ((.:))
 import qualified Data.Yaml                      as Y
 import           Resources                      (gh2Thumbnail, ghWoRthumbnail,
                                                  rb2Thumbnail, rb3Thumbnail,
                                                  xboxKV)
 import           System.IO
-
-class Bin a where
-  bin :: BinaryCodec a
 
 data Header
   = CON CONHeader

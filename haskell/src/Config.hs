@@ -1132,6 +1132,7 @@ data TargetRB3 f = TargetRB3
   , rb3_Drums       :: FlexPartName
   , rb3_Keys        :: FlexPartName
   , rb3_Vocal       :: FlexPartName
+  , rb3_PS3Encrypt  :: Bool
   } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 parseTargetRB3 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetRB3 f)
@@ -1147,6 +1148,7 @@ parseTargetRB3 = do
   rb3_Drums       <- rb3_Drums       =. opt FlexDrums    "drums"         stackJSON
   rb3_Keys        <- rb3_Keys        =. opt FlexKeys     "keys"          stackJSON
   rb3_Vocal       <- rb3_Vocal       =. opt FlexVocal    "vocal"         stackJSON
+  rb3_PS3Encrypt  <- rb3_PS3Encrypt  =. opt True         "ps3-encrypt"   stackJSON
   return TargetRB3{..}
 
 instance (Eq f, StackJSON f) => StackJSON (TargetRB3 f) where

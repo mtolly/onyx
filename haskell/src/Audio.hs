@@ -83,7 +83,8 @@ import qualified Data.Vector.Storable             as V
 import           Data.Word                        (Word8)
 import           Development.Shake                (Action, need)
 import           Development.Shake.FilePath       (takeExtension, (-<.>))
-import           FFMPEG                           (ffSource, ffSourceFrom, FFSourceSample)
+import           FFMPEG                           (FFSourceSample, ffSource,
+                                                   ffSourceFrom)
 import           GuitarHeroII.Audio               (readVGS)
 import           Magma                            (withWin32Exe)
 import           MoggDecrypt                      (sourceVorbisFile)

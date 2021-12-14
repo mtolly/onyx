@@ -259,6 +259,7 @@ addBonusSong GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
                   -- TODO handle warnings/errors better
                   then logStdout (readSongList $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
                     Right newSongList -> let
+                      -- TODO use case fold sort (don't put lowercase letters after all uppercase)
                       f = \case
                         D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
                           Just pkg -> name pkg

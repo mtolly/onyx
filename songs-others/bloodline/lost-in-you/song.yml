@@ -1,0 +1,67 @@
+global:
+  anim-tempo: 32
+parts:
+  drums:
+    drums:
+      fix-freeform: false
+      kicks: 1
+      difficulty:
+        tier: 6
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6
+metadata:
+  track-number: 7
+  expert-only: true
+  title: Lost In You
+  author: Bloodline
+  year: 2014
+  album: Loopified
+  preview-start: 1:30.000
+  subgenre: other
+  genre: jazz
+  languages:
+  - English
+  preview-end: 2:00.000
+  difficulty:
+    tier: 6
+  rating: Family Friendly
+  artist: Dirty Loops
+  file-album-art: cover.png_xbox
+plans:
+  mogg:
+    crowd:
+    - 4
+    - 5
+    file-mogg: audio.mogg
+    parts:
+      drums:
+      - 0
+      - 1
+    karaoke: false
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+targets:
+  rb3:
+    game: rb3
+    version: 30
+    song-id: 1681602003
+    label: (B)
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

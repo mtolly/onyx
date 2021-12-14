@@ -109,7 +109,9 @@ import           Neversoft.QB                          (QBArray (..),
                                                         QBStructItem (..),
                                                         putQB)
 import           NPData                                (packNPData,
-                                                        rb2MidEdatConfig)
+                                                        rb2MidEdatConfig,
+                                                        rb3CustomMidEdatConfig,
+                                                        rb3NTSCMidEdatConfig)
 import qualified Numeric.NonNegative.Class             as NNC
 import           OSFiles                               (copyDirRecursive,
                                                         shortWindowsPath)
@@ -408,8 +410,8 @@ forceRW f = stackIO $ do
   p <- Dir.getPermissions f
   Dir.setPermissions f $ Dir.setOwnerReadable True $ Dir.setOwnerWritable True p
 
-makeRB3DTA :: (MonadIO m, SendMessage m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 f -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
-makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
+makeRB3DTA :: (MonadIO m, SendMessage m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 f -> Bool -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
+makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
   let thresh = 170 -- everything gets forced anyway
       (pstart, pend) = previewBounds songYaml song
@@ -455,7 +457,9 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
     , D.songId = Just $ case rb3_SongID rb3 of
       SongIDSymbol s   -> Right s
       SongIDInt i      -> Left $ fromIntegral i
-      SongIDAutoSymbol -> Right filename
+      SongIDAutoSymbol -> if isPS3
+        then Left $ fromIntegral $ hashRB3 songYaml rb3 -- PS3 needs real number ID
+        else Right filename
       SongIDAutoInt    -> Left $ fromIntegral $ hashRB3 songYaml rb3
     , D.song = D.Song
       { D.songName = "songs/" <> filename <> "/" <> filename
@@ -558,7 +562,9 @@ makeRB3DTA songYaml plan rb3 (DifficultyRB3{..}, vocalCount) song filename = do
     , D.fake = Nothing
     , D.gameOrigin = Just $ if rb3_Harmonix rb3 then "rb3_dlc" else "ugc_plus"
     , D.ugc = Nothing
-    , D.rating = fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1
+    , D.rating = case (isPS3, fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1) of
+      (True, 4) -> 2 -- Unrated (on RB2 at least) causes it to be locked in game on PS3
+      (_   , x) -> x
     , D.genre = Just $ rbn2Genre fullGenre
     , D.subGenre = Just $ "subgenre_" <> rbn2Subgenre fullGenre
     , D.vocalGender = Just $ fromMaybe Magma.Female $ getPart (rb3_Vocal rb3) songYaml >>= partVocal >>= vocalGender
@@ -1433,7 +1439,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             pathDta %> \out -> do
               song <- shakeMIDI pathMid
               editedParts <- loadEditedParts
-              songPkg <- makeRB3DTA songYaml plan rb3 editedParts song pkg
+              songPkg <- makeRB3DTA songYaml plan rb3 False editedParts song pkg
               liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan rb3
             pathMid %> shk . copyFile' pathMagmaExport2
             pathOgg %> \out -> case plan of
@@ -1528,6 +1534,40 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
                 (dir </> "stfs")
                 out
+
+            let rb3ps3DTA = dir </> "rb3-ps3/songs/songs.dta"
+                rb3ps3Mogg = dir </> "rb3-ps3/songs" </> pkg </> pkg <.> "mogg"
+                rb3ps3Mid = dir </> "rb3-ps3/songs" </> pkg </> pkg <.> "mid.edat"
+                rb3ps3Art = dir </> "rb3-ps3/songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_ps3")
+                rb3ps3Milo = dir </> "rb3-ps3/songs" </> pkg </> "gen" </> pkg <.> "milo_ps3"
+                -- don't think we need weights.bin or .pan
+
+            rb3ps3DTA %> \out -> do
+              song <- shakeMIDI pathMid
+              editedParts <- loadEditedParts
+              songPkg <- makeRB3DTA songYaml plan rb3 True editedParts song pkg
+              liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan rb3
+            rb3ps3Mid %> \out -> if rb3_PS3Encrypt rb3
+              then do
+                shk $ need [pathMid]
+                fin  <- shortWindowsPath False pathMid
+                fout <- shortWindowsPath True  out
+                let config = rb3CustomMidEdatConfig $ B8.pack $ "ONYX" <> show (hashRB3 songYaml rb3)
+                stackIO $ packNPData config fin fout $ B8.pack pkg <> ".mid.edat"
+              else shk $ copyFile' pathMid out
+            rb3ps3Art %> shk . copyFile' (rel "gen/cover.png_ps3")
+            rb3ps3Mogg %> \out -> do
+              -- PS3 RB3 can't play unencrypted moggs
+              shk $ need [pathMogg]
+              moggType <- stackIO $ withBinaryFile pathMogg ReadMode $ \h -> B.hGet h 1
+              fin  <- shortWindowsPath False pathMogg
+              fout <- shortWindowsPath True  out
+              case B.unpack moggType of
+                [0xA] -> stackIO $ encryptRB1 fin fout
+                _     -> shk $ copyFile' pathMogg out
+            rb3ps3Milo %> shk . copyFile' pathMilo
+            phony (dir </> "rb3-ps3") $ do
+              shk $ need [rb3ps3DTA, rb3ps3Mogg, rb3ps3Mid, rb3ps3Art, rb3ps3Milo]
 
             -- Guitar rules
             dir </> "protar-mpa.mid" %> \out -> do
@@ -1872,7 +1912,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     else shk $ copyFile' rb2Mid out
                   rb2ps3Art %> shk . copyFile' (rel "gen/cover.png_ps3")
                   rb2ps3Mogg %> \out -> do
-                    -- PS3 can't play unencrypted moggs
+                    -- PS3 RB3 can't play unencrypted moggs (RB2 might be fine, but we may as well be compatible)
                     shk $ need [rb2Mogg]
                     moggType <- stackIO $ withBinaryFile rb2Mogg ReadMode $ \h -> B.hGet h 1
                     fin  <- shortWindowsPath False rb2Mogg
@@ -1903,6 +1943,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , rb3_Keys = RBFile.FlexExtra "undefined"
               , rb3_Harmonix = False
               , rb3_Magma = rb2_Magma rb2
+              , rb3_PS3Encrypt = rb2_PS3Encrypt rb2
               }
             in rbRules dir rb3 $ Just rb2
           GH2 gh2 -> do
