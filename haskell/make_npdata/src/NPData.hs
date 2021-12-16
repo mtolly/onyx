@@ -1,13 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
-module NPData (packNPData, NPDataConfig(..), rb2MidEdatConfig, rb3NTSCMidEdatConfig, rb3CustomMidEdatConfig) where
+module NPData (packNPData, NPDataConfig(..), rb2MidEdatConfig, rb3NTSCMidEdatConfig, rb3CustomMidEdatConfig, decryptNPData, NPDecryptConfig(..)) where
 
+import           Control.Monad          (forM_, when)
 import qualified Data.ByteString        as B
-import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Lazy   as BL
 import qualified Data.ByteString.Unsafe as BU
+import qualified Data.Digest.Pure.MD5   as MD5
 import           Foreign
 import           Foreign.C
-import           Control.Monad          (forM_, when)
-import qualified Data.Digest.Pure.MD5             as MD5
 
 foreign import ccall "pack_data_from_paths"
   c_pack_data_from_paths
@@ -22,7 +22,18 @@ foreign import ccall "pack_data_from_paths"
     -> CInt      -- ^ type
     -> CInt      -- ^ block
     -> Bool      -- ^ useCompression
-    -> Bool      -- ^ isSDAT
+    -> Bool      -- ^ isEDAT
+    -> Bool      -- ^ isFinalized
+    -> Bool      -- ^ verbose
+    -> IO Bool
+
+foreign import ccall "extract_data_from_paths"
+  c_extract_data_from_paths
+    :: CString   -- ^ input_path
+    -> CString   -- ^ output_path
+    -> CString   -- ^ hash_file_name
+    -> Ptr Word8 -- ^ devklic
+    -> Ptr Word8 -- ^ rifkey
     -> Bool      -- ^ verbose
     -> IO Bool
 
@@ -40,7 +51,7 @@ data NPDataConfig = NPDataConfig
   , npdLicense   :: Int
   , npdType      :: Int
   , npdBlock     :: Int
-  , npdSDAT      :: Bool
+  , npdEDAT      :: Bool
   }
 
 -- ^ .mid.edat encryption for customs using NTSC Still Alive free DLC license
@@ -54,7 +65,7 @@ rb2MidEdatConfig = NPDataConfig
   , npdLicense   = 3
   , npdType      = 0
   , npdBlock     = 16
-  , npdSDAT      = False
+  , npdEDAT      = True
   }
 
 -- ^ .mid.edat encryption for customs using NTSC Rock Band Free Pack 01 free DLC license
@@ -68,7 +79,7 @@ rb3NTSCMidEdatConfig = NPDataConfig
   , npdLicense = 3
   , npdType = 0
   , npdBlock = 16
-  , npdSDAT = False
+  , npdEDAT = True
   }
 
 rb3CustomMidEdatConfig :: B.ByteString -> NPDataConfig
@@ -80,7 +91,7 @@ rb3CustomMidEdatConfig dir = NPDataConfig
   , npdLicense = 3
   , npdType = 0
   , npdBlock = 16
-  , npdSDAT = False
+  , npdEDAT = True
   }
 
 {-
@@ -118,6 +129,33 @@ packNPData cfg fin fout hashName = do
                 (fromIntegral $ npdType cfg)
                 (fromIntegral $ npdBlock cfg)
                 False
-                (npdSDAT cfg)
+                (npdEDAT cfg)
+                True
                 False
               when err $ ioError $ userError "Error in PS3 file encryption"
+
+data NPDecryptConfig = NPDecryptConfig
+  { decKLIC :: B.ByteString
+  , decRAP  :: Maybe B.ByteString
+  }
+
+decryptNPData :: NPDecryptConfig -> FilePath -> FilePath -> B.ByteString -> IO ()
+decryptNPData cfg fin fout hashName = do
+  withCString fin $ \pin -> do
+    withCString fout $ \pout -> do
+      -- must be null-terminated
+      B.useAsCString hashName $ \pname -> do
+        -- klic, RAP, and RIF are all 0x10 bytes
+        BU.unsafeUseAsCString (decKLIC cfg <> B.replicate 0x10 0) $ \pklic -> do
+          withArray (replicate 0x10 0) $ \prif -> do
+            forM_ (decRAP cfg) $ \rap -> do
+              BU.unsafeUseAsCString (rap <> B.replicate 0x10 0) $ \prap -> do
+                c_get_rif_key (castPtr prap) (castPtr prif)
+            err <- c_extract_data_from_paths
+              pin
+              pout
+              pname
+              (castPtr pklic)
+              prif
+              False
+            when err $ ioError $ userError "Error in PS3 file decryption"

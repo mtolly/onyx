@@ -30,6 +30,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace
+import           Data.Bifunctor                   (first)
 import           Data.Binary.Codec.Class
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
@@ -56,7 +57,7 @@ import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
 import           Data.SimpleHandle                (Folder (..),
                                                    byteStringSimpleHandle,
-                                                   findFileCI,
+                                                   crawlFolder, findFileCI,
                                                    handleToByteString,
                                                    makeHandle, saveHandleFolder,
                                                    useHandle)
@@ -88,6 +89,7 @@ import           NPData
 import           OpenProject
 import           OSFiles                          (copyDirRecursive,
                                                    shortWindowsPath)
+import           PlayStation.PKG                  (makePKG)
 import           PrettyDTA                        (DTASingle (..),
                                                    readDTASingles,
                                                    readFileSongsDTA, readRB3DTA,
@@ -1385,6 +1387,28 @@ commands =
         stackIO $ testConvertVenue mid fin fout
         return [fout]
       _ -> fatal "Expected 1 or 2 arguments"
+    }
+
+  , Command
+    { commandWord = "pkg"
+    , commandDesc = "Compile a folder's contents into a PS3 .pkg file."
+    , commandUsage = T.unlines
+      [ "onyx pkg CONTENT_ID my_folder --to new.pkg"
+      ]
+    , commandRun = \args opts -> case args of
+      [contentID, dir] -> stackIO (Dir.doesDirectoryExist dir) >>= \case
+        True -> do
+          pkg <- outputFile opts
+            $ (<.> "pkg") . dropTrailingPathSeparator
+            <$> stackIO (Dir.makeAbsolute dir)
+          folder <- stackIO $ first TE.encodeUtf8 <$> crawlFolder dir
+          folder' <- stackIO $ forM folder $ \r -> fmap BL.toStrict $ useHandle r $ handleToByteString
+          case makePKG (B8.pack contentID) folder' of
+            Nothing -> fatal "Error in initializing encryption for .pkg"
+            Just bs -> stackIO $ BL.writeFile pkg bs
+          return [pkg]
+        False -> fatal $ "onyx pkg expected directory; given: " <> dir
+      _ -> fatal $ "onyx pkg expected 2 argument, given " <> show (length args)
     }
 
   ]

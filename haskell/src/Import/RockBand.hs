@@ -14,7 +14,9 @@ import           Control.Monad                  (forM, forM_, guard, when)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
+import           Data.Bifunctor                 (bimap)
 import           Data.Binary.Codec.Class        (bin, codecIn)
+import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Default.Class             (def)
@@ -27,16 +29,17 @@ import qualified Data.HashMap.Strict            as HM
 import           Data.List.Extra                (elemIndex, nubOrd)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.Map                       as Map
-import           Data.Maybe                     (fromMaybe, isNothing, mapMaybe)
+import           Data.Maybe                     (fromMaybe, mapMaybe)
 import           Data.SimpleHandle              (Folder (..), Readable,
                                                  byteStringSimpleHandle,
                                                  fileReadable, findByteString,
-                                                 findFileCI, handleToByteString,
-                                                 makeHandle, splitPath,
-                                                 useHandle)
+                                                 findFileCI, findFolder,
+                                                 handleToByteString, makeHandle,
+                                                 splitPath, useHandle)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeLatin1, decodeUtf8With,
                                                  encodeUtf8)
+import qualified Data.Text.Encoding             as TE
 import           Data.Text.Encoding.Error       (lenientDecode)
 import           Difficulty
 import           Image                          (DXTFormat (PNGXbox),
@@ -44,6 +47,7 @@ import           Image                          (DXTFormat (PNGXbox),
 import           Import.Base
 import           Magma                          (rbaContents)
 import           Magma                          (getRBAFile)
+import           PlayStation.PKG                (decryptHarmonixEDATs)
 import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingles)
 import           PrettyDTA                      (readRB3DTA, writeDTASingle)
@@ -90,19 +94,23 @@ importSTFSFolder src folder = do
     miloPath <- split $ takeDirectory base </> "gen" </> takeFileName base <.> "milo_xbox"
     moggPath <- split $ base <.> "mogg"
     midiPath <- split $ base <.> "mid"
-    artPath <- split $ takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox")
+    artPathXbox <- split $ takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox")
+    artPathPS3 <- split $ takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_ps3")
     mogg <- SoftReadable <$> need moggPath
     midi <- need midiPath
     let missingArt = updateDir </> T.unpack top </> "gen" </> (T.unpack top ++ "_keep.png_xbox")
         updateMid = updateDir </> T.unpack top </> (T.unpack top ++ "_update.mid")
     art <- if fromMaybe False (D.albumArt pkg) || D.gameOrigin pkg == Just "beatles"
       then stackIO (Dir.doesFileExist missingArt) >>= \case
-        True -> return $ Just $ fileReadable missingArt -- old rb1 song with album art on rb3 disc
-        False -> do
-          let res = findFileCI artPath folder
-          when (isNothing res) $
-            warn $ "Expected album art, but didn't find it: " <> show artPath
-          return res
+        -- if True, old rb1 song with album art on rb3 disc
+        True -> return $ Just $ SoftFile "cover.png_xbox" $ SoftReadable $ fileReadable missingArt
+        False -> case findFileCI artPathXbox folder of
+          Just res -> return $ Just $ SoftFile "cover.png_xbox" $ SoftReadable res
+          Nothing -> case findFileCI artPathPS3 folder of
+            Just res -> return $ Just $ SoftFile "cover.png_ps3" $ SoftReadable res
+            Nothing -> do
+              warn $ "Expected album art, but didn't find it: " <> show artPathXbox
+              return Nothing
       else return Nothing
     update <- if maybe False ("disc_update" `elem`) $ D.extraAuthoring pkg
       then stackIO (Dir.doesFileExist updateMid) >>= \case
@@ -115,7 +123,7 @@ importSTFSFolder src folder = do
       { rbiSongPackage = pkg
       , rbiComments = comments
       , rbiMOGG = mogg
-      , rbiAlbumArt = SoftFile "cover.png_xbox" . SoftReadable <$> art
+      , rbiAlbumArt = art
       , rbiMilo = findFileCI miloPath folder
       , rbiMIDI = midi
       , rbiMIDIUpdate = update
@@ -570,3 +578,13 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
       Dir.removeFile $ temp </> "temp_extra.dta"
     let label = D.name pkg <> maybe "" (\artist -> " (" <> artist <> ")") (D.artist pkg)
     rb3pkg label label temp con
+
+importPS3Folder :: (SendMessage m, MonadIO m) => FilePath -> Folder B.ByteString B.ByteString -> StackTraceT m [Import m]
+importPS3Folder src folder = do
+  usr <- maybe (fatal "USRDIR not found") return $ findFolder ["USRDIR"] folder
+  fmap concat $ forM (folderSubfolders usr) $ \(subName, sub) -> do
+    sub' <- decryptHarmonixEDATs subName sub
+    importSTFSFolder src $ bimap
+      TE.decodeLatin1
+      (makeHandle "(file in .pkg)" . byteStringSimpleHandle . BL.fromStrict)
+      sub'

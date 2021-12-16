@@ -15,7 +15,6 @@ import qualified Codec.Picture.STBIR                   as STBIR
 import           Codec.Picture.Types                   (dropTransparency)
 import           Config                                hiding (Difficulty)
 import           Control.Applicative                   (liftA2)
-import           Control.Arrow                         (second)
 import           Control.Monad.Codec.Onyx              (makeValue, valueId)
 import           Control.Monad.Codec.Onyx.JSON         (loadYaml)
 import           Control.Monad.Extra
@@ -24,6 +23,7 @@ import           Control.Monad.Trans.Class             (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
+import           Data.Bifunctor                        (first, second)
 import           Data.Binary.Put                       (putWord32be, runPut)
 import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64.Lazy           as B64
@@ -58,7 +58,10 @@ import           Data.Maybe                            (catMaybes, fromMaybe,
                                                         isJust, isNothing,
                                                         listToMaybe, mapMaybe)
 import           Data.SimpleHandle                     (Folder (..),
-                                                        fileReadable)
+                                                        crawlFolder,
+                                                        fileReadable,
+                                                        handleToByteString,
+                                                        useHandle)
 import           Data.String                           (IsString, fromString)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
@@ -108,10 +111,10 @@ import           Neversoft.QB                          (QBArray (..),
                                                         QBSection (..),
                                                         QBStructItem (..),
                                                         putQB)
-import           NPData                                (packNPData,
+import           NPData                                (npdContentID,
+                                                        packNPData,
                                                         rb2MidEdatConfig,
-                                                        rb3CustomMidEdatConfig,
-                                                        rb3NTSCMidEdatConfig)
+                                                        rb3CustomMidEdatConfig)
 import qualified Numeric.NonNegative.Class             as NNC
 import           OSFiles                               (copyDirRecursive,
                                                         shortWindowsPath)
@@ -120,6 +123,7 @@ import           Overdrive                             (calculateUnisons,
                                                         printFlexParts)
 import           Path                                  (parseAbsDir, toFilePath)
 import           Paths_onyxite_customs_lib             (version)
+import           PlayStation.PKG                       (makePKG)
 import           Preferences                           (MagmaSetting (..))
 import           PrettyDTA
 import           ProKeysRanges
@@ -1535,12 +1539,17 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 (dir </> "stfs")
                 out
 
-            let rb3ps3DTA = dir </> "rb3-ps3/songs/songs.dta"
-                rb3ps3Mogg = dir </> "rb3-ps3/songs" </> pkg </> pkg <.> "mogg"
-                rb3ps3Mid = dir </> "rb3-ps3/songs" </> pkg </> pkg <.> "mid.edat"
-                rb3ps3Art = dir </> "rb3-ps3/songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_ps3")
-                rb3ps3Milo = dir </> "rb3-ps3/songs" </> pkg </> "gen" </> pkg <.> "milo_ps3"
+            let rb3ps3Root = dir </> "rb3-ps3"
+                rb3ps3DTA = rb3ps3Root </> "songs/songs.dta"
+                rb3ps3Mogg = rb3ps3Root </> "songs" </> pkg </> pkg <.> "mogg"
+                rb3ps3Mid = rb3ps3Root </> "songs" </> pkg </> pkg <.> "mid.edat"
+                rb3ps3Art = rb3ps3Root </> "songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_ps3")
+                rb3ps3Milo = rb3ps3Root </> "songs" </> pkg </> "gen" </> pkg <.> "milo_ps3"
                 -- don't think we need weights.bin or .pan
+                rb3ps3Pkg = dir </> "rb3-ps3.pkg"
+                rb3ps3Folder = B8.pack $ "ONYX" <> show (hashRB3 songYaml rb3)
+                rb3ps3EDATConfig = rb3CustomMidEdatConfig rb3ps3Folder
+                rb3ps3ContentID = npdContentID rb3ps3EDATConfig
 
             rb3ps3DTA %> \out -> do
               song <- shakeMIDI pathMid
@@ -1552,8 +1561,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 shk $ need [pathMid]
                 fin  <- shortWindowsPath False pathMid
                 fout <- shortWindowsPath True  out
-                let config = rb3CustomMidEdatConfig $ B8.pack $ "ONYX" <> show (hashRB3 songYaml rb3)
-                stackIO $ packNPData config fin fout $ B8.pack pkg <> ".mid.edat"
+                stackIO $ packNPData rb3ps3EDATConfig fin fout $ B8.pack pkg <> ".mid.edat"
               else shk $ copyFile' pathMid out
             rb3ps3Art %> shk . copyFile' (rel "gen/cover.png_ps3")
             rb3ps3Mogg %> \out -> do
@@ -1566,8 +1574,18 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 [0xA] -> stackIO $ encryptRB1 fin fout
                 _     -> shk $ copyFile' pathMogg out
             rb3ps3Milo %> shk . copyFile' pathMilo
-            phony (dir </> "rb3-ps3") $ do
+            phony rb3ps3Root $ do
               shk $ need [rb3ps3DTA, rb3ps3Mogg, rb3ps3Mid, rb3ps3Art, rb3ps3Milo]
+
+            rb3ps3Pkg %> \out -> do
+              shk $ need [rb3ps3Root]
+              folder <- stackIO $ first TE.encodeUtf8 <$> crawlFolder rb3ps3Root
+              folder' <- stackIO $ forM folder $ \r -> fmap BL.toStrict $ useHandle r $ handleToByteString
+              let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
+              bs <- maybe (fatal "Error in initializing encryption for .pkg") return
+                $ makePKG rb3ps3ContentID
+                $ container "USRDIR" $ container rb3ps3Folder folder'
+              stackIO $ BL.writeFile out bs
 
             -- Guitar rules
             dir </> "protar-mpa.mid" %> \out -> do

@@ -43,8 +43,10 @@ import qualified Import.GuitarHero1             as GH1
 import qualified Import.GuitarHero2             as GH2
 import           Import.Magma                   (importMagma)
 import           Import.Neversoft               (importGH5WoR)
-import           Import.RockBand                (importRBA, importSTFSFolder)
+import           Import.RockBand                (importPS3Folder, importRBA,
+                                                 importSTFSFolder)
 import           Import.Rocksmith               as RS
+import           PlayStation.PKG                (pkgFolder, withPKG)
 import           Preferences
 import qualified Sound.Jammit.Base              as J
 import           STFS.Package                   (getSTFSFolder)
@@ -162,6 +164,10 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             else return ([], [])
           ]
       foundRS psarc = importRS psarc >>= foundImports "Rocksmith" psarc
+      foundPS3 loc = do
+        folder <- stackIO $ withPKG loc $ return . fmap snd . pkgFolder
+        imps <- importPS3Folder loc folder
+        foundImports "Rock Band (PS3 .pkg)" loc imps
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         let single = null $ drop 1 imports
@@ -211,6 +217,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".bme" -> foundBME fp
         ".bml" -> foundBME fp
         ".psarc" -> foundRS fp
+        ".pkg" -> foundPS3 fp
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundFoF fp
           "set.def" -> foundDTXSet fp

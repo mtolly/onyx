@@ -15,3 +15,6 @@ JuanNadie (original EDAT algorithm implementation and research)
 flat_z (rap2rifkey algorithm)
 
 Snowydew, KDSBest and qoobz (EDAT related tools and source code)
+
+This copy of make_npdata 1.3.4 was modified by ErikPshat:
+https://github.com/ErikPshat/data_makenp

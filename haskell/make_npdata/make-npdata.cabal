@@ -13,6 +13,7 @@ library
     cbits
   c-sources:
     cbits/aes.c
+    cbits/ec.c
     cbits/lz.c
     cbits/make_npdata.c
     cbits/sha1.c

@@ -4,29 +4,42 @@ PS3 .pkg format
 References:
 - https://www.psdevwiki.com/ps3/PKG_files
 -}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module PlayStation.PKG where
 
-import           Control.Monad           (forM, replicateM)
+import           Control.Monad                  (forM, guard, replicateM, void)
 import           Control.Monad.Codec
+import           Control.Monad.IO.Class         (MonadIO)
+import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT, lg,
+                                                 stackIO, warn)
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
 import           Data.Binary.Codec
 import           Data.Binary.Codec.Class
 import           Data.Bits
-import qualified Data.ByteString         as B
-import qualified Data.ByteString.Char8   as B8
-import qualified Data.ByteString.Lazy    as BL
-import qualified Data.List.NonEmpty      as NE
-import           Data.Profunctor         (dimap)
+import qualified Data.ByteString                as B
+import qualified Data.ByteString.Char8          as B8
+import qualified Data.ByteString.Lazy           as BL
+import qualified Data.Digest.Pure.MD5           as MD5
+import qualified Data.List.NonEmpty             as NE
+import           Data.Profunctor                (dimap)
 import           Data.SimpleHandle
-import           STFS.Package            (runGetM)
-import           System.IO               (IOMode (..), withBinaryFile)
+import           NPData                         (NPDecryptConfig (..),
+                                                 decryptNPData)
+import           OSFiles                        (fixFileCase)
+import           Resources                      (getResourcesPath)
+import           STFS.Package                   (runGetM)
+import           System.Directory               (doesFileExist)
+import           System.FilePath                ((<.>), (</>))
+import           System.IO                      (IOMode (..), withBinaryFile)
+import           System.IO.Temp                 (withSystemTempDirectory)
 
 nullPadded :: Int -> BinaryCodec B.ByteString
 nullPadded n = dimap
-  (\s -> B.take n s <> B.replicate n 0)
+  (\s -> B.take n $ s <> B.replicate n 0)
   (B.takeWhile (/= 0))
   $ byteString n
 
@@ -162,3 +175,158 @@ withPKG stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
       Just nameParts -> return (nameParts, (recFlags, dat))
 
   fn PKG{..}
+
+decryptHarmonixEDAT
+  :: (MonadIO m, SendMessage m)
+  => B.ByteString
+  -> B.ByteString
+  -> B.ByteString
+  -> StackTraceT m B.ByteString
+decryptHarmonixEDAT dir name edat = do
+  let klic = MD5.md5DigestBytes $ MD5.md5 $ "Ih38rtW1ng3r" <> BL.fromStrict dir <> "10025250"
+      contentID = B.takeWhile (/= 0) $ B.take 0x30 $ B.drop 0x10 edat
+      licenseType = B.take 4 $ B.drop 8 edat
+  rapPath <- stackIO $ getResourcesPath ("raps" </> B8.unpack contentID <.> "rap") >>= fixFileCase
+  mrap <- stackIO $ doesFileExist rapPath >>= \case
+    False -> return Nothing
+    True  -> Just <$> B.readFile rapPath
+  case (mrap, B.unpack licenseType) of
+    (Nothing, [0,0,0,2]) -> warn $ unlines
+      [ "This .mid.edat requires a missing RAP to decrypt, so it will probably not work."
+      , "Please provide: " <> rapPath
+      ]
+    (Nothing, _        ) -> lg "Free .mid.edat, no RAP required"
+    (Just _ , _        ) -> lg $ "Found matching RAP for: " <> B8.unpack contentID
+  let cfg = NPDecryptConfig { decKLIC = klic, decRAP = mrap }
+  stackIO $ withSystemTempDirectory "onyx-edat-decrypt" $ \tmp -> do
+    B.writeFile (tmp </> "in.edat") edat
+    decryptNPData cfg (tmp </> "in.edat") (tmp </> "out.bin") name
+    B.readFile $ tmp </> "out.bin"
+
+decryptHarmonixEDATs
+  :: (MonadIO m, SendMessage m)
+  => B.ByteString
+  -> Folder B.ByteString B.ByteString
+  -> StackTraceT m (Folder B.ByteString B.ByteString)
+decryptHarmonixEDATs dir folder = do
+  subs <- forM (folderSubfolders folder) $ \(name, sub) -> do
+    sub' <- decryptHarmonixEDATs dir sub
+    return (name, sub')
+  files <- forM (folderFiles folder) $ \pair@(name, file) -> case B.stripSuffix ".edat" name of
+    Just decName -> do
+      dec <- decryptHarmonixEDAT dir name file
+      return (decName, dec)
+    Nothing -> return pair
+  return Folder
+    { folderSubfolders = subs
+    , folderFiles = files
+    }
+
+-- Each output is (full name, data, flags)
+makePKGRecords :: Folder B.ByteString B.ByteString -> [(B.ByteString, B.ByteString, Word32)]
+makePKGRecords = go "" where
+  go path folder = let
+    addPath = if B.null path
+      then id
+      else ((path <> "/") <>)
+    this = do
+      guard $ not $ B.null path
+      return (path, "", 0x80000004)
+    files = do
+      (name, file) <- folderFiles folder
+      let isEDAT = ".edat" `B.isSuffixOf` name
+          flags = if isEDAT then 0x80000002 else 0x80000003
+      return (addPath name, file, flags)
+    subs = do
+      (name, sub) <- folderSubfolders folder
+      go (addPath name) sub
+    in this <> files <> subs
+
+-- Turns each input into (input a, offset, length)
+makePKGBank :: [(B.ByteString, a)] -> (BL.ByteString, [(a, Int64, Int)])
+makePKGBank = go "" [] where
+  go bank entries [] = (bank, reverse entries)
+  go bank entries ((new, x) : rest) = let
+    padding = case B.length new `rem` 0x10 of
+      0 -> BL.empty
+      n -> BL.replicate (0x10 - fromIntegral n) 0
+    bank' = bank <> BL.fromStrict new <> padding
+    entry = (x, BL.length bank, B.length new)
+    in go bank' (entry : entries) rest
+
+-- Returns (number of file/folder entries, data ready for encrypt)
+makePKGContents :: Folder B.ByteString B.ByteString -> (Int, BL.ByteString)
+makePKGContents folder = let
+  records = makePKGRecords folder
+  (stringBank, afterStringBank) = makePKGBank
+    [ (path, (dat, flags)) | (path, dat, flags) <- records ]
+  (dataBank, afterDataBank) = makePKGBank
+    [ (dat, (flags, pathPos, pathLen)) | ((dat, flags), pathPos, pathLen) <- afterStringBank ]
+  recordsSize = 0x20 * length records
+  finalRecords = do
+    ((flags, pathPos, pathLen), dataPos, dataLen) <- afterDataBank
+    return PKGItemRecord
+      { recFilenameOffset = fromIntegral recordsSize + fromIntegral pathPos
+      , recFilenameSize   = fromIntegral pathLen
+      , recDataOffset     = fromIntegral recordsSize + fromIntegral (BL.length stringBank) + fromIntegral dataPos
+      , recDataSize       = fromIntegral dataLen
+      , recFlags          = flags
+      , recPadding        = 0
+      }
+  recordBytes = runPut $ mapM_ (codecOut bin) finalRecords
+  in (length records, recordBytes <> stringBank <> dataBank)
+
+makePKG :: B.ByteString -> Folder B.ByteString B.ByteString -> Maybe BL.ByteString
+makePKG contentID folder = let
+  (numEntries, pkgContents) = makePKGContents folder
+  makeKey k = case cipherInit k of
+    CryptoPassed cipher -> Just (cipher :: AES128)
+    _                   -> Nothing
+  ivBytes = B.pack $ take 16 $ cycle [0x09, 0x16]
+  maybeCrypt = do
+    key <- makeKey $ B.pack [0x2E,0x7B,0x71,0xD7,0xC9,0xC9,0xA1,0x4E,0xA3,0x22,0x1F,0x18,0x88,0x28,0xB8,0xF8]
+    iv <- makeIV ivBytes
+    return (key, iv)
+  in flip fmap maybeCrypt $ \(key, iv) -> let
+    encrypted = ctrCombine key iv $ BL.toStrict pkgContents
+    fakeHeader = PKGHeader 0 0 0 0 0 0 0 0 0 0 (B.replicate 0x30 0) (B.replicate 0x10 0) (B.replicate 0x10 0) fakeDigests
+    fakeDigests = PKGDigests
+      { digestCMACHash       = B.replicate 0x10 0
+      , digestNPDRMSignature = B.replicate 0x28 0
+      , digestSHA1Hash       = B.replicate 0x8  0
+      }
+    metadataOffset = BL.length $ runPut $ do
+      void $ codecOut bin fakeHeader
+    metadataAndDigestsSize = BL.length $ runPut $ do
+      mapM_ (codecOut bin) metadata
+      void $ codecOut bin digests
+    dataOffset = metadataOffset + metadataAndDigestsSize
+    header = PKGHeader
+      { pkgMagic          = 0x7F504B47
+      , pkgRevision       = 0x8000
+      , pkgType           = 0x0001
+      , pkgMetadataOffset = fromIntegral metadataOffset
+      , pkgMetadataCount  = fromIntegral $ length metadata
+      , pkgMetadataSize   = fromIntegral metadataAndDigestsSize
+      , pkgItemCount      = fromIntegral numEntries
+      , pkgTotalSize      = fromIntegral dataOffset + fromIntegral (BL.length pkgContents)
+      , pkgDataOffset     = fromIntegral dataOffset
+      , pkgDataSize       = fromIntegral $ BL.length pkgContents
+      , pkgContentID      = contentID -- auto padded with 0
+      , pkgDigest         = B.replicate 0x10 0 -- TODO
+      , pkgDataRIV        = ivBytes
+      , pkgHeaderDigests  = fakeDigests -- TODO
+      }
+    metadata =
+      [ PKGMetadata 1 $ B.pack [0,0,0,3] -- drm type: free, no license
+      , PKGMetadata 2 $ B.pack [0,0,0,4] -- content type: GameData
+      , PKGMetadata 3 $ B.pack [0,0,0,8] -- package type, unknown meaning
+      , PKGMetadata 4 $ BL.toStrict $ runPut $ putWord64be $ fromIntegral $ BL.length pkgContents
+      , PKGMetadata 5 $ B.pack [0x10,0x61,0x00,0x00] -- make_package_npdrm Revision (2 bytes) + Package Version (2 bytes)
+      ]
+    digests = fakeDigests -- TODO
+    in runPut $ do
+      void $ codecOut bin header
+      mapM_ (codecOut bin) metadata
+      void $ codecOut bin digests
+      putByteString encrypted
