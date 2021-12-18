@@ -3,6 +3,7 @@ PS3 .pkg format
 
 References:
 - https://www.psdevwiki.com/ps3/PKG_files
+- https://github.com/HACKERCHANNEL/PS3Py
 -}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -17,9 +18,12 @@ import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT, lg,
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
+import           Crypto.Hash                    (Digest, SHA1, hash)
+import           Crypto.MAC.CMAC
 import           Data.Binary.Codec
 import           Data.Binary.Codec.Class
 import           Data.Bits
+import           Data.ByteArray                 (convert)
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
@@ -29,6 +33,7 @@ import           Data.Profunctor                (dimap)
 import           Data.SimpleHandle
 import           NPData                         (NPDecryptConfig (..),
                                                  decryptNPData)
+import           Numeric                        (showHex)
 import           OSFiles                        (fixFileCase)
 import           Resources                      (getResourcesPath)
 import           STFS.Package                   (runGetM)
@@ -55,12 +60,8 @@ data PKGHeader = PKGHeader
   , pkgDataOffset     :: Word64 -- encrypted data offset
   , pkgDataSize       :: Word64 -- encrypted data size
   , pkgContentID      :: B.ByteString -- 0x30 bytes, ID followed by zeroes
-  , pkgDigest         :: B.ByteString -- 0x10 bytes, sha1 from debug files and attributes together merged in one block
-  , pkgDataRIV        :: B.ByteString -- 0x10 bytes, aes-128-ctr IV, used with gpkg_aes_key to decrypt data
-  , pkgHeaderDigests  :: PKGDigests -- 0x40 bytes:
-    -- 0x10 bytes, CMAC OMAC hash from 0x00-0x7F, PS3 gpkg_key used as key
-    -- 0x28 bytes, PKG header NPDRM ECDSA (R_sig, S_sig)
-    -- 0x8 bytes, last 8 bytes of sha1 hash of 0x00-0x7F
+  , pkgQADigest       :: B.ByteString -- 0x10 bytes, sha1 from debug files and attributes together merged in one block
+  , pkgDataRIV        :: B.ByteString -- 0x10 bytes, (in finalized pkgs): aes-128-ctr IV, used with gpkg_aes_key to decrypt data
   } deriving (Show)
 
 instance Bin PKGHeader where
@@ -76,10 +77,36 @@ instance Bin PKGHeader where
     pkgDataOffset     <- pkgDataOffset     =. word64be
     pkgDataSize       <- pkgDataSize       =. word64be
     pkgContentID      <- pkgContentID      =. nullPadded 0x30
-    pkgDigest         <- pkgDigest         =. byteString 0x10
+    pkgQADigest       <- pkgQADigest       =. byteString 0x10
     pkgDataRIV        <- pkgDataRIV        =. byteString 0x10
-    pkgHeaderDigests  <- pkgHeaderDigests  =. bin
     return PKGHeader{..}
+
+-- Not finished
+finalizedDigest :: B.ByteString -> Maybe B.ByteString
+finalizedDigest bytes =
+  -- gpkg-key from https://github.com/jmesmon/ps3keys/blob/master/gpkg-key
+  case cipherInit $ B.pack [0x2e,0x7b,0x71,0xd7,0xc9,0xc9,0xa1,0x4e,0xa3,0x22,0x1f,0x18,0x88,0x28,0xb8,0xf8] of
+    CryptoPassed cipher -> Just $ B.concat
+      -- digestCMACHash       -- 0x10 bytes, CMAC OMAC hash, PS3 gpkg_key used as key
+      [ convert (cmac cipher bytes :: CMAC AES128)
+      -- digestNPDRMSignature -- 0x28 bytes, PKG header NPDRM ECDSA (R_sig, S_sig)
+      , B.replicate 0x28 0 -- TODO guessing this requires sony private key
+      -- digestSHA1Hash       -- 0x8 bytes, last 8 bytes of sha1 hash
+      , B.drop 12 $ convert (hash bytes :: Digest SHA1) -- replace with "B.takeEnd 8" when available
+      ]
+    _ -> Nothing
+
+nonFinalizedDigests :: PKGHeader -> [PKGMetadata] -> (B.ByteString, B.ByteString)
+nonFinalizedDigests header meta = let
+  trimmedSHA1 b = B.take 16 $ B.drop 3 $ convert (hash b :: Digest SHA1)
+  headerSHA = trimmedSHA1 $ BL.toStrict $ runPut $ void $ codecOut bin header
+  metaBlockSHA = trimmedSHA1 $ BL.toStrict $ runPut $ mapM_ (codecOut bin) meta
+  metaBlockSHAPad = B.replicate 0x30 0
+  metaBlockSHAPadEnc = nonFinalizedCrypt False 0 metaBlockSHA metaBlockSHAPad
+  metaBlockSHAPadEnc2 = nonFinalizedCrypt False 0 headerSHA metaBlockSHAPadEnc
+  digest1 = headerSHA <> metaBlockSHAPadEnc2
+  digest2 = metaBlockSHA <> metaBlockSHAPadEnc
+  in (digest1, digest2)
 
 data PKGMetadata = PKGMetadata
   { metaID    :: Word32
@@ -98,19 +125,6 @@ instance Bin PKGMetadata where
       putWord32be $ fromIntegral $ B.length metaBytes
       putByteString metaBytes
     }
-
-data PKGDigests = PKGDigests
-  { digestCMACHash       :: B.ByteString -- 0x10 bytes
-  , digestNPDRMSignature :: B.ByteString -- 0x28 bytes
-  , digestSHA1Hash       :: B.ByteString -- 0x8 bytes
-  } deriving (Show)
-
-instance Bin PKGDigests where
-  bin = do
-    digestCMACHash       <- digestCMACHash       =. byteString 0x10
-    digestNPDRMSignature <- digestNPDRMSignature =. byteString 0x28
-    digestSHA1Hash       <- digestSHA1Hash       =. byteString 0x8
-    return PKGDigests{..}
 
 data PKGItemRecord = PKGItemRecord
   { recFilenameOffset :: Word32
@@ -137,40 +151,77 @@ instance Bin PKGItemRecord where
 
 data PKG = PKG
   { pkgHeader   :: PKGHeader
+  , pkgDigests1 :: B.ByteString
   , pkgMetadata :: [PKGMetadata]
-  , pkgDigests  :: PKGDigests
+  , pkgDigests2 :: B.ByteString
+  , pkgInside   :: B.ByteString -- decrypted file table, strings, file contents
   , pkgFolder   :: Folder B.ByteString (Word32, B.ByteString)
   } deriving (Show)
 
+cryptFinalizedPKG :: PKGHeader -> B.ByteString -> Maybe B.ByteString
+cryptFinalizedPKG header enc = do
+  let makeKey k = case cipherInit k of
+        CryptoPassed cipher -> Just (cipher :: AES128)
+        _                   -> Nothing
+  iv <- makeIV $ pkgDataRIV header
+  -- ps3_gpkg_aes_key from https://www.psdevwiki.com/ps3/Keys
+  key <- makeKey $ B.pack [0x2E,0x7B,0x71,0xD7,0xC9,0xC9,0xA1,0x4E,0xA3,0x22,0x1F,0x18,0x88,0x28,0xB8,0xF8]
+  return $ ctrCombine key iv enc
+
+splitByteChunks :: Int -> B.ByteString -> [B.ByteString]
+splitByteChunks len b = if B.null b
+  then []
+  else case B.splitAt len b of
+    (x, y) -> x : splitByteChunks len y
+
+nonFinalizedCrypt :: Bool -> Word64 -> B.ByteString -> B.ByteString -> B.ByteString
+nonFinalizedCrypt isArcade startIndex keySource bs = let
+  keyPrefix = B.concat
+    [ B.take 8 keySource
+    , B.take 8 keySource
+    , (if isArcade then B.take else B.drop) 8 $ keySource
+    , B.drop 8 keySource
+    , B.replicate 0x18 $ if isArcade then 0xA0 else 0
+    ]
+  keyForIndex i = BL.toStrict $ runPut $ putByteString keyPrefix >> putWord64be i
+  f chunk key = let
+    sha1 = convert (hash key :: Digest SHA1)
+    in B.pack $ B.zipWith xor chunk sha1 -- replace with B.packZipWith after snapshot upgrade
+  in B.concat $ zipWith f (splitByteChunks 16 bs) $ map keyForIndex $ [startIndex ..] <> [0 ..]
+
+cryptNonFinalizedPKG :: Bool -> PKGHeader -> B.ByteString -> B.ByteString
+cryptNonFinalizedPKG isArcade = nonFinalizedCrypt isArcade 0 . pkgQADigest
+
 withPKG :: FilePath -> (PKG -> IO a) -> IO a
 withPKG stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
-  headerBytes  <- BL.hGet fd 0xC0
-  pkgHeader    <- runGetM (codecIn bin) headerBytes
-  metaBytes    <- BL.hGet fd $ fromIntegral (pkgMetadataSize pkgHeader) - 0x40
-  pkgMetadata  <- runGetM (replicateM (fromIntegral $ pkgMetadataCount pkgHeader) $ codecIn bin) metaBytes
-  digestsBytes <- BL.hGet fd 0x40
-  pkgDigests   <- runGetM (codecIn bin) digestsBytes
+  pkgHeader   <- BL.hGet fd 0x80 >>= runGetM (codecIn bin)
+  pkgDigests1 <- B.hGet fd 0x40
+  let metadataSize = fromIntegral (pkgMetadataSize pkgHeader) - 0x40 -- size minus digests
+  pkgMetadata <- BL.hGet fd metadataSize >>= runGetM (replicateM (fromIntegral $ pkgMetadataCount pkgHeader) $ codecIn bin)
+  pkgDigests2 <- B.hGet fd 0x40
 
   enc <- B.hGet fd $ fromIntegral $ pkgDataSize pkgHeader
-  let mdec = do
-        let makeKey k = case cipherInit k of
-              CryptoPassed cipher -> Just (cipher :: AES128)
-              _                   -> Nothing
-        iv <- makeIV $ pkgDataRIV pkgHeader
-        -- ps3_gpkg_aes_key from https://www.psdevwiki.com/ps3/Keys
-        key <- makeKey $ B.pack [0x2E,0x7B,0x71,0xD7,0xC9,0xC9,0xA1,0x4E,0xA3,0x22,0x1F,0x18,0x88,0x28,0xB8,0xF8]
-        return $ ctrCombine key iv enc
-  dec <- case mdec of
+  isFinalized <- case pkgRevision pkgHeader of
+    0x8000 -> return True
+    0x0000 -> return False
+    n      -> fail $ "Unrecognized finalization value in .pkg: " <> showHex n ""
+  let mdec = if isFinalized
+        then cryptFinalizedPKG pkgHeader enc
+        else Just $ cryptNonFinalizedPKG False pkgHeader enc
+  pkgInside <- case mdec of
     Nothing  -> fail "Couldn't decode PKG contents"
     Just dec -> return dec
 
-  let recordBytes = BL.fromStrict $ B.take (0x20 * fromIntegral (pkgItemCount pkgHeader)) dec
+  let recordBytes = BL.fromStrict $ B.take (0x20 * fromIntegral (pkgItemCount pkgHeader)) pkgInside
   recs <- runGetM (replicateM (fromIntegral $ pkgItemCount pkgHeader) $ codecIn bin) recordBytes
   let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
   pkgFolder <- fmap (fromFiles . filter notFolder) $ forM recs $ \PKGItemRecord{..} -> let
-    name = B.take (fromIntegral recFilenameSize) $ B.drop (fromIntegral recFilenameOffset) dec
-    dat = B.take (fromIntegral recDataSize) $ B.drop (fromIntegral recDataOffset) dec
-    in case NE.nonEmpty $ B8.split '/' name of
+    name = B.take (fromIntegral recFilenameSize) $ B.drop (fromIntegral recFilenameOffset) pkgInside
+    name' = if B.take 1 name == "/"
+      then B.drop 1 name -- not seen in official dlc but PS3Py starts its paths with slash
+      else name
+    dat = B.take (fromIntegral recDataSize) $ B.drop (fromIntegral recDataOffset) pkgInside
+    in case NE.nonEmpty $ B8.split '/' name' of
       Nothing        -> fail "Couldn't split filename in PKG contents"
       Just nameParts -> return (nameParts, (recFlags, dat))
 
@@ -254,8 +305,8 @@ makePKGBank = go "" [] where
     entry = (x, BL.length bank, B.length new)
     in go bank' (entry : entries) rest
 
--- Returns (number of file/folder entries, data ready for encrypt)
-makePKGContents :: Folder B.ByteString B.ByteString -> (Int, BL.ByteString)
+-- Returns (number of file/folder entries, records and filenames section, data section)
+makePKGContents :: Folder B.ByteString B.ByteString -> (Int, BL.ByteString, BL.ByteString)
 makePKGContents folder = let
   records = makePKGRecords folder
   (stringBank, afterStringBank) = makePKGBank
@@ -274,59 +325,55 @@ makePKGContents folder = let
       , recPadding        = 0
       }
   recordBytes = runPut $ mapM_ (codecOut bin) finalRecords
-  in (length records, recordBytes <> stringBank <> dataBank)
+  in (length records, recordBytes <> stringBank, dataBank)
 
-makePKG :: B.ByteString -> Folder B.ByteString B.ByteString -> Maybe BL.ByteString
+makePKG :: B.ByteString -> Folder B.ByteString B.ByteString -> BL.ByteString
 makePKG contentID folder = let
-  (numEntries, pkgContents) = makePKGContents folder
-  makeKey k = case cipherInit k of
-    CryptoPassed cipher -> Just (cipher :: AES128)
-    _                   -> Nothing
-  ivBytes = B.pack $ take 16 $ cycle [0x09, 0x16]
-  maybeCrypt = do
-    key <- makeKey $ B.pack [0x2E,0x7B,0x71,0xD7,0xC9,0xC9,0xA1,0x4E,0xA3,0x22,0x1F,0x18,0x88,0x28,0xB8,0xF8]
-    iv <- makeIV ivBytes
-    return (key, iv)
-  in flip fmap maybeCrypt $ \(key, iv) -> let
-    encrypted = ctrCombine key iv $ BL.toStrict pkgContents
-    fakeHeader = PKGHeader 0 0 0 0 0 0 0 0 0 0 (B.replicate 0x30 0) (B.replicate 0x10 0) (B.replicate 0x10 0) fakeDigests
-    fakeDigests = PKGDigests
-      { digestCMACHash       = B.replicate 0x10 0
-      , digestNPDRMSignature = B.replicate 0x28 0
-      , digestSHA1Hash       = B.replicate 0x8  0
-      }
-    metadataOffset = BL.length $ runPut $ do
-      void $ codecOut bin fakeHeader
-    metadataAndDigestsSize = BL.length $ runPut $ do
-      mapM_ (codecOut bin) metadata
-      void $ codecOut bin digests
-    dataOffset = metadataOffset + metadataAndDigestsSize
-    header = PKGHeader
-      { pkgMagic          = 0x7F504B47
-      , pkgRevision       = 0x8000
-      , pkgType           = 0x0001
-      , pkgMetadataOffset = fromIntegral metadataOffset
-      , pkgMetadataCount  = fromIntegral $ length metadata
-      , pkgMetadataSize   = fromIntegral metadataAndDigestsSize
-      , pkgItemCount      = fromIntegral numEntries
-      , pkgTotalSize      = fromIntegral dataOffset + fromIntegral (BL.length pkgContents)
-      , pkgDataOffset     = fromIntegral dataOffset
-      , pkgDataSize       = fromIntegral $ BL.length pkgContents
-      , pkgContentID      = contentID -- auto padded with 0
-      , pkgDigest         = B.replicate 0x10 0 -- TODO
-      , pkgDataRIV        = ivBytes
-      , pkgHeaderDigests  = fakeDigests -- TODO
-      }
-    metadata =
-      [ PKGMetadata 1 $ B.pack [0,0,0,3] -- drm type: free, no license
-      , PKGMetadata 2 $ B.pack [0,0,0,4] -- content type: GameData
-      , PKGMetadata 3 $ B.pack [0,0,0,8] -- package type, unknown meaning
-      , PKGMetadata 4 $ BL.toStrict $ runPut $ putWord64be $ fromIntegral $ BL.length pkgContents
-      , PKGMetadata 5 $ B.pack [0x10,0x61,0x00,0x00] -- make_package_npdrm Revision (2 bytes) + Package Version (2 bytes)
-      ]
-    digests = fakeDigests -- TODO
-    in runPut $ do
-      void $ codecOut bin header
-      mapM_ (codecOut bin) metadata
-      void $ codecOut bin digests
-      putByteString encrypted
+  (numEntries, pkgEntriesNames, pkgFileContents) = makePKGContents folder
+  pkgContents = pkgEntriesNames <> pkgFileContents
+  fakeHeader = PKGHeader 0 0 0 0 0 0 0 0 0 0 (B.replicate 0x30 0) (B.replicate 0x10 0) (B.replicate 0x10 0)
+  metadataOffset = BL.length (runPut $ void $ codecOut bin fakeHeader) + 0x40
+  metadataAndDigestsSize = BL.length (runPut $ mapM_ (codecOut bin) metadata) + 0x40
+  dataOffset = metadataOffset + metadataAndDigestsSize
+  metadata =
+    [ PKGMetadata 1 $ B.pack [0,0,0,3] -- drm type: free, no license
+    , PKGMetadata 2 $ B.pack [0,0,0,5] -- content type: was 4 for GameData
+    , PKGMetadata 3 $ B.pack [0,0,0,0xE] -- package type, was 8, unknown meaning
+    , PKGMetadata 4 $ BL.toStrict $ runPut $ putWord64be $ fromIntegral $ BL.length pkgContents
+    , PKGMetadata 5 $ B.pack [0x10,0x61,0x00,0x00] -- make_package_npdrm Revision (2 bytes) + Package Version (2 bytes)
+    ]
+  headerForQADigest = PKGHeader
+    { pkgMagic          = 0x7F504B47
+    , pkgRevision       = 0x0000 -- making a non-finalized pkg
+    , pkgType           = 0x0001
+    , pkgMetadataOffset = fromIntegral metadataOffset
+    , pkgMetadataCount  = fromIntegral $ length metadata
+    , pkgMetadataSize   = fromIntegral metadataAndDigestsSize
+    , pkgItemCount      = fromIntegral numEntries
+    , pkgTotalSize      = fromIntegral dataOffset + fromIntegral (BL.length pkgContents) + 0x60
+    , pkgDataOffset     = fromIntegral dataOffset
+    , pkgDataSize       = fromIntegral $ BL.length pkgContents
+    , pkgContentID      = "" -- filled in later
+    , pkgQADigest       = B.replicate 0x10 0 -- filled in later
+    , pkgDataRIV        = B.replicate 0x10 0 -- filled in later
+    }
+  qaDigest = B.take 0x10 $ convert (hash $ BL.toStrict $ BL.concat
+    [ BL.fromChunks $ map (\(_, fileContents, _) -> fileContents) $ makePKGRecords folder
+    , runPut $ void $ codecOut bin headerForQADigest
+    , pkgEntriesNames
+    ] :: Digest SHA1)
+  klicensee = nonFinalizedCrypt False 0xFFFFFFFFFFFFFFFF qaDigest $ B.replicate 0x10 0
+  header = headerForQADigest
+    { pkgContentID      = contentID -- auto padded with 0
+    , pkgQADigest       = qaDigest
+    , pkgDataRIV        = B.take 0x10 $ B.take (B.length contentID) klicensee <> B.replicate 0x10 0
+    }
+  (digest1, digest2) = nonFinalizedDigests header metadata
+  encrypted = cryptNonFinalizedPKG False header $ BL.toStrict pkgContents
+  in runPut $ do
+    void $ codecOut bin header
+    putByteString digest1
+    mapM_ (codecOut bin) metadata
+    putByteString digest2
+    putByteString encrypted
+    putByteString $ B.replicate 0x60 0 -- this is needed to install ok, but why?

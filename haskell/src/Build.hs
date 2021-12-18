@@ -1582,9 +1582,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               folder <- stackIO $ first TE.encodeUtf8 <$> crawlFolder rb3ps3Root
               folder' <- stackIO $ forM folder $ \r -> fmap BL.toStrict $ useHandle r $ handleToByteString
               let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
-              bs <- maybe (fatal "Error in initializing encryption for .pkg") return
-                $ makePKG rb3ps3ContentID
-                $ container "USRDIR" $ container rb3ps3Folder folder'
+                  bs = makePKG rb3ps3ContentID $ container "USRDIR" $ container rb3ps3Folder folder'
               stackIO $ BL.writeFile out bs
 
             -- Guitar rules

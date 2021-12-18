@@ -30,7 +30,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace
-import           Data.Bifunctor                   (first)
+import           Data.Bifunctor                   (bimap, first)
 import           Data.Binary.Codec.Class
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
@@ -89,7 +89,7 @@ import           NPData
 import           OpenProject
 import           OSFiles                          (copyDirRecursive,
                                                    shortWindowsPath)
-import           PlayStation.PKG                  (makePKG)
+import           PlayStation.PKG                  (PKG (..), makePKG, withPKG)
 import           PrettyDTA                        (DTASingle (..),
                                                    readDTASingles,
                                                    readFileSongsDTA, readRB3DTA,
@@ -228,6 +228,7 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
             [0xAF, 0xDE, 0xBE, 0xCB] -> FileType FileMilo fp
             [0xAF, 0xDE, 0xBE, 0xCC] -> FileType FileMilo fp
             [0xAF, 0xDE, 0xBE, 0xCD] -> FileType FileMilo fp
+            [0x7F, 0x50, 0x4B, 0x47] -> FileType FilePKG fp
             _                        -> FileUnrecognized
   False -> Dir.doesDirectoryExist fp >>= \case
     True -> Dir.doesFileExist (fp </> "song.yml") >>= \case
@@ -269,6 +270,7 @@ data FileType
   | FileZip
   | FilePSARC
   | FileMilo
+  | FilePKG
   deriving (Eq, Ord, Show)
 
 identifyFile' :: (MonadIO m) => FilePath -> StackTraceT m (FileType, FilePath)
@@ -622,6 +624,14 @@ commands =
       (FileMilo, milo) -> do
         out <- outputFile opts $ return $ milo ++ "_extract"
         unpackMilo milo out
+        return out
+      (FilePKG, pkg) -> do
+        out <- outputFile opts $ return $ pkg <> "_extract"
+        stackIO $ Dir.createDirectoryIfMissing False out
+        stackIO $ withPKG pkg $ \p -> do
+          B.writeFile (out </> "decrypted-contents.bin") $ pkgInside p
+          let flagBytesToReadable = makeHandle "" . byteStringSimpleHandle . BL.fromStrict . snd
+          saveHandleFolder (bimap TE.decodeLatin1 flagBytesToReadable $ pkgFolder p) out
         return out
       p -> fatal $ "Unexpected file type given to extractor: " <> show p
     }
@@ -1403,9 +1413,7 @@ commands =
             <$> stackIO (Dir.makeAbsolute dir)
           folder <- stackIO $ first TE.encodeUtf8 <$> crawlFolder dir
           folder' <- stackIO $ forM folder $ \r -> fmap BL.toStrict $ useHandle r $ handleToByteString
-          case makePKG (B8.pack contentID) folder' of
-            Nothing -> fatal "Error in initializing encryption for .pkg"
-            Just bs -> stackIO $ BL.writeFile pkg bs
+          stackIO $ BL.writeFile pkg $ makePKG (B8.pack contentID) folder'
           return [pkg]
         False -> fatal $ "onyx pkg expected directory; given: " <> dir
       _ -> fatal $ "onyx pkg expected 2 argument, given " <> show (length args)
