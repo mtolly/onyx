@@ -29,8 +29,9 @@ import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64.Lazy           as B64
 import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
-import           Data.Char                             (isAscii, isControl,
-                                                        isDigit, isSpace)
+import           Data.Char                             (isAlphaNum, isAscii,
+                                                        isControl, isDigit,
+                                                        isSpace)
 import           Data.Conduit                          (runConduit)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
@@ -113,7 +114,7 @@ import           Neversoft.QB                          (QBArray (..),
                                                         putQB)
 import           NPData                                (npdContentID,
                                                         packNPData,
-                                                        rb2MidEdatConfig,
+                                                        rb2CustomMidEdatConfig,
                                                         rb3CustomMidEdatConfig)
 import qualified Numeric.NonNegative.Class             as NNC
 import           OSFiles                               (copyDirRecursive,
@@ -363,6 +364,27 @@ validFileName :: NameRule -> FilePath -> FilePath
 validFileName rule f = let
   (dir, file) = splitFileName f
   in dir </> T.unpack (validFileNamePiece rule $ T.pack file)
+
+makeShortName :: Int -> SongYaml f -> T.Text
+makeShortName num songYaml
+  = T.dropWhileEnd (== '_')
+  -- Short name doesn't have to be name used in paths but it makes things simple.
+  -- Max path name is 40 chars (stfs limit) - 14 chars ("_keep.png_xbox") = 26 chars.
+  $ T.take 26
+  $ "o" <> T.pack (show num)
+    <> "_" <> makePart (getTitle  $ _metadata songYaml)
+    <> "_" <> makePart (getArtist $ _metadata songYaml)
+  where makePart = T.toLower . T.filter (\c -> isAscii c && isAlphaNum c)
+
+makePS3Name :: Int -> SongYaml f -> B.ByteString
+makePS3Name num songYaml
+  = TE.encodeUtf8
+  $ T.take 0x1C
+  $ T.toUpper
+  $ T.filter (\c -> isAscii c && isAlphaNum c)
+  $ "O" <> T.pack (show num)
+    <> getTitle  (_metadata songYaml)
+    <> getArtist (_metadata songYaml)
 
 hashRB3 :: (Hashable f) => SongYaml f -> TargetRB3 f -> Int
 hashRB3 songYaml rb3 = let
@@ -1135,7 +1157,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           rbRules :: FilePath -> TargetRB3 FilePath -> Maybe TargetRB2 -> QueueLog Rules ()
           rbRules dir rb3 mrb2 = do
             let pkg :: (IsString a) => a
-                pkg = fromString $ "o" <> show (hashRB3 songYaml rb3)
+                pkg = fromString $ T.unpack $ makeShortName (hashRB3 songYaml rb3) songYaml
             (planName, plan) <- case getPlan (tgt_Plan $ rb3_Common rb3) songYaml of
               Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rb3
               Just pair -> return pair
@@ -1547,7 +1569,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 rb3ps3Milo = rb3ps3Root </> "songs" </> pkg </> "gen" </> pkg <.> "milo_ps3"
                 -- don't think we need weights.bin or .pan
                 rb3ps3Pkg = dir </> "rb3-ps3.pkg"
-                rb3ps3Folder = B8.pack $ "ONYX" <> show (hashRB3 songYaml rb3)
+                rb3ps3Folder = makePS3Name (hashRB3 songYaml rb3) songYaml
                 rb3ps3EDATConfig = rb3CustomMidEdatConfig rb3ps3Folder
                 rb3ps3ContentID = npdContentID rb3ps3EDATConfig
 
@@ -1910,13 +1932,18 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       (dir </> "rb2")
                       out
 
-                  let rb2ps3DTA = dir </> "rb2-ps3/songs/songs.dta"
-                      rb2ps3Mogg = dir </> "rb2-ps3/songs" </> pkg </> pkg <.> "mogg"
-                      rb2ps3Mid = dir </> "rb2-ps3/songs" </> pkg </> pkg <.> "mid.edat"
-                      rb2ps3Art = dir </> "rb2-ps3/songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_ps3")
-                      rb2ps3Weights = dir </> "rb2-ps3/songs" </> pkg </> "gen" </> (pkg ++ "_weights.bin")
-                      rb2ps3Milo = dir </> "rb2-ps3/songs" </> pkg </> "gen" </> pkg <.> "milo_ps3"
-                      rb2ps3Pan = dir </> "rb2-ps3/songs" </> pkg </> pkg <.> "pan"
+                  let rb2ps3Root = dir </> "rb2-ps3"
+                      rb2ps3DTA = rb2ps3Root </> "songs/songs.dta"
+                      rb2ps3Mogg = rb2ps3Root </> "songs" </> pkg </> pkg <.> "mogg"
+                      rb2ps3Mid = rb2ps3Root </> "songs" </> pkg </> pkg <.> "mid.edat"
+                      rb2ps3Art = rb2ps3Root </> "songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_ps3")
+                      rb2ps3Milo = rb2ps3Root </> "songs" </> pkg </> "gen" </> pkg <.> "milo_ps3"
+                      rb2ps3Weights = rb2ps3Root </> "songs" </> pkg </> "gen" </> (pkg ++ "_weights.bin")
+                      rb2ps3Pan = rb2ps3Root </> "songs" </> pkg </> pkg <.> "pan"
+                      rb2ps3Pkg = dir </> "rb2-ps3.pkg"
+                      rb2ps3Folder = makePS3Name (hashRB3 songYaml rb3) songYaml
+                      rb2ps3EDATConfig = rb2CustomMidEdatConfig rb2ps3Folder
+                      rb2ps3ContentID = npdContentID rb2ps3EDATConfig
 
                   rb2ps3DTA %> writeRB2DTA True
                   rb2ps3Mid %> \out -> if rb2_PS3Encrypt rb2
@@ -1924,7 +1951,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                       shk $ need [rb2Mid]
                       fin  <- shortWindowsPath False rb2Mid
                       fout <- shortWindowsPath True  out
-                      stackIO $ packNPData rb2MidEdatConfig fin fout $ B8.pack pkg <> ".mid.edat"
+                      stackIO $ packNPData rb2ps3EDATConfig fin fout $ B8.pack pkg <> ".mid.edat"
                     else shk $ copyFile' rb2Mid out
                   rb2ps3Art %> shk . copyFile' (rel "gen/cover.png_ps3")
                   rb2ps3Mogg %> \out -> do
@@ -1939,8 +1966,16 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   rb2ps3Weights %> shk . copyFile' rb2Weights
                   rb2ps3Milo %> shk . copyFile' rb2Milo
                   rb2ps3Pan %> shk . copyFile' rb2Pan
-                  phony (dir </> "rb2-ps3") $ do
+                  phony rb2ps3Root $ do
                     shk $ need [rb2ps3DTA, rb2ps3Mogg, rb2ps3Mid, rb2ps3Art, rb2ps3Weights, rb2ps3Milo, rb2ps3Pan]
+
+                  rb2ps3Pkg %> \out -> do
+                    shk $ need [rb2ps3Root]
+                    folder <- stackIO $ first TE.encodeUtf8 <$> crawlFolder rb2ps3Root
+                    folder' <- stackIO $ forM folder $ \r -> fmap BL.toStrict $ useHandle r $ handleToByteString
+                    let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
+                        bs = makePKG rb2ps3ContentID $ container "USRDIR" $ container rb2ps3Folder folder'
+                    stackIO $ BL.writeFile out bs
 
       forM_ (extraTargets ++ HM.toList (_targets songYaml)) $ \(targetName, target) -> do
         let dir = rel $ "gen/target" </> T.unpack targetName
@@ -1971,7 +2006,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 defaultID = hashGH2 songYaml gh2
                 defaultLBP = defaultID + 1
                 defaultLBW = defaultID + 2
-                key = fromMaybe (T.pack $ "o" <> show defaultID) $ gh2_Key gh2
+                key = fromMaybe (makeShortName defaultID songYaml) $ gh2_Key gh2
                 pkg = T.unpack key
 
             let loadPartAudioCheck = case plan of

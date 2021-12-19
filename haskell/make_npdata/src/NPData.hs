@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module NPData (packNPData, NPDataConfig(..), rb2MidEdatConfig, rb3NTSCMidEdatConfig, rb3CustomMidEdatConfig, decryptNPData, NPDecryptConfig(..)) where
+module NPData (packNPData, NPDataConfig(..), rb2CustomMidEdatConfig, rb3CustomMidEdatConfig, decryptNPData, NPDecryptConfig(..)) where
 
 import           Control.Monad          (forM_, when)
 import qualified Data.ByteString        as B
@@ -73,35 +73,47 @@ rb3NTSCMidEdatConfig :: NPDataConfig
 rb3NTSCMidEdatConfig = NPDataConfig
   { npdContentID = "UP8802-BLUS30463_00-RBHMXBANDCCFF0D6"
   -- klic is MD5("Ih38rtW1ng3rHMX075610025250") where HMX0756 is the free pack ID
-  , npdKLIC = B.pack [0x0B, 0x72, 0xB6, 0x2D, 0xAB, 0xA8, 0xCA, 0xFD, 0xA3, 0x35, 0x2F, 0xF9, 0x79, 0xC6, 0xD5, 0xC2]
-  , npdRAP = Just $ B.pack [0xCF, 0x1E, 0xA0, 0xDA, 0x36, 0xEB, 0x82, 0xD9, 0x6D, 0xC2, 0x68, 0x6C, 0xD9, 0x17, 0x44, 0xEA]
-  , npdVersion = 2
-  , npdLicense = 3
-  , npdType = 0
-  , npdBlock = 16
-  , npdEDAT = True
-  }
-
-rb3CustomMidEdatConfig :: B.ByteString -> NPDataConfig
-rb3CustomMidEdatConfig dir = NPDataConfig
-  { npdContentID = "UP8802-BLUS30463_00-" <> dir -- actually this probably doesn't have to be the same
-  , npdKLIC = MD5.md5DigestBytes $ MD5.md5 $ "Ih38rtW1ng3r" <> BL.fromStrict dir <> "10025250"
-  , npdRAP = Nothing
-  , npdVersion = 2
-  , npdLicense = 3
-  , npdType = 0
-  , npdBlock = 16
-  , npdEDAT = True
+  , npdKLIC      = B.pack [0x0B, 0x72, 0xB6, 0x2D, 0xAB, 0xA8, 0xCA, 0xFD, 0xA3, 0x35, 0x2F, 0xF9, 0x79, 0xC6, 0xD5, 0xC2]
+  , npdRAP       = Just $ B.pack [0xCF, 0x1E, 0xA0, 0xDA, 0x36, 0xEB, 0x82, 0xD9, 0x6D, 0xC2, 0x68, 0x6C, 0xD9, 0x17, 0x44, 0xEA]
+  , npdVersion   = 2
+  , npdLicense   = 3
+  , npdType      = 0
+  , npdBlock     = 16
+  , npdEDAT      = True
   }
 
 {-
 
-TODO, PAL free pack (from c3, like ntsc version)
+PAL free pack (from c3, like ntsc version)
 content id: EP0006-BLES00986_00-RBHMXBANDCCFF0D6
 klic: 0B72B62DABA8CAFDA3352FF979C6D5C2
 rap: 59 de 7e 02 16 a6 7b fb 0c ff 90 c2 6b f5 52 4b
 
 -}
+
+rb2CustomMidEdatConfig :: B.ByteString -> NPDataConfig
+rb2CustomMidEdatConfig dir = NPDataConfig
+  { npdContentID = "UP0006-BLUS30050_00-" <> dir
+  , npdKLIC      = MD5.md5DigestBytes $ MD5.md5 $ "Ih38rtW1ng3r" <> BL.fromStrict dir <> "10025250"
+  , npdRAP       = Nothing
+  , npdVersion   = 2
+  , npdLicense   = 3
+  , npdType      = 0
+  , npdBlock     = 16
+  , npdEDAT      = True
+  }
+
+rb3CustomMidEdatConfig :: B.ByteString -> NPDataConfig
+rb3CustomMidEdatConfig dir = NPDataConfig
+  { npdContentID = "UP8802-BLUS30463_00-" <> dir -- actually this probably doesn't have to be the same
+  , npdKLIC      = MD5.md5DigestBytes $ MD5.md5 $ "Ih38rtW1ng3r" <> BL.fromStrict dir <> "10025250"
+  , npdRAP       = Nothing
+  , npdVersion   = 2
+  , npdLicense   = 3
+  , npdType      = 0
+  , npdBlock     = 16
+  , npdEDAT      = True
+  }
 
 packNPData :: NPDataConfig -> FilePath -> FilePath -> B.ByteString -> IO ()
 packNPData cfg fin fout hashName = do

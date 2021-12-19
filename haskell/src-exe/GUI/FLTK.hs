@@ -1162,11 +1162,16 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
     songPageRB3 sink rect tab proj $ \tgt create -> do
       proj' <- fullProjModify proj
       let name = case create of
-            RB3CON   _ -> "Building RB3 CON"
+            RB3CON   _ -> "Building RB3 CON (360)"
+            RB3PKG   _ -> "Building RB3 PKG (PS3)"
             RB3Magma _ -> "Building Magma project"
           task = case create of
             RB3CON fout -> do
               tmp <- buildRB3CON tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            RB3PKG fout -> do
+              tmp <- buildRB3PKG tgt proj'
               stackIO $ Dir.copyFile tmp fout
               return [fout]
             RB3Magma dout -> do
@@ -1180,17 +1185,17 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
     songPageRB2 sink rect tab proj $ \tgt create -> do
       proj' <- fullProjModify proj
       let name = case create of
-            RB2CON _ -> "Building RB2 CON"
-            RB2PS3 _ -> "Building RB2 PS3 folder"
+            RB2CON _ -> "Building RB2 CON (360)"
+            RB2PKG _ -> "Building RB2 PKG (PS3)"
           task = case create of
             RB2CON fout -> do
               tmp <- buildRB2CON tgt proj'
               stackIO $ Dir.copyFile tmp fout
               return [fout]
-            RB2PS3 dout -> do
-              tmp <- buildRB2PS3 tgt proj'
-              copyDirRecursiveMergeDTA tmp dout
-              return [dout]
+            RB2PKG fout -> do
+              tmp <- buildRB2PKG tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   psTab <- makeTab windowRect "CH/PS" $ \rect tab -> do
@@ -1457,11 +1462,12 @@ makePresetDropdown rect opts = do
 
 data RB3Create
   = RB3CON FilePath
+  | RB3PKG FilePath
   | RB3Magma FilePath
 
 data RB2Create
   = RB2CON FilePath
-  | RB2PS3 FilePath
+  | RB2PKG FilePath
 
 data PSCreate
   = PSDir FilePath
@@ -1643,9 +1649,9 @@ batchPageRB2 sink rect tab build = do
     (getTargetSong trimXbox RB2CON >=> build)
   makeTemplateRunner
     sink
-    "Create PS3 folders"
-    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_ps3")
-    (getTargetSong id RB2PS3 >=> build)
+    "Create PS3 PKG files"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
+    (getTargetSong id RB2PKG >=> build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -2149,6 +2155,21 @@ songPageRB3 sink rect tab proj build = mdo
     color <- taskColor
     FL.setColor btn1 color
     FL.setColor btn2 color
+  fullWidth 35 $ \rect' -> do
+    btn1 <- FL.buttonNew rect' $ Just "Create PS3 PKG file"
+    FL.setCallback btn1 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save RB3 PKG file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> ".pkg" -- TODO add modifiers
+      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ RB3PKG $ trimXbox f
+        _ -> return ()
+    color <- taskColor
+    FL.setColor btn1 color
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -2230,16 +2251,16 @@ songPageRB2 sink rect tab proj build = mdo
           Nothing -> return ()
           Just f  -> build tgt $ RB2CON $ trimXbox f
         _ -> return ()
-    btn2 <- FL.buttonNew r2 $ Just "Create PS3 folder"
+    btn2 <- FL.buttonNew r2 $ Just "Create PS3 PKG file"
     FL.setCallback btn2 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-      FL.setTitle picker "Save PS3 content folder"
-      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_ps3" -- TODO add modifiers
+      FL.setTitle picker "Save PS3 PKG file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> ".pkg" -- TODO add modifiers
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt $ RB2PS3 f
+          Just f  -> build tgt $ RB2PKG f
         _ -> return ()
     color <- taskColor
     FL.setColor btn1 color
@@ -2704,6 +2725,11 @@ batchPageRB3 sink rect tab build = do
     "Create Xbox 360 CON files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_rb3con")
     (getTargetSong RB3CON >=> build)
+  makeTemplateRunner
+    sink
+    "Create PS3 PKG files"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
+    (getTargetSong RB3PKG >=> build)
   makeTemplateRunner
     sink
     "Create Magma projects"
@@ -4386,6 +4412,10 @@ launchBatch sink makeMenuBar startFiles = mdo
                 tmp <- buildRB3CON target proj'
                 stackIO $ Dir.copyFile tmp fout
                 return fout
+              RB3PKG fout -> do
+                tmp <- buildRB3PKG target proj'
+                stackIO $ Dir.copyFile tmp fout
+                return fout
               RB3Magma dout -> do
                 tmp <- buildMagmaV2 target proj'
                 copyDirRecursive tmp dout
@@ -4404,10 +4434,10 @@ launchBatch sink makeMenuBar startFiles = mdo
                 tmp <- buildRB2CON target proj'
                 stackIO $ Dir.copyFile tmp fout
                 return fout
-              RB2PS3 dout -> do
-                tmp <- buildRB2PS3 target proj'
-                copyDirRecursiveMergeDTA tmp dout
-                return dout
+              RB2PKG fout -> do
+                tmp <- buildRB2PKG target proj'
+                stackIO $ Dir.copyFile tmp fout
+                return fout
       return tab
     , makeTab windowRect "Clone Hero" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

@@ -85,7 +85,6 @@ import           Neversoft.Pak                    (Node (..), buildPak,
                                                    splitPakNodes)
 import           Neversoft.QB                     (discardStrings, lookupQB,
                                                    lookupQS, parseQB, putQB)
-import           NPData
 import           OpenProject
 import           OSFiles                          (copyDirRecursive,
                                                    shortWindowsPath)
@@ -1344,24 +1343,6 @@ commands =
     , commandRun = \args opts -> do
       fout <- outputFile opts $ fatal "make-wor-database requires --to argument"
       makeMetadataLIVE args fout
-      return [fout]
-    }
-
-  , Command
-    { commandWord = "rb2-ps3-encrypt"
-    , commandDesc = ""
-    , commandUsage = "onyx rb2-ps3-encrypt file-in [file-out] [filename-for-hash]"
-    , commandRun = \args _opts -> do
-      (fin, fout, fhash) <- case args of
-        [fin] -> return $ let
-          fout = fin <> ".edat"
-          in (fin, fout, B8.pack $ takeFileName fout)
-        [fin, fout] -> return (fin, fout, B8.pack $ takeFileName fout)
-        [fin, fout, fhash] -> return (fin, fout, B8.pack fhash)
-        _ -> fatal "Expected 1-3 arguments"
-      fin'  <- shortWindowsPath False fin
-      fout' <- shortWindowsPath True  fout
-      stackIO $ packNPData rb2MidEdatConfig fin' fout' fhash
       return [fout]
     }
 

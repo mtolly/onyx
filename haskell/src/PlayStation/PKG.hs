@@ -285,7 +285,8 @@ makePKGRecords = go "" where
       return (path, "", 0x80000004)
     files = do
       (name, file) <- folderFiles folder
-      let isEDAT = ".edat" `B.isSuffixOf` name
+      -- Check both the name and magic number, in case we are generating unencrypted midis for RPCS3
+      let isEDAT = (".edat" `B.isSuffixOf` name) && B.take 4 file == "NPD\0"
           flags = if isEDAT then 0x80000002 else 0x80000003
       return (addPath name, file, flags)
     subs = do
