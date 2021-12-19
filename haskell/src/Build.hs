@@ -133,6 +133,7 @@ import           Reaper.Build                          (TuningInfo (..),
 import           RenderAudio
 import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
+                                                        getResourcesPath,
                                                         ghWoRSamplePerf,
                                                         ghWoRthumbnail,
                                                         onyxAlbum, webDisplay)
@@ -379,7 +380,7 @@ makeShortName num songYaml
 makePS3Name :: Int -> SongYaml f -> B.ByteString
 makePS3Name num songYaml
   = TE.encodeUtf8
-  $ T.take 0x1C
+  $ T.take 0x1B -- 0x1C is probably fine, but leaving a null char so make_npdata doesn't get confused when making edat
   $ T.toUpper
   $ T.filter (\c -> isAscii c && isAlphaNum c)
   $ "O" <> T.pack (show num)
@@ -1599,13 +1600,17 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             phony rb3ps3Root $ do
               shk $ need [rb3ps3DTA, rb3ps3Mogg, rb3ps3Mid, rb3ps3Art, rb3ps3Milo]
 
+            let crawlFolderBytes p
+                  =   stackIO
+                  $   crawlFolder p
+                  >>= return . first TE.encodeUtf8
+                  >>= mapM (\r -> fmap BL.toStrict $ useHandle r $ handleToByteString)
             rb3ps3Pkg %> \out -> do
               shk $ need [rb3ps3Root]
-              folder <- stackIO $ first TE.encodeUtf8 <$> crawlFolder rb3ps3Root
-              folder' <- stackIO $ forM folder $ \r -> fmap BL.toStrict $ useHandle r $ handleToByteString
               let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
-                  bs = makePKG rb3ps3ContentID $ container "USRDIR" $ container rb3ps3Folder folder'
-              stackIO $ BL.writeFile out bs
+              main <- container "USRDIR" . container rb3ps3Folder <$> crawlFolderBytes rb3ps3Root
+              extra <- stackIO (getResourcesPath "pkg-contents/rb3") >>= crawlFolderBytes
+              stackIO $ BL.writeFile out $ makePKG rb3ps3ContentID $ main <> extra
 
             -- Guitar rules
             dir </> "protar-mpa.mid" %> \out -> do
@@ -1971,11 +1976,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
                   rb2ps3Pkg %> \out -> do
                     shk $ need [rb2ps3Root]
-                    folder <- stackIO $ first TE.encodeUtf8 <$> crawlFolder rb2ps3Root
-                    folder' <- stackIO $ forM folder $ \r -> fmap BL.toStrict $ useHandle r $ handleToByteString
                     let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
-                        bs = makePKG rb2ps3ContentID $ container "USRDIR" $ container rb2ps3Folder folder'
-                    stackIO $ BL.writeFile out bs
+                    main <- container "USRDIR" . container rb2ps3Folder <$> crawlFolderBytes rb2ps3Root
+                    extra <- stackIO (getResourcesPath "pkg-contents/rb2") >>= crawlFolderBytes
+                    stackIO $ BL.writeFile out $ makePKG rb2ps3ContentID $ main <> extra
 
       forM_ (extraTargets ++ HM.toList (_targets songYaml)) $ \(targetName, target) -> do
         let dir = rel $ "gen/target" </> T.unpack targetName

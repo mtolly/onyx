@@ -157,6 +157,15 @@ instance Bifunctor Folder where
     }
   second = fmap
 
+instance Semigroup (Folder name a) where
+  x <> y = Folder
+    { folderSubfolders = folderSubfolders x <> folderSubfolders y
+    , folderFiles      = folderFiles      x <> folderFiles      y
+    }
+
+instance Monoid (Folder name a) where
+  mempty = Folder [] []
+
 allFolders :: Folder p a -> [NE.NonEmpty p]
 allFolders folder = do
   (sub, subf) <- folderSubfolders folder
