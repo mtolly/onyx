@@ -2166,7 +2166,7 @@ songPageRB3 sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt $ RB3PKG $ trimXbox f
+          Just f  -> build tgt $ RB3PKG f
         _ -> return ()
     color <- taskColor
     FL.setColor btn1 color
@@ -2678,7 +2678,7 @@ batchPageRB3 sink rect tab build = do
       , ("Both", KicksBoth, True)
       ]
     return $ fromMaybe KicksBoth <$> fn
-  let getTargetSong usePath template = do
+  let getTargetSong isXbox usePath template = do
         speed <- getSpeed
         toms <- getToms
         preset <- getPreset
@@ -2700,7 +2700,7 @@ batchPageRB3 sink rect tab build = do
             (Kicks1x  , _      ) -> [(False, "_1x")]
             (Kicks2x  , _      ) -> [(True , "_2x")]
             (KicksBoth, _      ) -> [(False, "_1x"), (True, "_2x")]
-          fout kicksLabel = trimXbox $ T.unpack $ foldr ($) template
+          fout kicksLabel = (if isXbox then trimXbox else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ RB3 tgt
             , let
               modifiers = T.concat
@@ -2724,17 +2724,17 @@ batchPageRB3 sink rect tab build = do
     sink
     "Create Xbox 360 CON files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_rb3con")
-    (getTargetSong RB3CON >=> build)
+    (getTargetSong True RB3CON >=> build)
   makeTemplateRunner
     sink
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
-    (getTargetSong RB3PKG >=> build)
+    (getTargetSong False RB3PKG >=> build)
   makeTemplateRunner
     sink
     "Create Magma projects"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_project")
-    (getTargetSong RB3Magma >=> build)
+    (getTargetSong False RB3Magma >=> build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -4399,7 +4399,7 @@ launchBatch sink makeMenuBar startFiles = mdo
         mapM_ release $ projectRelease proj
         either throwNoContext return res
   functionTabs <- sequence
-    [ makeTab windowRect "RB3 (360)" $ \rect tab -> do
+    [ makeTab windowRect "RB3" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageRB3 sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles

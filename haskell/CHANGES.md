@@ -1,9 +1,9 @@
 # Version history
 
-## 20211128
+## 20211219
 
 * Prerelease version
-* Demo of PS3 RB2 export
+* Demo of PS3 .pkg export
 
 ## 20211108
 
