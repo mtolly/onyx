@@ -51,6 +51,7 @@ executables:
     - exceptions
     - extra
     - JuicyPixels
+    - hashable
     # my libraries
     - midi-util
     - conduit-audio

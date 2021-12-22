@@ -46,7 +46,7 @@ import           Import.Neversoft               (importGH5WoR)
 import           Import.RockBand                (importPS3Folder, importRBA,
                                                  importSTFSFolder)
 import           Import.Rocksmith               as RS
-import           PlayStation.PKG                (pkgFolder, withPKG)
+import           PlayStation.PKG                (loadPKG, pkgFolder)
 import           Preferences
 import qualified Sound.Jammit.Base              as J
 import           STFS.Package                   (getSTFSFolder)
@@ -165,7 +165,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           ]
       foundRS psarc = importRS psarc >>= foundImports "Rocksmith" psarc
       foundPS3 loc = do
-        folder <- stackIO $ withPKG loc $ return . fmap snd . pkgFolder
+        folder <- stackIO $ fmap snd . pkgFolder <$> loadPKG loc
         imps <- importPS3Folder loc folder
         foundImports "Rock Band (PS3 .pkg)" loc imps
       foundImports fmt path imports = do

@@ -14,7 +14,7 @@ import           Control.Monad                  (forM, forM_, guard, when)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
-import           Data.Bifunctor                 (bimap)
+import           Data.Bifunctor                 (first)
 import           Data.Binary.Codec.Class        (bin, codecIn)
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
@@ -579,12 +579,9 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
     let label = D.name pkg <> maybe "" (\artist -> " (" <> artist <> ")") (D.artist pkg)
     rb3pkg label label temp con
 
-importPS3Folder :: (SendMessage m, MonadIO m) => FilePath -> Folder B.ByteString B.ByteString -> StackTraceT m [Import m]
+importPS3Folder :: (SendMessage m, MonadIO m) => FilePath -> Folder B.ByteString Readable -> StackTraceT m [Import m]
 importPS3Folder src folder = do
   usr <- maybe (fatal "USRDIR not found") return $ findFolder ["USRDIR"] folder
   fmap concat $ forM (folderSubfolders usr) $ \(subName, sub) -> do
     sub' <- decryptHarmonixEDATs subName sub
-    importSTFSFolder src $ bimap
-      TE.decodeLatin1
-      (makeHandle "(file in .pkg)" . byteStringSimpleHandle . BL.fromStrict)
-      sub'
+    importSTFSFolder src $ first TE.decodeLatin1 sub'

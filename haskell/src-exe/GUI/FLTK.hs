@@ -59,6 +59,7 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer                (WriterT,
                                                             execWriterT, tell)
 import qualified Data.Aeson                                as A
+import           Data.Bifunctor                            (bimap, first)
 import           Data.Binary.Put                           (runPut)
 import qualified Data.ByteString                           as B
 import qualified Data.ByteString.Char8                     as B8
@@ -70,8 +71,10 @@ import           Data.Conduit.Audio                        (integralSample,
 import qualified Data.Connection                           as Conn
 import           Data.Default.Class                        (Default, def)
 import qualified Data.DTA.Serialize.GH2                    as D
+import           Data.Either                               (partitionEithers)
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
+import           Data.Hashable                             (hash)
 import qualified Data.HashMap.Strict                       as HM
 import           Data.Int                                  (Int64)
 import           Data.IORef                                (IORef, modifyIORef,
@@ -127,6 +130,7 @@ import           OSFiles                                   (commonDir,
                                                             osOpenFile,
                                                             osShowFolder)
 import           Paths_onyxite_customs_tool                (version)
+import qualified PlayStation.PKG                           as PKG
 import           Preferences                               (MagmaSetting (..),
                                                             Preferences (..),
                                                             readPreferences,
@@ -154,6 +158,7 @@ import           RockBand.SongCache                        (hardcodeSongCacheIDs
 import           RockBand3                                 (BasicTiming (..))
 import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.Util                           as U
+import           STFS.Package                              (packCombineFolders)
 import qualified STFS.Package                              as STFS
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (dropExtension, dropTrailingPathSeparator,
@@ -2979,6 +2984,13 @@ data STFSSpec = STFSSpec
   , stfsMeta :: STFS.Metadata
   }
 
+data PKGSpec = PKGSpec
+  { pkgPath      :: FilePath
+  , pkgContentID :: B.ByteString
+  }
+
+type PackageSpec = Either STFSSpec PKGSpec
+
 getSTFSSpec :: FilePath -> IO (Maybe STFSSpec)
 getSTFSSpec f = Exc.try (STFS.withSTFSPackage f $ return . STFS.stfsMetadata) >>= \case
   Left e -> let
@@ -2988,6 +3000,21 @@ getSTFSSpec f = Exc.try (STFS.withSTFSPackage f $ return . STFS.stfsMetadata) >>
     { stfsPath = f
     , stfsMeta = meta
     }
+
+getPKGSpec :: FilePath -> IO (Maybe PKGSpec)
+getPKGSpec f = Exc.try (PKG.loadPKG f) >>= \case
+  Left e -> let
+    _ = e :: Exc.IOException
+    in return Nothing
+  Right pkg -> return $ Just PKGSpec
+    { pkgPath      = f
+    , pkgContentID = PKG.pkgContentID $ PKG.pkgHeader pkg
+    }
+
+getPackageSpec :: FilePath -> IO (Maybe PackageSpec)
+getPackageSpec f = getSTFSSpec f >>= \case
+  Nothing   -> fmap Right <$> getPKGSpec f
+  Just stfs -> return $ Just $ Left stfs
 
 miscPageMilo
   :: (Event -> IO ())
@@ -3495,6 +3522,17 @@ searchSTFS f = stackIO $ Dir.doesDirectoryExist f >>= \case
   True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
   False -> (\mspec -> ([], toList mspec)) <$> getSTFSSpec f
 
+searchPackages :: FilePath -> Onyx ([FilePath], [PackageSpec])
+searchPackages f = stackIO $ Dir.doesDirectoryExist f >>= \case
+  True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+  False -> (\mspec -> ([], toList mspec)) <$> getPackageSpec f
+
+data PlatformStatus
+  = PlatformXbox
+  | PlatformPS3
+  | PlatformNone
+  | PlatformMixed
+
 miscPagePacks
   :: (Event -> IO ())
   -> Rectangle
@@ -3502,83 +3540,169 @@ miscPagePacks
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
 miscPagePacks sink rect tab startTasks = mdo
-  loadedSTFS <- newMVar []
+  loadedPackages <- newMVar []
   let (filesRect, bottomRect) = chopBottom 140 rect
       (metaRect, startRect) = chopBottom 50 bottomRect
       (trimClock 0 5 5 10 -> gameRect, chopLeft 100 -> (_, nameDescRect)) = chopLeft 250 metaRect
       [trimClock 0 10 5 5 -> nameRect, trimClock 0 10 5 5 -> descRect] = splitVertN 2 nameDescRect
-      [chopRight 5 -> (conRect, _), chopLeft 5 -> (_, liveRect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
-      modifyButtons :: ([STFSSpec] -> IO [STFSSpec]) -> IO ()
+      pkgRect = trimClock 5 10 10 10 startRect
+      [chopRight 5 -> (conRect, _), chopLeft 5 -> (_, liveRect)] = splitHorizN 2 pkgRect
+      togglePlatform = \case
+        PlatformXbox -> do
+          FL.showWidget gameBox
+          FL.showWidget nameInput
+          FL.showWidget descInput
+          FL.hide       packIDInput
+          FL.showWidget btnCON
+          FL.showWidget btnLIVE
+          FL.hide       btnPKG
+        PlatformPS3 -> do
+          FL.showWidget gameBox
+          FL.hide       nameInput
+          FL.hide       descInput
+          FL.showWidget packIDInput
+          FL.hide       btnCON
+          FL.hide       btnLIVE
+          FL.showWidget btnPKG
+        platform -> do
+          FL.hide       gameBox
+          FL.hide       nameInput
+          FL.hide       descInput
+          FL.hide       packIDInput
+          FL.hide       btnCON
+          FL.hide       btnLIVE
+          FL.hide       btnPKG
+          case platform of
+            PlatformMixed -> FL.showWidget mixedWarning
+            _             -> FL.hide       mixedWarning
+      modifyButtons :: ([PackageSpec] -> IO [PackageSpec]) -> IO ()
       modifyButtons f = do
-        newSTFS <- modifyMVar loadedSTFS $ \stfs -> (\x -> (x, x)) <$> f stfs
+        newPackages <- modifyMVar loadedPackages $ \stfs -> (\x -> (x, x)) <$> f stfs
         sink $ EventIO $ do
-          if length newSTFS == 0
-            then mapM_ FL.deactivate [btnCON, btnLIVE]
-            else mapM_ FL.activate   [btnCON, btnLIVE]
-          FL.setLabel gameBox $ case newSTFS of
-            info : _ -> T.unlines
-              [ "Game (from first in list):"
-              , STFS.md_TitleName $ stfsMeta info
-              , "(" <> T.toUpper (T.pack $ showHex (STFS.md_TitleID $ stfsMeta info) "") <> ")"
-              ]
+          togglePlatform $ case partitionEithers newPackages of
+            ([]   , []   ) -> PlatformNone
+            (_ : _, []   ) -> PlatformXbox
+            ([]   , _ : _) -> PlatformPS3
+            (_ : _, _ : _) -> PlatformMixed
+          FL.setLabel gameBox $ case newPackages of
+            info : _ -> case info of
+              Left stfs -> T.unlines
+                [ "Game (from first in list):"
+                , STFS.md_TitleName $ stfsMeta stfs
+                , "(" <> T.toUpper (T.pack $ showHex (STFS.md_TitleID $ stfsMeta stfs) "") <> ")"
+                ]
+              Right pkg -> T.unlines
+                [ "Game (from first in list):"
+                , TE.decodeLatin1 $ B.take 16 $ pkgContentID pkg -- first 16 e.g. UP0006-BLUS30050
+                ]
             []       -> ""
-  group <- fileLoadWindow filesRect sink "CON/LIVE" "CON/LIVE" modifyButtons [] searchSTFS
-    $ \info -> let
-      entry = T.pack $ stfsPath info
-      sublines = concat
-        [ take 1 $ STFS.md_DisplayName $ stfsMeta info
-        , return $ T.unwords
-          [ "Game:"
-          , STFS.md_TitleName $ stfsMeta info
-          , "(" <> T.toUpper (T.pack $ showHex (STFS.md_TitleID $ stfsMeta info) "") <> ")"
+  group <- fileLoadWindow filesRect sink "CON/LIVE/PKG" "CON/LIVE/PKG" modifyButtons [] searchPackages
+    $ \info -> case info of
+      Left stfs -> let
+        entry = T.pack $ stfsPath stfs
+        sublines = concat
+          [ take 1 $ STFS.md_DisplayName $ stfsMeta stfs
+          , return $ T.unwords
+            [ "Game:"
+            , STFS.md_TitleName $ stfsMeta stfs
+            , "(" <> T.toUpper (T.pack $ showHex (STFS.md_TitleID $ stfsMeta stfs) "") <> ")"
+            ]
           ]
-        ]
-      in (entry, sublines)
+        in (entry, sublines)
+      Right pkg -> let
+        entry = T.pack $ pkgPath pkg
+        sublines = ["Content ID: " <> TE.decodeLatin1 (pkgContentID pkg)]
+        in (entry, sublines)
 
-  let doPrompt isLIVE = sink $ EventIO $ do
-        stfs <- readMVar loadedSTFS
-        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-        FL.setTitle picker "Save STFS file"
-        case stfs of
-          f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory $ stfsPath f
-          _     -> return ()
-        FL.showWidget picker >>= \case
-          FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-            Nothing -> return ()
-            Just f  -> sink $ EventOnyx $ startTasks $ let
-              task = do
-                packName <- stackIO $ FL.getValue nameInput
-                packDesc <- stackIO $ FL.getValue descInput
-                let applyOpts o = o
-                      { STFS.createNames        = [packName]
-                      , STFS.createDescriptions = [packDesc]
-                      , STFS.createLIVE         = isLIVE
-                      }
-                STFS.makePack (map stfsPath stfs) applyOpts f
-                return [f]
-              in [("STFS file creation", task)]
-          _ -> return ()
+  let doSTFSPrompt isLIVE = sink $ EventIO $ do
+        packages <- readMVar loadedPackages
+        case partitionEithers packages of
+          (_, _ : _) -> return () -- should not happen!
+          (stfs, []) -> do
+            picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+            FL.setTitle picker "Save STFS file"
+            case stfs of
+              f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory $ stfsPath f
+              _     -> return ()
+            FL.showWidget picker >>= \case
+              FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+                Nothing -> return ()
+                Just f  -> sink $ EventOnyx $ startTasks $ let
+                  task = do
+                    packName <- stackIO $ FL.getValue nameInput
+                    packDesc <- stackIO $ FL.getValue descInput
+                    let applyOpts o = o
+                          { STFS.createNames        = [packName]
+                          , STFS.createDescriptions = [packDesc]
+                          , STFS.createLIVE         = isLIVE
+                          }
+                    STFS.makePack (map stfsPath stfs) applyOpts f
+                    return [f]
+                  in [("STFS file creation", task)]
+              _ -> return ()
+
+      doPKGPrompt = sink $ EventIO $ do
+        packages <- readMVar loadedPackages
+        case partitionEithers packages of
+          (_ : _, _) -> return () -- should not happen!
+          ([], pkgs) -> do
+            picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+            FL.setTitle picker "Save PKG file"
+            case pkgs of
+              f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory $ pkgPath f
+              _     -> return ()
+            FL.showWidget picker >>= \case
+              FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+                Nothing -> return ()
+                Just f  -> sink $ EventOnyx $ startTasks $ let
+                  task = do
+                    userPackID <- stackIO $ FL.getValue packIDInput
+                    case pkgs of
+                      []      -> fatal "No files for pack" -- should not happen!
+                      pkg : _ -> do
+                        let packID = case userPackID of
+                              "" -> B8.pack $ "PACK" <> take 10 (show $ hash $ map pkgContentID pkgs)
+                              _  -> TE.encodeUtf8 userPackID
+                            contentID = B.take 16 (pkgContentID pkg) <> "_00-" <> packID
+                        lg $ "Content ID for pack: " <> B8.unpack contentID
+                        loaded <- stackIO $ mapM (PKG.loadPKG . pkgPath) pkgs
+                        packFolder <- packCombineFolders $ map (bimap TE.decodeLatin1 snd . PKG.pkgFolder) loaded
+                        pack <- stackIO $ PKG.makePKG contentID $ first TE.encodeUtf8 packFolder
+                        stackIO $ BL.writeFile f pack
+                        return [f]
+                  in [("PKG file creation", task)]
+              _ -> return ()
 
   gameBox <- FL.boxNew gameRect Nothing
 
   nameInput <- liftIO $ FL.inputNew
     nameRect
     (Just "Pack name")
-    (Just FL.FlNormalInput) -- required for labels to work
+    (Just FL.FlNormalInput)
   descInput <- liftIO $ FL.inputNew
     descRect
     (Just "Pack description")
-    (Just FL.FlNormalInput) -- required for labels to work
+    (Just FL.FlNormalInput)
+  packIDInput <- liftIO $ FL.inputNew
+    nameRect
+    (Just "Pack ID")
+    (Just FL.FlNormalInput)
 
   btnCON <- FL.buttonNew conRect $ Just "Make CON pack (RB3/RB2)"
   taskColor >>= FL.setColor btnCON
-  FL.setResizable tab $ Just group
-  FL.setCallback btnCON $ \_ -> doPrompt False
+  FL.setCallback btnCON $ \_ -> doSTFSPrompt False
 
   btnLIVE <- FL.buttonNew liveRect $ Just "Make LIVE pack (all other games)"
   taskColor >>= FL.setColor btnLIVE
+  FL.setCallback btnLIVE $ \_ -> doSTFSPrompt True
+
+  btnPKG <- FL.buttonNew pkgRect $ Just "Make PKG pack"
+  taskColor >>= FL.setColor btnPKG
+  FL.setCallback btnPKG $ \_ -> doPKGPrompt
+
+  mixedWarning <- FL.boxNew pkgRect $ Just "Mixed 360/PS3 packages provided!"
+
   FL.setResizable tab $ Just group
-  FL.setCallback btnLIVE $ \_ -> doPrompt True
 
 miscPageMOGG
   :: (Event -> IO ())

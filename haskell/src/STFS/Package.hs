@@ -33,6 +33,7 @@ module STFS.Package
 , repackOptions
 , saveCreateOptions
 , loadCreateOptions
+, packCombineFolders
 ) where
 
 import           Control.Monad.Codec
@@ -1271,6 +1272,43 @@ stfsFolder f = liftIO $ withBinaryFile f ReadMode $ \h -> do
   let titleID = a * 0x1000000 + b * 0x10000 + c * 0x100 + d
   return (titleID, ftype)
 
+packCombineFolders :: (MonadIO m) => [Folder T.Text Readable] -> StackTraceT m (Folder T.Text Readable)
+packCombineFolders roots = let
+  combineFolders parents folders = do
+    let allNames = nubOrd $ folders >>= \f -> map fst (folderSubfolders f) <> map fst (folderFiles f)
+    newContents <- fmap catMaybes $ forM allNames $ \name -> let
+      matchFolders = mapMaybe (lookup name . folderSubfolders) folders
+      matchFiles   = mapMaybe (lookup name . folderFiles     ) folders
+      in case (matchFolders, matchFiles) of
+        (_    , []   ) -> Just . Left . (name,)  <$> combineFolders (name : parents) matchFolders
+        ([]   , _    ) -> fmap (Right . (name,)) <$> combineFiles parents name matchFiles
+        (_ : _, _ : _) -> fatal $ "Name refers to a folder in some input CON/LIVE, but a file in others: " <> showPath parents name
+    return Folder
+      { folderSubfolders = lefts  newContents
+      , folderFiles      = rights newContents
+      }
+  combineFiles parents name contents
+    | ".dta" `T.isSuffixOf` name = do
+      bytes <- stackIO $ forM contents $ \r -> useHandle r handleToByteString
+      return $ Just $ makeHandle ("Pack-merged contents for " <> showPath parents name)
+        $ byteStringSimpleHandle $ BL.intercalate "\n" bytes
+    | ".pak.xen" `T.isSuffixOf` name = fatal "Pack creator does not yet support Neversoft GH files."
+    | otherwise = case contents of
+      []     -> return Nothing -- shouldn't happen
+      [r]    -> return $ Just r
+      r : rs -> if name == "spa.bin" -- file in official GH2 DLC that can be dropped
+        then return Nothing
+        else if elem name ["ICON0.PNG", "PARAM.SFO", "PS3LOGO.DAT"]
+          then return $ Just r -- ps3 package root files, assume they are constant
+          else do
+            let hashContents rdbl = hash . BL.toStrict <$> useHandle rdbl handleToByteString :: IO (Digest MD5)
+            firstHash <- stackIO $ hashContents r
+            stackIO (allM (fmap (== firstHash) . hashContents) rs) >>= \case
+              True  -> return $ Just r
+              False -> fatal $ "File contains different contents across input CON/LIVE files: " <> showPath parents name
+  showPath parents name = T.unpack $ T.intercalate "/" $ reverse $ name : parents
+  in combineFolders [] roots
+
 makePack :: (MonadIO m) => [FilePath] -> (CreateOptions -> CreateOptions) -> FilePath -> StackTraceT m ()
 makePack []                 _         _    = fatal "Need at least 1 file for STFS pack"
 makePack inputs@(input : _) applyOpts fout = do
@@ -1291,38 +1329,7 @@ makePack inputs@(input : _) applyOpts fout = do
       _     -> True
     }
   roots <- stackIO $ mapM getSTFSFolder inputs
-  let combineFolders parents folders = do
-        let allNames = nubOrd $ folders >>= \f -> map fst (folderSubfolders f) <> map fst (folderFiles f)
-        newContents <- fmap catMaybes $ forM allNames $ \name -> let
-          matchFolders = mapMaybe (lookup name . folderSubfolders) folders
-          matchFiles   = mapMaybe (lookup name . folderFiles     ) folders
-          in case (matchFolders, matchFiles) of
-            (_    , []   ) -> Just . Left . (name,)  <$> combineFolders (name : parents) matchFolders
-            ([]   , _    ) -> fmap (Right . (name,)) <$> combineFiles parents name matchFiles
-            (_ : _, _ : _) -> fatal $ "Name refers to a folder in some input CON/LIVE, but a file in others: " <> showPath parents name
-        return Folder
-          { folderSubfolders = lefts  newContents
-          , folderFiles      = rights newContents
-          }
-      combineFiles parents name contents
-        | ".dta" `T.isSuffixOf` name = do
-          bytes <- stackIO $ forM contents $ \r -> useHandle r handleToByteString
-          return $ Just $ makeHandle ("Pack-merged contents for " <> showPath parents name)
-            $ byteStringSimpleHandle $ BL.intercalate "\n" bytes
-        | ".pak.xen" `T.isSuffixOf` name = fatal "Pack creator does not yet support Neversoft GH files."
-        | otherwise = case contents of
-          []     -> return Nothing -- shouldn't happen
-          [r]    -> return $ Just r
-          r : rs -> if name == "spa.bin"
-            then return Nothing
-            else do
-              let hashContents rdbl = hash . BL.toStrict <$> useHandle rdbl handleToByteString :: IO (Digest MD5)
-              firstHash <- stackIO $ hashContents r
-              stackIO (allM (fmap (== firstHash) . hashContents) rs) >>= \case
-                True  -> return $ Just r
-                False -> fatal $ "File contains different contents across input CON/LIVE files: " <> showPath parents name
-      showPath parents name = T.unpack $ T.intercalate "/" $ reverse $ name : parents
-  merged <- combineFolders [] roots
+  merged <- packCombineFolders roots
   stackIO $ makeCONReadable opts merged fout
 
 repackOptions :: STFSPackage -> CreateOptions

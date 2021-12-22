@@ -88,7 +88,7 @@ import           Neversoft.QB                     (discardStrings, lookupQB,
 import           OpenProject
 import           OSFiles                          (copyDirRecursive,
                                                    shortWindowsPath)
-import           PlayStation.PKG                  (PKG (..), makePKG, withPKG)
+import           PlayStation.PKG                  (PKG (..), loadPKG, makePKG)
 import           PrettyDTA                        (DTASingle (..),
                                                    readDTASingles,
                                                    readFileSongsDTA, readRB3DTA,
@@ -627,10 +627,9 @@ commands =
       (FilePKG, pkg) -> do
         out <- outputFile opts $ return $ pkg <> "_extract"
         stackIO $ Dir.createDirectoryIfMissing False out
-        stackIO $ withPKG pkg $ \p -> do
-          B.writeFile (out </> "decrypted-contents.bin") $ pkgInside p
-          let flagBytesToReadable = makeHandle "" . byteStringSimpleHandle . BL.fromStrict . snd
-          saveHandleFolder (bimap TE.decodeLatin1 flagBytesToReadable $ pkgFolder p) out
+        p <- stackIO $ loadPKG pkg
+        stackIO $ B.writeFile (out </> "decrypted-contents.bin") $ pkgInside p
+        stackIO $ saveHandleFolder (bimap TE.decodeLatin1 snd $ pkgFolder p) out
         return out
       p -> fatal $ "Unexpected file type given to extractor: " <> show p
     }
@@ -1393,8 +1392,7 @@ commands =
             $ (<.> "pkg") . dropTrailingPathSeparator
             <$> stackIO (Dir.makeAbsolute dir)
           folder <- stackIO $ first TE.encodeUtf8 <$> crawlFolder dir
-          folder' <- stackIO $ forM folder $ \r -> fmap BL.toStrict $ useHandle r $ handleToByteString
-          stackIO $ BL.writeFile pkg $ makePKG (B8.pack contentID) folder'
+          stackIO $ makePKG (B8.pack contentID) folder >>= BL.writeFile pkg
           return [pkg]
         False -> fatal $ "onyx pkg expected directory; given: " <> dir
       _ -> fatal $ "onyx pkg expected 2 argument, given " <> show (length args)

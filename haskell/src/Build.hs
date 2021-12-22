@@ -60,9 +60,7 @@ import           Data.Maybe                            (catMaybes, fromMaybe,
                                                         listToMaybe, mapMaybe)
 import           Data.SimpleHandle                     (Folder (..),
                                                         crawlFolder,
-                                                        fileReadable,
-                                                        handleToByteString,
-                                                        useHandle)
+                                                        fileReadable)
 import           Data.String                           (IsString, fromString)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
@@ -1604,13 +1602,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   =   stackIO
                   $   crawlFolder p
                   >>= return . first TE.encodeUtf8
-                  >>= mapM (\r -> fmap BL.toStrict $ useHandle r $ handleToByteString)
             rb3ps3Pkg %> \out -> do
               shk $ need [rb3ps3Root]
               let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
               main <- container "USRDIR" . container rb3ps3Folder <$> crawlFolderBytes rb3ps3Root
               extra <- stackIO (getResourcesPath "pkg-contents/rb3") >>= crawlFolderBytes
-              stackIO $ BL.writeFile out $ makePKG rb3ps3ContentID $ main <> extra
+              stackIO $ makePKG rb3ps3ContentID (main <> extra) >>= BL.writeFile out
 
             -- Guitar rules
             dir </> "protar-mpa.mid" %> \out -> do
@@ -1979,7 +1976,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
                     main <- container "USRDIR" . container rb2ps3Folder <$> crawlFolderBytes rb2ps3Root
                     extra <- stackIO (getResourcesPath "pkg-contents/rb2") >>= crawlFolderBytes
-                    stackIO $ BL.writeFile out $ makePKG rb2ps3ContentID $ main <> extra
+                    stackIO $ makePKG rb2ps3ContentID (main <> extra) >>= BL.writeFile out
 
       forM_ (extraTargets ++ HM.toList (_targets songYaml)) $ \(targetName, target) -> do
         let dir = rel $ "gen/target" </> T.unpack targetName
