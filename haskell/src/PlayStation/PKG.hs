@@ -43,7 +43,9 @@ import           Resources                      (getResourcesPath)
 import           STFS.Package                   (runGetM)
 import           System.Directory               (doesFileExist)
 import           System.FilePath                ((<.>), (</>))
-import           System.IO                      (IOMode (..), withBinaryFile)
+import           System.IO                      (Handle, IOMode (..),
+                                                 SeekMode (..), hSeek,
+                                                 withBinaryFile)
 import           System.IO.Temp                 (withSystemTempDirectory)
 
 nullPadded :: Int -> BinaryCodec B.ByteString
@@ -162,11 +164,10 @@ data PKG = PKG
   , pkgDigests1 :: B.ByteString
   , pkgMetadata :: [PKGMetadata]
   , pkgDigests2 :: B.ByteString
-  , pkgInside   :: BL.ByteString -- decrypted file table, strings, file contents
   , pkgFolder   :: Folder B.ByteString (Word32, Readable)
   }
 
-cryptFinalizedPKG :: PKGHeader -> BL.ByteString -> Maybe BL.ByteString
+cryptFinalizedPKG :: PKGHeader -> B.ByteString -> Maybe B.ByteString
 cryptFinalizedPKG header enc = do
   let makeKey k = case cipherInit k of
         CryptoPassed cipher -> Just (cipher :: AES128)
@@ -174,7 +175,7 @@ cryptFinalizedPKG header enc = do
   iv <- makeIV $ pkgDataRIV header
   -- ps3_gpkg_aes_key from https://www.psdevwiki.com/ps3/Keys
   key <- makeKey $ B.pack [0x2E,0x7B,0x71,0xD7,0xC9,0xC9,0xA1,0x4E,0xA3,0x22,0x1F,0x18,0x88,0x28,0xB8,0xF8]
-  return $ BL.fromStrict $ ctrCombine key iv $ BL.toStrict enc
+  return $ ctrCombine key iv enc
 
 nonFinalizedCrypt :: Bool -> Word64 -> B.ByteString -> BL.ByteString -> BL.ByteString
 nonFinalizedCrypt isArcade startIndex keySource bs = let
@@ -192,42 +193,69 @@ nonFinalizedCrypt isArcade startIndex keySource bs = let
     in BB.byteString $ B.take 16 sha1
   in lazyPackZipWith xor bs keyStream
 
-cryptNonFinalizedPKG :: Bool -> PKGHeader -> BL.ByteString -> BL.ByteString
-cryptNonFinalizedPKG isArcade = nonFinalizedCrypt isArcade 0 . pkgQADigest
+cryptNonFinalizedPKG :: Bool -> Word64 -> PKGHeader -> BL.ByteString -> BL.ByteString
+cryptNonFinalizedPKG isArcade startIndex = nonFinalizedCrypt isArcade startIndex . pkgQADigest
+
+readPKGName :: B.ByteString -> IO (NE.NonEmpty B.ByteString)
+readPKGName name = let
+  name' = if B.take 1 name == "/"
+    then B.drop 1 name -- not seen in official dlc but PS3Py starts its paths with slash
+    else name
+  in case NE.nonEmpty $ B8.split '/' name' of
+    Nothing        -> fail "Couldn't split filename in PKG contents"
+    Just nameParts -> return nameParts
+
+loadFinalizedPKGFolder :: Handle -> PKGHeader -> IO (Folder B.ByteString (Word32, Readable))
+loadFinalizedPKGFolder h header = do
+  enc <- B.hGet h $ fromIntegral $ pkgDataSize header
+  pkgInside <- case cryptFinalizedPKG header enc of
+    Nothing  -> fail "Couldn't decode PKG contents"
+    Just dec -> return $ BL.fromStrict dec
+  let recordBytes = BL.take (0x20 * fromIntegral (pkgItemCount header)) pkgInside
+  recs <- runGetM (replicateM (fromIntegral $ pkgItemCount header) $ codecIn bin) recordBytes
+  let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
+  fmap (fromFiles . filter notFolder) $ forM recs $ \PKGItemRecord{..} -> do
+    let name = BL.toStrict $ BL.take (fromIntegral recFilenameSize) $ BL.drop (fromIntegral recFilenameOffset) pkgInside
+    nameParts <- readPKGName name
+    let dat = BL.take (fromIntegral recDataSize) $ BL.drop (fromIntegral recDataOffset) pkgInside
+        readable = makeHandle (B8.unpack name) $ byteStringSimpleHandle dat
+    return (nameParts, (recFlags, readable))
+
+loadNonFinalizedPKGFolder :: FilePath -> Handle -> PKGHeader -> IO (Folder B.ByteString (Word32, Readable))
+loadNonFinalizedPKGFolder f h header = do
+  let decryptPart aHandle posn len = case quotRem posn 0x10 of
+        (hexes, 0) -> do
+          hSeek aHandle AbsoluteSeek $ fromIntegral $ posn + pkgDataOffset header
+          enc <- BL.hGet aHandle len
+          return $ cryptNonFinalizedPKG False hexes header enc
+        _ -> fail "Expected a read position divisible by 0x10"
+  recs <- decryptPart h 0 (0x20 * fromIntegral (pkgItemCount header))
+    >>= runGetM (replicateM (fromIntegral $ pkgItemCount header) $ codecIn bin)
+  let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
+  fmap (fromFiles . filter notFolder) $ forM recs $ \PKGItemRecord{..} -> do
+    name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
+    nameParts <- readPKGName name
+    let readable = makeHandle (B8.unpack name) $ do
+          bs <- withBinaryFile f ReadMode $ \h' -> do
+            decryptPart h' (fromIntegral recDataOffset) (fromIntegral recDataSize)
+          byteStringSimpleHandle bs
+    return (nameParts, (recFlags, readable))
 
 loadPKG :: FilePath -> IO PKG
-loadPKG stfs = withBinaryFile stfs ReadMode $ \fd -> do
-  pkgHeader   <- BL.hGet fd 0x80 >>= runGetM (codecIn bin)
-  pkgDigests1 <- B.hGet fd 0x40
+loadPKG f = withBinaryFile f ReadMode $ \h -> do
+  pkgHeader   <- BL.hGet h 0x80 >>= runGetM (codecIn bin)
+  pkgDigests1 <- B.hGet h 0x40
   let metadataSize = fromIntegral (pkgMetadataSize pkgHeader) - 0x40 -- size minus digests
-  pkgMetadata <- BL.hGet fd metadataSize >>= runGetM (replicateM (fromIntegral $ pkgMetadataCount pkgHeader) $ codecIn bin)
-  pkgDigests2 <- B.hGet fd 0x40
+  pkgMetadata <- BL.hGet h metadataSize >>= runGetM (replicateM (fromIntegral $ pkgMetadataCount pkgHeader) $ codecIn bin)
+  pkgDigests2 <- B.hGet h 0x40
 
-  enc <- BL.hGet fd $ fromIntegral $ pkgDataSize pkgHeader
   isFinalized <- case pkgRevision pkgHeader of
     0x8000 -> return True
     0x0000 -> return False
     n      -> fail $ "Unrecognized finalization value in .pkg: " <> showHex n ""
-  let mdec = if isFinalized
-        then cryptFinalizedPKG pkgHeader enc
-        else Just $ cryptNonFinalizedPKG False pkgHeader enc
-  pkgInside <- case mdec of
-    Nothing  -> fail "Couldn't decode PKG contents"
-    Just dec -> return dec
-
-  let recordBytes = BL.take (0x20 * fromIntegral (pkgItemCount pkgHeader)) pkgInside
-  recs <- runGetM (replicateM (fromIntegral $ pkgItemCount pkgHeader) $ codecIn bin) recordBytes
-  let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
-  pkgFolder <- fmap (fromFiles . filter notFolder) $ forM recs $ \PKGItemRecord{..} -> let
-    name = BL.toStrict $ BL.take (fromIntegral recFilenameSize) $ BL.drop (fromIntegral recFilenameOffset) pkgInside
-    name' = if B.take 1 name == "/"
-      then B.drop 1 name -- not seen in official dlc but PS3Py starts its paths with slash
-      else name
-    dat = BL.take (fromIntegral recDataSize) $ BL.drop (fromIntegral recDataOffset) pkgInside
-    readable = makeHandle (B8.unpack name) $ byteStringSimpleHandle dat
-    in case NE.nonEmpty $ B8.split '/' name' of
-      Nothing        -> fail "Couldn't split filename in PKG contents"
-      Just nameParts -> return (nameParts, (recFlags, readable))
+  pkgFolder <- if isFinalized
+    then loadFinalizedPKGFolder      h pkgHeader
+    else loadNonFinalizedPKGFolder f h pkgHeader
 
   return PKG{..}
 
@@ -384,7 +412,7 @@ makePKG contentID folder = do
       , pkgDataRIV        = B.take 0x10 $ B.take (B.length contentID) klicensee <> B.replicate 0x10 0
       }
     (digest1, digest2) = nonFinalizedDigests header metadata
-    encrypted = cryptNonFinalizedPKG False header pkgContents
+    encrypted = cryptNonFinalizedPKG False 0 header pkgContents
     in runPut $ do
       void $ codecOut bin header
       putByteString digest1
