@@ -73,6 +73,7 @@ library:
   - xml
   - zlib
   - uuid
+  - cryptohash-sha1
   # my libraries
   - jammittools
   - midi-util

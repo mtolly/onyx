@@ -628,7 +628,7 @@ commands =
         out <- outputFile opts $ return $ pkg <> "_extract"
         stackIO $ Dir.createDirectoryIfMissing False out
         p <- stackIO $ loadPKG pkg
-        stackIO $ B.writeFile (out </> "decrypted-contents.bin") $ pkgInside p
+        stackIO $ BL.writeFile (out </> "decrypted-contents.bin") $ pkgInside p
         stackIO $ saveHandleFolder (bimap TE.decodeLatin1 snd $ pkgFolder p) out
         return out
       p -> fatal $ "Unexpected file type given to extractor: " <> show p
