@@ -2145,8 +2145,26 @@ songPageRB3 sink rect tab proj build = mdo
           Nothing -> return ()
           Just f  -> build tgt $ RB3CON $ trimXbox f
         _ -> return ()
-    btn2 <- FL.buttonNew r2 $ Just "Create Magma project"
+    btn2 <- FL.buttonNew r2 $ Just "Create PS3 PKG file"
     FL.setCallback btn2 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save RB3 PKG file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> ".pkg" -- TODO add modifiers
+      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ RB3PKG $ if map toLower (takeExtension f) == ".pkg"
+            then f
+            else f <.> "pkg"
+        _ -> return ()
+    color <- taskColor
+    FL.setColor btn1 color
+    FL.setColor btn2 color
+  fullWidth 35 $ \rect' -> do
+    btn1 <- FL.buttonNew rect' $ Just "Create Magma project"
+    FL.setCallback btn1 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save Magma v2 project"
@@ -2156,22 +2174,6 @@ songPageRB3 sink rect tab proj build = mdo
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
           Just f  -> build tgt $ RB3Magma f
-        _ -> return ()
-    color <- taskColor
-    FL.setColor btn1 color
-    FL.setColor btn2 color
-  fullWidth 35 $ \rect' -> do
-    btn1 <- FL.buttonNew rect' $ Just "Create PS3 PKG file"
-    FL.setCallback btn1 $ \_ -> do
-      tgt <- makeTarget
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-      FL.setTitle picker "Save RB3 PKG file"
-      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> ".pkg" -- TODO add modifiers
-      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
-      FL.showWidget picker >>= \case
-        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-          Nothing -> return ()
-          Just f  -> build tgt $ RB3PKG f
         _ -> return ()
     color <- taskColor
     FL.setColor btn1 color
@@ -2260,12 +2262,14 @@ songPageRB2 sink rect tab proj build = mdo
     FL.setCallback btn2 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-      FL.setTitle picker "Save PS3 PKG file"
+      FL.setTitle picker "Save RB2 PKG file"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> ".pkg" -- TODO add modifiers
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt $ RB2PKG f
+          Just f  -> build tgt $ RB2PKG $ if map toLower (takeExtension f) == ".pkg"
+            then f
+            else f <.> "pkg"
         _ -> return ()
     color <- taskColor
     FL.setColor btn1 color
@@ -3651,25 +3655,31 @@ miscPagePacks sink rect tab startTasks = mdo
             case pkgs of
               f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory $ pkgPath f
               _     -> return ()
+            FL.setFilter picker "*.pkg"
+            FL.setPresetFile picker "out.pkg"
             FL.showWidget picker >>= \case
               FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
                 Nothing -> return ()
                 Just f  -> sink $ EventOnyx $ startTasks $ let
+                  ext = map toLower $ takeExtension f
+                  f' = if ext == ".pkg"
+                    then f
+                    else f <.> "pkg"
                   task = do
                     userPackID <- stackIO $ FL.getValue packIDInput
                     case pkgs of
                       []      -> fatal "No files for pack" -- should not happen!
                       pkg : _ -> do
-                        let packID = case userPackID of
-                              "" -> B8.pack $ "PACK" <> take 10 (show $ hash $ map pkgContentID pkgs)
+                        let packID = B.take 0x1B $ case userPackID of
+                              "" -> B8.pack $ "PACK" <> dropWhile (== '-') (show $ hash $ map pkgContentID pkgs)
                               _  -> TE.encodeUtf8 userPackID
                             contentID = B.take 16 (pkgContentID pkg) <> "_00-" <> packID
                         lg $ "Content ID for pack: " <> B8.unpack contentID
                         loaded <- stackIO $ mapM (PKG.loadPKG . pkgPath) pkgs
                         packFolder <- packCombineFolders $ map (bimap TE.decodeLatin1 snd . PKG.pkgFolder) loaded
                         pack <- stackIO $ PKG.makePKG contentID $ first TE.encodeUtf8 packFolder
-                        stackIO $ BL.writeFile f pack
-                        return [f]
+                        stackIO $ BL.writeFile f' pack
+                        return [f']
                   in [("PKG file creation", task)]
               _ -> return ()
 
@@ -4842,7 +4852,7 @@ launchPreferences sink = do
     checkFXAA <- FL.checkButtonNew (lineBox 5) $ Just "FXAA"
     void $ FL.setValue checkFXAA $ prefFXAA loadedPrefs
 
-    getDirRB      <- folderBox (lineBox 6) "Default CON folder"     $ T.pack $ fromMaybe "" $ prefDirRB      loadedPrefs
+    getDirRB      <- folderBox (lineBox 6) "Default CON/PKG folder" $ T.pack $ fromMaybe "" $ prefDirRB      loadedPrefs
     getDirCH      <- folderBox (lineBox 7) "Default CH folder"      $ T.pack $ fromMaybe "" $ prefDirCH      loadedPrefs
     getDirWii     <- folderBox (lineBox 8) "Default Wii folder"     $ T.pack $ fromMaybe "" $ prefDirWii     loadedPrefs
     getDirPreview <- folderBox (lineBox 9) "Default preview folder" $ T.pack $ fromMaybe "" $ prefDirPreview loadedPrefs

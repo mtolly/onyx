@@ -85,13 +85,18 @@ additional installations:
     Hopefully there should be ways of working around this.
     On Mac, right click `Onyx.app` and select Open, to add a security exception.
 
-## Supported Formats
+## Supported Input Formats
 
 Onyx can import the following song formats:
 
-  * Rock Band 1, 2, or 3 STFS (CON or LIVE) files
+  * Rock Band 1, 2, or 3 Xbox 360 STFS (CON or LIVE) files
 
     * Both single-song files and packs are supported.
+
+  * Rock Band 1, 2, or 3 PlayStation 3 .pkg files
+
+    * Official DLC whose .mid.edat are encrypted with RAP files are supported.
+      Copy RAP files to `onyx-resources/raps/CONTENTID.RAP`.
 
   * Magma (v1 or v2) RBA files
 
@@ -187,9 +192,9 @@ At the bottom of the tab are toggles for whether specific instruments should
 be imported. These can be helpful if unnecessary instrument parts are causing
 compilation errors.
 
-  * Rock Band 3 (360)
+  * Rock Band 3 (360, PS3)
 
-    Creates either a Rock Band 3 CON file or a Magma v2 project.
+    Creates either Rock Band 3 CON (360), PKG (PS3), or Magma v2 project.
 
     Here is a sample of the steps performed when importing from FoF/PS/CH:
 
@@ -252,7 +257,7 @@ compilation errors.
     the Phase Shift converter in C3 CON Tools which mixes the audio down to a
     single file, and then just supply the Phase Shift song to Onyx.
 
-  * Rock Band 2 (360)
+  * Rock Band 2 (360, PS3)
 
     Creates a CON file for Rock Band 2, using the following conversions:
 
@@ -477,15 +482,17 @@ compilation errors.
 
   * Pack creator
 
-    Combines Xbox 360 CON/LIVE files into packages containing multiple songs.
-    Works with both Rock Band, and Guitar Hero II.
+    Combines Xbox 360 CON/LIVE files, or PlayStation 3 PKG files, into packages
+    containing multiple songs. Works with Rock Band 1/2/3, and Guitar Hero II.
 
-    Packs are useful for RB songs because they can load faster on game launch.
+    On Xbox 360, packs are useful for RB songs because they can load faster on
+    game launch. On PS3, they can be more convenient to install on console.
     For GH2, they are required due to a hard limit of 16 total package files.
 
     To use, drag in the existing files to be combined, give the package a name
-    to identify it, and click the appropriate button below: CON packs for
-    RB2 or RB3 (TU4 or RB3 Enhanced), LIVE packs for GH2.
+    to identify it, and click the appropriate button below. For Xbox 360, you
+    should create CON packs for RB2 or RB3 (TU4 or RB3 Enhanced),
+    and LIVE packs for GH2.
 
     All files from the inputs are combined into one tree for the package.
     If more than one input contains the same file:
@@ -494,8 +501,10 @@ compilation errors.
       * If the file is `spa.bin` (seen in GH2 360 files), it is ignored.
       * Otherwise, an error is raised.
 
-    The game information (name, title ID, thumbnail) are taken from the first
-    input package in the list.
+    Platform-specific game information (name, title ID, thumbnail) is taken from
+    the first input package in the list. You can override the package name and
+    description for Xbox 360, or on PlayStation3 you can edit the file-specific
+    part of the Content ID.
 
   * Lipsync file generation
 

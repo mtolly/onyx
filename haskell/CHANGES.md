@@ -1,9 +1,10 @@
 # Version history
 
-## 20211219
+## 20211223
 
 * Prerelease version
-* Demo of PS3 .pkg export
+* Demo of PS3 .pkg export + pack support
+* Other bug fixes
 
 ## 20211108
 
