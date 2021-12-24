@@ -3695,7 +3695,7 @@ miscPagePacks sink rect tab startTasks = mdo
     (Just FL.FlNormalInput)
   packIDInput <- liftIO $ FL.inputNew
     nameRect
-    (Just "Pack ID")
+    (Just "Pack ID\n(optional)")
     (Just FL.FlNormalInput)
 
   btnCON <- FL.buttonNew conRect $ Just "Make CON pack (RB3/RB2)"

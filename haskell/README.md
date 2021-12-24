@@ -486,7 +486,8 @@ compilation errors.
     Platform-specific game information (name, title ID, thumbnail) is taken from
     the first input package in the list. You can override the package name and
     description for Xbox 360, or on PlayStation3 you can edit the file-specific
-    part of the Content ID.
+    part of the Content ID, but all of these are optional and default info will
+    be provided if not given.
 
   * Lipsync file generation
 
