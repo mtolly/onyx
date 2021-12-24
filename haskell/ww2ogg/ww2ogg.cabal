@@ -12,11 +12,12 @@ library
   include-dirs:
     cbits
   c-sources:
-    cbits/codebook.cpp
     cbits/crc.c
+    cbits/revorb.c
+  cxx-sources:
+    cbits/codebook.cpp
     cbits/haskell.cpp
     cbits/wwriff.cpp
-    cbits/revorb.c
   build-depends: base, bytestring
   default-language: Haskell2010
   extra-libraries: stdc++, ogg, vorbis, vorbisfile

@@ -34,6 +34,8 @@ private:
 		uint32_t offset;
 	} original_file_header;
 	aes_ctr_128* initial_counter{ 0 };
-	aes_ctr_128 counter{ 0 };
+	aes_ctr_128 counter{ };
+	// MT: above was "aes_ctr_128 counter{ 0 };" but older gcc in Docker build complained.
+	// Empty init should zero out the first union member, and all union members are same size here.
 };
 
