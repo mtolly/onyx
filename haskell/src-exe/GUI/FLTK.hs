@@ -5034,6 +5034,12 @@ launchGUI = withAL $ \hasAudio -> do
                     getResourcesPath "LICENSE.txt" >>= osOpenFile
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
+              , ( "Help/Credits"
+                , Nothing
+                , Just $ sink $ EventIO $ do
+                    getResourcesPath "CREDITS.txt" >>= osOpenFile
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
               ] ++ do
                 guard includeConsole
                 return

@@ -6,25 +6,7 @@ Onyx is a multipurpose build tool for Guitar-Hero/Rock-Band-like music games.
 It can import and export a wide variety of formats, move parts around,
 change song speed, fill in missing details, and assist with song authoring.
 
-Built on work and research by:
-
-  * Harmonix
-  * Inventor211 (3D assets, design, QA, CH format assistance)
-  * TrojanNemo, emist (C3 CON Tools, Magma v2 mod)
-  * No1mann (Magma v1 mod)
-  * maxton, PikminGuts92 (LibForge/ForgeTool, milo lipsync help)
-  * StackOverflow0x (MiloMod, milo venue help)
-  * xorloser (ArkTool/DtbCrypt)
-  * deimos (dtb2dta)
-  * qwertymodo (Magma MOGG redirect)
-  * DJ Shepherd (X360)
-  * arkem (py360)
-  * GHFear (note2chart)
-  * AerialX (RawkSD)
-  * Nanook (Queen Bee)
-  * Quidrex (FSB Decrypter)
-  * SoundHaven, BirdmanExe, Freg, aWiseMoose, Guyshenig (QA/testing)
-  * and many others!
+Many people have contributed code, research, and more to Onyx; see CREDITS.txt.
 
 New versions and source at: <https://github.com/mtolly/onyxite-customs/releases>
 

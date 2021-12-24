@@ -1,0 +1,79 @@
+Onyx is built on a gigantic amount of code and reverse engineering work done by countless other people.
+
+================================================================================
+
+Contributors and other special thanks:
+
+* Inventor211 was a key partner in building the 3D preview tool, creating the high quality models and textures and assisting with general design and testing. As a member of the Clone Hero development team he has also provided important technical details relating to Clone Hero chart formats.
+
+* TrojanNemo created most of the software from Customs Creators Collective, including Magma: C3 Roks Edition and C3 CON Tools. These tools have been a huge boon to the custom songs community, and code from both projects has been very helpful towards understanding several key formats and conversion steps, including conversion between the RBN 1 and 2 VENUE formats, conversion of songs to PS3 and Wii formats, and more.
+
+* emist created the modified version of MagmaCompiler.exe version 2, which removed the 10 minute limit and various other superfluous limitations, was used for Magma: C3 Roks Edition, and is now used by Onyx when compiling songs for Rock Band formats.
+
+* No1mann created the modified version of MagmaCompiler.exe version 1, which removed the 10 minute limit, and is now used by Onyx when compiling songs for Rock Band 2 format.
+
+* StackOverflow0x created MiloMod, a tool that can read and generate the native Rock Band 3 venue track format, as well as the .milo container it is stored in. This was a big help for writing code dealing with .milo files, both for venue and lipsync data.
+
+* maxton made a staggering number of contributions to the rhythm games community. He was the primary author of ForgeTool, a custom song generator for Rock Band 4, as well as its dependency LibOrbisPkg, a free software library for creating PlayStation 4 package files. These projects in turn uncovered several bugs and potential issues in Onyx, and maxton was always forthcoming with useful advice in fixing them. He was also an early contributor to C3, assisting with code in C3 CON Tools, as well as the author interface of the C3 Custom Database. Audio format research done by maxton for C3 as well as The Beatles: Rock Band Custom DLC Project is now used in Onyx as an important part of PlayStation 3 support. maxton tragically passed away in early 2021, and his incredible ability and altruism will be sorely missed.
+
+* PikminGuts92 worked on maxton's ForgeTool/LibForge to add conversion of lipsync animations to Rock Band 4 format. This code was a crucial reference for my own code reading and generating Rock Band 1/2/3 lipsync. Pikmin was also enormously helpful with questions in this area during our time working together on The Beatles: Rock Band Custom DLC Project.
+
+* xorloser created ArkTool, a key program in the early Guitar Hero customs community for reading and modifying the data archives used in Harmonix's games. The code for the last open source release of ArkTool is directly used by Onyx to install Guitar Hero II customs into ARK files.
+
+* qwertymodo created the Magma MOGG redirect method, which was used in many versions of Onyx to create custom MOGG files by providing an existing OGG Vorbis file and getting Magma to append the seek header to it. This header is now generated directly by Onyx, but this was a crucial step in enabling Onyx's custom compilation workflow to get started.
+
+* deimos created the tool dtb2dta, available on ScoreHero, which demonstrated converting between the binary (dtb) and text (dta) forms of Harmonix's data and scripting language. One of the earliest pieces which became Onyx was a tool I wrote called "dtab" which extended and was inspired by dtb2dta, and their work was hugely helpful in understanding these formats.
+
+* DJ Shepherd did a tremendous amount of reverse engineering work on the insanely complicated STFS (CON/LIVE) Xbox 360 package format, and created the tool Le Fluffie (with its driving library X360) to support unpacking and creating such files. Onyx previously used X360, with a small command line wrapper, to generate CON files. Onyx now uses my own code to perform this task, but I would never have been able to write it without DJ Shepherd's work, as several key signing steps were directly ported from it, and Le Fluffie was used to do verification of my generated files.
+
+* arkem created py360, which was also a hugely helpful resource for implementing the Xbox 360 STFS format. My original code to unpack STFS files began as a direct port of py360's stfs.py.
+
+* GHFear created note2chart, a script which provided a lot of help towards understanding the .note format used for chart data in Guitar Hero 5 and Guitar Hero: Warriors of Rock.
+
+* AerialX created RawkSD, a legendary toolkit from Rock Band's heyday that let users rip charts directly from Guitar Hero disks to play in Rock Band 2. RawkSD was finally open sourced years later, and its code for converting from the Neversoft Guitar Hero formats was crucial for supporting them in Onyx.
+
+* Nanook created Queen Bee, a comprehensive library and toolkit for interacting with the QB data and scripting formats used in Neversoft's games, which was critical to the QB support in Onyx.
+
+* Quidrex created FSB Decrypter, an open source program implementing the obfuscation used for audio files in Guitar Hero: Warriors of Rock, the result of extensive reverse engineering. Warriors of Rock support would not have been possible without this.
+
+* leftyfl1p reverse engineered the obfuscation steps used by PlayStation 3 Rock Band games to generate KLIC encryption keys, which enabled generating new content IDs and packaging songs as .pkg files. PlayStation 3 support would be much more cumbersome without these abilities. He also created the proof of concept GUI app for direct conversion of Xbox 360 CON format to .pkg files.
+
+* Freg, aWiseMoose, and Guyshenig did extensive testing of the support for generating Guitar Hero: Warriors of Rock songs before the feature released, ensuring that as many bugs and edge cases as possible were fixed.
+
+* Members of BirdmanExe's Discord server (BirdmanExe, SoundHaven, RealSavageJef, and many others) and the MiloHax Discord server (LocalH, jnack, mariteaux, and many others) have tested countless builds of Onyx to try new features and report bugs, which I hugely appreciate.
+
+* Harmonix, Neversoft, Konami, and other rhythm game developers, for creating the games I've been obsessed with for so many years :)
+
+================================================================================
+
+Onyx is primarily written in Haskell, and uses a wide variety of Haskell libraries from https://hackage.haskell.org. This is an attempt at an up-to-date list of all recursive dependencies:
+
+adjunctions, aeson, alex, array, asn1-encoding, asn1-parse, asn1-types, assoc, async, attoparsec, attoparsec-iso8601, authenticate-oauth, base, base-compat, base-compat-batteries, base-orphans, base64-bytestring, basement, bifunctors, binary, binary-orphans, blaze-builder, boxes, bytes, bytestring, c2hs, Cabal, cabal-doctest, caerbannog, call-stack, case-insensitive, cereal, clock, cmark, codec, comonad, conduit, conduit-audio, conduit-audio-lame, conduit-audio-mpg123, conduit-audio-samplerate, conduit-audio-sndfile, connection, constraints, containers, contravariant, cookie, crypto-api, crypto-pubkey-types, cryptohash-md5, cryptohash-sha1, cryptonite, data-default, data-default-class, data-default-instances-containers, data-default-instances-dlist, data-default-instances-old-locale, data-fix, deepseq, digest, directory, distributive, dlist, enclosed-exceptions, entropy, event-list, exceptions, executable-path, explicit-exception, extra, filepath, filepattern, fixed, fltkhs, fmlist, free, freetype2, fsnotify, generic-deriving, ghc-boot-th, ghc-prim, gl, half, happy, hashable, heaps, hinotify, hourglass, hsndfile, hsndfile-vector, http-api-data, http-client, http-client-tls, http-types, indexed-traversable, ini, integer-gmp, integer-logarithms, invariant, io-streams, jammittools, js-dgtable, js-flot, js-jquery, JuicyPixels, JuicyPixels-stbir, kan-extensions, language-c, lens, libyaml, lifted-async, lifted-base, linear, ListLike, megaparsec, memory, midi, midi-util, mime-types, modern-uri, monad-control, monad-loops, MonadRandom, mono-traversable, monoid-transformer, mountpoints, mpg123-bindings, mtl, network, network-info, network-uri, non-negative, nsis, ObjectName, old-locale, OpenAL, parallel, parsec, parser-combinators, path, path-io, pem, pretty, prettyprinter, primitive, process, process-extras, profunctors, pureMD5, QuickCheck, random, reflection, req, resourcet, retry, RSA, rubberband, scientific, semigroupoids, semigroups, SHA, shake, shelly, silently, socks, split, splitmix, StateVar, stm, streaming-commons, strict, syb, tagged, tcp-streams, template-haskell, temporary, text, th-abstraction, th-compat, these, time, time-compat, tls, transformers, transformers-base, transformers-compat, type-equality, uniplate, unix, unix-compat, unliftio, unliftio-core, unordered-containers, utf8-string, utility-ht, uuid, uuid-types, vector, vector-algorithms, void, wavefront, Win32, x509, x509-store, x509-system, x509-validation, xml, yaml, zip-archive, zlib, zlib-bindings
+
+It also uses several libraries written in C or C++. These are the major ones, but likely an incomplete list:
+
+* FLTK
+* FFmpeg
+* libsndfile
+* libsamplerate
+* LAME
+* librubberband
+* libmpg123
+* openal-soft
+* ArkTool
+* make_npdata
+* kakasi
+* libogg
+* libvorbis
+* libFLAC
+
+As far as I am aware, all of these libraries are free open source software, made available under one of these licenses, or one which is compatible with them:
+
+* GNU General Public License
+* GNU Lesser General Public License
+* The MIT License
+* The BSD License
+
+Due to the combining nature of these license, the project as a whole is licensed under the GNU General Public License.
+
+LICENSE.txt contains the GNU GPL text, as well as the individual MIT and BSD license texts for all libraries I am aware of.

@@ -1,10 +1,19 @@
 # Version history
 
-## 20211223
+## 20211224
 
-* Prerelease version
-* Demo of PS3 .pkg export + pack support
-* Other bug fixes
+* Support for generating PlayStation 3 format for Rock Band 3 and Rock Band 2
+  * Generates `.pkg` files, with unique content IDs and folders per song
+  * Supports both RPCS3 and jailbroken consoles
+  * Also supports importing from custom or official `.pkg` files
+* Better shortnames for RB2/RB3/GH2 that include some of the title/artist
+* Fixes to handling of lipsync files
+  * Use lipsync files from CON/RBA files for converted output
+  * Fix lipsync files getting out of sync when song speed is modified
+    or songs are padded with silence
+* Fix CH to GH2 conversion assigning an invalid preview audio time sometimes
+* Fix crash when importing from CH folders with non-ASCII characters on Windows,
+  on (mostly) external or non-system drives
 
 ## 20211108
 

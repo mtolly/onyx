@@ -34,6 +34,7 @@ mac:
 	cp -R Onyx.app LICENSE.txt mac/
 	cp README.md mac/README.txt
 	cp CHANGES.md mac/CHANGES.txt
+	cp CREDITS.txt mac/CREDITS.txt
 	stack exec -- onyx-package changes
 	stack exec -- onyx-package version-write mac/Onyx.app/Contents/Info.plist mac/README.txt mac/Onyx.app/Contents/MacOS/onyx-resources/README.txt
 	stack exec -- onyx-package version-print | ./mac-package.sh
@@ -51,6 +52,7 @@ win:
 	cp LICENSE.txt win/LICENSE.txt
 	cp README.md win/README.txt
 	cp CHANGES.md win/CHANGES.txt
+	cp CREDITS.txt win/CREDITS.txt
 	./make-resources.sh win/onyx-resources
 	stack exec -- onyx-package changes
 	stack exec -- onyx-package version-write win/README.txt win/onyx-resources/README.txt
