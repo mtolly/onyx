@@ -1334,8 +1334,8 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
   FL.setResizable window $ Just tabs
   FL.setCallback window $ windowCloser $ do
     cancelTasks
-    mapM_ release $ projectRelease proj
     cleanupGL
+    mapM_ release $ projectRelease proj
     -- TODO fix final bugs relating to this
     -- modifyMVar_ doesWindowExist $ \_ -> do
     --   FL.destroy window
