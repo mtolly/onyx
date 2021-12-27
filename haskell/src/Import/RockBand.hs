@@ -14,9 +14,7 @@ import           Control.Monad                  (forM, forM_, guard, when)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
-import           Data.Bifunctor                 (first)
 import           Data.Binary.Codec.Class        (bin, codecIn)
-import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Default.Class             (def)
@@ -33,13 +31,12 @@ import           Data.Maybe                     (fromMaybe, mapMaybe)
 import           Data.SimpleHandle              (Folder (..), Readable,
                                                  byteStringSimpleHandle,
                                                  fileReadable, findByteString,
-                                                 findFileCI, findFolder,
-                                                 handleToByteString, makeHandle,
-                                                 splitPath, useHandle)
+                                                 findFileCI, handleToByteString,
+                                                 makeHandle, splitPath,
+                                                 useHandle)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeLatin1, decodeUtf8With,
                                                  encodeUtf8)
-import qualified Data.Text.Encoding             as TE
 import           Data.Text.Encoding.Error       (lenientDecode)
 import           Difficulty
 import           Image                          (DXTFormat (PNGXbox),
@@ -47,7 +44,6 @@ import           Image                          (DXTFormat (PNGXbox),
 import           Import.Base
 import           Magma                          (rbaContents)
 import           Magma                          (getRBAFile)
-import           PlayStation.PKG                (decryptHarmonixEDATs)
 import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingles)
 import           PrettyDTA                      (readRB3DTA, writeDTASingle)
@@ -578,10 +574,3 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
       Dir.removeFile $ temp </> "temp_extra.dta"
     let label = D.name pkg <> maybe "" (\artist -> " (" <> artist <> ")") (D.artist pkg)
     rb3pkg label label temp con
-
-importPS3Folder :: (SendMessage m, MonadIO m) => FilePath -> Folder B.ByteString Readable -> StackTraceT m [Import m]
-importPS3Folder src folder = do
-  usr <- maybe (fatal "USRDIR not found") return $ findFolder ["USRDIR"] folder
-  fmap concat $ forM (folderSubfolders usr) $ \(subName, sub) -> do
-    sub' <- decryptHarmonixEDATs subName sub
-    importSTFSFolder src $ first TE.decodeLatin1 sub'

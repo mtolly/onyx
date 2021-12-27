@@ -12,6 +12,7 @@ import qualified Control.Monad.Catch            as MC
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
+import           Data.Bifunctor                 (first)
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
@@ -30,6 +31,7 @@ import           Data.SimpleHandle              (Folder (..), crawlFolder,
                                                  findFile)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (encodeUtf8)
+import qualified Data.Text.Encoding             as TE
 import           GuitarHeroII.Ark               (GH2Installation (..),
                                                  GameGH (..), addBonusSong,
                                                  detectGameGH)
@@ -43,10 +45,10 @@ import qualified Import.GuitarHero1             as GH1
 import qualified Import.GuitarHero2             as GH2
 import           Import.Magma                   (importMagma)
 import           Import.Neversoft               (importGH5WoR)
-import           Import.RockBand                (importPS3Folder, importRBA,
-                                                 importSTFSFolder)
+import           Import.RockBand                (importRBA, importSTFSFolder)
 import           Import.Rocksmith               as RS
-import           PlayStation.PKG                (loadPKG, pkgFolder)
+import           PlayStation.PKG                (getDecryptedUSRDIR, loadPKG,
+                                                 pkgFolder)
 import           Preferences
 import qualified Sound.Jammit.Base              as J
 import           STFS.Package                   (getSTFSFolder)
@@ -160,14 +162,26 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           , if any (\(name, _) -> ".xen" `T.isSuffixOf` name) $ folderFiles folder
             then do
               imps <- importGH5WoR loc folder
-              foundImports "Guitar Hero (Neversoft)" loc imps
+              foundImports "Guitar Hero (Neversoft) (360)" loc imps
             else return ([], [])
           ]
       foundRS psarc = importRS psarc >>= foundImports "Rocksmith" psarc
       foundPS3 loc = do
-        folder <- stackIO $ fmap snd . pkgFolder <$> loadPKG loc
-        imps <- importPS3Folder loc folder
-        foundImports "Rock Band (PS3 .pkg)" loc imps
+        usrdirs <- stackIO (pkgFolder <$> loadPKG loc) >>= getDecryptedUSRDIR
+        fmap mconcat $ forM usrdirs $ \(_, folderBS) -> let
+          folder = first TE.decodeLatin1 folderBS
+          in mconcat <$> sequence
+            [ case findFile ("songs" :| ["songs.dta"]) folder of
+              Just _ -> do
+                imps <- importSTFSFolder loc folder
+                foundImports "Rock Band (PS3 .pkg)" loc imps
+              Nothing -> return ([], [])
+            , if any (\(name, _) -> ".PS3" `T.isSuffixOf` name) $ folderFiles folder
+              then do
+                imps <- importGH5WoR loc folder
+                foundImports "Guitar Hero (Neversoft) (PS3)" loc imps
+              else return ([], [])
+            ]
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         let single = null $ drop 1 imports

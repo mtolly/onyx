@@ -3,6 +3,7 @@ module Import.Neversoft where
 
 import           Audio                          (Audio (..))
 import           Config
+import           Control.Applicative            ((<|>))
 import           Control.Monad                  (forM, when)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.StackTrace
@@ -25,7 +26,7 @@ import qualified RockBand.Codec.File            as RBFile
 -- | Imports DLC STFS files for (eventually, Guitar Hero 5) and Guitar Hero: Warriors of Rock.
 importGH5WoR :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH5WoR src folder = do
-  let texts = [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` name ]
+  let texts = [ r | (name, r) <- folderFiles folder, "_text.pak" `T.isInfixOf` T.toLower name ]
       findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
   qbSections <- fmap concat $ forM texts $ \r -> do
     bs <- stackIO $ useHandle r handleToByteString
@@ -37,7 +38,8 @@ importGH5WoR src folder = do
       Left  err  -> warn err >> return []
       Right info -> return [info]
   fmap catMaybes $ forM songInfo $ \info -> do
-    case findFolded $ "b" <> TE.decodeUtf8 (songName info) <> "_song.pak.xen" of
+    let songPakName platform = "b" <> TE.decodeUtf8 (songName info) <> "_song.pak." <> platform
+    case findFolded (songPakName "xen") <|> findFolded (songPakName "ps3") of
       Nothing      -> return Nothing -- song which is listed in the database, but not actually in this package
       Just pakFile -> do
         return $ Just $ \level -> do
@@ -53,19 +55,28 @@ importGH5WoR src folder = do
           let midiOnyx = midiFixed
                 { RBFile.s_tracks = RBFile.fixedToOnyx $ RBFile.s_tracks midiFixed
                 }
-              getAudio dummyCount name = case level of
+              -- TODO fix this on PS3 to just split .fsb.ps3 into individual mp3 files
+              getAudio dummyCount getName = case level of
                 ImportFull -> do
-                  bs <- case findFolded name of
-                    Nothing -> fatal $ "Couldn't find audio file: " <> show name
-                    Just r  -> stackIO $ useHandle r handleToByteString
+                  let xen = getName "xen"
+                      ps3 = getName "ps3"
+                  (bs, name) <- case findFolded xen of
+                    Just r -> do
+                      bs <- stackIO $ useHandle r handleToByteString
+                      return (bs, xen)
+                    Nothing -> case findFolded ps3 of
+                      Just r -> do
+                        bs <- stackIO $ useHandle r handleToByteString
+                        return (bs, ps3)
+                      Nothing -> fatal $ "Couldn't find audio file (xen/ps3): " <> show xen
                   dec <- case decryptFSB' (T.unpack name) $ BL.toStrict bs of
                     Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show name
                     Just dec -> return dec
                   stackIO $ readFSB dec
                 ImportQuick -> return $ CA.AudioSource (return ()) 48000 dummyCount 0
-          src1 <- getAudio 8 $ "a" <> TE.decodeUtf8 (songName info) <> "_1.fsb.xen"
-          src2 <- getAudio 6 $ "a" <> TE.decodeUtf8 (songName info) <> "_2.fsb.xen"
-          src3 <- getAudio 4 $ "a" <> TE.decodeUtf8 (songName info) <> "_3.fsb.xen"
+          src1 <- getAudio 8 $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_1.fsb." <> platform
+          src2 <- getAudio 6 $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_2.fsb." <> platform
+          src3 <- getAudio 4 $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_3.fsb." <> platform
           (kickChans, snareChans, kitChansMix) <- case CA.channels src1 of
             8 -> return ([0, 1], [2, 3], [4, 5] :| [[6, 7]]) -- last 4 are 2 tom channels, 2 cymbal channels
             n -> fatal $ "Unrecognized number of drum audio channels: " <> show n
@@ -98,7 +109,7 @@ importGH5WoR src folder = do
               [ ("audio1", AudioFile AudioInfo
                 { _md5 = Nothing
                 , _frames = Nothing
-                , _filePath = Just $ SoftFile "audio1.wav" $ SoftAudio $ CA.mapSamples CA.fractionalSample src1
+                , _filePath = Just $ SoftFile "audio1.wav" $ SoftAudio src1
                 , _commands = []
                 , _rate = Nothing
                 , _channels = CA.channels src1
@@ -106,7 +117,7 @@ importGH5WoR src folder = do
               , ("audio2", AudioFile AudioInfo
                 { _md5 = Nothing
                 , _frames = Nothing
-                , _filePath = Just $ SoftFile "audio2.wav" $ SoftAudio $ CA.mapSamples CA.fractionalSample src2
+                , _filePath = Just $ SoftFile "audio2.wav" $ SoftAudio src2
                 , _commands = []
                 , _rate = Nothing
                 , _channels = CA.channels src2
@@ -114,7 +125,7 @@ importGH5WoR src folder = do
               , ("audio3", AudioFile AudioInfo
                 { _md5 = Nothing
                 , _frames = Nothing
-                , _filePath = Just $ SoftFile "audio3.wav" $ SoftAudio $ CA.mapSamples CA.fractionalSample src3
+                , _filePath = Just $ SoftFile "audio3.wav" $ SoftAudio src3
                 , _commands = []
                 , _rate = Nothing
                 , _channels = CA.channels src3

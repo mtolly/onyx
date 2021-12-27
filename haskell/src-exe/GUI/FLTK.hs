@@ -59,7 +59,7 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer                (WriterT,
                                                             execWriterT, tell)
 import qualified Data.Aeson                                as A
-import           Data.Bifunctor                            (bimap, first)
+import           Data.Bifunctor                            (first)
 import           Data.Binary.Put                           (runPut)
 import qualified Data.ByteString                           as B
 import qualified Data.ByteString.Char8                     as B8
@@ -126,7 +126,6 @@ import           Numeric                                   (readHex, showHex)
 import           OpenProject
 import           OSFiles                                   (commonDir,
                                                             copyDirRecursive,
-                                                            copyDirRecursiveMergeDTA,
                                                             osOpenFile,
                                                             osShowFolder)
 import           Paths_onyxite_customs_tool                (version)
@@ -3676,7 +3675,7 @@ miscPagePacks sink rect tab startTasks = mdo
                             contentID = B.take 16 (pkgContentID pkg) <> "_00-" <> packID
                         lg $ "Content ID for pack: " <> B8.unpack contentID
                         loaded <- stackIO $ mapM (PKG.loadPKG . pkgPath) pkgs
-                        packFolder <- packCombineFolders $ map (bimap TE.decodeLatin1 snd . PKG.pkgFolder) loaded
+                        packFolder <- packCombineFolders $ map (first TE.decodeLatin1 . PKG.pkgFolder) loaded
                         pack <- stackIO $ PKG.makePKG contentID $ first TE.encodeUtf8 packFolder
                         stackIO $ BL.writeFile f' pack
                         return [f']

@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module NPData (packNPData, NPDataConfig(..), rb2CustomMidEdatConfig, rb3CustomMidEdatConfig, decryptNPData, NPDecryptConfig(..)) where
+module NPData (packNPData, NPDataConfig(..), rb2CustomMidEdatConfig, rb3CustomMidEdatConfig, ghworKLIC, rockBandKLIC, decryptNPData, NPDecryptConfig(..)) where
 
 import           Control.Monad          (forM_, when)
 import qualified Data.ByteString        as B
@@ -94,7 +94,7 @@ rap: 59 de 7e 02 16 a6 7b fb 0c ff 90 c2 6b f5 52 4b
 rb2CustomMidEdatConfig :: B.ByteString -> NPDataConfig
 rb2CustomMidEdatConfig dir = NPDataConfig
   { npdContentID = "UP0006-BLUS30050_00-" <> dir
-  , npdKLIC      = MD5.md5DigestBytes $ MD5.md5 $ "Ih38rtW1ng3r" <> BL.fromStrict dir <> "10025250"
+  , npdKLIC      = rockBandKLIC dir
   , npdRAP       = Nothing
   , npdVersion   = 2
   , npdLicense   = 3
@@ -106,7 +106,7 @@ rb2CustomMidEdatConfig dir = NPDataConfig
 rb3CustomMidEdatConfig :: B.ByteString -> NPDataConfig
 rb3CustomMidEdatConfig dir = NPDataConfig
   { npdContentID = "UP8802-BLUS30463_00-" <> dir -- actually this probably doesn't have to be the same
-  , npdKLIC      = MD5.md5DigestBytes $ MD5.md5 $ "Ih38rtW1ng3r" <> BL.fromStrict dir <> "10025250"
+  , npdKLIC      = rockBandKLIC dir
   , npdRAP       = Nothing
   , npdVersion   = 2
   , npdLicense   = 3
@@ -171,3 +171,10 @@ decryptNPData cfg fin fout hashName = do
               prif
               False
             when err $ ioError $ userError "Error in PS3 file decryption"
+
+-- Appears to be a constant dev klic for WoR DLC
+ghworKLIC :: B.ByteString
+ghworKLIC = B.pack [0xD7,0xF3,0xF9,0x0A,0x1F,0x01,0x2D,0x84,0x4C,0xA5,0x57,0xE0,0x8E,0xE4,0x23,0x91]
+
+rockBandKLIC :: B.ByteString -> B.ByteString
+rockBandKLIC dir = MD5.md5DigestBytes $ MD5.md5 $ "Ih38rtW1ng3r" <> BL.fromStrict dir <> "10025250"

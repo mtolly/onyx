@@ -30,7 +30,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace
-import           Data.Bifunctor                   (bimap, first)
+import           Data.Bifunctor                   (first)
 import           Data.Binary.Codec.Class
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
@@ -88,7 +88,8 @@ import           Neversoft.QB                     (discardStrings, lookupQB,
 import           OpenProject
 import           OSFiles                          (copyDirRecursive,
                                                    shortWindowsPath)
-import           PlayStation.PKG                  (PKG (..), loadPKG, makePKG)
+import           PlayStation.PKG                  (PKG (..), loadPKG, makePKG,
+                                                   tryDecryptEDATs)
 import           PrettyDTA                        (DTASingle (..),
                                                    readDTASingles,
                                                    readFileSongsDTA, readRB3DTA,
@@ -627,8 +628,8 @@ commands =
       (FilePKG, pkg) -> do
         out <- outputFile opts $ return $ pkg <> "_extract"
         stackIO $ Dir.createDirectoryIfMissing False out
-        p <- stackIO $ loadPKG pkg
-        stackIO $ saveHandleFolder (bimap TE.decodeLatin1 snd $ pkgFolder p) out
+        folder <- stackIO (loadPKG pkg) >>= tryDecryptEDATs . pkgFolder
+        stackIO $ saveHandleFolder (first TE.decodeLatin1 folder) out
         return out
       p -> fatal $ "Unexpected file type given to extractor: " <> show p
     }

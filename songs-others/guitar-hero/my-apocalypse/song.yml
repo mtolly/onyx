@@ -1,0 +1,72 @@
+parts:
+  drums:
+    drums:
+      fix-freeform: false
+      kicks: both
+      mode: 5
+      fallback: blue
+      difficulty:
+        tier: 7
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+    pro-guitar:
+      tuning:
+        base: bass-5
+  vocal:
+    vocal:
+      difficulty:
+        tier: 6
+audio:
+  drums_1.ogg:
+    file-path: drums_1.ogg
+  vocals.ogg:
+    file-path: vocals.ogg
+  drums_4.ogg:
+    file-path: drums_4.ogg
+  song.ogg:
+    file-path: song.ogg
+  drums_3.ogg:
+    file-path: drums_3.ogg
+  rhythm.ogg:
+    file-path: rhythm.ogg
+  guitar.ogg:
+    file-path: guitar.ogg
+  drums_2.ogg:
+    file-path: drums_2.ogg
+metadata:
+  title: My Apocalypse
+  author: Neversoft
+  year: 2008
+  album: Death Magnetic
+  genre: Thrash Metal
+  difficulty:
+    tier: 6
+  artist: Metallica
+  file-album-art: album.png
+plans:
+  fof:
+    parts:
+      drums:
+        kick: drums_1.ogg
+        kit:
+          mix:
+          - drums_3.ogg
+          - drums_4.ogg
+        snare: drums_2.ogg
+      guitar: guitar.ogg
+      bass: rhythm.ogg
+      vocal: vocals.ogg
+    song: song.ogg
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass] # only needs BEAD

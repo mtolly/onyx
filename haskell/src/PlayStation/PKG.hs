@@ -8,10 +8,11 @@ References:
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module PlayStation.PKG (PKGHeader(..), PKGMetadata(..), PKG(..), loadPKG, makePKG, decryptHarmonixEDATs) where
+module PlayStation.PKG (PKGHeader(..), PKGMetadata(..), PKG(..), loadPKG, makePKG, tryDecryptEDATs, tryDecryptEDATsInFolder, getDecryptedUSRDIR) where
 
+import           Control.Applicative            ((<|>))
 import           Control.Monad                  (forM, guard, replicateM,
-                                                 unless, void)
+                                                 unless, void, when)
 import           Control.Monad.Codec
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT, lg,
@@ -30,12 +31,13 @@ import qualified Data.ByteString                as B
 import qualified Data.ByteString.Builder        as BB
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
-import qualified Data.Digest.Pure.MD5           as MD5
 import qualified Data.List.NonEmpty             as NE
+import           Data.Maybe                     (isJust)
 import           Data.Profunctor                (dimap)
 import           Data.SimpleHandle
 import           NPData                         (NPDecryptConfig (..),
-                                                 decryptNPData)
+                                                 decryptNPData, ghworKLIC,
+                                                 rockBandKLIC)
 import           Numeric                        (showHex)
 import           OSFiles                        (fixFileCase)
 import           PlayStation.PKG.Backport       (lazyPackZipWith)
@@ -164,7 +166,7 @@ data PKG = PKG
   , pkgDigests1 :: B.ByteString
   , pkgMetadata :: [PKGMetadata]
   , pkgDigests2 :: B.ByteString
-  , pkgFolder   :: Folder B.ByteString (Word32, Readable)
+  , pkgFolder   :: Folder B.ByteString Readable
   }
 
 cryptFinalizedPKG :: PKGHeader -> B.ByteString -> Maybe B.ByteString
@@ -205,7 +207,7 @@ readPKGName name = let
     Nothing        -> fail "Couldn't split filename in PKG contents"
     Just nameParts -> return nameParts
 
-loadFinalizedPKGFolder :: Handle -> PKGHeader -> IO (Folder B.ByteString (Word32, Readable))
+loadFinalizedPKGFolder :: Handle -> PKGHeader -> IO (Folder B.ByteString Readable)
 loadFinalizedPKGFolder h header = do
   enc <- B.hGet h $ fromIntegral $ pkgDataSize header
   pkgInside <- case cryptFinalizedPKG header enc of
@@ -214,14 +216,14 @@ loadFinalizedPKGFolder h header = do
   let recordBytes = BL.take (0x20 * fromIntegral (pkgItemCount header)) pkgInside
   recs <- runGetM (replicateM (fromIntegral $ pkgItemCount header) $ codecIn bin) recordBytes
   let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
-  fmap (fromFiles . filter notFolder) $ forM recs $ \PKGItemRecord{..} -> do
+  fmap (fmap snd . fromFiles . filter notFolder) $ forM recs $ \PKGItemRecord{..} -> do
     let name = BL.toStrict $ BL.take (fromIntegral recFilenameSize) $ BL.drop (fromIntegral recFilenameOffset) pkgInside
     nameParts <- readPKGName name
     let dat = BL.take (fromIntegral recDataSize) $ BL.drop (fromIntegral recDataOffset) pkgInside
         readable = makeHandle (B8.unpack name) $ byteStringSimpleHandle dat
     return (nameParts, (recFlags, readable))
 
-loadNonFinalizedPKGFolder :: FilePath -> Handle -> PKGHeader -> IO (Folder B.ByteString (Word32, Readable))
+loadNonFinalizedPKGFolder :: FilePath -> Handle -> PKGHeader -> IO (Folder B.ByteString Readable)
 loadNonFinalizedPKGFolder f h header = do
   let decryptPart aHandle posn len = case quotRem posn 0x10 of
         (hexes, 0) -> do
@@ -232,7 +234,7 @@ loadNonFinalizedPKGFolder f h header = do
   recs <- decryptPart h 0 (0x20 * fromIntegral (pkgItemCount header))
     >>= runGetM (replicateM (fromIntegral $ pkgItemCount header) $ codecIn bin)
   let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
-  fmap (fromFiles . filter notFolder) $ forM recs $ \PKGItemRecord{..} -> do
+  fmap (fmap snd . fromFiles . filter notFolder) $ forM recs $ \PKGItemRecord{..} -> do
     name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
     nameParts <- readPKGName name
     let readable = makeHandle (B8.unpack name) $ do
@@ -259,58 +261,106 @@ loadPKG f = withBinaryFile f ReadMode $ \h -> do
 
   return PKG{..}
 
-decryptHarmonixEDAT
+tryDecryptEDAT
   :: (MonadIO m, SendMessage m)
   => B.ByteString
   -> B.ByteString
   -> Readable
-  -> StackTraceT m Readable
-decryptHarmonixEDAT dir name readable = do
+  -> StackTraceT m (Maybe Readable)
+tryDecryptEDAT dir name readable = do
   edat <- stackIO $ useHandle readable handleToByteString
-  if BL.take 4 edat == "NPD\0"
+  if BL.take 4 edat /= "NPD\0"
     then do
-      let klic = MD5.md5DigestBytes $ MD5.md5 $ "Ih38rtW1ng3r" <> BL.fromStrict dir <> "10025250"
-          contentID = BL.toStrict $ BL.takeWhile (/= 0) $ BL.take 0x30 $ BL.drop 0x10 edat
-          licenseType = BL.take 4 $ BL.drop 8 edat
-      rapPath <- stackIO $ getResourcesPath ("raps" </> B8.unpack contentID <.> "rap") >>= fixFileCase
-      mrap <- stackIO $ doesFileExist rapPath >>= \case
-        False -> return Nothing
-        True  -> Just <$> B.readFile rapPath
-      case (mrap, BL.unpack licenseType) of
-        (Nothing, [0,0,0,2]) -> warn $ unlines
-          [ show name <> " requires a missing RAP to decrypt, so it will probably not work."
-          , "Please provide: " <> rapPath
-          ]
-        (Nothing, _        ) -> lg "Free .mid.edat, no RAP required"
-        (Just _ , _        ) -> lg $ "Found matching RAP for: " <> B8.unpack contentID
-      let cfg = NPDecryptConfig { decKLIC = klic, decRAP = mrap }
-      stackIO $ withSystemTempDirectory "onyx-edat-decrypt" $ \tmp -> do
-        BL.writeFile (tmp </> "in.edat") edat
-        decryptNPData cfg (tmp </> "in.edat") (tmp </> "out.bin") name
-        bs <- B.readFile $ tmp </> "out.bin"
-        return $ makeHandle (B8.unpack name) $ byteStringSimpleHandle $ BL.fromStrict bs
-    else do
       warn $ show name <> " does not appear to be an EDAT; assuming it is unencrypted for RPCS3."
-      return readable
+      return $ Just readable
+    else do
+      let contentID = BL.toStrict $ BL.takeWhile (/= 0) $ BL.take 0x30 $ BL.drop 0x10 edat
+          licenseType = BL.take 4 $ BL.drop 8 edat
+          gameID = B.take 9 $ B.drop 7 contentID
+      mklic <- case gameID of
+        "BLUS30487" -> do
+          lg "Decrypting GH:WoR EDAT file"
+          return $ Just $ ghworKLIC
+        "BLUS30050" -> do
+          lg "Decrypting Rock Band (1) EDAT file"
+          return $ Just $ rockBandKLIC dir
+        "BLUS30463" -> do
+          lg "Decrypting Rock Band 3 EDAT file"
+          return $ Just $ rockBandKLIC dir
+        _ -> do
+          warn $ "Unknown KLIC for game ID " <> show gameID
+          return Nothing
+      case mklic of
+        Nothing -> return Nothing
+        Just klic -> do
+          rapPath <- stackIO $ getResourcesPath ("raps" </> B8.unpack contentID <.> "rap") >>= fixFileCase
+          mrap <- stackIO $ doesFileExist rapPath >>= \case
+            False -> return Nothing
+            True  -> Just <$> B.readFile rapPath
+          case (mrap, BL.unpack licenseType) of
+            (Nothing, [0,0,0,2]) -> do
+              warn $ unlines
+                [ show name <> " requires a missing RAP to decrypt, so it will probably not work."
+                , "Please provide: " <> rapPath
+                ]
+              return Nothing
+            _ -> do
+              when (isJust mrap) $ lg $ "Found matching RAP for: " <> B8.unpack contentID
+              let cfg = NPDecryptConfig { decKLIC = klic, decRAP = mrap }
+              stackIO $ withSystemTempDirectory "onyx-edat-decrypt" $ \tmp -> do
+                BL.writeFile (tmp </> "in.edat") edat
+                -- TODO catch errors
+                decryptNPData cfg (tmp </> "in.edat") (tmp </> "out.bin") name
+                bs <- B.readFile $ tmp </> "out.bin"
+                return $ Just $ makeHandle (B8.unpack name) $ byteStringSimpleHandle $ BL.fromStrict bs
 
-decryptHarmonixEDATs
+tryDecryptEDATsInFolder
   :: (MonadIO m, SendMessage m)
   => B.ByteString
   -> Folder B.ByteString Readable
   -> StackTraceT m (Folder B.ByteString Readable)
-decryptHarmonixEDATs dir folder = do
+tryDecryptEDATsInFolder dir folder = do
   subs <- forM (folderSubfolders folder) $ \(name, sub) -> do
-    sub' <- decryptHarmonixEDATs dir sub
+    sub' <- tryDecryptEDATsInFolder dir sub
     return (name, sub')
-  files <- forM (folderFiles folder) $ \pair@(name, file) -> case B.stripSuffix ".edat" name of
-    Just decName -> do
-      dec <- decryptHarmonixEDAT dir name file
-      return (decName, dec)
+  files <- forM (folderFiles folder) $ \pair@(name, file) -> case B.stripSuffix ".edat" name <|> B.stripSuffix ".EDAT" name of
+    Just decName -> tryDecryptEDAT dir name file >>= return . \case
+      Nothing  -> pair
+      Just dec -> (decName, dec)
     Nothing -> return pair
   return Folder
     { folderSubfolders = subs
     , folderFiles = files
     }
+
+tryDecryptEDATs
+  :: (SendMessage m, MonadIO m)
+  => Folder B.ByteString Readable
+  -> StackTraceT m (Folder B.ByteString Readable)
+tryDecryptEDATs folder = case findFolder ["USRDIR"] folder of
+  Nothing -> do
+    warn "Couldn't find USRDIR in .pkg"
+    return folder
+  Just usr -> do
+    subs <- forM (folderSubfolders usr) $ \(subName, sub) -> do
+      sub' <- tryDecryptEDATsInFolder subName sub
+      return (subName, sub')
+    return folder
+      { folderSubfolders = ("USRDIR", usr { folderSubfolders = subs })
+        : filter (\(name, _) -> name /= "USRDIR") (folderSubfolders folder)
+      }
+
+getDecryptedUSRDIR
+  :: (SendMessage m, MonadIO m)
+  => Folder B.ByteString Readable
+  -> StackTraceT m [(B.ByteString, Folder B.ByteString Readable)]
+getDecryptedUSRDIR folder = case findFolder ["USRDIR"] folder of
+  Nothing -> do
+    warn "Couldn't find USRDIR"
+    return []
+  Just usr -> forM (folderSubfolders usr) $ \(name, sub) -> do
+    sub' <- tryDecryptEDATsInFolder name sub
+    return (name, sub')
 
 -- Each output is (full name, data, flags)
 makePKGRecords :: Folder B.ByteString Readable -> IO [(B.ByteString, B.ByteString, Word32)]
@@ -326,7 +376,8 @@ makePKGRecords = fmap (go "") . mapM readReadable where
     files = do
       (name, file) <- folderFiles folder
       -- Check both the name and magic number, in case we are generating unencrypted midis for RPCS3
-      let isEDAT = (".edat" `B.isSuffixOf` name) && B.take 4 file == "NPD\0"
+      let isEDAT = ((".edat" `B.isSuffixOf` name) || (".EDAT" `B.isSuffixOf` name))
+            && B.take 4 file == "NPD\0"
           flags = if isEDAT then 0x80000002 else 0x80000003
       return (addPath name, file, flags)
     subs = do

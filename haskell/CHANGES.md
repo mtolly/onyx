@@ -5,6 +5,7 @@
 * Support for generating PlayStation 3 format for Rock Band 3 and Rock Band 2
   * Generates `.pkg` files, with unique content IDs and folders per song
   * Supports both RPCS3 and jailbroken consoles
+  * `.pkg` files can be combined into packs
   * Also supports importing from custom or official `.pkg` files
 * Better shortnames for RB2/RB3/GH2 that include some of the title/artist
 * Fixes to handling of lipsync files

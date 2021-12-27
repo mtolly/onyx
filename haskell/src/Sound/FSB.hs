@@ -42,16 +42,25 @@ data FSBSong = FSBSong
   -- rest is less certain, see http://wiki.xentax.com/index.php/FSB_FSB4
   , fsbSongMinDistance :: Word32 -- 00 00 80 3F (big endian?) in WT
   , fsbSongMaxDistance :: Word32 -- 00 40 1C 46 (big endian?) in WT
-  -- rest is specific to XMA, different in MP3
-  , fsbSongUnknown1    :: Word32 -- in GH3 dlc82 and WT dlc3, 0. WoR dlc721, same as fsbSongHeaderSize?
-  , fsbSongUnknown2    :: Word32 -- in GH3 dlc82, WT dlc3, and WoR dlc721, 0
-  , fsbSongUnknown3    :: Word32 -- in GH3 dlc82, 20 00 00 00. WT dlc3 and WoR dlc721, 0
-  , fsbSongUnknown4    :: Word32 -- in GH3 dlc82, 71 49 69 03. WT dlc3 and WoR dlc721, 0
-  , fsbSongUnknown5    :: Word32 -- in GH3 dlc82, 33 00 00 00. WT dlc3 and WoR dlc721, 0
-  , fsbSongUnknown6    :: Word32 -- think this is size of rest of song struct (unk7, unk8, seek table)
-  , fsbSongUnknown7    :: Word32 -- think this is number of XMA streams (channels / 2, rounded up)
-  , fsbSongUnknown8    :: Word32 -- think this is number of seek entries + 1?
-  , fsbSongSeek        :: [Word32] -- LE (they are BE in .xma files)
+  , fsbExtra           :: Either FSBExtraXMA FSBExtraMP3
+  } deriving (Show)
+
+data FSBExtraXMA = FSBExtraXMA
+  { fsbXMAUnknown1 :: Word32 -- in GH3 dlc82 and WT dlc3, 0. WoR dlc721, same as fsbSongHeaderSize?
+  , fsbXMAUnknown2 :: Word32 -- in GH3 dlc82, WT dlc3, and WoR dlc721, 0
+  , fsbXMAUnknown3 :: Word32 -- in GH3 dlc82, 20 00 00 00. WT dlc3 and WoR dlc721, 0
+  , fsbXMAUnknown4 :: Word32 -- in GH3 dlc82, 71 49 69 03. WT dlc3 and WoR dlc721, 0
+  , fsbXMAUnknown5 :: Word32 -- in GH3 dlc82, 33 00 00 00. WT dlc3 and WoR dlc721, 0
+  , fsbXMAUnknown6 :: Word32 -- think this is size of rest of song struct (unk7, unk8, seek table)
+  , fsbXMAUnknown7 :: Word32 -- think this is number of XMA streams (channels / 2, rounded up)
+  , fsbXMAUnknown8 :: Word32 -- think this is number of seek entries + 1?
+  , fsbXMASeek     :: [Word32] -- LE (they are BE in .xma files)
+  } deriving (Show)
+
+data FSBExtraMP3 = FSBExtraMP3
+  -- no idea what these are
+  { fsbMP3Unknown1 :: Word32 -- 50 00 00 00
+  , fsbMP3Unknown2 :: Word32 -- 00 00 00 00
   } deriving (Show)
 
 getFSBSong :: Get FSBSong
@@ -72,28 +81,40 @@ getFSBSong = do
 
   fsbSongMinDistance <- getWord32be
   fsbSongMaxDistance <- getWord32be
-  fsbSongUnknown1 <- getWord32le
-  fsbSongUnknown2 <- getWord32le
-  fsbSongUnknown3 <- getWord32le
-  fsbSongUnknown4 <- getWord32le
-  fsbSongUnknown5 <- getWord32le
-  fsbSongUnknown6 <- getWord32le
-  fsbSongUnknown7 <- getWord32le
-  fsbSongUnknown8 <- getWord32le
 
-  pos2 <- bytesRead
+  -- fsbext fsb.h says: #define FSOUND_XMA 0x01000000
+  fsbExtra <- if fsbSongMode .&. 0x01000000 /= 0
+    then Left <$> do
 
-  let bytesLeft = fromIntegral fsbSongHeaderSize - fromIntegral (pos2 - pos1)
-  numEntries <- case quotRem bytesLeft 4 of
-    (q, 0) -> return q -- sometimes this is fsbSongUnknown8, sometimes fsbSongUnknown8 - 1?
-    _      -> fail $ unwords
-      [ "Incorrect size left for XMA seek table;"
-      , show bytesLeft
-      , "not divisible by 4. Header value claims"
-      , show fsbSongUnknown8
-      , "entries"
-      ]
-  fsbSongSeek <- replicateM numEntries getWord32le
+      fsbXMAUnknown1 <- getWord32le
+      fsbXMAUnknown2 <- getWord32le
+      fsbXMAUnknown3 <- getWord32le
+      fsbXMAUnknown4 <- getWord32le
+      fsbXMAUnknown5 <- getWord32le
+      fsbXMAUnknown6 <- getWord32le
+      fsbXMAUnknown7 <- getWord32le
+      fsbXMAUnknown8 <- getWord32le
+
+      pos2 <- bytesRead
+
+      let bytesLeft = fromIntegral fsbSongHeaderSize - fromIntegral (pos2 - pos1)
+      numEntries <- case quotRem bytesLeft 4 of
+        (q, 0) -> return q -- sometimes this is fsbXMAUnknown8, sometimes fsbXMAUnknown8 - 1?
+        _      -> fail $ unwords
+          [ "Incorrect size left for XMA seek table;"
+          , show bytesLeft
+          , "not divisible by 4. Header value claims"
+          , show fsbXMAUnknown8
+          , "entries"
+          ]
+      fsbXMASeek <- replicateM numEntries getWord32le
+
+      return FSBExtraXMA{..}
+
+    else Right <$> do
+      fsbMP3Unknown1 <- getWord32le
+      fsbMP3Unknown2 <- getWord32le
+      return FSBExtraMP3{..}
 
   return FSBSong{..}
 
@@ -114,16 +135,21 @@ putFSBSong FSBSong{..} = do
 
   putWord32be fsbSongMinDistance
   putWord32be fsbSongMaxDistance
-  putWord32le fsbSongUnknown1
-  putWord32le fsbSongUnknown2
-  putWord32le fsbSongUnknown3
-  putWord32le fsbSongUnknown4
-  putWord32le fsbSongUnknown5
-  putWord32le fsbSongUnknown6
-  putWord32le fsbSongUnknown7
-  putWord32le fsbSongUnknown8
 
-  mapM_ putWord32le fsbSongSeek
+  case fsbExtra of
+    Left FSBExtraXMA{..} -> do
+      putWord32le fsbXMAUnknown1
+      putWord32le fsbXMAUnknown2
+      putWord32le fsbXMAUnknown3
+      putWord32le fsbXMAUnknown4
+      putWord32le fsbXMAUnknown5
+      putWord32le fsbXMAUnknown6
+      putWord32le fsbXMAUnknown7
+      putWord32le fsbXMAUnknown8
+      mapM_ putWord32le fsbXMASeek
+    Right FSBExtraMP3{..} -> do
+      putWord32le fsbMP3Unknown1
+      putWord32le fsbMP3Unknown2
 
 data FSB3Header = FSB3Header
   { fsb3SongCount   :: Word32
@@ -194,7 +220,9 @@ putFSB4Header FSB4Header{..} = do
   mapM_ putFSBSong fsb4Songs
 
 songHeaderSize :: FSBSong -> Word16
-songHeaderSize song = 64 + 40 + fromIntegral (length $ fsbSongSeek song) * 4
+songHeaderSize song = 64 + 8 + case fsbExtra song of
+  Left  xma  -> 32 + fromIntegral (length $ fsbXMASeek xma) * 4
+  Right _mp3 -> 8
 
 fixFSB3 :: FSB3Header -> FSB3Header
 fixFSB3 FSB3Header{..} = let
@@ -332,12 +360,14 @@ fsbToXMAs :: FilePath -> FilePath -> IO ()
 fsbToXMAs f dir = do
   fsb <- BL.readFile f >>= parseFSB
   forM_ (zip (either fsb3Songs fsb4Songs $ fsbHeader fsb) (fsbSongData fsb)) $ \(song, sdata) -> do
-    writeXMA (dir </> B8.unpack (fsbSongName song) -<.> "xma") XMAContents
-      { xmaChannels = fromIntegral $ fsbSongChannels song
-      , xmaRate     = fromIntegral $ fsbSongSampleRate song
-      , xmaSamples  = fromIntegral $ fsbSongSamples song
-      , xmaData     = sdata
-      }
+    case fsbExtra song of
+      Left _xma -> writeXMA (dir </> B8.unpack (fsbSongName song) -<.> "xma") XMAContents
+        { xmaChannels = fromIntegral $ fsbSongChannels song
+        , xmaRate     = fromIntegral $ fsbSongSampleRate song
+        , xmaSamples  = fromIntegral $ fsbSongSamples song
+        , xmaData     = sdata
+        }
+      Right _mp3 -> BL.writeFile (dir </> B8.unpack (fsbSongName song) -<.> "mp3") sdata
 
 markStream0Packets
   :: [(Word32, Word32, Word32, Word32, B.ByteString)]
@@ -484,16 +514,19 @@ xmasToFSB xmas = do
 
           , fsbSongMinDistance = 0x803F
           , fsbSongMaxDistance = 0x401C46
-          , fsbSongUnknown1 = 0
-          , fsbSongUnknown2 = 0
-          , fsbSongUnknown3 = 0
-          , fsbSongUnknown4 = 0
-          , fsbSongUnknown5 = 0
-          , fsbSongUnknown6 = 8 + 4 * lenSeekTable
-          , fsbSongUnknown7 = fromIntegral (xmaChannels xma + 1) `quot` 2
-          , fsbSongUnknown8 = lenSeekTable + 1
 
-          , fsbSongSeek = seekTable
+          , fsbExtra = Left FSBExtraXMA
+            { fsbXMAUnknown1 = 0
+            , fsbXMAUnknown2 = 0
+            , fsbXMAUnknown3 = 0
+            , fsbXMAUnknown4 = 0
+            , fsbXMAUnknown5 = 0
+            , fsbXMAUnknown6 = 8 + 4 * lenSeekTable
+            , fsbXMAUnknown7 = fromIntegral (xmaChannels xma + 1) `quot` 2
+            , fsbXMAUnknown8 = lenSeekTable + 1
+            , fsbXMASeek = seekTable
+            }
+
           }
     return (song, xmaData xma)
 

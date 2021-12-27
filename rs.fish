@@ -112,6 +112,8 @@ end
 # build songs-others/cyclopsdragon/when-i-lost-my-bet
 # build songs/billy-cobham/stratus
 build songs/tormented-brutality/dominate
+build songs-others/guitar-hero/my-apocalypse
+build songs-others/guitar-hero/suicide-and-redemption-j-h
 
 # phrases unknown:
 
