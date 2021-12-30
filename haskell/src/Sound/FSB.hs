@@ -16,6 +16,7 @@ import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import qualified Data.Conduit.Audio             as CA
 import           Data.Hashable                  (Hashable, hash)
+import qualified Data.Map as Map
 import           Data.Int
 import           Data.SimpleHandle
 import           Data.Word
@@ -23,8 +24,9 @@ import           FFMPEG                         (ffSource)
 import           GHC.Generics                   (Generic)
 import           GHC.IO.Handle                  (HandlePosn (..))
 import           STFS.Package                   (runGetM)
-import           System.FilePath                ((-<.>), (</>))
+import           System.FilePath                ((-<.>), (</>), dropExtension)
 import qualified System.IO                      as IO
+import System.IO.Temp (withSystemTempDirectory)
 
 data FSBSong = FSBSong
   { fsbSongHeaderSize  :: Word16
@@ -315,19 +317,36 @@ readGH3FSB3 bs = do
     src <- ffSource $ Left readable
     return (fsbSongName song, src)
 
-splitXMA2Packets :: (MonadFail m) => BL.ByteString -> m [(Word32, Word32, Word32, Word32, B.ByteString)]
+data XMA2Packet = XMA2Packet
+  { xma2FrameCount        :: Word32
+  , xma2FrameOffsetInBits :: Word32
+  , xma2PacketMetadata    :: Word32
+  , xma2PacketSkipCount   :: Word32
+  , xma2Data              :: B.ByteString
+  }
+
+splitXMA2Packets :: (MonadFail m) => BL.ByteString -> m [XMA2Packet]
 splitXMA2Packets = runGetM go where
   go = isEmpty >>= \case
     True  -> return []
     False -> do
       packetInfo <- getWord32be
-      xmaData <- getByteString $ 2048 - 4
-      let frameCount        = (packetInfo `shiftR` 26) .&. 0x3F
-          frameOffsetInBits = (packetInfo `shiftR` 11) .&. 0x7FFF
-          packetMetaData    = (packetInfo `shiftR` 8)  .&. 0x7
-          packetSkipCount   = packetInfo               .&. 0xFF
-          pkt = (frameCount, frameOffsetInBits, packetMetaData, packetSkipCount, xmaData)
-      (pkt :) <$> go
+      xma2Data <- getByteString $ 2048 - 4
+      let xma2FrameCount        = (packetInfo `shiftR` 26) .&. 0x3F
+          xma2FrameOffsetInBits = (packetInfo `shiftR` 11) .&. 0x7FFF
+          xma2PacketMetadata    = (packetInfo `shiftR` 8)  .&. 0x7
+          xma2PacketSkipCount   = packetInfo               .&. 0xFF
+      (XMA2Packet{..} :) <$> go
+
+writeXMA2Packets :: [XMA2Packet] -> BL.ByteString
+writeXMA2Packets pkts = runPut $ forM_ pkts $ \pkt -> do
+  let packetInfo
+        =   (xma2FrameCount        pkt `shiftL` 26)
+        .|. (xma2FrameOffsetInBits pkt `shiftL` 11)
+        .|. (xma2PacketMetadata    pkt `shiftL` 8 )
+        .|. (xma2PacketSkipCount   pkt            )
+  putWord32be packetInfo
+  putByteString $ xma2Data pkt
 
 fsb4sToGH3FSB3 :: (Monad m) => [(B.ByteString, BL.ByteString)] -> StackTraceT m BL.ByteString
 fsb4sToGH3FSB3 inputs = do
@@ -360,31 +379,110 @@ fsbToXMAs :: FilePath -> FilePath -> IO ()
 fsbToXMAs f dir = do
   fsb <- BL.readFile f >>= parseFSB
   forM_ (zip (either fsb3Songs fsb4Songs $ fsbHeader fsb) (fsbSongData fsb)) $ \(song, sdata) -> do
+    let (stereoCount, monoCount) = quotRem (fromIntegral $ fsbSongChannels song) 2
     case fsbExtra song of
-      Left _xma -> writeXMA (dir </> B8.unpack (fsbSongName song) -<.> "xma") XMAContents
-        { xmaChannels = fromIntegral $ fsbSongChannels song
-        , xmaRate     = fromIntegral $ fsbSongSampleRate song
-        , xmaSamples  = fromIntegral $ fsbSongSamples song
-        , xmaData     = sdata
-        }
-      Right _mp3 -> BL.writeFile (dir </> B8.unpack (fsbSongName song) -<.> "mp3") sdata
+      Left _xma -> do
+        writeXMA (dir </> B8.unpack (fsbSongName song) -<.> "xma") XMAContents
+          { xmaChannels = fromIntegral $ fsbSongChannels song
+          , xmaRate     = fromIntegral $ fsbSongSampleRate song
+          , xmaSamples  = fromIntegral $ fsbSongSamples song
+          , xmaData     = sdata
+          }
+        marked <- markXMAPacketStreams <$> splitXMA2Packets sdata
+        forM_ [0 .. stereoCount + monoCount - 1] $ \i -> do
+          writeXMA (dir </> dropExtension (B8.unpack $ fsbSongName song) <> "_" <> show i <> ".xma") XMAContents
+            { xmaChannels = if i == stereoCount then 1 else 2
+            , xmaRate     = fromIntegral $ fsbSongSampleRate song
+            , xmaSamples  = fromIntegral $ fsbSongSamples song
+            , xmaData     = writeXMA2Packets $ extractXMAStream i marked
+            }
+      Right _mp3 -> do
+        BL.writeFile (dir </> B8.unpack (fsbSongName song) -<.> "mp3") sdata
+        let mp3s = splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
+        forM_ (zip [0..] mp3s) $ \(i, mp3) -> do
+          BL.writeFile (dir </> dropExtension (B8.unpack $ fsbSongName song) <> "_" <> show (i :: Int) <> ".mp3") mp3
 
-markStream0Packets
-  :: [(Word32, Word32, Word32, Word32, B.ByteString)]
-  -> [(Bool, (Word32, Word32, Word32, Word32, B.ByteString))]
-markStream0Packets = go 0 where
-  go _ [] = []
-  go skipping (pkt@(_, _, _, newSkip, _) : rest) = if skipping > 0
-    then (False, pkt) : go (skipping - 1) rest
-    else (True , pkt) : go newSkip rest
+-- Splits a GH-style FSB into stereo XMA (360) or MP3 (PS3).
+splitMultitrackFSB :: BL.ByteString -> IO [BL.ByteString]
+splitMultitrackFSB bs = do
+  fsb <- parseFSB bs
+  (song, sdata) <- case zip (either fsb3Songs fsb4Songs $ fsbHeader fsb) (fsbSongData fsb) of
+    [pair] -> return pair
+    _      -> fail "Not exactly 1 item found in .fsb"
+  let (stereoCount, monoCount) = quotRem (fromIntegral $ fsbSongChannels song) 2
+  case fsbExtra song of
+    Left _xma -> withSystemTempDirectory "onyx-split-fsb" $ \tmp -> do
+      let tmpFile = tmp </> "out.xma"
+      marked <- markXMAPacketStreams <$> splitXMA2Packets sdata
+      forM [0 .. stereoCount + monoCount - 1] $ \i -> do
+        writeXMA tmpFile XMAContents
+          { xmaChannels = if i == stereoCount then 1 else 2
+          , xmaRate     = fromIntegral $ fsbSongSampleRate song
+          , xmaSamples  = fromIntegral $ fsbSongSamples song
+          , xmaData     = writeXMA2Packets $ extractXMAStream i marked
+          }
+        BL.fromStrict <$> B.readFile tmpFile
+    Right _mp3 -> return $ splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
+
+splitInterleavedMP3 :: Int64 -> BL.ByteString -> [BL.ByteString]
+splitInterleavedMP3 1 bs = [bs]
+splitInterleavedMP3 n bs = let
+  frameSize = 384 -- TODO actually figure this out, might vary.
+  -- see http://www.datavoyage.com/mpgscript/mpeghdr.htm "How to calculate frame length"
+  getPart i = BL.concat $ takeWhile (not . BL.null) $ do
+    j <- [i * frameSize, (i + n) * frameSize ..]
+    return $ BL.take frameSize $ BL.drop j bs
+  in map getPart [0 .. n - 1]
+
+markXMAPacketStreams :: [XMA2Packet] -> [(Int, XMA2Packet)]
+markXMAPacketStreams = go 0 Map.empty where
+  go nextNewStream skips (pkt : pkts) = case Map.toList $ Map.filter (== 0) skips of
+    (i, _) : _ -> let
+      skips' = Map.insert i (xma2PacketSkipCount pkt) $ Map.map (subtract 1) skips
+      in (i, pkt) : go nextNewStream skips' pkts
+    [] -> let
+      skips' = Map.insert nextNewStream (xma2PacketSkipCount pkt) $ Map.map (subtract 1) skips
+      in (nextNewStream, pkt) : go (nextNewStream + 1) skips' pkts
+  go _ _ [] = []
+
+-- Regroups packets to fit more of them into the 16-packet blocks.
+extractXMAStream :: Int -> [(Int, XMA2Packet)] -> [XMA2Packet]
+extractXMAStream i = go . splitBlocks where
+  dummyBlock = XMA2Packet
+    { xma2FrameCount = 0
+    , xma2FrameOffsetInBits = 0
+    , xma2PacketMetadata = 0
+    , xma2PacketSkipCount = 0
+    , xma2Data = B.replicate 2044 0
+    }
+  complete :: Int -> [XMA2Packet] -> [XMA2Packet]
+  complete n [] = replicate n dummyBlock
+  complete n (pkt : pkts) = let
+    pkt' = pkt
+      { xma2PacketSkipCount = case pkts of
+        []    -> fromIntegral n - 1
+        _ : _ -> 0
+      }
+    in pkt' : complete (n - 1) pkts
+  splitBlocks :: [(Int, XMA2Packet)] -> [[XMA2Packet]]
+  splitBlocks pkts = case splitAt 16 pkts of
+    ([] , _   ) -> []
+    (blk, rest) -> map snd (filter ((== i) . fst) blk) : splitBlocks rest
+  go :: [[XMA2Packet]] -> [XMA2Packet]
+  go [] = []
+  go (blk : blks) = case blks of
+    []          -> complete 16 blk
+    next : rest -> if length blk + length next <= 16
+      then go $ (blk <> next) : rest
+      else complete 16 blk <> go blks
 
 -- This assumes the block size is 32 KB (16 packets) which appears to be what FSB uses
 makeXMASeekTable :: (MonadFail m) => BL.ByteString -> m [Word32]
 makeXMASeekTable bs = do
   pkts <- splitXMA2Packets bs
   let stream0Counts = map
-        (\(isStream0, (frameCount, _, _, _, _)) -> if isStream0 then frameCount else 0)
-        (markStream0Packets pkts)
+        (\(stream, pkt) -> if stream == 0 then xma2FrameCount pkt else 0)
+        (markXMAPacketStreams pkts)
   return $ do
     -- Packets are 2048 bytes in all XMA. Each packet is 512 samples.
     -- FSB appear to use 16-packet blocks. (Maybe this is stored somewhere?)
@@ -474,7 +572,8 @@ writeXMA fp (XMAContents c r len xmaData) = IO.withBinaryFile fp IO.WriteMode $ 
       write $ putWord16le $ (fromIntegral c + 1) `quot` 2 -- NumStreams;     // Number of audio streams (1 or 2 channels each)
       write $ putWord32le 0                               -- ChannelMask;    // Spatial positions of the channels in this file
       write $ putWord32le $ fromIntegral len              -- SamplesEncoded; // Total number of PCM samples the file decodes to
-      write $ putWord32le 0x10000                         -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
+      write $ putWord32le 0x8000                          -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
+      -- think this is correct, 0x8000 is 16 * 2048 (FSB uses 16-packet blocks)
       write $ putWord32le 0                               -- PlayBegin;      // First valid sample in the decoded audio
       write $ putWord32le $ fromIntegral len              -- PlayLength;     // Length of the valid part of the decoded audio
       write $ putWord32le 0                               -- LoopBegin;      // Beginning of the loop region in decoded sample terms
