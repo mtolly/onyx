@@ -878,25 +878,27 @@ ffSourceFrom dur input = do
                           -}
                     liftIO $ ffCheck "avcodec_send_packet" (>= 0) $ avcodec_send_packet dec_ctx packet
                     liftIO $ av_packet_unref packet
-                    codeFrame <- liftIO $ avcodec_receive_frame dec_ctx frame
-                    if codeFrame < 0
-                      then loop -- no audio received yet? maybe need more packets
-                      else do
-                        countSamples <- liftIO $ {#get AVFrame->nb_samples #} frame
-                        when (countSamples > skipManual) $ do
-                          -- when (skipManual > 0) $ liftIO $ putStrLn $ "Frame has " <> show countSamples <> " samples"
-                          mvec <- liftIO $ MV.new $ fromIntegral $ countSamples * channels
-                          liftIO $ MV.unsafeWith mvec $ \p -> do
-                            inputPlanes <- frame_data frame
-                            withArray [p] $ \outputPlanes -> do
-                              ffCheck "swr_convert" (>= 0) $ swr_convert
-                                swr
-                                (castPtr outputPlanes)
-                                countSamples
-                                (castPtr inputPlanes)
-                                countSamples
-                          liftIO (V.unsafeFreeze mvec) >>= yield . V.drop (fromIntegral $ skipManual * channels)
-                        loop
+                    loopReceiveFrames skipManual
+          loopReceiveFrames skipManual = do
+            codeFrame <- liftIO $ avcodec_receive_frame dec_ctx frame
+            if codeFrame < 0
+              then loop -- no more frames to get, time to feed more packets
+              else do
+                countSamples <- liftIO $ {#get AVFrame->nb_samples #} frame
+                when (countSamples > skipManual) $ do
+                  -- when (skipManual > 0) $ liftIO $ putStrLn $ "Frame has " <> show countSamples <> " samples"
+                  mvec <- liftIO $ MV.new $ fromIntegral $ countSamples * channels
+                  liftIO $ MV.unsafeWith mvec $ \p -> do
+                    inputPlanes <- frame_data frame
+                    withArray [p] $ \outputPlanes -> do
+                      ffCheck "swr_convert" (>= 0) $ swr_convert
+                        swr
+                        (castPtr outputPlanes)
+                        countSamples
+                        (castPtr inputPlanes)
+                        countSamples
+                  liftIO (V.unsafeFreeze mvec) >>= yield . V.drop (fromIntegral $ skipManual * channels)
+                loopReceiveFrames $ max 0 $ skipManual - countSamples
           in loop
     , CA.rate     = fromIntegral rate
     , CA.channels = fromIntegral channels

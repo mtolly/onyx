@@ -45,8 +45,6 @@ importGH5WoR src folder = do
         return $ Just $ \level -> do
           when (level == ImportFull) $ do
             lg $ "Importing GH song " <> show (songName info) <> " from: " <> src
-            lg "Converting audio may take a while!"
-            lg "Neversoft GH audio may also not play correctly in 3D preview at the moment."
           midiFixed <- case level of
             ImportFull -> do
               (bank, songPak) <- stackIO (useHandle pakFile handleToByteString) >>= loadSongPak
