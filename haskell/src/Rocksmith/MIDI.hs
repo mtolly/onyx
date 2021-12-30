@@ -38,6 +38,7 @@ import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe)
 import           Data.Profunctor                  (dimap)
+import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Data.Vector                      as V
 import           DeriveHelpers
@@ -510,10 +511,24 @@ backportAnchors tmap trk rso = let
     , rsAnchorHigh = fmap snd anchors
     }
 
+fillUnnamedPhrases :: RTB.T t T.Text -> RTB.T t T.Text
+fillUnnamedPhrases ps = let
+  named = Set.fromList $ RTB.getBodies ps
+  canAdd = do
+    i <- [1..] :: [Int]
+    let phrase = T.pack $ "p" <> show i
+    guard $ Set.notMember phrase named
+    return phrase
+  go RNil  _                       = RNil
+  go (Wait t "" rest) (new : news) = Wait t new $ go rest news
+  go (Wait t p  rest) news         = Wait t p   $ go rest news
+  in go ps canAdd
+
 buildRS :: (SendMessage m) => U.TempoMap -> Int -> RocksmithTrack U.Beats -> StackTraceT m RSOutput
 buildRS tmap capo trk = do
   let applyCapo 0 = 0
       applyCapo f = f + capo
+      phrases = fillUnnamedPhrases $ rsPhrases trk
       insideTime t = inside $ T.unpack $ showTimestamp t
       numberSections _ [] = []
       numberSections counts ((t, sect) : rest) = let
@@ -525,7 +540,7 @@ buildRS tmap capo trk = do
           }
         counts' = Map.insert sect (n + 1) counts
         in thisSection : numberSections counts' rest
-      uniquePhrases = nubOrd $ toList $ rsPhrases trk
+      uniquePhrases = nubOrd $ toList phrases
       modifierMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0
         $ RTB.collectCoincident $ U.applyTempoTrack tmap $ rsModifiers trk
       lookupModifier t str = let
@@ -721,7 +736,7 @@ buildRS tmap capo trk = do
         $  [ template | Right (template, _) <- notesAndChords ]
         <> [ template | (template, _, _)    <- shapes         ]
       chordTemplateIndexes = Map.fromList $ zip chordTemplates [0..]
-  case length $ rsPhrases trk of
+  case length phrases of
     n -> when (n > 100) $ warn $ "There are " <> show n <> " phrases; more than 100 phrases won't display correctly in game"
   return RSOutput
     { rso_level = Level
@@ -768,7 +783,7 @@ buildRS tmap capo trk = do
           Nothing          -> addPhraseAnchors m ts
           Just (_, anchor) -> addPhraseAnchors (Map.insert t anchor m) ts
         anchorMap' = addPhraseAnchors anchorMap $ ATB.getTimes
-          $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap $ rsPhrases trk
+          $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap phrases
         in V.fromList $ flip map (Map.toList anchorMap') $ \(t, (low, high)) -> Anchor
           { an_time  = t
           , an_fret  = low
@@ -794,8 +809,7 @@ buildRS tmap capo trk = do
         , pi_heroLevels = V.empty
         })
       $ ATB.toPairList
-      $ RTB.toAbsoluteEventList 0
-      $ rsPhrases trk
+      $ RTB.toAbsoluteEventList 0 phrases
     , rso_chordTemplates = V.fromList chordTemplates
     }
 

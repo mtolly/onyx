@@ -1,0 +1,100 @@
+parts:
+  drums:
+    drums:
+      fix-freeform: false
+      kicks: 1
+      difficulty:
+        rank: 450
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 450
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 430
+    pro-guitar:
+      tuning:
+        base: bass-4
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 200
+metadata:
+  track-number: 2
+  title: Ride the Lightning
+  author: Harmonix, Onyxite
+  year: 1984
+  album: Ride the Lightning
+  preview-start: 55.8
+  genre: metal
+  preview-end: 1:21.700
+  difficulty:
+    rank: 380
+  rating: Supervision Recommended
+  artist: Metallica
+  file-album-art: cover.png_xbox
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    parts:
+      drums:
+        kick:
+        - 0
+        - 1
+        kit:
+        - 4
+        - 5
+        snare:
+        - 2
+        - 3
+      guitar:
+      - 7
+      - 8
+      bass:
+      - 6
+      vocal:
+      - 9
+      - 10
+    karaoke: false
+    multitrack: true
+    vols:
+    - 0
+    - 0
+    - -1
+    - -1
+    - -1.5
+    - -1.5
+    - -4.5
+    - -2.5
+    - -2.5
+    - -4.5
+    - -4.5
+    - -3
+    - -3
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+targets:
+  rb3:
+    game: rb3
+    version: 1
+    song-id: 1005013
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

@@ -1,0 +1,25 @@
+metadata:
+  author: Onyxite
+  title: Chameleon
+  artist: Herbie Hancock
+  album: Head Hunters
+  genre: fusion
+  subgenre: fusion
+  year: 1973
+  file-album-art: ../../../songs-lik/jazz-pack-1/sly/cover.jpg
+  track-number: 1
+  key: Bb minor
+  rating: FF
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: 1
+audio:
+  album-track: # 1997 remaster
+    frames: 41653920
+    md5: b2142e09fe3b8fd06b33a3075cb60d81
+plans:
+  plan:
+    song:
+      pad: [3.709, album-track]

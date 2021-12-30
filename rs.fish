@@ -57,6 +57,8 @@ end
 # build songs-hmx/megadeth/hangar-18 # can't put on CF
 # build songs/john-myung/solar-groove
 # build songs/jizue/marten # needs 4-string
+build songs-others/guitar-hero/my-apocalypse
+build songs-others/guitar-hero/suicide-and-redemption-j-h
 
 # phrases not done:
 
@@ -111,9 +113,8 @@ end
 # build songs-others/bloodline/circus
 # build songs-others/cyclopsdragon/when-i-lost-my-bet
 # build songs/billy-cobham/stratus
-build songs/tormented-brutality/dominate
-build songs-others/guitar-hero/my-apocalypse
-build songs-others/guitar-hero/suicide-and-redemption-j-h
+# build songs/tormented-brutality/dominate
+build songs-hmx/metallica/ride-the-lightning
 
 # phrases unknown:
 
