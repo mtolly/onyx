@@ -8,7 +8,6 @@ import           Control.Monad                  (forM, when)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString.Lazy           as BL
-import qualified Data.Conduit.Audio             as CA
 import           Data.Default.Class             (def)
 import qualified Data.HashMap.Strict            as HM
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
@@ -18,10 +17,11 @@ import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import           Genre                          (displayWoRGenre)
 import           Import.Base
-import           Neversoft.Audio                (decryptFSB', readFSB)
+import           Neversoft.Audio                (decryptFSB')
 import           Neversoft.Metadata
 import           Neversoft.Note
 import qualified RockBand.Codec.File            as RBFile
+import           Sound.FSB                      (splitMultitrackFSB)
 
 -- | Imports DLC STFS files for (eventually, Guitar Hero 5) and Guitar Hero: Warriors of Rock.
 importGH5WoR :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -45,8 +45,6 @@ importGH5WoR src folder = do
         return $ Just $ \level -> do
           when (level == ImportFull) $ do
             lg $ "Importing GH song " <> show (songName info) <> " from: " <> src
-            lg "Converting audio may take a while!"
-            lg "Neversoft GH audio may also not play correctly in 3D preview at the moment."
           midiFixed <- case level of
             ImportFull -> do
               (bank, songPak) <- stackIO (useHandle pakFile handleToByteString) >>= loadSongPak
@@ -55,40 +53,29 @@ importGH5WoR src folder = do
           let midiOnyx = midiFixed
                 { RBFile.s_tracks = RBFile.fixedToOnyx $ RBFile.s_tracks midiFixed
                 }
-              -- TODO fix this on PS3 to just split .fsb.ps3 into individual mp3 files
-              getAudio dummyCount getName = case level of
+              getAudio getName = case level of
+                ImportQuick -> return []
                 ImportFull -> do
                   let xen = getName "xen"
                       ps3 = getName "ps3"
-                  (bs, name) <- case findFolded xen of
+                  (bs, name, fmt) <- case findFolded xen of
                     Just r -> do
                       bs <- stackIO $ useHandle r handleToByteString
-                      return (bs, xen)
+                      return (bs, xen, "xma")
                     Nothing -> case findFolded ps3 of
                       Just r -> do
                         bs <- stackIO $ useHandle r handleToByteString
-                        return (bs, ps3)
+                        return (bs, ps3, "mp3")
                       Nothing -> fatal $ "Couldn't find audio file (xen/ps3): " <> show xen
                   dec <- case decryptFSB' (T.unpack name) $ BL.toStrict bs of
                     Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show name
                     Just dec -> return dec
-                  stackIO $ readFSB dec
-                ImportQuick -> return $ CA.AudioSource (return ()) 48000 dummyCount 0
-          src1 <- getAudio 8 $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_1.fsb." <> platform
-          src2 <- getAudio 6 $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_2.fsb." <> platform
-          src3 <- getAudio 4 $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_3.fsb." <> platform
-          (kickChans, snareChans, kitChansMix) <- case CA.channels src1 of
-            8 -> return ([0, 1], [2, 3], [4, 5] :| [[6, 7]]) -- last 4 are 2 tom channels, 2 cymbal channels
-            n -> fatal $ "Unrecognized number of drum audio channels: " <> show n
-          (gtrChans, bassChans, voxChans) <- case CA.channels src2 of
-            6 -> return ([0, 1], [2, 3], [4, 5])
-            n -> fatal $ "Unrecognized number of guitar/bass/vocal audio channels: " <> show n
-          (songChans, crowdChans) <- case CA.channels src3 of
-            4 -> return ([0, 1], [2, 3])
-            n -> fatal $ "Unrecognized number of backing/crowd audio channels: " <> show n
-          let chans name cs = PlanAudio (Channels (map Just cs) $ Input $ Named name) [] []
-              chansMix name inputs = PlanAudio (Mix $ fmap (\cs -> Channels (map Just cs) $ Input $ Named name) inputs) [] []
-              readTier 0 _ = Nothing
+                  streams <- stackIO $ splitMultitrackFSB dec
+                  return $ zip [ name <> "." <> T.pack (show i) <> "." <> fmt | i <- [0..] :: [Int] ] streams
+          streams1 <- getAudio $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_1.fsb." <> platform
+          streams2 <- getAudio $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_2.fsb." <> platform
+          streams3 <- getAudio $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_3.fsb." <> platform
+          let readTier 0 _ = Nothing
               readTier n f = Just $ f $ Rank $ fromIntegral n * 50
           return SongYaml
             { _metadata = def'
@@ -105,47 +92,43 @@ importGH5WoR src folder = do
               , _backgroundVideo = Nothing
               , _fileBackgroundImage = Nothing
               }
-            , _audio = HM.fromList
-              [ ("audio1", AudioFile AudioInfo
+            , _audio = HM.fromList $ do
+              (name, bs) <- streams1 <> streams2 <> streams3
+              let str = T.unpack name
+              return (name, AudioFile AudioInfo
                 { _md5 = Nothing
                 , _frames = Nothing
-                , _filePath = Just $ SoftFile "audio1.wav" $ SoftAudio src1
+                , _filePath = Just $ SoftFile str $ SoftReadable
+                  $ makeHandle str $ byteStringSimpleHandle bs
                 , _commands = []
                 , _rate = Nothing
-                , _channels = CA.channels src1
+                , _channels = 2
                 })
-              , ("audio2", AudioFile AudioInfo
-                { _md5 = Nothing
-                , _frames = Nothing
-                , _filePath = Just $ SoftFile "audio2.wav" $ SoftAudio src2
-                , _commands = []
-                , _rate = Nothing
-                , _channels = CA.channels src2
-                })
-              , ("audio3", AudioFile AudioInfo
-                { _md5 = Nothing
-                , _frames = Nothing
-                , _filePath = Just $ SoftFile "audio3.wav" $ SoftAudio src3
-                , _commands = []
-                , _rate = Nothing
-                , _channels = CA.channels src3
-                })
-              ]
             , _jammit = HM.empty
             , _plans = HM.singleton "gh" Plan
-              { _song = Just $ chans "audio3" songChans
+              { _song = case streams3 of
+                (x, _) : _ -> Just $ PlanAudio (Input $ Named x) [] []
+                []         -> Nothing
               , _countin = Countin []
-              , _planParts = Parts $ HM.fromList
-                [ (RBFile.FlexDrums, PartDrumKit
-                  (Just $ chans "audio1" kickChans)
-                  (Just $ chans "audio1" snareChans)
-                  (chansMix "audio1" kitChansMix)
-                  )
-                , (RBFile.FlexGuitar, PartSingle $ chans "audio2" gtrChans)
-                , (RBFile.FlexBass  , PartSingle $ chans "audio2" bassChans)
-                , (RBFile.FlexVocal , PartSingle $ chans "audio2" voxChans)
-                ]
-              , _crowd = Just $ chans "audio3" crowdChans
+              , _planParts = Parts $ HM.fromList $ let
+                drums = case map fst streams1 of
+                  d1 : d2 : d3 : d4 : _ -> [(RBFile.FlexDrums, PartDrumKit
+                    (Just $ PlanAudio (Input $ Named d1) [] [])
+                    (Just $ PlanAudio (Input $ Named d2) [] [])
+                    (PlanAudio (Mix (Input (Named d3) :| [Input $ Named d4])) [] [])
+                    )]
+                  _ -> []
+                gbv = case map fst streams2 of
+                  g : b : v : _ ->
+                    [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named g) [] [])
+                    , (RBFile.FlexBass  , PartSingle $ PlanAudio (Input $ Named b) [] [])
+                    , (RBFile.FlexVocal , PartSingle $ PlanAudio (Input $ Named v) [] [])
+                    ]
+                  _ -> []
+                in drums <> gbv
+              , _crowd = case drop 1 streams3 of
+                (x, _) : _ -> Just $ PlanAudio (Input $ Named x) [] []
+                []         -> Nothing
               , _planComments = []
               , _tuningCents = 0
               , _fileTempo = Nothing

@@ -573,7 +573,7 @@ ffSourceSimple = ffSourceFixPath $ Frames 0
 
 supportedFFExt :: FilePath -> Bool
 supportedFFExt f = map toLower (takeExtension f) `elem`
-  [".flac", ".wav", ".ogg", ".opus", ".mp3"]
+  [".flac", ".wav", ".ogg", ".opus", ".mp3", ".xma"]
 
 audioLength :: (MonadIO m) => FilePath -> m (Maybe Integer)
 audioLength f = if supportedFFExt f
@@ -836,9 +836,9 @@ trimXMA xma = do
     (0, _) -> fail "trimXMA: not a full block in XMA data"
     (q, _) -> return $ q * blockSize
   let newData = BL.take newSize $ xmaData xma
-  packets <- markStream0Packets <$> splitXMA2Packets newData
+  packets <- markXMAPacketStreams <$> splitXMA2Packets newData
   return xma
-    { xmaSamples = fromIntegral $ sum [ if isStream0 then fms else 0 | (isStream0, (fms, _, _, _, _)) <- packets ] * 512
+    { xmaSamples = fromIntegral $ sum [ if stream == 0 then xma2FrameCount pkt else 0 | (stream, pkt) <- packets ] * 512
     , xmaData    = newData
     }
 

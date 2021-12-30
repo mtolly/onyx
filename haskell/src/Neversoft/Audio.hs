@@ -23,7 +23,6 @@ import           Data.Bits
 import qualified Data.ByteString              as B
 import qualified Data.ByteString.Lazy         as BL
 import qualified Data.Conduit.Audio           as CA
-import           Data.Int                     (Int64)
 import           Data.Maybe                   (fromMaybe)
 import           Data.SimpleHandle            (byteStringSimpleHandle,
                                                makeHandle)
@@ -335,24 +334,6 @@ readFSBXMA dec = let
   readable = makeHandle "decoded FSB audio" $ byteStringSimpleHandle dec'
   in ffSource $ Left readable
 
-splitInterleavedMP3 :: Int64 -> BL.ByteString -> [BL.ByteString]
-splitInterleavedMP3 1 bs = [bs]
-splitInterleavedMP3 n bs = let
-  frameSize = 384 -- TODO actually figure this out, might vary.
-  -- see http://www.datavoyage.com/mpgscript/mpeghdr.htm "How to calculate frame length"
-  getPart i = BL.concat $ takeWhile (not . BL.null) $ do
-    j <- [i * frameSize, (i + n) * frameSize ..]
-    return $ BL.take frameSize $ BL.drop j bs
-  in map getPart [0 .. n - 1]
-
-splitFSBMP3 :: BL.ByteString -> IO [BL.ByteString]
-splitFSBMP3 dec = do
-  fsb <- parseFSB dec
-  let song = head $ either fsb3Songs fsb4Songs $ fsbHeader fsb
-  case quotRem (fromIntegral $ fsbSongChannels song) 2 of
-    (pairs, 0) -> return $ splitInterleavedMP3 pairs $ head $ fsbSongData fsb
-    _ -> fail $ "FSB MP3 claims to have odd number of channels (" <> show (fsbSongChannels song) <> ")"
-
 readFSB :: (MonadResource m) => BL.ByteString -> IO (CA.AudioSource m Float)
 readFSB dec = do
   fsb <- parseFSB dec
@@ -360,7 +341,9 @@ readFSB dec = do
   case fsbExtra song of
     Left _xma -> readFSBXMA dec
     Right _mp3 -> do
-      mp3s <- splitFSBMP3 dec
+      let numStreams = case quotRem (fromIntegral $ fsbSongChannels song) 2 of
+            (x, y) -> x + y
+          mp3s = splitInterleavedMP3 numStreams $ head $ fsbSongData fsb
       srcs <- forM mp3s $ \mp3 -> ffSource $ Left $ makeHandle "decoded FSB audio" $ byteStringSimpleHandle mp3
       return $ foldl1 CA.merge srcs
 
