@@ -440,7 +440,10 @@ buildSource' aud = case aud of
   Drop End   (Frames  t1) (Pad End   (Frames  t2) x) -> dropPad End   Frames  t1 t2 x
   Drop Start t (Input fin) -> liftIO $ case takeExtension fin of
     ".ogg" -> sourceVorbisFile t fin
+    -- TODO implement smart VGS seeking
     ".vgs" -> dropStart t <$> buildSource' (Input fin)
+    -- FFMPEG appears to not seek XMA correctly (or we're generating seek table wrong maybe?)
+    ".xma" -> dropStart t <$> buildSource' (Input fin)
     _      -> ffSourceFixPath t fin
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
   Drop Start t (Merge xs) -> buildSource' $ Merge $ fmap (Drop Start t) xs

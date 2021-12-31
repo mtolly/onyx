@@ -484,7 +484,7 @@ makeXMASeekTable bs = do
         (\(stream, pkt) -> if stream == 0 then xma2FrameCount pkt else 0)
         (markXMAPacketStreams pkts)
   return $ do
-    -- Packets are 2048 bytes in all XMA. Each packet is 512 samples.
+    -- Packets are 2048 bytes in all XMA. Each frame is 512 samples.
     -- FSB appear to use 16-packet blocks. (Maybe this is stored somewhere?)
     -- Each entry in the seek table is "how many samples would you have decoded by block N"
     packetIndex <- [0, 16 .. length stream0Counts]
