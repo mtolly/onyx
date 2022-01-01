@@ -4,7 +4,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
-module Build (shakeBuildFiles, shakeBuild, targetTitle, loadYaml, validFileName, validFileNamePiece, NameRule(..), hashRB3) where
+module Build (shakeBuildFiles, shakeBuild, targetTitle, validFileName, validFileNamePiece, NameRule(..), hashRB3) where
 
 import           Audio
 import           AudioSearch
@@ -31,9 +31,11 @@ import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (isAlphaNum, isAscii,
                                                         isControl, isDigit,
-                                                        isSpace)
+                                                        isSpace, toUpper)
 import           Data.Conduit                          (runConduit)
 import           Data.Conduit.Audio
+import           Data.Conduit.Audio.LAME               (sinkMP3WithHandle)
+import qualified Data.Conduit.Audio.LAME.Binding       as L
 import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
 import           Data.Default.Class                    (def)
@@ -58,7 +60,7 @@ import qualified Data.Map                              as Map
 import           Data.Maybe                            (catMaybes, fromMaybe,
                                                         isJust, isNothing,
                                                         listToMaybe, mapMaybe)
-import           Data.SimpleHandle                     (Folder (..),
+import           Data.SimpleHandle                     (Folder (..), Readable,
                                                         crawlFolder,
                                                         fileReadable)
 import           Data.String                           (IsString, fromString)
@@ -98,8 +100,11 @@ import           Neversoft.Audio                       (gh3Encrypt,
 import           Neversoft.Checksum                    (qbKeyCRC, qsKey)
 import           Neversoft.Export                      (makeGHWoRNote,
                                                         packageNameHash,
+                                                        packageNameHashFormat,
                                                         worFileBarePak,
                                                         worFileManifest,
+                                                        worFilePS3EmptyVRAMPak,
+                                                        worFilePS3SongVRAMPak,
                                                         worFileTextPak)
 import           Neversoft.Note                        (makeWoRNoteFile,
                                                         putNote)
@@ -110,7 +115,8 @@ import           Neversoft.QB                          (QBArray (..),
                                                         QBSection (..),
                                                         QBStructItem (..),
                                                         putQB)
-import           NPData                                (npdContentID,
+import           NPData                                (ghworCustomMidEdatConfig,
+                                                        npdContentID,
                                                         packNPData,
                                                         rb2CustomMidEdatConfig,
                                                         rb3CustomMidEdatConfig)
@@ -169,7 +175,8 @@ import qualified Rocksmith.ArrangementXML              as Arr
 import qualified Rocksmith.CST                         as CST
 import           Rocksmith.MIDI
 import qualified Sound.File.Sndfile                    as Snd
-import           Sound.FSB                             (emitFSB, ghBandFSB)
+import           Sound.FSB                             (emitFSB, ghBandFSB,
+                                                        ghBandFSBInterleaveMP3s)
 import qualified Sound.Jammit.Base                     as J
 import qualified Sound.Jammit.Export                   as J
 import qualified Sound.MIDI.File.Event                 as E
@@ -1080,6 +1087,9 @@ loadRGB8 songYaml = case _fileAlbumArt $ _metadata songYaml of
           Right dyn -> return $ convertRGB8 dyn
   Nothing -> stackIO onyxAlbum
 
+crawlFolderBytes :: (MonadIO m) => FilePath -> StackTraceT m (Folder B.ByteString Readable)
+crawlFolderBytes p = stackIO $ fmap (first TE.encodeUtf8) $ crawlFolder p
+
 ------------------------------------------------------------------------------
 
 rbRules :: BuildInfo -> FilePath -> TargetRB3 FilePath -> Maybe TargetRB2 -> QueueLog Rules ()
@@ -1531,10 +1541,6 @@ rbRules buildInfo dir rb3 mrb2 = do
   phony rb3ps3Root $ do
     shk $ need [rb3ps3DTA, rb3ps3Mogg, rb3ps3Mid, rb3ps3Art, rb3ps3Milo]
 
-  let crawlFolderBytes p
-        =   stackIO
-        $   crawlFolder p
-        >>= return . first TE.encodeUtf8
   rb3ps3Pkg %> \out -> do
     shk $ need [rb3ps3Root]
     let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
@@ -3057,7 +3063,7 @@ gh5Rules buildInfo dir gh5 = do
       (textQS1FilenameKey, textQS2FilenameKey, textQS3FilenameKey, textQS4FilenameKey, textQS5FilenameKey, qs)
 
   dir </> "song.pak.xen" %> \out -> do
-    shk $ need [dir </> "ghwor.note"]
+    shk $ need [dir </> "ghwor.note", dir </> "ghwor.qs"]
     note <- stackIO $ BL.readFile $ dir </> "ghwor.note"
     qsSections <- stackIO $ BL.readFile $ dir </> "ghwor.qs"
     qsIDs <- case parseQS qsSections of
@@ -3207,6 +3213,123 @@ gh5Rules buildInfo dir gh5 = do
       , createTransferFlags = 0xC0
       , createLIVE = True
       } folder out
+
+  -- PS3 version
+
+  let songKeyCaps        = map toUpper songKey
+      cdlCaps            = map toUpper cdl
+      titleHashCaps      = map toUpper titleHash
+      -- make CAPS_WITH_UNDERSCORES folder name like official songs use
+      folderNameCaps     = packageNameHashFormat True packageTitle
+
+      ps3Audio1          = "A" <> songKeyCaps <> "_1.FSB.PS3.EDAT"
+      ps3Audio2          = "A" <> songKeyCaps <> "_2.FSB.PS3.EDAT"
+      ps3Audio3          = "A" <> songKeyCaps <> "_3.FSB.PS3.EDAT"
+      ps3AudioPreview    = "A" <> songKeyCaps <> "_PREVIEW.FSB.PS3.EDAT"
+      ps3SongVRAMPak     = "B" <> songKeyCaps <> "_SONG_VRAM.PAK.PS3.EDAT"
+      ps3SongPak         = "B" <> songKeyCaps <> "_SONG.PAK.PS3.EDAT"
+      ps3CDLTextVRAMPak  = cdlCaps <> "_TEXT_VRAM.PAK.PS3.EDAT"
+      ps3CDLTextPak      = cdlCaps <> "_TEXT.PAK.PS3.EDAT"
+      ps3CDLVRAMPak      = cdlCaps <> "_VRAM.PAK.PS3.EDAT"
+      ps3CDLPak          = cdlCaps <> ".PAK.PS3.EDAT"
+      ps3ManifestVRAMPak = "CMANIFEST_" <> titleHashCaps <> "_VRAM.PAK.PS3.EDAT"
+      ps3ManifestPak     = "CMANIFEST_" <> titleHashCaps <> ".PAK.PS3.EDAT"
+
+      ps3SongRoot        = dir </> "ps3"
+      ps3SongVRAMPakDec  = dir </> "song_vram.pak"
+      ps3EmptyVRAMPakDec = dir </> "vram.pak"
+      ps3MP3Silence      = dir </> "silence.mp3"
+      ps3MP3Song         = dir </> "song.mp3"
+      ps3MP3Preview      = dir </> "preview.mp3"
+      ps3Audio1PreEdat   = dir </> "audio1.fsb.ps3"
+      ps3Audio2PreEdat   = dir </> "audio2.fsb.ps3"
+      ps3Audio3PreEdat   = dir </> "audio3.fsb.ps3"
+      ps3PreviewPreEdat  = dir </> "preview.fsb.ps3"
+
+      ps3PkgLabel        = makePS3Name songID songYaml
+      ps3EDATConfig      = ghworCustomMidEdatConfig ps3PkgLabel
+      ps3ContentID       = npdContentID ps3EDATConfig
+
+  ps3SongVRAMPakDec  %> \out -> stackIO $ BL.writeFile out $ worFilePS3SongVRAMPak songKeyQB
+  ps3EmptyVRAMPakDec %> \out -> stackIO $ BL.writeFile out worFilePS3EmptyVRAMPak
+
+  -- I'm not sure if the game requires 48 kHz,
+  -- but apparently it is required in order to have LAME produce consistent frame sizes.
+  let setup lame = liftIO $ do
+        L.check $ L.setBrate lame 128
+        -- think we can leave L.setMode as default
+        L.check $ L.setQuality lame 5
+  [ps3MP3Silence, ps3MP3Song] &%> \_ -> do
+    src <- shk $ buildSource $ Input (planDir </> "everything.wav")
+    let resampled = resampleTo 48000 SincMediumQuality src
+    stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Song setup resampled
+    stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Silence setup
+      $ silent (Frames $ frames resampled) (rate resampled) 2
+  ps3MP3Preview %> \out -> do
+    src <- shk $ buildSource $ Input (dir </> "preview.wav")
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup
+      $ resampleTo 48000 SincMediumQuality src
+
+  let writeEncryptedFSB out mp3s = do
+        fsb <- ghBandFSBInterleaveMP3s mp3s
+        case ghworEncrypt $ BL.toStrict $ emitFSB fsb of
+          Nothing  -> fatal "Unable to encrypt .fsb to .fsb.xen"
+          Just enc -> stackIO $ B.writeFile out enc
+  ps3Audio1PreEdat %> \out -> do
+    shk $ need [ps3MP3Silence]
+    silence <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3Silence
+    writeEncryptedFSB out [silence, silence, silence, silence]
+  ps3Audio2PreEdat %> \out -> do
+    shk $ need [ps3MP3Silence]
+    silence <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3Silence
+    writeEncryptedFSB out [silence, silence, silence]
+  ps3Audio3PreEdat %> \out -> do
+    shk $ need [ps3MP3Song, ps3MP3Silence]
+    song <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3Song
+    silence <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3Silence
+    writeEncryptedFSB out [song, silence]
+  ps3PreviewPreEdat %> \out -> do
+    shk $ need [ps3MP3Preview]
+    preview <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3Preview
+    writeEncryptedFSB out [preview]
+
+  let packNPData' cfg fin fout name = do
+        shk $ need [fin]
+        stackIO $ packNPData cfg fin fout name
+  ps3SongRoot </> ps3Audio1 %> \out -> do
+    packNPData' ps3EDATConfig ps3Audio1PreEdat out $ B8.pack ps3Audio1
+  ps3SongRoot </> ps3Audio2 %> \out -> do
+    packNPData' ps3EDATConfig ps3Audio2PreEdat out $ B8.pack ps3Audio2
+  ps3SongRoot </> ps3Audio3 %> \out -> do
+    packNPData' ps3EDATConfig ps3Audio3PreEdat out $ B8.pack ps3Audio3
+  ps3SongRoot </> ps3AudioPreview %> \out -> do
+    packNPData' ps3EDATConfig ps3PreviewPreEdat out $ B8.pack ps3AudioPreview
+  ps3SongRoot </> ps3SongVRAMPak %> \out -> do
+    packNPData' ps3EDATConfig ps3SongVRAMPakDec out $ B8.pack ps3SongVRAMPak
+  ps3SongRoot </> ps3SongPak %> \out -> do
+    packNPData' ps3EDATConfig (dir </> "song.pak.xen") out $ B8.pack ps3SongPak
+  ps3SongRoot </> ps3CDLTextVRAMPak %> \out -> do
+    packNPData' ps3EDATConfig ps3EmptyVRAMPakDec out $ B8.pack ps3CDLTextVRAMPak
+  ps3SongRoot </> ps3CDLTextPak %> \out -> do
+    packNPData' ps3EDATConfig (dir </> "cdl_text.pak.xen") out $ B8.pack ps3CDLTextPak
+  ps3SongRoot </> ps3CDLVRAMPak %> \out -> do
+    packNPData' ps3EDATConfig ps3EmptyVRAMPakDec out $ B8.pack ps3CDLVRAMPak
+  ps3SongRoot </> ps3CDLPak %> \out -> do
+    packNPData' ps3EDATConfig (dir </> "cdl.pak.xen") out $ B8.pack ps3CDLPak
+  ps3SongRoot </> ps3ManifestVRAMPak %> \out -> do
+    packNPData' ps3EDATConfig ps3EmptyVRAMPakDec out $ B8.pack ps3ManifestVRAMPak
+  ps3SongRoot </> ps3ManifestPak %> \out -> do
+    packNPData' ps3EDATConfig (dir </> "cmanifest.pak.xen") out $ B8.pack ps3ManifestPak
+
+  dir </> "ps3.pkg" %> \out -> do
+    shk $ need $ map (ps3SongRoot </>)
+      [ ps3Audio1, ps3Audio2, ps3Audio3, ps3AudioPreview, ps3SongVRAMPak, ps3SongPak
+      , ps3CDLTextVRAMPak, ps3CDLTextPak, ps3CDLVRAMPak, ps3CDLPak, ps3ManifestVRAMPak, ps3ManifestPak
+      ]
+    let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
+    main <- container "USRDIR" . container folderNameCaps <$> crawlFolderBytes ps3SongRoot
+    extra <- stackIO (getResourcesPath "pkg-contents/ghwor") >>= crawlFolderBytes
+    stackIO $ makePKG ps3ContentID (main <> extra) >>= BL.writeFile out
 
 ------------------------------------------------------------------------------
 
@@ -3480,12 +3603,12 @@ melodyRules buildInfo dir tgt = do
 ------------------------------------------------------------------------------
 
 data BuildInfo = BuildInfo
-  { biSongYaml :: SongYaml FilePath
-  , biYamlDir  :: FilePath
-  , biRelative :: FilePath -> FilePath
-  , biAudioLib :: AudioLibrary
+  { biSongYaml        :: SongYaml FilePath
+  , biYamlDir         :: FilePath
+  , biRelative        :: FilePath -> FilePath
+  , biAudioLib        :: AudioLibrary
   , biAudioDependPath :: T.Text -> FilePath
-  , biOggWavForPlan :: T.Text -> FilePath
+  , biOggWavForPlan   :: T.Text -> FilePath
   }
 
 shakeBuildFiles :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT (QueueLog m) ()

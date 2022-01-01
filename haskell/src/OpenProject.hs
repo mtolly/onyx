@@ -9,6 +9,7 @@ import           Config
 import           Control.Applicative            ((<|>))
 import           Control.Monad                  (forM, forM_, guard)
 import qualified Control.Monad.Catch            as MC
+import           Control.Monad.Codec.Onyx.JSON  (loadYaml)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace

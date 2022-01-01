@@ -8,12 +8,13 @@
 {-# LANGUAGE ViewPatterns      #-}
 module RhythmGame.Graphics where
 
-import           Build                          (loadYaml)
 import           Codec.Picture
 import qualified Codec.Wavefront                as Obj
-import           Config                         (VideoInfo (..), FullDrumLayout(..))
+import           Config                         (FullDrumLayout (..),
+                                                 VideoInfo (..))
 import           Control.Arrow                  (second)
 import           Control.Monad                  (forM, forM_, guard, void, when)
+import           Control.Monad.Codec.Onyx.JSON  (loadYaml)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Resource   (register, runResourceT)
 import           Control.Monad.Trans.StackTrace (QueueLog, SendMessage,
@@ -2310,10 +2311,10 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trk
     glClear GL_COLOR_BUFFER_BIT
     setUpTrackView glStuff (WindowDims w h)
     case trk of
-      PreviewDrums m     -> drawDrums glStuff time speed   m
+      PreviewDrums m            -> drawDrums glStuff time speed   m
       PreviewDrumsFull layout m -> drawFullDrums glStuff time speed layout m
-      PreviewFive  m     -> drawFive  glStuff time speed   m
-      PreviewPG  t m     -> drawPG    glStuff time speed t m
+      PreviewFive  m            -> drawFive  glStuff time speed   m
+      PreviewPG  t m            -> drawPG    glStuff time speed t m
 
     case framebuffers of
       SimpleFramebuffer{..} -> do

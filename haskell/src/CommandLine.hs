@@ -19,11 +19,12 @@ import           Audio                            (Audio (Input), applyPansVols,
                                                    fadeEnd, fadeStart, makeFSB4,
                                                    makeFSB4', makeGH3FSB,
                                                    runAudio)
-import           Build                            (loadYaml, shakeBuildFiles)
+import           Build                            (shakeBuildFiles)
 import           Codec.Picture                    (writePng)
 import           Codec.Picture.Types              (dropTransparency, pixelMap)
 import           Config
-import           Control.Monad.Codec.Onyx.JSON    (toJSON, yamlEncodeFile)
+import           Control.Monad.Codec.Onyx.JSON    (loadYaml, toJSON,
+                                                   yamlEncodeFile)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard,
                                                    when)
 import           Control.Monad.IO.Class

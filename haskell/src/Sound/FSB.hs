@@ -6,7 +6,8 @@
 module Sound.FSB where
 
 import           Control.Monad
-import           Control.Monad.Trans.Resource   (MonadResource)
+import           Control.Monad.IO.Class         (MonadIO (liftIO))
+import           Control.Monad.Trans.Resource   (MonadResource, ResourceT)
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Get
 import           Data.Binary.Put
@@ -17,6 +18,7 @@ import qualified Data.ByteString.Lazy           as BL
 import qualified Data.Conduit.Audio             as CA
 import           Data.Hashable                  (Hashable, hash)
 import           Data.Int
+import           Data.List                      (transpose)
 import qualified Data.Map                       as Map
 import           Data.SimpleHandle
 import           Data.Word
@@ -398,7 +400,7 @@ fsbToXMAs f dir = do
             }
       Right _mp3 -> do
         BL.writeFile (dir </> B8.unpack (fsbSongName song) -<.> "mp3") sdata
-        let mp3s = splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
+        mp3s <- splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
         forM_ (zip [0..] mp3s) $ \(i, mp3) -> do
           BL.writeFile (dir </> dropExtension (B8.unpack $ fsbSongName song) <> "_" <> show (i :: Int) <> ".mp3") mp3
 
@@ -422,17 +424,73 @@ splitMultitrackFSB bs = do
           , xmaData     = writeXMA2Packets $ extractXMAStream i marked
           }
         BL.fromStrict <$> B.readFile tmpFile
-    Right _mp3 -> return $ splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
+    Right _mp3 -> splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
 
-splitInterleavedMP3 :: Int64 -> BL.ByteString -> [BL.ByteString]
-splitInterleavedMP3 1 bs = [bs]
-splitInterleavedMP3 n bs = let
-  frameSize = 384 -- TODO actually figure this out, might vary.
-  -- see http://www.datavoyage.com/mpgscript/mpeghdr.htm "How to calculate frame length"
-  getPart i = BL.concat $ takeWhile (not . BL.null) $ do
-    j <- [i * frameSize, (i + n) * frameSize ..]
-    return $ BL.take frameSize $ BL.drop j bs
-  in map getPart [0 .. n - 1]
+-- Only works on a CBR MP3 with no ID3 tags
+mp3CBRFrameSize :: BL.ByteString -> Maybe Int64
+mp3CBRFrameSize bs = do
+  let byte1 = BL.index bs 1
+      byte2 = BL.index bs 2
+  mpegVersion <- case (byte1 .&. 0x18) `shiftR` 3 of
+    2 -> Just 2
+    3 -> Just 1
+    _ -> Nothing
+  layerVersion <- case (byte1 .&. 0x6) `shiftR` 1 of
+    1 -> Just 3
+    2 -> Just 2
+    3 -> Just 1
+    _ -> Nothing
+  bitRateLookup <- case (mpegVersion :: Int, layerVersion :: Int) of
+    (1, 1) -> Just [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0]
+    (1, 2) -> Just [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 0]
+    (1, 3) -> Just [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]
+    (2, 1) -> Just [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0]
+    (2, _) -> Just [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]
+    _      -> Nothing
+  bitRate <- case drop (fromIntegral ((byte2 .&. 0xF0) `shiftR` 4)) bitRateLookup of
+    kbps : _ -> guard (kbps /= 0) >> Just ((kbps :: Rational) * 1000)
+    []       -> Nothing
+  sampleRate <- case (mpegVersion, (byte2 .&. 0xC) `shiftR` 2) of
+    (1, 0) -> Just 44100
+    (1, 1) -> Just 48000
+    (1, 2) -> Just 32000
+    (2, 0) -> Just 22050
+    (2, 1) -> Just 24000
+    (2, 2) -> Just 16000
+    _      -> Nothing
+  let padding = fromIntegral $ (byte2 .&. 0x2) `shiftR` 1
+  return $ round $ if layerVersion == 1
+    then (((12 * bitRate) / sampleRate) + padding) * 4
+    else ((144 * bitRate) / sampleRate) + padding
+
+splitInterleavedMP3 :: (MonadFail m) => Int64 -> BL.ByteString -> m [BL.ByteString]
+splitInterleavedMP3 1 bs = return [bs]
+splitInterleavedMP3 n bs = do
+  frameSize <- case mp3CBRFrameSize bs of
+    Nothing -> fail "Couldn't parse frame size of interleaved MP3 to split apart"
+    Just size -> return size
+  let getPart i = BL.concat $ takeWhile (not . BL.null) $ do
+        j <- [i * frameSize, (i + n) * frameSize ..]
+        return $ BL.take frameSize $ BL.drop j bs
+  return $ map getPart [0 .. n - 1]
+
+interleaveMP3 :: (MonadFail m) => [BL.ByteString] -> m BL.ByteString
+interleaveMP3 [x]  = return x
+interleaveMP3 mp3s = do
+  (firstMP3, frameSize) <- case mp3s of
+    []      -> fail "No MP3s given to interleave"
+    mp3 : _ -> case mp3CBRFrameSize mp3 of
+      Just size -> return (mp3, size)
+      Nothing   -> fail "Couldn't parse frame size of MP3 to interleave"
+  let eachLength = BL.length firstMP3
+  eachFrameCount <- case quotRem eachLength frameSize of
+    (count, 0) -> return $ fromIntegral count
+    _          -> fail "MP3 to interleave has a length not divisible by frame size"
+  when (any ((/= eachLength) . BL.length) mp3s) $ fail
+    "MP3s to interleave don't have consistent file size"
+  return $ BL.concat $ concat $ transpose $ flip map mp3s $ \mp3 -> do
+    posn <- take eachFrameCount $ [0, frameSize ..]
+    return $ BL.take frameSize $ BL.drop posn mp3
 
 markXMAPacketStreams :: [XMA2Packet] -> [(Int, XMA2Packet)]
 markXMAPacketStreams = go 0 Map.empty where
@@ -646,6 +704,50 @@ xmasToFSB xmas = do
 -- Files for GHWT/5/WoR
 ghBandFSB :: (MonadFail m) => XMAContents -> m FSB
 ghBandFSB xma = xmasToFSB [("multichannel sound", xma)]
+
+ghBandFSBInterleaveMP3s :: (MonadFail m, MonadIO m) => [BL.ByteString] -> m FSB
+ghBandFSBInterleaveMP3s mp3s = do
+
+  srcs <- liftIO $ mapM (ffSource . Left . makeHandle "mp3" . byteStringSimpleHandle) mp3s
+  let _ = srcs :: [CA.AudioSource (ResourceT IO) Int16]
+
+  let song = FSBSong
+        { fsbSongHeaderSize = 0
+        , fsbSongName       = "multichannel sound"
+        , fsbSongSamples    = fromIntegral $ CA.frames $ head srcs
+        , fsbSongDataSize   = 0
+        , fsbSongLoopStart  = 0
+        , fsbSongLoopEnd    = maxBound -- should be -1
+        , fsbSongMode       = 0x5000000
+        , fsbSongSampleRate = round $ CA.rate $ head srcs
+        , fsbSongDefVol     = 255
+        , fsbSongDefPan     = 128
+        , fsbSongDefPri     = 128
+        , fsbSongChannels   = fromIntegral $ sum $ map CA.channels srcs
+        , fsbSongMinDistance = 0x803F
+        , fsbSongMaxDistance = 0x401C46
+        , fsbExtra = Right FSBExtraMP3
+          -- no idea what these are
+          { fsbMP3Unknown1 = 0x50
+          , fsbMP3Unknown2 = 0
+          }
+        }
+
+  interleaved <- interleaveMP3 mp3s
+
+  return $ fixFSB $ FSB
+    { fsbHeader = Right $ FSB4Header
+      { fsb4SongCount   = 1
+      , fsb4HeadersSize = 0
+      , fsb4DataSize    = 0
+      , fsb4Version     = 0x40000
+      , fsb4Flags       = 32
+      , fsb4Hash        = B.replicate 8 0
+      , fsb4GUID        = B.take 16 $ "onyx" <> B8.pack (show $ hash mp3s) <> "................"
+      , fsb4Songs       = [song]
+      }
+    , fsbSongData = [interleaved]
+    }
 
 toGH3FSB :: FSB -> FSB
 toGH3FSB fsb = case fsbHeader fsb of

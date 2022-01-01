@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module NPData (packNPData, NPDataConfig(..), rb2CustomMidEdatConfig, rb3CustomMidEdatConfig, ghworKLIC, rockBandKLIC, decryptNPData, NPDecryptConfig(..)) where
+module NPData (packNPData, NPDataConfig(..), rb2CustomMidEdatConfig, rb3CustomMidEdatConfig, ghworCustomMidEdatConfig, ghworKLIC, rockBandKLIC, decryptNPData, NPDecryptConfig(..)) where
 
 import           Control.Monad          (forM_, when)
 import qualified Data.ByteString        as B
@@ -107,6 +107,18 @@ rb3CustomMidEdatConfig :: B.ByteString -> NPDataConfig
 rb3CustomMidEdatConfig dir = NPDataConfig
   { npdContentID = "UP8802-BLUS30463_00-" <> dir -- actually this probably doesn't have to be the same
   , npdKLIC      = rockBandKLIC dir
+  , npdRAP       = Nothing
+  , npdVersion   = 2
+  , npdLicense   = 3
+  , npdType      = 0
+  , npdBlock     = 16
+  , npdEDAT      = True
+  }
+
+ghworCustomMidEdatConfig :: B.ByteString -> NPDataConfig
+ghworCustomMidEdatConfig pkgLabel = NPDataConfig
+  { npdContentID = "UP0002-BLUS30487_00-" <> pkgLabel
+  , npdKLIC      = ghworKLIC
   , npdRAP       = Nothing
   , npdVersion   = 2
   , npdLicense   = 3

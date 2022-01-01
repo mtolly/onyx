@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE TupleSections     #-}
@@ -14,7 +13,7 @@ import           Data.Bits
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (toLower)
+import           Data.Char                        (toLower, toUpper)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
@@ -600,6 +599,27 @@ worFileBarePak = buildPak
     )
   ]
 
+-- BDLC*_SONG_VRAM.PAK. Takes QB key of e.g. "dlc771"
+worFilePS3SongVRAMPak :: Word32 -> BL.ByteString
+worFilePS3SongVRAMPak songKeyQB = buildPak
+  [ ( Node
+      { nodeFileType = qbKeyCRC ".last"
+      , nodeOffset = 0
+      , nodeSize = 0
+      , nodeFilenamePakKey = songKeyQB
+      , nodeFilenameKey = 2306521930
+      , nodeFilenameCRC = 1794739921
+      , nodeUnknown = 0
+      , nodeFlags = 0
+      }
+    , BL.replicate 4 0xAB
+    )
+  ]
+
+-- Same file for CDL*_TEXT_VRAM.PAK, CDL*_VRAM.PAK, and CMANIFEST_*_VRAM.PAK
+worFilePS3EmptyVRAMPak :: BL.ByteString
+worFilePS3EmptyVRAMPak = worFilePS3SongVRAMPak 0
+
 worFileTextPak
   :: (Word32, BL.ByteString) -- QB file
   -> (Word32, Word32, Word32, Word32, Word32, BL.ByteString) -- QS file
@@ -705,16 +725,19 @@ saveMetadataLIVE library fout = let
       , createLIVE = True
       } folder fout
 
+packageNameHashFormat :: Bool -> T.Text -> B.ByteString
+packageNameHashFormat caps t = B8.pack $ do
+  c <- take 42 $ T.unpack t -- not sure if cutoff is 42 chars, 96 bytes, 42 non-zero bytes, or something else
+  let inRange x y = x <= c && c <= y
+  if inRange 'a' 'z' || inRange 'A' 'Z' || inRange '0' '9'
+    then [if caps then toUpper c else toLower c]
+    else "_"
+
 -- The STFS package display name is used to make the hash in the manifest file's name.
 -- TODO does not work for (I think) characters beyond U+00FF. Seen with U+2019 (right single quote)
 packageNameHash :: T.Text -> (Word32, String)
 packageNameHash t = let
-  titleHashHex = qbKeyCRC $ B8.pack $ do
-    c <- take 42 $ T.unpack t -- not sure if cutoff is 42 chars, 96 bytes, 42 non-zero bytes, or something else
-    let inRange x y = x <= c && c <= y
-    if  | inRange 'a' 'z' || inRange '0' '9' -> [c]
-        | inRange 'A' 'Z' -> [toLower c]
-        | otherwise -> "_"
+  titleHashHex = qbKeyCRC $ packageNameHashFormat False t
   titleHashStr = let
     str = showHex titleHashHex ""
     in replicate (length str - 8) '0' <> str

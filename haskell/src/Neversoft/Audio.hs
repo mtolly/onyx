@@ -343,7 +343,7 @@ readFSB dec = do
     Right _mp3 -> do
       let numStreams = case quotRem (fromIntegral $ fsbSongChannels song) 2 of
             (x, y) -> x + y
-          mp3s = splitInterleavedMP3 numStreams $ head $ fsbSongData fsb
+      mp3s <- splitInterleavedMP3 numStreams $ head $ fsbSongData fsb
       srcs <- forM mp3s $ \mp3 -> ffSource $ Left $ makeHandle "decoded FSB audio" $ byteStringSimpleHandle mp3
       return $ foldl1 CA.merge srcs
 
