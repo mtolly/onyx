@@ -155,7 +155,7 @@ packNPData cfg fin fout hashName = do
                 False
                 (npdEDAT cfg)
                 True
-                False
+                True
               when err $ ioError $ userError "Error in PS3 file encryption"
 
 data NPDecryptConfig = NPDecryptConfig
@@ -181,7 +181,7 @@ decryptNPData cfg fin fout hashName = do
               pname
               (castPtr pklic)
               prif
-              False
+              True
             when err $ ioError $ userError "Error in PS3 file decryption"
 
 -- Appears to be a constant dev klic for WoR DLC

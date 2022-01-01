@@ -440,6 +440,12 @@ mp3CBRFrameSize bs = do
     2 -> Just 2
     3 -> Just 1
     _ -> Nothing
+  samplesPerFrame <- case (mpegVersion, layerVersion) of
+    (_, 1) -> Just 384
+    (_, 2) -> Just 1152
+    (1, 3) -> Just 1152
+    (2, 3) -> Just 576
+    _      -> Nothing
   bitRateLookup <- case (mpegVersion :: Int, layerVersion :: Int) of
     (1, 1) -> Just [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0]
     (1, 2) -> Just [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 0]
@@ -459,9 +465,10 @@ mp3CBRFrameSize bs = do
     (2, 2) -> Just 16000
     _      -> Nothing
   let padding = fromIntegral $ (byte2 .&. 0x2) `shiftR` 1
-  return $ round $ if layerVersion == 1
-    then (((12 * bitRate) / sampleRate) + padding) * 4
-    else ((144 * bitRate) / sampleRate) + padding
+  -- Previously this used an algorithm from http://www.datavoyage.com/mpgscript/mpeghdr.htm
+  -- But it gave wrong results at low bit/sample rates, so now this is from
+  -- https://www.codeproject.com/articles/8295/mpeg-audio-frame-header
+  return $ round $ (samplesPerFrame / 8 * bitRate) / sampleRate + padding
 
 splitInterleavedMP3 :: (MonadFail m) => Int64 -> BL.ByteString -> m [BL.ByteString]
 splitInterleavedMP3 1 bs = return [bs]
@@ -718,7 +725,7 @@ ghBandFSBInterleaveMP3s mp3s = do
         , fsbSongDataSize   = 0
         , fsbSongLoopStart  = 0
         , fsbSongLoopEnd    = maxBound -- should be -1
-        , fsbSongMode       = 0x5000000
+        , fsbSongMode       = 0x14000200
         , fsbSongSampleRate = round $ CA.rate $ head srcs
         , fsbSongDefVol     = 255
         , fsbSongDefPan     = 128

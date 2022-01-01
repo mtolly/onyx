@@ -895,7 +895,7 @@ bool extract_data(FILE *input, FILE *output, const char* input_file_name, unsign
 	printf("Decrypting data...\n");
 	if (decrypt_data(input, output, EDAT, NPD, key, verbose))
 	{
-		printf("Decryption failed!");
+		printf("Decryption failed!\n");
 		return 1;
 	}
 	else

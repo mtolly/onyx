@@ -3238,6 +3238,7 @@ gh5Rules buildInfo dir gh5 = do
       ps3SongRoot        = dir </> "ps3"
       ps3SongVRAMPakDec  = dir </> "song_vram.pak"
       ps3EmptyVRAMPakDec = dir </> "vram.pak"
+      ps3MP3SilenceSmall = dir </> "silence-small.mp3"
       ps3MP3Silence      = dir </> "silence.mp3"
       ps3MP3Song         = dir </> "song.mp3"
       ps3MP3Preview      = dir </> "preview.mp3"
@@ -3254,16 +3255,24 @@ gh5Rules buildInfo dir gh5 = do
   ps3EmptyVRAMPakDec %> \out -> stackIO $ BL.writeFile out worFilePS3EmptyVRAMPak
 
   -- I'm not sure if the game requires 48 kHz,
-  -- but apparently it is required in order to have LAME produce consistent frame sizes.
+  -- but apparently 44.1 kHz results in inconsistent frame sizes,
+  -- which causes problems with the MP3 interleaving.
   let setup lame = liftIO $ do
         L.check $ L.setBrate lame 128
-        -- think we can leave L.setMode as default
         L.check $ L.setQuality lame 5
-  [ps3MP3Silence, ps3MP3Song] &%> \_ -> do
+        L.check $ L.setOutSamplerate lame 48000
+      setupSmall lame = liftIO $ do
+        -- Tried 8-bit 16kHz (MPEG-2 layer 3) but got stuck loading in game
+        L.check $ L.setBrate lame 32
+        L.check $ L.setQuality lame 5
+        L.check $ L.setOutSamplerate lame 48000
+  [ps3MP3SilenceSmall, ps3MP3Silence, ps3MP3Song] &%> \_ -> do
     src <- shk $ buildSource $ Input (planDir </> "everything.wav")
     let resampled = resampleTo 48000 SincMediumQuality src
     stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Song setup resampled
     stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Silence setup
+      $ silent (Frames $ frames resampled) (rate resampled) 2
+    stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3SilenceSmall setupSmall
       $ silent (Frames $ frames resampled) (rate resampled) 2
   ps3MP3Preview %> \out -> do
     src <- shk $ buildSource $ Input (dir </> "preview.wav")
@@ -3273,15 +3282,15 @@ gh5Rules buildInfo dir gh5 = do
   let writeEncryptedFSB out mp3s = do
         fsb <- ghBandFSBInterleaveMP3s mp3s
         case ghworEncrypt $ BL.toStrict $ emitFSB fsb of
-          Nothing  -> fatal "Unable to encrypt .fsb to .fsb.xen"
+          Nothing  -> fatal "Unable to encrypt .fsb to .fsb.ps3"
           Just enc -> stackIO $ B.writeFile out enc
   ps3Audio1PreEdat %> \out -> do
-    shk $ need [ps3MP3Silence]
-    silence <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3Silence
+    shk $ need [ps3MP3SilenceSmall]
+    silence <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3SilenceSmall
     writeEncryptedFSB out [silence, silence, silence, silence]
   ps3Audio2PreEdat %> \out -> do
-    shk $ need [ps3MP3Silence]
-    silence <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3Silence
+    shk $ need [ps3MP3SilenceSmall]
+    silence <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3SilenceSmall
     writeEncryptedFSB out [silence, silence, silence]
   ps3Audio3PreEdat %> \out -> do
     shk $ need [ps3MP3Song, ps3MP3Silence]

@@ -15,8 +15,9 @@ import           Control.Monad                  (forM, guard, replicateM,
                                                  unless, void, when)
 import           Control.Monad.Codec
 import           Control.Monad.IO.Class         (MonadIO)
-import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT, lg,
-                                                 stackIO, warn)
+import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
+                                                 errorToWarning, lg, stackIO,
+                                                 warn)
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
@@ -307,12 +308,11 @@ tryDecryptEDAT dir name readable = do
             _ -> do
               when (isJust mrap) $ lg $ "Found matching RAP for: " <> B8.unpack contentID
               let cfg = NPDecryptConfig { decKLIC = klic, decRAP = mrap }
-              stackIO $ withSystemTempDirectory "onyx-edat-decrypt" $ \tmp -> do
+              errorToWarning $ stackIO $ withSystemTempDirectory "onyx-edat-decrypt" $ \tmp -> do
                 BL.writeFile (tmp </> "in.edat") edat
-                -- TODO catch errors
                 decryptNPData cfg (tmp </> "in.edat") (tmp </> "out.bin") name
                 bs <- B.readFile $ tmp </> "out.bin"
-                return $ Just $ makeHandle (B8.unpack name) $ byteStringSimpleHandle $ BL.fromStrict bs
+                return $ makeHandle (B8.unpack name) $ byteStringSimpleHandle $ BL.fromStrict bs
 
 tryDecryptEDATsInFolder
   :: (MonadIO m, SendMessage m)
@@ -324,9 +324,11 @@ tryDecryptEDATsInFolder dir folder = do
     sub' <- tryDecryptEDATsInFolder dir sub
     return (name, sub')
   files <- forM (folderFiles folder) $ \pair@(name, file) -> case B.stripSuffix ".edat" name <|> B.stripSuffix ".EDAT" name of
-    Just decName -> tryDecryptEDAT dir name file >>= return . \case
-      Nothing  -> pair
-      Just dec -> (decName, dec)
+    Just decName -> tryDecryptEDAT dir name file >>= \case
+      Nothing  -> do
+        warn $ "Not able to decrypt: " <> B8.unpack name
+        return pair
+      Just dec -> return (decName, dec)
     Nothing -> return pair
   return Folder
     { folderSubfolders = subs

@@ -23,6 +23,7 @@ import           Build                            (shakeBuildFiles)
 import           Codec.Picture                    (writePng)
 import           Codec.Picture.Types              (dropTransparency, pixelMap)
 import           Config
+import           Control.Applicative              ((<|>))
 import           Control.Monad.Codec.Onyx.JSON    (loadYaml, toJSON,
                                                    yamlEncodeFile)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard,
@@ -1181,16 +1182,16 @@ commands =
     { commandWord = "decrypt-fsb"
     , commandDesc = "Decrypt an .fsb.xen from a Neversoft GH game."
     , commandUsage = ""
-    , commandRun = \args opts -> fmap concat $ forM args $ \xen -> do
-      dec <- stackIO (decryptFSB xen) >>= maybe (fatal "Couldn't decrypt GH .fsb.xen audio") return
-      out <- outputFile opts $ return $ case stripSuffix ".fsb.xen" xen of
+    , commandRun = \args opts -> fmap concat $ forM args $ \enc -> do
+      dec <- stackIO (decryptFSB enc) >>= maybe (fatal "Couldn't decrypt GH .fsb.(xen/ps3) audio") return
+      out <- outputFile opts $ return $ case stripSuffix ".fsb.xen" enc <|> stripSuffix ".fsb.ps3" enc <|> stripSuffix ".FSB.PS3" enc of
         Just root -> root <.> "fsb"
-        Nothing   -> xen <.> "fsb"
+        Nothing   -> enc <.> "fsb"
       stackIO $ BL.writeFile out dec
-      let xmaDir = out <> "_xma"
-      stackIO $ Dir.createDirectoryIfMissing False xmaDir
-      stackIO $ fsbToXMAs out xmaDir
-      return [out, xmaDir]
+      let contentsDir = out <> "_contents"
+      stackIO $ Dir.createDirectoryIfMissing False contentsDir
+      stackIO $ fsbToXMAs out contentsDir
+      return [out, contentsDir]
     }
 
   , Command
