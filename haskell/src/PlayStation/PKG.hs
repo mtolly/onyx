@@ -8,7 +8,7 @@ References:
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module PlayStation.PKG (PKGHeader(..), PKGMetadata(..), PKG(..), loadPKG, makePKG, tryDecryptEDATs, tryDecryptEDATsInFolder, getDecryptedUSRDIR) where
+module PlayStation.PKG (PKGHeader(..), PKGMetadata(..), PKG(..), loadPKG, makePKG, tryDecryptEDAT, tryDecryptEDATs, tryDecryptEDATsInFolder, getDecryptedUSRDIR) where
 
 import           Control.Applicative            ((<|>))
 import           Control.Monad                  (forM, guard, replicateM,

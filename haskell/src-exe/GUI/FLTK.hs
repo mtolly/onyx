@@ -121,7 +121,8 @@ import           MoggDecrypt                               (oggToMogg)
 import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
 import qualified Network.Socket                            as Socket
-import           Neversoft.Export                          (makeMetadataLIVE)
+import           Neversoft.Export                          (makeMetadataLIVE,
+                                                            makeMetadataPKG)
 import           Numeric                                   (readHex, showHex)
 import           OpenProject
 import           OSFiles                                   (commonDir,
@@ -1246,13 +1247,20 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
     return tab
   worTab <- makeTab windowRect "GH:WoR" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
-    songPageGHWOR sink rect tab proj $ \tgt fout -> do
+    songPageGHWOR sink rect tab proj $ \tgt create -> do
       proj' <- fullProjModify proj
-      let name = "Building GH:WoR LIVE file"
-          task = do
-            tmp <- buildGHWORLIVE tgt proj'
-            stackIO $ Dir.copyFile tmp fout
-            return [fout]
+      let name = case create of
+            GHWORLIVE{} -> "Building GH:WoR LIVE file"
+            GHWORPKG{}  -> "Building GH:WoR PKG file"
+          task = case create of
+            GHWORLIVE fout -> do
+              tmp <- buildGHWORLIVE tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            GHWORPKG fout -> do
+              tmp <- buildGHWORPKG tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
@@ -1482,6 +1490,10 @@ data GH2Create
   | GH2ARK FilePath GH2InstallLocation
   | GH2DIYPS2 FilePath
 
+data GHWORCreate
+  = GHWORLIVE FilePath
+  | GHWORPKG FilePath
+
 horizRadio' :: Rectangle -> Maybe (IO ()) -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
 horizRadio' _    _  []   = error "horizRadio: empty option list"
 horizRadio' rect cb opts = do
@@ -1525,7 +1537,7 @@ batchPageGHWOR
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> ((TargetGH5, FilePath), SongYaml FilePath)) -> IO ())
+  -> ((Project -> ((TargetGH5, GHWORCreate), SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageGHWOR sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -1538,7 +1550,7 @@ batchPageGHWOR sink rect tab build = do
       , ("Pro Drums to 4 lane", True, prefGH4Lane ?preferences)
       ]
     return $ fromMaybe False <$> fn
-  let getTargetSong usePath template = do
+  let getTargetSong isXbox usePath template = do
         speed <- getSpeed
         proTo4 <- getProTo4
         return $ \proj -> let
@@ -1564,7 +1576,7 @@ batchPageGHWOR sink rect tab build = do
             , gh5_Bass = fromMaybe (gh5_Bass defGH5) $ pickedBass <|> pickedGuitar
             , gh5_ProTo4 = proTo4
             }
-          fout = trimXbox $ T.unpack $ foldr ($) template
+          fout = (if isXbox then trimXbox else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH5 tgt
             , let
               modifiers = T.concat
@@ -1579,7 +1591,12 @@ batchPageGHWOR sink rect tab build = do
     sink
     "Create Xbox 360 LIVE files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_ghwor")
-    (\template -> warnXboxGHWoR sink $ getTargetSong id template >>= build)
+    (\template -> warnXboxGHWoR sink $ getTargetSong True GHWORLIVE template >>= build)
+  makeTemplateRunner
+    sink
+    "Create PS3 PKG files"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
+    (\template -> warnXboxGHWoR sink $ getTargetSong False GHWORPKG template >>= build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -2283,7 +2300,7 @@ songPageGHWOR
   -> Rectangle
   -> FL.Ref FL.Group
   -> Project
-  -> (TargetGH5 -> FilePath -> IO ())
+  -> (TargetGH5 -> GHWORCreate -> IO ())
   -> IO ()
 songPageGHWOR sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
@@ -2338,8 +2355,9 @@ songPageGHWOR sink rect tab proj build = mdo
   let initTarget = def
       makeTarget = fmap ($ initTarget) targetModifier
   fullWidth 35 $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Create Xbox 360 LIVE file"
-    FL.setCallback btn $ \_ -> do
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    btn1 <- FL.buttonNew r1 $ Just "Create Xbox 360 LIVE file"
+    FL.setCallback btn1 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save GH:WoR LIVE file"
@@ -2348,10 +2366,23 @@ songPageGHWOR sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> warnXboxGHWoR sink $ build tgt $ trimXbox f
+          Just f  -> warnXboxGHWoR sink $ build tgt $ GHWORLIVE $ trimXbox f
+        _ -> return ()
+    btn2 <- FL.buttonNew r2 $ Just "Create PS3 PKG file"
+    FL.setCallback btn2 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save GH:WoR PKG file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> ".pkg" -- TODO add modifiers
+      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> warnXboxGHWoR sink $ build tgt $ GHWORPKG f
         _ -> return ()
     color <- FLE.rgbColorWithRgb (179,221,187)
-    FL.setColor btn color
+    FL.setColor btn1 color
+    FL.setColor btn2 color
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -3494,20 +3525,23 @@ miscPageWoRSongCache
 miscPageWoRSongCache sink rect tab startTasks = do
   loadedFiles <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
-      startRect' = trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchSTFS $ \info -> let
-    entry = T.pack $ stfsPath info
-    sublines = take 1 $ STFS.md_DisplayName $ stfsMeta info
+      [chopRight 5 -> (xboxRect, _), chopLeft 5 -> (_, ps3Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
+      inputPath = either stfsPath pkgPath
+  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchPackages $ \info -> let
+    entry = T.pack $ inputPath info
+    sublines = case info of
+      Left stfs -> take 1 $ STFS.md_DisplayName $ stfsMeta stfs
+      Right pkg -> ["Content ID: " <> TE.decodeLatin1 (pkgContentID pkg)]
     in (entry, sublines)
-  btn <- FL.buttonNew startRect' $ Just "Create GH:WoR song cache file"
-  taskColor >>= FL.setColor btn
   FL.setResizable tab $ Just group
-  FL.setCallback btn $ \_ -> sink $ EventIO $ do
+  btn1 <- FL.buttonNew xboxRect $ Just "Create GH:WoR song cache (360)"
+  taskColor >>= FL.setColor btn1
+  FL.setCallback btn1 $ \_ -> sink $ EventIO $ do
     inputs <- readMVar loadedFiles
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-    FL.setTitle picker "Save WoR cache file"
+    FL.setTitle picker "Save WoR cache file (360)"
     case inputs of
-      f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory $ stfsPath f
+      f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory $ inputPath f
       _     -> return ()
     FL.setPresetFile picker "ghwor_custom_cache"
     FL.showWidget picker >>= \case
@@ -3515,7 +3549,26 @@ miscPageWoRSongCache sink rect tab startTasks = do
         Nothing -> return ()
         Just f  -> sink $ EventOnyx $ startTasks $ let
           task = do
-            makeMetadataLIVE (map stfsPath inputs) f
+            makeMetadataLIVE (map inputPath inputs) f
+            return [f]
+          in [("Make WoR cache file", task)]
+      _ -> return ()
+  btn2 <- FL.buttonNew ps3Rect $ Just "Create GH:WoR song cache (PS3)"
+  taskColor >>= FL.setColor btn2
+  FL.setCallback btn2 $ \_ -> sink $ EventIO $ do
+    inputs <- readMVar loadedFiles
+    picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+    FL.setTitle picker "Save WoR cache file (PS3)"
+    case inputs of
+      f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory $ inputPath f
+      _     -> return ()
+    FL.setPresetFile picker "ghwor_custom_cache.pkg"
+    FL.showWidget picker >>= \case
+      FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+        Nothing -> return ()
+        Just f  -> sink $ EventOnyx $ startTasks $ let
+          task = do
+            makeMetadataPKG (map inputPath inputs) f
             return [f]
           in [("Make WoR cache file", task)]
       _ -> return ()
@@ -4616,12 +4669,20 @@ launchBatch sink makeMenuBar startFiles = mdo
       batchPageGHWOR sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
-          let ((target, fout), yaml) = settings proj
+          let ((target, creator), yaml) = settings proj
           proj' <- stackIO $ filterParts yaml >>= saveProject proj
-          tmp <- buildGHWORLIVE target proj'
-          stackIO $ Dir.copyFile tmp fout
-          warn "Make sure you create a WoR Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
-          return [fout]
+          let warnWoR = warn "Make sure you create a WoR Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
+          case creator of
+            GHWORLIVE fout -> do
+              tmp <- buildGHWORLIVE target proj'
+              stackIO $ Dir.copyFile tmp fout
+              warnWoR
+              return [fout]
+            GHWORPKG fout -> do
+              tmp <- buildGHWORPKG target proj'
+              stackIO $ Dir.copyFile tmp fout
+              warnWoR
+              return [fout]
       return tab
     , makeTab windowRect "RB3 (Wii)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

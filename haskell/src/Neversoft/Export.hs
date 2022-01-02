@@ -5,10 +5,11 @@
 module Neversoft.Export where
 
 import           Config
-import           Control.Monad                    (forM, forM_)
+import           Control.Monad                    (forM, forM_, guard)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
                                                    stackIO, warn)
+import           Data.Bifunctor                   (first)
 import           Data.Bits
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
@@ -38,10 +39,15 @@ import           Neversoft.Metadata
 import           Neversoft.Note
 import           Neversoft.Pak
 import           Neversoft.QB
+import           NPData                           (ghworCustomMidEdatConfig,
+                                                   npdContentID, packNPData)
 import           Numeric                          (showHex)
 import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
-import           Resources                        (ghWoRthumbnail)
+import           PlayStation.PKG                  (loadPKG, makePKG, pkgFolder,
+                                                   tryDecryptEDAT)
+import           Resources                        (getResourcesPath,
+                                                   ghWoRthumbnail)
 import           RockBand.Codec                   (mapTrack)
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums             as D
@@ -62,7 +68,8 @@ import           RockBand3                        (BasicTiming (..),
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package
 import qualified System.Directory                 as Dir
-import           System.FilePath                  ((<.>))
+import           System.FilePath                  (takeExtension, (<.>), (</>))
+import           System.IO.Temp                   (withSystemTempDirectory)
 
 worGuitarEdits
   :: RTB.T U.Beats ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
@@ -492,9 +499,19 @@ shareMetadata lives = do
   stackIO $ updateMetadata library lives
 
 getAllMetadata :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m [(Word32, [QBStructItem QSResult Word32])]
-getAllMetadata lives = fmap (combineTextPakQBs . concat) $ forM lives $ \live -> do
-  folder <- stackIO $ getSTFSFolder live
-  let texts = [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` name ]
+getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs $ \input -> do
+  texts <- case map toLower $ takeExtension input of
+    ".pkg" -> do
+      folder <- pkgFolder <$> stackIO (loadPKG input)
+      fmap catMaybes $ mapM (uncurry $ tryDecryptEDAT "") $ do
+        (_, usrdir) <- folderSubfolders folder
+        (_, songdir) <- folderSubfolders usrdir
+        pair@(name, _) <- folderFiles songdir
+        guard $ "_TEXT.PAK.PS3.EDAT" `B.isSuffixOf` name
+        return pair
+    _ -> do
+      folder <- stackIO $ getSTFSFolder input
+      return [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` name ]
   fmap catMaybes $ forM texts $ \r -> do
     bs <- stackIO $ useHandle r handleToByteString
     case readTextPakQB bs of
@@ -521,6 +538,11 @@ makeMetadataLIVE :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> Stac
 makeMetadataLIVE lives fout = do
   library <- getAllMetadata lives
   stackIO $ saveMetadataLIVE library fout
+
+makeMetadataPKG :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> StackTraceT m ()
+makeMetadataPKG lives fout = do
+  library <- getAllMetadata lives
+  stackIO $ saveMetadataPKG library fout
 
 worFileManifest :: Word32 -> T.Text -> Word32 -> [Word32] -> BL.ByteString
 worFileManifest titleHashHex cdl manifestQBFilenameKey songIDs = buildPak
@@ -725,6 +747,74 @@ saveMetadataLIVE library fout = let
       , createLIVE = True
       } folder fout
 
+saveMetadataPKG :: [(Word32, [QBStructItem QSResult Word32])] -> FilePath -> IO ()
+saveMetadataPKG library fout = let
+
+  label = "CUSTOMS_DATABASE" :: T.Text
+  (titleHashHex, titleHash) = packageNameHash label
+  cdl = "cdl2000000000"
+  manifestQBFilenameKey
+    : textQBFilenameKey
+    : textQS1FilenameKey
+    : textQS2FilenameKey
+    : textQS3FilenameKey
+    : textQS4FilenameKey
+    : textQS5FilenameKey
+    : _
+    = [2000000001 ..]
+
+  (qb, qs) = showTextPakQBQS $ TextPakQB textQBFilenameKey library
+  textPak = worFileTextPak
+    (textQBFilenameKey, qb)
+    (textQS1FilenameKey, textQS2FilenameKey, textQS3FilenameKey, textQS4FilenameKey, textQS5FilenameKey, qs)
+
+  ps3EDATConfig = ghworCustomMidEdatConfig $ TE.encodeUtf8 label
+  ps3ContentID  = npdContentID ps3EDATConfig
+
+  files =
+    [ ( "cmanifest_" <> titleHash <> ".pak.ps3"
+      , worFileManifest titleHashHex (T.pack cdl) manifestQBFilenameKey []
+      )
+    , ( "cmanifest_" <> titleHash <> "_vram.pak.ps3"
+      , worFilePS3EmptyVRAMPak
+      )
+    , ( cdl <> ".pak.ps3"
+      , worFileBarePak
+      )
+    , ( cdl <> "_vram.pak.ps3"
+      , worFilePS3EmptyVRAMPak
+      )
+    , ( cdl <> "_text.pak.ps3"
+      , textPak
+      )
+    , ( cdl <> "_text_vram.pak.ps3"
+      , worFilePS3EmptyVRAMPak
+      )
+    ]
+
+  in do
+    edats <- withSystemTempDirectory "onyx-ps3-wor-cache" $ \tmp -> do
+      let edatIn  = tmp </> "in.bin"
+          edatOut = tmp </> "out.bin"
+      forM files $ \(name, bs) -> do
+        let edatName = TE.encodeUtf8 $ T.toUpper (T.pack name) <> ".EDAT"
+        BL.writeFile edatIn bs
+        packNPData ps3EDATConfig edatIn edatOut edatName
+        edat <- BL.fromStrict <$> B.readFile edatOut
+        return (edatName, makeHandle (B8.unpack edatName) $ byteStringSimpleHandle edat)
+    let main = Folder
+          { folderSubfolders = return $ (,) "USRDIR" Folder
+            { folderSubfolders = return $ (,) (TE.encodeUtf8 label) Folder
+              { folderSubfolders = []
+              , folderFiles = edats
+              }
+            , folderFiles = []
+            }
+          , folderFiles = []
+          }
+    extra <- getResourcesPath "pkg-contents/ghwor" >>= fmap (first TE.encodeUtf8) . crawlFolder
+    makePKG ps3ContentID (main <> extra) >>= BL.writeFile fout
+
 packageNameHashFormat :: Bool -> T.Text -> B.ByteString
 packageNameHashFormat caps t = B8.pack $ do
   c <- take 42 $ T.unpack t -- not sure if cutoff is 42 chars, 96 bytes, 42 non-zero bytes, or something else
@@ -738,7 +828,6 @@ packageNameHashFormat caps t = B8.pack $ do
 packageNameHash :: T.Text -> (Word32, String)
 packageNameHash t = let
   titleHashHex = qbKeyCRC $ packageNameHashFormat False t
-  titleHashStr = let
-    str = showHex titleHashHex ""
-    in replicate (length str - 8) '0' <> str
+  -- Previously I thought this needed to be padded with 0 in front, but apparently not
+  titleHashStr = showHex titleHashHex ""
   in (titleHashHex, titleHashStr)

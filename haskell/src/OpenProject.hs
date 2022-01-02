@@ -324,6 +324,9 @@ buildGH2LIVE gh2 = buildCommon (GH2 gh2) $ \targetHash -> "gen/target" </> targe
 buildGHWORLIVE :: (MonadIO m) => TargetGH5 -> Project -> StackTraceT (QueueLog m) FilePath
 buildGHWORLIVE gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targetHash </> "ghworlive"
 
+buildGHWORPKG :: (MonadIO m) => TargetGH5 -> Project -> StackTraceT (QueueLog m) FilePath
+buildGHWORPKG gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targetHash </> "ps3.pkg"
+
 installGH2 :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 installGH2 gh2 proj gen = do
   isDX2 <- stackIO (detectGameGH gen) >>= \case
