@@ -3526,22 +3526,19 @@ miscPageWoRSongCache sink rect tab startTasks = do
   loadedFiles <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
       [chopRight 5 -> (xboxRect, _), chopLeft 5 -> (_, ps3Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
-      inputPath = either stfsPath pkgPath
-  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchPackages $ \info -> let
-    entry = T.pack $ inputPath info
-    sublines = case info of
-      Left stfs -> take 1 $ STFS.md_DisplayName $ stfsMeta stfs
-      Right pkg -> ["Content ID: " <> TE.decodeLatin1 (pkgContentID pkg)]
+  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchWoRCachable $ \info -> let
+    entry = T.pack $ fst info
+    sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
   FL.setResizable tab $ Just group
   btn1 <- FL.buttonNew xboxRect $ Just "Create GH:WoR song cache (360)"
   taskColor >>= FL.setColor btn1
   FL.setCallback btn1 $ \_ -> sink $ EventIO $ do
-    inputs <- readMVar loadedFiles
+    inputs <- map fst <$> readMVar loadedFiles
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
     FL.setTitle picker "Save WoR cache file (360)"
     case inputs of
-      f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory $ inputPath f
+      f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory f
       _     -> return ()
     FL.setPresetFile picker "ghwor_custom_cache"
     FL.showWidget picker >>= \case
@@ -3549,18 +3546,18 @@ miscPageWoRSongCache sink rect tab startTasks = do
         Nothing -> return ()
         Just f  -> sink $ EventOnyx $ startTasks $ let
           task = do
-            makeMetadataLIVE (map inputPath inputs) f
+            makeMetadataLIVE inputs f
             return [f]
           in [("Make WoR cache file", task)]
       _ -> return ()
   btn2 <- FL.buttonNew ps3Rect $ Just "Create GH:WoR song cache (PS3)"
   taskColor >>= FL.setColor btn2
   FL.setCallback btn2 $ \_ -> sink $ EventIO $ do
-    inputs <- readMVar loadedFiles
+    inputs <- map fst <$> readMVar loadedFiles
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
     FL.setTitle picker "Save WoR cache file (PS3)"
     case inputs of
-      f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory $ inputPath f
+      f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory f
       _     -> return ()
     FL.setPresetFile picker "ghwor_custom_cache.pkg"
     FL.showWidget picker >>= \case
@@ -3568,7 +3565,7 @@ miscPageWoRSongCache sink rect tab startTasks = do
         Nothing -> return ()
         Just f  -> sink $ EventOnyx $ startTasks $ let
           task = do
-            makeMetadataPKG (map inputPath inputs) f
+            makeMetadataPKG inputs f
             return [f]
           in [("Make WoR cache file", task)]
       _ -> return ()
@@ -3582,6 +3579,19 @@ searchPackages :: FilePath -> Onyx ([FilePath], [PackageSpec])
 searchPackages f = stackIO $ Dir.doesDirectoryExist f >>= \case
   True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
   False -> (\mspec -> ([], toList mspec)) <$> getPackageSpec f
+
+searchWoRCachable :: FilePath -> Onyx ([FilePath], [(FilePath, T.Text)])
+searchWoRCachable f = stackIO $ Dir.doesDirectoryExist f >>= \case
+  True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+  False -> (\mspec -> ([], toList mspec)) <$> isWoRCachable f
+
+isWoRCachable :: FilePath -> IO (Maybe (FilePath, T.Text))
+isWoRCachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
+  then return $ Just (f, "") -- could read content ID from EDAT if we wanted
+  else getPackageSpec f >>= \case
+    Just (Left stfs) -> return $ Just (f, T.concat $ take 1 $ STFS.md_DisplayName $ stfsMeta stfs)
+    Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
+    Nothing          -> return Nothing
 
 data PlatformStatus
   = PlatformXbox

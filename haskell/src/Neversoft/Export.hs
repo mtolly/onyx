@@ -20,6 +20,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
+import Data.Foldable (toList)
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    isNothing)
 import qualified Data.Set                         as Set
@@ -68,7 +69,7 @@ import           RockBand3                        (BasicTiming (..),
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package
 import qualified System.Directory                 as Dir
-import           System.FilePath                  (takeExtension, (<.>), (</>))
+import           System.FilePath                  (takeExtension, (<.>), (</>), takeFileName)
 import           System.IO.Temp                   (withSystemTempDirectory)
 
 worGuitarEdits
@@ -509,6 +510,7 @@ getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs $ \input
         pair@(name, _) <- folderFiles songdir
         guard $ "_TEXT.PAK.PS3.EDAT" `B.isSuffixOf` name
         return pair
+    ".edat" -> toList <$> tryDecryptEDAT "" (B8.pack $ takeFileName input) (fileReadable input)
     _ -> do
       folder <- stackIO $ getSTFSFolder input
       return [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` name ]
@@ -535,13 +537,13 @@ updateMetadata library lives = forM_ lives $ \live -> do
   Dir.renameFile (live <.> "tmp") live
 
 makeMetadataLIVE :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> StackTraceT m ()
-makeMetadataLIVE lives fout = do
-  library <- getAllMetadata lives
+makeMetadataLIVE inputs fout = do
+  library <- getAllMetadata inputs
   stackIO $ saveMetadataLIVE library fout
 
 makeMetadataPKG :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> StackTraceT m ()
-makeMetadataPKG lives fout = do
-  library <- getAllMetadata lives
+makeMetadataPKG inputs fout = do
+  library <- getAllMetadata inputs
   stackIO $ saveMetadataPKG library fout
 
 worFileManifest :: Word32 -> T.Text -> Word32 -> [Word32] -> BL.ByteString
