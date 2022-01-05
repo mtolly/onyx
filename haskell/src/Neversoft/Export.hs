@@ -17,10 +17,10 @@ import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower, toUpper)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
-import Data.Foldable (toList)
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    isNothing)
 import qualified Data.Set                         as Set
@@ -69,7 +69,8 @@ import           RockBand3                        (BasicTiming (..),
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package
 import qualified System.Directory                 as Dir
-import           System.FilePath                  (takeExtension, (<.>), (</>), takeFileName)
+import           System.FilePath                  (takeExtension, takeFileName,
+                                                   (<.>), (</>))
 import           System.IO.Temp                   (withSystemTempDirectory)
 
 worGuitarEdits

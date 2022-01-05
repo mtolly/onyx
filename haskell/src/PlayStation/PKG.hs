@@ -288,6 +288,9 @@ tryDecryptEDAT dir name readable = do
         "BLUS30463" -> do
           lg "Decrypting Rock Band 3 EDAT file"
           return $ Just $ rockBandKLIC dir
+        "BLUS30282" -> do
+          lg "Decrypting The Beatles: Rock Band EDAT file"
+          return $ Just $ rockBandKLIC dir
         _ -> do
           warn $ "Unknown KLIC for game ID " <> show gameID
           return Nothing

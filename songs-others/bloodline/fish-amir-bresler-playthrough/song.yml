@@ -1,0 +1,60 @@
+parts:
+  drums:
+    drums:
+      kicks: 1
+      difficulty:
+        tier: 7
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+metadata:
+  track-number: 1
+  title: Fish (Amir Bresler Drum Playthrough)
+  author: Bloodline, Onyxite
+  year: 2016
+  album: Fish
+  preview-start: 1:30.000
+  subgenre: smooth
+  genre: jazz
+  languages:
+  - English
+  preview-end: 2:00.000
+  difficulty:
+    tier: 7
+  rating: Family Friendly
+  artist: Live Beat Tapes
+  file-album-art: cover.png_xbox
+plans:
+  mogg:
+    crowd:
+    - 4
+    - 5
+    file-mogg: audio.mogg
+    parts:
+      drums:
+      - 0
+      - 1
+    karaoke: false
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+targets:
+  rb3:
+    game: rb3
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

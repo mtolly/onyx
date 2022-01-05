@@ -33,8 +33,14 @@ plans:
     parts:
       drums:
         pad: [2.314, only: [Drums, jammit-track]]
+      bass:
+        pad: [2.314, only: [Bass, jammit-track]]
     song:
-      pad: [2.314, without: [drums, jammit-track]]
+      pad:
+      - 2.314
+      - mix:
+        - without: [drums, jammit-track]
+        - gain: [-1, only: [Bass, jammit-track]]
   album:
     countin: *countin
     song:
