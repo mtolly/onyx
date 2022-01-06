@@ -1,5 +1,10 @@
 # Version history
 
+## 20220105
+
+* Prerelease version
+* Demo of quick CON to PKG screen
+
 ## 20211224
 
 * Support for generating PlayStation 3 format for Rock Band 3 and Rock Band 2

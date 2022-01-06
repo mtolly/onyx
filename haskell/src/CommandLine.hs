@@ -11,6 +11,7 @@ module CommandLine
 , FileType(..)
 , runDolphin
 , blackVenue
+, conToPkg
 ) where
 
 import qualified Amplitude.PS2.Ark                as AmpArk
@@ -27,12 +28,14 @@ import           Control.Applicative              ((<|>))
 import           Control.Monad.Codec.Onyx.JSON    (loadYaml, toJSON,
                                                    yamlEncodeFile)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard,
-                                                   when)
+                                                   when, void)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
+import Data.Hashable (hash)
 import           Control.Monad.Trans.StackTrace
 import           Data.Bifunctor                   (first)
+import Resources (getResourcesPath)
 import           Data.Binary.Codec.Class
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
@@ -44,6 +47,7 @@ import qualified Data.Conduit.Audio               as CA
 import           Data.Conduit.Audio.Sndfile       (sinkSnd, sourceSndFrom)
 import           Data.Default.Class               (def)
 import qualified Data.Digest.Pure.MD5             as MD5
+import Data.DTA
 import           Data.DTA.Lex                     (scanStack)
 import           Data.DTA.Parse                   (parseStack)
 import qualified Data.DTA.Serialize               as D
@@ -62,7 +66,8 @@ import           Data.SimpleHandle                (Folder (..),
                                                    crawlFolder, findFileCI,
                                                    handleToByteString,
                                                    makeHandle, saveHandleFolder,
-                                                   useHandle)
+                                                   useHandle, saveReadable)
+import NPData (packNPData, rb3CustomMidEdatConfig, rb2CustomMidEdatConfig, npdContentID)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import qualified Data.Yaml                        as Y
@@ -1702,3 +1707,78 @@ blackVenue fcon = inside ("Inserting black VENUE in: " <> fcon) $ do
       ftemp = fcon <> ".tmp"
   stackIO $ makeCONReadable opts topFolder' ftemp
   stackIO $ Dir.renameFile ftemp fcon
+
+conToPkg :: (SendMessage m, MonadResource m) => Bool -> FilePath -> FilePath -> StackTraceT m ()
+conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
+  conFolder <- stackIO $ getSTFSFolder fin
+  title <- stackIO $ withSTFSPackage fin $ return . T.concat . take 1 . md_DisplayName . stfsMetadata
+  let rbps3Folder = T.toUpper $ T.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
+        $ "O" <> take 6 (show $ hash $ show $ void conFolder) <> T.unpack title
+      rbps3EDATConfig = if isRB3
+        then rb3CustomMidEdatConfig $ TE.encodeUtf8 rbps3Folder
+        else rb2CustomMidEdatConfig $ TE.encodeUtf8 rbps3Folder
+      rbps3ContentID = npdContentID rbps3EDATConfig
+      container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
+      adjustFiles folder = do
+        newFiles <- forM (folderFiles folder) $ \(name, r) -> case map toLower $ takeExtension $ T.unpack name of
+          ".mogg" -> stackIO $ do
+            moggType <- useHandle r $ \h -> B.hGet h 1
+            let tmpIn  = tmp </> "in.mogg"
+                tmpOut = tmp </> "out.mogg"
+            case B.unpack moggType of
+              [0xA] -> do
+                saveReadable r tmpIn
+                encryptRB1 tmpIn tmpOut
+                r' <- makeHandle "" . byteStringSimpleHandle . BL.fromStrict <$> B.readFile tmpOut
+                return (name, r')
+              _     -> return (name, r)
+          ".mid" -> stackIO $ do
+            let tmpIn  = tmp </> "in.mid"
+                tmpOut = tmp </> "out.mid.edat"
+                name' = name <> ".edat"
+            saveReadable r tmpIn
+            packNPData rbps3EDATConfig tmpIn tmpOut $ TE.encodeUtf8 name'
+            r' <- makeHandle "" . byteStringSimpleHandle . BL.fromStrict <$> B.readFile tmpOut
+            return (name', r')
+          ".dta" -> do
+            b <- stackIO $ useHandle r handleToByteString
+            mdta <- errorToWarning $ readDTA_latin1 $ BL.toStrict b
+            case mdta of
+              Just dta -> do
+                let adjustDTA (DTA z tree) = DTA z $ adjustDTATree tree
+                    adjustDTATree (Tree nid chunks) = Tree nid $ adjustDTAChunks chunks
+                    adjustDTAChunks = \case
+                      [Sym "rating", Int 4] -> [Sym "rating", Int 2]
+                      xs -> map adjustDTAChunk xs
+                    adjustDTAChunk = \case
+                      Parens tree -> Parens $ adjustDTATree tree
+                      Braces tree -> Braces $ adjustDTATree tree
+                      Brackets tree -> Brackets $ adjustDTATree tree
+                      x -> x
+                    b' = BL.fromStrict $ B8.pack $ T.unpack $ showDTA $ adjustDTA dta
+                    r' = makeHandle "" $ byteStringSimpleHandle b'
+                return (name, r')
+              Nothing -> do
+                warn "Couldn't parse songs.dta; passing through unmodified. (For official non-RBN DLC, this should be fine)"
+                return (name, r)
+          ".milo_xbox" -> do
+            let name' = T.pack $ dropExtension (T.unpack name) <> ".milo_ps3"
+            return (name', r)
+          ".png_xbox" -> stackIO $ do
+            b <- useHandle r handleToByteString
+            let name' = T.pack $ dropExtension (T.unpack name) <> ".png_ps3"
+                b' = BL.take 0x20 b <> BL.pack (swapBytes $ BL.unpack $ BL.drop 0x20 b)
+                swapBytes (x : y : xs) = y : x : swapBytes xs
+                swapBytes xs           = xs
+                r' = makeHandle "" $ byteStringSimpleHandle b'
+            return (name', r')
+          _ -> return (name, r)
+        newSubs <- forM (folderSubfolders folder) $ \(name, sub) -> do
+          sub' <- adjustFiles sub
+          return (name, sub')
+        return Folder { folderSubfolders = newSubs, folderFiles = newFiles }
+  main <- container "USRDIR" . container rbps3Folder <$> adjustFiles conFolder
+  stackIO $ do
+    extraPath <- getResourcesPath $ if isRB3 then "pkg-contents/rb3" else "pkg-contents/rb2"
+    extra <- crawlFolder extraPath
+    makePKG rbps3ContentID (first TE.encodeUtf8 $ main <> extra) >>= BL.writeFile fout
