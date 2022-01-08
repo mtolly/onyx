@@ -20,7 +20,8 @@ import           Codec.Picture                             (readImage,
                                                             savePngImage,
                                                             writePng)
 import           CommandLine                               (blackVenue,
-                                                            runDolphin, conToPkg)
+                                                            conToPkg,
+                                                            runDolphin)
 import           Config
 import           Control.Applicative                       ((<|>))
 import           Control.Concurrent                        (MVar, ThreadId,

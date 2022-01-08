@@ -2,7 +2,7 @@
 {-# LANGUAGE BinaryLiterals    #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Image (toDXT1File, toHMXPS2, DXTFormat(..), readRBImage, readRBImageMaybe, readDDS) where
+module Image (toDXT1File, toHMXPS2, DXTFormat(..), readRBImage, readRBImageMaybe, readDDS, arrangeRows, readDXTChunk) where
 
 import           Codec.Picture
 import qualified Codec.Picture.STBIR        as STBIR

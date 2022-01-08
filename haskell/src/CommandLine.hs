@@ -28,14 +28,12 @@ import           Control.Applicative              ((<|>))
 import           Control.Monad.Codec.Onyx.JSON    (loadYaml, toJSON,
                                                    yamlEncodeFile)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard,
-                                                   when, void)
+                                                   void, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
-import Data.Hashable (hash)
 import           Control.Monad.Trans.StackTrace
 import           Data.Bifunctor                   (first)
-import Resources (getResourcesPath)
 import           Data.Binary.Codec.Class
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
@@ -47,7 +45,7 @@ import qualified Data.Conduit.Audio               as CA
 import           Data.Conduit.Audio.Sndfile       (sinkSnd, sourceSndFrom)
 import           Data.Default.Class               (def)
 import qualified Data.Digest.Pure.MD5             as MD5
-import Data.DTA
+import           Data.DTA
 import           Data.DTA.Lex                     (scanStack)
 import           Data.DTA.Parse                   (parseStack)
 import qualified Data.DTA.Serialize               as D
@@ -55,6 +53,7 @@ import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Hashable                    (hash)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (find, stripSuffix, unsnoc)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
@@ -66,8 +65,7 @@ import           Data.SimpleHandle                (Folder (..),
                                                    crawlFolder, findFileCI,
                                                    handleToByteString,
                                                    makeHandle, saveHandleFolder,
-                                                   useHandle, saveReadable)
-import NPData (packNPData, rb3CustomMidEdatConfig, rb2CustomMidEdatConfig, npdContentID)
+                                                   saveReadable, useHandle)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import qualified Data.Yaml                        as Y
@@ -92,6 +90,9 @@ import           Neversoft.Pak                    (Node (..), buildPak,
                                                    splitPakNodes)
 import           Neversoft.QB                     (discardStrings, lookupQB,
                                                    lookupQS, parseQB, putQB)
+import           NPData                           (npdContentID, packNPData,
+                                                   rb2CustomMidEdatConfig,
+                                                   rb3CustomMidEdatConfig)
 import           OpenProject
 import           OSFiles                          (copyDirRecursive,
                                                    shortWindowsPath)
@@ -103,6 +104,7 @@ import           PrettyDTA                        (DTASingle (..),
                                                    writeDTASingle)
 import           ProKeysRanges                    (closeShiftsFile)
 import           Reaper.Build                     (TuningInfo (..), makeReaper)
+import           Resources                        (getResourcesPath)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Vocal             (nullVox)
