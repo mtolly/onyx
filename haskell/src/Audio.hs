@@ -579,9 +579,14 @@ supportedFFExt f = map toLower (takeExtension f) `elem`
   [".flac", ".wav", ".ogg", ".opus", ".mp3", ".xma"]
 
 audioLength :: (MonadIO m) => FilePath -> m (Maybe Integer)
-audioLength f = if supportedFFExt f
-  then liftIO $ Just . fromIntegral . frames <$> ffSourceSimple f
-  else return Nothing
+audioLength f = case map toLower $ takeExtension f of
+  -- ffmpeg fails to give 0 frames for empty ogg files, saying
+  -- "Estimating duration from bitrate, this may be inaccurate"
+  ".ogg" -> liftIO $ Just . fromIntegral . frames
+    <$> (sourceVorbisFile (Frames 0) f :: IO (AudioSource (ResourceT IO) Float))
+  _      -> if supportedFFExt f
+    then liftIO $ Just . fromIntegral . frames <$> ffSourceSimple f
+    else return Nothing
 
 audioChannels :: (MonadIO m) => FilePath -> m (Maybe Int)
 audioChannels f = if supportedFFExt f
