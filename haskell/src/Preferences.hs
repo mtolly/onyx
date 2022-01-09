@@ -36,6 +36,7 @@ data Preferences = Preferences
   , prefWarnedXboxGH2 :: Bool
   , prefWarnedXboxWoR :: Bool
   , prefGH4Lane       :: Bool
+  , prefDecryptSilent :: Bool
   }
 
 instance StackJSON Preferences where
@@ -59,6 +60,7 @@ instance StackJSON Preferences where
     prefWarnedXboxGH2 <- prefWarnedXboxGH2 =. opt  False        "warned-xbox"     stackJSON
     prefWarnedXboxWoR <- prefWarnedXboxWoR =. opt  False        "warned-xbox-wor" stackJSON
     prefGH4Lane       <- prefGH4Lane       =. opt  False        "gh-4-lane"       stackJSON
+    prefDecryptSilent <- prefDecryptSilent =. opt  False        "decrypt-silent"  stackJSON
     return Preferences{..}
 
 instance Default Preferences where

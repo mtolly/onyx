@@ -305,6 +305,7 @@ importGH2DLC src folder = do
             , _fileTempo = Nothing
             , _karaoke = False
             , _multitrack = False
+            , _decryptSilent = False
             }
           }
 

@@ -238,17 +238,18 @@ data Plan f
     , _fileTempo    :: Maybe f
     }
   | MoggPlan
-    { _fileMOGG     :: Maybe f
-    , _moggMD5      :: Maybe T.Text
-    , _moggParts    :: Parts (PartAudio [Int])
-    , _moggCrowd    :: [Int]
-    , _pans         :: [Double]
-    , _vols         :: [Double]
-    , _planComments :: [T.Text]
-    , _karaoke      :: Bool
-    , _multitrack   :: Bool
-    , _tuningCents  :: Int
-    , _fileTempo    :: Maybe f
+    { _fileMOGG      :: Maybe f
+    , _moggMD5       :: Maybe T.Text
+    , _moggParts     :: Parts (PartAudio [Int])
+    , _moggCrowd     :: [Int]
+    , _pans          :: [Double]
+    , _vols          :: [Double]
+    , _planComments  :: [T.Text]
+    , _karaoke       :: Bool
+    , _multitrack    :: Bool
+    , _tuningCents   :: Int
+    , _fileTempo     :: Maybe f
+    , _decryptSilent :: Bool -- should encrypted audio just be treated as silent
     }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
@@ -316,27 +317,32 @@ instance (StackJSON f) => StackJSON (Plan f) where
   stackJSON = Codec
     { codecIn = let
       parseMOGG = object $ do
-        _fileMOGG <- optionalKey "file-mogg" fromJSON
-        _moggMD5 <- optionalKey "mogg-md5" fromJSON
-        _moggParts <- requiredKey "parts" fromJSON
-        _moggCrowd <- fromMaybe [] <$> optionalKey "crowd" fromJSON
-        _pans <- requiredKey "pans" fromJSON
-        _vols <- requiredKey "vols" fromJSON
-        _planComments <- fromMaybe [] <$> optionalKey "comments" fromJSON
-        _karaoke    <- fromMaybe False          <$> optionalKey "karaoke"    fromJSON
-        _multitrack <- fromMaybe (not _karaoke) <$> optionalKey "multitrack" fromJSON
-        _tuningCents <- fromMaybe 0 <$> optionalKey "tuning-cents" fromJSON
-        _fileTempo <- fromMaybe Nothing <$> optionalKey "file-tempo" fromJSON
-        expectedKeys ["file-mogg", "mogg-md5", "parts", "crowd", "pans", "vols", "comments", "karaoke", "multitrack", "silent", "tuning-cents", "file-tempo"]
+        _fileMOGG      <- optionalKey "file-mogg" fromJSON
+        _moggMD5       <- optionalKey "mogg-md5" fromJSON
+        _moggParts     <- requiredKey "parts" fromJSON
+        _moggCrowd     <- fromMaybe [] <$> optionalKey "crowd" fromJSON
+        _pans          <- requiredKey "pans" fromJSON
+        _vols          <- requiredKey "vols" fromJSON
+        _planComments  <- fromMaybe [] <$> optionalKey "comments" fromJSON
+        _karaoke       <- fromMaybe False          <$> optionalKey "karaoke"    fromJSON
+        _multitrack    <- fromMaybe (not _karaoke) <$> optionalKey "multitrack" fromJSON
+        _tuningCents   <- fromMaybe 0 <$> optionalKey "tuning-cents" fromJSON
+        _fileTempo     <- fromMaybe Nothing <$> optionalKey "file-tempo" fromJSON
+        _decryptSilent <- fromMaybe False <$> optionalKey "decrypt-silent" fromJSON
+        expectedKeys
+          [ "file-mogg", "mogg-md5", "parts", "crowd", "pans", "vols"
+          , "comments", "karaoke", "multitrack", "silent", "tuning-cents"
+          , "file-tempo", "decrypt-silent"
+          ]
         return MoggPlan{..}
       parseNormal = object $ do
-        _song <- optionalKey "song" fromJSON
-        _countin <- fromMaybe (Countin []) <$> optionalKey "countin" fromJSON
-        _planParts <- fromMaybe (Parts Map.empty) <$> optionalKey "parts" fromJSON
-        _crowd <- optionalKey "crowd" fromJSON
+        _song         <- optionalKey "song" fromJSON
+        _countin      <- fromMaybe (Countin []) <$> optionalKey "countin" fromJSON
+        _planParts    <- fromMaybe (Parts Map.empty) <$> optionalKey "parts" fromJSON
+        _crowd        <- optionalKey "crowd" fromJSON
         _planComments <- fromMaybe [] <$> optionalKey "comments" fromJSON
-        _tuningCents <- fromMaybe 0 <$> optionalKey "tuning-cents" fromJSON
-        _fileTempo <- fromMaybe Nothing <$> optionalKey "file-tempo" fromJSON
+        _tuningCents  <- fromMaybe 0 <$> optionalKey "tuning-cents" fromJSON
+        _fileTempo    <- fromMaybe Nothing <$> optionalKey "file-tempo" fromJSON
         expectedKeys ["song", "countin", "parts", "crowd", "comments", "tuning-cents", "file-tempo"]
         return Plan{..}
       in decideKey [("mogg-md5", parseMOGG), ("file-mogg", parseMOGG)] parseNormal
@@ -362,6 +368,7 @@ instance (StackJSON f) => StackJSON (Plan f) where
         , ["multitrack" .= _multitrack]
         , ["tuning-cents" .= _tuningCents | _tuningCents /= 0]
         , map ("file-tempo" .=) $ toList _fileTempo
+        , ["decrypt-silent" .= _decryptSilent | _decryptSilent]
         ]
     }
 

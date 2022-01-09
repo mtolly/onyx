@@ -254,16 +254,19 @@ startLoad makeMenuBar hasAudio fs = do
       [imp] -> continueImport makeMenuBar hasAudio imp
       imps  -> stackIO $ sink $ EventIO $ multipleSongsWindow sink makeMenuBar hasAudio imps
 
-importWithVenueSetting :: Importable OnyxInner -> Onyx Project
-importWithVenueSetting imp = do
+importWithPreferences :: Importable OnyxInner -> Onyx Project
+importWithPreferences imp = do
   projInit <- impProject imp
-  fmap prefBlackVenue readPreferences >>= \case
-    False -> return projInit
-    True  -> stackIO $ saveProject projInit $ (projectSongYaml projInit)
-      { _global = (_global $ projectSongYaml projInit)
-        { _autogenTheme = Nothing
+  prefs <- readPreferences
+  let applyBlackVenue yaml = if prefBlackVenue prefs
+        then yaml { _global = (_global yaml) { _autogenTheme = Nothing } }
+        else yaml
+      applyDecryptSilent yaml = yaml
+        { _plans = flip fmap (_plans yaml) $ \case
+          mogg@MoggPlan{} -> mogg { _decryptSilent = prefDecryptSilent prefs }
+          plan            -> plan
         }
-      }
+  stackIO $ saveProject projInit $ applyBlackVenue $ applyDecryptSilent $ projectSongYaml projInit
 
 continueImport
   :: (Width -> Bool -> IO Int)
@@ -273,7 +276,7 @@ continueImport
 continueImport makeMenuBar hasAudio imp = do
   sink <- getEventSink
   -- TODO this can potentially not clean up the temp folder if interrupted during import
-  proj <- importWithVenueSetting imp
+  proj <- importWithPreferences imp
   void $ shakeBuild1 proj [] "gen/cover.png"
   -- quick hack to select an audio plan on my projects
   let withPlan k = do
@@ -4625,7 +4628,7 @@ launchBatch sink makeMenuBar startFiles = mdo
     return (tab, getter)
   let doImport imp fn = do
         -- TODO this can potentially not clean up the temp folder if interrupted during import
-        proj <- importWithVenueSetting imp
+        proj <- importWithPreferences imp
         res <- errorToEither $ fn proj
         mapM_ release $ projectRelease proj
         either throwNoContext return res
@@ -4862,20 +4865,17 @@ isNewestRelease cb = do
 foreign import ccall "&fl_display" fl_display :: Ptr HINSTANCE
 #endif
 
-launchPreferences :: (Event -> IO ()) -> Onyx ()
-launchPreferences sink = do
+launchPreferences :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Onyx ()
+launchPreferences sink makeMenuBar = do
   loadedPrefs <- readPreferences
-  let width = 700
-      padding = 10
-      lineHeight = 30
-      numLines = 13
-      leftLabelSize = 160
-      height = (padding + lineHeight) * numLines + padding
-      lineBox i = Rectangle
-        (Position (X padding) (Y $ padding + (lineHeight + padding) * i))
-        (Size (Width $ width - padding * 2) (Height lineHeight))
+  let windowWidth = Width 800
+      windowHeight = Height 400
+      windowSize = Size windowWidth windowHeight
+      leaveLeftLabelSpace = snd . chopLeft 180
+      lineBox = padded 5 10 5 10 (Size windowWidth (Height 40))
+      bottomHeight = 55
       folderBox rect label initValue = do
-        let (_, rectA) = chopLeft leftLabelSize rect
+        let rectA = leaveLeftLabelSpace rect
             (inputRect, rectB) = chopRight 100 rectA
             (_, rectC) = chopRight 90 rectB
             (browseRect, _) = chopLeft 40 rectC
@@ -4901,146 +4901,199 @@ launchPreferences sink = do
         resetButton <- FL.buttonNew resetRect $ Just "@undo"
         FL.setCallback resetButton $ \_ -> sink $ EventIO $ do
           void $ FL.setValue input ""
-        return $ FL.getValue input
+        return $ (\case "" -> Nothing; x -> Just $ T.unpack x) <$> FL.getValue input
   stackIO $ do
-    window <- FL.windowNew
-      (Size (Width width) (Height height))
-      Nothing
-      (Just "Onyx Preferences")
-
-    getMagma <- horizRadio (lineBox 0)
-      [ ("Magma required" , MagmaRequire, prefMagma loadedPrefs == MagmaRequire)
-      , ("Magma optional" , MagmaTry    , prefMagma loadedPrefs == MagmaTry    )
-      , ("Don't use Magma", MagmaDisable, prefMagma loadedPrefs == MagmaDisable)
+    window <- FL.windowNew windowSize Nothing $ Just "Onyx Preferences"
+    behindTabsColor >>= FL.setColor window
+    menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+    let (tabsRect, bottomRect) = chopBottom bottomHeight $ snd $ chopTop menuHeight $ Rectangle
+          (Position (X 0) (Y 0))
+          windowSize
+    FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
+    FL.sizeRange window windowSize
+    FL.begin window
+    tabs <- FL.tabsNew tabsRect Nothing
+    let combinePrefs :: [IO (a -> a)] -> IO (a -> a)
+        combinePrefs = fmap (foldr (.) id) . sequence
+    (tab1, pref1) <- makeTab tabsRect "Rock Band" $ \rect tab -> do
+      pack <- FL.packNew rect Nothing
+      fn <- combinePrefs <$> sequence
+        [ do
+          getMagma <- lineBox $ \box -> horizRadio box
+            [ ("Magma required" , MagmaRequire, prefMagma loadedPrefs == MagmaRequire)
+            , ("Magma optional" , MagmaTry    , prefMagma loadedPrefs == MagmaTry    )
+            , ("Don't use Magma", MagmaDisable, prefMagma loadedPrefs == MagmaDisable)
+            ]
+          return $ maybe id (\v prefs -> prefs { prefMagma = v }) <$> getMagma
+        , do
+          check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Always export black VENUE track"
+          void $ FL.setValue check $ prefBlackVenue loadedPrefs
+          return $ (\b prefs -> prefs { prefBlackVenue = b }) <$> FL.getValue check
+        , do
+          check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Label 2x kick charts as (2x Bass Pedal) by default"
+          void $ FL.setValue check $ prefLabel2x loadedPrefs
+          return $ (\b prefs -> prefs { prefLabel2x = b }) <$> FL.getValue check
+        ]
+      FL.end pack
+      return (tab, fn)
+    restPrefs <- sequence
+      [ makeTab tabsRect "Guitar Hero II" $ \rect _tab -> do
+        pack <- FL.packNew rect Nothing
+        fn <- combinePrefs <$> sequence
+          [ lineBox $ \box -> do
+            let [_, middleBox, _] = splitHorizN 3 box
+            gh2OffsetCounter <- FL.counterNew middleBox $ Just "GH2 Audio Offset (ms)"
+            FL.setLabeltype gh2OffsetCounter FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+            FL.setAlign gh2OffsetCounter $ FLE.Alignments [FLE.AlignTypeLeft]
+            FL.setStep gh2OffsetCounter 1
+            FL.setLstep gh2OffsetCounter 10
+            FL.setTooltip gh2OffsetCounter $ T.unwords
+              [ "Adjust audio offset only for Guitar Hero II output, intended to compensate for emulator delay."
+              , "Positive values mean audio will be pulled earlier, to account for delay."
+              , "Negative values mean audio will be pushed later."
+              ]
+            void $ FL.setValue gh2OffsetCounter $ prefGH2Offset loadedPrefs * 1000
+            return $ (\ms prefs -> prefs { prefGH2Offset = ms / 1000 }) <$> FL.getValue gh2OffsetCounter
+          , do
+            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Sort GH2 bonus songs when adding to .ARK"
+            void $ FL.setValue check $ prefSortGH2 loadedPrefs
+            return $ (\b prefs -> prefs { prefSortGH2 = b }) <$> FL.getValue check
+          ]
+        FL.end pack
+        return fn
+      , makeTab tabsRect "Clone Hero" $ \rect _tab -> do
+        pack <- FL.packNew rect Nothing
+        fn <- combinePrefs <$> sequence
+          [ do
+            getDir <- lineBox $ \box -> folderBox box "Default CH folder" $ T.pack $ fromMaybe "" $ prefDirCH loadedPrefs
+            return $ (\mdir prefs -> prefs { prefDirCH = mdir }) <$> getDir
+          ]
+        FL.end pack
+        return fn
+      , makeTab tabsRect "360" $ \rect _tab -> do
+        pack <- FL.packNew rect Nothing
+        fn <- combinePrefs <$> sequence
+          [ do
+            getDir <- lineBox $ \box -> folderBox box "Default CON/LIVE folder" $ T.pack $ fromMaybe "" $ prefDirRB loadedPrefs
+            return $ (\mdir prefs -> prefs { prefDirRB = mdir }) <$> getDir
+          , do
+            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Ensure valid filenames for Xbox 360 USB or HDD drives"
+            void $ FL.setValue check $ prefTrimXbox loadedPrefs
+            FL.setTooltip check $ T.unwords
+              [ "When checked, the filenames of CON or LIVE files will be trimmed to a"
+              , "max of 42 characters, and will also have plus and comma characters"
+              , "replaced (a restriction for files on a 360 hard drive, but not USB)."
+              ]
+            return $ (\b prefs -> prefs { prefTrimXbox = b }) <$> FL.getValue check
+          , do
+            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Use true number IDs instead of symbols on Xbox 360 RB files"
+            void $ FL.setValue check $ prefRBNumberID loadedPrefs
+            FL.setTooltip check $ T.unwords
+              [ "When checked, Rock Band files will use a random integer for song_id."
+              , "Otherwise, an 'o' is prefixed to form a symbol, and the game will"
+              , "generate a random ID. A true integer is required for some contexts"
+              , "such as RGH online play and PS3 conversion, and also maintains scores"
+              , "even if the song cache is regenerated."
+              ]
+            return $ (\b prefs -> prefs { prefRBNumberID = b }) <$> FL.getValue check
+          ]
+        FL.end pack
+        return fn
+      , makeTab tabsRect "PS3" $ \rect _tab -> do
+        pack <- FL.packNew rect Nothing
+        fn <- combinePrefs <$> sequence
+          [ do
+            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Encrypt .mid.edat files for PS3"
+            void $ FL.setValue check $ prefPS3Encrypt loadedPrefs
+            FL.setTooltip check $ T.unwords
+              [ "When checked, .mid.edat files for PS3 customs will be encrypted."
+              , "This is required for a real console, but optional (and can be less"
+              , "convenient) when playing on emulator."
+              ]
+            return $ (\b prefs -> prefs { prefPS3Encrypt = b }) <$> FL.getValue check
+          -- TODO default PKG output folder
+          -- TODO folder to install direct into RPCS3 hdd
+          ]
+        FL.end pack
+        return fn
+      , makeTab tabsRect "Wii" $ \rect _tab -> do
+        pack <- FL.packNew rect Nothing
+        fn <- combinePrefs <$> sequence
+          [ do
+            getDir <- lineBox $ \box -> folderBox box "Default Wii .app folder" $ T.pack $ fromMaybe "" $ prefDirWii loadedPrefs
+            return $ (\mdir prefs -> prefs { prefDirWii = mdir }) <$> getDir
+          ]
+        FL.end pack
+        return fn
+      , makeTab tabsRect "3D Preview" $ \rect _tab -> do
+        pack <- FL.packNew rect Nothing
+        fn <- combinePrefs <$> sequence
+          [ do
+            getMSAA <- lineBox $ \box -> horizRadio box
+              [ ("No MSAA" , Nothing, prefMSAA loadedPrefs == Nothing)
+              , ("MSAA 2x" , Just 2 , prefMSAA loadedPrefs == Just 2 )
+              , ("MSAA 4x" , Just 4 , prefMSAA loadedPrefs == Just 4 )
+              , ("MSAA 8x" , Just 8 , prefMSAA loadedPrefs == Just 8 )
+              , ("MSAA 16x", Just 16, prefMSAA loadedPrefs == Just 16)
+              ]
+            return $ maybe id (\v prefs -> prefs { prefMSAA = v }) <$> getMSAA
+          , do
+            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "FXAA"
+            void $ FL.setValue check $ prefFXAA loadedPrefs
+            return $ (\b prefs -> prefs { prefFXAA = b }) <$> FL.getValue check
+          -- TODO lefty flip
+          ]
+        FL.end pack
+        return fn
+      , makeTab tabsRect "Audio" $ \rect _tab -> do
+        pack <- FL.packNew rect Nothing
+        fn <- combinePrefs <$> sequence
+          [ do
+            sliderQuality <- lineBox $ \box -> FL.horValueSliderNew (leaveLeftLabelSpace box) $ Just "OGG Vorbis quality"
+            FL.setLabelsize sliderQuality $ FL.FontSize 13
+            FL.setLabeltype sliderQuality FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+            FL.setAlign sliderQuality $ FLE.Alignments [FLE.AlignTypeLeft]
+            FL.setMinimum sliderQuality 0
+            FL.setMaximum sliderQuality 10
+            void $ FL.setValue sliderQuality $ prefOGGQuality loadedPrefs * 10
+            return $ (\v prefs -> prefs { prefOGGQuality = v / 10 }) <$> FL.getValue sliderQuality
+          , do
+            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Treat encrypted MOGGs as silent instead of an error"
+            void $ FL.setValue check $ prefDecryptSilent loadedPrefs
+            return $ (\b prefs -> prefs { prefDecryptSilent = b }) <$> FL.getValue check
+          ]
+        FL.end pack
+        return fn
       ]
-
-    let [check1, check2] = splitHorizN 2 (lineBox 1)
-        [check3, check4] = splitHorizN 2 (lineBox 2)
-        [check5, _     ] = splitHorizN 2 (lineBox 3)
-    checkBlackVenue <- FL.checkButtonNew check1 $ Just "Use black venue in RB files"
-    checkLabel2x    <- FL.checkButtonNew check2 $ Just "Label (2x Bass Pedal) by default"
-    checkTrimXbox   <- FL.checkButtonNew check3 $ Just "Ensure valid Xbox 360 filenames"
-    checkRBNumberID <- FL.checkButtonNew check4 $ Just "Use true number IDs in RB files"
-    checkPS3Encrypt <- FL.checkButtonNew check5 $ Just "Encrypt .mid.edat files for PS3"
-    void $ FL.setValue checkBlackVenue $ prefBlackVenue loadedPrefs
-    void $ FL.setValue checkLabel2x    $ prefLabel2x    loadedPrefs
-    void $ FL.setValue checkTrimXbox   $ prefTrimXbox   loadedPrefs
-    void $ FL.setValue checkRBNumberID $ prefRBNumberID loadedPrefs
-    void $ FL.setValue checkPS3Encrypt $ prefPS3Encrypt loadedPrefs
-
-    FL.setTooltip checkTrimXbox $ T.unwords
-      [ "When checked, the filenames of CON or LIVE files will be trimmed to a"
-      , "max of 42 characters, and will also have plus and comma characters"
-      , "replaced (a restriction for files on a 360 hard drive, but not USB)."
-      ]
-    FL.setTooltip checkRBNumberID $ T.unwords
-      [ "When checked, Rock Band files will use a random integer for song_id."
-      , "Otherwise, an 'o' is prefixed to form a symbol, and the game will"
-      , "generate a random ID. A true integer is required for some contexts"
-      , "such as RGH online play and PS3 conversion, and also maintains scores"
-      , "even if the song cache is regenerated."
-      ]
-    FL.setTooltip checkPS3Encrypt $ T.unwords
-      [ "When checked, .mid.edat files for PS3 customs will be encrypted."
-      , "This is required for a real console, but optional (and can be less"
-      , "convenient) when playing on emulator."
-      ]
-
-    getMSAA <- horizRadio (lineBox 4)
-      [ ("No MSAA" , Nothing, prefMSAA loadedPrefs == Nothing)
-      , ("MSAA 2x" , Just 2 , prefMSAA loadedPrefs == Just 2 )
-      , ("MSAA 4x" , Just 4 , prefMSAA loadedPrefs == Just 4 )
-      , ("MSAA 8x" , Just 8 , prefMSAA loadedPrefs == Just 8 )
-      , ("MSAA 16x", Just 16, prefMSAA loadedPrefs == Just 16)
-      ]
-
-    checkFXAA <- FL.checkButtonNew (lineBox 5) $ Just "FXAA"
-    void $ FL.setValue checkFXAA $ prefFXAA loadedPrefs
-
-    getDirRB      <- folderBox (lineBox 6) "Default CON/PKG folder" $ T.pack $ fromMaybe "" $ prefDirRB      loadedPrefs
-    getDirCH      <- folderBox (lineBox 7) "Default CH folder"      $ T.pack $ fromMaybe "" $ prefDirCH      loadedPrefs
-    getDirWii     <- folderBox (lineBox 8) "Default Wii folder"     $ T.pack $ fromMaybe "" $ prefDirWii     loadedPrefs
-    getDirPreview <- folderBox (lineBox 9) "Default preview folder" $ T.pack $ fromMaybe "" $ prefDirPreview loadedPrefs
-
-    sliderQuality <- FL.horValueSliderNew (snd $ chopLeft leftLabelSize $ lineBox 10) (Just "OGG Vorbis quality")
-    FL.setLabelsize sliderQuality $ FL.FontSize 13
-    FL.setLabeltype sliderQuality FLE.NormalLabelType FL.ResolveImageLabelDoNothing
-    FL.setAlign sliderQuality $ FLE.Alignments [FLE.AlignTypeLeft]
-    FL.setMinimum sliderQuality 0
-    FL.setMaximum sliderQuality 10
-    void $ FL.setValue sliderQuality $ prefOGGQuality loadedPrefs * 10
-
-    let [trimClock 0 5 0 leftLabelSize -> gh2OffsetArea, trimClock 0 0 0 5 -> gh2SortArea] = splitHorizN 2 $ lineBox 11
-    gh2OffsetCounter <- FL.counterNew gh2OffsetArea $ Just "GH2 Audio Offset (ms)"
-    FL.setLabelsize sliderQuality $ FL.FontSize 13
-    FL.setLabeltype gh2OffsetCounter FLE.NormalLabelType FL.ResolveImageLabelDoNothing
-    FL.setAlign gh2OffsetCounter $ FLE.Alignments [FLE.AlignTypeLeft]
-    FL.setStep gh2OffsetCounter 1
-    FL.setLstep gh2OffsetCounter 10
-    FL.setTooltip gh2OffsetCounter $ T.unwords
-      [ "Adjust audio offset only for Guitar Hero II output, intended to compensate for emulator delay."
-      , "Positive values mean audio will be pulled earlier, to account for delay."
-      , "Negative values mean audio will be pushed later."
-      ]
-    void $ FL.setValue gh2OffsetCounter $ prefGH2Offset loadedPrefs * 1000
-    checkGH2Sort <- FL.checkButtonNew gh2SortArea $ Just "Sort GH2 bonus songs when adding to .ARK"
-    void $ FL.setValue checkGH2Sort $ prefSortGH2 loadedPrefs
-
-    let [_, saveRect, _, cancelRect, _] = splitHorizN 5 $ lineBox 12
-    saveButton <- FL.buttonNew saveRect $ Just "Save"
+    FL.end tabs
+    FL.setResizable tabs $ Just tab1
+    let (bottomLeft, bottomRight) = chopRight 300 bottomRect
+        [trimClock 8 4 8 8 -> rectButtonA, trimClock 8 8 8 4 -> rectButtonB] = splitHorizN 2 bottomRight
+    bottomArea <- FL.groupNew bottomRect Nothing
+    bottomLeftBox <- FL.boxNew bottomLeft Nothing
+    FL.setResizable bottomArea $ Just bottomLeftBox
+    saveButton <- FL.buttonNew rectButtonA $ Just "Save"
     taskColor >>= FL.setColor saveButton
     FL.setCallback saveButton $ \_ -> do
-      magma <- fromMaybe (prefMagma loadedPrefs) <$> getMagma
-      let continueSave = do
-            let getPath = \case
-                  "" -> Nothing
-                  d  -> Just $ T.unpack d
-            black      <- FL.getValue checkBlackVenue
-            label2x    <- FL.getValue checkLabel2x
-            trim       <- FL.getValue checkTrimXbox
-            rbNumberID <- FL.getValue checkRBNumberID
-            ps3Encrypt <- FL.getValue checkPS3Encrypt
-            msaa       <- fromMaybe (prefMSAA loadedPrefs) <$> getMSAA
-            fxaa       <- FL.getValue checkFXAA
-            dirRB      <- getPath <$> getDirRB
-            dirCH      <- getPath <$> getDirCH
-            dirWii     <- getPath <$> getDirWii
-            dirPreview <- getPath <$> getDirPreview
-            quality    <- (/ 10) <$> FL.getValue sliderQuality
-            gh2Offset  <- (/ 1000) <$> FL.getValue gh2OffsetCounter
-            gh2Sort    <- FL.getValue checkGH2Sort
-            savePreferences loadedPrefs
-              { prefMagma      = magma
-              , prefBlackVenue = black
-              , prefLabel2x    = label2x
-              , prefTrimXbox   = trim
-              , prefRBNumberID = rbNumberID
-              , prefPS3Encrypt = ps3Encrypt
-              , prefMSAA       = msaa
-              , prefFXAA       = fxaa
-              , prefDirRB      = dirRB
-              , prefDirCH      = dirCH
-              , prefDirWii     = dirWii
-              , prefDirPreview = dirPreview
-              , prefOGGQuality = quality
-              , prefGH2Offset  = gh2Offset
-              , prefSortGH2    = gh2Sort
-              }
-            FL.hide window
-          warningMsg = T.unlines
+      newPrefs <- ($ loadedPrefs) <$> combinePrefs (pref1 : restPrefs)
+      let magmaWarning = T.unlines
             [ "Warning! Disabling Magma can result in Rock Band files that crash the game,"
             , "as Onyx does not yet check all of the error cases that Magma does."
             , "Please test any charts thoroughly before distributing to others!"
             ]
-      if prefMagma loadedPrefs == MagmaRequire && magma /= MagmaRequire
-        then FL.flChoice warningMsg "Cancel" (Just "OK") Nothing >>= \case
+          continueSave = do
+            savePreferences newPrefs
+            FL.hide window
+      if prefMagma loadedPrefs == MagmaRequire && prefMagma newPrefs /= MagmaRequire
+        then FL.flChoice magmaWarning "Cancel" (Just "OK") Nothing >>= \case
           1 -> continueSave
           _ -> return ()
         else continueSave
-    cancelButton <- FL.buttonNew cancelRect $ Just "Cancel"
+    cancelButton <- FL.buttonNew rectButtonB $ Just "Cancel"
     FL.setCallback cancelButton $ \_ -> FL.hide window
-
+    FL.end bottomArea
     FL.end window
+    FL.setResizable window $ Just tabs
     FL.showWidget window
 
 launchGUI :: IO ()
@@ -5118,7 +5171,7 @@ launchGUI = withAL $ \hasAudio -> do
                 )
               , ( "Edit/Preferences"
                 , Nothing -- maybe Cmd+, on Mac
-                , Just $ sink $ EventOnyx $ launchPreferences sink
+                , Just $ sink $ EventOnyx $ launchPreferences sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               , ( "Help/Readme"

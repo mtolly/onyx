@@ -679,6 +679,7 @@ emptyChannels src = let
   in source src .| loop [0 .. channels src - 1]
 
 -- | Modifies the source to return 0 audio frames if all samples are silent.
+-- TODO this is weird that the frames value is untouched...
 clampIfSilent :: (Monad m, V.Storable a, Eq a, Num a)
   => AudioSource m a -> AudioSource m a
 clampIfSilent src = src

@@ -75,6 +75,7 @@ importAmplitude fin _level = do
       , _fileTempo = Nothing
       , _karaoke = False
       , _multitrack = True
+      , _decryptSilent = False
       }
     , _targets = HM.empty
     , _parts = Parts $ HM.fromList $ do

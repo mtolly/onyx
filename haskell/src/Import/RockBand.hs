@@ -402,6 +402,7 @@ importRB rbi level = do
       , _fileTempo = Nothing
       , _karaoke = fromMaybe False $ c3dtaKaraoke $ rbiComments rbi
       , _multitrack = fromMaybe True $ c3dtaMultitrack $ rbiComments rbi
+      , _decryptSilent = False
       }
     , _targets = let
       getSongID = \case
