@@ -257,16 +257,20 @@ startLoad makeMenuBar hasAudio fs = do
 importWithPreferences :: Importable OnyxInner -> Onyx Project
 importWithPreferences imp = do
   projInit <- impProject imp
-  prefs <- readPreferences
-  let applyBlackVenue yaml = if prefBlackVenue prefs
-        then yaml { _global = (_global yaml) { _autogenTheme = Nothing } }
-        else yaml
-      applyDecryptSilent yaml = yaml
-        { _plans = flip fmap (_plans yaml) $ \case
-          mogg@MoggPlan{} -> mogg { _decryptSilent = prefDecryptSilent prefs }
-          plan            -> plan
-        }
-  stackIO $ saveProject projInit $ applyBlackVenue $ applyDecryptSilent $ projectSongYaml projInit
+  -- only edit yml and resave if it's a temp-imported project, not one of my song.yml
+  if isJust $ projectRelease projInit
+    then do
+      prefs <- readPreferences
+      let applyBlackVenue yaml = if prefBlackVenue prefs
+            then yaml { _global = (_global yaml) { _autogenTheme = Nothing } }
+            else yaml
+          applyDecryptSilent yaml = yaml
+            { _plans = flip fmap (_plans yaml) $ \case
+              mogg@MoggPlan{} -> mogg { _decryptSilent = prefDecryptSilent prefs }
+              plan            -> plan
+            }
+      stackIO $ saveProject projInit $ applyBlackVenue $ applyDecryptSilent $ projectSongYaml projInit
+    else return projInit
 
 continueImport
   :: (Width -> Bool -> IO Int)
@@ -2974,7 +2978,7 @@ taskOutputPage rect tab sink cbStart cbEnd = mdo
             updateStatus id
   return (startTasks, cancelTasks)
 
-homeTabColor, functionTabColor, taskColor, globalLogColor, miscColor, loadSongColor, batchProcessColor, behindTabsColor, defaultColor :: IO FLE.Color
+homeTabColor, functionTabColor, taskColor, globalLogColor, miscColor, loadSongColor, batchProcessColor, behindTabsColor, quickConvertColor, defaultColor :: IO FLE.Color
 homeTabColor      = FLE.rgbColorWithRgb (209,177,224)
 functionTabColor  = FLE.rgbColorWithRgb (224,210,177)
 taskColor         = FLE.rgbColorWithRgb (179,221,187)
@@ -2983,6 +2987,7 @@ miscColor         = FLE.rgbColorWithRgb (177,173,244)
 loadSongColor     = FLE.rgbColorWithRgb (186,229,181)
 batchProcessColor = FLE.rgbColorWithRgb (237,173,193)
 behindTabsColor   = FLE.rgbColorWithRgb (94,94,94) -- TODO report incorrect Char binding type for rgbColorWithGrayscale
+quickConvertColor = FLE.rgbColorWithRgb (232,213,150)
 defaultColor      = FLE.rgbColorWithRgb (192,192,192)
 
 setTabColor :: FL.Ref FL.Group -> FLE.Color -> IO ()
@@ -4084,6 +4089,51 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
   FL.setResizable tab $ Just pack
   return ()
 
+launchQuickConvert :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
+launchQuickConvert sink makeMenuBar = mdo
+  let windowWidth = Width 900
+      windowHeight = Height 600
+      windowSize = Size windowWidth windowHeight
+  window <- FL.windowNew windowSize Nothing $ Just "Quick Convert"
+  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+  let (_, windowRect) = chopTop menuHeight $ Rectangle
+        (Position (X 0) (Y 0))
+        windowSize
+  behindTabsColor >>= FL.setColor window
+  FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
+  FL.sizeRange window windowSize
+  FL.begin window
+  tabs <- FL.tabsNew windowRect Nothing
+  functionTabs <- sequence
+    [ makeTab windowRect "Rock Band" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      -- TODO
+      return tab
+    , makeTab windowRect "Guitar Hero II" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      -- TODO
+      return tab
+    ]
+  (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
+    taskColor >>= setTabColor tab
+    FL.deactivate tab
+    let cbStart = do
+          FL.activate tab
+          mapM_ FL.deactivate functionTabs
+          void $ FL.setValue tabs $ Just tab
+          updateTabsColor tabs
+        cbEnd = do
+          mapM_ FL.activate functionTabs
+    taskOutputPage rect tab sink cbStart cbEnd
+  FL.end tabs
+  updateTabsColor tabs
+  FL.setCallback tabs updateTabsColor
+  FL.setResizable tabs $ Just $ head functionTabs
+  FL.end window
+  FL.setResizable window $ Just tabs
+  FL.setCallback window $ windowCloser cancelTasks
+  FL.showWidget window
+
 launchMisc :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
 launchMisc sink makeMenuBar = mdo
   let windowWidth = Width 900
@@ -5108,7 +5158,7 @@ launchGUI = withAL $ \hasAudio -> do
 
   -- terminal
   let consoleWidth = Width 500
-      consoleHeight = Height 400
+      consoleHeight = Height 440
   termWindow <- FL.windowNew
     (Size consoleWidth consoleHeight)
     Nothing
@@ -5141,6 +5191,11 @@ launchGUI = withAL $ \hasAudio -> do
               , ( "File/Batch Process"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'b'
                 , Just $ launchBatch' sink makeMenuBar []
+                , FL.MenuItemFlags [FL.MenuItemNormal]
+                )
+              , ( "File/Quick Convert"
+                , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'u'
+                , Just $ launchQuickConvert sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               , ( "File/Tools"
@@ -5251,8 +5306,11 @@ launchGUI = withAL $ \hasAudio -> do
   FL.setAnsi term True
   FL.setStayAtBottom term True
 
-  let bottomBar = Rectangle (Position (X 5) (Y 360)) (Size (Width 490) (Height 30))
-      [areaOpen, areaBatch, areaMisc] = map (trimClock 0 5 0 5) $ splitHorizN 3 bottomBar
+  let bottomBar1 = Rectangle (Position (X 5) (Y 360)) (Size (Width 490) (Height 30))
+      bottomBar2 = Rectangle (Position (X 5) (Y 400)) (Size (Width 490) (Height 30))
+      [areaOpen, areaBatch] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar1
+      [areaQuick, areaMisc] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar2
+
   buttonOpen <- FL.buttonCustom
     areaOpen
     (Just "Load a song")
@@ -5262,6 +5320,7 @@ launchGUI = withAL $ \hasAudio -> do
       }
   loadSongColor >>= FL.setColor buttonOpen
   FL.setCallback buttonOpen $ \_ -> promptLoad sink makeMenuBar hasAudio
+
   buttonBatch <- FL.buttonCustom
     areaBatch
     (Just "Batch process")
@@ -5271,12 +5330,20 @@ launchGUI = withAL $ \hasAudio -> do
       }
   batchProcessColor >>= FL.setColor buttonBatch
   FL.setCallback buttonBatch $ \_ -> launchBatch' sink makeMenuBar []
+
+  buttonQuick <- FL.buttonNew
+    areaQuick
+    (Just "Quick convert")
+  quickConvertColor >>= FL.setColor buttonQuick
+  FL.setCallback buttonQuick $ \_ -> launchQuickConvert sink makeMenuBar
+
   buttonMisc <- FL.buttonNew
     areaMisc
     (Just "Other tools")
   miscColor >>= FL.setColor buttonMisc
   FL.setCallback buttonMisc $ \_ -> launchMisc sink makeMenuBar
-  forM_ [buttonOpen, buttonBatch, buttonMisc] $ \btn ->
+
+  forM_ [buttonOpen, buttonBatch, buttonQuick, buttonMisc] $ \btn ->
     FL.setLabelsize btn $ FL.FontSize 13
 
   FL.end termWindow

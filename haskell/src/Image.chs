@@ -2,7 +2,7 @@
 {-# LANGUAGE BinaryLiterals    #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Image (toDXT1File, toHMXPS2, DXTFormat(..), readRBImage, readRBImageMaybe, readDDS, arrangeRows, readDXTChunk) where
+module Image (toDXT1File, toHMXPS2, DXTFormat(..), readRBImage, readRBImageMaybe, readDDS, arrangeRows, readDXTChunk, swapPNGXboxPS3) where
 
 import           Codec.Picture
 import qualified Codec.Picture.STBIR        as STBIR
@@ -304,3 +304,10 @@ readRBImage :: Bool -> BL.ByteString -> Image PixelRGBA8
 readRBImage isPS3 = let
   magenta = generateImage (\_ _ -> PixelRGBA8 255 0 255 255) 256 256
   in fromMaybe magenta . readRBImageMaybe isPS3
+
+-- Quick converts between .png_xbox and .png_ps3
+swapPNGXboxPS3 :: BL.ByteString -> BL.ByteString
+swapPNGXboxPS3 b = let
+  swapBytes (x : y : xs) = y : x : swapBytes xs
+  swapBytes xs           = xs
+  in BL.take 0x20 b <> BL.pack (swapBytes $ BL.unpack $ BL.drop 0x20 b)

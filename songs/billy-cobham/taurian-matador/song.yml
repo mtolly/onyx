@@ -1,0 +1,79 @@
+metadata:
+  title: Taurian Matador
+  artist: Billy Cobham
+  album: Spectrum
+  track-number: 5
+  year: 1973
+  genre: fusion
+  subgenre: fusion
+  author: Onyxite
+  file-album-art: ../quadrant-4/cover.jpg
+  preview-start: prc_verse_1
+audio:
+  album-track: # Audio Fidelity 2016
+    md5: 4067374671cf719447edb6795001777a
+    frames: 12681396
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+jammit:
+  jammit-track:
+    title: "Anxiety | Tuarian Matador"
+plans:
+  jammit:
+    parts:
+      # some of these drift a little from album, but we're just using to chart so it's fine
+      drums:
+        expr:
+          stretch:
+          - 1.0020742937881415
+          - drop: ['1:39.929', only: [Drums, jammit-track]]
+        pans: [1, -1]
+      guitar:
+        expr:
+          stretch:
+          - 1.0020742937881415
+          - drop: ['1:39.929', only: [Guitar, jammit-track]]
+        pans: [1, -1]
+      bass:
+        expr:
+          stretch:
+          - 1.0020742937881415
+          - drop: ['1:39.929', only: [Bass, jammit-track]]
+        pans: [1, -1]
+      keys-1:
+        expr:
+          stretch:
+          - 1.0020742937881415
+          - drop: ['1:39.929', only: [Keys 1, jammit-track]]
+        pans: [1, -1]
+      keys-2:
+        expr:
+          stretch:
+          - 1.0020742937881415
+          - drop: ['1:39.929', only: [Keys 2, jammit-track]]
+        pans: [1, -1]
+  album:
+    song:
+      expr:
+        drop: ['1:38.652', album-track]
+      pans: [1, -1]
+parts:
+  drums:
+    drums:
+      kicks: both
+      mode: full
+      full-layout: open-hand
+  # bass:
+  #   pro-guitar:
+  #     tuning:
+  #       base: bass-4
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: album
+  # rs:
+  #   game: rs
+  #   plan: album
+  #   arrangements:
+  #   - [bass, bass]

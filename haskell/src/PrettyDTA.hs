@@ -156,38 +156,37 @@ readC3Comments t = let
     , c3dtaExpertOnly = findBool "ExpertOnly"
     }
 
+readDTASingle :: (SendMessage m) => (B.ByteString, D.Chunk B.ByteString) -> StackTraceT m (DTASingle, Bool)
+readDTASingle (bytes, chunk) = do
+  let readTextChunk = \case
+        D.Parens (D.Tree _ (D.Sym k : chunks)) -> do
+          let missingChunks = fromMaybe [] $ Map.lookup k missingMapping
+          pkg <- unserialize stackChunks $ D.DTA 0 $ D.Tree 0
+            $ removeOldDTAKeys $ fixTracksCount $ skipScripting
+            $ applyUpdate chunks missingChunks
+          return (k, pkg)
+        _ -> fatal "Not a valid song chunk in the format (topkey ...)"
+  (latinKey, latinPkg) <- readTextChunk $ fmap TE.decodeLatin1 chunk
+  (k, pkg, isUTF8) <- case D.encoding latinPkg of
+    Nothing -> return (latinKey, latinPkg, False)
+    Just "latin1" -> return (latinKey, latinPkg, False)
+    Just "utf8" -> do
+      (k, pkg) <- readTextChunk $ fmap decodeGeneral chunk
+      return (k, pkg, True)
+    Just enc -> fatal $ "Unrecognized DTA character encoding: " ++ T.unpack enc
+  let comments = readC3Comments $ (if isUTF8 then decodeGeneral else TE.decodeLatin1) bytes
+  return (DTASingle k pkg comments, isUTF8)
+
 readDTASingles :: (SendMessage m) => B.ByteString -> StackTraceT m [(DTASingle, Bool)]
 readDTASingles bs = do
   songs <- D.readDTASections bs
-  forM (zip [1..] songs) $ \(i, (bytes, chunk)) -> do
+  forM (zip [1..] songs) $ \(i, pair) -> do
     inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") $ do
-      let readTextChunk = \case
-            D.Parens (D.Tree _ (D.Sym k : chunks)) -> do
-              let missingChunks = fromMaybe [] $ Map.lookup k missingMapping
-              pkg <- unserialize stackChunks $ D.DTA 0 $ D.Tree 0
-                $ removeOldDTAKeys $ fixTracksCount $ skipScripting
-                $ applyUpdate chunks missingChunks
-              return (k, pkg)
-            _ -> fatal "Not a valid song chunk in the format (topkey ...)"
-      (latinKey, latinPkg) <- readTextChunk $ fmap TE.decodeLatin1 chunk
-      (k, pkg, isUTF8) <- case D.encoding latinPkg of
-        Nothing -> return (latinKey, latinPkg, False)
-        Just "latin1" -> return (latinKey, latinPkg, False)
-        Just "utf8" -> do
-          (k, pkg) <- readTextChunk $ fmap decodeGeneral chunk
-          return (k, pkg, True)
-        Just enc -> fatal $ "Unrecognized DTA character encoding: " ++ T.unpack enc
-      let comments = readC3Comments $ (if isUTF8 then decodeGeneral else TE.decodeLatin1) bytes
-      return (DTASingle k pkg comments, isUTF8)
+      readDTASingle pair
 
 readFileSongsDTA :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(DTASingle, Bool)]
 readFileSongsDTA file = inside ("loading songs.dta from: " ++ show file) $ do
   stackIO (B.readFile file) >>= readDTASingles
-
-readDTASingle :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m DTASingle
-readDTASingle f = readFileSongsDTA f >>= \case
-  [(x, _)] -> return x
-  _        -> fatal $ "Not exactly 1 song in songs.dta: " ++ show f
 
 --- | Returns @(short song name, DTA file contents, is UTF8)@
 readRB3DTA :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (T.Text, D.SongPackage, Bool)

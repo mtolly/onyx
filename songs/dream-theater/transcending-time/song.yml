@@ -1,0 +1,23 @@
+metadata:
+  title: Transcending Time
+  artist: Dream Theater
+  album: A View from the Top of the World
+  year: 2021
+  author: Onyxite
+  genre: metal
+  subgenre: prog
+  track-number: 5
+  file-album-art: ../../../covers/a-view-from-the-top-of-the-world.jpg
+parts:
+  drums:
+    drums:
+      kicks: both
+      mode: full
+audio:
+  album-track:
+    frames: 18457077
+    md5: 74334a92feb8cbdd800155574b32cd61
+plans:
+  album:
+    song:
+      pad: [3.781, album-track]

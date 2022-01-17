@@ -32,6 +32,7 @@ parts:
     drums:
       difficulty: 7
       kicks: both
+      mode: full
   bass:
     grybo:
       difficulty: 5

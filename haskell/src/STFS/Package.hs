@@ -1007,10 +1007,10 @@ ghworpkg titles descs dir fout = inside "making GH:WoR LIVE package" $ stackIO $
     , createLIVE = True
     } dir fout
 
-rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
-rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ do
+rb3STFSOptions :: T.Text -> T.Text -> Bool -> IO CreateOptions
+rb3STFSOptions title desc live = do
   thumb <- rb3Thumbnail >>= B.readFile
-  makeCON CreateOptions
+  return CreateOptions
     { createNames = [title]
     , createDescriptions = [desc]
     , createTitleID = 0x45410914
@@ -1023,12 +1023,17 @@ rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ do
     , createBaseVersion   = 0
     , createTransferFlags = 0xC0
     , createLIVE = False
-    } dir fout
+    }
 
-rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
-rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ do
+rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
+rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ do
+  opts <- rb3STFSOptions title desc False
+  makeCON opts dir fout
+
+rb2STFSOptions :: T.Text -> T.Text -> Bool -> IO CreateOptions
+rb2STFSOptions title desc live = do
   thumb <- rb2Thumbnail >>= B.readFile
-  makeCON CreateOptions
+  return CreateOptions
     { createNames = [title]
     , createDescriptions = [desc]
     , createTitleID = 0x45410869
@@ -1041,7 +1046,12 @@ rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ do
     , createBaseVersion   = 0
     , createTransferFlags = 0xC0
     , createLIVE = False
-    } dir fout
+    }
+
+rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
+rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ do
+  opts <- rb2STFSOptions title desc False
+  makeCON opts dir fout
 
 makeCON :: CreateOptions -> FilePath -> FilePath -> IO ()
 makeCON opts dir con = do

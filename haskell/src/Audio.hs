@@ -434,6 +434,7 @@ buildSource' :: (MonadResource m, MonadIO f) =>
   Audio Duration FilePath -> f (AudioSource m Float)
 buildSource' aud = case aud of
   -- optimizations
+  -- TODO combine drops
   Drop Start (Seconds t1) (Pad Start (Seconds t2) x) -> dropPad Start Seconds t1 t2 x
   Drop End   (Seconds t1) (Pad End   (Seconds t2) x) -> dropPad End   Seconds t1 t2 x
   Drop Start (Frames  t1) (Pad Start (Frames  t2) x) -> dropPad Start Frames  t1 t2 x
