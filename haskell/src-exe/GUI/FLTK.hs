@@ -3778,8 +3778,7 @@ miscPagePacks sink rect tab startTasks = mdo
                         lg $ "Content ID for pack: " <> B8.unpack contentID
                         loaded <- stackIO $ mapM (PKG.loadPKG . pkgPath) pkgs
                         packFolder <- packCombineFolders $ map (first TE.decodeLatin1 . PKG.pkgFolder) loaded
-                        pack <- stackIO $ PKG.makePKG contentID $ first TE.encodeUtf8 packFolder
-                        stackIO $ BL.writeFile f' pack
+                        stackIO $ PKG.makePKG contentID (first TE.encodeUtf8 packFolder) f'
                         return [f']
                   in [("PKG file creation", task)]
               _ -> return ()

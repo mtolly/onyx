@@ -1022,7 +1022,7 @@ rb3STFSOptions title desc live = do
     , createVersion       = 0
     , createBaseVersion   = 0
     , createTransferFlags = 0xC0
-    , createLIVE = False
+    , createLIVE = live
     }
 
 rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
@@ -1045,7 +1045,7 @@ rb2STFSOptions title desc live = do
     , createVersion       = 0
     , createBaseVersion   = 0
     , createTransferFlags = 0xC0
-    , createLIVE = False
+    , createLIVE = live
     }
 
 rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()

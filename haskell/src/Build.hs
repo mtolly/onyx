@@ -1571,7 +1571,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
     main <- container "USRDIR" . container rb3ps3Folder <$> crawlFolderBytes rb3ps3Root
     extra <- stackIO (getResourcesPath "pkg-contents/rb3") >>= crawlFolderBytes
-    stackIO $ makePKG rb3ps3ContentID (main <> extra) >>= BL.writeFile out
+    stackIO $ makePKG rb3ps3ContentID (main <> extra) out
 
   -- Guitar rules
   dir </> "protar-mpa.mid" %> \out -> do
@@ -1940,7 +1940,7 @@ rbRules buildInfo dir rb3 mrb2 = do
           let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
           main <- container "USRDIR" . container rb2ps3Folder <$> crawlFolderBytes rb2ps3Root
           extra <- stackIO (getResourcesPath "pkg-contents/rb2") >>= crawlFolderBytes
-          stackIO $ makePKG rb2ps3ContentID (main <> extra) >>= BL.writeFile out
+          stackIO $ makePKG rb2ps3ContentID (main <> extra) out
 
 ------------------------------------------------------------------------------
 
@@ -3371,7 +3371,7 @@ gh5Rules buildInfo dir gh5 = do
     let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
     main <- container "USRDIR" . container folderNameCaps <$> crawlFolderBytes ps3SongRoot
     extra <- stackIO (getResourcesPath "pkg-contents/ghwor") >>= crawlFolderBytes
-    stackIO $ makePKG ps3ContentID (main <> extra) >>= BL.writeFile out
+    stackIO $ makePKG ps3ContentID (main <> extra) out
 
 ------------------------------------------------------------------------------
 

@@ -5,34 +5,35 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Data.SimpleHandle where
 
-import           Control.Exception        (bracket, throwIO)
-import           Control.Monad            (forM, forM_, guard)
-import           Data.Bifunctor           (Bifunctor (..))
-import qualified Data.ByteString          as B
-import           Data.ByteString.Internal (memcpy)
-import qualified Data.ByteString.Lazy     as BL
-import           Data.ByteString.Unsafe   (unsafeUseAsCStringLen)
-import           Data.Either              (lefts, rights)
+import           Control.Exception             (bracket, throwIO)
+import           Control.Monad                 (forM, forM_, guard, unless)
+import           Data.Bifunctor                (Bifunctor (..))
+import qualified Data.ByteString               as B
+import           Data.ByteString.Internal      (memcpy)
+import qualified Data.ByteString.Lazy          as BL
+import           Data.ByteString.Lazy.Internal (smallChunkSize)
+import           Data.ByteString.Unsafe        (unsafeUseAsCStringLen)
+import           Data.Either                   (lefts, rights)
 import           Data.IORef
-import           Data.List                (find, sort)
-import           Data.List.NonEmpty       (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty       as NE
-import           Data.Maybe               (fromMaybe)
-import qualified Data.Text                as T
-import           Data.Typeable            (Typeable)
-import           Foreign                  (castPtr)
-import           GHC.IO.Buffer            (newByteBuffer)
+import           Data.List                     (find, sort)
+import           Data.List.NonEmpty            (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty            as NE
+import           Data.Maybe                    (fromMaybe)
+import qualified Data.Text                     as T
+import           Data.Typeable                 (Typeable)
+import           Foreign                       (castPtr)
+import           GHC.IO.Buffer                 (newByteBuffer)
 import           GHC.IO.BufferedIO
-import qualified GHC.IO.Device            as D
-import           GHC.IO.Exception         (unsupportedOperation)
-import qualified GHC.IO.Handle            as H
-import           GHC.IO.Handle.Types      (Handle (..))
-import qualified System.Directory         as Dir
-import           System.FilePath          ((</>))
-import           System.IO                (IOMode (ReadMode, WriteMode),
-                                           SeekMode (..), hClose, hFileSize,
-                                           hSeek, openBinaryFile,
-                                           withBinaryFile)
+import qualified GHC.IO.Device                 as D
+import           GHC.IO.Exception              (unsupportedOperation)
+import qualified GHC.IO.Handle                 as H
+import           GHC.IO.Handle.Types           (Handle (..))
+import qualified System.Directory              as Dir
+import           System.FilePath               ((</>))
+import           System.IO                     (IOMode (ReadMode, WriteMode),
+                                                SeekMode (..), hClose,
+                                                hFileSize, hSeek,
+                                                openBinaryFile, withBinaryFile)
 
 data SimpleHandle = SimpleHandle
   { shSize  :: Integer
@@ -128,12 +129,19 @@ handleToByteString h = do
 useHandle :: Readable -> (Handle -> IO a) -> IO a
 useHandle readable = bracket (rOpen readable) hClose
 
+copyReadableToHandle :: Readable -> Handle -> IO ()
+copyReadableToHandle r hout = useHandle r $ \h -> let
+  go = do
+    chunk <- B.hGet h smallChunkSize
+    unless (B.null chunk) $ do
+      B.hPut hout chunk
+      go
+  in go
+
 saveReadable :: Readable -> FilePath -> IO ()
 saveReadable r dest = case rFilePath r of
   Just src -> Dir.copyFile src dest
-  Nothing  -> withBinaryFile dest WriteMode $ \hout -> do
-    -- TODO replace this with a better version that doesn't load the whole file at once
-    useHandle r handleToByteString >>= BL.hPut hout
+  Nothing  -> withBinaryFile dest WriteMode $ copyReadableToHandle r
 
 saveHandleFolder :: Folder T.Text Readable -> FilePath -> IO ()
 saveHandleFolder folder dest = do
@@ -258,4 +266,12 @@ subHandle addLabel pos mlen readable = Readable
       , shClose = hClose h
       , shRead  = B.hGet h . fromIntegral
       }
+  }
+
+transformBytes :: (BL.ByteString -> BL.ByteString) -> Readable -> Readable
+transformBytes f r = Readable
+  { rFilePath = Nothing
+  , rOpen = do
+    bs <- useHandle r handleToByteString
+    rOpen $ makeHandle "" $ byteStringSimpleHandle $ f bs
   }

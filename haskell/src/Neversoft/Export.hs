@@ -816,7 +816,7 @@ saveMetadataPKG library fout = let
           , folderFiles = []
           }
     extra <- getResourcesPath "pkg-contents/ghwor" >>= fmap (first TE.encodeUtf8) . crawlFolder
-    makePKG ps3ContentID (main <> extra) >>= BL.writeFile fout
+    makePKG ps3ContentID (main <> extra) fout
 
 packageNameHashFormat :: Bool -> T.Text -> B.ByteString
 packageNameHashFormat caps t = B8.pack $ do

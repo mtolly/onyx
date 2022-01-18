@@ -1401,7 +1401,7 @@ commands =
             $ (<.> "pkg") . dropTrailingPathSeparator
             <$> stackIO (Dir.makeAbsolute dir)
           folder <- stackIO $ first TE.encodeUtf8 <$> crawlFolder dir
-          stackIO $ makePKG (B8.pack contentID) folder >>= BL.writeFile pkg
+          stackIO $ makePKG (B8.pack contentID) folder pkg
           return [pkg]
         False -> fatal $ "onyx pkg expected directory; given: " <> dir
       _ -> fatal $ "onyx pkg expected 2 argument, given " <> show (length args)
@@ -1783,4 +1783,4 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
   stackIO $ do
     extraPath <- getResourcesPath $ if isRB3 then "pkg-contents/rb3" else "pkg-contents/rb2"
     extra <- crawlFolder extraPath
-    makePKG rbps3ContentID (first TE.encodeUtf8 $ main <> extra) >>= BL.writeFile fout
+    makePKG rbps3ContentID (first TE.encodeUtf8 $ main <> extra) fout

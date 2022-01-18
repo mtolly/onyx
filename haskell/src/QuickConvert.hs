@@ -5,33 +5,33 @@ Process for extracting and repacking already-valid Rock Band songs without a who
 - Change platform: 360 <-> PS3, eventually also Wii
 - Certain changes to MIDI: black venue, remove OD, remove lanes, etc.
 -}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
 module QuickConvert where
 
-import Control.Monad.Trans.Resource (MonadResource)
 import           Control.Monad
 import           Control.Monad.IO.Class         (MonadIO)
+import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import           Data.Bifunctor                 (first)
 import qualified Data.ByteString                as B
-import qualified Data.ByteString.Char8 as B8
+import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Char                      (toLower)
 import           Data.DTA                       (readDTASections)
 import qualified Data.DTA.Serialize.RB3         as D
 import           Data.Foldable                  (toList)
+import           Data.Hashable                  (hash)
 import           Data.SimpleHandle
 import qualified Data.Text                      as T
-import Data.Hashable (hash)
 import qualified Data.Text.Encoding             as TE
 import           Image                          (swapPNGXboxPS3)
 import           MoggDecrypt                    (encryptRB1)
-import Resources (getResourcesPath)
 import           NPData
 import           PlayStation.PKG
 import           PrettyDTA                      (DTASingle (..), readDTASingle)
+import           Resources                      (getResourcesPath)
 import           STFS.Package
 import           System.FilePath                (dropExtension, splitExtension,
                                                  takeExtension, (</>))
@@ -261,7 +261,7 @@ saveQuickSongsPKG qsongs rb3 encryptMid fout = do
   stackIO $ do
     extraPath <- getResourcesPath $ if rb3 then "pkg-contents/rb3" else "pkg-contents/rb2"
     extra <- crawlFolder extraPath
-    makePKG contentID (first TE.encodeUtf8 $ rootFolder <> extra) >>= BL.writeFile fout
+    makePKG contentID (first TE.encodeUtf8 $ rootFolder <> extra) fout
 
 contentsSize :: QuickSong -> IO Integer
 contentsSize qsong = do

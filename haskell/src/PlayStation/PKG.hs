@@ -5,13 +5,14 @@ References:
 - https://www.psdevwiki.com/ps3/PKG_files
 - https://github.com/HACKERCHANNEL/PS3Py
 -}
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module PlayStation.PKG (PKGHeader(..), PKGMetadata(..), PKG(..), loadPKG, makePKG, tryDecryptEDAT, tryDecryptEDATs, tryDecryptEDATsInFolder, getDecryptedUSRDIR) where
 
 import           Control.Applicative            ((<|>))
-import           Control.Monad                  (forM, guard, replicateM,
+import           Control.Monad                  (forM, forM_, guard, replicateM,
                                                  unless, void, when)
 import           Control.Monad.Codec
 import           Control.Monad.IO.Class         (MonadIO)
@@ -21,7 +22,8 @@ import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
-import           Crypto.Hash                    (Digest, SHA1, hash)
+import           Crypto.Hash                    (Context, Digest, SHA1, hash,
+                                                 hashInit, hashUpdates)
 import qualified Crypto.Hash.SHA1               as SHA1
 import           Crypto.MAC.CMAC
 import           Data.Binary.Codec
@@ -32,6 +34,7 @@ import qualified Data.ByteString                as B
 import qualified Data.ByteString.Builder        as BB
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
+import           Data.List                      (inits)
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (isJust)
 import           Data.Profunctor                (dimap)
@@ -47,8 +50,8 @@ import           STFS.Package                   (runGetM)
 import           System.Directory               (doesFileExist)
 import           System.FilePath                ((<.>), (</>))
 import           System.IO                      (Handle, IOMode (..),
-                                                 SeekMode (..), hSeek,
-                                                 withBinaryFile)
+                                                 SeekMode (..), hFileSize,
+                                                 hSeek, withBinaryFile)
 import           System.IO.Temp                 (withSystemTempDirectory)
 
 nullPadded :: Int -> BinaryCodec B.ByteString
@@ -170,15 +173,15 @@ data PKG = PKG
   , pkgFolder   :: Folder B.ByteString Readable
   }
 
-cryptFinalizedPKG :: PKGHeader -> B.ByteString -> Maybe B.ByteString
-cryptFinalizedPKG header enc = do
+cryptFinalizedPKG :: PKGHeader -> Maybe (Word64 -> B.ByteString -> B.ByteString)
+cryptFinalizedPKG header = do
   let makeKey k = case cipherInit k of
         CryptoPassed cipher -> Just (cipher :: AES128)
         _                   -> Nothing
   iv <- makeIV $ pkgDataRIV header
   -- ps3_gpkg_aes_key from https://www.psdevwiki.com/ps3/Keys
   key <- makeKey $ B.pack [0x2E,0x7B,0x71,0xD7,0xC9,0xC9,0xA1,0x4E,0xA3,0x22,0x1F,0x18,0x88,0x28,0xB8,0xF8]
-  return $ ctrCombine key iv enc
+  return $ \startIndex enc -> ctrCombine key (ivAdd iv $ fromIntegral startIndex) enc
 
 nonFinalizedCrypt :: Bool -> Word64 -> B.ByteString -> BL.ByteString -> BL.ByteString
 nonFinalizedCrypt isArcade startIndex keySource bs = let
@@ -199,6 +202,16 @@ nonFinalizedCrypt isArcade startIndex keySource bs = let
 cryptNonFinalizedPKG :: Bool -> Word64 -> PKGHeader -> BL.ByteString -> BL.ByteString
 cryptNonFinalizedPKG isArcade startIndex = nonFinalizedCrypt isArcade startIndex . pkgQADigest
 
+cryptNonFinalizedPKG' :: Bool -> Word64 -> PKGHeader -> [(Int, Readable)] -> [Readable]
+cryptNonFinalizedPKG' isArcade startIndex header pieces = do
+  (before, (_, this)) <- zip (inits pieces) pieces
+  return $ case sum (map fst before) `quotRem` 0x10 of
+    (hexes, 0) -> let
+      newIndex = startIndex + fromIntegral hexes
+      withBytes = nonFinalizedCrypt isArcade newIndex $ pkgQADigest header
+      in transformBytes withBytes this
+    _ -> error "Contents start at a position not divisble by 0x10"
+
 readPKGName :: B.ByteString -> IO (NE.NonEmpty B.ByteString)
 readPKGName name = let
   name' = if B.take 1 name == "/"
@@ -208,20 +221,25 @@ readPKGName name = let
     Nothing        -> fail "Couldn't split filename in PKG contents"
     Just nameParts -> return nameParts
 
-loadFinalizedPKGFolder :: Handle -> PKGHeader -> IO (Folder B.ByteString Readable)
-loadFinalizedPKGFolder h header = do
-  enc <- B.hGet h $ fromIntegral $ pkgDataSize header
-  pkgInside <- case cryptFinalizedPKG header enc of
-    Nothing  -> fail "Couldn't decode PKG contents"
-    Just dec -> return $ BL.fromStrict dec
-  let recordBytes = BL.take (0x20 * fromIntegral (pkgItemCount header)) pkgInside
-  recs <- runGetM (replicateM (fromIntegral $ pkgItemCount header) $ codecIn bin) recordBytes
+loadFinalizedPKGFolder :: FilePath -> Handle -> PKGHeader -> IO (Folder B.ByteString Readable)
+loadFinalizedPKGFolder f h header = do
+  decoder <- maybe (fail "Couldn't decode PKG contents") return $ cryptFinalizedPKG header
+  let decryptPart aHandle posn len = case quotRem posn 0x10 of
+        (hexes, 0) -> do
+          hSeek aHandle AbsoluteSeek $ fromIntegral $ posn + pkgDataOffset header
+          enc <- B.hGet aHandle len
+          return $ BL.fromStrict $ decoder hexes enc
+        _ -> fail "Expected a read position divisible by 0x10"
+  recs <- decryptPart h 0 (0x20 * fromIntegral (pkgItemCount header))
+    >>= runGetM (replicateM (fromIntegral $ pkgItemCount header) $ codecIn bin)
   let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
   fmap (fmap snd . fromFiles . filter notFolder) $ forM recs $ \PKGItemRecord{..} -> do
-    let name = BL.toStrict $ BL.take (fromIntegral recFilenameSize) $ BL.drop (fromIntegral recFilenameOffset) pkgInside
+    name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
     nameParts <- readPKGName name
-    let dat = BL.take (fromIntegral recDataSize) $ BL.drop (fromIntegral recDataOffset) pkgInside
-        readable = makeHandle (B8.unpack name) $ byteStringSimpleHandle dat
+    let readable = makeHandle (B8.unpack name) $ do
+          bs <- withBinaryFile f ReadMode $ \h' -> do
+            decryptPart h' (fromIntegral recDataOffset) (fromIntegral recDataSize)
+          byteStringSimpleHandle bs
     return (nameParts, (recFlags, readable))
 
 loadNonFinalizedPKGFolder :: FilePath -> Handle -> PKGHeader -> IO (Folder B.ByteString Readable)
@@ -257,7 +275,7 @@ loadPKG f = withBinaryFile f ReadMode $ \h -> do
     0x0000 -> return False
     n      -> fail $ "Unrecognized finalization value in .pkg: " <> showHex n ""
   pkgFolder <- if isFinalized
-    then loadFinalizedPKGFolder      h pkgHeader
+    then loadFinalizedPKGFolder    f h pkgHeader
     else loadNonFinalizedPKGFolder f h pkgHeader
 
   return PKG{..}
@@ -367,24 +385,27 @@ getDecryptedUSRDIR folder = case findFolder ["USRDIR"] folder of
     sub' <- tryDecryptEDATsInFolder name sub
     return (name, sub')
 
--- Each output is (full name, data, flags)
-makePKGRecords :: Folder B.ByteString Readable -> IO [(B.ByteString, B.ByteString, Word32)]
-makePKGRecords = fmap (go "") . mapM readReadable where
-  readReadable r = fmap BL.toStrict $ useHandle r $ handleToByteString
+-- Each output is (full name, (size, data), flags)
+makePKGRecords :: Folder B.ByteString Readable -> IO [(B.ByteString, (Int, Readable), Word32)]
+makePKGRecords = fmap (go "") . mapM annotate where
+  annotate r = useHandle r $ \h -> do
+    size <- fromIntegral <$> hFileSize h
+    magic <- B.hGet h 4
+    return (size, magic, r)
   go path folder = let
     addPath = if B.null path
       then id
       else ((path <> "/") <>)
     this = do
       guard $ not $ B.null path
-      return (path, "", 0x80000004)
+      return (path, (0, makeHandle "" $ byteStringSimpleHandle ""), 0x80000004)
     files = do
-      (name, file) <- folderFiles folder
+      (name, (size, magic, r)) <- folderFiles folder
       -- Check both the name and magic number, in case we are generating unencrypted midis for RPCS3
       let isEDAT = ((".edat" `B.isSuffixOf` name) || (".EDAT" `B.isSuffixOf` name))
-            && B.take 4 file == "NPD\0"
+            && magic == "NPD\0"
           flags = if isEDAT then 0x80000002 else 0x80000003
-      return (addPath name, file, flags)
+      return (addPath name, (size, r), flags)
     subs = do
       (name, sub) <- folderSubfolders folder
       go (addPath name) sub
@@ -402,77 +423,99 @@ makePKGBank = go "" [] where
     entry = (x, BL.length bank, B.length new)
     in go bank' (entry : entries) rest
 
--- Returns (number of file/folder entries, records and filenames section, data section)
-makePKGContents :: Folder B.ByteString Readable -> IO (Int, BL.ByteString, BL.ByteString)
-makePKGContents folder = do
-  records <- makePKGRecords folder
-  let (stringBank, afterStringBank) = makePKGBank
-        [ (path, (dat, flags)) | (path, dat, flags) <- records ]
-      (dataBank, afterDataBank) = makePKGBank
-        [ (dat, (flags, pathPos, pathLen)) | ((dat, flags), pathPos, pathLen) <- afterStringBank ]
-      recordsSize = 0x20 * length records
-      finalRecords = do
-        ((flags, pathPos, pathLen), dataPos, dataLen) <- afterDataBank
-        return PKGItemRecord
-          { recFilenameOffset = fromIntegral recordsSize + fromIntegral pathPos
-          , recFilenameSize   = fromIntegral pathLen
-          , recDataOffset     = fromIntegral recordsSize + fromIntegral (BL.length stringBank) + fromIntegral dataPos
-          , recDataSize       = fromIntegral dataLen
-          , recFlags          = flags
-          , recPadding        = 0
-          }
-      recordBytes = runPut $ mapM_ (codecOut bin) finalRecords
-  return (length records, recordBytes <> stringBank, dataBank)
+makePKGBank' :: [((Int, Readable), a)] -> ([(Int, Readable)], [(a, Int, Int)])
+makePKGBank' = go [] [] where
+  go bank entries [] = (reverse bank, reverse entries)
+  go bank entries (((newSize, newData), x) : rest) = let
+    newPair = case newSize `rem` 0x10 of
+      0 -> (newSize, newData)
+      n -> let
+        paddingSize = 0x10 - fromIntegral n
+        padding     = BL.replicate (fromIntegral paddingSize) 0
+        in (newSize + paddingSize, transformBytes (<> padding) newData)
+    bank' = newPair : bank
+    entry = (x, sum $ map fst bank, newSize)
+    in go bank' (entry : entries) rest
 
-makePKG :: B.ByteString -> Folder B.ByteString Readable -> IO BL.ByteString
-makePKG contentID folder = do
-  (numEntries, pkgEntriesNames, pkgFileContents) <- makePKGContents folder
-  fileContents <- map (\(_, fileContents, _) -> fileContents) <$> makePKGRecords folder
-  return $ let
-    pkgContents = pkgEntriesNames <> pkgFileContents
-    fakeHeader = PKGHeader 0 0 0 0 0 0 0 0 0 0 (B.replicate 0x30 0) (B.replicate 0x10 0) (B.replicate 0x10 0)
-    metadataOffset = BL.length (runPut $ void $ codecOut bin fakeHeader) + 0x40
-    metadataAndDigestsSize = BL.length (runPut $ mapM_ (codecOut bin) metadata) + 0x40
-    dataOffset = metadataOffset + metadataAndDigestsSize
-    metadata =
-      [ PKGMetadata 1 $ B.pack [0,0,0,3] -- drm type: free, no license
-      , PKGMetadata 2 $ B.pack [0,0,0,5] -- content type: was 4 for GameData
-      , PKGMetadata 3 $ B.pack [0,0,0,0xE] -- package type, was 8, unknown meaning
-      , PKGMetadata 4 $ BL.toStrict $ runPut $ putWord64be $ fromIntegral $ BL.length pkgContents
-      , PKGMetadata 5 $ B.pack [0x10,0x61,0x00,0x00] -- make_package_npdrm Revision (2 bytes) + Package Version (2 bytes)
-      ]
-    headerForQADigest = PKGHeader
-      { pkgMagic          = 0x7F504B47
-      , pkgRevision       = 0x0000 -- making a non-finalized pkg
-      , pkgType           = 0x0001
-      , pkgMetadataOffset = fromIntegral metadataOffset
-      , pkgMetadataCount  = fromIntegral $ length metadata
-      , pkgMetadataSize   = fromIntegral metadataAndDigestsSize
-      , pkgItemCount      = fromIntegral numEntries
-      , pkgTotalSize      = fromIntegral dataOffset + fromIntegral (BL.length pkgContents) + 0x60
-      , pkgDataOffset     = fromIntegral dataOffset
-      , pkgDataSize       = fromIntegral $ BL.length pkgContents
-      , pkgContentID      = "" -- filled in later
-      , pkgQADigest       = B.replicate 0x10 0 -- filled in later
-      , pkgDataRIV        = B.replicate 0x10 0 -- filled in later
+-- Returns (number of file/folder entries, records and filenames section, data section)
+makePKGContents :: [(B.ByteString, (Int, Readable), Word32)] -> (Int, BL.ByteString, [(Int, Readable)])
+makePKGContents records = let
+  (stringBank, afterStringBank) = makePKGBank
+    [ (path, (dat, flags)) | (path, dat, flags) <- records ]
+  (dataBank, afterDataBank) = makePKGBank'
+    [ (dat, (flags, pathPos, pathLen)) | ((dat, flags), pathPos, pathLen) <- afterStringBank ]
+  recordsSize = 0x20 * length records
+  finalRecords = do
+    ((flags, pathPos, pathLen), dataPos, dataLen) <- afterDataBank
+    return PKGItemRecord
+      { recFilenameOffset = fromIntegral recordsSize + fromIntegral pathPos
+      , recFilenameSize   = fromIntegral pathLen
+      , recDataOffset     = fromIntegral recordsSize + fromIntegral (BL.length stringBank) + fromIntegral dataPos
+      , recDataSize       = fromIntegral dataLen
+      , recFlags          = flags
+      , recPadding        = 0
       }
-    qaDigest = B.take 0x10 $ convert (hash $ BL.toStrict $ BL.concat
-      [ BL.fromChunks fileContents
-      , runPut $ void $ codecOut bin headerForQADigest
-      , pkgEntriesNames
-      ] :: Digest SHA1)
-    klicensee = BL.toStrict $ nonFinalizedCrypt False 0xFFFFFFFFFFFFFFFF qaDigest $ BL.replicate 0x10 0
-    header = headerForQADigest
-      { pkgContentID      = contentID -- auto padded with 0
-      , pkgQADigest       = qaDigest
-      , pkgDataRIV        = B.take 0x10 $ B.take (B.length contentID) klicensee <> B.replicate 0x10 0
-      }
-    (digest1, digest2) = nonFinalizedDigests header metadata
-    encrypted = cryptNonFinalizedPKG False 0 header pkgContents
-    in runPut $ do
-      void $ codecOut bin header
-      putByteString digest1
-      mapM_ (codecOut bin) metadata
-      putByteString digest2
-      putLazyByteString encrypted
-      putByteString $ B.replicate 0x60 0 -- this is needed to install ok, but why?
+  recordBytes = runPut $ mapM_ (codecOut bin) finalRecords
+  in (length records, recordBytes <> stringBank, dataBank)
+
+makePKG :: B.ByteString -> Folder B.ByteString Readable -> FilePath -> IO ()
+makePKG contentID folder fout = do
+  records <- makePKGRecords folder
+  let goHash :: Context SHA1 -> [(Int, Readable)] -> IO (Context SHA1)
+      goHash !ctx = \case
+        [] -> return ctx
+        (_, r) : rest -> do
+          bs <- useHandle r handleToByteString
+          goHash (hashUpdates ctx $ BL.toChunks bs) rest
+  fileContentsHash <- goHash hashInit $ map (\(_, fileContents, _) -> fileContents) records
+  let (numEntries, pkgEntriesNames, pkgFileContents) = makePKGContents records
+      pkgContentsLength = fromIntegral (BL.length pkgEntriesNames) + fromIntegral (sum $ map fst pkgFileContents) :: Word64
+      pkgContents
+        = (fromIntegral $ BL.length pkgEntriesNames, makeHandle "" $ byteStringSimpleHandle pkgEntriesNames)
+        : pkgFileContents
+      fakeHeader = PKGHeader 0 0 0 0 0 0 0 0 0 0 (B.replicate 0x30 0) (B.replicate 0x10 0) (B.replicate 0x10 0)
+      metadataOffset = BL.length (runPut $ void $ codecOut bin fakeHeader) + 0x40
+      metadataAndDigestsSize = BL.length (runPut $ mapM_ (codecOut bin) metadata) + 0x40
+      dataOffset = metadataOffset + metadataAndDigestsSize
+      metadata =
+        [ PKGMetadata 1 $ B.pack [0,0,0,3] -- drm type: free, no license
+        , PKGMetadata 2 $ B.pack [0,0,0,5] -- content type: was 4 for GameData
+        , PKGMetadata 3 $ B.pack [0,0,0,0xE] -- package type, was 8, unknown meaning
+        , PKGMetadata 4 $ BL.toStrict $ runPut $ putWord64be pkgContentsLength
+        , PKGMetadata 5 $ B.pack [0x10,0x61,0x00,0x00] -- make_package_npdrm Revision (2 bytes) + Package Version (2 bytes)
+        ]
+      headerForQADigest = PKGHeader
+        { pkgMagic          = 0x7F504B47
+        , pkgRevision       = 0x0000 -- making a non-finalized pkg
+        , pkgType           = 0x0001
+        , pkgMetadataOffset = fromIntegral metadataOffset
+        , pkgMetadataCount  = fromIntegral $ length metadata
+        , pkgMetadataSize   = fromIntegral metadataAndDigestsSize
+        , pkgItemCount      = fromIntegral numEntries
+        , pkgTotalSize      = fromIntegral dataOffset + pkgContentsLength + 0x60
+        , pkgDataOffset     = fromIntegral dataOffset
+        , pkgDataSize       = pkgContentsLength
+        , pkgContentID      = "" -- filled in later
+        , pkgQADigest       = B.replicate 0x10 0 -- filled in later
+        , pkgDataRIV        = B.replicate 0x10 0 -- filled in later
+        }
+      qaDigest = B.take 0x10 $ convert $ hashUpdates fileContentsHash
+        [ BL.toStrict $ runPut $ void $ codecOut bin headerForQADigest
+        , BL.toStrict pkgEntriesNames
+        ]
+      klicensee = BL.toStrict $ nonFinalizedCrypt False 0xFFFFFFFFFFFFFFFF qaDigest $ BL.replicate 0x10 0
+      header = headerForQADigest
+        { pkgContentID      = contentID -- auto padded with 0
+        , pkgQADigest       = qaDigest
+        , pkgDataRIV        = B.take 0x10 $ B.take (B.length contentID) klicensee <> B.replicate 0x10 0
+        }
+      (digest1, digest2) = nonFinalizedDigests header metadata
+      encrypted = cryptNonFinalizedPKG' False 0 header pkgContents
+  withBinaryFile fout WriteMode $ \h -> do
+    BL.hPut h $ runPut $ void $ codecOut bin header
+    B.hPut h digest1
+    forM_ metadata $ \meta -> do
+      BL.hPut h $ runPut $ void $ codecOut bin meta
+    B.hPut h digest2
+    forM_ encrypted $ \piece -> copyReadableToHandle piece h
+    B.hPut h $ B.replicate 0x60 0 -- this is needed to install ok, but why?
