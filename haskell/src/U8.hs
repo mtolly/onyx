@@ -7,9 +7,13 @@ Written with reference to
 
 -}
 {-# LANGUAGE BangPatterns #-}
-module U8 (packU8) where
+{-# LANGUAGE LambdaCase   #-}
+module U8 (packU8, readU8) where
 
+import           Control.Monad         (replicateM)
 import           Data.Bifunctor        (first)
+import           Data.Binary.Get       (bytesRead, getWord16be, getWord32be,
+                                        getWord8, skip)
 import           Data.Binary.Put       (Put, putByteString, putWord16be,
                                         putWord32be, putWord8, runPut)
 import           Data.Bits             (shiftR)
@@ -19,6 +23,7 @@ import qualified Data.ByteString.Lazy  as BL
 import           Data.SimpleHandle
 import qualified Data.Text             as T
 import           Data.Word             (Word32)
+import           STFS.Package          (runGetM)
 import           System.IO             (IOMode (..), SeekMode (..), hFileSize,
                                         hSeek, withBinaryFile)
 
@@ -129,3 +134,37 @@ writeU8 out root = withBinaryFile out WriteMode $ \hout -> do
 
 packU8 :: FilePath -> FilePath -> IO ()
 packU8 dir fout = crawlFolder dir >>= getRoot . first (B8.pack . T.unpack) >>= writeU8 fout
+
+readU8 :: (MonadFail m) => BL.ByteString -> m (Folder B.ByteString BL.ByteString, Integer)
+readU8 u8 = do
+  let getNode = do
+        isDir <- (/= 0) <$> getWord8
+        nameHigh <- getWord8
+        nameLow <- getWord16be
+        let name = fromIntegral nameHigh * 0x10000 + fromIntegral nameLow :: Word32
+        dataOrLevel <- getWord32be
+        sizeOrExtent <- getWord32be
+        return (isDir, name, dataOrLevel, sizeOrExtent)
+  (nodes, stringTableStart) <- flip runGetM u8 $ do
+    skip 0x20 -- assume this is where node list starts
+    firstNode <- getNode
+    restNodes <- case firstNode of
+      (True , _, _, extent) -> replicateM (fromIntegral extent - 1) getNode
+      (False, _, _, _     ) -> fail "First U8 node isn't a directory?"
+    stringTableStart <- bytesRead
+    return (restNodes, stringTableStart)
+  let makeFolder index = \case
+        []                                               -> Folder [] []
+        (True , nameOffset, _level    , extent  ) : rest -> let
+          (inSubfolder, afterSubfolder) = splitAt (fromIntegral extent - index - 1) rest
+          subName = BL.toStrict $ BL.takeWhile (/= 0) $ BL.drop (stringTableStart + fromIntegral nameOffset) u8
+          subfolder = makeFolder (index + 1) inSubfolder
+          restFolder = makeFolder (fromIntegral extent) afterSubfolder
+          in restFolder { folderSubfolders = (subName, subfolder) : folderSubfolders restFolder }
+        (False, nameOffset, dataOffset, dataSize) : rest -> let
+          restFolder = makeFolder (index + 1) rest
+          thisName = BL.toStrict $ BL.takeWhile (/= 0) $ BL.drop (stringTableStart + fromIntegral nameOffset) u8
+          thisData = BL.take (fromIntegral dataSize) $ BL.drop (fromIntegral dataOffset) u8
+          in restFolder { folderFiles = (thisName, thisData) : folderFiles restFolder }
+      endOfLastFile = foldr max 0 [ fromIntegral $ doff + dsize | (False, _, doff, dsize) <- nodes ]
+  return (makeFolder 1 nodes, endOfLastFile)

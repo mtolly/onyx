@@ -33,7 +33,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace
-import           Data.Bifunctor                   (first)
+import           Data.Bifunctor                   (bimap, first)
 import           Data.Binary.Codec.Class
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
@@ -150,6 +150,7 @@ import           Text.Decode                      (decodeGeneral)
 import           Text.Printf                      (printf)
 import           Text.Read                        (readMaybe)
 import           U8                               (packU8)
+import           WAD                              (getWAD, hackSplitU8s)
 
 #ifdef WINDOWS
 import           Data.Bits                        (testBit)
@@ -1405,6 +1406,26 @@ commands =
           return [pkg]
         False -> fatal $ "onyx pkg expected directory; given: " <> dir
       _ -> fatal $ "onyx pkg expected 2 argument, given " <> show (length args)
+    }
+
+  , Command
+    { commandWord = "extract-wad"
+    , commandDesc = "Tries to extract U8 files from a Wii .wad file."
+    , commandUsage = T.unlines
+      [ "onyx extract-wad in.wad [--to out_folder]"
+      ]
+    , commandRun = \args opts -> case args of
+      [pathWad] -> do
+        dout <- outputFile opts $ return $ pathWad <> "_extract"
+        stackIO $ Dir.createDirectoryIfMissing False dout
+        wad <- stackIO (BL.readFile pathWad) >>= runGetM getWAD
+        (initialData, u8s) <- hackSplitU8s wad
+        stackIO $ B.writeFile (dout </> "initial-data.bin") initialData
+        forM_ (zip [0..] u8s) $ \(i, u8) -> do
+          let u8' = bimap TE.decodeLatin1 (makeHandle "" . byteStringSimpleHandle) u8
+          stackIO $ saveHandleFolder u8' $ dout </> ("u8-" <> show (i :: Int))
+        return [dout]
+      _ -> fatal $ "onyx extract-wad expected 1 argument, given " <> show (length args)
     }
 
   ]
