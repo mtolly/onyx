@@ -8,16 +8,35 @@ metadata:
   subgenre: prog
   track-number: 4
   file-album-art: ../../../covers/a-view-from-the-top-of-the-world.jpg
+  preview-start: prc_chorus_1a
 parts:
   drums:
     drums:
       kicks: both
       mode: full
+      difficulty: 6
 audio:
   album-track:
     frames: 29023503
     md5: b2af51d78316f287fc06956324f440ce
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad: [4.724, album-track]
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

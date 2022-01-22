@@ -4108,10 +4108,7 @@ launchQuickConvert sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       -- TODO
       return tab
-    , makeTab windowRect "Guitar Hero II" $ \rect tab -> do
-      functionTabColor >>= setTabColor tab
-      -- TODO
-      return tab
+    -- probably add the current pack creator (RB and GH2) at least for CON
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskColor >>= setTabColor tab

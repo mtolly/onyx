@@ -7,11 +7,13 @@ metadata:
   file-album-art: cover.jpg
   author: Onyxite
   year: 2019
+  preview-start: prc_chorus_1
 parts:
   drums:
     drums:
       difficulty: 7
       kicks: both
+      mode: full
 audio:
   album-track:
     md5: 4432ee8a9001b96b51c70adae2fd0ef1
@@ -32,8 +34,15 @@ plans:
 targets:
   rb3:
     game: rb3
+    start:
+      &introless
+      fade-start: 36|0
+      fade-end: 37|3
+      notes: 40|0
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    start: *introless
   ps:
     game: ps
+    start: *introless

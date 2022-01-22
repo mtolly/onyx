@@ -5,6 +5,7 @@ Process for extracting and repacking already-valid Rock Band songs without a who
 - Change platform: 360 <-> PS3, eventually also Wii
 - Certain changes to MIDI: black venue, remove OD, remove lanes, etc.
 -}
+{-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
@@ -32,6 +33,8 @@ import           NPData
 import           PlayStation.PKG
 import           PrettyDTA                      (DTASingle (..), readDTASingle)
 import           Resources                      (getResourcesPath)
+import qualified Sound.MIDI.File                as F
+import qualified Sound.MIDI.File.Save           as Save
 import           STFS.Package
 import           System.FilePath                (dropExtension, splitExtension,
                                                  takeExtension, (</>))
@@ -40,19 +43,20 @@ import           System.IO                      (hFileSize)
 data QuickSong = QuickSong
   { quickSongDTA    :: B.ByteString
   , quickSongFolder :: T.Text
-  , quickSongFiles  :: Folder T.Text (QuickFile, Readable)
+  , quickSongFiles  :: Folder T.Text (QuickFile Readable)
   }
 
-data QuickFile
-  = QFEncryptedMOGG
-  | QFUnencryptedMOGG
-  | QFMilo
-  | QFPNGXbox
-  | QFPNGPS3
-  | QFEncryptedMIDI B.ByteString -- folder for decryption
-  | QFUnencryptedMIDI
-  | QFOther
-  deriving (Eq, Show)
+data QuickFile a
+  = QFEncryptedMOGG a
+  | QFUnencryptedMOGG a
+  | QFMilo a
+  | QFPNGXbox a
+  | QFPNGPS3 a
+  | QFEncryptedMIDI B.ByteString a -- folder for decryption
+  | QFUnencryptedMIDI a
+  | QFParsedMIDI F.T
+  | QFOther a
+  deriving (Eq, Show, Foldable)
 
 -- Returns [(song's dta section, folder under "songs/" that has the song)]
 findSongs :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m [(B.ByteString, T.Text)]
@@ -67,17 +71,17 @@ findSongs r = do
       _               -> fatal $
         "Unrecognized format of name parameter in songs.dta, expected songs/x/y but got: " <> show base
 
-detectMOGG :: (MonadIO m) => Readable -> StackTraceT m (QuickFile, Readable)
+detectMOGG :: (MonadIO m) => Readable -> StackTraceT m (QuickFile Readable)
 detectMOGG r = do
   moggType <- stackIO $ useHandle r $ \h -> B.hGet h 1
   let qfile = if B.unpack moggType == [0xA] then QFUnencryptedMOGG else QFEncryptedMOGG
-  return (qfile, r)
+  return $ qfile r
 
-detectMIDI :: (MonadIO m) => B.ByteString -> Readable -> StackTraceT m (QuickFile, Readable)
+detectMIDI :: (MonadIO m) => B.ByteString -> Readable -> StackTraceT m (QuickFile Readable)
 detectMIDI packageFolder r = do
   magic <- stackIO $ useHandle r $ \h -> B.hGet h 1
   let qfile = if magic == "MThd" then QFUnencryptedMIDI else QFEncryptedMIDI packageFolder
-  return (qfile, r)
+  return $ qfile r
 
 mapMFilesWithName :: (Monad m) => ((T.Text, a) -> m (T.Text, b)) -> Folder T.Text a -> m (Folder T.Text b)
 mapMFilesWithName f dir = do
@@ -109,10 +113,10 @@ loadInput fin = case map toLower $ takeExtension fin of
           Nothing -> fatal $ "Song folder not found in .pkg for " <> show (packageName, subName)
         let identifyFile (name, r) = case map toLower $ takeExtension $ T.unpack name of
               ".mogg"     -> (name,) <$> detectMOGG r
-              ".milo_ps3" -> return (name, (QFMilo, r))
-              ".png_ps3"  -> return (name, (QFPNGPS3, r))
+              ".milo_ps3" -> return (name, QFMilo r)
+              ".png_ps3"  -> return (name, QFPNGPS3 r)
               ".edat"     -> (name,) <$> detectMIDI packageName r
-              _           -> return (name, (QFOther, r))
+              _           -> return (name, QFOther r)
         identified <- mapMFilesWithName identifyFile songFolder
         return QuickSong
           { quickSongDTA    = dtaPart
@@ -134,10 +138,10 @@ loadInput fin = case map toLower $ takeExtension fin of
         Nothing -> fatal $ "Song folder not found in CON/LIVE: " <> show subName
       let identifyFile (name, r) = case map toLower $ takeExtension $ T.unpack name of
             ".mogg"      -> (name,) <$> detectMOGG r
-            ".milo_xbox" -> return (name, (QFMilo, r))
-            ".png_xbox"  -> return (name, (QFPNGXbox, r))
-            ".mid"       -> return (name, (QFUnencryptedMIDI, r))
-            _            -> return (name, (QFOther, r))
+            ".milo_xbox" -> return (name, QFMilo r)
+            ".png_xbox"  -> return (name, QFPNGXbox r)
+            ".mid"       -> return (name, QFUnencryptedMIDI r)
+            _            -> return (name, QFOther r)
       identified <- mapMFilesWithName identifyFile songFolder
       return QuickSong
         { quickSongDTA    = dtaPart
@@ -161,56 +165,56 @@ encryptEDAT crypt name rb3 r = tempDir "onyxquickconv" $ \tmp -> stackIO $ do
   packNPData cfg tmpIn tmpOut name
   makeHandle (B8.unpack name) . byteStringSimpleHandle . BL.fromStrict <$> B.readFile tmpOut
 
-getXboxFile :: (MonadIO m, SendMessage m) => (T.Text, (QuickFile, Readable)) -> StackTraceT m (T.Text, Readable)
-getXboxFile (name, (qfile, r)) = case qfile of
-  QFEncryptedMOGG -> return ok
-  QFUnencryptedMOGG -> return ok
-  QFMilo -> let
+getXboxFile :: (MonadIO m, SendMessage m) => (T.Text, QuickFile Readable) -> StackTraceT m (T.Text, Readable)
+getXboxFile (name, qfile) = case qfile of
+  QFEncryptedMOGG r -> return (name, r)
+  QFUnencryptedMOGG r -> return (name, r)
+  QFMilo r -> let
     name' = T.pack $ dropExtension (T.unpack name) <> ".milo_xbox"
     in return (name', r)
-  QFPNGXbox -> return ok
-  QFPNGPS3 -> do
+  QFPNGXbox r -> return (name, r)
+  QFPNGPS3 r -> do
     let name' = T.pack $ dropExtension (T.unpack name) <> ".png_xbox"
     bs <- stackIO $ useHandle r handleToByteString
     let r' = makeHandle (T.unpack name') $ byteStringSimpleHandle $ swapPNGXboxPS3 bs
     return (name', r')
-  QFEncryptedMIDI crypt -> do
+  QFEncryptedMIDI crypt r -> do
     let name' = case splitExtension $ T.unpack name of
           (base, ".edat") -> T.pack base
           _               -> name
     r' <- decryptEDAT crypt (TE.encodeUtf8 name) r
     return (name', r')
-  QFUnencryptedMIDI -> return ok
-  QFOther -> return ok
-  where ok = (name, r)
+  QFUnencryptedMIDI r -> return (name, r)
+  QFParsedMIDI mid -> getXboxFile (name, QFUnencryptedMIDI $ makeHandle "" $ byteStringSimpleHandle $ Save.toByteString mid)
+  QFOther r -> return (name, r)
 
-getPS3File :: (MonadResource m, SendMessage m) => Maybe (B.ByteString, Bool) -> (T.Text, (QuickFile, Readable)) -> StackTraceT m (T.Text, Readable)
-getPS3File mcrypt (name, (qfile, r)) = case qfile of
-  QFEncryptedMOGG -> return ok
-  QFUnencryptedMOGG -> tempDir "onyxquickconv" $ \tmp -> stackIO $ do
+getPS3File :: (MonadResource m, SendMessage m) => Maybe (B.ByteString, Bool) -> (T.Text, QuickFile Readable) -> StackTraceT m (T.Text, Readable)
+getPS3File mcrypt (name, qfile) = case qfile of
+  QFEncryptedMOGG r -> return (name, r)
+  QFUnencryptedMOGG r -> tempDir "onyxquickconv" $ \tmp -> stackIO $ do
     let tmpIn  = tmp </> "in.mogg"
         tmpOut = tmp </> "out.mogg"
     saveReadable r tmpIn
     encryptRB1 tmpIn tmpOut
     r' <- makeHandle (T.unpack name) . byteStringSimpleHandle . BL.fromStrict <$> B.readFile tmpOut
     return (name, r')
-  QFMilo -> let
+  QFMilo r -> let
     name' = T.pack $ dropExtension (T.unpack name) <> ".milo_ps3"
     in return (name', r)
-  QFPNGXbox -> stackIO $ do
+  QFPNGXbox r -> stackIO $ do
     let name' = T.pack $ dropExtension (T.unpack name) <> ".png_ps3"
     bs <- useHandle r handleToByteString
     let r' = makeHandle (T.unpack name') $ byteStringSimpleHandle $ swapPNGXboxPS3 bs
     return (name', r')
-  QFPNGPS3 -> return ok
-  QFEncryptedMIDI crypt -> do
+  QFPNGPS3 r -> return (name, r)
+  QFEncryptedMIDI crypt r -> do
     r' <- case mcrypt of
       Nothing              -> decryptEDAT crypt (TE.encodeUtf8 name) r
       Just (newCrypt, rb3) -> if crypt == newCrypt
         then return r -- fine as is
         else decryptEDAT crypt (TE.encodeUtf8 name) r >>= encryptEDAT newCrypt (TE.encodeUtf8 name) rb3
     return (name, r')
-  QFUnencryptedMIDI -> do
+  QFUnencryptedMIDI r -> do
     let name' = case takeExtension $ T.unpack name of
           ".edat" -> name
           _       -> name <> ".edat"
@@ -218,8 +222,8 @@ getPS3File mcrypt (name, (qfile, r)) = case qfile of
       Nothing           -> return r
       Just (crypt, rb3) -> encryptEDAT crypt (TE.encodeUtf8 name') rb3 r
     return (name', r')
-  QFOther -> return ok
-  where ok = (name, r)
+  QFParsedMIDI mid -> getPS3File mcrypt (name, QFUnencryptedMIDI $ makeHandle "" $ byteStringSimpleHandle $ Save.toByteString mid)
+  QFOther r -> return (name, r)
 
 makePS3DTA :: BL.ByteString -> BL.ByteString
 makePS3DTA = id -- TODO set rating 4 -> 2, and maybe numeric song_id
@@ -265,7 +269,8 @@ saveQuickSongsPKG qsongs rb3 encryptMid fout = do
 
 contentsSize :: QuickSong -> IO Integer
 contentsSize qsong = do
-  fileSizes <- mapM (\(_, r) -> useHandle r hFileSize) $ toList $ quickSongFiles qsong
+  -- TODO add parsed midi size somehow
+  fileSizes <- mapM (\r -> useHandle r hFileSize) $ toList (quickSongFiles qsong) >>= toList
   return $ sum fileSizes
 
 -- Organizes based on combined size of song files.
@@ -308,9 +313,9 @@ One to one (each input file gets one new output file, of a single package type)
   3rd row: template box with default as %dir%/%base%-convert(.pkg), go button
 Make packs (songs are combined into packs, up to a maximum size)
   2nd row: con/pkg/live, if pkg then (enc/unenc midi select, separate/combined songs.dta select)
-  3rd row: max size, go button (opens a save-as dialog)
+  3rd row: max size, go button (opens a save-as dialog, used as pack name or template for multiple)
 Make songs (each song gets one new output file)
   2nd row: con/pkg/live, if pkg then (enc/unenc midi select)
-  3rd row: go button (opens pick folder dialog, folders get auto names inside)
+  3rd row: go button (opens pick folder dialog, songs get auto names inside)
 
 -}

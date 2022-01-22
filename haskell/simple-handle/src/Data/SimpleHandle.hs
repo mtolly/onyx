@@ -61,7 +61,9 @@ instance D.IODevice SimpleHandle where
 
 instance D.RawIO SimpleHandle where
   read sh p n = do
-    bs <- shRead sh $ fromIntegral n
+    pos <- shTell sh
+    let maxBytes = shSize sh - pos
+    bs <- shRead sh $ min (fromIntegral n) maxBytes
     unsafeUseAsCStringLen bs $ \(p', len) -> memcpy p (castPtr p') len
     return $ B.length bs
   readNonBlocking sh p n = (\bytes -> guard (bytes /= 0) >> Just bytes) <$> D.read sh p n
