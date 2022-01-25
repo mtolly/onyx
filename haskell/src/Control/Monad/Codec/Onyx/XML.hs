@@ -172,6 +172,9 @@ childTagOpt t cdc = Codec
         }
   }
 
+ignoreChildTag :: (SendMessage m) => ParseName -> CodecFor (InsideParser m) InsideBuilder a ()
+ignoreChildTag t = const () =. dimap (const Nothing) (const ()) (childTagOpt t $ return ())
+
 childTag :: (SendMessage m) => ParseName -> ValueCodec' m Inside a -> InsideCodec m a
 childTag t cdc = let
   o = childTagOpt t cdc
@@ -245,18 +248,22 @@ reqAttr a = Codec
   , codecOut = fmapArg $ void . codecOut o . Just
   } where o = optAttr a
 
+viewElements :: (SendMessage m) => InsideParser m (V.Vector Element)
+viewElements = do
+  ins <- lift get
+  fmap (V.mapMaybe id) $ forM (insideContent ins) $ \case
+    Elem elt -> return $ Just elt
+    Text cd -> do
+      unless (all isSpace $ cdData cd) $ do
+        warn $ "Unexpected text in list element: " ++ show (cdData cd)
+      return Nothing
+    CRef _ -> warn "Unexpected CRef" >> return Nothing
+
 childElements :: (SendMessage m) => InsideCodec m (V.Vector Element)
 childElements = Codec
   { codecIn = do
-    ins <- lift get
-    elts <- fmap (V.mapMaybe id) $ forM (insideContent ins) $ \case
-      Elem elt -> return $ Just elt
-      Text cd -> do
-        unless (all isSpace $ cdData cd) $ do
-          warn $ "Unexpected text in list element: " ++ show (cdData cd)
-        return Nothing
-      CRef _ -> warn "Unexpected CRef" >> return Nothing
-    lift $ put ins{ insideContent = V.empty }
+    elts <- viewElements
+    lift $ modify $ \ins -> ins { insideContent = V.empty }
     return elts
   , codecOut = makeOut $ \elts -> Inside
     { insideAttrs   = V.empty

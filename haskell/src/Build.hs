@@ -2424,11 +2424,13 @@ psRules buildInfo dir ps = do
   dir </> "ps.zip" %> \out -> do
     let d = dir </> "ps"
     shk $ need [d]
-    files <- shk $ map (d </>) <$> getDirectoryContents d
+    files <- shk $ getDirectoryContents d
     let folderInZip = T.unpack $ validFileNamePiece NameRulePC
           $ getArtist (_metadata songYaml) <> " - " <> targetTitle songYaml (PS ps)
-    z <- stackIO $ Zip.addFilesToArchive [Zip.OptLocation folderInZip False] Zip.emptyArchive files
-    stackIO $ BL.writeFile out $ Zip.fromArchive z
+    Zip.createArchive out $ do
+      forM_ files $ \file -> do
+        sel <- Zip.mkEntrySelector $ folderInZip </> file
+        Zip.loadEntry Zip.Deflate sel $ d </> file
 
 ------------------------------------------------------------------------------
 

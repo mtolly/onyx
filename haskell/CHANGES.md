@@ -1,6 +1,6 @@
 # Version history
 
-## 20220105
+## 20220124
 
 * Prerelease version
 * Demo of quick CON to PKG screen

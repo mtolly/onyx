@@ -4104,11 +4104,18 @@ launchQuickConvert sink makeMenuBar = mdo
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   functionTabs <- sequence
-    [ makeTab windowRect "Rock Band" $ \rect tab -> do
+    [ makeTab windowRect "Make a pack" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
-      -- TODO
+      miscPagePacks sink rect tab startTasks
       return tab
-    -- probably add the current pack creator (RB and GH2) at least for CON
+    , makeTab windowRect "Black VENUE" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      miscPageBlack sink rect tab startTasks
+      return tab
+    , makeTab windowRect "Quick CON->PKG" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      miscPageCONtoPKG sink rect tab startTasks
+      return tab
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskColor >>= setTabColor tab
@@ -4154,10 +4161,6 @@ launchMisc sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       miscPageMOGG sink rect tab startTasks
       return tab
-    , makeTab windowRect "Make a pack" $ \rect tab -> do
-      functionTabColor >>= setTabColor tab
-      miscPagePacks sink rect tab startTasks
-      return tab
     , makeTab windowRect "Lipsync" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageLipsync sink rect tab startTasks
@@ -4170,10 +4173,6 @@ launchMisc sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       miscPageMilo sink rect tab startTasks
       return tab
-    , makeTab windowRect "Black VENUE" $ \rect tab -> do
-      functionTabColor >>= setTabColor tab
-      miscPageBlack sink rect tab startTasks
-      return tab
     , makeTab windowRect "RB3 cache" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageHardcodeSongCache sink rect tab startTasks
@@ -4181,10 +4180,6 @@ launchMisc sink makeMenuBar = mdo
     , makeTab windowRect "GH:WoR cache" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageWoRSongCache sink rect tab startTasks
-      return tab
-    , makeTab windowRect "Quick CON->PKG" $ \rect tab -> do
-      functionTabColor >>= setTabColor tab
-      miscPageCONtoPKG sink rect tab startTasks
       return tab
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do

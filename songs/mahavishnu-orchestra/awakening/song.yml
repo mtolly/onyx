@@ -1,0 +1,26 @@
+parts:
+  drums:
+    drums:
+      kicks: 1
+      mode: full
+      difficulty: 7
+audio:
+  album-track: # Mobile Fidelity Sound Lab (1999) UDCD 744
+    frames: 9189264
+    md5: 999993109789762ffb3fc25988a7bb38
+plans:
+  album:
+    song:
+      expr:
+        pad: [3.171, album-track]
+      pans: [1, -1]
+metadata:
+  title: Awakening
+  artist: Mahavishnu Orchestra
+  album: The Inner Mounting Flame
+  track-number: 8
+  genre: fusion
+  subgenre: fusion
+  author: Onyxite
+  year: 1971
+  file-album-art: cover.jpg

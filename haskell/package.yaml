@@ -1,5 +1,5 @@
 name: onyxite-customs-lib
-version: '20220105'
+version: '20220124'
 github: mtolly/onyxite-customs
 author: Michael Tolly <miketolly@gmail.com>
 category: Distribution
@@ -55,7 +55,7 @@ library:
   - template-haskell
   - MonadRandom
   - random
-  - zip-archive
+  - zip
   - silently
   - codec
   - deepseq
