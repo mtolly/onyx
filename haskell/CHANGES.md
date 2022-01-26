@@ -1,9 +1,10 @@
 # Version history
 
-## 20220124
+## 20220126
 
 * Prerelease version
 * Demo of quick CON to PKG screen
+* Test of nondeterministic auto song ID for RB 2/3
 
 ## 20211224
 

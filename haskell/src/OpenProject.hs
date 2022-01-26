@@ -25,6 +25,7 @@ import           Data.Functor                   (void)
 import           Data.Functor.Identity
 import           Data.Hashable
 import qualified Data.HashMap.Strict            as Map
+import           Data.Int                       (Int32)
 import           Data.List.Extra                (stripSuffix)
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe                     (fromMaybe, mapMaybe)
@@ -62,6 +63,7 @@ import           System.FilePath                (dropExtension,
                                                  takeFileName, (</>))
 import qualified System.IO                      as IO
 import qualified System.IO.Temp                 as Temp
+import           System.Random                  (randomRIO)
 
 data Project = Project
   { projectLocation :: FilePath -- path to song.yml
@@ -300,17 +302,32 @@ buildCommon target getBuildable proj = do
       buildable = getBuildable targetHash
   shakeBuild1 proj [(T.pack targetHash, target)] buildable
 
+randomRBSongID :: (MonadIO m) => m Int32
+randomRBSongID = liftIO $ randomRIO (10000000, 1000000000)
+
 buildRB3CON :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildRB3CON rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> targetHash </> "rb3con"
+buildRB3CON rb3 proj = do
+  songID <- randomRBSongID
+  let rb3' = rb3 { rb3_SongID = SongIDInt songID }
+  buildCommon (RB3 rb3') (\targetHash -> "gen/target" </> targetHash </> "rb3con") proj
 
 buildRB3PKG :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildRB3PKG rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> targetHash </> "rb3-ps3.pkg"
+buildRB3PKG rb3 proj = do
+  songID <- randomRBSongID
+  let rb3' = rb3 { rb3_SongID = SongIDInt songID }
+  buildCommon (RB3 rb3') (\targetHash -> "gen/target" </> targetHash </> "rb3-ps3.pkg") proj
 
 buildRB2CON :: (MonadIO m) => TargetRB2 -> Project -> StackTraceT (QueueLog m) FilePath
-buildRB2CON rb2 = buildCommon (RB2 rb2) $ \targetHash -> "gen/target" </> targetHash </> "rb2con"
+buildRB2CON rb2 proj = do
+  songID <- randomRBSongID
+  let rb2' = rb2 { rb2_SongID = SongIDInt songID }
+  buildCommon (RB2 rb2') (\targetHash -> "gen/target" </> targetHash </> "rb2con") proj
 
 buildRB2PKG :: (MonadIO m) => TargetRB2 -> Project -> StackTraceT (QueueLog m) FilePath
-buildRB2PKG rb2 = buildCommon (RB2 rb2) $ \targetHash -> "gen/target" </> targetHash </> "rb2-ps3.pkg"
+buildRB2PKG rb2 proj = do
+  songID <- randomRBSongID
+  let rb2' = rb2 { rb2_SongID = SongIDInt songID }
+  buildCommon (RB2 rb2') (\targetHash -> "gen/target" </> targetHash </> "rb2-ps3.pkg") proj
 
 buildMagmaV2 :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildMagmaV2 rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> targetHash </> "magma"
