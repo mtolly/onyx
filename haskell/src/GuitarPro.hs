@@ -4,7 +4,7 @@
 module GuitarPro where
 
 import qualified Codec.Archive.Zip              as Zip
-import           Control.Monad                  (guard, void)
+import           Control.Monad                  (forM, guard, void)
 import           Control.Monad.Codec
 import           Control.Monad.Codec.Onyx.XML
 import           Control.Monad.IO.Class         (MonadIO (..))
@@ -19,6 +19,7 @@ import           Data.Profunctor                (dimap)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import qualified Data.Vector                    as V
+import           Text.Read                      (readMaybe)
 import           Text.XML.Light
 
 -- .gp (GP7) format, a zip file containing an XML file
@@ -81,7 +82,7 @@ data Score = Score
   , score_PageHeader                :: T.Text
   , score_PageFooter                :: T.Text
   , score_ScoreSystemsDefaultLayout :: T.Text
-  , score_ScoreSystemsLayout        :: T.Text -- sequence of ints separated by space
+  , score_ScoreSystemsLayout        :: [Int]
   , score_ScoreZoomPolicy           :: T.Text
   , score_ScoreZoom                 :: T.Text
   , score_MultiVoice                :: T.Text
@@ -105,21 +106,21 @@ instance IsInside Score where
     score_PageHeader                <- score_PageHeader                =. childTag "PageHeader"                (parseInside' childText)
     score_PageFooter                <- score_PageFooter                =. childTag "PageFooter"                (parseInside' childText)
     score_ScoreSystemsDefaultLayout <- score_ScoreSystemsDefaultLayout =. childTag "ScoreSystemsDefaultLayout" (parseInside' childText)
-    score_ScoreSystemsLayout        <- score_ScoreSystemsLayout        =. childTag "ScoreSystemsLayout"        (parseInside' childText)
+    score_ScoreSystemsLayout        <- score_ScoreSystemsLayout        =. childTag "ScoreSystemsLayout"        (parseInside' listOfInts)
     score_ScoreZoomPolicy           <- score_ScoreZoomPolicy           =. childTag "ScoreZoomPolicy"           (parseInside' childText)
     score_ScoreZoom                 <- score_ScoreZoom                 =. childTag "ScoreZoom"                 (parseInside' childText)
     score_MultiVoice                <- score_MultiVoice                =. childTag "MultiVoice"                (parseInside' childText)
     return Score{..}
 
 data MasterTrack = MasterTrack
-  { mt_Tracks      :: T.Text
+  { mt_Tracks      :: [Int]
   , mt_Automations :: V.Vector Automation
   -- RSE
   } deriving (Show)
 
 instance IsInside MasterTrack where
   insideCodec = do
-    mt_Tracks      <- mt_Tracks      =. childTag "Tracks" (parseInside' childText)
+    mt_Tracks      <- mt_Tracks      =. childTag "Tracks" (parseInside' listOfInts)
     mt_Automations <- mt_Automations =. childTag "Automations"
       (parseInside' $ bareList $ isTag "Automation" $ parseInside' insideCodec)
     ignoreChildTag "RSE"
@@ -128,8 +129,8 @@ instance IsInside MasterTrack where
 data Automation = Automation
   { auto_Type     :: T.Text
   , auto_Linear   :: Bool
-  , auto_Bar      :: Int
-  , auto_Position :: T.Text -- not sure of num type
+  , auto_Bar      :: Int -- this appears to count from 0.
+  , auto_Position :: Double -- this appears to count from 0. (beats?) not sure of num type
   , auto_Visible  :: Bool
   , auto_Value    :: T.Text
   } deriving (Show)
@@ -139,7 +140,7 @@ instance IsInside Automation where
     auto_Type     <- auto_Type     =. childTag "Type"     (parseInside' childText)
     auto_Linear   <- auto_Linear   =. childTag "Linear"   (parseInside' $ boolWordText childText)
     auto_Bar      <- auto_Bar      =. childTag "Bar"      (parseInside' $ intText childText)
-    auto_Position <- auto_Position =. childTag "Position" (parseInside' childText)
+    auto_Position <- auto_Position =. childTag "Position" (parseInside' $ milliText childText)
     auto_Visible  <- auto_Visible  =. childTag "Visible"  (parseInside' $ boolWordText childText)
     auto_Value    <- auto_Value    =. childTag "Value"    (parseInside' childText)
     return Automation{..}
@@ -148,7 +149,7 @@ data Track = Track
   { trk_id          :: Int
   , trk_Name        :: T.Text
   , trk_ShortName   :: T.Text
-  , trk_Color       :: T.Text
+  , trk_Color       :: [Int]
   -- SystemsDefautLayout, SystemsLayout, PalmMute, AutoAccentuation, PlayingStyle, UseOneChannelPerString, IconId, InstrumentSet
   , trk_Transpose   :: Transpose
   -- RSE, ForcedSound, Sounds, MidiConnection, PlaybackState, AudioEngineState, Lyrics
@@ -161,7 +162,7 @@ instance IsInside Track where
     trk_id          <- trk_id          =. intText (reqAttr "id")
     trk_Name        <- trk_Name        =. childTag "Name" (parseInside' childText)
     trk_ShortName   <- trk_ShortName   =. childTag "ShortName" (parseInside' childText)
-    trk_Color       <- trk_Color       =. childTag "Color" (parseInside' childText)
+    trk_Color       <- trk_Color       =. childTag "Color" (parseInside' listOfInts)
     ignoreChildTag "SystemsDefautLayout"
     ignoreChildTag "SystemsLayout"
     ignoreChildTag "PalmMute"
@@ -295,7 +296,7 @@ instance IsInside PropertyValue where
       insideCodec' = insideCodec
 
 data Tuning = Tuning
-  { tuning_Pitches      :: T.Text
+  { tuning_Pitches      :: [Int]
   , tuning_Instrument   :: T.Text
   , tuning_Label        :: T.Text
   , tuning_LabelVisible :: Bool
@@ -303,7 +304,7 @@ data Tuning = Tuning
 
 instance IsInside Tuning where
   insideCodec = do
-    tuning_Pitches      <- tuning_Pitches      =. childTag "Pitches"      (parseInside' childText)
+    tuning_Pitches      <- tuning_Pitches      =. childTag "Pitches"      (parseInside' listOfInts)
     tuning_Instrument   <- tuning_Instrument   =. childTag "Instrument"   (parseInside' childText)
     tuning_Label        <- tuning_Label        =. childTag "Label"        (parseInside' childText)
     tuning_LabelVisible <- tuning_LabelVisible =. childTag "LabelVisible" (parseInside' $ boolWordText childText)
@@ -333,7 +334,7 @@ data MasterBar = MasterBar
   , mb_Time      :: T.Text
   -- Repeat, Section, Fermatas
   , mb_DoubleBar :: Bool -- true if empty DoubleBar tag is present
-  , mb_Bars      :: T.Text
+  , mb_Bars      :: [Int]
   -- XProperties
   } deriving (Show)
 
@@ -348,7 +349,7 @@ instance IsInside MasterBar where
       (\b -> guard b >> Just ())
       isJust
       (childTagOpt "DoubleBar" $ return ())
-    mb_Bars      <- mb_Bars      =. childTag "Bars" (parseInside' childText)
+    mb_Bars      <- mb_Bars      =. childTag "Bars" (parseInside' listOfInts)
     ignoreChildTag "XProperties"
     return MasterBar{..}
 
@@ -368,7 +369,7 @@ instance IsInside Key where
 data Bar = Bar
   { bar_id     :: Int
   , bar_Clef   :: T.Text
-  , bar_Voices :: T.Text
+  , bar_Voices :: [Int]
   -- XProperties (optional)
   } deriving (Show)
 
@@ -376,19 +377,19 @@ instance IsInside Bar where
   insideCodec = do
     bar_id     <- bar_id     =. intText (reqAttr "id")
     bar_Clef   <- bar_Clef   =. childTag "Clef"   (parseInside' childText)
-    bar_Voices <- bar_Voices =. childTag "Voices" (parseInside' childText)
+    bar_Voices <- bar_Voices =. childTag "Voices" (parseInside' listOfInts)
     ignoreChildTag "XProperties"
     return Bar{..}
 
 data Voice = Voice
   { voice_id    :: Int
-  , voice_Beats :: T.Text
+  , voice_Beats :: [Int]
   } deriving (Show)
 
 instance IsInside Voice where
   insideCodec = do
     voice_id    <- voice_id    =. intText (reqAttr "id")
-    voice_Beats <- voice_Beats =. childTag "Beats" (parseInside' childText)
+    voice_Beats <- voice_Beats =. childTag "Beats" (parseInside' listOfInts)
     return Voice{..}
 
 data Beat = Beat
@@ -400,7 +401,7 @@ data Beat = Beat
   , beat_Arpeggio   :: Maybe T.Text
   , beat_Variation  :: Maybe Int
   , beat_FreeText   :: Maybe T.Text
-  , beat_Notes      :: Maybe T.Text
+  , beat_Notes      :: Maybe [Int]
   , beat_Properties :: Properties
   -- XProperties
   } deriving (Show)
@@ -416,7 +417,7 @@ instance IsInside Beat where
     beat_Arpeggio   <- beat_Arpeggio   =. childTagOpt "Arpeggio" (parseInside' childText)
     beat_Variation  <- beat_Variation  =. childTagOpt "Variation" (parseInside' $ intText childText)
     beat_FreeText   <- beat_FreeText   =. childTagOpt "FreeText" (parseInside' childText)
-    beat_Notes      <- beat_Notes      =. childTagOpt "Notes" (parseInside' childText)
+    beat_Notes      <- beat_Notes      =. childTagOpt "Notes" (parseInside' listOfInts)
     beat_Properties <- beat_Properties =. childTag "Properties" (parseInside' insideCodec)
     ignoreChildTag "XProperties"
     return Beat{..}
@@ -498,6 +499,16 @@ instance IsInside PrimaryTuplet where
     tup_num <- tup_num =. intText (reqAttr "num")
     tup_den <- tup_den =. intText (reqAttr "den")
     return PrimaryTuplet{..}
+
+listOfInts :: (Monad m) => InsideCodec m [Int]
+listOfInts = Codec
+  { codecIn = do
+    t <- codecIn childText
+    forM (T.words t) $ \word -> case readMaybe $ T.unpack word of
+      Nothing -> fatal $ "Failed to parse list of ints: " <> show t
+      Just n  -> return n
+  , codecOut = undefined
+  }
 
 -- `zip-archive` package fails to parse .gp zip for some reason. `zip` is fine
 parseGP :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m GPIF

@@ -37,6 +37,7 @@ import           GuitarHeroII.Ark               (GH2Installation (..),
                                                  GameGH (..), addBonusSong,
                                                  detectGameGH)
 import           GuitarHeroII.Convert           (adjustSongText)
+import           GuitarPro                      (parseGP)
 import           Import.Amplitude2016           (importAmplitude)
 import           Import.Base                    (ImportLevel (..), saveImport)
 import           Import.BMS                     (importBMS)
@@ -44,6 +45,7 @@ import           Import.DTXMania                (importDTX, importSet)
 import           Import.FretsOnFire             (importFoF)
 import qualified Import.GuitarHero1             as GH1
 import qualified Import.GuitarHero2             as GH2
+import           Import.GuitarPro               (importGPIF)
 import           Import.Magma                   (importMagma)
 import           Import.Neversoft               (importGH5WoR)
 import           Import.RockBand                (importRBA, importSTFSFolder)
@@ -183,6 +185,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                 foundImports "Guitar Hero (Neversoft) (PS3)" loc imps
               else return ([], [])
             ]
+      foundGP loc = do
+        let imp level = parseGP loc >>= \gpif -> importGPIF gpif level
+        foundImports "Guitar Pro" loc [imp]
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         let single = null $ drop 1 imports
@@ -233,6 +238,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".bml" -> foundBME fp
         ".psarc" -> foundRS fp
         ".pkg" -> foundPS3 fp
+        ".gp" -> foundGP fp
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundFoF fp
           "set.def" -> foundDTXSet fp
