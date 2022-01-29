@@ -53,6 +53,12 @@ plans:
           - drop: ['1:39.929', only: [Keys 2, jammit-track]]
         pans: [1, -1]
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
     song:
       expr:
         drop: ['1:38.652', album-track]
@@ -63,14 +69,21 @@ parts:
       kicks: both
       mode: full
       full-layout: open-hand
+      difficulty: 7
   # bass:
   #   pro-guitar:
   #     tuning:
   #       base: bass-4
 targets:
+  rb3:
+    game: rb3
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: album
+  ps:
+    game: ps
     plan: album
   # rs:
   #   game: rs

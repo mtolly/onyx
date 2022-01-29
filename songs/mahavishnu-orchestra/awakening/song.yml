@@ -4,16 +4,27 @@ parts:
       kicks: 1
       mode: full
       difficulty: 7
+      full-layout: open-hand
 audio:
   album-track: # Mobile Fidelity Sound Lab (1999) UDCD 744
     frames: 9189264
     md5: 999993109789762ffb3fc25988a7bb38
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
     song:
       expr:
         pad: [3.171, album-track]
       pans: [1, -1]
+      vols: [2.5, 2.5]
 metadata:
   title: Awakening
   artist: Mahavishnu Orchestra
@@ -24,3 +35,9 @@ metadata:
   author: Onyxite
   year: 1971
   file-album-art: cover.jpg
+  preview-start: prc_main_riff_4
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps

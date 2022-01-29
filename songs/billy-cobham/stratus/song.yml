@@ -8,6 +8,7 @@ metadata:
   subgenre: fusion
   author: Onyxite
   file-album-art: ../quadrant-4/cover.jpg
+  preview-start: prc_verse_1
 audio:
   album-track: # Audio Fidelity 2016
     md5: 7b5af715c3e29d6e8b3072df23a160e1
@@ -54,6 +55,13 @@ plans:
         take: ['3:02.116', album-track]
       pans: [1, -1]
   album:
+    countin:
+      50|3: hihat
+      51|1: hihat
+      51|3: hihat
+      52|0: hihat
+      52|1: hihat
+      52|2: hihat
     song:
       expr: album-track
       pans: [1, -1]
@@ -63,15 +71,25 @@ parts:
       kicks: both
       mode: full
       full-layout: open-hand
+      difficulty: 7
   bass:
     pro-guitar:
       tuning:
         base: bass-4
 targets:
+  rb3:
+    game: rb3
+    plan: album
+    bass: no-part
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: album
+    bass: no-part
+  ps:
+    game: ps
+    plan: album
+    bass: no-part
   rs:
     game: rs
     plan: album

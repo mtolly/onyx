@@ -8,6 +8,7 @@ metadata:
   subgenre: fusion
   author: Onyxite
   file-album-art: cover.jpg
+  preview-start: prc_main_riff_1a
 audio:
   album-track: # Audio Fidelity 2016
     md5: 703ec50fddaa30c2c63932de3a7af54c
@@ -68,21 +69,32 @@ plans:
         - 0.9987984454700994
         - drop: [7.732, album-track]
       pans: [1, -1]
+      vols: [2, 2]
 parts:
   drums:
     drums:
       kicks: both
       mode: full
       full-layout: open-hand
+      difficulty: 7
   bass:
     pro-guitar:
       tuning:
         base: bass-4
 targets:
+  rb3:
+    game: rb3
+    plan: album
+    bass: no-part
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: jammit
+    plan: album
+    bass: no-part
+  ps:
+    game: ps
+    plan: album
+    bass: no-part
   rs:
     game: rs
     plan: album

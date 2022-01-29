@@ -1764,6 +1764,7 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
             r' <- makeHandle "" . byteStringSimpleHandle . BL.fromStrict <$> B.readFile tmpOut
             return (name', r')
           ".dta" -> do
+            -- TODO get rid of BOM!
             b <- stackIO $ useHandle r handleToByteString
             mdta <- errorToWarning $ readDTA_latin1 $ BL.toStrict b
             case mdta of

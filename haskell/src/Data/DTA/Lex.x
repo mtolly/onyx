@@ -15,6 +15,7 @@ $digit = 0-9
 tokens :-
 
 -- Whitespace and line comments.
+-- TODO ignore BOM!
 $white+ ;
 \; [^\n]* ;
 

@@ -6,6 +6,7 @@ metadata:
   author: Onyxite
   rating: FamilyFriendly
   key: A # most of it at least
+  preview-start: prc_gtr_solo_1
 global:
   autogen-theme: PsychJamRock
 audio:
@@ -28,6 +29,7 @@ plans:
       expr:
         pad: [3.655, album-track]
       pans: [1, -1]
+      vols: [2, 2]
 parts:
   drums:
     drums:
