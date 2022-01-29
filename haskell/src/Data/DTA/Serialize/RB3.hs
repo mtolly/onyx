@@ -148,7 +148,7 @@ instance StackChunks SongPackage where
     songScrollSpeed   <- songScrollSpeed   =. req         "song_scroll_speed"   stackChunks
     bank              <- bank              =. opt Nothing "bank"                stackChunks
     drumBank          <- drumBank          =. opt Nothing "drum_bank"           (chunksMaybe $ single chunkSym) -- this has to be output as a symbol for C3
-    animTempo         <- animTempo         =. opt (Left KTempoMedium) "anim_tempo" stackChunks
+    animTempo         <- animTempo         =. fill (Left KTempoMedium) "anim_tempo" stackChunks
     songLength        <- songLength        =. opt Nothing "song_length"         stackChunks
     preview           <- preview           =. req         "preview"             stackChunks
     rank              <- rank              =. req         "rank"                (chunksDict chunkSym stackChunks)

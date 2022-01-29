@@ -13,6 +13,7 @@ module Overdrive
 , notesFromRB3
 , fixNotelessOD
 , removeNotelessOD
+, voidEdgeOn
 ) where
 
 import           Control.Arrow                    ((>>>))
@@ -272,6 +273,9 @@ fixPartialUnisons parts (Song tmap mmap rb3) = do
   od' <- removePartialUnisons parts mmap od
   return $ Song tmap mmap $ putOverdrive rb3 od'
 
+voidEdgeOn :: (NNC.C t) => RTB.T t (Edge s a) -> RTB.T t ()
+voidEdgeOn = RTB.mapMaybe $ \case EdgeOn{} -> Just (); EdgeOff{} -> Nothing
+
 notesFromRB3
   :: (NNC.C t)
   => FixedFile t
@@ -279,10 +283,10 @@ notesFromRB3
 notesFromRB3 FixedFile{..} = let
   five name part = do
     (diff, fd) <- Map.toAscList $ fiveDifficulties part
-    return (show diff ++ " " ++ name, void $ fiveGems fd)
+    return (show diff ++ " " ++ name, voidEdgeOn $ fiveGems fd)
   protar name part = do
     (diff, pgd) <- Map.toAscList $ pgDifficulties part
-    return (show diff ++ " Pro " ++ name, void $ pgNotes pgd)
+    return (show diff ++ " Pro " ++ name, voidEdgeOn $ pgNotes pgd)
   in do
     (fpart, notes) <-
       [ (FlexDrums,) $ do
@@ -291,10 +295,10 @@ notesFromRB3 FixedFile{..} = let
       , (FlexGuitar,) $ five "Guitar" fixedPartGuitar ++ protar "Guitar" fixedPartRealGuitar ++ protar "Guitar (22)" fixedPartRealGuitar22
       , (FlexBass,) $ five "Bass" fixedPartBass ++ protar "Bass" fixedPartRealBass ++ protar "Bass (22)" fixedPartRealBass22
       , (FlexKeys,) $ five "Keys" fixedPartKeys ++
-        [ ("Easy Pro Keys"  , void $ pkNotes fixedPartRealKeysE)
-        , ("Medium Pro Keys", void $ pkNotes fixedPartRealKeysM)
-        , ("Hard Pro Keys"  , void $ pkNotes fixedPartRealKeysH)
-        , ("Expert Pro Keys", void $ pkNotes fixedPartRealKeysX)
+        [ ("Easy Pro Keys"  , voidEdgeOn $ pkNotes fixedPartRealKeysE)
+        , ("Medium Pro Keys", voidEdgeOn $ pkNotes fixedPartRealKeysM)
+        , ("Hard Pro Keys"  , voidEdgeOn $ pkNotes fixedPartRealKeysH)
+        , ("Expert Pro Keys", voidEdgeOn $ pkNotes fixedPartRealKeysX)
         ]
       ]
     case filter (not . RTB.null . snd) notes of

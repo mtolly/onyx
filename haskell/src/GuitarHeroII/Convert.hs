@@ -29,7 +29,7 @@ import           GuitarHeroII.PartDrum
 import           GuitarHeroII.PartGuitar
 import           GuitarHeroII.Triggers
 import           Guitars
-import           Overdrive                        (removeNotelessOD)
+import           Overdrive                        (removeNotelessOD, voidEdgeOn)
 import           Reductions                       (gryboComplete)
 import qualified RockBand.Codec.Drums             as RB
 import qualified RockBand.Codec.Events            as RB
@@ -209,7 +209,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
         let makeDiff diff fdiff = do
               od <- removeNotelessOD
                 mmap
-                [(fpart, [(show diff, void $ RB.fiveGems fdiff)])]
+                [(fpart, [(show diff, voidEdgeOn $ RB.fiveGems fdiff)])]
                 ((fpart,) <$> RB.fiveOverdrive rbg)
               return PartDifficulty
                 { partStarPower = snd <$> od

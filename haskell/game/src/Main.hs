@@ -51,9 +51,9 @@ main = getArgs >>= \case
       let dir = takeDirectory $ projectLocation proj
       song <- loadTracks (projectSongYaml proj) $ dir </> "notes.mid"
       let allTracks = concat $ previewTracks song
-      drums <- case snd $ allTracks !! index of
-        PreviewDrumsFull drums -> return drums
-        _                      -> fatal "Not a DTX drums track"
+      (drums, layout) <- case snd $ allTracks !! index of
+        PreviewDrumsFull layout drums -> return (drums, layout)
+        _                             -> fatal "Not a DTX drums track"
       let planName = fst $ head $ HM.toList $ _plans $ projectSongYaml proj
       RGAudio.projectAudio planName proj >>= \case
         Nothing -> return ()
@@ -71,7 +71,7 @@ main = getArgs >>= \case
             SDL.windowMinimumSize window $= SDL.V2 800 600
             bracket (SDL.glCreateContext window) (\ctx -> glFinish >> SDL.glDeleteContext ctx) $ \_ctx -> do
               RGAudio.withAL $ \_openedAudio -> do
-                playDrumTrack window song drums audio
+                playDrumTrack window song layout drums audio
     case res of
       Left err -> throwIO err
       Right () -> return ()
@@ -140,10 +140,11 @@ startMIDIListen inner = do
 playDrumTrack
   :: SDL.Window
   -> PreviewSong
+  -> FullDrumLayout
   -> Map.Map Double (PNF.CommonState (PNF.DrumState FD.FullDrumNote FD.FullGem))
   -> (Double -> Maybe Double -> Float -> IO RGAudio.AudioHandle)
   -> IO ()
-playDrumTrack window song trk audioPlayer = do
+playDrumTrack window song layout trk audioPlayer = do
   Right glStuff <- logStdout $ loadGLStuff song
   let ticksMilli :: IO Milli
       ticksMilli = MkFixed . fromIntegral <$> SDL.ticks
@@ -169,7 +170,7 @@ playDrumTrack window song trk audioPlayer = do
               timestamp <- ticksMilli
               let t = timestamp - startedAt
               SDL.V2 w h <- fmap fromIntegral <$> SDL.glGetDrawableSize window
-              drawDrumPlayFull glStuff (WindowDims w h) (realToFrac t) 1 dps
+              drawDrumPlayFull glStuff (WindowDims w h) (realToFrac t) 1 layout dps
               SDL.glSwapWindow window
               frameEnd <- ticksMilli
               delayMilli $ 0.016 - (frameEnd - frameStart)

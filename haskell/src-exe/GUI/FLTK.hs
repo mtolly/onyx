@@ -137,6 +137,8 @@ import           Preferences                               (MagmaSetting (..),
                                                             readPreferences,
                                                             savePreferences)
 import           ProKeysRanges                             (closeShiftsFile)
+import           QuickConvert                              (QuickSong,
+                                                            loadInput)
 import           Reaper.Build                              (TuningInfo (..),
                                                             makeReaper)
 import           Reductions                                (simpleReduce)
@@ -1479,6 +1481,21 @@ makePresetDropdown rect opts = do
       ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
       (FL.MenuItemFlags [])
   return $ readIORef ref
+
+makeModeDropdown :: Rectangle -> [(T.Text, a)] -> (a -> IO ()) -> IO ()
+makeModeDropdown rect opts withOpt = do
+  let (initialLabel, initialOpt) = head opts
+  menu <- FL.menuButtonNew rect $ Just initialLabel
+  forM_ opts $ \(label, opt) -> do
+    -- need to escape in menu items (but not button label) to not make submenus
+    let label' = T.replace "/" "\\/" label
+    FL.add menu label' Nothing
+      ((Just $ \_ -> do
+        withOpt opt
+        FL.setLabel menu label
+      ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
+      (FL.MenuItemFlags [])
+  withOpt initialOpt
 
 data RB3Create
   = RB3CON FilePath
@@ -3624,6 +3641,15 @@ searchWoRCachable f = stackIO $ Dir.doesDirectoryExist f >>= \case
   True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
   False -> (\mspec -> ([], toList mspec)) <$> isWoRCachable f
 
+searchQuickSongs :: FilePath -> Onyx ([FilePath], [(FilePath, [QuickSong])])
+searchQuickSongs f = stackIO (Dir.doesDirectoryExist f) >>= \case
+  True  -> stackIO $ (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+  False -> do
+    res <- errorToWarning $ loadInput f
+    case res of
+      Nothing     -> return ([], [])
+      Just qsongs -> return ([], [(f, qsongs)])
+
 isWoRCachable :: FilePath -> IO (Maybe (FilePath, T.Text))
 isWoRCachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
   then return $ Just (f, "") -- could read content ID from EDAT if we wanted
@@ -3811,6 +3837,67 @@ miscPagePacks sink rect tab startTasks = mdo
   FL.setCallback btnPKG $ \_ -> doPKGPrompt
 
   mixedWarning <- FL.boxNew pkgRect $ Just "Mixed 360/PS3 packages provided!"
+
+  FL.setResizable tab $ Just group
+
+data QuickConvertMode
+  = QCInPlace
+  | QCOneToOne
+  | QCMakePacks
+  | QCMakeSongs
+
+pageQuickConvert
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+pageQuickConvert sink rect tab startTasks = mdo
+  loadedFiles <- newMVar []
+  let (filesRect, bottomRect) = chopBottom 175 rect
+      [row1, row2, row3, row4] = map (trimClock 5 10 5 10) $ splitVertN 4 bottomRect
+  group <- fileLoadWindow filesRect sink "CON/LIVE/PKG" "CON/LIVE/PKG" (modifyMVar_ loadedFiles) [] searchQuickSongs
+    $ \info -> case info of
+      (f, qsongs) -> let
+        entry = T.pack f
+        subline = T.pack $ case length qsongs of
+          1 -> "1 song"
+          n -> show n <> " songs"
+        in (entry, [subline])
+
+  let withQCMode _ = sink $ EventOnyx $ do
+        return ()
+
+  -- row1: midi checkboxes
+  let [midiBox1, midiBox2, midiBox3] = splitHorizN 3 row1
+  checkBlackVenue <- FL.checkButtonNew midiBox1 $ Just "Black VENUE"
+  void $ FL.setValue checkBlackVenue False
+  checkNoOverdrive <- FL.checkButtonNew midiBox2 $ Just "Remove Overdrive"
+  void $ FL.setValue checkNoOverdrive False
+  checkNoLanes <- FL.checkButtonNew midiBox3 $ Just "Remove lanes"
+  void $ FL.setValue checkNoLanes False
+  -- row2: select mode
+  makeModeDropdown row2
+    [ ("Transform in place: replace inputs with new versions", QCInPlace)
+    , ("One to one: each input produces a new output file", QCOneToOne)
+    , ("Make packs: combine songs up to a maximum file size", QCMakePacks)
+    , ("Make songs: produce a single file for each song", QCMakeSongs)
+    ] withQCMode
+  -- row3/row4: mode-specific stuff
+  -- Transform in place (each input is replaced with a file, package type preserved)
+  --   for pkg, don't change encryption folders
+  --   2nd row: enc/unenc midi select
+  --   3rd row: go button
+  -- One to one (each input file gets one new output file, of a single package type)
+  --   for pkg->pkg, don't change encryption folders
+  --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select, separate/combined songs.dta select)
+  --   3rd row: template box with default as %dir%/%base%-convert(.pkg), go button
+  -- Make packs (songs are combined into packs, up to a maximum size)
+  --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select, separate/combined songs.dta select)
+  --   3rd row: max size, go button (opens a save-as dialog, used as pack name or template for multiple)
+  -- Make songs (each song gets one new output file)
+  --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select)
+  --   3rd row: go button (opens pick folder dialog, songs get auto names inside)
 
   FL.setResizable tab $ Just group
 
@@ -4104,7 +4191,11 @@ launchQuickConvert sink makeMenuBar = mdo
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   functionTabs <- sequence
-    [ makeTab windowRect "Make a pack" $ \rect tab -> do
+    [ {- makeTab windowRect "Quick convert" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      pageQuickConvert sink rect tab startTasks
+      return tab
+    , -} makeTab windowRect "Make a pack" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPagePacks sink rect tab startTasks
       return tab
