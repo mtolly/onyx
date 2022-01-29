@@ -1661,14 +1661,14 @@ rbRules buildInfo dir rb3 mrb2 = do
               { Magma.genre = rbn1Genre thisFullGenre
               , Magma.subGenre = "subgenre_" <> rbn1Subgenre thisFullGenre
               , Magma.author = T.strip $ T.take 75 $ Magma.author $ Magma.metadata $ Magma.project p
+              -- Magma v1 (but not v2) complains if track number is over 99
+              , Magma.trackNumber = min 99 $ Magma.trackNumber $ Magma.metadata $ Magma.project p
               }
             , Magma.gamedata = (Magma.gamedata $ Magma.project p)
               { Magma.previewStartMs = 0 -- for dummy audio. will reset after magma
               }
             }
           }
-        -- TODO patch this
-        -- ERROR: Metadata Compiler: [...] track_number: value is 16000, which is greater than the maximum value of 99.
 
       pathMagmaRbaV1 %> \out -> do
         shk $ need [pathMagmaDummyMono, pathMagmaDummyStereo, pathMagmaDryvoxSine, pathMagmaCoverV1, pathMagmaMidV1, pathMagmaProjV1]
