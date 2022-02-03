@@ -510,7 +510,8 @@ listOfInts = Codec
   , codecOut = undefined
   }
 
--- `zip-archive` package fails to parse .gp zip for some reason. `zip` is fine
+-- `zip-archive` package fails to parse .gp zip for some reason. `zip` is fine.
+-- does not handle edit-locked files (score.gpif is encrypted somehow, via 'editLocked' file)
 parseGP :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m GPIF
 parseGP f = inside ("Loading: " <> f) $ do
   gpif <- Zip.withArchive f $ Zip.mkEntrySelector "Content/score.gpif" >>= Zip.getEntry
