@@ -244,7 +244,7 @@ void add_jisyo(filename)
 
     if ((jisyo_fp = fopen(filename, "rb")) == NULL) {
 	perror(filename);
-	exit(0);
+	exit(0); // MT: should fix this to error gracefully...
     }
     while(fgets((char *)buffer, BUFLEN, jisyo_fp)) {
 	/* If there is the one except for the KANA at the head, to the next */
@@ -341,7 +341,7 @@ void init_kanwa()
 
     if ((kanwadict = fopen(kanwadictpath,"rb")) == NULL) {
 	perror(kanwadictpath);
-	exit(2);
+	exit(2); // MT: should fix this to error gracefully...
     }
 
     fread(magic, 6, 1, kanwadict);

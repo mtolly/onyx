@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module DTXMania.ShiftJIS (decodeShiftJIS, kakasi) where
 
 import qualified Data.ByteString     as B
@@ -6,16 +7,44 @@ import           Data.Maybe          (fromMaybe)
 import           Data.Tuple          (swap)
 import           Kakasi
 import           Resources           (itaijidict, kanwadict, shiftJISTable)
+
+#ifdef WINDOWS
+import           Control.Monad       (when)
+import           Foreign.C           (withCString, CString, CInt(..))
+#else
 import           System.Environment  (setEnv)
+#endif
 
 kakasi :: [String] -> String -> IO String
 kakasi args str = do
-  kanwadict >>= setEnv "KANWADICT"
-  itaijidict >>= setEnv "ITAIJIDICT"
+  kanwadict >>= setEnvKakasi "KANWADICT"
+  itaijidict >>= setEnvKakasi "ITAIJIDICT"
   n <- kakasiArgs $ "onyx-kakasi" : "-i" : "sjis" : args
   case n of
     0 -> decodeShiftJIS <$> kakasiDo (encodeShiftJIS str)
     _ -> error $ "DTXMania.ShiftJIS.kakasi: got non-zero error code " <> show n
+
+{-
+hack to fix crash on windows.
+haskell setEnv on windows tries to be good and call SetEnvironmentVariableW.
+but then on the C side, kakasi calls getenv, and it does not see the variable change
+(the variable remains whatever it was on process launch).
+according to https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/getenv-wgetenv
+these two tables (char* and wchar_t*) don't necessarily stay in sync...
+so instead, we use putenv, which seems to update both methods.
+-}
+
+setEnvKakasi :: String -> String -> IO ()
+#ifdef WINDOWS
+setEnvKakasi k v = withCString (k <> "=" <> v) $ \cstr -> do
+  res <- c_putenv cstr
+  when (res /= 0) $ fail $ "setEnvKakasi: couldn't set variable, code " <> show res
+
+foreign import ccall unsafe "putenv"
+  c_putenv :: CString -> IO CInt
+#else
+setEnvKakasi = setEnv
+#endif
 
 encodeShiftJIS :: String -> B.ByteString
 encodeShiftJIS = B.concat . map
