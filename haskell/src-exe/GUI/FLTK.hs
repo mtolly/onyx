@@ -19,8 +19,7 @@ import           Build                                     (NameRule (..),
 import           Codec.Picture                             (readImage,
                                                             savePngImage,
                                                             writePng)
-import           CommandLine                               (blackVenue,
-                                                            conToPkg,
+import           CommandLine                               (conToPkg,
                                                             runDolphin)
 import           Config
 import           Control.Applicative                       ((<|>))
@@ -137,14 +136,7 @@ import           Preferences                               (MagmaSetting (..),
                                                             readPreferences,
                                                             savePreferences)
 import           ProKeysRanges                             (closeShiftsFile)
-import           QuickConvert                              (QuickConvertFormat (..),
-                                                            QuickInput (..),
-                                                            QuickPS3Folder (..),
-                                                            QuickPS3Settings (..),
-                                                            QuickSong,
-                                                            loadInput,
-                                                            saveQuickSongsPKG,
-                                                            saveQuickSongsSTFS)
+import           QuickConvert
 import           Reaper.Build                              (TuningInfo (..),
                                                             makeReaper)
 import           Reductions                                (simpleReduce)
@@ -3529,29 +3521,6 @@ miscPageDryVox sink rect tab startTasks = do
   FL.end pack
   FL.setResizable tab $ Just pack
 
-miscPageBlack
-  :: (Event -> IO ())
-  -> Rectangle
-  -> FL.Ref FL.Group
-  -> ([(String, Onyx [FilePath])] -> Onyx ())
-  -> IO ()
-miscPageBlack sink rect tab startTasks = do
-  loadedFiles <- newMVar []
-  let (filesRect, startRect) = chopBottom 50 rect
-      startRect' = trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink "Song" "Songs" (modifyMVar_ loadedFiles) [] searchSTFS $ \info -> let
-    entry = T.pack $ stfsPath info
-    sublines = take 1 $ STFS.md_DisplayName $ stfsMeta info
-    in (entry, sublines)
-  btn <- FL.buttonNew startRect' $ Just "Modify CON files"
-  taskColor >>= FL.setColor btn
-  FL.setResizable tab $ Just group
-  FL.setCallback btn $ \_ -> sink $ EventIO $ do
-    files <- map stfsPath <$> readMVar loadedFiles
-    sink $ EventOnyx $ startTasks $ do
-      f <- files
-      return (f, blackVenue f >> return [f])
-
 miscPageWoRSongCache
   :: (Event -> IO ())
   -> Rectangle
@@ -3655,7 +3624,7 @@ searchQuickSongs :: FilePath -> Onyx ([FilePath], [QuickInput])
 searchQuickSongs f = stackIO (Dir.doesDirectoryExist f) >>= \case
   True  -> stackIO $ (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
   False -> do
-    res <- errorToWarning $ loadInput f
+    res <- loadQuickInput f
     case res of
       Nothing     -> return ([], [])
       Just qinput -> return ([], [qinput])
@@ -3891,6 +3860,20 @@ pageQuickConvert sink rect tab startTasks = mdo
   void $ FL.setValue checkNoOverdrive False
   checkNoLanes <- FL.checkButtonNew midiBox3 $ Just "Remove lanes"
   void $ FL.setValue checkNoLanes False
+  let getMIDITransform = do
+        black   <- FL.getValue checkBlackVenue
+        noOD    <- FL.getValue checkNoOverdrive
+        noLanes <- FL.getValue checkNoLanes
+        if not $ black || noOD || noLanes
+          then return $ \qsong -> return qsong
+          else return $ \qsong -> do
+            let isRB3 = qdtaRB3 $ quickSongDTA qsong
+            newFiles <- applyToMIDI (foldr (.) id
+              [ if black then blackVenue isRB3 else id
+              , if noOD  then noOverdrive      else id
+              -- TODO no lanes
+              ]) $ quickSongFiles qsong
+            return qsong { quickSongFiles = newFiles }
   -- row2: select mode
   makeModeDropdown row2
     [ ("Transform in place: replace input files with new versions", QCInPlace  )
@@ -3925,6 +3908,7 @@ pageQuickConvert sink rect tab startTasks = mdo
               QCFormatPKG -> ps3On
               _           -> ps3Off
         return $ readIORef ref
+      modeGroup :: IO () -> IO (FL.Ref FL.Group)
       modeGroup inner = do
         group <- FL.groupNew row34 Nothing
         inner
@@ -3948,12 +3932,14 @@ pageQuickConvert sink rect tab startTasks = mdo
       files <- stackIO $ readMVar loadedFiles
       enc <- stackIO getEncrypt
       ps3Folder <- stackIO getFolderSetting
+      midiTransform <- stackIO getMIDITransform
       startTasks $ flip map files $ \qinput -> let
         fin = quickInputPath qinput
         qsongs = quickInputSongs qinput
         task = do
+          qsongs' <- mapM midiTransform qsongs
           let tmp = fin <> ".tmp"
-              isRB3 = True -- TODO
+              isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
               ps3Settings = QuickPS3Settings
                 { qcPS3Folder  = ps3Folder
                 , qcPS3Encrypt = enc
@@ -3961,14 +3947,14 @@ pageQuickConvert sink rect tab startTasks = mdo
                 }
               xboxSettings live = stackIO $
                 (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                -- TODO title/description
-                "Onyx Quick Convert"
-                ""
+                -- default values should never be used (source will be stfs already)
+                (maybe "Onyx Quick Convert" (T.concat . take 1 . STFS.md_DisplayName       ) $ quickInputXbox qinput)
+                (maybe ""                   (T.concat . take 1 . STFS.md_DisplayDescription) $ quickInputXbox qinput)
                 live
           case quickInputFormat qinput of
-            QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs opts tmp
-            QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs opts tmp
-            QCFormatPKG  -> saveQuickSongsPKG  qsongs ps3Settings tmp
+            QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts tmp
+            QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts tmp
+            QCFormatPKG  -> saveQuickSongsPKG  qsongs' ps3Settings tmp
           stackIO $ Dir.renameFile tmp fin
           return [fin]
         in (fin, task)
@@ -3998,16 +3984,18 @@ pageQuickConvert sink rect tab startTasks = mdo
         fmt <- stackIO getFormat
         enc <- stackIO getEncrypt
         ps3Folder <- stackIO getFolderSetting
+        midiTransform <- stackIO getMIDITransform
         startTasks $ flip map files $ \qinput -> let
           fin = quickInputPath qinput
           qsongs = quickInputSongs qinput
           task = do
+            qsongs' <- mapM midiTransform qsongs
             let ext = case fmt of
                   QCFormatCON  -> ""
                   QCFormatLIVE -> ""
                   QCFormatPKG  -> ".pkg"
                 fout = quickTemplate fin ext template
-                isRB3 = True -- TODO
+                isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
                 ps3Settings = QuickPS3Settings
                   { qcPS3Folder  = ps3Folder
                   , qcPS3Encrypt = enc
@@ -4020,9 +4008,9 @@ pageQuickConvert sink rect tab startTasks = mdo
                   ""
                   live
             case fmt of
-              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs opts fout
-              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs opts fout
-              QCFormatPKG  -> saveQuickSongsPKG  qsongs ps3Settings fout
+              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
+              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
+              QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
             return [fout]
           in (fin, task)
 
@@ -4040,10 +4028,51 @@ pageQuickConvert sink rect tab startTasks = mdo
       , ("Each song gets a new USRDIR subfolder", QCSeparateFolders)
       ]
     FL.end ps3Options
-    let (maxSizeArea, goArea) = chopLeft 200 row4
-    -- TODO max size input
+    let (chopLeft 150 -> (_, maxSizeArea), goArea) = chopLeft 300 row4
+    maxSizeInput <- FL.inputNew
+      maxSizeArea
+      (Just "Max Pack Size (MiB)")
+      (Just FL.FlNormalInput) -- required for labels to work
+    FL.setLabelsize maxSizeInput $ FL.FontSize 13
+    FL.setLabeltype maxSizeInput FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign maxSizeInput $ FLE.Alignments [FLE.AlignTypeLeft]
+    void $ FL.setValue maxSizeInput "4000"
     btnGo <- FL.buttonNew goArea $ Just "Save pack as…"
     taskColor >>= FL.setColor btnGo
+    FL.setCallback btnGo $ \_ -> sink $ EventOnyx $ do
+      files <- stackIO $ readMVar loadedFiles
+      fmt <- stackIO getFormat
+      enc <- stackIO getEncrypt
+      ps3Folder <- stackIO getFolderSetting
+      maxSizeText <- stackIO $ FL.getValue maxSizeInput
+      midiTransform <- stackIO getMIDITransform
+      case readMaybe $ T.unpack maxSizeText of
+        Nothing -> fatal "Invalid max pack size" -- TODO popup or something, or error in the task window
+        Just maxSize -> do
+          let maxSizeBytes = maxSize * 1024 * 1024
+          packs <- stackIO $ organizePacks maxSizeBytes $ concatMap quickInputSongs files
+          startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
+            fout = "/tmp/onyx-pack-" <> show i -- TODO
+            task = do
+              qsongs' <- mapM midiTransform qsongs
+              let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                  ps3Settings = QuickPS3Settings
+                    { qcPS3Folder  = Just ps3Folder
+                    , qcPS3Encrypt = enc
+                    , qcPS3RB3     = isRB3
+                    }
+                  xboxSettings live = stackIO $
+                    (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                    -- TODO title/description
+                    "Onyx Quick Convert"
+                    ""
+                    live
+              case fmt of
+                QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
+                QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
+                QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
+              return [fout]
+            in ("Pack #" <> show (i :: Int), task)
 
   -- Make songs (each song gets one new output file)
   --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select)
@@ -4057,6 +4086,33 @@ pageQuickConvert sink rect tab startTasks = mdo
     FL.end ps3Options
     btnGo <- FL.buttonNew row4 $ Just "Select folder…"
     taskColor >>= FL.setColor btnGo
+    FL.setCallback btnGo $ \_ -> sink $ EventOnyx $ do
+      files <- stackIO $ readMVar loadedFiles
+      fmt <- stackIO getFormat
+      enc <- stackIO getEncrypt
+      midiTransform <- stackIO getMIDITransform
+      startTasks $ flip map (concatMap quickInputSongs files) $ \qsong -> let
+        fout = "/tmp/" <> show (hash $ qdtaRaw $ quickSongDTA qsong) -- TODO
+        task = do
+          qsong' <- midiTransform qsong
+          let isRB3 = qdtaRB3 $ quickSongDTA qsong'
+              ps3Settings = QuickPS3Settings
+                { qcPS3Folder  = Just QCSeparateFolders
+                , qcPS3Encrypt = enc
+                , qcPS3RB3     = isRB3
+                }
+              xboxSettings live = stackIO $
+                (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                -- TODO title/description
+                "Onyx Quick Convert"
+                ""
+                live
+          case fmt of
+            QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
+            QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
+            QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
+          return [fout]
+        in ("Song" {- TODO -}, task)
 
   FL.setResizable tab $ Just filesGroup
 
@@ -4357,10 +4413,6 @@ launchQuickConvert sink makeMenuBar = mdo
     , makeTab windowRect "Make a pack" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPagePacks sink rect tab startTasks
-      return tab
-    , makeTab windowRect "Black VENUE" $ \rect tab -> do
-      functionTabColor >>= setTabColor tab
-      miscPageBlack sink rect tab startTasks
       return tab
     , makeTab windowRect "Quick CON->PKG" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

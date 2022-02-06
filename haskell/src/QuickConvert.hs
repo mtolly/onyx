@@ -13,35 +13,43 @@ Process for extracting and repacking already-valid Rock Band songs without a who
 module QuickConvert where
 
 import           Control.Monad
-import           Control.Monad.IO.Class         (MonadIO)
-import           Control.Monad.Trans.Resource   (MonadResource)
+import           Control.Monad.IO.Class           (MonadIO)
+import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
-import           Data.Bifunctor                 (first)
-import qualified Data.ByteString                as B
-import qualified Data.ByteString.Char8          as B8
-import qualified Data.ByteString.Lazy           as BL
-import           Data.Char                      (toLower)
-import           Data.DTA                       (Chunk (..), DTA (..),
-                                                 Tree (..), readDTASections,
-                                                 showDTA)
-import           Data.Foldable                  (toList)
-import           Data.Hashable                  (hash)
-import qualified Data.Map                       as Map
-import           Data.Maybe                     (catMaybes)
+import           Data.Bifunctor                   (first)
+import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Char8            as B8
+import qualified Data.ByteString.Lazy             as BL
+import           Data.Char                        (toLower)
+import           Data.DTA                         (Chunk (..), DTA (..),
+                                                   Tree (..), readDTASections,
+                                                   showDTA)
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
+import           Data.Hashable                    (hash)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (catMaybes, fromMaybe)
 import           Data.SimpleHandle
-import qualified Data.Text                      as T
-import qualified Data.Text.Encoding             as TE
-import           Image                          (swapPNGXboxPS3)
-import           MoggDecrypt                    (encryptRB1)
+import qualified Data.Text                        as T
+import qualified Data.Text.Encoding               as TE
+import           Image                            (swapPNGXboxPS3)
+import           MoggDecrypt                      (encryptRB1)
 import           NPData
 import           PlayStation.PKG
-import           Resources                      (getResourcesPath)
-import qualified Sound.MIDI.File                as F
-import qualified Sound.MIDI.File.Save           as Save
+import           Resources                        (getResourcesPath)
+import           RockBand.Common                  (pattern RNil, pattern Wait,
+                                                   isNoteEdge, makeEdgeCPV)
+import qualified Sound.MIDI.File                  as F
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
+import           Sound.MIDI.File.FastParse        (getMIDI)
+import qualified Sound.MIDI.File.Save             as Save
+import qualified Sound.MIDI.Util                  as U
 import           STFS.Package
-import           System.FilePath                (dropExtension, splitExtension,
-                                                 takeExtension, (</>))
-import           System.IO                      (hFileSize)
+import           System.FilePath                  (dropExtension,
+                                                   splitExtension,
+                                                   takeExtension, (</>))
+import           System.IO                        (hFileSize)
 
 data QuickSong = QuickSong
   { quickSongDTA       :: QuickDTA
@@ -83,10 +91,11 @@ data QuickFile a
 pattern Key :: s -> [Chunk s] -> Chunk s
 pattern Key k v <- Parens (Tree _ (Sym k : v))
 
-findSongs :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m [QuickDTA]
-findSongs r = do
+splitSongsDTA :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m [QuickDTA]
+splitSongsDTA r = do
   bs <- fmap BL.toStrict $ stackIO $ useHandle r handleToByteString
-  sections <- readDTASections bs
+  let noBOM = fromMaybe bs $ B.stripPrefix "\xEF\xBB\xBF" bs
+  sections <- readDTASections noBOM
   fmap catMaybes $ forM sections $ \(bytes, chunk) -> do
     case chunk of
       Parens (Tree _ data1) -> errorToWarning $ do
@@ -132,9 +141,9 @@ mapMFilesWithName f dir = do
     return (subName, sub')
   return Folder { folderFiles = newFiles, folderSubfolders = newSubs }
 
-loadInput :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m QuickInput
-loadInput fin = case map toLower $ takeExtension fin of
-  ".pkg" -> do
+loadQuickInput :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m (Maybe QuickInput)
+loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtension fin of
+  ".pkg" -> errorToWarning $ do
     pkg <- stackIO $ loadPKG fin
     usr <- case findFolder ["USRDIR"] $ pkgFolder pkg of
       Just dir -> return dir
@@ -147,7 +156,7 @@ loadInput fin = case map toLower $ takeExtension fin of
       dta <- case findFile (pure "songs.dta") songsFolder of
         Just r -> return r
         Nothing -> fatal $ "No songs.dta found inside .pkg for: " <> show packageName
-      songRefs <- findSongs dta
+      songRefs <- splitSongsDTA dta
       forM songRefs $ \qdta -> do
         songFolder <- case findFolder [qdtaFolder qdta] songsFolder of
           Just dir -> return dir
@@ -170,38 +179,39 @@ loadInput fin = case map toLower $ takeExtension fin of
       , quickInputSongs  = songs
       , quickInputXbox   = Nothing
       }
-  _ -> do
-    conFolder <- stackIO $ getSTFSFolder fin
-    songsFolder <- case findFolder ["songs"] conFolder of
-      Just dir -> return dir
-      Nothing  -> fatal "No songs folder found inside CON/LIVE"
-    dta <- case findFile (pure "songs.dta") songsFolder of
-      Just r  -> return r
-      Nothing -> fatal "No songs.dta found inside CON/LIVE"
-    songRefs <- findSongs dta
-    songs <- forM songRefs $ \qdta -> do
-      songFolder <- case findFolder [qdtaFolder qdta] songsFolder of
+  _ -> errorToEither (stackIO $ getSTFSFolder fin) >>= \case
+    Left  _         -> return Nothing
+    Right conFolder -> errorToWarning $ do
+      songsFolder <- case findFolder ["songs"] conFolder of
         Just dir -> return dir
-        Nothing -> fatal $ "Song folder not found in CON/LIVE: " <> show (qdtaFolder qdta)
-      let identifyFile (name, r) = case map toLower $ takeExtension $ T.unpack name of
-            ".mogg"      -> (name,) <$> detectMOGG r
-            ".milo_xbox" -> return (name, QFMilo r)
-            ".png_xbox"  -> return (name, QFPNGXbox r)
-            ".mid"       -> return (name, QFUnencryptedMIDI r)
-            _            -> return (name, QFOther r)
-      identified <- mapMFilesWithName identifyFile songFolder
-      return QuickSong
-        { quickSongDTA       = qdta
-        , quickSongFiles     = identified
-        , quickSongPS3Folder = Nothing
+        Nothing  -> fatal "No songs folder found inside CON/LIVE"
+      dta <- case findFile (pure "songs.dta") songsFolder of
+        Just r  -> return r
+        Nothing -> fatal "No songs.dta found inside CON/LIVE"
+      songRefs <- splitSongsDTA dta
+      songs <- forM songRefs $ \qdta -> do
+        songFolder <- case findFolder [qdtaFolder qdta] songsFolder of
+          Just dir -> return dir
+          Nothing -> fatal $ "Song folder not found in CON/LIVE: " <> show (qdtaFolder qdta)
+        let identifyFile (name, r) = case map toLower $ takeExtension $ T.unpack name of
+              ".mogg"      -> (name,) <$> detectMOGG r
+              ".milo_xbox" -> return (name, QFMilo r)
+              ".png_xbox"  -> return (name, QFPNGXbox r)
+              ".mid"       -> return (name, QFUnencryptedMIDI r)
+              _            -> return (name, QFOther r)
+        identified <- mapMFilesWithName identifyFile songFolder
+        return QuickSong
+          { quickSongDTA       = qdta
+          , quickSongFiles     = identified
+          , quickSongPS3Folder = Nothing
+          }
+      (header, meta) <- stackIO $ withSTFSPackage fin $ \stfs -> return (stfsHeader stfs, stfsMetadata stfs)
+      return QuickInput
+        { quickInputPath   = fin
+        , quickInputFormat = case header of CON{} -> QCFormatCON; _ -> QCFormatLIVE
+        , quickInputSongs  = songs
+        , quickInputXbox   = Just meta
         }
-    (header, meta) <- stackIO $ withSTFSPackage fin $ \stfs -> return (stfsHeader stfs, stfsMetadata stfs)
-    return QuickInput
-      { quickInputPath   = fin
-      , quickInputFormat = case header of CON{} -> QCFormatCON; _ -> QCFormatLIVE
-      , quickInputSongs  = songs
-      , quickInputXbox   = Just meta
-      }
 
 decryptEDAT :: (MonadIO m, SendMessage m) => B.ByteString -> B.ByteString -> Readable -> StackTraceT m Readable
 decryptEDAT crypt name r = tryDecryptEDAT crypt name r >>= \case
@@ -361,37 +371,78 @@ organizePacks maxSize qsongs = do
           _ : _ -> [curSongs]
         (nextSize, nextSong) : rest -> let
           newSize = curSize + nextSize
-          in if newSize > maxSize
+          in if newSize > maxSize && not (null curSongs) -- always add at least one song
             then curSongs : go 0 [] incoming
             else go newSize (nextSong : curSongs) rest
   return $ go 0 [] $ zip songSizes qsongs
 
-saveQuickPacksSTFS :: (MonadIO m, SendMessage m) => Integer -> [QuickSong] -> (Int -> (CreateOptions, FilePath)) -> StackTraceT m ()
-saveQuickPacksSTFS maxSize qsongs getTitleFile = do
-  packs <- stackIO $ organizePacks maxSize qsongs
-  forM_ (zip [1..] packs) $ \(i, pack) -> do
-    let (opts, fout) = getTitleFile i
-    saveQuickSongsSTFS pack opts fout
+blackVenue :: Bool -> F.T -> F.T
+blackVenue isRB3 (F.Cons typ dvn trks) = let
+  black = U.setTrackName "VENUE" $ if isRB3
+    then RTB.fromPairList $ map (\s -> (0, E.MetaEvent $ Meta.TextEvent s))
+      ["[lighting (blackout_fast)]", "[film_b+w.pp]", "[coop_all_far]"]
+    else Wait 0 (E.MetaEvent $ Meta.TextEvent "[verse]")
+      $ Wait 0 (E.MetaEvent $ Meta.TextEvent "[lighting (blackout_fast)]")
+      $ Wait 0 (makeEdgeCPV 0 60 $ Just 96) -- camera cut
+      $ Wait 0 (makeEdgeCPV 0 61 $ Just 96) -- focus bass
+      $ Wait 0 (makeEdgeCPV 0 62 $ Just 96) -- focus drums
+      $ Wait 0 (makeEdgeCPV 0 63 $ Just 96) -- focus guitar
+      $ Wait 0 (makeEdgeCPV 0 64 $ Just 96) -- focus vocal
+      $ Wait 0 (makeEdgeCPV 0 71 $ Just 96) -- only far
+      $ Wait 0 (makeEdgeCPV 0 108 $ Just 96) -- video_bw
+      $ Wait 120 (makeEdgeCPV 0 60 Nothing)
+      $ Wait 0 (makeEdgeCPV 0 61 Nothing)
+      $ Wait 0 (makeEdgeCPV 0 62 Nothing)
+      $ Wait 0 (makeEdgeCPV 0 63 Nothing)
+      $ Wait 0 (makeEdgeCPV 0 64 Nothing)
+      $ Wait 0 (makeEdgeCPV 0 71 Nothing)
+      $ Wait 0 (makeEdgeCPV 0 108 Nothing) RNil
+  isVenue = (== Just "VENUE") . U.trackName
+  in F.Cons typ dvn $ filter (not . isVenue) trks ++ [black]
 
-{-
+noOverdrive :: F.T -> F.T
+noOverdrive (F.Cons typ dvn trks) = F.Cons typ dvn $ let
+  instrumentTracks =
+    [ "PART GUITAR"
+    , "PART BASS"
+    , "PART DRUMS"
+    , "PART KEYS"
+    , "PART VOCALS"
+    , "HARM1"
+    , "HARM2"
+    , "HARM3"
+    , "PART REAL_KEYS_E"
+    , "PART REAL_KEYS_M"
+    , "PART REAL_KEYS_H"
+    , "PART REAL_KEYS_X"
+    , "PART REAL_GUITAR"
+    , "PART REAL_GUITAR_22"
+    , "PART REAL_BASS"
+    , "PART REAL_BASS_22"
+    ]
+  noOverdriveTrack = RTB.filter $ \e -> case isNoteEdge e of
+    Just (116, _) -> False
+    _             -> True
+  in flip map trks $ \trk -> if maybe False (`elem` instrumentTracks) $ U.trackName trk
+    then noOverdriveTrack trk
+    else trk
 
-MIDI edits: Black Venue, No Overdrive, No Lanes
-
------------------
-
-Transform in place (each input is replaced with a file, package type preserved)
-  for pkg, don't change encryption folders
-  2nd row: enc/unenc midi select
-  3rd row: go button
-One to one (each input file gets one new output file, of a single package type)
-  for pkg->pkg, don't change encryption folders
-  2nd row: con/pkg/live, if pkg then (enc/unenc midi select, separate/combined songs.dta select)
-  3rd row: template box with default as %dir%/%base%-convert(.pkg), go button
-Make packs (songs are combined into packs, up to a maximum size)
-  2nd row: con/pkg/live, if pkg then (enc/unenc midi select, separate/combined songs.dta select)
-  3rd row: max size, go button (opens a save-as dialog, used as pack name or template for multiple)
-Make songs (each song gets one new output file)
-  2nd row: con/pkg/live, if pkg then (enc/unenc midi select)
-  3rd row: go button (opens pick folder dialog, songs get auto names inside)
-
--}
+applyToMIDI :: (SendMessage m, MonadIO m) => (F.T -> F.T) -> Folder T.Text (QuickFile Readable) -> StackTraceT m (Folder T.Text (QuickFile Readable))
+applyToMIDI midFunction = mapMFilesWithName $ let
+  withParsed name mid = return (name, QFParsedMIDI $ midFunction mid)
+  withUnenc name r = do
+    bs <- stackIO $ useHandle r handleToByteString
+    (mid, warns) <- runGetM getMIDI bs
+    mapM_ warn warns
+    withParsed name mid
+  withEnc name crypt r = do
+    let name' = case splitExtension $ T.unpack name of
+          (base, ".edat") -> T.pack base
+          _               -> name
+    r' <- decryptEDAT crypt (TE.encodeUtf8 name) r
+    withUnenc name' r'
+  in \pair@(name, qfile) -> case qfile of
+    QFEncryptedMIDI crypt r   -> withEnc    name crypt r
+    QFUnencryptedMIDI     r   -> withUnenc  name       r
+    QFParsedMIDI          mid -> withParsed name       mid
+    _                         -> return pair
