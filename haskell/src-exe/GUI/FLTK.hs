@@ -19,8 +19,7 @@ import           Build                                     (NameRule (..),
 import           Codec.Picture                             (readImage,
                                                             savePngImage,
                                                             writePng)
-import           CommandLine                               (blackVenue,
-                                                            conToPkg,
+import           CommandLine                               (conToPkg,
                                                             runDolphin)
 import           Config
 import           Control.Applicative                       ((<|>))
@@ -137,8 +136,7 @@ import           Preferences                               (MagmaSetting (..),
                                                             readPreferences,
                                                             savePreferences)
 import           ProKeysRanges                             (closeShiftsFile)
-import           QuickConvert                              (QuickSong,
-                                                            loadInput)
+import           QuickConvert
 import           Reaper.Build                              (TuningInfo (..),
                                                             makeReaper)
 import           Reductions                                (simpleReduce)
@@ -2825,51 +2823,55 @@ templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrail
 
 makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
 makeTemplateRunner sink buttonText defTemplate useTemplate = do
-  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    let (buttonRect, notButton) = chopLeft 250 rect'
-        (_, rectA) = chopLeft 80 notButton
-        (inputRect, rectB) = chopRight 100 rectA
-        (_, rectC) = chopRight 90 rectB
-        (browseRect, _) = chopLeft 40 rectC
-        (_, rectD) = chopRight 50 rectC
-        (_, resetRect) = chopRight 40 rectD
-    button <- FL.buttonNew buttonRect $ Just buttonText
-    taskColor >>= FL.setColor button
-    input <- FL.inputNew
-      inputRect
-      (Just "Template")
-      (Just FL.FlNormalInput) -- required for labels to work
-    FL.setLabelsize input $ FL.FontSize 13
-    FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
-    FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect -> do
+    makeTemplateRunner' sink rect buttonText defTemplate useTemplate
+
+makeTemplateRunner' :: (Event -> IO ()) -> Rectangle -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
+makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
+  let (buttonRect, notButton) = chopLeft 250 rect
+      (_, rectA) = chopLeft 80 notButton
+      (inputRect, rectB) = chopRight 100 rectA
+      (_, rectC) = chopRight 90 rectB
+      (browseRect, _) = chopLeft 40 rectC
+      (_, rectD) = chopRight 50 rectC
+      (_, resetRect) = chopRight 40 rectD
+  button <- FL.buttonNew buttonRect $ Just buttonText
+  taskColor >>= FL.setColor button
+  input <- FL.inputNew
+    inputRect
+    (Just "Template")
+    (Just FL.FlNormalInput) -- required for labels to work
+  FL.setLabelsize input $ FL.FontSize 13
+  FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+  FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
+  void $ FL.setValue input defTemplate
+  FL.setTooltip input $ T.unlines
+    [ "Template for where to create new files."
+    , "  %input_dir% - folder containing the input"
+    , "  %input_base% - input filename by itself, extension removed"
+    , "  %modifiers% - added distinguishing features e.g. speed modifier"
+    , "  %title% - title from song's metadata (including modifiers)"
+    , "  %artist% - artist from song's metadata"
+    , "  %album% - album from song's metadata"
+    , "  %author% - author from song's metadata"
+    , "  %song_id% - unique song ID"
+    ]
+  FL.setCallback button $ \_ -> FL.getValue input >>= useTemplate
+  browseButton <- FL.buttonNew browseRect $ Just "@fileopen"
+  FL.setCallback browseButton $ \_ -> sink $ EventIO $ do
+    picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
+    FL.setTitle picker "Location for output files"
+    FL.showWidget picker >>= \case
+      FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+        Nothing  -> return ()
+        Just dir -> do
+          val <- FL.getValue input
+          void $ FL.setValue input $ T.pack $ dir </> takeFileName (T.unpack val)
+      _ -> return ()
+  resetButton <- FL.buttonNew resetRect $ Just "@undo"
+  FL.setCallback resetButton $ \_ -> sink $ EventIO $ do
     void $ FL.setValue input defTemplate
-    FL.setTooltip input $ T.unlines
-      [ "Template for where to create new files."
-      , "  %input_dir% - folder containing the input"
-      , "  %input_base% - input filename by itself, extension removed"
-      , "  %modifiers% - added distinguishing features e.g. speed modifier"
-      , "  %title% - title from song's metadata (including modifiers)"
-      , "  %artist% - artist from song's metadata"
-      , "  %album% - album from song's metadata"
-      , "  %author% - author from song's metadata"
-      , "  %song_id% - unique song ID"
-      ]
-    FL.setCallback button $ \_ -> FL.getValue input >>= useTemplate
-    browseButton <- FL.buttonNew browseRect $ Just "@fileopen"
-    FL.setCallback browseButton $ \_ -> sink $ EventIO $ do
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
-      FL.setTitle picker "Location for output files"
-      FL.showWidget picker >>= \case
-        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-          Nothing  -> return ()
-          Just dir -> do
-            val <- FL.getValue input
-            void $ FL.setValue input $ T.pack $ dir </> takeFileName (T.unpack val)
-        _ -> return ()
-    resetButton <- FL.buttonNew resetRect $ Just "@undo"
-    FL.setCallback resetButton $ \_ -> sink $ EventIO $ do
-      void $ FL.setValue input defTemplate
-    return ()
+  return ()
 
 batchPagePreview
   :: (?preferences :: Preferences)
@@ -3519,29 +3521,6 @@ miscPageDryVox sink rect tab startTasks = do
   FL.end pack
   FL.setResizable tab $ Just pack
 
-miscPageBlack
-  :: (Event -> IO ())
-  -> Rectangle
-  -> FL.Ref FL.Group
-  -> ([(String, Onyx [FilePath])] -> Onyx ())
-  -> IO ()
-miscPageBlack sink rect tab startTasks = do
-  loadedFiles <- newMVar []
-  let (filesRect, startRect) = chopBottom 50 rect
-      startRect' = trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink "Song" "Songs" (modifyMVar_ loadedFiles) [] searchSTFS $ \info -> let
-    entry = T.pack $ stfsPath info
-    sublines = take 1 $ STFS.md_DisplayName $ stfsMeta info
-    in (entry, sublines)
-  btn <- FL.buttonNew startRect' $ Just "Modify CON files"
-  taskColor >>= FL.setColor btn
-  FL.setResizable tab $ Just group
-  FL.setCallback btn $ \_ -> sink $ EventIO $ do
-    files <- map stfsPath <$> readMVar loadedFiles
-    sink $ EventOnyx $ startTasks $ do
-      f <- files
-      return (f, blackVenue f >> return [f])
-
 miscPageWoRSongCache
   :: (Event -> IO ())
   -> Rectangle
@@ -3641,14 +3620,14 @@ searchWoRCachable f = stackIO $ Dir.doesDirectoryExist f >>= \case
   True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
   False -> (\mspec -> ([], toList mspec)) <$> isWoRCachable f
 
-searchQuickSongs :: FilePath -> Onyx ([FilePath], [(FilePath, [QuickSong])])
+searchQuickSongs :: FilePath -> Onyx ([FilePath], [QuickInput])
 searchQuickSongs f = stackIO (Dir.doesDirectoryExist f) >>= \case
   True  -> stackIO $ (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
   False -> do
-    res <- errorToWarning $ loadInput f
+    res <- loadQuickInput f
     case res of
       Nothing     -> return ([], [])
-      Just qsongs -> return ([], [(f, qsongs)])
+      Just qinput -> return ([], [qinput])
 
 isWoRCachable :: FilePath -> IO (Maybe (FilePath, T.Text))
 isWoRCachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
@@ -3845,6 +3824,7 @@ data QuickConvertMode
   | QCOneToOne
   | QCMakePacks
   | QCMakeSongs
+  deriving (Eq)
 
 pageQuickConvert
   :: (Event -> IO ())
@@ -3855,18 +3835,22 @@ pageQuickConvert
 pageQuickConvert sink rect tab startTasks = mdo
   loadedFiles <- newMVar []
   let (filesRect, bottomRect) = chopBottom 175 rect
-      [row1, row2, row3, row4] = map (trimClock 5 10 5 10) $ splitVertN 4 bottomRect
-  group <- fileLoadWindow filesRect sink "CON/LIVE/PKG" "CON/LIVE/PKG" (modifyMVar_ loadedFiles) [] searchQuickSongs
-    $ \info -> case info of
-      (f, qsongs) -> let
-        entry = T.pack f
-        subline = T.pack $ case length qsongs of
-          1 -> "1 song"
-          n -> show n <> " songs"
-        in (entry, [subline])
+      [row12, row34] = splitVertN 2 bottomRect
+      [row1, row2] = map (trimClock 5 10 5 10) $ splitVertN 2 row12
+      [row3, row4] = map (trimClock 5 10 5 10) $ splitVertN 2 row34
+  filesGroup <- fileLoadWindow filesRect sink "CON/LIVE/PKG" "CON/LIVE/PKG" (modifyMVar_ loadedFiles) [] searchQuickSongs
+    $ \qinput -> let
+      entry = T.pack $ quickInputPath qinput
+      subline = T.pack $ case length $ quickInputSongs qinput of
+        1 -> "1 song"
+        n -> show n <> " songs"
+      in (entry, [subline])
 
-  let withQCMode _ = sink $ EventOnyx $ do
-        return ()
+  let withQCMode mode = sink $ EventIO $ do
+        if mode == QCInPlace   then FL.showWidget inPlace   else FL.hide inPlace
+        if mode == QCOneToOne  then FL.showWidget oneToOne  else FL.hide oneToOne
+        if mode == QCMakePacks then FL.showWidget makePacks else FL.hide makePacks
+        if mode == QCMakeSongs then FL.showWidget makeSongs else FL.hide makeSongs
 
   -- row1: midi checkboxes
   let [midiBox1, midiBox2, midiBox3] = splitHorizN 3 row1
@@ -3876,30 +3860,261 @@ pageQuickConvert sink rect tab startTasks = mdo
   void $ FL.setValue checkNoOverdrive False
   checkNoLanes <- FL.checkButtonNew midiBox3 $ Just "Remove lanes"
   void $ FL.setValue checkNoLanes False
+  let getMIDITransform = do
+        black   <- FL.getValue checkBlackVenue
+        noOD    <- FL.getValue checkNoOverdrive
+        noLanes <- FL.getValue checkNoLanes
+        if not $ black || noOD || noLanes
+          then return $ \qsong -> return qsong
+          else return $ \qsong -> do
+            let isRB3 = qdtaRB3 $ quickSongDTA qsong
+            newFiles <- applyToMIDI (foldr (.) id
+              [ if black then blackVenue isRB3 else id
+              , if noOD  then noOverdrive      else id
+              -- TODO no lanes
+              ]) $ quickSongFiles qsong
+            return qsong { quickSongFiles = newFiles }
   -- row2: select mode
   makeModeDropdown row2
-    [ ("Transform in place: replace inputs with new versions", QCInPlace)
-    , ("One to one: each input produces a new output file", QCOneToOne)
-    , ("Make packs: combine songs up to a maximum file size", QCMakePacks)
-    , ("Make songs: produce a single file for each song", QCMakeSongs)
+    [ ("Transform in place: replace input files with new versions", QCInPlace  )
+    , ("One to one: each input file produces a new output file"   , QCOneToOne )
+    , ("Make packs: combine songs up to a maximum file size"      , QCMakePacks)
+    , ("Make songs: produce a single file for each song"          , QCMakeSongs)
     ] withQCMode
+
+  let quickTemplate :: FilePath -> T.Text -> T.Text -> FilePath
+      quickTemplate fin ext txt = validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
+        [ T.intercalate (T.pack $ takeDirectory fin) . T.splitOn "%input_dir%"
+        , T.intercalate (validFileNamePiece NameRulePC $ dropExt $ T.pack $ takeFileName fin) . T.splitOn "%input_base%"
+        , T.intercalate ext . T.splitOn "%ext%"
+        ] where dropExt f = fromMaybe f $ T.stripSuffix ".pkg" f
+
   -- row3/row4: mode-specific stuff
+  let (formatArea, ps3OptionsArea) = chopLeft 150 row3
+      (ps3EncryptArea, ps3FolderArea) = chopLeft 300 ps3OptionsArea
+      makeCheckEncrypt = do
+        btn <- FL.checkButtonNew ps3EncryptArea $ Just "Encrypt .mid.edat"
+        void $ FL.setValue btn True -- TODO load from preference
+        return $ FL.getValue btn
+      makeFormatSelect ps3On ps3Off = do
+        ref <- newIORef QCFormatCON
+        makeModeDropdown formatArea
+          [ ("CON (360)" , QCFormatCON)
+          , ("LIVE (360)", QCFormatLIVE)
+          , ("PKG (PS3)" , QCFormatPKG)
+          ] $ \x -> sink $ EventIO $ do
+            writeIORef ref x
+            case x of
+              QCFormatPKG -> ps3On
+              _           -> ps3Off
+        return $ readIORef ref
+      modeGroup :: IO () -> IO (FL.Ref FL.Group)
+      modeGroup inner = do
+        group <- FL.groupNew row34 Nothing
+        inner
+        FL.end group
+        return group
+
   -- Transform in place (each input is replaced with a file, package type preserved)
-  --   for pkg, don't change encryption folders
-  --   2nd row: enc/unenc midi select
+  --   2nd row: ps3 only: enc/unenc midi select, keep folders / one (new) folder / single-song (new) folders
   --   3rd row: go button
+  inPlace <- modeGroup $ do
+    _ <- FL.boxNew formatArea $ Just "For PS3 files:"
+    getEncrypt <- makeCheckEncrypt
+    getFolderSetting <- makePresetDropdown ps3FolderArea
+      [ ("Keep original USRDIR subfolders", Nothing)
+      , ("Combine into one new USRDIR subfolder", Just QCOneFolder)
+      , ("Each song gets a new USRDIR subfolder", Just QCSeparateFolders)
+      ]
+    btnGo <- FL.buttonNew row4 $ Just "Start"
+    taskColor >>= FL.setColor btnGo
+    FL.setCallback btnGo $ \_ -> sink $ EventOnyx $ do
+      files <- stackIO $ readMVar loadedFiles
+      enc <- stackIO getEncrypt
+      ps3Folder <- stackIO getFolderSetting
+      midiTransform <- stackIO getMIDITransform
+      startTasks $ flip map files $ \qinput -> let
+        fin = quickInputPath qinput
+        qsongs = quickInputSongs qinput
+        task = do
+          qsongs' <- mapM midiTransform qsongs
+          let tmp = fin <> ".tmp"
+              isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+              ps3Settings = QuickPS3Settings
+                { qcPS3Folder  = ps3Folder
+                , qcPS3Encrypt = enc
+                , qcPS3RB3     = isRB3
+                }
+              xboxSettings live = stackIO $
+                (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                -- default values should never be used (source will be stfs already)
+                (maybe "Onyx Quick Convert" (T.concat . take 1 . STFS.md_DisplayName       ) $ quickInputXbox qinput)
+                (maybe ""                   (T.concat . take 1 . STFS.md_DisplayDescription) $ quickInputXbox qinput)
+                live
+          case quickInputFormat qinput of
+            QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts tmp
+            QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts tmp
+            QCFormatPKG  -> saveQuickSongsPKG  qsongs' ps3Settings tmp
+          stackIO $ Dir.renameFile tmp fin
+          return [fin]
+        in (fin, task)
+
   -- One to one (each input file gets one new output file, of a single package type)
-  --   for pkg->pkg, don't change encryption folders
-  --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select, separate/combined songs.dta select)
+  --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select, original/separate/combined songs.dta select)
   --   3rd row: template box with default as %dir%/%base%-convert(.pkg), go button
+  oneToOne <- modeGroup $ mdo
+    getFormat <- makeFormatSelect
+      (FL.activate   ps3Options)
+      (FL.deactivate ps3Options)
+    ps3Options <- FL.groupNew ps3OptionsArea Nothing
+    getEncrypt <- makeCheckEncrypt
+    getFolderSetting <- makePresetDropdown ps3FolderArea
+      [ ("Keep original USRDIR subfolders", Nothing)
+      , ("Combine into one new USRDIR subfolder per file", Just QCOneFolder)
+      , ("Each song gets a new USRDIR subfolder", Just QCSeparateFolders)
+      ]
+    FL.end ps3Options
+    makeTemplateRunner' -- TODO fix tooltip for supported template pieces
+      sink
+      row4
+      "Start"
+      ("%input_dir%/%input_base%_convert%ext%") -- TODO implement %ext%
+      $ \template -> sink $ EventOnyx $ do
+        files <- stackIO $ readMVar loadedFiles
+        fmt <- stackIO getFormat
+        enc <- stackIO getEncrypt
+        ps3Folder <- stackIO getFolderSetting
+        midiTransform <- stackIO getMIDITransform
+        startTasks $ flip map files $ \qinput -> let
+          fin = quickInputPath qinput
+          qsongs = quickInputSongs qinput
+          task = do
+            qsongs' <- mapM midiTransform qsongs
+            let ext = case fmt of
+                  QCFormatCON  -> ""
+                  QCFormatLIVE -> ""
+                  QCFormatPKG  -> ".pkg"
+                fout = quickTemplate fin ext template
+                isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                ps3Settings = QuickPS3Settings
+                  { qcPS3Folder  = ps3Folder
+                  , qcPS3Encrypt = enc
+                  , qcPS3RB3     = isRB3
+                  }
+                xboxSettings live = stackIO $
+                  (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                  -- TODO title/description
+                  "Onyx Quick Convert"
+                  ""
+                  live
+            case fmt of
+              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
+              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
+              QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
+            return [fout]
+          in (fin, task)
+
   -- Make packs (songs are combined into packs, up to a maximum size)
   --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select, separate/combined songs.dta select)
   --   3rd row: max size, go button (opens a save-as dialog, used as pack name or template for multiple)
+  makePacks <- modeGroup $ mdo
+    getFormat <- makeFormatSelect
+      (FL.activate   ps3Options)
+      (FL.deactivate ps3Options)
+    ps3Options <- FL.groupNew ps3OptionsArea Nothing
+    getEncrypt <- makeCheckEncrypt
+    getFolderSetting <- makePresetDropdown ps3FolderArea
+      [ ("Combine into one new USRDIR subfolder per pack", QCOneFolder)
+      , ("Each song gets a new USRDIR subfolder", QCSeparateFolders)
+      ]
+    FL.end ps3Options
+    let (chopLeft 150 -> (_, maxSizeArea), goArea) = chopLeft 300 row4
+    maxSizeInput <- FL.inputNew
+      maxSizeArea
+      (Just "Max Pack Size (MiB)")
+      (Just FL.FlNormalInput) -- required for labels to work
+    FL.setLabelsize maxSizeInput $ FL.FontSize 13
+    FL.setLabeltype maxSizeInput FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign maxSizeInput $ FLE.Alignments [FLE.AlignTypeLeft]
+    void $ FL.setValue maxSizeInput "4000"
+    btnGo <- FL.buttonNew goArea $ Just "Save pack as…"
+    taskColor >>= FL.setColor btnGo
+    FL.setCallback btnGo $ \_ -> sink $ EventOnyx $ do
+      files <- stackIO $ readMVar loadedFiles
+      fmt <- stackIO getFormat
+      enc <- stackIO getEncrypt
+      ps3Folder <- stackIO getFolderSetting
+      maxSizeText <- stackIO $ FL.getValue maxSizeInput
+      midiTransform <- stackIO getMIDITransform
+      case readMaybe $ T.unpack maxSizeText of
+        Nothing -> fatal "Invalid max pack size" -- TODO popup or something, or error in the task window
+        Just maxSize -> do
+          let maxSizeBytes = maxSize * 1024 * 1024
+          packs <- stackIO $ organizePacks maxSizeBytes $ concatMap quickInputSongs files
+          startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
+            fout = "/tmp/onyx-pack-" <> show i -- TODO
+            task = do
+              qsongs' <- mapM midiTransform qsongs
+              let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                  ps3Settings = QuickPS3Settings
+                    { qcPS3Folder  = Just ps3Folder
+                    , qcPS3Encrypt = enc
+                    , qcPS3RB3     = isRB3
+                    }
+                  xboxSettings live = stackIO $
+                    (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                    -- TODO title/description
+                    "Onyx Quick Convert"
+                    ""
+                    live
+              case fmt of
+                QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
+                QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
+                QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
+              return [fout]
+            in ("Pack #" <> show (i :: Int), task)
+
   -- Make songs (each song gets one new output file)
   --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select)
   --   3rd row: go button (opens pick folder dialog, songs get auto names inside)
+  makeSongs <- modeGroup $ mdo
+    getFormat <- makeFormatSelect
+      (FL.activate   ps3Options)
+      (FL.deactivate ps3Options)
+    ps3Options <- FL.groupNew ps3OptionsArea Nothing
+    getEncrypt <- makeCheckEncrypt
+    FL.end ps3Options
+    btnGo <- FL.buttonNew row4 $ Just "Select folder…"
+    taskColor >>= FL.setColor btnGo
+    FL.setCallback btnGo $ \_ -> sink $ EventOnyx $ do
+      files <- stackIO $ readMVar loadedFiles
+      fmt <- stackIO getFormat
+      enc <- stackIO getEncrypt
+      midiTransform <- stackIO getMIDITransform
+      startTasks $ flip map (concatMap quickInputSongs files) $ \qsong -> let
+        fout = "/tmp/" <> show (hash $ qdtaRaw $ quickSongDTA qsong) -- TODO
+        task = do
+          qsong' <- midiTransform qsong
+          let isRB3 = qdtaRB3 $ quickSongDTA qsong'
+              ps3Settings = QuickPS3Settings
+                { qcPS3Folder  = Just QCSeparateFolders
+                , qcPS3Encrypt = enc
+                , qcPS3RB3     = isRB3
+                }
+              xboxSettings live = stackIO $
+                (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                -- TODO title/description
+                "Onyx Quick Convert"
+                ""
+                live
+          case fmt of
+            QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
+            QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
+            QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
+          return [fout]
+        in ("Song" {- TODO -}, task)
 
-  FL.setResizable tab $ Just group
+  FL.setResizable tab $ Just filesGroup
 
 miscPageMOGG
   :: (Event -> IO ())
@@ -4191,17 +4406,13 @@ launchQuickConvert sink makeMenuBar = mdo
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   functionTabs <- sequence
-    [ {- makeTab windowRect "Quick convert" $ \rect tab -> do
+    [ makeTab windowRect "Quick convert" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       pageQuickConvert sink rect tab startTasks
       return tab
-    , -} makeTab windowRect "Make a pack" $ \rect tab -> do
+    , makeTab windowRect "Make a pack" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPagePacks sink rect tab startTasks
-      return tab
-    , makeTab windowRect "Black VENUE" $ \rect tab -> do
-      functionTabColor >>= setTabColor tab
-      miscPageBlack sink rect tab startTasks
       return tab
     , makeTab windowRect "Quick CON->PKG" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

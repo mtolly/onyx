@@ -62,7 +62,7 @@ audio:
 jammit:
   jammit-track: {}
 plans:
-  album:
+  album: # TODO sync on this is wrong?
     countin:
       &countin
       0|0: hihat
@@ -144,14 +144,14 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: album
+    plan: jammit-all
     vocal: violin
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: album
+    plan: jammit-all
     vocal: violin
   ps:
     game: ps
-    plan: album
+    plan: jammit-all
     rhythm: violin

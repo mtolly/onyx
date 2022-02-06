@@ -10,7 +10,6 @@ module CommandLine
 , identifyFile'
 , FileType(..)
 , runDolphin
-, blackVenue
 , conToPkg
 ) where
 
@@ -56,13 +55,12 @@ import           Data.Foldable                    (toList)
 import           Data.Hashable                    (hash)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (find, stripSuffix, unsnoc)
-import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
 import           Data.SimpleHandle                (Folder (..),
                                                    byteStringSimpleHandle,
-                                                   crawlFolder, findFileCI,
+                                                   crawlFolder,
                                                    handleToByteString,
                                                    makeHandle, saveHandleFolder,
                                                    saveReadable, useHandle)
@@ -99,7 +97,6 @@ import           OSFiles                          (copyDirRecursive,
 import           PlayStation.PKG                  (PKG (..), loadPKG, makePKG,
                                                    tryDecryptEDATs)
 import           PrettyDTA                        (DTASingle (..),
-                                                   readDTASingles,
                                                    readFileSongsDTA, readRB3DTA,
                                                    writeDTASingle)
 import           ProKeysRanges                    (closeShiftsFile)
@@ -108,9 +105,7 @@ import           Resources                        (getResourcesPath)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Vocal             (nullVox)
-import           RockBand.Common                  (Difficulty (..),
-                                                   pattern RNil, pattern Wait,
-                                                   makeEdgeCPV)
+import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.IOS                     as IOS
 import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    beatlesLipsync,
@@ -127,10 +122,6 @@ import           RockBand.Score
 import           Rocksmith.PSARC                  (extractPSARC)
 import qualified Sound.File.Sndfile               as Snd
 import           Sound.FSB                        (fsbToXMAs)
-import qualified Sound.MIDI.File                  as F
-import qualified Sound.MIDI.File.Event            as E
-import qualified Sound.MIDI.File.Event.Meta       as Meta
-import           Sound.MIDI.File.FastParse        (getMIDI)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Script.Base           as MS
 import qualified Sound.MIDI.Script.Parse          as MS
@@ -1010,15 +1001,6 @@ commands =
     }
 
   , Command
-    { commandWord = "black"
-    , commandDesc = "Replace the VENUE track in CON MIDIs with a black background."
-    , commandUsage = "onyx black con_1 con_2 ..."
-    , commandRun = \args _opts -> do
-      mapM_ blackVenue args
-      return args
-    }
-
-  , Command
     { commandWord = "ios"
     , commandDesc = "Extract the contents of a Rock Band iOS, Rock Band Reloaded, or Guitar Hero iOS song."
     , commandUsage = "onyx ios [song.blob|song.iga] ..."
@@ -1654,82 +1636,6 @@ midiOptions opts = MS.Options
   , MS.separateLines = elem OptSeparateLines opts
   , MS.matchNoteOff = elem OptMatchNotes opts
   }
-
-blackVenue :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m ()
-blackVenue fcon = inside ("Inserting black VENUE in: " <> fcon) $ do
-  (hdr, meta) <- stackIO $ withSTFSPackage fcon $ \pkg -> return (stfsHeader pkg, stfsMetadata pkg)
-  topFolder <- stackIO $ getSTFSFolder fcon
-  isRB3 <- case findFileCI ("songs" :| pure "songs.dta") topFolder of
-    Nothing -> fatal "Couldn't find songs.dta in package"
-    Just r  -> do
-      dtaBS <- stackIO $ useHandle r handleToByteString
-      songs <- readDTASingles $ BL.toStrict dtaBS
-      case map (D.songFormat . dtaSongPackage . fst) songs of
-        [] -> fatal "No songs found in songs.dta"
-        fmts  | all (>= 10) fmts -> return True
-              | all (< 10) fmts -> return False
-              | otherwise -> fatal
-                "Mix of RB3 and pre-RB3 songs found in pack (???)"
-  let updateMids folder = do
-        newFiles <- forM (folderFiles folder) $ \(name, r) -> do
-          r' <- if ".mid" `T.isSuffixOf` name
-            then do
-              bs <- stackIO $ useHandle r handleToByteString
-              F.Cons typ dvn trks <- inside ("loading " <> T.unpack name) $ do
-                (mid, warns) <- runGetM getMIDI bs
-                mapM_ warn warns
-                return mid
-              -- TODO this does not yet handle official-format (milo venue) songs
-              let black = U.setTrackName "VENUE" $ if isRB3
-                    then RTB.fromPairList $ map (\s -> (0, E.MetaEvent $ Meta.TextEvent s))
-                      ["[lighting (blackout_fast)]", "[film_b+w.pp]", "[coop_all_far]"]
-                    else Wait 0 (E.MetaEvent $ Meta.TextEvent "[verse]")
-                      $ Wait 0 (E.MetaEvent $ Meta.TextEvent "[lighting (blackout_fast)]")
-                      $ Wait 0 (makeEdgeCPV 0 60 $ Just 96) -- camera cut
-                      $ Wait 0 (makeEdgeCPV 0 61 $ Just 96) -- focus bass
-                      $ Wait 0 (makeEdgeCPV 0 62 $ Just 96) -- focus drums
-                      $ Wait 0 (makeEdgeCPV 0 63 $ Just 96) -- focus guitar
-                      $ Wait 0 (makeEdgeCPV 0 64 $ Just 96) -- focus vocal
-                      $ Wait 0 (makeEdgeCPV 0 71 $ Just 96) -- only far
-                      $ Wait 0 (makeEdgeCPV 0 108 $ Just 96) -- video_bw
-                      $ Wait 120 (makeEdgeCPV 0 60 Nothing)
-                      $ Wait 0 (makeEdgeCPV 0 61 Nothing)
-                      $ Wait 0 (makeEdgeCPV 0 62 Nothing)
-                      $ Wait 0 (makeEdgeCPV 0 63 Nothing)
-                      $ Wait 0 (makeEdgeCPV 0 64 Nothing)
-                      $ Wait 0 (makeEdgeCPV 0 71 Nothing)
-                      $ Wait 0 (makeEdgeCPV 0 108 Nothing) RNil
-                  isVenue = (== Just "VENUE") . U.trackName
-                  mid = F.Cons typ dvn $ filter (not . isVenue) trks ++ [black]
-              return $ makeHandle ("Black VENUE output for " <> T.unpack name)
-                $ byteStringSimpleHandle $ Save.toByteString mid
-            else return r
-          return (name, r')
-        newSubs <- forM (folderSubfolders folder) $ \(name, sub) -> do
-          sub' <- updateMids sub
-          return (name, sub')
-        return Folder
-          { folderFiles = newFiles
-          , folderSubfolders = newSubs
-          }
-  topFolder' <- updateMids topFolder
-  let opts = CreateOptions
-        { createNames         = md_DisplayName meta
-        , createDescriptions  = md_DisplayDescription meta
-        , createTitleID       = md_TitleID meta
-        , createTitleName     = md_TitleName meta
-        , createThumb         = md_ThumbnailImage meta
-        , createTitleThumb    = md_TitleThumbnailImage meta
-        , createLicenses      = [LicenseEntry (-1) 1 0] -- unlocked
-        , createMediaID       = 0
-        , createVersion       = 0
-        , createBaseVersion   = 0
-        , createTransferFlags = 0xC0
-        , createLIVE          = case hdr of CON{} -> False; _ -> True
-        }
-      ftemp = fcon <> ".tmp"
-  stackIO $ makeCONReadable opts topFolder' ftemp
-  stackIO $ Dir.renameFile ftemp fcon
 
 conToPkg :: (SendMessage m, MonadResource m) => Bool -> FilePath -> FilePath -> StackTraceT m ()
 conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do

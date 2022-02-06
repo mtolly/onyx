@@ -34,6 +34,7 @@ module STFS.Package
 , saveCreateOptions
 , loadCreateOptions
 , packCombineFolders
+, rb3STFSOptions, rb2STFSOptions
 ) where
 
 import           Control.Monad.Codec

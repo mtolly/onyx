@@ -1,0 +1,50 @@
+global:
+  anim-tempo: 32
+parts:
+  drums:
+    drums:
+      kicks: 1
+      difficulty:
+        rank: 401
+      mode: full
+  guitar:
+    grybo:
+      difficulty:
+        rank: 301
+  bass:
+    grybo:
+      difficulty:
+        rank: 259
+metadata:
+  track-number: 6
+  title: Last Suppit
+  author: The Authority, Onyxite
+  year: 2008
+  album: RAGE!
+  preview-start: 2:34.000
+  subgenre: funk
+  genre: rock
+  preview-end: 3:04.000
+  difficulty:
+    rank: 383
+  artist: Lettuce
+  file-album-art: cover.png_xbox
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    parts:
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
+    karaoke: false
+    multitrack: true
+    vols: [-4.5, -4.5, -4.5, -4.5, -2.5, -2.5, -4.5, -4.5, -4.5, -4.5, -3.5, -3.5]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps

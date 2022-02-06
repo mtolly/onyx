@@ -1,0 +1,30 @@
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+  drums:
+    drums:
+      mode: full
+      kicks: 1
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube OVuYIMa5XBw 140
+metadata:
+  title: Akane-chan Will Go Along with Anything You Say
+  title-jp: 何でも言うことを聞いてくれるアカネチャン
+  author: Azure_senpai, Onyxite
+  year: 2017
+  artist: Gyari
+  file-album-art: cover.png
+plans:
+  rs:
+    song:
+      pad: [1.589, youtube]
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
