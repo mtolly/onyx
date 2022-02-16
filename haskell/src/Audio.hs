@@ -85,7 +85,7 @@ import           Development.Shake                (Action, need)
 import           Development.Shake.FilePath       (takeExtension, (-<.>))
 import           FFMPEG                           (FFSourceSample, ffSource,
                                                    ffSourceFrom)
-import           GuitarHeroII.Audio               (readVGS)
+import           GuitarHeroII.Audio               (readSingleRateVGS, readVGS)
 import           Magma                            (withWin32Exe)
 import           MoggDecrypt                      (sourceVorbisFile)
 import           Numeric                          (showHex)
@@ -434,15 +434,18 @@ buildSource' :: (MonadResource m, MonadIO f) =>
   Audio Duration FilePath -> f (AudioSource m Float)
 buildSource' aud = case aud of
   -- optimizations
-  -- TODO combine drops
+  Drop edge1 (Seconds t1) (Drop edge2 (Seconds t2) x) | edge1 == edge2
+    -> buildSource' $ Drop edge1 (Seconds $ t1 + t2) x
+  Drop edge1 (Frames t1) (Drop edge2 (Frames t2) x) | edge1 == edge2
+    -> buildSource' $ Drop edge1 (Frames $ t1 + t2) x
   Drop Start (Seconds t1) (Pad Start (Seconds t2) x) -> dropPad Start Seconds t1 t2 x
   Drop End   (Seconds t1) (Pad End   (Seconds t2) x) -> dropPad End   Seconds t1 t2 x
   Drop Start (Frames  t1) (Pad Start (Frames  t2) x) -> dropPad Start Frames  t1 t2 x
   Drop End   (Frames  t1) (Pad End   (Frames  t2) x) -> dropPad End   Frames  t1 t2 x
   Drop Start t (Input fin) -> liftIO $ case takeExtension fin of
     ".ogg" -> sourceVorbisFile t fin
-    -- TODO implement smart VGS seeking
-    ".vgs" -> dropStart t <$> buildSource' (Input fin)
+    -- only supports VGS with consistent sample rate
+    ".vgs" -> standardRate . mapSamples fractionalSample <$> readSingleRateVGS t (fileReadable fin)
     -- FFMPEG appears to not seek XMA correctly (or we're generating seek table wrong maybe?)
     ".xma" -> dropStart t <$> buildSource' (Input fin)
     _      -> ffSourceFixPath t fin

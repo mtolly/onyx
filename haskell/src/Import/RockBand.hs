@@ -6,17 +6,22 @@ Common import functions for RB1, RB2, RB3, TBRB
 {-# LANGUAGE TupleSections     #-}
 module Import.RockBand where
 
+import           ArkTool                        (ark_DecryptVgs)
+import           Audio                          (Audio (..), Edge (..))
 import           Codec.Picture                  (convertRGB8, readImage)
 import           Config
 import           Control.Arrow                  (second)
+import           Control.Concurrent.Async       (forConcurrently)
 import           Control.Exception              (evaluate)
-import           Control.Monad                  (forM, forM_, guard, when)
+import           Control.Monad                  (forM, forM_, guard, unless,
+                                                 when)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Codec.Class        (bin, codecIn)
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
+import qualified Data.Conduit.Audio             as CA
 import           Data.Default.Class             (def)
 import qualified Data.Digest.Pure.MD5           as MD5
 import qualified Data.DTA                       as D
@@ -24,10 +29,11 @@ import qualified Data.DTA.Serialize             as D
 import qualified Data.DTA.Serialize.RB3         as D
 import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as HM
-import           Data.List.Extra                (elemIndex, nubOrd)
+import           Data.List.Extra                (elemIndex, nubOrd, (\\))
 import           Data.List.NonEmpty             (NonEmpty (..))
+import qualified Data.List.NonEmpty             as NE
 import qualified Data.Map                       as Map
-import           Data.Maybe                     (fromMaybe, mapMaybe)
+import           Data.Maybe                     (catMaybes, fromMaybe, mapMaybe)
 import           Data.SimpleHandle              (Folder (..), Readable,
                                                  byteStringSimpleHandle,
                                                  fileReadable, findByteString,
@@ -39,11 +45,16 @@ import           Data.Text.Encoding             (decodeLatin1, decodeUtf8With,
                                                  encodeUtf8)
 import           Data.Text.Encoding.Error       (lenientDecode)
 import           Difficulty
+import           GuitarHeroII.Audio             (splitOutVGSChannels,
+                                                 vgsChannelCount)
 import           Image                          (DXTFormat (PNGXbox),
                                                  toDXT1File)
 import           Import.Base
 import           Magma                          (rbaContents)
 import           Magma                          (getRBAFile)
+import           PlayStation.PSS                (extractVGSStream,
+                                                 extractVideoStream,
+                                                 scanPackets)
 import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingles)
 import           PrettyDTA                      (readRB3DTA, writeDTASingle)
@@ -60,12 +71,14 @@ import           STFS.Package                   (rb3pkg, runGetM)
 import qualified System.Directory               as Dir
 import           System.FilePath                (takeDirectory, takeFileName,
                                                  (<.>), (</>))
+import           System.IO.Temp                 (withSystemTempDirectory)
 import           Text.Read                      (readMaybe)
 
 data RBImport = RBImport
   { rbiSongPackage :: D.SongPackage
   , rbiComments    :: C3DTAComments
-  , rbiMOGG        :: SoftContents
+  , rbiMOGG        :: Maybe SoftContents
+  , rbiPSS         :: Maybe (IO (SoftFile, [BL.ByteString])) -- if ps2, load video and vgs channels
   , rbiAlbumArt    :: Maybe SoftFile
   , rbiMilo        :: Maybe Readable
   , rbiMIDI        :: Readable
@@ -75,11 +88,12 @@ data RBImport = RBImport
 
 importSTFSFolder :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importSTFSFolder src folder = do
+  -- TODO support songs/gen/songs.dtb instead
   packSongs <- stackIO (findByteString ("songs" :| ["songs.dta"]) folder) >>= \case
     Nothing -> fatal "songs/songs.dta not found"
     Just bs -> readDTASingles $ BL.toStrict bs
   updateDir <- stackIO rb3Updates
-  forM packSongs $ \(DTASingle top pkg comments, _) -> do
+  fmap catMaybes $ forM packSongs $ \(DTASingle top pkg comments, _) -> errorToWarning $ do
     let base = T.unpack $ D.songName $ D.song pkg
         split s = case splitPath $ T.pack s of
           Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
@@ -89,10 +103,32 @@ importSTFSFolder src folder = do
           Nothing -> fatal $ "Required file not found: " <> T.unpack (T.intercalate "/" $ toList p)
     miloPath <- split $ takeDirectory base </> "gen" </> takeFileName base <.> "milo_xbox"
     moggPath <- split $ base <.> "mogg"
+    pssPath  <- split $ base <.> "pss"
     midiPath <- split $ base <.> "mid"
     artPathXbox <- split $ takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox")
     artPathPS3 <- split $ takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_ps3")
-    mogg <- SoftReadable <$> need moggPath
+
+    let mogg = SoftReadable <$> findFileCI moggPath folder
+        pss = case findFileCI pssPath folder of
+          Nothing -> Nothing
+          Just r -> Just $ do
+            (bsVideo, bsVGS) <- useHandle r $ \h -> do
+              packets <- scanPackets h
+              vid <- extractVideoStream 0xE0 packets h
+              vgs <- extractVGSStream   0xBD packets h
+              return (vid, vgs)
+            let rVideo = SoftReadable $ makeHandle "video.m2v" $ byteStringSimpleHandle bsVideo
+            chans <- withSystemTempDirectory "decrypt-vgs" $ \temp -> do
+              let enc = temp </> "enc.vgs"
+                  dec = temp </> "dec.vgs"
+                  rVGS = fileReadable dec
+              BL.writeFile enc bsVGS
+              ark_DecryptVgs dec enc >>= \b -> unless b $ fail "Couldn't decrypt VGS file"
+              numChannels <- vgsChannelCount rVGS
+              forConcurrently [0 .. numChannels - 1] $ \i -> do
+                splitOutVGSChannels [i] rVGS
+            return (SoftFile "video.m2v" rVideo, chans)
+
     midi <- need midiPath
     let missingArt = updateDir </> T.unpack top </> "gen" </> (T.unpack top ++ "_keep.png_xbox")
         updateMid = updateDir </> T.unpack top </> (T.unpack top ++ "_update.mid")
@@ -119,6 +155,7 @@ importSTFSFolder src folder = do
       { rbiSongPackage = pkg
       , rbiComments = comments
       , rbiMOGG = mogg
+      , rbiPSS = pss
       , rbiAlbumArt = art
       , rbiMilo = findFileCI miloPath folder
       , rbiMIDI = midi
@@ -158,7 +195,8 @@ importRBA rba level = do
     , rbiComments = comments
       { c3dtaAuthoredBy = author
       }
-    , rbiMOGG = mogg
+    , rbiMOGG = Just mogg
+    , rbiPSS = Nothing
     , rbiAlbumArt = Just bmp
     , rbiMilo = Just milo
     , rbiMIDI = midi
@@ -172,6 +210,9 @@ dtaIsRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc", "ugc_plus"]) $ D.gameOrigi
 
 dtaIsHarmonixRB3 :: D.SongPackage -> Bool
 dtaIsHarmonixRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc"]) $ D.gameOrigin pkg
+
+rockBandPS2PreSongTime :: (Fractional a) => a
+rockBandPS2PreSongTime = 3 -- seconds
 
 importRB :: (SendMessage m, MonadIO m) => RBImport -> Import m
 importRB rbi level = do
@@ -257,36 +298,30 @@ importRB rbi level = do
   let instChans :: [(T.Text, [Int])]
       instChans = map (second $ map fromIntegral) $ D.fromDictList $ D.tracks $ D.song pkg
       drumChans = fromMaybe [] $ lookup "drum" instChans
-  drumSplit <- if not $ hasRankStr "drum" then return Nothing else case foundMix of
-    Nothing -> case drumChans of
-      -- No drum mix seen in The Kill (30STM), has 5 drum channels
-      [kitL, kitR] -> return $ Just $ PartSingle [kitL, kitR]
-      [kick, snare, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) (Just [snare]) [kitL, kitR]
-      [kick, snareL, snareR, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) (Just [snareL, snareR]) [kitL, kitR]
-      [kickL, kickR, snareL, snareR, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kickL, kickR]) (Just [snareL, snareR]) [kitL, kitR]
-      [kick, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
+  drumSplit <- if not (hasRankStr "drum") || level == ImportQuick then return Nothing else do
+    -- Usually there should be 2-6 drum channels and a matching mix event. Seen exceptions:
+    -- * The Kill (30STM) has 5 drum channels but no mix event
+    -- * RB PS2 Can't Let Go has 4 drum channels but mix 3 (leftover from 360/PS3)
+    -- So, just use what the mix should be based on channel count. (But warn appropriately)
+    case drumChans of
+      [kitL, kitR] -> do
+        when (foundMix /= Just RBDrums.D0) $ warn "Using drum mix 0 (2 drum channels found) even though not found in MIDI"
+        return $ Just $ PartSingle [kitL, kitR]
+      [kick, snare, kitL, kitR] -> do
+        when (foundMix /= Just RBDrums.D1) $ warn "Using drum mix 1 (4 drum channels found) even though not found in MIDI"
+        return $ Just $ PartDrumKit (Just [kick]) (Just [snare]) [kitL, kitR]
+      [kick, snareL, snareR, kitL, kitR] -> do
+        when (foundMix /= Just RBDrums.D2) $ warn "Using drum mix 2 (5 drum channels found) even though not found in MIDI"
+        return $ Just $ PartDrumKit (Just [kick]) (Just [snareL, snareR]) [kitL, kitR]
+      [kickL, kickR, snareL, snareR, kitL, kitR] -> do
+        when (foundMix /= Just RBDrums.D3) $ warn "Using drum mix 3 (6 drum channels found) even though not found in MIDI"
+        return $ Just $ PartDrumKit (Just [kickL, kickR]) (Just [snareL, snareR]) [kitL, kitR]
+      [kick, kitL, kitR] -> do
+        when (foundMix /= Just RBDrums.D4) $ warn "Using drum mix 4 (3 drum channels found) even though not found in MIDI"
+        return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
       _ -> do
-        warn $ unwords
-          [ "No drum mix (or inconsistent) and there are"
-          , show $ length drumChans
-          , "drum channels (expected 2-6)"
-          ]
+        warn $ "Unexpected number of drum channels (" <> show (length drumChans) <> "), importing as single-track stereo (mix 0)"
         return $ Just $ PartSingle drumChans
-    Just RBDrums.D0 -> case drumChans of
-      [kitL, kitR] -> return $ Just $ PartSingle [kitL, kitR]
-      _ -> fatal $ "mix 0 needs 2 drums channels, " ++ show (length drumChans) ++ " given"
-    Just RBDrums.D1 -> case drumChans of
-      [kick, snare, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) (Just [snare]) [kitL, kitR]
-      _ -> fatal $ "mix 1 needs 4 drums channels, " ++ show (length drumChans) ++ " given"
-    Just RBDrums.D2 -> case drumChans of
-      [kick, snareL, snareR, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) (Just [snareL, snareR]) [kitL, kitR]
-      _ -> fatal $ "mix 2 needs 5 drums channels, " ++ show (length drumChans) ++ " given"
-    Just RBDrums.D3 -> case drumChans of
-      [kickL, kickR, snareL, snareR, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kickL, kickR]) (Just [snareL, snareR]) [kitL, kitR]
-      _ -> fatal $ "mix 3 needs 6 drums channels, " ++ show (length drumChans) ++ " given"
-    Just RBDrums.D4 -> case drumChans of
-      [kick, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
-      _ -> fatal $ "mix 4 needs 3 drums channels, " ++ show (length drumChans) ++ " given"
 
   let tone = fromMaybe Minor $ D.songTonality pkg
       -- Minor verified as default for PG chords if SK/VTN present and no song_tonality
@@ -344,6 +379,15 @@ importRB rbi level = do
       lg "Loading song.anim"
       return $ Just $ SoftFile "song.anim" $ SoftReadable $ makeHandle "song.anim" $ byteStringSimpleHandle bs
 
+  (video, vgs) <- case guard (level == ImportFull) >> rbiPSS rbi of
+    Nothing     -> return (Nothing, Nothing)
+    Just getPSS -> do
+      (video, vgs) <- stackIO getPSS
+      return (Just video, Just vgs)
+  let namedChans = do
+        (i, chan) <- zip [0..] $ fromMaybe [] vgs
+        return ("vgs-" <> show (i :: Int), chan)
+
   return SongYaml
     { _metadata = Metadata
       { _title        = Just title
@@ -379,31 +423,82 @@ importRB rbi level = do
       { _animTempo           = D.animTempo pkg
       , _fileMidi            = SoftFile "notes.mid" $ SoftChart midiOnyx
       , _fileSongAnim        = songAnim
-      , _backgroundVideo     = Nothing
+      , _backgroundVideo     = flip fmap video $ \videoFile -> VideoInfo
+        { _fileVideo      = videoFile
+        , _videoStartTime = Just rockBandPS2PreSongTime
+        , _videoEndTime   = Nothing
+        , _videoLoop      = False
+        }
       , _fileBackgroundImage = Nothing
       }
-    , _audio = HM.empty
+    , _audio = HM.fromList $ do
+      (name, bs) <- namedChans
+      return $ (T.pack name ,) $ AudioFile AudioInfo
+        { _md5 = Nothing
+        , _frames = Nothing
+        , _commands = []
+        , _filePath = Just $ SoftFile (name <.> "vgs") $ SoftReadable $ makeHandle name $ byteStringSimpleHandle bs
+        , _rate = Nothing
+        , _channels = 1
+        }
     , _jammit = HM.empty
-    , _plans = HM.singleton "mogg" MoggPlan
-      { _fileMOGG = Just $ SoftFile "audio.mogg" $ rbiMOGG rbi
-      , _moggMD5 = Nothing
-      , _moggParts = Parts $ HM.fromList $ concat
-        [ [ (FlexGuitar, PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
-        , [ (FlexBass  , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
-        , [ (FlexKeys  , PartSingle ns) | ns <- toList $ lookup "keys"   instChans ]
-        , [ (FlexVocal , PartSingle ns) | ns <- toList $ lookup "vocals" instChans ]
-        , [ (FlexDrums , ds           ) | Just ds <- [drumSplit] ]
-        ]
-      , _moggCrowd = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
-      , _pans = map realToFrac $ D.pans $ D.song pkg
-      , _vols = map realToFrac $ D.vols $ D.song pkg
-      , _planComments = []
-      , _tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
-      , _fileTempo = Nothing
-      , _karaoke = fromMaybe False $ c3dtaKaraoke $ rbiComments rbi
-      , _multitrack = fromMaybe True $ c3dtaMultitrack $ rbiComments rbi
-      , _decryptSilent = False
-      }
+    , _plans = case rbiMOGG rbi of
+      Nothing -> case rbiPSS rbi of
+        Nothing -> HM.empty
+        Just _pss -> HM.singleton "vgs" $ let
+          songChans = [0 .. length namedChans - 1] \\ concat
+            [ concatMap snd instChans
+            , maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
+            ]
+          audioAdjust = Drop Start $ CA.Seconds rockBandPS2PreSongTime
+          mixChans cs = do
+            cs' <- NE.nonEmpty cs
+            Just $ case cs' of
+              c :| [] -> PlanAudio
+                { _planExpr = audioAdjust $ Input $ Named $ T.pack $ fst $ namedChans !! c
+                , _planPans = map realToFrac [D.pans (D.song pkg) !! c]
+                , _planVols = map realToFrac [D.vols (D.song pkg) !! c]
+                }
+              _ -> PlanAudio
+                { _planExpr = audioAdjust $ Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs'
+                , _planPans = map realToFrac [D.pans (D.song pkg) !! c | c <- cs]
+                , _planVols = map realToFrac [D.vols (D.song pkg) !! c | c <- cs]
+                }
+          in Plan
+            { _song = mixChans songChans
+            , _countin = Countin []
+            , _planParts = Parts $ HM.fromList $ catMaybes
+              [ lookup "guitar" instChans >>= mixChans >>= \x -> return (FlexGuitar, PartSingle x)
+              , lookup "bass"   instChans >>= mixChans >>= \x -> return (FlexBass  , PartSingle x)
+              , lookup "keys"   instChans >>= mixChans >>= \x -> return (FlexKeys  , PartSingle x)
+              , lookup "vocals" instChans >>= mixChans >>= \x -> return (FlexVocal , PartSingle x)
+              , drumSplit >>= mapM mixChans            >>= \x -> return (FlexDrums , x)
+              ]
+            , _crowd = D.crowdChannels (D.song pkg) >>= mixChans . map fromIntegral
+            , _planComments = []
+            , _tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
+            , _fileTempo = Nothing
+            }
+      Just mogg -> HM.singleton "mogg" MoggPlan
+        { _fileMOGG = Just $ SoftFile "audio.mogg" mogg
+        , _moggMD5 = Nothing
+        , _moggParts = Parts $ HM.fromList $ concat
+          [ [ (FlexGuitar, PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
+          , [ (FlexBass  , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
+          , [ (FlexKeys  , PartSingle ns) | ns <- toList $ lookup "keys"   instChans ]
+          , [ (FlexVocal , PartSingle ns) | ns <- toList $ lookup "vocals" instChans ]
+          , [ (FlexDrums , ds           ) | Just ds <- [drumSplit] ]
+          ]
+        , _moggCrowd = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
+        , _pans = map realToFrac $ D.pans $ D.song pkg
+        , _vols = map realToFrac $ D.vols $ D.song pkg
+        , _planComments = []
+        , _tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
+        , _fileTempo = Nothing
+        , _karaoke = fromMaybe False $ c3dtaKaraoke $ rbiComments rbi
+        , _multitrack = fromMaybe True $ c3dtaMultitrack $ rbiComments rbi
+        , _decryptSilent = False
+        }
     , _targets = let
       getSongID = \case
         Left  i -> if i /= 0

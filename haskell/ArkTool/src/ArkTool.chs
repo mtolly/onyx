@@ -141,3 +141,9 @@ ark_RemoveFile' ark fpInArk
 
 ark_Save' :: ArkTool -> IO ()
 ark_Save' ark = wrapArk "saving ARK" $ ark_Save ark
+
+{#fun ark_DecryptVgs
+  { withCString* `FilePath'
+  , withCString* `FilePath'
+  } -> `Bool'
+#}

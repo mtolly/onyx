@@ -1,9 +1,9 @@
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE OverloadedStrings        #-}
-module GuitarHeroII.Audio (writeVGS, writeVGSMultiRate, readVGS, readVGSReadable) where
+module GuitarHeroII.Audio (writeVGS, writeVGSMultiRate, readVGS, readVGSReadable, readSingleRateVGS, splitOutVGSChannels, vgsChannelCount) where
 
-import           Control.Monad                (forM, forM_, liftM4, replicateM_)
+import           Control.Monad                (forM, forM_, liftM4, replicateM_, void)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Trans.Class    (lift)
 import           Control.Monad.Trans.Resource
@@ -17,11 +17,13 @@ import qualified Data.ByteString.Lazy         as BL
 import           Data.Conduit                 (($$++))
 import qualified Data.Conduit                 as C
 import qualified Data.Conduit.Audio           as A
-import           Data.List.Extra              (minimumOn)
+import           Data.List.Extra              (minimumOn, elemIndex)
 import           Data.SimpleHandle            (Readable (..), fileReadable,
                                                useHandle)
+import System.FilePath ((</>))
+import System.IO.Temp (withSystemTempDirectory)
 import qualified Data.Vector.Storable         as V
-import           Foreign
+import           Foreign hiding (void)
 import qualified System.IO                    as IO
 import           System.IO.Unsafe             (unsafePerformIO)
 
@@ -121,12 +123,12 @@ writeVGSMultiRate fp srcs = let
 writeVGS :: (MonadResource m) => FilePath -> A.AudioSource m Int16 -> m ()
 writeVGS fp src = writeVGSMultiRate fp [src]
 
-decodeVAGBlock :: Word8 -> StateT (Double, Double) Get [Int16]
+decodeVAGBlock :: Maybe Word8 -> StateT (Double, Double) Get [Int16]
 decodeVAGBlock targetChannel = do
   bytes <- lift $ getByteString 16
   let predictor = B.index bytes 0 `shiftR` 4 -- high nibble, shouldn't be more than 4
       shift'    = B.index bytes 0 .&. 0xF    -- low  nibble
-      channel   = B.index bytes 1
+      channel   = B.index bytes 1 .&. 0xF    -- low  nibble, high is usually 0, but 8 seen at end of RB PS2 VGS
       samples = do
         byte <- B.unpack $ B.drop 2 bytes
         let signExtend :: Word32 -> Int32
@@ -136,7 +138,7 @@ decodeVAGBlock targetChannel = do
         [   realToFrac $ ss0 `shiftR` fromIntegral shift'
           , realToFrac $ ss1 `shiftR` fromIntegral shift'
           ]
-  if channel /= targetChannel
+  if maybe False (channel /=) targetChannel
     then return []
     else forM samples $ \sample -> do
       (s0, s1) <- get
@@ -156,20 +158,29 @@ vagFilter =
   , (122.0 / 64.0, -60.0 / 64.0)
   ]
 
+readVGSHeader :: BL.ByteString -> [(Word32, Word32)]
+readVGSHeader = let
+  start = do
+    "VgS!" <- getByteString 4
+    2 <- getWord32le
+    readChannels
+  readChannels = do
+    rate <- getWord32le
+    blocks <- getWord32le
+    if blocks == 0
+      then return []
+      else ((rate, blocks) :) <$> readChannels
+  in runGet start
+
+vgsChannelCount :: Readable -> IO Int
+vgsChannelCount r = do
+  header <- useHandle r $ \h -> BL.hGet h 0x80
+  return $ length $ readVGSHeader header
+
 readVGSReadable :: (MonadResource m) => Readable -> IO [A.AudioSource m Int16]
 readVGSReadable r = do
   header <- useHandle r $ \h -> BL.hGet h 0x80
-  let readHeader = do
-        "VgS!" <- getByteString 4
-        2 <- getWord32le
-        readChannels
-      readChannels = do
-        rate <- getWord32le
-        blocks <- fromIntegral <$> getWord32le
-        if blocks == 0
-          then return []
-          else ((rate, blocks) :) <$> readChannels
-  let chans = runGet readHeader header
+  let chans = readVGSHeader header
       totalBlocks = sum $ map snd chans
   return $ flip map (zip [0..] chans) $ \(i, (rate, blocks)) -> let
     src = C.bracketP (rOpen r) IO.hClose $ \h -> do
@@ -177,13 +188,71 @@ readVGSReadable r = do
       let go _    0          = return ()
           go dbls blocksLeft = do
             chunk <- liftIO $ BL.hGet h 16
-            case runGet (runStateT (decodeVAGBlock i) dbls) chunk of
+            case runGet (runStateT (decodeVAGBlock $ Just i) dbls) chunk of
               ([], _)    -> go dbls $ blocksLeft - 1
               (samps, dbls') -> do
                 C.yield $ V.fromList samps
                 go dbls' $ blocksLeft - 1
       go (0, 0) totalBlocks
-    in A.AudioSource src (realToFrac rate) 1 $ blocks * xaBlockSamples
+    in A.AudioSource src (realToFrac rate) 1 $ fromIntegral blocks * xaBlockSamples
 
 readVGS :: (MonadResource m) => FilePath -> IO [A.AudioSource m Int16]
 readVGS = readVGSReadable . fileReadable
+
+-- Allows seeking. Only supports VGS where all channels are the same sample rate.
+readSingleRateVGS :: (MonadResource m) => A.Duration -> Readable -> IO (A.AudioSource m Int16)
+readSingleRateVGS dur r = do
+  header <- useHandle r $ \h -> BL.hGet h 0x80
+  let chans = readVGSHeader header
+      numChans = length chans
+      totalBlocks = sum $ map snd chans
+  (rate, blockSets) <- case chans of
+    pair@(rate, _) : rest -> if all ((== rate) . fst) rest
+      then return pair
+      else fail $ "readSingleRateVGS: VGS does not have consistent sample rate, channel rates are: " <> show (map fst chans)
+    [] -> fail "readSingleRateVGS: VGS has no channels"
+  let startFrame = case dur of
+        A.Frames  f -> f
+        A.Seconds s -> floor $ s * fromIntegral rate
+      startBlockSet = quot startFrame xaBlockSamples
+      initialSkip = startFrame - startBlockSet * xaBlockSamples
+  return $ A.dropStart (A.Frames initialSkip) $ let
+    src = C.bracketP (rOpen r) IO.hClose $ \h -> do
+      liftIO $ IO.hSeek h IO.AbsoluteSeek $ fromIntegral $ 0x80 + startBlockSet * 0x10 * numChans
+      let go _      0             = return ()
+          go states blockSetsLeft = do
+            results <- forM states $ \channelState -> do
+              chunk <- liftIO $ BL.hGet h 16
+              let (samps, newState) = runGet (runStateT (decodeVAGBlock Nothing) channelState) chunk
+              return (V.fromList samps, newState)
+            C.yield $ A.interleave $ map fst results
+            go (map snd results) $ blockSetsLeft - 1
+      go (replicate numChans (0, 0)) $ fromIntegral blockSets - startBlockSet
+    in A.AudioSource src (realToFrac rate) numChans $ fromIntegral totalBlocks * xaBlockSamples - startFrame
+
+splitOutVGSChannels :: [Int] -> Readable -> IO BL.ByteString
+splitOutVGSChannels wantChannels r = useHandle r $ \hin -> do
+  withSystemTempDirectory "onyx-vgs-split" $ \dout -> do
+    let fout = dout </> "out.vgs"
+    IO.withBinaryFile fout IO.WriteMode $ \hout -> do
+      header <- BL.hGet hin 0x80
+      let chans = readVGSHeader header
+          totalBlocks = sum $ map snd chans
+      -- first, write out new header
+      BL.hPut hout $ runPut $ do
+        putLazyByteString $ BL.take 8 header
+        forM_ wantChannels $ \i -> do
+          let (rate, blocks) = chans !! i
+          putWord32le rate
+          putWord32le blocks
+        putByteString $ B.replicate (0x80 - (length wantChannels + 1) * 8) 0
+      -- then, filter the vag blocks by channel and change their index
+      replicateM_ (fromIntegral totalBlocks) $ do
+        byte0 <- B.hGet hin 1
+        channelByte <- B.head <$> B.hGet hin 1
+        case elemIndex (fromIntegral $ channelByte .&. 0xF) wantChannels of
+          Nothing -> void $ B.hGet hin 14 -- skip this block (hSeek seems to be much worse performance?)
+          Just newIndex -> do
+            block <- B.hGet hin 14
+            mapM_ (B.hPut hout) [byte0, B.singleton $ fromIntegral newIndex, block]
+    BL.fromStrict <$> B.readFile fout

@@ -32,9 +32,11 @@ import           Data.Maybe                       (catMaybes, fromMaybe)
 import           Data.SimpleHandle
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
+import           Data.Text.Encoding.Error         (lenientDecode)
 import           Image                            (swapPNGXboxPS3)
 import           MoggDecrypt                      (encryptRB1)
 import           NPData
+import qualified Numeric.NonNegative.Class        as NNC
 import           PlayStation.PKG
 import           Resources                        (getResourcesPath)
 import           RockBand.Common                  (pattern RNil, pattern Wait,
@@ -53,8 +55,8 @@ import           System.IO                        (hFileSize)
 
 data QuickSong = QuickSong
   { quickSongDTA       :: QuickDTA
-  , quickSongFiles     :: Folder T.Text (QuickFile Readable) -- contents of 'foo'
-  , quickSongPS3Folder :: Maybe B.ByteString                 -- if came from ps3, this is the USRDIR subfolder (used for .mid.edat encryption)
+  , quickSongFiles     :: Folder T.Text QuickFileSized -- contents of 'foo'
+  , quickSongPS3Folder :: Maybe B.ByteString      -- if came from ps3, this is the USRDIR subfolder (used for .mid.edat encryption)
   }
 
 data QuickDTA = QuickDTA
@@ -62,6 +64,8 @@ data QuickDTA = QuickDTA
   , qdtaParsed :: Chunk B.ByteString
   , qdtaFolder :: T.Text -- in 'songs/foo/bar.mid', this is 'foo'
   , qdtaRB3    :: Bool
+  , qdtaTitle  :: T.Text
+  , qdtaArtist :: Maybe T.Text
   }
 
 data QuickConvertFormat
@@ -75,6 +79,8 @@ data QuickInput = QuickInput
   , quickInputXbox   :: Maybe Metadata
   , quickInputSongs  :: [QuickSong]
   }
+
+type QuickFileSized = (Integer, QuickFile Readable)
 
 data QuickFile a
   = QFEncryptedMOGG a
@@ -113,11 +119,23 @@ splitSongsDTA r = do
         rb3 <- case concat [x | Key "format" x <- data1] of
           Int n : _ -> return $ n >= 10
           _         -> fatal "Couldn't get format number of song"
+        title <- case concat [x | Key "name" x <- data1] of
+          String s : _ -> return s
+          _            -> fatal "Couldn't get name of song"
+        let artist = case concat [x | Key "artist" x <- data1] of
+              String s : _ -> Just s
+              _            -> Nothing
+            isUTF8 = case concat [x | Key "encoding" x <- data1] of
+              String "utf8" : _ -> True
+              _                 -> False
+            readString = if isUTF8 then TE.decodeUtf8With lenientDecode else TE.decodeLatin1
         return QuickDTA
           { qdtaRaw    = bytes
           , qdtaParsed = chunk
           , qdtaFolder = folder
           , qdtaRB3    = rb3
+          , qdtaTitle  = readString title
+          , qdtaArtist = readString <$> artist
           }
       _ -> return Nothing
 
@@ -161,12 +179,14 @@ loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtens
         songFolder <- case findFolder [qdtaFolder qdta] songsFolder of
           Just dir -> return dir
           Nothing -> fatal $ "Song folder not found in .pkg for " <> show (packageName, qdtaFolder qdta)
-        let identifyFile (name, r) = case map toLower $ takeExtension $ T.unpack name of
-              ".mogg"     -> (name,) <$> detectMOGG r
-              ".milo_ps3" -> return (name, QFMilo r)
-              ".png_ps3"  -> return (name, QFPNGPS3 r)
-              ".edat"     -> (name,) <$> detectMIDI packageName r
-              _           -> return (name, QFOther r)
+        let identifyFile (name, r) = do
+              size <- stackIO $ useHandle r hFileSize
+              fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
+                ".mogg"     -> (name,) <$> detectMOGG r
+                ".milo_ps3" -> return (name, QFMilo r)
+                ".png_ps3"  -> return (name, QFPNGPS3 r)
+                ".edat"     -> (name,) <$> detectMIDI packageName r
+                _           -> return (name, QFOther r)
         identified <- mapMFilesWithName identifyFile songFolder
         return QuickSong
           { quickSongDTA       = qdta
@@ -193,12 +213,14 @@ loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtens
         songFolder <- case findFolder [qdtaFolder qdta] songsFolder of
           Just dir -> return dir
           Nothing -> fatal $ "Song folder not found in CON/LIVE: " <> show (qdtaFolder qdta)
-        let identifyFile (name, r) = case map toLower $ takeExtension $ T.unpack name of
-              ".mogg"      -> (name,) <$> detectMOGG r
-              ".milo_xbox" -> return (name, QFMilo r)
-              ".png_xbox"  -> return (name, QFPNGXbox r)
-              ".mid"       -> return (name, QFUnencryptedMIDI r)
-              _            -> return (name, QFOther r)
+        let identifyFile (name, r) = do
+              size <- stackIO $ useHandle r hFileSize
+              fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
+                ".mogg"      -> (name,) <$> detectMOGG r
+                ".milo_xbox" -> return (name, QFMilo r)
+                ".png_xbox"  -> return (name, QFPNGXbox r)
+                ".mid"       -> return (name, QFUnencryptedMIDI r)
+                _            -> return (name, QFOther r)
         identified <- mapMFilesWithName identifyFile songFolder
         return QuickSong
           { quickSongDTA       = qdta
@@ -295,7 +317,7 @@ makePS3DTA = id -- TODO set rating 4 -> 2, and maybe numeric song_id
 saveQuickSongsSTFS :: (MonadIO m, SendMessage m) => [QuickSong] -> CreateOptions -> FilePath -> StackTraceT m ()
 saveQuickSongsSTFS qsongs opts fout = do
   xboxFolders <- forM qsongs $ \qsong -> do
-    xboxFolder <- mapMFilesWithName getXboxFile $ quickSongFiles qsong
+    xboxFolder <- mapMFilesWithName (getXboxFile . discardSize) $ quickSongFiles qsong
     return (qdtaFolder $ quickSongDTA qsong, xboxFolder)
   let songsFolder = Folder
         { folderSubfolders = xboxFolders
@@ -319,8 +341,15 @@ data QuickPS3Settings = QuickPS3Settings
   , qcPS3RB3     :: Bool
   }
 
+addSize :: size -> (T.Text, a) -> (T.Text, (size, a))
+addSize n (t, x) = (t, (n, x))
+
+discardSize :: (T.Text, (size, a)) -> (T.Text, a)
+discardSize (t, (_, x)) = (t, x)
+
 saveQuickSongsPKG :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3Settings -> FilePath -> StackTraceT m ()
 saveQuickSongsPKG qsongs settings fout = do
+  -- TODO put some of song title/artist in the folders
   let oneFolder = B8.pack $ take 0x1B $ "OQC" <> show (hash $ map (qdtaRaw . quickSongDTA) qsongs)
       contentID = npdContentID
         $ (if qcPS3RB3 settings then rb3CustomMidEdatConfig else rb2CustomMidEdatConfig) oneFolder
@@ -333,7 +362,7 @@ saveQuickSongsPKG qsongs settings fout = do
           Just QCOneFolder -> oneFolder -- one folder for whole pkg
           Just QCSeparateFolders -> separateFolder -- separate folder for each song
         mcrypt = guard (qcPS3Encrypt settings) >> Just (chosenFolder, qcPS3RB3 settings)
-    ps3Folder <- mapMFilesWithName (getPS3File mcrypt) $ quickSongFiles qsong
+    ps3Folder <- mapMFilesWithName (getPS3File mcrypt . discardSize) $ quickSongFiles qsong
     return $ Map.singleton chosenFolder [(qsong, ps3Folder)]
   let rootFolder = container "USRDIR" $ mconcat $ do
         (usrdirSub, songs) <- Map.toList qsongMapping
@@ -353,28 +382,24 @@ saveQuickSongsPKG qsongs settings fout = do
     extra <- crawlFolder extraPath
     makePKG contentID (first TE.encodeUtf8 $ rootFolder <> extra) fout
 
-contentsSize :: QuickSong -> IO Integer
-contentsSize qsong = do
-  -- TODO add parsed midi size somehow
-  fileSizes <- mapM (\r -> useHandle r hFileSize) $ toList (quickSongFiles qsong) >>= toList
-  return $ sum fileSizes
+contentsSize :: QuickSong -> Integer
+contentsSize qsong = sum $ map fst $ toList $ quickSongFiles qsong
 
 -- Organizes based on combined size of song files.
 -- Should add some buffer to account for package overhead and platform conversion.
-organizePacks :: Integer -> [QuickSong] -> IO [[QuickSong]]
-organizePacks maxSize qsongs = do
-  songSizes <- mapM contentsSize qsongs
-  let go :: Integer -> [QuickSong] -> [(Integer, QuickSong)] -> [[QuickSong]]
-      go curSize curSongs incoming = case incoming of
-        [] -> case curSongs of
-          []    -> []
-          _ : _ -> [curSongs]
-        (nextSize, nextSong) : rest -> let
-          newSize = curSize + nextSize
-          in if newSize > maxSize && not (null curSongs) -- always add at least one song
-            then curSongs : go 0 [] incoming
-            else go newSize (nextSong : curSongs) rest
-  return $ go 0 [] $ zip songSizes qsongs
+organizePacks :: Integer -> [QuickSong] -> [[QuickSong]]
+organizePacks maxSize = let
+  go :: Integer -> [QuickSong] -> [(Integer, QuickSong)] -> [[QuickSong]]
+  go curSize curSongs incoming = case incoming of
+    [] -> case curSongs of
+      []    -> []
+      _ : _ -> [curSongs]
+    (nextSize, nextSong) : rest -> let
+      newSize = curSize + nextSize
+      in if newSize > maxSize && not (null curSongs) -- always add at least one song
+        then curSongs : go 0 [] incoming
+        else go newSize (nextSong : curSongs) rest
+  in go 0 [] . map (\qsong -> (contentsSize qsong, qsong))
 
 blackVenue :: Bool -> F.T -> F.T
 blackVenue isRB3 (F.Cons typ dvn trks) = let
@@ -400,6 +425,9 @@ blackVenue isRB3 (F.Cons typ dvn trks) = let
   isVenue = (== Just "VENUE") . U.trackName
   in F.Cons typ dvn $ filter (not . isVenue) trks ++ [black]
 
+removePitch :: (NNC.C t) => Int -> RTB.T t E.T -> RTB.T t E.T
+removePitch n = RTB.filter $ maybe True (\(p, _) -> p /= n) . isNoteEdge
+
 noOverdrive :: F.T -> F.T
 noOverdrive (F.Cons typ dvn trks) = F.Cons typ dvn $ let
   instrumentTracks =
@@ -420,14 +448,41 @@ noOverdrive (F.Cons typ dvn trks) = F.Cons typ dvn $ let
     , "PART REAL_BASS"
     , "PART REAL_BASS_22"
     ]
-  noOverdriveTrack = RTB.filter $ \e -> case isNoteEdge e of
-    Just (116, _) -> False
-    _             -> True
   in flip map trks $ \trk -> if maybe False (`elem` instrumentTracks) $ U.trackName trk
-    then noOverdriveTrack trk
+    then removePitch 116 trk
     else trk
 
-applyToMIDI :: (SendMessage m, MonadIO m) => (F.T -> F.T) -> Folder T.Text (QuickFile Readable) -> StackTraceT m (Folder T.Text (QuickFile Readable))
+noLanesGBK :: F.T -> F.T
+noLanesGBK (F.Cons typ dvn trks) = F.Cons typ dvn $ let
+  noLaneTracks =
+    [ "PART GUITAR"
+    , "PART BASS"
+    , "PART KEYS"
+    , "PART REAL_GUITAR"
+    , "PART REAL_GUITAR_22"
+    , "PART REAL_BASS"
+    , "PART REAL_BASS_22"
+    ]
+  noTrillTracks =
+    [ "PART REAL_KEYS_E"
+    , "PART REAL_KEYS_M"
+    , "PART REAL_KEYS_H"
+    , "PART REAL_KEYS_X"
+    ]
+  in flip map trks $ \trk -> let
+    name = U.trackName trk
+    in case (maybe False (`elem` noLaneTracks) name, maybe False (`elem` noTrillTracks) name) of
+      (True, _   ) -> removePitch 116 $ removePitch 117 trk
+      (_   , True) -> removePitch 117 trk
+      _            -> trk
+
+noLanesDrums :: F.T -> F.T
+noLanesDrums (F.Cons typ dvn trks) = F.Cons typ dvn $ flip map trks $ \trk ->
+  case U.trackName trk of
+    Just "PART DRUMS" -> removePitch 116 $ removePitch 117 trk
+    _                 -> trk
+
+applyToMIDI :: (SendMessage m, MonadIO m) => (F.T -> F.T) -> Folder T.Text QuickFileSized -> StackTraceT m (Folder T.Text QuickFileSized)
 applyToMIDI midFunction = mapMFilesWithName $ let
   withParsed name mid = return (name, QFParsedMIDI $ midFunction mid)
   withUnenc name r = do
@@ -441,8 +496,10 @@ applyToMIDI midFunction = mapMFilesWithName $ let
           _               -> name
     r' <- decryptEDAT crypt (TE.encodeUtf8 name) r
     withUnenc name' r'
-  in \pair@(name, qfile) -> case qfile of
-    QFEncryptedMIDI crypt r   -> withEnc    name crypt r
-    QFUnencryptedMIDI     r   -> withUnenc  name       r
-    QFParsedMIDI          mid -> withParsed name       mid
-    _                         -> return pair
+  in \(name, (size, qfile)) -> do
+    (name', qfile') <- case qfile of
+      QFEncryptedMIDI crypt r   -> withEnc    name crypt r
+      QFUnencryptedMIDI     r   -> withUnenc  name       r
+      QFParsedMIDI          mid -> withParsed name       mid
+      _                         -> return (name, qfile)
+    return (name', (size, qfile'))

@@ -89,6 +89,7 @@ data Importable m = Importable
   , impPath    :: FilePath
   , impIndex   :: Maybe Int
   , impProject :: StackTraceT m Project
+  , imp2x      :: Bool -- True if only 2x bass pedal
   }
 
 findAllSongs :: (SendMessage m, MonadResource m)
@@ -146,6 +147,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           , impPath = dir
           , impIndex = Nothing
           , impProject = withYaml Nothing dir True Nothing loc
+          , imp2x = any (maybe False ((== Kicks2x) . drumsKicks) . partDrums) $ _parts yml
           }
       foundRBProj loc = foundImport "Magma Project" loc $ importMagma loc
       foundAmplitude loc = do
@@ -205,6 +207,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             , impIndex = index
             , impProject = importFrom index path isDir $ \dout ->
               void $ imp ImportFull >>= stackIO . saveImport dout
+            , imp2x = any (maybe False ((== Kicks2x) . drumsKicks) . partDrums) $ _parts quick
             }
       foundImport fmt path imp = foundImports fmt path [imp]
   isDir <- stackIO $ Dir.doesDirectoryExist fp

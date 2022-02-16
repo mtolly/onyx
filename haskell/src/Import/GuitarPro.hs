@@ -13,7 +13,8 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
+import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
+                                                   listToMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Vector                      as V
 import           GuitarPro
@@ -140,19 +141,23 @@ fromGPIF gpif = do
               []    -> fatal $ "No Fret set for note id = " <> show (note_id note)
               n : _ -> return n
             let enabled = [x | Property x PropertyEnable <- props]
+                htype = listToMaybe [x | Property "HarmonicType" (PropertyHType x) <- props]
+                slide = listToMaybe [x | Property "Slide" (PropertyFlags x) <- props]
                 mods = concat
-                  [ [ModPalmMute | elem "PalmMuted" enabled]
-                  , [ModMute     | elem "Muted"     enabled]
-                  , [ModAccent   | isJust $ note_Accent note]
-                  , [ModHarmonic | elem "Harmonic"  enabled]
-                  , [ModTap      | elem "Tapped"    enabled]
-                  , [ModSlap     | elem "Slapped"   enabled]
-                  , [ModPluck    | elem "Popped"    enabled]
-                  , [ModHammerOn | elem "LeftHandTapped" enabled] -- TODO normal hammerons
+                  [ [ModPalmMute      | elem "PalmMuted" enabled]
+                  , [ModMute          | elem "Muted"     enabled]
+                  , [ModAccent        | isJust $ note_Accent note]
+                  -- see tap harmonics note below
+                  , [ModHarmonic      | elem "Harmonic"  enabled && elem htype [Just "Natural", Just "Tap"]]
+                  , [ModHarmonicPinch | elem "Harmonic"  enabled && htype == Just "Pinch"                  ]
+                  , [ModTap           | elem "Tapped"    enabled || htype == Just "Tap"                    ]
+                  , [ModSlap          | elem "Slapped"   enabled]
+                  , [ModPluck         | elem "Popped"    enabled]
+                  , [ModHammerOn      | elem "LeftHandTapped" enabled] -- TODO normal hammerons
                   ]
                 {-
                   remaining stuff to import:
-                  ModVibrato, ModHammerOn, ModPullOff, ModSlide, ModSlideUnpitch, ModLink, ModHarmonicPinch,
+                  ModVibrato, ModHammerOn, ModPullOff, ModSlide, ModSlideUnpitch, ModLink,
                   left hand info, ModRightHand, ModTremolo, ModPickUp, ModPickDown
 
                   hopos:
@@ -163,7 +168,12 @@ fromGPIF gpif = do
                   slide down to undefined endpoint has <Property name="Slide"><Flags>4</Flags></Property>
                   slide to following note (restrum) has <Property name="Slide"><Flags>1</Flags></Property>
                   slide to following note (no restrum) has <Property name="Slide"><Flags>2</Flags></Property>
-                  16 and 32 also seen
+                  also seen: 8, 16, 32, 18 (16 + 2), 20 (16 + 4)
+
+                  tap harmonics:
+                  in gp, example note (fusion collusion bass) has Fret 7, Harmonic enabled, HType Tap, and HFret 5.
+                  so this means hold fret 7 and tap on fret 12 (7 + 5).
+                  for rs, this should generate a hand position on 7, a note on fret 12, with tap + harmonic mods.
                 -}
             return ((fret, mods), midiString, note)
           duration <- case rhythmLength rhythm of

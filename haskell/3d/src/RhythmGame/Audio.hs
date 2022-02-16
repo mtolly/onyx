@@ -163,7 +163,7 @@ playSource pans vols initGain ca = do
   stopped <- newEmptyMVar
   let queueSize = 10 -- TODO rework so this is in terms of frames/seconds, not buffer chunks
       waitTime = 5000
-      t1 = runResourceT $ runConduit $ CA.source ca .| let
+      t1 = runResourceT $ runConduit $ CA.source (CA.reorganize CA.chunkSize ca) .| let
         loop currentBuffers audioState = liftIO (readIORef stopper) >>= \case
           True -> liftIO $ do
             doAL "playSource stopping sources" $ AL.stop srcs

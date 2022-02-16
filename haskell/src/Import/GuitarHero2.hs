@@ -14,6 +14,7 @@ import           Amplitude.PS2.Ark                (FileEntry (..), entryFolder,
 import           Audio                            (Audio (..))
 import           Config
 import           Control.Arrow                    (second)
+import           Control.Concurrent.Async         (forConcurrently)
 import           Control.Monad                    (forM, guard, void, when)
 import           Control.Monad.Extra              (concatMapM)
 import           Control.Monad.IO.Class
@@ -22,7 +23,6 @@ import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
-import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.DTA                         as D
 import           Data.DTA.Crypt                   (decrypt, oldCrypt)
@@ -37,16 +37,13 @@ import           Data.List.NonEmpty               (NonEmpty (..))
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
-import           Data.SimpleHandle                (Folder, Readable,
-                                                   findByteString, findFile,
-                                                   findFileCI,
-                                                   handleToByteString,
-                                                   splitPath, useHandle)
+import           Data.SimpleHandle
 import qualified Data.Text                        as T
 import           Data.Text.Encoding               (decodeLatin1)
 import           GuitarHeroII.Ark                 (readFileEntries,
                                                    readSongList)
-import           GuitarHeroII.Audio               (readVGSReadable)
+import           GuitarHeroII.Audio               (splitOutVGSChannels,
+                                                   vgsChannelCount)
 import           GuitarHeroII.Events
 import           GuitarHeroII.File
 import           GuitarHeroII.PartGuitar
@@ -190,22 +187,25 @@ importGH2Song mode pkg gen level = do
       Just coop -> return coop
   when (level == ImportFull) $ do
     lg $ "Importing GH2 song [" <> T.unpack (songName songChunk) <> "] from folder: " <> gen
-    lg $ "Converting audio may take a while!"
   midi <- split (midiFile songChunk) >>= need . fmap encLatin1
   vgs <- split (songName songChunk <> ".vgs") >>= need . fmap encLatin1
   onyxMidi <- case level of
     ImportFull  -> importGH2MIDI mode songChunk <$> RBFile.loadMIDIReadable midi
     ImportQuick -> return emptyChart
-  srcs <- stackIO $ readVGSReadable vgs
-  let namedSrcs = zip (map (\i -> "vgs-" <> show (i :: Int)) [0..]) srcs
+  numChannels <- stackIO $ vgsChannelCount vgs
+  namedChans <- stackIO $ forConcurrently [0 .. numChannels - 1] $ \i -> do
+    bs <- case level of
+      ImportFull  -> splitOutVGSChannels [i] vgs
+      ImportQuick -> return BL.empty
+    return ("vgs-" <> show i, bs)
   return (gh2SongYaml mode pkg songChunk onyxMidi)
     { _audio = HM.fromList $ do
-      (srcName, src) <- namedSrcs
-      return $ (T.pack srcName ,) $ AudioFile AudioInfo
+      (name, bs) <- namedChans
+      return $ (T.pack name ,) $ AudioFile AudioInfo
         { _md5 = Nothing
         , _frames = Nothing
         , _commands = []
-        , _filePath = Just $ SoftFile (srcName <.> "wav") $ SoftAudio $ CA.mapSamples CA.fractionalSample src
+        , _filePath = Just $ SoftFile (name <.> "vgs") $ SoftReadable $ makeHandle name $ byteStringSimpleHandle bs
         , _rate = Nothing
         , _channels = 1
         }
@@ -219,12 +219,12 @@ importGH2Song mode pkg gen level = do
         cs' <- NE.nonEmpty cs
         Just $ case cs' of
           c :| [] -> PlanAudio
-            { _planExpr = Input $ Named $ T.pack $ fst $ namedSrcs !! c
+            { _planExpr = Input $ Named $ T.pack $ fst $ namedChans !! c
             , _planPans = map realToFrac [pans songChunk !! c]
             , _planVols = map realToFrac [(vols songChunk !! c) + v]
             }
           _ -> PlanAudio
-            { _planExpr = Merge $ fmap (Input . Named . T.pack . fst . (namedSrcs !!)) cs'
+            { _planExpr = Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs'
             , _planPans = map realToFrac [ pans songChunk !! c | c <- cs ]
             , _planVols = map realToFrac [ (vols songChunk !! c) + v | c <- cs ]
             }

@@ -417,7 +417,7 @@ bool DecryptVgs(const char* ofilename, const char* ifilename)
 		return false;
 	}
 	
-	bool result = DecryptPss(ofd, ifd);
+	bool result = DecryptVgs(ofd, ifd); // MT: this was DecryptPss which I am pretty sure is wrong
 	
 	fclose(ifd);
 	fclose(ofd);

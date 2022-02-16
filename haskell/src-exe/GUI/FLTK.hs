@@ -350,6 +350,7 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = mdo
     let entry = T.concat
           [ fromMaybe "Untitled" $ impTitle imp
           , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
+          , if imp2x imp then " (2x)" else ""
           ]
         dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 400) (Height 25))
     check <- FL.checkButtonNew dummyRect $ Just entry
@@ -3827,7 +3828,8 @@ data QuickConvertMode
   deriving (Eq)
 
 pageQuickConvert
-  :: (Event -> IO ())
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
   -> ([(String, Onyx [FilePath])] -> Onyx ())
@@ -3838,7 +3840,30 @@ pageQuickConvert sink rect tab startTasks = mdo
       [row12, row34] = splitVertN 2 bottomRect
       [row1, row2] = map (trimClock 5 10 5 10) $ splitVertN 2 row12
       [row3, row4] = map (trimClock 5 10 5 10) $ splitVertN 2 row34
-  filesGroup <- fileLoadWindow filesRect sink "CON/LIVE/PKG" "CON/LIVE/PKG" (modifyMVar_ loadedFiles) [] searchQuickSongs
+      computePacks = runMaybeT $ do
+        files <- lift $ readMVar loadedFiles
+        maxSizeInput <- MaybeT $ readIORef packMaxSizeRef
+        maxSizeMB <- MaybeT $ fmap (readMaybe . T.unpack) $ FL.getValue maxSizeInput
+        let maxSizeBytes = maxSizeMB * 1024 * 1024
+        return $ organizePacks maxSizeBytes $ concatMap quickInputSongs files
+      updatePackGo = readIORef packGoRef >>= \case
+        Nothing -> return ()
+        Just go -> computePacks >>= \case
+          Nothing -> do
+            FL.setLabel go "Invalid pack size"
+            FL.deactivate go
+          Just [] -> do
+            FL.setLabel go "No songs added"
+            FL.deactivate go
+          Just packs -> do
+            FL.setLabel go $ T.pack $ case length packs of
+              1 -> "Make 1 pack"
+              n -> "Make " <> show n <> " packs"
+            FL.activate go
+      updateFiles f = do
+        modifyMVar_ loadedFiles f
+        sink $ EventIO updatePackGo
+  filesGroup <- fileLoadWindow filesRect sink "CON/LIVE/PKG" "Rock Band CON/LIVE/PKG" updateFiles [] searchQuickSongs
     $ \qinput -> let
       entry = T.pack $ quickInputPath qinput
       subline = T.pack $ case length $ quickInputSongs qinput of
@@ -3853,25 +3878,29 @@ pageQuickConvert sink rect tab startTasks = mdo
         if mode == QCMakeSongs then FL.showWidget makeSongs else FL.hide makeSongs
 
   -- row1: midi checkboxes
-  let [midiBox1, midiBox2, midiBox3] = splitHorizN 3 row1
+  let [midiBox1, midiBox2, midiBox3, midiBox4] = splitHorizN 4 row1
   checkBlackVenue <- FL.checkButtonNew midiBox1 $ Just "Black VENUE"
   void $ FL.setValue checkBlackVenue False
   checkNoOverdrive <- FL.checkButtonNew midiBox2 $ Just "Remove Overdrive"
   void $ FL.setValue checkNoOverdrive False
-  checkNoLanes <- FL.checkButtonNew midiBox3 $ Just "Remove lanes"
-  void $ FL.setValue checkNoLanes False
+  checkNoLanesGBK <- FL.checkButtonNew midiBox3 $ Just "Remove lanes (G/B/K)"
+  void $ FL.setValue checkNoLanesGBK False
+  checkNoLanesDrums <- FL.checkButtonNew midiBox4 $ Just "Remove lanes (drums)"
+  void $ FL.setValue checkNoLanesDrums False
   let getMIDITransform = do
-        black   <- FL.getValue checkBlackVenue
-        noOD    <- FL.getValue checkNoOverdrive
-        noLanes <- FL.getValue checkNoLanes
-        if not $ black || noOD || noLanes
+        black     <- FL.getValue checkBlackVenue
+        noOD      <- FL.getValue checkNoOverdrive
+        delaneGBK <- FL.getValue checkNoLanesGBK
+        delaneD   <- FL.getValue checkNoLanesDrums
+        if not $ black || noOD || delaneGBK || delaneD
           then return $ \qsong -> return qsong
           else return $ \qsong -> do
             let isRB3 = qdtaRB3 $ quickSongDTA qsong
             newFiles <- applyToMIDI (foldr (.) id
-              [ if black then blackVenue isRB3 else id
-              , if noOD  then noOverdrive      else id
-              -- TODO no lanes
+              [ if black     then blackVenue isRB3 else id
+              , if noOD      then noOverdrive      else id
+              , if delaneGBK then noLanesGBK       else id
+              , if delaneD   then noLanesDrums     else id
               ]) $ quickSongFiles qsong
             return qsong { quickSongFiles = newFiles }
   -- row2: select mode
@@ -3894,7 +3923,7 @@ pageQuickConvert sink rect tab startTasks = mdo
       (ps3EncryptArea, ps3FolderArea) = chopLeft 300 ps3OptionsArea
       makeCheckEncrypt = do
         btn <- FL.checkButtonNew ps3EncryptArea $ Just "Encrypt .mid.edat"
-        void $ FL.setValue btn True -- TODO load from preference
+        void $ FL.setValue btn $ prefPS3Encrypt ?preferences
         return $ FL.getValue btn
       makeFormatSelect ps3On ps3Off = do
         ref <- newIORef QCFormatCON
@@ -4017,6 +4046,8 @@ pageQuickConvert sink rect tab startTasks = mdo
   -- Make packs (songs are combined into packs, up to a maximum size)
   --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select, separate/combined songs.dta select)
   --   3rd row: max size, go button (opens a save-as dialog, used as pack name or template for multiple)
+  packGoRef <- newIORef Nothing
+  packMaxSizeRef <- newIORef Nothing
   makePacks <- modeGroup $ mdo
     getFormat <- makeFormatSelect
       (FL.activate   ps3Options)
@@ -4037,42 +4068,59 @@ pageQuickConvert sink rect tab startTasks = mdo
     FL.setLabeltype maxSizeInput FLE.NormalLabelType FL.ResolveImageLabelDoNothing
     FL.setAlign maxSizeInput $ FLE.Alignments [FLE.AlignTypeLeft]
     void $ FL.setValue maxSizeInput "4000"
+    FL.setCallback maxSizeInput $ \_ -> updatePackGo
+    FL.setWhen maxSizeInput [FLE.WhenChanged]
+    writeIORef packMaxSizeRef $ Just maxSizeInput
     btnGo <- FL.buttonNew goArea $ Just "Save pack as…"
     taskColor >>= FL.setColor btnGo
-    FL.setCallback btnGo $ \_ -> sink $ EventOnyx $ do
-      files <- stackIO $ readMVar loadedFiles
-      fmt <- stackIO getFormat
-      enc <- stackIO getEncrypt
-      ps3Folder <- stackIO getFolderSetting
-      maxSizeText <- stackIO $ FL.getValue maxSizeInput
-      midiTransform <- stackIO getMIDITransform
-      case readMaybe $ T.unpack maxSizeText of
-        Nothing -> fatal "Invalid max pack size" -- TODO popup or something, or error in the task window
-        Just maxSize -> do
-          let maxSizeBytes = maxSize * 1024 * 1024
-          packs <- stackIO $ organizePacks maxSizeBytes $ concatMap quickInputSongs files
-          startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
-            fout = "/tmp/onyx-pack-" <> show i -- TODO
-            task = do
-              qsongs' <- mapM midiTransform qsongs
-              let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
-                  ps3Settings = QuickPS3Settings
-                    { qcPS3Folder  = Just ps3Folder
-                    , qcPS3Encrypt = enc
-                    , qcPS3RB3     = isRB3
-                    }
-                  xboxSettings live = stackIO $
-                    (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                    -- TODO title/description
-                    "Onyx Quick Convert"
-                    ""
-                    live
-              case fmt of
-                QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
-                QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
-                QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
-              return [fout]
-            in ("Pack #" <> show (i :: Int), task)
+    FL.setCallback btnGo $ \_ -> sink $ EventIO $ do
+      files <- readMVar loadedFiles
+      fmt <- getFormat
+      enc <- getEncrypt
+      ps3Folder <- getFolderSetting
+      maxSizeText <- FL.getValue maxSizeInput
+      midiTransform <- getMIDITransform
+      computePacks >>= \case
+        Nothing    -> return () -- shouldn't happen, button is deactivated
+        Just packs -> do
+          picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+          FL.setTitle picker $ case packs of
+            [_] -> "Save pack file"
+            _   -> "Select template for packs (a number will be added for each pack)"
+          FL.showWidget picker >>= \case
+            FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+              Nothing -> return ()
+              Just userPath -> let
+                packNumber n = case packs of
+                  [_] -> ""
+                  _   -> "-" <> show n
+                getOutputPath n = case fmt of
+                  QCFormatPKG -> dropExtension userPath <> packNumber n <> ".pkg"
+                  _           -> userPath <> packNumber n
+                in sink $ EventOnyx $ startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
+                  fout = getOutputPath i
+                  task = do
+                    qsongs' <- mapM midiTransform qsongs
+                    let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                        ps3Settings = QuickPS3Settings
+                          { qcPS3Folder  = Just ps3Folder
+                          , qcPS3Encrypt = enc
+                          , qcPS3RB3     = isRB3
+                          }
+                        xboxSettings live = stackIO $
+                          (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                          -- TODO title/description
+                          "Onyx Quick Convert"
+                          ""
+                          live
+                    case fmt of
+                      QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
+                      QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
+                      QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
+                    return [fout]
+                  in ("Pack #" <> show (i :: Int), task)
+            _ -> return ()
+    writeIORef packGoRef $ Just btnGo
 
   -- Make songs (each song gets one new output file)
   --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select)
@@ -4086,25 +4134,28 @@ pageQuickConvert sink rect tab startTasks = mdo
     FL.end ps3Options
     btnGo <- FL.buttonNew row4 $ Just "Select folder…"
     taskColor >>= FL.setColor btnGo
-    FL.setCallback btnGo $ \_ -> sink $ EventOnyx $ do
-      files <- stackIO $ readMVar loadedFiles
-      fmt <- stackIO getFormat
-      enc <- stackIO getEncrypt
-      midiTransform <- stackIO getMIDITransform
-      startTasks $ flip map (concatMap quickInputSongs files) $ \qsong -> let
+    FL.setCallback btnGo $ \_ -> sink $ EventIO $ do
+      files <- readMVar loadedFiles
+      fmt <- getFormat
+      enc <- getEncrypt
+      midiTransform <- getMIDITransform
+      sink $ EventOnyx $ startTasks $ flip map (concatMap quickInputSongs files) $ \qsong -> let
         fout = "/tmp/" <> show (hash $ qdtaRaw $ quickSongDTA qsong) -- TODO
+        artistTitle = T.intercalate " - " $ concat
+          [ toList $ qdtaArtist $ quickSongDTA qsong
+          , [qdtaTitle $ quickSongDTA qsong]
+          ]
+        isRB3 = qdtaRB3 $ quickSongDTA qsong
         task = do
           qsong' <- midiTransform qsong
-          let isRB3 = qdtaRB3 $ quickSongDTA qsong'
-              ps3Settings = QuickPS3Settings
+          let ps3Settings = QuickPS3Settings
                 { qcPS3Folder  = Just QCSeparateFolders
                 , qcPS3Encrypt = enc
                 , qcPS3RB3     = isRB3
                 }
               xboxSettings live = stackIO $
                 (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                -- TODO title/description
-                "Onyx Quick Convert"
+                artistTitle
                 ""
                 live
           case fmt of
@@ -4112,7 +4163,7 @@ pageQuickConvert sink rect tab startTasks = mdo
             QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
             QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
           return [fout]
-        in ("Song" {- TODO -}, task)
+        in (T.unpack artistTitle, task)
 
   FL.setResizable tab $ Just filesGroup
 
@@ -4390,7 +4441,14 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
   FL.setResizable tab $ Just pack
   return ()
 
-launchQuickConvert :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
+launchQuickConvert'
+  :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
+launchQuickConvert' sink makeMenuBar = sink $ EventOnyx $ do
+  prefs <- readPreferences
+  let ?preferences = prefs
+  stackIO $ launchQuickConvert sink makeMenuBar
+
+launchQuickConvert :: (?preferences :: Preferences) => (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
 launchQuickConvert sink makeMenuBar = mdo
   let windowWidth = Width 900
       windowHeight = Height 600
@@ -4926,6 +4984,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       entry = T.concat
         [ fromMaybe "Untitled" $ impTitle imp
         , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
+        , if imp2x imp then " (2x)" else ""
         ]
       sublines = concat
         [ case impAuthor imp of
@@ -5488,7 +5547,7 @@ launchGUI = withAL $ \hasAudio -> do
                 )
               , ( "File/Quick Convert"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'u'
-                , Just $ launchQuickConvert sink makeMenuBar
+                , Just $ launchQuickConvert' sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               , ( "File/Tools"
@@ -5628,7 +5687,7 @@ launchGUI = withAL $ \hasAudio -> do
     areaQuick
     (Just "Quick convert")
   quickConvertColor >>= FL.setColor buttonQuick
-  FL.setCallback buttonQuick $ \_ -> launchQuickConvert sink makeMenuBar
+  FL.setCallback buttonQuick $ \_ -> launchQuickConvert' sink makeMenuBar
 
   buttonMisc <- FL.buttonNew
     areaMisc

@@ -10,7 +10,7 @@ import           Resources           (itaijidict, kanwadict, shiftJISTable)
 
 #ifdef WINDOWS
 import           Control.Monad       (when)
-import           Foreign.C           (withCString, CString, CInt(..))
+import           Foreign.C           (CInt (..), CString, withCString)
 #else
 import           System.Environment  (setEnv)
 #endif

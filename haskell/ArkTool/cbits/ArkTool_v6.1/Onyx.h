@@ -1,4 +1,4 @@
-// C interface to ArkHdrPair so Onyx can bind to it.
+// C interface to ArkHdrPair and other functions so Onyx can bind to them.
 
 #include "stdbool.h"
 
@@ -29,6 +29,9 @@ const ArkFileEntry ark_Next (ArkTool p, ArkFileIterator rIter, const char* searc
 
 const char* ark_Filename(ArkFileEntry file);
 const char* ark_Arkname(ArkFileEntry file);
+
+// not ark related but another function we want to use
+bool ark_DecryptVgs(const char* ofilename, const char* ifilename);
 
 #ifdef __cplusplus
 }

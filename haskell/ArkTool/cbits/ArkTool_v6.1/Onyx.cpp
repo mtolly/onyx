@@ -2,6 +2,7 @@
 
 #include "Onyx.h"
 #include "ArkHdrPair.h"
+#include "SongCrypt.h"
 
 extern "C" {
 
@@ -55,6 +56,10 @@ const char* ark_Filename(ArkFileEntry file) {
 }
 const char* ark_Arkname(ArkFileEntry file) {
   return ((FileEntry *) file)->Arkname();
+}
+
+bool ark_DecryptVgs(const char* ofilename, const char* ifilename) {
+  return DecryptVgs(ofilename, ifilename);
 }
 
 }
