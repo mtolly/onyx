@@ -283,41 +283,41 @@ importRB rbi level = do
   let hopoThresh = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
 
   let drumEvents = RBFile.fixedPartDrums $ RBFile.s_tracks midiFixed
-  foundMix <- let
+  (foundMix, foundMixStr) <- let
     drumMixes = do
       (_, dd) <- Map.toList $ drumDifficulties drumEvents
       (aud, _dsc) <- toList $ drumMix dd
       return aud
     in case drumMixes of
-      [] -> return Nothing
+      [] -> return (Nothing, "MIDI has no mix")
       aud : auds -> if all (== aud) auds
-        then return $ Just aud
+        then return (Just aud, "MIDI has mix " <> take 1 (reverse $ show aud))
         else do
           warn $ "Inconsistent drum mixes: " ++ show (nubOrd drumMixes)
-          return Nothing
+          return (Nothing, "MIDI specifies more than one mix")
   let instChans :: [(T.Text, [Int])]
       instChans = map (second $ map fromIntegral) $ D.fromDictList $ D.tracks $ D.song pkg
       drumChans = fromMaybe [] $ lookup "drum" instChans
   drumSplit <- if not (hasRankStr "drum") || level == ImportQuick then return Nothing else do
     -- Usually there should be 2-6 drum channels and a matching mix event. Seen exceptions:
     -- * The Kill (30STM) has 5 drum channels but no mix event
-    -- * RB PS2 Can't Let Go has 4 drum channels but mix 3 (leftover from 360/PS3)
+    -- * RB PS2 has wrong mix events leftover from 360/PS3, e.g. Can't Let Go has 4 drum channels but mix 3
     -- So, just use what the mix should be based on channel count. (But warn appropriately)
     case drumChans of
       [kitL, kitR] -> do
-        when (foundMix /= Just RBDrums.D0) $ warn "Using drum mix 0 (2 drum channels found) even though not found in MIDI"
+        when (foundMix /= Just RBDrums.D0) $ warn $ "Using drum mix 0 (2 drum channels found), " <> foundMixStr
         return $ Just $ PartSingle [kitL, kitR]
       [kick, snare, kitL, kitR] -> do
-        when (foundMix /= Just RBDrums.D1) $ warn "Using drum mix 1 (4 drum channels found) even though not found in MIDI"
+        when (foundMix /= Just RBDrums.D1) $ warn $ "Using drum mix 1 (4 drum channels found), " <> foundMixStr
         return $ Just $ PartDrumKit (Just [kick]) (Just [snare]) [kitL, kitR]
       [kick, snareL, snareR, kitL, kitR] -> do
-        when (foundMix /= Just RBDrums.D2) $ warn "Using drum mix 2 (5 drum channels found) even though not found in MIDI"
+        when (foundMix /= Just RBDrums.D2) $ warn $ "Using drum mix 2 (5 drum channels found), " <> foundMixStr
         return $ Just $ PartDrumKit (Just [kick]) (Just [snareL, snareR]) [kitL, kitR]
       [kickL, kickR, snareL, snareR, kitL, kitR] -> do
-        when (foundMix /= Just RBDrums.D3) $ warn "Using drum mix 3 (6 drum channels found) even though not found in MIDI"
+        when (foundMix /= Just RBDrums.D3) $ warn $ "Using drum mix 3 (6 drum channels found), " <> foundMixStr
         return $ Just $ PartDrumKit (Just [kickL, kickR]) (Just [snareL, snareR]) [kitL, kitR]
       [kick, kitL, kitR] -> do
-        when (foundMix /= Just RBDrums.D4) $ warn "Using drum mix 4 (3 drum channels found) even though not found in MIDI"
+        when (foundMix /= Just RBDrums.D4) $ warn $ "Using drum mix 4 (3 drum channels found), " <> foundMixStr
         return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
       _ -> do
         warn $ "Unexpected number of drum channels (" <> show (length drumChans) <> "), importing as single-track stereo (mix 0)"

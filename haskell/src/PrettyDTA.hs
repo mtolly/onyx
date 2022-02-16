@@ -22,8 +22,8 @@ import qualified Data.DTA.Serialize.RB3            as D
 import           Data.Foldable                     (forM_)
 import qualified Data.HashMap.Strict               as Map
 import           Data.List.HT                      (partitionMaybe)
-import           Data.Maybe                        (fromMaybe, listToMaybe,
-                                                    mapMaybe)
+import           Data.Maybe                        (catMaybes, fromMaybe,
+                                                    listToMaybe, mapMaybe)
 import qualified Data.Text                         as T
 import qualified Data.Text.Encoding                as TE
 import           Data.Version                      (showVersion)
@@ -180,9 +180,9 @@ readDTASingle (bytes, chunk) = do
 readDTASingles :: (SendMessage m) => B.ByteString -> StackTraceT m [(DTASingle, Bool)]
 readDTASingles bs = do
   songs <- D.readDTASections bs
-  forM (zip [1..] songs) $ \(i, pair) -> do
+  fmap catMaybes $ forM (zip [1..] songs) $ \(i, pair) -> do
     inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") $ do
-      readDTASingle pair
+      errorToWarning $ readDTASingle pair
 
 readFileSongsDTA :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(DTASingle, Bool)]
 readFileSongsDTA file = inside ("loading songs.dta from: " ++ show file) $ do
