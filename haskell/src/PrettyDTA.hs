@@ -16,6 +16,7 @@ import           Control.Monad.Trans.Writer.Strict
 import qualified Data.ByteString                   as B
 import qualified Data.ByteString.Char8             as B8
 import           Data.Char                         (isSpace)
+import           Data.Default.Class                (Default (..))
 import qualified Data.DTA                          as D
 import           Data.DTA.Serialize
 import qualified Data.DTA.Serialize.RB3            as D
@@ -56,6 +57,9 @@ data C3DTAComments = C3DTAComments
   , c3dtaCATemh       :: Maybe Bool
   , c3dtaExpertOnly   :: Maybe Bool
   } deriving (Eq, Ord, Show)
+
+instance Default C3DTAComments where
+  def = C3DTAComments Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 makeC3DTAComments :: Metadata f -> Plan f -> TargetRB3 f -> C3DTAComments
 makeC3DTAComments meta plan rb3 = C3DTAComments

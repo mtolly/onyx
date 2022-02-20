@@ -7,13 +7,25 @@ https://github.com/maxton/LibForge
 {-# LANGUAGE RecordWildCards   #-}
 module RockBand.RB4.RBMid where
 
+import           Control.Monad                    (forM, when)
+import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Codec.Class
-import qualified Data.ByteString         as B
-import           Data.Maybe              (isJust)
+import           Data.Bits
+import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Char8            as B8
+import qualified Data.EventList.Absolute.TimeBody as ATB
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Maybe                       (isJust, isNothing,
+                                                   listToMaybe)
 import           Debug.Trace
 import           Numeric
-import           RockBand.RB4.SongDTA    (boolByte, skipBytes)
-import           RockBand.SongCache      (floatle, lenArray)
+import           RockBand.RB4.SongDTA             (boolByte, skipBytes)
+import           RockBand.SongCache               (floatle, lenArray)
+import qualified Sound.MIDI.File                  as F
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
+import qualified Sound.MIDI.Message.Channel       as C
+import qualified Sound.MIDI.Message.Channel.Voice as V
 
 debugPosn :: String -> CodecFor Get PutM b ()
 debugPosn s = const () =. Codec
@@ -592,6 +604,46 @@ instance Bin MidiTrack where
     mt_Strings <- mt_Strings =. lenArray lenString
     return MidiTrack{..}
 
+convertMidiEvent :: [B.ByteString] -> Word32 -> Maybe E.T
+convertMidiEvent strings w = let
+  kind = (w .&. 0xFF000000) `shiftR` 24
+  in case kind of
+    1 -> let
+      tc = (w .&. 0xFF0000) `shiftR` 16
+      channel = C.toChannel $ fromIntegral $ tc .&. 0xF
+      type_ = tc `shiftR` 4
+      note = fromIntegral $ (w .&. 0xFF00) `shiftR` 8
+      velocity = fromIntegral $ w .&. 0xFF
+      in (E.MIDIEvent . C.Cons channel . C.Voice) <$> case type_ of
+        8  -> Just $ V.NoteOff (V.toPitch note) $ V.toVelocity velocity
+        9  -> Just $ V.NoteOn (V.toPitch note) $ V.toVelocity velocity
+        11 -> Just $ V.Control (V.toController note) velocity
+        12 -> Just $ V.ProgramChange $ V.toProgram note
+        13 -> Just $ V.MonoAftertouch note
+        14 -> Just $ V.PitchBend $ note .|. (velocity `shiftL` 8)
+        _  -> Nothing
+    2 -> Just $ E.MetaEvent $ Meta.SetTempo $ fromIntegral $ let
+      high = w .&. 0xFF0000
+      mid = (w .&. 0xFF00) `shiftR` 8
+      low = (w .&. 0xFF) `shiftL` 8
+      in high .|. mid .|. low
+    4 -> do
+      let num = fromIntegral $ (w .&. 0xFF0000) `shiftR` 16
+          denom = (w .&. 0xFF00) `shiftR` 8
+      denom_pow2 <- lookup denom $ takeWhile (\(x, _) -> x <= denom) [(2 ^ i, i) | i <- [0..]]
+      Just $ E.MetaEvent $ Meta.TimeSig num denom_pow2 24 8
+    8 -> do
+      let ttype = (w .&. 0xFF0000) `shiftR` 16
+          strIndex = ((w .&. 0xFF) `shiftL` 8) .|. ((w .&. 0xFF00) `shiftR` 8)
+      txt <- fmap B8.unpack $ listToMaybe $ drop (fromIntegral strIndex) strings
+      E.MetaEvent <$> case ttype of
+        1 -> Just $ Meta.TextEvent txt
+        2 -> Just $ Meta.Copyright txt
+        3 -> Just $ Meta.TrackName txt
+        5 -> Just $ Meta.Lyric txt
+        _ -> Nothing
+    _ -> Nothing
+
 data Tempo = Tempo
   { tempo_StartMillis :: Float
   , tempo_StartTick   :: Word32
@@ -638,3 +690,15 @@ data FuserData = FuserData
 
 instance Bin FuserData where
   bin = undefined -- TODO
+
+--------------------------------------------------------------------------------
+
+extractMidi :: (SendMessage m) => RBMid -> StackTraceT m F.T
+extractMidi rbmid = do
+  let mfr = rbmid_MidiFileResource rbmid
+  fmap (F.Cons F.Parallel $ F.Ticks 480) $ forM (mfr_MidiTracks mfr) $ \mt -> do
+    let raw = RTB.fromAbsoluteEventList $ ATB.fromPairList $ map (\(Ticked delta x) -> (fromIntegral delta, x)) $ mt_Events mt
+    fmap RTB.catMaybes $ forM raw $ \w -> do
+      let res = convertMidiEvent (mt_Strings mt) w
+      when (isNothing res) $ warn $ "Unrecognized MIDI event: " <> showHex w ""
+      return res

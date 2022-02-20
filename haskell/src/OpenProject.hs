@@ -49,7 +49,8 @@ import qualified Import.GuitarHero2             as GH2
 import           Import.GuitarPro               (importGPIF)
 import           Import.Magma                   (importMagma)
 import           Import.Neversoft               (importGH5WoR)
-import           Import.RockBand                (importRBA, importSTFSFolder)
+import           Import.RockBand                (importRB4, importRBA,
+                                                 importSTFSFolder)
 import           Import.Rocksmith               as RS
 import           PlayStation.PKG                (getDecryptedUSRDIR, loadPKG,
                                                  pkgFolder)
@@ -60,7 +61,7 @@ import qualified System.Directory               as Dir
 import           System.FilePath                (dropExtension,
                                                  dropTrailingPathSeparator,
                                                  takeDirectory, takeExtension,
-                                                 takeFileName, (</>))
+                                                 takeFileName, (-<.>), (</>))
 import qualified System.IO                      as IO
 import qualified System.IO.Temp                 as Temp
 import           System.Random                  (randomRIO)
@@ -234,7 +235,10 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".yml" -> foundYaml fp
         ".yaml" -> foundYaml fp
         ".rbproj" -> foundRBProj fp
-        ".moggsong" -> foundAmplitude fp
+        ".songdta_ps4" -> foundImport "Rock Band 4" fp $ importRB4 fp
+        ".moggsong" -> stackIO (Dir.doesFileExist $ fp -<.> "songdta_ps4") >>= \case
+          True  -> return ([], []) -- rb4, ignore this and import .songdta_ps4 instead
+          False -> foundAmplitude fp
         ".chart" -> foundFoF fp
         ".dtx" -> foundDTX fp
         ".gda" -> foundDTX fp

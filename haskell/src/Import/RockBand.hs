@@ -3,22 +3,26 @@ Common import functions for RB1, RB2, RB3, TBRB
 -}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
 module Import.RockBand where
 
 import           ArkTool                        (ark_DecryptVgs)
 import           Audio                          (Audio (..), Edge (..))
 import           Codec.Picture                  (convertRGB8, readImage)
+import           Codec.Picture.Types            (dropTransparency, pixelMap)
 import           Config
 import           Control.Arrow                  (second)
 import           Control.Concurrent.Async       (forConcurrently)
 import           Control.Exception              (evaluate)
 import           Control.Monad                  (forM, forM_, guard, unless,
                                                  when)
+import           Control.Monad.Codec.Onyx       (req)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
-import           Data.Binary.Codec.Class        (bin, codecIn)
+import           Data.Binary.Codec.Class        (bin, codecIn, (=.))
+import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import qualified Data.Conduit.Audio             as CA
@@ -26,6 +30,7 @@ import           Data.Default.Class             (def)
 import qualified Data.Digest.Pure.MD5           as MD5
 import qualified Data.DTA                       as D
 import qualified Data.DTA.Serialize             as D
+import           Data.DTA.Serialize.Magma       (Gender (..))
 import qualified Data.DTA.Serialize.RB3         as D
 import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as HM
@@ -33,7 +38,8 @@ import           Data.List.Extra                (elemIndex, nubOrd, (\\))
 import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.List.NonEmpty             as NE
 import qualified Data.Map                       as Map
-import           Data.Maybe                     (catMaybes, fromMaybe, mapMaybe)
+import           Data.Maybe                     (catMaybes, fromMaybe, isJust,
+                                                 mapMaybe)
 import           Data.SimpleHandle              (Folder (..), Readable,
                                                  byteStringSimpleHandle,
                                                  fileReadable, findByteString,
@@ -43,6 +49,7 @@ import           Data.SimpleHandle              (Folder (..), Readable,
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeLatin1, decodeUtf8With,
                                                  encodeUtf8)
+import qualified Data.Text.Encoding             as TE
 import           Data.Text.Encoding.Error       (lenientDecode)
 import           Difficulty
 import           GuitarHeroII.Audio             (splitOutVGSChannels,
@@ -66,11 +73,15 @@ import           RockBand.Codec.ProGuitar       (GtrBase (..), GtrTuning (..))
 import           RockBand.Common
 import           RockBand.Milo                  (SongPref (..), decompressMilo,
                                                  miloToFolder, parseMiloFile)
+import           RockBand.RB4.Image
+import           RockBand.RB4.RBMid
+import           RockBand.RB4.SongDTA
+import qualified Sound.MIDI.File.Save           as Save
 import qualified Sound.MIDI.Util                as U
 import           STFS.Package                   (rb3pkg, runGetM)
 import qualified System.Directory               as Dir
 import           System.FilePath                (takeDirectory, takeFileName,
-                                                 (<.>), (</>))
+                                                 (-<.>), (<.>), (</>))
 import           System.IO.Temp                 (withSystemTempDirectory)
 import           Text.Read                      (readMaybe)
 
@@ -670,3 +681,128 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
       Dir.removeFile $ temp </> "temp_extra.dta"
     let label = D.name pkg <> maybe "" (\artist -> " (" <> artist <> ")") (D.artist pkg)
     rb3pkg label label temp con
+
+importRB4 :: (SendMessage m, MonadIO m) => FilePath -> Import m
+importRB4 fdta level = do
+  dta <- stackIO (BL.fromStrict <$> B.readFile fdta) >>= runGetM (codecIn bin)
+
+  moggDTA <- stackIO (D.readFileDTA $ fdta -<.> "mogg.dta") >>= D.unserialize D.stackChunks
+
+  (midRead, hopoThreshold) <- case level of
+    ImportQuick -> return (makeHandle "notes.mid" $ byteStringSimpleHandle BL.empty, 170)
+    ImportFull  -> do
+      rbmid <- stackIO (BL.fromStrict <$> B.readFile (fdta -<.> "rbmid_ps4")) >>= runGetM (codecIn bin)
+      mid <- extractMidi rbmid
+      return (makeHandle "notes.mid" $ byteStringSimpleHandle $ Save.toByteString mid, rbmid_HopoThreshold rbmid)
+
+  -- sdta_AlbumArt doesn't appear to be correct, it is False sometimes when song should have art
+  art <- if level == ImportFull
+    then errorToWarning $ do
+      img <- stackIO (BL.fromStrict <$> B.readFile (fdta -<.> "png_ps4")) >>= runGetM readPNGPS4
+      return $ SoftFile "cover.png" $ SoftImage $ pixelMap dropTransparency img
+    else return Nothing
+
+  let decodeBS = TE.decodeUtf8 -- is this correct? find example with non-ascii char
+      pkg = D.SongPackage
+        { D.name              = decodeBS $ sdta_Name dta
+        , D.artist            = Just $ decodeBS $ sdta_Artist dta
+        , D.master            = not $ sdta_Cover dta
+        , D.song              = D.Song
+          { D.songName         = decodeBS $ sdta_Shortname dta
+          , D.tracksCount      = Nothing
+          , D.tracks           = rb4_tracks moggDTA -- should be fine to ignore 'fake'
+          , D.pans             = rb4_pans moggDTA
+          , D.vols             = rb4_vols moggDTA
+          , D.cores            = map (const (-1)) $ rb4_pans moggDTA
+          , D.crowdChannels    = Nothing -- TODO
+          , D.vocalParts       = Just $ fromIntegral $ sdta_VocalParts dta
+          , D.drumSolo         = D.DrumSounds [] -- not used
+          , D.drumFreestyle    = D.DrumSounds [] -- not used
+          , D.muteVolume       = Nothing -- not used
+          , D.muteVolumeVocals = Nothing -- not used
+          , D.hopoThreshold    = Just $ fromIntegral hopoThreshold
+          , D.midiFile         = Nothing
+          }
+        , D.songScrollSpeed   = 2300
+        , D.bank              = Nothing
+        , D.drumBank          = Nothing
+        , D.animTempo         = case sdta_AnimTempo dta of
+          "medium" -> Left D.KTempoMedium
+          -- TODO
+          _        -> Left D.KTempoMedium
+        , D.songLength        = Just $ round $ sdta_SongLength dta
+        , D.preview           = (round $ sdta_PreviewStart dta, round $ sdta_PreviewEnd dta)
+        , D.rank              = HM.fromList
+          [ ("drum"       , round $ sdta_DrumRank     dta)
+          , ("bass"       , round $ sdta_BassRank     dta)
+          , ("guitar"     , round $ sdta_GuitarRank   dta)
+          , ("vocals"     , round $ sdta_VocalsRank   dta)
+          , ("keys"       , round $ sdta_KeysRank     dta)
+          , ("real_keys"  , round $ sdta_RealKeysRank dta)
+          , ("band"       , round $ sdta_BandRank     dta)
+          ]
+        , D.genre             = Just $ decodeBS $ sdta_Genre dta
+        , D.vocalGender       = case sdta_VocalGender dta of
+          1 -> Just Male
+          2 -> Just Female
+          _ -> Nothing
+        , D.version           = fromIntegral $ sdta_Version dta
+        , D.songFormat        = 10 -- we'll call it rb3 format for now
+        , D.albumArt          = Just $ isJust art
+        , D.yearReleased      = Just $ fromIntegral $ sdta_AlbumYear dta
+        , D.rating            = 4 -- TODO
+        , D.subGenre          = Nothing
+        , D.songId            = Just $ Left $ fromIntegral $ sdta_SongId dta
+        , D.solo              = Nothing
+        , D.tuningOffsetCents = Nothing -- TODO
+        , D.guidePitchVolume  = Nothing
+        , D.gameOrigin        = Just $ decodeBS $ sdta_GameOrigin dta
+        , D.encoding          = Just "utf8" -- dunno
+        , D.albumName         = Just $ decodeBS $ sdta_AlbumName dta -- can this be blank?
+        , D.albumTrackNumber  = Just $ fromIntegral $ sdta_AlbumTrackNumber dta
+        , D.vocalTonicNote    = Nothing -- TODO
+        , D.songTonality      = Nothing -- TODO
+        , D.realGuitarTuning  = Nothing
+        , D.realBassTuning    = Nothing
+        , D.bandFailCue       = Nothing
+        , D.fake              = Just $ sdta_Fake dta
+        , D.ugc               = Nothing
+        , D.shortVersion      = Nothing
+        , D.yearRecorded      = guard (sdta_OriginalYear dta /= sdta_AlbumYear dta) >> Just (fromIntegral $ sdta_OriginalYear dta)
+        , D.packName          = Nothing
+        , D.songKey           = Nothing
+        , D.extraAuthoring    = Nothing
+        , D.context           = Nothing
+        , D.decade            = Nothing
+        , D.downloaded        = Nothing
+        , D.basePoints        = Nothing
+        , D.alternatePath     = Nothing
+        , D.videoVenues       = Nothing
+        , D.dateReleased      = Nothing
+        , D.dateRecorded      = Nothing
+        }
+
+  importRB RBImport
+    { rbiSongPackage = pkg
+    , rbiComments = def
+    , rbiMOGG = Just $ SoftReadable $ fileReadable $ fdta -<.> "mogg"
+    , rbiPSS = Nothing
+    , rbiAlbumArt = art
+    , rbiMilo = Nothing
+    , rbiMIDI = midRead
+    , rbiMIDIUpdate = Nothing
+    , rbiSource = Nothing
+    } level
+
+data RB4MoggDta = RB4MoggDta
+  { rb4_tracks :: D.DictList T.Text [Integer]
+  , rb4_pans   :: [Float]
+  , rb4_vols   :: [Float]
+  } deriving (Eq, Show)
+
+instance D.StackChunks RB4MoggDta where
+  stackChunks = D.asWarnAssoc "RB4MoggDta" $ do
+    rb4_tracks <- rb4_tracks =. req "tracks" (D.chunksParens $ D.chunksDictList D.chunkSym D.channelList)
+    rb4_pans   <- rb4_pans   =. req "pans"   (D.chunksParens D.stackChunks)
+    rb4_vols   <- rb4_vols   =. req "vols"   (D.chunksParens D.stackChunks)
+    return RB4MoggDta{..}
