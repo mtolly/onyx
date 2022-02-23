@@ -235,7 +235,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".yml" -> foundYaml fp
         ".yaml" -> foundYaml fp
         ".rbproj" -> foundRBProj fp
-        ".songdta_ps4" -> foundImport "Rock Band 4" fp $ importRB4 fp
+        ".songdta_ps4" -> foundImport "Rock Band 4" (takeDirectory fp) $ importRB4 fp
         ".moggsong" -> stackIO (Dir.doesFileExist $ fp -<.> "songdta_ps4") >>= \case
           True  -> return ([], []) -- rb4, ignore this and import .songdta_ps4 instead
           False -> foundAmplitude fp

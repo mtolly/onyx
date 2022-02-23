@@ -710,7 +710,13 @@ importRB4 fdta level = do
         , D.song              = D.Song
           { D.songName         = decodeBS $ sdta_Shortname dta
           , D.tracksCount      = Nothing
-          , D.tracks           = rb4_tracks moggDTA -- should be fine to ignore 'fake'
+          -- should be fine to keep 'fake' in tracks list, ignore later
+          , D.tracks           = D.DictList
+            -- need to merge the duplicate drum keys (see below)
+            $ Map.toList
+            $ Map.unionsWith (<>)
+            $ map (uncurry Map.singleton)
+            $ rb4_tracks moggDTA
           , D.pans             = rb4_pans moggDTA
           , D.vols             = rb4_vols moggDTA
           , D.cores            = map (const (-1)) $ rb4_pans moggDTA
@@ -794,15 +800,31 @@ importRB4 fdta level = do
     , rbiSource = Nothing
     } level
 
+{-
+
+note: unlike pre-rb4, the tracks list has duplicate keys if there's more than 1 drum stream:
+
+  (drum
+     (0)
+  )
+  (drum
+     (1 2)
+  )
+  (drum
+     (3 4)
+  )
+
+-}
+
 data RB4MoggDta = RB4MoggDta
-  { rb4_tracks :: D.DictList T.Text [Integer]
+  { rb4_tracks :: [(T.Text, [Integer])]
   , rb4_pans   :: [Float]
   , rb4_vols   :: [Float]
   } deriving (Eq, Show)
 
 instance D.StackChunks RB4MoggDta where
   stackChunks = D.asWarnAssoc "RB4MoggDta" $ do
-    rb4_tracks <- rb4_tracks =. req "tracks" (D.chunksParens $ D.chunksDictList D.chunkSym D.channelList)
+    rb4_tracks <- rb4_tracks =. req "tracks" (D.chunksParens $ D.chunksList $ D.chunkParens $ D.chunksKeyRest D.chunkSym D.channelList)
     rb4_pans   <- rb4_pans   =. req "pans"   (D.chunksParens D.stackChunks)
     rb4_vols   <- rb4_vols   =. req "vols"   (D.chunksParens D.stackChunks)
     return RB4MoggDta{..}

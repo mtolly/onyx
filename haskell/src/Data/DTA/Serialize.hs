@@ -185,6 +185,16 @@ chunksPair xf yf = Codec
     _ -> expected "exactly 2 chunks"
   }
 
+chunksKeyRest :: (Monad m) => ChunkCodec m a -> ChunksCodec m b -> ChunksCodec m (a, b)
+chunksKeyRest xf yf = Codec
+  { codecOut = makeOut $ \(x, y) -> makeValue' xf x : makeValue' yf y
+  , codecIn = lift ask >>= \case
+    x : y -> liftA2 (,)
+      (inside "first item of a pair"  $ parseFrom x $ codecIn xf)
+      (inside "second item of a pair" $ parseFrom y $ codecIn yf)
+    [] -> expected "a non-empty list"
+  }
+
 instance (StackChunk a, StackChunk b) => StackChunks (a, b) where
   stackChunks = chunksPair stackChunk stackChunk
 

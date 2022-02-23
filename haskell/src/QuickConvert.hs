@@ -48,9 +48,10 @@ import           Sound.MIDI.File.FastParse        (getMIDI)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package
+import System.Directory (makeAbsolute)
 import           System.FilePath                  (dropExtension,
-                                                   splitExtension,
-                                                   takeExtension, (</>))
+                                                   splitExtension, takeDirectory,
+                                                   takeExtension, (</>), takeFileName)
 import           System.IO                        (hFileSize)
 
 data QuickSong = QuickSong
@@ -118,7 +119,10 @@ splitSongsDTA r = do
             "Unrecognized format of name parameter in songs.dta, expected songs/x/y but got: " <> show base
         rb3 <- case concat [x | Key "format" x <- data1] of
           Int n : _ -> return $ n >= 10
-          _         -> fatal "Couldn't get format number of song"
+          _         -> do
+            -- old RB1 songs are missing format, gets added through missing_song_data.dta
+            warn "Couldn't get format number of song"
+            return False
         title <- case concat [x | Key "name" x <- data1] of
           String s : _ -> return s
           _            -> fatal "Couldn't get name of song"
@@ -159,6 +163,62 @@ mapMFilesWithName f dir = do
     return (subName, sub')
   return Folder { folderFiles = newFiles, folderSubfolders = newSubs }
 
+loadQuickSongsPS3 :: (MonadIO m, SendMessage m) => B.ByteString -> Folder T.Text Readable -> StackTraceT m [QuickSong]
+loadQuickSongsPS3 packageName packageFolder = do
+  songsFolder <- case findFolder ["songs"] packageFolder of
+    Just dir -> return dir
+    Nothing -> fatal $ "No songs folder found inside .pkg for: " <> show packageName
+  dta <- case findFile (pure "songs.dta") songsFolder of
+    Just r -> return r
+    Nothing -> fatal $ "No songs.dta found inside .pkg for: " <> show packageName
+  songRefs <- splitSongsDTA dta
+  forM songRefs $ \qdta -> do
+    songFolder <- case findFolder [qdtaFolder qdta] songsFolder of
+      Just dir -> return dir
+      Nothing -> fatal $ "Song folder not found in .pkg for " <> show (packageName, qdtaFolder qdta)
+    let identifyFile (name, r) = do
+          size <- stackIO $ useHandle r hFileSize
+          fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
+            ".mogg"     -> (name,) <$> detectMOGG r
+            ".milo_ps3" -> return (name, QFMilo r)
+            ".png_ps3"  -> return (name, QFPNGPS3 r)
+            ".edat"     -> (name,) <$> detectMIDI packageName r
+            _           -> return (name, QFOther r)
+    identified <- mapMFilesWithName identifyFile songFolder
+    return QuickSong
+      { quickSongDTA       = qdta
+      , quickSongFiles     = identified
+      , quickSongPS3Folder = Just packageName
+      }
+
+loadQuickSongsXbox :: (MonadIO m, SendMessage m) => Folder T.Text Readable -> StackTraceT m [QuickSong]
+loadQuickSongsXbox folder = do
+  songsFolder <- case findFolder ["songs"] folder of
+    Just dir -> return dir
+    Nothing  -> fatal "No songs folder found inside CON/LIVE"
+  dta <- case findFile (pure "songs.dta") songsFolder of
+    Just r  -> return r
+    Nothing -> fatal "No songs.dta found inside CON/LIVE"
+  songRefs <- splitSongsDTA dta
+  forM songRefs $ \qdta -> do
+    songFolder <- case findFolder [qdtaFolder qdta] songsFolder of
+      Just dir -> return dir
+      Nothing -> fatal $ "Song folder not found in CON/LIVE: " <> show (qdtaFolder qdta)
+    let identifyFile (name, r) = do
+          size <- stackIO $ useHandle r hFileSize
+          fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
+            ".mogg"      -> (name,) <$> detectMOGG r
+            ".milo_xbox" -> return (name, QFMilo r)
+            ".png_xbox"  -> return (name, QFPNGXbox r)
+            ".mid"       -> return (name, QFUnencryptedMIDI r)
+            _            -> return (name, QFOther r)
+    identified <- mapMFilesWithName identifyFile songFolder
+    return QuickSong
+      { quickSongDTA       = qdta
+      , quickSongFiles     = identified
+      , quickSongPS3Folder = Nothing
+      }
+
 loadQuickInput :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m (Maybe QuickInput)
 loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtension fin of
   ".pkg" -> errorToWarning $ do
@@ -166,33 +226,8 @@ loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtens
     usr <- case findFolder ["USRDIR"] $ pkgFolder pkg of
       Just dir -> return dir
       Nothing  -> fatal "No USRDIR found inside .pkg"
-    songs <- fmap concat $ forM (folderSubfolders usr) $ \(packageName, packageFolder) -> do
-      let textFolder = first TE.decodeLatin1 packageFolder
-      songsFolder <- case findFolder ["songs"] textFolder of
-        Just dir -> return dir
-        Nothing -> fatal $ "No songs folder found inside .pkg for: " <> show packageName
-      dta <- case findFile (pure "songs.dta") songsFolder of
-        Just r -> return r
-        Nothing -> fatal $ "No songs.dta found inside .pkg for: " <> show packageName
-      songRefs <- splitSongsDTA dta
-      forM songRefs $ \qdta -> do
-        songFolder <- case findFolder [qdtaFolder qdta] songsFolder of
-          Just dir -> return dir
-          Nothing -> fatal $ "Song folder not found in .pkg for " <> show (packageName, qdtaFolder qdta)
-        let identifyFile (name, r) = do
-              size <- stackIO $ useHandle r hFileSize
-              fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
-                ".mogg"     -> (name,) <$> detectMOGG r
-                ".milo_ps3" -> return (name, QFMilo r)
-                ".png_ps3"  -> return (name, QFPNGPS3 r)
-                ".edat"     -> (name,) <$> detectMIDI packageName r
-                _           -> return (name, QFOther r)
-        identified <- mapMFilesWithName identifyFile songFolder
-        return QuickSong
-          { quickSongDTA       = qdta
-          , quickSongFiles     = identified
-          , quickSongPS3Folder = Just packageName
-          }
+    songs <- fmap concat $ forM (folderSubfolders usr) $ \(packageName, folder) -> do
+      loadQuickSongsPS3 packageName $ first TE.decodeLatin1 folder
     return QuickInput
       { quickInputPath   = fin
       , quickInputFormat = QCFormatPKG
@@ -200,33 +235,8 @@ loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtens
       , quickInputXbox   = Nothing
       }
   _ -> errorToEither (stackIO $ getSTFSFolder fin) >>= \case
-    Left  _         -> return Nothing
-    Right conFolder -> errorToWarning $ do
-      songsFolder <- case findFolder ["songs"] conFolder of
-        Just dir -> return dir
-        Nothing  -> fatal "No songs folder found inside CON/LIVE"
-      dta <- case findFile (pure "songs.dta") songsFolder of
-        Just r  -> return r
-        Nothing -> fatal "No songs.dta found inside CON/LIVE"
-      songRefs <- splitSongsDTA dta
-      songs <- forM songRefs $ \qdta -> do
-        songFolder <- case findFolder [qdtaFolder qdta] songsFolder of
-          Just dir -> return dir
-          Nothing -> fatal $ "Song folder not found in CON/LIVE: " <> show (qdtaFolder qdta)
-        let identifyFile (name, r) = do
-              size <- stackIO $ useHandle r hFileSize
-              fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
-                ".mogg"      -> (name,) <$> detectMOGG r
-                ".milo_xbox" -> return (name, QFMilo r)
-                ".png_xbox"  -> return (name, QFPNGXbox r)
-                ".mid"       -> return (name, QFUnencryptedMIDI r)
-                _            -> return (name, QFOther r)
-        identified <- mapMFilesWithName identifyFile songFolder
-        return QuickSong
-          { quickSongDTA       = qdta
-          , quickSongFiles     = identified
-          , quickSongPS3Folder = Nothing
-          }
+    Right folder -> errorToWarning $ do
+      songs <- loadQuickSongsXbox folder
       (header, meta) <- stackIO $ withSTFSPackage fin $ \stfs -> return (stfsHeader stfs, stfsMetadata stfs)
       return QuickInput
         { quickInputPath   = fin
@@ -234,6 +244,34 @@ loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtens
         , quickInputSongs  = songs
         , quickInputXbox   = Just meta
         }
+    Left _ -> case takeFileName fin of
+      "songs.dta" -> errorToWarning $ do
+        finAbs <- stackIO $ makeAbsolute fin
+        let packageRoot = takeDirectory $ takeDirectory finAbs -- should be the folder that has "songs" subfolder
+        folder <- stackIO $ crawlFolder packageRoot
+        if folderHasEDAT folder
+          then do
+            -- this assumes there's a proper parent folder to use for decryption key
+            songs <- loadQuickSongsPS3 (B8.pack $ takeFileName packageRoot) folder
+            return QuickInput
+              { quickInputPath   = packageRoot <> ".pkg"
+              , quickInputFormat = QCFormatPKG -- TODO make a real format type for raw folders
+              , quickInputSongs  = songs
+              , quickInputXbox   = Nothing
+              }
+          else do
+            songs <- loadQuickSongsXbox folder
+            return QuickInput
+              { quickInputPath   = packageRoot <> "_con"
+              , quickInputFormat = QCFormatCON -- TODO make a real format type for raw folders
+              , quickInputSongs  = songs
+              , quickInputXbox   = Nothing
+              }
+      _ -> return Nothing
+
+folderHasEDAT :: Folder T.Text a -> Bool
+folderHasEDAT folder = any isEDAT (map fst $ folderFiles folder) || any folderHasEDAT (map snd $ folderSubfolders folder)
+  where isEDAT s = ".edat" `T.isSuffixOf` T.toLower s
 
 decryptEDAT :: (MonadIO m, SendMessage m) => B.ByteString -> B.ByteString -> Readable -> StackTraceT m Readable
 decryptEDAT crypt name r = tryDecryptEDAT crypt name r >>= \case
