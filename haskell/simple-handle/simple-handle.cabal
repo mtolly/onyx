@@ -16,4 +16,5 @@ library
     , filepath
     , directory
     , bytestring
+    , containers
   default-language: Haskell2010

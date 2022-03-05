@@ -3825,6 +3825,7 @@ data QuickConvertMode
   | QCOneToOne
   | QCMakePacks
   | QCMakeSongs
+  | QCDolphin
   deriving (Eq)
 
 pageQuickConvert
@@ -3836,9 +3837,9 @@ pageQuickConvert
   -> IO ()
 pageQuickConvert sink rect tab startTasks = mdo
   loadedFiles <- newMVar []
-  let (filesRect, bottomRect) = chopBottom 175 rect
-      [row12, row34] = splitVertN 2 bottomRect
-      [row1, row2] = map (trimClock 5 10 5 10) $ splitVertN 2 row12
+  let (mainRect, processorsRect) = chopRight 200 rect
+      (filesRect, bottomRect) = chopBottom 126 mainRect
+      (trimClock 5 10 5 10 -> row2, row34) = chopBottom 84 bottomRect
       [row3, row4] = map (trimClock 5 10 5 10) $ splitVertN 2 row34
       computePacks = runMaybeT $ do
         files <- lift $ readMVar loadedFiles
@@ -3871,44 +3872,49 @@ pageQuickConvert sink rect tab startTasks = mdo
         n -> show n <> " songs"
       in (entry, [subline])
 
-  let withQCMode mode = sink $ EventIO $ do
-        if mode == QCInPlace   then FL.showWidget inPlace   else FL.hide inPlace
-        if mode == QCOneToOne  then FL.showWidget oneToOne  else FL.hide oneToOne
-        if mode == QCMakePacks then FL.showWidget makePacks else FL.hide makePacks
-        if mode == QCMakeSongs then FL.showWidget makeSongs else FL.hide makeSongs
-
-  -- row1: midi checkboxes
-  let [midiBox1, midiBox2, midiBox3, midiBox4] = splitHorizN 4 row1
-  checkBlackVenue <- FL.checkButtonNew midiBox1 $ Just "Black VENUE"
-  void $ FL.setValue checkBlackVenue False
-  checkNoOverdrive <- FL.checkButtonNew midiBox2 $ Just "Remove Overdrive"
-  void $ FL.setValue checkNoOverdrive False
-  checkNoLanesGBK <- FL.checkButtonNew midiBox3 $ Just "Remove lanes (G/B/K)"
-  void $ FL.setValue checkNoLanesGBK False
-  checkNoLanesDrums <- FL.checkButtonNew midiBox4 $ Just "Remove lanes (drums)"
-  void $ FL.setValue checkNoLanesDrums False
+  -- right side: processors to transform midis and other files
+  packProcessors <- FL.packNew (trimClock 5 5 5 0 processorsRect) Nothing
+  let processorBox = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 45))
+      procFolder f qsong = do
+        newFiles <- f $ quickSongFiles qsong
+        return qsong { quickSongFiles = newFiles }
+      processors :: [(T.Text, QuickSong -> Onyx QuickSong)]
+      processors =
+        [ (,) "Black VENUE" $ \qsong -> do
+          let isRB3 = qdtaRB3 $ quickSongDTA qsong
+          procFolder (applyToMIDI $ blackVenue isRB3) qsong
+        , (,) "No Overdrive" $ procFolder $ applyToMIDI noOverdrive
+        , (,) "No lanes (G/B/K)" $ procFolder $ applyToMIDI noLanesGBK
+        , (,) "No lanes (drums)" $ procFolder $ applyToMIDI noLanesDrums
+        , (,) "No drum fills" $ procFolder $ applyToMIDI noDrumFills
+        , (,) "Force 22-fret protar" $ procFolder $ applyToMIDI mustang22
+        , (,) "Unmute >22-fret protar" $ procFolder $ applyToMIDI unmuteOver22
+        , (,) "Decompress .milo_*" $ procFolder decompressMilos
+        ]
+  processorGetters <- forM processors $ \(label, proc) -> do
+    check <- FL.checkButtonNew processorBox $ Just label
+    void $ FL.setValue check False
+    return $ do
+      checked <- FL.getValue check
+      return $ if checked then proc else return
   let getMIDITransform = do
-        black     <- FL.getValue checkBlackVenue
-        noOD      <- FL.getValue checkNoOverdrive
-        delaneGBK <- FL.getValue checkNoLanesGBK
-        delaneD   <- FL.getValue checkNoLanesDrums
-        if not $ black || noOD || delaneGBK || delaneD
-          then return $ \qsong -> return qsong
-          else return $ \qsong -> do
-            let isRB3 = qdtaRB3 $ quickSongDTA qsong
-            newFiles <- applyToMIDI (foldr (.) id
-              [ if black     then blackVenue isRB3 else id
-              , if noOD      then noOverdrive      else id
-              , if delaneGBK then noLanesGBK       else id
-              , if delaneD   then noLanesDrums     else id
-              ]) $ quickSongFiles qsong
-            return qsong { quickSongFiles = newFiles }
+        procs <- sequence processorGetters
+        return $ foldr (>=>) return procs
+  FL.end packProcessors
+
   -- row2: select mode
+  let withQCMode mode = sink $ EventIO $ do
+        if mode == QCInPlace   then FL.showWidget inPlace     else FL.hide inPlace
+        if mode == QCOneToOne  then FL.showWidget oneToOne    else FL.hide oneToOne
+        if mode == QCMakePacks then FL.showWidget makePacks   else FL.hide makePacks
+        if mode == QCMakeSongs then FL.showWidget makeSongs   else FL.hide makeSongs
+        if mode == QCDolphin   then FL.showWidget makeDolphin else FL.hide makeDolphin
   makeModeDropdown row2
     [ ("Transform in place: replace input files with new versions", QCInPlace  )
     , ("One to one: each input file produces a new output file"   , QCOneToOne )
     , ("Make packs: combine songs up to a maximum file size"      , QCMakePacks)
     , ("Make songs: produce a single file for each song"          , QCMakeSongs)
+    , ("Make Dolphin (Wii) pack"                                  , QCDolphin  )
     ] withQCMode
 
   let quickTemplate :: FilePath -> T.Text -> T.Text -> FilePath
@@ -3981,9 +3987,11 @@ pageQuickConvert sink rect tab startTasks = mdo
                 (maybe ""                   (T.concat . take 1 . STFS.md_DisplayDescription) $ quickInputXbox qinput)
                 live
           case quickInputFormat qinput of
-            QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts tmp
-            QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts tmp
-            QCFormatPKG  -> saveQuickSongsPKG  qsongs' ps3Settings tmp
+            QCInputTwoWay fmt -> case fmt of
+              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts tmp
+              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts tmp
+              QCFormatPKG  -> saveQuickSongsPKG  qsongs' ps3Settings tmp
+            fmt -> fatal $ "Unsupported format for transform mode (" <> show fmt <> ")"
           stackIO $ Dir.renameFile tmp fin
           return [fin]
         in (fin, task)
@@ -4074,11 +4082,9 @@ pageQuickConvert sink rect tab startTasks = mdo
     btnGo <- FL.buttonNew goArea $ Just "Save pack as…"
     taskColor >>= FL.setColor btnGo
     FL.setCallback btnGo $ \_ -> sink $ EventIO $ do
-      files <- readMVar loadedFiles
       fmt <- getFormat
       enc <- getEncrypt
       ps3Folder <- getFolderSetting
-      maxSizeText <- FL.getValue maxSizeInput
       midiTransform <- getMIDITransform
       computePacks >>= \case
         Nothing    -> return () -- shouldn't happen, button is deactivated
@@ -4164,6 +4170,29 @@ pageQuickConvert sink rect tab startTasks = mdo
             QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
           return [fout]
         in (T.unpack artistTitle, task)
+
+  -- Wii (Dolphin) pack
+  --   2nd row: checkbox for preview audio
+  --   3rd row: go button (opens pick folder dialog, app files go inside)
+  makeDolphin <- modeGroup $ mdo
+    boxPrev <- FL.checkButtonNew row3 $ Just "Try to generate preview audio"
+    void $ FL.setValue boxPrev False
+    btnGo <- FL.buttonNew row4 $ Just "Select folder…"
+    taskColor >>= FL.setColor btnGo
+    FL.setCallback btnGo $ \_ -> sink $ EventIO $ do
+      files <- readMVar loadedFiles
+      tryPreview <- FL.getValue boxPrev
+      midiTransform <- getMIDITransform
+      sink $ EventOnyx $ startTasks $ let
+        dout = "/tmp/dolphin" -- TODO
+        settings = QuickDolphinSettings
+          { qcDolphinPreview = tryPreview
+          }
+        task = do
+          qsongs <- mapM midiTransform $ concatMap quickInputSongs files
+          saveQuickSongsDolphin qsongs settings dout
+          return [dout]
+        in [("Make Dolphin pack", task)]
 
   FL.setResizable tab $ Just filesGroup
 
@@ -4450,7 +4479,7 @@ launchQuickConvert' sink makeMenuBar = sink $ EventOnyx $ do
 
 launchQuickConvert :: (?preferences :: Preferences) => (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
 launchQuickConvert sink makeMenuBar = mdo
-  let windowWidth = Width 900
+  let windowWidth = Width 1000
       windowHeight = Height 600
       windowSize = Size windowWidth windowHeight
   window <- FL.windowNew windowSize Nothing $ Just "Quick Convert"

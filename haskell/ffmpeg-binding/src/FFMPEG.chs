@@ -437,15 +437,6 @@ packet_size = {#get AVPacket->size #}
 packet_data :: AVPacket -> IO (Ptr CUChar)
 packet_data = {#get AVPacket->data #}
 
--- deprecated
-{#fun avcodec_decode_video2
-  { `AVCodecContext'
-  , `AVFrame'
-  , id `Ptr CInt'
-  , `AVPacket'
-  } -> `CInt'
-#}
-
 {#fun av_log_set_level
   { `CInt'
   } -> `()'

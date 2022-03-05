@@ -8,7 +8,7 @@ Written with reference to
 -}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase   #-}
-module U8 (packU8, readU8) where
+module U8 (packU8, packU8Folder, readU8) where
 
 import           Control.Monad         (replicateM)
 import           Data.Bifunctor        (first)
@@ -133,7 +133,10 @@ writeU8 out root = withBinaryFile out WriteMode $ \hout -> do
   mapM_ writeData datas
 
 packU8 :: FilePath -> FilePath -> IO ()
-packU8 dir fout = crawlFolder dir >>= getRoot . first (B8.pack . T.unpack) >>= writeU8 fout
+packU8 dir fout = crawlFolder dir >>= (`packU8Folder` fout) . first (B8.pack . T.unpack)
+
+packU8Folder :: Folder B8.ByteString Readable -> FilePath -> IO ()
+packU8Folder folder fout = getRoot folder >>= writeU8 fout
 
 readU8 :: (MonadFail m) => BL.ByteString -> m (Folder B.ByteString BL.ByteString, Integer)
 readU8 u8 = do

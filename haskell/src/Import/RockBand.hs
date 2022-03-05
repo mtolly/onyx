@@ -9,17 +9,14 @@ module Import.RockBand where
 
 import           ArkTool                        (ark_DecryptVgs)
 import           Audio                          (Audio (..), Edge (..))
-import           Codec.Picture                  (convertRGB8, readImage)
 import           Codec.Picture.Types            (dropTransparency, pixelMap)
 import           Config
 import           Control.Arrow                  (second)
 import           Control.Concurrent.Async       (forConcurrently)
-import           Control.Exception              (evaluate)
 import           Control.Monad                  (forM, forM_, guard, unless,
                                                  when)
 import           Control.Monad.Codec.Onyx       (req)
 import           Control.Monad.IO.Class         (MonadIO)
-import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Codec.Class        (bin, codecIn, (=.))
 import qualified Data.ByteString                as B
@@ -27,7 +24,6 @@ import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import qualified Data.Conduit.Audio             as CA
 import           Data.Default.Class             (def)
-import qualified Data.Digest.Pure.MD5           as MD5
 import qualified Data.DTA                       as D
 import qualified Data.DTA.Serialize             as D
 import           Data.DTA.Serialize.Magma       (Gender (..))
@@ -47,24 +43,19 @@ import           Data.SimpleHandle              (Folder (..), Readable,
                                                  makeHandle, splitPath,
                                                  useHandle)
 import qualified Data.Text                      as T
-import           Data.Text.Encoding             (decodeLatin1, decodeUtf8With,
-                                                 encodeUtf8)
+import           Data.Text.Encoding             (decodeLatin1, decodeUtf8With)
 import qualified Data.Text.Encoding             as TE
 import           Data.Text.Encoding.Error       (lenientDecode)
 import           Difficulty
 import           GuitarHeroII.Audio             (splitOutVGSChannels,
                                                  vgsChannelCount)
-import           Image                          (DXTFormat (PNGXbox),
-                                                 toDXT1File)
 import           Import.Base
 import           Magma                          (rbaContents)
-import           Magma                          (getRBAFile)
 import           PlayStation.PSS                (extractVGSStream,
                                                  extractVideoStream,
                                                  scanPackets)
 import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingles)
-import           PrettyDTA                      (readRB3DTA, writeDTASingle)
 import           Resources                      (rb3Updates)
 import           RockBand.Codec.Drums           as RBDrums
 import           RockBand.Codec.File            (FlexPartName (..))
@@ -78,7 +69,7 @@ import           RockBand.RB4.RBMid
 import           RockBand.RB4.SongDTA
 import qualified Sound.MIDI.File.Save           as Save
 import qualified Sound.MIDI.Util                as U
-import           STFS.Package                   (rb3pkg, runGetM)
+import           STFS.Package                   (runGetM)
 import qualified System.Directory               as Dir
 import           System.FilePath                (takeDirectory, takeFileName,
                                                  (-<.>), (<.>), (</>))
@@ -620,67 +611,6 @@ importRB rbi level = do
         })
       ]
     }
-
--- | Converts a Magma v2 RBA to CON without going through an import + recompile.
-simpleRBAtoCON :: (SendMessage m, MonadResource m) => FilePath -> FilePath -> StackTraceT m ()
-simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ show con) $ do
-  tempDir "onyx_rba2con" $ \temp -> do
-    md5 <- stackIO $ BL.readFile rba >>= evaluate . MD5.md5
-    let shortName = "onyx" ++ take 10 (show md5)
-    stackIO $ Dir.createDirectoryIfMissing True $ temp </> "songs" </> shortName </> "gen"
-    getRBAFile 0 rba $ temp </> "temp_songs.dta"
-    getRBAFile 1 rba $ temp </> "songs" </> shortName </> shortName <.> "mid"
-    getRBAFile 2 rba $ temp </> "songs" </> shortName </> shortName <.> "mogg"
-    getRBAFile 3 rba $ temp </> "songs" </> shortName </> "gen" </> shortName <.> "milo_xbox"
-    getRBAFile 4 rba $ temp </> "temp_cover.bmp"
-    -- 5 is weights.bin (empty in magma v2)
-    getRBAFile 6 rba $ temp </> "temp_extra.dta"
-    (_, pkg, isUTF8) <- readRB3DTA $ temp </> "temp_songs.dta"
-    extra <- (if isUTF8 then D.readFileDTA_utf8' else D.readFileDTA_latin1') $ temp </> "temp_extra.dta"
-    stackIO
-      $ B8.writeFile (temp </> "songs/songs.dta")
-      $ (if isUTF8 then encodeUtf8 else B8.pack . T.unpack)
-      $ writeDTASingle DTASingle
-      { dtaTopKey = T.pack shortName
-      , dtaSongPackage = pkg
-        { D.song = (D.song pkg)
-          { D.songName = T.pack $ "songs" </> shortName </> shortName
-          }
-        , D.songId = Just $ Right $ T.pack shortName
-        }
-      , dtaC3Comments = C3DTAComments
-        { c3dtaCreatedUsing = Nothing
-        , c3dtaAuthoredBy   = case extra of
-          D.DTA _ (D.Tree _ [D.Parens (D.Tree _
-            ( D.String "backend"
-            : D.Parens (D.Tree _ [D.Sym "author", D.String s])
-            : _
-            ))])
-            -> Just s
-          _ -> Nothing
-        , c3dtaSong         = Nothing
-        , c3dtaLanguages    = Nothing -- TODO
-        , c3dtaKaraoke      = Nothing
-        , c3dtaMultitrack   = Nothing
-        , c3dtaConvert      = Nothing
-        , c3dta2xBass       = Nothing
-        , c3dtaRhythmKeys   = Nothing
-        , c3dtaRhythmBass   = Nothing
-        , c3dtaCATemh       = Nothing
-        , c3dtaExpertOnly   = Nothing
-        }
-      }
-    stackIO $ readImage (temp </> "temp_cover.bmp") >>= \case
-      Left err -> error err -- TODO
-      Right dyn -> let
-        out = temp </> "songs" </> shortName </> "gen" </> (shortName ++ "_keep.png_xbox")
-        in BL.writeFile out $ toDXT1File PNGXbox $ convertRGB8 dyn
-    stackIO $ do
-      Dir.removeFile $ temp </> "temp_songs.dta"
-      Dir.removeFile $ temp </> "temp_cover.bmp"
-      Dir.removeFile $ temp </> "temp_extra.dta"
-    let label = D.name pkg <> maybe "" (\artist -> " (" <> artist <> ")") (D.artist pkg)
-    rb3pkg label label temp con
 
 importRB4 :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importRB4 fdta level = do

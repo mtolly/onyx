@@ -18,6 +18,7 @@ import           Data.IORef
 import           Data.List                     (find, sort)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
+import qualified Data.Map                      as Map
 import           Data.Maybe                    (fromMaybe)
 import qualified Data.Text                     as T
 import           Data.Typeable                 (Typeable)
@@ -167,13 +168,13 @@ instance Bifunctor Folder where
     }
   second = fmap
 
-instance Semigroup (Folder name a) where
+instance (Ord name) => Semigroup (Folder name a) where
   x <> y = Folder
-    { folderSubfolders = folderSubfolders x <> folderSubfolders y
-    , folderFiles      = folderFiles      x <> folderFiles      y
+    { folderSubfolders = Map.toList $ Map.unionWith (<>) (Map.fromList $ folderSubfolders x) (Map.fromList $ folderSubfolders y)
+    , folderFiles      = folderFiles x <> folderFiles y
     }
 
-instance Monoid (Folder name a) where
+instance (Ord name) => Monoid (Folder name a) where
   mempty = Folder [] []
 
 allFolders :: Folder p a -> [NE.NonEmpty p]

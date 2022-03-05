@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 module MoggDecrypt
-( moggToOgg, oggToMogg, sourceVorbisFile
+( moggToOgg, moggToOggHandle, oggToMogg, sourceVorbisFile
 , encryptRB1
 ) where
 

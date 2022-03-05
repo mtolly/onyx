@@ -140,7 +140,7 @@ import qualified System.IO                        as IO
 import           Text.Decode                      (decodeGeneral)
 import           Text.Printf                      (printf)
 import           Text.Read                        (readMaybe)
-import           U8                               (packU8)
+import           U8                               (packU8, readU8)
 import           WAD                              (getWAD, hackSplitU8s)
 
 #ifdef WINDOWS
@@ -1397,15 +1397,21 @@ commands =
       [ "onyx extract-wad in.wad [--to out_folder]"
       ]
     , commandRun = \args opts -> case args of
-      [pathWad] -> do
-        dout <- outputFile opts $ return $ pathWad <> "_extract"
-        stackIO $ Dir.createDirectoryIfMissing False dout
-        wad <- stackIO (BL.readFile pathWad) >>= runGetM getWAD
-        (initialData, u8s) <- hackSplitU8s wad
-        stackIO $ B.writeFile (dout </> "initial-data.bin") initialData
-        forM_ (zip [0..] u8s) $ \(i, u8) -> do
-          let u8' = bimap TE.decodeLatin1 (makeHandle "" . byteStringSimpleHandle) u8
-          stackIO $ saveHandleFolder u8' $ dout </> ("u8-" <> show (i :: Int))
+      [fin] -> do
+        dout <- outputFile opts $ return $ fin <> "_extract"
+        if takeExtension fin == ".app"
+          then do
+            (u8, _) <- stackIO (B.readFile fin) >>= readU8 . BL.fromStrict
+            stackIO $ flip saveHandleFolder dout
+              $ bimap TE.decodeLatin1 (makeHandle "" . byteStringSimpleHandle) u8
+          else do
+            stackIO $ Dir.createDirectoryIfMissing False dout
+            wad <- stackIO (BL.readFile fin) >>= runGetM getWAD
+            (initialData, u8s) <- hackSplitU8s wad
+            stackIO $ B.writeFile (dout </> "initial-data.bin") initialData
+            forM_ (zip [0..] u8s) $ \(i, u8) -> do
+              let u8' = bimap TE.decodeLatin1 (makeHandle "" . byteStringSimpleHandle) u8
+              stackIO $ saveHandleFolder u8' $ dout </> ("u8-" <> show (i :: Int))
         return [dout]
       _ -> fatal $ "onyx extract-wad expected 1 argument, given " <> show (length args)
     }
