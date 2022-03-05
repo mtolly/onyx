@@ -667,7 +667,13 @@ getFileHandle fe stfs readable = Readable
             let len = min 0x1000 size
             blkHash <- getCorrectBlockHash fb stfs'
             (blk :) <$> getBlockSequence (size - len) (FileBlock $ bhr_NextBlock blkHash) (bhr_Status blkHash)
-    blks <- VU.fromList <$> getBlockSequence (fe_Size fe) (FileBlock $ fe_FirstBlock fe) BlockUsed
+    blks <- VU.fromList <$> if fe_Consecutive fe
+      -- important optimization, this saves a lot of time when opening e.g. mogg files.
+      -- unfortunately I didn't mark Onyx-created cons as consecutive until 20210702 (2ced8ab2)
+      -- and I don't think X360 (C3 CON Tools, Le Fluffie, RB3Maker) marks as consecutive.
+      -- but new Onyx files and real DLC files can benefit at least.
+      then return $ take (fromIntegral $ fe_Blocks1 fe) [fe_FirstBlock fe ..]
+      else getBlockSequence (fe_Size fe) (FileBlock $ fe_FirstBlock fe) BlockUsed
     posn <- newIORef 0
     -- TODO include the whole directory in the new label, not just fe_FileName
     openSimpleHandle (handleLabel h <> " | " <> T.unpack (fe_FileName fe)) SimpleHandle

@@ -393,7 +393,7 @@ loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtens
             -- this assumes there's a proper parent folder to use for decryption key
             songs <- loadQuickSongsPS3 (B8.pack $ takeFileName packageRoot) folder
             return QuickInput
-              { quickInputPath   = packageRoot <> ".pkg"
+              { quickInputPath   = packageRoot
               , quickInputFormat = QCInputLoosePS3
               , quickInputSongs  = songs
               , quickInputXbox   = Nothing
@@ -401,7 +401,7 @@ loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtens
           else do
             songs <- loadQuickSongsXbox folder
             return QuickInput
-              { quickInputPath   = packageRoot <> "_con"
+              { quickInputPath   = packageRoot
               , quickInputFormat = QCInputLoose360
               , quickInputSongs  = songs
               , quickInputXbox   = Nothing
