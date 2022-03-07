@@ -640,7 +640,7 @@ data QuickDolphinSettings = QuickDolphinSettings
   { qcDolphinPreview :: Bool -- if True, try to make preview audio
   }
 
-saveQuickSongsDolphin :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickDolphinSettings -> FilePath -> StackTraceT m ()
+saveQuickSongsDolphin :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickDolphinSettings -> FilePath -> StackTraceT m [FilePath]
 saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> do
   let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
   triples <- forM qsongs $ \qsong -> do
@@ -698,8 +698,11 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
         }
       meta = container "content" $ first TE.encodeUtf8 (mconcat $ map snd3 triples) <> dtaFolder
       song = container "content" $ first TE.encodeUtf8 (mconcat $ map thd3 triples)
-  stackIO $ packU8Folder meta $ dout </> "00000001.app"
-  stackIO $ packU8Folder song $ dout </> "00000002.app"
+      out1 = dout </> "00000001.app"
+      out2 = dout </> "00000002.app"
+  stackIO $ packU8Folder meta out1
+  stackIO $ packU8Folder song out2
+  return [out1, out2]
 
 glueDTA :: [Chunk B.ByteString] -> BL.ByteString
 glueDTA = let

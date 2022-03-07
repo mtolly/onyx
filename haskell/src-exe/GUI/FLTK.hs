@@ -4128,6 +4128,17 @@ pageQuickConvert sink rect tab startTasks = mdo
             _ -> return ()
     writeIORef packGoRef $ Just btnGo
 
+  let askFolder initial fn = do
+        -- TODO test on windows, probably need to replace
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
+        FL.setTitle picker "Select output folder"
+        forM_ initial $ FL.setDirectory picker . T.pack
+        FL.showWidget picker >>= \case
+          FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
+            Nothing -> return ()
+            Just f  -> fn $ T.unpack f
+          _                          -> return ()
+
   -- Make songs (each song gets one new output file)
   --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select)
   --   3rd row: go button (opens pick folder dialog, songs get auto names inside)
@@ -4145,31 +4156,32 @@ pageQuickConvert sink rect tab startTasks = mdo
       fmt <- getFormat
       enc <- getEncrypt
       midiTransform <- getMIDITransform
-      sink $ EventOnyx $ startTasks $ flip map (concatMap quickInputSongs files) $ \qsong -> let
-        fout = "/tmp/" <> show (hash $ qdtaRaw $ quickSongDTA qsong) -- TODO
-        artistTitle = T.intercalate " - " $ concat
-          [ toList $ qdtaArtist $ quickSongDTA qsong
-          , [qdtaTitle $ quickSongDTA qsong]
-          ]
-        isRB3 = qdtaRB3 $ quickSongDTA qsong
-        task = do
-          qsong' <- midiTransform qsong
-          let ps3Settings = QuickPS3Settings
-                { qcPS3Folder  = Just QCSeparateFolders
-                , qcPS3Encrypt = enc
-                , qcPS3RB3     = isRB3
-                }
-              xboxSettings live = stackIO $
-                (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                artistTitle
-                ""
-                live
-          case fmt of
-            QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
-            QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
-            QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
-          return [fout]
-        in (T.unpack artistTitle, task)
+      askFolder (takeDirectory . quickInputPath <$> listToMaybe files) $ \dout -> do
+        sink $ EventOnyx $ startTasks $ flip map (concatMap quickInputSongs files) $ \qsong -> let
+          fout = dout </> show (hash $ qdtaRaw $ quickSongDTA qsong) -- TODO
+          artistTitle = T.intercalate " - " $ concat
+            [ toList $ qdtaArtist $ quickSongDTA qsong
+            , [qdtaTitle $ quickSongDTA qsong]
+            ]
+          isRB3 = qdtaRB3 $ quickSongDTA qsong
+          task = do
+            qsong' <- midiTransform qsong
+            let ps3Settings = QuickPS3Settings
+                  { qcPS3Folder  = Just QCSeparateFolders
+                  , qcPS3Encrypt = enc
+                  , qcPS3RB3     = isRB3
+                  }
+                xboxSettings live = stackIO $
+                  (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                  artistTitle
+                  ""
+                  live
+            case fmt of
+              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
+              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
+              QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
+            return [fout]
+          in (T.unpack artistTitle, task)
 
   -- Wii (Dolphin) pack
   --   2nd row: checkbox for preview audio
@@ -4183,15 +4195,13 @@ pageQuickConvert sink rect tab startTasks = mdo
       files <- readMVar loadedFiles
       tryPreview <- FL.getValue boxPrev
       midiTransform <- getMIDITransform
-      sink $ EventOnyx $ startTasks $ let
-        dout = "/tmp/dolphin" -- TODO
+      askFolder (prefDirWii ?preferences) $ \dout -> sink $ EventOnyx $ startTasks $ let
         settings = QuickDolphinSettings
           { qcDolphinPreview = tryPreview
           }
         task = do
           qsongs <- mapM midiTransform $ concatMap quickInputSongs files
           saveQuickSongsDolphin qsongs settings dout
-          return [dout]
         in [("Make Dolphin pack", task)]
 
   FL.setResizable tab $ Just filesGroup
