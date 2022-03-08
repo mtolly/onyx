@@ -8,6 +8,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 module GUI.FLTK (launchGUI) where
 
+import GUI.Util (askFolder)
 import           Audio                                     (Audio (..),
                                                             buildSource',
                                                             runAudio)
@@ -4127,17 +4128,6 @@ pageQuickConvert sink rect tab startTasks = mdo
                   in ("Pack #" <> show (i :: Int), task)
             _ -> return ()
     writeIORef packGoRef $ Just btnGo
-
-  let askFolder initial fn = do
-        -- TODO test on windows, probably need to replace
-        picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
-        FL.setTitle picker "Select output folder"
-        forM_ initial $ FL.setDirectory picker . T.pack
-        FL.showWidget picker >>= \case
-          FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
-            Nothing -> return ()
-            Just f  -> fn $ T.unpack f
-          _                          -> return ()
 
   -- Make songs (each song gets one new output file)
   --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select)

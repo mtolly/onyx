@@ -67,6 +67,9 @@ executables:
         cpp-options: -DWINDOWS
         ld-options: ../icon/icon.o -mwindows
         dependencies: Win32
+        cxx-sources:
+        - cbits/win_open_folder.cpp
+        cxx-options: -std=c++11
       else:
         dependencies: mountpoints
     - condition: os(darwin)
