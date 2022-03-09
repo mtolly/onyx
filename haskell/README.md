@@ -287,7 +287,8 @@ compilation errors.
         NOTE: GH2 is only able to load 16 individual DLC package files. Trying
         to load more than 16 will not only fail to load the ones past 16, but
         the game will corrupt your save data when saving. To avoid this, please
-        use the pack creator in "Other tools" to combine songs before playing.
+        use the "Make a pack (360)" tool in the Quick Convert window to combine
+        songs before playing.
 
     PS2 songs have been tested with standard GH2, as well as Guitar Hero II
     Deluxe. For Guitar Hero II Deluxe 2.0, you can also include drum charts.
@@ -381,24 +382,6 @@ compilation errors.
       this is to prevent a game crash when sorting by title or artist caused by
       non-ASCII characters (even those that are supported by the game fonts).
 
-  * Rock Band 3 (Wii)
-
-    Converts a collection of songs to a single RB3 pack in the format used by
-    the Dolphin Wii emulator. This is primarily intended for people using
-    Dolphin to record videos of songs.
-
-    Only STFS (CON/LIVE) files should be selected. Convert any other formats to
-    RB3 CON first if needed.
-
-    Options are available for certain MIDI transformations useful for videos:
-
-      * Remove activation drum fills
-      * Remove the Mustang version of a Pro Guitar/Bass track, ensuring the
-        Squier version (supporting more than 17 frets) will always be played
-      * Unmute any muted Pro Guitar/Bass notes over fret 22. This allows you
-        to include such notes while compiling with Magma, and then unmute
-        them for recording the video
-
   * Preview
 
     Generates a JavaScript (Canvas) chart preview app for web browsers,
@@ -413,6 +396,65 @@ compilation errors.
     Colors used for drawing the display can be tweaked by editing the file
     `customize.js`. In the future this will be improved to allow overriding
     all pixel sizes as well, so images will be further customizable.
+
+## Quick Convert
+
+This tool can perform several different kinds of processing/conversion on
+existing Rock Band format songs, without doing a full import/export process.
+Some examples:
+
+  * Convert between Xbox 360 and PS3 formats, as well as to Dolphin/Wii
+  * Encrypt or decrypt `.mid.edat` files in PS3 format
+  * Combine songs into packs, including combined songs.dta
+  * Extract individual songs from packs
+  * Various MIDI transformations useful for gameplay or preview recording:
+    * Replace `VENUE` track with a mostly blacked-out background
+    * Remove overdrive, trill/tremolo lanes, drum activation fills
+    * Remove the Mustang version of Pro Guitar/Bass tracks, ensuring the Squier
+      version will always be played
+    * Unmute muted Pro Guitar/Bass notes over fret 22, which allows you to
+      include such notes when compiling under Magma, and then unmute for
+      recording a preview video
+
+The following formats are supported as inputs:
+
+  * Xbox 360 STFS (CON or LIVE)
+  * PS3 .pkg
+  * Extracted contents of 360 or PS3 format songs
+  * Magma (v1 or v2) RBA
+
+And these are supported as outputs (depending on mode selection):
+
+  * Xbox 360 STFS (CON or LIVE)
+  * PS3 .pkg
+  * Dolphin/Wii .app files
+
+Drag supported input files in, and they should show up if songs are properly
+recognized. Then select an output mode, MIDI/milo transformation settings on the
+right-hand side, and use the output controls to begin processing.
+
+Other tabs under the Quick Convert window:
+
+  * 360 Pack Creator
+
+    Combines Xbox 360 CON/LIVE files into packages containing multiple songs.
+    Works with both Rock Band, and Guitar Hero II.
+
+    Packs are useful for RB songs because they can load faster on game launch.
+    For GH2, they are required due to a hard limit of 16 total package files.
+
+    To use, drag in the existing files to be combined, give the package a name
+    to identify it, and click the appropriate button below: CON packs for
+    RB2 or RB3 (TU4 or RB3 Enhanced), LIVE packs for GH2.
+
+    All files from the inputs are combined into one tree for the package.
+    If more than one input contains the same file:
+      * If the file ends in `.dta`, the contents are combined into one file.
+      * If the file is `spa.bin` (seen in GH2 360 files), it is ignored.
+      * Otherwise, an error is raised.
+
+    The game information (name, title ID, thumbnail) are taken from the first
+    input package in the list.
 
 ## Other Tools
 
@@ -461,33 +503,6 @@ compilation errors.
 
     As a special case, if you provide a single OGG file and convert to MOGG, it
     will not be reencoded, but will go straight into the MOGG.
-
-  * Pack creator
-
-    Combines Xbox 360 CON/LIVE files, or PlayStation 3 PKG files, into packages
-    containing multiple songs. Works with Rock Band 1/2/3, and Guitar Hero II.
-
-    On Xbox 360, packs are useful for RB songs because they can load faster on
-    game launch. On PS3, they can be more convenient to install on console.
-    For GH2, they are required due to a hard limit of 16 total package files.
-
-    To use, drag in the existing files to be combined, give the package a name
-    to identify it, and click the appropriate button below. For Xbox 360, you
-    should create CON packs for RB2 or RB3 (TU4 or RB3 Enhanced),
-    and LIVE packs for GH2.
-
-    All files from the inputs are combined into one tree for the package.
-    If more than one input contains the same file:
-
-      * If the file ends in `.dta`, the contents are combined into one file.
-      * If the file is `spa.bin` (seen in GH2 360 files), it is ignored.
-      * Otherwise, an error is raised.
-
-    Platform-specific game information (name, title ID, thumbnail) is taken from
-    the first input package in the list. You can override the package name and
-    description for Xbox 360, or on PlayStation3 you can edit the file-specific
-    part of the Content ID, but all of these are optional and default info will
-    be provided if not given.
 
   * Lipsync file generation
 
@@ -551,11 +566,6 @@ compilation errors.
 
     Only the `ObjectDir` format (used in song files) is supported; other milos
     found on game discs will likely not work.
-
-  * Black `VENUE` patcher
-
-    Modifies existing CON files so the `VENUE` track is replaced with a static
-    black background. Should work on both RB3 and RB2 format songs.
 
   * RB3 song cache ID application
 

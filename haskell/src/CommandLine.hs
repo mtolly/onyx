@@ -9,28 +9,23 @@ module CommandLine
 ( commandLine
 , identifyFile'
 , FileType(..)
-, runDolphin
-, conToPkg
 ) where
 
 import qualified Amplitude.PS2.Ark                as AmpArk
-import           Audio                            (Audio (Input), applyPansVols,
-                                                   audioLength, audioMD5,
-                                                   fadeEnd, fadeStart, makeFSB4,
+import           Audio                            (Audio (Input), audioLength,
+                                                   audioMD5, makeFSB4,
                                                    makeFSB4', makeGH3FSB,
                                                    runAudio)
 import           Build                            (shakeBuildFiles)
 import           Codec.Picture                    (writePng)
-import           Codec.Picture.Types              (dropTransparency, pixelMap)
 import           Config
 import           Control.Applicative              ((<|>))
 import           Control.Monad.Codec.Onyx.JSON    (loadYaml, toJSON,
                                                    yamlEncodeFile)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard,
-                                                   void, when)
+                                                   when)
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
-                                                   runResourceT)
+import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
 import           Data.Bifunctor                   (bimap, first)
 import           Data.Binary.Codec.Class
@@ -41,10 +36,8 @@ import           Data.ByteString.Lazy.Char8       ()
 import           Data.Char                        (isAlphaNum, isAscii, isDigit,
                                                    isUpper, toLower)
 import qualified Data.Conduit.Audio               as CA
-import           Data.Conduit.Audio.Sndfile       (sinkSnd, sourceSndFrom)
 import           Data.Default.Class               (def)
 import qualified Data.Digest.Pure.MD5             as MD5
-import           Data.DTA
 import           Data.DTA.Lex                     (scanStack)
 import           Data.DTA.Parse                   (parseStack)
 import qualified Data.DTA.Serialize               as D
@@ -52,18 +45,14 @@ import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
-import           Data.Hashable                    (hash)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (find, stripSuffix, unsnoc)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
-import           Data.SimpleHandle                (Folder (..),
-                                                   byteStringSimpleHandle,
-                                                   crawlFolder,
-                                                   handleToByteString,
-                                                   makeHandle, saveHandleFolder,
-                                                   saveReadable, useHandle)
+import           Data.SimpleHandle                (byteStringSimpleHandle,
+                                                   crawlFolder, makeHandle,
+                                                   saveHandleFolder)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import qualified Data.Yaml                        as Y
@@ -88,20 +77,14 @@ import           Neversoft.Pak                    (Node (..), buildPak,
                                                    splitPakNodes)
 import           Neversoft.QB                     (discardStrings, lookupQB,
                                                    lookupQS, parseQB, putQB)
-import           NPData                           (npdContentID, packNPData,
-                                                   rb2CustomMidEdatConfig,
-                                                   rb3CustomMidEdatConfig)
 import           OpenProject
 import           OSFiles                          (copyDirRecursive,
                                                    shortWindowsPath)
 import           PlayStation.PKG                  (PKG (..), loadPKG, makePKG,
                                                    tryDecryptEDATs)
-import           PrettyDTA                        (DTASingle (..),
-                                                   readFileSongsDTA, readRB3DTA,
-                                                   writeDTASingle)
+import           PrettyDTA                        (readRB3DTA)
 import           ProKeysRanges                    (closeShiftsFile)
 import           Reaper.Build                     (TuningInfo (..), makeReaper)
-import           Resources                        (getResourcesPath)
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Vocal             (nullVox)
@@ -120,7 +103,6 @@ import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    testConvertVenue, unpackMilo)
 import           RockBand.Score
 import           Rocksmith.PSARC                  (extractPSARC)
-import qualified Sound.File.Sndfile               as Snd
 import           Sound.FSB                        (fsbToXMAs)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Script.Base           as MS
@@ -785,15 +767,6 @@ commands =
     }
 
   , Command
-    { commandWord = "dolphin"
-    , commandDesc = "Combine CON files into two U8 packages intended for RB3 in Dolphin."
-    , commandUsage = "onyx dolphin 1_rb3con 2_rb3con --to dir/"
-    , commandRun = \args opts -> do
-      out <- outputFile opts $ fatal "need output folder for .app files"
-      runDolphin args (getDolphinFunction opts) False out
-    }
-
-  , Command
     { commandWord = "vgs"
     , commandDesc = "Convert VGS audio to a set of WAV files."
     , commandUsage = "onyx vgs in.vgs"
@@ -1418,101 +1391,6 @@ commands =
 
   ]
 
-runDolphin
-  :: (MonadResource m, SendMessage m)
-  => [FilePath] -- ^ CONs
-  -> Maybe (RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats)) -- ^ MIDI transform
-  -> Bool -- ^ Try to make preview audio?
-  -> FilePath -- ^ output dir
-  -> StackTraceT m [FilePath] -- ^ 2 .app files
-runDolphin cons midfn makePreview out = do
-  stackIO $ Dir.createDirectoryIfMissing False out
-  let out_meta = out </> "00000001.app"
-      out_song = out </> "00000002.app"
-  tempDir "onyx_dolphin" $ \temp -> do
-    let extract  = temp </> "extract"
-        dir_meta = temp </> "meta"
-        dir_song = temp </> "song"
-    allSongs <- fmap concat $ forM cons $ \stfs -> do
-      lg $ "STFS: " <> stfs
-      stackIO $ Dir.createDirectory extract
-      stackIO $ extractSTFS stfs extract
-      songs <- readFileSongsDTA $ extract </> "songs/songs.dta"
-      prevEnds <- forM songs $ \(song, _) -> do
-        let DTASingle _ pkg _ = song
-            songsXX = T.unpack $ D.songName $ D.song pkg
-            songsXgen = takeDirectory songsXX </> "gen"
-            songsXgenX = songsXgen </> takeFileName songsXX
-        lg $ "Song: " <> T.unpack (D.name pkg) <> maybe "" (\artist -> " (" <> T.unpack artist <> ")") (D.artist pkg)
-        stackIO $ Dir.createDirectoryIfMissing True $ dir_meta </> "content" </> songsXgen
-        stackIO $ Dir.createDirectoryIfMissing True $ dir_song </> "content" </> songsXgen
-        -- .mid (use unchanged, or edit to remove fills and/or mustang PG)
-        let midin  = extract </> songsXX <.> "mid"
-            midout = dir_song </> "content" </> songsXX <.> "mid"
-        case midfn of
-          Nothing -> stackIO $ Dir.copyFile midin midout
-          Just f  -> do
-            mid <- RBFile.loadMIDI midin
-            stackIO $ Save.toFile midout $ RBFile.showMIDIFile' $ f mid
-        -- .mogg (use unchanged)
-        let mogg = dir_song </> "content" </> songsXX <.> "mogg"
-        stackIO $ Dir.renameFile (extract </> songsXX <.> "mogg") mogg
-        -- _prev.mogg (generate if possible)
-        let ogg = extract </> "temp.ogg"
-            prevOgg = extract </> "temp_prev.ogg"
-            (prevStart, prevEnd) = D.preview pkg
-            prevLength = min 15000 $ prevEnd - prevStart
-            silentPreview = stackIO
-              $ runResourceT
-              $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
-              $ (CA.silent (CA.Seconds $ realToFrac prevLength / 1000) 44100 2 :: CA.AudioSource (ResourceT IO) Int16)
-        if makePreview
-          then errorToEither (moggToOgg mogg ogg) >>= \case
-            Right () -> do
-              lg "Creating preview file"
-              src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) ogg
-              stackIO
-                $ runResourceT
-                $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
-                $ fadeStart (CA.Seconds 0.75)
-                $ fadeEnd (CA.Seconds 0.75)
-                $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)
-                $ applyPansVols (D.pans $ D.song pkg) (D.vols $ D.song pkg)
-                $ src
-            Left _msgs -> do
-              lg "Encrypted audio, skipping preview"
-              silentPreview
-          else silentPreview
-        oggToMogg prevOgg $ dir_meta </> "content" </> (songsXX ++ "_prev.mogg")
-        -- .png_wii (convert from .png_xbox)
-        img <- stackIO $ pixelMap dropTransparency . Image.readRBImage False . BL.fromStrict <$> B.readFile (extract </> (songsXgenX ++ "_keep.png_xbox"))
-        stackIO $ BL.writeFile (dir_meta </> "content" </> (songsXgenX ++ "_keep.png_wii")) $ Image.toDXT1File Image.PNGWii img
-        -- .milo_wii (copy)
-        stackIO $ Dir.renameFile (extract </> songsXgenX <.> "milo_xbox") (dir_song </> "content" </> songsXgenX <.> "milo_wii")
-        -- return new preview end time to put in .dta
-        return $ prevStart + prevLength
-      stackIO $ Dir.removeDirectoryRecursive extract
-      return $ zip songs prevEnds
-    -- write new combined dta file
-    lg "Writing combined songs.dta"
-    let dta = dir_meta </> "content/songs/songs.dta"
-    stackIO $ Dir.createDirectoryIfMissing True $ takeDirectory dta
-    stackIO $ B.writeFile dta $ TE.encodeUtf8 $ T.unlines $ do
-      ((DTASingle key pkg c3, _), prevEnd) <- allSongs
-      let pkg' = pkg
-            { D.song = (D.song pkg)
-              { D.songName = "dlc/sZAE/001/content/" <> D.songName (D.song pkg)
-              }
-            , D.encoding = Just "utf8"
-            , D.preview = (fst $ D.preview pkg, prevEnd)
-            }
-      return $ writeDTASingle $ DTASingle key pkg' c3
-    -- pack it all up
-    lg "Packing into U8 files"
-    stackIO $ packU8 dir_meta out_meta
-    stackIO $ packU8 dir_song out_song
-  return [out_meta, out_song]
-
 commandLine :: (MonadResource m) => [String] -> StackTraceT (QueueLog m) [FilePath]
 commandLine args = let
   (opts, nonopts, errors) = getOpt Permute optDescrs args
@@ -1642,79 +1520,3 @@ midiOptions opts = MS.Options
   , MS.separateLines = elem OptSeparateLines opts
   , MS.matchNoteOff = elem OptMatchNotes opts
   }
-
-conToPkg :: (SendMessage m, MonadResource m) => Bool -> FilePath -> FilePath -> StackTraceT m ()
-conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
-  conFolder <- stackIO $ getSTFSFolder fin
-  title <- stackIO $ withSTFSPackage fin $ return . T.concat . take 1 . md_DisplayName . stfsMetadata
-  let rbps3Folder = T.toUpper $ T.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
-        $ "O" <> take 6 (show $ hash $ show $ void conFolder) <> T.unpack title
-      rbps3EDATConfig = if isRB3
-        then rb3CustomMidEdatConfig $ TE.encodeUtf8 rbps3Folder
-        else rb2CustomMidEdatConfig $ TE.encodeUtf8 rbps3Folder
-      rbps3ContentID = npdContentID rbps3EDATConfig
-      container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
-      adjustFiles folder = do
-        newFiles <- forM (folderFiles folder) $ \(name, r) -> case map toLower $ takeExtension $ T.unpack name of
-          ".mogg" -> stackIO $ do
-            moggType <- useHandle r $ \h -> B.hGet h 1
-            let tmpIn  = tmp </> "in.mogg"
-                tmpOut = tmp </> "out.mogg"
-            case B.unpack moggType of
-              [0xA] -> do
-                saveReadable r tmpIn
-                encryptRB1 tmpIn tmpOut
-                r' <- makeHandle "" . byteStringSimpleHandle . BL.fromStrict <$> B.readFile tmpOut
-                return (name, r')
-              _     -> return (name, r)
-          ".mid" -> stackIO $ do
-            let tmpIn  = tmp </> "in.mid"
-                tmpOut = tmp </> "out.mid.edat"
-                name' = name <> ".edat"
-            saveReadable r tmpIn
-            packNPData rbps3EDATConfig tmpIn tmpOut $ TE.encodeUtf8 name'
-            r' <- makeHandle "" . byteStringSimpleHandle . BL.fromStrict <$> B.readFile tmpOut
-            return (name', r')
-          ".dta" -> do
-            -- TODO get rid of BOM!
-            b <- stackIO $ useHandle r handleToByteString
-            mdta <- errorToWarning $ readDTA_latin1 $ BL.toStrict b
-            case mdta of
-              Just dta -> do
-                let adjustDTA (DTA z tree) = DTA z $ adjustDTATree tree
-                    adjustDTATree (Tree nid chunks) = Tree nid $ adjustDTAChunks chunks
-                    adjustDTAChunks = \case
-                      [Sym "rating", Int 4] -> [Sym "rating", Int 2]
-                      xs -> map adjustDTAChunk xs
-                    adjustDTAChunk = \case
-                      Parens tree -> Parens $ adjustDTATree tree
-                      Braces tree -> Braces $ adjustDTATree tree
-                      Brackets tree -> Brackets $ adjustDTATree tree
-                      x -> x
-                    b' = BL.fromStrict $ B8.pack $ T.unpack $ showDTA $ adjustDTA dta
-                    r' = makeHandle "" $ byteStringSimpleHandle b'
-                return (name, r')
-              Nothing -> do
-                warn "Couldn't parse songs.dta; passing through unmodified. (For official non-RBN DLC, this should be fine)"
-                return (name, r)
-          ".milo_xbox" -> do
-            let name' = T.pack $ dropExtension (T.unpack name) <> ".milo_ps3"
-            return (name', r)
-          ".png_xbox" -> stackIO $ do
-            b <- useHandle r handleToByteString
-            let name' = T.pack $ dropExtension (T.unpack name) <> ".png_ps3"
-                b' = BL.take 0x20 b <> BL.pack (swapBytes $ BL.unpack $ BL.drop 0x20 b)
-                swapBytes (x : y : xs) = y : x : swapBytes xs
-                swapBytes xs           = xs
-                r' = makeHandle "" $ byteStringSimpleHandle b'
-            return (name', r')
-          _ -> return (name, r)
-        newSubs <- forM (folderSubfolders folder) $ \(name, sub) -> do
-          sub' <- adjustFiles sub
-          return (name, sub')
-        return Folder { folderSubfolders = newSubs, folderFiles = newFiles }
-  main <- container "USRDIR" . container rbps3Folder <$> adjustFiles conFolder
-  stackIO $ do
-    extraPath <- getResourcesPath $ if isRB3 then "pkg-contents/rb3" else "pkg-contents/rb2"
-    extra <- crawlFolder extraPath
-    makePKG rbps3ContentID (first TE.encodeUtf8 $ main <> extra) fout
