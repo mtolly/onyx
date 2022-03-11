@@ -6,6 +6,8 @@ These instructions also expect the web player to be built. If you don't want to 
 
   * `stack` (latest version, 64-bit)
   * Visual C++ 2008 Runtime
+  * [chocolatey](https://chocolatey.org/install)
+  * [NASM](https://www.nasm.us/)
   * [NSIS](http://nsis.sourceforge.net/Main_Page)
 
 ## Steps
@@ -14,13 +16,15 @@ These instructions also expect the web player to be built. If you don't want to 
 
 2. Install `make` with `stack exec -- pacman -Sy make`
 
-3. `stack exec make win-deps`
+3. Install `yasm` with `choco install yasm`
 
-4. `stack build` (do this from outside `bash` so the lib+include paths are set up right)
+4. `stack exec make win-deps`
 
-5. `stack exec make win`
+5. `stack build` (do this from outside `bash` so the lib+include paths are set up right)
 
-6. Setup program will be created.
+6. `stack exec make win`
+
+7. Setup program will be created.
 
 # Mac
 
