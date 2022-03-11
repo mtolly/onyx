@@ -70,7 +70,6 @@ import           Data.Default.Class                        (Default, def)
 import qualified Data.DTA.Serialize.GH2                    as D
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
-import           Data.Hashable                             (hash)
 import qualified Data.HashMap.Strict                       as HM
 import           Data.Int                                  (Int64)
 import           Data.IORef                                (IORef, modifyIORef,
@@ -2767,9 +2766,20 @@ templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrail
 makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
 makeTemplateRunner sink buttonText defTemplate useTemplate = do
   padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect -> do
-    makeTemplateRunner' sink rect buttonText defTemplate useTemplate
+    input <- makeTemplateRunner' sink rect buttonText defTemplate useTemplate
+    FL.setTooltip input $ T.unlines
+      [ "Template for where to create new files."
+      , "  %input_dir% - folder containing the input"
+      , "  %input_base% - input filename by itself, extension removed"
+      , "  %modifiers% - added distinguishing features e.g. speed modifier"
+      , "  %title% - title from song's metadata (including modifiers)"
+      , "  %artist% - artist from song's metadata"
+      , "  %album% - album from song's metadata"
+      , "  %author% - author from song's metadata"
+      , "  %song_id% - unique song ID"
+      ]
 
-makeTemplateRunner' :: (Event -> IO ()) -> Rectangle -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
+makeTemplateRunner' :: (Event -> IO ()) -> Rectangle -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO (FL.Ref FL.Input)
 makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
   let (buttonRect, notButton) = chopLeft 250 rect
       (_, rectA) = chopLeft 80 notButton
@@ -2788,17 +2798,6 @@ makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
   FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
   FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
   void $ FL.setValue input defTemplate
-  FL.setTooltip input $ T.unlines
-    [ "Template for where to create new files."
-    , "  %input_dir% - folder containing the input"
-    , "  %input_base% - input filename by itself, extension removed"
-    , "  %modifiers% - added distinguishing features e.g. speed modifier"
-    , "  %title% - title from song's metadata (including modifiers)"
-    , "  %artist% - artist from song's metadata"
-    , "  %album% - album from song's metadata"
-    , "  %author% - author from song's metadata"
-    , "  %song_id% - unique song ID"
-    ]
   FL.setCallback button $ \_ -> FL.getValue input >>= useTemplate
   browseButton <- FL.buttonNew browseRect $ Just "@fileopen"
   FL.setCallback browseButton $ \_ -> sink $ EventIO $ do
@@ -2814,7 +2813,7 @@ makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
   resetButton <- FL.buttonNew resetRect $ Just "@undo"
   FL.setCallback resetButton $ \_ -> sink $ EventIO $ do
     void $ FL.setValue input defTemplate
-  return ()
+  return input
 
 batchPagePreview
   :: (?preferences :: Preferences)
@@ -3523,11 +3522,6 @@ searchSTFS f = stackIO $ Dir.doesDirectoryExist f >>= \case
   True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
   False -> (\mspec -> ([], toList mspec)) <$> getSTFSSpec f
 
-searchPackages :: FilePath -> Onyx ([FilePath], [PackageSpec])
-searchPackages f = stackIO $ Dir.doesDirectoryExist f >>= \case
-  True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
-  False -> (\mspec -> ([], toList mspec)) <$> getPackageSpec f
-
 searchWoRCachable :: FilePath -> Onyx ([FilePath], [(FilePath, T.Text)])
 searchWoRCachable f = stackIO $ Dir.doesDirectoryExist f >>= \case
   True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
@@ -3679,7 +3673,7 @@ pageQuickConvert sink rect tab startTasks = mdo
       updateFiles f = do
         modifyMVar_ loadedFiles f
         sink $ EventIO updatePackGo
-  filesGroup <- fileLoadWindow filesRect sink "CON/LIVE/PKG" "Rock Band CON/LIVE/PKG" updateFiles [] searchQuickSongs
+  filesGroup <- fileLoadWindow filesRect sink "Rock Band song" "Rock Band songs" updateFiles [] searchQuickSongs
     $ \qinput -> let
       entry = T.pack $ quickInputPath qinput
       subline = T.pack $ case length $ quickInputSongs qinput of
@@ -3732,16 +3726,28 @@ pageQuickConvert sink rect tab startTasks = mdo
     , ("Make Dolphin (Wii) pack"                                  , QCDolphin  )
     ] withQCMode
 
-  let quickTemplate :: FilePath -> T.Text -> T.Text -> FilePath
-      quickTemplate fin ext txt = validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
+  let quickTemplate :: FilePath -> T.Text -> T.Text -> Maybe QuickDTA -> FilePath
+      quickTemplate fin ext txt qdta = validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
         [ T.intercalate (T.pack $ takeDirectory fin) . T.splitOn "%input_dir%"
         , T.intercalate (validFileNamePiece NameRulePC $ dropExt $ T.pack $ takeFileName fin) . T.splitOn "%input_base%"
         , T.intercalate ext . T.splitOn "%ext%"
+        , T.intercalate (maybe "" qdtaTitle qdta) . T.splitOn "%title%"
+        , T.intercalate (fromMaybe "" $ qdta >>= qdtaArtist) . T.splitOn "%artist%"
         ] where dropExt f = fromMaybe f $ T.stripSuffix ".pkg" f
+
+      artistTitle qsong = T.intercalate " - " $ concat
+        [ toList $ qdtaArtist $ quickSongDTA qsong
+        , [qdtaTitle $ quickSongDTA qsong]
+        ]
+
+      defaultTitle qsongs = case qsongs of
+        [qsong]   -> artistTitle qsong
+        []        -> "(empty)"
+        qsong : _ -> T.pack (show $ length qsongs) <> " songs incl. " <> artistTitle qsong
 
   -- row3/row4: mode-specific stuff
   let (formatArea, ps3OptionsArea) = chopLeft 150 row3
-      (ps3EncryptArea, ps3FolderArea) = chopLeft 300 ps3OptionsArea
+      (ps3EncryptArea, ps3FolderArea) = chopLeft 225 ps3OptionsArea
       makeCheckEncrypt = do
         btn <- FL.checkButtonNew ps3EncryptArea $ Just "Encrypt .mid.edat"
         void $ FL.setValue btn $ prefPS3Encrypt ?preferences
@@ -3826,11 +3832,11 @@ pageQuickConvert sink rect tab startTasks = mdo
       , ("Each song gets a new USRDIR subfolder", Just QCSeparateFolders)
       ]
     FL.end ps3Options
-    makeTemplateRunner' -- TODO fix tooltip for supported template pieces
+    void $ makeTemplateRunner'
       sink
       row4
       "Start"
-      ("%input_dir%/%input_base%_convert%ext%") -- TODO implement %ext%
+      "%input_dir%/%input_base%_convert%ext%"
       $ \template -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         fmt <- stackIO getFormat
@@ -3846,7 +3852,7 @@ pageQuickConvert sink rect tab startTasks = mdo
                   QCFormatCON  -> ""
                   QCFormatLIVE -> ""
                   QCFormatPKG  -> ".pkg"
-                fout = quickTemplate fin ext template
+                fout = quickTemplate fin ext template Nothing
                 isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
                 ps3Settings = QuickPS3Settings
                   { qcPS3Folder  = ps3Folder
@@ -3855,9 +3861,8 @@ pageQuickConvert sink rect tab startTasks = mdo
                   }
                 xboxSettings live = stackIO $
                   (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                  -- TODO title/description
-                  "Onyx Quick Convert"
-                  ""
+                  (maybe (defaultTitle qsongs') (T.concat . take 1 . STFS.md_DisplayName       ) $ quickInputXbox qinput)
+                  (maybe ""                     (T.concat . take 1 . STFS.md_DisplayDescription) $ quickInputXbox qinput)
                   live
             case fmt of
               QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
@@ -3930,8 +3935,7 @@ pageQuickConvert sink rect tab startTasks = mdo
                           }
                         xboxSettings live = stackIO $
                           (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                          -- TODO title/description
-                          "Onyx Quick Convert"
+                          (defaultTitle qsongs')
                           ""
                           live
                     case fmt of
@@ -3953,39 +3957,43 @@ pageQuickConvert sink rect tab startTasks = mdo
     ps3Options <- FL.groupNew ps3OptionsArea Nothing
     getEncrypt <- makeCheckEncrypt
     FL.end ps3Options
-    btnGo <- FL.buttonNew row4 $ Just "Select folder…"
-    taskColor >>= FL.setColor btnGo
-    FL.setCallback btnGo $ \_ -> sink $ EventIO $ do
-      files <- readMVar loadedFiles
-      fmt <- getFormat
-      enc <- getEncrypt
-      midiTransform <- getMIDITransform
-      askFolder (takeDirectory . quickInputPath <$> listToMaybe files) $ \dout -> do
-        sink $ EventOnyx $ startTasks $ flip map (concatMap quickInputSongs files) $ \qsong -> let
-          fout = dout </> show (hash $ qdtaRaw $ quickSongDTA qsong) -- TODO
-          artistTitle = T.intercalate " - " $ concat
-            [ toList $ qdtaArtist $ quickSongDTA qsong
-            , [qdtaTitle $ quickSongDTA qsong]
-            ]
-          isRB3 = qdtaRB3 $ quickSongDTA qsong
-          task = do
-            qsong' <- midiTransform qsong
-            let ps3Settings = QuickPS3Settings
-                  { qcPS3Folder  = Just QCSeparateFolders
-                  , qcPS3Encrypt = enc
-                  , qcPS3RB3     = isRB3
-                  }
-                xboxSettings live = stackIO $
-                  (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                  artistTitle
-                  ""
-                  live
-            case fmt of
-              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
-              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
-              QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
-            return [fout]
-          in (T.unpack artistTitle, task)
+    void $ makeTemplateRunner'
+      sink
+      row4
+      "Select folder…"
+      "%artist% - %title%%ext%"
+      $ \template -> sink $ EventIO $ do
+        files <- readMVar loadedFiles
+        fmt <- getFormat
+        enc <- getEncrypt
+        midiTransform <- getMIDITransform
+        askFolder (takeDirectory . quickInputPath <$> listToMaybe files) $ \dout -> do
+          let inputSongs = files >>= \f -> map (f,) (quickInputSongs f)
+          sink $ EventOnyx $ startTasks $ flip map inputSongs $ \(qinput, qsong) -> let
+            ext = case fmt of
+              QCFormatCON  -> ""
+              QCFormatLIVE -> ""
+              QCFormatPKG  -> ".pkg"
+            fout = dout </> quickTemplate (quickInputPath qinput) ext template (Just $ quickSongDTA qsong)
+            isRB3 = qdtaRB3 $ quickSongDTA qsong
+            task = do
+              qsong' <- midiTransform qsong
+              let ps3Settings = QuickPS3Settings
+                    { qcPS3Folder  = Just QCSeparateFolders
+                    , qcPS3Encrypt = enc
+                    , qcPS3RB3     = isRB3
+                    }
+                  xboxSettings live = stackIO $
+                    (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                    (artistTitle qsong)
+                    ""
+                    live
+              case fmt of
+                QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
+                QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
+                QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
+              return [fout]
+            in (T.unpack $ artistTitle qsong, task)
 
   -- Wii (Dolphin) pack
   --   2nd row: checkbox for preview audio

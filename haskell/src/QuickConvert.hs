@@ -27,7 +27,7 @@ import           Data.Bifunctor                   (first, second)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (toLower)
+import           Data.Char                        (isAlphaNum, isAscii, toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Conduit.Audio.Sndfile       (sinkSnd, sourceSndFrom)
 import qualified Data.Digest.Pure.MD5             as MD5
@@ -588,12 +588,13 @@ discardSize (t, (_, x)) = (t, x)
 
 saveQuickSongsPKG :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3Settings -> FilePath -> StackTraceT m ()
 saveQuickSongsPKG qsongs settings fout = do
-  -- TODO put some of song title/artist in the folders
-  let oneFolder = B8.pack $ take 0x1B $ "OQC" <> show (hash $ map (qdtaRaw . quickSongDTA) qsongs)
+  let oneFolder = B8.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
+        $ "O" <> take 6 (show $ hash $ map (qdtaRaw . quickSongDTA) qsongs)
       contentID = npdContentID
         $ (if qcPS3RB3 settings then rb3CustomMidEdatConfig else rb2CustomMidEdatConfig) oneFolder
   qsongMapping <- fmap (Map.unionsWith (<>)) $ forM qsongs $ \qsong -> do
-    let separateFolder = B8.pack $ take 0x1B $ "OQC" <> show (hash $ qdtaRaw $ quickSongDTA qsong)
+    let separateFolder = B8.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
+          $ "O" <> take 6 (show $ hash $ qdtaRaw $ quickSongDTA qsong) <> T.unpack (qdtaTitle $ quickSongDTA qsong)
         chosenFolder = case qcPS3Folder settings of
           Nothing -> case quickSongPS3Folder qsong of
             Just dir -> dir -- came from ps3, keep the same subfolder

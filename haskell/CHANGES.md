@@ -1,11 +1,28 @@
 # Version history
 
-## 20220129
+## 2022????
 
-* Prerelease version
-* Demo of quick CON to PKG screen
-* Test of nondeterministic auto song ID for RB 2/3
-* Various bug fixes
+* New tool, Quick Convert, which performs operations on Rock Band format songs
+  without recompiling
+  * Replaces the pack creator (for RB), and can also extract a pack into songs
+  * Replaces the black VENUE tool, and can also remove overdrive or lanes
+  * Converts between Xbox 360 and PlayStation 3
+  * Can resign CON/LIVE, and decrypt/encrypt PS3 MIDIs
+  * Replaces/includes Dolphin conversion previously in batch mode
+* Support for generating PlayStation 3 format for Guitar Hero: Warriors of Rock
+  * WoR Song Cache tool can take `.pkg` or `_TEXT.PAK.PS3.EDAT` as input,
+    and produce `.pkg`
+  * To include data from official DLC, provide `.RAP` files in
+    `onyx-resources/raps`
+* Fix preview audio playback continuing for a bit after song window is closed
+  on Windows (#183)
+* Add an option to treat encrypted .mogg files as silent,
+  rather than an error (#184)
+* Fix Clone Hero audio output to always end at `[end]`
+* Fix Clone Hero output to not include silent audio files other than `song.ogg`
+* Improve import of GH1/GH2 (PS2) and GH:WoR (360/PS3) files to not have to do
+  lengthy audio conversion up front
+* Better organized Preferences screen with tabs
 
 ## 20211224
 
