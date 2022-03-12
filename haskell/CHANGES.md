@@ -5,16 +5,19 @@
 * New tool, Quick Convert, which performs operations on Rock Band format songs
   without recompiling
   * Replaces the pack creator (for RB), and can also extract a pack into songs
-  * Replaces the black VENUE tool, and can also remove overdrive or lanes
+  * Replaces the black VENUE tool, and can also remove overdrive or lanes,
+    and decompress `.milo_*` files
   * Converts between Xbox 360 and PlayStation 3
-  * Can resign CON/LIVE, and decrypt/encrypt PS3 MIDIs
+  * Can resign CON/LIVE, decrypt/encrypt PS3 MIDIs,
+    and split/combine package folders within `.pkg`
   * Replaces/includes Dolphin conversion previously in batch mode
-* Support for generating PlayStation 3 format for Guitar Hero: Warriors of Rock
+* Import/export support for PlayStation 3 format for
+  Guitar Hero: Warriors of Rock
   * WoR Song Cache tool can take `.pkg` or `_TEXT.PAK.PS3.EDAT` as input,
     and produce `.pkg`
   * To include data from official DLC, provide `.RAP` files in
     `onyx-resources/raps`
-* Tentative import support for Rock Band 4 (extracted contents from PS4)
+* Tentative import support for Rock Band 4 DLC (extracted contents from PS4)
 * Import support for Rock Band 1 for PS2
 * Fix preview audio playback continuing for a bit after song window is closed
   on Windows (#183)
