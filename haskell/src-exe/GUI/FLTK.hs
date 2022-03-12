@@ -1755,7 +1755,7 @@ warnCombineXboxGH2 sink go = sink $ EventOnyx $ do
   prefs <- readPreferences
   stackIO $ unless (prefWarnedXboxGH2 prefs) $ do
     void $ FL.flChoice (T.unlines
-      [ "Note! When loading songs into Guitar Hero II for Xbox 360, you *must* combine them into packs (go to \"Other tools\")."
+      [ "Note! When loading songs into Guitar Hero II for Xbox 360, you *must* combine them into packs (go to \"Quick convert\")."
       , "Loading more than 16 packages will fail to load some songs, and will corrupt your save!"
       ]) "OK" Nothing Nothing
     savePreferences prefs { prefWarnedXboxGH2 = True }
@@ -2800,16 +2800,9 @@ makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
   void $ FL.setValue input defTemplate
   FL.setCallback button $ \_ -> FL.getValue input >>= useTemplate
   browseButton <- FL.buttonNew browseRect $ Just "@fileopen"
-  FL.setCallback browseButton $ \_ -> sink $ EventIO $ do
-    picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
-    FL.setTitle picker "Location for output files"
-    FL.showWidget picker >>= \case
-      FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-        Nothing  -> return ()
-        Just dir -> do
-          val <- FL.getValue input
-          void $ FL.setValue input $ T.pack $ dir </> takeFileName (T.unpack val)
-      _ -> return ()
+  FL.setCallback browseButton $ \_ -> sink $ EventIO $ askFolder Nothing $ \dir -> do
+    val <- FL.getValue input
+    void $ FL.setValue input $ T.pack $ dir </> takeFileName (T.unpack val)
   resetButton <- FL.buttonNew resetRect $ Just "@undo"
   FL.setCallback resetButton $ \_ -> sink $ EventIO $ do
     void $ FL.setValue input defTemplate
@@ -3056,28 +3049,22 @@ miscPageMilo sink rect tab startTasks = do
   padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Repack .milo from folder"
     taskColor >>= FL.setColor btn
-    FL.setCallback btn $ \_ -> do
-      picker1 <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
-      FL.setTitle picker1 "Select extracted folder"
-      FL.showWidget picker1 >>= \case
-        FL.NativeFileChooserPicked -> FL.getFilename picker1 >>= \case
+    FL.setCallback btn $ \_ -> askFolder Nothing $ \din -> do
+      let dinText = T.pack din
+      miloPicker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle miloPicker "Save .milo"
+      FL.setPresetFile miloPicker $ case T.stripSuffix "-extract" dinText of
+        Just stripped -> stripped
+        Nothing       -> dinText <> ".milo"
+      FL.setFilter miloPicker "*.{milo_xbox,milo_ps3,milo_wii}"
+      FL.showWidget miloPicker >>= \case
+        FL.NativeFileChooserPicked -> FL.getFilename miloPicker >>= \case
           Nothing -> return ()
-          Just dinText@(T.unpack -> din) -> do
-            picker2 <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-            FL.setTitle picker2 "Save .milo"
-            FL.setPresetFile picker2 $ case T.stripSuffix "-extract" dinText of
-              Just stripped -> stripped
-              Nothing       -> dinText <> ".milo"
-            FL.setFilter picker2 "*.{milo_xbox,milo_ps3,milo_wii}"
-            FL.showWidget picker2 >>= \case
-              FL.NativeFileChooserPicked -> FL.getFilename picker2 >>= \case
-                Nothing -> return ()
-                Just (T.unpack -> fout) -> sink $ EventOnyx $ let
-                  task = do
-                    packMilo din fout
-                    return [fout]
-                  in startTasks [("Repack " <> din, task)]
-              _ -> return ()
+          Just (T.unpack -> fout) -> sink $ EventOnyx $ let
+            task = do
+              packMilo din fout
+              return [fout]
+            in startTasks [("Repack " <> din, task)]
         _ -> return ()
     return ()
   {-
@@ -3647,7 +3634,7 @@ pageQuickConvert
 pageQuickConvert sink rect tab startTasks = mdo
   loadedFiles <- newMVar []
   let (mainRect, processorsRect) = chopRight 200 rect
-      (filesRect, bottomRect) = chopBottom 126 mainRect
+      (filesRect, trimClock 0 0 5 0 -> bottomRect) = chopBottom 131 mainRect
       (trimClock 5 10 5 10 -> row2, row34) = chopBottom 84 bottomRect
       [row3, row4] = map (trimClock 5 10 5 10) $ splitVertN 2 row34
       computePacks = runMaybeT $ do
@@ -3670,9 +3657,23 @@ pageQuickConvert sink rect tab startTasks = mdo
               1 -> "Make 1 pack"
               n -> "Make " <> show n <> " packs"
             FL.activate go
+      updateInPlace = readIORef inPlaceGoRef >>= \case
+        Nothing -> return ()
+        Just go -> do
+          files <- readMVar loadedFiles
+          let isValidInPlace qinput = case quickInputFormat qinput of
+                QCInputTwoWay _ -> True
+                _               -> False
+          if all isValidInPlace files
+            then do
+              FL.setLabel go "Start"
+              FL.activate go
+            else do
+              FL.setLabel go "Unsupported format: transform in place supports CON/LIVE/PKG"
+              FL.deactivate go
       updateFiles f = do
         modifyMVar_ loadedFiles f
-        sink $ EventIO updatePackGo
+        sink $ EventIO $ updatePackGo >> updateInPlace
   filesGroup <- fileLoadWindow filesRect sink "Rock Band song" "Rock Band songs" updateFiles [] searchQuickSongs
     $ \qinput -> let
       entry = T.pack $ quickInputPath qinput
@@ -3746,7 +3747,7 @@ pageQuickConvert sink rect tab startTasks = mdo
         qsong : _ -> T.pack (show $ length qsongs) <> " songs incl. " <> artistTitle qsong
 
   -- row3/row4: mode-specific stuff
-  let (formatArea, ps3OptionsArea) = chopLeft 150 row3
+  let (formatArea, trimClock 0 0 0 10 -> ps3OptionsArea) = chopLeft 150 row3
       (ps3EncryptArea, ps3FolderArea) = chopLeft 225 ps3OptionsArea
       makeCheckEncrypt = do
         btn <- FL.checkButtonNew ps3EncryptArea $ Just "Encrypt .mid.edat"
@@ -3774,6 +3775,7 @@ pageQuickConvert sink rect tab startTasks = mdo
   -- Transform in place (each input is replaced with a file, package type preserved)
   --   2nd row: ps3 only: enc/unenc midi select, keep folders / one (new) folder / single-song (new) folders
   --   3rd row: go button
+  inPlaceGoRef <- newIORef Nothing
   inPlace <- modeGroup $ do
     _ <- FL.boxNew formatArea $ Just "For PS3 files:"
     getEncrypt <- makeCheckEncrypt
@@ -3816,6 +3818,7 @@ pageQuickConvert sink rect tab startTasks = mdo
           stackIO $ Dir.renameFile tmp fin
           return [fin]
         in (fin, task)
+    writeIORef inPlaceGoRef $ Just btnGo
 
   -- One to one (each input file gets one new output file, of a single package type)
   --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select, original/separate/combined songs.dta select)
@@ -3827,7 +3830,7 @@ pageQuickConvert sink rect tab startTasks = mdo
     ps3Options <- FL.groupNew ps3OptionsArea Nothing
     getEncrypt <- makeCheckEncrypt
     getFolderSetting <- makePresetDropdown ps3FolderArea
-      [ ("Keep original USRDIR subfolders", Nothing)
+      [ ("Keep original USRDIR subfolders (if any)", Nothing)
       , ("Combine into one new USRDIR subfolder per file", Just QCOneFolder)
       , ("Each song gets a new USRDIR subfolder", Just QCSeparateFolders)
       ]
@@ -3887,7 +3890,7 @@ pageQuickConvert sink rect tab startTasks = mdo
       , ("Each song gets a new USRDIR subfolder", QCSeparateFolders)
       ]
     FL.end ps3Options
-    let (chopLeft 150 -> (_, maxSizeArea), goArea) = chopLeft 300 row4
+    let (trimClock 0 10 0 150 -> maxSizeArea, goArea) = chopLeft 300 row4
     maxSizeInput <- FL.inputNew
       maxSizeArea
       (Just "Max Pack Size (MiB)")
@@ -3926,6 +3929,7 @@ pageQuickConvert sink rect tab startTasks = mdo
                 in sink $ EventOnyx $ startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
                   fout = getOutputPath i
                   task = do
+                    mapM_ (lg . T.unpack . artistTitle) qsongs
                     qsongs' <- mapM midiTransform qsongs
                     let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
                         ps3Settings = QuickPS3Settings
@@ -4243,14 +4247,8 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
     FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
     FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
     pick <- FL.buttonNew pickRect $ Just "@fileopen"
-    FL.setCallback pick $ \_ -> sink $ EventIO $ do
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
-      FL.setTitle picker "Select folder with Rock Band CONs"
-      FL.showWidget picker >>= \case
-        FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
-          Nothing -> return ()
-          Just f  -> void $ FL.setValue input f
-        _                          -> return ()
+    FL.setCallback pick $ \_ -> sink $ EventIO $ askFolder Nothing $ \f -> do
+      void $ FL.setValue input $ T.pack f
     return $ fmap T.unpack $ FL.getValue input
   pickedCache <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     let (_, rectA) = chopLeft 100 rect'
@@ -5126,14 +5124,8 @@ launchPreferences sink makeMenuBar = do
         FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
         void $ FL.setValue input initValue
         browseButton <- FL.buttonNew browseRect $ Just "@fileopen"
-        FL.setCallback browseButton $ \_ -> sink $ EventIO $ do
-          picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
-          FL.setTitle picker "Location for output files"
-          FL.showWidget picker >>= \case
-            FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-              Nothing  -> return ()
-              Just dir -> void $ FL.setValue input $ T.pack dir
-            _ -> return ()
+        FL.setCallback browseButton $ \_ -> sink $ EventIO $ askFolder Nothing $ \dir -> do
+          void $ FL.setValue input $ T.pack dir
         resetButton <- FL.buttonNew resetRect $ Just "@undo"
         FL.setCallback resetButton $ \_ -> sink $ EventIO $ do
           void $ FL.setValue input ""

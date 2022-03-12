@@ -15,8 +15,9 @@ import           Control.Monad.Trans.Writer       (execWriter, tell)
 import           Data.Bifunctor                   (first)
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, fromMaybe)
+import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Text                        as T
 import           DeriveHelpers
@@ -218,14 +219,43 @@ getDifficulty diff trk = let
 -- full to PS/RB conversion
 
 data CymbalInstant lc rd = CymbalInstant
+  -- comments here reflect placeCymbalsFancy
   { instantHH :: Maybe D.RealDrum -- always yellow (with ps real mods)
   , instantLC :: Maybe lc -- default yellow, can be pushed to blue
   , instantRD :: Maybe rd -- default blue, can be pushed to green
   , instantRC :: Bool -- always green
   } deriving (Show)
 
+-- Simple version, hihat = Y, left cymbal = B, right cymbal / ride = G
 placeCymbals :: (NNC.C t) => RTB.T t (FullGem, FullGemType, DrumVelocity) -> RTB.T t (D.RealDrum, DrumVelocity)
 placeCymbals
+  -- TODO actually preserve the velocities
+  = fmap (, VelocityNormal)
+  . RTB.flatten . fmap (emitCymbals . makeInstant) . RTB.collectCoincident
+  . fmap (\(gem, gtype, _vel) -> (gem, gtype))
+  where
+
+  makeInstant notes = CymbalInstant
+    { instantHH = if
+      | elem (Hihat, GemHihatClosed) notes -> Just $ Left D.HHSizzle
+      | elem (Hihat, GemHihatOpen) notes  -> Just $ Left D.HHOpen
+      | any (\case (Hihat, _) -> True; _ -> False) notes  -> Just $ Right $ D.Pro D.Yellow D.Cymbal
+      | any (\case (HihatFoot, _) -> True; _ -> False) notes  -> Just $ Left D.HHPedal
+      | otherwise             -> Nothing
+    , instantLC = guard (any (\case (CrashL, _) -> True; _ -> False) notes) >> Just ()
+    , instantRD = guard (any (\case (Ride, _) -> True; _ -> False) notes) >> Just ()
+    , instantRC = any (\case (CrashR, _) -> True; _ -> False) notes
+    }
+
+  emitCymbals (CymbalInstant hh lc rd rc) = let
+    yellow = toList hh
+    blue = [Right $ D.Pro D.Blue D.Cymbal | isJust lc || (isJust rd && rc)]
+    green = [Right $ D.Pro D.Green D.Cymbal | isJust rd || rc]
+    in yellow <> blue <> green
+
+-- Not used anymore. Might have as an option in the future
+placeCymbalsFancy :: (NNC.C t) => RTB.T t (FullGem, FullGemType, DrumVelocity) -> RTB.T t (D.RealDrum, DrumVelocity)
+placeCymbalsFancy
   -- TODO actually preserve the velocities
   = fmap (, VelocityNormal)
   . RTB.flatten . fmap emitCymbals . assignFull . RTB.filter hasCymbals . fmap makeInstant . RTB.collectCoincident

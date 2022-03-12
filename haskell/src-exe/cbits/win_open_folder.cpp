@@ -8,7 +8,8 @@ wchar_t *OnyxPickFolder(wchar_t *StartFolder) {
     PWSTR result = NULL;
 
     // Adapted from code by Grizz, https://stackoverflow.com/q/8269696
-    // TODO do we need to initialize COM, as in https://docs.microsoft.com/en-us/windows/win32/learnwin32/example--the-open-dialog-box ?
+    // note, COM may need to be initialized as in https://docs.microsoft.com/en-us/windows/win32/learnwin32/example--the-open-dialog-box
+    // we now do this on onyx launch
     IFileDialog *pfd;
     if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pfd))))
     {
@@ -42,6 +43,12 @@ wchar_t *OnyxPickFolder(wchar_t *StartFolder) {
     }
 
     return result;
+}
+
+void onyxInitCOM() {
+    // I'm not really sure if the threading model matters,
+    // but if I put COINIT_MULTITHREADED then drag and drop into FLTK breaks
+    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 }
 
 }

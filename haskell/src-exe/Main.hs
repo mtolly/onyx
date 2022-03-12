@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP        #-}
 {-# LANGUAGE LambdaCase #-}
 module Main (main) where
 
@@ -21,6 +22,9 @@ checkShell s = liftIO (readCreateProcessWithExitCode (shell s) "") >>= \case
 
 main :: IO ()
 main = do
+#ifdef WINDOWS
+  initCOM
+#endif
   argv <- getArgs
   case argv of
     [] -> launchGUI
@@ -38,3 +42,8 @@ main = do
           hPutStrLn stderr "ERROR!"
           hPutStr stderr $ displayException msgs
           exitFailure
+
+#ifdef WINDOWS
+foreign import ccall unsafe "onyxInitCOM"
+  initCOM :: IO ()
+#endif

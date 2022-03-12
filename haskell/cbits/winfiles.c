@@ -4,8 +4,8 @@
 #include <shlobj.h>
 
 void onyx_ShowFiles(wchar_t *dir, wchar_t **files, int len) {
-  // initialize COM (SDL does this itself but I don't think FLTK does)
-  CoInitializeEx(NULL, COINIT_MULTITHREADED);
+  // COM needs to be initialized (we do this on Onyx launch now)
+  //CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
   ITEMIDLIST *pidl = ILCreateFromPathW(dir);
   if (pidl) {
@@ -30,5 +30,5 @@ void onyx_ShowFiles(wchar_t *dir, wchar_t **files, int len) {
   }
 
   // tear down COM
-  CoUninitialize();
+  //CoUninitialize();
 }

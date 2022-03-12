@@ -80,6 +80,11 @@ Onyx can import the following song formats:
     * Official DLC whose .mid.edat are encrypted with RAP files are supported.
       Copy RAP files to `onyx-resources/raps/CONTENTID.RAP`.
 
+  * Rock Band 1 PlayStation 2 extracted .ARK contents
+
+  * Rock Band 4 PlayStation 4 extracted files
+    (tentative support, may not work for everything)
+
   * Magma (v1 or v2) RBA files
 
   * Frets on Fire / Phase Shift / Clone Hero formats
@@ -97,7 +102,8 @@ Onyx can import the following song formats:
 
   * Guitar Hero II (Xbox 360) DLC (LIVE files)
 
-  * Guitar Hero: Warriors of Rock (Xbox 360) DLC (LIVE files)
+  * Guitar Hero: Warriors of Rock DLC
+    (Xbox 360 LIVE files or PlayStation 3 .pkg files)
 
   * DTXMania (DrumMania / GuitarFreaks) simfiles (.dtx/.gda)
 
@@ -310,8 +316,8 @@ compilation errors.
 
   * Guitar Hero: Warriors of Rock
 
-    Creates DLC files for Guitar Hero: Warriors of Rock for Xbox 360, for use
-    on a jailbroken (RGH or JTAG) console.
+    Creates DLC files for Guitar Hero: Warriors of Rock, for use on a jailbroken
+    Xbox 360 (RGH or JTAG) or PlayStation 3.
 
     * There appears to be a limit of slightly over 700 songs' metadata in one
       file; any more causes a crash on game launch.
@@ -438,7 +444,9 @@ Other tabs under the Quick Convert window:
   * 360 Pack Creator
 
     Combines Xbox 360 CON/LIVE files into packages containing multiple songs.
-    Works with both Rock Band, and Guitar Hero II.
+    Works with both Rock Band, and Guitar Hero II. (Rock Band songs can also
+    be combined with the main Quick Convert system, which can enforce a
+    maximum size per pack.)
 
     Packs are useful for RB songs because they can load faster on game launch.
     For GH2, they are required due to a hard limit of 16 total package files.
@@ -597,3 +605,7 @@ Other tabs under the Quick Convert window:
 
     You can also use previous cache files as an input to create new ones, so you
     don't have to keep around already-processed customs on your computer.
+
+    To create a cache using official DLC for PlayStation 3, you'll need to
+    place the appropriate `.RAP` files in the `onyx-resources/raps` folder so
+    the contents can be decrypted.

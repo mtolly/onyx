@@ -1,6 +1,6 @@
 # Version history
 
-## 2022????
+## 20220311
 
 * New tool, Quick Convert, which performs operations on Rock Band format songs
   without recompiling
@@ -14,6 +14,8 @@
     and produce `.pkg`
   * To include data from official DLC, provide `.RAP` files in
     `onyx-resources/raps`
+* Tentative import support for Rock Band 4 (extracted contents from PS4)
+* Import support for Rock Band 1 for PS2
 * Fix preview audio playback continuing for a bit after song window is closed
   on Windows (#183)
 * Add an option to treat encrypted .mogg files as silent,
@@ -22,6 +24,7 @@
 * Fix Clone Hero output to not include silent audio files other than `song.ogg`
 * Improve import of GH1/GH2 (PS2) and GH:WoR (360/PS3) files to not have to do
   lengthy audio conversion up front
+* Simpler DTX to RB cymbal mapping (#190)
 * Better organized Preferences screen with tabs
 
 ## 20211224

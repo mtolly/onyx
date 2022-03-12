@@ -645,6 +645,10 @@ saveQuickSongsDolphin :: (MonadResource m, SendMessage m) => [QuickSong] -> Quic
 saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> do
   let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
   triples <- forM qsongs $ \qsong -> do
+    lg $ T.unpack $ T.intercalate " - " $ concat
+      [ toList $ qdtaArtist $ quickSongDTA qsong
+      , [qdtaTitle $ quickSongDTA qsong]
+      ]
     wiiFiles <- mapMFilesWithName (getWiiFile . discardSize) $ quickSongFiles qsong
     let (prevStart, prevEnd) = qdtaPreview $ quickSongDTA qsong
         prevLength = min 15000 $ prevEnd - prevStart
@@ -663,7 +667,6 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
           silentPreview
         r : _ -> errorToEither (moggToOggHandle r) >>= \case
           Right rOgg -> do
-            lg "Creating preview file"
             -- TODO wanted to use ffSourceFrom (with Readable), but it crashes! no idea why
             stackIO $ saveReadable rOgg fullOgg
             src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) fullOgg
@@ -676,7 +679,7 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
               $ applyPansVols (qdtaPans $ quickSongDTA qsong) (qdtaVols $ quickSongDTA qsong)
               $ src
           Left _msgs -> do
-            lg "Encrypted audio, skipping preview"
+            lg "Encrypted audio, making silent preview"
             silentPreview
       else silentPreview
     oggToMogg prevOgg prevMogg

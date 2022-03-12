@@ -28,7 +28,7 @@ askFolderResult initial = maybe ($ nullPtr) withCWString initial $ \ws -> do
 
 askFolderResult initial = do
   picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
-  FL.setTitle picker $ T.pack "Select output folder"
+  FL.setTitle picker $ T.pack "Select folder"
   forM_ initial $ FL.setDirectory picker . T.pack
   FL.showWidget picker >>= \case
     FL.NativeFileChooserPicked -> fmap T.unpack <$> FL.getFilename picker

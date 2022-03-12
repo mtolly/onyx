@@ -183,7 +183,12 @@ importSet setDefPath = inside ("Loading DTX set.def from: " <> setDefPath) $ do
   return $ map (importSetDef $ Just setDefPath) songs
 
 importSetDef :: (SendMessage m, MonadIO m) => Maybe FilePath -> SetDef -> Import m
-importSetDef setDefPath song _level = do
+importSetDef setDefPath song level = do
+  case (level, setDefPath) of
+    (ImportFull, Just f) -> do
+      lg $ "Importing DTX from: " <> f
+      lg "Converting audio may take a while!"
+    _ -> return ()
   -- TODO need to fix path separators (both backslash and yen)
   let relToSet = maybe id (\sdp -> (takeDirectory sdp </>)) setDefPath
       fs = map (relToSet . T.unpack)
@@ -315,6 +320,11 @@ importSetDef setDefPath song _level = do
 
 importDTX :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importDTX fin level = do
+  case level of
+    ImportFull -> do
+      lg $ "Importing DTX from: " <> fin
+      lg "Converting audio may take a while!"
+    _ -> return ()
   dtxLines <- stackIO $ loadDTXLines fin
   let setDef = SetDef
         { setTitle   = fromMaybe "" $ lookup "TITLE" dtxLines
