@@ -771,6 +771,7 @@ ffSourceFrom :: forall m a. (MonadResource m, FFSourceSample a) =>
   CA.Duration -> Either Readable FilePath -> IO (CA.AudioSource m a)
 ffSourceFrom dur input = do
   (rate, channels, frames) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \_fmt_ctx dec_ctx stream -> do
+    -- TODO all these metadata pieces appear to be set elsewhere in ffmpeg 5.0
     rate <- {#get AVCodecContext->sample_rate #} dec_ctx
     channels <- {#get AVCodecContext->channels #} dec_ctx
     frames <- {#get AVStream->nb_frames #} stream >>= \case

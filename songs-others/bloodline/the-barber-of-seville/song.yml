@@ -1,0 +1,52 @@
+parts:
+  # quick tom edit pass done, maybe more to come
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+      kicks: 2
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    multitrack: false
+    vols:
+    - -10.0
+    - -10.0
+    - -0.5
+    - -0.5
+    file-mogg: audio.mogg
+targets:
+  rb3-2x:
+    song-id: TheBarberOfSeville_2xv2
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  rating: Family Friendly
+  preview-start: 1:38.000
+  expert-only: true
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 2
+  album: Classical Drumming
+  year: 2012
+  subgenre: classical
+  author: Bloodline, Onyxite
+  title: The Barber of Seville
+  preview-end: 2:08.000
+  genre: classical
+  difficulty:
+    tier: 7
+  artist: Andrea Vadrucci (Vadrum)
+global:
+  anim-tempo: 32

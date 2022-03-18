@@ -113,7 +113,7 @@ linux:
 		| xargs -I{} env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
 
 ubuntu-deps:
-	apt-get -y install libsndfile-dev libsamplerate-dev libmp3lame-dev librubberband-dev libmpg123-dev freeglut3-dev autoconf libxft-dev libopenal-dev unzip
+	apt-get -y install libsndfile-dev libsamplerate-dev libmp3lame-dev librubberband-dev libmpg123-dev freeglut3-dev autoconf libxft-dev libopenal-dev unzip libbz2-dev
 
 arch-deps:
 	pacman -S libsndfile libsamplerate lame rubberband mpg123 openal

@@ -484,6 +484,10 @@ splitInterleavedMP3 n bs = do
 interleaveMP3 :: (MonadFail m) => [BL.ByteString] -> m BL.ByteString
 interleaveMP3 [x]  = return x
 interleaveMP3 mp3s = do
+  -- TODO lame is sometimes inconsistent with padding of same-sized audio streams
+  -- (in our case the backing and silent tracks)
+  -- so instead of failing on inconsistent file size,
+  -- we should just use the shortest file size and drop any extra frames
   (firstMP3, frameSize) <- case mp3s of
     []      -> fail "No MP3s given to interleave"
     mp3 : _ -> case mp3CBRFrameSize mp3 of
