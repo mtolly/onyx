@@ -484,21 +484,20 @@ splitInterleavedMP3 n bs = do
 interleaveMP3 :: (MonadFail m) => [BL.ByteString] -> m BL.ByteString
 interleaveMP3 [x]  = return x
 interleaveMP3 mp3s = do
-  -- TODO lame is sometimes inconsistent with padding of same-sized audio streams
+  -- lame is sometimes inconsistent with padding of same-sized audio streams
   -- (in our case the backing and silent tracks)
   -- so instead of failing on inconsistent file size,
-  -- we should just use the shortest file size and drop any extra frames
-  (firstMP3, frameSize) <- case mp3s of
-    []      -> fail "No MP3s given to interleave"
-    mp3 : _ -> case mp3CBRFrameSize mp3 of
-      Just size -> return (mp3, size)
-      Nothing   -> fail "Couldn't parse frame size of MP3 to interleave"
-  let eachLength = BL.length firstMP3
-  eachFrameCount <- case quotRem eachLength frameSize of
+  -- we now just use the shortest file size and drop any extra frames
+  frameSize <- case mapM mp3CBRFrameSize mp3s of
+    Nothing -> fail "Unable to calculate frame size of input MP3"
+    Just [] -> fail "No MP3s given to interleave"
+    Just (size : sizes) -> if all (== size) sizes
+      then return size
+      else fail "Inconsistent frame size in MP3s to interleave"
+  let minLength = minimum $ map BL.length mp3s
+  eachFrameCount <- case quotRem minLength frameSize of
     (count, 0) -> return $ fromIntegral count
     _          -> fail "MP3 to interleave has a length not divisible by frame size"
-  when (any ((/= eachLength) . BL.length) mp3s) $ fail
-    "MP3s to interleave don't have consistent file size"
   return $ BL.concat $ concat $ transpose $ flip map mp3s $ \mp3 -> do
     posn <- take eachFrameCount $ [0, frameSize ..]
     return $ BL.take frameSize $ BL.drop posn mp3

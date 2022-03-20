@@ -3305,8 +3305,11 @@ gh5Rules buildInfo dir gh5 = do
     src <- shk $ buildSource $ Input (planDir </> "everything.wav")
     let resampled = resampleTo 48000 SincMediumQuality src
     stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Song setup resampled
+    -- we make this a second longer to make sure it is longer than the song track.
+    -- then ghBandFSBInterleaveMP3s will cut it back when interleaving.
+    -- (lame is weird and may add different amounts of padding to same-length inputs)
     stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Silence setup
-      $ silent (Frames $ frames resampled) (rate resampled) 2
+      $ silent (Frames $ frames resampled + round (rate resampled)) (rate resampled) 2
     stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3SilenceSmall setupSmall
       $ silent (Frames $ frames resampled) (rate resampled) 2
   ps3MP3Preview %> \out -> do
