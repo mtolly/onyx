@@ -3540,6 +3540,36 @@ miscPageWoRSongCache sink rect tab startTasks = do
           in [("Make WoR cache file", task)]
       _ -> return ()
 
+miscPageCONtoPKG
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageCONtoPKG sink rect tab startTasks = do
+  loadedFiles <- newMVar []
+  let (filesRect, startRect) = chopBottom 50 rect
+      [chopRight 5 -> (rb2Rect, _), chopLeft 5 -> (_, rb3Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
+  group <- fileLoadWindow filesRect sink "Rock Band CON/LIVE" "Rock Band CON/LIVE" (modifyMVar_ loadedFiles) [] searchSTFS $ \info -> let
+    entry = T.pack $ stfsPath info
+    sublines = take 1 $ STFS.md_DisplayName $ stfsMeta info
+    in (entry, sublines)
+  FL.setResizable tab $ Just group
+  let callback isRB3 = sink $ EventIO $ do
+        inputs <- map stfsPath <$> readMVar loadedFiles
+        sink $ EventOnyx $ startTasks $ flip map inputs $ \input -> let
+          pkg = input <> ".pkg"
+          task = do
+            conToPkg isRB3 input pkg
+            return [pkg]
+          in (input, task)
+  btn1 <- FL.buttonNew rb2Rect $ Just "Convert to PKG (RB2)"
+  taskColor >>= FL.setColor btn1
+  FL.setCallback btn1 $ \_ -> callback False
+  btn2 <- FL.buttonNew rb3Rect $ Just "Convert to PKG (RB3)"
+  taskColor >>= FL.setColor btn2
+  FL.setCallback btn2 $ \_ -> callback True
+
 searchSTFS :: FilePath -> Onyx ([FilePath], [STFSSpec])
 searchSTFS f = stackIO $ Dir.doesDirectoryExist f >>= \case
   True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
@@ -4359,6 +4389,10 @@ launchQuickConvert sink makeMenuBar = mdo
     , makeTab windowRect "Make a pack (360)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPagePacks sink rect tab startTasks
+      return tab
+    , makeTab windowRect "Direct CON->PKG" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      miscPageCONtoPKG sink rect tab startTasks
       return tab
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do

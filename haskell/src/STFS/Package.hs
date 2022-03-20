@@ -1306,7 +1306,8 @@ packCombineFolders roots = let
       }
   combineFiles parents name contents
     | ".dta" `T.isSuffixOf` name = do
-      bytes <- stackIO $ forM contents $ \r -> useHandle r handleToByteString
+      let stripBOM bs = fromMaybe bs $ BL.stripPrefix "\xEF\xBB\xBF" bs
+      bytes <- stackIO $ forM contents $ \r -> stripBOM <$> useHandle r handleToByteString
       return $ Just $ makeHandle ("Pack-merged contents for " <> showPath parents name)
         $ byteStringSimpleHandle $ BL.intercalate "\n" bytes
     | ".pak.xen" `T.isSuffixOf` name = fatal "Pack creator does not yet support Neversoft GH files."

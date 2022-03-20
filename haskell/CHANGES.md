@@ -1,5 +1,13 @@
 # Version history
 
+## 20220319
+
+* Add custom USRDIR subfolder option to Quick Convert PS3 pack creator
+* Fix "unmute >22-fret protar notes" Quick Convert toggle (broke in 20220311)
+* Fix PS3 GH:WoR output sometimes not being able to generate audio successfully
+* Fix 360 pack creator not stripping byte order markers from songs.dta when
+  combining, leading to game crashes
+
 ## 20220311
 
 * New tool, Quick Convert, which performs operations on Rock Band format songs

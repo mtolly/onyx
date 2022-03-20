@@ -464,6 +464,13 @@ Other tabs under the Quick Convert window:
     The game information (name, title ID, thumbnail) are taken from the first
     input package in the list.
 
+  * Direct CON->PKG
+
+    This is an older method of converting Xbox 360 (CON/LIVE) files directly to
+    PS3 .pkg files. This can usually be done by the main Quick Convert window
+    with more options, however this tool can also work on things that are not
+    valid standalone songs, such as Pro Guitar/Bass upgrades.
+
 ## Other Tools
 
   * Fill in automatic lower difficulties (MIDI function)
