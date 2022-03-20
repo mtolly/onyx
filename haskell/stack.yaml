@@ -31,25 +31,25 @@ extra-deps:
 - make_npdata/
 - rb1-mogg-encrypt/
 # git repos
-- git: git://github.com/mtolly/midi
+- git: https://github.com/mtolly/midi
   commit: 66a49fe08bd941322061fc812f0eab6bac68c6f9
-- git: git://github.com/mtolly/conduit-audio
+- git: https://github.com/mtolly/conduit-audio
   commit: 0a90a9541b261583a09e5d5f9f416bc7ae59d07d
   subdirs:
   - conduit-audio-mpg123
-- git: git://github.com/deech/fltkhs
-  commit: 272d225e641e9b6161df82066e9a4b919c0e812a
+- git: https://github.com/mtolly/fltkhs
+  commit: 7bf8f2fbdaa034596dcde23f1b2cf6bf4838ac4d
   subdirs:
   - fltkhs
-- git: git://github.com/mtolly/midi-util
+- git: https://github.com/mtolly/midi-util
   commit: 1ea0f72a3795375e4b9eafcaef2500d105faf20f
-- git: git://github.com/mtolly/OpenAL
+- git: https://github.com/mtolly/OpenAL
   commit: 3c74c9807c2d126cbbd2596082f9b9345a247ec5
-- git: git://github.com/mtolly/codec # ghc 8.8 patch
+- git: https://github.com/mtolly/codec # ghc 8.8 patch
   commit: 7415d2224135574fafaec533b7507e4276dd7c70
-- git: git://github.com/mtolly/mpg123-haskell-binding
+- git: https://github.com/mtolly/mpg123-haskell-binding
   commit: 4790b92549b7db51801a67cf1055259e3abcf60e
-- git: git://github.com/mtolly/language-c
+- git: https://github.com/mtolly/language-c
   commit: 5e40d962fb71b7e1256ff607194c53544709e761
 resolver: lts-17.12
 flags:

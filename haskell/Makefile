@@ -40,7 +40,7 @@ mac:
 	stack exec -- onyx-package version-print | ./mac-package.sh
 
 mac-deps:
-	brew install libsndfile libsamplerate lame rubberband dylibbundler wine mpg123 autoconf openal-soft
+	brew install libsndfile libsamplerate lame rubberband dylibbundler mpg123 autoconf openal-soft
 
 win:
 	stack build

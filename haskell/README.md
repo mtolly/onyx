@@ -22,7 +22,7 @@ https://creativecommons.org/licenses/by-sa/4.0/
 Onyx is currently compiled on:
 
   * Windows 10
-  * macOS High Sierra
+  * macOS Monterey
   * Linux kernel 4.4 (Ubuntu 16.04)
 
 It may work on previous versions (such as Windows 7) but this is not certain.
