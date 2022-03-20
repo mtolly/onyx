@@ -573,6 +573,7 @@ saveQuickSongsSTFS qsongs opts fout = do
 data QuickPS3Folder
   = QCOneFolder
   | QCSeparateFolders
+  | QCCustomFolder B.ByteString
 
 data QuickPS3Settings = QuickPS3Settings
   { qcPS3Folder  :: Maybe QuickPS3Folder
@@ -601,6 +602,7 @@ saveQuickSongsPKG qsongs settings fout = do
             Nothing  -> separateFolder -- came from xbox, assign new random folder
           Just QCOneFolder -> oneFolder -- one folder for whole pkg
           Just QCSeparateFolders -> separateFolder -- separate folder for each song
+          Just (QCCustomFolder bs) -> bs
         mcrypt = guard (qcPS3Encrypt settings) >> Just (chosenFolder, qcPS3RB3 settings)
     ps3Folder <- mapMFilesWithName (getPS3File mcrypt . discardSize) $ quickSongFiles qsong
     return $ Map.singleton chosenFolder [(qsong, ps3Folder)]

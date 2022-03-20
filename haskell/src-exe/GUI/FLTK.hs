@@ -1476,6 +1476,42 @@ makePresetDropdown rect opts = do
       (FL.MenuItemFlags [])
   return $ readIORef ref
 
+makePS3PackPresetDropdown :: (Event -> IO ()) -> Rectangle -> IO (IO QuickPS3Folder)
+makePS3PackPresetDropdown sink rect = do
+  let labelOne = "Combine into one new USRDIR subfolder per pack"
+      labelSeparate = "Each song gets a new USRDIR subfolder"
+      labelCustomInitial = "Custom USRDIR subfolder..."
+      labelCustom txt = "Custom folder: " <> txt
+      customPrompt = "Enter custom USRDIR subfolder for your pack. (A number will be appended if creating more than one pack.)"
+  menu <- FL.menuButtonNew rect $ Just labelOne
+  ref <- newIORef QCOneFolder
+  void $ FL.add menu labelOne Nothing
+    ((Just $ \_ -> do
+      writeIORef ref QCOneFolder
+      FL.setLabel menu labelOne
+    ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
+    (FL.MenuItemFlags [])
+  void $ FL.add menu labelSeparate Nothing
+    ((Just $ \_ -> do
+      writeIORef ref QCSeparateFolders
+      FL.setLabel menu labelSeparate
+    ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
+    (FL.MenuItemFlags [])
+  void $ FL.add menu labelCustomInitial Nothing
+    ((Just $ \_ -> do
+      defValue <- flip fmap (readIORef ref) $ \case
+        QCCustomFolder bs -> Just $ TE.decodeUtf8 bs
+        _                 -> Nothing
+      FL.flInput customPrompt defValue >>= \case
+        Nothing  -> return () -- leave as whatever it was
+        Just ""  -> return () -- ignore empty input
+        Just txt -> do
+          writeIORef ref $ QCCustomFolder $ TE.encodeUtf8 txt
+          FL.setLabel menu $ labelCustom txt
+    ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
+    (FL.MenuItemFlags [])
+  return $ readIORef ref
+
 makeModeDropdown :: Rectangle -> [(T.Text, a)] -> (a -> IO ()) -> IO ()
 makeModeDropdown rect opts withOpt = do
   let (initialLabel, initialOpt) = head opts
@@ -3885,10 +3921,7 @@ pageQuickConvert sink rect tab startTasks = mdo
       (FL.deactivate ps3Options)
     ps3Options <- FL.groupNew ps3OptionsArea Nothing
     getEncrypt <- makeCheckEncrypt
-    getFolderSetting <- makePresetDropdown ps3FolderArea
-      [ ("Combine into one new USRDIR subfolder per pack", QCOneFolder)
-      , ("Each song gets a new USRDIR subfolder", QCSeparateFolders)
-      ]
+    getFolderSetting <- makePS3PackPresetDropdown sink ps3FolderArea
     FL.end ps3Options
     let (trimClock 0 10 0 150 -> maxSizeArea, goArea) = chopLeft 300 row4
     maxSizeInput <- FL.inputNew
@@ -3923,6 +3956,9 @@ pageQuickConvert sink rect tab startTasks = mdo
                 packNumber n = case packs of
                   [_] -> ""
                   _   -> "-" <> show n
+                packNumberUSRDIR n = case packs of
+                  [_] -> ""
+                  _   -> B8.pack $ show n
                 getOutputPath n = case fmt of
                   QCFormatPKG -> dropExtension userPath <> packNumber n <> ".pkg"
                   _           -> userPath <> packNumber n
@@ -3932,8 +3968,11 @@ pageQuickConvert sink rect tab startTasks = mdo
                     mapM_ (lg . T.unpack . artistTitle) qsongs
                     qsongs' <- mapM midiTransform qsongs
                     let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                        ps3Folder' = case ps3Folder of
+                          QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
+                          _                 -> ps3Folder
                         ps3Settings = QuickPS3Settings
-                          { qcPS3Folder  = Just ps3Folder
+                          { qcPS3Folder  = Just ps3Folder'
                           , qcPS3Encrypt = enc
                           , qcPS3RB3     = isRB3
                           }
