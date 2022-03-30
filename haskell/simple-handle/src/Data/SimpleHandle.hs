@@ -255,21 +255,24 @@ handleLabel = \case
   FileHandle   s _   -> s
   DuplexHandle s _ _ -> s
 
-subHandle :: (String -> String) -> Integer -> Maybe Integer -> Readable -> Readable
-subHandle addLabel pos mlen readable = Readable
+subHandle' :: (String -> String) -> Integer -> Maybe Integer -> IO Handle -> (Handle -> IO ()) -> Readable
+subHandle' addLabel pos mlen open close = Readable
   { rFilePath = Nothing -- because it no longer refers to a simple file
   , rOpen = do
-    h <- rOpen readable
+    h <- open
     origSize <- hFileSize h
     hSeek h AbsoluteSeek pos
     openSimpleHandle (addLabel $ handleLabel h) SimpleHandle
       { shSize  = fromMaybe (origSize - pos) mlen
       , shSeek  = \n -> hSeek h AbsoluteSeek $ n + pos
       , shTell  = (\(H.HandlePosn _ n) -> n - pos) <$> H.hGetPosn h
-      , shClose = hClose h
+      , shClose = close h
       , shRead  = B.hGet h . fromIntegral
       }
   }
+
+subHandle :: (String -> String) -> Integer -> Maybe Integer -> Readable -> Readable
+subHandle addLabel pos mlen readable = subHandle' addLabel pos mlen (rOpen readable) hClose
 
 transformBytes :: (BL.ByteString -> BL.ByteString) -> Readable -> Readable
 transformBytes f r = Readable

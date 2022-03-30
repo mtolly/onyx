@@ -14,6 +14,7 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
 import           Data.Char                      (isSpace)
+import           Data.Either                    (lefts, rights)
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
 import           Data.List.NonEmpty             (NonEmpty (..))
@@ -52,6 +53,12 @@ type ValueCodec' m v a = Codec (StackParser m v) (WriterT v (State (NE.NonEmpty 
 
 class IsInside a where
   insideCodec :: (SendMessage m) => InsideCodec m a
+
+identityCodec' :: (Monad m) => ValueCodec' m a a
+identityCodec' = Codec
+  { codecIn = lift ask
+  , codecOut = makeOut id
+  }
 
 data ParseName = ParseName
   { pURI  :: Maybe String
@@ -174,6 +181,9 @@ childTagOpt t cdc = Codec
 
 ignoreChildTag :: (SendMessage m) => ParseName -> CodecFor (InsideParser m) InsideBuilder a ()
 ignoreChildTag t = const () =. dimap (const Nothing) (const ()) (childTagOpt t $ return ())
+
+ignoreAttr :: (Monad m) => ParseName -> CodecFor (InsideParser m) InsideBuilder a ()
+ignoreAttr t = const () =. dimap (const Nothing) (const ()) (optAttr t)
 
 childTag :: (SendMessage m) => ParseName -> ValueCodec' m Inside a -> InsideCodec m a
 childTag t cdc = let
@@ -441,3 +451,18 @@ pluralBare :: (SendMessage m, IsInside a) => ParseName -> InsideCodec m (V.Vecto
 pluralBare one = let
   many = one { pName = pName one <> "s" }
   in pluralBare' many one
+
+-- Only consumes tags with the given name, doesn't touch others
+bareListWithTagName :: (SendMessage m) => ParseName -> ValueCodec' m Inside a -> InsideCodec m (V.Vector a)
+bareListWithTagName name inner = Codec
+  { codecIn = do
+    elts <- viewElements
+    results <- forM (V.toList elts) $ \elt -> case matchTag name elt of
+      Nothing    -> return $ Left elt
+      Just layer -> fmap Right $ let
+        ins' = Inside (V.fromList $ elAttribs elt) (V.fromList $ elContent elt)
+        in layer $ mapStackTraceT (lift . (`runReaderT` ins')) $ codecIn inner
+    lift $ modify $ \ins -> ins { insideContent = V.fromList $ map Elem $ lefts results }
+    return $ V.fromList $ rights results
+  , codecOut = codecOut $ bareList $ isTag name inner
+  }

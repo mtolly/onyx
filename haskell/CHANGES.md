@@ -7,6 +7,7 @@
 * Fix PS3 GH:WoR output sometimes not being able to generate audio successfully
 * Fix 360 pack creator not stripping byte order markers from songs.dta when
   combining, leading to game crashes
+* Add back simple CON to PKG tool as an option for certain use cases
 
 ## 20220311
 
