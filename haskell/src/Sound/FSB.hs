@@ -413,17 +413,14 @@ splitMultitrackFSB bs = do
     _      -> fail "Not exactly 1 item found in .fsb"
   let (stereoCount, monoCount) = quotRem (fromIntegral $ fsbSongChannels song) 2
   case fsbExtra song of
-    Left _xma -> withSystemTempDirectory "onyx-split-fsb" $ \tmp -> do
-      let tmpFile = tmp </> "out.xma"
+    Left _xma -> do
       marked <- markXMAPacketStreams <$> splitXMA2Packets sdata
-      forM [0 .. stereoCount + monoCount - 1] $ \i -> do
-        writeXMA tmpFile XMAContents
-          { xmaChannels = if i == stereoCount then 1 else 2
-          , xmaRate     = fromIntegral $ fsbSongSampleRate song
-          , xmaSamples  = fromIntegral $ fsbSongSamples song
-          , xmaData     = writeXMA2Packets $ extractXMAStream i marked
-          }
-        BL.fromStrict <$> B.readFile tmpFile
+      makeXMAs $ flip map [0 .. stereoCount + monoCount - 1] $ \i -> XMAContents
+        { xmaChannels = if i == stereoCount then 1 else 2
+        , xmaRate     = fromIntegral $ fsbSongSampleRate song
+        , xmaSamples  = fromIntegral $ fsbSongSamples song
+        , xmaData     = writeXMA2Packets $ extractXMAStream i marked
+        }
     Right _mp3 -> splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
 
 -- Only works on a CBR MP3 with no ID3 tags
@@ -657,6 +654,13 @@ writeXMA fp (XMAContents c r len xmaData) = IO.withBinaryFile fp IO.WriteMode $ 
       forM_ (drop 1 xmaSeek) $ write . putWord32be
     chunk "data" $ do
       BL.hPut h xmaData
+
+makeXMAs :: [XMAContents] -> IO [BL.ByteString]
+makeXMAs xmas = withSystemTempDirectory "onyx-xma" $ \tmp -> do
+  let tmpFile = tmp </> "out.xma"
+  forM xmas $ \xma -> do
+    writeXMA tmpFile xma
+    BL.fromStrict <$> B.readFile tmpFile
 
 xmasToFSB :: (MonadFail m) => [(B.ByteString, XMAContents)] -> m FSB
 xmasToFSB xmas = do

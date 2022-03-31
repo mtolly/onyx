@@ -49,6 +49,7 @@ import qualified Import.GuitarHero2             as GH2
 import           Import.GuitarPro               (importGPIF)
 import           Import.Magma                   (importMagma)
 import           Import.Neversoft               (importGH5WoR)
+import           Import.PowerGig                (importPowerGig)
 import           Import.RockBand                (importRB4, importRBA,
                                                  importSTFSFolder)
 import           Import.Rocksmith               as RS
@@ -193,6 +194,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       foundGP loc = do
         let imp level = parseGP loc >>= \gpif -> importGPIF gpif level
         foundImports "Guitar Pro" loc [imp]
+      foundPowerGig loc = do
+        imps <- importPowerGig loc
+        foundImports "PowerGig" loc imps
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         let single = null $ drop 1 imports
@@ -248,6 +252,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".psarc" -> foundRS fp
         ".pkg" -> foundPS3 fp
         ".gp" -> foundGP fp
+        ".2" -> foundPowerGig fp -- assuming this is Data.hdr.e.2
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundFoF fp
           "set.def" -> foundDTXSet fp

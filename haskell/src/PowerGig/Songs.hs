@@ -282,8 +282,8 @@ instance IsInside RampTimes where
 
 data Mode = Mode
   -- actually only one of these should be present. but this is easier to make the parser for
-  { mode_2d       :: Maybe Milli
-  , mode_3d       :: Maybe Mode3D
+  { mode_2d       :: Maybe Milli -- not actually present but in comments
+  , mode_3d       :: Maybe Mode3D -- not actually present
   , mode_speakers :: Maybe ModeSpeakers
   } deriving (Show)
 
