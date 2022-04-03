@@ -36,7 +36,7 @@ module Audio
 , fadeStart, fadeEnd
 , mixMany, mixMany'
 , clampIfSilent
-, stereoPanRatios
+, stereoPanRatios, fromStereoPanRatios, decibelDifferenceInPanRatios
 , emptyChannels
 , remapChannels
 , makeFSB4, makeFSB4', makeGH3FSB, makeXMAPieces
@@ -643,6 +643,38 @@ stereoPanRatios pan = let
   ratioL = (sqrt 2 / 2) * (cos theta - sin theta)
   ratioR = (sqrt 2 / 2) * (cos theta + sin theta)
   in (ratioL, ratioR)
+
+{-
+Used for PowerGig import (going back from raw L/R ratios to a RB-style pan).
+According to Wolfram Alpha
+  y = (cos(x) + sin(x)) / (cos(x) - sin(x))
+  (y = ratioR / ratioL, x = theta)
+is equivalent to
+  (2 / (tan(x) - 1)) + y + 1 = 0
+which can be solved for x as
+  2 / (tan(x) - 1) = -y - 1
+  (tan(x) - 1) / 2 = 1 / (-y - 1)
+  tan(x) - 1 = 2 / (-y - 1)
+  tan(x) = (2 / (-y - 1)) + 1
+  x = atan( (2 / (-y - 1)) + 1 )
+-}
+fromStereoPanRatios :: (Float, Float) -> Float
+fromStereoPanRatios (ratioL, ratioR) = let
+  result = atan ((2 / ((-1) * (ratioR / ratioL) - 1)) + 1) / (pi / 4)
+  -- NaN case happens when given (0, 0) (Hold On does this for an unused drums channel).
+  -- This becomes null in song.yml and breaks audio generation later
+  in if isNaN result then 0 else result
+
+-- Used for PowerGig import.
+-- Gets the RB-style vol given the "raw" L/R ratios and the desired ones.
+decibelDifferenceInPanRatios :: (Float, Float) -> (Float, Float) -> Float
+decibelDifferenceInPanRatios (oneL, oneR) (twoL, twoR) = let
+  -- use whichever side isn't zero to calculate the gain
+  volRatio = if oneL > oneR
+    then twoL / oneL
+    else twoR / oneR
+  -- volRatio = 10 ** (volDB / 20)
+  in (log volRatio / log 10) * 20
 
 -- | Like 'applyPansVols', but mixes into mono instead of stereo.
 applyVolsMono :: (Monad m) => [Float] -> AudioSource m Float -> AudioSource m Float

@@ -388,6 +388,7 @@ fsbToXMAs f dir = do
           { xmaChannels = fromIntegral $ fsbSongChannels song
           , xmaRate     = fromIntegral $ fsbSongSampleRate song
           , xmaSamples  = fromIntegral $ fsbSongSamples song
+          , xmaPacketsPerBlock = 16
           , xmaData     = sdata
           }
         marked <- markXMAPacketStreams <$> splitXMA2Packets sdata
@@ -396,7 +397,8 @@ fsbToXMAs f dir = do
             { xmaChannels = if i == stereoCount then 1 else 2
             , xmaRate     = fromIntegral $ fsbSongSampleRate song
             , xmaSamples  = fromIntegral $ fsbSongSamples song
-            , xmaData     = writeXMA2Packets $ extractXMAStream i marked
+            , xmaPacketsPerBlock = 16
+            , xmaData     = writeXMA2Packets $ extractXMAStream 16 i marked
             }
       Right _mp3 -> do
         BL.writeFile (dir </> B8.unpack (fsbSongName song) -<.> "mp3") sdata
@@ -419,7 +421,8 @@ splitMultitrackFSB bs = do
         { xmaChannels = if i == stereoCount then 1 else 2
         , xmaRate     = fromIntegral $ fsbSongSampleRate song
         , xmaSamples  = fromIntegral $ fsbSongSamples song
-        , xmaData     = writeXMA2Packets $ extractXMAStream i marked
+        , xmaPacketsPerBlock = 16
+        , xmaData     = writeXMA2Packets $ extractXMAStream 16 i marked
         }
     Right _mp3 -> splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
 
@@ -511,8 +514,8 @@ markXMAPacketStreams = go 0 Map.empty where
   go _ _ [] = []
 
 -- Regroups packets to fit more of them into the 16-packet blocks.
-extractXMAStream :: Int -> [(Int, XMA2Packet)] -> [XMA2Packet]
-extractXMAStream i = go . splitBlocks where
+extractXMAStream :: Int -> Int -> [(Int, XMA2Packet)] -> [XMA2Packet]
+extractXMAStream packetsPerBlock i = go . splitBlocks where
   dummyBlock = XMA2Packet
     { xma2FrameCount = 0
     , xma2FrameOffsetInBits = 0
@@ -530,21 +533,20 @@ extractXMAStream i = go . splitBlocks where
       }
     in pkt' : complete (n - 1) pkts
   splitBlocks :: [(Int, XMA2Packet)] -> [[XMA2Packet]]
-  splitBlocks pkts = case splitAt 16 pkts of
+  splitBlocks pkts = case splitAt packetsPerBlock pkts of
     ([] , _   ) -> []
     (blk, rest) -> map snd (filter ((== i) . fst) blk) : splitBlocks rest
   go :: [[XMA2Packet]] -> [XMA2Packet]
   go [] = []
   go (blk : blks) = case blks of
-    []          -> complete 16 blk
-    next : rest -> if length blk + length next <= 16
+    []          -> complete packetsPerBlock blk
+    next : rest -> if length blk + length next <= packetsPerBlock
       then go $ (blk <> next) : rest
-      else complete 16 blk <> go blks
+      else complete packetsPerBlock blk <> go blks
 
--- This assumes the block size is 32 KB (16 packets) which appears to be what FSB uses
-makeXMASeekTable :: (MonadFail m) => BL.ByteString -> m [Word32]
-makeXMASeekTable bs = do
-  pkts <- splitXMA2Packets bs
+makeXMASeekTable :: (MonadFail m) => XMAContents -> m [Word32]
+makeXMASeekTable xma = do
+  pkts <- splitXMA2Packets $ xmaData xma
   let stream0Counts = map
         (\(stream, pkt) -> if stream == 0 then xma2FrameCount pkt else 0)
         (markXMAPacketStreams pkts)
@@ -552,14 +554,15 @@ makeXMASeekTable bs = do
     -- Packets are 2048 bytes in all XMA. Each frame is 512 samples.
     -- FSB appear to use 16-packet blocks. (Maybe this is stored somewhere?)
     -- Each entry in the seek table is "how many samples would you have decoded by block N"
-    packetIndex <- [0, 16 .. length stream0Counts]
+    packetIndex <- [0, xmaPacketsPerBlock xma .. length stream0Counts]
     return $ sum (take packetIndex stream0Counts) * 512
 
 data XMAContents = XMAContents
-  { xmaChannels :: Int
-  , xmaRate     :: Int
-  , xmaSamples  :: Int
-  , xmaData     :: BL.ByteString
+  { xmaChannels        :: Int
+  , xmaRate            :: Int
+  , xmaSamples         :: Int
+  , xmaPacketsPerBlock :: Int -- 16 for FSB (GH), 32 for PowerGig .xma
+  , xmaData            :: BL.ByteString
   } deriving (Generic, Hashable)
 
 parseXMA :: (MonadFail m) => BL.ByteString -> m XMAContents
@@ -590,7 +593,7 @@ parseXMA b = let
       _        <- getWord16le -- NumStreams;     // Number of audio streams (1 or 2 channels each)
       _        <- getWord32le -- ChannelMask;    // Spatial positions of the channels in this file
       len      <- getWord32le -- SamplesEncoded; // Total number of PCM samples the file decodes to
-      _        <- getWord32le -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
+      blkSize  <- getWord32le -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
       _        <- getWord32le -- PlayBegin;      // First valid sample in the decoded audio
       _        <- getWord32le -- PlayLength;     // Length of the valid part of the decoded audio
       _        <- getWord32le -- LoopBegin;      // Beginning of the loop region in decoded sample terms
@@ -598,15 +601,19 @@ parseXMA b = let
       _        <- getWord8    -- LoopCount;      // Number of loop repetitions; 255 = infinite
       _        <- getWord8    -- EncoderVersion; // Version of XMA encoder that generated the file
       _        <- getWord16le -- BlockCount;     // XMA blocks in file (and entries in its seek table)
+      packetsPerBlock <- case quotRem blkSize 2048 of
+        (ppblk, 0) -> return ppblk
+        _          -> fail "Expected a block size divisible by 2048"
       return XMAContents
         { xmaChannels = fromIntegral channels
         , xmaRate     = fromIntegral rate
         , xmaSamples  = fromIntegral len
+        , xmaPacketsPerBlock = fromIntegral packetsPerBlock
         , xmaData     = data_
         }
 
 writeXMA :: FilePath -> XMAContents -> IO ()
-writeXMA fp (XMAContents c r len xmaData) = IO.withBinaryFile fp IO.WriteMode $ \h -> do
+writeXMA fp xma = IO.withBinaryFile fp IO.WriteMode $ \h -> do
   let chunk ctype f = do
         let getPosn = IO.hGetPosn h
         B.hPut h ctype
@@ -620,10 +627,14 @@ writeXMA fp (XMAContents c r len xmaData) = IO.withBinaryFile fp IO.WriteMode $ 
         IO.hSetPosn endPosn
         return x
       write = BL.hPut h . runPut
-  xmaSeek <- makeXMASeekTable xmaData
+  xmaSeek <- makeXMASeekTable xma
   chunk "RIFF" $ do
     B.hPut h "WAVE"
     chunk "fmt " $ do
+      let c = xmaChannels xma
+          r = xmaRate xma
+          len = xmaSamples xma
+          blockSize = fromIntegral (xmaPacketsPerBlock xma) * 2048
 
       -- WAVEFORMATEX wfx;
       write $ putWord16le 0x166                -- wFormatTag;      // Audio format type; always WAVE_FORMAT_XMA2
@@ -637,8 +648,7 @@ writeXMA fp (XMAContents c r len xmaData) = IO.withBinaryFile fp IO.WriteMode $ 
       write $ putWord16le $ (fromIntegral c + 1) `quot` 2 -- NumStreams;     // Number of audio streams (1 or 2 channels each)
       write $ putWord32le 0                               -- ChannelMask;    // Spatial positions of the channels in this file
       write $ putWord32le $ fromIntegral len              -- SamplesEncoded; // Total number of PCM samples the file decodes to
-      write $ putWord32le 0x8000                          -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
-      -- think this is correct, 0x8000 is 16 * 2048 (FSB uses 16-packet blocks)
+      write $ putWord32le blockSize                       -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
       write $ putWord32le 0                               -- PlayBegin;      // First valid sample in the decoded audio
       write $ putWord32le $ fromIntegral len              -- PlayLength;     // Length of the valid part of the decoded audio
       write $ putWord32le 0                               -- LoopBegin;      // Beginning of the loop region in decoded sample terms
@@ -653,7 +663,7 @@ writeXMA fp (XMAContents c r len xmaData) = IO.withBinaryFile fp IO.WriteMode $ 
       -- But here it starts from block 1, and is big-endian
       forM_ (drop 1 xmaSeek) $ write . putWord32be
     chunk "data" $ do
-      BL.hPut h xmaData
+      BL.hPut h $ xmaData xma
 
 makeXMAs :: [XMAContents] -> IO [BL.ByteString]
 makeXMAs xmas = withSystemTempDirectory "onyx-xma" $ \tmp -> do
@@ -667,7 +677,8 @@ xmasToFSB xmas = do
 
   songs <- forM xmas $ \(name, xma) -> do
     -- FSB should use 32 KB blocks (16-packet)
-    seekTable <- makeXMASeekTable $ xmaData xma
+    unless (xmaPacketsPerBlock xma == 16) $ fail "XMA data doesn't have FSB packets-per-block of 16"
+    seekTable <- makeXMASeekTable xma
     let lenSeekTable = fromIntegral $ length seekTable
         song = FSBSong
           { fsbSongHeaderSize = 0

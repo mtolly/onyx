@@ -2,7 +2,10 @@
 {-# LANGUAGE TupleSections     #-}
 module Import.PowerGig where
 
-import           Audio                          (Audio (..))
+import           Audio                          (Audio (..),
+                                                 decibelDifferenceInPanRatios,
+                                                 fromStereoPanRatios,
+                                                 stereoPanRatios)
 import           Config
 import           Control.Monad                  (forM, unless)
 import           Control.Monad.IO.Class         (MonadIO)
@@ -12,11 +15,13 @@ import           Data.Default.Class             (def)
 import qualified Data.HashMap.Strict            as HM
 import           Data.List.NonEmpty             (NonEmpty (..), nonEmpty)
 import qualified Data.Map                       as Map
+import           Data.Maybe                     (listToMaybe)
 import           Data.SimpleHandle              (Folder, Readable,
                                                  byteStringSimpleHandle,
                                                  findFileCI, handleToByteString,
                                                  makeHandle, useHandle)
 import qualified Data.Text                      as T
+import qualified Data.Vector                    as V
 import           Guitars
 import           Import.Base
 import           PowerGig.Crypt
@@ -97,18 +102,20 @@ importPowerGigSong key song folder level = do
     (n, 0) -> return n
     _      -> fatal $ "Expected an even num_channels for combined_audio, but found " <> show (ca_num_channels combinedAudio)
   let xboxAudio = ca_xbox360_file combinedAudio >>= T.stripSuffix ".e.2"
-  (rate, samples, xmas) <- case level of
-    ImportQuick -> return (48000, 0, replicate streamCount [])
+  (rate, samples, packetsPerBlock, xmas) <- case level of
+    ImportQuick -> return (44100, 0, 32, replicate streamCount []) -- probably doesn't matter but powergig uses 44100 Hz and 32-packet XMA blocks
     ImportFull -> case xboxAudio >>= \x -> findFileCI ("Audio" :| ["songs", key, x]) folder of
       Nothing -> fatal "Couldn't find Xbox 360 (XMA) audio, PS3 not supported yet"
       Just r -> do
         xma <- stackIO (useHandle r handleToByteString) >>= parseXMA
         packets <- fmap markXMAPacketStreams $ splitXMA2Packets $ xmaData xma
-        return (xmaRate xma, xmaSamples xma, map (\i -> extractXMAStream i packets) [0 .. streamCount - 1])
+        let ppblk = xmaPacketsPerBlock xma
+        return (xmaRate xma, xmaSamples xma, xmaPacketsPerBlock xma, map (\i -> extractXMAStream ppblk i packets) [0 .. streamCount - 1])
   xmaBytes <- stackIO $ makeXMAs $ flip map xmas $ \xma -> XMAContents
     { xmaChannels = 2
     , xmaRate     = rate
     , xmaSamples  = samples
+    , xmaPacketsPerBlock = packetsPerBlock
     , xmaData     = writeXMA2Packets xma
     }
   let audio = flip map (zip [0..] xmaBytes) $ \(i, bs) -> let
@@ -131,17 +138,42 @@ importPowerGigSong key song folder level = do
           Nothing -> fatal "No mode_speakers found"
           Just ms -> return ms
         unless (mode_speakers_num_speakers speakers == Just 2) $ fatal "mode_speakers doesn't have 2 speakers"
+        frontLeft <- maybe (fatal "No front_left speaker found") return $ listToMaybe
+          [ spkr | spkr <- V.toList $ mode_speakers_speaker speakers, speaker_output spkr == "front_left" ]
+        frontRight <- maybe (fatal "No front_right speaker found") return $ listToMaybe
+          [ spkr | spkr <- V.toList $ mode_speakers_speaker speakers, speaker_output spkr == "front_right" ]
         numChannels <- maybe (fatal "No num_channels") return $ mode_speakers_num_channels speakers
         baseChannel <- maybe (fatal "No base_channel") return $ mode_speakers_base_channel speakers
-        let channels = flip map (take numChannels [baseChannel - 1 ..]) $ \i -> let
-              (stream, side) = quotRem i 2
-              in Channels [Just side] $ Input $ Named $ fst $ audio !! stream
+
+        let channelIndexes = take numChannels [baseChannel - 1 ..]
+            makeChannels ((i, 0) : (j, 1) : rest) | i == j
+              = Input (Named $ fst $ audio !! i) : makeChannels rest
+            makeChannels ((i, side) : rest)
+              = Channels [Just side] (Input $ Named $ fst $ audio !! i) : makeChannels rest
+            makeChannels [] = []
+            channels = makeChannels $ map (`quotRem` 2) channelIndexes
+
+            ratioPairs = take numChannels $ map (\g -> (maybe 0 realToFrac $ g frontLeft, maybe 0 realToFrac $ g frontRight))
+              [ speaker_front_left, speaker_front_right, speaker_front_center, speaker_low_frequency
+              , speaker_back_left, speaker_back_right, speaker_side_left, speaker_side_right
+              ]
+
+        let pans = map fromStereoPanRatios ratioPairs
+            globalVolRatio = realToFrac $ inst_volume inst
+            vols = zipWith decibelDifferenceInPanRatios
+              (map stereoPanRatios pans)
+              (map (\(l, r) -> (l * globalVolRatio, r * globalVolRatio)) ratioPairs)
+            -- This fixes negative infinity being serialized to null in song.yml, and deserialized to NaN.
+            -- (Negative infinity comes via fromStereoPanRatios for an unused drum channel in Hold On)
+            -- After upgrading to aeson >= 2.0.0.0 this won't be necessary (will serialize to "-inf" string)
+            fixNegativeInfinity = max (-99)
         channels' <- maybe (fatal "No channels") return $ nonEmpty channels
         return $ PlanAudio
           { _planExpr = Merge channels'
-          , _planPans = take numChannels $ cycle [-1, 1] -- TODO
-          , _planVols = [] -- TODO
+          , _planPans = map realToFrac pans
+          , _planVols = map (fixNegativeInfinity . realToFrac) vols
           }
+
   audioBacking <- getPlanAudio audio_backing_track
   audioGuitar  <- PartSingle <$> getPlanAudio audio_guitar
   audioDrums   <- PartSingle <$> getPlanAudio audio_drums

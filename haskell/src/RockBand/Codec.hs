@@ -31,22 +31,24 @@ import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util                  as U
 
 data MIDITrack f = MIDITrack
-  { midiNotes      :: Map.Map V.Pitch (f (Edge V.Velocity C.Channel))
-  , midiCommands   :: f [T.Text]
-  , midiLyrics     :: f T.Text -- also any text events that aren't commands or comments
-  , midiComments   :: f T.Text
-  , midiPhaseShift :: f PSMessage
-  , midiUnknown    :: f E.T
+  { midiNotes       :: Map.Map V.Pitch (f (Edge V.Velocity C.Channel))
+  , midiCommands    :: f [T.Text]
+  , midiLyrics      :: f T.Text -- also any text events that aren't commands or comments
+  , midiComments    :: f T.Text
+  , midiPhaseShift  :: f PSMessage
+  , midiUnknown     :: f E.T
+  , midiControllers :: Map.Map C.Controller (f (C.Channel, V.ControllerValue))
   }
 
 mapMIDITrack :: (forall a. f a -> g a) -> MIDITrack f -> MIDITrack g
 mapMIDITrack f mt = mt
-  { midiNotes = fmap f $ midiNotes mt
-  , midiCommands = f $ midiCommands mt
-  , midiLyrics = f $ midiLyrics mt
-  , midiComments = f $ midiComments mt
-  , midiPhaseShift = f $ midiPhaseShift mt
-  , midiUnknown = f $ midiUnknown mt
+  { midiNotes       = fmap f $ midiNotes       mt
+  , midiCommands    = f      $ midiCommands    mt
+  , midiLyrics      = f      $ midiLyrics      mt
+  , midiComments    = f      $ midiComments    mt
+  , midiPhaseShift  = f      $ midiPhaseShift  mt
+  , midiUnknown     = f      $ midiUnknown     mt
+  , midiControllers = fmap f $ midiControllers mt
   }
 
 -- Note, this does not yet process different channel notes separately
@@ -94,17 +96,23 @@ getMIDITrack = let
       E.MetaEvent (Meta.TextEvent lyric) -> cur
         { midiLyrics = At t (T.pack lyric) $ midiLyrics cur
         }
+      E.MIDIEvent (C.Cons chan (C.Voice (V.Control cont v))) -> cur
+        { midiControllers = let
+          f = Just . At t (chan, v) . fromMaybe ANil
+          in Map.alter f cont $ midiControllers cur
+        }
       _ -> cur
         { midiUnknown = At t x $ midiUnknown cur
         }
     in go new rest
   empty = MIDITrack
-    { midiNotes = Map.empty
-    , midiCommands = ATB.empty
-    , midiLyrics = ATB.empty
-    , midiComments = ATB.empty
-    , midiPhaseShift = ATB.empty
-    , midiUnknown = ATB.empty
+    { midiNotes       = Map.empty
+    , midiCommands    = ATB.empty
+    , midiLyrics      = ATB.empty
+    , midiComments    = ATB.empty
+    , midiPhaseShift  = ATB.empty
+    , midiUnknown     = ATB.empty
+    , midiControllers = Map.empty
     }
   in go empty . reverse . ATB.toPairList
 
@@ -114,7 +122,10 @@ putMIDITrack merge mt = foldr merge (midiUnknown mt) $ let
     f (EdgeOff  c) = makeEdgeCPV (C.fromChannel c) (V.fromPitch p) Nothing
     f (EdgeOn v c) = makeEdgeCPV (C.fromChannel c) (V.fromPitch p) (Just $ V.fromVelocity v)
     in f <$> lane
-  in notes ++
+  controllers = flip fmap (Map.toList $ midiControllers mt) $ \(cont, lane) -> let
+    f (chan, v) = E.MIDIEvent (C.Cons chan (C.Voice (V.Control cont v)))
+    in f <$> lane
+  in notes ++ controllers ++
     [ showCommand' <$> midiCommands mt
     , (\cmt -> E.MetaEvent $ Meta.TextEvent $ '#' : T.unpack cmt) <$> midiComments mt
     , unparsePSSysEx <$> midiPhaseShift mt
@@ -495,3 +506,23 @@ channelBlip_
   :: (Show a, ChannelType a, SendMessage m)
   => Int -> TrackEvent m U.Beats a
 channelBlip_ = dimap (fmap (, 100)) (fmap fst) . channelBlip
+
+-- (channel, value)
+controller :: (Monad m, NNC.C t) => Int -> TrackEvent m t (Int, Int)
+controller cont = Codec
+  { codecIn = slurpTrack $ \mt -> case Map.lookup (V.toController cont) (midiControllers mt) of
+    Nothing -> (RTB.empty, mt)
+    Just events -> let
+      cvs = flip fmap events $ \(chan, v) -> (C.fromChannel chan, v)
+      mt' = mt { midiControllers = Map.delete (V.toController cont) $ midiControllers mt }
+      in (cvs, mt')
+  , codecOut = makeTrackBuilder $ fmap
+    (\(chan, v) -> E.MIDIEvent (C.Cons (C.toChannel chan) (C.Voice (V.Control (V.toController cont) v))))
+  }
+
+-- Only value
+controller_ :: (Monad m, NNC.C t) => Int -> TrackEvent m t Int
+controller_ = let
+  fs v      = (0, v)
+  fp (_, v) = v
+  in dimap (fmap fs) (fmap fp) . controller

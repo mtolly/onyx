@@ -21,7 +21,13 @@ data GuitarDifficulty t = GuitarDifficulty
   , guitarOverride     :: RTB.T t (Edge () (Maybe F.Color)) -- I think these replace standard notes in PC mode
   , guitarPowerChordsE :: RTB.T t (Edge () (Maybe F.Color))
   , guitarPowerChordsA :: RTB.T t (Edge () (Maybe F.Color))
-  -- TODO controllers 7, 81, 82, 86
+  -- rest unknown
+  , guitarController7  :: RTB.T t Int
+  , guitarController68 :: RTB.T t Int
+  , guitarController81 :: RTB.T t Int
+  , guitarController82 :: RTB.T t Int
+  , guitarController86 :: RTB.T t Int
+  -- TODO others seen: controller 0, controller 32, controller 80
   } deriving (Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (GuitarDifficulty t)
 
@@ -56,12 +62,22 @@ instance ParseTrack GuitarDifficulty where
       Just F.Yellow -> 117
       Just F.Blue   -> 118
       Just F.Orange -> 119
+    guitarController7  <- guitarController7  =. controller_ 7
+    guitarController68 <- guitarController68 =. controller_ 68
+    guitarController81 <- guitarController81 =. controller_ 81
+    guitarController82 <- guitarController82 =. controller_ 82
+    guitarController86 <- guitarController86 =. controller_ 86
     return GuitarDifficulty{..}
 
 data DrumDifficulty t = DrumDifficulty
-  { drumGems      :: RTB.T t (D.Gem ())
-  , drumFreestyle :: RTB.T t (Edge () (D.Gem ())) -- not sure what this is, just a guess. appears in lower difficulties?
-  -- TODO controllers 80, 82, 64
+  { drumGems         :: RTB.T t (D.Gem ())
+  , drumFreestyle    :: RTB.T t (Edge () (D.Gem ())) -- not sure what this is, just a guess. appears in lower difficulties?
+  -- TODO program change (ch 9), probably switches between e.g. <kit kit_number="0" ...>
+  -- rest unknown
+  , drumController64 :: RTB.T t Int
+  , drumController80 :: RTB.T t Int
+  , drumController82 :: RTB.T t Int
+  -- TODO others seen: note pitch 61, note pitch 66, note pitch 84, controller 10, controller 7
   } deriving (Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (DrumDifficulty t)
 
@@ -82,6 +98,9 @@ instance ParseTrack DrumDifficulty where
       D.Pro D.Blue   () -> 91
       D.Kick            -> 93
       D.Orange          -> error "panic! orange case in powergig drums"
+    drumController64 <- drumController64 =. controller_ 64
+    drumController80 <- drumController80 =. controller_ 80
+    drumController82 <- drumController82 =. controller_ 82
     return DrumDifficulty{..}
 
 data PGFile t = PGFile
