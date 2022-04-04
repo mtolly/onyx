@@ -38,7 +38,9 @@ import qualified RockBand.Codec.Five              as RB
 import qualified RockBand.Codec.Vocal             as RB
 import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    LongNote (..), Mood (..),
-                                                   edgeBlipsRB, splitEdges)
+                                                   edgeBlips,
+                                                   minSustainLengthRB,
+                                                   splitEdges)
 import           RockBand.Sections                (makeGH2Section)
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming, drumsToFive)
@@ -218,7 +220,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
                 , partGems      = RB.fiveGems fdiff
                 }
             (idle, play) = makeMoods (RB.fiveMood rbg)
-              $ maybe mempty (splitEdges . edgeBlipsRB . RB.fiveGems)
+              $ maybe mempty (splitEdges . edgeBlips minSustainLengthRB . RB.fiveGems)
               $ Map.lookup Expert $ RB.fiveDifficulties rbg
         diffs <- fmap Map.fromList
           $ mapM (\(diff, fdiff) -> (diff,) <$> makeDiff diff fdiff)
@@ -298,7 +300,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
           . Map.lookup Expert
           $ RB.fiveDifficulties trk
         } where (idle, play) = makeMoods (RB.fiveMood trk)
-                  $ maybe mempty (splitEdges . edgeBlipsRB . RB.fiveGems)
+                  $ maybe mempty (splitEdges . edgeBlips minSustainLengthRB . RB.fiveGems)
                   $ Map.lookup Expert $ RB.fiveDifficulties trk
       makeBandDrums trk = mempty
         { drumsIdle = idle
@@ -316,7 +318,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
                 anims = RB.drumAnimation $ RB.fillDrumAnimation (0.25 :: U.Seconds) tmap trk
       makeBandKeys trk = let
         (idle, play) = makeMoods (RB.fiveMood trk)
-          $ maybe mempty (splitEdges . edgeBlipsRB . RB.fiveGems)
+          $ maybe mempty (splitEdges . edgeBlips minSustainLengthRB . RB.fiveGems)
           $ Map.lookup Expert $ RB.fiveDifficulties trk
         in mempty { keysIdle = idle, keysPlay = play }
       makeBandSinger trk = let

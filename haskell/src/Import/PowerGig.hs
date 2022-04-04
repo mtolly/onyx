@@ -1,48 +1,58 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE TupleSections     #-}
 module Import.PowerGig where
 
-import           Audio                          (Audio (..),
-                                                 decibelDifferenceInPanRatios,
-                                                 fromStereoPanRatios,
-                                                 stereoPanRatios)
+import           Audio                            (Audio (..),
+                                                   decibelDifferenceInPanRatios,
+                                                   fromStereoPanRatios,
+                                                   stereoPanRatios)
 import           Config
-import           Control.Monad                  (forM, unless)
-import           Control.Monad.IO.Class         (MonadIO)
+import           Control.Monad                    (forM, guard, unless)
+import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
-import qualified Data.ByteString                as B
-import           Data.Default.Class             (def)
-import qualified Data.HashMap.Strict            as HM
-import           Data.List.NonEmpty             (NonEmpty (..), nonEmpty)
-import qualified Data.Map                       as Map
-import           Data.Maybe                     (listToMaybe)
-import           Data.SimpleHandle              (Folder, Readable,
-                                                 byteStringSimpleHandle,
-                                                 findFileCI, handleToByteString,
-                                                 makeHandle, useHandle)
-import qualified Data.Text                      as T
-import qualified Data.Vector                    as V
+import qualified Data.ByteString                  as B
+import           Data.Default.Class               (def)
+import           Data.DTA.Serialize.Magma         (Gender (..))
+import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.HashMap.Strict              as HM
+import           Data.List.NonEmpty               (NonEmpty (..), nonEmpty)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (listToMaybe)
+import           Data.SimpleHandle                (Folder, Readable,
+                                                   byteStringSimpleHandle,
+                                                   findFileCI,
+                                                   handleToByteString,
+                                                   makeHandle, useHandle)
+import qualified Data.Text                        as T
+import qualified Data.Vector                      as V
 import           Guitars
 import           Import.Base
+import qualified Numeric.NonNegative.Class        as NNC
 import           PowerGig.Crypt
 import           PowerGig.MIDI
 import           PowerGig.Songs
-import qualified RockBand.Codec.Drums           as D
-import qualified RockBand.Codec.File            as RBFile
-import qualified RockBand.Codec.Five            as F
-import           RockBand.Common                (Difficulty (..), edgeBlipsRB_)
-import           Sound.FSB                      (XMAContents (..),
-                                                 extractXMAStream, makeXMAs,
-                                                 markXMAPacketStreams, parseXMA,
-                                                 splitXMA2Packets,
-                                                 writeXMA2Packets)
-import qualified Sound.MIDI.Util                as U
-import           System.FilePath                (dropExtension)
+import qualified RockBand.Codec.Drums             as D
+import qualified RockBand.Codec.File              as RBFile
+import qualified RockBand.Codec.Five              as F
+import           RockBand.Codec.Vocal             (Pitch)
+import qualified RockBand.Codec.Vocal             as V
+import           RockBand.Common                  (Difficulty (..),
+                                                   pattern RNil,
+                                                   StrumHOPOTap (..),
+                                                   pattern Wait, edgeBlips_)
+import           Sound.FSB                        (XMAContents (..),
+                                                   extractXMAStream, makeXMAs,
+                                                   markXMAPacketStreams,
+                                                   parseXMA, splitXMA2Packets,
+                                                   writeXMA2Packets)
+import           System.FilePath                  (dropExtension)
 
 importPowerGig :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [Import m]
 importPowerGig hdrE2 = do
   let base = dropExtension $ dropExtension $ dropExtension hdrE2 -- drop ".hdr.e.2"
-  hdr <- stackIO $ B.readFile "/customs/powergig/Data.hdr.e.2" >>= decryptE2 >>= readHeader
+  hdr <- stackIO $ B.readFile hdrE2 >>= decryptE2 >>= readHeader
   let folder = connectPKFiles base $ getFolder hdr
   keys <- stackIO $ findSongKeys folder
   forM keys $ \key -> do
@@ -57,17 +67,19 @@ importPowerGigSong key song folder level = do
     ImportFull -> case findFileCI ("Audio" :| ["songs", key, audio_midi $ song_audio song]) folder of
       Nothing -> fatal "Couldn't find MIDI file"
       Just r  -> RBFile.loadMIDIReadable r
-  let _ = mid :: RBFile.Song (PGFile U.Beats)
   let onyxFile = mempty
         { RBFile.onyxParts = Map.fromList
           [ (RBFile.FlexGuitar, mempty
             { RBFile.onyxPartGuitar = mempty
               { F.fiveDifficulties = Map.fromList
-                [ (Easy  , getGuitar pgGuitarEasy  )
-                , (Medium, getGuitar pgGuitarMedium)
-                , (Hard  , getGuitar pgGuitarHard  )
-                , (Expert, getGuitar pgGuitarExpert)
+                [ (Easy  , getGuitar pd_easy   pgGuitarEasy  )
+                , (Medium, getGuitar pd_medium pgGuitarMedium)
+                , (Hard  , getGuitar pd_hard   pgGuitarHard  )
+                , (Expert, getGuitar pd_expert pgGuitarExpert)
                 ]
+              , F.fiveOverdrive = RTB.merge
+                (guitarMojoDrummer  $ pgGuitarExpert $ RBFile.s_tracks mid)
+                (guitarMojoVocalist $ pgGuitarExpert $ RBFile.s_tracks mid)
               }
             })
           , (RBFile.FlexDrums, mempty
@@ -78,9 +90,14 @@ importPowerGigSong key song folder level = do
                 , (Hard  , getDrums pgDrumsHard  )
                 , (Expert, getDrums pgDrumsExpert)
                 ]
+              , D.drumOverdrive = RTB.merge
+                (drumMojoGuitarist $ pgDrumsExpert $ RBFile.s_tracks mid)
+                (drumMojoVocalist  $ pgDrumsExpert $ RBFile.s_tracks mid)
               }
             })
-          -- TODO vox
+          , (RBFile.FlexVocal, mempty
+            { RBFile.onyxPartVocals = getVocals $ pgVocalsExpert $ RBFile.s_tracks mid
+            })
           ]
         , RBFile.onyxBeat = mempty -- TODO
         }
@@ -89,10 +106,28 @@ importPowerGigSong key song folder level = do
         in mempty
           { D.drumGems = (, D.VelocityNormal) <$> drumGems pg
           }
-      getGuitar f = let
-        pg = f $ RBFile.s_tracks mid
-        -- not sure of hopo system
-        in emit5' $ strumHOPOTap' HOPOsRBGuitar (170/480) $ edgeBlipsRB_ $ guitarGems pg
+      getGuitar getSustDiff getMIDIDiff = let
+        pg = getMIDIDiff $ RBFile.s_tracks mid
+        minLen = case inst_sustain_threshold (audio_guitar $ song_audio song) >>= getSustDiff of
+          Just ticks -> fromIntegral ticks / 960
+          Nothing    -> 1 -- TODO figure out what it actually is
+        in emit5' $ fmap (\(hopo, (color, mlen)) -> ((color, if hopo then HOPO else Strum), mlen))
+          $ applyStatus1 False (guitarHOPO pg) $ edgeBlips_ minLen $ guitarGems pg
+      getVocals pg = let
+        notes = RTB.mapMaybe (\(freestyle, pitchBool) -> guard (not freestyle) >> Just pitchBool)
+          $ applyStatus1 False (vocalFreestyle pg)
+          $ RTB.merge (vocalNotes pg) ((minBound,) <$> vocalTalkies pg)
+        -- lyrics have a space after them for some reason
+        lyricsStart = (\case "*" -> "+"; x -> x) . T.strip <$> vocalLyrics pg
+        lyricsHash = fmap (\(isTalky, lyric) -> if isTalky then lyric <> "#" else lyric)
+          $ applyStatus1 False (vocalTalkies pg) lyricsStart
+        in mempty
+          { V.vocalNotes = notes
+          , V.vocalLyrics = lyricsHash
+          , V.vocalPhrase1 = drawPhrases notes $ vocalPhraseEnd pg
+          -- TODO vocalGlue (add dashes, except for +; and do it before talky hash)
+          -- TODO put OD on phrases from mojo
+          }
       onyxMid = mid { RBFile.s_tracks = onyxFile }
 
   combinedAudio <- case audio_combined_audio $ song_audio song of
@@ -116,6 +151,7 @@ importPowerGigSong key song folder level = do
     , xmaRate     = rate
     , xmaSamples  = samples
     , xmaPacketsPerBlock = packetsPerBlock
+    , xmaSeekTable = Nothing
     , xmaData     = writeXMA2Packets xma
     }
   let audio = flip map (zip [0..] xmaBytes) $ \(i, bs) -> let
@@ -192,7 +228,7 @@ importPowerGigSong key song folder level = do
       , _fileAlbumArt = Nothing -- TODO
       , _trackNumber = Nothing
       , _comments = []
-      , _key = Nothing
+      , _key = Nothing -- TODO use "key_signature"
       , _author = Nothing
       , _rating = Unrated
       , _previewStart = Nothing -- TODO
@@ -228,6 +264,7 @@ importPowerGigSong key song folder level = do
       , _fileBackgroundImage = Nothing
       }
     , _parts = Parts $ HM.fromList
+      -- do all songs have all instruments?
       [ (RBFile.FlexGuitar, def
         { partGRYBO = Just def
           { gryboDifficulty = Tier 1 -- TODO
@@ -246,6 +283,50 @@ importPowerGigSong key song folder level = do
           , drumsFullLayout  = FDStandard
           }
         })
+      , (RBFile.FlexVocal, def
+        { partVocal = Just PartVocal
+          { vocalDifficulty = Tier 1 -- TODO
+          , vocalGender = info_singer_gender (song_info song) >>= \case
+            "male"   -> Just Male
+            "female" -> Just Female
+            _        -> Nothing
+          , vocalCount = Vocal1
+          , vocalKey = Nothing
+          , vocalLipsyncRB3 = Nothing
+          }
+        })
       ]
     , _targets = HM.empty
     }
+
+data PhraseEvent
+  = PhraseNoteOn
+  | PhraseNoteOff
+  | PhraseEnd
+  deriving (Eq, Ord)
+
+-- TODO this doesn't handle slides at phrase ends right, see m62 of Crack the Skye
+drawPhrases :: (NNC.C t) => RTB.T t (Pitch, Bool) -> RTB.T t () -> RTB.T t Bool
+drawPhrases notes phraseEnd = let
+  events = RTB.merge
+    ((\(_, onOff) -> if onOff then PhraseNoteOn else PhraseNoteOff) <$> notes)
+    (const PhraseEnd <$> phraseEnd)
+  -- not in a phrase
+  goNoPhrase RNil                       = RNil
+  goNoPhrase (Wait t PhraseNoteOn rest) = Wait t True $ goPhrase rest
+  goNoPhrase (Wait t _ rest)            = RTB.delay t $ goNoPhrase rest -- shouldn't happen?
+  -- in a phrase, singing a note
+  goPhrase RNil                        = RNil -- shouldn't happen?
+  goPhrase (Wait t PhraseNoteOn rest)  = RTB.delay t $ goPhrase rest
+  goPhrase (Wait t PhraseNoteOff rest) = RTB.delay t $ goPhraseNotNote rest
+  goPhrase (Wait t PhraseEnd rest)     = RTB.delay t $ goEndingPhrase rest
+  -- in a phrase, not singing a note
+  goPhraseNotNote RNil = RNil -- shouldn't happen?
+  goPhraseNotNote (Wait t PhraseEnd rest) = Wait t False $ goNoPhrase rest -- end phrase immediately
+  goPhraseNotNote (Wait t PhraseNoteOff rest) = RTB.delay t $ goPhraseNotNote rest
+  goPhraseNotNote (Wait t PhraseNoteOn rest) = RTB.delay t $ goPhrase rest
+  -- in a phrase, singing a note, phrase will end when this note does
+  goEndingPhrase (Wait t PhraseNoteOff rest) = Wait t False $ goNoPhrase rest
+  goEndingPhrase (Wait t _ rest) = RTB.delay t $ goEndingPhrase rest -- shouldn't happen?
+  goEndingPhrase RNil = RTB.singleton NNC.zero False -- shouldn't happen?
+  in goNoPhrase events

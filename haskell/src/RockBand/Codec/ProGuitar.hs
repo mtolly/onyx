@@ -435,7 +435,7 @@ computeChordNames diff tuning flatDefault pg = let
           ((ModSlash,) <$> pgSlashChords pg)))
     $ RTB.collectCoincident
     $ fmap (\(fret, (str, nt), mlen) -> (str, (nt, fret, mlen)))
-    $ edgeBlipsRB
+    $ edgeBlips minSustainLengthRB
     $ pgNotes pgd
 
   chords :: RTB.T U.Beats (Maybe (ChordData U.Beats))
@@ -587,7 +587,7 @@ guitarifyHOPO :: U.Beats -> ProGuitarDifficulty U.Beats
 guitarifyHOPO threshold pgd = let
   gtr = joinEdges $ guitarify $ splitEdges
     $ (\(fret, (str, ntype), len) -> ((), (str, fret, ntype), len))
-    <$> edgeBlipsRB (pgNotes pgd)
+    <$> edgeBlips minSustainLengthRB (pgNotes pgd)
     -- TODO above logic is inefficient (join, split, join)
   withForce = applyStatus (forceEdge <$> pgForce pgd) gtr
   forceEdge = \case

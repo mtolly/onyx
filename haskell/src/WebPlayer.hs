@@ -47,8 +47,8 @@ import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    LaneDifficulty (..),
                                                    LongNote (..), SongKey (..),
                                                    StrumHOPOTap (..),
-                                                   edgeBlipsRB_,
-                                                   joinEdgesSimple,
+                                                   edgeBlips_, joinEdgesSimple,
+                                                   minSustainLengthRB,
                                                    songKeyUsesFlats, splitEdges,
                                                    splitEdgesBool)
 import qualified RockBand.Legacy.Vocal            as Vox
@@ -353,7 +353,7 @@ processSix hopoThreshold tmap trk = makeDifficulties $ \diff -> let
   assigned :: RTB.T U.Beats ((Maybe GHL.Fret, StrumHOPOTap), Maybe U.Beats)
   assigned
     = applyForces (getForces6 thisDiff)
-    $ strumHOPOTap' HOPOsRBGuitar hopoThreshold $ edgeBlipsRB_ $ GHL.sixGems thisDiff
+    $ strumHOPOTap' HOPOsRBGuitar hopoThreshold $ edgeBlips_ minSustainLengthRB $ GHL.sixGems thisDiff
   onlyKey :: (Eq a) => a -> RTB.T U.Beats ((a, b), c) -> RTB.T U.Beats (((), b), c)
   onlyKey fret trips = flip RTB.mapMaybe trips $ \case
     ((fret', sht), mlen) -> guard (fret' == fret) >> Just (((), sht), mlen)
@@ -445,7 +445,7 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
 
 processProKeys :: U.TempoMap -> ProKeysTrack U.Beats -> Maybe (ProKeys U.Seconds)
 processProKeys tmap trk = let
-  joined = edgeBlipsRB_ $ pkNotes trk
+  joined = edgeBlips_ minSustainLengthRB $ pkNotes trk
   assigned' = U.trackJoin $ flip fmap joined $ \(p, mlen) -> case mlen of
     Nothing  -> RTB.singleton 0 $ Blip () p
     Just len -> RTB.fromPairList [(0, NoteOn () p), (len, NoteOff p)]
@@ -670,7 +670,7 @@ processDance tmap trk = makeDanceDifficulties $ \diff -> let
   edges
     = splitEdges
     $ fmap (\((arr, ntype), mlen) -> (ntype, arr, mlen))
-    $ edgeBlipsRB_
+    $ edgeBlips_ minSustainLengthRB
     $ Dance.danceNotes thisDiff
   getArrow arrow = realTrack tmap $ filterKey arrow edges
   notes = Map.fromList $ do

@@ -24,7 +24,8 @@ import qualified RockBand.Codec.ProKeys           as PK
 import qualified RockBand.Codec.Vocal             as Vox
 import           RockBand.Common                  (Difficulty (..), Edge,
                                                    pattern RNil, pattern Wait,
-                                                   edgeBlipsRB, edgeBlipsRB_,
+                                                   edgeBlips, edgeBlips_,
+                                                   minSustainLengthRB,
                                                    trackGlue)
 import qualified Sound.MIDI.Util                  as U
 
@@ -150,7 +151,7 @@ baseAndSolo mid (scoreTrack, diff) = let
   getFive maxStreak getTrack = let
     trk = getTrack mid
     gems = adjustGems (RBFive.fiveBRE trk)
-      $ edgeBlipsRB_
+      $ edgeBlips_ minSustainLengthRB
       $ maybe RTB.empty RBFive.fiveGems
       $ Map.lookup diff $ RBFive.fiveDifficulties trk
     base = gbkBase 25 12 maxStreak $ fmap snd gems
@@ -163,7 +164,7 @@ baseAndSolo mid (scoreTrack, diff) = let
       _                             -> get17 mid
     gems
       = adjustGems (snd <$> PG.pgBRE trk)
-      $ edgeBlipsRB
+      $ edgeBlips minSustainLengthRB
       $ maybe RTB.empty PG.pgNotes
       $ Map.lookup diff $ PG.pgDifficulties trk
     base = gbkBase 60 30 maxStreak $ maxChord2 $ fmap (\(_, (_, _), mlen) -> mlen) gems
@@ -178,7 +179,7 @@ baseAndSolo mid (scoreTrack, diff) = let
       Hard   -> RBFile.fixedPartRealKeysH mid
       Expert -> RBFile.fixedPartRealKeysX mid
     expert = RBFile.fixedPartRealKeysX mid
-    gems = adjustGems (PK.pkBRE expert) $ edgeBlipsRB_ $ PK.pkNotes trk
+    gems = adjustGems (PK.pkBRE expert) $ edgeBlips_ minSustainLengthRB $ PK.pkNotes trk
     base = gbkBase 60 30 4 $ fmap snd gems
     solo = perfectSoloBonus 100 (PK.pkSolo expert) $ RTB.collectCoincident gems
     in (base, solo)
@@ -244,7 +245,7 @@ starCutoffs mid trks = tracksToStars $ do
 
 gh2BaseGems :: RTB.T U.Beats (Edge () RBFive.Color) -> Int
 gh2BaseGems edges = let
-  gems = fixSloppyNotes (10 / 480) $ edgeBlipsRB_ edges
+  gems = fixSloppyNotes (10 / 480) $ edgeBlips_ minSustainLengthRB edges
   in gbkBase 50 25 1 $ fmap snd gems
 
 gh2Base :: Difficulty -> PartTrack U.Beats -> Int

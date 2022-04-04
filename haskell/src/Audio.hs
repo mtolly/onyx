@@ -446,8 +446,13 @@ buildSource' aud = case aud of
     ".ogg" -> sourceVorbisFile t fin
     -- only supports VGS with consistent sample rate
     ".vgs" -> standardRate . mapSamples fractionalSample <$> readSingleRateVGS t (fileReadable fin)
-    -- FFMPEG appears to not seek XMA correctly (or we're generating seek table wrong maybe?)
-    ".xma" -> dropStart t <$> buildSource' (Input fin)
+    -- FFMPEG appears to not seek XMA correctly, so instead we hack together a
+    -- new XMA with blocks chopped off (using the seek table) and then skip the
+    -- remaining frames ourselves
+    ".xma" -> do
+      bs <- BL.fromStrict <$> B.readFile fin
+      (choppedXMA, restFrames) <- seekXMA bs t
+      dropStart (Frames restFrames) <$> ffSourceFrom (Frames 0) (Left choppedXMA)
     _      -> ffSourceFixPath t fin
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
   Drop Start t (Merge xs) -> buildSource' $ Merge $ fmap (Drop Start t) xs
@@ -649,7 +654,7 @@ Used for PowerGig import (going back from raw L/R ratios to a RB-style pan).
 According to Wolfram Alpha
   y = (cos(x) + sin(x)) / (cos(x) - sin(x))
   (y = ratioR / ratioL, x = theta)
-is equivalent to
+is equivalent to (assuming x and y are real)
   (2 / (tan(x) - 1)) + y + 1 = 0
 which can be solved for x as
   2 / (tan(x) - 1) = -y - 1

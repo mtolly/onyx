@@ -27,7 +27,7 @@ data GuitarEvent a
 openNotes' :: FiveDifficulty U.Beats -> RTB.T U.Beats (Maybe G5.Color, Maybe U.Beats)
 openNotes' fd = fmap (\(isOpen, (col, len)) -> (guard (not isOpen) >> Just col, len))
   $ applyStatus1 False (fiveOpen fd)
-  $ edgeBlipsRB_
+  $ edgeBlips_ minSustainLengthRB
   $ fiveGems fd
 
 closeNotes' :: FiveDifficulty U.Beats -> RTB.T U.Beats (Maybe G5.Color, Maybe U.Beats)

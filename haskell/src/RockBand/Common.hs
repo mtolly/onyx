@@ -226,14 +226,16 @@ showEdgesNice defLength = U.trackJoin . go . RTB.collectCoincident where
           ]
       in RTB.cons dt (foldr RTB.merge RTB.empty $ map f xs) $ go rtb'
 
-edgeBlipsRB :: (Eq a) => RTB.T U.Beats (Edge s a) -> RTB.T U.Beats (s, a, Maybe U.Beats)
-edgeBlipsRB = let
-  minSustainLength = 1/3 :: U.Beats -- TODO verify this!
-  in fmap (\(s, a, len) -> (s, a, guard (len >= minSustainLength) >> Just len))
-    . joinEdgesSimple
+minSustainLengthRB :: U.Beats
+minSustainLengthRB = 1/3 -- TODO verify this!
 
-edgeBlipsRB_ :: (Eq a) => RTB.T U.Beats (Edge () a) -> RTB.T U.Beats (a, Maybe U.Beats)
-edgeBlipsRB_ = fmap (\((), color, mlen) -> (color, mlen)) . edgeBlipsRB
+edgeBlips :: (Eq a, NNC.C t) => t -> RTB.T t (Edge s a) -> RTB.T t (s, a, Maybe t)
+edgeBlips minLen
+  = fmap (\(s, a, len) -> (s, a, guard (len >= minLen) >> Just len))
+  . joinEdgesSimple
+
+edgeBlips_ :: (Eq a, NNC.C t) => t -> RTB.T t (Edge () a) -> RTB.T t (a, Maybe t)
+edgeBlips_ minLen = fmap (\((), color, mlen) -> (color, mlen)) . edgeBlips minLen
 
 blipEdgesRB :: (Ord s, Ord a) => RTB.T U.Beats (s, a, Maybe U.Beats) -> RTB.T U.Beats (Edge s a)
 blipEdgesRB = let

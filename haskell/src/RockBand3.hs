@@ -356,7 +356,7 @@ addFiveMoods tempos timing ft = ft
   { fiveMood = noEarlyMood $ if RTB.null $ fiveMood ft
     then makeMoods tempos timing $ let
       expert = fromMaybe mempty $ Map.lookup Expert $ fiveDifficulties ft
-      in splitEdges $ (\(_, len) -> ((), (), len)) <$> edgeBlipsRB_ (fiveGems expert)
+      in splitEdges $ (\(_, len) -> ((), (), len)) <$> edgeBlips_ minSustainLengthRB (fiveGems expert)
     else fiveMood ft
   }
 
@@ -619,7 +619,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             emit6'
           . applyForces (getForces6 sd)
           . strumHOPOTap' HOPOsRBGuitar (fromIntegral (ghlHopoThreshold ghl) / 480)
-          . edgeBlipsRB_
+          . edgeBlips_ minSustainLengthRB
           $ sixGems sd
           ) $ RBFile.onyxPartSix $ RBFile.getFlexPart guitarPart trks
       bassGHL = case getPart bassPart songYaml >>= partGHL of
@@ -629,7 +629,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             emit6'
           . applyForces (getForces6 sd)
           . strumHOPOTap' HOPOsRBGuitar (fromIntegral (ghlHopoThreshold ghl) / 480)
-          . edgeBlipsRB_
+          . edgeBlips_ minSustainLengthRB
           $ sixGems sd
           ) $ RBFile.onyxPartSix $ RBFile.getFlexPart bassPart trks
 

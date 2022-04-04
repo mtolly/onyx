@@ -40,7 +40,7 @@ completeFile fin fout = do
 completeRanges :: ProKeysTrack U.Beats -> ProKeysTrack U.Beats
 completeRanges trk = if RTB.null $ pkLanes trk
   then let
-    held = heldNotes $ U.trackJoin $ flip fmap (edgeBlipsRB_ $ pkNotes trk)
+    held = heldNotes $ U.trackJoin $ flip fmap (edgeBlips_ minSustainLengthRB $ pkNotes trk)
       $ \(p, mlen) -> RTB.fromPairList
         [ (0                   , (True , p))
         , (fromMaybe (1/4) mlen, (False, p)) -- give all blips a 16th note of room

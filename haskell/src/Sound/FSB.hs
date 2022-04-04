@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE LambdaCase        #-}
@@ -15,6 +16,7 @@ import           Data.Bits
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
+import           Data.Conduit.Audio             (Duration (..), secondsToFrames)
 import qualified Data.Conduit.Audio             as CA
 import           Data.Hashable                  (Hashable, hash)
 import           Data.Int
@@ -383,12 +385,13 @@ fsbToXMAs f dir = do
   forM_ (zip (either fsb3Songs fsb4Songs $ fsbHeader fsb) (fsbSongData fsb)) $ \(song, sdata) -> do
     let (stereoCount, monoCount) = quotRem (fromIntegral $ fsbSongChannels song) 2
     case fsbExtra song of
-      Left _xma -> do
+      Left xma -> do
         writeXMA (dir </> B8.unpack (fsbSongName song) -<.> "xma") XMAContents
           { xmaChannels = fromIntegral $ fsbSongChannels song
           , xmaRate     = fromIntegral $ fsbSongSampleRate song
           , xmaSamples  = fromIntegral $ fsbSongSamples song
           , xmaPacketsPerBlock = 16
+          , xmaSeekTable = Just $ drop 1 $ fsbXMASeek xma
           , xmaData     = sdata
           }
         marked <- markXMAPacketStreams <$> splitXMA2Packets sdata
@@ -398,6 +401,7 @@ fsbToXMAs f dir = do
             , xmaRate     = fromIntegral $ fsbSongSampleRate song
             , xmaSamples  = fromIntegral $ fsbSongSamples song
             , xmaPacketsPerBlock = 16
+            , xmaSeekTable = Nothing
             , xmaData     = writeXMA2Packets $ extractXMAStream 16 i marked
             }
       Right _mp3 -> do
@@ -422,6 +426,7 @@ splitMultitrackFSB bs = do
         , xmaRate     = fromIntegral $ fsbSongSampleRate song
         , xmaSamples  = fromIntegral $ fsbSongSamples song
         , xmaPacketsPerBlock = 16
+        , xmaSeekTable = Nothing
         , xmaData     = writeXMA2Packets $ extractXMAStream 16 i marked
         }
     Right _mp3 -> splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
@@ -544,6 +549,7 @@ extractXMAStream packetsPerBlock i = go . splitBlocks where
       then go $ (blk <> next) : rest
       else complete packetsPerBlock blk <> go blks
 
+-- Note, returns a 0 in front (.fsb format, not .xma)
 makeXMASeekTable :: (MonadFail m) => XMAContents -> m [Word32]
 makeXMASeekTable xma = do
   pkts <- splitXMA2Packets $ xmaData xma
@@ -562,6 +568,7 @@ data XMAContents = XMAContents
   , xmaRate            :: Int
   , xmaSamples         :: Int
   , xmaPacketsPerBlock :: Int -- 16 for FSB (GH), 32 for PowerGig .xma
+  , xmaSeekTable       :: Maybe [Word32] -- should start from block 1 (not 0) like .xma (not .fsb)
   , xmaData            :: BL.ByteString
   } deriving (Generic, Hashable)
 
@@ -578,7 +585,7 @@ parseXMA b = let
   in do
     riff <- BL.drop 4 <$> findChunk "RIFF" b
     fmt <- findChunk "fmt " riff
-    -- ignoring "seek", we'll make our own seek table
+    seek <- findChunk "seek" riff
     data_ <- findChunk "data" riff
     flip runGetM fmt $ do
       -- WAVEFORMATEX
@@ -609,8 +616,33 @@ parseXMA b = let
         , xmaRate     = fromIntegral rate
         , xmaSamples  = fromIntegral len
         , xmaPacketsPerBlock = fromIntegral packetsPerBlock
+        , xmaSeekTable = Just $ let
+          getSeekTable = isEmpty >>= \case
+            True  -> return []
+            False -> liftM2 (:) getWord32be getSeekTable
+          in runGet getSeekTable seek
         , xmaData     = data_
         }
+
+-- | Returns a new XMA with initial blocks removed, and a remaining frame count to skip manually.
+seekXMA :: (MonadIO m, MonadFail m) => BL.ByteString -> Duration -> m (Readable, Int)
+seekXMA bs pos = do
+  xma <- parseXMA bs
+  let frames = case pos of
+        Seconds s -> secondsToFrames s $ fromIntegral $ xmaRate xma
+        Frames  f -> f
+  seekTable <- maybe (drop 1 <$> makeXMASeekTable xma) return $ xmaSeekTable xma
+  let go !currentBlocks !currentFrames [] = (currentBlocks, currentFrames, [])
+      go !currentBlocks !currentFrames (nextFrames : rest) = if fromIntegral frames >= nextFrames
+        then go (currentBlocks + 1) nextFrames rest
+        else (currentBlocks, currentFrames, rest)
+      (dropBlocks, dropPos, newSeekTable) = go 0 0 seekTable
+  [newXMA] <- liftIO $ makeXMAs $ return xma
+    { xmaSamples = xmaSamples xma - fromIntegral dropPos
+    , xmaSeekTable = Just newSeekTable
+    , xmaData = BL.drop (dropBlocks * fromIntegral (xmaPacketsPerBlock xma) * 2048) $ xmaData xma
+    }
+  return (makeHandle "temp.xma" $ byteStringSimpleHandle newXMA, frames - fromIntegral dropPos)
 
 writeXMA :: FilePath -> XMAContents -> IO ()
 writeXMA fp xma = IO.withBinaryFile fp IO.WriteMode $ \h -> do

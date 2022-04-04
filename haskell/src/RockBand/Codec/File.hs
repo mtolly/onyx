@@ -1004,7 +1004,7 @@ protarToGrybo pg = mempty
       $ RTB.collectCoincident
       $ noExtendedSustains' standardBlipThreshold standardSustainGap
       $ fmap (\(_, _, len) -> (Five.Green, len))
-      $ edgeBlipsRB
+      $ edgeBlips minSustainLengthRB
       $ pgNotes pgd
     }
   , fiveOverdrive    = pgOverdrive pg
@@ -1023,7 +1023,7 @@ expertProKeysToKeys pk = mempty
         $ RTB.collectCoincident
         $ noExtendedSustains' standardBlipThreshold standardSustainGap
         $ fmap (\(_, len) -> (Five.Green, len))
-        $ edgeBlipsRB_
+        $ edgeBlips_ minSustainLengthRB
         $ pkNotes pk
       }
     in Map.fromList [ (diff, fd) | diff <- [minBound .. maxBound] ]

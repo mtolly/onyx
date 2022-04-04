@@ -14,8 +14,10 @@ import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
-import           RockBand.Common                  (Edge, each, edgeBlipsRB,
-                                                   joinEdges, splitEdges)
+import           RockBand.Common                  (Edge, each, edgeBlips,
+                                                   joinEdges,
+                                                   minSustainLengthRB,
+                                                   splitEdges)
 import qualified Sound.MIDI.Util                  as U
 
 data MelodyTrack t = MelodyTrack
@@ -114,7 +116,7 @@ writeNotes tmap = let
     ]
   in intercalate ";" . map writePair . ATB.toPairList . RTB.toAbsoluteEventList 0
     . joinEdges . U.applyTempoTrack tmap . splitEdges
-    . edgeBlipsRB . melodyNotes
+    . edgeBlips minSustainLengthRB . melodyNotes
 
 -- | Any time 2 or more notes appear, randomly delete all but one of them.
 randomNotes :: (NNC.C t, MonadRandom m) => MelodyTrack t -> m (MelodyTrack t)

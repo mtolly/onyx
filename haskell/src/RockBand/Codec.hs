@@ -32,12 +32,13 @@ import qualified Sound.MIDI.Util                  as U
 
 data MIDITrack f = MIDITrack
   { midiNotes       :: Map.Map V.Pitch (f (Edge V.Velocity C.Channel))
+  , midiControllers :: Map.Map C.Controller (f (C.Channel, V.ControllerValue))
   , midiCommands    :: f [T.Text]
   , midiLyrics      :: f T.Text -- also any text events that aren't commands or comments
   , midiComments    :: f T.Text
   , midiPhaseShift  :: f PSMessage
+  , midiPowerGig    :: f T.Text -- vocal text events for powergig
   , midiUnknown     :: f E.T
-  , midiControllers :: Map.Map C.Controller (f (C.Channel, V.ControllerValue))
   }
 
 mapMIDITrack :: (forall a. f a -> g a) -> MIDITrack f -> MIDITrack g
@@ -47,6 +48,7 @@ mapMIDITrack f mt = mt
   , midiLyrics      = f      $ midiLyrics      mt
   , midiComments    = f      $ midiComments    mt
   , midiPhaseShift  = f      $ midiPhaseShift  mt
+  , midiPowerGig    = f      $ midiPowerGig    mt
   , midiUnknown     = f      $ midiUnknown     mt
   , midiControllers = fmap f $ midiControllers mt
   }
@@ -93,9 +95,13 @@ getMIDITrack = let
       E.MetaEvent (Meta.Lyric lyric) -> cur
         { midiLyrics = At t (T.pack lyric) $ midiLyrics cur
         }
-      E.MetaEvent (Meta.TextEvent lyric) -> cur
-        { midiLyrics = At t (T.pack lyric) $ midiLyrics cur
-        }
+      E.MetaEvent (Meta.TextEvent lyric)
+        | lyric == "\\n" || lyric == "\\r" -> cur
+          { midiPowerGig = At t (T.pack lyric) $ midiPowerGig cur
+          }
+        | otherwise -> cur
+          { midiLyrics = At t (T.pack lyric) $ midiLyrics cur
+          }
       E.MIDIEvent (C.Cons chan (C.Voice (V.Control cont v))) -> cur
         { midiControllers = let
           f = Just . At t (chan, v) . fromMaybe ANil
@@ -111,6 +117,7 @@ getMIDITrack = let
     , midiLyrics      = ATB.empty
     , midiComments    = ATB.empty
     , midiPhaseShift  = ATB.empty
+    , midiPowerGig    = ATB.empty
     , midiUnknown     = ATB.empty
     , midiControllers = Map.empty
     }
@@ -128,6 +135,7 @@ putMIDITrack merge mt = foldr merge (midiUnknown mt) $ let
   in notes ++ controllers ++
     [ showCommand' <$> midiCommands mt
     , (\cmt -> E.MetaEvent $ Meta.TextEvent $ '#' : T.unpack cmt) <$> midiComments mt
+    , (\t -> E.MetaEvent $ Meta.TextEvent $ T.unpack t) <$> midiPowerGig mt
     , unparsePSSysEx <$> midiPhaseShift mt
     ]
 
@@ -305,6 +313,15 @@ lyrics :: (Monad m, NNC.C t) => TrackEvent m t T.Text
 lyrics = Codec
   { codecIn = slurpTrack $ \mt -> (midiLyrics mt, mt { midiLyrics = RTB.empty })
   , codecOut = makeTrackBuilder $ fmap $ E.MetaEvent . Meta.Lyric . T.unpack
+  }
+
+powerGigText :: (Monad m, NNC.C t) => T.Text -> TrackEvent m t ()
+powerGigText t = Codec
+  { codecIn = slurpTrack $ \mt -> case RTB.partitionMaybe (\x -> guard (x == t) >> Just ()) (midiPowerGig mt) of
+    (matches, rest) -> (matches, mt { midiPowerGig = rest })
+  , codecOut = let
+    s = T.unpack t
+    in makeTrackBuilder $ fmap $ E.MetaEvent . Meta.TextEvent . const s
   }
 
 joinEdges' :: (NNC.C t, Eq a) => RTB.T t (a, Maybe s) -> RTB.T t (a, s, t)
@@ -526,3 +543,6 @@ controller_ = let
   fs v      = (0, v)
   fp (_, v) = v
   in dimap (fmap fs) (fmap fp) . controller
+
+controllerBool :: (Monad m, NNC.C t) => Int -> TrackEvent m t Bool
+controllerBool = dimap (fmap $ \b -> if b then 127 else 0) (fmap (/= 0)) . controller_

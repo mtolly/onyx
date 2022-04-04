@@ -24,7 +24,8 @@ import           RockBand.Codec.Five              as Five
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
 import           RockBand.Common                  (Difficulty (..), Edge (..),
-                                                   blipEdgesRB_, edgeBlipsRB_)
+                                                   blipEdgesRB_, edgeBlips_,
+                                                   minSustainLengthRB)
 import qualified Sound.MIDI.Util                  as U
 
 dryVoxAudio :: (Monad m) => F.Song (F.FixedFile U.Beats) -> AudioSource m Float
@@ -104,7 +105,7 @@ fixFiveColors trk = let
 
 useColorsFive :: Set.Set Five.Color -> RTB.T U.Beats (Edge () Five.Color) -> RTB.T U.Beats (Edge () Five.Color)
 useColorsFive cols rtb = let
-  gtr = guitarify' $ edgeBlipsRB_ rtb
+  gtr = guitarify' $ edgeBlips_ minSustainLengthRB rtb
   present = Set.fromList $ flip mapMaybe (RTB.getBodies rtb) $ \case
     EdgeOn _ color -> Just color
     EdgeOff _      -> Nothing

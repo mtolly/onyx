@@ -859,7 +859,7 @@ convertRStoPG rs = let
     $ joinEdges
     $ noExtendedSustains standardBlipThreshold standardSustainGap
     $ splitEdges
-    $ edgeBlipsRB
+    $ edgeBlips minSustainLengthRB
     $ rsNotes rs
   in return mempty
     { pgDifficulties = Map.singleton Expert mempty
