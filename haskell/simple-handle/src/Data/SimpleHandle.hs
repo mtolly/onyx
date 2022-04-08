@@ -170,8 +170,10 @@ instance Bifunctor Folder where
 
 instance (Ord name) => Semigroup (Folder name a) where
   x <> y = Folder
+    -- merge subfolders
     { folderSubfolders = Map.toList $ Map.unionWith (<>) (Map.fromList $ folderSubfolders x) (Map.fromList $ folderSubfolders y)
-    , folderFiles      = folderFiles x <> folderFiles y
+    -- prefer the right argument in case of a duplicate file
+    , folderFiles      = Map.toList $ Map.fromList $ folderFiles x <> folderFiles y
     }
 
 instance (Ord name) => Monoid (Folder name a) where

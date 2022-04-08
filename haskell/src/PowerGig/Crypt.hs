@@ -11,6 +11,7 @@ import           Data.Bifunctor          (bimap, second)
 import           Data.Binary.Codec.Class
 import           Data.ByteArray          (convert)
 import qualified Data.ByteString         as B
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy    as BL
 import           Data.Foldable           (toList)
 import           Data.List.Extra         (nubOrd)
@@ -19,10 +20,19 @@ import qualified Data.Map                as Map
 import           Data.Maybe              (fromMaybe)
 import           Data.SimpleHandle
 import qualified Data.Text               as T
+import qualified Data.HashMap.Strict     as HM
 import qualified Data.Text.Encoding      as TE
 import qualified Data.Vector             as V
 import           Foreign.Marshal.Utils   (withMany)
 import           System.IO
+import Data.Bits (xor)
+import Data.Char (toLower)
+import Control.Monad.Trans.State (gets, modify, execState, get, put, runStateT)
+import Control.Monad.IO.Class (liftIO)
+import qualified Data.Sequence as Seq
+import Data.Sequence ((|>), Seq, (><))
+import Data.Bifunctor (first)
+import qualified Data.ByteArray as BA
 
 powerGigBlockSize :: Int
 powerGigBlockSize = 512
@@ -58,15 +68,39 @@ decryptE2 input = do
   return $ BL.take (fromIntegral decryptLength)
     $ BL.fromChunks $ map (decryptOvershoot cipher iv) encBlocks
 
+encryptE2 :: (MonadFail m) => B.ByteString -> m BL.ByteString
+encryptE2 input = do
+  let ivBytes       = B.replicate 16 0x15
+      cipherBytes   = B.replicate 32 0x69
+      headerIVBytes = B.replicate 16 0x42
+      line4         = BL.toStrict $ runPut $ do
+        putWord32le $ fromIntegral $ B.length input
+        putWord32le 0
+        putWord32le 2
+        putWord32le 0
+      headerBlock = ivBytes <> cipherBytes <> line4 <> B.replicate (powerGigBlockSize - 0x40) 0
+  Just headerIV <- return $ makeIV headerIVBytes
+  CryptoPassed headerCipher <- return $ cipherInit powerGigKey
+  let headerBlockEnc
+        = B.take (powerGigBlockSize - 0x10) (cbcEncrypt headerCipher headerIV headerBlock)
+        <> headerIVBytes
+      blocks = map
+        (\b -> if B.length b == powerGigBlockSize then b else b <> B.replicate (powerGigBlockSize - B.length b) 0)
+        (splitEvery powerGigBlockSize input)
+  Just iv <- return $ makeIV ivBytes
+  CryptoPassed cipher <- return $ cipherInit cipherBytes
+  let _ = [iv, headerIV] :: [IV AES256]
+  return $ BL.fromChunks $ headerBlockEnc : map (cbcEncrypt cipher iv) blocks
+
 data PGHeader = PGHeader
   { h_Magic             :: Word32 -- 0x745
   , h_Version           :: Word32 -- 1
   , h_BlockSize         :: Word32
   , h_NumFiles          :: Word32
-  , h_NumUnk            :: Word32
-  , h_NumDirs           :: Word32
   , h_Unk1              :: Word32
+  , h_NumDirs           :: Word32
   , h_Unk2              :: Word32
+  , h_NumStrings        :: Word32
   , h_StringTableOffset :: Word32
   , h_StringTableSize   :: Word32
   , h_NumOffsets        :: Word32
@@ -78,38 +112,40 @@ instance Bin PGHeader where
     h_Version           <- h_Version           =. word32le
     h_BlockSize         <- h_BlockSize         =. word32le
     h_NumFiles          <- h_NumFiles          =. word32le
-    h_NumUnk            <- h_NumUnk            =. word32le
-    h_NumDirs           <- h_NumDirs           =. word32le
     h_Unk1              <- h_Unk1              =. word32le
+    h_NumDirs           <- h_NumDirs           =. word32le
     h_Unk2              <- h_Unk2              =. word32le
+    h_NumStrings        <- h_NumStrings        =. word32le
     h_StringTableOffset <- h_StringTableOffset =. word32le
     h_StringTableSize   <- h_StringTableSize   =. word32le
     h_NumOffsets        <- h_NumOffsets        =. word32le
     return PGHeader{..}
 
 data PGFileEntry = PGFileEntry
-  { fe_Unk1      :: B.ByteString -- 6 bytes
+  { fe_Lua       :: Word16 -- 1 if .lua file
+  , fe_PathHash  :: Word32 -- FNV132 hash of lowercase filename using backslash as separator
   , fe_DirNum    :: Word16
   , fe_StringNum :: Word32
   , fe_OffsetNum :: Word32
   , fe_Size      :: Int64
-  , fe_Unk2      :: B.ByteString -- 16 bytes
-  , fe_Time      :: Int64
+  , fe_FileHash  :: B.ByteString -- MD5 of file contents
+  , fe_Time      :: Int64 -- maxton labeled this time, but what format?
   } deriving (Eq, Show)
 
 instance Bin PGFileEntry where
   bin = do
-    fe_Unk1      <- fe_Unk1      =. byteString 6
+    fe_Lua       <- fe_Lua       =. word16le
+    fe_PathHash  <- fe_PathHash  =. word32le
     fe_DirNum    <- fe_DirNum    =. word16le
     fe_StringNum <- fe_StringNum =. word32le
     fe_OffsetNum <- fe_OffsetNum =. word32le
     fe_Size      <- fe_Size      =. int64le
-    fe_Unk2      <- fe_Unk2      =. byteString 16
+    fe_FileHash  <- fe_FileHash  =. byteString 16
     fe_Time      <- fe_Time      =. int64le
     return PGFileEntry{..}
 
 data PGDirEntry = PGDirEntry
-  { de_PathHash  :: Word32
+  { de_PathHash  :: Word32 -- FNV132 hash of lowercase filename using backslash as separator, e.g. "animtool\\textures" (one backslash not two)
   , de_Parent    :: Int32
   , de_StringNum :: Word32
   } deriving (Eq, Show)
@@ -124,7 +160,7 @@ instance Bin PGDirEntry where
 data PGOffsetEntry = PGOffsetEntry
   { oe_PKOffset :: Word32
   , oe_PKNum    :: Word16
-  , oe_Unk      :: Word16
+  , oe_Unk      :: Word16 -- number of subsequent offset entries which contain extra copies of this data?
   } deriving (Eq, Show)
 
 instance Bin PGOffsetEntry where
@@ -148,20 +184,39 @@ readHeader bs = let
     fh_Header  <- codecIn bin
     fh_Files   <- V.fromList <$> replicateM (fromIntegral $ h_NumFiles fh_Header) (codecIn bin)
     fh_Dirs    <- V.fromList <$> replicateM (fromIntegral $ h_NumDirs fh_Header) (codecIn bin)
-    fh_Strings <- V.fromList . B.split 0 <$> getByteString (fromIntegral $ h_StringTableSize fh_Header)
+    fh_Strings <- V.fromList . take (fromIntegral $ h_NumStrings fh_Header) . B.split 0
+      <$> getByteString (fromIntegral $ h_StringTableSize fh_Header)
     fh_Offsets <- V.fromList <$> replicateM (fromIntegral $ h_NumOffsets fh_Header) (codecIn bin)
     return FullHeader{..}
   in case runGetOrFail getter bs of
     Right (_, _, x) -> return x
     Left  err       -> fail $ show err
 
+buildHeader :: FullHeader -> BL.ByteString
+buildHeader fh = let
+  files = runPut $ mapM_ (codecOut bin) $ V.toList $ fh_Files fh
+  dirs  = runPut $ mapM_ (codecOut bin) $ V.toList $ fh_Dirs fh
+  strings = BL.fromChunks $ concatMap (\b -> [b, "\0"]) $ V.toList $ fh_Strings fh
+  offsets = runPut $ mapM_ (codecOut bin) $ V.toList $ fh_Offsets fh
+  newHeader = (fh_Header fh)
+    { h_NumFiles          = fromIntegral $ V.length $ fh_Files fh
+    , h_NumDirs           = fromIntegral $ V.length $ fh_Dirs fh
+    , h_NumStrings        = fromIntegral $ V.length $ fh_Strings fh
+    , h_StringTableOffset = fromIntegral $ 44 + BL.length files + BL.length dirs
+    , h_StringTableSize   = fromIntegral $ BL.length strings
+    , h_NumOffsets        = fromIntegral $ V.length $ fh_Offsets fh
+    }
+  in runPut (void $ codecOut bin newHeader) <> files <> dirs <> strings <> offsets
+
 data PKReference = PKReference
   { pkArchive :: Int
   , pkOffset  :: Integer
   , pkLength  :: Integer
+  -- used to reassemble modified header
+  , pkFileEntry :: PGFileEntry
+  , pkOffsetEntries :: [PGOffsetEntry]
   } deriving (Eq, Show)
 
--- Each file is (pk num, offset, length)
 getFolder :: FullHeader -> Folder B.ByteString PKReference
 getFolder fh = fromFiles $ do
   f <- V.toList $ fh_Files fh
@@ -179,8 +234,100 @@ getFolder fh = fromFiles $ do
         { pkArchive = fromIntegral $ oe_PKNum offset
         , pkOffset  = fromIntegral $ oe_PKOffset offset
         , pkLength  = fromIntegral $ fe_Size f
+        , pkFileEntry = f
+        , pkOffsetEntries = do
+          i <- take (fromIntegral $ oe_Unk offset + 1) [fromIntegral (fe_OffsetNum f) ..]
+          return $ fh_Offsets fh V.! i
         }
   return (path, ref)
+
+data RebuildState = RebuildState
+  { rbsFiles   :: Seq PGFileEntry
+  , rbsDirs    :: Seq PGDirEntry
+  , rbsOffsets :: Seq PGOffsetEntry
+  }
+
+fnv132lowercase :: B.ByteString -> Word32
+fnv132lowercase = go 2166136261 . B8.unpack where
+  go cur [] = cur
+  go cur (c : cs) = go ((cur * 16777619) `xor` byte c) cs
+  byte :: Char -> Word32
+  byte = fromIntegral . fromEnum . toLower
+
+rebuildFullHeader :: PGHeader -> Folder B.ByteString PKReference -> FullHeader
+rebuildFullHeader hdr dir = let
+  getAllStrings folder = map fst (folderSubfolders folder) <> map fst (folderFiles folder)
+    <> concatMap (getAllStrings . snd) (folderSubfolders folder)
+  allStrings = nubOrd $ "" : getAllStrings dir
+  stringToIndexMap = HM.fromList $ zip allStrings [0..]
+  stringToIndex s = case HM.lookup s stringToIndexMap of
+    Nothing -> error $ "rebuildFullHeader: panic! string not in table: " <> show s
+    Just i  -> i
+  hashPath :: [B.ByteString] -> Word32
+  hashPath = fnv132lowercase . B.intercalate "\\" . reverse
+  go curDir curParentIndex curName = do
+    -- first add new dir entry
+    let newDirEntry = PGDirEntry
+          { de_PathHash  = hashPath curName
+          , de_Parent    = fromIntegral curParentIndex
+          , de_StringNum = stringToIndex $ case curName of
+            []    -> ""
+            x : _ -> x
+          }
+    dirIndex <- gets $ Seq.length . rbsDirs
+    modify $ \rbs -> rbs { rbsDirs = rbsDirs rbs |> newDirEntry }
+    -- then add new file entries
+    forM_ (folderFiles curDir) $ \(fileName, pkref) -> do
+      offsetIndex <- gets $ Seq.length . rbsOffsets
+      let fileEntry = (pkFileEntry pkref)
+            { fe_PathHash  = hashPath $ fileName : curName
+            , fe_DirNum    = fromIntegral dirIndex
+            , fe_StringNum = stringToIndex fileName
+            , fe_OffsetNum = fromIntegral offsetIndex
+            }
+      modify $ \rbs -> rbs
+        { rbsOffsets = rbsOffsets rbs >< Seq.fromList (pkOffsetEntries pkref)
+        , rbsFiles = rbsFiles rbs |> fileEntry
+        }
+    -- then recurse into subfolders
+    forM_ (folderSubfolders curDir) $ \(folderName, subDir) -> do
+      go subDir dirIndex (folderName : curName)
+  finalState = execState (go dir (-1) []) $ RebuildState Seq.empty Seq.empty Seq.empty
+  in FullHeader
+    { fh_Header = hdr
+    , fh_Files = V.fromList $ toList $ rbsFiles finalState
+    , fh_Dirs = V.fromList $ toList $ rbsDirs finalState
+    , fh_Strings = V.fromList allStrings
+    , fh_Offsets = V.fromList $ toList $ rbsOffsets finalState
+    }
+
+makeNewPK :: Int -> Folder T.Text Readable -> IO (Folder B.ByteString PKReference, BL.ByteString)
+makeNewPK pkNumber root = runStateT (mapM eachFile $ first (B8.pack . T.unpack) root) BL.empty where
+  eachFile r = do
+    pk <- get
+    bs <- liftIO $ useHandle r handleToByteString
+    let md5 = BA.convert (hash $ BL.toStrict bs :: Digest MD5)
+    put $ pk <> bs -- do we need to pad this?
+    return PKReference
+      { pkArchive = pkNumber
+      , pkOffset = fromIntegral $ BL.length pk
+      , pkLength = fromIntegral $ BL.length bs
+      , pkFileEntry = PGFileEntry
+        { fe_Lua = 0 -- TODO
+        , fe_PathHash = 0 -- filled in later
+        , fe_DirNum = 0 -- filled in later
+        , fe_StringNum = 0 -- filled in later
+        , fe_OffsetNum = 0 -- filled in later
+        , fe_Size = fromIntegral $ BL.length bs
+        , fe_FileHash = md5
+        , fe_Time = 0 -- unknown
+        }
+      , pkOffsetEntries = [PGOffsetEntry
+        { oe_PKOffset = fromIntegral $ BL.length pk
+        , oe_PKNum = fromIntegral pkNumber
+        , oe_Unk = 0
+        }]
+      }
 
 modifyFiles :: ((p, a) -> (p, a)) -> Folder p a -> Folder p a
 modifyFiles f folder = Folder
