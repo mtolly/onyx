@@ -3,36 +3,38 @@
 module PowerGig.Crypt where
 
 import           Control.Monad
+import           Control.Monad.IO.Class    (liftIO)
+import           Control.Monad.Trans.State (execState, get, gets, modify, put,
+                                            runStateT)
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
 import           Crypto.Hash
-import           Data.Bifunctor          (bimap, second)
+import           Data.Bifunctor            (bimap, second)
+import           Data.Bifunctor            (first)
 import           Data.Binary.Codec.Class
-import           Data.ByteArray          (convert)
-import qualified Data.ByteString         as B
-import qualified Data.ByteString.Char8 as B8
-import qualified Data.ByteString.Lazy    as BL
-import           Data.Foldable           (toList)
-import           Data.List.Extra         (nubOrd)
-import qualified Data.List.NonEmpty      as NE
-import qualified Data.Map                as Map
-import           Data.Maybe              (fromMaybe)
+import           Data.Bits                 (xor)
+import           Data.ByteArray            (convert)
+import qualified Data.ByteArray            as BA
+import qualified Data.ByteString           as B
+import qualified Data.ByteString.Char8     as B8
+import qualified Data.ByteString.Lazy      as BL
+import           Data.Char                 (toLower)
+import           Data.Foldable             (toList)
+import qualified Data.HashMap.Strict       as HM
+import           Data.List.Extra           (nubOrd)
+import           Data.List.NonEmpty        (NonEmpty (..))
+import qualified Data.List.NonEmpty        as NE
+import qualified Data.Map                  as Map
+import           Data.Maybe                (fromMaybe)
+import           Data.Sequence             (Seq, (><), (|>))
+import qualified Data.Sequence             as Seq
 import           Data.SimpleHandle
-import qualified Data.Text               as T
-import qualified Data.HashMap.Strict     as HM
-import qualified Data.Text.Encoding      as TE
-import qualified Data.Vector             as V
-import           Foreign.Marshal.Utils   (withMany)
+import qualified Data.Text                 as T
+import qualified Data.Text.Encoding        as TE
+import qualified Data.Vector               as V
+import           Foreign.Marshal.Utils     (withMany)
 import           System.IO
-import Data.Bits (xor)
-import Data.Char (toLower)
-import Control.Monad.Trans.State (gets, modify, execState, get, put, runStateT)
-import Control.Monad.IO.Class (liftIO)
-import qualified Data.Sequence as Seq
-import Data.Sequence ((|>), Seq, (><))
-import Data.Bifunctor (first)
-import qualified Data.ByteArray as BA
 
 powerGigBlockSize :: Int
 powerGigBlockSize = 512
@@ -160,14 +162,14 @@ instance Bin PGDirEntry where
 data PGOffsetEntry = PGOffsetEntry
   { oe_PKOffset :: Word32
   , oe_PKNum    :: Word16
-  , oe_Unk      :: Word16 -- number of subsequent offset entries which contain extra copies of this data?
+  , oe_Copies   :: Word16 -- number of subsequent offset entries which contain extra copies of this data
   } deriving (Eq, Show)
 
 instance Bin PGOffsetEntry where
   bin = do
     oe_PKOffset <- oe_PKOffset =. word32le
     oe_PKNum    <- oe_PKNum    =. word16le
-    oe_Unk      <- oe_Unk      =. word16le
+    oe_Copies   <- oe_Copies   =. word16le
     return PGOffsetEntry{..}
 
 data FullHeader = FullHeader
@@ -209,13 +211,18 @@ buildHeader fh = let
   in runPut (void $ codecOut bin newHeader) <> files <> dirs <> strings <> offsets
 
 data PKReference = PKReference
-  { pkArchive :: Int
-  , pkOffset  :: Integer
-  , pkLength  :: Integer
-  -- used to reassemble modified header
-  , pkFileEntry :: PGFileEntry
-  , pkOffsetEntries :: [PGOffsetEntry]
+  { pkFileEntry     :: PGFileEntry
+  , pkOffsetEntries :: NonEmpty PGOffsetEntry
   } deriving (Eq, Show)
+
+pkArchive :: PKReference -> Int
+pkArchive = fromIntegral . oe_PKNum . NE.head . pkOffsetEntries
+
+pkOffset :: PKReference -> Integer
+pkOffset = fromIntegral . oe_PKOffset . NE.head . pkOffsetEntries
+
+pkLength :: PKReference -> Integer
+pkLength = fromIntegral . fe_Size . pkFileEntry
 
 getFolder :: FullHeader -> Folder B.ByteString PKReference
 getFolder fh = fromFiles $ do
@@ -231,12 +238,9 @@ getFolder fh = fromFiles $ do
           str -> NE.cons str cur
         in getParents (fromIntegral $ de_Parent dir) newPath
       ref = PKReference
-        { pkArchive = fromIntegral $ oe_PKNum offset
-        , pkOffset  = fromIntegral $ oe_PKOffset offset
-        , pkLength  = fromIntegral $ fe_Size f
-        , pkFileEntry = f
-        , pkOffsetEntries = do
-          i <- take (fromIntegral $ oe_Unk offset + 1) [fromIntegral (fe_OffsetNum f) ..]
+        { pkFileEntry = f
+        , pkOffsetEntries = offset :| do
+          i <- take (fromIntegral $ oe_Copies offset) [fromIntegral (fe_OffsetNum f) + 1 ..]
           return $ fh_Offsets fh V.! i
         }
   return (path, ref)
@@ -249,7 +253,7 @@ data RebuildState = RebuildState
 
 fnv132lowercase :: B.ByteString -> Word32
 fnv132lowercase = go 2166136261 . B8.unpack where
-  go cur [] = cur
+  go cur []       = cur
   go cur (c : cs) = go ((cur * 16777619) `xor` byte c) cs
   byte :: Char -> Word32
   byte = fromIntegral . fromEnum . toLower
@@ -286,8 +290,8 @@ rebuildFullHeader hdr dir = let
             , fe_OffsetNum = fromIntegral offsetIndex
             }
       modify $ \rbs -> rbs
-        { rbsOffsets = rbsOffsets rbs >< Seq.fromList (pkOffsetEntries pkref)
-        , rbsFiles = rbsFiles rbs |> fileEntry
+        { rbsOffsets = rbsOffsets rbs >< Seq.fromList (NE.toList $ pkOffsetEntries pkref)
+        , rbsFiles   = rbsFiles rbs |> fileEntry
         }
     -- then recurse into subfolders
     forM_ (folderSubfolders curDir) $ \(folderName, subDir) -> do
@@ -309,10 +313,7 @@ makeNewPK pkNumber root = runStateT (mapM eachFile $ first (B8.pack . T.unpack) 
     let md5 = BA.convert (hash $ BL.toStrict bs :: Digest MD5)
     put $ pk <> bs -- do we need to pad this?
     return PKReference
-      { pkArchive = pkNumber
-      , pkOffset = fromIntegral $ BL.length pk
-      , pkLength = fromIntegral $ BL.length bs
-      , pkFileEntry = PGFileEntry
+      { pkFileEntry = PGFileEntry
         { fe_Lua = 0 -- TODO
         , fe_PathHash = 0 -- filled in later
         , fe_DirNum = 0 -- filled in later
@@ -322,11 +323,11 @@ makeNewPK pkNumber root = runStateT (mapM eachFile $ first (B8.pack . T.unpack) 
         , fe_FileHash = md5
         , fe_Time = 0 -- unknown
         }
-      , pkOffsetEntries = [PGOffsetEntry
+      , pkOffsetEntries = return PGOffsetEntry
         { oe_PKOffset = fromIntegral $ BL.length pk
         , oe_PKNum = fromIntegral pkNumber
-        , oe_Unk = 0
-        }]
+        , oe_Copies = 0
+        }
       }
 
 modifyFiles :: ((p, a) -> (p, a)) -> Folder p a -> Folder p a

@@ -20,7 +20,9 @@ import           RockBand.Codec.File              (ParseFile (..), fileTrack)
 import qualified RockBand.Codec.Five              as F
 import           RockBand.Codec.Vocal             (Pitch)
 import           RockBand.Common
+import qualified Sound.MIDI.File                  as F
 import           Sound.MIDI.Message.Channel.Voice (toPitch)
+import qualified Sound.MIDI.Util                  as U
 
 data GuitarDifficulty t = GuitarDifficulty
   { guitarGems             :: RTB.T t (Edge () (Maybe F.Color))
@@ -76,13 +78,12 @@ instance ParseTrack GuitarDifficulty where
     return GuitarDifficulty{..}
 
 data DrumDifficulty t = DrumDifficulty
-  { drumGems          :: RTB.T t (D.Gem ())
-  , drumFreestyle     :: RTB.T t (Edge () (D.Gem ())) -- not sure what this is, just a guess. appears in lower difficulties?
+  { drumGems          :: RTB.T t (Edge () (D.Gem ()))
+  , drumFreeGems      :: RTB.T t (Edge () (D.Gem ())) -- mostly in lower diffs but also tripping billies on all diffs
   , drumMojoGuitarist :: RTB.T t Bool
   , drumMojoVocalist  :: RTB.T t Bool
+  , drumFreestyle     :: RTB.T t Bool -- surrounds drumFreeGems
   -- TODO program change (ch 9), probably switches between e.g. <kit kit_number="0" ...>
-  -- rest unknown
-  , drumController64  :: RTB.T t Int
   -- TODO others seen: note pitch 61, note pitch 66, note pitch 84, controller 10, controller 7
   } deriving (Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (DrumDifficulty t)
@@ -90,14 +91,14 @@ data DrumDifficulty t = DrumDifficulty
 instance ParseTrack DrumDifficulty where
   parseTrack = do
     let allDrums = [D.Kick, D.Red, D.Pro D.Yellow (), D.Pro D.Blue (), D.Pro D.Green ()]
-    drumGems <- (drumGems =.) $ fatBlips (1/8) $ condenseMap_ $ eachKey allDrums $ blip . \case
+    drumGems <- (drumGems =.) $ translateEdges $ condenseMap $ eachKey allDrums $ edges . \case
       D.Pro D.Green  () -> 62
       D.Red             -> 64
       D.Pro D.Yellow () -> 65
       D.Pro D.Blue   () -> 67
       D.Kick            -> 69
       D.Orange          -> error "panic! orange case in powergig drums"
-    drumFreestyle <- (drumFreestyle =.) $ translateEdges $ condenseMap $ eachKey allDrums $ edges . \case
+    drumFreeGems <- (drumFreeGems =.) $ translateEdges $ condenseMap $ eachKey allDrums $ edges . \case
       D.Pro D.Green  () -> 86
       D.Red             -> 88
       D.Pro D.Yellow () -> 89
@@ -106,7 +107,7 @@ instance ParseTrack DrumDifficulty where
       D.Orange          -> error "panic! orange case in powergig drums"
     drumMojoGuitarist <- drumMojoGuitarist =. controllerBool 80
     drumMojoVocalist  <- drumMojoVocalist  =. controllerBool 82
-    drumController64  <- drumController64  =. controller_ 64
+    drumFreestyle     <- drumFreestyle     =. controllerBool 64
     return DrumDifficulty{..}
 
 data VocalDifficulty t = VocalDifficulty
@@ -207,3 +208,10 @@ instance ParseFile PGFile where
     pgBeat <- pgBeat =. fileTrack (pure "beat")
 
     return PGFile{..}
+
+-- This is needed for Cherub Rock and maybe others
+fixLateTrackNames :: F.T -> F.T
+fixLateTrackNames (F.Cons typ dvn trks) = F.Cons typ dvn $ flip map trks $ \trk -> case U.trackName trk of
+  Just _  -> trk
+  Nothing -> case RTB.partitionMaybe U.readTrackName trk of
+    (names, rest) -> foldr (Wait 0 . U.showTrackName) rest names

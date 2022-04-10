@@ -38,7 +38,7 @@ import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
 import           RockBand.Codec.Vocal             (Pitch)
 import qualified RockBand.Codec.Vocal             as V
-import           RockBand.Common                  (Difficulty (..),
+import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    pattern RNil,
                                                    StrumHOPOTap (..),
                                                    pattern Wait, edgeBlips_)
@@ -66,7 +66,7 @@ importPowerGigSong key song folder level = do
     ImportQuick -> return emptyChart
     ImportFull -> case findFileCI ("Audio" :| ["songs", key, audio_midi $ song_audio song]) folder of
       Nothing -> fatal "Couldn't find MIDI file"
-      Just r  -> RBFile.loadMIDIReadable r
+      Just r  -> RBFile.loadRawMIDIReadable r >>= RBFile.readMIDIFile' . fixLateTrackNames
   let onyxFile = mempty
         { RBFile.onyxParts = Map.fromList
           [ (RBFile.FlexGuitar, mempty
@@ -104,7 +104,10 @@ importPowerGigSong key song folder level = do
       getDrums f = let
         pg = f $ RBFile.s_tracks mid
         in mempty
-          { D.drumGems = (, D.VelocityNormal) <$> drumGems pg
+          -- TODO handle lanes
+          { D.drumGems = flip RTB.mapMaybe (drumGems pg) $ \case
+            EdgeOn () gem -> Just (gem, D.VelocityNormal)
+            EdgeOff _     -> Nothing
           }
       getGuitar getSustDiff getMIDIDiff = let
         pg = getMIDIDiff $ RBFile.s_tracks mid
