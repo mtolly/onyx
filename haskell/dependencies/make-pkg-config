@@ -1,0 +1,14 @@
+#!/usr/bin/env ruby
+
+if ARGV.length != 2
+  puts "Expected 2 arguments"
+  exit 1
+end
+
+pc_in = ARGV[0]
+prefix = ARGV[1]
+
+template = File.read(pc_in)
+pc_out = prefix + '/lib/pkgconfig/' + File.basename(pc_in).gsub('.pc.in', '.pc')
+File.write(pc_out, template.gsub('%PREFIX%', prefix))
+
