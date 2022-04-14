@@ -22,9 +22,9 @@ data GEV = GEV
   } deriving (Show)
 
 data PCMC = PCMC
-  { pcmcUnk1 :: Word32
-  , pcmcUnk2 :: Word32
-  , pcmcUnk3 :: Word32
+  { pcmcUnk1 :: Word32 -- always 1
+  , pcmcUnk2 :: Word32 -- think this is a Unix timestamp
+  , pcmcUnk3 :: Word32 -- always 0
   , pcmcMIDI :: B.ByteString
   } deriving (Show)
 
@@ -35,13 +35,12 @@ data GELH = GELH
 data GELS = GELS
   { gelsUnk1      :: Word32 -- just counts up from 2?
   , gelsTrackName :: Word32 -- index into STRH
-  , gelsUnk3      :: Word32
+  , gelsUnk3      :: Word32 -- number of non-power-chord notes (chord = 1 note). does not include pc-only non-pc notes
   , gelsUnk4      :: Word32
-  , gelsUnk5      :: Float
+  , gelsUnk5      :: Float -- not totally sure this and next are floats
   , gelsUnk6      :: Float
-  , gelsUnk7      :: Word32
+  , gelsUnk7      :: Word32 -- number of power chords, 0 on non-guitar tracks. does not include pc-only non-pc notes
   , gelsGEVT      :: V.Vector GEVT
-  -- gelsUnk3 + gelsUnk7 = number of notes (GEVT with gevtType = 2)
   } deriving (Show)
 
 data GEVT = GEVT
@@ -50,7 +49,7 @@ data GEVT = GEVT
   , gevtSustain  :: Float -- note sustain length in seconds (0 if below sustain threshold). drum sustains may be shortened? see cherub rock
   , gevtGameBits :: Int32 -- -1 unless this is a group of notes on guitar/drums/vocals track. see below
   , gevtUnk5     :: Word32 -- this matches the gelsUnk1 for this track
-  , gevtType     :: Word32 -- event type: 2 = note, 4 = controller, 5 = program change, 9 = text event, 11 = track name, 13 = lyric, 17 = end of track
+  , gevtType     :: Word32 -- event type: 2 = note, 4 = controller, 5 = program change, 9 = text event, 11 = track name, 13 = lyric, 17 = end of track, 18 and 20 seen in _cue.gev but probably just tempo/timesig
   , gevtData1    :: Word32 -- pitch of (lowest) note, STRH index for track name / lyric / text event, controller index, program change index. for end of track uses whatever it was last event
   , gevtData2    :: Word32 -- velocity of note, controller value. if unused (anything else) uses whatever it was last event. inconsistent for first event (track name), seen 0x26afef4, 0x27afef4
   } deriving (Show)
@@ -111,6 +110,9 @@ bits:
      800 * B
     1000   B#
     2000 * freestyle
+
+in _cue.gev all evtGameBits are -1
+
 -}
 
 data STRH = STRH

@@ -215,3 +215,40 @@ fixLateTrackNames (F.Cons typ dvn trks) = F.Cons typ dvn $ flip map trks $ \trk 
   Just _  -> trk
   Nothing -> case RTB.partitionMaybe U.readTrackName trk of
     (names, rest) -> foldr (Wait 0 . U.showTrackName) rest names
+
+{-
+
+Cataloguing CherubRock_cue.mid:
+
+camera1
+notes 4 5 6 7 8 9 10 11 12 15 101 104 (blips)
+
+L1Light1
+notes 1 2 3 4 (blips)
+
+Pyro
+notes 1 (blips)
+
+VenueEvents
+notes 1 2 3 4 5 10 11 20 21 (blips)
+
+GuitaristFullBody and GuitaristFace
+notes 9 10 11 14 17 32 (long)
+
+GuitaristStrum
+
+GuitaristChord
+
+GuitaristFret
+notes 1 2 3 4 5 (long)
+text event "easein 0.1 easeout 0.1"
+
+VocalistFullBody
+
+VocalistFace
+
+DrummerFill
+
+DrummerFace
+
+-}
