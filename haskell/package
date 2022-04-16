@@ -1,0 +1,23 @@
+#!/bin/bash
+set -e
+set -u
+
+case $(uname) in
+  Linux )
+    rm -rf Onyx.AppDir/usr/bin/*
+    rm -rf Onyx.AppDir/usr/lib/*
+    rm -rf Onyx.AppDir/usr/share/metainfo/*
+    stack exec which onyx | xargs -I{} cp {} Onyx.AppDir/usr/bin/onyx
+    strip Onyx.AppDir/usr/bin/onyx
+    cp -R resources Onyx.AppDir/usr/bin/onyx-resources
+    cp icon/icon.png Onyx.AppDir/usr/share/icons/hicolor/256x256/apps/onyx.png
+    cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
+    stack exec -- onyx-package changes
+    stack exec -- onyx-package version-write Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/bin/onyx-resources/README.txt
+    stack exec -- onyx-package version-print \
+      | env LD_LIBRARY_PATH=dependencies/root/lib xargs -I{} env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
+    ;;
+  * )
+    echo "unknown"
+    exit 1
+esac

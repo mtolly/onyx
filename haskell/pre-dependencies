@@ -1,0 +1,34 @@
+#!/bin/bash
+set -e
+set -u
+
+case $(uname) in
+  Linux )
+    echo "linux detected"
+    if which pacman > /dev/null; then
+      echo "arch detected"
+      # TODO
+    elif which apt-get > /dev/null; then
+      echo "debian/ubuntu detected"
+      apt-get -y update
+      apt-get -y install build-essential cmake autogen autoconf libtool \
+        libtool-bin pkg-config gettext nasm unzip libx11-dev \
+        libxft-dev libgl-dev libxext-dev libglu-dev libjack-dev libpulse-dev \
+        libasound2-dev libbz2-dev libmpg123-dev librubberband-dev libopenal-dev
+      case $(cat /etc/issue) in
+        *16\.04* )
+          # don't need to do anything for the docker version
+          ;;
+        * )
+          apt-get -y install python-is-python3
+      esac
+      # when we use sdl2, maybe add: libudev dbus ibus
+    else
+      echo "unknown"
+      exit 1
+    fi
+    ;;
+  * )
+    echo "unknown"
+    exit 1
+esac

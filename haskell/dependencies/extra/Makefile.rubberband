@@ -2,7 +2,7 @@
 CXX		:= g++
 CC		:= gcc
 
-OPTFLAGS	:= -DNDEBUG -ffast-math -O3 -ftree-vectorize
+OPTFLAGS	:= -DNDEBUG -ffast-math -O3 -ftree-vectorize -fPIC
 
 ARCHFLAGS	:= 
 
