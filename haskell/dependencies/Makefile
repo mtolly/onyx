@@ -9,30 +9,30 @@ clean:
 
 ogg:
 	cd libs/ogg && ./autogen.sh
-	cd libs/ogg && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig PKG_CONFIG="pkg-config --env-only" ./configure --prefix=$(current_dir)/root
+	cd libs/ogg && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
 	cd libs/ogg && make
 	cd libs/ogg && make install
 
 vorbis:
 	cd libs/vorbis && ./autogen.sh
-	cd libs/vorbis && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig PKG_CONFIG="pkg-config --env-only" ./configure --prefix=$(current_dir)/root
+	cd libs/vorbis && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
 	cd libs/vorbis && make
 	cd libs/vorbis && make install
 
 opus:
 	cd libs/opus && ./autogen.sh
-	cd libs/opus && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig PKG_CONFIG="pkg-config --env-only" ./configure --prefix=$(current_dir)/root
+	cd libs/opus && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
 	cd libs/opus && make
 	cd libs/opus && make install
 
 flac:
 	cd libs/flac && ./autogen.sh
-	cd libs/flac && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig PKG_CONFIG="pkg-config --env-only" ./configure --prefix=$(current_dir)/root
+	cd libs/flac && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
 	cd libs/flac && make
 	cd libs/flac && make install
 
 sdl:
-	cd libs/SDL && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig PKG_CONFIG="pkg-config --env-only" ./configure --prefix=$(current_dir)/root
+	cd libs/SDL && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
 	cd libs/SDL && make
 	cd libs/SDL && make install
 
@@ -48,7 +48,7 @@ rubberband:
 fltk:
 	# TODO this needs to be matched with a working fltkhs version
 	cd libs/fltk && autoconf
-	cd libs/fltk && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig PKG_CONFIG="pkg-config --env-only" ./configure --prefix=$(current_dir)/root
+	cd libs/fltk && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
 	cd libs/fltk && make
 	cd libs/fltk && make install
 
@@ -69,14 +69,15 @@ lame:
 	cd libs/LAME && make install
 
 libsndfile:
+	# repo is on 1.0.31 because of https://github.com/libsndfile/libsndfile/issues/827
 	cd libs/libsndfile && ./autogen.sh
-	cd libs/libsndfile && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig PKG_CONFIG="pkg-config --env-only" ./configure --prefix=$(current_dir)/root
+	cd libs/libsndfile && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
 	cd libs/libsndfile && make
 	cd libs/libsndfile && make install
 
 libsamplerate:
 	cd libs/libsamplerate && ./autogen.sh
-	cd libs/libsamplerate && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig PKG_CONFIG="pkg-config --env-only" ./configure --prefix=$(current_dir)/root
+	# without --disable-sndfile, example program has issues building on windows
+	cd libs/libsamplerate && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root --disable-sndfile
 	cd libs/libsamplerate && make
 	cd libs/libsamplerate && make install
-

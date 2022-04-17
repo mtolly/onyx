@@ -15,8 +15,13 @@ Skip to the Docker section at the bottom for Docker steps.
 
   * [NSIS](http://nsis.sourceforge.net/Main_Page)
 
-After installing `stack`, make sure MSYS2 is updated with
-`stack exec -- pacman -Syy` and `stack exec -- pacman -Syu`
+After installing `stack`, make sure MSYS2 is updated with:
+
+1. `stack exec -- pacman -Syy`
+
+2. `stack exec -- pacman -Syu` (then press `y` to exit)
+
+3. `stack exec -- pacman -Syu` again
 
 ## macOS
 
@@ -33,7 +38,7 @@ After installing `stack`, make sure MSYS2 is updated with
 
 2. `./pre-dependencies`
 
-3. `cd dependencies && make`
+3. `cd dependencies && make` unless on Windows, then do `cd dependencies && stack exec make`
 
 # Build Onyx
 
