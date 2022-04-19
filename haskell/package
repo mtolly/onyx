@@ -17,6 +17,25 @@ case $(uname) in
     stack exec -- onyx-package version-print \
       | env LD_LIBRARY_PATH=dependencies/root/lib xargs -I{} env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
     ;;
+  MINGW* )
+    rm -rf win/
+    mkdir win/
+    stack exec which onyx | xargs -I{} cp {} win/
+    cp dependencies/root/bin/*.dll win/
+    # this needs to be /mingw64 in stack's msys2
+    stack exec -- bash -c "cp /mingw64/bin/*.dll win/"
+    stack exec strip win/onyx.exe
+    cp LICENSE.txt win/LICENSE.txt
+    cp README.md win/README.txt
+    cp CHANGES.md win/CHANGES.txt
+    cp CREDITS.txt win/CREDITS.txt
+    cp -R resources win/onyx-resources
+    stack exec -- onyx-package changes
+    stack exec -- onyx-package version-write win/README.txt win/onyx-resources/README.txt
+    stack exec -- onyx-package dlls win/onyx.exe
+    stack exec -- onyx-package nsis
+    "/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
+    ;;
   * )
     echo "unknown"
     exit 1

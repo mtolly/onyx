@@ -30,6 +30,7 @@ extra-deps:
 - ww2ogg/
 - make_npdata/
 - rb1-mogg-encrypt/
+- cabal/Cabal/ # this submodule should just be a git reference, but stack appears to not apply it correctly that way
 # git repos
 - git: https://github.com/mtolly/midi
   commit: 66a49fe08bd941322061fc812f0eab6bac68c6f9
@@ -51,6 +52,10 @@ extra-deps:
   commit: 4790b92549b7db51801a67cf1055259e3abcf60e
 - git: https://github.com/kaoskorobase/hsndfile # unreleased past 0.8.0, switches to pkg-config
   commit: f532a1fdf119a543d7db20fe21f11ced5cffbb21
+# - git: https://github.com/mtolly/cabal # patch to work around c2hs failing on Windows in onyxite-customs-lib, due to many repeated include dirs in its invocation
+#   commit: 8b3141e6bc82b1d381674145868429e558c1cd5d
+#   subdirs:
+#   - Cabal
 resolver: lts-17.12
 flags:
   fltkhs:
