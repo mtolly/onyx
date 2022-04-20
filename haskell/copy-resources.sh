@@ -3,6 +3,7 @@ set -e
 set -u
 
 cp icon/icon.png resources/icon.png
+rm -rf resources/player
 cp -R ../player/www resources/player
 cp ../player/build/app.min.js resources/player/
 cp README.md resources/README.txt

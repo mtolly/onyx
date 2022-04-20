@@ -39,6 +39,12 @@ case $(uname) in
       mingw-w64-x86_64-mpg123 wget tar unzip zip man autoconf \
       automake nasm make libtool autogen python
     ;;
+  Darwin )
+    brew install autoconf automake dylibbundler m4 mpg123 openal-soft nasm pkg-config rubberband libtool autogen
+    # brew caveat mentions adding openal-soft to PKG_CONFIG_PATH,
+    # instead we'll hack it like so :)
+    ln -f -s /usr/local/opt/openal-soft/lib/pkgconfig/openal.pc /usr/local/lib/pkgconfig/openal.pc
+    ;;
   * )
     echo "unknown"
     exit 1

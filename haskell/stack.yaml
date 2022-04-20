@@ -38,6 +38,10 @@ extra-deps:
   commit: 0a90a9541b261583a09e5d5f9f416bc7ae59d07d
   subdirs:
   - conduit-audio-mpg123
+# TODO get this updated fltkhs working on windows/linux
+# (required on mac due to Monterey drag and drop fix)
+# - git: https://github.com/mtolly/fltkhs
+#   commit: 7bf8f2fbdaa034596dcde23f1b2cf6bf4838ac4d
 - git: https://github.com/deech/fltkhs
   commit: 272d225e641e9b6161df82066e9a4b919c0e812a
   subdirs:
