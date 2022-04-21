@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+set -u
+
+cd dependencies
+# we can probably just `stack exec make` on all platforms, but this is fine
+case $(uname) in
+  MINGW* )
+    stack exec make
+    ;;
+  * )
+    make
+esac

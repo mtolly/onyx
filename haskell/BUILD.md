@@ -36,9 +36,9 @@ After installing `stack`, make sure MSYS2 is updated with:
 
 1. `git submodule init && git submodule update`
 
-2. `./pre-dependencies`
+2. `./pre-dependencies` (add `sudo` if necessary)
 
-3. `cd dependencies && make` unless on Windows, then do `cd dependencies && stack exec make`
+3. `./build-dependencies`
 
 # Build Onyx
 
@@ -48,6 +48,9 @@ After installing `stack`, make sure MSYS2 is updated with:
 
 Your OS-specific package should be created.
 
+Note that `./package` will fail on too-recent Linux systems due to `linuxdeployqt`.
+Instead, use either the Docker steps or command line installation.
+
 # Docker
 
 1. Install Docker
@@ -55,3 +58,9 @@ Your OS-specific package should be created.
 2. `docker build -t onyxite/onyx .`
 
 3. AppImage will be located at `/onyx/Onyx-*-x86_64.AppImage` in the image
+
+# Command line installation
+
+Follow normal build instructions, but instead of `./package`,
+run `./install-cli <DIR>` to install `onyx` and `onyx-files` into `<DIR>`.
+Default installation folder is `~/.local/bin`.

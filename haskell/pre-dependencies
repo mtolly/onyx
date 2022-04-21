@@ -9,7 +9,9 @@ case $(uname) in
     echo "linux detected"
     if which pacman > /dev/null; then
       echo "arch detected"
-      # TODO
+      pacman -Sy rubberband mpg123 openal \
+        cmake autogen autoconf libtool pkg-config nasm unzip
+      # TODO finish
     elif which apt-get > /dev/null; then
       echo "debian/ubuntu detected"
       apt-get -y update

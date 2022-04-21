@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+set -u
+
+DEFAULT_BIN_DIR="$HOME/.local/bin"
+BIN_DIR="${1:-$DEFAULT_BIN_DIR}"
+INSTALL_DIR="$BIN_DIR/onyx-files"
+
+rm -rf "$INSTALL_DIR"
+mkdir "$INSTALL_DIR"
+stack exec which onyx | xargs -I{} cp {} "$INSTALL_DIR/onyx"
+cp -R resources "$INSTALL_DIR/onyx-resources"
+cp -R dependencies/root/lib "$INSTALL_DIR/lib"
+rm "$INSTALL_DIR"/lib/*.a
+rm -rf "$BIN_DIR/onyx"
+cp run-cli "$BIN_DIR/onyx"
