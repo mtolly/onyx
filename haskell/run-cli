@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+set -u
+
+BIN_DIR=$(cd $(dirname "$0") && pwd)
+env LD_LIBRARY_PATH=$BIN_DIR/onyx-files/lib $BIN_DIR/onyx-files/onyx "$@"

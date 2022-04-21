@@ -1,0 +1,59 @@
+#!/bin/bash
+set -e
+set -u
+
+case $(uname) in
+  Linux )
+    rm -rf Onyx.AppDir/usr/bin/*
+    rm -rf Onyx.AppDir/usr/lib/*
+    rm -rf Onyx.AppDir/usr/share/metainfo/*
+    stack exec which onyx | xargs -I{} cp {} Onyx.AppDir/usr/bin/onyx
+    strip Onyx.AppDir/usr/bin/onyx
+    cp -R resources Onyx.AppDir/usr/bin/onyx-resources
+    cp icon/icon.png Onyx.AppDir/usr/share/icons/hicolor/256x256/apps/onyx.png
+    cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
+    stack exec -- onyx-package changes
+    stack exec -- onyx-package version-write Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/bin/onyx-resources/README.txt
+    stack exec -- onyx-package version-print \
+      | env LD_LIBRARY_PATH=dependencies/root/lib xargs -I{} env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
+    ;;
+  MINGW* )
+    rm -rf win/
+    mkdir win/
+    stack exec which onyx | xargs -I{} cp {} win/
+    cp dependencies/root/bin/*.dll win/
+    # this needs to be /mingw64 in stack's msys2
+    stack exec -- bash -c "cp /mingw64/bin/*.dll win/"
+    stack exec strip win/onyx.exe
+    cp LICENSE.txt win/LICENSE.txt
+    cp README.md win/README.txt
+    cp CHANGES.md win/CHANGES.txt
+    cp CREDITS.txt win/CREDITS.txt
+    cp -R resources win/onyx-resources
+    stack exec -- onyx-package changes
+    stack exec -- onyx-package version-write win/README.txt win/onyx-resources/README.txt
+    stack exec -- onyx-package dlls win/onyx.exe
+    stack exec -- onyx-package nsis
+    "/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
+    ;;
+  Darwin )
+    rm -rf Onyx.app/Contents/MacOS/*
+    stack exec which onyx | xargs -I{} cp {} Onyx.app/Contents/MacOS/onyx
+    strip Onyx.app/Contents/MacOS/onyx
+    rm -rf Onyx.app/Contents/libs/*.dylib
+    dylibbundler -cd -of -b -x Onyx.app/Contents/MacOS/onyx -d Onyx.app/Contents/libs/
+    cp -R resources Onyx.app/Contents/MacOS/onyx-resources
+    rm -rf mac/
+    mkdir mac/
+    cp -R Onyx.app LICENSE.txt mac/
+    cp README.md mac/README.txt
+    cp CHANGES.md mac/CHANGES.txt
+    cp CREDITS.txt mac/CREDITS.txt
+    stack exec -- onyx-package changes
+    stack exec -- onyx-package version-write mac/Onyx.app/Contents/Info.plist mac/README.txt mac/Onyx.app/Contents/MacOS/onyx-resources/README.txt
+    stack exec -- onyx-package version-print | ./mac-package.sh
+    ;;
+  * )
+    echo "unknown"
+    exit 1
+esac

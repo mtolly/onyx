@@ -6,4 +6,5 @@
 /.psci*
 /src/.webpack.js
 
-/build
+/build/*
+!/build/app.min.js

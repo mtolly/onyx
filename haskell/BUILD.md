@@ -1,75 +1,66 @@
-These instructions also expect the web player to be built. If you don't want to do that, just make an empty file at `../player/build/app.min.js`.
+Supported platforms (all 64-bit), others may work but require extra setup:
 
-# Windows
+  * Windows + MSYS2
+  * macOS
+  * Ubuntu Linux, including via Docker
+  * Arch/Manjaro Linux
 
-## Requirements
+Skip to the Docker section at the bottom for Docker steps.
 
-  * `stack` (latest version, 64-bit)
-  * Visual C++ 2008 Runtime
+# Pre-build requirements
+
+  * [`stack`](https://haskellstack.org/)
+
+## Windows
+
   * [NSIS](http://nsis.sourceforge.net/Main_Page)
 
-## Steps
+After installing `stack`, make sure MSYS2 is updated with:
 
-1. `stack exec -- pacman -Syy` and `stack exec -- pacman -Syu` to make sure MSYS2 is updated
+1. `stack exec -- pacman -Syy`
 
-2. Install `make` with `stack exec -- pacman -Sy make`
+2. `stack exec -- pacman -Syu` (then press `y` to exit)
 
-3. `stack exec make win-deps`
+3. `stack exec -- pacman -Syu` again
 
-4. `stack build` (do this from outside `bash` so the lib+include paths are set up right)
+## macOS
 
-5. `stack exec make win`
-
-6. Setup program will be created.
-
-# Mac
-
-## Requirements
-
-  * `stack` (latest version)
   * Xcode dev tools
-  * Homebrew
+  * [Homebrew](https://brew.sh/)
 
-## Steps
+## Linux
 
-1. `make mac-deps` (if you want to use an existing Wine, edit the `Makefile`)
+  * [`linuxdeployqt`](https://github.com/probonopd/linuxdeployqt)
 
-2. Follow the instructions printed by Homebrew for setting up `openal-soft` in `pkg-config`.
+# Build C dependencies
 
-3. `stack build`
+1. `git submodule init && git submodule update`
 
-5. `make mac`
+2. `./pre-dependencies` (add `sudo` if necessary)
 
-6. Program is packaged as `Onyx.app`.
+3. `./build-dependencies`
 
-# Linux - Docker
+# Build Onyx
 
-## Requirements
+1. `./stack-local build`
 
-  * `stack` (latest stable version)
-  * Docker
+2. `./package`
 
-## Steps
+Your OS-specific package should be created.
 
-1. `make docker`
+Note that `./package` will fail on too-recent Linux systems due to `linuxdeployqt`.
+Instead, use either the Docker steps or command line installation.
 
-That's everything! This will create a Docker image (based on Ubuntu 14.04) with all library and tool dependencies, build via Stack inside that, and then also create the AppImage inside it via `linuxdeployqt`.
+# Docker
 
-Note, Stack needs to be a stable version so it can download the Docker-compatible build for itself; otherwise [you might get this](https://github.com/commercialhaskell/stack/issues/4850#issuecomment-606171268).
+1. Install Docker
 
-# Linux/Mac command line installation
+2. `docker build -t onyxite/onyx .`
 
-## Requirements
+3. AppImage will be located at `/onyx/Onyx-*-x86_64.AppImage` in the image
 
-  * `stack` (latest version)
-  * Various C/C++ libraries: check the Makefile for details
+# Command line installation
 
-## Steps
-
-1. Install dependency libraries. The Makefile contains commands for `mac-deps`, `ubuntu-deps`, and `arch-deps`, but these may or may not be up-to-date
-
-2. `stack install` - installs to `~/.local/bin/onyx`, link or add to your PATH as you like
-
-3. `make install-resources` - this will install a resources folder in `~/.local/bin` next to where `onyx` was placed
-
-4. `onyx`
+Follow normal build instructions, but instead of `./package`,
+run `./install-cli <DIR>` to install `onyx` and `onyx-files` into `<DIR>`.
+Default installation folder is `~/.local/bin`.

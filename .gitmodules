@@ -1,3 +1,42 @@
 [submodule "haskell/ffmpeg"]
 	path = haskell/ffmpeg
 	url = https://github.com/FFmpeg/FFmpeg
+[submodule "haskell/dependencies/libs/ogg"]
+	path = haskell/dependencies/libs/ogg
+	url = https://github.com/xiph/ogg
+[submodule "haskell/dependencies/libs/vorbis"]
+	path = haskell/dependencies/libs/vorbis
+	url = https://github.com/xiph/vorbis
+[submodule "haskell/dependencies/libs/opus"]
+	path = haskell/dependencies/libs/opus
+	url = https://github.com/xiph/opus
+[submodule "haskell/dependencies/libs/flac"]
+	path = haskell/dependencies/libs/flac
+	url = https://github.com/xiph/flac
+[submodule "haskell/dependencies/libs/FFmpeg"]
+	path = haskell/dependencies/libs/FFmpeg
+	url = https://github.com/FFmpeg/FFmpeg
+[submodule "haskell/dependencies/libs/fltk"]
+	path = haskell/dependencies/libs/fltk
+	url = https://github.com/fltk/fltk
+[submodule "haskell/dependencies/libs/LAME"]
+	path = haskell/dependencies/libs/LAME
+	url = https://github.com/despoa/LAME
+[submodule "haskell/dependencies/libs/libsamplerate"]
+	path = haskell/dependencies/libs/libsamplerate
+	url = https://github.com/libsndfile/libsamplerate
+[submodule "haskell/dependencies/libs/libsndfile"]
+	path = haskell/dependencies/libs/libsndfile
+	url = https://github.com/libsndfile/libsndfile
+[submodule "haskell/dependencies/libs/openal-soft"]
+	path = haskell/dependencies/libs/openal-soft
+	url = https://github.com/kcat/openal-soft
+[submodule "haskell/dependencies/libs/rubberband"]
+	path = haskell/dependencies/libs/rubberband
+	url = https://github.com/breakfastquay/rubberband
+[submodule "haskell/dependencies/libs/SDL"]
+	path = haskell/dependencies/libs/SDL
+	url = https://github.com/libsdl-org/SDL
+[submodule "haskell/cabal"]
+	path = haskell/cabal
+	url = https://github.com/mtolly/cabal

@@ -11,6 +11,14 @@ extra-source-files:
 
 ghc-options: -Wall
 
+# this doesn't actually customize anything,
+# it just makes sure that we use the patched Cabal
+# which works around a c2hs invocation issue on Windows
+custom-setup:
+  dependencies:
+  - base
+  - Cabal
+
 library:
 
   source-dirs: src
