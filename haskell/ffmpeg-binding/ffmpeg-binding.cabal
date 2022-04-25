@@ -19,6 +19,7 @@ library
     , vector
     , simple-handle
     , async
+    , stm
   default-language: Haskell2010
   pkgconfig-depends:
       libavutil

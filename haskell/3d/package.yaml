@@ -42,3 +42,4 @@ library:
   - path
   - stm
   - freetype2
+  - split

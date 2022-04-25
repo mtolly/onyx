@@ -9,9 +9,12 @@
 module FFMPEG where
 
 import           Control.Concurrent.Async     (forConcurrently)
+import           Control.Concurrent.STM       (atomically, newTBQueueIO,
+                                               readTBQueue, writeTBQueue)
 import           Control.Exception            (Exception (..), throwIO)
 import           Control.Monad                (forM_, unless, when)
-import           Control.Monad.Trans.Resource (MonadResource)
+import           Control.Monad.Trans.Resource (MonadResource, liftResourceT,
+                                               resourceForkIO)
 import           Data.Coerce                  (coerce)
 import           Data.Conduit
 import qualified Data.Conduit.Audio           as CA
@@ -828,70 +831,62 @@ ffSourceFrom dur input = do
       bracketP swrChangeFormat (\f -> with f swr_free) $ \swr -> do
       liftIO $ ffCheck "swr_init" (>= 0) $ swr_init swr
       bracketP av_frame_alloc (\f -> with f av_frame_free) $ \frame -> do
-        bracketP av_packet_alloc (\p -> with p av_packet_free) $ \packet -> let
-          loop = do
-            codePacket <- liftIO $ av_read_frame fmt_ctx packet
-            if codePacket < 0
-              then return () -- probably reached end of file
-              else do
-                packetIndex <- liftIO $ packet_stream_index packet
-                if packetIndex /= audio_stream_index
+        bracketP av_packet_alloc (\p -> with p av_packet_free) $ \packet -> do
+          queue <- liftIO $ newTBQueueIO 10
+          let loop = do
+                codePacket <- liftIO $ av_read_frame fmt_ctx packet
+                if codePacket < 0
                   then do
-                    liftIO $ av_packet_unref packet
-                    loop
+                    -- probably reached end of file
+                    liftIO $ atomically $ writeTBQueue queue Nothing
                   else do
-                    -- skip frames if needed
-                    -- thanks to https://stackoverflow.com/a/60317000/509936
-                    skipManual <- case seekInfo of
-                      Nothing -> return 0
-                      Just (wantPTS, streamRes, codecRes) -> do
-                        pts <- liftIO $ packet_pts packet
-                        if pts < wantPTS
-                          then liftIO $ do
-                            let skipFrames = round $ fromIntegral (wantPTS - pts) / streamRes * codecRes
-                            -- putStrLn $ "Should skip " <> show skipFrames <> " frames"
-                            return skipFrames
-                          else return 0
-                          {-
-                          -- This method worked for opus and probably vorbis, but not mp3.
-                          -- So instead we drop from the vector ourselves
-                          side <- av_packet_get_side_data packet AV_PKT_DATA_SKIP_SAMPLES nullPtr
-                          side' <- if side == nullPtr
-                            then av_packet_new_side_data packet AV_PKT_DATA_SKIP_SAMPLES 10
-                            else return side
-                          {-
-                            u32le number of samples to skip from start of this packet
-                            u32le number of samples to skip from end of this packet
-                            u8    reason for start skip
-                            u8    reason for end   skip (0=padding silence, 1=convergence)
-                          -}
-                          poke (castPtr side') (skipFrames :: Word32)
-                          poke (side' `plusPtr` 8) (1 :: Word8)
-                          -}
-                    liftIO $ ffCheck "avcodec_send_packet" (>= 0) $ avcodec_send_packet dec_ctx packet
-                    liftIO $ av_packet_unref packet
-                    loopReceiveFrames skipManual
-          loopReceiveFrames skipManual = do
-            codeFrame <- liftIO $ avcodec_receive_frame dec_ctx frame
-            if codeFrame < 0
-              then loop -- no more frames to get, time to feed more packets
-              else do
-                countSamples <- liftIO $ {#get AVFrame->nb_samples #} frame
-                when (countSamples > skipManual) $ do
-                  -- when (skipManual > 0) $ liftIO $ putStrLn $ "Frame has " <> show countSamples <> " samples"
-                  mvec <- liftIO $ MV.new $ fromIntegral $ countSamples * channels
-                  liftIO $ MV.unsafeWith mvec $ \p -> do
-                    inputPlanes <- frame_data frame
-                    withArray [p] $ \outputPlanes -> do
-                      ffCheck "swr_convert" (>= 0) $ swr_convert
-                        swr
-                        (castPtr outputPlanes)
-                        countSamples
-                        (castPtr inputPlanes)
-                        countSamples
-                  liftIO (V.unsafeFreeze mvec) >>= yield . V.drop (fromIntegral $ skipManual * channels)
-                loopReceiveFrames $ max 0 $ skipManual - countSamples
-          in loop
+                    packetIndex <- liftIO $ packet_stream_index packet
+                    if packetIndex /= audio_stream_index
+                      then do
+                        liftIO $ av_packet_unref packet
+                        loop
+                      else do
+                        -- skip frames if needed
+                        -- thanks to https://stackoverflow.com/a/60317000/509936
+                        skipManual <- case seekInfo of
+                          Nothing -> return 0
+                          Just (wantPTS, streamRes, codecRes) -> do
+                            pts <- liftIO $ packet_pts packet
+                            if pts < wantPTS
+                              then liftIO $ do
+                                let skipFrames = round $ fromIntegral (wantPTS - pts) / streamRes * codecRes
+                                -- putStrLn $ "Should skip " <> show skipFrames <> " frames"
+                                return skipFrames
+                              else return 0
+                        liftIO $ ffCheck "avcodec_send_packet" (>= 0) $ avcodec_send_packet dec_ctx packet
+                        liftIO $ av_packet_unref packet
+                        loopReceiveFrames skipManual
+              loopReceiveFrames skipManual = do
+                codeFrame <- liftIO $ avcodec_receive_frame dec_ctx frame
+                if codeFrame < 0
+                  then loop -- no more frames to get, time to feed more packets
+                  else do
+                    countSamples <- liftIO $ {#get AVFrame->nb_samples #} frame
+                    when (countSamples > skipManual) $ do
+                      -- when (skipManual > 0) $ liftIO $ putStrLn $ "Frame has " <> show countSamples <> " samples"
+                      mvec <- liftIO $ MV.new $ fromIntegral $ countSamples * channels
+                      liftIO $ MV.unsafeWith mvec $ \p -> do
+                        inputPlanes <- frame_data frame
+                        withArray [p] $ \outputPlanes -> do
+                          ffCheck "swr_convert" (>= 0) $ swr_convert
+                            swr
+                            (castPtr outputPlanes)
+                            countSamples
+                            (castPtr inputPlanes)
+                            countSamples
+                      vec <- liftIO $ V.drop (fromIntegral $ skipManual * channels) <$> V.unsafeFreeze mvec
+                      liftIO $ atomically $ writeTBQueue queue $ Just vec
+                    loopReceiveFrames $ max 0 $ skipManual - countSamples
+          _threadId <- liftResourceT $ resourceForkIO loop
+          let readLoop = liftIO (atomically $ readTBQueue queue) >>= \case
+                Nothing  -> return () -- file is done
+                Just vec -> yield vec >> readLoop
+          readLoop
     , CA.rate     = fromIntegral rate
     , CA.channels = fromIntegral channels
     , CA.frames   = max 0 $ fromIntegral frames - fromIntegral startFrame
