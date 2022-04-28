@@ -1,0 +1,29 @@
+metadata:
+  title: Right in Two
+  file-include: "../../../albums/10000-days.yml"
+  track-number: 10
+  rating: Supervision Recommended
+  key: D minor
+  author: Onyxite
+audio:
+  album-prev: # Intension
+    frames: 19459272
+    md5: 644ede528e0a43fcb1139e59ff13ac54
+  album-track:
+    frames: 23628780
+    md5: 6b0733955a9a3fe7cd686b4a1d34d8e2
+plans:
+  plan:
+    song:
+      drop:
+      - 7:18.089
+      - concatenate: [album-prev, album-track]
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+  bass:
+    pro-guitar:
+      tuning:
+        offsets: [-2, 0, 0, 0]
