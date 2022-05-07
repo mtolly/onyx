@@ -4665,7 +4665,7 @@ previewGroup sink rect getSong getTime getSpeed = do
           GLLoaded s -> RGGraphics.stopVideoLoaders s
           _          -> return ()
         sink $ EventIO $ FLTK.deleteWidget glwindow
-  FL.setMode glwindow $ FLE.Modes [FLE.ModeOpenGL3, FLE.ModeDepth, FLE.ModeRGB8, FLE.ModeDouble, FLE.ModeAlpha, FLE.ModeMultisample]
+  FL.setMode glwindow $ FLE.Modes [FLE.ModeOpenGL3, FLE.ModeDepth, FLE.ModeRGB8, FLE.ModeAlpha, FLE.ModeMultisample]
 
   FL.end wholeGroup
   FL.setResizable wholeGroup $ Just glwindow
