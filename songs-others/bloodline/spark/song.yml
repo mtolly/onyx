@@ -4,6 +4,12 @@ parts:
       kicks: both
   keys:
     pro-keys: {}
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+        offsets: [-2, 0, 0, 0, 0] # AEADG
+        # doesn't use G string (I think)
 plans:
   stems:
     parts:
@@ -93,6 +99,10 @@ targets:
     2x-bass-pedal: true
   ps:
     game: ps
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass] # only needs AEAD
 metadata:
   title: Spark
   artist: Arch Echo

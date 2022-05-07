@@ -1,0 +1,22 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+audio:
+  album-track:
+    frames: 17078194
+    md5: eb0bffdd6fbfe01834e9294cae1b4404
+  album-prev: # Aporia
+    frames: 6406736
+    md5: 61ef5111118ff9d611061c162f74e7ef
+plans:
+  plan:
+    song:
+      concatenate:
+      - fade:
+        - start
+        - 3.688
+        - take: [end, 3.689, album-prev]
+      - album-track
+
