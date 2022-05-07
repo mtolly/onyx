@@ -335,6 +335,34 @@ track tunings lenTicks lenSecs resn trk = let
               ++ T.words "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
+        colorMap = fmap snd $ find (\(sfx, _) -> sfx `T.isSuffixOf` name)
+          [ ("PART DRUMS", "colormap_drums.png")
+          , ("PART DRUMS_2X", "colormap_drums.png")
+          , ("PART REAL_DRUMS_PS", "colormap_drums.png")
+          , ("PART FULL DRUMS", "colormap_fulldrums.png")
+          , ("PART GUITAR", "colormap_grybo.png")
+          , ("PART GUITAR EXT", "colormap_grybo.png")
+          , ("PART BASS", "colormap_grybo.png")
+          , ("PART BASS EXT", "colormap_grybo.png")
+          , ("PART RHYTHM", "colormap_grybo.png")
+          , ("PART RHYTHM EXT", "colormap_grybo.png")
+          , ("PART GUITAR COOP", "colormap_grybo.png")
+          , ("PART KEYS", "colormap_grybo.png")
+          , ("PART GUITAR GHL", "colormap_ghl.png")
+          , ("PART BASS GHL", "colormap_ghl.png")
+          , ("PART RS LEAD", rsColors)
+          , ("PART RS RHYTHM", rsColors)
+          , ("PART RS BASS", rsColors)
+          ]
+        rsColors = case gtrBase tuning of
+          Bass5 -> "colormap_rslow.png"
+          Bass6 -> "colormap_rslow.png"
+          _     -> "colormap_rs.png"
+        isProtar = any (`T.isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS"]
+        isRS = "PART RS" `T.isInfixOf` name
+        isDance = "PART DANCE" `T.isSuffixOf` name
+    -- newer reaper color map, attached to track
+    forM_ colorMap $ \cmap -> line "MIDICOLORMAPFN" [cmap]
     line "FX" [if fxActive then "1" else "0"]
     hasNoteNames <- case find (($ name) . fst)
       [ (("PART DRUMS" `T.isSuffixOf`), drumNoteNames)
@@ -394,32 +422,7 @@ track tunings lenTicks lenSecs resn trk = let
               t : _ -> fromIntegral t
               []    -> 0
         line "E" [T.pack $ show $ lenTicks NNC.-| lastEvent, "b0", "7b", "00"]
-        let colorMap = fmap snd $ find (\(sfx, _) -> sfx `T.isSuffixOf` name)
-              [ ("PART DRUMS", "colormap_drums.png")
-              , ("PART DRUMS_2X", "colormap_drums.png")
-              , ("PART REAL_DRUMS_PS", "colormap_drums.png")
-              , ("PART FULL DRUMS", "colormap_fulldrums.png")
-              , ("PART GUITAR", "colormap_grybo.png")
-              , ("PART GUITAR EXT", "colormap_grybo.png")
-              , ("PART BASS", "colormap_grybo.png")
-              , ("PART BASS EXT", "colormap_grybo.png")
-              , ("PART RHYTHM", "colormap_grybo.png")
-              , ("PART RHYTHM EXT", "colormap_grybo.png")
-              , ("PART GUITAR COOP", "colormap_grybo.png")
-              , ("PART KEYS", "colormap_grybo.png")
-              , ("PART GUITAR GHL", "colormap_ghl.png")
-              , ("PART BASS GHL", "colormap_ghl.png")
-              , ("PART RS LEAD", rsColors)
-              , ("PART RS RHYTHM", rsColors)
-              , ("PART RS BASS", rsColors)
-              ]
-            rsColors = case gtrBase tuning of
-              Bass5 -> "colormap_rslow.png"
-              Bass6 -> "colormap_rslow.png"
-              _     -> "colormap_rs.png"
-            isProtar = any (`T.isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS"]
-            isRS = "PART RS" `T.isInfixOf` name
-            isDance = "PART DANCE" `T.isSuffixOf` name
+        -- older reaper color map, attached to media item
         forM_ colorMap $ \cmap -> line "COLORMAP" [cmap]
         line "CFGEDIT"
           [ "1" -- ??? if i set to 0, gets reset to 1
