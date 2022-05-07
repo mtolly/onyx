@@ -1678,20 +1678,21 @@ batchPageRB2 sink rect tab build = do
       ]
     return $ fromMaybe KicksBoth <$> fn
   let getTargetSong trimPath usePath template = do
-        speed <- getSpeed
-        preset <- getPreset
-        kicks <- getKicks
+        speed <- stackIO getSpeed
+        preset <- stackIO getPreset
+        kicks <- stackIO getKicks
+        newPreferences <- readPreferences
         return $ \proj -> let
           tgt = preset yaml def
             { rb2_Common = (rb2_Common def)
               { tgt_Speed = Just speed
-              , tgt_Label2x = prefLabel2x ?preferences
+              , tgt_Label2x = prefLabel2x newPreferences
               }
-            , rb2_Magma = prefMagma ?preferences
-            , rb2_SongID = if prefRBNumberID ?preferences
+            , rb2_Magma = prefMagma newPreferences
+            , rb2_SongID = if prefRBNumberID newPreferences
               then SongIDAutoInt
               else SongIDAutoSymbol
-            , rb2_PS3Encrypt = prefPS3Encrypt ?preferences
+            , rb2_PS3Encrypt = prefPS3Encrypt newPreferences
             }
           kicksConfigs = case (kicks, maybe Kicks1x drumsKicks $ getPart FlexDrums yaml >>= partDrums) of
             (_        , Kicks1x) -> [(False, ""   )]
@@ -1722,12 +1723,12 @@ batchPageRB2 sink rect tab build = do
     sink
     "Create Xbox 360 CON files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_rb2con")
-    (getTargetSong trimXbox RB2CON >=> build)
+    (\template -> sink $ EventOnyx $ getTargetSong trimXbox RB2CON template >>= stackIO . build)
   makeTemplateRunner
     sink
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
-    (getTargetSong id RB2PKG >=> build)
+    (\template -> sink $ EventOnyx $ getTargetSong id RB2PKG template >>= stackIO . build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -2129,7 +2130,7 @@ songPageRB3 sink rect tab proj build = mdo
       ]
     fullWidth 35 $ \rect' -> do
       controlInput <- customTitleSuffix sink rect'
-        (makeTarget >>= \rb3 -> return $ targetTitle
+        (makeTarget ?preferences >>= \rb3 -> return $ targetTitle
           (projectSongYaml proj)
           (RB3 rb3 { rb3_Common = (rb3_Common rb3) { tgt_Title = Just "" } })
         )
@@ -2141,18 +2142,19 @@ songPageRB3 sink rect tab proj build = mdo
         )
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
       liftIO $ FL.setCallback box2x $ \_ -> controlInput
-  let initTarget = (def :: TargetRB3 FilePath)
-        { rb3_Magma = prefMagma ?preferences
-        , rb3_Common = def
-          { tgt_Label2x = prefLabel2x ?preferences
+  let makeTarget newPreferences = do
+        modifier <- targetModifier
+        return $ modifier (def :: TargetRB3 FilePath)
+          { rb3_Magma = prefMagma newPreferences
+          , rb3_Common = def
+            { tgt_Label2x = prefLabel2x newPreferences
+            }
           }
-        }
-      makeTarget = fmap ($ initTarget) targetModifier
+      makeFinalTarget = readPreferences >>= stackIO . makeTarget
   fullWidth 35 $ \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- FL.buttonNew r1 $ Just "Create Xbox 360 CON file"
-    FL.setCallback btn1 $ \_ -> do
-      tgt <- makeTarget
+    FL.setCallback btn1 $ \_ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO $ do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save RB3 CON file"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_rb3con" -- TODO add modifiers
@@ -2163,8 +2165,7 @@ songPageRB3 sink rect tab proj build = mdo
           Just f  -> build tgt $ RB3CON $ trimXbox f
         _ -> return ()
     btn2 <- FL.buttonNew r2 $ Just "Create PS3 PKG file"
-    FL.setCallback btn2 $ \_ -> do
-      tgt <- makeTarget
+    FL.setCallback btn2 $ \_ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO $ do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save RB3 PKG file"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> ".pkg" -- TODO add modifiers
@@ -2181,8 +2182,7 @@ songPageRB3 sink rect tab proj build = mdo
     FL.setColor btn2 color
   fullWidth 35 $ \rect' -> do
     btn1 <- FL.buttonNew rect' $ Just "Create Magma project"
-    FL.setCallback btn1 $ \_ -> do
-      tgt <- makeTarget
+    FL.setCallback btn1 $ \_ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO $ do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save Magma v2 project"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_project" -- TODO add modifiers
@@ -2240,7 +2240,7 @@ songPageRB2 sink rect tab proj build = mdo
       ]
     fullWidth 35 $ \rect' -> do
       controlInput <- customTitleSuffix sink rect'
-        (makeTarget >>= \rb2 -> return $ targetTitle
+        (makeTarget ?preferences >>= \rb2 -> return $ targetTitle
           (projectSongYaml proj)
           (RB2 rb2 { rb2_Common = (rb2_Common rb2) { tgt_Title = Just "" } })
         )
@@ -2252,20 +2252,21 @@ songPageRB2 sink rect tab proj build = mdo
         )
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
       liftIO $ FL.setCallback box2x $ \_ -> controlInput
-  let initTarget = def
-        { rb2_Magma = prefMagma ?preferences
-        , rb2_Common = def
-          { tgt_Label2x = prefLabel2x ?preferences
+  let makeTarget newPreferences = do
+        modifier <- targetModifier
+        return $ modifier def
+          { rb2_Magma = prefMagma newPreferences
+          , rb2_Common = def
+            { tgt_Label2x = prefLabel2x newPreferences
+            }
+          , rb2_PS3Encrypt = prefPS3Encrypt newPreferences
           }
-        , rb2_PS3Encrypt = prefPS3Encrypt ?preferences
-        }
-      makeTarget = fmap ($ initTarget) targetModifier
+      makeFinalTarget = readPreferences >>= stackIO . makeTarget
 
   fullWidth 35 $ \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- FL.buttonNew r1 $ Just "Create Xbox 360 CON file"
-    FL.setCallback btn1 $ \_ -> do
-      tgt <- makeTarget
+    FL.setCallback btn1 $ \_ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO $ do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save RB2 CON file"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_rb2con" -- TODO add modifiers
@@ -2276,8 +2277,7 @@ songPageRB2 sink rect tab proj build = mdo
           Just f  -> build tgt $ RB2CON $ trimXbox f
         _ -> return ()
     btn2 <- FL.buttonNew r2 $ Just "Create PS3 PKG file"
-    FL.setCallback btn2 $ \_ -> do
-      tgt <- makeTarget
+    FL.setCallback btn2 $ \_ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO $ do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save RB2 PKG file"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> ".pkg" -- TODO add modifiers
@@ -2719,19 +2719,20 @@ batchPageRB3 sink rect tab build = do
       ]
     return $ fromMaybe KicksBoth <$> fn
   let getTargetSong isXbox usePath template = do
-        speed <- getSpeed
-        toms <- getToms
-        preset <- getPreset
-        kicks <- getKicks
+        speed <- stackIO getSpeed
+        toms <- stackIO getToms
+        preset <- stackIO getPreset
+        kicks <- stackIO getKicks
+        newPreferences <- readPreferences
         return $ \proj -> let
           defRB3 = def :: TargetRB3 FilePath
           tgt = preset yaml defRB3
             { rb3_Common = (rb3_Common defRB3)
               { tgt_Speed = Just speed
-              , tgt_Label2x = prefLabel2x ?preferences
+              , tgt_Label2x = prefLabel2x newPreferences
               }
-            , rb3_Magma = prefMagma ?preferences
-            , rb3_SongID = if prefRBNumberID ?preferences
+            , rb3_Magma = prefMagma newPreferences
+            , rb3_SongID = if prefRBNumberID newPreferences
               then SongIDAutoInt
               else SongIDAutoSymbol
             }
@@ -2764,17 +2765,17 @@ batchPageRB3 sink rect tab build = do
     sink
     "Create Xbox 360 CON files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_rb3con")
-    (getTargetSong True RB3CON >=> build)
+    (\template -> sink $ EventOnyx $ getTargetSong True RB3CON template >>= stackIO . build)
   makeTemplateRunner
     sink
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
-    (getTargetSong False RB3PKG >=> build)
+    (\template -> sink $ EventOnyx $ getTargetSong False RB3PKG template >>= stackIO . build)
   makeTemplateRunner
     sink
     "Create Magma projects"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_project")
-    (getTargetSong False RB3Magma >=> build)
+    (\template -> sink $ EventOnyx $ getTargetSong False RB3Magma template >>= stackIO . build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
