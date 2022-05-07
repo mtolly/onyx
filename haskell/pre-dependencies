@@ -2,8 +2,6 @@
 set -e
 set -u
 
-./copy-resources.sh
-
 case $(uname) in
   Linux )
     echo "linux detected"

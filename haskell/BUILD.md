@@ -44,7 +44,9 @@ After installing `stack`, make sure MSYS2 is updated with:
 
 1. `./stack-local build`
 
-2. `./package`
+2. `./copy-resources`
+
+3. `./package`
 
 Your OS-specific package should be created.
 
@@ -55,9 +57,9 @@ Instead, use either the Docker steps or command line installation.
 
 1. Install Docker
 
-2. `docker build -t onyxite/onyx .`
+2. `./build-docker`
 
-3. AppImage will be located at `/onyx/Onyx-*-x86_64.AppImage` in the image
+3. AppImage will be created
 
 # Command line installation
 

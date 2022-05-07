@@ -1,0 +1,7 @@
+#!/bin/bash
+set -e
+set -u
+
+./copy-resources
+docker build -t onyxite/onyx .
+docker run -v "$(pwd)":/external onyxite/onyx bash -c "cp /onyx/*.AppImage /external"
