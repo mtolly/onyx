@@ -39,7 +39,7 @@ extra-deps:
   subdirs:
   - conduit-audio-mpg123
 - git: https://github.com/mtolly/fltkhs
-  commit: 02737ba7bacdf6d25e616cf9e960ddf3cf449d4d
+  commit: 29b885d01d264a954a5c04ef5812c456cd99ccc5
   subdirs:
   - fltkhs
 - git: https://github.com/mtolly/midi-util

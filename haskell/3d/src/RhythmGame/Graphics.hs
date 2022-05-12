@@ -1444,6 +1444,7 @@ data GLStuff = GLStuff
   , fontSlot     :: FT_GlyphSlot
   , fontGlyphs   :: IORef (HM.HashMap Char (FT_GlyphSlotRec, Texture))
   , previewSong  :: PreviewSong
+  , scaleUI      :: Float -- TODO allow changing this during runtime
   }
 
 data VideoHandle = VideoHandle
@@ -1627,8 +1628,8 @@ sortVertices = let
   sumZ = sum . map (getZ . vertexPosition)
   in concatMap snd . sort . map (\tri -> (sumZ tri, tri)) . getTris
 
-loadGLStuff :: (MonadIO m) => PreviewSong -> StackTraceT (QueueLog m) GLStuff
-loadGLStuff previewSong = do
+loadGLStuff :: (MonadIO m) => Float -> PreviewSong -> StackTraceT (QueueLog m) GLStuff
+loadGLStuff scaleUI previewSong = do
 
   gfxConfig <- load3DConfig
 
@@ -1965,7 +1966,7 @@ loadGLStuff previewSong = do
   fontLib <- stackIO ft_Init_FreeType
   fontPath <- stackIO $ getResourcesPath "diffusion-bold.ttf"
   fontFace <- stackIO $ ft_New_Face fontLib fontPath 0
-  stackIO $ ft_Set_Char_Size fontFace (15 * 64) 0 72 0
+  stackIO $ ft_Set_Char_Size fontFace (15 * 64) 0 (round $ 72 * scaleUI) 0
   fontSlot <- stackIO $ frGlyph <$> peek fontFace
   fontGlyphs <- stackIO $ newIORef HM.empty
 
@@ -2234,8 +2235,8 @@ drawTimeBox glStuff dims@(WindowDims _ hWhole) timeLines = do
   let maxTextWidth = foldr max 0 $ map (sum . map (vX . gsrAdvance . fst)) texLines
       boxWidth = 2 * margin + fromIntegral (maxTextWidth `shiftR` 6)
       boxHeight = (margin + fontSize) * length texLines + margin
-      margin = 10
-      fontSize = 15
+      margin = round $ 10 * scaleUI glStuff
+      fontSize = round $ 15 * scaleUI glStuff
   drawColor glStuff dims (V2 0 $ hWhole - boxHeight) (V2 boxWidth boxHeight) (V4 0 0 0 0.5)
   forM_ (zip [1..] texLines) $ \(i, texLine) -> do
     drawTextLine glStuff dims texLine $ V2 margin $ hWhole - (margin + fontSize) * i

@@ -145,7 +145,7 @@ playDrumTrack
   -> (Double -> Maybe Double -> Float -> IO RGAudio.AudioHandle)
   -> IO ()
 playDrumTrack window song layout trk audioPlayer = do
-  Right glStuff <- logStdout $ loadGLStuff song
+  Right glStuff <- logStdout $ loadGLStuff 1 song
   let ticksMilli :: IO Milli
       ticksMilli = MkFixed . fromIntegral <$> SDL.ticks
       delayMilli :: Milli -> IO ()
@@ -254,7 +254,7 @@ playDrumTrack window song layout trk audioPlayer = do
 
 playTracks :: SDL.Window -> PreviewSong -> [PreviewTrack] -> (Double -> Maybe Double -> Float -> IO RGAudio.AudioHandle) -> IO ()
 playTracks window song trks audioPlayer = do
-  Right glStuff <- logStdout $ loadGLStuff song
+  Right glStuff <- logStdout $ loadGLStuff 1 song
   let ticksMilli :: IO Milli
       ticksMilli = MkFixed . fromIntegral <$> SDL.ticks
       delayMilli :: Milli -> IO ()

@@ -4635,9 +4635,13 @@ previewGroup sink rect getSong getTime getSpeed = do
   let draw :: FL.Ref FL.GlWindow -> IO ()
       draw wind = do
         mstuff <- modifyMVar varStuff $ \case
-          GLPreload -> embedOnyx sink (RGGraphics.loadGLStuff initSong) >>= \case
-            Nothing -> return (GLFailed, Nothing)
-            Just s  -> return (GLLoaded s, Just s)
+          GLPreload -> do
+            -- Just get scale factor (both hidpi and fltk's ctrl +/-) once at load.
+            -- TODO support changing it after load
+            scale <- FL.pixelsPerUnit wind
+            embedOnyx sink (RGGraphics.loadGLStuff scale initSong) >>= \case
+              Nothing -> return (GLFailed, Nothing)
+              Just s  -> return (GLLoaded s, Just s)
           loaded@(GLLoaded s) -> return (loaded, Just s)
           GLFailed -> return (GLFailed, Nothing)
         forM_ mstuff $ \stuff -> do
@@ -4652,7 +4656,11 @@ previewGroup sink rect getSong getTime getSpeed = do
           let flatTrks = concat trks
           RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t speed bg
             $ mapMaybe (`lookup` flatTrks) selected
-  -- TODO do we want to set "FL.setUseHighResGL True" here for mac?
+  -- TODO add an option to use `FLTK.setUseHighResGL True`
+  -- This appears to always be forced true on hidpi Linux. Not sure of Windows.
+  -- But on Mac by default I believe the GL resolution is non-retina unless you set this.
+  -- Either way FL.pixelsPerUnit will handle the UI correctly
+  FLTK.setUseHighResGL False
   glwindow <- FLGL.glWindowCustom
     (rectangleSize glArea)
     (Just $ rectanglePosition glArea)
