@@ -105,9 +105,12 @@ interpretGenre mg ms = let
         "teen" -> findDoubleMaybe "poprock" "teen"
         "dancepunk" -> findDoubleMaybe "punk" "dancepunk"
         "poppunk" -> findDoubleMaybe "punk" "pop"
+        "punkrock" -> findDoubleMaybe "punk" "other"
         "disco" -> findDoubleMaybe "rbsoulfunk" "disco"
         "funk" -> findDoubleMaybe "rbsoulfunk" "funk"
         "motown" -> findDoubleMaybe "rbsoulfunk" "motown"
+        "rb" -> findDoubleMaybe "rbsoulfunk" "rhythmandblues"
+        "rnb" -> findDoubleMaybe "rbsoulfunk" "rhythmandblues"
         "rhythmandblues" -> findDoubleMaybe "rbsoulfunk" "rhythmandblues"
         "rhythmnblues" -> findDoubleMaybe "rbsoulfunk" "rhythmandblues"
         "reggae" -> findDoubleMaybe "reggaeska" "reggae"
@@ -524,8 +527,12 @@ displayWoRGenre = \case
   WoR_Surf_Rock     -> "Surf Rock"
 
 qbWoRGenre :: GenreWoR -> Word32
-qbWoRGenre = qbKeyCRC . TE.encodeUtf8 . T.toLower . displayWoRGenre
--- TODO verify "R & B"
+qbWoRGenre wor = let
+  displayed = case wor of
+    WoR_Hip_Hop -> "hip_hop" -- reported by ataeaf in https://github.com/mtolly/onyxite-customs/issues/193
+    WoR_R_n_B   -> "r&b" -- determined by testing
+    _           -> displayWoRGenre wor
+  in qbKeyCRC $ TE.encodeUtf8 $ T.toLower displayed
 
 rbn2ToWoRGenre :: (T.Text, T.Text) -> GenreWoR
 rbn2ToWoRGenre (g, s) = case g of
