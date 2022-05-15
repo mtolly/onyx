@@ -4383,15 +4383,15 @@ launchQuickConvert sink makeMenuBar = mdo
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   functionTabs <- sequence
-    [ makeTab windowRect "Quick convert" $ \rect tab -> do
+    [ makeTab windowRect "Quick convert (RB)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       pageQuickConvert sink rect tab startTasks
       return tab
-    , makeTab windowRect "Make a pack (360)" $ \rect tab -> do
+    , makeTab windowRect "Make a pack (360 GH2/RB)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPagePacks sink rect tab startTasks
       return tab
-    , makeTab windowRect "Direct CON->PKG" $ \rect tab -> do
+    , makeTab windowRect "Direct CON->PKG (RB)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageCONtoPKG sink rect tab startTasks
       return tab

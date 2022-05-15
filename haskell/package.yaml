@@ -82,6 +82,7 @@ library:
   - zlib
   - uuid
   - cryptohash-sha1
+  - caerbannog
   # my libraries
   - jammittools
   - midi-util

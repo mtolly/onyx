@@ -1,0 +1,54 @@
+parts:
+  drums:
+    drums:
+      fix-freeform: false
+      kicks: 2
+      difficulty:
+        tier: 5
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+        offsets: [-2, 0, 0, 0, 0] # AEADG
+metadata:
+  track-number: 2
+  title: Immediate Results!
+  author: Boo
+  year: 2019
+  album: You Won't Believe What Happens Next!
+  preview-start: 3.866
+  subgenre: metal
+  genre: metal
+  preview-end: 33.866
+  difficulty:
+    tier: 1
+  artist: Arch Echo
+  file-album-art: cover.png_xbox
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    parts:
+      drums:
+      - 0
+      - 1
+    karaoke: false
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: o588373366
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

@@ -103,6 +103,14 @@ tuningPitches t
     Bass6        -> [23, 28, 33, 38, 43, 48]
     GtrCustom ps -> ps
 
+-- True if this should use string colors starting from purple (5/6-string bass or similar)
+lowBassTuning :: GtrTuning -> Bool
+lowBassTuning tuning = case gtrBase tuning of
+  Bass5             -> True
+  Bass6             -> True
+  GtrCustom (n : _) -> n < 28
+  _                 -> False
+
 -- | RB3 style (does not include 'gtrGlobal' or 'gtrCapo').
 encodeTuningOffsets :: GtrTuning -> GuitarType -> [Int]
 encodeTuningOffsets tun typ = let

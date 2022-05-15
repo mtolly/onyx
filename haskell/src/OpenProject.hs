@@ -38,7 +38,7 @@ import           GuitarHeroII.Ark               (GH2Installation (..),
                                                  GameGH (..), addBonusSong,
                                                  detectGameGH)
 import           GuitarHeroII.Convert           (adjustSongText)
-import           GuitarPro                      (parseGP)
+import           GuitarPro                      (parseGP, parseGPX)
 import           Import.Amplitude2016           (importAmplitude)
 import           Import.Base                    (ImportLevel (..), saveImport)
 import           Import.BMS                     (importBMS)
@@ -193,7 +193,10 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             ]
       foundGP loc = do
         let imp level = parseGP loc >>= \gpif -> importGPIF gpif level
-        foundImports "Guitar Pro" loc [imp]
+        foundImports "Guitar Pro (.gp)" loc [imp]
+      foundGPX loc = do
+        let imp level = parseGPX loc >>= \gpif -> importGPIF gpif level
+        foundImports "Guitar Pro (.gpx)" loc [imp]
       foundPowerGig loc = do
         imps <- importPowerGig loc
         foundImports "PowerGig" loc imps
@@ -252,6 +255,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".psarc" -> foundRS fp
         ".pkg" -> foundPS3 fp
         ".gp" -> foundGP fp
+        ".gpx" -> foundGPX fp
         ".2" -> foundPowerGig fp -- assuming this is Data.hdr.e.2
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundFoF fp

@@ -27,6 +27,7 @@ import           RockBand.Common
 import           Rocksmith.MIDI
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
+import Data.Foldable (toList)
 
 rhythmLength :: Rhythm -> Maybe U.Beats
 rhythmLength r = do
@@ -102,11 +103,14 @@ fromGPIF gpif = do
   forM (zip (mt_Tracks $ gp_MasterTrack gpif) [0..]) \(trackID, trackBarIndex) -> do
     inside ("<Track id=\"" <> show trackID <> "\">") do
     track <- getTrack trackID
-    let tunings = do
-          staff <- V.toList $ trk_Staves track
+    let tuningsGP = do
+          staff <- toList (trk_Staves track) >>= V.toList
           Property "Tuning" (PropertyTuning t) <- V.toList $ props_Properties $ staff_Properties staff
           return t
-    tuning <- case tunings of
+        tuningsGPX = do
+          Property "Tuning" (PropertyTuning t) <- toList (trk_Properties track) >>= V.toList . props_Properties
+          return t
+    tuning <- case tuningsGP <> tuningsGPX of
       []    -> fatal "No tuning found for any of track's staves"
       t : _ -> return GtrTuning
         -- TODO maybe identify normal tunings, also use tuning_Instrument ("Guitar"/"Bass")
@@ -128,6 +132,7 @@ fromGPIF gpif = do
         beats <- mapM getBeat $ voice_Beats voice
         funcs <- forM beats \beat -> do
           notes <- mapM getNote $ fromMaybe [] $ beat_Notes beat
+          -- TODO don't sustain if staccato
           rhythm <- getRhythm $ rhythm_ref $ beat_Rhythm beat
           gotNotes <- forM notes \note -> do
             let props = V.toList $ props_Properties $ note_Properties note
@@ -155,6 +160,8 @@ fromGPIF gpif = do
                   , [ModPluck         | elem "Popped"    enabled]
                   , [ModHammerOn      | elem "LeftHandTapped" enabled] -- TODO normal hammerons
                   ]
+                -- for RS readability, make all fret hand mutes "open"
+                fret' = if elem ModMute mods then 0 else fret
                 {-
                   remaining stuff to import:
                   ModVibrato, ModHammerOn, ModPullOff, ModSlide, ModSlideUnpitch, ModLink,
@@ -175,7 +182,7 @@ fromGPIF gpif = do
                   so this means hold fret 7 and tap on fret 12 (7 + 5).
                   for rs, this should generate a hand position on 7, a note on fret 12, with tap + harmonic mods.
                 -}
-            return ((fret, mods), midiString, note)
+            return ((fret', mods), midiString, note)
           duration <- case rhythmLength rhythm of
             Nothing  -> fatal $ "Couldn't understand note duration: " <> show rhythm
             Just bts -> return bts

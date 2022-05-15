@@ -989,7 +989,9 @@ drawPG glStuff@GLStuff{..} nowTime speed tuning trk = do
         PG.Bass5        -> zip [PG.S6 ..] [      strP, strR, strY, strB, strO            ]
         PG.Bass6        -> zip [PG.S6 ..] [      strP, strR, strY, strB, strO, strG      ]
         PG.GtrCustom ns -> case length ns of
-          n | n <= 6 -> take n $ zip [PG.S6 ..]    [strR, strY, strB, strO, strG, strP]
+          n | n <= 6 -> take n $ zip [PG.S6 ..] $ if PG.lowBassTuning tuning
+            then [strP, strR, strY, strB, strO, strG]
+            else [strR, strY, strB, strO, strG, strP]
           7          -> zip [PG.S7 ..] [      strP, strR, strY, strB, strO, strG, strP]
           _          -> zip [PG.S8 ..] [strG, strP, strR, strY, strB, strO, strG, strP]
       numStrings = fromIntegral $ length allStrings :: Float

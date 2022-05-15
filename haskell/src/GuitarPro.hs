@@ -21,11 +21,16 @@ import qualified Data.Text.Encoding             as TE
 import qualified Data.Vector                    as V
 import           Text.Read                      (readMaybe)
 import           Text.XML.Light
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
+import GuitarPro.GPX (gpxFiles)
 
--- .gp (GP7) format, a zip file containing an XML file
+-- .gpif is an XML format, shared by .gpx and .gp (maybe earlier as well)
+-- .gp (GP7) is a zip file
+-- .gpx (GP6) is a custom file structure + compression format
 
 data GPIF = GPIF
-  { gp_GPVersion   :: Int
+  { gp_GPVersion   :: Maybe Int -- not in .gpx
   -- GPRevision
   -- Encoding
   , gp_Score       :: Score
@@ -42,7 +47,7 @@ data GPIF = GPIF
 
 instance IsInside GPIF where
   insideCodec = do
-    gp_GPVersion   <- gp_GPVersion =. childTag "GPVersion" (parseInside' $ intText childText)
+    gp_GPVersion   <- gp_GPVersion =. childTagOpt "GPVersion" (parseInside' $ intText childText)
     ignoreChildTag "GPRevision"
     ignoreChildTag "Encoding"
     gp_Score       <- gp_Score =. childTag "Score" (parseInside' insideCodec)
@@ -83,8 +88,8 @@ data Score = Score
   , score_PageFooter                :: T.Text
   , score_ScoreSystemsDefaultLayout :: T.Text
   , score_ScoreSystemsLayout        :: [Int]
-  , score_ScoreZoomPolicy           :: T.Text
-  , score_ScoreZoom                 :: T.Text
+  , score_ScoreZoomPolicy           :: Maybe T.Text -- not in .gpx
+  , score_ScoreZoom                 :: Maybe T.Text -- not in .gpx
   , score_MultiVoice                :: T.Text
   } deriving (Show)
 
@@ -107,8 +112,8 @@ instance IsInside Score where
     score_PageFooter                <- score_PageFooter                =. childTag "PageFooter"                (parseInside' childText)
     score_ScoreSystemsDefaultLayout <- score_ScoreSystemsDefaultLayout =. childTag "ScoreSystemsDefaultLayout" (parseInside' childText)
     score_ScoreSystemsLayout        <- score_ScoreSystemsLayout        =. childTag "ScoreSystemsLayout"        (parseInside' listOfInts)
-    score_ScoreZoomPolicy           <- score_ScoreZoomPolicy           =. childTag "ScoreZoomPolicy"           (parseInside' childText)
-    score_ScoreZoom                 <- score_ScoreZoom                 =. childTag "ScoreZoom"                 (parseInside' childText)
+    score_ScoreZoomPolicy           <- score_ScoreZoomPolicy           =. childTagOpt "ScoreZoomPolicy"        (parseInside' childText)
+    score_ScoreZoom                 <- score_ScoreZoom                 =. childTagOpt "ScoreZoom"                 (parseInside' childText)
     score_MultiVoice                <- score_MultiVoice                =. childTag "MultiVoice"                (parseInside' childText)
     return Score{..}
 
@@ -150,11 +155,12 @@ data Track = Track
   , trk_Name        :: T.Text
   , trk_ShortName   :: T.Text
   , trk_Color       :: [Int]
-  -- SystemsDefautLayout, SystemsLayout, PalmMute, AutoAccentuation, PlayingStyle, UseOneChannelPerString, IconId, InstrumentSet
-  , trk_Transpose   :: Transpose
+  -- SystemsDefautLayout, SystemsLayout, PalmMute, AutoAccentuation, PlayingStyle, Instrument (.gpx), UseOneChannelPerString, IconId, InstrumentSet
+  , trk_Transpose   :: Maybe Transpose -- not in .gpx, has <PartSounding> instead
   -- RSE, ForcedSound, Sounds, MidiConnection, PlaybackState, AudioEngineState, Lyrics
-  , trk_Staves      :: V.Vector Staff
-  , trk_Automations :: V.Vector Automation
+  , trk_Staves      :: Maybe (V.Vector Staff) -- not in .gpx
+  , trk_Automations :: Maybe (V.Vector Automation) -- not in .gpx
+  , trk_Properties  :: Maybe Properties -- only in .gpx
   } deriving (Show)
 
 instance IsInside Track where
@@ -168,10 +174,11 @@ instance IsInside Track where
     ignoreChildTag "PalmMute"
     ignoreChildTag "AutoAccentuation"
     ignoreChildTag "PlayingStyle"
+    ignoreChildTag "Instrument"
     ignoreChildTag "UseOneChannelPerString"
     ignoreChildTag "IconId"
     ignoreChildTag "InstrumentSet"
-    trk_Transpose   <- trk_Transpose   =. childTag "Transpose" (parseInside' insideCodec)
+    trk_Transpose   <- trk_Transpose   =. childTagOpt "Transpose" (parseInside' insideCodec)
     ignoreChildTag "RSE"
     ignoreChildTag "ForcedSound"
     ignoreChildTag "Sounds"
@@ -179,10 +186,11 @@ instance IsInside Track where
     ignoreChildTag "PlaybackState"
     ignoreChildTag "AudioEngineState"
     ignoreChildTag "Lyrics"
-    trk_Staves      <- trk_Staves      =. childTag "Staves"
+    trk_Staves      <- trk_Staves      =. childTagOpt "Staves"
       (parseInside' $ bareList $ isTag "Staff" $ parseInside' insideCodec)
-    trk_Automations <- trk_Automations =. childTag "Automations"
+    trk_Automations <- trk_Automations =. childTagOpt "Automations"
       (parseInside' $ bareList $ isTag "Automation" $ parseInside' insideCodec)
+    trk_Properties <- trk_Properties =. childTagOpt "Properties" (parseInside' insideCodec)
     return Track{..}
 
 data Transpose = Transpose
@@ -297,17 +305,17 @@ instance IsInside PropertyValue where
 
 data Tuning = Tuning
   { tuning_Pitches      :: [Int]
-  , tuning_Instrument   :: T.Text
-  , tuning_Label        :: T.Text
-  , tuning_LabelVisible :: Bool
+  , tuning_Instrument   :: Maybe T.Text -- not in .gpx
+  , tuning_Label        :: Maybe T.Text -- not in .gpx
+  , tuning_LabelVisible :: Maybe Bool -- not in .gpx
   } deriving (Show)
 
 instance IsInside Tuning where
   insideCodec = do
     tuning_Pitches      <- tuning_Pitches      =. childTag "Pitches"      (parseInside' listOfInts)
-    tuning_Instrument   <- tuning_Instrument   =. childTag "Instrument"   (parseInside' childText)
-    tuning_Label        <- tuning_Label        =. childTag "Label"        (parseInside' childText)
-    tuning_LabelVisible <- tuning_LabelVisible =. childTag "LabelVisible" (parseInside' $ boolWordText childText)
+    tuning_Instrument   <- tuning_Instrument   =. childTagOpt "Instrument"   (parseInside' childText)
+    tuning_Label        <- tuning_Label        =. childTagOpt "Label"        (parseInside' childText)
+    tuning_LabelVisible <- tuning_LabelVisible =. childTagOpt "LabelVisible" (parseInside' $ boolWordText childText)
     return Tuning{..}
 
 data Pitch = Pitch
@@ -356,14 +364,14 @@ instance IsInside MasterBar where
 data Key = Key
   { key_AccidentalCount :: Int
   , key_Mode            :: T.Text
-  , key_TransposeAs     :: T.Text
+  , key_TransposeAs     :: Maybe T.Text -- not in .gpx
   } deriving (Show)
 
 instance IsInside Key where
   insideCodec = do
     key_AccidentalCount <- key_AccidentalCount =. childTag "AccidentalCount" (parseInside' $ intText childText)
     key_Mode            <- key_Mode            =. childTag "Mode"            (parseInside' childText)
-    key_TransposeAs     <- key_TransposeAs     =. childTag "TransposeAs"     (parseInside' childText)
+    key_TransposeAs     <- key_TransposeAs     =. childTagOpt "TransposeAs"  (parseInside' childText)
     return Key{..}
 
 data Bar = Bar
@@ -395,6 +403,7 @@ instance IsInside Voice where
 data Beat = Beat
   { beat_id         :: Int
   , beat_GraceNotes :: Maybe T.Text
+  -- Bank (.gpx)
   , beat_Dynamic    :: T.Text
   , beat_Rhythm     :: RhythmRef
   -- TransposedPitchStemOrientation, ConcertPitchStemOrientation
@@ -410,6 +419,7 @@ instance IsInside Beat where
   insideCodec = do
     beat_id         <- beat_id         =. intText (reqAttr "id")
     beat_GraceNotes <- beat_GraceNotes =. childTagOpt "GraceNotes" (parseInside' childText)
+    ignoreChildTag "Bank"
     beat_Dynamic    <- beat_Dynamic    =. childTag "Dynamic" (parseInside' childText)
     beat_Rhythm     <- beat_Rhythm     =. childTag "Rhythm" (parseInside' insideCodec)
     ignoreChildTag "TransposedPitchStemOrientation"
@@ -433,7 +443,7 @@ instance IsInside RhythmRef where
 
 data Note = Note
   { note_id                     :: Int
-  , note_InstrumentArticulation :: Int
+  , note_InstrumentArticulation :: Maybe Int -- not in .gpx
   , note_Properties             :: Properties
   , note_RightFingering         :: Maybe T.Text
   , note_Accent                 :: Maybe Int
@@ -445,7 +455,7 @@ data Note = Note
 instance IsInside Note where
   insideCodec = do
     note_id                     <- note_id                     =. intText (reqAttr "id")
-    note_InstrumentArticulation <- note_InstrumentArticulation =. childTag "InstrumentArticulation" (parseInside' $ intText childText)
+    note_InstrumentArticulation <- note_InstrumentArticulation =. childTagOpt "InstrumentArticulation" (parseInside' $ intText childText)
     note_Properties             <- note_Properties             =. childTag "Properties" (parseInside' insideCodec)
     note_RightFingering         <- note_RightFingering         =. childTagOpt "RightFingering" (parseInside' childText)
     note_Accent                 <- note_Accent                 =. childTagOpt "Accent" (parseInside' $ intText childText)
@@ -515,6 +525,16 @@ listOfInts = Codec
 parseGP :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m GPIF
 parseGP f = inside ("Loading: " <> f) $ do
   gpif <- Zip.withArchive f $ Zip.mkEntrySelector "Content/score.gpif" >>= Zip.getEntry
-  elt <- maybe (fatal "Couldn't parse XML") return
-    $ parseXMLDoc $ TE.decodeUtf8 gpif
+  parseGPIF gpif
+
+parseGPIF :: (SendMessage m) => B.ByteString -> StackTraceT m GPIF
+parseGPIF gpif = do
+  elt <- maybe (fatal "Couldn't parse XML") return $ parseXMLDoc $ TE.decodeUtf8 gpif
   mapStackTraceT (`runReaderT` elt) $ codecIn $ isTag "GPIF" $ parseInside' insideCodec
+
+parseGPX :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m GPIF
+parseGPX f = inside ("Loading: " <> f) $ do
+  files <- stackIO (B.readFile f) >>= gpxFiles . BL.fromStrict
+  case lookup "score.gpif" files of
+    Just bs -> parseGPIF $ BL.toStrict bs
+    Nothing -> fatal "No score.gpif found in .gpx contents"

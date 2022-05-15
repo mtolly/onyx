@@ -5,6 +5,11 @@ parts:
   keys:
     pro-keys: {}
     grybo: {}
+  bass:
+    pro-guitar: # TODO basic cleanup from .gp done, need to do full check pass against stem and add slides
+      tuning:
+        base: bass-5
+        offsets: [-2, 0, 0, 0, 0] # AEADG
 plans:
   youtube:
     song:
@@ -81,6 +86,11 @@ targets:
     plan: youtube
   ps:
     game: ps
+    plan: youtube
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
     plan: youtube
 metadata:
   title: Earthshine

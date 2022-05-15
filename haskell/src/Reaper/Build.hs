@@ -42,7 +42,7 @@ import           RockBand.Codec.File                   (FlexPartName (..),
 import           RockBand.Codec.FullDrums              (fullDrumNoteNames)
 import           RockBand.Codec.ProGuitar              (GtrBase (..),
                                                         GtrTuning (..),
-                                                        tuningPitches)
+                                                        tuningPitches, lowBassTuning)
 import qualified RockBand.Codec.Vocal                  as Vox
 import           RockBand.Common                       (Key (..), showKey)
 import qualified Sound.File.Sndfile                    as Snd
@@ -354,10 +354,9 @@ track tunings lenTicks lenSecs resn trk = let
           , ("PART RS RHYTHM", rsColors)
           , ("PART RS BASS", rsColors)
           ]
-        rsColors = case gtrBase tuning of
-          Bass5 -> "colormap_rslow.png"
-          Bass6 -> "colormap_rslow.png"
-          _     -> "colormap_rs.png"
+        rsColors = if lowBassTuning tuning
+          then "colormap_rslow.png"
+          else "colormap_rs.png"
         isProtar = any (`T.isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS"]
         isRS = "PART RS" `T.isInfixOf` name
         isDance = "PART DANCE" `T.isSuffixOf` name

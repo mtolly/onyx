@@ -1,0 +1,77 @@
+parts:
+  drums:
+    drums:
+      fix-freeform: false
+      kicks: 2
+      difficulty:
+        tier: 7
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  bass:
+    pro-guitar:
+      tuning:
+        base: [21, 28, 33, 38, 43, 47] # AEADGB
+metadata:
+  track-number: 4
+  expert-only: true
+  title: Hos Down (feat. Rick Graham)
+  author: Bloodline, Onyxite
+  year: 2016
+  album: I
+  preview-start: 2:39.000
+  subgenre: prog
+  genre: metal
+  languages:
+  - English
+  preview-end: 3:09.000
+  difficulty:
+    tier: 7
+  rating: Family Friendly
+  artist: Jason Richardson
+  file-album-art: cover.png_xbox
+plans:
+  mogg:
+    crowd:
+    - 6
+    - 7
+    file-mogg: audio.mogg
+    parts:
+      drums:
+      - 0
+      - 1
+      guitar:
+      - 2
+      - 3
+    karaoke: false
+    multitrack: false
+    vols:
+    - -1
+    - -1
+    - -1
+    - -1
+    - 0
+    - 0
+    - -5
+    - -5
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1681600989
+    label: (B)
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
