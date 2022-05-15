@@ -114,8 +114,8 @@ parsePart dlc qb part = let
   parseTrack diff = do
     gh3Notes       <- findSection qb (dlc <> "_song_" <> part <> diff) $ \case
       QBArrayOfFloatRaw [] -> return []
-      QBArrayOfInteger ns -> groupBy3 ns
-      _                   -> fatal "Expected array of integers for notes"
+      QBArrayOfInteger ns  -> groupBy3 ns
+      _                    -> fatal "Expected array of integers for notes"
     gh3StarPower   <- findSection qb (dlc <> "_" <> part <> diff <> "_star") listOfTriples
     gh3BattleStars <- findSection qb (dlc <> "_" <> part <> diff <> "_starbattlemode") listOfTriples
     return GH3Track{..}
@@ -176,8 +176,8 @@ parseMidQB dlc qb = do
   gh3TimeSignatures <- findSection qb (dlc <> "_timesig") listOfTriples
   gh3FretBars       <- findSection qb (dlc <> "_fretbars") $ \case
     QBArrayOfFloatRaw [] -> return []
-    QBArrayOfInteger ns -> return ns
-    _                   -> fatal "Expected array of integers for fretbars"
+    QBArrayOfInteger ns  -> return ns
+    _                    -> fatal "Expected array of integers for fretbars"
   gh3Markers        <- findSection qb (dlc <> "_markers") $ \case
     QBArrayOfFloatRaw [] -> return []
     QBArrayOfStruct marks -> forM marks $ \case

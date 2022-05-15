@@ -199,7 +199,7 @@ noLowerExtSustains :: (NNC.C t, Ord color) => t -> t -> RTB.T t ((color, sht), M
 noLowerExtSustains blipThreshold sustainGap = go where
   go = \case
     Wait t x rest -> Wait t (pullBack rest x) $ go rest
-    RNil -> RNil
+    RNil          -> RNil
   pullBack _    note@((_    , _  ), Nothing ) = note
   pullBack rest note@((color, sht), Just len) = let
     possibleConflicts = U.trackTake len $ U.trackDropZero rest

@@ -81,23 +81,23 @@ data QBArray qs k
 
 instance (ToJSON qs, ToJSON k) => ToJSON (QBArray qs k) where
   toJSON = \case
-    QBArrayOfQbKey x -> OneKey "ArrayOfQbKey" $ toJSON x
-    QBArrayOfInteger x -> OneKey "ArrayOfInteger" $ toJSON x
-    QBArrayOfStruct x -> OneKey "ArrayOfStruct" $ toJSON x
-    QBArrayOfFloat x -> OneKey "ArrayOfFloat" $ toJSON x
-    QBArrayOfFloatRaw x -> OneKey "ArrayOfFloatRaw" $ toJSON x
+    QBArrayOfQbKey x         -> OneKey "ArrayOfQbKey" $ toJSON x
+    QBArrayOfInteger x       -> OneKey "ArrayOfInteger" $ toJSON x
+    QBArrayOfStruct x        -> OneKey "ArrayOfStruct" $ toJSON x
+    QBArrayOfFloat x         -> OneKey "ArrayOfFloat" $ toJSON x
+    QBArrayOfFloatRaw x      -> OneKey "ArrayOfFloatRaw" $ toJSON x
     QBArrayOfQbKeyStringQs x -> OneKey "ArrayOfQbKeyStringQs" $ toJSON x
-    QBArrayOfArray x -> OneKey "ArrayOfArray" $ toJSON x
+    QBArrayOfArray x         -> OneKey "ArrayOfArray" $ toJSON x
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBArray qs k) where
   parseJSON = \case
-    OneKey "ArrayOfQbKey" x -> QBArrayOfQbKey <$> parseJSON x
-    OneKey "ArrayOfInteger" x -> QBArrayOfInteger <$> parseJSON x
-    OneKey "ArrayOfStruct" x -> QBArrayOfStruct <$> parseJSON x
-    OneKey "ArrayOfFloat" x -> QBArrayOfFloat <$> parseJSON x
-    OneKey "ArrayOfFloatRaw" x -> QBArrayOfFloatRaw <$> parseJSON x
+    OneKey "ArrayOfQbKey" x         -> QBArrayOfQbKey <$> parseJSON x
+    OneKey "ArrayOfInteger" x       -> QBArrayOfInteger <$> parseJSON x
+    OneKey "ArrayOfStruct" x        -> QBArrayOfStruct <$> parseJSON x
+    OneKey "ArrayOfFloat" x         -> QBArrayOfFloat <$> parseJSON x
+    OneKey "ArrayOfFloatRaw" x      -> QBArrayOfFloatRaw <$> parseJSON x
     OneKey "ArrayOfQbKeyStringQs" x -> QBArrayOfQbKeyStringQs <$> parseJSON x
-    _ -> fail "QB json error"
+    _                               -> fail "QB json error"
 
 data QBStructItem qs k
   = QBStructHeader -- empty
@@ -146,60 +146,60 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBStructItem qs k) where
     "StructHeader" -> return QBStructHeader
     OneKey "StructItemStruct" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemStruct <$> parseJSON x <*> parseJSON y
-      _ -> fail "QB json error"
+      _      -> fail "QB json error"
     OneKey "StructItemQbKey" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemQbKey <$> parseJSON x <*> parseJSON y
-      _ -> fail "QB json error"
+      _      -> fail "QB json error"
     OneKey "StructItemString" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemString <$> parseJSON x <*> fmap B8.pack (parseJSON y)
       _ -> fail "QB json error"
     OneKey "StructItemQbKeyString" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemQbKeyString <$> parseJSON x <*> parseJSON y
-      _ -> fail "QB json error"
+      _      -> fail "QB json error"
     OneKey "StructItemQbKeyStringQs" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemQbKeyStringQs <$> parseJSON x <*> parseJSON y
-      _ -> fail "QB json error"
+      _      -> fail "QB json error"
     OneKey "StructItemInteger" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemInteger <$> parseJSON x <*> parseJSON y
-      _ -> fail "QB json error"
+      _      -> fail "QB json error"
     OneKey "StructItemFloat" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemFloat <$> parseJSON x <*> parseJSON y
-      _ -> fail "QB json error"
+      _      -> fail "QB json error"
     OneKey "StructItemArray" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemArray <$> parseJSON x <*> parseJSON y
-      _ -> fail "QB json error"
+      _      -> fail "QB json error"
     OneKey "StructItemInteger810000" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemInteger810000 <$> parseJSON x <*> parseJSON y
-      _ -> fail "QB json error"
+      _      -> fail "QB json error"
     OneKey "StructItemQbKeyString9A0000" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemQbKeyString9A0000 <$> parseJSON x <*> parseJSON y
-      _ -> fail "QB json error"
+      _      -> fail "QB json error"
     OneKey "StructItemQbKey8D0000" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemQbKey8D0000 <$> parseJSON x <*> parseJSON y
-      _ -> fail "QB json error"
+      _      -> fail "QB json error"
     OneKey "StructItemStruct8A0000" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemStruct8A0000 <$> parseJSON x <*> parseJSON y
-      _ -> fail "QB json error"
+      _      -> fail "QB json error"
     _ -> fail "QB json error"
 
 instance Bifunctor QBSection where
   first f = \case
-    QBSectionInteger x y n -> QBSectionInteger x y n
-    QBSectionArray x y arr -> QBSectionArray x y $ first f arr
+    QBSectionInteger x y n    -> QBSectionInteger x y n
+    QBSectionArray x y arr    -> QBSectionArray x y $ first f arr
     QBSectionStruct x y items -> QBSectionStruct x y $ map (first f) items
-    QBSectionScript w x y z -> QBSectionScript w x y z
-    QBSectionStringW x y s -> QBSectionStringW x y s
+    QBSectionScript w x y z   -> QBSectionScript w x y z
+    QBSectionStringW x y s    -> QBSectionStringW x y s
   second = fmap
 
 instance Bifunctor QBArray where
   first f = \case
-    QBArrayOfQbKey ks -> QBArrayOfQbKey ks
-    QBArrayOfInteger ns -> QBArrayOfInteger ns
-    QBArrayOfStruct structs -> QBArrayOfStruct $ map (map $ first f) structs
-    QBArrayOfFloat ns -> QBArrayOfFloat ns
-    QBArrayOfFloatRaw ns -> QBArrayOfFloatRaw ns
+    QBArrayOfQbKey ks         -> QBArrayOfQbKey ks
+    QBArrayOfInteger ns       -> QBArrayOfInteger ns
+    QBArrayOfStruct structs   -> QBArrayOfStruct $ map (map $ first f) structs
+    QBArrayOfFloat ns         -> QBArrayOfFloat ns
+    QBArrayOfFloatRaw ns      -> QBArrayOfFloatRaw ns
     QBArrayOfQbKeyStringQs qs -> QBArrayOfQbKeyStringQs $ map f qs
-    QBArrayOfArray arrs -> QBArrayOfArray $ map (first f) arrs
+    QBArrayOfArray arrs       -> QBArrayOfArray $ map (first f) arrs
   second = fmap
 
 instance Bifunctor QBStructItem where
@@ -452,8 +452,8 @@ getUtf16BE = do
   bytes <- B.pack <$> go
   case unsafePerformIO $ try $ evaluate $ TE.decodeUtf16BEWith strictDecode bytes of
     Left (DecodeError err _) -> fail $ "getUtf16BE: text decode failed; " <> err
-    Left _ -> fail "shouldn't happen!" -- deprecated EncodeError
-    Right t  -> return t
+    Left _                   -> fail "shouldn't happen!" -- deprecated EncodeError
+    Right t                  -> return t
 
 parseQBSection :: Get (QBSection Word32 Word32)
 parseQBSection = do
@@ -536,13 +536,13 @@ data QBResult
 instance ToJSON QBResult where
   toJSON = \case
     UnknownQB qb -> toJSON qb
-    KnownQB b -> toJSON $ B8.unpack b
+    KnownQB b    -> toJSON $ B8.unpack b
 
 instance FromJSON QBResult where
   parseJSON = \case
     Number n -> return $ UnknownQB $ round n
     String s -> return $ KnownQB $ B8.pack $ T.unpack s
-    _ -> fail "QB key json error"
+    _        -> fail "QB key json error"
 
 lookupQS :: (Bifunctor obj) => HM.HashMap Word32 T.Text -> obj Word32 k -> obj QSResult k
 lookupQS mapping = first $ \qs -> case HM.lookup qs mapping of

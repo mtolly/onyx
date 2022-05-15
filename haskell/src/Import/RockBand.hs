@@ -58,8 +58,8 @@ import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingles)
 import           Resources                      (rb3Updates)
 import           RockBand.Codec.Drums           as RBDrums
-import           RockBand.Codec.File            (FlexPartName (..))
 import qualified RockBand.Codec.File            as RBFile
+import           RockBand.Codec.File            (FlexPartName (..))
 import           RockBand.Codec.ProGuitar       (GtrBase (..), GtrTuning (..))
 import           RockBand.Common
 import           RockBand.Milo                  (SongPref (..), decompressMilo,

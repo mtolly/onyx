@@ -738,8 +738,8 @@ blockContentsPattern tss = let
   l1later = makeHash L1Hashes ++ concat (replicate 0xAA l0)
   l2 = l1first ++ makeHash L2Hashes ++ concat (replicate 0xA9 l1later)
   go a b c d = \case
-    [] -> []
-    Dummy : rest -> Dummy : go a b c d rest
+    []                  -> []
+    Dummy : rest        -> Dummy : go a b c d rest
     L0Hashes ()  : rest -> L0Hashes  a : go (a + 1) b c d rest
     DataBlock () : rest -> DataBlock b : go a (b + 1) c d rest
     L1Hashes ()  : rest -> L1Hashes  c : go a b (c + 1) d rest
@@ -1068,7 +1068,7 @@ makeCON opts dir con = do
     ((_, sub) : _, otherSubs) -> do
       let folder' = folder { folderSubfolders = otherSubs }
       loadCreateOptions sub >>= \case
-        Nothing -> return (opts, folder')
+        Nothing    -> return (opts, folder')
         Just opts' -> return (opts', folder')
   fileList <- traverseReadable folder'
   makeCONGeneral opts' fileList con
@@ -1425,5 +1425,5 @@ loadCreateOptions folder = do
               return LicenseEntry{..}
             return CreateOptions{..}
       case Y.parseEither parseCreate obj of
-        Left e -> fail $ "Failed getting data from repack-stfs.yaml: " <> e
+        Left e     -> fail $ "Failed getting data from repack-stfs.yaml: " <> e
         Right opts -> return $ Just opts

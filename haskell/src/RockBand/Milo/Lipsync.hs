@@ -50,8 +50,8 @@ import           RockBand.Codec.Lipsync           (GH2Viseme (..),
                                                    VisemeEvent (..),
                                                    VisemeGraph (..))
 import           RockBand.Codec.Vocal
-import           RockBand.Common                  (pattern RNil, pattern Wait,
-                                                   noRedundantStatus)
+import           RockBand.Common                  (noRedundantStatus,
+                                                   pattern RNil, pattern Wait)
 import           RockBand.Milo.Compression
 import           RockBand.Milo.Dir
 import qualified Sound.MIDI.File.Save             as Save
@@ -577,8 +577,8 @@ syllablesToAnimations transition vmap = removeCancelled . Wait 0 (VisemeHold $ v
     Wait _t1 (Just _syl1) RNil -> RNil -- shouldn't happen
   removeCancelled = \case
     Wait t _ (Wait 0 anim rest) -> removeCancelled $ Wait t anim rest
-    Wait t x rest -> Wait t x $ removeCancelled rest
-    RNil -> RNil
+    Wait t x rest               -> Wait t x $ removeCancelled rest
+    RNil                        -> RNil
 
 singleAnimsToStates
   :: T.Text

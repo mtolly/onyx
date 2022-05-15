@@ -10,8 +10,7 @@ import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
 import           Crypto.Hash
-import           Data.Bifunctor            (bimap, second)
-import           Data.Bifunctor            (first)
+import           Data.Bifunctor            (bimap, first, second)
 import           Data.Binary.Codec.Class
 import           Data.Bits                 (xor)
 import           Data.ByteArray            (convert)

@@ -42,7 +42,8 @@ import           RockBand.Codec.File                   (FlexPartName (..),
 import           RockBand.Codec.FullDrums              (fullDrumNoteNames)
 import           RockBand.Codec.ProGuitar              (GtrBase (..),
                                                         GtrTuning (..),
-                                                        tuningPitches, lowBassTuning)
+                                                        lowBassTuning,
+                                                        tuningPitches)
 import qualified RockBand.Codec.Vocal                  as Vox
 import           RockBand.Common                       (Key (..), showKey)
 import qualified Sound.File.Sndfile                    as Snd
@@ -201,13 +202,13 @@ track tunings lenTicks lenSecs resn trk = let
         orange = (255, 119, 0)
         purple = (153, 17, 170)
         color = fpart >>= \case
-          FlexDrums -> Just yellow
-          FlexGuitar -> Just blue
-          FlexBass -> Just red
-          FlexVocal -> Just orange
-          FlexKeys -> Just green
+          FlexDrums          -> Just yellow
+          FlexGuitar         -> Just blue
+          FlexBass           -> Just red
+          FlexVocal          -> Just orange
+          FlexKeys           -> Just green
           FlexExtra "rhythm" -> Just purple
-          _ -> Nothing
+          _                  -> Nothing
     case color of
       Nothing -> return ()
       Just (r, g, b) -> let
@@ -1273,8 +1274,8 @@ makeReaperFromData tunings mid tempoMid audios out = do
         audio len $ makeRelative (takeDirectory out) aud
   let findColorMaps = \case
         Element "COLORMAP" [cmap] _ -> [cmap]
-        Element _ _ Nothing -> []
-        Element _ _ (Just sub) -> concatMap findColorMaps sub
+        Element _ _ Nothing         -> []
+        Element _ _ (Just sub)      -> concatMap findColorMaps sub
   stackIO $ writeRPP out project
   stackIO $ forM_ (nubOrd $ findColorMaps project) $ \cmap -> case cmap of
     "colormap_drums.png" -> colorMapDrums >>= (`copyFile` (takeDirectory out </> T.unpack cmap))

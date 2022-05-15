@@ -47,11 +47,11 @@ instance ParseTrack GH2DrumTrack where
       gh2drumPlayer1   <- gh2drumPlayer1   =. edges (base + 9)
       gh2drumPlayer2   <- gh2drumPlayer2   =. edges (base + 10)
       gh2drumGems      <- (gh2drumGems =.) $ fatBlips (1/8) $ condenseMap_ $ eachKey [Kick, Red, Pro Yellow (), Pro Blue (), Pro Green (), Orange] $ blip . \case
-        Kick  -> base + 0
-        Red    -> base + 1
+        Kick          -> base + 0
+        Red           -> base + 1
         Pro Yellow () -> base + 2
         Pro Blue ()   -> base + 3
-        Pro Green () -> base + 4
-        Orange -> base + 4
+        Pro Green ()  -> base + 4
+        Orange        -> base + 4
       return GH2DrumDifficulty{..}
     return GH2DrumTrack{..}

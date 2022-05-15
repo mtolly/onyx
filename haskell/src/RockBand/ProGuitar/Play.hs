@@ -6,8 +6,8 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Word                        (Word8)
 import           Numeric.NonNegative.Class        ((-|))
 import           RockBand.Codec.ProGuitar
-import           RockBand.Common                  (each, reverseLookup)
 import qualified RockBand.Common                  as RB
+import           RockBand.Common                  (each, reverseLookup)
 import qualified Sound.MIDI.Util                  as U
 
 data Controller = Mustang | Squier

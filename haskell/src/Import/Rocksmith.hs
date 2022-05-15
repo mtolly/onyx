@@ -102,7 +102,7 @@ importRSSong folder song level = do
 
   let urn s = case T.splitOn ":" $ T.pack s of
         ["urn", _, _, value] -> return $ T.unpack value
-        _ -> fatal $ "Couldn't parse urn value: " <> show s
+        _                    -> fatal $ "Couldn't parse urn value: " <> show s
       prop k rec = case rec of
         A.Object o -> case HM.lookup k o of
           Nothing -> fatal $ "No key " <> show k <> " in object"

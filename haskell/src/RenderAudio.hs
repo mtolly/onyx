@@ -40,21 +40,21 @@ import qualified Sound.Jammit.Base              as J
 
 computeChannels :: Audio Duration Int -> Int
 computeChannels = \case
-  Silence n _ -> n
-  Input n -> n
-  Mix auds -> foldr max 0 $ fmap computeChannels auds
-  Merge auds -> sum $ fmap computeChannels auds
-  Concatenate auds -> foldr max 0 $ fmap computeChannels auds
-  Gain _ aud -> computeChannels aud
-  Take _ _ aud -> computeChannels aud
-  Drop _ _ aud -> computeChannels aud
-  Fade _ _ aud -> computeChannels aud
-  Pad _ _ aud -> computeChannels aud
-  Resample aud -> computeChannels aud
-  Channels chans _ -> length chans
+  Silence n _         -> n
+  Input n             -> n
+  Mix auds            -> foldr max 0 $ fmap computeChannels auds
+  Merge auds          -> sum $ fmap computeChannels auds
+  Concatenate auds    -> foldr max 0 $ fmap computeChannels auds
+  Gain _ aud          -> computeChannels aud
+  Take _ _ aud        -> computeChannels aud
+  Drop _ _ aud        -> computeChannels aud
+  Fade _ _ aud        -> computeChannels aud
+  Pad _ _ aud         -> computeChannels aud
+  Resample aud        -> computeChannels aud
+  Channels chans _    -> length chans
   StretchSimple _ aud -> computeChannels aud
   StretchFull _ _ aud -> computeChannels aud
-  Mask _ _ aud -> computeChannels aud
+  Mask _ _ aud        -> computeChannels aud
 
 -- | make sure all audio leaves are defined, catch typos
 checkDefined :: (Monad m) => SongYaml f -> StackTraceT m ()
@@ -65,7 +65,7 @@ checkDefined songYaml = do
           MoggPlan{} -> []
           Plan{..} -> let
             getLeaves = \case
-              Named t -> t
+              Named t          -> t
               JammitSelect _ t -> t
             in map getLeaves $ concat
               [ maybe [] toList _song

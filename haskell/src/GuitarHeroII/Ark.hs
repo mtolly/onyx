@@ -194,11 +194,11 @@ replaceSong gen sym snippet files = withArk gen $ \ark -> do
             D.Parens $ D.Tree 0 $ D.Sym k : map adjustSnippet snippet
           _ -> chunk
         adjustSnippet = \case
-          D.String s -> D.String $ adjustString s
-          D.Parens t -> D.Parens $ adjustTree t
-          D.Braces t -> D.Braces $ adjustTree t
+          D.String s   -> D.String $ adjustString s
+          D.Parens t   -> D.Parens $ adjustTree t
+          D.Braces t   -> D.Braces $ adjustTree t
           D.Brackets t -> D.Brackets $ adjustTree t
-          chunk -> chunk
+          chunk        -> chunk
         adjustTree (D.Tree tid cks) = D.Tree tid $ map adjustSnippet cks
         adjustString str = case B.breakSubstring "$SONGKEY" str of
           (h, t) | not $ B.null t -> adjustString $ h <> sym <> B.drop 8 t

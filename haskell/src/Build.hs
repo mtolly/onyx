@@ -145,8 +145,8 @@ import           RockBand.Codec                        (mapTrack)
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums                  as RBDrums
 import           RockBand.Codec.Events
-import           RockBand.Codec.File                   (saveMIDI, shakeMIDI)
 import qualified RockBand.Codec.File                   as RBFile
+import           RockBand.Codec.File                   (saveMIDI, shakeMIDI)
 import           RockBand.Codec.Five
 import qualified RockBand.Codec.FullDrums              as FD
 import           RockBand.Codec.ProGuitar

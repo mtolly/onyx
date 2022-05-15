@@ -49,11 +49,11 @@ instance ParseTrack MelodyTrack where
       Obstacle L -> 61
       Obstacle R -> 62
       Obstacle U -> 63
-      Cutscene -> 64
-      Color D -> 72
-      Color L -> 73
-      Color R -> 74
-      Color U -> 75
+      Cutscene   -> 64
+      Color D    -> 72
+      Color L    -> 73
+      Color R    -> 74
+      Color U    -> 75
     melodyIntensity <- (melodyIntensity =.) $ condenseMap $ eachKey each $ edges . \case
       Low       -> 84
       Neutral   -> 85

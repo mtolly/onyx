@@ -328,7 +328,7 @@ loadSetlist gen = do
   dtbBonus    <- loadDTB "store.dtb"
   let isKeyMatch k = \case
         D.Parens (D.Tree _ (D.Sym k' : rest)) | k == k' -> Just rest
-        _                                     -> Nothing
+        _                                               -> Nothing
       findKey k = firstJust (isKeyMatch k) . D.treeChunks
       parseTier (D.Parens (D.Tree _ (D.Sym x : xs))) = return (x, [song | D.Sym song <- xs])
       parseTier _                              = fatal "Couldn't extract info from a tier in campaign.dtb"

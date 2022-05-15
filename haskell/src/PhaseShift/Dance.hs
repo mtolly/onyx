@@ -70,9 +70,9 @@ instance ParseTrack DanceTrack where
             SMChallenge -> 96
           f1 = \case
             EdgeOn () (arrow, nt) -> (arrow, (nt, Just 100))
-            EdgeOff (arrow, nt) -> (arrow, (nt, Nothing))
+            EdgeOff (arrow, nt)   -> (arrow, (nt, Nothing))
           f2 = \case
-            (arrow, (nt, Just _)) -> EdgeOn () (arrow, nt)
+            (arrow, (nt, Just _))  -> EdgeOn () (arrow, nt)
             (arrow, (nt, Nothing)) -> EdgeOff (arrow, nt)
       danceNotes <- (danceNotes =.) $ dimap (fmap f1) (fmap f2) $ condenseMap $ eachKey each $ channelEdges . \case
         ArrowL -> base + 0

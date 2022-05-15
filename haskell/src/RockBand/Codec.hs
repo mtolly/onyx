@@ -284,7 +284,7 @@ edgesCV p = Codec
     Just noteEdges -> let
       cvs = flip fmap noteEdges $ \case
         EdgeOn v c -> (C.fromChannel c, Just $ V.fromVelocity v)
-        EdgeOff c -> (C.fromChannel c, Nothing)
+        EdgeOff c  -> (C.fromChannel c, Nothing)
       mt' = mt { midiNotes = Map.delete (V.toPitch p) $ midiNotes mt }
       in (cvs, mt')
   , codecOut = makeTrackBuilder $ fmap (\(c, mv) -> makeEdgeCPV c p mv)

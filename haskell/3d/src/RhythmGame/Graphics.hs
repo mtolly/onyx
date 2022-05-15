@@ -54,8 +54,8 @@ import           RhythmGame.Track
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums           as D
 import qualified RockBand.Codec.Five            as F
-import           RockBand.Codec.FullDrums       (FullDrumNote (..))
 import qualified RockBand.Codec.FullDrums       as FD
+import           RockBand.Codec.FullDrums       (FullDrumNote (..))
 import qualified RockBand.Codec.ProGuitar       as PG
 import           RockBand.Common                (StrumHOPOTap (..), each,
                                                  showPosition)

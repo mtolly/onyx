@@ -138,8 +138,8 @@ chartToIni chart = def
   , FoF.genre = HM.lookup "Genre" song >>= atomStr'
   , FoF.charter = HM.lookup "Charter" song >>= atomStr'
   , FoF.year = HM.lookup "Year" song >>= \case
-    Int i -> Just $ fromIntegral i
-    Str s -> T.stripPrefix ", " s >>= readMaybe . T.unpack
+    Int i  -> Just $ fromIntegral i
+    Str s  -> T.stripPrefix ", " s >>= readMaybe . T.unpack
     Real r -> Just $ floor r
   , FoF.delay = fmap (floor . (* 1000)) $ HM.lookup "Offset" song >>= atomReal
   -- could also get PreviewStart, PreviewEnd, Genre

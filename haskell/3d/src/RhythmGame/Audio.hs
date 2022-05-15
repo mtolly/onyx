@@ -39,8 +39,8 @@ import           MoggDecrypt
 import           OpenProject
 import           Path                           (parseAbsDir)
 import           RenderAudio                    (computeChannelsPlan)
-import           Sound.OpenAL                   (($=))
 import qualified Sound.OpenAL                   as AL
+import           Sound.OpenAL                   (($=))
 import           System.FilePath                (takeDirectory, (<.>), (</>))
 import           System.IO.Temp
 

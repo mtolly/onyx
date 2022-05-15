@@ -290,9 +290,9 @@ instance ParseTrack RocksmithTrack where
     let parseNotes root = let
           fs = \case
             EdgeOn fret str -> (str, (0, Just $ fret + 100))
-            EdgeOff str -> (str, (0, Nothing))
+            EdgeOff str     -> (str, (0, Nothing))
           fp = \case
-            (str, (_, Just v)) -> EdgeOn (v - 100) str
+            (str, (_, Just v))  -> EdgeOn (v - 100) str
             (str, (_, Nothing)) -> EdgeOff str
           in dimap (fmap fs) (fmap fp) $ condenseMap $ eachKey each $ \str -> edgesCV $ root + getStringIndex 6 str
     rsNotes      <- rsNotes =. parseNotes 96
@@ -330,7 +330,7 @@ instance ParseTrack RocksmithTrack where
     rsSections   <- rsSections   =. commandMatch'
       (\case
         "section" : xs -> Just $ T.unwords xs
-        _             -> Nothing
+        _              -> Nothing
       )
       (\xs -> "section" : T.words xs)
     rsHandShapes <- rsHandShapes =. parseNotes 84

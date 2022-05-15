@@ -2,20 +2,20 @@
 Thanks to TuxGuitar:
 https://github.com/phiresky/tuxguitar/blob/9f08ae077430f2543adbe3e60c81970ced346fa5/TuxGuitar-gpx/src/org/herac/tuxguitar/io/gpx/v6/GPXFileSystem.java
 -}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module GuitarPro.GPX (gpxFiles) where
 
-import qualified Data.Binary.Bits.Get as Bits
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString as B
-import Data.Binary.Get
-import Data.Bits (setBit)
-import Control.Applicative (optional)
-import Data.List (foldl')
+import           Control.Applicative     (optional)
+import qualified Data.Binary.Bits.Get    as Bits
+import           Data.Binary.Get
+import           Data.Bits               (setBit)
+import qualified Data.ByteString         as B
 import qualified Data.ByteString.Builder as BB
-import STFS.Package (runGetM)
-import Data.Maybe (mapMaybe)
+import qualified Data.ByteString.Lazy    as BL
+import           Data.List               (foldl')
+import           Data.Maybe              (mapMaybe)
+import           STFS.Package            (runGetM)
 
 gpxFiles :: (MonadFail m) => BL.ByteString -> m [(B.ByteString, BL.ByteString)]
 gpxFiles gpx = do

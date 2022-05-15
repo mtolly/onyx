@@ -64,10 +64,10 @@ import           PrettyDTA                        (C3DTAComments (..),
                                                    readDTASingles,
                                                    writeDTASingle)
 import           Resources                        (getResourcesPath)
-import           RockBand.Common                  (pattern RNil, pattern Wait,
-                                                   isNoteEdge, isNoteEdge',
+import           RockBand.Common                  (isNoteEdge, isNoteEdge',
                                                    joinEdgesSimple, makeEdge',
-                                                   makeEdgeCPV,
+                                                   makeEdgeCPV, pattern RNil,
+                                                   pattern Wait,
                                                    splitEdgesSimple)
 import           RockBand.Milo                    (addMiloHeader,
                                                    decompressMilo)
@@ -941,12 +941,12 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
                     adjustDTATree (Tree nid chunks) = Tree nid $ adjustDTAChunks chunks
                     adjustDTAChunks = \case
                       [Sym "rating", Int 4] -> [Sym "rating", Int 2]
-                      xs -> map adjustDTAChunk xs
+                      xs                    -> map adjustDTAChunk xs
                     adjustDTAChunk = \case
-                      Parens tree -> Parens $ adjustDTATree tree
-                      Braces tree -> Braces $ adjustDTATree tree
+                      Parens tree   -> Parens $ adjustDTATree tree
+                      Braces tree   -> Braces $ adjustDTATree tree
                       Brackets tree -> Brackets $ adjustDTATree tree
-                      x -> x
+                      x             -> x
                     b' = BL.fromStrict $ B8.pack $ T.unpack $ showDTA $ adjustDTA dta
                     r' = makeHandle "" $ byteStringSimpleHandle b'
                 return (name, r')

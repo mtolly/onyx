@@ -57,11 +57,11 @@ import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
 import           RockBand.Codec.Vocal
 import           RockBand.Common                  (Difficulty (..), Edge (..),
-                                                   pattern RNil,
                                                    StrumHOPOTap (..),
-                                                   pattern Wait,
                                                    joinEdgesSimple,
-                                                   noRedundantStatus, trackGlue)
+                                                   noRedundantStatus,
+                                                   pattern RNil, pattern Wait,
+                                                   trackGlue)
 import           RockBand.Legacy.Vocal            (harm1ToPartVocals)
 import           RockBand.Sections                (makePSSection)
 import           RockBand3                        (BasicTiming (..),
@@ -422,7 +422,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
                 Wait t (Pitched p _, len) rest -> makeNote t (Just p) len rest
                 Wait t (Talky   _ _, len) rest -> makeNote t Nothing  len rest
                 Wait t (SlideTo p  , len) rest -> makeNote t (Just p) len rest
-                RNil -> RNil
+                RNil                           -> RNil
             markers
               = map (\(t, label) -> Single (beatsToMS t) label)
               $ ATB.toPairList $ RTB.toAbsoluteEventList 0

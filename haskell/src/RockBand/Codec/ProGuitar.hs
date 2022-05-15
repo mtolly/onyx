@@ -135,9 +135,9 @@ instance ChannelType SlideType where
 
 instance ChannelType StrumArea where
   encodeChannel = \case
-    High -> 13
-    Mid  -> 14
-    Low  -> 15
+    High          -> 13
+    Mid           -> 14
+    Low           -> 15
     MysteryStrum0 -> 0
 
 data GuitarType = TypeGuitar | TypeBass
@@ -288,9 +288,9 @@ instance ParseTrack ProGuitarTrack where
       pgNotes        <- (pgNotes =.) $ let
         fs = \case
           EdgeOn fret (str, nt) -> (str, (nt, Just $ fret + 100))
-          EdgeOff (str, nt) -> (str, (nt, Nothing))
+          EdgeOff (str, nt)     -> (str, (nt, Nothing))
         fp = \case
-          (str, (nt, Just v)) -> EdgeOn (v - 100) (str, nt)
+          (str, (nt, Just v))  -> EdgeOn (v - 100) (str, nt)
           (str, (nt, Nothing)) -> EdgeOff (str, nt)
         in dimap (fmap fs) (fmap fp) $ condenseMap $ eachKey each $ \str -> channelEdges $ base + getStringIndex 6 str
       pgForce       <- pgForce =. let
@@ -307,9 +307,9 @@ instance ParseTrack ProGuitarTrack where
       pgChordName    <- pgChordName =. let
         cmd = T.pack $ "chrd" ++ show (fromEnum diff)
         parse = \case
-          [k] | k == cmd -> Just Nothing
+          [k] | k == cmd        -> Just Nothing
           [k, cname] | k == cmd -> Just $ Just cname
-          _ -> Nothing
+          _                     -> Nothing
         unparse cname = cmd : toList cname
         in commandMatch' parse unparse
       return ProGuitarDifficulty{..}
@@ -552,7 +552,7 @@ autoHandPosition pg = if RTB.null $ pgHandPosition pg
       -- TODO do we need to take muted notes into account?
       return $ flip RTB.mapMaybe (pgNotes pgd) $ \case
         EdgeOn fret _ -> Just fret
-        EdgeOff _ -> Nothing
+        EdgeOff _     -> Nothing
     posns = flip fmap (RTB.collectCoincident frets) $ \fs ->
       case filter (/= 0) fs of
         []     -> 0
@@ -574,7 +574,7 @@ autoChordRoot tuning pg = if RTB.null $ pgChordRoot pg
       (diff, pgd) <- Map.toList $ pgDifficulties pg
       return $ flip RTB.mapMaybe (pgNotes pgd) $ \case
         EdgeOn fret (str, _) -> Just (diff, getPitch str fret)
-        EdgeOff _ -> Nothing
+        EdgeOff _            -> Nothing
     roots = flip RTB.mapMaybe (RTB.collectCoincident notes) $ \ns -> let
       findChord diff = case map snd $ filter ((== diff) . fst) ns of
         p : ps@(_ : _) -> Just $ toEnum $ foldr min p ps `rem` 12

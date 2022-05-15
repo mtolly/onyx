@@ -30,7 +30,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.Beat
 import           RockBand.Codec.FullDrums
 import qualified RockBand.Codec.ProGuitar         as PG
-import           RockBand.Common                  (pattern RNil, StrumHOPOTap,
+import           RockBand.Common                  (StrumHOPOTap, pattern RNil,
                                                    pattern Wait)
 import qualified Sound.MIDI.Util                  as U
 
@@ -167,20 +167,20 @@ class TimeState a where
 
 instance TimeState (PNF sust now) where
   before = \case
-    Empty -> Empty
-    P past -> PF past
-    N _now -> Empty
-    PN past _now -> PF past
-    PF sust -> PF sust
-    NF _now _future -> Empty
+    Empty                 -> Empty
+    P past                -> PF past
+    N _now                -> Empty
+    PN past _now          -> PF past
+    PF sust               -> PF sust
+    NF _now _future       -> Empty
     PNF past _now _future -> PF past
   after = \case
-    Empty -> Empty
-    P _past -> Empty
-    N _now -> Empty
-    PN _past _now -> Empty
-    PF sust -> PF sust
-    NF _now future -> PF future
+    Empty                 -> Empty
+    P _past               -> Empty
+    N _now                -> Empty
+    PN _past _now         -> Empty
+    PF sust               -> PF sust
+    NF _now future        -> PF future
     PNF _past _now future -> PF future
   empty = Empty
 

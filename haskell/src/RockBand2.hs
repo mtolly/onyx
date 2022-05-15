@@ -45,7 +45,7 @@ convertMIDI mid = fixUnisons mid
         , drumDifficulties = flip fmap (drumDifficulties pd) $ \dd -> dd
           { drumMix = flip fmap (drumMix dd) $ \case
             (aud, DiscoNoFlip) -> (aud, NoDisco)
-            x                        -> x
+            x                  -> x
           }
         , drumAnimation = let
           anims = flip fmap (drumAnimation pd) $ \case

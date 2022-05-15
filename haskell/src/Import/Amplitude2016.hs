@@ -17,8 +17,8 @@ import qualified Data.Map                       as Map
 import           Data.SimpleHandle
 import qualified Data.Text                      as T
 import           Import.Base
-import           RockBand.Codec.File            (FlexPartName (..))
 import qualified RockBand.Codec.File            as RBFile
+import           RockBand.Codec.File            (FlexPartName (..))
 import           System.FilePath
 
 importAmplitude :: (SendMessage m, MonadIO m) => FilePath -> Import m

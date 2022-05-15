@@ -41,8 +41,8 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           OSFiles                          (fixFileCase)
 import           PhaseShift.Dance                 (nullDance)
 import           RockBand.Codec.Drums             as RBDrums
-import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.Five              as RBFive
 import           RockBand.Codec.ProGuitar         (nullPG)
 import           RockBand.Codec.ProKeys           (nullPK)
@@ -243,12 +243,12 @@ importFoF src level = do
           let template = x <.> ext
           path <- fixFileCase $ src </> template
           Dir.doesFileExist path >>= \case
-            True -> return $ Just (template, path)
+            True  -> return $ Just (template, path)
             False -> return Nothing
         in tryExt "opus" >>= \case
           Nothing -> tryExt "ogg" >>= \case
             Nothing -> tryExt "mp3" >>= \case
-              Nothing -> tryExt "wav"
+              Nothing        -> tryExt "wav"
               found@(Just _) -> return found
             found@(Just _) -> return found
           found@(Just _) -> return found

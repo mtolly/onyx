@@ -11,6 +11,7 @@ import           Data.Bifunctor                   (first)
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
@@ -27,7 +28,6 @@ import           RockBand.Common
 import           Rocksmith.MIDI
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
-import Data.Foldable (toList)
 
 rhythmLength :: Rhythm -> Maybe U.Beats
 rhythmLength r = do

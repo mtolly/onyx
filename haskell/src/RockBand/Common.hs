@@ -57,9 +57,9 @@ instance Command Mood where
     Nothing -> error "panic! couldn't strip Mood_ from event string"
     Just s  -> [s]
   toCommand = \case
-    ["idle_mellow"] -> Just Mood_idle -- seen in RB4 midi converts
+    ["idle_mellow"]  -> Just Mood_idle -- seen in RB4 midi converts
     ["play", "solo"] -> Just Mood_play_solo
-    cmd -> reverseLookup each fromCommand cmd
+    cmd              -> reverseLookup each fromCommand cmd
 
 instance Command [T.Text] where
   toCommand   = Just

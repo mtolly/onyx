@@ -51,8 +51,8 @@ import           Preferences                      (MagmaSetting (..))
 import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events
-import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.File              (FlexPartName (..))
 import           RockBand.Codec.FullDrums         (convertFullDrums)
 import           RockBand.Codec.ProGuitar         (GtrBase (..), GtrTuning (..))
 import           RockBand.Common                  (Key (..), SongKey (..),
@@ -255,10 +255,10 @@ data Plan f
 
 getKaraoke, getMultitrack :: Plan f -> Bool
 getKaraoke = \case
-  Plan{..} -> Map.keys (getParts _planParts) == [FlexVocal]
+  Plan{..}     -> Map.keys (getParts _planParts) == [FlexVocal]
   MoggPlan{..} -> _karaoke
 getMultitrack = \case
-  Plan{..} -> not $ Map.null $ Map.delete FlexVocal $ getParts _planParts
+  Plan{..}     -> not $ Map.null $ Map.delete FlexVocal $ getParts _planParts
   MoggPlan{..} -> _multitrack
 
 newtype Countin = Countin [(Either U.MeasureBeats U.Seconds, Audio Duration AudioInput)]
@@ -296,7 +296,7 @@ parseMeasureBeats = lift ask >>= \t -> let
   parseDecimal, parsePlusFrac :: ReadP.ReadP U.Beats
   parseDecimal = Lex.lex >>= \case
     Lex.Number n -> return $ realToFrac $ Lex.numberToRational n
-    _ -> ReadP.pfail
+    _            -> ReadP.pfail
   parsePlusFrac = do
     a <- Lex.readDecP
     _ <- ReadP.char '+'
@@ -410,16 +410,16 @@ jammitPartToTitle :: J.Part -> T.Text
 jammitPartToTitle = \case
   J.PartGuitar1 -> "Guitar 1"
   J.PartGuitar2 -> "Guitar 2"
-  J.PartBass1 -> "Bass 1"
-  J.PartBass2 -> "Bass 2"
-  J.PartDrums1 -> "Drums 1"
-  J.PartDrums2 -> "Drums 2"
-  J.PartKeys1 -> "Keys 1"
-  J.PartKeys2 -> "Keys 2"
-  J.PartPiano -> "Piano"
-  J.PartSynth -> "Synth"
-  J.PartOrgan -> "Organ"
-  J.PartVocal -> "Vocal"
+  J.PartBass1   -> "Bass 1"
+  J.PartBass2   -> "Bass 2"
+  J.PartDrums1  -> "Drums 1"
+  J.PartDrums2  -> "Drums 2"
+  J.PartKeys1   -> "Keys 1"
+  J.PartKeys2   -> "Keys 2"
+  J.PartPiano   -> "Piano"
+  J.PartSynth   -> "Synth"
+  J.PartOrgan   -> "Organ"
+  J.PartVocal   -> "Vocal"
   J.PartBVocals -> "B Vocals"
 
 instance StackJSON Edge where
@@ -549,7 +549,7 @@ instance StackJSON Duration where
       _ -> inside "unitless (seconds) duration" (Seconds . toRealFloat <$> parseMinutes)
         `catchError` \_ -> expected "a duration in frames or seconds"
     , codecOut = makeOut $ \case
-      Frames f -> A.object ["frames" .= f]
+      Frames f  -> A.object ["frames" .= f]
       Seconds s -> showTimestamp $ realToFrac s
     }
 
@@ -572,8 +572,8 @@ instance StackJSON Difficulty where
     , codecIn = lift ask >>= \case
       OneKey "tier" (A.Number n) -> return $ Tier $ round n
       OneKey "rank" (A.Number n) -> return $ Rank $ round n
-      A.Number n -> return $ Tier $ round n
-      _ -> expected "a difficulty value (tier or rank)"
+      A.Number n                 -> return $ Tier $ round n
+      _                          -> expected "a difficulty value (tier or rank)"
     }
 
 data PartGRYBO = PartGRYBO
@@ -630,12 +630,12 @@ tuningBaseFormat = Codec
     A.Array _           -> GtrCustom <$> codecIn (listCodec stackJSON)
     _                   -> expected "a guitar/bass tuning base"
   , codecOut = makeOut $ \case
-    Guitar6 -> "guitar-6"
-    Guitar7 -> "guitar-7"
-    Guitar8 -> "guitar-8"
-    Bass4 -> "bass-4"
-    Bass5 -> "bass-5"
-    Bass6 -> "bass-6"
+    Guitar6      -> "guitar-6"
+    Guitar7      -> "guitar-7"
+    Guitar8      -> "guitar-8"
+    Bass4        -> "bass-4"
+    Bass5        -> "bass-5"
+    Bass6        -> "bass-6"
     GtrCustom ps -> A.toJSON ps
   }
 
@@ -943,8 +943,8 @@ instance StackJSON PreviewTime where
             in p `catchError` \_ -> expected "a preview time: prc_something, timestamp, or measure|beats"
       in traceNum `catchError` \_ -> traceStr
     , codecOut = makeOut $ \case
-      PreviewSection str -> A.toJSON $ "prc_" <> str
-      PreviewMIDI mb -> A.toJSON $ showMeasureBeats mb
+      PreviewSection str  -> A.toJSON $ "prc_" <> str
+      PreviewMIDI mb      -> A.toJSON $ showMeasureBeats mb
       PreviewSeconds secs -> showTimestamp $ realToFrac secs
     }
 
@@ -1119,7 +1119,7 @@ instance StackJSON RBSongID where
       OneKey "auto" "int"    -> return SongIDAutoInt
       A.String s             -> return $ SongIDSymbol s
       A.Number n             -> return $ SongIDInt $ round n
-      _ -> expected "a RB song ID, or {auto: symbol/int}"
+      _                      -> expected "a RB song ID, or {auto: symbol/int}"
     , codecOut = makeOut $ \case
       SongIDAutoSymbol -> OneKey "auto" "symbol"
       SongIDAutoInt    -> OneKey "auto" "int"
@@ -1200,16 +1200,16 @@ data LipsyncSource f
 instance (Eq f, StackJSON f) => StackJSON (LipsyncSource f) where
   stackJSON = Codec
     { codecIn = lift ask >>= \case
-      "track1" -> return LipsyncTrack1
-      "track2" -> return LipsyncTrack2
-      "track3" -> return LipsyncTrack3
-      "track4" -> return LipsyncTrack4
-      "solo" -> return $ LipsyncVocal Nothing
-      "harm1" -> return $ LipsyncVocal $ Just Vocal1
-      "harm2" -> return $ LipsyncVocal $ Just Vocal2
-      "harm3" -> return $ LipsyncVocal $ Just Vocal3
+      "track1"                -> return LipsyncTrack1
+      "track2"                -> return LipsyncTrack2
+      "track3"                -> return LipsyncTrack3
+      "track4"                -> return LipsyncTrack4
+      "solo"                  -> return $ LipsyncVocal Nothing
+      "harm1"                 -> return $ LipsyncVocal $ Just Vocal1
+      "harm2"                 -> return $ LipsyncVocal $ Just Vocal2
+      "harm3"                 -> return $ LipsyncVocal $ Just Vocal3
       OneKey "file-lipsync" x -> LipsyncFile <$> parseFrom x (codecIn stackJSON)
-      _ -> expected "a lipsync source"
+      _                       -> expected "a lipsync source"
     , codecOut = makeOut $ \case
       LipsyncTrack1 -> "track1"
       LipsyncTrack2 -> "track2"

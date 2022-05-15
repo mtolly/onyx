@@ -29,14 +29,13 @@ import           DTXMania.Set
 import           Guitars                          (emit5')
 import           Import.Base
 import           RockBand.Codec.Drums             (DrumVelocity (..))
-import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.File              (FlexPartName (..))
 import           RockBand.Codec.Five
 import qualified RockBand.Codec.FullDrums         as FD
 import           RockBand.Common                  (Difficulty (..),
-                                                   pattern RNil,
                                                    StrumHOPOTap (..),
-                                                   pattern Wait)
+                                                   pattern RNil, pattern Wait)
 import qualified Sound.MIDI.Util                  as U
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropExtension, takeDirectory,

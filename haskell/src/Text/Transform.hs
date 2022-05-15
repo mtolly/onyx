@@ -26,40 +26,40 @@ replaceCharsRB rbproj txt = liftIO $ let
     -- TODO fill this list out more
     'ÿ' | rbproj -> 'y'
     'Ÿ' | rbproj -> 'Y'
-    '–' -> '-' -- en dash
-    '—' -> '-' -- em dash
+    '–'          -> '-' -- en dash
+    '—'          -> '-' -- em dash
     -- various japanese chars
-    '\x301C' -> '~' -- "wave dash"
-    '\xFF5E' -> '~' -- "full width tilde"
-    '、' -> ','
-    '。' -> '.'
-    '｛' -> '{'
-    '｝' -> '}'
-    '（' -> '('
-    '）' -> ')'
-    '［' -> '['
-    '］' -> ']'
-    '【' -> '['
-    '】' -> ']'
-    '「' -> '['
-    '」' -> ']'
-    '：' -> ':'
+    '\x301C'     -> '~' -- "wave dash"
+    '\xFF5E'     -> '~' -- "full width tilde"
+    '、'          -> ','
+    '。'          -> '.'
+    '｛'          -> '{'
+    '｝'          -> '}'
+    '（'          -> '('
+    '）'          -> ')'
+    '［'          -> '['
+    '］'          -> ']'
+    '【'          -> '['
+    '】'          -> ']'
+    '「'          -> '['
+    '」'          -> ']'
+    '：'          -> ':'
     -- random chars from a Eximperituserqethhzebibšiptugakkathšulweliarzaxułum song
-    'ł' -> 'l'
-    'ź' -> 'z'
-    'š' -> 's'
-    'č' -> 'c'
-    'ę' -> 'e'
-    'ń' -> 'n'
-    'Ŭ' -> 'U'
-    'ś' -> 's'
-    'ć' -> 'c'
-    'ĺ' -> 'l'
-    'Ž' -> 'Z'
-    'Š' -> 'S'
-    'ī' -> 'i'
-    'ŭ' -> 'u'
-    c   -> if isLatin1 c || c == 'Ÿ' || c == 'ÿ' then c else '?'
+    'ł'          -> 'l'
+    'ź'          -> 'z'
+    'š'          -> 's'
+    'č'          -> 'c'
+    'ę'          -> 'e'
+    'ń'          -> 'n'
+    'Ŭ'          -> 'U'
+    'ś'          -> 's'
+    'ć'          -> 'c'
+    'ĺ'          -> 'l'
+    'Ž'          -> 'Z'
+    'Š'          -> 'S'
+    'ī'          -> 'i'
+    'ŭ'          -> 'u'
+    c            -> if isLatin1 c || c == 'Ÿ' || c == 'ÿ' then c else '?'
   in if T.any isJapanese txt
     then do
       -- only '\x301C' (wave dash) is in the shift jis mapping

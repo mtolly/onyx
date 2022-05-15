@@ -756,7 +756,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         then RBVox.harm1ToPartVocals trkHarm1
         else trkPV
       autoVoxMood vox = makeMoods tempos timing $ flip fmap (vocalNotes vox) $ \case
-        (_, True) -> NoteOn () ()
+        (_, True)  -> NoteOn () ()
         (_, False) -> NoteOff ()
       trkVox'   = trkVox
         { vocalMood = noEarlyMood $ if RTB.null $ vocalMood trkVox

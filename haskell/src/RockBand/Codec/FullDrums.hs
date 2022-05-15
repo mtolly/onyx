@@ -24,8 +24,8 @@ import           DeriveHelpers
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
-import           RockBand.Codec.Drums             (DrumVelocity (..))
 import qualified RockBand.Codec.Drums             as D
+import           RockBand.Codec.Drums             (DrumVelocity (..))
 import           RockBand.Common
 import qualified Sound.MIDI.Util                  as U
 

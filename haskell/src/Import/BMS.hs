@@ -19,8 +19,8 @@ import qualified Data.Text                        as T
 import           DTXMania.DTX
 import           Import.Base
 import qualified Numeric.NonNegative.Class        as NNC
-import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.File              (FlexPartName (..))
 import           RockBand.Codec.ProKeys
 import           RockBand.Common                  (Edge (..), Key (..),
                                                    blipEdgesRB_,

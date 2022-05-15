@@ -42,9 +42,9 @@ import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    minSustainLengthRB,
                                                    splitEdges)
 import           RockBand.Sections                (makeGH2Section)
+import qualified RockBand3                        as RB3
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming, drumsToFive)
-import qualified RockBand3                        as RB3
 import qualified Sound.MIDI.Util                  as U
 
 gh2Pad
@@ -440,9 +440,9 @@ makeGH2DTA song key preview target audio title isDX2 = D.SongPackage
         GH2Silent       -> [0]
       , D.cores         = gh2AudioSections audio >>= \case
         GH2PartStereo p -> if p == gh2LeadTrack audio then [1, 1] else [-1, -1]
-        GH2PartMono p -> if p == gh2LeadTrack audio then [1] else [-1]
-        GH2Band   -> [-1, -1]
-        GH2Silent -> [-1]
+        GH2PartMono p   -> if p == gh2LeadTrack audio then [1] else [-1]
+        GH2Band         -> [-1, -1]
+        GH2Silent       -> [-1]
       , D.midiFile      = "songs/" <> key <> "/" <> key <> ".mid"
       , D.hopoThreshold = Nothing
       }
@@ -471,9 +471,9 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
       GH2Silent       -> [0]
     , D.cores         = gh2AudioSections audio >>= \case
       GH2PartStereo p -> if p == gh2LeadTrack audio then [1, 1] else [-1, -1]
-      GH2PartMono p -> if p == gh2LeadTrack audio then [1] else [-1]
-      GH2Band       -> [-1, -1]
-      GH2Silent     -> [-1]
+      GH2PartMono p   -> if p == gh2LeadTrack audio then [1] else [-1]
+      GH2Band         -> [-1, -1]
+      GH2Silent       -> [-1]
     , D.midiFile      = "songs/" <> key <> "/" <> key <> ".mid"
     , D.hopoThreshold = Nothing
     }

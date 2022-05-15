@@ -13,17 +13,17 @@ import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State      (get, put)
 import           Control.Monad.Trans.Writer
+import qualified Data.ByteString                as B
+import qualified Data.ByteString.Lazy           as BL
 import           Data.Functor.Identity          (Identity)
 import           Data.Maybe                     (isJust)
 import           Data.Profunctor                (dimap)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import qualified Data.Vector                    as V
+import           GuitarPro.GPX                  (gpxFiles)
 import           Text.Read                      (readMaybe)
 import           Text.XML.Light
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BL
-import GuitarPro.GPX (gpxFiles)
 
 -- .gpif is an XML format, shared by .gpx and .gp (maybe earlier as well)
 -- .gp (GP7) is a zip file

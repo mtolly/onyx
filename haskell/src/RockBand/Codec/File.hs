@@ -52,8 +52,8 @@ import           RockBand.Codec
 import           RockBand.Codec.Beat
 import           RockBand.Codec.Drums
 import           RockBand.Codec.Events
-import           RockBand.Codec.Five
 import qualified RockBand.Codec.Five               as Five
+import           RockBand.Codec.Five
 import           RockBand.Codec.FullDrums          (FullDrumTrack)
 import           RockBand.Codec.Lipsync
 import           RockBand.Codec.ProGuitar

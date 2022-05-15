@@ -36,12 +36,12 @@ import           PowerGig.Songs
 import qualified RockBand.Codec.Drums             as D
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
-import           RockBand.Codec.Vocal             (Pitch)
 import qualified RockBand.Codec.Vocal             as V
+import           RockBand.Codec.Vocal             (Pitch)
 import           RockBand.Common                  (Difficulty (..), Edge (..),
-                                                   pattern RNil,
                                                    StrumHOPOTap (..),
-                                                   pattern Wait, edgeBlips_)
+                                                   edgeBlips_, pattern RNil,
+                                                   pattern Wait)
 import           Sound.FSB                        (XMAContents (..),
                                                    extractXMAStream, makeXMAs,
                                                    markXMAPacketStreams,
@@ -330,6 +330,6 @@ drawPhrases notes phraseEnd = let
   goPhraseNotNote (Wait t PhraseNoteOn rest) = RTB.delay t $ goPhrase rest
   -- in a phrase, singing a note, phrase will end when this note does
   goEndingPhrase (Wait t PhraseNoteOff rest) = Wait t False $ goNoPhrase rest
-  goEndingPhrase (Wait t _ rest) = RTB.delay t $ goEndingPhrase rest -- shouldn't happen?
-  goEndingPhrase RNil = RTB.singleton NNC.zero False -- shouldn't happen?
+  goEndingPhrase (Wait t _ rest)             = RTB.delay t $ goEndingPhrase rest -- shouldn't happen?
+  goEndingPhrase RNil                        = RTB.singleton NNC.zero False -- shouldn't happen?
   in goNoPhrase events

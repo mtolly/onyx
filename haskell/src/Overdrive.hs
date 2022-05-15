@@ -152,7 +152,7 @@ instance HasOverdrive FixedFile where
       coop = bools (FlexExtra "guitar-coop")
       bools fpart = flip RTB.mapMaybe od $ \case
         (fpart', b) | fpart == fpart' -> Just b
-        _ -> Nothing
+        _                             -> Nothing
 
 {-
 

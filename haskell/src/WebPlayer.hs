@@ -78,10 +78,10 @@ eventList evts f
 
 showHSTNote :: LongNote StrumHOPOTap () -> A.Value
 showHSTNote = \case
-  NoteOff () -> "e"
-  Blip Tap   () -> "t"
-  Blip Strum () -> "s"
-  Blip HOPO  () -> "h"
+  NoteOff ()      -> "e"
+  Blip Tap   ()   -> "t"
+  Blip Strum ()   -> "s"
+  Blip HOPO  ()   -> "h"
   NoteOn Tap   () -> "T"
   NoteOn Strum () -> "S"
   NoteOn HOPO  () -> "H"
@@ -156,7 +156,7 @@ showPitch :: PK.Pitch -> T.Text
 showPitch = \case
   PK.RedYellow k -> "ry-" <> showKey k
   PK.BlueGreen k -> "bg-" <> showKey k
-  PK.OrangeC -> "o-c"
+  PK.OrangeC     -> "o-c"
   where showKey = T.pack . map toLower . show
 
 _pitchMap :: [(T.Text, PK.Pitch)]
@@ -173,8 +173,8 @@ instance A.ToJSON (ProKeys U.Seconds) where
   toJSON x = A.object
     [ (,) "notes" $ A.object $ flip map (Map.toList $ proKeysNotes x) $ \(p, notes) ->
       (,) (showPitch p) $ eventList notes $ \case
-        NoteOff () -> "e"
-        Blip () () -> "n"
+        NoteOff ()   -> "e"
+        Blip () ()   -> "n"
         NoteOn () () -> "N"
     , (,) "ranges" $ eventList (proKeysRanges x) $ A.toJSON . map toLower . drop 5 . show
     , (,) "solo" $ eventList (proKeysSolo x) A.toJSON
@@ -252,10 +252,10 @@ instance A.ToJSON (Six U.Seconds) where
             GHLSingle GHL.White1 -> "w1"
             GHLSingle GHL.White2 -> "w2"
             GHLSingle GHL.White3 -> "w3"
-            GHLBoth1 -> "bw1"
-            GHLBoth2 -> "bw2"
-            GHLBoth3 -> "bw3"
-            GHLOpen -> "open"
+            GHLBoth1             -> "bw1"
+            GHLBoth2             -> "bw2"
+            GHLBoth3             -> "bw3"
+            GHLOpen              -> "open"
       in (,) (showLane lane) $ eventList notes showHSTNote
     , (,) "solo" $ eventList (sixSolo x) A.toJSON
     , (,) "energy" $ eventList (sixEnergy x) A.toJSON
@@ -285,7 +285,7 @@ findTrills ons = let
     . concatMap (\(time, len) -> case Map.lookupGE time ons' of
       Nothing -> [] -- no notes under or after trill
       Just (t1, cols1) -> case Map.lookupGT t1 ons' of
-        Nothing -> [] -- only one note under or after trill
+        Nothing         -> [] -- only one note under or after trill
         Just (_, cols2) -> map (\fret -> (time, (fret, len))) $ cols1 ++ cols2
       )
     . ATB.toPairList
@@ -327,7 +327,7 @@ processFive algo hopoThreshold tmap trk = makeDifficulties $ \diff -> let
     $ strumHOPOTap' algo hopoThreshold
     $ openNotes' thisDiff
   assigned' = U.trackJoin $ flip fmap assigned $ \((color, sht), mlen) -> case mlen of
-    Nothing -> RTB.singleton 0 $ Blip sht color
+    Nothing  -> RTB.singleton 0 $ Blip sht color
     Just len -> RTB.fromPairList [(0, NoteOn sht color), (len, NoteOff color)]
   getColor color = realTrack tmap $ filterKey color assigned'
   notes = Map.fromList $ do
@@ -378,10 +378,10 @@ processSix hopoThreshold tmap trk = makeDifficulties $ \diff -> let
     GHLSingle GHL.White1 -> w1
     GHLSingle GHL.White2 -> w2
     GHLSingle GHL.White3 -> w3
-    GHLBoth1 -> bw1
-    GHLBoth2 -> bw2
-    GHLBoth3 -> bw3
-    GHLOpen -> onlyKey Nothing assigned
+    GHLBoth1             -> bw1
+    GHLBoth2             -> bw2
+    GHLBoth3             -> bw3
+    GHLOpen              -> onlyKey Nothing assigned
   notes = Map.fromList $ do
     lane <- map GHLSingle [minBound .. maxBound] ++ [GHLBoth1, GHLBoth2, GHLBoth3, GHLOpen]
     return (lane, getLane lane)
@@ -529,7 +529,7 @@ data Beat
 
 processBeat :: U.TempoMap -> RTB.T U.Beats Beat.BeatEvent -> Beats U.Seconds
 processBeat tmap rtb = Beats $ U.applyTempoTrack tmap $ flip fmap rtb $ \case
-  Beat.Bar -> Bar
+  Beat.Bar  -> Bar
   Beat.Beat -> Beat
   -- TODO: add half-beats
 

@@ -23,9 +23,9 @@ import qualified RockBand.Codec.ProGuitar         as PG
 import qualified RockBand.Codec.ProKeys           as PK
 import qualified RockBand.Codec.Vocal             as Vox
 import           RockBand.Common                  (Difficulty (..), Edge,
-                                                   pattern RNil, pattern Wait,
                                                    edgeBlips, edgeBlips_,
                                                    minSustainLengthRB,
+                                                   pattern RNil, pattern Wait,
                                                    trackGlue)
 import qualified Sound.MIDI.Util                  as U
 
@@ -71,17 +71,17 @@ instance Applicative Stars where
 
 new_instrument_thresholds :: ScoreTrack -> Stars Float
 new_instrument_thresholds = \case
-  ScoreGuitar      -> Stars 0.06 0.12 0.2  0.47 0.78 1.15
-  ScoreBass        -> Stars 0.05 0.1  0.19 0.47 0.78 1.15
-  ScoreDrums       -> Stars 0.06 0.12 0.2  0.45 0.75 1.09
-  ScoreKeys        -> Stars 0.06 0.12 0.2  0.47 0.78 1.15
-  ScoreVocals      -> Stars 0.05 0.11 0.19 0.46 0.77 1.06
-  ScoreProGuitar   -> Stars 0.06 0.12 0.2  0.47 0.78 1.15
-  ScoreProBass     -> Stars 0.05 0.1  0.19 0.47 0.78 1.15
+  ScoreGuitar    -> Stars 0.06 0.12 0.2  0.47 0.78 1.15
+  ScoreBass      -> Stars 0.05 0.1  0.19 0.47 0.78 1.15
+  ScoreDrums     -> Stars 0.06 0.12 0.2  0.45 0.75 1.09
+  ScoreKeys      -> Stars 0.06 0.12 0.2  0.47 0.78 1.15
+  ScoreVocals    -> Stars 0.05 0.11 0.19 0.46 0.77 1.06
+  ScoreProGuitar -> Stars 0.06 0.12 0.2  0.47 0.78 1.15
+  ScoreProBass   -> Stars 0.05 0.1  0.19 0.47 0.78 1.15
   -- dtb also has separate lines for 22-fret but they are the same as 17
-  ScoreProDrums    -> Stars 0.06 0.12 0.2  0.45 0.75 1.09 -- not a separate line in dtb
-  ScoreProKeys     -> Stars 0.06 0.12 0.2  0.47 0.78 1.15
-  ScoreHarmonies   -> Stars 0.05 0.11 0.19 0.46 0.77 1.06 -- not a separate line in dtb
+  ScoreProDrums  -> Stars 0.06 0.12 0.2  0.45 0.75 1.09 -- not a separate line in dtb
+  ScoreProKeys   -> Stars 0.06 0.12 0.2  0.47 0.78 1.15
+  ScoreHarmonies -> Stars 0.05 0.11 0.19 0.46 0.77 1.06 -- not a separate line in dtb
 
 new_bonus_thresholds :: Stars Float
 new_bonus_thresholds = Stars 0.05 0.1 0.2 0.3 0.4 0.95

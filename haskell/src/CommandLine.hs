@@ -225,7 +225,7 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
             case filter (\ent -> takeExtension ent == ".rbproj") ents of
               [ent] -> return $ FileType FileRBProj $ fp </> ent
               _     -> Dir.doesFileExist (fp </> "songs/songs.dta") >>= \case
-                True -> return $ FileType FileDTA $ fp </> "songs/songs.dta"
+                True  -> return $ FileType FileDTA $ fp </> "songs/songs.dta"
                 False -> return FileUnrecognized
     False -> return FileDoesNotExist
 
@@ -1447,12 +1447,12 @@ optDescrs =
   , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
   ] where
     readGame = \case
-      "rb3"  -> GameRB3
-      "rb2"  -> GameRB2
-      "tbrb" -> GameTBRB
-      "gh2"  -> GameGH2
+      "rb3"   -> GameRB3
+      "rb2"   -> GameRB2
+      "tbrb"  -> GameTBRB
+      "gh2"   -> GameGH2
       "ghwor" -> GameGHWOR
-      g      -> error $ "Unrecognized --game value: " ++ show g
+      g       -> error $ "Unrecognized --game value: " ++ show g
 
 data OnyxOption
   = OptTarget T.Text
@@ -1512,10 +1512,10 @@ data Game
 midiOptions :: [OnyxOption] -> MS.Options
 midiOptions opts = MS.Options
   { MS.showFormat = if
-    | elem OptInBeats opts -> MS.ShowBeats
-    | elem OptInSeconds opts -> MS.ShowSeconds
+    | elem OptInBeats opts    -> MS.ShowBeats
+    | elem OptInSeconds opts  -> MS.ShowSeconds
     | elem OptInMeasures opts -> MS.ShowMeasures
-    | otherwise -> MS.ShowBeats
+    | otherwise               -> MS.ShowBeats
   , MS.resolution = Just $ fromMaybe 480 $ listToMaybe [ r | OptResolution r <- opts ]
   , MS.separateLines = elem OptSeparateLines opts
   , MS.matchNoteOff = elem OptMatchNotes opts

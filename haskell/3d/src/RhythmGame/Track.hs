@@ -210,18 +210,18 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           Just PNF.Empty      -> Just $ PNF.N sht
           Just (PNF.P  wasOD) -> Just $ PNF.PN wasOD sht
           Just (PNF.PF wasOD) -> Just $ PNF.PN wasOD sht
-          x -> x -- shouldn't happen
+          x                   -> x -- shouldn't happen
           ) color
         NoteOn od (color, sht) -> Map.alter (\case
           Nothing             -> Just $ PNF.NF sht od
           Just PNF.Empty      -> Just $ PNF.NF sht od
           Just (PNF.P  wasOD) -> Just $ PNF.PNF wasOD sht od
           Just (PNF.PF wasOD) -> Just $ PNF.PNF wasOD sht od
-          x -> x -- shouldn't happen
+          x                   -> x -- shouldn't happen
           ) color
         NoteOff (color, _) -> Map.update (\case
           PNF.PF wasOD -> Just $ PNF.P wasOD
-          x -> Just x -- could happen if Blip or NoteOn was applied first
+          x            -> Just x -- could happen if Blip or NoteOn was applied first
           ) color
       this = foldr applyEdge (PNF.after prev) edges
       in Wait dt this $ buildFiveStatus this rest

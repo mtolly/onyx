@@ -88,15 +88,15 @@ instance StackChunk Bool where
   stackChunk = Codec
     { codecOut = makeOut $ \b -> Int $ if b then 1 else 0
     , codecIn = lift ask >>= \case
-      Int 1       -> return True
-      Int 0       -> return False
-      Sym "TRUE"  -> return True
-      Sym "FALSE" -> return False
+      Int 1                                                 -> return True
+      Int 0                                                 -> return False
+      Sym "TRUE"                                            -> return True
+      Sym "FALSE"                                           -> return False
       Braces (Tree _ [Sym "==", Var "SONG_VERSION", Int 0]) -> return False
       -- so we can parse (fake {== $SONG_VERSION 0})
-      Braces (Tree _ [Sym ">", Var "SONG_VERSION", Int 0]) -> return True
+      Braces (Tree _ [Sym ">", Var "SONG_VERSION", Int 0])  -> return True
       -- so we can parse (downloaded {> $SONG_VERSION 0})
-      _ -> expected "bool"
+      _                                                     -> expected "bool"
     }
 instance StackChunks Bool
 
@@ -117,7 +117,7 @@ chunkSym = Codec
   , codecIn = lift ask >>= \case
     Sym    s -> return s
     String s -> return s
-    _     -> expected "symbol"
+    _        -> expected "symbol"
   }
 
 instance StackChunk T.Text where
@@ -172,7 +172,7 @@ chunkParens cf = Codec
   { codecOut = makeOut $ \x -> Parens $ Tree 0 $ makeValue' cf x
   , codecIn = lift ask >>= \case
     Parens (Tree _ chunks) -> parseFrom chunks $ codecIn cf
-    _ -> expected "a set of parentheses"
+    _                      -> expected "a set of parentheses"
   }
 
 chunksPair :: (Monad m) => ChunkCodec m a -> ChunkCodec m b -> ChunksCodec m (a, b)

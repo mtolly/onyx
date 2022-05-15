@@ -130,7 +130,7 @@ applyUpdate :: [D.Chunk T.Text] -> [D.Chunk T.Text] -> [D.Chunk T.Text]
 applyUpdate original update = let
   getSong = partitionMaybe $ \case
     D.Parens (D.Tree _ (D.Sym "song" : s)) -> Just s
-    _ -> Nothing
+    _                                      -> Nothing
   (originalSong, untouched) = getSong original
   (songUpdate, otherUpdate) = getSong update
   newSong = D.Parens $ D.Tree 0 $ D.Sym "song" : concat (originalSong ++ songUpdate)

@@ -143,12 +143,12 @@ import           RhythmGame.Audio                          (AudioHandle (..),
 import qualified RhythmGame.Graphics                       as RGGraphics
 import           RhythmGame.Track
 import           RockBand.Codec                            (mapTrack)
-import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
+import           RockBand.Codec.File                       (FlexPartName (..))
 import           RockBand.Codec.Lipsync
 import           RockBand.Codec.Vocal                      (nullVox)
-import           RockBand.Common                           (RB3Instrument (..))
 import qualified RockBand.Common                           as RB
+import           RockBand.Common                           (RB3Instrument (..))
 import           RockBand.Milo
 import           RockBand.Score
 import           RockBand.SongCache                        (hardcodeSongCacheIDs)
@@ -157,7 +157,8 @@ import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.Util                           as U
 import qualified STFS.Package                              as STFS
 import qualified System.Directory                          as Dir
-import           System.FilePath                           (dropExtension, dropTrailingPathSeparator,
+import           System.FilePath                           (dropExtension,
+                                                            dropTrailingPathSeparator,
                                                             takeDirectory,
                                                             takeExtension,
                                                             takeFileName,
