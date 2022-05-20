@@ -58,6 +58,7 @@ executables:
     # local
     - onyxite-customs-lib
     - onyx-game-3d
+    - simple-handle
 
     ghc-options: -threaded -O -with-rtsopts=-N
 

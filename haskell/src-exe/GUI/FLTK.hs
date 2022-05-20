@@ -83,6 +83,7 @@ import           Data.Maybe                                (catMaybes,
                                                             listToMaybe,
                                                             mapMaybe)
 import           Data.Monoid                               (Endo (..))
+import           Data.SimpleHandle                         (saveHandleFolder)
 import qualified Data.Text                                 as T
 import qualified Data.Text.Encoding                        as TE
 import           Data.Time                                 (getCurrentTime)
@@ -3611,14 +3612,15 @@ miscPagePacks sink rect tab startTasks = mdo
       (metaRect, startRect) = chopBottom 50 bottomRect
       (trimClock 0 5 5 10 -> gameRect, chopLeft 100 -> (_, nameDescRect)) = chopLeft 250 metaRect
       [trimClock 0 10 5 5 -> nameRect, trimClock 0 10 5 5 -> descRect] = splitVertN 2 nameDescRect
-      [chopRight 5 -> (conRect, _), chopLeft 5 -> (_, liveRect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
+      [chopRight 5 -> (conRect, _), trimClock 0 5 0 5 -> liveRect, chopLeft 5 -> (_, rawRect)]
+        = splitHorizN 3 $ trimClock 5 10 10 10 startRect
       modifyButtons :: ([STFSSpec] -> IO [STFSSpec]) -> IO ()
       modifyButtons f = do
         newSTFS <- modifyMVar loadedSTFS $ \stfs -> (\x -> (x, x)) <$> f stfs
         sink $ EventIO $ do
           if length newSTFS == 0
-            then mapM_ FL.deactivate [btnCON, btnLIVE]
-            else mapM_ FL.activate   [btnCON, btnLIVE]
+            then mapM_ FL.deactivate [btnCON, btnLIVE, btnRaw]
+            else mapM_ FL.activate   [btnCON, btnLIVE, btnRaw]
           FL.setLabel gameBox $ case newSTFS of
             info : _ -> T.unlines
               [ "Game (from first in list):"
@@ -3639,7 +3641,7 @@ miscPagePacks sink rect tab startTasks = mdo
         ]
       in (entry, sublines)
 
-  let doPrompt isLIVE = sink $ EventIO $ do
+  let doPrompt output = sink $ EventIO $ do
         stfs <- readMVar loadedSTFS
         picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
         FL.setTitle picker "Save STFS file"
@@ -3653,14 +3655,26 @@ miscPagePacks sink rect tab startTasks = mdo
               task = do
                 packName <- stackIO $ FL.getValue nameInput
                 packDesc <- stackIO $ FL.getValue descInput
-                let applyOpts o = o
-                      { STFS.createNames        = [packName]
-                      , STFS.createDescriptions = [packDesc]
-                      , STFS.createLIVE         = isLIVE
-                      }
-                STFS.makePack (map stfsPath stfs) applyOpts f
+                let makeSTFS isLIVE = let
+                      applyOpts o = o
+                        { STFS.createNames        = [packName]
+                        , STFS.createDescriptions = [packDesc]
+                        , STFS.createLIVE         = isLIVE
+                        }
+                      in STFS.makePack (map stfsPath stfs) applyOpts f
+                case output of
+                  PackCON       -> makeSTFS False
+                  PackLIVE      -> makeSTFS True
+                  PackExtracted -> do
+                    roots <- stackIO $ mapM (STFS.getSTFSFolder . stfsPath) stfs
+                    merged <- STFS.packCombineFolders roots
+                    stackIO $ saveHandleFolder merged f
                 return [f]
-              in [("STFS file creation", task)]
+              taskLabel = case output of
+                PackExtracted -> "Save pack as extracted contents: " <> f
+                PackCON       -> "Save pack as CON: " <> f
+                PackLIVE      -> "Save pack as LIVE: " <> f
+              in [(taskLabel, task)]
           _ -> return ()
 
   gameBox <- FL.boxNew gameRect Nothing
@@ -3676,13 +3690,22 @@ miscPagePacks sink rect tab startTasks = mdo
 
   btnCON <- FL.buttonNew conRect $ Just "Make CON pack (RB3/RB2)"
   taskColor >>= FL.setColor btnCON
-  FL.setCallback btnCON $ \_ -> doPrompt False
+  FL.setCallback btnCON $ \_ -> doPrompt PackCON
 
   btnLIVE <- FL.buttonNew liveRect $ Just "Make LIVE pack (all other games)"
   taskColor >>= FL.setColor btnLIVE
-  FL.setCallback btnLIVE $ \_ -> doPrompt True
+  FL.setCallback btnLIVE $ \_ -> doPrompt PackLIVE
+
+  btnRaw <- FL.buttonNew rawRect $ Just "Make extracted folder"
+  taskColor >>= FL.setColor btnRaw
+  FL.setCallback btnRaw $ \_ -> doPrompt PackExtracted
 
   FL.setResizable tab $ Just group
+
+data Pack360Output
+  = PackCON
+  | PackLIVE
+  | PackExtracted
 
 data QuickConvertMode
   = QCInPlace
