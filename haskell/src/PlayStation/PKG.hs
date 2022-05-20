@@ -41,7 +41,7 @@ import           Data.Profunctor                (dimap)
 import           Data.SimpleHandle
 import           NPData                         (NPDecryptConfig (..),
                                                  decryptNPData, ghworKLIC,
-                                                 rockBandKLIC)
+                                                 rockBandKLIC, rs2014KLIC)
 import           Numeric                        (showHex)
 import           OSFiles                        (fixFileCase)
 import           PlayStation.PKG.Backport       (lazyPackZipWith)
@@ -299,7 +299,7 @@ tryDecryptEDAT dir name readable = do
       mklic <- case gameID of
         "BLUS30487" -> do
           lg "Decrypting GH:WoR EDAT file"
-          return $ Just $ ghworKLIC
+          return $ Just ghworKLIC
         "BLUS30050" -> do
           lg "Decrypting Rock Band (1) EDAT file"
           return $ Just $ rockBandKLIC dir
@@ -309,6 +309,9 @@ tryDecryptEDAT dir name readable = do
         "BLUS30282" -> do
           lg "Decrypting The Beatles: Rock Band EDAT file"
           return $ Just $ rockBandKLIC dir
+        "BLUS30670" -> do
+          lg "Decrypting Rocksmith 2014 EDAT file"
+          return $ Just rs2014KLIC
         _ -> do
           warn $ "Unknown KLIC for game ID " <> show gameID
           return Nothing

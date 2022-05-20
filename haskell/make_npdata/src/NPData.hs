@@ -1,5 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
-module NPData (packNPData, NPDataConfig(..), rb2CustomMidEdatConfig, rb3CustomMidEdatConfig, ghworCustomMidEdatConfig, ghworKLIC, rockBandKLIC, decryptNPData, NPDecryptConfig(..)) where
+module NPData
+( packNPData
+, NPDataConfig(..)
+, rb2CustomMidEdatConfig
+, rb3CustomMidEdatConfig
+, ghworCustomMidEdatConfig
+, ghworKLIC
+, rockBandKLIC
+, rs2014KLIC
+, decryptNPData
+, NPDecryptConfig(..)
+) where
 
 import           Control.Monad          (forM_, when)
 import qualified Data.ByteString        as B
@@ -190,3 +201,7 @@ ghworKLIC = B.pack [0xD7,0xF3,0xF9,0x0A,0x1F,0x01,0x2D,0x84,0x4C,0xA5,0x57,0xE0,
 
 rockBandKLIC :: B.ByteString -> B.ByteString
 rockBandKLIC dir = MD5.md5DigestBytes $ MD5.md5 $ "Ih38rtW1ng3r" <> BL.fromStrict dir <> "10025250"
+
+-- Thanks to https://github.com/rscustom/rocksmith-custom-song-toolkit/blob/a60453fa5cb6948085f5bafda9685b500c320a7d/RocksmithToolkitLib/DLCPackage/RijndaelEncryptor.cs#L325
+rs2014KLIC :: B.ByteString
+rs2014KLIC = B.pack [0xCB,0x4A,0x06,0xE8,0x53,0x78,0xCE,0xD3,0x07,0xE6,0x3E,0xFD,0x10,0x84,0xC1,0x9D]

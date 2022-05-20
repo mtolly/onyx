@@ -1,0 +1,104 @@
+global:
+  anim-tempo: 32
+parts:
+  drums:
+    drums:
+      fix-freeform: false
+      kicks: 2
+      difficulty:
+        tier: 7
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+    pro-guitar:
+      tuning:
+        base: bass-4
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  vocal: {}
+metadata:
+  track-number: 11
+  title: Dreamchaser
+  author: Onyxite # TODO get rbn group
+  year: 2008
+  album: River of Tuoni
+  preview-start: 1:51.000
+  subgenre: power
+  genre: metal
+  preview-end: 2:21.000
+  difficulty:
+    tier: 7
+  artist: Amberian Dawn
+  file-album-art: cover.png_xbox
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    parts:
+      drums:
+        kick:
+        - 0
+        kit:
+        - 3
+        - 4
+        snare:
+        - 1
+        - 2
+      guitar:
+      - 6
+      - 7
+      bass:
+      - 5
+      keys:
+      - 8
+      - 9
+    karaoke: false
+    multitrack: true
+    vols:
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    - -1.5
+    - -1.5
+    - -3
+    - -3
+    - -3
+    - -3
+    pans:
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 5005966
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

@@ -4,6 +4,7 @@ Done with the help of
 https://wiki.xentax.com/index.php/Wwise_SoundBank_(*.bnk)
 
 -}
+{-# LANGUAGE ImplicitParams    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -19,11 +20,12 @@ import           Data.SimpleHandle    (Folder, Readable, byteStringSimpleHandle,
                                        useHandle)
 import qualified Data.Text            as T
 import           Data.Word
+import           GHC.ByteOrder        (ByteOrder (..))
 import           Resources
 import           Sound.WW2Ogg
 import           System.FilePath      ((<.>))
 
-extractRSOgg :: Readable -> Folder T.Text Readable -> Readable
+extractRSOgg :: (?endian :: ByteOrder) => Readable -> Folder T.Text Readable -> Readable
 extractRSOgg bnk audioDir = makeHandle "converted .wem audio" $ do
   codebook <- getResourcesPath "packed_codebooks_aoTuV_603.bin"
   chunks <- parseBNK <$> useHandle bnk handleToByteString
@@ -34,7 +36,8 @@ extractRSOgg bnk audioDir = makeHandle "converted .wem audio" $ do
     [x] -> return $ evt_actions x
     _   -> fail "Not exactly 1 event in .bnk HIRC"
   let actions = [ act | HIRCEventAction act <- hirc, elem (eact_id act) actionIDs ]
-  soundID <- case [ act | act <- actions, eact_type act == 4 ] of
+  -- eact_type appears to be 4 for pc/mac, 3 for xbox?
+  soundID <- case [ act | act <- actions, eact_type act == 4 || eact_type act == 3 ] of
     [act] -> return $ eact_objectID act
     _     -> fail "Not exactly 1 play action in .bnk HIRC"
   sourceID <- case [ s | HIRCSound s <- hirc, snd_id s == soundID ] of
@@ -47,7 +50,7 @@ extractRSOgg bnk audioDir = makeHandle "converted .wem audio" $ do
     Nothing  -> fail "ww2ogg failed"
     Just ogg -> byteStringSimpleHandle $ BL.fromStrict ogg
 
-parseBNK :: BL.ByteString -> [Chunk]
+parseBNK :: (?endian :: ByteOrder) => BL.ByteString -> [Chunk]
 parseBNK bs = flip map (splitChunks bs) $ \(magic, chunk) -> case magic of
   "BKHD" -> ChunkBKHD $ runGet getBKHD chunk
   "DIDX" -> ChunkDIDX $ runGet getDIDX chunk
@@ -56,13 +59,18 @@ parseBNK bs = flip map (splitChunks bs) $ \(magic, chunk) -> case magic of
   "STID" -> ChunkSTID $ runGet getSTID chunk
   _      -> ChunkOther magic chunk
 
-splitChunks :: BL.ByteString -> [(B.ByteString, BL.ByteString)]
+getWord32Platform :: (?endian :: ByteOrder) => Get Word32
+getWord32Platform = case ?endian of
+  BigEndian    -> getWord32be
+  LittleEndian -> getWord32le
+
+splitChunks :: (?endian :: ByteOrder) => BL.ByteString -> [(B.ByteString, BL.ByteString)]
 splitChunks = runGet $ let
   go = isEmpty >>= \case
     True -> return []
     False -> do
       magic <- getByteString 4
-      size <- getWord32le
+      size <- getWord32Platform
       chunk <- getLazyByteString $ fromIntegral size
       ((magic, chunk) :) <$> go
   in go
@@ -82,17 +90,17 @@ data BKHD = BKHD
   -- rest should be zeroes, wiki says 8 zeroes, but sample file has 20
   } deriving (Show)
 
-getBKHD :: Get BKHD
+getBKHD :: (?endian :: ByteOrder) => Get BKHD
 getBKHD = do
-  bkhd_version <- getWord32le
-  bkhd_id <- getWord32le
+  bkhd_version <- getWord32Platform
+  bkhd_id <- getWord32Platform
   return BKHD{..}
 
 data DIDX = DIDX
   { didx_files :: [DIDXFile]
   } deriving (Show)
 
-getDIDX :: Get DIDX
+getDIDX :: (?endian :: ByteOrder) => Get DIDX
 getDIDX = let
   go = isEmpty >>= \case
     True -> return []
@@ -107,11 +115,11 @@ data DIDXFile = DIDXFile
   , df_length :: Word32
   } deriving (Show)
 
-getDIDXFile :: Get DIDXFile
+getDIDXFile :: (?endian :: ByteOrder) => Get DIDXFile
 getDIDXFile = do
-  df_id <- getWord32le
-  df_offset <- getWord32le
-  df_length <- getWord32le
+  df_id <- getWord32Platform
+  df_offset <- getWord32Platform
+  df_length <- getWord32Platform
   return DIDXFile{..}
 
 data DATA = DATA
@@ -125,9 +133,9 @@ data HIRC = HIRC
   { hirc_objects :: [HIRCObject]
   } deriving (Show)
 
-getHIRC :: Get HIRC
+getHIRC :: (?endian :: ByteOrder) => Get HIRC
 getHIRC = do
-  n <- getWord32le
+  n <- getWord32Platform
   HIRC <$> replicateM (fromIntegral n) getHIRCObject
 
 data HIRCObject
@@ -138,32 +146,32 @@ data HIRCObject
   | HIRCUnknown Word32 B.ByteString
   deriving (Show)
 
-getHIRCObject :: Get HIRCObject
+getHIRCObject :: (?endian :: ByteOrder) => Get HIRCObject
 getHIRCObject = do
   objType <- getWord8
   case objType of
     2 -> do
-      len <- getWord32le
+      len <- getWord32Platform
       start <- bytesRead
-      snd_id               <- getWord32le
-      snd_unknown          <- getWord32le
-      snd_location         <- getWord32le
-      snd_audioFileID      <- getWord32le
-      snd_sourceID         <- getWord32le
+      snd_id               <- getWord32Platform
+      snd_unknown          <- getWord32Platform
+      snd_location         <- getWord32Platform
+      snd_audioFileID      <- getWord32Platform
+      snd_sourceID         <- getWord32Platform
       snd_bankOffsetLength <- case snd_location of
-        0 -> Just <$> liftA2 (,) getWord32le getWord32le
+        0 -> Just <$> liftA2 (,) getWord32Platform getWord32Platform
         _ -> return Nothing
       snd_type             <- getWord8
       end <- bytesRead
       skip $ fromIntegral len - fromIntegral (end - start)
       return $ HIRCSound Sound{..}
     3 -> do
-      len <- getWord32le
+      len <- getWord32Platform
       start <- bytesRead
-      eact_id       <- getWord32le
+      eact_id       <- getWord32Platform
       eact_scope    <- getWord8
       eact_type     <- getWord8
-      eact_objectID <- getWord32le
+      eact_objectID <- getWord32Platform
       eact_zero1    <- getWord8
       paramCount <- getWord8
       paramTypes <- replicateM (fromIntegral paramCount) getWord8
@@ -174,14 +182,14 @@ getHIRCObject = do
       skip $ fromIntegral len - fromIntegral (end - start)
       return $ HIRCEventAction EventAction{..}
     4 -> do
-      _len <- getWord32le
-      evt_id <- getWord32le
-      actCount <- getWord32le
-      evt_actions <- replicateM (fromIntegral actCount) getWord32le
+      _len <- getWord32Platform
+      evt_id <- getWord32Platform
+      actCount <- getWord32Platform
+      evt_actions <- replicateM (fromIntegral actCount) getWord32Platform
       return $ HIRCEvent Event{..}
     _ -> do
-      len <- getWord32le
-      unkID <- getWord32le
+      len <- getWord32Platform
+      unkID <- getWord32Platform
       bytes <- getByteString $ fromIntegral len - 4
       return $ HIRCUnknown unkID bytes
 
@@ -217,12 +225,12 @@ data STID = STID
   , stid_banks   :: [(Word32, B.ByteString)]
   } deriving (Show)
 
-getSTID :: Get STID
+getSTID :: (?endian :: ByteOrder) => Get STID
 getSTID = do
-  stid_unknown <- getWord32le
-  bankCount <- getWord32le
+  stid_unknown <- getWord32Platform
+  bankCount <- getWord32Platform
   stid_banks <- replicateM (fromIntegral bankCount) $ do
-    bankID <- getWord32le
+    bankID <- getWord32Platform
     len <- getWord8
     name <- getByteString $ fromIntegral len
     return (bankID, name)

@@ -30,7 +30,7 @@ import           Data.List.Extra                (stripSuffix)
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe                     (fromMaybe, mapMaybe)
 import           Data.SimpleHandle              (Folder (..), crawlFolder,
-                                                 findFile)
+                                                 fileReadable, findFile)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (encodeUtf8)
 import qualified Data.Text.Encoding             as TE
@@ -54,7 +54,7 @@ import           Import.RockBand                (importRB4, importRBA,
                                                  importSTFSFolder)
 import           Import.Rocksmith               as RS
 import           PlayStation.PKG                (getDecryptedUSRDIR, loadPKG,
-                                                 pkgFolder)
+                                                 pkgFolder, tryDecryptEDAT)
 import           Preferences
 import qualified Sound.Jammit.Base              as J
 import           STFS.Package                   (getSTFSFolder)
@@ -173,8 +173,14 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               imps <- importGH5WoR loc folder
               foundImports "Guitar Hero (Neversoft) (360)" loc imps
             else return ([], [])
+          , importRSXbox folder >>= foundImports "Rocksmith" loc
           ]
-      foundRS psarc = importRS psarc >>= foundImports "Rocksmith" psarc
+      foundRS psarc = importRS (fileReadable psarc) >>= foundImports "Rocksmith" psarc
+      foundRSPS3 edat = do
+        mpsarc <- tryDecryptEDAT "" (B8.pack $ takeFileName edat) $ fileReadable edat
+        case mpsarc of
+          Nothing    -> fatal "Couldn't decrypt .psarc.edat"
+          Just psarc -> importRS psarc >>= foundImports "Rocksmith" edat
       foundPS3 loc = do
         usrdirs <- stackIO (pkgFolder <$> loadPKG loc) >>= getDecryptedUSRDIR
         fmap mconcat $ forM usrdirs $ \(_, folderBS) -> let
@@ -253,6 +259,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".bme" -> foundBME fp
         ".bml" -> foundBME fp
         ".psarc" -> foundRS fp
+        ".edat" | map toLower (takeExtension $ dropExtension fp) == ".psarc"
+          -> foundRSPS3 fp
         ".pkg" -> foundPS3 fp
         ".gp" -> foundGP fp
         ".gpx" -> foundGPX fp

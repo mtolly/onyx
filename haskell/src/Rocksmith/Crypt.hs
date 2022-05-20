@@ -7,6 +7,7 @@ import           Crypto.Error
 import           Data.Binary.Get
 import qualified Data.ByteString        as B
 import qualified Data.ByteString.Lazy   as BL
+import           STFS.Package           (runGetM)
 
 data GamePlatform
   = PC
@@ -49,11 +50,11 @@ arcIV = B.pack
 
 decryptSNGData :: (MonadFail m) => B.ByteString -> B.ByteString -> m BL.ByteString
 decryptSNGData input key = do
-  Just initIV <- flip runGet (BL.fromStrict input) $ do
+  initIVBytes <- flip runGetM (BL.fromStrict input) $ do
     _4A <- getWord32be -- 0x4A either little or big endian
     _platform <- getWord32be
-    iv <- getByteString 16
-    return $ return $ makeIV iv
+    getByteString 16
+  Just initIV <- return $ makeIV initIVBytes
   CryptoPassed cipher <- return $ cipherInit key
   let go iv rest = if B.null rest
         then []

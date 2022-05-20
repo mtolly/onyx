@@ -1,5 +1,5 @@
 #!/bin/bash
-BUILD_DIR=$(cd $(dirname "$0") && pwd)
+BUILD_DIR=$(cd $(dirname "$0") && pwd -P)
 env PKG_CONFIG_PATH="$BUILD_DIR"/dependencies/root/lib/pkgconfig \
   LD_LIBRARY_PATH="$BUILD_DIR"/dependencies/root/lib \
   stack "$@" \

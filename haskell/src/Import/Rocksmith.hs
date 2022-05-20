@@ -1,3 +1,4 @@
+{-# LANGUAGE ImplicitParams    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -27,6 +28,7 @@ import           Data.SimpleHandle
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Data.Text.Encoding.Error         (lenientDecode)
+import           GHC.ByteOrder                    (ByteOrder (..))
 import           Image                            (readDDS)
 import           Import.Base
 import qualified RockBand.Codec.File              as RBFile
@@ -53,9 +55,23 @@ data RSSong = RSSong
   , rsAlbumArtLarge :: String
   } deriving (Eq, Show)
 
-importRS :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [Import m]
+-- Import from STFS containing PackageList.txt and .psarc(s)
+importRSXbox :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [Import m]
+importRSXbox dir = case findFile (return "PackageList.txt") dir of
+  Nothing -> return []
+  Just r -> do
+    plist <- TE.decodeUtf8 . BL.toStrict <$> stackIO (useHandle r handleToByteString)
+    -- entries are separated by CRLF
+    fmap concat $ forM (T.lines plist) $ \pkg -> do
+      let psarcPath = T.strip pkg <> ".psarc"
+      case findFile (return psarcPath) dir of
+        Nothing    -> fatal $ "Couldn't find " <> show psarcPath <> " inside STFS file"
+        Just psarc -> importRS psarc
+
+-- Import from .psarc file
+importRS :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m [Import m]
 importRS psarc = do
-  folder <- stackIO $ readPSARCFolder $ fileReadable psarc
+  folder <- stackIO $ readPSARCFolder psarc
   let subfolder p = case findFolder p folder of
         Just sub -> return sub
         Nothing  -> fatal $ "Required subfolder not found: " <> show p
@@ -98,6 +114,7 @@ importRSSong folder song level = do
     [("windows", audioDir)] -> return (audioDir, PC)
     [("xbox360", audioDir)] -> return (audioDir, Xbox360)
     [("mac"    , audioDir)] -> return (audioDir, Mac)
+    [("ps3"    , audioDir)] -> return (audioDir, PS3)
     _                       -> fatal "Couldn't determine platform of .psarc"
 
   let urn s = case T.splitOn ":" $ T.pack s of
@@ -130,19 +147,22 @@ importRSSong folder song level = do
     let binFolder = case platform of
           Xbox360 -> "xbox360"
           Mac     -> "macos"
-          -- TODO probably need ps3 name
-          _       -> "generic" -- PC
+          PS3     -> "ps3"
+          PC      -> "generic"
     sngFile <- need $ "songs" :| ["bin", binFolder, T.pack $ sngPath <.> "sng"]
     -- TODO when level is ImportQuick, we probably want to skip parsing the .sng altogether
     sng <- stackIO $ useHandle sngFile handleToByteString >>= loadSNG platform . BL.toStrict
     if not $ null $ sng_Vocals sng
       then return Nothing
       else do
-        -- TODO I don't know if this is correct, just what I saw in dlc files
-        let manifestDir = case platform of
-              Xbox360 -> "songs_dlc"
-              _       -> T.pack header -- on PC
-        jsonFile <- need $ "manifests" :| [manifestDir, T.pack $ manifest <.> "json"]
+        -- 1 seen on all pc (dlc + customs) and xbox odlc, 2 seen in xbox+ps3 cdlc
+        let manifest1 = "manifests" :| [T.pack header, T.pack $ manifest <.> "json"]
+            manifest2 = "manifests" :| ["songs_dlc"  , T.pack $ manifest <.> "json"]
+        jsonFile <- errorToEither (need manifest1) >>= \case
+          Right x -> return x
+          Left  _ -> errorToEither (need manifest2) >>= \case
+            Right x -> return x
+            Left  _ -> fatal "Couldn't find manifest .json file"
         json <- stackIO (useHandle jsonFile handleToByteString) >>=
           either fatal return . A.eitherDecodeStrict . BL.toStrict
         jsonAttrs <- prop "Entries" json >>= singleKey >>= prop "Attributes"
@@ -202,7 +222,13 @@ importRSSong folder song level = do
   bnkFile <- case findFile (return $ T.pack $ bnk <.> "bnk") audioDir of
     Just r  -> return r
     Nothing -> fatal "Couldn't find .bnk file"
-  let oggFile = extractRSOgg bnkFile audioDir
+  let oggFile = let
+        ?endian = case platform of
+          PC      -> LittleEndian
+          Mac     -> LittleEndian
+          Xbox360 -> BigEndian
+          PS3     -> BigEndian
+        in extractRSOgg bnkFile audioDir
       modifiedBeats = removeDupeTimes $ case sng_BPMs firstArr of
         ebeats@(BPM { bpm_Time = 0 } : _) -> ebeats
         ebeats@(BPM { bpm_Time = t } : _) -> let

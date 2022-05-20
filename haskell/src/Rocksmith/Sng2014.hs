@@ -7,6 +7,7 @@ import           Data.Binary.Codec.Class
 import qualified Data.ByteString         as B
 import           Debug.Trace
 import           Rocksmith.Crypt
+import           STFS.Package            (runGetM)
 
 lenArray :: (?endian :: ByteOrder) => BinaryCodec a -> BinaryCodec [a]
 lenArray c = Codec
@@ -536,4 +537,4 @@ loadSNG plat bs = do
         Mac     -> LittleEndian
         Xbox360 -> BigEndian
         PS3     -> BigEndian
-  return $ runGet (codecIn binEndian) bs'
+  runGetM (codecIn binEndian) bs'
