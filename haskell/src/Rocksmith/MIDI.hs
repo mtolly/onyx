@@ -868,3 +868,39 @@ convertRStoPG rs = let
       }
     -- TODO pgTremolo, pgHandPosition (maybe)
     }
+
+{-
+planning for convertRStoPG
+
+NOTE PROPERTIES
+
+hammeron/pulloff: force hopo (could also force other notes to strum?)
+
+channel priority
+mute: set mute channel
+tap: set tap channel (maybe also force hopo to be sure)
+(rest don't do anything)
+vibrato: set bend channel
+harmonic: set harmonic channel
+pinch harmonic: set pinch harmonic channel
+
+slide: add slide (compute up/down), maybe try to add endpoint note (hopo)
+slideunpitch: add slide (compute up/down)
+
+ignore: maybe optionally add mute channel?
+
+slap/pop: nope
+accent: nope
+palmmute: probably ignore
+
+tremolo: turn into many notes with tremolo lane?
+link: figure out proper way of combining notes
+
+CHORDS
+
+in general, just turn handshapes/arpeggios into arpeggios.
+chord names can just be brought over exactly that way.
+EXCEPT when the contents are an unchanging chord, can just have the chords. (sustain maybe?)
+but, what if the arpeggio starts with a note not in the arp shape? (not supported in RB)
+could start the arpeggio right before that note maybe.
+-}

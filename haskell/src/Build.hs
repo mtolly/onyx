@@ -16,13 +16,14 @@ import           Codec.Picture.Types                   (dropTransparency)
 import           Config                                hiding (Difficulty)
 import           Control.Applicative                   (liftA2)
 import           Control.Monad.Codec.Onyx              (makeValue, valueId)
-import           Control.Monad.Codec.Onyx.JSON         (loadYaml)
+import           Control.Monad.Codec.Onyx.JSON         (loadYaml, toJSON)
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class             (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
+import qualified Data.Aeson                            as A
 import           Data.Bifunctor                        (first, second)
 import           Data.Binary.Put                       (putWord32be, runPut)
 import qualified Data.ByteString                       as B
@@ -173,6 +174,7 @@ import qualified RockBand2                             as RB2
 import qualified RockBand3                             as RB3
 import qualified Rocksmith.ArrangementXML              as Arr
 import qualified Rocksmith.CST                         as CST
+import qualified Rocksmith.DLCBuilder                  as DLC
 import           Rocksmith.MIDI
 import qualified Sound.File.Sndfile                    as Snd
 import           Sound.FSB                             (emitFSB, ghBandFSB,
@@ -2459,6 +2461,7 @@ rsRules buildInfo dir rs = do
         return (fpart, RSVocal pv)
       rsPadding = dir </> "padding.txt"
       rsAnchors = dir </> "anchors.mid"
+      rsBuilder = dir </> "cst/project.rs2dlc"
       rsProject = dir </> "cst/project.dlc.xml"
       rsAudio   = dir </> "cst/audio.wav"
       rsPreview = dir </> "cst/audio_preview.wav" -- this has to be named same as audio + "_preview" for CST to load it
@@ -2472,7 +2475,7 @@ rsRules buildInfo dir rs = do
         in dir </> "cst/" <> T.unpack (RBFile.getPartName p) <> "." <> suffix <> ".arr.xml"
 
   phony (dir </> "cst") $ shk $ need $
-    [rsProject, rsAudio, rsPreview, rsArt] ++ [ rsArr p arrSlot | (p, arrSlot) <- presentParts ]
+    [rsBuilder, rsProject, rsAudio, rsPreview, rsArt] ++ [ rsArr p arrSlot | (p, arrSlot) <- presentParts ]
 
   rsPadding %> \out -> do
     mid <- shakeMIDI $ planDir </> "processed.mid"
@@ -2690,6 +2693,127 @@ rsRules buildInfo dir rs = do
           $ Input (planDir </> "everything.wav")
     buildAudio previewExpr out
   rsArt %> shk . copyFile' (rel "gen/cover-full.png")
+  let getRSKey = case rs_SongKey rs of
+        Nothing -> stackIO $ T.pack . ("OnyxCST" <>) . show <$> randomRIO (0, maxBound :: Int32)
+        -- TODO maybe autogenerate a CST-like key, e.g. OnyASAMACrimsonRoseandaGinToni
+        Just k  -> if T.length k <= 30
+          then return k
+          else do
+            warn $ "RS song key of " <> show k <> " truncated, longer than max length of 30 characters"
+            return $ T.take 30 k
+      {-
+        Info from CST source on song key (+ tone key):
+
+        Limited to a maximum length of 30 charactures, minimum of 6 charactures for uniqueness
+        Only Ascii Alpha and Numeric may be used
+        No spaces, no special characters, no puncuation
+        All alpha lower, upper, or mixed case are allowed
+        All numeric is allowed
+      -}
+  rsBuilder %> \out -> do
+    let allTonePaths = nubOrd $ do
+          (_, RSPlayable _ pg) <- presentParts
+          tones <- toList $ pgTones pg
+          toList tones
+    shk $ need $ [ rsArr fpart arrSlot | (fpart, arrSlot) <- presentParts ] ++ allTonePaths
+    allTones <- forM allTonePaths $ \f -> do
+      tone <- CST.parseTone f
+      return (f, tone)
+    parsedArrFiles <- forM presentParts $ \(fpart, arrSlot) -> do
+      contents <- Arr.parseFile $ rsArr fpart arrSlot
+      return (fpart, arrSlot, contents)
+    key <- getRSKey
+    shk $ need [rsAudio]
+    volume <- stackIO $ audioIntegratedVolume rsAudio
+    when (isNothing volume) $ warn "Unable to calculate integrated volume of audio file"
+    prevVolume <- stackIO $ audioIntegratedVolume rsPreview
+    when (isNothing prevVolume) $ warn "Unable to calculate integrated volume of preview audio file"
+    arrangements <- forM (zip [0..] parsedArrFiles) $ \(i, (fpart, arrSlot, contents)) -> do
+      -- TODO check if the following still applies with DLC Builder:
+      -- ArrangementSort doesn't appear to work for multiples of the same arrangement label.
+      -- Instead it sorts by the arrangement ID UUID!
+      -- So, we could just use the first character or so to encode `i`.
+      persistentID <- stackIO UUID.nextRandom
+      arrMasterID <- stackIO $ randomRIO (0, maxBound :: Int32) -- this matches the range CST uses (C# Random.Next method)
+      return $ case contents of
+        Arr.PartVocals _ -> DLC.ArrVocals DLC.Vocals
+          { vocals_XML          = takeFileName $ rsArr fpart arrSlot
+          , vocals_Japanese     = False -- TODO
+          , vocals_CustomFont   = Nothing
+          , vocals_MasterID     = fromIntegral arrMasterID
+          , vocals_PersistentID = UUID.toText persistentID
+          }
+        Arr.PartArrangement arr -> DLC.ArrInstrumental DLC.Instrumental
+          { inst_XML          = takeFileName $ rsArr fpart arrSlot
+          , inst_Name         = case arrSlot of
+            RSPlayable (RSArrSlot _ RSLead       ) _ -> 0
+            RSPlayable (RSArrSlot _ RSRhythm     ) _ -> 2
+            RSPlayable (RSArrSlot _ RSComboLead  ) _ -> 1
+            RSPlayable (RSArrSlot _ RSComboRhythm) _ -> 1
+            RSPlayable (RSArrSlot _ RSBass       ) _ -> 3
+            RSVocal    _                             -> 0 -- shouldn't happen
+          , inst_RouteMask    = case arrSlot of
+            RSPlayable (RSArrSlot _ RSLead       ) _ -> 1
+            RSPlayable (RSArrSlot _ RSRhythm     ) _ -> 2
+            RSPlayable (RSArrSlot _ RSComboLead  ) _ -> 1
+            RSPlayable (RSArrSlot _ RSComboRhythm) _ -> 2
+            RSPlayable (RSArrSlot _ RSBass       ) _ -> 4
+            RSVocal    _                             -> 0 -- shouldn't happen
+          , inst_Priority     = i
+          , inst_ScrollSpeed  = 1.3
+          , inst_BassPicked   = Arr.ap_bassPick $ Arr.arr_arrangementProperties arr
+          , inst_Tuning       =
+            [ Arr.tuning_string0 $ Arr.arr_tuning arr
+            , Arr.tuning_string1 $ Arr.arr_tuning arr
+            , Arr.tuning_string2 $ Arr.arr_tuning arr
+            , Arr.tuning_string3 $ Arr.arr_tuning arr
+            , Arr.tuning_string4 $ Arr.arr_tuning arr
+            , Arr.tuning_string5 $ Arr.arr_tuning arr
+            ]
+          , inst_TuningPitch  = 440 * (2 ** (1 / 12)) ** (fromIntegral (Arr.arr_centOffset arr) / 100)
+          -- Builder errors if tone is "", but not if it's a key with no matching tone
+          , inst_BaseTone     = fromMaybe "no-tone" $ Arr.arr_tonebase arr
+          , inst_Tones        = catMaybes [Arr.arr_tonea arr, Arr.arr_toneb arr, Arr.arr_tonec arr, Arr.arr_toned arr]
+          , inst_MasterID     = fromIntegral arrMasterID
+          , inst_PersistentID = UUID.toText persistentID
+          }
+    let dlc = DLC.RS2DLC
+          { rs2_Version            = fromMaybe "1.0" $ rs_Version rs
+          , rs2_Author             = fromMaybe "" $ _author $ _metadata songYaml
+          , rs2_DLCKey             = key
+          , rs2_ArtistName         = DLC.Sortable
+            { rs2_Value = getArtist $ _metadata songYaml
+            , rs2_SortValue = getArtist $ _metadata songYaml -- TODO
+            }
+          , rs2_JapaneseArtistName = _artistJP $ _metadata songYaml
+          , rs2_JapaneseTitle      = _titleJP $ _metadata songYaml
+          , rs2_Title              = DLC.Sortable
+            { rs2_Value = getTitle $ _metadata songYaml
+            , rs2_SortValue = getTitle $ _metadata songYaml -- TODO
+            }
+          , rs2_AlbumName          = DLC.Sortable
+            { rs2_Value = fromMaybe "" $ _album $ _metadata songYaml
+            , rs2_SortValue = fromMaybe "" $ _album $ _metadata songYaml -- TODO
+            }
+          , rs2_Year               = getYear $ _metadata songYaml
+          , rs2_AlbumArtFile       = "cover.png"
+          , rs2_AudioFile          = DLC.AudioFile
+            { audio_Path   = "audio.wav"
+            , audio_Volume = case volume of
+              Nothing -> -7 -- default in CST
+              Just v  -> realToFrac $ (-16) - v -- -16 is the target ODLC uses
+            }
+          , rs2_AudioPreviewFile   = DLC.AudioFile
+            { audio_Path   = "audio_preview.wav"
+            , audio_Volume = case prevVolume of
+              Nothing -> -7
+              Just v  -> realToFrac $ (-16) - v
+            }
+          , rs2_IgnoredIssues      = []
+          , rs2_Arrangements       = arrangements
+          , rs2_Tones              = map snd allTones
+          }
+    stackIO $ A.encodeFile out $ toJSON dlc
   rsProject %> \out -> do
     let allTonePaths = nubOrd $ do
           (_, RSPlayable _ pg) <- presentParts
@@ -2888,23 +3012,7 @@ rsRules buildInfo dir rs = do
             , CST.ts_String5 = Arr.tuning_string5 $ Arr.arr_tuning arr
             }
           }
-    key <- case rs_SongKey rs of
-      Nothing -> stackIO $ T.pack . ("OnyxCST" <>) . show <$> randomRIO (0, maxBound :: Int32)
-      -- TODO maybe autogenerate a CST-like key, e.g. OnyASAMACrimsonRoseandaGinToni
-      Just k  -> if T.length k <= 30
-        then return k
-        else do
-          warn $ "RS song key of " <> show k <> " truncated, longer than max length of 30 characters"
-          return $ T.take 30 k
-      {-
-        Info from CST source on song key (+ tone key):
-
-        Limited to a maximum length of 30 charactures, minimum of 6 charactures for uniqueness
-        Only Ascii Alpha and Numeric may be used
-        No spaces, no special characters, no puncuation
-        All alpha lower, upper, or mixed case are allowed
-        All numeric is allowed
-      -}
+    key <- getRSKey
     shk $ need [rsAudio]
     volume <- stackIO $ audioIntegratedVolume rsAudio
     when (isNothing volume) $ warn "Unable to calculate integrated volume of audio file"

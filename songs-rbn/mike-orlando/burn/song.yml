@@ -1,49 +1,42 @@
 global:
-  anim-tempo: 32
+  anim-tempo: 64
 parts:
   drums:
     drums:
       fix-freeform: false
-      kicks: 2
+      kicks: both
       difficulty:
-        tier: 7
+        rank: 401
+      mode: full # WIP
   guitar:
     grybo:
       fix-freeform: false
       difficulty:
-        tier: 7
+        rank: 406
   bass:
     grybo:
       fix-freeform: false
       difficulty:
-        tier: 7
+        rank: 349
     pro-guitar:
       tuning:
         base: bass-4
-      picked-bass: true
-  keys:
-    pro-keys:
-      fix-freeform: false
-      difficulty:
-        tier: 7
-    grybo:
-      fix-freeform: false
-      difficulty:
-        tier: 7
+        global: -1 # Eb standard
+  keys: {}
   vocal: {}
 metadata:
-  track-number: 11
-  title: Dreamchaser
-  author: Onyxite # TODO get rbn group
-  year: 2008
-  album: River of Tuoni
-  preview-start: 1:51.000
-  subgenre: power
-  genre: metal
-  preview-end: 2:21.000
+  track-number: 3
+  title: Burn
+  author: null # TODO
+  year: 2010
+  album: Sonic Stomp II
+  preview-start: 40
+  subgenre: rock
+  genre: rock
+  preview-end: 1:10.000
   difficulty:
-    tier: 7
-  artist: Amberian Dawn
+    rank: 454
+  artist: Mike Orlando
   file-album-art: cover.png_xbox
 plans:
   mogg:
@@ -52,42 +45,41 @@ plans:
       drums:
         kick:
         - 0
-        kit:
-        - 3
-        - 4
-        snare:
         - 1
+        kit:
+        - 4
+        - 5
+        snare:
         - 2
+        - 3
       guitar:
-      - 6
-      - 7
-      bass:
-      - 5
-      keys:
       - 8
       - 9
+      bass:
+      - 6
+      - 7
     karaoke: false
     multitrack: true
     vols:
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -1.5
-    - -1.5
-    - -3
-    - -3
-    - -3
-    - -3
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
     pans:
-    - 0
     - -1
     - 1
     - -1
     - 1
-    - 0
+    - -1
+    - 1
     - -1
     - 1
     - -1
@@ -98,7 +90,7 @@ targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    song-id: 5005966
+    song-id: 5004975
   rs:
     game: rs
     arrangements:

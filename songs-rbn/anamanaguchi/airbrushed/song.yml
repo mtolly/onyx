@@ -20,6 +20,7 @@ parts:
     pro-guitar: # Original RS chart by Karmeleaux, edited bass by Onyxite
       tuning:
         base: bass-4
+      picked-bass: true
   keys:
     pro-keys:
       fix-freeform: false

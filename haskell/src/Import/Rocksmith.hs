@@ -151,7 +151,7 @@ importRSSong folder song level = do
           PC      -> "generic"
     sngFile <- need $ "songs" :| ["bin", binFolder, T.pack $ sngPath <.> "sng"]
     -- TODO when level is ImportQuick, we probably want to skip parsing the .sng altogether
-    sng <- stackIO $ useHandle sngFile handleToByteString >>= loadSNG platform . BL.toStrict
+    sng <- stackIO (useHandle sngFile handleToByteString) >>= loadSNG platform . BL.toStrict
     if not $ null $ sng_Vocals sng
       then return Nothing
       else do
@@ -289,7 +289,8 @@ importRSSong folder song level = do
                   secs = toSeconds $ notes_Time note
                   beats = U.unapplyTempoMap temps secs
                   len = do
-                    guard $ notes_Sustain note > 0
+                    -- Sometimes CDLC has notes with sustain of e.g. 0.002s
+                    guard $ notes_Sustain note > 0.05
                     let endSecs = secs <> toSeconds (notes_Sustain note)
                     Just $ U.unapplyTempoMap temps endSecs - beats
                   parseMask mask = concat

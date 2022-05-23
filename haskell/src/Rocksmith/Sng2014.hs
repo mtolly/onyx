@@ -529,7 +529,7 @@ instance BinEndian SNG2014 where
     sng_Metadata          <- sng_Metadata          =. binEndian
     return SNG2014{..}
 
-loadSNG :: GamePlatform -> B.ByteString -> IO SNG2014
+loadSNG :: (MonadFail m) => GamePlatform -> B.ByteString -> m SNG2014
 loadSNG plat bs = do
   bs' <- unpackSNG plat bs
   let ?endian = case plat of
