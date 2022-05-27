@@ -1,0 +1,34 @@
+metadata:
+  title: Space Road
+  artist: Casiopea
+  album: Casiopea
+  year: 1979
+  track-number: 3
+  author: Onyxite
+  genre: fusion
+  subgenre: fusion
+audio:
+  album-track:
+    md5: 1ab0468cc2347743636b4c4202a4dab8
+    frames: 13942656
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      2|0: hihat
+      2|2: hihat
+      3|0: hihat
+      3|1: hihat
+    song:
+      pad: [3.311, album-track]
+parts:
+  drums:
+    drums:
+      kicks: 1
+      mode: full
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps

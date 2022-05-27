@@ -67,6 +67,10 @@ importPowerGigSong key song folder level = do
     ImportFull -> case findFileCI ("Audio" :| ["songs", key, audio_midi $ song_audio song]) folder of
       Nothing -> fatal "Couldn't find MIDI file"
       Just r  -> RBFile.loadRawMIDIReadable r >>= RBFile.readMIDIFile' . fixLateTrackNames
+    -- TODO some songs (not all) have markers that could be turned into sections.
+    -- * cherub rock: no markers
+    -- * been caught stealing: duplicate section name markers, "Fill" markers that should be ignored
+    -- * crack the skye: mostly ok, except one dev note "Start here, medium drums, Tuesday" :)
   let onyxFile = mempty
         { RBFile.onyxParts = Map.fromList
           [ (RBFile.FlexGuitar, mempty

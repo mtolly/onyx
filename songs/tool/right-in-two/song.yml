@@ -23,7 +23,16 @@ parts:
     drums:
       mode: full
       kicks: both
-  bass:
-    pro-guitar:
-      tuning:
-        offsets: [-2, 0, 0, 0]
+      difficulty: 7
+  # bass:
+  #   pro-guitar:
+  #     tuning:
+  #       offsets: [-2, 0, 0, 0]
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
