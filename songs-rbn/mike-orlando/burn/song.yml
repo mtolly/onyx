@@ -82,11 +82,14 @@ plans:
 targets:
   rb3:
     game: rb3
+    label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
   ps:
     game: ps
+    label: (O)
   rs:
     game: rs
     arrangements:

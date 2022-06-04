@@ -1,0 +1,26 @@
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        # Ab Db Ab Db Gb
+        base: bass-5
+        global: -1
+        offsets: [-2, -2, 0, 0, 0]
+audio:
+  album-track:
+    frames: 12925416
+    md5: 348bc964b8bcee8fbfbd7e185cb7a19c
+plans:
+  plan:
+    song:
+      pad: [4.319, album-track]
+metadata:
+  title: Watch the World Burn
+  artist: Trivium
+  track-number: 5
+  key: C# minor
+  album: In Waves
+  year: 2011
+  author: Onyxite
+  genre: metal
+  file-album-art: ../../../songs-hmx/trivium/in-waves/cover.png_xbox

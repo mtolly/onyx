@@ -12,12 +12,30 @@ audio:
   album-track:
     frames: 23628780
     md5: 6b0733955a9a3fe7cd686b4a1d34d8e2
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
-  plan:
+  album:
     song:
-      drop:
-      - 7:18.089
-      - concatenate: [album-prev, album-track]
+      fade:
+      - start
+      - 3
+      - drop:
+        - 7:18.089
+        - concatenate: [album-prev, album-track]
+    countin:
+      0|0:
+        gain: [0.45, hihat]
+      0|1:
+        gain: [0.18, hihat]
+      0|2:
+        gain: [0.18, hihat]
+      1|0:
+        gain: [0.45, hihat]
+      1|1:
+        gain: [0.18, hihat]
+      1|2:
+        gain: [0.18, hihat]
 parts:
   drums:
     drums:

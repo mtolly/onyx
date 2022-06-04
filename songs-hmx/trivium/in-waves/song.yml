@@ -5,11 +5,20 @@ parts:
       gender: male
       difficulty:
         rank: 215
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
   bass:
     grybo:
       fix-freeform: false
       difficulty:
         rank: 236
+    pro-guitar:
+      tuning:
+        # Ab Db Ab Db Gb (put on RS bass since Gb not used)
+        base: bass-5
+        global: -1
+        offsets: [-2, -2, 0, 0, 0]
   guitar:
     grybo:
       fix-freeform: false
@@ -30,6 +39,7 @@ parts:
       kit: Trashy Kit
       difficulty:
         rank: 345
+      mode: full
 plans:
   mogg:
     parts:
@@ -42,21 +52,25 @@ plans:
       keys: [8, 9]
     pans: [0, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [-0.5, -3.5, -3.5, -0.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
-    mogg-md5: e3892d703ca60b83518865f79d842ef4
-    # other version?
-    # mogg-md5: 211eded50d8077567fdc179b2f4ce083
+    file-mogg: audio.mogg
 targets:
   rb3:
     game: rb3
-    file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass] # top string not needed
+    label: (O) # distinguish from ODLC
 metadata:
   rating: FamilyFriendly # ...?
   preview-start: 29.788
@@ -65,10 +79,12 @@ metadata:
   key: C# minor
   album: In Waves
   year: 2011
-  author: Harmonix
+  author: Harmonix, Onyxite
   title: In Waves
   preview-end: 59.788
   genre: metal
   difficulty:
     rank: 273
   artist: Trivium
+global:
+  file-song-anim: song.anim

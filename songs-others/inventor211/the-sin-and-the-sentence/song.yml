@@ -1,0 +1,69 @@
+global:
+  anim-tempo: 64
+parts:
+  drums:
+    drums: # Inventor211
+      fix-freeform: false
+      kicks: 2
+      difficulty:
+        tier: 6
+  bass:
+    pro-guitar: # Onyxite
+      tuning:
+        base: bass-5
+        global: -1
+  guitar:
+    grybo: # Miscellany (CTH2)
+      difficulty:
+        tier: 6
+metadata:
+  track-number: 1
+  cat-emh: true
+  title: The Sin and the Sentence
+  author: Inventor211, Miscellany, Onyxite
+  year: 2017
+  album: The Sin and the Sentence
+  preview-start: 30
+  subgenre: metal
+  genre: metal
+  languages:
+  - English
+  preview-end: 1:00.000
+  difficulty:
+    tier: 6
+  artist: Trivium
+  file-album-art: cover.png_xbox
+plans:
+  mogg:
+    crowd:
+    - 4
+    - 5
+    file-mogg: audio.mogg
+    parts:
+      drums:
+      - 0
+      - 1
+    karaoke: false
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+targets:
+  rb3-2x:
+    game: rb3
+    label: (I)
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
