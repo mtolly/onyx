@@ -1,0 +1,54 @@
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+audio:
+  drums_1.ogg:
+    file-path: drums_1.ogg
+  vocals.ogg:
+    file-path: vocals.ogg
+  drums_4.ogg:
+    file-path: drums_4.ogg
+  crowd.ogg:
+    file-path: crowd.ogg
+  song.ogg:
+    file-path: song.ogg
+  drums_3.ogg:
+    file-path: drums_3.ogg
+  rhythm.ogg:
+    file-path: rhythm.ogg
+  guitar.ogg:
+    file-path: guitar.ogg
+  drums_2.ogg:
+    file-path: drums_2.ogg
+metadata:
+  title: Master of Puppets
+  author: Onyxite
+  year: 1986
+  album: Master of Puppets
+  genre: Thrash Metal
+  difficulty:
+    tier: 7
+  artist: Metallica
+  file-album-art: album.png
+plans:
+  fof:
+    crowd: crowd.ogg
+    parts:
+      bass: rhythm.ogg
+      drums:
+        kick: drums_1.ogg
+        kit:
+          mix:
+          - drums_3.ogg
+          - drums_4.ogg
+        snare: drums_2.ogg
+      guitar: guitar.ogg
+      vocal: vocals.ogg
+    song: song.ogg
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

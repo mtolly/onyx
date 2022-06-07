@@ -11,9 +11,13 @@ Skip to the Docker section at the bottom for Docker steps.
 
   * [`stack`](https://haskellstack.org/)
 
+  * Make sure submodules are cloned with `git submodule update --init`
+
 ## Windows
 
   * [NSIS](http://nsis.sourceforge.net/Main_Page)
+
+On Windows, [Git Bash](https://gitforwindows.org/) is recommended to run shell commands.
 
 After installing `stack`, make sure MSYS2 is updated with:
 

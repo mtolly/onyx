@@ -39,7 +39,12 @@ extra-deps:
   subdirs:
   - conduit-audio-mpg123
 - git: https://github.com/mtolly/fltkhs
-  commit: 29b885d01d264a954a5c04ef5812c456cd99ccc5
+  # from TheGreatConsolidation upstream branch with several edits:
+  # - updated fltk due to file picker bug in macos monterey
+  # - fix some bindings on all platforms due to that update
+  # - add some screen scale function bindings
+  # - put built fltk and c-lib under onyx's .stack-work, instead of /tmp
+  commit: 8de530f6e956bbb6e0a0e4a79a229461fd122ea1
   subdirs:
   - fltkhs
 - git: https://github.com/mtolly/midi-util

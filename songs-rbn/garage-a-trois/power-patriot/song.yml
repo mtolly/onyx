@@ -1,0 +1,86 @@
+global:
+  anim-tempo: 32
+parts:
+  drums:
+    drums:
+      kicks: 1
+      difficulty:
+        rank: 349
+      mode: full
+  guitar:
+    grybo:
+      difficulty:
+        rank: 194
+  bass:
+    grybo:
+      difficulty:
+        rank: 220
+metadata:
+  track-number: 5
+  title: Power Patriot
+  author: The Authority, Onyxite
+  year: 2009
+  album: Power Patriot
+  preview-start: 1:59.000
+  subgenre: postrock
+  genre: indierock
+  preview-end: 2:29.000
+  difficulty:
+    rank: 328
+  artist: Garage A Trois
+  file-album-art: cover.png_xbox
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    parts:
+      drums:
+        kick:
+        - 0
+        - 1
+        kit:
+        - 4
+        - 5
+        snare:
+        - 2
+        - 3
+      guitar:
+      - 8
+      - 9
+      bass:
+      - 6
+      - 7
+    karaoke: false
+    multitrack: true
+    vols:
+    - -2
+    - -2
+    - -3
+    - -3
+    - -3.5
+    - -3.5
+    - -4.5
+    - -4.5
+    - -4.5
+    - -4.5
+    - -4.5
+    - -4.5
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+    label: (O)

@@ -2,11 +2,14 @@ metadata:
   title: Swim to the Moon
   file-include: "../../../albums/the-great-misdirect.yml"
   track-number: 6
-  author: Grinnz
+  author: Grinnz, GHX
 parts:
-  drums:
+  drums: # Grinnz
     drums:
       kicks: 2
+  guitar: # GHX
+    # TODO: quantize, move keys parts to keys, any other edits
+    grybo: {}
 plans:
   album:
     song:
