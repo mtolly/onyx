@@ -1608,8 +1608,9 @@ batchPageGHWOR sink rect tab build = do
       ]
     return $ fromMaybe False <$> fn
   let getTargetSong isXbox usePath template = do
-        speed <- getSpeed
-        proTo4 <- getProTo4
+        speed <- stackIO getSpeed
+        proTo4 <- stackIO getProTo4
+        newPreferences <- readPreferences
         return $ \proj -> let
           hasPart p = isJust $ HM.lookup p (getParts $ _parts $ projectSongYaml proj) >>= partGRYBO
           pickedGuitar = listToMaybe $ filter hasPart
@@ -1633,7 +1634,7 @@ batchPageGHWOR sink rect tab build = do
             , gh5_Bass = fromMaybe (gh5_Bass defGH5) $ pickedBass <|> pickedGuitar
             , gh5_ProTo4 = proTo4
             }
-          fout = (if isXbox then trimXbox else id) $ T.unpack $ foldr ($) template
+          fout = (if isXbox then trimXbox newPreferences else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH5 tgt
             , let
               modifiers = T.concat
@@ -1648,12 +1649,12 @@ batchPageGHWOR sink rect tab build = do
     sink
     "Create Xbox 360 LIVE files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_ghwor")
-    (\template -> warnXboxGHWoR sink $ getTargetSong True GHWORLIVE template >>= build)
+    (\template -> warnXboxGHWoR sink $ getTargetSong True GHWORLIVE template >>= stackIO . build)
   makeTemplateRunner
     sink
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
-    (\template -> warnXboxGHWoR sink $ getTargetSong False GHWORPKG template >>= build)
+    (\template -> warnXboxGHWoR sink $ getTargetSong False GHWORPKG template >>= stackIO . build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -1679,7 +1680,7 @@ batchPageRB2 sink rect tab build = do
       , ("Both", KicksBoth, True)
       ]
     return $ fromMaybe KicksBoth <$> fn
-  let getTargetSong trimPath usePath template = do
+  let getTargetSong isXbox usePath template = do
         speed <- stackIO getSpeed
         preset <- stackIO getPreset
         kicks <- stackIO getKicks
@@ -1701,7 +1702,7 @@ batchPageRB2 sink rect tab build = do
             (Kicks1x  , _      ) -> [(False, "_1x")]
             (Kicks2x  , _      ) -> [(True , "_2x")]
             (KicksBoth, _      ) -> [(False, "_1x"), (True, "_2x")]
-          fout kicksLabel = trimPath $ T.unpack $ foldr ($) template
+          fout kicksLabel = (if isXbox then trimXbox newPreferences else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ RB2 tgt
             , let
               modifiers = T.concat
@@ -1725,12 +1726,12 @@ batchPageRB2 sink rect tab build = do
     sink
     "Create Xbox 360 CON files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_rb2con")
-    (\template -> sink $ EventOnyx $ getTargetSong trimXbox RB2CON template >>= stackIO . build)
+    (\template -> sink $ EventOnyx $ getTargetSong True RB2CON template >>= stackIO . build)
   makeTemplateRunner
     sink
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
-    (\template -> sink $ EventOnyx $ getTargetSong id RB2PKG template >>= stackIO . build)
+    (\template -> sink $ EventOnyx $ getTargetSong False RB2PKG template >>= stackIO . build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -1800,7 +1801,7 @@ warnCombineXboxGH2 sink go = sink $ EventOnyx $ do
     savePreferences prefs { prefWarnedXboxGH2 = True }
   stackIO go
 
-warnXboxGHWoR :: (Event -> IO ()) -> IO () -> IO ()
+warnXboxGHWoR :: (Event -> IO ()) -> Onyx () -> IO ()
 warnXboxGHWoR sink go = sink $ EventOnyx $ do
   prefs <- readPreferences
   stackIO $ unless (prefWarnedXboxWoR prefs) $ do
@@ -1813,7 +1814,7 @@ warnXboxGHWoR sink go = sink $ EventOnyx $ do
       , "Please back up any save data you care about before loading custom songs!"
       ]) "OK" Nothing Nothing
     savePreferences prefs { prefWarnedXboxWoR = True }
-  stackIO go
+  go
 
 gh2DrumChartSelector
   :: (Event -> IO ())
@@ -1899,7 +1900,7 @@ batchPageGH2 sink rect tab build = do
             , gh2_DrumChart = isJust drumChoice
             , gh2_2xBassPedal = fromMaybe False drumChoice
             }
-          fout = (if xbox then trimXbox else id) $ T.unpack $ foldr ($) template
+          fout = (if xbox then trimXbox newPrefs else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH2 tgt
             , let
               modifiers = T.pack $ case tgt_Speed $ gh2_Common tgt of
@@ -2164,7 +2165,9 @@ songPageRB3 sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt $ RB3CON $ trimXbox f
+          Just f  -> sink $ EventOnyx $ do
+            newPreferences <- readPreferences
+            stackIO $ build tgt $ RB3CON $ trimXbox newPreferences f
         _ -> return ()
     btn2 <- FL.buttonNew r2 $ Just "Create PS3 PKG file"
     FL.setCallback btn2 $ \_ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO $ do
@@ -2276,7 +2279,9 @@ songPageRB2 sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt $ RB2CON $ trimXbox f
+          Just f  -> sink $ EventOnyx $ do
+            newPreferences <- readPreferences
+            stackIO $ build tgt $ RB2CON $ trimXbox newPreferences f
         _ -> return ()
     btn2 <- FL.buttonNew r2 $ Just "Create PS3 PKG file"
     FL.setCallback btn2 $ \_ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO $ do
@@ -2369,7 +2374,9 @@ songPageGHWOR sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> warnXboxGHWoR sink $ build tgt $ GHWORLIVE $ trimXbox f
+          Just f  -> sink $ EventOnyx $ do
+            newPreferences <- readPreferences
+            stackIO $ warnXboxGHWoR sink $ stackIO $ build tgt $ GHWORLIVE $ trimXbox newPreferences f
         _ -> return ()
     btn2 <- FL.buttonNew r2 $ Just "Create PS3 PKG file"
     FL.setCallback btn2 $ \_ -> do
@@ -2381,7 +2388,7 @@ songPageGHWOR sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> warnXboxGHWoR sink $ build tgt $ GHWORPKG f
+          Just f  -> warnXboxGHWoR sink $ stackIO $ build tgt $ GHWORPKG f
         _ -> return ()
     color <- FLE.rgbColorWithRgb (179,221,187)
     FL.setColor btn1 color
@@ -2679,7 +2686,9 @@ songPageGH2 sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> warnCombineXboxGH2 sink $ build tgt $ GH2LIVE $ trimXbox f
+          Just f  -> sink $ EventOnyx $ do
+            newPreferences <- readPreferences
+            stackIO $ warnCombineXboxGH2 sink $ build tgt $ GH2LIVE $ trimXbox newPreferences f
         _ -> return ()
     color <- FLE.rgbColorWithRgb (179,221,187)
     FL.setColor btn2 color
@@ -2688,10 +2697,10 @@ songPageGH2 sink rect tab proj build = mdo
   return ()
 
 trimXbox
-  :: (?preferences :: Preferences)
-  => FilePath
+  :: Preferences
   -> FilePath
-trimXbox f = if prefTrimXbox ?preferences
+  -> FilePath
+trimXbox prefs f = if prefTrimXbox prefs
   then validFileName NameRuleXbox f
   else f
 
@@ -2743,7 +2752,7 @@ batchPageRB3 sink rect tab build = do
             (Kicks1x  , _      ) -> [(False, "_1x")]
             (Kicks2x  , _      ) -> [(True , "_2x")]
             (KicksBoth, _      ) -> [(False, "_1x"), (True, "_2x")]
-          fout kicksLabel = (if isXbox then trimXbox else id) $ T.unpack $ foldr ($) template
+          fout kicksLabel = (if isXbox then trimXbox newPreferences else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ RB3 tgt
             , let
               modifiers = T.concat
@@ -3818,14 +3827,18 @@ pageQuickConvert sink rect tab startTasks = mdo
     , ("Make Dolphin (Wii) pack"                                  , QCDolphin  )
     ] withQCMode
 
-  let quickTemplate :: FilePath -> T.Text -> T.Text -> Maybe QuickDTA -> FilePath
-      quickTemplate fin ext txt qdta = validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
+  let quickTemplate :: Preferences -> QuickConvertFormat -> FilePath -> T.Text -> T.Text -> Maybe QuickDTA -> FilePath
+      quickTemplate prefs fmt fin ext txt qdta = fixXbox $ validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
         [ T.intercalate (T.pack $ takeDirectory fin) . T.splitOn "%input_dir%"
         , T.intercalate (validFileNamePiece NameRulePC $ dropExt $ T.pack $ takeFileName fin) . T.splitOn "%input_base%"
         , T.intercalate ext . T.splitOn "%ext%"
-        , T.intercalate (maybe "" qdtaTitle qdta) . T.splitOn "%title%"
-        , T.intercalate (fromMaybe "" $ qdta >>= qdtaArtist) . T.splitOn "%artist%"
+        , T.intercalate (validFileNamePiece NameRulePC $ maybe "" qdtaTitle qdta) . T.splitOn "%title%"
+        , T.intercalate (validFileNamePiece NameRulePC $ fromMaybe "" $ qdta >>= qdtaArtist) . T.splitOn "%artist%"
         ] where dropExt f = fromMaybe f $ T.stripSuffix ".pkg" f
+                fixXbox = case fmt of
+                  QCFormatCON  -> trimXbox prefs
+                  QCFormatLIVE -> trimXbox prefs
+                  QCFormatPKG  -> id
 
       artistTitle qsong = T.intercalate " - " $ concat
         [ toList $ qdtaArtist $ quickSongDTA qsong
@@ -3937,6 +3950,7 @@ pageQuickConvert sink rect tab startTasks = mdo
         enc <- stackIO getEncrypt
         ps3Folder <- stackIO getFolderSetting
         midiTransform <- stackIO getMIDITransform
+        newPreferences <- readPreferences
         startTasks $ flip map files $ \qinput -> let
           fin = quickInputPath qinput
           qsongs = quickInputSongs qinput
@@ -3946,7 +3960,7 @@ pageQuickConvert sink rect tab startTasks = mdo
                   QCFormatCON  -> ""
                   QCFormatLIVE -> ""
                   QCFormatPKG  -> ".pkg"
-                fout = quickTemplate fin ext template Nothing
+                fout = quickTemplate newPreferences fmt fin ext template Nothing
                 isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
                 ps3Settings = QuickPS3Settings
                   { qcPS3Folder  = ps3Folder
@@ -4067,31 +4081,33 @@ pageQuickConvert sink rect tab startTasks = mdo
         midiTransform <- getMIDITransform
         askFolder (takeDirectory . quickInputPath <$> listToMaybe files) $ \dout -> do
           let inputSongs = files >>= \f -> map (f,) (quickInputSongs f)
-          sink $ EventOnyx $ startTasks $ flip map inputSongs $ \(qinput, qsong) -> let
-            ext = case fmt of
-              QCFormatCON  -> ""
-              QCFormatLIVE -> ""
-              QCFormatPKG  -> ".pkg"
-            fout = dout </> quickTemplate (quickInputPath qinput) ext template (Just $ quickSongDTA qsong)
-            isRB3 = qdtaRB3 $ quickSongDTA qsong
-            task = do
-              qsong' <- midiTransform qsong
-              let ps3Settings = QuickPS3Settings
-                    { qcPS3Folder  = Just QCSeparateFolders
-                    , qcPS3Encrypt = enc
-                    , qcPS3RB3     = isRB3
-                    }
-                  xboxSettings live = stackIO $
-                    (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                    (artistTitle qsong)
-                    ""
-                    live
-              case fmt of
-                QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
-                QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
-                QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
-              return [fout]
-            in (T.unpack $ artistTitle qsong, task)
+          sink $ EventOnyx $ do
+            newPreferences <- readPreferences
+            startTasks $ flip map inputSongs $ \(qinput, qsong) -> let
+              ext = case fmt of
+                QCFormatCON  -> ""
+                QCFormatLIVE -> ""
+                QCFormatPKG  -> ".pkg"
+              fout = dout </> quickTemplate newPreferences fmt (quickInputPath qinput) ext template (Just $ quickSongDTA qsong)
+              isRB3 = qdtaRB3 $ quickSongDTA qsong
+              task = do
+                qsong' <- midiTransform qsong
+                let ps3Settings = QuickPS3Settings
+                      { qcPS3Folder  = Just QCSeparateFolders
+                      , qcPS3Encrypt = enc
+                      , qcPS3RB3     = isRB3
+                      }
+                    xboxSettings live = stackIO $
+                      (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                      (artistTitle qsong)
+                      ""
+                      live
+                case fmt of
+                  QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
+                  QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
+                  QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
+                return [fout]
+              in (T.unpack $ artistTitle qsong, task)
 
   -- Wii (Dolphin) pack
   --   2nd row: checkbox for preview audio

@@ -44,7 +44,8 @@ extra-deps:
   # - fix some bindings on all platforms due to that update
   # - add some screen scale function bindings
   # - put built fltk and c-lib under onyx's .stack-work, instead of /tmp
-  commit: 8de530f6e956bbb6e0a0e4a79a229461fd122ea1
+  # - newer fltk also supports kdialog but I disabled that until it's more polished
+  commit: b141c8098e89b9be30244c068e7fefd302f4c5db
   subdirs:
   - fltkhs
 - git: https://github.com/mtolly/midi-util

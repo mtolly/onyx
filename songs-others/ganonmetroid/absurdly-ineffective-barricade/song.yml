@@ -1,0 +1,56 @@
+parts:
+  drums:
+    drums:
+      fix-freeform: false
+      kicks: 2
+      difficulty:
+        tier: 6
+  guitar:
+    pro-guitar:
+      tuning:
+        base: guitar-6
+        offsets: [-4, -2, 0, 0, 1, -2] # CGDGCD
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+        global: -2 # bass strings of bass/guitar hybrid appear to be DGCF
+        # TODO strings are not standard 440, and may not even be consistent.
+        # or, may have frets in odd places for microtonality.
+        # as a hack for RS, -25 cents seems to be ok?
+metadata:
+  track-number: 3
+  title: Absurdly Ineffective Barricade
+  author: GanonMetroid
+  year: 2017
+  album: Synchromysticism
+  preview-start: 1:06.816
+  subgenre: mathrock
+  genre: indierock
+  preview-end: 1:36.816
+  artist: Yowie
+  file-album-art: cover.png_xbox
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    parts:
+      drums:
+      - 0
+      - 1
+    karaoke: false
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: o855704185
