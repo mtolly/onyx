@@ -3,7 +3,6 @@ Supported platforms (all 64-bit), others may work but require extra setup:
   * Windows + MSYS2
   * macOS
   * Ubuntu Linux, including via Docker
-  * Arch/Manjaro Linux
 
 Skip to the Docker section at the bottom for Docker steps.
 

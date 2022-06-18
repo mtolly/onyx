@@ -40,6 +40,7 @@ case $(uname) in
       automake nasm make libtool autogen python
     ;;
   Darwin )
+    echo "macos detected"
     brew install autoconf automake dylibbundler m4 mpg123 openal-soft nasm pkg-config rubberband libtool autogen
     # brew caveat mentions adding openal-soft to PKG_CONFIG_PATH,
     # instead we'll hack it like so :)

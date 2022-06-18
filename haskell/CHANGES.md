@@ -1,5 +1,19 @@
 # Version history
 
+## 20220618
+
+* Improvements to audio playback, less likely to run out of audio
+  when playing multiple stems
+* Fix 3D preview on certain Linux systems such as the Steam Deck
+* Fix cases where Quick Convert would attempt to produce invalid filenames
+* Basic import of songs from Power Gig: Rise of the SixString
+  (currently guitar and drums only)
+* Add extracted Xbox 360 folder output option to GH2 pack tool
+* Fix some preferences not being applied to batch or song windows
+  until they were relaunched
+* Generated `.RPP` projects show color map in newer REAPER versions
+* Fix the conversion of some genre names (#193, #195)
+
 ## 20220319
 
 * Add custom USRDIR subfolder option to Quick Convert PS3 pack creator
