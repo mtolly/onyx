@@ -45,6 +45,7 @@ import           Data.Traversable
 import qualified Data.Vector                      as V
 import           DeriveHelpers
 import           GHC.Generics                     (Generic (..))
+import qualified Numeric.NonNegative.Class        as NNC
 import           OneFoot                          (phaseShiftKicks, rockBand1x,
                                                    rockBand2x)
 import           Preferences                      (MagmaSetting (..))
@@ -1619,7 +1620,7 @@ evalPreviewTime leadin getEvents song = \case
     $ U.unapplyMeasureMap (RBFile.s_signatures song) mb
   PreviewSection str -> addLeadin . U.applyTempoMap (RBFile.s_tempos song)
     <$> findSection str
-  where addLeadin = if leadin then max 0 . subtract 0.6 else id
+  where addLeadin = if leadin then (NNC.-| 0.6) else id
         findSection sect = getEvents >>= \f ->
           fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . snd)
             $ eventsSections $ f $ RBFile.s_tracks song

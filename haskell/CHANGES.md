@@ -13,6 +13,7 @@
   until they were relaunched
 * Generated `.RPP` projects show color map in newer REAPER versions
 * Fix the conversion of some genre names (#193, #195)
+* Fix some conversion errors when calculating song preview times
 
 ## 20220319
 

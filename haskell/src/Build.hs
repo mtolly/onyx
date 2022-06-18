@@ -2072,6 +2072,7 @@ gh2Rules buildInfo dir gh2 = do
     input <- shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
     audio <- computeGH2Audio songYaml gh2 hasAudio
+    -- TODO previewBounds doesn't account for padding due to early notes. not a big deal though
     let inner isDX2 = D.serialize (valueId D.stackChunks) $ makeGH2DTA
           songYaml
           key
