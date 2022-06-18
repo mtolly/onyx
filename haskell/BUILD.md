@@ -10,8 +10,6 @@ Skip to the Docker section at the bottom for Docker steps.
 
   * [`stack`](https://haskellstack.org/)
 
-  * Make sure submodules are cloned with `git submodule update --init`
-
 ## Windows
 
   * [NSIS](http://nsis.sourceforge.net/Main_Page)
@@ -37,7 +35,7 @@ After installing `stack`, make sure MSYS2 is updated with:
 
 # Build C dependencies
 
-1. `git submodule init && git submodule update`
+1. `git submodule update --init`
 
 2. `./pre-dependencies` (add `sudo` if necessary)
 

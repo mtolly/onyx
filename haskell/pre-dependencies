@@ -32,9 +32,10 @@ case $(uname) in
     ;;
   MINGW* )
     echo "windows detected"
-    # for some reason you need "mingw-w64-x86_64-pkg-config" for haskell to use,
-    # but just "pkg-config" so libsndfile configures right (seeing ogg/vorbis/flac/opus)
-    stack exec -- pacman -Sy mingw-w64-x86_64-pkg-config pkg-config \
+    # note, msys2 replaced pkg-config with pkgconf (but still has alias pkg-config).
+    # also for some reason you need "mingw-w64-x86_64-pkgconf" for haskell to use,
+    # but just "pkgconf" so libsndfile configures right (seeing ogg/vorbis/flac/opus).
+    stack exec -- pacman -Sy mingw-w64-x86_64-pkgconf pkgconf \
       mingw-w64-x86_64-openal mingw-w64-x86_64-rubberband \
       mingw-w64-x86_64-mpg123 wget tar unzip zip man autoconf \
       automake nasm make libtool autogen python
