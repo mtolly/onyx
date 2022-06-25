@@ -1,0 +1,69 @@
+global:
+  anim-tempo: 32
+parts:
+  drums:
+    drums:
+      mode: full
+      fix-freeform: false
+      kicks: 1
+      difficulty:
+        rank: 350
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 400
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 242
+    # pro-guitar:
+    #   tuning:
+    #     base: bass-4
+    #     global: -1 # Eb standard
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 400
+      count: 3 # harmonies by Espher (RBHP)
+metadata:
+  track-number: 1
+  title: Timmy & the Lords of the Underworld
+  author: Harmonix, Onyxite, Espher
+  year: 2000
+  album: Timmy & The Lords of the Underworld
+  preview-start: 2.45
+  genre: rock
+  preview-end: 30.6
+  difficulty:
+    rank: 380
+  rating: Supervision Recommended
+  artist: DVDA # changed from RB1
+  # TODO album art
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    parts:
+      drums:
+        kick: [0]
+        snare: [1]
+        kit: [2, 3]
+      bass: [4]
+      guitar: [5, 6]
+      vocal: [7, 8]
+    karaoke: false
+    multitrack: true
+    vols: [0, -3, -3, -3, -1.5, -4, -4, -2.5, -2.5, -4.5, -4.5]
+    pans: [0, 0, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  ps:
+    game: ps
+  # rs:
+  #   game: rs
+  #   arrangements:
+  #   - [bass, bass]

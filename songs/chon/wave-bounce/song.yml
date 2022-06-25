@@ -1,0 +1,13 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: 1
+audio:
+  album-track:
+    frames: 8021885
+    md5: 1a3b76db6145a2bc06d007420f79fd1e
+plans:
+  album:
+    song:
+      pad: [3.638, album-track]

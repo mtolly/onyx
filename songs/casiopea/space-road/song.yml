@@ -7,6 +7,8 @@ metadata:
   author: Onyxite
   genre: fusion
   subgenre: fusion
+  preview-start: prc_spacey_part_2
+  file-album-art: cover.jpg
 audio:
   album-track:
     md5: 1ab0468cc2347743636b4c4202a4dab8
@@ -16,17 +18,20 @@ audio:
 plans:
   album:
     countin:
+      1|0: hihat
+      1|2: hihat
       2|0: hihat
-      2|2: hihat
-      3|0: hihat
-      3|1: hihat
+      2|1: hihat
     song:
-      pad: [3.311, album-track]
+      pad:
+      - 3.311
+      - gain: [1.55, album-track] # +3.81 dB
 parts:
   drums:
     drums:
       kicks: 1
       mode: full
+      difficulty: 6
 targets:
   rb3:
     game: rb3
