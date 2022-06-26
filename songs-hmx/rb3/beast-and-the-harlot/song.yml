@@ -65,12 +65,14 @@ targets:
     # file-milo: lipsync-venue.milo_xbox
     # harmonix: true
     label: (O)
+    song-id: onyx_20220625_bath_1x
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     # file-milo: lipsync-venue.milo_xbox
     # harmonix: true
     label: (2x Bass Pedal) (O)
+    song-id: onyx_20220625_bath_2x
   ps:
     game: ps
 metadata:

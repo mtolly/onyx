@@ -3,11 +3,31 @@ parts:
     drums:
       mode: full
       kicks: 1
+      difficulty: 5
 audio:
   album-track:
     frames: 8021885
     md5: 1a3b76db6145a2bc06d007420f79fd1e
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
     song:
       pad: [3.638, album-track]
+metadata:
+  title: Wave Bounce
+  track-number: 12
+  file-include: ../../../albums/homey.yml
+  author: Onyxite
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps

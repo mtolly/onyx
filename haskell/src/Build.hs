@@ -1484,7 +1484,7 @@ rbRules buildInfo dir rb3 mrb2 = do
   pathMilo %> \out -> case getPart (rb3_Vocal rb3) songYaml >>= partVocal of
     -- TODO apply segment boundaries
     -- TODO add member assignments and anim style in BandSongPref, and anim style
-    -- TODO include rb3 format venue in milo (with speed/pad adjustments)
+    -- TODO include rb3 format venue in milo (with speed/pad adjustments) but only if dlc (not rbn2)
     Nothing   -> stackIO emptyMilo >>= \mt -> shk $ copyFile' mt out
     Just pvox -> do
       let srcs = case (vocalLipsyncRB3 pvox, vocalCount pvox) of

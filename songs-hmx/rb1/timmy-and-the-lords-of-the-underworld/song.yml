@@ -41,7 +41,8 @@ metadata:
     rank: 380
   rating: Supervision Recommended
   artist: DVDA # changed from RB1
-  # TODO album art
+  file-album-art: cover.png_xbox
+  key: Eb minor
 plans:
   mogg:
     file-mogg: audio.mogg
@@ -56,11 +57,13 @@ plans:
     karaoke: false
     multitrack: true
     vols: [0, -3, -3, -3, -1.5, -4, -4, -2.5, -2.5, -4.5, -4.5]
-    pans: [0, 0, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    # swapped pans to undo reverse drums
+    pans: [0, 0, 1, -1, 0, 1, -1, 1, -1, 1, -1]
 targets:
   rb3:
     game: rb3
     label: (O)
+    song-id: onyx_20220625_timmy
   ps:
     game: ps
   # rs:

@@ -3,11 +3,39 @@ parts:
     drums:
       mode: full
       kicks: 1
+      difficulty: 5
 audio:
   album-track:
     frames: 8353128
     md5: 10d937435433eb23c79156ffb191704c
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
-      pad: [2.546, album-track]
+      pad:
+      - 2.546
+      - gain: [1.55, album-track]
+metadata:
+  preview-start: prc_bridge_2
+  title: Time Limit
+  artist: Casiopea
+  album: Casiopea
+  year: 1979
+  track-number: 1
+  author: Onyxite
+  genre: fusion
+  subgenre: fusion
+  file-album-art: ../space-road/cover.jpg
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
