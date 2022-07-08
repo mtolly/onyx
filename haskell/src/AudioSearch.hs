@@ -220,7 +220,7 @@ searchJammit = searchCommon SearchJammit audioJammit
 
 searchInfo :: (SendMessage m, MonadIO m) =>
   FilePath -> AudioLibrary -> (T.Text -> StackTraceT m FilePath) -> AudioInfo FilePath -> StackTraceT m (Audio Duration FilePath)
-searchInfo dir lib buildDependency ainfo@AudioInfo{..} = let
+searchInfo dir alib@(AudioLibrary libVar) buildDependency ainfo@AudioInfo{..} = let
   finishFile p = do
     verifyFile ainfo p
     return $ case _rate of
@@ -229,7 +229,7 @@ searchInfo dir lib buildDependency ainfo@AudioInfo{..} = let
   in case _filePath of
     Nothing -> case _md5 of
       Nothing  -> fatal "No file-path or md5 specified for audio file"
-      Just md5 -> searchFile lib md5 >>= finishFile
+      Just md5 -> searchFile alib md5 >>= finishFile
     Just f -> do
       p <- getCurrentDir >>= \cwd -> resolveFile cwd f
       doesFileExist p >>= \case
@@ -246,9 +246,13 @@ searchInfo dir lib buildDependency ainfo@AudioInfo{..} = let
               return ("AUDIO(" <> var <> ")", T.pack $ "\"" <> built <> "\"")
             let replaceVar (from, to) c = T.intercalate to $ T.splitOn from c
                 newCommands = flip map _commands $ \c -> foldr replaceVar c variableMapping
+            -- take the mvar as a hack so we never run multiple commands
+            -- (or copies of the same command) at the same time
+            lib <- stackIO $ takeMVar libVar
             forM_ newCommands $ \c -> do
               out <- stackProcess (shell $ T.unpack c) { cwd = Just dir }
               lg $ "# " ++ T.unpack c ++ "\n" ++ out
+            stackIO $ putMVar libVar lib
             doesFileExist p >>= \case
               True -> return ()
               False -> fatal $ "File does not exist after running commands: " ++ toFilePath p

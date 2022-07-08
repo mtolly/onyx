@@ -1,0 +1,35 @@
+#!/bin/bash
+set -e
+set -u
+
+file_in=`readlink -f "$1"`
+file_out=`readlink -f "$2"`
+hash=`md5sum "$file_in" | awk '{print $1}'`
+temp_file="audio-$hash"
+demucs_dir="/stuff/git/docker-facebook-demucs" # edit as necessary
+start_dir="$(pwd)"
+
+if [[ -f "$file_out" ]]; then
+  # output already exists, no need to rerun
+  exit 0
+fi
+
+demucs_in="$demucs_dir/input/$temp_file.wav"
+demucs_out="$demucs_dir/output/mdx_extra_q/$temp_file"
+if [[ ! -d "$demucs_out" ]]; then
+  # stems don't already exist, so we need to run demucs
+  cp "$file_in" "$demucs_in"
+  cd $demucs_dir
+  make run track="$temp_file.wav"
+  rm -f "$demucs_in"
+fi
+rm -f "$file_out"
+# merge the 4 input files together channelwise, to make an 8-channel file
+env -u LD_LIBRARY_PATH ffmpeg \
+  -i "$demucs_out/bass.wav" \
+  -i "$demucs_out/drums.wav" \
+  -i "$demucs_out/vocals.wav" \
+  -i "$demucs_out/other.wav" \
+  -filter_complex "[0:a][1:a][2:a][3:a]amerge=inputs=4[a]" \
+  -map "[a]" \
+  "$file_out"

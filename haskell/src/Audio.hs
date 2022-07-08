@@ -39,7 +39,7 @@ module Audio
 , stereoPanRatios, fromStereoPanRatios, decibelDifferenceInPanRatios
 , emptyChannels
 , remapChannels
-, makeFSB4, makeFSB4', makeGH3FSB, makeXMAPieces
+, makeFSB4, makeFSB4', makeGH3FSB, makeXMAPieces, makeFSB3
 ) where
 
 import           Control.Concurrent               (threadDelay)
@@ -940,16 +940,9 @@ makeXMAPieces input = do
                 go (contents <> [newData]) $ startFrame + xmaSamples newData
     go [] 0
 
-makeGH3FSB :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
-makeGH3FSB gtr preview rhythm song fsb = do
+makeFSB3 :: (MonadIO m, SendMessage m) => [(B.ByteString, FilePath)] -> FilePath -> StackTraceT m ()
+makeFSB3 inputs fsb = do
   exe <- stackIO xma2encodeExe
-  let inputs =
-        -- don't think the names matter, just the positions
-        [ ("onyx_guitar.xma", gtr)
-        , ("onyx_preview.xma", preview)
-        , ("onyx_rhythm.xma", rhythm)
-        , ("onyx_song.xma", song)
-        ]
   inputs' <- forM inputs $ \(name, wav) -> do
     let xma = wav -<.> "xma"
     -- this is required for wine, otherwise it messes up the unix paths somehow.
@@ -967,3 +960,12 @@ makeGH3FSB gtr preview rhythm song fsb = do
   madeFSB <- toGH3FSB <$> xmasToFSB inputs'
   stackIO $ BL.writeFile fsb $ emitFSB madeFSB
   lg $ "Created XMA (Xbox 360) FSB3 at: " <> fsb
+
+makeGH3FSB :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
+makeGH3FSB gtr preview rhythm song = makeFSB3
+  -- don't think the names matter, just the positions
+  [ ("onyx_guitar.xma", gtr)
+  , ("onyx_preview.xma", preview)
+  , ("onyx_rhythm.xma", rhythm)
+  , ("onyx_song.xma", song)
+  ]

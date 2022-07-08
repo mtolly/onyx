@@ -1,0 +1,50 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: 1
+audio:
+  album-track:
+    frames: 6668747
+    md5: 18124aec68ade8b983cc4f03c83d6557
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [5.328, album-track]
+  dev:
+    song:
+      pad: [5.328, album-track]
+    parts:
+      bass:
+        pad: [5.328, channels: [[0, 1], stems]]
+      drums:
+        pad: [5.328, channels: [[2, 3], stems]]
+      vocal:
+        pad: [5.328, channels: [[4, 5], stems]]
+      other:
+        pad: [5.328, channels: [[6, 7], stems]]
+metadata:
+  title: Dream of Mahjong
+  artist: sungazer
+  album: sungazer vol. 1
+  author: Onyxite
+  genre: fusion
+  subgenre: fusion
+  year: 2014
+  file-album-art: ../sequence-start/cover.jpg
+  rating: FF
+  track-number: 2

@@ -7,10 +7,14 @@ metadata:
   genre: fusion
   subgenre: fusion
 audio:
-  youtube:
-    file-path: audio-youtube.wav
+  album-track:
+    md5: 75a9016519234dba5e22c77eadb012a5
+    frames: 15549660
+  stems:
+    file-path: audio-stems.wav
     commands:
-    - ../../../scripts/youtube bsaEopJc9HY 140
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -23,8 +27,24 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [2.746, youtube]
+      pad: [2.796, album-track]
+  dev:
+    song:
+      pad: [2.796, album-track]
+    parts:
+      bass:
+        pad: [2.796, channels: [[0, 1], stems]]
+      drums:
+        pad: [2.796, channels: [[2, 3], stems]]
+      vocal:
+        pad: [2.796, channels: [[4, 5], stems]]
+      other:
+        pad: [2.796, channels: [[6, 7], stems]]
 parts:
+  drums:
+    drums:
+      mode: full
+      kicks: 1
   bass:
     pro-guitar:
       tuning:
@@ -32,7 +52,14 @@ parts:
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
 targets:
+  rb3:
+    game: rb3
+    plan: album
+  ps:
+    game: ps
+    plan: album
   rs:
     game: rs
+    plan: album
     arrangements:
     - [bass, bass]

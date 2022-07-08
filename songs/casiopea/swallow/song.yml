@@ -1,0 +1,55 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: 1
+audio:
+  album-track:
+    frames: 11851728
+    md5: 9c1a1a324e44549afcff9ea809fd67cd
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+    song:
+      pad: [3.538, album-track]
+  dev:
+    song:
+      pad: [3.538, album-track]
+    parts:
+      bass:
+        pad: [3.538, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.538, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.538, channels: [[4, 5], stems]]
+      other:
+        pad: [3.538, channels: [[6, 7], stems]]
+metadata:
+  title: Swallow
+  artist: Casiopea
+  album: Casiopea
+  year: 1979
+  track-number: 6
+  author: Onyxite
+  genre: fusion
+  subgenre: fusion
+  file-album-art: ../space-road/cover.jpg
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  ps:
+    game: ps
+    plan: album

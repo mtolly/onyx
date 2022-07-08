@@ -1,0 +1,49 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: 1
+audio:
+  album-track:
+    frames: 10251780
+    md5: 92c4bb915f8ca753d78c9f76c6626cac
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
+    song:
+      pad: [3.684, album-track]
+  dev:
+    song:
+      pad: [3.684, album-track]
+    parts:
+      bass:
+        pad: [3.684, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.684, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.684, channels: [[4, 5], stems]]
+      other:
+        pad: [3.684, channels: [[6, 7], stems]]
+metadata:
+  title: All These People
+  track-number: 3
+  artist: sungazer
+  album: Perihelion
+  author: Onyxite
+  year: 2021
+  genre: fusion
+  subgenre: fusion
+  file-album-art: cover.jpg

@@ -5,7 +5,9 @@ set -u
 file_in=`mktemp -u audio-XXXXXXXX`
 file_out=${3:-audio-youtube.wav}
 
-youtube-dl "https://www.youtube.com/watch?v=$1" -f "$2" -o "$file_in"
+# fixup uses ffmpeg, this isn't required and breaks due to our own ffmpeg
+youtube-dl "https://www.youtube.com/watch?v=$1" -f "$2" -o "$file_in" --fixup never
 rm -f "$file_out"
-ffmpeg -i "$file_in" "$file_out"
+# now we call real (external) ffmpeg so we need to disable our own
+env -u LD_LIBRARY_PATH ffmpeg -i "$file_in" "$file_out"
 rm -f "$file_in"

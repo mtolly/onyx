@@ -10,6 +10,8 @@ module GUI.FLTK (launchGUI) where
 
 import           Audio                                     (Audio (..),
                                                             buildSource',
+                                                            makeFSB3,
+                                                            makeXMAPieces,
                                                             runAudio)
 import           Build                                     (NameRule (..),
                                                             hashRB3,
@@ -155,6 +157,7 @@ import           RockBand.Score
 import           RockBand.SongCache                        (hardcodeSongCacheIDs)
 import           RockBand3                                 (BasicTiming (..))
 import qualified Sound.File.Sndfile                        as Snd
+import           Sound.FSB                                 (emitFSB, ghBandFSB)
 import qualified Sound.MIDI.Util                           as U
 import qualified STFS.Package                              as STFS
 import qualified System.Directory                          as Dir
@@ -4140,8 +4143,10 @@ miscPageMOGG
   -> IO ()
 miscPageMOGG sink rect tab startTasks = mdo
   loadedAudio <- newMVar []
-  let (filesRect, startRect) = chopBottom 50 rect
-      [chopRight 5 -> (moggRect, _), chopLeft 5 -> (_, vgsRect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
+  let (filesRect, startRect) = chopBottom 95 rect
+      (startRect1, startRect2) = chopBottom 50 startRect
+      [chopRight 5 -> (moggRect, _), chopLeft 5 -> (_, vgsRect)] = splitHorizN 2 $ trimClock 5 10 5 10 startRect1
+      [chopRight 5 -> (fsb3Rect, _), chopLeft 5 -> (_, fsb4Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect2
       isSingleOgg = \case
         [aud] | audioFormat aud == "Ogg Vorbis" -> Just aud
         _                                       -> Nothing
@@ -4156,9 +4161,21 @@ miscPageMOGG sink rect tab startTasks = mdo
               Nothing -> "Combine into MOGG"
             in op <> " (" <> T.pack (show chans) <> " channels)"
           FL.setLabel btnVgs $ "Combine into VGS (" <> T.pack (show chans) <> " channels)"
+          FL.setLabel btnFsb3 $ T.concat
+            [ "Make FSB3-XMA ("
+            , T.pack $ show $ length newAudio
+            , " streams, "
+            , T.pack $ show chans
+            , " channels total)"
+            ]
+          FL.setLabel btnFsb4 $ T.concat
+            [ "Make FSB4-XMA ("
+            , T.pack $ show chans
+            , " channels)"
+            ]
           if chans == 0
-            then mapM_ FL.deactivate [btnMogg, btnVgs]
-            else mapM_ FL.activate   [btnMogg, btnVgs]
+            then mapM_ FL.deactivate [btnMogg, btnVgs, btnFsb3, btnFsb4]
+            else mapM_ FL.activate   [btnMogg, btnVgs, btnFsb3, btnFsb4]
   group <- fileLoadWindow filesRect sink "Audio" "Audio" modifyAudio []
     (\f -> liftIO $ ([],) . toList <$> getAudioSpec f)
     $ \info -> let
@@ -4244,6 +4261,74 @@ miscPageMOGG sink rect tab startTasks = mdo
               stackIO $ runResourceT $ writeVGSMultiRate f' $ map (mapSamples integralSample) srcs
               return [f']
             in [("VGS file creation", task)]
+      _ -> return ()
+
+  btnFsb3 <- FL.buttonNew fsb3Rect Nothing
+  taskColor >>= FL.setColor btnFsb3
+  FL.setResizable tab $ Just group
+  FL.setCallback btnFsb3 $ \_ -> sink $ EventIO $ do
+    audio <- readMVar loadedAudio
+    picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+    FL.setTitle picker "Save FSB3 file"
+    case audio of
+      [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory $ audioPath aud
+      _     -> return ()
+    FL.setFilter picker "*.fsb"
+    FL.setPresetFile picker $ case audio of
+      [aud] -> T.pack $ takeFileName (audioPath aud) -<.> "fsb"
+      _     -> "out.fsb"
+    FL.showWidget picker >>= \case
+      FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+        Nothing -> return ()
+        Just f  -> let
+          ext = map toLower $ takeExtension f
+          f' = if ext == ".fsb"
+            then f
+            else f <.> "fsb"
+          in sink $ EventOnyx $ startTasks $ let
+            task = tempDir "makefsb3" $ \tmp -> do
+              wavs <- forM (zip [0..] audio) $ \(i, aud) -> do
+                src <- buildSource' $ Input $ audioPath aud
+                let wav = tmp </> show (i :: Int) <.> "wav"
+                runAudio src wav
+                return wav
+              makeFSB3 [ (B8.pack $ takeFileName wav, wav) | wav <- wavs ] f'
+              return [f']
+            in [("FSB3 file creation", task)]
+      _ -> return ()
+
+  btnFsb4 <- FL.buttonNew fsb4Rect Nothing
+  taskColor >>= FL.setColor btnFsb4
+  FL.setResizable tab $ Just group
+  FL.setCallback btnFsb4 $ \_ -> sink $ EventIO $ do
+    audio <- readMVar loadedAudio
+    picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+    FL.setTitle picker "Save FSB4 file"
+    case audio of
+      [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory $ audioPath aud
+      _     -> return ()
+    FL.setFilter picker "*.fsb"
+    FL.setPresetFile picker $ case audio of
+      [aud] -> T.pack $ takeFileName (audioPath aud) -<.> "fsb"
+      _     -> "out.fsb"
+    FL.showWidget picker >>= \case
+      FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+        Nothing -> return ()
+        Just f  -> let
+          ext = map toLower $ takeExtension f
+          f' = if ext == ".fsb"
+            then f
+            else f <.> "fsb"
+          in sink $ EventOnyx $ startTasks $ let
+            task = tempDir "makefsb4" $ \tmp -> do
+              let wav = tmp </> "audio.wav"
+              audio' <- maybe (fatal "Panic! No audio files") return $ NE.nonEmpty audio
+              src <- buildSource' $ Merge $ fmap (Input . audioPath) audio'
+              runAudio src wav
+              fsb <- makeXMAPieces (Right wav) >>= ghBandFSB
+              stackIO $ BL.writeFile f' $ emitFSB fsb
+              return [f']
+            in [("FSB4 file creation", task)]
       _ -> return ()
 
 miscPageMIDI
