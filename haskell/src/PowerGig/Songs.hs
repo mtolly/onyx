@@ -2,11 +2,13 @@
 {-# LANGUAGE RecordWildCards   #-}
 module PowerGig.Songs where
 
+import           Codec.Compression.GZip         (decompress)
 import           Control.Monad.Codec
 import           Control.Monad.Codec.Onyx.XML
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
+import qualified Data.ByteString                as B
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
@@ -18,17 +20,19 @@ import qualified Data.Vector                    as V
 import           Rocksmith.CST                  (cstSpaceW3)
 import           Text.XML.Light                 (parseXMLDoc)
 
-findSongKeys :: Folder T.Text Readable -> IO [T.Text]
-findSongKeys dir = case findFile ("Scripting" :| ["Songs.lua"]) dir of
+loadDiscSongKeys :: Folder T.Text Readable -> IO [T.Text]
+loadDiscSongKeys dir = case findFile ("Scripting" :| ["Songs.lua"]) dir of
   Nothing -> return []
-  Just r -> do
-    bs <- useHandle r handleToByteString
-    return $ do
-      ln <- T.lines $ TE.decodeLatin1 $ BL.toStrict bs
-      toList $ T.stripPrefix "song:SetKey(" (T.strip ln)
-        >>= T.stripSuffix ")"
-        >>= T.stripPrefix "\"" . T.strip
-        >>= T.stripSuffix "\""
+  Just r  -> findSongKeys . BL.toStrict <$> useHandle r handleToByteString
+
+-- Reads Scripting/Songs.lua from game, or AddContent.lua in DLC
+findSongKeys :: B.ByteString -> [T.Text]
+findSongKeys bs = do
+  ln <- T.lines $ TE.decodeLatin1 bs
+  toList $ T.stripPrefix "song:SetKey(" (T.strip ln)
+    >>= T.stripSuffix ")"
+    >>= T.stripPrefix "\"" . T.strip
+    >>= T.stripSuffix "\""
 
 loadSongXML :: (MonadIO m, SendMessage m) => T.Text -> Folder T.Text Readable -> StackTraceT m Song
 loadSongXML k dir = inside ("Loading PowerGig song XML for: " <> show k) $ do
@@ -37,7 +41,19 @@ loadSongXML k dir = inside ("Loading PowerGig song XML for: " <> show k) $ do
     Nothing -> fatal "Couldn't find XML file"
     Just r -> do
       bs <- stackIO $ useHandle r handleToByteString
-      elt <- maybe (fatal "Couldn't parse XML") return $ parseXMLDoc $ TE.decodeUtf8 $ BL.toStrict bs
+      -- gzip compression seen in PS3 version (not 360) but also Tornado of Souls unreleased DLC (360)
+      xml <- if BL.take 4 bs == "CMP1"
+        then let
+          -- find start of gzip file. seems to vary (16 in Tornado, 18 in most PS3 disc, 20 in PS3 The Devil Cried)
+          gzipMagic = BL.pack [0x1F, 0x8B]
+          loop trimming = if gzipMagic `BL.isPrefixOf` trimming
+            then return $ decompress trimming
+            else if BL.null trimming
+              then fatal $ "Couldn't find where to gzip-decompress " <> T.unpack k <> ".xml file"
+              else loop $ BL.drop 1 trimming
+          in loop bs
+        else return bs
+      elt <- maybe (fatal "Couldn't parse XML") return $ parseXMLDoc $ TE.decodeUtf8 $ BL.toStrict xml
       mapStackTraceT (`runReaderT` elt) $ codecIn $ isTag "song" $ parseInside' insideCodec
 
 -- song.xsd

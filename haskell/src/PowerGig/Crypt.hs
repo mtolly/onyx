@@ -363,12 +363,15 @@ extractFolder base dir dest = withPKFiles base dir (`saveHandleFolder` dest)
 
 -- Each Readable opens the correct .pk* file itself.
 connectPKFiles
-  :: FilePath
+  :: Folder T.Text Readable
+  -> FilePath
   -> Folder B.ByteString PKReference
   -> Folder T.Text Readable
-connectPKFiles base dir = let
-  pkNums = nubOrd $ map pkArchive $ toList dir
-  pkReadables = [ fileReadable $ base <> ".pk" <> show i | i <- pkNums ]
+connectPKFiles extTree base pkTree = let
+  pkNums = nubOrd $ map pkArchive $ toList pkTree
+  pkReadables = do
+    i <- pkNums
+    toList $ findFile (return $ T.pack $ base <> ".pk" <> show i) extTree
   pkMapping = Map.fromList $ zip pkNums pkReadables
   getPK i = fromMaybe (error "panic! .pk not found") $ Map.lookup i pkMapping
   getReadable ref = subHandle id (pkOffset ref) (Just $ pkLength ref) (getPK $ pkArchive ref)
@@ -377,4 +380,4 @@ connectPKFiles base dir = let
     Nothing    -> if ".lua" `T.isSuffixOf` name
       then (name, transformBytes (fromMaybe (error "Couldn't decrypt .lua file") . decryptE2 . BL.toStrict) r)
       else (name, r)
-  in modifyFiles decrypt $ bimap TE.decodeLatin1 getReadable dir
+  in modifyFiles decrypt $ bimap TE.decodeLatin1 getReadable pkTree

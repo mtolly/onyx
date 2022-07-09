@@ -12,7 +12,7 @@ import           Config
 import           Control.Monad                    (forM, guard, unless)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
-import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Lazy             as BL
 import           Data.Default.Class               (def)
 import           Data.DTA.Serialize.Magma         (Gender (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -22,7 +22,7 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (listToMaybe)
 import           Data.SimpleHandle                (Folder, Readable,
                                                    byteStringSimpleHandle,
-                                                   findFileCI,
+                                                   findFile, findFileCI,
                                                    handleToByteString,
                                                    makeHandle, useHandle)
 import qualified Data.Text                        as T
@@ -47,21 +47,26 @@ import           Sound.FSB                        (XMAContents (..),
                                                    markXMAPacketStreams,
                                                    parseXMA, splitXMA2Packets,
                                                    writeXMA2Packets)
-import           System.FilePath                  (dropExtension)
 
-importPowerGig :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [Import m]
-importPowerGig hdrE2 = do
-  let base = dropExtension $ dropExtension $ dropExtension hdrE2 -- drop ".hdr.e.2"
-  hdr <- stackIO $ B.readFile hdrE2 >>= decryptE2 >>= readHeader
-  let folder = connectPKFiles base $ getFolder hdr
-  keys <- stackIO $ findSongKeys folder
-  forM keys $ \key -> do
+importPowerGig :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [Import m]
+importPowerGig sourceDir = do
+  hdr <- case findFile (return "Data.hdr.e.2") sourceDir of
+    Nothing -> fatal "Data.hdr.e.2 not found"
+    Just r  -> stackIO (useHandle r handleToByteString) >>= decryptE2 . BL.toStrict >>= readHeader
+  let folder = connectPKFiles sourceDir "Data" $ getFolder hdr
+  discKeys <- stackIO $ loadDiscSongKeys folder
+  dlcKeys <- stackIO $ case findFile (return "AddContent.lua") sourceDir of
+    Nothing -> return []
+    Just r  -> findSongKeys . BL.toStrict <$> useHandle r handleToByteString
+  forM (discKeys <> dlcKeys) $ \key -> do
     song <- loadSongXML key folder
     return $ importPowerGigSong key song folder
 
 importPowerGigSong :: (SendMessage m, MonadIO m) => T.Text -> Song -> Folder T.Text Readable -> Import m
 importPowerGigSong key song folder level = do
 
+  -- TODO we need to read .gev! .mid are probably not actually used by the game
+  -- since they are not present in the PS3 version at all.
   mid <- case level of
     ImportQuick -> return emptyChart
     ImportFull -> case findFileCI ("Audio" :| ["songs", key, audio_midi $ song_audio song]) folder of

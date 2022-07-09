@@ -174,6 +174,11 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               foundImports "Guitar Hero (Neversoft) (360)" loc imps
             else return ([], [])
           , importRSXbox folder >>= foundImports "Rocksmith" loc
+          , case findFile (return "Data.hdr.e.2") folder of
+            Just _ -> do
+              imps <- importPowerGig folder
+              foundImports "Power Gig (Xbox 360 DLC)" loc imps
+            Nothing -> return ([], [])
           ]
       foundRS psarc = importRS (fileReadable psarc) >>= foundImports "Rocksmith" psarc
       foundRSPS3 edat = do
@@ -204,8 +209,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         let imp level = parseGPX loc >>= \gpif -> importGPIF gpif level
         foundImports "Guitar Pro (.gpx)" loc [imp]
       foundPowerGig loc = do
-        imps <- importPowerGig loc
-        foundImports "PowerGig" loc imps
+        dir <- stackIO $ crawlFolder $ takeDirectory loc
+        imps <- importPowerGig dir
+        foundImports "Power Gig (Xbox 360)" loc imps
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         let single = null $ drop 1 imports
