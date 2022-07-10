@@ -14,8 +14,9 @@ import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Default.Class               (def)
-import           Data.DTA.Serialize.Magma         (Gender (..))
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.NonEmpty               (NonEmpty (..), nonEmpty)
 import qualified Data.Map                         as Map
@@ -29,24 +30,22 @@ import qualified Data.Text                        as T
 import qualified Data.Vector                      as V
 import           Guitars
 import           Import.Base
-import qualified Numeric.NonNegative.Class        as NNC
 import           PowerGig.Crypt
-import           PowerGig.MIDI
+import           PowerGig.GEV
 import           PowerGig.Songs
 import qualified RockBand.Codec.Drums             as D
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
-import qualified RockBand.Codec.Vocal             as V
-import           RockBand.Codec.Vocal             (Pitch)
-import           RockBand.Common                  (Difficulty (..), Edge (..),
-                                                   StrumHOPOTap (..),
-                                                   edgeBlips_, pattern RNil,
-                                                   pattern Wait)
+import           RockBand.Common                  (Difficulty (..),
+                                                   StrumHOPOTap (..))
 import           Sound.FSB                        (XMAContents (..),
                                                    extractXMAStream, makeXMAs,
                                                    markXMAPacketStreams,
-                                                   parseXMA, splitXMA2Packets,
+                                                   parseXMA, splitMultitrackFSB,
+                                                   splitXMA2Packets,
                                                    writeXMA2Packets)
+import qualified Sound.MIDI.Util                  as U
+import           STFS.Package                     (runGetM)
 
 importPowerGig :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [Import m]
 importPowerGig sourceDir = do
@@ -65,66 +64,112 @@ importPowerGig sourceDir = do
 importPowerGigSong :: (SendMessage m, MonadIO m) => T.Text -> Song -> Folder T.Text Readable -> Import m
 importPowerGigSong key song folder level = do
 
-  -- TODO we need to read .gev! .mid are probably not actually used by the game
-  -- since they are not present in the PS3 version at all.
-  mid <- case level of
-    ImportQuick -> return emptyChart
-    ImportFull -> case findFileCI ("Audio" :| ["songs", key, audio_midi $ song_audio song]) folder of
-      Nothing -> fatal "Couldn't find MIDI file"
-      Just r  -> RBFile.loadRawMIDIReadable r >>= RBFile.readMIDIFile' . fixLateTrackNames
-    -- TODO some songs (not all) have markers that could be turned into sections.
-    -- * cherub rock: no markers
-    -- * been caught stealing: duplicate section name markers, "Fill" markers that should be ignored
-    -- * crack the skye: mostly ok, except one dev note "Start here, medium drums, Tuesday" :)
+  -- we need to read .gev, since .mid are not present in PS3 version at all
+  maybeGEV <- case level of
+    ImportQuick -> return Nothing
+    ImportFull -> do
+      gevPath <- case T.stripSuffix ".mid" (audio_midi $ song_audio song) of
+        Just base -> return $ "Audio" :| ["songs", key, base <> ".gev"]
+        Nothing   -> fatal "<midi> value doesn't end in .mid"
+      fmap Just $ case findFileCI gevPath folder of
+        Nothing -> fatal "Couldn't find .gev file"
+        Just r  -> stackIO (useHandle r handleToByteString) >>= runGetM readGEV
+  let tempo = maybe (U.makeTempoMap RTB.empty) getMIDITempos maybeGEV
+      gevTracks = Map.fromList $ do
+        gev <- toList maybeGEV
+        gels <- V.toList $ gelhGELS $ gevGELH gev
+        name <- toList $ getString (gelsTrackName gels) gev
+        return (name, gels)
+  -- TODO some midis (not all) have markers that could be turned into sections.
+  -- * cherub rock: no markers
+  -- * been caught stealing: duplicate section name markers, "Fill" markers that should be ignored
+  -- * crack the skye: mostly ok, except one dev note "Start here, medium drums, Tuesday" :)
   let onyxFile = mempty
         { RBFile.onyxParts = Map.fromList
           [ (RBFile.FlexGuitar, mempty
             { RBFile.onyxPartGuitar = mempty
               { F.fiveDifficulties = Map.fromList
-                [ (Easy  , getGuitar pd_easy   pgGuitarEasy  )
-                , (Medium, getGuitar pd_medium pgGuitarMedium)
-                , (Hard  , getGuitar pd_hard   pgGuitarHard  )
-                , (Expert, getGuitar pd_expert pgGuitarExpert)
+                [ (Easy  , getGuitarGEV "guitar_1_easy"  )
+                , (Medium, getGuitarGEV "guitar_1_medium")
+                , (Hard  , getGuitarGEV "guitar_1_hard"  )
+                , (Expert, getGuitarGEV "guitar_1_expert")
                 ]
-              , F.fiveOverdrive = RTB.merge
-                (guitarMojoDrummer  $ pgGuitarExpert $ RBFile.s_tracks mid)
-                (guitarMojoVocalist $ pgGuitarExpert $ RBFile.s_tracks mid)
+              , F.fiveOverdrive = case Map.lookup "guitar_1_expert" gevTracks of
+                Nothing  -> RTB.empty
+                Just trk -> RTB.merge (getController 81 trk) (getController 82 trk)
               }
             })
           , (RBFile.FlexDrums, mempty
             { RBFile.onyxPartDrums = mempty
               { D.drumDifficulties = Map.fromList
-                [ (Easy  , getDrums pgDrumsEasy  )
-                , (Medium, getDrums pgDrumsMedium)
-                , (Hard  , getDrums pgDrumsHard  )
-                , (Expert, getDrums pgDrumsExpert)
+                [ (Easy  , getDrumsGEV "drums_1_easy"  )
+                , (Medium, getDrumsGEV "drums_1_medium")
+                , (Hard  , getDrumsGEV "drums_1_hard"  )
+                , (Expert, getDrumsGEV "drums_1_expert")
                 ]
-              , D.drumOverdrive = RTB.merge
-                (drumMojoGuitarist $ pgDrumsExpert $ RBFile.s_tracks mid)
-                (drumMojoVocalist  $ pgDrumsExpert $ RBFile.s_tracks mid)
+              , D.drumOverdrive = case Map.lookup "drums_1_expert" gevTracks of
+                Nothing  -> RTB.empty
+                Just trk -> RTB.merge (getController 80 trk) (getController 82 trk)
               }
             })
           , (RBFile.FlexVocal, mempty
-            { RBFile.onyxPartVocals = getVocals $ pgVocalsExpert $ RBFile.s_tracks mid
+            { RBFile.onyxPartVocals = mempty -- TODO
             })
           ]
         , RBFile.onyxBeat = mempty -- TODO
         }
-      getDrums f = let
-        pg = f $ RBFile.s_tracks mid
-        in mempty
-          -- TODO handle lanes
-          { D.drumGems = flip RTB.mapMaybe (drumGems pg) $ \case
-            EdgeOn () gem -> Just (gem, D.VelocityNormal)
-            EdgeOff _     -> Nothing
-          }
-      getGuitar getSustDiff getMIDIDiff = let
-        pg = getMIDIDiff $ RBFile.s_tracks mid
-        minLen = case inst_sustain_threshold (audio_guitar $ song_audio song) >>= getSustDiff of
-          Just ticks -> fromIntegral ticks / 960
-          Nothing    -> 1 -- TODO figure out what it actually is
-        in emit5' $ fmap (\(hopo, (color, mlen)) -> ((color, if hopo then HOPO else Strum), mlen))
-          $ applyStatus1 False (guitarHOPO pg) $ edgeBlips_ minLen $ guitarGems pg
+      getDrumsGEV trackName = case Map.lookup trackName gevTracks of
+        Nothing  -> mempty
+        Just trk -> let
+          notes = RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+            evt <- V.toList $ gelsGEVT trk
+            guard $ gevtType evt == 2
+            bits <- toList $ findBits guitarDrumBit $ gevtGameBits evt
+            guard $ elem Bit_StandardNote bits
+            let time = secsToBeats $ gevtTime evt
+            -- TODO handle sustain
+            drum <- concat
+              [ [D.Kick            | elem Bit_Orange bits]
+              , [D.Red             | elem Bit_Red    bits]
+              , [D.Pro D.Yellow () | elem Bit_Yellow bits]
+              , [D.Pro D.Blue   () | elem Bit_Blue   bits]
+              , [D.Pro D.Green  () | elem Bit_Green  bits]
+              ]
+            return (time, (drum, D.VelocityNormal))
+          in mempty
+            { D.drumGems = notes
+            }
+      secsToBeats :: Float -> U.Beats
+      secsToBeats = U.unapplyTempoMap tempo . realToFrac
+      getController n trk = RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+        evt <- V.toList $ gelsGEVT trk
+        guard $ gevtType evt == 4 && gevtData1 evt == n
+        return (secsToBeats $ gevtTime evt, gevtData2 evt /= 0)
+      getGuitarGEV trackName = emit5' $ case Map.lookup trackName gevTracks of
+        Nothing  -> RTB.empty
+        Just trk -> let
+          hopos = getController 68 trk
+          notes = RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+            evt <- V.toList $ gelsGEVT trk
+            guard $ gevtType evt == 2
+            bits <- toList $ findBits guitarDrumBit $ gevtGameBits evt
+            guard $ elem Bit_StandardNote bits
+            let start = secsToBeats $ gevtTime evt
+                sustain = case gevtSustain evt of
+                  0 -> Nothing
+                  s -> Just $ secsToBeats (gevtTime evt + s) - start
+            color <- concat
+              [ [Nothing | not $ any (`elem` bits) [Bit_Green, Bit_Red, Bit_Yellow, Bit_Blue, Bit_Orange]]
+              , [Just F.Green   | elem Bit_Green  bits]
+              , [Just F.Red     | elem Bit_Red    bits]
+              , [Just F.Yellow  | elem Bit_Yellow bits]
+              , [Just F.Blue    | elem Bit_Blue   bits]
+              , [Just F.Orange  | elem Bit_Orange bits]
+              ]
+            return (start, (color, sustain))
+          in fmap (\(hopo, (color, sustain)) -> ((color, if hopo then HOPO else Strum), sustain))
+            $ applyStatus1 False hopos notes
+      {-
       getVocals pg = let
         notes = RTB.mapMaybe (\(freestyle, pitchBool) -> guard (not freestyle) >> Just pitchBool)
           $ applyStatus1 False (vocalFreestyle pg)
@@ -140,7 +185,14 @@ importPowerGigSong key song folder level = do
           -- TODO vocalGlue (add dashes, except for +; and do it before talky hash)
           -- TODO put OD on phrases from mojo
           }
-      onyxMid = mid { RBFile.s_tracks = onyxFile }
+      -}
+      onyxMid = RBFile.Song
+        { RBFile.s_tempos     = tempo
+        -- unfortunately .gev does not contain time sig info (_cue.gev has the gevtType = 20 events, but no data!)
+        -- maybe we can optionally look for .mid just to load time sigs?
+        , RBFile.s_signatures = U.measureMapFromLengths U.Error RTB.empty
+        , RBFile.s_tracks     = onyxFile
+        }
 
   combinedAudio <- case audio_combined_audio $ song_audio song of
     Nothing -> fatal "No combined_audio in XML"
@@ -149,36 +201,55 @@ importPowerGigSong key song folder level = do
     (n, 0) -> return n
     _      -> fatal $ "Expected an even num_channels for combined_audio, but found " <> show (ca_num_channels combinedAudio)
   let xboxAudio = ca_xbox360_file combinedAudio >>= T.stripSuffix ".e.2"
-  (rate, samples, packetsPerBlock, xmas) <- case level of
-    ImportQuick -> return (44100, 0, 32, replicate streamCount []) -- probably doesn't matter but powergig uses 44100 Hz and 32-packet XMA blocks
+      ps3Audio  = T.stripSuffix ".e.2" (ca_file combinedAudio)
+      useXboxAudio rate samples packetsPerBlock xmas = do
+        xmaBytes <- stackIO $ makeXMAs $ flip map xmas $ \xma -> XMAContents
+          { xmaChannels = 2
+          , xmaRate     = rate
+          , xmaSamples  = samples
+          , xmaPacketsPerBlock = packetsPerBlock
+          , xmaSeekTable = Nothing
+          , xmaData     = writeXMA2Packets xma
+          }
+        return $ flip map (zip [0..] xmaBytes) $ \(i, bs) -> let
+          name = "stream-" <> show (i :: Int)
+          filename = name <> ".xma"
+          afile = AudioFile AudioInfo
+            { _md5 = Nothing
+            , _frames = Nothing
+            , _filePath = Just $ SoftFile filename $ SoftReadable
+              $ makeHandle filename $ byteStringSimpleHandle bs
+            , _commands = []
+            , _rate = Nothing
+            , _channels = 2
+            }
+          in (T.pack name, afile)
+  audio <- case level of
+    ImportQuick -> useXboxAudio 44100 0 32 $ replicate streamCount [] -- probably doesn't matter but powergig uses 44100 Hz and 32-packet XMA blocks
     ImportFull -> case xboxAudio >>= \x -> findFileCI ("Audio" :| ["songs", key, x]) folder of
-      Nothing -> fatal "Couldn't find Xbox 360 (XMA) audio, PS3 not supported yet"
       Just r -> do
         xma <- stackIO (useHandle r handleToByteString) >>= parseXMA
         packets <- fmap markXMAPacketStreams $ splitXMA2Packets $ xmaData xma
         let ppblk = xmaPacketsPerBlock xma
-        return (xmaRate xma, xmaSamples xma, xmaPacketsPerBlock xma, map (\i -> extractXMAStream ppblk i packets) [0 .. streamCount - 1])
-  xmaBytes <- stackIO $ makeXMAs $ flip map xmas $ \xma -> XMAContents
-    { xmaChannels = 2
-    , xmaRate     = rate
-    , xmaSamples  = samples
-    , xmaPacketsPerBlock = packetsPerBlock
-    , xmaSeekTable = Nothing
-    , xmaData     = writeXMA2Packets xma
-    }
-  let audio = flip map (zip [0..] xmaBytes) $ \(i, bs) -> let
-        name = "stream-" <> show (i :: Int)
-        filename = name <> ".xma"
-        afile = AudioFile AudioInfo
-          { _md5 = Nothing
-          , _frames = Nothing
-          , _filePath = Just $ SoftFile filename $ SoftReadable
-            $ makeHandle filename $ byteStringSimpleHandle bs
-          , _commands = []
-          , _rate = Nothing
-          , _channels = 2
-          }
-        in (T.pack name, afile)
+        useXboxAudio (xmaRate xma) (xmaSamples xma) (xmaPacketsPerBlock xma)
+          $ map (\i -> extractXMAStream ppblk i packets) [0 .. streamCount - 1]
+      Nothing -> case ps3Audio >>= \x -> findFileCI ("Audio" :| ["songs", key, x]) folder of
+        Just r -> do
+          mp3s <- stackIO $ useHandle r handleToByteString >>= splitMultitrackFSB
+          return $ flip map (zip [0..] mp3s) $ \(i, bs) -> let
+            name = "stream-" <> show (i :: Int)
+            filename = name <> ".mp3"
+            afile = AudioFile AudioInfo
+              { _md5 = Nothing
+              , _frames = Nothing
+              , _filePath = Just $ SoftFile filename $ SoftReadable
+                $ makeHandle filename $ byteStringSimpleHandle bs
+              , _commands = []
+              , _rate = Nothing
+              , _channels = 2
+              }
+            in (T.pack name, afile)
+        Nothing -> fatal "Couldn't find either Xbox 360 or PS3 format audio"
 
   let getPlanAudio f = do
         let inst = f $ song_audio song
@@ -295,6 +366,7 @@ importPowerGigSong key song folder level = do
           , drumsFullLayout  = FDStandard
           }
         })
+      {-
       , (RBFile.FlexVocal, def
         { partVocal = Just PartVocal
           { vocalDifficulty = Tier 1 -- TODO
@@ -307,6 +379,7 @@ importPowerGigSong key song folder level = do
           , vocalLipsyncRB3 = Nothing
           }
         })
+      -}
       ]
     , _targets = HM.empty
     }
@@ -317,6 +390,7 @@ data PhraseEvent
   | PhraseEnd
   deriving (Eq, Ord)
 
+{-
 -- TODO this doesn't handle slides at phrase ends right, see m62 of Crack the Skye
 drawPhrases :: (NNC.C t) => RTB.T t (Pitch, Bool) -> RTB.T t () -> RTB.T t Bool
 drawPhrases notes phraseEnd = let
@@ -342,3 +416,4 @@ drawPhrases notes phraseEnd = let
   goEndingPhrase (Wait t _ rest)             = RTB.delay t $ goEndingPhrase rest -- shouldn't happen?
   goEndingPhrase RNil                        = RTB.singleton NNC.zero False -- shouldn't happen?
   in goNoPhrase events
+-}

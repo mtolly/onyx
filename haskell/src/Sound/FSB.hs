@@ -434,6 +434,8 @@ splitMultitrackFSB bs = do
 -- Only works on a CBR MP3 with no ID3 tags
 mp3CBRFrameSize :: BL.ByteString -> Maybe Int64
 mp3CBRFrameSize bs = do
+  -- replace with BL.indexMaybe after we upgrade to bytestring 0.11.0.0
+  guard $ BL.length bs >= 3
   let byte1 = BL.index bs 1
       byte2 = BL.index bs 2
   mpegVersion <- case (byte1 .&. 0x18) `shiftR` 3 of
@@ -473,7 +475,13 @@ mp3CBRFrameSize bs = do
   -- Previously this used an algorithm from http://www.datavoyage.com/mpgscript/mpeghdr.htm
   -- But it gave wrong results at low bit/sample rates, so now this is from
   -- https://www.codeproject.com/articles/8295/mpeg-audio-frame-header
-  return $ round $ (samplesPerFrame / 8 * bitRate) / sampleRate + padding
+  -- Also previously used round, but floor is necessary for importing Power Gig PS3
+  return $ floor $ (samplesPerFrame / 8 * bitRate) / sampleRate + padding
+
+trimMP3Frame :: BL.ByteString -> BL.ByteString
+trimMP3Frame bs = case mp3CBRFrameSize bs of
+  Nothing   -> bs -- dunno
+  Just size -> BL.take size bs
 
 splitInterleavedMP3 :: (MonadFail m) => Int64 -> BL.ByteString -> m [BL.ByteString]
 splitInterleavedMP3 1 bs = return [bs]
@@ -481,9 +489,14 @@ splitInterleavedMP3 n bs = do
   frameSize <- case mp3CBRFrameSize bs of
     Nothing -> fail "Couldn't parse frame size of interleaved MP3 to split apart"
     Just size -> return size
-  let getPart i = BL.concat $ takeWhile (not . BL.null) $ do
-        j <- [i * frameSize, (i + n) * frameSize ..]
-        return $ BL.take frameSize $ BL.drop j bs
+  -- need to round up to 0x10, as seen in Power Gig PS3 (44100 Hz, 192 kbps)
+  let roundedFrameSize = case quotRem frameSize 0x10 of
+        (_, 0) -> frameSize
+        (x, _) -> (x + 1) * 0x10
+      getPart i = BL.concat $ takeWhile (not . BL.null) $ do
+        j <- [i * roundedFrameSize, (i + n) * roundedFrameSize ..]
+        -- actual frame size differs in Power Gig PS3, so we need to trim each one to its specific size
+        return $ trimMP3Frame $ BL.take roundedFrameSize $ BL.drop j bs
   return $ map getPart [0 .. n - 1]
 
 interleaveMP3 :: (MonadFail m) => [BL.ByteString] -> m BL.ByteString
@@ -718,11 +731,11 @@ xmasToFSB xmas = do
           , fsbSongSamples    = fromIntegral $ xmaSamples xma
           , fsbSongDataSize   = 0
           , fsbSongLoopStart  = 0
-          , fsbSongLoopEnd    = maxBound -- should be -1
-          , fsbSongMode       = 0x5000000
-          , fsbSongSampleRate = fromIntegral $ xmaRate xma
-          , fsbSongDefVol     = 255
-          , fsbSongDefPan     = 128
+          , fsbSongLoopEnd    = maxBound -- should be -1. for RR, fsbSongSamples - 1
+          , fsbSongMode       = 0x5000000 -- for RR, 0x1002040
+          , fsbSongSampleRate = fromIntegral $ xmaRate xma -- 48000 in RR
+          , fsbSongDefVol     = 255 -- 1 in RR
+          , fsbSongDefPan     = 128 -- 0 in RR
           , fsbSongDefPri     = 128
           , fsbSongChannels   = fromIntegral $ xmaChannels xma
 
@@ -732,9 +745,9 @@ xmasToFSB xmas = do
           , fsbExtra = Left FSBExtraXMA
             { fsbXMAUnknown1 = 0
             , fsbXMAUnknown2 = 0
-            , fsbXMAUnknown3 = 0
-            , fsbXMAUnknown4 = 0
-            , fsbXMAUnknown5 = 0
+            , fsbXMAUnknown3 = 0 -- RR 32
+            , fsbXMAUnknown4 = 0 -- RR 0x5ac6c22 but not consistent
+            , fsbXMAUnknown5 = 0 -- RR 19
             , fsbXMAUnknown6 = 8 + 4 * lenSeekTable
             , fsbXMAUnknown7 = fromIntegral (xmaChannels xma + 1) `quot` 2
             , fsbXMAUnknown8 = lenSeekTable + 1

@@ -1,17 +1,24 @@
 {-
 Preprocessed version of MIDI file
 -}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module PowerGig.GEV where
 
-import           Control.Monad   (forM_)
+import           Control.Monad                    (forM_, guard)
 import           Data.Binary.Get
 import           Data.Binary.Put
-import qualified Data.ByteString as B
+import           Data.Bits                        ((.&.))
+import qualified Data.ByteString                  as B
+import qualified Data.EventList.Absolute.TimeBody as ATB
+import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Int
-import qualified Data.Vector     as V
+import qualified Data.Vector                      as V
 import           Data.Word
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
+import qualified Sound.MIDI.Util                  as U
 
 data GEV = GEV
   { gevPCMC :: PCMC
@@ -54,40 +61,85 @@ data GEVT = GEVT
   , gevtData2    :: Word32 -- velocity of note, controller value. if unused (anything else) uses whatever it was last event. inconsistent for first event (track name), seen 0x26afef4, 0x27afef4
   } deriving (Show)
 
+-- Bits used for note data on guitar (incl. power chord) and drums
+data GuitarDrumBit
+  = Bit_StandardNote -- guitar notes outside of PC sections, non-PC-only notes in PC sections, all drums
+  | Bit_Green
+  | Bit_Red
+  | Bit_Yellow
+  | Bit_Blue
+  | Bit_Orange
+  | Bit_FreestyleOpen -- not seen, guessing
+  | Bit_FreestyleGreen
+  | Bit_FreestyleRed
+  | Bit_FreestyleYellow
+  | Bit_FreestyleBlue
+  | Bit_FreestyleOrange
+  | Bit_PowerChordOnly -- by itself, power-chord-only open note. but also present with GY chords in crack the skye
+  | Bit_PowerChordOnlyGreen
+  | Bit_PowerChordOnlyRed
+  | Bit_PowerChordOnlyYellow
+  | Bit_PowerChordOnlyBlue
+  | Bit_PowerChordOnlyOrange
+  | Bit_PowerChordE0
+  | Bit_PowerChordE2
+  | Bit_PowerChordE3
+  | Bit_PowerChordE4
+  | Bit_PowerChordE5
+  | Bit_PowerChordE6
+  | Bit_PowerChordA0
+  | Bit_PowerChordA2
+  | Bit_PowerChordA3
+  | Bit_PowerChordA4
+  | Bit_PowerChordA5
+  | Bit_PowerChordA6
+  deriving (Eq, Show, Enum, Bounded)
+
+guitarDrumBit :: GuitarDrumBit -> Int32
+guitarDrumBit = \case
+  Bit_StandardNote         ->        0x1
+  Bit_Green                ->        0x2
+  Bit_Red                  ->        0x4
+  Bit_Yellow               ->        0x8
+  Bit_Blue                 ->       0x10
+  Bit_Orange               ->       0x20
+  Bit_FreestyleOpen        ->       0x40
+  Bit_FreestyleGreen       ->       0x80
+  Bit_FreestyleRed         ->      0x100
+  Bit_FreestyleYellow      ->      0x200
+  Bit_FreestyleBlue        ->      0x400
+  Bit_FreestyleOrange      ->      0x800
+  Bit_PowerChordOnly       ->     0x1000
+  Bit_PowerChordOnlyGreen  ->     0x2000
+  Bit_PowerChordOnlyRed    ->     0x4000
+  Bit_PowerChordOnlyYellow ->     0x8000
+  Bit_PowerChordOnlyBlue   ->    0x10000
+  Bit_PowerChordOnlyOrange ->    0x20000
+  Bit_PowerChordE0         ->    0x40000
+  Bit_PowerChordE2         ->    0x80000
+  Bit_PowerChordE3         ->   0x100000
+  Bit_PowerChordE4         ->   0x200000
+  Bit_PowerChordE5         ->   0x400000
+  Bit_PowerChordE6         ->   0x800000
+  Bit_PowerChordA0         ->  0x1000000
+  Bit_PowerChordA2         ->  0x2000000
+  Bit_PowerChordA3         ->  0x4000000
+  Bit_PowerChordA4         ->  0x8000000
+  Bit_PowerChordA5         -> 0x10000000
+  Bit_PowerChordA6         -> 0x20000000
+
+findBits :: (Enum a, Bounded a) => (a -> Int32) -> Int32 -> Maybe [a]
+findBits _ (-1) = Nothing
+findBits f n    = Just $ do
+  x <- [minBound .. maxBound]
+  guard $ n .&. f x /= 0
+  return x
+
 {-
 gevtGameBits explanation
 
 bits (guitar/drums)
-       1 on if non-power-chord note
-       2 green
-       4 red
-       8 yellow
-      10 blue
-      20 orange
-      40 (freestyle open?)
-      80 freestyle green
-     100 freestyle red
-     200 freestyle yellow
-     400 freestyle blue
-     800 freestyle orange
-    1000 power chord only open
-    2000 power chord only green
-    4000 power chord only red
-    8000 power chord only yellow
-   10000 power chord only blue
-   20000 power chord only orange
-   40000 E 0 power chord
-   80000 E 2 power chord
-  100000 E 3 power chord
-  200000 E 4 power chord
-  400000 E 5 power chord
-  800000 E 6 power chord
- 1000000 A 0 power chord
- 2000000 A 2 power chord
- 4000000 A 3 power chord
- 8000000 A 4 power chord
-10000000 A 5 power chord
-20000000 A 6 power chord
+  see mapping above
 
 for power chord notes there are two separate GEVT for the PC and non PC events
 
@@ -270,8 +322,25 @@ debugPrintGEV GEV{..} = do
   print gevPCMC
   printVector "GELS" (gelhGELS gevGELH) $ \gels -> do
     print gels { gelsGEVT = V.empty }
-    printVector "GEVT" (gelsGEVT gels) print
+    printVector "GEVT" (gelsGEVT gels) $ \gevt -> do
+      print gevt
+      print $ findBits guitarDrumBit $ gevtGameBits gevt
   printVector "String" (strhData gevSTRH) $ \offset -> do
     print $ B.takeWhile (/= 0) $ B.drop (fromIntegral offset) $ strsData gevSTRS
   print gevTMPO { tmpoEvents = V.empty }
   printVector "TMPOEvent" (tmpoEvents gevTMPO) print
+
+getMIDITempos :: GEV -> U.TempoMap
+getMIDITempos gev
+  = U.makeTempoMap
+  $ RTB.fromAbsoluteEventList
+  $ ATB.fromPairList
+  $ flip map (V.toList $ tmpoEvents $ gevTMPO gev) $ \e -> let
+    posn = fromIntegral (tmpoEventTicks e) / fromIntegral (tmpoResolution $ gevTMPO gev)
+    event = E.MetaEvent $ Meta.SetTempo $ fromIntegral $ tmpoEventUSPQN e
+    in (posn, event)
+
+getString :: Word32 -> GEV -> Maybe B.ByteString
+getString i gev = do
+  offset <- strhData (gevSTRH gev) V.!? fromIntegral i
+  return $ B.takeWhile (/= 0) $ B.drop (fromIntegral offset) $ strsData $ gevSTRS gev
