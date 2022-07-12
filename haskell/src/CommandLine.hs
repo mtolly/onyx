@@ -50,7 +50,8 @@ import           Data.List.Extra                  (find, stripSuffix, unsnoc)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
-import           Data.SimpleHandle                (byteStringSimpleHandle,
+import           Data.SimpleHandle                (Folder (..),
+                                                   byteStringSimpleHandle,
                                                    crawlFolder, makeHandle,
                                                    saveHandleFolder)
 import qualified Data.Text                        as T
@@ -82,6 +83,7 @@ import           OSFiles                          (copyDirRecursive,
                                                    shortWindowsPath)
 import           PlayStation.PKG                  (PKG (..), loadPKG, makePKG,
                                                    tryDecryptEDATs)
+import qualified PowerGig.Crypt                   as PG
 import           PrettyDTA                        (readRB3DTA)
 import           ProKeysRanges                    (closeShiftsFile)
 import           Reaper.Build                     (TuningInfo (..), makeReaper)
@@ -194,6 +196,7 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
     ".zip" -> return $ FileType FileZip fp
     ".chart" -> return $ FileType FileChart fp
     ".psarc" -> return $ FileType FilePSARC fp
+    ".2" | ".hdr.e.2" `T.isSuffixOf` T.toLower (T.pack $ takeFileName fp) -> return $ FileType FileHdrE2 fp
     _ -> case takeFileName fp of
       "song.ini" -> return $ FileType FilePS fp
       _ -> do
@@ -254,6 +257,7 @@ data FileType
   | FilePSARC
   | FileMilo
   | FilePKG
+  | FileHdrE2
   deriving (Eq, Ord, Show)
 
 identifyFile' :: (MonadIO m) => FilePath -> StackTraceT m (FileType, FilePath)
@@ -298,6 +302,7 @@ buildTarget yamlPath opts = do
         GH5   {} -> undefined -- TODO
         RS    {} -> undefined -- TODO
         DTX   {} -> undefined -- TODO
+        PG    {} -> undefined -- TODO
         Melody{} -> undefined -- TODO
         Konga {} -> undefined -- TODO
   shakeBuildFiles audioDirs yamlPath [built]
@@ -405,6 +410,7 @@ commands =
                 GH5   {} -> undefined -- TODO
                 RS    {} -> undefined -- TODO
                 DTX   {} -> undefined -- TODO
+                PG    {} -> undefined -- TODO
                 Melody{} -> undefined -- TODO
                 Konga {} -> undefined -- TODO
           doInstall ftype' built
@@ -614,7 +620,56 @@ commands =
         folder <- stackIO (loadPKG pkg) >>= tryDecryptEDATs . pkgFolder
         stackIO $ saveHandleFolder (first TE.decodeLatin1 folder) out
         return out
+      (FileHdrE2, hdrE2) -> do
+        let base = takeWhile (/= '.') $ takeFileName hdrE2
+        out <- outputFile opts $ return $ takeDirectory hdrE2 </> (base <> "_extract")
+        hdr <- stackIO (B.readFile hdrE2) >>= PG.decryptE2 >>= PG.readHeader
+        stackIO $ do
+          tree <- crawlFolder $ takeDirectory hdrE2
+          let connected = (if elem OptDecrypt opts then PG.decryptPKContents else id)
+                $ PG.connectPKFiles tree base $ PG.getFolder hdr
+          saveHandleFolder connected out
+          Dir.createDirectoryIfMissing False $ out </> "onyx-repack"
+          writeFile (out </> "onyx-repack/hdr.txt") $ show $ PG.fh_Header hdr
+        return out
       p -> fatal $ "Unexpected file type given to extractor: " <> show p
+    }
+
+  , Command
+    { commandWord = "pack-powergig"
+    , commandDesc = "Pack a folder into Data.hdr.e.2 and Data.pk0."
+    , commandUsage = ""
+    , commandRun = \args opts -> case args of
+      [dir] -> do
+        (folder, pk) <- stackIO $ crawlFolder dir >>= PG.makeNewPK 0
+        let folder' = folder
+              { folderSubfolders = filter (\(name, _) -> name /= "onyx-repack") $ folderSubfolders folder
+              }
+            existingHdr = dir </> "onyx-repack/hdr.txt"
+        header <- stackIO (Dir.doesFileExist existingHdr) >>= \case
+          True -> do
+            txt <- stackIO $ readFile existingHdr
+            maybe (fatal "Couldn't read hdr.txt") return $ readMaybe txt
+          False -> return PG.PGHeader
+            { PG.h_Magic             = 0x745
+            , PG.h_Version           = 1
+            , PG.h_BlockSize         = 1 -- ?
+            , PG.h_NumFiles          = 0 -- filled in later
+            , PG.h_Unk1              = 44
+            , PG.h_NumDirs           = 0 -- filled in later
+            , PG.h_Unk2              = 0 -- ?
+            , PG.h_NumStrings        = 0 -- filled in later
+            , PG.h_StringTableOffset = 0 -- filled in later
+            , PG.h_StringTableSize   = 0 -- filled in later
+            , PG.h_NumOffsets        = 0 -- filled in later
+            }
+        hdrE2 <- PG.encryptE2 $ BL.toStrict $ PG.buildHeader $ PG.rebuildFullHeader header folder'
+        let pathHdr = takeDirectory dir </> "Data.hdr.e.2"
+            pathPk = takeDirectory dir </> "Data.pk0"
+        stackIO $ BL.writeFile pathHdr hdrE2
+        stackIO $ BL.writeFile pathPk pk
+        return [pathHdr, pathPk]
+      _ -> fatal "Expected 1 arg (folder to pack)"
     }
 
   , Command
@@ -1445,6 +1500,7 @@ optDescrs =
   , Option []   ["venuegen"       ] (NoArg  OptVenueGen                       ) ""
   , Option []   ["index"          ] (ReqArg (OptIndex . read)      "int"      ) ""
   , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
+  , Option []   ["decrypt"        ] (NoArg  OptDecrypt                        ) ""
   ] where
     readGame = \case
       "rb3"   -> GameRB3
@@ -1474,6 +1530,7 @@ data OnyxOption
   | OptVenueGen
   | OptIndex Int
   | OptHelp
+  | OptDecrypt
   deriving (Eq, Ord, Show)
 
 applyMidiFunction

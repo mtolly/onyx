@@ -48,7 +48,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           PlayStation.PKG                  (loadPKG, makePKG, pkgFolder,
                                                    tryDecryptEDAT)
 import           Resources                        (getResourcesPath,
-                                                   ghWoRthumbnail)
+                                                   ghWoRThumbnail)
 import           RockBand.Codec                   (mapTrack)
 import           RockBand.Codec.Beat
 import qualified RockBand.Codec.Drums             as D
@@ -734,7 +734,7 @@ saveMetadataLIVE library fout = let
     }
 
   in do
-    thumb <- ghWoRthumbnail >>= B.readFile
+    thumb <- ghWoRThumbnail >>= B.readFile
     makeCONReadable CreateOptions
       { createNames = packageTitles
       , createDescriptions = packageDescs

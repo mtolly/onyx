@@ -174,11 +174,11 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               foundImports "Guitar Hero (Neversoft) (360)" loc imps
             else return ([], [])
           , importRSXbox folder >>= foundImports "Rocksmith" loc
-          , case findFile (return "Data.hdr.e.2") folder of
-            Just _ -> do
-              imps <- importPowerGig folder
+          , case mapMaybe (\(name, _) -> T.stripSuffix ".hdr.e.2" name) $ folderFiles folder of
+            []    -> return ([], [])
+            bases -> do
+              imps <- concat <$> mapM (importPowerGig folder) bases
               foundImports "Power Gig (Xbox 360 DLC)" loc imps
-            Nothing -> return ([], [])
           ]
       foundRS psarc = importRS (fileReadable psarc) >>= foundImports "Rocksmith" psarc
       foundRSPS3 edat = do
@@ -210,7 +210,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         foundImports "Guitar Pro (.gpx)" loc [imp]
       foundPowerGig loc = do
         dir <- stackIO $ crawlFolder $ takeDirectory loc
-        imps <- importPowerGig dir
+        let base = T.takeWhile (/= '.') $ T.pack $ takeFileName loc
+        imps <- importPowerGig dir base
         foundImports "Power Gig (Xbox 360)" loc imps
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path

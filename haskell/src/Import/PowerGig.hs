@@ -20,7 +20,7 @@ import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.NonEmpty               (NonEmpty (..), nonEmpty)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (listToMaybe)
+import           Data.Maybe                       (catMaybes, listToMaybe)
 import           Data.SimpleHandle                (Folder, Readable,
                                                    byteStringSimpleHandle,
                                                    findFile, findFileCI,
@@ -32,6 +32,7 @@ import           Guitars
 import           Import.Base
 import           PowerGig.Crypt
 import           PowerGig.GEV
+import           PowerGig.MIDI
 import           PowerGig.Songs
 import qualified RockBand.Codec.Drums             as D
 import qualified RockBand.Codec.File              as RBFile
@@ -47,12 +48,13 @@ import           Sound.FSB                        (XMAContents (..),
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package                     (runGetM)
 
-importPowerGig :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [Import m]
-importPowerGig sourceDir = do
-  hdr <- case findFile (return "Data.hdr.e.2") sourceDir of
-    Nothing -> fatal "Data.hdr.e.2 not found"
+importPowerGig :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> T.Text -> StackTraceT m [Import m]
+importPowerGig sourceDir base = do
+  let hdrName = base <> ".hdr.e.2"
+  hdr <- case findFile (return hdrName) sourceDir of
+    Nothing -> fatal $ T.unpack hdrName <> " not found"
     Just r  -> stackIO (useHandle r handleToByteString) >>= decryptE2 . BL.toStrict >>= readHeader
-  let folder = connectPKFiles sourceDir "Data" $ getFolder hdr
+  let folder = decryptPKContents $ connectPKFiles sourceDir (T.unpack base) $ getFolder hdr
   discKeys <- stackIO $ loadDiscSongKeys folder
   dlcKeys <- stackIO $ case findFile (return "AddContent.lua") sourceDir of
     Nothing -> return []
@@ -71,9 +73,17 @@ importPowerGigSong key song folder level = do
       gevPath <- case T.stripSuffix ".mid" (audio_midi $ song_audio song) of
         Just base -> return $ "Audio" :| ["songs", key, base <> ".gev"]
         Nothing   -> fatal "<midi> value doesn't end in .mid"
-      fmap Just $ case findFileCI gevPath folder of
-        Nothing -> fatal "Couldn't find .gev file"
-        Just r  -> stackIO (useHandle r handleToByteString) >>= runGetM readGEV
+      case findFileCI gevPath folder of
+        Nothing -> return Nothing
+        Just r  -> fmap Just $ stackIO (useHandle r handleToByteString) >>= runGetM readGEV
+  -- TODO also load midi, so we can read from weird unreleased "LargePackTest" and also get time sigs on 360 at least
+  -- maybeMid <- case level of
+  --   ImportQuick -> return Nothing
+  --   ImportFull -> case findFileCI ("Audio" :| ["songs", key, audio_midi $ song_audio song]) folder of
+  --     Nothing -> return Nothing
+  --     Just r  -> fmap Just $ RBFile.loadRawMIDIReadable r >>= RBFile.readMIDIFile' . fixLateTrackNames
+  -- TODO maybe just warn if level is ImportFull and there's no gev or midi found
+
   let tempo = maybe (U.makeTempoMap RTB.empty) getMIDITempos maybeGEV
       gevTracks = Map.fromList $ do
         gev <- toList maybeGEV
@@ -286,17 +296,18 @@ importPowerGigSong key song folder level = do
             -- (Negative infinity comes via fromStereoPanRatios for an unused drum channel in Hold On)
             -- After upgrading to aeson >= 2.0.0.0 this won't be necessary (will serialize to "-inf" string)
             fixNegativeInfinity = max (-99)
-        channels' <- maybe (fatal "No channels") return $ nonEmpty channels
-        return $ PlanAudio
-          { _planExpr = Merge channels'
-          , _planPans = map realToFrac pans
-          , _planVols = map (fixNegativeInfinity . realToFrac) vols
-          }
+        case nonEmpty channels of
+          Nothing -> return Nothing
+          Just ne -> return $ Just PlanAudio
+            { _planExpr = Merge ne
+            , _planPans = map realToFrac pans
+            , _planVols = map (fixNegativeInfinity . realToFrac) vols
+            }
 
   audioBacking <- getPlanAudio audio_backing_track
-  audioGuitar  <- PartSingle <$> getPlanAudio audio_guitar
-  audioDrums   <- PartSingle <$> getPlanAudio audio_drums
-  audioVocals  <- PartSingle <$> getPlanAudio audio_vocals
+  audioGuitar  <- fmap PartSingle <$> getPlanAudio audio_guitar
+  audioDrums   <- fmap PartSingle <$> getPlanAudio audio_drums
+  audioVocals  <- fmap PartSingle <$> getPlanAudio audio_vocals
 
   return SongYaml
     { _metadata = Metadata
@@ -328,12 +339,12 @@ importPowerGigSong key song folder level = do
     , _jammit = HM.empty
     , _audio = HM.fromList audio
     , _plans = HM.singleton "powergig" Plan
-      { _song = Just audioBacking
+      { _song = audioBacking
       , _countin = Countin []
-      , _planParts = Parts $ HM.fromList
-        [ (RBFile.FlexGuitar, audioGuitar)
-        , (RBFile.FlexDrums , audioDrums )
-        , (RBFile.FlexVocal , audioVocals)
+      , _planParts = Parts $ HM.fromList $ catMaybes
+        [ (RBFile.FlexGuitar,) <$> audioGuitar
+        , (RBFile.FlexDrums ,) <$> audioDrums
+        , (RBFile.FlexVocal ,) <$> audioVocals
         ]
       , _crowd = Nothing
       , _planComments = []

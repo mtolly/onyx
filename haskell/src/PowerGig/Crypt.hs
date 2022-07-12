@@ -96,16 +96,16 @@ encryptE2 input = do
 data PGHeader = PGHeader
   { h_Magic             :: Word32 -- 0x745
   , h_Version           :: Word32 -- 1
-  , h_BlockSize         :: Word32
+  , h_BlockSize         :: Word32 -- 2048 in 360 disc, 1 in PS3 disc and 360 tornado of souls
   , h_NumFiles          :: Word32
-  , h_Unk1              :: Word32
+  , h_Unk1              :: Word32 -- always 44? (in 360 disc, PS3 disc, 360 tornado of souls)
   , h_NumDirs           :: Word32
   , h_Unk2              :: Word32
   , h_NumStrings        :: Word32
   , h_StringTableOffset :: Word32
   , h_StringTableSize   :: Word32
   , h_NumOffsets        :: Word32
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Read)
 
 instance Bin PGHeader where
   bin = do
@@ -375,9 +375,13 @@ connectPKFiles extTree base pkTree = let
   pkMapping = Map.fromList $ zip pkNums pkReadables
   getPK i = fromMaybe (error "panic! .pk not found") $ Map.lookup i pkMapping
   getReadable ref = subHandle id (pkOffset ref) (Just $ pkLength ref) (getPK $ pkArchive ref)
-  decrypt (name, r) = case T.stripSuffix ".e.2" name of
-    Just name' -> (name', transformBytes (fromMaybe (error "Couldn't decrypt .e.2 file") . decryptE2 . BL.toStrict) r)
-    Nothing    -> if ".lua" `T.isSuffixOf` name
-      then (name, transformBytes (fromMaybe (error "Couldn't decrypt .lua file") . decryptE2 . BL.toStrict) r)
-      else (name, r)
-  in modifyFiles decrypt $ bimap TE.decodeLatin1 getReadable pkTree
+  in bimap TE.decodeLatin1 getReadable pkTree
+
+decryptPKContents
+  :: Folder T.Text Readable
+  -> Folder T.Text Readable
+decryptPKContents = modifyFiles $ \(name, r) -> case T.stripSuffix ".e.2" name of
+  Just name' -> (name', transformBytes (fromMaybe (error "Couldn't decrypt .e.2 file") . decryptE2 . BL.toStrict) r)
+  Nothing    -> if ".lua" `T.isSuffixOf` name
+    then (name, transformBytes (fromMaybe (error "Couldn't decrypt .lua file") . decryptE2 . BL.toStrict) r)
+    else (name, r)

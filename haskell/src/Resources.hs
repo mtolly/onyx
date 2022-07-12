@@ -21,7 +21,7 @@ getResourcesPath :: FilePath -> IO FilePath
 getResourcesPath f = do
   exe <- getExecutablePath
   resDir <- if takeFileName exe == "ghc"
-    then (</> ".local/bin/onyx-resources") <$> getHomeDirectory -- we're in ghci, use installed resources
+    then (</> ".local/bin/onyx-files/onyx-resources") <$> getHomeDirectory -- we're in ghci, use installed resources
     else return $ takeDirectory exe </> "onyx-resources"
   return $ resDir </> f
 
@@ -47,8 +47,14 @@ rb2Thumbnail = getResourcesPath "rb2.png"
 gh2Thumbnail :: IO FilePath
 gh2Thumbnail = getResourcesPath "gh2.png"
 
-ghWoRthumbnail :: IO FilePath
-ghWoRthumbnail = getResourcesPath "ghwor.png"
+ghWoRThumbnail :: IO FilePath
+ghWoRThumbnail = getResourcesPath "ghwor.png"
+
+powerGigThumbnail :: IO FilePath
+powerGigThumbnail = getResourcesPath "pg.png"
+
+powerGigTitleThumbnail :: IO FilePath
+powerGigTitleThumbnail = getResourcesPath "pg-title.png"
 
 emptyMilo :: IO FilePath
 emptyMilo = getResourcesPath "empty.milo_xbox"

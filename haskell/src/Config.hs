@@ -1496,6 +1496,31 @@ instance StackJSON TargetRS where
 instance Default TargetRS where
   def = fromEmptyObject
 
+data TargetPG = TargetPG
+  { pg_Common      :: TargetCommon
+  , pg_2xBassPedal :: Bool
+  , pg_Guitar      :: FlexPartName
+  , pg_Drums       :: FlexPartName
+  , pg_Vocal       :: FlexPartName
+  , pg_Key         :: Maybe T.Text
+  } deriving (Eq, Ord, Show, Generic, Hashable)
+
+parseTargetPG :: (SendMessage m) => ObjectCodec m A.Value TargetPG
+parseTargetPG = do
+  pg_Common      <- pg_Common      =. parseTargetCommon
+  pg_2xBassPedal <- pg_2xBassPedal =. opt False        "2x-bass-pedal" stackJSON
+  pg_Guitar      <- pg_Guitar      =. opt FlexGuitar   "guitar"        stackJSON
+  pg_Drums       <- pg_Drums       =. opt FlexDrums    "drums"         stackJSON
+  pg_Vocal       <- pg_Vocal       =. opt FlexVocal    "vocal"         stackJSON
+  pg_Key         <- pg_Key         =. opt Nothing      "key"           stackJSON
+  return TargetPG{..}
+
+instance StackJSON TargetPG where
+  stackJSON = asStrictObject "TargetPG" parseTargetPG
+
+instance Default TargetPG where
+  def = fromEmptyObject
+
 data TargetPart = TargetPart
   { tgt_Common :: TargetCommon
   , tgt_Part   :: FlexPartName
@@ -1522,6 +1547,7 @@ data Target f
   | GH5    TargetGH5
   | RS     TargetRS
   | DTX    TargetDTX
+  | PG     TargetPG
   | Melody TargetPart
   | Konga  TargetPart
   deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
@@ -1536,6 +1562,7 @@ targetCommon = \case
   GH5    TargetGH5 {..} -> gh5_Common
   RS     TargetRS  {..} -> rs_Common
   DTX    TargetDTX {..} -> dtx_Common
+  PG     TargetPG  {..} -> pg_Common
   Melody TargetPart{..} -> tgt_Common
   Konga  TargetPart{..} -> tgt_Common
 
@@ -1556,6 +1583,7 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
         "gh5"    -> fmap GH5    fromJSON
         "rs"     -> fmap RS     fromJSON
         "dtx"    -> fmap DTX    fromJSON
+        "pg"     -> fmap PG     fromJSON
         "melody" -> fmap Melody fromJSON
         "konga"  -> fmap Konga  fromJSON
         _        -> fatal $ "Unrecognized target game: " ++ show target
@@ -1568,6 +1596,7 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
       GH5    gh5 -> addKey parseTargetGH5  "game" "gh5"    gh5
       RS     rs  -> addKey parseTargetRS   "game" "rs"     rs
       DTX    dtx -> addKey parseTargetDTX  "game" "dtx"    dtx
+      PG     pg  -> addKey parseTargetPG   "game" "pg"     pg
       Melody tgt -> addKey parseTargetPart "game" "melody" tgt
       Konga  tgt -> addKey parseTargetPart "game" "konga"  tgt
     }

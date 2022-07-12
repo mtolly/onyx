@@ -11,9 +11,11 @@ import           Data.Binary.Get
 import           Data.Binary.Put
 import           Data.Bits                        ((.&.))
 import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Int
+import qualified Data.Map                         as Map
 import qualified Data.Vector                      as V
 import           Data.Word
 import qualified Sound.MIDI.File.Event            as E
@@ -344,3 +346,34 @@ getString :: Word32 -> GEV -> Maybe B.ByteString
 getString i gev = do
   offset <- strhData (gevSTRH gev) V.!? fromIntegral i
   return $ B.takeWhile (/= 0) $ B.drop (fromIntegral offset) $ strsData $ gevSTRS gev
+
+makeStringBank :: [B.ByteString] -> (STRH, STRS, Map.Map B.ByteString Word32)
+makeStringBank = go BL.empty [] Map.empty where
+  go bank byteOffsets mapping [] = let
+    strh = STRH
+      { strhData = V.fromList $ reverse byteOffsets
+      }
+    strs = STRS
+      { strsData = BL.toStrict bank
+      }
+    in (strh, strs, mapping)
+  go bank byteOffsets mapping (x : xs) = let
+    nulls = BL.replicate (if rem (B.length x) 2 == 0 then 2 else 1) 0
+    bank' = bank <> BL.fromStrict x <> nulls
+    byteOffsets' = fromIntegral (BL.length bank) : byteOffsets
+    mapping' = Map.insert x (fromIntegral $ length byteOffsets) mapping
+    in go bank' byteOffsets' mapping' xs
+
+makeTempos :: U.TempoMap -> TMPO
+makeTempos tmap = TMPO
+  { tmpoResolution = 480
+  , tmpoFraction = 1 / 480
+  , tmpoEvents = V.fromList $ do
+    (absBeats, bps) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.tempoMapToBPS tmap
+    return TMPOEvent
+      { tmpoEventTicks = round $ absBeats * 480
+      , tmpoEventUnk2  = 0
+      , tmpoEventUSPQN = round $ 1000000 / bps
+      , tmpoEventTime  = realToFrac $ U.applyTempoMap tmap absBeats
+      }
+  }

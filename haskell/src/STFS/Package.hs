@@ -71,7 +71,7 @@ import           Data.Time
 import qualified Data.Vector.Unboxed            as VU
 import           Data.Yaml                      ((.:))
 import qualified Data.Yaml                      as Y
-import           Resources                      (gh2Thumbnail, ghWoRthumbnail,
+import           Resources                      (gh2Thumbnail, ghWoRThumbnail,
                                                  rb2Thumbnail, rb3Thumbnail,
                                                  xboxKV)
 import           System.IO
@@ -998,7 +998,7 @@ gh2pkg title desc dir fout = inside "making GH2 LIVE package" $ stackIO $ do
 
 ghworpkg :: (MonadIO m) => [T.Text] -> [T.Text] -> FilePath -> FilePath -> StackTraceT m ()
 ghworpkg titles descs dir fout = inside "making GH:WoR LIVE package" $ stackIO $ do
-  thumb <- ghWoRthumbnail >>= B.readFile
+  thumb <- ghWoRThumbnail >>= B.readFile
   makeCON CreateOptions
     { createNames = titles
     , createDescriptions = descs

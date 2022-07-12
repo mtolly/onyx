@@ -3,6 +3,7 @@
 module PowerGig.Songs where
 
 import           Codec.Compression.GZip         (decompress)
+import           Control.Monad                  (void)
 import           Control.Monad.Codec
 import           Control.Monad.Codec.Onyx.XML
 import           Control.Monad.IO.Class         (MonadIO)
@@ -12,13 +13,14 @@ import qualified Data.ByteString                as B
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
+import           Data.Functor.Identity          (Identity)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import           Data.SimpleHandle
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import qualified Data.Vector                    as V
 import           Rocksmith.CST                  (cstSpaceW3)
-import           Text.XML.Light                 (parseXMLDoc)
+import           Text.XML.Light                 (parseXMLDoc, ppTopElement)
 
 loadDiscSongKeys :: Folder T.Text Readable -> IO [T.Text]
 loadDiscSongKeys dir = case findFile ("Scripting" :| ["Songs.lua"]) dir of
@@ -56,6 +58,11 @@ loadSongXML k dir = inside ("Loading PowerGig song XML for: " <> show k) $ do
       elt <- maybe (fatal "Couldn't parse XML") return $ parseXMLDoc $ TE.decodeUtf8 $ BL.toStrict xml
       mapStackTraceT (`runReaderT` elt) $ codecIn $ isTag "song" $ parseInside' insideCodec
 
+showSongXML :: Song -> B.ByteString
+showSongXML song = let
+  xml = makeDoc "song" $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Song) song
+  in TE.encodeUtf8 $ T.pack $ ppTopElement xml
+
 -- song.xsd
 
 data Song = Song
@@ -70,7 +77,8 @@ instance IsInside Song where
     song_info   <- song_info   =. childTag "info"   (parseInside' insideCodec)
     song_audio  <- song_audio  =. childTag "audio"  (parseInside' insideCodec)
     song_source <- song_source =. childTag "source" (parseInside' childText)
-    ignoreAttr $ inSpace cstSpaceW3 "noNamespaceSchemaLocation"
+    _ <- const (Just "file:../song.xsd")
+      =. optAttr (inSpace cstSpaceW3 "noNamespaceSchemaLocation")
     return Song{..}
 
 data Info = Info
