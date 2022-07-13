@@ -626,7 +626,7 @@ commands =
         hdr <- stackIO (B.readFile hdrE2) >>= PG.decryptE2 >>= PG.readHeader
         stackIO $ do
           tree <- crawlFolder $ takeDirectory hdrE2
-          let connected = (if elem OptDecrypt opts then PG.decryptPKContents else id)
+          let connected = (if elem OptCrypt opts then PG.decryptPKContents else id)
                 $ PG.connectPKFiles tree base $ PG.getFolder hdr
           saveHandleFolder connected out
           Dir.createDirectoryIfMissing False $ out </> "onyx-repack"
@@ -641,11 +641,13 @@ commands =
     , commandUsage = ""
     , commandRun = \args opts -> case args of
       [dir] -> do
-        (folder, pk) <- stackIO $ crawlFolder dir >>= PG.makeNewPK 0
-        let folder' = folder
-              { folderSubfolders = filter (\(name, _) -> name /= "onyx-repack") $ folderSubfolders folder
+        src <- (if elem OptCrypt opts then PG.encryptPKContents else id)
+          <$> stackIO (crawlFolder dir)
+        let src' = src
+              { folderSubfolders = filter (\(name, _) -> name /= "onyx-repack") $ folderSubfolders src
               }
-            existingHdr = dir </> "onyx-repack/hdr.txt"
+        (folder, pk) <- stackIO $ PG.makeNewPK 0 src'
+        let existingHdr = dir </> "onyx-repack/hdr.txt"
         header <- stackIO (Dir.doesFileExist existingHdr) >>= \case
           True -> do
             txt <- stackIO $ readFile existingHdr
@@ -655,21 +657,50 @@ commands =
             , PG.h_Version           = 1
             , PG.h_BlockSize         = 1 -- ?
             , PG.h_NumFiles          = 0 -- filled in later
-            , PG.h_Unk1              = 44
+            , PG.h_FilesOffset       = 44
             , PG.h_NumDirs           = 0 -- filled in later
-            , PG.h_Unk2              = 0 -- ?
+            , PG.h_DirsOffset        = 0 -- ?
             , PG.h_NumStrings        = 0 -- filled in later
             , PG.h_StringTableOffset = 0 -- filled in later
             , PG.h_StringTableSize   = 0 -- filled in later
             , PG.h_NumOffsets        = 0 -- filled in later
             }
-        hdrE2 <- PG.encryptE2 $ BL.toStrict $ PG.buildHeader $ PG.rebuildFullHeader header folder'
+        hdrE2 <- PG.encryptE2 $ BL.toStrict $ PG.buildHeader $ PG.rebuildFullHeader header folder
         let pathHdr = takeDirectory dir </> "Data.hdr.e.2"
             pathPk = takeDirectory dir </> "Data.pk0"
         stackIO $ BL.writeFile pathHdr hdrE2
         stackIO $ BL.writeFile pathPk pk
         return [pathHdr, pathPk]
       _ -> fatal "Expected 1 arg (folder to pack)"
+    }
+
+  , Command
+    { commandWord = "decrypt-powergig"
+    , commandDesc = "Decrypt .e.2, producing crypt header and file"
+    , commandUsage = ""
+    , commandRun = \files _opts -> fmap concat $ forM files $ \f -> do
+      let out = case T.stripSuffix ".e.2" $ T.pack f of
+            Nothing -> f <> ".dec"
+            Just f' -> T.unpack f'
+          outCryptHeader = f <> ".cryptheader"
+      enc <- stackIO $ B.readFile f
+      cryptHeader <- PG.getE2Header enc
+      dec <- PG.decryptE2 enc
+      stackIO $ B.writeFile outCryptHeader cryptHeader
+      stackIO $ BL.writeFile out dec
+      when (".hdr" `T.isSuffixOf` T.pack out) $ do
+        PG.readHeader dec >>= stackIO . writeFile (out <> ".txt") . show
+      return [outCryptHeader, out]
+    }
+
+  , Command
+    { commandWord = "encrypt-powergig"
+    , commandDesc = "Encrypt to .e.2"
+    , commandUsage = ""
+    , commandRun = \files _opts -> forM files $ \f -> do
+      let out = f <> ".e.2"
+      stackIO (B.readFile f) >>= PG.encryptE2 >>= stackIO . BL.writeFile out
+      return out
     }
 
   , Command
@@ -1500,7 +1531,7 @@ optDescrs =
   , Option []   ["venuegen"       ] (NoArg  OptVenueGen                       ) ""
   , Option []   ["index"          ] (ReqArg (OptIndex . read)      "int"      ) ""
   , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
-  , Option []   ["decrypt"        ] (NoArg  OptDecrypt                        ) ""
+  , Option []   ["crypt"          ] (NoArg  OptCrypt                          ) ""
   ] where
     readGame = \case
       "rb3"   -> GameRB3
@@ -1530,7 +1561,7 @@ data OnyxOption
   | OptVenueGen
   | OptIndex Int
   | OptHelp
-  | OptDecrypt
+  | OptCrypt
   deriving (Eq, Ord, Show)
 
 applyMidiFunction

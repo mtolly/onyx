@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections     #-}
 module Data.SimpleHandle where
 
 import           Control.Exception             (bracket, throwIO)
@@ -283,3 +284,8 @@ transformBytes f r = Readable
     bs <- useHandle r handleToByteString
     rOpen $ makeHandle "" $ byteStringSimpleHandle $ f bs
   }
+
+traverseFiles :: (Applicative f) => (t -> a -> f b) -> Folder t a -> f (Folder t b)
+traverseFiles g folder = Folder
+  <$> traverse (traverse $ traverseFiles g) (folderSubfolders folder)
+  <*> traverse (\(name, x) -> (name,) <$> g name x) (folderFiles folder)

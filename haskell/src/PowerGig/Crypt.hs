@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module PowerGig.Crypt where
@@ -71,9 +72,10 @@ decryptE2 input = do
 
 encryptE2 :: (MonadFail m) => B.ByteString -> m BL.ByteString
 encryptE2 input = do
-  let ivBytes       = B.replicate 16 0x15
-      cipherBytes   = B.replicate 32 0x69
-      headerIVBytes = B.replicate 16 0x42
+  -- taken from tornado of souls, other values work fine for disc but not dlc?
+  let ivBytes       = B.pack [0xf1,0xad,0x72,0x5b,0xc7,0xee,0x83,0x20,0xbf,0xab,0xbb,0xf7,0xf2,0x91,0x5a,0xc0]
+      cipherBytes   = B.pack [0x17,0x96,0x1,0xfa,0x33,0xb1,0xee,0x2a,0xd,0x20,0xea,0xed,0xc8,0x37,0xc8,0x12,0xf1,0x1,0x4d,0xb5,0x20,0x57,0x54,0x1e,0xac,0xc,0x22,0xe8,0xd6,0x94,0xd8,0x7c]
+      headerIVBytes = B.pack [0x67,0xe9,0x85,0xe1,0x24,0x5e,0xb7,0x98,0x6e,0xec,0xee,0x0c,0x55,0xf9,0xb2,0x2c]
       line4         = BL.toStrict $ runPut $ do
         putWord32le $ fromIntegral $ B.length input
         putWord32le 0
@@ -87,20 +89,22 @@ encryptE2 input = do
         <> headerIVBytes
       blocks = map
         (\b -> if B.length b == powerGigBlockSize then b else b <> B.replicate (powerGigBlockSize - B.length b) 0)
-        (splitEvery powerGigBlockSize input)
+        (splitEvery powerGigBlockSize $ input <> B.replicate 16 0x10)
   Just iv <- return $ makeIV ivBytes
   CryptoPassed cipher <- return $ cipherInit cipherBytes
   let _ = [iv, headerIV] :: [IV AES256]
-  return $ BL.fromChunks $ headerBlockEnc : map (cbcEncrypt cipher iv) blocks
+      dataSizeRoundedUp = (quot (B.length input) 0x10 + 1) * 0x10
+  return $ BL.take (fromIntegral $ powerGigBlockSize + dataSizeRoundedUp)
+    $ BL.fromChunks $ headerBlockEnc : map (cbcEncrypt cipher iv) blocks
 
 data PGHeader = PGHeader
   { h_Magic             :: Word32 -- 0x745
   , h_Version           :: Word32 -- 1
   , h_BlockSize         :: Word32 -- 2048 in 360 disc, 1 in PS3 disc and 360 tornado of souls
   , h_NumFiles          :: Word32
-  , h_Unk1              :: Word32 -- always 44? (in 360 disc, PS3 disc, 360 tornado of souls)
+  , h_FilesOffset       :: Word32 -- always 44
   , h_NumDirs           :: Word32
-  , h_Unk2              :: Word32
+  , h_DirsOffset        :: Word32
   , h_NumStrings        :: Word32
   , h_StringTableOffset :: Word32
   , h_StringTableSize   :: Word32
@@ -113,9 +117,9 @@ instance Bin PGHeader where
     h_Version           <- h_Version           =. word32le
     h_BlockSize         <- h_BlockSize         =. word32le
     h_NumFiles          <- h_NumFiles          =. word32le
-    h_Unk1              <- h_Unk1              =. word32le
+    h_FilesOffset       <- h_FilesOffset       =. word32le
     h_NumDirs           <- h_NumDirs           =. word32le
-    h_Unk2              <- h_Unk2              =. word32le
+    h_DirsOffset        <- h_DirsOffset        =. word32le
     h_NumStrings        <- h_NumStrings        =. word32le
     h_StringTableOffset <- h_StringTableOffset =. word32le
     h_StringTableSize   <- h_StringTableSize   =. word32le
@@ -123,7 +127,7 @@ instance Bin PGHeader where
     return PGHeader{..}
 
 data PGFileEntry = PGFileEntry
-  { fe_Lua       :: Word16 -- 1 if .lua file
+  { fe_Lua       :: Word16 -- 1 if .lua file, 2 if compressed .xml file, otherwise 0
   , fe_PathHash  :: Word32 -- FNV132 hash of lowercase filename using backslash as separator
   , fe_DirNum    :: Word16
   , fe_StringNum :: Word32
@@ -199,9 +203,14 @@ buildHeader fh = let
   dirs  = runPut $ mapM_ (codecOut bin) $ V.toList $ fh_Dirs fh
   strings = BL.fromChunks $ concatMap (\b -> [b, "\0"]) $ V.toList $ fh_Strings fh
   offsets = runPut $ mapM_ (codecOut bin) $ V.toList $ fh_Offsets fh
-  newHeader = (fh_Header fh)
-    { h_NumFiles          = fromIntegral $ V.length $ fh_Files fh
+  newHeader = PGHeader
+    { h_Magic             = 0x745
+    , h_Version           = 1
+    , h_BlockSize         = 1
+    , h_NumFiles          = fromIntegral $ V.length $ fh_Files fh
+    , h_FilesOffset       = 44
     , h_NumDirs           = fromIntegral $ V.length $ fh_Dirs fh
+    , h_DirsOffset        = 44 + 0x30 * fromIntegral (V.length $ fh_Files fh)
     , h_NumStrings        = fromIntegral $ V.length $ fh_Strings fh
     , h_StringTableOffset = fromIntegral $ 44 + BL.length files + BL.length dirs
     , h_StringTableSize   = fromIntegral $ BL.length strings
@@ -305,15 +314,18 @@ rebuildFullHeader hdr dir = let
     }
 
 makeNewPK :: Int -> Folder T.Text Readable -> IO (Folder B.ByteString PKReference, BL.ByteString)
-makeNewPK pkNumber root = runStateT (mapM eachFile $ first (B8.pack . T.unpack) root) BL.empty where
-  eachFile r = do
+makeNewPK pkNumber root = runStateT (traverseFiles eachFile $ first (B8.pack . T.unpack) root) BL.empty where
+  eachFile name r = do
     pk <- get
     bs <- liftIO $ useHandle r handleToByteString
     let md5 = BA.convert (hash $ BL.toStrict bs :: Digest MD5)
     put $ pk <> bs -- do we need to pad this?
     return PKReference
       { pkFileEntry = PGFileEntry
-        { fe_Lua = 0 -- TODO
+        { fe_Lua = if
+          | ".lua" `B.isSuffixOf` name -> 1
+          | "CMP1" `BL.isPrefixOf` bs  -> 2
+          | otherwise                  -> 0
         , fe_PathHash = 0 -- filled in later
         , fe_DirNum = 0 -- filled in later
         , fe_StringNum = 0 -- filled in later
@@ -384,4 +396,13 @@ decryptPKContents = modifyFiles $ \(name, r) -> case T.stripSuffix ".e.2" name o
   Just name' -> (name', transformBytes (fromMaybe (error "Couldn't decrypt .e.2 file") . decryptE2 . BL.toStrict) r)
   Nothing    -> if ".lua" `T.isSuffixOf` name
     then (name, transformBytes (fromMaybe (error "Couldn't decrypt .lua file") . decryptE2 . BL.toStrict) r)
+    else (name, r)
+
+encryptPKContents
+  :: Folder T.Text Readable
+  -> Folder T.Text Readable
+encryptPKContents = modifyFiles $ \(name, r) -> if ".lua" `T.isSuffixOf` name
+  then (name, transformBytes (fromMaybe (error "Couldn't encrypt .lua file") . encryptE2 . BL.toStrict) r)
+  else if "_all.xma" `T.isSuffixOf` name
+    then (name <> ".e.2", transformBytes (fromMaybe (error "Couldn't encrypt .xma file") . encryptE2 . BL.toStrict) r)
     else (name, r)
