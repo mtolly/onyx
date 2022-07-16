@@ -32,7 +32,6 @@ import           Guitars
 import           Import.Base
 import           PowerGig.Crypt
 import           PowerGig.GEV
-import           PowerGig.MIDI
 import           PowerGig.Songs
 import qualified RockBand.Codec.Drums             as D
 import qualified RockBand.Codec.File              as RBFile
@@ -54,7 +53,7 @@ importPowerGig sourceDir base = do
   hdr <- case findFile (return hdrName) sourceDir of
     Nothing -> fatal $ T.unpack hdrName <> " not found"
     Just r  -> stackIO (useHandle r handleToByteString) >>= decryptE2 . BL.toStrict >>= readHeader
-  let folder = decryptPKContents $ connectPKFiles sourceDir (T.unpack base) $ getFolder hdr
+  let folder = decryptPKContents $ connectPKFiles sourceDir (T.unpack base) $ getFolder $ fh_Contents hdr
   discKeys <- stackIO $ loadDiscSongKeys folder
   dlcKeys <- stackIO $ case findFile (return "AddContent.lua") sourceDir of
     Nothing -> return []

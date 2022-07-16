@@ -1,0 +1,106 @@
+global:
+  anim-tempo: 32
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+      difficulty:
+        tier: 7
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  vocal:
+    vocal:
+      gender: male
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
+        - file-lipsync: part2.lipsync
+        - file-lipsync: part3.lipsync
+      difficulty:
+        tier: 5
+      count: 3
+metadata:
+  track-number: 7
+  title: The Last Baron
+  author: Septekka, Onyxite
+  year: 2009
+  album: Crack the Skye
+  preview-start: 1:57.000
+  subgenre: prog
+  genre: metal
+  languages:
+  - English
+  preview-end: 2:27.000
+  difficulty:
+    tier: 7
+  rating: Family Friendly
+  artist: Mastodon
+  file-album-art: cover.png_xbox
+audio:
+  album-track:
+    md5: 3e9ec9b6fcc67c27ff976cf801625015
+    frames: 34425636
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+    karaoke: false
+    multitrack: false
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+  dev:
+    song:
+      expr:
+        pad: [3.533, album-track]
+      pans: [1, -1]
+    parts:
+      bass:
+        expr:
+          pad: [3.533, channels: [[0, 1], stems]]
+        pans: [1, -1]
+      drums:
+        expr:
+          pad: [3.533, channels: [[2, 3], stems]]
+        pans: [1, -1]
+      vocal:
+        expr:
+          pad: [3.533, channels: [[4, 5], stems]]
+        pans: [1, -1]
+      other:
+        expr:
+          pad: [3.533, channels: [[6, 7], stems]]
+        pans: [1, -1]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+    plan: mogg
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+    plan: mogg
+  ps:
+    game: ps
+    plan: mogg
+
+# TODO fix these bars on all tracks (changed 15/16 to 4/4):
+# 286.1.00, 289.1.00, 291.1.00

@@ -176,45 +176,49 @@ instance Bin PGOffsetEntry where
     return PGOffsetEntry{..}
 
 data FullHeader = FullHeader
-  { fh_Header  :: PGHeader
-  , fh_Files   :: V.Vector PGFileEntry
-  , fh_Dirs    :: V.Vector PGDirEntry
-  , fh_Strings :: V.Vector B.ByteString
-  , fh_Offsets :: V.Vector PGOffsetEntry
+  { fh_Header   :: PGHeader
+  , fh_Contents :: HeaderContents
+  } deriving (Eq, Show)
+
+data HeaderContents = HeaderContents
+  { hc_Files   :: V.Vector PGFileEntry
+  , hc_Dirs    :: V.Vector PGDirEntry
+  , hc_Strings :: V.Vector B.ByteString
+  , hc_Offsets :: V.Vector PGOffsetEntry
   } deriving (Eq, Show)
 
 readHeader :: (MonadFail m) => BL.ByteString -> m FullHeader
 readHeader bs = let
   getter = do
-    fh_Header  <- codecIn bin
-    fh_Files   <- V.fromList <$> replicateM (fromIntegral $ h_NumFiles fh_Header) (codecIn bin)
-    fh_Dirs    <- V.fromList <$> replicateM (fromIntegral $ h_NumDirs fh_Header) (codecIn bin)
-    fh_Strings <- V.fromList . take (fromIntegral $ h_NumStrings fh_Header) . B.split 0
-      <$> getByteString (fromIntegral $ h_StringTableSize fh_Header)
-    fh_Offsets <- V.fromList <$> replicateM (fromIntegral $ h_NumOffsets fh_Header) (codecIn bin)
-    return FullHeader{..}
+    hdr <- codecIn bin
+    hc_Files   <- V.fromList <$> replicateM (fromIntegral $ h_NumFiles hdr) (codecIn bin)
+    hc_Dirs    <- V.fromList <$> replicateM (fromIntegral $ h_NumDirs hdr) (codecIn bin)
+    hc_Strings <- V.fromList . take (fromIntegral $ h_NumStrings hdr) . B.split 0
+      <$> getByteString (fromIntegral $ h_StringTableSize hdr)
+    hc_Offsets <- V.fromList <$> replicateM (fromIntegral $ h_NumOffsets hdr) (codecIn bin)
+    return FullHeader { fh_Header = hdr, fh_Contents = HeaderContents{..} }
   in case runGetOrFail getter bs of
     Right (_, _, x) -> return x
     Left  err       -> fail $ show err
 
-buildHeader :: FullHeader -> BL.ByteString
-buildHeader fh = let
-  files = runPut $ mapM_ (codecOut bin) $ V.toList $ fh_Files fh
-  dirs  = runPut $ mapM_ (codecOut bin) $ V.toList $ fh_Dirs fh
-  strings = BL.fromChunks $ concatMap (\b -> [b, "\0"]) $ V.toList $ fh_Strings fh
-  offsets = runPut $ mapM_ (codecOut bin) $ V.toList $ fh_Offsets fh
+buildHeader :: HeaderContents -> BL.ByteString
+buildHeader hc = let
+  files = runPut $ mapM_ (codecOut bin) $ V.toList $ hc_Files hc
+  dirs  = runPut $ mapM_ (codecOut bin) $ V.toList $ hc_Dirs hc
+  strings = BL.fromChunks $ concatMap (\b -> [b, "\0"]) $ V.toList $ hc_Strings hc
+  offsets = runPut $ mapM_ (codecOut bin) $ V.toList $ hc_Offsets hc
   newHeader = PGHeader
     { h_Magic             = 0x745
     , h_Version           = 1
     , h_BlockSize         = 1
-    , h_NumFiles          = fromIntegral $ V.length $ fh_Files fh
+    , h_NumFiles          = fromIntegral $ V.length $ hc_Files hc
     , h_FilesOffset       = 44
-    , h_NumDirs           = fromIntegral $ V.length $ fh_Dirs fh
-    , h_DirsOffset        = 44 + 0x30 * fromIntegral (V.length $ fh_Files fh)
-    , h_NumStrings        = fromIntegral $ V.length $ fh_Strings fh
+    , h_NumDirs           = fromIntegral $ V.length $ hc_Dirs hc
+    , h_DirsOffset        = 44 + 0x30 * fromIntegral (V.length $ hc_Files hc)
+    , h_NumStrings        = fromIntegral $ V.length $ hc_Strings hc
     , h_StringTableOffset = fromIntegral $ 44 + BL.length files + BL.length dirs
     , h_StringTableSize   = fromIntegral $ BL.length strings
-    , h_NumOffsets        = fromIntegral $ V.length $ fh_Offsets fh
+    , h_NumOffsets        = fromIntegral $ V.length $ hc_Offsets hc
     }
   in runPut (void $ codecOut bin newHeader) <> files <> dirs <> strings <> offsets
 
@@ -232,15 +236,15 @@ pkOffset = fromIntegral . oe_PKOffset . NE.head . pkOffsetEntries
 pkLength :: PKReference -> Integer
 pkLength = fromIntegral . fe_Size . pkFileEntry
 
-getFolder :: FullHeader -> Folder B.ByteString PKReference
-getFolder fh = fromFiles $ do
-  f <- V.toList $ fh_Files fh
-  let offset = fh_Offsets fh V.! fromIntegral (fe_OffsetNum f)
-      getString i = fh_Strings fh V.! fromIntegral i
+getFolder :: HeaderContents -> Folder B.ByteString PKReference
+getFolder hc = fromFiles $ do
+  f <- V.toList $ hc_Files hc
+  let offset = hc_Offsets hc V.! fromIntegral (fe_OffsetNum f)
+      getString i = hc_Strings hc V.! fromIntegral i
       path = getParents (fromIntegral $ fe_DirNum f) (return $ getString $ fe_StringNum f)
       getParents (-1) cur = cur
       getParents dirNum cur = let
-        dir = fh_Dirs fh V.! dirNum
+        dir = hc_Dirs hc V.! dirNum
         newPath = case getString $ de_StringNum dir of
           ""  -> cur -- should be at top
           str -> NE.cons str cur
@@ -249,7 +253,7 @@ getFolder fh = fromFiles $ do
         { pkFileEntry = f
         , pkOffsetEntries = offset :| do
           i <- take (fromIntegral $ oe_Copies offset) [fromIntegral (fe_OffsetNum f) + 1 ..]
-          return $ fh_Offsets fh V.! i
+          return $ hc_Offsets hc V.! i
         }
   return (path, ref)
 
@@ -266,8 +270,8 @@ fnv132lowercase = go 2166136261 . B8.unpack where
   byte :: Char -> Word32
   byte = fromIntegral . fromEnum . toLower
 
-rebuildFullHeader :: PGHeader -> Folder B.ByteString PKReference -> FullHeader
-rebuildFullHeader hdr dir = let
+rebuildFullHeader :: Folder B.ByteString PKReference -> HeaderContents
+rebuildFullHeader dir = let
   getAllStrings folder = map fst (folderSubfolders folder) <> map fst (folderFiles folder)
     <> concatMap (getAllStrings . snd) (folderSubfolders folder)
   allStrings = nubOrd $ "" : getAllStrings dir
@@ -305,12 +309,11 @@ rebuildFullHeader hdr dir = let
     forM_ (folderSubfolders curDir) $ \(folderName, subDir) -> do
       go subDir dirIndex (folderName : curName)
   finalState = execState (go dir (-1) []) $ RebuildState Seq.empty Seq.empty Seq.empty
-  in FullHeader
-    { fh_Header = hdr
-    , fh_Files = V.fromList $ toList $ rbsFiles finalState
-    , fh_Dirs = V.fromList $ toList $ rbsDirs finalState
-    , fh_Strings = V.fromList allStrings
-    , fh_Offsets = V.fromList $ toList $ rbsOffsets finalState
+  in HeaderContents
+    { hc_Files = V.fromList $ toList $ rbsFiles finalState
+    , hc_Dirs = V.fromList $ toList $ rbsDirs finalState
+    , hc_Strings = V.fromList allStrings
+    , hc_Offsets = V.fromList $ toList $ rbsOffsets finalState
     }
 
 makeNewPK :: Int -> Folder T.Text Readable -> IO (Folder B.ByteString PKReference, BL.ByteString)

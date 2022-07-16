@@ -50,8 +50,7 @@ import           Data.List.Extra                  (find, stripSuffix, unsnoc)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
-import           Data.SimpleHandle                (Folder (..),
-                                                   byteStringSimpleHandle,
+import           Data.SimpleHandle                (byteStringSimpleHandle,
                                                    crawlFolder, makeHandle,
                                                    saveHandleFolder)
 import qualified Data.Text                        as T
@@ -627,10 +626,8 @@ commands =
         stackIO $ do
           tree <- crawlFolder $ takeDirectory hdrE2
           let connected = (if elem OptCrypt opts then PG.decryptPKContents else id)
-                $ PG.connectPKFiles tree base $ PG.getFolder hdr
+                $ PG.connectPKFiles tree base $ PG.getFolder $ PG.fh_Contents hdr
           saveHandleFolder connected out
-          Dir.createDirectoryIfMissing False $ out </> "onyx-repack"
-          writeFile (out </> "onyx-repack/hdr.txt") $ show $ PG.fh_Header hdr
         return out
       p -> fatal $ "Unexpected file type given to extractor: " <> show p
     }
@@ -643,29 +640,8 @@ commands =
       [dir] -> do
         src <- (if elem OptCrypt opts then PG.encryptPKContents else id)
           <$> stackIO (crawlFolder dir)
-        let src' = src
-              { folderSubfolders = filter (\(name, _) -> name /= "onyx-repack") $ folderSubfolders src
-              }
-        (folder, pk) <- stackIO $ PG.makeNewPK 0 src'
-        let existingHdr = dir </> "onyx-repack/hdr.txt"
-        header <- stackIO (Dir.doesFileExist existingHdr) >>= \case
-          True -> do
-            txt <- stackIO $ readFile existingHdr
-            maybe (fatal "Couldn't read hdr.txt") return $ readMaybe txt
-          False -> return PG.PGHeader
-            { PG.h_Magic             = 0x745
-            , PG.h_Version           = 1
-            , PG.h_BlockSize         = 1 -- ?
-            , PG.h_NumFiles          = 0 -- filled in later
-            , PG.h_FilesOffset       = 44
-            , PG.h_NumDirs           = 0 -- filled in later
-            , PG.h_DirsOffset        = 0 -- ?
-            , PG.h_NumStrings        = 0 -- filled in later
-            , PG.h_StringTableOffset = 0 -- filled in later
-            , PG.h_StringTableSize   = 0 -- filled in later
-            , PG.h_NumOffsets        = 0 -- filled in later
-            }
-        hdrE2 <- PG.encryptE2 $ BL.toStrict $ PG.buildHeader $ PG.rebuildFullHeader header folder
+        (folder, pk) <- stackIO $ PG.makeNewPK 0 src
+        hdrE2 <- PG.encryptE2 $ BL.toStrict $ PG.buildHeader $ PG.rebuildFullHeader folder
         let pathHdr = takeDirectory dir </> "Data.hdr.e.2"
             pathPk = takeDirectory dir </> "Data.pk0"
         stackIO $ BL.writeFile pathHdr hdrE2

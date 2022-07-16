@@ -133,8 +133,7 @@ import           Overdrive                             (calculateUnisons,
 import           Path                                  (parseAbsDir, toFilePath)
 import           Paths_onyxite_customs_lib             (version)
 import           PlayStation.PKG                       (makePKG)
-import           PowerGig.Crypt                        (PGHeader (..),
-                                                        buildHeader, encryptE2,
+import           PowerGig.Crypt                        (buildHeader, encryptE2,
                                                         makeNewPK,
                                                         rebuildFullHeader)
 import qualified PowerGig.GEV                          as PG
@@ -3162,7 +3161,7 @@ gh5Rules buildInfo dir gh5 = do
           (_genre    $ _metadata songYaml)
           (_subgenre $ _metadata songYaml)
         qb =
-          [ QBSectionArray 3796209450 textQBFilenameKey $
+          [ QBSectionArray (qbKeyCRC "gh6_dlc_songlist") textQBFilenameKey $
             QBArrayOfQbKey [songKeyQB]
           , QBSectionStruct 4087958085 textQBFilenameKey
             [ QBStructHeader
@@ -3801,20 +3800,7 @@ pgRules buildInfo dir pg = do
       , objDrumKick, objDrumSnare, objDrumTomHi, objDrumTomLow, objDrumCrash
       ]
     (folder, pk) <- stackIO $ crawlFolder (dir </> "pk") >>= makeNewPK 0
-    let header = PGHeader
-          { h_Magic             = 0x745
-          , h_Version           = 1
-          , h_BlockSize         = 1
-          , h_NumFiles          = 0 -- filled in later
-          , h_FilesOffset       = 44
-          , h_NumDirs           = 0 -- filled in later
-          , h_DirsOffset        = 0 -- TODO
-          , h_NumStrings        = 0 -- filled in later
-          , h_StringTableOffset = 0 -- filled in later
-          , h_StringTableSize   = 0 -- filled in later
-          , h_NumOffsets        = 0 -- filled in later
-          }
-    hdrE2 <- encryptE2 $ BL.toStrict $ buildHeader $ rebuildFullHeader header folder
+    hdrE2 <- encryptE2 $ BL.toStrict $ buildHeader $ rebuildFullHeader folder
     stackIO $ BL.writeFile objDataHdr hdrE2
     stackIO $ BL.writeFile objDataPk pk
 

@@ -36,15 +36,15 @@ readTextPakQB bs = do
   let mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
       qb = map (lookupQS mappingQS) $ runGet parseQB qbFile
       arrayStructIDPairs =
-        [ (3796209450, 4087958085) -- WoR DLC
+        [ (qbKeyCRC "gh6_dlc_songlist", 4087958085) -- WoR DLC
         -- rest are seen in GH5 only
-        , (53169031, 963067081) -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
-        , (1716953558, 1268271471) -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
-        , (305235591, 178417183) -- gh5 disc, starts with dlc502, All The Pretty Faces (The Killers)
-        , (4260621753, 2764767118) -- band hero, starts with dlc601, ABC (Jackson 5)
-        , (2371951317, 1649474973) -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
-        , (3712298883, 2460628824) -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
-        , (2653203185, 1543505807) -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)
+        , (qbKeyCRC "gh4_dlc_songlist", 963067081) -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
+        , (qbKeyCRC "gh4_1_songlist", 1268271471) -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
+        , (qbKeyCRC "gh5_0_songlist", 178417183) -- gh5 disc, starts with dlc502, All The Pretty Faces (The Killers)
+        , (qbKeyCRC "gh5_1_songlist", 2764767118) -- band hero, starts with dlc601, ABC (Jackson 5)
+        , (qbKeyCRC "gh4_2_songlist", 1649474973) -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
+        , (qbKeyCRC "gh4_songlist", 2460628824) -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
+        , (qbKeyCRC "gh5_dlc_songlist", 1543505807) -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)
         ]
       _arrays = do
         QBSectionArray arrayID fileID (QBArrayOfQbKey keys) <- qb
@@ -68,7 +68,7 @@ combineTextPakQBs = nubOrdOn fst . concatMap textPakSongStructs
 showTextPakQBQS :: TextPakQB -> (BL.ByteString, BL.ByteString)
 showTextPakQBQS contents = let
   qb =
-    [ QBSectionArray 3796209450 (textPakFileKey contents)
+    [ QBSectionArray (qbKeyCRC "gh6_dlc_songlist") (textPakFileKey contents)
       $ QBArrayOfQbKey $ map fst $ textPakSongStructs contents
     , QBSectionStruct 4087958085 (textPakFileKey contents)
       $ QBStructHeader : map (uncurry QBStructItemStruct) (textPakSongStructs contents)

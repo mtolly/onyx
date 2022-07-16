@@ -1,0 +1,65 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+audio:
+  album-track:
+    frames: 15624924
+    md5: 3a902d220a2b4a60050ebe3fcaa4ecad
+  stream-0:
+    file-path: stream-0.xma
+  stream-1:
+    file-path: stream-1.xma
+  stream-2:
+    file-path: stream-2.xma
+  stream-3:
+    file-path: stream-3.xma
+plans:
+  album:
+    song:
+      pad: [3.975, album-track]
+  dev:
+    song:
+      pad: [3.975, album-track]
+    parts:
+      drums-1:
+        expr:
+          drop: [0.084, stretch: [0.9958274828468717, channels: [[0], stream-0]]]
+        pans: [0]
+        vols: [1.0721001625061035]
+      drums-2:
+        expr:
+          drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-0]]]
+        pans: [0]
+        vols: [1.0721001625061035]
+      drums-3:
+        expr:
+          drop: [0.084, stretch: [0.9958274828468717, channels: [[0], stream-1]]]
+        pans: [-0.3119165301322937]
+        vols: [-0.6028119325637817]
+      drums-4:
+        expr:
+          drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-1]]]
+        pans: [-0.4096655547618866]
+        vols: [-0.9690996408462524]
+      drums-5:
+        expr:
+          drop: [0.084, stretch: [0.9958274828468717, channels: [[0], stream-2]]]
+        pans: [-0.4096655547618866]
+        vols: [-0.9690996408462524]
+      drums-6:
+        expr:
+          drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-2]]]
+        pans: [0.31191644072532654]
+        vols: [-0.602810263633728]
+      drums-7:
+        expr:
+          drop: [0.084, stretch: [0.9958274828468717, channels: [[0], stream-3]]]
+        pans: [0.4096655249595642]
+        vols: [-0.9690996408462524]
+      drums-8:
+        expr:
+          drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-3]]]
+        pans: [0.4096655249595642]
+        vols: [-0.9690996408462524]
