@@ -10,6 +10,9 @@ parts:
       fix-freeform: false
       difficulty:
         rank: 228
+    pro-guitar: # WIP
+      tuning:
+        base: bass-4
   guitar:
     grybo:
       fix-freeform: false
@@ -65,7 +68,7 @@ plans:
     - -1
     - 1
     karaoke: false
-    mogg-md5: 18e5ca9b158fea5df1a1e476b7ba1c6f
+    file-mogg: rosanna.mogg
     multitrack: false
     vols:
     - -0.5
@@ -84,7 +87,7 @@ targets:
   rb3:
     game: rb3
     label: (O)
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
   ps:
     game: ps

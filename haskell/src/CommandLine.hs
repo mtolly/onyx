@@ -637,6 +637,7 @@ commands =
     , commandDesc = "Pack a folder into Data.hdr.e.2 and Data.pk0."
     , commandUsage = ""
     , commandRun = \args opts -> case args of
+      -- TODO extend this to also support loading existing hdrs and appending to them
       [dir] -> do
         src <- (if elem OptCrypt opts then PG.encryptPKContents else id)
           <$> stackIO (crawlFolder dir)

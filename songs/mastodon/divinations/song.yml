@@ -1,0 +1,71 @@
+metadata:
+  title: Divinations
+  artist: Mastodon
+  album: Crack the Skye
+  year: 2009
+  file-album-art: ../../../covers/crack-the-skye.jpg
+  subgenre: prog
+  genre: metal
+  author: Onyxite
+  track-number: 2
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+audio:
+  album-track:
+    frames: 9652608
+    md5: 9fd6fb417297997317e9661215a32362
+  album-prev: # Oblivion
+    frames: 15283884
+    md5: 6d132112da9697d78f67362e560fd215
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin: # TODO make this a bit nicer
+      0|0: hihat
+      0|3: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+      1|4: hihat
+      1|5: hihat
+    song:
+      expr: # TODO fade out end
+        fade:
+        - start
+        - 3.239
+        - concatenate:
+          - take: [end, 3.948, album-prev]
+          - album-track
+      pans: [1, -1]
+  dev:
+    song:
+      expr:
+        pad: [3.948, album-track]
+      pans: [1, -1]
+    parts:
+      bass:
+        expr:
+          pad: [3.948, channels: [[0, 1], stems]]
+        pans: [1, -1]
+      drums:
+        expr:
+          pad: [3.948, channels: [[2, 3], stems]]
+        pans: [1, -1]
+      vocal:
+        expr:
+          pad: [3.948, channels: [[4, 5], stems]]
+        pans: [1, -1]
+      other:
+        expr:
+          pad: [3.948, channels: [[6, 7], stems]]
+        pans: [1, -1]

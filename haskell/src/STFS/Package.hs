@@ -549,13 +549,16 @@ runGetMOffset offset g bs = case runGetOrFail g bs of
   Left (_, pos, err) -> fail $ "Binary parse error at position " <> show (pos + offset) <> ": " <> err
   Right (_, _, x) -> return x
 
-withSTFSPackage :: FilePath -> (STFSPackage -> IO a) -> IO a
-withSTFSPackage stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
+withSTFSReadable :: Readable -> (STFSPackage -> IO a) -> IO a
+withSTFSReadable r fn = useHandle r $ \fd -> do
   headerMetaBytes <- BL.hGet fd 0x971A
   (header, meta) <- flip runGetM headerMetaBytes $ (,)
     <$> (codecIn bin :: Get Header)
     <*> (codecIn bin :: Get Metadata)
   fn $ STFSPackage fd header meta
+
+withSTFSPackage :: FilePath -> (STFSPackage -> IO a) -> IO a
+withSTFSPackage = withSTFSReadable . fileReadable
 
 newtype RealBlock = RealBlock Int32
   deriving (Eq, Show)
@@ -699,8 +702,8 @@ getFileHandle fe stfs readable = Readable
       }
   }
 
-getSTFSFolder :: FilePath -> IO (Folder T.Text Readable)
-getSTFSFolder stfsPath = withSTFSPackage stfsPath $ \stfs -> do
+readableSTFSFolder :: Readable -> STFSPackage -> IO (Folder T.Text Readable)
+readableSTFSFolder r stfs = do
   files <- getFileEntries stfs
   let getFolder pathIndex = let
         contents = [ (i, fe) | (i, fe) <- zip [0..] files, fe_PathIndex fe == pathIndex ]
@@ -708,13 +711,16 @@ getSTFSFolder stfsPath = withSTFSPackage stfsPath $ \stfs -> do
           { folderFiles = do
             (_, fe) <- contents
             guard $ not $ fe_Directory fe
-            return (fe_FileName fe, getFileHandle fe stfs $ fileReadable stfsPath)
+            return (fe_FileName fe, getFileHandle fe stfs r)
           , folderSubfolders = do
             (i, fe) <- contents
             guard $ fe_Directory fe
             return (fe_FileName fe, getFolder i)
           }
   return $ getFolder (-1)
+
+getSTFSFolder :: FilePath -> IO (Folder T.Text Readable)
+getSTFSFolder f = withSTFSPackage f $ readableSTFSFolder $ fileReadable f
 
 extractSTFS :: FilePath -> FilePath -> IO ()
 extractSTFS stfs dir = getSTFSFolder stfs >>= \folder -> saveHandleFolder folder dir

@@ -1,3 +1,13 @@
+metadata:
+  title: Crack the Skye
+  artist: Mastodon
+  album: Crack the Skye
+  year: 2009
+  file-album-art: ../../../covers/crack-the-skye.jpg
+  subgenre: prog
+  genre: metal
+  author: Onyxite
+  track-number: 6
 parts:
   drums:
     drums:
@@ -7,6 +17,11 @@ audio:
   album-track:
     frames: 15624924
     md5: 3a902d220a2b4a60050ebe3fcaa4ecad
+  album-prev: # Ghost of Karelia
+    frames: 14323092
+    md5: d10e0b9e939fda96542afebe010bc89f
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
   stream-0:
     file-path: stream-0.xma
   stream-1:
@@ -17,11 +32,27 @@ audio:
     file-path: stream-3.xma
 plans:
   album:
-    song:
-      pad: [3.975, album-track]
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song: # TODO fade out ending
+      expr:
+        fade:
+        - start
+        - 3
+        - concatenate:
+          - take: [end, 3.975, album-prev]
+          - album-track
+      pans: [1, -1]
   dev:
     song:
-      pad: [3.975, album-track]
+      expr:
+        pad: [3.975, album-track]
+      pans: [1, -1]
     parts:
       drums-1:
         expr:

@@ -9,6 +9,11 @@ parts:
     grybo:
       difficulty:
         rank: 242
+    pro-guitar:
+      tuning:
+        base: bass-4
+        global: -1 # Eb standard (not sure if right)
+      picked-bass: true # pretty sure I hear pick
   guitar:
     grybo:
       difficulty:
@@ -29,7 +34,7 @@ plans:
         snare: [2, 3]
         kit: [4, 5]
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
-    mogg-md5: ac73df0a63fe8a1d072c42fe87dbaef6
+    file-mogg: cantletgo.mogg
     multitrack: true
     vols: [-0.5, -0.5, -0.5, -0.5, -1.5, -1.5, -5, -5, -4.5, -4.5, -3.5, -3.5, -1.5, -1.5]
 targets:
@@ -39,6 +44,10 @@ targets:
   ps:
     game: ps
     label: (O)
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
 metadata:
   rating: Family Friendly
   preview-start: 27.7

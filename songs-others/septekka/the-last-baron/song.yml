@@ -44,7 +44,7 @@ metadata:
     tier: 7
   rating: Family Friendly
   artist: Mastodon
-  file-album-art: cover.png_xbox
+  file-album-art: ../../../covers/crack-the-skye.jpg
 audio:
   album-track:
     md5: 3e9ec9b6fcc67c27ff976cf801625015
@@ -65,7 +65,7 @@ plans:
     karaoke: false
     multitrack: false
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    pans: [1, -1, 1, -1, 1, -1, 1, -1, 1, -1] # flipped pans for drums
   dev:
     song:
       expr:
@@ -104,3 +104,6 @@ targets:
 
 # TODO fix these bars on all tracks (changed 15/16 to 4/4):
 # 286.1.00, 289.1.00, 291.1.00
+# Also, fix BEAT around this part and the previous rep (bars 150-155)
+# after 4/4 placement was fixed
+# Also, 272-276 should get similar time sig fixes

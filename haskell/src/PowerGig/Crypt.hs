@@ -89,7 +89,7 @@ encryptE2 input = do
         <> headerIVBytes
       blocks = map
         (\b -> if B.length b == powerGigBlockSize then b else b <> B.replicate (powerGigBlockSize - B.length b) 0)
-        (splitEvery powerGigBlockSize $ input <> B.replicate 16 0x10)
+        (splitEvery powerGigBlockSize $ input <> B.replicate 16 0xD)
   Just iv <- return $ makeIV ivBytes
   CryptoPassed cipher <- return $ cipherInit cipherBytes
   let _ = [iv, headerIV] :: [IV AES256]

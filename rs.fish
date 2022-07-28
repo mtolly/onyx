@@ -59,7 +59,8 @@ end
 # build songs/jizue/marten # needs 4-string
 # build songs-others/guitar-hero/my-apocalypse
 # build songs-others/guitar-hero/suicide-and-redemption-j-h
-build songs-others/bloodline/fish-amir-bresler-playthrough
+# build songs-others/bloodline/fish-amir-bresler-playthrough
+build songs-hmx/rb1/cant-let-go
 
 # phrases not done:
 
@@ -116,6 +117,16 @@ build songs-others/bloodline/fish-amir-bresler-playthrough
 # build songs/billy-cobham/stratus
 # build songs/tormented-brutality/dominate
 # build songs-hmx/metallica/ride-the-lightning
+# build songs-rbn/anamanaguchi/airbrushed
+# build songs-rbn/amberian-dawn/dreamchaser
+# build songs-rbn/mike-orlando/burn
+# build songs-rbn/prototype/the-way-it-ends
+# build songs-others/boo/immediate-results
+# build songs-others/bloodline/spark
+build songs/gyari/akane-chan
+build songs-hmx/trivium/in-waves
+build songs-others/inventor211/the-sin-and-the-sentence
+build songs/trivium/of-all-these-yesterdays
 
 # phrases unknown:
 
