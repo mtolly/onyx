@@ -4,20 +4,24 @@ module Data.DTA.Serialize.GH1 where
 
 import           Control.Monad.Codec      ((=.))
 import           Control.Monad.Codec.Onyx (enumCodec, opt, req)
+import           Control.Monad.Random     (MonadRandom, uniform)
 import           Data.DTA
 import           Data.DTA.Serialize
 import           Data.DTA.Serialize.RB3   (AnimTempo)
 import qualified Data.Text                as T
 import           RockBand.Codec           (reprPrefix)
+import           RockBand.Common          (each)
 
 data Song = Song
   { songName    :: T.Text
-  , tracks      :: Integer
+  , tracks      :: Integer -- always 1 (holdover from amplitude probably)
   , slip_tracks :: [[Integer]]
   , pans        :: [Float]
   , vols        :: [Float]
   , cores       :: [Integer]
-  -- TODO (solo (riffs [standard|symph|more]))
+  , solo        :: [T.Text] -- usually (riffs standard), exceptions:
+  -- (riffs symph) symphony of destruction
+  -- (riffs more) more than a feeling
   } deriving (Eq, Show)
 
 instance StackChunks Song where
@@ -28,6 +32,7 @@ instance StackChunks Song where
     pans          <- pans          =. req "pans"        (chunksParens stackChunks)
     vols          <- vols          =. req "vols"        (chunksParens stackChunks)
     cores         <- cores         =. req "cores"       (chunksParens stackChunks)
+    solo          <- solo          =. req "solo"        (chunksParens $ chunksList chunkSym)
     return Song{..}
 
 data Character
@@ -79,10 +84,17 @@ instance StackChunks Quickplay where
     venue     <- venue     =. req "venue"     stackChunks
     return Quickplay{..}
 
+randomQuickplay :: (MonadRandom m) => m Quickplay
+randomQuickplay = Quickplay
+  <$> (Left <$> uniform each)
+  <*> (Left <$> uniform each)
+  <*> (Left <$> uniform each)
+
 data BandMember
   = KEYBOARD_METAL
   | BASS_METAL
   | DRUMMER_METAL
+  | SINGER_MALE_METAL -- not used in songs.dtb but present in band_chars.dtb
   | SINGER_FEMALE_METAL
   deriving (Eq, Show, Enum, Bounded)
 
@@ -95,9 +107,9 @@ data SongPackage = SongPackage
   , artist    :: T.Text
   , song      :: Song
   , band      :: Maybe [Either BandMember T.Text]
-  , bank      :: T.Text
+  , bank      :: T.Text -- "sfx/song_default" for all disc songs
   , bpm       :: Integer
-  , animTempo :: AnimTempo
+  , animTempo :: AnimTempo -- all disc songs are kTempoMedium or kTempoFast, don't know if slow is supported
   , preview   :: (Integer, Integer)
   , midiFile  :: T.Text
   , quickplay :: Quickplay

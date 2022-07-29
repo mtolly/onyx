@@ -279,7 +279,7 @@ readRBImageMaybe isPS3 bs = let
       -- Wii DXT1
       (0x04, 0x48) -> fmap (arrangeRows (quot width 8) (quot height 8))
         $ replicateM (quot (width * height) 64) readWiiChunk
-      -- PS2 BMP
+      -- PS2 BMP, 8-bit indices; typical color images
       (0x08, 0x03) -> do
         palette <- replicateM 256 $ do
           r <- getWord8
@@ -290,6 +290,19 @@ readRBImageMaybe isPS3 bs = let
         fmap (Image width height . V.fromList . concat) $ replicateM (width * height) $ do
           i <- getWord8
           return $ palette !! fromIntegral (flip34 i)
+      -- PS2 BMP, 4-bit indices; seen in GH1 for fonts and other B/W images, e.g. ghui/image/gen/hand_gw.bmp_ps2
+      (0x04, 0x03) -> do
+        palette <- replicateM 16 $ do
+          r <- getWord8
+          g <- getWord8
+          b <- getWord8
+          a <- getWord8 -- goes from 0 to 0x80
+          return [r, g, b, if a >= 0x80 then 0xFF else a * 2]
+        fmap (Image width height . V.fromList . concat . concat) $ replicateM (quot (width * height) 2) $ do
+          i <- getWord8
+          let high = (i `shiftR` 4) .&. 0xF
+              low  = i              .&. 0xF
+          return [palette !! fromIntegral low, palette !! fromIntegral high]
       _ -> fail "Unrecognized HMX image format"
   in runGetM parseImage bs
 

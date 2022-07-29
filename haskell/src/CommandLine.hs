@@ -297,6 +297,7 @@ buildTarget yamlPath opts = do
         RB2   {} -> "gen/target" </> T.unpack targetName </> "rb2con"
         PS    {} -> "gen/target" </> T.unpack targetName </> "ps.zip"
         GH2   {} -> "gen/target" </> T.unpack targetName </> "gh2.zip"
+        GH1   {} -> undefined -- TODO
         GH3   {} -> undefined -- TODO
         GH5   {} -> undefined -- TODO
         RS    {} -> undefined -- TODO
@@ -404,6 +405,7 @@ commands =
                 PS    {} -> FileZip
                 RB3   {} -> FileSTFS
                 RB2   {} -> FileSTFS
+                GH1   {} -> undefined -- TODO
                 GH2   {} -> undefined -- TODO
                 GH3   {} -> undefined -- TODO
                 GH5   {} -> undefined -- TODO

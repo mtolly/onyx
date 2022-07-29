@@ -1230,6 +1230,10 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
+  gh1Tab <- makeTab windowRect "GH1" $ \rect tab -> do
+    functionTabColor >>= setTabColor tab
+    -- TODO songPageGH1
+    return tab
   gh2Tab <- makeTab windowRect "GH2" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageGH2 sink rect tab proj $ \tgt create -> do
@@ -1330,7 +1334,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, gh2Tab, worTab, utilsTab]
+  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, gh1Tab, gh2Tab, worTab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskColor >>= setTabColor tab
     FL.deactivate tab
@@ -1544,6 +1548,10 @@ data RB2Create
 data PSCreate
   = PSDir FilePath
   | PSZip FilePath
+
+data GH1Create
+  = GH1ARK FilePath
+  | GH1DIYPS2 FilePath
 
 data GH2Create
   = GH2LIVE FilePath
@@ -1842,6 +1850,75 @@ gh2DrumChartSelector sink rect = do
         FL.AtIndex i <- FL.getValue kicks
         return $ Just $ i == 1
       else return Nothing
+
+batchPageGH1
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ((Project -> (TargetGH1, GH1Create)) -> IO ())
+  -> IO ()
+batchPageGH1 sink rect tab build = do
+  pack <- FL.packNew rect Nothing
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+    centerRect = trimClock 0 250 0 250 rect'
+    in centerFixed rect' $ speedPercent True centerRect
+  let getTargetSong usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
+        speed <- getSpeed
+        go $ \proj -> let
+          defGH1 = def :: TargetGH1
+          hasPart p = case HM.lookup p $ getParts $ _parts $ projectSongYaml proj of
+            Nothing   -> False
+            Just part -> isJust (partGRYBO part) || isJust (partDrums part)
+          leadPart = listToMaybe $ filter hasPart
+            [ FlexGuitar
+            , FlexExtra "rhythm"
+            , FlexKeys
+            , FlexBass
+            , FlexDrums
+            ]
+          tgt = defGH1
+            { gh1_Common = (gh1_Common defGH1)
+              { tgt_Speed = Just speed
+              }
+            , gh1_Guitar = fromMaybe (FlexExtra "undefined") leadPart
+            , gh1_Offset = prefGH2Offset newPrefs
+            , gh1_LoadingPhrase = loadingPhraseCHtoGH2 proj
+            }
+          fout = T.unpack $ foldr ($) template
+            [ templateApplyInput proj $ Just $ GH1 tgt
+            , let
+              modifiers = T.pack $ case tgt_Speed $ gh1_Common tgt of
+                Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
+                _               -> ""
+              in T.intercalate modifiers . T.splitOn "%modifiers%"
+            ]
+          in (tgt, usePath fout)
+  padded 5 10 5 10 (Size (Width 500) (Height 35)) $ \r -> do
+    btn <- FL.buttonNew r $ Just "Add to PS2 ARK as Bonus Songs"
+    color <- taskColor
+    FL.setColor btn color
+    FL.setCallback btn $ \_ -> do
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+      FL.setTitle picker "Select .HDR file"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> let
+            gen = takeDirectory f
+            in getTargetSong id "" $ \song -> do
+              build $ \proj -> let
+                (tgt, _) = song proj
+                in (tgt, GH1ARK gen)
+        _ -> return ()
+  makeTemplateRunner
+    sink
+    "Create PS2 DIY folders"
+    ("%input_dir%/%input_base%%modifiers%_gh1")
+    (\template -> getTargetSong GH1DIYPS2 template build)
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
 
 batchPageGH2
   :: (?preferences :: Preferences)
@@ -5143,6 +5220,19 @@ launchBatch sink makeMenuBar startFiles = mdo
               tmp <- buildPSZip target proj'
               stackIO $ Dir.copyFile tmp fout
               return [fout]
+      return tab
+    , makeTab windowRect "GH1" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      batchPageGH1 sink rect tab $ \settings -> sink $ EventOnyx $ do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
+          let (target, creator) = settings proj
+          proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
+          case creator of
+            GH1ARK fout -> do
+              installGH1 target proj' fout
+              return [fout]
+            GH1DIYPS2 _ -> fatal "TODO DIY folder"
       return tab
     , makeTab windowRect "GH2" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

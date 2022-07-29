@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readSongList, readFileEntries, extractArk, createHdrArk, GH2InstallLocation(..), addBonusSong, GH2Installation(..)) where
+module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readSongList, readFileEntries, extractArk, createHdrArk, GH2InstallLocation(..), addBonusSongGH2, addBonusSongGH1, GH2Installation(..)) where
 
 import           Amplitude.PS2.Ark              (FileEntry (..), FoundFile (..),
                                                  entryFolder, extractArk,
@@ -230,8 +230,8 @@ data GH2Installation = GH2Installation
   }
 
 -- | Adds a song to a GH2 ARK, and registers it as a bonus song with price 0.
-addBonusSong :: GH2Installation -> IO ()
-addBonusSong GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
+addBonusSongGH2 :: GH2Installation -> IO ()
+addBonusSongGH2 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
   withSystemTempFile "songs.dtb"             $ \fdtb1 hdl1 -> do
     withSystemTempFile "coop_max_scores.dtb" $ \fdtb2 hdl2 -> do
       withSystemTempFile "store.dtb"         $ \fdtb3 hdl3 -> do
@@ -283,3 +283,54 @@ addBonusSong GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
           forM_ gh2i_album_art $ \img -> do
             ark_AddFile' ark img ("ui/image/og/gen/us_logo_" <> gh2i_symbol <> "_keep.png_ps2") True
           ark_Save' ark
+
+-- | Adds a song to a GH1 ARK, and registers it as a bonus song with price 0.
+addBonusSongGH1 :: GH2Installation -> IO ()
+addBonusSongGH1 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
+  withSystemTempFile "songs.dtb"      $ \fdtb1 hdl1 -> do
+    withSystemTempFile "store.dtb"    $ \fdtb2 hdl2 -> do
+      withSystemTempFile "locale.dtb" $ \fdtb3 hdl3 -> do
+        IO.hClose hdl1
+        IO.hClose hdl2
+        IO.hClose hdl3
+        let editDTB tmp path f = do
+              ark_GetFile' ark tmp path True
+              D.DTA z (D.Tree _ chunks) <- D.readFileDTB tmp
+              chunks' <- f chunks
+              D.writeFileDTB tmp $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 chunks'
+              ark_ReplaceAFile' ark tmp path True
+              return chunks'
+        newSongs <- editDTB fdtb1 "config/gen/songs.dtb" $ \chunks -> do
+          let (before, after) = case chunks of
+                -- put new songs after "#include ../charsys/band_chars.dta"
+                inc@(D.Include _) : rest -> ([inc], rest  )
+                _                        -> ([]   , chunks)
+          return $ before <> (D.Parens (D.Tree 0 (D.Sym gh2i_symbol : gh2i_song)) : after)
+        void $ editDTB fdtb2 "config/gen/store.dtb" $ \chunks -> do
+          forM chunks $ \case
+            D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> do
+              let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i_symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
+              bonusSorted <- if gh2i_sort
+                -- TODO handle warnings/errors better
+                then logStdout (readSongList $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
+                  Right newSongList -> let
+                    -- TODO use case fold sort (don't put lowercase letters after all uppercase)
+                    f = \case
+                      D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
+                        Just pkg -> name pkg
+                        Nothing  -> ""
+                      _                                  -> ""
+                    in return $ sortOn f bonus'
+                  Left _ -> return bonus'
+                else return bonus'
+              return $ D.Parens $ D.Tree 0 bonusSorted
+            chunk -> return chunk
+        void $ editDTB fdtb3 "ghui/eng/gen/locale.dtb" $ \chunks -> do
+          return $ catMaybes
+            [ (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i_symbol <> "_shop_desc"  , D.String x])) <$> gh2i_shop_description
+            , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i_symbol, D.String x])) <$> gh2i_loading_phrase
+            ] <> chunks
+        forM_ gh2i_files $ \(arkName, localPath) -> do
+          let arkPath = "songs/" <> gh2i_symbol <> "/" <> arkName
+          ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
+        ark_Save' ark

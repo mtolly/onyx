@@ -7,6 +7,7 @@ import           Audio
 import           AudioSearch
 import           Build.CloneHero
 import           Build.Common
+import           Build.GuitarHero1
 import           Build.GuitarHero2
 import           Build.GuitarHero5
 import           Build.PowerGig
@@ -492,6 +493,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , rb3_PS3Encrypt = rb2_PS3Encrypt rb2
               }
             in rbRules buildInfo dir rb3 $ Just rb2
+          GH1 gh1 -> gh1Rules buildInfo dir gh1
           GH2 gh2 -> gh2Rules buildInfo dir gh2
           PS ps -> psRules buildInfo dir ps
           Melody tgt -> melodyRules buildInfo dir tgt

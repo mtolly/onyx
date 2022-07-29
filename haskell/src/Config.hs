@@ -1291,6 +1291,37 @@ instance StackJSON TargetPS where
 instance Default TargetPS where
   def = fromEmptyObject
 
+data TargetGH1 = TargetGH1
+  { gh1_Common        :: TargetCommon
+  , gh1_Guitar        :: FlexPartName
+  , gh1_Bass          :: FlexPartName
+  , gh1_Drums         :: FlexPartName
+  , gh1_Vocal         :: FlexPartName
+  , gh1_Keys          :: FlexPartName
+  , gh1_Key           :: Maybe T.Text -- top symbol
+  , gh1_LoadingPhrase :: Maybe T.Text -- these go in ghui/eng/gen/locale.dtb, loading_tip_thesongkey
+  , gh1_Offset        :: Double -- in seconds, positive means pull audio earlier, negative means push later
+  } deriving (Eq, Ord, Show, Generic, Hashable)
+
+parseTargetGH1 :: (SendMessage m) => ObjectCodec m A.Value TargetGH1
+parseTargetGH1 = do
+  gh1_Common        <- gh1_Common        =. parseTargetCommon
+  gh1_Guitar        <- gh1_Guitar        =. opt FlexGuitar "guitar"         stackJSON
+  gh1_Bass          <- gh1_Bass          =. opt FlexBass   "bass"           stackJSON
+  gh1_Drums         <- gh1_Drums         =. opt FlexDrums  "drums"          stackJSON
+  gh1_Keys          <- gh1_Keys          =. opt FlexKeys   "keys"           stackJSON
+  gh1_Vocal         <- gh1_Vocal         =. opt FlexVocal  "vocal"          stackJSON
+  gh1_Key           <- gh1_Key           =. opt Nothing    "key"            stackJSON
+  gh1_LoadingPhrase <- gh1_LoadingPhrase =. opt Nothing    "loading-phrase" stackJSON
+  gh1_Offset        <- gh1_Offset        =. opt 0          "offset"         stackJSON
+  return TargetGH1{..}
+
+instance StackJSON TargetGH1 where
+  stackJSON = asStrictObject "TargetGH1" parseTargetGH1
+
+instance Default TargetGH1 where
+  def = fromEmptyObject
+
 data GH2Coop = GH2Bass | GH2Rhythm
   deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
@@ -1542,6 +1573,7 @@ data Target f
   = RB3    (TargetRB3 f)
   | RB2    TargetRB2
   | PS     TargetPS
+  | GH1    TargetGH1
   | GH2    TargetGH2
   | GH3    TargetGH3
   | GH5    TargetGH5
@@ -1557,6 +1589,7 @@ targetCommon = \case
   RB3    TargetRB3 {..} -> rb3_Common
   RB2    TargetRB2 {..} -> rb2_Common
   PS     TargetPS  {..} -> ps_Common
+  GH1    TargetGH1 {..} -> gh1_Common
   GH2    TargetGH2 {..} -> gh2_Common
   GH3    TargetGH3 {..} -> gh3_Common
   GH5    TargetGH5 {..} -> gh5_Common
@@ -1591,6 +1624,7 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
       RB3    rb3 -> addKey parseTargetRB3  "game" "rb3"    rb3
       RB2    rb2 -> addKey parseTargetRB2  "game" "rb2"    rb2
       PS     ps  -> addKey parseTargetPS   "game" "ps"     ps
+      GH1    gh1 -> addKey parseTargetGH1  "game" "gh1"    gh1
       GH2    gh2 -> addKey parseTargetGH2  "game" "gh2"    gh2
       GH3    gh3 -> addKey parseTargetGH3  "game" "gh3"    gh3
       GH5    gh5 -> addKey parseTargetGH5  "game" "gh5"    gh5

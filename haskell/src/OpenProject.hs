@@ -35,8 +35,8 @@ import qualified Data.Text                      as T
 import           Data.Text.Encoding             (encodeUtf8)
 import qualified Data.Text.Encoding             as TE
 import           GuitarHeroII.Ark               (GH2Installation (..),
-                                                 GameGH (..), addBonusSong,
-                                                 detectGameGH)
+                                                 GameGH (..), addBonusSongGH1,
+                                                 addBonusSongGH2, detectGameGH)
 import           GuitarHeroII.Convert           (adjustSongText)
 import           GuitarPro                      (parseGP, parseGPX)
 import           Import.Amplitude2016           (importAmplitude)
@@ -369,6 +369,9 @@ buildPSDir ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash
 buildPSZip :: (MonadIO m) => TargetPS -> Project -> StackTraceT (QueueLog m) FilePath
 buildPSZip ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps.zip"
 
+buildGH1Dir :: (MonadIO m) => TargetGH1 -> Project -> StackTraceT (QueueLog m) FilePath
+buildGH1Dir gh1 = buildCommon (GH1 gh1) $ \targetHash -> "gen/target" </> targetHash </> "gh1"
+
 buildGH2Dir :: (MonadIO m) => TargetGH2 -> Project -> StackTraceT (QueueLog m) FilePath
 buildGH2Dir gh2 = buildCommon (GH2 gh2) $ \targetHash -> "gen/target" </> targetHash </> "gh2"
 
@@ -380,6 +383,42 @@ buildGHWORLIVE gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> tar
 
 buildGHWORPKG :: (MonadIO m) => TargetGH5 -> Project -> StackTraceT (QueueLog m) FilePath
 buildGHWORPKG gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targetHash </> "ps3.pkg"
+
+installGH1 :: (MonadIO m) => TargetGH1 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
+installGH1 gh1 proj gen = do
+  stackIO (detectGameGH gen) >>= \case
+    Nothing         -> fatal "Couldn't detect what game this ARK is for."
+    Just GameGH1    -> return ()
+    Just GameGH2    -> fatal "This appears to be a Guitar Hero II or 80's ARK!"
+    Just GameGH2DX2 -> fatal "This appears to be a Guitar Hero II Deluxe ARK!"
+  dir <- buildGH1Dir gh1 proj
+  files <- stackIO $ Dir.listDirectory dir
+  dta <- stackIO $ readFileDTA $ dir </> "songs-inner.dta"
+  sym <- stackIO $ B.readFile $ dir </> "symbol"
+  let chunks = treeChunks $ topTree $ fmap (B8.pack . T.unpack) dta
+      filePairs = flip mapMaybe files $ \f -> do
+        guard $ elem (takeExtension f) [".mid", ".vgs", ".voc"]
+        return (sym <> B8.pack (dropWhile isAlpha f), dir </> f)
+  let toBytes = B8.pack . T.unpack
+  sortBonus <- prefSortGH2 <$> readPreferences
+  return ()
+  stackIO $ addBonusSongGH1 GH2Installation
+    { gh2i_GEN              = gen
+    , gh2i_symbol           = sym
+    , gh2i_song             = chunks
+    , gh2i_coop_max_scores  = [] -- not used
+    , gh2i_shop_title       = Just $ toBytes $ targetTitle (projectSongYaml proj) $ GH1 gh1 -- not used
+    , gh2i_shop_description = Just $ toBytes $ T.unlines
+      [ "Artist: " <> getArtist (_metadata $ projectSongYaml proj)
+      , "Album: "  <> getAlbum  (_metadata $ projectSongYaml proj)
+      , "Author: " <> getAuthor (_metadata $ projectSongYaml proj)
+      ]
+    , gh2i_author           = toBytes . adjustSongText <$> _author (_metadata $ projectSongYaml proj)
+    , gh2i_album_art        = Nothing -- not used
+    , gh2i_files            = filePairs
+    , gh2i_sort             = sortBonus
+    , gh2i_loading_phrase   = toBytes <$> gh1_LoadingPhrase gh1
+    }
 
 installGH2 :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 installGH2 gh2 proj gen = do
@@ -410,7 +449,7 @@ installGH2 gh2 proj gen = do
     _ -> fatal "Couldn't read coop scores list"
   let toBytes = B8.pack . T.unpack
   sortBonus <- prefSortGH2 <$> readPreferences
-  stackIO $ addBonusSong GH2Installation
+  stackIO $ addBonusSongGH2 GH2Installation
     { gh2i_GEN              = gen
     , gh2i_symbol           = sym
     , gh2i_song             = chunks
@@ -455,6 +494,7 @@ makeGH2DIY gh2 proj dout = do
     , "4. Edit either config/gen/campaign.dtb or config/gen/store.dtb to add your song as a career or bonus song respectively"
     , "5. If added as a bonus song, copy the .png_ps2 to ui/image/og/gen/us_logo_" <> s <> "_keep.png_ps2 if you want album art in the shop"
     , "6. If added as a bonus song, edit ui/eng/gen/locale.dtb with keys '" <> s <> "' and '" <> s <> "_shop_desc' if you want a title/description in the shop"
+    -- TODO also mention loading tip in locale.dtb?
     ]
 
 buildPlayer :: (MonadIO m) => Maybe T.Text -> Project -> StackTraceT (QueueLog m) FilePath
