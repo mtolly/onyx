@@ -1232,7 +1232,19 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
     return tab
   gh1Tab <- makeTab windowRect "GH1" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
-    -- TODO songPageGH1
+    songPageGH1 sink rect tab proj $ \tgt create -> do
+      proj' <- fullProjModify proj
+      let name = case create of
+            GH1ARK{}    -> "Adding to GH1 ARK file"
+            GH1DIYPS2{} -> "Creating GH1 DIY folder (PS2)"
+          task = case create of
+            GH1ARK fout -> do
+              installGH1 tgt proj' fout
+              return [fout]
+            GH1DIYPS2 fout -> do
+              makeGH1DIY tgt proj' fout
+              return [fout]
+      sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   gh2Tab <- makeTab windowRect "GH2" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
@@ -2634,6 +2646,97 @@ selectArkDestination sink gen withLocation = do
     FL.setResizable window $ Just scroll
     FL.sizeRange window windowSize
     FL.showWidget window
+
+songPageGH1
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> Project
+  -> (TargetGH1 -> GH1Create -> IO ())
+  -> IO ()
+songPageGH1 sink rect tab proj build = mdo
+  pack <- FL.packNew rect Nothing
+  let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
+  targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
+      tell $ getSpeed >>= \speed -> return $ Endo $ \gh1 ->
+        gh1 { gh1_Common = (gh1_Common gh1) { tgt_Speed = Just speed } }
+      return counter
+    let hasFiveOrDrums p = isJust (partGRYBO p) || isJust (partDrums p)
+    fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
+      [ ( "Guitar"     , gh1_Guitar    , (\v gh1 -> gh1 { gh1_Guitar       = v })
+        , hasFiveOrDrums
+        )
+      ]
+    fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
+      [ ( "Bass"       , gh1_Bass      , (\v gh1 -> gh1 { gh1_Bass         = v })
+        , isJust . partGRYBO
+        )
+      , ( "Keys"       , gh1_Keys      , (\v gh1 -> gh1 { gh1_Keys         = v })
+        , isJust . partGRYBO
+        )
+      , ( "Drums"      , gh1_Drums     , (\v gh1 -> gh1 { gh1_Drums        = v })
+        , isJust . partDrums
+        )
+      , ( "Vocal"      , gh1_Vocal     , (\v gh1 -> gh1 { gh1_Vocal        = v })
+        , isJust . partVocal
+        )
+      ]
+    fullWidth 35 $ \rect' -> do
+      controlInput <- customTitleSuffix sink rect'
+        (makeTarget >>= \gh1 -> return $ targetTitle
+          (projectSongYaml proj)
+          (GH1 gh1 { gh1_Common = (gh1_Common gh1) { tgt_Title = Just "" } })
+        )
+        (\msfx gh1 -> gh1
+          { gh1_Common = (gh1_Common gh1)
+            { tgt_Label = msfx
+            }
+          }
+        )
+      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+  let initTarget prefs = def
+        { gh1_Offset = prefGH2Offset prefs
+        , gh1_LoadingPhrase = loadingPhraseCHtoGH2 proj
+        }
+      makeTarget = fmap ($ initTarget ?preferences) targetModifier
+      -- make sure we reload offset before compiling
+      makeTargetUpdatePrefs go = targetModifier >>= \modifier -> sink $ EventOnyx $ do
+        newPrefs <- readPreferences
+        stackIO $ go $ modifier $ initTarget newPrefs
+  fullWidth 35 $ \rect' -> do
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    btn1 <- FL.buttonNew r1 $ Just "Add to PS2 ARK as Bonus Song"
+    FL.setCallback btn1 $ \_ -> makeTargetUpdatePrefs $ \tgt -> do
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+      FL.setTitle picker "Select .HDR file"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> let
+            gen = takeDirectory f
+            in build tgt $ GH1ARK gen
+        _ -> return ()
+    btn2 <- FL.buttonNew r2 $ Just "Create PS2 DIY folder"
+    FL.setCallback btn2 $ \_ -> makeTargetUpdatePrefs $ \tgt -> do
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Create DIY folder"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_gh1"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ GH1DIYPS2 f
+        _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn1 color
+    FL.setColor btn2 color
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
 
 songPageGH2
   :: (?preferences :: Preferences)
@@ -5232,7 +5335,9 @@ launchBatch sink makeMenuBar startFiles = mdo
             GH1ARK fout -> do
               installGH1 target proj' fout
               return [fout]
-            GH1DIYPS2 _ -> fatal "TODO DIY folder"
+            GH1DIYPS2 fout -> do
+              makeGH1DIY target proj' fout
+              return [fout]
       return tab
     , makeTab windowRect "GH2" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

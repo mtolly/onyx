@@ -72,22 +72,25 @@ instance StackChunk Venue where
 instance StackChunks Venue
 
 data Quickplay = Quickplay
-  { character :: Either Character T.Text
-  , guitar    :: Either Guitar T.Text
-  , venue     :: Either Venue T.Text
+  { character   :: Either Character T.Text
+  , guitar      :: Either Guitar T.Text
+  , guitar_skin :: Maybe T.Text -- only used on Fire It Up (guitar_skin gibson_lespaul_wylde)
+  , venue       :: Either Venue T.Text
   } deriving (Eq, Show)
 
 instance StackChunks Quickplay where
   stackChunks = asWarnAssoc "Quickplay" $ do
-    character <- character =. req "character" stackChunks
-    guitar    <- guitar    =. req "guitar"    stackChunks
-    venue     <- venue     =. req "venue"     stackChunks
+    character   <- character   =. req         "character"   stackChunks
+    guitar      <- guitar      =. req         "guitar"      stackChunks
+    guitar_skin <- guitar_skin =. opt Nothing "guitar_skin" stackChunks
+    venue       <- venue       =. req         "venue"       stackChunks
     return Quickplay{..}
 
 randomQuickplay :: (MonadRandom m) => m Quickplay
 randomQuickplay = Quickplay
   <$> (Left <$> uniform each)
   <*> (Left <$> uniform each)
+  <*> (pure Nothing)
   <*> (Left <$> uniform each)
 
 data BandMember

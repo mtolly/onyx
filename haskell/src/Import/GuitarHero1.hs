@@ -5,10 +5,11 @@ module Import.GuitarHero1 where
 
 import           Amplitude.PS2.Ark                (FileEntry (..), entryFolder,
                                                    findSplitArk', readFileEntry)
-import           Audio                            (Audio (..))
+import           Audio                            (Audio (..),
+                                                   decibelDifferenceInPanRatios)
 import           Config
 import           Control.Concurrent.Async         (forConcurrently)
-import           Control.Monad                    (void, when)
+import           Control.Monad                    (guard, void, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.StackTrace
@@ -19,6 +20,7 @@ import qualified Data.DTA                         as D
 import           Data.DTA.Crypt                   (decrypt, oldCrypt)
 import qualified Data.DTA.Serialize               as D
 import           Data.DTA.Serialize.GH1
+import           Data.DTA.Serialize.RB3           (AnimTempo (KTempoMedium))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
@@ -57,9 +59,45 @@ getSongList gen = do
       keepChunk = \case
         D.Parens _ -> True
         _          -> False
-  fmap D.fromDictList
+  fmap (addTrippolette entries . D.fromDictList)
     $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
     $ editDTB $ decodeLatin1 <$> D.decodeDTB (decrypt oldCrypt dtb)
+
+-- Hacks on DTA info to be able to import Trippolette (if mid/vgs present and it's not already in dta).
+addTrippolette :: [FileEntry] -> [(T.Text, SongPackage)] -> [(T.Text, SongPackage)]
+addTrippolette entries songs = let
+  hasTripFiles = all
+    (\fn -> any (\fe -> fe_folder fe == Just "songs/advharmony" && fe_name fe == fn) entries)
+    ["advharmony.mid", "advharmony.vgs"]
+  alreadyTrip = any ((== "advharmony") . fst) songs
+  tripPackage = SongPackage
+    { name = "Trippolette"
+    , artist = "Andi Buch"
+    , song = Song
+      { songName = "songs/advharmony/advharmony"
+      , tracks = 1
+      , slip_tracks = [[2, 3]]
+      , pans = [-1, 1, -1, 1]
+      , vols = [0.8, 0.8, 0.8, 0.8]
+      , cores = [-1, -1, 1, 1]
+      , solo = ["riffs", "standard"]
+      }
+    , band = Just [Left KEYBOARD_METAL, Left BASS_METAL, Left DRUMMER_METAL]
+    , bank = "sfx/song_default"
+    , bpm = 206
+    , animTempo = KTempoMedium
+    , preview = (36199, 66199) -- sensible preview section
+    , midiFile = "songs/advharmony/advharmony.mid"
+    , quickplay = Quickplay
+      { character = Left Char_alterna
+      , guitar = Left Guitar_gibson_flying_v
+      , guitar_skin = Nothing
+      , venue = Left Venue_theatre
+      }
+    }
+  in if hasTripFiles && not alreadyTrip
+    then ("advharmony", tripPackage) : songs
+    else songs
 
 importGH1 :: (SendMessage m, MonadResource m) => FilePath -> StackTraceT m [Import m]
 importGH1 gen = map (\(_, pkg) -> importGH1Song pkg gen) <$> getSongList gen
@@ -122,8 +160,10 @@ importGH1Song pkg gen level = do
     { _metadata = def'
       { _title  = Just $ name pkg
       , _artist = Just $ artist pkg
-      , _cover = False -- TODO this doesn't appear to be in songs.dta, where is it?
+      , _cover = False -- TODO maybe make this true if it's in the main setlist (I think that's how the game does it)
       , _fileAlbumArt = Nothing
+      , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ preview pkg) / 1000
+      , _previewEnd = Just $ PreviewSeconds $ fromIntegral (snd $ preview pkg) / 1000
       }
     , _global = def'
       { _fileMidi            = SoftFile "notes.mid" $ SoftChart convmid
@@ -145,18 +185,24 @@ importGH1Song pkg gen level = do
     , _plans = HM.singleton "vgs" $ let
       guitarChans = map fromIntegral $ concat $ take 1 $ slip_tracks $ song pkg
       songChans = zipWith const [0..] (pans $ song pkg) \\ guitarChans
+      -- in gh1, volumes are stored as gain ratios, unlike gh2 and later where they are decibels
+      volumesDecibels = do
+        volRatio <- vols $ song pkg
+        return $ decibelDifferenceInPanRatios (1, 1) (volRatio, volRatio)
       mixChans cs = do
         cs' <- NE.nonEmpty cs
+        -- return Nothing if all channels are silenced by vols
+        guard $ any (\c -> (vols (song pkg) !! c) > 0) cs
         Just $ case cs' of
           c :| [] -> PlanAudio
             { _planExpr = Input $ Named $ T.pack $ fst $ namedChans !! c
             , _planPans = map realToFrac [pans (song pkg) !! c]
-            , _planVols = map realToFrac [vols (song pkg) !! c]
+            , _planVols = map realToFrac [volumesDecibels !! c]
             }
           _ -> PlanAudio
             { _planExpr = Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs'
             , _planPans = map realToFrac [ pans (song pkg) !! c | c <- cs ]
-            , _planVols = map realToFrac [ vols (song pkg) !! c | c <- cs ]
+            , _planVols = map realToFrac [ volumesDecibels !! c | c <- cs ]
             }
       in Plan
         { _song = mixChans songChans

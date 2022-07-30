@@ -670,7 +670,7 @@ fromStereoPanRatios (ratioL, ratioR) = let
   -- This becomes null in song.yml and breaks audio generation later
   in if isNaN result then 0 else result
 
--- Used for PowerGig import.
+-- Used for PowerGig import, also GH1 import
 -- Gets the RB-style vol given the "raw" L/R ratios and the desired ones.
 decibelDifferenceInPanRatios :: (Float, Float) -> (Float, Float) -> Float
 decibelDifferenceInPanRatios (oneL, oneR) (twoL, twoR) = let
@@ -679,7 +679,9 @@ decibelDifferenceInPanRatios (oneL, oneR) (twoL, twoR) = let
     then twoL / oneL
     else twoR / oneR
   -- volRatio = 10 ** (volDB / 20)
-  in (log volRatio / log 10) * 20
+  result = (log volRatio / log 10) * 20
+  -- handle -inf for GH1 (we use 0 vol ratio for silent channel)
+  in if isInfinite result && result < 0 then -9999 else result
 
 -- | Like 'applyPansVols', but mixes into mono instead of stereo.
 applyVolsMono :: (Monad m) => [Float] -> AudioSource m Float -> AudioSource m Float

@@ -467,6 +467,31 @@ installGH2 gh2 proj gen = do
     , gh2i_loading_phrase   = toBytes <$> gh2_LoadingPhrase gh2
     }
 
+makeGH1DIY :: (MonadIO m) => TargetGH1 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
+makeGH1DIY gh1 proj dout = do
+  dir <- buildGH1Dir gh1 proj
+  stackIO $ Dir.createDirectoryIfMissing False dout
+  files <- stackIO $ Dir.listDirectory dir
+  sym <- stackIO $ fmap B8.unpack $ B.readFile $ dir </> "symbol"
+  let filePairs = flip mapMaybe files $ \f -> let ext = takeExtension f in if
+        | elem ext [".vgs", ".mid"]               -> Just (sym <> dropWhile isAlpha f, dir </> f)
+        | ext == ".dta" && f /= "songs-inner.dta" -> Just (f, dir </> f)
+        | otherwise                               -> Nothing
+  stackIO $ forM_ filePairs $ \(dest, src) -> Dir.copyFile src $ dout </> dest
+  let s = T.pack sym
+  stackIO $ B.writeFile (dout </> "README.txt") $ encodeUtf8 $ T.intercalate "\r\n"
+    [ "Instructions for GH1 song installation"
+    , ""
+    , "You must have a tool that can edit .ARK files such as arkhelper,"
+    , "and a tool that can edit .dtb files such as dtab (which arkhelper can use automatically)."
+    , ""
+    , "1. Add the contents of songs.dta to: config/gen/songs.dtb"
+    , "2. Make a new folder: songs/" <> s <> "/ and copy the .mid and .vgs files into it"
+    , "3. Edit either config/gen/campaign.dtb or config/gen/store.dtb to add your song as a career or bonus song respectively"
+    , "4. If added as a bonus song, edit ghui/eng/gen/locale.dtb with the key '" <> s <> "_shop_desc' if you want a description in the shop"
+    -- TODO also mention loading tip in locale.dtb?
+    ]
+
 makeGH2DIY :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 makeGH2DIY gh2 proj dout = do
   dir <- buildGH2Dir gh2 proj

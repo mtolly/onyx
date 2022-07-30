@@ -137,6 +137,8 @@ gh2SongYaml mode pkg songChunk onyxMidi = SongYaml
     , _artist = Just $ artist pkg
     , _cover = caption pkg /= Just "performed_by"
     , _fileAlbumArt = Nothing
+    , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ preview pkg) / 1000
+    , _previewEnd = Just $ PreviewSeconds $ fromIntegral (snd $ preview pkg) / 1000
     }
   , _global = def'
     { _fileMidi            = SoftFile "notes.mid" $ SoftChart onyxMidi

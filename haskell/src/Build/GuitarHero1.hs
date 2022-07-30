@@ -93,11 +93,13 @@ computeGH1Audio song target hasAudio = do
     then return $ gh1_Guitar target
     else fatal "computeGH1Audio: no lead guitar part selected"
   let leadAudio = hasAudio gh1LeadTrack
-      gh1AudioSections =
-        [ GH2Band
-        , if leadAudio then GH2PartStereo gh1LeadTrack else GH2Silent
-        ]
-      gh1LeadChannels = if leadAudio then [2, 3] else [2]
+      gh1AudioSections = GH2Band : if leadAudio
+        then [GH2PartStereo gh1LeadTrack]
+        -- A single guitar track apparently doesn't work;
+        -- guitar also takes over channel 0 (left backing track) somehow?
+        -- So use two channels like all disc songs
+        else [GH2Silent, GH2Silent]
+      gh1LeadChannels = [2, 3] -- always stereo as per above
       gh1BackChannels = [0, 1] -- should always be this for our output
       gh1AnimBass  = gh1_Bass  target <$ (getPart (gh1_Bass  target) song >>= partGRYBO)
       gh1AnimDrums = gh1_Drums target <$ (getPart (gh1_Drums target) song >>= partDrums)
@@ -269,10 +271,11 @@ makeGH1DTA song key preview audio title = D.SongPackage
       GH2Band         -> [-1, 1]
       GH2Silent       -> [0]
     , D.vols = gh1AudioSections audio >>= \case
-      GH2PartStereo _ -> [0, 0]
-      GH2PartMono   _ -> [20 * (log 2 / log 10)] -- compensate for half volume later
-      GH2Band         -> [0, 0]
-      GH2Silent       -> [0]
+      -- gh1 uses gain ratios, not decibels like gh2 and later!
+      GH2PartStereo _ -> [1, 1]
+      GH2PartMono   _ -> [2, 2] -- compensate for half volume later
+      GH2Band         -> [1, 1]
+      GH2Silent       -> [0] -- doesn't matter
     , D.cores = gh1AudioSections audio >>= \case
       GH2PartStereo _ -> [1, 1]
       GH2PartMono   _ -> [1]
