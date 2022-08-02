@@ -12,6 +12,7 @@ module CommandLine
 ) where
 
 import qualified Amplitude.PS2.Ark                as AmpArk
+import           Amplitude.PS2.TxtBin             (getTxtBin, txtBinToDTA)
 import           Audio                            (Audio (Input), audioLength,
                                                    audioMD5, makeFSB4,
                                                    makeFSB4', makeGH3FSB,
@@ -40,6 +41,7 @@ import           Data.Default.Class               (def)
 import qualified Data.Digest.Pure.MD5             as MD5
 import           Data.DTA.Lex                     (scanStack)
 import           Data.DTA.Parse                   (parseStack)
+import           Data.DTA.PrettyPrint             (showDTA)
 import qualified Data.DTA.Serialize               as D
 import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
@@ -55,6 +57,7 @@ import           Data.SimpleHandle                (byteStringSimpleHandle,
                                                    saveHandleFolder)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
+import qualified Data.Text.IO                     as TIO
 import qualified Data.Yaml                        as Y
 import qualified GuitarHeroII.Ark                 as GHArk
 import           GuitarHeroII.Audio               (readVGS)
@@ -1452,6 +1455,22 @@ commands =
               stackIO $ saveHandleFolder u8' $ dout </> ("u8-" <> show (i :: Int))
         return [dout]
       _ -> fatal $ "onyx extract-wad expected 1 argument, given " <> show (length args)
+    }
+
+  , Command
+    { commandWord = "txt-bin-dta"
+    , commandDesc = "Converts Amplitude (PS2) .txt.bin to .dta"
+    , commandUsage = T.unlines
+      [ "onyx txt-bin-yml in.txt.bin [--to out.dta]"
+      ]
+    , commandRun = \args opts -> case args of
+      [fin] -> do
+        fout <- outputFile opts $ return $ fin <> ".dta"
+        bs <- stackIO $ B.readFile fin
+        txtBin <- runGetM getTxtBin $ BL.fromStrict bs
+        stackIO $ TIO.writeFile fout $ showDTA $ fmap TE.decodeLatin1 $ txtBinToDTA txtBin
+        return [fout]
+      _ -> fatal "Expected 1 argument"
     }
 
   ]

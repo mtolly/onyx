@@ -1,6 +1,7 @@
 -- | Functions dealing with the DXT texture formats used for album art by RB games.
 {-# LANGUAGE BinaryLiterals    #-}
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Image (toDXT1File, toHMXPS2, DXTFormat(..), readRBImage, readRBImageMaybe, readDDS, arrangeRows, readDXTChunk, swapPNGXboxPS3) where
 
@@ -258,52 +259,72 @@ readDDS bs = let
 readRBImageMaybe :: Bool -> BL.ByteString -> Maybe (Image PixelRGBA8)
 readRBImageMaybe isPS3 bs = let
   readWiiChunk = fmap (arrangeRows 2 2) $ replicateM 4 $ readDXTChunk PNGWii True
-  parseImage = do
-    1             <- getWord8
-    bitsPerPixel  <- getWord8
-    format        <- getWord32le
-    _mipmaps      <- getWord8
-    width         <- fromIntegral <$> getWord16le
-    height        <- fromIntegral <$> getWord16le
-    _bytesPerLine <- getWord16le
-    zeroes        <- getByteString 19
-    guard $ B.all (== 0) zeroes
-    let xboxOrPS3 = if isPS3 then PNGPS3 else PNGXbox
-    case (bitsPerPixel, format) of
-      -- Xbox DXT1
-      (0x04, 0x08) -> fmap (arrangeRows (quot width 4) (quot height 4))
-        $ replicateM (quot (width * height) 16) $ readDXTChunk xboxOrPS3 True
-      -- Xbox DXT3
-      (0x08, 0x18) -> fmap (arrangeRows (quot width 4) (quot height 4))
-        $ replicateM (quot (width * height) 16) $ skip 8 >> readDXTChunk xboxOrPS3 False
-      -- Wii DXT1
-      (0x04, 0x48) -> fmap (arrangeRows (quot width 8) (quot height 8))
-        $ replicateM (quot (width * height) 64) readWiiChunk
-      -- PS2 BMP, 8-bit indices; typical color images
-      (0x08, 0x03) -> do
-        palette <- replicateM 256 $ do
-          r <- getWord8
-          g <- getWord8
-          b <- getWord8
-          a <- getWord8 -- goes from 0 to 0x80
-          return [r, g, b, if a >= 0x80 then 0xFF else a * 2]
-        fmap (Image width height . V.fromList . concat) $ replicateM (width * height) $ do
-          i <- getWord8
-          return $ palette !! fromIntegral (flip34 i)
-      -- PS2 BMP, 4-bit indices; seen in GH1 for fonts and other B/W images, e.g. ghui/image/gen/hand_gw.bmp_ps2
-      (0x04, 0x03) -> do
-        palette <- replicateM 16 $ do
-          r <- getWord8
-          g <- getWord8
-          b <- getWord8
-          a <- getWord8 -- goes from 0 to 0x80
-          return [r, g, b, if a >= 0x80 then 0xFF else a * 2]
-        fmap (Image width height . V.fromList . concat . concat) $ replicateM (quot (width * height) 2) $ do
-          i <- getWord8
-          let high = (i `shiftR` 4) .&. 0xF
-              low  = i              .&. 0xF
-          return [palette !! fromIntegral low, palette !! fromIntegral high]
-      _ -> fail "Unrecognized HMX image format"
+  readRGBA = do
+    -- used in all the bitmap (non-dxt) types
+    r <- getWord8
+    g <- getWord8
+    b <- getWord8
+    a <- getWord8 -- goes from 0 to 0x80
+    return [r, g, b, if a >= 0x80 then 0xFF else a * 2]
+  palette8bit, palette4bit :: Int -> Int -> Get (Image PixelRGBA8)
+  palette8bit width height = do
+    palette <- replicateM 256 readRGBA
+    fmap (Image width height . V.fromList . concat) $ replicateM (width * height) $ do
+      i <- getWord8
+      return $ palette !! fromIntegral (flip34 i)
+  palette4bit width height = do
+    palette <- replicateM 16 readRGBA
+    fmap (Image width height . V.fromList . concat . concat) $ replicateM (quot (width * height) 2) $ do
+      i <- getWord8
+      let high = (i `shiftR` 4) .&. 0xF
+          low  = i              .&. 0xF
+      return [palette !! fromIntegral low, palette !! fromIntegral high]
+  parseImage = getWord8 >>= \case
+    0 -> do
+      -- Amplitude (PS2)
+      bitsPerPixel  <- getWord8
+      format        <- getWord8
+      _mipmaps      <- getWord8 -- usually 0 but not in arenas/constructo/gen/tall_building01_05.bmp.gz
+      width         <- fromIntegral <$> getWord16le
+      height        <- fromIntegral <$> getWord16le
+      _bytesPerLine <- getWord16le -- assuming this is like later format
+      zeroes        <- getByteString 6
+      guard $ B.all (== 0) zeroes
+      case (bitsPerPixel, format) of
+        -- 8-bit palette
+        (0x08, 0x03) -> palette8bit width height
+        -- 4-bit palette
+        (0x04, 0x03) -> palette4bit width height
+        -- non-paletted simple bitmap, see metagame/image/gen/turret_arm.bmp.gz
+        (0x20, 0x03) -> fmap (Image width height . V.fromList . concat) $ replicateM (width * height) readRGBA
+        _ -> fail "Unrecognized HMX image format"
+    1 -> do
+      -- GH1 and onward
+      bitsPerPixel  <- getWord8
+      format        <- getWord32le
+      _mipmaps      <- getWord8
+      width         <- fromIntegral <$> getWord16le
+      height        <- fromIntegral <$> getWord16le
+      _bytesPerLine <- getWord16le
+      zeroes        <- getByteString 19
+      guard $ B.all (== 0) zeroes
+      let xboxOrPS3 = if isPS3 then PNGPS3 else PNGXbox
+      case (bitsPerPixel, format) of
+        -- Xbox DXT1
+        (0x04, 0x08) -> fmap (arrangeRows (quot width 4) (quot height 4))
+          $ replicateM (quot (width * height) 16) $ readDXTChunk xboxOrPS3 True
+        -- Xbox DXT3
+        (0x08, 0x18) -> fmap (arrangeRows (quot width 4) (quot height 4))
+          $ replicateM (quot (width * height) 16) $ skip 8 >> readDXTChunk xboxOrPS3 False
+        -- Wii DXT1
+        (0x04, 0x48) -> fmap (arrangeRows (quot width 8) (quot height 8))
+          $ replicateM (quot (width * height) 64) readWiiChunk
+        -- PS2 BMP, 8-bit indices; typical color images
+        (0x08, 0x03) -> palette8bit width height
+        -- PS2 BMP, 4-bit indices; seen in GH1 for fonts and other B/W images, e.g. ghui/image/gen/hand_gw.bmp_ps2
+        (0x04, 0x03) -> palette4bit width height
+        _ -> fail "Unrecognized HMX image format"
+    _ -> fail "Unrecognized HMX image format"
   in runGetM parseImage bs
 
 -- PS2 palette indices swap bits 3 and 4 for some reason

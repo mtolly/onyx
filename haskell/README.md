@@ -102,7 +102,7 @@ Onyx can import the following song formats:
 
   * Guitar Hero II (Xbox 360) DLC (LIVE files)
 
-  * Guitar Hero: Warriors of Rock DLC
+  * Guitar Hero 5 and Guitar Hero: Warriors of Rock DLC
     (Xbox 360 LIVE files or PlayStation 3 .pkg files)
 
   * DTXMania (DrumMania / GuitarFreaks) simfiles (.dtx/.gda)

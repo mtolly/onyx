@@ -154,7 +154,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       foundRBProj loc = foundImport "Magma Project" loc $ importMagma loc
       foundAmplitude loc = do
         let dir = takeDirectory loc
-        foundImport "Amplitude (2016)" dir $ importAmplitude dir
+        foundImport "Amplitude (2016)" dir $ importAmplitude loc
       foundSTFS loc = do
         folder <- stackIO $ getSTFSFolder loc
         mconcat <$> sequence

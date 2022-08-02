@@ -5,6 +5,9 @@ parts:
       gender: male
       difficulty:
         rank: 377
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
   bass:
     pro-guitar:
       fix-freeform: false
@@ -44,17 +47,15 @@ plans:
       vocal: [8, 9]
     pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
     vols: [-1, -3, -3, -2.5, -2.5, -4.5, -2.5, -2.5, -3, -3, -3, -3]
-    mogg-md5: 0058cde21411bcab02e4263d338277ce
+    file-mogg: audio.mogg
 targets:
   rb3:
     game: rb3
-    file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (2x Bass Pedal) (O)
 metadata:
@@ -65,10 +66,12 @@ metadata:
   key: E minor
   album: Among the Living
   year: 1987
-  author: null
+  author: Harmonix, Onyxite
   title: Caught in a Mosh
   preview-end: 1:37.303
   genre: metal
   difficulty:
     rank: 450
   artist: Anthrax
+global:
+  file-song-anim: song.anim
