@@ -20,6 +20,9 @@ vorbis:
 	cd libs/vorbis && make install
 
 opus:
+	# update_version doesn't work in the copied-to-docker git repo.
+	# and if we don't set the version, then libsndfile won't use any external libs
+	cd libs/opus && echo 'PACKAGE_VERSION="1.3.1"' > package_version
 	cd libs/opus && ./autogen.sh
 	cd libs/opus && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
 	cd libs/opus && make
