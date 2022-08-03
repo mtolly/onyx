@@ -12,21 +12,27 @@ import           Config
 import           Control.Monad                    (forM, guard, unless)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
+import           Data.Bits                        ((.&.))
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Default.Class               (def)
+import           Data.DTA.Serialize.Magma         (Gender (..))
+import           Data.Either                      (isRight)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.NonEmpty               (NonEmpty (..), nonEmpty)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, listToMaybe)
+import           Data.Maybe                       (catMaybes, isJust,
+                                                   listToMaybe)
+import qualified Data.Set                         as Set
 import           Data.SimpleHandle                (Folder, Readable,
                                                    byteStringSimpleHandle,
                                                    findFile, findFileCI,
                                                    handleToByteString,
                                                    makeHandle, useHandle)
 import qualified Data.Text                        as T
+import qualified Data.Text.Encoding               as TE
 import qualified Data.Vector                      as V
 import           Guitars
 import           Import.Base
@@ -36,8 +42,13 @@ import           PowerGig.Songs
 import qualified RockBand.Codec.Drums             as D
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
+import           RockBand.Codec.Vocal             (Lyric (..), LyricNote (..),
+                                                   Pitch, TalkyDifficulty (..),
+                                                   VocalTrack (..),
+                                                   putLyricNotes)
 import           RockBand.Common                  (Difficulty (..),
-                                                   StrumHOPOTap (..))
+                                                   StrumHOPOTap (..),
+                                                   pattern RNil, pattern Wait)
 import           Sound.FSB                        (XMAContents (..),
                                                    extractXMAStream, makeXMAs,
                                                    markXMAPacketStreams,
@@ -93,6 +104,99 @@ importPowerGigSong key song folder level = do
   -- * cherub rock: no markers
   -- * been caught stealing: duplicate section name markers, "Fill" markers that should be ignored
   -- * crack the skye: mostly ok, except one dev note "Start here, medium drums, Tuesday" :)
+
+  let secsToBeats :: Float -> U.Beats
+      secsToBeats = U.unapplyTempoMap tempo . realToFrac
+
+      getController n trk = RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+        evt <- V.toList $ gelsGEVT trk
+        guard $ gevtType evt == 4 && gevtData1 evt == n
+        return (secsToBeats $ gevtTime evt, gevtData2 evt /= 0)
+
+      -- For each glue phrase, mark all but the last non-slide lyric as connecting
+      glueLyrics glue lyrics = go False $ RTB.merge (fmap Left glue) (fmap Right lyrics) where
+        go isGlue (Wait dt (Right Nothing) rest) = Wait dt Nothing $ go isGlue rest
+        go False (Wait dt (Right (Just s)) rest) = Wait dt (Just $ Lyric s False) $ go False rest
+        go _ (Wait dt (Left newGlue) rest) = RTB.delay dt $ go newGlue rest
+        go True (Wait dt (Right (Just s)) rest) = let
+          continues = any (either (const False) isJust) $ takeWhile isRight $ RTB.getBodies rest
+          in Wait dt (Just $ Lyric s continues) $ go True rest
+        go _ RNil = RNil
+
+      drawPhrases lyricNotes phraseEnds mojo = let
+        tubeStarts = Set.fromList $ ATB.getTimes $ RTB.toAbsoluteEventList 0 $ RTB.filter
+          ((\case Pitched{} -> True; Talky{} -> True; SlideTo{} -> False) . fst)
+          lyricNotes
+        tubeEnds = Set.fromList $ map (\(t, (_, len)) -> t + len)
+          $ ATB.toPairList
+          $ RTB.toAbsoluteEventList 0 lyricNotes
+        phraseEndList = ATB.getTimes $ RTB.toAbsoluteEventList 0 phraseEnds
+        mojoEdges = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 mojo
+        in RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+          (lastPGEnd, thisPGEnd) <- zip (0 : phraseEndList) phraseEndList
+          phraseStart <- toList $ Set.lookupGT lastPGEnd tubeStarts
+          let nextPhraseStart = Set.lookupGT thisPGEnd tubeStarts
+          phraseEnd <- toList $ case nextPhraseStart of
+            Nothing -> Set.lookupMax tubeEnds
+            Just t  -> Set.lookupLT t tubeEnds
+          let isMojo = maybe False snd $ Map.lookupLE phraseStart mojoEdges
+          return (phraseStart, (phraseEnd - phraseStart, isMojo))
+
+      getVocalsGEV trackName = case Map.lookup trackName gevTracks of
+        Nothing -> return mempty
+        Just trk -> let
+          notes = RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+            evt <- V.toList $ gelsGEVT trk
+            guard $ gevtType evt == 2
+            guard $ gevtGameBits evt .&. 0x2000 == 0 -- ignore freestyle notes
+            let start = secsToBeats $ gevtTime evt
+                sustain = secsToBeats (gevtTime evt + gevtSustain evt) - start
+                pitch = case gevtData1 evt of
+                  0 -> Nothing
+                  n -> Just (toEnum $ fromIntegral n - 36 :: Pitch)
+            return (start, (sustain, pitch))
+          lyrics = glueLyrics (getController 68 trk) $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+            gev <- toList maybeGEV
+            evt <- V.toList $ gelsGEVT trk
+            guard $ gevtType evt == 13
+            str <- toList $ getString (gevtData1 evt) gev
+            let maybeLyric = case T.strip $ TE.decodeLatin1 str of -- lyrics have a space after them for some reason
+                  "*" -> Nothing
+                  s   -> Just s
+            return (secsToBeats $ gevtTime evt, maybeLyric)
+          lyricNotes = RTB.mapMaybe
+            (\xs -> case [note | Left note <- xs] of
+              [] -> Nothing
+              note : _ -> let
+                mlyric = case [lyr | Right lyr <- xs] of
+                  []      -> Nothing -- some continuation notes don't have * lyric
+                  lyr : _ -> lyr
+                in case (note, mlyric) of
+                  ((sustain, Just pitch), Just lyric) -> Just (Pitched pitch lyric, sustain)
+                  ((sustain, Just pitch), Nothing) -> Just (SlideTo pitch, sustain)
+                  ((sustain, Nothing), Just lyric) -> Just (Talky TalkyNormal lyric, sustain)
+                  ((_sustain, Nothing), Nothing) -> Nothing -- TODO warn
+            ) $ RTB.collectCoincident $ RTB.merge (fmap Left notes) (fmap Right lyrics)
+          phraseEnds = RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+            gev <- toList maybeGEV
+            evt <- V.toList $ gelsGEVT trk
+            guard $ gevtType evt == 9
+            guard $ getString (gevtData1 evt) gev == Just "\\r"
+            return (secsToBeats $ gevtTime evt, ())
+          phrases = drawPhrases lyricNotes phraseEnds
+            $ RTB.merge (getController 80 trk) (getController 81 trk)
+          phraselessTrack = putLyricNotes lyricNotes
+          finalTrack = phraselessTrack
+            { vocalPhrase1 = U.trackJoin $ flip fmap phrases
+              $ \(len, _mojo) -> Wait 0 True $ Wait len False RNil
+            , vocalOverdrive = U.trackJoin $ flip fmap phrases $ \case
+              (_  , False) -> RNil
+              (len, True ) -> Wait 0 True $ Wait len False RNil
+            }
+          in return finalTrack
+
+  vox <- getVocalsGEV "vocals_1_expert"
+
   let onyxFile = mempty
         { RBFile.onyxParts = Map.fromList
           [ (RBFile.FlexGuitar, mempty
@@ -122,7 +226,7 @@ importPowerGigSong key song folder level = do
               }
             })
           , (RBFile.FlexVocal, mempty
-            { RBFile.onyxPartVocals = mempty -- TODO
+            { RBFile.onyxPartVocals = vox
             })
           ]
         , RBFile.onyxBeat = mempty -- TODO
@@ -148,12 +252,6 @@ importPowerGigSong key song folder level = do
           in mempty
             { D.drumGems = notes
             }
-      secsToBeats :: Float -> U.Beats
-      secsToBeats = U.unapplyTempoMap tempo . realToFrac
-      getController n trk = RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
-        evt <- V.toList $ gelsGEVT trk
-        guard $ gevtType evt == 4 && gevtData1 evt == n
-        return (secsToBeats $ gevtTime evt, gevtData2 evt /= 0)
       getGuitarGEV trackName = emit5' $ case Map.lookup trackName gevTracks of
         Nothing  -> RTB.empty
         Just trk -> let
@@ -178,23 +276,7 @@ importPowerGigSong key song folder level = do
             return (start, (color, sustain))
           in fmap (\(hopo, (color, sustain)) -> ((color, if hopo then HOPO else Strum), sustain))
             $ applyStatus1 False hopos notes
-      {-
-      getVocals pg = let
-        notes = RTB.mapMaybe (\(freestyle, pitchBool) -> guard (not freestyle) >> Just pitchBool)
-          $ applyStatus1 False (vocalFreestyle pg)
-          $ RTB.merge (vocalNotes pg) ((minBound,) <$> vocalTalkies pg)
-        -- lyrics have a space after them for some reason
-        lyricsStart = (\case "*" -> "+"; x -> x) . T.strip <$> vocalLyrics pg
-        lyricsHash = fmap (\(isTalky, lyric) -> if isTalky then lyric <> "#" else lyric)
-          $ applyStatus1 False (vocalTalkies pg) lyricsStart
-        in mempty
-          { V.vocalNotes = notes
-          , V.vocalLyrics = lyricsHash
-          , V.vocalPhrase1 = drawPhrases notes $ vocalPhraseEnd pg
-          -- TODO vocalGlue (add dashes, except for +; and do it before talky hash)
-          -- TODO put OD on phrases from mojo
-          }
-      -}
+
       onyxMid = RBFile.Song
         { RBFile.s_tempos     = tempo
         -- unfortunately .gev does not contain time sig info (_cue.gev has the gevtType = 20 events, but no data!)
@@ -376,7 +458,6 @@ importPowerGigSong key song folder level = do
           , drumsFullLayout  = FDStandard
           }
         })
-      {-
       , (RBFile.FlexVocal, def
         { partVocal = Just PartVocal
           { vocalDifficulty = Tier 1 -- TODO
@@ -389,7 +470,6 @@ importPowerGigSong key song folder level = do
           , vocalLipsyncRB3 = Nothing
           }
         })
-      -}
       ]
     , _targets = HM.empty
     }
@@ -399,31 +479,3 @@ data PhraseEvent
   | PhraseNoteOff
   | PhraseEnd
   deriving (Eq, Ord)
-
-{-
--- TODO this doesn't handle slides at phrase ends right, see m62 of Crack the Skye
-drawPhrases :: (NNC.C t) => RTB.T t (Pitch, Bool) -> RTB.T t () -> RTB.T t Bool
-drawPhrases notes phraseEnd = let
-  events = RTB.merge
-    ((\(_, onOff) -> if onOff then PhraseNoteOn else PhraseNoteOff) <$> notes)
-    (const PhraseEnd <$> phraseEnd)
-  -- not in a phrase
-  goNoPhrase RNil                       = RNil
-  goNoPhrase (Wait t PhraseNoteOn rest) = Wait t True $ goPhrase rest
-  goNoPhrase (Wait t _ rest)            = RTB.delay t $ goNoPhrase rest -- shouldn't happen?
-  -- in a phrase, singing a note
-  goPhrase RNil                        = RNil -- shouldn't happen?
-  goPhrase (Wait t PhraseNoteOn rest)  = RTB.delay t $ goPhrase rest
-  goPhrase (Wait t PhraseNoteOff rest) = RTB.delay t $ goPhraseNotNote rest
-  goPhrase (Wait t PhraseEnd rest)     = RTB.delay t $ goEndingPhrase rest
-  -- in a phrase, not singing a note
-  goPhraseNotNote RNil = RNil -- shouldn't happen?
-  goPhraseNotNote (Wait t PhraseEnd rest) = Wait t False $ goNoPhrase rest -- end phrase immediately
-  goPhraseNotNote (Wait t PhraseNoteOff rest) = RTB.delay t $ goPhraseNotNote rest
-  goPhraseNotNote (Wait t PhraseNoteOn rest) = RTB.delay t $ goPhrase rest
-  -- in a phrase, singing a note, phrase will end when this note does
-  goEndingPhrase (Wait t PhraseNoteOff rest) = Wait t False $ goNoPhrase rest
-  goEndingPhrase (Wait t _ rest)             = RTB.delay t $ goEndingPhrase rest -- shouldn't happen?
-  goEndingPhrase RNil                        = RTB.singleton NNC.zero False -- shouldn't happen?
-  in goNoPhrase events
--}

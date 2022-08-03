@@ -132,7 +132,7 @@ data TalkyDifficulty
 data Lyric = Lyric
   { lyricText      :: T.Text
   , lyricContinues :: Bool -- True if not the end of a word
-  } deriving (Show)
+  } deriving (Eq, Ord, Show)
 
 data LyricNote
   = Pitched Pitch           Lyric
