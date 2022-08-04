@@ -69,7 +69,7 @@ psRules buildInfo dir ps = do
     raw <- shakeMIDI $ planDir </> "raw.mid"
     song <- shakeMIDI $ dir </> "ps/notes.mid"
     (DifficultyPS{..}, _) <- loadEditedParts
-    let (pstart, _) = previewBounds songYaml (raw :: RBFile.Song (RBFile.OnyxFile U.Beats))
+    let (pstart, _) = previewBounds songYaml (raw :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
         len = RBFile.songLengthMS song
         pd = getPart (ps_Drums ps) songYaml >>= partDrums
         dmode = fmap drumsMode pd

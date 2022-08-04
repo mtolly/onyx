@@ -375,11 +375,12 @@ gh1Rules buildInfo dir gh1 = do
     input <- F.shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
     audio <- computeGH1Audio songYaml gh1 hasAudio
-    -- TODO previewBounds doesn't account for padding due to early notes. not a big deal though
-    let inner = D.serialize (valueId D.stackChunks) $ makeGH1DTA
+    pad <- shk $ read <$> readFile' (dir </> "gh1/pad.txt")
+    let padSeconds = fromIntegral (pad :: Int) :: U.Seconds
+        inner = D.serialize (valueId D.stackChunks) $ makeGH1DTA
           songYaml
           key
-          (previewBounds songYaml (input :: F.Song (F.OnyxFile U.Beats)))
+          (previewBounds songYaml (input :: F.Song (F.OnyxFile U.Beats)) padSeconds False)
           audio
           (targetTitle songYaml $ GH1 gh1)
     stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0

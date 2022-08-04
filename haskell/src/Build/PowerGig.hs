@@ -282,7 +282,7 @@ pgRules buildInfo dir pg = do
               }
             , audio_count_off      = Nothing
             , audio_preview        = V.singleton $ let
-              (pstart, pend) = previewBounds songYaml mid
+              (pstart, pend) = previewBounds songYaml mid 0 False
               in PG.Preview
                 { preview_start_position   = Just $ fromIntegral pstart / 1000
                 , preview_attack_time      = Just 1

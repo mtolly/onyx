@@ -228,11 +228,13 @@ rbRules buildInfo dir rb3 mrb2 = do
   let title = targetTitle songYaml $ RB3 rb3
   pathMagmaProj %> \out -> do
     editedParts <- loadEditedParts
-    p <- makeMagmaProj songYaml rb3 plan editedParts pkg pathMagmaMid $ return title
+    pad <- shk $ read <$> readFile' pathMagmaPad
+    p <- makeMagmaProj songYaml rb3 plan editedParts pkg pathMagmaMid (return title) pad
     liftIO $ D.writeFileDTA_latin1 out $ D.serialize (valueId D.stackChunks) p
   pathMagmaC3 %> \out -> do
     midi <- shakeMIDI pathMagmaMid
-    c3 <- makeC3 songYaml plan rb3 midi pkg
+    pad <- shk $ read <$> readFile' pathMagmaPad
+    c3 <- makeC3 songYaml plan rb3 midi pkg pad
     liftIO $ B.writeFile out $ TE.encodeUtf8 $ C3.showC3 c3
   let magmaNeededAudio = do
         ((kickSpec, snareSpec, _), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
@@ -422,14 +424,15 @@ rbRules buildInfo dir rb3 mrb2 = do
   pathDta %> \out -> do
     song <- shakeMIDI pathMid
     editedParts <- loadEditedParts
-    songPkg <- makeRB3DTA songYaml plan rb3 False editedParts song pkg
+    pad <- shk $ read <$> readFile' pathMagmaPad
+    songPkg <- makeRB3DTA songYaml plan rb3 False editedParts song pkg pad
     liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan rb3
   pathMid %> shk . copyFile' pathMagmaExport2
   pathOgg %> \out -> case plan of
     MoggPlan{} -> do
       -- TODO apply segment boundaries
       let speed = fromMaybe 1 $ tgt_Speed $ rb3_Common rb3
-      pad <- shk $ read <$> readFile' (dir </> "magma/pad.txt")
+      pad <- shk $ read <$> readFile' pathMagmaPad
       case (speed, pad :: Int) of
         (1, 0) -> shk $ copyFile' (planDir </> "audio.ogg") out
         _      -> do
@@ -533,7 +536,8 @@ rbRules buildInfo dir rb3 mrb2 = do
   rb3ps3DTA %> \out -> do
     song <- shakeMIDI pathMid
     editedParts <- loadEditedParts
-    songPkg <- makeRB3DTA songYaml plan rb3 True editedParts song pkg
+    pad <- shk $ read <$> readFile' pathMagmaPad
+    songPkg <- makeRB3DTA songYaml plan rb3 True editedParts song pkg pad
     liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan rb3
   rb3ps3Mid %> \out -> if rb3_PS3Encrypt rb3
     then do
@@ -595,7 +599,8 @@ rbRules buildInfo dir rb3 mrb2 = do
 
       pathMagmaProjV1 %> \out -> do
         editedParts <- loadEditedParts
-        p <- makeMagmaProj songYaml rb3 plan editedParts pkg pathMagmaMid $ return title
+        pad <- shk $ read <$> readFile' pathMagmaPad
+        p <- makeMagmaProj songYaml rb3 plan editedParts pkg pathMagmaMid (return title) pad
         let makeDummy (Magma.Tracks dl dkt dk ds b g v k bck) = Magma.Tracks
               dl
               (makeDummyKeep dkt)
@@ -933,11 +938,12 @@ rbRules buildInfo dir rb3 mrb2 = do
           stackIO $ makePKG rb2ps3ContentID (main <> extra) out
 
 -- Magma RBProj rules
-makeMagmaProj :: SongYaml f -> TargetRB3 f -> Plan f -> (DifficultyRB3, Maybe VocalCount) -> T.Text -> FilePath -> Action T.Text -> Staction Magma.RBProj
-makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle = do
+makeMagmaProj :: SongYaml f -> TargetRB3 f -> Plan f -> (DifficultyRB3, Maybe VocalCount) -> T.Text -> FilePath -> Action T.Text -> Int -> Staction Magma.RBProj
+makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle pad = do
   song <- shakeMIDI mid
   ((kickPVs, snarePVs, kitPVs), mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
-  let (pstart, _) = previewBounds songYaml song
+  let padSeconds = fromIntegral (pad :: Int) :: U.Seconds
+      (pstart, _) = previewBounds songYaml song padSeconds True
       maxPStart = 570000 :: Int -- 9:30.000
       thisFullGenre = fullGenre songYaml
       perctype = RBFile.getPercType song
@@ -1091,11 +1097,12 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
       }
     }
 
-makeRB3DTA :: (MonadIO m, SendMessage m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 f -> Bool -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
-makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename = do
+makeRB3DTA :: (MonadIO m, SendMessage m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 f -> Bool -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m D.SongPackage
+makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename pad = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
   let thresh = 170 -- everything gets forced anyway
-      (pstart, pend) = previewBounds songYaml song
+      padSeconds = fromIntegral (pad :: Int) :: U.Seconds
+      (pstart, pend) = previewBounds songYaml song padSeconds True
       len = RBFile.songLengthMS song
       perctype = RBFile.getPercType song
       thisFullGenre = fullGenre songYaml
@@ -1278,9 +1285,10 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
     , D.dateRecorded = Nothing
     }
 
-makeC3 :: (Monad m) => SongYaml f -> Plan f -> TargetRB3 f -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m C3.C3
-makeC3 songYaml plan rb3 midi pkg = do
-  let (pstart, _) = previewBounds songYaml midi
+makeC3 :: (Monad m) => SongYaml f -> Plan f -> TargetRB3 f -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m C3.C3
+makeC3 songYaml plan rb3 midi pkg pad = do
+  let padSeconds = fromIntegral (pad :: Int) :: U.Seconds
+      (pstart, _) = previewBounds songYaml midi padSeconds True
       DifficultyRB3{..} = difficultyRB3 rb3 songYaml
       title = targetTitle songYaml $ RB3 rb3
       numSongID = case rb3_SongID rb3 of

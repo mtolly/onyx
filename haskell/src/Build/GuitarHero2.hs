@@ -181,11 +181,12 @@ gh2Rules buildInfo dir gh2 = do
     input <- shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
     audio <- computeGH2Audio songYaml gh2 hasAudio
-    -- TODO previewBounds doesn't account for padding due to early notes. not a big deal though
-    let inner isDX2 = D.serialize (valueId D.stackChunks) $ makeGH2DTA
+    pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
+    let padSeconds = fromIntegral (pad :: Int) :: U.Seconds
+        inner isDX2 = D.serialize (valueId D.stackChunks) $ makeGH2DTA
           songYaml
           key
-          (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)))
+          (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)) padSeconds False)
           gh2
           audio
           (targetTitle songYaml $ GH2 gh2)
@@ -258,10 +259,12 @@ gh2Rules buildInfo dir gh2 = do
     input <- shakeMIDI $ planDir </> "raw.mid"
     hasAudio <- loadPartAudioCheck
     audio <- computeGH2Audio songYaml gh2 hasAudio
-    let songPackage = makeGH2DTA360
+    pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
+    let padSeconds = fromIntegral (pad :: Int) :: U.Seconds
+        songPackage = makeGH2DTA360
           songYaml
           key
-          (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)))
+          (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)) padSeconds False)
           gh2
           audio
           (targetTitle songYaml (GH2 gh2))

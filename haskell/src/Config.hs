@@ -1660,11 +1660,17 @@ getPart :: FlexPartName -> SongYaml f -> Maybe (Part f)
 getPart fpart = Map.lookup fpart . getParts . _parts
 
 -- | Returns the start and end of the preview audio in milliseconds.
-previewBounds :: (RBFile.HasEvents f) => SongYaml file -> RBFile.Song (f U.Beats) -> (Int, Int)
-previewBounds syaml song = let
+previewBounds
+  :: (RBFile.HasEvents f)
+  => SongYaml file
+  -> RBFile.Song (f U.Beats) -- Midi used to evaluate midi timestamps and section boundaries
+  -> U.Seconds -- Padding added to the project midi to produce the game midi
+  -> Bool -- Is the given midi file already padded?
+  -> (Int, Int)
+previewBounds syaml song padding prepadded = let
   len = RBFile.songLengthMS song
   secsToMS s = floor $ s * 1000
-  evalTime t = secsToMS <$> evalPreviewTime True (Just RBFile.getEventsTrack) song t
+  evalTime t = secsToMS <$> evalPreviewTime True (Just RBFile.getEventsTrack) song padding prepadded t
   evalTime' pt = fromMaybe (error $ "Couldn't evaluate preview bound: " ++ show pt) $ evalTime pt
   defStartTime = max 0 $ case mapMaybe (evalTime . PreviewSection) ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"] of
     []    -> quot len 2 - 15000
@@ -1675,15 +1681,24 @@ previewBounds syaml song = let
     (Just ps, Nothing) -> let start = evalTime' ps in (start, start + 30000)
     (Nothing, Just pe) -> let end = evalTime' pe in (max 0 $ end - 30000, end)
 
-evalPreviewTime :: Bool -> Maybe (f -> EventsTrack U.Beats) -> RBFile.Song f -> PreviewTime -> Maybe U.Seconds
-evalPreviewTime leadin getEvents song = \case
-  PreviewSeconds secs -> Just secs
+evalPreviewTime
+  :: Bool -- Should midi and section timestamps be pulled back slightly to account for fade-in?
+  -> Maybe (f -> EventsTrack U.Beats)
+  -> RBFile.Song f
+  -> U.Seconds -- Padding added to the project midi to produce the game midi
+  -> Bool -- Are the given midi file and events track already padded?
+  -> PreviewTime
+  -> Maybe U.Seconds
+evalPreviewTime leadin getEvents song padding prepadded = \case
+  PreviewSeconds secs -> Just $ secs + padding
   PreviewMIDI mb -> Just $ addLeadin
+    $ addMIDIPadding
     $ U.applyTempoMap (RBFile.s_tempos song)
     $ U.unapplyMeasureMap (RBFile.s_signatures song) mb
-  PreviewSection str -> addLeadin . U.applyTempoMap (RBFile.s_tempos song)
+  PreviewSection str -> addLeadin . addMIDIPadding . U.applyTempoMap (RBFile.s_tempos song)
     <$> findSection str
   where addLeadin = if leadin then (NNC.-| 0.6) else id
+        addMIDIPadding = if prepadded then id else (+ padding)
         findSection sect = getEvents >>= \f ->
           fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . snd)
             $ eventsSections $ f $ RBFile.s_tracks song

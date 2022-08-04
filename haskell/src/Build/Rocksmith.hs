@@ -293,7 +293,7 @@ rsRules buildInfo dir rs = do
       _ -> buildAudio (Pad Start (Seconds pad) $ Input wav) out
   rsPreview %> \out -> do
     mid <- shakeMIDI $ planDir </> "processed.mid"
-    let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))
+    let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
         fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
         previewExpr
           = Fade End (Seconds 5)
