@@ -1,5 +1,17 @@
 # Version history
 
+## 20220807
+
+* Support for converting to Guitar Hero (1)
+* Fix volume levels when importing from GH1
+* Fix preview times when importing from GH1 and GH2
+* Support importing Trippolette from GH1 if present
+* Support importing from Power Gig PS3 disc and 360 DLC files
+* Fix/finish import of vocals from Power Gig
+* Fix Linux build which broke Ogg Vorbis encoding in `20220618` (#205)
+* Fix song preview times not being moved correctly
+  when a song is delayed due to early notes
+
 ## 20220618
 
 * Improvements to audio playback, less likely to run out of audio
