@@ -35,6 +35,7 @@ parts:
       kicks: both
       difficulty:
         rank: 533
+      mode: full
 plans:
   mogg:
     parts:

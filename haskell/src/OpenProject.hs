@@ -401,7 +401,6 @@ installGH1 gh1 proj gen = do
         return (sym <> B8.pack (dropWhile isAlpha f), dir </> f)
   let toBytes = B8.pack . T.unpack
   sortBonus <- prefSortGH2 <$> readPreferences
-  return ()
   stackIO $ addBonusSongGH1 GH2Installation
     { gh2i_GEN              = gen
     , gh2i_symbol           = sym

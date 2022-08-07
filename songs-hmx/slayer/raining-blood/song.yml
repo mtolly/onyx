@@ -1,13 +1,14 @@
+global:
+  file-song-anim: song.anim
 targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (2x Bass Pedal) (O)
 plans:
   mogg:
-    mogg-md5: 9ee4cd3289ed2e2048c2368e6508dede
+    file-mogg: audio.mogg
     pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
     vols: [-2, -5, -5, -5, -5, -2, -5, -5, -5, -5, -5, -5]
     parts:
@@ -72,3 +73,6 @@ parts:
         rank: 120
       count: 1
       gender: male
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync

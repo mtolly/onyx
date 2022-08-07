@@ -18,7 +18,6 @@ import qualified Data.ByteString.Lazy             as BL
 import           Data.Default.Class               (def)
 import qualified Data.DTA                         as D
 import           Data.DTA.Crypt                   (decrypt, oldCrypt)
-import qualified Data.DTA.Serialize               as D
 import           Data.DTA.Serialize.GH1
 import           Data.DTA.Serialize.RB3           (AnimTempo (KTempoMedium))
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -31,9 +30,9 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes)
 import           Data.SimpleHandle
 import qualified Data.Text                        as T
-import           Data.Text.Encoding               (decodeLatin1)
 import           GuitarHeroI.File
-import           GuitarHeroII.Ark                 (readFileEntries)
+import           GuitarHeroII.Ark                 (readFileEntries,
+                                                   readSongListGH1)
 import           GuitarHeroII.Audio               (splitOutVGSChannels,
                                                    vgsChannelCount)
 import           GuitarHeroII.PartGuitar
@@ -54,14 +53,7 @@ getSongList gen = do
   dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") entries of
     entry : _ -> stackIO $ useHandle (readFileEntry entry arks) handleToByteString
     []        -> fatal "Couldn't find songs.dtb"
-  let editDTB d = d { D.topTree = editTree $ D.topTree d }
-      editTree t = t { D.treeChunks = filter keepChunk $ D.treeChunks t }
-      keepChunk = \case
-        D.Parens _ -> True
-        _          -> False
-  fmap (addTrippolette entries . D.fromDictList)
-    $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
-    $ editDTB $ decodeLatin1 <$> D.decodeDTB (decrypt oldCrypt dtb)
+  fmap (addTrippolette entries) $ readSongListGH1 $ D.decodeDTB $ decrypt oldCrypt dtb
 
 -- Hacks on DTA info to be able to import Trippolette (if mid/vgs present and it's not already in dta).
 addTrippolette :: [FileEntry] -> [(T.Text, SongPackage)] -> [(T.Text, SongPackage)]

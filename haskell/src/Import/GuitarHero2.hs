@@ -41,7 +41,7 @@ import           Data.SimpleHandle
 import qualified Data.Text                        as T
 import           Data.Text.Encoding               (decodeLatin1)
 import           GuitarHeroII.Ark                 (readFileEntries,
-                                                   readSongList)
+                                                   readSongListGH2)
 import           GuitarHeroII.Audio               (splitOutVGSChannels,
                                                    vgsChannelCount)
 import           GuitarHeroII.Events
@@ -66,7 +66,7 @@ getSongList gen = do
   dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") entries of
     entry : _ -> stackIO $ useHandle (readFileEntry entry arks) handleToByteString
     []        -> fatal "Couldn't find songs.dtb"
-  readSongList $ D.decodeDTB $ decrypt oldCrypt dtb
+  readSongListGH2 $ D.decodeDTB $ decrypt oldCrypt dtb
 
 getImports :: [(T.Text, SongPackage)] -> [(T.Text, (ImportMode, SongPackage))]
 getImports = concatMap $ \(t, pkg) -> case songCoop pkg of

@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readSongList, readFileEntries, extractArk, createHdrArk, GH2InstallLocation(..), addBonusSongGH2, addBonusSongGH1, GH2Installation(..)) where
+module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readSongListGH2, readSongListGH1, readFileEntries, extractArk, createHdrArk, GH2InstallLocation(..), addBonusSongGH2, addBonusSongGH1, GH2Installation(..)) where
 
 import           Amplitude.PS2.Ark              (FileEntry (..), FoundFile (..),
                                                  entryFolder, extractArk,
@@ -22,7 +22,8 @@ import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import qualified Data.DTA                       as D
 import qualified Data.DTA.Serialize             as D
-import           Data.DTA.Serialize.GH2
+import qualified Data.DTA.Serialize.GH1         as GH1
+import qualified Data.DTA.Serialize.GH2         as GH2
 import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as HM
 import           Data.List.Extra                (nubOrd, sortOn)
@@ -107,8 +108,8 @@ createHdrArk dout hdr ark = do
       w32 $ fe_size entry
       w32 $ fe_inflate entry
 
-readSongList :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m [(T.Text, SongPackage)]
-readSongList dta = let
+readSongListGH2 :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m [(T.Text, GH2.SongPackage)]
+readSongListGH2 dta = let
   editDTB d = d { D.topTree = editTree $ D.topTree d }
   editTree t = t { D.treeChunks = concatMap createEggs $ filter keepChunk $ D.treeChunks t }
   keepChunk = \case
@@ -135,6 +136,17 @@ readSongList dta = let
     D.Braces (D.Tree _ [D.Sym "if_else", D.Var var', t, f]) | var == var'
       -> if bool then t else f
     x -> x
+  in fmap D.fromDictList
+    $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
+    $ editDTB $ decodeLatin1 <$> dta
+
+readSongListGH1 :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m [(T.Text, GH1.SongPackage)]
+readSongListGH1 dta = let
+  editDTB d = d { D.topTree = editTree $ D.topTree d }
+  editTree t = t { D.treeChunks = filter keepChunk $ D.treeChunks t }
+  keepChunk = \case
+    D.Parens _ -> True
+    _          -> False
   in fmap D.fromDictList
     $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
     $ editDTB $ decodeLatin1 <$> dta
@@ -257,12 +269,12 @@ addBonusSongGH2 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
                 let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i_symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
                 bonusSorted <- if gh2i_sort
                   -- TODO handle warnings/errors better
-                  then logStdout (readSongList $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
+                  then logStdout (readSongListGH2 $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
                     Right newSongList -> let
                       -- TODO use case fold sort (don't put lowercase letters after all uppercase)
                       f = \case
                         D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
-                          Just pkg -> name pkg
+                          Just pkg -> GH2.name pkg
                           Nothing  -> ""
                         _                                  -> ""
                       in return $ sortOn f bonus'
@@ -312,12 +324,12 @@ addBonusSongGH1 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
               let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i_symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
               bonusSorted <- if gh2i_sort
                 -- TODO handle warnings/errors better
-                then logStdout (readSongList $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
+                then logStdout (readSongListGH1 $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
                   Right newSongList -> let
                     -- TODO use case fold sort (don't put lowercase letters after all uppercase)
                     f = \case
                       D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
-                        Just pkg -> name pkg
+                        Just pkg -> GH1.name pkg
                         Nothing  -> ""
                       _                                  -> ""
                     in return $ sortOn f bonus'
