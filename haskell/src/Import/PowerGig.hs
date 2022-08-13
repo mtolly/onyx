@@ -49,10 +49,11 @@ import           RockBand.Codec.Vocal             (Lyric (..), LyricNote (..),
 import           RockBand.Common                  (Difficulty (..),
                                                    StrumHOPOTap (..),
                                                    pattern RNil, pattern Wait)
-import           Sound.FSB                        (XMAContents (..),
-                                                   extractXMAStream, makeXMAs,
-                                                   markXMAPacketStreams,
-                                                   parseXMA, splitMultitrackFSB,
+import           Sound.FSB                        (XMA2Contents (..),
+                                                   extractXMAStream, makeXMA2s,
+                                                   markXMA2PacketStreams,
+                                                   parseXMA2,
+                                                   splitMultitrackFSB,
                                                    splitXMA2Packets,
                                                    writeXMA2Packets)
 import qualified Sound.MIDI.Util                  as U
@@ -294,13 +295,13 @@ importPowerGigSong key song folder level = do
   let xboxAudio = ca_xbox360_file combinedAudio >>= T.stripSuffix ".e.2"
       ps3Audio  = T.stripSuffix ".e.2" (ca_file combinedAudio)
       useXboxAudio rate samples packetsPerBlock xmas = do
-        xmaBytes <- stackIO $ makeXMAs $ flip map xmas $ \xma -> XMAContents
-          { xmaChannels = 2
-          , xmaRate     = rate
-          , xmaSamples  = samples
-          , xmaPacketsPerBlock = packetsPerBlock
-          , xmaSeekTable = Nothing
-          , xmaData     = writeXMA2Packets xma
+        xmaBytes <- stackIO $ makeXMA2s $ flip map xmas $ \xma -> XMA2Contents
+          { xma2Channels        = 2
+          , xma2Rate            = rate
+          , xma2Samples         = samples
+          , xma2PacketsPerBlock = packetsPerBlock
+          , xma2SeekTable       = Nothing
+          , xma2Data            = writeXMA2Packets xma
           }
         return $ flip map (zip [0..] xmaBytes) $ \(i, bs) -> let
           name = "stream-" <> show (i :: Int)
@@ -319,10 +320,10 @@ importPowerGigSong key song folder level = do
     ImportQuick -> useXboxAudio 44100 0 32 $ replicate streamCount [] -- probably doesn't matter but powergig uses 44100 Hz and 32-packet XMA blocks
     ImportFull -> case xboxAudio >>= \x -> findFileCI ("Audio" :| ["songs", key, x]) folder of
       Just r -> do
-        xma <- stackIO (useHandle r handleToByteString) >>= parseXMA
-        packets <- fmap markXMAPacketStreams $ splitXMA2Packets $ xmaData xma
-        let ppblk = xmaPacketsPerBlock xma
-        useXboxAudio (xmaRate xma) (xmaSamples xma) (xmaPacketsPerBlock xma)
+        xma <- stackIO (useHandle r handleToByteString) >>= parseXMA2
+        packets <- fmap markXMA2PacketStreams $ splitXMA2Packets $ xma2Data xma
+        let ppblk = xma2PacketsPerBlock xma
+        useXboxAudio (xma2Rate xma) (xma2Samples xma) (xma2PacketsPerBlock xma)
           $ map (\i -> extractXMAStream ppblk i packets) [0 .. streamCount - 1]
       Nothing -> case ps3Audio >>= \x -> findFileCI ("Audio" :| ["songs", key, x]) folder of
         Just r -> do

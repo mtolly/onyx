@@ -451,7 +451,7 @@ buildSource' aud = case aud of
     -- remaining frames ourselves
     ".xma" -> do
       bs <- BL.fromStrict <$> B.readFile fin
-      (choppedXMA, restFrames) <- seekXMA bs t
+      (choppedXMA, restFrames) <- seekXMA2 bs t
       dropStart (Frames restFrames) <$> ffSourceFrom (Frames 0) (Left choppedXMA)
     _      -> ffSourceFixPath t fin
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
@@ -873,38 +873,38 @@ makeFSB4' wav fsb = do
   inside ("converting WAV to FSB4 (XMA)") $ do
     str <- stackProcess createProc
     when (any (not . isSpace) str) $ lg str
-    madeFSB <- stackIO (BL.readFile xma) >>= parseXMA >>= ghBandFSB
+    madeFSB <- stackIO (BL.readFile xma) >>= parseXMA2 >>= ghBandXMAtoFSB4
     stackIO $ BL.writeFile fsb $ emitFSB madeFSB
     lg $ "Created XMA (Xbox 360) FSB4 at: " <> fsb
 
 -- Ensures the XMA ends on a full 16-packet (32 Kb) block
-trimXMA :: (MonadFail m) => XMAContents -> m XMAContents
+trimXMA :: (MonadFail m) => XMA2Contents -> m XMA2Contents
 trimXMA xma = do
   let blockSize = 32 * 1024
-  newSize <- case quotRem (BL.length $ xmaData xma) blockSize of
+  newSize <- case quotRem (BL.length $ xma2Data xma) blockSize of
     (q, 0) -> if q >= 2
       then return $ (q - 1) * blockSize
       else fail "trimXMA: not enough XMA data to trim off a block safely"
     (0, _) -> fail "trimXMA: not a full block in XMA data"
     (q, _) -> return $ q * blockSize
-  let newData = BL.take newSize $ xmaData xma
-  packets <- markXMAPacketStreams <$> splitXMA2Packets newData
+  let newData = BL.take newSize $ xma2Data xma
+  packets <- markXMA2PacketStreams <$> splitXMA2Packets newData
   return xma
-    { xmaSamples = fromIntegral $ sum [ if stream == 0 then xma2FrameCount pkt else 0 | (stream, pkt) <- packets ] * 512
-    , xmaData    = newData
+    { xma2Samples = fromIntegral $ sum [ if stream == 0 then xma2FrameCount pkt else 0 | (stream, pkt) <- packets ] * 512
+    , xma2Data    = newData
     }
 
 -- All are assumed to be same rate and channels.
 -- All except last one should end in a full block
-concatenateXMA :: [XMAContents] -> XMAContents
+concatenateXMA :: [XMA2Contents] -> XMA2Contents
 concatenateXMA xmas = (head xmas)
-  { xmaSamples = sum $ map xmaSamples xmas
-  , xmaData    = BL.concat $ map xmaData xmas
+  { xma2Samples = sum $ map xma2Samples xmas
+  , xma2Data    = BL.concat $ map xma2Data xmas
   }
 
 -- Encode an XMA file, possibly splitting the input up into pieces to avoid xma2encode's memory limit.
 -- The seams between pieces will have very small audio gaps.
-makeXMAPieces :: (MonadResource m, SendMessage m) => Either Readable FilePath -> StackTraceT m XMAContents
+makeXMAPieces :: (MonadResource m, SendMessage m) => Either Readable FilePath -> StackTraceT m XMA2Contents
 makeXMAPieces input = do
   -- TODO fix the ffSource/ffSourceFrom here to use the windows path fix versions
   -- (maybe not crucial because this is only called on temp folder inputs)
@@ -932,14 +932,14 @@ makeXMAPieces input = do
               then do
                 runAudio src wav
                 runXMA
-                newData <- stackIO (BL.readFile xma) >>= parseXMA
+                newData <- stackIO (BL.readFile xma) >>= parseXMA2
                 return $ concatenateXMA $ contents <> [newData]
               else do
                 runAudio (takeStart (Frames maxFrames) src) wav
                 runXMA
-                origData <- stackIO (BL.readFile xma) >>= parseXMA
+                origData <- stackIO (BL.readFile xma) >>= parseXMA2
                 newData <- trimXMA origData
-                go (contents <> [newData]) $ startFrame + xmaSamples newData
+                go (contents <> [newData]) $ startFrame + xma2Samples newData
     go [] 0
 
 makeFSB3 :: (MonadIO m, SendMessage m) => [(B.ByteString, FilePath)] -> FilePath -> StackTraceT m ()
@@ -957,9 +957,10 @@ makeFSB3 inputs fsb = do
     madeXMA <- inside ("converting WAV to XMA: " <> wav) $ do
       str <- stackProcess createProc
       when (any (not . isSpace) str) $ lg str
-      stackIO (BL.readFile xma) >>= parseXMA
+      stackIO (BL.readFile xma) >>= parseXMA2
     return (name, madeXMA)
-  madeFSB <- toGH3FSB <$> xmasToFSB inputs'
+  -- TODO this is wrong, need to make separate xmasToFSB3
+  madeFSB <- toGH3FSB <$> xmasToFSB4 inputs'
   stackIO $ BL.writeFile fsb $ emitFSB madeFSB
   lg $ "Created XMA (Xbox 360) FSB3 at: " <> fsb
 

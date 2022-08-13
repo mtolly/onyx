@@ -39,7 +39,7 @@ import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.File              (shakeMIDI)
 import           RockBand.Codec.Five
 import           RockBand.Common
-import           Sound.FSB                        (writeXMA)
+import           Sound.FSB                        (writeXMA2)
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package                     (CreateOptions (..),
                                                    LicenseEntry (..),
@@ -438,7 +438,7 @@ pgRules buildInfo dir pg = do
     let wav = planDir </> "everything.wav"
     shk $ need [wav]
     xma <- mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ makeXMAPieces $ Left $ fileReadable wav
-    stackIO $ writeXMA out xma
+    stackIO $ writeXMA2 out xma
   objAudioE2 %> \out -> do
     shk $ need [objAudio]
     stackIO (B.readFile objAudio) >>= encryptE2 >>= stackIO . BL.writeFile out

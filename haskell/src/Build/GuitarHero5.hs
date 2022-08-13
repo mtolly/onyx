@@ -52,8 +52,8 @@ import           Resources                       (getResourcesPath,
                                                   ghWoRThumbnail)
 import qualified RockBand.Codec.File             as RBFile
 import           RockBand.Codec.File             (shakeMIDI)
-import           Sound.FSB                       (emitFSB, ghBandFSB,
-                                                  ghBandFSBInterleaveMP3s)
+import           Sound.FSB                       (emitFSB, ghBandMP3sToFSB4,
+                                                  ghBandXMAtoFSB4)
 import qualified Sound.MIDI.Util                 as U
 import           STFS.Package                    (CreateOptions (..),
                                                   LicenseEntry (..),
@@ -304,7 +304,7 @@ gh5Rules buildInfo dir gh5 = do
     fsb %> \out -> do
       shk $ need [wav]
       xma <- mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ makeXMAPieces $ Right wav
-      ghBandFSB xma >>= stackIO . BL.writeFile out . emitFSB
+      ghBandXMAtoFSB4 xma >>= stackIO . BL.writeFile out . emitFSB
     fsb <.> "xen" %> \out -> do
       shk $ need [fsb]
       bs <- stackIO $ B.readFile fsb
@@ -413,7 +413,7 @@ gh5Rules buildInfo dir gh5 = do
       $ resampleTo 48000 SincMediumQuality src
 
   let writeEncryptedFSB out mp3s = do
-        fsb <- ghBandFSBInterleaveMP3s mp3s
+        fsb <- ghBandMP3sToFSB4 mp3s
         case ghworEncrypt $ BL.toStrict $ emitFSB fsb of
           Nothing  -> fatal "Unable to encrypt .fsb to .fsb.ps3"
           Just enc -> stackIO $ B.writeFile out enc
