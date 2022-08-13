@@ -18,15 +18,24 @@ import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Conduit.Audio             (Duration (..), secondsToFrames)
 import qualified Data.Conduit.Audio             as CA
+import           Data.Foldable                  (toList)
+import           Data.Functor.Identity          (Identity (..), runIdentity)
 import           Data.Hashable                  (Hashable, hash)
 import           Data.Int
-import           Data.List                      (transpose)
+import           Data.List.Extra                (nubOrd, transpose)
+import           Data.List.Split                (chunksOf)
 import qualified Data.Map                       as Map
+import           Data.Maybe                     (fromMaybe)
+import qualified Data.Sequence                  as Seq
 import           Data.SimpleHandle
+import qualified Data.Vector                    as V
+import qualified Data.Vector.Unboxed            as VU
 import           Data.Word
+import           Debug.Trace
 import           FFMPEG                         (ffSource)
 import           GHC.Generics                   (Generic)
 import           GHC.IO.Handle                  (HandlePosn (..))
+import           Numeric                        (showHex)
 import           STFS.Package                   (runGetM)
 import           System.FilePath                (dropExtension, (-<.>), (</>))
 import qualified System.IO                      as IO
@@ -321,13 +330,34 @@ readGH3FSB3 bs = do
     src <- ffSource $ Left readable
     return (fsbSongName song, src)
 
+data XMA1Packet = XMA1Packet
+  { xma1SequenceNumber    :: Word32
+  , xma1Unk               :: Word32
+  , xma1FrameOffsetInBits :: Word32
+  , xma1PacketSkipCount   :: Word32
+  , xma1Data              :: B.ByteString
+  } deriving (Show)
+
+splitXMA1Packets :: (MonadFail m) => BL.ByteString -> m [XMA1Packet]
+splitXMA1Packets = runGetM go where
+  go = isEmpty >>= \case
+    True  -> return []
+    False -> do
+      packetInfo <- getWord32be
+      xma1Data <- getByteString $ 2048 - 4
+      let xma1SequenceNumber    = (packetInfo `shiftR` 28) .&. 0xF
+          xma1Unk               = (packetInfo `shiftR` 26) .&. 0x3
+          xma1FrameOffsetInBits = (packetInfo `shiftR` 11) .&. 0x7FFF
+          xma1PacketSkipCount   = packetInfo               .&. 0x7FF
+      (XMA1Packet{..} :) <$> go
+
 data XMA2Packet = XMA2Packet
   { xma2FrameCount        :: Word32
   , xma2FrameOffsetInBits :: Word32
   , xma2PacketMetadata    :: Word32
   , xma2PacketSkipCount   :: Word32
   , xma2Data              :: B.ByteString
-  }
+  } deriving (Show)
 
 splitXMA2Packets :: (MonadFail m) => BL.ByteString -> m [XMA2Packet]
 splitXMA2Packets = runGetM go where
@@ -352,6 +382,7 @@ writeXMA2Packets pkts = runPut $ forM_ pkts $ \pkt -> do
   putWord32be packetInfo
   putByteString $ xma2Data pkt
 
+-- TODO this writes XMA2 data when it should be XMA1
 fsb4sToGH3FSB3 :: (Monad m) => [(B.ByteString, BL.ByteString)] -> StackTraceT m BL.ByteString
 fsb4sToGH3FSB3 inputs = do
   parsed <- forM inputs $ \(name, fsb4) -> flip runGetM fsb4 $ do
@@ -386,6 +417,7 @@ fsbToXMAs f dir = do
     let (stereoCount, monoCount) = quotRem (fromIntegral $ fsbSongChannels song) 2
     case fsbExtra song of
       Left xma -> do
+        -- TODO this does not handle XMA1 inside FSB3 correctly
         writeXMA (dir </> B8.unpack (fsbSongName song) -<.> "xma") XMAContents
           { xmaChannels = fromIntegral $ fsbSongChannels song
           , xmaRate     = fromIntegral $ fsbSongSampleRate song
@@ -430,6 +462,32 @@ splitMultitrackFSB bs = do
         , xmaData     = writeXMA2Packets $ extractXMAStream 16 i marked
         }
     Right _mp3 -> splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
+
+-- Splits a GH3 FSB into stereo XMA (360) or MP3 (PS3).
+splitGH3FSB :: BL.ByteString -> IO [BL.ByteString]
+splitGH3FSB bs = do
+  fsb <- parseFSB bs
+  forM (zip (either fsb3Songs fsb4Songs $ fsbHeader fsb) (fsbSongData fsb)) $ \(song, sdata) -> do
+    unless (fsbSongChannels song == 2) $ fail $
+      "Expected stereo audio but found " <> show (fsbSongChannels song) <> " channels"
+    case fsbExtra song of
+      -- TODO this doesn't work yet
+      Left xma -> do
+        packets <- splitXMA1Packets sdata
+        putStrLn $ "packets " <> show (length packets)
+        let frames = map snd $ splitXMA1Frames packets
+        putStrLn $ "frames " <> show (length frames)
+        let newPackets = buildXMA2Stream 16 frames
+        print $ map xma2FrameCount newPackets
+        makeXMA XMAContents
+          { xmaChannels = fromIntegral $ fsbSongChannels song
+          , xmaRate     = fromIntegral $ fsbSongSampleRate song
+          , xmaSamples  = fromIntegral $ fsbSongSamples song
+          , xmaPacketsPerBlock = 16
+          , xmaSeekTable = Just $ drop 1 $ fsbXMASeek xma
+          , xmaData     = writeXMA2Packets newPackets
+          }
+      Right _mp3 -> return sdata
 
 -- Only works on a CBR MP3 with no ID3 tags
 mp3CBRFrameSize :: BL.ByteString -> Maybe Int64
@@ -710,12 +768,15 @@ writeXMA fp xma = IO.withBinaryFile fp IO.WriteMode $ \h -> do
     chunk "data" $ do
       BL.hPut h $ xmaData xma
 
-makeXMAs :: [XMAContents] -> IO [BL.ByteString]
+makeXMAs :: (Traversable f) => f XMAContents -> IO (f BL.ByteString)
 makeXMAs xmas = withSystemTempDirectory "onyx-xma" $ \tmp -> do
   let tmpFile = tmp </> "out.xma"
   forM xmas $ \xma -> do
     writeXMA tmpFile xma
     BL.fromStrict <$> B.readFile tmpFile
+
+makeXMA :: XMAContents -> IO BL.ByteString
+makeXMA = fmap runIdentity . makeXMAs . Identity
 
 xmasToFSB :: (MonadFail m) => [(B.ByteString, XMAContents)] -> m FSB
 xmasToFSB xmas = do
@@ -833,15 +894,184 @@ toGH3FSB fsb = case fsbHeader fsb of
       }
     }
 
-splitXMA2Frames :: B.ByteString -> [[Bool]]
-splitXMA2Frames = go . concatMap toBits . B.unpack where
+newtype XMAFrame = XMAFrame
+  -- includes the length bits
+  { xmaFrameContent :: VU.Vector Bool -- this uses 1 byte per bit I think. could improve
+  } deriving (Show)
+
+-- TODO these need to look at last bit of a frame to determine whether to continue in packet.
+-- (0 or 0x7FFF frame length doesn't matter I think)
+-- bit 1 = more frames in packet, 0 = skip to next packet
+
+splitXMA1Frames :: [XMA1Packet] -> [(Int, XMAFrame)]
+splitXMA1Frames = go 0 . concatMap (concatMap toBits . B.unpack . xma1Data) where
   toBits byte = map (byte `testBit`) [7, 6 .. 0]
-  go [] = [] -- does this happen?
-  go stream = let
+  go _    []     = []
+  go posn stream = let
     len = foldr (.|.) 0 $ do
       (i, b) <- zip [14, 13 .. 0] $ take 15 stream
       return $ if b then bit i else 0
     in case len of
-      0x7FFF -> []
-      _      -> case splitAt len stream of
-        (x, y) -> x : go y
+      0 -> let
+        jump = 2044 * 8 - rem posn (2044 * 8)
+        in go (posn + jump) $ drop jump stream
+      _ -> let
+        (x, y) = splitAt len stream
+        x' = XMAFrame (VU.fromList x)
+        in seq x' $ (posn, x') : go (posn + len) y
+
+splitXMA2Frames :: [XMA2Packet] -> [(Int, XMAFrame)]
+splitXMA2Frames = go 0 . concatMap (concatMap toBits . B.unpack . xma2Data) where
+  toBits byte = map (byte `testBit`) [7, 6 .. 0]
+  go _    []     = []
+  go posn stream = let
+    len = foldr (.|.) 0 $ do
+      (i, b) <- zip [14, 13 .. 0] $ take 15 stream
+      return $ if b then bit i else 0
+    in case len of
+      0x7FFF -> let
+        jump = 2044 * 8 - rem posn (2044 * 8)
+        in go (posn + jump) $ drop jump stream
+      _ -> let
+        (x, y) = splitAt len stream
+        x' = XMAFrame (VU.fromList x)
+        in seq x' $ (posn, x') : go (posn + len) y
+
+bitLength :: XMAFrame -> Int
+bitLength frame = VU.length (xmaFrameContent frame)
+
+buildXMA2Stream :: Int -> [XMAFrame] -> [XMA2Packet]
+buildXMA2Stream packetsPerBlock fms = newBlock $ V.fromList fms where
+  newPacket = XMA2Packet
+    { xma2FrameCount        = 0
+    , xma2FrameOffsetInBits = 0x7FFF
+    , xma2PacketMetadata    = 1
+    , xma2PacketSkipCount   = 0
+    , xma2Data              = mempty
+    }
+  maxPacketBits = (2048 - 4) * 8
+  newBlock = fillBlock 0 newPacket (mempty :: Seq.Seq Bool) False
+  -- The last bit of each frame should be changed to signify
+  -- if there's another frame after it in this packet.
+  trailer morePackets bitseq = case bitseq of
+    xs Seq.:|> _ -> xs Seq.:|> morePackets
+    Seq.Empty    -> Seq.Empty
+  fillBlock !prevPackets !curPacket !curPacketBits !continuingFrame allFrames = if V.null allFrames
+    then trace "no frames left" $ [finalizePacket curPacket curPacketBits]
+    else let
+      frame = V.head allFrames
+      frames = V.tail allFrames
+      in let
+      -- number of bits left to store in this block
+      remainingBlockBits = maxPacketBits - Seq.length curPacketBits
+        + remainingBlockBitsAfterThisPacket
+      remainingBlockBitsAfterThisPacket = maxPacketBits * (packetsPerBlock - prevPackets - 1)
+      -- can we start this frame in this packet?
+      canStartThisPacket
+        = xma2FrameCount curPacket < 0x3F -- not at the max limit of frames starting in one packet
+        && Seq.length curPacketBits < maxPacketBits -- packet isn't full
+        && remainingBlockBits >= bitLength frame + 15 -- we have enough bits in the block, plus room to end the block
+        -- (we will always end each block with an all-1-bit skip frame)
+      in if canStartThisPacket
+        then let
+          -- can we fit the whole frame into this packet?
+          canFinishThisPacket = maxPacketBits - Seq.length curPacketBits >= bitLength frame
+          curPacket' = if continuingFrame then curPacket else curPacket
+            { xma2FrameCount = xma2FrameCount curPacket + 1
+            , xma2FrameOffsetInBits = case xma2FrameOffsetInBits curPacket of
+              0x7FFF -> fromIntegral $ Seq.length curPacketBits
+              offset -> offset
+            }
+          in if canFinishThisPacket
+            then fillBlock prevPackets curPacket'
+              (trailer True curPacketBits <> trailer False (Seq.fromList $ VU.toList $ xmaFrameContent frame))
+              False frames
+            else let
+              (inThisPacket, leftover) = VU.splitAt (maxPacketBits - Seq.length curPacketBits)
+                $ xmaFrameContent frame
+              in finalizePacket curPacket' (trailer True curPacketBits <> Seq.fromList (VU.toList inThisPacket))
+                : fillBlock (prevPackets + 1) newPacket mempty True
+                  (V.cons (XMAFrame leftover) frames)
+        else let
+          -- can we start this frame in the next packet, but in the same block?
+          canStartNextPacket = remainingBlockBitsAfterThisPacket >= bitLength frame + 15
+          in if canStartNextPacket
+            -- start a new packet in the same block
+            then finalizePacket curPacket curPacketBits
+              : fillBlock (prevPackets + 1) newPacket mempty continuingFrame allFrames
+            -- start a new block
+            else trace "new block" $ let
+              emptyPackets = replicate (packetsPerBlock - prevPackets - 1) emptyPacket
+              curPacket' = curPacket { xma2PacketSkipCount = fromIntegral $ length emptyPackets }
+              in finalizePacket curPacket' curPacketBits
+                : emptyPackets <> newBlock allFrames
+  finalizePacket packet packetBits = packet
+    { xma2Data
+      = B.pack
+      $ map (foldr (.|.) 0 . map (\(i, b) -> if b then bit i else 0) . zip [7, 6..])
+      $ chunksOf 8
+      $ take maxPacketBits
+      $ toList packetBits <> repeat True
+    }
+  emptyPacket = finalizePacket newPacket (mempty :: Seq.Seq Bool)
+
+debugPrintXMA1Stream :: Int -> BL.ByteString -> IO ()
+debugPrintXMA1Stream byteOffset stream = do
+  packets <- splitXMA1Packets stream
+  let printPosition bytes bits = do
+        putStrLn $ "Position 0x" <> showHex (bytes :: Int) "" <> " and " <> show (bits :: Int) <> " bits"
+      frames = splitXMA1Frames packets
+      printPacket (packetNumber, packet) = do
+        let packetLocation = byteOffset + packetNumber * 2048
+            packetBitStart = packetNumber * 2044 * 8
+            nextPacketBitStart = packetBitStart + 2044 * 8
+            framesStartingHere = takeWhile ((< nextPacketBitStart) . fst) $ dropWhile ((< packetBitStart) . fst) frames
+        printPosition packetLocation 0
+        putStrLn $ "Packet " <> show (packetNumber :: Int)
+        print packet { xma1Data = mempty }
+        forM_ framesStartingHere $ \(frameBitOffset, frame) -> do
+          let frameLocationBits = (packetLocation + 4) * 8 + (frameBitOffset - packetBitStart)
+              (bytes, bits) = quotRem frameLocationBits 8
+          printPosition bytes bits
+          putStrLn $ "Frame of length " <> show (bitLength frame)
+            <> " (" <> show (nextPacketBitStart - frameBitOffset) <> " bits left in packet)"
+          VU.forM_ (xmaFrameContent frame) $ \x -> putStr $ if x then "1" else "0"
+          putStr "\n"
+  mapM_ printPacket $ zip [0..] packets
+
+debugPrintXMA2Stream :: Int -> Int -> BL.ByteString -> IO ()
+debugPrintXMA2Stream byteOffset packetsPerBlock stream = do
+  packets <- markXMAPacketStreams <$> splitXMA2Packets stream
+  let blocks = zip [0..] $ chunksOf packetsPerBlock packets
+      printPosition bytes bits = do
+        putStrLn $ "Position 0x" <> showHex (bytes :: Int) "" <> " and " <> show (bits :: Int) <> " bits"
+      printBlock (blockNumber, blockPackets) = do
+        putStrLn $ "Start Block " <> show (blockNumber :: Int)
+        let streamData = do
+              streamIndex <- nubOrd $ map fst blockPackets
+              let blocksData = map snd $ filter ((== streamIndex) . fst) blockPackets
+                  blocksFrames = splitXMA2Frames blocksData
+              return (streamIndex, blocksFrames)
+            firstPacketIndex = blockNumber * packetsPerBlock
+        forM_ (zip [firstPacketIndex ..] blockPackets) $ \(packetNumber, (streamIndex, packet)) -> do
+          let packetLocation = byteOffset + packetNumber * 2048
+              thisStreamPacketNumbers = map fst $ filter ((== streamIndex) . fst . snd) $ zip [firstPacketIndex..] blockPackets
+              -- the number of packets for this stream in this block before this packet
+              streamPacketIndex = length $ filter (< packetNumber) thisStreamPacketNumbers
+              allFrames = fromMaybe [] $ lookup streamIndex streamData
+              packetBitStart = streamPacketIndex * 2044 * 8
+              nextPacketBitStart = packetBitStart + 2044 * 8
+              framesStartingHere = takeWhile ((< nextPacketBitStart) . fst) $ dropWhile ((< packetBitStart) . fst) allFrames
+          printPosition packetLocation 0
+          putStrLn $ "Packet " <> show packetNumber <> " for stream " <> show streamIndex
+          print packet { xma2Data = mempty }
+          -- only show stream 0's packets for now
+          when (streamIndex == 0) $ forM_ framesStartingHere $ \(frameBitOffsetInBlock, frame) -> do
+            let frameLocationBits = (packetLocation + 4) * 8 + (frameBitOffsetInBlock - packetBitStart)
+                (bytes, bits) = quotRem frameLocationBits 8
+            printPosition bytes bits
+            putStrLn $ "Frame of length " <> show (bitLength frame)
+              <> " (" <> show (nextPacketBitStart - frameBitOffsetInBlock) <> " bits left in packet)"
+            VU.forM_ (xmaFrameContent frame) $ \x -> putStr $ if x then "1" else "0"
+            putStr "\n"
+  mapM_ printBlock blocks

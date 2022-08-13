@@ -190,7 +190,6 @@ parseMidQB dlc qb = do
       _ -> fatal "No struct header in marker"
     _ -> fatal "Expected array of structs for markers"
 
-
   gh3BackgroundNotes <- parseBackground dlc qb "_notes" $ \case
     QBArrayOfFloatRaw [] -> return []
     QBArrayOfArray arys -> forM arys $ \case

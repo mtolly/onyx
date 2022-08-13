@@ -398,8 +398,8 @@ rsRules buildInfo dir rs = do
           , rs2_JapaneseArtistName = _artistJP $ _metadata songYaml
           , rs2_JapaneseTitle      = _titleJP $ _metadata songYaml
           , rs2_Title              = DLC.Sortable
-            { rs2_Value = getTitle $ _metadata songYaml
-            , rs2_SortValue = getTitle $ _metadata songYaml -- TODO
+            { rs2_Value = targetTitle songYaml $ RS rs
+            , rs2_SortValue = targetTitle songYaml $ RS rs -- TODO
             }
           , rs2_AlbumName          = DLC.Sortable
             { rs2_Value = fromMaybe "" $ _album $ _metadata songYaml

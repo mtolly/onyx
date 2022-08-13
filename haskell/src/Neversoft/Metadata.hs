@@ -9,6 +9,7 @@ import           Data.Binary.Get
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.List.Extra      (nubOrdOn)
+import qualified Data.List.NonEmpty   as NE
 import           Data.Maybe           (fromMaybe, listToMaybe)
 import qualified Data.Text            as T
 import           Data.Word
@@ -146,3 +147,50 @@ parseSongInfoStruct songEntries = do
         [] -> Nothing
         n : _ -> listToMaybe $ filter (\wor -> qbWoRGenre wor == n) [minBound .. maxBound]
   Right SongInfo{..}
+
+-- Metadata in _text.pak.qb for GH3
+
+readGH3TextPakQB :: BL.ByteString -> Either String TextPakQB
+readGH3TextPakQB bs = do
+  let nodes = splitPakNodes bs
+  -- TODO use actual ID instead of just getting the last qb
+  qbFile <- case NE.nonEmpty $ filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb") nodes of
+    Nothing -> Left "Couldn't locate metadata .qb"
+    Just ne -> return $ snd $ NE.last ne
+  let mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
+      qb = map (lookupQS mappingQS) $ runGet parseQB qbFile
+      structs = do
+        QBSectionStruct structID fileID (QBStructHeader : songs) <- qb
+        guard $ structID == 1543826983
+        return (fileID, songs)
+  case structs of
+    [] -> Left "Couldn't find any song structs"
+    (fileID, _) : _ -> do
+      structs' <- forM (concat $ map snd structs) $ \case
+        QBStructItemStruct8A0000 k struct -> Right (k, struct)
+        item -> Left $ "Unexpected item in _text.pak instead of song struct: " <> show item
+      return $ TextPakQB fileID structs'
+
+data SongInfoGH3 = SongInfoGH3
+  { gh3Name   :: B.ByteString -- this is an id like "dlc3"
+  , gh3Title  :: T.Text
+  , gh3Artist :: T.Text
+  , gh3Year   :: T.Text
+  -- lots of other fields ignored
+  } deriving (Show)
+
+parseSongInfoGH3 :: [QBStructItem QSResult Word32] -> Either String SongInfoGH3
+parseSongInfoGH3 songEntries = do
+  gh3Name <- case [ s | QBStructItemString830000 k s <- songEntries, k == qbKeyCRC "name" ] of
+    s : _ -> Right s
+    []    -> Left "parseSongInfoGH3: couldn't get song internal name"
+  gh3Title <- case [ s | QBStructItemStringW k s <- songEntries, k == qbKeyCRC "title" ] of
+    s : _ -> Right s
+    []    -> Left "parseSongInfoGH3: couldn't get song title"
+  gh3Artist <- case [ s | QBStructItemStringW k s <- songEntries, k == qbKeyCRC "artist" ] of
+    s : _ -> Right s
+    []    -> Left "parseSongInfoGH3: couldn't get song artist"
+  gh3Year <- case [ s | QBStructItemStringW k s <- songEntries, k == qbKeyCRC "year" ] of
+    s : _ -> Right s
+    []    -> Left "parseSongInfoGH3: couldn't get song year"
+  Right SongInfoGH3{..}
