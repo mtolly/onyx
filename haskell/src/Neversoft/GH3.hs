@@ -69,7 +69,7 @@ data GH3MidQB = GH3MidQB
 
   , gh3TimeSignatures  :: [(Word32, Word32, Word32)]
   , gh3FretBars        :: [Word32]
-  , gh3Markers         :: [(Word32, Word32)] -- time, marker
+  , gh3Markers         :: [(Word32, Either Word32 T.Text)] -- time, marker
 
   , gh3BackgroundNotes :: GH3Background [Word32] -- usually 3 ints, but some dlcX_drums_notes are 4 ints?
   , gh3Background      :: GH3Background GH3AnimEvent
@@ -182,11 +182,14 @@ parseMidQB dlc qb = do
     QBArrayOfFloatRaw [] -> return []
     QBArrayOfStruct marks -> forM marks $ \case
       QBStructHeader : items -> let
-        time   = [v | QBStructItemInteger810000     k v <- items, k == qbKeyCRC "time"  ]
-        marker = [v | QBStructItemQbKeyString9A0000 k v <- items, k == qbKeyCRC "marker"]
-        in case (time, marker) of
-          ([t], [m]) -> return (t, m)
-          _          -> fatal "Unexpected contents of marker"
+        time      = [v | QBStructItemInteger810000     k v <- items, k == qbKeyCRC "time"  ]
+        markerKey = [v | QBStructItemQbKeyString9A0000 k v <- items, k == qbKeyCRC "marker"]
+        -- seen in SanicStudios custom. do these work?
+        markerStr = [v | QBStructItemStringW           k v <- items, k == qbKeyCRC "marker"]
+        in case (time, markerKey, markerStr) of
+          ([t], [m], []) -> return (t, Left m)
+          ([t], [], [m]) -> return (t, Right m)
+          _              -> fatal $ "Unexpected contents of marker: " <> show items
       _ -> fatal "No struct header in marker"
     _ -> fatal "Expected array of structs for markers"
 

@@ -8,8 +8,10 @@ module Sound.FSB where
 
 import           Control.Monad
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
+import           Control.Monad.ST
 import           Control.Monad.Trans.Resource   (MonadResource, ResourceT)
 import           Control.Monad.Trans.StackTrace
+import           Data.Array.ST
 import           Data.Binary.Get
 import           Data.Binary.Put
 import           Data.Bits
@@ -18,15 +20,14 @@ import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Conduit.Audio             (Duration (..), secondsToFrames)
 import qualified Data.Conduit.Audio             as CA
-import           Data.Foldable                  (toList)
 import           Data.Functor.Identity          (Identity (..), runIdentity)
 import           Data.Hashable                  (Hashable, hash)
 import           Data.Int
 import           Data.List.Extra                (transpose)
 import           Data.List.Split                (chunksOf)
 import qualified Data.Map                       as Map
-import qualified Data.Sequence                  as Seq
 import           Data.SimpleHandle
+import qualified Data.Text                      as T
 import           Data.Word
 import           FFMPEG                         (ffSource)
 import           GHC.Generics                   (Generic)
@@ -461,8 +462,8 @@ splitMultitrackFSB bs = do
         }
     Right _mp3 -> splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
 
--- Splits a GH3 FSB into stereo XMA (360) or MP3 (PS3).
-splitGH3FSB :: BL.ByteString -> IO [BL.ByteString]
+-- Splits a GH3 FSB into stereo XMA (360) or MP3 (PS3/PC, also 360 customs?).
+splitGH3FSB :: BL.ByteString -> IO [(BL.ByteString, T.Text)]
 splitGH3FSB bs = do
   fsb <- parseFSB bs
   -- TODO this should fail if FSB4
@@ -473,7 +474,7 @@ splitGH3FSB bs = do
       Left xma -> do
         packets <- splitXMA1Packets sdata
         let newPackets = buildXMA2Stream 16 $ splitXMAFrames $ map Left packets
-        makeXMA2 XMA2Contents
+        xma2 <- makeXMA2 XMA2Contents
           { xma2Channels = fromIntegral $ fsbSongChannels song
           , xma2Rate     = fromIntegral $ fsbSongSampleRate song
           , xma2Samples  = fromIntegral $ fsbSongSamples song
@@ -481,7 +482,8 @@ splitGH3FSB bs = do
           , xma2SeekTable = Just $ drop 1 $ fsbXMASeek xma
           , xma2Data     = writeXMA2Packets newPackets
           }
-      Right _mp3 -> return sdata
+        return (xma2, "xma")
+      Right _mp3 -> return (sdata, "mp3")
 
 -- Only works on a CBR MP3 with no ID3 tags
 mp3CBRFrameSize :: BL.ByteString -> Maybe Int64
@@ -932,7 +934,7 @@ splitXMAFrames = freshPacket where
         packetData = either xma1PacketData xma2PacketData pkt
         in newFrame (fromIntegral bitOffset) packetData pkts
   newFrame :: Int -> B.ByteString -> [Either XMA1Packet XMA2Packet] -> [XMAFrame]
-  newFrame bitOffset packetData pkts = let
+  newFrame !bitOffset !packetData pkts = let
     -- the length bits may extend into the next packet
     extendedPacketData = case pkts of
       pkt : _ -> packetData <> either xma1PacketData xma2PacketData pkt
@@ -960,7 +962,7 @@ splitXMAFrames = freshPacket where
         else continueFrame (partialBits <> map (getStringBit packetData) [0 .. bitsPerPacket - 1]) (needBits - bitsPerPacket) pkts
 
 buildXMA2Stream :: Int -> [XMAFrame] -> [XMA2Packet]
-buildXMA2Stream packetsPerBlock fms = newBlock fms where
+buildXMA2Stream packetsPerBlock topFrames = runST (newBlock topFrames) where
   newPacket = XMA2Packet
     { xma2FrameCount        = 0
     , xma2FrameOffsetInBits = 0x7FFF
@@ -968,68 +970,96 @@ buildXMA2Stream packetsPerBlock fms = newBlock fms where
     , xma2PacketSkipCount   = 0
     , xma2PacketData        = mempty
     }
+  emptyPacket = newPacket
+    { xma2PacketData = B.replicate 2044 0xFF
+    }
   maxPacketBits = (2048 - 4) * 8
-  newBlock = fillBlock 0 newPacket (mempty :: Seq.Seq Bool) False
-  -- The last bit of each frame should be changed to signify
-  -- if there's another frame after it in this packet.
-  trailer morePackets bitseq = case bitseq of
-    xs Seq.:|> _ -> xs Seq.:|> morePackets
-    Seq.Empty    -> Seq.Empty
-  fillBlock !prevPackets !curPacket !curPacketBits !continuingFrame allFrames = case allFrames of
-    [] -> [finalizePacket curPacket curPacketBits]
+  newPacketData :: ST s (STUArray s Int Word8)
+  newPacketData = newArray (0, 2043) 0xFF
+  newBlock :: [XMAFrame] -> ST s [XMA2Packet]
+  newBlock fms = do
+    packetData <- newPacketData
+    fillBlock 0 newPacket 0 packetData 0 fms
+  fillBlock !prevPackets !curPacket !curPacketUsedBits !curPacketData !frameBitProgress restFrames = case restFrames of
+    [] -> (:[]) <$> finalizePacket curPacket curPacketData
     frame : frames -> let
       -- number of bits left to store in this block
-      remainingBlockBits = maxPacketBits - Seq.length curPacketBits
+      remainingBlockBits = maxPacketBits - curPacketUsedBits
         + remainingBlockBitsAfterThisPacket
       remainingBlockBitsAfterThisPacket = maxPacketBits * (packetsPerBlock - prevPackets - 1)
+      remainingPacketBits = maxPacketBits - curPacketUsedBits
+      remainingFrameBits = xmaFrameBitLength frame - frameBitProgress
       -- can we start this frame in this packet?
       canStartThisPacket
         = xma2FrameCount curPacket < 0x3F -- not at the max limit of frames starting in one packet
-        && Seq.length curPacketBits < maxPacketBits -- packet isn't full
-        && remainingBlockBits >= xmaFrameBitLength frame -- we have enough bits in the block
+        && curPacketUsedBits < maxPacketBits -- packet isn't full
+        && remainingBlockBits >= remainingFrameBits -- we have enough bits in the block
       in if canStartThisPacket
         then let
           -- can we fit the whole frame into this packet?
-          canFinishThisPacket = maxPacketBits - Seq.length curPacketBits >= xmaFrameBitLength frame
-          curPacket' = if continuingFrame then curPacket else curPacket
+          canFinishThisPacket = remainingPacketBits >= remainingFrameBits
+          curPacket' = if frameBitProgress /= 0 then curPacket else curPacket
             { xma2FrameCount = xma2FrameCount curPacket + 1
             , xma2FrameOffsetInBits = case xma2FrameOffsetInBits curPacket of
-              0x7FFF -> fromIntegral $ Seq.length curPacketBits
+              0x7FFF -> fromIntegral curPacketUsedBits
               offset -> offset
             }
-          in if canFinishThisPacket
-            then fillBlock prevPackets curPacket'
-              (trailer True curPacketBits <> trailer False (Seq.fromList $ xmaFrameBits frame))
-              False frames
-            else let
-              (inThisPacket, leftover) = splitAt
-                (maxPacketBits - Seq.length curPacketBits)
-                (xmaFrameBits frame)
-              in finalizePacket curPacket' (trailer True curPacketBits <> Seq.fromList inThisPacket)
-                : fillBlock (prevPackets + 1) newPacket mempty True
-                  (packBitsFrame leftover : frames)
+          in do
+            -- set previous trailer to 1
+            when (curPacketUsedBits > 0) $ writeBit (curPacketUsedBits - 1) True curPacketData
+            if canFinishThisPacket
+              then do
+                copyBits remainingFrameBits
+                  (frameBitProgress, xmaFrameContent frame)
+                  (curPacketUsedBits, curPacketData)
+                -- set this trailer to 0 (may be changed to 1 later)
+                writeBit (curPacketUsedBits + remainingFrameBits - 1) False curPacketData
+                fillBlock prevPackets curPacket'
+                  (curPacketUsedBits + remainingFrameBits)
+                  curPacketData 0 frames
+              else do
+                copyBits remainingPacketBits
+                  (frameBitProgress, xmaFrameContent frame)
+                  (curPacketUsedBits, curPacketData)
+                packet <- finalizePacket curPacket' curPacketData
+                (packet :) <$> do
+                  packetData <- newPacketData
+                  fillBlock (prevPackets + 1) newPacket 0 packetData
+                    (frameBitProgress + remainingPacketBits)
+                    restFrames
         else let
           -- can we start this frame in the next packet, but in the same block?
           canStartNextPacket = remainingBlockBitsAfterThisPacket >= xmaFrameBitLength frame
           in if canStartNextPacket
             -- start a new packet in the same block
-            then finalizePacket curPacket curPacketBits
-              : fillBlock (prevPackets + 1) newPacket mempty continuingFrame allFrames
+            then do
+              packet <- finalizePacket curPacket curPacketData
+              (packet :) <$> do
+                packetData <- newPacketData
+                fillBlock (prevPackets + 1) newPacket 0 packetData frameBitProgress restFrames
             -- start a new block
             else let
               emptyPackets = replicate (packetsPerBlock - prevPackets - 1) emptyPacket
               curPacket' = curPacket { xma2PacketSkipCount = fromIntegral $ length emptyPackets }
-              in finalizePacket curPacket' curPacketBits
-                : emptyPackets <> newBlock allFrames
-  finalizePacket packet packetBits = packet
-    { xma2PacketData
-      = B.pack
-      $ map (foldr (.|.) 0 . map (\(i, b) -> if b then bit i else 0) . zip [7, 6..])
-      $ chunksOf 8
-      $ take maxPacketBits
-      $ toList packetBits <> repeat True
-    }
-  emptyPacket = finalizePacket newPacket (mempty :: Seq.Seq Bool)
+              in do
+                packet <- finalizePacket curPacket' curPacketData
+                ((packet : emptyPackets) <>) <$> newBlock restFrames
+  copyBits :: Int -> (Int, B.ByteString) -> (Int, STUArray s Int Word8) -> ST s ()
+  copyBits numBits (srcPos, src) (destPos, dest) = do
+    forM_ [0 .. numBits - 1] $ \i -> do
+      writeBit (destPos + i) (getStringBit src $ srcPos + i) dest
+  writeBit :: Int -> Bool -> STUArray s Int Word8 -> ST s ()
+  writeBit i b arr = case quotRem i 8 of
+    (x, y) -> do
+      byte <- readArray arr x
+      let byte' = if b then byte `setBit` (7 - y) else byte `clearBit` (7 - y)
+      writeArray arr x byte'
+  finalizePacket :: XMA2Packet -> STUArray s Int Word8 -> ST s XMA2Packet
+  finalizePacket packet packetData = do
+    bs <- B.pack <$> getElems packetData
+    bs `seq` return packet
+      { xma2PacketData = bs
+      }
 
 {-
 

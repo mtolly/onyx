@@ -234,20 +234,22 @@ importGH3 src folder = do
               let getName platform = TE.decodeUtf8 (gh3Name info) <> ".fsb." <> platform
                   xen = getName "xen"
                   ps3 = getName "ps3"
-              (bs, name, fmt) <- case findFolded xen of
+              (bs, name) <- case findFolded xen of
                 Just r -> do
                   bs <- stackIO $ useHandle r handleToByteString
-                  return (bs, xen, "xma")
+                  return (bs, xen)
                 Nothing -> case findFolded ps3 of
                   Just r -> do
                     bs <- stackIO $ useHandle r handleToByteString
-                    return (bs, ps3, "mp3")
+                    return (bs, ps3)
                   Nothing -> fatal $ "Couldn't find audio file (xen/ps3): " <> show xen
               dec <- case gh3Decrypt bs of
                 Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show name
                 Just dec -> return dec
               streams <- stackIO $ splitGH3FSB dec
-              return $ zip [ name <> "." <> T.pack (show i) <> "." <> fmt | i <- [0..] :: [Int] ] streams
+              return $ map
+                (\(i, (stream, ext)) -> (name <> "." <> T.pack (show i) <> "." <> ext, stream))
+                (zip ([0..] :: [Int]) streams)
           return SongYaml
             { _metadata = def'
               { _title = Just $ gh3Title info
@@ -283,6 +285,18 @@ importGH3 src folder = do
                   [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named $ fst guitar) [] [])
                   -- TODO put on bass once we do that in mid qb convert as well
                   , (RBFile.FlexExtra "rhythm", PartSingle $ PlanAudio (Input $ Named $ fst rhythm) [] [])
+                  ]
+                , _crowd = Nothing
+                , _planComments = []
+                , _tuningCents = 0
+                , _fileTempo = Nothing
+                }
+              -- ...but this is seen in a SanicStudios custom?
+              [song, guitar, _preview] -> HM.singleton "gh" Plan
+                { _song = Just $ PlanAudio (Input $ Named $ fst song) [] []
+                , _countin = Countin []
+                , _planParts = Parts $ HM.fromList
+                  [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named $ fst guitar) [] [])
                   ]
                 , _crowd = Nothing
                 , _planComments = []
