@@ -50,10 +50,10 @@ import           RockBand.Common                  (Difficulty (..),
                                                    StrumHOPOTap (..),
                                                    pattern RNil, pattern Wait)
 import           Sound.FSB                        (XMA2Contents (..),
-                                                   extractXMAStream, makeXMA2s,
+                                                   extractXMAStream,
+                                                   getFSBStreamBytes, makeXMA2s,
                                                    markXMA2PacketStreams,
-                                                   parseXMA2,
-                                                   splitMultitrackFSB,
+                                                   parseXMA2, splitFSBStreams,
                                                    splitXMA2Packets,
                                                    writeXMA2Packets)
 import qualified Sound.MIDI.Util                  as U
@@ -327,20 +327,22 @@ importPowerGigSong key song folder level = do
           $ map (\i -> extractXMAStream ppblk i packets) [0 .. streamCount - 1]
       Nothing -> case ps3Audio >>= \x -> findFileCI ("Audio" :| ["songs", key, x]) folder of
         Just r -> do
-          mp3s <- stackIO $ useHandle r handleToByteString >>= splitMultitrackFSB
-          return $ flip map (zip [0..] mp3s) $ \(i, bs) -> let
-            name = "stream-" <> show (i :: Int)
-            filename = name <> ".mp3"
-            afile = AudioFile AudioInfo
-              { _md5 = Nothing
-              , _frames = Nothing
-              , _filePath = Just $ SoftFile filename $ SoftReadable
-                $ makeHandle filename $ byteStringSimpleHandle bs
-              , _commands = []
-              , _rate = Nothing
-              , _channels = 2
-              }
-            in (T.pack name, afile)
+          -- These should always be MP3 inside, but we'll just use the generic split function
+          streams <- stackIO $ useHandle r handleToByteString >>= splitFSBStreams
+          forM (zip [0..] streams) $ \(i, stream) -> do
+            (streamData, ext) <- stackIO $ getFSBStreamBytes stream
+            let name = "stream-" <> show (i :: Int)
+                filename = name <> "." <> T.unpack ext
+                afile = AudioFile AudioInfo
+                  { _md5 = Nothing
+                  , _frames = Nothing
+                  , _filePath = Just $ SoftFile filename $ SoftReadable
+                    $ makeHandle filename $ byteStringSimpleHandle streamData
+                  , _commands = []
+                  , _rate = Nothing
+                  , _channels = 2
+                  }
+            return (T.pack name, afile)
         Nothing -> fatal "Couldn't find either Xbox 360 or PS3 format audio"
 
   let getPlanAudio f = do

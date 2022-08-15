@@ -451,7 +451,7 @@ buildSource' aud = case aud of
     -- remaining frames ourselves
     ".xma" -> do
       bs <- BL.fromStrict <$> B.readFile fin
-      (choppedXMA, restFrames) <- seekXMA2 bs t
+      (choppedXMA, restFrames) <- seekXMA bs t
       dropStart (Frames restFrames) <$> ffSourceFrom (Frames 0) (Left choppedXMA)
     _      -> ffSourceFixPath t fin
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)

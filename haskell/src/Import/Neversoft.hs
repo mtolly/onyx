@@ -27,8 +27,9 @@ import           Neversoft.Note
 import           Neversoft.Pak
 import           Neversoft.QB                   (parseQB)
 import qualified RockBand.Codec.File            as RBFile
-import           Sound.FSB                      (splitGH3FSB,
-                                                 splitMultitrackFSB)
+import           Sound.FSB                      (FSBStream (..),
+                                                 getFSBStreamBytes,
+                                                 splitFSBStreams, xma1To2)
 import           STFS.Package                   (runGetM)
 import           Text.Read                      (readMaybe)
 
@@ -84,20 +85,22 @@ importGH5WoR src folder = do
                 ImportFull -> do
                   let xen = getName "xen"
                       ps3 = getName "ps3"
-                  (bs, name, fmt) <- case findFolded xen of
+                  (bs, name) <- case findFolded xen of
                     Just r -> do
                       bs <- stackIO $ useHandle r handleToByteString
-                      return (bs, xen, "xma")
+                      return (bs, xen)
                     Nothing -> case findFolded ps3 of
                       Just r -> do
                         bs <- stackIO $ useHandle r handleToByteString
-                        return (bs, ps3, "mp3")
+                        return (bs, ps3)
                       Nothing -> fatal $ "Couldn't find audio file (xen/ps3): " <> show xen
                   dec <- case decryptFSB' (T.unpack name) $ BL.toStrict bs of
                     Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show name
                     Just dec -> return dec
-                  streams <- stackIO $ splitMultitrackFSB dec
-                  return $ zip [ name <> "." <> T.pack (show i) <> "." <> fmt | i <- [0..] :: [Int] ] streams
+                  streams <- stackIO $ splitFSBStreams dec
+                  forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
+                    (streamData, ext) <- stackIO $ getFSBStreamBytes stream
+                    return (name <> "." <> T.pack (show i) <> "." <> ext, streamData)
           streams1 <- getAudio $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_1.fsb." <> platform
           streams2 <- getAudio $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_2.fsb." <> platform
           streams3 <- getAudio $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_3.fsb." <> platform
@@ -246,10 +249,13 @@ importGH3 src folder = do
               dec <- case gh3Decrypt bs of
                 Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show name
                 Just dec -> return dec
-              streams <- stackIO $ splitGH3FSB dec
-              return $ map
-                (\(i, (stream, ext)) -> (name <> "." <> T.pack (show i) <> "." <> ext, stream))
-                (zip ([0..] :: [Int]) streams)
+              streams <- stackIO $ splitFSBStreams dec
+              forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
+                (streamData, ext) <- case stream of
+                  -- direct xma1 import not working yet, keep xma2 hack for now
+                  FSB_XMA1 xma1 -> xma1To2 xma1 >>= stackIO . getFSBStreamBytes . FSB_XMA2
+                  _ -> stackIO $ getFSBStreamBytes stream
+                return (name <> "." <> T.pack (show i) <> "." <> ext, streamData)
           return SongYaml
             { _metadata = def'
               { _title = Just $ gh3Title info

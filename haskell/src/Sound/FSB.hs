@@ -32,6 +32,7 @@ import           Data.Word
 import           FFMPEG                         (ffSource)
 import           GHC.Generics                   (Generic)
 import           GHC.IO.Handle                  (HandlePosn (..))
+import           Numeric                        (showHex)
 import           STFS.Package                   (runGetM)
 import           System.FilePath                (dropExtension, (-<.>), (</>))
 import qualified System.IO                      as IO
@@ -438,52 +439,55 @@ fsbToXMAs f dir = do
         forM_ (zip [0..] mp3s) $ \(i, mp3) -> do
           BL.writeFile (dir </> dropExtension (B8.unpack $ fsbSongName song) <> "_" <> show (i :: Int) <> ".mp3") mp3
 
--- TODO probably splitMultitrackFSB and splitGH3FSB should be one function,
--- do the right thing for FSB3 vs FSB4 and always emit stereo XMA2
+data FSBStream
+  = FSB_MP3  BL.ByteString
+  | FSB_XMA1 XMA1Contents
+  | FSB_XMA2 XMA2Contents
 
--- Splits a GH-style FSB into stereo XMA (360) or MP3 (PS3).
-splitMultitrackFSB :: BL.ByteString -> IO [BL.ByteString]
-splitMultitrackFSB bs = do
-  fsb <- parseFSB bs
-  (song, sdata) <- case zip (either fsb3Songs fsb4Songs $ fsbHeader fsb) (fsbSongData fsb) of
-    [pair] -> return pair
-    _      -> fail "Not exactly 1 item found in .fsb"
-  let (stereoCount, monoCount) = quotRem (fromIntegral $ fsbSongChannels song) 2
-  case fsbExtra song of
-    Left _xma -> do
-      marked <- markXMA2PacketStreams <$> splitXMA2Packets sdata
-      makeXMA2s $ flip map [0 .. stereoCount + monoCount - 1] $ \i -> XMA2Contents
-        { xma2Channels = if i == stereoCount then 1 else 2
-        , xma2Rate     = fromIntegral $ fsbSongSampleRate song
-        , xma2Samples  = fromIntegral $ fsbSongSamples song
-        , xma2PacketsPerBlock = 16
-        , xma2SeekTable = Nothing
-        , xma2Data     = writeXMA2Packets $ extractXMAStream 16 i marked
-        }
-    Right _mp3 -> splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
+getFSBStreamBytes :: FSBStream -> IO (BL.ByteString, T.Text)
+getFSBStreamBytes = \case
+  FSB_MP3 bs -> return (bs, "mp3")
+  FSB_XMA1 xma1 -> do
+    bs <- makeXMA1 xma1
+    return (bs, "xma")
+  FSB_XMA2 xma2 -> do
+    bs <- makeXMA2 xma2
+    return (bs, "xma")
 
--- Splits a GH3 FSB into stereo XMA (360) or MP3 (PS3/PC, also 360 customs?).
-splitGH3FSB :: BL.ByteString -> IO [(BL.ByteString, T.Text)]
-splitGH3FSB bs = do
+-- Splits an FSB3 or FSB4 file into streams, each of which is mono or stereo.
+splitFSBStreams :: BL.ByteString -> IO [FSBStream]
+splitFSBStreams bs = do
   fsb <- parseFSB bs
-  -- TODO this should fail if FSB4
-  forM (zip (either fsb3Songs fsb4Songs $ fsbHeader fsb) (fsbSongData fsb)) $ \(song, sdata) -> do
-    unless (fsbSongChannels song == 2) $ fail $
-      "Expected stereo audio but found " <> show (fsbSongChannels song) <> " channels"
-    case fsbExtra song of
-      Left xma -> do
-        packets <- splitXMA1Packets sdata
-        let newPackets = buildXMA2Stream 16 $ splitXMAFrames $ map Left packets
-        xma2 <- makeXMA2 XMA2Contents
-          { xma2Channels = fromIntegral $ fsbSongChannels song
-          , xma2Rate     = fromIntegral $ fsbSongSampleRate song
-          , xma2Samples  = fromIntegral $ fsbSongSamples song
-          , xma2PacketsPerBlock = 16
-          , xma2SeekTable = Just $ drop 1 $ fsbXMASeek xma
-          , xma2Data     = writeXMA2Packets newPackets
-          }
-        return (xma2, "xma")
-      Right _mp3 -> return (sdata, "mp3")
+  case fsbHeader fsb of
+    Left fsb3 -> forM (zip (fsb3Songs fsb3) (fsbSongData fsb)) $ \(song, sdata) -> do
+      unless (fsbSongChannels song == 2) $ fail $
+        "Expected stereo audio but found " <> show (fsbSongChannels song) <> " channels"
+      case fsbExtra song of
+        Left xma -> do
+          return $ FSB_XMA1 XMA1Contents
+            { xma1Channels  = fromIntegral $ fsbSongChannels song
+            , xma1Rate      = fromIntegral $ fsbSongSampleRate song
+            , xma1SeekTable = Just $ fsbXMASeek xma -- both fsb3 and .xma xma1 start with 0 entry (.xma xma2 does not)
+            , xma1Data      = sdata
+            }
+        Right _mp3 -> return $ FSB_MP3 sdata
+    Right fsb4 -> do
+      (song, sdata) <- case zip (fsb4Songs fsb4) (fsbSongData fsb) of
+        [pair] -> return pair
+        _      -> fail "Not exactly 1 item found in FSB4 file"
+      let (stereoCount, monoCount) = quotRem (fromIntegral $ fsbSongChannels song) 2
+      case fsbExtra song of
+        Left _xma -> do
+          marked <- markXMA2PacketStreams <$> splitXMA2Packets sdata
+          return $ flip map [0 .. stereoCount + monoCount - 1] $ \i -> FSB_XMA2 $ XMA2Contents
+            { xma2Channels        = if i == stereoCount then 1 else 2
+            , xma2Rate            = fromIntegral $ fsbSongSampleRate song
+            , xma2Samples         = fromIntegral $ fsbSongSamples song
+            , xma2PacketsPerBlock = 16
+            , xma2SeekTable       = Nothing
+            , xma2Data            = writeXMA2Packets $ extractXMAStream 16 i marked
+            }
+        Right _mp3 -> map FSB_MP3 <$> splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
 
 -- Only works on a CBR MP3 with no ID3 tags
 mp3CBRFrameSize :: BL.ByteString -> Maybe Int64
@@ -616,6 +620,11 @@ extractXMAStream packetsPerBlock i = go . splitBlocks where
       then go $ (blk <> next) : rest
       else complete packetsPerBlock blk <> go blks
 
+-- when we get to makeXMA1SeekTable:
+-- * entries are per packet
+-- * do they include a frame in progress at packet start or not? need to check
+-- * they are little endian! (big endian in xma 2)
+
 -- Note, returns a 0 in front (.fsb format, not .xma)
 makeXMA2SeekTable :: (MonadFail m) => XMA2Contents -> m [Word32]
 makeXMA2SeekTable xma = do
@@ -630,17 +639,29 @@ makeXMA2SeekTable xma = do
     packetIndex <- [0, xma2PacketsPerBlock xma .. length stream0Counts]
     return $ sum (take packetIndex stream0Counts) * 512
 
+data XMA1Contents = XMA1Contents
+  { xma1Channels  :: Int
+  , xma1Rate      :: Int
+  , xma1SeekTable :: Maybe [Word32] -- this is per-packet (not per-block like XMA2)
+  , xma1Data      :: BL.ByteString
+  } deriving (Generic, Hashable)
+
 data XMA2Contents = XMA2Contents
   { xma2Channels        :: Int
   , xma2Rate            :: Int
   , xma2Samples         :: Int
-  , xma2PacketsPerBlock :: Int -- 16 for FSB (GH), 32 for PowerGig .xma
+  , xma2PacketsPerBlock :: Int -- 16 for FSB4 (GH), 32 for PowerGig .xma
   , xma2SeekTable       :: Maybe [Word32] -- should start from block 1 (not 0) like .xma (not .fsb)
   , xma2Data            :: BL.ByteString
   } deriving (Generic, Hashable)
 
 parseXMA2 :: (MonadFail m) => BL.ByteString -> m XMA2Contents
-parseXMA2 b = let
+parseXMA2 b = parseXMA b >>= \case
+  Left  _    -> fail "Expected to parse XMA2 but found XMA1"
+  Right xma2 -> return xma2
+
+parseXMA :: (MonadFail m) => BL.ByteString -> m (Either XMA1Contents XMA2Contents)
+parseXMA b = let
   findChunk tag bytes = if BL.null bytes
     then fail $ "Couldn't find RIFF chunk: " <> show tag
     else let
@@ -655,113 +676,220 @@ parseXMA2 b = let
     seek <- findChunk "seek" riff
     data_ <- findChunk "data" riff
     flip runGetM fmt $ do
-      -- WAVEFORMATEX
-      0x166    <- getWord16le -- wFormatTag;      // Audio format type; always WAVE_FORMAT_XMA2
-      channels <- getWord16le -- nChannels;       // Channel count of the decoded audio
-      rate     <- getWord32le -- nSamplesPerSec;  // Sample rate of the decoded audio
-      _        <- getWord32le -- nAvgBytesPerSec; // Used internally by the XMA encoder
-      _        <- getWord16le -- nBlockAlign;     // Decoded sample size; channels * wBitsPerSample / 8
-      0x10     <- getWord16le -- wBitsPerSample;  // Bits per decoded mono sample; always 16 for XMA
-      0x22     <- getWord16le -- cbSize;          // Size in bytes of the rest of this structure (34)
-      -- rest
-      _        <- getWord16le -- NumStreams;     // Number of audio streams (1 or 2 channels each)
-      _        <- getWord32le -- ChannelMask;    // Spatial positions of the channels in this file
-      len      <- getWord32le -- SamplesEncoded; // Total number of PCM samples the file decodes to
-      blkSize  <- getWord32le -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
-      _        <- getWord32le -- PlayBegin;      // First valid sample in the decoded audio
-      _        <- getWord32le -- PlayLength;     // Length of the valid part of the decoded audio
-      _        <- getWord32le -- LoopBegin;      // Beginning of the loop region in decoded sample terms
-      _        <- getWord32le -- LoopLength;     // Length of the loop region in decoded sample terms
-      _        <- getWord8    -- LoopCount;      // Number of loop repetitions; 255 = infinite
-      _        <- getWord8    -- EncoderVersion; // Version of XMA encoder that generated the file
-      _        <- getWord16le -- BlockCount;     // XMA blocks in file (and entries in its seek table)
-      packetsPerBlock <- case quotRem blkSize 2048 of
-        (ppblk, 0) -> return ppblk
-        _          -> fail "Expected a block size divisible by 2048"
-      return XMA2Contents
-        { xma2Channels = fromIntegral channels
-        , xma2Rate     = fromIntegral rate
-        , xma2Samples  = fromIntegral len
-        , xma2PacketsPerBlock = fromIntegral packetsPerBlock
-        , xma2SeekTable = Just $ let
-          getSeekTable = isEmpty >>= \case
-            True  -> return []
-            False -> liftM2 (:) getWord32be getSeekTable
-          in runGet getSeekTable seek
-        , xma2Data     = data_
-        }
+      fmtTag   <- getWord16le -- wFormatTag;      // Audio format type; always WAVE_FORMAT_XMA2
+      case fmtTag of
+        0x165 -> do -- XMA1
+          -- rest of XMAWAVEFORMAT (includes format tag)
+          _          <- getWord16le -- BitsPerSample;      // Bit depth (currently required to be 16)
+          _          <- getWord16le -- EncodeOptions;      // Options for XMA encoder/decoder
+          _          <- getWord16le -- LargestSkip;        // Largest skip used in interleaving streams
+          numStreams <- getWord16le -- NumStreams;         // Number of interleaved audio streams
+          _          <- getWord8    -- LoopCount;          // Number of loop repetitions; 255 = infinite
+          _          <- getWord8    -- Version;            // XMA encoder version that generated the file.
+                                    --                     // Always 3 or higher for XMA2 files.
+          -- XMASTREAMFORMAT XmaStreams[1]; // Per-stream format information; the actual array length is in the NumStreams field.
+          -- [However, Onyx will only support single-stream XMA1 files.]
+          streams <- replicateM (fromIntegral numStreams) $ do
+            _        <- getWord32le -- PsuedoBytesPerSec; // Used by the XMA encoder (typo preserved for legacy reasons)
+            rate     <- getWord32le -- SampleRate;        // The stream's decoded sample rate (in XMA2 files,
+                                    --                    // this is the same for all streams in the file).
+            _        <- getWord32le -- LoopStart;         // Bit offset of the frame containing the loop start
+                                    --                    // point, relative to the beginning of the stream.
+            _        <- getWord32le -- LoopEnd;           // Bit offset of the frame containing the loop end.
+            _        <- getWord8    -- SubframeData;      // Two 4-bit numbers specifying the exact location of
+                                    --                    // the loop points within the frames that contain them.
+                                    --                    //   SubframeEnd: Subframe of the loop end frame where
+                                    --                    //                the loop ends.  Ranges from 0 to 3.
+                                    --                    //   SubframeSkip: Subframes to skip in the start frame to
+                                    --                    //                 reach the loop.  Ranges from 0 to 4.
+            channels <- getWord8    -- Channels;          // Number of channels in the stream (1 or 2)
+            _        <- getWord16le -- ChannelMask;       // Spatial positions of the channels in the stream
+            return (channels, rate)
+          (channels, rate) <- case streams of
+            [pair] -> return pair
+            _      -> fail $ "We only support 1 stream in XMA1 files, but found " <> show (length streams)
+          seekTable <- flip runGetM seek $ do
+            1     <- getWord32le -- always?
+            count <- getWord32le
+            replicateM (fromIntegral count) getWord32le -- note, little endian! (xma2 is big)
+          return $ Left XMA1Contents
+            { xma1Channels  = fromIntegral channels
+            , xma1Rate      = fromIntegral rate
+            , xma1SeekTable = Just seekTable
+            , xma1Data      = data_
+            }
+        0x166 -> do -- XMA2
+          -- WAVEFORMATEX (includes format tag)
+          channels <- getWord16le -- nChannels;       // Channel count of the decoded audio
+          rate     <- getWord32le -- nSamplesPerSec;  // Sample rate of the decoded audio
+          _        <- getWord32le -- nAvgBytesPerSec; // Used internally by the XMA encoder
+          _        <- getWord16le -- nBlockAlign;     // Decoded sample size; channels * wBitsPerSample / 8
+          0x10     <- getWord16le -- wBitsPerSample;  // Bits per decoded mono sample; always 16 for XMA
+          0x22     <- getWord16le -- cbSize;          // Size in bytes of the rest of this structure (34)
+          -- rest
+          _        <- getWord16le -- NumStreams;     // Number of audio streams (1 or 2 channels each)
+          _        <- getWord32le -- ChannelMask;    // Spatial positions of the channels in this file
+          len      <- getWord32le -- SamplesEncoded; // Total number of PCM samples the file decodes to
+          blkSize  <- getWord32le -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
+          _        <- getWord32le -- PlayBegin;      // First valid sample in the decoded audio
+          _        <- getWord32le -- PlayLength;     // Length of the valid part of the decoded audio
+          _        <- getWord32le -- LoopBegin;      // Beginning of the loop region in decoded sample terms
+          _        <- getWord32le -- LoopLength;     // Length of the loop region in decoded sample terms
+          _        <- getWord8    -- LoopCount;      // Number of loop repetitions; 255 = infinite
+          _        <- getWord8    -- EncoderVersion; // Version of XMA encoder that generated the file
+          _        <- getWord16le -- BlockCount;     // XMA blocks in file (and entries in its seek table)
+          packetsPerBlock <- case quotRem blkSize 2048 of
+            (ppblk, 0) -> return ppblk
+            _          -> fail "Expected a block size divisible by 2048"
+          let getSeekTable = isEmpty >>= \case
+                True  -> return []
+                False -> liftM2 (:) getWord32be getSeekTable
+              -- TODO maybe use BlockCount from above instead of going to end?
+          seekTable <- runGetM getSeekTable seek
+          return $ Right XMA2Contents
+            { xma2Channels        = fromIntegral channels
+            , xma2Rate            = fromIntegral rate
+            , xma2Samples         = fromIntegral len
+            , xma2PacketsPerBlock = fromIntegral packetsPerBlock
+            , xma2SeekTable       = Just seekTable
+            , xma2Data            = data_
+            }
+        _ -> fail $ "Unrecognized RIFF format tag in .xma fmt chunk: 0x" <> showHex fmtTag ""
 
--- | Returns a new XMA with initial blocks removed, and a remaining frame count to skip manually.
-seekXMA2 :: (MonadIO m, MonadFail m) => BL.ByteString -> Duration -> m (Readable, Int)
-seekXMA2 bs pos = do
-  xma <- parseXMA2 bs
-  let frames = case pos of
-        Seconds s -> secondsToFrames s $ fromIntegral $ xma2Rate xma
-        Frames  f -> f
-  seekTable <- maybe (drop 1 <$> makeXMA2SeekTable xma) return $ xma2SeekTable xma
-  let go !currentBlocks !currentFrames [] = (currentBlocks, currentFrames, [])
-      go !currentBlocks !currentFrames (nextFrames : rest) = if fromIntegral frames >= nextFrames
-        then go (currentBlocks + 1) nextFrames rest
-        else (currentBlocks, currentFrames, rest)
-      (dropBlocks, dropPos, newSeekTable) = go 0 0 seekTable
-  [newXMA] <- liftIO $ makeXMA2s $ return xma
-    { xma2Samples = xma2Samples xma - fromIntegral dropPos
-    , xma2SeekTable = Just newSeekTable
-    , xma2Data = BL.drop (dropBlocks * fromIntegral (xma2PacketsPerBlock xma) * 2048) $ xma2Data xma
-    }
-  return (makeHandle "temp.xma" $ byteStringSimpleHandle newXMA, frames - fromIntegral dropPos)
+-- | Returns a new XMA with initial blocks/packets removed, and a remaining frame count to skip manually.
+seekXMA :: (MonadIO m, MonadFail m) => BL.ByteString -> Duration -> m (Readable, Int)
+seekXMA bs pos = parseXMA bs >>= \case
+  Left  xma1 -> do
+    let frames = case pos of
+          Seconds s -> secondsToFrames s $ fromIntegral $ xma1Rate xma1
+          Frames  f -> f
+    seekTable <- fmap (drop 1) $ maybe (fail "TODO makeXMA1SeekTable") return $ xma1SeekTable xma1
+    let go !currentPackets !currentFrames [] = (currentPackets, currentFrames, [])
+        go !currentPackets !currentFrames (nextFrames : rest) = if fromIntegral frames >= nextFrames
+          then go (currentPackets + 1) nextFrames rest
+          else (currentPackets, currentFrames, rest)
+        (dropPackets, dropPos, newSeekTable) = go 0 0 seekTable
+    newXMA <- liftIO $ makeXMA1 xma1
+      { xma1SeekTable = Just newSeekTable
+      , xma1Data = BL.drop (dropPackets * 2048) $ xma1Data xma1
+      }
+    return (makeHandle "temp.xma" $ byteStringSimpleHandle newXMA, frames - fromIntegral dropPos)
+  Right xma2 -> do
+    let frames = case pos of
+          Seconds s -> secondsToFrames s $ fromIntegral $ xma2Rate xma2
+          Frames  f -> f
+    seekTable <- maybe (drop 1 <$> makeXMA2SeekTable xma2) return $ xma2SeekTable xma2
+    let go !currentBlocks !currentFrames [] = (currentBlocks, currentFrames, [])
+        go !currentBlocks !currentFrames (nextFrames : rest) = if fromIntegral frames >= nextFrames
+          then go (currentBlocks + 1) nextFrames rest
+          else (currentBlocks, currentFrames, rest)
+        (dropBlocks, dropPos, newSeekTable) = go 0 0 seekTable
+    [newXMA] <- liftIO $ makeXMA2s $ return xma2
+      { xma2Samples = xma2Samples xma2 - fromIntegral dropPos
+      , xma2SeekTable = Just newSeekTable
+      , xma2Data = BL.drop (dropBlocks * fromIntegral (xma2PacketsPerBlock xma2) * 2048) $ xma2Data xma2
+      }
+    return (makeHandle "temp.xma" $ byteStringSimpleHandle newXMA, frames - fromIntegral dropPos)
+
+riffChunk :: IO.Handle -> B.ByteString -> IO a -> IO a
+riffChunk h magic f = do
+  let getPosn = IO.hGetPosn h
+  B.hPut h magic
+  lenPosn <- getPosn
+  B.hPut h $ B.pack [0xDE, 0xAD, 0xBE, 0xEF] -- filled in later
+  HandlePosn _ start <- getPosn
+  x <- f
+  endPosn@(HandlePosn _ end) <- getPosn
+  IO.hSetPosn lenPosn
+  writePut h $ putWord32le $ fromIntegral $ end - start
+  IO.hSetPosn endPosn
+  return x
+
+writePut :: IO.Handle -> Put -> IO ()
+writePut h = BL.hPut h . runPut
+
+writeXMA1 :: FilePath -> XMA1Contents -> IO ()
+writeXMA1 fp xma = IO.withBinaryFile fp IO.WriteMode $ \h -> do
+  xmaSeek <- maybe (fail "TODO makeXMA1SeekTable") return $ xma1SeekTable xma
+  riffChunk h "RIFF" $ do
+    B.hPut h "WAVE"
+    riffChunk h "fmt " $ do
+      writePut h $ putWord16le 0x165 -- FormatTag;          // Audio format type (always WAVE_FORMAT_XMA)
+      writePut h $ putWord16le 16    -- BitsPerSample;      // Bit depth (currently required to be 16)
+      writePut h $ putWord16le 0     -- EncodeOptions;      // Options for XMA encoder/decoder [does this matter? 0x1D6 in test file]
+      writePut h $ putWord16le 0     -- LargestSkip;        // Largest skip used in interleaving streams
+      writePut h $ putWord16le 1     -- NumStreams;         // Number of interleaved audio streams
+      writePut h $ putWord8    0     -- LoopCount;          // Number of loop repetitions; 255 = infinite
+      writePut h $ putWord8    2     -- Version;            // XMA encoder version that generated the file.
+                                     --                     // Always 3 or higher for XMA2 files.
+      -- XMASTREAMFORMAT XmaStreams[1]; // Per-stream format information; the actual
+      --                                // array length is in the NumStreams field.
+      writePut h $ putWord32le 0                              -- PsuedoBytesPerSec; // Used by the XMA encoder (typo preserved for legacy reasons) [does this matter?]
+      writePut h $ putWord32le $ fromIntegral $ xma1Rate xma  -- SampleRate;        // The stream's decoded sample rate (in XMA2 files,
+                                                              --                    // this is the same for all streams in the file).
+      writePut h $ putWord32le 0                              -- LoopStart;         // Bit offset of the frame containing the loop start
+                                                              --                    // point, relative to the beginning of the stream.
+      writePut h $ putWord32le 0                              -- LoopEnd;           // Bit offset of the frame containing the loop end.
+      writePut h $ putWord8 0                                 -- SubframeData;      // Two 4-bit numbers specifying the exact location of
+                                                              --                    // the loop points within the frames that contain them.
+                                                              --                    //   SubframeEnd: Subframe of the loop end frame where
+                                                              --                    //                the loop ends.  Ranges from 0 to 3.
+                                                              --                    //   SubframeSkip: Subframes to skip in the start frame to
+                                                              --                    //                 reach the loop.  Ranges from 0 to 4.
+      writePut h $ putWord8 $ fromIntegral $ xma1Channels xma -- Channels;          // Number of channels in the stream (1 or 2)
+      channelMask <- case xma1Channels xma of
+        1 -> return 0x0001
+        2 -> return 0x0201
+        -- shouldn't happen (all streams are mono or stereo)
+        _ -> fail $ "Unsupported channel count for writing XMA1 stream: " <> show (xma1Channels xma)
+      writePut h $ putWord16le channelMask                    -- ChannelMask;       // Spatial positions of the channels in the stream
+
+    -- Probably doesn't matter but xmaencode.exe puts "data" before "seek"
+    riffChunk h "data" $ do
+      BL.hPut h $ xma1Data xma
+    riffChunk h "seek" $ do
+      writePut h $ putWord32le 1
+      writePut h $ putWord32le $ fromIntegral $ length xmaSeek
+      forM_ xmaSeek $ writePut h . putWord32le
 
 writeXMA2 :: FilePath -> XMA2Contents -> IO ()
 writeXMA2 fp xma = IO.withBinaryFile fp IO.WriteMode $ \h -> do
-  let chunk ctype f = do
-        let getPosn = IO.hGetPosn h
-        B.hPut h ctype
-        lenPosn <- getPosn
-        B.hPut h $ B.pack [0xDE, 0xAD, 0xBE, 0xEF] -- filled in later
-        HandlePosn _ start <- getPosn
-        x <- f
-        endPosn@(HandlePosn _ end) <- getPosn
-        IO.hSetPosn lenPosn
-        write $ putWord32le $ fromIntegral $ end - start
-        IO.hSetPosn endPosn
-        return x
-      write = BL.hPut h . runPut
-  xmaSeek <- makeXMA2SeekTable xma
-  chunk "RIFF" $ do
+  xmaSeek <- makeXMA2SeekTable xma -- TODO use existing one if it's there
+  riffChunk h "RIFF" $ do
     B.hPut h "WAVE"
-    chunk "fmt " $ do
+    riffChunk h "fmt " $ do
       let c = xma2Channels xma
           r = xma2Rate xma
           len = xma2Samples xma
           blockSize = fromIntegral (xma2PacketsPerBlock xma) * 2048
 
       -- WAVEFORMATEX wfx;
-      write $ putWord16le 0x166                -- wFormatTag;      // Audio format type; always WAVE_FORMAT_XMA2
-      write $ putWord16le $ fromIntegral c     -- nChannels;       // Channel count of the decoded audio
-      write $ putWord32le $ fromIntegral r     -- nSamplesPerSec;  // Sample rate of the decoded audio
-      write $ putWord32le 0 -- TODO            -- nAvgBytesPerSec; // Used internally by the XMA encoder
-      write $ putWord16le $ fromIntegral c * 2 -- nBlockAlign;     // Decoded sample size; channels * wBitsPerSample / 8
-      write $ putWord16le 0x10                 -- wBitsPerSample;  // Bits per decoded mono sample; always 16 for XMA
-      write $ putWord16le 0x22                 -- cbSize;          // Size in bytes of the rest of this structure (34)
+      writePut h $ putWord16le 0x166                -- wFormatTag;      // Audio format type; always WAVE_FORMAT_XMA2
+      writePut h $ putWord16le $ fromIntegral c     -- nChannels;       // Channel count of the decoded audio
+      writePut h $ putWord32le $ fromIntegral r     -- nSamplesPerSec;  // Sample rate of the decoded audio
+      writePut h $ putWord32le 0 -- TODO            -- nAvgBytesPerSec; // Used internally by the XMA encoder
+      writePut h $ putWord16le $ fromIntegral c * 2 -- nBlockAlign;     // Decoded sample size; channels * wBitsPerSample / 8
+      writePut h $ putWord16le 0x10                 -- wBitsPerSample;  // Bits per decoded mono sample; always 16 for XMA
+      writePut h $ putWord16le 0x22                 -- cbSize;          // Size in bytes of the rest of this structure (34)
 
-      write $ putWord16le $ (fromIntegral c + 1) `quot` 2 -- NumStreams;     // Number of audio streams (1 or 2 channels each)
-      write $ putWord32le 0                               -- ChannelMask;    // Spatial positions of the channels in this file
-      write $ putWord32le $ fromIntegral len              -- SamplesEncoded; // Total number of PCM samples the file decodes to
-      write $ putWord32le blockSize                       -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
-      write $ putWord32le 0                               -- PlayBegin;      // First valid sample in the decoded audio
-      write $ putWord32le $ fromIntegral len              -- PlayLength;     // Length of the valid part of the decoded audio
-      write $ putWord32le 0                               -- LoopBegin;      // Beginning of the loop region in decoded sample terms
-      write $ putWord32le 0                               -- LoopLength;     // Length of the loop region in decoded sample terms
-      write $ putWord8 0                                  -- LoopCount;      // Number of loop repetitions; 255 = infinite
-      write $ putWord8 4                                  -- EncoderVersion; // Version of XMA encoder that generated the file
-      write $ putWord16le $ fromIntegral $ length xmaSeek -- BlockCount;     // XMA blocks in file (and entries in its seek table)
+      writePut h $ putWord16le $ (fromIntegral c + 1) `quot` 2 -- NumStreams;     // Number of audio streams (1 or 2 channels each)
+      writePut h $ putWord32le 0                               -- ChannelMask;    // Spatial positions of the channels in this file
+      writePut h $ putWord32le $ fromIntegral len              -- SamplesEncoded; // Total number of PCM samples the file decodes to
+      writePut h $ putWord32le blockSize                       -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
+      writePut h $ putWord32le 0                               -- PlayBegin;      // First valid sample in the decoded audio
+      writePut h $ putWord32le $ fromIntegral len              -- PlayLength;     // Length of the valid part of the decoded audio
+      writePut h $ putWord32le 0                               -- LoopBegin;      // Beginning of the loop region in decoded sample terms
+      writePut h $ putWord32le 0                               -- LoopLength;     // Length of the loop region in decoded sample terms
+      writePut h $ putWord8 0                                  -- LoopCount;      // Number of loop repetitions; 255 = infinite
+      writePut h $ putWord8 4                                  -- EncoderVersion; // Version of XMA encoder that generated the file
+      writePut h $ putWord16le $ fromIntegral $ length xmaSeek -- BlockCount;     // XMA blocks in file (and entries in its seek table)
       -- TODO should that be "length xmaSeek - 1"? We might be missing a final entry in our table
 
-    chunk "seek" $ do
+    riffChunk h "seek" $ do
       -- FSB's version of the seek table starts from block 0, and is little-endian.
       -- But here it starts from block 1, and is big-endian
-      forM_ (drop 1 xmaSeek) $ write . putWord32be
-    chunk "data" $ do
+      forM_ (drop 1 xmaSeek) $ writePut h . putWord32be
+    riffChunk h "data" $ do
       BL.hPut h $ xma2Data xma
 
 makeXMA2s :: (Traversable f) => f XMA2Contents -> IO (f BL.ByteString)
@@ -773,6 +901,12 @@ makeXMA2s xmas = withSystemTempDirectory "onyx-xma" $ \tmp -> do
 
 makeXMA2 :: XMA2Contents -> IO BL.ByteString
 makeXMA2 = fmap runIdentity . makeXMA2s . Identity
+
+makeXMA1 :: XMA1Contents -> IO BL.ByteString
+makeXMA1 xma = withSystemTempDirectory "onyx-xma" $ \tmp -> do
+  let tmpFile = tmp </> "out.xma"
+  writeXMA1 tmpFile xma
+  BL.fromStrict <$> B.readFile tmpFile
 
 xmasToFSB4 :: (MonadFail m) => [(B.ByteString, XMA2Contents)] -> m FSB
 xmasToFSB4 xmas = do
@@ -1060,6 +1194,20 @@ buildXMA2Stream packetsPerBlock topFrames = runST (newBlock topFrames) where
     bs `seq` return packet
       { xma2PacketData = bs
       }
+
+xma1To2 :: (MonadFail m) => XMA1Contents -> m XMA2Contents
+xma1To2 xma1 = do
+  packets <- splitXMA1Packets $ xma1Data xma1
+  let frames = splitXMAFrames $ map Left packets
+      newPackets = buildXMA2Stream 16 frames
+  return XMA2Contents
+    { xma2Channels = xma1Channels xma1
+    , xma2Rate     = xma1Rate xma1
+    , xma2Samples  = length frames * 512
+    , xma2PacketsPerBlock = 16
+    , xma2SeekTable = Nothing
+    , xma2Data     = writeXMA2Packets newPackets
+    }
 
 {-
 
