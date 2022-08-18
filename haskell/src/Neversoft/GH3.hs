@@ -24,7 +24,6 @@ import qualified RockBand.Codec.Five              as F
 import           RockBand.Common                  (Difficulty (..))
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package                     (runGetM)
-import           System.FilePath                  ((<.>))
 
 data GH3Track = GH3Track
   { gh3Notes       :: [(Word32, Word32, Word32)]
@@ -212,14 +211,8 @@ testParse k f = (either (fail . show) return =<<) $ logStdout $ do
   qb <- runGetM parseQB bs
   parseMidQB k qb
 
-testConvert :: B.ByteString -> FilePath -> IO ()
-testConvert k fin = do
-  midqb <- testParse k fin
-  writeFile (fin <.> "txt") $ show midqb
-  RBFile.saveMIDI (fin <.> "mid") $ gh3ToMidi mempty midqb
-
-gh3ToMidi :: HM.HashMap Word32 T.Text -> GH3MidQB -> RBFile.Song (RBFile.FixedFile U.Beats)
-gh3ToMidi bank gh3 = let
+gh3ToMidi :: Bool -> Bool -> HM.HashMap Word32 T.Text -> GH3MidQB -> RBFile.Song (RBFile.FixedFile U.Beats)
+gh3ToMidi coopTracks coopRhythm bank gh3 = let
   toSeconds :: Word32 -> U.Seconds
   toSeconds = (/ 1000) . fromIntegral
   sigMap = Map.fromList [ (time, (num, den)) | (time, num, den) <- gh3TimeSignatures gh3 ]
@@ -234,7 +227,8 @@ gh3ToMidi bank gh3 = let
   toBeats :: Word32 -> U.Beats
   toBeats = U.unapplyTempoMap tempos . toSeconds
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
-  hopoThreshold = 65/192 :: U.Beats -- TODO this is from .chart, is gh3 the same?
+  -- TODO figure out real hopo algo and how to apply gh3HammerOnMeasureScale correctly
+  hopoThreshold = 65/192 :: U.Beats -- from .chart, gh3 probably not the same
   getTrack trk = emit5' $ emitTrack hopoThreshold $ fromPairs $ do
     (time, len, bits) <- gh3Notes trk
     let pos = toBeats time
@@ -258,15 +252,21 @@ gh3ToMidi bank gh3 = let
       (time, len, _noteCount) <- gh3StarPower $ gh3Expert part
       [(toBeats time, True), (toBeats $ time + len, False)]
     }
-  fixed = mempty
-    { RBFile.fixedPartGuitar = getPart $ gh3Guitar gh3
-    , RBFile.fixedPartRhythm = getPart $ gh3Rhythm gh3 -- TODO find when to put it on bass, also gh3Rhythm vs gh3CoopRhythm?
-    , RBFile.fixedPartGuitarCoop = getPart $ gh3CoopGuitar gh3
+  trackLead = getPart $ if coopTracks then gh3CoopGuitar gh3 else gh3Guitar gh3
+  trackCoop = getPart $ if coopTracks then gh3CoopRhythm gh3 else gh3Rhythm gh3
+  fixed = if coopRhythm
+    then mempty
+      { RBFile.fixedPartGuitar = trackLead
+      , RBFile.fixedPartRhythm = trackCoop
+      }
+    else mempty
+      { RBFile.fixedPartGuitar = trackLead
+      , RBFile.fixedPartBass   = trackCoop
+      }
     -- , RBFile.fixedEvents = mempty
     --   { eventsSections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers
     --   , eventsEnd      = RTB.mapMaybe (\case Left  ()   -> Just ()  ; _ -> Nothing) markers
     --   }
-    }
   in RBFile.Song
     { RBFile.s_tempos = tempos
     , RBFile.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do

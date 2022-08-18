@@ -6,6 +6,8 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Sound.FSB where
 
+import           Control.Concurrent.Async       (forConcurrently)
+import           Control.Exception              (evaluate)
 import           Control.Monad
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.ST
@@ -34,7 +36,7 @@ import           GHC.Generics                   (Generic)
 import           GHC.IO.Handle                  (HandlePosn (..))
 import           Numeric                        (showHex)
 import           STFS.Package                   (runGetM)
-import           System.FilePath                (dropExtension, (-<.>), (</>))
+import           System.FilePath                (dropExtension, (<.>), (</>))
 import qualified System.IO                      as IO
 import           System.IO.Temp                 (withSystemTempDirectory)
 
@@ -407,37 +409,22 @@ fsb4sToGH3FSB3 inputs = do
       }
     mapM_ putLazyByteString $ map snd parsed
 
-fsbToXMAs :: FilePath -> FilePath -> IO ()
-fsbToXMAs f dir = do
+splitFSBStreamsToDir :: FilePath -> FilePath -> IO ()
+splitFSBStreamsToDir f dir = do
   fsb <- BL.readFile f >>= parseFSB
-  forM_ (zip (either fsb3Songs fsb4Songs $ fsbHeader fsb) (fsbSongData fsb)) $ \(song, sdata) -> do
-    let (stereoCount, monoCount) = quotRem (fromIntegral $ fsbSongChannels song) 2
-    case fsbExtra song of
-      Left xma -> do
-        -- TODO this does not handle XMA1 inside FSB3 correctly
-        writeXMA2 (dir </> B8.unpack (fsbSongName song) -<.> "xma") XMA2Contents
-          { xma2Channels = fromIntegral $ fsbSongChannels song
-          , xma2Rate     = fromIntegral $ fsbSongSampleRate song
-          , xma2Samples  = fromIntegral $ fsbSongSamples song
-          , xma2PacketsPerBlock = 16
-          , xma2SeekTable = Just $ drop 1 $ fsbXMASeek xma
-          , xma2Data     = sdata
-          }
-        marked <- markXMA2PacketStreams <$> splitXMA2Packets sdata
-        forM_ [0 .. stereoCount + monoCount - 1] $ \i -> do
-          writeXMA2 (dir </> dropExtension (B8.unpack $ fsbSongName song) <> "_" <> show i <> ".xma") XMA2Contents
-            { xma2Channels = if i == stereoCount then 1 else 2
-            , xma2Rate     = fromIntegral $ fsbSongSampleRate song
-            , xma2Samples  = fromIntegral $ fsbSongSamples song
-            , xma2PacketsPerBlock = 16
-            , xma2SeekTable = Nothing
-            , xma2Data     = writeXMA2Packets $ extractXMAStream 16 i marked
-            }
-      Right _mp3 -> do
-        BL.writeFile (dir </> B8.unpack (fsbSongName song) -<.> "mp3") sdata
-        mp3s <- splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
-        forM_ (zip [0..] mp3s) $ \(i, mp3) -> do
-          BL.writeFile (dir </> dropExtension (B8.unpack $ fsbSongName song) <> "_" <> show (i :: Int) <> ".mp3") mp3
+  streams <- splitFSBStreams fsb
+  streamNames <- case fsbHeader fsb of
+    Left  fsb3 -> return $ do
+      (i, name) <- zip [0..] $ map fsbSongName $ fsb3Songs fsb3
+      return $ show (i :: Int) <> "_" <> dropExtension (B8.unpack name)
+    Right fsb4 -> case fsb4Songs fsb4 of
+      [song] -> return [ dropExtension (B8.unpack $ fsbSongName song) <> "_" <> show (i :: Int) | i <- [0..] ]
+      _      -> fail "Not exactly 1 stream in FSB4" -- shouldn't happen, caught by splitFSBStreams
+  forM_ (zip streams streamNames) $ \(stream, streamName) -> do
+    case stream of
+      FSB_MP3  bs   -> BL.writeFile (dir </> streamName <.> "mp3") bs
+      FSB_XMA1 xma1 -> writeXMA1    (dir </> streamName <.> "xma") xma1
+      FSB_XMA2 xma2 -> writeXMA2    (dir </> streamName <.> "xma") xma2
 
 data FSBStream
   = FSB_MP3  BL.ByteString
@@ -455,9 +442,8 @@ getFSBStreamBytes = \case
     return (bs, "xma")
 
 -- Splits an FSB3 or FSB4 file into streams, each of which is mono or stereo.
-splitFSBStreams :: BL.ByteString -> IO [FSBStream]
-splitFSBStreams bs = do
-  fsb <- parseFSB bs
+splitFSBStreams :: FSB -> IO [FSBStream]
+splitFSBStreams fsb = do
   case fsbHeader fsb of
     Left fsb3 -> forM (zip (fsb3Songs fsb3) (fsbSongData fsb)) $ \(song, sdata) -> do
       unless (fsbSongChannels song == 2) $ fail $
@@ -488,6 +474,18 @@ splitFSBStreams bs = do
             , xma2Data            = writeXMA2Packets $ extractXMAStream 16 i marked
             }
         Right _mp3 -> map FSB_MP3 <$> splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
+
+-- Currently FFMPEG does not read XMA1 correctly.
+-- So for project import purposes, convert input XMA1 to XMA2.
+splitFSBStreams' :: FSB -> IO [FSBStream]
+splitFSBStreams' fsb = do
+  streams <- splitFSBStreams fsb
+  forConcurrently streams $ \case
+    FSB_XMA1 xma1 -> do
+      xma2 <- xma1To2 xma1
+      _ <- evaluate $ BL.length $ xma2Data xma2
+      return $ FSB_XMA2 xma2
+    stream        -> return stream
 
 -- Only works on a CBR MP3 with no ID3 tags
 mp3CBRFrameSize :: BL.ByteString -> Maybe Int64
@@ -1010,6 +1008,7 @@ ghBandMP3sToFSB4 mp3s = do
     , fsbSongData = [interleaved]
     }
 
+-- TODO this is wrong, need to make XMA1
 toGH3FSB :: FSB -> FSB
 toGH3FSB fsb = case fsbHeader fsb of
   Left _ -> fsb

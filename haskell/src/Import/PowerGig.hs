@@ -53,7 +53,8 @@ import           Sound.FSB                        (XMA2Contents (..),
                                                    extractXMAStream,
                                                    getFSBStreamBytes, makeXMA2s,
                                                    markXMA2PacketStreams,
-                                                   parseXMA2, splitFSBStreams,
+                                                   parseFSB, parseXMA2,
+                                                   splitFSBStreams,
                                                    splitXMA2Packets,
                                                    writeXMA2Packets)
 import qualified Sound.MIDI.Util                  as U
@@ -328,7 +329,7 @@ importPowerGigSong key song folder level = do
       Nothing -> case ps3Audio >>= \x -> findFileCI ("Audio" :| ["songs", key, x]) folder of
         Just r -> do
           -- These should always be MP3 inside, but we'll just use the generic split function
-          streams <- stackIO $ useHandle r handleToByteString >>= splitFSBStreams
+          streams <- stackIO $ useHandle r handleToByteString >>= parseFSB >>= splitFSBStreams
           forM (zip [0..] streams) $ \(i, stream) -> do
             (streamData, ext) <- stackIO $ getFSBStreamBytes stream
             let name = "stream-" <> show (i :: Int)

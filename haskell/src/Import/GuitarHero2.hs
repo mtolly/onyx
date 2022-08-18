@@ -74,6 +74,7 @@ getImports = concatMap $ \(t, pkg) -> case songCoop pkg of
   Just _  -> [(t, (ImportSolo, pkg)), (t, (ImportCoop, pkg))]
 
 data ImportMode = ImportSolo | ImportCoop
+  deriving (Eq)
 
 importGH2 :: (SendMessage m, MonadResource m) => FilePath -> StackTraceT m [Import m]
 importGH2 gen = map (\(_, (mode, pkg)) -> importGH2Song mode pkg gen) . getImports <$> getSongList gen

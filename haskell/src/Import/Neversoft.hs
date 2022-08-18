@@ -19,6 +19,7 @@ import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import           Genre                          (displayWoRGenre)
 import           Import.Base
+import           Import.GuitarHero2             (ImportMode (..))
 import           Neversoft.Audio                (decryptFSB', gh3Decrypt)
 import           Neversoft.Checksum             (qbKeyCRC)
 import           Neversoft.GH3                  (gh3ToMidi, parseMidQB)
@@ -27,9 +28,9 @@ import           Neversoft.Note
 import           Neversoft.Pak
 import           Neversoft.QB                   (parseQB)
 import qualified RockBand.Codec.File            as RBFile
-import           Sound.FSB                      (FSBStream (..),
-                                                 getFSBStreamBytes,
-                                                 splitFSBStreams, xma1To2)
+import           Sound.FSB                      (getFSBStreamBytes, parseFSB,
+                                                 splitFSBStreams,
+                                                 splitFSBStreams')
 import           STFS.Package                   (runGetM)
 import           Text.Read                      (readMaybe)
 
@@ -97,7 +98,7 @@ importGH5WoR src folder = do
                   dec <- case decryptFSB' (T.unpack name) $ BL.toStrict bs of
                     Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show name
                     Just dec -> return dec
-                  streams <- stackIO $ splitFSBStreams dec
+                  streams <- stackIO $ parseFSB dec >>= splitFSBStreams
                   forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
                     (streamData, ext) <- stackIO $ getFSBStreamBytes stream
                     return (name <> "." <> T.pack (show i) <> "." <> ext, streamData)
@@ -210,14 +211,22 @@ importGH3 src folder = do
     case parseSongInfoGH3 items of
       Left  err  -> warn err >> return []
       Right info -> return [info]
-  fmap catMaybes $ forM songInfo $ \info -> do
+  fmap concat $ forM songInfo $ \info -> do
     let songPakName platform = TE.decodeUtf8 (gh3Name info) <> "_song.pak." <> platform
     case findFolded (songPakName "xen") <|> findFolded (songPakName "ps3") of
-      Nothing      -> return Nothing -- song which is listed in the database, but not actually in this package
-      Just pakFile -> do
-        return $ Just $ \level -> do
+      Nothing      -> return [] -- song which is listed in the database, but not actually in this package
+      Just pakFile -> let
+        importModes = if gh3UseCoopNotetracks info
+          then [ImportSolo, ImportCoop]
+          else [ImportSolo]
+        in return $ flip map importModes $ \mode level -> do
           when (level == ImportFull) $ do
             lg $ "Importing GH song " <> show (gh3Name info) <> " from: " <> src
+          -- Dragonforce DLC has rhythm tracks in coop, but hidden bass tracks in non-coop. (use coop notetracks = true)
+          -- The Pretender has rhythm track copied to non-coop rhythm track, and non-coop rhythm audio is silent. (should ignore)
+          -- We Three Kings is only DLC with rhythm coop but use coop notetracks = false.
+          let thisCoopRhythm = gh3CoopRhythm info && (mode == ImportCoop || not (gh3UseCoopNotetracks info))
+              coopPart       = if thisCoopRhythm then RBFile.FlexExtra "rhythm" else RBFile.FlexBass
           midiFixed <- case level of
             ImportFull -> do
               nodes <- fmap splitPakNodes $ stackIO $ useHandle pakFile handleToByteString
@@ -226,7 +235,11 @@ importGH3 src folder = do
                 [] -> fatal "Couldn't find chart .qb file"
                 (_, bs) : _ -> do
                   midQB <- runGetM parseQB bs >>= parseMidQB (gh3Name info)
-                  return $ gh3ToMidi mempty midQB
+                  return $ gh3ToMidi
+                    (mode == ImportCoop && gh3UseCoopNotetracks info)
+                    thisCoopRhythm
+                    mempty
+                    midQB
             ImportQuick -> return emptyChart
           let midiOnyx = midiFixed
                 { RBFile.s_tracks = RBFile.fixedToOnyx $ RBFile.s_tracks midiFixed
@@ -249,16 +262,19 @@ importGH3 src folder = do
               dec <- case gh3Decrypt bs of
                 Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show name
                 Just dec -> return dec
-              streams <- stackIO $ splitFSBStreams dec
+              streams <- stackIO $ parseFSB dec >>= splitFSBStreams'
               forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
-                (streamData, ext) <- case stream of
-                  -- direct xma1 import not working yet, keep xma2 hack for now
-                  FSB_XMA1 xma1 -> xma1To2 xma1 >>= stackIO . getFSBStreamBytes . FSB_XMA2
-                  _ -> stackIO $ getFSBStreamBytes stream
+                (streamData, ext) <- stackIO $ getFSBStreamBytes stream
                 return (name <> "." <> T.pack (show i) <> "." <> ext, streamData)
+          -- Not sure these are dB but it would make sense.
+          -- Also does guitar volume also apply to bass/rhythm?
+          let guitarVol = replicate 2 $ realToFrac $ gh3GuitarPlaybackVolume info
+              bandVol   = replicate 2 $ realToFrac $ gh3BandPlaybackVolume   info
           return SongYaml
             { _metadata = def'
-              { _title = Just $ gh3Title info
+              { _title = Just $ case mode of
+                ImportSolo -> gh3Title info
+                ImportCoop -> gh3Title info <> " (Co-op)"
               , _artist = Just $ gh3Artist info
               , _year = readMaybe $ T.unpack $ T.takeWhileEnd isDigit $ gh3Year info
               , _fileAlbumArt = Nothing
@@ -283,50 +299,53 @@ importGH3 src folder = do
                 })
             , _jammit = HM.empty
             , _plans = case audio of
-              -- even paint it black has a rhythm track
+              -- note, even paint it black has a rhythm track.
+              -- this should apply to all songs where gh3UseCoopNotetracks is false
               [guitar, _preview, rhythm, song] -> HM.singleton "gh" Plan
-                { _song = Just $ PlanAudio (Input $ Named $ fst song) [] []
+                { _song = Just $ PlanAudio (Input $ Named $ fst song) [] bandVol
                 , _countin = Countin []
                 , _planParts = Parts $ HM.fromList
-                  [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named $ fst guitar) [] [])
-                  -- TODO put on bass once we do that in mid qb convert as well
-                  , (RBFile.FlexExtra "rhythm", PartSingle $ PlanAudio (Input $ Named $ fst rhythm) [] [])
+                  [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named $ fst guitar) [] guitarVol)
+                  , (coopPart         , PartSingle $ PlanAudio (Input $ Named $ fst rhythm) [] guitarVol)
                   ]
                 , _crowd = Nothing
                 , _planComments = []
                 , _tuningCents = 0
                 , _fileTempo = Nothing
                 }
-              -- ...but this is seen in a SanicStudios custom?
+              -- this is seen in SanicStudios customs? how does this work
               [song, guitar, _preview] -> HM.singleton "gh" Plan
-                { _song = Just $ PlanAudio (Input $ Named $ fst song) [] []
+                { _song = Just $ PlanAudio (Input $ Named $ fst song) [] bandVol
                 , _countin = Countin []
                 , _planParts = Parts $ HM.fromList
-                  [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named $ fst guitar) [] [])
+                  [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named $ fst guitar) [] guitarVol)
                   ]
                 , _crowd = Nothing
                 , _planComments = []
                 , _tuningCents = 0
                 , _fileTempo = Nothing
                 }
-              -- TODO handle separate coop audio
-              [coopGuitar, coopRhythm, coopSong, guitar, _preview, rhythm, song] -> HM.singleton "gh" Plan
-                { _song = Just $ PlanAudio (Input $ Named $ fst song) [] []
-                , _countin = Countin []
-                , _planParts = Parts $ HM.fromList
-                  [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named $ fst guitar) [] [])
-                  -- TODO put on bass once we do that in mid qb convert as well
-                  , (RBFile.FlexExtra "rhythm", PartSingle $ PlanAudio (Input $ Named $ fst rhythm) [] [])
-                  ]
-                , _crowd = Nothing
-                , _planComments = []
-                , _tuningCents = 0
-                , _fileTempo = Nothing
-                }
+              -- this should apply to all songs where gh3UseCoopNotetracks is true
+              [coopGuitar, coopRhythm, coopSong, guitar, _preview, rhythm, song] -> let
+                (thisGuitar, thisCoop, thisSong) = if mode == ImportCoop && gh3UseCoopNotetracks info
+                  then (coopGuitar, coopRhythm, coopSong)
+                  else (guitar    , rhythm    , song    )
+                in HM.singleton "gh" Plan
+                  { _song = Just $ PlanAudio (Input $ Named $ fst thisSong) [] bandVol
+                  , _countin = Countin []
+                  , _planParts = Parts $ HM.fromList
+                    [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named $ fst thisGuitar) [] guitarVol)
+                    , (coopPart         , PartSingle $ PlanAudio (Input $ Named $ fst thisCoop  ) [] guitarVol)
+                    ]
+                  , _crowd = Nothing
+                  , _planComments = []
+                  , _tuningCents = 0
+                  , _fileTempo = Nothing
+                  }
               _ -> HM.empty -- TODO warn or something (if ImportFull)
             , _targets = HM.empty
             , _parts = Parts $ HM.fromList
               [ (RBFile.FlexGuitar, def { partGRYBO = Just def })
-              , (RBFile.FlexExtra "rhythm", def { partGRYBO = Just def })
+              , (coopPart         , def { partGRYBO = Just def })
               ]
             }

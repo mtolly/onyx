@@ -8,8 +8,8 @@ case $(uname) in
     if which pacman > /dev/null; then
       echo "arch detected"
       pacman -Sy rubberband mpg123 openal \
-        cmake autogen autoconf libtool pkg-config nasm unzip
-      # TODO finish
+        cmake autogen autoconf libtool pkg-config nasm unzip make automake
+      # this is good for manjaro but should check normal arch
     elif which apt-get > /dev/null; then
       echo "debian/ubuntu detected"
       apt-get -y update

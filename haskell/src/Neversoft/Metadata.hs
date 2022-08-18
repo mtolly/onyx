@@ -4,14 +4,15 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Neversoft.Metadata where
 
-import           Control.Monad        (forM, guard)
+import           Control.Monad            (forM, guard)
 import           Data.Binary.Get
-import qualified Data.ByteString      as B
-import qualified Data.ByteString.Lazy as BL
-import           Data.List.Extra      (nubOrdOn)
-import qualified Data.List.NonEmpty   as NE
-import           Data.Maybe           (fromMaybe, listToMaybe)
-import qualified Data.Text            as T
+import qualified Data.ByteString          as B
+import qualified Data.ByteString.Lazy     as BL
+import           Data.DTA.Serialize.Magma (Gender (..))
+import           Data.List.Extra          (nubOrdOn)
+import qualified Data.List.NonEmpty       as NE
+import           Data.Maybe               (fromMaybe, listToMaybe, mapMaybe)
+import qualified Data.Text                as T
 import           Data.Word
 import           Genre
 import           Neversoft.Checksum
@@ -172,10 +173,17 @@ readGH3TextPakQB bs = do
       return $ TextPakQB fileID structs'
 
 data SongInfoGH3 = SongInfoGH3
-  { gh3Name   :: B.ByteString -- this is an id like "dlc3"
-  , gh3Title  :: T.Text
-  , gh3Artist :: T.Text
-  , gh3Year   :: T.Text
+  { gh3Name                 :: B.ByteString -- this is an id like "dlc3"
+  , gh3Title                :: T.Text
+  , gh3Artist               :: T.Text
+  , gh3Year                 :: T.Text
+  , gh3Singer               :: Maybe Gender
+  , gh3Keyboard             :: Bool
+  , gh3BandPlaybackVolume   :: Float
+  , gh3GuitarPlaybackVolume :: Float
+  , gh3CoopRhythm           :: Bool
+  , gh3UseCoopNotetracks    :: Bool
+  , gh3HammerOnMeasureScale :: Maybe Float
   -- lots of other fields ignored
   } deriving (Show)
 
@@ -193,4 +201,34 @@ parseSongInfoGH3 songEntries = do
   gh3Year <- case [ s | QBStructItemStringW k s <- songEntries, k == qbKeyCRC "year" ] of
     s : _ -> Right s
     []    -> Left "parseSongInfoGH3: couldn't get song year"
+  gh3Singer <- case [ s | QBStructItemQbKey8D0000 k s <- songEntries, k == qbKeyCRC "singer" ] of
+    s : _
+      | s == qbKeyCRC "female" -> Right $ Just Female
+      | s == qbKeyCRC "male"   -> Right $ Just Male
+      | s == qbKeyCRC "none"   -> Right Nothing
+      | otherwise              -> Left "parseSongInfoGH3: unrecognized key for singer" -- should probably just be warning
+    []    -> Right Nothing
+  gh3Keyboard <- case [ s | QBStructItemQbKey8D0000 k s <- songEntries, k == qbKeyCRC "keyboard" ] of
+    s : _
+      | s == qbKeyCRC "true"  -> Right True
+      | s == qbKeyCRC "false" -> Right False
+      | otherwise             -> Left "parseSongInfoGH3: unrecognized key for keyboard" -- should probably just be warning
+    []    -> Right False
+  let findFloat key = let
+        crc = qbKeyCRC key
+        in listToMaybe $ flip mapMaybe songEntries $ \case
+          QBStructItemInteger810000 k x | k == crc -> Just $ fromIntegral x
+          QBStructItemFloat820000   k x | k == crc -> Just x
+          _                                        -> Nothing
+      gh3BandPlaybackVolume   = fromMaybe 0 $ findFloat "band_playback_volume"
+      gh3GuitarPlaybackVolume = fromMaybe 0 $ findFloat "guitar_playback_volume"
+      gh3UseCoopNotetracks    = not $ null
+        [ () | QBStructItemQbKey8D0000 0 k <- songEntries, k == qbKeyCRC "use_coop_notetracks" ]
+      gh3HammerOnMeasureScale = listToMaybe
+        [ n | QBStructItemFloat820000 k n <- songEntries, k == qbKeyCRC "hammer_on_measure_scale" ]
+  gh3CoopRhythm <- case [ n | QBStructItemInteger810000 86593215 n <- songEntries ] of
+    0 : _ -> Right False
+    1 : _ -> Right True
+    _ : _ -> Left "parseSongInfoGH3: unrecognized value for coop-is-rhythm key"
+    []    -> Right False
   Right SongInfoGH3{..}

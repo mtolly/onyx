@@ -107,7 +107,9 @@ import           RockBand.Milo                    (SongPref, autoLipsync,
                                                    testConvertVenue, unpackMilo)
 import           RockBand.Score
 import           Rocksmith.PSARC                  (extractPSARC)
-import           Sound.FSB                        (fsbToXMAs)
+import           Sound.FSB                        (parseXMA,
+                                                   splitFSBStreamsToDir,
+                                                   writeXMA2, xma1To2)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Script.Base           as MS
 import qualified Sound.MIDI.Script.Parse          as MS
@@ -1221,7 +1223,7 @@ commands =
       stackIO $ BL.writeFile out dec
       let contentsDir = out <> "_contents"
       stackIO $ Dir.createDirectoryIfMissing False contentsDir
-      stackIO $ fsbToXMAs out contentsDir
+      stackIO $ splitFSBStreamsToDir out contentsDir
       return [out, contentsDir]
     }
 
@@ -1267,7 +1269,7 @@ commands =
         makeFSB4 fin fout
         let xmaDir = fout <> "_xma"
         stackIO $ Dir.createDirectoryIfMissing False xmaDir
-        stackIO $ fsbToXMAs fout xmaDir
+        stackIO $ splitFSBStreamsToDir fout xmaDir
         return [fout, xmaDir]
       ["xdk", fin] -> do
         fout <- outputFile opts $ return $ fin <.> "fsb"
@@ -1469,6 +1471,26 @@ commands =
         bs <- stackIO $ B.readFile fin
         txtBin <- runGetM getTxtBin $ BL.fromStrict bs
         stackIO $ TIO.writeFile fout $ showDTA $ fmap TE.decodeLatin1 $ txtBinToDTA txtBin
+        return [fout]
+      _ -> fatal "Expected 1 argument"
+    }
+
+  , Command
+    { commandWord = "to-xma2"
+    , commandDesc = "Converts a (single-stream) XMA1 file to XMA2."
+    , commandUsage = T.unlines
+      [ "onyx to-xma2 in.xma [--to out.xma]"
+      ]
+    , commandRun = \args opts -> case args of
+      [fin] -> do
+        fout <- outputFile opts $ return $ fin -<.> "xma2.xma"
+        xma <- stackIO (B.readFile fin) >>= parseXMA . BL.fromStrict
+        xma2 <- case xma of
+          Left  xma1 -> xma1To2 xma1
+          Right xma2 -> do
+            lg "File is already XMA2."
+            return xma2
+        stackIO $ writeXMA2 fout xma2
         return [fout]
       _ -> fatal "Expected 1 argument"
     }
