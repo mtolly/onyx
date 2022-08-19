@@ -48,7 +48,7 @@ import qualified Import.GuitarHero1             as GH1
 import qualified Import.GuitarHero2             as GH2
 import           Import.GuitarPro               (importGPIF)
 import           Import.Magma                   (importMagma)
-import           Import.Neversoft               (importGH5WoR,
+import           Import.Neversoft               (importGH3Disc, importGH5WoR,
                                                  importNeversoftGH)
 import           Import.PowerGig                (importPowerGig)
 import           Import.RockBand                (importRB4, importRBA,
@@ -214,6 +214,14 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         let base = T.takeWhile (/= '.') $ T.pack $ takeFileName loc
         imps <- importPowerGig dir base
         foundImports "Power Gig (Xbox 360)" loc imps
+      found360Game xex = do
+        let loc = takeDirectory xex
+        dir <- stackIO $ crawlFolder loc
+        if any (\(name, _) -> T.toUpper name == "DATA") $ folderSubfolders dir
+          then do
+            imps <- importGH3Disc loc dir
+            foundImports "Guitar Hero III (360)" loc imps
+          else return ([], [])
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         let single = null $ drop 1 imports
@@ -277,6 +285,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           "song.ini" -> foundFoF fp
           "set.def" -> foundDTXSet fp
           "main.hdr" -> foundGH fp
+          "default.xex" -> found360Game fp
           _ -> do
             magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 4
             case magic of

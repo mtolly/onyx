@@ -1290,7 +1290,15 @@ commands =
       [pak] -> inside ("extracting pak " <> pak) $ do
         dout <- outputFile opts $ return $ pak <> "_extract"
         stackIO $ Dir.createDirectoryIfMissing False dout
-        nodes <- stackIO $ splitPakNodes <$> BL.readFile pak
+        -- TODO support extensions other than .xen for finding .pab file
+        pabData <- case T.stripSuffix ".pak.xen" $ T.pack pak of
+          Nothing -> return Nothing
+          Just stripped -> let
+            pab = T.unpack $ stripped <> ".pab.xen"
+            in stackIO (Dir.doesFileExist pab) >>= \case
+              False -> return Nothing
+              True  -> Just <$> stackIO (BL.readFile pab)
+        nodes <- stackIO (BL.readFile pak) >>= (`splitPakNodes` pabData)
         stackIO $ writeFile (dout </> "pak-contents.txt") $ unlines $ map (show . fst) nodes
         let knownExts =
               [ ".cam", ".clt", ".col", ".dbg", ".empty", ".fam", ".fnc", ".fnt", ".fnv"

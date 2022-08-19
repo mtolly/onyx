@@ -3,20 +3,23 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Neversoft.Pak where
 
-import qualified Codec.Compression.Zlib.Raw as Raw
-import           Control.Monad              (forM, guard, replicateM)
+import qualified Codec.Compression.Zlib.Internal as Z
+import           Control.Monad                   (forM, guard, replicateM)
+import           Control.Monad.ST.Lazy           (runST)
 import           Data.Binary.Get
 import           Data.Binary.Put
-import qualified Data.ByteString.Lazy       as BL
-import           Data.Char                  (isAscii, isSpace)
-import qualified Data.HashMap.Strict        as HM
-import           Data.List                  (sortOn)
-import           Data.Maybe                 (fromMaybe, listToMaybe)
-import qualified Data.Text                  as T
-import qualified Data.Text.Encoding         as TE
+import qualified Data.ByteString                 as B
+import qualified Data.ByteString.Lazy            as BL
+import           Data.Char                       (isAscii, isSpace)
+import qualified Data.HashMap.Strict             as HM
+import           Data.List                       (sortOn)
+import           Data.Maybe                      (fromMaybe, listToMaybe)
+import qualified Data.Text                       as T
+import qualified Data.Text.Encoding              as TE
 import           Data.Word
-import           Neversoft.Checksum         (qbKeyCRC)
-import           Numeric                    (readHex, showHex)
+import           Neversoft.Checksum              (qbKeyCRC)
+import           Numeric                         (readHex, showHex)
+import           STFS.Package                    (runGetM)
 
 data Node = Node
   { nodeFileType       :: Word32
@@ -29,46 +32,71 @@ data Node = Node
   , nodeFlags          :: Word32
   } deriving (Show, Read)
 
--- Credit to unpak.pl by Tarragon Allen (tma)
-decompressPak :: BL.ByteString -> BL.ByteString
-decompressPak bs = let
+-- Credit to unpak.pl by Tarragon Allen (tma).
+-- Used in GHWT and onward
+decompressPakGH4 :: (MonadFail m) => BL.ByteString -> m BL.ByteString
+decompressPakGH4 bs = let
   -- conveniently, start and next are relative to this CHNK, not the whole file
   [magic, start, len, next, _flags, _size] = runGet (replicateM 6 getWord32be) bs
   in if magic /= 0x43484e4b -- CHNK
-    then BL.empty
-    else let
-      buf = BL.take (fromIntegral len) $ BL.drop (fromIntegral start) bs
-      in Raw.decompress buf <> case next of
-        0xffffffff -> BL.empty
-        _          -> decompressPak $ BL.drop (fromIntegral next) bs
+    then return BL.empty
+    else do
+      let buf = BL.take (fromIntegral len) $ BL.drop (fromIntegral start) bs
+      dec <- tryDecompress Z.rawFormat False buf
+      case next of
+        0xffffffff -> return dec
+        _          -> (dec <>) <$> decompressPakGH4 (BL.drop (fromIntegral next) bs)
 
--- TODO handle runGet failure
-splitPakNodes :: BL.ByteString -> [(Node, BL.ByteString)]
-splitPakNodes bs = let
-  bs' = if BL.take 4 bs == "CHNK"
-    then decompressPak bs
-    else bs
-  end = qbKeyCRC "last"
-  end2 = qbKeyCRC ".last"
-  getNodes = do
-    posn <- fromIntegral <$> bytesRead
-    nodeFileType       <- getWord32be
-    nodeOffset         <- (+ posn) <$> getWord32be
-    nodeSize           <- getWord32be
-    nodeFilenamePakKey <- getWord32be
-    nodeFilenameKey    <- getWord32be
-    nodeFilenameCRC    <- getWord32be
-    nodeUnknown        <- getWord32be
-    nodeFlags          <- getWord32be
-    (Node{..} :) <$> if elem nodeFileType [end, end2]
-      then return []
-      else getNodes
-  attachData node = let
-    goToData
-      = BL.take (fromIntegral $ nodeSize node)
-      . BL.drop (fromIntegral $ nodeOffset node)
-    in (node, goToData bs')
-  in map attachData $ runGet getNodes bs'
+decompressPakGH3 :: (MonadFail m) => BL.ByteString -> m BL.ByteString
+decompressPakGH3 bs = tryDecompress Z.zlibFormat True $ BL.pack [0x58, 0x85] <> bs
+
+-- decompresses stream, optionally ignores "input ended prematurely" error
+tryDecompress :: (MonadFail m) => Z.Format -> Bool -> BL.ByteString -> m BL.ByteString
+tryDecompress format ignoreTruncate bs = either fail return $ runST $ let
+  go input output = \case
+    Z.DecompressInputRequired f                               -> case input of
+      []     -> f B.empty >>= go [] output
+      x : xs -> f x       >>= go xs output
+    Z.DecompressOutputAvailable out getNext                   -> do
+      next <- getNext
+      go input (out : output) next
+    Z.DecompressStreamEnd _unread                             -> return $ Right $ BL.fromChunks $ reverse output
+    Z.DecompressStreamError Z.TruncatedInput | ignoreTruncate -> return $ Right $ BL.fromChunks $ reverse output
+    Z.DecompressStreamError err                               -> return $
+      Left $ "Decompression error: " <> show err
+  in go (BL.toChunks bs) [] $ Z.decompressST format Z.defaultDecompressParams
+
+decompressPak :: (MonadFail m) => BL.ByteString -> m BL.ByteString
+decompressPak bs = if BL.take 4 bs == "CHNK"
+  then decompressPakGH4 bs
+  else return $ fromMaybe bs $ decompressPakGH3 bs -- if gh3 decompression fails, assume it's uncompressed
+
+splitPakNodes :: (MonadFail m) => BL.ByteString -> Maybe BL.ByteString -> m [(Node, BL.ByteString)]
+splitPakNodes pak maybePab = do
+  pak'      <- decompressPak pak
+  maybePab' <- mapM decompressPak maybePab
+  let bs' = pak' <> fromMaybe BL.empty maybePab'
+      end = qbKeyCRC "last"
+      end2 = qbKeyCRC ".last"
+      getNodes = do
+        posn <- fromIntegral <$> bytesRead
+        nodeFileType       <- getWord32be
+        nodeOffset         <- (+ posn) <$> getWord32be
+        nodeSize           <- getWord32be
+        nodeFilenamePakKey <- getWord32be
+        nodeFilenameKey    <- getWord32be
+        nodeFilenameCRC    <- getWord32be
+        nodeUnknown        <- getWord32be
+        nodeFlags          <- getWord32be
+        (Node{..} :) <$> if elem nodeFileType [end, end2]
+          then return []
+          else getNodes
+      attachData node = let
+        goToData
+          = BL.take (fromIntegral $ nodeSize node)
+          . BL.drop (fromIntegral $ nodeOffset node)
+        in (node, goToData bs')
+  map attachData <$> runGetM getNodes bs'
 
 buildPak :: [(Node, BL.ByteString)] -> BL.ByteString
 buildPak nodes = let

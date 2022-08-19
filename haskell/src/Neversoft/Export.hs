@@ -8,7 +8,7 @@ import           Config
 import           Control.Monad                    (forM, forM_, guard)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
-                                                   stackIO, warn)
+                                                   errorToWarning, stackIO)
 import           Data.Bifunctor                   (first)
 import           Data.Bits
 import qualified Data.ByteString                  as B
@@ -517,9 +517,7 @@ getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs $ \input
       return [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` name ]
   fmap catMaybes $ forM texts $ \r -> do
     bs <- stackIO $ useHandle r handleToByteString
-    case readTextPakQB bs of
-      Left  err      -> warn err >> return Nothing
-      Right contents -> return $ Just contents
+    errorToWarning $ readTextPakQB bs
 
 updateMetadata :: [(Word32, [QBStructItem QSResult Word32])] -> [FilePath] -> IO ()
 updateMetadata library lives = forM_ lives $ \live -> do
@@ -529,7 +527,7 @@ updateMetadata library lives = forM_ lives $ \live -> do
     if "_text.pak.xen" `T.isSuffixOf` name
       then do
         bs <- useHandle r handleToByteString
-        let bs' = updateTextPakQB library bs
+        bs' <- updateTextPakQB library bs
         return (name, makeHandle ("New contents for " <> T.unpack name) $ byteStringSimpleHandle bs')
       else return pair
   let folder' = folder { folderFiles = files' }

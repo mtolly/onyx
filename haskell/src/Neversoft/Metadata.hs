@@ -4,20 +4,20 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Neversoft.Metadata where
 
-import           Control.Monad            (forM, guard)
+import           Control.Monad        (forM, guard)
 import           Data.Binary.Get
-import qualified Data.ByteString          as B
-import qualified Data.ByteString.Lazy     as BL
-import           Data.DTA.Serialize.Magma (Gender (..))
-import           Data.List.Extra          (nubOrdOn)
-import qualified Data.List.NonEmpty       as NE
-import           Data.Maybe               (fromMaybe, listToMaybe, mapMaybe)
-import qualified Data.Text                as T
+import qualified Data.ByteString      as B
+import qualified Data.ByteString.Lazy as BL
+import           Data.List.Extra      (nubOrdOn)
+import qualified Data.List.NonEmpty   as NE
+import           Data.Maybe           (fromMaybe, listToMaybe, mapMaybe)
+import qualified Data.Text            as T
 import           Data.Word
 import           Genre
 import           Neversoft.Checksum
 import           Neversoft.Pak
 import           Neversoft.QB
+import           STFS.Package         (runGetM)
 
 -- Metadata in _text.pak.qb for GH5 and WoR
 
@@ -26,15 +26,15 @@ data TextPakQB = TextPakQB
   , textPakSongStructs :: [(Word32, [QBStructItem QSResult Word32])]
   } deriving (Show)
 
-readTextPakQB :: BL.ByteString -> Either String TextPakQB
+readTextPakQB :: (MonadFail m) => BL.ByteString -> m TextPakQB
 readTextPakQB bs = do
-  let nodes = splitPakNodes bs
-      _qbFilenameCRC isWoR = if isWoR then 1379803300 else 3130519416 -- actually GH5 apparently has different ones per package
+  nodes <- splitPakNodes bs Nothing
+  let _qbFilenameCRC isWoR = if isWoR then 1379803300 else 3130519416 -- actually GH5 apparently has different ones per package
       qbFiles _isWoR = filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb") nodes
   (qbFile, _isWoR) <- case (qbFiles True, qbFiles False) of
     ([qb], _) -> return (snd qb, True)
     (_, [qb]) -> return (snd qb, False)
-    _         -> Left "Couldn't locate metadata .qb"
+    _         -> fail "Couldn't locate metadata .qb"
   let mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
       qb = map (lookupQS mappingQS) $ runGet parseQB qbFile
       arrayStructIDPairs =
@@ -57,11 +57,11 @@ readTextPakQB bs = do
         guard $ elem structID $ map snd arrayStructIDPairs
         return (fileID, songs)
   case structs of
-    [] -> Left "Couldn't find any song structs"
+    [] -> fail "Couldn't find any song structs"
     (fileID, _) : _ -> do
       structs' <- forM (concat $ map snd structs) $ \case
-        QBStructItemStruct k struct -> Right (k, struct)
-        item -> Left $ "Unexpected item in _text.pak instead of song struct: " <> show item
+        QBStructItemStruct k struct -> return (k, struct)
+        item -> fail $ "Unexpected item in _text.pak instead of song struct: " <> show item
       return $ TextPakQB fileID structs'
 
 combineTextPakQBs :: [TextPakQB] -> [(Word32, [QBStructItem QSResult Word32])]
@@ -82,18 +82,18 @@ showTextPakQBQS contents = let
     return (k, txt)
   in (putQB $ discardQS qb, makeQS qs)
 
-updateTextPakQB :: [(Word32, [QBStructItem QSResult Word32])] -> BL.ByteString -> BL.ByteString
-updateTextPakQB library bs = let
-  nodes = splitPakNodes bs
-  nodes' = flip map nodes $ \pair@(n, _) -> if
-    | nodeFileType n == qbKeyCRC ".qb" && nodeFilenameCRC n == 1379803300 -> let
-      (qb, _) = showTextPakQBQS $ TextPakQB (nodeFilenameKey n) library
-      in (n, qb)
-    | elem (nodeFileType n) (map qbKeyCRC [".qs.en", ".qs.es", ".qs.it", ".qs.de", ".qs.fr"]) && nodeFilenameCRC n == 1379803300 -> let
-      (_, qs) = showTextPakQBQS $ TextPakQB (nodeFilenameKey n) library
-      in (n, qs)
-    | otherwise -> pair
-  in buildPak nodes'
+updateTextPakQB :: (MonadFail m) => [(Word32, [QBStructItem QSResult Word32])] -> BL.ByteString -> m BL.ByteString
+updateTextPakQB library bs = do
+  nodes <- splitPakNodes bs Nothing
+  let nodes' = flip map nodes $ \pair@(n, _) -> if
+        | nodeFileType n == qbKeyCRC ".qb" && nodeFilenameCRC n == 1379803300 -> let
+          (qb, _) = showTextPakQBQS $ TextPakQB (nodeFilenameKey n) library
+          in (n, qb)
+        | elem (nodeFileType n) (map qbKeyCRC [".qs.en", ".qs.es", ".qs.it", ".qs.de", ".qs.fr"]) && nodeFilenameCRC n == 1379803300 -> let
+          (_, qs) = showTextPakQBQS $ TextPakQB (nodeFilenameKey n) library
+          in (n, qs)
+        | otherwise -> pair
+  return $ buildPak nodes'
 
 data SongInfo = SongInfo
   { songName       :: B.ByteString -- this is an id like "dlc747"
@@ -151,33 +151,54 @@ parseSongInfoStruct songEntries = do
 
 -- Metadata in _text.pak.qb for GH3
 
-readGH3TextPakQB :: BL.ByteString -> Either String TextPakQB
-readGH3TextPakQB bs = do
-  let nodes = splitPakNodes bs
-  -- TODO use actual ID instead of just getting the last qb
+readGH3TextPakQBDisc :: (MonadFail m) => BL.ByteString -> BL.ByteString -> m TextPakQB
+readGH3TextPakQBDisc pak pab = do
+  nodes <- splitPakNodes pak $ Just pab
+  qbFile <- case filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb" && nodeFilenameCRC n == qbKeyCRC "songlist") nodes of
+    []         -> fail "Couldn't locate metadata .qb"
+    (_, r) : _ -> return r
+  readGH3TextPakQB nodes qbFile
+
+readGH3TextPakQBDLC :: (MonadFail m) => BL.ByteString -> m TextPakQB
+readGH3TextPakQBDLC pak = do
+  nodes <- splitPakNodes pak Nothing
+  -- TODO figure out actual filename instead of just getting the last qb
   qbFile <- case NE.nonEmpty $ filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb") nodes of
-    Nothing -> Left "Couldn't locate metadata .qb"
+    Nothing -> fail "Couldn't locate metadata .qb"
     Just ne -> return $ snd $ NE.last ne
+  readGH3TextPakQB nodes qbFile
+
+readGH3TextPakQB :: (MonadFail m) => [(Node, BL.ByteString)] -> BL.ByteString -> m TextPakQB
+readGH3TextPakQB nodes qbFile = do
   let mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
-      qb = map (lookupQS mappingQS) $ runGet parseQB qbFile
-      structs = do
+  qb <- map (lookupQS mappingQS) <$> runGetM parseQB qbFile
+  let structs = do
         QBSectionStruct structID fileID (QBStructHeader : songs) <- qb
-        guard $ structID == 1543826983
+        guard $ elem structID
+          [ qbKeyCRC "permanent_songlist_props" -- disc
+          , qbKeyCRC "download_songlist_props" -- dlc
+          ]
         return (fileID, songs)
   case structs of
-    [] -> Left "Couldn't find any song structs"
+    [] -> fail "Couldn't find any song structs"
     (fileID, _) : _ -> do
       structs' <- forM (concat $ map snd structs) $ \case
-        QBStructItemStruct8A0000 k struct -> Right (k, struct)
-        item -> Left $ "Unexpected item in _text.pak instead of song struct: " <> show item
+        QBStructItemStruct8A0000 k struct -> return (k, struct)
+        item -> fail $ "Unexpected item in _text.pak instead of song struct: " <> show item
       return $ TextPakQB fileID structs'
+
+data GH3Singer
+  = GH3SingerFemale
+  | GH3SingerMale
+  | GH3SingerBret
+  deriving (Show)
 
 data SongInfoGH3 = SongInfoGH3
   { gh3Name                 :: B.ByteString -- this is an id like "dlc3"
   , gh3Title                :: T.Text
   , gh3Artist               :: T.Text
-  , gh3Year                 :: T.Text
-  , gh3Singer               :: Maybe Gender
+  , gh3Year                 :: Maybe T.Text
+  , gh3Singer               :: Maybe GH3Singer
   , gh3Keyboard             :: Bool
   , gh3BandPlaybackVolume   :: Float
   , gh3GuitarPlaybackVolume :: Float
@@ -198,21 +219,21 @@ parseSongInfoGH3 songEntries = do
   gh3Artist <- case [ s | QBStructItemStringW k s <- songEntries, k == qbKeyCRC "artist" ] of
     s : _ -> Right s
     []    -> Left "parseSongInfoGH3: couldn't get song artist"
-  gh3Year <- case [ s | QBStructItemStringW k s <- songEntries, k == qbKeyCRC "year" ] of
-    s : _ -> Right s
-    []    -> Left "parseSongInfoGH3: couldn't get song year"
+  -- tutorial songs don't have a year
+  let gh3Year = listToMaybe [ s | QBStructItemStringW k s <- songEntries, k == qbKeyCRC "year" ]
   gh3Singer <- case [ s | QBStructItemQbKey8D0000 k s <- songEntries, k == qbKeyCRC "singer" ] of
     s : _
-      | s == qbKeyCRC "female" -> Right $ Just Female
-      | s == qbKeyCRC "male"   -> Right $ Just Male
+      | s == qbKeyCRC "female" -> Right $ Just GH3SingerFemale
+      | s == qbKeyCRC "male"   -> Right $ Just GH3SingerMale
+      | s == qbKeyCRC "bret"   -> Right $ Just GH3SingerBret
       | s == qbKeyCRC "none"   -> Right Nothing
-      | otherwise              -> Left "parseSongInfoGH3: unrecognized key for singer" -- should probably just be warning
+      | otherwise              -> Left $ "parseSongInfoGH3: unrecognized key for singer (song " <> show gh3Name <> ", key " <> show s <> ")" -- should probably just be warning
     []    -> Right Nothing
   gh3Keyboard <- case [ s | QBStructItemQbKey8D0000 k s <- songEntries, k == qbKeyCRC "keyboard" ] of
     s : _
       | s == qbKeyCRC "true"  -> Right True
       | s == qbKeyCRC "false" -> Right False
-      | otherwise             -> Left "parseSongInfoGH3: unrecognized key for keyboard" -- should probably just be warning
+      | otherwise             -> Left $ "parseSongInfoGH3: unrecognized key for keyboard (song " <> show gh3Name <> ", key " <> show s <> ")" -- should probably just be warning
     []    -> Right False
   let findFloat key = let
         crc = qbKeyCRC key
