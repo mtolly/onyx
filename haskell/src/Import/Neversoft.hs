@@ -219,12 +219,20 @@ importGH3Disc src folder = do
       Left  err  -> warn err >> return []
       Right info -> return [info]
   fmap concat $ forM songInfo $ \info -> do
-    let pathName = TE.decodeUtf8 $ gh3Name info
-        songPath = "DATA" :| ["COMPRESSED", "SONGS", pathName <> "_song.pak.xen"]
+    let pathName  = TE.decodeUtf8 $ gh3Name info
+        songPath  = "DATA" :| ["COMPRESSED", "SONGS", pathName <> "_song.pak.xen"]
         audioPath = "DATA" :| ["MUSIC", pathName <> ".fsb.xen"]
+        datPath   = "DATA" :| ["MUSIC", pathName <> ".dat.xen"]
     rSongPak <- maybe (fatal $ "Couldn't find: " <> show songPath ) return (findFolded songPath )
     rAudio   <- maybe (fatal $ "Couldn't find: " <> show audioPath) return (findFolded audioPath)
-    importGH3Song src info rSongPak rAudio
+    rDat     <- maybe (fatal $ "Couldn't find: " <> show datPath  ) return (findFolded datPath  )
+    importGH3Song GH3Import
+      { gh3iSource   = src
+      , gh3iSongInfo = info
+      , gh3iSongPak  = rSongPak
+      , gh3iAudio    = rAudio
+      , gh3iDat      = rDat
+      }
 
 importGH3DLC :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH3DLC src folder = do
@@ -240,23 +248,40 @@ importGH3DLC src folder = do
       Left  err  -> warn err >> return []
       Right info -> return [info]
   fmap concat $ forM songInfo $ \info -> do
-    let pathName = TE.decodeUtf8 $ gh3Name info
-        songPath = pathName <> "_song.pak.xen"
+    let pathName  = TE.decodeUtf8 $ gh3Name info
+        songPath  = pathName <> "_song.pak.xen"
         audioPath = pathName <> ".fsb.xen"
+        datPath   = pathName <> ".dat.xen"
     case findFolded songPath of
       Nothing       -> return [] -- song which is listed in the database, but not actually in this package
       Just rSongPak -> do
         rAudio <- maybe (fatal $ "Couldn't find: " <> show audioPath) return (findFolded audioPath)
-        importGH3Song src info rSongPak rAudio
+        rDat   <- maybe (fatal $ "Couldn't find: " <> show datPath  ) return (findFolded datPath  )
+        importGH3Song GH3Import
+          { gh3iSource   = src
+          , gh3iSongInfo = info
+          , gh3iSongPak  = rSongPak
+          , gh3iAudio    = rAudio
+          , gh3iDat      = rDat
+          }
 
-importGH3Song :: (SendMessage m, MonadIO m) => FilePath -> SongInfoGH3 -> Readable -> Readable -> StackTraceT m [Import m]
-importGH3Song src info rSongPak rAudio = let
+data GH3Import = GH3Import
+  { gh3iSource   :: FilePath
+  , gh3iSongInfo :: SongInfoGH3
+  , gh3iSongPak  :: Readable
+  , gh3iAudio    :: Readable
+  , gh3iDat      :: Readable
+  }
+
+importGH3Song :: (SendMessage m, MonadIO m) => GH3Import -> StackTraceT m [Import m]
+importGH3Song gh3i = let
+  info = gh3iSongInfo gh3i
   importModes = if gh3UseCoopNotetracks info
     then [ImportSolo, ImportCoop]
     else [ImportSolo]
   in return $ flip map importModes $ \mode level -> do
     when (level == ImportFull) $ do
-      lg $ "Importing GH song " <> show (gh3Name info) <> " from: " <> src
+      lg $ "Importing GH song " <> show (gh3Name info) <> " from: " <> gh3iSource gh3i
     -- Dragonforce DLC has rhythm tracks in coop, but hidden bass tracks in non-coop. (use coop notetracks = true)
     -- The Pretender has rhythm track copied to non-coop rhythm track, and non-coop rhythm audio is silent. (should ignore)
     -- We Three Kings is only DLC with rhythm coop but use coop notetracks = false.
@@ -264,7 +289,7 @@ importGH3Song src info rSongPak rAudio = let
         coopPart       = if thisCoopRhythm then RBFile.FlexExtra "rhythm" else RBFile.FlexBass
     midiFixed <- case level of
       ImportFull -> do
-        nodes <- stackIO (useHandle rSongPak handleToByteString) >>= (`splitPakNodes` Nothing)
+        nodes <- stackIO (useHandle (gh3iSongPak gh3i) handleToByteString) >>= (`splitPakNodes` Nothing)
         let isMidQB node = nodeFileType node == qbKeyCRC ".qb" && nodeFilenameCRC node == qbKeyCRC (gh3Name info)
         case filter (isMidQB . fst) nodes of
           [] -> fatal "Couldn't find chart .qb file"
@@ -282,15 +307,19 @@ importGH3Song src info rSongPak rAudio = let
     audio <- case level of
       ImportQuick -> return []
       ImportFull -> do
-        bs <- stackIO $ useHandle rAudio handleToByteString
+        bs <- stackIO $ useHandle (gh3iAudio gh3i) handleToByteString
         dec <- case gh3Decrypt bs of
           Nothing  -> fatal "Couldn't decrypt audio file"
           Just dec -> return dec
+        dat <- stackIO (useHandle (gh3iDat gh3i) handleToByteString) >>= runGetM getGH3Dat
         -- TODO maybe only convert xma1->xma2 the fsbs we'll actually use for this import
         streams <- stackIO $ parseFSB dec >>= splitFSBStreams'
-        forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
+        allAudio <- forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
           (streamData, ext) <- stackIO $ getFSBStreamBytes stream
           return ("audio." <> T.pack (show i) <> "." <> ext, streamData)
+        return $ gh3DatAudio dat >>= \(key, index) -> case drop (fromIntegral index) allAudio of
+          []       -> []
+          pair : _ -> [(key, pair)]
     -- Not sure these are dB but it would make sense.
     -- Also does guitar volume also apply to bass/rhythm?
     let guitarVol = replicate 2 $ realToFrac $ gh3GuitarPlaybackVolume info
@@ -311,7 +340,7 @@ importGH3Song src info rSongPak rAudio = let
         , _fileBackgroundImage = Nothing
         }
       , _audio = HM.fromList $ do
-        (name, bs) <- audio
+        (_, (name, bs)) <- audio
         let str = T.unpack name
         return (name, AudioFile AudioInfo
           { _md5 = Nothing
@@ -323,52 +352,31 @@ importGH3Song src info rSongPak rAudio = let
           , _channels = 2
           })
       , _jammit = HM.empty
-      -- TODO .dat.xen is the file that tells you which audio streams are which! need to read and use
-      , _plans = case audio of
-        -- note, even paint it black has a rhythm track.
-        -- this should apply to all songs where gh3UseCoopNotetracks is false
-        [guitar, _preview, rhythm, song] -> HM.singleton "gh" Plan
-          { _song = Just $ PlanAudio (Input $ Named $ fst song) [] bandVol
+      , _plans = let
+        nameLead = gh3Name info <> "_" <> if mode == ImportCoop && gh3UseCoopNotetracks info
+          then "coop_guitar"
+          else "guitar"
+        nameRhythm = gh3Name info <> "_" <> if mode == ImportCoop && gh3UseCoopNotetracks info
+          then "coop_rhythm"
+          else "rhythm"
+        nameBand = gh3Name info <> "_" <> if mode == ImportCoop && gh3UseCoopNotetracks info
+          then "coop_song"
+          else "song"
+        in HM.singleton "gh" Plan
+          { _song = flip fmap (lookup (qbKeyCRC nameBand) audio) $ \(f, _) ->
+            PlanAudio (Input $ Named f) [] bandVol
           , _countin = Countin []
-          , _planParts = Parts $ HM.fromList
-            [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named $ fst guitar) [] guitarVol)
-            , (coopPart         , PartSingle $ PlanAudio (Input $ Named $ fst rhythm) [] guitarVol)
+          , _planParts = Parts $ HM.fromList $ catMaybes
+            [ flip fmap (lookup (qbKeyCRC nameLead  ) audio) $ \(f, _) ->
+              (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named f) [] guitarVol)
+            , flip fmap (lookup (qbKeyCRC nameRhythm) audio) $ \(f, _) ->
+              (coopPart         , PartSingle $ PlanAudio (Input $ Named f) [] guitarVol)
             ]
           , _crowd = Nothing
           , _planComments = []
           , _tuningCents = 0
           , _fileTempo = Nothing
           }
-        -- this is seen in SanicStudios customs? how does this work
-        [song, guitar, _preview] -> HM.singleton "gh" Plan
-          { _song = Just $ PlanAudio (Input $ Named $ fst song) [] bandVol
-          , _countin = Countin []
-          , _planParts = Parts $ HM.fromList
-            [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named $ fst guitar) [] guitarVol)
-            ]
-          , _crowd = Nothing
-          , _planComments = []
-          , _tuningCents = 0
-          , _fileTempo = Nothing
-          }
-        -- this should apply to all songs where gh3UseCoopNotetracks is true
-        [coopGuitar, coopRhythm, coopSong, guitar, _preview, rhythm, song] -> let
-          (thisGuitar, thisCoop, thisSong) = if mode == ImportCoop && gh3UseCoopNotetracks info
-            then (coopGuitar, coopRhythm, coopSong)
-            else (guitar    , rhythm    , song    )
-          in HM.singleton "gh" Plan
-            { _song = Just $ PlanAudio (Input $ Named $ fst thisSong) [] bandVol
-            , _countin = Countin []
-            , _planParts = Parts $ HM.fromList
-              [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named $ fst thisGuitar) [] guitarVol)
-              , (coopPart         , PartSingle $ PlanAudio (Input $ Named $ fst thisCoop  ) [] guitarVol)
-              ]
-            , _crowd = Nothing
-            , _planComments = []
-            , _tuningCents = 0
-            , _fileTempo = Nothing
-            }
-        _ -> HM.empty -- TODO warn or something (if ImportFull)
       , _targets = HM.empty
       , _parts = Parts $ HM.fromList
         [ (RBFile.FlexGuitar, def { partGRYBO = Just def })

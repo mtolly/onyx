@@ -4,7 +4,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Neversoft.Metadata where
 
-import           Control.Monad        (forM, guard)
+import           Control.Monad        (forM, guard, replicateM)
 import           Data.Binary.Get
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
@@ -253,3 +253,22 @@ parseSongInfoGH3 songEntries = do
     _ : _ -> Left "parseSongInfoGH3: unrecognized value for coop-is-rhythm key"
     []    -> Right False
   Right SongInfoGH3{..}
+
+data GH3Dat = GH3Dat
+  { gh3DatLength :: Word32 -- length in bytes of .fsb.xen
+  , gh3DatAudio  :: [(Word32, Word32)] -- (qb key of e.g. "songname_guitar", fsb stream index)
+  }
+
+getGH3Dat :: Get GH3Dat
+getGH3Dat = do
+  count <- getWord32be
+  gh3DatLength <- getWord32be
+  gh3DatAudio <- replicateM (fromIntegral count) $ do
+    nameKey <- getWord32be
+    streamIndex <- getWord32be
+    -- are these always zero?
+    0 <- getWord32be
+    0 <- getWord32be
+    0 <- getWord32be
+    return (nameKey, streamIndex)
+  return GH3Dat{..}
