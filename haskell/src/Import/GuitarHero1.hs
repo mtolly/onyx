@@ -53,7 +53,7 @@ getSongList gen = do
   dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") entries of
     entry : _ -> stackIO $ useHandle (readFileEntry entry arks) handleToByteString
     []        -> fatal "Couldn't find songs.dtb"
-  fmap (addTrippolette entries) $ readSongListGH1 $ D.decodeDTB $ decrypt oldCrypt dtb
+  fmap (addTrippolette entries . addGraveyardShift entries) $ readSongListGH1 $ D.decodeDTB $ decrypt oldCrypt dtb
 
 -- Hacks on DTA info to be able to import Trippolette (if mid/vgs present and it's not already in dta).
 addTrippolette :: [FileEntry] -> [(T.Text, SongPackage)] -> [(T.Text, SongPackage)]
@@ -89,6 +89,42 @@ addTrippolette entries songs = let
     }
   in if hasTripFiles && not alreadyTrip
     then ("advharmony", tripPackage) : songs
+    else songs
+
+-- Hacks on DTA info to be able to import Graveyard Shift (if mid/vgs present and it's not already in dta).
+addGraveyardShift :: [FileEntry] -> [(T.Text, SongPackage)] -> [(T.Text, SongPackage)]
+addGraveyardShift entries songs = let
+  hasGraveFiles = all
+    (\fn -> any (\fe -> fe_folder fe == Just "songs/graveyardshift" && fe_name fe == fn) entries)
+    ["graveyardshift.mid", "graveyardshift.vgs"]
+  alreadyGrave = any ((== "graveyardshift") . fst) songs
+  tripPackage = SongPackage
+    { name = "Graveyard Shift"
+    , artist = "Gurney"
+    , song = Song
+      { songName = "songs/graveyardshift/graveyardshift"
+      , tracks = 1
+      , slip_tracks = [[2, 3]]
+      , pans = [-1, 1, -1, 1]
+      , vols = [0.8, 0.8, 0.8, 0.8]
+      , cores = [-1, -1, 1, 1]
+      , solo = ["riffs", "standard"]
+      }
+    , band = Just [Left BASS_METAL, Left DRUMMER_METAL, Left SINGER_MALE_METAL]
+    , bank = "sfx/song_default"
+    , bpm = 240
+    , animTempo = KTempoMedium
+    , preview = (43867, 73867) -- sensible preview section
+    , midiFile = "songs/graveyardshift/graveyardshift.mid"
+    , quickplay = Quickplay
+      { character = Left Char_alterna
+      , guitar = Left Guitar_gibson_flying_v
+      , guitar_skin = Nothing
+      , venue = Left Venue_theatre
+      }
+    }
+  in if hasGraveFiles && not alreadyGrave
+    then ("graveyardshift", tripPackage) : songs
     else songs
 
 importGH1 :: (SendMessage m, MonadResource m) => FilePath -> StackTraceT m [Import m]
