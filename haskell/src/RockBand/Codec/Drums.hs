@@ -43,7 +43,7 @@ data DrumTrack t = DrumTrack
   , drumSolo           :: RTB.T t Bool
   , drumPlayer1        :: RTB.T t Bool
   , drumPlayer2        :: RTB.T t Bool
-  , drumKick2x         :: RTB.T t ()
+  , drumKick2x         :: RTB.T t () -- no accent support yet
   , drumAnimation      :: RTB.T t Animation
   , drumEnableDynamics :: RTB.T t ()
   } deriving (Eq, Ord, Show, Generic)

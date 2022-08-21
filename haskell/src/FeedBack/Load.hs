@@ -17,7 +17,6 @@ import           Data.Either                      (isLeft)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Fixed (..), Milli)
-import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd, partition, sort)
 import qualified Data.Map                         as Map
@@ -189,6 +188,10 @@ data TrackEvent t a
   | TrackOD t
   | TrackActivation t
   | TrackSolo Bool
+  | TrackAccent a
+  | TrackGhost a
+  | TrackSingleLane t
+  | TrackDoubleLane t
   deriving (Eq, Ord, Show, Functor, Foldable)
 
 emitTrack :: (NNC.C t, Ord a) => t -> RTB.T t (TrackEvent t a) -> RTB.T t ((a, StrumHOPOTap), Maybe t)
@@ -225,6 +228,8 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
             1 -> return $ Just $ TrackP2 len'
             2 -> return $ Just $ TrackOD len'
             64 -> return $ Just $ TrackActivation len'
+            65 -> return $ Just $ TrackSingleLane len'
+            66 -> return $ Just $ TrackDoubleLane len'
             _ -> do
               warn $ "Unrecognized special type: S " <> show n <> " " <> show len
               return Nothing
@@ -277,6 +282,11 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
             . G.noOpenExtSustains G.standardBlipThreshold G.standardSustainGap
             . emitTrack hopoThreshold
             <$> diffs
+          -- these aren't currently supported by CH (only drum lanes) but could be in the future
+          , fiveTremolo = fmap (\b -> guard b >> Just LaneExpert) $ U.trackJoin $ flip fmap expert
+            $ \case TrackSingleLane t -> lengthToBools t; _ -> RTB.empty
+          , fiveTrill = fmap (\b -> guard b >> Just LaneExpert) $ U.trackJoin $ flip fmap expert
+            $ \case TrackDoubleLane t -> lengthToBools t; _ -> RTB.empty
           }
       parseGHL label = do
         diffs <- fmap Map.fromList $ forM [Easy, Medium, Hard, Expert] $ \diff -> do
@@ -309,19 +319,38 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
           parsed <- insideTrack (T.pack (show diff) <> label) $ \trk -> do
             fmap RTB.catMaybes $ insideEvents trk $ \evt -> do
               eachEvent evt $ \n len -> case n of
+
+                -- first we assign green/orange assuming this is a 4-lane chart.
+                -- then later if there are any orange notes, flip it so the lower numbers are orange and higher are green
                 0 -> return $ Just $ TrackNote D.Kick              len
                 1 -> return $ Just $ TrackNote D.Red               len
                 2 -> return $ Just $ TrackNote (D.Pro D.Yellow ()) len
                 3 -> return $ Just $ TrackNote (D.Pro D.Blue   ()) len
                 4 -> return $ Just $ TrackNote (D.Pro D.Green  ()) len
-                5 -> return $ Just $ TrackNote D.Orange            len -- we'll flip green/orange later
+                5 -> return $ Just $ TrackNote D.Orange            len
                 32 -> return $ Just TrackKick2x
+
+                33 -> return $ Just $ TrackAccent D.Kick
+                34 -> return $ Just $ TrackAccent D.Red
+                35 -> return $ Just $ TrackAccent (D.Pro D.Yellow ())
+                36 -> return $ Just $ TrackAccent (D.Pro D.Blue   ())
+                37 -> return $ Just $ TrackAccent (D.Pro D.Green  ())
+                38 -> return $ Just $ TrackAccent D.Orange
+
+                39 -> return $ Just $ TrackGhost D.Kick
+                40 -> return $ Just $ TrackGhost D.Red
+                41 -> return $ Just $ TrackGhost (D.Pro D.Yellow ())
+                42 -> return $ Just $ TrackGhost (D.Pro D.Blue   ())
+                43 -> return $ Just $ TrackGhost (D.Pro D.Green  ())
+                44 -> return $ Just $ TrackGhost D.Orange
+
+                -- From Moonscraper it appears cymbal modifier length should always be zero
+                -- (can't stretch out a marker to cover multiple notes)
+                -- Otherwise they work like .mid tom markers but in reverse (put next to note to make it a cymbal)
                 66 -> return $ Just $ TrackCymbal D.Yellow
                 67 -> return $ Just $ TrackCymbal D.Blue
                 68 -> return $ Just $ TrackCymbal D.Green
-              -- From Moonscraper it appears length should always be zero
-              -- (can't stretch out a marker to cover multiple notes)
-              -- Otherwise they work like .mid tom markers but in reverse (put next to note to make it a cymbal)
+
                 _ -> do
                   warn $ "Unrecognized note type: N " <> show n <> " " <> show len
                   return Nothing
@@ -329,6 +358,10 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
                 then flip fmap parsed $ \case
                   TrackNote D.Orange           len -> TrackNote (D.Pro D.Green ()) len
                   TrackNote (D.Pro D.Green ()) len -> TrackNote D.Orange           len
+                  TrackAccent D.Orange             -> TrackAccent (D.Pro D.Green ())
+                  TrackAccent (D.Pro D.Green ())   -> TrackAccent D.Orange
+                  TrackGhost D.Orange              -> TrackGhost (D.Pro D.Green ())
+                  TrackGhost (D.Pro D.Green ())    -> TrackGhost D.Orange
                   x                                -> x
                 else parsed
           return (diff, flipped5)
@@ -344,12 +377,20 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
             $ \case TrackP1 t -> lengthToBools t; _ -> RTB.empty
           , D.drumPlayer2 = U.trackJoin $ flip fmap expert
             $ \case TrackP2 t -> lengthToBools t; _ -> RTB.empty
+          -- doesn't check kick accent (DrumTrack doesn't support yet)
           , D.drumKick2x = void $ RTB.filter (\case TrackKick2x -> True; _ -> False) expert
           , D.drumDifficulties = flip fmap diffs $ \parsed -> D.DrumDifficulty
             { drumMix         = RTB.empty
             , drumPSModifiers = RTB.empty
-            -- TODO implement velocity format whenever that exists
-            , drumGems        = fmap (, D.VelocityNormal) $ RTB.flatten $ toList <$> parsed
+            , drumGems        = RTB.flatten $ flip fmap (RTB.collectCoincident parsed) $ \instant -> let
+              notes   = [ n | TrackNote   n _ <- instant ]
+              ghosts  = [ n | TrackGhost  n   <- instant ]
+              accents = [ n | TrackAccent n   <- instant ]
+              in flip map notes $ \note -> let
+                vel | elem note ghosts  = D.VelocityGhost
+                    | elem note accents = D.VelocityAccent
+                    | otherwise         = D.VelocityNormal
+                in (note, vel)
             }
           -- TODO this doesn't handle cymbal markers on E/M/H since .mid can't separate them by difficulty
           , D.drumToms = if any (\case TrackCymbal _ -> True; _ -> False) expert
@@ -361,6 +402,12 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
                 in filter (`notElem` cymbals) ybg
               in U.trackJoin $ fmap (\c -> Wait 0 (c, D.Tom) $ Wait (1/32) (c, D.Cymbal) RNil) tomInstants
             else RTB.empty -- probably not pro authored
+          -- ignoring lanes on hard for now
+          , D.drumSingleRoll = fmap (\b -> guard b >> Just LaneExpert) $ U.trackJoin $ flip fmap expert
+            $ \case TrackSingleLane t -> lengthToBools t; _ -> RTB.empty
+          , D.drumDoubleRoll = fmap (\b -> guard b >> Just LaneExpert) $ U.trackJoin $ flip fmap expert
+            $ \case TrackDoubleLane t -> lengthToBools t; _ -> RTB.empty
+          , D.drumEnableDynamics = RTB.singleton 0 () -- so dynamics don't get removed by import process
           }
   fixedPartGuitar       <- parseGRYBO "Single" -- ExpertSingle etc.
   fixedPartGuitarGHL    <- parseGHL "GHLGuitar" -- ExpertGHLGuitar etc.
