@@ -1,3 +1,4 @@
+{-# LANGUAGE ImplicitParams    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -12,8 +13,10 @@ import           Data.List.Extra      (nubOrdOn)
 import qualified Data.List.NonEmpty   as NE
 import           Data.Maybe           (fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Text            as T
+import qualified Data.Text.Encoding   as TE
 import           Data.Word
 import           Genre
+import           GHC.ByteOrder
 import           Neversoft.Checksum
 import           Neversoft.Pak
 import           Neversoft.QB
@@ -28,7 +31,7 @@ data TextPakQB = TextPakQB
 
 readTextPakQB :: (MonadFail m) => BL.ByteString -> m TextPakQB
 readTextPakQB bs = do
-  nodes <- splitPakNodes bs Nothing
+  nodes <- splitPakNodes BigEndian bs Nothing
   let _qbFilenameCRC isWoR = if isWoR then 1379803300 else 3130519416 -- actually GH5 apparently has different ones per package
       qbFiles _isWoR = filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb") nodes
   (qbFile, _isWoR) <- case (qbFiles True, qbFiles False) of
@@ -36,7 +39,9 @@ readTextPakQB bs = do
     (_, [qb]) -> return (snd qb, False)
     _         -> fail "Couldn't locate metadata .qb"
   let mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
-      qb = map (lookupQS mappingQS) $ runGet parseQB qbFile
+      qb = let
+        ?endian = BigEndian
+        in map (lookupQS mappingQS) $ runGet parseQB qbFile
       arrayStructIDPairs =
         [ (qbKeyCRC "gh6_dlc_songlist", 4087958085) -- WoR DLC
         -- rest are seen in GH5 only
@@ -84,7 +89,7 @@ showTextPakQBQS contents = let
 
 updateTextPakQB :: (MonadFail m) => [(Word32, [QBStructItem QSResult Word32])] -> BL.ByteString -> m BL.ByteString
 updateTextPakQB library bs = do
-  nodes <- splitPakNodes bs Nothing
+  nodes <- splitPakNodes BigEndian bs Nothing
   let nodes' = flip map nodes $ \pair@(n, _) -> if
         | nodeFileType n == qbKeyCRC ".qb" && nodeFilenameCRC n == 1379803300 -> let
           (qb, _) = showTextPakQBQS $ TextPakQB (nodeFilenameKey n) library
@@ -151,9 +156,9 @@ parseSongInfoStruct songEntries = do
 
 -- Metadata in _text.pak.qb for GH3
 
-readGH3TextPakQBDisc :: (MonadFail m) => BL.ByteString -> BL.ByteString -> m TextPakQB
+readGH3TextPakQBDisc :: (MonadFail m, ?endian :: ByteOrder) => BL.ByteString -> BL.ByteString -> m TextPakQB
 readGH3TextPakQBDisc pak pab = do
-  nodes <- splitPakNodes pak $ Just pab
+  nodes <- splitPakNodes ?endian pak $ Just pab
   qbFile <- case filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb" && nodeFilenameCRC n == qbKeyCRC "songlist") nodes of
     []         -> fail "Couldn't locate metadata .qb"
     (_, r) : _ -> return r
@@ -161,14 +166,15 @@ readGH3TextPakQBDisc pak pab = do
 
 readGH3TextPakQBDLC :: (MonadFail m) => BL.ByteString -> m TextPakQB
 readGH3TextPakQBDLC pak = do
-  nodes <- splitPakNodes pak Nothing
+  let ?endian = BigEndian
+  nodes <- splitPakNodes ?endian pak Nothing
   -- TODO figure out actual filename instead of just getting the last qb
   qbFile <- case NE.nonEmpty $ filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb") nodes of
     Nothing -> fail "Couldn't locate metadata .qb"
     Just ne -> return $ snd $ NE.last ne
   readGH3TextPakQB nodes qbFile
 
-readGH3TextPakQB :: (MonadFail m) => [(Node, BL.ByteString)] -> BL.ByteString -> m TextPakQB
+readGH3TextPakQB :: (MonadFail m, ?endian :: ByteOrder) => [(Node, BL.ByteString)] -> BL.ByteString -> m TextPakQB
 readGH3TextPakQB nodes qbFile = do
   let mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
   qb <- map (lookupQS mappingQS) <$> runGetM parseQB qbFile
@@ -202,7 +208,7 @@ data SongInfoGH3 = SongInfoGH3
   , gh3Keyboard             :: Bool
   , gh3BandPlaybackVolume   :: Float
   , gh3GuitarPlaybackVolume :: Float
-  , gh3CoopRhythm           :: Bool
+  , gh3RhythmTrack          :: Bool
   , gh3UseCoopNotetracks    :: Bool
   , gh3HammerOnMeasureScale :: Maybe Float
   -- lots of other fields ignored
@@ -213,14 +219,16 @@ parseSongInfoGH3 songEntries = do
   gh3Name <- case [ s | QBStructItemString830000 k s <- songEntries, k == qbKeyCRC "name" ] of
     s : _ -> Right s
     []    -> Left "parseSongInfoGH3: couldn't get song internal name"
-  gh3Title <- case [ s | QBStructItemStringW k s <- songEntries, k == qbKeyCRC "title" ] of
-    s : _ -> Right s
-    []    -> Left "parseSongInfoGH3: couldn't get song title"
-  gh3Artist <- case [ s | QBStructItemStringW k s <- songEntries, k == qbKeyCRC "artist" ] of
-    s : _ -> Right s
-    []    -> Left "parseSongInfoGH3: couldn't get song artist"
+  let getString key = let
+        crc = qbKeyCRC key
+        in listToMaybe $ songEntries >>= \case
+          QBStructItemStringW       k s | k == crc -> [s]                 -- 360
+          QBStructItemString830000  k s | k == crc -> [TE.decodeLatin1 s] -- PS2
+          _                                        -> []
+  gh3Title <- maybe (Left $ "parseSongInfoGH3: couldn't get song title") Right $ getString "title"
+  gh3Artist <- maybe (Left $ "parseSongInfoGH3: couldn't get song artist") Right $ getString "artist"
   -- tutorial songs don't have a year
-  let gh3Year = listToMaybe [ s | QBStructItemStringW k s <- songEntries, k == qbKeyCRC "year" ]
+  let gh3Year = getString "year"
   gh3Singer <- case [ s | QBStructItemQbKey8D0000 k s <- songEntries, k == qbKeyCRC "singer" ] of
     s : _
       | s == qbKeyCRC "female" -> Right $ Just GH3SingerFemale
@@ -247,7 +255,7 @@ parseSongInfoGH3 songEntries = do
         [ () | QBStructItemQbKey8D0000 0 k <- songEntries, k == qbKeyCRC "use_coop_notetracks" ]
       gh3HammerOnMeasureScale = listToMaybe
         [ n | QBStructItemFloat820000 k n <- songEntries, k == qbKeyCRC "hammer_on_measure_scale" ]
-  gh3CoopRhythm <- case [ n | QBStructItemInteger810000 86593215 n <- songEntries ] of
+  gh3RhythmTrack <- case [ n | QBStructItemInteger810000 k n <- songEntries, k == qbKeyCRC "rhythm_track" ] of
     0 : _ -> Right False
     1 : _ -> Right True
     _ : _ -> Left "parseSongInfoGH3: unrecognized value for coop-is-rhythm key"

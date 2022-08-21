@@ -2,6 +2,7 @@
 Written with much assistance from https://github.com/Nanook/Queen-Bee
 -}
 {-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE ImplicitParams    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
@@ -17,6 +18,7 @@ import           Control.Monad.Trans.State     (StateT, execStateT, get, gets,
 import           Data.Aeson
 import           Data.Bifoldable
 import           Data.Bifunctor
+import           Data.Binary.Codec.Class       (binEndian, codecIn)
 import           Data.Binary.Get
 import           Data.Binary.Put
 import qualified Data.ByteString               as B
@@ -30,15 +32,21 @@ import           Data.Text.Encoding.Error      (UnicodeException (..),
 import qualified Data.Vector.Storable          as V
 import qualified Data.Vector.Storable.Mutable  as MV
 import           Data.Word
+import           GHC.ByteOrder
 import           Neversoft.Checksum            (qbKeyCRC)
 import           Numeric                       (showHex)
 import           System.IO.Unsafe              (unsafePerformIO)
+
+data QBFormat
+  = QBFormatPS2
+  | QBFormatNew
 
 data QBSection qs k
   = QBSectionInteger k k Word32 -- TODO all these "Integer" data should probably be signed, e.g. vocals_pitch_score_shift
   | QBSectionArray k k (QBArray qs k)
   | QBSectionStruct k k [QBStructItem qs k]
   | QBSectionScript k k Word32 B.ByteString -- decompressed size, then compressed bytestring (not bothering with decompression)
+  | QBSectionString k k B.ByteString -- seen in gh3 ps2
   | QBSectionStringW k k T.Text -- seen in gh3
   deriving (Eq, Show, Functor)
 
@@ -48,6 +56,7 @@ instance (ToJSON qs, ToJSON k) => ToJSON (QBSection qs k) where
     QBSectionArray x y z -> OneKey "SectionArray" $ toJSON [toJSON x, toJSON y, toJSON z]
     QBSectionStruct x y z -> OneKey "SectionStruct" $ toJSON [toJSON x, toJSON y, toJSON z]
     QBSectionScript w x y z -> OneKey "SectionScript" $ toJSON [toJSON w, toJSON x, toJSON y, toJSON $ B.unpack z]
+    QBSectionString x y z -> OneKey "SectionString" $ toJSON [toJSON x, toJSON y, toJSON $ B8.unpack z]
     QBSectionStringW x y z -> OneKey "SectionStringW" $ toJSON [toJSON x, toJSON y, toJSON z]
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBSection qs k) where
@@ -63,6 +72,9 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBSection qs k) where
       _ -> fail "QB json error"
     OneKey "SectionScript" xs -> parseJSON xs >>= \case
       [w, x, y, z] -> QBSectionScript <$> parseJSON w <*> parseJSON x <*> parseJSON y <*> fmap B.pack (parseJSON z)
+      _ -> fail "QB json error"
+    OneKey "SectionString" xs -> parseJSON xs >>= \case
+      [x, y, z] -> QBSectionString <$> parseJSON x <*> parseJSON y <*> fmap B8.pack (parseJSON z)
       _ -> fail "QB json error"
     OneKey "SectionStringW" xs -> parseJSON xs >>= \case
       [x, y, z] -> QBSectionStringW <$> parseJSON x <*> parseJSON y <*> parseJSON z
@@ -188,6 +200,7 @@ instance Bifunctor QBSection where
     QBSectionArray x y arr    -> QBSectionArray x y $ first f arr
     QBSectionStruct x y items -> QBSectionStruct x y $ map (first f) items
     QBSectionScript w x y z   -> QBSectionScript w x y z
+    QBSectionString x y s     -> QBSectionString x y s
     QBSectionStringW x y s    -> QBSectionStringW x y s
   second = fmap
 
@@ -229,6 +242,7 @@ instance Bifoldable QBSection where
     QBSectionArray   x y arr   -> g x <> g y <> bifoldMap f g arr
     QBSectionStruct  x y items -> g x <> g y <> mconcat (map (bifoldMap f g) items)
     QBSectionScript  x y _ _   -> g x <> g y
+    QBSectionString  x y _     -> g x <> g y
     QBSectionStringW x y _     -> g x <> g y
 
 instance Bifoldable QBArray where
@@ -274,38 +288,56 @@ shouldBeAt w = do
     , "0x" <> showHex p ""
     ]
 
-parseQBSubArray :: Get (QBArray Word32 Word32)
+parseQBSubArray :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBArray Word32 Word32)
 parseQBSubArray = do
-  arrayType <- getWord32be
-  len <- fromIntegral <$> getWord32be
+  arrayType <- getW32
+  len <- fromIntegral <$> getW32
   case len of
     0 -> skip 4
     1 -> return ()
     _ -> do
-      p3 <- getWord32be
+      p3 <- getW32
       shouldBeAt p3
-  case arrayType of
-    0x00010D00 -> QBArrayOfQbKey <$> replicateM len getWord32be
-    0x00010100 -> QBArrayOfInteger <$> replicateM len getWord32be
-    0x00010A00 -> do
-      structStarts <- replicateM len getWord32be
-      fmap QBArrayOfStruct $ forM structStarts $ \p4 -> do
-        shouldBeAt p4
-        parseQBStruct
-    0x00010200 -> QBArrayOfFloat <$> replicateM len getFloatbe
-    0x00010000 -> QBArrayOfFloatRaw <$> replicateM len getFloatbe
-    0x00011C00 -> QBArrayOfQbKeyStringQs <$> replicateM len getWord32be
-    0x00010C00 -> do
-      arrayStarts <- replicateM len getWord32be
-      fmap QBArrayOfArray $ forM arrayStarts $ \p4 -> do
-        shouldBeAt p4
-        parseQBSubArray
-    _ -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
+  case ?format of
+    QBFormatNew -> case arrayType of
+      0x00010D00 -> QBArrayOfQbKey <$> replicateM len getW32
+      0x00010100 -> QBArrayOfInteger <$> replicateM len getW32
+      0x00010A00 -> do
+        structStarts <- replicateM len getW32
+        fmap QBArrayOfStruct $ forM structStarts $ \p4 -> do
+          shouldBeAt p4
+          parseQBStruct
+      0x00010200 -> QBArrayOfFloat <$> replicateM len getFloat
+      0x00010000 -> QBArrayOfFloatRaw <$> replicateM len getFloat
+      0x00011C00 -> QBArrayOfQbKeyStringQs <$> replicateM len getW32
+      0x00010C00 -> do
+        arrayStarts <- replicateM len getW32
+        fmap QBArrayOfArray $ forM arrayStarts $ \p4 -> do
+          shouldBeAt p4
+          parseQBSubArray
+      _ -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
+    QBFormatPS2 -> case arrayType of
+      0x000D0100 -> QBArrayOfQbKey <$> replicateM len getW32
+      0x00010100 -> QBArrayOfInteger <$> replicateM len getW32
+      0x000A0100 -> do
+        structStarts <- replicateM len getW32
+        fmap QBArrayOfStruct $ forM structStarts $ \p4 -> do
+          shouldBeAt p4
+          parseQBStruct
+      0x00020100 -> QBArrayOfFloat <$> replicateM len getFloat
+      0x00000100 -> QBArrayOfFloatRaw <$> replicateM len getFloat
+      0x001C0100 -> QBArrayOfQbKeyStringQs <$> replicateM len getW32
+      0x000C0100 -> do
+        arrayStarts <- replicateM len getW32
+        fmap QBArrayOfArray $ forM arrayStarts $ \p4 -> do
+          shouldBeAt p4
+          parseQBSubArray
+      _ -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
 
-parseQBArray :: Get (QBArray Word32 Word32, Word32)
+parseQBArray :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBArray Word32 Word32, Word32)
 parseQBArray = do
-  p1 <- getWord32be
-  p2 <- getWord32be
+  p1 <- getW32
+  p2 <- getW32
   shouldBeAt p1
   array <- parseQBSubArray
   return (array, p2)
@@ -320,121 +352,151 @@ jumpTo4 = do
     2 -> skip 2
     _ -> skip 1
 
-parseQBStruct :: Get [QBStructItem Word32 Word32]
+qbNullTerm :: Get B.ByteString
+qbNullTerm = let
+  getNullTerm = do
+    c <- getWord8
+    if c == 0
+      then return []
+      else (c :) <$> getNullTerm
+  in B.pack <$> getNullTerm
+
+parseQBStruct :: (?endian :: ByteOrder, ?format :: QBFormat) => Get [QBStructItem Word32 Word32]
 parseQBStruct = do
-  itemType <- getWord32be
-  (item, nextPosition) <- case itemType of
-    0x00000100 -> do
-      p <- getWord32be
-      return (QBStructHeader, p)
-    0x00010D00 -> do
-      x <- getWord32be
-      y <- getWord32be
-      p <- getWord32be
-      return (QBStructItemQbKey x y, p)
-    0x00011C00 -> do
-      x <- getWord32be
-      y <- getWord32be
-      p <- getWord32be
-      return (QBStructItemQbKeyStringQs x y, p)
-    0x00011A00 -> do
-      x <- getWord32be
-      y <- getWord32be
-      p <- getWord32be
-      return (QBStructItemQbKeyString x y, p)
-    0x00010100 -> do
-      x <- getWord32be
-      y <- getWord32be
-      p <- getWord32be
-      return (QBStructItemInteger x y, p)
-    0x00010300 -> do
-      x <- getWord32be
-      start <- getWord32be
-      p <- getWord32be
-      shouldBeAt start
-      b <- let
-        -- get a null-terminated string, then jump to the next 4-divisible position
-        getNullTerm = do
-          c <- getWord8
-          if c == 0
-            then do
-              jumpTo4
-              return []
-            else (c :) <$> getNullTerm
-        in B.pack <$> getNullTerm
-      return (QBStructItemString x b, p)
-    0x00010200 -> do
-      x <- getWord32be
-      f <- getFloatbe
-      p <- getWord32be
-      return (QBStructItemFloat x f, p)
-    0x00010C00 -> do
-      x <- getWord32be
-      (array, p) <- parseQBArray
-      return (QBStructItemArray x array, p)
-    0x00010A00 -> do
-      x <- getWord32be
-      p1 <- getWord32be
-      p2 <- getWord32be
-      shouldBeAt p1
-      items <- parseQBStruct
-      return (QBStructItemStruct x items, p2)
-    0x00810000 -> do
-      x <- getWord32be
-      y <- getWord32be
-      p <- getWord32be
-      return (QBStructItemInteger810000 x y, p)
-    0x009A0000 -> do
-      x <- getWord32be
-      y <- getWord32be
-      p <- getWord32be
-      return (QBStructItemQbKeyString9A0000 x y, p)
-    0x008D0000 -> do
-      x <- getWord32be
-      y <- getWord32be
-      p <- getWord32be
-      return (QBStructItemQbKey8D0000 x y, p)
-    0x008A0000 -> do
-      x <- getWord32be
-      p1 <- getWord32be
-      p2 <- getWord32be
-      shouldBeAt p1
-      items <- parseQBStruct
-      return (QBStructItemStruct8A0000 x items, p2)
-    0x00820000 -> do
-      x <- getWord32be
-      f <- getFloatbe
-      p <- getWord32be
-      return (QBStructItemFloat820000 x f, p)
-    0x00830000 -> do
-      x <- getWord32be
-      start <- getWord32be
-      p <- getWord32be
-      shouldBeAt start
-      b <- let
-        -- get a null-terminated string, then jump to the next 4-divisible position
-        getNullTerm = do
-          c <- getWord8
-          if c == 0
-            then do
-              jumpTo4
-              return []
-            else (c :) <$> getNullTerm
-        in B.pack <$> getNullTerm
-      return (QBStructItemString830000 x b, p)
-    0x00840000 -> do
-      x <- getWord32be
-      start <- getWord32be
-      p <- getWord32be
-      shouldBeAt start
-      str <- getUtf16BE
-      jumpTo4
-      return (QBStructItemStringW x str, p)
-    0x008C0000 -> do
-      x <- getWord32be
-      (array, p) <- parseQBArray
-      return (QBStructItemArray8C0000 x array, p)
-    _ -> fail $ "Unrecognized struct item type: 0x" <> showHex itemType ""
+  itemType <- getW32
+  let structHeader = do
+        p <- getW32
+        return (QBStructHeader, p)
+      structItemQbKey = do
+        x <- getW32
+        y <- getW32
+        p <- getW32
+        return (QBStructItemQbKey x y, p)
+      structItemQbKeyStringQs = do
+        x <- getW32
+        y <- getW32
+        p <- getW32
+        return (QBStructItemQbKeyStringQs x y, p)
+      structItemQbKeyString = do
+        x <- getW32
+        y <- getW32
+        p <- getW32
+        return (QBStructItemQbKeyString x y, p)
+      structItemInteger = do
+        x <- getW32
+        y <- getW32
+        p <- getW32
+        return (QBStructItemInteger x y, p)
+      structItemString = do
+        x <- getW32
+        start <- getW32
+        p <- getW32
+        shouldBeAt start
+        b <- qbNullTerm
+        jumpTo4
+        return (QBStructItemString x b, p)
+      structItemFloat = do
+        x <- getW32
+        f <- getFloat
+        p <- getW32
+        return (QBStructItemFloat x f, p)
+      structItemArray = do
+        x <- getW32
+        (array, p) <- parseQBArray
+        return (QBStructItemArray x array, p)
+      structItemStruct = do
+        x <- getW32
+        p1 <- getW32
+        p2 <- getW32
+        shouldBeAt p1
+        items <- parseQBStruct
+        return (QBStructItemStruct x items, p2)
+      structItemInteger810000 = do
+        x <- getW32
+        y <- getW32
+        p <- getW32
+        return (QBStructItemInteger810000 x y, p)
+      structItemQbKeyString9A0000 = do
+        x <- getW32
+        y <- getW32
+        p <- getW32
+        return (QBStructItemQbKeyString9A0000 x y, p)
+      structItemQbKey8D0000 = do
+        x <- getW32
+        y <- getW32
+        p <- getW32
+        return (QBStructItemQbKey8D0000 x y, p)
+      structItemStruct8A0000 = do
+        x <- getW32
+        p1 <- getW32
+        p2 <- getW32
+        shouldBeAt p1
+        items <- parseQBStruct
+        return (QBStructItemStruct8A0000 x items, p2)
+      structItemFloat820000 = do
+        x <- getW32
+        f <- getFloat
+        p <- getW32
+        return (QBStructItemFloat820000 x f, p)
+      structItemString830000 = do
+        x <- getW32
+        start <- getW32
+        p <- getW32
+        shouldBeAt start
+        b <- qbNullTerm
+        jumpTo4
+        return (QBStructItemString830000 x b, p)
+      structItemStringW = do
+        x <- getW32
+        start <- getW32
+        p <- getW32
+        shouldBeAt start
+        str <- getUtf16BE
+        jumpTo4
+        return (QBStructItemStringW x str, p)
+      structItemArray8C0000 = do
+        x <- getW32
+        (array, p) <- parseQBArray
+        return (QBStructItemArray8C0000 x array, p)
+  (item, nextPosition) <- case ?format of
+    QBFormatNew -> case itemType of
+      0x00000100 -> structHeader
+      0x00010D00 -> structItemQbKey
+      0x00011C00 -> structItemQbKeyStringQs
+      0x00011A00 -> structItemQbKeyString
+      0x00010100 -> structItemInteger
+      0x00010300 -> structItemString
+      0x00010200 -> structItemFloat
+      0x00010C00 -> structItemArray
+      0x00010A00 -> structItemStruct
+      0x00810000 -> structItemInteger810000
+      0x009A0000 -> structItemQbKeyString9A0000
+      0x008D0000 -> structItemQbKey8D0000
+      0x008A0000 -> structItemStruct8A0000
+      0x00820000 -> structItemFloat820000
+      0x00830000 -> structItemString830000
+      0x00840000 -> structItemStringW
+      0x008C0000 -> structItemArray8C0000
+      _ -> fail $ "Unrecognized struct item type: 0x" <> showHex itemType ""
+    QBFormatPS2 -> case itemType of
+      0x00010000 -> structHeader
+      0x000D0100 -> structItemQbKey
+      0x001C0100 -> structItemQbKeyStringQs
+      0x001A0100 -> structItemQbKeyString
+      0x00010100 -> structItemInteger
+      0x00030100 -> structItemString
+      0x00020100 -> structItemFloat
+      0x000C0100 -> structItemArray
+      0x000A0100 -> structItemStruct
+      0x00000300 -> structItemInteger810000
+      0x00003500 -> structItemQbKeyString9A0000
+      0x00001B00 -> structItemQbKey8D0000
+      0x00001500 -> structItemStruct8A0000
+      0x00000500 -> structItemFloat820000
+      0x00000700 -> structItemString830000
+      0x00000900 -> structItemStringW
+      0x00001900 -> structItemArray8C0000
+      _ -> fail $ "Unrecognized struct item type: 0x" <> showHex itemType ""
   case nextPosition of
     0 -> return [item] -- this is the last item
     _ -> do
@@ -455,60 +517,93 @@ getUtf16BE = do
     Left _                   -> fail "shouldn't happen!" -- deprecated EncodeError
     Right t                  -> return t
 
-parseQBSection :: Get (QBSection Word32 Word32)
+parseQBSection :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBSection Word32 Word32)
 parseQBSection = do
-  sectionType <- getWord32be
-  itemQbKeyCrc <- getWord32be
-  fileId <- getWord32be
-  case sectionType of
-    0x00200100 {- SectionInteger -} -> do
-      n1 <- getWord32be
-      n2 <- getWord32be
-      when (n2 /= 0) $ fail "SectionInteger: expected 0 for second number"
-      return $ QBSectionInteger itemQbKeyCrc fileId n1
-    0x00200C00 {- SectionArray -} -> do
-      (array, _) <- parseQBArray
-      -- the snd above should be 0, I think
-      return $ QBSectionArray itemQbKeyCrc fileId array
-    0x00200A00 {- SectionStruct -} -> do
-      p1 <- getWord32be
-      _reserved <- getWord32be
-      shouldBeAt p1
-      QBSectionStruct itemQbKeyCrc fileId <$> parseQBStruct
-    0x00200700 {- SectionScript -} -> do
-      p1 <- getWord32be
-      _reserved <- getWord32be -- 0
-      shouldBeAt p1
-      _unknown <- getWord32be -- 0xFFFFFFFF
-      decompressedSize <- getWord32be
-      compressedSize <- getWord32be
-      bs <- getByteString $ fromIntegral compressedSize
-      jumpTo4
-      return $ QBSectionScript itemQbKeyCrc fileId decompressedSize bs
-    0x00200400 {- SectionStringW -} -> do
-      p1 <- getWord32be
-      _reserved <- getWord32be -- 0
-      shouldBeAt p1
-      str <- getUtf16BE
-      jumpTo4
-      return $ QBSectionStringW itemQbKeyCrc fileId str
-    _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
+  sectionType <- getW32
+  itemQbKeyCrc <- getW32
+  fileId <- getW32
+  let sectionInteger = do
+        n1 <- getW32
+        n2 <- getW32
+        when (n2 /= 0) $ fail "SectionInteger: expected 0 for second number"
+        return $ QBSectionInteger itemQbKeyCrc fileId n1
+      sectionArray = do
+        (array, _) <- parseQBArray
+        -- the snd above should be 0, I think
+        return $ QBSectionArray itemQbKeyCrc fileId array
+      sectionStruct = do
+        p1 <- getW32
+        _reserved <- getW32
+        shouldBeAt p1
+        QBSectionStruct itemQbKeyCrc fileId <$> parseQBStruct
+      sectionScript = do
+        p1 <- getW32
+        _reserved <- getW32 -- 0
+        shouldBeAt p1
+        _unknown <- getW32 -- 0xFFFFFFFF
+        decompressedSize <- getW32
+        compressedSize <- getW32
+        bs <- getByteString $ fromIntegral compressedSize
+        jumpTo4
+        return $ QBSectionScript itemQbKeyCrc fileId decompressedSize bs
+      sectionString = do
+        p1 <- getW32
+        _reserved <- getW32 -- 0
+        shouldBeAt p1
+        bs <- qbNullTerm
+        jumpTo4
+        return $ QBSectionString itemQbKeyCrc fileId bs
+      sectionStringW = do
+        p1 <- getW32
+        _reserved <- getW32 -- 0
+        shouldBeAt p1
+        str <- getUtf16BE
+        jumpTo4
+        return $ QBSectionStringW itemQbKeyCrc fileId str
+  case ?format of
+    QBFormatNew -> case sectionType of
+      0x00200100 -> sectionInteger
+      0x00200C00 -> sectionArray
+      0x00200A00 -> sectionStruct
+      0x00200700 -> sectionScript
+      0x00200300 -> sectionString
+      0x00200400 -> sectionStringW
+      _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
+    QBFormatPS2 -> case sectionType of
+      0x00010400 -> sectionInteger
+      0x000C0400 -> sectionArray
+      0x000A0400 -> sectionStruct
+      0x00070400 -> sectionScript
+      0x00030400 -> sectionString
+      0x00040400 -> sectionStringW
+      _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
 
-parseQB :: Get [QBSection Word32 Word32]
+parseQB :: (?endian :: ByteOrder) => Get [QBSection Word32 Word32]
 parseQB = do
-  _zero1 <- getWord32be
-  fileSize <- getWord32be
-  _headerSize <- getWord32le -- 0x1C, little endian? why?
-  _zero2 <- getWord32be
-  _contentSize <- getWord32be -- file size - header size
-  _zero3 <- getWord32be
-  _zero4 <- getWord32be
+  -- for now, just use endian to determine type keys
+  let ?format = case ?endian of
+        LittleEndian -> QBFormatPS2
+        BigEndian    -> QBFormatNew
+  _zero1 <- getW32
+  fileSize <- getW32
+  _headerSize <- getWord8 -- 0x1C
+  -- note, rest of the zero fields aren't zero on GH3 PS2
+  _zero2 <- getByteString 7
+  _contentSize <- getW32 -- file size - header size
+  _zero3 <- getW32
+  _zero4 <- getW32
   let parseSections = do
         pos <- fromIntegral <$> bytesRead
         if pos >= fileSize
           then return []
           else (:) <$> parseQBSection <*> parseSections
   parseSections
+
+getW32 :: (?endian :: ByteOrder) => Get Word32
+getW32 = codecIn binEndian
+
+getFloat :: (?endian :: ByteOrder) => Get Float
+getFloat = codecIn binEndian
 
 data QSResult
   = UnknownQS Word32
@@ -797,6 +892,14 @@ putQBSection = \case
     w32 decompressedSize
     w32 $ fromIntegral $ B.length bs
     append $ padTo4 bs
+  QBSectionString itemQbKeyCrc fileId str -> do
+    w32 0x00200300
+    w32 itemQbKeyCrc
+    w32 fileId
+    p <- reservePointer
+    w32 0
+    fillPointer p
+    append $ padTo4 $ str <> "\0"
   QBSectionStringW itemQbKeyCrc fileId str -> do
     w32 0x00200400
     w32 itemQbKeyCrc

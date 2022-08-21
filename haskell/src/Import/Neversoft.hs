@@ -1,3 +1,4 @@
+{-# LANGUAGE ImplicitParams    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -15,11 +16,14 @@ import           Data.Char                      (isDigit)
 import           Data.Default.Class             (def)
 import qualified Data.HashMap.Strict            as HM
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty             as NE
+import           Data.List.Split                (chunksOf)
 import           Data.Maybe                     (catMaybes, listToMaybe)
 import           Data.SimpleHandle
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import           Genre                          (displayWoRGenre)
+import           GHC.ByteOrder
 import           Import.Base
 import           Import.GuitarHero2             (ImportMode (..))
 import           Neversoft.Audio                (decryptFSB', gh3Decrypt)
@@ -28,7 +32,9 @@ import           Neversoft.GH3                  (gh3ToMidi, parseMidQB)
 import           Neversoft.Metadata
 import           Neversoft.Note
 import           Neversoft.Pak
+import           Neversoft.PS2
 import           Neversoft.QB                   (parseQB)
+import           Numeric                        (showHex)
 import qualified RockBand.Codec.File            as RBFile
 import           Sound.FSB                      (getFSBStreamBytes, parseFSB,
                                                  splitFSBStreams,
@@ -202,6 +208,43 @@ importGH5WoR src folder = do
               ]
             }
 
+importGH3PS2 :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
+importGH3PS2 src folder = do
+  let folder' = first T.toCaseFold folder
+      findFolded path = findFile (fmap T.toCaseFold path) folder'
+  hed <- maybe (fatal "Couldn't find DATAP.HED") (\r -> stackIO $ useHandle r handleToByteString) (findFolded $ pure "DATAP.HED")
+  wad <- maybe (fatal "Couldn't find DATAP.WAD") return $ findFolded $ pure "DATAP.WAD"
+  wadFolder <- hookUpWAD wad . applyHed <$> runGetM parseHed hed
+  let wadFolder' = first T.toCaseFold wadFolder
+      findFoldedWad path = findFile (fmap T.toCaseFold path) wadFolder'
+      pakPath = "pak" :| ["qb.pak.ps2"]
+      pabPath = "pak" :| ["qb.pab.ps2"]
+  pak <- maybe (fatal "Couldn't find qb.pak") (\r -> stackIO $ useHandle r handleToByteString) (findFoldedWad pakPath)
+  pab <- maybe (fatal "Couldn't find qb.pab") (\r -> stackIO $ useHandle r handleToByteString) (findFoldedWad pabPath)
+  qbSections <- errorToWarning (let ?endian = LittleEndian in readGH3TextPakQBDisc pak pab) >>= \case
+    Nothing       -> return []
+    Just contents -> return $ textPakSongStructs contents
+  songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do
+    case parseSongInfoGH3 items of
+      Left  err  -> warn err >> return []
+      Right info -> return [info]
+  fmap concat $ forM songInfo $ \info -> do
+    let songPath  = "songs" :| [TE.decodeUtf8 (gh3Name info) <> ".pak.ps2"]
+        hashSolo = hashString $ qbKeyCRC $ gh3Name info
+        hashCoop = hashString $ qbKeyCRC $ gh3Name info <> "_coop"
+        hashString w = T.pack $ reverse $ take 8 $ reverse (showHex w "") <> repeat '0'
+        audioSoloPath = "MUSIC" :| [T.take 1 hashSolo, hashSolo <> ".IMF"]
+        audioCoopPath = "MUSIC" :| [T.take 1 hashCoop, hashCoop <> ".IMF"]
+    rSongPak   <- maybe (fatal $ "Couldn't find: " <> show songPath     ) return (findFoldedWad songPath     )
+    let rAudioSolo = findFolded audioSoloPath
+        rAudioCoop = findFolded audioCoopPath
+    importGH3Song GH3Import
+      { gh3iSource   = src
+      , gh3iSongInfo = info
+      , gh3iSongPak  = rSongPak
+      , gh3iAudio    = GH3AudioPS2 rAudioSolo rAudioCoop
+      }
+
 importGH3Disc :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH3Disc src folder = do
   let folder' = first T.toCaseFold folder
@@ -211,7 +254,7 @@ importGH3Disc src folder = do
       pabPath = "DATA" :| ["COMPRESSED", "PAK", "qb.pab.xen"]
   pak <- maybe (fatal "Couldn't find qb.pak") (\r -> stackIO $ useHandle r handleToByteString) (findFolded pakPath)
   pab <- maybe (fatal "Couldn't find qb.pab") (\r -> stackIO $ useHandle r handleToByteString) (findFolded pabPath)
-  qbSections <- errorToWarning (readGH3TextPakQBDisc pak pab) >>= \case
+  qbSections <- errorToWarning (let ?endian = BigEndian in readGH3TextPakQBDisc pak pab) >>= \case
     Nothing       -> return []
     Just contents -> return $ textPakSongStructs contents
   songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do
@@ -230,8 +273,7 @@ importGH3Disc src folder = do
       { gh3iSource   = src
       , gh3iSongInfo = info
       , gh3iSongPak  = rSongPak
-      , gh3iAudio    = rAudio
-      , gh3iDat      = rDat
+      , gh3iAudio    = GH3Audio360 rAudio rDat
       }
 
 importGH3DLC :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -261,17 +303,19 @@ importGH3DLC src folder = do
           { gh3iSource   = src
           , gh3iSongInfo = info
           , gh3iSongPak  = rSongPak
-          , gh3iAudio    = rAudio
-          , gh3iDat      = rDat
+          , gh3iAudio    = GH3Audio360 rAudio rDat
           }
 
 data GH3Import = GH3Import
   { gh3iSource   :: FilePath
   , gh3iSongInfo :: SongInfoGH3
   , gh3iSongPak  :: Readable
-  , gh3iAudio    :: Readable
-  , gh3iDat      :: Readable
+  , gh3iAudio    :: GH3Audio
   }
+
+data GH3Audio
+  = GH3Audio360 Readable         Readable         -- .fsb.*, .dat.*
+  | GH3AudioPS2 (Maybe Readable) (Maybe Readable) -- solo .IMF, coop .IMF
 
 importGH3Song :: (SendMessage m, MonadIO m) => GH3Import -> StackTraceT m [Import m]
 importGH3Song gh3i = let
@@ -285,19 +329,25 @@ importGH3Song gh3i = let
     -- Dragonforce DLC has rhythm tracks in coop, but hidden bass tracks in non-coop. (use coop notetracks = true)
     -- The Pretender has rhythm track copied to non-coop rhythm track, and non-coop rhythm audio is silent. (should ignore)
     -- We Three Kings is only DLC with rhythm coop but use coop notetracks = false.
-    let thisCoopRhythm = gh3CoopRhythm info && (mode == ImportCoop || not (gh3UseCoopNotetracks info))
-        coopPart       = if thisCoopRhythm then RBFile.FlexExtra "rhythm" else RBFile.FlexBass
+    let thisRhythmTrack = gh3RhythmTrack info && (mode == ImportCoop || not (gh3UseCoopNotetracks info))
+        coopPart       = if thisRhythmTrack then RBFile.FlexExtra "rhythm" else RBFile.FlexBass
     midiFixed <- case level of
       ImportFull -> do
-        nodes <- stackIO (useHandle (gh3iSongPak gh3i) handleToByteString) >>= (`splitPakNodes` Nothing)
-        let isMidQB node = nodeFileType node == qbKeyCRC ".qb" && nodeFilenameCRC node == qbKeyCRC (gh3Name info)
+        let ?endian = case gh3iAudio gh3i of
+              GH3Audio360{} -> BigEndian
+              GH3AudioPS2{} -> LittleEndian
+        nodes <- stackIO (useHandle (gh3iSongPak gh3i) handleToByteString) >>= \bs ->
+          inside "Parsing song .pak" $ splitPakNodes ?endian bs Nothing
+        let isMidQB node
+              = elem (nodeFileType node) [qbKeyCRC ".qb", qbKeyCRC ".mqb"] -- .mqb on PS2
+              && nodeFilenameCRC node == qbKeyCRC (gh3Name info)
         case filter (isMidQB . fst) nodes of
           [] -> fatal "Couldn't find chart .qb file"
           (_, bs) : _ -> do
-            midQB <- runGetM parseQB bs >>= parseMidQB (gh3Name info)
+            midQB <- inside "Parsing .mid.qb" $ runGetM parseQB bs >>= parseMidQB (gh3Name info)
             return $ gh3ToMidi
               (mode == ImportCoop && gh3UseCoopNotetracks info)
-              thisCoopRhythm
+              thisRhythmTrack
               mempty
               midQB
       ImportQuick -> return emptyChart
@@ -306,20 +356,34 @@ importGH3Song gh3i = let
           }
     audio <- case level of
       ImportQuick -> return []
-      ImportFull -> do
-        bs <- stackIO $ useHandle (gh3iAudio gh3i) handleToByteString
-        dec <- case gh3Decrypt bs of
-          Nothing  -> fatal "Couldn't decrypt audio file"
-          Just dec -> return dec
-        dat <- stackIO (useHandle (gh3iDat gh3i) handleToByteString) >>= runGetM getGH3Dat
-        -- TODO maybe only convert xma1->xma2 the fsbs we'll actually use for this import
-        streams <- stackIO $ parseFSB dec >>= splitFSBStreams'
-        allAudio <- forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
-          (streamData, ext) <- stackIO $ getFSBStreamBytes stream
-          return ("audio." <> T.pack (show i) <> "." <> ext, streamData)
-        return $ gh3DatAudio dat >>= \(key, index) -> case drop (fromIntegral index) allAudio of
-          []       -> []
-          pair : _ -> [(key, pair)]
+      ImportFull -> case gh3iAudio gh3i of
+        GH3Audio360 rfsb rdat -> do
+          bs <- stackIO $ useHandle rfsb handleToByteString
+          dec <- case gh3Decrypt bs of
+            Nothing  -> fatal "Couldn't decrypt audio file"
+            Just dec -> return dec
+          dat <- stackIO (useHandle rdat handleToByteString) >>= runGetM getGH3Dat
+          -- TODO maybe only convert xma1->xma2 the fsbs we'll actually use for this import
+          streams <- stackIO $ parseFSB dec >>= splitFSBStreams'
+          allAudio <- forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
+            (streamData, ext) <- stackIO $ getFSBStreamBytes stream
+            return ("audio." <> T.pack (show i) <> "." <> ext, streamData)
+          return $ gh3DatAudio dat >>= \(key, index) -> case drop (fromIntegral index) allAudio of
+            []       -> []
+            pair : _ -> [(key, pure pair)]
+        GH3AudioPS2 mrsolo mrcoop -> do
+          -- add crc keys to pretend it's indexed like the 360 audio
+          let applyNames names r = do
+                bs <- stackIO $ useHandle r handleToByteString
+                let vgs = chunksOf 2 $ map convertChannelToVGS $ splitChannels bs
+                return $ flip map (zip names vgs) $ \(name, chans) -> let
+                  crc = qbKeyCRC $ gh3Name info <> "_" <> name
+                  makeChannel i chan = (TE.decodeLatin1 name <> "." <> T.pack (show (i :: Int)) <> ".vgs", chan)
+                  in (crc, NE.fromList $ zipWith makeChannel [0..] chans)
+          -- are these always the same order? or is there an equivalent of .dat files
+          solo <- maybe (return []) (applyNames ["guitar"     , "song"     , "rhythm"     ]) mrsolo
+          coop <- maybe (return []) (applyNames ["coop_guitar", "coop_song", "coop_rhythm"]) mrcoop
+          return $ solo <> coop
     -- Not sure these are dB but it would make sense.
     -- Also does guitar volume also apply to bass/rhythm?
     let guitarVol = replicate 2 $ realToFrac $ gh3GuitarPlaybackVolume info
@@ -340,7 +404,8 @@ importGH3Song gh3i = let
         , _fileBackgroundImage = Nothing
         }
       , _audio = HM.fromList $ do
-        (_, (name, bs)) <- audio
+        (_, group) <- audio
+        (name, bs) <- NE.toList group
         let str = T.unpack name
         return (name, AudioFile AudioInfo
           { _md5 = Nothing
@@ -349,7 +414,9 @@ importGH3Song gh3i = let
             $ makeHandle str $ byteStringSimpleHandle bs
           , _commands = []
           , _rate = Nothing
-          , _channels = 2
+          , _channels = case gh3iAudio gh3i of
+            GH3Audio360{} -> 2
+            GH3AudioPS2{} -> 1 -- since we split up to mono vgs
           })
       , _jammit = HM.empty
       , _plans = let
@@ -362,15 +429,17 @@ importGH3Song gh3i = let
         nameBand = gh3Name info <> "_" <> if mode == ImportCoop && gh3UseCoopNotetracks info
           then "coop_song"
           else "song"
+        toExpr ((f, _) :| []) = Input $ Named f
+        toExpr xs             = Merge $ fmap (Input . Named . fst) xs
         in HM.singleton "gh" Plan
-          { _song = flip fmap (lookup (qbKeyCRC nameBand) audio) $ \(f, _) ->
-            PlanAudio (Input $ Named f) [] bandVol
+          { _song = flip fmap (lookup (qbKeyCRC nameBand) audio) $ \group ->
+            PlanAudio (toExpr group) [] bandVol
           , _countin = Countin []
           , _planParts = Parts $ HM.fromList $ catMaybes
-            [ flip fmap (lookup (qbKeyCRC nameLead  ) audio) $ \(f, _) ->
-              (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named f) [] guitarVol)
-            , flip fmap (lookup (qbKeyCRC nameRhythm) audio) $ \(f, _) ->
-              (coopPart         , PartSingle $ PlanAudio (Input $ Named f) [] guitarVol)
+            [ flip fmap (lookup (qbKeyCRC nameLead  ) audio) $ \group ->
+              (RBFile.FlexGuitar, PartSingle $ PlanAudio (toExpr group) [] guitarVol)
+            , flip fmap (lookup (qbKeyCRC nameRhythm) audio) $ \group ->
+              (coopPart         , PartSingle $ PlanAudio (toExpr group) [] guitarVol)
             ]
           , _crowd = Nothing
           , _planComments = []

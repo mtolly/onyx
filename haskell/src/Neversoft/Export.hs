@@ -556,6 +556,7 @@ worFileManifest titleHashHex cdl manifestQBFilenameKey songIDs = buildPak
       , nodeFilenameCRC = 2997346177 -- same across packs
       , nodeUnknown = 0
       , nodeFlags = 0
+      , nodeName = Nothing
       }
     , putQB
       -- first number in each of these sections is same across packs
@@ -588,6 +589,7 @@ worFileManifest titleHashHex cdl manifestQBFilenameKey songIDs = buildPak
       , nodeFilenameCRC = 1794739921
       , nodeUnknown = 0
       , nodeFlags = 0
+      , nodeName = Nothing
       }
     , BL.replicate 4 0xAB
     )
@@ -605,6 +607,7 @@ worFileBarePak = buildPak
       , nodeFilenameCRC = 24767173
       , nodeUnknown = 0
       , nodeFlags = 0
+      , nodeName = Nothing
       }
     , putQB []
     )
@@ -617,6 +620,7 @@ worFileBarePak = buildPak
       , nodeFilenameCRC = 1794739921
       , nodeUnknown = 0
       , nodeFlags = 0
+      , nodeName = Nothing
       }
     , BL.replicate 4 0xAB
     )
@@ -634,6 +638,7 @@ worFilePS3SongVRAMPak songKeyQB = buildPak
       , nodeFilenameCRC = 1794739921
       , nodeUnknown = 0
       , nodeFlags = 0
+      , nodeName = Nothing
       }
     , BL.replicate 4 0xAB
     )
@@ -650,40 +655,40 @@ worFileTextPak
 worFileTextPak (qbKey, qb) (qsKey1, qsKey2, qsKey3, qsKey4, qsKey5, qs) = buildPak
   -- all these nodeFilenameCRC are same across packs.
   -- the nodeFilenameKey are different for the first 6 files, and the .stat file (not included). rest are same
-  [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+  [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , qb
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey1, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+  , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey1, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , qs
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey2, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+  , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey2, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , qs
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey3, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+  , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey3, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , qs
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey4, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+  , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey4, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , qs
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey5, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0}
+  , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey5, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , qs
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2339261848, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+  , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2339261848, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , makeQS []
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3024241172, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+  , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3024241172, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , makeQS []
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3669621742, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+  , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3669621742, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , makeQS []
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 94872913, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+  , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 94872913, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , makeQS []
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3899138369, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0}
+  , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3899138369, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , makeQS []
     )
-  , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 12, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0}
+  , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 12, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , BL.replicate 4 0xAB
     )
   ]

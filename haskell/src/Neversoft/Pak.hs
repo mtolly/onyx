@@ -4,10 +4,12 @@
 module Neversoft.Pak where
 
 import qualified Codec.Compression.Zlib.Internal as Z
-import           Control.Monad                   (forM, guard, replicateM)
+import           Control.Monad                   (forM, forM_, guard,
+                                                  replicateM)
 import           Control.Monad.ST.Lazy           (runST)
 import           Data.Binary.Get
 import           Data.Binary.Put
+import           Data.Bits                       ((.&.))
 import qualified Data.ByteString                 as B
 import qualified Data.ByteString.Lazy            as BL
 import           Data.Char                       (isAscii, isSpace)
@@ -17,6 +19,7 @@ import           Data.Maybe                      (fromMaybe, listToMaybe)
 import qualified Data.Text                       as T
 import qualified Data.Text.Encoding              as TE
 import           Data.Word
+import           GHC.ByteOrder
 import           Neversoft.Checksum              (qbKeyCRC)
 import           Numeric                         (readHex, showHex)
 import           STFS.Package                    (runGetM)
@@ -30,6 +33,7 @@ data Node = Node
   , nodeFilenameCRC    :: Word32
   , nodeUnknown        :: Word32
   , nodeFlags          :: Word32
+  , nodeName           :: Maybe B.ByteString -- snippet of filename seen in PS2 GH3 when flags (LE) is 0x20
   } deriving (Show, Read)
 
 -- Credit to unpak.pl by Tarragon Allen (tma).
@@ -71,32 +75,48 @@ decompressPak bs = if BL.take 4 bs == "CHNK"
   then decompressPakGH4 bs
   else return $ fromMaybe bs $ decompressPakGH3 bs -- if gh3 decompression fails, assume it's uncompressed
 
-splitPakNodes :: (MonadFail m) => BL.ByteString -> Maybe BL.ByteString -> m [(Node, BL.ByteString)]
-splitPakNodes pak maybePab = do
+-- .pak header values are big endian on 360/PS3, but little on PS2
+
+getPakNodes :: (MonadFail m) => ByteOrder -> BL.ByteString -> m [Node]
+getPakNodes endian = runGetM $ let
+  end = qbKeyCRC "last"
+  end2 = qbKeyCRC ".last"
+  go = do
+    posn <- fromIntegral <$> bytesRead
+    let getW32 = case endian of
+          BigEndian    -> getWord32be
+          LittleEndian -> getWord32le
+    nodeFileType       <- getW32
+    nodeOffset         <- (+ posn) <$> getW32
+    nodeSize           <- getW32
+    nodeFilenamePakKey <- getW32
+    nodeFilenameKey    <- getW32
+    nodeFilenameCRC    <- getW32
+    nodeUnknown        <- getW32
+    nodeFlags          <- getW32
+    nodeName           <- if nodeFlags .&. 0x20 == 0x20
+      then Just . B.takeWhile (/= 0) <$> getByteString 0xA0
+      else return Nothing
+    (Node{..} :) <$> if elem nodeFileType [end, end2]
+      then return []
+      else go
+  in go
+
+splitPakNodes :: (MonadFail m) => ByteOrder -> BL.ByteString -> Maybe BL.ByteString -> m [(Node, BL.ByteString)]
+splitPakNodes _ pak _
+  | "\\\\Dummy file" `BL.isPrefixOf` pak
+  -- these are seen in GH3 PS2, songs/*_{gfx,sfx}.pak.ps2
+  = return []
+splitPakNodes endian pak maybePab = do
   pak'      <- decompressPak pak
   maybePab' <- mapM decompressPak maybePab
   let bs' = pak' <> fromMaybe BL.empty maybePab'
-      end = qbKeyCRC "last"
-      end2 = qbKeyCRC ".last"
-      getNodes = do
-        posn <- fromIntegral <$> bytesRead
-        nodeFileType       <- getWord32be
-        nodeOffset         <- (+ posn) <$> getWord32be
-        nodeSize           <- getWord32be
-        nodeFilenamePakKey <- getWord32be
-        nodeFilenameKey    <- getWord32be
-        nodeFilenameCRC    <- getWord32be
-        nodeUnknown        <- getWord32be
-        nodeFlags          <- getWord32be
-        (Node{..} :) <$> if elem nodeFileType [end, end2]
-          then return []
-          else getNodes
       attachData node = let
         goToData
           = BL.take (fromIntegral $ nodeSize node)
           . BL.drop (fromIntegral $ nodeOffset node)
         in (node, goToData bs')
-  map attachData <$> runGetM getNodes bs'
+  map attachData <$> getPakNodes endian bs'
 
 buildPak :: [(Node, BL.ByteString)] -> BL.ByteString
 buildPak nodes = let
@@ -124,6 +144,9 @@ buildPak nodes = let
     putWord32be nodeFilenameCRC
     putWord32be nodeUnknown
     putWord32be nodeFlags
+    forM_ nodeName $ \bs -> do
+      putByteString bs
+      putByteString $ B.replicate (0xA0 - B.length bs) 0
   header = runPut $ mapM_ putHeader $ zip [0..] $ fixNodes dataStart nodes'
   header' = BL.take (fromIntegral dataStart) $ header <> BL.replicate (fromIntegral dataStart) 0
   in BL.concat $ [header'] <> map (padData . snd) nodes' <> [BL.replicate 0xCF0 0xAB]

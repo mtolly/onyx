@@ -7,7 +7,6 @@ import           Control.Monad                    (forM)
 import           Control.Monad.Trans.StackTrace
 import           Data.Bits                        (testBit)
 import qualified Data.ByteString                  as B
-import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
@@ -23,7 +22,6 @@ import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
 import           RockBand.Common                  (Difficulty (..))
 import qualified Sound.MIDI.Util                  as U
-import           STFS.Package                     (runGetM)
 
 data GH3Track = GH3Track
   { gh3Notes       :: [(Word32, Word32, Word32)]
@@ -204,12 +202,6 @@ parseMidQB dlc qb = do
     _ -> fatal "Expected array of structs for background events"
 
   return GH3MidQB{..}
-
-testParse :: B.ByteString -> FilePath -> IO GH3MidQB
-testParse k f = (either (fail . show) return =<<) $ logStdout $ do
-  bs <- stackIO $ BL.readFile f
-  qb <- runGetM parseQB bs
-  parseMidQB k qb
 
 gh3ToMidi :: Bool -> Bool -> HM.HashMap Word32 T.Text -> GH3MidQB -> RBFile.Song (RBFile.FixedFile U.Beats)
 gh3ToMidi coopTracks coopRhythm bank gh3 = let

@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP               #-}
+{-# LANGUAGE ImplicitParams    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -121,6 +122,7 @@ import           System.Console.GetOpt
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropExtension,
                                                    dropTrailingPathSeparator,
+                                                   splitExtension,
                                                    takeDirectory, takeExtension,
                                                    takeFileName, (-<.>), (<.>),
                                                    (</>))
@@ -1290,15 +1292,20 @@ commands =
       [pak] -> inside ("extracting pak " <> pak) $ do
         dout <- outputFile opts $ return $ pak <> "_extract"
         stackIO $ Dir.createDirectoryIfMissing False dout
-        -- TODO support extensions other than .xen for finding .pab file
-        pabData <- case T.stripSuffix ".pak.xen" $ T.pack pak of
-          Nothing -> return Nothing
-          Just stripped -> let
-            pab = T.unpack $ stripped <> ".pab.xen"
-            in stackIO (Dir.doesFileExist pab) >>= \case
-              False -> return Nothing
-              True  -> Just <$> stackIO (BL.readFile pab)
-        nodes <- stackIO (BL.readFile pak) >>= (`splitPakNodes` pabData)
+        (pabData, endian) <- do
+          let (noPlatform, platform) = splitExtension pak
+          pabData <- case splitExtension noPlatform of
+            (noPak, ".pak") -> let
+              pabPath = noPak <> ".pab" <> platform
+              in stackIO (Dir.doesFileExist pabPath) >>= \case
+                False -> return Nothing
+                True  -> Just <$> stackIO (BL.readFile pabPath)
+            _ -> return Nothing
+          let endian = case platform of
+                ".ps2" -> LittleEndian
+                _      -> BigEndian
+          return (pabData, endian)
+        nodes <- stackIO (BL.readFile pak) >>= \bs -> splitPakNodes endian bs pabData
         stackIO $ writeFile (dout </> "pak-contents.txt") $ unlines $ map (show . fst) nodes
         let knownExts =
               [ ".cam", ".clt", ".col", ".dbg", ".empty", ".fam", ".fnc", ".fnt", ".fnv"
@@ -1323,6 +1330,7 @@ commands =
                     && nodeFileType otherNode == qbKeyCRC ".qs.en"
                 mappingQS = qsBank matchingQS
             inside ("Parsing QB file: " <> show name) $ do
+              let ?endian = endian
               mqb <- errorToWarning $ runGetM parseQB contents
               forM_ mqb $ \qb -> do
                 let filled = map (lookupQB knownKeys . lookupQS mappingQS) qb
