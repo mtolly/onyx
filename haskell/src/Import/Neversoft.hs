@@ -346,6 +346,7 @@ importGH3Song gh3i = let
           (_, bs) : _ -> do
             midQB <- inside "Parsing .mid.qb" $ runGetM parseQB bs >>= parseMidQB (gh3Name info)
             return $ gh3ToMidi
+              info
               (mode == ImportCoop && gh3UseCoopNotetracks info)
               thisRhythmTrack
               mempty

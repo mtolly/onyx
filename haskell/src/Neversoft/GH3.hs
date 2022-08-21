@@ -12,11 +12,13 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
 import           Data.Word                        (Word32)
 import           FeedBack.Load                    (TrackEvent (..), emitTrack)
 import           Guitars                          (emit5')
 import           Neversoft.Checksum               (qbKeyCRC)
+import           Neversoft.Metadata               (SongInfoGH3 (..))
 import           Neversoft.QB
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
@@ -203,8 +205,8 @@ parseMidQB dlc qb = do
 
   return GH3MidQB{..}
 
-gh3ToMidi :: Bool -> Bool -> HM.HashMap Word32 T.Text -> GH3MidQB -> RBFile.Song (RBFile.FixedFile U.Beats)
-gh3ToMidi coopTracks coopRhythm bank gh3 = let
+gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap Word32 T.Text -> GH3MidQB -> RBFile.Song (RBFile.FixedFile U.Beats)
+gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   toSeconds :: Word32 -> U.Seconds
   toSeconds = (/ 1000) . fromIntegral
   sigMap = Map.fromList [ (time, (num, den)) | (time, num, den) <- gh3TimeSignatures gh3 ]
@@ -219,19 +221,37 @@ gh3ToMidi coopTracks coopRhythm bank gh3 = let
   toBeats :: Word32 -> U.Beats
   toBeats = U.unapplyTempoMap tempos . toSeconds
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
-  -- TODO figure out real hopo algo and how to apply gh3HammerOnMeasureScale correctly
-  hopoThreshold = 65/192 :: U.Beats -- from .chart, gh3 probably not the same
+  -- AFAIK we can use the .chart HOPO algorithm.
+  -- The threshold is in "hammer_on_measure_scale" - even though this says measure I think it means beat,
+  -- where the threshold in beats is the reciprocal of this number.
+  -- Default value is 2.95, as indicated by
+  -- https://github.com/Nanook/TheGHOST/blob/27f143205d/TheGHOSTCore/QbHelpers/SongQb.cs#L188
+  -- This is overridden by some songs to 1.95. These correspond to roughly the 66/192 and 100/192 mentioned here
+  -- https://github.com/raynebc/editor-on-fire/blob/8d081c6cc2f/src/gh_import.c#L33
+  hopoThreshold :: U.Beats
+  hopoThreshold = realToFrac $ 1 / fromMaybe 2.95 (gh3HammerOnMeasureScale songInfo)
+  -- Weird sustain threshold algorithm, see
+  -- https://github.com/raynebc/editor-on-fire/blob/8d081c6cc2f/src/gh_import.c#L1537-L1546
+  -- https://github.com/raynebc/editor-on-fire/blob/8d081c6cc2f/src/gh_import.c#L5814-L5832
+  -- Note, sustains may also be dropped by the converted midi if they are too short!
+  sustainThreshold :: Word32
+  sustainThreshold = floor $ (U.applyTempoMap tempos 1 / 2) * 1000
+  sustainTrim :: Word32
+  sustainTrim = quot sustainThreshold 2
   getTrack trk = emit5' $ emitTrack hopoThreshold $ fromPairs $ do
     (time, len, bits) <- gh3Notes trk
     let pos = toBeats time
-        len' = toBeats (time + len) - pos
+        lenTrimmed = if len > sustainThreshold
+          then len - sustainTrim
+          else 0
+        lenBeats = toBeats (time + lenTrimmed) - pos
     concat
-      [ [(pos, TrackNote (Just F.Green ) len') | bits `testBit` 0]
-      , [(pos, TrackNote (Just F.Red   ) len') | bits `testBit` 1]
-      , [(pos, TrackNote (Just F.Yellow) len') | bits `testBit` 2]
-      , [(pos, TrackNote (Just F.Blue  ) len') | bits `testBit` 3]
-      , [(pos, TrackNote (Just F.Orange) len') | bits `testBit` 4]
-      , [(pos, TrackForce                len') | bits `testBit` 5]
+      [ [(pos, TrackNote (Just F.Green ) lenBeats) | bits `testBit` 0]
+      , [(pos, TrackNote (Just F.Red   ) lenBeats) | bits `testBit` 1]
+      , [(pos, TrackNote (Just F.Yellow) lenBeats) | bits `testBit` 2]
+      , [(pos, TrackNote (Just F.Blue  ) lenBeats) | bits `testBit` 3]
+      , [(pos, TrackNote (Just F.Orange) lenBeats) | bits `testBit` 4]
+      , [(pos, TrackForce                lenBeats) | bits `testBit` 5]
       ]
   getPart part = mempty
     { F.fiveDifficulties = Map.fromList
