@@ -137,6 +137,8 @@ data SongPackage = SongPackage
   , videoVenues       :: Maybe [T.Text] -- lego
   , dateReleased      :: Maybe T.Text -- beatles, "YYYY-MM-DD" format
   , dateRecorded      :: Maybe T.Text -- beatles, "YYYY-MM-DD" format
+  -- rb2dx:
+  , author            :: Maybe T.Text
   } deriving (Eq, Show)
 
 instance StackChunks SongPackage where
@@ -190,4 +192,5 @@ instance StackChunks SongPackage where
     videoVenues       <- videoVenues       =. opt Nothing "video_venues"        (chunksMaybe $ chunksParens $ chunksList chunkSym)
     dateReleased      <- dateReleased      =. opt Nothing "date_released"       (chunksMaybe $ single chunkString)
     dateRecorded      <- dateRecorded      =. opt Nothing "date_recorded"       (chunksMaybe $ single chunkString)
+    author            <- author            =. opt Nothing "author"              (chunksMaybe $ single chunkString)
     return SongPackage{..}

@@ -767,6 +767,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.albumName = D.albumName rb3DTA
                     , D.albumTrackNumber = D.albumTrackNumber rb3DTA
                     , D.packName = D.packName rb3DTA
+                    , D.author = _author $ _metadata songYaml
                     -- not present
                     , D.drumBank = Nothing
                     , D.bandFailCue = Nothing
@@ -818,6 +819,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.rating = case (isPS3, D.rating rb3DTA) of
                       (True, 4) -> 2 -- Unrated causes it to be locked in game on PS3
                       (_   , x) -> x
+                    , D.author = D.author rb3DTA
                     }
               liftIO $ writeLatin1CRLF out $ prettyDTA pkg newDTA $ makeC3DTAComments (_metadata songYaml) plan rb3
         rb2DTA %> writeRB2DTA False
@@ -1283,6 +1285,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
     , D.videoVenues = Nothing
     , D.dateReleased = Nothing
     , D.dateRecorded = Nothing
+    , D.author = _author $ _metadata songYaml
     }
 
 makeC3 :: (Monad m) => SongYaml f -> Plan f -> TargetRB3 f -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m C3.C3

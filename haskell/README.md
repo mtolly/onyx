@@ -80,7 +80,13 @@ Onyx can import the following song formats:
     * Official DLC whose .mid.edat are encrypted with RAP files are supported.
       Copy RAP files to `onyx-resources/raps/CONTENTID.RAP`.
 
-  * Rock Band 1 PlayStation 2 extracted .ARK contents
+  * Rock Band 1 and 2 PlayStation 2 extracted .ARK contents
+
+    * First extract the ISO. Use something like Apache3 to get the 2nd layer
+      of the dual layer discs, as most programs do not support this.
+    * Then extract the ARK contents using something like arkhelper.
+    * Finally drag and drop the extracted folder directly onto the "Load a song"
+      button to import, or into the Batch process window.
 
   * Rock Band 4 PlayStation 4 extracted files
     (tentative support, may not work for everything)
@@ -99,11 +105,17 @@ Onyx can import the following song formats:
   * Guitar Hero, Guitar Hero II, or Guitar Hero Encore: Rocks the 80s (PS2)
 
     * Extract the `.iso` contents, and then import either `GEN` or `MAIN.HDR`.
+    * The hidden songs Trippolette and Graveyard Shift can be imported from GH1.
 
   * Guitar Hero II (Xbox 360) DLC (LIVE files)
 
   * Guitar Hero 5 and Guitar Hero: Warriors of Rock DLC
     (Xbox 360 LIVE files or PlayStation 3 .pkg files)
+
+  * Guitar Hero III disc (Xbox 360, PS2) and DLC (Xbox 360)
+
+    * For Xbox 360 disc: extract ISO, then import from `default.xex`.
+    * For PS2 disc: extract ISO, then import from `DATAP.HED`.
 
   * DTXMania (DrumMania / GuitarFreaks) simfiles (.dtx/.gda)
 

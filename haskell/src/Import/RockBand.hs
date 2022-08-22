@@ -11,6 +11,7 @@ import           ArkTool                        (ark_DecryptVgs)
 import           Audio                          (Audio (..), Edge (..))
 import           Codec.Picture.Types            (dropTransparency, pixelMap)
 import           Config
+import           Control.Applicative            ((<|>))
 import           Control.Arrow                  (second)
 import           Control.Concurrent.Async       (forConcurrently)
 import           Control.Monad                  (forM, forM_, guard, unless,
@@ -55,7 +56,8 @@ import           PlayStation.PSS                (extractVGSStream,
                                                  extractVideoStream,
                                                  scanPackets)
 import           PrettyDTA                      (C3DTAComments (..),
-                                                 DTASingle (..), readDTASingles)
+                                                 DTASingle (..), readDTASingles,
+                                                 readDTBSingles)
 import           Resources                      (rb3Updates)
 import           RockBand.Codec.Drums           as RBDrums
 import qualified RockBand.Codec.File            as RBFile
@@ -92,7 +94,9 @@ importSTFSFolder :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Read
 importSTFSFolder src folder = do
   -- TODO support songs/gen/songs.dtb instead
   packSongs <- stackIO (findByteString ("songs" :| ["songs.dta"]) folder) >>= \case
-    Nothing -> fatal "songs/songs.dta not found"
+    Nothing -> stackIO (findByteString ("songs" :| ["gen", "songs.dtb"]) folder) >>= \case
+      Nothing -> fatal "Couldn't find songs/songs.dta or songs/songs.dtb"
+      Just bs -> readDTBSingles $ BL.toStrict bs
     Just bs -> readDTASingles $ BL.toStrict bs
   updateDir <- stackIO rb3Updates
   fmap catMaybes $ forM packSongs $ \(DTASingle top pkg comments, _) -> errorToWarning $ do
@@ -409,7 +413,7 @@ importRB rbi level = do
       , _comments     = []
       , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
       , _key          = skey
-      , _author       = c3dtaAuthoredBy $ rbiComments rbi
+      , _author       = D.author pkg <|> c3dtaAuthoredBy (rbiComments rbi)
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
       , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ D.preview pkg) / 1000
       , _previewEnd   = Just $ PreviewSeconds $ fromIntegral (snd $ D.preview pkg) / 1000
@@ -716,6 +720,7 @@ importRB4 fdta level = do
         , D.videoVenues       = Nothing
         , D.dateReleased      = Nothing
         , D.dateRecorded      = Nothing
+        , D.author            = Nothing
         }
 
   importRB RBImport

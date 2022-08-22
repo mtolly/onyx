@@ -15,9 +15,11 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer.Strict
 import qualified Data.ByteString                   as B
 import qualified Data.ByteString.Char8             as B8
+import qualified Data.ByteString.Lazy              as BL
 import           Data.Char                         (isSpace)
 import           Data.Default.Class                (Default (..))
 import qualified Data.DTA                          as D
+import qualified Data.DTA.Crypt                    as D
 import           Data.DTA.Serialize
 import qualified Data.DTA.Serialize.RB3            as D
 import           Data.Foldable                     (forM_)
@@ -187,6 +189,17 @@ readDTASingles bs = do
   fmap catMaybes $ forM (zip [1..] songs) $ \(i, pair) -> do
     inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") $ do
       errorToWarning $ readDTASingle pair
+
+readDTBSingles :: (SendMessage m) => B.ByteString -> StackTraceT m [(DTASingle, Bool)]
+readDTBSingles bs = do
+  -- TODO use proper error handling instead of pure D.decodeDTB
+  -- TODO better determination of encrypted .dtb
+  let songs = D.treeChunks $ D.topTree $ D.decodeDTB $ if B.take 1 bs == "\x01"
+        then BL.fromStrict bs
+        else D.decrypt D.newCrypt $ BL.fromStrict bs
+  fmap catMaybes $ forM (zip [1..] songs) $ \(i, chunk) -> do
+    inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") $ do
+      errorToWarning $ readDTASingle (B.empty, chunk)
 
 readFileSongsDTA :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(DTASingle, Bool)]
 readFileSongsDTA file = inside ("loading songs.dta from: " ++ show file) $ do

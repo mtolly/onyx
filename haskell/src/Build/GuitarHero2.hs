@@ -24,7 +24,7 @@ import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (Identity (..))
 import           Data.Hashable                    (Hashable, hash)
 import qualified Data.HashMap.Strict              as HM
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (catMaybes, fromMaybe)
 import qualified Data.Text                        as T
 import           Data.Version                     (showVersion)
 import           Development.Shake                hiding (phony, (%>), (&%>))
@@ -237,9 +237,15 @@ gh2Rules buildInfo dir gh2 = do
   dir </> "stfs/config/contexts.dta" %> \out -> do
     let ctx = fromMaybe defaultID $ gh2_Context gh2
     stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
-      [ D.Parens $ D.Tree 0
-        [ D.Sym key
-        , D.Int $ fromIntegral ctx
+      [ D.Parens $ D.Tree 0 $ catMaybes
+        [ Just $ D.Sym key
+        -- include author for gh2dx
+        , flip fmap (_author $ _metadata songYaml) $ \author -> D.Braces $ D.Tree 0
+          [ D.Sym "set"
+          , D.Var "author"
+          , D.String author
+          ]
+        , Just $ D.Int $ fromIntegral ctx
         ]
       ]
   dir </> "stfs/config/coop_max_scores.dta" %> \out -> do

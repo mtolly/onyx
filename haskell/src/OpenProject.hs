@@ -7,9 +7,9 @@ module OpenProject where
 import           Build
 import           Config
 import           Control.Applicative            ((<|>))
-import           Control.Monad                  (forM, forM_, guard)
 import qualified Control.Monad.Catch            as MC
 import           Control.Monad.Codec.Onyx.JSON  (loadYaml)
+import           Control.Monad.Extra            (anyM, forM, forM_, guard)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
@@ -250,11 +250,14 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
   if isDir
     then do
       ents <- stackIO $ Dir.listDirectory fp
-      let lookFor [] = stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
-            True  -> stackIO (crawlFolder fp)
-              >>= importSTFSFolder fp
-              >>= foundImports "Rock Band Extracted" fp
-            False -> return (map (fp </>) ents, [])
+      let lookFor [] = do
+            hasRBDTA <- stackIO $ anyM Dir.doesFileExist
+              [fp </> "songs/songs.dta", fp </> "songs/gen/songs.dtb"]
+            if hasRBDTA
+              then stackIO (crawlFolder fp)
+                >>= importSTFSFolder fp
+                >>= foundImports "Rock Band Extracted" fp
+              else return (map (fp </>) ents, [])
           lookFor ((file, use) : rest) = case filter ((== file) . map toLower) ents of
             match : _ -> use $ fp </> match
             []        -> lookFor rest
@@ -267,8 +270,6 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ]
     else do
       case map toLower $ takeExtension fp of
-        ".yml" -> foundYaml fp
-        ".yaml" -> foundYaml fp
         ".rbproj" -> foundRBProj fp
         ".songdta_ps4" -> foundImport "Rock Band 4" (takeDirectory fp) $ importRB4 fp
         ".moggsong" -> stackIO (Dir.doesFileExist $ fp -<.> "songdta_ps4") >>= \case
@@ -288,6 +289,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".gpx" -> foundGPX fp
         ".2" -> foundPowerGig fp -- assuming this is Data.hdr.e.2
         _ -> case map toLower $ takeFileName fp of
+          "song.yml" -> foundYaml fp
           "song.ini" -> foundFoF fp
           "set.def" -> foundDTXSet fp
           "main.hdr" -> foundGH fp
