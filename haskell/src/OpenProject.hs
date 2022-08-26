@@ -43,6 +43,7 @@ import           Import.Amplitude2016           (importAmplitude)
 import           Import.Base                    (ImportLevel (..), saveImport)
 import           Import.BMS                     (importBMS)
 import           Import.DTXMania                (importDTX, importSet)
+import           Import.Freetar                 (importFreetar)
 import           Import.FretsOnFire             (importFoF)
 import qualified Import.GuitarHero1             as GH1
 import qualified Import.GuitarHero2             as GH2
@@ -215,6 +216,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         let base = T.takeWhile (/= '.') $ T.pack $ takeFileName loc
         imps <- importPowerGig dir base
         foundImports "Power Gig (Xbox 360)" loc imps
+      foundFreetar loc = foundImports "Freetar" loc [importFreetar loc]
       found360Game xex = do
         let loc = takeDirectory xex
         dir <- stackIO $ crawlFolder loc
@@ -288,6 +290,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".gp" -> foundGP fp
         ".gpx" -> foundGPX fp
         ".2" -> foundPowerGig fp -- assuming this is Data.hdr.e.2
+        ".sng" -> foundFreetar fp
         _ -> case map toLower $ takeFileName fp of
           "song.yml" -> foundYaml fp
           "song.ini" -> foundFoF fp
