@@ -54,8 +54,8 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
 import           Data.SimpleHandle                (byteStringSimpleHandle,
-                                                   crawlFolder, fileReadable,
-                                                   makeHandle, saveHandleFolder)
+                                                   crawlFolder, makeHandle,
+                                                   saveHandleFolder)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import qualified Data.Text.IO                     as TIO
@@ -1084,7 +1084,7 @@ commands =
       [hdrPath] -> do
         dout <- outputFile opts $ return $ hdrPath <> "_extract"
         hdr <- stackIO (BL.readFile hdrPath) >>= Ark.readHdr
-        let arks = map fileReadable $ Ark.getFileArks hdr hdrPath
+        arks <- stackIO $ Ark.getArkReadables hdr hdrPath
         Ark.extractArk hdr arks dout
         return [dout]
       _ -> fatal "Expected 1 arg (.hdr, or .ark if none)"

@@ -7,7 +7,8 @@ import           Control.Monad            (forM, replicateM, when)
 import           Control.Monad.IO.Class   (MonadIO, liftIO)
 import           Data.Bifunctor           (first)
 import           Data.Binary.Get          (getByteString, getInt32le,
-                                           getWord32le, getWord64le, runGet)
+                                           getWord32le, getWord64le, runGet,
+                                           skip)
 import           Data.Bits
 import qualified Data.ByteString          as B
 import qualified Data.ByteString.Char8    as B8
@@ -18,9 +19,11 @@ import           Data.SimpleHandle
 import qualified Data.Text                as T
 import qualified Data.Vector              as V
 import           Data.Word                (Word32)
+import           OSFiles                  (fixFileCase)
 import           PlayStation.PKG.Backport (lazyPackZipWith)
 import           STFS.Package             (runGetM)
-import           System.FilePath          (dropExtension, (-<.>))
+import           System.FilePath          (dropExtension, takeDirectory, (-<.>),
+                                           (</>))
 
 data FileEntry a = FileEntry
   { fe_offset  :: Integer
@@ -30,8 +33,13 @@ data FileEntry a = FileEntry
   , fe_inflate :: Word32 -- inflated size, or 0 if not gzipped
   } deriving (Eq, Show)
 
+data ArkReference = ArkReference
+  { ark_path :: Maybe B.ByteString -- in v5 and up
+  , ark_size :: Integer
+  } deriving (Eq, Show)
+
 data Hdr = Hdr
-  { hdr_Arks  :: Maybe [Integer] -- sizes of each ark
+  { hdr_Arks  :: Maybe [ArkReference] -- sizes (+ maybe paths) of each ark (or Nothing if no separate hdr/ark)
   , hdr_Files :: [FileEntry B.ByteString]
   } deriving (Eq, Show)
 
@@ -74,10 +82,13 @@ readHdr bs = do
         return Hdr { hdr_Arks = Nothing, hdr_Files = entries' }
       -- ARK v3: Guitar Hero 1/2/80s
       3 -> do
+        -- new in v3: separate hdr/ark, support split ark, move file entries to end
         arkCount <- getWord32le
         arkCount2 <- getWord32le
         when (arkCount /= arkCount2) $ fail $ "ARK version 3: ark counts don't match (" <> show arkCount <> " and " <> show arkCount2 <> ")"
-        arkSizes <- replicateM (fromIntegral arkCount) getWord32le
+        arkSizes <- replicateM (fromIntegral arkCount) $ do
+          size <- getWord32le
+          return ArkReference { ark_path = Nothing, ark_size = fromIntegral size }
         stringBytes <- parseStrings
         offsets <- parseOffsets
         entries <- parseEntries getWord32le
@@ -85,13 +96,15 @@ readHdr bs = do
           name <- findString offsets stringBytes $ fe_name entry
           folder <- mapM (findString offsets stringBytes) $ fe_folder entry
           return entry { fe_name = name, fe_folder = folder }
-        return Hdr { hdr_Arks = Just $ map fromIntegral arkSizes, hdr_Files = entries' }
-      -- ARK v4: Rock Band
+        return Hdr { hdr_Arks = Just arkSizes, hdr_Files = entries' }
+      -- ARK v4: Rock Band, Rock Band 2 (PS2)
       4 -> do
         arkCount <- getWord32le
         arkCount2 <- getWord32le
         when (arkCount /= arkCount2) $ fail $ "ARK version 4: ark counts don't match (" <> show arkCount <> " and " <> show arkCount2 <> ")"
-        arkSizes <- replicateM (fromIntegral arkCount) getWord64le -- new in v4: each ark size is 8 bytes
+        arkSizes <- replicateM (fromIntegral arkCount) $ do
+          size <- getWord64le -- only in v4: each ark size is 8 bytes
+          return ArkReference { ark_path = Nothing, ark_size = fromIntegral size }
         stringBytes <- parseStrings
         offsets <- parseOffsets
         entries <- parseEntries getWord64le -- new in v4: each entry's offset index is 8 bytes
@@ -99,7 +112,49 @@ readHdr bs = do
           name <- findString offsets stringBytes $ fe_name entry
           folder <- mapM (findString offsets stringBytes) $ fe_folder entry
           return entry { fe_name = name, fe_folder = folder }
-        return Hdr { hdr_Arks = Just $ map fromIntegral arkSizes, hdr_Files = entries' }
+        return Hdr { hdr_Arks = Just arkSizes, hdr_Files = entries' }
+      -- ARK v5: Rock Band 2 (360/PS3)
+      5 -> do
+        arkCount <- getWord32le
+        arkCount2 <- getWord32le
+        when (arkCount /= arkCount2) $ fail $ "ARK version 5: ark counts don't match (" <> show arkCount <> " and " <> show arkCount2 <> ")"
+        arkSizes <- replicateM (fromIntegral arkCount) getWord32le
+        -- new in v5: paths to ark files instead of being implicit
+        arkCount3 <- getWord32le
+        when (arkCount /= arkCount3) $ fail $ "ARK version 5: ark count doesn't match ark path count (" <> show arkCount <> " and " <> show arkCount3 <> ")"
+        arkPaths <- replicateM (fromIntegral arkCount3) $ getWord32le >>= getByteString . fromIntegral
+        let arks = zipWith ArkReference (map Just arkPaths) (map fromIntegral arkSizes)
+        stringBytes <- parseStrings
+        offsets <- parseOffsets
+        entries <- parseEntries getWord64le
+        entries' <- forM entries $ \entry -> do
+          name <- findString offsets stringBytes $ fe_name entry
+          folder <- mapM (findString offsets stringBytes) $ fe_folder entry
+          return entry { fe_name = name, fe_folder = folder }
+        return Hdr { hdr_Arks = Just arks, hdr_Files = entries' }
+      -- ARK v6: Rock Band 3
+      6 -> do
+        skip 20 -- new: "Versions 6,7 have some sort of hash/key at the beginning?"
+        arkCount <- getWord32le
+        arkCount2 <- getWord32le
+        when (arkCount /= arkCount2) $ fail $ "ARK version 6: ark counts don't match (" <> show arkCount <> " and " <> show arkCount2 <> ")"
+        arkSizes <- replicateM (fromIntegral arkCount) getWord32le
+        arkCount3 <- getWord32le
+        when (arkCount /= arkCount3) $ fail $ "ARK version 6: ark count doesn't match ark path count (" <> show arkCount <> " and " <> show arkCount3 <> ")"
+        arkPaths <- replicateM (fromIntegral arkCount3) $ getWord32le >>= getByteString . fromIntegral
+        let arks = zipWith ArkReference (map Just arkPaths) (map fromIntegral arkSizes)
+        -- new: "Versions 6,7,9: appear to have checksums or something for each content file?"
+        arkCount4 <- getWord32le
+        when (arkCount /= arkCount4) $ fail $ "ARK version 6: ark count doesn't match unknown checksum count (" <> show arkCount <> " and " <> show arkCount4 <> ")"
+        skip $ 4 * fromIntegral arkCount4
+        stringBytes <- parseStrings
+        offsets <- parseOffsets
+        entries <- parseEntries getWord64le
+        entries' <- forM entries $ \entry -> do
+          name <- findString offsets stringBytes $ fe_name entry
+          folder <- mapM (findString offsets stringBytes) $ fe_folder entry
+          return entry { fe_name = name, fe_folder = folder }
+        return Hdr { hdr_Arks = Just arks, hdr_Files = entries' }
       _ -> fail $ "Unsupported ARK version " <> show arkVersion
 
 -- Decrypts .hdr for ARK version 4 and later
@@ -132,9 +187,9 @@ selectArk hdr offset = case hdr_Arks hdr of
   Just sizes -> let
     go i remaining curOffset = case remaining of
       [] -> fail $ "Offset extends past all .ARK files: " <> show curOffset
-      size : rest -> if curOffset < size
+      ark : rest -> if curOffset < ark_size ark
         then return (i, curOffset)
-        else go (i + 1) rest $ curOffset - size
+        else go (i + 1) rest $ curOffset - ark_size ark
     in go (0 :: Int) sizes offset
 
 readFileEntry :: (MonadFail m) => Hdr -> [Readable] -> FileEntry B.ByteString -> m Readable
@@ -153,10 +208,19 @@ readFileEntry hdr arks entry = do
 getFileArks :: Hdr -> FilePath -> [FilePath]
 getFileArks hdr hdrPath = case hdr_Arks hdr of
   Nothing -> [hdrPath -<.> "ARK"]
-  Just sizes -> zipWith
-    (\i _size -> dropExtension hdrPath <> "_" <> show (i :: Int) <> ".ARK")
+  Just arks -> zipWith
+    (\i ark -> case ark_path ark of
+      -- paths are e.g. "gen/main_ps3_0.ark"
+      Just p  -> takeDirectory (takeDirectory hdrPath) </> B8.unpack p
+      Nothing -> dropExtension hdrPath <> "_" <> show (i :: Int) <> ".ARK"
+    )
     [0..]
-    sizes
+    arks
+
+getArkReadables :: Hdr -> FilePath -> IO [Readable]
+getArkReadables hdr hdrPath = do
+  paths <- mapM fixFileCase $ getFileArks hdr hdrPath
+  return $ map fileReadable paths
 
 extractArk :: (MonadIO m, MonadFail m) => Hdr -> [Readable] -> FilePath -> m ()
 extractArk hdr arks dout = do

@@ -47,7 +47,7 @@ getSongList :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(T.Text,
 getSongList gen = do
   hdrPath <- fixFileCase $ gen </> "MAIN.HDR"
   hdr <- stackIO (BL.readFile hdrPath) >>= readHdr
-  let arks = map fileReadable $ getFileArks hdr hdrPath
+  arks <- stackIO $ getArkReadables hdr hdrPath
   dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") $ hdr_Files hdr of
     entry : _ -> do
       r <- readFileEntry hdr arks entry
@@ -136,7 +136,7 @@ importGH1Song pkg gen level = do
     lg $ "Importing GH1 song [" <> T.unpack (songName $ song pkg) <> "] from folder: " <> gen
   hdrPath <- fixFileCase $ gen </> "MAIN.HDR"
   hdr <- stackIO (BL.readFile hdrPath) >>= readHdr
-  let arks = map fileReadable $ getFileArks hdr hdrPath
+  arks <- stackIO $ getArkReadables hdr hdrPath
   folder <- mapM (readFileEntry hdr arks) $ entryFolder hdr
   let encLatin1 = B8.pack . T.unpack
       split s = case splitPath s of

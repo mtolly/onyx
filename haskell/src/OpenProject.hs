@@ -132,7 +132,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         foundImport "Frets on Fire/Phase Shift/Clone Hero" dir $ importFoF dir
       foundGH loc = do
         let dir = takeDirectory loc
-        stackIO (detectGameGH dir) >>= \case
+        stackIO (detectGameGH loc) >>= \case
           Nothing -> do
             warn $ "Couldn't detect GH game version for: " <> dir
             return ([], [])
@@ -140,9 +140,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           Just GameGH2 -> GH2.importGH2 dir >>= foundImports "Guitar Hero II" dir
           Just GameGH1 -> GH1.importGH1 dir >>= foundImports "Guitar Hero (1)" dir
           Just GameRB -> do
-            hdrPath <- fixFileCase $ dir </> "MAIN.HDR"
+            hdrPath <- fixFileCase loc
             hdr <- stackIO (BL.readFile hdrPath) >>= readHdr
-            let arks = map fileReadable $ getFileArks hdr hdrPath
+            arks <- stackIO $ getArkReadables hdr hdrPath
             folder <- mapM (readFileEntry hdr arks) $ entryFolder hdr
             importSTFSFolder dir (first TE.decodeLatin1 folder) >>= foundImports "Rock Band (.ARK)" dir
       foundDTXSet loc = importSet loc >>= foundImports "DTXMania (set.def)" (takeDirectory loc)
@@ -277,6 +277,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         , ("notes.chart", foundFoF)
         , ("set.def", foundDTXSet)
         , ("main.hdr", foundGH)
+        , ("main_ps3.hdr", foundGH)
+        , ("main_xbox.hdr", foundGH)
         ]
     else do
       case map toLower $ takeExtension fp of
@@ -304,6 +306,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           "song.ini" -> foundFoF fp
           "set.def" -> foundDTXSet fp
           "main.hdr" -> foundGH fp
+          "main_ps3.hdr" -> foundGH fp
+          "main_xbox.hdr" -> foundGH fp
           "default.xex" -> found360Game fp
           "datap.hed" -> foundGH3PS2 fp
           _ -> do
@@ -416,7 +420,7 @@ buildGHWORPKG gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targ
 
 installGH1 :: (MonadIO m) => TargetGH1 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 installGH1 gh1 proj gen = do
-  stackIO (detectGameGH gen) >>= \case
+  stackIO (detectGameGH $ gen </> "MAIN.HDR") >>= \case
     Nothing         -> fatal "Couldn't detect what game this ARK is for."
     Just GameGH1    -> return ()
     Just GameGH2    -> fatal "This appears to be a Guitar Hero II or 80's ARK!"
@@ -452,7 +456,7 @@ installGH1 gh1 proj gen = do
 
 installGH2 :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 installGH2 gh2 proj gen = do
-  isDX2 <- stackIO (detectGameGH gen) >>= \case
+  isDX2 <- stackIO (detectGameGH $ gen </> "MAIN.HDR") >>= \case
     Nothing         -> fatal "Couldn't detect what game this ARK is for."
     Just GameGH1    -> fatal "This appears to be a Guitar Hero (1) ARK!"
     Just GameGH2    -> do

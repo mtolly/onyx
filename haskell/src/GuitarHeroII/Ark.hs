@@ -25,14 +25,13 @@ import qualified Data.HashMap.Strict            as HM
 import           Data.List.Extra                (nubOrd, sortOn)
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe
-import           Data.SimpleHandle              (Folder (..), fileReadable,
-                                                 findFile, findFolder,
-                                                 handleToByteString, useHandle)
+import           Data.SimpleHandle              (Folder (..), findFile,
+                                                 findFolder, handleToByteString,
+                                                 useHandle)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeLatin1)
 import           Harmonix.Ark
 import           OSFiles                        (fixFileCase)
-import           System.FilePath                ((</>))
 import qualified System.IO                      as IO
 import           System.IO.Temp                 (withSystemTempFile)
 
@@ -138,11 +137,11 @@ data GameGH = GameGH1 | GameGH2 | GameGH2DX2 | GameRB
 detectGameGH
   :: FilePath
   -> IO (Maybe GameGH)
-detectGameGH gen = do
-  hdrPath <- fixFileCase $ gen </> "MAIN.HDR"
+detectGameGH inputHdr = do
+  hdrPath <- fixFileCase inputHdr
   hdr <- BL.readFile hdrPath >>= readHdr
+  arks <- getArkReadables hdr hdrPath
   let folder = entryFolder hdr
-      arks = map fileReadable $ getFileArks hdr hdrPath
       mids = do
         songDir <- toList $ findFolder ["songs"] folder
         song <- map snd $ folderSubfolders songDir
