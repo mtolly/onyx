@@ -5,9 +5,7 @@
 module Amplitude.PS2.Ark where
 
 import           Codec.Compression.GZip (decompress)
-import           Control.Monad.Extra    (concatForM, forM, forM_, replicateM)
-import           Data.Bifunctor         (bimap)
-import           Data.Binary.Get        (getInt32le, getWord32le, runGet)
+import           Control.Monad.Extra    (concatForM, forM, forM_)
 import           Data.Binary.Put        (putInt32le, putWord32le, runPut)
 import qualified Data.ByteString        as B
 import qualified Data.ByteString.Char8  as B8
@@ -16,104 +14,12 @@ import           Data.Foldable          (toList)
 import qualified Data.HashMap.Strict    as HM
 import           Data.List              (isSuffixOf)
 import           Data.List.Extra        (nubOrd)
-import qualified Data.List.NonEmpty     as NE
-import           Data.SimpleHandle      (Folder, Readable, fileReadable,
-                                         fromFiles, saveHandleFolder, subHandle)
-import qualified Data.Text              as T
 import           Data.Word              (Word32)
-import           OSFiles                (fixFileCase)
-import           System.Directory       (doesDirectoryExist, doesFileExist,
-                                         getFileSize, listDirectory)
-import           System.FilePath        (dropExtension, (</>))
+import           Harmonix.Ark
+import           System.Directory       (doesDirectoryExist, listDirectory)
+import           System.FilePath        ((</>))
 import           System.IO              (IOMode (..), SeekMode (..), hSeek,
                                          hTell, withBinaryFile)
-
-data FileEntry = FileEntry
-  { fe_offset  :: Word32 -- offset in bytes into the full .ark file
-  , fe_name    :: B.ByteString
-  , fe_folder  :: Maybe B.ByteString
-  , fe_size    :: Word32
-  , fe_inflate :: Word32 -- inflated size, or 0 if not gzipped.
-  -- Only ".bmp.gz" files in "gen" folders are gzipped (and they all are).
-  -- (Not actually .bmp -- likely the usual HMX image format like .png_xbox)
-  } deriving (Eq, Show)
-
-readFileEntries :: FilePath -> IO [FileEntry]
-readFileEntries ark = withBinaryFile ark ReadMode $ \h -> do
-  let w32 = runGet getWord32le . BL.fromStrict <$> B.hGet h 4
-  2 <- w32
-  entryCount <- w32
-  entryBytes <- B.hGet h $ fromIntegral entryCount * 20
-  stringSize <- w32
-  stringBytes <- B.hGet h $ fromIntegral stringSize
-  offsetCount <- w32
-  offsets <- replicateM (fromIntegral offsetCount) w32
-  let findString i = B.takeWhile (/= 0) $ B.drop (fromIntegral $ offsets !! fromIntegral i) stringBytes
-  return $ flip runGet (BL.fromStrict entryBytes) $ replicateM (fromIntegral entryCount) $ do
-    fe_offset <- getWord32le
-    fe_name <- findString <$> getInt32le
-    fe_folder <- (\i -> if i == -1 then Nothing else Just $ findString i) <$> getInt32le
-    fe_size <- getWord32le
-    fe_inflate <- getWord32le
-    return FileEntry{..}
-
-entryFolder :: [FileEntry] -> Folder B.ByteString FileEntry
-entryFolder entries = fromFiles $ flip map entries $ \entry -> let
-  path = case fe_folder entry >>= NE.nonEmpty . B8.split '/' of
-    Just dir -> dir <> return (fe_name entry)
-    Nothing  -> return (fe_name entry)
-  in (path, entry)
-
-data ArkSet
-  = ArkSingle FilePath
-  | ArkSplit (NE.NonEmpty (FilePath, Integer))
-
-selectArk :: ArkSet -> Integer -> (FilePath, Integer)
-selectArk (ArkSingle f    ) offset = (f, offset)
-selectArk (ArkSplit  split) offset = let
-  go parts curOffset = case NE.uncons parts of
-    ((part, _), Nothing) -> (part, curOffset)
-    ((part, size), Just rest) -> if size > curOffset
-      then (part, curOffset)
-      else go rest $ curOffset - size
-  in go split offset
-
-readFileEntry :: FileEntry -> ArkSet -> Readable
-readFileEntry entry arks = let
-  path = maybe id (\dir f -> dir <> "/" <> f) (fe_folder entry) (fe_name entry)
-  (ark, offset) = selectArk arks $ fromIntegral $ fe_offset entry
-  in subHandle
-    (<> (" | " <> B8.unpack path))
-    offset
-    (Just $ fromIntegral $ fe_size entry)
-    (fileReadable ark)
-
--- For multi part arks, GH(2?) and later
-findSplitArk :: FilePath -> IO [(FilePath, Integer)]
-findSplitArk hdr = let
-  arkPath n = dropExtension hdr <> "_" <> show (n :: Int) <> ".ark"
-  startFinding n = do
-    f <- fixFileCase $ arkPath n
-    doesFileExist f >>= \case
-      False -> return []
-      True  -> do
-        len <- getFileSize f
-        ((f, len) :) <$> startFinding (n + 1)
-  in startFinding 0
-
-findSplitArk' :: FilePath -> IO ArkSet
-findSplitArk' hdr = findSplitArk hdr >>= \arks -> case NE.nonEmpty arks of
-  Nothing -> fail $ "Couldn't find any ark pieces for hdr: " <> hdr
-  Just ne -> return $ ArkSplit ne
-
-extractArk :: [FileEntry] -> ArkSet -> FilePath -> IO ()
-extractArk entries arks dout = let
-  folder = bimap
-    -- handles guitar hero arks where weird paths start with "../../"
-    (\case ".." -> "dotdot"; p -> T.pack $ B8.unpack p)
-    (\entry -> readFileEntry entry arks)
-    (entryFolder entries)
-  in saveHandleFolder folder dout
 
 data FoundFile = FoundFile
   { ff_onDisk    :: FilePath
@@ -189,7 +95,7 @@ createArk dout ark = do
     w32 2
     w32 $ fromIntegral fileCount
     forM_ entries $ \entry -> do
-      w32 $ fe_offset entry
+      w32 $ fromIntegral $ fe_offset entry
       getStringIndex (fe_name entry) >>= i32
       maybe (return (-1)) getStringIndex (fe_folder entry) >>= i32
       w32 $ fe_size entry

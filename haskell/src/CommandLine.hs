@@ -12,7 +12,7 @@ module CommandLine
 , FileType(..)
 ) where
 
-import qualified Amplitude.PS2.Ark                as AmpArk
+import           Amplitude.PS2.Ark                as AmpArk
 import           Amplitude.PS2.TxtBin             (getTxtBin, txtBinToDTA)
 import           Audio                            (Audio (Input), audioLength,
                                                    audioMD5, makeFSB4,
@@ -54,8 +54,8 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
 import           Data.SimpleHandle                (byteStringSimpleHandle,
-                                                   crawlFolder, makeHandle,
-                                                   saveHandleFolder)
+                                                   crawlFolder, fileReadable,
+                                                   makeHandle, saveHandleFolder)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import qualified Data.Text.IO                     as TIO
@@ -65,6 +65,7 @@ import           GuitarHeroII.Audio               (readVGS)
 import           GuitarHeroII.File                (GH2File (..))
 import           GuitarHeroII.PartGuitar          (nullPart)
 import           GuitarHeroIOS                    (extractIGA)
+import qualified Harmonix.Ark                     as Ark
 import qualified Image
 import           Magma                            (getRBAFile, runMagma,
                                                    runMagmaMIDI, runMagmaV1)
@@ -1070,11 +1071,7 @@ commands =
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ return $ fin <> ".contents.txt"
-        arkVersion <- stackIO $ IO.withBinaryFile fin IO.ReadMode $ \h -> runGet getInt32le . BL.fromStrict <$> B.hGet h 4
-        case arkVersion of
-          2 -> stackIO $ AmpArk.readFileEntries fin >>= writeFile fout . unlines . map show
-          3 -> stackIO $ GHArk.readFileEntries fin >>= writeFile fout . unlines . map show
-          n -> fail $ "Unsupported ark version: " <> show n
+        stackIO $ BL.readFile fin >>= Ark.readHdr >>= writeFile fout . unlines . map show . Ark.hdr_Files
         return [fout]
       _ -> fatal "Expected 1 arg (.hdr, or .ark if none)"
     }
@@ -1084,20 +1081,11 @@ commands =
     , commandDesc = ""
     , commandUsage = ""
     , commandRun = \args opts -> case args of
-      [fin] -> do
-        dout <- outputFile opts $ return $ fin <> "_extract"
-        arkVersion <- stackIO $ IO.withBinaryFile fin IO.ReadMode $ \h -> runGet getInt32le . BL.fromStrict <$> B.hGet h 4
-        (arks, entries) <- case arkVersion of
-          2 -> do
-            entries <- stackIO $ AmpArk.readFileEntries fin
-            return (AmpArk.ArkSingle fin, entries)
-          3 -> do
-            entries <- stackIO $ GHArk.readFileEntries fin
-            arks <- stackIO $ AmpArk.findSplitArk' fin
-            return (arks, entries)
-          n -> fail $ "Unsupported ark version: " <> show n
-        stackIO $ Dir.createDirectoryIfMissing False dout
-        stackIO $ AmpArk.extractArk entries arks dout
+      [hdrPath] -> do
+        dout <- outputFile opts $ return $ hdrPath <> "_extract"
+        hdr <- stackIO (BL.readFile hdrPath) >>= Ark.readHdr
+        let arks = map fileReadable $ Ark.getFileArks hdr hdrPath
+        Ark.extractArk hdr arks dout
         return [dout]
       _ -> fatal "Expected 1 arg (.hdr, or .ark if none)"
     }

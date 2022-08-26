@@ -137,6 +137,7 @@ data SongPackage = SongPackage
   , videoVenues       :: Maybe [T.Text] -- lego
   , dateReleased      :: Maybe T.Text -- beatles, "YYYY-MM-DD" format
   , dateRecorded      :: Maybe T.Text -- beatles, "YYYY-MM-DD" format
+  , video             :: Bool -- rb2 ps2, 1 if bg video should get an extra 2 seconds (5 instead of 3) leadin for music video countdown
   -- rb2dx:
   , author            :: Maybe T.Text
   } deriving (Eq, Show)
@@ -193,4 +194,5 @@ instance StackChunks SongPackage where
     dateReleased      <- dateReleased      =. opt Nothing "date_released"       (chunksMaybe $ single chunkString)
     dateRecorded      <- dateRecorded      =. opt Nothing "date_recorded"       (chunksMaybe $ single chunkString)
     author            <- author            =. opt Nothing "author"              (chunksMaybe $ single chunkString)
+    video             <- video             =. opt False   "video"               stackChunks
     return SongPackage{..}

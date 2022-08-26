@@ -782,6 +782,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.encoding = Nothing
                     , D.extraAuthoring = Nothing
                     , D.alternatePath = Nothing
+                    , D.video = False
                     }
               liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Sym pkg : makeValue D.stackChunks newDTA))]
         let writeRB2DTA isPS3 out = do
@@ -1286,6 +1287,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
     , D.dateReleased = Nothing
     , D.dateRecorded = Nothing
     , D.author = _author $ _metadata songYaml
+    , D.video = False
     }
 
 makeC3 :: (Monad m) => SongYaml f -> Plan f -> TargetRB3 f -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m C3.C3

@@ -2,19 +2,15 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readSongListGH2, readSongListGH1, readFileEntries, extractArk, createHdrArk, GH2InstallLocation(..), addBonusSongGH2, addBonusSongGH1, GH2Installation(..)) where
+module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readSongListGH2, readSongListGH1, createHdrArk, GH2InstallLocation(..), addBonusSongGH2, addBonusSongGH1, GH2Installation(..)) where
 
-import           Amplitude.PS2.Ark              (FileEntry (..), FoundFile (..),
-                                                 entryFolder, extractArk,
-                                                 findSplitArk', makeStringBank,
-                                                 readFileEntry, traverseFolder)
+import           Amplitude.PS2.Ark              (FoundFile (..), makeStringBank,
+                                                 traverseFolder)
 import           ArkTool
 import           Codec.Compression.GZip         (decompress)
 import           Control.Monad.Extra            (firstJustM, forM, forM_, guard,
-                                                 replicateM, void)
+                                                 void)
 import           Control.Monad.Trans.StackTrace
-import           Data.Binary.Get                (getInt32le, getWord32le,
-                                                 runGet)
 import           Data.Binary.Put                (putInt32le, putWord32le,
                                                  runPut)
 import qualified Data.ByteString                as B
@@ -27,40 +23,20 @@ import qualified Data.DTA.Serialize.GH2         as GH2
 import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as HM
 import           Data.List.Extra                (nubOrd, sortOn)
+import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe
-import           Data.SimpleHandle              (Folder (..), findFolder,
+import           Data.SimpleHandle              (Folder (..), fileReadable,
+                                                 findFile, findFolder,
                                                  handleToByteString, useHandle)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeLatin1)
+import           Harmonix.Ark
 import           OSFiles                        (fixFileCase)
 import           System.FilePath                ((</>))
 import qualified System.IO                      as IO
 import           System.IO.Temp                 (withSystemTempFile)
 
 -- Haskell extract/repack stuff
-
-readFileEntries :: FilePath -> IO [FileEntry]
-readFileEntries hdr = IO.withBinaryFile hdr IO.ReadMode $ \h -> do
-  let w32 = runGet getWord32le . BL.fromStrict <$> B.hGet h 4
-  3 <- w32
-  arkCount <- w32
-  _arkCount2 <- w32
-  -- arkCount should equal _arkCount2
-  _arkSizes <- replicateM (fromIntegral arkCount) w32
-  stringSize <- w32
-  stringBytes <- B.hGet h $ fromIntegral stringSize
-  offsetCount <- w32
-  offsets <- replicateM (fromIntegral offsetCount) w32
-  entryCount <- w32
-  entryBytes <- B.hGet h $ fromIntegral entryCount * 20
-  let findString i = B.takeWhile (/= 0) $ B.drop (fromIntegral $ offsets !! fromIntegral i) stringBytes
-  return $ flip runGet (BL.fromStrict entryBytes) $ replicateM (fromIntegral entryCount) $ do
-    fe_offset <- getWord32le
-    fe_name <- findString <$> getInt32le
-    fe_folder <- (\i -> if i == -1 then Nothing else Just $ findString i) <$> getInt32le
-    fe_size <- getWord32le
-    fe_inflate <- getWord32le
-    return FileEntry{..}
 
 createHdrArk :: FilePath -> FilePath -> FilePath -> IO ()
 createHdrArk dout hdr ark = do
@@ -102,7 +78,7 @@ createHdrArk dout hdr ark = do
     mapM_ w32 offsets
     w32 $ fromIntegral fileCount
     forM_ entries $ \entry -> do
-      w32 $ fe_offset entry
+      w32 $ fromIntegral $ fe_offset entry
       getStringIndex (fe_name entry) >>= i32
       maybe (return (-1)) getStringIndex (fe_folder entry) >>= i32
       w32 $ fe_size entry
@@ -153,7 +129,7 @@ readSongListGH1 dta = let
 
 -- ArkTool stuff
 
-data GameGH = GameGH1 | GameGH2 | GameGH2DX2
+data GameGH = GameGH1 | GameGH2 | GameGH2DX2 | GameRB
   deriving (Show)
 
 -- TODO: find better way to do this.
@@ -163,10 +139,11 @@ detectGameGH
   :: FilePath
   -> IO (Maybe GameGH)
 detectGameGH gen = do
-  hdr <- fixFileCase $ gen </> "MAIN.HDR"
-  arks <- findSplitArk' hdr
-  folder <- entryFolder <$> readFileEntries hdr
-  let mids = do
+  hdrPath <- fixFileCase $ gen </> "MAIN.HDR"
+  hdr <- BL.readFile hdrPath >>= readHdr
+  let folder = entryFolder hdr
+      arks = map fileReadable $ getFileArks hdr hdrPath
+      mids = do
         songDir <- toList $ findFolder ["songs"] folder
         song <- map snd $ folderSubfolders songDir
         (name, entry) <- folderFiles song
@@ -174,7 +151,8 @@ detectGameGH gen = do
         return entry
       checkEntry entry = do
         -- could parse whole midi but this is fine
-        bs <- BL.toStrict <$> useHandle (readFileEntry entry arks) handleToByteString
+        r <- readFileEntry hdr arks entry
+        bs <- BL.toStrict <$> useHandle r handleToByteString
         return $ if
           | "T1 GEMS"     `B.isInfixOf` bs -> Just GameGH1
           | "PART GUITAR" `B.isInfixOf` bs -> Just $ if isStockGH2 then GameGH2 else GameGH2DX2
@@ -182,7 +160,9 @@ detectGameGH gen = do
       isStockGH2 = isJust $ do
         configGen <- findFolder ["config", "gen"] folder
         lookup "gh2_version.dtb" $ folderFiles configGen
-  firstJustM checkEntry mids
+  case findFile ("songs" :| ["gen", "songs.dtb"]) folder of
+    Just _  -> return $ Just GameRB
+    Nothing -> firstJustM checkEntry mids
 
 data GH2InstallLocation
   = GH2Replace B.ByteString

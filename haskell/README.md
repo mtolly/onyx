@@ -84,9 +84,7 @@ Onyx can import the following song formats:
 
     * First extract the ISO. Use something like Apache3 to get the 2nd layer
       of the dual layer discs, as most programs do not support this.
-    * Then extract the ARK contents using something like arkhelper.
-    * Finally drag and drop the extracted folder directly onto the "Load a song"
-      button to import, or into the Batch process window.
+    * Then import from either `GEN` or `MAIN.HDR`.
 
   * Rock Band 4 PlayStation 4 extracted files
     (tentative support, may not work for everything)

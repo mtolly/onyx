@@ -39,6 +39,7 @@ import           GuitarHeroII.Ark               (GH2Installation (..),
                                                  addBonusSongGH2, detectGameGH)
 import           GuitarHeroII.Convert           (adjustSongText)
 import           GuitarPro                      (parseGP, parseGPX)
+import           Harmonix.Ark
 import           Import.Amplitude2016           (importAmplitude)
 import           Import.Base                    (ImportLevel (..), saveImport)
 import           Import.BMS                     (importBMS)
@@ -56,6 +57,7 @@ import           Import.PowerGig                (importPowerGig)
 import           Import.RockBand                (importRB4, importRBA,
                                                  importSTFSFolder)
 import           Import.Rocksmith               as RS
+import           OSFiles                        (fixFileCase)
 import           PlayStation.PKG                (getDecryptedUSRDIR, loadPKG,
                                                  pkgFolder, tryDecryptEDAT)
 import           Preferences
@@ -137,6 +139,12 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           Just GameGH2DX2 -> GH2.importGH2 dir >>= foundImports "Guitar Hero II (DX)" dir
           Just GameGH2 -> GH2.importGH2 dir >>= foundImports "Guitar Hero II" dir
           Just GameGH1 -> GH1.importGH1 dir >>= foundImports "Guitar Hero (1)" dir
+          Just GameRB -> do
+            hdrPath <- fixFileCase $ dir </> "MAIN.HDR"
+            hdr <- stackIO (BL.readFile hdrPath) >>= readHdr
+            let arks = map fileReadable $ getFileArks hdr hdrPath
+            folder <- mapM (readFileEntry hdr arks) $ entryFolder hdr
+            importSTFSFolder dir (first TE.decodeLatin1 folder) >>= foundImports "Rock Band (.ARK)" dir
       foundDTXSet loc = importSet loc >>= foundImports "DTXMania (set.def)" (takeDirectory loc)
       foundDTX loc = foundImport "DTXMania" loc $ importDTX loc
       foundBME loc = foundImport "Be-Music Source" loc $ importBMS loc
@@ -413,6 +421,7 @@ installGH1 gh1 proj gen = do
     Just GameGH1    -> return ()
     Just GameGH2    -> fatal "This appears to be a Guitar Hero II or 80's ARK!"
     Just GameGH2DX2 -> fatal "This appears to be a Guitar Hero II Deluxe ARK!"
+    Just GameRB     -> fatal "This appears to be a Rock Band ARK!"
   dir <- buildGH1Dir gh1 proj
   files <- stackIO $ Dir.listDirectory dir
   dta <- stackIO $ readFileDTA $ dir </> "songs-inner.dta"
@@ -452,6 +461,7 @@ installGH2 gh2 proj gen = do
     Just GameGH2DX2 -> do
       lg "ARK detected as GH2 Deluxe with drums support."
       return True
+    Just GameRB     -> fatal "This appears to be a Rock Band ARK!"
   dir <- buildGH2Dir gh2 proj
   files <- stackIO $ Dir.listDirectory dir
   dta <- stackIO $ readFileDTA $ if isDX2

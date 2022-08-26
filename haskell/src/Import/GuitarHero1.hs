@@ -3,8 +3,6 @@
 {-# LANGUAGE TupleSections     #-}
 module Import.GuitarHero1 where
 
-import           Amplitude.PS2.Ark                (FileEntry (..), entryFolder,
-                                                   findSplitArk', readFileEntry)
 import           Audio                            (Audio (..),
                                                    decibelDifferenceInPanRatios)
 import           Config
@@ -31,11 +29,11 @@ import           Data.Maybe                       (catMaybes)
 import           Data.SimpleHandle
 import qualified Data.Text                        as T
 import           GuitarHeroI.File
-import           GuitarHeroII.Ark                 (readFileEntries,
-                                                   readSongListGH1)
+import           GuitarHeroII.Ark                 (readSongListGH1)
 import           GuitarHeroII.Audio               (splitOutVGSChannels,
                                                    vgsChannelCount)
 import           GuitarHeroII.PartGuitar
+import           Harmonix.Ark
 import           Import.Base
 import           OSFiles                          (fixFileCase)
 import qualified RockBand.Codec.Events            as RB
@@ -47,19 +45,21 @@ import           System.FilePath                  ((<.>), (</>))
 
 getSongList :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(T.Text, SongPackage)]
 getSongList gen = do
-  hdr <- fixFileCase $ gen </> "MAIN.HDR"
-  entries <- stackIO $ readFileEntries hdr
-  arks <- stackIO $ findSplitArk' hdr
-  dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") entries of
-    entry : _ -> stackIO $ useHandle (readFileEntry entry arks) handleToByteString
+  hdrPath <- fixFileCase $ gen </> "MAIN.HDR"
+  hdr <- stackIO (BL.readFile hdrPath) >>= readHdr
+  let arks = map fileReadable $ getFileArks hdr hdrPath
+  dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") $ hdr_Files hdr of
+    entry : _ -> do
+      r <- readFileEntry hdr arks entry
+      stackIO $ useHandle r handleToByteString
     []        -> fatal "Couldn't find songs.dtb"
-  fmap (addTrippolette entries . addGraveyardShift entries) $ readSongListGH1 $ D.decodeDTB $ decrypt oldCrypt dtb
+  fmap (addTrippolette hdr . addGraveyardShift hdr) $ readSongListGH1 $ D.decodeDTB $ decrypt oldCrypt dtb
 
 -- Hacks on DTA info to be able to import Trippolette (if mid/vgs present and it's not already in dta).
-addTrippolette :: [FileEntry] -> [(T.Text, SongPackage)] -> [(T.Text, SongPackage)]
-addTrippolette entries songs = let
+addTrippolette :: Hdr -> [(T.Text, SongPackage)] -> [(T.Text, SongPackage)]
+addTrippolette hdr songs = let
   hasTripFiles = all
-    (\fn -> any (\fe -> fe_folder fe == Just "songs/advharmony" && fe_name fe == fn) entries)
+    (\fn -> any (\fe -> fe_folder fe == Just "songs/advharmony" && fe_name fe == fn) $ hdr_Files hdr)
     ["advharmony.mid", "advharmony.vgs"]
   alreadyTrip = any ((== "advharmony") . fst) songs
   tripPackage = SongPackage
@@ -92,10 +92,10 @@ addTrippolette entries songs = let
     else songs
 
 -- Hacks on DTA info to be able to import Graveyard Shift (if mid/vgs present and it's not already in dta).
-addGraveyardShift :: [FileEntry] -> [(T.Text, SongPackage)] -> [(T.Text, SongPackage)]
-addGraveyardShift entries songs = let
+addGraveyardShift :: Hdr -> [(T.Text, SongPackage)] -> [(T.Text, SongPackage)]
+addGraveyardShift hdr songs = let
   hasGraveFiles = all
-    (\fn -> any (\fe -> fe_folder fe == Just "songs/graveyardshift" && fe_name fe == fn) entries)
+    (\fn -> any (\fe -> fe_folder fe == Just "songs/graveyardshift" && fe_name fe == fn) $ hdr_Files hdr)
     ["graveyardshift.mid", "graveyardshift.vgs"]
   alreadyGrave = any ((== "graveyardshift") . fst) songs
   tripPackage = SongPackage
@@ -134,11 +134,11 @@ importGH1Song :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> 
 importGH1Song pkg gen level = do
   when (level == ImportFull) $ do
     lg $ "Importing GH1 song [" <> T.unpack (songName $ song pkg) <> "] from folder: " <> gen
-  hdr <- fixFileCase $ gen </> "MAIN.HDR"
-  entries <- stackIO $ readFileEntries hdr
-  arks <- stackIO $ findSplitArk' hdr
-  let folder = fmap (\entry -> readFileEntry entry arks) $ entryFolder entries
-      encLatin1 = B8.pack . T.unpack
+  hdrPath <- fixFileCase $ gen </> "MAIN.HDR"
+  hdr <- stackIO (BL.readFile hdrPath) >>= readHdr
+  let arks = map fileReadable $ getFileArks hdr hdrPath
+  folder <- mapM (readFileEntry hdr arks) $ entryFolder hdr
+  let encLatin1 = B8.pack . T.unpack
       split s = case splitPath s of
         Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
         Just p  -> return p

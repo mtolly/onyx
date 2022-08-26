@@ -95,7 +95,7 @@ importSTFSFolder src folder = do
   -- TODO support songs/gen/songs.dtb instead
   packSongs <- stackIO (findByteString ("songs" :| ["songs.dta"]) folder) >>= \case
     Nothing -> stackIO (findByteString ("songs" :| ["gen", "songs.dtb"]) folder) >>= \case
-      Nothing -> fatal "Couldn't find songs/songs.dta or songs/songs.dtb"
+      Nothing -> fatal "Couldn't find songs/songs.dta or songs/gen/songs.dtb"
       Just bs -> readDTBSingles $ BL.toStrict bs
     Just bs -> readDTASingles $ BL.toStrict bs
   updateDir <- stackIO rb3Updates
@@ -217,8 +217,9 @@ dtaIsRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc", "ugc_plus"]) $ D.gameOrigi
 dtaIsHarmonixRB3 :: D.SongPackage -> Bool
 dtaIsHarmonixRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc"]) $ D.gameOrigin pkg
 
-rockBandPS2PreSongTime :: (Fractional a) => a
-rockBandPS2PreSongTime = 3 -- seconds
+-- Time in seconds that the video/audio should start before the midi begins.
+rockBandPS2PreSongTime :: (Fractional a) => D.SongPackage -> a
+rockBandPS2PreSongTime pkg = if D.video pkg then 5 else 3
 
 importRB :: (SendMessage m, MonadIO m) => RBImport -> Import m
 importRB rbi level = do
@@ -431,7 +432,7 @@ importRB rbi level = do
       , _fileSongAnim        = songAnim
       , _backgroundVideo     = flip fmap video $ \videoFile -> VideoInfo
         { _fileVideo      = videoFile
-        , _videoStartTime = Just rockBandPS2PreSongTime
+        , _videoStartTime = Just $ rockBandPS2PreSongTime pkg
         , _videoEndTime   = Nothing
         , _videoLoop      = False
         }
@@ -456,7 +457,7 @@ importRB rbi level = do
             [ concatMap snd instChans
             , maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
             ]
-          audioAdjust = Drop Start $ CA.Seconds rockBandPS2PreSongTime
+          audioAdjust = Drop Start $ CA.Seconds $ rockBandPS2PreSongTime pkg
           mixChans cs = do
             cs' <- NE.nonEmpty cs
             Just $ case cs' of
@@ -721,6 +722,7 @@ importRB4 fdta level = do
         , D.dateReleased      = Nothing
         , D.dateRecorded      = Nothing
         , D.author            = Nothing
+        , D.video             = False
         }
 
   importRB RBImport
