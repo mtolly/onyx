@@ -265,6 +265,7 @@ data RebuildState = RebuildState
 
 fnv132lowercase :: B.ByteString -> Word32
 fnv132lowercase = go 2166136261 . B8.unpack where
+  -- should probably be made strict
   go cur []       = cur
   go cur (c : cs) = go ((cur * 16777619) `xor` byte c) cs
   byte :: Char -> Word32

@@ -1,5 +1,7 @@
 audio-*.*
 *.mogg
+*.xma
+*.vgs
 video-*.*
 video.*
 preview-audio.*

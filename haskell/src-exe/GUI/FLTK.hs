@@ -4343,14 +4343,14 @@ miscPageMOGG sink rect tab startTasks = mdo
             in op <> " (" <> T.pack (show chans) <> " channels)"
           FL.setLabel btnVgs $ "Combine into VGS (" <> T.pack (show chans) <> " channels)"
           FL.setLabel btnFsb3 $ T.concat
-            [ "Make FSB3-XMA ("
+            [ "Make FSB3-XMA1 ("
             , T.pack $ show $ length newAudio
             , " streams, "
             , T.pack $ show chans
             , " channels total)"
             ]
           FL.setLabel btnFsb4 $ T.concat
-            [ "Make FSB4-XMA ("
+            [ "Make FSB4-XMA2 ("
             , T.pack $ show chans
             , " channels)"
             ]

@@ -28,9 +28,10 @@ import qualified Data.HashMap.Strict            as Map
 import           Data.Int                       (Int32)
 import           Data.List.Extra                (stripSuffix)
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
-import           Data.Maybe                     (fromMaybe, mapMaybe)
+import           Data.Maybe                     (fromMaybe, isJust, mapMaybe)
 import           Data.SimpleHandle              (Folder (..), crawlFolder,
-                                                 fileReadable, findFile)
+                                                 fileReadable, findFile,
+                                                 findFileCI, findFolder)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (encodeUtf8)
 import qualified Data.Text.Encoding             as TE
@@ -56,6 +57,7 @@ import           Import.Neversoft               (importGH3Disc, importGH3PS2,
 import           Import.PowerGig                (importPowerGig)
 import           Import.RockBand                (importRB4, importRBA,
                                                  importSTFSFolder)
+import           Import.RockRevolution          (importRR)
 import           Import.Rocksmith               as RS
 import           OSFiles                        (fixFileCase)
 import           PlayStation.PKG                (getDecryptedUSRDIR, loadPKG,
@@ -190,6 +192,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             bases -> do
               imps <- concat <$> mapM (importPowerGig folder) bases
               foundImports "Power Gig (Xbox 360 DLC)" loc imps
+          , case findFolder ["data"] folder of
+            Just dataDir -> foundImports "Rock Revolution (Xbox 360 DLC)" loc $ importRR dataDir
+            Nothing -> return ([], [])
           ]
       foundRS psarc = importRS (fileReadable psarc) >>= foundImports "Rocksmith" psarc
       foundRSPS3 edat = do
@@ -223,16 +228,21 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         dir <- stackIO $ crawlFolder $ takeDirectory loc
         let base = T.takeWhile (/= '.') $ T.pack $ takeFileName loc
         imps <- importPowerGig dir base
-        foundImports "Power Gig (Xbox 360)" loc imps
+        foundImports "Power Gig" loc imps
       foundFreetar loc = foundImports "Freetar" loc [importFreetar loc]
       found360Game xex = do
         let loc = takeDirectory xex
         dir <- stackIO $ crawlFolder loc
-        if any (\(name, _) -> T.toUpper name == "DATA") $ folderSubfolders dir
-          then do
-            imps <- importGH3Disc loc dir
-            foundImports "Guitar Hero III (360)" loc imps
-          else return ([], [])
+        if  | isJust $ findFileCI ("gen" :| ["main_xbox.hdr"]) dir
+              -> foundGH $ loc </> "gen/main_xbox.hdr"
+            | isJust $ findFileCI ("Data" :| ["Frontend", "FE_Config.lua"]) dir -> let
+              songsDir = fromMaybe mempty $ findFolder ["Data", "Songs"] dir
+              in foundImports "Rock Revolution (360)" loc $ importRR songsDir
+            | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "GH3_Intro.bik.xen"]) dir
+              -> importGH3Disc loc dir >>= foundImports "Guitar Hero III (360)" loc
+            | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "loading_flipbook.bik.xen"]) dir
+              -> warn "Guitar Hero World Tour not supported (yet)" >> return ([], [])
+            | otherwise -> warn "Unrecognized Xbox 360 game" >> return ([], [])
       foundGH3PS2 hed = do
         let loc = takeDirectory hed
         dir <- stackIO $ crawlFolder loc

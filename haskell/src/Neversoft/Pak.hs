@@ -51,6 +51,7 @@ decompressPakGH4 bs = let
         0xffffffff -> return dec
         _          -> (dec <>) <$> decompressPakGH4 (BL.drop (fromIntegral next) bs)
 
+-- TODO this apparently doesn't work for PS3 ("invalid block type") at least qb.pab.ps3
 decompressPakGH3 :: (MonadFail m) => BL.ByteString -> m BL.ByteString
 decompressPakGH3 bs = tryDecompress Z.zlibFormat True $ BL.pack [0x58, 0x85] <> bs
 

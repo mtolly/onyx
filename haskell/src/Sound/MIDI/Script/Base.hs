@@ -98,7 +98,14 @@ toStandardMIDI (F.Cons F.Parallel (F.Ticks res) trks) = let
     [] -> Right $ StandardMIDI tempo $ catMaybes named
     unnamedIndexes -> Left $
       "Tracks without names (0 is tempo track): " ++ show unnamedIndexes
-toStandardMIDI _ = Left "Not a type-1 (parallel) ticks-based MIDI"
+toStandardMIDI (F.Cons F.Mixed (F.Ticks res) [trk]) = let
+  trk' = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral res) trk
+  (tempos, noTempos) = flip RTB.partition trk' $ \e -> case e of
+    E.MetaEvent M.SetTempo{} -> True
+    E.MetaEvent M.TimeSig{}  -> True
+    _                        -> False
+  in Right $ StandardMIDI tempos [("mixed-midi", noTempos)]
+toStandardMIDI _ = Left "Unsupported MIDI format: must be ticks-based, and must be type-1 (parallel) or type-0 (mixed) with a single track"
 
 fromStandardMIDI :: Options -> StandardMIDI E.T -> (F.T, Maybe String)
 fromStandardMIDI opts sm = let

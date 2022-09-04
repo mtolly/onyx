@@ -39,7 +39,7 @@ module Audio
 , stereoPanRatios, fromStereoPanRatios, decibelDifferenceInPanRatios
 , emptyChannels
 , remapChannels
-, makeFSB4, makeFSB4', makeGH3FSB, makeXMAPieces, makeFSB3
+, makeFSB4, makeFSB4', makeXMAPieces, makeFSB3
 ) where
 
 import           Control.Concurrent               (threadDelay)
@@ -596,6 +596,7 @@ audioLength f = case map toLower $ takeExtension f of
   _      -> if supportedFFExt f
     then liftIO $ Just . fromIntegral . frames <$> ffSourceSimple f
     else return Nothing
+  -- TODO does this not work for .xma
 
 audioChannels :: (MonadIO m) => FilePath -> m (Maybe Int)
 audioChannels f = if supportedFFExt f
@@ -957,18 +958,8 @@ makeFSB3 inputs fsb = do
     madeXMA <- inside ("converting WAV to XMA: " <> wav) $ do
       str <- stackProcess createProc
       when (any (not . isSpace) str) $ lg str
-      stackIO (BL.readFile xma) >>= parseXMA2
+      stackIO (BL.readFile xma) >>= parseXMA2 >>= xma2To1
     return (name, madeXMA)
-  -- TODO this is wrong, need to make separate xmasToFSB3
-  madeFSB <- toGH3FSB <$> xmasToFSB4 inputs'
+  madeFSB <- xmasToFSB3 inputs'
   stackIO $ BL.writeFile fsb $ emitFSB madeFSB
   lg $ "Created XMA (Xbox 360) FSB3 at: " <> fsb
-
-makeGH3FSB :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
-makeGH3FSB gtr preview rhythm song = makeFSB3
-  -- don't think the names matter, just the positions
-  [ ("onyx_guitar.xma", gtr)
-  , ("onyx_preview.xma", preview)
-  , ("onyx_rhythm.xma", rhythm)
-  , ("onyx_song.xma", song)
-  ]

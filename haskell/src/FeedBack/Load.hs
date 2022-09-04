@@ -38,6 +38,8 @@ import           RockBand.Codec.Six
 import           RockBand.Codec.Vocal
 import           RockBand.Common
 import           RockBand.Sections                (makeRB2Section)
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
 import           Text.Decode                      (decodeGeneral)
 import           Text.Read                        (readMaybe)
@@ -74,6 +76,13 @@ parseTrack lns = do
 parseEvent :: (Monad m) => [Atom] -> StackTraceT m (Event Ticks)
 parseEvent = \case
   [Str "TS", Int i] -> return $ TimeSig i 2
+  -- I haven't seen this form in published charts, but it is written
+  -- for non-*/4 signatures by https://github.com/EFHIII/midi-ch
+  -- For example 7/8 becomes "TS 3.5"
+  [Str "TS", Real r] -> case U.showSignature $ realToFrac r of
+    Just (E.MetaEvent (Meta.TimeSig n d _ _)) -> return $ TimeSig (fromIntegral n) (fromIntegral d)
+    _                                         -> fatal $
+      "Unsupported fractional time signature (non-base-2 denominator): " <> show r
   [Str "TS", Int i, Int d] -> return $ TimeSig i d
   [Str "B", Int i] -> return $ BPM $ MkFixed i
   [Str "A", Int i] -> return $ Anchor $ MkFixed i

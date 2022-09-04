@@ -82,6 +82,20 @@ fileId = id
 class ParseFile f where
   parseFile :: (SendMessage m) => FileCodec m U.Beats (f U.Beats)
 
+parseTrackReport :: (SendMessage m, ParseTrack trk) => RTB.T U.Beats E.T -> StackTraceT m (trk U.Beats)
+parseTrackReport trk = do
+  (parsedTrk, unrec) <- flip mapStackTraceT (codecIn parseTrack) $ \input -> do
+    (errorOrParsed, unrec) <- runStateT input
+      $ fixZeroLengthNotes (1/480 :: U.Beats)
+      $ mapMIDITrack RTB.fromAbsoluteEventList
+      $ getMIDITrack $ RTB.toAbsoluteEventList 0 trk
+    case errorOrParsed of
+      Left  msgs      -> return $ Left msgs
+      Right parsedTrk -> return $ Right (parsedTrk, unrec)
+  let unrec' = mapMIDITrack toList unrec
+  forM_ (nubOrd $ putMIDITrack (++) unrec') $ \e -> warn $ "Unrecognized MIDI event: " ++ show e
+  return parsedTrk
+
 fileTrack :: (SendMessage m, ParseTrack trk) => NonEmpty T.Text -> FileCodec m U.Beats (trk U.Beats)
 fileTrack (name :| otherNames) = Codec
   { codecIn = do
@@ -89,19 +103,8 @@ fileTrack (name :| otherNames) = Codec
     let (match, rest) = partition matchTrack trks
         match' = stripTrack $ foldr RTB.merge RTB.empty match
         name' = fromMaybe (T.unpack name) $ U.trackName match'
-        mt = fixZeroLengthNotes (1/480 :: U.Beats)
-          $ mapMIDITrack RTB.fromAbsoluteEventList
-          $ getMIDITrack $ RTB.toAbsoluteEventList 0 match'
     lift $ put rest
-    inside ("Parsing track: " ++ name') $ do
-      (parsedTrk, unrec) <- flip mapStackTraceT (codecIn parseTrack) $ \input -> do
-        (errorOrParsed, unrec) <- lift $ runStateT input mt
-        case errorOrParsed of
-          Left  msgs      -> return $ Left msgs
-          Right parsedTrk -> return $ Right (parsedTrk, unrec)
-      let unrec' = mapMIDITrack toList unrec
-      forM_ (nubOrd $ putMIDITrack (++) unrec') $ \e -> warn $ "Unrecognized MIDI event: " ++ show e
-      return parsedTrk
+    inside ("Parsing track: " ++ name') $ parseTrackReport match'
   , codecOut = fmapArg $ \trk -> let
     evs = (`execState` RTB.empty) $ codecOut (forcePure parseTrack) trk
     in unless (RTB.null evs) $ tell [U.setTrackName (T.unpack name) evs]
@@ -533,6 +536,26 @@ readMIDIFile mid = do
       return (U.makeTempoMap tempoTrk, U.makeMeasureMap U.Truncate tempoTrk, restTrks)
   let s_tracks = map (RTB.flatten . fmap nubOrd . RTB.collectCoincident) s_tracks_nodupe
   return Song{..}
+
+-- | Used for reading midis we expect to be type-0, for Rock Revolution
+readMixedMIDI :: (Monad m) => F.T -> StackTraceT m (Song (RTB.T U.Beats E.T))
+readMixedMIDI mid = case mid of
+  F.Cons F.Mixed _ _ -> case U.decodeFile mid of
+    Left [trk] -> let
+      s_tempos = U.makeTempoMap trk
+      s_signatures = U.makeMeasureMap U.Truncate trk
+      s_tracks = flip RTB.filter trk $ \case
+        -- various events we don't need to look at
+        E.MetaEvent Meta.TrackName{}      -> False
+        E.MetaEvent Meta.SetTempo{}       -> False
+        E.MetaEvent Meta.TimeSig{}        -> False
+        E.MetaEvent Meta.SMPTEOffset{}    -> False
+        E.MetaEvent Meta.KeySig{}         -> False
+        E.MetaEvent Meta.InstrumentName{} -> False
+        _                                 -> True
+      in return Song{..}
+    _ -> fatal "Not exactly 1 track in 'mixed' (type-0) MIDI file"
+  F.Cons typ _ _ -> fatal $ "Expected a 'mixed' (type-0) MIDI file but found: " <> show typ
 
 -- | Strips comments and track names from the track before handing it to a track parser.
 stripTrack :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T

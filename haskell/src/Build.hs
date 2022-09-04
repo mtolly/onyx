@@ -163,7 +163,13 @@ gh3Rules buildInfo dir gh3 = do
       pathFsbXen = dir </> "gh3" </> ("DLC" <> show songID <> ".fsb.xen")
   pathFsb %> \out -> do
     shk $ need [pathGuitar, pathPreview, pathRhythm, pathSong]
-    makeGH3FSB pathGuitar pathPreview pathRhythm pathSong out
+    makeFSB3
+      [ ("onyx_guitar.xma", pathGuitar)
+      , ("onyx_preview.xma", pathPreview)
+      , ("onyx_rhythm.xma", pathRhythm)
+      , ("onyx_song.xma", pathSong)
+      ] out
+
   pathFsbXen %> \out -> do
     shk $ need [pathFsb]
     fsb <- stackIO $ BL.readFile pathFsb

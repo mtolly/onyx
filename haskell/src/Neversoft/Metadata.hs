@@ -280,3 +280,13 @@ getGH3Dat = do
     0 <- getWord32be
     return (nameKey, streamIndex)
   return GH3Dat{..}
+
+{-
+wii notes:
+*.wad.ngc are several single track FSB3 glued together into one file. dunno codec yet
+*.dat.ngc are different from 360: each track is
+  qb key (like 360)
+  start bytes in wad
+  end bytes in wad (or length? didn't check)
+  8 bytes 0
+-}

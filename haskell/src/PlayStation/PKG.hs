@@ -280,6 +280,21 @@ loadPKG f = withBinaryFile f ReadMode $ \h -> do
 
   return PKG{..}
 
+-- Games that use the folder-MD5 KLIC generation (NPData.rockBandKLIC)
+rockBandIDs :: [B.ByteString]
+rockBandIDs =
+  [ "BLUS30050", "BLES00228" -- RB1
+  , "BLUS30463", "BLES00986" -- RB3
+  , "BLUS30282", "BLES00532" -- TBRB
+  -- Haven't seen any .pkg actually using the rest of these
+  , "BLUS30147", "BLES00385" -- RB2
+  , "BLUS30350", "BLES00787" -- GDRB
+  , "BLUS30351" -- Country Track Pack
+  , "BLUS30623" -- Country Track Pack 2
+  , "BLUS30352" -- Metal Track Pack
+  , "BLUS30327" -- Classic Rock Track Pack
+  ]
+
 tryDecryptEDAT
   :: (MonadIO m, SendMessage m)
   => B.ByteString
@@ -300,21 +315,16 @@ tryDecryptEDAT dir name readable = do
         "BLUS30487" -> do
           lg "Decrypting GH:WoR EDAT file"
           return $ Just ghworKLIC
-        "BLUS30050" -> do
-          lg "Decrypting Rock Band (1) EDAT file"
-          return $ Just $ rockBandKLIC dir
-        "BLUS30463" -> do
-          lg "Decrypting Rock Band 3 EDAT file"
-          return $ Just $ rockBandKLIC dir
-        "BLUS30282" -> do
-          lg "Decrypting The Beatles: Rock Band EDAT file"
-          return $ Just $ rockBandKLIC dir
         "BLUS30670" -> do
           lg "Decrypting Rocksmith 2014 EDAT file"
           return $ Just rs2014KLIC
-        _ -> do
-          warn $ "Unknown KLIC for game ID " <> show gameID
-          return Nothing
+        _ -> if elem gameID rockBandIDs
+          then do
+            lg "Decrypting Rock Band EDAT file"
+            return $ Just $ rockBandKLIC dir
+          else do
+            warn $ "Unknown KLIC for game ID " <> show gameID
+            return Nothing
       case mklic of
         Nothing -> return Nothing
         Just klic -> do

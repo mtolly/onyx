@@ -15,9 +15,8 @@ module CommandLine
 import           Amplitude.PS2.Ark                as AmpArk
 import           Amplitude.PS2.TxtBin             (getTxtBin, txtBinToDTA)
 import           Audio                            (Audio (Input), audioLength,
-                                                   audioMD5, makeFSB4,
-                                                   makeFSB4', makeGH3FSB,
-                                                   runAudio)
+                                                   audioMD5, makeFSB3, makeFSB4,
+                                                   makeFSB4', runAudio)
 import           Build                            (shakeBuildFiles)
 import           Codec.Picture                    (writePng)
 import           Config
@@ -84,6 +83,7 @@ import           Neversoft.QB                     (discardStrings, lookupQB,
                                                    lookupQS, parseQB, putQB)
 import           OpenProject
 import           OSFiles                          (copyDirRecursive,
+                                                   fixFileCase,
                                                    shortWindowsPath)
 import           PlayStation.PKG                  (PKG (..), loadPKG, makePKG,
                                                    tryDecryptEDATs)
@@ -1202,19 +1202,31 @@ commands =
     }
 
   , Command
-    { commandWord = "decrypt-fsb"
-    , commandDesc = "Decrypt an .fsb.xen from a Neversoft GH game."
-    , commandUsage = ""
-    , commandRun = \args opts -> fmap concat $ forM args $ \enc -> do
-      dec <- stackIO (decryptFSB enc) >>= maybe (fatal "Couldn't decrypt GH .fsb.(xen/ps3) audio") return
-      out <- outputFile opts $ return $ case stripSuffix ".fsb.xen" enc <|> stripSuffix ".fsb.ps3" enc <|> stripSuffix ".FSB.PS3" enc of
-        Just root -> root <.> "fsb"
-        Nothing   -> enc <.> "fsb"
-      stackIO $ BL.writeFile out dec
-      let contentsDir = out <> "_contents"
-      stackIO $ Dir.createDirectoryIfMissing False contentsDir
-      stackIO $ splitFSBStreamsToDir out contentsDir
-      return [out, contentsDir]
+    { commandWord = "split-fsb"
+    , commandDesc = "Split an .fsb into streams, and optionally first decrypt an .fsb.* from a Neversoft GH game."
+    , commandUsage = T.unlines
+      [ "onyx split-fsb in.fsb"
+      , "onyx split-fsb in.fsb.xen"
+      , "onyx split-fsb in.fsb.xen --to out.fsb"
+      ]
+    , commandRun = \args opts -> fmap concat $ forM args $ \f -> case map toLower $ takeExtension f of
+      ".fsb" -> do
+        -- not encrypted
+        let contentsDir = f <> "_contents"
+        stackIO $ Dir.createDirectoryIfMissing False contentsDir
+        stackIO $ splitFSBStreamsToDir f contentsDir
+        return [contentsDir]
+      _ -> do
+        -- assume GH encrypted
+        dec <- stackIO (decryptFSB f) >>= maybe (fatal "Couldn't decrypt GH .fsb.(xen/ps3) audio") return
+        out <- outputFile opts $ return $ case stripSuffix ".fsb.xen" f <|> stripSuffix ".fsb.ps3" f <|> stripSuffix ".FSB.PS3" f of
+          Just root -> root <.> "fsb"
+          Nothing   -> f <.> "fsb"
+        stackIO $ BL.writeFile out dec
+        let contentsDir = out <> "_contents"
+        stackIO $ Dir.createDirectoryIfMissing False contentsDir
+        stackIO $ splitFSBStreamsToDir out contentsDir
+        return [out, contentsDir]
     }
 
   , Command
@@ -1265,9 +1277,11 @@ commands =
         fout <- outputFile opts $ return $ fin <.> "fsb"
         makeFSB4' fin fout
         return [fout]
-      ["gh3", gtr, preview, rhythm, song] -> do
+      "gh3" : streams -> do
         fout <- outputFile opts $ fatal "Need --to"
-        makeGH3FSB gtr preview rhythm song fout
+        makeFSB3 (zipWith
+          (\i stream -> (B8.pack $ show (i :: Int) <> ".xma", stream))
+          [0..] streams) fout
         return [fout]
       _ -> fatal "Invalid format"
     }
@@ -1283,9 +1297,9 @@ commands =
         (pabData, endian) <- do
           let (noPlatform, platform) = splitExtension pak
           pabData <- case splitExtension noPlatform of
-            (noPak, ".pak") -> let
-              pabPath = noPak <> ".pab" <> platform
-              in stackIO (Dir.doesFileExist pabPath) >>= \case
+            (noPak, ext) | map toLower ext == ".pak" -> do
+              pabPath <- fixFileCase $ noPak <> ".pab" <> platform
+              stackIO (Dir.doesFileExist pabPath) >>= \case
                 False -> return Nothing
                 True  -> Just <$> stackIO (BL.readFile pabPath)
             _ -> return Nothing

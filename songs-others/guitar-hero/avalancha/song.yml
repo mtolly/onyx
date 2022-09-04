@@ -1,0 +1,58 @@
+parts:
+  guitar:
+    grybo: {}
+  rhythm:
+    grybo: {}
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+audio:
+  audio.0.xma:
+    file-path: audio.0.xma
+  audio.1.xma:
+    file-path: audio.1.xma
+  audio.2.xma:
+    file-path: audio.2.xma
+  audio.3.xma:
+    file-path: audio.3.xma
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(audio.3.xma) audio-stems.wav
+    channels: 8
+metadata:
+  title: Avalancha
+  artist: Heroes del Silencio
+  author: Neversoft, Onyxite
+  year: 1995
+  difficulty:
+    tier: 1
+plans:
+  dev:
+    parts:
+      guitar: audio.0.xma
+      rhythm: audio.2.xma
+      # bass:
+      #   channels: [[0, 1], stems]
+    song: audio.3.xma
+  gh:
+    parts:
+      guitar:
+        expr: audio.0.xma
+        vols:
+        - -1
+        - -1
+        pans: []
+      rhythm:
+        expr: audio.2.xma
+        vols:
+        - -1
+        - -1
+        pans: []
+    song:
+      expr: audio.3.xma
+      vols:
+      - -1
+      - -1
+      pans: []

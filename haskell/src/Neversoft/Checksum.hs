@@ -5,6 +5,7 @@ module Neversoft.Checksum where
 import           Data.Bits
 import qualified Data.ByteString       as B
 import qualified Data.ByteString.Char8 as B8
+import           Data.Char             (toLower)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Text             as T
 import qualified Data.Text.Encoding    as TE
@@ -22,7 +23,7 @@ crcTable = VU.fromList $ flip map [0..255] $ let
   in foldr (.) id $ replicate 8 crcStep
 
 qbKeyCRC :: B.ByteString -> Word32
-qbKeyCRC = go 0xFFFFFFFF where
+qbKeyCRC = go 0xFFFFFFFF . B8.map toLower where
   go !crc bs = case B.uncons bs of
     Nothing -> crc
     Just (b, bs') -> let

@@ -1,0 +1,47 @@
+parts:
+  guitar:
+    grybo: {}
+  rhythm:
+    grybo: {}
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+audio:
+  audio.0.xma:
+    file-path: audio.0.xma
+  audio.1.xma:
+    file-path: audio.1.xma
+  audio.2.xma:
+    file-path: audio.2.xma
+  audio.3.xma:
+    file-path: audio.3.xma
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(audio.3.xma) audio-stems.wav
+    channels: 8
+metadata:
+  title: We Three Kings
+  artist: Steve Ouimette
+  author: Neversoft, Onyxite
+  year: 2007
+plans:
+  dev:
+    parts:
+      guitar: audio.0.xma
+      rhythm: audio.2.xma
+      bass:
+        channels: [[0, 1], stems]
+    song: audio.3.xma
+  gh:
+    parts:
+      guitar: audio.0.xma
+      rhythm: audio.2.xma
+    song: audio.3.xma
+targets:
+  rs:
+    game: rs
+    plan: gh
+    arrangements:
+    - [bass, bass] # only uses B and E strings
