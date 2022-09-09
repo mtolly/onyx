@@ -14,7 +14,7 @@ import           Control.Applicative              (liftA2)
 import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (sortBy)
+import           Data.List.Extra                  (nubOrd, sortBy)
 import qualified Data.Text                        as T
 import           DeriveHelpers
 import           GHC.Generics                     (Generic)
@@ -680,7 +680,12 @@ compileVenueRB2 vt = let
         V3_ProFilm_psychedelic_blue_red -> V2_photo_negative
         V3_space_woosh                  -> V2_video_trails
     , venueLighting = noRedundantStatus $ fmap snd lightingWithMode'
-    , venueLightingCommands = (\(cmd, _) -> (cmd, RBN1)) <$> venueLightingCommands vt
+    , venueLightingCommands
+      = fmap (\cmd -> (cmd, RBN1))
+      -- avoid problems with two simultaneous [next] causing overlapping midi notes
+      . RTB.flatten . fmap nubOrd . RTB.collectCoincident
+      . fmap fst
+      $ venueLightingCommands vt
     , venueLightingMode = noRedundantStatus $
       RTB.cons NNC.zero ModeVerse $ fmap fst lightingWithMode'
       -- have to have [verse] at the start

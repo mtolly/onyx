@@ -14,16 +14,15 @@ import qualified Data.ByteString          as B
 import qualified Data.ByteString.Char8    as B8
 import qualified Data.ByteString.Lazy     as BL
 import           Data.Int
+import           Data.List.HT             (partitionMaybe)
 import qualified Data.List.NonEmpty       as NE
 import           Data.SimpleHandle
 import qualified Data.Text                as T
 import qualified Data.Vector              as V
 import           Data.Word                (Word32)
-import           OSFiles                  (fixFileCase)
 import           PlayStation.PKG.Backport (lazyPackZipWith)
 import           STFS.Package             (runGetM)
-import           System.FilePath          (dropExtension, takeDirectory, (-<.>),
-                                           (</>))
+import           System.FilePath          (dropExtension, takeFileName, (-<.>))
 
 data FileEntry a = FileEntry
   { fe_offset  :: Integer
@@ -205,22 +204,17 @@ readFileEntry hdr arks entry = do
     (Just $ fromIntegral $ fe_size entry)
     ark
 
-getFileArks :: Hdr -> FilePath -> [FilePath]
-getFileArks hdr hdrPath = case hdr_Arks hdr of
-  Nothing -> [hdrPath -<.> "ARK"]
+getFileArks :: Hdr -> T.Text -> [T.Text]
+getFileArks hdr hdrName = case hdr_Arks hdr of
+  Nothing -> [T.pack $ T.unpack hdrName -<.> "ARK"]
   Just arks -> zipWith
-    (\i ark -> case ark_path ark of
+    (\i ark -> T.pack $ case ark_path ark of
       -- paths are e.g. "gen/main_ps3_0.ark"
-      Just p  -> takeDirectory (takeDirectory hdrPath) </> B8.unpack p
-      Nothing -> dropExtension hdrPath <> "_" <> show (i :: Int) <> ".ARK"
+      Just p  -> takeFileName $ B8.unpack p
+      Nothing -> dropExtension (T.unpack hdrName) <> "_" <> show (i :: Int) <> ".ARK"
     )
     [0..]
     arks
-
-getArkReadables :: Hdr -> FilePath -> IO [Readable]
-getArkReadables hdr hdrPath = do
-  paths <- mapM fixFileCase $ getFileArks hdr hdrPath
-  return $ map fileReadable paths
 
 extractArk :: (MonadIO m, MonadFail m) => Hdr -> [Readable] -> FilePath -> m ()
 extractArk hdr arks dout = do
@@ -230,3 +224,25 @@ extractArk hdr arks dout = do
         (entryFolder hdr)
   readables <- mapM (readFileEntry hdr arks) legalPaths
   liftIO $ saveHandleFolder readables dout
+
+searchGEN :: Folder T.Text Readable -> IO (Maybe (Hdr, [Readable]))
+searchGEN gen = do
+  let findHDR []             = Nothing
+      findHDR (name : names) = case findFileCI (pure name) gen of
+        Nothing -> findHDR names
+        Just r  -> Just (name, r)
+  case findHDR ["main.hdr", "main_xbox.hdr", "main_ps3.hdr"] of
+    Nothing        -> return Nothing
+    Just (name, r) -> do
+      hdr <- useHandle r handleToByteString >>= readHdr
+      let arkPaths = getFileArks hdr name
+          (found, notFound) = partitionMaybe (\ark -> findFileCI (pure ark) gen) arkPaths
+      case notFound of
+        [] -> return $ Just (hdr, found)
+        _  -> fail $ ".ARK files couldn't be found: " <> show notFound
+
+loadGEN :: Folder T.Text Readable -> IO (Hdr, [Readable])
+loadGEN gen = searchGEN gen >>= maybe (fail "Couldn't locate .hdr in GEN folder") return
+
+loadArkFolder :: (MonadFail m) => Hdr -> [Readable] -> m (Folder B.ByteString Readable)
+loadArkFolder hdr arks = mapM (readFileEntry hdr arks) $ entryFolder hdr

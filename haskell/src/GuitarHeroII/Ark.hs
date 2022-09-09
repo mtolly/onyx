@@ -25,13 +25,12 @@ import qualified Data.HashMap.Strict            as HM
 import           Data.List.Extra                (nubOrd, sortOn)
 import           Data.List.NonEmpty             (NonEmpty ((:|)))
 import           Data.Maybe
-import           Data.SimpleHandle              (Folder (..), findFile,
-                                                 findFolder, handleToByteString,
-                                                 useHandle)
+import           Data.SimpleHandle              (Folder (..), Readable,
+                                                 findFile, findFolder,
+                                                 handleToByteString, useHandle)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeLatin1)
 import           Harmonix.Ark
-import           OSFiles                        (fixFileCase)
 import qualified System.IO                      as IO
 import           System.IO.Temp                 (withSystemTempFile)
 
@@ -135,12 +134,10 @@ data GameGH = GameGH1 | GameGH2 | GameGH2DX2 | GameRB
 -- for comparison, Guitar Wizard looked for existence of
 -- "songs/aceofspades/aceofspades.mid", etc., which seems less resilient
 detectGameGH
-  :: FilePath
+  :: Folder T.Text Readable
   -> IO (Maybe GameGH)
-detectGameGH inputHdr = do
-  hdrPath <- fixFileCase inputHdr
-  hdr <- BL.readFile hdrPath >>= readHdr
-  arks <- getArkReadables hdr hdrPath
+detectGameGH gen = do
+  (hdr, arks) <- loadGEN gen
   let folder = entryFolder hdr
       mids = do
         songDir <- toList $ findFolder ["songs"] folder

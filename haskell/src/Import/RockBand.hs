@@ -92,7 +92,6 @@ data RBImport = RBImport
 
 importSTFSFolder :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importSTFSFolder src folder = do
-  -- TODO support songs/gen/songs.dtb instead
   packSongs <- stackIO (findByteString ("songs" :| ["songs.dta"]) folder) >>= \case
     Nothing -> stackIO (findByteString ("songs" :| ["gen", "songs.dtb"]) folder) >>= \case
       Nothing -> fatal "Couldn't find songs/songs.dta or songs/gen/songs.dtb"

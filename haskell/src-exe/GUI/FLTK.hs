@@ -50,7 +50,7 @@ import           Control.Monad.IO.Class                    (MonadIO (..),
 import           Control.Monad.Trans.Class                 (lift)
 import           Control.Monad.Trans.Maybe                 (MaybeT (..))
 import           Control.Monad.Trans.Reader                (ReaderT, ask, local,
-                                                            runReaderT)
+                                                            runReaderT, mapReaderT)
 import           Control.Monad.Trans.Resource              (ResourceT, allocate,
                                                             register, release,
                                                             resourceForkIO,
@@ -4742,7 +4742,7 @@ launchMisc sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       miscPageMIDI sink rect tab startTasks
       return tab
-    , makeTab windowRect "MOGG/VGS" $ \rect tab -> do
+    , makeTab windowRect "MOGG/VGS/FSB" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageMOGG sink rect tab startTasks
       return tab
@@ -5261,8 +5261,9 @@ launchBatch sink makeMenuBar startFiles = mdo
           }
     FL.setResizable tab $ Just group
     return (tab, getter)
-  let doImport imp fn = do
-        -- TODO this can potentially not clean up the temp folder if interrupted during import
+  let doImport imp fn = localResources $ do
+        -- this can potentially not clean up the temp folder if interrupted during import,
+        -- so we use localResources to make sure each song is cleaned up before starting the next one
         proj <- importWithPreferences imp
         res <- errorToEither $ fn proj
         mapM_ release $ projectRelease proj
@@ -5451,6 +5452,9 @@ dragAndDrop f fallback = \case
 
 replaceQueueLog :: ((MessageLevel, Message) -> IO ()) -> Onyx a -> Onyx a
 replaceQueueLog q = mapStackTraceT $ QueueLog . local (const q) . fromQueueLog
+
+localResources :: Onyx a -> Onyx a
+localResources = mapStackTraceT $ QueueLog . mapReaderT (mapReaderT $ liftIO . runResourceT) . fromQueueLog
 
 data TermMessage
   = TermStart String String -- "Task 4" "/path/to/file"

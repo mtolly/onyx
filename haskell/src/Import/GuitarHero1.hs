@@ -35,19 +35,16 @@ import           GuitarHeroII.Audio               (splitOutVGSChannels,
 import           GuitarHeroII.PartGuitar
 import           Harmonix.Ark
 import           Import.Base
-import           OSFiles                          (fixFileCase)
 import qualified RockBand.Codec.Events            as RB
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as RB
 import           RockBand.Common                  (Difficulty (..), Mood (..))
 import qualified Sound.MIDI.Util                  as U
-import           System.FilePath                  ((<.>), (</>))
+import           System.FilePath                  ((<.>))
 
-getSongList :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(T.Text, SongPackage)]
+getSongList :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [(T.Text, SongPackage)]
 getSongList gen = do
-  hdrPath <- fixFileCase $ gen </> "MAIN.HDR"
-  hdr <- stackIO (BL.readFile hdrPath) >>= readHdr
-  arks <- stackIO $ getArkReadables hdr hdrPath
+  (hdr, arks) <- stackIO $ loadGEN gen
   dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") $ hdr_Files hdr of
     entry : _ -> do
       r <- readFileEntry hdr arks entry
@@ -127,17 +124,15 @@ addGraveyardShift hdr songs = let
     then ("graveyardshift", tripPackage) : songs
     else songs
 
-importGH1 :: (SendMessage m, MonadResource m) => FilePath -> StackTraceT m [Import m]
-importGH1 gen = map (\(_, pkg) -> importGH1Song pkg gen) <$> getSongList gen
+importGH1 :: (SendMessage m, MonadResource m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
+importGH1 path gen = map (\(_, pkg) -> importGH1Song pkg path gen) <$> getSongList gen
 
-importGH1Song :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> Import m
-importGH1Song pkg gen level = do
+importGH1Song :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> Folder T.Text Readable -> Import m
+importGH1Song pkg path gen level = do
   when (level == ImportFull) $ do
-    lg $ "Importing GH1 song [" <> T.unpack (songName $ song pkg) <> "] from folder: " <> gen
-  hdrPath <- fixFileCase $ gen </> "MAIN.HDR"
-  hdr <- stackIO (BL.readFile hdrPath) >>= readHdr
-  arks <- stackIO $ getArkReadables hdr hdrPath
-  folder <- mapM (readFileEntry hdr arks) $ entryFolder hdr
+    lg $ "Importing GH1 song [" <> T.unpack (songName $ song pkg) <> "] from: " <> path
+  (hdr, arks) <- stackIO $ loadGEN gen
+  folder <- loadArkFolder hdr arks
   let encLatin1 = B8.pack . T.unpack
       split s = case splitPath s of
         Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s

@@ -47,20 +47,17 @@ import           GuitarHeroII.PartGuitar
 import           GuitarHeroII.Triggers
 import           Harmonix.Ark
 import           Import.Base
-import           OSFiles                          (fixFileCase)
 import qualified RockBand.Codec.Events            as RB
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as RB
 import           RockBand.Common                  (Difficulty (..))
 import           RockBand.Sections                (fromGH2Section)
 import qualified Sound.MIDI.Util                  as U
-import           System.FilePath                  ((<.>), (</>))
+import           System.FilePath                  ((<.>))
 
-getSongList :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(T.Text, SongPackage)]
+getSongList :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [(T.Text, SongPackage)]
 getSongList gen = do
-  hdrPath <- fixFileCase $ gen </> "MAIN.HDR"
-  hdr <- stackIO (BL.readFile hdrPath) >>= readHdr
-  arks <- stackIO $ getArkReadables hdr hdrPath
+  (hdr, arks) <- stackIO $ loadGEN gen
   dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") $ hdr_Files hdr of
     entry : _ -> do
       r <- readFileEntry hdr arks entry
@@ -76,8 +73,8 @@ getImports = concatMap $ \(t, pkg) -> case songCoop pkg of
 data ImportMode = ImportSolo | ImportCoop
   deriving (Eq)
 
-importGH2 :: (SendMessage m, MonadResource m) => FilePath -> StackTraceT m [Import m]
-importGH2 gen = map (\(_, (mode, pkg)) -> importGH2Song mode pkg gen) . getImports <$> getSongList gen
+importGH2 :: (SendMessage m, MonadResource m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
+importGH2 genPath gen = map (\(_, (mode, pkg)) -> importGH2Song mode pkg genPath gen) . getImports <$> getSongList gen
 
 importGH2MIDI :: ImportMode -> Song -> RBFile.Song (GH2File U.Beats) -> RBFile.Song (RBFile.OnyxFile U.Beats)
 importGH2MIDI mode songChunk (RBFile.Song tmap mmap gh2) = RBFile.Song tmap mmap $ let
@@ -170,12 +167,10 @@ gh2SongYaml mode pkg songChunk onyxMidi = SongYaml
     ]
   }
 
-importGH2Song :: (SendMessage m, MonadResource m) => ImportMode -> SongPackage -> FilePath -> Import m
-importGH2Song mode pkg gen level = do
-  hdrPath <- fixFileCase $ gen </> "MAIN.HDR"
-  hdr <- stackIO (BL.readFile hdrPath) >>= readHdr
-  arks <- stackIO $ getArkReadables hdr hdrPath
-  folder <- mapM (readFileEntry hdr arks) $ entryFolder hdr
+importGH2Song :: (SendMessage m, MonadResource m) => ImportMode -> SongPackage -> FilePath -> Folder T.Text Readable -> Import m
+importGH2Song mode pkg genPath gen level = do
+  (hdr, arks) <- stackIO $ loadGEN gen
+  folder <- loadArkFolder hdr arks
   let encLatin1 = B8.pack . T.unpack
       split s = case splitPath s of
         Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
@@ -189,7 +184,7 @@ importGH2Song mode pkg gen level = do
       Nothing -> fatal "Tried to import coop version from a song that doesn't have one"
       Just coop -> return coop
   when (level == ImportFull) $ do
-    lg $ "Importing GH2 song [" <> T.unpack (songName songChunk) <> "] from folder: " <> gen
+    lg $ "Importing GH2 song [" <> T.unpack (songName songChunk) <> "] from: " <> genPath
   midi <- split (midiFile songChunk) >>= need . fmap encLatin1
   vgs <- split (songName songChunk <> ".vgs") >>= need . fmap encLatin1
   onyxMidi <- case level of
@@ -319,9 +314,7 @@ data Setlist a = Setlist
 
 loadSetlist :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (Setlist B.ByteString)
 loadSetlist gen = do
-  hdrPath <- fixFileCase $ gen </> "MAIN.HDR"
-  hdr <- stackIO (BL.readFile hdrPath) >>= readHdr
-  arks <- stackIO $ getArkReadables hdr hdrPath
+  (hdr, arks) <- stackIO $ crawlFolder gen >>= loadGEN
   let loadDTB name = case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == name) $ hdr_Files hdr of
         entry : _ -> do
           r <- readFileEntry hdr arks entry
@@ -349,7 +342,8 @@ loadSetlist gen = do
 loadSetlistFull :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (Setlist (B.ByteString, SongPackage))
 loadSetlistFull gen = do
   setlist <- loadSetlist gen
-  songs <- HM.fromList <$> getSongList gen
+  dir <- stackIO $ crawlFolder gen
+  songs <- HM.fromList <$> getSongList dir
   forM setlist $ \k -> case HM.lookup (decodeLatin1 k) songs of
     Just pkg -> return (k, pkg)
     Nothing  -> fatal $ "Couldn't locate setlist song " <> show k

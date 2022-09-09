@@ -59,7 +59,7 @@ import           Import.RockBand                (importRB4, importRBA,
                                                  importSTFSFolder)
 import           Import.RockRevolution          (importRR)
 import           Import.Rocksmith               as RS
-import           OSFiles                        (fixFileCase)
+import           PlayStation.ISO                (folderISO)
 import           PlayStation.PKG                (getDecryptedUSRDIR, loadPKG,
                                                  pkgFolder, tryDecryptEDAT)
 import           Preferences
@@ -132,21 +132,20 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         -- loc can be a .ini or .chart
         let dir = takeDirectory loc
         foundImport "Frets on Fire/Phase Shift/Clone Hero" dir $ importFoF dir
-      foundGH loc = do
-        let dir = takeDirectory loc
-        stackIO (detectGameGH loc) >>= \case
-          Nothing -> do
-            warn $ "Couldn't detect GH game version for: " <> dir
-            return ([], [])
-          Just GameGH2DX2 -> GH2.importGH2 dir >>= foundImports "Guitar Hero II (DX)" dir
-          Just GameGH2 -> GH2.importGH2 dir >>= foundImports "Guitar Hero II" dir
-          Just GameGH1 -> GH1.importGH1 dir >>= foundImports "Guitar Hero (1)" dir
-          Just GameRB -> do
-            hdrPath <- fixFileCase loc
-            hdr <- stackIO (BL.readFile hdrPath) >>= readHdr
-            arks <- stackIO $ getArkReadables hdr hdrPath
-            folder <- mapM (readFileEntry hdr arks) $ entryFolder hdr
-            importSTFSFolder dir (first TE.decodeLatin1 folder) >>= foundImports "Rock Band (.ARK)" dir
+      foundHDR hdr = do
+        let dir = takeDirectory hdr
+        stackIO (crawlFolder dir) >>= foundGEN dir
+      foundGEN loc gen = stackIO (detectGameGH gen) >>= \case
+        Nothing -> do
+          warn $ "Couldn't detect GH game version for: " <> loc
+          return ([], [])
+        Just GameGH2DX2 -> GH2.importGH2 loc gen >>= foundImports "Guitar Hero II (DX)" loc
+        Just GameGH2 -> GH2.importGH2 loc gen >>= foundImports "Guitar Hero II" loc
+        Just GameGH1 -> GH1.importGH1 loc gen >>= foundImports "Guitar Hero (1)" loc
+        Just GameRB -> do
+          (hdr, arks) <- stackIO $ loadGEN gen
+          folder <- loadArkFolder hdr arks
+          importSTFSFolder loc (first TE.decodeLatin1 folder) >>= foundImports "Rock Band (.ARK)" loc
       foundDTXSet loc = importSet loc >>= foundImports "DTXMania (set.def)" (takeDirectory loc)
       foundDTX loc = foundImport "DTXMania" loc $ importDTX loc
       foundBME loc = foundImport "Be-Music Source" loc $ importBMS loc
@@ -234,7 +233,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         let loc = takeDirectory xex
         dir <- stackIO $ crawlFolder loc
         if  | isJust $ findFileCI ("gen" :| ["main_xbox.hdr"]) dir
-              -> foundGH $ loc </> "gen/main_xbox.hdr"
+              -> foundHDR $ loc </> "gen/main_xbox.hdr"
             | isJust $ findFileCI ("Data" :| ["Frontend", "FE_Config.lua"]) dir -> let
               songsDir = fromMaybe mempty $ findFolder ["Data", "Songs"] dir
               in foundImports "Rock Revolution (360)" loc $ importRR songsDir
@@ -242,12 +241,24 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               -> importGH3Disc loc dir >>= foundImports "Guitar Hero III (360)" loc
             | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "loading_flipbook.bik.xen"]) dir
               -> warn "Guitar Hero World Tour not supported (yet)" >> return ([], [])
+            | isJust $ findFileCI ("data" :| ["compressed", "ZONES", "Z_GH6Intro.pak.xen"]) dir
+              -> warn "Guitar Hero: Warriors of Rock disc not supported yet" >> return ([], [])
+            -- TODO power gig via default.xex
             | otherwise -> warn "Unrecognized Xbox 360 game" >> return ([], [])
       foundGH3PS2 hed = do
         let loc = takeDirectory hed
         dir <- stackIO $ crawlFolder loc
         imps <- importGH3PS2 loc dir
         foundImports "Guitar Hero III (PS2)" loc imps
+      foundISO iso = do
+        contents <- stackIO $ fmap (first TE.decodeLatin1) $ folderISO $ fileReadable iso
+        case findFolder ["GEN"] contents of
+          Just gen -> foundGEN iso gen
+          Nothing -> case findFileCI (pure "DATAP.HED") contents of
+            Just _ -> do
+              imps <- importGH3PS2 iso contents
+              foundImports "Guitar Hero III (PS2)" iso imps
+            Nothing -> return ([], [])
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         let single = null $ drop 1 imports
@@ -286,9 +297,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         , ("song.ini", foundFoF)
         , ("notes.chart", foundFoF)
         , ("set.def", foundDTXSet)
-        , ("main.hdr", foundGH)
-        , ("main_ps3.hdr", foundGH)
-        , ("main_xbox.hdr", foundGH)
+        , ("main.hdr", foundHDR)
+        , ("main_ps3.hdr", foundHDR)
+        , ("main_xbox.hdr", foundHDR)
         ]
     else do
       case map toLower $ takeExtension fp of
@@ -311,13 +322,14 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".gpx" -> foundGPX fp
         ".2" -> foundPowerGig fp -- assuming this is Data.hdr.e.2
         ".sng" -> foundFreetar fp
+        ".iso" -> foundISO fp
         _ -> case map toLower $ takeFileName fp of
           "song.yml" -> foundYaml fp
           "song.ini" -> foundFoF fp
           "set.def" -> foundDTXSet fp
-          "main.hdr" -> foundGH fp
-          "main_ps3.hdr" -> foundGH fp
-          "main_xbox.hdr" -> foundGH fp
+          "main.hdr" -> foundHDR fp
+          "main_ps3.hdr" -> foundHDR fp
+          "main_xbox.hdr" -> foundHDR fp
           "default.xex" -> found360Game fp
           "datap.hed" -> foundGH3PS2 fp
           _ -> do
@@ -430,7 +442,7 @@ buildGHWORPKG gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targ
 
 installGH1 :: (MonadIO m) => TargetGH1 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 installGH1 gh1 proj gen = do
-  stackIO (detectGameGH $ gen </> "MAIN.HDR") >>= \case
+  stackIO (crawlFolder gen >>= detectGameGH) >>= \case
     Nothing         -> fatal "Couldn't detect what game this ARK is for."
     Just GameGH1    -> return ()
     Just GameGH2    -> fatal "This appears to be a Guitar Hero II or 80's ARK!"
@@ -466,7 +478,7 @@ installGH1 gh1 proj gen = do
 
 installGH2 :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 installGH2 gh2 proj gen = do
-  isDX2 <- stackIO (detectGameGH $ gen </> "MAIN.HDR") >>= \case
+  isDX2 <- stackIO (crawlFolder gen >>= detectGameGH) >>= \case
     Nothing         -> fatal "Couldn't detect what game this ARK is for."
     Just GameGH1    -> fatal "This appears to be a Guitar Hero (1) ARK!"
     Just GameGH2    -> do

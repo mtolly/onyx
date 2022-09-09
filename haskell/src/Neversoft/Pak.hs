@@ -37,7 +37,8 @@ data Node = Node
   } deriving (Show, Read)
 
 -- Credit to unpak.pl by Tarragon Allen (tma).
--- Used in GHWT and onward
+-- Used in GHWT and onward.
+-- TODO this seems to not handle some WoR disc files right, like qb.pab.xen
 decompressPakGH4 :: (MonadFail m) => BL.ByteString -> m BL.ByteString
 decompressPakGH4 bs = let
   -- conveniently, start and next are relative to this CHNK, not the whole file

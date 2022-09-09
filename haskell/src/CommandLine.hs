@@ -1083,8 +1083,7 @@ commands =
     , commandRun = \args opts -> case args of
       [hdrPath] -> do
         dout <- outputFile opts $ return $ hdrPath <> "_extract"
-        hdr <- stackIO (BL.readFile hdrPath) >>= Ark.readHdr
-        arks <- stackIO $ Ark.getArkReadables hdr hdrPath
+        (hdr, arks) <- stackIO $ crawlFolder (takeDirectory hdrPath) >>= Ark.loadGEN
         Ark.extractArk hdr arks dout
         return [dout]
       _ -> fatal "Expected 1 arg (.hdr, or .ark if none)"
@@ -1317,10 +1316,11 @@ commands =
               , ".rag", ".raw", ".rgn", ".rnb", ".scn", ".scv", ".shd", ".ska", ".ske", ".skin"
               , ".skiv", ".snp", ".sqb", ".stat", ".stex", ".table", ".tex", ".trkobj", ".tvx", ".wav", ".xml"
               ]
+            digits = length $ show $ length nodes - 1
         forM_ (zip [0..] nodes) $ \(i, (node, contents)) -> do
           let ext = fromMaybe ("." <> show (nodeFileType node))
                 $ find ((== nodeFileType node) . qbKeyCRC . B8.pack) knownExts
-              name = reverse (take 3 $ reverse (show (i :: Int)) <> repeat '0') <> ext
+              name = reverse (take digits $ reverse (show (i :: Int)) <> repeat '0') <> ext
           stackIO $ BL.writeFile (dout </> name) contents
           when (nodeFileType node == qbKeyCRC ".note") $ do
             -- TODO handle failure

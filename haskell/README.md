@@ -71,20 +71,22 @@ additional installations:
 
 Onyx can import the following song formats:
 
-  * Rock Band 1, 2, or 3 Xbox 360 STFS (CON or LIVE) files
+  * Rock Band (1, 2, 3, Beatles) Xbox 360 STFS (CON or LIVE) files
 
     * Both single-song files and packs are supported.
 
-  * Rock Band 1, 2, or 3 PlayStation 3 .pkg files
+  * Rock Band (1, 2, 3, Beatles) PlayStation 3 .pkg files
 
     * Official DLC whose .mid.edat are encrypted with RAP files are supported.
       Copy RAP files to `onyx-resources/raps/CONTENTID.RAP`.
 
-  * Rock Band 1 and 2 PlayStation 2 extracted .ARK contents
+  * Rock Band (1, 2, 3, Beatles) .ARK files
+    for Xbox 360, PlayStation 3, and PlayStation 2
 
-    * First extract the ISO. Use something like Apache3 to get the 2nd layer
-      of the dual layer discs, as most programs do not support this.
-    * Then import from either `GEN` or `MAIN.HDR`.
+    * Import from `MAIN.HDR`, `main_xbox.hdr`, or `main_ps3.hdr`.
+    * PS2 ISOs can also be imported directly. If you extract it yourself,
+      use something like Apache3 to get the 2nd layer of the dual layer discs,
+      as most programs do not support this.
 
   * Rock Band 4 PlayStation 4 extracted files
     (tentative support, may not work for everything)
@@ -94,7 +96,7 @@ Onyx can import the following song formats:
   * Frets on Fire / Phase Shift / Clone Hero formats
 
     * Both `notes.mid` and `notes.chart` are supported.
-    * OGG Vorbis, MP3, Opus, and WAV audio are supported.
+    * Ogg Vorbis, MP3, Opus, and WAV audio are supported.
     * `song.ini` can be absent if using `notes.chart`.
     * Audio files must be named according to PS/CH conventions.
 
@@ -102,18 +104,19 @@ Onyx can import the following song formats:
 
   * Guitar Hero, Guitar Hero II, or Guitar Hero Encore: Rocks the 80s (PS2)
 
-    * Extract the `.iso` contents, and then import either `GEN` or `MAIN.HDR`.
+    * Import directly from the `.iso`, or extract and import from `MAIN.HDR`.
     * The hidden songs Trippolette and Graveyard Shift can be imported from GH1.
 
   * Guitar Hero II (Xbox 360) DLC (LIVE files)
 
-  * Guitar Hero 5 and Guitar Hero: Warriors of Rock DLC
-    (Xbox 360 LIVE files or PlayStation 3 .pkg files)
-
   * Guitar Hero III disc (Xbox 360, PS2) and DLC (Xbox 360)
 
     * For Xbox 360 disc: extract ISO, then import from `default.xex`.
-    * For PS2 disc: extract ISO, then import from `DATAP.HED`.
+    * For PS2 disc: import directly from `.iso`,
+      or extract and then import from `DATAP.HED`.
+
+  * Guitar Hero 5 and Guitar Hero: Warriors of Rock DLC
+    (Xbox 360 LIVE files or PlayStation 3 .pkg files)
 
   * DTXMania (DrumMania / GuitarFreaks) simfiles (.dtx/.gda)
 
@@ -127,7 +130,12 @@ Onyx can import the following song formats:
 
   * Power Gig: Rise of the SixString (Xbox 360, PS3)
 
-    * Import from `Data.hdr.e.2`.
+    * Import disc data from `Data.hdr.e.2`.
+    * Xbox 360 DLC is also supported.
+
+  * Rock Revolution (Xbox 360)
+
+    * Import disc data from `default.xex`.
     * Xbox 360 DLC is also supported.
 
 ## Single Song Mode

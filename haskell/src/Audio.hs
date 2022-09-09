@@ -946,6 +946,7 @@ makeXMAPieces input = do
 makeFSB3 :: (MonadIO m, SendMessage m) => [(B.ByteString, FilePath)] -> FilePath -> StackTraceT m ()
 makeFSB3 inputs fsb = do
   exe <- stackIO xma2encodeExe
+  -- TODO run the xma conversions in parallel
   inputs' <- forM inputs $ \(name, wav) -> do
     let xma = wav -<.> "xma"
     -- this is required for wine, otherwise it messes up the unix paths somehow.
