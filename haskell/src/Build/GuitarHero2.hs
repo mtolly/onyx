@@ -17,6 +17,7 @@ import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
+import           Data.Default.Class               (def)
 import qualified Data.DTA                         as D
 import qualified Data.DTA.Serialize               as D
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -112,7 +113,7 @@ gh2Rules buildInfo dir gh2 = do
           GH2PartStereo part -> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
           -- This halves the volume, so we set vols in .dta to compensate
           GH2PartMono part -> applyVolsMono [0] <$> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
-          GH2Band -> sourceSongCountin buildInfo (gh2_Common gh2) mid 0 True planName plan $ concat
+          GH2Band -> sourceSongCountin buildInfo def mid 0 True planName plan $ concat
             [ [(gh2LeadTrack audio, 1)]
             , [(gh2CoopTrack audio, 1)]
             , maybe [] (\t -> [(t, 1)]) $ gh2DrumTrack audio

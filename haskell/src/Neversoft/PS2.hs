@@ -56,8 +56,11 @@ applyHed :: [HedEntry] -> Folder B.ByteString (Word32, Word32)
 applyHed entries = let
   findPositions _   []       = []
   findPositions !pos (e : es) = let
-    -- 0x5C is backslash. also paths start with a backslash so we remove it before split
-    splitName = NE.fromList $ B.split 0x5C $ B.dropWhile (== 0x5C) $ hedName e
+    -- 0x5C is backslash (seen in GH3), 0x2F is forward slash (seen in GH5).
+    -- paths also start with a slash/backslash so we remove it before split
+    isSlash c = c == 0x5C || c == 0x2F
+    splitName = NE.fromList $ B.splitWith isSlash $ B.dropWhile isSlash $ hedName e
+    -- TODO I think the jump values are different for GH5. Maybe always 0x8000?
     jumpNext = case es of
       next : _ -> if ".pak.ps2" `B8.isSuffixOf` hedName next
         then 0x8000

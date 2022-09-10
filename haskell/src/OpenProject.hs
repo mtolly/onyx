@@ -73,6 +73,7 @@ import           System.FilePath                (dropExtension,
 import qualified System.IO                      as IO
 import qualified System.IO.Temp                 as Temp
 import           System.Random                  (randomRIO)
+import           Xbox.ISO                       (loadXboxISO)
 
 data Project = Project
   { projectLocation :: FilePath -- path to song.yml
@@ -223,42 +224,44 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       foundGPX loc = do
         let imp level = parseGPX loc >>= \gpif -> importGPIF gpif level
         foundImports "Guitar Pro (.gpx)" loc [imp]
-      foundPowerGig loc = do
-        dir <- stackIO $ crawlFolder $ takeDirectory loc
-        let base = T.takeWhile (/= '.') $ T.pack $ takeFileName loc
+      foundPowerGig loc dir hdrName = do
+        let base = T.takeWhile (/= '.') $ T.pack hdrName
         imps <- importPowerGig dir base
         foundImports "Power Gig" loc imps
       foundFreetar loc = foundImports "Freetar" loc [importFreetar loc]
-      found360Game xex = do
-        let loc = takeDirectory xex
-        dir <- stackIO $ crawlFolder loc
-        if  | isJust $ findFileCI ("gen" :| ["main_xbox.hdr"]) dir
-              -> foundHDR $ loc </> "gen/main_xbox.hdr"
-            | isJust $ findFileCI ("Data" :| ["Frontend", "FE_Config.lua"]) dir -> let
-              songsDir = fromMaybe mempty $ findFolder ["Data", "Songs"] dir
-              in foundImports "Rock Revolution (360)" loc $ importRR songsDir
-            | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "GH3_Intro.bik.xen"]) dir
-              -> importGH3Disc loc dir >>= foundImports "Guitar Hero III (360)" loc
-            | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "loading_flipbook.bik.xen"]) dir
-              -> warn "Guitar Hero World Tour not supported (yet)" >> return ([], [])
-            | isJust $ findFileCI ("data" :| ["compressed", "ZONES", "Z_GH6Intro.pak.xen"]) dir
-              -> warn "Guitar Hero: Warriors of Rock disc not supported yet" >> return ([], [])
-            -- TODO power gig via default.xex
-            | otherwise -> warn "Unrecognized Xbox 360 game" >> return ([], [])
+      found360Game loc dir
+        | isJust $ findFileCI ("gen" :| ["main_xbox.hdr"]) dir
+          = case findFolder ["gen"] dir of
+            Nothing  -> return ([], []) -- shouldn't happen
+            Just gen -> foundGEN loc gen
+        | isJust $ findFileCI ("Data" :| ["Frontend", "FE_Config.lua"]) dir = let
+          songsDir = fromMaybe mempty $ findFolder ["Data", "Songs"] dir
+          in foundImports "Rock Revolution (360)" loc $ importRR songsDir
+        | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "GH3_Intro.bik.xen"]) dir
+          = importGH3Disc loc dir >>= foundImports "Guitar Hero III (360)" loc
+        | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "loading_flipbook.bik.xen"]) dir
+          = warn "Guitar Hero World Tour not supported (yet)" >> return ([], [])
+        | isJust $ findFileCI ("data" :| ["compressed", "ZONES", "Z_GH6Intro.pak.xen"]) dir
+          = warn "Guitar Hero: Warriors of Rock disc not supported yet" >> return ([], [])
+        | isJust $ findFileCI (pure "Data.hdr.e.2") dir
+          = foundPowerGig loc dir "Data.hdr.e.2"
+        | otherwise = warn "Unrecognized Xbox 360 game" >> return ([], [])
       foundGH3PS2 hed = do
         let loc = takeDirectory hed
         dir <- stackIO $ crawlFolder loc
         imps <- importGH3PS2 loc dir
         foundImports "Guitar Hero III (PS2)" loc imps
-      foundISO iso = do
-        contents <- stackIO $ fmap (first TE.decodeLatin1) $ folderISO $ fileReadable iso
-        case findFolder ["GEN"] contents of
-          Just gen -> foundGEN iso gen
-          Nothing -> case findFileCI (pure "DATAP.HED") contents of
-            Just _ -> do
-              imps <- importGH3PS2 iso contents
-              foundImports "Guitar Hero III (PS2)" iso imps
-            Nothing -> return ([], [])
+      foundISO iso = stackIO (loadXboxISO $ fileReadable iso) >>= \case
+        Just xiso -> found360Game iso $ first TE.decodeLatin1 xiso
+        Nothing   -> do
+          contents <- stackIO $ fmap (first TE.decodeLatin1) $ folderISO $ fileReadable iso
+          case findFolder ["GEN"] contents of
+            Just gen -> foundGEN iso gen
+            Nothing  -> case findFileCI (pure "DATAP.HED") contents of
+              Just _ -> do
+                imps <- importGH3PS2 iso contents
+                foundImports "Guitar Hero III (PS2)" iso imps
+              Nothing -> return ([], [])
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         let single = null $ drop 1 imports
@@ -292,14 +295,21 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           lookFor ((file, use) : rest) = case filter ((== file) . map toLower) ents of
             match : _ -> use $ fp </> match
             []        -> lookFor rest
+      -- These filenames stop the directory traversal, to prevent songs being picked up twice
       lookFor
+        -- Don't look in the Onyx gen folder and probably find built artifacts
         [ ("song.yml", foundYaml)
+        -- Make sure we don't pick up song.ini and notes.chart separately
         , ("song.ini", foundFoF)
         , ("notes.chart", foundFoF)
+        -- Don't pick up specific .dtx files as well as the set file
         , ("set.def", foundDTXSet)
+        -- Just to be helpful if a hdr/ark set is extracted next to it
         , ("main.hdr", foundHDR)
         , ("main_ps3.hdr", foundHDR)
         , ("main_xbox.hdr", foundHDR)
+        -- Needed so we don't also pick up game-specific files like a Harmonix GEN folder or Power Gig Data.hdr.e.2
+        , ("default.xex", \xex -> let dir = takeDirectory xex in stackIO (crawlFolder dir) >>= found360Game xex)
         ]
     else do
       case map toLower $ takeExtension fp of
@@ -320,7 +330,10 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".pkg" -> foundPS3 fp
         ".gp" -> foundGP fp
         ".gpx" -> foundGPX fp
-        ".2" -> foundPowerGig fp -- assuming this is Data.hdr.e.2
+        ".2" -> do -- assuming this is Data.hdr.e.2
+          let dir = takeDirectory fp
+          folder <- stackIO $ crawlFolder dir
+          foundPowerGig fp folder $ takeFileName fp
         ".sng" -> foundFreetar fp
         ".iso" -> foundISO fp
         _ -> case map toLower $ takeFileName fp of
@@ -330,7 +343,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           "main.hdr" -> foundHDR fp
           "main_ps3.hdr" -> foundHDR fp
           "main_xbox.hdr" -> foundHDR fp
-          "default.xex" -> found360Game fp
+          "default.xex" -> do
+            let dir = takeDirectory fp
+            stackIO (crawlFolder dir) >>= found360Game fp
           "datap.hed" -> foundGH3PS2 fp
           _ -> do
             magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 4

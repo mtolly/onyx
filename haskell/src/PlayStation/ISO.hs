@@ -1,3 +1,11 @@
+{-
+Standard ISO 9660 format, no extensions required.
+(There is also UDF info in DVD images but we don't need to parse it.)
+But, also supports dual layer ISOs (RB1/RB2, probably later GHs).
+
+Mostly implemented using the ECMA-119 version of the spec:
+https://www.ecma-international.org/wp-content/uploads/ECMA-119_4th_edition_june_2019.pdf
+-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}

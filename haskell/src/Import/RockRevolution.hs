@@ -177,8 +177,8 @@ importRRSong dir key level = do
   return SongYaml
     { _metadata = def'
       -- are these utf-8? latin-1? anything?
-      { _title        = Just $ TE.decodeLatin1 $ strings !! 1
-      , _artist       = Just $ TE.decodeLatin1 $ strings !! 0
+      { _title        = Just $ T.strip $ TE.decodeLatin1 $ strings !! 1
+      , _artist       = Just $ T.strip $ TE.decodeLatin1 $ strings !! 0
       , _album        = Nothing
       , _year         = year
       , _comments     = []

@@ -84,9 +84,9 @@ Onyx can import the following song formats:
     for Xbox 360, PlayStation 3, and PlayStation 2
 
     * Import from `MAIN.HDR`, `main_xbox.hdr`, or `main_ps3.hdr`.
-    * PS2 ISOs can also be imported directly. If you extract it yourself,
-      use something like Apache3 to get the 2nd layer of the dual layer discs,
-      as most programs do not support this.
+    * Xbox 360 and PS2 ISOs can also be imported directly. If extracting a
+      PS2 disc yourself, use something like Apache3 to get the 2nd layer of
+      the dual layer discs, as most programs do not support this.
 
   * Rock Band 4 PlayStation 4 extracted files
     (tentative support, may not work for everything)
@@ -111,9 +111,8 @@ Onyx can import the following song formats:
 
   * Guitar Hero III disc (Xbox 360, PS2) and DLC (Xbox 360)
 
-    * For Xbox 360 disc: extract ISO, then import from `default.xex`.
-    * For PS2 disc: import directly from `.iso`,
-      or extract and then import from `DATAP.HED`.
+    * Both Xbox 360 and PS2 discs can be imported directly from `.iso`,
+      or from `default.xex` (360) or `DATAP.HED` (PS2).
 
   * Guitar Hero 5 and Guitar Hero: Warriors of Rock DLC
     (Xbox 360 LIVE files or PlayStation 3 .pkg files)
@@ -130,13 +129,17 @@ Onyx can import the following song formats:
 
   * Power Gig: Rise of the SixString (Xbox 360, PS3)
 
-    * Import disc data from `Data.hdr.e.2`.
+    * Import disc data from the Xbox 360 `.iso`, or `Data.hdr.e.2`.
     * Xbox 360 DLC is also supported.
 
   * Rock Revolution (Xbox 360)
 
-    * Import disc data from `default.xex`.
+    * Import disc data from the `.iso` or `default.xex`.
     * Xbox 360 DLC is also supported.
+
+  * Freetar .sng files
+
+    * Not extensively tested, some songs may not work.
 
 ## Single Song Mode
 
