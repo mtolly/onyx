@@ -156,7 +156,13 @@ parseSongInfoStruct songEntries = do
 
 -- Metadata in _text.pak.qb for GH3
 
-readGH3TextPakQBDisc :: (MonadFail m, ?endian :: ByteOrder) => BL.ByteString -> BL.ByteString -> m TextPakQB
+data GH3TextPakQB = GH3TextPakQB
+  { gh3TextPakFileKey     :: Word32
+  , gh3TextPakSongStructs :: [(Word32, [QBStructItem QSResult Word32])]
+  , gh3AllNodes           :: [(Node, BL.ByteString)] -- used to get section names later
+  } deriving (Show)
+
+readGH3TextPakQBDisc :: (MonadFail m, ?endian :: ByteOrder) => BL.ByteString -> BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQBDisc pak pab = do
   nodes <- splitPakNodes ?endian pak $ Just pab
   qbFile <- case filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb" && nodeFilenameCRC n == qbKeyCRC "songlist") nodes of
@@ -164,7 +170,7 @@ readGH3TextPakQBDisc pak pab = do
     (_, r) : _ -> return r
   readGH3TextPakQB nodes qbFile
 
-readGH3TextPakQBDLC :: (MonadFail m) => BL.ByteString -> m TextPakQB
+readGH3TextPakQBDLC :: (MonadFail m) => BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQBDLC pak = do
   let ?endian = BigEndian
   nodes <- splitPakNodes ?endian pak Nothing
@@ -174,7 +180,7 @@ readGH3TextPakQBDLC pak = do
     Just ne -> return $ snd $ NE.last ne
   readGH3TextPakQB nodes qbFile
 
-readGH3TextPakQB :: (MonadFail m, ?endian :: ByteOrder) => [(Node, BL.ByteString)] -> BL.ByteString -> m TextPakQB
+readGH3TextPakQB :: (MonadFail m, ?endian :: ByteOrder) => [(Node, BL.ByteString)] -> BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQB nodes qbFile = do
   let mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
   qb <- map (lookupQS mappingQS) <$> runGetM parseQB qbFile
@@ -191,7 +197,11 @@ readGH3TextPakQB nodes qbFile = do
       structs' <- forM (concat $ map snd structs) $ \case
         QBStructItemStruct8A0000 k struct -> return (k, struct)
         item -> fail $ "Unexpected item in _text.pak instead of song struct: " <> show item
-      return $ TextPakQB fileID structs'
+      return $ GH3TextPakQB
+        { gh3TextPakFileKey = fileID
+        , gh3TextPakSongStructs = structs'
+        , gh3AllNodes = nodes
+        }
 
 data GH3Singer
   = GH3SingerFemale

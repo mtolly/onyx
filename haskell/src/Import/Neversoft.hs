@@ -33,7 +33,7 @@ import           Neversoft.Metadata
 import           Neversoft.Note
 import           Neversoft.Pak
 import           Neversoft.PS2
-import           Neversoft.QB                   (parseQB)
+import           Neversoft.QB                   (QBSection (..), parseQB)
 import           Numeric                        (showHex)
 import qualified RockBand.Codec.File            as RBFile
 import           Sound.FSB                      (getFSBStreamBytes, parseFSB,
@@ -221,9 +221,9 @@ importGH3PS2 src folder = do
       pabPath = "pak" :| ["qb.pab.ps2"]
   pak <- maybe (fatal "Couldn't find qb.pak") (\r -> stackIO $ useHandle r handleToByteString) (findFoldedWad pakPath)
   pab <- maybe (fatal "Couldn't find qb.pab") (\r -> stackIO $ useHandle r handleToByteString) (findFoldedWad pabPath)
-  qbSections <- errorToWarning (let ?endian = LittleEndian in readGH3TextPakQBDisc pak pab) >>= \case
-    Nothing       -> return []
-    Just contents -> return $ textPakSongStructs contents
+  (qbSections, allNodes) <- errorToWarning (let ?endian = LittleEndian in readGH3TextPakQBDisc pak pab) >>= \case
+    Nothing       -> return ([], [])
+    Just contents -> return (gh3TextPakSongStructs contents, gh3AllNodes contents)
   songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do
     case parseSongInfoGH3 items of
       Left  err  -> warn err >> return []
@@ -243,6 +243,7 @@ importGH3PS2 src folder = do
       , gh3iSongInfo = info
       , gh3iSongPak  = rSongPak
       , gh3iAudio    = GH3AudioPS2 rAudioSolo rAudioCoop
+      , gh3iText     = allNodes
       }
 
 importGH3Disc :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -254,9 +255,9 @@ importGH3Disc src folder = do
       pabPath = "DATA" :| ["COMPRESSED", "PAK", "qb.pab.xen"]
   pak <- maybe (fatal "Couldn't find qb.pak") (\r -> stackIO $ useHandle r handleToByteString) (findFolded pakPath)
   pab <- maybe (fatal "Couldn't find qb.pab") (\r -> stackIO $ useHandle r handleToByteString) (findFolded pabPath)
-  qbSections <- errorToWarning (let ?endian = BigEndian in readGH3TextPakQBDisc pak pab) >>= \case
-    Nothing       -> return []
-    Just contents -> return $ textPakSongStructs contents
+  (qbSections, allNodes) <- errorToWarning (let ?endian = BigEndian in readGH3TextPakQBDisc pak pab) >>= \case
+    Nothing       -> return ([], [])
+    Just contents -> return (gh3TextPakSongStructs contents, gh3AllNodes contents)
   songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do
     case parseSongInfoGH3 items of
       Left  err  -> warn err >> return []
@@ -274,17 +275,18 @@ importGH3Disc src folder = do
       , gh3iSongInfo = info
       , gh3iSongPak  = rSongPak
       , gh3iAudio    = GH3Audio360 rAudio rDat
+      , gh3iText     = allNodes
       }
 
 importGH3DLC :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH3DLC src folder = do
   let texts = [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` T.toLower name ]
       findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
-  qbSections <- fmap concat $ forM texts $ \r -> do
+  (qbSections, allNodes) <- fmap mconcat $ forM texts $ \r -> do
     bs <- stackIO $ useHandle r handleToByteString
     errorToWarning (readGH3TextPakQBDLC bs) >>= \case
-      Nothing       -> return []
-      Just contents -> return $ textPakSongStructs contents
+      Nothing       -> return ([], [])
+      Just contents -> return (gh3TextPakSongStructs contents, gh3AllNodes contents)
   songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do
     case parseSongInfoGH3 items of
       Left  err  -> warn err >> return []
@@ -304,6 +306,7 @@ importGH3DLC src folder = do
           , gh3iSongInfo = info
           , gh3iSongPak  = rSongPak
           , gh3iAudio    = GH3Audio360 rAudio rDat
+          , gh3iText     = allNodes
           }
 
 data GH3Import = GH3Import
@@ -311,6 +314,7 @@ data GH3Import = GH3Import
   , gh3iSongInfo :: SongInfoGH3
   , gh3iSongPak  :: Readable
   , gh3iAudio    :: GH3Audio
+  , gh3iText     :: [(Node, BL.ByteString)]
   }
 
 data GH3Audio
@@ -345,11 +349,21 @@ importGH3Song gh3i = let
           [] -> fatal "Couldn't find chart .qb file"
           (_, bs) : _ -> do
             midQB <- inside "Parsing .mid.qb" $ runGetM parseQB bs >>= parseMidQB (gh3Name info)
+            -- look for .qb with nodeFilenameCRC of e.g. "dlc17" to find section names
+            let markerKey = qbKeyCRC $ gh3Name info
+            markerBank <- case [ txt | (node, txt) <- gh3iText gh3i, nodeFilenameCRC node == markerKey ] of
+              [] -> return HM.empty -- warn?
+              txt : _ -> do
+                qb <- runGetM parseQB txt
+                return $ HM.fromList $ flip concatMap qb $ \case
+                  QBSectionStringW n _ str -> [(n, str)] -- 360
+                  QBSectionString  n _ str -> [(n, TE.decodeLatin1 str)] -- ps2, what encoding?
+                  _                        -> []
             return $ gh3ToMidi
               info
               (mode == ImportCoop && gh3UseCoopNotetracks info)
               thisRhythmTrack
-              mempty
+              markerBank
               midQB
       ImportQuick -> return emptyChart
     let midiOnyx = midiFixed

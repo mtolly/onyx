@@ -20,6 +20,7 @@ import           Guitars                          (emit5')
 import           Neversoft.Checksum               (qbKeyCRC)
 import           Neversoft.Metadata               (SongInfoGH3 (..))
 import           Neversoft.QB
+import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
 import           RockBand.Common                  (Difficulty (..))
@@ -266,14 +267,26 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
     }
   trackLead = getPart $ if coopTracks then gh3CoopGuitar gh3 else gh3Guitar gh3
   trackCoop = getPart $ if coopTracks then gh3CoopRhythm gh3 else gh3Rhythm gh3
+  events = mempty
+    { eventsSections = fromPairs $ do
+      (t, marker) <- gh3Markers gh3
+      let str = case marker of
+            Right s -> s
+            Left  n -> case HM.lookup n bank of
+              Just s  -> s
+              Nothing -> T.pack $ show n
+      return (toBeats t, (SectionRB2, str))
+    }
   fixed = if coopRhythm
     then mempty
       { RBFile.fixedPartGuitar = trackLead
       , RBFile.fixedPartRhythm = trackCoop
+      , RBFile.fixedEvents = events
       }
     else mempty
       { RBFile.fixedPartGuitar = trackLead
       , RBFile.fixedPartBass   = trackCoop
+      , RBFile.fixedEvents = events
       }
     -- , RBFile.fixedEvents = mempty
     --   { eventsSections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers
