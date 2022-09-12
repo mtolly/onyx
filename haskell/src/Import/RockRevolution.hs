@@ -1,13 +1,15 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TupleSections     #-}
 module Import.RockRevolution where
 
 import           Audio                            (Audio (..))
 import           Config                           hiding (Difficulty)
 import           Control.Concurrent.Async         (concurrently)
 import           Control.Monad                    (forM, guard, replicateM,
-                                                   unless)
+                                                   unless, when)
 import           Control.Monad.Codec
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
@@ -37,11 +39,13 @@ import           RockBand.Codec                   (ChannelType (..),
                                                    eachKey, edges,
                                                    translateEdges)
 import qualified RockBand.Codec.Drums             as D
+import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
 import qualified RockBand.Codec.FullDrums         as FD
 import           RockBand.Common                  (Difficulty (..), Edge (..),
-                                                   each)
+                                                   each, isNoteEdgeCPV,
+                                                   pattern RNil, pattern Wait)
 import           Sound.FSB
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
@@ -56,10 +60,22 @@ findRRSongKeys dir = do
   guard $ T.all isDigit key
   return key
 
+-- notes on channel 0xF in control.mid
+data SectionMarker
+  = SectionIntro       -- 48
+  | SectionVerse       -- 49
+  | SectionChorus      -- 50
+  | SectionBridge      -- 51
+  | SectionMiddleEight -- 52
+  | SectionGuitarSolo  -- 53
+  | SectionCustom Int  -- pitches 54 through 70, I think (54 = SectionCustom 0)
+  | SectionOutro       -- 71
+  deriving (Eq)
+
 data RRFiveDifficulty t = RRFiveDifficulty
   { rrfStrums :: RTB.T t (Edge () F.Color)
   , rrfHOPOs  :: RTB.T t (Edge () F.Color)
-  -- TODO pitch 127, solo marker?
+  , rrfSolo   :: RTB.T t Bool
   } deriving (Show)
 
 instance ParseTrack RRFiveDifficulty where
@@ -76,18 +92,17 @@ instance ParseTrack RRFiveDifficulty where
       F.Yellow -> 62
       F.Blue   -> 63
       F.Orange -> 64
+    rrfSolo <- rrfSolo =. edges 127
     return RRFiveDifficulty{..}
 
-importRRGuitarBass :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m (F.FiveDifficulty U.Beats)
-importRRGuitarBass r = do
-  mid <- RBFile.loadRawMIDIReadable r >>= RBFile.readMixedMIDI
-  rr <- RBFile.parseTrackReport $ RBFile.s_tracks mid
-  let forceEdges
-        = RTB.flatten
-        . fmap nubOrd
-        . RTB.collectCoincident
-        . fmap (\case EdgeOn{} -> True; EdgeOff{} -> False)
-  return F.FiveDifficulty
+importRRGuitarBass :: RRFiveDifficulty U.Beats -> F.FiveDifficulty U.Beats
+importRRGuitarBass rr = let
+  forceEdges
+    = RTB.flatten
+    . fmap nubOrd
+    . RTB.collectCoincident
+    . fmap (\case EdgeOn{} -> True; EdgeOff{} -> False)
+  in F.FiveDifficulty
     { F.fiveForceStrum = forceEdges $ rrfStrums rr
     , F.fiveForceHOPO = forceEdges $ rrfHOPOs rr
     , F.fiveTap = RTB.empty
@@ -99,12 +114,15 @@ importRRGuitarBass r = do
 importRRSong :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> T.Text -> Import m
 importRRSong dir key level = do
 
+  when (level == ImportFull) $ lg $ "Importing Rock Revolution song [" <> T.unpack key <> "]"
+
   let need f = needRead f >>= \r -> stackIO $ useHandle r handleToByteString
       needRead f = case findFileCI (pure f) dir of
         Nothing -> fatal $ "Couldn't locate file: " <> T.unpack f
         Just r  -> return r
 
-  strings <- B.split 0 . BL.toStrict <$> need ("English_s" <> key <> "_Strings.bin")
+  -- these strings appear to be utf-8; see e.g. French_s1002_Strings.bin
+  strings <- map TE.decodeUtf8 . B.split 0 . BL.toStrict <$> need ("English_s" <> key <> "_Strings.bin")
   lua <- TE.decodeLatin1 . BL.toStrict <$> need ("s" <> key <> ".lua")
 
   let year :: Maybe Int
@@ -150,11 +168,13 @@ importRRSong dir key level = do
         ImportQuick -> return mempty
         ImportFull  -> do
           fiveDiffs <- forM diffs $ \(num, diff) -> do
-            mid <- needRead $ T.concat ["s", key, "_", inst, "_", num, ".mid"]
-            fiveDiff <- importRRGuitarBass mid
-            return (diff, fiveDiff)
+            mid <- needRead (T.concat ["s", key, "_", inst, "_", num, ".mid"])
+              >>= RBFile.loadRawMIDIReadable >>= RBFile.readMixedMIDI
+            rr <- RBFile.parseTrackReport $ RBFile.s_tracks mid
+            return (diff, (rr, importRRGuitarBass rr))
           return mempty
-            { F.fiveDifficulties = Map.fromList fiveDiffs
+            { F.fiveDifficulties = fmap snd $ Map.fromList fiveDiffs
+            , F.fiveSolo = maybe RTB.empty (rrfSolo . fst) $ lookup Expert fiveDiffs
             }
       loadDrums = case level of
         ImportQuick -> return mempty
@@ -174,11 +194,46 @@ importRRSong dir key level = do
   bass <- loadGuitarBass "bass"
   (drums, fullDrums, hiddenDrums) <- loadDrums
 
+  sectionNames <- case level of
+    ImportQuick -> return RTB.empty
+    ImportFull -> do
+      control <- needRead (T.concat ["s", key, "_control.mid"]) >>= RBFile.loadRawMIDIReadable >>= RBFile.readMixedMIDI
+      let sections = flip RTB.mapMaybe (RBFile.s_tracks control) $ \evt -> case isNoteEdgeCPV evt of
+            Just (15, p, Just _) -> case p of
+              48                     -> Just SectionIntro
+              49                     -> Just SectionVerse
+              50                     -> Just SectionChorus
+              51                     -> Just SectionBridge
+              52                     -> Just SectionMiddleEight
+              53                     -> Just SectionGuitarSolo
+              n | 54 <= n && n <= 70 -> Just $ SectionCustom $ n - 54
+              71                     -> Just SectionOutro
+              _                      -> Nothing
+            _ -> Nothing
+          getSectionNames prev = \case
+            RNil -> RNil
+            Wait t sect rest -> let
+              name = case sect of
+                SectionIntro       -> "Intro"
+                SectionVerse       -> "Verse"
+                SectionChorus      -> "Chorus"
+                SectionBridge      -> "Bridge"
+                SectionMiddleEight -> "Middle Eight"
+                SectionGuitarSolo  -> "Guitar Solo"
+                SectionCustom n    -> case drop (n + 2) strings of
+                  []    -> "Custom Section " <> T.singleton (['A'..] !! n)
+                  s : _ -> T.strip s
+                SectionOutro       -> "Outro"
+              numbered = if any (== sect) prev || any (== sect) rest
+                then name <> " " <> T.pack (show $ length (filter (== sect) prev) + 1)
+                else name
+              in Wait t numbered $ getSectionNames (sect : prev) rest
+      return $ getSectionNames [] sections
+
   return SongYaml
     { _metadata = def'
-      -- are these utf-8? latin-1? anything?
-      { _title        = Just $ T.strip $ TE.decodeLatin1 $ strings !! 1
-      , _artist       = Just $ T.strip $ TE.decodeLatin1 $ strings !! 0
+      { _title        = Just $ T.strip $ strings !! 1
+      , _artist       = Just $ T.strip $ strings !! 0
       , _album        = Nothing
       , _year         = year
       , _comments     = []
@@ -207,6 +262,9 @@ importRRSong dir key level = do
                 { RBFile.onyxPartFullDrums = hiddenDrums
                 })
               ]
+            , RBFile.onyxEvents = mempty
+              { eventsSections = (SectionRB2,) <$> sectionNames
+              }
             }
           }
         ImportQuick -> emptyChart
@@ -257,6 +315,7 @@ importRRSong dir key level = do
           , drumsFullLayout = FDStandard
           }
         })
+      {-
       , (RBFile.FlexExtra "hidden-drums", def
         { partDrums = Just PartDrums
           { drumsDifficulty = Tier 1
@@ -270,6 +329,7 @@ importRRSong dir key level = do
           , drumsFullLayout = FDStandard
           }
         })
+      -}
       ]
     }
 
@@ -383,7 +443,7 @@ data RRDrumDifficulty t = RRDrumDifficulty
   { rrdGems      :: RTB.T t (RRDrum, RRChannel) -- starting from 48. none of these should be RRC_Hidden
   , rrdHidden    :: RTB.T t (RRDrum, RRChannel) -- starting from 72. these should all be RRC_Hidden
   , rrdFreestyle :: RTB.T t (RRDrum, RRChannel) -- starting from 0
-  -- TODO pitch 127, solo marker?
+  , rrdSolo      :: RTB.T t Bool
   -- TODO pitch 126 (highway star)
   -- TODO pitch 105 (highway star)
   } deriving (Show)
@@ -393,6 +453,7 @@ instance ParseTrack RRDrumDifficulty where
     rrdGems      <- (rrdGems      =.) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum + 48
     rrdHidden    <- (rrdHidden    =.) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum + 72
     rrdFreestyle <- (rrdFreestyle =.) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum
+    rrdSolo      <- rrdSolo =. edges 127
     return RRDrumDifficulty{..}
 
 importRRDrums :: Map.Map Difficulty (RRDrumDifficulty U.Beats) -> D.DrumTrack U.Beats
@@ -414,6 +475,7 @@ importRRDrums diffs = mempty
     in U.trackJoin $ flip fmap expert $ \case
       D.Pro color D.Tom -> RTB.cons 0 (color, D.Tom) $ RTB.cons (1/32) (color, D.Cymbal) RTB.empty
       _                 -> RTB.empty
+  , D.drumSolo = maybe RTB.empty rrdSolo $ Map.lookup Expert diffs
   }
 
 importRRFullDrums :: RRDrumDifficulty U.Beats -> FD.FullDrumDifficulty U.Beats
