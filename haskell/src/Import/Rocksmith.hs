@@ -35,6 +35,7 @@ import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.ProGuitar
 import           RockBand.Common                  (blipEdgesRBNice, fixOverlaps,
                                                    fixOverlapsSimple,
+                                                   minSustainLengthRB,
                                                    splitEdgesSimple)
 import           Rocksmith.BNK                    (extractRSOgg)
 import           Rocksmith.Crypt
@@ -460,8 +461,8 @@ importRSSong folder song level = do
                   , rsAnchorHigh = fmap snd anchors
                   , rsModifiers  = flip RTB.mapMaybe notes $ \((_, str, len), (mods, _)) -> let
                     mods' = mods <> case len of
-                      Just n | n < 1/3 -> [ModSustain] -- force small note to sustain
-                      _                -> []
+                      Just n | n < minSustainLengthRB -> [ModSustain] -- force small note to sustain
+                      _                               -> []
                     in guard (not $ null mods') >> Just ([str], mods')
                   , rsTones      = U.unapplyTempoTrack temps
                     $ RTB.fromAbsoluteEventList

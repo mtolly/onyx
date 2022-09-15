@@ -281,17 +281,13 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
     then mempty
       { RBFile.fixedPartGuitar = trackLead
       , RBFile.fixedPartRhythm = trackCoop
-      , RBFile.fixedEvents = events
+      , RBFile.fixedEvents     = events
       }
     else mempty
       { RBFile.fixedPartGuitar = trackLead
       , RBFile.fixedPartBass   = trackCoop
-      , RBFile.fixedEvents = events
+      , RBFile.fixedEvents     = events
       }
-    -- , RBFile.fixedEvents = mempty
-    --   { eventsSections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers
-    --   , eventsEnd      = RTB.mapMaybe (\case Left  ()   -> Just ()  ; _ -> Nothing) markers
-    --   }
   in RBFile.Song
     { RBFile.s_tempos = tempos
     , RBFile.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do

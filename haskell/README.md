@@ -523,9 +523,9 @@ Other tabs under the Quick Convert window:
     own MIDI import function, and applies track names and note colors similar to
     the RBN or C3 project templates.
 
-  * MOGG/VGS creator
+  * MOGG/VGS/FSB creator
 
-    Generates an unencrypted MOGG or VGS file from a set of input audio files.
+    Generates an unencrypted game audio file from a set of input audio files.
     Created MOGG files should work on Rock Band games, Guitar Hero II for Xbox
     360, and newer games such as Audica, with a proper seek header. Created VGS
     files should work on the PS2 games GH1, GH2, and GH80s; I have not tested
@@ -543,6 +543,12 @@ Other tabs under the Quick Convert window:
 
     As a special case, if you provide a single OGG file and convert to MOGG, it
     will not be reencoded, but will go straight into the MOGG.
+
+    FSB3 files are used in Guitar Hero III and Rock Revolution, while FSB4 files
+    are used in Guitar Hero World Tour and later games. Note that Guitar Hero
+    FSB files also need to be encrypted in game-specific ways. FSB3 files have
+    multiple stereo streams which are stored as separate files, while FSB4
+    merges all channels together into one multitrack stream.
 
   * Lipsync file generation
 

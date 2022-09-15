@@ -7,7 +7,7 @@ module Import.Neversoft where
 import           Audio                          (Audio (..))
 import           Config
 import           Control.Applicative            ((<|>))
-import           Control.Monad                  (forM, when)
+import           Control.Monad                  (forM, guard, when)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import           Data.Bifunctor                 (first)
@@ -329,12 +329,13 @@ importGH3Song gh3i = let
     else [ImportSolo]
   in return $ flip map importModes $ \mode level -> do
     when (level == ImportFull) $ do
-      lg $ "Importing GH song " <> show (gh3Name info) <> " from: " <> gh3iSource gh3i
+      lg $ "Importing GH3 song " <> show (gh3Name info) <> " from: " <> gh3iSource gh3i
     -- Dragonforce DLC has rhythm tracks in coop, but hidden bass tracks in non-coop. (use coop notetracks = true)
     -- The Pretender has rhythm track copied to non-coop rhythm track, and non-coop rhythm audio is silent. (should ignore)
     -- We Three Kings is only DLC with rhythm coop but use coop notetracks = false.
-    let thisRhythmTrack = gh3RhythmTrack info && (mode == ImportCoop || not (gh3UseCoopNotetracks info))
-        coopPart       = if thisRhythmTrack then RBFile.FlexExtra "rhythm" else RBFile.FlexBass
+    let thisRhythmTrack = gh3RhythmTrack info && hasRealCoop
+        hasRealCoop     = mode == ImportCoop || not (gh3UseCoopNotetracks info)
+        coopPart        = if thisRhythmTrack then RBFile.FlexExtra "rhythm" else RBFile.FlexBass
     midiFixed <- case level of
       ImportFull -> do
         let ?endian = case gh3iAudio gh3i of
@@ -462,8 +463,8 @@ importGH3Song gh3i = let
           , _fileTempo = Nothing
           }
       , _targets = HM.empty
-      , _parts = Parts $ HM.fromList
-        [ (RBFile.FlexGuitar, def { partGRYBO = Just def })
-        , (coopPart         , def { partGRYBO = Just def })
+      , _parts = Parts $ HM.fromList $ catMaybes
+        [ Just (RBFile.FlexGuitar, def { partGRYBO = Just def })
+        , guard hasRealCoop >> Just (coopPart, def { partGRYBO = Just def })
         ]
       }

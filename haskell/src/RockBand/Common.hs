@@ -227,7 +227,9 @@ showEdgesNice defLength = U.trackJoin . go . RTB.collectCoincident where
       in RTB.cons dt (foldr RTB.merge RTB.empty $ map f xs) $ go rtb'
 
 minSustainLengthRB :: U.Beats
-minSustainLengthRB = 1/3 -- TODO verify this!
+minSustainLengthRB = 161/480
+-- TODO still need to verify this.
+-- this is a lower bound though (see RB2 Souls of Black, 1/3 beat shouldn't be sustain)
 
 edgeBlips :: (Eq a, NNC.C t) => t -> RTB.T t (Edge s a) -> RTB.T t (s, a, Maybe t)
 edgeBlips minLen

@@ -647,7 +647,7 @@ commands =
     , commandDesc = "Pack a folder into Data.hdr.e.2 and Data.pk0."
     , commandUsage = ""
     , commandRun = \args opts -> case args of
-      -- TODO extend this to also support loading existing hdrs and appending to them
+      -- make new hdr and single pk
       [dir] -> do
         src <- (if elem OptCrypt opts then PG.encryptPKContents else id)
           <$> stackIO (crawlFolder dir)
@@ -657,6 +657,22 @@ commands =
             pathPk = takeDirectory dir </> "Data.pk0"
         stackIO $ BL.writeFile pathHdr hdrE2
         stackIO $ BL.writeFile pathPk pk
+        return [pathHdr, pathPk]
+      -- add a new pk to an existing hdr
+      -- TODO this is untested!
+      [pathHdr, dir] -> do
+        hdrOrig <- stackIO (B.readFile pathHdr) >>= PG.decryptE2 >>= PG.readHeader
+        let origFolder = PG.getFolder $ PG.fh_Contents hdrOrig
+            newPKNum = fromIntegral $
+              maximum (map PG.oe_PKNum $ toList origFolder >>= toList . PG.pkOffsetEntries) + 1
+        src <- (if elem OptCrypt opts then PG.encryptPKContents else id)
+          <$> stackIO (crawlFolder dir)
+        (newFolder, newPK) <- stackIO $ PG.makeNewPK newPKNum src
+        let combinedFolder = origFolder <> newFolder -- right arg prefered (new contents supercede old ones)
+        hdrE2 <- PG.encryptE2 $ BL.toStrict $ PG.buildHeader $ PG.rebuildFullHeader combinedFolder
+        let pathPk = takeDirectory pathHdr </> ("Data.pk" <> show newPKNum)
+        stackIO $ BL.writeFile pathHdr hdrE2
+        stackIO $ BL.writeFile pathPk newPK
         return [pathHdr, pathPk]
       _ -> fatal "Expected 1 arg (folder to pack)"
     }

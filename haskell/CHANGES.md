@@ -1,5 +1,26 @@
 # Version history
 
+## 20220916
+
+* Support for importing from Guitar Hero III (360 disc, 360 DLC, PS2 disc)
+* Support for importing from Rock Revolution (360 disc, 360 DLC)
+* Support for importing from Freetar (`.sng`) format
+* Support reading from disc `.ark` files for Rock Band 1, 2, 3
+* Support importing directly from PS2 and Xbox 360 `.iso` files
+* Fix a bug with non-100%-speed GH1/GH2 output
+  where backing audio speed was double-adjusted
+* Fix reading from PAL versions of PS3 Rock Band songs (#208)
+* Fix sync of music video songs from Rock Band 2 for PS2
+* Support new `.chart` representation of drum lanes, accents, and ghosts
+* Add author information readable by Guitar Hero II Deluxe (360)
+  and Rock Band 2 Deluxe
+* Import Graveyard Shift from GH1 if present
+* Audio combine tool now generates working FSB3 with XMA1
+  for GH3 and Rock Revolution
+* Fix simultaneous `VENUE` lighting commands being converted
+  to overlapping notes for RB2
+* Fix batch processing sometimes not cleaning up each song's temporary folder
+
 ## 20220807
 
 * Support for converting to Guitar Hero (1)

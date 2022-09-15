@@ -83,10 +83,10 @@ data RBImport = RBImport
   , rbiComments    :: C3DTAComments
   , rbiMOGG        :: Maybe SoftContents
   , rbiPSS         :: Maybe (IO (SoftFile, [BL.ByteString])) -- if ps2, load video and vgs channels
-  , rbiAlbumArt    :: Maybe SoftFile
+  , rbiAlbumArt    :: Maybe (IO (Either String SoftFile))
   , rbiMilo        :: Maybe Readable
   , rbiMIDI        :: Readable
-  , rbiMIDIUpdate  :: Maybe Readable
+  , rbiMIDIUpdate  :: Maybe (IO (Either String Readable))
   , rbiSource      :: Maybe FilePath
   }
 
@@ -138,23 +138,21 @@ importSTFSFolder src folder = do
     let missingArt = updateDir </> T.unpack top </> "gen" </> (T.unpack top ++ "_keep.png_xbox")
         updateMid = updateDir </> T.unpack top </> (T.unpack top ++ "_update.mid")
     art <- if fromMaybe False (D.albumArt pkg) || D.gameOrigin pkg == Just "beatles"
-      then stackIO (Dir.doesFileExist missingArt) >>= \case
-        -- if True, old rb1 song with album art on rb3 disc
-        True -> return $ Just $ SoftFile "cover.png_xbox" $ SoftReadable $ fileReadable missingArt
-        False -> case findFileCI artPathXbox folder of
-          Just res -> return $ Just $ SoftFile "cover.png_xbox" $ SoftReadable res
-          Nothing -> case findFileCI artPathPS3 folder of
-            Just res -> return $ Just $ SoftFile "cover.png_ps3" $ SoftReadable res
-            Nothing -> do
-              warn $ "Expected album art, but didn't find it: " <> show artPathXbox
-              return Nothing
+      then return $ Just $ do
+        Dir.doesFileExist missingArt >>= \case
+          -- if True, old rb1 song with album art on rb3 disc
+          True -> return $ Right $ SoftFile "cover.png_xbox" $ SoftReadable $ fileReadable missingArt
+          False -> case findFileCI artPathXbox folder of
+            Just res -> return $ Right $ SoftFile "cover.png_xbox" $ SoftReadable res
+            Nothing -> case findFileCI artPathPS3 folder of
+              Just res -> return $ Right $ SoftFile "cover.png_ps3" $ SoftReadable res
+              Nothing -> return $ Left $ "Expected album art, but didn't find it: " <> show artPathXbox
       else return Nothing
     update <- if maybe False ("disc_update" `elem`) $ D.extraAuthoring pkg
-      then stackIO (Dir.doesFileExist updateMid) >>= \case
-        True -> return $ Just $ fileReadable updateMid
-        False -> do
-          warn $ "Expected to find disc update MIDI but it's not installed: " <> updateMid
-          return Nothing
+      then return $ Just $ do
+        Dir.doesFileExist updateMid >>= return . \case
+          True  -> Right $ fileReadable updateMid
+          False -> Left $ "Expected to find disc update MIDI but it's not installed: " <> updateMid
       else return Nothing
     return $ importRB RBImport
       { rbiSongPackage = pkg
@@ -202,7 +200,7 @@ importRBA rba level = do
       }
     , rbiMOGG = Just mogg
     , rbiPSS = Nothing
-    , rbiAlbumArt = Just bmp
+    , rbiAlbumArt = Just $ return $ Right bmp
     , rbiMilo = Just milo
     , rbiMIDI = midi
     , rbiMIDIUpdate = Nothing
@@ -237,7 +235,9 @@ importRB rbi level = do
       RBFile.Song temps sigs (RBFile.RawFile trks1x) <- RBFile.loadMIDIReadable $ rbiMIDI rbi
       trksUpdate <- case rbiMIDIUpdate rbi of
         Nothing -> return []
-        Just umid -> RBFile.rawTracks . RBFile.s_tracks <$> RBFile.loadMIDIReadable umid
+        Just getUpdate -> stackIO getUpdate >>= \case
+          Left  err  -> warn err >> return []
+          Right umid -> RBFile.rawTracks . RBFile.s_tracks <$> RBFile.loadMIDIReadable umid
       let updatedNames = map Just $ mapMaybe U.trackName trksUpdate
           trksUpdated
             = filter ((`notElem` updatedNames) . U.trackName) trks1x
@@ -394,6 +394,14 @@ importRB rbi level = do
         (i, chan) <- zip [0..] $ fromMaybe [] vgs
         return ("vgs-" <> show (i :: Int), chan)
 
+  art <- case level of
+    ImportQuick -> return Nothing
+    ImportFull  -> case rbiAlbumArt rbi of
+      Nothing -> return Nothing
+      Just getArt -> stackIO getArt >>= \case
+        Left  err -> warn err >> return Nothing
+        Right art -> return $ Just art
+
   return SongYaml
     { _metadata = Metadata
       { _title        = Just title
@@ -408,7 +416,7 @@ importRB rbi level = do
       , _year         = case (D.yearReleased pkg, D.gameOrigin pkg, D.dateReleased pkg) of
         (Nothing, Just "beatles", Just date) -> readMaybe $ T.unpack $ T.take 4 date
         _ -> fromIntegral <$> D.yearReleased pkg
-      , _fileAlbumArt = rbiAlbumArt rbi
+      , _fileAlbumArt = art
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , _comments     = []
       , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
@@ -729,7 +737,7 @@ importRB4 fdta level = do
     , rbiComments = def
     , rbiMOGG = Just $ SoftReadable $ fileReadable $ fdta -<.> "mogg"
     , rbiPSS = Nothing
-    , rbiAlbumArt = art
+    , rbiAlbumArt = return . Right <$> art
     , rbiMilo = Nothing
     , rbiMIDI = midRead
     , rbiMIDIUpdate = Nothing

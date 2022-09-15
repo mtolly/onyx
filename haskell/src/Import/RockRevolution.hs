@@ -112,7 +112,7 @@ importRRGuitarBass rr = let
     }
 
 importRRSong :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> T.Text -> Import m
-importRRSong dir key level = do
+importRRSong dir key level = inside ("Song " <> show key) $ do
 
   when (level == ImportFull) $ lg $ "Importing Rock Revolution song [" <> T.unpack key <> "]"
 
@@ -145,19 +145,20 @@ importRRSong dir key level = do
       r2 <- need $ "s" <> key <> "_Drums.fsb"
       stackIO $ concurrently (loadAudio r1) (loadAudio r2)
 
-  -- TODO this is a brittle hack. I think we have to parse the .fev files to figure out channel order correctly
-  let streamName inst = "s" <> key <> "_" <> inst
-      findStream insts fsb = case filter (\(name, _) -> any (`T.isPrefixOf` T.toLower name) $ map streamName insts) fsb of
+  -- TODO this is a brittle hack. We have to parse the .fev files to figure out channel order correctly
+  let findStream insts fsb = case filter (\(name, _) -> any (`T.isInfixOf` T.toLower name) insts) fsb of
         [] -> do
           case level of
             ImportQuick -> return ()
             ImportFull  -> warn $ "Couldn't locate stream in FSB: " <> show insts
           return Nothing
         (name, _) : _ -> return $ Just name
-  guitarStream  <- findStream ["guitar"               ] nonDrumStreams
-  bassStream    <- findStream ["bass"                 ] nonDrumStreams
-  drumsStream   <- findStream ["drums"                ] drumStreams
-  backingStream <- findStream ["mixminus", "mix-minus"] nonDrumStreams
+      allStreams = nonDrumStreams <> drumStreams
+      -- searching all streams together because s1056 has guitar and drums mixed up
+  guitarStream  <- findStream ["guitar"               ] allStreams
+  bassStream    <- findStream ["bass"                 ] allStreams
+  drumsStream   <- findStream ["drum"                 ] allStreams
+  backingStream <- findStream ["mixminus", "mix-minus"] allStreams
 
   controlMid <- case level of
     ImportQuick -> return emptyChart
