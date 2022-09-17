@@ -1,6 +1,6 @@
 # Version history
 
-## 20220916
+## 20220917
 
 * Support for importing from Guitar Hero III (360 disc, 360 DLC, PS2 disc)
 * Support for importing from Rock Revolution (360 disc, 360 DLC)
