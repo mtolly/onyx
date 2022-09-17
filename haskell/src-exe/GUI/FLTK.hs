@@ -5261,9 +5261,7 @@ launchBatch sink makeMenuBar startFiles = mdo
           }
     FL.setResizable tab $ Just group
     return (tab, getter)
-  let doImport imp fn = localResources $ do
-        -- this can potentially not clean up the temp folder if interrupted during import,
-        -- so we use localResources to make sure each song is cleaned up before starting the next one
+  let doImport imp fn = do
         proj <- importWithPreferences imp
         res <- errorToEither $ fn proj
         mapM_ release $ projectRelease proj

@@ -89,7 +89,7 @@ resourceTempDir = do
   let ignoringIOErrors ioe = ioe `MC.catch` (\e -> const (return ()) (e :: IOError))
   allocate
     (Temp.createTempDirectory tmp "onyx")
-    (ignoringIOErrors . Dir.removeDirectoryRecursive)
+    (ignoringIOErrors . Dir.removePathForcibly)
 
 data Importable m = Importable
   { impTitle   :: Maybe T.Text
