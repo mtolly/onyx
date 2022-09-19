@@ -239,6 +239,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           in foundImports "Rock Revolution (360)" loc $ importRR songsDir
         | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "GH3_Intro.bik.xen"]) dir
           = importGH3Disc loc dir >>= foundImports "Guitar Hero III (360)" loc
+        | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "AO_Long_1.bik.xen"]) dir
+          = importGH3Disc loc dir >>= foundImports "Guitar Hero: Aerosmith (360)" loc
         | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "loading_flipbook.bik.xen"]) dir
           = warn "Guitar Hero World Tour not supported (yet)" >> return ([], [])
         | isJust $ findFileCI ("data" :| ["compressed", "ZONES", "Z_GH6Intro.pak.xen"]) dir

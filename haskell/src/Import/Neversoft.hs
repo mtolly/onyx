@@ -267,16 +267,18 @@ importGH3Disc src folder = do
         songPath  = "DATA" :| ["COMPRESSED", "SONGS", pathName <> "_song.pak.xen"]
         audioPath = "DATA" :| ["MUSIC", pathName <> ".fsb.xen"]
         datPath   = "DATA" :| ["MUSIC", pathName <> ".dat.xen"]
-    rSongPak <- maybe (fatal $ "Couldn't find: " <> show songPath ) return (findFolded songPath )
-    rAudio   <- maybe (fatal $ "Couldn't find: " <> show audioPath) return (findFolded audioPath)
-    rDat     <- maybe (fatal $ "Couldn't find: " <> show datPath  ) return (findFolded datPath  )
-    importGH3Song GH3Import
-      { gh3iSource   = src
-      , gh3iSongInfo = info
-      , gh3iSongPak  = rSongPak
-      , gh3iAudio    = GH3Audio360 rAudio rDat
-      , gh3iText     = allNodes
-      }
+    case findFolded songPath of
+      Nothing       -> return [] -- song in pak but not present, e.g. GH3 songs in GH Aerosmith
+      Just rSongPak -> do
+        rAudio   <- maybe (fatal $ "Couldn't find: " <> show audioPath) return (findFolded audioPath)
+        rDat     <- maybe (fatal $ "Couldn't find: " <> show datPath  ) return (findFolded datPath  )
+        importGH3Song GH3Import
+          { gh3iSource   = src
+          , gh3iSongInfo = info
+          , gh3iSongPak  = rSongPak
+          , gh3iAudio    = GH3Audio360 rAudio rDat
+          , gh3iText     = allNodes
+          }
 
 importGH3DLC :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH3DLC src folder = do
