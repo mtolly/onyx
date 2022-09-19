@@ -15,6 +15,7 @@ import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
 import qualified Data.Aeson                     as A
+import qualified Data.Aeson.KeyMap              as KM
 import qualified Data.ByteString                as B
 import           Data.Fixed                     (Fixed, HasResolution)
 import qualified Data.HashMap.Strict            as HM
@@ -73,10 +74,10 @@ asObject :: (Monad m) => T.Text -> ObjectCodec m A.Value a -> JSONCodec m a
 asObject err codec = Codec
   { codecIn = inside ("parsing " ++ T.unpack err) $ lift ask >>= \case
     A.Object obj -> let
-      f = withReaderT (const obj) . mapReaderT (`evalStateT` Set.empty)
+      f = withReaderT (const $ KM.toHashMapText obj) . mapReaderT (`evalStateT` Set.empty)
       in mapStackTraceT f $ codecIn codec
     _ -> expected "object"
-  , codecOut = makeOut $ A.Object . HM.fromList . makeObject codec
+  , codecOut = makeOut $ A.Object . KM.fromHashMapText . HM.fromList . makeObject codec
   }
 
 asStrictObject :: (Monad m) => T.Text -> ObjectCodec m A.Value a -> JSONCodec m a
@@ -87,13 +88,13 @@ asStrictObject err codec = asObject err Codec
 
 object :: (Monad m) => StackParser m (HM.HashMap T.Text A.Value) a -> StackParser m A.Value a
 object p = lift ask >>= \case
-  A.Object o -> parseFrom o p
+  A.Object o -> parseFrom (KM.toHashMapText o) p
   _          -> expected "an object"
 
 -- TODO cleanup
 requiredKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (HM.HashMap T.Text A.Value) a
 requiredKey k p = lift ask >>= \hm -> case HM.lookup k hm of
-  Nothing -> parseFrom (A.Object hm) $
+  Nothing -> parseFrom (A.Object $ KM.fromHashMapText hm) $
     expected $ "to find required key " ++ show k ++ " in object"
   Just v  -> inside ("required key " ++ show k) $ parseFrom v p
 
@@ -154,12 +155,12 @@ instance (StackJSON a) => StackJSON (Maybe a) where
 onlyKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (HM.HashMap T.Text A.Value) a
 onlyKey k p = lift ask >>= \hm -> case HM.toList hm of
   [(k', v)] | k == k' -> inside ("only key " ++ show k) $ parseFrom v p
-  _ -> parseFrom (A.Object hm) $
+  _ -> parseFrom (A.Object $ KM.fromHashMapText hm) $
     expected $ "to find only key " ++ show k ++ " in object"
 
 mapping :: (Monad m) => StackParser m A.Value a -> StackParser m A.Value (HM.HashMap T.Text a)
 mapping p = lift ask >>= \case
-  A.Object o -> HM.traverseWithKey (\k x -> inside ("mapping key " ++ show k) $ parseFrom x p) o
+  A.Object o -> HM.traverseWithKey (\k x -> inside ("mapping key " ++ show k) $ parseFrom x p) $ KM.toHashMapText o
   _          -> expected "an object"
 
 mappingToJSON :: (StackJSON a) => HM.HashMap T.Text a -> A.Value
@@ -172,8 +173,8 @@ dict c = Codec
   }
 
 pattern OneKey :: T.Text -> A.Value -> A.Value
-pattern OneKey k v <- A.Object (HM.toList -> [(k, v)]) where
-  OneKey k v = A.Object $ HM.fromList [(k, v)]
+pattern OneKey k v <- A.Object (HM.toList . KM.toHashMapText -> [(k, v)]) where
+  OneKey k v = A.Object $ KM.fromHashMapText $ HM.fromList [(k, v)]
 
 pair :: (Monad m) => JSONCodec m a -> JSONCodec m b -> JSONCodec m (a, b)
 pair xf yf = Codec

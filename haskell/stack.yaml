@@ -12,16 +12,10 @@ extra-deps:
 - jammittools-0.5.5.2
 - rubberband-0.1.0.2
 - tinyfiledialogs-0.2.0.0
-- JuicyPixels-3.3.7 # fixes a jpeg crash: https://github.com/Twinside/Juicy.Pixels/issues/205
 - JuicyPixels-stbir-0.1.0.0
-- hsndfile-vector-0.5.2
 - wavefront-0.7.1.4
-- tcp-streams-1.0.1.1
-- caerbannog-0.6.1.1
-- hashable-1.3.4.1 # fixes hash clash on windows: https://github.com/haskell-unordered-containers/hashable/pull/213
-- RtMidi-0.5.0.1
-- cryptohash-sha1-0.11.101.0
-- language-c-0.9.1
+- caerbannog-1.0.0.2
+- RtMidi-0.5.0.2
 # local folders
 - game/
 - ArkTool/
@@ -52,17 +46,17 @@ extra-deps:
   commit: 1ea0f72a3795375e4b9eafcaef2500d105faf20f
 - git: https://github.com/mtolly/OpenAL
   commit: 3c74c9807c2d126cbbd2596082f9b9345a247ec5
-- git: https://github.com/mtolly/codec # ghc 8.8 patch
-  commit: 7415d2224135574fafaec533b7507e4276dd7c70
+- git: https://github.com/mtolly/codec # ghc 8.8+ and aeson patches
+  commit: 7aedc9534afb996cb11a557eeadc74462e49e8de
 - git: https://github.com/mtolly/mpg123-haskell-binding
   commit: 4790b92549b7db51801a67cf1055259e3abcf60e
 - git: https://github.com/kaoskorobase/hsndfile # unreleased past 0.8.0, switches to pkg-config
   commit: f532a1fdf119a543d7db20fe21f11ced5cffbb21
 # - git: https://github.com/mtolly/cabal # patch to work around c2hs failing on Windows in onyxite-customs-lib, due to many repeated include dirs in its invocation
-#   commit: 8b3141e6bc82b1d381674145868429e558c1cd5d
+#   commit: f91d35bfdab221b2b6102cf462811994b836c23e
 #   subdirs:
 #   - Cabal
-resolver: lts-17.12
+resolver: nightly-2022-09-17
 flags:
   fltkhs:
     bundled: true

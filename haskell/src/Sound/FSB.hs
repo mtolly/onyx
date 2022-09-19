@@ -626,7 +626,7 @@ data XMA1Contents = XMA1Contents
   , xma1Rate      :: Int
   , xma1SeekTable :: [Word32] -- this is per-packet (not per-block like XMA2)
   , xma1Data      :: BL.ByteString
-  } deriving (Generic, Hashable)
+  } deriving (Eq, Generic, Hashable)
 
 data XMA2Contents = XMA2Contents
   { xma2Channels        :: Int
@@ -635,7 +635,7 @@ data XMA2Contents = XMA2Contents
   , xma2PacketsPerBlock :: Int -- 16 for FSB4 (GH), 32 for PowerGig .xma
   , xma2SeekTable       :: Maybe [Word32] -- should start from block 1 (not 0) like .xma (not .fsb)
   , xma2Data            :: BL.ByteString
-  } deriving (Generic, Hashable)
+  } deriving (Eq, Generic, Hashable)
 
 parseXMA2 :: (MonadFail m) => BL.ByteString -> m XMA2Contents
 parseXMA2 b = parseXMA b >>= \case

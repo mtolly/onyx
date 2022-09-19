@@ -23,7 +23,8 @@ import           Control.Monad                  (forM)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                     as A
-import qualified Data.HashMap.Strict            as M
+import qualified Data.Aeson.Key                 as K
+import qualified Data.Aeson.KeyMap              as M
 import           Data.List                      (foldl')
 import qualified Data.Text                      as T
 import qualified Data.Yaml                      as Y
@@ -43,9 +44,9 @@ readYAMLTree f = inside ("YAML file " ++ show f) $ let
     Y.Object o -> goPairs M.empty $ M.toList o
     Y.Array a  -> Y.Array <$> mapM go a
     _          -> return v
-  goPairs :: (MonadIO m) => Y.Object -> [(T.Text, Y.Value)] -> StackTraceT m Y.Value
+  goPairs :: (MonadIO m) => Y.Object -> [(A.Key, Y.Value)] -> StackTraceT m Y.Value
   goPairs o [] = return $ Y.Object o
-  goPairs o ((k, v) : rest) = case T.stripPrefix "file-" k of
+  goPairs o ((k, v) : rest) = case T.stripPrefix "file-" $ K.toText k of
     Just "include" -> case stringOrStrings v of
       A.Success e -> do
         let files = either (: []) id e

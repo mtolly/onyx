@@ -11,7 +11,7 @@ import           Control.Monad.Trans.Reader     (ask)
 import           Control.Monad.Trans.StackTrace
 import           Data.Aeson                     ((.=))
 import qualified Data.Aeson                     as A
-import qualified Data.HashMap.Strict            as HM
+import qualified Data.Aeson.KeyMap              as KM
 import qualified Data.Text                      as T
 import qualified Data.Vector                    as V
 import           Rocksmith.CST                  (Tone2014 (..))
@@ -85,8 +85,8 @@ instance StackJSON Arrangement where
   stackJSON = Codec
     { codecIn = inside "Parsing arrangement" $ lift ask >>= \case
       A.Object o -> do
-        arrCase   <- maybe (fatal "Arrangement has no Case"  ) return $ HM.lookup "Case"   o
-        arrFields <- maybe (fatal "Arrangement has no Fields") return $ HM.lookup "Fields" o
+        arrCase   <- maybe (fatal "Arrangement has no Case"  ) return $ KM.lookup "Case"   o
+        arrFields <- maybe (fatal "Arrangement has no Fields") return $ KM.lookup "Fields" o
         arrFields1 <- case arrFields of
           A.Array a -> case V.toList a of
             [x] -> return x

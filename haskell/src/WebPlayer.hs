@@ -17,6 +17,7 @@ import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first)
 import           Control.Monad                    (guard)
 import qualified Data.Aeson                       as A
+import qualified Data.Aeson.Key                   as K
 import qualified Data.Aeson.Types                 as A
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower)
@@ -89,11 +90,11 @@ showHSTNote = \case
 instance A.ToJSON (Five U.Seconds) where
   toJSON x = A.object
     [ (,) "notes" $ A.object $ flip map (Map.toList $ fiveNotes x) $ \(color, notes) ->
-      (,) (maybe "open" (T.pack . map toLower . show) color) $ eventList notes showHSTNote
+      (,) (maybe "open" (K.fromString . map toLower . show) color) $ eventList notes showHSTNote
     , (,) "solo" $ eventList (fiveSolo x) A.toJSON
     , (,) "energy" $ eventList (fiveEnergy x) A.toJSON
     , (,) "lanes" $ A.object $ flip map (Map.toList $ fiveLanes x) $ \(color, lanes) ->
-      (,) (maybe "open" (T.pack . map toLower . show) color) $ eventList lanes A.toJSON
+      (,) (maybe "open" (K.fromString . map toLower . show) color) $ eventList lanes A.toJSON
     , (,) "bre" $ eventList (fiveBRE x) A.toJSON
     ]
 
@@ -131,7 +132,7 @@ instance A.ToJSON (Drums U.Seconds) where
     , (,) "solo" $ eventList (drumSolo x) A.toJSON
     , (,) "energy" $ eventList (drumEnergy x) A.toJSON
     , (,) "lanes" $ A.object $ flip map (Map.toList $ drumLanes x) $ \(gem, lanes) ->
-      (,) (T.singleton $ drumGemChar gem) $ eventList lanes A.toJSON
+      (,) (K.fromString [drumGemChar gem]) $ eventList lanes A.toJSON
     , (,) "bre" $ eventList (drumBRE x) A.toJSON
     , (,) "mode" $ case drumMode x of
       C.Drums4    -> "4"
@@ -172,7 +173,7 @@ _readPitch t = case lookup t _pitchMap of
 instance A.ToJSON (ProKeys U.Seconds) where
   toJSON x = A.object
     [ (,) "notes" $ A.object $ flip map (Map.toList $ proKeysNotes x) $ \(p, notes) ->
-      (,) (showPitch p) $ eventList notes $ \case
+      (,) (K.fromText $ showPitch p) $ eventList notes $ \case
         NoteOff ()   -> "e"
         Blip () ()   -> "n"
         NoteOn () () -> "N"
@@ -180,7 +181,7 @@ instance A.ToJSON (ProKeys U.Seconds) where
     , (,) "solo" $ eventList (proKeysSolo x) A.toJSON
     , (,) "energy" $ eventList (proKeysEnergy x) A.toJSON
     , (,) "lanes" $ A.object $ flip map (Map.toList $ proKeysLanes x) $ \(pitch, lanes) ->
-      (,) (showPitch pitch) $ eventList lanes A.toJSON
+      (,) (K.fromText $ showPitch pitch) $ eventList lanes A.toJSON
     , (,) "gliss" $ eventList (proKeysGlissando x) A.toJSON
     , (,) "bre" $ eventList (proKeysBRE x) A.toJSON
     ]
@@ -199,7 +200,7 @@ data Protar t = Protar
 instance A.ToJSON (Protar U.Seconds) where
   toJSON x = A.object
     [ (,) "notes" $ A.object $ flip map (Map.toList $ protarNotes x) $ \(string, notes) ->
-      (,) (T.pack $ map toLower $ show string) $ eventList notes $ A.String . \case
+      (,) (K.fromString $ map toLower $ show string) $ eventList notes $ A.String . \case
         NoteOff () -> "e"
         Blip (sht, fret, phantom, _) () -> T.concat
           [ case sht of Strum -> "s"; HOPO -> "h"; Tap -> "t"
@@ -215,7 +216,7 @@ instance A.ToJSON (Protar U.Seconds) where
     , (,) "solo" $ eventList (protarSolo x) A.toJSON
     , (,) "energy" $ eventList (protarEnergy x) A.toJSON
     , (,) "lanes" $ A.object $ flip map (Map.toList $ protarLanes x) $ \(string, lanes) ->
-      (,) (T.pack $ map toLower $ show string) $ eventList lanes A.toJSON
+      (,) (K.fromString $ map toLower $ show string) $ eventList lanes A.toJSON
     , (,) "bre" $ eventList (protarBRE x) A.toJSON
     , (,) "chords" $ eventList (protarChords x) $ A.String . \case
       NoteOff     () -> "e"

@@ -50,7 +50,8 @@ import           Control.Monad.IO.Class                    (MonadIO (..),
 import           Control.Monad.Trans.Class                 (lift)
 import           Control.Monad.Trans.Maybe                 (MaybeT (..))
 import           Control.Monad.Trans.Reader                (ReaderT, ask, local,
-                                                            runReaderT, mapReaderT)
+                                                            mapReaderT,
+                                                            runReaderT)
 import           Control.Monad.Trans.Resource              (ResourceT, allocate,
                                                             register, release,
                                                             resourceForkIO,
@@ -59,6 +60,7 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer                (WriterT,
                                                             execWriterT, tell)
 import qualified Data.Aeson                                as A
+import qualified Data.Aeson.KeyMap                         as KM
 import           Data.Binary.Put                           (runPut)
 import qualified Data.ByteString                           as B
 import qualified Data.ByteString.Char8                     as B8
@@ -5493,7 +5495,7 @@ isNewestRelease cb = do
   let addr = Req.https "api.github.com" /: "repos" /: "mtolly" /: "onyxite-customs" /: "releases" /: "latest"
   rsp <- Req.runReq Req.defaultHttpConfig $ Req.req Req.GET addr Req.NoReqBody Req.jsonResponse $ Req.header "User-Agent" "mtolly/onyxite-customs"
   case Req.responseBody rsp of
-    A.Object obj -> case HM.lookup "name" obj of
+    A.Object obj -> case KM.lookup "name" obj of
       Just (A.String str) -> cb $ case (readMaybe $ T.unpack str, readMaybe $ showVersion version) of
         (Just latest, Just this) -> compare (this :: Integer) latest
         _                        -> if T.unpack str == showVersion version then EQ else LT

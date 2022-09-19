@@ -133,7 +133,7 @@ instance Applicative (Audio t) where
   (<*>) = ap
 
 instance Monad (Audio t) where
-  return = Input
+  return = pure
   x >>= f = let
     join_ = \case
       Silence c t          -> Silence c t

@@ -16,6 +16,7 @@ import           Control.Monad.Trans.StackTrace   (StackTraceT, fatal, inside,
                                                    logStdout, stackIO)
 import           Data.Aeson                       ((.:), (.:?))
 import qualified Data.Aeson                       as A
+import qualified Data.Aeson.KeyMap                as KM
 import qualified Data.Aeson.Types                 as A
 import           Data.Binary.Codec.Class
 import qualified Data.ByteString                  as B
@@ -300,7 +301,7 @@ loadVisemeMap f = inside ("Loading viseme map from: " <> f) $ do
 
 instance A.FromJSON (VisemeMap [(T.Text, Word8)]) where
   parseJSON = A.withObject "VisemeMap" $ \o -> do
-    let readMap m = forM (HM.toList m) $ \(k, v) -> do
+    let readMap m = forM (HM.toList $ KM.toHashMapText m) $ \(k, v) -> do
           v' <- A.parseJSON v
           return (k, v')
         readVowel A.Null = return ([], Nothing)

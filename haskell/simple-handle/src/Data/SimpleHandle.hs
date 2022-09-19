@@ -57,20 +57,21 @@ instance D.IODevice SimpleHandle where
       RelativeSeek -> (+ n) <$> shTell sh
       SeekFromEnd  -> return $ shSize sh - n
     shSeek sh n'
+    return n'
   isSeekable _    = return True
   isTerminal _    = return False
   tell            = shTell
 
 instance D.RawIO SimpleHandle where
-  read sh p n = do
+  read sh p _ n = do
     pos <- shTell sh
     let maxBytes = shSize sh - pos
     bs <- shRead sh $ min (fromIntegral n) maxBytes
     unsafeUseAsCStringLen bs $ \(p', len) -> memcpy p (castPtr p') len
     return $ B.length bs
-  readNonBlocking sh p n = (\bytes -> guard (bytes /= 0) >> Just bytes) <$> D.read sh p n
-  write            _ _ _ = throwIO unsupportedOperation
-  writeNonBlocking _ _ _ = throwIO unsupportedOperation
+  readNonBlocking sh p w64 n = (\bytes -> guard (bytes /= 0) >> Just bytes) <$> D.read sh p w64 n
+  write            _ _ _ _ = throwIO unsupportedOperation
+  writeNonBlocking _ _ _ _ = throwIO unsupportedOperation
 
 instance BufferedIO SimpleHandle where
   newBuffer _dev state = newByteBuffer 8192 state

@@ -26,6 +26,7 @@ import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                       as A
+import qualified Data.Aeson.KeyMap                as KM
 import           Data.Char                        (isDigit, isSpace)
 import           Data.Conduit.Audio               (Duration (..))
 import           Data.Default.Class
@@ -35,7 +36,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
 import           Data.Foldable                    (find, toList)
 import           Data.Hashable                    (Hashable (..))
-import qualified Data.HashMap.Strict              as Map
+import qualified Data.HashMap.Strict              as HM
 import           Data.Int                         (Int32)
 import           Data.Maybe                       (fromMaybe, mapMaybe)
 import           Data.Scientific                  (Scientific, toRealFloat)
@@ -217,15 +218,15 @@ instance (StackJSON a) => StackJSON (PartAudio a) where
         ]
     }
 
-newtype Parts a = Parts { getParts :: Map.HashMap FlexPartName a }
+newtype Parts a = Parts { getParts :: HM.HashMap FlexPartName a }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 instance (StackJSON a) => StackJSON (Parts a) where
   stackJSON = Codec
-    { codecIn = Parts . Map.fromList . map (first RBFile.readPartName) . Map.toList
+    { codecIn = Parts . HM.fromList . map (first RBFile.readPartName) . HM.toList
       <$> mapping fromJSON
-    , codecOut = makeOut $ \(Parts hm) -> mappingToJSON $ Map.fromList
-      $ map (first RBFile.getPartName) $ Map.toList hm
+    , codecOut = makeOut $ \(Parts hm) -> mappingToJSON $ HM.fromList
+      $ map (first RBFile.getPartName) $ HM.toList hm
     }
 
 data Plan f
@@ -256,10 +257,10 @@ data Plan f
 
 getKaraoke, getMultitrack :: Plan f -> Bool
 getKaraoke = \case
-  Plan{..}     -> Map.keys (getParts _planParts) == [FlexVocal]
+  Plan{..}     -> HM.keys (getParts _planParts) == [FlexVocal]
   MoggPlan{..} -> _karaoke
 getMultitrack = \case
-  Plan{..}     -> not $ Map.null $ Map.delete FlexVocal $ getParts _planParts
+  Plan{..}     -> not $ HM.null $ HM.delete FlexVocal $ getParts _planParts
   MoggPlan{..} -> _multitrack
 
 newtype Countin = Countin [(Either U.MeasureBeats U.Seconds, Audio Duration AudioInput)]
@@ -269,8 +270,8 @@ instance StackJSON Countin where
   stackJSON = Codec
     { codecIn = do
       hm <- mapping fromJSON
-      fmap Countin $ forM (Map.toList hm) $ \(k, v) -> (, v) <$> parseFrom k parseCountinTime
-    , codecOut = makeOut $ \(Countin pairs) -> A.Object $ Map.fromList $ flip map pairs $ \(t, v) -> let
+      fmap Countin $ forM (HM.toList hm) $ \(k, v) -> (, v) <$> parseFrom k parseCountinTime
+    , codecOut = makeOut $ \(Countin pairs) -> A.Object $ KM.fromHashMapText $ HM.fromList $ flip map pairs $ \(t, v) -> let
       k = case t of
         Left mb    -> showMeasureBeats mb
         Right secs -> T.pack $ show (realToFrac secs :: Milli)
@@ -339,7 +340,7 @@ instance (StackJSON f) => StackJSON (Plan f) where
       parseNormal = object $ do
         _song         <- optionalKey "song" fromJSON
         _countin      <- fromMaybe (Countin []) <$> optionalKey "countin" fromJSON
-        _planParts    <- fromMaybe (Parts Map.empty) <$> optionalKey "parts" fromJSON
+        _planParts    <- fromMaybe (Parts HM.empty) <$> optionalKey "parts" fromJSON
         _crowd        <- optionalKey "crowd" fromJSON
         _planComments <- fromMaybe [] <$> optionalKey "comments" fromJSON
         _tuningCents  <- fromMaybe 0 <$> optionalKey "tuning-cents" fromJSON
@@ -456,7 +457,7 @@ algebraic3 k f p1 p2 p3 = object $ onlyKey k $ lift ask >>= \case
 
 decideKey :: (Monad m) => [(T.Text, StackParser m A.Value a)] -> StackParser m A.Value a -> StackParser m A.Value a
 decideKey opts dft = lift ask >>= \case
-  A.Object hm -> case [ p | (k, p) <- opts, Map.member k hm ] of
+  A.Object (KM.toHashMapText -> hm) -> case [ p | (k, p) <- opts, HM.member k hm ] of
     p : _ -> p
     []    -> dft
   _ -> dft
@@ -504,7 +505,7 @@ instance (StackJSON t, StackJSON a) => StackJSON (Audio t a) where
       Mask tags seams aud -> A.object ["mask" .= [toJSON tags, toJSON seams, toJSON aud]]
     }
 
-(.=) :: (StackJSON a) => T.Text -> a -> (T.Text, A.Value)
+(.=) :: (StackJSON a) => A.Key -> a -> (A.Key, A.Value)
 k .= x = (k, toJSON x)
 
 instance (StackJSON t) => StackJSON (Seam t) where
@@ -1600,14 +1601,14 @@ targetCommon = \case
   Konga  TargetPart{..} -> tgt_Common
 
 addKey :: (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
-addKey codec k v x = A.Object $ Map.insert k v $ Map.fromList $ makeObject (objectId codec) x
+addKey codec k v x = A.Object $ KM.fromHashMapText $ HM.insert k v $ HM.fromList $ makeObject (objectId codec) x
 
 instance (Eq f, StackJSON f) => StackJSON (Target f) where
   stackJSON = Codec
     { codecIn = object $ do
       target <- requiredKey "game" fromJSON
       hm <- lift ask
-      parseFrom (A.Object $ Map.delete "game" hm) $ case target :: T.Text of
+      parseFrom (A.Object $ KM.fromHashMapText $ HM.delete "game" hm) $ case target :: T.Text of
         "rb3"    -> fmap RB3    fromJSON
         "rb2"    -> fmap RB2    fromJSON
         "ps"     -> fmap PS     fromJSON
@@ -1638,10 +1639,10 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
 data SongYaml f = SongYaml
   { _metadata :: Metadata f
   , _global   :: Global f
-  , _audio    :: Map.HashMap T.Text (AudioFile f)
-  , _jammit   :: Map.HashMap T.Text JammitTrack
-  , _plans    :: Map.HashMap T.Text (Plan f)
-  , _targets  :: Map.HashMap T.Text (Target f)
+  , _audio    :: HM.HashMap T.Text (AudioFile f)
+  , _jammit   :: HM.HashMap T.Text JammitTrack
+  , _plans    :: HM.HashMap T.Text (Plan f)
+  , _targets  :: HM.HashMap T.Text (Target f)
   , _parts    :: Parts (Part f)
   } deriving (Eq, Show, Functor, Foldable, Traversable)
 
@@ -1649,15 +1650,15 @@ instance (Eq f, IsString f, StackJSON f) => StackJSON (SongYaml f) where
   stackJSON = asStrictObject "SongYaml" $ do
     _metadata <- _metadata =. opt def       "metadata" stackJSON
     _global   <- _global   =. opt def       "global"   stackJSON
-    _audio    <- _audio    =. opt Map.empty "audio"    (dict stackJSON)
-    _jammit   <- _jammit   =. opt Map.empty "jammit"   (dict stackJSON)
-    _plans    <- _plans    =. opt Map.empty "plans"    (dict stackJSON)
-    _targets  <- _targets  =. opt Map.empty "targets"  (dict stackJSON)
+    _audio    <- _audio    =. opt HM.empty "audio"    (dict stackJSON)
+    _jammit   <- _jammit   =. opt HM.empty "jammit"   (dict stackJSON)
+    _plans    <- _plans    =. opt HM.empty "plans"    (dict stackJSON)
+    _targets  <- _targets  =. opt HM.empty "targets"  (dict stackJSON)
     _parts    <- _parts    =. req           "parts"    stackJSON
     return SongYaml{..}
 
 getPart :: FlexPartName -> SongYaml f -> Maybe (Part f)
-getPart fpart = Map.lookup fpart . getParts . _parts
+getPart fpart = HM.lookup fpart . getParts . _parts
 
 -- | Returns the start and end of the preview audio in milliseconds.
 previewBounds

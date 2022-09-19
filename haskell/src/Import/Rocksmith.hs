@@ -13,6 +13,7 @@ import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.Reader       (runReaderT)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                       as A
+import qualified Data.Aeson.KeyMap                as KM
 import           Data.Bits                        ((.&.))
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Default.Class               (def)
@@ -122,12 +123,12 @@ importRSSong folder song level = do
         ["urn", _, _, value] -> return $ T.unpack value
         _                    -> fatal $ "Couldn't parse urn value: " <> show s
       prop k rec = case rec of
-        A.Object o -> case HM.lookup k o of
+        A.Object o -> case KM.lookup k o of
           Nothing -> fatal $ "No key " <> show k <> " in object"
           Just v  -> return v
         _ -> fatal $ "Tried to read key " <> show k <> " of non-object"
       singleKey rec = case rec of
-        A.Object o -> case HM.toList o of
+        A.Object o -> case KM.toList o of
           [(_, v)] -> return v
           _        -> fatal "JSON object has more than 1 key, 1 expected"
         _ -> fatal "Unexpected non-object in JSON file"
