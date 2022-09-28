@@ -448,7 +448,7 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
       . applyForces (getForces5 fd)
       . strumHOPOTap' algo (fromIntegral ht / 480)
       . fixSloppyNotes (10 / 480)
-      . maybe id breRemoveBlips breRemover
+      . maybe id (\x -> breRemoveBlips x) breRemover -- note: lambda needed for GHC 9+ (if DeepSubsumption not on) due to forall weirdness
       . closeNotes'
       $ fd
     forPS = fiveEachDiff $ \fd ->

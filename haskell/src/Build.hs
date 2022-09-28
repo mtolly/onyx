@@ -9,6 +9,7 @@ import           Build.CloneHero
 import           Build.Common
 import           Build.GuitarHero1
 import           Build.GuitarHero2
+import           Build.GuitarHero3
 import           Build.GuitarHero5
 import           Build.PowerGig
 import           Build.RockBand
@@ -34,7 +35,6 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Centi, Milli)
 import           Data.Foldable                    (toList)
-import           Data.Hashable                    (Hashable, hash)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (intercalate, sort)
 import qualified Data.List.NonEmpty               as NE
@@ -49,7 +49,6 @@ import           Guitars                          (guitarify', openNotes')
 import           Image
 import qualified MelodysEscape                    as Melody
 import           MoggDecrypt
-import           Neversoft.Audio                  (gh3Encrypt)
 import           OSFiles                          (copyDirRecursive)
 import           Overdrive                        (calculateUnisons,
                                                    getOverdrive, printFlexParts)
@@ -75,15 +74,6 @@ import           Text.Decode                      (decodeGeneral)
 import           Text.Read                        (readMaybe)
 import           WebPlayer                        (makeDisplay)
 
-hashGH3 :: (Hashable f) => SongYaml f -> TargetGH3 -> Int
-hashGH3 songYaml gh3 = let
-  hashed =
-    ( gh3
-    , _title $ _metadata songYaml
-    , _artist $ _metadata songYaml
-    )
-  in 1000000000 + (hash hashed `mod` 1000000000)
-
 forceRW :: (MonadIO m) => FilePath -> StackTraceT m ()
 forceRW f = stackIO $ do
   p <- Dir.getPermissions f
@@ -104,89 +94,13 @@ printOverdrive mid = do
 
 ------------------------------------------------------------------------------
 
-gh3Rules :: BuildInfo -> FilePath -> TargetGH3 -> QueueLog Rules ()
-gh3Rules buildInfo dir gh3 = do
-
-  let songYaml = biSongYaml buildInfo
-      rel = biRelative buildInfo
-
-  (planName, plan) <- case getPlan (tgt_Plan $ gh3_Common gh3) songYaml of
-    Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh3
-    Just pair -> return pair
-  let planDir = rel $ "gen/plan" </> T.unpack planName
-
-  let hashed = hashGH3 songYaml gh3
-      songID = fromMaybe hashed $ gh3_SongID gh3
-      dl = "dl" <> show (fromMaybe hashed $ gh3_DL gh3)
-
-  let coopPart = case gh3_Coop gh3 of
-        GH2Bass   -> gh3_Bass   gh3
-        GH2Rhythm -> gh3_Rhythm gh3
-      gh3Parts = [gh3_Guitar gh3, coopPart]
-      loadOnyxMidi :: Staction (RBFile.Song (RBFile.OnyxFile U.Beats))
-      loadOnyxMidi = shakeMIDI $ planDir </> "raw.mid"
-
-  let pathGuitar  = dir </> "guitar.wav"
-      pathRhythm  = dir </> "rhythm.wav"
-      pathSong    = dir </> "song.wav"
-      pathPreview = dir </> "preview.wav"
-  pathGuitar %> \out -> do
-    mid <- loadOnyxMidi
-    s <- sourceStereoParts buildInfo gh3Parts (gh3_Common gh3) mid 0 planName plan
-      [(gh3_Guitar gh3, 1)]
-    runAudio (clampIfSilent s) out
-  pathRhythm %> \out -> do
-    mid <- loadOnyxMidi
-    s <- sourceStereoParts buildInfo gh3Parts (gh3_Common gh3) mid 0 planName plan
-      [(coopPart, 1)]
-    runAudio (clampIfSilent s) out
-  pathSong %> \out -> do
-    mid <- loadOnyxMidi
-    s <- sourceSongCountin buildInfo (gh3_Common gh3) mid 0 True planName plan
-      [ (gh3_Guitar gh3, 1)
-      , (coopPart      , 1)
-      ]
-    runAudio (clampIfSilent s) out
-  pathPreview %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
-    let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
-        fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
-        previewExpr
-          = Fade End (Seconds 5)
-          $ Fade Start (Seconds 2)
-          $ Take Start (fromMS $ pend - pstart)
-          $ Drop Start (fromMS pstart)
-          $ Input (planDir </> "everything.wav")
-    buildAudio previewExpr out
-
-  let pathFsb = dir </> "audio.fsb"
-      pathFsbXen = dir </> "gh3" </> ("DLC" <> show songID <> ".fsb.xen")
-  pathFsb %> \out -> do
-    shk $ need [pathGuitar, pathPreview, pathRhythm, pathSong]
-    makeFSB3
-      [ ("onyx_guitar.xma", pathGuitar)
-      , ("onyx_preview.xma", pathPreview)
-      , ("onyx_rhythm.xma", pathRhythm)
-      , ("onyx_song.xma", pathSong)
-      ] out
-
-  pathFsbXen %> \out -> do
-    shk $ need [pathFsb]
-    fsb <- stackIO $ BL.readFile pathFsb
-    stackIO $ BL.writeFile out $ gh3Encrypt fsb
-
-  phony (dir </> "gh3") $ do
-    shk $ need [pathFsbXen]
-
-------------------------------------------------------------------------------
-
 dtxRules :: BuildInfo -> FilePath -> TargetDTX -> QueueLog Rules ()
 dtxRules buildInfo dir dtx = do
 
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan (tgt_Plan $ dtx_Common dtx) songYaml of
+  (planName, _plan) <- case getPlan (tgt_Plan $ dtx_Common dtx) songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show dtx
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName

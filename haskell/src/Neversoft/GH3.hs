@@ -5,7 +5,8 @@ module Neversoft.GH3 where
 
 import           Control.Monad                    (forM)
 import           Control.Monad.Trans.StackTrace
-import           Data.Bits                        (testBit)
+import           Control.Monad.Trans.Writer       (execWriter, tell)
+import           Data.Bits                        (bit, testBit, (.|.))
 import qualified Data.ByteString                  as B
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -16,14 +17,16 @@ import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
 import           Data.Word                        (Word32)
 import           FeedBack.Load                    (TrackEvent (..), emitTrack)
-import           Guitars                          (emit5')
+import           Guitars                          (HOPOsAlgorithm (..), emit5',
+                                                   guitarify', strumHOPOTap')
 import           Neversoft.Checksum               (qbKeyCRC)
 import           Neversoft.Metadata               (SongInfoGH3 (..))
 import           Neversoft.QB
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
-import           RockBand.Common                  (Difficulty (..))
+import           RockBand.Common                  (Difficulty (..),
+                                                   StrumHOPOTap (..))
 import qualified Sound.MIDI.Util                  as U
 
 data GH3Track = GH3Track
@@ -74,6 +77,17 @@ data GH3MidQB = GH3MidQB
   , gh3BackgroundNotes :: GH3Background [Word32] -- usually 3 ints, but some dlcX_drums_notes are 4 ints?
   , gh3Background      :: GH3Background GH3AnimEvent
   } deriving (Show)
+
+emptyMidQB :: GH3MidQB
+emptyMidQB = let
+  emptyPart = GH3Part emptyTrack emptyTrack emptyTrack emptyTrack
+  emptyTrack = GH3Track [] [] []
+  emptyBackground = GH3Background [] [] [] [] [] [] [] []
+  in GH3MidQB
+    emptyPart emptyPart emptyPart emptyPart
+    [] [] [] []
+    [] [] []
+    emptyBackground emptyBackground
 
 findSection
   :: (Monad m)
@@ -206,6 +220,67 @@ parseMidQB dlc qb = do
 
   return GH3MidQB{..}
 
+makeMidQB :: Word32 -> B.ByteString -> GH3MidQB -> [QBSection Word32 Word32]
+makeMidQB file dlc GH3MidQB{..} = execWriter $ do
+
+  let makePart str GH3Part{..} = do
+        makeDifficulty (str <> "easy"  ) gh3Easy
+        makeDifficulty (str <> "medium") gh3Medium
+        makeDifficulty (str <> "hard"  ) gh3Hard
+        makeDifficulty (str <> "expert") gh3Expert
+      makeDifficulty str GH3Track{..} = do
+        makeSection ("_song_" <> str) $ QBArrayOfInteger $
+          gh3Notes >>= \(x, y, z) -> [x, y, z]
+        makeTriples ("_" <> str <> "_star") gh3StarPower
+        makeTriples ("_" <> str <> "_starbattlemode") gh3BattleStars
+      makePairs str pairs = makeSection str $ QBArrayOfArray $
+        pairs >>= \(x, y) -> [QBArrayOfInteger [x, y]]
+      makeTriples str triples = makeSection str $ QBArrayOfArray $
+        triples >>= \(x, y, z) -> [QBArrayOfInteger [x, y, z]]
+      makeBackground sfx GH3Background{..} inner = do
+        () <- inner ("_scripts"     <> sfx) gh3Scripts
+        inner       ("_anim"        <> sfx) gh3Anim
+        inner       ("_triggers"    <> sfx) gh3Triggers
+        inner       ("_cameras"     <> sfx) gh3Cameras
+        inner       ("_lightshow"   <> sfx) gh3LightShow
+        inner       ("_crowd"       <> sfx) gh3Crowd
+        inner       ("_drums"       <> sfx) gh3Drums
+        inner       ("_performance" <> sfx) gh3Performance
+      makeSection str contents = tell [QBSectionArray (qbKeyCRC $ dlc <> str) file contents]
+
+  makePart ""            gh3Guitar
+  makePart "rhythm_"     gh3Rhythm
+  makePart "guitarcoop_" gh3CoopGuitar
+  makePart "rhythmcoop_" gh3CoopRhythm
+
+  makePairs "_faceoffp1"    gh3P1FaceOff
+  makePairs "_faceoffp2"    gh3P2FaceOff
+  makePairs "_bossbattlep1" gh3P1BossBattle
+  makePairs "_bossbattlep2" gh3P2BossBattle
+
+  makeTriples "_timesig" gh3TimeSignatures
+  makeSection "_fretbars" $ QBArrayOfInteger gh3FretBars
+  makeSection "_markers" $ QBArrayOfStruct $ do
+    (time, marker) <- gh3Markers
+    return
+      [ QBStructHeader
+      , QBStructItemInteger810000 (qbKeyCRC "time") time
+      , case marker of
+        Left  k -> QBStructItemQbKeyString9A0000 (qbKeyCRC "marker") k
+        Right s -> QBStructItemStringW (qbKeyCRC "marker") s
+      ]
+
+  makeBackground "_notes" gh3BackgroundNotes $ \str notes -> makeSection str $
+    QBArrayOfArray $ map QBArrayOfInteger notes
+  makeBackground "" gh3Background $ \str evts -> makeSection str $ QBArrayOfStruct $ do
+    GH3AnimEvent{..} <- evts
+    return
+      [ QBStructHeader
+      , QBStructItemInteger810000 (qbKeyCRC "time") gh3AnimTime
+      , QBStructItemQbKey8D0000 (qbKeyCRC "scr") gh3AnimScr
+      , QBStructItemStruct8A0000 (qbKeyCRC "params") $ QBStructHeader : gh3AnimParams
+      ]
+
 gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap Word32 T.Text -> GH3MidQB -> RBFile.Song (RBFile.FixedFile U.Beats)
 gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   toSeconds :: Word32 -> U.Seconds
@@ -297,3 +372,40 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
       return (toBeats time, U.TimeSig len unit)
     , RBFile.s_tracks = fixed
     }
+
+makeGH3TrackNotes
+  :: U.TempoMap
+  -> RTB.T U.Beats ((F.Color, StrumHOPOTap), Maybe U.Beats)
+  -> [(Word32, Word32, Word32)]
+makeGH3TrackNotes tmap notes = let
+  -- TODO not quite sure the default HOPO calculation here is correct!
+  -- we may need to first calculate the fretbars list and use that.
+  -- also no idea if we are doing the right thing (on import or export) for non */4 signatures
+  defHOPOs = strumHOPOTap' HOPOsGH3 hopoThreshold $ fmap (\((color, _), len) -> (color, len)) notes
+  hopoThreshold :: U.Beats
+  hopoThreshold = 1 / 2.95
+  withForces = RTB.fromPairList $ zipWith findForce (RTB.toPairList notes) (RTB.toPairList defHOPOs)
+  findForce (dt, ((color, sht), len)) (_, ((_, shtDefault), _)) = let
+    force = (sht == Strum) /= (shtDefault == Strum)
+    in (dt, ((color, force), len))
+  sustainThreshold :: Word32
+  sustainThreshold = floor $ (U.applyTempoMap tmap 1 / 2) * 1000
+  sustainTrim :: Word32
+  sustainTrim = quot sustainThreshold 2
+  toMilli :: U.Beats -> Word32
+  toMilli b = floor $ U.applyTempoMap tmap b * 1000
+  eachNotes :: (U.Beats, ([(F.Color, Bool)], Maybe U.Beats)) -> (Word32, Word32, Word32)
+  eachNotes (pos, (gems, len)) = let
+    posMS = toMilli pos
+    lenMS = case len of
+      Nothing      -> 0
+      Just sustain -> toMilli (pos + sustain) - posMS + sustainTrim
+    bits = foldr (.|.) 0 $ flip map gems $ \(gem, force) ->
+      (if force then bit 5 else 0) .|. case gem of
+        F.Green  -> bit 0
+        F.Red    -> bit 1
+        F.Yellow -> bit 2
+        F.Blue   -> bit 3
+        F.Orange -> bit 4
+    in (posMS, lenMS, bits)
+  in map eachNotes $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ guitarify' withForces

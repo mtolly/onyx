@@ -1,0 +1,42 @@
+audio:
+  album-track:
+    # from Hollow Years single
+    frames: 16990260
+    md5: 218899bb953e3976d54ac5d5d0c4ae19
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+parts:
+  drums:
+    drums:
+      kicks: both
+      mode: full
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6 # dunno if needed
+plans:
+  plan:
+    song: album-track
+  dev:
+    song: album-track
+    parts:
+      bass:
+        channels: [[0, 1], stems]
+      drums:
+        channels: [[2, 3], stems]
+      vocal:
+        channels: [[4, 5], stems]
+      other:
+        channels: [[6, 7], stems]
+metadata:
+  title: You Or Me
+  artist: Dream Theater
+  author: Onyxite
+  genre: metal
+  subgenre: prog
+  year: 1997
+  album: Hollow Years (Single)
+  # TODO cover
