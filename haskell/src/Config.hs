@@ -1414,6 +1414,7 @@ data TargetGH3 = TargetGH3
   , gh3_Coop   :: GH2Coop
   , gh3_Drums  :: FlexPartName
   , gh3_Vocal  :: FlexPartName
+  , gh3_Keys   :: FlexPartName
   , gh3_SongID :: Maybe Int -- like 37 in "DLC37"
   , gh3_DL     :: Maybe Int -- like 15 in "dl15"
   } deriving (Eq, Ord, Show, Generic, Hashable)
@@ -1427,6 +1428,7 @@ parseTargetGH3 = do
   gh3_Coop          <- gh3_Coop          =. opt GH2Bass              "coop"           stackJSON
   gh3_Drums         <- gh3_Drums         =. opt FlexDrums            "drums"          stackJSON
   gh3_Vocal         <- gh3_Vocal         =. opt FlexVocal            "vocal"          stackJSON
+  gh3_Keys          <- gh3_Keys          =. opt FlexVocal            "keys"           stackJSON
   gh3_SongID        <- gh3_SongID        =. opt Nothing              "song-id"        stackJSON
   gh3_DL            <- gh3_DL            =. opt Nothing              "dl"             stackJSON
   return TargetGH3{..}

@@ -48,3 +48,13 @@ knownKeys = unsafePerformIO $ do
 -- Escape sequences are given to this as backslash + char. So "\LSong Title" is ['\\', 'L', 'S', ...]
 qsKey :: T.Text -> Word32
 qsKey = qbKeyCRC . TE.encodeUtf16LE
+
+huntKeys :: Int -> [B.ByteString] -> Word32 -> Maybe B.ByteString
+huntKeys maxLevel parts k = go (1 :: Int) where
+  combos 1 = parts
+  combos n = (<>) <$> parts <*> combos (n - 1)
+  go n
+    | n >= maxLevel = Nothing
+    | otherwise = case lookup k [ (qbKeyCRC str, str) | str <- combos n ] of
+      Nothing  -> go $ n + 1
+      Just str -> Just str

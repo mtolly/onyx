@@ -5,15 +5,18 @@ module Build.GuitarHero3 (gh3Rules) where
 import           Audio
 import           Build.Common
 import           Config                         hiding (Difficulty)
-import           Control.Monad                  (guard, when)
+import           Control.Monad                  (forM_, guard, when)
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Put                (putWord32be, runPut)
+import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Conduit.Audio
+import           Data.DTA.Serialize.Magma       (Gender (..))
 import           Data.Hashable                  (Hashable, hash)
 import qualified Data.Map                       as Map
 import           Data.Maybe                     (catMaybes, fromMaybe)
+import           Data.SimpleHandle              (Folder (..), fileReadable)
 import qualified Data.Text                      as T
 import           Development.Shake              hiding (phony, (%>), (&%>))
 import           Development.Shake.FilePath
@@ -22,11 +25,17 @@ import           Guitars                        (closeNotes', noOpenNotes',
 import           Neversoft.Audio                (gh3Encrypt)
 import           Neversoft.Checksum             (qbKeyCRC)
 import           Neversoft.GH3
+import           Neversoft.Pak                  (Node (..), buildPak)
+import           Neversoft.QB
+import           Resources                      (getResourcesPath, gh3Thumbnail)
 import qualified RockBand.Codec.File            as RBFile
 import           RockBand.Codec.File            (shakeMIDI)
 import qualified RockBand.Codec.Five            as Five
 import           RockBand.Common                (Difficulty (..))
 import qualified Sound.MIDI.Util                as U
+import           STFS.Package                   (CreateOptions (..),
+                                                 LicenseEntry (..),
+                                                 makeCONReadable)
 
 hashGH3 :: (Hashable f) => SongYaml f -> TargetGH3 -> Int
 hashGH3 songYaml gh3 = let
@@ -51,6 +60,7 @@ gh3Rules buildInfo dir gh3 = do
   -- TODO we probably don't have to use "dlc*", can make a descriptive shortname instead
   let hashed = hashGH3 songYaml gh3
       songID = fromMaybe hashed $ gh3_SongID gh3
+      dlcID = B8.pack $ "dlc" <> show songID
       -- this does probably have to be a number though (biggest dl number = the metadata that is read)
       dl = "dl" <> show (fromMaybe hashed $ gh3_DL gh3)
 
@@ -95,8 +105,8 @@ gh3Rules buildInfo dir gh3 = do
     buildAudio previewExpr out
 
   let pathFsb = dir </> "audio.fsb"
-      pathFsbXen = dir </> "gh3" </> ("DLC" <> show songID <> ".fsb.xen")
-      pathDatXen = dir </> "gh3" </> ("dlc" <> show songID <> ".dat.xen")
+      pathFsbXen = dir </> "gh3" </> (B8.unpack dlcID <> ".fsb.xen")
+      pathDatXen = dir </> "gh3" </> (B8.unpack dlcID <> ".dat.xen")
   pathFsb %> \out -> do
     shk $ need [pathGuitar, pathPreview, pathRhythm, pathSong]
     hasGuitarAudio <- maybe False (/= 0) <$> audioLength pathGuitar
@@ -119,7 +129,7 @@ gh3Rules buildInfo dir gh3 = do
       let count = 2 + (if hasGuitarAudio then 1 else 0) + (if hasRhythmAudio then 1 else 0)
       putWord32be count
       let datEntry slot index = do
-            putWord32be $ qbKeyCRC $ B8.pack $ "dlc" <> show songID <> "_" <> slot
+            putWord32be $ qbKeyCRC $ dlcID <> "_" <> slot
             putWord32be index
             putWord32be 0
             putWord32be 0
@@ -129,8 +139,146 @@ gh3Rules buildInfo dir gh3 = do
       when hasGuitarAudio $ datEntry "guitar" 2
       when hasRhythmAudio $ datEntry "rhythm" $ if hasGuitarAudio then 3 else 2
 
+  let pathDL = dir </> "gh3" </> (dl <> ".pak.xen")
+      pathText = dir </> "gh3" </> (dl <> "_text.pak.xen")
+      pathTextLangs = map
+        (\lang -> dir </> "gh3" </> (dl <> "_text_" <> lang <> ".pak.xen"))
+        ["f", "g", "i", "s"]
+      pathSongPak = dir </> "gh3" </> (B8.unpack dlcID <> "_song.pak.xen")
+  pathDL %> \out -> do
+    -- copying hopefully-complete script from SanicStudios (DLC added bits on the end over time)
+    mysteryScript <- stackIO $ getResourcesPath "gh3-mystery-script.qb" >>= fmap BL.fromStrict . B.readFile
+    let nodes =
+          [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = unk1, nodeFilenameCRC = qbKeyCRC $ B8.pack dl, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+            , mysteryScript
+            )
+          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+            , BL.replicate 4 0xAB
+            )
+          ]
+        unk1 = 0xDEADBEEF -- TODO figure out. in dl15.pak it's 3159505916
+    stackIO $ BL.writeFile out $ buildPak nodes
+  pathText %> \out -> do
+    -- section names would also go in here, but we'll try to use the embedded section name format
+    let nodes =
+          [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = unk1, nodeFilenameCRC = unk2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+            , putQB
+              [ QBSectionStruct (qbKeyCRC "GH3_Download_Songs") unk1
+                [ QBStructHeader
+                , QBStructItemString830000 (qbKeyCRC "prefix") "download"
+                , QBStructItemInteger810000 (qbKeyCRC "num_tiers") 1
+                , QBStructItemStruct8A0000 (qbKeyCRC "tier1")
+                  [ QBStructHeader
+                  , QBStructItemStringW (qbKeyCRC "title") "Downloaded songs"
+                  , QBStructItemArray8C0000 (qbKeyCRC "songs") $ QBArrayOfQbKey [qbKeyCRC dlcID]
+                  , QBStructItemQbKey8D0000 0 (qbKeyCRC "unlockall")
+                  , QBStructItemQbKey8D0000 (qbKeyCRC "level") (qbKeyCRC "load_z_artdeco")
+                  ]
+                ]
+              , QBSectionArray (qbKeyCRC "download_songlist") unk1 $ QBArrayOfQbKey [qbKeyCRC dlcID]
+              , QBSectionStruct (qbKeyCRC "download_songlist_props") unk1
+                [ QBStructHeader
+                , QBStructItemStruct8A0000 (qbKeyCRC dlcID)
+                  [ QBStructHeader
+                  , QBStructItemQbKey8D0000 (qbKeyCRC "checksum") (qbKeyCRC dlcID)
+                  , QBStructItemString830000 (qbKeyCRC "name") dlcID
+                  , QBStructItemStringW (qbKeyCRC "title") $ targetTitle songYaml (GH3 gh3)
+                  , QBStructItemStringW (qbKeyCRC "artist") $ getArtist $ _metadata songYaml
+                  , QBStructItemStringW (qbKeyCRC "year") $ T.pack $ ", " <> show (getYear $ _metadata songYaml)
+                  , QBStructItemQbKeyString9A0000 (qbKeyCRC "artist_text") $ if _cover $ _metadata songYaml
+                    then qbKeyCRC "artist_text_as_made_famous_by"
+                    else qbKeyCRC "artist_text_by"
+                  , QBStructItemInteger810000 (qbKeyCRC "original_artist") 0 -- TODO what is this? doesn't mean cover/master
+                  , QBStructItemQbKey8D0000 (qbKeyCRC "version") (qbKeyCRC "gh3")
+                  , QBStructItemInteger810000 (qbKeyCRC "leaderboard") 1
+                  , QBStructItemInteger810000 (qbKeyCRC "gem_offset") 0
+                  , QBStructItemInteger810000 (qbKeyCRC "input_offset") 0
+                  , QBStructItemQbKey8D0000 (qbKeyCRC "singer") $ case getPart (gh3_Vocal gh3) songYaml >>= partVocal of
+                    Nothing -> qbKeyCRC "none"
+                    Just pv -> case vocalGender pv of
+                      Just Female -> qbKeyCRC "female"
+                      Just Male   -> qbKeyCRC "male"
+                      Nothing     -> qbKeyCRC "male"
+                  , QBStructItemQbKey8D0000 (qbKeyCRC "keyboard") $ case getPart (gh3_Keys gh3) songYaml >>= partGRYBO of
+                    Nothing -> qbKeyCRC "false"
+                    Just _  -> qbKeyCRC "true"
+                  , QBStructItemInteger810000 (qbKeyCRC "band_playback_volume") 0
+                  , QBStructItemInteger810000 (qbKeyCRC "guitar_playback_volume") 0
+                  , QBStructItemString830000 (qbKeyCRC "countoff") "HiHat01"
+                  , QBStructItemInteger810000 (qbKeyCRC "rhythm_track") $ case gh3_Coop gh3 of
+                    GH2Bass   -> 0
+                    GH2Rhythm -> 1
+                  ]
+                ]
+              ]
+            )
+          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+            , BL.replicate 4 0xAB
+            )
+          ]
+        unk1 = 0xDEADBEEF -- TODO figure out. in dl15_text.pak it's 1945578562. in disc qb.pak.xen it's 0x0b761ea7 "scripts\\guitar\\songlist.qb"
+        unk2 = 0xDEADBEEF -- TODO figure out. in dl15_text.pak it's 480172672. in disc qb.pak.xen it's 3114035354 "songlist"
+    stackIO $ BL.writeFile out $ buildPak nodes
+  forM_ pathTextLangs $ \lang -> lang %> \out -> do
+    -- being lazy and copying english file. really we ought to swap out some translated strings
+    shk $ copyFile' pathText out
+  pathSongPak %> \out -> do
+    mid <- shakeMIDI $ planDir </> "processed.mid"
+    let nodes =
+          [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = key1, nodeFilenameCRC = key2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+            , putQB $ makeMidQB key1 dlcID $ makeGH3MidQB
+              mid
+              (getPartInfo $ gh3_Guitar gh3)
+              (getPartInfo coopPart)
+            )
+          -- there's a small script qb here in official DLC. but SanicStudios customs don't have it
+          -- .ska files would go here if we had any
+          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+            , BL.replicate 4 0xAB
+            )
+          ]
+        key1 = qbKeyCRC $ "songs\\" <> dlcID <> ".mid.qb"
+        key2 = qbKeyCRC dlcID
+        getPartInfo fpart = case getPart fpart songYaml >>= partGRYBO of
+          Nothing -> (fpart, 170)
+          Just pg -> (fpart, gryboHopoThreshold pg)
+    stackIO $ BL.writeFile out $ buildPak nodes
+
+  let gh3Files = pathFsbXen : pathDatXen : pathDL : pathText : pathSongPak : pathTextLangs
   phony (dir </> "gh3") $ do
-    shk $ need [pathFsbXen, pathDatXen]
+    shk $ need gh3Files
+  dir </> "gh3live" %> \out -> do
+    let files = map (\f -> (takeFileName f, f)) gh3Files
+        folder = Folder
+          { folderSubfolders = []
+          , folderFiles = map (\(dest, src) -> (T.pack dest, fileReadable src)) files
+          }
+        title = targetTitle songYaml (GH3 gh3)
+        artist = getArtist $ _metadata songYaml
+        packageTitles =
+          [ title <> " by " <> artist
+          , ""
+          , "„" <> title <> "“ von " <> artist
+          , title <> " par " <> artist
+          , title <> " de " <> artist
+          , title <> " degli " <> artist
+          ]
+    shk $ need $ map snd files
+    thumb <- stackIO $ gh3Thumbnail >>= B.readFile
+    stackIO $ makeCONReadable CreateOptions
+      { createNames = packageTitles
+      , createDescriptions = []
+      , createTitleID = 0x415607F7
+      , createTitleName = "Guitar Hero 3"
+      , createThumb = thumb
+      , createTitleThumb = thumb
+      , createLicenses = [LicenseEntry (-1) 1 1, LicenseEntry (-1) 1 0]
+      , createMediaID       = 0
+      , createVersion       = 0
+      , createBaseVersion   = 0
+      , createTransferFlags = 0xC0
+      , createLIVE = True
+      } folder out
 
 makeGH3MidQB
   :: RBFile.Song (RBFile.OnyxFile U.Beats)
@@ -158,6 +306,6 @@ makeGH3MidQB song partLead partRhythm = let
   in emptyMidQB
     { gh3Guitar         = makeGH3Part partLead
     , gh3Rhythm         = makeGH3Part partRhythm
-    , gh3TimeSignatures = undefined -- TODO
-    , gh3FretBars       = undefined -- TODO
+    , gh3TimeSignatures = [] -- TODO
+    , gh3FretBars       = [] -- TODO
     }

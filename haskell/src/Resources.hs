@@ -47,6 +47,9 @@ rb2Thumbnail = getResourcesPath "rb2.png"
 gh2Thumbnail :: IO FilePath
 gh2Thumbnail = getResourcesPath "gh2.png"
 
+gh3Thumbnail :: IO FilePath
+gh3Thumbnail = getResourcesPath "gh3.png"
+
 ghWoRThumbnail :: IO FilePath
 ghWoRThumbnail = getResourcesPath "ghwor.png"
 
