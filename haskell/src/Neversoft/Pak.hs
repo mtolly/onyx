@@ -122,7 +122,8 @@ splitPakNodes endian pak maybePab = do
 
 buildPak :: [(Node, BL.ByteString)] -> BL.ByteString
 buildPak nodes = let
-  nodes' = sortOn (nodeOffset . fst) nodes -- sort according to original position, maybe not necessary
+  -- previously sorted according to original position, but don't think it's necessary
+  -- nodes' = sortOn (nodeOffset . fst) nodes
   fixNodes _    []                  = []
   fixNodes posn ((node, bs) : rest) = let
     len = fromIntegral $ BL.length bs
@@ -149,9 +150,9 @@ buildPak nodes = let
     forM_ nodeName $ \bs -> do
       putByteString bs
       putByteString $ B.replicate (0xA0 - B.length bs) 0
-  header = runPut $ mapM_ putHeader $ zip [0..] $ fixNodes dataStart nodes'
+  header = runPut $ mapM_ putHeader $ zip [0..] $ fixNodes dataStart nodes
   header' = BL.take (fromIntegral dataStart) $ header <> BL.replicate (fromIntegral dataStart) 0
-  in BL.concat $ [header'] <> map (padData . snd) nodes' <> [BL.replicate 0xCF0 0xAB]
+  in BL.concat $ [header'] <> map (padData . snd) nodes <> [BL.replicate 0xCF0 0xAB]
 
 qsBank :: [(Node, BL.ByteString)] -> HM.HashMap Word32 T.Text
 qsBank nodes = HM.fromList $ do

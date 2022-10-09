@@ -27,10 +27,10 @@ import           Guitars                          (closeNotes', noOpenNotes',
 import           Neversoft.Audio                  (gh3Encrypt)
 import           Neversoft.Checksum               (qbKeyCRC)
 import           Neversoft.GH3
+import           Neversoft.Metadata               (gh3MysteryScript)
 import           Neversoft.Pak                    (Node (..), buildPak)
 import           Neversoft.QB
-import           Resources                        (getResourcesPath,
-                                                   gh3Thumbnail)
+import           Resources                        (gh3Thumbnail)
 import           RockBand.Codec.Beat              (BeatTrack (..))
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
@@ -158,20 +158,7 @@ gh3Rules buildInfo dir gh3 = do
         (\lang -> dir </> "gh3" </> (dl <> "_text_" <> lang <> ".pak.xen"))
         ["f", "g", "i", "s"]
       pathSongPak = dir </> "gh3" </> (B8.unpack dlcID <> "_song.pak.xen")
-  pathDL %> \out -> do
-    -- copying hopefully-complete script from SanicStudios (DLC added bits on the end over time)
-    mysteryScript <- stackIO $ getResourcesPath "gh3-mystery-script.qb" >>= fmap BL.fromStrict . B.readFile
-    let nodes =
-          [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = unk1, nodeFilenameCRC = qbKeyCRC $ B8.pack dl, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
-            , mysteryScript
-            )
-          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKeyCRC "chunk.last", nodeFilenameCRC = qbKeyCRC "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
-            , BL.replicate 4 0xAB
-            )
-          ]
-        -- don't know the actual prefix string but this works
-        unk1 = qbKeyCRC $ "1ni76fm\\" <> B8.pack dl -- in dl15.pak it's 3159505916, in dl26.pak it's 3913805506
-    stackIO $ BL.writeFile out $ buildPak nodes
+  pathDL %> \out -> gh3MysteryScript (B8.pack dl) >>= stackIO . BL.writeFile out
   pathText %> \out -> do
     -- section names would also go in here, but we'll try to use the embedded section name format
     let nodes =

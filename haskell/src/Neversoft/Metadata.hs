@@ -3,24 +3,31 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Neversoft.Metadata where
 
-import           Control.Monad        (forM, guard, replicateM)
+import           Control.Monad          (forM, guard, replicateM)
+import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Binary.Get
-import qualified Data.ByteString      as B
-import qualified Data.ByteString.Lazy as BL
-import           Data.List.Extra      (nubOrdOn)
-import qualified Data.List.NonEmpty   as NE
-import           Data.Maybe           (fromMaybe, listToMaybe, mapMaybe)
-import qualified Data.Text            as T
-import qualified Data.Text.Encoding   as TE
+import qualified Data.ByteString        as B
+import qualified Data.ByteString.Char8  as B8
+import qualified Data.ByteString.Lazy   as BL
+import           Data.List.Extra        (nubOrdOn, partition)
+import           Data.Maybe             (catMaybes, fromMaybe, listToMaybe,
+                                         mapMaybe)
+import           Data.SimpleHandle      (Folder (..), Readable,
+                                         handleToByteString, useHandle)
+import qualified Data.Text              as T
+import qualified Data.Text.Encoding     as TE
 import           Data.Word
 import           Genre
 import           GHC.ByteOrder
 import           Neversoft.Checksum
 import           Neversoft.Pak
 import           Neversoft.QB
-import           STFS.Package         (runGetM)
+import           Resources              (getResourcesPath, gh3Thumbnail)
+import           STFS.Package           (CreateOptions (..), LicenseEntry (..),
+                                         getSTFSFolder, makeCONMemory, runGetM)
 
 -- Metadata in _text.pak.qb for GH5 and WoR
 
@@ -159,26 +166,148 @@ parseSongInfoStruct songEntries = do
 data GH3TextPakQB = GH3TextPakQB
   { gh3TextPakFileKey     :: Word32
   , gh3TextPakSongStructs :: [(Word32, [QBStructItem QSResult Word32])]
-  , gh3AllNodes           :: [(Node, BL.ByteString)] -- used to get section names later
+  , gh3OtherNodes         :: [(Node, BL.ByteString)] -- used to get section names later
   } deriving (Show)
 
 readGH3TextPakQBDisc :: (MonadFail m, ?endian :: ByteOrder) => BL.ByteString -> BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQBDisc pak pab = do
   nodes <- splitPakNodes ?endian pak $ Just pab
-  qbFile <- case filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb" && nodeFilenameCRC n == qbKeyCRC "songlist") nodes of
-    []         -> fail "Couldn't locate metadata .qb"
-    (_, r) : _ -> return r
-  readGH3TextPakQB nodes qbFile
+  (qbFile, other) <- case partition (\(n, _) -> nodeFileType n == qbKeyCRC ".qb" && nodeFilenameCRC n == qbKeyCRC "songlist") nodes of
+    ([]        , _    ) -> fail "Couldn't locate metadata .qb"
+    ((_, r) : _, other) -> return (r, other)
+  readGH3TextPakQB other qbFile
 
-readGH3TextPakQBDLC :: (MonadFail m) => BL.ByteString -> m GH3TextPakQB
-readGH3TextPakQBDLC pak = do
+readGH3TextPakQBDLC :: (MonadFail m) => B.ByteString -> BL.ByteString -> m GH3TextPakQB
+readGH3TextPakQBDLC dlName pak = do
   let ?endian = BigEndian
   nodes <- splitPakNodes ?endian pak Nothing
-  -- TODO figure out actual filename instead of just getting the last qb
-  qbFile <- case NE.nonEmpty $ filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb") nodes of
-    Nothing -> fail "Couldn't locate metadata .qb"
-    Just ne -> return $ snd $ NE.last ne
-  readGH3TextPakQB nodes qbFile
+  -- don't know actual filename but this works
+  let matchCRC = qbKeyCRC $ "7buqvk" <> dlName
+      -- customs seem to use Death Magnetic's ID
+      matchCRCDeathMagnetic = qbKeyCRC "7buqvkdl30"
+  (qbFile, other) <- case partition (\(n, _) -> nodeFileType n == qbKeyCRC ".qb" && elem (nodeFilenameCRC n) [matchCRC, matchCRCDeathMagnetic]) nodes of
+    ([]        , _    ) -> fail "Couldn't locate metadata .qb"
+    ((_, r) : _, other) -> return (r, other)
+  readGH3TextPakQB other qbFile
+
+data GH3Language
+  = GH3English
+  | GH3French
+  | GH3German
+  | GH3Italian
+  | GH3Spanish
+  deriving (Eq)
+
+readGH3TextSetDLC :: (MonadFail m, MonadIO m) => Folder T.Text Readable -> m [(GH3Language, GH3TextPakQB)]
+readGH3TextSetDLC folder = let
+  stripLang name = case T.toLower name of
+    (T.stripSuffix "_text.pak.xen"   -> Just dlName) -> Just (GH3English, dlName)
+    (T.stripSuffix "_text_f.pak.xen" -> Just dlName) -> Just (GH3French , dlName)
+    (T.stripSuffix "_text_g.pak.xen" -> Just dlName) -> Just (GH3German , dlName)
+    (T.stripSuffix "_text_i.pak.xen" -> Just dlName) -> Just (GH3Italian, dlName)
+    (T.stripSuffix "_text_s.pak.xen" -> Just dlName) -> Just (GH3Spanish, dlName)
+    _                                                -> Nothing
+  in fmap catMaybes $ forM (folderFiles folder) $ \(name, r) -> case stripLang name of
+    -- require "dl" in front to ignore GHWT files in Death Magnetic
+    Just (lang, dlName) | "dl" `T.isPrefixOf` dlName -> do
+      bs <- liftIO $ useHandle r handleToByteString
+      text <- readGH3TextPakQBDLC (B8.pack $ T.unpack dlName) bs
+      return $ Just (lang, text)
+    _ -> return Nothing
+
+buildGH3TextSet :: B.ByteString -> GH3Language -> [GH3TextPakQB] -> BL.ByteString
+buildGH3TextSet dlName lang paks = let
+  otherNodes = nubOrdOn (nodeFilenameKey . fst) $ paks >>= gh3OtherNodes
+  unk1 = qbKeyCRC $ "1o99lm\\" <> dlName <> ".qb"
+  unk2 = qbKeyCRC $ "7buqvk" <> dlName
+  allSongData = nubOrdOn fst $ paks >>= gh3TextPakSongStructs
+  allSongIDs = map fst allSongData
+  metadataQB =
+    ( Node
+      { nodeFileType       = qbKeyCRC ".qb"
+      , nodeOffset         = 0
+      , nodeSize           = 0
+      , nodeFilenamePakKey = 0
+      , nodeFilenameKey    = unk1
+      , nodeFilenameCRC    = unk2
+      , nodeUnknown        = 0
+      , nodeFlags          = 0
+      , nodeName           = Nothing
+      }
+    , putQB $ discardQS
+      [ QBSectionStruct 1293449288 unk1
+        [ QBStructHeader
+        , QBStructItemString830000 (qbKeyCRC "prefix") "download"
+        , QBStructItemInteger810000 2923132203 1
+        , QBStructItemStruct8A0000 1902830817
+          [ QBStructHeader
+          , QBStructItemStringW (qbKeyCRC "title") $ case lang of
+            GH3English -> "Downloaded songs"
+            GH3French  -> "Chansons téléchargées"
+            GH3German  -> "Heruntergel. Songs"
+            GH3Italian -> "Canzoni scaricate"
+            GH3Spanish -> "Temas descargados"
+          , QBStructItemArray8C0000 (qbKeyCRC "songs") $ QBArrayOfQbKey allSongIDs
+          , QBStructItemQbKey8D0000 0 637243660
+          , QBStructItemQbKey8D0000 (qbKeyCRC "level") 1568516040
+          ]
+        ]
+      , QBSectionArray (qbKeyCRC "download_songlist") unk1 $ QBArrayOfQbKey allSongIDs
+      , QBSectionStruct (qbKeyCRC "download_songlist_props") unk1
+        $ QBStructHeader
+        : [ QBStructItemStruct8A0000 x y | (x, y) <- allSongData ]
+      ]
+    )
+  end =
+    ( Node
+      { nodeFileType = qbKeyCRC ".last"
+      , nodeOffset = 1
+      , nodeSize = 0
+      , nodeFilenamePakKey = 0
+      , nodeFilenameKey = qbKeyCRC "chunk.last"
+      , nodeFilenameCRC = qbKeyCRC "chunk"
+      , nodeUnknown = 0
+      , nodeFlags = 0
+      , nodeName = Nothing
+      }
+    , BL.replicate 4 0xAB
+    )
+  in buildPak $ otherNodes <> [metadataQB, end]
+
+combineGH3SongCache :: (MonadIO m, MonadFail m) => [FilePath] -> FilePath -> m ()
+combineGH3SongCache ins out = do
+  sets <- fmap concat $ forM ins $ \stfs -> liftIO (getSTFSFolder stfs) >>= readGH3TextSetDLC
+  let dlText = "dl2000000000"
+      dlBytes = B8.pack $ T.unpack dlText
+  mystery <- gh3MysteryScript dlBytes
+  let folder = Folder
+        { folderSubfolders = []
+        , folderFiles =
+          [ (dlText <> ".pak.xen"       , mystery               )
+          , (dlText <> "_text.pak.xen"  , getLanguage GH3English)
+          , (dlText <> "_text_f.pak.xen", getLanguage GH3French )
+          , (dlText <> "_text_g.pak.xen", getLanguage GH3German )
+          , (dlText <> "_text_i.pak.xen", getLanguage GH3Italian)
+          , (dlText <> "_text_s.pak.xen", getLanguage GH3Spanish)
+          ]
+        }
+      getLanguage lang = buildGH3TextSet dlBytes lang
+        [ pak | (lang', pak) <- sets, lang == lang' ]
+  thumb <- liftIO $ gh3Thumbnail >>= B.readFile
+  liftIO $ makeCONMemory CreateOptions
+    { createNames = replicate 6 "GH3 Customs Database"
+    , createDescriptions = []
+    , createTitleID = 0x415607F7
+    , createTitleName = "Guitar Hero 3"
+    , createThumb = thumb
+    , createTitleThumb = thumb
+    , createLicenses = [LicenseEntry (-1) 1 1, LicenseEntry (-1) 1 0]
+    , createMediaID       = 0
+    , createVersion       = 0
+    , createBaseVersion   = 0
+    , createTransferFlags = 0xC0
+    , createLIVE = True
+    } folder out
 
 readGH3TextPakQB :: (MonadFail m, ?endian :: ByteOrder) => [(Node, BL.ByteString)] -> BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQB nodes qbFile = do
@@ -200,7 +329,7 @@ readGH3TextPakQB nodes qbFile = do
       return $ GH3TextPakQB
         { gh3TextPakFileKey = fileID
         , gh3TextPakSongStructs = structs'
-        , gh3AllNodes = nodes
+        , gh3OtherNodes = filter (\(node, _) -> nodeFileType node /= qbKeyCRC ".last") nodes
         }
 
 data GH3Singer
@@ -271,6 +400,23 @@ parseSongInfoGH3 songEntries = do
     _ : _ -> Left "parseSongInfoGH3: unrecognized value for coop-is-rhythm key"
     []    -> Right False
   Right SongInfoGH3{..}
+
+-- Unknown contents of "dl<num>.pak.xen"
+gh3MysteryScript :: (MonadIO m) => B.ByteString -> m BL.ByteString
+gh3MysteryScript dlName = do
+  -- copying hopefully-complete script from SanicStudios (DLC added bits on the end over time)
+  mysteryScript <- liftIO $ getResourcesPath "gh3-mystery-script.qb" >>= fmap BL.fromStrict . B.readFile
+  let nodes =
+        [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = unk1, nodeFilenameCRC = qbKeyCRC dlName, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , mysteryScript
+          )
+        , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKeyCRC "chunk.last", nodeFilenameCRC = qbKeyCRC "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , BL.replicate 4 0xAB
+          )
+        ]
+      -- don't know the actual prefix string but this works
+      unk1 = qbKeyCRC $ "1ni76fm\\" <> dlName -- in dl15.pak it's 3159505916, in dl26.pak it's 3913805506
+  return $ buildPak nodes
 
 data GH3Dat = GH3Dat
   { gh3DatLength :: Word32 -- length in bytes of .fsb.xen

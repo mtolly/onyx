@@ -124,6 +124,7 @@ import qualified Network.HTTP.Req                          as Req
 import qualified Network.Socket                            as Socket
 import           Neversoft.Export                          (makeMetadataLIVE,
                                                             makeMetadataPKG)
+import           Neversoft.Metadata                        (combineGH3SongCache)
 import           Numeric                                   (readHex, showHex)
 import           OpenProject
 import           OSFiles                                   (commonDir,
@@ -3684,6 +3685,40 @@ miscPageDryVox sink rect tab startTasks = do
   FL.end pack
   FL.setResizable tab $ Just pack
 
+miscPageGH3SongCache
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageGH3SongCache sink rect tab startTasks = do
+  loadedFiles <- newMVar []
+  let (filesRect, trimClock 5 10 10 10 -> startRect) = chopBottom 50 rect
+  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchSTFS $ \info -> let
+    entry = T.pack $ stfsPath info
+    sublines = take 1 $ STFS.md_DisplayName $ stfsMeta info
+    in (entry, sublines)
+  FL.setResizable tab $ Just group
+  btn1 <- FL.buttonNew startRect $ Just "Create GH3 song cache (360)"
+  taskColor >>= FL.setColor btn1
+  FL.setCallback btn1 $ \_ -> sink $ EventIO $ do
+    inputs <- map stfsPath <$> readMVar loadedFiles
+    picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+    FL.setTitle picker "Save GH3 cache file (360)"
+    case inputs of
+      f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory f
+      _     -> return ()
+    FL.setPresetFile picker "gh3_custom_cache"
+    FL.showWidget picker >>= \case
+      FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+        Nothing -> return ()
+        Just f  -> sink $ EventOnyx $ startTasks $ let
+          task = do
+            combineGH3SongCache inputs f
+            return [f]
+          in [("Make GH3 cache file", task)]
+      _ -> return ()
+
 miscPageWoRSongCache
   :: (Event -> IO ())
   -> Rectangle
@@ -4763,6 +4798,10 @@ launchMisc sink makeMenuBar = mdo
     , makeTab windowRect "RB3 cache" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageHardcodeSongCache sink rect tab startTasks
+      return tab
+    , makeTab windowRect "GH3 cache" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      miscPageGH3SongCache sink rect tab startTasks
       return tab
     , makeTab windowRect "GH:WoR cache" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

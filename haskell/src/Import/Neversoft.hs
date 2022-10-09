@@ -11,10 +11,12 @@ import           Control.Monad                    (forM, guard, when)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import           Data.Bifunctor                   (first)
+import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isDigit)
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty               as NE
@@ -228,7 +230,7 @@ importGH3PS2 src folder = do
   pab <- maybe (fatal "Couldn't find qb.pab") (\r -> stackIO $ useHandle r handleToByteString) (findFoldedWad pabPath)
   (qbSections, allNodes) <- errorToWarning (let ?endian = LittleEndian in readGH3TextPakQBDisc pak pab) >>= \case
     Nothing       -> return ([], [])
-    Just contents -> return (gh3TextPakSongStructs contents, gh3AllNodes contents)
+    Just contents -> return (gh3TextPakSongStructs contents, gh3OtherNodes contents)
   songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do
     case parseSongInfoGH3 items of
       Left  err  -> warn err >> return []
@@ -262,7 +264,7 @@ importGH3Disc src folder = do
   pab <- maybe (fatal "Couldn't find qb.pab") (\r -> stackIO $ useHandle r handleToByteString) (findFolded pabPath)
   (qbSections, allNodes) <- errorToWarning (let ?endian = BigEndian in readGH3TextPakQBDisc pak pab) >>= \case
     Nothing       -> return ([], [])
-    Just contents -> return (gh3TextPakSongStructs contents, gh3AllNodes contents)
+    Just contents -> return (gh3TextPakSongStructs contents, gh3OtherNodes contents)
   songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do
     case parseSongInfoGH3 items of
       Left  err  -> warn err >> return []
@@ -287,13 +289,16 @@ importGH3Disc src folder = do
 
 importGH3DLC :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH3DLC src folder = do
-  let texts = [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` T.toLower name ]
+  let texts = do
+        (name, r) <- folderFiles folder
+        dlName <- toList $ T.stripSuffix "_text.pak.xen" $ T.toLower name
+        return (dlName, r)
       findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
-  (qbSections, allNodes) <- fmap mconcat $ forM texts $ \r -> do
+  (qbSections, allNodes) <- fmap mconcat $ forM texts $ \(dlName, r) -> do
     bs <- stackIO $ useHandle r handleToByteString
-    errorToWarning (readGH3TextPakQBDLC bs) >>= \case
+    errorToWarning (readGH3TextPakQBDLC (B8.pack $ T.unpack dlName) bs) >>= \case
       Nothing       -> return ([], [])
-      Just contents -> return (gh3TextPakSongStructs contents, gh3AllNodes contents)
+      Just contents -> return (gh3TextPakSongStructs contents, gh3OtherNodes contents)
   songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do
     case parseSongInfoGH3 items of
       Left  err  -> warn err >> return []
