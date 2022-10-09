@@ -398,7 +398,7 @@ makeGH3TrackNotes tmap notes = let
   eachNotes (pos, (gems, len)) = let
     posMS = toMilli pos
     lenMS = case len of
-      Nothing      -> 0
+      Nothing      -> 1
       Just sustain -> toMilli (pos + sustain) - posMS + sustainTrim
     bits = foldr (.|.) 0 $ flip map gems $ \(gem, force) ->
       (if force then bit 5 else 0) .|. case gem of

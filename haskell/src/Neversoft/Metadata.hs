@@ -43,15 +43,15 @@ readTextPakQB bs = do
         ?endian = BigEndian
         in map (lookupQS mappingQS) $ runGet parseQB qbFile
       arrayStructIDPairs =
-        [ (qbKeyCRC "gh6_dlc_songlist", 4087958085) -- WoR DLC
+        [ (qbKeyCRC "gh6_dlc_songlist", qbKeyCRC "gh6_dlc_songlist_props") -- WoR DLC
         -- rest are seen in GH5 only
-        , (qbKeyCRC "gh4_dlc_songlist", 963067081) -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
-        , (qbKeyCRC "gh4_1_songlist", 1268271471) -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
-        , (qbKeyCRC "gh5_0_songlist", 178417183) -- gh5 disc, starts with dlc502, All The Pretty Faces (The Killers)
-        , (qbKeyCRC "gh5_1_songlist", 2764767118) -- band hero, starts with dlc601, ABC (Jackson 5)
-        , (qbKeyCRC "gh4_2_songlist", 1649474973) -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
-        , (qbKeyCRC "gh4_songlist", 2460628824) -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
-        , (qbKeyCRC "gh5_dlc_songlist", 1543505807) -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)
+        , (qbKeyCRC "gh4_dlc_songlist", qbKeyCRC "gh4_dlc_songlist_props") -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
+        , (qbKeyCRC "gh4_1_songlist", qbKeyCRC "gh4_1_songlist_props") -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
+        , (qbKeyCRC "gh5_0_songlist", qbKeyCRC "gh5_0_songlist_props") -- gh5 disc, starts with dlc502, All The Pretty Faces (The Killers)
+        , (qbKeyCRC "gh5_1_songlist", qbKeyCRC "gh5_1_songlist_props") -- band hero, starts with dlc601, ABC (Jackson 5)
+        , (qbKeyCRC "gh4_2_songlist", qbKeyCRC "gh4_2_songlist_props") -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
+        , (qbKeyCRC "gh4_songlist", qbKeyCRC "gh4_songlist_props") -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
+        , (qbKeyCRC "gh5_dlc_songlist", qbKeyCRC "gh5_dlc_songlist_props") -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)
         ]
       _arrays = do
         QBSectionArray arrayID fileID (QBArrayOfQbKey keys) <- qb
@@ -77,7 +77,7 @@ showTextPakQBQS contents = let
   qb =
     [ QBSectionArray (qbKeyCRC "gh6_dlc_songlist") (textPakFileKey contents)
       $ QBArrayOfQbKey $ map fst $ textPakSongStructs contents
-    , QBSectionStruct 4087958085 (textPakFileKey contents)
+    , QBSectionStruct (qbKeyCRC "gh6_dlc_songlist_props") (textPakFileKey contents)
       $ QBStructHeader : map (uncurry QBStructItemStruct) (textPakSongStructs contents)
     ]
   qs = nubOrdOn fst $ do
@@ -137,16 +137,16 @@ parseSongInfoStruct songEntries = do
     1 : _ -> Right True
     []    -> Right False
     _     -> Left "parseSongInfo: couldn't understand double_kick field"
-  songTierGuitar <- case [ n | QBStructItemInteger 437674840 n <- songEntries ] of
+  songTierGuitar <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "guitar_difficulty_rating" ] of
     n : _ -> Right $ fromIntegral n
     []    -> Left "parseSongInfo: couldn't get guitar tier"
-  songTierBass <- case [ n | QBStructItemInteger 3733500155 n <- songEntries ] of
+  songTierBass <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "bass_difficulty_rating" ] of
     n : _ -> Right $ fromIntegral n
     []    -> Left "parseSongInfo: couldn't get bass tier"
-  songTierVocals <- case [ n | QBStructItemInteger 945984381 n <- songEntries ] of
+  songTierVocals <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "vocals_difficulty_rating" ] of
     n : _ -> Right $ fromIntegral n
     []    -> Left "parseSongInfo: couldn't get vocals tier"
-  songTierDrums <- case [ n | QBStructItemInteger 178662704 n <- songEntries ] of
+  songTierDrums <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "drums_difficulty_rating" ] of
     n : _ -> Right $ fromIntegral n
     []    -> Left "parseSongInfo: couldn't get drums tier"
   let songGenre = case [ n | QBStructItemQbKey k n <- songEntries, k == qbKeyCRC "genre" ] of

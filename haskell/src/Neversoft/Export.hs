@@ -585,8 +585,8 @@ worFileManifest titleHashHex cdl manifestQBFilenameKey songIDs = buildPak
       , nodeOffset = 1
       , nodeSize = 0
       , nodeFilenamePakKey = 0
-      , nodeFilenameKey = 2306521930
-      , nodeFilenameCRC = 1794739921
+      , nodeFilenameKey = qbKeyCRC "chunk.last"
+      , nodeFilenameCRC = qbKeyCRC "chunk"
       , nodeUnknown = 0
       , nodeFlags = 0
       , nodeName = Nothing
@@ -616,8 +616,8 @@ worFileBarePak = buildPak
       , nodeOffset = 1
       , nodeSize = 0
       , nodeFilenamePakKey = 0
-      , nodeFilenameKey = 2306521930
-      , nodeFilenameCRC = 1794739921
+      , nodeFilenameKey = qbKeyCRC "chunk.last"
+      , nodeFilenameCRC = qbKeyCRC "chunk"
       , nodeUnknown = 0
       , nodeFlags = 0
       , nodeName = Nothing
@@ -634,8 +634,8 @@ worFilePS3SongVRAMPak songKeyQB = buildPak
       , nodeOffset = 0
       , nodeSize = 0
       , nodeFilenamePakKey = songKeyQB
-      , nodeFilenameKey = 2306521930
-      , nodeFilenameCRC = 1794739921
+      , nodeFilenameKey = qbKeyCRC "chunk.last"
+      , nodeFilenameCRC = qbKeyCRC "chunk"
       , nodeUnknown = 0
       , nodeFlags = 0
       , nodeName = Nothing
@@ -688,7 +688,7 @@ worFileTextPak (qbKey, qb) (qsKey1, qsKey2, qsKey3, qsKey4, qsKey5, qs) = buildP
   , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3899138369, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , makeQS []
     )
-  , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 12, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 12, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKeyCRC "chunk.last", nodeFilenameCRC = qbKeyCRC "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , BL.replicate 4 0xAB
     )
   ]

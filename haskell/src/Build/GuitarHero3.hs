@@ -4,38 +4,46 @@ module Build.GuitarHero3 (gh3Rules) where
 
 import           Audio
 import           Build.Common
-import           Config                         hiding (Difficulty)
-import           Control.Monad                  (forM_, guard, when)
+import           Config                           hiding (Difficulty)
+import           Control.Monad                    (forM_, guard, when)
 import           Control.Monad.Trans.StackTrace
-import           Data.Binary.Put                (putWord32be, runPut)
-import qualified Data.ByteString                as B
-import qualified Data.ByteString.Char8          as B8
-import qualified Data.ByteString.Lazy           as BL
+import           Data.Binary.Put                  (putWord32be, runPut)
+import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Char8            as B8
+import qualified Data.ByteString.Lazy             as BL
 import           Data.Conduit.Audio
-import           Data.DTA.Serialize.Magma       (Gender (..))
-import           Data.Hashable                  (Hashable, hash)
-import qualified Data.Map                       as Map
-import           Data.Maybe                     (catMaybes, fromMaybe)
-import           Data.SimpleHandle              (Folder (..), fileReadable)
-import qualified Data.Text                      as T
-import           Development.Shake              hiding (phony, (%>), (&%>))
+import           Data.DTA.Serialize.Magma         (Gender (..))
+import qualified Data.EventList.Absolute.TimeBody as ATB
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Hashable                    (Hashable, hash)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (catMaybes, fromMaybe)
+import           Data.SimpleHandle                (Folder (..), fileReadable)
+import qualified Data.Text                        as T
+import           Development.Shake                hiding (phony, (%>), (&%>))
 import           Development.Shake.FilePath
-import           Guitars                        (closeNotes', noOpenNotes',
-                                                 strumHOPOTap')
-import           Neversoft.Audio                (gh3Encrypt)
-import           Neversoft.Checksum             (qbKeyCRC)
+import           Guitars                          (closeNotes', noOpenNotes',
+                                                   strumHOPOTap')
+import           Neversoft.Audio                  (gh3Encrypt)
+import           Neversoft.Checksum               (qbKeyCRC)
 import           Neversoft.GH3
-import           Neversoft.Pak                  (Node (..), buildPak)
+import           Neversoft.Pak                    (Node (..), buildPak)
 import           Neversoft.QB
-import           Resources                      (getResourcesPath, gh3Thumbnail)
-import qualified RockBand.Codec.File            as RBFile
-import           RockBand.Codec.File            (shakeMIDI)
-import qualified RockBand.Codec.Five            as Five
-import           RockBand.Common                (Difficulty (..))
-import qualified Sound.MIDI.Util                as U
-import           STFS.Package                   (CreateOptions (..),
-                                                 LicenseEntry (..),
-                                                 makeCONReadable)
+import           Resources                        (getResourcesPath,
+                                                   gh3Thumbnail)
+import           RockBand.Codec.Beat              (BeatTrack (..))
+import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.File              (shakeMIDI)
+import qualified RockBand.Codec.Five              as Five
+import           RockBand.Common                  (Difficulty (..))
+import           RockBand3                        (BasicTiming (..),
+                                                   basicTiming)
+import qualified Sound.MIDI.Util                  as U
+import           STFS.Package                     (CreateOptions (..),
+                                                   LicenseEntry (..),
+                                                   makeCONReadable)
+import           System.IO                        (IOMode (..), hFileSize,
+                                                   withBinaryFile)
 
 hashGH3 :: (Hashable f) => SongYaml f -> TargetGH3 -> Int
 hashGH3 songYaml gh3 = let
@@ -122,12 +130,14 @@ gh3Rules buildInfo dir gh3 = do
     fsb <- stackIO $ BL.readFile pathFsb
     stackIO $ BL.writeFile out $ gh3Encrypt fsb
   pathDatXen %> \out -> do
-    shk $ need [pathGuitar, pathRhythm]
+    shk $ need [pathGuitar, pathRhythm, pathFsbXen]
     hasGuitarAudio <- maybe False (/= 0) <$> audioLength pathGuitar
     hasRhythmAudio <- maybe False (/= 0) <$> audioLength pathRhythm
+    fsbLength <- stackIO $ withBinaryFile pathFsbXen ReadMode hFileSize
     stackIO $ BL.writeFile out $ runPut $ do
       let count = 2 + (if hasGuitarAudio then 1 else 0) + (if hasRhythmAudio then 1 else 0)
       putWord32be count
+      putWord32be $ fromIntegral fsbLength
       let datEntry slot index = do
             putWord32be $ qbKeyCRC $ dlcID <> "_" <> slot
             putWord32be index
@@ -152,11 +162,12 @@ gh3Rules buildInfo dir gh3 = do
           [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = unk1, nodeFilenameCRC = qbKeyCRC $ B8.pack dl, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , mysteryScript
             )
-          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKeyCRC "chunk.last", nodeFilenameCRC = qbKeyCRC "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , BL.replicate 4 0xAB
             )
           ]
-        unk1 = 0xDEADBEEF -- TODO figure out. in dl15.pak it's 3159505916
+        -- don't know the actual prefix string but this works
+        unk1 = qbKeyCRC $ "1ni76fm\\" <> B8.pack dl -- in dl15.pak it's 3159505916, in dl26.pak it's 3913805506
     stackIO $ BL.writeFile out $ buildPak nodes
   pathText %> \out -> do
     -- section names would also go in here, but we'll try to use the embedded section name format
@@ -212,28 +223,31 @@ gh3Rules buildInfo dir gh3 = do
                 ]
               ]
             )
-          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKeyCRC "chunk.last", nodeFilenameCRC = qbKeyCRC "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , BL.replicate 4 0xAB
             )
           ]
-        unk1 = 0xDEADBEEF -- TODO figure out. in dl15_text.pak it's 1945578562. in disc qb.pak.xen it's 0x0b761ea7 "scripts\\guitar\\songlist.qb"
-        unk2 = 0xDEADBEEF -- TODO figure out. in dl15_text.pak it's 480172672. in disc qb.pak.xen it's 3114035354 "songlist"
+        -- don't know the actual prefix strings but these work
+        unk1 = qbKeyCRC $ "1o99lm\\" <> B8.pack dl <> ".qb" -- in dl15_text.pak it's 1945578562. in disc qb.pak.xen it's 0x0b761ea7 "scripts\\guitar\\songlist.qb"
+        unk2 = qbKeyCRC $ "7buqvk" <> B8.pack dl -- in dl15_text.pak it's 480172672. in disc qb.pak.xen it's 3114035354 "songlist"
     stackIO $ BL.writeFile out $ buildPak nodes
   forM_ pathTextLangs $ \lang -> lang %> \out -> do
     -- being lazy and copying english file. really we ought to swap out some translated strings
     shk $ copyFile' pathText out
   pathSongPak %> \out -> do
     mid <- shakeMIDI $ planDir </> "processed.mid"
+    timing <- basicTiming mid $ getAudioLength buildInfo planName plan
     let nodes =
           [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = key1, nodeFilenameCRC = key2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB $ makeMidQB key1 dlcID $ makeGH3MidQB
               mid
+              timing
               (getPartInfo $ gh3_Guitar gh3)
               (getPartInfo coopPart)
             )
           -- there's a small script qb here in official DLC. but SanicStudios customs don't have it
           -- .ska files would go here if we had any
-          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2306521930, nodeFilenameCRC = 1794739921, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKeyCRC "chunk.last", nodeFilenameCRC = qbKeyCRC "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , BL.replicate 4 0xAB
             )
           ]
@@ -282,10 +296,11 @@ gh3Rules buildInfo dir gh3 = do
 
 makeGH3MidQB
   :: RBFile.Song (RBFile.OnyxFile U.Beats)
+  -> BasicTiming
   -> (RBFile.FlexPartName, Int)
   -> (RBFile.FlexPartName, Int)
   -> GH3MidQB
-makeGH3MidQB song partLead partRhythm = let
+makeGH3MidQB song timing partLead partRhythm = let
   makeGH3Part (fpart, threshold) = let
     opart = RBFile.getFlexPart fpart $ RBFile.s_tracks song
     (trk, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart
@@ -303,9 +318,16 @@ makeGH3MidQB song partLead partRhythm = let
       , gh3StarPower   = [] -- TODO
       , gh3BattleStars = []
       }
+  beats
+    = map (\secs -> floor $ secs * 1000)
+    $ ATB.getTimes
+    $ RTB.toAbsoluteEventList 0
+    $ U.applyTempoTrack (RBFile.s_tempos song)
+    $ beatLines
+    $ timingBeat timing
   in emptyMidQB
     { gh3Guitar         = makeGH3Part partLead
     , gh3Rhythm         = makeGH3Part partRhythm
-    , gh3TimeSignatures = [] -- TODO
-    , gh3FretBars       = [] -- TODO
+    , gh3TimeSignatures = [(0, 4, 4)] -- TODO
+    , gh3FretBars       = beats
     }
