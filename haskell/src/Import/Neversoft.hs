@@ -4,43 +4,48 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Import.Neversoft where
 
-import           Audio                          (Audio (..))
+import           Audio                            (Audio (..))
 import           Config
-import           Control.Applicative            ((<|>))
-import           Control.Monad                  (forM, guard, when)
-import           Control.Monad.IO.Class         (MonadIO)
+import           Control.Applicative              ((<|>))
+import           Control.Monad                    (forM, guard, when)
+import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
-import           Data.Bifunctor                 (first)
-import qualified Data.ByteString.Lazy           as BL
-import           Data.Char                      (isDigit)
-import           Data.Default.Class             (def)
-import qualified Data.HashMap.Strict            as HM
-import           Data.List.NonEmpty             (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty             as NE
-import           Data.List.Split                (chunksOf)
-import           Data.Maybe                     (catMaybes, listToMaybe)
+import           Data.Bifunctor                   (first)
+import qualified Data.ByteString.Lazy             as BL
+import           Data.Char                        (isDigit)
+import           Data.Default.Class               (def)
+import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.HashMap.Strict              as HM
+import           Data.List.NonEmpty               (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty               as NE
+import           Data.List.Split                  (chunksOf)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (catMaybes, listToMaybe)
 import           Data.SimpleHandle
-import qualified Data.Text                      as T
-import qualified Data.Text.Encoding             as TE
-import           Genre                          (displayWoRGenre)
+import qualified Data.Text                        as T
+import qualified Data.Text.Encoding               as TE
+import           Genre                            (displayWoRGenre)
 import           GHC.ByteOrder
 import           Import.Base
-import           Import.GuitarHero2             (ImportMode (..))
-import           Neversoft.Audio                (decryptFSB', gh3Decrypt)
-import           Neversoft.Checksum             (qbKeyCRC)
-import           Neversoft.GH3                  (gh3ToMidi, parseMidQB)
+import           Import.GuitarHero2               (ImportMode (..))
+import           Neversoft.Audio                  (decryptFSB', gh3Decrypt)
+import           Neversoft.Checksum               (qbKeyCRC)
+import           Neversoft.GH3                    (gh3ToMidi, parseMidQB)
 import           Neversoft.Metadata
 import           Neversoft.Note
 import           Neversoft.Pak
 import           Neversoft.PS2
-import           Neversoft.QB                   (QBSection (..), parseQB)
-import           Numeric                        (showHex)
-import qualified RockBand.Codec.File            as RBFile
-import           Sound.FSB                      (getFSBStreamBytes, parseFSB,
-                                                 splitFSBStreams,
-                                                 splitFSBStreams')
-import           STFS.Package                   (runGetM)
-import           Text.Read                      (readMaybe)
+import           Neversoft.QB                     (QBSection (..), parseQB)
+import           Numeric                          (showHex)
+import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.FullDrums         (fdDifficulties, fdGems,
+                                                   fdKick2)
+import           RockBand.Common                  (Difficulty (..))
+import           Sound.FSB                        (getFSBStreamBytes, parseFSB,
+                                                   splitFSBStreams,
+                                                   splitFSBStreams')
+import           STFS.Package                     (runGetM)
+import           Text.Read                        (readMaybe)
 
 importNeversoftGH :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importNeversoftGH src folder = let
@@ -338,7 +343,7 @@ importGH3Song gh3i = let
     let thisRhythmTrack = gh3RhythmTrack info && hasRealCoop
         hasRealCoop     = mode == ImportCoop || not (gh3UseCoopNotetracks info)
         coopPart        = if thisRhythmTrack then RBFile.FlexExtra "rhythm" else RBFile.FlexBass
-    midiFixed <- case level of
+    midiOnyx <- case level of
       ImportFull -> do
         let ?endian = case gh3iAudio gh3i of
               GH3Audio360{} -> BigEndian
@@ -369,9 +374,11 @@ importGH3Song gh3i = let
               markerBank
               midQB
       ImportQuick -> return emptyChart
-    let midiOnyx = midiFixed
-          { RBFile.s_tracks = RBFile.fixedToOnyx $ RBFile.s_tracks midiFixed
-          }
+    let drums
+          = maybe mempty RBFile.onyxPartFullDrums
+          $ Map.lookup RBFile.FlexDrums
+          $ RBFile.onyxParts
+          $ RBFile.s_tracks midiOnyx
     audio <- case level of
       ImportQuick -> return []
       ImportFull -> case gh3iAudio gh3i of
@@ -468,5 +475,20 @@ importGH3Song gh3i = let
       , _parts = Parts $ HM.fromList $ catMaybes
         [ Just (RBFile.FlexGuitar, def { partGRYBO = Just def })
         , guard hasRealCoop >> Just (coopPart, def { partGRYBO = Just def })
+        , do
+          guard $ maybe False (not . RTB.null . fdGems) $ Map.lookup Expert $ fdDifficulties drums
+          Just (RBFile.FlexDrums, def
+            { partDrums = Just PartDrums
+              { drumsDifficulty  = Tier 1
+              , drumsMode        = DrumsFull
+              , drumsKicks       = if RTB.null $ fdKick2 drums then Kicks1x else KicksBoth
+              , drumsFixFreeform = False
+              , drumsKit         = HardRockKit
+              , drumsLayout      = StandardLayout
+              , drumsFallback    = FallbackGreen
+              , drumsFileDTXKit  = Nothing
+              , drumsFullLayout  = FDStandard
+              }
+            })
         ]
       }

@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Neversoft.GH3 where
 
-import           Control.Monad                    (forM)
+import           Control.Monad                    (forM, void)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import           Data.Bits                        (bit, testBit, (.|.))
@@ -12,8 +12,9 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
+import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import           Data.Word                        (Word32)
 import           FeedBack.Load                    (TrackEvent (..), emitTrack)
@@ -22,9 +23,11 @@ import           Guitars                          (HOPOsAlgorithm (..), emit5',
 import           Neversoft.Checksum               (qbKeyCRC)
 import           Neversoft.Metadata               (SongInfoGH3 (..))
 import           Neversoft.QB
+import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as F
+import           RockBand.Codec.FullDrums
 import           RockBand.Common                  (Difficulty (..),
                                                    StrumHOPOTap (..))
 import qualified Sound.MIDI.Util                  as U
@@ -281,7 +284,7 @@ makeMidQB file dlc GH3MidQB{..} = execWriter $ do
       , QBStructItemStruct8A0000 (qbKeyCRC "params") $ QBStructHeader : gh3AnimParams
       ]
 
-gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap Word32 T.Text -> GH3MidQB -> RBFile.Song (RBFile.FixedFile U.Beats)
+gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap Word32 T.Text -> GH3MidQB -> RBFile.Song (RBFile.OnyxFile U.Beats)
 gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   toSeconds :: Word32 -> U.Seconds
   toSeconds = (/ 1000) . fromIntegral
@@ -336,10 +339,13 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
       , (Medium, getTrack $ gh3Medium part)
       , (Easy  , getTrack $ gh3Easy   part)
       ]
-    , F.fiveOverdrive = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
-      (time, len, _noteCount) <- gh3StarPower $ gh3Expert part
-      [(toBeats time, True), (toBeats $ time + len, False)]
+    , F.fiveOverdrive = makeSpan $ fmap (\(time, len, _notecount) -> (time, len)) $ gh3StarPower $ gh3Expert part
+    , F.fivePlayer1 = makeSpan $ gh3P1FaceOff gh3
+    , F.fivePlayer2 = makeSpan $ gh3P2FaceOff gh3
     }
+  makeSpan spans = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
+    (time, len) <- spans
+    [(toBeats time, True), (toBeats $ time + len, False)]
   trackLead = getPart $ if coopTracks then gh3CoopGuitar gh3 else gh3Guitar gh3
   trackCoop = getPart $ if coopTracks then gh3CoopRhythm gh3 else gh3Rhythm gh3
   events = mempty
@@ -352,17 +358,21 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
               Nothing -> T.pack $ show n
       return (toBeats t, (SectionRB2, str))
     }
-  fixed = if coopRhythm
-    then mempty
-      { RBFile.fixedPartGuitar = trackLead
-      , RBFile.fixedPartRhythm = trackCoop
-      , RBFile.fixedEvents     = events
-      }
-    else mempty
-      { RBFile.fixedPartGuitar = trackLead
-      , RBFile.fixedPartBass   = trackCoop
-      , RBFile.fixedEvents     = events
-      }
+  drums = gh3DrumsToFull toBeats $ gh3Drums $ gh3BackgroundNotes gh3
+  fixed = mempty
+    { RBFile.onyxParts = Map.fromList
+      [ ( RBFile.FlexGuitar
+        , mempty { RBFile.onyxPartGuitar = trackLead }
+        )
+      , ( if coopRhythm then RBFile.FlexExtra "rhythm" else RBFile.FlexBass
+        , mempty { RBFile.onyxPartGuitar = trackCoop }
+        )
+      , ( RBFile.FlexDrums
+        , mempty { RBFile.onyxPartFullDrums = drums }
+        )
+      ]
+    , RBFile.onyxEvents = events
+    }
   in RBFile.Song
     { RBFile.s_tempos = tempos
     , RBFile.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
@@ -371,6 +381,54 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
           len = fromIntegral num * unit
       return (toBeats time, U.TimeSig len unit)
     , RBFile.s_tracks = fixed
+    }
+
+gh3DrumsToFull :: (Word32 -> U.Beats) -> [[Word32]] -> FullDrumTrack U.Beats
+gh3DrumsToFull toBeats notes = let
+  fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
+  kicks = fromPairs $ flip mapMaybe notes $ \case
+    time : 36 : _ -> Just (toBeats time, False) -- second kick drum
+    time : 48 : _ -> Just (toBeats time, True) -- normal kick
+    _             -> Nothing
+  hands = RTB.collectCoincident $ fromPairs $ flip mapMaybe notes $ \case
+    time : pitch : _ -> case pitch of
+
+      37 -> Just (toBeats time, (Tom3  , D.LH))
+      38 -> Just (toBeats time, (Tom2  , D.LH))
+      39 -> Just (toBeats time, (Tom1  , D.LH))
+      40 -> Just (toBeats time, (Snare , D.LH))
+      41 -> Just (toBeats time, (Hihat , D.LH))
+      42 -> Just (toBeats time, (Hihat , D.LH)) -- duplicate?
+      43 -> Just (toBeats time, (Ride  , D.LH))
+      44 -> Just (toBeats time, (CrashL, D.LH))
+      45 -> Just (toBeats time, (CrashR, D.LH))
+
+      49 -> Just (toBeats time, (Tom3  , D.RH))
+      50 -> Just (toBeats time, (Tom2  , D.RH))
+      51 -> Just (toBeats time, (Tom1  , D.RH))
+      52 -> Just (toBeats time, (Snare , D.RH))
+      53 -> Just (toBeats time, (Hihat , D.RH))
+      54 -> Just (toBeats time, (Hihat , D.RH))
+      55 -> Just (toBeats time, (Ride  , D.RH))
+      56 -> Just (toBeats time, (CrashL, D.RH))
+      57 -> Just (toBeats time, (CrashR, D.RH))
+
+      _  -> Nothing
+    _ -> Nothing
+  handsNoSticking = fmap (map fst) hands
+  in mempty
+    { fdKick2 = void $ RTB.filter not kicks
+    , fdSticking = RTB.empty -- TODO
+    , fdDifficulties = Map.singleton Expert FullDrumDifficulty
+      { fdGems
+        = fmap (\fgem -> (fgem, GemNormal, D.VelocityNormal))
+        $ RTB.merge (Kick <$ RTB.filter id kicks)
+        $ RTB.flatten
+        $ fmap nubOrd handsNoSticking
+      , fdFlam = flip RTB.mapMaybe handsNoSticking $ \case
+        [x, y] | x == y -> Just ()
+        _               -> Nothing
+      }
     }
 
 makeGH3TrackNotes
@@ -400,8 +458,9 @@ makeGH3TrackNotes tmap notes = let
     lenMS = case len of
       Nothing      -> 1
       Just sustain -> toMilli (pos + sustain) - posMS + sustainTrim
-    bits = foldr (.|.) 0 $ flip map gems $ \(gem, force) ->
-      (if force then bit 5 else 0) .|. case gem of
+    bits = foldr (.|.) 0 $ flip map gems $ \(gem, force) -> let
+      force' = force && null (drop 1 gems) -- can't force chords
+      in (if force' then bit 5 else 0) .|. case gem of
         F.Green  -> bit 0
         F.Red    -> bit 1
         F.Yellow -> bit 2

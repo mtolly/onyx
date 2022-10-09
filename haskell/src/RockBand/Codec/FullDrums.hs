@@ -36,7 +36,7 @@ data FullDrumTrack t = FullDrumTrack
   , fdOverdrive    :: RTB.T t Bool
   , fdActivation   :: RTB.T t Bool
   , fdSolo         :: RTB.T t Bool
-  , fdSticking     :: RTB.T t D.Hand
+  , fdSticking     :: RTB.T t D.Hand -- this should probably be per-difficulty?
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (FullDrumTrack t)
 

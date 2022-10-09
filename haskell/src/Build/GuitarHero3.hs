@@ -32,10 +32,12 @@ import           Neversoft.QB
 import           Resources                        (getResourcesPath,
                                                    gh3Thumbnail)
 import           RockBand.Codec.Beat              (BeatTrack (..))
+import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.File              (shakeMIDI)
 import qualified RockBand.Codec.Five              as Five
 import           RockBand.Common                  (Difficulty (..))
+import           RockBand.Sections                (makePSSection)
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming)
 import qualified Sound.MIDI.Util                  as U
@@ -65,7 +67,8 @@ gh3Rules buildInfo dir gh3 = do
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
 
-  -- TODO we probably don't have to use "dlc*", can make a descriptive shortname instead
+  -- TODO we probably don't have to use "dlc*", can make a descriptive shortname instead.
+  -- max length will likely be 27, so that "<shortname>_song.pak.xen" fits in STFS's max of 40 chars
   let hashed = hashGH3 songYaml gh3
       songID = fromMaybe hashed $ gh3_SongID gh3
       dlcID = B8.pack $ "dlc" <> show songID
@@ -325,9 +328,18 @@ makeGH3MidQB song timing partLead partRhythm = let
     $ U.applyTempoTrack (RBFile.s_tempos song)
     $ beatLines
     $ timingBeat timing
+  sections
+    = map (\(secs, (_, sect)) -> (floor $ secs * 1000, Right $ snd $ makePSSection sect))
+    $ ATB.toPairList
+    $ RTB.toAbsoluteEventList 0
+    $ U.applyTempoTrack (RBFile.s_tempos song)
+    $ eventsSections (RBFile.getEventsTrack $ RBFile.s_tracks song)
   in emptyMidQB
     { gh3Guitar         = makeGH3Part partLead
     , gh3Rhythm         = makeGH3Part partRhythm
     , gh3TimeSignatures = [(0, 4, 4)] -- TODO
     , gh3FretBars       = beats
+    , gh3Markers        = sections
+    , gh3P1FaceOff      = [] -- TODO
+    , gh3P2FaceOff      = [] -- TODO
     }
