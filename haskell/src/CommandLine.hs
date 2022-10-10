@@ -15,8 +15,9 @@ module CommandLine
 import           Amplitude.PS2.Ark                as AmpArk
 import           Amplitude.PS2.TxtBin             (getTxtBin, txtBinToDTA)
 import           Audio                            (Audio (Input), audioLength,
-                                                   audioMD5, makeFSB3, makeFSB4,
-                                                   makeFSB4', runAudio)
+                                                   audioMD5, makeFSB4,
+                                                   makeFSB4', makeXMAFSB3,
+                                                   runAudio)
 import           Build                            (shakeBuildFiles)
 import           Codec.Picture                    (writePng)
 import           Config
@@ -1294,7 +1295,7 @@ commands =
         return [fout]
       "gh3" : streams -> do
         fout <- outputFile opts $ fatal "Need --to"
-        makeFSB3 (zipWith
+        makeXMAFSB3 (zipWith
           (\i stream -> (B8.pack $ show (i :: Int) <> ".xma", stream))
           [0..] streams) fout
         return [fout]

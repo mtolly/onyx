@@ -284,19 +284,24 @@ makeMidQB file dlc GH3MidQB{..} = execWriter $ do
       , QBStructItemStruct8A0000 (qbKeyCRC "params") $ QBStructHeader : gh3AnimParams
       ]
 
+toSeconds :: Word32 -> U.Seconds
+toSeconds = (/ 1000) . fromIntegral
+
+readGH3TempoMap :: [(Word32, Word32, Word32)] -> [Word32] -> U.TempoMap
+readGH3TempoMap sigs bars = let
+  sigMap = Map.fromList [ (time, (num, den)) | (time, num, den) <- sigs ]
+  barSigs = [ (t, maybe 4 (snd . snd) $ Map.lookupLE t sigMap) | t <- bars ]
+  makeTempo (t1, denom) (t2, _) = let
+    secs = toSeconds t2 - toSeconds t1
+    beats = 4 / fromIntegral denom
+    in (U.makeTempo beats secs, beats)
+  temposGaps = zipWith makeTempo barSigs (drop 1 barSigs)
+  in U.tempoMapFromBPS $ RTB.fromPairList
+    $ zip (0 : map snd temposGaps) (map fst temposGaps)
+
 gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap Word32 T.Text -> GH3MidQB -> RBFile.Song (RBFile.OnyxFile U.Beats)
 gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
-  toSeconds :: Word32 -> U.Seconds
-  toSeconds = (/ 1000) . fromIntegral
-  sigMap = Map.fromList [ (time, (num, den)) | (time, num, den) <- gh3TimeSignatures gh3 ]
-  barSigs = [ (t, maybe 4 (snd . snd) $ Map.lookupLE t sigMap) | t <- gh3FretBars gh3 ]
-  tempos = U.tempoMapFromBPS $ let
-    makeTempo (t1, denom) (t2, _) = let
-      secs = toSeconds t2 - toSeconds t1
-      beats = 4 / fromIntegral denom
-      in (U.makeTempo beats secs, beats)
-    temposGaps = zipWith makeTempo barSigs (drop 1 barSigs)
-    in RTB.fromPairList $ zip (0 : map snd temposGaps) (map fst temposGaps)
+  tempos = readGH3TempoMap (gh3TimeSignatures gh3) (gh3FretBars gh3)
   toBeats :: Word32 -> U.Beats
   toBeats = U.unapplyTempoMap tempos . toSeconds
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
@@ -433,13 +438,18 @@ gh3DrumsToFull toBeats notes = let
 
 makeGH3TrackNotes
   :: U.TempoMap
+  -> [(Word32, Word32, Word32)] -- time signatures in new gh3 mid
+  -> [Word32] -- fretbars in new gh3 mid
   -> RTB.T U.Beats ((F.Color, StrumHOPOTap), Maybe U.Beats)
   -> [(Word32, Word32, Word32)]
-makeGH3TrackNotes tmap notes = let
-  -- TODO not quite sure the default HOPO calculation here is correct!
-  -- we may need to first calculate the fretbars list and use that.
-  -- also no idea if we are doing the right thing (on import or export) for non */4 signatures
-  defHOPOs = strumHOPOTap' HOPOsGH3 hopoThreshold $ fmap (\((color, _), len) -> (color, len)) notes
+makeGH3TrackNotes tmap newSigs newFretbars notes = let
+  newTempos = readGH3TempoMap newSigs newFretbars
+  -- we translate from the original midi tempo map to the way gh3 will see it,
+  -- for purposes of computing the default hopos (so we know when to force).
+  -- sustain lengths aren't right here but they don't matter.
+  defHOPOs = strumHOPOTap' HOPOsGH3 hopoThreshold
+    $ fmap (\((color, _), len) -> (color, len))
+    $ U.unapplyTempoTrack newTempos $ U.applyTempoTrack tmap notes
   hopoThreshold :: U.Beats
   hopoThreshold = 1 / 2.95
   withForces = RTB.fromPairList $ zipWith findForce (RTB.toPairList notes) (RTB.toPairList defHOPOs)

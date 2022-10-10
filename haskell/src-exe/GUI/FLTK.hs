@@ -10,7 +10,7 @@ module GUI.FLTK (launchGUI) where
 
 import           Audio                                     (Audio (..),
                                                             buildSource',
-                                                            makeFSB3,
+                                                            makeXMAFSB3,
                                                             makeXMAPieces,
                                                             runAudio)
 import           Build                                     (NameRule (..),
@@ -1932,6 +1932,72 @@ batchPageGH1 sink rect tab build = do
     "Create PS2 DIY folders"
     ("%input_dir%/%input_base%%modifiers%_gh1")
     (\template -> getTargetSong GH1DIYPS2 template build)
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+batchPageGH3
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ((Project -> (TargetGH3, FilePath)) -> IO ())
+  -> IO ()
+batchPageGH3 sink rect tab build = do
+  pack <- FL.packNew rect Nothing
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+    centerRect = trimClock 0 250 0 250 rect'
+    in centerFixed rect' $ speedPercent True centerRect
+  let getTargetSong template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
+        speed <- getSpeed
+        go $ \proj -> let
+          defGH3 = def :: TargetGH3
+          hasPart p = case HM.lookup p $ getParts $ _parts $ projectSongYaml proj of
+            Nothing   -> False
+            Just part -> isJust (partGRYBO part) -- || isJust (partDrums part)
+          leadPart = listToMaybe $ filter hasPart
+            [ FlexGuitar
+            , FlexExtra "rhythm"
+            , FlexKeys
+            , FlexBass
+            -- , FlexDrums
+            ]
+          coopPart = listToMaybe $ filter (\(p, _) -> hasPart p && leadPart /= Just p)
+            [ (FlexGuitar        , GH2Rhythm)
+            , (FlexExtra "rhythm", GH2Rhythm)
+            , (FlexBass          , GH2Bass  )
+            , (FlexKeys          , GH2Rhythm)
+            -- , (FlexDrums         , GH2Rhythm)
+            ]
+          tgt = defGH3
+            { gh3_Common = (gh3_Common defGH3)
+              { tgt_Speed = Just speed
+              }
+            , gh3_Guitar = fromMaybe (FlexExtra "undefined") leadPart
+            , gh3_Bass = case coopPart of
+              Just (x, GH2Bass) -> x
+              _                 -> gh3_Bass defGH3
+            , gh3_Rhythm = case coopPart of
+              Just (x, GH2Rhythm) -> x
+              _                   -> gh3_Rhythm defGH3
+            , gh3_Coop = case coopPart of
+              Just (_, coop) -> coop
+              _              -> gh3_Coop defGH3
+            }
+          fout = trimXbox newPrefs $ T.unpack $ foldr ($) template
+            [ templateApplyInput proj $ Just $ GH3 tgt
+            , let
+              modifiers = T.pack $ case tgt_Speed $ gh3_Common tgt of
+                Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
+                _               -> ""
+              in T.intercalate modifiers . T.splitOn "%modifiers%"
+            ]
+          in (tgt, fout)
+  makeTemplateRunner
+    sink
+    "Create Xbox 360 LIVE files"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_gh3live")
+    (\template -> getTargetSong template build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -4510,7 +4576,7 @@ miscPageMOGG sink rect tab startTasks = mdo
                 let wav = tmp </> show (i :: Int) <.> "wav"
                 runAudio src wav
                 return wav
-              makeFSB3 [ (B8.pack $ takeFileName wav, wav) | wav <- wavs ] f'
+              makeXMAFSB3 [ (B8.pack $ takeFileName wav, wav) | wav <- wavs ] f'
               return [f']
             in [("FSB3 file creation", task)]
       _ -> return ()
@@ -5401,6 +5467,18 @@ launchBatch sink makeMenuBar startFiles = mdo
             GH2DIYPS2 fout -> do
               makeGH2DIY target proj' fout
               return [fout]
+      return tab
+    , makeTab windowRect "GH3" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      batchPageGH3 sink rect tab $ \settings -> sink $ EventOnyx $ do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
+          let (target, fout) = settings proj
+          proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
+          tmp <- buildGH3LIVE target proj'
+          stackIO $ Dir.copyFile tmp fout
+          warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
+          return [fout]
       return tab
     , makeTab windowRect "GH:WoR" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

@@ -890,6 +890,48 @@ makeXMA1 xma = withSystemTempDirectory "onyx-xma" $ \tmp -> do
   writeXMA1 tmpFile xma
   BL.fromStrict <$> B.readFile tmpFile
 
+mp3sToFSB3 :: (MonadIO m, MonadFail m) => [(B.ByteString, BL.ByteString)] -> m FSB
+mp3sToFSB3 mp3s = do
+
+  songs <- forM mp3s $ \(name, mp3) -> do
+    src <- liftIO $ ffSource $ Left $ makeHandle "mp3" $ byteStringSimpleHandle mp3
+    let _ = src :: CA.AudioSource (ResourceT IO) Int16
+        numFrames = fromIntegral $ CA.frames src
+        song = FSBSong
+          { fsbSongHeaderSize = 0
+          , fsbSongName       = name
+          , fsbSongSamples    = numFrames * 512
+          , fsbSongDataSize   = 0
+          , fsbSongLoopStart  = 0
+          , fsbSongLoopEnd    = numFrames * 512 - 1
+          , fsbSongMode       = 0x240 -- this is from SanicStudios' mp3 fsbs
+          , fsbSongSampleRate = round $ CA.rate src
+          , fsbSongDefVol     = 255
+          , fsbSongDefPan     = 128
+          , fsbSongDefPri     = 255
+          , fsbSongChannels   = fromIntegral $ CA.channels src
+          , fsbSongMinDistance = 0x803F
+          , fsbSongMaxDistance = 0x401C46
+          , fsbExtra = Right FSBExtraMP3
+            -- TODO check these
+            { fsbMP3Unknown1 = 0x50
+            , fsbMP3Unknown2 = 0
+            }
+          }
+    return (song, mp3)
+
+  return $ fixFSB $ FSB
+    { fsbHeader = Left $ FSB3Header
+      { fsb3SongCount   = fromIntegral $ length songs
+      , fsb3HeadersSize = 0
+      , fsb3DataSize    = 0
+      , fsb3Version     = 0x30001
+      , fsb3Flags       = 0
+      , fsb3Songs       = map fst songs
+      }
+    , fsbSongData = map snd songs
+    }
+
 xmasToFSB3 :: (MonadFail m) => [(B.ByteString, (XMA1Contents, Word32))] -> m FSB
 xmasToFSB3 xmas = do
 

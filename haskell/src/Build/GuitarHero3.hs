@@ -6,12 +6,15 @@ import           Audio
 import           Build.Common
 import           Config                           hiding (Difficulty)
 import           Control.Monad                    (forM_, guard, when)
+import           Control.Monad.Trans.Resource     (runResourceT)
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Put                  (putWord32be, runPut)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Conduit.Audio
+import           Data.Conduit.Audio.LAME          (sinkMP3WithHandle)
+import qualified Data.Conduit.Audio.LAME.Binding  as L
 import           Data.DTA.Serialize.Magma         (Gender (..))
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -40,6 +43,7 @@ import           RockBand.Common                  (Difficulty (..))
 import           RockBand.Sections                (makePSSection)
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming)
+import           Sound.FSB                        (emitFSB, mp3sToFSB3)
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package                     (CreateOptions (..),
                                                    LicenseEntry (..),
@@ -67,12 +71,14 @@ gh3Rules buildInfo dir gh3 = do
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
 
-  -- TODO we probably don't have to use "dlc*", can make a descriptive shortname instead.
-  -- max length will likely be 27, so that "<shortname>_song.pak.xen" fits in STFS's max of 40 chars
+  -- short name doesn't have to be "dlc*", so we add title/artist snippets by default.
+  -- makeShortName applies max of 27 chars which works with GH3 max of 26.
+  -- ("<shortname>_song.pak.xen" must fit in STFS's max of 40 chars)
   let hashed = hashGH3 songYaml gh3
-      songID = fromMaybe hashed $ gh3_SongID gh3
-      dlcID = B8.pack $ "dlc" <> show songID
-      -- this does probably have to be a number though (biggest dl number = the metadata that is read)
+      dlcID = B8.pack $ T.unpack $ case gh3_SongID gh3 of
+        Nothing          -> makeShortName hashed songYaml
+        Just (Left  n  ) -> makeShortName n      songYaml
+        Just (Right str) -> str
       dl = "dl" <> show (fromMaybe hashed $ gh3_DL gh3)
 
   let coopPart = case gh3_Coop gh3 of
@@ -82,27 +88,31 @@ gh3Rules buildInfo dir gh3 = do
       loadOnyxMidi :: Staction (RBFile.Song (RBFile.OnyxFile U.Beats))
       loadOnyxMidi = shakeMIDI $ planDir </> "raw.mid"
 
-  let pathGuitar  = dir </> "guitar.wav"
-      pathRhythm  = dir </> "rhythm.wav"
-      pathSong    = dir </> "song.wav"
-      pathPreview = dir </> "preview.wav"
+  let pathGuitar  = dir </> "guitar.mp3"
+      pathRhythm  = dir </> "rhythm.mp3"
+      pathSong    = dir </> "song.mp3"
+      pathPreview = dir </> "preview.mp3"
+      setup lame = liftIO $ do
+        L.check $ L.setBrate lame 128
+        L.check $ L.setQuality lame 5
+        L.check $ L.setOutSamplerate lame 44100 -- SanicStudios uses this, seems to work
   pathGuitar %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo gh3Parts (gh3_Common gh3) mid 0 planName plan
       [(gh3_Guitar gh3, 1)]
-    runAudio (clampIfSilent s) out
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ clampIfSilent s
   pathRhythm %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo gh3Parts (gh3_Common gh3) mid 0 planName plan
       [(coopPart, 1)]
-    runAudio (clampIfSilent s) out
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ clampIfSilent s
   pathSong %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceSongCountin buildInfo (gh3_Common gh3) mid 0 True planName plan
       [ (gh3_Guitar gh3, 1)
       , (coopPart      , 1)
       ]
-    runAudio (clampIfSilent s) out
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ clampIfSilent s
   pathPreview %> \out -> do
     mid <- shakeMIDI $ planDir </> "processed.mid"
     let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
@@ -113,29 +123,38 @@ gh3Rules buildInfo dir gh3 = do
           $ Take Start (fromMS $ pend - pstart)
           $ Drop Start (fromMS pstart)
           $ Input (planDir </> "everything.wav")
-    buildAudio previewExpr out
+    src <- shk $ buildSource previewExpr
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup src
 
   let pathFsb = dir </> "audio.fsb"
       pathFsbXen = dir </> "gh3" </> (B8.unpack dlcID <> ".fsb.xen")
       pathDatXen = dir </> "gh3" </> (B8.unpack dlcID <> ".dat.xen")
+      -- for some reason ffmpeg errors trying to read empty mp3s back!
+      -- so we just look at filesize instead as a hack
+      testSize f = stackIO $ (>= 5000) <$> withBinaryFile f ReadMode hFileSize
   pathFsb %> \out -> do
     shk $ need [pathGuitar, pathPreview, pathRhythm, pathSong]
-    hasGuitarAudio <- maybe False (/= 0) <$> audioLength pathGuitar
-    hasRhythmAudio <- maybe False (/= 0) <$> audioLength pathRhythm
-    makeFSB3 (catMaybes
-      [ Just ("onyx_preview.xma", pathPreview)
-      , Just ("onyx_song.xma", pathSong)
-      , guard hasGuitarAudio >> Just ("onyx_guitar.xma", pathGuitar)
-      , guard hasRhythmAudio >> Just ("onyx_rhythm.xma", pathRhythm)
-      ]) out
+    hasGuitarAudio <- testSize pathGuitar
+    hasRhythmAudio <- testSize pathRhythm
+    let tracks = catMaybes
+          [ Just ("onyx_preview.mp3", pathPreview)
+          , Just ("onyx_song.mp3", pathSong)
+          , guard hasGuitarAudio >> Just ("onyx_guitar.mp3", pathGuitar)
+          , guard hasRhythmAudio >> Just ("onyx_rhythm.mp3", pathRhythm)
+          ]
+    fsb <- mapM (\(name, path) -> do
+      bs <- stackIO $ BL.readFile path
+      return (name, bs)
+      ) tracks >>= mp3sToFSB3
+    stackIO $ BL.writeFile out $ emitFSB fsb
   pathFsbXen %> \out -> do
     shk $ need [pathFsb]
     fsb <- stackIO $ BL.readFile pathFsb
     stackIO $ BL.writeFile out $ gh3Encrypt fsb
   pathDatXen %> \out -> do
     shk $ need [pathGuitar, pathRhythm, pathFsbXen]
-    hasGuitarAudio <- maybe False (/= 0) <$> audioLength pathGuitar
-    hasRhythmAudio <- maybe False (/= 0) <$> audioLength pathRhythm
+    hasGuitarAudio <- testSize pathGuitar
+    hasRhythmAudio <- testSize pathRhythm
     fsbLength <- stackIO $ withBinaryFile pathFsbXen ReadMode hFileSize
     stackIO $ BL.writeFile out $ runPut $ do
       let count = 2 + (if hasGuitarAudio then 1 else 0) + (if hasRhythmAudio then 1 else 0)
@@ -304,10 +323,11 @@ makeGH3MidQB song timing partLead partRhythm = let
     fiveDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk
     sht = noOpenNotes' $ strumHOPOTap' algo (fromIntegral threshold / 480) $ closeNotes' fiveDiff
     in GH3Track
-      { gh3Notes       = makeGH3TrackNotes (RBFile.s_tempos song) sht
+      { gh3Notes       = makeGH3TrackNotes (RBFile.s_tempos song) timeSigs beats sht
       , gh3StarPower   = [] -- TODO
       , gh3BattleStars = []
       }
+  timeSigs = [(0, 4, 4)] -- TODO
   beats
     = map (\secs -> floor $ secs * 1000)
     $ ATB.getTimes
@@ -324,7 +344,7 @@ makeGH3MidQB song timing partLead partRhythm = let
   in emptyMidQB
     { gh3Guitar         = makeGH3Part partLead
     , gh3Rhythm         = makeGH3Part partRhythm
-    , gh3TimeSignatures = [(0, 4, 4)] -- TODO
+    , gh3TimeSignatures = timeSigs
     , gh3FretBars       = beats
     , gh3Markers        = sections
     , gh3P1FaceOff      = [] -- TODO

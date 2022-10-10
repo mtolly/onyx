@@ -1415,7 +1415,7 @@ data TargetGH3 = TargetGH3
   , gh3_Drums  :: FlexPartName
   , gh3_Vocal  :: FlexPartName
   , gh3_Keys   :: FlexPartName
-  , gh3_SongID :: Maybe Int -- like 37 in "DLC37"
+  , gh3_SongID :: Maybe (Either Int T.Text) -- Int gets title/artist added, Text is exact
   , gh3_DL     :: Maybe Int -- like 15 in "dl15"
   } deriving (Eq, Ord, Show, Generic, Hashable)
 

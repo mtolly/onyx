@@ -39,7 +39,7 @@ module Audio
 , stereoPanRatios, fromStereoPanRatios, decibelDifferenceInPanRatios
 , emptyChannels
 , remapChannels
-, makeFSB4, makeFSB4', makeXMAPieces, makeFSB3
+, makeFSB4, makeFSB4', makeXMAPieces, makeXMAFSB3
 ) where
 
 import           Control.Concurrent               (threadDelay)
@@ -943,8 +943,8 @@ makeXMAPieces input = do
                 go (contents <> [newData]) $ startFrame + xma2Samples newData
     go [] 0
 
-makeFSB3 :: (MonadIO m, SendMessage m) => [(B.ByteString, FilePath)] -> FilePath -> StackTraceT m ()
-makeFSB3 inputs fsb = do
+makeXMAFSB3 :: (MonadIO m, SendMessage m) => [(B.ByteString, FilePath)] -> FilePath -> StackTraceT m ()
+makeXMAFSB3 inputs fsb = do
   exe <- stackIO xma2encodeExe
   -- TODO run the xma conversions in parallel
   inputs' <- forM inputs $ \(name, wav) -> do

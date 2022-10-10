@@ -486,6 +486,7 @@ makeShortName num songYaml
   = T.dropWhileEnd (== '_')
   -- Short name doesn't have to be name used in paths but it makes things simple.
   -- Max path name is 40 chars (stfs limit) - 14 chars ("_keep.png_xbox") = 26 chars.
+  -- Also now used for GH3, which has a 27 char max (40 - 13 for "_song.pak.xen")
   $ T.take 26
   $ "o" <> T.pack (show num)
     <> "_" <> makePart (getTitle  $ _metadata songYaml)

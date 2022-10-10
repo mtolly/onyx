@@ -220,6 +220,7 @@ buildGH3TextSet dlName lang paks = let
   otherNodes = nubOrdOn (nodeFilenameKey . fst) $ paks >>= gh3OtherNodes
   unk1 = qbKeyCRC $ "1o99lm\\" <> dlName <> ".qb"
   unk2 = qbKeyCRC $ "7buqvk" <> dlName
+  -- TODO maybe sort by title or artist
   allSongData = nubOrdOn fst $ paks >>= gh3TextPakSongStructs
   allSongIDs = map fst allSongData
   metadataQB =
