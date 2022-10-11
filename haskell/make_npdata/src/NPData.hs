@@ -5,6 +5,7 @@ module NPData
 , rb2CustomMidEdatConfig
 , rb3CustomMidEdatConfig
 , ghworCustomMidEdatConfig
+, gh3CustomMidEdatConfig
 , ghworKLIC
 , rockBandKLIC
 , rs2014KLIC
@@ -138,6 +139,18 @@ ghworCustomMidEdatConfig pkgLabel = NPDataConfig
   , npdEDAT      = True
   }
 
+gh3CustomMidEdatConfig :: B.ByteString -> NPDataConfig
+gh3CustomMidEdatConfig pkgLabel = NPDataConfig
+  { npdContentID = "UP0002-BLUS30074_00-" <> pkgLabel
+  , npdKLIC      = ghworKLIC
+  , npdRAP       = Nothing
+  , npdVersion   = 2
+  , npdLicense   = 3
+  , npdType      = 0
+  , npdBlock     = 16
+  , npdEDAT      = True
+  }
+
 packNPData :: NPDataConfig -> FilePath -> FilePath -> B.ByteString -> IO ()
 packNPData cfg fin fout hashName = do
   withCString fin $ \pin -> do
@@ -195,7 +208,7 @@ decryptNPData cfg fin fout hashName = do
               True
             when err $ ioError $ userError "Error in PS3 file decryption"
 
--- Appears to be a constant dev klic for WoR DLC
+-- Appears to be a constant dev klic for WoR DLC, and GH3? + probably everything in between
 ghworKLIC :: B.ByteString
 ghworKLIC = B.pack [0xD7,0xF3,0xF9,0x0A,0x1F,0x01,0x2D,0x84,0x4C,0xA5,0x57,0xE0,0x8E,0xE4,0x23,0x91]
 

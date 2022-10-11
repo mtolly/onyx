@@ -12,6 +12,7 @@ import           Data.Binary.Put                  (putWord32be, runPut)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
+import           Data.Char                        (toLower, toUpper)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME          (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding  as L
@@ -33,7 +34,12 @@ import           Neversoft.GH3
 import           Neversoft.Metadata               (gh3MysteryScript)
 import           Neversoft.Pak                    (Node (..), buildPak)
 import           Neversoft.QB
-import           Resources                        (gh3Thumbnail)
+import           NPData                           (gh3CustomMidEdatConfig,
+                                                   npdContentID, packNPData)
+import           OSFiles                          (shortWindowsPath)
+import           PlayStation.PKG                  (makePKG)
+import           Resources                        (getResourcesPath,
+                                                   gh3Thumbnail)
 import           RockBand.Codec.Beat              (BeatTrack (..))
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
@@ -80,6 +86,8 @@ gh3Rules buildInfo dir gh3 = do
         Just (Left  n  ) -> makeShortName n      songYaml
         Just (Right str) -> str
       dl = "dl" <> show (fromMaybe hashed $ gh3_DL gh3)
+      ps3Folder = makePS3Name hashed songYaml
+      edatConfig = gh3CustomMidEdatConfig ps3Folder
 
   let coopPart = case gh3_Coop gh3 of
         GH2Bass   -> gh3_Bass   gh3
@@ -127,8 +135,8 @@ gh3Rules buildInfo dir gh3 = do
     stackIO $ runResourceT $ sinkMP3WithHandle out setup src
 
   let pathFsb = dir </> "audio.fsb"
-      pathFsbXen = dir </> "gh3" </> (B8.unpack dlcID <> ".fsb.xen")
-      pathDatXen = dir </> "gh3" </> (B8.unpack dlcID <> ".dat.xen")
+      pathFsbXen = dir </> "xbox" </> (B8.unpack dlcID <> ".fsb.xen")
+      pathDatXen = dir </> "xbox" </> (B8.unpack dlcID <> ".dat.xen")
       -- for some reason ffmpeg errors trying to read empty mp3s back!
       -- so we just look at filesize instead as a hack
       testSize f = stackIO $ (>= 5000) <$> withBinaryFile f ReadMode hFileSize
@@ -171,12 +179,12 @@ gh3Rules buildInfo dir gh3 = do
       when hasGuitarAudio $ datEntry "guitar" 2
       when hasRhythmAudio $ datEntry "rhythm" $ if hasGuitarAudio then 3 else 2
 
-  let pathDL = dir </> "gh3" </> (dl <> ".pak.xen")
-      pathText = dir </> "gh3" </> (dl <> "_text.pak.xen")
+  let pathDL = dir </> "xbox" </> (dl <> ".pak.xen")
+      pathText = dir </> "xbox" </> (dl <> "_text.pak.xen")
       pathTextLangs = map
-        (\lang -> dir </> "gh3" </> (dl <> "_text_" <> lang <> ".pak.xen"))
+        (\lang -> dir </> "xbox" </> (dl <> "_text_" <> lang <> ".pak.xen"))
         ["f", "g", "i", "s"]
-      pathSongPak = dir </> "gh3" </> (B8.unpack dlcID <> "_song.pak.xen")
+      pathSongPak = dir </> "xbox" </> (B8.unpack dlcID <> "_song.pak.xen")
   pathDL %> \out -> gh3MysteryScript (B8.pack dl) >>= stackIO . BL.writeFile out
   pathText %> \out -> do
     -- section names would also go in here, but we'll try to use the embedded section name format
@@ -236,7 +244,8 @@ gh3Rules buildInfo dir gh3 = do
             , BL.replicate 4 0xAB
             )
           ]
-        -- don't know the actual prefix strings but these work
+        -- don't know the actual prefix strings but these give same results.
+        -- also ps3 appears to have different names. but they probably don't matter anyway
         unk1 = qbKeyCRC $ "1o99lm\\" <> B8.pack dl <> ".qb" -- in dl15_text.pak it's 1945578562. in disc qb.pak.xen it's 0x0b761ea7 "scripts\\guitar\\songlist.qb"
         unk2 = qbKeyCRC $ "7buqvk" <> B8.pack dl -- in dl15_text.pak it's 480172672. in disc qb.pak.xen it's 3114035354 "songlist"
     stackIO $ BL.writeFile out $ buildPak nodes
@@ -268,7 +277,7 @@ gh3Rules buildInfo dir gh3 = do
     stackIO $ BL.writeFile out $ buildPak nodes
 
   let gh3Files = pathFsbXen : pathDatXen : pathDL : pathText : pathSongPak : pathTextLangs
-  phony (dir </> "gh3") $ do
+  phony (dir </> "xbox") $ do
     shk $ need gh3Files
   dir </> "gh3live" %> \out -> do
     let files = map (\f -> (takeFileName f, f)) gh3Files
@@ -302,6 +311,36 @@ gh3Rules buildInfo dir gh3 = do
       , createTransferFlags = 0xC0
       , createLIVE = True
       } folder out
+
+  let ps3Root = dir </> "ps3"
+      ps3Fsb = ps3Root </> map toUpper (B8.unpack dlcID <> ".fsb.ps3.edat")
+      ps3Dat = ps3Root </> map toUpper (B8.unpack dlcID <> ".dat.ps3.edat")
+      ps3DL = ps3Root </> map toUpper (dl <> ".pak.ps3.edat")
+      ps3Text = ps3Root </> map toUpper (dl <> "_text.pak.ps3.edat")
+      ps3SongPak = ps3Root </> map toUpper (B8.unpack dlcID <> "_song.pak.ps3.edat")
+      ps3TextLangs = map
+        (\lang -> ps3Root </> map toUpper (dl <> "_text_" <> lang <> ".pak.ps3.edat"))
+        ["f", "g", "i", "s"]
+      makeEDAT fin fout = do
+        shk $ need [fin]
+        fin'  <- shortWindowsPath False fin
+        fout' <- shortWindowsPath True  fout
+        stackIO $ packNPData edatConfig fin' fout' $ B8.pack $ takeFileName fout
+  ps3Fsb     %> makeEDAT pathFsbXen
+  ps3Dat     %> makeEDAT pathDatXen
+  ps3DL      %> makeEDAT pathDL
+  ps3Text    %> makeEDAT pathText
+  ps3SongPak %> makeEDAT pathSongPak
+  forM_ (zip ps3TextLangs pathTextLangs) $ \(ps3, xen) -> ps3 %> makeEDAT xen
+  -- apparently we don't need to add the empty VRAM paks, song works fine without them
+  phony ps3Root $ do
+    shk $ need $ ps3Fsb : ps3Dat : ps3DL : ps3Text : ps3SongPak : ps3TextLangs
+  dir </> "ps3.pkg" %> \out -> do
+    shk $ need [ps3Root]
+    let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
+    main <- container "USRDIR" . container ps3Folder <$> crawlFolderBytes ps3Root
+    extra <- stackIO (getResourcesPath "pkg-contents/gh3") >>= crawlFolderBytes
+    stackIO $ makePKG (npdContentID edatConfig) (main <> extra) out
 
 makeGH3MidQB
   :: RBFile.Song (RBFile.OnyxFile U.Beats)

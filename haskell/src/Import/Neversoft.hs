@@ -53,10 +53,11 @@ importNeversoftGH :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Rea
 importNeversoftGH src folder = let
   -- note: when we support ghwt, make sure we do something sensible for Death Magnetic.
   -- (right now it correctly imports the gh3 data)
-  testGH3   name = "dl"        `T.isPrefixOf` name && ".pak.xen" `T.isSuffixOf` name
-  testGHWT  name = "adl"       `T.isPrefixOf` name && ".pak.xen" `T.isSuffixOf` name
-  testGH5   name = "bmanifest" `T.isPrefixOf` name && ".pak.xen" `T.isSuffixOf` name
-  testGHWoR name = "cmanifest" `T.isPrefixOf` name && ".pak.xen" `T.isSuffixOf` name
+  testGH3   name = "dl"        `T.isPrefixOf` name && pakSuffix name
+  testGHWT  name = "adl"       `T.isPrefixOf` name && pakSuffix name
+  testGH5   name = "bmanifest" `T.isPrefixOf` name && pakSuffix name
+  testGHWoR name = "cmanifest" `T.isPrefixOf` name && pakSuffix name
+  pakSuffix name = ".pak.xen" `T.isSuffixOf` name || ".pak.ps3" `T.isSuffixOf` name
   in if
     | any (testGH3   . T.toLower . fst) $ folderFiles folder -> importGH3DLC src folder
     | any (testGHWT  . T.toLower . fst) $ folderFiles folder -> fatal
@@ -289,9 +290,14 @@ importGH3Disc src folder = do
 
 importGH3DLC :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH3DLC src folder = do
+  platform <- if any (\(name, _) -> ".xen" `T.isSuffixOf` T.toLower name) $ folderFiles folder
+    then return (<> ".xen")
+    else if any (\(name, _) -> ".ps3" `T.isSuffixOf` T.toLower name) $ folderFiles folder
+      then return (<> ".ps3")
+      else fail "Couldn't determine DLC platform (.xen or .ps3)"
   let texts = do
         (name, r) <- folderFiles folder
-        dlName <- toList $ T.stripSuffix "_text.pak.xen" $ T.toLower name
+        dlName <- toList $ T.stripSuffix (platform "_text.pak") $ T.toLower name
         return (dlName, r)
       findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
   (qbSections, allNodes) <- fmap mconcat $ forM texts $ \(dlName, r) -> do
@@ -305,9 +311,9 @@ importGH3DLC src folder = do
       Right info -> return [info]
   fmap concat $ forM songInfo $ \info -> do
     let pathName  = TE.decodeUtf8 $ gh3Name info
-        songPath  = pathName <> "_song.pak.xen"
-        audioPath = pathName <> ".fsb.xen"
-        datPath   = pathName <> ".dat.xen"
+        songPath  = pathName <> platform "_song.pak"
+        audioPath = pathName <> platform ".fsb"
+        datPath   = pathName <> platform ".dat"
     case findFolded songPath of
       Nothing       -> return [] -- song which is listed in the database, but not actually in this package
       Just rSongPak -> do

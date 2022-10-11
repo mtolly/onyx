@@ -52,7 +52,6 @@ import qualified Import.GuitarHero2             as GH2
 import           Import.GuitarPro               (importGPIF)
 import           Import.Magma                   (importMagma)
 import           Import.Neversoft               (importGH3Disc, importGH3PS2,
-                                                 importGH5WoR,
                                                  importNeversoftGH)
 import           Import.PowerGig                (importPowerGig)
 import           Import.RockBand                (importRB4, importRBA,
@@ -214,7 +213,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               Nothing -> return ([], [])
             , if any (\(name, _) -> ".PS3" `T.isSuffixOf` name) $ folderFiles folder
               then do
-                imps <- importGH5WoR loc folder
+                imps <- importNeversoftGH loc folder
                 foundImports "Guitar Hero (Neversoft) (PS3)" loc imps
               else return ([], [])
             ]

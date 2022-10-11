@@ -185,7 +185,10 @@ readGH3TextPakQBDLC dlName pak = do
   let matchCRC = qbKeyCRC $ "7buqvk" <> dlName
       -- customs seem to use Death Magnetic's ID
       matchCRCDeathMagnetic = qbKeyCRC "7buqvkdl30"
-  (qbFile, other) <- case partition (\(n, _) -> nodeFileType n == qbKeyCRC ".qb" && elem (nodeFilenameCRC n) [matchCRC, matchCRCDeathMagnetic]) nodes of
+      -- ps3 appears to be different!
+      matchCRCPS3 = qbKeyCRC $ "fclihu" <> dlName
+  -- we may just want to load all .qb files and ignore file names. that is how the real game seems to work
+  (qbFile, other) <- case partition (\(n, _) -> nodeFileType n == qbKeyCRC ".qb" && elem (nodeFilenameCRC n) [matchCRC, matchCRCDeathMagnetic, matchCRCPS3]) nodes of
     ([]        , _    ) -> fail "Couldn't locate metadata .qb"
     ((_, r) : _, other) -> return (r, other)
   readGH3TextPakQB other qbFile

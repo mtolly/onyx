@@ -900,10 +900,12 @@ mp3sToFSB3 mp3s = do
         song = FSBSong
           { fsbSongHeaderSize = 0
           , fsbSongName       = name
-          , fsbSongSamples    = numFrames * 512
+          , fsbSongSamples    = numFrames
+          -- interestingly, if you get fsbSongSamples wrong, gh3 practice mode seeks to the wrong place.
+          -- I think it seeks to roughly "(desiredSamples / fsbSongSamples) * fsbSongDataSize"
           , fsbSongDataSize   = 0
           , fsbSongLoopStart  = 0
-          , fsbSongLoopEnd    = numFrames * 512 - 1
+          , fsbSongLoopEnd    = numFrames - 1
           , fsbSongMode       = 0x240 -- this is from SanicStudios' mp3 fsbs
           , fsbSongSampleRate = round $ CA.rate src
           , fsbSongDefVol     = 255
@@ -913,8 +915,8 @@ mp3sToFSB3 mp3s = do
           , fsbSongMinDistance = 0x803F
           , fsbSongMaxDistance = 0x401C46
           , fsbExtra = Right FSBExtraMP3
-            -- TODO check these
-            { fsbMP3Unknown1 = 0x50
+            -- copied from official gh3 files
+            { fsbMP3Unknown1 = 0
             , fsbMP3Unknown2 = 0
             }
           }
