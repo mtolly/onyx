@@ -12,7 +12,7 @@ import           Data.Binary.Get
 import qualified Data.ByteString        as B
 import qualified Data.ByteString.Char8  as B8
 import qualified Data.ByteString.Lazy   as BL
-import           Data.List.Extra        (nubOrdOn, partition)
+import           Data.List.Extra        (nubOrdOn, partition, sortOn)
 import           Data.Maybe             (catMaybes, fromMaybe, listToMaybe,
                                          mapMaybe)
 import           Data.SimpleHandle      (Folder (..), Readable,
@@ -223,8 +223,15 @@ buildGH3TextSet dlName lang paks = let
   otherNodes = nubOrdOn (nodeFilenameKey . fst) $ paks >>= gh3OtherNodes
   unk1 = qbKeyCRC $ "1o99lm\\" <> dlName <> ".qb"
   unk2 = qbKeyCRC $ "7buqvk" <> dlName
-  -- TODO maybe sort by title or artist
-  allSongData = nubOrdOn fst $ paks >>= gh3TextPakSongStructs
+  -- sort songs by artist, then title
+  allSongData
+    -- TODO ignore The/A/An, also case fold
+    = sortOn (\(k, items) -> case parseSongInfoGH3 items of
+      Left  _    -> Left k -- hopefully shouldn't happen?
+      Right song -> Right (gh3Artist song, gh3Title song)
+      )
+    $ nubOrdOn fst
+    $ paks >>= gh3TextPakSongStructs
   allSongIDs = map fst allSongData
   metadataQB =
     ( Node

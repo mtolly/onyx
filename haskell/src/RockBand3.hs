@@ -144,7 +144,7 @@ basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
             $ concatMap absTimes (RBFile.s_tracks $ RBFile.showMIDITracks input)
             ++ absTimes (U.tempoMapToBPS tempos)
           endPosn = fromInteger $ ceiling $ max thirtySecs $ max audLen lastMIDIEvent + 4
-      warn $ unwords
+      lg $ unwords
         [ "Placing [end] at " <> showPosn endPosn <> "."
         , "Last MIDI event is at " <> showPosn lastMIDIEvent <> ","
         , "longest audio file ends at " <> showPosn audLen <> ","
@@ -155,7 +155,7 @@ basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
     trk = beatLines $ RBFile.getBeatTrack trks
     in if RTB.null trk
       then do
-        warn "No BEAT track found; automatic one generated from time signatures."
+        lg "No BEAT track found; automatic one generated from time signatures."
         return $ BeatTrack $ U.trackTake timingEnd $ makeBeatTrack mmap
       else return $ BeatTrack trk
   -- If [music_start] is before 2 beats,
@@ -168,12 +168,12 @@ basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
         return musicStartMin
       else return t
     Nothing -> do
-      warn $ "[music_start] is missing. Placing at " ++ showPosn musicStartMin
+      lg $ "[music_start] is missing. Placing at " ++ showPosn musicStartMin
       return musicStartMin
   timingMusicEnd <- case RTB.viewL $ eventsMusicEnd $ RBFile.getEventsTrack trks of
     Just ((t, _), _) -> return t
     Nothing -> do
-      warn $ unwords
+      lg $ unwords
         [ "[music_end] is missing. [end] is at"
         , showPosn timingEnd
         , "so [music_end] will be at"

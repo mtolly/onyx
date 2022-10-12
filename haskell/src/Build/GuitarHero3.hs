@@ -12,7 +12,7 @@ import           Data.Binary.Put                  (putWord32be, runPut)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (toLower, toUpper)
+import           Data.Char                        (toUpper)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME          (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding  as L
@@ -24,9 +24,11 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe)
 import           Data.SimpleHandle                (Folder (..), fileReadable)
 import qualified Data.Text                        as T
+import           Data.Word                        (Word32)
 import           Development.Shake                hiding (phony, (%>), (&%>))
 import           Development.Shake.FilePath
-import           Guitars                          (closeNotes', noOpenNotes',
+import           Guitars                          (applyForces, closeNotes',
+                                                   getForces5, noOpenNotes',
                                                    strumHOPOTap')
 import           Neversoft.Audio                  (gh3Encrypt)
 import           Neversoft.Checksum               (qbKeyCRC)
@@ -38,18 +40,22 @@ import           NPData                           (gh3CustomMidEdatConfig,
                                                    npdContentID, packNPData)
 import           OSFiles                          (shortWindowsPath)
 import           PlayStation.PKG                  (makePKG)
+import           Reductions                       (gryboComplete)
 import           Resources                        (getResourcesPath,
                                                    gh3Thumbnail)
-import           RockBand.Codec.Beat              (BeatTrack (..))
+import           RockBand.Codec.Beat              (BeatEvent (..))
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.File              (shakeMIDI)
 import qualified RockBand.Codec.Five              as Five
-import           RockBand.Common                  (Difficulty (..))
+import           RockBand.Common                  (Difficulty (..), Edge (..),
+                                                   joinEdgesSimple, trackGlue)
 import           RockBand.Sections                (makePSSection)
 import           RockBand3                        (BasicTiming (..),
                                                    basicTiming)
 import           Sound.FSB                        (emitFSB, mp3sToFSB3)
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package                     (CreateOptions (..),
                                                    LicenseEntry (..),
@@ -142,14 +148,17 @@ gh3Rules buildInfo dir gh3 = do
       testSize f = stackIO $ (>= 5000) <$> withBinaryFile f ReadMode hFileSize
   pathFsb %> \out -> do
     shk $ need [pathGuitar, pathPreview, pathRhythm, pathSong]
-    hasGuitarAudio <- testSize pathGuitar
-    hasRhythmAudio <- testSize pathRhythm
-    let tracks = catMaybes
-          [ Just ("onyx_preview.mp3", pathPreview)
-          , Just ("onyx_song.mp3", pathSong)
-          , guard hasGuitarAudio >> Just ("onyx_guitar.mp3", pathGuitar)
-          , guard hasRhythmAudio >> Just ("onyx_rhythm.mp3", pathRhythm)
-          ]
+    tracks <- catMaybes <$> mapM
+      (\(name, path) -> do
+        hasAudio <- testSize path
+        return $ guard hasAudio >> Just (name, path)
+      )
+      -- have to use testSize for preview as well, for weird songs where preview starts after song ends
+      [ ("onyx_preview.mp3", pathPreview)
+      , ("onyx_song.mp3", pathSong)
+      , ("onyx_guitar.mp3", pathGuitar)
+      , ("onyx_rhythm.mp3", pathRhythm)
+      ]
     fsb <- mapM (\(name, path) -> do
       bs <- stackIO $ BL.readFile path
       return (name, bs)
@@ -342,6 +351,57 @@ gh3Rules buildInfo dir gh3 = do
     extra <- stackIO (getResourcesPath "pkg-contents/gh3") >>= crawlFolderBytes
     stackIO $ makePKG (npdContentID edatConfig) (main <> extra) out
 
+fromSeconds :: U.Seconds -> Word32
+fromSeconds secs = floor $ secs * 1000
+
+makeGH3Spans :: U.TempoMap -> RTB.T U.Beats Bool -> RTB.T U.Beats gem -> [(Word32, Word32, Word32)]
+makeGH3Spans tmap spans gems = let
+  spans' = ATB.toPairList $ RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ flip fmap spans $ \case
+    False -> EdgeOff ()
+    True  -> EdgeOn  () ()
+  collectedGems = RTB.collectCoincident gems
+  fromBeats bts = fromSeconds $ U.applyTempoMap tmap bts
+  in flip fmap spans' $ \(pos, ((), (), len)) -> let
+    msStart = fromBeats pos
+    msEnd   = fromBeats $ pos + len
+    count   = fromIntegral $ length $ U.trackTake len $ U.trackDrop pos collectedGems
+    in (msStart, msEnd - msStart, count)
+
+-- returns (fretbars, timesigs)
+makeGH3Timing :: U.TempoMap -> U.MeasureMap -> U.Beats -> ([Word32], [(Word32, Word32, Word32)])
+makeGH3Timing tmap mmap end = let
+  fretbars
+    = map fromSeconds
+    $ onePastEnd
+    $ ATB.getTimes
+    $ RTB.toAbsoluteEventList 0
+    $ U.applyTempoTrack tmap
+    $ go 0
+  onePastEnd times = let
+    endSeconds = U.applyTempoMap tmap end
+    in case span (< endSeconds) times of
+      (keep, rest) -> keep <> take 1 rest
+  go i = let
+    measureStart = U.unapplyMeasureMap mmap (i, 0)
+    measureEnd = U.unapplyMeasureMap mmap (i + 1, 0)
+    len = measureEnd - measureStart
+    sig = U.timeSigAt measureStart mmap
+    thisMeasure = U.trackTake len $ RTB.cons 0 Bar $ infiniteBeats
+    infiniteBeats = RTB.cons (U.timeSigUnit sig) Beat infiniteBeats
+    in trackGlue len thisMeasure $ go $ i + 1
+  sigs
+    = map (\(t, sig) -> case U.showSignatureFull sig of
+      Just (E.MetaEvent (Meta.TimeSig n d _ _)) ->
+        (fromSeconds t, fromIntegral n, 2 ^ d)
+      _                                         ->
+        (fromSeconds t, 4, 4) -- shouldn't happen!
+      )
+    $ ATB.toPairList
+    $ RTB.toAbsoluteEventList 0
+    $ U.applyTempoTrack tmap
+    $ U.measureMapToTimeSigs mmap
+  in (fretbars, sigs)
+
 makeGH3MidQB
   :: RBFile.Song (RBFile.OnyxFile U.Beats)
   -> BasicTiming
@@ -352,40 +412,49 @@ makeGH3MidQB song timing partLead partRhythm = let
   makeGH3Part (fpart, threshold) = let
     opart = RBFile.getFlexPart fpart $ RBFile.s_tracks song
     (trk, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart
-    in GH3Part
+    in (trk, GH3Part
       { gh3Easy   = makeGH3Track Easy   trk algo threshold
       , gh3Medium = makeGH3Track Medium trk algo threshold
       , gh3Hard   = makeGH3Track Hard   trk algo threshold
       , gh3Expert = makeGH3Track Expert trk algo threshold
-      }
+      })
   makeGH3Track diff trk algo threshold = let
-    fiveDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk
-    sht = noOpenNotes' $ strumHOPOTap' algo (fromIntegral threshold / 480) $ closeNotes' fiveDiff
+    trk' = gryboComplete (Just threshold) (RBFile.s_signatures song) trk
+    fiveDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk'
+    sht
+      = noOpenNotes'
+      $ applyForces (getForces5 fiveDiff)
+      $ strumHOPOTap' algo (fromIntegral threshold / 480)
+      $ closeNotes' fiveDiff
     in GH3Track
       { gh3Notes       = makeGH3TrackNotes (RBFile.s_tempos song) timeSigs beats sht
-      , gh3StarPower   = [] -- TODO
+      , gh3StarPower   = makeGH3Spans (RBFile.s_tempos song) (Five.fiveOverdrive trk) (Five.fiveGems fiveDiff)
       , gh3BattleStars = []
       }
-  timeSigs = [(0, 4, 4)] -- TODO
-  beats
-    = map (\secs -> floor $ secs * 1000)
-    $ ATB.getTimes
-    $ RTB.toAbsoluteEventList 0
-    $ U.applyTempoTrack (RBFile.s_tempos song)
-    $ beatLines
-    $ timingBeat timing
+  (beats, timeSigs) = makeGH3Timing
+    (RBFile.s_tempos song)
+    (RBFile.s_signatures song)
+    (timingEnd timing)
   sections
-    = map (\(secs, (_, sect)) -> (floor $ secs * 1000, Right $ snd $ makePSSection sect))
+    = map (\(secs, (_, sect)) -> (fromSeconds secs, Right $ snd $ makePSSection sect))
     $ ATB.toPairList
     $ RTB.toAbsoluteEventList 0
     $ U.applyTempoTrack (RBFile.s_tempos song)
     $ eventsSections (RBFile.getEventsTrack $ RBFile.s_tracks song)
+  (leadTrack, leadPart  ) = makeGH3Part partLead
+  (_        , rhythmPart) = makeGH3Part partRhythm
+  makeFaceoff getPlayer
+    = map (\(pos, len, _count) -> (pos, len))
+    $ makeGH3Spans (RBFile.s_tempos song) (getPlayer leadTrack)
+    $ maybe RTB.empty Five.fiveGems
+    $ Map.lookup Expert
+    $ Five.fiveDifficulties leadTrack
   in emptyMidQB
-    { gh3Guitar         = makeGH3Part partLead
-    , gh3Rhythm         = makeGH3Part partRhythm
+    { gh3Guitar         = leadPart
+    , gh3Rhythm         = rhythmPart
     , gh3TimeSignatures = timeSigs
     , gh3FretBars       = beats
     , gh3Markers        = sections
-    , gh3P1FaceOff      = [] -- TODO
-    , gh3P2FaceOff      = [] -- TODO
+    , gh3P1FaceOff      = makeFaceoff Five.fivePlayer1
+    , gh3P2FaceOff      = makeFaceoff Five.fivePlayer2
     }
