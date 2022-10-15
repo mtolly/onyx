@@ -124,7 +124,8 @@ import qualified Network.HTTP.Req                          as Req
 import qualified Network.Socket                            as Socket
 import           Neversoft.Export                          (makeMetadataLIVE,
                                                             makeMetadataPKG)
-import           Neversoft.Metadata                        (combineGH3SongCache)
+import           Neversoft.Metadata                        (combineGH3SongCache360,
+                                                            combineGH3SongCachePS3)
 import           Numeric                                   (readHex, showHex)
 import           OpenProject
 import           OSFiles                                   (commonDir,
@@ -1274,6 +1275,26 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
+  gh3Tab <- makeTab windowRect "GH3" $ \rect tab -> do
+    functionTabColor >>= setTabColor tab
+    songPageGH3 sink rect tab proj $ \tgt create -> do
+      proj' <- fullProjModify proj
+      let name = case create of
+            GH3LIVE{} -> "Building GH3 LIVE file"
+            GH3PKG{}  -> "Building GH3 PKG file"
+          task = case create of
+            GH3LIVE fout -> do
+              tmp <- buildGH3LIVE tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
+              return [fout]
+            GH3PKG fout -> do
+              tmp <- buildGH3PKG tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
+              return [fout]
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
   worTab <- makeTab windowRect "GH:WoR" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageGHWOR sink rect tab proj $ \tgt create -> do
@@ -1350,7 +1371,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, gh1Tab, gh2Tab, worTab, utilsTab]
+  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, gh1Tab, gh2Tab, gh3Tab, worTab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskColor >>= setTabColor tab
     FL.deactivate tab
@@ -1573,6 +1594,10 @@ data GH2Create
   = GH2LIVE FilePath
   | GH2ARK FilePath GH2InstallLocation
   | GH2DIYPS2 FilePath
+
+data GH3Create
+  = GH3LIVE FilePath
+  | GH3PKG FilePath
 
 data GHWORCreate
   = GHWORLIVE FilePath
@@ -1941,14 +1966,14 @@ batchPageGH3
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> (TargetGH3, FilePath)) -> IO ())
+  -> ((Project -> (TargetGH3, GH3Create)) -> IO ())
   -> IO ()
 batchPageGH3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
   getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
-  let getTargetSong template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
+  let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
         speed <- getSpeed
         go $ \proj -> let
           defGH3 = def :: TargetGH3
@@ -1984,7 +2009,7 @@ batchPageGH3 sink rect tab build = do
               Just (_, coop) -> coop
               _              -> gh3_Coop defGH3
             }
-          fout = trimXbox newPrefs $ T.unpack $ foldr ($) template
+          fout = (if xbox then trimXbox newPrefs else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH3 tgt
             , let
               modifiers = T.pack $ case tgt_Speed $ gh3_Common tgt of
@@ -1992,12 +2017,17 @@ batchPageGH3 sink rect tab build = do
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"
             ]
-          in (tgt, fout)
+          in (tgt, usePath fout)
   makeTemplateRunner
     sink
     "Create Xbox 360 LIVE files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_gh3live")
-    (\template -> getTargetSong template build)
+    (\template -> getTargetSong True GH3LIVE template build)
+  makeTemplateRunner
+    sink
+    "Create PS3 PKG files"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
+    (\template -> getTargetSong False GH3PKG template build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -2949,6 +2979,122 @@ songPageGH2 sink rect tab proj build = mdo
   FL.setResizable tab $ Just pack
   return ()
 
+songPageGH3
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> Project
+  -> (TargetGH3 -> GH3Create -> IO ())
+  -> IO ()
+songPageGH3 sink rect tab proj build = mdo
+  pack <- FL.packNew rect Nothing
+  let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
+  targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
+      tell $ getSpeed >>= \speed -> return $ Endo $ \gh3 ->
+        gh3 { gh3_Common = (gh3_Common gh3) { tgt_Speed = Just speed } }
+      return counter
+    let hasFiveOrDrums p = isJust (partGRYBO p) || isJust (partDrums p)
+    fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
+      [ ( "Guitar"     , gh3_Guitar    , (\v gh3 -> gh3 { gh3_Guitar       = v })
+        , hasFiveOrDrums
+        )
+      ]
+    fullWidth 50 $ \rect' -> do
+      let [bassArea, coopArea, rhythmArea] = splitHorizN 3 rect'
+      void $ partSelectors bassArea proj
+        [ ( "Bass"       , gh3_Bass      , (\v gh3 -> gh3 { gh3_Bass         = v })
+          , hasFiveOrDrums
+          )
+        ]
+      controlRhythm <- partSelectors rhythmArea proj
+        [ ( "Rhythm"     , gh3_Rhythm      , (\v gh3 -> gh3 { gh3_Rhythm         = v })
+          , hasFiveOrDrums
+          )
+        ]
+      coopPart <- liftIO $ newIORef GH2Bass
+      liftIO $ do
+        coopButton <- FL.buttonNew coopArea Nothing
+        let updateCoopButton = do
+              coop <- readIORef coopPart
+              FL.setLabel coopButton $ case coop of
+                GH2Bass   -> "Coop: Bass"
+                GH2Rhythm -> "Coop: Rhythm"
+              controlRhythm $ coop == GH2Rhythm
+        updateCoopButton
+        FL.setCallback coopButton $ \_ -> sink $ EventIO $ do
+          modifyIORef coopPart $ \case
+            GH2Bass   -> GH2Rhythm
+            GH2Rhythm -> GH2Bass
+          updateCoopButton
+      tell $ readIORef coopPart >>= \coop -> return $ Endo $ \gh3 -> gh3 { gh3_Coop = coop }
+    fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
+      [ ( "Keys"       , gh3_Keys      , (\v gh3 -> gh3 { gh3_Keys         = v })
+        , isJust . partGRYBO
+        )
+      , ( "Drums"      , gh3_Drums     , (\v gh3 -> gh3 { gh3_Drums        = v })
+        , isJust . partDrums
+        )
+      , ( "Vocal"      , gh3_Vocal     , (\v gh3 -> gh3 { gh3_Vocal        = v })
+        , isJust . partVocal
+        )
+      ]
+    fullWidth 35 $ \rect' -> do
+      controlInput <- customTitleSuffix sink rect'
+        (makeTarget >>= \gh3 -> return $ targetTitle
+          (projectSongYaml proj)
+          (GH3 gh3 { gh3_Common = (gh3_Common gh3) { tgt_Title = Just "" } })
+        )
+        (\msfx gh3 -> gh3
+          { gh3_Common = (gh3_Common gh3)
+            { tgt_Label = msfx
+            }
+          }
+        )
+      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+  let initTarget = def :: TargetGH3
+      makeTarget = fmap ($ initTarget) targetModifier
+      makeTargetGo go = targetModifier >>= \modifier -> sink $ EventOnyx $ do
+        stackIO $ go $ modifier initTarget
+  fullWidth 35 $ \rect' -> do
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    btn1 <- FL.buttonNew r1 $ Just "Create Xbox 360 LIVE file"
+    FL.setCallback btn1 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save GH3 LIVE file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_gh3live" -- TODO add modifiers
+      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> sink $ EventOnyx $ do
+            newPreferences <- readPreferences
+            stackIO $ build tgt $ GH3LIVE $ trimXbox newPreferences f
+        _ -> return ()
+    btn2 <- FL.buttonNew r2 $ Just "Create PS3 PKG file"
+    FL.setCallback btn2 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save GH3 PKG file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> ".pkg" -- TODO add modifiers
+      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ GH3PKG f
+        _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn1 color
+    FL.setColor btn2 color
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
 trimXbox
   :: Preferences
   -> FilePath
@@ -3759,16 +3905,17 @@ miscPageGH3SongCache
   -> IO ()
 miscPageGH3SongCache sink rect tab startTasks = do
   loadedFiles <- newMVar []
-  let (filesRect, trimClock 5 10 10 10 -> startRect) = chopBottom 50 rect
-  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchSTFS $ \info -> let
-    entry = T.pack $ stfsPath info
-    sublines = take 1 $ STFS.md_DisplayName $ stfsMeta info
+  let (filesRect, startRect) = chopBottom 50 rect
+      [chopRight 5 -> (xboxRect, _), chopLeft 5 -> (_, ps3Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
+  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchWoRCachable $ \info -> let
+    entry = T.pack $ fst info
+    sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
   FL.setResizable tab $ Just group
-  btn1 <- FL.buttonNew startRect $ Just "Create GH3 song cache (360)"
+  btn1 <- FL.buttonNew xboxRect $ Just "Create GH3 song cache (360)"
   taskColor >>= FL.setColor btn1
   FL.setCallback btn1 $ \_ -> sink $ EventIO $ do
-    inputs <- map stfsPath <$> readMVar loadedFiles
+    inputs <- map fst <$> readMVar loadedFiles
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
     FL.setTitle picker "Save GH3 cache file (360)"
     case inputs of
@@ -3780,7 +3927,26 @@ miscPageGH3SongCache sink rect tab startTasks = do
         Nothing -> return ()
         Just f  -> sink $ EventOnyx $ startTasks $ let
           task = do
-            combineGH3SongCache inputs f
+            combineGH3SongCache360 inputs f
+            return [f]
+          in [("Make GH3 cache file", task)]
+      _ -> return ()
+  btn2 <- FL.buttonNew ps3Rect $ Just "Create GH3 song cache (PS3)"
+  taskColor >>= FL.setColor btn2
+  FL.setCallback btn2 $ \_ -> sink $ EventIO $ do
+    inputs <- map fst <$> readMVar loadedFiles
+    picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+    FL.setTitle picker "Save GH3 cache file (PS3)"
+    case inputs of
+      f : _ -> FL.setDirectory picker $ T.pack $ takeDirectory f
+      _     -> return ()
+    FL.setPresetFile picker "gh3_custom_cache.pkg"
+    FL.showWidget picker >>= \case
+      FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+        Nothing -> return ()
+        Just f  -> sink $ EventOnyx $ startTasks $ let
+          task = do
+            combineGH3SongCachePS3 inputs f
             return [f]
           in [("Make GH3 cache file", task)]
       _ -> return ()
@@ -3879,6 +4045,11 @@ searchWoRCachable f = stackIO $ Dir.doesDirectoryExist f >>= \case
   True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
   False -> (\mspec -> ([], toList mspec)) <$> isWoRCachable f
 
+searchGH3Cachable :: FilePath -> Onyx ([FilePath], [(FilePath, T.Text)])
+searchGH3Cachable f = stackIO $ Dir.doesDirectoryExist f >>= \case
+  True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+  False -> (\mspec -> ([], toList mspec)) <$> isGH3Cachable f
+
 searchQuickSongs :: FilePath -> Onyx ([FilePath], [QuickInput])
 searchQuickSongs f = stackIO (Dir.doesDirectoryExist f) >>= \case
   True  -> stackIO $ (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
@@ -3895,6 +4066,12 @@ isWoRCachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
     Just (Left stfs) -> return $ Just (f, T.concat $ take 1 $ STFS.md_DisplayName $ stfsMeta stfs)
     Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
     Nothing          -> return Nothing
+
+isGH3Cachable :: FilePath -> IO (Maybe (FilePath, T.Text))
+isGH3Cachable f = getPackageSpec f >>= \case
+  Just (Left stfs) -> return $ Just (f, T.concat $ take 1 $ STFS.md_DisplayName $ stfsMeta stfs)
+  Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
+  Nothing          -> return Nothing
 
 miscPagePacks
   :: (Event -> IO ())
@@ -5473,10 +5650,17 @@ launchBatch sink makeMenuBar startFiles = mdo
       batchPageGH3 sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
-          let (target, fout) = settings proj
+          let (target, creator) = settings proj
           proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
-          tmp <- buildGH3LIVE target proj'
-          stackIO $ Dir.copyFile tmp fout
+          fout <- case creator of
+            GH3LIVE fout -> do
+              tmp <- buildGH3LIVE target proj'
+              stackIO $ Dir.copyFile tmp fout
+              return fout
+            GH3PKG fout -> do
+              tmp <- buildGH3PKG target proj'
+              stackIO $ Dir.copyFile tmp fout
+              return fout
           warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
           return [fout]
       return tab

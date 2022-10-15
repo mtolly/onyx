@@ -6,28 +6,44 @@
 {-# LANGUAGE ViewPatterns      #-}
 module Neversoft.Metadata where
 
-import           Control.Monad          (forM, guard, replicateM)
-import           Control.Monad.IO.Class (MonadIO (..))
+import           Control.Monad                  (forM, guard, replicateM)
+import           Control.Monad.IO.Class         (MonadIO (..))
+import           Control.Monad.Trans.Resource   (MonadResource)
+import           Control.Monad.Trans.StackTrace
+import           Data.Bifunctor                 (first)
 import           Data.Binary.Get
-import qualified Data.ByteString        as B
-import qualified Data.ByteString.Char8  as B8
-import qualified Data.ByteString.Lazy   as BL
-import           Data.List.Extra        (nubOrdOn, partition, sortOn)
-import           Data.Maybe             (catMaybes, fromMaybe, listToMaybe,
-                                         mapMaybe)
-import           Data.SimpleHandle      (Folder (..), Readable,
-                                         handleToByteString, useHandle)
-import qualified Data.Text              as T
-import qualified Data.Text.Encoding     as TE
+import qualified Data.ByteString                as B
+import qualified Data.ByteString.Char8          as B8
+import qualified Data.ByteString.Lazy           as BL
+import           Data.Char                      (toLower)
+import           Data.List.Extra                (nubOrdOn, partition, sortOn)
+import           Data.Maybe                     (catMaybes, fromMaybe,
+                                                 listToMaybe, mapMaybe)
+import           Data.SimpleHandle              (Folder (..), Readable,
+                                                 byteStringSimpleHandle,
+                                                 crawlFolder,
+                                                 handleToByteString, makeHandle,
+                                                 useHandle)
+import qualified Data.Text                      as T
+import qualified Data.Text.Encoding             as TE
 import           Data.Word
 import           Genre
 import           GHC.ByteOrder
 import           Neversoft.Checksum
 import           Neversoft.Pak
 import           Neversoft.QB
-import           Resources              (getResourcesPath, gh3Thumbnail)
-import           STFS.Package           (CreateOptions (..), LicenseEntry (..),
-                                         getSTFSFolder, makeCONMemory, runGetM)
+import           NPData                         (gh3CustomMidEdatConfig,
+                                                 npdContentID, packNPData)
+import           OSFiles                        (shortWindowsPath)
+import           PlayStation.PKG                (getDecryptedUSRDIR, loadPKG,
+                                                 makePKG, pkgFolder)
+import           Resources                      (getResourcesPath, gh3Thumbnail)
+import           STFS.Package                   (CreateOptions (..),
+                                                 LicenseEntry (..),
+                                                 getSTFSFolder, makeCONMemory,
+                                                 runGetM)
+import           System.FilePath                (dropExtension, takeExtension,
+                                                 (</>))
 
 -- Metadata in _text.pak.qb for GH5 and WoR
 
@@ -203,13 +219,14 @@ data GH3Language
 
 readGH3TextSetDLC :: (MonadFail m, MonadIO m) => Folder T.Text Readable -> m [(GH3Language, GH3TextPakQB)]
 readGH3TextSetDLC folder = let
-  stripLang name = case T.toLower name of
-    (T.stripSuffix "_text.pak.xen"   -> Just dlName) -> Just (GH3English, dlName)
-    (T.stripSuffix "_text_f.pak.xen" -> Just dlName) -> Just (GH3French , dlName)
-    (T.stripSuffix "_text_g.pak.xen" -> Just dlName) -> Just (GH3German , dlName)
-    (T.stripSuffix "_text_i.pak.xen" -> Just dlName) -> Just (GH3Italian, dlName)
-    (T.stripSuffix "_text_s.pak.xen" -> Just dlName) -> Just (GH3Spanish, dlName)
-    _                                                -> Nothing
+  -- dropExtension drops either .xen or .ps3
+  stripLang name = case T.pack $ dropExtension $ T.unpack $ T.toLower name of
+    (T.stripSuffix "_text.pak"   -> Just dlName) -> Just (GH3English, dlName)
+    (T.stripSuffix "_text_f.pak" -> Just dlName) -> Just (GH3French , dlName)
+    (T.stripSuffix "_text_g.pak" -> Just dlName) -> Just (GH3German , dlName)
+    (T.stripSuffix "_text_i.pak" -> Just dlName) -> Just (GH3Italian, dlName)
+    (T.stripSuffix "_text_s.pak" -> Just dlName) -> Just (GH3Spanish, dlName)
+    _                                            -> Nothing
   in fmap catMaybes $ forM (folderFiles folder) $ \(name, r) -> case stripLang name of
     -- require "dl" in front to ignore GHWT files in Death Magnetic
     Just (lang, dlName) | "dl" `T.isPrefixOf` dlName -> do
@@ -217,6 +234,14 @@ readGH3TextSetDLC folder = let
       text <- readGH3TextPakQBDLC (B8.pack $ T.unpack dlName) bs
       return $ Just (lang, text)
     _ -> return Nothing
+
+loadGH3TextSetDLC :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(GH3Language, GH3TextPakQB)]
+loadGH3TextSetDLC f = case map toLower $ takeExtension f of
+  ".pkg" -> do
+    usrdirs <- stackIO (pkgFolder <$> loadPKG f) >>= getDecryptedUSRDIR
+    fmap concat $ forM usrdirs $ \(_, usrdir) -> do
+      readGH3TextSetDLC $ first TE.decodeLatin1 usrdir
+  _      -> stackIO (getSTFSFolder f) >>= readGH3TextSetDLC
 
 buildGH3TextSet :: B.ByteString -> GH3Language -> [GH3TextPakQB] -> BL.ByteString
 buildGH3TextSet dlName lang paks = let
@@ -285,9 +310,9 @@ buildGH3TextSet dlName lang paks = let
     )
   in buildPak $ otherNodes <> [metadataQB, end]
 
-combineGH3SongCache :: (MonadIO m, MonadFail m) => [FilePath] -> FilePath -> m ()
-combineGH3SongCache ins out = do
-  sets <- fmap concat $ forM ins $ \stfs -> liftIO (getSTFSFolder stfs) >>= readGH3TextSetDLC
+combineGH3SongCache360 :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> StackTraceT m ()
+combineGH3SongCache360 ins out = do
+  sets <- fmap concat $ mapM loadGH3TextSetDLC ins
   let dlText = "dl2000000000"
       dlBytes = B8.pack $ T.unpack dlText
   mystery <- gh3MysteryScript dlBytes
@@ -319,6 +344,49 @@ combineGH3SongCache ins out = do
     , createTransferFlags = 0xC0
     , createLIVE = True
     } folder out
+
+combineGH3SongCachePS3 :: (SendMessage m, MonadIO m, MonadResource m) => [FilePath] -> FilePath -> StackTraceT m ()
+combineGH3SongCachePS3 ins out = do
+  sets <- fmap concat $ mapM loadGH3TextSetDLC ins
+  let dlText = "dl2000000000"
+      dlBytes = B8.pack $ T.unpack dlText
+      folderLabel = "CUSTOMS_DATABASE"
+      edatConfig = gh3CustomMidEdatConfig folderLabel
+  mystery <- gh3MysteryScript dlBytes
+  let files =
+        [ (dlText <> ".pak.ps3"       , mystery               )
+        , (dlText <> "_text.pak.ps3"  , getLanguage GH3English)
+        , (dlText <> "_text_f.pak.ps3", getLanguage GH3French )
+        , (dlText <> "_text_g.pak.ps3", getLanguage GH3German )
+        , (dlText <> "_text_i.pak.ps3", getLanguage GH3Italian)
+        , (dlText <> "_text_s.pak.ps3", getLanguage GH3Spanish)
+        ]
+      getLanguage lang = buildGH3TextSet dlBytes lang
+        [ pak | (lang', pak) <- sets, lang == lang' ]
+  edats <- tempDir "onyx-gh3-ps3" $ \tmp -> do
+    let fin  = tmp </> "tmp.pak"
+        fout = tmp </> "tmp.edat"
+    fin'  <- shortWindowsPath False fin
+    fout' <- shortWindowsPath True  fout
+    forM files $ \(name, bs) -> do
+      let nameText  = T.toUpper name <> ".EDAT"
+          nameBytes = TE.encodeUtf8 nameText
+      stackIO $ BL.writeFile fin' bs
+      stackIO $ packNPData edatConfig fin' fout' nameBytes
+      bs' <- stackIO $ BL.fromStrict <$> B.readFile fout'
+      return (nameBytes, makeHandle (T.unpack nameText) $ byteStringSimpleHandle bs')
+  let main = Folder
+        { folderSubfolders = return $ (,) "USRDIR" Folder
+          { folderSubfolders = return $ (,) folderLabel Folder
+            { folderSubfolders = []
+            , folderFiles = edats
+            }
+          , folderFiles = []
+          }
+        , folderFiles = []
+        }
+  extra <- stackIO $ getResourcesPath "pkg-contents/gh3" >>= fmap (first TE.encodeUtf8) . crawlFolder
+  stackIO $ makePKG (npdContentID edatConfig) (main <> extra) out
 
 readGH3TextPakQB :: (MonadFail m, ?endian :: ByteOrder) => [(Node, BL.ByteString)] -> BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQB nodes qbFile = do

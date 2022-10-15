@@ -453,6 +453,9 @@ buildGH2LIVE gh2 = buildCommon (GH2 gh2) $ \targetHash -> "gen/target" </> targe
 buildGH3LIVE :: (MonadIO m) => TargetGH3 -> Project -> StackTraceT (QueueLog m) FilePath
 buildGH3LIVE gh3 = buildCommon (GH3 gh3) $ \targetHash -> "gen/target" </> targetHash </> "gh3live"
 
+buildGH3PKG :: (MonadIO m) => TargetGH3 -> Project -> StackTraceT (QueueLog m) FilePath
+buildGH3PKG gh3 = buildCommon (GH3 gh3) $ \targetHash -> "gen/target" </> targetHash </> "ps3.pkg"
+
 buildGHWORLIVE :: (MonadIO m) => TargetGH5 -> Project -> StackTraceT (QueueLog m) FilePath
 buildGHWORLIVE gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targetHash </> "ghworlive"
 
