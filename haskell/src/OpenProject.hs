@@ -389,17 +389,17 @@ getAudioDirs proj = do
   mapM (stackIO . Dir.canonicalizePath) $ addons ++ dirs
 
 shakeBuild1 :: (MonadIO m) =>
-  Project -> [(T.Text, Target FilePath)] -> FilePath -> StackTraceT (QueueLog m) FilePath
+  Project -> [(T.Text, Target)] -> FilePath -> StackTraceT (QueueLog m) FilePath
 shakeBuild1 proj extraTargets = fmap runIdentity . shakeBuildMany proj extraTargets . Identity
 
 shakeBuildMany :: (MonadIO m, Functor f, Foldable f) =>
-  Project -> [(T.Text, Target FilePath)] -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
+  Project -> [(T.Text, Target)] -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
 shakeBuildMany proj extraTargets buildables = do
   audioDirs <- getAudioDirs proj
   shakeBuild audioDirs (projectLocation proj) extraTargets $ toList buildables
   return $ fmap (takeDirectory (projectLocation proj) </>) buildables
 
-buildCommon :: (MonadIO m) => Target FilePath -> (String -> FilePath) -> Project -> StackTraceT (QueueLog m) FilePath
+buildCommon :: (MonadIO m) => Target -> (String -> FilePath) -> Project -> StackTraceT (QueueLog m) FilePath
 buildCommon target getBuildable proj = do
   let targetHash = show $ hash target `mod` 100000000
       buildable = getBuildable targetHash
@@ -408,13 +408,13 @@ buildCommon target getBuildable proj = do
 randomRBSongID :: (MonadIO m) => m Int32
 randomRBSongID = liftIO $ randomRIO (10000000, 1000000000)
 
-buildRB3CON :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
+buildRB3CON :: (MonadIO m) => TargetRB3 -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB3CON rb3 proj = do
   songID <- randomRBSongID
   let rb3' = rb3 { rb3_SongID = SongIDInt songID }
   buildCommon (RB3 rb3') (\targetHash -> "gen/target" </> targetHash </> "rb3con") proj
 
-buildRB3PKG :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
+buildRB3PKG :: (MonadIO m) => TargetRB3 -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB3PKG rb3 proj = do
   songID <- randomRBSongID
   let rb3' = rb3 { rb3_SongID = SongIDInt songID }
@@ -432,7 +432,7 @@ buildRB2PKG rb2 proj = do
   let rb2' = rb2 { rb2_SongID = SongIDInt songID }
   buildCommon (RB2 rb2') (\targetHash -> "gen/target" </> targetHash </> "rb2-ps3.pkg") proj
 
-buildMagmaV2 :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
+buildMagmaV2 :: (MonadIO m) => TargetRB3 -> Project -> StackTraceT (QueueLog m) FilePath
 buildMagmaV2 rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> targetHash </> "magma"
 
 buildPSDir :: (MonadIO m) => TargetPS -> Project -> StackTraceT (QueueLog m) FilePath

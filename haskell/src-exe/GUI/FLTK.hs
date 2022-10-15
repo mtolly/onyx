@@ -1437,7 +1437,7 @@ saveProject proj song = do
 partHasFive :: SongYaml f -> FlexPartName -> Bool
 partHasFive song flex = isJust $ getPart flex song >>= partGRYBO
 
-batchPartPresetsRB3 :: [(T.Text, SongYaml f -> TargetRB3 f -> TargetRB3 f)]
+batchPartPresetsRB3 :: [(T.Text, SongYaml f -> TargetRB3 -> TargetRB3)]
 batchPartPresetsRB3 =
   [ ("Default part configuration", \_ -> id)
   , ("Copy guitar to bass/keys if empty", \song tgt -> tgt
@@ -1979,20 +1979,20 @@ batchPageGH3 sink rect tab build = do
           defGH3 = def :: TargetGH3
           hasPart p = case HM.lookup p $ getParts $ _parts $ projectSongYaml proj of
             Nothing   -> False
-            Just part -> isJust (partGRYBO part) -- || isJust (partDrums part)
+            Just part -> isJust (partGRYBO part) || isJust (partDrums part)
           leadPart = listToMaybe $ filter hasPart
             [ FlexGuitar
             , FlexExtra "rhythm"
             , FlexKeys
             , FlexBass
-            -- , FlexDrums
+            , FlexDrums
             ]
           coopPart = listToMaybe $ filter (\(p, _) -> hasPart p && leadPart /= Just p)
             [ (FlexGuitar        , GH2Rhythm)
             , (FlexExtra "rhythm", GH2Rhythm)
             , (FlexBass          , GH2Bass  )
             , (FlexKeys          , GH2Rhythm)
-            -- , (FlexDrums         , GH2Rhythm)
+            , (FlexDrums         , GH2Rhythm)
             ]
           tgt = defGH3
             { gh3_Common = (gh3_Common defGH3)
@@ -2286,7 +2286,7 @@ songPageRB3
   -> Rectangle
   -> FL.Ref FL.Group
   -> Project
-  -> (TargetRB3 FilePath -> RB3Create -> IO ())
+  -> (TargetRB3 -> RB3Create -> IO ())
   -> IO ()
 songPageRB3 sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
@@ -2339,7 +2339,7 @@ songPageRB3 sink rect tab proj build = mdo
       liftIO $ FL.setCallback box2x $ \_ -> controlInput
   let makeTarget newPreferences = do
         modifier <- targetModifier
-        return $ modifier (def :: TargetRB3 FilePath)
+        return $ modifier def
           { rb3_Magma = prefMagma newPreferences
           , rb3_Common = def
             { tgt_Label2x = prefLabel2x newPreferences
@@ -3108,7 +3108,7 @@ batchPageRB3
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> ([(TargetRB3 FilePath, RB3Create)], SongYaml FilePath)) -> IO ())
+  -> ((Project -> ([(TargetRB3, RB3Create)], SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageRB3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -3135,7 +3135,7 @@ batchPageRB3 sink rect tab build = do
         kicks <- stackIO getKicks
         newPreferences <- readPreferences
         return $ \proj -> let
-          defRB3 = def :: TargetRB3 FilePath
+          defRB3 = def :: TargetRB3
           tgt = preset yaml defRB3
             { rb3_Common = (rb3_Common defRB3)
               { tgt_Speed = Just speed
@@ -3190,7 +3190,7 @@ batchPageRB3 sink rect tab build = do
   FL.setResizable tab $ Just pack
   return ()
 
-templateApplyInput :: Project -> Maybe (Target FilePath) -> T.Text -> T.Text
+templateApplyInput :: Project -> Maybe Target -> T.Text -> T.Text
 templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
   [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
   , T.intercalate (validFileNamePiece NameRulePC $ T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"

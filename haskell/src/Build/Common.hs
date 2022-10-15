@@ -67,19 +67,19 @@ makePS3Name num songYaml
     <> getTitle  (_metadata songYaml)
     <> getArtist (_metadata songYaml)
 
-targetTitle :: SongYaml f -> Target f -> T.Text
+targetTitle :: SongYaml f -> Target -> T.Text
 targetTitle songYaml target = let
   base = fromMaybe (getTitle $ _metadata songYaml) $ tgt_Title $ targetCommon target
   in addTitleSuffix target base
 
-targetTitleJP :: SongYaml f -> Target f -> Maybe T.Text
+targetTitleJP :: SongYaml f -> Target -> Maybe T.Text
 targetTitleJP songYaml target = case tgt_Title $ targetCommon target of
   Just _  -> Nothing -- TODO do we need JP title on targets also
   Nothing -> case _titleJP $ _metadata songYaml of
     Nothing   -> Nothing
     Just base -> Just $ addTitleSuffix target base
 
-addTitleSuffix :: Target f -> T.Text -> T.Text
+addTitleSuffix :: Target -> T.Text -> T.Text
 addTitleSuffix target base = let
   common = targetCommon target
   segments = base : case target of
@@ -101,7 +101,7 @@ addTitleSuffix target base = let
       ]
   in T.intercalate " " segments
 
-hashRB3 :: (Hashable f) => SongYaml f -> TargetRB3 f -> Int
+hashRB3 :: (Hashable f) => SongYaml f -> TargetRB3 -> Int
 hashRB3 songYaml rb3 = let
   hashed =
     ( rb3

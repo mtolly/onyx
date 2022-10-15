@@ -525,7 +525,7 @@ importRB rbi level = do
         else maybe SongIDAutoSymbol getSongID $ files2x >>= D.songId . fst
       version1x = guard (songID1x /= SongIDAutoSymbol) >> Just (D.version pkg)
       version2x = guard (songID2x /= SongIDAutoSymbol) >> fmap (D.version . fst) files2x
-      targetShared = def'
+      targetShared = def
         { rb3_Harmonix = dtaIsHarmonixRB3 pkg
         }
       target1x = ("rb3", RB3 targetShared

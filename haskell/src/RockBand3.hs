@@ -10,6 +10,7 @@ module RockBand3
 , basicTiming, BasicTiming(..)
 , makeMoods
 , drumsToFive
+, buildDrums
 ) where
 
 import           Config
@@ -52,7 +53,7 @@ import qualified Sound.MIDI.Util                   as U
 
 processRB3Pad
   :: (SendMessage m, MonadIO m)
-  => TargetRB3 f
+  => TargetRB3
   -> SongYaml f
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
@@ -66,7 +67,7 @@ processRB3Pad a b c d e = do
 
 processRB3
   :: (SendMessage m, MonadIO m)
-  => TargetRB3 f
+  => TargetRB3
   -> SongYaml f
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
@@ -216,7 +217,7 @@ makeMoods tmap timing
 
 buildDrums
   :: RBFile.FlexPartName
-  -> Either (TargetRB3 f) TargetPS
+  -> Either TargetRB3 TargetPS
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> BasicTiming
   -> SongYaml f
@@ -328,7 +329,7 @@ data BRERemover t = BRERemover
 
 -- TODO make this more resilient, probably based on the "chop" functions
 -- so it can correctly handle stuff beyond just removing notes
-removeBRE :: (NNC.C t) => Either (TargetRB3 f) TargetPS -> EventsTrack t -> Maybe (BRERemover t)
+removeBRE :: (NNC.C t) => Either TargetRB3 TargetPS -> EventsTrack t -> Maybe (BRERemover t)
 removeBRE (Left _rb3) evts = case (eventsCoda evts, eventsCodaResume evts) of
   (Wait t1 () _, Wait t2 () _) -> Just $ let
     blips xs = trackGlue t2 (U.trackTake t1 xs) (U.trackDrop t2 xs)
@@ -396,7 +397,7 @@ drumsToFive song drums = FiveTrack
 
 buildFive
   :: RBFile.FlexPartName
-  -> Either (TargetRB3 f) TargetPS
+  -> Either TargetRB3 TargetPS
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> BasicTiming
   -> Bool
@@ -479,7 +480,7 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
 
 processMIDI
   :: (SendMessage m, MonadIO m)
-  => Either (TargetRB3 f) TargetPS
+  => Either TargetRB3 TargetPS
   -> SongYaml f
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio

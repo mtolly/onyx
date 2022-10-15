@@ -1129,7 +1129,7 @@ instance StackJSON RBSongID where
       SongIDInt n      -> A.Number $ fromIntegral n
     }
 
-data TargetRB3 f = TargetRB3
+data TargetRB3 = TargetRB3
   { rb3_Common      :: TargetCommon
   , rb3_2xBassPedal :: Bool
   , rb3_SongID      :: RBSongID
@@ -1142,9 +1142,9 @@ data TargetRB3 f = TargetRB3
   , rb3_Keys        :: FlexPartName
   , rb3_Vocal       :: FlexPartName
   , rb3_PS3Encrypt  :: Bool
-  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
+  } deriving (Eq, Ord, Show, Generic, Hashable)
 
-parseTargetRB3 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetRB3 f)
+parseTargetRB3 :: (SendMessage m) => ObjectCodec m A.Value TargetRB3
 parseTargetRB3 = do
   rb3_Common      <- rb3_Common      =. parseTargetCommon
   rb3_2xBassPedal <- rb3_2xBassPedal =. opt False        "2x-bass-pedal" stackJSON
@@ -1160,10 +1160,10 @@ parseTargetRB3 = do
   rb3_PS3Encrypt  <- rb3_PS3Encrypt  =. opt True         "ps3-encrypt"   stackJSON
   return TargetRB3{..}
 
-instance (Eq f, StackJSON f) => StackJSON (TargetRB3 f) where
+instance StackJSON TargetRB3 where
   stackJSON = asStrictObject "TargetRB3" parseTargetRB3
 
-instance (Eq f, StackJSON f) => Default (TargetRB3 f) where
+instance Default TargetRB3 where
   def = fromEmptyObject
 
 data LipsyncMember = LipsyncGuitar | LipsyncBass | LipsyncDrums
@@ -1572,8 +1572,8 @@ instance StackJSON TargetPart where
 instance Default TargetPart where
   def = fromEmptyObject
 
-data Target f
-  = RB3    (TargetRB3 f)
+data Target
+  = RB3    TargetRB3
   | RB2    TargetRB2
   | PS     TargetPS
   | GH1    TargetGH1
@@ -1585,9 +1585,9 @@ data Target f
   | PG     TargetPG
   | Melody TargetPart
   | Konga  TargetPart
-  deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Generic, Hashable)
 
-targetCommon :: Target f -> TargetCommon
+targetCommon :: Target -> TargetCommon
 targetCommon = \case
   RB3    TargetRB3 {..} -> rb3_Common
   RB2    TargetRB2 {..} -> rb2_Common
@@ -1605,7 +1605,7 @@ targetCommon = \case
 addKey :: (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
 addKey codec k v x = A.Object $ KM.fromHashMapText $ HM.insert k v $ HM.fromList $ makeObject (objectId codec) x
 
-instance (Eq f, StackJSON f) => StackJSON (Target f) where
+instance StackJSON Target where
   stackJSON = Codec
     { codecIn = object $ do
       target <- requiredKey "game" fromJSON
@@ -1644,7 +1644,7 @@ data SongYaml f = SongYaml
   , _audio    :: HM.HashMap T.Text (AudioFile f)
   , _jammit   :: HM.HashMap T.Text JammitTrack
   , _plans    :: HM.HashMap T.Text (Plan f)
-  , _targets  :: HM.HashMap T.Text (Target f)
+  , _targets  :: HM.HashMap T.Text Target
   , _parts    :: Parts (Part f)
   } deriving (Eq, Show, Functor, Foldable, Traversable)
 

@@ -98,7 +98,7 @@ import           System.IO                             (IOMode (ReadMode),
                                                         withBinaryFile)
 import           Text.Transform                        (replaceCharsRB)
 
-rbRules :: BuildInfo -> FilePath -> TargetRB3 FilePath -> Maybe TargetRB2 -> QueueLog Rules ()
+rbRules :: BuildInfo -> FilePath -> TargetRB3 -> Maybe TargetRB2 -> QueueLog Rules ()
 rbRules buildInfo dir rb3 mrb2 = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
@@ -941,7 +941,7 @@ rbRules buildInfo dir rb3 mrb2 = do
           stackIO $ makePKG rb2ps3ContentID (main <> extra) out
 
 -- Magma RBProj rules
-makeMagmaProj :: SongYaml f -> TargetRB3 f -> Plan f -> (DifficultyRB3, Maybe VocalCount) -> T.Text -> FilePath -> Action T.Text -> Int -> Staction Magma.RBProj
+makeMagmaProj :: SongYaml f -> TargetRB3 -> Plan f -> (DifficultyRB3, Maybe VocalCount) -> T.Text -> FilePath -> Action T.Text -> Int -> Staction Magma.RBProj
 makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle pad = do
   song <- shakeMIDI mid
   ((kickPVs, snarePVs, kitPVs), mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
@@ -1100,7 +1100,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
       }
     }
 
-makeRB3DTA :: (MonadIO m, SendMessage m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 f -> Bool -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m D.SongPackage
+makeRB3DTA :: (MonadIO m, SendMessage m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 -> Bool -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m D.SongPackage
 makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename pad = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
   let thresh = 170 -- everything gets forced anyway
@@ -1290,7 +1290,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
     , D.video = False
     }
 
-makeC3 :: (Monad m) => SongYaml f -> Plan f -> TargetRB3 f -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m C3.C3
+makeC3 :: (Monad m) => SongYaml f -> Plan f -> TargetRB3 -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m C3.C3
 makeC3 songYaml plan rb3 midi pkg pad = do
   let padSeconds = fromIntegral (pad :: Int) :: U.Seconds
       (pstart, _) = previewBounds songYaml midi padSeconds True

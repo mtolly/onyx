@@ -297,7 +297,7 @@ melodyRules buildInfo dir tgt = do
 shakeBuildFiles :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT (QueueLog m) ()
 shakeBuildFiles audioDirs yamlPath = shakeBuild audioDirs yamlPath []
 
-shakeBuild :: (MonadIO m) => [FilePath] -> FilePath -> [(T.Text, Target FilePath)] -> [FilePath] -> StackTraceT (QueueLog m) ()
+shakeBuild :: (MonadIO m) => [FilePath] -> FilePath -> [(T.Text, Target)] -> [FilePath] -> StackTraceT (QueueLog m) ()
 shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
   yamlPath <- stackIO $ Dir.canonicalizePath yamlPathRel

@@ -16,6 +16,7 @@ import           Data.Char                        (toUpper)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME          (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding  as L
+import           Data.Default.Class               (def)
 import           Data.DTA.Serialize.Magma         (Gender (..))
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -27,7 +28,8 @@ import qualified Data.Text                        as T
 import           Data.Word                        (Word32)
 import           Development.Shake                hiding (phony, (%>), (&%>))
 import           Development.Shake.FilePath
-import           Guitars                          (applyForces, closeNotes',
+import           Guitars                          (HOPOsAlgorithm (..),
+                                                   applyForces, closeNotes',
                                                    getForces5, noOpenNotes',
                                                    strumHOPOTap')
 import           Neversoft.Audio                  (gh3Encrypt)
@@ -52,7 +54,8 @@ import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    joinEdgesSimple, trackGlue)
 import           RockBand.Sections                (makePSSection)
 import           RockBand3                        (BasicTiming (..),
-                                                   basicTiming)
+                                                   basicTiming, buildDrums,
+                                                   drumsToFive)
 import           Sound.FSB                        (emitFSB, mp3sToFSB3)
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
@@ -267,10 +270,11 @@ gh3Rules buildInfo dir gh3 = do
     let nodes =
           [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = key1, nodeFilenameCRC = key2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB $ makeMidQB key1 dlcID $ makeGH3MidQB
+              songYaml
               mid
               timing
-              (getPartInfo $ gh3_Guitar gh3)
-              (getPartInfo coopPart)
+              (gh3_Guitar gh3)
+              coopPart
             )
           -- there's a small script qb here in official DLC. but SanicStudios customs don't have it
           -- .ska files would go here if we had any
@@ -280,9 +284,6 @@ gh3Rules buildInfo dir gh3 = do
           ]
         key1 = qbKeyCRC $ "songs\\" <> dlcID <> ".mid.qb"
         key2 = qbKeyCRC dlcID
-        getPartInfo fpart = case getPart fpart songYaml >>= partGRYBO of
-          Nothing -> (fpart, 170)
-          Just pg -> (fpart, gryboHopoThreshold pg)
     stackIO $ BL.writeFile out $ buildPak nodes
 
   let gh3Files = pathFsbXen : pathDatXen : pathDL : pathText : pathSongPak : pathTextLangs
@@ -403,15 +404,24 @@ makeGH3Timing tmap mmap end = let
   in (fretbars, sigs)
 
 makeGH3MidQB
-  :: RBFile.Song (RBFile.OnyxFile U.Beats)
+  :: SongYaml f
+  -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> BasicTiming
-  -> (RBFile.FlexPartName, Int)
-  -> (RBFile.FlexPartName, Int)
+  -> RBFile.FlexPartName
+  -> RBFile.FlexPartName
   -> GH3MidQB
-makeGH3MidQB song timing partLead partRhythm = let
-  makeGH3Part (fpart, threshold) = let
+makeGH3MidQB songYaml song timing partLead partRhythm = let
+  makeGH3Part fpart = let
     opart = RBFile.getFlexPart fpart $ RBFile.s_tracks song
-    (trk, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart
+    ((trk, algo), threshold) = case getPart fpart songYaml >>= partGRYBO of
+      Just pg -> (RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart, gryboHopoThreshold pg)
+      Nothing -> let
+        trk' = case getPart fpart songYaml >>= partDrums of
+          Just _pd -> case buildDrums fpart (Left def { rb3_2xBassPedal = True }) song timing songYaml of
+            Just drums -> drumsToFive song drums
+            Nothing    -> mempty
+          Nothing -> mempty
+        in ((trk', HOPOsRBGuitar), 170)
     in (trk, GH3Part
       { gh3Easy   = makeGH3Track Easy   trk algo threshold
       , gh3Medium = makeGH3Track Medium trk algo threshold
