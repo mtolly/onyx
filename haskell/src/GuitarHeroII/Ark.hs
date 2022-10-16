@@ -2,12 +2,13 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module GuitarHeroII.Ark (replaceSong, GameGH(..), detectGameGH, readSongListGH2, readSongListGH1, createHdrArk, GH2InstallLocation(..), addBonusSongGH2, addBonusSongGH1, GH2Installation(..)) where
+module GuitarHeroII.Ark (sortSongs, SongSort(..), replaceSong, GameGH(..), detectGameGH, readSongListGH2, readSongListGH1, createHdrArk, GH2InstallLocation(..), addBonusSongGH2, addBonusSongGH1, GH2Installation(..)) where
 
 import           Amplitude.PS2.Ark              (FoundFile (..), makeStringBank,
                                                  traverseFolder)
 import           ArkTool
 import           Codec.Compression.GZip         (decompress)
+import           Control.Applicative            ((<|>))
 import           Control.Monad.Extra            (firstJustM, forM, forM_, guard,
                                                  void)
 import           Control.Monad.Trans.StackTrace
@@ -213,7 +214,7 @@ data GH2Installation = GH2Installation
   , gh2i_author           :: Maybe B.ByteString
   , gh2i_album_art        :: Maybe FilePath
   , gh2i_files            :: [(B.ByteString, FilePath)] -- ^ files to copy into the song folder, e.g. @("songsym.mid", "some/dir/notes.mid")@
-  , gh2i_sort             :: Bool -- ^ should bonus songs be sorted alphabetically
+  , gh2i_sort             :: Maybe SongSort -- ^ should bonus songs be sorted alphabetically
   , gh2i_loading_phrase   :: Maybe B.ByteString
   }
 
@@ -243,19 +244,18 @@ addBonusSongGH2 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
             forM chunks $ \case
               D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> do
                 let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i_symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
-                bonusSorted <- if gh2i_sort
+                bonusSorted <- case gh2i_sort of
                   -- TODO handle warnings/errors better
-                  then logStdout (readSongListGH2 $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
-                    Right newSongList -> let
-                      -- TODO use case fold sort (don't put lowercase letters after all uppercase)
-                      f = \case
+                  Just ss -> logStdout (readSongListGH2 $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
+                    Right newSongList -> return $ let
+                      sorter = sortSongs ss $ \case
                         D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
-                          Just pkg -> GH2.name pkg
-                          Nothing  -> ""
-                        _                                  -> ""
-                      in return $ sortOn f bonus'
+                          Just pkg -> (GH2.name pkg, GH2.artist pkg)
+                          Nothing  -> (T.pack $ show sym, "")
+                        _                                  -> ("", "")
+                      in sorter bonus'
                     Left _ -> return bonus'
-                  else return bonus'
+                  Nothing -> return bonus'
                 return $ D.Parens $ D.Tree 0 bonusSorted
               chunk -> return chunk
           void $ editDTB fdtb4 "ui/eng/gen/locale.dtb" $ \chunks -> do
@@ -298,19 +298,18 @@ addBonusSongGH1 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
           forM chunks $ \case
             D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> do
               let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i_symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
-              bonusSorted <- if gh2i_sort
+              bonusSorted <- case gh2i_sort of
                 -- TODO handle warnings/errors better
-                then logStdout (readSongListGH1 $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
-                  Right newSongList -> let
-                    -- TODO use case fold sort (don't put lowercase letters after all uppercase)
-                    f = \case
+                Just ss -> logStdout (readSongListGH1 $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
+                  Right newSongList -> return $ let
+                    sorter = sortSongs ss $ \case
                       D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
-                        Just pkg -> GH1.name pkg
-                        Nothing  -> ""
-                      _                                  -> ""
-                    in return $ sortOn f bonus'
+                        Just pkg -> (GH1.name pkg, GH1.artist pkg)
+                        Nothing  -> (T.pack $ show sym, "")
+                      _                                  -> ("", "")
+                    in sorter bonus'
                   Left _ -> return bonus'
-                else return bonus'
+                Nothing -> return bonus'
               return $ D.Parens $ D.Tree 0 bonusSorted
             chunk -> return chunk
         void $ editDTB fdtb3 "ghui/eng/gen/locale.dtb" $ \chunks -> do
@@ -322,3 +321,20 @@ addBonusSongGH1 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
           let arkPath = "songs/" <> gh2i_symbol <> "/" <> arkName
           ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
         ark_Save' ark
+
+data SongSort
+  = SongSortTitleArtist
+  | SongSortArtistTitle
+
+sortSongs :: SongSort -> (a -> (T.Text, T.Text)) -> [a] -> [a]
+sortSongs ss getTitleArtist = sortOn $ \song -> let
+  (title, artist) = getTitleArtist song
+  sortForm x = let
+    folded = T.toCaseFold x
+    in fromMaybe folded
+      $   T.stripPrefix "the " folded
+      <|> T.stripPrefix "a "   folded
+      <|> T.stripPrefix "an "  folded
+  in case ss of
+    SongSortTitleArtist -> (sortForm title , sortForm artist)
+    SongSortArtistTitle -> (sortForm artist, sortForm title )

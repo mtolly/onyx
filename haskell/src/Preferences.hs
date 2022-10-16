@@ -37,6 +37,7 @@ data Preferences = Preferences
   , prefWarnedXboxWoR :: Bool
   , prefGH4Lane       :: Bool
   , prefDecryptSilent :: Bool
+  , prefArtistSort    :: Bool -- in gh2/gh3, sort by artist then title
   }
 
 instance StackJSON Preferences where
@@ -61,6 +62,7 @@ instance StackJSON Preferences where
     prefWarnedXboxWoR <- prefWarnedXboxWoR =. opt  False        "warned-xbox-wor" stackJSON
     prefGH4Lane       <- prefGH4Lane       =. opt  False        "gh-4-lane"       stackJSON
     prefDecryptSilent <- prefDecryptSilent =. opt  False        "decrypt-silent"  stackJSON
+    prefArtistSort    <- prefArtistSort    =. opt  False        "artist-sort"     stackJSON
     return Preferences{..}
 
 instance Default Preferences where

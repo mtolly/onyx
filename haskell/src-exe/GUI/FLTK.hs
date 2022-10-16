@@ -5873,7 +5873,7 @@ launchPreferences sink makeMenuBar = do
       FL.end pack
       return (tab, fn)
     restPrefs <- sequence
-      [ makeTab tabsRect "Guitar Hero II" $ \rect _tab -> do
+      [ makeTab tabsRect "Guitar Hero" $ \rect _tab -> do
         pack <- FL.packNew rect Nothing
         fn <- combinePrefs <$> sequence
           [ lineBox $ \box -> do
@@ -5894,6 +5894,14 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Sort GH2 bonus songs when adding to .ARK"
             void $ FL.setValue check $ prefSortGH2 loadedPrefs
             return $ (\b prefs -> prefs { prefSortGH2 = b }) <$> FL.getValue check
+          , do
+            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "For GH2 and GH3, sort by artist first (instead of title)"
+            void $ FL.setValue check $ prefArtistSort loadedPrefs
+            FL.setTooltip check $ T.unwords
+              [ "This affects GH2 .ARK bonus songs (when the above box is checked)"
+              , "and GH3 DLC (as sorted in the Song Cache file)."
+              ]
+            return $ (\b prefs -> prefs { prefArtistSort = b }) <$> FL.getValue check
           ]
         FL.end pack
         return fn

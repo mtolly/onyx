@@ -36,7 +36,8 @@ import qualified Data.Text                      as T
 import           Data.Text.Encoding             (encodeUtf8)
 import qualified Data.Text.Encoding             as TE
 import           GuitarHeroII.Ark               (GH2Installation (..),
-                                                 GameGH (..), addBonusSongGH1,
+                                                 GameGH (..), SongSort (..),
+                                                 addBonusSongGH1,
                                                  addBonusSongGH2, detectGameGH)
 import           GuitarHeroII.Convert           (adjustSongText)
 import           GuitarPro                      (parseGP, parseGPX)
@@ -479,7 +480,7 @@ installGH1 gh1 proj gen = do
         guard $ elem (takeExtension f) [".mid", ".vgs", ".voc"]
         return (sym <> B8.pack (dropWhile isAlpha f), dir </> f)
   let toBytes = B8.pack . T.unpack
-  sortBonus <- prefSortGH2 <$> readPreferences
+  prefs <- readPreferences
   stackIO $ addBonusSongGH1 GH2Installation
     { gh2i_GEN              = gen
     , gh2i_symbol           = sym
@@ -494,7 +495,9 @@ installGH1 gh1 proj gen = do
     , gh2i_author           = toBytes . adjustSongText <$> _author (_metadata $ projectSongYaml proj)
     , gh2i_album_art        = Nothing -- not used
     , gh2i_files            = filePairs
-    , gh2i_sort             = sortBonus
+    , gh2i_sort             = guard (prefSortGH2 prefs) >> if prefArtistSort prefs
+      then Just SongSortArtistTitle
+      else Just SongSortTitleArtist
     , gh2i_loading_phrase   = toBytes <$> gh1_LoadingPhrase gh1
     }
 
@@ -527,7 +530,7 @@ installGH2 gh2 proj gen = do
       _     -> fatal "unexcepted non-int in coop scores list"
     _ -> fatal "Couldn't read coop scores list"
   let toBytes = B8.pack . T.unpack
-  sortBonus <- prefSortGH2 <$> readPreferences
+  prefs <- readPreferences
   stackIO $ addBonusSongGH2 GH2Installation
     { gh2i_GEN              = gen
     , gh2i_symbol           = sym
@@ -542,7 +545,9 @@ installGH2 gh2 proj gen = do
     , gh2i_author           = toBytes . adjustSongText <$> _author (_metadata $ projectSongYaml proj)
     , gh2i_album_art        = Just $ dir </> "cover.png_ps2"
     , gh2i_files            = filePairs
-    , gh2i_sort             = sortBonus
+    , gh2i_sort             = guard (prefSortGH2 prefs) >> if prefArtistSort prefs
+      then Just SongSortArtistTitle
+      else Just SongSortTitleArtist
     , gh2i_loading_phrase   = toBytes <$> gh2_LoadingPhrase gh2
     }
 

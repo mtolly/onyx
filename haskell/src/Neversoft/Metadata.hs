@@ -16,7 +16,7 @@ import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Char                      (toLower)
-import           Data.List.Extra                (nubOrdOn, partition, sortOn)
+import           Data.List.Extra                (nubOrdOn, partition)
 import           Data.Maybe                     (catMaybes, fromMaybe,
                                                  listToMaybe, mapMaybe)
 import           Data.SimpleHandle              (Folder (..), Readable,
@@ -29,6 +29,7 @@ import qualified Data.Text.Encoding             as TE
 import           Data.Word
 import           Genre
 import           GHC.ByteOrder
+import           GuitarHeroII.Ark               (SongSort (..), sortSongs)
 import           Neversoft.Checksum
 import           Neversoft.Pak
 import           Neversoft.QB
@@ -37,6 +38,8 @@ import           NPData                         (gh3CustomMidEdatConfig,
 import           OSFiles                        (shortWindowsPath)
 import           PlayStation.PKG                (getDecryptedUSRDIR, loadPKG,
                                                  makePKG, pkgFolder)
+import           Preferences                    (Preferences (prefArtistSort),
+                                                 readPreferences)
 import           Resources                      (getResourcesPath, gh3Thumbnail)
 import           STFS.Package                   (CreateOptions (..),
                                                  LicenseEntry (..),
@@ -243,17 +246,18 @@ loadGH3TextSetDLC f = case map toLower $ takeExtension f of
       readGH3TextSetDLC $ first TE.decodeLatin1 usrdir
   _      -> stackIO (getSTFSFolder f) >>= readGH3TextSetDLC
 
-buildGH3TextSet :: B.ByteString -> GH3Language -> [GH3TextPakQB] -> BL.ByteString
-buildGH3TextSet dlName lang paks = let
+buildGH3TextSet :: Preferences -> B.ByteString -> GH3Language -> [GH3TextPakQB] -> BL.ByteString
+buildGH3TextSet prefs dlName lang paks = let
   otherNodes = nubOrdOn (nodeFilenameKey . fst) $ paks >>= gh3OtherNodes
   unk1 = qbKeyCRC $ "1o99lm\\" <> dlName <> ".qb"
   unk2 = qbKeyCRC $ "7buqvk" <> dlName
-  -- sort songs by artist, then title
+  sortAlgo = if prefArtistSort prefs
+    then SongSortArtistTitle
+    else SongSortTitleArtist
   allSongData
-    -- TODO ignore The/A/An, also case fold
-    = sortOn (\(k, items) -> case parseSongInfoGH3 items of
-      Left  _    -> Left k -- hopefully shouldn't happen?
-      Right song -> Right (gh3Artist song, gh3Title song)
+    = sortSongs sortAlgo (\(k, items) -> case parseSongInfoGH3 items of
+      Left  _    -> (T.pack $ show k, "") -- hopefully shouldn't happen?
+      Right song -> (gh3Title song, gh3Artist song)
       )
     $ nubOrdOn fst
     $ paks >>= gh3TextPakSongStructs
@@ -316,6 +320,7 @@ combineGH3SongCache360 ins out = do
   let dlText = "dl2000000000"
       dlBytes = B8.pack $ T.unpack dlText
   mystery <- gh3MysteryScript dlBytes
+  prefs <- readPreferences
   let folder = Folder
         { folderSubfolders = []
         , folderFiles =
@@ -327,7 +332,7 @@ combineGH3SongCache360 ins out = do
           , (dlText <> "_text_s.pak.xen", getLanguage GH3Spanish)
           ]
         }
-      getLanguage lang = buildGH3TextSet dlBytes lang
+      getLanguage lang = buildGH3TextSet prefs dlBytes lang
         [ pak | (lang', pak) <- sets, lang == lang' ]
   thumb <- liftIO $ gh3Thumbnail >>= B.readFile
   liftIO $ makeCONMemory CreateOptions
@@ -353,6 +358,7 @@ combineGH3SongCachePS3 ins out = do
       folderLabel = "CUSTOMS_DATABASE"
       edatConfig = gh3CustomMidEdatConfig folderLabel
   mystery <- gh3MysteryScript dlBytes
+  prefs <- readPreferences
   let files =
         [ (dlText <> ".pak.ps3"       , mystery               )
         , (dlText <> "_text.pak.ps3"  , getLanguage GH3English)
@@ -361,7 +367,7 @@ combineGH3SongCachePS3 ins out = do
         , (dlText <> "_text_i.pak.ps3", getLanguage GH3Italian)
         , (dlText <> "_text_s.pak.ps3", getLanguage GH3Spanish)
         ]
-      getLanguage lang = buildGH3TextSet dlBytes lang
+      getLanguage lang = buildGH3TextSet prefs dlBytes lang
         [ pak | (lang', pak) <- sets, lang == lang' ]
   edats <- tempDir "onyx-gh3-ps3" $ \tmp -> do
     let fin  = tmp </> "tmp.pak"
