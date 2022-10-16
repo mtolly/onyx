@@ -13,6 +13,8 @@ import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                     as A
 import           Data.Default.Class
 import           Data.Hashable                  (Hashable (..))
+import           GHC.Conc                       (getNumProcessors,
+                                                 setNumCapabilities)
 import           GHC.Generics                   (Generic (..))
 import qualified System.Directory               as Dir
 
@@ -38,6 +40,7 @@ data Preferences = Preferences
   , prefGH4Lane       :: Bool
   , prefDecryptSilent :: Bool
   , prefArtistSort    :: Bool -- in gh2/gh3, sort by artist then title
+  , prefThreads       :: Maybe Int
   }
 
 instance StackJSON Preferences where
@@ -63,6 +66,7 @@ instance StackJSON Preferences where
     prefGH4Lane       <- prefGH4Lane       =. opt  False        "gh-4-lane"       stackJSON
     prefDecryptSilent <- prefDecryptSilent =. opt  False        "decrypt-silent"  stackJSON
     prefArtistSort    <- prefArtistSort    =. opt  False        "artist-sort"     stackJSON
+    prefThreads       <- prefThreads       =. opt  Nothing      "threads"         stackJSON
     return Preferences{..}
 
 instance Default Preferences where
@@ -79,6 +83,7 @@ savePreferences :: (MonadIO m) => Preferences -> m ()
 savePreferences prefs = liftIO $ do
   cfg <- Dir.getXdgDirectory Dir.XdgConfig "onyx.yml"
   yamlEncodeFile cfg $ toJSON prefs
+  applyThreads prefs
 
 data MagmaSetting
   = MagmaRequire
@@ -91,3 +96,10 @@ instance StackJSON MagmaSetting where
     MagmaRequire -> is "require" |?> is (A.Bool True)
     MagmaTry     -> is "try"
     MagmaDisable -> is "disable" |?> is (A.Bool False)
+
+applyThreads :: Preferences -> IO ()
+applyThreads prefs = do
+  procs <- getNumProcessors
+  setNumCapabilities $ case prefThreads prefs of
+    Nothing -> procs
+    Just n  -> min n procs

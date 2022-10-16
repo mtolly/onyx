@@ -84,6 +84,7 @@ import qualified Data.List.NonEmpty                        as NE
 import qualified Data.Map                                  as Map
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
+                                                            isNothing,
                                                             listToMaybe,
                                                             mapMaybe)
 import           Data.Monoid                               (Endo (..))
@@ -136,6 +137,7 @@ import           Paths_onyxite_customs_tool                (version)
 import qualified PlayStation.PKG                           as PKG
 import           Preferences                               (MagmaSetting (..),
                                                             Preferences (..),
+                                                            applyThreads,
                                                             readPreferences,
                                                             savePreferences)
 import           ProKeysRanges                             (closeShiftsFile)
@@ -5851,29 +5853,58 @@ launchPreferences sink makeMenuBar = do
     tabs <- FL.tabsNew tabsRect Nothing
     let combinePrefs :: [IO (a -> a)] -> IO (a -> a)
         combinePrefs = fmap (foldr (.) id) . sequence
-    (tab1, pref1) <- makeTab tabsRect "Rock Band" $ \rect tab -> do
+    (tab1, pref1) <- makeTab tabsRect "General" $ \rect tab -> do
       pack <- FL.packNew rect Nothing
       fn <- combinePrefs <$> sequence
-        [ do
-          getMagma <- lineBox $ \box -> horizRadio box
-            [ ("Magma required" , MagmaRequire, prefMagma loadedPrefs == MagmaRequire)
-            , ("Magma optional" , MagmaTry    , prefMagma loadedPrefs == MagmaTry    )
-            , ("Don't use Magma", MagmaDisable, prefMagma loadedPrefs == MagmaDisable)
-            ]
-          return $ maybe id (\v prefs -> prefs { prefMagma = v }) <$> getMagma
-        , do
-          check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Always export black VENUE track"
-          void $ FL.setValue check $ prefBlackVenue loadedPrefs
-          return $ (\b prefs -> prefs { prefBlackVenue = b }) <$> FL.getValue check
-        , do
-          check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Label 2x kick charts as (2x Bass Pedal) by default"
-          void $ FL.setValue check $ prefLabel2x loadedPrefs
-          return $ (\b prefs -> prefs { prefLabel2x = b }) <$> FL.getValue check
+        [ lineBox $ \box -> do
+          let [checkBox, _, counterBox, _] = splitHorizN 4 box
+          check <- FL.checkButtonNew checkBox $ Just "Unlimited cores"
+          void $ FL.setValue check $ isNothing $ prefThreads loadedPrefs
+          counter <- FL.counterNew counterBox $ Just "Core limit"
+          FL.setLabeltype counter FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+          FL.setAlign counter $ FLE.Alignments [FLE.AlignTypeLeft]
+          FL.setType counter FL.SimpleCounterType -- only one set of left/right buttons
+          FL.setStep counter 1
+          FL.setMinimum counter 1
+          FL.setMaximum counter 16
+          void $ FL.setValue counter $ case prefThreads loadedPrefs of
+            Nothing -> 1
+            Just n  -> fromIntegral n
+          let updateCounter = FL.getValue check >>= \case
+                True  -> FL.deactivate counter
+                False -> FL.activate   counter
+          FL.setCallback check $ \_ -> updateCounter
+          updateCounter
+          return $ do
+            unlimited <- FL.getValue check
+            cores <- FL.getValue counter
+            return $ \prefs -> prefs { prefThreads = if unlimited then Nothing else Just $ round cores }
         ]
       FL.end pack
       return (tab, fn)
     restPrefs <- sequence
-      [ makeTab tabsRect "Guitar Hero" $ \rect _tab -> do
+      [ makeTab tabsRect "Rock Band" $ \rect _tab -> do
+        pack <- FL.packNew rect Nothing
+        fn <- combinePrefs <$> sequence
+          [ do
+            getMagma <- lineBox $ \box -> horizRadio box
+              [ ("Magma required" , MagmaRequire, prefMagma loadedPrefs == MagmaRequire)
+              , ("Magma optional" , MagmaTry    , prefMagma loadedPrefs == MagmaTry    )
+              , ("Don't use Magma", MagmaDisable, prefMagma loadedPrefs == MagmaDisable)
+              ]
+            return $ maybe id (\v prefs -> prefs { prefMagma = v }) <$> getMagma
+          , do
+            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Always export black VENUE track"
+            void $ FL.setValue check $ prefBlackVenue loadedPrefs
+            return $ (\b prefs -> prefs { prefBlackVenue = b }) <$> FL.getValue check
+          , do
+            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Label 2x kick charts as (2x Bass Pedal) by default"
+            void $ FL.setValue check $ prefLabel2x loadedPrefs
+            return $ (\b prefs -> prefs { prefLabel2x = b }) <$> FL.getValue check
+          ]
+        FL.end pack
+        return fn
+      , makeTab tabsRect "Guitar Hero" $ \rect _tab -> do
         pack <- FL.packNew rect Nothing
         fn <- combinePrefs <$> sequence
           [ lineBox $ \box -> do
@@ -6282,6 +6313,7 @@ launchGUI = withAL $ \hasAudio -> do
         False -> return ()
         True  -> process >> loop
     in do
+      readPreferences >>= stackIO . applyThreads
       unless hasAudio $ warn
         "Couldn't open audio device"
       loop
