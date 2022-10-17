@@ -40,6 +40,7 @@ import           Neversoft.PS2
 import           Neversoft.QB                     (QBSection (..), parseQB)
 import           Numeric                          (showHex)
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.Five              (nullFive)
 import           RockBand.Codec.FullDrums         (fdDifficulties, fdGems,
                                                    fdKick2)
 import           RockBand.Common                  (Difficulty (..))
@@ -385,7 +386,10 @@ importGH3Song gh3i = let
               markerBank
               midQB
       ImportQuick -> return emptyChart
-    let drums
+    -- don't mark that we have a coop part if it has no notes (like many customs)
+    let hasCoopGems = maybe False (not . nullFive . RBFile.onyxPartGuitar)
+          $ Map.lookup coopPart $ RBFile.onyxParts $ RBFile.s_tracks midiOnyx
+        drums
           = maybe mempty RBFile.onyxPartFullDrums
           $ Map.lookup RBFile.FlexDrums
           $ RBFile.onyxParts
@@ -485,7 +489,7 @@ importGH3Song gh3i = let
       , _targets = HM.empty
       , _parts = Parts $ HM.fromList $ catMaybes
         [ Just (RBFile.FlexGuitar, def { partGRYBO = Just def })
-        , guard hasRealCoop >> Just (coopPart, def { partGRYBO = Just def })
+        , guard (hasRealCoop && hasCoopGems) >> Just (coopPart, def { partGRYBO = Just def })
         , do
           guard $ maybe False (not . RTB.null . fdGems) $ Map.lookup Expert $ fdDifficulties drums
           Just (RBFile.FlexDrums, def
