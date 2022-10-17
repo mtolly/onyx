@@ -401,3 +401,28 @@ convertFullDrums isPS trk = let
     , D.drumSolo       = fdSolo trk
     , D.drumKick2x     = fdKick2 trk
     }
+
+autoFDAnimation :: (NNC.C t) => t -> RTB.T t FullDrumNote -> RTB.T t D.Animation
+autoFDAnimation closeTime fdns = let
+  hands = D.autoDrumHands closeTime $ RTB.flatten $ flip fmap fdns $ \fdn -> do
+    pad <- case fdn_gem fdn of
+      Kick      -> []
+      Snare     -> pure D.AnimSnare
+      Hihat     -> pure D.AnimHihat
+      HihatFoot -> []
+      CrashL    -> pure D.AnimCrash1
+      Tom1      -> pure D.AnimTom1
+      Tom2      -> pure D.AnimTom2
+      Tom3      -> pure D.AnimFloorTom
+      CrashR    -> pure D.AnimCrash2
+      Ride      -> pure D.AnimRide
+    _ <- if fdn_flam fdn then [(), ()] else [()]
+    return D.AnimInput
+      { aiPad      = pad
+      , aiVelocity = fdn_velocity fdn
+      }
+  kicks = flip RTB.mapMaybe fdns $ \fdn -> case fdn_gem fdn of
+    Kick -> Just D.KickRF
+    _    -> Nothing
+  -- TODO hihat pedal
+  in RTB.merge kicks hands

@@ -414,9 +414,8 @@ countNothings = go 0 where
   go !n (Nothing : xs) = go (n + 1) xs
   go !n (Just x  : _ ) = Just (n, x)
 
-autoSticking :: Maybe (AnimPad, AnimPad) -> [AnimPad] -> Maybe (AnimPad, AnimPad) -> [Hand]
-autoSticking _           []   _         = [] -- shouldn't happen
-autoSticking _boundStart pads _boundEnd = let
+autoSticking :: [AnimPad] -> [Hand]
+autoSticking pads = let
   flipHand RH = LH
   flipHand LH = RH
   go _    []       = []
@@ -449,42 +448,49 @@ fillDrumAnimation closeTime tmap trk = let
     then trk { drumAnimation = autoAnims }
     else trk
 
--- TODO support velocity
 autoDrumAnimation :: (NNC.C t) => t -> RTB.T t (Gem ProType) -> RTB.T t Animation
 autoDrumAnimation closeTime pro = let
-  hands = flip RTB.mapMaybe (RTB.collectCoincident pro) $ \inst -> let
-    anims = if
-      | all (`elem` inst) [Pro Yellow Cymbal, Pro Green Cymbal] -> [AnimCrash1, AnimCrash2]
-      | all (`elem` inst) [Pro Blue Cymbal, Pro Green Cymbal] -> [AnimCrash1, AnimCrash2]
-      | all (`elem` inst) [Pro Yellow Cymbal, Orange] -> [AnimCrash1, AnimCrash2]
-      | all (`elem` inst) [Red, Pro Yellow Tom] -> [AnimSnare, AnimSnare]
-      | otherwise -> flip mapMaybe inst $ \case
-        Red               -> Just AnimSnare
-        Pro Yellow Cymbal -> Just AnimHihat
-        Pro Blue Cymbal   -> Just AnimRide
-        Pro Green Cymbal  -> Just AnimCrash2
-        Pro Yellow Tom    -> Just AnimTom1
-        Pro Blue Tom      -> Just AnimTom2
-        Pro Green Tom     -> Just AnimFloorTom
-        Orange            -> Just AnimCrash2
-        Kick              -> Nothing
-    in case anims of
-      x : y : _ -> Just $ Right (min x y, max x y)
-      [x]       -> Just $ Left x
-      []        -> Nothing
-  applySticking prev = \case
+  hands = RTB.flatten $ flip fmap (RTB.collectCoincident pro) $ \inst -> if
+    | all (`elem` inst) [Pro Yellow Cymbal, Pro Green Cymbal] -> [AnimCrash1, AnimCrash2]
+    | all (`elem` inst) [Pro Blue Cymbal, Pro Green Cymbal] -> [AnimCrash1, AnimCrash2]
+    | all (`elem` inst) [Pro Yellow Cymbal, Orange] -> [AnimCrash1, AnimCrash2]
+    | all (`elem` inst) [Red, Pro Yellow Tom] -> [AnimSnare, AnimSnare]
+    | otherwise -> flip mapMaybe inst $ \case
+      Red               -> Just AnimSnare
+      Pro Yellow Cymbal -> Just AnimHihat
+      Pro Blue Cymbal   -> Just AnimRide
+      Pro Green Cymbal  -> Just AnimCrash2
+      Pro Yellow Tom    -> Just AnimTom1
+      Pro Blue Tom      -> Just AnimTom2
+      Pro Green Tom     -> Just AnimFloorTom
+      Orange            -> Just AnimCrash2
+      Kick              -> Nothing
+  kicks = RTB.mapMaybe (\case Kick -> Just KickRF; _ -> Nothing) pro
+  in RTB.merge kicks $ autoDrumHands closeTime
+    -- TODO pass along velocity from original track
+    $ fmap (\pad -> AnimInput pad VelocityNormal) hands
+
+data AnimInput = AnimInput
+  { aiPad      :: AnimPad
+  , aiVelocity :: DrumVelocity
+  -- TODO support optional sticking input (from full drums)
+  } deriving (Eq, Ord)
+
+autoDrumHands :: (NNC.C t) => t -> RTB.T t AnimInput -> RTB.T t Animation
+autoDrumHands closeTime pads = let
+  groups = flip RTB.mapMaybe (RTB.collectCoincident pads) $ \case
+    x : y : _ -> Just $ Right (min x y, max x y)
+    [x]       -> Just $ Left x
+    []        -> Nothing
+  applySticking = \case
     RNil -> RNil
-    Wait dt (Right pair) rest -> Wait dt (Right pair) $ applySticking (Just pair) rest
+    Wait dt (Right pair) rest -> Wait dt (Right pair) $ applySticking rest
     Wait dt (Left x) rest -> let
-      prevBound = guard (dt <= closeTime) >> prev
       (phrase, afterPhrase) = getPhrase rest
       phrase' = (dt, x) : phrase
-      nextBound = case afterPhrase of
-        Wait dt' (Right pair) _ | dt' <= closeTime -> Just pair
-        _                                          -> Nothing
-      computed = autoSticking prevBound (map snd phrase') nextBound
+      computed = autoSticking $ map (aiPad . snd) phrase'
       outputPhrase = zipWith (\(dt', pad) hand -> Wait dt' $ Left (pad, hand)) phrase' computed
-      in foldr ($) (applySticking Nothing afterPhrase) outputPhrase
+      in foldr ($) (applySticking afterPhrase) outputPhrase
   getPhrase = \case
     Wait dt (Left x) rest | dt <= closeTime -> let
       (phrase, afterPhrase) = getPhrase rest
@@ -493,17 +499,19 @@ autoDrumAnimation closeTime pro = let
   makeAnimations rtb = RTB.flatten $ flip fmap rtb $ \case
     Right (x, y)   -> [makeSingle x LH, makeSingle y RH]
     Left (x, hand) -> [makeSingle x hand]
-  makeSingle pad hand = case pad of
-    AnimSnare    -> Snare HardHit hand
+  makeSingle ai hand = case aiPad ai of
+    AnimSnare    -> Snare hit hand
     AnimHihat    -> Hihat hand
-    AnimCrash1   -> Crash1 HardHit hand
+    AnimCrash1   -> Crash1 hit hand
     AnimTom1     -> Tom1 hand
     AnimTom2     -> Tom2 hand
     AnimFloorTom -> FloorTom hand
-    AnimCrash2   -> Crash2 HardHit hand
+    AnimCrash2   -> Crash2 hit hand
     AnimRide     -> Ride hand
-  kicks = RTB.mapMaybe (\case Kick -> Just KickRF; _ -> Nothing) pro
-  in RTB.merge kicks $ makeAnimations $ applySticking Nothing hands
+    where hit = case aiVelocity ai of
+            VelocityGhost -> SoftHit
+            _             -> HardHit
+  in makeAnimations $ applySticking groups
 
 expertWith2x :: (NNC.C t) => DrumTrack t -> DrumTrack t
 expertWith2x dt = let

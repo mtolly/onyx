@@ -55,8 +55,9 @@ import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.File              (FlexPartName (..))
-import           RockBand.Codec.FullDrums         (convertFullDrums)
+import qualified RockBand.Codec.FullDrums         as FD
 import           RockBand.Codec.ProGuitar         (GtrBase (..), GtrTuning (..))
+import qualified RockBand.Common                  as RB
 import           RockBand.Common                  (Key (..), SongKey (..),
                                                    Tonality (..), readpKey,
                                                    showKey, songKeyUsesFlats)
@@ -1721,10 +1722,10 @@ buildDrumTarget
   -> D.DrumTrack U.Beats
 buildDrumTarget tgt pd timingEnd tmap opart = let
 
-  src1x   =                          RBFile.onyxPartDrums       opart
-  src2x   =                          RBFile.onyxPartDrums2x     opart
-  srcReal = D.psRealToPro          $ RBFile.onyxPartRealDrumsPS opart
-  srcFull = convertFullDrums False $ RBFile.onyxPartFullDrums   opart
+  src1x   =                             RBFile.onyxPartDrums       opart
+  src2x   =                             RBFile.onyxPartDrums2x     opart
+  srcReal = D.psRealToPro             $ RBFile.onyxPartRealDrumsPS opart
+  srcFull = FD.convertFullDrums False $ RBFile.onyxPartFullDrums   opart
   srcsRB = case tgt of
     DrumTargetRB1x -> [src1x, src2x]
     _              -> [src2x, src1x]
@@ -1786,3 +1787,24 @@ buildDrumTarget tgt pd timingEnd tmap opart = let
   -- Move logic from Neversoft.Export to here
 
   in stepToms $ step5to4 $ stepRBKicks $ stepAddKicks src
+
+buildDrumAnimation
+  :: PartDrums f
+  -> U.TempoMap
+  -> RBFile.OnyxPart U.Beats
+  -> RTB.T U.Beats D.Animation
+buildDrumAnimation pd tmap opart = let
+  rbTracks = map ($ opart) [RBFile.onyxPartRealDrumsPS, RBFile.onyxPartDrums2x, RBFile.onyxPartDrums]
+  inRealTime f = U.unapplyTempoTrack tmap . f . U.applyTempoTrack tmap
+  closeTime = 0.25 :: U.Seconds
+  in case filter (not . RTB.null) $ map D.drumAnimation rbTracks of
+    anims : _ -> anims
+    []        -> case drumsMode pd of
+      DrumsFull -> inRealTime (FD.autoFDAnimation closeTime)
+        $ FD.getDifficulty (Just RB.Expert) $ RBFile.onyxPartFullDrums opart
+      -- TODO this could be made better for modes other than pro
+      _ -> inRealTime (D.autoDrumAnimation closeTime)
+        $ fmap fst $ D.computePro (Just RB.Expert)
+        $ case filter (not . D.nullDrums) rbTracks of
+          trk : _ -> trk
+          []      -> mempty

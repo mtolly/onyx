@@ -276,12 +276,7 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
     ps1x = finish $ if nullDrums pro1x then pro2x else pro1x
     ps2x = finish $ if nullDrums pro2x then pro1x else pro2x
     psPS = if not $ RTB.null $ drumKick2x pro1x then ps1x else ps2x
-    autoAnims
-      = U.unapplyTempoTrack tempos
-      $ autoDrumAnimation (0.25 :: U.Seconds)
-      $ fmap fst
-      $ U.applyTempoTrack tempos
-      $ computePro (Just Expert) ps1x
+    autoAnims = buildDrumAnimation pd tempos flex
     addAnims dt = if RTB.null $ drumAnimation dt
       then dt { drumAnimation = autoAnims }
       else dt
