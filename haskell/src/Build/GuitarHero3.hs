@@ -144,7 +144,8 @@ gh3Rules buildInfo dir gh3 = do
           $ Drop Start (fromMS pstart)
           $ Input (planDir </> "everything.wav")
     src <- shk $ buildSource previewExpr
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup src
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup
+      $ applySpeedAudio (gh3_Common gh3) src
 
   let pathFsb = dir </> "audio.fsb"
       pathFsbXen = dir </> "xbox" </> (B8.unpack dlcID <> ".fsb.xen")
@@ -274,7 +275,7 @@ gh3Rules buildInfo dir gh3 = do
           [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = key1, nodeFilenameCRC = key2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB $ makeMidQB key1 dlcID $ makeGH3MidQB
               songYaml
-              mid
+              (applyTargetMIDI (gh3_Common gh3) mid)
               timing
               (gh3_Guitar gh3)
               coopPart
