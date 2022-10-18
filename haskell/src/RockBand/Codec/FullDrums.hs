@@ -426,3 +426,23 @@ autoFDAnimation closeTime fdns = let
     _    -> Nothing
   -- TODO hihat pedal
   in RTB.merge kicks hands
+
+-- Will not contain any flam notes.
+-- TODO hihat pedal
+animationToFD :: (NNC.C t) => RTB.T t D.Animation -> RTB.T t (FullDrumNote, D.Hand)
+animationToFD anims = RTB.flatten $ flip fmap anims $ \case
+  D.Tom1       hand -> pure (FullDrumNote Tom1   GemNormal      VelocityNormal False, hand)
+  D.Tom2       hand -> pure (FullDrumNote Tom2   GemNormal      VelocityNormal False, hand)
+  D.FloorTom   hand -> pure (FullDrumNote Tom3   GemNormal      VelocityNormal False, hand)
+  D.Hihat      hand -> pure (FullDrumNote Hihat  GemNormal      VelocityNormal False, hand)
+  D.Snare  hit hand -> pure (FullDrumNote Snare  GemNormal      (fromHit hit)  False, hand)
+  D.Ride       hand -> pure (FullDrumNote Ride   GemNormal      VelocityNormal False, hand)
+  D.Crash1 hit hand -> pure (FullDrumNote CrashL GemNormal      (fromHit hit)  False, hand)
+  D.Crash2 hit hand -> pure (FullDrumNote CrashR GemNormal      (fromHit hit)  False, hand)
+  D.KickRF          -> pure (FullDrumNote Kick   GemNormal      VelocityNormal False, D.RH)
+  D.Crash1RHChokeLH -> pure (FullDrumNote CrashL GemCymbalChoke VelocityNormal False, D.RH)
+  D.Crash2RHChokeLH -> pure (FullDrumNote CrashR GemCymbalChoke VelocityNormal False, D.RH)
+  D.PercussionRH    -> pure (FullDrumNote Tom3   GemNormal      VelocityNormal False, D.RH)
+  _                 -> []
+  where fromHit D.SoftHit = VelocityGhost
+        fromHit D.HardHit = VelocityNormal

@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TupleSections     #-}
 module Neversoft.GH3 where
 
 import           Control.Monad                    (forM, void)
@@ -388,38 +389,43 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
     , RBFile.s_tracks = fixed
     }
 
+gh3DrumMapping :: [(Word32, (FullGem, D.Hand))]
+gh3DrumMapping =
+  [ (36, (Kick  , D.LH)) -- second kick drum
+  , (37, (Tom3  , D.LH))
+  , (38, (Tom2  , D.LH))
+  , (39, (Tom1  , D.LH))
+  , (40, (Snare , D.LH))
+  , (41, (Hihat , D.LH))
+  , (42, (Hihat , D.LH)) -- duplicate?
+  , (43, (Ride  , D.LH))
+  , (44, (CrashL, D.LH))
+  , (45, (CrashR, D.LH))
+  --
+  , (48, (Kick  , D.RH)) -- normal kick
+  , (49, (Tom3  , D.RH))
+  , (50, (Tom2  , D.RH))
+  , (51, (Tom1  , D.RH))
+  , (52, (Snare , D.RH))
+  , (53, (Hihat , D.RH))
+  , (54, (Hihat , D.RH))
+  , (55, (Ride  , D.RH))
+  , (56, (CrashL, D.RH))
+  , (57, (CrashR, D.RH))
+  ]
+
 gh3DrumsToFull :: (Word32 -> U.Beats) -> [[Word32]] -> FullDrumTrack U.Beats
 gh3DrumsToFull toBeats notes = let
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
-  kicks = fromPairs $ flip mapMaybe notes $ \case
-    time : 36 : _ -> Just (toBeats time, False) -- second kick drum
-    time : 48 : _ -> Just (toBeats time, True) -- normal kick
-    _             -> Nothing
-  hands = RTB.collectCoincident $ fromPairs $ flip mapMaybe notes $ \case
-    time : pitch : _ -> case pitch of
-
-      37 -> Just (toBeats time, (Tom3  , D.LH))
-      38 -> Just (toBeats time, (Tom2  , D.LH))
-      39 -> Just (toBeats time, (Tom1  , D.LH))
-      40 -> Just (toBeats time, (Snare , D.LH))
-      41 -> Just (toBeats time, (Hihat , D.LH))
-      42 -> Just (toBeats time, (Hihat , D.LH)) -- duplicate?
-      43 -> Just (toBeats time, (Ride  , D.LH))
-      44 -> Just (toBeats time, (CrashL, D.LH))
-      45 -> Just (toBeats time, (CrashR, D.LH))
-
-      49 -> Just (toBeats time, (Tom3  , D.RH))
-      50 -> Just (toBeats time, (Tom2  , D.RH))
-      51 -> Just (toBeats time, (Tom1  , D.RH))
-      52 -> Just (toBeats time, (Snare , D.RH))
-      53 -> Just (toBeats time, (Hihat , D.RH))
-      54 -> Just (toBeats time, (Hihat , D.RH))
-      55 -> Just (toBeats time, (Ride  , D.RH))
-      56 -> Just (toBeats time, (CrashL, D.RH))
-      57 -> Just (toBeats time, (CrashR, D.RH))
-
-      _  -> Nothing
-    _ -> Nothing
+  allGems = flip mapMaybe notes $ \case
+    time : pitch : _ -> (toBeats time,) <$> lookup pitch gh3DrumMapping
+    _                -> Nothing
+  kicks = fromPairs $ flip mapMaybe allGems $ \case
+    (time, (Kick, hand)) -> Just (time, hand == D.RH)
+    _                    -> Nothing
+  hands = RTB.collectCoincident $ fromPairs $ filter
+    (\(_time, (pad, _hand)) -> pad /= Kick)
+    allGems
   handsNoSticking = fmap (map fst) hands
   in mempty
     { fdKick2 = void $ RTB.filter not kicks

@@ -25,6 +25,7 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe)
 import           Data.SimpleHandle                (Folder (..), fileReadable)
 import qualified Data.Text                        as T
+import           Data.Tuple                       (swap)
 import           Data.Word                        (Word32)
 import           Development.Shake                hiding (phony, (%>), (&%>))
 import           Development.Shake.FilePath
@@ -50,6 +51,8 @@ import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.File              (shakeMIDI)
 import qualified RockBand.Codec.Five              as Five
+import           RockBand.Codec.FullDrums         (FullDrumNote (..),
+                                                   animationToFD)
 import           RockBand.Common                  (Difficulty (..), Edge (..),
                                                    joinEdgesSimple, trackGlue)
 import           RockBand.Sections                (makePSSection)
@@ -275,6 +278,7 @@ gh3Rules buildInfo dir gh3 = do
               timing
               (gh3_Guitar gh3)
               coopPart
+              (gh3_Drums gh3)
             )
           -- there's a small script qb here in official DLC. but SanicStudios customs don't have it
           -- .ska files would go here if we had any
@@ -409,8 +413,9 @@ makeGH3MidQB
   -> BasicTiming
   -> RBFile.FlexPartName
   -> RBFile.FlexPartName
+  -> RBFile.FlexPartName
   -> GH3MidQB
-makeGH3MidQB songYaml song timing partLead partRhythm = let
+makeGH3MidQB songYaml song timing partLead partRhythm partDrummer = let
   makeGH3Part fpart = let
     opart = RBFile.getFlexPart fpart $ RBFile.s_tracks song
     ((trk, algo), threshold) = case getPart fpart songYaml >>= partGRYBO of
@@ -459,12 +464,23 @@ makeGH3MidQB songYaml song timing partLead partRhythm = let
     $ maybe RTB.empty Five.fiveGems
     $ Map.lookup Expert
     $ Five.fiveDifficulties leadTrack
+  drumAnims = case getPart partDrummer songYaml >>= partDrums of
+    Nothing -> []
+    Just pd -> let
+      rbAnims = buildDrumAnimation pd (RBFile.s_tempos song) $ RBFile.getFlexPart partDrummer $ RBFile.s_tracks song
+      mapping = map swap gh3DrumMapping
+      notes = RTB.mapMaybe (\(fdn, hand) -> lookup (fdn_gem fdn, hand) mapping) $ animationToFD rbAnims
+      in map (\(secs, pitch) -> [floor $ secs * 1000, pitch, 96]) -- third number is probably original midi velocity
+        $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack (RBFile.s_tempos song) notes
   in emptyMidQB
-    { gh3Guitar         = leadPart
-    , gh3Rhythm         = rhythmPart
-    , gh3TimeSignatures = timeSigs
-    , gh3FretBars       = beats
-    , gh3Markers        = sections
-    , gh3P1FaceOff      = makeFaceoff Five.fivePlayer1
-    , gh3P2FaceOff      = makeFaceoff Five.fivePlayer2
+    { gh3Guitar          = leadPart
+    , gh3Rhythm          = rhythmPart
+    , gh3TimeSignatures  = timeSigs
+    , gh3FretBars        = beats
+    , gh3Markers         = sections
+    , gh3P1FaceOff       = makeFaceoff Five.fivePlayer1
+    , gh3P2FaceOff       = makeFaceoff Five.fivePlayer2
+    , gh3BackgroundNotes = (GH3Background [] [] [] [] [] [] [] [])
+      { gh3Drums = drumAnims
+      }
     }
