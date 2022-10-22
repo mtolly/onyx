@@ -45,10 +45,12 @@ case $(uname) in
     cp -R resources Onyx.app/Contents/MacOS/onyx-resources
     rm -rf mac/
     mkdir mac/
-    cp -R Onyx.app LICENSE.txt mac/
-    cp README.md mac/README.txt
-    cp CHANGES.md mac/CHANGES.txt
-    cp CREDITS.txt mac/CREDITS.txt
+    cp -R Onyx.app mac/
+    cp LICENSE.txt mac/license.txt
+    cp README.md mac/readme.txt
+    cp CHANGES.md mac/changes.txt
+    cp CREDITS.txt mac/credits.txt
+    cp mac-permissions.txt "mac/IMPORTANT mac instructions.txt"
     stack exec -- onyx-package changes
     stack exec -- onyx-package version-write mac/Onyx.app/Contents/Info.plist mac/README.txt mac/Onyx.app/Contents/MacOS/onyx-resources/README.txt
     stack exec -- onyx-package version-print | ./mac-package.sh

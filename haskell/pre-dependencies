@@ -42,10 +42,12 @@ case $(uname) in
     ;;
   Darwin )
     echo "macos detected"
-    brew install autoconf automake dylibbundler m4 mpg123 openal-soft nasm pkg-config rubberband libtool autogen
+    brew install autoconf automake dylibbundler m4 mpg123 openal-soft nasm pkg-config rubberband libtool autogen python
     # brew caveat mentions adding openal-soft to PKG_CONFIG_PATH,
     # instead we'll hack it like so :)
     ln -f -s /usr/local/opt/openal-soft/lib/pkgconfig/openal.pc /usr/local/lib/pkgconfig/openal.pc
+    # also need python to be python3 for libsndfile build
+    ln -f -s /usr/local/opt/python/libexec/bin/python /usr/local/bin/python
     ;;
   * )
     echo "unknown"

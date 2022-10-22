@@ -5,6 +5,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Preferences where
 
+import           Control.Monad                  (unless)
 import           Control.Monad.Codec            ((=.))
 import           Control.Monad.Codec.Onyx
 import           Control.Monad.Codec.Onyx.JSON
@@ -17,6 +18,7 @@ import           GHC.Conc                       (getNumProcessors,
                                                  setNumCapabilities)
 import           GHC.Generics                   (Generic (..))
 import qualified System.Directory               as Dir
+import           System.FilePath                (takeDirectory)
 
 data Preferences = Preferences
   { prefMagma         :: MagmaSetting
@@ -82,6 +84,20 @@ readPreferences = do
 savePreferences :: (MonadIO m) => Preferences -> m ()
 savePreferences prefs = liftIO $ do
   cfg <- Dir.getXdgDirectory Dir.XdgConfig "onyx.yml"
+  let configFolder = takeDirectory cfg
+  exists <- Dir.doesDirectoryExist configFolder
+  unless exists $ do
+    -- From getXdgDirectory docs, https://github.com/haskell/directory/blob/f6b288bd96/System/Directory.hs#L1209
+    --   Note: The directory may not actually exist, in which case you would need
+    --   to create it with file mode @700@ (i.e. only accessible by the owner).
+    -- (I don't see an easy way to change the non-owner permissions without unix-only code + cpp hackery)
+    Dir.createDirectoryIfMissing True configFolder
+    perms <- Dir.getPermissions configFolder
+    Dir.setPermissions configFolder
+      $ Dir.setOwnerReadable   True
+      $ Dir.setOwnerWritable   True
+      $ Dir.setOwnerExecutable True
+      $ Dir.setOwnerSearchable True perms
   yamlEncodeFile cfg $ toJSON prefs
   applyThreads prefs
 

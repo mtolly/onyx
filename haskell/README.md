@@ -55,17 +55,33 @@ additional installations:
 
 ## Instructions
 
-  * On Windows, run the installer, then run `onyx.exe`
-    (or the installed shortcut).
+  * On Windows, run the installer, then run `onyx.exe` (or the installed
+    shortcut). Windows may label the program as untrustworthy due to not being
+    signed/verified; hopefully there is a way to work around this.
 
-  * On Mac, move `Onyx.app` to your Applications folder, and then run it.
+  * On Mac, see instructions below.
 
   * On Linux, make the `.AppImage` executable, place it wherever you like,
     and run it. Your system may also offer to install desktop integration.
 
-  * Both Windows and macOS may label the program as malware or untrustworthy.
-    Hopefully there should be ways of working around this.
-    On Mac, right click `Onyx.app` and select Open, to add a security exception.
+### Instructions for macOS
+
+Follow these instructions to allow Onyx to run correctly on macOS.
+
+  1. Extract the contents of the zip file, and move the Onyx app to the
+    Applications folder, or wherever else you want to keep it.
+
+  2. Run the following command in Terminal
+    (replace the location if you moved it somewhere other than Applications)
+
+        xattr -r -d com.apple.quarantine /Applications/Onyx.app
+
+  3. The app should now run, but may have problems loading files due to
+    permissions errors. To fix this, take a song file that is in a location such
+    as your Downloads folder, and drag and drop it onto the "Load a song"
+    button. This seems to tell macOS to give the app normal permissions to your
+    user folders, so after that you should then also be able to use the open
+    file dialog and batch mode to load songs.
 
 ## Supported Input Formats
 
