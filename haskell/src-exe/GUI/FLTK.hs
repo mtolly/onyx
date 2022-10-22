@@ -72,6 +72,7 @@ import           Data.Conduit.Audio                        (integralSample,
 import qualified Data.Connection                           as Conn
 import           Data.Default.Class                        (Default, def)
 import qualified Data.DTA.Serialize.GH2                    as D
+import           Data.DTA.Serialize.Magma                  (Gender (..))
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
@@ -79,7 +80,8 @@ import           Data.Int                                  (Int64)
 import           Data.IORef                                (IORef, modifyIORef,
                                                             newIORef, readIORef,
                                                             writeIORef)
-import           Data.List.Extra                           (findIndex, nubOrd)
+import           Data.List.Extra                           (elemIndex,
+                                                            findIndex, nubOrd)
 import qualified Data.List.NonEmpty                        as NE
 import qualified Data.Map                                  as Map
 import           Data.Maybe                                (catMaybes,
@@ -814,14 +816,16 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
                 return $ \curPart -> do
                   isChecked <- FL.getValue check
                   fn isChecked curPart
-              makeChoice :: (Enum a, Bounded a) => FL.Ref FL.TreeItem -> a -> (a -> T.Text) -> IO (IO a)
-              makeChoice itemParent cur getLabel = do
+              makeChoiceFrom :: (Eq a) => [a] -> FL.Ref FL.TreeItem -> a -> (a -> T.Text) -> IO (IO a)
+              makeChoiceFrom opts itemParent cur getLabel = do
                 Just itemChoice <- FL.addAt tree "" itemParent
                 choice <- FL.choiceNew dummyRect Nothing
-                forM_ [minBound .. maxBound] $ FL.addName choice . getLabel
-                void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $ fromEnum cur
+                forM_ opts $ FL.addName choice . getLabel
+                void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $ fromMaybe 0 $ elemIndex cur opts
                 FL.setWidget itemChoice $ Just choice
-                return $ (\(FL.AtIndex i) -> toEnum i) <$> FL.getValue choice
+                return $ (\(FL.AtIndex i) -> opts !! i) <$> FL.getValue choice
+              makeChoice :: (Eq a, Enum a, Bounded a) => FL.Ref FL.TreeItem -> a -> (a -> T.Text) -> IO (IO a)
+              makeChoice = makeChoiceFrom [minBound .. maxBound]
           mbGRYBO <- forM (partGRYBO part) $ \pg -> addType "5-Fret" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck $ gryboDifficulty pg
             return $ \isChecked curPart -> do
@@ -879,13 +883,19 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               Vocal1 -> "Solo"
               Vocal2 -> "Harmonies (2)"
               Vocal3 -> "Harmonies (3)"
+            getGender <- makeChoiceFrom [Nothing, Just Male, Just Female] itemCheck (vocalGender pv) $ \case
+              Nothing     -> "Unspecified Gender"
+              Just Male   -> "Male"
+              Just Female -> "Female"
             return $ \isChecked curPart -> do
-              diff <- getDiff
-              count <- getCount
+              diff   <- getDiff
+              count  <- getCount
+              gender <- getGender
               return curPart
                 { partVocal = guard isChecked >> Just pv
                   { vocalDifficulty = diff
-                  , vocalCount = count
+                  , vocalCount      = count
+                  , vocalGender     = gender
                   }
                 }
           return $ Just $ do
