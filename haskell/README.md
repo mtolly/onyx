@@ -74,7 +74,7 @@ Follow these instructions to allow Onyx to run correctly on macOS.
   2. Run the following command in Terminal
     (replace the location if you moved it somewhere other than Applications)
 
-        xattr -r -d com.apple.quarantine /Applications/Onyx.app
+          xattr -r -d com.apple.quarantine /Applications/Onyx.app
 
   3. The app should now run, but may have problems loading files due to
     permissions errors. To fix this, take a song file that is in a location such
@@ -125,7 +125,8 @@ Onyx can import the following song formats:
 
   * Guitar Hero II (Xbox 360) DLC (LIVE files)
 
-  * Guitar Hero III disc (Xbox 360, PS2) and DLC (Xbox 360)
+  * Guitar Hero III disc (Xbox 360, PS2) and DLC (Xbox 360, PS3),
+    Guitar Hero: Aerosmith disc (Xbox 360)
 
     * Both Xbox 360 and PS2 discs can be imported directly from `.iso`,
       or from `default.xex` (360) or `DATAP.HED` (PS2).
@@ -354,6 +355,35 @@ compilation errors.
         which is not already used for Lead
 
     To customize part assignment, use the "Load a song" mode.
+
+  * Guitar Hero III
+
+    Creates custom DLC files for Guitar Hero III, for use on a jailbroken
+    Xbox 360 (RGH or JTAG) or PlayStation 3.
+
+    * Supports lead + rhythm/bass charts, automatic HOPO forcing, star power,
+      face off sections, practice sections, and basic drum animations
+      (translated from Rock Band drum animation notes, or generated from a
+      drum chart).
+
+    * Normally GH3 will end a song shortly after the last playable note, which
+      would often be too soon. However it seems the game checks both lead and
+      rhythm tracks on your current difficulty to find the last note, so as a
+      hack for now, a dummy note is added to each difficulty on the rhythm/bass
+      track to extend the song length.
+
+    * Generated charts use MP3 audio, even on Xbox 360 where official content
+      uses the native XMA format. MP3 is much faster/easier to generate and does
+      not waste significant space in GH3 (unlike later GH games).
+
+    * On stock GH3, it is possible to load roughly 70-80 songs in the Download
+      setlist, though this number can decrease as you add scores to songs.
+
+    * **IMPORTANT**: While testing loading setlists of custom songs on the Xbox
+      360 version, it has been observed that the save data can get into a state
+      where it will no longer save, possibly due to a conflict with attempting
+      to save the high scores for customs. It is highly recommended you back up
+      any save data you care about before loading any custom songs.
 
   * Guitar Hero: Warriors of Rock
 

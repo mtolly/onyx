@@ -270,12 +270,13 @@ gh3Rules buildInfo dir gh3 = do
     shk $ copyFile' pathText out
   pathSongPak %> \out -> do
     mid <- shakeMIDI $ planDir </> "processed.mid"
-    timing <- basicTiming mid $ getAudioLength buildInfo planName plan
+    let midApplied = applyTargetMIDI (gh3_Common gh3) mid
+    timing <- basicTiming midApplied $ getAudioLength buildInfo planName plan
     let nodes =
           [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = key1, nodeFilenameCRC = key2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB $ makeMidQB key1 dlcID $ makeGH3MidQB
               songYaml
-              (applyTargetMIDI (gh3_Common gh3) mid)
+              midApplied
               timing
               (gh3_Guitar gh3)
               coopPart
@@ -459,6 +460,19 @@ makeGH3MidQB songYaml song timing partLead partRhythm partDrummer = let
     $ eventsSections (RBFile.getEventsTrack $ RBFile.s_tracks song)
   (leadTrack, leadPart  ) = makeGH3Part partLead
   (_        , rhythmPart) = makeGH3Part partRhythm
+  -- Not sure if there's a real way to extend the end of the song past the last note.
+  -- In WoR there's a special optional marker "\\L_ENDOFSONG" that does it.
+  -- However it seems like if you just put a note on either lead or rhythm of
+  -- whatever difficulty is being played, it will work to extend the song length.
+  -- So we'll add a dummy note to Rhythm/Bass on each difficulty.
+  rhythmWithEndHack = rhythmPart
+    { gh3Easy   = addEndHack $ gh3Easy   rhythmPart
+    , gh3Medium = addEndHack $ gh3Medium rhythmPart
+    , gh3Hard   = addEndHack $ gh3Hard   rhythmPart
+    , gh3Expert = addEndHack $ gh3Expert rhythmPart
+    }
+  addEndHack diff = diff { gh3Notes = gh3Notes diff <> endHack }
+  endHack = [(fromSeconds $ U.applyTempoMap (RBFile.s_tempos song) $ timingEnd timing, 1, 1)]
   makeFaceoff getPlayer
     = map (\(pos, len, _count) -> (pos, len))
     $ makeGH3Spans (RBFile.s_tempos song) (getPlayer leadTrack)
@@ -475,7 +489,7 @@ makeGH3MidQB songYaml song timing partLead partRhythm partDrummer = let
         $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack (RBFile.s_tempos song) notes
   in emptyMidQB
     { gh3Guitar          = leadPart
-    , gh3Rhythm          = rhythmPart
+    , gh3Rhythm          = rhythmWithEndHack
     , gh3TimeSignatures  = timeSigs
     , gh3FretBars        = beats
     , gh3Markers         = sections

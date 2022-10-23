@@ -119,7 +119,7 @@ crawlFolderBytes p = stackIO $ fmap (first TE.encodeUtf8) $ crawlFolder p
 
 applyTargetMIDI :: TargetCommon -> RBFile.Song (RBFile.OnyxFile U.Beats) -> RBFile.Song (RBFile.OnyxFile U.Beats)
 applyTargetMIDI tgt mid = let
-  eval = fmap (U.unapplyTempoMap $ RBFile.s_tempos mid) . evalPreviewTime False Nothing mid 0 False
+  eval = fmap (U.unapplyTempoMap $ RBFile.s_tempos mid) . evalPreviewTime False (Just RBFile.getEventsTrack) mid 0 False
   applyEnd = case tgt_End tgt >>= eval . seg_Notes of
     Nothing -> id
     Just notesEnd -> \m -> m
@@ -178,6 +178,7 @@ lastEvent RNil             = Nothing
 
 applyTargetLength :: TargetCommon -> RBFile.Song (f U.Beats) -> U.Seconds -> U.Seconds
 applyTargetLength tgt mid = let
+  -- TODO get Events track to support sections as segment boundaries
   applyEnd = case tgt_End tgt >>= evalPreviewTime False Nothing mid 0 False . seg_FadeEnd of
     Nothing   -> id
     Just secs -> min secs
@@ -413,7 +414,7 @@ loadRGB8 songYaml = case _fileAlbumArt $ _metadata songYaml of
 
 applyTargetAudio :: (MonadResource m) => TargetCommon -> RBFile.Song f -> AudioSource m Float -> AudioSource m Float
 applyTargetAudio tgt mid = let
-  eval = evalPreviewTime False Nothing mid 0 False
+  eval = evalPreviewTime False Nothing mid 0 False -- TODO get Events track to support sections as segment boundaries
   bounds seg = liftA2 (,) (eval $ seg_FadeStart seg) (eval $ seg_FadeEnd seg)
   toDuration :: U.Seconds -> Duration
   toDuration = Seconds . realToFrac

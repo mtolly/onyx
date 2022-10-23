@@ -1703,6 +1703,7 @@ evalPreviewTime leadin getEvents song padding prepadded = \case
     <$> findSection str
   where addLeadin = if leadin then (NNC.-| 0.6) else id
         addMIDIPadding = if prepadded then id else (+ padding)
+        -- TODO make this more reliable in matching section formatting
         findSection sect = getEvents >>= \f ->
           fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . snd)
             $ eventsSections $ f $ RBFile.s_tracks song

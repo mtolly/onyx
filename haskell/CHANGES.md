@@ -1,5 +1,32 @@
 # Version history
 
+## 20221023
+
+* Export to Guitar Hero III DLC (360, PS3)
+  * Supports lead + rhythm/bass charts, automatic HOPO forcing, star power,
+    face off sections, practice sections, drum animations
+    * Generated files use MP3-FSB audio on both platforms
+    * A dummy note on rhythm/bass is used as a stopgap solution to make songs
+      end at the intended time, rather than right after the last playable note
+  * Customs use a "song cache" file like GH:WoR,
+    see "Other tools" window to create
+  * Similar to WoR, it seems that it is possible for the save file to get into a
+    broken state where further saving does not work, so please back up any save
+    data you care about before loading custom songs!
+  * Note, currently around 70-80 songs can load at once in the Download setlist;
+    however, there does not appear to be a significant limit to unloaded songs
+    present in the Song Cache
+* Import support from Guitar Hero Aerosmith 360 disc
+* Import support from Guitar Hero III PS3 DLC
+* Import some missing things from GH3 DLC: face off sections,
+  drum animations (as chart)
+* Option to limit how many CPU cores are used at once
+* Better sorting for GH2 bonus songs and GH3 DLC: case insensitive,
+  ignores The/A/An, option to sort first by title or artist
+* Vocalist gender control when loading a song (#185)
+* Fix a possible crash when saving app preferences on Mac
+* Include extra instructions for fixing permissions issues on Mac
+
 ## 20220917
 
 * Support for importing from Guitar Hero III (360 disc, 360 DLC, PS2 disc)
