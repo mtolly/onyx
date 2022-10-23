@@ -6,7 +6,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 module Neversoft.Metadata where
 
-import           Control.Monad                  (forM, guard, replicateM)
+import           Control.Monad                  (forM, forM_, guard, replicateM)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace
@@ -246,7 +246,7 @@ loadGH3TextSetDLC f = case map toLower $ takeExtension f of
       readGH3TextSetDLC $ first TE.decodeLatin1 usrdir
   _      -> stackIO (getSTFSFolder f) >>= readGH3TextSetDLC
 
-buildGH3TextSet :: Preferences -> B.ByteString -> GH3Language -> [GH3TextPakQB] -> BL.ByteString
+buildGH3TextSet :: Preferences -> B.ByteString -> GH3Language -> [GH3TextPakQB] -> (BL.ByteString, [T.Text])
 buildGH3TextSet prefs dlName lang paks = let
   otherNodes = nubOrdOn (nodeFilenameKey . fst) $ paks >>= gh3OtherNodes
   unk1 = qbKeyCRC $ "1o99lm\\" <> dlName <> ".qb"
@@ -312,7 +312,10 @@ buildGH3TextSet prefs dlName lang paks = let
       }
     , BL.replicate 4 0xAB
     )
-  in buildPak $ otherNodes <> [metadataQB, end]
+  songsLog = flip map allSongData $ \(k, items) -> case parseSongInfoGH3 items of
+    Left  _    -> "[" <> T.pack (show k) <> "] (couldn't recognize metadata keys)"
+    Right song -> T.pack (show $ gh3Title song) <> " (" <> gh3Artist song <> ")"
+  in (buildPak $ otherNodes <> [metadataQB, end], songsLog)
 
 combineGH3SongCache360 :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> StackTraceT m ()
 combineGH3SongCache360 ins out = do
@@ -324,16 +327,19 @@ combineGH3SongCache360 ins out = do
   let folder = Folder
         { folderSubfolders = []
         , folderFiles =
-          [ (dlText <> ".pak.xen"       , mystery               )
-          , (dlText <> "_text.pak.xen"  , getLanguage GH3English)
-          , (dlText <> "_text_f.pak.xen", getLanguage GH3French )
-          , (dlText <> "_text_g.pak.xen", getLanguage GH3German )
-          , (dlText <> "_text_i.pak.xen", getLanguage GH3Italian)
-          , (dlText <> "_text_s.pak.xen", getLanguage GH3Spanish)
+          [ (dlText <> ".pak.xen"       , mystery                     )
+          , (dlText <> "_text.pak.xen"  , eng                         )
+          , (dlText <> "_text_f.pak.xen", fst $ getLanguage GH3French )
+          , (dlText <> "_text_g.pak.xen", fst $ getLanguage GH3German )
+          , (dlText <> "_text_i.pak.xen", fst $ getLanguage GH3Italian)
+          , (dlText <> "_text_s.pak.xen", fst $ getLanguage GH3Spanish)
           ]
         }
+      (eng, engLog) = getLanguage GH3English
       getLanguage lang = buildGH3TextSet prefs dlBytes lang
         [ pak | (lang', pak) <- sets, lang == lang' ]
+  lg $ "Found " <> show (length engLog) <> " songs"
+  forM_ engLog $ \line -> lg $ "- " <> T.unpack line
   thumb <- liftIO $ gh3Thumbnail >>= B.readFile
   liftIO $ makeCONMemory CreateOptions
     { createNames = replicate 6 "GH3 Customs Database"
@@ -360,15 +366,18 @@ combineGH3SongCachePS3 ins out = do
   mystery <- gh3MysteryScript dlBytes
   prefs <- readPreferences
   let files =
-        [ (dlText <> ".pak.ps3"       , mystery               )
-        , (dlText <> "_text.pak.ps3"  , getLanguage GH3English)
-        , (dlText <> "_text_f.pak.ps3", getLanguage GH3French )
-        , (dlText <> "_text_g.pak.ps3", getLanguage GH3German )
-        , (dlText <> "_text_i.pak.ps3", getLanguage GH3Italian)
-        , (dlText <> "_text_s.pak.ps3", getLanguage GH3Spanish)
+        [ (dlText <> ".pak.ps3"       , mystery                     )
+        , (dlText <> "_text.pak.ps3"  , eng                         )
+        , (dlText <> "_text_f.pak.ps3", fst $ getLanguage GH3French )
+        , (dlText <> "_text_g.pak.ps3", fst $ getLanguage GH3German )
+        , (dlText <> "_text_i.pak.ps3", fst $ getLanguage GH3Italian)
+        , (dlText <> "_text_s.pak.ps3", fst $ getLanguage GH3Spanish)
         ]
+      (eng, engLog) = getLanguage GH3English
       getLanguage lang = buildGH3TextSet prefs dlBytes lang
         [ pak | (lang', pak) <- sets, lang == lang' ]
+  lg $ "Found " <> show (length engLog) <> " songs"
+  forM_ engLog $ \line -> lg $ "- " <> T.unpack line
   edats <- tempDir "onyx-gh3-ps3" $ \tmp -> do
     let fin  = tmp </> "tmp.pak"
         fout = tmp </> "tmp.edat"
