@@ -1,5 +1,9 @@
 # Version history
 
+## 20221024
+
+* Fix error when generating a GH3 PS3 song cache on Windows
+
 ## 20221023
 
 * Export to Guitar Hero III DLC (360, PS3)

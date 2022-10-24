@@ -381,12 +381,12 @@ combineGH3SongCachePS3 ins out = do
   edats <- tempDir "onyx-gh3-ps3" $ \tmp -> do
     let fin  = tmp </> "tmp.pak"
         fout = tmp </> "tmp.edat"
-    fin'  <- shortWindowsPath False fin
-    fout' <- shortWindowsPath True  fout
+    fout' <- shortWindowsPath True fout
     forM files $ \(name, bs) -> do
       let nameText  = T.toUpper name <> ".EDAT"
           nameBytes = TE.encodeUtf8 nameText
-      stackIO $ BL.writeFile fin' bs
+      stackIO $ BL.writeFile fin bs
+      fin' <- shortWindowsPath False fin
       stackIO $ packNPData edatConfig fin' fout' nameBytes
       bs' <- stackIO $ BL.fromStrict <$> B.readFile fout'
       return (nameBytes, makeHandle (T.unpack nameText) $ byteStringSimpleHandle bs')
