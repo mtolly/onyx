@@ -1,0 +1,39 @@
+audio:
+  audio.0.xma:
+    file-path: audio.0.xma
+  audio.1.xma:
+    file-path: audio.1.xma
+  audio.2.xma:
+    file-path: audio.2.xma
+  audio.3.xma:
+    file-path: audio.3.xma
+metadata:
+  artist: Metallica
+  author: Onyxite, Neversoft
+  genre: Thrash Metal
+  title: All Nightmare Long
+  year: 2008
+  album: Death Magnetic
+parts:
+  bass:
+    grybo: {}
+    pro-guitar:
+      tuning:
+        base: bass-5
+        offsets: [0, -2, 0, 0, 0] # cursed BDADG tuning
+  drums:
+    drums:
+      fix-freeform: false
+      kicks: both
+      mode: full
+  guitar:
+    grybo: {}
+plans:
+  gh:
+    parts:
+      bass:
+        expr: audio.2.xma
+      guitar:
+        expr: audio.0.xma
+    song:
+      expr: audio.3.xma

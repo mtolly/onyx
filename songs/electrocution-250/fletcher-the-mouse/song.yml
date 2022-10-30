@@ -1,0 +1,55 @@
+audio:
+  album-track:
+    md5: 5c9dba2e187dcbb06cd92474ff9b4574
+    frames: 13292916
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+global:
+  file-background-image: background.jpg
+metadata:
+  album: Electric Cartoon Music From Hell
+  artist: Electrocution 250
+  author: Paturages
+  difficulty:
+    tier: 1
+  file-album-art: album.png
+  genre: Cartoon Metal
+  preview-start: 1:40.000
+  title: Fletcher the Mouse
+  track-number: 1
+  year: 2003
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+  guitar:
+    grybo:
+      difficulty:
+        tier: 6
+plans:
+  album:
+    song: album-track
+  dev:
+    song:
+      album-track
+    parts:
+      bass:
+        channels: [[0, 1], stems]
+      drums:
+        channels: [[2, 3], stems]
+      vocal:
+        channels: [[4, 5], stems]
+      other:
+        channels: [[6, 7], stems]
+targets:
+  ps:
+    game: ps
+    plan: album
+    loading-phrase: 'According to YouTube, this was originally charted in May 2011.
+      Surprisingly enough, not many notes have changed at all since then: the main
+      updates actually lie in audio, tempo map, forcing modernisation and a very few
+      extra instruments.'

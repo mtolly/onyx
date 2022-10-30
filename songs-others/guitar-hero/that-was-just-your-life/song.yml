@@ -1,0 +1,43 @@
+audio:
+  audio.0.xma:
+    file-path: audio.0.xma
+  audio.1.xma:
+    file-path: audio.1.xma
+  audio.2.xma:
+    file-path: audio.2.xma
+  audio.3.xma:
+    file-path: audio.3.xma
+metadata:
+  artist: Metallica
+  author: Onyxite, Neversoft
+  title: That Was Just Your Life
+  year: 2008
+  album: Death Magnetic
+  genre: Thrash Metal
+  file-album-art: ../my-apocalypse/album.png
+parts:
+  bass:
+    grybo: {}
+    pro-guitar:
+      tuning:
+        base: bass-5
+  drums:
+    drums:
+      kicks: both
+      mode: full
+  guitar:
+    grybo: {}
+plans:
+  gh:
+    parts:
+      bass:
+        expr: audio.2.xma
+      guitar:
+        expr: audio.0.xma
+    song:
+      expr: audio.3.xma
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass] # doesn't use G string
