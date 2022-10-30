@@ -141,6 +141,7 @@ importPowerGigSong key song folder level = do
           phraseEnd <- toList $ case nextPhraseStart of
             Nothing -> Set.lookupMax tubeEnds
             Just t  -> Set.lookupLT t tubeEnds
+          guard $ phraseEnd > phraseStart -- A.V.H. (Ozzy Osbourne) has a spurious \n in a freestyle section that we want to ignore
           let isMojo = maybe False snd $ Map.lookupLE phraseStart mojoEdges
           return (phraseStart, (phraseEnd - phraseStart, isMojo))
 
