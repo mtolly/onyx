@@ -1,3 +1,7 @@
+{-
+This is a faster + way less memory hungry parser for the MIDI file format
+than the one that comes with the `midi` package.
+-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}

@@ -3,27 +3,24 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Onyx.Harmonix.Ark where
 
-import           Control.Monad                (forM, replicateM, when)
-import           Control.Monad.IO.Class       (MonadIO, liftIO)
-import           Data.Bifunctor               (first)
-import           Data.Binary.Get              (getByteString, getInt32le,
-                                               getWord32le, getWord64le, runGet,
-                                               skip)
+import           Control.Monad          (forM, replicateM, when)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Data.Bifunctor         (first)
+import           Data.Binary.Get        (getByteString, getInt32le, getWord32le,
+                                         getWord64le, runGet, skip)
 import           Data.Bits
-import qualified Data.ByteString              as B
-import qualified Data.ByteString.Char8        as B8
-import qualified Data.ByteString.Lazy         as BL
+import qualified Data.ByteString        as B
+import qualified Data.ByteString.Char8  as B8
+import qualified Data.ByteString.Lazy   as BL
 import           Data.Int
-import           Data.List.HT                 (partitionMaybe)
-import qualified Data.List.NonEmpty           as NE
-import qualified Data.Text                    as T
-import qualified Data.Vector                  as V
-import           Data.Word                    (Word32)
-import           Onyx.Util.ByteStringBackport (lazyPackZipWith)
+import           Data.List.HT           (partitionMaybe)
+import qualified Data.List.NonEmpty     as NE
+import qualified Data.Text              as T
+import qualified Data.Vector            as V
+import           Data.Word              (Word32)
 import           Onyx.Util.Handle
-import           Onyx.Xbox.STFS               (runGetM)
-import           System.FilePath              (dropExtension, takeFileName,
-                                               (-<.>))
+import           Onyx.Xbox.STFS         (runGetM)
+import           System.FilePath        (dropExtension, takeFileName, (-<.>))
 
 data FileEntry a = FileEntry
   { fe_offset  :: Integer
@@ -168,11 +165,11 @@ decryptHdr enc = let
       else ret
   initKey = cryptRound $ runGet getInt32le enc
   initCryptStream = BL.pack $ map fromIntegral $ iterate cryptRound initKey
-  testArkVersion = runGet getInt32le $ lazyPackZipWith xor (BL.take 4 $ BL.drop 4 enc) initCryptStream
+  testArkVersion = runGet getInt32le $ BL.packZipWith xor (BL.take 4 $ BL.drop 4 enc) initCryptStream
   cryptStream = if testArkVersion < 0
     then BL.map complement initCryptStream
     else initCryptStream
-  in lazyPackZipWith xor (BL.drop 4 enc) cryptStream
+  in BL.packZipWith xor (BL.drop 4 enc) cryptStream
 
 entryFolder :: Hdr -> Folder B.ByteString (FileEntry B.ByteString)
 entryFolder entries = fromFiles $ flip map (hdr_Files entries) $ \entry -> let

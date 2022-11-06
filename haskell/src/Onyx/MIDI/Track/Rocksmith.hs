@@ -1,3 +1,7 @@
+{-
+Onyx-designed MIDI track format for storing a Rocksmith arrangement.
+(Does not support storing lower dynamic difficulty levels.)
+-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}

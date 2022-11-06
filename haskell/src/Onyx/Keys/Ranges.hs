@@ -1,3 +1,6 @@
+{- |
+Algorithm for generating automatic Pro Keys range shifts.
+-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}

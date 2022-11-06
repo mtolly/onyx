@@ -11,48 +11,44 @@ References:
 {-# LANGUAGE RecordWildCards   #-}
 module Onyx.PlayStation.PKG (PKGHeader(..), PKGMetadata(..), PKG(..), loadPKG, makePKG, tryDecryptEDAT, tryDecryptEDATs, tryDecryptEDATsInFolder, getDecryptedUSRDIR) where
 
-import           Control.Applicative          ((<|>))
-import           Control.Monad                (forM, forM_, guard, replicateM,
-                                               unless, void, when)
+import           Control.Applicative     ((<|>))
+import           Control.Monad           (forM, forM_, guard, replicateM,
+                                          unless, void, when)
 import           Control.Monad.Codec
-import           Control.Monad.IO.Class       (MonadIO)
+import           Control.Monad.IO.Class  (MonadIO)
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
-import           Crypto.Hash                  (Context, Digest, SHA1, hash,
-                                               hashInit, hashUpdates)
-import qualified Crypto.Hash.SHA1             as SHA1
+import           Crypto.Hash             (Context, Digest, SHA1, hash, hashInit,
+                                          hashUpdates)
+import qualified Crypto.Hash.SHA1        as SHA1
 import           Crypto.MAC.CMAC
 import           Data.Binary.Codec
 import           Data.Bits
-import           Data.ByteArray               (convert)
-import qualified Data.ByteString              as B
-import qualified Data.ByteString.Builder      as BB
-import qualified Data.ByteString.Char8        as B8
-import qualified Data.ByteString.Lazy         as BL
-import           Data.List                    (inits)
-import qualified Data.List.NonEmpty           as NE
-import           Data.Maybe                   (isJust)
-import           Data.Profunctor              (dimap)
-import           Numeric                      (showHex)
+import           Data.ByteArray          (convert)
+import qualified Data.ByteString         as B
+import qualified Data.ByteString.Builder as BB
+import qualified Data.ByteString.Char8   as B8
+import qualified Data.ByteString.Lazy    as BL
+import           Data.List               (inits)
+import qualified Data.List.NonEmpty      as NE
+import           Data.Maybe              (isJust)
+import           Data.Profunctor         (dimap)
+import           Numeric                 (showHex)
 import           Onyx.Codec.Binary
-import           Onyx.PlayStation.NPData      (NPDecryptConfig (..),
-                                               decryptNPData, ghworKLIC,
-                                               rockBandKLIC, rs2014KLIC)
-import           Onyx.Resources               (getResourcesPath)
-import           Onyx.StackTrace              (SendMessage, StackTraceT,
-                                               errorToWarning, lg, stackIO,
-                                               warn)
-import           Onyx.Util.ByteStringBackport (lazyPackZipWith)
-import           Onyx.Util.Files              (fixFileCase)
+import           Onyx.PlayStation.NPData (NPDecryptConfig (..), decryptNPData,
+                                          ghworKLIC, rockBandKLIC, rs2014KLIC)
+import           Onyx.Resources          (getResourcesPath)
+import           Onyx.StackTrace         (SendMessage, StackTraceT,
+                                          errorToWarning, lg, stackIO, warn)
+import           Onyx.Util.Files         (fixFileCase)
 import           Onyx.Util.Handle
-import           Onyx.Xbox.STFS               (runGetM)
-import           System.Directory             (doesFileExist)
-import           System.FilePath              ((<.>), (</>))
-import           System.IO                    (Handle, IOMode (..),
-                                               SeekMode (..), hFileSize, hSeek,
-                                               withBinaryFile)
-import           System.IO.Temp               (withSystemTempDirectory)
+import           Onyx.Xbox.STFS          (runGetM)
+import           System.Directory        (doesFileExist)
+import           System.FilePath         ((<.>), (</>))
+import           System.IO               (Handle, IOMode (..), SeekMode (..),
+                                          hFileSize, hSeek, withBinaryFile)
+import           System.IO.Temp          (withSystemTempDirectory)
 
 nullPadded :: Int -> BinaryCodec B.ByteString
 nullPadded n = dimap
@@ -197,7 +193,7 @@ nonFinalizedCrypt isArcade startIndex keySource bs = let
     key = runPut $ putWord64be i
     sha1 = SHA1.finalize $ SHA1.update shaInit $ BL.toStrict key
     in BB.byteString $ B.take 16 sha1
-  in lazyPackZipWith xor bs keyStream
+  in BL.packZipWith xor bs keyStream
 
 cryptNonFinalizedPKG :: Bool -> Word64 -> PKGHeader -> BL.ByteString -> BL.ByteString
 cryptNonFinalizedPKG isArcade startIndex = nonFinalizedCrypt isArcade startIndex . pkgQADigest

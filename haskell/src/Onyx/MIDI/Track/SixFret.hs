@@ -1,3 +1,6 @@
+{-
+Clone Hero designed MIDI track format for 6-fret (Guitar Hero Live) charts.
+-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}

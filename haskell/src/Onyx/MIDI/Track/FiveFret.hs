@@ -171,6 +171,7 @@ instance ParseTrack FiveTrack where
     fiveStrumMap     <- fiveStrumMap     =. command
     fiveFretPosition <- (fiveFretPosition =.) $ condenseMap $ eachKey each
       $ \posn -> edges $ fromEnum posn + 40
+      -- TODO does this need to check enhancedOpens to ignore high fret
     fiveTremolo      <- fiveTremolo      =. edgesLanes 126
     fiveTrill        <- fiveTrill        =. edgesLanes 127
     fiveOverdrive    <- fiveOverdrive    =. edges 116

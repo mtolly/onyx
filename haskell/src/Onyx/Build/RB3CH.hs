@@ -1,3 +1,7 @@
+{-
+Shared logic used by the build processes for RB3 and CH targets.
+(This should be refactored/split at some point...)
+-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}

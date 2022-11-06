@@ -1,4 +1,5 @@
 {- |
+VENUE track format that supports both pre-RB3 format and RBN2 format.
 Pre-RB3 venue format information from:
 <https://web.archive.org/web/20120109105129/http://creators.rockband.com:80/spec/Camera_And_Lights>
 -}
