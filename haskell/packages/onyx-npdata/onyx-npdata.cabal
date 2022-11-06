@@ -1,0 +1,22 @@
+cabal-version:  2.2
+name:           onyx-npdata
+version:        0.1
+build-type:     Simple
+
+library
+  exposed-modules:
+    Onyx.PlayStation.NPData
+  hs-source-dirs:
+    src
+  ghc-options: -Wall
+  include-dirs:
+    cbits
+  c-sources:
+    cbits/aes.c
+    cbits/ec.c
+    cbits/lz.c
+    cbits/make_npdata.c
+    cbits/sha1.c
+    cbits/utils.c
+  build-depends: base, bytestring, pureMD5
+  default-language: Haskell2010

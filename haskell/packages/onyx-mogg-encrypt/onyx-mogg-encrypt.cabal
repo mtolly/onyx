@@ -1,0 +1,22 @@
+cabal-version:  2.2
+name:           onyx-mogg-encrypt
+version:        0.1
+build-type:     Simple
+
+library
+  exposed-modules:
+    Sound.MOGG.EncryptRB1
+  hs-source-dirs:
+    src
+  ghc-options: -Wall
+  include-dirs:
+    cbits
+  c-sources:
+    cbits/aes.c
+  cxx-sources:
+    cbits/VorbisEncrypter.cpp
+    cbits/MoggcryptCpp.cpp
+  build-depends: base, bytestring
+  default-language: Haskell2010
+  extra-libraries: stdc++
+  cxx-options: -std=c++11

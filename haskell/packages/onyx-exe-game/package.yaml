@@ -1,0 +1,36 @@
+name: onyx-exe-game
+version: '20190209'
+github: mtolly/onyxite-customs
+author: Michael Tolly <miketolly@gmail.com>
+category: Distribution
+license: GPL-3
+license-file: ../../LICENSE.txt
+
+ghc-options: -Wall
+
+executables:
+
+  onyx-game:
+    source-dirs: src
+    main: src/Main.hs
+    ghc-options: -threaded -O
+    dependencies:
+    - base
+    - onyx-lib
+    - sdl2
+    - containers
+    - vector
+    - async
+    - temporary
+    - filepath
+    - resourcet
+    - transformers
+    - unordered-containers
+    - event-list
+    - midi-util
+    - gl
+    - JuicyPixels
+    - linear
+    - text
+    - onyx-lib-game
+    - RtMidi

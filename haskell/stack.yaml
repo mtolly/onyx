@@ -1,9 +1,9 @@
 packages:
-- '.'
-- '3d/'
-- 'src-exe/'
-- 'ffmpeg-binding/'
-- 'simple-handle/'
+- packages/onyx-lib
+- packages/onyx-lib-game
+- packages/onyx-exe-toolkit
+- packages/onyx-ffmpeg
+- packages/onyx-handle
 extra-deps:
 - conduit-audio-0.2.0.3
 - conduit-audio-lame-0.1.2.1
@@ -17,13 +17,13 @@ extra-deps:
 - caerbannog-1.0.0.2
 - RtMidi-0.5.0.2
 # local folders
-- game/
-- ArkTool/
-- kakasi/
-- gamecube-dsp/
-- ww2ogg/
-- make_npdata/
-- rb1-mogg-encrypt/
+- packages/onyx-exe-game
+- packages/onyx-arktool
+- packages/onyx-kakasi
+- packages/onyx-gamecube-dsp
+- packages/onyx-wwise
+- packages/onyx-npdata
+- packages/onyx-mogg-encrypt
 - cabal/Cabal/ # this submodule should just be a git reference, but stack appears to not apply it correctly that way
 # git repos
 - git: https://github.com/mtolly/midi

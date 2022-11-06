@@ -1,0 +1,135 @@
+name: onyx-lib
+version: '20221024'
+github: mtolly/onyxite-customs
+author: Michael Tolly <miketolly@gmail.com>
+category: Distribution
+license: GPL-3
+license-file: ../../LICENSE.txt
+
+extra-source-files:
+- cbits/*.h
+
+ghc-options: -Wall
+
+# this doesn't actually customize anything,
+# it just makes sure that we use the patched Cabal
+# which works around a c2hs invocation issue on Windows
+custom-setup:
+  dependencies:
+  - base
+  - Cabal
+
+library:
+
+  source-dirs: src
+  dependencies:
+  - base
+  - shake
+  - hashable
+  - directory
+  - temporary
+  - aeson
+  - text
+  - unordered-containers
+  - filepath
+  - yaml
+  - event-list
+  - non-negative
+  - midi
+  - containers
+  - bytestring
+  - process
+  - resourcet
+  - hsndfile
+  - JuicyPixels
+  - conduit
+  - vector
+  - transformers
+  - mtl
+  - extra
+  - pureMD5
+  - binary
+  - array
+  - base64-bytestring
+  - prettyprinter
+  - monad-loops
+  - time
+  - ini
+  - executable-path
+  - split
+  - data-default-class
+  - utility-ht
+  - scientific
+  - template-haskell
+  - MonadRandom
+  - random
+  - zip
+  - silently
+  - codec
+  - deepseq
+  - process-extras
+  - path
+  - path-io
+  - exceptions
+  - stm
+  - async
+  - req
+  - profunctors
+  - cryptonite
+  - memory
+  - unliftio-core
+  - xml
+  - zlib
+  - uuid
+  - cryptohash-sha1
+  - caerbannog
+  - stache
+  # my libraries
+  - jammittools
+  - midi-util
+  - conduit-audio
+  - conduit-audio-sndfile
+  - conduit-audio-samplerate
+  - conduit-audio-lame
+  - conduit-audio-mpg123
+  - rubberband
+  - JuicyPixels-stbir
+  - onyx-arktool
+  - onyx-kakasi
+  - onyx-gamecube-dsp
+  - onyx-wwise
+  - onyx-ffmpeg
+  - onyx-handle
+  - onyx-npdata
+  - onyx-mogg-encrypt
+
+  ghc-options: -O
+  build-tools:
+  - c2hs >= 0.27.1
+  - alex
+  - happy
+
+  include-dirs:
+  - cbits/
+  c-sources:
+  - cbits/stb_dxt.c
+  - cbits/encode_vag.c
+  extra-libraries:
+  - stdc++
+  # - vorbisfile # needed for ghci to work, even though it's under pkg-config?
+  pkg-config-dependencies:
+  - vorbisfile
+
+  when:
+  - condition: os(mingw32)
+    then:
+      extra-libraries: shell32 ole32
+      cpp-options: -DWINDOWS
+      c-sources: cbits/winfiles.c
+      dependencies: Win32
+    else:
+      dependencies: mountpoints
+  - condition: os(darwin)
+    cpp-options: -DMACOSX
+    c-sources: cbits/macfiles.m
+    frameworks: AppKit

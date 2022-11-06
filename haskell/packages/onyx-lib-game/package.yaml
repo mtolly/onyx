@@ -1,0 +1,45 @@
+name: onyx-lib-game
+version: '20190209'
+github: mtolly/onyxite-customs
+author: Michael Tolly <miketolly@gmail.com>
+category: Distribution
+license: GPL-3
+license-file: ../../LICENSE.txt
+
+ghc-options: -Wall
+
+library:
+
+  source-dirs: src
+  dependencies:
+  - base
+  - onyx-lib
+  - onyx-ffmpeg
+  - containers
+  - vector
+  - async
+  - temporary
+  - filepath
+  - resourcet
+  - transformers
+  - unordered-containers
+  - event-list
+  - midi-util
+  - gl
+  - JuicyPixels
+  - bytestring
+  - linear
+  - text
+  - non-negative
+  - utility-ht
+  - OpenAL
+  - conduit
+  - conduit-audio
+  - conduit-audio-sndfile
+  - wavefront
+  - codec
+  - directory
+  - path
+  - stm
+  - freetype2
+  - split

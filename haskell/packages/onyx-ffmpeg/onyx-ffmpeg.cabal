@@ -1,0 +1,34 @@
+cabal-version:  1.12
+name:           onyx-ffmpeg
+version:        0.1
+build-type:     Simple
+
+library
+  exposed-modules:
+    Onyx.FFMPEG
+  hs-source-dirs:
+    src
+  ghc-options: -Wall
+  build-tools: c2hs
+  build-depends:
+      base
+    , conduit-audio
+    , conduit
+    , unliftio
+    , resourcet
+    , vector
+    , onyx-handle
+    , async
+    , stm
+  default-language: Haskell2010
+  pkgconfig-depends:
+      libavutil
+    , libavformat
+    , libavcodec
+    , libswscale
+    , libavfilter
+    , libswresample
+  c-sources:
+    cbits/ffmacros.c
+  include-dirs:
+    cbits

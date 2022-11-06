@@ -2,10 +2,10 @@ win/
 mac/
 installer.nsi
 onyx-*.exe
-onyxite-customs-lib.cabal
-game/onyx-game.cabal
-3d/onyx-game-3d.cabal
-src-exe/onyxite-customs-tool.cabal
+/packages/onyx-lib/*.cabal
+/packages/onyx-exe-game/*.cabal
+/packages/onyx-lib-game/*.cabal
+/packages/onyx-exe-toolkit/*.cabal
 stack.yaml.lock
 onyx-20*
 *.AppImage

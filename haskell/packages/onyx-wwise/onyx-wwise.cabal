@@ -1,0 +1,25 @@
+cabal-version:  2.2
+name:           onyx-wwise
+version:        0.1
+build-type:     Simple
+
+library
+  exposed-modules:
+    Onyx.Audio.WWise
+  hs-source-dirs:
+    src
+  ghc-options: -Wall
+  include-dirs:
+    cbits
+  c-sources:
+    cbits/crc.c
+    cbits/revorb.c
+  cxx-sources:
+    cbits/codebook.cpp
+    cbits/haskell.cpp
+    cbits/wwriff.cpp
+  build-depends: base, bytestring
+  default-language: Haskell2010
+  extra-libraries: stdc++
+  pkgconfig-depends: ogg, vorbis
+  cxx-options: -std=c++11
