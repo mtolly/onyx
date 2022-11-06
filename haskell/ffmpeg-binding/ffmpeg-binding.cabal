@@ -5,7 +5,7 @@ build-type:     Simple
 
 library
   exposed-modules:
-    FFMPEG
+    Onyx.FFMPEG
   hs-source-dirs:
     src
   ghc-options: -Wall

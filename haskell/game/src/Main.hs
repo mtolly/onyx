@@ -4,13 +4,13 @@
 {-# LANGUAGE TupleSections     #-}
 module Main where
 
-import           Config
+import           Onyx.Project
 import           Control.Concurrent             (threadDelay)
 import           Control.Exception              (bracket, bracket_, throwIO)
 import           Control.Monad                  (forM, forM_, guard, void)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.Trans.Resource   (MonadResource, runResourceT)
-import           Control.Monad.Trans.StackTrace
+import           Onyx.StackTrace
 import           Data.Fixed
 import qualified Data.HashMap.Strict            as HM
 import           Data.List                      (isPrefixOf)
@@ -20,14 +20,14 @@ import qualified Data.Text                      as T
 import qualified Data.Vector.Storable           as VS
 import           Data.Word                      (Word8)
 import           Graphics.GL.Core33
-import           OpenProject
-import qualified RhythmGame.Audio               as RGAudio
-import           RhythmGame.Graphics            (WindowDims (..),
+import           Onyx.Import
+import qualified Onyx.Game.Audio               as RGAudio
+import           Onyx.Game.Graphics            (WindowDims (..),
                                                  drawDrumPlayFull, drawTracks,
                                                  loadGLStuff)
-import qualified RhythmGame.PNF                 as PNF
-import           RhythmGame.Track
-import qualified RockBand.Codec.FullDrums       as FD
+import qualified Onyx.Game.Time                 as PNF
+import           Onyx.Game.Track
+import qualified Onyx.MIDI.Track.Drums.Full       as FD
 import           SDL                            (($=))
 import qualified SDL
 import qualified Sound.RtMidi                   as Rt

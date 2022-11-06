@@ -5,7 +5,7 @@ build-type:     Simple
 
 library
   exposed-modules:
-    NPData
+    Onyx.PlayStation.NPData
   hs-source-dirs:
     src
   ghc-options: -Wall

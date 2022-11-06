@@ -2,17 +2,17 @@
 {-# LANGUAGE LambdaCase #-}
 module Main (main) where
 
-import           CommandLine                    (commandLine)
-import           Control.Exception              (displayException)
-import           Control.Monad                  (unless)
-import           Control.Monad.IO.Class         (MonadIO (liftIO))
-import           Control.Monad.Trans.Resource   (runResourceT)
-import           Control.Monad.Trans.StackTrace
-import           GUI.FLTK                       (launchGUI)
-import           System.Environment             (getArgs)
+import           Control.Exception            (displayException)
+import           Control.Monad                (unless)
+import           Control.Monad.IO.Class       (MonadIO (liftIO))
+import           Control.Monad.Trans.Resource (runResourceT)
+import           Onyx.CommandLine             (commandLine)
+import           Onyx.GUI                     (launchGUI)
+import           Onyx.StackTrace
+import           System.Environment           (getArgs)
 import           System.Exit
-import           System.Info                    (os)
-import           System.IO                      (hPutStr, hPutStrLn, stderr)
+import           System.Info                  (os)
+import           System.IO                    (hPutStr, hPutStrLn, stderr)
 import           System.Process
 
 checkShell :: (SendMessage m, MonadIO m) => String -> StackTraceT m ()

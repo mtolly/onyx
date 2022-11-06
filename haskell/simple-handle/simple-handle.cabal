@@ -5,7 +5,7 @@ build-type:     Simple
 
 library
   exposed-modules:
-    Data.SimpleHandle
+    Onyx.Util.Handle
   hs-source-dirs:
     src
   ghc-options: -Wall
