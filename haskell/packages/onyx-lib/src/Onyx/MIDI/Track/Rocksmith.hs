@@ -624,7 +624,7 @@ buildRS tmap capo trk = do
       makeTemplate cinfo notes = let
         sortedNotes = sort [(str, fret) | (fret, str, _) <- notes]
         assignFingers []       []                = return []
-        assignFingers []       ns                = do
+        assignFingers []       _ns               = do
           -- when (any ((/= 0) . snd) ns) $ warn $ "No fingers assigned for chord: " <> show ns
           return []
         assignFingers fs       ((str, 0) : rest) = ((str, 0, Nothing) :) <$> assignFingers fs rest

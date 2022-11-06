@@ -147,7 +147,7 @@ fromGPIF gpif = do
               n : _ -> return n
             let enabled = [x | Property x PropertyEnable <- props]
                 htype = listToMaybe [x | Property "HarmonicType" (PropertyHType x) <- props]
-                slide = listToMaybe [x | Property "Slide" (PropertyFlags x) <- props]
+                _slide = listToMaybe [x | Property "Slide" (PropertyFlags x) <- props]
                 mods = concat
                   [ [ModPalmMute      | elem "PalmMuted" enabled]
                   , [ModMute          | elem "Muted"     enabled]

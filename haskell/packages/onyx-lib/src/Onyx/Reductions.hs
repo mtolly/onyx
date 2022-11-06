@@ -79,7 +79,6 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
   -- Step: simplify 3-note (or more) chords and GO chords (or GB and RO chords on medium)
   gnotes3 = flip fmap gnotes2 $ \(GuitarNote cols ntype len) -> let
     cols' = case diff of
-      Expert -> cols
       Hard   -> case cols of
         _ : _ : _ : _ -> case (minimum cols, maximum cols) of
           (Five.Green, Five.Orange) -> [Five.Green, Five.Blue]
@@ -116,7 +115,6 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
           , if isAligned divn bts then 0 else 1
           ]
         divn = case diff of
-          Expert -> 0.25 -- doesn't matter
           Hard   -> 0.5
           Medium -> 1
           Easy   -> 2
@@ -124,7 +122,6 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
   handlePosns kept []             = kept
   handlePosns kept (posn : posns) = let
     padding = case diff of
-      Expert -> 0
       Hard   -> 0.5
       Medium -> 1
       Easy   -> 2
@@ -140,7 +137,6 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
   -- Step: for hard, only hopo chords and sustained notes
   -- for easy/medium, all strum
   gnotes5 = case diff of
-    Expert -> gnotes4
     Hard -> flip fmap gnotes4 $ \case
       GuitarNote [col] HOPO Nothing -> GuitarNote [col] Strum Nothing
       gnote                         -> gnote
@@ -157,12 +153,10 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
     then gnotes6
     else RTB.fromPairList $ fixJumps $ RTB.toPairList gnotes6
   jumpDiff = case diff of
-    Expert -> 4
     Hard   -> 3
     Medium -> 2
     Easy   -> 2
   jumpTime = case diff of
-    Expert -> 0
     Hard   -> 0.5
     Medium -> 1
     Easy   -> 2
@@ -186,7 +180,6 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
     x : xs -> x : fixHOPOs xs
   -- Step: bring back sustains for quarter note gap on medium/easy
   gnotes9 = case diff of
-    Expert -> gnotes8
     Hard   -> gnotes8
     _      -> RTB.fromPairList $ pullBackSustains $ RTB.toPairList gnotes8
   pullBackSustains = \case
@@ -258,7 +251,6 @@ pkReduce diff   mmap od diffEvents = let
   -- Step: simplify chords
   pknotes3 = flip fmap pknotes2 $ \(PKNote ps len) -> let
     ps' = case diff of
-      Expert -> ps
       Hard   -> case ps of
         [x] -> [x]
         [x, y] -> [x, y]
@@ -292,7 +284,6 @@ pkReduce diff   mmap od diffEvents = let
           , if isAligned divn bts then 0 else 1
           ]
         divn = case diff of
-          Expert -> 0.25 -- doesn't matter
           Hard   -> 0.5
           Medium -> 1
           Easy   -> 2
@@ -300,7 +291,6 @@ pkReduce diff   mmap od diffEvents = let
   handlePosns kept []             = kept
   handlePosns kept (posn : posns) = let
     padding = case diff of
-      Expert -> 0
       Hard   -> 0.5
       Medium -> 1
       Easy   -> 2
@@ -329,7 +319,6 @@ pkReduce diff   mmap od diffEvents = let
       in PKNote ps' len
   -- Step: bring back sustains for quarter note gap on medium/easy
   pknotes6 = case diff of
-    Expert -> pknotes5
     Hard   -> pknotes5
     _      -> RTB.fromPairList $ pullBackSustains $ RTB.toPairList pknotes5
   pullBackSustains = \case

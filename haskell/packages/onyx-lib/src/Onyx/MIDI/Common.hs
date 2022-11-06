@@ -176,12 +176,11 @@ eachDifficulty
   -> RTB.T t a
 eachDifficulty f rtb = let
   (diffEvents, rtb') = RTB.partitionMaybe unmakeDiffEvent rtb
-  [e, m, h, x] = flip map [Easy, Medium, Hard, Expert] $ \diff ->
-    flip RTB.mapMaybe diffEvents $ \(diff', evt) -> guard (diff == diff') >> return evt
-  e' = fmap (makeDiffEvent Easy  ) $ f e
-  m' = fmap (makeDiffEvent Medium) $ f m
-  h' = fmap (makeDiffEvent Hard  ) $ f h
-  x' = fmap (makeDiffEvent Expert) $ f x
+  findDifficulty diff = RTB.mapMaybe (\(diff', evt) -> guard (diff == diff') >> return evt) diffEvents
+  e' = fmap (makeDiffEvent Easy  ) $ f $ findDifficulty Easy
+  m' = fmap (makeDiffEvent Medium) $ f $ findDifficulty Medium
+  h' = fmap (makeDiffEvent Hard  ) $ f $ findDifficulty Hard
+  x' = fmap (makeDiffEvent Expert) $ f $ findDifficulty Expert
   in foldr RTB.merge rtb' [e', m', h', x']
 
 data Edge s a

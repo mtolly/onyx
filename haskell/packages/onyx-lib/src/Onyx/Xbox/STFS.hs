@@ -480,8 +480,8 @@ data FileEntry = FileEntry
   , fe_AccessTimestamp :: Word32
   } deriving (Eq, Show)
 
-readFatTime :: Word32 -> LocalTime
-readFatTime ts = LocalTime
+_readFatTime :: Word32 -> LocalTime
+_readFatTime ts = LocalTime
   { localDay = fromGregorian
     (1980 + fromIntegral (ts `shiftR` 25)) -- year
     (fromIntegral $ (ts `shiftR` 21) .&. 0xF) -- month
@@ -493,8 +493,8 @@ readFatTime ts = LocalTime
     }
   }
 
-showFatTime :: LocalTime -> Word32
-showFatTime lt = let
+_showFatTime :: LocalTime -> Word32
+_showFatTime lt = let
   (y, m, d) = toGregorian $ localDay lt
   in foldr (.|.) 0
     [ fromIntegral (y - 1980) `shiftL` 25
