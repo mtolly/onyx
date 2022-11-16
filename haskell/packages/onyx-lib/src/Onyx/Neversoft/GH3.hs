@@ -19,7 +19,7 @@ import qualified Data.Text                        as T
 import           Data.Word                        (Word32)
 import           Onyx.FeedBack.Load               (TrackEvent (..), emitTrack)
 import           Onyx.Guitar                      (HOPOsAlgorithm (..), emit5',
-                                                   guitarify', strumHOPOTap')
+                                                   guitarify', strumHOPOTap)
 import           Onyx.MIDI.Common                 (Difficulty (..),
                                                    StrumHOPOTap (..))
 import qualified Onyx.MIDI.Track.Drums            as D
@@ -453,7 +453,7 @@ makeGH3TrackNotes tmap newSigs newFretbars notes = let
   -- we translate from the original midi tempo map to the way gh3 will see it,
   -- for purposes of computing the default hopos (so we know when to force).
   -- sustain lengths aren't right here but they don't matter.
-  defHOPOs = strumHOPOTap' HOPOsGH3 hopoThreshold
+  defHOPOs = strumHOPOTap HOPOsGH3 hopoThreshold
     $ fmap (\((color, _), len) -> (color, len))
     $ U.unapplyTempoTrack newTempos $ U.applyTempoTrack tmap notes
   hopoThreshold :: U.Beats

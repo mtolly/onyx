@@ -209,7 +209,7 @@ emitTrack hopoThreshold trk = let
   gnotes = RTB.flatten $ fmap nubOrd $ RTB.collectCoincident $ flip RTB.mapMaybe trk $ \case
     TrackNote x len -> Just (x, guard (len /= NNC.zero) >> Just len)
     _               -> Nothing
-  gh = G.strumHOPOTap' G.HOPOsGH3 hopoThreshold gnotes
+  gh = G.strumHOPOTap G.HOPOsGH3 hopoThreshold gnotes
   forces = RTB.mapMaybe (\case TrackForce t -> Just t; _ -> Nothing) trk
   taps   = RTB.mapMaybe (\case TrackTap   t -> Just t; _ -> Nothing) trk
   applied = applyChartSwitch forces $ applyChartSwitch taps gh

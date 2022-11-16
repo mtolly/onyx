@@ -20,7 +20,7 @@ import qualified Data.Vector                      as V
 import           Onyx.Audio
 import           Onyx.Codec.XML
 import           Onyx.Guitar                      (HOPOsAlgorithm (..), emit5',
-                                                   strumHOPOTap')
+                                                   strumHOPOTap)
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (Difficulty (..))
 import qualified Onyx.MIDI.Track.File             as RBFile
@@ -109,7 +109,7 @@ songToMidi song = let
   threshold = case NE.nonEmpty $ catMaybes [ftHammerOnTime $ songProperties song, ftPullOffTime $ songProperties song] of
     Nothing -> 0.25
     Just ne -> realToFrac $ maximum ne
-  gtr = emit5' $ U.unapplyTempoTrack tempos $ strumHOPOTap' HOPOsRBGuitar threshold
+  gtr = emit5' $ U.unapplyTempoTrack tempos $ strumHOPOTap HOPOsRBGuitar threshold
     $ RTB.fromAbsoluteEventList
     $ ATB.fromPairList
     $ sort

@@ -180,8 +180,8 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
     x : xs -> x : fixHOPOs xs
   -- Step: bring back sustains for quarter note gap on medium/easy
   gnotes9 = case diff of
-    Hard   -> gnotes8
-    _      -> RTB.fromPairList $ pullBackSustains $ RTB.toPairList gnotes8
+    Hard -> gnotes8
+    _    -> RTB.fromPairList $ pullBackSustains $ RTB.toPairList gnotes8
   pullBackSustains = \case
     [] -> []
     (t1, GuitarNote cols1 ntype1 (Just l1)) : rest@((t2, _) : _) -> let
@@ -198,11 +198,11 @@ readGuitarNotes :: Maybe Int -> FiveDifficulty U.Beats -> RTB.T U.Beats (GuitarN
 readGuitarNotes hopoThres fd
   = fmap (\(notes, len) -> GuitarNote (map fst notes) (snd $ head notes) len)
   . guitarify'
-  . noOpenNotes'
+  . noOpenNotes
   . case hopoThres of
     Nothing -> fmap (\(col, len) -> ((col, Strum), len))
-    Just i  -> applyForces (getForces5 fd) . strumHOPOTap' HOPOsRBGuitar (fromIntegral i / 480)
-  $ closeNotes' fd
+    Just i  -> applyForces (getForces5 fd) . strumHOPOTap HOPOsRBGuitar (fromIntegral i / 480)
+  $ computeFiveFretNotes fd
 
 showGuitarNotes :: Bool -> RTB.T U.Beats (GuitarNote U.Beats) -> FiveDifficulty U.Beats
 showGuitarNotes isKeys trk = let
@@ -319,8 +319,8 @@ pkReduce diff   mmap od diffEvents = let
       in PKNote ps' len
   -- Step: bring back sustains for quarter note gap on medium/easy
   pknotes6 = case diff of
-    Hard   -> pknotes5
-    _      -> RTB.fromPairList $ pullBackSustains $ RTB.toPairList pknotes5
+    Hard -> pknotes5
+    _    -> RTB.fromPairList $ pullBackSustains $ RTB.toPairList pknotes5
   pullBackSustains = \case
     [] -> []
     (t1, PKNote ps1 (Just l1)) : rest@((t2, _) : _) -> let

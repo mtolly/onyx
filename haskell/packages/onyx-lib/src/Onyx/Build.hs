@@ -45,7 +45,8 @@ import           Onyx.Build.RockBand
 import           Onyx.Build.Rocksmith
 import           Onyx.Codec.JSON                  (loadYaml)
 import qualified Onyx.DTXMania.DTX                as DTX
-import           Onyx.Guitar                      (guitarify', openNotes')
+import           Onyx.Guitar                      (computeFiveFretNotes,
+                                                   guitarify')
 import           Onyx.Harmonix.MOGG
 import           Onyx.Image.DTX
 import           Onyx.Keys.Ranges
@@ -159,7 +160,7 @@ dtxRules buildInfo dir dtx = do
           Nothing          -> RTB.empty
           Just (part, _pg) -> let
             notes
-              = maybe RTB.empty (guitarify' . openNotes')
+              = maybe RTB.empty (guitarify' . computeFiveFretNotes)
               $ Map.lookup Expert
               $ fiveDifficulties
               $ maybe mempty (fst . RBFile.selectGuitarTrack RBFile.FiveTypeGuitarExt)

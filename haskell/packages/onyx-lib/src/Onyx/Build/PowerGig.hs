@@ -23,8 +23,8 @@ import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.FSB                   (writeXMA2)
 import           Onyx.Build.Common
-import           Onyx.Guitar                      (guitarify', openNotes',
-                                                   strumHOPOTap')
+import           Onyx.Guitar                      (computeFiveFretNotes,
+                                                   guitarify', strumHOPOTap)
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Track.File             (shakeMIDI)
 import qualified Onyx.MIDI.Track.File             as RBFile
@@ -141,7 +141,7 @@ pgRules buildInfo dir pg = do
               src = RBFile.getFlexPart (pg_Guitar pg) $ RBFile.s_tracks mid
               (trackOrig, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitar src
               notes :: RTB.T U.Beats ([(Maybe Color, StrumHOPOTap)], Maybe U.Beats)
-              notes = guitarify' $ strumHOPOTap' algo (fromIntegral (gryboHopoThreshold grybo) / 480) $ openNotes'
+              notes = guitarify' $ strumHOPOTap algo (fromIntegral (gryboHopoThreshold grybo) / 480) $ computeFiveFretNotes
                 $ fromMaybe mempty $ Map.lookup Expert $ fiveDifficulties trackOrig
               in PG.GELS
                 { gelsUnk1      = 2

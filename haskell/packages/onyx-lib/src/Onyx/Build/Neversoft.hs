@@ -29,13 +29,13 @@ import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.Build.RB3CH                 (BasicTiming (..),
                                                    basicTiming)
-import           Onyx.Guitar                      (applyForces, emit5',
+import           Onyx.Guitar                      (applyForces,
+                                                   computeFiveFretNotes, emit5',
                                                    fixSloppyNotes, getForces5,
                                                    noLowerExtSustains,
-                                                   openNotes',
                                                    standardBlipThreshold,
                                                    standardSustainGap,
-                                                   strumHOPOTap')
+                                                   strumHOPOTap)
 import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
                                                    StrumHOPOTap (..),
                                                    joinEdgesSimple,
@@ -255,9 +255,9 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
       notes
         = worGuitarEdits
         . applyForces (getForces5 fd)
-        . strumHOPOTap' algo (fromIntegral (gryboHopoThreshold grybo) / 480)
+        . strumHOPOTap algo (fromIntegral (gryboHopoThreshold grybo) / 480)
         . fixSloppyNotes (10 / 480)
-        . openNotes'
+        . computeFiveFretNotes
         $ fd
         :: RTB.T U.Beats ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
       taps = pullBackTapEnds' notes $ F.fiveTap $ emit5' notes

@@ -367,7 +367,7 @@ drumsToFive
 drumsToFive song drums = FiveTrack
   -- Simple conversion of drums chart to 5-fret
   { fiveDifficulties = flip fmap (drumDifficulties drums) $ \dd ->
-    emit5' $ strumHOPOTap' HOPOsRBGuitar (170/480) $ flip fmap (drumGems dd) $ \(gem, _velocity) -> let
+    emit5' $ strumHOPOTap HOPOsRBGuitar (170/480) $ flip fmap (drumGems dd) $ \(gem, _velocity) -> let
       color = case gem of
         RBDrums.Kick                 -> RBFive.Green
         RBDrums.Red                  -> RBFive.Red
@@ -441,22 +441,22 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
     forRB3 = fiveEachDiff $ \fd ->
         emit5'
       . fromClosed'
-      . no5NoteChords'
-      . noOpenNotes'
+      . no5NoteChords
+      . noOpenNotes
       . noTaps'
       . (if toKeys then id else noExtendedSustains' standardBlipThreshold gap)
       . applyForces (getForces5 fd)
-      . strumHOPOTap' algo (fromIntegral ht / 480)
+      . strumHOPOTap algo (fromIntegral ht / 480)
       . fixSloppyNotes (10 / 480)
       . maybe id (\x -> breRemoveBlips x) breRemover -- note: lambda needed for GHC 9+ (if DeepSubsumption not on) due to forall weirdness
-      . closeNotes'
+      . computeFiveFretNotes
       $ fd
     forPS = fiveEachDiff $ \fd ->
         emit5'
       . applyForces (getForces5 fd)
-      . strumHOPOTap' algo (fromIntegral ht / 480)
+      . strumHOPOTap algo (fromIntegral ht / 480)
       . fixSloppyNotes (10 / 480)
-      . openNotes'
+      . computeFiveFretNotes
       $ fd
     chSPFix ft = ft { fiveOverdrive = fixTapOff $ fiveOverdrive ft }
     forAll
@@ -618,7 +618,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           ( \sd ->
             emit6'
           . applyForces (getForces6 sd)
-          . strumHOPOTap' HOPOsRBGuitar (fromIntegral (ghlHopoThreshold ghl) / 480)
+          . strumHOPOTap HOPOsRBGuitar (fromIntegral (ghlHopoThreshold ghl) / 480)
           . edgeBlips_ minSustainLengthRB
           $ sixGems sd
           ) $ RBFile.onyxPartSix $ RBFile.getFlexPart guitarPart trks
@@ -628,7 +628,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           ( \sd ->
             emit6'
           . applyForces (getForces6 sd)
-          . strumHOPOTap' HOPOsRBGuitar (fromIntegral (ghlHopoThreshold ghl) / 480)
+          . strumHOPOTap HOPOsRBGuitar (fromIntegral (ghlHopoThreshold ghl) / 480)
           . edgeBlips_ minSustainLengthRB
           $ sixGems sd
           ) $ RBFile.onyxPartSix $ RBFile.getFlexPart bassPart trks

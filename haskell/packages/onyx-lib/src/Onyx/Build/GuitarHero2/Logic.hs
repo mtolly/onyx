@@ -264,13 +264,13 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
           toGtr = fiveEachDiff $ \fd ->
               emit5'
             . fromClosed'
-            . noOpenNotes'
+            . noOpenNotes
             . noTaps'
             . noExtendedSustains' standardBlipThreshold gap
             . applyForces (getForces5 fd)
-            . strumHOPOTap' algo (fromIntegral ht / 480)
+            . strumHOPOTap algo (fromIntegral ht / 480)
             . fixSloppyNotes (10 / 480)
-            . closeNotes'
+            . computeFiveFretNotes
             $ fd
           in makePartGuitar fpart $ gryboComplete (Just ht) mmap $ toGtr trackOrig
       makeDrum fpart = case getPart fpart song >>= partDrums of

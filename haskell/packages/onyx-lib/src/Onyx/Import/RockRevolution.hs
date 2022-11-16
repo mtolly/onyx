@@ -107,7 +107,6 @@ importRRGuitarBass rr = let
     , F.fiveForceHOPO = forceEdges $ rrfHOPOs rr
     , F.fiveTap = RTB.empty
     , F.fiveOpen = RTB.empty
-    , F.fiveOnyxClose = RTB.empty
     , F.fiveGems = RTB.merge (rrfStrums rr) (rrfHOPOs rr)
     }
 

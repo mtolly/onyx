@@ -186,7 +186,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
         | not $ F.nullFive $ RBFile.onyxPartKeys      part -> (RBFile.onyxPartKeys      part, True )
         | otherwise                                        -> (RBFile.onyxPartGuitar    part, False)
     thisDiff = fromMaybe mempty $ Map.lookup diff $ F.fiveDifficulties src
-    withOpens = openNotes' thisDiff
+    withOpens = computeFiveFretNotes thisDiff
     ons = fmap fst withOpens
     assigned :: RTB.T U.Beats (LongNote Bool (Maybe F.Color, StrumHOPOTap))
     assigned
@@ -194,7 +194,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       $ fmap (\(a, (b, c)) -> (a, b, c))
       $ applyStatus1 False (RTB.normalize $ F.fiveOverdrive src)
       $ applyForces (getForces5 thisDiff)
-      $ strumHOPOTap' (if isKeys then HOPOsRBKeys else HOPOsRBGuitar) hopoThreshold
+      $ strumHOPOTap (if isKeys then HOPOsRBKeys else HOPOsRBGuitar) hopoThreshold
       $ withOpens
     assignedMap :: Map.Map Double (Map.Map (Maybe F.Color) (PNF.PNF PNF.IsOverdrive StrumHOPOTap))
     assignedMap

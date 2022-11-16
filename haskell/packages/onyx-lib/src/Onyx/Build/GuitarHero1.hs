@@ -167,13 +167,13 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
           toGtr = fiveEachDiff $ \fd ->
               emit5'
             . fromClosed'
-            . noOpenNotes'
+            . noOpenNotes
             . noTaps'
             . noExtendedSustains' standardBlipThreshold gap
             . applyForces (getForces5 fd)
-            . strumHOPOTap' algo (fromIntegral ht / 480)
+            . strumHOPOTap algo (fromIntegral ht / 480)
             . fixSloppyNotes (10 / 480)
-            . closeNotes'
+            . computeFiveFretNotes
             $ fd
           in gryboComplete (Just ht) mmap $ toGtr trackOrig
       getFive = F.selectGuitarTrack F.FiveTypeGuitar

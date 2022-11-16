@@ -325,8 +325,8 @@ processFive algo hopoThreshold tmap trk = makeDifficulties $ \diff -> let
   thisDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk
   assigned
     = applyForces (getForces5 thisDiff)
-    $ strumHOPOTap' algo hopoThreshold
-    $ openNotes' thisDiff
+    $ strumHOPOTap algo hopoThreshold
+    $ computeFiveFretNotes thisDiff
   assigned' = U.trackJoin $ flip fmap assigned $ \((color, sht), mlen) -> case mlen of
     Nothing  -> RTB.singleton 0 $ Blip sht color
     Just len -> RTB.fromPairList [(0, NoteOn sht color), (len, NoteOff color)]
@@ -354,7 +354,7 @@ processSix hopoThreshold tmap trk = makeDifficulties $ \diff -> let
   assigned :: RTB.T U.Beats ((Maybe GHL.Fret, StrumHOPOTap), Maybe U.Beats)
   assigned
     = applyForces (getForces6 thisDiff)
-    $ strumHOPOTap' HOPOsRBGuitar hopoThreshold $ edgeBlips_ minSustainLengthRB $ GHL.sixGems thisDiff
+    $ strumHOPOTap HOPOsRBGuitar hopoThreshold $ edgeBlips_ minSustainLengthRB $ GHL.sixGems thisDiff
   onlyKey :: (Eq a) => a -> RTB.T U.Beats ((a, b), c) -> RTB.T U.Beats (((), b), c)
   onlyKey fret trips = flip RTB.mapMaybe trips $ \case
     ((fret', sht), mlen) -> guard (fret' == fret) >> Just (((), sht), mlen)

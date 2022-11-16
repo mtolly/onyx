@@ -24,22 +24,11 @@ data GuitarEvent a
   | Note a
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-openNotes' :: FiveDifficulty U.Beats -> RTB.T U.Beats (Maybe G5.Color, Maybe U.Beats)
-openNotes' fd = fmap (\(isOpen, (col, len)) -> (guard (not isOpen) >> Just col, len))
+computeFiveFretNotes :: FiveDifficulty U.Beats -> RTB.T U.Beats (Maybe G5.Color, Maybe U.Beats)
+computeFiveFretNotes fd = fmap (\(isOpen, (col, len)) -> (guard (not isOpen) >> Just col, len))
   $ applyStatus1 False (fiveOpen fd)
   $ edgeBlips_ minSustainLengthRB
   $ fiveGems fd
-
-closeNotes' :: FiveDifficulty U.Beats -> RTB.T U.Beats (Maybe G5.Color, Maybe U.Beats)
-closeNotes' fd = fmap (\(offset, (col, len)) -> let
-  col' = case maybe (-1) fromEnum col + offset of
-    0 -> Just G5.Green
-    1 -> Just G5.Red
-    2 -> Just G5.Yellow
-    3 -> Just G5.Blue
-    n -> if n < 0 then Nothing else Just G5.Orange
-  in (col', len)
-  ) $ applyStatus1 0 (fiveOnyxClose fd) (openNotes' fd)
 
 {-
 
@@ -102,8 +91,8 @@ applyBlipStatus status events
   $ RTB.merge (fmap Left status) (fmap Right events)
 
 -- | Computes the default strum or HOPO value for each note.
-strumHOPOTap' :: (NNC.C t, Ord color) => HOPOsAlgorithm -> t -> RTB.T t (color, len) -> RTB.T t ((color, StrumHOPOTap), len)
-strumHOPOTap' algo threshold rtb = let
+strumHOPOTap :: (NNC.C t, Ord color) => HOPOsAlgorithm -> t -> RTB.T t (color, len) -> RTB.T t ((color, StrumHOPOTap), len)
+strumHOPOTap algo threshold rtb = let
   instantList = RTB.toPairList $ RTB.collectCoincident rtb
   paired = zip instantList $ Nothing : map Just instantList
   f ((dt, gems), prev) = let
@@ -156,8 +145,8 @@ applyForces forceTrack notes = let
     in ((color, sht'), len)
   in fmap f $ applyStatus forceTrack notes
 
-no5NoteChords' :: (NNC.C t, Num t) => RTB.T t ((G5.Color, sht), Maybe t) -> RTB.T t ((G5.Color, sht), Maybe t)
-no5NoteChords' = let
+no5NoteChords :: (NNC.C t, Num t) => RTB.T t ((G5.Color, sht), Maybe t) -> RTB.T t ((G5.Color, sht), Maybe t)
+no5NoteChords = let
   f trips = let
     colors = [ c | ((c, _), _) <- trips ]
     in if length colors == 5
@@ -249,11 +238,11 @@ guitarify
 fromClosed' :: RTB.T t ((color, sht), len) -> RTB.T t ((Maybe color, sht), len)
 fromClosed' = fmap $ first $ first Just
 
-noOpenNotes'
+noOpenNotes
   :: (NNC.C t)
   => RTB.T t ((Maybe G5.Color, StrumHOPOTap), len)
   -> RTB.T t ((G5.Color, StrumHOPOTap), len)
-noOpenNotes' = let
+noOpenNotes = let
   rev = RTB.fromPairList . reverse . RTB.toPairList
 
   fixForward RNil = RNil
@@ -319,7 +308,6 @@ emit5' notes = FiveDifficulty
   , fiveOpen = U.trackJoin $ flip RTB.mapMaybe notes $ \case
     ((Nothing, _), _) -> Just boolBlip
     _                 -> Nothing
-  , fiveOnyxClose = RTB.empty
   , fiveGems
     = blipEdgesRB_
     $ fmap (\((mc, _), len) -> (fromMaybe G5.Green mc, len)) notes

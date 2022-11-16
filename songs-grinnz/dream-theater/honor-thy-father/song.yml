@@ -148,18 +148,20 @@ parts:
       difficulty: 5
       count: 2
       gender: male
+      lipsync-rb3:
+        sources:
+        - file-lipsync: harm1.lipsync
+        - file-lipsync: harm2.lipsync
 targets:
   rb3:
     game: rb3
     plan: release # TODO change back to mogg when encrypted moggs remade
-    file-milo: lipsync.milo_xbox
     song-id: 1660200098
     version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: release # TODO change back to mogg when encrypted moggs remade
-    file-milo: lipsync.milo_xbox
     song-id: 1660200099
     version: 2
   ps:

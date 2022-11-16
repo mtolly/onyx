@@ -7,7 +7,7 @@
 {-# LANGUAGE TupleSections      #-}
 module Onyx.MIDI.Track.FiveFret where
 
-import           Control.Monad                    (guard, void, (>=>))
+import           Control.Monad                    (void)
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.State.Strict (modify)
@@ -23,7 +23,6 @@ import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
 import qualified Onyx.PhaseShift.Message          as PS
 import qualified Sound.MIDI.Message.Channel.Voice as V
-import           Text.Read                        (readMaybe)
 
 data Color = Green | Red | Yellow | Blue | Orange
   deriving (Eq, Ord, Show, Enum, Bounded)
@@ -84,17 +83,6 @@ instance Command StrumMap where
   fromCommand sm = ["map", T.pack $ show sm]
   toCommand = reverseLookup each fromCommand
 
-data OnyxCloseEvent = OnyxCloseEvent Difficulty Int
-
-instance Command OnyxCloseEvent where
-  fromCommand (OnyxCloseEvent diff offset) =
-    ["onyx", "close", T.toLower $ T.pack $ show diff, T.pack $ show offset]
-  toCommand cmd = do
-    ["onyx", "close", d, n] <- Just cmd
-    diff <- reverseLookup each (T.toLower . T.pack . show) d
-    offset <- readMaybe $ T.unpack n
-    return $ OnyxCloseEvent diff offset
-
 data FiveTrack t = FiveTrack
   { fiveDifficulties :: Map.Map Difficulty (FiveDifficulty t)
   , fiveMood         :: RTB.T t Mood
@@ -125,14 +113,13 @@ data FiveDifficulty t = FiveDifficulty
   , fiveForceHOPO  :: RTB.T t Bool
   , fiveTap        :: RTB.T t Bool
   , fiveOpen       :: RTB.T t Bool
-  , fiveOnyxClose  :: RTB.T t Int
   , fiveGems       :: RTB.T t (Edge () Color)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (FiveDifficulty t)
 
 instance TraverseTrack FiveDifficulty where
-  traverseTrack fn (FiveDifficulty a b c d e f) = FiveDifficulty
-    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
+  traverseTrack fn (FiveDifficulty a b c d e) = FiveDifficulty
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
 
 instance ParseTrack FiveTrack where
   parseTrack = do
@@ -189,10 +176,6 @@ instance ParseTrack FiveTrack where
       fiveForceHOPO  <- fiveForceHOPO  =. edges (base + 5)
       fiveTap        <- fiveTap        =. sysexPS diff PS.TapNotes
       fiveOpen'      <- fiveOpen       =. sysexPS diff PS.OpenStrum
-      fiveOnyxClose  <- fiveOnyxClose  =. let
-        parse = toCommand >=> \(OnyxCloseEvent diff' n) -> guard (diff == diff') >> Just n
-        unparse n = fromCommand $ OnyxCloseEvent diff n
-        in commandMatch' parse unparse
       fiveGems'      <- (fiveGems =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
         Green  -> base + 0
         Red    -> base + 1

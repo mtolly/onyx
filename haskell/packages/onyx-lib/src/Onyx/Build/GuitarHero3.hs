@@ -30,9 +30,10 @@ import           Onyx.Build.RB3CH                  (BasicTiming (..),
                                                     basicTiming, buildDrums,
                                                     drumsToFive)
 import           Onyx.Guitar                       (HOPOsAlgorithm (..),
-                                                    applyForces, closeNotes',
-                                                    getForces5, noOpenNotes',
-                                                    strumHOPOTap')
+                                                    applyForces,
+                                                    computeFiveFretNotes,
+                                                    getForces5, noOpenNotes,
+                                                    strumHOPOTap)
 import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
 import           Onyx.MIDI.Common                  (Difficulty (..), Edge (..),
                                                     joinEdgesSimple, trackGlue)
@@ -439,10 +440,10 @@ makeGH3MidQB songYaml song timing partLead partRhythm partDrummer = let
     trk' = gryboComplete (Just threshold) (RBFile.s_signatures song) trk
     fiveDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk'
     sht
-      = noOpenNotes'
+      = noOpenNotes
       $ applyForces (getForces5 fiveDiff)
-      $ strumHOPOTap' algo (fromIntegral threshold / 480)
-      $ closeNotes' fiveDiff
+      $ strumHOPOTap algo (fromIntegral threshold / 480)
+      $ computeFiveFretNotes fiveDiff
     in GH3Track
       { gh3Notes       = makeGH3TrackNotes (RBFile.s_tempos song) timeSigs beats sht
       , gh3StarPower   = makeGH3Spans (RBFile.s_tempos song) (Five.fiveOverdrive trk) (Five.fiveGems fiveDiff)
