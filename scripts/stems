@@ -4,23 +4,22 @@ set -u
 
 file_in=`readlink -f "$1"`
 file_out=`readlink -f "$2"`
+script_dir=`readlink -f "$(dirname "$0")"`
 hash=`md5sum "$file_in" | awk '{print $1}'`
 temp_file="audio-$hash"
-demucs_dir="/stuff/git/docker-facebook-demucs" # edit as necessary
-start_dir="$(pwd)"
+model=htdemucs_ft
 
 if [[ -f "$file_out" ]]; then
   # output already exists, no need to rerun
   exit 0
 fi
 
-demucs_in="$demucs_dir/input/$temp_file.wav"
-demucs_out="$demucs_dir/output/mdx_extra_q/$temp_file"
+demucs_in="/tmp/$temp_file.wav"
+demucs_out="$script_dir/demucs/$model/$temp_file"
 if [[ ! -d "$demucs_out" ]]; then
   # stems don't already exist, so we need to run demucs
   cp "$file_in" "$demucs_in"
-  cd $demucs_dir
-  make run track="$temp_file.wav"
+  demucs -n "$model" "$demucs_in" -o "$script_dir/demucs"
   rm -f "$demucs_in"
 fi
 rm -f "$file_out"

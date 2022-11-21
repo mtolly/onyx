@@ -1,0 +1,43 @@
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: both
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+audio:
+  album-track:
+    md5: 4706f5224e4ad935bb82048b5046a469
+    frames: 19812660
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+plans:
+  album:
+    song:
+      pad: [2.037, album-track]
+  dev:
+    song:
+      pad: [2.037, album-track]
+    parts:
+      bass:
+        pad: [2.037, channels: [[0, 1], stems]]
+      drums:
+        pad: [2.037, channels: [[2, 3], stems]]
+      vocal:
+        pad: [2.037, channels: [[4, 5], stems]]
+      other:
+        pad: [2.037, channels: [[6, 7], stems]]
+metadata:
+  title: Jaws of Life
+  artist: John Petrucci
+  album: Suspended Animation
+  track-number: 1
+  author: Onyxite
+  year: 2005
+  genre: metal
+  subgenre: prog

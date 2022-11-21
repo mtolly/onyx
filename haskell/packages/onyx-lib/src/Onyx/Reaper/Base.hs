@@ -19,7 +19,7 @@ writeRPP path = let
   opts = PP.defaultLayoutOptions
     { PP.layoutPageWidth = PP.Unbounded
     }
-  -- TODO is UTF-8 correct
+  -- encoding does appear to be UTF-8, tested on linux reaper v6.66
   in liftIO . B.writeFile path . TE.encodeUtf8 . renderStrict . PP.layoutPretty opts . showElement
 
 showElement :: Element -> PP.Doc ()

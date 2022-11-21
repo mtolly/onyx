@@ -3,7 +3,6 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Onyx.Build.GuitarHero5 (gh5Rules) where
 
-import           Control.Monad.Extra
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource
 import           Data.Binary.Put                 (putWord32be, runPut)
@@ -17,14 +16,12 @@ import qualified Data.Conduit.Audio.LAME.Binding as L
 import           Data.Conduit.Audio.SampleRate
 import           Data.Hashable                   (Hashable, hash)
 import qualified Data.HashMap.Strict             as HM
-import           Data.List.NonEmpty              (NonEmpty ((:|)))
 import           Data.Maybe                      (fromMaybe)
 import qualified Data.Text                       as T
 import           Development.Shake               hiding (phony, (%>), (&%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
-import           Onyx.Audio.FSB                  (emitFSB, ghBandMP3sToFSB4,
-                                                  ghBandXMAtoFSB4)
+import           Onyx.Audio.FSB                  (emitFSB, ghBandMP3sToFSB4)
 import           Onyx.Build.Common
 import           Onyx.Build.Neversoft            (makeGHWoRNote,
                                                   packageNameHash,
@@ -267,6 +264,22 @@ gh5Rules buildInfo dir gh5 = do
       putNote songKeyQB $ makeWoRNoteFile note
     stackIO $ BL.writeFile outQS $ makeQS $ HM.toList qs
 
+  dir </> "preview.wav" %> \out -> do
+    mid <- shakeMIDI $ planDir </> "processed.mid"
+    let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
+        fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
+    src <- shk $ buildSource
+      $ Gain 0.5 -- just guessing at this. without it previews are too loud
+      $ Fade End (Seconds 5)
+      $ Fade Start (Seconds 2)
+      $ Take Start (fromMS $ pend - pstart)
+      $ Drop Start (fromMS pstart)
+      $ Input (planDir </> "everything.wav")
+    runAudio (applySpeedAudio (gh5_Common gh5) src) out
+
+  {-
+  -- No longer used, see bottom where we use ps3 (mp3) audio instead
+
   -- Not supporting stems yet due to FSB generator issue;
   -- it will fail with memory errors on large WAVs, so we have to keep them small.
   -- However they do have to be the full length of the song!
@@ -285,19 +298,6 @@ gh5Rules buildInfo dir gh5 = do
       :| [Silence 2 $ Seconds 0]
     runAudio (applyTargetAudio (gh5_Common gh5) mid src) out
 
-  dir </> "preview.wav" %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
-    let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
-        fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
-    src <- shk $ buildSource
-      $ Gain 0.5 -- just guessing at this. without it previews are too loud
-      $ Fade End (Seconds 5)
-      $ Fade Start (Seconds 2)
-      $ Take Start (fromMS $ pend - pstart)
-      $ Drop Start (fromMS pstart)
-      $ Input (planDir </> "everything.wav")
-    runAudio (applySpeedAudio (gh5_Common gh5) src) out
-
   forM_ ["audio1", "audio2", "audio3", "preview"] $ \audio -> do
     let wav = dir </> audio <.> "wav"
         fsb = dir </> audio <.> "fsb"
@@ -311,6 +311,7 @@ gh5Rules buildInfo dir gh5 = do
       case ghworEncrypt bs of
         Nothing  -> fatal "Unable to encrypt .fsb to .fsb.xen"
         Just enc -> stackIO $ B.writeFile out enc
+  -}
 
   dir </> "ghworlive" %> \out -> do
     let files =
@@ -472,3 +473,9 @@ gh5Rules buildInfo dir gh5 = do
     main <- container "USRDIR" . container folderNameCaps <$> crawlFolderBytes ps3SongRoot
     extra <- stackIO (getResourcesPath "pkg-contents/ghwor") >>= crawlFolderBytes
     stackIO $ makePKG ps3ContentID (main <> extra) out
+
+  -- redirect ps3 fsb to xbox
+  dir </> "audio1.fsb.xen"  %> shk . copyFile' (ps3SongRoot </> ps3Audio1PreEdat )
+  dir </> "audio2.fsb.xen"  %> shk . copyFile' (ps3SongRoot </> ps3Audio2PreEdat )
+  dir </> "audio3.fsb.xen"  %> shk . copyFile' (ps3SongRoot </> ps3Audio3PreEdat )
+  dir </> "preview.fsb.xen" %> shk . copyFile' (ps3SongRoot </> ps3PreviewPreEdat)
