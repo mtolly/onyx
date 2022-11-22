@@ -13,6 +13,7 @@ import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
+import           Onyx.FeedBack.Load               (loadMIDIOrChart)
 import           Onyx.Guitar
 import           Onyx.Keys.Ranges                 (completeRanges)
 import           Onyx.MIDI.Common                 (Difficulty (..), Key (..),
@@ -483,7 +484,7 @@ drumsReduce diff   mmap od sections trk = let
 
 simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleReduce fin fout = do
-  RBFile.Song tempos mmap onyx <- RBFile.loadMIDI fin
+  RBFile.Song tempos mmap onyx <- loadMIDIOrChart fin
   let sections = fmap snd $ eventsSections $ RBFile.onyxEvents onyx
   stackIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap onyx
     { RBFile.onyxParts = flip fmap (RBFile.onyxParts onyx) $ \trks -> let

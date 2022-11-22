@@ -29,11 +29,11 @@ import           Development.Shake                     (need)
 import           Numeric                               (showHex)
 import qualified Numeric.NonNegative.Class             as NNC
 import qualified Numeric.NonNegative.Wrapper           as NN
+import           Onyx.FeedBack.Load                    (loadRawMIDIOrChart)
 import           Onyx.MIDI.Common                      (Key (..), showKey)
 import           Onyx.MIDI.Track.Drums.Full            (fullDrumNoteNames)
 import           Onyx.MIDI.Track.File                  (FlexPartName (..),
-                                                        identifyFlexTrack,
-                                                        loadRawMIDI)
+                                                        identifyFlexTrack)
 import           Onyx.MIDI.Track.ProGuitar             (GtrBase (..),
                                                         GtrTuning (..),
                                                         lowBassTuning,
@@ -1214,8 +1214,8 @@ data TuningInfo = TuningInfo
 
 makeReaper :: (SendMessage m, MonadIO m) => TuningInfo -> FilePath -> FilePath -> [FilePath] -> FilePath -> StackTraceT m ()
 makeReaper tunings evts tempo audios out = do
-  mid <- loadRawMIDI evts
-  tempoMid <- loadRawMIDI tempo
+  mid      <- loadRawMIDIOrChart evts
+  tempoMid <- if evts == tempo then return mid else loadRawMIDIOrChart tempo
   makeReaperFromData tunings mid tempoMid audios out
 
 getTempos :: (Monad m) => F.T -> StackTraceT m U.TempoMap

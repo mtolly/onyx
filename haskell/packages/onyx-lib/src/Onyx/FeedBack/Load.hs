@@ -10,6 +10,7 @@ import           Control.Monad                    (guard, void)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Data.Bifunctor                   (first)
 import qualified Data.ByteString                  as B
+import           Data.Char                        (toLower)
 import           Data.Default.Class               (def)
 import           Data.Either                      (isLeft)
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -39,9 +40,11 @@ import           Onyx.Sections                    (makeRB2Section)
 import           Onyx.StackTrace                  (SendMessage, StackTraceT,
                                                    fatal, inside, stackIO, warn)
 import           Onyx.Util.Text.Decode            (decodeGeneral)
+import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
+import           System.FilePath                  (takeExtension)
 import           Text.Read                        (readMaybe)
 
 atomStr :: Atom -> T.Text
@@ -424,8 +427,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   fixedPartBassGHL      <- parseGHL "GHLBass" -- ExpertGHLBass etc.
   fixedPartKeys         <- parseGRYBO "Keyboard" -- ExpertKeyboard etc.
   fixedPartRhythm       <- parseGRYBO "DoubleRhythm" -- ExpertDoubleRhythm etc.
-  -- Might also be ExpertDoubleBass when Player2 = rhythm ?
-  fixedPartGuitarCoop   <- return mempty -- ExpertDoubleGuitar ???
+  fixedPartGuitarCoop   <- parseGRYBO "DoubleGuitar" -- ExpertDoubleGuitar etc.
   fixedPartDrums        <- parseDrums "Drums" -- ExpertDrums etc.
   fixedEvents           <- insideTrack "Events" $ \trk -> return mempty
     { eventsSections = fmap makeRB2Section $ flip RTB.mapMaybe trk $ \case
@@ -480,3 +482,19 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       fixedBeat             = mempty
       fixedVenue            = mempty
   return FixedFile{..}
+
+loadChartAsRawMIDI :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m F.T
+loadChartAsRawMIDI f = do
+  chart <- chartToBeats <$> loadChartFile f
+  mid   <- chartToMIDI chart
+  return $ showMIDIFile' mid
+
+loadMIDIOrChart :: (SendMessage m, MonadIO m, ParseFile f) => FilePath -> StackTraceT m (Song (f U.Beats))
+loadMIDIOrChart f = case map toLower $ takeExtension f of
+  ".chart" -> loadChartAsRawMIDI f >>= readMIDIFile'
+  _        -> loadMIDI f
+
+loadRawMIDIOrChart :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m F.T
+loadRawMIDIOrChart f = case map toLower $ takeExtension f of
+  ".chart" -> loadChartAsRawMIDI f
+  _        -> loadRawMIDI f

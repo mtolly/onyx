@@ -116,6 +116,8 @@ import           Onyx.Build.Neversoft                      (makeMetadataLIVE,
 import           Onyx.Build.RB3CH                          (BasicTiming (..))
 import           Onyx.Codec.JSON                           (toJSON,
                                                             yamlEncodeFile)
+import           Onyx.FeedBack.Load                        (loadMIDIOrChart,
+                                                            loadRawMIDIOrChart)
 import           Onyx.FretsOnFire                          (stripTags)
 import           Onyx.Game.Audio                           (AudioHandle (..),
                                                             projectAudio,
@@ -168,6 +170,7 @@ import           Onyx.Vocal.DryVox
 import qualified Onyx.Xbox.STFS                            as STFS
 import           Paths_onyx_exe_toolkit                    (version)
 import qualified Sound.File.Sndfile                        as Snd
+import qualified Sound.MIDI.File.Save                      as Save
 import qualified Sound.MIDI.Util                           as U
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (dropExtension,
@@ -4813,12 +4816,12 @@ miscPageMIDI
 miscPageMIDI sink rect tab startTasks = do
   pack <- FL.packNew rect Nothing
   pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    let (_, rectA) = chopLeft 100 rect'
+    let (_, rectA) = chopLeft 120 rect'
         (inputRect, rectB) = chopRight 50 rectA
         (_, pickRect) = chopRight 40 rectB
     input <- FL.inputNew
       inputRect
-      (Just "MIDI file")
+      (Just "MIDI or .chart")
       (Just FL.FlNormalInput) -- required for labels to work
     FL.setLabelsize input $ FL.FontSize 13
     FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
@@ -4826,8 +4829,8 @@ miscPageMIDI sink rect tab startTasks = do
     pick <- FL.buttonNew pickRect $ Just "@fileopen"
     FL.setCallback pick $ \_ -> sink $ EventIO $ do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
-      FL.setTitle picker "Load MIDI file"
-      FL.setFilter picker "*.{mid,midi}" -- TODO also handle .chart?
+      FL.setTitle picker "Load MIDI or .chart file"
+      FL.setFilter picker "*.{mid,midi,chart}"
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
           Nothing -> return ()
@@ -4864,7 +4867,7 @@ miscPageMIDI sink rect tab startTasks = do
       input <- pickedFile
       sink $ EventOnyx $ let
         task = do
-          mid <- RBFile.loadMIDI input
+          mid <- loadMIDIOrChart input
           lg $ T.unpack $ closeShiftsFile mid
           return []
         in startTasks [("Pro Keys range check: " <> input, task)]
@@ -4891,6 +4894,31 @@ miscPageMIDI sink rect tab startTasks = do
                 return [f']
               in startTasks [("Make REAPER project: " <> input, task)]
         _ -> return ()
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Clean convert .chart to MIDI"
+    taskColor >>= FL.setColor btn
+    FL.setCallback btn $ \_ -> sink $ EventIO $ do
+      input <- pickedFile
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save MIDI file"
+      FL.setFilter picker "*.mid"
+      FL.setPresetFile picker $ T.pack $ input -<.> ".mid"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> let
+            ext = map toLower $ takeExtension f
+            f' = if elem ext [".mid", ".midi"]
+              then f
+              else f <.> "mid"
+            in sink $ EventOnyx $ let
+              task = do
+                mid <- loadRawMIDIOrChart input
+                stackIO $ Save.toFile f' mid
+                return [f']
+              in startTasks [("Convert to MIDI: " <> input, task)]
+        _ -> return ()
+
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
