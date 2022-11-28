@@ -18,16 +18,20 @@ metadata:
   rating: FamilyFriendly
   languages:
   - Japanese
-  key: C
+  key: C minor
 global:
   autogen-theme: FeelGoodPopRock
 audio:
-  youtube:
-    file-path: audio-youtube.wav
-    commands:
-    - ../../../scripts/youtube _olRp55Zs0I 140
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  album-track:
+    md5: 5e1f09b3b07b16e7cba3f7e7b92554c8
+    frames: 11883480
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
 plans:
   album:
     countin:
@@ -38,7 +42,19 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [3.664, gain: [1.5, youtube]]
+      pad: [3.741, gain: [1.5, album-track]]
+  dev:
+    song:
+      pad: [3.741, album-track]
+    parts:
+      bass:
+        pad: [3.741, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.741, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.741, channels: [[4, 5], stems]]
+      other:
+        pad: [3.741, channels: [[6, 7], stems]]
 parts:
   drums:
     drums:
@@ -75,11 +91,14 @@ targets:
     game: rb3
     song-id: 1660200115
     version: 2
+    plan: album
   ps:
     game: ps
+    plan: album
   rs:
     game: rs
     arrangements:
     - [bass, bass]
     song-key: OnyxKatamariCrimsonRose
     version: "1.1"
+    plan: album

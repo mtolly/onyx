@@ -26,7 +26,7 @@ data SMDifficulty
 
 data DanceTrack t = DanceTrack
   { danceDifficulties :: Map.Map SMDifficulty (DanceDifficulty t)
-  , danceOverdrive    :: RTB.T t Bool -- TODO does OD work in game?
+  , danceOverdrive    :: RTB.T t Bool
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (DanceTrack t)
 

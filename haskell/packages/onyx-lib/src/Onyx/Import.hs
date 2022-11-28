@@ -54,6 +54,7 @@ import           Onyx.Import.RockBand         (importRB4, importRBA,
                                                importSTFSFolder)
 import           Onyx.Import.RockRevolution   (importRR)
 import           Onyx.Import.Rocksmith        as RS
+import           Onyx.Import.StepMania        (importSM)
 import           Onyx.ISO                     (folderISO)
 import           Onyx.PlayStation.PKG         (getDecryptedUSRDIR, loadPKG,
                                                pkgFolder, tryDecryptEDAT)
@@ -323,6 +324,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".chart" -> foundFoF fp
         ".dtx" -> foundDTX fp
         ".gda" -> foundDTX fp
+        ".sm" -> foundImport "StepMania" fp $ importSM fp
         ".bms" -> foundBME fp
         ".bme" -> foundBME fp
         ".bml" -> foundBME fp
