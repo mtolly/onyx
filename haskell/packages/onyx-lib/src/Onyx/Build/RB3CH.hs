@@ -823,6 +823,11 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             }
           }
         Just _ -> originalRanks
+      dance = case either (const Nothing) (Just . ps_Dance) target of
+        Nothing -> mempty
+        Just fpart -> case getPart fpart songYaml >>= partDance of
+          Nothing  -> mempty
+          Just _pd -> RBFile.onyxPartDance $ RBFile.getFlexPart fpart trks
   return (RBFile.Song tempos' mmap' RBFile.FixedFile
     { RBFile.fixedBeat = timingBeat
     , RBFile.fixedEvents = if isPS then eventsTrackPS else eventsTrack
@@ -851,7 +856,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
     , RBFile.fixedHarm1 = (if isPS then voxPSCH else id) trkHarm1'
     , RBFile.fixedHarm2 = (if isPS then voxPSCH else id) trkHarm2'
     , RBFile.fixedHarm3 = (if isPS then voxPSCH else id) trkHarm3'
-    , RBFile.fixedPartDance = mempty
+    , RBFile.fixedPartDance = if isPS then dance else mempty
     , RBFile.fixedLipsync1 = mempty
     , RBFile.fixedLipsync2 = mempty
     , RBFile.fixedLipsync3 = mempty

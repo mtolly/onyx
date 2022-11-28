@@ -858,9 +858,14 @@ ffSourceFrom dur input = do
                                 -- putStrLn $ "Should skip " <> show skipFrames <> " frames"
                                 return skipFrames
                               else return 0
-                        liftIO $ ffCheck "avcodec_send_packet" (>= 0) $ avcodec_send_packet dec_ctx packet
-                        liftIO $ av_packet_unref packet
-                        loopReceiveFrames skipManual
+                        codeSendPacket <- liftIO $ avcodec_send_packet dec_ctx packet
+                        if codeSendPacket >= 0
+                          then do
+                            liftIO $ av_packet_unref packet
+                            loopReceiveFrames skipManual
+                          else do
+                            -- some weird files appear to have corrupt data at the end, just treat as end of file
+                            liftIO $ atomically $ writeTBQueue queue Nothing
               loopReceiveFrames skipManual = do
                 codeFrame <- liftIO $ avcodec_receive_frame dec_ctx frame
                 if codeFrame < 0

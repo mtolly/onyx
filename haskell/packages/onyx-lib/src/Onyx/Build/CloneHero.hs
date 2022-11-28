@@ -118,7 +118,7 @@ psRules buildInfo dir ps = do
       , FoF.diffKeysReal     = Just $ fromIntegral $ rb3ProKeysTier   - 1
       , FoF.diffVocals       = Just $ fromIntegral $ rb3VocalTier     - 1
       , FoF.diffVocalsHarm   = Just $ fromIntegral $ rb3VocalTier     - 1
-      , FoF.diffDance        = Just (-1)
+      , FoF.diffDance        = Just $ fromIntegral $ psDanceTier      - 1
       , FoF.diffBassReal     = Just $ fromIntegral $ rb3ProBassTier   - 1
       , FoF.diffGuitarReal   = Just $ fromIntegral $ rb3ProGuitarTier - 1
       -- TODO: are the 22-fret difficulties needed?

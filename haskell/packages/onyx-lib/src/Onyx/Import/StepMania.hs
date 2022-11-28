@@ -1,11 +1,11 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE ViewPatterns      #-}
 module Onyx.Import.StepMania where
 
-import           Control.Monad                        (guard)
+import           Control.Monad                        (guard, when)
 import           Control.Monad.IO.Class               (MonadIO)
+import           Data.Char                            (toLower)
 import qualified Data.Conduit.Audio                   as CA
 import           Data.Default.Class                   (def)
 import qualified Data.EventList.Relative.TimeBody     as RTB
@@ -14,7 +14,9 @@ import           Data.List.Extra                      (nubOrd)
 import qualified Data.Map                             as Map
 import           Data.Maybe                           (catMaybes, mapMaybe)
 import qualified Data.Text                            as T
-import           Onyx.Audio                           (Audio (..), Edge (..))
+import           Onyx.Audio                           (Audio (..), Edge (..),
+                                                       audioChannels)
+import           Onyx.DDR.DWI
 import           Onyx.DDR.SM
 import           Onyx.Harmonix.DTA.Serialize.RockBand (AnimTempo (..))
 import           Onyx.Import.Base
@@ -137,7 +139,13 @@ getDanceDifficulty smn translate = let
 
 importSM :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importSM src level = do
-  sm <- stackIO (loadSMLines src) >>= readSM
+  when (level == ImportFull) $ lg $ "Importing StepMania song from: " <> src
+  sm <- case map toLower $ takeExtension src of
+    ".sm" -> stackIO (loadSMLines src) >>= readSM
+    ".dwi" -> stackIO (loadSMLines src) >>= readDWI >>= stackIO . convertDWItoSM src
+    _ -> fatal $ "Unrecognized StepMania format extension: " <> src
+  when (any (\(_, bpm) -> bpm < 0) $ sm_BPMS sm) $ fatal
+    "Song contains negative BPMs, which are not supported yet."
   let (delayAudio, delayMIDI) = case sm_OFFSET sm of
         Nothing -> (id, id)
         Just n -> case compare n 0 of
@@ -177,6 +185,22 @@ importSM src level = do
           { F.onyxPartDance = getDanceTrack "dance-single"
           }
         }
+  audio <- case sm_MUSIC sm of
+    Nothing -> return HM.empty
+    Just path -> do
+      let path' = takeDirectory src </> T.unpack path
+      stackIO (audioChannels path') >>= \case
+        Nothing -> fatal $ "Couldn't get channel count of audio file: " <> path'
+        Just chans -> return $ HM.singleton "audio-file" $ AudioFile AudioInfo
+          { _md5 = Nothing
+          , _frames = Nothing
+          , _filePath = Just
+            $ SoftFile ("audio" <> takeExtension path')
+            $ SoftReadable $ fileReadable path'
+          , _commands = []
+          , _rate = Nothing
+          , _channels = chans
+          }
   return SongYaml
     { _metadata = def'
       { _title = sm_TITLE sm
@@ -188,17 +212,7 @@ importSM src level = do
       , _fileAlbumArt = Nothing -- TODO
       }
     , _jammit = HM.empty
-    , _audio = case sm_MUSIC sm of
-      Nothing -> HM.empty
-      Just (T.unpack -> path) -> HM.singleton "audio-file" $ AudioFile AudioInfo
-        { _md5 = Nothing
-        , _frames = Nothing
-        , _filePath = Just $ SoftFile ("audio" <> takeExtension path)
-          $ SoftReadable $ fileReadable (takeDirectory src </> path)
-        , _commands = []
-        , _rate = Nothing
-        , _channels = 2 -- TODO need to set this correctly
-        }
+    , _audio = audio
     , _plans = HM.singleton "sm" Plan
       { _song = flip fmap (sm_MUSIC sm) $ \_ -> PlanAudio
         { _planExpr = delayAudio $ Input $ Named "audio-file"

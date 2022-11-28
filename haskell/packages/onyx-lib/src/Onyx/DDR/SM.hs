@@ -83,53 +83,61 @@ data SM = SM
   , sm_NOTES            :: [SMNotes]
   } deriving (Show)
 
+getSMString :: (MonadFail m) => [(T.Text, [T.Text])] -> T.Text -> m (Maybe T.Text)
+getSMString lns k = case [ v | (k', v) <- lns, k == k' ] of
+  []  -> return Nothing
+  [x] -> case x of
+    []  -> return Nothing
+    [v] -> return $ guard (T.any (not . isSpace) v) >> Just v
+    vs  -> fail $ show (length vs) <> " elements for data #" <> T.unpack k
+  xs  -> fail $ show (length xs) <> " lines matching key #" <> T.unpack k
+
+parseSMNumber :: (MonadFail m) => T.Text -> m Scientific
+parseSMNumber s = case readMaybe $ T.unpack s of
+  Nothing -> fail $ "Couldn't parse as number: " <> show s
+  Just d  -> return d
+
+getSMNumber :: (MonadFail m) => [(T.Text, [T.Text])] -> T.Text -> m (Maybe Scientific)
+getSMNumber lns k = getSMString lns k >>= \case
+  Nothing -> return Nothing
+  Just s  -> Just <$> parseSMNumber s
+
+getSMNumberPairs :: (MonadFail m) => [(T.Text, [T.Text])] -> T.Text -> m [(Scientific, Scientific)]
+getSMNumberPairs lns k = getSMString lns k >>= \case
+  Nothing -> return []
+  Just s -> forM (splitNoEmpty "," s) $ \pair -> case T.splitOn "=" pair of
+    [x, y] -> case (readMaybe $ T.unpack x, readMaybe $ T.unpack y) of
+      (Just x', Just y') -> return (x', y')
+      _                  -> fail $ "Couldn't parse number=number: " <> show pair
+    _ -> fail $ "Couldn't parse number=number: " <> show pair
+
 readSM :: (MonadFail m) => [(T.Text, [T.Text])] -> m SM
 readSM lns = do
-  let getString k = case [ v | (k', v) <- lns, k == k' ] of
-        []  -> return Nothing
-        [x] -> case x of
-          []  -> return Nothing
-          [v] -> return $ guard (T.any (not . isSpace) v) >> Just v
-          vs  -> fail $ show (length vs) <> " elements for data #" <> T.unpack k
-        xs  -> fail $ show (length xs) <> " lines matching key #" <> T.unpack k
-      parseDouble s = case readMaybe $ T.unpack s of
-        Nothing -> fail $ "Couldn't parse as number: " <> show s
-        Just d  -> return d
-      getDouble k = getString k >>= \case
-        Nothing -> return Nothing
-        Just s  -> Just <$> parseDouble s
-      getDoublePairs k = getString k >>= \case
-        Nothing -> return []
-        Just s -> forM (splitNoEmpty "," s) $ \pair -> case T.splitOn "=" pair of
-          [x, y] -> case (readMaybe $ T.unpack x, readMaybe $ T.unpack y) of
-            (Just x', Just y') -> return (x', y')
-            _ -> fail $ "Couldn't parse number=number: " <> show pair
-          _ -> fail $ "Couldn't parse number=number: " <> show pair
-  sm_TITLE <- getString "TITLE"
-  sm_SUBTITLE <- getString "SUBTITLE"
-  sm_ARTIST <- getString "ARTIST"
-  sm_TITLETRANSLIT <- getString "TITLETRANSLIT"
-  sm_SUBTITLETRANSLIT <- getString "SUBTITLETRANSLIT"
-  sm_ARTISTTRANSLIT <- getString "ARTISTTRANSLIT"
-  sm_GENRE <- getString "GENRE"
-  sm_CREDIT <- getString "CREDIT"
-  sm_BANNER <- getString "BANNER"
-  sm_BACKGROUND <- getString "BACKGROUND"
-  sm_LYRICSPATH <- getString "LYRICSPATH"
-  sm_CDTITLE <- getString "CDTITLE"
-  sm_MUSIC <- getString "MUSIC"
-  sm_OFFSET <- getDouble "OFFSET"
-  sm_SAMPLESTART <- getDouble "SAMPLESTART"
-  sm_SAMPLELENGTH <- getDouble "SAMPLELENGTH"
-  sm_SELECTABLE <- getString "SELECTABLE" >>= \case
+  sm_TITLE            <- getSMString lns "TITLE"
+  sm_SUBTITLE         <- getSMString lns "SUBTITLE"
+  sm_ARTIST           <- getSMString lns "ARTIST"
+  sm_TITLETRANSLIT    <- getSMString lns "TITLETRANSLIT"
+  sm_SUBTITLETRANSLIT <- getSMString lns "SUBTITLETRANSLIT"
+  sm_ARTISTTRANSLIT   <- getSMString lns "ARTISTTRANSLIT"
+  sm_GENRE            <- getSMString lns "GENRE"
+  sm_CREDIT           <- getSMString lns "CREDIT"
+  sm_BANNER           <- getSMString lns "BANNER"
+  sm_BACKGROUND       <- getSMString lns "BACKGROUND"
+  sm_LYRICSPATH       <- getSMString lns "LYRICSPATH"
+  sm_CDTITLE          <- getSMString lns "CDTITLE"
+  sm_MUSIC            <- getSMString lns "MUSIC"
+  sm_OFFSET           <- getSMNumber lns "OFFSET"
+  sm_SAMPLESTART      <- getSMNumber lns "SAMPLESTART"
+  sm_SAMPLELENGTH     <- getSMNumber lns "SAMPLELENGTH"
+  sm_SELECTABLE       <- getSMString lns "SELECTABLE" >>= \case
     Nothing    -> return Nothing
     Just "YES" -> return $ Just True
     Just "NO"  -> return $ Just False
     Just s     -> fail $ "Couldn't recognize boolean (YES/NO): " <> show s
-  sm_DISPLAYBPM <- mapM parseDouble $ concat [ v | ("DISPLAYBPM", v) <- lns ]
-  sm_BPMS <- getDoublePairs "BPMS"
-  sm_STOPS <- getDoublePairs "STOPS"
-  sm_NOTES <- mapM readSMNotes [ v | ("NOTES", v) <- lns ]
+  sm_DISPLAYBPM       <- mapM parseSMNumber $ concat [ v | ("DISPLAYBPM", v) <- lns ]
+  sm_BPMS             <- getSMNumberPairs lns "BPMS"
+  sm_STOPS            <- getSMNumberPairs lns "STOPS"
+  sm_NOTES            <- mapM readSMNotes [ v | ("NOTES", v) <- lns ]
   return SM{..}
 
 data SMNotes = SMNotes

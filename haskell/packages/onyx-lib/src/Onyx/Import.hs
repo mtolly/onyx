@@ -325,6 +325,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".dtx" -> foundDTX fp
         ".gda" -> foundDTX fp
         ".sm" -> foundImport "StepMania" fp $ importSM fp
+        ".dwi" -> foundImport "StepMania" fp $ importSM fp
         ".bms" -> foundBME fp
         ".bme" -> foundBME fp
         ".bml" -> foundBME fp
