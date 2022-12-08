@@ -2,10 +2,12 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Onyx.Build.Common where
 
 import           Codec.Picture
-import           Codec.Picture.Types              (dropTransparency)
+import           Codec.Picture.Types              (dropTransparency,
+                                                   promotePixel)
 import           Control.Applicative              (liftA2)
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class
@@ -15,7 +17,8 @@ import           Data.Bifunctor                   (first)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isAlphaNum, isAscii,
-                                                   isControl, isDigit, isSpace)
+                                                   isControl, isDigit, isSpace,
+                                                   toLower)
 import           Data.Conduit                     (runConduit)
 import           Data.Conduit.Audio
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -399,18 +402,64 @@ fullGenre songYaml = interpretGenre
   (_genre    $ _metadata songYaml)
   (_subgenre $ _metadata songYaml)
 
-loadRGB8 :: SongYaml FilePath -> Staction (Image PixelRGB8)
-loadRGB8 songYaml = case _fileAlbumArt $ _metadata songYaml of
+-- Second element is a JPEG if it is reasonably square and can be used in CH/PS as is.
+loadSquareArtOrJPEG :: SongYaml FilePath -> Staction (Image PixelRGB8, Maybe FilePath)
+loadSquareArtOrJPEG songYaml = case _fileAlbumArt $ _metadata songYaml of
   Just img -> do
     shk $ need [img]
-    stackIO $ if takeExtension img `elem` [".png_xbox", ".png_wii"]
-      then pixelMap dropTransparency . readRBImage False <$> BL.readFile img
-      else if takeExtension img == ".png_ps3"
-        then pixelMap dropTransparency . readRBImage True <$> BL.readFile img
+    let ext = map toLower $ takeExtension img
+    stackIO $ if elem ext [".png_xbox", ".png_wii"]
+      then noJPEG . pixelMap dropTransparency . readRBImage False <$> BL.readFile img
+      else if ext == ".png_ps3"
+        then noJPEG . pixelMap dropTransparency . readRBImage True <$> BL.readFile img
         else readImage img >>= \case
           Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
-          Right dyn -> return $ convertRGB8 dyn
-  Nothing -> stackIO onyxAlbum
+          Right dyn -> let
+            rgb8 = convertRGB8 dyn
+            rgba8 = convertRGBA8 dyn
+            aspect = fromIntegral (imageWidth rgb8) / fromIntegral (imageHeight rgb8) :: Double
+            nonSquare = aspect > (5/4) || aspect < (4/5)
+            in return $ if nonSquare
+              then noJPEG $ pixelMap dropTransparency $ backgroundColor (PixelRGBA8 0 0 0 255) $ squareImage 0 rgba8
+              else (rgb8, guard (elem ext [".jpg", ".jpeg"]) >> Just img)
+  Nothing -> noJPEG <$> stackIO onyxAlbum
+  where noJPEG rgb = (rgb, Nothing)
+
+loadRGB8 :: SongYaml FilePath -> Staction (Image PixelRGB8)
+loadRGB8 = fmap fst . loadSquareArtOrJPEG
+
+squareImage :: Int -> Image PixelRGBA8 -> Image PixelRGBA8
+squareImage pad img = let
+  squareSize = max (imageWidth img) (imageHeight img) + pad
+  adjustX x = x - quot (squareSize - imageWidth  img) 2
+  adjustY y = y - quot (squareSize - imageHeight img) 2
+  in generateImage
+    (\(adjustX -> x) (adjustY -> y) ->
+      if 0 <= x && x < imageWidth img && 0 <= y && y < imageHeight img
+        then pixelAt img x y
+        else PixelRGBA8 0 0 0 0
+    )
+    squareSize
+    squareSize
+
+backgroundColor :: PixelRGBA8 -> Image PixelRGBA8 -> Image PixelRGBA8
+backgroundColor bg img = let
+  floatToByte c
+    | c < 0     = 0
+    | c > 1     = 255
+    | otherwise = round $ (c :: Float) * 255
+  overlay
+    (PixelRGBA8 (promotePixel -> r1) (promotePixel -> g1) (promotePixel -> b1) (promotePixel -> a1))
+    (PixelRGBA8 (promotePixel -> r2) (promotePixel -> g2) (promotePixel -> b2) (promotePixel -> a2))
+    = PixelRGBA8
+      (floatToByte $ r1 * a1 * (1 - a2) + r2 * a2)
+      (floatToByte $ g1 * a1 * (1 - a2) + g2 * a2)
+      (floatToByte $ b1 * a1 * (1 - a2) + b2 * a2)
+      (floatToByte $ a1 * (1 - a2) + a2)
+  in generateImage
+    (\x y -> overlay bg $ pixelAt img x y)
+    (imageWidth img)
+    (imageHeight img)
 
 applyTargetAudio :: (MonadResource m) => TargetCommon -> RBFile.Song f -> AudioSource m Float -> AudioSource m Float
 applyTargetAudio tgt mid = let

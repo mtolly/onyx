@@ -1,13 +1,11 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
-{-# LANGUAGE ViewPatterns      #-}
 module Onyx.Import.FretsOnFire where
 
-import           Codec.Picture                    (Image (..), PixelRGBA8 (..),
-                                                   convertRGBA8, generateImage,
-                                                   pixelAt, readImage)
-import           Codec.Picture.Types              (dropAlphaLayer, promotePixel)
+import           Codec.Picture                    (PixelRGBA8 (..),
+                                                   convertRGBA8, readImage)
+import           Codec.Picture.Types              (dropAlphaLayer)
 import           Control.Arrow                    (first)
 import           Control.Monad                    (forM, forM_, guard, unless,
                                                    void, when)
@@ -30,6 +28,7 @@ import qualified Data.Text                        as T
 import           Numeric                          (readHex)
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.Audio
+import           Onyx.Build.Common                (backgroundColor, squareImage)
 import qualified Onyx.FeedBack.Base               as FB
 import qualified Onyx.FeedBack.Load               as FB
 import qualified Onyx.FretsOnFire                 as FoF
@@ -205,38 +204,26 @@ importFoF src level = do
               warn $ "Unrecognized cassettecolor format: " <> s
               return $ PixelRGBA8 0 0 0 255
           img <- stackIO (readImage $ src </> f) >>= either fatal (return . convertRGBA8)
-          let squareSize = max (imageWidth img) (imageHeight img) + 30
-              adjustX x = x - quot (squareSize - imageWidth  img) 2
-              adjustY y = y - quot (squareSize - imageHeight img) 2
-              floatToByte c
-                | c < 0     = 0
-                | c > 1     = 255
-                | otherwise = round $ (c :: Float) * 255
-              overlay
-                (PixelRGBA8 (promotePixel -> r1) (promotePixel -> g1) (promotePixel -> b1) (promotePixel -> a1))
-                (PixelRGBA8 (promotePixel -> r2) (promotePixel -> g2) (promotePixel -> b2) (promotePixel -> a2))
-                = PixelRGBA8
-                  (floatToByte $ r1 * a1 * (1 - a2) + r2 * a2)
-                  (floatToByte $ g1 * a1 * (1 - a2) + g2 * a2)
-                  (floatToByte $ b1 * a1 * (1 - a2) + b2 * a2)
-                  (floatToByte $ a1 * (1 - a2) + a2)
-              img' = generateImage
-                (\(adjustX -> x) (adjustY -> y) ->
-                  if 0 <= x && x < imageWidth img && 0 <= y && y < imageHeight img
-                    then overlay bgColor $ pixelAt img x y
-                    else bgColor
-                )
-                squareSize
-                squareSize
+          let img' = backgroundColor bgColor $ squareImage 30 img
           return $ Just $ SoftFile "cover.png" $ SoftImage $ dropAlphaLayer img'
-  backgroundImage <- stackIO $ do
-    let isBackground f = case splitExtension $ map toLower f of
-          ("background", ext) -> elem ext [".png", ".jpg", ".jpeg"]
-          _                   -> False
-    case filter isBackground allFiles of
-      []    -> return Nothing
-      f : _ -> return $ Just $ SoftFile (map toLower f) $ SoftReadable $ fileReadable $ src </> f
-
+  backgroundImage <- case FoF.background song of
+    _ | level == ImportQuick -> return Nothing
+    Just v | not $ all isSpace v -> do -- PS background reference
+      v' <- stackIO $ fixFileCase (src </> v) >>= Dir.makeAbsolute
+      stackIO (Dir.doesFileExist v') >>= \case
+        False -> do
+          warn $ "song.ini references background " <> show v <> " but it wasn't found"
+          return Nothing
+        True -> return $ Just
+          $ SoftFile ("background" <.> takeExtension v)
+          $ SoftReadable $ fileReadable v'
+    _ -> return $ let -- look for CH background
+      isBackground f = case splitExtension $ map toLower f of
+        ("background", ext) -> elem ext [".png", ".jpg", ".jpeg"]
+        _                   -> False
+      in case filter isBackground allFiles of
+        []    -> Nothing
+        f : _ -> Just $ SoftFile (map toLower f) $ SoftReadable $ fileReadable $ src </> f
   let loadAudioFile _ | level == ImportQuick = return Nothing
       loadAudioFile x = stackIO $ let
         tryExt ext = do
@@ -444,6 +431,7 @@ importFoF src level = do
       , _trackNumber  = FoF.track song
       , _comments     = []
       , _author       = FoF.charter song
+      -- TODO this probably needs to be adjusted for delay padding
       , _previewStart = case FoF.previewStartTime song of
         Just ms | ms >= 0 -> Just $ PreviewSeconds $ fromIntegral ms / 1000
         _                 -> Nothing

@@ -4,9 +4,12 @@
 module Onyx.Build.CloneHero (psRules) where
 
 import qualified Codec.Archive.Zip                as Zip
+import           Codec.Picture                    (encodeJpegAtQuality)
+import           Codec.Picture.Types              (convertImage)
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource
+import qualified Data.ByteString.Lazy             as BL
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
@@ -64,6 +67,22 @@ psRules buildInfo dir ps = do
           $ RBFile.fixedPartDrums $ RBFile.s_tracks song
         }
       }
+
+  useJPEG <- case _fileAlbumArt $ _metadata songYaml of
+    Just img | elem (takeExtension img) [".jpg", ".jpeg"] -> do
+      dir </> "ps/album.jpg" %> \out -> do
+        (imageData, pathJpeg) <- loadSquareArtOrJPEG songYaml
+        case pathJpeg of
+          Just jpg -> shk $ copyFile' jpg out
+          -- we could just use png in this case. but this is fine
+          Nothing  -> stackIO $ BL.writeFile out $ encodeJpegAtQuality 85 $ convertImage imageData
+      return True
+    _ -> return False
+  dir </> "ps/album.png"   %> shk . copyFile' (rel "gen/cover-full.png")
+  bgimg <- forM (_fileBackgroundImage $ _global songYaml) $ \f -> do
+    let psImage = "background" <> takeExtension f
+    dir </> "ps" </> psImage %> shk . copyFile' (rel f)
+    return psImage
 
   dir </> "ps/song.ini" %> \out -> do
     raw <- shakeMIDI $ planDir </> "raw.mid"
@@ -144,6 +163,7 @@ psRules buildInfo dir ps = do
       , FoF.loadingPhrase    = ps_LoadingPhrase ps
       , FoF.cassetteColor    = Nothing
       , FoF.tags             = guard (_cover $ _metadata songYaml) >> Just "cover"
+      , FoF.background       = bgimg
        -- TODO fill these in if we have a video
       , FoF.video            = Nothing
       , FoF.videoStartTime   = Nothing
@@ -228,16 +248,6 @@ psRules buildInfo dir ps = do
         Just 0 -> return ()
         _      -> shk $ copyFile' fin $ dir </> "ps" </> inst <.> "ogg"
 
-  useJPEG <- case _fileAlbumArt $ _metadata songYaml of
-    Just img | elem (takeExtension img) [".jpg", ".jpeg"] -> do
-      dir </> "ps/album.jpg" %> shk . copyFile' img
-      return True
-    _ -> return False
-  dir </> "ps/album.png"   %> shk . copyFile' (rel "gen/cover-full.png")
-  bgimg <- forM (_fileBackgroundImage $ _global songYaml) $ \f -> do
-    let psImage = "background" <> takeExtension f
-    dir </> "ps" </> psImage %> shk . copyFile' (rel f)
-    return psImage
   phony (dir </> "ps") $ do
     (_, mixMode) <- computeDrumsPart (ps_Drums ps) plan songYaml
     let needsPartAudio f = maybe False (/= def) (getPart (f ps) songYaml) && case plan of

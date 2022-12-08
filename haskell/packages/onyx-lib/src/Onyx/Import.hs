@@ -70,8 +70,9 @@ import qualified Sound.Jammit.Base            as J
 import qualified System.Directory             as Dir
 import           System.FilePath              (dropExtension,
                                                dropTrailingPathSeparator,
-                                               takeDirectory, takeExtension,
-                                               takeFileName, (-<.>), (</>))
+                                               splitExtension, takeDirectory,
+                                               takeExtension, takeFileName,
+                                               (-<.>), (<.>), (</>))
 import qualified System.IO                    as IO
 import qualified System.IO.Temp               as Temp
 import           System.Random                (randomRIO)
@@ -290,11 +291,16 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       let lookFor [] = do
             hasRBDTA <- stackIO $ anyM Dir.doesFileExist
               [fp </> "songs/songs.dta", fp </> "songs/gen/songs.dtb"]
+            -- filter older supported stepmania formats when a newer one is present
+            let sm = map (map toLower) $ filter ((== ".sm") . map toLower . takeExtension) ents
+                filtered = flip filter ents $ \x -> case splitExtension $ map toLower x of
+                  (name, ".dwi") -> notElem (name <.> "sm") sm
+                  _              -> True
             if hasRBDTA
               then stackIO (crawlFolder fp)
                 >>= importSTFSFolder fp
                 >>= foundImports "Rock Band Extracted" fp
-              else return (map (fp </>) ents, [])
+              else return (map (fp </>) filtered, [])
           lookFor ((file, use) : rest) = case filter ((== file) . map toLower) ents of
             match : _ -> use $ fp </> match
             []        -> lookFor rest

@@ -27,8 +27,10 @@ import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.PhaseShift.Dance
 import           Onyx.Project
 import           Onyx.StackTrace
+import           Onyx.Util.Files                      (fixFileCase)
 import           Onyx.Util.Handle
 import qualified Sound.MIDI.Util                      as U
+import           System.Directory                     (doesFileExist)
 import           System.FilePath
 
 data TempoChunk
@@ -188,7 +190,7 @@ importSM src level = do
   audio <- case sm_MUSIC sm of
     Nothing -> return HM.empty
     Just path -> do
-      let path' = takeDirectory src </> T.unpack path
+      path' <- fixFileCase $ takeDirectory src </> T.unpack path
       stackIO (audioChannels path') >>= \case
         Nothing -> fatal $ "Couldn't get channel count of audio file: " <> path'
         Just chans -> return $ HM.singleton "audio-file" $ AudioFile AudioInfo
@@ -201,15 +203,44 @@ importSM src level = do
           , _rate = Nothing
           , _channels = chans
           }
+  -- may be some auto paths we could search like name-banner.png and name-bg.png
+  banner <- case sm_BANNER sm of
+    Nothing -> return Nothing
+    Just path -> do
+      path' <- fixFileCase $ takeDirectory src </> T.unpack path
+      stackIO (doesFileExist path') >>= \case
+        True  -> return $ Just $ SoftFile ("banner" <.> takeExtension path') $ SoftReadable $ fileReadable path'
+        False -> do
+          warn $ "#BANNER not found: " <> T.unpack path
+          return Nothing
+  background <- case sm_BACKGROUND sm of
+    Nothing -> return Nothing
+    Just path -> do
+      path' <- fixFileCase $ takeDirectory src </> T.unpack path
+      stackIO (doesFileExist path') >>= \case
+        True  -> return $ Just $ SoftFile ("background" <.> takeExtension path') $ SoftReadable $ fileReadable path'
+        False -> do
+          warn $ "#BACKGROUND not found: " <> T.unpack path
+          return Nothing
   return SongYaml
     { _metadata = def'
-      { _title = sm_TITLE sm
+      { _title = case (sm_TITLE sm, sm_SUBTITLE sm) of
+        (Just t , Just st) -> Just $ t <> " " <> st
+        (Nothing, Nothing) -> Nothing
+        (Just t , Nothing) -> Just t
+        (Nothing, Just st) -> Just st
       , _artist = sm_ARTIST sm
       , _genre = sm_GENRE sm
       , _author = case nubOrd $ map smn_Author $ sm_NOTES sm of
         [] -> Nothing
         xs -> Just $ T.intercalate ", " xs
-      , _fileAlbumArt = Nothing -- TODO
+      , _fileAlbumArt = banner
+      -- TODO these need to be adjusted for delay padding
+      , _previewStart = PreviewSeconds . realToFrac <$> sm_SAMPLESTART sm
+      , _previewEnd = do
+        start <- sm_SAMPLESTART sm
+        len <- sm_SAMPLELENGTH sm
+        return $ PreviewSeconds $ realToFrac $ start + len
       }
     , _jammit = HM.empty
     , _audio = audio
@@ -229,7 +260,13 @@ importSM src level = do
     , _targets = HM.empty
     , _parts = Parts $ HM.singleton (F.FlexExtra "global") def
       { partDance = Just PartDance
-        { danceDifficulty = Tier 1
+        { danceDifficulty = Tier $ max 1 $ let
+          -- as a hack, get max meter value and subtract 4 (so 10 becomes 6)
+          meters
+            = map smn_NumericalMeter
+            $ filter (\smn -> smn_ChartType smn == "dance-single")
+            $ sm_NOTES sm
+          in fromIntegral $ foldr max 0 meters - 4
         }
       }
     , _global = Global
@@ -238,9 +275,6 @@ importSM src level = do
       , _autogenTheme = Nothing
       , _animTempo = Left KTempoMedium
       , _backgroundVideo = Nothing
-      , _fileBackgroundImage = flip fmap (sm_BACKGROUND sm) $ \bg -> let
-        fp = takeDirectory src </> T.unpack bg
-        name = "background" <.> takeExtension fp
-        in SoftFile name $ SoftReadable $ fileReadable fp
+      , _fileBackgroundImage = background
       }
     }

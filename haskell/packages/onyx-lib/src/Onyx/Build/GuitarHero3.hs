@@ -410,6 +410,7 @@ makeGH3Timing tmap mmap end = let
     $ U.measureMapToTimeSigs mmap
   in (fretbars, sigs)
 
+-- TODO we need to pad song start if too early. notes work fine (unlike RB) but not enough visual lead-in
 makeGH3MidQB
   :: SongYaml f
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
@@ -441,6 +442,7 @@ makeGH3MidQB songYaml song timing partLead partRhythm partDrummer = let
     fiveDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk'
     sht
       = noOpenNotes
+      -- TODO guitarify' is called by makeGH3TrackNotes but should we remove ext sustains before noOpenNotes?
       $ applyForces (getForces5 fiveDiff)
       $ strumHOPOTap algo (fromIntegral threshold / 480)
       $ computeFiveFretNotes fiveDiff

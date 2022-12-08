@@ -65,6 +65,7 @@ data Song = Song
   , videoLoop        :: Maybe Bool
   , cassetteColor    :: Maybe T.Text -- ^ old FoF background color that label.png goes on top of
   , tags             :: Maybe T.Text
+  , background       :: Maybe FilePath -- ^ probably only PS, CH finds @background.*@
   {- TODO:
   banner_link_a
   link_name_a
@@ -76,7 +77,6 @@ data Song = Song
   guitar_type
   bass_type
   dance_type
-  background
   rating
   count
   real_keys_lane_count_right
@@ -96,7 +96,7 @@ instance Default Song where
     def def def def def def def def def def
     def def def def def def def def def def
     def def def def def def def def def def
-    def def def def def
+    def def def def def def
 
 -- | Strips <b>bold</b>, <i>italic</i>, and <color=red>colored</color>
 -- which are supported by CH in metadata, lyrics, and sections.
@@ -119,8 +119,12 @@ stripTags = let
 
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do
-  let readIniUTF8
-        = fmap (parseIni . decodeGeneral) . B.readFile
+  let readIniUTF8 = fmap (parseIni . noComments . decodeGeneral) . B.readFile
+      -- C3 CON Tools (new at some point?) puts semicolon comments at the bottom
+      -- which the ini library chokes on. Not sure if just removing blindly like
+      -- this is totally okay (can ini strings extend onto multiple lines?)
+      -- but it seems fine
+      noComments = T.unlines . filter (\ln -> not $ ";" `T.isPrefixOf` ln) . T.lines
   ini <- inside fp $ liftIO (readIniUTF8 fp) >>= either fatal return
   -- TODO make all keys lowercase before lookup
 
@@ -183,6 +187,7 @@ loadSong fp = do
       videoLoop = bool "video_loop"
       cassetteColor = str "cassettecolor"
       tags = str "tags"
+      background = fmap T.unpack $ str "background"
 
   return Song{..}
 
@@ -239,6 +244,7 @@ saveSong fp Song{..} = writePSIni fp $ flip Ini []
     shown "video_loop" videoLoop
     str "cassettecolor" cassetteColor
     str "tags" tags
+    str "background" $ fmap T.pack background
 
 writePSIni :: (MonadIO m) => FilePath -> Ini -> m ()
 writePSIni fp (Ini hmap _) = let

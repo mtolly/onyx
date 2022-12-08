@@ -238,11 +238,199 @@ guitarify
 fromClosed' :: RTB.T t ((color, sht), len) -> RTB.T t ((Maybe color, sht), len)
 fromClosed' = fmap $ first $ first Just
 
+-- Note, should probably remove extended sustains before running this?
 noOpenNotes
   :: (NNC.C t)
   => RTB.T t ((Maybe G5.Color, StrumHOPOTap), len)
   -> RTB.T t ((G5.Color, StrumHOPOTap), len)
-noOpenNotes = let
+noOpenNotes notes = let
+  -- if there are no open notes, no need to do any steps
+  checkNotOpen ((fret, sht), len) = do
+    notOpen <- fret
+    Just ((notOpen, sht), len)
+  in case mapM checkNotOpen notes of
+    Just allNotOpen -> allNotOpen
+    Nothing         -> RTB.flatten $ noOpenNotesNewAlgorithm $ mutedOpensToRBStyle $ RTB.collectCoincident notes
+
+-- Identifies "(chord or song start) (open notes) (chord)" (all strums)
+-- and turns the open notes into the low note of the following chord,
+-- or the preceding chord if it's closer to the open notes.
+mutedOpensToRBStyle
+  :: (NNC.C t)
+  => RTB.T t [((Maybe G5.Color, StrumHOPOTap), len)] -- should be from collectCoincident
+  -> RTB.T t [((Maybe G5.Color, StrumHOPOTap), len)]
+mutedOpensToRBStyle = go True where
+  go _       RNil                  = RNil
+  go isStart view@(Wait dt x rest) = if isChordStrum x
+    then findOpens (Just (dt, x)) rest
+    else if isStart
+      then findOpens Nothing view
+      else Wait dt x $ go False rest
+  findOpens previousChord rest = case RTB.span isOpenStrum rest of
+    (opens@(Wait prevChordTime _ _), afterOpens) -> case afterOpens of
+      Wait nextChordTime nextChord _ | isChordStrum nextChord -> let
+        -- we could take sustain lengths into account but probably doesn't matter
+        nextChordLow = minimum $ map (\((fret, _), _) -> fret) nextChord
+        prevChordLow = case previousChord of
+          Nothing         -> Just G5.Green -- doesn't matter
+          Just (_, chord) -> minimum $ map (\((fret, _), _) -> fret) chord
+        chordLow = case previousChord of
+          Nothing -> nextChordLow
+          Just _  -> if prevChordTime < nextChordTime
+            then prevChordLow
+            else nextChordLow
+        in addPrevious $ RTB.append (moveToFret chordLow <$> opens)
+          $ go False afterOpens
+      _ -> addPrevious $ go False rest
+    _ -> addPrevious $ go False rest
+    where addPrevious = case previousChord of
+            Just (dt, x) -> Wait dt x
+            Nothing      -> id
+  isChordStrum = \case
+    ((_, Strum), _) : _ : _ -> True
+    _                       -> False
+  isOpenStrum = \case
+    [((Nothing, Strum), _)] -> True
+    _                       -> False
+  moveToFret fret = map $ \((_, sht), len) -> ((fret, sht), len)
+
+data FretGroup
+  = FretGroupLow -- notes that will be moved up
+  | FretGroupHigh -- notes that will stay in place
+  deriving (Eq)
+
+noOpenNotesNewAlgorithm
+  :: (NNC.C t)
+  => RTB.T t [((Maybe G5.Color, StrumHOPOTap), len)] -- should be from collectCoincident
+  -> RTB.T t [((G5.Color, StrumHOPOTap), len)]
+noOpenNotesNewAlgorithm input = let
+
+  inputList = RTB.toPairList input
+  times     = map fst inputList
+  events    = map snd inputList
+
+  -- First fix the full 6-note sequences which will be a problem for wrapping.
+  -- We change "open G R Y B O" to "open G Y R B O" which will become "G R Y R B O" later.
+  isFret f [((fret, _), _)] = fret == f
+  isFret _ _                = False
+  fixWrapping :: [[((Maybe G5.Color, StrumHOPOTap), len)]] -> [[((Maybe G5.Color, StrumHOPOTap), len)]]
+  fixWrapping [] = []
+  fixWrapping fix1@(head1 : tail1) = case span (isFret Nothing) fix1 of
+    (opens@(_ : _), fix2) -> case span (isFret $ Just G5.Green) fix2 of
+      (greens@(_ : _), fix3) -> case span (isFret $ Just G5.Red) fix3 of
+        (reds@(_ : _), fix4) -> case span (isFret $ Just G5.Yellow) fix4 of
+          (yellows@(_ : _), fix5) -> case span (isFret $ Just G5.Blue) fix5 of
+            (blues@(_ : _), fix6) -> if any (isFret $ Just G5.Orange) $ take 1 fix6
+              then concat
+                [ opens
+                , greens
+                , map (map $ \((_, sht), len) -> ((Just G5.Yellow, sht), len)) reds
+                , map (map $ \((_, sht), len) -> ((Just G5.Red, sht), len)) yellows
+                , blues
+                , fixWrapping fix6
+                ]
+              else head1 : fixWrapping tail1
+            _ -> head1 : fixWrapping tail1
+          _ -> head1 : fixWrapping tail1
+        _ -> head1 : fixWrapping tail1
+      _ -> head1 : fixWrapping tail1
+    _ -> head1 : fixWrapping tail1
+
+  -- initial markings: mark open as Low, single orange as High, chords as High
+  initState = map $ \xs -> case xs of
+    [((Nothing       , _), _)] -> (xs, Just FretGroupLow )
+    [((Just G5.Orange, _), _)] -> (xs, Just FretGroupHigh)
+    (_ : _ : _               ) -> (xs, Just FretGroupHigh)
+    _                          -> (xs, Nothing           )
+
+  fretMovement :: Maybe G5.Color -> Maybe G5.Color -> Int
+  fretMovement fret1 fret2 = maybe (-1) fromEnum fret2 - maybe (-1) fromEnum fret1
+
+  -- pass 1 (apply both ways): High notes spread to adjacent notes on same fret or 1 down
+  pass1 = \case
+    pair1@([((fret1, _), _)], Just FretGroupHigh) : (gems2@[((fret2, _), _)], Nothing) : rest
+      | elem (fretMovement fret1 fret2) [0, -1]
+      -> pair1 : pass1 ((gems2, Just FretGroupHigh) : rest)
+    x : xs -> x : pass1 xs
+    [] -> []
+
+  -- pass 2 (apply both ways): Low notes spread to adjacent notes on same fret or 1 up
+  pass2 = \case
+    pair1@([((fret1, _), _)], Just FretGroupLow) : (gems2@[((fret2, _), _)], Nothing) : rest
+      | elem (fretMovement fret1 fret2) [0, 1]
+      -> pair1 : pass2 ((gems2, Just FretGroupLow) : rest)
+    x : xs -> x : pass2 xs
+    [] -> []
+
+  -- pass 3: remove Low marking from open notes
+  pass3 = map $ \case
+    (open@[((Nothing, _), _)], Just FretGroupLow) -> (open, Nothing)
+    x                                             -> x
+
+  -- pass 4: for any sequence with Low or song boundary on either side and no High in between, also mark Low
+  marked m (_, mark) = mark == m
+  -- first handle the case of unmarked notes at start
+  pass4 [] = []
+  pass4 in1 = case span (marked Nothing) in1 of
+    (unmarked@(_ : _), in2) -> if all (marked $ Just FretGroupLow) $ take 1 in2 -- note, 'all' handles when in2 is empty
+      then concat
+        [ map (\(x, _) -> (x, Just FretGroupLow)) unmarked
+        , pass4' in2
+        ]
+      else unmarked <> pass4' in2
+    _ -> pass4' in1
+  -- then just handle "low, unmarked, low/end"
+  pass4' [] = []
+  pass4' in1@(head1 : tail1) = case span (marked $ Just FretGroupLow) in1 of
+    (lows@(_ : _), in2) -> case span (marked Nothing) in2 of
+      (unmarked@(_ : _), in3) -> if all (marked $ Just FretGroupLow) $ take 1 in3 -- note, 'all' handles when in3 is empty
+        then concat
+          [ lows
+          , map (\(x, _) -> (x, Just FretGroupLow)) unmarked
+          , pass4' in3
+          ]
+        else head1 : pass4' tail1
+      _ -> head1 : pass4' tail1
+    _ -> head1 : pass4' tail1
+
+  -- pass 5: remaining notes all High
+  pass5 = map $ \(gems, mark) -> (gems, fromMaybe FretGroupHigh mark)
+
+  applyGroups = map $ \(gems, mark) -> let
+    delta = case mark of
+      FretGroupLow  -> 1
+      FretGroupHigh -> 0
+    in do
+      ((fret, sht), len) <- gems
+      let fret' = case maybe (-1) fromEnum fret + delta of
+            1 -> G5.Red
+            2 -> G5.Yellow
+            3 -> G5.Blue
+            n -> if n < 1 then G5.Green else G5.Orange
+      return ((fret', sht), len)
+
+  events'
+    = applyGroups
+    $ pass5
+    $ pass4
+    $ pass3
+    $ reverse $ pass2 $ reverse $ pass2
+    $ reverse $ pass1 $ reverse $ pass1
+    $ initState
+    $ reverse $ fixWrapping $ reverse $ fixWrapping events
+
+  in RTB.fromPairList $ zip times events'
+
+-- Previously used steps to move notes around for non-open-note game targets.
+-- This process ensures that any two adjacent notes
+-- * will be the same frets if they were the same to begin with
+-- * will be different frets if they were different to begin with
+-- which means HOPOs/strum settings don't need to be edited.
+noOpenNotesOldAlgorithm
+  :: (NNC.C t)
+  => RTB.T t [((Maybe G5.Color, StrumHOPOTap), len)] -- should be from collectCoincident
+  -> RTB.T t [((G5.Color, StrumHOPOTap), len)]
+noOpenNotesOldAlgorithm = let
   rev = RTB.fromPairList . reverse . RTB.toPairList
 
   fixForward RNil = RNil
@@ -272,8 +460,8 @@ noOpenNotes = let
     = Wait dt [((Just Yellow, sht), len)] $ fallbackFlip rest
   fallbackFlip rest = rest
 
-  openGreen = fmap $ \((mc, sht), len) -> ((fromMaybe Green mc, sht), len)
-  in openGreen . RTB.flatten . rev . fixForward . rev . fixForward . RTB.collectCoincident
+  openGreen = fmap $ map $ \((mc, sht), len) -> ((fromMaybe Green mc, sht), len)
+  in openGreen . rev . fixForward . rev . fixForward
 
 -- | Turns all tap notes into HOPO notes.
 noTaps' :: RTB.T t ((color, StrumHOPOTap), len) -> RTB.T t ((color, StrumHOPOTap), len)

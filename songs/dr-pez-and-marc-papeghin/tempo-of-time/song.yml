@@ -8,13 +8,22 @@ parts:
       fix-freeform: false
       difficulty:
         tier: 7
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
   # vocal:
   #   vocal:
   #     difficulty:
   #       tier: 1
 audio:
-  song.ogg:
-    file-path: song.ogg
+  youtube-mp3:
+    file-path: 'Tempo of Time.mp3'
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(youtube-mp3) audio-stems.wav
+    channels: 8
 metadata:
   title: Tempo of Time
   author: HenryMan73, TFG85, Onyxite
@@ -24,7 +33,19 @@ metadata:
   artist: Dr. Pez and Marc Papeghin
 plans:
   youtube:
-    song: song.ogg
+    song: youtube-mp3
+  dev:
+    song:
+      youtube-mp3
+    parts:
+      bass:
+        channels: [[0, 1], stems]
+      drums:
+        channels: [[2, 3], stems]
+      vocal:
+        channels: [[4, 5], stems]
+      other:
+        channels: [[6, 7], stems]
 targets:
   ps:
     game: ps
@@ -33,3 +54,4 @@ targets:
       to TFG85, because without them, this project wouldn't be done yet. They helped
       out so much, with charting and giving feedback. Also, shoutout to Ardebitis
       for the tempo map. Hope you all enjoy this as much as we did making it.
+    plan: youtube

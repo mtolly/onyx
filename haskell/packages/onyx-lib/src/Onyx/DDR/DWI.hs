@@ -6,6 +6,7 @@
 module Onyx.DDR.DWI where
 
 import           Control.Monad.Extra              (firstJustM, forM, guard)
+import           Data.Char                        (isSpace)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
@@ -29,6 +30,7 @@ import           Text.Read                        (readMaybe)
 data DWI = DWI
   { dwi_GENRE       :: Maybe T.Text
   , dwi_CDTITLE     :: Maybe T.Text
+  , dwi_FILE        :: Maybe T.Text
   , dwi_TITLE       :: Maybe T.Text
   , dwi_ARTIST      :: Maybe T.Text
   , dwi_BPM         :: Maybe Scientific
@@ -52,6 +54,7 @@ readDWI :: (MonadFail m) => [(T.Text, [T.Text])] -> m DWI
 readDWI lns = do
   dwi_GENRE       <- getSMString lns "GENRE"
   dwi_CDTITLE     <- getSMString lns "CDTITLE"
+  dwi_FILE        <- getSMString lns "FILE"
   dwi_TITLE       <- getSMString lns "TITLE"
   dwi_ARTIST      <- getSMString lns "ARTIST"
   dwi_BPM         <- getSMNumber lns "BPM"
@@ -83,7 +86,9 @@ convertDWItoSM fp DWI{..} = do
   banner     <- checkFiles [fp -<.> "png"]
   background <- checkFiles [dropExtension fp <> "-bg.png"]
   lyrics     <- checkFiles [fp -<.> "lrc"]
-  music      <- checkFiles [fp -<.> "ogg", fp -<.> "mp3"]
+  music      <- case dwi_FILE of
+    Just _  -> return dwi_FILE
+    Nothing -> checkFiles [fp -<.> "ogg", fp -<.> "mp3"]
   return SM
     { sm_TITLE            = dwi_TITLE
     , sm_SUBTITLE         = Nothing
@@ -133,7 +138,7 @@ data DWINote = DWINote
 
 -- Timing is 192nd notes (192 = 1 bar)
 getDWINotes :: T.Text -> RTB.T NN.Int DWINote
-getDWINotes top = go 24 top "" where
+getDWINotes top = go 24 (T.filter (not . isSpace) top) "" where
   -- hoping the division brackets can't be nested
   -- TODO "It is also possible to hit more than two arrows at once. Simply surround any combination of step/jump keys with <Angle Brackets>."
   go division s after = case T.uncons s of
