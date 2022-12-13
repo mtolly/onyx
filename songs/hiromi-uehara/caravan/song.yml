@@ -63,6 +63,7 @@ metadata:
   year: 2008
   genre: jazz
   file-album-art: cover.jpg
+  preview-start: prc_chorus_1
 targets:
   rb3:
     game: rb3

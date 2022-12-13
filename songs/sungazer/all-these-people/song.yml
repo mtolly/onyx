@@ -48,6 +48,7 @@ metadata:
   genre: fusion
   subgenre: fusion
   file-album-art: cover.jpg
+  preview-start: prc_tension_1
 targets:
   rb3:
     game: rb3
