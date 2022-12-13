@@ -12,7 +12,7 @@ global:
 metadata:
   album: Electric Cartoon Music From Hell
   artist: Electrocution 250
-  author: Paturages
+  author: Paturages, Onyxite
   difficulty:
     tier: 1
   file-album-art: album.png
@@ -26,10 +26,10 @@ parts:
     drums:
       mode: full
       kicks: both
-  guitar:
+      difficulty: 7
+  guitar: # combined chart by Paturages
     grybo:
-      difficulty:
-        tier: 6
+      difficulty: 7
 plans:
   album:
     song: album-track
@@ -46,12 +46,17 @@ plans:
       other:
         channels: [[6, 7], stems]
 targets:
+  rb3:
+    game: rb3
+    plan: album
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: album
   ps:
     game: ps
     plan: album
-    loading-phrase: 'According to YouTube, this was originally charted in May 2011.
-      Surprisingly enough, not many notes have changed at all since then: the main
-      updates actually lie in audio, tempo map, forcing modernisation and a very few
-      extra instruments.'
-
-# TODO tempo map is adjusted, need to now fix guitar (keys) timing at end
+    # loading-phrase: 'According to YouTube, this was originally charted in May 2011.
+    #   Surprisingly enough, not many notes have changed at all since then: the main
+    #   updates actually lie in audio, tempo map, forcing modernisation and a very few
+    #   extra instruments.'

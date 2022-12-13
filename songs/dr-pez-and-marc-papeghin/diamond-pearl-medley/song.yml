@@ -1,0 +1,46 @@
+audio:
+  lossless-track:
+    frames: 61478547
+    md5: 37b634d30a551862cd4b136eaba73650
+  stem-other:
+    frames: 61478547
+    md5: 7ac973f2b7367336ce8576a2b0525e44
+  stem-percussion:
+    frames: 61478547
+    md5: 713a43800208d7017d86d4f0fc1454b0
+  stem-keys:
+    frames: 61478547
+    md5: 147bae578de10265a989f85fd4064be0
+  stem-guitar:
+    frames: 61478547
+    md5: 0a9cb66c1a391f5a3ae8262fa5b7538b
+  stem-bass:
+    frames: 61478547
+    md5: aa0a1114f3302f425644d48ff8a31a5d
+plans:
+  release:
+    song:
+      pad: [5.240, lossless-track]
+  dev:
+    parts:
+      stem-bass:
+        pad: [5.240, stem-bass]
+      stem-percussion:
+        pad: [5.240, stem-percussion]
+      stem-keys:
+        pad: [5.240, stem-keys]
+      stem-guitar:
+        pad: [5.240, stem-guitar]
+      stem-other:
+        pad: [5.240, stem-other]
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+  drums:
+    drums:
+      mode: full
+metadata:
+  title: Pokémon Diamond & Pearl Music Medley
+  artist: Dr. Pez

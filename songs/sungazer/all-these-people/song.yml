@@ -48,3 +48,10 @@ metadata:
   genre: fusion
   subgenre: fusion
   file-album-art: cover.jpg
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  ps:
+    game: ps
+    plan: album

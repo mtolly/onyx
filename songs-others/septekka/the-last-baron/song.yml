@@ -102,9 +102,14 @@ targets:
     game: ps
     plan: mogg
 
+# to fix on other tracks:
+# 150-158
+# 272-276
+# 286-291
+
 # TODO fix these bars on all tracks (changed 15/16 to 4/4):
 # 286.1.00, 289.1.00, 291.1.00
 # Also, fix BEAT around this part and the previous rep (bars 150-155)
-# after 4/4 placement was fixed
-# Also, 272-276 should get similar time sig fixes
-# Also, m276 needs another sixteenth note!
+# after 4/4 placement was fixed - DONE
+# Also, 272-276 should get similar time sig fixes - DONE
+# Also, m276 should get another 16th note - DONE

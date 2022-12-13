@@ -3,6 +3,7 @@ parts:
     drums:
       mode: full
       kicks: 1
+      difficulty: 5
 audio:
   album-track:
     frames: 11851728

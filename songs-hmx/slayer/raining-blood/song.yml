@@ -1,6 +1,10 @@
 global:
   file-song-anim: song.anim
 targets:
+  rb3:
+    game: rb3
+    harmonix: true
+    label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
