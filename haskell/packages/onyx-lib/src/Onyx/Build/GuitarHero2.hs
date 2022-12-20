@@ -36,7 +36,7 @@ import           Onyx.Harmonix.MOGG
 import           Onyx.Harmonix.RockBand.Milo      (englishSyllables, gh2Lipsync,
                                                    putVocFile)
 import           Onyx.Harmonix.RockBand.Score     (gh2Base)
-import           Onyx.Image.DTX
+import           Onyx.Image.DXT
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                   (mapTrack)
 import           Onyx.MIDI.Track.File             (saveMIDI, shakeMIDI)

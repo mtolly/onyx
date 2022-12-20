@@ -5,7 +5,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 module Onyx.DDR.DWI where
 
-import           Control.Monad.Extra              (firstJustM, forM, guard)
+import           Control.Monad                    (forM, guard)
 import           Data.Char                        (isSpace)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -21,10 +21,7 @@ import qualified Numeric.NonNegative.Wrapper      as NN
 import           Onyx.DDR.SM
 import           Onyx.MIDI.Common                 (pattern RNil, pattern Wait)
 import           Onyx.PhaseShift.Dance            (Arrow (..))
-import           Onyx.Util.Files                  (fixFileCase)
 import qualified Sound.MIDI.Util                  as U
-import           System.Directory                 (doesFileExist)
-import           System.FilePath                  (dropExtension, (-<.>))
 import           Text.Read                        (readMaybe)
 
 data DWI = DWI
@@ -76,60 +73,51 @@ readDWI lns = do
       else return Nothing
   return DWI{..}
 
-convertDWItoSM :: FilePath -> DWI -> IO SM
-convertDWItoSM fp DWI{..} = do
-  let checkFiles = firstJustM $ \f -> do
-        f' <- fixFileCase f
-        doesFileExist f' >>= \case
-          True  -> return $ Just $ T.pack f'
-          False -> return Nothing
-  banner     <- checkFiles [fp -<.> "png"]
-  background <- checkFiles [dropExtension fp <> "-bg.png"]
-  lyrics     <- checkFiles [fp -<.> "lrc"]
-  music      <- case dwi_FILE of
-    Just _  -> return dwi_FILE
-    Nothing -> checkFiles [fp -<.> "ogg", fp -<.> "mp3"]
-  return SM
-    { sm_TITLE            = dwi_TITLE
-    , sm_SUBTITLE         = Nothing
-    , sm_ARTIST           = dwi_ARTIST
-    , sm_TITLETRANSLIT    = Nothing
-    , sm_SUBTITLETRANSLIT = Nothing
-    , sm_ARTISTTRANSLIT   = Nothing
-    , sm_GENRE            = dwi_GENRE
-    , sm_CREDIT           = Nothing
-    , sm_BANNER           = banner
-    , sm_BACKGROUND       = background
-    , sm_LYRICSPATH       = lyrics
-    , sm_CDTITLE          = dwi_CDTITLE
-    , sm_MUSIC            = music
-    , sm_OFFSET           = (* (-0.001)) <$> dwi_GAP
-    , sm_SAMPLESTART      = dwi_SAMPLESTART
-    , sm_SAMPLELENGTH     = Nothing
-    , sm_SELECTABLE       = Nothing
-    , sm_DISPLAYBPM       = [] -- dwi can have e.g. #DISPLAYBPM:145..290;
-    , sm_BPMS
-      = toList ((\bpm -> (0, bpm)) <$> dwi_BPM) -- initial bpm
-      <> map (\(sixteenths, bpm) -> (sixteenths / 4, bpm)) dwi_CHANGEBPM -- changes are given in 16th note positions?
-    , sm_STOPS            = map (\(sixteenths, ms) -> (sixteenths / 4, ms / 1000)) dwi_FREEZE
-    , sm_NOTES            = flip mapMaybe dwi_Notes $ \DWINotes{..} -> do
-      guard $ dwin_Mode == "SINGLE" -- TODO add DOUBLE/COUPLE/SOLO
-      diff <- case dwin_Difficulty of
-        "BEGINNER" -> Just "Beginner"
-        "BASIC"    -> Just "Easy"
-        "ANOTHER"  -> Just "Medium"
-        "MANIAC"   -> Just "Hard"
-        "SMANIAC"  -> Just "Challenge"
-        _          -> Nothing
-      return SMNotes
-        { smn_ChartType      = "dance-single"
-        , smn_Author         = ""
-        , smn_Difficulty     = diff
-        , smn_NumericalMeter = dwin_NumericalMeter
-        , smn_GrooveRadar    = []
-        , smn_Notes          = notesDWItoSM dwin_Notes
-        }
-    }
+convertDWItoSM :: DWI -> SM
+convertDWItoSM DWI{..} = SM
+  -- note, several file paths like banner/bg/audio are expected to be named matching the .dwi.
+  -- normal .sm import will look for those
+  { sm_TITLE            = dwi_TITLE
+  , sm_SUBTITLE         = Nothing
+  , sm_ARTIST           = dwi_ARTIST
+  , sm_TITLETRANSLIT    = Nothing
+  , sm_SUBTITLETRANSLIT = Nothing
+  , sm_ARTISTTRANSLIT   = Nothing
+  , sm_GENRE            = dwi_GENRE
+  , sm_CREDIT           = Nothing
+  , sm_BANNER           = Nothing
+  , sm_JACKET           = Nothing
+  , sm_BACKGROUND       = Nothing
+  , sm_LYRICSPATH       = Nothing
+  , sm_CDTITLE          = dwi_CDTITLE
+  , sm_MUSIC            = dwi_FILE
+  , sm_OFFSET           = (* (-0.001)) <$> dwi_GAP
+  , sm_SAMPLESTART      = dwi_SAMPLESTART
+  , sm_SAMPLELENGTH     = Nothing
+  , sm_SELECTABLE       = Nothing
+  , sm_DISPLAYBPM       = [] -- dwi can have e.g. #DISPLAYBPM:145..290;
+  , sm_BPMS
+    = toList ((\bpm -> (0, bpm)) <$> dwi_BPM) -- initial bpm
+    <> map (\(sixteenths, bpm) -> (sixteenths / 4, bpm)) dwi_CHANGEBPM -- changes are given in 16th note positions?
+  , sm_STOPS            = map (\(sixteenths, ms) -> (sixteenths / 4, ms / 1000)) dwi_FREEZE
+  , sm_NOTES            = flip mapMaybe dwi_Notes $ \DWINotes{..} -> do
+    guard $ dwin_Mode == "SINGLE" -- TODO add DOUBLE/COUPLE/SOLO
+    diff <- case dwin_Difficulty of
+      "BEGINNER" -> Just "Beginner"
+      "BASIC"    -> Just "Easy"
+      "ANOTHER"  -> Just "Medium"
+      "MANIAC"   -> Just "Hard"
+      "SMANIAC"  -> Just "Challenge"
+      _          -> Nothing
+    return SMNotes
+      { smn_ChartType      = "dance-single"
+      , smn_Author         = ""
+      , smn_Difficulty     = diff
+      , smn_NumericalMeter = dwin_NumericalMeter
+      , smn_GrooveRadar    = []
+      , smn_Notes          = notesDWItoSM dwin_Notes
+      }
+  }
 
 data DWINote = DWINote
   { dwi_Note :: Char

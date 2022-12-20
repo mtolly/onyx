@@ -3,16 +3,19 @@
 {-# LANGUAGE PatternSynonyms   #-}
 module Onyx.Import.StepMania where
 
-import           Control.Monad                        (guard, when)
+import           Control.Applicative                  ((<|>))
+import           Control.Monad.Extra                  (firstJustM, guard, when)
 import           Control.Monad.IO.Class               (MonadIO)
-import           Data.Char                            (toLower)
+import           Data.Char                            (isAlphaNum, toLower)
 import qualified Data.Conduit.Audio                   as CA
 import           Data.Default.Class                   (def)
 import qualified Data.EventList.Relative.TimeBody     as RTB
+import           Data.Foldable                        (toList)
 import qualified Data.HashMap.Strict                  as HM
 import           Data.List.Extra                      (nubOrd)
 import qualified Data.Map                             as Map
-import           Data.Maybe                           (catMaybes, mapMaybe)
+import           Data.Maybe                           (catMaybes, fromMaybe,
+                                                       mapMaybe)
 import qualified Data.Text                            as T
 import           Onyx.Audio                           (Audio (..), Edge (..),
                                                        audioChannels)
@@ -143,11 +146,14 @@ importSM :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importSM src level = do
   when (level == ImportFull) $ lg $ "Importing StepMania song from: " <> src
   sm <- case map toLower $ takeExtension src of
-    ".sm" -> stackIO (loadSMLines src) >>= readSM
-    ".dwi" -> stackIO (loadSMLines src) >>= readDWI >>= stackIO . convertDWItoSM src
-    _ -> fatal $ "Unrecognized StepMania format extension: " <> src
+    ".sm"  -> stackIO (loadSMLines src) >>= readSM
+    ".dwi" -> stackIO (loadSMLines src) >>= fmap convertDWItoSM . readDWI
+    _      -> fatal $ "Unrecognized StepMania format extension: " <> src
+  -- both of these are encodings for "warps"
   when (any (\(_, bpm) -> bpm < 0) $ sm_BPMS sm) $ fatal
     "Song contains negative BPMs, which are not supported yet."
+  when (any (\(_, t) -> t < 0) $ sm_STOPS sm) $ fatal
+    "Song contains negative stops, which are not supported yet."
   let (delayAudio, delayMIDI) = case sm_OFFSET sm of
         Nothing -> (id, id)
         Just n -> case compare n 0 of
@@ -187,51 +193,79 @@ importSM src level = do
           { F.onyxPartDance = getDanceTrack "dance-single"
           }
         }
-  audio <- case sm_MUSIC sm of
-    Nothing -> return HM.empty
-    Just path -> do
-      path' <- fixFileCase $ takeDirectory src </> T.unpack path
-      stackIO (audioChannels path') >>= \case
-        Nothing -> fatal $ "Couldn't get channel count of audio file: " <> path'
-        Just chans -> return $ HM.singleton "audio-file" $ AudioFile AudioInfo
+
+  let audioOptions = catMaybes
+        [ (\f -> takeDirectory src </> T.unpack f) <$> sm_MUSIC sm
+        , Just $ src -<.> "ogg"
+        , Just $ src -<.> "mp3"
+        ]
+  audio <- fmap (fromMaybe HM.empty) $ flip firstJustM audioOptions $ \opt -> do
+    p <- fixFileCase opt
+    stackIO (doesFileExist p) >>= \case
+      False -> return Nothing
+      True -> stackIO (audioChannels p) >>= \case
+        Nothing -> fatal $ "Couldn't get channel count of audio file: " <> p
+        Just chans -> return $ Just $ HM.singleton "audio-file" $ AudioFile AudioInfo
           { _md5 = Nothing
           , _frames = Nothing
           , _filePath = Just
-            $ SoftFile ("audio" <> takeExtension path')
-            $ SoftReadable $ fileReadable path'
+            $ SoftFile ("audio" <> takeExtension p)
+            $ SoftReadable $ fileReadable p
           , _commands = []
           , _rate = Nothing
           , _channels = chans
           }
-  -- may be some auto paths we could search like name-banner.png and name-bg.png
-  banner <- case sm_BANNER sm of
-    Nothing -> return Nothing
-    Just path -> do
-      path' <- fixFileCase $ takeDirectory src </> T.unpack path
-      stackIO (doesFileExist path') >>= \case
-        True  -> return $ Just $ SoftFile ("banner" <.> takeExtension path') $ SoftReadable $ fileReadable path'
-        False -> do
-          warn $ "#BANNER not found: " <> T.unpack path
-          return Nothing
-  background <- case sm_BACKGROUND sm of
-    Nothing -> return Nothing
-    Just path -> do
-      path' <- fixFileCase $ takeDirectory src </> T.unpack path
-      stackIO (doesFileExist path') >>= \case
-        True  -> return $ Just $ SoftFile ("background" <.> takeExtension path') $ SoftReadable $ fileReadable path'
-        False -> do
-          warn $ "#BACKGROUND not found: " <> T.unpack path
-          return Nothing
+
+  let imageExts f = map (f <.>) ["png", "jpg", "jpeg"]
+      bannerOptions = concat
+        -- try jacket (square art) first
+        [ (\f -> takeDirectory src </> T.unpack f) <$> toList (sm_JACKET sm)
+        , imageExts $ dropExtension src <> "-jacket"
+        , (\f -> takeDirectory src </> T.unpack f) <$> toList (sm_BANNER sm)
+        , imageExts $ dropExtension src
+        , imageExts $ dropExtension src <> "-banner"
+        ]
+      bgOptions = concat
+        [ (\f -> takeDirectory src </> T.unpack f) <$> toList (sm_BACKGROUND sm)
+        , imageExts $ dropExtension src <> "-bg"
+        ]
+  banner <- flip firstJustM bannerOptions $ \opt -> do
+    path' <- fixFileCase opt
+    stackIO (doesFileExist path') >>= \case
+      True  -> return $ Just $ SoftFile ("banner" <.> takeExtension path') $ SoftReadable $ fileReadable path'
+      False -> return Nothing
+  background <- flip firstJustM bgOptions $ \opt -> do
+    path' <- fixFileCase opt
+    stackIO (doesFileExist path') >>= \case
+      True  -> return $ Just $ SoftFile ("background" <.> takeExtension path') $ SoftReadable $ fileReadable path'
+      False -> return Nothing
+
+  -- logic to include subtitle, and juggle jp/transliterated versions
+  let combineTitleSub (Just t) (Just st) = Just $ t <> if T.any isAlphaNum $ T.take 1 st
+        then " - " <> st
+        else " "   <> st
+      combineTitleSub t        st        = t <|> st
+      titleOrig = combineTitleSub (sm_TITLE sm) (sm_SUBTITLE sm)
+      titleTranslit = case (sm_TITLETRANSLIT sm, sm_SUBTITLETRANSLIT sm) of
+        (Nothing, Nothing) -> Nothing
+        _                  -> combineTitleSub
+          (sm_TITLETRANSLIT    sm <|> sm_TITLE    sm)
+          (sm_SUBTITLETRANSLIT sm <|> sm_SUBTITLE sm)
+      (title, titleJP) = case (titleTranslit, titleOrig) of
+        (Nothing, Just jp) -> (Just jp, Nothing)
+        pair               -> pair
+      (artist, artistJP) = case (sm_ARTISTTRANSLIT sm, sm_ARTIST sm) of
+        (Nothing, Just jp) -> (Just jp, Nothing)
+        pair               -> pair
+
   return SongYaml
     { _metadata = def'
-      { _title = case (sm_TITLE sm, sm_SUBTITLE sm) of
-        (Just t , Just st) -> Just $ t <> " " <> st
-        (Nothing, Nothing) -> Nothing
-        (Just t , Nothing) -> Just t
-        (Nothing, Just st) -> Just st
-      , _artist = sm_ARTIST sm
+      { _title = title
+      , _titleJP = titleJP
+      , _artist = artist
+      , _artistJP = artistJP
       , _genre = sm_GENRE sm
-      , _author = case nubOrd $ map smn_Author $ sm_NOTES sm of
+      , _author = case filter (not . T.null) $ nubOrd $ map smn_Author $ sm_NOTES sm of
         [] -> Nothing
         xs -> Just $ T.intercalate ", " xs
       , _fileAlbumArt = banner

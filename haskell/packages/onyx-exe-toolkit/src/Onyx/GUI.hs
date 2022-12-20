@@ -134,7 +134,7 @@ import           Onyx.Harmonix.MOGG                        (oggToMogg)
 import           Onyx.Harmonix.RockBand.Milo               as Milo
 import           Onyx.Harmonix.RockBand.Score
 import           Onyx.Harmonix.RockBand.SongCache          (hardcodeSongCacheIDs)
-import           Onyx.Image.DTX                            (readRBImageMaybe)
+import           Onyx.Image.DXT                            (readRBImageMaybe)
 import           Onyx.Import
 import           Onyx.Import.GuitarHero2                   (Setlist (..),
                                                             loadSetlistFull)

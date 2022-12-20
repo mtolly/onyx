@@ -48,7 +48,7 @@ import qualified Onyx.DTXMania.DTX                as DTX
 import           Onyx.Guitar                      (computeFiveFretNotes,
                                                    guitarify')
 import           Onyx.Harmonix.MOGG
-import           Onyx.Image.DTX
+import           Onyx.Image.DXT
 import           Onyx.Keys.Ranges
 import qualified Onyx.MelodysEscape               as Melody
 import           Onyx.MIDI.Common

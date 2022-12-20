@@ -127,7 +127,8 @@ end
 # build songs-hmx/trivium/in-waves
 # build songs-others/inventor211/the-sin-and-the-sentence
 # build songs/trivium/of-all-these-yesterdays
-build songs-others/guitar-hero/we-three-kings
+# build songs-others/guitar-hero/we-three-kings
+build songs-others/guitar-hero/that-was-just-your-life
 
 # phrases unknown:
 

@@ -62,7 +62,7 @@ import           Onyx.Harmonix.MOGG                   (encryptRB1,
                                                        oggToMogg)
 import           Onyx.Harmonix.RockBand.Milo          (addMiloHeader,
                                                        decompressMilo)
-import qualified Onyx.Image.DTX                       as I
+import qualified Onyx.Image.DXT                       as I
 import           Onyx.MIDI.Common                     (isNoteEdge, isNoteEdge',
                                                        joinEdgesSimple,
                                                        makeEdge', makeEdgeCPV,

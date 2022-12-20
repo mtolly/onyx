@@ -55,7 +55,7 @@ import           Onyx.Harmonix.RockBand.Milo          (SongPref (..),
                                                        parseMiloFile)
 import           Onyx.Harmonix.RockBand.RB4.RBMid
 import           Onyx.Harmonix.RockBand.RB4.SongDTA
-import           Onyx.Image.DTX.RB4
+import           Onyx.Image.DXT.RB4
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Track.Drums                as RBDrums

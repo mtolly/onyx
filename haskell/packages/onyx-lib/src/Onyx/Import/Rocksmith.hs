@@ -27,7 +27,7 @@ import           Data.Text.Encoding.Error         (lenientDecode)
 import           GHC.ByteOrder                    (ByteOrder (..))
 import           Onyx.Audio                       (Audio (..))
 import           Onyx.Codec.JSON                  (fromJSON)
-import           Onyx.Image.DTX                   (readDDS)
+import           Onyx.Image.DXT                   (readDDS)
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (blipEdgesRBNice, fixOverlaps,
                                                    fixOverlapsSimple,

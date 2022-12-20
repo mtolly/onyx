@@ -69,6 +69,7 @@ data SM = SM
   , sm_GENRE            :: Maybe T.Text
   , sm_CREDIT           :: Maybe T.Text
   , sm_BANNER           :: Maybe T.Text
+  , sm_JACKET           :: Maybe T.Text
   , sm_BACKGROUND       :: Maybe T.Text
   , sm_LYRICSPATH       :: Maybe T.Text
   , sm_CDTITLE          :: Maybe T.Text
@@ -122,6 +123,7 @@ readSM lns = do
   sm_GENRE            <- getSMString lns "GENRE"
   sm_CREDIT           <- getSMString lns "CREDIT"
   sm_BANNER           <- getSMString lns "BANNER"
+  sm_JACKET           <- getSMString lns "JACKET"
   sm_BACKGROUND       <- getSMString lns "BACKGROUND"
   sm_LYRICSPATH       <- getSMString lns "LYRICSPATH"
   sm_CDTITLE          <- getSMString lns "CDTITLE"

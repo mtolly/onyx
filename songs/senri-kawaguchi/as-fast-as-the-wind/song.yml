@@ -1,6 +1,9 @@
 metadata:
   title: As Fast as the Wind [Tenchigaraku]
+  # was difficult to find correct JP song title - https://www.youtube.com/watch?v=MdZC2TaALDg
+  title-jp: 疾きこと風の如く [天地雅楽]
   artist: Senri Kawaguchi
+  artist-jp: 川口 千里
   year: 2013
   author: Onyxite
   genre: fusion
@@ -24,6 +27,7 @@ plans:
       1|3: hihat
     song:
       pad: [0.217, youtube]
+    tuning-cents: -35 # something like this
 parts:
   drums:
     drums:

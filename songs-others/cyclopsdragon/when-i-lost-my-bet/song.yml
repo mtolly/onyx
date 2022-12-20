@@ -17,10 +17,12 @@ targets:
     game: rb3
     2x-bass-pedal: true
     label: (O)
+    plan: album
   rs:
     game: rs
     arrangements:
     - [bass, bass]
+    plan: album
 parts:
   guitar:
     grybo: {}
@@ -36,13 +38,49 @@ parts:
       mode: full
 global:
   anim-tempo: 64
+audio:
+  album-track:
+    md5: 3e9a6f7ee371d235822c8085d13fd6c1
+    frames: 10274712
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
 plans:
-  mogg:
-    pans: [1, -1, -1, 1, -1, 1, 1, -1]
-    file-mogg: audio.mogg
-    vols: [-3, -3, -3, -3, -3, -3, -3, -3]
+  album:
+    song:
+      expr:
+        pad: [4.480, album-track]
+      pans: [1, -1]
+  dev:
+    song:
+      expr:
+        pad: [4.480, album-track]
+      pans: [1, -1]
     parts:
-      drums: [2, 3]
-      guitar: [4]
-    multitrack: false
-    karaoke: false
+      bass:
+        expr:
+          pad: [4.480, channels: [[0, 1], stems]]
+        pans: [1, -1]
+      drums:
+        expr:
+          pad: [4.480, channels: [[2, 3], stems]]
+        pans: [1, -1]
+      vocal:
+        expr:
+          pad: [4.480, channels: [[4, 5], stems]]
+        pans: [1, -1]
+      other:
+        expr:
+          pad: [4.480, channels: [[6, 7], stems]]
+        pans: [1, -1]
+  # mogg:
+  #   pans: [1, -1, -1, 1, -1, 1, 1, -1]
+  #   file-mogg: audio.mogg
+  #   vols: [-3, -3, -3, -3, -3, -3, -3, -3]
+  #   parts:
+  #     drums: [2, 3]
+  #     guitar: [4]
+  #   multitrack: false
+  #   karaoke: false

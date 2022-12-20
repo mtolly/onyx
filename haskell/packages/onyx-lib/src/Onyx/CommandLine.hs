@@ -87,7 +87,7 @@ import           Onyx.Harmonix.RockBand.Milo          (SongPref, autoLipsync,
                                                        testConvertVenue,
                                                        unpackMilo)
 import           Onyx.Harmonix.RockBand.Score
-import           Onyx.Image.DTX                       (readRBImageMaybe)
+import           Onyx.Image.DXT                       (readRBImageMaybe)
 import           Onyx.Import
 import           Onyx.Keys.Ranges                     (closeShiftsFile)
 import           Onyx.MIDI.Common                     (Difficulty (..))

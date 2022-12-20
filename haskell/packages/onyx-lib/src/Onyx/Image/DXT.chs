@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Onyx.Image.DTX (toDXT1File, toHMXPS2, DXTFormat(..), readRBImage, readRBImageMaybe, readDDS, arrangeRows, readDXTChunk, swapPNGXboxPS3) where
+module Onyx.Image.DXT (toDXT1File, toHMXPS2, DXTFormat(..), readRBImage, readRBImageMaybe, readDDS, arrangeRows, readDXTChunk, swapPNGXboxPS3) where
 
 import           Codec.Picture
 import qualified Codec.Picture.STBIR        as STBIR

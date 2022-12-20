@@ -49,6 +49,7 @@ import           Onyx.Import.GuitarPro        (importGPIF)
 import           Onyx.Import.Magma            (importMagma)
 import           Onyx.Import.Neversoft        (importGH3Disc, importGH3PS2,
                                                importNeversoftGH)
+import           Onyx.Import.Osu              (importOsu)
 import           Onyx.Import.PowerGig         (importPowerGig)
 import           Onyx.Import.RockBand         (importRB4, importRBA,
                                                importSTFSFolder)
@@ -347,6 +348,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           foundPowerGig fp folder $ takeFileName fp
         ".sng" -> foundFreetar fp
         ".iso" -> foundISO fp
+        ".osz" -> importOsu True fp >>= foundImports "osu!" fp
         _ -> case map toLower $ takeFileName fp of
           "song.yml" -> foundYaml fp
           "song.ini" -> foundFoF fp

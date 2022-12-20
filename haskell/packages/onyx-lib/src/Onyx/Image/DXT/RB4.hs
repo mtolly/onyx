@@ -3,12 +3,12 @@ Ported from LibForge
 https://github.com/maxton/LibForge
 -}
 {-# LANGUAGE MultiWayIf #-}
-module Onyx.Image.DTX.RB4 where
+module Onyx.Image.DXT.RB4 where
 
 import           Codec.Picture
 import           Control.Monad
 import           Data.Binary.Get
-import           Onyx.Image.DTX
+import           Onyx.Image.DXT
 
 readPNGPS4 :: Get (Image PixelRGBA8)
 readPNGPS4 = do

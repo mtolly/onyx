@@ -36,7 +36,7 @@ import           Onyx.Audio
 import           Onyx.Audio.Render
 import           Onyx.Audio.Search
 import           Onyx.Genre
-import           Onyx.Image.DTX
+import           Onyx.Image.DXT
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                   (mapTrack)
 import qualified Onyx.MIDI.Track.Drums            as RBDrums
