@@ -33,6 +33,11 @@ parts:
     drums:
       kicks: both
       difficulty: 6
+  keys:
+    grybo:
+      difficulty: 4
+    pro-keys:
+      difficulty: 5
 targets:
   rb3:
     game: rb3

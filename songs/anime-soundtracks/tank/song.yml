@@ -17,6 +17,11 @@ audio:
     # remastered (2014)
     md5: c3abb7884bc3a6cc9adc25bb82acdee0
     frames: 20192000
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -30,6 +35,18 @@ plans:
       1|3: hihat
     song:
       pad: [2.438, album-track]
+  dev:
+    song:
+      pad: [2.438, album-track]
+    parts:
+      bass:
+        pad: [2.438, channels: [[0, 1], stems]]
+      drums:
+        pad: [2.438, channels: [[2, 3], stems]]
+      vocal:
+        pad: [2.438, channels: [[4, 5], stems]]
+      other:
+        pad: [2.438, channels: [[6, 7], stems]]
 parts:
   guitar:
     grybo:
@@ -63,6 +80,9 @@ targets:
     game: rb3
     song-id: 1660200150
     version: 1
+    plan: album
   ps:
     game: ps
     loading-phrase: "Part of Onyxite's Jazz Pack 4. Recommended 5-fret part: Guitar (sax), has the sax solo. Keys (brass) has the call/response soli."
+    plan: album
+    big-rock-ending: false

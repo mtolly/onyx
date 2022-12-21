@@ -35,7 +35,7 @@ import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                    (mapTrack)
 import           Onyx.MIDI.Track.Beat
 import           Onyx.MIDI.Track.Drums             as RBDrums
-import           Onyx.MIDI.Track.Drums.Full        (convertFullDrums)
+import qualified Onyx.MIDI.Track.Drums.Full        as FD
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File              as RBFile
 import           Onyx.MIDI.Track.FiveFret          as RBFive
@@ -267,11 +267,11 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
       (Drums4   , Left  _rb3) -> allToms
     flex = RBFile.getFlexPart drumsPart trks
     trk1x = if RBDrums.nullDrums (RBFile.onyxPartDrums flex) && drumsMode pd == DrumsFull
-      then convertFullDrums False $ RBFile.onyxPartFullDrums flex
+      then FD.convertFullDrums False $ RBFile.onyxPartFullDrums flex
       else RBFile.onyxPartDrums flex
     trk2x = RBFile.onyxPartDrums2x flex
     trkReal = if RBDrums.nullDrums (RBFile.onyxPartRealDrumsPS flex) && drumsMode pd == DrumsFull
-      then convertFullDrums True $ RBFile.onyxPartFullDrums flex
+      then FD.convertFullDrums True $ RBFile.onyxPartFullDrums flex
       else RBFile.onyxPartRealDrumsPS flex
     trkReal' = RBDrums.psRealToPro trkReal
     onlyPSReal = all nullDrums [trk1x, trk2x] && not (nullDrums trkReal)
@@ -477,6 +477,40 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
       Left  _rb3 -> forRB3 track
       Right _ps  -> chSPFix $ forPS track
 
+deleteBRE :: RBFile.Song (RBFile.OnyxFile U.Beats) -> RBFile.Song (RBFile.OnyxFile U.Beats)
+deleteBRE song = song
+  { RBFile.s_tracks = (RBFile.s_tracks song)
+    { RBFile.onyxEvents = (RBFile.onyxEvents $ RBFile.s_tracks song)
+      { eventsCoda       = RTB.empty
+      , eventsCodaResume = RTB.empty
+      }
+    , RBFile.onyxParts = flip fmap (RBFile.onyxParts $ RBFile.s_tracks song) $ \opart -> opart
+      { RBFile.onyxPartDrums       = deleteNormal $ RBFile.onyxPartDrums       opart
+      , RBFile.onyxPartDrums2x     = deleteNormal $ RBFile.onyxPartDrums2x     opart
+      , RBFile.onyxPartRealDrumsPS = deleteNormal $ RBFile.onyxPartRealDrumsPS opart
+      , RBFile.onyxPartFullDrums   = deleteFull   $ RBFile.onyxPartFullDrums   opart
+      , RBFile.onyxPartGuitar       = (RBFile.onyxPartGuitar    opart) { RBFive.fiveBRE = RTB.empty }
+      , RBFile.onyxPartKeys         = (RBFile.onyxPartKeys      opart) { RBFive.fiveBRE = RTB.empty }
+      , RBFile.onyxPartGuitarExt    = (RBFile.onyxPartGuitarExt opart) { RBFive.fiveBRE = RTB.empty }
+      , RBFile.onyxPartRealGuitar   = (RBFile.onyxPartRealGuitar   opart) { pgBRE = RTB.empty }
+      , RBFile.onyxPartRealGuitar22 = (RBFile.onyxPartRealGuitar22 opart) { pgBRE = RTB.empty }
+      , RBFile.onyxPartRealKeysE    = (RBFile.onyxPartRealKeysE opart) { pkBRE = RTB.empty }
+      , RBFile.onyxPartRealKeysM    = (RBFile.onyxPartRealKeysM opart) { pkBRE = RTB.empty }
+      , RBFile.onyxPartRealKeysH    = (RBFile.onyxPartRealKeysH opart) { pkBRE = RTB.empty }
+      , RBFile.onyxPartRealKeysX    = (RBFile.onyxPartRealKeysX opart) { pkBRE = RTB.empty }
+      }
+    }
+  } where
+    applyCoda = case eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song of
+      Wait t _ _ -> U.trackTake t
+      RNil       -> id
+    deleteNormal drums = drums
+      { drumActivation = applyCoda $ drumActivation drums
+      }
+    deleteFull fd = fd
+      { FD.fdActivation = applyCoda $ FD.fdActivation fd
+      }
+
 processMIDI
   :: (SendMessage m, MonadIO m)
   => Either TargetRB3 TargetPS
@@ -485,7 +519,10 @@ processMIDI
   -> RBDrums.Audio
   -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
   -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats), DifficultyPS, Maybe VocalCount) -- ^ output midi, filtered difficulties, vocal count
-processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudioLength = inside "Processing MIDI for RB3/PS" $ do
+processMIDI target songYaml origInput mixMode getAudioLength = inside "Processing MIDI for RB3/PS" $ do
+  let input@(RBFile.Song tempos mmap trks) = case target of
+        Right ps | not $ ps_BigRockEnding ps -> deleteBRE origInput
+        _                                    -> origInput
   timing@BasicTiming{..} <- basicTiming input getAudioLength
   let targetPS = case target of
         Right tps -> tps
@@ -500,6 +537,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           , ps_GuitarCoop    = RBFile.FlexExtra "undefined"
           , ps_Dance         = RBFile.FlexExtra "undefined"
           , ps_LoadingPhrase = Nothing
+          , ps_BigRockEnding = True
           }
       originalRanks = difficultyPS targetPS songYaml
 
