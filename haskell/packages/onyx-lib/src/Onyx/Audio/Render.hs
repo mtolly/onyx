@@ -13,10 +13,12 @@ module Onyx.Audio.Render
 , buildAudioToSpec
 , buildPartAudioToSpec
 , channelsToSpec
+, loadSamplesFromBuildDir
+, loadSamplesFromBuildDirShake
 ) where
 
 import           Control.Arrow                ((&&&))
-import           Control.Monad                (forM_, join)
+import           Control.Monad                (forM, forM_, join)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.Trans.Class    (lift)
 import           Control.Monad.Trans.Resource (MonadResource)
@@ -24,7 +26,8 @@ import           Data.Char                    (toLower)
 import           Data.Conduit.Audio
 import           Data.Foldable                (toList)
 import qualified Data.HashMap.Strict          as HM
-import           Data.Maybe                   (fromMaybe, listToMaybe)
+import           Data.List.Extra              (nubOrd)
+import           Data.Maybe                   (fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Text                    as T
 import           Development.Shake            (need)
 import           Development.Shake.FilePath
@@ -35,7 +38,7 @@ import           Onyx.MIDI.Track.File         (FlexPartName)
 import           Onyx.Project
 import           Onyx.StackTrace              (SendMessage, StackTraceT,
                                                Staction, fatal, inside, lg,
-                                               warn)
+                                               stackIO, warn)
 import qualified Sound.Jammit.Base            as J
 
 computeChannels :: Audio Duration Int -> Int
@@ -55,6 +58,7 @@ computeChannels = \case
   StretchSimple _ aud -> computeChannels aud
   StretchFull _ _ aud -> computeChannels aud
   Mask _ _ aud        -> computeChannels aud
+  Samples _ _         -> 2
 
 -- | make sure all audio leaves are defined, catch typos
 checkDefined :: (Monad m) => SongYaml f -> StackTraceT m ()
@@ -86,6 +90,7 @@ computeChannelsPlan songYaml = let
         "panic! audio leaf not found, after it should've been checked"
       Just (AudioFile AudioInfo{..}) -> _channels
       Just AudioSnippet{..}          -> computeChannelsPlan songYaml _expr
+      Just AudioSamples{}            -> 2
     JammitSelect _ _ -> 2
   in computeChannels . fmap toChannels
 
@@ -96,16 +101,37 @@ jammitPath name (J.Without inst)
   = "gen/jammit" </> T.unpack name </> "without" </> map toLower (show inst) <.> "wav"
 
 -- | Looking up single audio files and Jammit parts in the work directory
-manualLeaf :: (SendMessage m, MonadIO m) => FilePath -> AudioLibrary -> (T.Text -> StackTraceT m FilePath) -> SongYaml FilePath -> AudioInput -> StackTraceT m (Audio Duration FilePath)
-manualLeaf rel alib buildDependency songYaml (Named name) = case HM.lookup name $ _audio songYaml of
+manualLeaf
+  :: (SendMessage m, MonadIO m)
+  => FilePath
+  -> AudioLibrary
+  -> (T.Text -> StackTraceT m FilePath) -- build audio object by name, return path to file
+  -> StackTraceT m [(T.Text, [(Double, T.Text, T.Text)])] -- get sample triggers list
+  -> SongYaml FilePath
+  -> AudioInput
+  -> StackTraceT m (Audio Duration FilePath)
+manualLeaf rel alib buildDependency getSamples songYaml (Named name) = case HM.lookup name $ _audio songYaml of
   Just audioQuery -> case audioQuery of
     AudioFile ainfo -> inside ("Looking for the audio file named " ++ show name) $ do
       aud <- searchInfo rel alib buildDependency ainfo
-      lg $ "Found audio file " ++ show name ++ " at: " ++ show (toList aud)
+      -- lg $ "Found audio file " ++ show name ++ " at: " ++ show (toList aud)
       return aud
-    AudioSnippet expr -> join <$> mapM (manualLeaf rel alib buildDependency songYaml) expr
+    AudioSnippet expr -> join <$> mapM (manualLeaf rel alib buildDependency getSamples songYaml) expr
+    AudioSamples info -> do
+      triggers <- fromMaybe [] . lookup name <$> getSamples
+      let polyphony = case _groupPolyphony info of
+            Nothing -> Nothing
+            Just p  -> Just (p, realToFrac $ _groupCrossfade info)
+          uniqueSamples = nubOrd [ sample | (_, _, sample) <- triggers ]
+      -- only locate each sample once
+      sampleToAudio <- fmap HM.fromList $ forM uniqueSamples $ \sample -> do
+        audio <- manualLeaf rel alib buildDependency getSamples songYaml $ Named sample
+        return (sample, audio)
+      return $ Samples polyphony $ flip mapMaybe triggers $ \(secs, group, sample) -> do
+        audio <- HM.lookup sample sampleToAudio
+        return (Seconds secs, (group, audio))
   Nothing -> fatal $ "Couldn't find an audio source named " ++ show name
-manualLeaf rel _alib _buildDependency songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
+manualLeaf rel _alib _buildDependency _getSamples songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
   Just _  -> return $ Input $ rel </> jammitPath name audpart
   Nothing -> fatal $ "Couldn't find a Jammit source named " ++ show name
 
@@ -183,6 +209,24 @@ channelsToSpec pvOut pathOgg pvIn chans = inside "conforming MOGG channels to ou
     _  -> lift $ lift $ buildSource $ Channels (map Just chans) $ Input pathOgg
   fitToSpec partPVIn pvOut src
 
+loadSamplesFromBuildDir
+  :: (MonadIO m)
+  => (FilePath -> StackTraceT m FilePath)
+  -> T.Text -- plan
+  -> StackTraceT m [(T.Text, [(Double, T.Text, T.Text)])]
+loadSamplesFromBuildDir builder planName = do
+  txt <- builder $ "gen/plan" </> T.unpack planName </> "samples.txt"
+  fmap read $ stackIO $ readFile txt
+
+loadSamplesFromBuildDirShake
+  :: FilePath
+  -> T.Text -- plan
+  -> Staction [(T.Text, [(Double, T.Text, T.Text)])]
+loadSamplesFromBuildDirShake rel = loadSamplesFromBuildDir $ \f -> do
+  let frel = rel </> f
+  lift $ lift $ need [frel]
+  return frel
+
 buildAudioToSpec
   :: (MonadResource m)
   => FilePath
@@ -190,12 +234,14 @@ buildAudioToSpec
   -> (T.Text -> Staction FilePath)
   -> SongYaml FilePath
   -> [(Double, Double)]
+  -> T.Text -- plan
   -> Maybe (PlanAudio Duration AudioInput)
   -> Staction (AudioSource m Float)
-buildAudioToSpec rel alib buildDependency songYaml pvOut mpa = inside "conforming audio file to output spec" $ do
+buildAudioToSpec rel alib buildDependency songYaml pvOut planName mpa = inside "conforming audio file to output spec" $ do
   (expr, pans, vols) <- completePlanAudio songYaml
     $ fromMaybe (PlanAudio (Silence 1 $ Frames 0) [] []) mpa
-  src <- mapM (manualLeaf rel alib buildDependency songYaml) expr >>= lift . lift . buildSource . join
+  let loadSamples = loadSamplesFromBuildDirShake rel planName
+  src <- mapM (manualLeaf rel alib buildDependency loadSamples songYaml) expr >>= lift . lift . buildSource . join
   fitToSpec (zip pans vols) pvOut src
 
 buildPartAudioToSpec
@@ -205,15 +251,16 @@ buildPartAudioToSpec
   -> (T.Text -> Staction FilePath)
   -> SongYaml FilePath
   -> [(Double, Double)]
+  -> T.Text -- plan
   -> Maybe (PartAudio (PlanAudio Duration AudioInput))
   -> Staction (AudioSource m Float)
-buildPartAudioToSpec rel alib buildDependency songYaml specPV = \case
-  Nothing -> buildAudioToSpec rel alib buildDependency songYaml specPV Nothing
-  Just (PartSingle pa) -> buildAudioToSpec rel alib buildDependency songYaml specPV $ Just pa
+buildPartAudioToSpec rel alib buildDependency songYaml specPV planName = \case
+  Nothing -> buildAudioToSpec rel alib buildDependency songYaml specPV planName Nothing
+  Just (PartSingle pa) -> buildAudioToSpec rel alib buildDependency songYaml specPV planName $ Just pa
   Just (PartDrumKit kick snare kit) -> do
-    kickSrc  <- buildAudioToSpec rel alib buildDependency songYaml specPV kick
-    snareSrc <- buildAudioToSpec rel alib buildDependency songYaml specPV snare
-    kitSrc   <- buildAudioToSpec rel alib buildDependency songYaml specPV $ Just kit
+    kickSrc  <- buildAudioToSpec rel alib buildDependency songYaml specPV planName kick
+    snareSrc <- buildAudioToSpec rel alib buildDependency songYaml specPV planName snare
+    kitSrc   <- buildAudioToSpec rel alib buildDependency songYaml specPV planName $ Just kit
     return $ mix kickSrc $ mix snareSrc kitSrc
 
 -- | Computing a drums instrument's audio for CON/Magma.

@@ -29,7 +29,9 @@ import           Onyx.StackTrace
 import           Onyx.Util.Handle                 (Readable, saveReadable)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
-import           System.FilePath                  (takeExtension, (</>))
+import           System.Directory                 (createDirectoryIfMissing)
+import           System.FilePath                  (takeDirectory, takeExtension,
+                                                   (</>))
 
 data SoftContents
   = SoftReadable Readable
@@ -61,6 +63,7 @@ saveImport dout yaml = do
       Nothing -> do
         newAsync <- liftIO $ async $ do
           let newNameFull = dout </> newName
+          createDirectoryIfMissing True $ takeDirectory newNameFull
           case contents of
             SoftReadable r -> saveReadable r newNameFull
             SoftImage img -> case map toLower $ takeExtension newName of

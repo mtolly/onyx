@@ -267,6 +267,7 @@ data OnyxFile t = OnyxFile
   , onyxVenue    :: VenueTrack t
   , onyxLighting :: LightingTrack t
   , onyxCamera   :: CameraTrack t
+  , onyxSamples  :: Map.Map T.Text (SamplesTrack t)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxFile t)
 
@@ -276,12 +277,13 @@ instance HasEvents OnyxFile where
 
 instance TraverseTrack OnyxFile where
   traverseTrack fn
-    (OnyxFile a b c d e f)
+    (OnyxFile a b c d e f g)
     = OnyxFile
       <$> traverse (traverseTrack fn) a
       <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e
       <*> traverseTrack fn f
+      <*> traverse (traverseTrack fn) g
 
 data OnyxPart t = OnyxPart
   { onyxPartDrums        :: DrumTrack t
@@ -453,6 +455,18 @@ instance ParseFile OnyxFile where
     onyxVenue    <- onyxVenue    =. fileTrack (pure "VENUE"   )
     onyxLighting <- onyxLighting =. fileTrack (pure "LIGHTING")
     onyxCamera   <- onyxCamera   =. fileTrack (pure "CAMERA"  )
+    onyxSamples  <- onyxSamples =. Codec
+      { codecIn = do
+        trks <- lift get
+        let audioNames = nubOrd $ mapMaybe (U.trackName >=> T.stripPrefix "AUDIO " . T.pack) trks
+        results <- forM audioNames $ \audioName -> do
+          trk <- codecIn $ fileTrack $ pure $ "AUDIO " <> audioName
+          return (audioName, trk)
+        return $ Map.fromList results
+      , codecOut = fmapArg $ \m -> forM_ (Map.toAscList m) $ \(audioName, trk) -> let
+        name = "AUDIO " <> audioName
+        in codecOut (fileId $ fileTrack $ pure name) trk
+      }
     return OnyxFile{..}
 
 newtype RawFile t = RawFile { rawTracks :: [RTB.T t E.T] }
@@ -754,6 +768,7 @@ instance ChopTrack OnyxFile where
     , onyxVenue    = mapTrack (U.trackTake t) $ onyxVenue o -- TODO
     , onyxLighting = mapTrack (U.trackTake t) $ onyxLighting o -- TODO
     , onyxCamera   = mapTrack (U.trackTake t) $ onyxCamera o -- TODO
+    , onyxSamples  = chopTake t <$> onyxSamples o
     }
   chopDrop t o = OnyxFile
     { onyxParts    = chopDrop t <$> onyxParts o
@@ -762,6 +777,7 @@ instance ChopTrack OnyxFile where
     , onyxVenue    = mapTrack (U.trackDrop t) $ onyxVenue o -- TODO
     , onyxLighting = mapTrack (U.trackDrop t) $ onyxLighting o -- TODO
     , onyxCamera   = mapTrack (U.trackDrop t) $ onyxCamera o -- TODO
+    , onyxSamples  = chopDrop t <$> onyxSamples o
     }
 
 instance ChopTrack OnyxPart where
@@ -922,6 +938,7 @@ fixedToOnyx f = OnyxFile
   , onyxVenue    = fixedVenue f
   , onyxLighting = mempty
   , onyxCamera   = mempty
+  , onyxSamples  = mempty
   }
 
 songLengthBeats :: (HasEvents f) => Song (f U.Beats) -> U.Beats
@@ -1080,3 +1097,35 @@ keysToProKeys d ft = ProKeysTrack
         Five.Orange -> G
       in fmap colorToKey <$> fiveGems fd
   }
+
+data SamplesTrack t = SamplesTrack
+  { sampleTriggers :: RTB.T t SampleTrigger -- (group name, audio reference)
+  } deriving (Eq, Ord, Show, Generic)
+    deriving (Semigroup, Monoid, Mergeable) via GenericMerge (SamplesTrack t)
+
+instance TraverseTrack SamplesTrack where
+  traverseTrack fn (SamplesTrack a)
+    = SamplesTrack <$> fn a
+
+instance ChopTrack SamplesTrack where
+  chopTake t = mapTrack $ U.trackTake t
+  chopDrop t = mapTrack $ U.trackDrop t
+
+instance ParseTrack SamplesTrack where
+  parseTrack = do
+    sampleTriggers <- sampleTriggers =. command
+    return SamplesTrack{..}
+
+data SampleTrigger = SampleTrigger
+  { sampleGroup :: T.Text
+  , sampleAudio :: T.Text
+  } deriving (Eq, Ord, Show)
+
+instance Command SampleTrigger where
+  toCommand = \case
+    [x]    -> Just $ SampleTrigger "" x
+    [x, y] -> Just $ SampleTrigger x y
+    _      -> Nothing
+  fromCommand = \case
+    SampleTrigger "" x -> [x]
+    SampleTrigger x  y -> [x, y]

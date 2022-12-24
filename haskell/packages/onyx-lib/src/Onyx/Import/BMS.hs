@@ -3,14 +3,15 @@
 {-# LANGUAGE TupleSections     #-}
 module Onyx.Import.BMS where
 
-import           Control.Monad                    (guard)
+import           Control.Monad                    (forM, guard)
 import           Control.Monad.IO.Class           (MonadIO)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
+import qualified Data.HashSet                     as HS
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes)
+import           Data.Maybe                       (catMaybes, isJust)
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.Audio
@@ -25,6 +26,7 @@ import qualified Onyx.MIDI.Track.File             as RBFile
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.Project
 import           Onyx.StackTrace
+import           System.FilePath                  (takeDirectory, (<.>), (</>))
 
 joinLongNotes :: (NNC.C t) =>
   RTB.T t (BMKey, Chip, Bool) -> RTB.T t (BMKey, Chip, t)
@@ -36,20 +38,47 @@ joinLongNotes
 importBMS :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importBMS bmsPath level = do
   bms <- stackIO $ readBMSLines <$> loadDTXLines bmsPath
-  let simpleAudio f chips = if RTB.null chips
-        then return Nothing
-        else do
-          src <- getBMSAudio chips bmsPath bms
-          return $ Just (f, src, CA.channels src)
-  audioSong <- simpleAudio "song.wav" $ bms_BGM bms
-  audioPlayer1 <- simpleAudio "player1.wav" $ RTB.merge
-    (snd <$> bms_Player1 bms)
-    (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ bms_Player1Long bms)
-  audioPlayer2 <- simpleAudio "player2.wav" $ RTB.merge
-    (snd <$> bms_Player2 bms)
-    (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ bms_Player2Long bms)
-  let audioExpr (aud, _, _) = PlanAudio
-        { _planExpr = Input $ Named $ T.pack aud
+
+  -- TODO need to apply bms_VOLWAV somewhere
+  chipAudio <- case level of
+    ImportQuick -> return []
+    ImportFull -> fmap catMaybes $ forM (HM.toList $ bms_WAV bms) $ \(chip, fp) -> do
+      msrc <- dtxAudioSource
+        $ takeDirectory bmsPath
+        </> map (\case '¥' -> '/'; '\\' -> '/'; c -> c) fp
+        -- ¥ is the backslash when Shift-JIS decoded
+      return $ flip fmap msrc $ \src -> (chip, AudioFile AudioInfo
+        { _md5 = Nothing
+        , _frames = Nothing
+        , _commands = []
+        , _filePath = Just $ SoftFile ("samples" </> T.unpack chip <.> "wav") $ SoftAudio src
+        , _rate = Nothing
+        , _channels = CA.channels src
+        })
+  let foundChips = HS.fromList $ map fst chipAudio
+      audioForChips name chips = if RTB.null chips
+        then ([], Nothing)
+        else let
+          poly = SamplesInfo
+            { _groupPolyphony = Just 1
+            , _groupCrossfade = 0.002
+            }
+          audios = [(name, AudioSamples poly)]
+          track = Just $ RBFile.SamplesTrack
+            $ fmap (\chip -> RBFile.SampleTrigger chip chip)
+            -- don't include sample if we didn't find its audio
+            $ RTB.filter (\chip -> HS.member chip foundChips) chips
+          in (audios, track)
+      (songAudios, songSampleTrack) = audioForChips "audio-bgm" $ bms_BGM bms
+      (p1Audios, p1SampleTrack) = audioForChips "audio-p1" $ RTB.merge
+        (snd <$> bms_Player1 bms)
+        (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ bms_Player1Long bms)
+      (p2Audios, p2SampleTrack) = audioForChips "audio-p2" $ RTB.merge
+        (snd <$> bms_Player2 bms)
+        (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ bms_Player2Long bms)
+
+  let audioExpr name = PlanAudio
+        { _planExpr = Input $ Named name
         , _planPans = []
         , _planVols = []
         }
@@ -83,10 +112,21 @@ importBMS bmsPath level = do
                     }
                   }
             return (fpart, opart)
+          , RBFile.onyxSamples = Map.fromList $ catMaybes
+            [ ("audio-bgm",) <$> songSampleTrack
+            , ("audio-p1" ,) <$> p1SampleTrack
+            , ("audio-p2" ,) <$> p2SampleTrack
+            ]
           }
+
   return SongYaml
     { _metadata = def'
-      { _title        = bms_TITLE bms
+      -- may need to adjust these title suffixes, sometimes there is SUBTITLE but it's same across difficulties
+      { _title        = flip fmap (bms_TITLE bms) $ \title -> title <> case bms_SUBTITLE bms of
+        Just sub -> " " <> sub
+        Nothing -> case bms_PLAYLEVEL bms of
+          Nothing  -> ""
+          Just lvl -> " [" <> T.pack (show lvl) <> "]"
       , _artist       = bms_ARTIST bms
       , _genre        = bms_GENRE bms
       , _fileAlbumArt = Nothing
@@ -97,23 +137,14 @@ importBMS bmsPath level = do
       , _fileMidi = SoftFile "notes.mid" $ SoftChart midi
       , _fileSongAnim = Nothing
       }
-    , _audio = HM.fromList $ do
-      (f, src, chans) <- catMaybes [audioSong, audioPlayer1, audioPlayer2]
-      return $ (T.pack f ,) $ AudioFile AudioInfo
-        { _md5 = Nothing
-        , _frames = Nothing
-        , _commands = []
-        , _filePath = Just $ SoftFile f $ SoftAudio src
-        , _rate = Nothing
-        , _channels = chans
-        }
+    , _audio = HM.fromList $ chipAudio <> songAudios <> p1Audios <> p2Audios
     , _jammit = HM.empty
     , _plans = HM.singleton "bms" Plan
-      { _song         = fmap audioExpr audioSong
+      { _song         = guard (isJust songSampleTrack) >> Just (audioExpr "audio-bgm")
       , _countin      = Countin []
       , _planParts    = Parts $ HM.fromList $ catMaybes
-        [ (FlexExtra "player1" ,) . PartSingle . audioExpr <$> audioPlayer1
-        , (FlexExtra "player2" ,) . PartSingle . audioExpr <$> audioPlayer2
+        [ guard (isJust p1SampleTrack) >> Just (FlexExtra "player1", PartSingle $ audioExpr "audio-p1")
+        , guard (isJust p2SampleTrack) >> Just (FlexExtra "player2", PartSingle $ audioExpr "audio-p2")
         ]
       , _crowd = Nothing
       , _planComments = []

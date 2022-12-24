@@ -127,6 +127,7 @@ data AudioFile f
   | AudioSnippet
     { _expr :: Audio Duration AudioInput
     }
+  | AudioSamples SamplesInfo
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (AudioInfo f) where
@@ -147,13 +148,30 @@ instance (Eq f, StackJSON f) => StackJSON (AudioFile f) where
         expectedKeys ["expr"]
         return AudioSnippet{..}
         )
+      , ("samples", object $ do
+        info <- requiredKey "samples" fromJSON
+        expectedKeys ["samples"]
+        return $ AudioSamples info
+        )
       ] $ AudioFile <$> codecIn stackJSON
     , codecOut = makeOut $ \case
       AudioFile info   -> makeValue stackJSON info
       AudioSnippet{..} -> A.object
         [ "expr" .= toJSON _expr
         ]
+      AudioSamples info -> OneKey "samples" $ makeValue stackJSON info
     }
+
+data SamplesInfo = SamplesInfo
+  { _groupPolyphony :: Maybe Int
+  , _groupCrossfade :: Double
+  } deriving (Eq, Ord, Show)
+
+instance StackJSON SamplesInfo where
+  stackJSON = asStrictObject "SamplesInfo" $ do
+    _groupPolyphony <- _groupPolyphony =. opt Nothing "group-polyphony" stackJSON
+    _groupCrossfade <- _groupCrossfade =. opt 0.002   "group-crossfade" stackJSON
+    return SamplesInfo{..}
 
 data JammitTrack = JammitTrack
   { _jammitTitle  :: Maybe T.Text
@@ -489,6 +507,7 @@ instance (StackJSON t, StackJSON a) => StackJSON (Audio t a) where
         , ("stretch", algebraic2 "stretch" StretchSimple fromJSON fromJSON)
         , ("stretch-full", algebraic3 "stretch-full" StretchFull fromJSON fromJSON fromJSON)
         , ("mask", algebraic3 "mask" Mask fromJSON fromJSON fromJSON)
+        -- TODO samples? probably don't need
         ] (fmap Input fromJSON `catchError` \_ -> expected "an audio expression")
     , codecOut = makeOut $ \case
       Silence chans t -> A.object ["silence" .= [toJSON chans, toJSON t]]
@@ -506,6 +525,7 @@ instance (StackJSON t, StackJSON a) => StackJSON (Audio t a) where
       StretchSimple d aud -> A.object ["stretch" .= [toJSON d, toJSON aud]]
       StretchFull t p aud -> A.object ["stretch-full" .= [toJSON t, toJSON p, toJSON aud]]
       Mask tags seams aud -> A.object ["mask" .= [toJSON tags, toJSON seams, toJSON aud]]
+      Samples _ _ -> undefined -- TODO but probably don't need
     }
 
 (.=) :: (StackJSON a) => A.Key -> a -> (A.Key, A.Value)

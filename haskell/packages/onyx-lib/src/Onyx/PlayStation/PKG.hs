@@ -94,8 +94,8 @@ instance Bin PKGHeader where
     return PKGHeader{..}
 
 -- Not finished
-finalizedDigest :: B.ByteString -> Maybe B.ByteString
-finalizedDigest bytes =
+_finalizedDigest :: B.ByteString -> Maybe B.ByteString
+_finalizedDigest bytes =
   -- gpkg-key from https://github.com/jmesmon/ps3keys/blob/master/gpkg-key
   case cipherInit $ B.pack [0x2e,0x7b,0x71,0xd7,0xc9,0xc9,0xa1,0x4e,0xa3,0x22,0x1f,0x18,0x88,0x28,0xb8,0xf8] of
     CryptoPassed cipher -> Just $ B.concat

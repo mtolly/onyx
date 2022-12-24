@@ -1060,6 +1060,9 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
           ss <- takeState
           ss' <- case songPlaying ss of
             Nothing -> do
+              -- should probably rework this, since the square label is not
+              -- applied until after we start playing. really we should have
+              -- a "loading" label in between
               sink $ EventIO $ FL.setLabel playButton "@square"
               startPlaying $ songTime ss
             Just ps -> do

@@ -30,7 +30,9 @@ import           Foreign                      hiding (void)
 import           Foreign.C                    (CFloat (..), CInt (..),
                                                CUInt (..))
 import           Onyx.Audio
-import           Onyx.Audio.Render            (computeChannelsPlan)
+import           Onyx.Audio.Render            (computeChannelsPlan,
+                                               loadSamplesFromBuildDir,
+                                               manualLeaf)
 import           Onyx.Audio.Search
 import           Onyx.Harmonix.MOGG
 import           Onyx.Import
@@ -273,17 +275,29 @@ oggSecsSpeed pos mspeed ogg = do
 
 splitPlanSources
   :: (MonadIO m)
-  => Project
+  => T.Text
+  -> Project
   -> AudioLibrary
   -> [PlanAudio CA.Duration AudioInput]
   -> StackTraceT (QueueLog m) [PlanAudio CA.Duration FilePath]
-splitPlanSources proj lib planAudios = let
+splitPlanSources planName proj lib planAudios = let
   evalAudioInput = \case
     Named name -> do
       afile <- maybe (fatal "Undefined audio name") return $ HM.lookup name $ _audio $ projectSongYaml proj
+      let buildDependency n = shakeBuild1 proj [] $ "gen/audio" </> T.unpack n <.> "wav"
+          getSamples = loadSamplesFromBuildDir
+            (shakeBuild1 proj [])
+            planName
       case afile of
-        AudioFile ainfo -> searchInfo (takeDirectory $ projectLocation proj) lib (\n -> shakeBuild1 proj [] $ "gen/audio" </> T.unpack n <.> "wav") ainfo
+        AudioFile ainfo -> searchInfo (takeDirectory $ projectLocation proj) lib buildDependency ainfo
         AudioSnippet expr -> join <$> mapM evalAudioInput expr
+        AudioSamples info -> manualLeaf
+          (takeDirectory $ projectLocation proj)
+          lib
+          buildDependency
+          getSamples
+          (projectSongYaml proj)
+          (Named name)
     JammitSelect{} -> fatal "Jammit audio not supported in preview yet" -- TODO
   in fmap concat $ forM planAudios $ \planAudio -> do
     let chans = computeChannelsPlan (projectSongYaml proj) $ _planExpr planAudio
@@ -326,7 +340,7 @@ projectAudio k proj = case lookup k $ HM.toList $ _plans $ projectSongYaml proj 
     forM_ audioDirs $ \dir -> do
       p <- parseAbsDir dir
       addAudioDir lib p
-    planAudios' <- splitPlanSources proj lib planAudios
+    planAudios' <- splitPlanSources k proj lib planAudios
     case NE.nonEmpty planAudios' of
       Nothing -> fatal "No audio in plan"
       Just ne -> return $ \t mspeed gain -> do

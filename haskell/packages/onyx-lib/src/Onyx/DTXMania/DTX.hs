@@ -7,8 +7,6 @@ module Onyx.DTXMania.DTX where
 
 import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first, second)
-import           Control.Concurrent.MVar          (newEmptyMVar, tryPutMVar,
-                                                   tryReadMVar)
 import           Control.Monad                    (forM, forM_, guard, void)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource     (MonadResource, runResourceT)
@@ -17,13 +15,11 @@ import           Data.Binary.Get
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isAlphaNum, isDigit, toLower)
-import           Data.Conduit
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.Mpg123        (sourceMpg)
 import           Data.Conduit.Audio.SampleRate    (ConverterType (SincMediumQuality),
                                                    resampleTo)
 import           Data.Conduit.Audio.Sndfile       (sourceSnd)
-import qualified Data.Conduit.List                as CL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Pico)
@@ -35,9 +31,9 @@ import           Data.Ratio                       (denominator)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           Data.Tuple                       (swap)
-import qualified Data.Vector.Storable             as V
 import           Numeric
-import           Onyx.Audio                       (applyPansVols, mixMany)
+import           Onyx.Audio                       (applyPansVols, cacheAudio,
+                                                   mixMany)
 import           Onyx.DTXMania.XA                 (sourceXA)
 import           Onyx.MIDI.Common                 (pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Track.Drums            as D
@@ -436,19 +432,6 @@ findOggS h = do
   return $ let
     (x, y) = B.breakSubstring "OggS" bs
     in guard (not $ B.null y) >> Just (fromIntegral $ B.length x)
-
-cacheAudio :: (MonadIO m) => AudioSource m Float -> IO (AudioSource m Float)
-cacheAudio src = do
-  var <- newEmptyMVar
-  return src
-    { source = liftIO (tryReadMVar var) >>= \case
-      Just v  -> yield v
-      Nothing -> do
-        xs <- source src .| CL.consume
-        let v = V.concat xs
-        _ <- liftIO $ tryPutMVar var v
-        yield v
-    }
 
 sourceCompressedWAV :: (MonadIO f, MonadResource m) => FilePath -> f (AudioSource m Float)
 sourceCompressedWAV f = liftIO $ do

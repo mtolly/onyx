@@ -16,7 +16,8 @@ import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Maybe
 import qualified Data.Text                        as T
-import           Onyx.Audio                       (applyPansVols, mixMany')
+import           Onyx.Audio                       (applyPansVols, cacheAudio,
+                                                   mixMany')
 import           Onyx.DTXMania.DTX
 import           Onyx.MIDI.Common                 (pattern RNil, pattern Wait)
 import           Onyx.StackTrace
@@ -28,7 +29,9 @@ data BMS = BMS
   { bms_PLAYER      :: Maybe Int
   , bms_GENRE       :: Maybe T.Text
   , bms_TITLE       :: Maybe T.Text
+  , bms_SUBTITLE    :: Maybe T.Text
   , bms_ARTIST      :: Maybe T.Text
+  , bms_SUBARTIST   :: Maybe T.Text
   , bms_PLAYLEVEL   :: Maybe Int
   , bms_RANK        :: Maybe Int
   , bms_STAGEFILE   :: Maybe FilePath
@@ -71,7 +74,9 @@ readBMSLines lns = BMS
   { bms_PLAYER = lookup "PLAYER" lns >>= readMaybe . T.unpack
   , bms_GENRE = lookup "GENRE" lns
   , bms_TITLE = lookup "TITLE" lns
+  , bms_SUBTITLE = lookup "SUBTITLE" lns
   , bms_ARTIST = lookup "ARTIST" lns
+  , bms_SUBARTIST = lookup "SUBARTIST" lns
   , bms_PLAYLEVEL = lookup "PLAYLEVEL" lns >>= readMaybe . T.unpack
   , bms_RANK = lookup "RANK" lns >>= readMaybe . T.unpack
   , bms_STAGEFILE = T.unpack <$> lookup "STAGEFILE" lns

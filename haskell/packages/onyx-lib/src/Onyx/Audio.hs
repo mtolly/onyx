@@ -40,17 +40,20 @@ module Onyx.Audio
 , emptyChannels
 , remapChannels
 , makeFSB4, makeFSB4', makeXMAPieces, makeXMAFSB3
+, cacheAudio
 ) where
 
-import           Control.Concurrent               (threadDelay)
+import           Control.Concurrent               (newEmptyMVar, threadDelay,
+                                                   tryPutMVar, tryReadMVar)
 import           Control.DeepSeq                  (($!!))
 import           Control.Exception                (evaluate)
-import           Control.Monad                    (ap, forM, replicateM_,
+import           Control.Monad                    (ap, forM, guard, replicateM_,
                                                    unless, void, when)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
+import           Data.Bifunctor                   (bimap, first, second)
 import           Data.Binary.Get                  (getWord32le)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
@@ -69,7 +72,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Int                         (Int16)
-import           Data.List                        (elemIndex, sortOn)
+import           Data.List.Extra                  (elemIndex, nubOrd, sortOn)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, mapMaybe)
@@ -120,6 +123,7 @@ data Audio t a
   | StretchSimple Double      (Audio t a)
   | StretchFull Double Double (Audio t a)
   | Mask [T.Text] [Seam t]    (Audio t a)
+  | Samples (Maybe (Int, U.Seconds)) [(t, (T.Text, Audio t a))]
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 data Seam t = Seam
@@ -151,6 +155,7 @@ instance Monad (Audio t) where
       StretchSimple d aud  -> StretchSimple d $ join_ aud
       StretchFull t p aud  -> StretchFull t p $ join_ aud
       Mask tags seams aud  -> Mask tags seams $ join_ aud
+      Samples poly samps   -> Samples poly $ map (second $ second join_) samps
     in join_ $ fmap f x
 
 data Edge = Start | End
@@ -158,21 +163,22 @@ data Edge = Start | End
 
 mapTime :: (t -> u) -> Audio t a -> Audio u a
 mapTime f aud = case aud of
-  Silence c t       -> Silence c $ f t
-  Input   x         -> Input x
-  Mix         xs    -> Mix         $ fmap (mapTime f) xs
-  Merge       xs    -> Merge       $ fmap (mapTime f) xs
-  Concatenate xs    -> Concatenate $ fmap (mapTime f) xs
-  Gain g x          -> Gain g $ mapTime f x
-  Take e t x        -> Take e (f t) $ mapTime f x
-  Drop e t x        -> Drop e (f t) $ mapTime f x
-  Fade e t x        -> Fade e (f t) $ mapTime f x
-  Pad  e t x        -> Pad  e (f t) $ mapTime f x
-  Resample x        -> Resample     $ mapTime f x
-  Channels cs x     -> Channels cs  $ mapTime f x
-  StretchSimple d x -> StretchSimple d $ mapTime f x
-  StretchFull t p x -> StretchFull t p $ mapTime f x
-  Mask tags seams x -> Mask tags (map (fmap f) seams) $ mapTime f x
+  Silence c t        -> Silence c $ f t
+  Input   x          -> Input x
+  Mix         xs     -> Mix         $ fmap (mapTime f) xs
+  Merge       xs     -> Merge       $ fmap (mapTime f) xs
+  Concatenate xs     -> Concatenate $ fmap (mapTime f) xs
+  Gain g x           -> Gain g $ mapTime f x
+  Take e t x         -> Take e (f t) $ mapTime f x
+  Drop e t x         -> Drop e (f t) $ mapTime f x
+  Fade e t x         -> Fade e (f t) $ mapTime f x
+  Pad  e t x         -> Pad  e (f t) $ mapTime f x
+  Resample x         -> Resample     $ mapTime f x
+  Channels cs x      -> Channels cs  $ mapTime f x
+  StretchSimple d x  -> StretchSimple d $ mapTime f x
+  StretchFull t p x  -> StretchFull t p $ mapTime f x
+  Mask tags seams x  -> Mask tags (map (fmap f) seams) $ mapTime f x
+  Samples poly samps -> Samples poly $ map (bimap f $ second $ mapTime f) samps
 
 {- |
 Simple linear interpolation of an audio stream.
@@ -430,7 +436,7 @@ standardRate src = if rate src == 44100
     then silent (Seconds 0) 44100 (channels src)
     else resampleTo 44100 SincMediumQuality $ reorganize chunkSize src
 
-buildSource' :: (MonadResource m, MonadIO f) =>
+buildSource' :: (MonadResource m, MonadIO f, MonadFail f) =>
   Audio Duration FilePath -> f (AudioSource m Float)
 buildSource' aud = case aud of
   -- optimizations
@@ -472,7 +478,18 @@ buildSource' aud = case aud of
     chans <- liftIO $ readVGS fin
     case map (standardRate . mapSamples fractionalSample . (chans !!)) cs of
       src : srcs -> return $ foldl merge src srcs
-      []         -> error "buildSource: 0 channels selected"
+      []         -> fail "buildSource: 0 channels selected"
+  Drop Start t (Samples poly samps) -> ((buildSource' . Samples poly) =<<) $ forM samps $ \(sampleTime, sample) ->
+    case (t, sampleTime) of
+      (Frames f1, Frames f2) -> return (Frames $ f2 - f1, sample)
+      (Seconds s1, Seconds s2) -> return (Seconds $ s2 - s1, sample)
+      _ -> fail $ concat
+        [ "Sample audio track used incompatible seek time (seeked to "
+        , show t
+        , ", sample located at "
+        , show sampleTime
+        , ")"
+        ]
   -- normal cases
   Silence c t -> return $ silent t 44100 c
   Input fin -> liftIO $ case takeExtension fin of
@@ -481,7 +498,7 @@ buildSource' aud = case aud of
       chans <- readVGS fin
       case map (standardRate . mapSamples fractionalSample) chans of
         src : srcs -> return $ foldl merge src srcs
-        []         -> error "buildSource: VGS has 0 channels"
+        []         -> fail "buildSource: VGS has 0 channels"
     _      -> ffSourceFixPath (Frames 0) fin
   Mix         xs -> combine (\a b -> uncurry mix $ sameChannels (a, b)) xs
   Merge       xs -> combine merge xs
@@ -500,6 +517,33 @@ buildSource' aud = case aud of
   StretchSimple d x -> stretchSimple d <$> buildSource' x
   StretchFull t p x -> stretchFull t p <$> buildSource' x
   Mask tags seams x -> renderMask tags seams <$> buildSource' x
+  Samples poly samps -> do
+    sampleToAudio <- fmap Map.fromList $ forM (nubOrd [ sample | (_, (_, sample)) <- samps ]) $ \sample -> do
+      src <- buildSource' sample >>= liftIO . cacheAudio
+      return (sample, src)
+    let stdRate = 44100
+        secondsTimes = flip map samps $ first $ \case
+          Seconds s -> s
+          Frames  f -> framesToSeconds f stdRate
+        (past, future) = break ((>= 0) . fst) secondsTimes
+        futureSamples = RTB.fromAbsoluteEventList $ ATB.fromPairList $
+          flip mapMaybe future $ \(secs, (group, sample)) -> do
+            src <- Map.lookup sample sampleToAudio
+            return (realToFrac secs :: U.Seconds, (src, Just group))
+        -- for sounds that started in the past, see if we ought to play a trailing part of them.
+        -- note, we ignore group. could result in odd sounds but hopefully this is for bgm with no polyphony issues.
+        pastSamples = flip mapMaybe past $ \(negativeSecs, (_group, sample)) -> do
+          src <- Map.lookup sample sampleToAudio
+          guard $ negate negativeSecs < framesToSeconds (frames src) (rate src)
+          -- instead of simple dropStart, we could find a way to use Drop before buildSource',
+          -- which could seek in the input files instead of manually skipping data.
+          -- but since we're caching all the samples anyway this seems fine.
+          return $ dropStart (Seconds $ negate negativeSecs) src
+    -- Glue the past samples (pre-seeked) onto the front of the future samples list at time 0.
+    -- I first tried just using 'mix', but had some weird problems with filling OpenAL queues? Bug somewhere...
+    -- Note, (>> poly) means apply polyphony setting for real groups (Just) but not the past samples (group of Nothing)
+    return $ mixMany' stdRate 2 (>> poly)
+      $ foldr (\pastSample -> Wait 0 (pastSample, Nothing)) futureSamples pastSamples
   where combine meth xs = do
           s :| ss <- mapM buildSource' xs
           return $ foldl meth s ss
@@ -973,3 +1017,16 @@ makeXMAFSB3 inputs fsb = do
   madeFSB <- xmasToFSB3 inputs'
   stackIO $ BL.writeFile fsb $ emitFSB madeFSB
   lg $ "Created XMA (Xbox 360) FSB3 at: " <> fsb
+
+cacheAudio :: (MonadIO m) => AudioSource m Float -> IO (AudioSource m Float)
+cacheAudio src = do
+  var <- newEmptyMVar
+  return src
+    { source = liftIO (tryReadMVar var) >>= \case
+      Just v  -> yield v
+      Nothing -> do
+        xs <- source src .| CL.consume
+        let v = V.concat xs
+        _ <- liftIO $ tryPutMVar var v
+        yield v
+    }

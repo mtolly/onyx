@@ -206,7 +206,8 @@ getAudioLength buildInfo planName = \case
     in case NE.nonEmpty parts of
       Nothing -> return 0
       Just parts' -> do
-        src <- mapM (manualLeaf (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo)) (Mix parts') >>= lift . lift . buildSource . join
+        let getSamples = loadSamplesFromBuildDirShake (biYamlDir buildInfo) planName
+        src <- mapM (manualLeaf (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) getSamples (biSongYaml buildInfo)) (Mix parts') >>= lift . lift . buildSource . join
         let _ = src :: AudioSource (ResourceT IO) Float
         return $ realToFrac $ fromIntegral (frames src) / rate src
 
@@ -230,7 +231,7 @@ sourceKick buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart r
       case HM.lookup fpart $ getParts _moggParts of
         Just (PartDrumKit kick _ _) -> fromMaybe [] kick
         _                           -> []
-    Plan{..}     -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec $ do
+    Plan{..}     -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
       guard $ rank /= 0
       case HM.lookup fpart $ getParts _planParts of
         Just (PartDrumKit kick _ _) -> kick
@@ -246,7 +247,7 @@ sourceSnare buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart 
       case HM.lookup fpart $ getParts _moggParts of
         Just (PartDrumKit _ snare _) -> fromMaybe [] snare
         _                            -> []
-    Plan{..}     -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec $ do
+    Plan{..}     -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
       guard $ rank /= 0
       case HM.lookup fpart $ getParts _planParts of
         Just (PartDrumKit _ snare _) -> snare
@@ -271,7 +272,7 @@ sourceKit buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart ra
         []     -> build []
         s : ss -> return $ foldr mix s ss
     Plan{..}     -> let
-      build = buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec
+      build = buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName
       exprs = do
         guard $ rank /= 0
         case HM.lookup fpart $ getParts _planParts of
@@ -293,7 +294,7 @@ getPartSource buildInfo spec planName plan fpart rank = case plan of
   MoggPlan{..} -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip _pans _vols) $ do
     guard $ rank /= 0
     toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
-  Plan{..} -> buildPartAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec $ do
+  Plan{..} -> buildPartAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
     guard $ rank /= 0
     HM.lookup fpart $ getParts _planParts
 
@@ -307,7 +308,7 @@ sourceStereoParts buildInfo gameParts tgt mid pad planName plan fpartranks = do
     -> zeroIfMultiple gameParts fpart
     <$> getPartSource buildInfo spec planName plan fpart rank
   src <- case srcs of
-    []     -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec Nothing
+    []     -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName Nothing
     s : ss -> return $ foldr mix s ss
   return $ padAudio pad $ applyTargetAudio tgt mid src
 
@@ -323,7 +324,7 @@ sourceCrowd
 sourceCrowd buildInfo tgt mid pad planName plan = do
   src <- case plan of
     MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] (biOggWavForPlan buildInfo planName) (zip _pans _vols) _moggCrowd
-    Plan{..}     -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) [(-1, 0), (1, 0)] _crowd
+    Plan{..}     -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) [(-1, 0), (1, 0)] planName _crowd
   return $ padAudio pad $ applyTargetAudio tgt mid src
 
 sourceSongCountin
@@ -355,13 +356,13 @@ sourceSongCountin buildInfo tgt mid pad includeCountin planName plan fparts = do
       partAudios = maybe id (\pa -> (PartSingle pa :)) _song unusedParts
       countinPath = biRelative buildInfo $ "gen/plan" </> T.unpack planName </> "countin.wav"
       in do
-        unusedSrcs <- mapM (buildPartAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec . Just) partAudios
+        unusedSrcs <- mapM (buildPartAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName . Just) partAudios
         if includeCountin
           then do
             countinSrc <- shk $ buildSource $ Input countinPath
             return $ foldr mix countinSrc unusedSrcs
           else case unusedSrcs of
-            []     -> buildPartAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec Nothing
+            []     -> buildPartAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName Nothing
             s : ss -> return $ foldr mix s ss
   return $ padAudio pad $ applyTargetAudio tgt mid src
 

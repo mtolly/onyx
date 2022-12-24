@@ -10,6 +10,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
+import           Data.Bifunctor                   (second)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Base64.Lazy      as B64
 import qualified Data.ByteString.Lazy             as BL
@@ -391,7 +392,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
       forM_ (HM.toList $ _audio songYaml) $ \(name, _) -> do
         audioDependPath name %> \out -> do
-          src <- manualLeaf yamlDir audioLib (audioDepend buildInfo) songYaml $ Named name
+          let getSamples = fail "Sample-based audio can't be used as dependencies outside of a plan"
+          src <- manualLeaf yamlDir audioLib (audioDepend buildInfo) getSamples songYaml $ Named name
           buildAudio src out
 
       forM_ (extraTargets ++ HM.toList (_targets songYaml)) $ \(targetName, target) -> do
@@ -529,7 +531,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   [ toList _song
                   , toList _planParts >>= toList
                   ]
-            srcs <- mapM (buildAudioToSpec yamlDir audioLib (audioDepend buildInfo) songYaml [(-1, 0), (1, 0)] . Just) planAudios
+            srcs <- mapM (buildAudioToSpec yamlDir audioLib (audioDepend buildInfo) songYaml [(-1, 0), (1, 0)] planName . Just) planAudios
             count <- shk $ buildSource $ Input $ dir </> "countin.wav"
             runAudio (foldr mix count srcs) out
         dir </> "everything.ogg" %> buildAudio (Input $ dir </> "everything.wav")
@@ -538,6 +540,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
         let midprocessed = dir </> "processed.mid"
             midraw = dir </> "raw.mid"
+            sampleTimes = dir </> "samples.txt"
             display = dir </> "display.json"
         midraw %> \out -> do
           lg "Loading the MIDI file..."
@@ -553,6 +556,19 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           output <- RB3.processTiming input $ getAudioLength buildInfo planName plan
           saveMIDI out output
 
+        sampleTimes %> \out -> do
+          input <- shakeMIDI midraw
+          let _ = input :: RBFile.Song (RBFile.OnyxFile U.Beats)
+              output :: [(T.Text, [(Double, T.Text, T.Text)])]
+              output = map (second getSampleList) $ Map.toList $ RBFile.onyxSamples $ RBFile.s_tracks input
+              getSampleList = map makeSampleTriple . ATB.toPairList . RTB.toAbsoluteEventList 0 . RBFile.sampleTriggers
+              makeSampleTriple (bts, trigger) =
+                ( realToFrac $ U.applyTempoMap (RBFile.s_tempos input) bts
+                , RBFile.sampleGroup trigger
+                , RBFile.sampleAudio trigger
+                )
+          stackIO $ writeFile out $ show output
+
         display %> \out -> do
           song <- shakeMIDI midprocessed
           liftIO $ BL.writeFile out $ makeDisplay songYaml song
@@ -560,7 +576,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         -- count-in audio
         dir </> "countin.wav" %> \out -> do
           let hits = case plan of MoggPlan{} -> []; Plan{..} -> case _countin of Countin h -> h
-          src <- buildAudioToSpec yamlDir audioLib (audioDepend buildInfo) songYaml [(-1, 0), (1, 0)] =<< case NE.nonEmpty hits of
+          src <- buildAudioToSpec yamlDir audioLib (audioDepend buildInfo) songYaml [(-1, 0), (1, 0)] planName =<< case NE.nonEmpty hits of
             Nothing    -> return Nothing
             Just hits' -> Just . (\expr -> PlanAudio expr [] []) <$> do
               mid <- shakeMIDI $ dir </> "raw.mid"
