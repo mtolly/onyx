@@ -15,7 +15,14 @@ parts:
       mode: full
       kicks: both
       difficulty: 5
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+        global: -2 # first down a whole step to CGCF (like The Last Baron)
+        offsets: [-5, 0, 0, 0] # ...then down to AGCF. see https://youtu.be/FwaE6wkbIrM?t=32
 audio:
+
   album-track:
     frames: 15624924
     md5: 3a902d220a2b4a60050ebe3fcaa4ecad
@@ -24,15 +31,25 @@ audio:
     md5: d10e0b9e939fda96542afebe010bc89f
   hihat:
     file-path: ../../../sound/hihat-foot.wav
-  stream-0:
+
+  # powergig (360) stems
+  stream-0: # drums
     file-path: stream-0.xma
-  stream-1:
+  stream-1: # drums
     file-path: stream-1.xma
-  stream-2:
+  stream-2: # drums
     file-path: stream-2.xma
-  stream-3:
+  stream-3: # drums
     file-path: stream-3.xma
+  stream-4: # vox
+    file-path: stream-4.xma
+  stream-5: # guitar
+    file-path: stream-5.xma
+  stream-6: # backing (bass, rhythm gtr during solos, backing vox)
+    file-path: stream-6.xma
+
 plans:
+
   album:
     countin:
       0|0: hihat
@@ -53,6 +70,7 @@ plans:
             - take: [end, 3.975, album-prev]
             - album-track
       pans: [1, -1]
+
   dev:
     song:
       expr:
@@ -99,6 +117,25 @@ plans:
           drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-3]]]
         pans: [0.4096655249595642]
         vols: [-0.9690996408462524]
+      guitar:
+        expr:
+          drop: [0.084, stretch: [0.9958274828468717, stream-5]]
+        vols:
+        - -1.9381994009017944
+        - -1.9381994009017944
+      vocal:
+        expr:
+          drop: [0.084, stretch: [0.9958274828468717, stream-4]]
+        vols:
+        - -4.436973571777344
+        - -4.436973571777344
+      backing:
+        expr:
+          drop: [0.084, stretch: [0.9958274828468717, stream-6]]
+        vols:
+        - -3.098038673400879
+        - -3.098038673400879
+
 targets:
   rb3:
     game: rb3

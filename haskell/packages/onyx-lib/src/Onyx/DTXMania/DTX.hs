@@ -7,7 +7,7 @@ module Onyx.DTXMania.DTX where
 
 import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first, second)
-import           Control.Monad                    (forM, forM_, guard, void)
+import           Control.Monad                    (forM_, guard, void)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource     (MonadResource, runResourceT)
 import           Control.Monad.Trans.Writer       (execWriter, tell)
@@ -17,8 +17,6 @@ import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isAlphaNum, isDigit, toLower)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.Mpg123        (sourceMpg)
-import           Data.Conduit.Audio.SampleRate    (ConverterType (SincMediumQuality),
-                                                   resampleTo)
 import           Data.Conduit.Audio.Sndfile       (sourceSnd)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -32,8 +30,6 @@ import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           Data.Tuple                       (swap)
 import           Numeric
-import           Onyx.Audio                       (applyPansVols, cacheAudio,
-                                                   mixMany)
 import           Onyx.DTXMania.XA                 (sourceXA)
 import           Onyx.MIDI.Common                 (pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Track.Drums            as D
@@ -242,7 +238,10 @@ data DTXFormat = FormatDTX | FormatGDA
   deriving (Eq, Show)
 
 getReferences :: T.Text -> [(T.Text, T.Text)] -> [(Chip, T.Text)]
-getReferences typ = mapMaybe $ \(k, v) -> (, v) <$> T.stripPrefix typ k
+getReferences typ = mapMaybe $ \(k, v) -> do
+  k' <- T.stripPrefix typ k
+  guard $ T.length k' == 2
+  return (k', v)
 
 getObjects :: [(T.Text, T.Text)] -> Map.Map BarNumber (HM.HashMap Channel [T.Text])
 getObjects lns = let
@@ -386,35 +385,6 @@ dtxAudioSource fp' = do
         Nothing -> warn $ "Couldn't find audio file at: " <> fp
         Just _  -> return ()
       return tryOgg
-
-getAudio :: (MonadResource m, MonadIO f, SendMessage f) =>
-  Maybe (Int, U.Seconds) -> RTB.T U.Beats Chip -> FilePath -> DTX -> StackTraceT f (AudioSource m Float)
-getAudio polyphony chips dtxPath dtx = do
-  let usedChips = nubOrd $ RTB.getBodies chips
-      wavs = HM.filterWithKey (\k _ -> elem k usedChips) $ dtx_WAV dtx
-  srcs <- fmap (HM.mapMaybe id) $ forM wavs $ \fp -> do
-    dtxAudioSource $ takeDirectory dtxPath </> fp
-  cachedSrcs <- forM srcs $ \src -> if fromIntegral (frames src) < rate src * 5
-    then stackIO $ cacheAudio src
-    else return src
-  let outOf100 n = realToFrac n / 100
-      r = 44100
-      lookupChip chip = flip fmap (HM.lookup chip cachedSrcs) $ \src -> let
-        stereo = applyPansVols
-          (case channels src of
-            2 -> [-1, 1]
-            1 -> [maybe 0 outOf100 $ HM.lookup chip $ dtx_PAN dtx]
-            n -> replicate n 0
-          )
-          (replicate (channels src) $ maybe 0 outOf100 $ HM.lookup chip $ dtx_VOLUME dtx)
-          src
-        in if rate stereo == r
-          then stereo
-          else resampleTo r SincMediumQuality stereo
-  return
-    $ mixMany r 2 polyphony
-    $ U.applyTempoTrack (dtx_TempoMap dtx)
-    $ RTB.mapMaybe lookupChip chips
 
 dropBytes :: (MonadResource m) => Integer -> FilePath -> FilePath -> (FilePath -> m a) -> m a
 dropBytes n template f cb = tempDir "onyx-dtx-import" $ \dir -> do

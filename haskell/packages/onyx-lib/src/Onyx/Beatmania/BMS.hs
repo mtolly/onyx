@@ -4,25 +4,14 @@
 {-# LANGUAGE TupleSections     #-}
 module Onyx.Beatmania.BMS where
 
-import           Control.Monad                    (forM)
-import           Control.Monad.IO.Class           (MonadIO)
-import           Control.Monad.Trans.Resource     (MonadResource)
-import           Data.Conduit.Audio
-import           Data.Conduit.Audio.SampleRate    (ConverterType (SincMediumQuality),
-                                                   resampleTo)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
-import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Maybe
 import qualified Data.Text                        as T
-import           Onyx.Audio                       (applyPansVols, cacheAudio,
-                                                   mixMany')
 import           Onyx.DTXMania.DTX
 import           Onyx.MIDI.Common                 (pattern RNil, pattern Wait)
-import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                  as U
-import           System.FilePath
 import           Text.Read                        (readMaybe)
 
 data BMS = BMS
@@ -138,35 +127,3 @@ readBMSLines lns = BMS
           edges = zip (cycle [True, False]) $ RTB.toPairList chan
       return $ RTB.fromPairList $ flip fmap edges
         $ \(edge, (dt, chip)) -> (dt, (key, chip, edge))
-
-getBMSAudio :: (MonadResource m, MonadIO f, SendMessage f) =>
-  RTB.T U.Beats Chip -> FilePath -> BMS -> StackTraceT f (AudioSource m Float)
-getBMSAudio chips bmsPath bms = do
-  let usedChips = nubOrd $ RTB.getBodies chips
-      wavs = HM.filterWithKey (\k _ -> elem k usedChips) $ bms_WAV bms
-  srcs <- fmap (HM.mapMaybe id) $ forM wavs $ \fp -> do
-    dtxAudioSource
-      $ takeDirectory bmsPath
-      </> map (\case '¥' -> '/'; '\\' -> '/'; c -> c) fp
-      -- ¥ is the backslash when Shift-JIS decoded
-  cachedSrcs <- forM srcs $ \src -> if fromIntegral (frames src) < rate src * 5
-    then stackIO $ cacheAudio src
-    else return src
-  let outOf100 n = realToFrac n / 100
-      r = 44100
-      lookupChip chip = flip fmap (HM.lookup chip cachedSrcs) $ \src -> let
-        stereo = applyPansVols
-          (case channels src of
-            2 -> [-1, 1]
-            n -> replicate n 0
-          )
-          (replicate (channels src) $ maybe 0 outOf100 $ HM.lookup chip $ bms_VOLWAV bms)
-          src
-        resampled = if rate stereo == r
-          then stereo
-          else resampleTo r SincMediumQuality stereo
-        in (resampled, chip)
-  return
-    $ mixMany' r 2 (const $ Just (1, 0.002)) -- TODO adjust cutoff time?
-    $ U.applyTempoTrack (bms_TempoMap bms)
-    $ RTB.mapMaybe lookupChip chips

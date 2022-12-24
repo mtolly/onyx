@@ -519,7 +519,10 @@ buildSource' aud = case aud of
   Mask tags seams x -> renderMask tags seams <$> buildSource' x
   Samples poly samps -> do
     sampleToAudio <- fmap Map.fromList $ forM (nubOrd [ sample | (_, (_, sample)) <- samps ]) $ \sample -> do
-      src <- buildSource' sample >>= liftIO . cacheAudio
+      -- only cache small files. maybe should (instead or also) cache only files that are reused
+      src <- buildSource' sample >>= \s -> if framesToSeconds (frames s) (rate s) < 10
+        then liftIO $ cacheAudio s
+        else return s
       return (sample, src)
     let stdRate = 44100
         secondsTimes = flip map samps $ first $ \case

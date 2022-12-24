@@ -11,7 +11,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, isJust)
+import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.Audio
@@ -39,7 +39,6 @@ importBMS :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importBMS bmsPath level = do
   bms <- stackIO $ readBMSLines <$> loadDTXLines bmsPath
 
-  -- TODO need to apply bms_VOLWAV somewhere
   chipAudio <- case level of
     ImportQuick -> return []
     ImportFull -> fmap catMaybes $ forM (HM.toList $ bms_WAV bms) $ \(chip, fp) -> do
@@ -47,14 +46,23 @@ importBMS bmsPath level = do
         $ takeDirectory bmsPath
         </> map (\case '¥' -> '/'; '\\' -> '/'; c -> c) fp
         -- ¥ is the backslash when Shift-JIS decoded
-      return $ flip fmap msrc $ \src -> (chip, AudioFile AudioInfo
-        { _md5 = Nothing
-        , _frames = Nothing
-        , _commands = []
-        , _filePath = Just $ SoftFile ("samples" </> T.unpack chip <.> "wav") $ SoftAudio src
-        , _rate = Nothing
-        , _channels = CA.channels src
-        })
+      return $ flip fmap msrc $ \src -> let
+        -- could be smarter about this (apply volume later) but this works
+        adjustVolume = case fromMaybe 100 $ HM.lookup chip $ bms_VOLWAV bms of
+          100 -> id
+          vol -> CA.gain $ realToFrac vol / 100
+        fixMono = case CA.channels src of
+          1 -> applyPansVols [0] [0]
+          _ -> id
+        in (chip, AudioFile AudioInfo
+          { _md5 = Nothing
+          , _frames = Nothing
+          , _commands = []
+          , _filePath = Just $ SoftFile ("samples" </> T.unpack chip <.> "wav") $ SoftAudio
+            $ fixMono $ adjustVolume src
+          , _rate = Nothing
+          , _channels = 2
+          })
   let foundChips = HS.fromList $ map fst chipAudio
       audioForChips name chips = if RTB.null chips
         then ([], Nothing)
