@@ -24,7 +24,7 @@ data Song = Song
   , artist           :: Maybe T.Text
   , album            :: Maybe T.Text
   , charter          :: Maybe T.Text -- ^ can be @frets@ or @charter@
-  , year             :: Maybe Int
+  , year             :: Maybe Int -- TODO probably shouldn't be restricted to int, I've seen "year = 2008-2009" which CH shows as-is but sorts under 2008
   , genre            :: Maybe T.Text
   , proDrums         :: Maybe Bool
   , songLength       :: Maybe Int

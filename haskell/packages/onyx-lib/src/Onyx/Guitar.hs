@@ -472,9 +472,23 @@ noOpenNotesOldAlgorithm = let
   openGreen = fmap $ map $ \((mc, sht), len) -> ((fromMaybe Green mc, sht), len)
   in openGreen . rev . fixForward . rev . fixForward
 
+-- | For GH3, turns taps into HOPOs, and then turns repeated HOPOs into strums
+-- since they don't work played as HOPOs.
+gh3LegalHOPOs :: (NNC.C t, Ord color) => RTB.T t ((color, StrumHOPOTap), len) -> RTB.T t ((color, StrumHOPOTap), len)
+gh3LegalHOPOs = RTB.flatten . go . RTB.collectCoincident . noTaps where
+  getColors = sort . map (fst . fst)
+  go = \case
+    Wait t1 group1 (Wait t2 group2 rest) -> Wait t1 group1 $
+      if getColors group1 == getColors group2
+        then let
+          group2Strum = [ ((color, Strum), len) | ((color, _), len) <- group2 ]
+          in go $ Wait t2 group2Strum rest
+        else go $ Wait t2 group2      rest
+    lessThan2 -> lessThan2
+
 -- | Turns all tap notes into HOPO notes.
-noTaps' :: RTB.T t ((color, StrumHOPOTap), len) -> RTB.T t ((color, StrumHOPOTap), len)
-noTaps' = fmap $ first $ second $ \case Tap -> HOPO; sh -> sh
+noTaps :: RTB.T t ((color, StrumHOPOTap), len) -> RTB.T t ((color, StrumHOPOTap), len)
+noTaps = fmap $ first $ second $ \case Tap -> HOPO; sh -> sh
 
 cleanEdges :: (NNC.C t, Ord a) => RTB.T t (Bool, a) -> RTB.T t (Bool, a)
 cleanEdges = go . RTB.normalize where

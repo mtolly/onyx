@@ -32,8 +32,8 @@ import           Onyx.Build.RB3CH                  (BasicTiming (..),
 import           Onyx.Guitar                       (HOPOsAlgorithm (..),
                                                     applyForces,
                                                     computeFiveFretNotes,
-                                                    getForces5, noOpenNotes,
-                                                    strumHOPOTap)
+                                                    getForces5, gh3LegalHOPOs,
+                                                    noOpenNotes, strumHOPOTap)
 import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
 import           Onyx.MIDI.Common                  (Difficulty (..), Edge (..),
                                                     joinEdgesSimple, trackGlue)
@@ -229,7 +229,10 @@ gh3Rules buildInfo dir gh3 = do
                   , QBStructItemString830000 (qbKeyCRC "name") dlcID
                   , QBStructItemStringW (qbKeyCRC "title") $ targetTitle songYaml (GH3 gh3)
                   , QBStructItemStringW (qbKeyCRC "artist") $ getArtist $ _metadata songYaml
-                  , QBStructItemStringW (qbKeyCRC "year") $ T.pack $ ", " <> show (getYear $ _metadata songYaml)
+                  -- Need to have a year string, even if empty. Otherwise it glitches out and takes other strings' values
+                  , QBStructItemStringW (qbKeyCRC "year") $ case _year $ _metadata songYaml of
+                    Nothing   -> ""
+                    Just year -> T.pack $ ", " <> show year
                   , QBStructItemQbKeyString9A0000 (qbKeyCRC "artist_text") $ if _cover $ _metadata songYaml
                     then qbKeyCRC "artist_text_as_made_famous_by"
                     else qbKeyCRC "artist_text_by"
@@ -441,7 +444,8 @@ makeGH3MidQB songYaml song timing partLead partRhythm partDrummer = let
     trk' = gryboComplete (Just threshold) (RBFile.s_signatures song) trk
     fiveDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk'
     sht
-      = noOpenNotes detectMuted
+      = gh3LegalHOPOs
+      $ noOpenNotes detectMuted
       -- TODO guitarify' is called by makeGH3TrackNotes but should we remove ext sustains before noOpenNotes?
       $ applyForces (getForces5 fiveDiff)
       $ strumHOPOTap algo (fromIntegral threshold / 480)

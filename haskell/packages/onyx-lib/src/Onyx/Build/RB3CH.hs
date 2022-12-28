@@ -443,7 +443,7 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
       . fromClosed'
       . no5NoteChords
       . noOpenNotes (gryboDetectMutedOpens grybo)
-      . noTaps'
+      . noTaps
       . (if toKeys then id else noExtendedSustains' standardBlipThreshold gap)
       . applyForces (getForces5 fd)
       . strumHOPOTap algo (fromIntegral ht / 480)

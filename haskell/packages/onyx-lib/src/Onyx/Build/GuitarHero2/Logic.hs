@@ -265,7 +265,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
               emit5'
             . fromClosed'
             . noOpenNotes (gryboDetectMutedOpens grybo)
-            . noTaps'
+            . noTaps
             . noExtendedSustains' standardBlipThreshold gap
             . applyForces (getForces5 fd)
             . strumHOPOTap algo (fromIntegral ht / 480)
