@@ -27,6 +27,8 @@ $white+ ;
 \#include { emit $ const Include }
 \#merge { emit $ const Merge }
 \#ifndef { emit $ const IfNDef }
+\#autorun { emit $ const Autorun }
+\#undef { emit $ const Undef }
 
 -- Numbers. Longest match rule means N.N is float, not int.
 (\+ | \-)? $digit+ { emit $ Int . read . dropWhile (== '+') }
@@ -82,6 +84,8 @@ data Token s
   | Include
   | Merge
   | IfNDef
+  | Autorun
+  | Undef
   deriving (Eq, Ord, Show, Read)
 
 -- | Reads a single-quoted string, by converting it to a double-quoted one.

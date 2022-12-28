@@ -241,18 +241,22 @@ fromClosed' = fmap $ first $ first Just
 -- Note, should probably remove extended sustains before running this?
 noOpenNotes
   :: (NNC.C t)
-  => RTB.T t ((Maybe G5.Color, StrumHOPOTap), len)
+  => Bool -- Should opens between chords be treated as muted strums and converted to HMX style (low fret of chord)?
+  -> RTB.T t ((Maybe G5.Color, StrumHOPOTap), len)
   -> RTB.T t ((G5.Color, StrumHOPOTap), len)
-noOpenNotes notes = let
+noOpenNotes detectMuted notes = let
   -- if there are no open notes, no need to do any steps
   checkNotOpen ((fret, sht), len) = do
     notOpen <- fret
     Just ((notOpen, sht), len)
   in case mapM checkNotOpen notes of
     Just allNotOpen -> allNotOpen
-    Nothing         -> RTB.flatten $ noOpenNotesNewAlgorithm $ mutedOpensToRBStyle $ RTB.collectCoincident notes
+    Nothing         -> RTB.flatten
+      $ noOpenNotesNewAlgorithm
+      $ (if detectMuted then mutedOpensToRBStyle else id)
+      $ RTB.collectCoincident notes
 
--- Identifies "(chord or song start) (open notes) (chord)" (all strums)
+-- Identifies "(chord or song start) (strummed open notes) (strummed chord)"
 -- and turns the open notes into the low note of the following chord,
 -- or the preceding chord if it's closer to the open notes.
 mutedOpensToRBStyle
@@ -261,7 +265,7 @@ mutedOpensToRBStyle
   -> RTB.T t [((Maybe G5.Color, StrumHOPOTap), len)]
 mutedOpensToRBStyle = go True where
   go _       RNil                  = RNil
-  go isStart view@(Wait dt x rest) = if isChordStrum x
+  go isStart view@(Wait dt x rest) = if isChord x
     then findOpens (Just (dt, x)) rest
     else if isStart
       then findOpens Nothing view
@@ -289,6 +293,9 @@ mutedOpensToRBStyle = go True where
   isChordStrum = \case
     ((_, Strum), _) : _ : _ -> True
     _                       -> False
+  isChord = \case
+    ((_, _), _) : _ : _ -> True
+    _                   -> False
   isOpenStrum = \case
     [((Nothing, Strum), _)] -> True
     _                       -> False
@@ -315,26 +322,28 @@ noOpenNotesNewAlgorithm input = let
   isFret _ _                = False
   fixWrapping :: [[((Maybe G5.Color, StrumHOPOTap), len)]] -> [[((Maybe G5.Color, StrumHOPOTap), len)]]
   fixWrapping [] = []
-  fixWrapping fix1@(head1 : tail1) = case span (isFret Nothing) fix1 of
-    (opens@(_ : _), fix2) -> case span (isFret $ Just G5.Green) fix2 of
-      (greens@(_ : _), fix3) -> case span (isFret $ Just G5.Red) fix3 of
-        (reds@(_ : _), fix4) -> case span (isFret $ Just G5.Yellow) fix4 of
-          (yellows@(_ : _), fix5) -> case span (isFret $ Just G5.Blue) fix5 of
-            (blues@(_ : _), fix6) -> if any (isFret $ Just G5.Orange) $ take 1 fix6
-              then concat
-                [ opens
-                , greens
-                , map (map $ \((_, sht), len) -> ((Just G5.Yellow, sht), len)) reds
-                , map (map $ \((_, sht), len) -> ((Just G5.Red, sht), len)) yellows
-                , blues
-                , fixWrapping fix6
-                ]
-              else head1 : fixWrapping tail1
-            _ -> head1 : fixWrapping tail1
-          _ -> head1 : fixWrapping tail1
-        _ -> head1 : fixWrapping tail1
-      _ -> head1 : fixWrapping tail1
-    _ -> head1 : fixWrapping tail1
+  fixWrapping fix1@(head1 : tail1) = let
+    noWrap = head1 : fixWrapping tail1
+    in case span (isFret Nothing) fix1 of
+      (opens@(_ : _), fix2) -> case span (isFret $ Just G5.Green) fix2 of
+        (greens@(_ : _), fix3) -> case span (isFret $ Just G5.Red) fix3 of
+          (reds@(_ : _), fix4) -> case span (isFret $ Just G5.Yellow) fix4 of
+            (yellows@(_ : _), fix5) -> case span (isFret $ Just G5.Blue) fix5 of
+              (blues@(_ : _), fix6) -> if any (isFret $ Just G5.Orange) $ take 1 fix6
+                then concat
+                  [ opens
+                  , greens
+                  , map (map $ \((_, sht), len) -> ((Just G5.Yellow, sht), len)) reds
+                  , map (map $ \((_, sht), len) -> ((Just G5.Red, sht), len)) yellows
+                  , blues
+                  , fixWrapping fix6
+                  ]
+                else noWrap
+              _ -> noWrap
+            _ -> noWrap
+          _ -> noWrap
+        _ -> noWrap
+      _ -> noWrap
 
   -- initial markings: mark open as Low, single orange as High, chords as High
   initState = map $ \xs -> case xs of

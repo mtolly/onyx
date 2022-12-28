@@ -167,7 +167,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
           toGtr = fiveEachDiff $ \fd ->
               emit5'
             . fromClosed'
-            . noOpenNotes
+            . noOpenNotes (gryboDetectMutedOpens grybo)
             . noTaps'
             . noExtendedSustains' standardBlipThreshold gap
             . applyForces (getForces5 fd)

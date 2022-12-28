@@ -261,6 +261,7 @@ importMagma fin level = do
           , gryboFixFreeform = False
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
+          , gryboDetectMutedOpens = True
           }
         , partProGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= C3.proGuitarDiff
@@ -286,6 +287,7 @@ importMagma fin level = do
           , gryboFixFreeform = False
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
+          , gryboDetectMutedOpens = True
           }
         , partProGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= C3.proBassDiff
@@ -311,6 +313,7 @@ importMagma fin level = do
           , gryboFixFreeform = False
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
+          , gryboDetectMutedOpens = True
           }
         , partProKeys = guard (isJust keys && maybe False (not . C3.disableProKeys) c3) >> Just PartProKeys
           { pkDifficulty = Tier $ RBProj.rankProKeys $ RBProj.gamedata rbproj

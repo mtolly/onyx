@@ -42,6 +42,7 @@ data Preferences = Preferences
   , prefDecryptSilent :: Bool
   , prefArtistSort    :: Bool -- in gh2/gh3, sort by artist then title
   , prefThreads       :: Maybe Int
+  , prefDetectMuted   :: Bool
   }
 
 instance StackJSON Preferences where
@@ -68,6 +69,7 @@ instance StackJSON Preferences where
     prefDecryptSilent <- prefDecryptSilent =. opt  False        "decrypt-silent"  stackJSON
     prefArtistSort    <- prefArtistSort    =. opt  False        "artist-sort"     stackJSON
     prefThreads       <- prefThreads       =. opt  Nothing      "threads"         stackJSON
+    prefDetectMuted   <- prefDetectMuted   =. opt  True         "detect-muted"    stackJSON
     return Preferences{..}
 
 instance Default Preferences where

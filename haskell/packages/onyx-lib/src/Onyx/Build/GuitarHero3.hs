@@ -422,26 +422,26 @@ makeGH3MidQB
 makeGH3MidQB songYaml song timing partLead partRhythm partDrummer = let
   makeGH3Part fpart = let
     opart = RBFile.getFlexPart fpart $ RBFile.s_tracks song
-    ((trk, algo), threshold) = case getPart fpart songYaml >>= partGRYBO of
-      Just pg -> (RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart, gryboHopoThreshold pg)
+    ((trk, algo), threshold, detectMuted) = case getPart fpart songYaml >>= partGRYBO of
+      Just pg -> (RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart, gryboHopoThreshold pg, gryboDetectMutedOpens pg)
       Nothing -> let
         trk' = case getPart fpart songYaml >>= partDrums of
           Just _pd -> case buildDrums fpart (Left def { rb3_2xBassPedal = True }) song timing songYaml of
             Just drums -> drumsToFive song drums
             Nothing    -> mempty
           Nothing -> mempty
-        in ((trk', HOPOsRBGuitar), 170)
+        in ((trk', HOPOsRBGuitar), 170, False)
     in (trk, GH3Part
-      { gh3Easy   = makeGH3Track Easy   trk algo threshold
-      , gh3Medium = makeGH3Track Medium trk algo threshold
-      , gh3Hard   = makeGH3Track Hard   trk algo threshold
-      , gh3Expert = makeGH3Track Expert trk algo threshold
+      { gh3Easy   = makeGH3Track Easy   trk algo threshold detectMuted
+      , gh3Medium = makeGH3Track Medium trk algo threshold detectMuted
+      , gh3Hard   = makeGH3Track Hard   trk algo threshold detectMuted
+      , gh3Expert = makeGH3Track Expert trk algo threshold detectMuted
       })
-  makeGH3Track diff trk algo threshold = let
+  makeGH3Track diff trk algo threshold detectMuted = let
     trk' = gryboComplete (Just threshold) (RBFile.s_signatures song) trk
     fiveDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk'
     sht
-      = noOpenNotes
+      = noOpenNotes detectMuted
       -- TODO guitarify' is called by makeGH3TrackNotes but should we remove ext sustains before noOpenNotes?
       $ applyForces (getForces5 fiveDiff)
       $ strumHOPOTap algo (fromIntegral threshold / 480)

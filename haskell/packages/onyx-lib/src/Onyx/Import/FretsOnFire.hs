@@ -525,6 +525,7 @@ importFoF src level = do
           , gryboFixFreeform = False
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
+          , gryboDetectMutedOpens = True
           }
         , partProGuitar = let
           b =  (isnt nullPG RBFile.fixedPartRealGuitar   && guardDifficulty FoF.diffGuitarReal  )
@@ -550,6 +551,7 @@ importFoF src level = do
           , gryboFixFreeform = False
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
+          , gryboDetectMutedOpens = True
           }
         , partProGuitar = let
           b =  (isnt nullPG RBFile.fixedPartRealBass   && guardDifficulty FoF.diffBassReal  )
@@ -575,6 +577,7 @@ importFoF src level = do
           , gryboFixFreeform = False
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
+          , gryboDetectMutedOpens = True
           }
         , partProKeys = guard (isnt nullPK RBFile.fixedPartRealKeysX && guardDifficulty FoF.diffKeysReal) >> Just PartProKeys
           { pkDifficulty = toTier $ FoF.diffKeysReal song
@@ -588,6 +591,7 @@ importFoF src level = do
           , gryboFixFreeform = False
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
+          , gryboDetectMutedOpens = True
           }
         })
       , ( FlexExtra "guitar-coop", def
@@ -597,6 +601,7 @@ importFoF src level = do
           , gryboFixFreeform = False
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
+          , gryboDetectMutedOpens = True
           }
         })
       , ( FlexVocal, def

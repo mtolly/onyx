@@ -40,6 +40,8 @@ ppChunk c = case c of
   Include t -> PP.hsep ["#include", PP.pretty t]
   Merge t -> PP.hsep ["#merge", PP.pretty t]
   IfNDef t -> PP.hsep ["#ifndef", PP.pretty t]
+  Autorun -> "#autorun"
+  Undef t -> PP.hsep ["#undef", PP.pretty t]
 
 -- | Used for certain attributes that C3 can only parse on one line,
 -- with no single quotes around symbols.

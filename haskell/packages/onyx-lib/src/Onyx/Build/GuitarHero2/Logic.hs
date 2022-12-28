@@ -264,7 +264,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
           toGtr = fiveEachDiff $ \fd ->
               emit5'
             . fromClosed'
-            . noOpenNotes
+            . noOpenNotes (gryboDetectMutedOpens grybo)
             . noTaps'
             . noExtendedSustains' standardBlipThreshold gap
             . applyForces (getForces5 fd)

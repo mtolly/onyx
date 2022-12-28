@@ -55,6 +55,8 @@ data Chunk s
   | Include s
   | Merge s
   | IfNDef s
+  | Autorun
+  | Undef s
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic, Hashable)
 
 --
@@ -95,6 +97,8 @@ instance Binary (Chunk B.ByteString) where
     Include b   -> putWord32le 0x21 >> putLenStr b
     Merge b     -> putWord32le 0x22 >> putLenStr b
     IfNDef b    -> putWord32le 0x23 >> putLenStr b
+    Autorun     -> putWord32le 0x24 >> putWord32le 0
+    Undef b     -> putWord32le 0x25 >> putLenStr b
   get = getWord32le >>= \cid -> case cid of
     0x0  -> Int . fromIntegral <$> getWord32le
     0x1  -> Float <$> getFloatle
@@ -112,7 +116,8 @@ instance Binary (Chunk B.ByteString) where
     0x21 -> Include <$> getLenStr
     0x22 -> Merge <$> getLenStr
     0x23 -> IfNDef <$> getLenStr
-    -- TODO: 0x24 seen in Beatles config/gen/process_clips_func.dtb
+    0x24 -> skip 4 >> return Autorun
+    0x25 -> Undef <$> getLenStr
     _    -> fail $ "Unidentified DTB chunk with ID " ++ show cid
 
 -- | DTB string format: 4-byte length, then a string in latin-1.

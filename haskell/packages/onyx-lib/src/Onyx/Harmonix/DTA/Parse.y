@@ -33,6 +33,8 @@ import Onyx.StackTrace (StackTraceT, fatal, inside)
   include { (_, L.Include) }
   merge { (_, L.Merge) }
   ifndef { (_, L.IfNDef) }
+  autorun { (_, L.Autorun) }
+  undef { (_, L.Undef) }
 
 %%
 
@@ -59,6 +61,8 @@ Chunk : int { fmap (\(L.Int x) -> Int x) $1 }
       | include sym { fmap (\(L.Sym x) -> Include x) $2 }
       | merge sym { fmap (\(L.Sym x) -> Merge x) $2 }
       | ifndef sym { fmap (\(L.Sym x) -> IfNDef x) $2 }
+      | autorun { fmap (const Autorun) $1 }
+      | undef sym { fmap (\(L.Sym x) -> Undef x) $2 }
 
 {
 

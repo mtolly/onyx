@@ -569,6 +569,7 @@ importRB rbi level = do
           , gryboFixFreeform = False
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
+          , gryboDetectMutedOpens = True
           }
         , partProGuitar = guard (hasRankStr "real_guitar") >> Just PartProGuitar
           { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_guitar" diffMap
@@ -592,6 +593,7 @@ importRB rbi level = do
           , gryboFixFreeform = False
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
+          , gryboDetectMutedOpens = True
           }
         , partProGuitar = guard (hasRankStr "real_bass") >> Just PartProGuitar
           { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_bass" diffMap
@@ -615,6 +617,7 @@ importRB rbi level = do
           , gryboFixFreeform = False
           , gryboSmoothFrets = False
           , gryboSustainGap = 60
+          , gryboDetectMutedOpens = True
           }
         , partProKeys = guard (hasRankStr "real_keys") >> Just PartProKeys
           { pkDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_keys" diffMap

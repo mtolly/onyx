@@ -199,7 +199,7 @@ readGuitarNotes :: Maybe Int -> FiveDifficulty U.Beats -> RTB.T U.Beats (GuitarN
 readGuitarNotes hopoThres fd
   = fmap (\(notes, len) -> GuitarNote (map fst notes) (snd $ head notes) len)
   . guitarify'
-  . noOpenNotes
+  . noOpenNotes True -- doesn't really matter if we do mute-strums detection
   . case hopoThres of
     Nothing -> fmap (\(col, len) -> ((col, Strum), len))
     Just i  -> applyForces (getForces5 fd) . strumHOPOTap HOPOsRBGuitar (fromIntegral i / 480)

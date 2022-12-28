@@ -306,7 +306,7 @@ importSetDef setDefPath song level = do
             True -> return $ Just VideoInfo
               { _fileVideo      = SoftFile ("video" <.> takeExtension videoPath)
                 $ SoftReadable $ fileReadable $ takeDirectory topDiffPath </> videoPath
-              , _videoStartTime = Just $ realToFrac $ U.applyTempoMap (dtx_TempoMap topDiffDTX) posn
+              , _videoStartTime = Just $ negate $ realToFrac $ U.applyTempoMap (dtx_TempoMap topDiffDTX) posn
               , _videoEndTime   = Nothing
               , _videoLoop      = False
               }

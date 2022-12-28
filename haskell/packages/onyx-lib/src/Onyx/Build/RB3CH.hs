@@ -442,7 +442,7 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
         emit5'
       . fromClosed'
       . no5NoteChords
-      . noOpenNotes
+      . noOpenNotes (gryboDetectMutedOpens grybo)
       . noTaps'
       . (if toKeys then id else noExtendedSustains' standardBlipThreshold gap)
       . applyForces (getForces5 fd)

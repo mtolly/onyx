@@ -6,6 +6,7 @@
 {-# LANGUAGE RecursiveDo       #-}
 {-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE ViewPatterns      #-}
+{-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI (launchGUI) where
 
 import           Codec.Picture                             (readImage,
@@ -235,8 +236,8 @@ logErrors_ sink = void . logErrors sink
 safeOnyx :: Onyx () -> Onyx ()
 safeOnyx f = getEventSink >>= \sink -> errorToEither f >>= logErrors_ sink
 
-resizeWindow :: FL.Ref FL.Window -> Size -> IO ()
-resizeWindow window size = do
+_resizeWindow :: FL.Ref FL.Window -> Size -> IO ()
+_resizeWindow window size = do
   x <- FL.getX window
   y <- FL.getY window
   FL.resize window $ Rectangle (Position x y) size
@@ -281,7 +282,14 @@ importWithPreferences imp = do
               mogg@MoggPlan{} -> mogg { _decryptSilent = prefDecryptSilent prefs }
               plan            -> plan
             }
-      stackIO $ saveProject projInit $ applyBlackVenue $ applyDecryptSilent $ projectSongYaml projInit
+          applyDetectMuted yaml = yaml
+            { _parts = flip fmap (_parts yaml) $ \part -> part
+              { partGRYBO = flip fmap (partGRYBO part) $ \grybo -> grybo
+                { gryboDetectMutedOpens = prefDetectMuted prefs
+                }
+              }
+            }
+      stackIO $ saveProject projInit $ applyDetectMuted $ applyBlackVenue $ applyDecryptSilent $ projectSongYaml projInit
     else return projInit
 
 continueImport
@@ -1541,7 +1549,7 @@ makePresetDropdown rect opts = do
   return $ readIORef ref
 
 makePS3PackPresetDropdown :: (Event -> IO ()) -> Rectangle -> IO (IO QuickPS3Folder)
-makePS3PackPresetDropdown sink rect = do
+makePS3PackPresetDropdown _sink rect = do
   let labelOne = "Combine into one new USRDIR subfolder per pack"
       labelSeparate = "Each song gets a new USRDIR subfolder"
       labelCustomInitial = "Custom USRDIR subfolder..."
@@ -2696,12 +2704,12 @@ songPagePS sink rect tab proj build = mdo
   FL.setResizable tab $ Just pack
   return ()
 
-selectArkDestination
+_selectArkDestination
   :: (Event -> IO ())
   -> FilePath
   -> (GH2InstallLocation -> IO ())
   -> Onyx ()
-selectArkDestination sink gen withLocation = do
+_selectArkDestination _sink gen withLocation = do
   setlist <- loadSetlistFull gen
   stackIO $ mdo
 
@@ -3076,8 +3084,6 @@ songPageGH3 sink rect tab proj build = mdo
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
   let initTarget = def :: TargetGH3
       makeTarget = fmap ($ initTarget) targetModifier
-      makeTargetGo go = targetModifier >>= \modifier -> sink $ EventOnyx $ do
-        stackIO $ go $ modifier initTarget
   fullWidth 35 $ \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- FL.buttonNew r1 $ Just "Create Xbox 360 LIVE file"
@@ -3925,7 +3931,7 @@ miscPageGH3SongCache sink rect tab startTasks = do
   loadedFiles <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
       [chopRight 5 -> (xboxRect, _), chopLeft 5 -> (_, ps3Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchWoRCachable $ \info -> let
+  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchGH3Cachable $ \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
@@ -5114,8 +5120,8 @@ launchMisc sink makeMenuBar = mdo
   FL.setCallback window $ windowCloser cancelTasks
   FL.showWidget window
 
-watchSong :: IO () -> FilePath -> Onyx (IO PreviewSong, IO ())
-watchSong notify mid = do
+_watchSong :: IO () -> FilePath -> Onyx (IO PreviewSong, IO ())
+_watchSong notify mid = do
   let fakeYaml = undefined -- TODO
   varTrack <- loadTracks fakeYaml mid >>= liftIO . newIORef
   chan <- liftIO newChan
@@ -5141,14 +5147,14 @@ watchSong notify mid = do
     go
   return (readIORef varTrack, sendClose)
 
-launchTimeServer
+_launchTimeServer
   :: (Event -> IO ())
   -> IORef Double
   -> FL.Ref FL.Input
   -> FL.Ref FL.Button
   -> FL.Ref FL.Box
   -> IO (IO ())
-launchTimeServer sink varTime inputPort button label = do
+_launchTimeServer sink varTime inputPort button label = do
   -- TODO something is wrong here on Windows;
   -- stopping the server before a connection comes in
   -- seems to kill the thread (GUI stops updating)
@@ -5313,9 +5319,9 @@ previewGroup sink rect getSong getTime getSpeed = do
   FL.setResizable wholeGroup $ Just glwindow
   return (wholeGroup, FL.redraw glwindow, deleteGL)
 
-launchPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
-launchPreview sink makeMenuBar mid = mdo
-  (getTracks, stopWatch) <- watchSong (sink $ EventIO redraw) mid
+_launchPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
+_launchPreview sink makeMenuBar mid = mdo
+  (getTracks, stopWatch) <- _watchSong (sink $ EventIO redraw) mid
   redraw <- liftIO $ do
 
     let windowWidth = Width 800
@@ -5361,7 +5367,7 @@ launchPreview sink makeMenuBar mid = mdo
       (readIORef varTime)
       (return 1)
 
-    stopServer <- launchTimeServer
+    stopServer <- _launchTimeServer
       sink
       varTime
       inputPort
@@ -5378,15 +5384,15 @@ launchPreview sink makeMenuBar mid = mdo
     return redrawGL
   return ()
 
-promptPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
-promptPreview sink makeMenuBar = sink $ EventIO $ do
+_promptPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
+_promptPreview sink makeMenuBar = sink $ EventIO $ do
   picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
   FL.setTitle picker "Load MIDI, .chart, or REAPER project"
   FL.setFilter picker "*.{mid,midi,RPP,chart}"
   FL.showWidget picker >>= \case
     FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
       Nothing -> return ()
-      Just f  -> sink $ EventOnyx $ launchPreview sink makeMenuBar $ T.unpack f
+      Just f  -> sink $ EventOnyx $ _launchPreview sink makeMenuBar $ T.unpack f
     _                          -> return ()
 
 fileLoadWindow
@@ -5797,8 +5803,8 @@ dragAndDrop f fallback = \case
 replaceQueueLog :: ((MessageLevel, Message) -> IO ()) -> Onyx a -> Onyx a
 replaceQueueLog q = mapStackTraceT $ QueueLog . local (const q) . fromQueueLog
 
-localResources :: Onyx a -> Onyx a
-localResources = mapStackTraceT $ QueueLog . mapReaderT (mapReaderT $ liftIO . runResourceT) . fromQueueLog
+_localResources :: Onyx a -> Onyx a
+_localResources = mapStackTraceT $ QueueLog . mapReaderT (mapReaderT $ liftIO . runResourceT) . fromQueueLog
 
 data TermMessage
   = TermStart String String -- "Task 4" "/path/to/file"
@@ -5920,6 +5926,15 @@ launchPreferences sink makeMenuBar = do
             unlimited <- FL.getValue check
             cores <- FL.getValue counter
             return $ \prefs -> prefs { prefThreads = if unlimited then Nothing else Just $ round cores }
+        , do
+          check <- lineBox $ \box -> FL.checkButtonNew box $ Just "For non-open-note games, convert \"muted strums\" to Harmonix style"
+          FL.setTooltip check $ T.unwords
+            [ "When checked, sequences of the form \"chord, strummed open notes, strummed chord\" are assumed to represent muted strums."
+            , "Instead of always becoming green, these open notes will become the lowest note of the following chord,"
+            , "or of the preceding chord if it is closer to the open notes."
+            ]
+          void $ FL.setValue check $ prefDetectMuted loadedPrefs
+          return $ (\b prefs -> prefs { prefDetectMuted = b }) <$> FL.getValue check
         ]
       FL.end pack
       return (tab, fn)

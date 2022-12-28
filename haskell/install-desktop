@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+set -u
+
+mkdir -p "$HOME/.local/share/applications/"
+cp Onyx.AppDir/usr/share/applications/onyx.desktop "$HOME/.local/share/applications/"
+mkdir -p "$HOME/.local/share/icons/hicolor/256x256/apps/"
+cp icon/icon.png "$HOME/.local/share/icons/hicolor/256x256/apps/onyx.png"

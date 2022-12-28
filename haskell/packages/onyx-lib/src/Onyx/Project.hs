@@ -602,20 +602,22 @@ instance StackJSON Difficulty where
     }
 
 data PartGRYBO = PartGRYBO
-  { gryboDifficulty    :: Difficulty
-  , gryboHopoThreshold :: Int
-  , gryboFixFreeform   :: Bool
-  , gryboSustainGap    :: Int -- ticks, 480 per beat
-  , gryboSmoothFrets   :: Bool -- should animation fret positions be smoothed out like pre-RB3
+  { gryboDifficulty       :: Difficulty
+  , gryboHopoThreshold    :: Int
+  , gryboFixFreeform      :: Bool
+  , gryboSustainGap       :: Int -- ticks, 480 per beat
+  , gryboSmoothFrets      :: Bool -- should animation fret positions be smoothed out like pre-RB3
+  , gryboDetectMutedOpens :: Bool -- if open notes are auto-removed, should we detect when opens are used as muted strums in between chords
   } deriving (Eq, Ord, Show)
 
 instance StackJSON PartGRYBO where
   stackJSON = asStrictObject "PartGRYBO" $ do
-    gryboDifficulty    <- gryboDifficulty    =. fill (Tier 1) "difficulty"      stackJSON
-    gryboHopoThreshold <- gryboHopoThreshold =. opt  170      "hopo-threshold"  stackJSON
-    gryboFixFreeform   <- gryboFixFreeform   =. opt  True     "fix-freeform"    stackJSON
-    gryboSustainGap    <- gryboSustainGap    =. opt  60       "sustain-gap"     stackJSON
-    gryboSmoothFrets   <- gryboSmoothFrets   =. opt  False    "smooth-frets"    stackJSON
+    gryboDifficulty       <- gryboDifficulty       =. fill (Tier 1) "difficulty"         stackJSON
+    gryboHopoThreshold    <- gryboHopoThreshold    =. opt  170      "hopo-threshold"     stackJSON
+    gryboFixFreeform      <- gryboFixFreeform      =. opt  True     "fix-freeform"       stackJSON
+    gryboSustainGap       <- gryboSustainGap       =. opt  60       "sustain-gap"        stackJSON
+    gryboSmoothFrets      <- gryboSmoothFrets      =. opt  False    "smooth-frets"       stackJSON
+    gryboDetectMutedOpens <- gryboDetectMutedOpens =. opt  True     "detect-muted-opens" stackJSON
     return PartGRYBO{..}
 
 instance Default PartGRYBO where
