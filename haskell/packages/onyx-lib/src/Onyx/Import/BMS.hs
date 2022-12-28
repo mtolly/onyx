@@ -39,6 +39,8 @@ importBMS :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importBMS bmsPath level = do
   bms <- stackIO $ readBMSLines <$> loadDTXLines bmsPath
 
+  -- TODO if .pms extension, combine notes (on p1 and p2) into 9k track
+
   chipAudio <- case level of
     ImportQuick -> return []
     ImportFull -> fmap catMaybes $ forM (HM.toList $ bms_WAV bms) $ \(chip, fp) -> do

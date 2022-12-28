@@ -120,11 +120,12 @@ stripTags = let
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do
   let readIniUTF8 = fmap (parseIni . noComments . decodeGeneral) . B.readFile
-      -- C3 CON Tools (new at some point?) puts semicolon comments at the bottom
+      -- C3 CON Tools (new at some point?) puts comments at the bottom
       -- which the ini library chokes on. Not sure if just removing blindly like
       -- this is totally okay (can ini strings extend onto multiple lines?)
       -- but it seems fine
-      noComments = T.unlines . filter (\ln -> not $ ";" `T.isPrefixOf` ln) . T.lines
+      isComment ln = any (`T.isPrefixOf` ln) [";", "//"]
+      noComments = T.unlines . filter (not . isComment) . T.lines
   ini <- inside fp $ liftIO (readIniUTF8 fp) >>= either fatal return
   -- TODO make all keys lowercase before lookup
 

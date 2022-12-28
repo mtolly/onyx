@@ -117,25 +117,32 @@ gh3Rules buildInfo dir gh3 = do
         L.check $ L.setBrate lame 128
         L.check $ L.setQuality lame 5
         L.check $ L.setOutSamplerate lame 44100 -- SanicStudios uses this, seems to work
+      pathPad = dir </> "pad.txt"
+      readPad :: Staction Int
+      readPad = shk $ read <$> readFile' pathPad
   pathGuitar %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo gh3Parts (gh3_Common gh3) mid 0 planName plan
       [(gh3_Guitar gh3, 1)]
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ clampIfSilent s
+    pad <- readPad
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathRhythm %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo gh3Parts (gh3_Common gh3) mid 0 planName plan
       [(coopPart, 1)]
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ clampIfSilent s
+    pad <- readPad
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathSong %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceSongCountin buildInfo (gh3_Common gh3) mid 0 True planName plan
       [ (gh3_Guitar gh3, 1)
       , (coopPart      , 1)
       ]
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ clampIfSilent s
+    pad <- readPad
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathPreview %> \out -> do
     mid <- shakeMIDI $ planDir </> "processed.mid"
+    -- Pad passed as 0 because we are just applying it to the unpadded audio
     let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
         fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
         previewExpr
@@ -272,19 +279,20 @@ gh3Rules buildInfo dir gh3 = do
   forM_ pathTextLangs $ \lang -> lang %> \out -> do
     -- being lazy and copying english file. really we ought to swap out some translated strings
     shk $ copyFile' pathText out
-  pathSongPak %> \out -> do
+  [pathSongPak, pathPad] &%> \_ -> do
     mid <- shakeMIDI $ planDir </> "processed.mid"
     let midApplied = applyTargetMIDI (gh3_Common gh3) mid
     timing <- basicTiming midApplied $ getAudioLength buildInfo planName plan
-    let nodes =
+    let (gh3Mid, padSeconds) = makeGH3MidQB
+          songYaml
+          midApplied
+          timing
+          (gh3_Guitar gh3)
+          coopPart
+          (gh3_Drums gh3)
+        nodes =
           [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = key1, nodeFilenameCRC = key2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
-            , putQB $ makeMidQB key1 dlcID $ makeGH3MidQB
-              songYaml
-              midApplied
-              timing
-              (gh3_Guitar gh3)
-              coopPart
-              (gh3_Drums gh3)
+            , putQB $ makeMidQB key1 dlcID gh3Mid
             )
           -- there's a small script qb here in official DLC. but SanicStudios customs don't have it
           -- .ska files would go here if we had any
@@ -294,7 +302,8 @@ gh3Rules buildInfo dir gh3 = do
           ]
         key1 = qbKeyCRC $ "songs\\" <> dlcID <> ".mid.qb"
         key2 = qbKeyCRC dlcID
-    stackIO $ BL.writeFile out $ buildPak nodes
+    stackIO $ BL.writeFile pathSongPak $ buildPak nodes
+    stackIO $ writeFile pathPad $ show padSeconds
 
   let gh3Files = pathFsbXen : pathDatXen : pathDL : pathText : pathSongPak : pathTextLangs
   phony (dir </> "xbox") $ do
@@ -413,7 +422,6 @@ makeGH3Timing tmap mmap end = let
     $ U.measureMapToTimeSigs mmap
   in (fretbars, sigs)
 
--- TODO we need to pad song start if too early. notes work fine (unlike RB) but not enough visual lead-in
 makeGH3MidQB
   :: SongYaml f
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
@@ -421,8 +429,23 @@ makeGH3MidQB
   -> RBFile.FlexPartName
   -> RBFile.FlexPartName
   -> RBFile.FlexPartName
-  -> GH3MidQB
-makeGH3MidQB songYaml song timing partLead partRhythm partDrummer = let
+  -> (GH3MidQB, Int)
+makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
+
+  -- first, pad input midi if needed
+  firstEvent rtb = case RTB.viewL rtb of
+    Just ((dt, _), _) -> dt
+    Nothing           -> 999
+  firstNoteBeats = foldr min 999 $ do
+    part <- [partLead, partRhythm]
+    let opart = RBFile.getFlexPart part $ RBFile.s_tracks origSong
+        five = fst $ RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart
+    diff <- Map.elems $ Five.fiveDifficulties five
+    return $ firstEvent $ Five.fiveGems diff
+  firstNoteSeconds = U.applyTempoMap (RBFile.s_tempos origSong) firstNoteBeats
+  padSeconds = max 0 $ ceiling $ 3 - (realToFrac firstNoteSeconds :: Rational)
+  song = RBFile.padAnyFile padSeconds origSong
+
   makeGH3Part fpart = let
     opart = RBFile.getFlexPart fpart $ RBFile.s_tracks song
     ((trk, algo), threshold, detectMuted) = case getPart fpart songYaml >>= partGRYBO of
@@ -494,7 +517,7 @@ makeGH3MidQB songYaml song timing partLead partRhythm partDrummer = let
       notes = RTB.mapMaybe (\(fdn, hand) -> lookup (fdn_gem fdn, hand) mapping) $ animationToFD rbAnims
       in map (\(secs, pitch) -> [floor $ secs * 1000, pitch, 96]) -- third number is probably original midi velocity
         $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack (RBFile.s_tempos song) notes
-  in emptyMidQB
+  in (emptyMidQB
     { gh3Guitar          = leadPart
     , gh3Rhythm          = rhythmWithEndHack
     , gh3TimeSignatures  = timeSigs
@@ -505,4 +528,4 @@ makeGH3MidQB songYaml song timing partLead partRhythm partDrummer = let
     , gh3BackgroundNotes = (GH3Background [] [] [] [] [] [] [] [])
       { gh3Drums = drumAnims
       }
-    }
+    }, padSeconds)

@@ -336,6 +336,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".bms" -> foundBME fp
         ".bme" -> foundBME fp
         ".bml" -> foundBME fp
+        ".pms" -> foundBME fp
         ".psarc" -> foundRS fp
         ".edat" | map toLower (takeExtension $ dropExtension fp) == ".psarc"
           -> foundRSPS3 fp
