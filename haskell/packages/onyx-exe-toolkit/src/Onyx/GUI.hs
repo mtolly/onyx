@@ -586,8 +586,8 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
   window <- FL.windowNew
     windowSize
     Nothing
-    (Just $ fromMaybe "Song" $ _title $ _metadata $ projectSongYaml proj)
-    -- TODO if title has slash like "Pupa / Cocoon" this makes weird new menus
+    (Just $ T.replace "/" "_" $ fromMaybe "Song" $ _title $ _metadata $ projectSongYaml proj)
+    -- if the window title has a slash like "Pupa / Cocoon" this makes weird new menus
     -- on Mac that can crash (bc you can reopen a closed song window and try to
     -- delete the temp folder a second time). to fix properly I think we need
     -- to set window_menu_style on the SysMenuBar (not in fltkhs yet)
@@ -5594,10 +5594,17 @@ launchBatch sink makeMenuBar startFiles = mdo
           }
     FL.setResizable tab $ Just group
     return (tab, getter)
+  -- keep track of release fns we should run when canceling batch process or closing the window.
+  -- otherwise these folders will not be released until onyx closes
+  cleanupOnCancel <- newMVar HM.empty
   let doImport imp fn = do
         proj <- importWithPreferences imp
+        stackIO $ forM_ (projectRelease proj) $ \k -> do
+          modifyMVar_ cleanupOnCancel $ return . HM.insert (projectLocation proj) k
         res <- errorToEither $ fn proj
-        mapM_ release $ projectRelease proj
+        stackIO $ forM_ (projectRelease proj) $ \k -> modifyMVar_ cleanupOnCancel $ \m -> do
+          release k
+          return $ HM.delete (projectLocation proj) m
         either throwNoContext return res
   functionTabs <- sequence
     [ makeTab windowRect "RB3" $ \rect tab -> do
@@ -5755,6 +5762,10 @@ launchBatch sink makeMenuBar startFiles = mdo
           void $ FL.setValue tabs $ Just tab
           updateTabsColor tabs
         cbEnd = do
+          modifyMVar_ cleanupOnCancel $ \m -> do
+            -- putStrLn $ "cleanup on cancel: " <> show (HM.keys m)
+            mapM_ release $ HM.elems m
+            return HM.empty
           mapM_ FL.activate nonTermTabs
     taskOutputPage rect tab sink cbStart cbEnd
   FL.end tabs

@@ -130,7 +130,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         }
       importFrom index loc isDir fn = do
         (key, tmp) <- resourceTempDir
-        () <- fn tmp
+        () <- fn key tmp
         withYaml index loc isDir (Just key) (tmp </> "song.yml")
       foundFoF loc = do
         -- loc can be a .ini or .chart
@@ -280,8 +280,14 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             , impFormat = fmt
             , impPath = path
             , impIndex = index
-            , impProject = importFrom index path isDir $ \dout ->
-              void $ imp ImportFull >>= stackIO . saveImport dout
+            -- first, run "imp" before making the temp folder
+            , impProject = imp ImportFull >>= \proj -> importFrom index path isDir $ \key dout ->
+              void $ stackIO $ let
+                -- then, delete temp folder if there's any exception (like killed thread)
+                -- while saving out the files
+                saver = saveImport dout proj
+                deleter = release key
+                in saver `MC.onException` deleter
             , imp2x = any (maybe False ((== Kicks2x) . drumsKicks) . partDrums) $ _parts quick
             }
       foundImport fmt path imp = foundImports fmt path [imp]
