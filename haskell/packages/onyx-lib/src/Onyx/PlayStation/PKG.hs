@@ -314,6 +314,9 @@ tryDecryptEDAT dir name readable = do
         "BLUS30074" -> do
           lg "Decrypting GH3 EDAT file"
           return $ Just ghworKLIC
+        "BLES00134" -> do
+          lg "Decrypting GH3 EDAT file"
+          return $ Just ghworKLIC
         "BLUS30670" -> do
           lg "Decrypting Rocksmith 2014 EDAT file"
           return $ Just rs2014KLIC

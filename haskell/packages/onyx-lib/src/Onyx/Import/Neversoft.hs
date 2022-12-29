@@ -8,7 +8,6 @@ import           Control.Applicative              ((<|>))
 import           Control.Monad                    (forM, guard, when)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Data.Bifunctor                   (first)
-import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isDigit)
 import           Data.Default.Class               (def)
@@ -301,9 +300,9 @@ importGH3DLC src folder = do
         dlName <- toList $ T.stripSuffix (platform "_text.pak") $ T.toLower name
         return (dlName, r)
       findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
-  (qbSections, allNodes) <- fmap mconcat $ forM texts $ \(dlName, r) -> do
+  (qbSections, allNodes) <- fmap mconcat $ forM texts $ \(_dlName, r) -> do
     bs <- stackIO $ useHandle r handleToByteString
-    errorToWarning (readGH3TextPakQBDLC (B8.pack $ T.unpack dlName) bs) >>= \case
+    errorToWarning (readGH3TextPakQBDLC bs) >>= \case
       Nothing       -> return ([], [])
       Just contents -> return (gh3TextPakSongStructs contents, gh3OtherNodes contents)
   songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do

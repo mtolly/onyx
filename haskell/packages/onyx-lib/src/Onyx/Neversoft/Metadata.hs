@@ -15,7 +15,8 @@ import qualified Data.ByteString              as B
 import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Char                    (toLower)
-import           Data.List.Extra              (nubOrdOn, partition)
+import           Data.Either                  (lefts, rights)
+import           Data.List.Extra              (nubOrdOn)
 import           Data.Maybe                   (catMaybes, fromMaybe,
                                                listToMaybe, mapMaybe)
 import qualified Data.Text                    as T
@@ -181,34 +182,20 @@ parseSongInfoStruct songEntries = do
 -- Metadata in _text.pak.qb for GH3
 
 data GH3TextPakQB = GH3TextPakQB
-  { gh3TextPakFileKey     :: Word32
-  , gh3TextPakSongStructs :: [(Word32, [QBStructItem QSResult Word32])]
+  { gh3TextPakSongStructs :: [(Word32, [QBStructItem QSResult Word32])]
   , gh3OtherNodes         :: [(Node, BL.ByteString)] -- used to get section names later
   } deriving (Show)
 
 readGH3TextPakQBDisc :: (MonadFail m, ?endian :: ByteOrder) => BL.ByteString -> BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQBDisc pak pab = do
   nodes <- splitPakNodes ?endian pak $ Just pab
-  (qbFile, other) <- case partition (\(n, _) -> nodeFileType n == qbKeyCRC ".qb" && nodeFilenameCRC n == qbKeyCRC "songlist") nodes of
-    ([]        , _    ) -> fail "Couldn't locate metadata .qb"
-    ((_, r) : _, other) -> return (r, other)
-  readGH3TextPakQB other qbFile
+  readGH3TextPakQB nodes
 
-readGH3TextPakQBDLC :: (MonadFail m) => B.ByteString -> BL.ByteString -> m GH3TextPakQB
-readGH3TextPakQBDLC dlName pak = do
+readGH3TextPakQBDLC :: (MonadFail m) => BL.ByteString -> m GH3TextPakQB
+readGH3TextPakQBDLC pak = do
   let ?endian = BigEndian
   nodes <- splitPakNodes ?endian pak Nothing
-  -- don't know actual filename but this works
-  let matchCRC = qbKeyCRC $ "7buqvk" <> dlName
-      -- customs seem to use Death Magnetic's ID
-      matchCRCDeathMagnetic = qbKeyCRC "7buqvkdl30"
-      -- ps3 appears to be different!
-      matchCRCPS3 = qbKeyCRC $ "fclihu" <> dlName
-  -- we may just want to load all .qb files and ignore file names. that is how the real game seems to work
-  (qbFile, other) <- case partition (\(n, _) -> nodeFileType n == qbKeyCRC ".qb" && elem (nodeFilenameCRC n) [matchCRC, matchCRCDeathMagnetic, matchCRCPS3]) nodes of
-    ([]        , _    ) -> fail "Couldn't locate metadata .qb"
-    ((_, r) : _, other) -> return (r, other)
-  readGH3TextPakQB other qbFile
+  readGH3TextPakQB nodes
 
 data GH3Language
   = GH3English
@@ -232,7 +219,7 @@ readGH3TextSetDLC folder = let
     -- require "dl" in front to ignore GHWT files in Death Magnetic
     Just (lang, dlName) | "dl" `T.isPrefixOf` dlName -> do
       bs <- liftIO $ useHandle r handleToByteString
-      text <- readGH3TextPakQBDLC (B8.pack $ T.unpack dlName) bs
+      text <- readGH3TextPakQBDLC bs
       return $ Just (lang, text)
     _ -> return Nothing
 
@@ -401,28 +388,32 @@ combineGH3SongCachePS3 ins out = do
   extra <- stackIO $ getResourcesPath "pkg-contents/gh3" >>= fmap (first TE.encodeUtf8) . crawlFolder
   stackIO $ makePKG (npdContentID edatConfig) (main <> extra) out
 
-readGH3TextPakQB :: (MonadFail m, ?endian :: ByteOrder) => [(Node, BL.ByteString)] -> BL.ByteString -> m GH3TextPakQB
-readGH3TextPakQB nodes qbFile = do
+readGH3TextPakQB :: (MonadFail m, ?endian :: ByteOrder) => [(Node, BL.ByteString)] -> m GH3TextPakQB
+readGH3TextPakQB nodes = do
   let mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
-  qb <- map (lookupQS mappingQS) <$> runGetM parseQB qbFile
-  let structs = do
-        QBSectionStruct structID fileID (QBStructHeader : songs) <- qb
+      getSonglistProps qb = do
+        QBSectionStruct structID _fileID (QBStructHeader : songs) <- qb
         guard $ elem structID
           [ qbKeyCRC "permanent_songlist_props" -- disc
           , qbKeyCRC "download_songlist_props" -- dlc
           ]
-        return (fileID, songs)
-  case structs of
-    [] -> fail "Couldn't find any song structs"
-    (fileID, _) : _ -> do
-      structs' <- forM (concat $ map snd structs) $ \case
-        QBStructItemStruct8A0000 k struct -> return (k, struct)
-        item -> fail $ "Unexpected item in _text.pak instead of song struct: " <> show item
-      return $ GH3TextPakQB
-        { gh3TextPakFileKey = fileID
-        , gh3TextPakSongStructs = structs'
-        , gh3OtherNodes = filter (\(node, _) -> nodeFileType node /= qbKeyCRC ".last") nodes
-        }
+        songs
+  sortedNodes <- forM nodes $ \pair@(node, bs) -> if nodeFileType node == qbKeyCRC ".qb"
+    then do
+      qb <- map (lookupQS mappingQS) <$> runGetM parseQB bs
+      return $ case getSonglistProps qb of
+        []    -> Left  pair
+        songs -> Right songs
+    else return $ Left pair
+  structs <- forM (concat $ rights sortedNodes) $ \case
+    QBStructItemStruct8A0000 k struct -> return (k, struct)
+    item -> fail $ "Unexpected item in _text.pak instead of song struct: " <> show item
+  return $ GH3TextPakQB
+    { gh3TextPakSongStructs = structs
+    , gh3OtherNodes
+      = filter (\(node, _) -> nodeFileType node /= qbKeyCRC ".last")
+      $ lefts sortedNodes
+    }
 
 data GH3Singer
   = GH3SingerFemale
