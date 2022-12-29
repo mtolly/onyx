@@ -99,7 +99,7 @@ data SongPackage = SongPackage
   , animTempo         :: Either AnimTempo Integer
   , songLength        :: Maybe Integer
   , preview           :: (Integer, Integer)
-  , rank              :: Map.HashMap T.Text Integer
+  , rank              :: Map.HashMap T.Text Integer -- TODO this should be a DictList so it stays in a sensible order
   , genre             :: Maybe T.Text -- absent in beatles
   , vocalGender       :: Maybe Gender
   , version           :: Integer

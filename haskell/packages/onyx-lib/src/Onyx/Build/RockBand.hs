@@ -443,19 +443,19 @@ rbRules buildInfo dir rb3 mrb2 = do
     Plan{..} -> do
       (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
       (DifficultyRB3{..}, _) <- loadEditedParts
-      let partsBeforeSong = concat
+      -- Edited to match the order some C3 tools expect.
+      -- See https://github.com/mtolly/onyxite-customs/issues/217
+      let parts = NE.prependList (concat
             [ [pathMagmaKick   | rb3DrumsRank  /= 0 && mixMode /= RBDrums.D0]
             , [pathMagmaSnare  | rb3DrumsRank  /= 0 && notElem mixMode [RBDrums.D0, RBDrums.D4]]
             , [pathMagmaDrums  | rb3DrumsRank  /= 0]
             , [pathMagmaBass   | rb3BassRank   /= 0]
             , [pathMagmaGuitar | rb3GuitarRank /= 0]
-            , [pathMagmaKeys   | rb3KeysRank   /= 0]
             , [pathMagmaVocal  | rb3VocalRank  /= 0]
-            , [pathMagmaCrowd  | isJust _crowd]
-            ]
-          parts = case NE.nonEmpty partsBeforeSong of
-            Nothing -> return pathMagmaSong
-            Just ne -> ne <> return pathMagmaSong
+            , [pathMagmaKeys   | rb3KeysRank   /= 0]
+            ]) $ NE.appendList
+              (pure pathMagmaSong)
+              [pathMagmaCrowd  | isJust _crowd]
       src <- shk $ buildSource $ Merge $ fmap Input parts
       runAudio src out
   pathMogg %> \out -> case plan of
@@ -1114,25 +1114,27 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
       -- we don't need to handle more than 1 game part mapping to the same flex part,
       -- because no specs will change - we'll just zero out the game parts
       channelIndices before inst = take (length inst) $ drop (length $ concat before) [0..]
-      partChannels, drumChannels, bassChannels, guitarChannels, keysChannels, vocalChannels, crowdChannels, songChannels :: [(Double, Double)]
+      -- Audio channel order edited to match the order some C3 tools expect.
+      -- See https://github.com/mtolly/onyxite-customs/issues/217
+      partChannels, drumChannels, bassChannels, guitarChannels, vocalChannels, keysChannels, songChannels, crowdChannels :: [(Double, Double)]
       partChannels = concat
         [ drumChannels
         , bassChannels
         , guitarChannels
-        , keysChannels
         , vocalChannels
+        , keysChannels
         ]
       drumChannels   = case rb3DrumsRank  of 0 -> []; _ -> kickPV ++ snarePV ++ kitPV
       bassChannels   = case rb3BassRank   of 0 -> []; _ -> computeSimplePart (rb3_Bass   rb3) plan songYaml
       guitarChannels = case rb3GuitarRank of 0 -> []; _ -> computeSimplePart (rb3_Guitar rb3) plan songYaml
-      keysChannels   = case rb3KeysRank   of 0 -> []; _ -> computeSimplePart (rb3_Keys   rb3) plan songYaml
       vocalChannels  = case rb3VocalRank  of 0 -> []; _ -> computeSimplePart (rb3_Vocal  rb3) plan songYaml
+      keysChannels   = case rb3KeysRank   of 0 -> []; _ -> computeSimplePart (rb3_Keys   rb3) plan songYaml
+      songChannels = [(-1, 0), (1, 0)]
       crowdChannels = case plan of
         MoggPlan{}   -> undefined -- not used
         Plan    {..} -> case _crowd of
           Nothing -> []
           Just _  -> [(-1, 0), (1, 0)]
-      songChannels = [(-1, 0), (1, 0)]
       -- If there are 6 channels in total, the actual mogg will have an extra 7th to avoid oggenc 5.1 issue.
       -- Leaving off pan/vol/core for the last channel is fine in RB3, but may cause issues with RB4 (ForgeTool).
       extend6 seven xs = if length xs == 6 then xs <> [seven] else xs
@@ -1167,15 +1169,15 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
             [ ("drum"  , getChannels rb3DrumsRank  $ rb3_Drums  rb3)
             , ("bass"  , getChannels rb3BassRank   $ rb3_Bass   rb3)
             , ("guitar", getChannels rb3GuitarRank $ rb3_Guitar rb3)
-            , ("keys"  , getChannels rb3KeysRank   $ rb3_Keys   rb3)
             , ("vocals", getChannels rb3VocalRank  $ rb3_Vocal  rb3)
+            , ("keys"  , getChannels rb3KeysRank   $ rb3_Keys   rb3)
             ]
         Plan{} ->
           [ ("drum"  , channelIndices [] drumChannels)
           , ("bass"  , channelIndices [drumChannels] bassChannels)
           , ("guitar", channelIndices [drumChannels, bassChannels] guitarChannels)
-          , ("keys"  , channelIndices [drumChannels, bassChannels, guitarChannels] keysChannels)
-          , ("vocals", channelIndices [drumChannels, bassChannels, guitarChannels, keysChannels] vocalChannels)
+          , ("vocals", channelIndices [drumChannels, bassChannels, guitarChannels] vocalChannels)
+          , ("keys"  , channelIndices [drumChannels, bassChannels, guitarChannels, vocalChannels] keysChannels)
           ]
       , D.vocalParts = Just $ case vocalCount of
         Nothing     -> 0
@@ -1184,13 +1186,13 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
         Just Vocal3 -> 3
       , D.pans = map realToFrac $ case plan of
         MoggPlan{..} -> _pans
-        Plan{}       -> extend6 0 $ map fst $ partChannels ++ crowdChannels ++ songChannels
+        Plan{}       -> extend6 0 $ map fst $ partChannels <> songChannels <> crowdChannels
       , D.vols = map realToFrac $ case plan of
         MoggPlan{..} -> _vols
-        Plan{}       -> extend6 0 $ map snd $ partChannels ++ crowdChannels ++ songChannels
+        Plan{}       -> extend6 0 $ map snd $ partChannels <> songChannels <> crowdChannels
       , D.cores = case plan of
         MoggPlan{..} -> map (const (-1)) _pans
-        Plan{}       -> extend6 (-1) $ map (const (-1)) $ partChannels ++ crowdChannels ++ songChannels
+        Plan{}       -> extend6 (-1) $ map (const (-1)) $ partChannels <> songChannels <> crowdChannels
         -- TODO: 1 for guitar channels?
       , D.drumSolo = D.DrumSounds $ T.words $ case fmap drumsLayout $ getPart (rb3_Drums rb3) songYaml >>= partDrums of
         Nothing             -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
@@ -1201,7 +1203,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
       , D.crowdChannels = let
         chans = case plan of
           MoggPlan{..} -> _moggCrowd
-          Plan{}       -> take (length crowdChannels) [length partChannels ..]
+          Plan{}       -> take (length crowdChannels) [(length partChannels + length songChannels) ..]
         in guard (not $ null chans) >> Just (map fromIntegral chans)
       , D.hopoThreshold = Just thresh
       , D.muteVolume = Nothing
