@@ -67,7 +67,7 @@ processRB3Pad a b c d e = do
   (mid, diffs, vc) <- processMIDI (Left a) b c d e
   -- TODO we probably should run fixBrokenUnisons before autoreductions
   (mid', pad) <- magmaLegalTemposFile mid >>= fixNotelessOD >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
-  return (mid', psDifficultyRB3 diffs, vc, pad)
+  return (proKeysODOnlyExpert mid', psDifficultyRB3 diffs, vc, pad)
 
 processRB3
   :: (SendMessage m, MonadIO m)
@@ -81,7 +81,7 @@ processRB3 a b c d e = do
   (mid, diffs, vc) <- processMIDI (Left a) b c d e
   -- TODO we probably should run fixBrokenUnisons before autoreductions
   mid' <- fmap fixBeatTrack' $ magmaLegalTemposFile mid >>= fixNotelessOD >>= fixBrokenUnisons
-  return (mid', psDifficultyRB3 diffs, vc)
+  return (proKeysODOnlyExpert mid', psDifficultyRB3 diffs, vc)
 
 processPS
   :: (SendMessage m, MonadIO m)
@@ -91,7 +91,34 @@ processPS
   -> RBDrums.Audio
   -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
   -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats), DifficultyPS, Maybe VocalCount)
-processPS = processMIDI . Right
+processPS a b c d e = do
+  (mid, diffs, vc) <- processMIDI (Right a) b c d e
+  return (proKeysODAllDifficulties mid, diffs, vc)
+
+proKeysODOnlyExpert :: RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats)
+proKeysODOnlyExpert s = s
+  { RBFile.s_tracks = (RBFile.s_tracks s)
+    { RBFile.fixedPartRealKeysH = removeOD RBFile.fixedPartRealKeysH
+    , RBFile.fixedPartRealKeysM = removeOD RBFile.fixedPartRealKeysM
+    , RBFile.fixedPartRealKeysE = removeOD RBFile.fixedPartRealKeysE
+    }
+  } where
+    removeOD getDiff = (getDiff $ RBFile.s_tracks s)
+      { pkOverdrive = RTB.empty
+      }
+
+-- For Phase Shift, put pro keys overdrive on the lower difficulty tracks so they show up.
+proKeysODAllDifficulties :: RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats)
+proKeysODAllDifficulties s = s
+  { RBFile.s_tracks = (RBFile.s_tracks s)
+    { RBFile.fixedPartRealKeysH = copyOD RBFile.fixedPartRealKeysH
+    , RBFile.fixedPartRealKeysM = copyOD RBFile.fixedPartRealKeysM
+    , RBFile.fixedPartRealKeysE = copyOD RBFile.fixedPartRealKeysE
+    }
+  } where
+    copyOD getDiff = (getDiff $ RBFile.s_tracks s)
+      { pkOverdrive = pkOverdrive $ RBFile.fixedPartRealKeysX $ RBFile.s_tracks s
+      }
 
 -- | Magma gets mad if you put an event like [idle_realtime] before 2 beats in.
 -- But lots of Harmonix charts do this...
