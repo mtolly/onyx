@@ -41,14 +41,16 @@ module Onyx.Audio
 , remapChannels
 , makeFSB4, makeFSB4', makeXMAPieces, makeXMAFSB3
 , cacheAudio
+, audioToChannelWAVs
 ) where
 
 import           Control.Concurrent               (newEmptyMVar, threadDelay,
                                                    tryPutMVar, tryReadMVar)
 import           Control.DeepSeq                  (($!!))
 import           Control.Exception                (evaluate)
-import           Control.Monad                    (ap, forM, guard, replicateM_,
-                                                   unless, void, when)
+import           Control.Monad                    (ap, forM, forM_, guard,
+                                                   replicateM_, unless, void,
+                                                   when)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
@@ -60,6 +62,7 @@ import qualified Data.ByteString.Lazy             as BL
 import qualified Data.ByteString.Lazy.Char8       as BL8
 import           Data.Char                        (isSpace, toLower)
 import           Data.Conduit
+import qualified Data.Conduit                     as C
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding  as L
@@ -100,6 +103,7 @@ import           Onyx.StackTrace                  (SendMessage, StackTraceT,
 import           Onyx.Util.Handle                 (Readable, fileReadable)
 import           Onyx.Xbox.STFS                   (runGetM)
 import qualified Sound.File.Sndfile               as Snd
+import qualified Sound.File.Sndfile.Buffer.Vector as SndBuf
 import qualified Sound.MIDI.Util                  as U
 import qualified Sound.RubberBand                 as RB
 import           System.FilePath                  ((</>))
@@ -560,6 +564,22 @@ buildAudio :: Audio Duration FilePath -> FilePath -> Staction ()
 buildAudio aud out = do
   src <- lift $ lift $ buildSource aud
   runAudio src out
+
+audioToChannelWAVs :: AudioSource (ResourceT IO) Float -> [FilePath] -> IO ()
+audioToChannelWAVs src fouts = let
+  openSources = C.bracketP
+    (forM fouts $ \fp -> Snd.openFile fp Snd.WriteMode Snd.defaultInfo
+      { Snd.format = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
+      , Snd.samplerate = round $ rate src
+      , Snd.channels = 1
+      }
+    )
+    (mapM_ Snd.hClose)
+  in runResourceT $ C.runConduit $ (source (clampFloat src) .|) $ openSources $ \handles -> do
+    CL.mapM_ $ \buf -> do
+      let chans = deinterleave (channels src) buf
+      forM_ (zip handles chans) $ \(h, c) -> do
+        void $ liftIO $ Snd.hPutBuffer h $ SndBuf.toBuffer c
 
 audioIO :: Maybe Double -> AudioSource (ResourceT IO) Float -> FilePath -> IO ()
 audioIO oggQuality src out = let

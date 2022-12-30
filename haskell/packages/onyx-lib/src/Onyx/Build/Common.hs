@@ -54,7 +54,7 @@ data BuildInfo = BuildInfo
   , biRelative        :: FilePath -> FilePath
   , biAudioLib        :: AudioLibrary
   , biAudioDependPath :: T.Text -> FilePath
-  , biOggWavForPlan   :: T.Text -> FilePath
+  , biOggWavForPlan   :: T.Text -> Int -> FilePath
   }
 
 shk :: Action a -> StackTraceT (QueueLog Action) a

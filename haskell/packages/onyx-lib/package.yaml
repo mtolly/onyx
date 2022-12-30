@@ -41,6 +41,7 @@ library:
   - process
   - resourcet
   - hsndfile
+  - hsndfile-vector
   - JuicyPixels
   - conduit
   - vector

@@ -27,6 +27,7 @@ import           Data.Conduit.Audio
 import           Data.Foldable                (toList)
 import qualified Data.HashMap.Strict          as HM
 import           Data.List.Extra              (nubOrd)
+import qualified Data.List.NonEmpty           as NE
 import           Data.Maybe                   (fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Text                    as T
 import           Development.Shake            (need)
@@ -191,22 +192,23 @@ fitToSpec pvIn pvOut src = let
 channelsToSpec
   :: (MonadResource m)
   => [(Double, Double)]
-  -> FilePath
+  -> (Int -> FilePath)
   -> [(Double, Double)]
   -> [Int]
   -> Staction (AudioSource m Float)
-channelsToSpec pvOut pathOgg pvIn chans = inside "conforming MOGG channels to output spec" $ do
+channelsToSpec pvOut pathChannel pvIn chans = inside "conforming MOGG channels to output spec" $ do
   let partPVIn = map (pvIn !!) chans
-  src <- case chans of
-    [] -> do
-      lift $ lift $ need [pathOgg]
-      rate <- audioRate pathOgg >>= \case
+  src <- case NE.nonEmpty chans of
+    Nothing -> do
+      let chan0 = pathChannel 0
+      lift $ lift $ need [chan0]
+      rate <- audioRate chan0 >>= \case
         Just rate -> return $ fromIntegral rate
         Nothing -> do
           lg "Couldn't detect sample rate of input OGG; assuming 44100 Hz."
           return 44100
       return $ silent (Frames 0) rate 1
-    _  -> lift $ lift $ buildSource $ Channels (map Just chans) $ Input pathOgg
+    Just ne -> lift $ lift $ buildSource $ Merge $ fmap (Input . pathChannel) ne
   fitToSpec partPVIn pvOut src
 
 loadSamplesFromBuildDir

@@ -336,7 +336,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         , biRelative = rel
         , biAudioLib = audioLib
         , biAudioDependPath = audioDependPath
-        , biOggWavForPlan = \planName -> rel $ "gen/plan" </> T.unpack planName </> "audio.wav"
+        , biOggWavForPlan = \planName i -> rel $ "gen/plan" </> T.unpack planName </> ("channel-" <> show i <> ".wav")
         }
 
   do
@@ -591,6 +591,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         -- Getting MOGG/OGG from MoggPlan
         let ogg  = dir </> "audio.ogg"
             wav  = dir </> "audio.wav"
+            channelWAV i = dir </> ("channel-" <> show i <> ".wav")
             mogg = dir </> "audio.mogg"
         case plan of
           Plan{} -> return ()
@@ -605,6 +606,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     buildAudio (Silence (length _pans) $ Frames 0) out
                 else moggToOgg mogg out
             wav %> buildAudio (Input ogg)
+            let allChannelWAVs = map channelWAV [0 .. length _pans - 1]
+            allChannelWAVs &%> \_ -> do
+              src <- lift $ lift $ buildSource $ Input ogg
+              stackIO $ audioToChannelWAVs src allChannelWAVs
             mogg %> \out -> do
               p <- inside "Searching for MOGG file" $ case (_fileMOGG, _moggMD5) of
                 (Nothing, Nothing ) -> fatal "No file path or MD5 hash specified for MOGG file"
