@@ -56,7 +56,7 @@ Instead, use either the Docker steps or command line installation.
 
 # Docker
 
-1. Install Docker
+1. Install Docker (or, install Podman and edit `build-docker`)
 
 2. `./build-docker`
 

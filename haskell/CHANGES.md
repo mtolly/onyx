@@ -1,5 +1,38 @@
 # Version history
 
+## 20221230
+
+* Improvements to the open note removal algorithm
+  * Better preservation of movement for patterns of fretted notes
+    with open notes in between
+  * Detect open notes used as muted strums in between chords,
+    and move them to the low fret of an adjacent chord
+    * Can be disabled in Preferences
+* Guitar Hero III export fixes
+  * Fix some GH3 DLC files not loading into the cache tool,
+    particularly for PS3 (#216)
+  * Remove default year label of 1960
+  * HOPOs on same fret as previous note are turned into strums
+    due to not working as HOPOs
+  * Delay song start if first note is too early
+* Fix several more situations where temporary folders could remain after use
+* Fix loading CH `song.ini` with comments, as created by C3 CON Tools'
+  Phase Shift converter (#224)
+* Fix an issue with importing vocals from Power Gig format
+  that affected one song (#220)
+* Reorder RB MOGG channels to be more compatible with some
+  C3 CON Tools utilities (#217)
+* Include Overdrive phrases on lower Pro Keys difficulties
+  for Phase Shift compatibility (#211)
+* Fix `GUITAR COOP` not being imported from `.chart` files
+* DTXMania files now assemble audio samples during playback/conversion
+  instead of during import, removing the long processing time on load
+* Add exported background images to `song.ini` so Phase Shift loads them
+* Tool for doing a straight `.chart` to MIDI conversion with no changes
+* Switch Warriors of Rock customs on Xbox 360 to use MP3 audio (like PS3)
+  * Uses a bit more space, but is much faster and more reliable to generate
+    compared to the previous XMA
+
 ## 20221024
 
 * Fix error when generating a GH3 PS3 song cache on Windows

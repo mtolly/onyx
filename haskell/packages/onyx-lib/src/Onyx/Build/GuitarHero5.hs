@@ -416,7 +416,7 @@ gh5Rules buildInfo dir gh5 = do
   let writeEncryptedFSB out mp3s = do
         fsb <- ghBandMP3sToFSB4 mp3s
         case ghworEncrypt $ BL.toStrict $ emitFSB fsb of
-          Nothing  -> fatal "Unable to encrypt .fsb to .fsb.ps3"
+          Nothing  -> fatal "Unable to encrypt .fsb to .fsb.{xen/ps3}"
           Just enc -> stackIO $ B.writeFile out enc
   ps3Audio1PreEdat %> \out -> do
     shk $ need [ps3MP3SilenceSmall]
