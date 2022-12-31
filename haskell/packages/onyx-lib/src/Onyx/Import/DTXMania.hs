@@ -9,6 +9,7 @@ import           Control.Monad.IO.Class           (MonadIO)
 import           Data.Char                        (toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
+import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
@@ -65,27 +66,39 @@ dtxConvertDrums dtx (RBFile.Song tmap mmap onyx) = let
   in RBFile.Song tmap mmap $ RBFile.editOnyxPart FlexDrums
     (\opart -> opart { RBFile.onyxPartFullDrums = importFullDrums $ fmap fst $ dtx_Drums dtx })
     onyx
-dtxConvertGuitar = dtxConvertGB dtx_Guitar $ \onyx five -> RBFile.editOnyxPart
+dtxConvertGuitar = dtxConvertGB dtx_Guitar dtx_GuitarLong $ \onyx five -> RBFile.editOnyxPart
   FlexGuitar
   (\opart -> opart { RBFile.onyxPartGuitar = five })
   onyx
-dtxConvertBass   = dtxConvertGB dtx_Bass   $ \onyx five -> RBFile.editOnyxPart
+dtxConvertBass   = dtxConvertGB dtx_Bass   dtx_BassLong   $ \onyx five -> RBFile.editOnyxPart
   FlexBass
   (\opart -> opart { RBFile.onyxPartGuitar = five })
   onyx
 
 dtxConvertGB
   :: (DTX -> RTB.T U.Beats ([Color], Chip))
+  -> (DTX -> RTB.T U.Beats ())
   -> (f U.Beats -> FiveTrack U.Beats -> f U.Beats)
   -> DTX
   -> RBFile.Song (f U.Beats)
   -> RBFile.Song (f U.Beats)
-dtxConvertGB getter setter dtx (RBFile.Song tmap mmap fixed) = let
-  -- TODO we should be able to add sustains by looking at the length of audio chips
+dtxConvertGB getter getLong setter dtx (RBFile.Song tmap mmap fixed) = let
+  longLengths = let
+    pairs = RTB.toPairList $ getLong dtx
+    in RTB.fromPairList $ zipWith
+      (\(dt, _) (len, _) -> (dt, len))
+      pairs
+      (drop 1 pairs)
   guitarToFive notes = mempty
-    { fiveDifficulties = Map.singleton Expert $ emit5' $ RTB.flatten $ flip fmap notes $ \case
-      [] -> [((Nothing, Strum), Nothing)]
-      xs -> [((Just x , Strum), Nothing) | x <- xs ]
+    { fiveDifficulties = Map.singleton Expert $ emit5' $ let
+      noSustains = RTB.flatten $ flip fmap notes $ \case
+        [] -> [((Nothing, Strum), Nothing)]
+        xs -> [((Just x , Strum), Nothing) | x <- xs ]
+      merged = RTB.merge (Left <$> longLengths) (Right <$> noSustains)
+      in RTB.flatten $ flip fmap (RTB.collectCoincident merged) $ \instant ->
+        case lefts instant of
+          sustain : _ -> [ (note, Just sustain) | (note, _) <- rights instant ]
+          []          -> rights instant
     }
   in RBFile.Song tmap mmap $ setter fixed $ guitarToFive $ fmap fst $ getter dtx
 

@@ -82,8 +82,10 @@ data DTX = DTX
   , dtx_DrumsDummy    :: RTB.T U.Beats (DrumLane, Chip)
   , dtx_Guitar        :: RTB.T U.Beats ([Five.Color], Chip)
   , dtx_GuitarWailing :: RTB.T U.Beats ()
+  , dtx_GuitarLong    :: RTB.T U.Beats ()
   , dtx_Bass          :: RTB.T U.Beats ([Five.Color], Chip)
   , dtx_BassWailing   :: RTB.T U.Beats ()
+  , dtx_BassLong      :: RTB.T U.Beats ()
   , dtx_BGM           :: RTB.T U.Beats Chip
   , dtx_BGMExtra      :: HM.HashMap Channel (RTB.T U.Beats Chip)
   , dtx_Video         :: RTB.T U.Beats Chip
@@ -305,8 +307,10 @@ readDTXLines fmt lns = DTX
   , dtx_DrumsDummy = readDrums [Just '3']
   , dtx_Guitar     = readGuitar $ guitarMapping fmt
   , dtx_GuitarWailing = void $ foldr RTB.merge RTB.empty $ map getChannel ["28", "G8", "GW"]
+  , dtx_GuitarLong = void $ getChannel "2C"
   , dtx_Bass       = readGuitar bassMapping
   , dtx_BassWailing = void $ getChannel "A8"
+  , dtx_BassLong   = void $ getChannel "2D"
   , dtx_BGM        = getChannel "01"
   , dtx_BGMExtra   = HM.fromList $ filter (not . RTB.null . snd) $ do
     chan <- map (T.pack . show) ([61..69] ++ [70..79] ++ [80..89] ++ [90..92] :: [Int])
@@ -555,6 +559,11 @@ makeDTX DTX{..} = T.unlines $ execWriter $ do
     bar barNumber "28" $ makeBar $ map (\(t, _) -> (t, "01")) wails
     gap
 
+  eachBar dtx_GuitarLong $ \barNumber longs -> do
+    tell ["; Guitar long bar " <> T.pack (show barNumber)]
+    bar barNumber "2C" $ makeBar $ map (\(t, _) -> (t, "01")) longs
+    gap
+
   -- TODO maybe ensure sort before lookup
   let bassTable = Map.fromList $ map swap bassMapping
   eachBar dtx_Bass $ \barNumber chips -> do
@@ -566,6 +575,11 @@ makeDTX DTX{..} = T.unlines $ execWriter $ do
   eachBar dtx_BassWailing $ \barNumber wails -> do
     tell ["; Bass wailing bar " <> T.pack (show barNumber)]
     bar barNumber "A8" $ makeBar $ map (\(t, _) -> (t, "01")) wails
+    gap
+
+  eachBar dtx_BassLong $ \barNumber longs -> do
+    tell ["; Bass long bar " <> T.pack (show barNumber)]
+    bar barNumber "2D" $ makeBar $ map (\(t, _) -> (t, "01")) longs
     gap
 
   tell ["; BGM"]

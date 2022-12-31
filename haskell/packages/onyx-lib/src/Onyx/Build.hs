@@ -158,7 +158,7 @@ dtxRules buildInfo dir dtx = do
     let bgmChip   = "0X" -- TODO read this from BGMWAV in mapping
         emptyChip = "ZZ"
         makeGuitarBass = \case
-          Nothing          -> RTB.empty
+          Nothing          -> (RTB.empty, RTB.empty)
           Just (part, _pg) -> let
             notes
               = maybe RTB.empty (guitarify' . computeFiveFretNotes)
@@ -168,8 +168,13 @@ dtxRules buildInfo dir dtx = do
               $ Map.lookup part
               $ RBFile.onyxParts
               $ RBFile.s_tracks mid
-            toDTXNotes = fmap $ \(mcolors, _len) -> (sort $ catMaybes mcolors, emptyChip)
-            in toDTXNotes notes
+            dtxNotes = (\(mcolors, _len) -> (sort $ catMaybes mcolors, emptyChip)) <$> notes
+            dtxLongs = U.trackJoin $ RTB.mapMaybe
+              (\(_, mlen) -> (\len -> RTB.fromPairList [(0, ()), (len, ())]) <$> mlen)
+              notes
+            in (dtxNotes, dtxLongs)
+        (gtrNotes , gtrLongs ) = makeGuitarBass dtxPartGuitar
+        (bassNotes, bassLongs) = makeGuitarBass dtxPartBass
     liftIO $ B.writeFile out $ TE.encodeUtf16LE $ T.cons '\xFEFF' $ DTX.makeDTX DTX.DTX
       { DTX.dtx_TITLE         = Just $ targetTitle songYaml $ DTX dtx
       , DTX.dtx_ARTIST        = Just $ getArtist $ _metadata songYaml
@@ -225,10 +230,12 @@ dtxRules buildInfo dir dtx = do
             in (lane, chip)
           in toDTXNotes fullNotes
       , DTX.dtx_DrumsDummy    = RTB.empty
-      , DTX.dtx_Guitar        = makeGuitarBass dtxPartGuitar
+      , DTX.dtx_Guitar        = gtrNotes
       , DTX.dtx_GuitarWailing = RTB.empty
-      , DTX.dtx_Bass          = makeGuitarBass dtxPartBass
+      , DTX.dtx_GuitarLong    = gtrLongs
+      , DTX.dtx_Bass          = bassNotes
       , DTX.dtx_BassWailing   = RTB.empty
+      , DTX.dtx_BassLong      = bassLongs
       , DTX.dtx_BGM           = RTB.singleton 0 bgmChip
       , DTX.dtx_BGMExtra      = HM.empty
       , DTX.dtx_Video         = RTB.empty
