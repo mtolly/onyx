@@ -34,7 +34,9 @@ import           Onyx.Audio                       (Audio (..))
 import           Onyx.Audio.VGS                   (splitOutVGSChannels,
                                                    vgsChannelCount)
 import           Onyx.Harmonix.Ark
-import           Onyx.Harmonix.Ark.GH2            (readSongListGH2)
+import           Onyx.Harmonix.Ark.GH2            (GH2DXExtra (..),
+                                                   readSongListGH2,
+                                                   readSongListGH2Extra)
 import qualified Onyx.Harmonix.DTA                as D
 import           Onyx.Harmonix.DTA.Crypt          (decrypt, oldCrypt)
 import qualified Onyx.Harmonix.DTA.Serialize      as D
@@ -54,6 +56,7 @@ import           Onyx.StackTrace
 import           Onyx.Util.Handle
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  ((<.>))
+import           Text.Read                        (readMaybe)
 
 getSongList :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [(T.Text, SongPackage)]
 getSongList gen = do
@@ -126,8 +129,8 @@ importGH2MIDI mode songChunk (RBFile.Song tmap mmap gh2) = RBFile.Song tmap mmap
       else mempty
     }
 
-gh2SongYaml :: ImportMode -> SongPackage -> Song -> RBFile.Song (RBFile.OnyxFile U.Beats) -> SongYaml SoftFile
-gh2SongYaml mode pkg songChunk onyxMidi = SongYaml
+gh2SongYaml :: ImportMode -> SongPackage -> Maybe GH2DXExtra -> Song -> RBFile.Song (RBFile.OnyxFile U.Beats) -> SongYaml SoftFile
+gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
   { _metadata = def'
     { _title  = Just $ name pkg <> case mode of
       ImportSolo -> ""
@@ -137,6 +140,10 @@ gh2SongYaml mode pkg songChunk onyxMidi = SongYaml
     , _fileAlbumArt = Nothing
     , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ preview pkg) / 1000
     , _previewEnd = Just $ PreviewSeconds $ fromIntegral (snd $ preview pkg) / 1000
+    , _album = extra >>= gh2dx_songalbum
+    , _author = extra >>= gh2dx_author
+    , _year = extra >>= gh2dx_songyear >>= readMaybe . T.unpack
+    , _genre = extra >>= gh2dx_songgenre
     }
   , _global = def'
     { _fileMidi            = SoftFile "notes.mid" $ SoftChart onyxMidi
@@ -152,17 +159,26 @@ gh2SongYaml mode pkg songChunk onyxMidi = SongYaml
     [ do
       guard $ maybe False (not . null) $ lookup "guitar" $ D.fromDictList $ tracks songChunk
       return $ (RBFile.FlexGuitar ,) def
-        { partGRYBO = Just def { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk }
+        { partGRYBO = Just def
+          { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
+          , gryboDifficulty = Tier $ maybe 1 fromIntegral $ extra >>= gh2dx_songguitarrank
+          }
         }
     , do
       guard $ maybe False (not . null) $ lookup "bass" $ D.fromDictList $ tracks songChunk
       return $ (RBFile.FlexBass ,) def
-        { partGRYBO = Just def { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk }
+        { partGRYBO = Just def
+          { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
+          , gryboDifficulty = Tier $ maybe 1 fromIntegral $ extra >>= gh2dx_songbassrank
+          }
         }
     , do
       guard $ maybe False (not . null) $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
       return $ (RBFile.FlexExtra "rhythm" ,) def
-        { partGRYBO = Just def { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk }
+        { partGRYBO = Just def
+          { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
+          , gryboDifficulty = Tier $ maybe 1 fromIntegral $ extra >>= gh2dx_songrhythmrank
+          }
         }
     ]
   }
@@ -196,7 +212,7 @@ importGH2Song mode pkg genPath gen level = do
       ImportFull  -> splitOutVGSChannels [i] vgs
       ImportQuick -> return BL.empty
     return ("vgs-" <> show i, bs)
-  return (gh2SongYaml mode pkg songChunk onyxMidi)
+  return (gh2SongYaml mode pkg Nothing songChunk onyxMidi)
     { _audio = HM.fromList $ do
       (name, bs) <- namedChans
       return $ (T.pack name ,) $ AudioFile AudioInfo
@@ -248,9 +264,8 @@ importGH2DLC src folder = do
     Nothing -> fatal "config/songs.dta not found"
     Just bs -> do
       dta <- D.readDTA_latin1 $ BL.toStrict bs
-      D.fromDictList <$> D.unserialize D.stackChunks dta
-  let _ = packSongs :: [(T.Text, SongPackage)]
-  flip concatMapM packSongs $ \(_top, pkg) -> do
+      readSongListGH2Extra dta
+  flip concatMapM packSongs $ \(_top, pkg, extra) -> do
     let base = T.unpack $ songName $ song pkg
         split s = case splitPath $ T.pack s of
           Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
@@ -278,7 +293,7 @@ importGH2DLC src folder = do
           ImportQuick -> return emptyChart
         let instChans :: [(T.Text, [Int])]
             instChans = map (second $ map fromIntegral) $ D.fromDictList $ tracks songChunk
-        return (gh2SongYaml mode pkg songChunk onyxMidi)
+        return (gh2SongYaml mode pkg (Just extra) songChunk onyxMidi)
           { _plans = HM.singleton "mogg" MoggPlan
             { _fileMOGG = Just $ SoftFile "audio.mogg" mogg
             , _moggMD5 = Nothing

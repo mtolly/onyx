@@ -11,13 +11,15 @@ import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
 import           Data.Hashable                        (hash)
 import qualified Data.Map                             as Map
-import           Data.Maybe                           (fromMaybe, isJust,
-                                                       isNothing)
+import           Data.Maybe                           (catMaybes, fromMaybe,
+                                                       isJust, isNothing)
 import qualified Data.Text                            as T
 import           Onyx.Build.RB3CH                     (BasicTiming (..),
                                                        basicTiming, drumsToFive)
 import qualified Onyx.Build.RB3CH                     as RB3
 import           Onyx.Guitar
+import           Onyx.Harmonix.Ark.GH2                (GH2DXExtra (..))
+import qualified Onyx.Harmonix.DTA                    as D
 import qualified Onyx.Harmonix.DTA.Serialize          as D
 import qualified Onyx.Harmonix.DTA.Serialize.GH2      as D
 import qualified Onyx.Harmonix.DTA.Serialize.Magma    as Magma
@@ -491,3 +493,27 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
   , D.band = bandMembers song audio
   } where
     coop = case gh2_Coop target of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
+
+addDXExtra :: GH2DXExtra -> [D.Chunk T.Text] -> [D.Chunk T.Text]
+addDXExtra extra = map $ \case
+  D.Parens (D.Tree _ [D.Sym "artist", artist]) -> D.Parens $ D.Tree 0
+    [ D.Sym "artist"
+    , D.Braces $ D.Tree 0 $ let
+      setter k v = D.Braces $ D.Tree 0 [D.Sym "set", D.Var k, v]
+      in catMaybes
+        [ pure $ D.Sym "do"
+        , setter "songalbum"      . D.String <$> gh2dx_songalbum      extra
+        , setter "author"         . D.String <$> gh2dx_author         extra
+        , setter "songyear"       . D.String <$> gh2dx_songyear       extra
+        , setter "songgenre"      . D.String <$> gh2dx_songgenre      extra
+        , setter "songorigin"     . D.String <$> gh2dx_songorigin     extra
+        , setter "songduration"   . D.Int    <$> gh2dx_songduration   extra
+        , setter "songguitarrank" . D.Int    <$> gh2dx_songguitarrank extra
+        , setter "songbassrank"   . D.Int    <$> gh2dx_songbassrank   extra
+        , setter "songrhythmrank" . D.Int    <$> gh2dx_songrhythmrank extra
+        , setter "songdrumrank"   . D.Int    <$> gh2dx_songdrumrank   extra
+        , pure $ setter "songartist" artist
+        ]
+    , artist
+    ]
+  chunk -> chunk

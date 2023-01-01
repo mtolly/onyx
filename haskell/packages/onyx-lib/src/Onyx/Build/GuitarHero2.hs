@@ -28,6 +28,7 @@ import           Onyx.Audio.VGS                   (writeVGS, writeVGSMultiRate)
 import           Onyx.Build.Common
 import           Onyx.Build.GuitarHero2.Logic
 import           Onyx.Codec.Common                (makeValue, valueId)
+import           Onyx.Harmonix.Ark.GH2            (GH2DXExtra (..))
 import qualified Onyx.Harmonix.DTA                as D
 import qualified Onyx.Harmonix.DTA.Serialize      as D
 import qualified Onyx.Harmonix.GH2.Events         as GH2
@@ -263,7 +264,7 @@ gh2Rules buildInfo dir gh2 = do
         ]
       ]
   dir </> "stfs/config/songs.dta" %> \out -> do
-    input <- shakeMIDI $ planDir </> "raw.mid"
+    input <- shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
     audio <- computeGH2Audio songYaml gh2 hasAudio
     pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
@@ -275,10 +276,24 @@ gh2Rules buildInfo dir gh2 = do
           gh2
           audio
           (targetTitle songYaml (GH2 gh2))
+        -- TODO gate behind a "dx" flag on target maybe
+        extra = addDXExtra GH2DXExtra
+          { gh2dx_songalbum      = _album $ _metadata songYaml
+          , gh2dx_author         = _author $ _metadata songYaml
+          , gh2dx_songyear       = fmap (T.pack . show) $ _year $ _metadata songYaml
+          , gh2dx_songgenre      = _genre $ _metadata songYaml
+          , gh2dx_songorigin     = Nothing
+          , gh2dx_songduration   = Just $ fromIntegral $ RBFile.songLengthMS input
+          , gh2dx_songguitarrank = Nothing -- TODO
+          , gh2dx_songbassrank   = Nothing -- TODO
+          , gh2dx_songrhythmrank = Nothing -- TODO
+          , gh2dx_songdrumrank   = Nothing -- TODO
+          , gh2dx_songartist     = Nothing -- not needed
+          }
     stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
       [ D.Parens $ D.Tree 0
         $ D.Sym key
-        : makeValue (valueId D.stackChunks) songPackage
+        : extra (makeValue (valueId D.stackChunks) songPackage)
       ]
   dir </> "stfs/songs" </> pkg </> pkg <.> "mid" %> \out -> do
     shk $ copyFile' (dir </> "gh2/notes.mid") out

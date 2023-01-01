@@ -298,6 +298,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       let lookFor [] = do
             hasRBDTA <- stackIO $ anyM Dir.doesFileExist
               [fp </> "songs/songs.dta", fp </> "songs/gen/songs.dtb"]
+            hasGHDTA <- stackIO $ anyM Dir.doesFileExist
+              [fp </> "config/songs.dta", fp </> "config/gen/songs.dtb"]
             -- filter older supported stepmania formats when a newer one is present
             let sm = map (map toLower) $ filter ((== ".sm") . map toLower . takeExtension) ents
                 filtered = flip filter ents $ \x -> case splitExtension $ map toLower x of
@@ -307,7 +309,12 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               then stackIO (crawlFolder fp)
                 >>= importSTFSFolder fp
                 >>= foundImports "Rock Band Extracted" fp
-              else return (map (fp </>) filtered, [])
+              else if hasGHDTA
+                -- TODO this only works for xbox, not ps2
+                then stackIO (crawlFolder fp)
+                  >>= GH2.importGH2DLC fp
+                  >>= foundImports "Guitar Hero II Extracted" fp
+                else return (map (fp </>) filtered, [])
           lookFor ((file, use) : rest) = case filter ((== file) . map toLower) ents of
             match : _ -> use $ fp </> match
             []        -> lookFor rest

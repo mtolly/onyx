@@ -1,13 +1,26 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-module Onyx.Harmonix.Ark.GH2 (sortSongs, SongSort(..), replaceSong, GameGH(..), detectGameGH, readSongListGH2, readSongListGH1, createHdrArk, GH2InstallLocation(..), addBonusSongGH2, addBonusSongGH1, GH2Installation(..)) where
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE MultiWayIf          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
+module Onyx.Harmonix.Ark.GH2
+( sortSongs, SongSort(..)
+, replaceSong
+, GameGH(..), detectGameGH
+, GH2DXExtra(..), readSongListGH2Extra
+, readSongListGH2, readSongListGH1
+, createHdrArk
+, GH2InstallLocation(..)
+, addBonusSongGH2, addBonusSongGH1
+, GH2Installation(..)
+) where
 
 import           Codec.Compression.GZip          (decompress)
 import           Control.Applicative             ((<|>))
-import           Control.Monad.Extra             (firstJustM, forM, forM_,
-                                                  guard, void)
+import           Control.Monad.Extra             (concatForM, firstJustM, forM,
+                                                  forM_, guard, void)
+import           Control.Monad.Trans.State       (runStateT)
 import           Data.Binary.Put                 (putInt32le, putWord32le,
                                                   runPut)
 import qualified Data.ByteString                 as B
@@ -15,6 +28,7 @@ import qualified Data.ByteString.Char8           as B8
 import qualified Data.ByteString.Lazy            as BL
 import           Data.Foldable                   (toList)
 import qualified Data.HashMap.Strict             as HM
+import           Data.Int                        (Int32)
 import           Data.List.Extra                 (nubOrd, sortOn)
 import           Data.List.NonEmpty              (NonEmpty ((:|)))
 import           Data.Maybe
@@ -26,6 +40,7 @@ import           Onyx.Harmonix.Ark.Amplitude     (FoundFile (..),
                                                   traverseFolder)
 import           Onyx.Harmonix.Ark.ArkTool
 import qualified Onyx.Harmonix.DTA               as D
+import qualified Onyx.Harmonix.DTA.Run           as Run
 import qualified Onyx.Harmonix.DTA.Serialize     as D
 import qualified Onyx.Harmonix.DTA.Serialize.GH1 as GH1
 import qualified Onyx.Harmonix.DTA.Serialize.GH2 as GH2
@@ -84,37 +99,92 @@ createHdrArk dout hdr ark = do
       w32 $ fe_size entry
       w32 $ fe_inflate entry
 
+data GH2DXExtra = GH2DXExtra
+  { gh2dx_songalbum      :: Maybe T.Text
+  , gh2dx_author         :: Maybe T.Text
+  , gh2dx_songyear       :: Maybe T.Text
+  , gh2dx_songgenre      :: Maybe T.Text
+  , gh2dx_songorigin     :: Maybe T.Text
+  , gh2dx_songduration   :: Maybe Int32
+  , gh2dx_songguitarrank :: Maybe Int32
+  , gh2dx_songbassrank   :: Maybe Int32
+  , gh2dx_songrhythmrank :: Maybe Int32
+  , gh2dx_songdrumrank   :: Maybe Int32
+  , gh2dx_songartist     :: Maybe T.Text
+  }
+
+-- Parses song info by preprocessing and evaluating the DTA file.
+-- * Extracts extra GH2DX info by evaluating {set ...} commands
+-- * For songs with GH2DX "easter eggs", duplicates a song into multiple
+--   songs for each possible combination of egg flag variables
+readSongListGH2Extra :: (SendMessage m) => D.DTA T.Text -> StackTraceT m [(T.Text, GH2.SongPackage, GH2DXExtra)]
+readSongListGH2Extra (D.DTA _ (D.Tree _ chunks)) = do
+  preproc <- Run.runPreprocess chunks
+  let isIgnore = \case
+        -- this uses 'TRUE' in the .dta, but we preprocessed it to 1
+        D.Parens (D.Tree _ [D.Sym "validate_ignore", D.Int 1]) -> True
+        _                                                      -> False
+      -- Look for GH2DX 2.0 scripting like: {if_else $egg5 "Speed Test (HalfDuck Cover)" "Speed Test"}
+      -- so we can duplicate songs into: (songkey ...) (songkey_egg5 ...)
+      findEggs :: [D.Chunk T.Text] -> [T.Text]
+      findEggs xs = xs >>= \case
+        D.Parens (D.Tree _ sub)                                -> findEggs sub
+        D.Braces (D.Tree _ [D.Sym "if_else", D.Var var, _, _]) -> [var]
+        _                                                      -> []
+      eggCombinations :: [T.Text] -> [(T.Text, [D.Chunk T.Text])]
+      eggCombinations eggs = do
+        combo <- sequence $ map (\egg -> [(egg, False), (egg, True)]) eggs
+        let comboName = T.concat [ "_" <> egg | (egg, True) <- combo ]
+            comboSets = flip map combo $ \(egg, b) -> D.Braces $ D.Tree 0
+              [ D.Sym "set"
+              , D.Var egg
+              , D.Int $ if b then 1 else 0
+              ]
+        return (comboName, comboSets)
+  fmap concat $ forM preproc $ \chunk -> case chunk of
+    D.Parens (D.Tree _ (D.Sym shortName : rest)) -> if any isIgnore rest
+      then return []
+      else do
+        let combos = case eggCombinations $ nubOrd $ findEggs rest of
+              [] -> [("", [])]
+              xs -> xs
+        concatForM combos $ \(suffix, setters) -> do
+          let runner = do
+                mapM_ Run.evaluateDTA setters
+                Run.evaluateDTA $ D.Parens $ D.Tree 0 $ D.Sym (shortName <> suffix) : rest
+          (newChunks, finalState) <- flip mapStackTraceT runner $ \x -> do
+            (result, finalState) <- runStateT x Run.initDTAState
+            return $ (, finalState) <$> result
+          pairs <- fmap D.fromDictList
+            $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
+            $ D.DTA 0 $ D.Tree 0 newChunks
+          let retrieveText k = case HM.lookup k finalState.variables of
+                Just [D.String x] -> Just x
+                _                 -> Nothing
+              retrieveInt k = case HM.lookup k finalState.variables of
+                Just [D.Int x] -> Just x
+                _              -> Nothing
+              extra = GH2DXExtra
+                { gh2dx_songalbum      = retrieveText "songalbum"
+                , gh2dx_author         = retrieveText "author"
+                , gh2dx_songyear       = retrieveText "songyear"
+                , gh2dx_songgenre      = retrieveText "songgenre"
+                , gh2dx_songorigin     = retrieveText "songorigin"
+                , gh2dx_songduration   = retrieveInt  "songduration"
+                , gh2dx_songguitarrank = retrieveInt  "songguitarrank"
+                , gh2dx_songbassrank   = retrieveInt  "songbassrank"
+                , gh2dx_songrhythmrank = retrieveInt  "songrhythmrank"
+                , gh2dx_songdrumrank   = retrieveInt  "songdrumrank"
+                , gh2dx_songartist     = retrieveText "songartist"
+                }
+          return [ (k, pkg, extra) | (k, pkg) <- pairs ]
+    _ -> return []
+
 readSongListGH2 :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m [(T.Text, GH2.SongPackage)]
-readSongListGH2 dta = let
-  editDTB d = d { D.topTree = editTree $ D.topTree d }
-  editTree t = t { D.treeChunks = concatMap createEggs $ filter keepChunk $ D.treeChunks t }
-  keepChunk = \case
-    D.Parens tree -> not $ any isIgnore $ D.treeChunks tree
-    _             -> False
-  isIgnore = \case
-    D.Parens (D.Tree _ [D.Sym "validate_ignore", D.Sym "TRUE"]) -> True
-    _                                                           -> False
-  -- Look for GH2DX 2.0 scripting like: {if_else $egg5 "Speed Test (HalfDuck Cover)" "Speed Test"}
-  -- and duplicate songs into: (songkey ...) (songkey_egg5 ...)
-  createEggs = \case
-    D.Parens (D.Tree x (D.Sym topKey : chunks)) -> do
-      pattern <- sequence $ map (\v -> [(v, False), (v, True)]) $ nubOrd $ findEggs chunks
-      let topKey' = T.intercalate "_" $ topKey : map fst (filter snd pattern)
-          chunks' = foldr ($) chunks $ map (uncurry evalEgg) pattern
-      return $ D.Parens $ D.Tree x $ D.Sym topKey' : chunks'
-    x -> return x -- shouldn't happen
-  findEggs chunks = chunks >>= \case
-    D.Parens (D.Tree _ sub)                                -> findEggs sub
-    D.Braces (D.Tree _ [D.Sym "if_else", D.Var var, _, _]) -> [var]
-    _                                                      -> []
-  evalEgg var bool = map $ \case
-    D.Parens (D.Tree x sub) -> D.Parens $ D.Tree x $ evalEgg var bool sub
-    D.Braces (D.Tree _ [D.Sym "if_else", D.Var var', t, f]) | var == var'
-      -> if bool then t else f
-    x -> x
-  in fmap D.fromDictList
-    $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
-    $ editDTB $ decodeLatin1 <$> dta
+readSongListGH2
+  = fmap (map $ \(t, pkg, _extra) -> (t, pkg))
+  . readSongListGH2Extra
+  . fmap decodeLatin1
 
 readSongListGH1 :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m [(T.Text, GH1.SongPackage)]
 readSongListGH1 dta = let
