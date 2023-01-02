@@ -1,6 +1,7 @@
-{-# LANGUAGE GADTs           #-}
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Game.Audio
 ( projectAudio, withAL, AudioHandle(..)
 , withMOGG, oggSecsSpeed, playSource
@@ -283,7 +284,7 @@ splitPlanSources
 splitPlanSources planName proj lib planAudios = let
   evalAudioInput = \case
     Named name -> do
-      afile <- maybe (fatal "Undefined audio name") return $ HM.lookup name $ _audio $ projectSongYaml proj
+      afile <- maybe (fatal "Undefined audio name") return $ HM.lookup name (projectSongYaml proj).audio
       let buildDependency n = shakeBuild1 proj [] $ "gen/audio" </> T.unpack n <.> "wav"
           getSamples = loadSamplesFromBuildDir
             (shakeBuild1 proj [])
@@ -291,7 +292,7 @@ splitPlanSources planName proj lib planAudios = let
       case afile of
         AudioFile ainfo -> searchInfo (takeDirectory $ projectLocation proj) lib buildDependency ainfo
         AudioSnippet expr -> join <$> mapM evalAudioInput expr
-        AudioSamples info -> manualLeaf
+        AudioSamples _info -> manualLeaf
           (takeDirectory $ projectLocation proj)
           lib
           buildDependency
@@ -300,21 +301,21 @@ splitPlanSources planName proj lib planAudios = let
           (Named name)
     JammitSelect{} -> fatal "Jammit audio not supported in preview yet" -- TODO
   in fmap concat $ forM planAudios $ \planAudio -> do
-    let chans = computeChannelsPlan (projectSongYaml proj) $ _planExpr planAudio
-        pans = case _planPans planAudio of
+    let chans = computeChannelsPlan (projectSongYaml proj) planAudio.expr
+        pans = case planAudio.pans of
           [] -> case chans of
             1 -> [0]
             2 -> [-1, 1]
             _ -> replicate chans 0
           pansSpecified -> pansSpecified
-        vols = case _planVols planAudio of
+        vols = case planAudio.vols of
           []            -> replicate chans 0
           volsSpecified -> volsSpecified
     evaled <- forM planAudio $ \aud -> do
       aud' <- evalAudioInput aud
       return (aud, aud')
     -- for mix and merge, split into multiple AL sources
-    case _planExpr evaled of
+    case evaled.expr of
       -- mix: same pans and vols for each input
       Mix parts -> return [PlanAudio (join $ fmap snd partExpr) pans vols | partExpr <- NE.toList parts]
       -- merge: split pans and vols to go with the appropriate input
@@ -328,7 +329,7 @@ splitPlanSources planName proj lib planAudios = let
       expr -> return [PlanAudio (join $ fmap snd expr) pans vols]
 
 projectAudio :: (MonadIO m) => T.Text -> Project -> StackTraceT (QueueLog m) (Maybe (Double -> Maybe Double -> Float -> IO AudioHandle))
-projectAudio k proj = case lookup k $ HM.toList $ _plans $ projectSongYaml proj of
+projectAudio k proj = case lookup k $ HM.toList (projectSongYaml proj).plans of
   Just MoggPlan{..} -> errorToWarning $ do
     -- TODO maybe silence crowd channels
     ogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.ogg"
@@ -345,12 +346,12 @@ projectAudio k proj = case lookup k $ HM.toList $ _plans $ projectSongYaml proj 
       Nothing -> fatal "No audio in plan"
       Just ne -> return $ \t mspeed gain -> do
         inputs <- forM ne $ \paudio -> do
-          src <- buildSource' $ Drop Start (CA.Seconds t) $ _planExpr paudio
+          src <- buildSource' $ Drop Start (CA.Seconds t) paudio.expr
           let src' = CA.mapSamples CA.integralSample
                 $ maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed src
           return
-            ( map realToFrac $ _planPans paudio
-            , map realToFrac $ _planVols paudio
+            ( map realToFrac paudio.pans
+            , map realToFrac paudio.vols
             , src'
             )
         playSources gain $ NE.toList inputs

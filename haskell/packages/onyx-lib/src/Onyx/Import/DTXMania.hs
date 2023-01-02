@@ -1,7 +1,9 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Import.DTXMania where
 
 import           Control.Monad.Extra              (forM, guard, unless)
@@ -120,21 +122,21 @@ dtxAddChipAudio dtx fin = do
           [0]
         _ -> id
       in (chip, AudioFile AudioInfo
-        { _md5 = Nothing
-        , _frames = Nothing
-        , _commands = []
-        , _filePath = Just $ SoftFile ("samples" </> T.unpack chip <.> "wav") $ SoftAudio
+        { md5 = Nothing
+        , frames = Nothing
+        , commands = []
+        , filePath = Just $ SoftFile ("samples" </> T.unpack chip <.> "wav") $ SoftAudio
           $ fixMono $ adjustVolume src
-        , _rate = Nothing
-        , _channels = 2
+        , rate = Nothing
+        , channels = 2
         })
-  return $ \songYaml -> songYaml { _audio = HM.fromList audio }
+  return $ \songYaml -> songYaml { audio = HM.fromList audio }
 
 dtxMakeAudioPlan :: DTX
   -> (SongYaml SoftFile, RBFile.Song (RBFile.OnyxFile U.Beats))
   -> (SongYaml SoftFile, RBFile.Song (RBFile.OnyxFile U.Beats))
 dtxMakeAudioPlan dtx (songYaml, mid) = let
-  foundChips = HM.keysSet $ _audio songYaml
+  foundChips = HM.keysSet songYaml.audio
   audioForChipsOverlap name chips = if RTB.null chips
     then (Nothing, Nothing)
     else let
@@ -184,20 +186,20 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
   extraResults = flip map (HM.toList $ dtx_BGMExtra dtx) $ \(chan, chips) ->
     audioForChipGroups ("audio-extra-" <> chan) [("", chips)]
   audioExpr name = PlanAudio
-    { _planExpr = Input $ Named name
-    , _planPans = []
-    , _planVols = []
+    { expr = Input $ Named name
+    , pans = []
+    , vols = []
     }
   audiosExpr names = PlanAudio
-    { _planExpr = Mix $ fmap (Input . Named) names
-    , _planPans = []
-    , _planVols = []
+    { expr = Mix $ fmap (Input . Named) names
+    , pans = []
+    , vols = []
     }
   songYaml' = songYaml
-    { _audio = HM.union (_audio songYaml) $ HM.fromList $ catMaybes
+    { audio = HM.union songYaml.audio $ HM.fromList $ catMaybes
       $ [songAudio, guitarAudio, bassAudio, kickAudio, snareAudio, kitAudio]
       <> map fst extraResults
-    , _plans = HM.singleton "dtx" Plan
+    , plans = HM.singleton "dtx" Plan
       { _song         = flip fmap songAudio $ \(name, _) -> audioExpr name
       , _countin      = Countin []
       , _planParts    = Parts $ HM.fromList $ concat
@@ -336,26 +338,26 @@ importSetDef setDefPath song level = do
         in Rank $ max 1 $ round $ lvl' * 525 -- arbitrary scaling factor
 
   let yamlWithAudio = addChipAudio SongYaml
-        { _metadata = def'
-          { _title        = case setTitle song of
+        { metadata = def'
+          { title        = case setTitle song of
             ""    -> dtx_TITLE topDiffDTX
             title -> Just title
-          , _artist       = dtx_ARTIST topDiffDTX
-          , _comments     = toList $ dtx_COMMENT topDiffDTX
-          , _genre        = dtx_GENRE topDiffDTX
-          , _fileAlbumArt = art
+          , artist       = dtx_ARTIST topDiffDTX
+          , comments     = toList $ dtx_COMMENT topDiffDTX
+          , genre        = dtx_GENRE topDiffDTX
+          , fileAlbumArt = art
           }
-        , _global = def'
+        , global = def'
           { _backgroundVideo = video
           , _fileBackgroundImage = Nothing
           , _fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
           , _fileSongAnim = Nothing
           }
-        , _audio = HM.empty
-        , _jammit = HM.empty
-        , _plans = HM.empty
-        , _targets = HM.empty
-        , _parts = Parts $ HM.fromList $ catMaybes
+        , audio = HM.empty
+        , jammit = HM.empty
+        , plans = HM.empty
+        , targets = HM.empty
+        , parts = Parts $ HM.fromList $ catMaybes
           [ flip fmap topDrumDiff $ \diff -> (FlexDrums ,) def
             { partDrums = Just PartDrums
               { drumsDifficulty  = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
@@ -387,7 +389,7 @@ importSetDef setDefPath song level = do
         ImportQuick -> (yamlWithAudio, midiOnyx)
         ImportFull  -> dtxMakeAudioPlan topDiffDTX (yamlWithAudio, midiOnyx)
   return finalSongYaml
-    { _global = (_global finalSongYaml)
+    { global = finalSongYaml.global
       { _fileMidi = SoftFile "notes.mid" $ SoftChart finalMidi
       }
     }

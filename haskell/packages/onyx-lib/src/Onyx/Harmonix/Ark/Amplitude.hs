@@ -1,7 +1,11 @@
-{-# LANGUAGE BangPatterns      #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.Harmonix.Ark.Amplitude where
 
 import           Codec.Compression.GZip (decompress)
@@ -22,10 +26,10 @@ import           System.IO              (IOMode (..), SeekMode (..), hSeek,
                                          hTell, withBinaryFile)
 
 data FoundFile = FoundFile
-  { ff_onDisk    :: FilePath
-  , ff_arkName   :: B.ByteString
-  , ff_arkParent :: Maybe B.ByteString
-  , ff_gzip      :: Bool
+  { onDisk    :: FilePath
+  , arkName   :: B.ByteString
+  , arkParent :: Maybe B.ByteString
+  , gzip      :: Bool
   } deriving (Eq, Show)
 
 traverseFolder :: FilePath -> IO [FoundFile]
@@ -43,10 +47,10 @@ traverseFolder = go Nothing where
           in go (Just $ maybe f' (<> "/" <> f') parent) fullPath
         False -> do
           return [FoundFile
-            { ff_onDisk = fullPath
-            , ff_arkName = B8.pack f
-            , ff_arkParent = B8.pack <$> parent
-            , ff_gzip = ".gz" `isSuffixOf` f
+            { onDisk = fullPath
+            , arkName = B8.pack f
+            , arkParent = B8.pack <$> parent
+            , gzip = ".gz" `isSuffixOf` f
             }]
 
 makeStringBank :: [B.ByteString] -> (BL.ByteString, [Word32])
@@ -60,7 +64,7 @@ makeStringBank = go (BL.singleton 0) [] where
 createArk :: FilePath -> FilePath -> IO ()
 createArk dout ark = do
   files <- traverseFolder dout
-  let strings = nubOrd $ files >>= \ff -> ff_arkName ff : toList (ff_arkParent ff)
+  let strings = nubOrd $ files >>= \ff -> ff.arkName : toList ff.arkParent
       (stringBank, offsets) = makeStringBank strings
       stringToIndex = HM.fromList $ zip strings [0..]
       getStringIndex str = case HM.lookup str stringToIndex of
@@ -78,14 +82,14 @@ createArk dout ark = do
     hSeek h AbsoluteSeek sizeBeforeFiles
     entries <- forM files $ \ff -> do
       posn <- hTell h
-      contents <- BL.fromStrict <$> B.readFile (ff_onDisk ff)
+      contents <- BL.fromStrict <$> B.readFile ff.onDisk
       BL.hPut h contents
       return FileEntry
-        { fe_offset = fromIntegral posn
-        , fe_name = ff_arkName ff
-        , fe_folder = ff_arkParent ff
-        , fe_size = fromIntegral $ BL.length contents
-        , fe_inflate = if ff_gzip ff
+        { offset = fromIntegral posn
+        , name = ff.arkName
+        , folder = ff.arkParent
+        , size = fromIntegral $ BL.length contents
+        , inflate = if ff.gzip
           then fromIntegral $ BL.length $ decompress contents
           else 0
         }
@@ -95,11 +99,11 @@ createArk dout ark = do
     w32 2
     w32 $ fromIntegral fileCount
     forM_ entries $ \entry -> do
-      w32 $ fromIntegral $ fe_offset entry
-      getStringIndex (fe_name entry) >>= i32
-      maybe (return (-1)) getStringIndex (fe_folder entry) >>= i32
-      w32 $ fe_size entry
-      w32 $ fe_inflate entry
+      w32 $ fromIntegral entry.offset
+      getStringIndex entry.name >>= i32
+      maybe (return (-1)) getStringIndex entry.folder >>= i32
+      w32 entry.size
+      w32 entry.inflate
     w32 $ fromIntegral $ BL.length stringBank
     BL.hPut h stringBank
     w32 $ fromIntegral stringCount

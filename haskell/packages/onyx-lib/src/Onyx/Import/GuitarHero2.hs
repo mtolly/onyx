@@ -1,12 +1,16 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE DeriveFoldable        #-}
+{-# LANGUAGE DeriveFunctor         #-}
+{-# LANGUAGE DeriveTraversable     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
+{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE ViewPatterns          #-}
 module Onyx.Import.GuitarHero2 where
 
 import           Control.Arrow                    (second)
@@ -61,7 +65,7 @@ import           Text.Read                        (readMaybe)
 getSongList :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [(T.Text, SongPackage)]
 getSongList gen = do
   (hdr, arks) <- stackIO $ loadGEN gen
-  dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") $ hdr_Files hdr of
+  dtb <- case filter (\fe -> fe.folder == Just "config/gen" && fe.name == "songs.dtb") hdr.files of
     entry : _ -> do
       r <- readFileEntry hdr arks entry
       stackIO $ useHandle r handleToByteString
@@ -131,37 +135,37 @@ importGH2MIDI mode songChunk (RBFile.Song tmap mmap gh2) = RBFile.Song tmap mmap
 
 gh2SongYaml :: ImportMode -> SongPackage -> Maybe GH2DXExtra -> Song -> RBFile.Song (RBFile.OnyxFile U.Beats) -> SongYaml SoftFile
 gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
-  { _metadata = def'
-    { _title  = Just $ name pkg <> case mode of
+  { metadata = def'
+    { title  = Just $ name pkg <> case mode of
       ImportSolo -> ""
       ImportCoop -> " (Co-op)"
-    , _artist = Just $ artist pkg
-    , _cover = caption pkg /= Just "performed_by"
-    , _fileAlbumArt = Nothing
-    , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ preview pkg) / 1000
-    , _previewEnd = Just $ PreviewSeconds $ fromIntegral (snd $ preview pkg) / 1000
-    , _album = extra >>= gh2dx_songalbum
-    , _author = extra >>= gh2dx_author
-    , _year = extra >>= gh2dx_songyear >>= readMaybe . T.unpack
-    , _genre = extra >>= gh2dx_songgenre
+    , artist = Just $ artist pkg
+    , cover = caption pkg /= Just "performed_by"
+    , fileAlbumArt = Nothing
+    , previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ preview pkg) / 1000
+    , previewEnd = Just $ PreviewSeconds $ fromIntegral (snd $ preview pkg) / 1000
+    , album = extra >>= (.songalbum)
+    , author = extra >>= (.author)
+    , year = extra >>= (.songyear) >>= readMaybe . T.unpack
+    , genre = extra >>= (.songgenre)
     }
-  , _global = def'
+  , global = def'
     { _fileMidi            = SoftFile "notes.mid" $ SoftChart onyxMidi
     , _fileSongAnim        = Nothing
     , _backgroundVideo     = Nothing
     , _fileBackgroundImage = Nothing
     }
-  , _audio = HM.empty
-  , _jammit = HM.empty
-  , _plans = HM.empty
-  , _targets = HM.empty -- TODO add gh2 target
-  , _parts = Parts $ HM.fromList $ catMaybes
+  , audio = HM.empty
+  , jammit = HM.empty
+  , plans = HM.empty
+  , targets = HM.empty -- TODO add gh2 target
+  , parts = Parts $ HM.fromList $ catMaybes
     [ do
       guard $ maybe False (not . null) $ lookup "guitar" $ D.fromDictList $ tracks songChunk
       return $ (RBFile.FlexGuitar ,) def
         { partGRYBO = Just def
           { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
-          , gryboDifficulty = Tier $ maybe 1 fromIntegral $ extra >>= gh2dx_songguitarrank
+          , gryboDifficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songguitarrank)
           }
         }
     , do
@@ -169,7 +173,7 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
       return $ (RBFile.FlexBass ,) def
         { partGRYBO = Just def
           { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
-          , gryboDifficulty = Tier $ maybe 1 fromIntegral $ extra >>= gh2dx_songbassrank
+          , gryboDifficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songbassrank)
           }
         }
     , do
@@ -177,7 +181,7 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
       return $ (RBFile.FlexExtra "rhythm" ,) def
         { partGRYBO = Just def
           { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
-          , gryboDifficulty = Tier $ maybe 1 fromIntegral $ extra >>= gh2dx_songrhythmrank
+          , gryboDifficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
           }
         }
     ]
@@ -213,17 +217,17 @@ importGH2Song mode pkg genPath gen level = do
       ImportQuick -> return BL.empty
     return ("vgs-" <> show i, bs)
   return (gh2SongYaml mode pkg Nothing songChunk onyxMidi)
-    { _audio = HM.fromList $ do
+    { audio = HM.fromList $ do
       (name, bs) <- namedChans
       return $ (T.pack name ,) $ AudioFile AudioInfo
-        { _md5 = Nothing
-        , _frames = Nothing
-        , _commands = []
-        , _filePath = Just $ SoftFile (name <.> "vgs") $ SoftReadable $ makeHandle name $ byteStringSimpleHandle bs
-        , _rate = Nothing
-        , _channels = 1
+        { md5 = Nothing
+        , frames = Nothing
+        , commands = []
+        , filePath = Just $ SoftFile (name <.> "vgs") $ SoftReadable $ makeHandle name $ byteStringSimpleHandle bs
+        , rate = Nothing
+        , channels = 1
         }
-    , _plans = HM.singleton "vgs" $ let
+    , plans = HM.singleton "vgs" $ let
       guitarChans = map fromIntegral $ fromMaybe [] $ lookup "guitar" $ D.fromDictList $ tracks songChunk
       bassChans = map fromIntegral $ fromMaybe [] $ lookup "bass" $ D.fromDictList $ tracks songChunk
       rhythmChans = map fromIntegral $ fromMaybe [] $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
@@ -233,14 +237,14 @@ importGH2Song mode pkg genPath gen level = do
         cs' <- NE.nonEmpty cs
         Just $ case cs' of
           c :| [] -> PlanAudio
-            { _planExpr = Input $ Named $ T.pack $ fst $ namedChans !! c
-            , _planPans = map realToFrac [pans songChunk !! c]
-            , _planVols = map realToFrac [(vols songChunk !! c) + v]
+            { expr = Input $ Named $ T.pack $ fst $ namedChans !! c
+            , pans = map realToFrac [pans songChunk !! c]
+            , vols = map realToFrac [(vols songChunk !! c) + v]
             }
           _ -> PlanAudio
-            { _planExpr = Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs'
-            , _planPans = map realToFrac [ pans songChunk !! c | c <- cs ]
-            , _planVols = map realToFrac [ (vols songChunk !! c) + v | c <- cs ]
+            { expr = Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs'
+            , pans = map realToFrac [ pans songChunk !! c | c <- cs ]
+            , vols = map realToFrac [ (vols songChunk !! c) + v | c <- cs ]
             }
       in Plan
         { _song = mixChans 0 songChans
@@ -294,7 +298,7 @@ importGH2DLC src folder = do
         let instChans :: [(T.Text, [Int])]
             instChans = map (second $ map fromIntegral) $ D.fromDictList $ tracks songChunk
         return (gh2SongYaml mode pkg (Just extra) songChunk onyxMidi)
-          { _plans = HM.singleton "mogg" MoggPlan
+          { plans = HM.singleton "mogg" MoggPlan
             { _fileMOGG = Just $ SoftFile "audio.mogg" mogg
             , _moggMD5 = Nothing
             , _moggParts = Parts $ HM.fromList $ concat
@@ -323,14 +327,14 @@ importGH2DLC src folder = do
           }
 
 data Setlist a = Setlist
-  { set_campaign :: [(B.ByteString, [a])]
-  , set_bonus    :: [(a, Int32)]
+  { campaign :: [(B.ByteString, [a])]
+  , bonus    :: [(a, Int32)]
   } deriving (Show, Functor, Foldable, Traversable)
 
 loadSetlist :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (Setlist B.ByteString)
 loadSetlist gen = do
   (hdr, arks) <- stackIO $ crawlFolder gen >>= loadGEN
-  let loadDTB name = case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == name) $ hdr_Files hdr of
+  let loadDTB name = case filter (\fe -> fe.folder == Just "config/gen" && fe.name == name) hdr.files of
         entry : _ -> do
           r <- readFileEntry hdr arks entry
           dtb <- stackIO $ useHandle r handleToByteString
@@ -346,10 +350,10 @@ loadSetlist gen = do
       parseTier _                              = fatal "Couldn't extract info from a tier in campaign.dtb"
       parseBonusSong (D.Parens (D.Tree _ [D.Sym x, isKeyMatch "price" -> Just [D.Int n]])) = return (x, n)
       parseBonusSong _ = fatal "Couldn't extract info from a bonus song in store.dtb"
-  set_campaign <- case findKey "order" $ D.topTree dtbCampaign of
+  campaign <- case findKey "order" $ D.topTree dtbCampaign of
     Nothing    -> fatal "Couldn't find 'order' in campaign.dtb"
     Just order -> mapM parseTier order
-  set_bonus <- case findKey "song" $ D.topTree dtbBonus of
+  bonus <- case findKey "song" $ D.topTree dtbBonus of
     Nothing    -> fatal "Couldn't find bonus songs in store.dtb"
     Just songs -> mapM parseBonusSong songs
   return Setlist{..}

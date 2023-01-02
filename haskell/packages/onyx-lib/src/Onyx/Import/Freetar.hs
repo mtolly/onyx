@@ -1,5 +1,9 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.Import.Freetar where
 
 import           Control.Monad.Codec
@@ -36,63 +40,63 @@ import           Text.Read                        (readMaybe)
 import           Text.XML.Light                   (parseXMLDoc)
 
 data Properties = Properties
-  { ftVersion            :: Maybe T.Text
-  , ftTitle              :: Maybe T.Text
-  , ftArtist             :: Maybe T.Text
-  , ftAlbum              :: Maybe T.Text
-  , ftYear               :: Maybe T.Text
-  , ftBeatsPerSecond     :: Maybe Double
-  , ftBeatOffset         :: Maybe Double
-  , ftHammerOnTime       :: Maybe Double
-  , ftPullOffTime        :: Maybe Double
-  , ftDifficulty         :: Maybe T.Text
-  , ftAllowableErrorTime :: Maybe Double
-  , ftLength             :: Maybe Double
-  , ftMusicFileName      :: Maybe T.Text
-  , ftMusicDirectoryHint :: Maybe T.Text
+  { version            :: Maybe T.Text
+  , title              :: Maybe T.Text
+  , artist             :: Maybe T.Text
+  , album              :: Maybe T.Text
+  , year               :: Maybe T.Text
+  , beatsPerSecond     :: Maybe Double
+  , beatOffset         :: Maybe Double
+  , hammerOnTime       :: Maybe Double
+  , pullOffTime        :: Maybe Double
+  , difficulty         :: Maybe T.Text
+  , allowableErrorTime :: Maybe Double
+  , length_            :: Maybe Double
+  , musicFileName      :: Maybe T.Text
+  , musicDirectoryHint :: Maybe T.Text
   } deriving (Show)
 
 instance IsInside Properties where
   insideCodec = do
-    ftVersion            <- ftVersion            =. childTagOpt "Version"            (parseInside' childText)
-    ftTitle              <- ftTitle              =. childTagOpt "Title"              (parseInside' childText)
-    ftArtist             <- ftArtist             =. childTagOpt "Artist"             (parseInside' childText)
-    ftAlbum              <- ftAlbum              =. childTagOpt "Album"              (parseInside' childText)
-    ftYear               <- ftYear               =. childTagOpt "Year"               (parseInside' childText)
-    ftBeatsPerSecond     <- ftBeatsPerSecond     =. childTagOpt "BeatsPerSecond"     (parseInside' $ milliText childText)
-    ftBeatOffset         <- ftBeatOffset         =. childTagOpt "BeatOffset"         (parseInside' $ milliText childText)
-    ftHammerOnTime       <- ftHammerOnTime       =. childTagOpt "HammerOnTime"       (parseInside' $ milliText childText)
-    ftPullOffTime        <- ftPullOffTime        =. childTagOpt "PullOffTime"        (parseInside' $ milliText childText)
-    ftDifficulty         <- ftDifficulty         =. childTagOpt "Difficulty"         (parseInside' childText)
-    ftAllowableErrorTime <- ftAllowableErrorTime =. childTagOpt "AllowableErrorTime" (parseInside' $ milliText childText)
-    ftLength             <- ftLength             =. childTagOpt "Length"             (parseInside' $ milliText childText)
-    ftMusicFileName      <- ftMusicFileName      =. childTagOpt "MusicFileName"      (parseInside' childText)
-    ftMusicDirectoryHint <- ftMusicDirectoryHint =. childTagOpt "MusicDirectoryHint" (parseInside' childText)
+    version            <- (.version)            =. childTagOpt "Version"            (parseInside' childText)
+    title              <- (.title)              =. childTagOpt "Title"              (parseInside' childText)
+    artist             <- (.artist)             =. childTagOpt "Artist"             (parseInside' childText)
+    album              <- (.album)              =. childTagOpt "Album"              (parseInside' childText)
+    year               <- (.year)               =. childTagOpt "Year"               (parseInside' childText)
+    beatsPerSecond     <- (.beatsPerSecond)     =. childTagOpt "BeatsPerSecond"     (parseInside' $ milliText childText)
+    beatOffset         <- (.beatOffset)         =. childTagOpt "BeatOffset"         (parseInside' $ milliText childText)
+    hammerOnTime       <- (.hammerOnTime)       =. childTagOpt "HammerOnTime"       (parseInside' $ milliText childText)
+    pullOffTime        <- (.pullOffTime)        =. childTagOpt "PullOffTime"        (parseInside' $ milliText childText)
+    difficulty         <- (.difficulty)         =. childTagOpt "Difficulty"         (parseInside' childText)
+    allowableErrorTime <- (.allowableErrorTime) =. childTagOpt "AllowableErrorTime" (parseInside' $ milliText childText)
+    length_            <- (.length_)            =. childTagOpt "Length"             (parseInside' $ milliText childText)
+    musicFileName      <- (.musicFileName)      =. childTagOpt "MusicFileName"      (parseInside' childText)
+    musicDirectoryHint <- (.musicDirectoryHint) =. childTagOpt "MusicDirectoryHint" (parseInside' childText)
     return Properties{..}
 
 data Note = Note
-  { n_time     :: Double
-  , n_duration :: Double
-  , n_track    :: Int
+  { time     :: Double
+  , duration :: Double
+  , track    :: Int
   -- TODO HammerOnAllowed
   } deriving (Show)
 
 instance IsInside Note where
   insideCodec = do
-    n_time     <- n_time     =. milliText (reqAttr "time")
-    n_duration <- n_duration =. milliText (reqAttr "duration")
-    n_track    <- n_track    =. intText   (reqAttr "track")
+    time     <- (.time)     =. milliText (reqAttr "time")
+    duration <- (.duration) =. milliText (reqAttr "duration")
+    track    <- (.track)    =. intText   (reqAttr "track")
     return Note{..}
 
 data Song = Song
-  { songProperties :: Properties
-  , songData       :: V.Vector Note
+  { properties :: Properties
+  , data_      :: V.Vector Note
   } deriving (Show)
 
 instance IsInside Song where
   insideCodec = do
-    songProperties <- songProperties =. childTag "Properties" (parseInside' insideCodec)
-    songData       <- songData       =. childTag "Data"
+    properties <- (.properties) =. childTag "Properties" (parseInside' insideCodec)
+    data_      <- (.data_)      =. childTag "Data"
       (parseInside' $ bareList $ isTag "Note" $ parseInside' insideCodec)
     return Song{..}
 
@@ -106,7 +110,7 @@ songToMidi song = let
   tempos = U.tempoMapFromBPS RTB.empty -- "BeatsPerSecond" is probably useless
   sigs = U.measureMapFromTimeSigs U.Truncate RTB.empty
   threshold :: U.Seconds
-  threshold = case NE.nonEmpty $ catMaybes [ftHammerOnTime $ songProperties song, ftPullOffTime $ songProperties song] of
+  threshold = case NE.nonEmpty $ catMaybes [song.properties.hammerOnTime, song.properties.pullOffTime] of
     Nothing -> 0.25
     Just ne -> realToFrac $ maximum ne
   gtr = emit5' $ U.unapplyTempoTrack tempos $ strumHOPOTap HOPOsRBGuitar threshold
@@ -114,15 +118,14 @@ songToMidi song = let
     $ ATB.fromPairList
     $ sort
     $ map (\n -> let
-      time = realToFrac $ n_time n
-      fret = Just $ toEnum $ n_track n
-      len = case n_duration n of
+      time = realToFrac n.time
+      fret = Just $ toEnum n.track
+      len = case n.duration of
         0 -> Nothing
         d -> Just $ realToFrac d
       in (time, (fret, len))
       )
-    $ V.toList
-    $ songData song
+    $ V.toList song.data_
   in RBFile.Song
     { s_tempos = tempos
     , s_signatures = sigs
@@ -138,18 +141,18 @@ songToMidi song = let
 importFreetar :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importFreetar sng level = do
   song <- stackIO (B.readFile sng) >>= parseSong . decodeGeneral
-  let props = songProperties song
+  let props = song.properties
   return SongYaml
-    { _metadata = def'
-      { _title        = ftTitle props
-      , _artist       = ftArtist props
-      , _album        = ftAlbum props
-      , _year         = ftYear props >>= readMaybe . T.unpack
-      , _comments     = []
-      , _fileAlbumArt = Nothing
+    { metadata = def'
+      { title        = props.title
+      , artist       = props.artist
+      , album        = props.album
+      , year         = props.year >>= readMaybe . T.unpack
+      , comments     = []
+      , fileAlbumArt = Nothing
       }
-    , _jammit = mempty
-    , _global = def'
+    , jammit = mempty
+    , global = def'
       { _backgroundVideo = Nothing
       , _fileBackgroundImage = Nothing
       , _fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
@@ -157,18 +160,18 @@ importFreetar sng level = do
         ImportQuick -> emptyChart
       , _fileSongAnim = Nothing
       }
-    , _audio = HM.fromList $ toList $ flip fmap (ftMusicFileName props) $ \f -> let
+    , audio = HM.fromList $ toList $ flip fmap props.musicFileName $ \f -> let
       f' = takeDirectory sng </> T.unpack f
       audio = AudioFile AudioInfo
-        { _md5 = Nothing
-        , _frames = Nothing
-        , _commands = []
-        , _filePath = Just $ SoftFile ("audio" <.> takeExtension f') $ SoftReadable $ fileReadable f'
-        , _rate = Nothing
-        , _channels = 2 -- just assuming
+        { md5 = Nothing
+        , frames = Nothing
+        , commands = []
+        , filePath = Just $ SoftFile ("audio" <.> takeExtension f') $ SoftReadable $ fileReadable f'
+        , rate = Nothing
+        , channels = 2 -- just assuming
         }
       in ("song", audio)
-    , _plans = HM.fromList $ toList $ flip fmap (ftMusicFileName props) $ \_ -> let
+    , plans = HM.fromList $ toList $ flip fmap props.musicFileName $ \_ -> let
       plan = Plan
         { _song = Just $ PlanAudio (Input $ Named "song") [] []
         , _countin = Countin []
@@ -179,8 +182,8 @@ importFreetar sng level = do
         , _fileTempo = Nothing
         }
       in ("freetar", plan)
-    , _targets = HM.empty
-    , _parts = Parts $ HM.singleton RBFile.FlexGuitar def
+    , targets = HM.empty
+    , parts = Parts $ HM.singleton RBFile.FlexGuitar def
       { partGRYBO = Just def
       }
     }

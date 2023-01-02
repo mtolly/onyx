@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Build.PowerGig (pgRules) where
 
 import           Control.Monad.IO.Class
@@ -52,7 +53,7 @@ pgRules buildInfo dir pg = do
 
   let songYaml      = biSongYaml buildInfo
       rel           = biRelative buildInfo
-      key           = fromMaybe "TodoAutoSongKey" $ pg_Key pg -- TODO generate automatic
+      key           = fromMaybe "TodoAutoSongKey" pg.pg_Key -- TODO generate automatic
       k             = T.unpack key
 
       objSTFS       = dir </> "pglive"
@@ -71,7 +72,7 @@ pgRules buildInfo dir pg = do
       objDrumCrash  = dir </> "pk/Audio/songs" </> k </> "samples" </> (k <> "_crash_iso.xma")
       objLua        = dir </> "pk/Scripting/Songs" </> (k <> ".lua")
 
-  (planName, _plan) <- case getPlan (tgt_Plan $ pg_Common pg) songYaml of
+  (planName, _plan) <- case getPlan pg.pg_Common.tgt_Plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show pg
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
@@ -86,7 +87,7 @@ pgRules buildInfo dir pg = do
     thumb <- stackIO $ powerGigThumbnail >>= B.readFile
     titleThumb <- stackIO $ powerGigTitleThumbnail >>= B.readFile
     stackIO $ makeCONReadable CreateOptions
-      { createNames = [getTitle $ _metadata songYaml]
+      { createNames = [getTitle songYaml.metadata]
       , createDescriptions = [""]
       , createTitleID = 0x5A4607D1
       , createTitleName = "Power Gig: Rise of the Six String"
@@ -107,7 +108,7 @@ pgRules buildInfo dir pg = do
   objAddContent %> \out -> do
     template <- stackIO (getResourcesPath "power-gig/AddContent.lua") >>= compileMustacheFile
     stackIO $ B.writeFile out $ renderMustacheUTF8 template $ A.object
-      [ "package_name" .= escapeLuaString (getTitle $ _metadata songYaml)
+      [ "package_name" .= escapeLuaString (getTitle songYaml.metadata)
       , "song_key" .= escapeLuaString key
       ]
 
@@ -137,11 +138,11 @@ pgRules buildInfo dir pg = do
             , pcmcMIDI = B.concat ["songs:", TE.encodeUtf8 key, "\\", TE.encodeUtf8 key, ".mid"]
             }
           , gevGELH = PG.GELH $ V.fromList $ catMaybes
-            [ flip fmap (getPart (pg_Guitar pg) songYaml >>= partGRYBO) $ \grybo -> let
-              src = RBFile.getFlexPart (pg_Guitar pg) $ RBFile.s_tracks mid
+            [ flip fmap (getPart pg.pg_Guitar songYaml >>= (.partGRYBO)) $ \grybo -> let
+              src = RBFile.getFlexPart pg.pg_Guitar $ RBFile.s_tracks mid
               (trackOrig, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitar src
               notes :: RTB.T U.Beats ([(Maybe Color, StrumHOPOTap)], Maybe U.Beats)
-              notes = guitarify' $ strumHOPOTap algo (fromIntegral (gryboHopoThreshold grybo) / 480) $ computeFiveFretNotes
+              notes = guitarify' $ strumHOPOTap algo (fromIntegral grybo.gryboHopoThreshold / 480) $ computeFiveFretNotes
                 $ fromMaybe mempty $ Map.lookup Expert $ fiveDifficulties trackOrig
               in PG.GELS
                 { gelsUnk1      = 2
@@ -246,13 +247,13 @@ pgRules buildInfo dir pg = do
           }
         song = PG.Song
           { song_info   = PG.Info
-            { info_title            = getTitle $ _metadata songYaml
+            { info_title            = getTitle songYaml.metadata
             , info_title_short      = Nothing
             , info_title_shorter    = Nothing
-            , info_artist           = getArtist $ _metadata songYaml
+            , info_artist           = getArtist songYaml.metadata
             , info_artist_short     = Nothing
-            , info_year             = getYear $ _metadata songYaml -- xsd claims this can only go 1900 to 2020?
-            , info_album            = getAlbum $ _metadata songYaml
+            , info_year             = getYear songYaml.metadata -- xsd claims this can only go 1900 to 2020?
+            , info_album            = getAlbum songYaml.metadata
             , info_composer         = ""
             , info_lyricist         = ""
             , info_genre            = "Rock and Roll" -- TODO either translate to valid genre, or check if any genre works

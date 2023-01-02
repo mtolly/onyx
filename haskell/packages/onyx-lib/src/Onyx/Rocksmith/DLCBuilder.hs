@@ -1,6 +1,10 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.Rocksmith.DLCBuilder where
 
 import           Control.Monad.Codec
@@ -17,62 +21,62 @@ import           Onyx.Rocksmith.CST         (Tone2014 (..))
 import           Onyx.StackTrace
 
 data RS2DLC = RS2DLC
-  { rs2_Version            :: T.Text
-  , rs2_Author             :: T.Text
-  , rs2_DLCKey             :: T.Text
-  , rs2_ArtistName         :: Sortable
-  , rs2_JapaneseArtistName :: Maybe T.Text
-  , rs2_JapaneseTitle      :: Maybe T.Text
-  , rs2_Title              :: Sortable
-  , rs2_AlbumName          :: Sortable
-  , rs2_Year               :: Int
-  , rs2_AlbumArtFile       :: FilePath
-  , rs2_AudioFile          :: AudioFile
-  , rs2_AudioPreviewFile   :: AudioFile
-  , rs2_IgnoredIssues      :: [T.Text]
-  , rs2_Arrangements       :: [Arrangement]
-  , rs2_Tones              :: [Tone2014]
+  { version            :: T.Text
+  , author             :: T.Text
+  , dlcKey             :: T.Text
+  , artistName         :: Sortable
+  , japaneseArtistName :: Maybe T.Text
+  , japaneseTitle      :: Maybe T.Text
+  , title              :: Sortable
+  , albumName          :: Sortable
+  , year               :: Int
+  , albumArtFile       :: FilePath
+  , audioFile          :: AudioFile
+  , audioPreviewFile   :: AudioFile
+  , ignoredIssues      :: [T.Text]
+  , arrangements       :: [Arrangement]
+  , tones              :: [Tone2014]
   } deriving (Show)
 
 instance StackJSON RS2DLC where
   stackJSON = asObject ".rs2dlc" $ do
-    rs2_Version            <- rs2_Version            =. req "Version"            stackJSON
-    rs2_Author             <- rs2_Author             =. req "Author"             stackJSON
-    rs2_DLCKey             <- rs2_DLCKey             =. req "DLCKey"             stackJSON
-    rs2_ArtistName         <- rs2_ArtistName         =. req "ArtistName"         stackJSON
-    rs2_JapaneseArtistName <- rs2_JapaneseArtistName =. req "JapaneseArtistName" stackJSON
-    rs2_JapaneseTitle      <- rs2_JapaneseTitle      =. req "JapaneseTitle"      stackJSON
-    rs2_Title              <- rs2_Title              =. req "Title"              stackJSON
-    rs2_AlbumName          <- rs2_AlbumName          =. req "AlbumName"          stackJSON
-    rs2_Year               <- rs2_Year               =. req "Year"               stackJSON
-    rs2_AlbumArtFile       <- rs2_AlbumArtFile       =. req "AlbumArtFile"       stackJSON
-    rs2_AudioFile          <- rs2_AudioFile          =. req "AudioFile"          stackJSON
-    rs2_AudioPreviewFile   <- rs2_AudioPreviewFile   =. req "AudioPreviewFile"   stackJSON
-    rs2_IgnoredIssues      <- rs2_IgnoredIssues      =. req "IgnoredIssues"      stackJSON
-    rs2_Arrangements       <- rs2_Arrangements       =. req "Arrangements"       stackJSON
-    rs2_Tones              <- rs2_Tones              =. req "Tones"              stackJSON
+    version            <- (.version           ) =. req "Version"            stackJSON
+    author             <- (.author            ) =. req "Author"             stackJSON
+    dlcKey             <- (.dlcKey            ) =. req "DLCKey"             stackJSON
+    artistName         <- (.artistName        ) =. req "ArtistName"         stackJSON
+    japaneseArtistName <- (.japaneseArtistName) =. req "JapaneseArtistName" stackJSON
+    japaneseTitle      <- (.japaneseTitle     ) =. req "JapaneseTitle"      stackJSON
+    title              <- (.title             ) =. req "Title"              stackJSON
+    albumName          <- (.albumName         ) =. req "AlbumName"          stackJSON
+    year               <- (.year              ) =. req "Year"               stackJSON
+    albumArtFile       <- (.albumArtFile      ) =. req "AlbumArtFile"       stackJSON
+    audioFile          <- (.audioFile         ) =. req "AudioFile"          stackJSON
+    audioPreviewFile   <- (.audioPreviewFile  ) =. req "AudioPreviewFile"   stackJSON
+    ignoredIssues      <- (.ignoredIssues     ) =. req "IgnoredIssues"      stackJSON
+    arrangements       <- (.arrangements      ) =. req "Arrangements"       stackJSON
+    tones              <- (.tones             ) =. req "Tones"              stackJSON
     return RS2DLC{..}
 
 data Sortable = Sortable
-  { rs2_Value     :: T.Text
-  , rs2_SortValue :: T.Text
+  { value     :: T.Text
+  , sortValue :: T.Text
   } deriving (Show)
 
 instance StackJSON Sortable where
   stackJSON = asObject "display and sort values" $ do
-    rs2_Value     <- rs2_Value     =. req "Value"     stackJSON
-    rs2_SortValue <- rs2_SortValue =. req "SortValue" stackJSON
+    value     <- (.value    ) =. req "Value"     stackJSON
+    sortValue <- (.sortValue) =. req "SortValue" stackJSON
     return Sortable{..}
 
 data AudioFile = AudioFile
-  { audio_Path   :: FilePath
-  , audio_Volume :: Double
+  { path   :: FilePath
+  , volume :: Double
   } deriving (Show)
 
 instance StackJSON AudioFile where
   stackJSON = asObject "audio path and volume" $ do
-    audio_Path   <- audio_Path   =. req "Path"   stackJSON
-    audio_Volume <- audio_Volume =. req "Volume" stackJSON
+    path   <- (.path  ) =. req "Path"   stackJSON
+    volume <- (.volume) =. req "Volume" stackJSON
     return AudioFile{..}
 
 data Arrangement
@@ -114,58 +118,58 @@ instance StackJSON Arrangement where
     }
 
 data Instrumental = Instrumental
-  { inst_XML          :: FilePath
-  , inst_Name         :: Int
-  , inst_RouteMask    :: Int
-  , inst_Priority     :: Int
-  , inst_ScrollSpeed  :: Double
-  , inst_BassPicked   :: Bool
-  , inst_Tuning       :: [Int]
-  , inst_TuningPitch  :: Double
-  , inst_BaseTone     :: T.Text
-  , inst_Tones        :: [T.Text]
-  , inst_MasterID     :: Int
-  , inst_PersistentID :: T.Text
+  { xml          :: FilePath
+  , name         :: Int
+  , routeMask    :: Int
+  , priority     :: Int
+  , scrollSpeed  :: Double
+  , bassPicked   :: Bool
+  , tuning       :: [Int]
+  , tuningPitch  :: Double
+  , baseTone     :: T.Text
+  , tones        :: [T.Text]
+  , masterID     :: Int
+  , persistentID :: T.Text
   } deriving (Show)
 
 instance StackJSON Instrumental where
   stackJSON = asObject "Instrumental" $ do
-    inst_XML          <- inst_XML          =. req "XML"          stackJSON
-    inst_Name         <- inst_Name         =. req "Name"         stackJSON
-    inst_RouteMask    <- inst_RouteMask    =. req "RouteMask"    stackJSON
-    inst_Priority     <- inst_Priority     =. req "Priority"     stackJSON
-    inst_ScrollSpeed  <- inst_ScrollSpeed  =. req "ScrollSpeed"  stackJSON
-    inst_BassPicked   <- inst_BassPicked   =. req "BassPicked"   stackJSON
-    inst_Tuning       <- inst_Tuning       =. req "Tuning"       stackJSON
-    inst_TuningPitch  <- inst_TuningPitch  =. req "TuningPitch"  stackJSON
-    inst_BaseTone     <- inst_BaseTone     =. req "BaseTone"     stackJSON
-    inst_Tones        <- inst_Tones        =. req "Tones"        stackJSON
-    inst_MasterID     <- inst_MasterID     =. req "MasterID"     stackJSON
-    inst_PersistentID <- inst_PersistentID =. req "PersistentID" stackJSON
+    xml          <- (.xml         ) =. req "XML"          stackJSON
+    name         <- (.name        ) =. req "Name"         stackJSON
+    routeMask    <- (.routeMask   ) =. req "RouteMask"    stackJSON
+    priority     <- (.priority    ) =. req "Priority"     stackJSON
+    scrollSpeed  <- (.scrollSpeed ) =. req "ScrollSpeed"  stackJSON
+    bassPicked   <- (.bassPicked  ) =. req "BassPicked"   stackJSON
+    tuning       <- (.tuning      ) =. req "Tuning"       stackJSON
+    tuningPitch  <- (.tuningPitch ) =. req "TuningPitch"  stackJSON
+    baseTone     <- (.baseTone    ) =. req "BaseTone"     stackJSON
+    tones        <- (.tones       ) =. req "Tones"        stackJSON
+    masterID     <- (.masterID    ) =. req "MasterID"     stackJSON
+    persistentID <- (.persistentID) =. req "PersistentID" stackJSON
     return Instrumental{..}
 
 data Vocals = Vocals
-  { vocals_XML          :: FilePath
-  , vocals_Japanese     :: Bool
-  , vocals_CustomFont   :: Maybe T.Text -- is this a path
-  , vocals_MasterID     :: Int
-  , vocals_PersistentID :: T.Text
+  { xml          :: FilePath
+  , japanese     :: Bool
+  , customFont   :: Maybe T.Text -- is this a path
+  , masterID     :: Int
+  , persistentID :: T.Text
   } deriving (Show)
 
 instance StackJSON Vocals where
   stackJSON = asObject "Vocals" $ do
-    vocals_XML          <- vocals_XML          =. req "XML"          stackJSON
-    vocals_Japanese     <- vocals_Japanese     =. req "Japanese"     stackJSON
-    vocals_CustomFont   <- vocals_CustomFont   =. req "CustomFont"   stackJSON
-    vocals_MasterID     <- vocals_MasterID     =. req "MasterID"     stackJSON
-    vocals_PersistentID <- vocals_PersistentID =. req "PersistentID" stackJSON
+    xml          <- (.xml         ) =. req "XML"          stackJSON
+    japanese     <- (.japanese    ) =. req "Japanese"     stackJSON
+    customFont   <- (.customFont  ) =. req "CustomFont"   stackJSON
+    masterID     <- (.masterID    ) =. req "MasterID"     stackJSON
+    persistentID <- (.persistentID) =. req "PersistentID" stackJSON
     return Vocals{..}
 
 data Showlights = Showlights
-  { showlights_XML :: FilePath
+  { xml :: FilePath
   } deriving (Show)
 
 instance StackJSON Showlights where
   stackJSON = asObject "Showlights" $ do
-    showlights_XML <- showlights_XML =. req "XML" stackJSON
+    xml <- (.xml) =. req "XML" stackJSON
     return Showlights{..}

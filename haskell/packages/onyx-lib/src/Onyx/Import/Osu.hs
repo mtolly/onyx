@@ -113,18 +113,18 @@ importOsu separateSongs f = do
           _                    -> title
 
     return SongYaml
-      { _metadata = def'
-        { _title = addVersion <$> primary.metadata.title
-        , _titleJP = addVersion <$> primary.metadata.titleUnicode
-        , _artist = primary.metadata.artist
-        , _artistJP = primary.metadata.artistUnicode
-        , _previewStart = Just $ PreviewSeconds $ fromIntegral primary.general.previewTime / 1000
-        , _fileAlbumArt = background -- just so there's not nothing
-        , _author = case nubOrd $ mapMaybe (.metadata.creator) osus of
+      { metadata = def'
+        { title = addVersion <$> primary.metadata.title
+        , titleJP = addVersion <$> primary.metadata.titleUnicode
+        , artist = primary.metadata.artist
+        , artistJP = primary.metadata.artistUnicode
+        , previewStart = Just $ PreviewSeconds $ fromIntegral primary.general.previewTime / 1000
+        , fileAlbumArt = background -- just so there's not nothing
+        , author = case nubOrd $ mapMaybe (.metadata.creator) osus of
           []      -> Nothing
           authors -> Just $ T.intercalate ", " authors
         }
-      , _global = def'
+      , global = def'
         { _backgroundVideo = Nothing -- TODO
         , _fileBackgroundImage = background
         , _fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
@@ -145,18 +145,18 @@ importOsu separateSongs f = do
           ImportQuick -> emptyChart
         , _fileSongAnim = Nothing
         }
-      , _jammit = HM.empty
-      , _audio = HM.singleton "osu-audio-file" $ AudioFile AudioInfo
-        { _md5 = Nothing
-        , _frames = Nothing
-        , _filePath = flip fmap audio $ \(audioBytes, audioName) ->
+      , jammit = HM.empty
+      , audio = HM.singleton "osu-audio-file" $ AudioFile AudioInfo
+        { md5 = Nothing
+        , frames = Nothing
+        , filePath = flip fmap audio $ \(audioBytes, audioName) ->
           SoftFile audioName $ SoftReadable
             $ makeHandle audioName $ byteStringSimpleHandle audioBytes
-        , _commands = []
-        , _rate = Nothing
-        , _channels = 2 -- TODO maybe verify
+        , commands = []
+        , rate = Nothing
+        , channels = 2 -- TODO maybe verify
         }
-      , _plans = HM.singleton "osu-audio" Plan
+      , plans = HM.singleton "osu-audio" Plan
         { _song = Just $ let
           -- Need to do this or audio is out of sync. I assume the game is
           -- skipping MP3 encoder delay. But .ogg also appears to need adjustment?
@@ -170,8 +170,8 @@ importOsu separateSongs f = do
         , _tuningCents = 0
         , _fileTempo = Nothing
         }
-      , _targets = HM.empty
-      , _parts = Parts $ HM.fromList $ do
+      , targets = HM.empty
+      , parts = Parts $ HM.fromList $ do
         (partName, track) <- mania
         return $ (partName, case track of
           Left _five -> def

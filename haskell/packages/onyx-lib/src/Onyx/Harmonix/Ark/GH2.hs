@@ -1,9 +1,11 @@
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE MultiWayIf          #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE StrictData            #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Harmonix.Ark.GH2
 ( sortSongs, SongSort(..)
 , replaceSong
@@ -56,7 +58,7 @@ import           System.IO.Temp                  (withSystemTempFile)
 createHdrArk :: FilePath -> FilePath -> FilePath -> IO ()
 createHdrArk dout hdr ark = do
   files <- traverseFolder dout
-  let strings = nubOrd $ files >>= \ff -> ff_arkName ff : toList (ff_arkParent ff)
+  let strings = nubOrd $ files >>= \ff -> ff.arkName : toList ff.arkParent
       (stringBank, offsets) = makeStringBank strings
       stringToIndex = HM.fromList $ zip strings [0..]
       getStringIndex str = case HM.lookup str stringToIndex of
@@ -67,14 +69,14 @@ createHdrArk dout hdr ark = do
   (entries, arkSize) <- IO.withBinaryFile ark IO.WriteMode $ \h -> do
     entries <- forM files $ \ff -> do
       posn <- IO.hTell h
-      contents <- BL.fromStrict <$> B.readFile (ff_onDisk ff)
+      contents <- BL.fromStrict <$> B.readFile ff.onDisk
       BL.hPut h contents
       return FileEntry
-        { fe_offset = fromIntegral posn
-        , fe_name = ff_arkName ff
-        , fe_folder = ff_arkParent ff
-        , fe_size = fromIntegral $ BL.length contents
-        , fe_inflate = if ff_gzip ff -- should always be false in GH files
+        { offset = fromIntegral posn
+        , name = ff.arkName
+        , folder = ff.arkParent
+        , size = fromIntegral $ BL.length contents
+        , inflate = if ff.gzip -- should always be false in GH files
           then fromIntegral $ BL.length $ decompress contents
           else 0
         }
@@ -93,24 +95,24 @@ createHdrArk dout hdr ark = do
     mapM_ w32 offsets
     w32 $ fromIntegral fileCount
     forM_ entries $ \entry -> do
-      w32 $ fromIntegral $ fe_offset entry
-      getStringIndex (fe_name entry) >>= i32
-      maybe (return (-1)) getStringIndex (fe_folder entry) >>= i32
-      w32 $ fe_size entry
-      w32 $ fe_inflate entry
+      w32 $ fromIntegral entry.offset
+      getStringIndex entry.name >>= i32
+      maybe (return (-1)) getStringIndex entry.folder >>= i32
+      w32 entry.size
+      w32 entry.inflate
 
 data GH2DXExtra = GH2DXExtra
-  { gh2dx_songalbum      :: Maybe T.Text
-  , gh2dx_author         :: Maybe T.Text
-  , gh2dx_songyear       :: Maybe T.Text
-  , gh2dx_songgenre      :: Maybe T.Text
-  , gh2dx_songorigin     :: Maybe T.Text
-  , gh2dx_songduration   :: Maybe Int32
-  , gh2dx_songguitarrank :: Maybe Int32
-  , gh2dx_songbassrank   :: Maybe Int32
-  , gh2dx_songrhythmrank :: Maybe Int32
-  , gh2dx_songdrumrank   :: Maybe Int32
-  , gh2dx_songartist     :: Maybe T.Text
+  { songalbum      :: Maybe T.Text
+  , author         :: Maybe T.Text
+  , songyear       :: Maybe T.Text
+  , songgenre      :: Maybe T.Text
+  , songorigin     :: Maybe T.Text
+  , songduration   :: Maybe Int32
+  , songguitarrank :: Maybe Int32
+  , songbassrank   :: Maybe Int32
+  , songrhythmrank :: Maybe Int32
+  , songdrumrank   :: Maybe Int32
+  , songartist     :: Maybe T.Text
   }
 
 -- Parses song info by preprocessing and evaluating the DTA file.
@@ -165,17 +167,17 @@ readSongListGH2Extra (D.DTA _ (D.Tree _ chunks)) = do
                 Just [D.Int x] -> Just x
                 _              -> Nothing
               extra = GH2DXExtra
-                { gh2dx_songalbum      = retrieveText "songalbum"
-                , gh2dx_author         = retrieveText "author"
-                , gh2dx_songyear       = retrieveText "songyear"
-                , gh2dx_songgenre      = retrieveText "songgenre"
-                , gh2dx_songorigin     = retrieveText "songorigin"
-                , gh2dx_songduration   = retrieveInt  "songduration"
-                , gh2dx_songguitarrank = retrieveInt  "songguitarrank"
-                , gh2dx_songbassrank   = retrieveInt  "songbassrank"
-                , gh2dx_songrhythmrank = retrieveInt  "songrhythmrank"
-                , gh2dx_songdrumrank   = retrieveInt  "songdrumrank"
-                , gh2dx_songartist     = retrieveText "songartist"
+                { songalbum      = retrieveText "songalbum"
+                , author         = retrieveText "author"
+                , songyear       = retrieveText "songyear"
+                , songgenre      = retrieveText "songgenre"
+                , songorigin     = retrieveText "songorigin"
+                , songduration   = retrieveInt  "songduration"
+                , songguitarrank = retrieveInt  "songguitarrank"
+                , songbassrank   = retrieveInt  "songbassrank"
+                , songrhythmrank = retrieveInt  "songrhythmrank"
+                , songdrumrank   = retrieveInt  "songdrumrank"
+                , songartist     = retrieveText "songartist"
                 }
           return [ (k, pkg, extra) | (k, pkg) <- pairs ]
     _ -> return []
@@ -275,23 +277,23 @@ replaceSong gen sym snippet files = withArk gen $ \ark -> do
     ark_Save' ark
 
 data GH2Installation = GH2Installation
-  { gh2i_GEN              :: FilePath
-  , gh2i_symbol           :: B.ByteString -- ^ folder name, and key symbol in songs.dta
-  , gh2i_song             :: [D.Chunk B.ByteString] -- ^ info for songs.dta
-  , gh2i_coop_max_scores  :: [Int]
+  { gen              :: FilePath
+  , symbol           :: B.ByteString -- ^ folder name, and key symbol in songs.dta
+  , song             :: [D.Chunk B.ByteString] -- ^ info for songs.dta
+  , coop_max_scores  :: [Int]
   -- TODO maybe contexts and leaderboards for Xbox only
-  , gh2i_shop_title       :: Maybe B.ByteString
-  , gh2i_shop_description :: Maybe B.ByteString
-  , gh2i_author           :: Maybe B.ByteString
-  , gh2i_album_art        :: Maybe FilePath
-  , gh2i_files            :: [(B.ByteString, FilePath)] -- ^ files to copy into the song folder, e.g. @("songsym.mid", "some/dir/notes.mid")@
-  , gh2i_sort             :: Maybe SongSort -- ^ should bonus songs be sorted alphabetically
-  , gh2i_loading_phrase   :: Maybe B.ByteString
+  , shop_title       :: Maybe B.ByteString
+  , shop_description :: Maybe B.ByteString
+  , author           :: Maybe B.ByteString
+  , album_art        :: Maybe FilePath
+  , files            :: [(B.ByteString, FilePath)] -- ^ files to copy into the song folder, e.g. @("songsym.mid", "some/dir/notes.mid")@
+  , sort_            :: Maybe SongSort -- ^ should bonus songs be sorted alphabetically
+  , loading_phrase   :: Maybe B.ByteString
   }
 
 -- | Adds a song to a GH2 ARK, and registers it as a bonus song with price 0.
 addBonusSongGH2 :: GH2Installation -> IO ()
-addBonusSongGH2 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
+addBonusSongGH2 gh2i = withArk gh2i.gen $ \ark -> do
   withSystemTempFile "songs.dtb"             $ \fdtb1 hdl1 -> do
     withSystemTempFile "coop_max_scores.dtb" $ \fdtb2 hdl2 -> do
       withSystemTempFile "store.dtb"         $ \fdtb3 hdl3 -> do
@@ -308,14 +310,14 @@ addBonusSongGH2 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
                 ark_ReplaceAFile' ark tmp path True
                 return chunks'
           newSongs <- editDTB fdtb1 "config/gen/songs.dtb" $ \chunks -> do
-            return $ D.Parens (D.Tree 0 (D.Sym gh2i_symbol : gh2i_song)) : chunks
+            return $ D.Parens (D.Tree 0 (D.Sym gh2i.symbol : gh2i.song)) : chunks
           void $ editDTB fdtb2 "config/gen/coop_max_scores.dtb" $ \chunks -> do
-            return $ D.Parens (D.Tree 0 [D.Sym gh2i_symbol, D.Parens $ D.Tree 0 (map (D.Int . fromIntegral) gh2i_coop_max_scores)]) : chunks
+            return $ D.Parens (D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 (map (D.Int . fromIntegral) gh2i.coop_max_scores)]) : chunks
           void $ editDTB fdtb3 "config/gen/store.dtb" $ \chunks -> do
             forM chunks $ \case
               D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> do
-                let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i_symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
-                bonusSorted <- case gh2i_sort of
+                let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
+                bonusSorted <- case gh2i.sort_ of
                   -- TODO handle warnings/errors better
                   Just ss -> logStdout (readSongListGH2 $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
                     Right newSongList -> return $ let
@@ -331,21 +333,21 @@ addBonusSongGH2 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
               chunk -> return chunk
           void $ editDTB fdtb4 "ui/eng/gen/locale.dtb" $ \chunks -> do
             return $ catMaybes
-              [ (\x -> D.Parens (D.Tree 0 [D.Sym gh2i_symbol                    , D.String x])) <$> gh2i_shop_title
-              , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i_symbol <> "_shop_desc"  , D.String x])) <$> gh2i_shop_description
-              , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i_symbol <> "_author"     , D.String x])) <$> gh2i_author -- only used by GH2DX
-              , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i_symbol, D.String x])) <$> gh2i_loading_phrase
+              [ (\x -> D.Parens (D.Tree 0 [D.Sym gh2i.symbol                    , D.String x])) <$> gh2i.shop_title
+              , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_shop_desc"  , D.String x])) <$> gh2i.shop_description
+              , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "author"     , D.String x])) <$> gh2i.author -- only used by GH2DX
+              , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i.symbol, D.String x])) <$> gh2i.loading_phrase
               ] <> chunks
-          forM_ gh2i_files $ \(arkName, localPath) -> do
-            let arkPath = "songs/" <> gh2i_symbol <> "/" <> arkName
+          forM_ gh2i.files $ \(arkName, localPath) -> do
+            let arkPath = "songs/" <> gh2i.symbol <> "/" <> arkName
             ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
-          forM_ gh2i_album_art $ \img -> do
-            ark_AddFile' ark img ("ui/image/og/gen/us_logo_" <> gh2i_symbol <> "_keep.png_ps2") True
+          forM_ gh2i.album_art $ \img -> do
+            ark_AddFile' ark img ("ui/image/og/gen/us_logo_" <> gh2i.symbol <> "_keep.png_ps2") True
           ark_Save' ark
 
 -- | Adds a song to a GH1 ARK, and registers it as a bonus song with price 0.
 addBonusSongGH1 :: GH2Installation -> IO ()
-addBonusSongGH1 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
+addBonusSongGH1 gh2i = withArk gh2i.gen $ \ark -> do
   withSystemTempFile "songs.dtb"      $ \fdtb1 hdl1 -> do
     withSystemTempFile "store.dtb"    $ \fdtb2 hdl2 -> do
       withSystemTempFile "locale.dtb" $ \fdtb3 hdl3 -> do
@@ -364,12 +366,12 @@ addBonusSongGH1 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
                 -- put new songs after "#include ../charsys/band_chars.dta"
                 inc@(D.Include _) : rest -> ([inc], rest  )
                 _                        -> ([]   , chunks)
-          return $ before <> (D.Parens (D.Tree 0 (D.Sym gh2i_symbol : gh2i_song)) : after)
+          return $ before <> (D.Parens (D.Tree 0 (D.Sym gh2i.symbol : gh2i.song)) : after)
         void $ editDTB fdtb2 "config/gen/store.dtb" $ \chunks -> do
           forM chunks $ \case
             D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> do
-              let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i_symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
-              bonusSorted <- case gh2i_sort of
+              let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
+              bonusSorted <- case gh2i.sort_ of
                 -- TODO handle warnings/errors better
                 Just ss -> logStdout (readSongListGH1 $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
                   Right newSongList -> return $ let
@@ -385,11 +387,11 @@ addBonusSongGH1 GH2Installation{..} = withArk gh2i_GEN $ \ark -> do
             chunk -> return chunk
         void $ editDTB fdtb3 "ghui/eng/gen/locale.dtb" $ \chunks -> do
           return $ catMaybes
-            [ (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i_symbol <> "_shop_desc"  , D.String x])) <$> gh2i_shop_description
-            , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i_symbol, D.String x])) <$> gh2i_loading_phrase
+            [ (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_shop_desc"  , D.String x])) <$> gh2i.shop_description
+            , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i.symbol, D.String x])) <$> gh2i.loading_phrase
             ] <> chunks
-        forM_ gh2i_files $ \(arkName, localPath) -> do
-          let arkPath = "songs/" <> gh2i_symbol <> "/" <> arkName
+        forM_ gh2i.files $ \(arkName, localPath) -> do
+          let arkPath = "songs/" <> gh2i.symbol <> "/" <> arkName
           ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
         ark_Save' ark
 

@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE MultiWayIf                #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedRecordDot       #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
 module Onyx.Build.Rocksmith (rsRules) where
@@ -52,7 +53,7 @@ rsRules buildInfo dir rs = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan (tgt_Plan $ rs_Common rs) songYaml of
+  (planName, plan) <- case getPlan rs.rs_Common.tgt_Plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rs
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
@@ -61,13 +62,13 @@ rsRules buildInfo dir rs = do
         RSArrSlot _ RSBass -> True
         _                  -> False
       presentPlayable = do
-        (arrSlot, fpart) <- rs_Arrangements rs
+        (arrSlot, fpart) <- rs.rs_Arrangements
         -- TODO warn if arrangement does not have pro guitar mode
-        pg <- maybe [] (toList . partProGuitar) $ getPart fpart songYaml
+        pg <- maybe [] (toList . (.partProGuitar)) $ getPart fpart songYaml
         return (fpart, RSPlayable arrSlot pg)
       presentParts = presentPlayable <> do
-        let fpart = rs_Vocal rs
-        pv <- maybe [] (toList . partVocal) $ getPart fpart songYaml
+        let fpart = rs.rs_Vocal
+        pv <- maybe [] (toList . (.partVocal)) $ getPart fpart songYaml
         return (fpart, RSVocal pv)
       rsPadding = dir </> "padding.txt"
       rsAnchors = dir </> "anchors.mid"
@@ -136,8 +137,8 @@ rsRules buildInfo dir rs = do
               vox = buildRSVocals (RBFile.s_tempos mid) trk
           Arr.writePart out $ Arr.addPadding pad $ Arr.PartVocals vox
         RSPlayable slot pg -> do
-          mapM_ (shk . need . toList) $ pgTones pg
-          toneKeys <- forM (pgTones pg) $ mapM $ fmap CST.t14_Key . CST.parseTone
+          mapM_ (shk . need . toList) pg.pgTones
+          toneKeys <- forM pg.pgTones $ mapM $ fmap CST.t14_Key . CST.parseTone
           -- TODO the first beat event needs to be a barline,
           -- otherwise DDC fails to run!
           -- also, notes can't go past the last beat event, or they disappear.
@@ -150,9 +151,9 @@ rsRules buildInfo dir rs = do
                 = Arr.Ebeat t Nothing : numberBars measure rest
               numberBars measure ((t, Bar) : rest)
                 = Arr.Ebeat t (Just measure) : numberBars (measure + 1) rest
-              tuning0 = case (isBass slot, pgTuningRSBass pg) of
+              tuning0 = case (isBass slot, pg.pgTuningRSBass) of
                 (True, Just tun) -> tun
-                _                -> pgTuning pg
+                _                -> pg.pgTuning
               tuning1 = map (+ gtrGlobal tuning0)
                 $ encodeTuningOffsets tuning0 (if isBass slot then TypeBass else TypeGuitar)
               tuning2 = tuning1 <> repeat (last tuning1) -- so 5-string bass has a consistent dummy top string
@@ -182,7 +183,7 @@ rsRules buildInfo dir rs = do
               RSArrSlot _ RSBass        -> "Bass"
             , Arr.arr_part                   = 1 -- TODO what is this?
             , Arr.arr_offset                 = 0
-            , Arr.arr_centOffset             = _tuningCents plan + if octaveDown then -1200 else 0
+            , Arr.arr_centOffset             = plan._tuningCents + if octaveDown then -1200 else 0
             , Arr.arr_songLength             = lengthSeconds
             , Arr.arr_lastConversionDateTime = T.pack $ formatTime defaultTimeLocale
               "%-m-%d-%y %-H:%M"
@@ -198,10 +199,10 @@ rsRules buildInfo dir rs = do
               , Arr.tuning_string5 = fromMaybe 0 $ listToMaybe $ drop 5 tuning3
               }
             , Arr.arr_capo                   = gtrCapo tuning0
-            , Arr.arr_artistName             = getArtist $ _metadata songYaml
-            , Arr.arr_artistNameSort         = getArtist $ _metadata songYaml -- TODO
-            , Arr.arr_albumName              = getAlbum $ _metadata songYaml
-            , Arr.arr_albumYear              = _year $ _metadata songYaml
+            , Arr.arr_artistName             = getArtist songYaml.metadata
+            , Arr.arr_artistNameSort         = getArtist songYaml.metadata -- TODO
+            , Arr.arr_albumName              = getAlbum songYaml.metadata
+            , Arr.arr_albumYear              = songYaml.metadata.year
             , Arr.arr_crowdSpeed             = 1
             , Arr.arr_arrangementProperties  = Arr.ArrangementProperties
               { Arr.ap_represent         = True -- this is always true in arrangement xmls, but false for bonus (+ vocal/lights) in the project xml?
@@ -233,7 +234,7 @@ rsRules buildInfo dir rs = do
               , Arr.ap_twoFingerPicking  = False -- TODO :: Bool
               , Arr.ap_fifthsAndOctaves  = False -- TODO :: Bool
               , Arr.ap_syncopation       = False -- TODO :: Bool
-              , Arr.ap_bassPick          = pgPickedBass pg
+              , Arr.ap_bassPick          = pg.pgPickedBass
               , Arr.ap_sustain           = any (isJust . Arr.n_sustain) allNotes
               -- TODO what does Combo select for these?
               , Arr.ap_pathLead          = case slot of
@@ -250,11 +251,11 @@ rsRules buildInfo dir rs = do
             , Arr.arr_phrases                = rso_phrases rso
             , Arr.arr_phraseIterations       = rso_phraseIterations rso
             , Arr.arr_chordTemplates         = rso_chordTemplates rso
-            , Arr.arr_tonebase               = fmap rsFileToneBase toneKeys
-            , Arr.arr_tonea                  = toneKeys >>= rsFileToneA
-            , Arr.arr_toneb                  = toneKeys >>= rsFileToneB
-            , Arr.arr_tonec                  = toneKeys >>= rsFileToneC
-            , Arr.arr_toned                  = toneKeys >>= rsFileToneD
+            , Arr.arr_tonebase               = (.rsFileToneBase) <$> toneKeys
+            , Arr.arr_tonea                  = toneKeys >>= (.rsFileToneA)
+            , Arr.arr_toneb                  = toneKeys >>= (.rsFileToneB)
+            , Arr.arr_tonec                  = toneKeys >>= (.rsFileToneC)
+            , Arr.arr_toned                  = toneKeys >>= (.rsFileToneD)
             , Arr.arr_tones
               = V.fromList
               $ map (\(t, letter) -> let
@@ -262,10 +263,10 @@ rsRules buildInfo dir rs = do
                   { tone_time = t
                   , tone_id   = Just $ fromEnum letter
                   , tone_name = fromMaybe "" $ toneKeys >>= case letter of
-                    ToneA -> rsFileToneA
-                    ToneB -> rsFileToneB
-                    ToneC -> rsFileToneC
-                    ToneD -> rsFileToneD
+                    ToneA -> (.rsFileToneA)
+                    ToneB -> (.rsFileToneB)
+                    ToneC -> (.rsFileToneC)
+                    ToneD -> (.rsFileToneD)
                   }
                 )
               $ ATB.toPairList
@@ -303,7 +304,7 @@ rsRules buildInfo dir rs = do
           $ Input (planDir </> "everything.wav")
     buildAudio previewExpr out
   rsArt %> shk . copyFile' (rel "gen/cover-full.png")
-  let getRSKey = case rs_SongKey rs of
+  let getRSKey = case rs.rs_SongKey of
         Nothing -> stackIO $ T.pack . ("OnyxCST" <>) . show <$> randomRIO (0, maxBound :: Int32)
         -- TODO maybe autogenerate a CST-like key, e.g. OnyASAMACrimsonRoseandaGinToni
         Just k  -> if T.length k <= 30
@@ -323,7 +324,7 @@ rsRules buildInfo dir rs = do
   rsBuilder %> \out -> do
     let allTonePaths = nubOrd $ do
           (_, RSPlayable _ pg) <- presentParts
-          tones <- toList $ pgTones pg
+          tones <- toList pg.pgTones
           toList tones
     shk $ need $ [ rsArr fpart arrSlot | (fpart, arrSlot) <- presentParts ] ++ allTonePaths
     allTones <- forM allTonePaths $ \f -> do
@@ -347,32 +348,32 @@ rsRules buildInfo dir rs = do
       arrMasterID <- stackIO $ randomRIO (0, maxBound :: Int32) -- this matches the range CST uses (C# Random.Next method)
       return $ case contents of
         Arr.PartVocals _ -> DLC.ArrVocals DLC.Vocals
-          { vocals_XML          = takeFileName $ rsArr fpart arrSlot
-          , vocals_Japanese     = False -- TODO
-          , vocals_CustomFont   = Nothing
-          , vocals_MasterID     = fromIntegral arrMasterID
-          , vocals_PersistentID = UUID.toText persistentID
+          { xml          = takeFileName $ rsArr fpart arrSlot
+          , japanese     = False -- TODO
+          , customFont   = Nothing
+          , masterID     = fromIntegral arrMasterID
+          , persistentID = UUID.toText persistentID
           }
         Arr.PartArrangement arr -> DLC.ArrInstrumental DLC.Instrumental
-          { inst_XML          = takeFileName $ rsArr fpart arrSlot
-          , inst_Name         = case arrSlot of
+          { xml          = takeFileName $ rsArr fpart arrSlot
+          , name         = case arrSlot of
             RSPlayable (RSArrSlot _ RSLead       ) _ -> 0
             RSPlayable (RSArrSlot _ RSRhythm     ) _ -> 2
             RSPlayable (RSArrSlot _ RSComboLead  ) _ -> 1
             RSPlayable (RSArrSlot _ RSComboRhythm) _ -> 1
             RSPlayable (RSArrSlot _ RSBass       ) _ -> 3
             RSVocal    _                             -> 0 -- shouldn't happen
-          , inst_RouteMask    = case arrSlot of
+          , routeMask    = case arrSlot of
             RSPlayable (RSArrSlot _ RSLead       ) _ -> 1
             RSPlayable (RSArrSlot _ RSRhythm     ) _ -> 2
             RSPlayable (RSArrSlot _ RSComboLead  ) _ -> 1
             RSPlayable (RSArrSlot _ RSComboRhythm) _ -> 2
             RSPlayable (RSArrSlot _ RSBass       ) _ -> 4
             RSVocal    _                             -> 0 -- shouldn't happen
-          , inst_Priority     = i
-          , inst_ScrollSpeed  = 1.3
-          , inst_BassPicked   = Arr.ap_bassPick $ Arr.arr_arrangementProperties arr
-          , inst_Tuning       =
+          , priority     = i
+          , scrollSpeed  = 1.3
+          , bassPicked   = Arr.ap_bassPick $ Arr.arr_arrangementProperties arr
+          , tuning       =
             [ Arr.tuning_string0 $ Arr.arr_tuning arr
             , Arr.tuning_string1 $ Arr.arr_tuning arr
             , Arr.tuning_string2 $ Arr.arr_tuning arr
@@ -380,54 +381,54 @@ rsRules buildInfo dir rs = do
             , Arr.tuning_string4 $ Arr.arr_tuning arr
             , Arr.tuning_string5 $ Arr.arr_tuning arr
             ]
-          , inst_TuningPitch  = 440 * (2 ** (1 / 12)) ** (fromIntegral (Arr.arr_centOffset arr) / 100)
+          , tuningPitch  = 440 * (2 ** (1 / 12)) ** (fromIntegral (Arr.arr_centOffset arr) / 100)
           -- Builder errors if tone is "", but not if it's a key with no matching tone
-          , inst_BaseTone     = fromMaybe "no-tone" $ Arr.arr_tonebase arr
-          , inst_Tones        = catMaybes [Arr.arr_tonea arr, Arr.arr_toneb arr, Arr.arr_tonec arr, Arr.arr_toned arr]
-          , inst_MasterID     = fromIntegral arrMasterID
-          , inst_PersistentID = UUID.toText persistentID
+          , baseTone     = fromMaybe "no-tone" $ Arr.arr_tonebase arr
+          , tones        = catMaybes [Arr.arr_tonea arr, Arr.arr_toneb arr, Arr.arr_tonec arr, Arr.arr_toned arr]
+          , masterID     = fromIntegral arrMasterID
+          , persistentID = UUID.toText persistentID
           }
     let dlc = DLC.RS2DLC
-          { rs2_Version            = fromMaybe "1.0" $ rs_Version rs
-          , rs2_Author             = fromMaybe "" $ _author $ _metadata songYaml
-          , rs2_DLCKey             = key
-          , rs2_ArtistName         = DLC.Sortable
-            { rs2_Value = getArtist $ _metadata songYaml
-            , rs2_SortValue = getArtist $ _metadata songYaml -- TODO
+          { version            = fromMaybe "1.0" rs.rs_Version
+          , author             = fromMaybe "" songYaml.metadata.author
+          , dlcKey             = key
+          , artistName         = DLC.Sortable
+            { value     = getArtist songYaml.metadata
+            , sortValue = getArtist songYaml.metadata -- TODO
             }
-          , rs2_JapaneseArtistName = _artistJP $ _metadata songYaml
-          , rs2_JapaneseTitle      = _titleJP $ _metadata songYaml
-          , rs2_Title              = DLC.Sortable
-            { rs2_Value = targetTitle songYaml $ RS rs
-            , rs2_SortValue = targetTitle songYaml $ RS rs -- TODO
+          , japaneseArtistName = songYaml.metadata.artistJP
+          , japaneseTitle      = songYaml.metadata.titleJP
+          , title              = DLC.Sortable
+            { value     = targetTitle songYaml $ RS rs
+            , sortValue = targetTitle songYaml $ RS rs -- TODO
             }
-          , rs2_AlbumName          = DLC.Sortable
-            { rs2_Value = fromMaybe "" $ _album $ _metadata songYaml
-            , rs2_SortValue = fromMaybe "" $ _album $ _metadata songYaml -- TODO
+          , albumName          = DLC.Sortable
+            { value     = fromMaybe "" songYaml.metadata.album
+            , sortValue = fromMaybe "" songYaml.metadata.album -- TODO
             }
-          , rs2_Year               = getYear $ _metadata songYaml
-          , rs2_AlbumArtFile       = "cover.png"
-          , rs2_AudioFile          = DLC.AudioFile
-            { audio_Path   = "audio.wav"
-            , audio_Volume = case volume of
+          , year               = getYear songYaml.metadata
+          , albumArtFile       = "cover.png"
+          , audioFile          = DLC.AudioFile
+            { path   = "audio.wav"
+            , volume = case volume of
               Nothing -> -7 -- default in CST
               Just v  -> realToFrac $ (-16) - v -- -16 is the target ODLC uses
             }
-          , rs2_AudioPreviewFile   = DLC.AudioFile
-            { audio_Path   = "audio_preview.wav"
-            , audio_Volume = case prevVolume of
+          , audioPreviewFile   = DLC.AudioFile
+            { path   = "audio_preview.wav"
+            , volume = case prevVolume of
               Nothing -> -7
               Just v  -> realToFrac $ (-16) - v
             }
-          , rs2_IgnoredIssues      = []
-          , rs2_Arrangements       = arrangements
-          , rs2_Tones              = map snd allTones
+          , ignoredIssues      = []
+          , arrangements       = arrangements
+          , tones              = map snd allTones
           }
     stackIO $ A.encodeFile out $ toJSON dlc
   rsProject %> \out -> do
     let allTonePaths = nubOrd $ do
           (_, RSPlayable _ pg) <- presentParts
-          tones <- toList $ pgTones pg
+          tones <- toList pg.pgTones
           toList tones
     shk $ need $ [ rsArr fpart arrSlot | (fpart, arrSlot) <- presentParts ] ++ allTonePaths
     allTones <- forM allTonePaths $ \f -> do
@@ -647,18 +648,18 @@ rsRules buildInfo dir rs = do
         -- not sure why brackets aren't allowed, CST removes them on compile
         textReplace = T.replace "[" "(" . T.replace "]" ")"
         in CST.SongInfo
-          { CST.si_Album               = textReplace $ getAlbum $ _metadata songYaml
-          , CST.si_AlbumSort           = textReplace $ getAlbum $ _metadata songYaml -- TODO
-          , CST.si_Artist              = textReplace $ getArtist $ _metadata songYaml
-          , CST.si_ArtistSort          = textReplace $ getArtist $ _metadata songYaml -- TODO
+          { CST.si_Album               = textReplace $ getAlbum songYaml.metadata
+          , CST.si_AlbumSort           = textReplace $ getAlbum songYaml.metadata -- TODO
+          , CST.si_Artist              = textReplace $ getArtist songYaml.metadata
+          , CST.si_ArtistSort          = textReplace $ getArtist songYaml.metadata -- TODO
           , CST.si_AverageTempo        = maybe 120 {- shouldn't happen -} ((round :: U.BPS -> Int) . (* 60)) averageTempo
-          , CST.si_JapaneseArtistName  = case _artistJP $ _metadata songYaml of
+          , CST.si_JapaneseArtistName  = case songYaml.metadata.artistJP of
             Nothing -> ""
             Just s  -> textReplace s
           , CST.si_JapaneseSongName    = maybe "" textReplace $ targetTitleJP songYaml $ RS rs
           , CST.si_SongDisplayName     = textReplace $ targetTitle songYaml $ RS rs
           , CST.si_SongDisplayNameSort = textReplace $ targetTitle songYaml $ RS rs
-          , CST.si_SongYear            = fromMaybe 1960 $ _year $ _metadata songYaml -- TODO see if this can be empty
+          , CST.si_SongYear            = fromMaybe 1960 songYaml.metadata.year -- TODO see if this can be empty
           }
           {-
             Info from CST source on sortable text (might not need to do this though, CST appears to edit them itself):
@@ -678,7 +679,7 @@ rsRules buildInfo dir rs = do
         { CST.tk_PackageAuthor  = Nothing -- TODO can this be filled in to override the author entered in the toolkit?
         , CST.tk_PackageComment = Just $ "(Project generated by Onyx v" <> T.pack (showVersion version) <> ")"
         , CST.tk_PackageRating  = Nothing
-        , CST.tk_PackageVersion = Just $ fromMaybe "1.0" $ rs_Version rs
+        , CST.tk_PackageVersion = Just $ fromMaybe "1.0" rs.rs_Version
         , CST.tk_ToolkitVersion = Nothing
         }
       , CST.dlc_Version           = "" -- TODO this should be e.g. "Toolkit Version 2.9.2.1-5a8cb74e"

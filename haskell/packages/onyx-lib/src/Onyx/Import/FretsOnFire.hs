@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Import.FretsOnFire where
 
 import           Codec.Picture                    (PixelRGBA8 (..),
@@ -307,14 +308,14 @@ importFoF src level = do
         auds' <- NE.nonEmpty $ map fst auds
         Just $ case auds' of
           aud :| [] -> PlanAudio
-            { _planExpr = delayAudio $ Input $ Named $ T.pack aud
-            , _planPans = []
-            , _planVols = []
+            { expr = delayAudio $ Input $ Named $ T.pack aud
+            , pans = []
+            , vols = []
             }
           _ -> PlanAudio
-            { _planExpr = delayAudio $ Mix $ fmap (Input . Named . T.pack) auds'
-            , _planPans = []
-            , _planVols = []
+            { expr = delayAudio $ Mix $ fmap (Input . Named . T.pack) auds'
+            , pans = []
+            , vols = []
             }
 
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
@@ -421,42 +422,42 @@ importFoF src level = do
           _         -> 170
 
   return SongYaml
-    { _metadata = def'
-      { _title        = title
-      , _artist       = FoF.artist song
-      , _album        = FoF.album song
-      , _genre        = FoF.genre song
-      , _year         = FoF.year song
-      , _fileAlbumArt = albumArt
-      , _trackNumber  = FoF.track song
-      , _comments     = []
-      , _author       = FoF.charter song
+    { metadata = def'
+      { title        = title
+      , artist       = FoF.artist song
+      , album        = FoF.album song
+      , genre        = FoF.genre song
+      , year         = FoF.year song
+      , fileAlbumArt = albumArt
+      , trackNumber  = FoF.track song
+      , comments     = []
+      , author       = FoF.charter song
       -- TODO this probably needs to be adjusted for delay padding
-      , _previewStart = case FoF.previewStartTime song of
+      , previewStart = case FoF.previewStartTime song of
         Just ms | ms >= 0 -> Just $ PreviewSeconds $ fromIntegral ms / 1000
         _                 -> Nothing
-      , _previewEnd   = Nothing
-      , _difficulty   = toTier $ FoF.diffBand song
-      , _cover        = maybe False ("cover" `T.isInfixOf`) $ FoF.tags song
+      , previewEnd   = Nothing
+      , difficulty   = toTier $ FoF.diffBand song
+      , cover        = maybe False ("cover" `T.isInfixOf`) $ FoF.tags song
       }
-    , _global = def'
+    , global = def'
       { _backgroundVideo = videoInfo
       , _fileBackgroundImage = backgroundImage
       , _fileMidi = midi
       , _fileSongAnim = Nothing
       }
-    , _audio = HM.fromList $ flip map audioFilesWithChannels $ \(pair@(template, _srcPath), chans) ->
+    , audio = HM.fromList $ flip map audioFilesWithChannels $ \(pair@(template, _srcPath), chans) ->
       (T.pack template, AudioFile AudioInfo
-        { _md5 = Nothing
-        , _frames = Nothing
-        , _commands = []
-        , _filePath = Just $ softAudio pair
-        , _rate = Nothing
-        , _channels = chans
+        { md5 = Nothing
+        , frames = Nothing
+        , commands = []
+        , filePath = Just $ softAudio pair
+        , rate = Nothing
+        , channels = chans
         }
       )
-    , _jammit = HM.empty
-    , _plans = HM.singleton "fof" Plan
+    , jammit = HM.empty
+    , plans = HM.singleton "fof" Plan
       { _song         = audioExpr songAudio
       , _countin      = Countin []
       , _planParts    = Parts $ HM.fromList $ concat
@@ -487,10 +488,10 @@ importFoF src level = do
       , _tuningCents = 0
       , _fileTempo = Nothing
       }
-    , _targets = HM.singleton "ps" $ PS def
+    , targets = HM.singleton "ps" $ PS def
       { ps_LoadingPhrase = FoF.loadingPhrase song
       }
-    , _parts = Parts $ HM.fromList
+    , parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard ((isnt nullDrums RBFile.fixedPartDrums || isnt nullDrums RBFile.fixedPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums
           { drumsDifficulty = toTier $ FoF.diffDrums song

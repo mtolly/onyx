@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Build.GuitarHero5 (gh5Rules) where
 
 import           Control.Monad.IO.Class
@@ -60,8 +61,8 @@ hashGH5 :: (Hashable f) => SongYaml f -> TargetGH5 -> Int
 hashGH5 songYaml gh5 = let
   hashed =
     ( gh5
-    , _title $ _metadata songYaml
-    , _artist $ _metadata songYaml
+    , songYaml.metadata.title
+    , songYaml.metadata.artist
     )
   in 1000000000 + (hash hashed `mod` 1000000000)
 
@@ -71,19 +72,19 @@ gh5Rules buildInfo dir gh5 = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan (tgt_Plan $ gh5_Common gh5) songYaml of
+  (planName, plan) <- case getPlan gh5.gh5_Common.tgt_Plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh5
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
 
   let hashed = hashGH5 songYaml gh5
-      songID = fromMaybe hashed $ gh5_SongID gh5
-      cdl = "cdl" <> show (fromMaybe hashed $ gh5_CDL gh5)
+      songID = fromMaybe hashed gh5.gh5_SongID
+      cdl = "cdl" <> show (fromMaybe hashed gh5.gh5_CDL)
       songKey = "dlc" <> show songID
       songKeyQB = qbKeyCRC $ B8.pack songKey
       -- Limiting to one-byte chars because I don't know the right way to hash chars beyond U+00FF
       packageInfo = T.map (\c -> if fromEnum c <= 0xFF then c else '_')
-        $ targetTitle songYaml (GH5 gh5) <> " (" <> getArtist (_metadata songYaml) <> ")"
+        $ targetTitle songYaml (GH5 gh5) <> " (" <> getArtist songYaml.metadata <> ")"
       -- We put the cdl in as well, otherwise 2 titles that share the first 42 chars can conflict
       -- (for example, a long-title song converted to 2 different speeds)
       packageTitle = T.pack cdl <> " " <> packageInfo
@@ -121,13 +122,13 @@ gh5Rules buildInfo dir gh5 = do
         makeQSPair s = let s' = worMetadataString s in (qsKey s', s')
         -- not sure what the \L does; it works without it but we'll just match official songs
         titleQS  = makeQSPair $ "\\L" <> targetTitle songYaml (GH5 gh5)
-        artistQS = makeQSPair $ "\\L" <> getArtist (_metadata songYaml)
-        albumQS  = makeQSPair $ getAlbum  $ _metadata songYaml
+        artistQS = makeQSPair $ "\\L" <> getArtist songYaml.metadata
+        albumQS  = makeQSPair $ getAlbum songYaml.metadata
         qs = makeQS [titleQS, artistQS, albumQS]
         difficulties = difficultyGH5 gh5 songYaml
         genre = worGenre $ interpretGenre
-          (_genre    $ _metadata songYaml)
-          (_subgenre $ _metadata songYaml)
+          songYaml.metadata.genre
+          songYaml.metadata.subgenre
         qb =
           [ QBSectionArray (qbKeyCRC "gh6_dlc_songlist") textQBFilenameKey $
             QBArrayOfQbKey [songKeyQB]
@@ -141,7 +142,8 @@ gh5Rules buildInfo dir gh5 = do
               , QBStructItemQbKeyStringQs (qbKeyCRC "artist") $ fst artistQS
               , QBStructItemQbKeyString (qbKeyCRC "artist_text") (qbKeyCRC "artist_text_by") -- TODO change if cover?
               , QBStructItemInteger (qbKeyCRC "original_artist") 1 -- TODO change if cover?
-              , QBStructItemInteger (qbKeyCRC "year") $ fromIntegral $ getYear $ _metadata songYaml
+              -- TODO can we omit year, or pick a better default than 1960
+              , QBStructItemInteger (qbKeyCRC "year") $ fromIntegral $ getYear songYaml.metadata
               , QBStructItemQbKeyStringQs (qbKeyCRC "album_title") $ fst albumQS
               , QBStructItemQbKey (qbKeyCRC "singer") (qbKeyCRC "female") -- TODO change if male
               , QBStructItemQbKey (qbKeyCRC "genre") $ qbWoRGenre genre
@@ -150,9 +152,9 @@ gh5Rules buildInfo dir gh5 = do
                 (fromIntegral $ quot (RBFile.songLengthMS mid + 500) 1000) -- this is just displayed in song list
               , QBStructItemInteger (qbKeyCRC "flags") 0 -- what is this?
               , QBStructItemInteger (qbKeyCRC "double_kick") $
-                case getPart (gh5_Drums gh5) songYaml >>= partDrums of
+                case getPart gh5.gh5_Drums songYaml >>= (.partDrums) of
                   Nothing -> 0
-                  Just pd -> case drumsKicks pd of
+                  Just pd -> case pd.drumsKicks of
                     Kicks1x   -> 0
                     Kicks2x   -> 1
                     KicksBoth -> 1
@@ -258,7 +260,7 @@ gh5Rules buildInfo dir gh5 = do
   [dir </> "ghwor.note", dir </> "ghwor.qs"] &%> \[outNote, outQS] -> do
     mid <- shakeMIDI $ planDir </> "processed.mid"
     (note, qs) <- makeGHWoRNote songYaml gh5
-      (applyTargetMIDI (gh5_Common gh5) mid)
+      (applyTargetMIDI gh5.gh5_Common mid)
       $ getAudioLength buildInfo planName plan
     stackIO $ BL.writeFile outNote $ runPut $
       putNote songKeyQB $ makeWoRNoteFile note
@@ -275,7 +277,7 @@ gh5Rules buildInfo dir gh5 = do
       $ Take Start (fromMS $ pend - pstart)
       $ Drop Start (fromMS pstart)
       $ Input (planDir </> "everything.wav")
-    runAudio (applySpeedAudio (gh5_Common gh5) src) out
+    runAudio (applySpeedAudio gh5.gh5_Common src) out
 
   {-
   -- No longer used, see bottom where we use ps3 (mp3) audio instead

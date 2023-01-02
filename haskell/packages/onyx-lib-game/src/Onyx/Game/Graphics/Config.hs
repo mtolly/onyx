@@ -1,6 +1,10 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.Game.Graphics.Config where
 
 import           Control.Monad.Codec
@@ -41,242 +45,242 @@ stackXYZ = asObject "(x,y,z) triple" $ do
   return $ V3 x y z
 
 data Config = Config
-  { cfg_view    :: View
-  , cfg_track   :: Track
-  , cfg_objects :: Objects
+  { view    :: View
+  , track   :: Track
+  , objects :: Objects
   } deriving (Show)
 
 instance StackJSON Config where
   stackJSON = asObject "Config" $ do
-    cfg_view    <- cfg_view    =. req "view"    stackJSON
-    cfg_track   <- cfg_track   =. req "track"   stackJSON
-    cfg_objects <- cfg_objects =. req "objects" stackJSON
+    view    <- (.view   ) =. req "view"    stackJSON
+    track   <- (.track  ) =. req "track"   stackJSON
+    objects <- (.objects) =. req "objects" stackJSON
     return Config{..}
 
 data View = View
-  { view_background         :: Color
-  , view_track_fade         :: TrackFade
-  , view_height_width_ratio :: Float
-  , view_camera             :: Camera
+  { background         :: Color
+  , track_fade         :: TrackFade
+  , height_width_ratio :: Float
+  , camera             :: Camera
   } deriving (Show)
 
 instance StackJSON View where
   stackJSON = asObject "View" $ do
-    view_background         <- view_background         =. req "background"         stackColor
-    view_track_fade         <- view_track_fade         =. req "track-fade"         stackJSON
-    view_height_width_ratio <- view_height_width_ratio =. req "height-width-ratio" stackJSON
-    view_camera             <- view_camera             =. req "camera"             stackJSON
+    background         <- (.background        ) =. req "background"         stackColor
+    track_fade         <- (.track_fade        ) =. req "track-fade"         stackJSON
+    height_width_ratio <- (.height_width_ratio) =. req "height-width-ratio" stackJSON
+    camera             <- (.camera            ) =. req "camera"             stackJSON
     return View{..}
 
 data TrackFade = TrackFade
-  { tf_bottom :: Float
-  , tf_top    :: Float
+  { bottom :: Float
+  , top    :: Float
   } deriving (Show)
 
 instance StackJSON TrackFade where
   stackJSON = asObject "TrackFade" $ do
-    tf_bottom <- tf_bottom =. req "bottom" stackJSON
-    tf_top    <- tf_top    =. req "top"    stackJSON
+    bottom <- (.bottom) =. req "bottom" stackJSON
+    top    <- (.top   ) =. req "top"    stackJSON
     return TrackFade{..}
 
 data Camera = Camera
-  { cam_position :: V3 Float
-  , cam_rotate   :: Float
-  , cam_fov      :: Float
-  , cam_near     :: Float
-  , cam_far      :: Float
+  { position :: V3 Float
+  , rotate   :: Float
+  , fov      :: Float
+  , near     :: Float
+  , far      :: Float
   } deriving (Show)
 
 instance StackJSON Camera where
   stackJSON = asObject "Camera" $ do
-    cam_position <- cam_position =. req "position" stackXYZ
-    cam_rotate   <- cam_rotate   =. req "rotate"   stackJSON
-    cam_fov      <- cam_fov      =. req "fov"      stackJSON
-    cam_near     <- cam_near     =. req "near"     stackJSON
-    cam_far      <- cam_far      =. req "far"      stackJSON
+    position <- (.position) =. req "position" stackXYZ
+    rotate   <- (.rotate  ) =. req "rotate"   stackJSON
+    fov      <- (.fov     ) =. req "fov"      stackJSON
+    near     <- (.near    ) =. req "near"     stackJSON
+    far      <- (.far     ) =. req "far"      stackJSON
     return Camera{..}
 
 data Track = Track
-  { trk_y         :: Float
-  , trk_note_area :: NoteArea
-  , trk_time      :: TrackTime
-  , trk_color     :: TrackColor
-  , trk_railings  :: Railings
-  , trk_beats     :: Beats
-  , trk_targets   :: Targets
-  , trk_light     :: Light
+  { y         :: Float
+  , note_area :: NoteArea
+  , time      :: TrackTime
+  , color     :: TrackColor
+  , railings  :: Railings
+  , beats     :: Beats
+  , targets   :: Targets
+  , light     :: Light
   } deriving (Show)
 
 instance StackJSON Track where
   stackJSON = asObject "Track" $ do
-    trk_y         <- trk_y         =. req "y"         stackJSON
-    trk_note_area <- trk_note_area =. req "note-area" stackJSON
-    trk_time      <- trk_time      =. req "time"      stackJSON
-    trk_color     <- trk_color     =. req "color"     stackJSON
-    trk_railings  <- trk_railings  =. req "railings"  stackJSON
-    trk_beats     <- trk_beats     =. req "beats"     stackJSON
-    trk_targets   <- trk_targets   =. req "targets"   stackJSON
-    trk_light     <- trk_light     =. req "light"     stackJSON
+    y         <- (.y        ) =. req "y"         stackJSON
+    note_area <- (.note_area) =. req "note-area" stackJSON
+    time      <- (.time     ) =. req "time"      stackJSON
+    color     <- (.color    ) =. req "color"     stackJSON
+    railings  <- (.railings ) =. req "railings"  stackJSON
+    beats     <- (.beats    ) =. req "beats"     stackJSON
+    targets   <- (.targets  ) =. req "targets"   stackJSON
+    light     <- (.light    ) =. req "light"     stackJSON
     return Track{..}
 
 data NoteArea = NoteArea
-  { na_x_left  :: Float
-  , na_x_right :: Float
+  { x_left  :: Float
+  , x_right :: Float
   } deriving (Show)
 
 instance StackJSON NoteArea where
   stackJSON = asObject "NoteArea" $ do
-    na_x_left  <- na_x_left  =. req "x-left"  stackJSON
-    na_x_right <- na_x_right =. req "x-right" stackJSON
+    x_left  <- (.x_left ) =. req "x-left"  stackJSON
+    x_right <- (.x_right) =. req "x-right" stackJSON
     return NoteArea{..}
 
 data TrackTime = TrackTime
-  { tt_z_past      :: Float
-  , tt_z_now       :: Float
-  , tt_z_future    :: Float
-  , tt_secs_future :: Float
+  { z_past      :: Float
+  , z_now       :: Float
+  , z_future    :: Float
+  , secs_future :: Float
   } deriving (Show)
 
 instance StackJSON TrackTime where
   stackJSON = asObject "TrackTime" $ do
-    tt_z_past      <- tt_z_past      =. req "z-past"      stackJSON
-    tt_z_now       <- tt_z_now       =. req "z-now"       stackJSON
-    tt_z_future    <- tt_z_future    =. req "z-future"    stackJSON
-    tt_secs_future <- tt_secs_future =. req "secs-future" stackJSON
+    z_past      <- (.z_past     ) =. req "z-past"      stackJSON
+    z_now       <- (.z_now      ) =. req "z-now"       stackJSON
+    z_future    <- (.z_future   ) =. req "z-future"    stackJSON
+    secs_future <- (.secs_future) =. req "secs-future" stackJSON
     return TrackTime{..}
 
 data TrackColor = TrackColor
-  { tc_normal :: Color
-  , tc_solo   :: Color
+  { normal :: Color
+  , solo   :: Color
   } deriving (Show)
 
 instance StackJSON TrackColor where
   stackJSON = asObject "TrackColor" $ do
-    tc_normal <- tc_normal =. req "normal" stackColor
-    tc_solo   <- tc_solo   =. req "solo"   stackColor
+    normal <- (.normal) =. req "normal" stackColor
+    solo   <- (.solo  ) =. req "solo"   stackColor
     return TrackColor{..}
 
 data Railings = Railings
-  { rail_color    :: Color
-  , rail_x_width  :: Float
-  , rail_y_top    :: Float
-  , rail_y_bottom :: Float
+  { color    :: Color
+  , x_width  :: Float
+  , y_top    :: Float
+  , y_bottom :: Float
   } deriving (Show)
 
 instance StackJSON Railings where
   stackJSON = asObject "Railings" $ do
-    rail_color    <- rail_color    =. req "color"    stackColor
-    rail_x_width  <- rail_x_width  =. req "x-width"  stackJSON
-    rail_y_top    <- rail_y_top    =. req "y-top"    stackJSON
-    rail_y_bottom <- rail_y_bottom =. req "y-bottom" stackJSON
+    color    <- (.color   ) =. req "color"    stackColor
+    x_width  <- (.x_width ) =. req "x-width"  stackJSON
+    y_top    <- (.y_top   ) =. req "y-top"    stackJSON
+    y_bottom <- (.y_bottom) =. req "y-bottom" stackJSON
     return Railings{..}
 
 data Beats = Beats
-  { beats_z_past   :: Float
-  , beats_z_future :: Float
+  { z_past   :: Float
+  , z_future :: Float
   } deriving (Show)
 
 instance StackJSON Beats where
   stackJSON = asObject "Beats" $ do
-    beats_z_past   <- beats_z_past   =. req "z-past"   stackJSON
-    beats_z_future <- beats_z_future =. req "z-future" stackJSON
+    z_past   <- (.z_past  ) =. req "z-past"   stackJSON
+    z_future <- (.z_future) =. req "z-future" stackJSON
     return Beats{..}
 
 data Targets = Targets
-  { tgt_z_past     :: Float
-  , tgt_z_future   :: Float
-  , tgt_secs_light :: Float
+  { z_past     :: Float
+  , z_future   :: Float
+  , secs_light :: Float
   } deriving (Show)
 
 instance StackJSON Targets where
   stackJSON = asObject "Targets" $ do
-    tgt_z_past     <- tgt_z_past     =. req "z-past"     stackJSON
-    tgt_z_future   <- tgt_z_future   =. req "z-future"   stackJSON
-    tgt_secs_light <- tgt_secs_light =. req "secs-light" stackJSON
+    z_past     <- (.z_past    ) =. req "z-past"     stackJSON
+    z_future   <- (.z_future  ) =. req "z-future"   stackJSON
+    secs_light <- (.secs_light) =. req "secs-light" stackJSON
     return Targets{..}
 
 data Light = Light
-  { light_position :: V3 Float
-  , light_ambient  :: Color
-  , light_diffuse  :: Color
-  , light_specular :: Color
+  { position :: V3 Float
+  , ambient  :: Color
+  , diffuse  :: Color
+  , specular :: Color
   } deriving (Show)
 
 instance StackJSON Light where
   stackJSON = asObject "Light" $ do
-    light_position <- light_position =. req "position" stackXYZ
-    light_ambient  <- light_ambient  =. req "ambient"  stackColor
-    light_diffuse  <- light_diffuse  =. req "diffuse"  stackColor
-    light_specular <- light_specular =. req "specular" stackColor
+    position <- (.position) =. req "position" stackXYZ
+    ambient  <- (.ambient ) =. req "ambient"  stackColor
+    diffuse  <- (.diffuse ) =. req "diffuse"  stackColor
+    specular <- (.specular) =. req "specular" stackColor
     return Light{..}
 
 data Objects = Objects
-  { obj_gems     :: Gems
-  , obj_sustains :: Sustains
+  { gems     :: Gems
+  , sustains :: Sustains
   } deriving (Show)
 
 instance StackJSON Objects where
   stackJSON = asObject "Objects" $ do
-    obj_gems     <- obj_gems     =. req "gems"     stackJSON
-    obj_sustains <- obj_sustains =. req "sustains" stackJSON
+    gems     <- (.gems    ) =. req "gems"     stackJSON
+    sustains <- (.sustains) =. req "sustains" stackJSON
     return Objects{..}
 
 data Gems = Gems
-  { gems_color_hit :: Color
-  , gems_secs_fade :: Float
-  , gems_light     :: Light
+  { color_hit :: Color
+  , secs_fade :: Float
+  , light     :: Light
   } deriving (Show)
 
 instance StackJSON Gems where
   stackJSON = asObject "Gems" $ do
-    gems_color_hit <- gems_color_hit =. req "color-hit" stackColor
-    gems_secs_fade <- gems_secs_fade =. req "secs-fade" stackJSON
-    gems_light     <- gems_light     =. req "light"     stackJSON
+    color_hit <- (.color_hit) =. req "color-hit" stackColor
+    secs_fade <- (.secs_fade) =. req "secs-fade" stackJSON
+    light     <- (.light    ) =. req "light"     stackJSON
     return Gems{..}
 
 data Sustains = Sustains
-  { sust_colors :: SustainColors
-  , sust_width  :: SustainWidth
-  , sust_height :: Float
+  { colors :: SustainColors
+  , width  :: SustainWidth
+  , height :: Float
   } deriving (Show)
 
 instance StackJSON Sustains where
   stackJSON = asObject "Sustains" $ do
-    sust_colors <- sust_colors =. req "colors" stackJSON
-    sust_width  <- sust_width  =. req "width"  stackJSON
-    sust_height <- sust_height =. req "height" stackJSON
+    colors <- (.colors) =. req "colors" stackJSON
+    width  <- (.width ) =. req "width"  stackJSON
+    height <- (.height) =. req "height" stackJSON
     return Sustains{..}
 
 data SustainColors = SustainColors
-  { sc_open   :: Color
-  , sc_green  :: Color
-  , sc_red    :: Color
-  , sc_yellow :: Color
-  , sc_blue   :: Color
-  , sc_orange :: Color
-  , sc_purple :: Color
-  , sc_energy :: Color
+  { open   :: Color
+  , green  :: Color
+  , red    :: Color
+  , yellow :: Color
+  , blue   :: Color
+  , orange :: Color
+  , purple :: Color
+  , energy :: Color
   } deriving (Show)
 
 instance StackJSON SustainColors where
   stackJSON = asObject "SustainColors" $ do
-    sc_open   <- sc_open   =. req "open"   stackColor
-    sc_green  <- sc_green  =. req "green"  stackColor
-    sc_red    <- sc_red    =. req "red"    stackColor
-    sc_yellow <- sc_yellow =. req "yellow" stackColor
-    sc_blue   <- sc_blue   =. req "blue"   stackColor
-    sc_orange <- sc_orange =. req "orange" stackColor
-    sc_purple <- sc_purple =. req "purple" stackColor
-    sc_energy <- sc_energy =. req "energy" stackColor
+    open   <- (.open  ) =. req "open"   stackColor
+    green  <- (.green ) =. req "green"  stackColor
+    red    <- (.red   ) =. req "red"    stackColor
+    yellow <- (.yellow) =. req "yellow" stackColor
+    blue   <- (.blue  ) =. req "blue"   stackColor
+    orange <- (.orange) =. req "orange" stackColor
+    purple <- (.purple) =. req "purple" stackColor
+    energy <- (.energy) =. req "energy" stackColor
     return SustainColors{..}
 
 data SustainWidth = SustainWidth
-  { sw_open :: Float
-  , sw_fret :: Float
+  { open :: Float
+  , fret :: Float
   } deriving (Show)
 
 instance StackJSON SustainWidth where
   stackJSON = asObject "SustainWidth" $ do
-    sw_open <- sw_open =. req "open" stackJSON
-    sw_fret <- sw_fret =. req "fret" stackJSON
+    open <- (.open) =. req "open" stackJSON
+    fret <- (.fret) =. req "fret" stackJSON
     return SustainWidth{..}

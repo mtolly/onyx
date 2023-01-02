@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Audio.Search
 ( AudioLibrary
 , newAudioLibrary
@@ -127,21 +128,21 @@ popDir ast = case audioQueueDirs ast of
     in Just (d, ast')
 
 verifyFile :: (MonadIO m) => AudioInfo f -> Path Abs File -> StackTraceT m ()
-verifyFile AudioInfo{..} f = do
+verifyFile info f = do
   let verify str expect compute = do
         actual <- compute $ toFilePath f
         unless (actual == expect) $ fatal $
           str ++ " verification failed. Should be " ++ show expect ++ " but found " ++ show actual
-  case _md5 of
+  case info.md5 of
     Nothing  -> return ()
     Just md5 -> verify "Audio MD5" (Just $ T.unpack md5) audioMD5
-  case _frames of
+  case info.frames of
     Nothing   -> return ()
     Just frms -> verify "Audio length" (Just frms) audioLength
-  case _rate of
+  case info.rate of
     Nothing   -> return ()
     Just rate -> verify "Audio rate" (Just rate) audioRate
-  verify "Audio channels" (Just _channels) audioChannels
+  verify "Audio channels" (Just info.channels) audioChannels
 
 stackIO' :: (MonadIO m) => IO a -> StackTraceT m (Maybe a)
 stackIO' io = let
@@ -220,32 +221,32 @@ searchJammit = searchCommon SearchJammit audioJammit
 
 searchInfo :: (SendMessage m, MonadIO m) =>
   FilePath -> AudioLibrary -> (T.Text -> StackTraceT m FilePath) -> AudioInfo FilePath -> StackTraceT m (Audio Duration FilePath)
-searchInfo dir alib@(AudioLibrary libVar) buildDependency ainfo@AudioInfo{..} = let
+searchInfo dir alib@(AudioLibrary libVar) buildDependency info = let
   finishFile p = do
-    verifyFile ainfo p
-    return $ case _rate of
+    verifyFile info p
+    return $ case info.rate of
       Nothing -> Resample $ Input $ toFilePath p
       Just _  -> Input $ toFilePath p
-  in case _filePath of
-    Nothing -> case _md5 of
+  in case info.filePath of
+    Nothing -> case info.md5 of
       Nothing  -> fatal "No file-path or md5 specified for audio file"
       Just md5 -> searchFile alib md5 >>= finishFile
     Just f -> do
       p <- getCurrentDir >>= \cwd -> resolveFile cwd f
       doesFileExist p >>= \case
         True -> return ()
-        False -> case _commands of
+        False -> case info.commands of
           [] -> fatal $ "File does not exist: " ++ toFilePath p
           _ -> do
             let allVariables = nubOrd $ do
-                  c <- _commands
+                  c <- info.commands
                   map (T.takeWhile (/= ')')) $ drop 1 $ T.splitOn "AUDIO(" c
             variableMapping <- forM allVariables $ \var -> do
               built <- buildDependency var
               -- TODO figure out better approach to quoting?
               return ("AUDIO(" <> var <> ")", T.pack $ "\"" <> built <> "\"")
             let replaceVar (from, to) c = T.intercalate to $ T.splitOn from c
-                newCommands = flip map _commands $ \c -> foldr replaceVar c variableMapping
+                newCommands = flip map info.commands $ \c -> foldr replaceVar c variableMapping
             -- take the mvar as a hack so we never run multiple commands
             -- (or copies of the same command) at the same time
             lib <- stackIO $ takeMVar libVar

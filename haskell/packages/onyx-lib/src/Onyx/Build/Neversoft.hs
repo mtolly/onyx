@@ -1,7 +1,8 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Build.Neversoft where
 
 import           Control.Monad                    (forM, forM_, guard)
@@ -247,7 +248,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
     let start = beatsToMS t
         end   = beatsToMS $ t + len
     return $ Single start (fromIntegral $ end - start)
-  makeGB fpart diff = case getPart fpart songYaml >>= partGRYBO of -- TODO support drums->guitar
+  makeGB fpart diff = case getPart fpart songYaml >>= (.partGRYBO) of -- TODO support drums->guitar
     Just grybo -> let
       opart = fromMaybe mempty $ Map.lookup fpart $ RBFile.onyxParts ofile
       (trk, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitarExt opart
@@ -255,7 +256,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
       notes
         = worGuitarEdits
         . applyForces (getForces5 fd)
-        . strumHOPOTap algo (fromIntegral (gryboHopoThreshold grybo) / 480)
+        . strumHOPOTap algo (fromIntegral grybo.gryboHopoThreshold / 480)
         . fixSloppyNotes (10 / 480)
         . computeFiveFretNotes
         $ fd
@@ -294,7 +295,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
         , gb_starpower = makeStarPower $ F.fiveOverdrive trk
         }
     Nothing -> GuitarBass [] [] []
-  makeDrums fpart diff timing = case getPart fpart songYaml >>= partDrums of
+  makeDrums fpart diff timing = case getPart fpart songYaml >>= (.partDrums) of
     Just pd -> let
       opart = fromMaybe mempty $ Map.lookup fpart $ RBFile.onyxParts ofile
       trk = buildDrumTarget
@@ -307,10 +308,10 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
       add2x xs = case diff of
         Expert -> RTB.merge (fmap Just xs) $ Nothing <$ D.drumKick2x trk
         _      -> fmap Just xs
-      fiveLane = case drumsMode pd of
+      fiveLane = case pd.drumsMode of
         Drums4 -> add2x $ D.drumGems dd
         Drums5 -> add2x $ D.drumGems dd
-        _ | gh5_ProTo4 target -> add2x $ D.drumGems dd
+        _ | target.gh5_ProTo4 -> add2x $ D.drumGems dd
         _ -> let
           -- TODO this logic should be moved to buildDrumTarget
           pro = add2x $ D.computePro (Just diff) trk
@@ -375,9 +376,9 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
     Nothing -> Drums (case diff of Expert -> Right []; _ -> Left []) [] []
   in do
     timing <- basicTiming song getAudioLength
-    (voxNotes, voxLyrics, voxSP, voxPhrases, voxMarkers) <- case getPart (gh5_Vocal target) songYaml >>= partVocal of
+    (voxNotes, voxLyrics, voxSP, voxPhrases, voxMarkers) <- case getPart target.gh5_Vocal songYaml >>= (.partVocal) of
       Just _pv -> do
-        let opart = fromMaybe mempty $ Map.lookup (gh5_Vocal target) $ RBFile.onyxParts ofile
+        let opart = fromMaybe mempty $ Map.lookup target.gh5_Vocal $ RBFile.onyxParts ofile
             trk = if nullVox $ RBFile.onyxPartVocals opart
               then harm1ToPartVocals $ RBFile.onyxHarm1 opart
               else RBFile.onyxPartVocals opart
@@ -458,20 +459,20 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
           $ RTB.toAbsoluteEventList 0 sections'
         sectionBank = HM.fromList $ RTB.getBodies sections'
     return (GHNoteFile
-      { gh_guitareasy            = makeGB (gh5_Guitar target) Easy
-      , gh_guitarmedium          = makeGB (gh5_Guitar target) Medium
-      , gh_guitarhard            = makeGB (gh5_Guitar target) Hard
-      , gh_guitarexpert          = makeGB (gh5_Guitar target) Expert
+      { gh_guitareasy            = makeGB target.gh5_Guitar Easy
+      , gh_guitarmedium          = makeGB target.gh5_Guitar Medium
+      , gh_guitarhard            = makeGB target.gh5_Guitar Hard
+      , gh_guitarexpert          = makeGB target.gh5_Guitar Expert
 
-      , gh_basseasy              = makeGB (gh5_Bass target) Easy
-      , gh_bassmedium            = makeGB (gh5_Bass target) Medium
-      , gh_basshard              = makeGB (gh5_Bass target) Hard
-      , gh_bassexpert            = makeGB (gh5_Bass target) Expert
+      , gh_basseasy              = makeGB target.gh5_Bass Easy
+      , gh_bassmedium            = makeGB target.gh5_Bass Medium
+      , gh_basshard              = makeGB target.gh5_Bass Hard
+      , gh_bassexpert            = makeGB target.gh5_Bass Expert
 
-      , gh_drumseasy             = makeDrums (gh5_Drums target) Easy   timing
-      , gh_drumsmedium           = makeDrums (gh5_Drums target) Medium timing
-      , gh_drumshard             = makeDrums (gh5_Drums target) Hard   timing
-      , gh_drumsexpert           = makeDrums (gh5_Drums target) Expert timing
+      , gh_drumseasy             = makeDrums target.gh5_Drums Easy   timing
+      , gh_drumsmedium           = makeDrums target.gh5_Drums Medium timing
+      , gh_drumshard             = makeDrums target.gh5_Drums Hard   timing
+      , gh_drumsexpert           = makeDrums target.gh5_Drums Expert timing
 
       , gh_vocals                = voxNotes
       , gh_vocallyrics           = voxLyrics

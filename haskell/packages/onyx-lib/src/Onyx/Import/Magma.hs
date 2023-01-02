@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE OverloadedStrings     #-}
 module Onyx.Import.Magma where
 
 import           Control.Monad                     (guard, when)
@@ -77,18 +78,18 @@ importMagma fin level = do
             let dst = s -<.> map toLower (takeExtension src)
             return $ Just
               ( PlanAudio
-                { _planExpr = Input $ Named $ T.pack s
-                , _planPans = map realToFrac $ RBProj.pan aud
-                , _planVols = map realToFrac $ RBProj.vol aud
+                { expr = Input $ Named $ T.pack s
+                , pans = map realToFrac $ RBProj.pan aud
+                , vols = map realToFrac $ RBProj.vol aud
                 }
               , ( T.pack s
                 , AudioFile AudioInfo
-                  { _md5 = Nothing
-                  , _frames = Nothing
-                  , _filePath = Just $ SoftFile dst $ SoftReadable $ fileReadable src
-                  , _commands = []
-                  , _rate = Nothing
-                  , _channels = fromIntegral $ RBProj.channels aud
+                  { md5 = Nothing
+                  , frames = Nothing
+                  , filePath = Just $ SoftFile dst $ SoftReadable $ fileReadable src
+                  , commands = []
+                  , rate = Nothing
+                  , channels = fromIntegral $ RBProj.channels aud
                   }
                 )
               )
@@ -114,18 +115,18 @@ importMagma fin level = do
           return 2
       return $ Just
         ( PlanAudio
-          { _planExpr = Input $ Named $ T.pack s
-          , _planPans = []
-          , _planVols = toList $ c3 >>= C3.crowdVol
+          { expr = Input $ Named $ T.pack s
+          , pans = []
+          , vols = toList $ c3 >>= C3.crowdVol
           }
         , ( T.pack s
           , AudioFile AudioInfo
-            { _md5 = Nothing
-            , _frames = Nothing
-            , _filePath = Just $ SoftFile dst $ SoftReadable $ fileReadable src
-            , _commands = []
-            , _rate = Nothing
-            , _channels = chans
+            { md5 = Nothing
+            , frames = Nothing
+            , filePath = Just $ SoftFile dst $ SoftReadable $ fileReadable src
+            , commands = []
+            , rate = Nothing
+            , channels = chans
             }
           )
         )
@@ -158,31 +159,31 @@ importMagma fin level = do
   tuneBass <- inside "Reading pro bass tuning" $ readTuning C3.proBassTuning4 "real_bass_tuning"
 
   return SongYaml
-    { _metadata = Metadata
-      { _title        = Just title
-      , _titleJP      = Nothing
-      , _artist       = Just $ maybe (RBProj.artistName $ RBProj.metadata rbproj) C3.artist c3
-      , _artistJP     = Nothing
-      , _album        = Just $ maybe (RBProj.albumName $ RBProj.metadata rbproj) C3.album c3
-      , _genre        = Just $ RBProj.genre $ RBProj.metadata rbproj
-      , _subgenre     = Just $ RBProj.subGenre $ RBProj.metadata rbproj
-      , _year         = Just $ fromIntegral $ RBProj.yearReleased $ RBProj.metadata rbproj
-      , _fileAlbumArt = Just art
-      , _trackNumber  = Just $ fromIntegral $ RBProj.trackNumber $ RBProj.metadata rbproj
-      , _comments     = []
-      , _difficulty   = Tier $ RBProj.rankBand $ RBProj.gamedata rbproj
-      , _key          = fmap (`SongKey` Major) $ c3 >>= C3.tonicNote
-      , _author       = Just $ RBProj.author $ RBProj.metadata rbproj
-      , _rating       = case fmap C3.songRating c3 of
+    { metadata = Metadata
+      { title        = Just title
+      , titleJP      = Nothing
+      , artist       = Just $ maybe (RBProj.artistName $ RBProj.metadata rbproj) C3.artist c3
+      , artistJP     = Nothing
+      , album        = Just $ maybe (RBProj.albumName $ RBProj.metadata rbproj) C3.album c3
+      , genre        = Just $ RBProj.genre $ RBProj.metadata rbproj
+      , subgenre     = Just $ RBProj.subGenre $ RBProj.metadata rbproj
+      , year         = Just $ fromIntegral $ RBProj.yearReleased $ RBProj.metadata rbproj
+      , fileAlbumArt = Just art
+      , trackNumber  = Just $ fromIntegral $ RBProj.trackNumber $ RBProj.metadata rbproj
+      , comments     = []
+      , difficulty   = Tier $ RBProj.rankBand $ RBProj.gamedata rbproj
+      , key          = fmap (`SongKey` Major) $ c3 >>= C3.tonicNote
+      , author       = Just $ RBProj.author $ RBProj.metadata rbproj
+      , rating       = case fmap C3.songRating c3 of
         Nothing -> Unrated
         Just 1  -> FamilyFriendly
         Just 2  -> SupervisionRecommended
         Just 3  -> Mature
         Just 4  -> Unrated
         Just _  -> Unrated
-      , _previewStart = Just $ PreviewSeconds $ fromIntegral (RBProj.previewStartMs $ RBProj.gamedata rbproj) / 1000
-      , _previewEnd   = Nothing
-      , _languages    = let
+      , previewStart = Just $ PreviewSeconds $ fromIntegral (RBProj.previewStartMs $ RBProj.gamedata rbproj) / 1000
+      , previewEnd   = Nothing
+      , languages    = let
         lang s f = [s | fromMaybe False $ f $ RBProj.languages rbproj]
         in concat
           [ lang "English"  RBProj.english
@@ -192,14 +193,14 @@ importMagma fin level = do
           , lang "German"   RBProj.german
           , lang "Japanese" RBProj.japanese
           ]
-      , _convert      = maybe False C3.convert c3
-      , _rhythmKeys   = maybe False C3.rhythmKeys c3
-      , _rhythmBass   = maybe False C3.rhythmBass c3
-      , _catEMH       = False -- not stored in .c3 file
-      , _expertOnly   = maybe False C3.expertOnly c3
-      , _cover        = maybe False (not . C3.isMaster) c3
+      , convert      = maybe False C3.convert c3
+      , rhythmKeys   = maybe False C3.rhythmKeys c3
+      , rhythmBass   = maybe False C3.rhythmBass c3
+      , catEMH       = False -- not stored in .c3 file
+      , expertOnly   = maybe False C3.expertOnly c3
+      , cover        = maybe False (not . C3.isMaster) c3
       }
-    , _global = Global
+    , global = Global
       { _fileMidi = midi
       , _fileSongAnim = Nothing
       , _autogenTheme = Just $ case RBProj.autogenTheme $ RBProj.midi rbproj of
@@ -209,9 +210,9 @@ importMagma fin level = do
       , _backgroundVideo = Nothing
       , _fileBackgroundImage = Nothing
       }
-    , _audio = HM.fromList allAudio
-    , _jammit = HM.empty
-    , _plans = HM.singleton "rbproj" Plan
+    , audio = HM.fromList allAudio
+    , jammit = HM.empty
+    , plans = HM.singleton "rbproj" Plan
       { _song = fmap fst song
       , _countin = Countin []
       , _planParts = Parts $ HM.fromList $ concat
@@ -232,8 +233,8 @@ importMagma fin level = do
       , _tuningCents = maybe 0 C3.tuningCents c3 -- TODO use this, or Magma.tuningOffsetCents?
       , _fileTempo = Nothing
       }
-    , _targets = HM.singleton targetName $ RB3 target
-    , _parts = Parts $ HM.fromList
+    , targets = HM.singleton targetName $ RB3 target
+    , parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard (isJust drums) >> Just PartDrums
           { drumsDifficulty = Tier $ RBProj.rankDrum $ RBProj.gamedata rbproj

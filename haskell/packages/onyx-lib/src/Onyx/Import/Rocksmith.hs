@@ -1,7 +1,8 @@
-{-# LANGUAGE ImplicitParams    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ImplicitParams        #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 module Onyx.Import.Rocksmith where
 
 import           Codec.Picture.Types              (dropTransparency, pixelMap)
@@ -505,39 +506,39 @@ importRSSong folder song level = do
         $ mapMaybe (T.stripPrefix "Package Author:") $ T.lines txt
 
   return SongYaml
-    { _metadata = def'
-      { _title        = Just title
-      , _artist       = Just artist
-      , _album        = Just album
-      , _year         = Just year
-      , _fileAlbumArt = art
-      , _author       = author
+    { metadata = def'
+      { title        = Just title
+      , artist       = Just artist
+      , album        = Just album
+      , year         = Just year
+      , fileAlbumArt = art
+      , author       = author
       }
-    , _jammit = HM.empty
-    , _targets = HM.singleton "rs" $ RS def
+    , jammit = HM.empty
+    , targets = HM.singleton "rs" $ RS def
       { rs_Arrangements = do
         ((slot, partName), _, _, _, _, _) <- namedParts
         return (slot, partName)
       }
-    , _global = def'
+    , global = def'
       { _fileMidi            = SoftFile "notes.mid" $ SoftChart midi
       , _fileSongAnim        = Nothing
       , _backgroundVideo     = Nothing
       , _fileBackgroundImage = Nothing
       }
-    , _audio = HM.singleton "song" $ AudioFile AudioInfo
-      { _md5      = Nothing
-      , _frames   = Nothing
-      , _filePath = Just $ SoftFile "song.ogg" $ SoftReadable oggFile
-      , _commands = []
-      , _rate     = Nothing
-      , _channels = 2 -- TODO get real count
+    , audio = HM.singleton "song" $ AudioFile AudioInfo
+      { md5      = Nothing
+      , frames   = Nothing
+      , filePath = Just $ SoftFile "song.ogg" $ SoftReadable oggFile
+      , commands = []
+      , rate     = Nothing
+      , channels = 2 -- TODO get real count
       }
-    , _plans = HM.singleton "rs" Plan
+    , plans = HM.singleton "rs" Plan
       { _song         = Just PlanAudio
-        { _planExpr = Input $ Named "song"
-        , _planPans = []
-        , _planVols = []
+        { expr = Input $ Named "song"
+        , pans = []
+        , vols = []
         }
       , _countin      = Countin []
       , _planParts    = Parts HM.empty
@@ -546,7 +547,7 @@ importRSSong folder song level = do
       , _tuningCents  = 0 -- TODO get from manifest .json (CentOffset)
       , _fileTempo    = Nothing
       }
-    , _parts = Parts $ HM.fromList $ do
+    , parts = Parts $ HM.fromList $ do
       ((_, partName), sng, _, _, isBass, tones) <- namedParts
       let part = def
             { partProGuitar = Just PartProGuitar

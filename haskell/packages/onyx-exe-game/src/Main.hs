@@ -54,7 +54,7 @@ main = getArgs >>= \case
       (drums, layout) <- case snd $ allTracks !! index of
         PreviewDrumsFull layout drums -> return (drums, layout)
         _                             -> fatal "Not a DTX drums track"
-      let planName = fst $ head $ HM.toList $ _plans $ projectSongYaml proj
+      let planName = fst $ head $ HM.toList (projectSongYaml proj).plans
       RGAudio.projectAudio planName proj >>= \case
         Nothing -> return ()
         Just audio -> liftIO $ bracket_ SDL.initializeAll SDL.quit $ let
@@ -91,7 +91,7 @@ main = getArgs >>= \case
       song <- loadTracks (projectSongYaml proj) $ dir </> "notes.mid"
       let allTracks = concat $ previewTracks song
           trks = map (snd . (allTracks !!)) indexes
-          planName = fst $ head $ HM.toList $ _plans $ projectSongYaml proj
+          planName = fst $ head $ HM.toList (projectSongYaml proj).plans
       RGAudio.projectAudio planName proj >>= \case
         Nothing -> return ()
         Just audio -> liftIO $ bracket_ SDL.initializeAll SDL.quit $ let

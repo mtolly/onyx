@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
 module Onyx.Import.StepMania where
 
 import           Control.Applicative                  ((<|>))
@@ -206,14 +207,14 @@ importSM src level = do
       True -> stackIO (audioChannels p) >>= \case
         Nothing -> fatal $ "Couldn't get channel count of audio file: " <> p
         Just chans -> return $ Just $ HM.singleton "audio-file" $ AudioFile AudioInfo
-          { _md5 = Nothing
-          , _frames = Nothing
-          , _filePath = Just
+          { md5 = Nothing
+          , frames = Nothing
+          , filePath = Just
             $ SoftFile ("audio" <> takeExtension p)
             $ SoftReadable $ fileReadable p
-          , _commands = []
-          , _rate = Nothing
-          , _channels = chans
+          , commands = []
+          , rate = Nothing
+          , channels = chans
           }
 
   let imageExts f = map (f <.>) ["png", "jpg", "jpeg"]
@@ -259,30 +260,30 @@ importSM src level = do
         pair               -> pair
 
   return SongYaml
-    { _metadata = def'
-      { _title = title
-      , _titleJP = titleJP
-      , _artist = artist
-      , _artistJP = artistJP
-      , _genre = sm_GENRE sm
-      , _author = case filter (not . T.null) $ nubOrd $ map smn_Author $ sm_NOTES sm of
+    { metadata = def'
+      { title = title
+      , titleJP = titleJP
+      , artist = artist
+      , artistJP = artistJP
+      , genre = sm_GENRE sm
+      , author = case filter (not . T.null) $ nubOrd $ map smn_Author $ sm_NOTES sm of
         [] -> Nothing
         xs -> Just $ T.intercalate ", " xs
-      , _fileAlbumArt = banner
+      , fileAlbumArt = banner
       -- TODO these need to be adjusted for delay padding
-      , _previewStart = PreviewSeconds . realToFrac <$> sm_SAMPLESTART sm
-      , _previewEnd = do
+      , previewStart = PreviewSeconds . realToFrac <$> sm_SAMPLESTART sm
+      , previewEnd = do
         start <- sm_SAMPLESTART sm
         len <- sm_SAMPLELENGTH sm
         return $ PreviewSeconds $ realToFrac $ start + len
       }
-    , _jammit = HM.empty
-    , _audio = audio
-    , _plans = HM.singleton "sm" Plan
+    , jammit = HM.empty
+    , audio = audio
+    , plans = HM.singleton "sm" Plan
       { _song = flip fmap (sm_MUSIC sm) $ \_ -> PlanAudio
-        { _planExpr = delayAudio $ Input $ Named "audio-file"
-        , _planPans = []
-        , _planVols = []
+        { expr = delayAudio $ Input $ Named "audio-file"
+        , pans = []
+        , vols = []
         }
       , _countin = Countin []
       , _planParts = Parts HM.empty
@@ -291,8 +292,8 @@ importSM src level = do
       , _tuningCents = 0
       , _fileTempo = Nothing
       }
-    , _targets = HM.empty
-    , _parts = Parts $ HM.singleton (F.FlexExtra "global") def
+    , targets = HM.empty
+    , parts = Parts $ HM.singleton (F.FlexExtra "global") def
       { partDance = Just PartDance
         { danceDifficulty = Tier $ max 1 $ let
           -- as a hack, get max meter value and subtract 4 (so 10 becomes 6)
@@ -303,7 +304,7 @@ importSM src level = do
           in fromIntegral $ foldr max 0 meters - 4
         }
       }
-    , _global = Global
+    , global = Global
       { _fileMidi = SoftFile "notes.mid" $ SoftChart mid
       , _fileSongAnim = Nothing
       , _autogenTheme = Nothing

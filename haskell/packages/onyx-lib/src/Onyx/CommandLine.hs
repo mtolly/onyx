@@ -1,11 +1,13 @@
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE ImplicitParams    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ImplicitParams        #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ViewPatterns          #-}
 module Onyx.CommandLine
 ( commandLine
 , identifyFile'
@@ -304,7 +306,7 @@ buildTarget yamlPath opts = do
     []    -> fatal "command requires --target, none given"
     t : _ -> return t
   audioDirs <- withProject (optIndex opts) yamlPath getAudioDirs
-  target <- case HM.lookup targetName $ _targets songYaml of
+  target <- case HM.lookup targetName songYaml.targets of
     Nothing     -> fatal $ "Target not found in YAML file: " <> show targetName
     Just target -> return target
   let built = case target of
@@ -331,7 +333,7 @@ getPlanName defaultPlan yamlPath opts = case getMaybePlan opts of
   Just p  -> return p
   Nothing -> do
     songYaml <- loadYaml yamlPath
-    case HM.keys $ _plans (songYaml :: SongYaml FilePath) of
+    case HM.keys (songYaml :: SongYaml FilePath).plans of
       [p]   -> return p
       plans -> let
         err = fatal $ "No --plan given, and YAML file doesn't have exactly 1 plan: " <> show plans
@@ -885,7 +887,7 @@ commands =
         targetName <- case [ t | OptTarget t <- opts ] of
           []    -> fatal "command requires --target, none given"
           t : _ -> return t
-        target <- case HM.lookup targetName $ _targets $ projectSongYaml proj of
+        target <- case HM.lookup targetName (projectSongYaml proj).targets of
           Nothing     -> fatal $ "Target not found in YAML file: " <> show targetName
           Just target -> return target
         gh2 <- case target of
@@ -1094,7 +1096,7 @@ commands =
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ return $ fin <> ".contents.txt"
-        stackIO $ BL.readFile fin >>= Ark.readHdr >>= writeFile fout . unlines . map show . Ark.hdr_Files
+        stackIO $ BL.readFile fin >>= Ark.readHdr >>= writeFile fout . unlines . map show . (.files)
         return [fout]
       _ -> fatal "Expected 1 arg (.hdr, or .ark if none)"
     }
@@ -1190,24 +1192,24 @@ commands =
         dir <- outputFile opts $ return "."
         stackIO $ Dir.createDirectoryIfMissing False dir
         stackIO $ yamlEncodeFile (dir </> "song.yml") $ toJSON (SongYaml
-          { _metadata = def
-          , _global   = def
-          , _audio    = HM.fromList $ flip map (zip [1..] pairs) $ \(i, (md5, len)) -> let
+          { metadata = def
+          , global   = def
+          , audio    = HM.fromList $ flip map (zip [1..] pairs) $ \(i, (md5, len)) -> let
             ainfo = AudioFile AudioInfo
-              { _md5      = Just $ T.pack md5
-              , _frames   = Just len
-              , _filePath = Nothing
-              , _commands = []
-              , _rate     = Nothing
-              , _channels = 2 -- TODO real channel count from audio
+              { md5      = Just $ T.pack md5
+              , frames   = Just len
+              , filePath = Nothing
+              , commands = []
+              , rate     = Nothing
+              , channels = 2 -- TODO real channel count from audio
               }
             in (T.pack $ "audio-" <> show (i :: Int), ainfo)
-          , _jammit   = HM.empty
-          , _plans    = HM.singleton "plan" Plan
+          , jammit   = HM.empty
+          , plans    = HM.singleton "plan" Plan
             { _song         = Just PlanAudio
-              { _planExpr = Input $ Named "audio-1"
-              , _planPans = []
-              , _planVols = []
+              { expr = Input $ Named "audio-1"
+              , pans = []
+              , vols = []
               }
             , _countin      = Countin []
             , _planParts    = Parts HM.empty
@@ -1216,8 +1218,8 @@ commands =
             , _tuningCents  = 0
             , _fileTempo    = Nothing
             }
-          , _targets  = HM.empty
-          , _parts    = Parts HM.empty
+          , targets  = HM.empty
+          , parts    = Parts HM.empty
           } :: SongYaml FilePath)
         return [dir]
       _ -> fatal "Expected at least 1 arg (flac or wav files)"

@@ -1,8 +1,9 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Import.RockRevolution where
 
 import           Control.Concurrent.Async         (concurrently)
@@ -231,17 +232,17 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
       return $ getSectionNames [] sections
 
   return SongYaml
-    { _metadata = def'
-      { _title        = Just $ T.strip $ strings !! 1
-      , _artist       = Just $ T.strip $ strings !! 0
-      , _album        = Nothing
-      , _year         = year
-      , _comments     = []
-      , _fileAlbumArt = Nothing
+    { metadata = def'
+      { title        = Just $ T.strip $ strings !! 1
+      , artist       = Just $ T.strip $ strings !! 0
+      , album        = Nothing
+      , year         = year
+      , comments     = []
+      , fileAlbumArt = Nothing
       }
-    , _jammit = mempty
-    , _targets = HM.empty
-    , _global = def'
+    , jammit = mempty
+    , targets = HM.empty
+    , global = def'
       { _backgroundVideo = Nothing
       , _fileBackgroundImage = Nothing
       , _fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
@@ -270,19 +271,19 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
         ImportQuick -> emptyChart
       , _fileSongAnim = Nothing
       }
-    , _audio = HM.fromList $ do
+    , audio = HM.fromList $ do
       (name, bs) <- nonDrumStreams <> drumStreams
       let str = T.unpack name
       return (name, AudioFile AudioInfo
-        { _md5 = Nothing
-        , _frames = Nothing
-        , _filePath = Just $ SoftFile str $ SoftReadable
+        { md5 = Nothing
+        , frames = Nothing
+        , filePath = Just $ SoftFile str $ SoftReadable
           $ makeHandle str $ byteStringSimpleHandle bs
-        , _commands = []
-        , _rate = Nothing
-        , _channels = 2 -- TODO maybe verify
+        , commands = []
+        , rate = Nothing
+        , channels = 2 -- TODO maybe verify
         })
-    , _plans = HM.singleton "rr" Plan
+    , plans = HM.singleton "rr" Plan
       { _song = flip fmap backingStream $ \s -> PlanAudio (Input $ Named s) [] []
       , _countin = Countin []
       , _planParts = Parts $ HM.fromList $ catMaybes
@@ -295,7 +296,7 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
       , _tuningCents = 0
       , _fileTempo = Nothing
       }
-    , _parts = Parts $ HM.fromList
+    , parts = Parts $ HM.fromList
       [ (RBFile.FlexGuitar, def
         { partGRYBO = Just def
         })

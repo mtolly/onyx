@@ -1,8 +1,10 @@
-{-# LANGUAGE BangPatterns      #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE ViewPatterns          #-}
 module Onyx.Build.Common where
 
 import           Codec.Picture
@@ -67,18 +69,18 @@ makePS3Name num songYaml
   $ T.toUpper
   $ T.filter (\c -> isAscii c && isAlphaNum c)
   $ "O" <> T.pack (show num)
-    <> getTitle  (_metadata songYaml)
-    <> getArtist (_metadata songYaml)
+    <> getTitle  songYaml.metadata
+    <> getArtist songYaml.metadata
 
 targetTitle :: SongYaml f -> Target -> T.Text
 targetTitle songYaml target = let
-  base = fromMaybe (getTitle $ _metadata songYaml) $ tgt_Title $ targetCommon target
+  base = fromMaybe (getTitle songYaml.metadata) $ (targetCommon target).tgt_Title
   in addTitleSuffix target base
 
 targetTitleJP :: SongYaml f -> Target -> Maybe T.Text
-targetTitleJP songYaml target = case tgt_Title $ targetCommon target of
+targetTitleJP songYaml target = case (targetCommon target).tgt_Title of
   Just _  -> Nothing -- TODO do we need JP title on targets also
-  Nothing -> case _titleJP $ _metadata songYaml of
+  Nothing -> case songYaml.metadata.titleJP of
     Nothing   -> Nothing
     Just base -> Just $ addTitleSuffix target base
 
@@ -89,17 +91,17 @@ addTitleSuffix target base = let
     RB3 TargetRB3{..} -> makeLabel []                               rb3_2xBassPedal
     RB2 TargetRB2{..} -> makeLabel ["(RB2 version)" | rb2_LabelRB2] rb2_2xBassPedal
     _                 -> makeLabel []                               False
-  makeLabel sfxs is2x = case tgt_Label common of
+  makeLabel sfxs is2x = case common.tgt_Label of
     Just lbl -> [lbl]
     Nothing  -> concat
-      [ case tgt_Speed common of
+      [ case common.tgt_Speed of
         Nothing  -> []
         Just 1   -> []
         Just spd -> let
           intSpeed :: Int
           intSpeed = round $ spd * 100
           in ["(" <> T.pack (show intSpeed) <> "% Speed)"]
-      , ["(2x Bass Pedal)" | is2x && tgt_Label2x common]
+      , ["(2x Bass Pedal)" | is2x && common.tgt_Label2x]
       , sfxs
       ]
   in T.intercalate " " segments
@@ -108,8 +110,8 @@ hashRB3 :: (Hashable f) => SongYaml f -> TargetRB3 -> Int
 hashRB3 songYaml rb3 = let
   hashed =
     ( rb3
-    , _title $ _metadata songYaml
-    , _artist $ _metadata songYaml
+    , songYaml.metadata.title
+    , songYaml.metadata.artist
     -- TODO this should use more info, or find a better way to come up with hashes.
     )
   -- want these to be higher than real DLC, but lower than C3 IDs
@@ -123,7 +125,7 @@ crawlFolderBytes p = stackIO $ fmap (first TE.encodeUtf8) $ crawlFolder p
 applyTargetMIDI :: TargetCommon -> RBFile.Song (RBFile.OnyxFile U.Beats) -> RBFile.Song (RBFile.OnyxFile U.Beats)
 applyTargetMIDI tgt mid = let
   eval = fmap (U.unapplyTempoMap $ RBFile.s_tempos mid) . evalPreviewTime False (Just RBFile.getEventsTrack) mid 0 False
-  applyEnd = case tgt_End tgt >>= eval . seg_Notes of
+  applyEnd = case tgt.tgt_End >>= eval . (.seg_Notes) of
     Nothing -> id
     Just notesEnd -> \m -> m
       { RBFile.s_tracks
@@ -131,7 +133,7 @@ applyTargetMIDI tgt mid = let
         $ RBFile.s_tracks m
       -- the RockBand3 module process functions will remove tempos and sigs after [end]
       }
-  applyStart = case tgt_Start tgt >>= \seg -> liftA2 (,) (eval $ seg_FadeStart seg) (eval $ seg_Notes seg) of
+  applyStart = case tgt.tgt_Start >>= \seg -> liftA2 (,) (eval seg.seg_FadeStart) (eval seg.seg_Notes) of
     Nothing -> id
     Just (audioStart, notesStart) -> \m -> m
       { RBFile.s_tracks
@@ -163,7 +165,7 @@ applyTargetMIDI tgt mid = let
                       _ : _ -> keep -- after the partial bar there's an existing signature
                       []    -> Wait partial sig afterPartial -- continue with the pre-cut signature
       }
-  applySpeed = case fromMaybe 1 $ tgt_Speed tgt of
+  applySpeed = case fromMaybe 1 tgt.tgt_Speed of
     1     -> id
     speed -> \m -> m
       { RBFile.s_tempos
@@ -182,13 +184,13 @@ lastEvent RNil             = Nothing
 applyTargetLength :: TargetCommon -> RBFile.Song (f U.Beats) -> U.Seconds -> U.Seconds
 applyTargetLength tgt mid = let
   -- TODO get Events track to support sections as segment boundaries
-  applyEnd = case tgt_End tgt >>= evalPreviewTime False Nothing mid 0 False . seg_FadeEnd of
+  applyEnd = case tgt.tgt_End >>= evalPreviewTime False Nothing mid 0 False . (.seg_FadeEnd) of
     Nothing   -> id
     Just secs -> min secs
-  applyStart = case tgt_Start tgt >>= evalPreviewTime False Nothing mid 0 False . seg_FadeStart of
+  applyStart = case tgt.tgt_Start >>= evalPreviewTime False Nothing mid 0 False . (.seg_FadeStart) of
     Nothing   -> id
     Just secs -> subtract secs
-  applySpeed t = t / realToFrac (fromMaybe 1 $ tgt_Speed tgt)
+  applySpeed t = t / realToFrac (fromMaybe 1 tgt.tgt_Speed)
   in applySpeed . applyStart . applyEnd
 
 getAudioLength :: BuildInfo -> T.Text -> Plan f -> Staction U.Seconds
@@ -198,7 +200,7 @@ getAudioLength buildInfo planName = \case
     shk $ need [ogg]
     liftIO $ audioSeconds ogg
   Plan{..} -> let
-    parts = fmap _planExpr $ concat
+    parts = (.expr) <$> concat
       [ toList _song
       , toList _crowd
       , toList _planParts >>= toList
@@ -228,12 +230,12 @@ sourceKick buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart r
   src <- case plan of
     MoggPlan{..} -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip _pans _vols) $ do
       guard $ rank /= 0
-      case HM.lookup fpart $ getParts _moggParts of
+      case HM.lookup fpart _moggParts.getParts of
         Just (PartDrumKit kick _ _) -> fromMaybe [] kick
         _                           -> []
     Plan{..}     -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
       guard $ rank /= 0
-      case HM.lookup fpart $ getParts _planParts of
+      case HM.lookup fpart _planParts.getParts of
         Just (PartDrumKit kick _ _) -> kick
         _                           -> Nothing
   return $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src
@@ -244,12 +246,12 @@ sourceSnare buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart 
   src <- case plan of
     MoggPlan{..} -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip _pans _vols) $ do
       guard $ rank /= 0
-      case HM.lookup fpart $ getParts _moggParts of
+      case HM.lookup fpart _moggParts.getParts of
         Just (PartDrumKit _ snare _) -> fromMaybe [] snare
         _                            -> []
     Plan{..}     -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
       guard $ rank /= 0
-      case HM.lookup fpart $ getParts _planParts of
+      case HM.lookup fpart _planParts.getParts of
         Just (PartDrumKit _ snare _) -> snare
         _                            -> Nothing
   return $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src
@@ -262,7 +264,7 @@ sourceKit buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart ra
       build = channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip _pans _vols)
       indexSets = do
         guard $ rank /= 0
-        case HM.lookup fpart $ getParts _moggParts of
+        case HM.lookup fpart _moggParts.getParts of
           Just (PartDrumKit kick snare kit) -> case mixMode of
             RBDrums.D0 -> toList kick <> toList snare <> [kit]
             _          -> [kit]
@@ -275,7 +277,7 @@ sourceKit buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart ra
       build = buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName
       exprs = do
         guard $ rank /= 0
-        case HM.lookup fpart $ getParts _planParts of
+        case HM.lookup fpart _planParts.getParts of
           Just (PartDrumKit kick snare kit) -> case mixMode of
             RBDrums.D0 -> toList kick <> toList snare <> [kit]
             _          -> [kit]
@@ -293,10 +295,10 @@ getPartSource
 getPartSource buildInfo spec planName plan fpart rank = case plan of
   MoggPlan{..} -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip _pans _vols) $ do
     guard $ rank /= 0
-    toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
+    toList (HM.lookup fpart _moggParts.getParts) >>= toList >>= toList
   Plan{..} -> buildPartAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
     guard $ rank /= 0
-    HM.lookup fpart $ getParts _planParts
+    HM.lookup fpart _planParts.getParts
 
 sourceStereoParts
   :: (MonadResource m)
@@ -345,12 +347,12 @@ sourceSongCountin buildInfo tgt mid pad includeCountin planName plan fparts = do
       spec = [(-1, 0), (1, 0)]
   src <- case plan of
     MoggPlan{..} -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip _pans _vols) $ let
-      channelsFor fpart = toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
+      channelsFor fpart = toList (HM.lookup fpart _moggParts.getParts) >>= toList >>= toList
       usedChannels = concatMap channelsFor usedParts ++ _moggCrowd
       in filter (`notElem` usedChannels) [0 .. length _pans - 1]
     Plan{..} -> let
       unusedParts = do
-        (fpart, pa) <- HM.toList $ getParts _planParts
+        (fpart, pa) <- HM.toList _planParts.getParts
         guard $ notElem fpart usedParts
         return pa
       partAudios = maybe id (\pa -> (PartSingle pa :)) _song unusedParts
@@ -400,12 +402,12 @@ zeroIfMultiple fparts fpart src = case filter (== fpart) fparts of
 
 fullGenre :: SongYaml f -> FullGenre
 fullGenre songYaml = interpretGenre
-  (_genre    $ _metadata songYaml)
-  (_subgenre $ _metadata songYaml)
+  songYaml.metadata.genre
+  songYaml.metadata.subgenre
 
 -- Second element is a JPEG if it is reasonably square and can be used in CH/PS as is.
 loadSquareArtOrJPEG :: SongYaml FilePath -> Staction (Image PixelRGB8, Maybe FilePath)
-loadSquareArtOrJPEG songYaml = case _fileAlbumArt $ _metadata songYaml of
+loadSquareArtOrJPEG songYaml = case songYaml.metadata.fileAlbumArt of
   Just img -> do
     shk $ need [img]
     let ext = map toLower $ takeExtension img
@@ -465,20 +467,21 @@ backgroundColor bg img = let
 applyTargetAudio :: (MonadResource m) => TargetCommon -> RBFile.Song f -> AudioSource m Float -> AudioSource m Float
 applyTargetAudio tgt mid = let
   eval = evalPreviewTime False Nothing mid 0 False -- TODO get Events track to support sections as segment boundaries
-  bounds seg = liftA2 (,) (eval $ seg_FadeStart seg) (eval $ seg_FadeEnd seg)
+  bounds :: SegmentEdge -> Maybe (U.Seconds, U.Seconds)
+  bounds seg = liftA2 (,) (eval seg.seg_FadeStart) (eval seg.seg_FadeEnd)
   toDuration :: U.Seconds -> Duration
   toDuration = Seconds . realToFrac
-  applyEnd = case tgt_End tgt >>= bounds of
+  applyEnd = case tgt.tgt_End >>= bounds of
     Nothing           -> id
     Just (start, end) -> fadeEnd (toDuration $ end - start) . takeStart (toDuration end)
-  applyStart = case tgt_Start tgt >>= bounds of
+  applyStart = case tgt.tgt_Start >>= bounds of
     Nothing           -> id
     Just (start, end) -> fadeStart (toDuration $ end - start) . dropStart (toDuration start)
   applySpeed = applySpeedAudio tgt
   in applySpeed . applyStart . applyEnd
 
 applySpeedAudio :: (MonadResource m) => TargetCommon -> AudioSource m Float -> AudioSource m Float
-applySpeedAudio tgt = case fromMaybe 1 $ tgt_Speed tgt of
+applySpeedAudio tgt = case fromMaybe 1 tgt.tgt_Speed of
   1 -> id
   n -> stretchFull (1 / n) 1
 
@@ -540,14 +543,14 @@ makeShortName num songYaml
   -- Also now used for GH3, which has a 27 char max (40 - 13 for "_song.pak.xen")
   $ T.take 26
   $ "o" <> T.pack (show num)
-    <> "_" <> makePart (getTitle  $ _metadata songYaml)
-    <> "_" <> makePart (getArtist $ _metadata songYaml)
+    <> "_" <> makePart (getTitle  songYaml.metadata)
+    <> "_" <> makePart (getArtist songYaml.metadata)
   where makePart = T.toLower . T.filter (\c -> isAscii c && isAlphaNum c)
 
 getPlan :: Maybe T.Text -> SongYaml f -> Maybe (T.Text, Plan f)
-getPlan Nothing songYaml = case HM.toList $ _plans songYaml of
+getPlan Nothing songYaml = case HM.toList songYaml.plans of
   [pair] -> Just pair
   _      -> Nothing
-getPlan (Just p) songYaml = case HM.lookup p $ _plans songYaml of
+getPlan (Just p) songYaml = case HM.lookup p songYaml.plans of
   Just found -> Just (p, found)
   Nothing    -> Nothing

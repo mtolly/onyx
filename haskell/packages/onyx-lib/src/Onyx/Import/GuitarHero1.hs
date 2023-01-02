@@ -1,6 +1,10 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE StrictData            #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Import.GuitarHero1 where
 
 import           Control.Concurrent.Async             (forConcurrently)
@@ -46,7 +50,7 @@ import           System.FilePath                      ((<.>))
 getSongList :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> StackTraceT m [(T.Text, SongPackage)]
 getSongList gen = do
   (hdr, arks) <- stackIO $ loadGEN gen
-  dtb <- case filter (\fe -> fe_folder fe == Just "config/gen" && fe_name fe == "songs.dtb") $ hdr_Files hdr of
+  dtb <- case filter (\fe -> fe.folder == Just "config/gen" && fe.name == "songs.dtb") hdr.files of
     entry : _ -> do
       r <- readFileEntry hdr arks entry
       stackIO $ useHandle r handleToByteString
@@ -57,7 +61,7 @@ getSongList gen = do
 addTrippolette :: Hdr -> [(T.Text, SongPackage)] -> [(T.Text, SongPackage)]
 addTrippolette hdr songs = let
   hasTripFiles = all
-    (\fn -> any (\fe -> fe_folder fe == Just "songs/advharmony" && fe_name fe == fn) $ hdr_Files hdr)
+    (\fn -> any (\fe -> fe.folder == Just "songs/advharmony" && fe.name == fn) hdr.files)
     ["advharmony.mid", "advharmony.vgs"]
   alreadyTrip = any ((== "advharmony") . fst) songs
   tripPackage = SongPackage
@@ -93,7 +97,7 @@ addTrippolette hdr songs = let
 addGraveyardShift :: Hdr -> [(T.Text, SongPackage)] -> [(T.Text, SongPackage)]
 addGraveyardShift hdr songs = let
   hasGraveFiles = all
-    (\fn -> any (\fe -> fe_folder fe == Just "songs/graveyardshift" && fe_name fe == fn) $ hdr_Files hdr)
+    (\fn -> any (\fe -> fe.folder == Just "songs/graveyardshift" && fe.name == fn) hdr.files)
     ["graveyardshift.mid", "graveyardshift.vgs"]
   alreadyGrave = any ((== "graveyardshift") . fst) songs
   tripPackage = SongPackage
@@ -181,32 +185,32 @@ importGH1Song pkg path gen level = do
       ImportQuick -> return BL.empty
     return ("vgs-" <> show i, bs)
   return SongYaml
-    { _metadata = def'
-      { _title  = Just $ name pkg
-      , _artist = Just $ artist pkg
-      , _cover = False -- TODO maybe make this true if it's in the main setlist (I think that's how the game does it)
-      , _fileAlbumArt = Nothing
-      , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ preview pkg) / 1000
-      , _previewEnd = Just $ PreviewSeconds $ fromIntegral (snd $ preview pkg) / 1000
+    { metadata = def'
+      { title  = Just $ name pkg
+      , artist = Just $ artist pkg
+      , cover = False -- TODO maybe make this true if it's in the main setlist (I think that's how the game does it)
+      , fileAlbumArt = Nothing
+      , previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ preview pkg) / 1000
+      , previewEnd = Just $ PreviewSeconds $ fromIntegral (snd $ preview pkg) / 1000
       }
-    , _global = def'
+    , global = def'
       { _fileMidi            = SoftFile "notes.mid" $ SoftChart convmid
       , _fileSongAnim        = Nothing
       , _backgroundVideo     = Nothing
       , _fileBackgroundImage = Nothing
       }
-    , _audio = HM.fromList $ do
+    , audio = HM.fromList $ do
       (chanName, bs) <- namedChans
       return $ (T.pack chanName ,) $ AudioFile AudioInfo
-        { _md5 = Nothing
-        , _frames = Nothing
-        , _commands = []
-        , _filePath = Just $ SoftFile (chanName <.> "vgs") $ SoftReadable $ makeHandle chanName $ byteStringSimpleHandle bs
-        , _rate = Nothing
-        , _channels = 1
+        { md5 = Nothing
+        , frames = Nothing
+        , commands = []
+        , filePath = Just $ SoftFile (chanName <.> "vgs") $ SoftReadable $ makeHandle chanName $ byteStringSimpleHandle bs
+        , rate = Nothing
+        , channels = 1
         }
-    , _jammit = HM.empty
-    , _plans = HM.singleton "vgs" $ let
+    , jammit = HM.empty
+    , plans = HM.singleton "vgs" $ let
       guitarChans = map fromIntegral $ concat $ take 1 $ slip_tracks $ song pkg
       songChans = zipWith const [0..] (pans $ song pkg) \\ guitarChans
       -- in gh1, volumes are stored as gain ratios, unlike gh2 and later where they are decibels
@@ -219,14 +223,14 @@ importGH1Song pkg path gen level = do
         guard $ any (\c -> (vols (song pkg) !! c) > 0) cs
         Just $ case cs' of
           c :| [] -> PlanAudio
-            { _planExpr = Input $ Named $ T.pack $ fst $ namedChans !! c
-            , _planPans = map realToFrac [pans (song pkg) !! c]
-            , _planVols = map realToFrac [volumesDecibels !! c]
+            { expr = Input $ Named $ T.pack $ fst $ namedChans !! c
+            , pans = map realToFrac [pans (song pkg) !! c]
+            , vols = map realToFrac [volumesDecibels !! c]
             }
           _ -> PlanAudio
-            { _planExpr = Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs'
-            , _planPans = map realToFrac [ pans (song pkg) !! c | c <- cs ]
-            , _planVols = map realToFrac [ volumesDecibels !! c | c <- cs ]
+            { expr = Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs'
+            , pans = map realToFrac [ pans (song pkg) !! c | c <- cs ]
+            , vols = map realToFrac [ volumesDecibels !! c | c <- cs ]
             }
       in Plan
         { _song = mixChans songChans
@@ -239,8 +243,8 @@ importGH1Song pkg path gen level = do
         , _tuningCents = 0
         , _fileTempo = Nothing
         }
-    , _targets = HM.empty
-    , _parts = Parts $ HM.singleton RBFile.FlexGuitar $ def
+    , targets = HM.empty
+    , parts = Parts $ HM.singleton RBFile.FlexGuitar $ def
       { partGRYBO = Just def
       }
     }

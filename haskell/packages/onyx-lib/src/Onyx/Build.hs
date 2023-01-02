@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Build (shakeBuildFiles, shakeBuild, targetTitle, validFileName, validFileNamePiece, NameRule(..), hashRB3) where
 
 import           Codec.Picture
@@ -102,19 +103,19 @@ dtxRules buildInfo dir dtx = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, _plan) <- case getPlan (tgt_Plan $ dtx_Common dtx) songYaml of
+  (planName, _plan) <- case getPlan dtx.dtx_Common.tgt_Plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show dtx
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
 
-  let dtxPartDrums  = case getPart (dtx_Drums dtx) songYaml >>= partDrums of
-        Just pd -> Just (dtx_Drums  dtx, pd)
+  let dtxPartDrums  = case getPart dtx.dtx_Drums songYaml >>= (.partDrums) of
+        Just pd -> Just (dtx.dtx_Drums, pd)
         Nothing -> Nothing
-      dtxPartGuitar = case getPart (dtx_Guitar dtx) songYaml >>= partGRYBO of
-        Just pg -> Just (dtx_Guitar dtx, pg)
+      dtxPartGuitar = case getPart dtx.dtx_Guitar songYaml >>= (.partGRYBO) of
+        Just pg -> Just (dtx.dtx_Guitar, pg)
         Nothing -> Nothing
-      dtxPartBass   = case getPart (dtx_Bass dtx) songYaml >>= partGRYBO of
-        Just pg -> Just (dtx_Bass dtx, pg)
+      dtxPartBass   = case getPart dtx.dtx_Bass songYaml >>= (.partGRYBO) of
+        Just pg -> Just (dtx.dtx_Bass, pg)
         Nothing -> Nothing
 
   dir </> "dtx/empty.wav" %> \out -> do
@@ -136,14 +137,14 @@ dtxRules buildInfo dir dtx = do
           $ Input (planDir </> "everything.wav")
     buildAudio previewExpr out
 
-  artPath <- case _fileAlbumArt $ _metadata songYaml of
+  artPath <- case songYaml.metadata.fileAlbumArt of
     Just img | elem (takeExtension img) [".jpg", ".jpeg"] -> do
       dir </> "dtx/cover.jpg" %> shk . copyFile' img
       return "cover.jpg"
     _ -> return "cover.png"
   dir </> "dtx/cover.png" %> shk . copyFile' (rel "gen/cover-full.png")
 
-  mapping <- forM (dtxPartDrums >>= \(_, pd) -> drumsFileDTXKit pd) $ \f -> do
+  mapping <- forM (dtxPartDrums >>= \(_, pd) -> pd.drumsFileDTXKit) $ \f -> do
     bs <- liftIO $ B.readFile f
     case readMaybe $ T.unpack $ decodeGeneral bs of
       Nothing -> fail $ "Couldn't parse mapping of full drums to DTX template from: " <> f
@@ -177,10 +178,10 @@ dtxRules buildInfo dir dtx = do
         (bassNotes, bassLongs) = makeGuitarBass dtxPartBass
     liftIO $ B.writeFile out $ TE.encodeUtf16LE $ T.cons '\xFEFF' $ DTX.makeDTX DTX.DTX
       { DTX.dtx_TITLE         = Just $ targetTitle songYaml $ DTX dtx
-      , DTX.dtx_ARTIST        = Just $ getArtist $ _metadata songYaml
+      , DTX.dtx_ARTIST        = Just $ getArtist songYaml.metadata
       , DTX.dtx_PREIMAGE      = Just artPath
       , DTX.dtx_COMMENT       = Nothing
-      , DTX.dtx_GENRE         = _genre $ _metadata songYaml
+      , DTX.dtx_GENRE         = songYaml.metadata.genre
       , DTX.dtx_PREVIEW       = Just "preview.ogg"
       , DTX.dtx_STAGEFILE     = Nothing
       , DTX.dtx_DLEVEL        = Nothing
@@ -265,7 +266,7 @@ melodyRules buildInfo dir tgt = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, _) <- case getPlan (tgt_Plan $ tgt_Common tgt) songYaml of
+  (planName, _) <- case getPlan tgt.tgt_Common.tgt_Plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show tgt
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
@@ -282,7 +283,7 @@ melodyRules buildInfo dir tgt = do
     melody <- liftIO
       $ Melody.randomNotes
       $ maybe mempty RBFile.onyxMelody
-      $ Map.lookup (tgt_Part tgt)
+      $ Map.lookup tgt.tgt_Part
       $ RBFile.onyxParts
       $ RBFile.s_tracks mid
     info <- liftIO $ Snd.getFileInfo melodyAudio
@@ -356,12 +357,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
       -- Find and convert all Jammit audio into the work directory
       let jammitAudioParts = map J.Only    [minBound .. maxBound]
                           ++ map J.Without [minBound .. maxBound]
-      forM_ (HM.toList $ _jammit songYaml) $ \(jammitName, jammitQuery) ->
+      forM_ (HM.toList songYaml.jammit) $ \(jammitName, jammitQuery) ->
         forM_ jammitAudioParts $ \audpart ->
           rel (jammitPath jammitName audpart) %> \out -> do
             inside ("Looking for the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart) $ do
-              let title  = fromMaybe (getTitle  $ _metadata songYaml) $ _jammitTitle  jammitQuery
-                  artist = fromMaybe (getArtist $ _metadata songYaml) $ _jammitArtist jammitQuery
+              let title  = fromMaybe (getTitle  songYaml.metadata) jammitQuery.title
+                  artist = fromMaybe (getArtist songYaml.metadata) jammitQuery.artist
                   inst   = fromJammitInstrument $ J.audioPartToInstrument audpart
               p <- searchJammit audioLib (title, artist, inst)
               result <- stackIO $ fmap J.getAudioParts $ J.loadLibrary $ toFilePath p
@@ -381,14 +382,14 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             , (".png_wii" , PNGWii )
             ]
       forM_ hmxImageTypes $ \(ext, pngType) -> do
-        rel ("gen/cover" <> ext) %> \out -> case _fileAlbumArt $ _metadata songYaml of
+        rel ("gen/cover" <> ext) %> \out -> case songYaml.metadata.fileAlbumArt of
           Just f | takeExtension f == ext -> do
             shk $ copyFile' f out
             forceRW out
           _      -> loadRGB8 songYaml >>= stackIO . BL.writeFile out . toDXT1File pngType
 
       rel "gen/notes.mid" %> \out -> shk $ do
-        let f = rel $ _fileMidi $ _global songYaml
+        let f = rel songYaml.global._fileMidi
         doesFileExist f >>= \b -> if b
           then copyFile' f out
           else saveMIDI out RBFile.Song
@@ -397,30 +398,30 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             , RBFile.s_tracks = mempty :: RBFile.OnyxFile U.Beats
             }
 
-      forM_ (HM.toList $ _audio songYaml) $ \(name, _) -> do
+      forM_ (HM.toList songYaml.audio) $ \(name, _) -> do
         audioDependPath name %> \out -> do
           let getSamples = fail "Sample-based audio can't be used as dependencies outside of a plan"
           src <- manualLeaf yamlDir audioLib (audioDepend buildInfo) getSamples songYaml $ Named name
           buildAudio src out
 
-      forM_ (extraTargets ++ HM.toList (_targets songYaml)) $ \(targetName, target) -> do
+      forM_ (extraTargets <> HM.toList songYaml.targets) $ \(targetName, target) -> do
         let dir = rel $ "gen/target" </> T.unpack targetName
         case target of
           RB3 rb3 -> rbRules buildInfo dir rb3 Nothing
           RB2 rb2 -> let
             rb3 = TargetRB3
-              { rb3_Common = rb2_Common rb2
-              , rb3_2xBassPedal = rb2_2xBassPedal rb2
-              , rb3_SongID = rb2_SongID rb2
-              , rb3_Version = rb2_Version rb2
-              , rb3_Guitar = rb2_Guitar rb2
-              , rb3_Bass = rb2_Bass rb2
-              , rb3_Drums = rb2_Drums rb2
-              , rb3_Vocal = rb2_Vocal rb2
+              { rb3_Common = rb2.rb2_Common
+              , rb3_2xBassPedal = rb2.rb2_2xBassPedal
+              , rb3_SongID = rb2.rb2_SongID
+              , rb3_Version = rb2.rb2_Version
+              , rb3_Guitar = rb2.rb2_Guitar
+              , rb3_Bass = rb2.rb2_Bass
+              , rb3_Drums = rb2.rb2_Drums
+              , rb3_Vocal = rb2.rb2_Vocal
               , rb3_Keys = RBFile.FlexExtra "undefined"
               , rb3_Harmonix = False
-              , rb3_Magma = rb2_Magma rb2
-              , rb3_PS3Encrypt = rb2_PS3Encrypt rb2
+              , rb3_Magma = rb2.rb2_Magma
+              , rb3_PS3Encrypt = rb2.rb2_PS3Encrypt
               }
             in rbRules buildInfo dir rb3 $ Just rb2
           GH1 gh1 -> gh1Rules buildInfo dir gh1
@@ -434,16 +435,16 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           PG pg -> pgRules buildInfo dir pg
           Konga _ -> return () -- TODO
 
-      forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
+      forM_ (HM.toList songYaml.plans) $ \(planName, plan) -> do
 
         let dir = rel $ "gen/plan" </> T.unpack planName
 
         -- plan audio, currently only used for REAPER project
         let allPlanParts :: [(RBFile.FlexPartName, PartAudio ())]
             allPlanParts = case plan of
-              Plan{..}     -> HM.toList $ getParts $ void <$> _planParts
+              Plan{..}     -> HM.toList $ (void <$> _planParts).getParts
               MoggPlan{..} -> do
-                (fpart, pa) <- HM.toList $ getParts _moggParts
+                (fpart, pa) <- HM.toList _moggParts.getParts
                 guard $ not $ null $ concat $ toList pa
                 return (fpart, void pa)
             dummyMIDI :: RBFile.Song (RBFile.OnyxFile U.Beats)
@@ -496,13 +497,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
         -- REAPER project
         rel ("notes-" ++ T.unpack planName ++ ".RPP") %> \out -> do
-          let tempo = rel $ fromMaybe "gen/notes.mid" $ _fileTempo plan
+          let tempo = rel $ fromMaybe "gen/notes.mid" plan._fileTempo
               tunings = TuningInfo
-                { tuningGuitars = do
-                  (fpart, part) <- HM.toList $ getParts $ _parts songYaml
-                  pg <- toList $ partProGuitar part
-                  return (fpart, pgTuning pg)
-                , tuningCents = _tuningCents plan
+                { guitars = do
+                  (fpart, part) <- HM.toList songYaml.parts.getParts
+                  pg <- toList part.partProGuitar
+                  return (fpart, pg.pgTuning)
+                , cents = plan._tuningCents
                 }
           makeReaperShake tunings (rel "gen/notes.mid") tempo allPlanAudio out
 
@@ -553,7 +554,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           lg "Loading the MIDI file..."
           input <- shakeMIDI $ rel "gen/notes.mid"
           let _ = input :: RBFile.Song (RBFile.RawFile U.Beats)
-          tempos <- fmap RBFile.s_tempos $ case _fileTempo plan of
+          tempos <- fmap RBFile.s_tempos $ case plan._fileTempo of
             Nothing -> return input
             Just m  -> shakeMIDI m
           saveMIDI out input { RBFile.s_tempos = tempos }

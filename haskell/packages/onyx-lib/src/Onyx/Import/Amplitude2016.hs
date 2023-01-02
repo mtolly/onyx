@@ -1,6 +1,10 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE StrictData            #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Import.Amplitude2016 where
 
 import           Control.Monad.Extra                   (guard)
@@ -24,15 +28,16 @@ import           System.FilePath
 importAmplitude :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importAmplitude fin _level = do
   song <- stackIO (D.readFileDTA fin) >>= D.unserialize D.stackChunks
-  let moggPath = takeDirectory fin </> T.unpack (Amp.mogg_path song)
-      midPath  = takeDirectory fin </> T.unpack (Amp.midi_path song)
-      previewStart = realToFrac (Amp.preview_start_ms song) / 1000
-      previewEnd = previewStart + realToFrac (Amp.preview_length_ms song) / 1000
+  let _ = song :: Amp.Song
+      moggPath = takeDirectory fin </> T.unpack song.mogg_path
+      midPath  = takeDirectory fin </> T.unpack song.midi_path
+      previewStart = realToFrac song.preview_start_ms / 1000
+      previewEnd = previewStart + realToFrac song.preview_length_ms / 1000
   RBFile.Song temps sigs amp <- RBFile.loadMIDI midPath
-  let getChannels n = case Amp.tracks song !! (n - 1) of
+  let getChannels n = case song.tracks !! (n - 1) of
         (_, (chans, _)) -> map fromIntegral chans
       freestyle = do
-        (_, (ns, event)) <- Amp.tracks song
+        (_, (ns, event)) <- song.tracks
         guard $ "event:/FREESTYLE" `T.isPrefixOf` event
         map fromIntegral ns
       parts = do
@@ -44,32 +49,32 @@ importAmplitude fin _level = do
           return (name, mempty { RBFile.onyxCatch = trk })
         }
   return SongYaml
-    { _metadata = def'
-      { _title        = Just $ Amp.title song
-      , _artist       = Just $ case Amp.artist_short song of
-        "Harmonix" -> Amp.artist song -- human love
+    { metadata = def'
+      { title        = Just song.title
+      , artist       = Just $ case song.artist_short of
+        "Harmonix" -> song.artist -- human love
         artist     -> artist
-      , _previewStart = Just $ PreviewSeconds previewStart
-      , _previewEnd   = Just $ PreviewSeconds previewEnd
-      , _fileAlbumArt = Nothing
+      , previewStart = Just $ PreviewSeconds previewStart
+      , previewEnd   = Just $ PreviewSeconds previewEnd
+      , fileAlbumArt = Nothing
       }
-    , _global = def'
+    , global = def'
       { _backgroundVideo = Nothing
       , _fileBackgroundImage = Nothing
       , _fileSongAnim = Nothing
       , _fileMidi = SoftFile "notes.mid" $ SoftChart midi
       }
-    , _audio = HM.empty
-    , _jammit = HM.empty
-    , _plans = HM.singleton "mogg" MoggPlan
+    , audio = HM.empty
+    , jammit = HM.empty
+    , plans = HM.singleton "mogg" MoggPlan
       { _fileMOGG = Just $ SoftFile "audio.mogg" $ SoftReadable $ fileReadable moggPath
       , _moggMD5 = Nothing
       , _moggParts = Parts $ HM.fromList $ do
         (name, chans, _, _) <- parts
         return (name, PartSingle chans)
       , _moggCrowd = freestyle -- so it's hidden from web player
-      , _pans = map realToFrac $ Amp.pans song
-      , _vols = map realToFrac $ Amp.vols song
+      , _pans = map realToFrac song.pans
+      , _vols = map realToFrac song.vols
       , _planComments = []
       , _tuningCents = 0
       , _fileTempo = Nothing
@@ -77,8 +82,8 @@ importAmplitude fin _level = do
       , _multitrack = True
       , _decryptSilent = False
       }
-    , _targets = HM.empty
-    , _parts = Parts $ HM.fromList $ do
+    , targets = HM.empty
+    , parts = Parts $ HM.fromList $ do
       (name, _, inst, _) <- parts
       return (name, def { partAmplitude = Just (PartAmplitude inst) })
     }

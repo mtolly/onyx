@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Import.BMS where
 
 import           Control.Monad                    (forM, guard)
@@ -57,13 +58,13 @@ importBMS bmsPath level = do
           1 -> applyPansVols [0] [0]
           _ -> id
         in (chip, AudioFile AudioInfo
-          { _md5 = Nothing
-          , _frames = Nothing
-          , _commands = []
-          , _filePath = Just $ SoftFile ("samples" </> T.unpack chip <.> "wav") $ SoftAudio
+          { md5 = Nothing
+          , frames = Nothing
+          , commands = []
+          , filePath = Just $ SoftFile ("samples" </> T.unpack chip <.> "wav") $ SoftAudio
             $ fixMono $ adjustVolume src
-          , _rate = Nothing
-          , _channels = 2
+          , rate = Nothing
+          , channels = 2
           })
   let foundChips = HS.fromList $ map fst chipAudio
       audioForChips name chips = if RTB.null chips
@@ -88,9 +89,9 @@ importBMS bmsPath level = do
         (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ bms_Player2Long bms)
 
   let audioExpr name = PlanAudio
-        { _planExpr = Input $ Named name
-        , _planPans = []
-        , _planVols = []
+        { expr = Input $ Named name
+        , pans = []
+        , vols = []
         }
       midi = case level of
         ImportQuick -> emptyChart
@@ -130,26 +131,26 @@ importBMS bmsPath level = do
           }
 
   return SongYaml
-    { _metadata = def'
+    { metadata = def'
       -- may need to adjust these title suffixes, sometimes there is SUBTITLE but it's same across difficulties
-      { _title        = flip fmap (bms_TITLE bms) $ \title -> title <> case bms_SUBTITLE bms of
+      { title        = flip fmap (bms_TITLE bms) $ \title -> title <> case bms_SUBTITLE bms of
         Just sub -> " " <> sub
         Nothing -> case bms_PLAYLEVEL bms of
           Nothing  -> ""
           Just lvl -> " [" <> T.pack (show lvl) <> "]"
-      , _artist       = bms_ARTIST bms
-      , _genre        = bms_GENRE bms
-      , _fileAlbumArt = Nothing
+      , artist       = bms_ARTIST bms
+      , genre        = bms_GENRE bms
+      , fileAlbumArt = Nothing
       }
-    , _global = def'
+    , global = def'
       { _backgroundVideo = Nothing
       , _fileBackgroundImage = Nothing
       , _fileMidi = SoftFile "notes.mid" $ SoftChart midi
       , _fileSongAnim = Nothing
       }
-    , _audio = HM.fromList $ chipAudio <> songAudios <> p1Audios <> p2Audios
-    , _jammit = HM.empty
-    , _plans = HM.singleton "bms" Plan
+    , audio = HM.fromList $ chipAudio <> songAudios <> p1Audios <> p2Audios
+    , jammit = HM.empty
+    , plans = HM.singleton "bms" Plan
       { _song         = guard (isJust songSampleTrack) >> Just (audioExpr "audio-bgm")
       , _countin      = Countin []
       , _planParts    = Parts $ HM.fromList $ catMaybes
@@ -161,8 +162,8 @@ importBMS bmsPath level = do
       , _tuningCents = 0
       , _fileTempo = Nothing
       }
-    , _targets = HM.empty
-    , _parts = Parts $ HM.fromList $ do
+    , targets = HM.empty
+    , parts = Parts $ HM.fromList $ do
       (fpart, chips) <-
         [ (FlexExtra "player1", bms_Player1 bms)
         , (FlexExtra "player2", bms_Player2 bms)

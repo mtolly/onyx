@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Difficulty where
 
 import           Onyx.MIDI.Track.File (FlexPartName (..))
@@ -33,7 +34,7 @@ data DifficultyRB3 = DifficultyRB3
   } deriving (Eq, Ord, Show, Read)
 
 difficultyRB3 :: TargetRB3 -> SongYaml f -> DifficultyRB3
-difficultyRB3 TargetRB3{..} songYaml = let
+difficultyRB3 rb3 songYaml = let
 
   simpleRank flex getMode getDiff dmap = case getPart flex songYaml >>= getMode of
     Nothing -> 0
@@ -43,22 +44,22 @@ difficultyRB3 TargetRB3{..} songYaml = let
 
   x `rankOr` y = if x == 0 then y else x
 
-  rb3DrumsRank     = simpleRank rb3_Drums  partDrums     drumsDifficulty drumsDiffMap
-  rb3BassRank'     = simpleRank rb3_Bass   partGRYBO     gryboDifficulty bassDiffMap
-    `rankOr`         simpleRank rb3_Bass   partDrums     drumsDifficulty drumsDiffMap
-  rb3GuitarRank'   = simpleRank rb3_Guitar partGRYBO     gryboDifficulty guitarDiffMap
-    `rankOr`         simpleRank rb3_Guitar partDrums     drumsDifficulty drumsDiffMap
-  rb3VocalRank     = simpleRank rb3_Vocal  partVocal     vocalDifficulty vocalDiffMap
-  rb3KeysRank'     = simpleRank rb3_Keys   partGRYBO     gryboDifficulty keysDiffMap
-    `rankOr`         simpleRank rb3_Keys   partDrums     drumsDifficulty drumsDiffMap
-  rb3ProKeysRank'  = simpleRank rb3_Keys   partProKeys   pkDifficulty    keysDiffMap
+  rb3DrumsRank     = simpleRank rb3.rb3_Drums  (.partDrums    ) (.drumsDifficulty) drumsDiffMap
+  rb3BassRank'     = simpleRank rb3.rb3_Bass   (.partGRYBO    ) (.gryboDifficulty) bassDiffMap
+    `rankOr`         simpleRank rb3.rb3_Bass   (.partDrums    ) (.drumsDifficulty) drumsDiffMap
+  rb3GuitarRank'   = simpleRank rb3.rb3_Guitar (.partGRYBO    ) (.gryboDifficulty) guitarDiffMap
+    `rankOr`         simpleRank rb3.rb3_Guitar (.partDrums    ) (.drumsDifficulty) drumsDiffMap
+  rb3VocalRank     = simpleRank rb3.rb3_Vocal  (.partVocal    ) (.vocalDifficulty) vocalDiffMap
+  rb3KeysRank'     = simpleRank rb3.rb3_Keys   (.partGRYBO    ) (.gryboDifficulty) keysDiffMap
+    `rankOr`         simpleRank rb3.rb3_Keys   (.partDrums    ) (.drumsDifficulty) drumsDiffMap
+  rb3ProKeysRank'  = simpleRank rb3.rb3_Keys   (.partProKeys  ) (.pkDifficulty   ) keysDiffMap
   rb3KeysRank      = if rb3KeysRank' == 0 then rb3ProKeysRank' else rb3KeysRank'
   rb3ProKeysRank   = if rb3ProKeysRank' == 0 then rb3KeysRank' else rb3ProKeysRank'
-  rb3ProBassRank   = simpleRank rb3_Bass   partProGuitar pgDifficulty    proBassDiffMap
-  rb3ProGuitarRank = simpleRank rb3_Guitar partProGuitar pgDifficulty    proGuitarDiffMap
+  rb3ProBassRank   = simpleRank rb3.rb3_Bass   (.partProGuitar) (.pgDifficulty   ) proBassDiffMap
+  rb3ProGuitarRank = simpleRank rb3.rb3_Guitar (.partProGuitar) (.pgDifficulty   ) proGuitarDiffMap
   rb3GuitarRank    = if rb3GuitarRank' == 0 then rb3ProGuitarRank else rb3GuitarRank'
   rb3BassRank      = if rb3BassRank' == 0 then rb3ProBassRank else rb3BassRank'
-  rb3BandRank      = case _difficulty $ _metadata songYaml of
+  rb3BandRank      = case songYaml.metadata.difficulty of
     Tier t -> tierToRank bandDiffMap t
     Rank r -> r
 
@@ -84,14 +85,14 @@ data DifficultyPS = DifficultyPS
   } deriving (Eq, Ord, Show, Read)
 
 difficultyPS :: TargetPS -> SongYaml f -> DifficultyPS
-difficultyPS TargetPS{..} songYaml = let
+difficultyPS ps songYaml = let
   rb3 = TargetRB3
-    { rb3_Common      = ps_Common
-    , rb3_Drums       = ps_Drums
-    , rb3_Guitar      = ps_Guitar
-    , rb3_Keys        = ps_Keys
-    , rb3_Vocal       = ps_Vocal
-    , rb3_Bass        = ps_Bass
+    { rb3_Common      = ps.ps_Common
+    , rb3_Drums       = ps.ps_Drums
+    , rb3_Guitar      = ps.ps_Guitar
+    , rb3_Keys        = ps.ps_Keys
+    , rb3_Vocal       = ps.ps_Vocal
+    , rb3_Bass        = ps.ps_Bass
     , rb3_2xBassPedal = False
     , rb3_SongID      = SongIDAutoSymbol
     , rb3_Version     = Nothing
@@ -105,11 +106,11 @@ difficultyPS TargetPS{..} songYaml = let
     Just mode -> case getDiff mode of
       Tier t -> t
       Rank r -> rankToTier dmap r
-  psRhythmTier     = simpleTier ps_Rhythm     partGRYBO gryboDifficulty guitarDiffMap
-  psGuitarCoopTier = simpleTier ps_GuitarCoop partGRYBO gryboDifficulty guitarDiffMap
-  psDanceTier      = simpleTier ps_Dance      partDance danceDifficulty drumsDiffMap
-  chGuitarGHLTier  = simpleTier ps_Guitar     partGHL   ghlDifficulty   guitarDiffMap
-  chBassGHLTier    = simpleTier ps_Bass       partGHL   ghlDifficulty   guitarDiffMap
+  psRhythmTier     = simpleTier ps.ps_Rhythm     (.partGRYBO) (.gryboDifficulty) guitarDiffMap
+  psGuitarCoopTier = simpleTier ps.ps_GuitarCoop (.partGRYBO) (.gryboDifficulty) guitarDiffMap
+  psDanceTier      = simpleTier ps.ps_Dance      (.partDance) (.danceDifficulty) drumsDiffMap
+  chGuitarGHLTier  = simpleTier ps.ps_Guitar     (.partGHL  ) (.ghlDifficulty  ) guitarDiffMap
+  chBassGHLTier    = simpleTier ps.ps_Bass       (.partGHL  ) (.ghlDifficulty  ) guitarDiffMap
   in DifficultyPS{..}
 
 -- tiers go from 1 to 10, or 0 for no part

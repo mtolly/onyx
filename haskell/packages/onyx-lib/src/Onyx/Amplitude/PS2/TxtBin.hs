@@ -1,7 +1,11 @@
 -- gen/*.txt.bin files (and other *.bin)
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.Amplitude.PS2.TxtBin where
 
 import           Control.Monad     (forM, replicateM)
@@ -13,8 +17,8 @@ import           Data.Word
 import qualified Onyx.Harmonix.DTA as D
 
 data TxtBin = TxtBin
-  { tb_sources :: [B.ByteString]
-  , tb_node    :: Node
+  { sources :: [B.ByteString]
+  , node    :: Node
   } deriving (Show)
 
 data Node = Node Word32 Word32 [NodeContents]
@@ -35,8 +39,8 @@ getLenStr = do
 getTxtBin :: Get TxtBin
 getTxtBin = do
   2 <- getWord8
-  tb_sources <- getWord32le >>= \n -> replicateM (fromIntegral n) getLenStr
-  tb_node <- getNode
+  sources <- getWord32le >>= \n -> replicateM (fromIntegral n) getLenStr
+  node <- getNode
   return TxtBin{..}
 
 getNode :: Get Node
@@ -61,8 +65,8 @@ getNode = do
 
 txtBinToDTA :: TxtBin -> D.DTA B.ByteString
 txtBinToDTA tb = D.DTA 0 $ D.Tree 0
-  [ D.Parens $ D.Tree 0 $ D.Sym "sources" : map D.String (tb_sources tb)
-  , D.Parens $ D.Tree 0 $ encodeNode $ tb_node tb
+  [ D.Parens $ D.Tree 0 $ D.Sym "sources" : map D.String tb.sources
+  , D.Parens $ D.Tree 0 $ encodeNode tb.node
   ] where
     encodeNode (Node _ _ vals) = flip map vals $ \case
       I int  -> D.Int int

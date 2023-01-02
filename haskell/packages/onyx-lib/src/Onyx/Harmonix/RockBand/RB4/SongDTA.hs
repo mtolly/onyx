@@ -2,8 +2,12 @@
 Ported from LibForge
 https://github.com/maxton/LibForge
 -}
-{-# LANGUAGE ImplicitParams  #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ImplicitParams        #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.Harmonix.RockBand.RB4.SongDTA where
 
 import           Control.Monad          (replicateM_)
@@ -13,37 +17,37 @@ import           Onyx.Codec.Binary
 import           Onyx.Rocksmith.Sng2014 (nullTerm)
 
 data SongDTA = SongDTA
-  { sdta_Type               :: Word32
-  , sdta_SongId             :: Word32
-  , sdta_Version            :: Int16
-  , sdta_GameOrigin         :: B.ByteString
-  , sdta_PreviewStart       :: Float
-  , sdta_PreviewEnd         :: Float
-  , sdta_Name               :: B.ByteString
-  , sdta_Artist             :: B.ByteString
-  , sdta_AlbumName          :: B.ByteString
-  , sdta_AlbumTrackNumber   :: Int16
-  , sdta_AlbumYear          :: Int32
-  , sdta_OriginalYear       :: Int32
-  , sdta_Genre              :: B.ByteString
-  , sdta_SongLength         :: Float
-  , sdta_GuitarRank         :: Float
-  , sdta_BassRank           :: Float
-  , sdta_VocalsRank         :: Float
-  , sdta_DrumRank           :: Float
-  , sdta_BandRank           :: Float
-  , sdta_KeysRank           :: Float
-  , sdta_RealKeysRank       :: Float
-  , sdta_Tutorial           :: Bool
-  , sdta_AlbumArt           :: Bool
-  , sdta_Cover              :: Bool
-  , sdta_VocalGender        :: Word8
-  , sdta_AnimTempo          :: B.ByteString
-  , sdta_HasFreestyleVocals :: Bool
-  , sdta_VocalParts         :: Int32
-  , sdta_Flags              :: Int32
-  , sdta_Fake               :: Bool
-  , sdta_Shortname          :: B.ByteString
+  { type_              :: Word32
+  , songId             :: Word32
+  , version            :: Int16
+  , gameOrigin         :: B.ByteString
+  , previewStart       :: Float
+  , previewEnd         :: Float
+  , name               :: B.ByteString
+  , artist             :: B.ByteString
+  , albumName          :: B.ByteString
+  , albumTrackNumber   :: Int16
+  , albumYear          :: Int32
+  , originalYear       :: Int32
+  , genre              :: B.ByteString
+  , songLength         :: Float
+  , guitarRank         :: Float
+  , bassRank           :: Float
+  , vocalsRank         :: Float
+  , drumRank           :: Float
+  , bandRank           :: Float
+  , keysRank           :: Float
+  , realKeysRank       :: Float
+  , tutorial           :: Bool
+  , albumArt           :: Bool
+  , cover              :: Bool
+  , vocalGender        :: Word8
+  , animTempo          :: B.ByteString
+  , hasFreestyleVocals :: Bool
+  , vocalParts         :: Int32
+  , flags              :: Int32
+  , fake               :: Bool
+  , shortname          :: B.ByteString
   } deriving (Show)
 
 boolByte :: BinaryCodec Bool
@@ -55,37 +59,37 @@ skipBytes n = replicateM_ n $ const 0 =. word8
 instance Bin SongDTA where
   bin = do
     let ?endian = LittleEndian
-    sdta_Type               <- sdta_Type               =. binEndian
-    sdta_SongId             <- sdta_SongId             =. binEndian
-    sdta_Version            <- sdta_Version            =. binEndian
-    sdta_GameOrigin         <- sdta_GameOrigin         =. nullTerm 18
-    sdta_PreviewStart       <- sdta_PreviewStart       =. binEndian
-    sdta_PreviewEnd         <- sdta_PreviewEnd         =. binEndian
-    sdta_Name               <- sdta_Name               =. nullTerm 256
-    sdta_Artist             <- sdta_Artist             =. nullTerm 256
-    sdta_AlbumName          <- sdta_AlbumName          =. nullTerm 256
-    sdta_AlbumTrackNumber   <- sdta_AlbumTrackNumber   =. binEndian
+    type_              <- (.type_             ) =. binEndian
+    songId             <- (.songId            ) =. binEndian
+    version            <- (.version           ) =. binEndian
+    gameOrigin         <- (.gameOrigin        ) =. nullTerm 18
+    previewStart       <- (.previewStart      ) =. binEndian
+    previewEnd         <- (.previewEnd        ) =. binEndian
+    name               <- (.name              ) =. nullTerm 256
+    artist             <- (.artist            ) =. nullTerm 256
+    albumName          <- (.albumName         ) =. nullTerm 256
+    albumTrackNumber   <- (.albumTrackNumber  ) =. binEndian
     skipBytes 2
-    sdta_AlbumYear          <- sdta_AlbumYear          =. binEndian
-    sdta_OriginalYear       <- sdta_OriginalYear       =. binEndian
-    sdta_Genre              <- sdta_Genre              =. nullTerm 64
-    sdta_SongLength         <- sdta_SongLength         =. binEndian
-    sdta_GuitarRank         <- sdta_GuitarRank         =. binEndian
-    sdta_BassRank           <- sdta_BassRank           =. binEndian
-    sdta_VocalsRank         <- sdta_VocalsRank         =. binEndian
-    sdta_DrumRank           <- sdta_DrumRank           =. binEndian
-    sdta_BandRank           <- sdta_BandRank           =. binEndian
-    sdta_KeysRank           <- sdta_KeysRank           =. binEndian
-    sdta_RealKeysRank       <- sdta_RealKeysRank       =. binEndian
-    sdta_Tutorial           <- sdta_Tutorial           =. boolByte
-    sdta_AlbumArt           <- sdta_AlbumArt           =. boolByte
-    sdta_Cover              <- sdta_Cover              =. boolByte
-    sdta_VocalGender        <- sdta_VocalGender        =. bin
-    sdta_AnimTempo          <- sdta_AnimTempo          =. nullTerm 16
-    sdta_HasFreestyleVocals <- sdta_HasFreestyleVocals =. boolByte
+    albumYear          <- (.albumYear         ) =. binEndian
+    originalYear       <- (.originalYear      ) =. binEndian
+    genre              <- (.genre             ) =. nullTerm 64
+    songLength         <- (.songLength        ) =. binEndian
+    guitarRank         <- (.guitarRank        ) =. binEndian
+    bassRank           <- (.bassRank          ) =. binEndian
+    vocalsRank         <- (.vocalsRank        ) =. binEndian
+    drumRank           <- (.drumRank          ) =. binEndian
+    bandRank           <- (.bandRank          ) =. binEndian
+    keysRank           <- (.keysRank          ) =. binEndian
+    realKeysRank       <- (.realKeysRank      ) =. binEndian
+    tutorial           <- (.tutorial          ) =. boolByte
+    albumArt           <- (.albumArt          ) =. boolByte
+    cover              <- (.cover             ) =. boolByte
+    vocalGender        <- (.vocalGender       ) =. bin
+    animTempo          <- (.animTempo         ) =. nullTerm 16
+    hasFreestyleVocals <- (.hasFreestyleVocals) =. boolByte
     skipBytes 3
-    sdta_VocalParts         <- sdta_VocalParts         =. binEndian
-    sdta_Flags              <- sdta_Flags              =. binEndian
-    sdta_Fake               <- sdta_Fake               =. boolByte
-    sdta_Shortname          <- sdta_Shortname          =. nullTerm 256
+    vocalParts         <- (.vocalParts        ) =. binEndian
+    flags              <- (.flags             ) =. binEndian
+    fake               <- (.fake              ) =. boolByte
+    shortname          <- (.shortname         ) =. nullTerm 256
     return SongDTA{..}

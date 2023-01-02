@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms     #-}
 module Onyx.Game.Track where
 
 import           Control.Applicative              ((<|>))
@@ -77,7 +78,7 @@ computeTracks
   -> StackTraceT m PreviewSong
 computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
 
-  parts = _parts songYaml
+  parts = songYaml.parts
   rtbToMap
     = rtbToMapSecs
     . U.applyTempoTrack tempos
@@ -108,7 +109,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
     -- TODO if kicks = 2, don't emit an X track, only X+
     drumSrc   = maybe mempty RBFile.onyxPartDrums   $ Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song
     drumSrc2x = maybe mempty RBFile.onyxPartDrums2x $ Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song
-    thisSrc = if drumsMode pdrums == DrumsFull && D.nullDrums drumSrc && D.nullDrums drumSrc2x
+    thisSrc = if pdrums.drumsMode == DrumsFull && D.nullDrums drumSrc && D.nullDrums drumSrc2x
       then maybe mempty (FD.convertFullDrums False . RBFile.onyxPartFullDrums)
         $ Map.lookup fpart $ RBFile.onyxParts $ RBFile.s_tracks song
       else case diff of
@@ -119,10 +120,10 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
     drumPro = let
       -- quick 5 lane to 4 hack, eventually should actually support drawing 5-lane drums
       ddiff = D.getDrumDifficulty diff thisSrc
-      in case drumsMode pdrums of
+      in case pdrums.drumsMode of
         Drums4    -> (\(gem, vel) -> (gem $> D.Tom, vel)) <$> ddiff
         Drums5    -> (\(gem, vel) -> (gem $> D.Tom, vel)) <$> D.fiveToFour
-          (case drumsFallback pdrums of FallbackBlue -> D.Blue; FallbackGreen -> D.Green)
+          (case pdrums.drumsFallback of FallbackBlue -> D.Blue; FallbackGreen -> D.Green)
           ddiff
         DrumsPro  -> D.computePro diff thisSrc
         DrumsReal -> D.computePro diff $ D.psRealToPro thisSrc
@@ -144,7 +145,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
         `PNF.zipStateMaps` toggle acts
     in do
       guard $ not $ Map.null drumMap
-      guard $ not $ diff == Nothing && drumsKicks pdrums == Kicks1x
+      guard $ not $ diff == Nothing && pdrums.drumsKicks == Kicks1x
       Just $ (\((((a, b), c), d), e) -> PNF.CommonState a b c d e) <$> do
         drumStates
           `PNF.zipStateMaps` toggle (D.drumOverdrive thisSrc)
@@ -169,7 +170,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
         `PNF.zipStateMaps` toggle acts
     in do
       guard $ not $ Map.null drumMap
-      guard $ not $ diff == Nothing && drumsKicks pdrums == Kicks1x
+      guard $ not $ diff == Nothing && pdrums.drumsKicks == Kicks1x
       Just $ (\((((a, b), c), d), e) -> PNF.CommonState a b c d e) <$> do
         drumStates
           `PNF.zipStateMaps` toggle (FD.fdOverdrive thisSrc)
@@ -225,7 +226,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           ) color
       this = foldr applyEdge (PNF.after prev) edges
       in Wait dt this $ buildFiveStatus this rest
-    hopoThreshold = fromIntegral (gryboHopoThreshold pgrybo) / 480 :: U.Beats
+    hopoThreshold = fromIntegral pgrybo.gryboHopoThreshold / 480 :: U.Beats
     fiveStates = (\((a, b), c) -> PNF.GuitarState a b c) <$> do
       assignedMap
         `PNF.zipStateMaps` (makeLanes (Nothing : map Just each) $ findTremolos ons $ laneDifficulty diff $ F.fiveTremolo src)
@@ -308,14 +309,14 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
               RBFile.FlexExtra "bonus-lead"   -> "RS Bonus Lead"
               RBFile.FlexExtra "bonus-rhythm" -> "RS Bonus Rhythm"
               _                               -> T.pack $ show fpart <> " [RS Guitar]"
-        return $ (\rso -> (name, PreviewPG (pgTuning ppg) $ pgRocksmith rso)) <$> buildRS tempos 0 srcG
+        return $ (\rso -> (name, PreviewPG ppg.pgTuning $ pgRocksmith rso)) <$> buildRS tempos 0 srcG
       , do
         guard $ not $ RTB.null $ rsNotes srcB
         let name = case fpart of
               RBFile.FlexBass               -> "RS Bass"
               RBFile.FlexExtra "bonus-bass" -> "RS Bonus Bass"
               _                             -> T.pack $ show fpart <> " [RS Bass]"
-        return $ (\rso -> (name, PreviewPG (pgTuning ppg) $ pgRocksmith rso)) <$> buildRS tempos 0 srcB
+        return $ (\rso -> (name, PreviewPG ppg.pgTuning $ pgRocksmith rso)) <$> buildRS tempos 0 srcB
       ]
 
   pgTrack fpart ppg diff = let
@@ -325,12 +326,12 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
         | not $ PG.nullPG $ RBFile.onyxPartRealGuitar22 part -> RBFile.onyxPartRealGuitar22 part
         | otherwise                                          -> RBFile.onyxPartRealGuitar   part
     thisDiff = fromMaybe mempty $ Map.lookup diff $ PG.pgDifficulties src
-    tuning = PG.tuningPitches (pgTuning ppg) { PG.gtrGlobal = 0 }
-    flatDefault = maybe False songKeyUsesFlats $ _key $ _metadata songYaml
+    tuning = PG.tuningPitches ppg.pgTuning { PG.gtrGlobal = 0 }
+    flatDefault = maybe False songKeyUsesFlats songYaml.metadata.key
     chordNames = PG.computeChordNames diff tuning flatDefault src
     computed :: RTB.T U.Beats (StrumHOPOTap, [(PG.GtrString, PG.GtrFret, PG.NoteType)], Maybe (U.Beats, Maybe PG.Slide))
     computed = PG.guitarifyFull
-      (fromIntegral (pgHopoThreshold ppg) / 480 :: U.Beats)
+      (fromIntegral ppg.pgHopoThreshold / 480 :: U.Beats)
       thisDiff
     notes = let
       eachString str = let
@@ -395,8 +396,8 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       $ RTB.toAbsoluteEventList 0
       $ makeBeats True source
 
-  tracks = fmap (filter $ not . null) $ forM (sortOn fst $ HM.toList $ getParts parts) $ \(fpart, part) -> let
-    five = case partGRYBO part of
+  tracks = fmap (filter $ not . null) $ forM (sortOn fst $ HM.toList parts.getParts) $ \(fpart, part) -> let
+    five = case part.partGRYBO of
       Nothing     -> []
       Just pgrybo -> let
         name = case fpart of
@@ -409,11 +410,11 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
         in diffPairs >>= \(diff, letter) -> case fiveTrack fpart pgrybo diff of
           Nothing  -> []
           Just trk -> [(name <> " (" <> letter <> ")", PreviewFive trk)]
-    drums = case partDrums part of
+    drums = case part.partDrums of
       Nothing     -> []
       Just pdrums -> let
         name = case fpart of
-          RBFile.FlexDrums -> case drumsMode pdrums of
+          RBFile.FlexDrums -> case pdrums.drumsMode of
             Drums4    -> "Drums"
             Drums5    -> "Drums"
             DrumsPro  -> "Pro Drums"
@@ -422,18 +423,18 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           _                -> T.pack $ show fpart <> " [D]"
         in drumDiffPairs >>= \(diff, letter) -> case drumTrack fpart pdrums diff of
           Nothing  -> []
-          Just trk -> [(name <> " (" <> letter <> ")", PreviewDrums trk)] ++ case drumsMode pdrums of
+          Just trk -> [(name <> " (" <> letter <> ")", PreviewDrums trk)] ++ case pdrums.drumsMode of
             DrumsFull -> case drumTrackFull fpart pdrums diff of
               Nothing -> []
               Just trkFull ->
                 [ ( case fpart of
                     RBFile.FlexDrums -> "DTXMania Drums (" <> letter <> ")"
                     _                -> T.pack (show fpart) <> " Full Drums (" <> letter <> ")"
-                  , PreviewDrumsFull (drumsFullLayout pdrums) trkFull
+                  , PreviewDrumsFull pdrums.drumsFullLayout trkFull
                   )
                 ]
             _         -> []
-    pg = case partProGuitar part of
+    pg = case part.partProGuitar of
       Nothing     -> []
       Just ppg -> let
         name = case fpart of
@@ -442,17 +443,17 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           _                 -> T.pack $ show fpart <> " [PG]"
         in diffPairs >>= \(diff, letter) -> case pgTrack fpart ppg diff of
           Nothing  -> []
-          Just trk -> [(name <> " (" <> letter <> ")", PreviewPG (pgTuning ppg) trk)]
-    rs = case partProGuitar part of
+          Just trk -> [(name <> " (" <> letter <> ")", PreviewPG ppg.pgTuning trk)]
+    rs = case part.partProGuitar of
       Nothing  -> return []
       Just ppg -> rsTracks fpart ppg
     in ((five ++ drums ++ pg) ++) <$> rs
 
   bgs = concat
-    [ case _backgroundVideo $ _global songYaml of
+    [ case songYaml.global._backgroundVideo of
       Nothing -> []
       Just vi -> [("Background Video", PreviewBGVideo vi)]
-    , case _fileBackgroundImage $ _global songYaml of
+    , case songYaml.global._fileBackgroundImage of
       Nothing -> []
       Just f  -> [("Background Image", PreviewBGImage f)]
     ]

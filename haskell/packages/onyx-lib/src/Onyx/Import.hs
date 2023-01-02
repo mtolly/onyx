@@ -1,7 +1,9 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Import where
 
 import           Control.Applicative          ((<|>))
@@ -158,14 +160,14 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         yml <- loadYaml loc
         let _ = yml :: SongYaml FilePath
         found Importable
-          { impTitle = _title $ _metadata yml
-          , impArtist = _artist $ _metadata yml
-          , impAuthor = _author $ _metadata yml
+          { impTitle = yml.metadata.title
+          , impArtist = yml.metadata.artist
+          , impAuthor = yml.metadata.author
           , impFormat = "Onyx"
           , impPath = dir
           , impIndex = Nothing
           , impProject = withYaml Nothing dir True Nothing loc
-          , imp2x = any (maybe False ((== Kicks2x) . drumsKicks) . partDrums) $ _parts yml
+          , imp2x = any (maybe False ((== Kicks2x) . (.drumsKicks)) . (.partDrums)) yml.parts
           }
       foundRBProj loc = foundImport "Magma Project" loc $ importMagma loc
       foundAmplitude loc = do
@@ -274,9 +276,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           quick <- imp ImportQuick
           let index = guard (not single) >> Just i
           return Importable
-            { impTitle = _title $ _metadata quick
-            , impArtist = _artist $ _metadata quick
-            , impAuthor = _author $ _metadata quick
+            { impTitle = quick.metadata.title
+            , impArtist = quick.metadata.artist
+            , impAuthor = quick.metadata.author
             , impFormat = fmt
             , impPath = path
             , impIndex = index
@@ -288,7 +290,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                 saver = saveImport dout proj
                 deleter = release key
                 in saver `MC.onException` deleter
-            , imp2x = any (maybe False ((== Kicks2x) . drumsKicks) . partDrums) $ _parts quick
+            , imp2x = any (maybe False ((== Kicks2x) . (.drumsKicks)) . (.partDrums)) quick.parts
             }
       foundImport fmt path imp = foundImports fmt path [imp]
   isDir <- stackIO $ Dir.doesDirectoryExist fp
@@ -507,23 +509,23 @@ installGH1 gh1 proj gen = do
   let toBytes = B8.pack . T.unpack
   prefs <- readPreferences
   stackIO $ addBonusSongGH1 GH2Installation
-    { gh2i_GEN              = gen
-    , gh2i_symbol           = sym
-    , gh2i_song             = chunks
-    , gh2i_coop_max_scores  = [] -- not used
-    , gh2i_shop_title       = Just $ toBytes $ targetTitle (projectSongYaml proj) $ GH1 gh1 -- not used
-    , gh2i_shop_description = Just $ toBytes $ T.unlines
-      [ "Artist: " <> getArtist (_metadata $ projectSongYaml proj)
-      , "Album: "  <> getAlbum  (_metadata $ projectSongYaml proj)
-      , "Author: " <> getAuthor (_metadata $ projectSongYaml proj)
+    { gen              = gen
+    , symbol           = sym
+    , song             = chunks
+    , coop_max_scores  = [] -- not used
+    , shop_title       = Just $ toBytes $ targetTitle (projectSongYaml proj) $ GH1 gh1 -- not used
+    , shop_description = Just $ toBytes $ T.unlines
+      [ "Artist: " <> getArtist (projectSongYaml proj).metadata
+      , "Album: "  <> getAlbum  (projectSongYaml proj).metadata
+      , "Author: " <> getAuthor (projectSongYaml proj).metadata
       ]
-    , gh2i_author           = toBytes . adjustSongText <$> _author (_metadata $ projectSongYaml proj)
-    , gh2i_album_art        = Nothing -- not used
-    , gh2i_files            = filePairs
-    , gh2i_sort             = guard (prefSortGH2 prefs) >> if prefArtistSort prefs
+    , author           = toBytes . adjustSongText <$> (projectSongYaml proj).metadata.author
+    , album_art        = Nothing -- not used
+    , files            = filePairs
+    , sort_            = guard (prefSortGH2 prefs) >> if prefArtistSort prefs
       then Just SongSortArtistTitle
       else Just SongSortTitleArtist
-    , gh2i_loading_phrase   = toBytes <$> gh1_LoadingPhrase gh1
+    , loading_phrase   = toBytes <$> gh1.gh1_LoadingPhrase
     }
 
 installGH2 :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
@@ -557,23 +559,23 @@ installGH2 gh2 proj gen = do
   let toBytes = B8.pack . T.unpack
   prefs <- readPreferences
   stackIO $ addBonusSongGH2 GH2Installation
-    { gh2i_GEN              = gen
-    , gh2i_symbol           = sym
-    , gh2i_song             = chunks
-    , gh2i_coop_max_scores  = coopNums
-    , gh2i_shop_title       = Just $ toBytes $ targetTitle (projectSongYaml proj) $ GH2 gh2
-    , gh2i_shop_description = Just $ toBytes $ T.unlines
-      [ "Artist: " <> getArtist (_metadata $ projectSongYaml proj)
-      , "Album: "  <> getAlbum  (_metadata $ projectSongYaml proj)
-      , "Author: " <> getAuthor (_metadata $ projectSongYaml proj)
+    { gen              = gen
+    , symbol           = sym
+    , song             = chunks
+    , coop_max_scores  = coopNums
+    , shop_title       = Just $ toBytes $ targetTitle (projectSongYaml proj) $ GH2 gh2
+    , shop_description = Just $ toBytes $ T.unlines
+      [ "Artist: " <> getArtist (projectSongYaml proj).metadata
+      , "Album: "  <> getAlbum  (projectSongYaml proj).metadata
+      , "Author: " <> getAuthor (projectSongYaml proj).metadata
       ]
-    , gh2i_author           = toBytes . adjustSongText <$> _author (_metadata $ projectSongYaml proj)
-    , gh2i_album_art        = Just $ dir </> "cover.png_ps2"
-    , gh2i_files            = filePairs
-    , gh2i_sort             = guard (prefSortGH2 prefs) >> if prefArtistSort prefs
+    , author           = toBytes . adjustSongText <$> (projectSongYaml proj).metadata.author
+    , album_art        = Just $ dir </> "cover.png_ps2"
+    , files            = filePairs
+    , sort_             = guard (prefSortGH2 prefs) >> if prefArtistSort prefs
       then Just SongSortArtistTitle
       else Just SongSortTitleArtist
-    , gh2i_loading_phrase   = toBytes <$> gh2_LoadingPhrase gh2
+    , loading_phrase   = toBytes <$> gh2.gh2_LoadingPhrase
     }
 
 makeGH1DIY :: (MonadIO m) => TargetGH1 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
@@ -635,7 +637,7 @@ buildPlayer :: (MonadIO m) => Maybe T.Text -> Project -> StackTraceT (QueueLog m
 buildPlayer mplan proj = do
   planName <- case mplan of
     Just planName -> return planName
-    Nothing       -> case Map.toList $ _plans $ projectSongYaml proj of
+    Nothing       -> case Map.toList (projectSongYaml proj).plans of
       [(planName, _)] -> return planName
       []              -> fatal "Project has no audio plans"
       _ : _ : _       -> fatal "Project has more than 1 audio plan"
@@ -643,7 +645,7 @@ buildPlayer mplan proj = do
 
 choosePlan :: (Monad m) => Maybe T.Text -> Project -> StackTraceT m T.Text
 choosePlan (Just plan) _    = return plan
-choosePlan Nothing     proj = case Map.keys $ _plans $ projectSongYaml proj of
+choosePlan Nothing     proj = case Map.keys (projectSongYaml proj).plans of
   [p]   -> return p
   plans -> fatal $ "No plan selected, and the project doesn't have exactly 1 plan: " <> show plans
 

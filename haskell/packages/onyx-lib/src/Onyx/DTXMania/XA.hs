@@ -7,8 +7,12 @@ Ported from <https://github.com/Dridi/bjxa>
 Licensed under the GNU General Public License v3
 
 -}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.DTXMania.XA (sourceXA) where
 
 import           Control.Monad                (forM, replicateM)
@@ -29,19 +33,19 @@ import           Data.Word                    (Word8)
 import           System.IO
 
 data XAState = XAState
-  { xa_Prev0 :: Int16
-  , xa_Prev1 :: Int16
+  { prev0 :: Int16
+  , prev1 :: Int16
   } deriving (Show)
 
 data XAHeader = XAHeader
-  { xa_dataLength  :: Int
-  , xa_samples     :: Frames
-  , xa_rate        :: Rate
-  , xa_bits        :: Int
-  , xa_channels    :: Channels
-  , xa_initState   :: [XAState]
-  , xa_blockSize   :: Int
-  , xa_blockSizeXA :: Int
+  { dataLength  :: Int
+  , samples     :: Frames
+  , rate        :: Rate
+  , bits        :: Int
+  , channels    :: Channels
+  , initState   :: [XAState]
+  , blockSize   :: Int
+  , blockSizeXA :: Int
   } deriving (Show)
 
 blockInflater :: Int -> B.ByteString -> ([Int16], Word8)
@@ -110,44 +114,44 @@ sourceXA f = do
   headerBytes <- liftIO $ withBinaryFile f ReadMode $ \h -> BL.hGet h headerSizeXA
   let readHeader = do
         "KWD1"        <- getByteString 4
-        xa_dataLength <- fromIntegral <$> getWord32le
-        xa_samples    <- fromIntegral <$> getWord32le
-        xa_rate       <- fromIntegral <$> getWord16le
-        xa_bits       <- fromIntegral <$> getWord8
-        xa_channels   <- fromIntegral <$> getWord8
-        xa_initState  <- replicateM xa_channels $ do
-          xa_Prev0 <- getInt16le
-          xa_Prev1 <- getInt16le
+        dataLength <- fromIntegral <$> getWord32le
+        samples    <- fromIntegral <$> getWord32le
+        rate       <- fromIntegral <$> getWord16le
+        bits       <- fromIntegral <$> getWord8
+        channels   <- fromIntegral <$> getWord8
+        initState  <- replicateM channels $ do
+          prev0 <- getInt16le
+          prev1 <- getInt16le
           return XAState{..}
-        let xa_blockSize   = xa_bits * 4 + 1
-            xa_blockSizeXA = xa_blockSize * xa_channels
+        let blockSize   = bits * 4 + 1
+            blockSizeXA = blockSize * channels
         return XAHeader{..}
   xa <- case runGetOrFail readHeader headerBytes of
     Left  (_, _, err) -> liftIO $ ioError $ userError $ "[" <> f <> "] " <> err
     Right (_, _, x  ) -> return x
   return AudioSource
-    { rate     = xa_rate xa
-    , frames   = xa_samples xa
-    , channels = xa_channels xa
+    { rate     = xa.rate
+    , frames   = xa.samples
+    , channels = xa.channels
     , source   = C.bracketP
       (openBinaryFile f ReadMode)
       hClose
       $ \h -> liftIO (hSeek h AbsoluteSeek $ fromIntegral headerSizeXA) >> let
-        numBlocks = xa_dataLength xa `quot` xa_blockSize xa
+        numBlocks = xa.dataLength `quot` xa.blockSize
         go blocksLeft samplesLeft
           | blocksLeft  <= 0 = return ()
           | samplesLeft <= 0 = return ()
           | otherwise        = do
             blocks <- fmap (map $ V.take samplesLeft) $
-              forM [0 .. xa_channels xa - 1] $ \i -> do
-                block <- liftIO $ B.hGet h $ xa_blockSize xa
-                let (shorts, prof) = blockInflater (xa_bits xa) block
+              forM [0 .. xa.channels - 1] $ \i -> do
+                block <- liftIO $ B.hGet h xa.blockSize
+                let (shorts, prof) = blockInflater xa.bits block
                 decodeInflated shorts i prof
             lift $ yield $ case blocks of
               [x] -> x
               _   -> interleave blocks
             go (blocksLeft - 1) (samplesLeft - blockSamplesXA)
-        in evalStateT (go numBlocks $ xa_samples xa) $ xa_initState xa
+        in evalStateT (go numBlocks xa.samples) xa.initState
     }
 
 headerSizeXA :: Int

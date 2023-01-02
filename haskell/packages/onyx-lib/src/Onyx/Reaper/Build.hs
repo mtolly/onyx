@@ -1,5 +1,9 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.Reaper.Build (makeReaperShake, makeReaper, makeReaperFromData, TuningInfo(..)) where
 
 import           Onyx.Reaper.Base
@@ -152,45 +156,45 @@ event tks = \case
 
 data ReaSynth = ReaSynth
   -- TODO time values (attack, release, etc.) are stored in some weird format, not just seconds
-  { rs_attack       :: Float
-  , rs_release      :: Float
-  , rs_square       :: Float -- 0 to 1
-  , rs_sawtooth     :: Float -- 0 to 1
-  , rs_triangle     :: Float -- 0 to 1
-  , rs_volume       :: Float -- gain ratio
-  , rs_decay        :: Float
-  , rs_extra_volume :: Float -- gain ratio
-  , rs_extra_tuning :: Float -- 0 = -1200 cents, 1 = +1200 cents
-  , rs_sustain      :: Float -- gain ratio
-  , rs_pulse_width  :: Float
-  , rs_tuning       :: Float -- 0 = -1200 cents, 1 = +1200 cents
-  , rs_old_sine     :: Bool -- stored as float, 0 or 1
+  { attack       :: Float
+  , release      :: Float
+  , square       :: Float -- 0 to 1
+  , sawtooth     :: Float -- 0 to 1
+  , triangle     :: Float -- 0 to 1
+  , volume       :: Float -- gain ratio
+  , decay        :: Float
+  , extra_volume :: Float -- gain ratio
+  , extra_tuning :: Float -- 0 = -1200 cents, 1 = +1200 cents
+  , sustain      :: Float -- gain ratio
+  , pulse_width  :: Float
+  , tuning       :: Float -- 0 = -1200 cents, 1 = +1200 cents
+  , old_sine     :: Bool -- stored as float, 0 or 1
   }
 
 reaSynthBytes :: ReaSynth -> Put
 reaSynthBytes rs = do
   -- not sure what's in these bytes
   putByteString $ B.pack [121,115,101,114,239,94,237,254,0,0,0,0,2,0,0,0,1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,60,0,0,0,0,0,0,0,0,0,16,0,239,190,173,222,13,240,173,222]
-  putFloatle $ rs_attack       rs
-  putFloatle $ rs_release      rs
-  putFloatle $ rs_square       rs
-  putFloatle $ rs_sawtooth     rs
-  putFloatle $ rs_triangle     rs
-  putFloatle $ rs_volume       rs
-  putFloatle $ rs_decay        rs
-  putFloatle $ rs_extra_volume rs
-  putFloatle $ rs_extra_tuning rs
-  putFloatle $ rs_sustain      rs
-  putFloatle $ rs_pulse_width  rs
-  putFloatle $ rs_tuning       rs
-  putFloatle $ if rs_old_sine rs then 1 else 0
+  putFloatle rs.attack
+  putFloatle rs.release
+  putFloatle rs.square
+  putFloatle rs.sawtooth
+  putFloatle rs.triangle
+  putFloatle rs.volume
+  putFloatle rs.decay
+  putFloatle rs.extra_volume
+  putFloatle rs.extra_tuning
+  putFloatle rs.sustain
+  putFloatle rs.pulse_width
+  putFloatle rs.tuning
+  putFloatle $ if rs.old_sine then 1 else 0
   putByteString $ B.pack [0,0,16,0,0,0]
 
 track :: (Monad m, NNC.C t, Integral t) => TuningInfo -> NN.Int -> U.Seconds -> NN.Int -> RTB.T t E.T -> WriterT [Element] m ()
 track tunings lenTicks lenSecs resn trk = let
   name = maybe "untitled track" T.pack $ U.trackName trk
   fpart = identifyFlexTrack name
-  tuning = flip fromMaybe (fpart >>= (`lookup` tuningGuitars tunings)) $ case fpart of
+  tuning = flip fromMaybe (fpart >>= (`lookup` tunings.guitars)) $ case fpart of
     Just FlexBass -> GtrTuning Bass4   [] 0 0
     _             -> GtrTuning Guitar6 [] 0 0
   in block "TRACK" [] $ do
@@ -263,38 +267,38 @@ track tunings lenTicks lenSecs resn trk = let
         rawB64 pieces = case mapM B64.decode pieces of
           Right decs -> mapM_ putByteString decs
           Left err   -> error $ "Couldn't decode vst base64: " <> err
-        synthTuning = (1200 + fromIntegral (tuningCents tunings)) / 2400
+        synthTuning = (1200 + fromIntegral tunings.cents) / 2400
         pitchStandard = reasynth True ReaSynth
           -- vox and pro keys pitches: sine with some square
-          { rs_attack       = 6.0e-3
-          , rs_release      = 1.6e-3
-          , rs_square       = 0.575
-          , rs_sawtooth     = 0.0
-          , rs_triangle     = 0.0
-          , rs_volume       = 1.0
-          , rs_decay        = 6.660444e-2
-          , rs_extra_volume = 0.0
-          , rs_extra_tuning = 0.5
-          , rs_sustain      = 1.0
-          , rs_pulse_width  = 1.0
-          , rs_tuning       = synthTuning
-          , rs_old_sine     = True
+          { attack       = 6.0e-3
+          , release      = 1.6e-3
+          , square       = 0.575
+          , sawtooth     = 0.0
+          , triangle     = 0.0
+          , volume       = 1.0
+          , decay        = 6.660444e-2
+          , extra_volume = 0.0
+          , extra_tuning = 0.5
+          , sustain      = 1.0
+          , pulse_width  = 1.0
+          , tuning       = synthTuning
+          , old_sine     = True
           }
         pitchProGtr = reasynth True ReaSynth
           -- pro guitar pitches: more square/sawtooth/triangle + decay
-          { rs_attack       = 6.0e-3
-          , rs_release      = 1.6e-3
-          , rs_square       = 0.753
-          , rs_sawtooth     = 0.808
-          , rs_triangle     = 1.0
-          , rs_volume       = 1.2769369
-          , rs_decay        = 8.84266e-3
-          , rs_extra_volume = 0.0
-          , rs_extra_tuning = 0.5
-          , rs_sustain      = 0.29907262
-          , rs_pulse_width  = 0.924
-          , rs_tuning       = synthTuning
-          , rs_old_sine     = False
+          { attack       = 6.0e-3
+          , release      = 1.6e-3
+          , square       = 0.753
+          , sawtooth     = 0.808
+          , triangle     = 1.0
+          , volume       = 1.2769369
+          , decay        = 8.84266e-3
+          , extra_volume = 0.0
+          , extra_tuning = 0.5
+          , sustain      = 0.29907262
+          , pulse_width  = 0.924
+          , tuning       = synthTuning
+          , old_sine     = False
           }
         woodblock = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 False $ rawB64
           [ "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA="
@@ -1208,8 +1212,8 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`T.isSuffixOf` T.pack 
 
 -- TODO this should be extended to support pgTuningRSBass
 data TuningInfo = TuningInfo
-  { tuningGuitars :: [(FlexPartName, GtrTuning)]
-  , tuningCents   :: Int
+  { guitars :: [(FlexPartName, GtrTuning)]
+  , cents   :: Int
   }
 
 makeReaper :: (SendMessage m, MonadIO m) => TuningInfo -> FilePath -> FilePath -> [FilePath] -> FilePath -> StackTraceT m ()

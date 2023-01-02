@@ -3,6 +3,7 @@ Add the C3 comments into a @songs.dta@ file.
 -}
 {-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedRecordDot       #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
 module Onyx.Harmonix.DTA.C3 where
@@ -67,16 +68,16 @@ makeC3DTAComments :: Metadata f -> Plan f -> TargetRB3 -> C3DTAComments
 makeC3DTAComments meta plan rb3 = C3DTAComments
   { c3dtaCreatedUsing = Just $ T.pack $ "Onyx Music Game Toolkit version " <> showVersion version
   , c3dtaAuthoredBy   = Just $ getAuthor meta
-  , c3dtaSong         = Just $ fromMaybe (getTitle meta) $ tgt_Title $ rb3_Common rb3
-  , c3dtaLanguages    = Just $ _languages meta
+  , c3dtaSong         = Just $ fromMaybe (getTitle meta) rb3.rb3_Common.tgt_Title
+  , c3dtaLanguages    = Just meta.languages
   , c3dtaKaraoke      = Just $ getKaraoke plan
   , c3dtaMultitrack   = Just $ getMultitrack plan
-  , c3dtaConvert      = Just $ _convert meta
-  , c3dta2xBass       = Just $ rb3_2xBassPedal rb3
-  , c3dtaRhythmKeys   = Just $ _rhythmKeys meta
-  , c3dtaRhythmBass   = Just $ _rhythmBass meta
-  , c3dtaCATemh       = Just $ _catEMH meta
-  , c3dtaExpertOnly   = Just $ _expertOnly meta
+  , c3dtaConvert      = Just meta.convert
+  , c3dta2xBass       = Just rb3.rb3_2xBassPedal
+  , c3dtaRhythmKeys   = Just meta.rhythmKeys
+  , c3dtaRhythmBass   = Just meta.rhythmBass
+  , c3dtaCATemh       = Just meta.catEMH
+  , c3dtaExpertOnly   = Just meta.expertOnly
   }
 
 data DTASingle = DTASingle

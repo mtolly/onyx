@@ -1,7 +1,8 @@
-{-# LANGUAGE ImplicitParams    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ImplicitParams        #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE OverloadedStrings     #-}
 module Onyx.Import.Neversoft where
 
 import           Control.Applicative              ((<|>))
@@ -126,34 +127,34 @@ importGH5WoR src folder = do
           let readTier 0 _ = Nothing
               readTier n f = Just $ f $ Rank $ fromIntegral n * 50
           return SongYaml
-            { _metadata = def'
-              { _title = Just $ snd $ songTitle info
-              , _artist = Just $ snd $ songArtist info
-              , _year = Just $ songYear info
-              , _album = fmap snd $ songAlbumTitle info
-              , _fileAlbumArt = Nothing
-              , _genre = displayWoRGenre <$> songGenre info
+            { metadata = def'
+              { title = Just $ snd $ songTitle info
+              , artist = Just $ snd $ songArtist info
+              , year = Just $ songYear info
+              , album = fmap snd $ songAlbumTitle info
+              , fileAlbumArt = Nothing
+              , genre = displayWoRGenre <$> songGenre info
               }
-            , _global = def'
+            , global = def'
               { _fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
               , _fileSongAnim = Nothing
               , _backgroundVideo = Nothing
               , _fileBackgroundImage = Nothing
               }
-            , _audio = HM.fromList $ do
+            , audio = HM.fromList $ do
               (name, bs) <- streams1 <> streams2 <> streams3
               let str = T.unpack name
               return (name, AudioFile AudioInfo
-                { _md5 = Nothing
-                , _frames = Nothing
-                , _filePath = Just $ SoftFile str $ SoftReadable
+                { md5 = Nothing
+                , frames = Nothing
+                , filePath = Just $ SoftFile str $ SoftReadable
                   $ makeHandle str $ byteStringSimpleHandle bs
-                , _commands = []
-                , _rate = Nothing
-                , _channels = 2
+                , commands = []
+                , rate = Nothing
+                , channels = 2
                 })
-            , _jammit = HM.empty
-            , _plans = HM.singleton "gh" Plan
+            , jammit = HM.empty
+            , plans = HM.singleton "gh" Plan
               { _song = case streams3 of
                 (x, _) : _ -> Just $ PlanAudio (Input $ Named x) [] []
                 []         -> Nothing
@@ -181,8 +182,8 @@ importGH5WoR src folder = do
               , _tuningCents = 0
               , _fileTempo = Nothing
               }
-            , _targets = HM.empty
-            , _parts = Parts $ HM.fromList
+            , targets = HM.empty
+            , parts = Parts $ HM.fromList
               [ (RBFile.FlexGuitar, def
                 { partGRYBO = readTier (songTierGuitar info) $ \diff -> def { gryboDifficulty = diff }
                 })
@@ -428,37 +429,37 @@ importGH3Song gh3i = let
     let guitarVol = replicate 2 $ realToFrac $ gh3GuitarPlaybackVolume info
         bandVol   = replicate 2 $ realToFrac $ gh3BandPlaybackVolume   info
     return SongYaml
-      { _metadata = def'
-        { _title = Just $ case mode of
+      { metadata = def'
+        { title = Just $ case mode of
           ImportSolo -> gh3Title info
           ImportCoop -> gh3Title info <> " (Co-op)"
-        , _artist = Just $ gh3Artist info
-        , _year = gh3Year info >>= readMaybe . T.unpack . T.takeWhileEnd isDigit
-        , _fileAlbumArt = Nothing
+        , artist = Just $ gh3Artist info
+        , year = gh3Year info >>= readMaybe . T.unpack . T.takeWhileEnd isDigit
+        , fileAlbumArt = Nothing
         }
-      , _global = def'
+      , global = def'
         { _fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
         , _fileSongAnim = Nothing
         , _backgroundVideo = Nothing
         , _fileBackgroundImage = Nothing
         }
-      , _audio = HM.fromList $ do
+      , audio = HM.fromList $ do
         (_, group) <- audio
         (name, bs) <- NE.toList group
         let str = T.unpack name
         return (name, AudioFile AudioInfo
-          { _md5 = Nothing
-          , _frames = Nothing
-          , _filePath = Just $ SoftFile str $ SoftReadable
+          { md5 = Nothing
+          , frames = Nothing
+          , filePath = Just $ SoftFile str $ SoftReadable
             $ makeHandle str $ byteStringSimpleHandle bs
-          , _commands = []
-          , _rate = Nothing
-          , _channels = case gh3iAudio gh3i of
+          , commands = []
+          , rate = Nothing
+          , channels = case gh3iAudio gh3i of
             GH3Audio360{} -> 2
             GH3AudioPS2{} -> 1 -- since we split up to mono vgs
           })
-      , _jammit = HM.empty
-      , _plans = let
+      , jammit = HM.empty
+      , plans = let
         nameLead = gh3Name info <> "_" <> if mode == ImportCoop && gh3UseCoopNotetracks info
           then "coop_guitar"
           else "guitar"
@@ -485,8 +486,8 @@ importGH3Song gh3i = let
           , _tuningCents = 0
           , _fileTempo = Nothing
           }
-      , _targets = HM.empty
-      , _parts = Parts $ HM.fromList $ catMaybes
+      , targets = HM.empty
+      , parts = Parts $ HM.fromList $ catMaybes
         [ Just (RBFile.FlexGuitar, def { partGRYBO = Just def })
         , guard (hasRealCoop && hasCoopGems) >> Just (coopPart, def { partGRYBO = Just def })
         , do

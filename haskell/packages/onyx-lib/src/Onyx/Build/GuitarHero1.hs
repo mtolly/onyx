@@ -1,7 +1,8 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Build.GuitarHero1 where
 
 import           Control.Monad.Extra
@@ -92,9 +93,9 @@ computeGH1Audio
 computeGH1Audio song target hasAudio = do
   let hasFiveOrDrums = \case
         Nothing   -> False
-        Just part -> isJust (partGRYBO part) || isJust (partDrums part)
-  gh1LeadTrack <- if hasFiveOrDrums $ getPart (gh1_Guitar target) song
-    then return $ gh1_Guitar target
+        Just part -> isJust part.partGRYBO || isJust part.partDrums
+  gh1LeadTrack <- if hasFiveOrDrums $ getPart target.gh1_Guitar song
+    then return target.gh1_Guitar
     else fatal "computeGH1Audio: no lead guitar part selected"
   let leadAudio = hasAudio gh1LeadTrack
       gh1AudioSections = GH2Band : if leadAudio
@@ -105,10 +106,10 @@ computeGH1Audio song target hasAudio = do
         else [GH2Silent, GH2Silent]
       gh1LeadChannels = [2, 3] -- always stereo as per above
       gh1BackChannels = [0, 1] -- should always be this for our output
-      gh1AnimBass  = gh1_Bass  target <$ (getPart (gh1_Bass  target) song >>= partGRYBO)
-      gh1AnimDrums = gh1_Drums target <$ (getPart (gh1_Drums target) song >>= partDrums)
-      gh1AnimVocal = gh1_Vocal target <$ (getPart (gh1_Vocal target) song >>= partVocal)
-      gh1AnimKeys  = gh1_Keys  target <$ (getPart (gh1_Keys  target) song >>= partGRYBO)
+      gh1AnimBass  = target.gh1_Bass  <$ (getPart target.gh1_Bass  song >>= (.partGRYBO))
+      gh1AnimDrums = target.gh1_Drums <$ (getPart target.gh1_Drums song >>= (.partDrums))
+      gh1AnimVocal = target.gh1_Vocal <$ (getPart target.gh1_Vocal song >>= (.partVocal))
+      gh1AnimKeys  = target.gh1_Keys  <$ (getPart target.gh1_Keys  song >>= (.partGRYBO))
   return GH1Audio{..}
 
 midiRB3toGH1
@@ -147,8 +148,8 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         fmap Map.fromList
           $ mapM (\(diff, fdiff) -> (diff,) <$> makeDiff diff fdiff)
           $ Map.toList $ RB.fiveDifficulties rbg
-      getLeadData fpart = case getPart fpart song >>= partGRYBO of
-        Nothing -> case getPart fpart song >>= partDrums of
+      getLeadData fpart = case getPart fpart song >>= (.partGRYBO) of
+        Nothing -> case getPart fpart song >>= (.partDrums) of
           Nothing -> fatal "No guitar or drums info set up for lead guitar part"
           Just pd -> return $ let
             trackOrig = buildDrumTarget
@@ -161,13 +162,13 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         Just grybo -> return $ let
           src = F.getFlexPart fpart onyx
           (trackOrig, algo) = getFive src
-          gap = fromIntegral (gryboSustainGap grybo) / 480
-          ht = gryboHopoThreshold grybo
+          gap = fromIntegral grybo.gryboSustainGap / 480
+          ht = grybo.gryboHopoThreshold
           fiveEachDiff f ft = ft { RB.fiveDifficulties = fmap f $ RB.fiveDifficulties ft }
           toGtr = fiveEachDiff $ \fd ->
               emit5'
             . fromClosed'
-            . noOpenNotes (gryboDetectMutedOpens grybo)
+            . noOpenNotes grybo.gryboDetectMutedOpens
             . noTaps
             . noExtendedSustains' standardBlipThreshold gap
             . applyForces (getForces5 fd)
@@ -247,7 +248,7 @@ bandMembers :: SongYaml f -> GH1Audio -> Maybe [Either D.BandMember T.Text]
 bandMembers song audio = let
   vocal = case gh1AnimVocal audio of
     Nothing    -> Nothing
-    Just fpart -> Just $ fromMaybe Magma.Male $ getPart fpart song >>= partVocal >>= vocalGender
+    Just fpart -> Just $ fromMaybe Magma.Male $ getPart fpart song >>= (.partVocal) >>= (.vocalGender)
   bass = True -- we'll just assume there's always a bassist, don't know if required (all songs on disc have one)
   keys = isJust $ gh1AnimKeys audio
   drums = True -- gh2 crashes if missing, haven't tested gh1 but likely the same
@@ -263,7 +264,7 @@ bandMembers song audio = let
 makeGH1DTA :: SongYaml f -> T.Text -> (Int, Int) -> GH1Audio -> T.Text -> D.SongPackage
 makeGH1DTA song key preview audio title = D.SongPackage
   { D.name = adjustSongText title
-  , D.artist = adjustSongText $ getArtist $ _metadata song
+  , D.artist = adjustSongText $ getArtist song.metadata
   , D.song = D.Song
     { D.songName = "songs/" <> key <> "/" <> key
     , D.tracks = 1
@@ -300,8 +301,8 @@ hashGH1 :: (Hashable f) => SongYaml f -> TargetGH1 -> Int
 hashGH1 songYaml gh1 = let
   hashed =
     ( gh1
-    , _title $ _metadata songYaml
-    , _artist $ _metadata songYaml
+    , songYaml.metadata.title
+    , songYaml.metadata.artist
     )
   in 1000000000 + (hash hashed `mod` 1000000000)
 
@@ -311,19 +312,19 @@ gh1Rules buildInfo dir gh1 = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan (tgt_Plan $ gh1_Common gh1) songYaml of
+  (planName, plan) <- case getPlan gh1.gh1_Common.tgt_Plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh1
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
       defaultID = hashGH1 songYaml gh1
-      key = fromMaybe (makeShortName defaultID songYaml) $ gh1_Key gh1
+      key = fromMaybe (makeShortName defaultID songYaml) gh1.gh1_Key
       pkg = T.unpack key
 
   let loadPartAudioCheck = case plan of
-        Plan{..}     -> return $ \part -> HM.member part $ getParts _planParts
+        Plan{..}     -> return $ \part -> HM.member part _planParts.getParts
         MoggPlan{..} -> do
           silentChans <- shk $ read <$> readFile' (planDir </> "silent-channels.txt")
-          return $ \part -> case HM.lookup part $ getParts _moggParts of
+          return $ \part -> case HM.lookup part _moggParts.getParts of
             Nothing    -> False
             Just chans -> any (`notElem` (silentChans :: [Int])) $ concat $ toList chans
 
@@ -332,7 +333,7 @@ gh1Rules buildInfo dir gh1 = do
     hasAudio <- loadPartAudioCheck
     audio <- computeGH1Audio songYaml gh1 hasAudio
     (mid, padSeconds) <- midiRB3toGH1 songYaml audio
-      (applyTargetMIDI (gh1_Common gh1) input)
+      (applyTargetMIDI gh1.gh1_Common input)
       (getAudioLength buildInfo planName plan)
     F.saveMIDI out mid
     stackIO $ writeFile pad $ show padSeconds
@@ -360,15 +361,15 @@ gh1Rules buildInfo dir gh1 = do
           GH2Silent -> return $ silent (Seconds 0) 11025 1
         pad <- shk $ read <$> readFile' (dir </> "gh1/pad.txt")
         audioLen <- correctAudioLength mid
-        let applyOffset = case compare (gh1_Offset gh1) 0 of
+        let applyOffset = case compare gh1.gh1_Offset 0 of
               EQ -> id
-              GT -> dropStart $ Seconds          $ gh1_Offset gh1
-              LT -> padStart  $ Seconds $ negate $ gh1_Offset gh1
+              GT -> dropStart $ Seconds          gh1.gh1_Offset
+              LT -> padStart  $ Seconds $ negate gh1.gh1_Offset
             toEachSource
               = setAudioLength audioLen
               . applyOffset
               . padAudio pad
-              . applyTargetAudio (gh1_Common gh1) mid
+              . applyTargetAudio gh1.gh1_Common mid
         return $ fmap toEachSource srcs
 
   dir </> "gh1/audio.vgs" %> \out -> do

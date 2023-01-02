@@ -1,6 +1,10 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.GuitarPro where
 
 import qualified Codec.Archive.Zip          as Zip
@@ -30,145 +34,145 @@ import           Text.XML.Light
 -- .gpx (GP6) is a custom file structure + compression format
 
 data GPIF = GPIF
-  { gp_GPVersion   :: Maybe Int -- not in .gpx
+  { gpVersion   :: Maybe Int -- not in .gpx
   -- GPRevision
   -- Encoding
-  , gp_Score       :: Score
-  , gp_MasterTrack :: MasterTrack
+  , score       :: Score
+  , masterTrack :: MasterTrack
   -- AudioTracks
-  , gp_Tracks      :: V.Vector Track
-  , gp_MasterBars  :: V.Vector MasterBar
-  , gp_Bars        :: V.Vector Bar
-  , gp_Voices      :: V.Vector Voice
-  , gp_Beats       :: V.Vector Beat
-  , gp_Notes       :: V.Vector Note
-  , gp_Rhythms     :: V.Vector Rhythm
+  , tracks      :: V.Vector Track
+  , masterBars  :: V.Vector MasterBar
+  , bars        :: V.Vector Bar
+  , voices      :: V.Vector Voice
+  , beats       :: V.Vector Beat
+  , notes       :: V.Vector Note
+  , rhythms     :: V.Vector Rhythm
   } deriving (Show)
 
 instance IsInside GPIF where
   insideCodec = do
-    gp_GPVersion   <- gp_GPVersion =. childTagOpt "GPVersion" (parseInside' $ intText childText)
+    gpVersion   <- (.gpVersion) =. childTagOpt "GPVersion" (parseInside' $ intText childText)
     ignoreChildTag "GPRevision"
     ignoreChildTag "Encoding"
-    gp_Score       <- gp_Score =. childTag "Score" (parseInside' insideCodec)
-    gp_MasterTrack <- gp_MasterTrack =. childTag "MasterTrack" (parseInside' insideCodec)
+    score       <- (.score) =. childTag "Score" (parseInside' insideCodec)
+    masterTrack <- (.masterTrack) =. childTag "MasterTrack" (parseInside' insideCodec)
     ignoreChildTag "AudioTracks"
-    gp_Tracks      <- gp_Tracks =. childTag "Tracks"
+    tracks      <- (.tracks) =. childTag "Tracks"
       (parseInside' $ bareList $ isTag "Track" $ parseInside' insideCodec)
-    gp_MasterBars  <- gp_MasterBars =. childTag "MasterBars"
+    masterBars  <- (.masterBars) =. childTag "MasterBars"
       (parseInside' $ bareList $ isTag "MasterBar" $ parseInside' insideCodec)
-    gp_Bars        <- gp_Bars       =. childTag "Bars"
+    bars        <- (.bars)       =. childTag "Bars"
       (parseInside' $ bareList $ isTag "Bar" $ parseInside' insideCodec)
-    gp_Voices      <- gp_Voices     =. childTag "Voices"
+    voices      <- (.voices)     =. childTag "Voices"
       (parseInside' $ bareList $ isTag "Voice" $ parseInside' insideCodec)
-    gp_Beats       <- gp_Beats      =. childTag "Beats"
+    beats       <- (.beats)      =. childTag "Beats"
       (parseInside' $ bareList $ isTag "Beat" $ parseInside' insideCodec)
-    gp_Notes       <- gp_Notes      =. childTag "Notes"
+    notes       <- (.notes)      =. childTag "Notes"
       (parseInside' $ bareList $ isTag "Note" $ parseInside' insideCodec)
-    gp_Rhythms     <- gp_Rhythms    =. childTag "Rhythms"
+    rhythms     <- (.rhythms)    =. childTag "Rhythms"
       (parseInside' $ bareList $ isTag "Rhythm" $ parseInside' insideCodec)
     return GPIF{..}
 
 data Score = Score
   -- probably some or all of these should be optional
-  { score_Title                     :: T.Text
-  , score_SubTitle                  :: T.Text
-  , score_Artist                    :: T.Text
-  , score_Album                     :: T.Text
-  , score_Words                     :: T.Text
-  , score_Music                     :: T.Text
-  , score_WordsAndMusic             :: T.Text
-  , score_Copyright                 :: T.Text
-  , score_Tabber                    :: T.Text
-  , score_Instructions              :: T.Text
-  , score_Notices                   :: T.Text
-  , score_FirstPageHeader           :: T.Text
-  , score_FirstPageFooter           :: T.Text
-  , score_PageHeader                :: T.Text
-  , score_PageFooter                :: T.Text
-  , score_ScoreSystemsDefaultLayout :: T.Text
-  , score_ScoreSystemsLayout        :: [Int]
-  , score_ScoreZoomPolicy           :: Maybe T.Text -- not in .gpx
-  , score_ScoreZoom                 :: Maybe T.Text -- not in .gpx
-  , score_MultiVoice                :: T.Text
+  { title                     :: T.Text
+  , subTitle                  :: T.Text
+  , artist                    :: T.Text
+  , album                     :: T.Text
+  , words_                    :: T.Text
+  , music                     :: T.Text
+  , wordsAndMusic             :: T.Text
+  , copyright                 :: T.Text
+  , tabber                    :: T.Text
+  , instructions              :: T.Text
+  , notices                   :: T.Text
+  , firstPageHeader           :: T.Text
+  , firstPageFooter           :: T.Text
+  , pageHeader                :: T.Text
+  , pageFooter                :: T.Text
+  , scoreSystemsDefaultLayout :: T.Text
+  , scoreSystemsLayout        :: [Int]
+  , scoreZoomPolicy           :: Maybe T.Text -- not in .gpx
+  , scoreZoom                 :: Maybe T.Text -- not in .gpx
+  , multiVoice                :: T.Text
   } deriving (Show)
 
 instance IsInside Score where
   insideCodec = do
-    score_Title                     <- score_Title                     =. childTag "Title"                     (parseInside' childText)
-    score_SubTitle                  <- score_SubTitle                  =. childTag "SubTitle"                  (parseInside' childText)
-    score_Artist                    <- score_Artist                    =. childTag "Artist"                    (parseInside' childText)
-    score_Album                     <- score_Album                     =. childTag "Album"                     (parseInside' childText)
-    score_Words                     <- score_Words                     =. childTag "Words"                     (parseInside' childText)
-    score_Music                     <- score_Music                     =. childTag "Music"                     (parseInside' childText)
-    score_WordsAndMusic             <- score_WordsAndMusic             =. childTag "WordsAndMusic"             (parseInside' childText)
-    score_Copyright                 <- score_Copyright                 =. childTag "Copyright"                 (parseInside' childText)
-    score_Tabber                    <- score_Tabber                    =. childTag "Tabber"                    (parseInside' childText)
-    score_Instructions              <- score_Instructions              =. childTag "Instructions"              (parseInside' childText)
-    score_Notices                   <- score_Notices                   =. childTag "Notices"                   (parseInside' childText)
-    score_FirstPageHeader           <- score_FirstPageHeader           =. childTag "FirstPageHeader"           (parseInside' childText)
-    score_FirstPageFooter           <- score_FirstPageFooter           =. childTag "FirstPageFooter"           (parseInside' childText)
-    score_PageHeader                <- score_PageHeader                =. childTag "PageHeader"                (parseInside' childText)
-    score_PageFooter                <- score_PageFooter                =. childTag "PageFooter"                (parseInside' childText)
-    score_ScoreSystemsDefaultLayout <- score_ScoreSystemsDefaultLayout =. childTag "ScoreSystemsDefaultLayout" (parseInside' childText)
-    score_ScoreSystemsLayout        <- score_ScoreSystemsLayout        =. childTag "ScoreSystemsLayout"        (parseInside' listOfInts)
-    score_ScoreZoomPolicy           <- score_ScoreZoomPolicy           =. childTagOpt "ScoreZoomPolicy"        (parseInside' childText)
-    score_ScoreZoom                 <- score_ScoreZoom                 =. childTagOpt "ScoreZoom"                 (parseInside' childText)
-    score_MultiVoice                <- score_MultiVoice                =. childTag "MultiVoice"                (parseInside' childText)
+    title                     <- (.title                    ) =. childTag "Title"                     (parseInside' childText)
+    subTitle                  <- (.subTitle                 ) =. childTag "SubTitle"                  (parseInside' childText)
+    artist                    <- (.artist                   ) =. childTag "Artist"                    (parseInside' childText)
+    album                     <- (.album                    ) =. childTag "Album"                     (parseInside' childText)
+    words_                    <- (.words_                   ) =. childTag "Words"                     (parseInside' childText)
+    music                     <- (.music                    ) =. childTag "Music"                     (parseInside' childText)
+    wordsAndMusic             <- (.wordsAndMusic            ) =. childTag "WordsAndMusic"             (parseInside' childText)
+    copyright                 <- (.copyright                ) =. childTag "Copyright"                 (parseInside' childText)
+    tabber                    <- (.tabber                   ) =. childTag "Tabber"                    (parseInside' childText)
+    instructions              <- (.instructions             ) =. childTag "Instructions"              (parseInside' childText)
+    notices                   <- (.notices                  ) =. childTag "Notices"                   (parseInside' childText)
+    firstPageHeader           <- (.firstPageHeader          ) =. childTag "FirstPageHeader"           (parseInside' childText)
+    firstPageFooter           <- (.firstPageFooter          ) =. childTag "FirstPageFooter"           (parseInside' childText)
+    pageHeader                <- (.pageHeader               ) =. childTag "PageHeader"                (parseInside' childText)
+    pageFooter                <- (.pageFooter               ) =. childTag "PageFooter"                (parseInside' childText)
+    scoreSystemsDefaultLayout <- (.scoreSystemsDefaultLayout) =. childTag "ScoreSystemsDefaultLayout" (parseInside' childText)
+    scoreSystemsLayout        <- (.scoreSystemsLayout       ) =. childTag "ScoreSystemsLayout"        (parseInside' listOfInts)
+    scoreZoomPolicy           <- (.scoreZoomPolicy          ) =. childTagOpt "ScoreZoomPolicy"        (parseInside' childText)
+    scoreZoom                 <- (.scoreZoom                ) =. childTagOpt "ScoreZoom"                 (parseInside' childText)
+    multiVoice                <- (.multiVoice               ) =. childTag "MultiVoice"                (parseInside' childText)
     return Score{..}
 
 data MasterTrack = MasterTrack
-  { mt_Tracks      :: [Int]
-  , mt_Automations :: V.Vector Automation
+  { tracks      :: [Int]
+  , automations :: V.Vector Automation
   -- RSE
   } deriving (Show)
 
 instance IsInside MasterTrack where
   insideCodec = do
-    mt_Tracks      <- mt_Tracks      =. childTag "Tracks" (parseInside' listOfInts)
-    mt_Automations <- mt_Automations =. childTag "Automations"
+    tracks      <- (.tracks)      =. childTag "Tracks" (parseInside' listOfInts)
+    automations <- (.automations) =. childTag "Automations"
       (parseInside' $ bareList $ isTag "Automation" $ parseInside' insideCodec)
     ignoreChildTag "RSE"
     return MasterTrack{..}
 
 data Automation = Automation
-  { auto_Type     :: T.Text
-  , auto_Linear   :: Bool
-  , auto_Bar      :: Int -- this appears to count from 0.
-  , auto_Position :: Double -- this appears to count from 0. (beats?) not sure of num type
-  , auto_Visible  :: Bool
-  , auto_Value    :: T.Text
+  { type_    :: T.Text
+  , linear   :: Bool
+  , bar      :: Int -- this appears to count from 0.
+  , position :: Double -- this appears to count from 0. (beats?) not sure of num type
+  , visible  :: Bool
+  , value    :: T.Text
   } deriving (Show)
 
 instance IsInside Automation where
   insideCodec = do
-    auto_Type     <- auto_Type     =. childTag "Type"     (parseInside' childText)
-    auto_Linear   <- auto_Linear   =. childTag "Linear"   (parseInside' $ boolWordText childText)
-    auto_Bar      <- auto_Bar      =. childTag "Bar"      (parseInside' $ intText childText)
-    auto_Position <- auto_Position =. childTag "Position" (parseInside' $ milliText childText)
-    auto_Visible  <- auto_Visible  =. childTag "Visible"  (parseInside' $ boolWordText childText)
-    auto_Value    <- auto_Value    =. childTag "Value"    (parseInside' childText)
+    type_    <- (.type_)    =. childTag "Type"     (parseInside' childText)
+    linear   <- (.linear)   =. childTag "Linear"   (parseInside' $ boolWordText childText)
+    bar      <- (.bar)      =. childTag "Bar"      (parseInside' $ intText childText)
+    position <- (.position) =. childTag "Position" (parseInside' $ milliText childText)
+    visible  <- (.visible)  =. childTag "Visible"  (parseInside' $ boolWordText childText)
+    value    <- (.value)    =. childTag "Value"    (parseInside' childText)
     return Automation{..}
 
 data Track = Track
-  { trk_id          :: Int
-  , trk_Name        :: T.Text
-  , trk_ShortName   :: T.Text
-  , trk_Color       :: [Int]
+  { id_         :: Int
+  , name        :: T.Text
+  , shortName   :: T.Text
+  , color       :: [Int]
   -- SystemsDefautLayout, SystemsLayout, PalmMute, AutoAccentuation, PlayingStyle, Instrument (.gpx), UseOneChannelPerString, IconId, InstrumentSet
-  , trk_Transpose   :: Maybe Transpose -- not in .gpx, has <PartSounding> instead
+  , transpose   :: Maybe Transpose -- not in .gpx, has <PartSounding> instead
   -- RSE, ForcedSound, Sounds, MidiConnection, PlaybackState, AudioEngineState, Lyrics
-  , trk_Staves      :: Maybe (V.Vector Staff) -- not in .gpx
-  , trk_Automations :: Maybe (V.Vector Automation) -- not in .gpx
-  , trk_Properties  :: Maybe Properties -- only in .gpx
+  , staves      :: Maybe (V.Vector Staff) -- not in .gpx
+  , automations :: Maybe (V.Vector Automation) -- not in .gpx
+  , properties  :: Maybe Properties -- only in .gpx
   } deriving (Show)
 
 instance IsInside Track where
   insideCodec = do
-    trk_id          <- trk_id          =. intText (reqAttr "id")
-    trk_Name        <- trk_Name        =. childTag "Name" (parseInside' childText)
-    trk_ShortName   <- trk_ShortName   =. childTag "ShortName" (parseInside' childText)
-    trk_Color       <- trk_Color       =. childTag "Color" (parseInside' listOfInts)
+    id_         <- (.id_)         =. intText (reqAttr "id")
+    name        <- (.name)        =. childTag "Name" (parseInside' childText)
+    shortName   <- (.shortName)   =. childTag "ShortName" (parseInside' childText)
+    color       <- (.color)       =. childTag "Color" (parseInside' listOfInts)
     ignoreChildTag "SystemsDefautLayout"
     ignoreChildTag "SystemsLayout"
     ignoreChildTag "PalmMute"
@@ -178,7 +182,7 @@ instance IsInside Track where
     ignoreChildTag "UseOneChannelPerString"
     ignoreChildTag "IconId"
     ignoreChildTag "InstrumentSet"
-    trk_Transpose   <- trk_Transpose   =. childTagOpt "Transpose" (parseInside' insideCodec)
+    transpose   <- (.transpose)   =. childTagOpt "Transpose" (parseInside' insideCodec)
     ignoreChildTag "RSE"
     ignoreChildTag "ForcedSound"
     ignoreChildTag "Sounds"
@@ -186,48 +190,48 @@ instance IsInside Track where
     ignoreChildTag "PlaybackState"
     ignoreChildTag "AudioEngineState"
     ignoreChildTag "Lyrics"
-    trk_Staves      <- trk_Staves      =. childTagOpt "Staves"
+    staves      <- (.staves)      =. childTagOpt "Staves"
       (parseInside' $ bareList $ isTag "Staff" $ parseInside' insideCodec)
-    trk_Automations <- trk_Automations =. childTagOpt "Automations"
+    automations <- (.automations) =. childTagOpt "Automations"
       (parseInside' $ bareList $ isTag "Automation" $ parseInside' insideCodec)
-    trk_Properties <- trk_Properties =. childTagOpt "Properties" (parseInside' insideCodec)
+    properties <- (.properties) =. childTagOpt "Properties" (parseInside' insideCodec)
     return Track{..}
 
 data Transpose = Transpose
-  { tp_Chromatic :: Int
-  , tp_Octave    :: Int
+  { chromatic :: Int
+  , octave    :: Int
   } deriving (Show)
 
 instance IsInside Transpose where
   insideCodec = do
-    tp_Chromatic <- tp_Chromatic =. childTag "Chromatic" (parseInside' $ intText childText)
-    tp_Octave    <- tp_Octave    =. childTag "Octave"    (parseInside' $ intText childText)
+    chromatic <- (.chromatic) =. childTag "Chromatic" (parseInside' $ intText childText)
+    octave    <- (.octave)    =. childTag "Octave"    (parseInside' $ intText childText)
     return Transpose{..}
 
 data Staff = Staff
-  { staff_Properties :: Properties
+  { properties :: Properties
   } deriving (Show)
 
 instance IsInside Staff where
   insideCodec = do
-    staff_Properties <- staff_Properties =. childTag "Properties" (parseInside' insideCodec)
+    properties <- (.properties) =. childTag "Properties" (parseInside' insideCodec)
     return Staff{..}
 
 data Properties = Properties
-  { props_Properties :: V.Vector Property
-  , props_Name       :: Maybe T.Text
+  { properties :: V.Vector Property
+  , name       :: Maybe T.Text
   } deriving (Show)
 
 instance IsInside Properties where
   insideCodec = do
     -- first parse the Name, which removes it, so all that's left are Property children
-    props_Name       <- props_Name       =. childTagOpt "Name" (parseInside' childText)
-    props_Properties <- props_Properties =. bareList (isTag "Property" $ parseInside' insideCodec)
+    name       <- (.name)       =. childTagOpt "Name" (parseInside' childText)
+    properties <- (.properties) =. bareList (isTag "Property" $ parseInside' insideCodec)
     return Properties{..}
 
 data Property = Property
-  { prop_name  :: T.Text
-  , prop_value :: PropertyValue
+  { name  :: T.Text
+  , value :: PropertyValue
   } deriving (Show)
 
 data PropertyValue
@@ -304,210 +308,210 @@ instance IsInside PropertyValue where
       insideCodec' = insideCodec
 
 data Tuning = Tuning
-  { tuning_Pitches      :: [Int]
-  , tuning_Instrument   :: Maybe T.Text -- not in .gpx
-  , tuning_Label        :: Maybe T.Text -- not in .gpx
-  , tuning_LabelVisible :: Maybe Bool -- not in .gpx
+  { pitches      :: [Int]
+  , instrument   :: Maybe T.Text -- not in .gpx
+  , label_       :: Maybe T.Text -- not in .gpx
+  , labelVisible :: Maybe Bool -- not in .gpx
   } deriving (Show)
 
 instance IsInside Tuning where
   insideCodec = do
-    tuning_Pitches      <- tuning_Pitches      =. childTag "Pitches"      (parseInside' listOfInts)
-    tuning_Instrument   <- tuning_Instrument   =. childTagOpt "Instrument"   (parseInside' childText)
-    tuning_Label        <- tuning_Label        =. childTagOpt "Label"        (parseInside' childText)
-    tuning_LabelVisible <- tuning_LabelVisible =. childTagOpt "LabelVisible" (parseInside' $ boolWordText childText)
+    pitches      <- (.pitches     ) =. childTag    "Pitches"      (parseInside' listOfInts)
+    instrument   <- (.instrument  ) =. childTagOpt "Instrument"   (parseInside' childText)
+    label_       <- (.label_      ) =. childTagOpt "Label"        (parseInside' childText)
+    labelVisible <- (.labelVisible) =. childTagOpt "LabelVisible" (parseInside' $ boolWordText childText)
     return Tuning{..}
 
 data Pitch = Pitch
-  { pitch_Step       :: T.Text -- capital letter
-  , pitch_Accidental :: T.Text -- "#" or "b"
-  , pitch_Octave     :: Int
+  { step       :: T.Text -- capital letter
+  , accidental :: T.Text -- "#" or "b"
+  , octave     :: Int
   } deriving (Show)
 
 instance IsInside Pitch where
   insideCodec = do
-    pitch_Step       <- pitch_Step       =. childTag "Step"       (parseInside' childText)
-    pitch_Accidental <- pitch_Accidental =. childTag "Accidental" (parseInside' childText)
-    pitch_Octave     <- pitch_Octave     =. childTag "Octave"     (parseInside' $ intText childText)
+    step       <- (.step)       =. childTag "Step"       (parseInside' childText)
+    accidental <- (.accidental) =. childTag "Accidental" (parseInside' childText)
+    octave     <- (.octave)     =. childTag "Octave"     (parseInside' $ intText childText)
     return Pitch{..}
 
 instance IsInside Property where
   insideCodec = do
-    prop_name  <- prop_name  =. reqAttr "name"
-    prop_value <- prop_value =. insideCodec
+    name  <- (.name)  =. reqAttr "name"
+    value <- (.value) =. insideCodec
     return Property{..}
 
 data MasterBar = MasterBar
-  { mb_Key       :: Key
-  , mb_Time      :: T.Text
+  { key       :: Key
+  , time      :: T.Text
   -- Repeat, Section, Fermatas
-  , mb_DoubleBar :: Bool -- true if empty DoubleBar tag is present
-  , mb_Bars      :: [Int]
+  , doubleBar :: Bool -- true if empty DoubleBar tag is present
+  , bars      :: [Int]
   -- XProperties
   } deriving (Show)
 
 instance IsInside MasterBar where
   insideCodec = do
-    mb_Key       <- mb_Key       =. childTag "Key"  (parseInside' insideCodec)
-    mb_Time      <- mb_Time      =. childTag "Time" (parseInside' childText)
+    key       <- (.key)       =. childTag "Key"  (parseInside' insideCodec)
+    time      <- (.time)      =. childTag "Time" (parseInside' childText)
     ignoreChildTag "Repeat"
     ignoreChildTag "Section"
     ignoreChildTag "Fermatas"
-    mb_DoubleBar <- mb_DoubleBar =. dimap
+    doubleBar <- (.doubleBar) =. dimap
       (\b -> guard b >> Just ())
       isJust
       (childTagOpt "DoubleBar" $ return ())
-    mb_Bars      <- mb_Bars      =. childTag "Bars" (parseInside' listOfInts)
+    bars      <- (.bars)      =. childTag "Bars" (parseInside' listOfInts)
     ignoreChildTag "XProperties"
     return MasterBar{..}
 
 data Key = Key
-  { key_AccidentalCount :: Int
-  , key_Mode            :: T.Text
-  , key_TransposeAs     :: Maybe T.Text -- not in .gpx
+  { accidentalCount :: Int
+  , mode            :: T.Text
+  , transposeAs     :: Maybe T.Text -- not in .gpx
   } deriving (Show)
 
 instance IsInside Key where
   insideCodec = do
-    key_AccidentalCount <- key_AccidentalCount =. childTag "AccidentalCount" (parseInside' $ intText childText)
-    key_Mode            <- key_Mode            =. childTag "Mode"            (parseInside' childText)
-    key_TransposeAs     <- key_TransposeAs     =. childTagOpt "TransposeAs"  (parseInside' childText)
+    accidentalCount <- (.accidentalCount) =. childTag "AccidentalCount" (parseInside' $ intText childText)
+    mode            <- (.mode)            =. childTag "Mode"            (parseInside' childText)
+    transposeAs     <- (.transposeAs)     =. childTagOpt "TransposeAs"  (parseInside' childText)
     return Key{..}
 
 data Bar = Bar
-  { bar_id     :: Int
-  , bar_Clef   :: T.Text
-  , bar_Voices :: [Int]
+  { id_    :: Int
+  , clef   :: T.Text
+  , voices :: [Int]
   -- XProperties (optional)
   } deriving (Show)
 
 instance IsInside Bar where
   insideCodec = do
-    bar_id     <- bar_id     =. intText (reqAttr "id")
-    bar_Clef   <- bar_Clef   =. childTag "Clef"   (parseInside' childText)
-    bar_Voices <- bar_Voices =. childTag "Voices" (parseInside' listOfInts)
+    id_    <- (.id_)    =. intText (reqAttr "id")
+    clef   <- (.clef)   =. childTag "Clef"   (parseInside' childText)
+    voices <- (.voices) =. childTag "Voices" (parseInside' listOfInts)
     ignoreChildTag "XProperties"
     return Bar{..}
 
 data Voice = Voice
-  { voice_id    :: Int
-  , voice_Beats :: [Int]
+  { id_   :: Int
+  , beats :: [Int]
   } deriving (Show)
 
 instance IsInside Voice where
   insideCodec = do
-    voice_id    <- voice_id    =. intText (reqAttr "id")
-    voice_Beats <- voice_Beats =. childTag "Beats" (parseInside' listOfInts)
+    id_   <- (.id_)   =. intText (reqAttr "id")
+    beats <- (.beats) =. childTag "Beats" (parseInside' listOfInts)
     return Voice{..}
 
 data Beat = Beat
-  { beat_id         :: Int
-  , beat_GraceNotes :: Maybe T.Text
+  { id_        :: Int
+  , graceNotes :: Maybe T.Text
   -- Bank (.gpx)
-  , beat_Dynamic    :: T.Text
-  , beat_Rhythm     :: RhythmRef
+  , dynamic_   :: T.Text
+  , rhythm     :: RhythmRef
   -- TransposedPitchStemOrientation, ConcertPitchStemOrientation
-  , beat_Arpeggio   :: Maybe T.Text
-  , beat_Variation  :: Maybe Int
-  , beat_FreeText   :: Maybe T.Text
-  , beat_Notes      :: Maybe [Int]
-  , beat_Properties :: Properties
+  , arpeggio   :: Maybe T.Text
+  , variation  :: Maybe Int
+  , freeText   :: Maybe T.Text
+  , notes      :: Maybe [Int]
+  , properties :: Properties
   -- XProperties
   } deriving (Show)
 
 instance IsInside Beat where
   insideCodec = do
-    beat_id         <- beat_id         =. intText (reqAttr "id")
-    beat_GraceNotes <- beat_GraceNotes =. childTagOpt "GraceNotes" (parseInside' childText)
+    id_        <- (.id_)        =. intText (reqAttr "id")
+    graceNotes <- (.graceNotes) =. childTagOpt "GraceNotes" (parseInside' childText)
     ignoreChildTag "Bank"
-    beat_Dynamic    <- beat_Dynamic    =. childTag "Dynamic" (parseInside' childText)
-    beat_Rhythm     <- beat_Rhythm     =. childTag "Rhythm" (parseInside' insideCodec)
+    dynamic_   <- (.dynamic_)   =. childTag "Dynamic" (parseInside' childText)
+    rhythm     <- (.rhythm)     =. childTag "Rhythm" (parseInside' insideCodec)
     ignoreChildTag "TransposedPitchStemOrientation"
     ignoreChildTag "ConcertPitchStemOrientation"
-    beat_Arpeggio   <- beat_Arpeggio   =. childTagOpt "Arpeggio" (parseInside' childText)
-    beat_Variation  <- beat_Variation  =. childTagOpt "Variation" (parseInside' $ intText childText)
-    beat_FreeText   <- beat_FreeText   =. childTagOpt "FreeText" (parseInside' childText)
-    beat_Notes      <- beat_Notes      =. childTagOpt "Notes" (parseInside' listOfInts)
-    beat_Properties <- beat_Properties =. childTag "Properties" (parseInside' insideCodec)
+    arpeggio   <- (.arpeggio)   =. childTagOpt "Arpeggio" (parseInside' childText)
+    variation  <- (.variation)  =. childTagOpt "Variation" (parseInside' $ intText childText)
+    freeText   <- (.freeText)   =. childTagOpt "FreeText" (parseInside' childText)
+    notes      <- (.notes)      =. childTagOpt "Notes" (parseInside' listOfInts)
+    properties <- (.properties) =. childTag "Properties" (parseInside' insideCodec)
     ignoreChildTag "XProperties"
     return Beat{..}
 
 newtype RhythmRef = RhythmRef
-  { rhythm_ref :: Int
+  { ref :: Int
   } deriving (Show)
 
 instance IsInside RhythmRef where
   insideCodec = do
-    rhythm_ref <- rhythm_ref =. intText (reqAttr "ref")
+    ref <- (.ref) =. intText (reqAttr "ref")
     return RhythmRef{..}
 
 data Note = Note
-  { note_id                     :: Int
-  , note_InstrumentArticulation :: Maybe Int -- not in .gpx
-  , note_Properties             :: Properties
-  , note_RightFingering         :: Maybe T.Text
-  , note_Accent                 :: Maybe Int
-  , note_Tie                    :: Maybe Tie
-  , note_Vibrato                :: Maybe T.Text
-  , note_AntiAccent             :: Maybe T.Text
+  { id_                    :: Int
+  , instrumentArticulation :: Maybe Int -- not in .gpx
+  , properties             :: Properties
+  , rightFingering         :: Maybe T.Text
+  , accent                 :: Maybe Int
+  , tie                    :: Maybe Tie
+  , vibrato                :: Maybe T.Text
+  , antiAccent             :: Maybe T.Text
   } deriving (Show)
 
 instance IsInside Note where
   insideCodec = do
-    note_id                     <- note_id                     =. intText (reqAttr "id")
-    note_InstrumentArticulation <- note_InstrumentArticulation =. childTagOpt "InstrumentArticulation" (parseInside' $ intText childText)
-    note_Properties             <- note_Properties             =. childTag "Properties" (parseInside' insideCodec)
-    note_RightFingering         <- note_RightFingering         =. childTagOpt "RightFingering" (parseInside' childText)
-    note_Accent                 <- note_Accent                 =. childTagOpt "Accent" (parseInside' $ intText childText)
-    note_Tie                    <- note_Tie                    =. childTagOpt "Tie" (parseInside' insideCodec)
-    note_Vibrato                <- note_Vibrato                =. childTagOpt "Vibrato" (parseInside' childText)
-    note_AntiAccent             <- note_AntiAccent             =. childTagOpt "AntiAccent" (parseInside' childText)
+    id_                    <- (.id_                   ) =. intText (reqAttr "id")
+    instrumentArticulation <- (.instrumentArticulation) =. childTagOpt "InstrumentArticulation" (parseInside' $ intText childText)
+    properties             <- (.properties            ) =. childTag "Properties" (parseInside' insideCodec)
+    rightFingering         <- (.rightFingering        ) =. childTagOpt "RightFingering" (parseInside' childText)
+    accent                 <- (.accent                ) =. childTagOpt "Accent" (parseInside' $ intText childText)
+    tie                    <- (.tie                   ) =. childTagOpt "Tie" (parseInside' insideCodec)
+    vibrato                <- (.vibrato               ) =. childTagOpt "Vibrato" (parseInside' childText)
+    antiAccent             <- (.antiAccent            ) =. childTagOpt "AntiAccent" (parseInside' childText)
     return Note{..}
 
 data Tie = Tie
-  { tie_origin      :: Bool
-  , tie_destination :: Bool
+  { origin      :: Bool
+  , destination :: Bool
   } deriving (Show)
 
 instance IsInside Tie where
   insideCodec = do
-    tie_origin      <- tie_origin      =. boolWordText (reqAttr "origin")
-    tie_destination <- tie_destination =. boolWordText (reqAttr "destination")
+    origin      <- (.origin     ) =. boolWordText (reqAttr "origin")
+    destination <- (.destination) =. boolWordText (reqAttr "destination")
     return Tie{..}
 
 data Rhythm = Rhythm
-  { rhythm_id              :: Int
-  , rhythm_NoteValue       :: T.Text
-  , rhythm_AugmentationDot :: Maybe AugmentationDot
-  , rhythm_PrimaryTuplet   :: Maybe PrimaryTuplet
+  { id_             :: Int
+  , noteValue       :: T.Text
+  , augmentationDot :: Maybe AugmentationDot
+  , primaryTuplet   :: Maybe PrimaryTuplet
   } deriving (Show)
 
 instance IsInside Rhythm where
   insideCodec = do
-    rhythm_id              <- rhythm_id              =. intText (reqAttr "id")
-    rhythm_NoteValue       <- rhythm_NoteValue       =. childTag "NoteValue" (parseInside' childText)
-    rhythm_AugmentationDot <- rhythm_AugmentationDot =. childTagOpt "AugmentationDot" (parseInside' insideCodec)
-    rhythm_PrimaryTuplet   <- rhythm_PrimaryTuplet   =. childTagOpt "PrimaryTuplet" (parseInside' insideCodec)
+    id_             <- (.id_            ) =. intText (reqAttr "id")
+    noteValue       <- (.noteValue      ) =. childTag "NoteValue" (parseInside' childText)
+    augmentationDot <- (.augmentationDot) =. childTagOpt "AugmentationDot" (parseInside' insideCodec)
+    primaryTuplet   <- (.primaryTuplet  ) =. childTagOpt "PrimaryTuplet" (parseInside' insideCodec)
     return Rhythm{..}
 
 newtype AugmentationDot = AugmentationDot
-  { aug_count :: Int
+  { count :: Int
   } deriving (Show)
 
 instance IsInside AugmentationDot where
   insideCodec = do
-    aug_count <- aug_count =. intText (reqAttr "count")
+    count <- (.count) =. intText (reqAttr "count")
     return AugmentationDot{..}
 
 data PrimaryTuplet = PrimaryTuplet
-  { tup_num :: Int
-  , tup_den :: Int
+  { num :: Int
+  , den :: Int
   } deriving (Show)
 
 instance IsInside PrimaryTuplet where
   insideCodec = do
-    tup_num <- tup_num =. intText (reqAttr "num")
-    tup_den <- tup_den =. intText (reqAttr "den")
+    num <- (.num) =. intText (reqAttr "num")
+    den <- (.den) =. intText (reqAttr "den")
     return PrimaryTuplet{..}
 
 listOfInts :: (Monad m) => InsideCodec m [Int]

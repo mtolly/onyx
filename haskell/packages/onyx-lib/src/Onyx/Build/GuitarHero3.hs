@@ -1,5 +1,6 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
 module Onyx.Build.GuitarHero3 (gh3Rules) where
 
 import           Control.Monad                     (forM_, guard, when)
@@ -74,8 +75,8 @@ hashGH3 :: (Hashable f) => SongYaml f -> TargetGH3 -> Int
 hashGH3 songYaml gh3 = let
   hashed =
     ( gh3
-    , _title $ _metadata songYaml
-    , _artist $ _metadata songYaml
+    , songYaml.metadata.title
+    , songYaml.metadata.artist
     )
   in 1000000000 + (hash hashed `mod` 1000000000)
 
@@ -85,7 +86,7 @@ gh3Rules buildInfo dir gh3 = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan (tgt_Plan $ gh3_Common gh3) songYaml of
+  (planName, plan) <- case getPlan gh3.gh3_Common.tgt_Plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh3
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
@@ -94,18 +95,18 @@ gh3Rules buildInfo dir gh3 = do
   -- makeShortName applies max of 27 chars which works with GH3 max of 26.
   -- ("<shortname>_song.pak.xen" must fit in STFS's max of 40 chars)
   let hashed = hashGH3 songYaml gh3
-      dlcID = B8.pack $ T.unpack $ case gh3_SongID gh3 of
+      dlcID = B8.pack $ T.unpack $ case gh3.gh3_SongID of
         Nothing          -> makeShortName hashed songYaml
         Just (Left  n  ) -> makeShortName n      songYaml
         Just (Right str) -> str
-      dl = "dl" <> show (fromMaybe hashed $ gh3_DL gh3)
+      dl = "dl" <> show (fromMaybe hashed gh3.gh3_DL)
       ps3Folder = makePS3Name hashed songYaml
       edatConfig = gh3CustomMidEdatConfig ps3Folder
 
-  let coopPart = case gh3_Coop gh3 of
-        GH2Bass   -> gh3_Bass   gh3
-        GH2Rhythm -> gh3_Rhythm gh3
-      gh3Parts = [gh3_Guitar gh3, coopPart]
+  let coopPart = case gh3.gh3_Coop of
+        GH2Bass   -> gh3.gh3_Bass
+        GH2Rhythm -> gh3.gh3_Rhythm
+      gh3Parts = [gh3.gh3_Guitar, coopPart]
       loadOnyxMidi :: Staction (RBFile.Song (RBFile.OnyxFile U.Beats))
       loadOnyxMidi = shakeMIDI $ planDir </> "raw.mid"
 
@@ -122,20 +123,20 @@ gh3Rules buildInfo dir gh3 = do
       readPad = shk $ read <$> readFile' pathPad
   pathGuitar %> \out -> do
     mid <- loadOnyxMidi
-    s <- sourceStereoParts buildInfo gh3Parts (gh3_Common gh3) mid 0 planName plan
-      [(gh3_Guitar gh3, 1)]
+    s <- sourceStereoParts buildInfo gh3Parts gh3.gh3_Common mid 0 planName plan
+      [(gh3.gh3_Guitar, 1)]
     pad <- readPad
     stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathRhythm %> \out -> do
     mid <- loadOnyxMidi
-    s <- sourceStereoParts buildInfo gh3Parts (gh3_Common gh3) mid 0 planName plan
+    s <- sourceStereoParts buildInfo gh3Parts gh3.gh3_Common mid 0 planName plan
       [(coopPart, 1)]
     pad <- readPad
     stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathSong %> \out -> do
     mid <- loadOnyxMidi
-    s <- sourceSongCountin buildInfo (gh3_Common gh3) mid 0 True planName plan
-      [ (gh3_Guitar gh3, 1)
+    s <- sourceSongCountin buildInfo gh3.gh3_Common mid 0 True planName plan
+      [ (gh3.gh3_Guitar, 1)
       , (coopPart      , 1)
       ]
     pad <- readPad
@@ -153,7 +154,7 @@ gh3Rules buildInfo dir gh3 = do
           $ Input (planDir </> "everything.wav")
     src <- shk $ buildSource previewExpr
     stackIO $ runResourceT $ sinkMP3WithHandle out setup
-      $ applySpeedAudio (gh3_Common gh3) src
+      $ applySpeedAudio gh3.gh3_Common src
 
   let pathFsb = dir </> "audio.fsb"
       pathFsbXen = dir </> "xbox" </> (B8.unpack dlcID <> ".fsb.xen")
@@ -235,12 +236,12 @@ gh3Rules buildInfo dir gh3 = do
                   , QBStructItemQbKey8D0000 (qbKeyCRC "checksum") (qbKeyCRC dlcID)
                   , QBStructItemString830000 (qbKeyCRC "name") dlcID
                   , QBStructItemStringW (qbKeyCRC "title") $ targetTitle songYaml (GH3 gh3)
-                  , QBStructItemStringW (qbKeyCRC "artist") $ getArtist $ _metadata songYaml
+                  , QBStructItemStringW (qbKeyCRC "artist") $ getArtist songYaml.metadata
                   -- Need to have a year string, even if empty. Otherwise it glitches out and takes other strings' values
-                  , QBStructItemStringW (qbKeyCRC "year") $ case _year $ _metadata songYaml of
+                  , QBStructItemStringW (qbKeyCRC "year") $ case songYaml.metadata.year of
                     Nothing   -> ""
                     Just year -> T.pack $ ", " <> show year
-                  , QBStructItemQbKeyString9A0000 (qbKeyCRC "artist_text") $ if _cover $ _metadata songYaml
+                  , QBStructItemQbKeyString9A0000 (qbKeyCRC "artist_text") $ if songYaml.metadata.cover
                     then qbKeyCRC "artist_text_as_made_famous_by"
                     else qbKeyCRC "artist_text_by"
                   , QBStructItemInteger810000 (qbKeyCRC "original_artist") 0 -- TODO what is this? doesn't mean cover/master
@@ -248,19 +249,19 @@ gh3Rules buildInfo dir gh3 = do
                   , QBStructItemInteger810000 (qbKeyCRC "leaderboard") 1
                   , QBStructItemInteger810000 (qbKeyCRC "gem_offset") 0
                   , QBStructItemInteger810000 (qbKeyCRC "input_offset") 0
-                  , QBStructItemQbKey8D0000 (qbKeyCRC "singer") $ case getPart (gh3_Vocal gh3) songYaml >>= partVocal of
+                  , QBStructItemQbKey8D0000 (qbKeyCRC "singer") $ case getPart gh3.gh3_Vocal songYaml >>= (.partVocal) of
                     Nothing -> qbKeyCRC "none"
-                    Just pv -> case vocalGender pv of
+                    Just pv -> case pv.vocalGender of
                       Just Female -> qbKeyCRC "female"
                       Just Male   -> qbKeyCRC "male"
                       Nothing     -> qbKeyCRC "male"
-                  , QBStructItemQbKey8D0000 (qbKeyCRC "keyboard") $ case getPart (gh3_Keys gh3) songYaml >>= partGRYBO of
+                  , QBStructItemQbKey8D0000 (qbKeyCRC "keyboard") $ case getPart gh3.gh3_Keys songYaml >>= (.partGRYBO) of
                     Nothing -> qbKeyCRC "false"
                     Just _  -> qbKeyCRC "true"
                   , QBStructItemInteger810000 (qbKeyCRC "band_playback_volume") 0
                   , QBStructItemInteger810000 (qbKeyCRC "guitar_playback_volume") 0
                   , QBStructItemString830000 (qbKeyCRC "countoff") "HiHat01"
-                  , QBStructItemInteger810000 (qbKeyCRC "rhythm_track") $ case gh3_Coop gh3 of
+                  , QBStructItemInteger810000 (qbKeyCRC "rhythm_track") $ case gh3.gh3_Coop of
                     GH2Bass   -> 0
                     GH2Rhythm -> 1
                   ]
@@ -281,15 +282,15 @@ gh3Rules buildInfo dir gh3 = do
     shk $ copyFile' pathText out
   [pathSongPak, pathPad] &%> \_ -> do
     mid <- shakeMIDI $ planDir </> "processed.mid"
-    let midApplied = applyTargetMIDI (gh3_Common gh3) mid
+    let midApplied = applyTargetMIDI gh3.gh3_Common mid
     timing <- basicTiming midApplied $ getAudioLength buildInfo planName plan
     let (gh3Mid, padSeconds) = makeGH3MidQB
           songYaml
           midApplied
           timing
-          (gh3_Guitar gh3)
+          gh3.gh3_Guitar
           coopPart
-          (gh3_Drums gh3)
+          gh3.gh3_Drums
         nodes =
           [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = key1, nodeFilenameCRC = key2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB $ makeMidQB key1 dlcID gh3Mid
@@ -315,7 +316,7 @@ gh3Rules buildInfo dir gh3 = do
           , folderFiles = map (\(dest, src) -> (T.pack dest, fileReadable src)) files
           }
         title = targetTitle songYaml (GH3 gh3)
-        artist = getArtist $ _metadata songYaml
+        artist = getArtist songYaml.metadata
         packageTitles =
           [ title <> " by " <> artist
           , ""
@@ -448,10 +449,10 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
 
   makeGH3Part fpart = let
     opart = RBFile.getFlexPart fpart $ RBFile.s_tracks song
-    ((trk, algo), threshold, detectMuted) = case getPart fpart songYaml >>= partGRYBO of
-      Just pg -> (RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart, gryboHopoThreshold pg, gryboDetectMutedOpens pg)
+    ((trk, algo), threshold, detectMuted) = case getPart fpart songYaml >>= (.partGRYBO) of
+      Just pg -> (RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart, pg.gryboHopoThreshold, pg.gryboDetectMutedOpens)
       Nothing -> let
-        trk' = case getPart fpart songYaml >>= partDrums of
+        trk' = case getPart fpart songYaml >>= (.partDrums) of
           Just _pd -> case buildDrums fpart (Left def { rb3_2xBassPedal = True }) song timing songYaml of
             Just drums -> drumsToFive song drums
             Nothing    -> mempty
@@ -509,7 +510,7 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     $ maybe RTB.empty Five.fiveGems
     $ Map.lookup Expert
     $ Five.fiveDifficulties leadTrack
-  drumAnims = case getPart partDrummer songYaml >>= partDrums of
+  drumAnims = case getPart partDrummer songYaml >>= (.partDrums) of
     Nothing -> []
     Just pd -> let
       rbAnims = buildDrumAnimation pd (RBFile.s_tempos song) $ RBFile.getFlexPart partDrummer $ RBFile.s_tracks song

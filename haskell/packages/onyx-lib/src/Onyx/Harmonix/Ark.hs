@@ -1,6 +1,10 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.Harmonix.Ark where
 
 import           Control.Monad          (forM, replicateM, when)
@@ -23,21 +27,21 @@ import           Onyx.Xbox.STFS         (runGetM)
 import           System.FilePath        (dropExtension, takeFileName, (-<.>))
 
 data FileEntry a = FileEntry
-  { fe_offset  :: Integer
-  , fe_name    :: a
-  , fe_folder  :: Maybe a
-  , fe_size    :: Word32
-  , fe_inflate :: Word32 -- inflated size, or 0 if not gzipped
+  { offset  :: Integer
+  , name    :: a
+  , folder  :: Maybe a
+  , size    :: Word32
+  , inflate :: Word32 -- inflated size, or 0 if not gzipped
   } deriving (Eq, Show)
 
 data ArkReference = ArkReference
-  { ark_path :: Maybe B.ByteString -- in v5 and up
-  , ark_size :: Integer
+  { path :: Maybe B.ByteString -- in v5 and up
+  , size :: Integer
   } deriving (Eq, Show)
 
 data Hdr = Hdr
-  { hdr_Arks  :: Maybe [ArkReference] -- sizes (+ maybe paths) of each ark (or Nothing if no separate hdr/ark)
-  , hdr_Files :: [FileEntry B.ByteString]
+  { arks  :: Maybe [ArkReference] -- sizes (+ maybe paths) of each ark (or Nothing if no separate hdr/ark)
+  , files :: [FileEntry B.ByteString]
   } deriving (Eq, Show)
 
 -- Read a .hdr, or an .ark for old games with no .hdr
@@ -46,11 +50,11 @@ readHdr bs = do
   testType <- runGetM getWord32le bs
   let dec = if testType <= 10 then bs else decryptHdr bs
       parseEntry parseOffsetIndex = do
-        fe_offset <- fromIntegral <$> parseOffsetIndex
-        fe_name <- getInt32le
-        fe_folder <- (\i -> if i == -1 then Nothing else Just i) <$> getInt32le
-        fe_size <- getWord32le
-        fe_inflate <- getWord32le
+        offset <- fromIntegral <$> parseOffsetIndex
+        name <- getInt32le
+        folder <- (\i -> if i == -1 then Nothing else Just i) <$> getInt32le
+        size <- getWord32le
+        inflate <- getWord32le
         return FileEntry{..}
       findString offsets bytes i = case offsets V.!? fromIntegral i of
         Nothing     -> fail $ "Couldn't find ARK string index " <> show i
@@ -73,10 +77,10 @@ readHdr bs = do
         stringBytes <- parseStrings
         offsets <- parseOffsets
         entries' <- forM entries $ \entry -> do
-          name <- findString offsets stringBytes $ fe_name entry
-          folder <- mapM (findString offsets stringBytes) $ fe_folder entry
-          return entry { fe_name = name, fe_folder = folder }
-        return Hdr { hdr_Arks = Nothing, hdr_Files = entries' }
+          name <- findString offsets stringBytes entry.name
+          folder <- mapM (findString offsets stringBytes) entry.folder
+          return entry { name = name, folder = folder }
+        return Hdr { arks = Nothing, files = entries' }
       -- ARK v3: Guitar Hero 1/2/80s
       3 -> do
         -- new in v3: separate hdr/ark, support split ark, move file entries to end
@@ -85,15 +89,15 @@ readHdr bs = do
         when (arkCount /= arkCount2) $ fail $ "ARK version 3: ark counts don't match (" <> show arkCount <> " and " <> show arkCount2 <> ")"
         arkSizes <- replicateM (fromIntegral arkCount) $ do
           size <- getWord32le
-          return ArkReference { ark_path = Nothing, ark_size = fromIntegral size }
+          return ArkReference { path = Nothing, size = fromIntegral size }
         stringBytes <- parseStrings
         offsets <- parseOffsets
         entries <- parseEntries getWord32le
         entries' <- forM entries $ \entry -> do
-          name <- findString offsets stringBytes $ fe_name entry
-          folder <- mapM (findString offsets stringBytes) $ fe_folder entry
-          return entry { fe_name = name, fe_folder = folder }
-        return Hdr { hdr_Arks = Just arkSizes, hdr_Files = entries' }
+          name <- findString offsets stringBytes entry.name
+          folder <- mapM (findString offsets stringBytes) entry.folder
+          return entry { name = name, folder = folder }
+        return Hdr { arks = Just arkSizes, files = entries' }
       -- ARK v4: Rock Band, Rock Band 2 (PS2)
       4 -> do
         arkCount <- getWord32le
@@ -101,15 +105,15 @@ readHdr bs = do
         when (arkCount /= arkCount2) $ fail $ "ARK version 4: ark counts don't match (" <> show arkCount <> " and " <> show arkCount2 <> ")"
         arkSizes <- replicateM (fromIntegral arkCount) $ do
           size <- getWord64le -- only in v4: each ark size is 8 bytes
-          return ArkReference { ark_path = Nothing, ark_size = fromIntegral size }
+          return ArkReference { path = Nothing, size = fromIntegral size }
         stringBytes <- parseStrings
         offsets <- parseOffsets
         entries <- parseEntries getWord64le -- new in v4: each entry's offset index is 8 bytes
         entries' <- forM entries $ \entry -> do
-          name <- findString offsets stringBytes $ fe_name entry
-          folder <- mapM (findString offsets stringBytes) $ fe_folder entry
-          return entry { fe_name = name, fe_folder = folder }
-        return Hdr { hdr_Arks = Just arkSizes, hdr_Files = entries' }
+          name <- findString offsets stringBytes entry.name
+          folder <- mapM (findString offsets stringBytes) entry.folder
+          return entry { name = name, folder = folder }
+        return Hdr { arks = Just arkSizes, files = entries' }
       -- ARK v5: Rock Band 2 (360/PS3)
       5 -> do
         arkCount <- getWord32le
@@ -125,10 +129,10 @@ readHdr bs = do
         offsets <- parseOffsets
         entries <- parseEntries getWord64le
         entries' <- forM entries $ \entry -> do
-          name <- findString offsets stringBytes $ fe_name entry
-          folder <- mapM (findString offsets stringBytes) $ fe_folder entry
-          return entry { fe_name = name, fe_folder = folder }
-        return Hdr { hdr_Arks = Just arks, hdr_Files = entries' }
+          name <- findString offsets stringBytes entry.name
+          folder <- mapM (findString offsets stringBytes) entry.folder
+          return entry { name = name, folder = folder }
+        return Hdr { arks = Just arks, files = entries' }
       -- ARK v6: Rock Band 3
       6 -> do
         skip 20 -- new: "Versions 6,7 have some sort of hash/key at the beginning?"
@@ -148,10 +152,10 @@ readHdr bs = do
         offsets <- parseOffsets
         entries <- parseEntries getWord64le
         entries' <- forM entries $ \entry -> do
-          name <- findString offsets stringBytes $ fe_name entry
-          folder <- mapM (findString offsets stringBytes) $ fe_folder entry
-          return entry { fe_name = name, fe_folder = folder }
-        return Hdr { hdr_Arks = Just arks, hdr_Files = entries' }
+          name <- findString offsets stringBytes entry.name
+          folder <- mapM (findString offsets stringBytes) entry.folder
+          return entry { name = name, folder = folder }
+        return Hdr { arks = Just arks, files = entries' }
       _ -> fail $ "Unsupported ARK version " <> show arkVersion
 
 -- Decrypts .hdr for ARK version 4 and later
@@ -172,41 +176,42 @@ decryptHdr enc = let
   in BL.packZipWith xor (BL.drop 4 enc) cryptStream
 
 entryFolder :: Hdr -> Folder B.ByteString (FileEntry B.ByteString)
-entryFolder entries = fromFiles $ flip map (hdr_Files entries) $ \entry -> let
-  path = case fe_folder entry >>= NE.nonEmpty . B8.split '/' of
-    Just dir -> dir <> return (fe_name entry)
-    Nothing  -> return (fe_name entry)
+entryFolder entries = fromFiles $ flip map entries.files $ \entry -> let
+  path = case entry.folder >>= NE.nonEmpty . B8.split '/' of
+    Just dir -> dir <> return (entry.name)
+    Nothing  -> return (entry.name)
   in (path, entry)
 
 selectArk :: (MonadFail m) => Hdr -> Integer -> m (Int, Integer)
-selectArk hdr offset = case hdr_Arks hdr of
+selectArk hdr offset = case hdr.arks of
   Nothing    -> return (0, offset)
   Just sizes -> let
+    go :: (MonadFail m) => Int -> [ArkReference] -> Integer -> m (Int, Integer)
     go i remaining curOffset = case remaining of
       [] -> fail $ "Offset extends past all .ARK files: " <> show curOffset
-      ark : rest -> if curOffset < ark_size ark
+      ark : rest -> if curOffset < ark.size
         then return (i, curOffset)
-        else go (i + 1) rest $ curOffset - ark_size ark
+        else go (i + 1) rest $ curOffset - ark.size
     in go (0 :: Int) sizes offset
 
 readFileEntry :: (MonadFail m) => Hdr -> [Readable] -> FileEntry B.ByteString -> m Readable
 readFileEntry hdr arks entry = do
-  let path = maybe id (\dir f -> dir <> "/" <> f) (fe_folder entry) (fe_name entry)
-  (arkIndex, offset) <- selectArk hdr $ fromIntegral $ fe_offset entry
+  let path = maybe id (\dir f -> dir <> "/" <> f) entry.folder (entry.name)
+  (arkIndex, offset) <- selectArk hdr $ fromIntegral entry.offset
   ark <- case drop arkIndex arks of
     []      -> fail $ "Couldn't find .ARK index " <> show arkIndex
     ark : _ -> return ark
   return $ subHandle
     (<> (" | " <> B8.unpack path))
     offset
-    (Just $ fromIntegral $ fe_size entry)
+    (Just $ fromIntegral entry.size)
     ark
 
 getFileArks :: Hdr -> T.Text -> [T.Text]
-getFileArks hdr hdrName = case hdr_Arks hdr of
+getFileArks hdr hdrName = case hdr.arks of
   Nothing -> [T.pack $ T.unpack hdrName -<.> "ARK"]
   Just arks -> zipWith
-    (\i ark -> T.pack $ case ark_path ark of
+    (\i ark -> T.pack $ case ark.path of
       -- paths are e.g. "gen/main_ps3_0.ark"
       Just p  -> takeFileName $ B8.unpack p
       Nothing -> dropExtension (T.unpack hdrName) <> "_" <> show (i :: Int) <> ".ARK"

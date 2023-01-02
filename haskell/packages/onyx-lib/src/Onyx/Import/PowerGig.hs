@@ -1,7 +1,8 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Import.PowerGig where
 
 import           Control.Monad                     (forM, guard, unless)
@@ -310,13 +311,13 @@ importPowerGigSong key song folder level = do
           name = "stream-" <> show (i :: Int)
           filename = name <> ".xma"
           afile = AudioFile AudioInfo
-            { _md5 = Nothing
-            , _frames = Nothing
-            , _filePath = Just $ SoftFile filename $ SoftReadable
+            { md5 = Nothing
+            , frames = Nothing
+            , filePath = Just $ SoftFile filename $ SoftReadable
               $ makeHandle filename $ byteStringSimpleHandle bs
-            , _commands = []
-            , _rate = Nothing
-            , _channels = 2
+            , commands = []
+            , rate = Nothing
+            , channels = 2
             }
           in (T.pack name, afile)
   audio <- case level of
@@ -337,13 +338,13 @@ importPowerGigSong key song folder level = do
             let name = "stream-" <> show (i :: Int)
                 filename = name <> "." <> T.unpack ext
                 afile = AudioFile AudioInfo
-                  { _md5 = Nothing
-                  , _frames = Nothing
-                  , _filePath = Just $ SoftFile filename $ SoftReadable
+                  { md5 = Nothing
+                  , frames = Nothing
+                  , filePath = Just $ SoftFile filename $ SoftReadable
                     $ makeHandle filename $ byteStringSimpleHandle streamData
-                  , _commands = []
-                  , _rate = Nothing
-                  , _channels = 2
+                  , commands = []
+                  , rate = Nothing
+                  , channels = 2
                   }
             return (T.pack name, afile)
         Nothing -> fatal "Couldn't find either Xbox 360 or PS3 format audio"
@@ -386,9 +387,9 @@ importPowerGigSong key song folder level = do
         case nonEmpty channels of
           Nothing -> return Nothing
           Just ne -> return $ Just PlanAudio
-            { _planExpr = Merge ne
-            , _planPans = map realToFrac pans
-            , _planVols = map (fixNegativeInfinity . realToFrac) vols
+            { expr = Merge ne
+            , pans = map realToFrac pans
+            , vols = map (fixNegativeInfinity . realToFrac) vols
             }
 
   audioBacking <- getPlanAudio audio_backing_track
@@ -397,35 +398,35 @@ importPowerGigSong key song folder level = do
   audioVocals  <- fmap PartSingle <$> getPlanAudio audio_vocals
 
   return SongYaml
-    { _metadata = Metadata
-      { _title = Just $ info_title $ song_info song
-      , _titleJP = Nothing
-      , _artist = Just $ info_artist $ song_info song
-      , _artistJP = Nothing
-      , _album = Just $ info_album $ song_info song
-      , _genre = Just $ info_genre $ song_info song -- does this need to be edited
-      , _subgenre = Nothing
-      , _year = Just $ info_year $ song_info song
-      , _fileAlbumArt = Nothing -- TODO
-      , _trackNumber = Nothing
-      , _comments = []
-      , _key = Nothing -- TODO use "key_signature"
-      , _author = Nothing
-      , _rating = Unrated
-      , _previewStart = Nothing -- TODO
-      , _previewEnd = Nothing -- TODO
-      , _languages = []
-      , _convert = False
-      , _rhythmKeys = False
-      , _rhythmBass = False
-      , _catEMH = False
-      , _expertOnly = False
-      , _cover = False
-      , _difficulty = Tier 1
+    { metadata = Metadata
+      { title = Just $ info_title $ song_info song
+      , titleJP = Nothing
+      , artist = Just $ info_artist $ song_info song
+      , artistJP = Nothing
+      , album = Just $ info_album $ song_info song
+      , genre = Just $ info_genre $ song_info song -- does this need to be edited
+      , subgenre = Nothing
+      , year = Just $ info_year $ song_info song
+      , fileAlbumArt = Nothing -- TODO
+      , trackNumber = Nothing
+      , comments = []
+      , key = Nothing -- TODO use "key_signature"
+      , author = Nothing
+      , rating = Unrated
+      , previewStart = Nothing -- TODO
+      , previewEnd = Nothing -- TODO
+      , languages = []
+      , convert = False
+      , rhythmKeys = False
+      , rhythmBass = False
+      , catEMH = False
+      , expertOnly = False
+      , cover = False
+      , difficulty = Tier 1
       }
-    , _jammit = HM.empty
-    , _audio = HM.fromList audio
-    , _plans = HM.singleton "powergig" Plan
+    , jammit = HM.empty
+    , audio = HM.fromList audio
+    , plans = HM.singleton "powergig" Plan
       { _song = audioBacking
       , _countin = Countin []
       , _planParts = Parts $ HM.fromList $ catMaybes
@@ -438,13 +439,13 @@ importPowerGigSong key song folder level = do
       , _tuningCents = 0
       , _fileTempo = Nothing
       }
-    , _global = def'
+    , global = def'
       { _fileMidi = SoftFile "notes.mid" $ SoftChart onyxMid
       , _fileSongAnim = Nothing
       , _backgroundVideo = Nothing
       , _fileBackgroundImage = Nothing
       }
-    , _parts = Parts $ HM.fromList
+    , parts = Parts $ HM.fromList
       -- do all songs have all instruments?
       [ (RBFile.FlexGuitar, def
         { partGRYBO = Just def
@@ -477,7 +478,7 @@ importPowerGigSong key song folder level = do
           }
         })
       ]
-    , _targets = HM.empty
+    , targets = HM.empty
     }
 
 data PhraseEvent

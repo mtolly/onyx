@@ -1,7 +1,11 @@
 -- | .moggsong files found in Amplitude (PS3 + PS4)
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.Harmonix.DTA.Serialize.Amplitude where
 
 import           Control.Monad.Codec         (CodecFor (..), fmapArg, (=.))
@@ -45,7 +49,7 @@ data Song = Song
   } deriving (Eq, Show)
 
 data SongInfo = SongInfo
-  { length' :: U.Beats
+  { length_ :: U.Beats
   -- ^ given in measures:beats:ticks format internally.
   -- we assume 4-beat bars and 480-tick beats.
   -- also the dtas say "SHOULD BE 5 LESS THAN ACTUAL" which is indeed true
@@ -68,28 +72,28 @@ cleanAssoc cdc = cdc
 
 instance StackChunks Song where
   stackChunks = cleanAssoc $ asStrictAssoc "Song" $ do
-    mogg_path          <- mogg_path          =. req "mogg_path"           (single chunkSym)
-    midi_path          <- midi_path          =. req "midi_path"           (single chunkSym)
-    song_info          <- song_info          =. req "song_info"           stackChunks
-    tracks             <- tracks             =. req "tracks"              (single chunkTracks)
-    pans               <- pans               =. req "pans"                (chunksParens stackChunks)
-    vols               <- vols               =. req "vols"                (chunksParens stackChunks)
-    active_track_db    <- active_track_db    =. req "active_track_db"     stackChunks
-    arena_path         <- arena_path         =. req "arena_path"          (single chunkSym)
-    score_goal         <- score_goal         =. req "score_goal"          (chunksList $ chunkParens stackChunks)
-    tunnel_scale       <- tunnel_scale       =. opt 1 "tunnel_scale"      stackChunks
-    enable_order       <- enable_order       =. req "enable_order"        (chunksParens stackChunks)
-    section_start_bars <- section_start_bars =. req "section_start_bars"  stackChunks
-    title              <- title              =. req "title"               stackChunks
-    title_short        <- title_short        =. opt Nothing "title_short" stackChunks
-    artist             <- artist             =. req "artist"              stackChunks
-    artist_short       <- artist_short       =. req "artist_short"        stackChunks
-    unlock_requirement <- unlock_requirement =. req "unlock_requirement"  (single chunkSym)
-    desc               <- desc               =. req "desc"                (single chunkSym)
-    bpm                <- bpm                =. req "bpm"                 stackChunks
-    preview_start_ms   <- preview_start_ms   =. req "preview_start_ms"    stackChunks
-    preview_length_ms  <- preview_length_ms  =. req "preview_length_ms"   stackChunks
-    boss_level         <- boss_level         =. opt Nothing "boss_level"  stackChunks
+    mogg_path          <- (.mogg_path          ) =. req "mogg_path"           (single chunkSym)
+    midi_path          <- (.midi_path          ) =. req "midi_path"           (single chunkSym)
+    song_info          <- (.song_info          ) =. req "song_info"           stackChunks
+    tracks             <- (.tracks             ) =. req "tracks"              (single chunkTracks)
+    pans               <- (.pans               ) =. req "pans"                (chunksParens stackChunks)
+    vols               <- (.vols               ) =. req "vols"                (chunksParens stackChunks)
+    active_track_db    <- (.active_track_db    ) =. req "active_track_db"     stackChunks
+    arena_path         <- (.arena_path         ) =. req "arena_path"          (single chunkSym)
+    score_goal         <- (.score_goal         ) =. req "score_goal"          (chunksList $ chunkParens stackChunks)
+    tunnel_scale       <- (.tunnel_scale       ) =. opt 1 "tunnel_scale"      stackChunks
+    enable_order       <- (.enable_order       ) =. req "enable_order"        (chunksParens stackChunks)
+    section_start_bars <- (.section_start_bars ) =. req "section_start_bars"  stackChunks
+    title              <- (.title              ) =. req "title"               stackChunks
+    title_short        <- (.title_short        ) =. opt Nothing "title_short" stackChunks
+    artist             <- (.artist             ) =. req "artist"              stackChunks
+    artist_short       <- (.artist_short       ) =. req "artist_short"        stackChunks
+    unlock_requirement <- (.unlock_requirement ) =. req "unlock_requirement"  (single chunkSym)
+    desc               <- (.desc               ) =. req "desc"                (single chunkSym)
+    bpm                <- (.bpm                ) =. req "bpm"                 stackChunks
+    preview_start_ms   <- (.preview_start_ms   ) =. req "preview_start_ms"    stackChunks
+    preview_length_ms  <- (.preview_length_ms  ) =. req "preview_length_ms"   stackChunks
+    boss_level         <- (.boss_level         ) =. opt Nothing "boss_level"  stackChunks
     return Song{..}
 
 chunkBarBeatTick :: (SendMessage m) => ChunkCodec m U.Beats
@@ -115,6 +119,6 @@ chunkBarBeatTick = Codec
 
 instance StackChunks SongInfo where
   stackChunks = cleanAssoc $ asStrictAssoc "SongInfo" $ do
-    length' <- length' =. req "length" (single chunkBarBeatTick)
-    countin <- countin =. req "countin" stackChunks
+    length_ <- (.length_) =. req "length" (single chunkBarBeatTick)
+    countin <- (.countin) =. req "countin" stackChunks
     return SongInfo{..}

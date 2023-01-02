@@ -1,10 +1,14 @@
 {- |
 Common import functions for RB1, RB2, RB3, TBRB
 -}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Import.RockBand where
 
 import           Codec.Picture.Types                  (dropTransparency,
@@ -88,15 +92,15 @@ import           System.IO.Temp                       (withSystemTempDirectory)
 import           Text.Read                            (readMaybe)
 
 data RBImport = RBImport
-  { rbiSongPackage :: D.SongPackage
-  , rbiComments    :: C3DTAComments
-  , rbiMOGG        :: Maybe SoftContents
-  , rbiPSS         :: Maybe (IO (SoftFile, [BL.ByteString])) -- if ps2, load video and vgs channels
-  , rbiAlbumArt    :: Maybe (IO (Either String SoftFile))
-  , rbiMilo        :: Maybe Readable
-  , rbiMIDI        :: Readable
-  , rbiMIDIUpdate  :: Maybe (IO (Either String Readable))
-  , rbiSource      :: Maybe FilePath
+  { songPackage :: D.SongPackage
+  , comments    :: C3DTAComments
+  , mogg        :: Maybe SoftContents
+  , pss         :: Maybe (IO (SoftFile, [BL.ByteString])) -- if ps2, load video and vgs channels
+  , albumArt    :: Maybe (IO (Either String SoftFile))
+  , milo        :: Maybe Readable
+  , midi        :: Readable
+  , midiUpdate  :: Maybe (IO (Either String Readable))
+  , source      :: Maybe FilePath
   }
 
 importSTFSFolder :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -164,15 +168,15 @@ importSTFSFolder src folder = do
           False -> Left $ "Expected to find disc update MIDI but it's not installed: " <> updateMid
       else return Nothing
     return $ importRB RBImport
-      { rbiSongPackage = pkg
-      , rbiComments = comments
-      , rbiMOGG = mogg
-      , rbiPSS = pss
-      , rbiAlbumArt = art
-      , rbiMilo = findFileCI miloPath folder
-      , rbiMIDI = midi
-      , rbiMIDIUpdate = update
-      , rbiSource = Just src
+      { songPackage = pkg
+      , comments = comments
+      , mogg = mogg
+      , pss = pss
+      , albumArt = art
+      , milo = findFileCI miloPath folder
+      , midi = midi
+      , midiUpdate = update
+      , source = Just src
       }
 
 importRBA :: (SendMessage m, MonadIO m) => FilePath -> Import m
@@ -203,17 +207,17 @@ importRBA rba level = do
         _ -> Nothing
       -- TODO: import more stuff from the extra dta
   importRB RBImport
-    { rbiSongPackage = pkg
-    , rbiComments = comments
+    { songPackage = pkg
+    , comments = comments
       { c3dtaAuthoredBy = author
       }
-    , rbiMOGG = Just mogg
-    , rbiPSS = Nothing
-    , rbiAlbumArt = Just $ return $ Right bmp
-    , rbiMilo = Just milo
-    , rbiMIDI = midi
-    , rbiMIDIUpdate = Nothing
-    , rbiSource = Nothing
+    , mogg = Just mogg
+    , pss = Nothing
+    , albumArt = Just $ return $ Right bmp
+    , milo = Just milo
+    , midi = midi
+    , midiUpdate = Nothing
+    , source = Nothing
     } level
 
 dtaIsRB3 :: D.SongPackage -> Bool
@@ -230,19 +234,19 @@ rockBandPS2PreSongTime pkg = if D.video pkg then 5 else 3
 importRB :: (SendMessage m, MonadIO m) => RBImport -> Import m
 importRB rbi level = do
 
-  let pkg = rbiSongPackage rbi
+  let pkg = rbi.songPackage
       files2x = Nothing
       (title, auto2x) = determine2xBass $ D.name pkg
-      is2x = fromMaybe auto2x $ c3dta2xBass $ rbiComments rbi
+      is2x = fromMaybe auto2x $ c3dta2xBass rbi.comments
       hasKicks = if is2x then Kicks2x else Kicks1x
 
-  when (level == ImportFull) $ forM_ (rbiSource rbi) $ \src -> do
+  when (level == ImportFull) $ forM_ rbi.source $ \src -> do
     lg $ "Importing Rock Band song [" <> T.unpack (D.songName $ D.song pkg) <> "] from: " <> src
 
   (midiFixed, midiOnyx) <- case level of
     ImportFull -> do
-      RBFile.Song temps sigs (RBFile.RawFile trks1x) <- RBFile.loadMIDIReadable $ rbiMIDI rbi
-      trksUpdate <- case rbiMIDIUpdate rbi of
+      RBFile.Song temps sigs (RBFile.RawFile trks1x) <- RBFile.loadMIDIReadable rbi.midi
+      trksUpdate <- case rbi.midiUpdate of
         Nothing -> return []
         Just getUpdate -> stackIO getUpdate >>= \case
           Left  err  -> warn err >> return []
@@ -348,7 +352,7 @@ importRB rbi level = do
 
       bassBase = detectExtProBass $ RBFile.s_tracks midiFixed
 
-  miloFolder <- case (level, rbiMilo rbi) of
+  miloFolder <- case (level, rbi.milo) of
     (ImportFull, Just milo) -> errorToWarning $ do
       bs <- stackIO $ useHandle milo handleToByteString
       dec <- runGetM decompressMilo bs
@@ -394,7 +398,7 @@ importRB rbi level = do
       lg "Loading song.anim"
       return $ Just $ SoftFile "song.anim" $ SoftReadable $ makeHandle "song.anim" $ byteStringSimpleHandle bs
 
-  (video, vgs) <- case guard (level == ImportFull) >> rbiPSS rbi of
+  (video, vgs) <- case guard (level == ImportFull) >> rbi.pss of
     Nothing     -> return (Nothing, Nothing)
     Just getPSS -> do
       (video, vgs) <- stackIO getPSS
@@ -405,44 +409,44 @@ importRB rbi level = do
 
   art <- case level of
     ImportQuick -> return Nothing
-    ImportFull  -> case rbiAlbumArt rbi of
+    ImportFull  -> case rbi.albumArt of
       Nothing -> return Nothing
       Just getArt -> stackIO getArt >>= \case
         Left  err -> warn err >> return Nothing
         Right art -> return $ Just art
 
   return SongYaml
-    { _metadata = Metadata
-      { _title        = Just title
-      , _titleJP      = Nothing
-      , _artist       = case (D.artist pkg, D.gameOrigin pkg) of
+    { metadata = Metadata
+      { title        = Just title
+      , titleJP      = Nothing
+      , artist       = case (D.artist pkg, D.gameOrigin pkg) of
         (Nothing, Just "beatles") -> Just "The Beatles"
         _                         -> D.artist pkg
-      , _artistJP     = Nothing
-      , _album        = D.albumName pkg
-      , _genre        = D.genre pkg
-      , _subgenre     = D.subGenre pkg >>= T.stripPrefix "subgenre_"
-      , _year         = case (D.yearReleased pkg, D.gameOrigin pkg, D.dateReleased pkg) of
+      , artistJP     = Nothing
+      , album        = D.albumName pkg
+      , genre        = D.genre pkg
+      , subgenre     = D.subGenre pkg >>= T.stripPrefix "subgenre_"
+      , year         = case (D.yearReleased pkg, D.gameOrigin pkg, D.dateReleased pkg) of
         (Nothing, Just "beatles", Just date) -> readMaybe $ T.unpack $ T.take 4 date
         _ -> fromIntegral <$> D.yearReleased pkg
-      , _fileAlbumArt = art
-      , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
-      , _comments     = []
-      , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
-      , _key          = skey
-      , _author       = D.author pkg <|> c3dtaAuthoredBy (rbiComments rbi)
-      , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
-      , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ D.preview pkg) / 1000
-      , _previewEnd   = Just $ PreviewSeconds $ fromIntegral (snd $ D.preview pkg) / 1000
-      , _languages    = fromMaybe [] $ c3dtaLanguages $ rbiComments rbi
-      , _convert      = fromMaybe False $ c3dtaConvert $ rbiComments rbi
-      , _rhythmKeys   = fromMaybe False $ c3dtaRhythmKeys $ rbiComments rbi
-      , _rhythmBass   = fromMaybe False $ c3dtaRhythmBass $ rbiComments rbi
-      , _catEMH       = fromMaybe False $ c3dtaCATemh $ rbiComments rbi
-      , _expertOnly   = fromMaybe False $ c3dtaExpertOnly $ rbiComments rbi
-      , _cover        = not $ D.master pkg || D.gameOrigin pkg == Just "beatles"
+      , fileAlbumArt = art
+      , trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
+      , comments     = []
+      , difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
+      , key          = skey
+      , author       = D.author pkg <|> c3dtaAuthoredBy rbi.comments
+      , rating       = toEnum $ fromIntegral $ D.rating pkg - 1
+      , previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ D.preview pkg) / 1000
+      , previewEnd   = Just $ PreviewSeconds $ fromIntegral (snd $ D.preview pkg) / 1000
+      , languages    = fromMaybe [] $ c3dtaLanguages rbi.comments
+      , convert      = fromMaybe False $ c3dtaConvert rbi.comments
+      , rhythmKeys   = fromMaybe False $ c3dtaRhythmKeys rbi.comments
+      , rhythmBass   = fromMaybe False $ c3dtaRhythmBass rbi.comments
+      , catEMH       = fromMaybe False $ c3dtaCATemh rbi.comments
+      , expertOnly   = fromMaybe False $ c3dtaExpertOnly rbi.comments
+      , cover        = not $ D.master pkg || D.gameOrigin pkg == Just "beatles"
       }
-    , _global = def'
+    , global = def'
       { _animTempo           = D.animTempo pkg
       , _fileMidi            = SoftFile "notes.mid" $ SoftChart midiOnyx
       , _fileSongAnim        = songAnim
@@ -454,19 +458,19 @@ importRB rbi level = do
         }
       , _fileBackgroundImage = Nothing
       }
-    , _audio = HM.fromList $ do
+    , audio = HM.fromList $ do
       (name, bs) <- namedChans
       return $ (T.pack name ,) $ AudioFile AudioInfo
-        { _md5 = Nothing
-        , _frames = Nothing
-        , _commands = []
-        , _filePath = Just $ SoftFile (name <.> "vgs") $ SoftReadable $ makeHandle name $ byteStringSimpleHandle bs
-        , _rate = Nothing
-        , _channels = 1
+        { md5 = Nothing
+        , frames = Nothing
+        , commands = []
+        , filePath = Just $ SoftFile (name <.> "vgs") $ SoftReadable $ makeHandle name $ byteStringSimpleHandle bs
+        , rate = Nothing
+        , channels = 1
         }
-    , _jammit = HM.empty
-    , _plans = case rbiMOGG rbi of
-      Nothing -> case rbiPSS rbi of
+    , jammit = HM.empty
+    , plans = case rbi.mogg of
+      Nothing -> case rbi.pss of
         Nothing -> HM.empty
         Just _pss -> HM.singleton "vgs" $ let
           songChans = [0 .. length namedChans - 1] \\ concat
@@ -478,14 +482,14 @@ importRB rbi level = do
             cs' <- NE.nonEmpty cs
             Just $ case cs' of
               c :| [] -> PlanAudio
-                { _planExpr = audioAdjust $ Input $ Named $ T.pack $ fst $ namedChans !! c
-                , _planPans = map realToFrac [D.pans (D.song pkg) !! c]
-                , _planVols = map realToFrac [D.vols (D.song pkg) !! c]
+                { expr = audioAdjust $ Input $ Named $ T.pack $ fst $ namedChans !! c
+                , pans = map realToFrac [D.pans (D.song pkg) !! c]
+                , vols = map realToFrac [D.vols (D.song pkg) !! c]
                 }
               _ -> PlanAudio
-                { _planExpr = audioAdjust $ Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs'
-                , _planPans = map realToFrac [D.pans (D.song pkg) !! c | c <- cs]
-                , _planVols = map realToFrac [D.vols (D.song pkg) !! c | c <- cs]
+                { expr = audioAdjust $ Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs'
+                , pans = map realToFrac [D.pans (D.song pkg) !! c | c <- cs]
+                , vols = map realToFrac [D.vols (D.song pkg) !! c | c <- cs]
                 }
           in Plan
             { _song = mixChans songChans
@@ -518,11 +522,11 @@ importRB rbi level = do
         , _planComments = []
         , _tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
         , _fileTempo = Nothing
-        , _karaoke = fromMaybe False $ c3dtaKaraoke $ rbiComments rbi
-        , _multitrack = fromMaybe True $ c3dtaMultitrack $ rbiComments rbi
+        , _karaoke = fromMaybe False $ c3dtaKaraoke rbi.comments
+        , _multitrack = fromMaybe True $ c3dtaMultitrack rbi.comments
         , _decryptSilent = False
         }
-    , _targets = let
+    , targets = let
       getSongID = \case
         Left  i -> if i /= 0
           then SongIDInt $ fromIntegral i
@@ -548,7 +552,7 @@ importRB rbi level = do
         , rb3_Version = version2x
         })
       in HM.fromList $ concat [[target1x | hasKicks /= Kicks2x], [target2x | hasKicks /= Kicks1x]]
-    , _parts = Parts $ HM.fromList
+    , parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard (hasRankStr "drum") >> Just PartDrums
           { drumsDifficulty = fromMaybe (Tier 1) $ HM.lookup "drum" diffMap
@@ -639,8 +643,10 @@ importRB rbi level = do
 importRB4 :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importRB4 fdta level = do
   dta <- stackIO (BL.fromStrict <$> B.readFile fdta) >>= runGetM (codecIn bin)
+  let _ = dta :: SongDTA
 
   moggDTA <- stackIO (D.readFileDTA $ fdta -<.> "mogg.dta") >>= D.unserialize D.stackChunks
+  let _ = moggDTA :: RB4MoggDta
 
   (midRead, hopoThreshold) <- case level of
     ImportQuick -> return (makeHandle "notes.mid" $ byteStringSimpleHandle BL.empty, 170)
@@ -649,7 +655,7 @@ importRB4 fdta level = do
       mid <- extractMidi rbmid
       return (makeHandle "notes.mid" $ byteStringSimpleHandle $ Save.toByteString mid, rbmid_HopoThreshold rbmid)
 
-  -- sdta_AlbumArt doesn't appear to be correct, it is False sometimes when song should have art
+  -- dta.albumArt doesn't appear to be correct, it is False sometimes when song should have art
   art <- if level == ImportFull
     then errorToWarning $ do
       img <- stackIO (BL.fromStrict <$> B.readFile (fdta -<.> "png_ps4")) >>= runGetM readPNGPS4
@@ -658,11 +664,11 @@ importRB4 fdta level = do
 
   let decodeBS = TE.decodeUtf8 -- is this correct? find example with non-ascii char
       pkg = D.SongPackage
-        { D.name              = decodeBS $ sdta_Name dta
-        , D.artist            = Just $ decodeBS $ sdta_Artist dta
-        , D.master            = not $ sdta_Cover dta
+        { D.name              = decodeBS dta.name
+        , D.artist            = Just $ decodeBS dta.artist
+        , D.master            = not dta.cover
         , D.song              = D.Song
-          { D.songName         = decodeBS $ sdta_Shortname dta
+          { D.songName         = decodeBS dta.shortname
           , D.tracksCount      = Nothing
           -- should be fine to keep 'fake' in tracks list, ignore later
           , D.tracks           = D.DictList
@@ -670,12 +676,12 @@ importRB4 fdta level = do
             $ Map.toList
             $ Map.unionsWith (<>)
             $ map (uncurry Map.singleton)
-            $ rb4_tracks moggDTA
-          , D.pans             = rb4_pans moggDTA
-          , D.vols             = rb4_vols moggDTA
-          , D.cores            = map (const (-1)) $ rb4_pans moggDTA
+            $ moggDTA.tracks
+          , D.pans             = moggDTA.pans
+          , D.vols             = moggDTA.vols
+          , D.cores            = map (const (-1)) moggDTA.pans
           , D.crowdChannels    = Nothing -- TODO
-          , D.vocalParts       = Just $ fromIntegral $ sdta_VocalParts dta
+          , D.vocalParts       = Just $ fromIntegral dta.vocalParts
           , D.drumSolo         = D.DrumSounds [] -- not used
           , D.drumFreestyle    = D.DrumSounds [] -- not used
           , D.muteVolume       = Nothing -- not used
@@ -686,49 +692,49 @@ importRB4 fdta level = do
         , D.songScrollSpeed   = 2300
         , D.bank              = Nothing
         , D.drumBank          = Nothing
-        , D.animTempo         = case sdta_AnimTempo dta of
+        , D.animTempo         = case dta.animTempo of
           "medium" -> Left D.KTempoMedium
           -- TODO
           _        -> Left D.KTempoMedium
-        , D.songLength        = Just $ round $ sdta_SongLength dta
-        , D.preview           = (round $ sdta_PreviewStart dta, round $ sdta_PreviewEnd dta)
+        , D.songLength        = Just $ round dta.songLength
+        , D.preview           = (round dta.previewStart, round dta.previewEnd)
         , D.rank              = HM.fromList
-          [ ("drum"       , round $ sdta_DrumRank     dta)
-          , ("bass"       , round $ sdta_BassRank     dta)
-          , ("guitar"     , round $ sdta_GuitarRank   dta)
-          , ("vocals"     , round $ sdta_VocalsRank   dta)
-          , ("keys"       , round $ sdta_KeysRank     dta)
-          , ("real_keys"  , round $ sdta_RealKeysRank dta)
-          , ("band"       , round $ sdta_BandRank     dta)
+          [ ("drum"       , round dta.drumRank    )
+          , ("bass"       , round dta.bassRank    )
+          , ("guitar"     , round dta.guitarRank  )
+          , ("vocals"     , round dta.vocalsRank  )
+          , ("keys"       , round dta.keysRank    )
+          , ("real_keys"  , round dta.realKeysRank)
+          , ("band"       , round dta.bandRank    )
           ]
-        , D.genre             = Just $ decodeBS $ sdta_Genre dta
-        , D.vocalGender       = case sdta_VocalGender dta of
+        , D.genre             = Just $ decodeBS dta.genre
+        , D.vocalGender       = case dta.vocalGender of
           1 -> Just Male
           2 -> Just Female
           _ -> Nothing
-        , D.version           = fromIntegral $ sdta_Version dta
+        , D.version           = fromIntegral dta.version
         , D.songFormat        = 10 -- we'll call it rb3 format for now
         , D.albumArt          = Just $ isJust art
-        , D.yearReleased      = Just $ fromIntegral $ sdta_AlbumYear dta
+        , D.yearReleased      = Just $ fromIntegral dta.albumYear
         , D.rating            = 4 -- TODO
         , D.subGenre          = Nothing
-        , D.songId            = Just $ Left $ fromIntegral $ sdta_SongId dta
+        , D.songId            = Just $ Left $ fromIntegral dta.songId
         , D.solo              = Nothing
         , D.tuningOffsetCents = Nothing -- TODO
         , D.guidePitchVolume  = Nothing
-        , D.gameOrigin        = Just $ decodeBS $ sdta_GameOrigin dta
+        , D.gameOrigin        = Just $ decodeBS dta.gameOrigin
         , D.encoding          = Just "utf8" -- dunno
-        , D.albumName         = Just $ decodeBS $ sdta_AlbumName dta -- can this be blank?
-        , D.albumTrackNumber  = Just $ fromIntegral $ sdta_AlbumTrackNumber dta
+        , D.albumName         = Just $ decodeBS dta.albumName -- can this be blank?
+        , D.albumTrackNumber  = Just $ fromIntegral dta.albumTrackNumber
         , D.vocalTonicNote    = Nothing -- TODO
         , D.songTonality      = Nothing -- TODO
         , D.realGuitarTuning  = Nothing
         , D.realBassTuning    = Nothing
         , D.bandFailCue       = Nothing
-        , D.fake              = Just $ sdta_Fake dta
+        , D.fake              = Just dta.fake
         , D.ugc               = Nothing
         , D.shortVersion      = Nothing
-        , D.yearRecorded      = guard (sdta_OriginalYear dta /= sdta_AlbumYear dta) >> Just (fromIntegral $ sdta_OriginalYear dta)
+        , D.yearRecorded      = guard (dta.originalYear /= dta.albumYear) >> Just (fromIntegral dta.originalYear)
         , D.packName          = Nothing
         , D.songKey           = Nothing
         , D.extraAuthoring    = Nothing
@@ -745,15 +751,15 @@ importRB4 fdta level = do
         }
 
   importRB RBImport
-    { rbiSongPackage = pkg
-    , rbiComments = def
-    , rbiMOGG = Just $ SoftReadable $ fileReadable $ fdta -<.> "mogg"
-    , rbiPSS = Nothing
-    , rbiAlbumArt = return . Right <$> art
-    , rbiMilo = Nothing
-    , rbiMIDI = midRead
-    , rbiMIDIUpdate = Nothing
-    , rbiSource = Nothing
+    { songPackage = pkg
+    , comments = def
+    , mogg = Just $ SoftReadable $ fileReadable $ fdta -<.> "mogg"
+    , pss = Nothing
+    , albumArt = return . Right <$> art
+    , milo = Nothing
+    , midi = midRead
+    , midiUpdate = Nothing
+    , source = Nothing
     } level
 
 {-
@@ -773,14 +779,14 @@ note: unlike pre-rb4, the tracks list has duplicate keys if there's more than 1 
 -}
 
 data RB4MoggDta = RB4MoggDta
-  { rb4_tracks :: [(T.Text, [Integer])]
-  , rb4_pans   :: [Float]
-  , rb4_vols   :: [Float]
+  { tracks :: [(T.Text, [Integer])]
+  , pans   :: [Float]
+  , vols   :: [Float]
   } deriving (Eq, Show)
 
 instance D.StackChunks RB4MoggDta where
   stackChunks = D.asWarnAssoc "RB4MoggDta" $ do
-    rb4_tracks <- rb4_tracks =. req "tracks" (D.chunksParens $ D.chunksList $ D.chunkParens $ D.chunksKeyRest D.chunkSym D.channelList)
-    rb4_pans   <- rb4_pans   =. req "pans"   (D.chunksParens D.stackChunks)
-    rb4_vols   <- rb4_vols   =. req "vols"   (D.chunksParens D.stackChunks)
+    tracks <- (.tracks) =. req "tracks" (D.chunksParens $ D.chunksList $ D.chunkParens $ D.chunksKeyRest D.chunkSym D.channelList)
+    pans   <- (.pans)   =. req "pans"   (D.chunksParens D.stackChunks)
+    vols   <- (.vols)   =. req "vols"   (D.chunksParens D.stackChunks)
     return RB4MoggDta{..}

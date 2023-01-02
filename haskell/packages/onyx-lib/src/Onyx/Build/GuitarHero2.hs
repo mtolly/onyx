@@ -1,6 +1,10 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.Build.GuitarHero2 (gh2Rules) where
 
 import           Control.Monad.Extra
@@ -52,8 +56,8 @@ hashGH2 :: (Hashable f) => SongYaml f -> TargetGH2 -> Int
 hashGH2 songYaml gh2 = let
   hashed =
     ( gh2
-    , _title $ _metadata songYaml
-    , _artist $ _metadata songYaml
+    , songYaml.metadata.title
+    , songYaml.metadata.artist
     )
   in 1000000000 + (hash hashed `mod` 1000000000)
 
@@ -63,21 +67,21 @@ gh2Rules buildInfo dir gh2 = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan (tgt_Plan $ gh2_Common gh2) songYaml of
+  (planName, plan) <- case getPlan gh2.gh2_Common.tgt_Plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh2
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
       defaultID = hashGH2 songYaml gh2
       defaultLBP = defaultID + 1
       defaultLBW = defaultID + 2
-      key = fromMaybe (makeShortName defaultID songYaml) $ gh2_Key gh2
+      key = fromMaybe (makeShortName defaultID songYaml) gh2.gh2_Key
       pkg = T.unpack key
 
   let loadPartAudioCheck = case plan of
-        Plan{..}     -> return $ \part -> HM.member part $ getParts _planParts
+        Plan{..}     -> return $ \part -> HM.member part _planParts.getParts
         MoggPlan{..} -> do
           silentChans <- shk $ read <$> readFile' (planDir </> "silent-channels.txt")
-          return $ \part -> case HM.lookup part $ getParts _moggParts of
+          return $ \part -> case HM.lookup part _moggParts.getParts of
             Nothing    -> False
             Just chans -> any (`notElem` (silentChans :: [Int])) $ concat $ toList chans
 
@@ -86,11 +90,11 @@ gh2Rules buildInfo dir gh2 = do
     hasAudio <- loadPartAudioCheck
     audio <- computeGH2Audio songYaml gh2 hasAudio
     (mid, padSeconds) <- midiRB3toGH2 songYaml gh2 audio
-      (applyTargetMIDI (gh2_Common gh2) input)
+      (applyTargetMIDI gh2.gh2_Common input)
       (getAudioLength buildInfo planName plan)
     saveMIDI out mid
     let p1 = gh2PartGuitar $ RBFile.s_tracks mid
-        p2 = case gh2_Coop gh2 of
+        p2 = case gh2.gh2_Coop of
           GH2Bass   -> gh2PartBass   $ RBFile.s_tracks mid
           GH2Rhythm -> gh2PartRhythm $ RBFile.s_tracks mid
         scores = map (\diff -> gh2Base diff p1 + gh2Base diff p2) [Easy .. Expert]
@@ -110,27 +114,27 @@ gh2Rules buildInfo dir gh2 = do
         hasAudio <- loadPartAudioCheck
         audio <- computeGH2Audio songYaml gh2 hasAudio
         mid <- loadGH2Midi
-        srcs <- forM (gh2AudioSections audio) $ \case
+        srcs <- forM audio.audioSections $ \case
           GH2PartStereo part -> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
           -- This halves the volume, so we set vols in .dta to compensate
           GH2PartMono part -> applyVolsMono [0] <$> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
           GH2Band -> sourceSongCountin buildInfo def mid 0 True planName plan $ concat
-            [ [(gh2LeadTrack audio, 1)]
-            , [(gh2CoopTrack audio, 1)]
-            , maybe [] (\t -> [(t, 1)]) $ gh2DrumTrack audio
+            [ [(audio.leadTrack, 1)]
+            , [(audio.coopTrack, 1)]
+            , maybe [] (\t -> [(t, 1)]) audio.drumTrack
             ]
           GH2Silent -> return $ silent (Seconds 0) (if lowRateSilence then 11025 else 44100) 1
         pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
         audioLen <- correctAudioLength mid
-        let applyOffset = case compare (gh2_Offset gh2) 0 of
+        let applyOffset = case compare gh2.gh2_Offset 0 of
               EQ -> id
-              GT -> dropStart $ Seconds          $ gh2_Offset gh2
-              LT -> padStart  $ Seconds $ negate $ gh2_Offset gh2
+              GT -> dropStart $ Seconds          gh2.gh2_Offset
+              LT -> padStart  $ Seconds $ negate gh2.gh2_Offset
             toEachSource
               = setAudioLength audioLen
               . applyOffset
               . padAudio pad
-              . applyTargetAudio (gh2_Common gh2) mid
+              . applyTargetAudio gh2.gh2_Common mid
         return $ fmap toEachSource $ withSources srcs
       -- for vgs, separate sources so silence can be encoded at low sample rate
       gh2SourcesVGS = gh2SourceGeneral True id
@@ -150,13 +154,13 @@ gh2Rules buildInfo dir gh2 = do
       hasAudio <- loadPartAudioCheck
       audio <- computeGH2Audio songYaml gh2 hasAudio
       mid <- loadGH2Midi
-      (src, dupe) <- case gh2Practice audio of
+      (src, dupe) <- case audio.practice of
         [Nothing, Nothing] -> do
           -- just compute it once and duplicate later
           src <- applyVolsMono [0] <$> shk (buildSource $ Input $ planDir </> "everything.wav")
           return (src, True)
         _ -> do
-          srcs <- forM (gh2Practice audio) $ \case
+          srcs <- forM audio.practice $ \case
             Nothing   -> applyVolsMono [0] <$> shk (buildSource $ Input $ planDir </> "everything.wav")
             Just part -> applyVolsMono [0] <$> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
           return (foldr1 merge srcs, False)
@@ -176,7 +180,7 @@ gh2Rules buildInfo dir gh2 = do
         $ resampleTo rate SincMediumQuality
         $ stretchFull 1 (100 / fromIntegral speed)
         $ padAudio pad
-        $ applyTargetAudio (gh2_Common gh2) mid src
+        $ applyTargetAudio gh2.gh2_Common mid src
       lg $ "Finished writing GH2 practice audio for " ++ show speed ++ "% speed"
 
   [dir </> "gh2/songs.dta", dir </> "gh2/songs-dx2.dta", dir </> "gh2/songs-inner.dta", dir </> "gh2/songs-inner-dx2.dta"] &%> \[out, outDX2, outInner, outInnerDX2] -> do
@@ -204,7 +208,7 @@ gh2Rules buildInfo dir gh2 = do
 
   dir </> "gh2/lipsync.voc" %> \out -> do
     midi <- shakeMIDI $ planDir </> "raw.mid"
-    let vox = RBFile.getFlexPart (gh2_Vocal gh2) $ RBFile.s_tracks midi
+    let vox = RBFile.getFlexPart gh2.gh2_Vocal $ RBFile.s_tracks midi
         auto = gh2Lipsync englishSyllables . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
     stackIO $ BL.writeFile out $ runPut $ putVocFile
       $ auto $ RBFile.onyxPartVocals vox
@@ -228,7 +232,7 @@ gh2Rules buildInfo dir gh2 = do
     , dir </> "gh2/coop_max_scores.dta"
     , dir </> "gh2/symbol"
     , dir </> "gh2/cover.png_ps2"
-    ] <> if gh2_PracticeAudio gh2
+    ] <> if gh2.gh2_PracticeAudio
       then
         [ dir </> "gh2/audio_p90.vgs"
         , dir </> "gh2/audio_p75.vgs"
@@ -237,12 +241,12 @@ gh2Rules buildInfo dir gh2 = do
       else [dir </> "gh2/audio_empty.vgs"]
 
   dir </> "stfs/config/contexts.dta" %> \out -> do
-    let ctx = fromMaybe defaultID $ gh2_Context gh2
+    let ctx = fromMaybe defaultID gh2.gh2_Context
     stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
       [ D.Parens $ D.Tree 0 $ catMaybes
         [ Just $ D.Sym key
         -- include author for gh2dx
-        , flip fmap (_author $ _metadata songYaml) $ \author -> D.Braces $ D.Tree 0
+        , flip fmap songYaml.metadata.author $ \author -> D.Braces $ D.Tree 0
           [ D.Sym "set"
           , D.Var "author"
           , D.String author
@@ -253,7 +257,7 @@ gh2Rules buildInfo dir gh2 = do
   dir </> "stfs/config/coop_max_scores.dta" %> \out -> do
     shk $ copyFile' (dir </> "gh2/coop_max_scores.dta") out
   dir </> "stfs/config/leaderboards.dta" %> \out -> do
-    let (lbp, lbw) = fromMaybe (defaultLBP, defaultLBW) $ gh2_Leaderboard gh2
+    let (lbp, lbw) = fromMaybe (defaultLBP, defaultLBW) gh2.gh2_Leaderboard
     stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
       [ D.Parens $ D.Tree 0
         [ D.Sym key
@@ -278,17 +282,17 @@ gh2Rules buildInfo dir gh2 = do
           (targetTitle songYaml (GH2 gh2))
         -- TODO gate behind a "dx" flag on target maybe
         extra = addDXExtra GH2DXExtra
-          { gh2dx_songalbum      = _album $ _metadata songYaml
-          , gh2dx_author         = _author $ _metadata songYaml
-          , gh2dx_songyear       = fmap (T.pack . show) $ _year $ _metadata songYaml
-          , gh2dx_songgenre      = _genre $ _metadata songYaml
-          , gh2dx_songorigin     = Nothing
-          , gh2dx_songduration   = Just $ fromIntegral $ RBFile.songLengthMS input
-          , gh2dx_songguitarrank = Nothing -- TODO
-          , gh2dx_songbassrank   = Nothing -- TODO
-          , gh2dx_songrhythmrank = Nothing -- TODO
-          , gh2dx_songdrumrank   = Nothing -- TODO
-          , gh2dx_songartist     = Nothing -- not needed
+          { songalbum      = songYaml.metadata.album
+          , author         = songYaml.metadata.author
+          , songyear       = T.pack . show <$> songYaml.metadata.year
+          , songgenre      = songYaml.metadata.genre
+          , songorigin     = Nothing
+          , songduration   = Just $ fromIntegral $ RBFile.songLengthMS input
+          , songguitarrank = Nothing -- TODO
+          , songbassrank   = Nothing -- TODO
+          , songrhythmrank = Nothing -- TODO
+          , songdrumrank   = Nothing -- TODO
+          , songartist     = Nothing -- not needed
           }
     stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
       [ D.Parens $ D.Tree 0
@@ -317,7 +321,7 @@ gh2Rules buildInfo dir gh2 = do
       ]
     lg "# Producing GH2 LIVE file"
     mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ gh2pkg
-      (getArtist (_metadata songYaml) <> " - " <> targetTitle songYaml (GH2 gh2))
+      (getArtist songYaml.metadata <> " - " <> targetTitle songYaml (GH2 gh2))
       (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
       (dir </> "stfs")
       out
