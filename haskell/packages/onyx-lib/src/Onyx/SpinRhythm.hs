@@ -223,7 +223,7 @@ instance StackJSON TrackDataAssetReference where
   stackJSON = asObject "TrackDataAssetReference" $ do
     tdar_bundle     <- tdar_bundle     =. req "bundle"      stackJSON
     tdar_assetName  <- tdar_assetName  =. req "assetName"   stackJSON
-    tdar_difficulty <- tdar_difficulty =. req "difficulty" stackJSON
+    tdar_difficulty <- tdar_difficulty =. req "_difficulty" stackJSON
     return TrackDataAssetReference{..}
 
 makeTrackFile :: TrackData -> TrackDataAssetReference -> A.Value

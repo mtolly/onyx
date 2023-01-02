@@ -4434,7 +4434,7 @@ pageQuickConvert sink rect tab startTasks = mdo
       sink
       row4
       "Start"
-      "%input_dir%/%input_base%convert%ext%"
+      "%input_dir%/%input_base%_convert%ext%"
       $ \template -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         fmt <- stackIO getFormat

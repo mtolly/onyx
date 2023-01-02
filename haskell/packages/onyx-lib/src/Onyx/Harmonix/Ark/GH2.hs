@@ -335,7 +335,7 @@ addBonusSongGH2 gh2i = withArk gh2i.gen $ \ark -> do
             return $ catMaybes
               [ (\x -> D.Parens (D.Tree 0 [D.Sym gh2i.symbol                    , D.String x])) <$> gh2i.shop_title
               , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_shop_desc"  , D.String x])) <$> gh2i.shop_description
-              , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "author"     , D.String x])) <$> gh2i.author -- only used by GH2DX
+              , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_author"     , D.String x])) <$> gh2i.author -- only used by GH2DX
               , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i.symbol, D.String x])) <$> gh2i.loading_phrase
               ] <> chunks
           forM_ gh2i.files $ \(arkName, localPath) -> do
