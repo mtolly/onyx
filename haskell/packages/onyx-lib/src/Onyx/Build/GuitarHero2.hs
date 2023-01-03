@@ -78,10 +78,10 @@ gh2Rules buildInfo dir gh2 = do
       pkg = T.unpack key
 
   let loadPartAudioCheck = case plan of
-        Plan{..}     -> return $ \part -> HM.member part _planParts.getParts
-        MoggPlan{..} -> do
+        StandardPlan x -> return $ \part -> HM.member part x.parts.getParts
+        MoggPlan     x -> do
           silentChans <- shk $ read <$> readFile' (planDir </> "silent-channels.txt")
-          return $ \part -> case HM.lookup part _moggParts.getParts of
+          return $ \part -> case HM.lookup part x.parts.getParts of
             Nothing    -> False
             Just chans -> any (`notElem` (silentChans :: [Int])) $ concat $ toList chans
 

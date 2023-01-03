@@ -457,10 +457,10 @@ importFoF src level = do
         }
       )
     , jammit = HM.empty
-    , plans = HM.singleton "fof" Plan
-      { _song         = audioExpr songAudio
-      , _countin      = Countin []
-      , _planParts    = Parts $ HM.fromList $ concat
+    , plans = HM.singleton "fof" $ StandardPlan StandardPlanInfo
+      { song         = audioExpr songAudio
+      , countin      = Countin []
+      , parts        = Parts $ HM.fromList $ concat
         [ case audioExpr gtrAudio of Nothing -> []; Just x -> [(FlexGuitar, PartSingle x)]
         , case (audioExpr bassAudio, audioExpr rhythmAudio) of
           -- the complicated assignment of rhythm.ogg/bass.ogg to rhythm/bass parts
@@ -477,16 +477,16 @@ importFoF src level = do
           (Nothing, Nothing, Nothing) -> []
           (Just kit, Nothing, Nothing) -> [(FlexDrums, PartSingle kit)]
           (Just kit, kick, snare) -> [(FlexDrums, PartDrumKit
-            { drumsSplitKit = kit
-            , drumsSplitKick = kick
-            , drumsSplitSnare = snare
+            { kit   = kit
+            , kick  = kick
+            , snare = snare
             })]
           _ -> error "FoF import: unsupported drums audio configuration (kick/snare but no kit)"
         ]
-      , _crowd = audioExpr crowdAudio
-      , _planComments = []
-      , _tuningCents = 0
-      , _fileTempo = Nothing
+      , crowd = audioExpr crowdAudio
+      , comments = []
+      , tuningCents = 0
+      , fileTempo = Nothing
       }
     , targets = HM.singleton "ps" $ PS def
       { ps_LoadingPhrase = FoF.loadingPhrase song

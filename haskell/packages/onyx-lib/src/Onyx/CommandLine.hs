@@ -1205,18 +1205,18 @@ commands =
               }
             in (T.pack $ "audio-" <> show (i :: Int), ainfo)
           , jammit   = HM.empty
-          , plans    = HM.singleton "plan" Plan
-            { _song         = Just PlanAudio
+          , plans    = HM.singleton "plan" $ StandardPlan StandardPlanInfo
+            { song        = Just PlanAudio
               { expr = Input $ Named "audio-1"
               , pans = []
               , vols = []
               }
-            , _countin      = Countin []
-            , _planParts    = Parts HM.empty
-            , _crowd        = Nothing
-            , _planComments = []
-            , _tuningCents  = 0
-            , _fileTempo    = Nothing
+            , countin     = Countin []
+            , parts       = Parts HM.empty
+            , crowd       = Nothing
+            , comments    = []
+            , tuningCents = 0
+            , fileTempo   = Nothing
             }
           , targets  = HM.empty
           , parts    = Parts HM.empty

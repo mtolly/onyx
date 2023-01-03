@@ -252,14 +252,14 @@ importGPIF gpif level = do
       , _fileBackgroundImage = Nothing
       }
     , audio = HM.empty
-    , plans = HM.singleton "dummy" $ Plan
-      { _song         = Nothing
-      , _countin      = Countin []
-      , _planParts    = Parts HM.empty
-      , _crowd        = Nothing
-      , _planComments = []
-      , _tuningCents  = 0
-      , _fileTempo    = Nothing
+    , plans = HM.singleton "dummy" $ StandardPlan StandardPlanInfo
+      { song        = Nothing
+      , countin     = Countin []
+      , parts       = Parts HM.empty
+      , crowd       = Nothing
+      , comments    = []
+      , tuningCents = 0
+      , fileTempo   = Nothing
       }
     , parts = Parts $ HM.fromList $ do
       (name, tuning, _) <- imported

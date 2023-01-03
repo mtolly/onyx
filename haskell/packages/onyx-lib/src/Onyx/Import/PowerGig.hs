@@ -426,18 +426,18 @@ importPowerGigSong key song folder level = do
       }
     , jammit = HM.empty
     , audio = HM.fromList audio
-    , plans = HM.singleton "powergig" Plan
-      { _song = audioBacking
-      , _countin = Countin []
-      , _planParts = Parts $ HM.fromList $ catMaybes
+    , plans = HM.singleton "powergig" $ StandardPlan StandardPlanInfo
+      { song = audioBacking
+      , countin = Countin []
+      , parts = Parts $ HM.fromList $ catMaybes
         [ (RBFile.FlexGuitar,) <$> audioGuitar
         , (RBFile.FlexDrums ,) <$> audioDrums
         , (RBFile.FlexVocal ,) <$> audioVocals
         ]
-      , _crowd = Nothing
-      , _planComments = []
-      , _tuningCents = 0
-      , _fileTempo = Nothing
+      , crowd = Nothing
+      , comments = []
+      , tuningCents = 0
+      , fileTempo = Nothing
       }
     , global = def'
       { _fileMidi = SoftFile "notes.mid" $ SoftChart onyxMid

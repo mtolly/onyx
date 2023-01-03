@@ -156,19 +156,19 @@ importOsu separateSongs f = do
         , rate = Nothing
         , channels = 2 -- TODO maybe verify
         }
-      , plans = HM.singleton "osu-audio" Plan
-        { _song = Just $ let
+      , plans = HM.singleton "osu-audio" $ StandardPlan StandardPlanInfo
+        { song = Just $ let
           -- Need to do this or audio is out of sync. I assume the game is
           -- skipping MP3 encoder delay. But .ogg also appears to need adjustment?
           -- Also see Onyx.Audio.buildSource' for note about something wrong in our ffmpeg seek code
           mp3Delay = Drop Start (CA.Seconds 0.02)
           in PlanAudio (mp3Delay $ Input $ Named "osu-audio-file") [] []
-        , _countin = Countin []
-        , _planParts = Parts HM.empty
-        , _crowd = Nothing
-        , _planComments = []
-        , _tuningCents = 0
-        , _fileTempo = Nothing
+        , countin = Countin []
+        , parts = Parts HM.empty
+        , crowd = Nothing
+        , comments = []
+        , tuningCents = 0
+        , fileTempo = Nothing
         }
       , targets = HM.empty
       , parts = Parts $ HM.fromList $ do

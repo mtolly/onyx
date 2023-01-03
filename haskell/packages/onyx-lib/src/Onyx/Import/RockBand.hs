@@ -491,40 +491,40 @@ importRB rbi level = do
                 , pans = map realToFrac [D.pans (D.song pkg) !! c | c <- cs]
                 , vols = map realToFrac [D.vols (D.song pkg) !! c | c <- cs]
                 }
-          in Plan
-            { _song = mixChans songChans
-            , _countin = Countin []
-            , _planParts = Parts $ HM.fromList $ catMaybes
+          in StandardPlan StandardPlanInfo
+            { song = mixChans songChans
+            , countin = Countin []
+            , parts = Parts $ HM.fromList $ catMaybes
               [ lookup "guitar" instChans >>= mixChans >>= \x -> return (FlexGuitar, PartSingle x)
               , lookup "bass"   instChans >>= mixChans >>= \x -> return (FlexBass  , PartSingle x)
               , lookup "keys"   instChans >>= mixChans >>= \x -> return (FlexKeys  , PartSingle x)
               , lookup "vocals" instChans >>= mixChans >>= \x -> return (FlexVocal , PartSingle x)
               , drumSplit >>= mapM mixChans            >>= \x -> return (FlexDrums , x)
               ]
-            , _crowd = D.crowdChannels (D.song pkg) >>= mixChans . map fromIntegral
-            , _planComments = []
-            , _tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
-            , _fileTempo = Nothing
+            , crowd = D.crowdChannels (D.song pkg) >>= mixChans . map fromIntegral
+            , comments = []
+            , tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
+            , fileTempo = Nothing
             }
-      Just mogg -> HM.singleton "mogg" MoggPlan
-        { _fileMOGG = Just $ SoftFile "audio.mogg" mogg
-        , _moggMD5 = Nothing
-        , _moggParts = Parts $ HM.fromList $ concat
+      Just mogg -> HM.singleton "mogg" $ MoggPlan MoggPlanInfo
+        { fileMOGG = Just $ SoftFile "audio.mogg" mogg
+        , moggMD5 = Nothing
+        , parts = Parts $ HM.fromList $ concat
           [ [ (FlexGuitar, PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
           , [ (FlexBass  , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
           , [ (FlexKeys  , PartSingle ns) | ns <- toList $ lookup "keys"   instChans ]
           , [ (FlexVocal , PartSingle ns) | ns <- toList $ lookup "vocals" instChans ]
           , [ (FlexDrums , ds           ) | Just ds <- [drumSplit] ]
           ]
-        , _moggCrowd = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
-        , _pans = map realToFrac $ D.pans $ D.song pkg
-        , _vols = map realToFrac $ D.vols $ D.song pkg
-        , _planComments = []
-        , _tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
-        , _fileTempo = Nothing
-        , _karaoke = fromMaybe False $ c3dtaKaraoke rbi.comments
-        , _multitrack = fromMaybe True $ c3dtaMultitrack rbi.comments
-        , _decryptSilent = False
+        , crowd = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
+        , pans = map realToFrac $ D.pans $ D.song pkg
+        , vols = map realToFrac $ D.vols $ D.song pkg
+        , comments = []
+        , tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
+        , fileTempo = Nothing
+        , karaoke = fromMaybe False $ c3dtaKaraoke rbi.comments
+        , multitrack = fromMaybe True $ c3dtaMultitrack rbi.comments
+        , decryptSilent = False
         }
     , targets = let
       getSongID = \case

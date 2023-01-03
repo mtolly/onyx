@@ -283,18 +283,18 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
         , rate = Nothing
         , channels = 2 -- TODO maybe verify
         })
-    , plans = HM.singleton "rr" Plan
-      { _song = flip fmap backingStream $ \s -> PlanAudio (Input $ Named s) [] []
-      , _countin = Countin []
-      , _planParts = Parts $ HM.fromList $ catMaybes
+    , plans = HM.singleton "rr" $ StandardPlan StandardPlanInfo
+      { song = flip fmap backingStream $ \s -> PlanAudio (Input $ Named s) [] []
+      , countin = Countin []
+      , parts = Parts $ HM.fromList $ catMaybes
         [ flip fmap guitarStream $ \s -> (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named s) [] [])
         , flip fmap bassStream   $ \s -> (RBFile.FlexBass  , PartSingle $ PlanAudio (Input $ Named s) [] [])
         , flip fmap drumsStream  $ \s -> (RBFile.FlexDrums , PartSingle $ PlanAudio (Input $ Named s) [] [])
         ]
-      , _crowd = Nothing
-      , _planComments = []
-      , _tuningCents = 0
-      , _fileTempo = Nothing
+      , crowd = Nothing
+      , comments = []
+      , tuningCents = 0
+      , fileTempo = Nothing
       }
     , parts = Parts $ HM.fromList
       [ (RBFile.FlexGuitar, def

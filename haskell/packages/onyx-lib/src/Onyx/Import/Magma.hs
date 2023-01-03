@@ -212,10 +212,10 @@ importMagma fin level = do
       }
     , audio = HM.fromList allAudio
     , jammit = HM.empty
-    , plans = HM.singleton "rbproj" Plan
-      { _song = fmap fst song
-      , _countin = Countin []
-      , _planParts = Parts $ HM.fromList $ concat
+    , plans = HM.singleton "rbproj" $ StandardPlan StandardPlanInfo
+      { song = fmap fst song
+      , countin = Countin []
+      , parts = Parts $ HM.fromList $ concat
         [ case drums of
           Nothing -> []
           Just (drumsAud, _) ->
@@ -228,10 +228,10 @@ importMagma fin level = do
         , toList $ fmap (\(aud, _) -> (FlexKeys  , PartSingle aud)) keys
         , toList $ fmap (\(aud, _) -> (FlexVocal , PartSingle aud)) vox
         ]
-      , _crowd = fmap fst crowd
-      , _planComments = []
-      , _tuningCents = maybe 0 C3.tuningCents c3 -- TODO use this, or Magma.tuningOffsetCents?
-      , _fileTempo = Nothing
+      , crowd = fmap fst crowd
+      , comments = []
+      , tuningCents = maybe 0 C3.tuningCents c3 -- TODO use this, or Magma.tuningOffsetCents?
+      , fileTempo = Nothing
       }
     , targets = HM.singleton targetName $ RB3 target
     , parts = Parts $ HM.fromList

@@ -534,18 +534,18 @@ importRSSong folder song level = do
       , rate     = Nothing
       , channels = 2 -- TODO get real count
       }
-    , plans = HM.singleton "rs" Plan
-      { _song         = Just PlanAudio
+    , plans = HM.singleton "rs" $ StandardPlan StandardPlanInfo
+      { song        = Just PlanAudio
         { expr = Input $ Named "song"
         , pans = []
         , vols = []
         }
-      , _countin      = Countin []
-      , _planParts    = Parts HM.empty
-      , _crowd        = Nothing
-      , _planComments = []
-      , _tuningCents  = 0 -- TODO get from manifest .json (CentOffset)
-      , _fileTempo    = Nothing
+      , countin     = Countin []
+      , parts       = Parts HM.empty
+      , crowd       = Nothing
+      , comments    = []
+      , tuningCents = 0 -- TODO get from manifest .json (CentOffset)
+      , fileTempo   = Nothing
       }
     , parts = Parts $ HM.fromList $ do
       ((_, partName), sng, _, _, isBass, tones) <- namedParts

@@ -183,7 +183,7 @@ rsRules buildInfo dir rs = do
               RSArrSlot _ RSBass        -> "Bass"
             , Arr.arr_part                   = 1 -- TODO what is this?
             , Arr.arr_offset                 = 0
-            , Arr.arr_centOffset             = plan._tuningCents + if octaveDown then -1200 else 0
+            , Arr.arr_centOffset             = getTuningCents plan + if octaveDown then -1200 else 0
             , Arr.arr_songLength             = lengthSeconds
             , Arr.arr_lastConversionDateTime = T.pack $ formatTime defaultTimeLocale
               "%-m-%d-%y %-H:%M"

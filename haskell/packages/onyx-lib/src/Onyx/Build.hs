@@ -442,9 +442,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         -- plan audio, currently only used for REAPER project
         let allPlanParts :: [(RBFile.FlexPartName, PartAudio ())]
             allPlanParts = case plan of
-              Plan{..}     -> HM.toList $ (void <$> _planParts).getParts
-              MoggPlan{..} -> do
-                (fpart, pa) <- HM.toList _moggParts.getParts
+              StandardPlan x -> HM.toList $ (void <$> x.parts).getParts
+              MoggPlan     x -> do
+                (fpart, pa) <- HM.toList x.parts.getParts
                 guard $ not $ null $ concat $ toList pa
                 return (fpart, void pa)
             dummyMIDI :: RBFile.Song (RBFile.OnyxFile U.Beats)
@@ -491,19 +491,21 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     , [(name ++ "-kit") <.> "wav"]
                     ]
               , [ "crowd.wav"
-                | case plan of Plan{..} -> isJust _crowd; MoggPlan{..} -> not $ null _moggCrowd
+                | case plan of
+                  StandardPlan x -> isJust x.crowd
+                  MoggPlan     x -> not $ null x.crowd
                 ]
               ]
 
         -- REAPER project
         rel ("notes-" ++ T.unpack planName ++ ".RPP") %> \out -> do
-          let tempo = rel $ fromMaybe "gen/notes.mid" plan._fileTempo
+          let tempo = rel $ fromMaybe "gen/notes.mid" $ getFileTempo plan
               tunings = TuningInfo
                 { guitars = do
                   (fpart, part) <- HM.toList songYaml.parts.getParts
                   pg <- toList part.partProGuitar
                   return (fpart, pg.pgTuning)
-                , cents = plan._tuningCents
+                , cents = getTuningCents plan
                 }
           makeReaperShake tunings (rel "gen/notes.mid") tempo allPlanAudio out
 
@@ -529,15 +531,15 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             stackIO $ BL.writeFile out $ "window.audioBin = \"" <> B64.encode bs <> "\";\n"
 
         dir </> "everything.wav" %> \out -> case plan of
-          MoggPlan{..} -> do
+          MoggPlan x -> do
             src <- shk $ buildSource $ Input $ dir </> "audio.ogg"
-            let vols = zipWith f [0..] _vols
-                f i vol = if elem i _moggCrowd then -99 else vol
-            runAudio (applyPansVols (map realToFrac _pans) (map realToFrac vols) src) out
-          Plan{..} -> do
+            let volsNoCrowd = zipWith noCrowd [0..] x.vols
+                noCrowd i vol = if elem i x.crowd then -99 else vol
+            runAudio (applyPansVols (map realToFrac x.pans) (map realToFrac volsNoCrowd) src) out
+          StandardPlan x -> do
             let planAudios = concat
-                  [ toList _song
-                  , toList _planParts >>= toList
+                  [ toList x.song
+                  , toList x.parts >>= toList
                   ]
             srcs <- mapM (buildAudioToSpec yamlDir audioLib (audioDepend buildInfo) songYaml [(-1, 0), (1, 0)] planName . Just) planAudios
             count <- shk $ buildSource $ Input $ dir </> "countin.wav"
@@ -554,7 +556,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           lg "Loading the MIDI file..."
           input <- shakeMIDI $ rel "gen/notes.mid"
           let _ = input :: RBFile.Song (RBFile.RawFile U.Beats)
-          tempos <- fmap RBFile.s_tempos $ case plan._fileTempo of
+          tempos <- fmap RBFile.s_tempos $ case getFileTempo plan of
             Nothing -> return input
             Just m  -> shakeMIDI m
           saveMIDI out input { RBFile.s_tempos = tempos }
@@ -583,7 +585,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
         -- count-in audio
         dir </> "countin.wav" %> \out -> do
-          let hits = case plan of MoggPlan{} -> []; Plan{..} -> case _countin of Countin h -> h
+          let hits = case plan of MoggPlan _ -> []; StandardPlan x -> case x.countin of Countin h -> h
           src <- buildAudioToSpec yamlDir audioLib (audioDepend buildInfo) songYaml [(-1, 0), (1, 0)] planName =<< case NE.nonEmpty hits of
             Nothing    -> return Nothing
             Just hits' -> Just . (\expr -> PlanAudio expr [] []) <$> do
@@ -602,24 +604,24 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             channelWAV i = dir </> ("channel-" <> show i <> ".wav")
             mogg = dir </> "audio.mogg"
         case plan of
-          Plan{} -> return ()
-          MoggPlan{..} -> do
+          StandardPlan _ -> return ()
+          MoggPlan     x -> do
             ogg %> \out -> do
               shk $ need [mogg]
-              if _decryptSilent
+              if x.decryptSilent
                 then errorToWarning (moggToOgg mogg out) >>= \case
                   Just () -> return ()
                   Nothing -> do
                     -- Make a no-samples ogg with the right channel count
-                    buildAudio (Silence (length _pans) $ Frames 0) out
+                    buildAudio (Silence (length x.pans) $ Frames 0) out
                 else moggToOgg mogg out
             wav %> buildAudio (Input ogg)
-            let allChannelWAVs = map channelWAV [0 .. length _pans - 1]
+            let allChannelWAVs = map channelWAV [0 .. length x.pans - 1]
             allChannelWAVs &%> \_ -> do
               src <- lift $ lift $ buildSource $ Input ogg
               stackIO $ audioToChannelWAVs src allChannelWAVs
             mogg %> \out -> do
-              p <- inside "Searching for MOGG file" $ case (_fileMOGG, _moggMD5) of
+              p <- inside "Searching for MOGG file" $ case (x.fileMOGG, x.moggMD5) of
                 (Nothing, Nothing ) -> fatal "No file path or MD5 hash specified for MOGG file"
                 (Just f , _       ) -> return f -- TODO maybe check md5 if it is specified
                 (Nothing, Just md5) -> toFilePath <$> searchMOGG audioLib md5

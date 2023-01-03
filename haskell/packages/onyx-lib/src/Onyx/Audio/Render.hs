@@ -18,7 +18,6 @@ module Onyx.Audio.Render
 , loadSamplesFromBuildDirShake
 ) where
 
-import           Control.Arrow                ((&&&))
 import           Control.Monad                (forM, forM_, join)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.Trans.Class    (lift)
@@ -68,16 +67,16 @@ checkDefined songYaml = do
   let definedLeaves = HM.keys songYaml.audio ++ HM.keys songYaml.jammit
   forM_ (HM.toList songYaml.plans) $ \(planName, plan) -> do
     let leaves = case plan of
-          MoggPlan{} -> []
-          Plan{..} -> let
+          MoggPlan _ -> []
+          StandardPlan x -> let
             getLeaves = \case
               Named t          -> t
               JammitSelect _ t -> t
             in map getLeaves $ concat
-              [ maybe [] toList _song
-              , maybe [] toList _crowd
-              , case _countin of Countin xs -> concatMap (toList . snd) xs
-              , toList _planParts.getParts >>= toList >>= toList
+              [ maybe [] toList x.song
+              , maybe [] toList x.crowd
+              , case x.countin of Countin xs -> concatMap (toList . snd) xs
+              , toList x.parts.getParts >>= toList >>= toList
               ]
     case filter (not . (`elem` definedLeaves)) leaves of
       [] -> return ()
@@ -121,9 +120,9 @@ manualLeaf rel alib buildDependency getSamples songYaml (Named name) = case HM.l
     AudioSnippet expr -> join <$> mapM (manualLeaf rel alib buildDependency getSamples songYaml) expr
     AudioSamples info -> do
       triggers <- fromMaybe [] . lookup name <$> getSamples
-      let polyphony = case info._groupPolyphony of
+      let polyphony = case info.groupPolyphony of
             Nothing -> Nothing
-            Just p  -> Just (p, realToFrac info._groupCrossfade)
+            Just p  -> Just (p, realToFrac info.groupCrossfade)
           uniqueSamples = nubOrd [ sample | (_, _, sample) <- triggers ]
       -- only locate each sample once
       sampleToAudio <- fmap HM.fromList $ forM uniqueSamples $ \sample -> do
@@ -141,12 +140,12 @@ manualLeaf rel _alib _buildDependency _getSamples songYaml (JammitSelect audpart
 -- Always returns 1 or 2 channels, with all volumes 0.
 computeSimplePart :: FlexPartName -> Plan f -> SongYaml f -> [(Double, Double)]
 computeSimplePart fpart plan songYaml = case plan of
-  MoggPlan{..} -> let
-    inds = maybe [] (concat . toList) $ HM.lookup fpart _moggParts.getParts
+  MoggPlan x -> let
+    inds = maybe [] (concat . toList) $ HM.lookup fpart x.parts.getParts
     in case inds of
       [] -> [(0, 0)] -- this is only used for Magma
-      _  -> map ((_pans !!) &&& (_vols !!)) inds
-  Plan{..} -> case HM.lookup fpart _planParts.getParts of
+      _  -> map (\i -> (x.pans !! i, x.vols !! i)) inds
+  StandardPlan x -> case HM.lookup fpart x.parts.getParts of
     Nothing -> [(0, 0)]
     Just (PartSingle pa) -> case computeChannelsPlan songYaml pa.expr of
       1 -> [(fromMaybe 0 $ listToMaybe pa.pans, 0)]
@@ -275,7 +274,7 @@ computeDrumsPart
   -> SongYaml f
   -> StackTraceT m (([(Double, Double)], [(Double, Double)], [(Double, Double)]), RBDrums.Audio)
 computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case plan of
-  MoggPlan{..} -> case HM.lookup fpart _moggParts.getParts of
+  MoggPlan x -> case HM.lookup fpart x.parts.getParts of
     Nothing -> return stereo
     Just (PartSingle _) -> return stereo
     Just (PartDrumKit kick snare kit) -> do
@@ -283,13 +282,13 @@ computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case
       case maybeMix of
         Nothing -> return stereo
         Just mixMode -> return
-          ( ( standardIndexes _pans $ fromMaybe [] kick
-            , standardIndexes _pans $ fromMaybe [] snare
-            , standardIndexes _pans kit
+          ( ( standardIndexes x.pans $ fromMaybe [] kick
+            , standardIndexes x.pans $ fromMaybe [] snare
+            , standardIndexes x.pans kit
             )
           , mixMode
           )
-  Plan{..} -> case HM.lookup fpart _planParts.getParts of
+  StandardPlan x -> case HM.lookup fpart x.parts.getParts of
     Nothing -> return stereo
     Just (PartSingle _) -> return stereo -- any number will be remixed to stereo
     Just (PartDrumKit kick snare kit) -> do

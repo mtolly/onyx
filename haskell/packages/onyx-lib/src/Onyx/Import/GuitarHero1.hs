@@ -232,16 +232,16 @@ importGH1Song pkg path gen level = do
             , pans = map realToFrac [ pans (song pkg) !! c | c <- cs ]
             , vols = map realToFrac [ volumesDecibels !! c | c <- cs ]
             }
-      in Plan
-        { _song = mixChans songChans
-        , _countin = Countin []
-        , _planParts = Parts $ HM.fromList $ catMaybes
+      in StandardPlan StandardPlanInfo
+        { song = mixChans songChans
+        , countin = Countin []
+        , parts = Parts $ HM.fromList $ catMaybes
           [ (RBFile.FlexGuitar ,) . PartSingle <$> mixChans guitarChans
           ]
-        , _crowd = Nothing
-        , _planComments = []
-        , _tuningCents = 0
-        , _fileTempo = Nothing
+        , crowd = Nothing
+        , comments = []
+        , tuningCents = 0
+        , fileTempo = Nothing
         }
     , targets = HM.empty
     , parts = Parts $ HM.singleton RBFile.FlexGuitar $ def

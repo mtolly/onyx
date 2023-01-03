@@ -154,12 +154,12 @@ importGH5WoR src folder = do
                 , channels = 2
                 })
             , jammit = HM.empty
-            , plans = HM.singleton "gh" Plan
-              { _song = case streams3 of
+            , plans = HM.singleton "gh" $ StandardPlan StandardPlanInfo
+              { song = case streams3 of
                 (x, _) : _ -> Just $ PlanAudio (Input $ Named x) [] []
                 []         -> Nothing
-              , _countin = Countin []
-              , _planParts = Parts $ HM.fromList $ let
+              , countin = Countin []
+              , parts = Parts $ HM.fromList $ let
                 drums = case map fst streams1 of
                   d1 : d2 : d3 : d4 : _ -> [(RBFile.FlexDrums, PartDrumKit
                     (Just $ PlanAudio (Input $ Named d1) [] [])
@@ -175,12 +175,12 @@ importGH5WoR src folder = do
                     ]
                   _ -> []
                 in drums <> gbv
-              , _crowd = case drop 1 streams3 of
+              , crowd = case drop 1 streams3 of
                 (x, _) : _ -> Just $ PlanAudio (Input $ Named x) [] []
                 []         -> Nothing
-              , _planComments = []
-              , _tuningCents = 0
-              , _fileTempo = Nothing
+              , comments = []
+              , tuningCents = 0
+              , fileTempo = Nothing
               }
             , targets = HM.empty
             , parts = Parts $ HM.fromList
@@ -471,20 +471,20 @@ importGH3Song gh3i = let
           else "song"
         toExpr ((f, _) :| []) = Input $ Named f
         toExpr xs             = Merge $ fmap (Input . Named . fst) xs
-        in HM.singleton "gh" Plan
-          { _song = flip fmap (lookup (qbKeyCRC nameBand) audio) $ \group ->
+        in HM.singleton "gh" $ StandardPlan StandardPlanInfo
+          { song = flip fmap (lookup (qbKeyCRC nameBand) audio) $ \group ->
             PlanAudio (toExpr group) [] bandVol
-          , _countin = Countin []
-          , _planParts = Parts $ HM.fromList $ catMaybes
+          , countin = Countin []
+          , parts = Parts $ HM.fromList $ catMaybes
             [ flip fmap (lookup (qbKeyCRC nameLead  ) audio) $ \group ->
               (RBFile.FlexGuitar, PartSingle $ PlanAudio (toExpr group) [] guitarVol)
             , flip fmap (lookup (qbKeyCRC nameRhythm) audio) $ \group ->
               (coopPart         , PartSingle $ PlanAudio (toExpr group) [] guitarVol)
             ]
-          , _crowd = Nothing
-          , _planComments = []
-          , _tuningCents = 0
-          , _fileTempo = Nothing
+          , crowd = Nothing
+          , comments = []
+          , tuningCents = 0
+          , fileTempo = Nothing
           }
       , targets = HM.empty
       , parts = Parts $ HM.fromList $ catMaybes

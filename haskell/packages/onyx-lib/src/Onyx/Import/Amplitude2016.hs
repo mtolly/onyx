@@ -66,21 +66,21 @@ importAmplitude fin _level = do
       }
     , audio = HM.empty
     , jammit = HM.empty
-    , plans = HM.singleton "mogg" MoggPlan
-      { _fileMOGG = Just $ SoftFile "audio.mogg" $ SoftReadable $ fileReadable moggPath
-      , _moggMD5 = Nothing
-      , _moggParts = Parts $ HM.fromList $ do
+    , plans = HM.singleton "mogg" $ MoggPlan MoggPlanInfo
+      { fileMOGG = Just $ SoftFile "audio.mogg" $ SoftReadable $ fileReadable moggPath
+      , moggMD5 = Nothing
+      , parts = Parts $ HM.fromList $ do
         (name, chans, _, _) <- parts
         return (name, PartSingle chans)
-      , _moggCrowd = freestyle -- so it's hidden from web player
-      , _pans = map realToFrac song.pans
-      , _vols = map realToFrac song.vols
-      , _planComments = []
-      , _tuningCents = 0
-      , _fileTempo = Nothing
-      , _karaoke = False
-      , _multitrack = True
-      , _decryptSilent = False
+      , crowd = freestyle -- so it's hidden from web player
+      , pans = map realToFrac song.pans
+      , vols = map realToFrac song.vols
+      , comments = []
+      , tuningCents = 0
+      , fileTempo = Nothing
+      , karaoke = False
+      , multitrack = True
+      , decryptSilent = False
       }
     , targets = HM.empty
     , parts = Parts $ HM.fromList $ do

@@ -267,7 +267,7 @@ rbRules buildInfo dir rb3 mrb2 = do
               ]
             pg <- toList part.partProGuitar
             return (fpart', pg.pgTuning)
-          , cents = plan._tuningCents
+          , cents = getTuningCents plan
           }
     makeReaperShake tunings pathMagmaMid pathMagmaMid auds' out
   phony pathMagmaSetup $ do
@@ -393,7 +393,7 @@ rbRules buildInfo dir rb3 mrb2 = do
           }
         input' = input { RBFile.s_tracks = adjustEvents $ RBFile.s_tracks input }
     (output, diffs, vc, pad) <- case plan of
-      MoggPlan{} -> do
+      MoggPlan _ -> do
         (output, diffs, vc) <- RB3.processRB3
           rb3
           songYaml
@@ -401,7 +401,7 @@ rbRules buildInfo dir rb3 mrb2 = do
           mixMode
           (applyTargetLength rb3.rb3_Common input <$> getAudioLength buildInfo planName plan)
         return (output, diffs, vc, 0)
-      Plan{} -> RB3.processRB3Pad
+      StandardPlan _ -> RB3.processRB3Pad
         rb3
         songYaml
         (applyTargetMIDI rb3.rb3_Common input')
@@ -430,7 +430,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments songYaml.metadata plan rb3
   pathMid %> shk . copyFile' pathMagmaExport2
   pathOgg %> \out -> case plan of
-    MoggPlan{} -> do
+    MoggPlan _ -> do
       -- TODO apply segment boundaries
       let speed = fromMaybe 1 rb3.rb3_Common.tgt_Speed
       pad <- shk $ read <$> readFile' pathMagmaPad
@@ -441,7 +441,7 @@ rbRules buildInfo dir rb3 mrb2 = do
           let src = padStart (Seconds $ realToFrac pad)
                 $ stretchFullSmart (1 / speed) 1 input
           runAudio src out
-    Plan{..} -> do
+    StandardPlan x -> do
       (_, mixMode) <- computeDrumsPart rb3.rb3_Drums plan songYaml
       (DifficultyRB3{..}, _) <- loadEditedParts
       -- Edited to match the order some C3 tools expect.
@@ -456,11 +456,11 @@ rbRules buildInfo dir rb3 mrb2 = do
             , [pathMagmaKeys   | rb3KeysRank   /= 0]
             ]) $ NE.appendList
               (pure pathMagmaSong)
-              [pathMagmaCrowd  | isJust _crowd]
+              [pathMagmaCrowd  | isJust x.crowd]
       src <- shk $ buildSource $ Merge $ fmap Input parts
       runAudio src out
   pathMogg %> \out -> case plan of
-    MoggPlan{} -> do
+    MoggPlan _ -> do
       -- TODO apply segment boundaries
       let speed = fromMaybe 1 rb3.rb3_Common.tgt_Speed
       pad <- shk $ read <$> readFile' (dir </> "magma/pad.txt")
@@ -469,7 +469,7 @@ rbRules buildInfo dir rb3 mrb2 = do
         _      -> do
           shk $ need [pathOgg]
           mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
-    Plan{} -> do
+    StandardPlan _ -> do
       shk $ need [pathOgg]
       mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
   pathPng  %> shk . copyFile' (rel "gen/cover.png_xbox")
@@ -1065,7 +1065,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
           then silentDryVox 3
           else emptyDryVox
         , Magma.dryVoxFileRB2 = Nothing
-        , Magma.tuningOffsetCents = fromIntegral plan._tuningCents -- TODO should do both this and c3 cents?
+        , Magma.tuningOffsetCents = fromIntegral $ getTuningCents plan -- TODO should do both this and c3 cents?
         }
       , Magma.albumArt = Magma.AlbumArt "cover.bmp"
       , Magma.tracks = Magma.Tracks
@@ -1102,13 +1102,13 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
     }
 
 makeRB3DTA :: (MonadIO m, SendMessage m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 -> Bool -> (DifficultyRB3, Maybe VocalCount) -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m D.SongPackage
-makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename pad = do
+makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename pad = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart rb3.rb3_Drums plan songYaml
   let thresh = 170 -- everything gets forced anyway
       padSeconds = fromIntegral (pad :: Int) :: U.Seconds
-      (pstart, pend) = previewBounds songYaml song padSeconds True
-      len = RBFile.songLengthMS song
-      perctype = RBFile.getPercType song
+      (pstart, pend) = previewBounds songYaml midi padSeconds True
+      len = RBFile.songLengthMS midi
+      perctype = RBFile.getPercType midi
       thisFullGenre = fullGenre songYaml
       lookupPart :: Integer -> RBFile.FlexPartName -> Parts a -> Maybe a
       lookupPart rank part parts = guard (rank /= 0) >> HM.lookup part parts.getParts
@@ -1133,8 +1133,8 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
       keysChannels   = case rb3KeysRank   of 0 -> []; _ -> computeSimplePart rb3.rb3_Keys plan songYaml
       songChannels = [(-1, 0), (1, 0)]
       crowdChannels = case plan of
-        MoggPlan{}   -> undefined -- not used
-        Plan    {..} -> case _crowd of
+        MoggPlan     _ -> undefined -- not used
+        StandardPlan x -> case x.crowd of
           Nothing -> []
           Just _  -> [(-1, 0), (1, 0)]
       -- If there are 6 channels in total, the actual mogg will have an extra 7th to avoid oggenc 5.1 issue.
@@ -1158,15 +1158,15 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
       { D.songName = "songs/" <> filename <> "/" <> filename
       , D.tracksCount = Nothing
       , D.tracks = D.DictList $ map (second $ map fromIntegral) $ filter (not . null . snd) $ case plan of
-        MoggPlan{..} -> let
-          getChannels rank fpart = maybe [] (concat . toList) $ lookupPart rank fpart _moggParts
+        MoggPlan x -> let
+          getChannels rank fpart = maybe [] (concat . toList) $ lookupPart rank fpart x.parts
           -- * the below trick does not work. RB3 freezes if a part doesn't have any channels.
           -- * so instead above we just allow doubling up on channels.
           -- * this works ok; the audio will cut out if either player misses, and whammy does not bend pitch.
           -- allParts = map ($ rb3) [rb3_Drums, rb3_Bass, rb3_Guitar, rb3_Keys, rb3_Vocal]
           -- getChannels rank fpart = case filter (== fpart) allParts of
           --   _ : _ : _ -> [] -- more than 1 game part maps to this flex part
-          --   _         -> maybe [] (concat . toList) $ lookupPart rank fpart _moggParts
+          --   _         -> maybe [] (concat . toList) $ lookupPart rank fpart x.parts
           in sortOn snd -- sorting numerically for ForgeTool (RB4) compatibility
             [ ("drum"  , getChannels rb3DrumsRank  rb3.rb3_Drums )
             , ("bass"  , getChannels rb3BassRank   rb3.rb3_Bass  )
@@ -1174,7 +1174,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
             , ("vocals", getChannels rb3VocalRank  rb3.rb3_Vocal )
             , ("keys"  , getChannels rb3KeysRank   rb3.rb3_Keys  )
             ]
-        Plan{} ->
+        StandardPlan _ ->
           [ ("drum"  , channelIndices [] drumChannels)
           , ("bass"  , channelIndices [drumChannels] bassChannels)
           , ("guitar", channelIndices [drumChannels, bassChannels] guitarChannels)
@@ -1187,14 +1187,14 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
         Just Vocal2 -> 2
         Just Vocal3 -> 3
       , D.pans = map realToFrac $ case plan of
-        MoggPlan{..} -> _pans
-        Plan{}       -> extend6 0 $ map fst $ partChannels <> songChannels <> crowdChannels
+        MoggPlan     x -> x.pans
+        StandardPlan _ -> extend6 0 $ map fst $ partChannels <> songChannels <> crowdChannels
       , D.vols = map realToFrac $ case plan of
-        MoggPlan{..} -> _vols
-        Plan{}       -> extend6 0 $ map snd $ partChannels <> songChannels <> crowdChannels
+        MoggPlan     x -> x.vols
+        StandardPlan _ -> extend6 0 $ map snd $ partChannels <> songChannels <> crowdChannels
       , D.cores = case plan of
-        MoggPlan{..} -> map (const (-1)) _pans
-        Plan{}       -> extend6 (-1) $ map (const (-1)) $ partChannels <> songChannels <> crowdChannels
+        MoggPlan     x -> map (const (-1)) x.pans
+        StandardPlan _ -> extend6 (-1) $ map (const (-1)) $ partChannels <> songChannels <> crowdChannels
         -- TODO: 1 for guitar channels?
       , D.drumSolo = D.DrumSounds $ T.words $ case fmap (.drumsLayout) $ getPart rb3.rb3_Drums songYaml >>= (.partDrums) of
         Nothing             -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
@@ -1204,8 +1204,8 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
         "kick.cue snare.cue hat.cue ride.cue crash.cue"
       , D.crowdChannels = let
         chans = case plan of
-          MoggPlan{..} -> _moggCrowd
-          Plan{}       -> take (length crowdChannels) [(length partChannels + length songChannels) ..]
+          MoggPlan     x -> x.crowd
+          StandardPlan _ -> take (length crowdChannels) [(length partChannels + length songChannels) ..]
         in guard (not $ null chans) >> Just (map fromIntegral chans)
       , D.hopoThreshold = Just thresh
       , D.muteVolume = Nothing
@@ -1243,11 +1243,11 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
     , D.solo = let
       kwds :: [T.Text]
       kwds = concat
-        [ ["guitar" | RBFile.hasSolo Guitar song]
-        , ["bass" | RBFile.hasSolo Bass song]
-        , ["drum" | RBFile.hasSolo Drums song]
-        , ["keys" | RBFile.hasSolo Keys song]
-        , ["vocal_percussion" | RBFile.hasSolo Vocal song]
+        [ ["guitar" | RBFile.hasSolo Guitar midi]
+        , ["bass" | RBFile.hasSolo Bass midi]
+        , ["drum" | RBFile.hasSolo Drums midi]
+        , ["keys" | RBFile.hasSolo Keys midi]
+        , ["vocal_percussion" | RBFile.hasSolo Vocal midi]
         ]
       in guard (not $ null kwds) >> Just kwds
     , D.songFormat = 10
@@ -1274,7 +1274,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) song filename
     , D.vocalTonicNote = songKey      <$> songYaml.metadata.key
     , D.songTonality   = songTonality <$> songYaml.metadata.key
     , D.songKey = Nothing
-    , D.tuningOffsetCents = Just $ fromIntegral plan._tuningCents
+    , D.tuningOffsetCents = Just $ fromIntegral $ getTuningCents plan
     , D.realGuitarTuning = flip fmap (getPart rb3.rb3_Guitar songYaml >>= (.partProGuitar)) $ \pg ->
       map fromIntegral $ encodeTuningOffsets pg.pgTuning TypeGuitar
     , D.realBassTuning = flip fmap (getPart rb3.rb3_Bass songYaml >>= (.partProGuitar)) $ \pg ->
@@ -1304,8 +1304,8 @@ makeC3 songYaml plan rb3 midi pkg pad = do
         SongIDInt i -> Just i
         _           -> Nothing
       hasCrowd = case plan of
-        MoggPlan{..} -> not $ null _moggCrowd
-        Plan{..}     -> isJust _crowd
+        MoggPlan     x -> not $ null x.crowd
+        StandardPlan x -> isJust x.crowd
   return C3.C3
     { C3.song = fromMaybe (getTitle songYaml.metadata) rb3.rb3_Common.tgt_Title
     , C3.artist = getArtist songYaml.metadata

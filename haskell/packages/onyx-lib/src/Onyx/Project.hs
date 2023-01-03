@@ -165,14 +165,14 @@ instance (Eq f, StackJSON f) => StackJSON (AudioFile f) where
     }
 
 data SamplesInfo = SamplesInfo
-  { _groupPolyphony :: Maybe Int
-  , _groupCrossfade :: Double
+  { groupPolyphony :: Maybe Int
+  , groupCrossfade :: Double
   } deriving (Eq, Ord, Show)
 
 instance StackJSON SamplesInfo where
   stackJSON = asStrictObject "SamplesInfo" $ do
-    _groupPolyphony <- (._groupPolyphony) =. opt Nothing "group-polyphony" stackJSON
-    _groupCrossfade <- (._groupCrossfade) =. opt 0.002   "group-crossfade" stackJSON
+    groupPolyphony <- (.groupPolyphony) =. opt Nothing "group-polyphony" stackJSON
+    groupCrossfade <- (.groupCrossfade) =. opt 0.002   "group-crossfade" stackJSON
     return SamplesInfo{..}
 
 data JammitTrack = JammitTrack
@@ -215,9 +215,9 @@ instance (StackJSON t, StackJSON a) => StackJSON (PlanAudio t a) where
 data PartAudio a
   = PartSingle a
   | PartDrumKit
-    { drumsSplitKick  :: Maybe a
-    , drumsSplitSnare :: Maybe a
-    , drumsSplitKit   :: a
+    { kick  :: Maybe a
+    , snare :: Maybe a
+    , kit   :: a
     }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
@@ -225,9 +225,9 @@ instance (StackJSON a) => StackJSON (PartAudio a) where
   stackJSON = Codec
     { codecIn = decideKey
       [ ("kit", object $ do
-        drumsSplitKick <- optionalKey "kick" fromJSON
-        drumsSplitSnare <- optionalKey "snare" fromJSON
-        drumsSplitKit <- requiredKey "kit" fromJSON
+        kick  <- optionalKey "kick"  fromJSON
+        snare <- optionalKey "snare" fromJSON
+        kit   <- requiredKey "kit"   fromJSON
         expectedKeys ["kick", "snare", "kit"]
         return PartDrumKit{..}
         )
@@ -235,9 +235,9 @@ instance (StackJSON a) => StackJSON (PartAudio a) where
     , codecOut = makeOut $ \case
       PartSingle x -> toJSON x
       PartDrumKit{..} -> A.object $ concat
-        [ map ("kick"  .=) $ toList drumsSplitKick
-        , map ("snare" .=) $ toList drumsSplitSnare
-        , ["kit" .= drumsSplitKit]
+        [ map ("kick"  .=) $ toList kick
+        , map ("snare" .=) $ toList snare
+        , ["kit" .= kit]
         ]
     }
 
@@ -253,38 +253,79 @@ instance (StackJSON a) => StackJSON (Parts a) where
     }
 
 data Plan f
-  = Plan
-    { _song         :: Maybe (PlanAudio Duration AudioInput)
-    , _countin      :: Countin
-    , _planParts    :: Parts (PartAudio (PlanAudio Duration AudioInput))
-    , _crowd        :: Maybe (PlanAudio Duration AudioInput)
-    , _planComments :: [T.Text]
-    , _tuningCents  :: Int
-    , _fileTempo    :: Maybe f
-    }
-  | MoggPlan
-    { _fileMOGG      :: Maybe f
-    , _moggMD5       :: Maybe T.Text
-    , _moggParts     :: Parts (PartAudio [Int])
-    , _moggCrowd     :: [Int]
-    , _pans          :: [Double]
-    , _vols          :: [Double]
-    , _planComments  :: [T.Text]
-    , _karaoke       :: Bool
-    , _multitrack    :: Bool
-    , _tuningCents   :: Int
-    , _fileTempo     :: Maybe f
-    , _decryptSilent :: Bool -- should encrypted audio just be treated as silent
-    }
+  = StandardPlan (StandardPlanInfo f)
+  | MoggPlan     (MoggPlanInfo     f)
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+data StandardPlanInfo f = StandardPlanInfo
+  { song        :: Maybe (PlanAudio Duration AudioInput)
+  , countin     :: Countin
+  , parts       :: Parts (PartAudio (PlanAudio Duration AudioInput))
+  , crowd       :: Maybe (PlanAudio Duration AudioInput)
+  , comments    :: [T.Text]
+  , tuningCents :: Int
+  , fileTempo   :: Maybe f
+  } deriving (Eq, Show, Functor, Foldable, Traversable)
+
+instance (Eq f, StackJSON f) => StackJSON (StandardPlanInfo f) where
+  stackJSON = asStrictObject "StandardPlanInfo" $ do
+    song        <- (.song       ) =. opt Nothing          "song"         stackJSON
+    countin     <- (.countin    ) =. opt (Countin [])     "countin"      stackJSON
+    parts       <- (.parts      ) =. opt (Parts HM.empty) "parts"        stackJSON
+    crowd       <- (.crowd      ) =. opt Nothing          "crowd"        stackJSON
+    comments    <- (.comments   ) =. opt []               "comments"     stackJSON
+    tuningCents <- (.tuningCents) =. opt 0                "tuning-cents" stackJSON
+    fileTempo   <- (.fileTempo  ) =. opt Nothing          "file-tempo"   stackJSON
+    return StandardPlanInfo{..}
+
+data MoggPlanInfo f = MoggPlanInfo
+  { fileMOGG      :: Maybe f
+  , moggMD5       :: Maybe T.Text
+  , parts         :: Parts (PartAudio [Int])
+  , crowd         :: [Int]
+  , pans          :: [Double]
+  , vols          :: [Double]
+  , comments      :: [T.Text]
+  , karaoke       :: Bool
+  , multitrack    :: Bool
+  , tuningCents   :: Int
+  , fileTempo     :: Maybe f
+  , decryptSilent :: Bool -- should encrypted audio just be treated as silent
+  } deriving (Eq, Show, Functor, Foldable, Traversable)
+
+instance (Eq f, StackJSON f) => StackJSON (MoggPlanInfo f) where
+  stackJSON = asStrictObject "MoggPlanInfo" $ do
+    fileMOGG      <- (.fileMOGG     ) =. opt  Nothing       "file-mogg"      stackJSON
+    moggMD5       <- (.moggMD5      ) =. opt  Nothing       "mogg-md5"       stackJSON
+    parts         <- (.parts        ) =. req                "parts"          stackJSON
+    crowd         <- (.crowd        ) =. opt  []            "crowd"          stackJSON
+    pans          <- (.pans         ) =. req                "pans"           stackJSON
+    vols          <- (.vols         ) =. req                "vols"           stackJSON
+    comments      <- (.comments     ) =. opt  []            "comments"       stackJSON
+    karaoke       <- (.karaoke      ) =. fill False         "karaoke"        stackJSON
+    multitrack    <- (.multitrack   ) =. fill (not karaoke) "multitrack"     stackJSON
+    tuningCents   <- (.tuningCents  ) =. opt  0             "tuning-cents"   stackJSON
+    fileTempo     <- (.fileTempo    ) =. opt  Nothing       "file-tempo"     stackJSON
+    decryptSilent <- (.decryptSilent) =. opt  False         "decrypt-silent" stackJSON
+    return MoggPlanInfo{..}
+
+getTuningCents :: Plan f -> Int
+getTuningCents = \case
+  StandardPlan x -> x.tuningCents
+  MoggPlan     x -> x.tuningCents
+
+getFileTempo :: Plan f -> Maybe f
+getFileTempo = \case
+  StandardPlan x -> x.fileTempo
+  MoggPlan     x -> x.fileTempo
 
 getKaraoke, getMultitrack :: Plan f -> Bool
 getKaraoke = \case
-  Plan{..}     -> HM.keys _planParts.getParts == [FlexVocal]
-  MoggPlan{..} -> _karaoke
+  StandardPlan x -> HM.keys x.parts.getParts == [FlexVocal]
+  MoggPlan     x -> x.karaoke
 getMultitrack = \case
-  Plan{..}     -> not $ HM.null $ HM.delete FlexVocal _planParts.getParts
-  MoggPlan{..} -> _multitrack
+  StandardPlan x -> not $ HM.null $ HM.delete FlexVocal x.parts.getParts
+  MoggPlan     x -> x.multitrack
 
 newtype Countin = Countin [(Either U.MeasureBeats U.Seconds, Audio Duration AudioInput)]
   deriving (Eq, Ord, Show)
@@ -338,63 +379,15 @@ parseMeasureBeats = lift ask >>= \t -> let
 showMeasureBeats :: U.MeasureBeats -> T.Text
 showMeasureBeats (msr, bts) = T.pack $ show msr ++ "|" ++ show (realToFrac bts :: Scientific)
 
-instance (StackJSON f) => StackJSON (Plan f) where
+instance (Eq f, StackJSON f) => StackJSON (Plan f) where
   stackJSON = Codec
     { codecIn = let
-      parseMOGG = object $ do
-        _fileMOGG      <- optionalKey "file-mogg" fromJSON
-        _moggMD5       <- optionalKey "mogg-md5" fromJSON
-        _moggParts     <- requiredKey "parts" fromJSON
-        _moggCrowd     <- fromMaybe [] <$> optionalKey "crowd" fromJSON
-        _pans          <- requiredKey "pans" fromJSON
-        _vols          <- requiredKey "vols" fromJSON
-        _planComments  <- fromMaybe [] <$> optionalKey "comments" fromJSON
-        _karaoke       <- fromMaybe False          <$> optionalKey "karaoke"    fromJSON
-        _multitrack    <- fromMaybe (not _karaoke) <$> optionalKey "multitrack" fromJSON
-        _tuningCents   <- fromMaybe 0 <$> optionalKey "tuning-cents" fromJSON
-        _fileTempo     <- fromMaybe Nothing <$> optionalKey "file-tempo" fromJSON
-        _decryptSilent <- fromMaybe False <$> optionalKey "decrypt-silent" fromJSON
-        expectedKeys
-          [ "file-mogg", "mogg-md5", "parts", "crowd", "pans", "vols"
-          , "comments", "karaoke", "multitrack", "silent", "tuning-cents"
-          , "file-tempo", "decrypt-silent"
-          ]
-        return MoggPlan{..}
-      parseNormal = object $ do
-        _song         <- optionalKey "song" fromJSON
-        _countin      <- fromMaybe (Countin []) <$> optionalKey "countin" fromJSON
-        _planParts    <- fromMaybe (Parts HM.empty) <$> optionalKey "parts" fromJSON
-        _crowd        <- optionalKey "crowd" fromJSON
-        _planComments <- fromMaybe [] <$> optionalKey "comments" fromJSON
-        _tuningCents  <- fromMaybe 0 <$> optionalKey "tuning-cents" fromJSON
-        _fileTempo    <- fromMaybe Nothing <$> optionalKey "file-tempo" fromJSON
-        expectedKeys ["song", "countin", "parts", "crowd", "comments", "tuning-cents", "file-tempo"]
-        return Plan{..}
-      in decideKey [("mogg-md5", parseMOGG), ("file-mogg", parseMOGG)] parseNormal
+      parseMogg     = MoggPlan     <$> fromJSON
+      parseStandard = StandardPlan <$> fromJSON
+      in decideKey [("mogg-md5", parseMogg), ("file-mogg", parseMogg)] parseStandard
     , codecOut = makeOut $ \case
-      Plan{..} -> A.object $ concat
-        [ map ("song" .=) $ toList _song
-        , ["countin" .= _countin | _countin /= Countin []]
-        , ["parts" .= _planParts]
-        , map ("crowd" .=) $ toList _crowd
-        , ["comments" .= _planComments | not $ null _planComments]
-        , ["tuning-cents" .= _tuningCents | _tuningCents /= 0]
-        , map ("file-tempo" .=) $ toList _fileTempo
-        ]
-      MoggPlan{..} -> A.object $ concat
-        [ map ("file-mogg" .=) $ toList _fileMOGG
-        , map ("mogg-md5" .=) $ toList _moggMD5
-        , ["parts" .= _moggParts]
-        , ["crowd" .= _moggCrowd | not $ null _moggCrowd]
-        , ["pans" .= _pans]
-        , ["vols" .= _vols]
-        , ["comments" .= _planComments | not $ null _planComments]
-        , ["karaoke" .= _karaoke]
-        , ["multitrack" .= _multitrack]
-        , ["tuning-cents" .= _tuningCents | _tuningCents /= 0]
-        , map ("file-tempo" .=) $ toList _fileTempo
-        , ["decrypt-silent" .= _decryptSilent | _decryptSilent]
-        ]
+      StandardPlan x -> toJSON x
+      MoggPlan     x -> toJSON x
     }
 
 data AudioInput

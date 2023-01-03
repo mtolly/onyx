@@ -71,8 +71,8 @@ importBMS bmsPath level = do
         then ([], Nothing)
         else let
           poly = SamplesInfo
-            { _groupPolyphony = Just 1
-            , _groupCrossfade = 0.002
+            { groupPolyphony = Just 1
+            , groupCrossfade = 0.002
             }
           audios = [(name, AudioSamples poly)]
           track = Just $ RBFile.SamplesTrack
@@ -150,17 +150,17 @@ importBMS bmsPath level = do
       }
     , audio = HM.fromList $ chipAudio <> songAudios <> p1Audios <> p2Audios
     , jammit = HM.empty
-    , plans = HM.singleton "bms" Plan
-      { _song         = guard (isJust songSampleTrack) >> Just (audioExpr "audio-bgm")
-      , _countin      = Countin []
-      , _planParts    = Parts $ HM.fromList $ catMaybes
+    , plans = HM.singleton "bms" $ StandardPlan StandardPlanInfo
+      { song        = guard (isJust songSampleTrack) >> Just (audioExpr "audio-bgm")
+      , countin     = Countin []
+      , parts       = Parts $ HM.fromList $ catMaybes
         [ guard (isJust p1SampleTrack) >> Just (FlexExtra "player1", PartSingle $ audioExpr "audio-p1")
         , guard (isJust p2SampleTrack) >> Just (FlexExtra "player2", PartSingle $ audioExpr "audio-p2")
         ]
-      , _crowd = Nothing
-      , _planComments = []
-      , _tuningCents = 0
-      , _fileTempo = Nothing
+      , crowd       = Nothing
+      , comments    = []
+      , tuningCents = 0
+      , fileTempo   = Nothing
       }
     , targets = HM.empty
     , parts = Parts $ HM.fromList $ do

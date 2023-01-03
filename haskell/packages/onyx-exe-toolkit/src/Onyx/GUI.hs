@@ -277,13 +277,15 @@ importWithPreferences imp = do
   if isJust $ projectRelease projInit
     then do
       prefs <- readPreferences
-      let applyBlackVenue yaml = if prefBlackVenue prefs
+      let applyBlackVenue, applyDecryptSilent, applyDetectMuted
+            :: SongYaml FilePath -> SongYaml FilePath
+          applyBlackVenue yaml = if prefBlackVenue prefs
             then yaml { global = yaml.global { _autogenTheme = Nothing } }
             else yaml
           applyDecryptSilent yaml = yaml
             { plans = flip fmap yaml.plans $ \case
-              mogg@MoggPlan{} -> mogg { _decryptSilent = prefDecryptSilent prefs }
-              plan            -> plan
+              MoggPlan mogg -> MoggPlan mogg { decryptSilent = prefDecryptSilent prefs }
+              plan          -> plan
             }
           applyDetectMuted yaml = yaml
             { parts = flip fmap yaml.parts $ \part -> part
@@ -5585,7 +5587,7 @@ launchBatch sink makeMenuBar startFiles = mdo
           return $ guard b >> Just inst
       return $ \songYaml -> do
         active <- catMaybes <$> sequence getters
-        return songYaml
+        return (songYaml :: SongYaml FilePath)
           { parts = Parts $ flip HM.filterWithKey songYaml.parts.getParts
             $ \part _ -> case part of
               FlexGuitar -> elem (Just Guitar) active

@@ -279,18 +279,18 @@ importSM src level = do
       }
     , jammit = HM.empty
     , audio = audio
-    , plans = HM.singleton "sm" Plan
-      { _song = flip fmap (sm_MUSIC sm) $ \_ -> PlanAudio
+    , plans = HM.singleton "sm" $ StandardPlan StandardPlanInfo
+      { song = flip fmap (sm_MUSIC sm) $ \_ -> PlanAudio
         { expr = delayAudio $ Input $ Named "audio-file"
         , pans = []
         , vols = []
         }
-      , _countin = Countin []
-      , _planParts = Parts HM.empty
-      , _crowd = Nothing
-      , _planComments = []
-      , _tuningCents = 0
-      , _fileTempo = Nothing
+      , countin = Countin []
+      , parts = Parts HM.empty
+      , crowd = Nothing
+      , comments = []
+      , tuningCents = 0
+      , fileTempo = Nothing
       }
     , targets = HM.empty
     , parts = Parts $ HM.singleton (F.FlexExtra "global") def

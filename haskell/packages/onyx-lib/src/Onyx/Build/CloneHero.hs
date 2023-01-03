@@ -252,8 +252,8 @@ psRules buildInfo dir ps = do
   phony (dir </> "ps") $ do
     (_, mixMode) <- computeDrumsPart ps.ps_Drums plan songYaml
     let needsPartAudio f = maybe False (/= def) (getPart (f ps) songYaml) && case plan of
-          Plan{..}   -> HM.member (f ps) _planParts.getParts
-          MoggPlan{} -> True
+          StandardPlan x -> HM.member (f ps) x.parts.getParts
+          MoggPlan     _ -> True
     shk $ need $ map (\f -> dir </> "ps" </> f) $ concat
       -- TODO replace (/= def), should actually check whether the right PS play mode is present
       [ ["song.ini", "notes.mid", "song.ogg", if useJPEG then "album.jpg" else "album.png"]
@@ -262,8 +262,8 @@ psRules buildInfo dir ps = do
         $ getPart ps.ps_Drums songYaml >>= (.partDrums)
         ]
       , ["try-drums.ogg"   | maybe False (/= def) (getPart ps.ps_Drums songYaml) && mixMode == RBDrums.D0 && case plan of
-          Plan{..}   -> HM.member ps.ps_Drums _planParts.getParts
-          MoggPlan{} -> True
+          StandardPlan x -> HM.member ps.ps_Drums x.parts.getParts
+          MoggPlan     _ -> True
         ]
       , ["try-drums_1.ogg" | maybe False (/= def) (getPart ps.ps_Drums songYaml) && mixMode /= RBDrums.D0]
       , ["try-drums_2.ogg" | maybe False (/= def) (getPart ps.ps_Drums songYaml) && mixMode /= RBDrums.D0]
@@ -273,8 +273,8 @@ psRules buildInfo dir ps = do
       , ["try-rhythm.ogg"  | needsPartAudio (.ps_Bass  ) || needsPartAudio (.ps_Rhythm    )]
       , ["try-vocals.ogg"  | needsPartAudio (.ps_Vocal )                                   ]
       , ["try-crowd.ogg"   | case plan of
-          Plan{..}     -> isJust _crowd
-          MoggPlan{..} -> not $ null _moggCrowd
+          StandardPlan x -> isJust x.crowd
+          MoggPlan     x -> not $ null x.crowd
         ]
       , toList bgimg
       ]

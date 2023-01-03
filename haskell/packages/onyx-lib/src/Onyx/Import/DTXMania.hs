@@ -141,8 +141,8 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
     then (Nothing, Nothing)
     else let
       poly = SamplesInfo
-        { _groupPolyphony = Nothing -- unlimited
-        , _groupCrossfade = 0.002 -- doesn't matter
+        { groupPolyphony = Nothing -- unlimited
+        , groupCrossfade = 0.002 -- doesn't matter
         }
       audios = AudioSamples poly
       track = RBFile.SamplesTrack
@@ -154,8 +154,8 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
     then (Nothing, Nothing)
     else let
       poly = SamplesInfo
-        { _groupPolyphony = Just 1
-        , _groupCrossfade = 0.002
+        { groupPolyphony = Just 1
+        , groupCrossfade = 0.002
         }
       audios = AudioSamples poly
       track = RBFile.SamplesTrack $ foldr RTB.merge RTB.empty $ do
@@ -199,17 +199,17 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
     { audio = HM.union songYaml.audio $ HM.fromList $ catMaybes
       $ [songAudio, guitarAudio, bassAudio, kickAudio, snareAudio, kitAudio]
       <> map fst extraResults
-    , plans = HM.singleton "dtx" Plan
-      { _song         = flip fmap songAudio $ \(name, _) -> audioExpr name
-      , _countin      = Countin []
-      , _planParts    = Parts $ HM.fromList $ concat
+    , plans = HM.singleton "dtx" $ StandardPlan StandardPlanInfo
+      { song        = flip fmap songAudio $ \(name, _) -> audioExpr name
+      , countin     = Countin []
+      , parts       = Parts $ HM.fromList $ concat
         [ toList $ flip fmap guitarAudio $ \(name, _) -> (FlexGuitar, PartSingle $ audioExpr name)
         , toList $ flip fmap bassAudio $ \(name, _) -> (FlexBass, PartSingle $ audioExpr name)
         , toList $ (FlexDrums ,) <$> case kitAudio of
           Just (name, _) -> Just PartDrumKit
-            { drumsSplitKick = flip fmap kickAudio $ \(n, _) -> audioExpr n
-            , drumsSplitSnare = flip fmap snareAudio $ \(n, _) -> audioExpr n
-            , drumsSplitKit = audioExpr name
+            { kick  = flip fmap kickAudio $ \(n, _) -> audioExpr n
+            , snare = flip fmap snareAudio $ \(n, _) -> audioExpr n
+            , kit   = audioExpr name
             }
           Nothing -> do
             xs <- NE.nonEmpty $ catMaybes [kickAudio, snareAudio, kitAudio]
@@ -219,10 +219,10 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
         , flip mapMaybe extraResults $ \(extraAudio, _) -> flip fmap extraAudio
           $ \(name, _) -> (FlexExtra name, PartSingle $ audioExpr name)
         ]
-      , _crowd = Nothing
-      , _planComments = []
-      , _tuningCents = 0
-      , _fileTempo = Nothing
+      , crowd       = Nothing
+      , comments    = []
+      , tuningCents = 0
+      , fileTempo   = Nothing
       }
     }
   mid' = mid

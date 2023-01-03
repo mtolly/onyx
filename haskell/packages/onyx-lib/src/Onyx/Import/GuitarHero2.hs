@@ -246,19 +246,19 @@ importGH2Song mode pkg genPath gen level = do
             , pans = map realToFrac [ pans songChunk !! c | c <- cs ]
             , vols = map realToFrac [ (vols songChunk !! c) + v | c <- cs ]
             }
-      in Plan
-        { _song = mixChans 0 songChans
-        , _countin = Countin []
-        , _planParts = Parts $ HM.fromList $ catMaybes
+      in StandardPlan StandardPlanInfo
+        { song = mixChans 0 songChans
+        , countin = Countin []
+        , parts = Parts $ HM.fromList $ catMaybes
           -- I made up these volume adjustments but they seem to work
           [ (RBFile.FlexGuitar ,) . PartSingle <$> mixChans (-0.5) guitarChans
           , (RBFile.FlexBass ,) . PartSingle <$> mixChans (-3) bassChans
           , (RBFile.FlexExtra "rhythm" ,) . PartSingle <$> mixChans (-1.5) rhythmChans
           ]
-        , _crowd = Nothing
-        , _planComments = []
-        , _tuningCents = 0
-        , _fileTempo = Nothing
+        , crowd = Nothing
+        , comments = []
+        , tuningCents = 0
+        , fileTempo = Nothing
         }
     }
 
@@ -298,17 +298,17 @@ importGH2DLC src folder = do
         let instChans :: [(T.Text, [Int])]
             instChans = map (second $ map fromIntegral) $ D.fromDictList $ tracks songChunk
         return (gh2SongYaml mode pkg (Just extra) songChunk onyxMidi)
-          { plans = HM.singleton "mogg" MoggPlan
-            { _fileMOGG = Just $ SoftFile "audio.mogg" mogg
-            , _moggMD5 = Nothing
-            , _moggParts = Parts $ HM.fromList $ concat
+          { plans = HM.singleton "mogg" $ MoggPlan MoggPlanInfo
+            { fileMOGG = Just $ SoftFile "audio.mogg" mogg
+            , moggMD5 = Nothing
+            , parts = Parts $ HM.fromList $ concat
               [ [ (RBFile.FlexGuitar        , PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
               , [ (RBFile.FlexBass          , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
               , [ (RBFile.FlexExtra "rhythm", PartSingle ns) | ns <- toList $ lookup "rhythm" instChans ]
               ]
-            , _moggCrowd = []
-            , _pans = map realToFrac $ pans songChunk
-            , _vols = do
+            , crowd = []
+            , pans = map realToFrac $ pans songChunk
+            , vols = do
               let i `channelFor` part = maybe False (elem i) $ lookup part instChans
               (i, vol) <- zip [0..] $ vols songChunk
               -- again, made up these volume adjustments so things sound ok in RB context
@@ -317,12 +317,12 @@ importGH2DLC src folder = do
                 | i `channelFor` "bass"   -> vol - 3
                 | i `channelFor` "rhythm" -> vol - 1.5
                 | otherwise               -> vol
-            , _planComments = []
-            , _tuningCents = 0
-            , _fileTempo = Nothing
-            , _karaoke = False
-            , _multitrack = False
-            , _decryptSilent = False
+            , comments = []
+            , tuningCents = 0
+            , fileTempo = Nothing
+            , karaoke = False
+            , multitrack = False
+            , decryptSilent = False
             }
           }
 

@@ -330,12 +330,12 @@ splitPlanSources planName proj lib planAudios = let
 
 projectAudio :: (MonadIO m) => T.Text -> Project -> StackTraceT (QueueLog m) (Maybe (Double -> Maybe Double -> Float -> IO AudioHandle))
 projectAudio k proj = case lookup k $ HM.toList (projectSongYaml proj).plans of
-  Just MoggPlan{..} -> errorToWarning $ do
+  Just (MoggPlan x) -> errorToWarning $ do
     -- TODO maybe silence crowd channels
     ogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.ogg"
-    return $ \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac _pans) (map realToFrac _vols) gain
-  Just Plan{..} -> errorToWarning $ do
-    let planAudios = toList _song ++ (toList _planParts >>= toList) -- :: [PlanAudio Duration AudioInput]
+    return $ \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac x.pans) (map realToFrac x.vols) gain
+  Just (StandardPlan x) -> errorToWarning $ do
+    let planAudios = toList x.song ++ (toList x.parts >>= toList) -- :: [PlanAudio Duration AudioInput]
     lib <- newAudioLibrary
     audioDirs <- getAudioDirs proj
     forM_ audioDirs $ \dir -> do
