@@ -114,11 +114,11 @@ computeGH2Audio
 computeGH2Audio song target hasAudio = do
   let hasFiveOrDrums = \case
         Nothing   -> False
-        Just part -> isJust part.partGRYBO || isJust part.partDrums
+        Just part -> isJust part.grybo || isJust part.drums
   leadTrack <- if hasFiveOrDrums $ getPart target.gh2_Guitar song
     then return target.gh2_Guitar
     else fatal "computeGH2Audio: no lead guitar part selected"
-  drumTrack <- case getPart target.gh2_Drums song >>= (.partDrums) of
+  drumTrack <- case getPart target.gh2_Drums song >>= (.drums) of
     Nothing -> return Nothing
     Just _  -> return $ do
       guard target.gh2_DrumChart
@@ -186,10 +186,10 @@ computeGH2Audio song target hasAudio = do
           allContents = [contentsLead, contentsCoop] <> contentsDrum
           in (allContents, 0, 1, guard (not $ null contentsDrum) >> Just 2)
         else ([Nothing], 0, 0, 0 <$ drumTrack) -- we'll make a single mono silent track
-      animBass  = target.gh2_Bass  <$ (getPart target.gh2_Bass  song >>= (.partGRYBO))
-      animDrums = target.gh2_Drums <$ (getPart target.gh2_Drums song >>= (.partDrums))
-      animVocal = target.gh2_Vocal <$ (getPart target.gh2_Vocal song >>= (.partVocal))
-      animKeys  = target.gh2_Keys  <$ (getPart target.gh2_Keys  song >>= (.partGRYBO))
+      animBass  = target.gh2_Bass  <$ (getPart target.gh2_Bass  song >>= (.grybo))
+      animDrums = target.gh2_Drums <$ (getPart target.gh2_Drums song >>= (.drums))
+      animVocal = target.gh2_Vocal <$ (getPart target.gh2_Vocal song >>= (.vocal))
+      animKeys  = target.gh2_Keys  <$ (getPart target.gh2_Keys  song >>= (.grybo))
   return GH2Audio{..}
 
 midiRB3toGH2
@@ -250,8 +250,8 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
             RB.HandMap_Chord_D   -> HandMap_Default
             RB.HandMap_Chord_A   -> HandMap_Default
           }
-      makeGRYBO fpart = case getPart fpart song >>= (.partGRYBO) of
-        Nothing -> case getPart fpart song >>= (.partDrums) of
+      makeGRYBO fpart = case getPart fpart song >>= (.grybo) of
+        Nothing -> case getPart fpart song >>= (.drums) of
           Nothing -> return mempty
           Just pd -> let
             trackOrig = buildDrumTarget
@@ -264,13 +264,13 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
         Just grybo -> let
           src = F.getFlexPart fpart onyx
           (trackOrig, algo) = getFive src
-          gap = fromIntegral grybo.gryboSustainGap / 480
-          ht = grybo.gryboHopoThreshold
+          gap = fromIntegral grybo.sustainGap / 480
+          ht = grybo.hopoThreshold
           fiveEachDiff f ft = ft { RB.fiveDifficulties = fmap f $ RB.fiveDifficulties ft }
           toGtr = fiveEachDiff $ \fd ->
               emit5'
             . fromClosed'
-            . noOpenNotes grybo.gryboDetectMutedOpens
+            . noOpenNotes grybo.detectMutedOpens
             . noTaps
             . noExtendedSustains' standardBlipThreshold gap
             . applyForces (getForces5 fd)
@@ -279,7 +279,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
             . computeFiveFretNotes
             $ fd
           in makePartGuitar fpart $ gryboComplete (Just ht) mmap $ toGtr trackOrig
-      makeDrum fpart = case getPart fpart song >>= (.partDrums) of
+      makeDrum fpart = case getPart fpart song >>= (.drums) of
         Nothing -> mempty
         Just pd -> let
           trackOrig = buildDrumTarget
@@ -373,7 +373,7 @@ bandMembers :: SongYaml f -> GH2Audio -> Maybe [Either D.BandMember T.Text]
 bandMembers song audio = let
   vocal = case audio.animVocal of
     Nothing    -> Nothing
-    Just fpart -> Just $ fromMaybe Magma.Male $ getPart fpart song >>= (.partVocal) >>= (.vocalGender)
+    Just fpart -> Just $ fromMaybe Magma.Male $ getPart fpart song >>= (.vocal) >>= (.gender)
   bass = True -- we'll just assume there's always a bassist (not required though - Jordan)
   keys = isJust audio.animKeys
   drums = True -- crashes if missing

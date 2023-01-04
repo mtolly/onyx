@@ -11,6 +11,7 @@
 {-# LANGUAGE StrictData            #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields        #-}
 module Onyx.Import.GuitarHero2 where
 
 import           Control.Arrow                    (second)
@@ -150,10 +151,10 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
     , genre = extra >>= (.songgenre)
     }
   , global = def'
-    { _fileMidi            = SoftFile "notes.mid" $ SoftChart onyxMidi
-    , _fileSongAnim        = Nothing
-    , _backgroundVideo     = Nothing
-    , _fileBackgroundImage = Nothing
+    { fileMidi            = SoftFile "notes.mid" $ SoftChart onyxMidi
+    , fileSongAnim        = Nothing
+    , backgroundVideo     = Nothing
+    , fileBackgroundImage = Nothing
     }
   , audio = HM.empty
   , jammit = HM.empty
@@ -163,25 +164,25 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
     [ do
       guard $ maybe False (not . null) $ lookup "guitar" $ D.fromDictList $ tracks songChunk
       return $ (RBFile.FlexGuitar ,) def
-        { partGRYBO = Just def
-          { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
-          , gryboDifficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songguitarrank)
+        { grybo = Just (def :: PartGRYBO)
+          { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
+          , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songguitarrank)
           }
         }
     , do
       guard $ maybe False (not . null) $ lookup "bass" $ D.fromDictList $ tracks songChunk
       return $ (RBFile.FlexBass ,) def
-        { partGRYBO = Just def
-          { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
-          , gryboDifficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songbassrank)
+        { grybo = Just (def :: PartGRYBO)
+          { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
+          , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songbassrank)
           }
         }
     , do
       guard $ maybe False (not . null) $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
       return $ (RBFile.FlexExtra "rhythm" ,) def
-        { partGRYBO = Just def
-          { gryboHopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
-          , gryboDifficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
+        { grybo = Just (def :: PartGRYBO)
+          { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
+          , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
           }
         }
     ]

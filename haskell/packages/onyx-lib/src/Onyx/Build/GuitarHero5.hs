@@ -152,9 +152,9 @@ gh5Rules buildInfo dir gh5 = do
                 (fromIntegral $ quot (RBFile.songLengthMS mid + 500) 1000) -- this is just displayed in song list
               , QBStructItemInteger (qbKeyCRC "flags") 0 -- what is this?
               , QBStructItemInteger (qbKeyCRC "double_kick") $
-                case getPart gh5.gh5_Drums songYaml >>= (.partDrums) of
+                case getPart gh5.gh5_Drums songYaml >>= (.drums) of
                   Nothing -> 0
-                  Just pd -> case pd.drumsKicks of
+                  Just pd -> case pd.kicks of
                     Kicks1x   -> 0
                     Kicks2x   -> 1
                     KicksBoth -> 1

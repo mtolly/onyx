@@ -194,10 +194,10 @@ importGH1Song pkg path gen level = do
       , previewEnd = Just $ PreviewSeconds $ fromIntegral (snd $ preview pkg) / 1000
       }
     , global = def'
-      { _fileMidi            = SoftFile "notes.mid" $ SoftChart convmid
-      , _fileSongAnim        = Nothing
-      , _backgroundVideo     = Nothing
-      , _fileBackgroundImage = Nothing
+      { fileMidi            = SoftFile "notes.mid" $ SoftChart convmid
+      , fileSongAnim        = Nothing
+      , backgroundVideo     = Nothing
+      , fileBackgroundImage = Nothing
       }
     , audio = HM.fromList $ do
       (chanName, bs) <- namedChans
@@ -245,6 +245,6 @@ importGH1Song pkg path gen level = do
         }
     , targets = HM.empty
     , parts = Parts $ HM.singleton RBFile.FlexGuitar $ def
-      { partGRYBO = Just def
+      { grybo = Just def
       }
     }

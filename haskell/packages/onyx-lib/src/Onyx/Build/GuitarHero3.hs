@@ -249,13 +249,13 @@ gh3Rules buildInfo dir gh3 = do
                   , QBStructItemInteger810000 (qbKeyCRC "leaderboard") 1
                   , QBStructItemInteger810000 (qbKeyCRC "gem_offset") 0
                   , QBStructItemInteger810000 (qbKeyCRC "input_offset") 0
-                  , QBStructItemQbKey8D0000 (qbKeyCRC "singer") $ case getPart gh3.gh3_Vocal songYaml >>= (.partVocal) of
+                  , QBStructItemQbKey8D0000 (qbKeyCRC "singer") $ case getPart gh3.gh3_Vocal songYaml >>= (.vocal) of
                     Nothing -> qbKeyCRC "none"
-                    Just pv -> case pv.vocalGender of
+                    Just pv -> case pv.gender of
                       Just Female -> qbKeyCRC "female"
                       Just Male   -> qbKeyCRC "male"
                       Nothing     -> qbKeyCRC "male"
-                  , QBStructItemQbKey8D0000 (qbKeyCRC "keyboard") $ case getPart gh3.gh3_Keys songYaml >>= (.partGRYBO) of
+                  , QBStructItemQbKey8D0000 (qbKeyCRC "keyboard") $ case getPart gh3.gh3_Keys songYaml >>= (.grybo) of
                     Nothing -> qbKeyCRC "false"
                     Just _  -> qbKeyCRC "true"
                   , QBStructItemInteger810000 (qbKeyCRC "band_playback_volume") 0
@@ -449,10 +449,10 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
 
   makeGH3Part fpart = let
     opart = RBFile.getFlexPart fpart $ RBFile.s_tracks song
-    ((trk, algo), threshold, detectMuted) = case getPart fpart songYaml >>= (.partGRYBO) of
-      Just pg -> (RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart, pg.gryboHopoThreshold, pg.gryboDetectMutedOpens)
+    ((trk, algo), threshold, detectMuted) = case getPart fpart songYaml >>= (.grybo) of
+      Just pg -> (RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart, pg.hopoThreshold, pg.detectMutedOpens)
       Nothing -> let
-        trk' = case getPart fpart songYaml >>= (.partDrums) of
+        trk' = case getPart fpart songYaml >>= (.drums) of
           Just _pd -> case buildDrums fpart (Left def { rb3_2xBassPedal = True }) song timing songYaml of
             Just drums -> drumsToFive song drums
             Nothing    -> mempty
@@ -510,7 +510,7 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     $ maybe RTB.empty Five.fiveGems
     $ Map.lookup Expert
     $ Five.fiveDifficulties leadTrack
-  drumAnims = case getPart partDrummer songYaml >>= (.partDrums) of
+  drumAnims = case getPart partDrummer songYaml >>= (.drums) of
     Nothing -> []
     Just pd -> let
       rbAnims = buildDrumAnimation pd (RBFile.s_tempos song) $ RBFile.getFlexPart partDrummer $ RBFile.s_tracks song

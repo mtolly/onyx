@@ -294,8 +294,8 @@ importSM src level = do
       }
     , targets = HM.empty
     , parts = Parts $ HM.singleton (F.FlexExtra "global") def
-      { partDance = Just PartDance
-        { danceDifficulty = Tier $ max 1 $ let
+      { dance = Just PartDance
+        { difficulty = Tier $ max 1 $ let
           -- as a hack, get max meter value and subtract 4 (so 10 becomes 6)
           meters
             = map smn_NumericalMeter
@@ -305,11 +305,11 @@ importSM src level = do
         }
       }
     , global = Global
-      { _fileMidi = SoftFile "notes.mid" $ SoftChart mid
-      , _fileSongAnim = Nothing
-      , _autogenTheme = Nothing
-      , _animTempo = Left KTempoMedium
-      , _backgroundVideo = Nothing
-      , _fileBackgroundImage = background
+      { fileMidi = SoftFile "notes.mid" $ SoftChart mid
+      , fileSongAnim = Nothing
+      , autogenTheme = Nothing
+      , animTempo = Left KTempoMedium
+      , backgroundVideo = Nothing
+      , fileBackgroundImage = background
       }
     }

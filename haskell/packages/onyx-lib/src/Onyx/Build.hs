@@ -108,13 +108,13 @@ dtxRules buildInfo dir dtx = do
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
 
-  let dtxPartDrums  = case getPart dtx.dtx_Drums songYaml >>= (.partDrums) of
+  let dtxPartDrums  = case getPart dtx.dtx_Drums songYaml >>= (.drums) of
         Just pd -> Just (dtx.dtx_Drums, pd)
         Nothing -> Nothing
-      dtxPartGuitar = case getPart dtx.dtx_Guitar songYaml >>= (.partGRYBO) of
+      dtxPartGuitar = case getPart dtx.dtx_Guitar songYaml >>= (.grybo) of
         Just pg -> Just (dtx.dtx_Guitar, pg)
         Nothing -> Nothing
-      dtxPartBass   = case getPart dtx.dtx_Bass songYaml >>= (.partGRYBO) of
+      dtxPartBass   = case getPart dtx.dtx_Bass songYaml >>= (.grybo) of
         Just pg -> Just (dtx.dtx_Bass, pg)
         Nothing -> Nothing
 
@@ -144,7 +144,7 @@ dtxRules buildInfo dir dtx = do
     _ -> return "cover.png"
   dir </> "dtx/cover.png" %> shk . copyFile' (rel "gen/cover-full.png")
 
-  mapping <- forM (dtxPartDrums >>= \(_, pd) -> pd.drumsFileDTXKit) $ \f -> do
+  mapping <- forM (dtxPartDrums >>= \(_, pd) -> pd.fileDTXKit) $ \f -> do
     bs <- liftIO $ B.readFile f
     case readMaybe $ T.unpack $ decodeGeneral bs of
       Nothing -> fail $ "Couldn't parse mapping of full drums to DTX template from: " <> f
@@ -389,7 +389,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           _      -> loadRGB8 songYaml >>= stackIO . BL.writeFile out . toDXT1File pngType
 
       rel "gen/notes.mid" %> \out -> shk $ do
-        let f = rel songYaml.global._fileMidi
+        let f = rel songYaml.global.fileMidi
         doesFileExist f >>= \b -> if b
           then copyFile' f out
           else saveMIDI out RBFile.Song
@@ -503,8 +503,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               tunings = TuningInfo
                 { guitars = do
                   (fpart, part) <- HM.toList songYaml.parts.getParts
-                  pg <- toList part.partProGuitar
-                  return (fpart, pg.pgTuning)
+                  pg <- toList part.proGuitar
+                  return (fpart, pg.tuning)
                 , cents = getTuningCents plan
                 }
           makeReaperShake tunings (rel "gen/notes.mid") tempo allPlanAudio out

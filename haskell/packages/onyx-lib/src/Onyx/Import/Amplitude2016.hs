@@ -59,10 +59,10 @@ importAmplitude fin _level = do
       , fileAlbumArt = Nothing
       }
     , global = def'
-      { _backgroundVideo = Nothing
-      , _fileBackgroundImage = Nothing
-      , _fileSongAnim = Nothing
-      , _fileMidi = SoftFile "notes.mid" $ SoftChart midi
+      { backgroundVideo = Nothing
+      , fileBackgroundImage = Nothing
+      , fileSongAnim = Nothing
+      , fileMidi = SoftFile "notes.mid" $ SoftChart midi
       }
     , audio = HM.empty
     , jammit = HM.empty
@@ -85,5 +85,5 @@ importAmplitude fin _level = do
     , targets = HM.empty
     , parts = Parts $ HM.fromList $ do
       (name, _, inst, _) <- parts
-      return (name, def { partAmplitude = Just (PartAmplitude inst) })
+      return (name, def { amplitude = Just $ PartAmplitude inst })
     }

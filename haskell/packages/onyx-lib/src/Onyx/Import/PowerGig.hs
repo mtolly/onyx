@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TupleSections         #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields        #-}
 module Onyx.Import.PowerGig where
 
 import           Control.Monad                     (forM, guard, unless)
@@ -440,41 +441,41 @@ importPowerGigSong key song folder level = do
       , fileTempo = Nothing
       }
     , global = def'
-      { _fileMidi = SoftFile "notes.mid" $ SoftChart onyxMid
-      , _fileSongAnim = Nothing
-      , _backgroundVideo = Nothing
-      , _fileBackgroundImage = Nothing
+      { fileMidi = SoftFile "notes.mid" $ SoftChart onyxMid
+      , fileSongAnim = Nothing
+      , backgroundVideo = Nothing
+      , fileBackgroundImage = Nothing
       }
     , parts = Parts $ HM.fromList
       -- do all songs have all instruments?
       [ (RBFile.FlexGuitar, def
-        { partGRYBO = Just def
-          { gryboDifficulty = Tier 1 -- TODO
+        { grybo = Just (def :: PartGRYBO)
+          { difficulty = Tier 1 -- TODO
           }
         })
       , (RBFile.FlexDrums, def
-        { partDrums = Just PartDrums
-          { drumsMode        = Drums4
-          , drumsDifficulty  = Tier 1 -- TODO
-          , drumsKicks       = Kicks1x
-          , drumsFixFreeform = True
-          , drumsKit         = HardRockKit
-          , drumsLayout      = StandardLayout
-          , drumsFallback    = FallbackGreen
-          , drumsFileDTXKit  = Nothing
-          , drumsFullLayout  = FDStandard
+        { drums = Just PartDrums
+          { mode        = Drums4
+          , difficulty  = Tier 1 -- TODO
+          , kicks       = Kicks1x
+          , fixFreeform = True
+          , kit         = HardRockKit
+          , layout      = StandardLayout
+          , fallback    = FallbackGreen
+          , fileDTXKit  = Nothing
+          , fullLayout  = FDStandard
           }
         })
       , (RBFile.FlexVocal, def
-        { partVocal = Just PartVocal
-          { vocalDifficulty = Tier 1 -- TODO
-          , vocalGender = info_singer_gender (song_info song) >>= \case
+        { vocal = Just PartVocal
+          { difficulty = Tier 1 -- TODO
+          , gender = info_singer_gender (song_info song) >>= \case
             "male"   -> Just Male
             "female" -> Just Female
             _        -> Nothing
-          , vocalCount = Vocal1
-          , vocalKey = Nothing
-          , vocalLipsyncRB3 = Nothing
+          , count = Vocal1
+          , key = Nothing
+          , lipsyncRB3 = Nothing
           }
         })
       ]

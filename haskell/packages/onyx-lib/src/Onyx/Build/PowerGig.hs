@@ -138,11 +138,11 @@ pgRules buildInfo dir pg = do
             , pcmcMIDI = B.concat ["songs:", TE.encodeUtf8 key, "\\", TE.encodeUtf8 key, ".mid"]
             }
           , gevGELH = PG.GELH $ V.fromList $ catMaybes
-            [ flip fmap (getPart pg.pg_Guitar songYaml >>= (.partGRYBO)) $ \grybo -> let
+            [ flip fmap (getPart pg.pg_Guitar songYaml >>= (.grybo)) $ \grybo -> let
               src = RBFile.getFlexPart pg.pg_Guitar $ RBFile.s_tracks mid
               (trackOrig, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitar src
               notes :: RTB.T U.Beats ([(Maybe Color, StrumHOPOTap)], Maybe U.Beats)
-              notes = guitarify' $ strumHOPOTap algo (fromIntegral grybo.gryboHopoThreshold / 480) $ computeFiveFretNotes
+              notes = guitarify' $ strumHOPOTap algo (fromIntegral grybo.hopoThreshold / 480) $ computeFiveFretNotes
                 $ fromMaybe mempty $ Map.lookup Expert $ fiveDifficulties trackOrig
               in PG.GELS
                 { gelsUnk1      = 2

@@ -143,10 +143,10 @@ importBMS bmsPath level = do
       , fileAlbumArt = Nothing
       }
     , global = def'
-      { _backgroundVideo = Nothing
-      , _fileBackgroundImage = Nothing
-      , _fileMidi = SoftFile "notes.mid" $ SoftChart midi
-      , _fileSongAnim = Nothing
+      { backgroundVideo = Nothing
+      , fileBackgroundImage = Nothing
+      , fileMidi = SoftFile "notes.mid" $ SoftChart midi
+      , fileSongAnim = Nothing
       }
     , audio = HM.fromList $ chipAudio <> songAudios <> p1Audios <> p2Audios
     , jammit = HM.empty
@@ -170,9 +170,9 @@ importBMS bmsPath level = do
         ]
       guard $ not $ RTB.null chips
       return $ (fpart,) def
-        { partProKeys = Just PartProKeys
-          { pkDifficulty  = Tier 1
-          , pkFixFreeform = True
+        { proKeys = Just PartProKeys
+          { difficulty  = Tier 1
+          , fixFreeform = True
           }
         }
     }

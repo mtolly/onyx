@@ -203,11 +203,11 @@ importRSSong folder song level = do
           -- TODO support no base tone - this shouldn't happen,
           -- but does if you compile a custom with no tones
           tones <- inside "Importing RS tones" $ errorToWarning $ do
-            rsFileToneBase <- prop "Tone_Base" jsonAttrs >>= getString >>= findTone
-            rsFileToneA    <- prop "Tone_A" jsonAttrs >>= getString >>= findMaybeTone
-            rsFileToneB    <- prop "Tone_B" jsonAttrs >>= getString >>= findMaybeTone
-            rsFileToneC    <- prop "Tone_C" jsonAttrs >>= getString >>= findMaybeTone
-            rsFileToneD    <- prop "Tone_D" jsonAttrs >>= getString >>= findMaybeTone
+            fileToneBase <- prop "Tone_Base" jsonAttrs >>= getString >>= findTone
+            fileToneA    <- prop "Tone_A" jsonAttrs >>= getString >>= findMaybeTone
+            fileToneB    <- prop "Tone_B" jsonAttrs >>= getString >>= findMaybeTone
+            fileToneC    <- prop "Tone_C" jsonAttrs >>= getString >>= findMaybeTone
+            fileToneD    <- prop "Tone_D" jsonAttrs >>= getString >>= findMaybeTone
             return RSTones{..}
           return (RSArrSlot arrmod arrtype, sng, bnkPath, (title, artist, album, year), isBass, tones)
   (_, firstArr, bnk, (title, artist, album, year), _, _) <- case parts of
@@ -521,10 +521,10 @@ importRSSong folder song level = do
         return (slot, partName)
       }
     , global = def'
-      { _fileMidi            = SoftFile "notes.mid" $ SoftChart midi
-      , _fileSongAnim        = Nothing
-      , _backgroundVideo     = Nothing
-      , _fileBackgroundImage = Nothing
+      { fileMidi            = SoftFile "notes.mid" $ SoftChart midi
+      , fileSongAnim        = Nothing
+      , backgroundVideo     = Nothing
+      , fileBackgroundImage = Nothing
       }
     , audio = HM.singleton "song" $ AudioFile AudioInfo
       { md5      = Nothing
@@ -550,10 +550,10 @@ importRSSong folder song level = do
     , parts = Parts $ HM.fromList $ do
       ((_, partName), sng, _, _, isBass, tones) <- namedParts
       let part = def
-            { partProGuitar = Just PartProGuitar
-              { pgDifficulty    = Tier 1
-              , pgHopoThreshold = 170
-              , pgTuning        = if isBass
+            { proGuitar = Just PartProGuitar
+              { difficulty    = Tier 1
+              , hopoThreshold = 170
+              , tuning        = if isBass
                 -- TODO set gtrGlobal smarter (detect number applied to all offsets)
                 -- TODO import bass-on-guitar correctly (threshold for very low offsets?)
                 then GtrTuning
@@ -572,13 +572,13 @@ importRSSong folder song level = do
                     -1 -> 0
                     n  -> n
                   }
-              , pgTuningRSBass = Nothing
-              , pgFixFreeform   = False
-              , pgTones = flip fmap tones $ fmap $ \tone -> let
+              , tuningRSBass = Nothing
+              , fixFreeform   = False
+              , tones = flip fmap tones $ fmap $ \tone -> let
                 file = T.unpack (t14_Key tone) <.> "tone2014.xml"
                 in SoftFile file $ SoftReadable $ makeHandle file $
                   byteStringSimpleHandle $ BL.fromStrict $ toneBytes tone
-              , pgPickedBass = False -- TODO
+              , pickedBass = False -- TODO
               }
             }
       return (partName, part)

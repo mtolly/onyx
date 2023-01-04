@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields        #-}
 module Onyx.Import.Neversoft where
 
 import           Control.Applicative              ((<|>))
@@ -136,10 +137,10 @@ importGH5WoR src folder = do
               , genre = displayWoRGenre <$> songGenre info
               }
             , global = def'
-              { _fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
-              , _fileSongAnim = Nothing
-              , _backgroundVideo = Nothing
-              , _fileBackgroundImage = Nothing
+              { fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
+              , fileSongAnim = Nothing
+              , backgroundVideo = Nothing
+              , fileBackgroundImage = Nothing
               }
             , audio = HM.fromList $ do
               (name, bs) <- streams1 <> streams2 <> streams3
@@ -185,33 +186,33 @@ importGH5WoR src folder = do
             , targets = HM.empty
             , parts = Parts $ HM.fromList
               [ (RBFile.FlexGuitar, def
-                { partGRYBO = readTier (songTierGuitar info) $ \diff -> def { gryboDifficulty = diff }
+                { grybo = readTier (songTierGuitar info) $ \diff -> def { difficulty = diff }
                 })
               , (RBFile.FlexBass, def
-                { partGRYBO = readTier (songTierBass info) $ \diff -> def { gryboDifficulty = diff }
+                { grybo = readTier (songTierBass info) $ \diff -> def { difficulty = diff }
                 })
               , (RBFile.FlexDrums, def
-                { partDrums = readTier (songTierDrums info) $ \diff -> PartDrums
-                  { drumsMode        = Drums5
-                  , drumsDifficulty  = diff
+                { drums = readTier (songTierDrums info) $ \diff -> PartDrums
+                  { mode        = Drums5
+                  , difficulty  = diff
                   -- TODO are there any WoR songs that have ghost note X+ with no double kicks?
                   -- if so, do they have `double_kick` on?
-                  , drumsKicks       = if songDoubleKick info then KicksBoth else Kicks1x
-                  , drumsFixFreeform = True
-                  , drumsKit         = HardRockKit
-                  , drumsLayout      = StandardLayout
-                  , drumsFallback    = FallbackGreen
-                  , drumsFileDTXKit  = Nothing
-                  , drumsFullLayout  = FDStandard
+                  , kicks       = if songDoubleKick info then KicksBoth else Kicks1x
+                  , fixFreeform = True
+                  , kit         = HardRockKit
+                  , layout      = StandardLayout
+                  , fallback    = FallbackGreen
+                  , fileDTXKit  = Nothing
+                  , fullLayout  = FDStandard
                   }
                 })
               , (RBFile.FlexVocal, def
-                { partVocal = readTier (songTierVocals info) $ \diff -> PartVocal
-                  { vocalDifficulty = diff
-                  , vocalCount      = Vocal1
-                  , vocalGender     = Nothing -- TODO is this stored somewhere?
-                  , vocalKey        = Nothing
-                  , vocalLipsyncRB3 = Nothing
+                { vocal = readTier (songTierVocals info) $ \diff -> PartVocal
+                  { difficulty = diff
+                  , count      = Vocal1
+                  , gender     = Nothing -- TODO is this stored somewhere?
+                  , key        = Nothing
+                  , lipsyncRB3 = Nothing
                   }
                 })
               ]
@@ -438,10 +439,10 @@ importGH3Song gh3i = let
         , fileAlbumArt = Nothing
         }
       , global = def'
-        { _fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
-        , _fileSongAnim = Nothing
-        , _backgroundVideo = Nothing
-        , _fileBackgroundImage = Nothing
+        { fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
+        , fileSongAnim = Nothing
+        , backgroundVideo = Nothing
+        , fileBackgroundImage = Nothing
         }
       , audio = HM.fromList $ do
         (_, group) <- audio
@@ -488,21 +489,21 @@ importGH3Song gh3i = let
           }
       , targets = HM.empty
       , parts = Parts $ HM.fromList $ catMaybes
-        [ Just (RBFile.FlexGuitar, def { partGRYBO = Just def })
-        , guard (hasRealCoop && hasCoopGems) >> Just (coopPart, def { partGRYBO = Just def })
+        [ Just (RBFile.FlexGuitar, def { grybo = Just def })
+        , guard (hasRealCoop && hasCoopGems) >> Just (coopPart, def { grybo = Just def })
         , do
           guard $ maybe False (not . RTB.null . fdGems) $ Map.lookup Expert $ fdDifficulties drums
           Just (RBFile.FlexDrums, def
-            { partDrums = Just PartDrums
-              { drumsDifficulty  = Tier 1
-              , drumsMode        = DrumsFull
-              , drumsKicks       = if RTB.null $ fdKick2 drums then Kicks1x else KicksBoth
-              , drumsFixFreeform = False
-              , drumsKit         = HardRockKit
-              , drumsLayout      = StandardLayout
-              , drumsFallback    = FallbackGreen
-              , drumsFileDTXKit  = Nothing
-              , drumsFullLayout  = FDStandard
+            { drums = Just PartDrums
+              { difficulty  = Tier 1
+              , mode        = DrumsFull
+              , kicks       = if RTB.null $ fdKick2 drums then Kicks1x else KicksBoth
+              , fixFreeform = False
+              , kit         = HardRockKit
+              , layout      = StandardLayout
+              , fallback    = FallbackGreen
+              , fileDTXKit  = Nothing
+              , fullLayout  = FDStandard
               }
             })
         ]

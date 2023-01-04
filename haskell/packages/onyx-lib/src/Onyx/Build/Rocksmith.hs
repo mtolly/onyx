@@ -64,11 +64,11 @@ rsRules buildInfo dir rs = do
       presentPlayable = do
         (arrSlot, fpart) <- rs.rs_Arrangements
         -- TODO warn if arrangement does not have pro guitar mode
-        pg <- maybe [] (toList . (.partProGuitar)) $ getPart fpart songYaml
+        pg <- maybe [] (toList . (.proGuitar)) $ getPart fpart songYaml
         return (fpart, RSPlayable arrSlot pg)
       presentParts = presentPlayable <> do
         let fpart = rs.rs_Vocal
-        pv <- maybe [] (toList . (.partVocal)) $ getPart fpart songYaml
+        pv <- maybe [] (toList . (.vocal)) $ getPart fpart songYaml
         return (fpart, RSVocal pv)
       rsPadding = dir </> "padding.txt"
       rsAnchors = dir </> "anchors.mid"
@@ -137,8 +137,8 @@ rsRules buildInfo dir rs = do
               vox = buildRSVocals (RBFile.s_tempos mid) trk
           Arr.writePart out $ Arr.addPadding pad $ Arr.PartVocals vox
         RSPlayable slot pg -> do
-          mapM_ (shk . need . toList) pg.pgTones
-          toneKeys <- forM pg.pgTones $ mapM $ fmap CST.t14_Key . CST.parseTone
+          mapM_ (shk . need . toList) pg.tones
+          toneKeys <- forM pg.tones $ mapM $ fmap CST.t14_Key . CST.parseTone
           -- TODO the first beat event needs to be a barline,
           -- otherwise DDC fails to run!
           -- also, notes can't go past the last beat event, or they disappear.
@@ -151,9 +151,9 @@ rsRules buildInfo dir rs = do
                 = Arr.Ebeat t Nothing : numberBars measure rest
               numberBars measure ((t, Bar) : rest)
                 = Arr.Ebeat t (Just measure) : numberBars (measure + 1) rest
-              tuning0 = case (isBass slot, pg.pgTuningRSBass) of
+              tuning0 = case (isBass slot, pg.tuningRSBass) of
                 (True, Just tun) -> tun
-                _                -> pg.pgTuning
+                _                -> pg.tuning
               tuning1 = map (+ gtrGlobal tuning0)
                 $ encodeTuningOffsets tuning0 (if isBass slot then TypeBass else TypeGuitar)
               tuning2 = tuning1 <> repeat (last tuning1) -- so 5-string bass has a consistent dummy top string
@@ -234,7 +234,7 @@ rsRules buildInfo dir rs = do
               , Arr.ap_twoFingerPicking  = False -- TODO :: Bool
               , Arr.ap_fifthsAndOctaves  = False -- TODO :: Bool
               , Arr.ap_syncopation       = False -- TODO :: Bool
-              , Arr.ap_bassPick          = pg.pgPickedBass
+              , Arr.ap_bassPick          = pg.pickedBass
               , Arr.ap_sustain           = any (isJust . Arr.n_sustain) allNotes
               -- TODO what does Combo select for these?
               , Arr.ap_pathLead          = case slot of
@@ -251,11 +251,11 @@ rsRules buildInfo dir rs = do
             , Arr.arr_phrases                = rso_phrases rso
             , Arr.arr_phraseIterations       = rso_phraseIterations rso
             , Arr.arr_chordTemplates         = rso_chordTemplates rso
-            , Arr.arr_tonebase               = (.rsFileToneBase) <$> toneKeys
-            , Arr.arr_tonea                  = toneKeys >>= (.rsFileToneA)
-            , Arr.arr_toneb                  = toneKeys >>= (.rsFileToneB)
-            , Arr.arr_tonec                  = toneKeys >>= (.rsFileToneC)
-            , Arr.arr_toned                  = toneKeys >>= (.rsFileToneD)
+            , Arr.arr_tonebase               = (.fileToneBase) <$> toneKeys
+            , Arr.arr_tonea                  = toneKeys >>= (.fileToneA)
+            , Arr.arr_toneb                  = toneKeys >>= (.fileToneB)
+            , Arr.arr_tonec                  = toneKeys >>= (.fileToneC)
+            , Arr.arr_toned                  = toneKeys >>= (.fileToneD)
             , Arr.arr_tones
               = V.fromList
               $ map (\(t, letter) -> let
@@ -263,10 +263,10 @@ rsRules buildInfo dir rs = do
                   { tone_time = t
                   , tone_id   = Just $ fromEnum letter
                   , tone_name = fromMaybe "" $ toneKeys >>= case letter of
-                    ToneA -> (.rsFileToneA)
-                    ToneB -> (.rsFileToneB)
-                    ToneC -> (.rsFileToneC)
-                    ToneD -> (.rsFileToneD)
+                    ToneA -> (.fileToneA)
+                    ToneB -> (.fileToneB)
+                    ToneC -> (.fileToneC)
+                    ToneD -> (.fileToneD)
                   }
                 )
               $ ATB.toPairList
@@ -324,7 +324,7 @@ rsRules buildInfo dir rs = do
   rsBuilder %> \out -> do
     let allTonePaths = nubOrd $ do
           (_, RSPlayable _ pg) <- presentParts
-          tones <- toList pg.pgTones
+          tones <- toList pg.tones
           toList tones
     shk $ need $ [ rsArr fpart arrSlot | (fpart, arrSlot) <- presentParts ] ++ allTonePaths
     allTones <- forM allTonePaths $ \f -> do
@@ -428,7 +428,7 @@ rsRules buildInfo dir rs = do
   rsProject %> \out -> do
     let allTonePaths = nubOrd $ do
           (_, RSPlayable _ pg) <- presentParts
-          tones <- toList pg.pgTones
+          tones <- toList pg.tones
           toList tones
     shk $ need $ [ rsArr fpart arrSlot | (fpart, arrSlot) <- presentParts ] ++ allTonePaths
     allTones <- forM allTonePaths $ \f -> do

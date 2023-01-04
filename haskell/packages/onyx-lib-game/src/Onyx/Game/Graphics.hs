@@ -1958,7 +1958,7 @@ loadGLStuff scaleUI previewSong = do
       return $ Just (vi, VideoHandle
         { videoFrameLoader = frameLoader
         , videoTexture     = videoTexRef
-        , videoFilePath    = vi._fileVideo
+        , videoFilePath    = vi.fileVideo
         })
     _ -> return Nothing
   imageBGs <- fmap (Map.fromList . catMaybes) $ forM (map snd $ previewBG previewSong) $ \case

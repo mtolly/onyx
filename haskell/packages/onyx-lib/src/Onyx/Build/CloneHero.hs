@@ -80,7 +80,7 @@ psRules buildInfo dir ps = do
       return True
     _ -> return False
   dir </> "ps/album.png"   %> shk . copyFile' (rel "gen/cover-full.png")
-  bgimg <- forM songYaml.global._fileBackgroundImage $ \f -> do
+  bgimg <- forM songYaml.global.fileBackgroundImage $ \f -> do
     let psImage = "background" <> takeExtension f
     dir </> "ps" </> psImage %> shk . copyFile' (rel f)
     return psImage
@@ -91,8 +91,8 @@ psRules buildInfo dir ps = do
     (DifficultyPS{..}, _) <- loadEditedParts
     let (pstart, _) = previewBounds songYaml (raw :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
         len = RBFile.songLengthMS song
-        pd = getPart ps.ps_Drums songYaml >>= (.partDrums)
-        dmode = (.drumsMode) <$> pd
+        pd = getPart ps.ps_Drums songYaml >>= (.drums)
+        dmode = (.mode) <$> pd
         DifficultyRB3{..} = psDifficultyRB3
         allFives =
           [ RBFile.fixedPartGuitar     $ RBFile.s_tracks song
@@ -118,8 +118,8 @@ psRules buildInfo dir ps = do
       -- for consistency we will just use the flipped midi layout,
       -- where 100 is green and 101 is orange
       , FoF.drumFallbackBlue = pd >>= \case
-        PartDrums{ drumsMode = Drums5, drumsFallback = FallbackBlue } -> Just True
-        _                                                             -> Nothing
+        PartDrums{ mode = Drums5, fallback = FallbackBlue } -> Just True
+        _                                                   -> Nothing
       , FoF.songLength       = Just len
       , FoF.previewStartTime = Just pstart
       -- difficulty tiers go from 0 to 6, or -1 for no part
@@ -258,8 +258,8 @@ psRules buildInfo dir ps = do
       -- TODO replace (/= def), should actually check whether the right PS play mode is present
       [ ["song.ini", "notes.mid", "song.ogg", if useJPEG then "album.jpg" else "album.png"]
       , ["expert+.mid"
-        | maybe False ((/= Kicks1x) . (.drumsKicks))
-        $ getPart ps.ps_Drums songYaml >>= (.partDrums)
+        | maybe False ((/= Kicks1x) . (.kicks))
+        $ getPart ps.ps_Drums songYaml >>= (.drums)
         ]
       , ["try-drums.ogg"   | maybe False (/= def) (getPart ps.ps_Drums songYaml) && mixMode == RBDrums.D0 && case plan of
           StandardPlan x -> HM.member ps.ps_Drums x.parts.getParts

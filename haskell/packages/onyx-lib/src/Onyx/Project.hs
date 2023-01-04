@@ -597,46 +597,46 @@ instance StackJSON Difficulty where
     }
 
 data PartGRYBO = PartGRYBO
-  { gryboDifficulty       :: Difficulty
-  , gryboHopoThreshold    :: Int
-  , gryboFixFreeform      :: Bool
-  , gryboSustainGap       :: Int -- ticks, 480 per beat
-  , gryboSmoothFrets      :: Bool -- should animation fret positions be smoothed out like pre-RB3
-  , gryboDetectMutedOpens :: Bool -- if open notes are auto-removed, should we detect when opens are used as muted strums in between chords
+  { difficulty       :: Difficulty
+  , hopoThreshold    :: Int
+  , fixFreeform      :: Bool
+  , sustainGap       :: Int -- ticks, 480 per beat
+  , smoothFrets      :: Bool -- should animation fret positions be smoothed out like pre-RB3
+  , detectMutedOpens :: Bool -- if open notes are auto-removed, should we detect when opens are used as muted strums in between chords
   } deriving (Eq, Ord, Show)
 
 instance StackJSON PartGRYBO where
   stackJSON = asStrictObject "PartGRYBO" $ do
-    gryboDifficulty       <- (.gryboDifficulty      ) =. fill (Tier 1) "difficulty"         stackJSON
-    gryboHopoThreshold    <- (.gryboHopoThreshold   ) =. opt  170      "hopo-threshold"     stackJSON
-    gryboFixFreeform      <- (.gryboFixFreeform     ) =. opt  True     "fix-freeform"       stackJSON
-    gryboSustainGap       <- (.gryboSustainGap      ) =. opt  60       "sustain-gap"        stackJSON
-    gryboSmoothFrets      <- (.gryboSmoothFrets     ) =. opt  False    "smooth-frets"       stackJSON
-    gryboDetectMutedOpens <- (.gryboDetectMutedOpens) =. opt  True     "detect-muted-opens" stackJSON
+    difficulty       <- (.difficulty      ) =. fill (Tier 1) "difficulty"         stackJSON
+    hopoThreshold    <- (.hopoThreshold   ) =. opt  170      "hopo-threshold"     stackJSON
+    fixFreeform      <- (.fixFreeform     ) =. opt  True     "fix-freeform"       stackJSON
+    sustainGap       <- (.sustainGap      ) =. opt  60       "sustain-gap"        stackJSON
+    smoothFrets      <- (.smoothFrets     ) =. opt  False    "smooth-frets"       stackJSON
+    detectMutedOpens <- (.detectMutedOpens) =. opt  True     "detect-muted-opens" stackJSON
     return PartGRYBO{..}
 
 instance Default PartGRYBO where
   def = fromEmptyObject
 
 data PartProKeys = PartProKeys
-  { pkDifficulty  :: Difficulty
-  , pkFixFreeform :: Bool
+  { difficulty  :: Difficulty
+  , fixFreeform :: Bool
   } deriving (Eq, Ord, Show)
 
 instance StackJSON PartProKeys where
   stackJSON = asStrictObject "PartProKeys" $ do
-    pkDifficulty  <- (.pkDifficulty ) =. fill (Tier 1) "difficulty"   stackJSON
-    pkFixFreeform <- (.pkFixFreeform) =. opt  True     "fix-freeform" stackJSON
+    difficulty  <- (.difficulty ) =. fill (Tier 1) "difficulty"   stackJSON
+    fixFreeform <- (.fixFreeform) =. opt  True     "fix-freeform" stackJSON
     return PartProKeys{..}
 
 data PartProGuitar f = PartProGuitar
-  { pgDifficulty    :: Difficulty
-  , pgHopoThreshold :: Int
-  , pgTuning        :: GtrTuning
-  , pgTuningRSBass  :: Maybe GtrTuning -- for 5/6-string bass which also has a 4-string arrangement
-  , pgFixFreeform   :: Bool
-  , pgTones         :: Maybe (RSTones f)
-  , pgPickedBass    :: Bool
+  { difficulty    :: Difficulty
+  , hopoThreshold :: Int
+  , tuning        :: GtrTuning
+  , tuningRSBass  :: Maybe GtrTuning -- for 5/6-string bass which also has a 4-string arrangement
+  , fixFreeform   :: Bool
+  , tones         :: Maybe (RSTones f)
+  , pickedBass    :: Bool
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 tuningBaseFormat :: (SendMessage m) => ValueCodec m A.Value GtrBase
@@ -671,44 +671,44 @@ tuningFormat = asStrictObject "GtrTuning" $ do
 
 instance (Eq f, StackJSON f) => StackJSON (PartProGuitar f) where
   stackJSON = asStrictObject "PartProGuitar" $ do
-    pgDifficulty    <- (.pgDifficulty   ) =. fill (Tier 1) "difficulty"     stackJSON
-    pgHopoThreshold <- (.pgHopoThreshold) =. opt  170      "hopo-threshold" stackJSON
-    pgTuning        <- (.pgTuning       ) =. opt  def      "tuning"         tuningFormat
-    pgTuningRSBass  <- (.pgTuningRSBass ) =. opt  Nothing  "tuning-rs-bass" (maybeCodec tuningFormat)
-    pgFixFreeform   <- (.pgFixFreeform  ) =. opt  True     "fix-freeform"   stackJSON
-    pgTones         <- (.pgTones        ) =. opt  Nothing  "tones"          stackJSON
-    pgPickedBass    <- (.pgPickedBass   ) =. opt  False    "picked-bass"    stackJSON
+    difficulty    <- (.difficulty   ) =. fill (Tier 1) "difficulty"     stackJSON
+    hopoThreshold <- (.hopoThreshold) =. opt  170      "hopo-threshold" stackJSON
+    tuning        <- (.tuning       ) =. opt  def      "tuning"         tuningFormat
+    tuningRSBass  <- (.tuningRSBass ) =. opt  Nothing  "tuning-rs-bass" (maybeCodec tuningFormat)
+    fixFreeform   <- (.fixFreeform  ) =. opt  True     "fix-freeform"   stackJSON
+    tones         <- (.tones        ) =. opt  Nothing  "tones"          stackJSON
+    pickedBass    <- (.pickedBass   ) =. opt  False    "picked-bass"    stackJSON
     return PartProGuitar{..}
 
 instance (Eq f, StackJSON f) => Default (PartProGuitar f) where
   def = fromEmptyObject
 
 data RSTones f = RSTones
-  { rsFileToneBase :: f
-  , rsFileToneA    :: Maybe f
-  , rsFileToneB    :: Maybe f
-  , rsFileToneC    :: Maybe f
-  , rsFileToneD    :: Maybe f
+  { fileToneBase :: f
+  , fileToneA    :: Maybe f
+  , fileToneB    :: Maybe f
+  , fileToneC    :: Maybe f
+  , fileToneD    :: Maybe f
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (RSTones f) where
   stackJSON = asStrictObject "RSTones" $ do
-    rsFileToneBase <- (.rsFileToneBase) =. req         "file-tone-base" stackJSON
-    rsFileToneA    <- (.rsFileToneA   ) =. opt Nothing "file-tone-a"    stackJSON
-    rsFileToneB    <- (.rsFileToneB   ) =. opt Nothing "file-tone-b"    stackJSON
-    rsFileToneC    <- (.rsFileToneC   ) =. opt Nothing "file-tone-c"    stackJSON
-    rsFileToneD    <- (.rsFileToneD   ) =. opt Nothing "file-tone-d"    stackJSON
+    fileToneBase <- (.fileToneBase) =. req         "file-tone-base" stackJSON
+    fileToneA    <- (.fileToneA   ) =. opt Nothing "file-tone-a"    stackJSON
+    fileToneB    <- (.fileToneB   ) =. opt Nothing "file-tone-b"    stackJSON
+    fileToneC    <- (.fileToneC   ) =. opt Nothing "file-tone-c"    stackJSON
+    fileToneD    <- (.fileToneD   ) =. opt Nothing "file-tone-d"    stackJSON
     return RSTones{..}
 
 data PartGHL = PartGHL
-  { ghlDifficulty    :: Difficulty
-  , ghlHopoThreshold :: Int
+  { difficulty    :: Difficulty
+  , hopoThreshold :: Int
   } deriving (Eq, Ord, Show)
 
 instance StackJSON PartGHL where
   stackJSON = asStrictObject "PartGHL" $ do
-    ghlDifficulty    <- (.ghlDifficulty   ) =. fill (Tier 1) "difficulty"     stackJSON
-    ghlHopoThreshold <- (.ghlHopoThreshold) =. opt  170      "hopo-threshold" stackJSON
+    difficulty    <- (.difficulty   ) =. fill (Tier 1) "difficulty"     stackJSON
+    hopoThreshold <- (.hopoThreshold) =. opt  170      "hopo-threshold" stackJSON
     return PartGHL{..}
 
 data DrumKit
@@ -781,28 +781,28 @@ instance StackJSON Kicks where
     KicksBoth -> is "both"
 
 data PartDrums f = PartDrums
-  { drumsDifficulty  :: Difficulty
-  , drumsMode        :: DrumMode
-  , drumsKicks       :: Kicks
-  , drumsFixFreeform :: Bool
-  , drumsKit         :: DrumKit
-  , drumsLayout      :: DrumLayout
-  , drumsFallback    :: OrangeFallback
-  , drumsFileDTXKit  :: Maybe f
-  , drumsFullLayout  :: FullDrumLayout
+  { difficulty  :: Difficulty
+  , mode        :: DrumMode
+  , kicks       :: Kicks
+  , fixFreeform :: Bool
+  , kit         :: DrumKit
+  , layout      :: DrumLayout
+  , fallback    :: OrangeFallback
+  , fileDTXKit  :: Maybe f
+  , fullLayout  :: FullDrumLayout
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (PartDrums f) where
   stackJSON = asStrictObject "PartDrums" $ do
-    drumsDifficulty  <- (.drumsDifficulty ) =. fill    (Tier 1)       "difficulty"   stackJSON
-    drumsMode        <- (.drumsMode       ) =. opt     DrumsPro       "mode"         stackJSON
-    drumsKicks       <- (.drumsKicks      ) =. warning Kicks1x        "kicks"        stackJSON
-    drumsFixFreeform <- (.drumsFixFreeform) =. opt     True           "fix-freeform" stackJSON
-    drumsKit         <- (.drumsKit        ) =. opt     HardRockKit    "kit"          stackJSON
-    drumsLayout      <- (.drumsLayout     ) =. opt     StandardLayout "layout"       stackJSON
-    drumsFallback    <- (.drumsFallback   ) =. opt     FallbackGreen  "fallback"     stackJSON
-    drumsFileDTXKit  <- (.drumsFileDTXKit ) =. opt     Nothing        "file-dtx-kit" stackJSON
-    drumsFullLayout  <- (.drumsFullLayout ) =. opt     FDStandard     "full-layout"  stackJSON
+    difficulty  <- (.difficulty ) =. fill    (Tier 1)       "difficulty"   stackJSON
+    mode        <- (.mode       ) =. opt     DrumsPro       "mode"         stackJSON
+    kicks       <- (.kicks      ) =. warning Kicks1x        "kicks"        stackJSON
+    fixFreeform <- (.fixFreeform) =. opt     True           "fix-freeform" stackJSON
+    kit         <- (.kit        ) =. opt     HardRockKit    "kit"          stackJSON
+    layout      <- (.layout     ) =. opt     StandardLayout "layout"       stackJSON
+    fallback    <- (.fallback   ) =. opt     FallbackGreen  "fallback"     stackJSON
+    fileDTXKit  <- (.fileDTXKit ) =. opt     Nothing        "file-dtx-kit" stackJSON
+    fullLayout  <- (.fullLayout ) =. opt     FDStandard     "full-layout"  stackJSON
     return PartDrums{..}
 
 data VocalCount = Vocal1 | Vocal2 | Vocal3
@@ -815,29 +815,29 @@ instance StackJSON VocalCount where
     Vocal3 -> A.Number 3
 
 data PartVocal f = PartVocal
-  { vocalDifficulty :: Difficulty
-  , vocalCount      :: VocalCount
-  , vocalGender     :: Maybe Magma.Gender
-  , vocalKey        :: Maybe Key
-  , vocalLipsyncRB3 :: Maybe (LipsyncRB3 f)
+  { difficulty :: Difficulty
+  , count      :: VocalCount
+  , gender     :: Maybe Magma.Gender
+  , key        :: Maybe Key
+  , lipsyncRB3 :: Maybe (LipsyncRB3 f)
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (PartVocal f) where
   stackJSON = asStrictObject "PartVocal" $ do
-    vocalDifficulty <- (.vocalDifficulty) =. fill (Tier 1) "difficulty"  stackJSON
-    vocalCount      <- (.vocalCount     ) =. opt  Vocal1   "count"       stackJSON
-    vocalGender     <- (.vocalGender    ) =. opt  Nothing  "gender"      (maybeCodec parseGender)
-    vocalKey        <- (.vocalKey       ) =. opt  Nothing  "key"         (maybeCodec parsePitch)
-    vocalLipsyncRB3 <- (.vocalLipsyncRB3) =. opt  Nothing  "lipsync-rb3" stackJSON
+    difficulty <- (.difficulty) =. fill (Tier 1) "difficulty"  stackJSON
+    count      <- (.count     ) =. opt  Vocal1   "count"       stackJSON
+    gender     <- (.gender    ) =. opt  Nothing  "gender"      (maybeCodec parseGender)
+    key        <- (.key       ) =. opt  Nothing  "key"         (maybeCodec parsePitch)
+    lipsyncRB3 <- (.lipsyncRB3) =. opt  Nothing  "lipsync-rb3" stackJSON
     return PartVocal{..}
 
 data PartAmplitude = PartAmplitude
-  { ampInstrument :: Amp.Instrument
+  { instrument :: Amp.Instrument
   } deriving (Eq, Ord, Show)
 
 instance StackJSON PartAmplitude where
   stackJSON = asStrictObject "PartAmplitude" $ do
-    ampInstrument <- (.ampInstrument) =. req "instrument" stackJSON
+    instrument <- (.instrument) =. req "instrument" stackJSON
     return PartAmplitude{..}
 
 instance StackJSON Amp.Instrument where
@@ -856,64 +856,64 @@ instance StackJSON PartMelody where
     return PartMelody
 
 data PartKonga = PartKonga
-  { dkMode1E :: Maybe Int
-  , dkMode1H :: Maybe Int
-  , dkMode1X :: Maybe Int
-  , dkMode2E :: Maybe Int
-  , dkMode2H :: Maybe Int
-  , dkMode2X :: Maybe Int
-  , dkMode4  :: Maybe Int
-  , dkModeB  :: Maybe Int
-  , dkModeC  :: Maybe Int
+  { mode1E :: Maybe Int
+  , mode1H :: Maybe Int
+  , mode1X :: Maybe Int
+  , mode2E :: Maybe Int
+  , mode2H :: Maybe Int
+  , mode2X :: Maybe Int
+  , mode4  :: Maybe Int
+  , modeB  :: Maybe Int
+  , modeC  :: Maybe Int
   } deriving (Eq, Ord, Show)
 
 instance StackJSON PartKonga where
   stackJSON = asStrictObject "PartKonga" $ do
-    dkMode1E <- (.dkMode1E) =. opt Nothing "mode-1E" stackJSON
-    dkMode1H <- (.dkMode1H) =. opt Nothing "mode-1H" stackJSON
-    dkMode1X <- (.dkMode1X) =. opt Nothing "mode-1X" stackJSON
-    dkMode2E <- (.dkMode2E) =. opt Nothing "mode-2E" stackJSON
-    dkMode2H <- (.dkMode2H) =. opt Nothing "mode-2H" stackJSON
-    dkMode2X <- (.dkMode2X) =. opt Nothing "mode-2X" stackJSON
-    dkMode4  <- (.dkMode4 ) =. opt Nothing "mode-4"  stackJSON
-    dkModeB  <- (.dkModeB ) =. opt Nothing "mode-B"  stackJSON
-    dkModeC  <- (.dkModeC ) =. opt Nothing "mode-C"  stackJSON
+    mode1E <- (.mode1E) =. opt Nothing "mode-1E" stackJSON
+    mode1H <- (.mode1H) =. opt Nothing "mode-1H" stackJSON
+    mode1X <- (.mode1X) =. opt Nothing "mode-1X" stackJSON
+    mode2E <- (.mode2E) =. opt Nothing "mode-2E" stackJSON
+    mode2H <- (.mode2H) =. opt Nothing "mode-2H" stackJSON
+    mode2X <- (.mode2X) =. opt Nothing "mode-2X" stackJSON
+    mode4  <- (.mode4 ) =. opt Nothing "mode-4"  stackJSON
+    modeB  <- (.modeB ) =. opt Nothing "mode-B"  stackJSON
+    modeC  <- (.modeC ) =. opt Nothing "mode-C"  stackJSON
     return PartKonga{..}
 
 data PartDance = PartDance
-  { danceDifficulty :: Difficulty
+  { difficulty :: Difficulty
   } deriving (Eq, Ord, Show)
 
 instance StackJSON PartDance where
   stackJSON = asStrictObject "PartDance" $ do
-    danceDifficulty <- (.danceDifficulty) =. fill (Tier 1) "difficulty" stackJSON
+    difficulty <- (.difficulty) =. fill (Tier 1) "difficulty" stackJSON
     return PartDance{..}
 
 data Part f = Part
-  { partGRYBO     :: Maybe PartGRYBO
-  , partGHL       :: Maybe PartGHL
-  , partProKeys   :: Maybe PartProKeys
-  , partProGuitar :: Maybe (PartProGuitar f)
-  , partDrums     :: Maybe (PartDrums f)
-  , partVocal     :: Maybe (PartVocal f)
-  , partAmplitude :: Maybe PartAmplitude
-  , partMelody    :: Maybe PartMelody
-  , partKonga     :: Maybe PartKonga
-  , partDance     :: Maybe PartDance
+  { grybo     :: Maybe PartGRYBO
+  , ghl       :: Maybe PartGHL
+  , proKeys   :: Maybe PartProKeys
+  , proGuitar :: Maybe (PartProGuitar f)
+  , drums     :: Maybe (PartDrums f)
+  , vocal     :: Maybe (PartVocal f)
+  , amplitude :: Maybe PartAmplitude
+  , melody    :: Maybe PartMelody
+  , konga     :: Maybe PartKonga
+  , dance     :: Maybe PartDance
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (Part f) where
   stackJSON = asStrictObject "Part" $ do
-    partGRYBO     <- (.partGRYBO    ) =. opt Nothing "grybo"      stackJSON
-    partGHL       <- (.partGHL      ) =. opt Nothing "ghl"        stackJSON
-    partProKeys   <- (.partProKeys  ) =. opt Nothing "pro-keys"   stackJSON
-    partProGuitar <- (.partProGuitar) =. opt Nothing "pro-guitar" stackJSON
-    partDrums     <- (.partDrums    ) =. opt Nothing "drums"      stackJSON
-    partVocal     <- (.partVocal    ) =. opt Nothing "vocal"      stackJSON
-    partAmplitude <- (.partAmplitude) =. opt Nothing "amplitude"  stackJSON
-    partMelody    <- (.partMelody   ) =. opt Nothing "melody"     stackJSON
-    partKonga     <- (.partKonga    ) =. opt Nothing "konga"      stackJSON
-    partDance     <- (.partDance    ) =. opt Nothing "dance"      stackJSON
+    grybo     <- (.grybo    ) =. opt Nothing "grybo"      stackJSON
+    ghl       <- (.ghl      ) =. opt Nothing "ghl"        stackJSON
+    proKeys   <- (.proKeys  ) =. opt Nothing "pro-keys"   stackJSON
+    proGuitar <- (.proGuitar) =. opt Nothing "pro-guitar" stackJSON
+    drums     <- (.drums    ) =. opt Nothing "drums"      stackJSON
+    vocal     <- (.vocal    ) =. opt Nothing "vocal"      stackJSON
+    amplitude <- (.amplitude) =. opt Nothing "amplitude"  stackJSON
+    melody    <- (.melody   ) =. opt Nothing "melody"     stackJSON
+    konga     <- (.konga    ) =. opt Nothing "konga"      stackJSON
+    dance     <- (.dance    ) =. opt Nothing "dance"      stackJSON
     return Part{..}
 
 instance Default (Part f) where
@@ -1040,40 +1040,40 @@ instance (Eq f, StackJSON f) => Default (Metadata f) where
   def = fromEmptyObject
 
 data Global f = Global
-  { _fileMidi            :: f
-  , _fileSongAnim        :: Maybe f -- ^ venue format found in RB3 milos
-  , _autogenTheme        :: Maybe Magma.AutogenTheme -- ^ 'Nothing' means black venue
-  , _animTempo           :: Either AnimTempo Integer
-  , _backgroundVideo     :: Maybe (VideoInfo f)
-  , _fileBackgroundImage :: Maybe f
+  { fileMidi            :: f
+  , fileSongAnim        :: Maybe f -- ^ venue format found in RB3 milos
+  , autogenTheme        :: Maybe Magma.AutogenTheme -- ^ 'Nothing' means black venue
+  , animTempo           :: Either AnimTempo Integer
+  , backgroundVideo     :: Maybe (VideoInfo f)
+  , fileBackgroundImage :: Maybe f
   } deriving (Eq, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, IsString f, StackJSON f) => StackJSON (Global f) where
   stackJSON = asStrictObject "Global" $ do
-    _fileMidi            <- (._fileMidi           ) =. opt "notes.mid"         "file-midi"             stackJSON
-    _fileSongAnim        <- (._fileSongAnim       ) =. opt Nothing             "file-song-anim"        stackJSON
-    _autogenTheme        <- (._autogenTheme       ) =. opt (Just Magma.DefaultTheme) "autogen-theme"   stackJSON
-    _animTempo           <- (._animTempo          ) =. opt (Left KTempoMedium) "anim-tempo"            parseAnimTempo
-    _backgroundVideo     <- (._backgroundVideo    ) =. opt Nothing             "background-video"      stackJSON
-    _fileBackgroundImage <- (._fileBackgroundImage) =. opt Nothing             "file-background-image" stackJSON
+    fileMidi            <- (.fileMidi           ) =. opt "notes.mid"         "file-midi"             stackJSON
+    fileSongAnim        <- (.fileSongAnim       ) =. opt Nothing             "file-song-anim"        stackJSON
+    autogenTheme        <- (.autogenTheme       ) =. opt (Just Magma.DefaultTheme) "autogen-theme"   stackJSON
+    animTempo           <- (.animTempo          ) =. opt (Left KTempoMedium) "anim-tempo"            parseAnimTempo
+    backgroundVideo     <- (.backgroundVideo    ) =. opt Nothing             "background-video"      stackJSON
+    fileBackgroundImage <- (.fileBackgroundImage) =. opt Nothing             "file-background-image" stackJSON
     return Global{..}
 
 instance (Eq f, IsString f, StackJSON f) => Default (Global f) where
   def = fromEmptyObject
 
 data VideoInfo f = VideoInfo
-  { _fileVideo      :: f
-  , _videoStartTime :: Maybe Milli -- seconds, can be negative
-  , _videoEndTime   :: Maybe Milli
-  , _videoLoop      :: Bool
+  { fileVideo      :: f
+  , videoStartTime :: Maybe Milli -- seconds, can be negative
+  , videoEndTime   :: Maybe Milli
+  , videoLoop      :: Bool
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (StackJSON f) => StackJSON (VideoInfo f) where
   stackJSON = asStrictObject "VideoInfo" $ do
-    _fileVideo      <- (._fileVideo     ) =. req         "file-video" stackJSON
-    _videoStartTime <- (._videoStartTime) =. opt Nothing "start-time" stackJSON
-    _videoEndTime   <- (._videoEndTime  ) =. opt Nothing "end-time"   stackJSON
-    _videoLoop      <- (._videoLoop     ) =. opt False   "loop"       stackJSON
+    fileVideo      <- (.fileVideo     ) =. req         "file-video" stackJSON
+    videoStartTime <- (.videoStartTime) =. opt Nothing "start-time" stackJSON
+    videoEndTime   <- (.videoEndTime  ) =. opt Nothing "end-time"   stackJSON
+    videoLoop      <- (.videoLoop     ) =. opt False   "loop"       stackJSON
     return VideoInfo{..}
 
 getTitle, getArtist, getAlbum, getAuthor :: Metadata f -> T.Text
@@ -1196,18 +1196,18 @@ instance StackJSON LipsyncMember where
     LipsyncDrums  -> is "drums"
 
 data LipsyncRB3 f = LipsyncRB3
-  { lipsyncSources :: [LipsyncSource f]
-  , lipsyncMember2 :: LipsyncMember
-  , lipsyncMember3 :: LipsyncMember
-  , lipsyncMember4 :: LipsyncMember
+  { sources :: [LipsyncSource f]
+  , member2 :: LipsyncMember
+  , member3 :: LipsyncMember
+  , member4 :: LipsyncMember
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (LipsyncRB3 f) where
   stackJSON = asStrictObject "LipsyncRB3" $ do
-    lipsyncSources <- (.lipsyncSources) =. req "sources" stackJSON
-    lipsyncMember2 <- (.lipsyncMember2) =. opt LipsyncGuitar "member-2" stackJSON
-    lipsyncMember3 <- (.lipsyncMember3) =. opt LipsyncBass   "member-3" stackJSON
-    lipsyncMember4 <- (.lipsyncMember4) =. opt LipsyncDrums  "member-4" stackJSON
+    sources <- (.sources) =. req "sources" stackJSON
+    member2 <- (.member2) =. opt LipsyncGuitar "member-2" stackJSON
+    member3 <- (.member3) =. opt LipsyncBass   "member-3" stackJSON
+    member4 <- (.member4) =. opt LipsyncDrums  "member-4" stackJSON
     return LipsyncRB3{..}
 
 data LipsyncSource f
@@ -1751,13 +1751,13 @@ buildDrumTarget tgt pd timingEnd tmap opart = let
   srcsRB = case tgt of
     DrumTargetRB1x -> [src1x, src2x]
     _              -> [src2x, src1x]
-  srcList = case pd.drumsMode of
+  srcList = case pd.mode of
     DrumsReal -> srcReal : srcsRB
     DrumsFull -> srcFull : srcsRB
     _         -> srcsRB
   src = fromMaybe mempty $ find (not . D.nullDrums) srcList
 
-  stepAddKicks = case pd.drumsKicks of
+  stepAddKicks = case pd.kicks of
     Kicks2x -> mapTrack (U.unapplyTempoTrack tmap) . phaseShiftKicks 0.18 0.11 . mapTrack (U.applyTempoTrack tmap)
     _       -> id
 
@@ -1772,10 +1772,10 @@ buildDrumTarget tgt pd timingEnd tmap opart = let
     _              -> id
 
   drumEachDiff f dt = dt { D.drumDifficulties = fmap f $ D.drumDifficulties dt }
-  step5to4 = if pd.drumsMode == Drums5 && isRBTarget
+  step5to4 = if pd.mode == Drums5 && isRBTarget
     then drumEachDiff $ \dd -> dd
       { D.drumGems = D.fiveToFour
-        (case pd.drumsFallback of
+        (case pd.fallback of
           FallbackBlue  -> D.Blue
           FallbackGreen -> D.Green
         )
@@ -1783,7 +1783,7 @@ buildDrumTarget tgt pd timingEnd tmap opart = let
       }
     else id
 
-  isBasicSource = case pd.drumsMode of
+  isBasicSource = case pd.mode of
     Drums4 -> True
     Drums5 -> True
     _      -> False
@@ -1821,7 +1821,7 @@ buildDrumAnimation pd tmap opart = let
   closeTime = 0.25 :: U.Seconds
   in case filter (not . RTB.null) $ map D.drumAnimation rbTracks of
     anims : _ -> anims
-    []        -> case pd.drumsMode of
+    []        -> case pd.mode of
       DrumsFull -> inRealTime (FD.autoFDAnimation closeTime)
         $ FD.getDifficulty (Just RB.Expert) $ RBFile.onyxPartFullDrums opart
       -- TODO this could be made better for modes other than pro

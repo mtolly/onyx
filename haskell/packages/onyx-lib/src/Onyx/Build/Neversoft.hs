@@ -248,7 +248,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
     let start = beatsToMS t
         end   = beatsToMS $ t + len
     return $ Single start (fromIntegral $ end - start)
-  makeGB fpart diff = case getPart fpart songYaml >>= (.partGRYBO) of -- TODO support drums->guitar
+  makeGB fpart diff = case getPart fpart songYaml >>= (.grybo) of -- TODO support drums->guitar
     Just grybo -> let
       opart = fromMaybe mempty $ Map.lookup fpart $ RBFile.onyxParts ofile
       (trk, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitarExt opart
@@ -256,7 +256,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
       notes
         = worGuitarEdits
         . applyForces (getForces5 fd)
-        . strumHOPOTap algo (fromIntegral grybo.gryboHopoThreshold / 480)
+        . strumHOPOTap algo (fromIntegral grybo.hopoThreshold / 480)
         . fixSloppyNotes (10 / 480)
         . computeFiveFretNotes
         $ fd
@@ -295,7 +295,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
         , gb_starpower = makeStarPower $ F.fiveOverdrive trk
         }
     Nothing -> GuitarBass [] [] []
-  makeDrums fpart diff timing = case getPart fpart songYaml >>= (.partDrums) of
+  makeDrums fpart diff timing = case getPart fpart songYaml >>= (.drums) of
     Just pd -> let
       opart = fromMaybe mempty $ Map.lookup fpart $ RBFile.onyxParts ofile
       trk = buildDrumTarget
@@ -308,7 +308,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
       add2x xs = case diff of
         Expert -> RTB.merge (fmap Just xs) $ Nothing <$ D.drumKick2x trk
         _      -> fmap Just xs
-      fiveLane = case pd.drumsMode of
+      fiveLane = case pd.mode of
         Drums4 -> add2x $ D.drumGems dd
         Drums5 -> add2x $ D.drumGems dd
         _ | target.gh5_ProTo4 -> add2x $ D.drumGems dd
@@ -376,7 +376,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
     Nothing -> Drums (case diff of Expert -> Right []; _ -> Left []) [] []
   in do
     timing <- basicTiming song getAudioLength
-    (voxNotes, voxLyrics, voxSP, voxPhrases, voxMarkers) <- case getPart target.gh5_Vocal songYaml >>= (.partVocal) of
+    (voxNotes, voxLyrics, voxSP, voxPhrases, voxMarkers) <- case getPart target.gh5_Vocal songYaml >>= (.vocal) of
       Just _pv -> do
         let opart = fromMaybe mempty $ Map.lookup target.gh5_Vocal $ RBFile.onyxParts ofile
             trk = if nullVox $ RBFile.onyxPartVocals opart

@@ -93,7 +93,7 @@ computeGH1Audio
 computeGH1Audio song target hasAudio = do
   let hasFiveOrDrums = \case
         Nothing   -> False
-        Just part -> isJust part.partGRYBO || isJust part.partDrums
+        Just part -> isJust part.grybo || isJust part.drums
   gh1LeadTrack <- if hasFiveOrDrums $ getPart target.gh1_Guitar song
     then return target.gh1_Guitar
     else fatal "computeGH1Audio: no lead guitar part selected"
@@ -106,10 +106,10 @@ computeGH1Audio song target hasAudio = do
         else [GH2Silent, GH2Silent]
       gh1LeadChannels = [2, 3] -- always stereo as per above
       gh1BackChannels = [0, 1] -- should always be this for our output
-      gh1AnimBass  = target.gh1_Bass  <$ (getPart target.gh1_Bass  song >>= (.partGRYBO))
-      gh1AnimDrums = target.gh1_Drums <$ (getPart target.gh1_Drums song >>= (.partDrums))
-      gh1AnimVocal = target.gh1_Vocal <$ (getPart target.gh1_Vocal song >>= (.partVocal))
-      gh1AnimKeys  = target.gh1_Keys  <$ (getPart target.gh1_Keys  song >>= (.partGRYBO))
+      gh1AnimBass  = target.gh1_Bass  <$ (getPart target.gh1_Bass  song >>= (.grybo))
+      gh1AnimDrums = target.gh1_Drums <$ (getPart target.gh1_Drums song >>= (.drums))
+      gh1AnimVocal = target.gh1_Vocal <$ (getPart target.gh1_Vocal song >>= (.vocal))
+      gh1AnimKeys  = target.gh1_Keys  <$ (getPart target.gh1_Keys  song >>= (.grybo))
   return GH1Audio{..}
 
 midiRB3toGH1
@@ -148,8 +148,8 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         fmap Map.fromList
           $ mapM (\(diff, fdiff) -> (diff,) <$> makeDiff diff fdiff)
           $ Map.toList $ RB.fiveDifficulties rbg
-      getLeadData fpart = case getPart fpart song >>= (.partGRYBO) of
-        Nothing -> case getPart fpart song >>= (.partDrums) of
+      getLeadData fpart = case getPart fpart song >>= (.grybo) of
+        Nothing -> case getPart fpart song >>= (.drums) of
           Nothing -> fatal "No guitar or drums info set up for lead guitar part"
           Just pd -> return $ let
             trackOrig = buildDrumTarget
@@ -162,13 +162,13 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         Just grybo -> return $ let
           src = F.getFlexPart fpart onyx
           (trackOrig, algo) = getFive src
-          gap = fromIntegral grybo.gryboSustainGap / 480
-          ht = grybo.gryboHopoThreshold
+          gap = fromIntegral grybo.sustainGap / 480
+          ht = grybo.hopoThreshold
           fiveEachDiff f ft = ft { RB.fiveDifficulties = fmap f $ RB.fiveDifficulties ft }
           toGtr = fiveEachDiff $ \fd ->
               emit5'
             . fromClosed'
-            . noOpenNotes grybo.gryboDetectMutedOpens
+            . noOpenNotes grybo.detectMutedOpens
             . noTaps
             . noExtendedSustains' standardBlipThreshold gap
             . applyForces (getForces5 fd)
@@ -248,7 +248,7 @@ bandMembers :: SongYaml f -> GH1Audio -> Maybe [Either D.BandMember T.Text]
 bandMembers song audio = let
   vocal = case gh1AnimVocal audio of
     Nothing    -> Nothing
-    Just fpart -> Just $ fromMaybe Magma.Male $ getPart fpart song >>= (.partVocal) >>= (.vocalGender)
+    Just fpart -> Just $ fromMaybe Magma.Male $ getPart fpart song >>= (.vocal) >>= (.gender)
   bass = True -- we'll just assume there's always a bassist, don't know if required (all songs on disc have one)
   keys = isJust $ gh1AnimKeys audio
   drums = True -- gh2 crashes if missing, haven't tested gh1 but likely the same

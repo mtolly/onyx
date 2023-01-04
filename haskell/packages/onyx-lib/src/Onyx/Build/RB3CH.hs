@@ -254,11 +254,11 @@ buildDrums
   -> BasicTiming
   -> SongYaml f
   -> Maybe (DrumTrack U.Beats)
-buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..} songYaml = case getPart drumsPart songYaml >>= (.partDrums) of
+buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..} songYaml = case getPart drumsPart songYaml >>= (.drums) of
   Nothing -> Nothing
   Just pd -> Just $ let
     -- TODO replace all this with buildDrumTarget which I copied most of the logic to
-    psKicks = case pd.drumsKicks of
+    psKicks = case pd.kicks of
       Kicks2x -> mapTrack (U.unapplyTempoTrack tempos) . phaseShiftKicks 0.18 0.11 . mapTrack (U.applyTempoTrack tempos)
       _       -> id
     sections = fmap snd $ eventsSections $ RBFile.onyxEvents trks
@@ -266,7 +266,7 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
     sloppyDrums = drumEachDiff $ \dd -> dd { drumGems = fixSloppyNotes (10 / 480) $ drumGems dd }
     fiveToFourTrack = drumEachDiff $ \dd -> dd
       { drumGems = RBDrums.fiveToFour
-        (case pd.drumsFallback of
+        (case pd.fallback of
           FallbackBlue  -> RBDrums.Blue
           FallbackGreen -> RBDrums.Green
         )
@@ -284,7 +284,7 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
         , (0      , (RBDrums.Green , RBDrums.Cymbal))
         ]
       }
-    changeMode = case (pd.drumsMode, target) of
+    changeMode = case (pd.mode, target) of
       (DrumsFull, _         ) -> id
       (DrumsReal, _         ) -> id
       (DrumsPro , _         ) -> id
@@ -294,11 +294,11 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
       (Drums4   , Right _ps ) -> noToms
       (Drums4   , Left  _rb3) -> allToms
     flex = RBFile.getFlexPart drumsPart trks
-    trk1x = if RBDrums.nullDrums (RBFile.onyxPartDrums flex) && pd.drumsMode == DrumsFull
+    trk1x = if RBDrums.nullDrums (RBFile.onyxPartDrums flex) && pd.mode == DrumsFull
       then FD.convertFullDrums False $ RBFile.onyxPartFullDrums flex
       else RBFile.onyxPartDrums flex
     trk2x = RBFile.onyxPartDrums2x flex
-    trkReal = if RBDrums.nullDrums (RBFile.onyxPartRealDrumsPS flex) && pd.drumsMode == DrumsFull
+    trkReal = if RBDrums.nullDrums (RBFile.onyxPartRealDrumsPS flex) && pd.mode == DrumsFull
       then FD.convertFullDrums True $ RBFile.onyxPartFullDrums flex
       else RBFile.onyxPartRealDrumsPS flex
     trkReal' = RBDrums.psRealToPro trkReal
@@ -334,7 +334,7 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
       }
     -- Note: drumMix must be applied *after* drumsComplete.
     -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
-    in (if pd.drumsFixFreeform then RBFile.fixFreeformDrums else id)
+    in (if pd.fixFreeform then RBFile.fixFreeformDrums else id)
       $ (\dt -> dt { drumPlayer1 = RTB.empty, drumPlayer2 = RTB.empty })
       $ drumsRemoveBRE
       $ addMoods
@@ -430,7 +430,7 @@ buildFive
   -> Bool
   -> SongYaml f
   -> Maybe (FiveTrack U.Beats)
-buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys songYaml = case getPart fivePart songYaml >>= (.partGRYBO) of
+buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys songYaml = case getPart fivePart songYaml >>= (.grybo) of
   Nothing    -> let
     target' = case target of
       Left _rb3 -> target
@@ -460,17 +460,17 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
     (trackOrig, algo) = RBFile.selectGuitarTrack gtrType src
     track
       = (\fd -> fd { fivePlayer1 = RTB.empty, fivePlayer2 = RTB.empty })
-      $ (if grybo.gryboFixFreeform then RBFile.fixFreeformFive else id)
+      $ (if grybo.fixFreeform then RBFile.fixFreeformFive else id)
       $ gryboComplete (guard (not toKeys) >> Just ht) mmap trackOrig
-    ht = grybo.gryboHopoThreshold
+    ht = grybo.hopoThreshold
     fiveEachDiff f ft = ft { fiveDifficulties = fmap f $ fiveDifficulties ft }
-    gap = fromIntegral grybo.gryboSustainGap / 480
+    gap = fromIntegral grybo.sustainGap / 480
     breRemover = removeBRE target $ RBFile.onyxEvents trks
     forRB3 = fiveEachDiff $ \fd ->
         emit5'
       . fromClosed'
       . no5NoteChords
-      . noOpenNotes grybo.gryboDetectMutedOpens
+      . noOpenNotes grybo.detectMutedOpens
       . noTaps
       . (if toKeys then id else noExtendedSustains' standardBlipThreshold gap)
       . applyForces (getForces5 fd)
@@ -489,7 +489,7 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
     chSPFix ft = ft { fiveOverdrive = fixTapOff $ fiveOverdrive ft }
     forAll
       = addFiveMoods tempos timing
-      . (if grybo.gryboSmoothFrets then smoothFrets else id)
+      . (if grybo.smoothFrets then smoothFrets else id)
       . (\ft -> ft
         { fiveTremolo = maybe id breRemoveLanes breRemover $ fiveTremolo ft
         , fiveTrill   = maybe id breRemoveLanes breRemover $ fiveTrill   ft
@@ -609,11 +609,11 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       bassPart = either (.rb3_Bass) (.ps_Bass) target
 
       -- TODO: pgHopoThreshold
-      makeProGtrTracks gtype fpart = case getPart fpart songYaml >>= (.partProGuitar) of
+      makeProGtrTracks gtype fpart = case getPart fpart songYaml >>= (.proGuitar) of
         Nothing -> return (mempty, mempty)
         Just pg -> let
           src = RBFile.getFlexPart fpart trks
-          tuning = tuningPitches pg.pgTuning { gtrGlobal = 0 }
+          tuning = tuningPitches pg.tuning { gtrGlobal = 0 }
           applyType x = x
             { pgTrainer = (\(_, trainer) -> (gtype, trainer)) <$> pgTrainer x
             , pgBRE     = (\(_, b      ) -> (gtype, b      )) <$> pgBRE     x
@@ -621,10 +621,10 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
           extendedTuning = length pitches > case gtype of
             TypeGuitar -> 6
             TypeBass   -> 4
-          pitches = tuningPitches pg.pgTuning { gtrGlobal = 0 }
+          pitches = tuningPitches pg.tuning { gtrGlobal = 0 }
           defaultFlat = maybe False songKeyUsesFlats songYaml.metadata.key
           f = applyType
-            . (if pg.pgFixFreeform then RBFile.fixFreeformPG else id) . protarComplete
+            . (if pg.fixFreeform then RBFile.fixFreeformPG else id) . protarComplete
             . autoHandPosition . moveStrings
             . (if extendedTuning then freezeChordNames pitches defaultFlat else id)
             . autoChordRoot tuning
@@ -655,7 +655,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
   (proBass, proBass22) <- makeProGtrTracks TypeBass   bassPart
 
   let hasProtarNotFive partName = case getPart partName songYaml of
-        Just part -> case (part.partGRYBO, part.partProGuitar) of
+        Just part -> case (part.grybo, part.proGuitar) of
           (Nothing, Just _) -> True
           _                 -> False
         Nothing -> False
@@ -678,23 +678,23 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         { sixDifficulties = fmap f $ sixDifficulties st
         , sixOverdrive = fixTapOff $ sixOverdrive st
         }
-      guitarGHL = case getPart guitarPart songYaml >>= (.partGHL) of
+      guitarGHL = case getPart guitarPart songYaml >>= (.ghl) of
         Nothing  -> mempty
         Just ghl -> sixEachDiff
           ( \sd ->
             emit6'
           . applyForces (getForces6 sd)
-          . strumHOPOTap HOPOsRBGuitar (fromIntegral ghl.ghlHopoThreshold / 480)
+          . strumHOPOTap HOPOsRBGuitar (fromIntegral ghl.hopoThreshold / 480)
           . edgeBlips_ minSustainLengthRB
           $ sixGems sd
           ) $ RBFile.onyxPartSix $ RBFile.getFlexPart guitarPart trks
-      bassGHL = case getPart bassPart songYaml >>= (.partGHL) of
+      bassGHL = case getPart bassPart songYaml >>= (.ghl) of
         Nothing  -> mempty
         Just ghl -> sixEachDiff
           ( \sd ->
             emit6'
           . applyForces (getForces6 sd)
-          . strumHOPOTap HOPOsRBGuitar (fromIntegral ghl.ghlHopoThreshold / 480)
+          . strumHOPOTap HOPOsRBGuitar (fromIntegral ghl.hopoThreshold / 480)
           . edgeBlips_ minSustainLengthRB
           $ sixGems sd
           ) $ RBFile.onyxPartSix $ RBFile.getFlexPart bassPart trks
@@ -702,15 +702,15 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       keysPart = either (.rb3_Keys) (.ps_Keys) target
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of
         Nothing -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
-        Just part -> case (part.partGRYBO, part.partDrums, part.partProKeys) of
+        Just part -> case (part.grybo, part.drums, part.proKeys) of
           (Nothing, Nothing, Nothing) -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
           _ -> let
             basicKeys = gryboComplete Nothing mmap
-              $ if isJust part.partGRYBO || isJust part.partDrums
+              $ if isJust part.grybo || isJust part.drums
                 then makeGRYBOTrack True keysPart
                 else addFiveMoods tempos timing $ RBFile.expertProKeysToKeys keysExpert
             fpart = RBFile.getFlexPart keysPart trks
-            keysDiff diff = if isJust part.partProKeys
+            keysDiff diff = if isJust part.proKeys
               then case diff of
                 Easy   -> RBFile.onyxPartRealKeysE fpart
                 Medium -> RBFile.onyxPartRealKeysM fpart
@@ -738,10 +738,10 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
             (animRH, animLH) = if nullPK originalRH && nullPK originalLH
               then (mempty { pkNotes = pkNotes keysExpert }, mempty)
               else (originalRH, originalLH)
-            ffBasic = if fmap (.gryboFixFreeform) part.partGRYBO == Just True
+            ffBasic = if fmap (.fixFreeform) part.grybo == Just True
               then RBFile.fixFreeformFive
               else id
-            ffPro = if fmap (.pkFixFreeform) part.partProKeys == Just True
+            ffPro = if fmap (.fixFreeform) part.proKeys == Just True
               then RBFile.fixFreeformPK
               else id
             -- nemo's checker doesn't like if you include this stuff on PART KEYS
@@ -765,7 +765,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
                 )
 
   let vocalPart = either (.rb3_Vocal) (.ps_Vocal) target
-      voxCount = fmap (.vocalCount) $ getPart vocalPart songYaml >>= (.partVocal)
+      voxCount = fmap (.count) $ getPart vocalPart songYaml >>= (.vocal)
       partVox = RBFile.onyxPartVocals $ RBFile.getFlexPart vocalPart trks
       harm1   = RBFile.onyxHarm1 $ RBFile.getFlexPart vocalPart trks
       harm2   = RBFile.onyxHarm2 $ RBFile.getFlexPart vocalPart trks
@@ -891,7 +891,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         Just _ -> originalRanks
       dance = case either (const Nothing) (Just . (.ps_Dance)) target of
         Nothing -> mempty
-        Just fpart -> case getPart fpart songYaml >>= (.partDance) of
+        Just fpart -> case getPart fpart songYaml >>= (.dance) of
           Nothing  -> mempty
           Just _pd -> RBFile.onyxPartDance $ RBFile.getFlexPart fpart trks
   return (RBFile.Song tempos' mmap' RBFile.FixedFile

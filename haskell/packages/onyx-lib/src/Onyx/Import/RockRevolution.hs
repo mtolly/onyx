@@ -243,9 +243,9 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
     , jammit = mempty
     , targets = HM.empty
     , global = def'
-      { _backgroundVideo = Nothing
-      , _fileBackgroundImage = Nothing
-      , _fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
+      { backgroundVideo = Nothing
+      , fileBackgroundImage = Nothing
+      , fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
         ImportFull  -> controlMid
           { RBFile.s_tracks = mempty
             { RBFile.onyxParts = Map.fromList
@@ -269,7 +269,7 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
             }
           }
         ImportQuick -> emptyChart
-      , _fileSongAnim = Nothing
+      , fileSongAnim = Nothing
       }
     , audio = HM.fromList $ do
       (name, bs) <- nonDrumStreams <> drumStreams
@@ -298,22 +298,22 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
       }
     , parts = Parts $ HM.fromList
       [ (RBFile.FlexGuitar, def
-        { partGRYBO = Just def
+        { grybo = Just def
         })
       , (RBFile.FlexBass, def
-        { partGRYBO = Just def
+        { grybo = Just def
         })
       , (RBFile.FlexDrums, def
-        { partDrums = Just PartDrums
-          { drumsDifficulty = Tier 1
-          , drumsMode = DrumsFull
-          , drumsKicks = Kicks1x
-          , drumsFixFreeform = False
-          , drumsKit = HardRockKit
-          , drumsLayout = StandardLayout
-          , drumsFallback = FallbackGreen
-          , drumsFileDTXKit = Nothing
-          , drumsFullLayout = FDStandard
+        { drums = Just PartDrums
+          { difficulty = Tier 1
+          , mode = DrumsFull
+          , kicks = Kicks1x
+          , fixFreeform = False
+          , kit = HardRockKit
+          , layout = StandardLayout
+          , fallback = FallbackGreen
+          , fileDTXKit = Nothing
+          , fullLayout = FDStandard
           }
         })
       {-

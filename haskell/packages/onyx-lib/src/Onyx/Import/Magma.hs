@@ -201,14 +201,14 @@ importMagma fin level = do
       , cover        = maybe False (not . C3.isMaster) c3
       }
     , global = Global
-      { _fileMidi = midi
-      , _fileSongAnim = Nothing
-      , _autogenTheme = Just $ case RBProj.autogenTheme $ RBProj.midi rbproj of
+      { fileMidi = midi
+      , fileSongAnim = Nothing
+      , autogenTheme = Just $ case RBProj.autogenTheme $ RBProj.midi rbproj of
         Left theme -> theme
         Right _str -> RBProj.DefaultTheme -- TODO
-      , _animTempo    = Right $ RBProj.animTempo $ RBProj.gamedata rbproj
-      , _backgroundVideo = Nothing
-      , _fileBackgroundImage = Nothing
+      , animTempo    = Right $ RBProj.animTempo $ RBProj.gamedata rbproj
+      , backgroundVideo = Nothing
+      , fileBackgroundImage = Nothing
       }
     , audio = HM.fromList allAudio
     , jammit = HM.empty
@@ -236,12 +236,12 @@ importMagma fin level = do
     , targets = HM.singleton targetName $ RB3 target
     , parts = Parts $ HM.fromList
       [ ( FlexDrums, def
-        { partDrums = guard (isJust drums) >> Just PartDrums
-          { drumsDifficulty = Tier $ RBProj.rankDrum $ RBProj.gamedata rbproj
-          , drumsMode = DrumsPro -- TODO set to Drums4 for magma v1?
-          , drumsKicks = if is2x then Kicks2x else Kicks1x
-          , drumsFixFreeform = False
-          , drumsKit = case fmap C3.drumKitSFX c3 of
+        { drums = guard (isJust drums) >> Just PartDrums
+          { difficulty = Tier $ RBProj.rankDrum $ RBProj.gamedata rbproj
+          , mode = DrumsPro -- TODO set to Drums4 for magma v1?
+          , kicks = if is2x then Kicks2x else Kicks1x
+          , fixFreeform = False
+          , kit = case fmap C3.drumKitSFX c3 of
             Nothing -> HardRockKit
             Just 0  -> HardRockKit
             Just 1  -> ArenaKit
@@ -249,88 +249,88 @@ importMagma fin level = do
             Just 3  -> TrashyKit
             Just 4  -> ElectronicKit
             Just _  -> HardRockKit
-          , drumsLayout = StandardLayout
-          , drumsFallback = FallbackGreen
-          , drumsFileDTXKit = Nothing
-          , drumsFullLayout = FDStandard
+          , layout = StandardLayout
+          , fallback = FallbackGreen
+          , fileDTXKit = Nothing
+          , fullLayout = FDStandard
           }
         })
       , ( FlexGuitar, def
-        { partGRYBO = guard (isJust gtr) >> Just PartGRYBO
-          { gryboDifficulty = Tier $ RBProj.rankGuitar $ RBProj.gamedata rbproj
-          , gryboHopoThreshold = hopoThresh
-          , gryboFixFreeform = False
-          , gryboSmoothFrets = False
-          , gryboSustainGap = 60
-          , gryboDetectMutedOpens = True
+        { grybo = guard (isJust gtr) >> Just PartGRYBO
+          { difficulty = Tier $ RBProj.rankGuitar $ RBProj.gamedata rbproj
+          , hopoThreshold = hopoThresh
+          , fixFreeform = False
+          , smoothFrets = False
+          , sustainGap = 60
+          , detectMutedOpens = True
           }
-        , partProGuitar = do
+        , proGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= C3.proGuitarDiff
           Just PartProGuitar
-            { pgDifficulty = Tier $ rankToTier proGuitarDiffMap $ fromIntegral diff
-            , pgHopoThreshold = hopoThresh
-            , pgTuning = GtrTuning
+            { difficulty = Tier $ rankToTier proGuitarDiffMap $ fromIntegral diff
+            , hopoThreshold = hopoThresh
+            , tuning = GtrTuning
               { gtrBase = Guitar6
               , gtrOffsets = fromMaybe [] tuneGtr
               , gtrGlobal = 0
               , gtrCapo = 0
               }
-            , pgFixFreeform = False
-            , pgTones = Nothing
-            , pgPickedBass = False
-            , pgTuningRSBass = Nothing
+            , fixFreeform = False
+            , tones = Nothing
+            , pickedBass = False
+            , tuningRSBass = Nothing
             }
         })
       , ( FlexBass, def
-        { partGRYBO = guard (isJust bass) >> Just PartGRYBO
-          { gryboDifficulty = Tier $ RBProj.rankBass $ RBProj.gamedata rbproj
-          , gryboHopoThreshold = hopoThresh
-          , gryboFixFreeform = False
-          , gryboSmoothFrets = False
-          , gryboSustainGap = 60
-          , gryboDetectMutedOpens = True
+        { grybo = guard (isJust bass) >> Just PartGRYBO
+          { difficulty = Tier $ RBProj.rankBass $ RBProj.gamedata rbproj
+          , hopoThreshold = hopoThresh
+          , fixFreeform = False
+          , smoothFrets = False
+          , sustainGap = 60
+          , detectMutedOpens = True
           }
-        , partProGuitar = do
+        , proGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= C3.proBassDiff
           Just PartProGuitar
-            { pgDifficulty = Tier $ rankToTier proBassDiffMap $ fromIntegral diff
-            , pgHopoThreshold = hopoThresh
-            , pgTuning = GtrTuning
+            { difficulty = Tier $ rankToTier proBassDiffMap $ fromIntegral diff
+            , hopoThreshold = hopoThresh
+            , tuning = GtrTuning
               { gtrBase = bassBase
               , gtrOffsets = fromMaybe [] tuneBass
               , gtrGlobal = 0
               , gtrCapo = 0
               }
-            , pgFixFreeform = False
-            , pgTones = Nothing
-            , pgPickedBass = False
-            , pgTuningRSBass = Nothing
+            , fixFreeform = False
+            , tones = Nothing
+            , pickedBass = False
+            , tuningRSBass = Nothing
             }
         })
       , ( FlexKeys, def
-        { partGRYBO = guard (isJust keys) >> Just PartGRYBO
-          { gryboDifficulty = Tier $ RBProj.rankKeys $ RBProj.gamedata rbproj
-          , gryboHopoThreshold = hopoThresh
-          , gryboFixFreeform = False
-          , gryboSmoothFrets = False
-          , gryboSustainGap = 60
-          , gryboDetectMutedOpens = True
+        { grybo = guard (isJust keys) >> Just PartGRYBO
+          { difficulty = Tier $ RBProj.rankKeys $ RBProj.gamedata rbproj
+          , hopoThreshold = hopoThresh
+          , fixFreeform = False
+          , smoothFrets = False
+          , sustainGap = 60
+          , detectMutedOpens = True
           }
-        , partProKeys = guard (isJust keys && maybe False (not . C3.disableProKeys) c3) >> Just PartProKeys
-          { pkDifficulty = Tier $ RBProj.rankProKeys $ RBProj.gamedata rbproj
-          , pkFixFreeform = False
+        , proKeys = guard (isJust keys && maybe False (not . C3.disableProKeys) c3) >> Just PartProKeys
+          { difficulty = Tier $ RBProj.rankProKeys $ RBProj.gamedata rbproj
+          , fixFreeform = False
           }
         })
       , ( FlexVocal, def
-        { partVocal = guard (isJust vox) >> Just PartVocal
-          { vocalDifficulty = Tier $ RBProj.rankVocals $ RBProj.gamedata rbproj
-          , vocalCount = if
+        { vocal = guard (isJust vox) >> Just PartVocal
+          { difficulty = Tier $ RBProj.rankVocals $ RBProj.gamedata rbproj
+          , count = if
             | RBProj.dryVoxEnabled $ RBProj.part2 $ RBProj.dryVox rbproj -> Vocal3
             | RBProj.dryVoxEnabled $ RBProj.part1 $ RBProj.dryVox rbproj -> Vocal2
             | otherwise                                                  -> Vocal1
-          , vocalGender = Just $ RBProj.vocalGender $ RBProj.gamedata rbproj
-          , vocalKey = Nothing
-          , vocalLipsyncRB3 = Nothing
+          , gender = Just $ RBProj.vocalGender $ RBProj.gamedata rbproj
+          , key = Nothing
+          , lipsyncRB3 = Nothing
           }
         })
       ]

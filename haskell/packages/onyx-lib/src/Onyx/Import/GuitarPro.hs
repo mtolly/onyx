@@ -246,10 +246,10 @@ importGPIF gpif level = do
     , jammit = HM.empty
     , targets = HM.empty
     , global = def'
-      { _fileMidi            = SoftFile "notes.mid" $ SoftChart mid
-      , _fileSongAnim        = Nothing
-      , _backgroundVideo     = Nothing
-      , _fileBackgroundImage = Nothing
+      { fileMidi            = SoftFile "notes.mid" $ SoftChart mid
+      , fileSongAnim        = Nothing
+      , backgroundVideo     = Nothing
+      , fileBackgroundImage = Nothing
       }
     , audio = HM.empty
     , plans = HM.singleton "dummy" $ StandardPlan StandardPlanInfo
@@ -264,14 +264,14 @@ importGPIF gpif level = do
     , parts = Parts $ HM.fromList $ do
       (name, tuning, _) <- imported
       let part = def
-            { partProGuitar = Just PartProGuitar
-              { pgDifficulty    = Tier 1
-              , pgHopoThreshold = 170
-              , pgTuning        = tuning
-              , pgTuningRSBass  = Nothing
-              , pgFixFreeform   = False
-              , pgTones         = Nothing
-              , pgPickedBass    = False
+            { proGuitar = Just PartProGuitar
+              { difficulty    = Tier 1
+              , hopoThreshold = 170
+              , tuning        = tuning
+              , tuningRSBass  = Nothing
+              , fixFreeform   = False
+              , tones         = Nothing
+              , pickedBass    = False
               }
             }
       return (RBFile.FlexExtra name, part)

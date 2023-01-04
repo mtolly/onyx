@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TupleSections         #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields        #-}
 module Onyx.Import.DTXMania where
 
 import           Control.Monad.Extra              (forM, guard, unless)
@@ -319,11 +320,11 @@ importSetDef setDefPath song level = do
               warn $ "Video file does not exist, skipping: " <> fullVideoPath
               return Nothing
             True -> return $ Just VideoInfo
-              { _fileVideo      = SoftFile ("video" <.> takeExtension videoPath)
+              { fileVideo      = SoftFile ("video" <.> takeExtension videoPath)
                 $ SoftReadable $ fileReadable $ takeDirectory topDiffPath </> videoPath
-              , _videoStartTime = Just $ negate $ realToFrac $ U.applyTempoMap (dtx_TempoMap topDiffDTX) posn
-              , _videoEndTime   = Nothing
-              , _videoLoop      = False
+              , videoStartTime = Just $ negate $ realToFrac $ U.applyTempoMap (dtx_TempoMap topDiffDTX) posn
+              , videoEndTime   = Nothing
+              , videoLoop      = False
               }
         Nothing        -> do
           warn $ "Video chip not found: " <> T.unpack chip
@@ -348,10 +349,10 @@ importSetDef setDefPath song level = do
           , fileAlbumArt = art
           }
         , global = def'
-          { _backgroundVideo = video
-          , _fileBackgroundImage = Nothing
-          , _fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
-          , _fileSongAnim = Nothing
+          { backgroundVideo = video
+          , fileBackgroundImage = Nothing
+          , fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
+          , fileSongAnim = Nothing
           }
         , audio = HM.empty
         , jammit = HM.empty
@@ -359,28 +360,28 @@ importSetDef setDefPath song level = do
         , targets = HM.empty
         , parts = Parts $ HM.fromList $ catMaybes
           [ flip fmap topDrumDiff $ \diff -> (FlexDrums ,) def
-            { partDrums = Just PartDrums
-              { drumsDifficulty  = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
-              , drumsMode        = DrumsFull
-              , drumsKicks       = if any ((== LeftBass) . fst) $ dtx_Drums diff
+            { drums = Just PartDrums
+              { difficulty  = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
+              , mode        = DrumsFull
+              , kicks       = if any ((== LeftBass) . fst) $ dtx_Drums diff
                 then KicksBoth
                 else Kicks1x
-              , drumsFixFreeform = False
-              , drumsKit         = HardRockKit
-              , drumsLayout      = StandardLayout
-              , drumsFallback    = FallbackGreen
-              , drumsFileDTXKit  = Nothing
-              , drumsFullLayout  = FDStandard
+              , fixFreeform = False
+              , kit         = HardRockKit
+              , layout      = StandardLayout
+              , fallback    = FallbackGreen
+              , fileDTXKit  = Nothing
+              , fullLayout  = FDStandard
               }
             }
           , flip fmap topGuitarDiff $ \diff -> (FlexGuitar ,) def
-            { partGRYBO = Just def
-              { gryboDifficulty = translateDifficulty (dtx_GLEVEL diff) (dtx_GLVDEC diff)
+            { grybo = Just (def :: PartGRYBO)
+              { difficulty = translateDifficulty (dtx_GLEVEL diff) (dtx_GLVDEC diff)
               }
             }
           , flip fmap topBassDiff $ \diff -> (FlexBass ,) def
-            { partGRYBO = Just def
-              { gryboDifficulty = translateDifficulty (dtx_BLEVEL diff) (dtx_BLVDEC diff)
+            { grybo = Just (def :: PartGRYBO)
+              { difficulty = translateDifficulty (dtx_BLEVEL diff) (dtx_BLVDEC diff)
               }
             }
           ]
@@ -390,7 +391,7 @@ importSetDef setDefPath song level = do
         ImportFull  -> dtxMakeAudioPlan topDiffDTX (yamlWithAudio, midiOnyx)
   return finalSongYaml
     { global = finalSongYaml.global
-      { _fileMidi = SoftFile "notes.mid" $ SoftChart finalMidi
+      { fileMidi = SoftFile "notes.mid" $ SoftChart finalMidi
       }
     }
 

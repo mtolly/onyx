@@ -744,18 +744,19 @@ makeDisplay songYaml song = let
   coda = fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song
   defaultFlat = maybe False songKeyUsesFlats songYaml.metadata.key
   -- the above gets imported from first song_key then vocal_tonic_note
+  makePart :: RBFile.FlexPartName -> C.Part FilePath -> Flex U.Seconds
   makePart name fpart = Flex
-    { flexFive = flip fmap fpart.partGRYBO $ \grybo ->
+    { flexFive = flip fmap fpart.grybo $ \grybo ->
       case RBFile.selectGuitarTrack RBFile.FiveTypeGuitarExt tracks of
         (trk, algo) -> processFive
           algo
-          (ht grybo.gryboHopoThreshold)
+          (ht grybo.hopoThreshold)
           (RBFile.s_tempos song)
           trk
-    , flexSix = flip fmap fpart.partGHL $ \ghl -> processSix (ht ghl.ghlHopoThreshold) (RBFile.s_tempos song) (RBFile.onyxPartSix tracks)
-    , flexDrums = case fpart.partDrums of
+    , flexSix = flip fmap fpart.ghl $ \ghl -> processSix (ht ghl.hopoThreshold) (RBFile.s_tempos song) (RBFile.onyxPartSix tracks)
+    , flexDrums = case fpart.drums of
       Nothing -> []
-      Just pd -> case pd.drumsMode of
+      Just pd -> case pd.mode of
         C.DrumsReal -> let
           realDrumTrack = if D.nullDrums $ RBFile.onyxPartRealDrumsPS tracks
             then RBFile.onyxPartDrums tracks
@@ -769,7 +770,7 @@ makeDisplay songYaml song = let
         mode -> (: []) $ processDrums mode (RBFile.s_tempos song) coda
           (RBFile.onyxPartDrums tracks)
           (RBFile.onyxPartDrums2x tracks)
-    , flexProKeys = flip fmap fpart.partProKeys $ \_ -> makeDifficulties $ \diff ->
+    , flexProKeys = flip fmap fpart.proKeys $ \_ -> makeDifficulties $ \diff ->
       processProKeys (RBFile.s_tempos song) $ let
         solos = pkSolo $ RBFile.onyxPartRealKeysX tracks
         in case diff of
@@ -777,16 +778,16 @@ makeDisplay songYaml song = let
           Medium -> (RBFile.onyxPartRealKeysM tracks) { pkSolo = solos }
           Hard   -> (RBFile.onyxPartRealKeysH tracks) { pkSolo = solos }
           Expert ->  RBFile.onyxPartRealKeysX tracks
-    , flexProtar = flip fmap fpart.partProGuitar $ \pg -> processProtar
-      (ht pg.pgHopoThreshold)
-      pg.pgTuning
+    , flexProtar = flip fmap fpart.proGuitar $ \pg -> processProtar
+      (ht pg.hopoThreshold)
+      pg.tuning
       defaultFlat
       (RBFile.s_tempos song)
       $ let mustang = RBFile.onyxPartRealGuitar tracks
             squier  = RBFile.onyxPartRealGuitar22 tracks
         in if PG.nullPG squier then mustang else squier
-    , flexVocal = flip fmap fpart.partVocal $ \pvox -> let
-      harm = case pvox.vocalCount of
+    , flexVocal = flip fmap fpart.vocal $ \pvox -> let
+      harm = case pvox.count of
         C.Vocal3 -> [("H", makeVox pvox
           (RBFile.onyxHarm1 tracks)
           (RBFile.onyxHarm2 tracks)
@@ -798,7 +799,7 @@ makeDisplay songYaml song = let
         C.Vocal1 -> []
       solo = ("1", makeVox pvox (RBFile.onyxPartVocals tracks) mempty mempty)
       in Difficulties $ reverse $ solo : harm
-    , flexCatch = flip fmap fpart.partAmplitude $ \amp -> let
+    , flexCatch = flip fmap fpart.amplitude $ \amp -> let
       ampDiffNames (Difficulties pairs) = Difficulties $ flip map pairs $ first $ \case
         "X" -> "S/X"
         "H" -> "A"
@@ -810,9 +811,9 @@ makeDisplay songYaml song = let
         guard $ not $ RTB.null notes
         return Amplitude
           { ampNotes = U.applyTempoTrack (RBFile.s_tempos song) notes
-          , ampInstrument = amp.ampInstrument
+          , ampInstrument = amp.instrument
           }
-    , flexDance = flip fmap fpart.partDance $ \_dance -> processDance
+    , flexDance = flip fmap fpart.dance $ \_dance -> processDance
       (RBFile.s_tempos song)
       (RBFile.onyxPartDance tracks)
     } where
@@ -822,7 +823,7 @@ makeDisplay songYaml song = let
     return (RBFile.getPartName name, makePart name fpart)
   makeVox pvox h1 h2 h3 = processVocal (RBFile.s_tempos song)
     (Vox.vocalToLegacy h1) (Vox.vocalToLegacy h2) (Vox.vocalToLegacy h3)
-    $ fmap fromEnum pvox.vocalKey
+    $ fmap fromEnum pvox.key
     <|> fmap (fromEnum . songKey) songYaml.metadata.key
   beat = processBeat (RBFile.s_tempos song)
     $ Beat.beatLines $ RBFile.onyxBeat $ RBFile.s_tracks song

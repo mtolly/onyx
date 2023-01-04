@@ -167,7 +167,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           , impPath = dir
           , impIndex = Nothing
           , impProject = withYaml Nothing dir True Nothing loc
-          , imp2x = any (maybe False ((== Kicks2x) . (.drumsKicks)) . (.partDrums)) yml.parts
+          , imp2x = any (maybe False ((== Kicks2x) . (.kicks)) . (.drums)) yml.parts
           }
       foundRBProj loc = foundImport "Magma Project" loc $ importMagma loc
       foundAmplitude loc = do
@@ -290,7 +290,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                 saver = saveImport dout proj
                 deleter = release key
                 in saver `MC.onException` deleter
-            , imp2x = any (maybe False ((== Kicks2x) . (.drumsKicks)) . (.partDrums)) quick.parts
+            , imp2x = any (maybe False ((== Kicks2x) . (.kicks)) . (.drums)) quick.parts
             }
       foundImport fmt path imp = foundImports fmt path [imp]
   isDir <- stackIO $ Dir.doesDirectoryExist fp

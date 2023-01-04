@@ -248,7 +248,7 @@ rbRules buildInfo dir rb3 mrb2 = do
           , guard (maybe False (/= def) $ getPart rb3.rb3_Bass   songYaml) >> [pathMagmaBass  ]
           , guard (maybe False (/= def) $ getPart rb3.rb3_Guitar songYaml) >> [pathMagmaGuitar]
           , guard (maybe False (/= def) $ getPart rb3.rb3_Keys   songYaml) >> [pathMagmaKeys  ]
-          , case fmap (.vocalCount) $ getPart rb3.rb3_Vocal songYaml >>= (.partVocal) of
+          , case fmap (.count) $ getPart rb3.rb3_Vocal songYaml >>= (.vocal) of
             Nothing     -> []
             Just Vocal1 -> [pathMagmaVocal, pathMagmaDryvox0]
             Just Vocal2 -> [pathMagmaVocal, pathMagmaDryvox1, pathMagmaDryvox2]
@@ -265,8 +265,8 @@ rbRules buildInfo dir rb3 mrb2 = do
               [ (rb3.rb3_Guitar, RBFile.FlexGuitar)
               , (rb3.rb3_Bass  , RBFile.FlexBass  )
               ]
-            pg <- toList part.partProGuitar
-            return (fpart', pg.pgTuning)
+            pg <- toList part.proGuitar
+            return (fpart', pg.tuning)
           , cents = getTuningCents plan
           }
     makeReaperShake tunings pathMagmaMid pathMagmaMid auds' out
@@ -340,7 +340,7 @@ rbRules buildInfo dir rb3 mrb2 = do
         reauthor f = f user `trackOr` f magma
     saveMIDI out $ userMid
       { RBFile.s_tracks = user
-        { RBFile.fixedVenue = case songYaml.global._autogenTheme of
+        { RBFile.fixedVenue = case songYaml.global.autogenTheme of
           Nothing -> blackVenueTrack
           Just _  -> let
             onlyLightingPP venue = mempty
@@ -473,14 +473,14 @@ rbRules buildInfo dir rb3 mrb2 = do
       shk $ need [pathOgg]
       mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
   pathPng  %> shk . copyFile' (rel "gen/cover.png_xbox")
-  pathMilo %> \out -> case getPart rb3.rb3_Vocal songYaml >>= (.partVocal) of
+  pathMilo %> \out -> case getPart rb3.rb3_Vocal songYaml >>= (.vocal) of
     -- TODO apply segment boundaries
     -- TODO add member assignments and anim style in BandSongPref, and anim style
     -- TODO include rb3 format venue in milo (with speed/pad adjustments) but only if dlc (not rbn2)
     Nothing   -> stackIO emptyMilo >>= \mt -> shk $ copyFile' mt out
     Just pvox -> do
-      let srcs = case (pvox.vocalLipsyncRB3, pvox.vocalCount) of
-            (Just lrb3, _     ) -> lrb3.lipsyncSources
+      let srcs = case (pvox.lipsyncRB3, pvox.count) of
+            (Just lrb3, _     ) -> lrb3.sources
             (Nothing  , Vocal1) -> [LipsyncVocal Nothing]
             (Nothing  , Vocal2) -> [LipsyncVocal $ Just Vocal1, LipsyncVocal $ Just Vocal2]
             (Nothing  , Vocal3) -> [LipsyncVocal $ Just Vocal1, LipsyncVocal $ Just Vocal2, LipsyncVocal $ Just Vocal3]
@@ -575,8 +575,8 @@ rbRules buildInfo dir rb3 mrb2 = do
         gtr22   = RBFile.onyxPartRealGuitar22 $ RBFile.getFlexPart rb3.rb3_Guitar $ RBFile.s_tracks input
         bass17  = RBFile.onyxPartRealGuitar   $ RBFile.getFlexPart rb3.rb3_Bass $ RBFile.s_tracks input
         bass22  = RBFile.onyxPartRealGuitar22 $ RBFile.getFlexPart rb3.rb3_Bass $ RBFile.s_tracks input
-        pgThres = maybe 170 (.pgHopoThreshold) $ getPart rb3.rb3_Guitar songYaml >>= (.partProGuitar)
-        pbThres = maybe 170 (.pgHopoThreshold) $ getPart rb3.rb3_Bass songYaml >>= (.partProGuitar)
+        pgThres = maybe 170 (.hopoThreshold) $ getPart rb3.rb3_Guitar songYaml >>= (.proGuitar)
+        pbThres = maybe 170 (.hopoThreshold) $ getPart rb3.rb3_Bass songYaml >>= (.proGuitar)
         playTrack thres cont name t = let
           expert = fromMaybe mempty $ Map.lookup Expert $ pgDifficulties t
           auto = PGPlay.autoplay (fromIntegral thres / 480) (RBFile.s_tempos input) expert
@@ -1018,12 +1018,12 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
         , Magma.rankProKeys = max 1 rb3ProKeysTier
         , Magma.rankBand    = max 1 rb3BandTier
         , Magma.vocalScrollSpeed = 2300
-        , Magma.animTempo = case songYaml.global._animTempo of
+        , Magma.animTempo = case songYaml.global.animTempo of
           Left  D.KTempoSlow   -> 16
           Left  D.KTempoMedium -> 32
           Left  D.KTempoFast   -> 64
           Right n              -> n
-        , Magma.vocalGender = fromMaybe Magma.Female $ getPart rb3.rb3_Vocal songYaml >>= (.partVocal) >>= (.vocalGender)
+        , Magma.vocalGender = fromMaybe Magma.Female $ getPart rb3.rb3_Vocal songYaml >>= (.vocal) >>= (.gender)
         , Magma.vocalPercussion = fromMaybe Magma.Tambourine perctype
         , Magma.vocalParts = case voxCount of
           Nothing     -> 0
@@ -1051,7 +1051,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
       , Magma.destinationFile = T.pack $ T.unpack pkg <.> "rba"
       , Magma.midi = Magma.Midi
         { Magma.midiFile = "notes.mid"
-        , Magma.autogenTheme = Left $ fromMaybe Magma.DefaultTheme songYaml.global._autogenTheme
+        , Magma.autogenTheme = Left $ fromMaybe Magma.DefaultTheme songYaml.global.autogenTheme
         }
       , Magma.dryVox = Magma.DryVox
         { Magma.part0 = case voxCount of
@@ -1196,7 +1196,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
         MoggPlan     x -> map (const (-1)) x.pans
         StandardPlan _ -> extend6 (-1) $ map (const (-1)) $ partChannels <> songChannels <> crowdChannels
         -- TODO: 1 for guitar channels?
-      , D.drumSolo = D.DrumSounds $ T.words $ case fmap (.drumsLayout) $ getPart rb3.rb3_Drums songYaml >>= (.partDrums) of
+      , D.drumSolo = D.DrumSounds $ T.words $ case fmap (.layout) $ getPart rb3.rb3_Drums songYaml >>= (.drums) of
         Nothing             -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
         Just StandardLayout -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
         Just FlipYBToms     -> "kick.cue snare.cue tom2.cue tom1.cue crash.cue"
@@ -1217,14 +1217,14 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
       Just Magma.Tambourine -> "sfx/tambourine_bank.milo"
       Just Magma.Cowbell    -> "sfx/cowbell_bank.milo"
       Just Magma.Handclap   -> "sfx/handclap_bank.milo"
-    , D.drumBank = Just $ case fmap (.drumsKit) $ getPart rb3.rb3_Drums songYaml >>= (.partDrums) of
+    , D.drumBank = Just $ case fmap (.kit) $ getPart rb3.rb3_Drums songYaml >>= (.drums) of
       Nothing            -> "sfx/kit01_bank.milo"
       Just HardRockKit   -> "sfx/kit01_bank.milo"
       Just ArenaKit      -> "sfx/kit02_bank.milo"
       Just VintageKit    -> "sfx/kit03_bank.milo"
       Just TrashyKit     -> "sfx/kit04_bank.milo"
       Just ElectronicKit -> "sfx/kit05_bank.milo"
-    , D.animTempo = songYaml.global._animTempo
+    , D.animTempo = songYaml.global.animTempo
     , D.bandFailCue = Nothing
     , D.songScrollSpeed = 2300
     , D.preview = (fromIntegral pstart, fromIntegral pend)
@@ -1260,7 +1260,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
       (_   , x) -> x
     , D.genre = Just $ rbn2Genre thisFullGenre
     , D.subGenre = Just $ "subgenre_" <> rbn2Subgenre thisFullGenre
-    , D.vocalGender = Just $ fromMaybe Magma.Female $ getPart rb3.rb3_Vocal songYaml >>= (.partVocal) >>= (.vocalGender)
+    , D.vocalGender = Just $ fromMaybe Magma.Female $ getPart rb3.rb3_Vocal songYaml >>= (.vocal) >>= (.gender)
     -- TODO is it safe to have no vocal_gender?
     , D.shortVersion = Nothing
     , D.yearReleased = Just $ fromIntegral $ getYear songYaml.metadata
@@ -1275,10 +1275,10 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.songTonality   = songTonality <$> songYaml.metadata.key
     , D.songKey = Nothing
     , D.tuningOffsetCents = Just $ fromIntegral $ getTuningCents plan
-    , D.realGuitarTuning = flip fmap (getPart rb3.rb3_Guitar songYaml >>= (.partProGuitar)) $ \pg ->
-      map fromIntegral $ encodeTuningOffsets pg.pgTuning TypeGuitar
-    , D.realBassTuning = flip fmap (getPart rb3.rb3_Bass songYaml >>= (.partProGuitar)) $ \pg ->
-      map fromIntegral $ encodeTuningOffsets pg.pgTuning TypeBass
+    , D.realGuitarTuning = flip fmap (getPart rb3.rb3_Guitar songYaml >>= (.proGuitar)) $ \pg ->
+      map fromIntegral $ encodeTuningOffsets pg.tuning TypeGuitar
+    , D.realBassTuning = flip fmap (getPart rb3.rb3_Bass songYaml >>= (.proGuitar)) $ \pg ->
+      map fromIntegral $ encodeTuningOffsets pg.tuning TypeBass
     , D.guidePitchVolume = Just (-3)
     , D.encoding = Just "utf8"
     , D.extraAuthoring = Nothing
@@ -1324,24 +1324,24 @@ makeC3 songYaml plan rb3 midi pkg pad = do
     , C3.convert = songYaml.metadata.convert
     , C3.expertOnly = songYaml.metadata.expertOnly
     , C3.proBassDiff = case rb3ProBassRank of 0 -> Nothing; r -> Just $ fromIntegral r
-    , C3.proBassTuning4 = flip fmap (getPart rb3.rb3_Bass songYaml >>= (.partProGuitar)) $ \pg -> T.concat
+    , C3.proBassTuning4 = flip fmap (getPart rb3.rb3_Bass songYaml >>= (.proGuitar)) $ \pg -> T.concat
       [ "(real_bass_tuning ("
-      , T.unwords $ map (T.pack . show) $ encodeTuningOffsets pg.pgTuning TypeBass
+      , T.unwords $ map (T.pack . show) $ encodeTuningOffsets pg.tuning TypeBass
       , "))"
       ]
     , C3.proGuitarDiff = case rb3ProGuitarRank of 0 -> Nothing; r -> Just $ fromIntegral r
-    , C3.proGuitarTuning = flip fmap (getPart rb3.rb3_Guitar songYaml >>= (.partProGuitar)) $ \pg -> T.concat
+    , C3.proGuitarTuning = flip fmap (getPart rb3.rb3_Guitar songYaml >>= (.proGuitar)) $ \pg -> T.concat
       [ "(real_guitar_tuning ("
-      , T.unwords $ map (T.pack . show) $ encodeTuningOffsets pg.pgTuning TypeGuitar
+      , T.unwords $ map (T.pack . show) $ encodeTuningOffsets pg.tuning TypeGuitar
       , "))"
       ]
     , C3.disableProKeys = case getPart rb3.rb3_Keys songYaml of
       Nothing   -> False
-      Just part -> isJust part.partGRYBO && isNothing part.partProKeys
+      Just part -> isJust part.grybo && isNothing part.proKeys
     , C3.tonicNote = fmap songKey songYaml.metadata.key
     , C3.tuningCents = 0
     , C3.songRating = fromEnum songYaml.metadata.rating + 1
-    , C3.drumKitSFX = maybe 0 (fromEnum . (.drumsKit)) $ getPart rb3.rb3_Drums songYaml >>= (.partDrums)
+    , C3.drumKitSFX = maybe 0 (fromEnum . (.kit)) $ getPart rb3.rb3_Drums songYaml >>= (.drums)
     , C3.hopoThresholdIndex = 2 -- 170 ticks (everything gets forced anyway)
     , C3.muteVol = -96
     , C3.vocalMuteVol = -12

@@ -447,16 +447,16 @@ importRB rbi level = do
       , cover        = not $ D.master pkg || D.gameOrigin pkg == Just "beatles"
       }
     , global = def'
-      { _animTempo           = D.animTempo pkg
-      , _fileMidi            = SoftFile "notes.mid" $ SoftChart midiOnyx
-      , _fileSongAnim        = songAnim
-      , _backgroundVideo     = flip fmap video $ \videoFile -> VideoInfo
-        { _fileVideo      = videoFile
-        , _videoStartTime = Just $ rockBandPS2PreSongTime pkg
-        , _videoEndTime   = Nothing
-        , _videoLoop      = False
+      { animTempo           = D.animTempo pkg
+      , fileMidi            = SoftFile "notes.mid" $ SoftChart midiOnyx
+      , fileSongAnim        = songAnim
+      , backgroundVideo     = flip fmap video $ \videoFile -> VideoInfo
+        { fileVideo      = videoFile
+        , videoStartTime = Just $ rockBandPS2PreSongTime pkg
+        , videoEndTime   = Nothing
+        , videoLoop      = False
         }
-      , _fileBackgroundImage = Nothing
+      , fileBackgroundImage = Nothing
       }
     , audio = HM.fromList $ do
       (name, bs) <- namedChans
@@ -554,87 +554,87 @@ importRB rbi level = do
       in HM.fromList $ concat [[target1x | hasKicks /= Kicks2x], [target2x | hasKicks /= Kicks1x]]
     , parts = Parts $ HM.fromList
       [ ( FlexDrums, def
-        { partDrums = guard (hasRankStr "drum") >> Just PartDrums
-          { drumsDifficulty = fromMaybe (Tier 1) $ HM.lookup "drum" diffMap
-          , drumsMode = DrumsPro
-          , drumsKicks = hasKicks
-          , drumsFixFreeform = False
-          , drumsKit = drumkit
-          , drumsLayout = StandardLayout -- TODO import this
-          , drumsFallback = FallbackGreen
-          , drumsFileDTXKit = Nothing
-          , drumsFullLayout = FDStandard
+        { drums = guard (hasRankStr "drum") >> Just PartDrums
+          { difficulty = fromMaybe (Tier 1) $ HM.lookup "drum" diffMap
+          , mode = DrumsPro
+          , kicks = hasKicks
+          , fixFreeform = False
+          , kit = drumkit
+          , layout = StandardLayout -- TODO import this
+          , fallback = FallbackGreen
+          , fileDTXKit = Nothing
+          , fullLayout = FDStandard
           }
         })
       , ( FlexGuitar, def
-        { partGRYBO = guard (hasRankStr "guitar") >> Just PartGRYBO
-          { gryboDifficulty = fromMaybe (Tier 1) $ HM.lookup "guitar" diffMap
-          , gryboHopoThreshold = hopoThresh
-          , gryboFixFreeform = False
-          , gryboSmoothFrets = False
-          , gryboSustainGap = 60
-          , gryboDetectMutedOpens = True
+        { grybo = guard (hasRankStr "guitar") >> Just PartGRYBO
+          { difficulty = fromMaybe (Tier 1) $ HM.lookup "guitar" diffMap
+          , hopoThreshold = hopoThresh
+          , fixFreeform = False
+          , smoothFrets = False
+          , sustainGap = 60
+          , detectMutedOpens = True
           }
-        , partProGuitar = guard (hasRankStr "real_guitar") >> Just PartProGuitar
-          { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_guitar" diffMap
-          , pgHopoThreshold = hopoThresh
-          , pgTuning = GtrTuning
+        , proGuitar = guard (hasRankStr "real_guitar") >> Just PartProGuitar
+          { difficulty = fromMaybe (Tier 1) $ HM.lookup "real_guitar" diffMap
+          , hopoThreshold = hopoThresh
+          , tuning = GtrTuning
             { gtrBase = Guitar6
             , gtrOffsets = map fromIntegral $ fromMaybe [] $ D.realGuitarTuning pkg
             , gtrGlobal = 0
             , gtrCapo = 0
             }
-          , pgTuningRSBass  = Nothing
-          , pgFixFreeform   = False
-          , pgTones         = Nothing
-          , pgPickedBass    = False
+          , tuningRSBass  = Nothing
+          , fixFreeform   = False
+          , tones         = Nothing
+          , pickedBass    = False
           }
         })
       , ( FlexBass, def
-        { partGRYBO = guard (hasRankStr "bass") >> Just PartGRYBO
-          { gryboDifficulty = fromMaybe (Tier 1) $ HM.lookup "bass" diffMap
-          , gryboHopoThreshold = hopoThresh
-          , gryboFixFreeform = False
-          , gryboSmoothFrets = False
-          , gryboSustainGap = 60
-          , gryboDetectMutedOpens = True
+        { grybo = guard (hasRankStr "bass") >> Just PartGRYBO
+          { difficulty = fromMaybe (Tier 1) $ HM.lookup "bass" diffMap
+          , hopoThreshold = hopoThresh
+          , fixFreeform = False
+          , smoothFrets = False
+          , sustainGap = 60
+          , detectMutedOpens = True
           }
-        , partProGuitar = guard (hasRankStr "real_bass") >> Just PartProGuitar
-          { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_bass" diffMap
-          , pgHopoThreshold = hopoThresh
-          , pgTuning = GtrTuning
+        , proGuitar = guard (hasRankStr "real_bass") >> Just PartProGuitar
+          { difficulty = fromMaybe (Tier 1) $ HM.lookup "real_bass" diffMap
+          , hopoThreshold = hopoThresh
+          , tuning = GtrTuning
             { gtrBase = bassBase
             , gtrOffsets = map fromIntegral $ fromMaybe [] $ D.realBassTuning pkg
             , gtrGlobal = 0
             , gtrCapo = 0
             }
-          , pgTuningRSBass  = Nothing
-          , pgFixFreeform   = False
-          , pgTones         = Nothing
-          , pgPickedBass    = False
+          , tuningRSBass  = Nothing
+          , fixFreeform   = False
+          , tones         = Nothing
+          , pickedBass    = False
           }
         })
       , ( FlexKeys, def
-        { partGRYBO = guard (hasRankStr "keys") >> Just PartGRYBO
-          { gryboDifficulty = fromMaybe (Tier 1) $ HM.lookup "keys" diffMap
-          , gryboHopoThreshold = hopoThresh
-          , gryboFixFreeform = False
-          , gryboSmoothFrets = False
-          , gryboSustainGap = 60
-          , gryboDetectMutedOpens = True
+        { grybo = guard (hasRankStr "keys") >> Just PartGRYBO
+          { difficulty = fromMaybe (Tier 1) $ HM.lookup "keys" diffMap
+          , hopoThreshold = hopoThresh
+          , fixFreeform = False
+          , smoothFrets = False
+          , sustainGap = 60
+          , detectMutedOpens = True
           }
-        , partProKeys = guard (hasRankStr "real_keys") >> Just PartProKeys
-          { pkDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_keys" diffMap
-          , pkFixFreeform = False
+        , proKeys = guard (hasRankStr "real_keys") >> Just PartProKeys
+          { difficulty = fromMaybe (Tier 1) $ HM.lookup "real_keys" diffMap
+          , fixFreeform = False
           }
         })
       , ( FlexVocal, def
-        { partVocal = flip fmap vocalMode $ \vc -> PartVocal
-          { vocalDifficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
-          , vocalCount = vc
-          , vocalGender = D.vocalGender pkg
-          , vocalKey = vkey
-          , vocalLipsyncRB3 = lipsync
+        { vocal = flip fmap vocalMode $ \vc -> PartVocal
+          { difficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
+          , count = vc
+          , gender = D.vocalGender pkg
+          , key = vkey
+          , lipsyncRB3 = lipsync
           }
         })
       ]

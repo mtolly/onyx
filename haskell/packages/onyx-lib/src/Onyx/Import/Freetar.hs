@@ -153,12 +153,12 @@ importFreetar sng level = do
       }
     , jammit = mempty
     , global = def'
-      { _backgroundVideo = Nothing
-      , _fileBackgroundImage = Nothing
-      , _fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
+      { backgroundVideo = Nothing
+      , fileBackgroundImage = Nothing
+      , fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
         ImportFull  -> songToMidi song
         ImportQuick -> emptyChart
-      , _fileSongAnim = Nothing
+      , fileSongAnim = Nothing
       }
     , audio = HM.fromList $ toList $ flip fmap props.musicFileName $ \f -> let
       f' = takeDirectory sng </> T.unpack f
@@ -184,6 +184,6 @@ importFreetar sng level = do
       in ("freetar", plan)
     , targets = HM.empty
     , parts = Parts $ HM.singleton RBFile.FlexGuitar def
-      { partGRYBO = Just def
+      { grybo = Just def
       }
     }

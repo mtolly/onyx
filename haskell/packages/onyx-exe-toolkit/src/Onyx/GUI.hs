@@ -280,7 +280,7 @@ importWithPreferences imp = do
       let applyBlackVenue, applyDecryptSilent, applyDetectMuted
             :: SongYaml FilePath -> SongYaml FilePath
           applyBlackVenue yaml = if prefBlackVenue prefs
-            then yaml { global = yaml.global { _autogenTheme = Nothing } }
+            then yaml { global = yaml.global { autogenTheme = Nothing } }
             else yaml
           applyDecryptSilent yaml = yaml
             { plans = flip fmap yaml.plans $ \case
@@ -289,8 +289,8 @@ importWithPreferences imp = do
             }
           applyDetectMuted yaml = yaml
             { parts = flip fmap yaml.parts $ \part -> part
-              { partGRYBO = flip fmap part.partGRYBO $ \grybo -> grybo
-                { gryboDetectMutedOpens = prefDetectMuted prefs
+              { grybo = flip fmap part.grybo $ \grybo -> grybo
+                { detectMutedOpens = prefDetectMuted prefs
                 }
               }
             }
@@ -842,39 +842,39 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
                 return $ (\(FL.AtIndex i) -> opts !! i) <$> FL.getValue choice
               makeChoice :: (Eq a, Enum a, Bounded a) => FL.Ref FL.TreeItem -> a -> (a -> T.Text) -> IO (IO a)
               makeChoice = makeChoiceFrom [minBound .. maxBound]
-          mbGRYBO <- forM part.partGRYBO $ \pg -> addType "5-Fret" $ \itemCheck -> do
-            getDiff <- makeDifficulty itemCheck pg.gryboDifficulty
+          mbGRYBO <- forM part.grybo $ \pg -> addType "5-Fret" $ \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck pg.difficulty
             return $ \isChecked curPart -> do
               diff <- getDiff
-              return curPart { partGRYBO = guard isChecked >> Just pg { gryboDifficulty = diff } }
-          mbGHL <- forM part.partGHL $ \pg -> addType "6-Fret" $ \itemCheck -> do
-            getDiff <- makeDifficulty itemCheck pg.ghlDifficulty
+              return curPart { grybo = guard isChecked >> Just (pg :: PartGRYBO) { difficulty = diff } }
+          mbGHL <- forM part.ghl $ \pg -> addType "6-Fret" $ \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck pg.difficulty
             return $ \isChecked curPart -> do
               diff <- getDiff
-              return curPart { partGHL = guard isChecked >> Just pg { ghlDifficulty = diff } }
-          mbProKeys <- forM part.partProKeys $ \pk -> addType "Pro Keys" $ \itemCheck -> do
-            getDiff <- makeDifficulty itemCheck pk.pkDifficulty
+              return curPart { ghl = guard isChecked >> Just (pg :: PartGHL) { difficulty = diff } }
+          mbProKeys <- forM part.proKeys $ \pk -> addType "Pro Keys" $ \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck pk.difficulty
             return $ \isChecked curPart -> do
               diff <- getDiff
-              return curPart { partProKeys = guard isChecked >> Just pk { pkDifficulty = diff } }
-          mbProGuitar <- forM part.partProGuitar $ \pg -> addType "Pro Guitar" $ \itemCheck -> do
-            getDiff <- makeDifficulty itemCheck pg.pgDifficulty
+              return curPart { proKeys = guard isChecked >> Just (pk :: PartProKeys) { difficulty = diff } }
+          mbProGuitar <- forM part.proGuitar $ \pg -> addType "Pro Guitar" $ \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck pg.difficulty
             return $ \isChecked curPart -> do
               diff <- getDiff
-              return curPart { partProGuitar = guard isChecked >> Just pg { pgDifficulty = diff } }
-          mbDrums <- forM part.partDrums $ \pd -> addType "Drums" $ \itemCheck -> do
-            getDiff <- makeDifficulty itemCheck pd.drumsDifficulty
-            getMode <- makeChoice itemCheck pd.drumsMode $ \case
+              return curPart { proGuitar = guard isChecked >> Just (pg :: PartProGuitar FilePath) { difficulty = diff } }
+          mbDrums <- forM part.drums $ \pd -> addType "Drums" $ \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck pd.difficulty
+            getMode <- makeChoice itemCheck pd.mode $ \case
               Drums4    -> "4-Lane Drums"
               Drums5    -> "5-Lane Drums"
               DrumsPro  -> "Pro Drums"
               DrumsReal -> "Phase Shift Real Drums"
               DrumsFull -> "Onyx Full Drums"
-            getKicks <- makeChoice itemCheck pd.drumsKicks $ \case
+            getKicks <- makeChoice itemCheck pd.kicks $ \case
               Kicks1x   -> "1x Bass Pedal"
               Kicks2x   -> "2x Bass Pedal"
               KicksBoth -> "1x+2x Bass Pedal (PS X+ or C3 format)"
-            getKit <- makeChoice itemCheck pd.drumsKit $ \case
+            getKit <- makeChoice itemCheck pd.kit $ \case
               HardRockKit   -> "Hard Rock Kit"
               ArenaKit      -> "Arena Kit"
               VintageKit    -> "Vintage Kit"
@@ -886,20 +886,20 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               kicks <- getKicks
               kit <- getKit
               return curPart
-                { partDrums = guard isChecked >> Just pd
-                  { drumsDifficulty = diff
-                  , drumsMode = mode
-                  , drumsKicks = kicks
-                  , drumsKit = kit
+                { drums = guard isChecked >> Just pd
+                  { difficulty = diff
+                  , mode = mode
+                  , kicks = kicks
+                  , kit = kit
                   }
                 }
-          mbVocal <- forM part.partVocal $ \pv -> addType "Vocals" $ \itemCheck -> do
-            getDiff <- makeDifficulty itemCheck pv.vocalDifficulty
-            getCount <- makeChoice itemCheck pv.vocalCount $ \case
+          mbVocal <- forM part.vocal $ \pv -> addType "Vocals" $ \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck pv.difficulty
+            getCount <- makeChoice itemCheck pv.count $ \case
               Vocal1 -> "Solo"
               Vocal2 -> "Harmonies (2)"
               Vocal3 -> "Harmonies (3)"
-            getGender <- makeChoiceFrom [Nothing, Just Male, Just Female] itemCheck pv.vocalGender $ \case
+            getGender <- makeChoiceFrom [Nothing, Just Male, Just Female] itemCheck pv.gender $ \case
               Nothing     -> "Unspecified Gender"
               Just Male   -> "Male"
               Just Female -> "Female"
@@ -908,10 +908,10 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               count  <- getCount
               gender <- getGender
               return curPart
-                { partVocal = guard isChecked >> Just pv
-                  { vocalDifficulty = diff
-                  , vocalCount      = count
-                  , vocalGender     = gender
+                { vocal = guard isChecked >> Just pv
+                  { difficulty = diff
+                  , count      = count
+                  , gender     = gender
                   }
                 }
           return $ Just $ do
@@ -1443,11 +1443,11 @@ windowCloser finalize window = do
 
 forceProDrums :: SongYaml f -> SongYaml f
 forceProDrums song = song
-  { parts = flip fmap song.parts $ \part -> case part.partDrums of
+  { parts = flip fmap song.parts $ \part -> case part.drums of
     Nothing    -> part
     Just drums -> part
-      { partDrums = Just drums
-        { drumsMode = case drums.drumsMode of
+      { drums = Just drums
+        { mode = case drums.mode of
           Drums4 -> DrumsPro
           mode   -> mode
         }
@@ -1466,10 +1466,10 @@ saveProject proj song = do
 -- Batch mode presets for changing parts around
 
 hasPartWithFive :: SongYaml f -> FlexPartName -> Bool
-hasPartWithFive song flex = isJust $ getPart flex song >>= (.partGRYBO)
+hasPartWithFive song flex = isJust $ getPart flex song >>= (.grybo)
 
 partHasFiveOrDrums :: Part a -> Bool
-partHasFiveOrDrums p = isJust p.partGRYBO || isJust p.partDrums
+partHasFiveOrDrums p = isJust p.grybo || isJust p.drums
 
 batchPartPresetsRB3 :: [(T.Text, SongYaml f -> TargetRB3 -> TargetRB3)]
 batchPartPresetsRB3 =
@@ -1698,7 +1698,7 @@ batchPageGHWOR sink rect tab build = do
         proTo4 <- stackIO getProTo4
         newPreferences <- readPreferences
         return $ \proj -> let
-          hasPart p = isJust $ HM.lookup p (projectSongYaml proj).parts.getParts >>= (.partGRYBO)
+          hasPart p = isJust $ HM.lookup p (projectSongYaml proj).parts.getParts >>= (.grybo)
           pickedGuitar = listToMaybe $ filter hasPart
             [ FlexGuitar
             , FlexExtra "rhythm"
@@ -1783,7 +1783,7 @@ batchPageRB2 sink rect tab build = do
               else SongIDAutoSymbol
             , rb2_PS3Encrypt = prefPS3Encrypt newPreferences
             }
-          kicksConfigs = case (kicks, maybe Kicks1x (.drumsKicks) $ getPart FlexDrums yaml >>= (.partDrums)) of
+          kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart FlexDrums yaml >>= (.drums)) of
             (_        , Kicks1x) -> [(False, ""   )]
             (Kicks1x  , _      ) -> [(False, "_1x")]
             (Kicks2x  , _      ) -> [(True , "_2x")]
@@ -1944,7 +1944,7 @@ batchPageGH1 sink rect tab build = do
           defGH1 = def :: TargetGH1
           hasPart p = case HM.lookup p (projectSongYaml proj).parts.getParts of
             Nothing   -> False
-            Just part -> isJust part.partGRYBO || isJust part.partDrums
+            Just part -> isJust part.grybo || isJust part.drums
           leadPart = listToMaybe $ filter hasPart
             [ FlexGuitar
             , FlexExtra "rhythm"
@@ -2013,7 +2013,7 @@ batchPageGH3 sink rect tab build = do
           defGH3 = def :: TargetGH3
           hasPart p = case HM.lookup p (projectSongYaml proj).parts.getParts of
             Nothing   -> False
-            Just part -> isJust part.partGRYBO || isJust part.partDrums
+            Just part -> isJust part.grybo || isJust part.drums
           leadPart = listToMaybe $ filter hasPart
             [ FlexGuitar
             , FlexExtra "rhythm"
@@ -2091,7 +2091,7 @@ batchPageGH2 sink rect tab build = do
           defGH2 = def :: TargetGH2
           hasPart p = case HM.lookup p (projectSongYaml proj).parts.getParts of
             Nothing   -> False
-            Just part -> isJust part.partGRYBO || isJust part.partDrums
+            Just part -> isJust part.grybo || isJust part.drums
           leadPart = listToMaybe $ filter hasPart
             [ FlexGuitar
             , FlexExtra "rhythm"
@@ -2342,19 +2342,19 @@ songPageRB3 sink rect tab proj build = mdo
       rb3 { rb3_SongID = sid }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.rb3_Guitar), (\v rb3 -> rb3 { rb3_Guitar = v })
-        , (\p -> isJust p.partGRYBO || isJust p.partProGuitar || isJust p.partDrums)
+        , (\p -> isJust p.grybo || isJust p.proGuitar || isJust p.drums)
         )
       , ( "Bass"  , (.rb3_Bass  ), (\v rb3 -> rb3 { rb3_Bass   = v })
-        , (\p -> isJust p.partGRYBO || isJust p.partProGuitar || isJust p.partDrums)
+        , (\p -> isJust p.grybo || isJust p.proGuitar || isJust p.drums)
         )
       , ( "Keys"  , (.rb3_Keys  ), (\v rb3 -> rb3 { rb3_Keys   = v })
-        , (\p -> isJust p.partGRYBO || isJust p.partProKeys || isJust p.partDrums)
+        , (\p -> isJust p.grybo || isJust p.proKeys || isJust p.drums)
         )
       , ( "Drums" , (.rb3_Drums ), (\v rb3 -> rb3 { rb3_Drums  = v })
-        , (\p -> isJust p.partDrums)
+        , (\p -> isJust p.drums)
         )
       , ( "Vocal" , (.rb3_Vocal ), (\v rb3 -> rb3 { rb3_Vocal  = v })
-        , (\p -> isJust p.partVocal)
+        , (\p -> isJust p.vocal)
         )
       ]
     fullWidth 35 $ \rect' -> do
@@ -2457,16 +2457,16 @@ songPageRB2 sink rect tab proj build = mdo
       rb2 { rb2_SongID = sid }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.rb2_Guitar), (\v rb2 -> rb2 { rb2_Guitar = v })
-        , (\p -> isJust p.partGRYBO || isJust p.partProGuitar || isJust p.partDrums)
+        , (\p -> isJust p.grybo || isJust p.proGuitar || isJust p.drums)
         )
       , ( "Bass"  , (.rb2_Bass  ), (\v rb2 -> rb2 { rb2_Bass   = v })
-        , (\p -> isJust p.partGRYBO || isJust p.partProGuitar || isJust p.partDrums)
+        , (\p -> isJust p.grybo || isJust p.proGuitar || isJust p.drums)
         )
       , ( "Drums" , (.rb2_Drums ), (\v rb2 -> rb2 { rb2_Drums  = v })
-        , (\p -> isJust p.partDrums)
+        , (\p -> isJust p.drums)
         )
       , ( "Vocal" , (.rb2_Vocal ), (\v rb2 -> rb2 { rb2_Vocal  = v })
-        , (\p -> isJust p.partVocal)
+        , (\p -> isJust p.vocal)
         )
       ]
     fullWidth 35 $ \rect' -> do
@@ -2561,16 +2561,16 @@ songPageGHWOR sink rect tab proj build = mdo
       gh5 { gh5_CDL = sid }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.gh5_Guitar), (\v gh5 -> gh5 { gh5_Guitar = v })
-        , (\p -> isJust p.partGRYBO)
+        , (\p -> isJust p.grybo)
         )
       , ( "Bass"  , (.gh5_Bass  ), (\v gh5 -> gh5 { gh5_Bass   = v })
-        , (\p -> isJust p.partGRYBO)
+        , (\p -> isJust p.grybo)
         )
       , ( "Drums" , (.gh5_Drums ), (\v gh5 -> gh5 { gh5_Drums  = v })
-        , (\p -> isJust p.partDrums)
+        , (\p -> isJust p.drums)
         )
       , ( "Vocal" , (.gh5_Vocal ), (\v gh5 -> gh5 { gh5_Vocal  = v })
-        , (\p -> isJust p.partVocal)
+        , (\p -> isJust p.vocal)
         )
       ]
     fullWidth 35 $ \rect' -> do
@@ -2644,25 +2644,25 @@ songPagePS sink rect tab proj build = mdo
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar"     , (.ps_Guitar    ), (\v ps -> ps { ps_Guitar     = v })
-        , (\p -> isJust p.partGRYBO || isJust p.partGHL || isJust p.partProGuitar || isJust p.partDrums)
+        , (\p -> isJust p.grybo || isJust p.ghl || isJust p.proGuitar || isJust p.drums)
         )
       , ( "Bass"       , (.ps_Bass      ), (\v ps -> ps { ps_Bass       = v })
-        , (\p -> isJust p.partGRYBO || isJust p.partGHL || isJust p.partProGuitar || isJust p.partDrums)
+        , (\p -> isJust p.grybo || isJust p.ghl || isJust p.proGuitar || isJust p.drums)
         )
       , ( "Keys"       , (.ps_Keys      ), (\v ps -> ps { ps_Keys       = v })
-        , (\p -> isJust p.partGRYBO || isJust p.partProKeys || isJust p.partDrums)
+        , (\p -> isJust p.grybo || isJust p.proKeys || isJust p.drums)
         )
       , ( "Drums"      , (.ps_Drums     ), (\v ps -> ps { ps_Drums      = v })
-        , (\p -> isJust p.partDrums)
+        , (\p -> isJust p.drums)
         )
       , ( "Vocal"      , (.ps_Vocal     ), (\v ps -> ps { ps_Vocal      = v })
-        , (\p -> isJust p.partVocal)
+        , (\p -> isJust p.vocal)
         )
       , ( "Rhythm"     , (.ps_Rhythm    ), (\v ps -> ps { ps_Rhythm     = v })
-        , (\p -> isJust p.partGRYBO || isJust p.partDrums)
+        , (\p -> isJust p.grybo || isJust p.drums)
         )
       , ( "Guitar Coop", (.ps_GuitarCoop), (\v ps -> ps { ps_GuitarCoop = v })
-        , (\p -> isJust p.partGRYBO || isJust p.partDrums)
+        , (\p -> isJust p.grybo || isJust p.drums)
         )
       ]
     fullWidth 35 $ \rect' -> do
@@ -2807,16 +2807,16 @@ songPageGH1 sink rect tab proj build = mdo
       ]
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Bass" , (.gh1_Bass ), (\v gh1 -> gh1 { gh1_Bass  = v })
-        , isJust . (.partGRYBO)
+        , isJust . (.grybo)
         )
       , ( "Keys" , (.gh1_Keys ), (\v gh1 -> gh1 { gh1_Keys  = v })
-        , isJust . (.partGRYBO)
+        , isJust . (.grybo)
         )
       , ( "Drums", (.gh1_Drums), (\v gh1 -> gh1 { gh1_Drums = v })
-        , isJust . (.partDrums)
+        , isJust . (.drums)
         )
       , ( "Vocal", (.gh1_Vocal), (\v gh1 -> gh1 { gh1_Vocal = v })
-        , isJust . (.partVocal)
+        , isJust . (.vocal)
         )
       ]
     fullWidth 35 $ \rect' -> do
@@ -2925,13 +2925,13 @@ songPageGH2 sink rect tab proj build = mdo
       tell $ readIORef coopPart >>= \coop -> return $ Endo $ \gh2 -> gh2 { gh2_Coop = coop }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Keys" , (.gh2_Keys ), (\v gh2 -> gh2 { gh2_Keys  = v })
-        , isJust . (.partGRYBO)
+        , isJust . (.grybo)
         )
       , ( "Drums", (.gh2_Drums), (\v gh2 -> gh2 { gh2_Drums = v })
-        , isJust . (.partDrums)
+        , isJust . (.drums)
         )
       , ( "Vocal", (.gh2_Vocal), (\v gh2 -> gh2 { gh2_Vocal = v })
-        , isJust . (.partVocal)
+        , isJust . (.vocal)
         )
       ]
     fullWidth 35 $ \rect' -> do
@@ -3065,13 +3065,13 @@ songPageGH3 sink rect tab proj build = mdo
       tell $ readIORef coopPart >>= \coop -> return $ Endo $ \gh3 -> gh3 { gh3_Coop = coop }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Keys" , (.gh3_Keys ), (\v gh3 -> gh3 { gh3_Keys  = v })
-        , isJust . (.partGRYBO)
+        , isJust . (.grybo)
         )
       , ( "Drums", (.gh3_Drums), (\v gh3 -> gh3 { gh3_Drums = v })
-        , isJust . (.partDrums)
+        , isJust . (.drums)
         )
       , ( "Vocal", (.gh3_Vocal), (\v gh3 -> gh3 { gh3_Vocal = v })
-        , isJust . (.partVocal)
+        , isJust . (.vocal)
         )
       ]
     fullWidth 35 $ \rect' -> do
@@ -3175,7 +3175,7 @@ batchPageRB3 sink rect tab build = do
               then SongIDAutoInt
               else SongIDAutoSymbol
             }
-          kicksConfigs = case (kicks, maybe Kicks1x (.drumsKicks) $ getPart FlexDrums yaml >>= (.partDrums)) of
+          kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart FlexDrums yaml >>= (.drums)) of
             (_        , Kicks1x) -> [(False, ""   )]
             (Kicks1x  , _      ) -> [(False, "_1x")]
             (Kicks2x  , _      ) -> [(True , "_2x")]

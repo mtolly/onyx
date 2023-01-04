@@ -386,10 +386,10 @@ importFoF src level = do
         return $ Just v'
       []    -> return Nothing
   let videoInfo = flip fmap vidPath $ \f -> VideoInfo
-        { _fileVideo = SoftFile ("video" <.> takeExtension f) $ SoftReadable $ fileReadable f
-        , _videoStartTime = FoF.videoStartTime song
-        , _videoEndTime = FoF.videoEndTime song
-        , _videoLoop = fromMaybe False $ FoF.videoLoop song
+        { fileVideo = SoftFile ("video" <.> takeExtension f) $ SoftReadable $ fileReadable f
+        , videoStartTime = FoF.videoStartTime song
+        , videoEndTime = FoF.videoEndTime song
+        , videoLoop = fromMaybe False $ FoF.videoLoop song
         }
   -- TODO need to check how video start/end time interacts with audio delay,
   -- so we can adjust based on how we imported the delay
@@ -441,10 +441,10 @@ importFoF src level = do
       , cover        = maybe False ("cover" `T.isInfixOf`) $ FoF.tags song
       }
     , global = def'
-      { _backgroundVideo = videoInfo
-      , _fileBackgroundImage = backgroundImage
-      , _fileMidi = midi
-      , _fileSongAnim = Nothing
+      { backgroundVideo = videoInfo
+      , fileBackgroundImage = backgroundImage
+      , fileMidi = midi
+      , fileSongAnim = Nothing
       }
     , audio = HM.fromList $ flip map audioFilesWithChannels $ \(pair@(template, _srcPath), chans) ->
       (T.pack template, AudioFile AudioInfo
@@ -493,9 +493,9 @@ importFoF src level = do
       }
     , parts = Parts $ HM.fromList
       [ ( FlexDrums, def
-        { partDrums = guard ((isnt nullDrums RBFile.fixedPartDrums || isnt nullDrums RBFile.fixedPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums
-          { drumsDifficulty = toTier $ FoF.diffDrums song
-          , drumsMode = let
+        { drums = guard ((isnt nullDrums RBFile.fixedPartDrums || isnt nullDrums RBFile.fixedPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums
+          { difficulty = toTier $ FoF.diffDrums song
+          , mode = let
             isFiveLane = FoF.fiveLaneDrums song == Just True || any
               (\(_, dd) -> any (\(gem, _vel) -> gem == RBDrums.Orange) $ drumGems dd)
               (Map.toList $ drumDifficulties $ RBFile.fixedPartDrums outputFixed)
@@ -508,115 +508,115 @@ importFoF src level = do
               else if isReal then DrumsReal
                 else if isPro then DrumsPro
                   else Drums4
-          , drumsKicks = hasKicks
-          , drumsFixFreeform = False
-          , drumsKit = HardRockKit
-          , drumsLayout = StandardLayout
-          , drumsFallback = if fromMaybe False $ FoF.drumFallbackBlue song
+          , kicks = hasKicks
+          , fixFreeform = False
+          , kit = HardRockKit
+          , layout = StandardLayout
+          , fallback = if fromMaybe False $ FoF.drumFallbackBlue song
             then FallbackBlue
             else FallbackGreen
-          , drumsFileDTXKit = Nothing
-          , drumsFullLayout = FDStandard
+          , fileDTXKit = Nothing
+          , fullLayout = FDStandard
           }
         })
       , ( FlexGuitar, def
-        { partGRYBO = guard (isnt RBFive.nullFive RBFile.fixedPartGuitar && guardDifficulty FoF.diffGuitar) >> Just PartGRYBO
-          { gryboDifficulty = toTier $ FoF.diffGuitar song
-          , gryboHopoThreshold = hopoThreshold
-          , gryboFixFreeform = False
-          , gryboSmoothFrets = False
-          , gryboSustainGap = 60
-          , gryboDetectMutedOpens = True
+        { grybo = guard (isnt RBFive.nullFive RBFile.fixedPartGuitar && guardDifficulty FoF.diffGuitar) >> Just PartGRYBO
+          { difficulty = toTier $ FoF.diffGuitar song
+          , hopoThreshold = hopoThreshold
+          , fixFreeform = False
+          , smoothFrets = False
+          , sustainGap = 60
+          , detectMutedOpens = True
           }
-        , partProGuitar = let
+        , proGuitar = let
           b =  (isnt nullPG RBFile.fixedPartRealGuitar   && guardDifficulty FoF.diffGuitarReal  )
             || (isnt nullPG RBFile.fixedPartRealGuitar22 && guardDifficulty FoF.diffGuitarReal22)
           in guard b >> Just PartProGuitar
-            { pgDifficulty    = toTier $ FoF.diffGuitarReal song
-            , pgHopoThreshold = hopoThreshold
-            , pgTuning        = def -- TODO actually import this
-            , pgTuningRSBass  = Nothing
-            , pgFixFreeform   = False
-            , pgTones         = Nothing
-            , pgPickedBass    = False
+            { difficulty    = toTier $ FoF.diffGuitarReal song
+            , hopoThreshold = hopoThreshold
+            , tuning        = def -- TODO actually import this
+            , tuningRSBass  = Nothing
+            , fixFreeform   = False
+            , tones         = Nothing
+            , pickedBass    = False
             }
-        , partGHL = guard (isnt nullSix RBFile.fixedPartGuitarGHL && guardDifficulty FoF.diffGuitarGHL) >> Just PartGHL
-          { ghlDifficulty = toTier $ FoF.diffGuitarGHL song
-          , ghlHopoThreshold = hopoThreshold
+        , ghl = guard (isnt nullSix RBFile.fixedPartGuitarGHL && guardDifficulty FoF.diffGuitarGHL) >> Just PartGHL
+          { difficulty = toTier $ FoF.diffGuitarGHL song
+          , hopoThreshold = hopoThreshold
           }
         })
       , ( FlexBass, def
-        { partGRYBO = guard hasBass >> Just PartGRYBO
-          { gryboDifficulty = toTier $ FoF.diffBass song
-          , gryboHopoThreshold = hopoThreshold
-          , gryboFixFreeform = False
-          , gryboSmoothFrets = False
-          , gryboSustainGap = 60
-          , gryboDetectMutedOpens = True
+        { grybo = guard hasBass >> Just PartGRYBO
+          { difficulty = toTier $ FoF.diffBass song
+          , hopoThreshold = hopoThreshold
+          , fixFreeform = False
+          , smoothFrets = False
+          , sustainGap = 60
+          , detectMutedOpens = True
           }
-        , partProGuitar = let
+        , proGuitar = let
           b =  (isnt nullPG RBFile.fixedPartRealBass   && guardDifficulty FoF.diffBassReal  )
             || (isnt nullPG RBFile.fixedPartRealBass22 && guardDifficulty FoF.diffBassReal22)
           in guard b >> Just PartProGuitar
-            { pgDifficulty    = toTier $ FoF.diffBassReal song
-            , pgHopoThreshold = hopoThreshold
-            , pgTuning        = def -- TODO actually import this
-            , pgTuningRSBass  = Nothing
-            , pgFixFreeform   = False
-            , pgTones         = Nothing
-            , pgPickedBass    = False
+            { difficulty    = toTier $ FoF.diffBassReal song
+            , hopoThreshold = hopoThreshold
+            , tuning        = def -- TODO actually import this
+            , tuningRSBass  = Nothing
+            , fixFreeform   = False
+            , tones         = Nothing
+            , pickedBass    = False
             }
-        , partGHL = guard (isnt nullSix RBFile.fixedPartBassGHL && guardDifficulty FoF.diffBassGHL) >> Just PartGHL
-          { ghlDifficulty = toTier $ FoF.diffBassGHL song
-          , ghlHopoThreshold = hopoThreshold
+        , ghl = guard (isnt nullSix RBFile.fixedPartBassGHL && guardDifficulty FoF.diffBassGHL) >> Just PartGHL
+          { difficulty = toTier $ FoF.diffBassGHL song
+          , hopoThreshold = hopoThreshold
           }
         })
       , ( FlexKeys, def
-        { partGRYBO = guard (isnt RBFive.nullFive RBFile.fixedPartKeys && guardDifficulty FoF.diffKeys) >> Just PartGRYBO
-          { gryboDifficulty = toTier $ FoF.diffKeys song
-          , gryboHopoThreshold = hopoThreshold
-          , gryboFixFreeform = False
-          , gryboSmoothFrets = False
-          , gryboSustainGap = 60
-          , gryboDetectMutedOpens = True
+        { grybo = guard (isnt RBFive.nullFive RBFile.fixedPartKeys && guardDifficulty FoF.diffKeys) >> Just PartGRYBO
+          { difficulty = toTier $ FoF.diffKeys song
+          , hopoThreshold = hopoThreshold
+          , fixFreeform = False
+          , smoothFrets = False
+          , sustainGap = 60
+          , detectMutedOpens = True
           }
-        , partProKeys = guard (isnt nullPK RBFile.fixedPartRealKeysX && guardDifficulty FoF.diffKeysReal) >> Just PartProKeys
-          { pkDifficulty = toTier $ FoF.diffKeysReal song
-          , pkFixFreeform = False
+        , proKeys = guard (isnt nullPK RBFile.fixedPartRealKeysX && guardDifficulty FoF.diffKeysReal) >> Just PartProKeys
+          { difficulty = toTier $ FoF.diffKeysReal song
+          , fixFreeform = False
           }
         })
       , ( FlexExtra "rhythm", def
-        { partGRYBO = guard hasRhythm >> Just PartGRYBO
-          { gryboDifficulty = toTier $ FoF.diffRhythm song
-          , gryboHopoThreshold = hopoThreshold
-          , gryboFixFreeform = False
-          , gryboSmoothFrets = False
-          , gryboSustainGap = 60
-          , gryboDetectMutedOpens = True
+        { grybo = guard hasRhythm >> Just PartGRYBO
+          { difficulty = toTier $ FoF.diffRhythm song
+          , hopoThreshold = hopoThreshold
+          , fixFreeform = False
+          , smoothFrets = False
+          , sustainGap = 60
+          , detectMutedOpens = True
           }
         })
       , ( FlexExtra "guitar-coop", def
-        { partGRYBO = guard (isnt RBFive.nullFive RBFile.fixedPartGuitarCoop && guardDifficulty FoF.diffGuitarCoop) >> Just PartGRYBO
-          { gryboDifficulty = toTier $ FoF.diffGuitarCoop song
-          , gryboHopoThreshold = hopoThreshold
-          , gryboFixFreeform = False
-          , gryboSmoothFrets = False
-          , gryboSustainGap = 60
-          , gryboDetectMutedOpens = True
+        { grybo = guard (isnt RBFive.nullFive RBFile.fixedPartGuitarCoop && guardDifficulty FoF.diffGuitarCoop) >> Just PartGRYBO
+          { difficulty = toTier $ FoF.diffGuitarCoop song
+          , hopoThreshold = hopoThreshold
+          , fixFreeform = False
+          , smoothFrets = False
+          , sustainGap = 60
+          , detectMutedOpens = True
           }
         })
       , ( FlexVocal, def
-        { partVocal = flip fmap vocalMode $ \vc -> PartVocal
-          { vocalDifficulty = toTier $ FoF.diffVocals song
-          , vocalCount = vc
-          , vocalGender = Nothing
-          , vocalKey = Nothing
-          , vocalLipsyncRB3 = Nothing
+        { vocal = flip fmap vocalMode $ \vc -> PartVocal
+          { difficulty = toTier $ FoF.diffVocals song
+          , count = vc
+          , gender = Nothing
+          , key = Nothing
+          , lipsyncRB3 = Nothing
           }
         })
       , ( FlexExtra "global", def
-        { partDance = guard (isnt nullDance RBFile.fixedPartDance && guardDifficulty FoF.diffDance) >> Just PartDance
-          { danceDifficulty = toTier $ FoF.diffDance song
+        { dance = guard (isnt nullDance RBFile.fixedPartDance && guardDifficulty FoF.diffDance) >> Just PartDance
+          { difficulty = toTier $ FoF.diffDance song
           }
         })
       ]

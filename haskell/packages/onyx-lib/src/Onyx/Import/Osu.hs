@@ -125,9 +125,9 @@ importOsu separateSongs f = do
           authors -> Just $ T.intercalate ", " authors
         }
       , global = def'
-        { _backgroundVideo = Nothing -- TODO
-        , _fileBackgroundImage = background
-        , _fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
+        { backgroundVideo = Nothing -- TODO
+        , fileBackgroundImage = background
+        , fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
           ImportFull  -> timingMid
             { F.s_tracks = mempty
               { F.onyxParts = Map.fromList $ do
@@ -143,7 +143,7 @@ importOsu separateSongs f = do
               }
             }
           ImportQuick -> emptyChart
-        , _fileSongAnim = Nothing
+        , fileSongAnim = Nothing
         }
       , jammit = HM.empty
       , audio = HM.singleton "osu-audio-file" $ AudioFile AudioInfo
@@ -175,12 +175,12 @@ importOsu separateSongs f = do
         (partName, track) <- mania
         return $ (partName, case track of
           Left _five -> def
-            { partGRYBO = Just def
+            { grybo = Just def
             }
           Right _pk -> def
-            { partProKeys = Just PartProKeys
-              { pkDifficulty  = Tier 1
-              , pkFixFreeform = True
+            { proKeys = Just PartProKeys
+              { difficulty  = Tier 1
+              , fixFreeform = True
               }
             }
           )

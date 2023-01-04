@@ -34,7 +34,7 @@ data FrameMessage
 
 forkFrameLoader :: ((MessageLevel, Message) -> IO ()) -> VideoInfo FilePath -> IO FrameLoader
 forkFrameLoader logger vi = do
-  let videoPath = vi._fileVideo
+  let videoPath = vi.fileVideo
   queue <- newTChanIO
   ref <- newIORef Nothing
   let logResult f = f >>= \case
@@ -79,8 +79,8 @@ forkFrameLoader logger vi = do
     (num, den) <- stackIO $ stream_time_base stream
     let resolution = realToFrac num / realToFrac den :: Double
     duration <- stackIO $ avfc_duration ctx
-    let videoStart = maybe 0 realToFrac vi._videoStartTime
-        videoEnd = maybe duration realToFrac vi._videoEndTime
+    let videoStart = maybe 0 realToFrac vi.videoStartTime
+        videoEnd = maybe duration realToFrac vi.videoEndTime
         playLength = videoEnd - videoStart
     cctx <- res (avcodec_alloc_context3 codec) $ \c -> with c avcodec_free_context
     check_ "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context cctx params
@@ -114,7 +114,7 @@ forkFrameLoader logger vi = do
               thisTimeMaybe = if thisTimeNoLoop < 0
                 then Nothing -- before start of video
                 else if thisTimeNoLoop >= videoEnd
-                  then if vi._videoLoop
+                  then if vi.videoLoop
                     then Just $ videoStart + mod' thisTimeMIDI playLength
                     else Nothing -- after end of video
                   else Just thisTimeNoLoop
