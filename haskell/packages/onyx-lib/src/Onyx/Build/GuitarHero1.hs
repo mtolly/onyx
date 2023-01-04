@@ -312,7 +312,7 @@ gh1Rules buildInfo dir gh1 = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan gh1.gh1_Common.tgt_Plan songYaml of
+  (planName, plan) <- case getPlan gh1.gh1_Common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh1
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName

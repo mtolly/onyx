@@ -1,6 +1,8 @@
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Build.GuitarHero3 (gh3Rules) where
 
 import           Control.Monad                     (forM_, guard, when)
@@ -86,7 +88,7 @@ gh3Rules buildInfo dir gh3 = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan gh3.gh3_Common.tgt_Plan songYaml of
+  (planName, plan) <- case getPlan gh3.gh3_Common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh3
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
@@ -453,7 +455,7 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
       Just pg -> (RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart, pg.hopoThreshold, pg.detectMutedOpens)
       Nothing -> let
         trk' = case getPart fpart songYaml >>= (.drums) of
-          Just _pd -> case buildDrums fpart (Left def { rb3_2xBassPedal = True }) song timing songYaml of
+          Just _pd -> case buildDrums fpart (Left (def :: TargetRB3) { is2xBassPedal = True }) song timing songYaml of
             Just drums -> drumsToFive song drums
             Nothing    -> mempty
           Nothing -> mempty

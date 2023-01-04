@@ -3,7 +3,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields        #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Neversoft where
 
 import           Control.Applicative              ((<|>))
@@ -185,13 +185,13 @@ importGH5WoR src folder = do
               }
             , targets = HM.empty
             , parts = Parts $ HM.fromList
-              [ (RBFile.FlexGuitar, def
+              [ (RBFile.FlexGuitar, (emptyPart :: Part SoftFile)
                 { grybo = readTier (songTierGuitar info) $ \diff -> def { difficulty = diff }
                 })
-              , (RBFile.FlexBass, def
+              , (RBFile.FlexBass, (emptyPart :: Part SoftFile)
                 { grybo = readTier (songTierBass info) $ \diff -> def { difficulty = diff }
                 })
-              , (RBFile.FlexDrums, def
+              , (RBFile.FlexDrums, (emptyPart :: Part SoftFile)
                 { drums = readTier (songTierDrums info) $ \diff -> PartDrums
                   { mode        = Drums5
                   , difficulty  = diff
@@ -206,7 +206,7 @@ importGH5WoR src folder = do
                   , fullLayout  = FDStandard
                   }
                 })
-              , (RBFile.FlexVocal, def
+              , (RBFile.FlexVocal, (emptyPart :: Part SoftFile)
                 { vocal = readTier (songTierVocals info) $ \diff -> PartVocal
                   { difficulty = diff
                   , count      = Vocal1
@@ -489,11 +489,11 @@ importGH3Song gh3i = let
           }
       , targets = HM.empty
       , parts = Parts $ HM.fromList $ catMaybes
-        [ Just (RBFile.FlexGuitar, def { grybo = Just def })
-        , guard (hasRealCoop && hasCoopGems) >> Just (coopPart, def { grybo = Just def })
+        [ Just (RBFile.FlexGuitar, emptyPart { grybo = Just def })
+        , guard (hasRealCoop && hasCoopGems) >> Just (coopPart, emptyPart { grybo = Just def })
         , do
           guard $ maybe False (not . RTB.null . fdGems) $ Map.lookup Expert $ fdDifficulties drums
-          Just (RBFile.FlexDrums, def
+          Just (RBFile.FlexDrums, emptyPart
             { drums = Just PartDrums
               { difficulty  = Tier 1
               , mode        = DrumsFull

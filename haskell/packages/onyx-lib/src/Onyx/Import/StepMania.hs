@@ -9,7 +9,6 @@ import           Control.Monad.Extra                  (firstJustM, guard, when)
 import           Control.Monad.IO.Class               (MonadIO)
 import           Data.Char                            (isAlphaNum, toLower)
 import qualified Data.Conduit.Audio                   as CA
-import           Data.Default.Class                   (def)
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
 import qualified Data.HashMap.Strict                  as HM
@@ -293,7 +292,7 @@ importSM src level = do
       , fileTempo = Nothing
       }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton (F.FlexExtra "global") def
+    , parts = Parts $ HM.singleton (F.FlexExtra "global") emptyPart
       { dance = Just PartDance
         { difficulty = Tier $ max 1 $ let
           -- as a hack, get max meter value and subtract 4 (so 10 becomes 6)

@@ -72,7 +72,7 @@ gh5Rules buildInfo dir gh5 = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan gh5.gh5_Common.tgt_Plan songYaml of
+  (planName, plan) <- case getPlan gh5.gh5_Common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh5
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName

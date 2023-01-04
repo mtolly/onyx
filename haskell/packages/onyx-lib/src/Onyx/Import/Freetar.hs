@@ -183,7 +183,7 @@ importFreetar sng level = do
         }
       in ("freetar", plan)
     , targets = HM.empty
-    , parts = Parts $ HM.singleton RBFile.FlexGuitar def
+    , parts = Parts $ HM.singleton RBFile.FlexGuitar emptyPart
       { grybo = Just def
       }
     }

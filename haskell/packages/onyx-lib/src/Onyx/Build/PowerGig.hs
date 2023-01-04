@@ -72,7 +72,7 @@ pgRules buildInfo dir pg = do
       objDrumCrash  = dir </> "pk/Audio/songs" </> k </> "samples" </> (k <> "_crash_iso.xma")
       objLua        = dir </> "pk/Scripting/Songs" </> (k <> ".lua")
 
-  (planName, _plan) <- case getPlan pg.pg_Common.tgt_Plan songYaml of
+  (planName, _plan) <- case getPlan pg.pg_Common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show pg
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName

@@ -342,7 +342,7 @@ buildDrums drumsPart target (RBFile.Song tempos mmap trks) timing@BasicTiming{..
       $ enableDynamics
       $ case target of
         Left rb3 -> drumEachDiff (\dd -> dd { drumPSModifiers = RTB.empty }) $
-          if rb3.rb3_2xBassPedal
+          if rb3.is2xBassPedal
             then rockBand2x ps2x
             else rockBand1x ps1x
         Right _ -> psPS { drumOverdrive = fixTapOff $ drumOverdrive psPS }
@@ -435,18 +435,18 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
     target' = case target of
       Left _rb3 -> target
       Right ps  -> Left TargetRB3
-        { rb3_Common      = ps.ps_Common
-        , rb3_2xBassPedal = True -- assume 2x
-        , rb3_SongID      = SongIDAutoSymbol
-        , rb3_Version     = Nothing
-        , rb3_Harmonix    = False
-        , rb3_Magma       = MagmaRequire
-        , rb3_Guitar      = ps.ps_Guitar
-        , rb3_Bass        = ps.ps_Bass
-        , rb3_Drums       = ps.ps_Drums
-        , rb3_Keys        = ps.ps_Keys
-        , rb3_Vocal       = ps.ps_Vocal
-        , rb3_PS3Encrypt  = True
+        { common      = ps.ps_Common
+        , is2xBassPedal = True -- assume 2x
+        , songID      = SongIDAutoSymbol
+        , version     = Nothing
+        , harmonix    = False
+        , magma       = MagmaRequire
+        , guitar      = ps.ps_Guitar
+        , bass        = ps.ps_Bass
+        , drums       = ps.ps_Drums
+        , keys        = ps.ps_Keys
+        , vocal       = ps.ps_Vocal
+        , ps3Encrypt  = True
         }
     in case buildDrums fivePart target' song timing songYaml of
       Nothing    -> Nothing
@@ -555,12 +555,12 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
   let targetPS = case target of
         Right tps -> tps
         Left trb3 -> TargetPS
-          { ps_Common        = trb3.rb3_Common
-          , ps_Guitar        = trb3.rb3_Guitar
-          , ps_Bass          = trb3.rb3_Bass
-          , ps_Drums         = trb3.rb3_Drums
-          , ps_Keys          = trb3.rb3_Keys
-          , ps_Vocal         = trb3.rb3_Vocal
+          { ps_Common        = trb3.common
+          , ps_Guitar        = trb3.guitar
+          , ps_Bass          = trb3.bass
+          , ps_Drums         = trb3.drums
+          , ps_Keys          = trb3.keys
+          , ps_Vocal         = trb3.vocal
           , ps_Rhythm        = RBFile.FlexExtra "undefined"
           , ps_GuitarCoop    = RBFile.FlexExtra "undefined"
           , ps_Dance         = RBFile.FlexExtra "undefined"
@@ -599,14 +599,14 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       eventsTrackPS = eventsTrack
         { eventsSections = makePSSection . snd <$> eventsSections eventsTrack
         }
-      drumsPart = either (.rb3_Drums) (.ps_Drums) target
+      drumsPart = either (.drums) (.ps_Drums) target
       drumsTrack = case buildDrums drumsPart target input timing songYaml of
         Nothing -> mempty
         Just dt -> setDrumMix mixMode dt
       makeGRYBOTrack toKeys fpart = fromMaybe mempty $ buildFive fpart target input timing toKeys songYaml
 
-      guitarPart = either (.rb3_Guitar) (.ps_Guitar) target
-      bassPart = either (.rb3_Bass) (.ps_Bass) target
+      guitarPart = either (.guitar) (.ps_Guitar) target
+      bassPart = either (.bass) (.ps_Bass) target
 
       -- TODO: pgHopoThreshold
       makeProGtrTracks gtype fpart = case getPart fpart songYaml >>= (.proGuitar) of
@@ -699,7 +699,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
           $ sixGems sd
           ) $ RBFile.onyxPartSix $ RBFile.getFlexPart bassPart trks
 
-      keysPart = either (.rb3_Keys) (.ps_Keys) target
+      keysPart = either (.keys) (.ps_Keys) target
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of
         Nothing -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
         Just part -> case (part.grybo, part.drums, part.proKeys) of
@@ -764,7 +764,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
                 , keysEasy
                 )
 
-  let vocalPart = either (.rb3_Vocal) (.ps_Vocal) target
+  let vocalPart = either (.vocal) (.ps_Vocal) target
       voxCount = fmap (.count) $ getPart vocalPart songYaml >>= (.vocal)
       partVox = RBFile.onyxPartVocals $ RBFile.getFlexPart vocalPart trks
       harm1   = RBFile.onyxHarm1 $ RBFile.getFlexPart vocalPart trks

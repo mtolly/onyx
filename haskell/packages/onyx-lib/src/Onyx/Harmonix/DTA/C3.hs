@@ -68,12 +68,12 @@ makeC3DTAComments :: Metadata f -> Plan f -> TargetRB3 -> C3DTAComments
 makeC3DTAComments meta plan rb3 = C3DTAComments
   { c3dtaCreatedUsing = Just $ T.pack $ "Onyx Music Game Toolkit version " <> showVersion version
   , c3dtaAuthoredBy   = Just $ getAuthor meta
-  , c3dtaSong         = Just $ fromMaybe (getTitle meta) rb3.rb3_Common.tgt_Title
+  , c3dtaSong         = Just $ fromMaybe (getTitle meta) rb3.common.title
   , c3dtaLanguages    = Just meta.languages
   , c3dtaKaraoke      = Just $ getKaraoke plan
   , c3dtaMultitrack   = Just $ getMultitrack plan
   , c3dtaConvert      = Just meta.convert
-  , c3dta2xBass       = Just rb3.rb3_2xBassPedal
+  , c3dta2xBass       = Just rb3.is2xBassPedal
   , c3dtaRhythmKeys   = Just meta.rhythmKeys
   , c3dtaRhythmBass   = Just meta.rhythmBass
   , c3dtaCATemh       = Just meta.catEMH

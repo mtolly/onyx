@@ -11,7 +11,7 @@
 {-# LANGUAGE StrictData            #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields        #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.GuitarHero2 where
 
 import           Control.Arrow                    (second)
@@ -163,28 +163,28 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
   , parts = Parts $ HM.fromList $ catMaybes
     [ do
       guard $ maybe False (not . null) $ lookup "guitar" $ D.fromDictList $ tracks songChunk
-      return $ (RBFile.FlexGuitar ,) def
+      return (RBFile.FlexGuitar, emptyPart
         { grybo = Just (def :: PartGRYBO)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
           , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songguitarrank)
           }
-        }
+        })
     , do
       guard $ maybe False (not . null) $ lookup "bass" $ D.fromDictList $ tracks songChunk
-      return $ (RBFile.FlexBass ,) def
+      return (RBFile.FlexBass, emptyPart
         { grybo = Just (def :: PartGRYBO)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
           , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songbassrank)
           }
-        }
+        })
     , do
       guard $ maybe False (not . null) $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
-      return $ (RBFile.FlexExtra "rhythm" ,) def
+      return (RBFile.FlexExtra "rhythm", emptyPart
         { grybo = Just (def :: PartGRYBO)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
           , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
           }
-        }
+        })
     ]
   }
 

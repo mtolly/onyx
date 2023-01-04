@@ -74,11 +74,11 @@ makePS3Name num songYaml
 
 targetTitle :: SongYaml f -> Target -> T.Text
 targetTitle songYaml target = let
-  base = fromMaybe (getTitle songYaml.metadata) $ (targetCommon target).tgt_Title
+  base = fromMaybe (getTitle songYaml.metadata) $ (targetCommon target).title
   in addTitleSuffix target base
 
 targetTitleJP :: SongYaml f -> Target -> Maybe T.Text
-targetTitleJP songYaml target = case (targetCommon target).tgt_Title of
+targetTitleJP songYaml target = case (targetCommon target).title of
   Just _  -> Nothing -- TODO do we need JP title on targets also
   Nothing -> case songYaml.metadata.titleJP of
     Nothing   -> Nothing
@@ -88,20 +88,20 @@ addTitleSuffix :: Target -> T.Text -> T.Text
 addTitleSuffix target base = let
   common = targetCommon target
   segments = base : case target of
-    RB3 TargetRB3{..} -> makeLabel []                               rb3_2xBassPedal
-    RB2 TargetRB2{..} -> makeLabel ["(RB2 version)" | rb2_LabelRB2] rb2_2xBassPedal
-    _                 -> makeLabel []                               False
-  makeLabel sfxs is2x = case common.tgt_Label of
+    RB3 x -> makeLabel []                             x.is2xBassPedal
+    RB2 x -> makeLabel ["(RB2 version)" | x.labelRB2] x.is2xBassPedal
+    _     -> makeLabel []                             False
+  makeLabel sfxs is2x = case common.label_ of
     Just lbl -> [lbl]
     Nothing  -> concat
-      [ case common.tgt_Speed of
+      [ case common.speed of
         Nothing  -> []
         Just 1   -> []
         Just spd -> let
           intSpeed :: Int
           intSpeed = round $ spd * 100
           in ["(" <> T.pack (show intSpeed) <> "% Speed)"]
-      , ["(2x Bass Pedal)" | is2x && common.tgt_Label2x]
+      , ["(2x Bass Pedal)" | is2x && common.label2x]
       , sfxs
       ]
   in T.intercalate " " segments
@@ -125,7 +125,7 @@ crawlFolderBytes p = stackIO $ fmap (first TE.encodeUtf8) $ crawlFolder p
 applyTargetMIDI :: TargetCommon -> RBFile.Song (RBFile.OnyxFile U.Beats) -> RBFile.Song (RBFile.OnyxFile U.Beats)
 applyTargetMIDI tgt mid = let
   eval = fmap (U.unapplyTempoMap $ RBFile.s_tempos mid) . evalPreviewTime False (Just RBFile.getEventsTrack) mid 0 False
-  applyEnd = case tgt.tgt_End >>= eval . (.seg_Notes) of
+  applyEnd = case tgt.end >>= eval . (.notes) of
     Nothing -> id
     Just notesEnd -> \m -> m
       { RBFile.s_tracks
@@ -133,7 +133,7 @@ applyTargetMIDI tgt mid = let
         $ RBFile.s_tracks m
       -- the RockBand3 module process functions will remove tempos and sigs after [end]
       }
-  applyStart = case tgt.tgt_Start >>= \seg -> liftA2 (,) (eval seg.seg_FadeStart) (eval seg.seg_Notes) of
+  applyStart = case tgt.start >>= \seg -> liftA2 (,) (eval seg.fadeStart) (eval seg.notes) of
     Nothing -> id
     Just (audioStart, notesStart) -> \m -> m
       { RBFile.s_tracks
@@ -165,7 +165,7 @@ applyTargetMIDI tgt mid = let
                       _ : _ -> keep -- after the partial bar there's an existing signature
                       []    -> Wait partial sig afterPartial -- continue with the pre-cut signature
       }
-  applySpeed = case fromMaybe 1 tgt.tgt_Speed of
+  applySpeed = case fromMaybe 1 tgt.speed of
     1     -> id
     speed -> \m -> m
       { RBFile.s_tempos
@@ -184,13 +184,13 @@ lastEvent RNil             = Nothing
 applyTargetLength :: TargetCommon -> RBFile.Song (f U.Beats) -> U.Seconds -> U.Seconds
 applyTargetLength tgt mid = let
   -- TODO get Events track to support sections as segment boundaries
-  applyEnd = case tgt.tgt_End >>= evalPreviewTime False Nothing mid 0 False . (.seg_FadeEnd) of
+  applyEnd = case tgt.end >>= evalPreviewTime False Nothing mid 0 False . (.fadeEnd) of
     Nothing   -> id
     Just secs -> min secs
-  applyStart = case tgt.tgt_Start >>= evalPreviewTime False Nothing mid 0 False . (.seg_FadeStart) of
+  applyStart = case tgt.start >>= evalPreviewTime False Nothing mid 0 False . (.fadeStart) of
     Nothing   -> id
     Just secs -> subtract secs
-  applySpeed t = t / realToFrac (fromMaybe 1 tgt.tgt_Speed)
+  applySpeed t = t / realToFrac (fromMaybe 1 tgt.speed)
   in applySpeed . applyStart . applyEnd
 
 getAudioLength :: BuildInfo -> T.Text -> Plan f -> Staction U.Seconds
@@ -470,20 +470,20 @@ applyTargetAudio :: (MonadResource m) => TargetCommon -> RBFile.Song f -> AudioS
 applyTargetAudio tgt mid = let
   eval = evalPreviewTime False Nothing mid 0 False -- TODO get Events track to support sections as segment boundaries
   bounds :: SegmentEdge -> Maybe (U.Seconds, U.Seconds)
-  bounds seg = liftA2 (,) (eval seg.seg_FadeStart) (eval seg.seg_FadeEnd)
+  bounds seg = liftA2 (,) (eval seg.fadeStart) (eval seg.fadeEnd)
   toDuration :: U.Seconds -> Duration
   toDuration = Seconds . realToFrac
-  applyEnd = case tgt.tgt_End >>= bounds of
+  applyEnd = case tgt.end >>= bounds of
     Nothing           -> id
     Just (start, end) -> fadeEnd (toDuration $ end - start) . takeStart (toDuration end)
-  applyStart = case tgt.tgt_Start >>= bounds of
+  applyStart = case tgt.start >>= bounds of
     Nothing           -> id
     Just (start, end) -> fadeStart (toDuration $ end - start) . dropStart (toDuration start)
   applySpeed = applySpeedAudio tgt
   in applySpeed . applyStart . applyEnd
 
 applySpeedAudio :: (MonadResource m) => TargetCommon -> AudioSource m Float -> AudioSource m Float
-applySpeedAudio tgt = case fromMaybe 1 tgt.tgt_Speed of
+applySpeedAudio tgt = case fromMaybe 1 tgt.speed of
   1 -> id
   n -> stretchFull (1 / n) 1
 

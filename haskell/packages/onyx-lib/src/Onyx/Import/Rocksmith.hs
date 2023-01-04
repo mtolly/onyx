@@ -549,7 +549,7 @@ importRSSong folder song level = do
       }
     , parts = Parts $ HM.fromList $ do
       ((_, partName), sng, _, _, isBass, tones) <- namedParts
-      let part = def
+      let part = emptyPart
             { proGuitar = Just PartProGuitar
               { difficulty    = Tier 1
               , hopoThreshold = 170

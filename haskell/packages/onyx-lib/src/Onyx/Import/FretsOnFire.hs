@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TupleSections         #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.FretsOnFire where
 
 import           Codec.Picture                    (PixelRGBA8 (..),
@@ -492,7 +493,7 @@ importFoF src level = do
       { ps_LoadingPhrase = FoF.loadingPhrase song
       }
     , parts = Parts $ HM.fromList
-      [ ( FlexDrums, def
+      [ ( FlexDrums, (emptyPart :: Part SoftFile)
         { drums = guard ((isnt nullDrums RBFile.fixedPartDrums || isnt nullDrums RBFile.fixedPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums
           { difficulty = toTier $ FoF.diffDrums song
           , mode = let
@@ -519,7 +520,7 @@ importFoF src level = do
           , fullLayout = FDStandard
           }
         })
-      , ( FlexGuitar, def
+      , ( FlexGuitar, (emptyPart :: Part SoftFile)
         { grybo = guard (isnt RBFive.nullFive RBFile.fixedPartGuitar && guardDifficulty FoF.diffGuitar) >> Just PartGRYBO
           { difficulty = toTier $ FoF.diffGuitar song
           , hopoThreshold = hopoThreshold
@@ -545,7 +546,7 @@ importFoF src level = do
           , hopoThreshold = hopoThreshold
           }
         })
-      , ( FlexBass, def
+      , ( FlexBass, (emptyPart :: Part SoftFile)
         { grybo = guard hasBass >> Just PartGRYBO
           { difficulty = toTier $ FoF.diffBass song
           , hopoThreshold = hopoThreshold
@@ -571,7 +572,7 @@ importFoF src level = do
           , hopoThreshold = hopoThreshold
           }
         })
-      , ( FlexKeys, def
+      , ( FlexKeys, (emptyPart :: Part SoftFile)
         { grybo = guard (isnt RBFive.nullFive RBFile.fixedPartKeys && guardDifficulty FoF.diffKeys) >> Just PartGRYBO
           { difficulty = toTier $ FoF.diffKeys song
           , hopoThreshold = hopoThreshold
@@ -585,7 +586,7 @@ importFoF src level = do
           , fixFreeform = False
           }
         })
-      , ( FlexExtra "rhythm", def
+      , ( FlexExtra "rhythm", (emptyPart :: Part SoftFile)
         { grybo = guard hasRhythm >> Just PartGRYBO
           { difficulty = toTier $ FoF.diffRhythm song
           , hopoThreshold = hopoThreshold
@@ -595,7 +596,7 @@ importFoF src level = do
           , detectMutedOpens = True
           }
         })
-      , ( FlexExtra "guitar-coop", def
+      , ( FlexExtra "guitar-coop", (emptyPart :: Part SoftFile)
         { grybo = guard (isnt RBFive.nullFive RBFile.fixedPartGuitarCoop && guardDifficulty FoF.diffGuitarCoop) >> Just PartGRYBO
           { difficulty = toTier $ FoF.diffGuitarCoop song
           , hopoThreshold = hopoThreshold
@@ -605,7 +606,7 @@ importFoF src level = do
           , detectMutedOpens = True
           }
         })
-      , ( FlexVocal, def
+      , ( FlexVocal, (emptyPart :: Part SoftFile)
         { vocal = flip fmap vocalMode $ \vc -> PartVocal
           { difficulty = toTier $ FoF.diffVocals song
           , count = vc
@@ -614,7 +615,7 @@ importFoF src level = do
           , lipsyncRB3 = Nothing
           }
         })
-      , ( FlexExtra "global", def
+      , ( FlexExtra "global", (emptyPart :: Part SoftFile)
         { dance = guard (isnt nullDance RBFile.fixedPartDance && guardDifficulty FoF.diffDance) >> Just PartDance
           { difficulty = toTier $ FoF.diffDance song
           }

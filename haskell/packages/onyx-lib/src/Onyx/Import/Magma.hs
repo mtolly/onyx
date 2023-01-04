@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Magma where
 
 import           Control.Monad                     (guard, when)
@@ -137,14 +138,14 @@ importMagma fin level = do
         Just c3file -> (C3.song c3file, C3.is2xBass c3file)
       -- TODO support dual 1x+2x projects
       targetName = if is2x then "rb3-2x" else "rb3"
-      target = def
-        { rb3_2xBassPedal = is2x
-        , rb3_SongID = case c3 of
+      target = (def :: TargetRB3)
+        { is2xBassPedal = is2x
+        , songID = case c3 of
           Nothing -> SongIDAutoSymbol
           Just c3file -> if C3.useNumericID c3file
             then maybe SongIDAutoSymbol SongIDSymbol $ readMaybe $ T.unpack (C3.uniqueNumericID c3file)
             else case C3.customID c3file of "" -> SongIDAutoSymbol; cid -> SongIDSymbol cid
-        , rb3_Version = fromIntegral . C3.version <$> c3
+        , version = fromIntegral . C3.version <$> c3
         }
 
   let readTuning c3fn k = case c3 >>= c3fn of
@@ -235,7 +236,7 @@ importMagma fin level = do
       }
     , targets = HM.singleton targetName $ RB3 target
     , parts = Parts $ HM.fromList
-      [ ( FlexDrums, def
+      [ ( FlexDrums, (emptyPart :: Part SoftFile)
         { drums = guard (isJust drums) >> Just PartDrums
           { difficulty = Tier $ RBProj.rankDrum $ RBProj.gamedata rbproj
           , mode = DrumsPro -- TODO set to Drums4 for magma v1?
@@ -255,7 +256,7 @@ importMagma fin level = do
           , fullLayout = FDStandard
           }
         })
-      , ( FlexGuitar, def
+      , ( FlexGuitar, emptyPart
         { grybo = guard (isJust gtr) >> Just PartGRYBO
           { difficulty = Tier $ RBProj.rankGuitar $ RBProj.gamedata rbproj
           , hopoThreshold = hopoThresh
@@ -281,7 +282,7 @@ importMagma fin level = do
             , tuningRSBass = Nothing
             }
         })
-      , ( FlexBass, def
+      , ( FlexBass, emptyPart
         { grybo = guard (isJust bass) >> Just PartGRYBO
           { difficulty = Tier $ RBProj.rankBass $ RBProj.gamedata rbproj
           , hopoThreshold = hopoThresh
@@ -307,7 +308,7 @@ importMagma fin level = do
             , tuningRSBass = Nothing
             }
         })
-      , ( FlexKeys, def
+      , ( FlexKeys, emptyPart
         { grybo = guard (isJust keys) >> Just PartGRYBO
           { difficulty = Tier $ RBProj.rankKeys $ RBProj.gamedata rbproj
           , hopoThreshold = hopoThresh
@@ -321,7 +322,7 @@ importMagma fin level = do
           , fixFreeform = False
           }
         })
-      , ( FlexVocal, def
+      , ( FlexVocal, (emptyPart :: Part SoftFile)
         { vocal = guard (isJust vox) >> Just PartVocal
           { difficulty = Tier $ RBProj.rankVocals $ RBProj.gamedata rbproj
           , count = if

@@ -9,7 +9,6 @@ module Onyx.Import.Amplitude2016 where
 
 import           Control.Monad.Extra                   (guard)
 import           Control.Monad.IO.Class                (MonadIO)
-import           Data.Default.Class                    (def)
 import qualified Data.HashMap.Strict                   as HM
 import qualified Data.Map                              as Map
 import qualified Data.Text                             as T
@@ -85,5 +84,5 @@ importAmplitude fin _level = do
     , targets = HM.empty
     , parts = Parts $ HM.fromList $ do
       (name, _, inst, _) <- parts
-      return (name, def { amplitude = Just $ PartAmplitude inst })
+      return (name, emptyPart { amplitude = Just $ PartAmplitude inst })
     }

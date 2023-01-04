@@ -4,6 +4,7 @@
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TupleSections         #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.RockRevolution where
 
 import           Control.Concurrent.Async         (concurrently)
@@ -297,13 +298,13 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
       , fileTempo = Nothing
       }
     , parts = Parts $ HM.fromList
-      [ (RBFile.FlexGuitar, def
+      [ (RBFile.FlexGuitar, emptyPart
         { grybo = Just def
         })
-      , (RBFile.FlexBass, def
+      , (RBFile.FlexBass, emptyPart
         { grybo = Just def
         })
-      , (RBFile.FlexDrums, def
+      , (RBFile.FlexDrums, (emptyPart :: Part SoftFile)
         { drums = Just PartDrums
           { difficulty = Tier 1
           , mode = DrumsFull

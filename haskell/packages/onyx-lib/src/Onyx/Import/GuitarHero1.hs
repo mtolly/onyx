@@ -244,7 +244,7 @@ importGH1Song pkg path gen level = do
         , fileTempo = Nothing
         }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton RBFile.FlexGuitar $ def
+    , parts = Parts $ HM.singleton RBFile.FlexGuitar emptyPart
       { grybo = Just def
       }
     }

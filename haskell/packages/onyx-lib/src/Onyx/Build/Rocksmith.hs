@@ -53,7 +53,7 @@ rsRules buildInfo dir rs = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan rs.rs_Common.tgt_Plan songYaml of
+  (planName, plan) <- case getPlan rs.rs_Common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rs
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName

@@ -7,7 +7,6 @@ module Onyx.Import.BMS where
 import           Control.Monad                    (forM, guard)
 import           Control.Monad.IO.Class           (MonadIO)
 import qualified Data.Conduit.Audio               as CA
-import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
@@ -169,10 +168,10 @@ importBMS bmsPath level = do
         , (FlexExtra "player2", bms_Player2 bms)
         ]
       guard $ not $ RTB.null chips
-      return $ (fpart,) def
+      return (fpart, emptyPart
         { proKeys = Just PartProKeys
           { difficulty  = Tier 1
           , fixFreeform = True
           }
-        }
+        })
     }

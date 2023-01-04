@@ -44,7 +44,8 @@ import qualified Data.Vector                          as V
 import           GHC.Generics                         (Generic (..))
 import qualified Numeric.NonNegative.Class            as NNC
 import qualified Onyx.Amplitude.File                  as Amp
-import           Onyx.Audio
+import           Onyx.Audio                           hiding (fadeEnd,
+                                                       fadeStart)
 import           Onyx.Codec.Common
 import           Onyx.Codec.JSON
 import           Onyx.DeriveHelpers
@@ -916,8 +917,8 @@ instance (Eq f, StackJSON f) => StackJSON (Part f) where
     dance     <- (.dance    ) =. opt Nothing "dance"      stackJSON
     return Part{..}
 
-instance Default (Part f) where
-  def = Part Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+emptyPart :: Part f
+emptyPart = Part Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 instance StackJSON Magma.AutogenTheme where
   stackJSON = enumCodecFull "the name of an autogen theme or null" $ \case
@@ -1087,40 +1088,40 @@ getYear        = fromMaybe 1960 . (.year)
 getTrackNumber = fromMaybe 1    . (.trackNumber)
 
 data TargetCommon = TargetCommon
-  { tgt_Speed   :: Maybe Double
-  , tgt_Plan    :: Maybe T.Text
-  , tgt_Title   :: Maybe T.Text -- override base song title
-  , tgt_Label   :: Maybe T.Text -- suffix after title
-  , tgt_Label2x :: Bool -- if automatic label and 2x drums, should we add (2x Bass Pedal)
-  , tgt_Start   :: Maybe SegmentEdge
-  , tgt_End     :: Maybe SegmentEdge
+  { speed   :: Maybe Double
+  , plan    :: Maybe T.Text
+  , title   :: Maybe T.Text -- override base song title
+  , label_  :: Maybe T.Text -- suffix after title
+  , label2x :: Bool -- if automatic label and 2x drums, should we add (2x Bass Pedal)
+  , start   :: Maybe SegmentEdge
+  , end     :: Maybe SegmentEdge
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetCommon :: (SendMessage m) => ObjectCodec m A.Value TargetCommon
 parseTargetCommon = do
-  tgt_Speed   <- (.tgt_Speed  ) =. opt Nothing "speed"    stackJSON
-  tgt_Plan    <- (.tgt_Plan   ) =. opt Nothing "plan"     stackJSON
-  tgt_Title   <- (.tgt_Title  ) =. opt Nothing "title"    stackJSON
-  tgt_Label   <- (.tgt_Label  ) =. opt Nothing "label"    stackJSON
-  tgt_Label2x <- (.tgt_Label2x) =. opt True    "label-2x" stackJSON
-  tgt_Start   <- (.tgt_Start  ) =. opt Nothing "start"    stackJSON
-  tgt_End     <- (.tgt_End    ) =. opt Nothing "end"      stackJSON
+  speed   <- (.speed  ) =. opt Nothing "speed"    stackJSON
+  plan    <- (.plan   ) =. opt Nothing "plan"     stackJSON
+  title   <- (.title  ) =. opt Nothing "title"    stackJSON
+  label_  <- (.label_ ) =. opt Nothing "label"    stackJSON
+  label2x <- (.label2x) =. opt True    "label-2x" stackJSON
+  start   <- (.start  ) =. opt Nothing "start"    stackJSON
+  end     <- (.end    ) =. opt Nothing "end"      stackJSON
   return TargetCommon{..}
 
 instance Default TargetCommon where
   def = TargetCommon Nothing Nothing Nothing Nothing True Nothing Nothing
 
 data SegmentEdge = SegmentEdge
-  { seg_FadeStart :: PreviewTime
-  , seg_FadeEnd   :: PreviewTime
-  , seg_Notes     :: PreviewTime
+  { fadeStart :: PreviewTime
+  , fadeEnd   :: PreviewTime
+  , notes     :: PreviewTime
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseSegmentEdge :: (SendMessage m) => ObjectCodec m A.Value SegmentEdge
 parseSegmentEdge = do
-  seg_FadeStart <- (.seg_FadeStart) =. req "fade-start" stackJSON
-  seg_FadeEnd   <- (.seg_FadeEnd  ) =. req "fade-end"   stackJSON
-  seg_Notes     <- (.seg_Notes    ) =. req "notes"      stackJSON
+  fadeStart <- (.fadeStart) =. req "fade-start" stackJSON
+  fadeEnd   <- (.fadeEnd  ) =. req "fade-end"   stackJSON
+  notes     <- (.notes    ) =. req "notes"      stackJSON
   return SegmentEdge{..}
 
 instance StackJSON SegmentEdge where
@@ -1150,34 +1151,34 @@ instance StackJSON RBSongID where
     }
 
 data TargetRB3 = TargetRB3
-  { rb3_Common      :: TargetCommon
-  , rb3_2xBassPedal :: Bool
-  , rb3_SongID      :: RBSongID
-  , rb3_Version     :: Maybe Integer
-  , rb3_Harmonix    :: Bool
-  , rb3_Magma       :: MagmaSetting
-  , rb3_Guitar      :: FlexPartName
-  , rb3_Bass        :: FlexPartName
-  , rb3_Drums       :: FlexPartName
-  , rb3_Keys        :: FlexPartName
-  , rb3_Vocal       :: FlexPartName
-  , rb3_PS3Encrypt  :: Bool
+  { common        :: TargetCommon
+  , is2xBassPedal :: Bool
+  , songID        :: RBSongID
+  , version       :: Maybe Integer
+  , harmonix      :: Bool
+  , magma         :: MagmaSetting
+  , guitar        :: FlexPartName
+  , bass          :: FlexPartName
+  , drums         :: FlexPartName
+  , keys          :: FlexPartName
+  , vocal         :: FlexPartName
+  , ps3Encrypt    :: Bool
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetRB3 :: (SendMessage m) => ObjectCodec m A.Value TargetRB3
 parseTargetRB3 = do
-  rb3_Common      <- (.rb3_Common     ) =. parseTargetCommon
-  rb3_2xBassPedal <- (.rb3_2xBassPedal) =. opt False        "2x-bass-pedal" stackJSON
-  rb3_SongID      <- (.rb3_SongID     ) =. fill SongIDAutoSymbol "song-id"  stackJSON
-  rb3_Version     <- (.rb3_Version    ) =. opt Nothing      "version"       stackJSON
-  rb3_Harmonix    <- (.rb3_Harmonix   ) =. opt False        "harmonix"      stackJSON
-  rb3_Magma       <- (.rb3_Magma      ) =. opt MagmaRequire "magma"         stackJSON
-  rb3_Guitar      <- (.rb3_Guitar     ) =. opt FlexGuitar   "guitar"        stackJSON
-  rb3_Bass        <- (.rb3_Bass       ) =. opt FlexBass     "bass"          stackJSON
-  rb3_Drums       <- (.rb3_Drums      ) =. opt FlexDrums    "drums"         stackJSON
-  rb3_Keys        <- (.rb3_Keys       ) =. opt FlexKeys     "keys"          stackJSON
-  rb3_Vocal       <- (.rb3_Vocal      ) =. opt FlexVocal    "vocal"         stackJSON
-  rb3_PS3Encrypt  <- (.rb3_PS3Encrypt ) =. opt True         "ps3-encrypt"   stackJSON
+  common        <- (.common       ) =. parseTargetCommon
+  is2xBassPedal <- (.is2xBassPedal) =. opt False        "2x-bass-pedal" stackJSON
+  songID        <- (.songID       ) =. fill SongIDAutoSymbol "song-id"  stackJSON
+  version       <- (.version      ) =. opt Nothing      "version"       stackJSON
+  harmonix      <- (.harmonix     ) =. opt False        "harmonix"      stackJSON
+  magma         <- (.magma        ) =. opt MagmaRequire "magma"         stackJSON
+  guitar        <- (.guitar       ) =. opt FlexGuitar   "guitar"        stackJSON
+  bass          <- (.bass         ) =. opt FlexBass     "bass"          stackJSON
+  drums         <- (.drums        ) =. opt FlexDrums    "drums"         stackJSON
+  keys          <- (.keys         ) =. opt FlexKeys     "keys"          stackJSON
+  vocal         <- (.vocal        ) =. opt FlexVocal    "vocal"         stackJSON
+  ps3Encrypt    <- (.ps3Encrypt   ) =. opt True         "ps3-encrypt"   stackJSON
   return TargetRB3{..}
 
 instance StackJSON TargetRB3 where
@@ -1245,32 +1246,32 @@ instance (Eq f, StackJSON f) => StackJSON (LipsyncSource f) where
     }
 
 data TargetRB2 = TargetRB2
-  { rb2_Common      :: TargetCommon
-  , rb2_2xBassPedal :: Bool
-  , rb2_SongID      :: RBSongID
-  , rb2_LabelRB2    :: Bool
-  , rb2_Version     :: Maybe Integer
-  , rb2_Magma       :: MagmaSetting -- this currently only affects Magma v2; v1 is always tried but optional
-  , rb2_Guitar      :: FlexPartName
-  , rb2_Bass        :: FlexPartName
-  , rb2_Drums       :: FlexPartName
-  , rb2_Vocal       :: FlexPartName
-  , rb2_PS3Encrypt  :: Bool
+  { common        :: TargetCommon
+  , is2xBassPedal :: Bool
+  , songID        :: RBSongID
+  , labelRB2      :: Bool
+  , version       :: Maybe Integer
+  , magma         :: MagmaSetting -- this currently only affects Magma v2; v1 is always tried but optional
+  , guitar        :: FlexPartName
+  , bass          :: FlexPartName
+  , drums         :: FlexPartName
+  , vocal         :: FlexPartName
+  , ps3Encrypt    :: Bool
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetRB2 :: (SendMessage m) => ObjectCodec m A.Value TargetRB2
 parseTargetRB2 = do
-  rb2_Common      <- (.rb2_Common     ) =. parseTargetCommon
-  rb2_2xBassPedal <- (.rb2_2xBassPedal) =. opt False        "2x-bass-pedal" stackJSON
-  rb2_SongID      <- (.rb2_SongID     ) =. fill SongIDAutoSymbol "song-id"  stackJSON
-  rb2_LabelRB2    <- (.rb2_LabelRB2   ) =. opt False        "label-rb2"     stackJSON
-  rb2_Version     <- (.rb2_Version    ) =. opt Nothing      "version"       stackJSON
-  rb2_Magma       <- (.rb2_Magma      ) =. opt MagmaRequire "magma"         stackJSON
-  rb2_Guitar      <- (.rb2_Guitar     ) =. opt FlexGuitar   "guitar"        stackJSON
-  rb2_Bass        <- (.rb2_Bass       ) =. opt FlexBass     "bass"          stackJSON
-  rb2_Drums       <- (.rb2_Drums      ) =. opt FlexDrums    "drums"         stackJSON
-  rb2_Vocal       <- (.rb2_Vocal      ) =. opt FlexVocal    "vocal"         stackJSON
-  rb2_PS3Encrypt  <- (.rb2_PS3Encrypt ) =. opt True         "ps3-encrypt"   stackJSON
+  common        <- (.common       ) =. parseTargetCommon
+  is2xBassPedal <- (.is2xBassPedal) =. opt False        "2x-bass-pedal" stackJSON
+  songID        <- (.songID       ) =. fill SongIDAutoSymbol "song-id"  stackJSON
+  labelRB2      <- (.labelRB2     ) =. opt False        "label-rb2"     stackJSON
+  version       <- (.version      ) =. opt Nothing      "version"       stackJSON
+  magma         <- (.magma        ) =. opt MagmaRequire "magma"         stackJSON
+  guitar        <- (.guitar       ) =. opt FlexGuitar   "guitar"        stackJSON
+  bass          <- (.bass         ) =. opt FlexBass     "bass"          stackJSON
+  drums         <- (.drums        ) =. opt FlexDrums    "drums"         stackJSON
+  vocal         <- (.vocal        ) =. opt FlexVocal    "vocal"         stackJSON
+  ps3Encrypt    <- (.ps3Encrypt   ) =. opt True         "ps3-encrypt"   stackJSON
   return TargetRB2{..}
 
 instance StackJSON TargetRB2 where
@@ -1578,14 +1579,14 @@ instance Default TargetPG where
   def = fromEmptyObject
 
 data TargetPart = TargetPart
-  { tgt_Common :: TargetCommon
-  , tgt_Part   :: FlexPartName
+  { common :: TargetCommon
+  , part   :: FlexPartName
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetPart :: (SendMessage m) => ObjectCodec m A.Value TargetPart
 parseTargetPart = do
-  tgt_Common <- (.tgt_Common) =. parseTargetCommon
-  tgt_Part   <- (.tgt_Part  ) =. opt (FlexExtra "global") "part" stackJSON
+  common <- (.common) =. parseTargetCommon
+  part   <- (.part  ) =. opt (FlexExtra "global") "part" stackJSON
   return TargetPart{..}
 
 instance StackJSON TargetPart where
@@ -1611,8 +1612,8 @@ data Target
 
 targetCommon :: Target -> TargetCommon
 targetCommon = \case
-  RB3    TargetRB3 {..} -> rb3_Common
-  RB2    TargetRB2 {..} -> rb2_Common
+  RB3    TargetRB3 {..} -> common
+  RB2    TargetRB2 {..} -> common
   PS     TargetPS  {..} -> ps_Common
   GH1    TargetGH1 {..} -> gh1_Common
   GH2    TargetGH2 {..} -> gh2_Common
@@ -1621,8 +1622,8 @@ targetCommon = \case
   RS     TargetRS  {..} -> rs_Common
   DTX    TargetDTX {..} -> dtx_Common
   PG     TargetPG  {..} -> pg_Common
-  Melody TargetPart{..} -> tgt_Common
-  Konga  TargetPart{..} -> tgt_Common
+  Melody TargetPart{..} -> common
+  Konga  TargetPart{..} -> common
 
 addKey :: (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
 addKey codec k v x = A.Object $ KM.fromHashMapText $ HM.insert k v $ HM.fromList $ makeObject (objectId codec) x

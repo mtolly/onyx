@@ -11,7 +11,6 @@ import           Control.Monad.Extra
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
@@ -40,7 +39,7 @@ psRules buildInfo dir ps = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan ps.ps_Common.tgt_Plan songYaml of
+  (planName, plan) <- case getPlan ps.ps_Common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show ps
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
@@ -251,23 +250,23 @@ psRules buildInfo dir ps = do
 
   phony (dir </> "ps") $ do
     (_, mixMode) <- computeDrumsPart ps.ps_Drums plan songYaml
-    let needsPartAudio f = maybe False (/= def) (getPart (f ps) songYaml) && case plan of
+    let needsPartAudio f = maybe False (/= emptyPart) (getPart (f ps) songYaml) && case plan of
           StandardPlan x -> HM.member (f ps) x.parts.getParts
           MoggPlan     _ -> True
     shk $ need $ map (\f -> dir </> "ps" </> f) $ concat
-      -- TODO replace (/= def), should actually check whether the right PS play mode is present
+      -- TODO replace (/= emptyPart), should actually check whether the right PS play mode is present
       [ ["song.ini", "notes.mid", "song.ogg", if useJPEG then "album.jpg" else "album.png"]
       , ["expert+.mid"
         | maybe False ((/= Kicks1x) . (.kicks))
         $ getPart ps.ps_Drums songYaml >>= (.drums)
         ]
-      , ["try-drums.ogg"   | maybe False (/= def) (getPart ps.ps_Drums songYaml) && mixMode == RBDrums.D0 && case plan of
+      , ["try-drums.ogg"   | maybe False (/= emptyPart) (getPart ps.ps_Drums songYaml) && mixMode == RBDrums.D0 && case plan of
           StandardPlan x -> HM.member ps.ps_Drums x.parts.getParts
           MoggPlan     _ -> True
         ]
-      , ["try-drums_1.ogg" | maybe False (/= def) (getPart ps.ps_Drums songYaml) && mixMode /= RBDrums.D0]
-      , ["try-drums_2.ogg" | maybe False (/= def) (getPart ps.ps_Drums songYaml) && mixMode /= RBDrums.D0]
-      , ["try-drums_3.ogg" | maybe False (/= def) (getPart ps.ps_Drums songYaml) && mixMode /= RBDrums.D0]
+      , ["try-drums_1.ogg" | maybe False (/= emptyPart) (getPart ps.ps_Drums songYaml) && mixMode /= RBDrums.D0]
+      , ["try-drums_2.ogg" | maybe False (/= emptyPart) (getPart ps.ps_Drums songYaml) && mixMode /= RBDrums.D0]
+      , ["try-drums_3.ogg" | maybe False (/= emptyPart) (getPart ps.ps_Drums songYaml) && mixMode /= RBDrums.D0]
       , ["try-guitar.ogg"  | needsPartAudio (.ps_Guitar) || needsPartAudio (.ps_GuitarCoop)]
       , ["try-keys.ogg"    | needsPartAudio (.ps_Keys  )                                   ]
       , ["try-rhythm.ogg"  | needsPartAudio (.ps_Bass  ) || needsPartAudio (.ps_Rhythm    )]

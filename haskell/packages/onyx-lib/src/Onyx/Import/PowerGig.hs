@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TupleSections         #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields        #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.PowerGig where
 
 import           Control.Monad                     (forM, guard, unless)
@@ -448,12 +448,12 @@ importPowerGigSong key song folder level = do
       }
     , parts = Parts $ HM.fromList
       -- do all songs have all instruments?
-      [ (RBFile.FlexGuitar, def
+      [ (RBFile.FlexGuitar, emptyPart
         { grybo = Just (def :: PartGRYBO)
           { difficulty = Tier 1 -- TODO
           }
         })
-      , (RBFile.FlexDrums, def
+      , (RBFile.FlexDrums, (emptyPart :: Part SoftFile)
         { drums = Just PartDrums
           { mode        = Drums4
           , difficulty  = Tier 1 -- TODO
@@ -466,7 +466,7 @@ importPowerGigSong key song folder level = do
           , fullLayout  = FDStandard
           }
         })
-      , (RBFile.FlexVocal, def
+      , (RBFile.FlexVocal, (emptyPart :: Part SoftFile)
         { vocal = Just PartVocal
           { difficulty = Tier 1 -- TODO
           , gender = info_singer_gender (song_info song) >>= \case

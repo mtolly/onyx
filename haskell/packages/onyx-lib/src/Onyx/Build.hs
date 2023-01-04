@@ -103,7 +103,7 @@ dtxRules buildInfo dir dtx = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, _plan) <- case getPlan dtx.dtx_Common.tgt_Plan songYaml of
+  (planName, _plan) <- case getPlan dtx.dtx_Common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show dtx
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
@@ -266,7 +266,7 @@ melodyRules buildInfo dir tgt = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, _) <- case getPlan tgt.tgt_Common.tgt_Plan songYaml of
+  (planName, _) <- case getPlan tgt.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show tgt
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
@@ -283,7 +283,7 @@ melodyRules buildInfo dir tgt = do
     melody <- liftIO
       $ Melody.randomNotes
       $ maybe mempty RBFile.onyxMelody
-      $ Map.lookup tgt.tgt_Part
+      $ Map.lookup tgt.part
       $ RBFile.onyxParts
       $ RBFile.s_tracks mid
     info <- liftIO $ Snd.getFileInfo melodyAudio
@@ -410,18 +410,18 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           RB3 rb3 -> rbRules buildInfo dir rb3 Nothing
           RB2 rb2 -> let
             rb3 = TargetRB3
-              { rb3_Common = rb2.rb2_Common
-              , rb3_2xBassPedal = rb2.rb2_2xBassPedal
-              , rb3_SongID = rb2.rb2_SongID
-              , rb3_Version = rb2.rb2_Version
-              , rb3_Guitar = rb2.rb2_Guitar
-              , rb3_Bass = rb2.rb2_Bass
-              , rb3_Drums = rb2.rb2_Drums
-              , rb3_Vocal = rb2.rb2_Vocal
-              , rb3_Keys = RBFile.FlexExtra "undefined"
-              , rb3_Harmonix = False
-              , rb3_Magma = rb2.rb2_Magma
-              , rb3_PS3Encrypt = rb2.rb2_PS3Encrypt
+              { common = rb2.common
+              , is2xBassPedal = rb2.is2xBassPedal
+              , songID = rb2.songID
+              , version = rb2.version
+              , guitar = rb2.guitar
+              , bass = rb2.bass
+              , drums = rb2.drums
+              , vocal = rb2.vocal
+              , keys = RBFile.FlexExtra "undefined"
+              , harmonix = False
+              , magma = rb2.magma
+              , ps3Encrypt = rb2.ps3Encrypt
               }
             in rbRules buildInfo dir rb3 $ Just rb2
           GH1 gh1 -> gh1Rules buildInfo dir gh1

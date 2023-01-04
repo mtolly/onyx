@@ -9,6 +9,7 @@ Common import functions for RB1, RB2, RB3, TBRB
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
 {-# LANGUAGE TupleSections         #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.RockBand where
 
 import           Codec.Picture.Types                  (dropTransparency,
@@ -539,21 +540,21 @@ importRB rbi level = do
       version1x = guard (songID1x /= SongIDAutoSymbol) >> Just (D.version pkg)
       version2x = guard (songID2x /= SongIDAutoSymbol) >> fmap (D.version . fst) files2x
       targetShared = def
-        { rb3_Harmonix = dtaIsHarmonixRB3 pkg
+        { harmonix = dtaIsHarmonixRB3 pkg
         }
       target1x = ("rb3", RB3 targetShared
-        { rb3_2xBassPedal = False
-        , rb3_SongID = songID1x
-        , rb3_Version = version1x
+        { is2xBassPedal = False
+        , songID = songID1x
+        , version = version1x
         })
       target2x = ("rb3-2x", RB3 targetShared
-        { rb3_2xBassPedal = True
-        , rb3_SongID = songID2x
-        , rb3_Version = version2x
+        { is2xBassPedal = True
+        , songID = songID2x
+        , version = version2x
         })
       in HM.fromList $ concat [[target1x | hasKicks /= Kicks2x], [target2x | hasKicks /= Kicks1x]]
     , parts = Parts $ HM.fromList
-      [ ( FlexDrums, def
+      [ ( FlexDrums, (emptyPart :: Part SoftFile)
         { drums = guard (hasRankStr "drum") >> Just PartDrums
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "drum" diffMap
           , mode = DrumsPro
@@ -566,7 +567,7 @@ importRB rbi level = do
           , fullLayout = FDStandard
           }
         })
-      , ( FlexGuitar, def
+      , ( FlexGuitar, (emptyPart :: Part SoftFile)
         { grybo = guard (hasRankStr "guitar") >> Just PartGRYBO
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "guitar" diffMap
           , hopoThreshold = hopoThresh
@@ -590,7 +591,7 @@ importRB rbi level = do
           , pickedBass    = False
           }
         })
-      , ( FlexBass, def
+      , ( FlexBass, (emptyPart :: Part SoftFile)
         { grybo = guard (hasRankStr "bass") >> Just PartGRYBO
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "bass" diffMap
           , hopoThreshold = hopoThresh
@@ -614,7 +615,7 @@ importRB rbi level = do
           , pickedBass    = False
           }
         })
-      , ( FlexKeys, def
+      , ( FlexKeys, (emptyPart :: Part SoftFile)
         { grybo = guard (hasRankStr "keys") >> Just PartGRYBO
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "keys" diffMap
           , hopoThreshold = hopoThresh
@@ -628,7 +629,7 @@ importRB rbi level = do
           , fixFreeform = False
           }
         })
-      , ( FlexVocal, def
+      , ( FlexVocal, (emptyPart :: Part SoftFile)
         { vocal = flip fmap vocalMode $ \vc -> PartVocal
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
           , count = vc

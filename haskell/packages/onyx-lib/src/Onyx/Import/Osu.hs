@@ -174,10 +174,10 @@ importOsu separateSongs f = do
       , parts = Parts $ HM.fromList $ do
         (partName, track) <- mania
         return $ (partName, case track of
-          Left _five -> def
+          Left _five -> emptyPart
             { grybo = Just def
             }
-          Right _pk -> def
+          Right _pk -> emptyPart
             { proKeys = Just PartProKeys
               { difficulty  = Tier 1
               , fixFreeform = True

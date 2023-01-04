@@ -19,7 +19,6 @@ import qualified Data.Aeson.Key                   as K
 import qualified Data.Aeson.Types                 as A
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower)
-import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
@@ -819,7 +818,7 @@ makeDisplay songYaml song = let
     } where
       tracks = RBFile.getFlexPart name $ RBFile.s_tracks song
   parts = do
-    (name, fpart) <- sort $ HM.toList $ HM.filter (/= def) songYaml.parts.getParts
+    (name, fpart) <- sort $ HM.toList $ HM.filter (/= C.emptyPart) songYaml.parts.getParts
     return (RBFile.getPartName name, makePart name fpart)
   makeVox pvox h1 h2 h3 = processVocal (RBFile.s_tempos song)
     (Vox.vocalToLegacy h1) (Vox.vocalToLegacy h2) (Vox.vocalToLegacy h3)

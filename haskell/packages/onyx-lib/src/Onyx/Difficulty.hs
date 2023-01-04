@@ -45,19 +45,19 @@ difficultyRB3 rb3 songYaml = let
 
   x `rankOr` y = if x == 0 then y else x
 
-  rb3DrumsRank     = simpleRank rb3.rb3_Drums  (.drums    ) drumsDiffMap
-  rb3BassRank'     = simpleRank rb3.rb3_Bass   (.grybo    ) bassDiffMap
-    `rankOr`         simpleRank rb3.rb3_Bass   (.drums    ) drumsDiffMap
-  rb3GuitarRank'   = simpleRank rb3.rb3_Guitar (.grybo    ) guitarDiffMap
-    `rankOr`         simpleRank rb3.rb3_Guitar (.drums    ) drumsDiffMap
-  rb3VocalRank     = simpleRank rb3.rb3_Vocal  (.vocal    ) vocalDiffMap
-  rb3KeysRank'     = simpleRank rb3.rb3_Keys   (.grybo    ) keysDiffMap
-    `rankOr`         simpleRank rb3.rb3_Keys   (.drums    ) drumsDiffMap
-  rb3ProKeysRank'  = simpleRank rb3.rb3_Keys   (.proKeys  ) keysDiffMap
+  rb3DrumsRank     = simpleRank rb3.drums  (.drums    ) drumsDiffMap
+  rb3BassRank'     = simpleRank rb3.bass   (.grybo    ) bassDiffMap
+    `rankOr`         simpleRank rb3.bass   (.drums    ) drumsDiffMap
+  rb3GuitarRank'   = simpleRank rb3.guitar (.grybo    ) guitarDiffMap
+    `rankOr`         simpleRank rb3.guitar (.drums    ) drumsDiffMap
+  rb3VocalRank     = simpleRank rb3.vocal  (.vocal    ) vocalDiffMap
+  rb3KeysRank'     = simpleRank rb3.keys   (.grybo    ) keysDiffMap
+    `rankOr`         simpleRank rb3.keys   (.drums    ) drumsDiffMap
+  rb3ProKeysRank'  = simpleRank rb3.keys   (.proKeys  ) keysDiffMap
   rb3KeysRank      = if rb3KeysRank' == 0 then rb3ProKeysRank' else rb3KeysRank'
   rb3ProKeysRank   = if rb3ProKeysRank' == 0 then rb3KeysRank' else rb3ProKeysRank'
-  rb3ProBassRank   = simpleRank rb3.rb3_Bass   (.proGuitar) proBassDiffMap
-  rb3ProGuitarRank = simpleRank rb3.rb3_Guitar (.proGuitar) proGuitarDiffMap
+  rb3ProBassRank   = simpleRank rb3.bass   (.proGuitar) proBassDiffMap
+  rb3ProGuitarRank = simpleRank rb3.guitar (.proGuitar) proGuitarDiffMap
   rb3GuitarRank    = if rb3GuitarRank' == 0 then rb3ProGuitarRank else rb3GuitarRank'
   rb3BassRank      = if rb3BassRank' == 0 then rb3ProBassRank else rb3BassRank'
   rb3BandRank      = case songYaml.metadata.difficulty of
@@ -88,18 +88,18 @@ data DifficultyPS = DifficultyPS
 difficultyPS :: TargetPS -> SongYaml f -> DifficultyPS
 difficultyPS ps songYaml = let
   rb3 = TargetRB3
-    { rb3_Common      = ps.ps_Common
-    , rb3_Drums       = ps.ps_Drums
-    , rb3_Guitar      = ps.ps_Guitar
-    , rb3_Keys        = ps.ps_Keys
-    , rb3_Vocal       = ps.ps_Vocal
-    , rb3_Bass        = ps.ps_Bass
-    , rb3_2xBassPedal = False
-    , rb3_SongID      = SongIDAutoSymbol
-    , rb3_Version     = Nothing
-    , rb3_Harmonix    = False
-    , rb3_Magma       = MagmaRequire
-    , rb3_PS3Encrypt  = True
+    { common        = ps.ps_Common
+    , drums         = ps.ps_Drums
+    , guitar        = ps.ps_Guitar
+    , keys          = ps.ps_Keys
+    , vocal         = ps.ps_Vocal
+    , bass          = ps.ps_Bass
+    , is2xBassPedal = False
+    , songID        = SongIDAutoSymbol
+    , version       = Nothing
+    , harmonix      = False
+    , magma         = MagmaRequire
+    , ps3Encrypt    = True
     }
   psDifficultyRB3 = difficultyRB3 rb3 songYaml
   simpleTier flex getMode dmap = case getPart flex songYaml >>= getMode of
@@ -125,18 +125,18 @@ data DifficultyGH5 = DifficultyGH5
 difficultyGH5 :: TargetGH5 -> SongYaml f -> DifficultyGH5
 difficultyGH5 TargetGH5{..} songYaml = let
   rb3 = TargetRB3
-    { rb3_Common      = gh5_Common
-    , rb3_Drums       = gh5_Drums
-    , rb3_Guitar      = gh5_Guitar
-    , rb3_Keys        = FlexExtra "undefined"
-    , rb3_Vocal       = gh5_Vocal
-    , rb3_Bass        = gh5_Bass
-    , rb3_2xBassPedal = False
-    , rb3_SongID      = SongIDAutoSymbol
-    , rb3_Version     = Nothing
-    , rb3_Harmonix    = False
-    , rb3_Magma       = MagmaRequire
-    , rb3_PS3Encrypt  = True
+    { common        = gh5_Common
+    , drums         = gh5_Drums
+    , guitar        = gh5_Guitar
+    , keys          = FlexExtra "undefined"
+    , vocal         = gh5_Vocal
+    , bass          = gh5_Bass
+    , is2xBassPedal = False
+    , songID        = SongIDAutoSymbol
+    , version       = Nothing
+    , harmonix      = False
+    , magma         = MagmaRequire
+    , ps3Encrypt    = True
     }
   DifficultyRB3{..} = difficultyRB3 rb3 songYaml
   rb3RankToGH5 = \case

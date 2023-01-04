@@ -8,7 +8,7 @@
 {-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields        #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI (launchGUI) where
 
@@ -819,7 +819,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               else return $ Tier $ fromIntegral i + 1
     getBandDiff <- makeDifficulty root (projectSongYaml proj).metadata.difficulty
     getNewParts <- fmap catMaybes $ forM (HM.toList (projectSongYaml proj).parts.getParts) $ \(fpart, part) ->
-      if part == def
+      if part == emptyPart
         then return Nothing
         else do
           Just itemInst <- FL.addAt tree (T.toTitle $ RBFile.getPartName fpart) root
@@ -885,7 +885,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               mode <- getMode
               kicks <- getKicks
               kit <- getKit
-              return curPart
+              return (curPart :: Part FilePath)
                 { drums = guard isChecked >> Just pd
                   { difficulty = diff
                   , mode = mode
@@ -907,7 +907,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               diff   <- getDiff
               count  <- getCount
               gender <- getGender
-              return curPart
+              return (curPart :: Part FilePath)
                 { vocal = guard isChecked >> Just pv
                   { difficulty = diff
                   , count      = count
@@ -1475,22 +1475,22 @@ batchPartPresetsRB3 :: [(T.Text, SongYaml f -> TargetRB3 -> TargetRB3)]
 batchPartPresetsRB3 =
   [ ("Default part configuration", \_ -> id)
   , ("Copy guitar to bass/keys if empty", \song tgt -> tgt
-    { rb3_Bass = if hasPartWithFive song FlexBass then FlexBass else FlexGuitar
-    , rb3_Keys = if hasPartWithFive song FlexKeys then FlexKeys else FlexGuitar
+    { bass = if hasPartWithFive song FlexBass then FlexBass else FlexGuitar
+    , keys = if hasPartWithFive song FlexKeys then FlexKeys else FlexGuitar
     })
   , ("Copy guitar to bass/keys", \_ tgt -> tgt
-    { rb3_Bass = FlexGuitar
-    , rb3_Keys = FlexGuitar
+    { bass = FlexGuitar
+    , keys = FlexGuitar
     })
   , ("Copy drums to guitar/bass/keys if empty", \song tgt -> tgt
-    { rb3_Guitar = if hasPartWithFive song FlexGuitar then FlexGuitar else FlexDrums
-    , rb3_Bass   = if hasPartWithFive song FlexBass   then FlexBass   else FlexDrums
-    , rb3_Keys   = if hasPartWithFive song FlexKeys   then FlexKeys   else FlexDrums
+    { guitar = if hasPartWithFive song FlexGuitar then FlexGuitar else FlexDrums
+    , bass   = if hasPartWithFive song FlexBass   then FlexBass   else FlexDrums
+    , keys   = if hasPartWithFive song FlexKeys   then FlexKeys   else FlexDrums
     })
   , ("Copy drums to guitar/bass/keys", \_ tgt -> tgt
-    { rb3_Guitar = FlexDrums
-    , rb3_Bass   = FlexDrums
-    , rb3_Keys   = FlexDrums
+    { guitar = FlexDrums
+    , bass   = FlexDrums
+    , keys   = FlexDrums
     })
   ]
 
@@ -1498,28 +1498,28 @@ batchPartPresetsRB2 :: [(T.Text, SongYaml f -> TargetRB2 -> TargetRB2)]
 batchPartPresetsRB2 =
   [ ("Default part configuration", \_ -> id)
   , ("Copy guitar to bass if empty", \song tgt -> tgt
-    { rb2_Bass = if hasPartWithFive song FlexBass then FlexBass else FlexGuitar
+    { bass = if hasPartWithFive song FlexBass then FlexBass else FlexGuitar
     })
   , ("Copy guitar to bass", \_ tgt -> tgt
-    { rb2_Bass = FlexGuitar
+    { bass = FlexGuitar
     })
   , ("Keys on guitar/bass if empty", \song tgt -> tgt
-    { rb2_Guitar = if hasPartWithFive song FlexGuitar then FlexGuitar else FlexKeys
-    , rb2_Bass   = if hasPartWithFive song FlexBass   then FlexBass   else FlexKeys
+    { guitar = if hasPartWithFive song FlexGuitar then FlexGuitar else FlexKeys
+    , bass   = if hasPartWithFive song FlexBass   then FlexBass   else FlexKeys
     })
   , ("Keys on guitar", \_ tgt -> tgt
-    { rb2_Guitar = FlexKeys
+    { guitar = FlexKeys
     })
   , ("Keys on bass", \_ tgt -> tgt
-    { rb2_Bass = FlexKeys
+    { bass = FlexKeys
     })
   , ("Copy drums to guitar/bass if empty", \song tgt -> tgt
-    { rb2_Guitar = if hasPartWithFive song FlexGuitar then FlexGuitar else FlexDrums
-    , rb2_Bass   = if hasPartWithFive song FlexBass   then FlexBass   else FlexDrums
+    { guitar = if hasPartWithFive song FlexGuitar then FlexGuitar else FlexDrums
+    , bass   = if hasPartWithFive song FlexBass   then FlexBass   else FlexDrums
     })
   , ("Copy drums to guitar/bass", \_ tgt -> tgt
-    { rb2_Guitar = FlexDrums
-    , rb2_Bass   = FlexDrums
+    { guitar = FlexDrums
+    , bass   = FlexDrums
     })
   ]
 
@@ -1714,7 +1714,7 @@ batchPageGHWOR sink rect tab build = do
           defGH5 = def :: TargetGH5
           tgt = defGH5
             { gh5_Common = defGH5.gh5_Common
-              { tgt_Speed = Just speed
+              { speed = Just speed
               }
             , gh5_Guitar = fromMaybe defGH5.gh5_Guitar pickedGuitar
             , gh5_Bass = fromMaybe defGH5.gh5_Bass $ pickedBass <|> pickedGuitar
@@ -1724,7 +1724,7 @@ batchPageGHWOR sink rect tab build = do
             [ templateApplyInput proj $ Just $ GH5 tgt
             , let
               modifiers = T.concat
-                [ T.pack $ case tgt.gh5_Common.tgt_Speed of
+                [ T.pack $ case tgt.gh5_Common.speed of
                   Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                   _               -> ""
                 ]
@@ -1773,15 +1773,15 @@ batchPageRB2 sink rect tab build = do
         newPreferences <- readPreferences
         return $ \proj -> let
           tgt = preset yaml def
-            { rb2_Common = (def :: TargetRB2).rb2_Common
-              { tgt_Speed   = Just speed
-              , tgt_Label2x = prefLabel2x newPreferences
+            { common = (def :: TargetRB2).common
+              { speed   = Just speed
+              , label2x = prefLabel2x newPreferences
               }
-            , rb2_Magma = prefMagma newPreferences
-            , rb2_SongID = if prefRBNumberID newPreferences
+            , magma = prefMagma newPreferences
+            , songID = if prefRBNumberID newPreferences
               then SongIDAutoInt
               else SongIDAutoSymbol
-            , rb2_PS3Encrypt = prefPS3Encrypt newPreferences
+            , ps3Encrypt = prefPS3Encrypt newPreferences
             }
           kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart FlexDrums yaml >>= (.drums)) of
             (_        , Kicks1x) -> [(False, ""   )]
@@ -1792,7 +1792,7 @@ batchPageRB2 sink rect tab build = do
             [ templateApplyInput proj $ Just $ RB2 tgt
             , let
               modifiers = T.concat
-                [ T.pack $ case tgt.rb2_Common.tgt_Speed of
+                [ T.pack $ case tgt.common.speed of
                   Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                   _               -> ""
                 , kicksLabel
@@ -1803,7 +1803,7 @@ batchPageRB2 sink rect tab build = do
             = forceProDrums
             $ projectSongYaml proj
           in
-            ( [ (tgt { rb2_2xBassPedal = is2x }, usePath $ fout kicksLabel)
+            ( [ ((tgt :: TargetRB2) { is2xBassPedal = is2x }, usePath $ fout kicksLabel)
               | (is2x, kicksLabel) <- kicksConfigs
               ]
             , yaml
@@ -1843,13 +1843,13 @@ batchPagePS sink rect tab build = do
           defPS = def :: TargetPS
           tgt = preset (projectSongYaml proj) defPS
             { ps_Common = defPS.ps_Common
-              { tgt_Speed = Just speed
+              { speed = Just speed
               }
             }
           fout = T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ PS tgt
             , let
-              modifiers = T.pack $ case tgt.ps_Common.tgt_Speed of
+              modifiers = T.pack $ case tgt.ps_Common.speed of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"
@@ -1954,7 +1954,7 @@ batchPageGH1 sink rect tab build = do
             ]
           tgt = defGH1
             { gh1_Common = defGH1.gh1_Common
-              { tgt_Speed = Just speed
+              { speed = Just speed
               }
             , gh1_Guitar = fromMaybe (FlexExtra "undefined") leadPart
             , gh1_Offset = prefGH2Offset newPrefs
@@ -1963,7 +1963,7 @@ batchPageGH1 sink rect tab build = do
           fout = T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH1 tgt
             , let
-              modifiers = T.pack $ case tgt.gh1_Common.tgt_Speed of
+              modifiers = T.pack $ case tgt.gh1_Common.speed of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"
@@ -2030,7 +2030,7 @@ batchPageGH3 sink rect tab build = do
             ]
           tgt = defGH3
             { gh3_Common = defGH3.gh3_Common
-              { tgt_Speed = Just speed
+              { speed = Just speed
               }
             , gh3_Guitar = fromMaybe (FlexExtra "undefined") leadPart
             , gh3_Bass = case coopPart of
@@ -2046,7 +2046,7 @@ batchPageGH3 sink rect tab build = do
           fout = (if xbox then trimXbox newPrefs else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH3 tgt
             , let
-              modifiers = T.pack $ case tgt.gh3_Common.tgt_Speed of
+              modifiers = T.pack $ case tgt.gh3_Common.speed of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"
@@ -2108,7 +2108,7 @@ batchPageGH2 sink rect tab build = do
             ]
           tgt = defGH2
             { gh2_Common = defGH2.gh2_Common
-              { tgt_Speed = Just speed
+              { speed = Just speed
               }
             , gh2_PracticeAudio = practiceAudio
             , gh2_Guitar = fromMaybe (FlexExtra "undefined") leadPart
@@ -2129,7 +2129,7 @@ batchPageGH2 sink rect tab build = do
           fout = (if xbox then trimXbox newPrefs else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH2 tgt
             , let
-              modifiers = T.pack $ case tgt.gh2_Common.tgt_Speed of
+              modifiers = T.pack $ case tgt.gh2_Common.speed of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"
@@ -2260,7 +2260,7 @@ partSelectors rect proj slots = let
   rects = splitHorizN (length slots) rect
   fparts = do
     (fpart, part) <- HM.toList (projectSongYaml proj).parts.getParts
-    guard $ part /= def
+    guard $ part /= emptyPart
     return (fpart, T.toTitle $ RBFile.getPartName fpart, part)
   instSelector ((lbl, getter, setter, partFilter), r) = do
     let r' = trimClock 20 5 5 5 r
@@ -2331,29 +2331,29 @@ songPageRB3 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \rb3 ->
-        rb3 { rb3_Common = rb3.rb3_Common { tgt_Speed = Just speed } }
+        (rb3 :: TargetRB3) { common = rb3.common { speed = Just speed } }
       return counter
     box2x <- fullWidth 35 $ \rect' -> do
       box <- liftIO $ FL.checkButtonNew rect' (Just "2x Bass Pedal drums")
       tell $ FL.getValue box >>= \b -> return $ Endo $ \rb3 ->
-        rb3 { rb3_2xBassPedal = b }
+        rb3 { is2xBassPedal = b }
       return box
     fullWidth 35 $ \rect' -> songIDBox rect' $ \sid rb3 ->
-      rb3 { rb3_SongID = sid }
+      rb3 { songID = sid }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.rb3_Guitar), (\v rb3 -> rb3 { rb3_Guitar = v })
+      [ ( "Guitar", (.guitar), (\v rb3 -> (rb3 :: TargetRB3) { guitar = v })
         , (\p -> isJust p.grybo || isJust p.proGuitar || isJust p.drums)
         )
-      , ( "Bass"  , (.rb3_Bass  ), (\v rb3 -> rb3 { rb3_Bass   = v })
+      , ( "Bass"  , (.bass  ), (\v rb3 -> (rb3 :: TargetRB3) { bass   = v })
         , (\p -> isJust p.grybo || isJust p.proGuitar || isJust p.drums)
         )
-      , ( "Keys"  , (.rb3_Keys  ), (\v rb3 -> rb3 { rb3_Keys   = v })
+      , ( "Keys"  , (.keys  ), (\v rb3 -> (rb3 :: TargetRB3) { keys   = v })
         , (\p -> isJust p.grybo || isJust p.proKeys || isJust p.drums)
         )
-      , ( "Drums" , (.rb3_Drums ), (\v rb3 -> rb3 { rb3_Drums  = v })
+      , ( "Drums" , (.drums ), (\v rb3 -> (rb3 :: TargetRB3) { drums  = v })
         , (\p -> isJust p.drums)
         )
-      , ( "Vocal" , (.rb3_Vocal ), (\v rb3 -> rb3 { rb3_Vocal  = v })
+      , ( "Vocal" , (.vocal ), (\v rb3 -> (rb3 :: TargetRB3) { vocal  = v })
         , (\p -> isJust p.vocal)
         )
       ]
@@ -2361,11 +2361,11 @@ songPageRB3 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget ?preferences >>= \rb3 -> return $ targetTitle
           (projectSongYaml proj)
-          (RB3 rb3 { rb3_Common = rb3.rb3_Common { tgt_Title = Just "" } })
+          (RB3 rb3 { common = rb3.common { title = Just "" } })
         )
-        (\msfx rb3 -> rb3
-          { rb3_Common = rb3.rb3_Common
-            { tgt_Label = msfx
+        (\msfx rb3 -> (rb3 :: TargetRB3)
+          { common = rb3.common
+            { label_ = msfx
             }
           }
         )
@@ -2374,9 +2374,9 @@ songPageRB3 sink rect tab proj build = mdo
   let makeTarget newPreferences = do
         modifier <- targetModifier
         return $ modifier def
-          { rb3_Magma = prefMagma newPreferences
-          , rb3_Common = def
-            { tgt_Label2x = prefLabel2x newPreferences
+          { magma = prefMagma newPreferences
+          , common = def
+            { label2x = prefLabel2x newPreferences
             }
           }
       makeFinalTarget = readPreferences >>= stackIO . makeTarget
@@ -2446,26 +2446,26 @@ songPageRB2 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \rb2 ->
-        rb2 { rb2_Common = rb2.rb2_Common { tgt_Speed = Just speed } }
+        (rb2 :: TargetRB2) { common = rb2.common { speed = Just speed } }
       return counter
     box2x <- fullWidth 35 $ \rect' -> do
       box <- liftIO $ FL.checkButtonNew rect' (Just "2x Bass Pedal drums")
       tell $ FL.getValue box >>= \b -> return $ Endo $ \rb2 ->
-        rb2 { rb2_2xBassPedal = b }
+        rb2 { is2xBassPedal = b }
       return box
     fullWidth 35 $ \rect' -> songIDBox rect' $ \sid rb2 ->
-      rb2 { rb2_SongID = sid }
+      rb2 { songID = sid }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.rb2_Guitar), (\v rb2 -> rb2 { rb2_Guitar = v })
+      [ ( "Guitar", (.guitar), (\v rb2 -> (rb2 :: TargetRB2) { guitar = v })
         , (\p -> isJust p.grybo || isJust p.proGuitar || isJust p.drums)
         )
-      , ( "Bass"  , (.rb2_Bass  ), (\v rb2 -> rb2 { rb2_Bass   = v })
+      , ( "Bass"  , (.bass  ), (\v rb2 -> (rb2 :: TargetRB2) { bass   = v })
         , (\p -> isJust p.grybo || isJust p.proGuitar || isJust p.drums)
         )
-      , ( "Drums" , (.rb2_Drums ), (\v rb2 -> rb2 { rb2_Drums  = v })
+      , ( "Drums" , (.drums ), (\v rb2 -> (rb2 :: TargetRB2) { drums  = v })
         , (\p -> isJust p.drums)
         )
-      , ( "Vocal" , (.rb2_Vocal ), (\v rb2 -> rb2 { rb2_Vocal  = v })
+      , ( "Vocal" , (.vocal ), (\v rb2 -> (rb2 :: TargetRB2) { vocal  = v })
         , (\p -> isJust p.vocal)
         )
       ]
@@ -2473,11 +2473,11 @@ songPageRB2 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget ?preferences >>= \rb2 -> return $ targetTitle
           (projectSongYaml proj)
-          (RB2 rb2 { rb2_Common = rb2.rb2_Common { tgt_Title = Just "" } })
+          (RB2 rb2 { common = rb2.common { title = Just "" } })
         )
-        (\msfx rb2 -> rb2
-          { rb2_Common = rb2.rb2_Common
-            { tgt_Label = msfx
+        (\msfx rb2 -> (rb2 :: TargetRB2)
+          { common = rb2.common
+            { label_ = msfx
             }
           }
         )
@@ -2486,11 +2486,11 @@ songPageRB2 sink rect tab proj build = mdo
   let makeTarget newPreferences = do
         modifier <- targetModifier
         return $ modifier def
-          { rb2_Magma = prefMagma newPreferences
-          , rb2_Common = def
-            { tgt_Label2x = prefLabel2x newPreferences
+          { magma = prefMagma newPreferences
+          , common = def
+            { label2x = prefLabel2x newPreferences
             }
-          , rb2_PS3Encrypt = prefPS3Encrypt newPreferences
+          , ps3Encrypt = prefPS3Encrypt newPreferences
           }
       makeFinalTarget = readPreferences >>= stackIO . makeTarget
 
@@ -2545,7 +2545,7 @@ songPageGHWOR sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \gh5 ->
-        gh5 { gh5_Common = gh5.gh5_Common { tgt_Speed = Just speed } }
+        gh5 { gh5_Common = gh5.gh5_Common { speed = Just speed } }
       return counter
     fullWidth 35 $ \rect' -> do
       getProTo4 <- liftIO $ horizRadio rect'
@@ -2577,11 +2577,11 @@ songPageGHWOR sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \gh5 -> return $ targetTitle
           (projectSongYaml proj)
-          (GH5 gh5 { gh5_Common = gh5.gh5_Common { tgt_Title = Just "" } })
+          (GH5 gh5 { gh5_Common = gh5.gh5_Common { title = Just "" } })
         )
         (\msfx gh5 -> gh5
           { gh5_Common = gh5.gh5_Common
-            { tgt_Label = msfx
+            { label_ = msfx
             }
           }
         )
@@ -2640,7 +2640,7 @@ songPagePS sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \ps ->
-        ps { ps_Common = ps.ps_Common { tgt_Speed = Just speed } }
+        ps { ps_Common = ps.ps_Common { speed = Just speed } }
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar"     , (.ps_Guitar    ), (\v ps -> ps { ps_Guitar     = v })
@@ -2669,11 +2669,11 @@ songPagePS sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \ps -> return $ targetTitle
           (projectSongYaml proj)
-          (PS ps { ps_Common = ps.ps_Common { tgt_Title = Just "" } })
+          (PS ps { ps_Common = ps.ps_Common { title = Just "" } })
         )
         (\msfx ps -> ps
           { ps_Common = ps.ps_Common
-            { tgt_Label = msfx
+            { label_ = msfx
             }
           }
         )
@@ -2798,7 +2798,7 @@ songPageGH1 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \gh1 ->
-        gh1 { gh1_Common = gh1.gh1_Common { tgt_Speed = Just speed } }
+        gh1 { gh1_Common = gh1.gh1_Common { speed = Just speed } }
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.gh1_Guitar), (\v gh1 -> gh1 { gh1_Guitar = v })
@@ -2823,11 +2823,11 @@ songPageGH1 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \gh1 -> return $ targetTitle
           (projectSongYaml proj)
-          (GH1 gh1 { gh1_Common = gh1.gh1_Common { tgt_Title = Just "" } })
+          (GH1 gh1 { gh1_Common = gh1.gh1_Common { title = Just "" } })
         )
         (\msfx gh1 -> gh1
           { gh1_Common = gh1.gh1_Common
-            { tgt_Label = msfx
+            { label_ = msfx
             }
           }
         )
@@ -2888,7 +2888,7 @@ songPageGH2 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \gh2 ->
-        gh2 { gh2_Common = gh2.gh2_Common { tgt_Speed = Just speed } }
+        gh2 { gh2_Common = gh2.gh2_Common { speed = Just speed } }
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.gh2_Guitar), (\v gh2 -> gh2 { gh2_Guitar = v })
@@ -2938,11 +2938,11 @@ songPageGH2 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \gh2 -> return $ targetTitle
           (projectSongYaml proj)
-          (GH2 gh2 { gh2_Common = gh2.gh2_Common { tgt_Title = Just "" } })
+          (GH2 gh2 { gh2_Common = gh2.gh2_Common { title = Just "" } })
         )
         (\msfx gh2 -> gh2
           { gh2_Common = gh2.gh2_Common
-            { tgt_Label = msfx
+            { label_ = msfx
             }
           }
         )
@@ -3028,7 +3028,7 @@ songPageGH3 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \gh3 ->
-        gh3 { gh3_Common = gh3.gh3_Common { tgt_Speed = Just speed } }
+        gh3 { gh3_Common = gh3.gh3_Common { speed = Just speed } }
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.gh3_Guitar), (\v gh3 -> gh3 { gh3_Guitar = v })
@@ -3078,11 +3078,11 @@ songPageGH3 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \gh3 -> return $ targetTitle
           (projectSongYaml proj)
-          (GH3 gh3 { gh3_Common = gh3.gh3_Common { tgt_Title = Just "" } })
+          (GH3 gh3 { gh3_Common = gh3.gh3_Common { title = Just "" } })
         )
         (\msfx gh3 -> gh3
           { gh3_Common = gh3.gh3_Common
-            { tgt_Label = msfx
+            { label_ = msfx
             }
           }
         )
@@ -3166,12 +3166,12 @@ batchPageRB3 sink rect tab build = do
         return $ \proj -> let
           defRB3 = def :: TargetRB3
           tgt = preset yaml defRB3
-            { rb3_Common = defRB3.rb3_Common
-              { tgt_Speed = Just speed
-              , tgt_Label2x = prefLabel2x newPreferences
+            { common = defRB3.common
+              { speed = Just speed
+              , label2x = prefLabel2x newPreferences
               }
-            , rb3_Magma = prefMagma newPreferences
-            , rb3_SongID = if prefRBNumberID newPreferences
+            , magma = prefMagma newPreferences
+            , songID = if prefRBNumberID newPreferences
               then SongIDAutoInt
               else SongIDAutoSymbol
             }
@@ -3184,7 +3184,7 @@ batchPageRB3 sink rect tab build = do
             [ templateApplyInput proj $ Just $ RB3 tgt
             , let
               modifiers = T.concat
-                [ T.pack $ case tgt.rb3_Common.tgt_Speed of
+                [ T.pack $ case tgt.common.speed of
                   Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                   _               -> ""
                 , kicksLabel
@@ -3195,7 +3195,7 @@ batchPageRB3 sink rect tab build = do
             = (if toms then id else forceProDrums)
             $ projectSongYaml proj
           in
-            ( [ (tgt { rb3_2xBassPedal = is2x }, usePath $ fout kicksLabel)
+            ( [ ((tgt :: TargetRB3) { is2xBassPedal = is2x }, usePath $ fout kicksLabel)
               | (is2x, kicksLabel) <- kicksConfigs
               ]
             , yaml
@@ -3233,7 +3233,7 @@ templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrail
       Nothing  -> getTitle (projectSongYaml proj).metadata
       Just tgt -> targetTitle (projectSongYaml proj) tgt
     songID = case mtgt of
-      Just (RB3 rb3) -> case rb3.rb3_SongID of
+      Just (RB3 rb3) -> case rb3.songID of
         SongIDInt    n -> T.pack $ show n
         SongIDSymbol s -> s
         _              -> T.pack $ show $ hashRB3 (projectSongYaml proj) rb3

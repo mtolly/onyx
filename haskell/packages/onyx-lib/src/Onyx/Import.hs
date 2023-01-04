@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TupleSections         #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import where
 
 import           Control.Applicative          ((<|>))
@@ -439,25 +440,25 @@ randomRBSongID = liftIO $ randomRIO (10000000, 1000000000)
 buildRB3CON :: (MonadIO m) => TargetRB3 -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB3CON rb3 proj = do
   songID <- randomRBSongID
-  let rb3' = rb3 { rb3_SongID = SongIDInt songID }
+  let rb3' = (rb3 :: TargetRB3) { songID = SongIDInt songID }
   buildCommon (RB3 rb3') (\targetHash -> "gen/target" </> targetHash </> "rb3con") proj
 
 buildRB3PKG :: (MonadIO m) => TargetRB3 -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB3PKG rb3 proj = do
   songID <- randomRBSongID
-  let rb3' = rb3 { rb3_SongID = SongIDInt songID }
+  let rb3' = (rb3 :: TargetRB3) { songID = SongIDInt songID }
   buildCommon (RB3 rb3') (\targetHash -> "gen/target" </> targetHash </> "rb3-ps3.pkg") proj
 
 buildRB2CON :: (MonadIO m) => TargetRB2 -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB2CON rb2 proj = do
   songID <- randomRBSongID
-  let rb2' = rb2 { rb2_SongID = SongIDInt songID }
+  let rb2' = (rb2 :: TargetRB2) { songID = SongIDInt songID }
   buildCommon (RB2 rb2') (\targetHash -> "gen/target" </> targetHash </> "rb2con") proj
 
 buildRB2PKG :: (MonadIO m) => TargetRB2 -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB2PKG rb2 proj = do
   songID <- randomRBSongID
-  let rb2' = rb2 { rb2_SongID = SongIDInt songID }
+  let rb2' = (rb2 :: TargetRB2) { songID = SongIDInt songID }
   buildCommon (RB2 rb2') (\targetHash -> "gen/target" </> targetHash </> "rb2-ps3.pkg") proj
 
 buildMagmaV2 :: (MonadIO m) => TargetRB3 -> Project -> StackTraceT (QueueLog m) FilePath

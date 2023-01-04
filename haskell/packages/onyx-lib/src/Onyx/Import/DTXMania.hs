@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TupleSections         #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields        #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.DTXMania where
 
 import           Control.Monad.Extra              (forM, guard, unless)
@@ -359,7 +359,7 @@ importSetDef setDefPath song level = do
         , plans = HM.empty
         , targets = HM.empty
         , parts = Parts $ HM.fromList $ catMaybes
-          [ flip fmap topDrumDiff $ \diff -> (FlexDrums ,) def
+          [ flip fmap topDrumDiff $ \diff -> (FlexDrums, emptyPart
             { drums = Just PartDrums
               { difficulty  = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
               , mode        = DrumsFull
@@ -373,17 +373,17 @@ importSetDef setDefPath song level = do
               , fileDTXKit  = Nothing
               , fullLayout  = FDStandard
               }
-            }
-          , flip fmap topGuitarDiff $ \diff -> (FlexGuitar ,) def
+            })
+          , flip fmap topGuitarDiff $ \diff -> (FlexGuitar, emptyPart
             { grybo = Just (def :: PartGRYBO)
               { difficulty = translateDifficulty (dtx_GLEVEL diff) (dtx_GLVDEC diff)
               }
-            }
-          , flip fmap topBassDiff $ \diff -> (FlexBass ,) def
+            })
+          , flip fmap topBassDiff $ \diff -> (FlexBass, emptyPart
             { grybo = Just (def :: PartGRYBO)
               { difficulty = translateDifficulty (dtx_BLEVEL diff) (dtx_BLVDEC diff)
               }
-            }
+            })
           ]
         }
       (finalSongYaml, finalMidi) = case level of

@@ -8,7 +8,6 @@ module Onyx.Import.GuitarPro where
 
 import           Control.Monad                    (forM, guard)
 import           Data.Bifunctor                   (first)
-import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
@@ -263,7 +262,7 @@ importGPIF gpif level = do
       }
     , parts = Parts $ HM.fromList $ do
       (name, tuning, _) <- imported
-      let part = def
+      let part = emptyPart
             { proGuitar = Just PartProGuitar
               { difficulty    = Tier 1
               , hopoThreshold = 170
