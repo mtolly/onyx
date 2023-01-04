@@ -88,12 +88,12 @@ data DifficultyPS = DifficultyPS
 difficultyPS :: TargetPS -> SongYaml f -> DifficultyPS
 difficultyPS ps songYaml = let
   rb3 = TargetRB3
-    { common        = ps.ps_Common
-    , drums         = ps.ps_Drums
-    , guitar        = ps.ps_Guitar
-    , keys          = ps.ps_Keys
-    , vocal         = ps.ps_Vocal
-    , bass          = ps.ps_Bass
+    { common        = ps.common
+    , drums         = ps.drums
+    , guitar        = ps.guitar
+    , keys          = ps.keys
+    , vocal         = ps.vocal
+    , bass          = ps.bass
     , is2xBassPedal = False
     , songID        = SongIDAutoSymbol
     , version       = Nothing
@@ -107,11 +107,11 @@ difficultyPS ps songYaml = let
     Just mode -> case mode.difficulty of
       Tier t -> t
       Rank r -> rankToTier dmap r
-  psRhythmTier     = simpleTier ps.ps_Rhythm     (.grybo) guitarDiffMap
-  psGuitarCoopTier = simpleTier ps.ps_GuitarCoop (.grybo) guitarDiffMap
-  psDanceTier      = simpleTier ps.ps_Dance      (.dance) drumsDiffMap
-  chGuitarGHLTier  = simpleTier ps.ps_Guitar     (.ghl  ) guitarDiffMap
-  chBassGHLTier    = simpleTier ps.ps_Bass       (.ghl  ) guitarDiffMap
+  psRhythmTier     = simpleTier ps.rhythm     (.grybo) guitarDiffMap
+  psGuitarCoopTier = simpleTier ps.guitarCoop (.grybo) guitarDiffMap
+  psDanceTier      = simpleTier ps.dance      (.dance) drumsDiffMap
+  chGuitarGHLTier  = simpleTier ps.guitar     (.ghl  ) guitarDiffMap
+  chBassGHLTier    = simpleTier ps.bass       (.ghl  ) guitarDiffMap
   in DifficultyPS{..}
 
 -- tiers go from 1 to 10, or 0 for no part
@@ -125,12 +125,12 @@ data DifficultyGH5 = DifficultyGH5
 difficultyGH5 :: TargetGH5 -> SongYaml f -> DifficultyGH5
 difficultyGH5 TargetGH5{..} songYaml = let
   rb3 = TargetRB3
-    { common        = gh5_Common
-    , drums         = gh5_Drums
-    , guitar        = gh5_Guitar
+    { common        = common
+    , drums         = drums
+    , guitar        = guitar
     , keys          = FlexExtra "undefined"
-    , vocal         = gh5_Vocal
-    , bass          = gh5_Bass
+    , vocal         = vocal
+    , bass          = bass
     , is2xBassPedal = False
     , songID        = SongIDAutoSymbol
     , version       = Nothing

@@ -1527,16 +1527,16 @@ batchPartPresetsCH :: [(T.Text, SongYaml f -> TargetPS -> TargetPS)]
 batchPartPresetsCH =
   [ ("Default part configuration", \_ -> id)
   , ("Copy drums to guitar if empty", \song tgt -> tgt
-    { ps_Guitar = if hasPartWithFive song FlexGuitar then FlexGuitar else FlexDrums
+    { guitar = if hasPartWithFive song FlexGuitar then FlexGuitar else FlexDrums
     })
   , ("Copy drums to guitar", \_ tgt -> tgt
-    { ps_Guitar = FlexDrums
+    { guitar = FlexDrums
     })
   , ("Copy drums to rhythm if empty", \song tgt -> tgt
-    { ps_Rhythm = if hasPartWithFive song $ FlexExtra "rhythm" then FlexExtra "rhythm" else FlexDrums
+    { rhythm = if hasPartWithFive song $ FlexExtra "rhythm" then FlexExtra "rhythm" else FlexDrums
     })
   , ("Copy drums to rhythm", \_ tgt -> tgt
-    { ps_Rhythm = FlexDrums
+    { rhythm = FlexDrums
     })
   ]
 
@@ -1713,18 +1713,18 @@ batchPageGHWOR sink rect tab build = do
             ]
           defGH5 = def :: TargetGH5
           tgt = defGH5
-            { gh5_Common = defGH5.gh5_Common
+            { common = defGH5.common
               { speed = Just speed
               }
-            , gh5_Guitar = fromMaybe defGH5.gh5_Guitar pickedGuitar
-            , gh5_Bass = fromMaybe defGH5.gh5_Bass $ pickedBass <|> pickedGuitar
-            , gh5_ProTo4 = proTo4
+            , guitar = fromMaybe defGH5.guitar pickedGuitar
+            , bass = fromMaybe defGH5.bass $ pickedBass <|> pickedGuitar
+            , proTo4 = proTo4
             }
           fout = (if isXbox then trimXbox newPreferences else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH5 tgt
             , let
               modifiers = T.concat
-                [ T.pack $ case tgt.gh5_Common.speed of
+                [ T.pack $ case tgt.common.speed of
                   Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                   _               -> ""
                 ]
@@ -1842,14 +1842,14 @@ batchPagePS sink rect tab build = do
         return $ \proj -> let
           defPS = def :: TargetPS
           tgt = preset (projectSongYaml proj) defPS
-            { ps_Common = defPS.ps_Common
+            { common = defPS.common
               { speed = Just speed
               }
             }
           fout = T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ PS tgt
             , let
-              modifiers = T.pack $ case tgt.ps_Common.speed of
+              modifiers = T.pack $ case tgt.common.speed of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"
@@ -1874,7 +1874,7 @@ loadingPhraseCHtoGH2
   -> Maybe T.Text
 loadingPhraseCHtoGH2 proj = listToMaybe $ catMaybes $ do
   PS ps <- toList (projectSongYaml proj).targets
-  return $ stripTags <$> ps.ps_LoadingPhrase
+  return $ stripTags <$> ps.loadingPhrase
 
 warnCombineXboxGH2 :: (Event -> IO ()) -> IO () -> IO ()
 warnCombineXboxGH2 sink go = sink $ EventOnyx $ do
@@ -1941,7 +1941,6 @@ batchPageGH1 sink rect tab build = do
   let getTargetSong usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
         speed <- getSpeed
         go $ \proj -> let
-          defGH1 = def :: TargetGH1
           hasPart p = case HM.lookup p (projectSongYaml proj).parts.getParts of
             Nothing   -> False
             Just part -> isJust part.grybo || isJust part.drums
@@ -1952,18 +1951,18 @@ batchPageGH1 sink rect tab build = do
             , FlexBass
             , FlexDrums
             ]
-          tgt = defGH1
-            { gh1_Common = defGH1.gh1_Common
+          tgt = (def :: TargetGH1)
+            { common = (def :: TargetGH1).common
               { speed = Just speed
               }
-            , gh1_Guitar = fromMaybe (FlexExtra "undefined") leadPart
-            , gh1_Offset = prefGH2Offset newPrefs
-            , gh1_LoadingPhrase = loadingPhraseCHtoGH2 proj
+            , guitar = fromMaybe (FlexExtra "undefined") leadPart
+            , offset = prefGH2Offset newPrefs
+            , loadingPhrase = loadingPhraseCHtoGH2 proj
             }
           fout = T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH1 tgt
             , let
-              modifiers = T.pack $ case tgt.gh1_Common.speed of
+              modifiers = T.pack $ case tgt.common.speed of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"
@@ -2010,7 +2009,6 @@ batchPageGH3 sink rect tab build = do
   let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
         speed <- getSpeed
         go $ \proj -> let
-          defGH3 = def :: TargetGH3
           hasPart p = case HM.lookup p (projectSongYaml proj).parts.getParts of
             Nothing   -> False
             Just part -> isJust part.grybo || isJust part.drums
@@ -2028,25 +2026,25 @@ batchPageGH3 sink rect tab build = do
             , (FlexKeys          , GH2Rhythm)
             , (FlexDrums         , GH2Rhythm)
             ]
-          tgt = defGH3
-            { gh3_Common = defGH3.gh3_Common
+          tgt = (def :: TargetGH3)
+            { common = (def :: TargetGH3).common
               { speed = Just speed
               }
-            , gh3_Guitar = fromMaybe (FlexExtra "undefined") leadPart
-            , gh3_Bass = case coopPart of
+            , guitar = fromMaybe (FlexExtra "undefined") leadPart
+            , bass = case coopPart of
               Just (x, GH2Bass) -> x
-              _                 -> defGH3.gh3_Bass
-            , gh3_Rhythm = case coopPart of
+              _                 -> (def :: TargetGH3).bass
+            , rhythm = case coopPart of
               Just (x, GH2Rhythm) -> x
-              _                   -> defGH3.gh3_Rhythm
-            , gh3_Coop = case coopPart of
+              _                   -> (def :: TargetGH3).rhythm
+            , coop = case coopPart of
               Just (_, coop) -> coop
-              _              -> defGH3.gh3_Coop
+              _              -> (def :: TargetGH3).coop
             }
           fout = (if xbox then trimXbox newPrefs else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH3 tgt
             , let
-              modifiers = T.pack $ case tgt.gh3_Common.speed of
+              modifiers = T.pack $ case tgt.common.speed of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"
@@ -2107,29 +2105,29 @@ batchPageGH2 sink rect tab build = do
             , (FlexDrums         , GH2Rhythm)
             ]
           tgt = defGH2
-            { gh2_Common = defGH2.gh2_Common
+            { common = defGH2.common
               { speed = Just speed
               }
-            , gh2_PracticeAudio = practiceAudio
-            , gh2_Guitar = fromMaybe (FlexExtra "undefined") leadPart
-            , gh2_Bass = case coopPart of
+            , practiceAudio = practiceAudio
+            , guitar = fromMaybe (FlexExtra "undefined") leadPart
+            , bass = case coopPart of
               Just (x, GH2Bass) -> x
-              _                 -> defGH2.gh2_Bass
-            , gh2_Rhythm = case coopPart of
+              _                 -> defGH2.bass
+            , rhythm = case coopPart of
               Just (x, GH2Rhythm) -> x
-              _                   -> defGH2.gh2_Rhythm
-            , gh2_Coop = case coopPart of
+              _                   -> defGH2.rhythm
+            , coop = case coopPart of
               Just (_, coop) -> coop
-              _              -> defGH2.gh2_Coop
-            , gh2_Offset = prefGH2Offset newPrefs
-            , gh2_LoadingPhrase = loadingPhraseCHtoGH2 proj
-            , gh2_DrumChart = isJust drumChoice
-            , gh2_2xBassPedal = fromMaybe False drumChoice
+              _              -> defGH2.coop
+            , offset = prefGH2Offset newPrefs
+            , loadingPhrase = loadingPhraseCHtoGH2 proj
+            , drumChart = isJust drumChoice
+            , is2xBassPedal = fromMaybe False drumChoice
             }
           fout = (if xbox then trimXbox newPrefs else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH2 tgt
             , let
-              modifiers = T.pack $ case tgt.gh2_Common.speed of
+              modifiers = T.pack $ case tgt.common.speed of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"
@@ -2545,7 +2543,7 @@ songPageGHWOR sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \gh5 ->
-        gh5 { gh5_Common = gh5.gh5_Common { speed = Just speed } }
+        (gh5 :: TargetGH5) { common = gh5.common { speed = Just speed } }
       return counter
     fullWidth 35 $ \rect' -> do
       getProTo4 <- liftIO $ horizRadio rect'
@@ -2554,22 +2552,22 @@ songPageGHWOR sink rect tab proj build = mdo
         ]
       tell $ do
         b <- getProTo4
-        return $ Endo $ \gh5 -> gh5 { gh5_ProTo4 = fromMaybe False b }
+        return $ Endo $ \gh5 -> gh5 { proTo4 = fromMaybe False b }
     fullWidth 35 $ \rect' -> numberBox rect' "Custom Song ID (dlc)" $ \sid gh5 ->
-      gh5 { gh5_SongID = sid }
+      gh5 { songID = sid }
     fullWidth 35 $ \rect' -> numberBox rect' "Custom Package ID (cdl)" $ \sid gh5 ->
-      gh5 { gh5_CDL = sid }
+      gh5 { cdl = sid }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.gh5_Guitar), (\v gh5 -> gh5 { gh5_Guitar = v })
+      [ ( "Guitar", (.guitar), (\v gh5 -> (gh5 :: TargetGH5) { guitar = v })
         , (\p -> isJust p.grybo)
         )
-      , ( "Bass"  , (.gh5_Bass  ), (\v gh5 -> gh5 { gh5_Bass   = v })
+      , ( "Bass"  , (.bass  ), (\v gh5 -> (gh5 :: TargetGH5) { bass   = v })
         , (\p -> isJust p.grybo)
         )
-      , ( "Drums" , (.gh5_Drums ), (\v gh5 -> gh5 { gh5_Drums  = v })
+      , ( "Drums" , (.drums ), (\v gh5 -> (gh5 :: TargetGH5) { drums  = v })
         , (\p -> isJust p.drums)
         )
-      , ( "Vocal" , (.gh5_Vocal ), (\v gh5 -> gh5 { gh5_Vocal  = v })
+      , ( "Vocal" , (.vocal ), (\v gh5 -> (gh5 :: TargetGH5) { vocal  = v })
         , (\p -> isJust p.vocal)
         )
       ]
@@ -2577,10 +2575,10 @@ songPageGHWOR sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \gh5 -> return $ targetTitle
           (projectSongYaml proj)
-          (GH5 gh5 { gh5_Common = gh5.gh5_Common { title = Just "" } })
+          (GH5 gh5 { common = gh5.common { title = Just "" } })
         )
-        (\msfx gh5 -> gh5
-          { gh5_Common = gh5.gh5_Common
+        (\msfx gh5 -> (gh5 :: TargetGH5)
+          { common = gh5.common
             { label_ = msfx
             }
           }
@@ -2640,28 +2638,28 @@ songPagePS sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \ps ->
-        ps { ps_Common = ps.ps_Common { speed = Just speed } }
+        (ps :: TargetPS) { common = ps.common { speed = Just speed } }
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar"     , (.ps_Guitar    ), (\v ps -> ps { ps_Guitar     = v })
+      [ ( "Guitar"     , (.guitar    ), (\v ps -> (ps :: TargetPS) { guitar     = v })
         , (\p -> isJust p.grybo || isJust p.ghl || isJust p.proGuitar || isJust p.drums)
         )
-      , ( "Bass"       , (.ps_Bass      ), (\v ps -> ps { ps_Bass       = v })
+      , ( "Bass"       , (.bass      ), (\v ps -> (ps :: TargetPS) { bass       = v })
         , (\p -> isJust p.grybo || isJust p.ghl || isJust p.proGuitar || isJust p.drums)
         )
-      , ( "Keys"       , (.ps_Keys      ), (\v ps -> ps { ps_Keys       = v })
+      , ( "Keys"       , (.keys      ), (\v ps -> (ps :: TargetPS) { keys       = v })
         , (\p -> isJust p.grybo || isJust p.proKeys || isJust p.drums)
         )
-      , ( "Drums"      , (.ps_Drums     ), (\v ps -> ps { ps_Drums      = v })
+      , ( "Drums"      , (.drums     ), (\v ps -> (ps :: TargetPS) { drums      = v })
         , (\p -> isJust p.drums)
         )
-      , ( "Vocal"      , (.ps_Vocal     ), (\v ps -> ps { ps_Vocal      = v })
+      , ( "Vocal"      , (.vocal     ), (\v ps -> (ps :: TargetPS) { vocal      = v })
         , (\p -> isJust p.vocal)
         )
-      , ( "Rhythm"     , (.ps_Rhythm    ), (\v ps -> ps { ps_Rhythm     = v })
+      , ( "Rhythm"     , (.rhythm    ), (\v ps -> (ps :: TargetPS) { rhythm     = v })
         , (\p -> isJust p.grybo || isJust p.drums)
         )
-      , ( "Guitar Coop", (.ps_GuitarCoop), (\v ps -> ps { ps_GuitarCoop = v })
+      , ( "Guitar Coop", (.guitarCoop), (\v ps -> (ps :: TargetPS) { guitarCoop = v })
         , (\p -> isJust p.grybo || isJust p.drums)
         )
       ]
@@ -2669,10 +2667,10 @@ songPagePS sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \ps -> return $ targetTitle
           (projectSongYaml proj)
-          (PS ps { ps_Common = ps.ps_Common { title = Just "" } })
+          (PS ps { common = ps.common { title = Just "" } })
         )
-        (\msfx ps -> ps
-          { ps_Common = ps.ps_Common
+        (\msfx ps -> (ps :: TargetPS)
+          { common = ps.common
             { label_ = msfx
             }
           }
@@ -2798,24 +2796,24 @@ songPageGH1 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \gh1 ->
-        gh1 { gh1_Common = gh1.gh1_Common { speed = Just speed } }
+        (gh1 :: TargetGH1) { common = gh1.common { speed = Just speed } }
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.gh1_Guitar), (\v gh1 -> gh1 { gh1_Guitar = v })
+      [ ( "Guitar", (.guitar), (\v gh1 -> (gh1 :: TargetGH1) { guitar = v })
         , partHasFiveOrDrums
         )
       ]
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
-      [ ( "Bass" , (.gh1_Bass ), (\v gh1 -> gh1 { gh1_Bass  = v })
+      [ ( "Bass" , (.bass ), (\v gh1 -> (gh1 :: TargetGH1) { bass  = v })
         , isJust . (.grybo)
         )
-      , ( "Keys" , (.gh1_Keys ), (\v gh1 -> gh1 { gh1_Keys  = v })
+      , ( "Keys" , (.keys ), (\v gh1 -> (gh1 :: TargetGH1) { keys  = v })
         , isJust . (.grybo)
         )
-      , ( "Drums", (.gh1_Drums), (\v gh1 -> gh1 { gh1_Drums = v })
+      , ( "Drums", (.drums), (\v gh1 -> (gh1 :: TargetGH1) { drums = v })
         , isJust . (.drums)
         )
-      , ( "Vocal", (.gh1_Vocal), (\v gh1 -> gh1 { gh1_Vocal = v })
+      , ( "Vocal", (.vocal), (\v gh1 -> (gh1 :: TargetGH1) { vocal = v })
         , isJust . (.vocal)
         )
       ]
@@ -2823,18 +2821,18 @@ songPageGH1 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \gh1 -> return $ targetTitle
           (projectSongYaml proj)
-          (GH1 gh1 { gh1_Common = gh1.gh1_Common { title = Just "" } })
+          (GH1 gh1 { common = gh1.common { title = Just "" } })
         )
-        (\msfx gh1 -> gh1
-          { gh1_Common = gh1.gh1_Common
+        (\msfx gh1 -> (gh1 :: TargetGH1)
+          { common = gh1.common
             { label_ = msfx
             }
           }
         )
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
-  let initTarget prefs = def
-        { gh1_Offset = prefGH2Offset prefs
-        , gh1_LoadingPhrase = loadingPhraseCHtoGH2 proj
+  let initTarget prefs = (def :: TargetGH1)
+        { offset = prefGH2Offset prefs
+        , loadingPhrase = loadingPhraseCHtoGH2 proj
         }
       makeTarget = fmap ($ initTarget ?preferences) targetModifier
       -- make sure we reload offset before compiling
@@ -2888,22 +2886,22 @@ songPageGH2 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \gh2 ->
-        gh2 { gh2_Common = gh2.gh2_Common { speed = Just speed } }
+        (gh2 :: TargetGH2) { common = gh2.common { speed = Just speed } }
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.gh2_Guitar), (\v gh2 -> gh2 { gh2_Guitar = v })
+      [ ( "Guitar", (.guitar), (\v gh2 -> (gh2 :: TargetGH2) { guitar = v })
         , partHasFiveOrDrums
         )
       ]
     fullWidth 50 $ \rect' -> do
       let [bassArea, coopArea, rhythmArea] = splitHorizN 3 rect'
       void $ partSelectors bassArea proj
-        [ ( "Bass"  , (.gh2_Bass  ), (\v gh2 -> gh2 { gh2_Bass = v })
+        [ ( "Bass"  , (.bass  ), (\v gh2 -> (gh2 :: TargetGH2) { bass = v })
           , partHasFiveOrDrums
           )
         ]
       controlRhythm <- partSelectors rhythmArea proj
-        [ ( "Rhythm", (.gh2_Rhythm), (\v gh2 -> gh2 { gh2_Rhythm = v })
+        [ ( "Rhythm", (.rhythm), (\v gh2 -> (gh2 :: TargetGH2) { rhythm = v })
           , partHasFiveOrDrums
           )
         ]
@@ -2922,15 +2920,15 @@ songPageGH2 sink rect tab proj build = mdo
             GH2Bass   -> GH2Rhythm
             GH2Rhythm -> GH2Bass
           updateCoopButton
-      tell $ readIORef coopPart >>= \coop -> return $ Endo $ \gh2 -> gh2 { gh2_Coop = coop }
+      tell $ readIORef coopPart >>= \coop -> return $ Endo $ \gh2 -> gh2 { coop = coop }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
-      [ ( "Keys" , (.gh2_Keys ), (\v gh2 -> gh2 { gh2_Keys  = v })
+      [ ( "Keys" , (.keys ), (\v gh2 -> (gh2 :: TargetGH2) { keys  = v })
         , isJust . (.grybo)
         )
-      , ( "Drums", (.gh2_Drums), (\v gh2 -> gh2 { gh2_Drums = v })
+      , ( "Drums", (.drums), (\v gh2 -> (gh2 :: TargetGH2) { drums = v })
         , isJust . (.drums)
         )
-      , ( "Vocal", (.gh2_Vocal), (\v gh2 -> gh2 { gh2_Vocal = v })
+      , ( "Vocal", (.vocal), (\v gh2 -> (gh2 :: TargetGH2) { vocal = v })
         , isJust . (.vocal)
         )
       ]
@@ -2938,10 +2936,10 @@ songPageGH2 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \gh2 -> return $ targetTitle
           (projectSongYaml proj)
-          (GH2 gh2 { gh2_Common = gh2.gh2_Common { title = Just "" } })
+          (GH2 gh2 { common = gh2.common { title = Just "" } })
         )
-        (\msfx gh2 -> gh2
-          { gh2_Common = gh2.gh2_Common
+        (\msfx gh2 -> (gh2 :: TargetGH2)
+          { common = gh2.common
             { label_ = msfx
             }
           }
@@ -2951,14 +2949,14 @@ songPageGH2 sink rect tab proj build = mdo
       let [rectA, rectB] = splitHorizN 2 rect'
       boxA <- liftIO $ FL.checkButtonNew rectA (Just "Make practice mode audio for PS2")
       tell $ FL.getValue boxA >>= \b -> return $ Endo $ \gh2 ->
-        gh2 { gh2_PracticeAudio = b }
+        gh2 { practiceAudio = b }
       getDrumOption <- liftIO $ gh2DrumChartSelector sink rectB
       tell $ getDrumOption >>= \opt -> return $ Endo $ \gh2 -> case opt of
-        Nothing   -> gh2 { gh2_DrumChart = False, gh2_2xBassPedal = False }
-        Just is2x -> gh2 { gh2_DrumChart = True , gh2_2xBassPedal = is2x  }
-  let initTarget prefs = def
-        { gh2_Offset = prefGH2Offset prefs
-        , gh2_LoadingPhrase = loadingPhraseCHtoGH2 proj
+        Nothing   -> gh2 { drumChart = False, is2xBassPedal = False }
+        Just is2x -> gh2 { drumChart = True , is2xBassPedal = is2x  }
+  let initTarget prefs = (def :: TargetGH2)
+        { offset = prefGH2Offset prefs
+        , loadingPhrase = loadingPhraseCHtoGH2 proj
         }
       makeTarget = fmap ($ initTarget ?preferences) targetModifier
       -- make sure we reload offset before compiling
@@ -3028,22 +3026,22 @@ songPageGH3 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo $ \gh3 ->
-        gh3 { gh3_Common = gh3.gh3_Common { speed = Just speed } }
+        (gh3 :: TargetGH3) { common = gh3.common { speed = Just speed } }
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.gh3_Guitar), (\v gh3 -> gh3 { gh3_Guitar = v })
+      [ ( "Guitar", (.guitar), (\v gh3 -> (gh3 :: TargetGH3) { guitar = v })
         , partHasFiveOrDrums
         )
       ]
     fullWidth 50 $ \rect' -> do
       let [bassArea, coopArea, rhythmArea] = splitHorizN 3 rect'
       void $ partSelectors bassArea proj
-        [ ( "Bass"  , (.gh3_Bass  ), (\v gh3 -> gh3 { gh3_Bass   = v })
+        [ ( "Bass"  , (.bass  ), (\v gh3 -> (gh3 :: TargetGH3) { bass   = v })
           , partHasFiveOrDrums
           )
         ]
       controlRhythm <- partSelectors rhythmArea proj
-        [ ( "Rhythm", (.gh3_Rhythm), (\v gh3 -> gh3 { gh3_Rhythm = v })
+        [ ( "Rhythm", (.rhythm), (\v gh3 -> (gh3 :: TargetGH3) { rhythm = v })
           , partHasFiveOrDrums
           )
         ]
@@ -3062,15 +3060,15 @@ songPageGH3 sink rect tab proj build = mdo
             GH2Bass   -> GH2Rhythm
             GH2Rhythm -> GH2Bass
           updateCoopButton
-      tell $ readIORef coopPart >>= \coop -> return $ Endo $ \gh3 -> gh3 { gh3_Coop = coop }
+      tell $ readIORef coopPart >>= \coop -> return $ Endo $ \gh3 -> gh3 { coop = coop }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
-      [ ( "Keys" , (.gh3_Keys ), (\v gh3 -> gh3 { gh3_Keys  = v })
+      [ ( "Keys" , (.keys ), (\v gh3 -> (gh3 :: TargetGH3) { keys  = v })
         , isJust . (.grybo)
         )
-      , ( "Drums", (.gh3_Drums), (\v gh3 -> gh3 { gh3_Drums = v })
+      , ( "Drums", (.drums), (\v gh3 -> (gh3 :: TargetGH3) { drums = v })
         , isJust . (.drums)
         )
-      , ( "Vocal", (.gh3_Vocal), (\v gh3 -> gh3 { gh3_Vocal = v })
+      , ( "Vocal", (.vocal), (\v gh3 -> (gh3 :: TargetGH3) { vocal = v })
         , isJust . (.vocal)
         )
       ]
@@ -3078,10 +3076,10 @@ songPageGH3 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \gh3 -> return $ targetTitle
           (projectSongYaml proj)
-          (GH3 gh3 { gh3_Common = gh3.gh3_Common { title = Just "" } })
+          (GH3 gh3 { common = gh3.common { title = Just "" } })
         )
-        (\msfx gh3 -> gh3
-          { gh3_Common = gh3.gh3_Common
+        (\msfx gh3 -> (gh3 :: TargetGH3)
+          { common = gh3.common
             { label_ = msfx
             }
           }

@@ -16,7 +16,7 @@ import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.Maybe                       (isJust)
 import qualified Data.Text                        as T
-import           Development.Shake                hiding (phony, (%>), (&%>))
+import           Development.Shake                hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.Render
@@ -39,7 +39,7 @@ psRules buildInfo dir ps = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan ps.ps_Common.plan songYaml of
+  (planName, plan) <- case getPlan ps.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show ps
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
@@ -47,15 +47,15 @@ psRules buildInfo dir ps = do
       loadEditedParts :: Staction (DifficultyPS, Maybe VocalCount)
       loadEditedParts = shk $ read <$> readFile' pathPSEditedParts
 
-  [dir </> "ps/notes.mid", pathPSEditedParts] &%> \[out, parts] -> do
+  (dir </> "ps/notes.mid", pathPSEditedParts) %> \(out, parts) -> do
     input <- shakeMIDI $ planDir </> "raw.mid"
-    (_, mixMode) <- computeDrumsPart ps.ps_Drums plan songYaml
+    (_, mixMode) <- computeDrumsPart ps.drums plan songYaml
     (output, diffs, vc) <- RB3.processPS
       ps
       songYaml
-      (applyTargetMIDI ps.ps_Common input)
+      (applyTargetMIDI ps.common input)
       mixMode
-      (applyTargetLength ps.ps_Common input <$> getAudioLength buildInfo planName plan)
+      (applyTargetLength ps.common input <$> getAudioLength buildInfo planName plan)
     saveMIDI out output
     liftIO $ writeFile parts $ show (diffs, vc)
 
@@ -90,7 +90,7 @@ psRules buildInfo dir ps = do
     (DifficultyPS{..}, _) <- loadEditedParts
     let (pstart, _) = previewBounds songYaml (raw :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
         len = RBFile.songLengthMS song
-        pd = getPart ps.ps_Drums songYaml >>= (.drums)
+        pd = getPart ps.drums songYaml >>= (.drums)
         dmode = (.mode) <$> pd
         DifficultyRB3{..} = psDifficultyRB3
         allFives =
@@ -160,7 +160,7 @@ psRules buildInfo dir ps = do
         five <- allFives
         fd <- toList $ fiveDifficulties five
         return $ not $ RTB.null $ fiveOpen fd
-      , FoF.loadingPhrase    = ps.ps_LoadingPhrase
+      , FoF.loadingPhrase    = ps.loadingPhrase
       , FoF.cassetteColor    = Nothing
       , FoF.tags             = guard songYaml.metadata.cover >> Just "cover"
       , FoF.background       = bgimg
@@ -171,7 +171,7 @@ psRules buildInfo dir ps = do
       , FoF.videoLoop        = Nothing
       }
 
-  let psParts = [ps.ps_Drums, ps.ps_Guitar, ps.ps_Bass, ps.ps_Keys, ps.ps_Vocal, ps.ps_Rhythm, ps.ps_GuitarCoop]
+  let psParts = [ps.drums, ps.guitar, ps.bass, ps.keys, ps.vocal, ps.rhythm, ps.guitarCoop]
       eitherDiff x y = if x == 0 then y else x
       loadPSMidi :: Staction (RBFile.Song (RBFile.OnyxFile U.Beats), DifficultyPS, DifficultyRB3, U.Seconds)
       loadPSMidi = do
@@ -187,54 +187,54 @@ psRules buildInfo dir ps = do
   let setInstLength secs s = stackIO $ runResourceT $ setAudioLengthOrEmpty secs s
   dir </> "audio/drums.ogg"   %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceStereoParts buildInfo psParts ps.ps_Common mid 0 planName plan [(ps.ps_Drums, rb3DrumsRank)]
+    s <- sourceStereoParts buildInfo psParts ps.common mid 0 planName plan [(ps.drums, rb3DrumsRank)]
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> "audio/drums_1.ogg" %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceKick  buildInfo psParts ps.ps_Common mid 0 False planName plan   ps.ps_Drums  rb3DrumsRank
+    s <- sourceKick  buildInfo psParts ps.common mid 0 False planName plan   ps.drums  rb3DrumsRank
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> "audio/drums_2.ogg" %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceSnare buildInfo psParts ps.ps_Common mid 0 False planName plan   ps.ps_Drums  rb3DrumsRank
+    s <- sourceSnare buildInfo psParts ps.common mid 0 False planName plan   ps.drums  rb3DrumsRank
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> "audio/drums_3.ogg" %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceKit   buildInfo psParts ps.ps_Common mid 0 False planName plan   ps.ps_Drums  rb3DrumsRank
+    s <- sourceKit   buildInfo psParts ps.common mid 0 False planName plan   ps.drums  rb3DrumsRank
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> "audio/guitar.ogg"  %> \out -> do
     (mid, DifficultyPS{..}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceStereoParts buildInfo psParts ps.ps_Common mid 0 planName plan
-      [(ps.ps_Guitar, eitherDiff rb3GuitarRank chGuitarGHLTier), (ps.ps_GuitarCoop, psGuitarCoopTier)]
+    s <- sourceStereoParts buildInfo psParts ps.common mid 0 planName plan
+      [(ps.guitar, eitherDiff rb3GuitarRank chGuitarGHLTier), (ps.guitarCoop, psGuitarCoopTier)]
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> "audio/keys.ogg"    %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceStereoParts buildInfo psParts ps.ps_Common mid 0 planName plan
-      [(ps.ps_Keys, rb3KeysRank)]
+    s <- sourceStereoParts buildInfo psParts ps.common mid 0 planName plan
+      [(ps.keys, rb3KeysRank)]
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> "audio/rhythm.ogg"  %> \out -> do
     (mid, DifficultyPS{..}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceStereoParts buildInfo psParts ps.ps_Common mid 0 planName plan
-      [(ps.ps_Bass, eitherDiff rb3BassRank chBassGHLTier), (ps.ps_Rhythm, psRhythmTier)]
+    s <- sourceStereoParts buildInfo psParts ps.common mid 0 planName plan
+      [(ps.bass, eitherDiff rb3BassRank chBassGHLTier), (ps.rhythm, psRhythmTier)]
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> "audio/vocals.ogg"  %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceStereoParts buildInfo psParts ps.ps_Common mid 0 planName plan
-      [(ps.ps_Vocal, rb3VocalRank)]
+    s <- sourceStereoParts buildInfo psParts ps.common mid 0 planName plan
+      [(ps.vocal, rb3VocalRank)]
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> "audio/crowd.ogg"   %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{}, endSecs) <- loadPSMidi
-    s <- sourceCrowd       buildInfo ps.ps_Common mid 0 planName plan
+    s <- sourceCrowd       buildInfo ps.common mid 0 planName plan
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> "ps/song.ogg"    %> \out -> do
     (mid, DifficultyPS{..}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceSongCountin buildInfo ps.ps_Common mid 0 True planName plan
-      [ (ps.ps_Drums     , rb3DrumsTier    )
-      , (ps.ps_Guitar    , eitherDiff rb3GuitarRank chGuitarGHLTier)
-      , (ps.ps_GuitarCoop, psGuitarCoopTier)
-      , (ps.ps_Bass      , eitherDiff rb3BassRank chBassGHLTier)
-      , (ps.ps_Rhythm    , psRhythmTier    )
-      , (ps.ps_Keys      , rb3KeysTier     )
-      , (ps.ps_Vocal     , rb3VocalTier    )
+    s <- sourceSongCountin buildInfo ps.common mid 0 True planName plan
+      [ (ps.drums     , rb3DrumsTier    )
+      , (ps.guitar    , eitherDiff rb3GuitarRank chGuitarGHLTier)
+      , (ps.guitarCoop, psGuitarCoopTier)
+      , (ps.bass      , eitherDiff rb3BassRank chBassGHLTier)
+      , (ps.rhythm    , psRhythmTier    )
+      , (ps.keys      , rb3KeysTier     )
+      , (ps.vocal     , rb3VocalTier    )
       ]
     runAudio (setAudioLength endSecs s) out
 
@@ -249,7 +249,7 @@ psRules buildInfo dir ps = do
         _      -> shk $ copyFile' fin $ dir </> "ps" </> inst <.> "ogg"
 
   phony (dir </> "ps") $ do
-    (_, mixMode) <- computeDrumsPart ps.ps_Drums plan songYaml
+    (_, mixMode) <- computeDrumsPart ps.drums plan songYaml
     let needsPartAudio f = maybe False (/= emptyPart) (getPart (f ps) songYaml) && case plan of
           StandardPlan x -> HM.member (f ps) x.parts.getParts
           MoggPlan     _ -> True
@@ -258,19 +258,19 @@ psRules buildInfo dir ps = do
       [ ["song.ini", "notes.mid", "song.ogg", if useJPEG then "album.jpg" else "album.png"]
       , ["expert+.mid"
         | maybe False ((/= Kicks1x) . (.kicks))
-        $ getPart ps.ps_Drums songYaml >>= (.drums)
+        $ getPart ps.drums songYaml >>= (.drums)
         ]
-      , ["try-drums.ogg"   | maybe False (/= emptyPart) (getPart ps.ps_Drums songYaml) && mixMode == RBDrums.D0 && case plan of
-          StandardPlan x -> HM.member ps.ps_Drums x.parts.getParts
+      , ["try-drums.ogg"   | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode == RBDrums.D0 && case plan of
+          StandardPlan x -> HM.member ps.drums x.parts.getParts
           MoggPlan     _ -> True
         ]
-      , ["try-drums_1.ogg" | maybe False (/= emptyPart) (getPart ps.ps_Drums songYaml) && mixMode /= RBDrums.D0]
-      , ["try-drums_2.ogg" | maybe False (/= emptyPart) (getPart ps.ps_Drums songYaml) && mixMode /= RBDrums.D0]
-      , ["try-drums_3.ogg" | maybe False (/= emptyPart) (getPart ps.ps_Drums songYaml) && mixMode /= RBDrums.D0]
-      , ["try-guitar.ogg"  | needsPartAudio (.ps_Guitar) || needsPartAudio (.ps_GuitarCoop)]
-      , ["try-keys.ogg"    | needsPartAudio (.ps_Keys  )                                   ]
-      , ["try-rhythm.ogg"  | needsPartAudio (.ps_Bass  ) || needsPartAudio (.ps_Rhythm    )]
-      , ["try-vocals.ogg"  | needsPartAudio (.ps_Vocal )                                   ]
+      , ["try-drums_1.ogg" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= RBDrums.D0]
+      , ["try-drums_2.ogg" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= RBDrums.D0]
+      , ["try-drums_3.ogg" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= RBDrums.D0]
+      , ["try-guitar.ogg"  | needsPartAudio (.guitar) || needsPartAudio (.guitarCoop)]
+      , ["try-keys.ogg"    | needsPartAudio (.keys  )                                   ]
+      , ["try-rhythm.ogg"  | needsPartAudio (.bass  ) || needsPartAudio (.rhythm    )]
+      , ["try-vocals.ogg"  | needsPartAudio (.vocal )                                   ]
       , ["try-crowd.ogg"   | case plan of
           StandardPlan x -> isJust x.crowd
           MoggPlan     x -> not $ null x.crowd

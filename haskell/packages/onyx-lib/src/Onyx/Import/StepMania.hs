@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.StepMania where
 
 import           Control.Applicative                  ((<|>))
@@ -292,7 +293,7 @@ importSM src level = do
       , fileTempo = Nothing
       }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton (F.FlexExtra "global") emptyPart
+    , parts = Parts $ HM.singleton (F.FlexExtra "global") (emptyPart :: Part SoftFile)
       { dance = Just PartDance
         { difficulty = Tier $ max 1 $ let
           -- as a hack, get max meter value and subtract 4 (so 10 becomes 6)

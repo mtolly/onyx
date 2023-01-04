@@ -21,8 +21,7 @@ import qualified Data.Map                             as Map
 import           Data.Maybe                           (fromMaybe, isJust,
                                                        isNothing)
 import qualified Data.Text                            as T
-import           Development.Shake                    hiding (phony, (%>),
-                                                       (&%>))
+import           Development.Shake                    hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.VGS                       (writeVGSMultiRate)
@@ -94,8 +93,8 @@ computeGH1Audio song target hasAudio = do
   let hasFiveOrDrums = \case
         Nothing   -> False
         Just part -> isJust part.grybo || isJust part.drums
-  gh1LeadTrack <- if hasFiveOrDrums $ getPart target.gh1_Guitar song
-    then return target.gh1_Guitar
+  gh1LeadTrack <- if hasFiveOrDrums $ getPart target.guitar song
+    then return target.guitar
     else fatal "computeGH1Audio: no lead guitar part selected"
   let leadAudio = hasAudio gh1LeadTrack
       gh1AudioSections = GH2Band : if leadAudio
@@ -106,10 +105,10 @@ computeGH1Audio song target hasAudio = do
         else [GH2Silent, GH2Silent]
       gh1LeadChannels = [2, 3] -- always stereo as per above
       gh1BackChannels = [0, 1] -- should always be this for our output
-      gh1AnimBass  = target.gh1_Bass  <$ (getPart target.gh1_Bass  song >>= (.grybo))
-      gh1AnimDrums = target.gh1_Drums <$ (getPart target.gh1_Drums song >>= (.drums))
-      gh1AnimVocal = target.gh1_Vocal <$ (getPart target.gh1_Vocal song >>= (.vocal))
-      gh1AnimKeys  = target.gh1_Keys  <$ (getPart target.gh1_Keys  song >>= (.grybo))
+      gh1AnimBass  = target.bass  <$ (getPart target.bass  song >>= (.grybo))
+      gh1AnimDrums = target.drums <$ (getPart target.drums song >>= (.drums))
+      gh1AnimVocal = target.vocal <$ (getPart target.vocal song >>= (.vocal))
+      gh1AnimKeys  = target.keys  <$ (getPart target.keys  song >>= (.grybo))
   return GH1Audio{..}
 
 midiRB3toGH1
@@ -312,12 +311,12 @@ gh1Rules buildInfo dir gh1 = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan gh1.gh1_Common.plan songYaml of
+  (planName, plan) <- case getPlan gh1.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh1
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
       defaultID = hashGH1 songYaml gh1
-      key = fromMaybe (makeShortName defaultID songYaml) gh1.gh1_Key
+      key = fromMaybe (makeShortName defaultID songYaml) gh1.key
       pkg = T.unpack key
 
   let loadPartAudioCheck = case plan of
@@ -328,12 +327,12 @@ gh1Rules buildInfo dir gh1 = do
             Nothing    -> False
             Just chans -> any (`notElem` (silentChans :: [Int])) $ concat $ toList chans
 
-  [dir </> "gh1/notes.mid", dir </> "gh1/pad.txt"] &%> \[out, pad] -> do
+  (dir </> "gh1/notes.mid", dir </> "gh1/pad.txt") %> \(out, pad) -> do
     input <- F.shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
     audio <- computeGH1Audio songYaml gh1 hasAudio
     (mid, padSeconds) <- midiRB3toGH1 songYaml audio
-      (applyTargetMIDI gh1.gh1_Common input)
+      (applyTargetMIDI gh1.common input)
       (getAudioLength buildInfo planName plan)
     F.saveMIDI out mid
     stackIO $ writeFile pad $ show padSeconds
@@ -361,22 +360,22 @@ gh1Rules buildInfo dir gh1 = do
           GH2Silent -> return $ silent (Seconds 0) 11025 1
         pad <- shk $ read <$> readFile' (dir </> "gh1/pad.txt")
         audioLen <- correctAudioLength mid
-        let applyOffset = case compare gh1.gh1_Offset 0 of
+        let applyOffset = case compare gh1.offset 0 of
               EQ -> id
-              GT -> dropStart $ Seconds          gh1.gh1_Offset
-              LT -> padStart  $ Seconds $ negate gh1.gh1_Offset
+              GT -> dropStart $ Seconds          gh1.offset
+              LT -> padStart  $ Seconds $ negate gh1.offset
             toEachSource
               = setAudioLength audioLen
               . applyOffset
               . padAudio pad
-              . applyTargetAudio gh1.gh1_Common mid
+              . applyTargetAudio gh1.common mid
         return $ fmap toEachSource srcs
 
   dir </> "gh1/audio.vgs" %> \out -> do
     srcs <- gh1SourcesVGS
     stackIO $ runResourceT $ writeVGSMultiRate out $ map (mapSamples integralSample) srcs
 
-  [dir </> "gh1/songs.dta", dir </> "gh1/songs-inner.dta"] &%> \[out, outInner] -> do
+  (dir </> "gh1/songs.dta", dir </> "gh1/songs-inner.dta") %> \(out, outInner) -> do
     input <- F.shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
     audio <- computeGH1Audio songYaml gh1 hasAudio

@@ -435,17 +435,17 @@ buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys song
     target' = case target of
       Left _rb3 -> target
       Right ps  -> Left TargetRB3
-        { common      = ps.ps_Common
+        { common      = ps.common
         , is2xBassPedal = True -- assume 2x
         , songID      = SongIDAutoSymbol
         , version     = Nothing
         , harmonix    = False
         , magma       = MagmaRequire
-        , guitar      = ps.ps_Guitar
-        , bass        = ps.ps_Bass
-        , drums       = ps.ps_Drums
-        , keys        = ps.ps_Keys
-        , vocal       = ps.ps_Vocal
+        , guitar      = ps.guitar
+        , bass        = ps.bass
+        , drums       = ps.drums
+        , keys        = ps.keys
+        , vocal       = ps.vocal
         , ps3Encrypt  = True
         }
     in case buildDrums fivePart target' song timing songYaml of
@@ -549,23 +549,23 @@ processMIDI
   -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats), DifficultyPS, Maybe VocalCount) -- ^ output midi, filtered difficulties, vocal count
 processMIDI target songYaml origInput mixMode getAudioLength = inside "Processing MIDI for RB3/PS" $ do
   let input@(RBFile.Song tempos mmap trks) = case target of
-        Right ps | not $ ps.ps_BigRockEnding -> deleteBRE origInput
-        _                                    -> origInput
+        Right ps | not $ ps.bigRockEnding -> deleteBRE origInput
+        _                                 -> origInput
   timing@BasicTiming{..} <- basicTiming input getAudioLength
   let targetPS = case target of
         Right tps -> tps
         Left trb3 -> TargetPS
-          { ps_Common        = trb3.common
-          , ps_Guitar        = trb3.guitar
-          , ps_Bass          = trb3.bass
-          , ps_Drums         = trb3.drums
-          , ps_Keys          = trb3.keys
-          , ps_Vocal         = trb3.vocal
-          , ps_Rhythm        = RBFile.FlexExtra "undefined"
-          , ps_GuitarCoop    = RBFile.FlexExtra "undefined"
-          , ps_Dance         = RBFile.FlexExtra "undefined"
-          , ps_LoadingPhrase = Nothing
-          , ps_BigRockEnding = True
+          { common        = trb3.common
+          , guitar        = trb3.guitar
+          , bass          = trb3.bass
+          , drums         = trb3.drums
+          , keys          = trb3.keys
+          , vocal         = trb3.vocal
+          , rhythm        = RBFile.FlexExtra "undefined"
+          , guitarCoop    = RBFile.FlexExtra "undefined"
+          , dance         = RBFile.FlexExtra "undefined"
+          , loadingPhrase = Nothing
+          , bigRockEnding = True
           }
       originalRanks = difficultyPS targetPS songYaml
 
@@ -599,14 +599,14 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       eventsTrackPS = eventsTrack
         { eventsSections = makePSSection . snd <$> eventsSections eventsTrack
         }
-      drumsPart = either (.drums) (.ps_Drums) target
+      drumsPart = either (.drums) (.drums) target
       drumsTrack = case buildDrums drumsPart target input timing songYaml of
         Nothing -> mempty
         Just dt -> setDrumMix mixMode dt
       makeGRYBOTrack toKeys fpart = fromMaybe mempty $ buildFive fpart target input timing toKeys songYaml
 
-      guitarPart = either (.guitar) (.ps_Guitar) target
-      bassPart = either (.bass) (.ps_Bass) target
+      guitarPart = either (.guitar) (.guitar) target
+      bassPart = either (.bass) (.bass) target
 
       -- TODO: pgHopoThreshold
       makeProGtrTracks gtype fpart = case getPart fpart songYaml >>= (.proGuitar) of
@@ -668,10 +668,10 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         then addFiveMoods tempos timing $ RBFile.protarToGrybo proBass
         else makeGRYBOTrack False bassPart
 
-      rhythmPart = either (const $ RBFile.FlexExtra "undefined") (.ps_Rhythm) target
+      rhythmPart = either (const $ RBFile.FlexExtra "undefined") (.rhythm) target
       rhythmPS = makeGRYBOTrack False rhythmPart
 
-      guitarCoopPart = either (const $ RBFile.FlexExtra "undefined") (.ps_GuitarCoop) target
+      guitarCoopPart = either (const $ RBFile.FlexExtra "undefined") (.guitarCoop) target
       guitarCoopPS = makeGRYBOTrack False guitarCoopPart
 
       sixEachDiff f st = st
@@ -699,7 +699,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
           $ sixGems sd
           ) $ RBFile.onyxPartSix $ RBFile.getFlexPart bassPart trks
 
-      keysPart = either (.keys) (.ps_Keys) target
+      keysPart = either (.keys) (.keys) target
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of
         Nothing -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
         Just part -> case (part.grybo, part.drums, part.proKeys) of
@@ -764,7 +764,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
                 , keysEasy
                 )
 
-  let vocalPart = either (.vocal) (.ps_Vocal) target
+  let vocalPart = either (.vocal) (.vocal) target
       voxCount = fmap (.count) $ getPart vocalPart songYaml >>= (.vocal)
       partVox = RBFile.onyxPartVocals $ RBFile.getFlexPart vocalPart trks
       harm1   = RBFile.onyxHarm1 $ RBFile.getFlexPart vocalPart trks
@@ -889,7 +889,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
             }
           }
         Just _ -> originalRanks
-      dance = case either (const Nothing) (Just . (.ps_Dance)) target of
+      dance = case either (const Nothing) (Just . (.dance)) target of
         Nothing -> mempty
         Just fpart -> case getPart fpart songYaml >>= (.dance) of
           Nothing  -> mempty

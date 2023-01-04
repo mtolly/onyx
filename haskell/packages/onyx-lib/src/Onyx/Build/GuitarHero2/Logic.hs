@@ -115,19 +115,19 @@ computeGH2Audio song target hasAudio = do
   let hasFiveOrDrums = \case
         Nothing   -> False
         Just part -> isJust part.grybo || isJust part.drums
-  leadTrack <- if hasFiveOrDrums $ getPart target.gh2_Guitar song
-    then return target.gh2_Guitar
+  leadTrack <- if hasFiveOrDrums $ getPart target.guitar song
+    then return target.guitar
     else fatal "computeGH2Audio: no lead guitar part selected"
-  drumTrack <- case getPart target.gh2_Drums song >>= (.drums) of
+  drumTrack <- case getPart target.drums song >>= (.drums) of
     Nothing -> return Nothing
     Just _  -> return $ do
-      guard target.gh2_DrumChart
-      Just target.gh2_Drums
-  let specifiedCoop = case target.gh2_Coop of
-        GH2Bass   -> target.gh2_Bass
-        GH2Rhythm -> target.gh2_Rhythm
+      guard target.drumChart
+      Just target.drums
+  let specifiedCoop = case target.coop of
+        GH2Bass   -> target.bass
+        GH2Rhythm -> target.rhythm
       (coopTrack, coopType) = if hasFiveOrDrums $ getPart specifiedCoop song
-        then (specifiedCoop, target.gh2_Coop)
+        then (specifiedCoop, target.coop)
         else (leadTrack    , GH2Rhythm      )
       leadAudio = hasAudio leadTrack
       coopAudio = leadTrack /= coopTrack && hasAudio coopTrack
@@ -173,7 +173,7 @@ computeGH2Audio song target hasAudio = do
           then indexes (concat [bandSection, leadSection, coopSection, drumSection]) silentSection
           else []
       backChannels = [0, 1] -- should always be this for our output
-      (practice, leadPractice, coopPractice, drumPractice) = if target.gh2_PracticeAudio
+      (practice, leadPractice, coopPractice, drumPractice) = if target.practiceAudio
         then let
           -- From testing, you can't just have 1 channel and assign it to both lead and bass/rhythm;
           -- you get no audio. I'm guessing any channels for an instrument other than the one
@@ -186,10 +186,10 @@ computeGH2Audio song target hasAudio = do
           allContents = [contentsLead, contentsCoop] <> contentsDrum
           in (allContents, 0, 1, guard (not $ null contentsDrum) >> Just 2)
         else ([Nothing], 0, 0, 0 <$ drumTrack) -- we'll make a single mono silent track
-      animBass  = target.gh2_Bass  <$ (getPart target.gh2_Bass  song >>= (.grybo))
-      animDrums = target.gh2_Drums <$ (getPart target.gh2_Drums song >>= (.drums))
-      animVocal = target.gh2_Vocal <$ (getPart target.gh2_Vocal song >>= (.vocal))
-      animKeys  = target.gh2_Keys  <$ (getPart target.gh2_Keys  song >>= (.grybo))
+      animBass  = target.bass  <$ (getPart target.bass  song >>= (.grybo))
+      animDrums = target.drums <$ (getPart target.drums song >>= (.drums))
+      animVocal = target.vocal <$ (getPart target.vocal song >>= (.vocal))
+      animKeys  = target.keys  <$ (getPart target.keys  song >>= (.grybo))
   return GH2Audio{..}
 
 midiRB3toGH2
@@ -255,7 +255,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
           Nothing -> return mempty
           Just pd -> let
             trackOrig = buildDrumTarget
-              (if target.gh2_2xBassPedal then DrumTargetRB2x else DrumTargetRB1x)
+              (if target.is2xBassPedal then DrumTargetRB2x else DrumTargetRB1x)
               pd
               (timingEnd timing)
               tmap
@@ -283,7 +283,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
         Nothing -> mempty
         Just pd -> let
           trackOrig = buildDrumTarget
-            (if target.gh2_2xBassPedal then DrumTargetRB2x else DrumTargetRB1x)
+            (if target.is2xBassPedal then DrumTargetRB2x else DrumTargetRB1x)
             pd
             (timingEnd timing)
             tmap
@@ -411,7 +411,7 @@ makeGH2DTA song key preview target audio title isDX2 = D.SongPackage
     coop = case audio.coopType of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
     prac :: Int -> D.Song
     prac speed = D.Song
-      { D.songName = if target.gh2_PracticeAudio
+      { D.songName = if target.practiceAudio
         then "songs/" <> key <> "/" <> key <> "_p" <> T.pack (show speed)
         else "songs/" <> key <> "/" <> key <> "_empty"
       , D.tracks = D.DictList $ filter (\(_, ns) -> not $ null ns)
@@ -496,7 +496,7 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
   , D.songPractice3 = Nothing
   , D.band = bandMembers song audio
   } where
-    coop = case target.gh2_Coop of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
+    coop = case target.coop of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
 
 addDXExtra :: GH2DXExtra -> [D.Chunk T.Text] -> [D.Chunk T.Text]
 addDXExtra extra = map $ \case

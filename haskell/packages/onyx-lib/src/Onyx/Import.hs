@@ -526,7 +526,7 @@ installGH1 gh1 proj gen = do
     , sort_            = guard (prefSortGH2 prefs) >> if prefArtistSort prefs
       then Just SongSortArtistTitle
       else Just SongSortTitleArtist
-    , loading_phrase   = toBytes <$> gh1.gh1_LoadingPhrase
+    , loading_phrase   = toBytes <$> gh1.loadingPhrase
     }
 
 installGH2 :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
@@ -576,7 +576,7 @@ installGH2 gh2 proj gen = do
     , sort_             = guard (prefSortGH2 prefs) >> if prefArtistSort prefs
       then Just SongSortArtistTitle
       else Just SongSortTitleArtist
-    , loading_phrase   = toBytes <$> gh2.gh2_LoadingPhrase
+    , loading_phrase   = toBytes <$> gh2.loadingPhrase
     }
 
 makeGH1DIY :: (MonadIO m) => TargetGH1 -> Project -> FilePath -> StackTraceT (QueueLog m) ()

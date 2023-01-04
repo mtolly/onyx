@@ -31,7 +31,7 @@ import qualified Data.List.NonEmpty               as NE
 import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import           Development.Shake                hiding (phony, (%>), (&%>))
+import           Development.Shake                hiding (phony, (%>))
 import           Development.Shake.FilePath
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.Audio

@@ -311,7 +311,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
       fiveLane = case pd.mode of
         Drums4 -> add2x $ D.drumGems dd
         Drums5 -> add2x $ D.drumGems dd
-        _ | target.gh5_ProTo4 -> add2x $ D.drumGems dd
+        _ | target.proTo4 -> add2x $ D.drumGems dd
         _ -> let
           -- TODO this logic should be moved to buildDrumTarget
           pro = add2x $ D.computePro (Just diff) trk
@@ -376,9 +376,9 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
     Nothing -> Drums (case diff of Expert -> Right []; _ -> Left []) [] []
   in do
     timing <- basicTiming song getAudioLength
-    (voxNotes, voxLyrics, voxSP, voxPhrases, voxMarkers) <- case getPart target.gh5_Vocal songYaml >>= (.vocal) of
+    (voxNotes, voxLyrics, voxSP, voxPhrases, voxMarkers) <- case getPart target.vocal songYaml >>= (.vocal) of
       Just _pv -> do
-        let opart = fromMaybe mempty $ Map.lookup target.gh5_Vocal $ RBFile.onyxParts ofile
+        let opart = fromMaybe mempty $ Map.lookup target.vocal $ RBFile.onyxParts ofile
             trk = if nullVox $ RBFile.onyxPartVocals opart
               then harm1ToPartVocals $ RBFile.onyxHarm1 opart
               else RBFile.onyxPartVocals opart
@@ -459,20 +459,20 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
           $ RTB.toAbsoluteEventList 0 sections'
         sectionBank = HM.fromList $ RTB.getBodies sections'
     return (GHNoteFile
-      { gh_guitareasy            = makeGB target.gh5_Guitar Easy
-      , gh_guitarmedium          = makeGB target.gh5_Guitar Medium
-      , gh_guitarhard            = makeGB target.gh5_Guitar Hard
-      , gh_guitarexpert          = makeGB target.gh5_Guitar Expert
+      { gh_guitareasy            = makeGB target.guitar Easy
+      , gh_guitarmedium          = makeGB target.guitar Medium
+      , gh_guitarhard            = makeGB target.guitar Hard
+      , gh_guitarexpert          = makeGB target.guitar Expert
 
-      , gh_basseasy              = makeGB target.gh5_Bass Easy
-      , gh_bassmedium            = makeGB target.gh5_Bass Medium
-      , gh_basshard              = makeGB target.gh5_Bass Hard
-      , gh_bassexpert            = makeGB target.gh5_Bass Expert
+      , gh_basseasy              = makeGB target.bass Easy
+      , gh_bassmedium            = makeGB target.bass Medium
+      , gh_basshard              = makeGB target.bass Hard
+      , gh_bassexpert            = makeGB target.bass Expert
 
-      , gh_drumseasy             = makeDrums target.gh5_Drums Easy   timing
-      , gh_drumsmedium           = makeDrums target.gh5_Drums Medium timing
-      , gh_drumshard             = makeDrums target.gh5_Drums Hard   timing
-      , gh_drumsexpert           = makeDrums target.gh5_Drums Expert timing
+      , gh_drumseasy             = makeDrums target.drums Easy   timing
+      , gh_drumsmedium           = makeDrums target.drums Medium timing
+      , gh_drumshard             = makeDrums target.drums Hard   timing
+      , gh_drumsexpert           = makeDrums target.drums Expert timing
 
       , gh_vocals                = voxNotes
       , gh_vocallyrics           = voxLyrics

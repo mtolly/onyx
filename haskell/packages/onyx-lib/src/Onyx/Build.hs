@@ -30,7 +30,7 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import           Development.Shake                hiding (phony, (%>), (&%>))
+import           Development.Shake                hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.Render
@@ -103,19 +103,19 @@ dtxRules buildInfo dir dtx = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, _plan) <- case getPlan dtx.dtx_Common.plan songYaml of
+  (planName, _plan) <- case getPlan dtx.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show dtx
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
 
-  let dtxPartDrums  = case getPart dtx.dtx_Drums songYaml >>= (.drums) of
-        Just pd -> Just (dtx.dtx_Drums, pd)
+  let dtxPartDrums  = case getPart dtx.drums songYaml >>= (.drums) of
+        Just pd -> Just (dtx.drums, pd)
         Nothing -> Nothing
-      dtxPartGuitar = case getPart dtx.dtx_Guitar songYaml >>= (.grybo) of
-        Just pg -> Just (dtx.dtx_Guitar, pg)
+      dtxPartGuitar = case getPart dtx.guitar songYaml >>= (.grybo) of
+        Just pg -> Just (dtx.guitar, pg)
         Nothing -> Nothing
-      dtxPartBass   = case getPart dtx.dtx_Bass songYaml >>= (.grybo) of
-        Just pg -> Just (dtx.dtx_Bass, pg)
+      dtxPartBass   = case getPart dtx.bass songYaml >>= (.grybo) of
+        Just pg -> Just (dtx.bass, pg)
         Nothing -> Nothing
 
   dir </> "dtx/empty.wav" %> \out -> do
@@ -617,7 +617,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 else moggToOgg mogg out
             wav %> buildAudio (Input ogg)
             let allChannelWAVs = map channelWAV [0 .. length x.pans - 1]
-            allChannelWAVs &%> \_ -> do
+            allChannelWAVs %> \_ -> do
               src <- lift $ lift $ buildSource $ Input ogg
               stackIO $ audioToChannelWAVs src allChannelWAVs
             mogg %> \out -> do
@@ -629,7 +629,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               -- TODO: check if it's actually an OGG (starts with OggS)
               shk $ copyFile' p out
               forceRW out
-            (dir </> "silent-channels.txt") %> \out -> do
+            dir </> "silent-channels.txt" %> \out -> do
               src <- lift $ lift $ buildSource $ Input ogg
               chans <- stackIO $ runResourceT $ runConduit $ emptyChannels src
               stackIO $ writeFile out $ show chans

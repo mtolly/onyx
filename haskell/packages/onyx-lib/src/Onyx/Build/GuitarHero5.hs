@@ -19,7 +19,7 @@ import           Data.Hashable                   (Hashable, hash)
 import qualified Data.HashMap.Strict             as HM
 import           Data.Maybe                      (fromMaybe)
 import qualified Data.Text                       as T
-import           Development.Shake               hiding (phony, (%>), (&%>))
+import           Development.Shake               hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.FSB                  (emitFSB, ghBandMP3sToFSB4)
@@ -72,14 +72,14 @@ gh5Rules buildInfo dir gh5 = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan gh5.gh5_Common.plan songYaml of
+  (planName, plan) <- case getPlan gh5.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh5
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
 
   let hashed = hashGH5 songYaml gh5
-      songID = fromMaybe hashed gh5.gh5_SongID
-      cdl = "cdl" <> show (fromMaybe hashed gh5.gh5_CDL)
+      songID = fromMaybe hashed gh5.songID
+      cdl = "cdl" <> show (fromMaybe hashed gh5.cdl)
       songKey = "dlc" <> show songID
       songKeyQB = qbKeyCRC $ B8.pack songKey
       -- Limiting to one-byte chars because I don't know the right way to hash chars beyond U+00FF
@@ -152,7 +152,7 @@ gh5Rules buildInfo dir gh5 = do
                 (fromIntegral $ quot (RBFile.songLengthMS mid + 500) 1000) -- this is just displayed in song list
               , QBStructItemInteger (qbKeyCRC "flags") 0 -- what is this?
               , QBStructItemInteger (qbKeyCRC "double_kick") $
-                case getPart gh5.gh5_Drums songYaml >>= (.drums) of
+                case getPart gh5.drums songYaml >>= (.drums) of
                   Nothing -> 0
                   Just pd -> case pd.kicks of
                     Kicks1x   -> 0
@@ -257,10 +257,10 @@ gh5Rules buildInfo dir gh5 = do
           ]
     stackIO $ BL.writeFile out $ buildPak nodes
 
-  [dir </> "ghwor.note", dir </> "ghwor.qs"] &%> \[outNote, outQS] -> do
+  (dir </> "ghwor.note", dir </> "ghwor.qs") %> \(outNote, outQS) -> do
     mid <- shakeMIDI $ planDir </> "processed.mid"
     (note, qs) <- makeGHWoRNote songYaml gh5
-      (applyTargetMIDI gh5.gh5_Common mid)
+      (applyTargetMIDI gh5.common mid)
       $ getAudioLength buildInfo planName plan
     stackIO $ BL.writeFile outNote $ runPut $
       putNote songKeyQB $ makeWoRNoteFile note
@@ -277,7 +277,7 @@ gh5Rules buildInfo dir gh5 = do
       $ Take Start (fromMS $ pend - pstart)
       $ Drop Start (fromMS pstart)
       $ Input (planDir </> "everything.wav")
-    runAudio (applySpeedAudio gh5.gh5_Common src) out
+    runAudio (applySpeedAudio gh5.common src) out
 
   {-
   -- No longer used, see bottom where we use ps3 (mp3) audio instead
@@ -288,17 +288,17 @@ gh5Rules buildInfo dir gh5 = do
   -- Otherwise pausing doesn't pause the audio once you pass the end of any of the FSBs.
   dir </> "audio1.wav" %> \out -> do
     len <- getAudioLength buildInfo planName plan
-    runAudio (applySpeedAudio (gh5_Common gh5) $ silent (Seconds $ realToFrac len) 1000 8) out
+    runAudio (applySpeedAudio (common gh5) $ silent (Seconds $ realToFrac len) 1000 8) out
   dir </> "audio2.wav" %> \out -> do
     len <- getAudioLength buildInfo planName plan
-    runAudio (applySpeedAudio (gh5_Common gh5) $ silent (Seconds $ realToFrac len) 1000 6) out
+    runAudio (applySpeedAudio (common gh5) $ silent (Seconds $ realToFrac len) 1000 6) out
   dir </> "audio3.wav" %> \out -> do
     mid <- shakeMIDI $ planDir </> "processed.mid"
     let _ = mid :: RBFile.Song (RBFile.OnyxFile U.Beats)
     src <- shk $ buildSource $ Merge
       $ Input (planDir </> "everything.wav")
       :| [Silence 2 $ Seconds 0]
-    runAudio (applyTargetAudio (gh5_Common gh5) mid src) out
+    runAudio (applyTargetAudio (common gh5) mid src) out
 
   forM_ ["audio1", "audio2", "audio3", "preview"] $ \audio -> do
     let wav = dir </> audio <.> "wav"
@@ -399,7 +399,7 @@ gh5Rules buildInfo dir gh5 = do
         L.check $ L.setBrate lame 32
         L.check $ L.setQuality lame 5
         L.check $ L.setOutSamplerate lame 48000
-  [ps3MP3SilenceSmall, ps3MP3Silence, ps3MP3Song] &%> \_ -> do
+  [ps3MP3SilenceSmall, ps3MP3Silence, ps3MP3Song] %> \_ -> do
     src <- shk $ buildSource $ Input (planDir </> "everything.wav")
     let resampled = resampleTo 48000 SincMediumQuality src
     stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Song setup resampled

@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
@@ -27,7 +28,7 @@ module Onyx.StackTrace
 , stackIO
 , shakeEmbed
 , shakeTrace
-, (%>), (&%>), phony
+, (%>), phony
 , Staction
 , logIO, logStdout
 ) where
@@ -296,13 +297,30 @@ shakeTrace stk = runStackTraceT stk >>= \res -> do
     Right x  -> return x
     Left err -> liftIO $ Exc.throwIO err
 
-(%>) :: Shake.FilePattern -> (FilePath -> StackTraceT (QueueLog Shake.Action) ()) -> QueueLog Shake.Rules ()
-pat %> f = QueueLog $ ReaderT $ \q -> pat Shake.%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
+class ShakeBuildable pattern file | pattern -> file where
+  (%>) :: pattern -> (file -> StackTraceT (QueueLog Shake.Action) ()) -> QueueLog Shake.Rules ()
 infix 1 %>
 
-(&%>) :: [Shake.FilePattern] -> ([FilePath] -> StackTraceT (QueueLog Shake.Action) ()) -> QueueLog Shake.Rules ()
-pat &%> f = QueueLog $ ReaderT $ \q -> pat Shake.&%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
-infix 1 &%>
+instance ShakeBuildable Shake.FilePattern FilePath where
+  pat %> f = QueueLog $ ReaderT $ \q -> pat Shake.%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
+
+instance ShakeBuildable (Shake.FilePattern, Shake.FilePattern) (FilePath, FilePath) where
+  (patx, paty) %> f = QueueLog $ ReaderT $ \q -> [patx, paty] Shake.&%> \case
+    [x, y] -> runReaderT (fromQueueLog $ shakeTrace $ f (x, y)) q
+    fs     -> fail $ "Panic! (%>) rule expected to get 2 filenames from Shake, but got " <> show (length fs)
+
+instance ShakeBuildable (Shake.FilePattern, Shake.FilePattern, Shake.FilePattern) (FilePath, FilePath, FilePath) where
+  (patx, paty, patz) %> f = QueueLog $ ReaderT $ \q -> [patx, paty, patz] Shake.&%> \case
+    [x, y, z] -> runReaderT (fromQueueLog $ shakeTrace $ f (x, y, z)) q
+    fs        -> fail $ "Panic! (%>) rule expected to get 3 filenames from Shake, but got " <> show (length fs)
+
+instance ShakeBuildable (Shake.FilePattern, Shake.FilePattern, Shake.FilePattern, Shake.FilePattern) (FilePath, FilePath, FilePath, FilePath) where
+  (patw, patx, paty, patz) %> f = QueueLog $ ReaderT $ \q -> [patw, patx, paty, patz] Shake.&%> \case
+    [w, x, y, z] -> runReaderT (fromQueueLog $ shakeTrace $ f (w, x, y, z)) q
+    fs           -> fail $ "Panic! (%>) rule expected to get 4 filenames from Shake, but got " <> show (length fs)
+
+instance ShakeBuildable [Shake.FilePattern] [FilePath] where
+  pats %> f = QueueLog $ ReaderT $ \q -> pats Shake.&%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
 
 phony :: FilePath -> StackTraceT (QueueLog Shake.Action) () -> QueueLog Shake.Rules ()
 phony s act = QueueLog $ ReaderT $ \q -> do

@@ -19,7 +19,7 @@ import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import qualified Data.Text.Lazy                   as TL
 import qualified Data.Vector                      as V
-import           Development.Shake                hiding (phony, (%>), (&%>))
+import           Development.Shake                hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.FSB                   (writeXMA2)
@@ -53,7 +53,7 @@ pgRules buildInfo dir pg = do
 
   let songYaml      = biSongYaml buildInfo
       rel           = biRelative buildInfo
-      key           = fromMaybe "TodoAutoSongKey" pg.pg_Key -- TODO generate automatic
+      key           = fromMaybe "TodoAutoSongKey" pg.key -- TODO generate automatic
       k             = T.unpack key
 
       objSTFS       = dir </> "pglive"
@@ -72,7 +72,7 @@ pgRules buildInfo dir pg = do
       objDrumCrash  = dir </> "pk/Audio/songs" </> k </> "samples" </> (k <> "_crash_iso.xma")
       objLua        = dir </> "pk/Scripting/Songs" </> (k <> ".lua")
 
-  (planName, _plan) <- case getPlan pg.pg_Common.plan songYaml of
+  (planName, _plan) <- case getPlan pg.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show pg
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
@@ -112,7 +112,7 @@ pgRules buildInfo dir pg = do
       , "song_key" .= escapeLuaString key
       ]
 
-  [objDataHdr, objDataPk] &%> \_ -> do
+  [objDataHdr, objDataPk] %> \_ -> do
     shk $ need
       [ objGEV, objCueGEV, objXML, objAudioE2, objLua
       , objDrumKick, objDrumSnare, objDrumTomHi, objDrumTomLow, objDrumCrash
@@ -138,8 +138,8 @@ pgRules buildInfo dir pg = do
             , pcmcMIDI = B.concat ["songs:", TE.encodeUtf8 key, "\\", TE.encodeUtf8 key, ".mid"]
             }
           , gevGELH = PG.GELH $ V.fromList $ catMaybes
-            [ flip fmap (getPart pg.pg_Guitar songYaml >>= (.grybo)) $ \grybo -> let
-              src = RBFile.getFlexPart pg.pg_Guitar $ RBFile.s_tracks mid
+            [ flip fmap (getPart pg.guitar songYaml >>= (.grybo)) $ \grybo -> let
+              src = RBFile.getFlexPart pg.guitar $ RBFile.s_tracks mid
               (trackOrig, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitar src
               notes :: RTB.T U.Beats ([(Maybe Color, StrumHOPOTap)], Maybe U.Beats)
               notes = guitarify' $ strumHOPOTap algo (fromIntegral grybo.hopoThreshold / 480) $ computeFiveFretNotes

@@ -516,7 +516,7 @@ importRSSong folder song level = do
       }
     , jammit = HM.empty
     , targets = HM.singleton "rs" $ RS def
-      { rs_Arrangements = do
+      { arrangements = do
         ((slot, partName), _, _, _, _, _) <- namedParts
         return (slot, partName)
       }

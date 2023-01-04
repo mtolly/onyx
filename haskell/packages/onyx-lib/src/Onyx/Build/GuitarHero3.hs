@@ -24,7 +24,7 @@ import           Data.Maybe                        (catMaybes, fromMaybe)
 import qualified Data.Text                         as T
 import           Data.Tuple                        (swap)
 import           Data.Word                         (Word32)
-import           Development.Shake                 hiding (phony, (%>), (&%>))
+import           Development.Shake                 hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.FSB                    (emitFSB, mp3sToFSB3)
@@ -88,7 +88,7 @@ gh3Rules buildInfo dir gh3 = do
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
 
-  (planName, plan) <- case getPlan gh3.gh3_Common.plan songYaml of
+  (planName, plan) <- case getPlan gh3.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh3
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
@@ -97,18 +97,18 @@ gh3Rules buildInfo dir gh3 = do
   -- makeShortName applies max of 27 chars which works with GH3 max of 26.
   -- ("<shortname>_song.pak.xen" must fit in STFS's max of 40 chars)
   let hashed = hashGH3 songYaml gh3
-      dlcID = B8.pack $ T.unpack $ case gh3.gh3_SongID of
+      dlcID = B8.pack $ T.unpack $ case gh3.songID of
         Nothing          -> makeShortName hashed songYaml
         Just (Left  n  ) -> makeShortName n      songYaml
         Just (Right str) -> str
-      dl = "dl" <> show (fromMaybe hashed gh3.gh3_DL)
+      dl = "dl" <> show (fromMaybe hashed gh3.dl)
       ps3Folder = makePS3Name hashed songYaml
       edatConfig = gh3CustomMidEdatConfig ps3Folder
 
-  let coopPart = case gh3.gh3_Coop of
-        GH2Bass   -> gh3.gh3_Bass
-        GH2Rhythm -> gh3.gh3_Rhythm
-      gh3Parts = [gh3.gh3_Guitar, coopPart]
+  let coopPart = case gh3.coop of
+        GH2Bass   -> gh3.bass
+        GH2Rhythm -> gh3.rhythm
+      gh3Parts = [gh3.guitar, coopPart]
       loadOnyxMidi :: Staction (RBFile.Song (RBFile.OnyxFile U.Beats))
       loadOnyxMidi = shakeMIDI $ planDir </> "raw.mid"
 
@@ -125,20 +125,20 @@ gh3Rules buildInfo dir gh3 = do
       readPad = shk $ read <$> readFile' pathPad
   pathGuitar %> \out -> do
     mid <- loadOnyxMidi
-    s <- sourceStereoParts buildInfo gh3Parts gh3.gh3_Common mid 0 planName plan
-      [(gh3.gh3_Guitar, 1)]
+    s <- sourceStereoParts buildInfo gh3Parts gh3.common mid 0 planName plan
+      [(gh3.guitar, 1)]
     pad <- readPad
     stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathRhythm %> \out -> do
     mid <- loadOnyxMidi
-    s <- sourceStereoParts buildInfo gh3Parts gh3.gh3_Common mid 0 planName plan
+    s <- sourceStereoParts buildInfo gh3Parts gh3.common mid 0 planName plan
       [(coopPart, 1)]
     pad <- readPad
     stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathSong %> \out -> do
     mid <- loadOnyxMidi
-    s <- sourceSongCountin buildInfo gh3.gh3_Common mid 0 True planName plan
-      [ (gh3.gh3_Guitar, 1)
+    s <- sourceSongCountin buildInfo gh3.common mid 0 True planName plan
+      [ (gh3.guitar, 1)
       , (coopPart      , 1)
       ]
     pad <- readPad
@@ -156,7 +156,7 @@ gh3Rules buildInfo dir gh3 = do
           $ Input (planDir </> "everything.wav")
     src <- shk $ buildSource previewExpr
     stackIO $ runResourceT $ sinkMP3WithHandle out setup
-      $ applySpeedAudio gh3.gh3_Common src
+      $ applySpeedAudio gh3.common src
 
   let pathFsb = dir </> "audio.fsb"
       pathFsbXen = dir </> "xbox" </> (B8.unpack dlcID <> ".fsb.xen")
@@ -251,19 +251,19 @@ gh3Rules buildInfo dir gh3 = do
                   , QBStructItemInteger810000 (qbKeyCRC "leaderboard") 1
                   , QBStructItemInteger810000 (qbKeyCRC "gem_offset") 0
                   , QBStructItemInteger810000 (qbKeyCRC "input_offset") 0
-                  , QBStructItemQbKey8D0000 (qbKeyCRC "singer") $ case getPart gh3.gh3_Vocal songYaml >>= (.vocal) of
+                  , QBStructItemQbKey8D0000 (qbKeyCRC "singer") $ case getPart gh3.vocal songYaml >>= (.vocal) of
                     Nothing -> qbKeyCRC "none"
                     Just pv -> case pv.gender of
                       Just Female -> qbKeyCRC "female"
                       Just Male   -> qbKeyCRC "male"
                       Nothing     -> qbKeyCRC "male"
-                  , QBStructItemQbKey8D0000 (qbKeyCRC "keyboard") $ case getPart gh3.gh3_Keys songYaml >>= (.grybo) of
+                  , QBStructItemQbKey8D0000 (qbKeyCRC "keyboard") $ case getPart gh3.keys songYaml >>= (.grybo) of
                     Nothing -> qbKeyCRC "false"
                     Just _  -> qbKeyCRC "true"
                   , QBStructItemInteger810000 (qbKeyCRC "band_playback_volume") 0
                   , QBStructItemInteger810000 (qbKeyCRC "guitar_playback_volume") 0
                   , QBStructItemString830000 (qbKeyCRC "countoff") "HiHat01"
-                  , QBStructItemInteger810000 (qbKeyCRC "rhythm_track") $ case gh3.gh3_Coop of
+                  , QBStructItemInteger810000 (qbKeyCRC "rhythm_track") $ case gh3.coop of
                     GH2Bass   -> 0
                     GH2Rhythm -> 1
                   ]
@@ -282,17 +282,17 @@ gh3Rules buildInfo dir gh3 = do
   forM_ pathTextLangs $ \lang -> lang %> \out -> do
     -- being lazy and copying english file. really we ought to swap out some translated strings
     shk $ copyFile' pathText out
-  [pathSongPak, pathPad] &%> \_ -> do
+  [pathSongPak, pathPad] %> \_ -> do
     mid <- shakeMIDI $ planDir </> "processed.mid"
-    let midApplied = applyTargetMIDI gh3.gh3_Common mid
+    let midApplied = applyTargetMIDI gh3.common mid
     timing <- basicTiming midApplied $ getAudioLength buildInfo planName plan
     let (gh3Mid, padSeconds) = makeGH3MidQB
           songYaml
           midApplied
           timing
-          gh3.gh3_Guitar
+          gh3.guitar
           coopPart
-          gh3.gh3_Drums
+          gh3.drums
         nodes =
           [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = key1, nodeFilenameCRC = key2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB $ makeMidQB key1 dlcID gh3Mid

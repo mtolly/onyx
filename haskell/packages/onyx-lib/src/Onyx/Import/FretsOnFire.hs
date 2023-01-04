@@ -490,7 +490,7 @@ importFoF src level = do
       , fileTempo = Nothing
       }
     , targets = HM.singleton "ps" $ PS def
-      { ps_LoadingPhrase = FoF.loadingPhrase song
+      { loadingPhrase = FoF.loadingPhrase song
       }
     , parts = Parts $ HM.fromList
       [ ( FlexDrums, (emptyPart :: Part SoftFile)

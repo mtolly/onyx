@@ -28,8 +28,7 @@ import           Data.String                           (IsString, fromString)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
 import           Data.Version                          (showVersion)
-import           Development.Shake                     hiding (phony, (%>),
-                                                        (&%>))
+import           Development.Shake                     hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.Render
@@ -379,7 +378,7 @@ rbRules buildInfo dir rb3 mrb2 = do
         }
       }
 
-  [pathMagmaMid, pathMagmaPad, pathMagmaEditedParts] &%> \_ -> do
+  [pathMagmaMid, pathMagmaPad, pathMagmaEditedParts] %> \_ -> do
     input <- shakeMIDI $ planDir </> "raw.mid"
     (_, mixMode) <- computeDrumsPart rb3.drums plan songYaml
     sects <- ATB.toPairList . RTB.toAbsoluteEventList 0 <$> midRealSections input
