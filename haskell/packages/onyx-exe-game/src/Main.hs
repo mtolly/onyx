@@ -15,7 +15,7 @@ import           Data.List                    (isPrefixOf)
 import qualified Data.Map.Strict              as Map
 import qualified Data.Set                     as Set
 import qualified Data.Text                    as T
-import qualified Data.Vector.Storable         as VS
+import qualified Data.Vector.Storable         as V
 import           Data.Word                    (Word8)
 import           Graphics.GL.Core33
 import qualified Onyx.Game.Audio              as RGAudio
@@ -121,7 +121,7 @@ data AppState = AppState
   }
 
 -- TODO figure out how to get more accurate timing information
-startMIDIListen :: (IO [VS.Vector Word8] -> IO a) -> IO a
+startMIDIListen :: (IO [V.Vector Word8] -> IO a) -> IO a
 startMIDIListen inner = do
   dev <- Rt.defaultInput
   ports <- Rt.listPorts dev
@@ -132,7 +132,7 @@ startMIDIListen inner = do
     (port, _) : _ -> bracket_ (Rt.openPort dev port "Onyx-RtMidi") (Rt.closePort dev) $ do
       let go = do
             (_, v) <- Rt.getMessage dev
-            if VS.null v
+            if V.null v
               then return []
               else (v :) <$> go
       inner go
@@ -176,7 +176,7 @@ playDrumTrack window song layout trk audioPlayer = do
               delayMilli $ 0.016 - (frameEnd - frameStart)
               loop dps
         processMIDI s [] = return s
-        processMIDI s ((time, e) : es) = case VS.toList e of
+        processMIDI s ((time, e) : es) = case V.toList e of
           [0x99, pitch, vel] | vel /= 0 -> let
             applyHit pad = processMIDI
               (PNF.applyFullDrumEvent time (Just $ PNF.FDInputHit $ PNF.FullDrumHit pad False $ realToFrac vel / 127) halfWindow s)

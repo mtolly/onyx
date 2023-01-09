@@ -5,7 +5,7 @@ module Onyx.Harmonix.DTA.Serialize.RockBand where
 
 import           Control.Applicative               ((<|>))
 import           Control.Monad.Codec               (CodecFor (..), (=.))
-import qualified Data.HashMap.Strict               as Map
+import qualified Data.HashMap.Strict               as HM
 import qualified Data.Text                         as T
 import           Onyx.Codec.Common                 (eitherCodec, enumCodec,
                                                     expected, fill, opt, req)
@@ -99,7 +99,7 @@ data SongPackage = SongPackage
   , animTempo         :: Either AnimTempo Integer
   , songLength        :: Maybe Integer
   , preview           :: (Integer, Integer)
-  , rank              :: Map.HashMap T.Text Integer -- TODO this should be a DictList so it stays in a sensible order
+  , rank              :: HM.HashMap T.Text Integer -- TODO this should be a DictList so it stays in a sensible order
   , genre             :: Maybe T.Text -- absent in beatles
   , vocalGender       :: Maybe Gender
   , version           :: Integer

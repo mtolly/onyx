@@ -18,7 +18,7 @@ import qualified Onyx.Harmonix.DTA.Serialize           as D
 import qualified Onyx.Harmonix.DTA.Serialize.Amplitude as Amp
 import           Onyx.Import.Base
 import           Onyx.MIDI.Track.File                  (FlexPartName (..))
-import qualified Onyx.MIDI.Track.File                  as RBFile
+import qualified Onyx.MIDI.Track.File                  as F
 import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
@@ -32,7 +32,7 @@ importAmplitude fin _level = do
       midPath  = takeDirectory fin </> T.unpack song.midi_path
       previewStart = realToFrac song.preview_start_ms / 1000
       previewEnd = previewStart + realToFrac song.preview_length_ms / 1000
-  RBFile.Song temps sigs amp <- RBFile.loadMIDI midPath
+  F.Song temps sigs amp <- F.loadMIDI midPath
   let getChannels n = case song.tracks !! (n - 1) of
         (_, (chans, _)) -> map fromIntegral chans
       freestyle = do
@@ -42,10 +42,10 @@ importAmplitude fin _level = do
       parts = do
         (n, Amp.Catch inst name trk) <- Map.toList $ Amp.ampTracks amp
         return (FlexExtra name, getChannels n, inst, trk)
-      midi = RBFile.Song temps sigs mempty
-        { RBFile.onyxParts = Map.fromList $ do
+      midi = F.Song temps sigs mempty
+        { F.onyxParts = Map.fromList $ do
           (name, _, _, trk) <- parts
-          return (name, mempty { RBFile.onyxCatch = trk })
+          return (name, mempty { F.onyxCatch = trk })
         }
   return SongYaml
     { metadata = def'

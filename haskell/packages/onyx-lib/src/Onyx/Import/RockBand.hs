@@ -63,9 +63,8 @@ import           Onyx.Harmonix.RockBand.RB4.SongDTA
 import           Onyx.Image.DXT.RB4
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common
-import           Onyx.MIDI.Track.Drums                as RBDrums
-import           Onyx.MIDI.Track.File                 (FlexPartName (..))
-import qualified Onyx.MIDI.Track.File                 as RBFile
+import           Onyx.MIDI.Track.Drums                as Drums
+import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
                                                        GtrTuning (..))
 import           Onyx.PlayStation.PSS                 (extractVGSStream,
@@ -246,18 +245,18 @@ importRB rbi level = do
 
   (midiFixed, midiOnyx) <- case level of
     ImportFull -> do
-      RBFile.Song temps sigs (RBFile.RawFile trks1x) <- RBFile.loadMIDIReadable rbi.midi
+      F.Song temps sigs (F.RawFile trks1x) <- F.loadMIDIReadable rbi.midi
       trksUpdate <- case rbi.midiUpdate of
         Nothing -> return []
         Just getUpdate -> stackIO getUpdate >>= \case
           Left  err  -> warn err >> return []
-          Right umid -> RBFile.rawTracks . RBFile.s_tracks <$> RBFile.loadMIDIReadable umid
+          Right umid -> F.rawTracks . F.s_tracks <$> F.loadMIDIReadable umid
       let updatedNames = map Just $ mapMaybe U.trackName trksUpdate
           trksUpdated
             = filter ((`notElem` updatedNames) . U.trackName) trks1x
             ++ trksUpdate
-      midiFixed <- fmap checkEnableDynamics $ RBFile.interpretMIDIFile $ RBFile.Song temps sigs trksUpdated
-      return (midiFixed, midiFixed { RBFile.s_tracks = RBFile.fixedToOnyx $ RBFile.s_tracks midiFixed })
+      midiFixed <- fmap checkEnableDynamics $ F.interpretMIDIFile $ F.Song temps sigs trksUpdated
+      return (midiFixed, midiFixed { F.s_tracks = F.fixedToOnyx $ F.s_tracks midiFixed })
     ImportQuick -> return (emptyChart, emptyChart)
 
   drumkit <- case D.drumBank pkg of
@@ -302,7 +301,7 @@ importRB rbi level = do
     else return Nothing
   let hopoThresh = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
 
-  let drumEvents = RBFile.fixedPartDrums $ RBFile.s_tracks midiFixed
+  let drumEvents = F.fixedPartDrums $ F.s_tracks midiFixed
   (foundMix, foundMixStr) <- let
     drumMixes = do
       (_, dd) <- Map.toList $ drumDifficulties drumEvents
@@ -325,19 +324,19 @@ importRB rbi level = do
     -- So, just use what the mix should be based on channel count. (But warn appropriately)
     case drumChans of
       [kitL, kitR] -> do
-        when (foundMix /= Just RBDrums.D0) $ warn $ "Using drum mix 0 (2 drum channels found), " <> foundMixStr
+        when (foundMix /= Just Drums.D0) $ warn $ "Using drum mix 0 (2 drum channels found), " <> foundMixStr
         return $ Just $ PartSingle [kitL, kitR]
       [kick, snare, kitL, kitR] -> do
-        when (foundMix /= Just RBDrums.D1) $ warn $ "Using drum mix 1 (4 drum channels found), " <> foundMixStr
+        when (foundMix /= Just Drums.D1) $ warn $ "Using drum mix 1 (4 drum channels found), " <> foundMixStr
         return $ Just $ PartDrumKit (Just [kick]) (Just [snare]) [kitL, kitR]
       [kick, snareL, snareR, kitL, kitR] -> do
-        when (foundMix /= Just RBDrums.D2) $ warn $ "Using drum mix 2 (5 drum channels found), " <> foundMixStr
+        when (foundMix /= Just Drums.D2) $ warn $ "Using drum mix 2 (5 drum channels found), " <> foundMixStr
         return $ Just $ PartDrumKit (Just [kick]) (Just [snareL, snareR]) [kitL, kitR]
       [kickL, kickR, snareL, snareR, kitL, kitR] -> do
-        when (foundMix /= Just RBDrums.D3) $ warn $ "Using drum mix 3 (6 drum channels found), " <> foundMixStr
+        when (foundMix /= Just Drums.D3) $ warn $ "Using drum mix 3 (6 drum channels found), " <> foundMixStr
         return $ Just $ PartDrumKit (Just [kickL, kickR]) (Just [snareL, snareR]) [kitL, kitR]
       [kick, kitL, kitR] -> do
-        when (foundMix /= Just RBDrums.D4) $ warn $ "Using drum mix 4 (3 drum channels found), " <> foundMixStr
+        when (foundMix /= Just Drums.D4) $ warn $ "Using drum mix 4 (3 drum channels found), " <> foundMixStr
         return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
       _ -> do
         warn $ "Unexpected number of drum channels (" <> show (length drumChans) <> "), importing as single-track stereo (mix 0)"
@@ -351,7 +350,7 @@ importRB rbi level = do
         (Nothing, Just vtn) -> (Just $ SongKey vtn tone, Nothing )
         (Nothing, Nothing ) -> (Nothing                , Nothing )
 
-      bassBase = detectExtProBass $ RBFile.s_tracks midiFixed
+      bassBase = detectExtProBass $ F.s_tracks midiFixed
 
   miloFolder <- case (level, rbi.milo) of
     (ImportFull, Just milo) -> errorToWarning $ do
@@ -496,11 +495,11 @@ importRB rbi level = do
             { song = mixChans songChans
             , countin = Countin []
             , parts = Parts $ HM.fromList $ catMaybes
-              [ lookup "guitar" instChans >>= mixChans >>= \x -> return (FlexGuitar, PartSingle x)
-              , lookup "bass"   instChans >>= mixChans >>= \x -> return (FlexBass  , PartSingle x)
-              , lookup "keys"   instChans >>= mixChans >>= \x -> return (FlexKeys  , PartSingle x)
-              , lookup "vocals" instChans >>= mixChans >>= \x -> return (FlexVocal , PartSingle x)
-              , drumSplit >>= mapM mixChans            >>= \x -> return (FlexDrums , x)
+              [ lookup "guitar" instChans >>= mixChans >>= \x -> return (F.FlexGuitar, PartSingle x)
+              , lookup "bass"   instChans >>= mixChans >>= \x -> return (F.FlexBass  , PartSingle x)
+              , lookup "keys"   instChans >>= mixChans >>= \x -> return (F.FlexKeys  , PartSingle x)
+              , lookup "vocals" instChans >>= mixChans >>= \x -> return (F.FlexVocal , PartSingle x)
+              , drumSplit >>= mapM mixChans            >>= \x -> return (F.FlexDrums , x)
               ]
             , crowd = D.crowdChannels (D.song pkg) >>= mixChans . map fromIntegral
             , comments = []
@@ -511,11 +510,11 @@ importRB rbi level = do
         { fileMOGG = Just $ SoftFile "audio.mogg" mogg
         , moggMD5 = Nothing
         , parts = Parts $ HM.fromList $ concat
-          [ [ (FlexGuitar, PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
-          , [ (FlexBass  , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
-          , [ (FlexKeys  , PartSingle ns) | ns <- toList $ lookup "keys"   instChans ]
-          , [ (FlexVocal , PartSingle ns) | ns <- toList $ lookup "vocals" instChans ]
-          , [ (FlexDrums , ds           ) | Just ds <- [drumSplit] ]
+          [ [ (F.FlexGuitar, PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
+          , [ (F.FlexBass  , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
+          , [ (F.FlexKeys  , PartSingle ns) | ns <- toList $ lookup "keys"   instChans ]
+          , [ (F.FlexVocal , PartSingle ns) | ns <- toList $ lookup "vocals" instChans ]
+          , [ (F.FlexDrums , ds           ) | Just ds <- [drumSplit] ]
           ]
         , crowd = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
         , pans = map realToFrac $ D.pans $ D.song pkg
@@ -554,7 +553,7 @@ importRB rbi level = do
         })
       in HM.fromList $ concat [[target1x | hasKicks /= Kicks2x], [target2x | hasKicks /= Kicks1x]]
     , parts = Parts $ HM.fromList
-      [ ( FlexDrums, (emptyPart :: Part SoftFile)
+      [ ( F.FlexDrums, (emptyPart :: Part SoftFile)
         { drums = guard (hasRankStr "drum") >> Just PartDrums
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "drum" diffMap
           , mode = DrumsPro
@@ -567,7 +566,7 @@ importRB rbi level = do
           , fullLayout = FDStandard
           }
         })
-      , ( FlexGuitar, (emptyPart :: Part SoftFile)
+      , ( F.FlexGuitar, (emptyPart :: Part SoftFile)
         { grybo = guard (hasRankStr "guitar") >> Just PartGRYBO
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "guitar" diffMap
           , hopoThreshold = hopoThresh
@@ -591,7 +590,7 @@ importRB rbi level = do
           , pickedBass    = False
           }
         })
-      , ( FlexBass, (emptyPart :: Part SoftFile)
+      , ( F.FlexBass, (emptyPart :: Part SoftFile)
         { grybo = guard (hasRankStr "bass") >> Just PartGRYBO
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "bass" diffMap
           , hopoThreshold = hopoThresh
@@ -615,7 +614,7 @@ importRB rbi level = do
           , pickedBass    = False
           }
         })
-      , ( FlexKeys, (emptyPart :: Part SoftFile)
+      , ( F.FlexKeys, (emptyPart :: Part SoftFile)
         { grybo = guard (hasRankStr "keys") >> Just PartGRYBO
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "keys" diffMap
           , hopoThreshold = hopoThresh
@@ -629,7 +628,7 @@ importRB rbi level = do
           , fixFreeform = False
           }
         })
-      , ( FlexVocal, (emptyPart :: Part SoftFile)
+      , ( F.FlexVocal, (emptyPart :: Part SoftFile)
         { vocal = flip fmap vocalMode $ \vc -> PartVocal
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
           , count = vc

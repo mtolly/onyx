@@ -34,7 +34,7 @@ import           Development.Shake            (need)
 import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.Search
-import qualified Onyx.MIDI.Track.Drums        as RBDrums
+import qualified Onyx.MIDI.Track.Drums        as Drums
 import           Onyx.MIDI.Track.File         (FlexPartName)
 import           Onyx.Project
 import           Onyx.StackTrace              (SendMessage, StackTraceT,
@@ -272,7 +272,7 @@ computeDrumsPart
   => FlexPartName
   -> Plan f
   -> SongYaml f
-  -> StackTraceT m (([(Double, Double)], [(Double, Double)], [(Double, Double)]), RBDrums.Audio)
+  -> StackTraceT m (([(Double, Double)], [(Double, Double)], [(Double, Double)]), Drums.Audio)
 computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case plan of
   MoggPlan x -> case HM.lookup fpart x.parts.getParts of
     Nothing -> return stereo
@@ -309,15 +309,15 @@ computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case
           kitPV <- (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml kit
           return ((kickPV, snarePV, kitPV), mixMode)
   where lookupSplit = \case
-          (0, 0, 2) -> return $ Just RBDrums.D0
-          (1, 1, 2) -> return $ Just RBDrums.D1
-          (1, 2, 2) -> return $ Just RBDrums.D2
-          (2, 2, 2) -> return $ Just RBDrums.D3
-          (1, 0, 2) -> return $ Just RBDrums.D4
+          (0, 0, 2) -> return $ Just Drums.D0
+          (1, 1, 2) -> return $ Just Drums.D1
+          (1, 2, 2) -> return $ Just Drums.D2
+          (2, 2, 2) -> return $ Just Drums.D3
+          (1, 0, 2) -> return $ Just Drums.D4
           trio -> do
             warn $ "Split drum kit audio will be mixed down due to a non-RB channel configuration: (kick,snare,kit) = " ++ show trio
             return Nothing
-        stereo = (([], [], [(-1, 0), (1, 0)]), RBDrums.D0)
+        stereo = (([], [], [(-1, 0), (1, 0)]), Drums.D0)
         standardIndexes pans = \case
           []  -> []
           [i] -> [(pans !! i, 0)]

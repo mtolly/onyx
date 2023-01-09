@@ -147,7 +147,7 @@ import           Onyx.MIDI.Common                          (RB3Instrument (..))
 import qualified Onyx.MIDI.Common                          as RB
 import           Onyx.MIDI.Read                            (mapTrack)
 import           Onyx.MIDI.Track.File                      (FlexPartName (..))
-import qualified Onyx.MIDI.Track.File                      as RBFile
+import qualified Onyx.MIDI.Track.File                      as F
 import           Onyx.MIDI.Track.Lipsync
 import           Onyx.MIDI.Track.Vocal                     (nullVox)
 import           Onyx.Mode                                 (anyFiveFret)
@@ -823,7 +823,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
       if part == emptyPart
         then return Nothing
         else do
-          Just itemInst <- FL.addAt tree (T.toTitle $ RBFile.getPartName fpart) root
+          Just itemInst <- FL.addAt tree (T.toTitle $ F.getPartName fpart) root
           let addType lbl extra = do
                 Just itemCheck <- FL.addAt tree "" itemInst
                 check <- FL.checkButtonNew dummyRect $ Just lbl
@@ -1132,8 +1132,8 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
     FL.end pack
     sink $ EventOnyx $ void $ forkOnyx $ do
       let input = takeDirectory (projectLocation proj) </> "notes.mid"
-      mid <- RBFile.loadMIDI input
-      let fixed = RBFile.onyxToFixed $ RBFile.s_tracks mid
+      mid <- F.loadMIDI input
+      let fixed = F.onyxToFixed $ F.s_tracks mid
           foundTracksRB3 = getScoreTracks    fixed
           foundTracksGH2 = getScoreTracksGH2 fixed
       -- TODO this is a hack to not hold onto the whole midi file in memory, should find a better way!
@@ -2253,7 +2253,7 @@ partSelectors rect proj slots = let
   fparts = do
     (fpart, part) <- HM.toList (projectSongYaml proj).parts.getParts
     guard $ part /= emptyPart
-    return (fpart, T.toTitle $ RBFile.getPartName fpart, part)
+    return (fpart, T.toTitle $ F.getPartName fpart, part)
   instSelector ((lbl, getter, setter, partFilter), r) = do
     let r' = trimClock 20 5 5 5 r
         fparts' = [ t | t@(_, _, part) <- fparts, partFilter part ]
@@ -3625,13 +3625,13 @@ miscPageLipsync sink rect tab startTasks = do
       vowels <- getVowels
       saveVoc input $ \voc -> sink $ EventOnyx $ let
         task = do
-          mid <- RBFile.loadMIDI input
+          mid <- F.loadMIDI input
           stackIO
             $ BL.writeFile voc
             $ runPut $ putVocFile
             $ gh2Lipsync vowels
-            $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid)
-            $ RBFile.fixedPartVocals $ RBFile.s_tracks mid
+            $ mapTrack (U.applyTempoTrack $ F.s_tempos mid)
+            $ F.fixedPartVocals $ F.s_tracks mid
           return [voc]
         in startTasks [("Make GH2 .voc: " <> voc, task)]
 
@@ -3652,10 +3652,10 @@ miscPageLipsync sink rect tab startTasks = do
           _                          -> return ()
       hasLipsyncTracks mid = let
         lipsyncTracks =
-          [ RBFile.fixedLipsyncJohn, RBFile.fixedLipsyncPaul, RBFile.fixedLipsyncGeorge, RBFile.fixedLipsyncRingo
-          , RBFile.fixedLipsync1, RBFile.fixedLipsync2, RBFile.fixedLipsync3, RBFile.fixedLipsync4
+          [ F.fixedLipsyncJohn, F.fixedLipsyncPaul, F.fixedLipsyncGeorge, F.fixedLipsyncRingo
+          , F.fixedLipsync1, F.fixedLipsync2, F.fixedLipsync3, F.fixedLipsync4
           ]
-        in if any (\t -> t (RBFile.s_tracks mid) /= mempty) lipsyncTracks
+        in if any (\t -> t (F.s_tracks mid) /= mempty) lipsyncTracks
           then do
             lg "Updating milo from LIPSYNC* tracks."
             return True
@@ -3673,33 +3673,33 @@ miscPageLipsync sink rect tab startTasks = do
       trans <- getTransition
       saveMilo input $ \milo -> sink $ EventOnyx $ let
         task = do
-          mid <- RBFile.loadMIDI input
+          mid <- F.loadMIDI input
           vmapRB3 <- loadVisemesRB3
           useLipsyncTracks <- hasLipsyncTracks mid
           stackIO $ BL.writeFile milo $ magmaMilo $ let
             lip1 = if useLipsyncTracks
-              then getLipsync RBFile.fixedLipsync1
-              else getVocal [RBFile.fixedHarm1, RBFile.fixedPartVocals]
+              then getLipsync F.fixedLipsync1
+              else getVocal [F.fixedHarm1, F.fixedPartVocals]
             lip2 = if useLipsyncTracks
-              then getLipsync RBFile.fixedLipsync2
-              else getVocal [RBFile.fixedHarm2]
+              then getLipsync F.fixedLipsync2
+              else getVocal [F.fixedHarm2]
             lip3 = if useLipsyncTracks
-              then getLipsync RBFile.fixedLipsync3
-              else getVocal [RBFile.fixedHarm3]
-            lip4 = getLipsync RBFile.fixedLipsync4
+              then getLipsync F.fixedLipsync3
+              else getVocal [F.fixedHarm3]
+            lip4 = getLipsync F.fixedLipsync4
             empty = lipsyncFromStates []
             getVocal getTracks = do
-              trk <- listToMaybe $ filter (/= mempty) $ map ($ RBFile.s_tracks mid) getTracks
+              trk <- listToMaybe $ filter (/= mempty) $ map ($ F.s_tracks mid) getTracks
               Just
                 $ autoLipsync trans vmapRB3 vowels
-                $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
+                $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) trk
             getLipsync getTrack = let
-              trk = getTrack $ RBFile.s_tracks mid
+              trk = getTrack $ F.s_tracks mid
               in do
                 guard $ trk /= mempty
                 Just
                   $ lipsyncFromMIDITrack' Milo.LipsyncRB3 vmapRB3
-                  $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
+                  $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) trk
             in case (lip1, lip2, lip3, lip4) of
               (_, _     , _      , Just _ ) -> MagmaLipsync4 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3) (fromMaybe empty lip4)
               (_, _     , Just _ , Nothing) -> MagmaLipsync3 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3)
@@ -3717,7 +3717,7 @@ miscPageLipsync sink rect tab startTasks = do
       pickMilo $ \milo -> sink $ EventOnyx $ let
         task = do
           stackIO $ Dir.copyFile milo $ milo <> ".bak"
-          mid <- RBFile.loadMIDI input
+          mid <- F.loadMIDI input
           topDir <- loadMilo milo
           vmapBeatles <- loadVisemesTBRB
           vmapRB3 <- loadVisemesRB3
@@ -3726,37 +3726,37 @@ miscPageLipsync sink rect tab startTasks = do
                 { miloFiles = do
                   ((_, name), contents) <- zip (miloEntryNames dir) (miloFiles dir)
                   return $ case name of
-                    "john.lipsync"   -> fromMaybe contents $ getLipsync Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncJohn
-                    "paul.lipsync"   -> fromMaybe contents $ getLipsync Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncPaul
-                    "george.lipsync" -> fromMaybe contents $ getLipsync Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncGeorge
-                    "ringo.lipsync"  -> fromMaybe contents $ getLipsync Milo.LipsyncTBRB vmapBeatles RBFile.fixedLipsyncRingo
+                    "john.lipsync"   -> fromMaybe contents $ getLipsync Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncJohn
+                    "paul.lipsync"   -> fromMaybe contents $ getLipsync Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncPaul
+                    "george.lipsync" -> fromMaybe contents $ getLipsync Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncGeorge
+                    "ringo.lipsync"  -> fromMaybe contents $ getLipsync Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncRingo
                     "song.lipsync"   -> fromMaybe contents $ if useLipsyncTracks
-                      then getLipsync Milo.LipsyncRB3 vmapRB3 RBFile.fixedLipsync1
-                      else getVocal [RBFile.fixedHarm1, RBFile.fixedPartVocals]
+                      then getLipsync Milo.LipsyncRB3 vmapRB3 F.fixedLipsync1
+                      else getVocal [F.fixedHarm1, F.fixedPartVocals]
                     "part2.lipsync"  -> fromMaybe contents $ if useLipsyncTracks
-                      then getLipsync Milo.LipsyncRB3 vmapRB3 RBFile.fixedLipsync2
-                      else getVocal [RBFile.fixedHarm2]
+                      then getLipsync Milo.LipsyncRB3 vmapRB3 F.fixedLipsync2
+                      else getVocal [F.fixedHarm2]
                     "part3.lipsync"  -> fromMaybe contents $ if useLipsyncTracks
-                      then getLipsync Milo.LipsyncRB3 vmapRB3 RBFile.fixedLipsync3
-                      else getVocal [RBFile.fixedHarm3]
-                    "part4.lipsync"  -> fromMaybe contents $ getLipsync Milo.LipsyncRB3 vmapRB3 RBFile.fixedLipsync4
+                      then getLipsync Milo.LipsyncRB3 vmapRB3 F.fixedLipsync3
+                      else getVocal [F.fixedHarm3]
+                    "part4.lipsync"  -> fromMaybe contents $ getLipsync Milo.LipsyncRB3 vmapRB3 F.fixedLipsync4
                     _                -> contents
                 , miloSubdirs = map editDir $ miloSubdirs dir
                 }
               getVocal getTracks = do
-                trk <- listToMaybe $ filter (/= mempty) $ map ($ RBFile.s_tracks mid) getTracks
+                trk <- listToMaybe $ filter (/= mempty) $ map ($ F.s_tracks mid) getTracks
                 Just
                   $ runPut $ putLipsync
                   $ autoLipsync trans vmapRB3 vowels
-                  $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
+                  $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) trk
               getLipsync tgt vmap getTrack = let
-                trk = getTrack $ RBFile.s_tracks mid
+                trk = getTrack $ F.s_tracks mid
                 in do
                   guard $ trk /= mempty
                   Just
                     $ runPut $ putLipsync
                     $ lipsyncFromMIDITrack' tgt vmap
-                    $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
+                    $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) trk
           stackIO $ BL.writeFile milo $ addMiloHeader $ makeMiloFile $ editDir topDir
           return [milo]
         in startTasks [("Update .milo with MIDI lipsync: " <> milo, task)]
@@ -3768,35 +3768,35 @@ miscPageLipsync sink rect tab startTasks = do
         sink $ EventOnyx $ let
           task = do
             stackIO $ Dir.copyFile input $ input <> ".bak"
-            mid <- RBFile.loadMIDI input
-            midRaw <- RBFile.loadMIDI input
+            mid <- F.loadMIDI input
+            midRaw <- F.loadMIDI input
             vmap <- loadVisemes
             let makeLipsync vox = if nullVox vox
                   then Nothing
                   else Just mempty
                     { lipEvents
-                      = U.unapplyTempoTrack (RBFile.s_tempos mid)
+                      = U.unapplyTempoTrack (F.s_tempos mid)
                       $ toEvents trans vmap vowels
-                      $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) vox
+                      $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) vox
                     }
-                lipsync1 = makeLipsync (RBFile.fixedHarm1 $ RBFile.s_tracks mid)
-                  <|> makeLipsync (RBFile.fixedPartVocals $ RBFile.s_tracks mid)
-                lipsync2 = makeLipsync (RBFile.fixedHarm2 $ RBFile.s_tracks mid)
-                lipsync3 = makeLipsync (RBFile.fixedHarm3 $ RBFile.s_tracks mid)
+                lipsync1 = makeLipsync (F.fixedHarm1 $ F.s_tracks mid)
+                  <|> makeLipsync (F.fixedPartVocals $ F.s_tracks mid)
+                lipsync2 = makeLipsync (F.fixedHarm2 $ F.s_tracks mid)
+                lipsync3 = makeLipsync (F.fixedHarm3 $ F.s_tracks mid)
                 notLipsync trk = notElem (U.trackName trk) [Just "LIPSYNC1", Just "LIPSYNC2", Just "LIPSYNC3", Just "LIPSYNC4"]
-                lipsyncRaw = RBFile.showMIDITracks mid
-                  { RBFile.s_tracks = mempty
-                    { RBFile.fixedLipsync1 = fromMaybe mempty lipsync1
-                    , RBFile.fixedLipsync2 = fromMaybe mempty lipsync2
-                    , RBFile.fixedLipsync3 = fromMaybe mempty lipsync3
+                lipsyncRaw = F.showMIDITracks mid
+                  { F.s_tracks = mempty
+                    { F.fixedLipsync1 = fromMaybe mempty lipsync1
+                    , F.fixedLipsync2 = fromMaybe mempty lipsync2
+                    , F.fixedLipsync3 = fromMaybe mempty lipsync3
                     }
                   }
                 combinedRaw = midRaw
-                  { RBFile.s_tracks = RBFile.RawFile
-                    $ filter notLipsync (RBFile.rawTracks $ RBFile.s_tracks midRaw)
-                    <> RBFile.s_tracks lipsyncRaw
+                  { F.s_tracks = F.RawFile
+                    $ filter notLipsync (F.rawTracks $ F.s_tracks midRaw)
+                    <> F.s_tracks lipsyncRaw
                   }
-            RBFile.saveMIDI input combinedRaw
+            F.saveMIDI input combinedRaw
             return [input]
           in startTasks [("Convert vocal tracks to LIPSYNC tracks: " <> input, task)]
 
@@ -3856,10 +3856,10 @@ miscPageDryVox sink rect tab startTasks = do
     return $ join <$> fn
   let getSelectedVox = \case
         Nothing            -> const mempty
-        Just Nothing       -> RBFile.fixedPartVocals . RBFile.s_tracks
-        Just (Just Vocal1) -> RBFile.fixedHarm1      . RBFile.s_tracks
-        Just (Just Vocal2) -> RBFile.fixedHarm2      . RBFile.s_tracks
-        Just (Just Vocal3) -> RBFile.fixedHarm3      . RBFile.s_tracks
+        Just Nothing       -> F.fixedPartVocals . F.s_tracks
+        Just (Just Vocal1) -> F.fixedHarm1      . F.s_tracks
+        Just (Just Vocal2) -> F.fixedHarm2      . F.s_tracks
+        Just (Just Vocal3) -> F.fixedHarm3      . F.s_tracks
       defaultSuffix = \case
         Nothing            -> "-blank"
         Just Nothing       -> "-solovox"
@@ -3881,8 +3881,8 @@ miscPageDryVox sink rect tab startTasks = do
               Nothing -> return ()
               Just f  -> sink $ EventOnyx $ let
                 task = do
-                  mid <- RBFile.loadMIDI input
-                  let trk = mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) $ getSelectedVox voc mid
+                  mid <- F.loadMIDI input
+                  let trk = mapTrack (U.applyTempoTrack $ F.s_tempos mid) $ getSelectedVox voc mid
                   src <- toDryVoxFormat <$> fn trk
                   runAudio src f
                   return [f]

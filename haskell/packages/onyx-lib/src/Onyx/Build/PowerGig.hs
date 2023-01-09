@@ -26,8 +26,7 @@ import           Onyx.Audio.FSB                   (writeXMA2)
 import           Onyx.Build.Common
 import           Onyx.Guitar                      (guitarify')
 import           Onyx.MIDI.Common
-import           Onyx.MIDI.Track.File             (shakeMIDI)
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret
 import           Onyx.Mode
 import           Onyx.PowerGig.Crypt              (buildHeader, encryptE2,
@@ -124,8 +123,8 @@ pgRules buildInfo dir pg = do
     stackIO $ BL.writeFile objDataPk pk
 
   objGEV %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
-    let _ = mid :: RBFile.Song (RBFile.OnyxFile U.Beats)
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    let _ = mid :: F.Song (F.OnyxFile U.Beats)
         (strh, strs, mapping) = PG.makeStringBank
           [ "guitar_1_expert"
           , "drums_1_expert"
@@ -140,10 +139,10 @@ pgRules buildInfo dir pg = do
             }
           , gevGELH = PG.GELH $ V.fromList $ catMaybes
             [ flip fmap (getPart pg.guitar songYaml >>= anyFiveFret) $ \builder -> let
-              result = completeFiveResult False (RBFile.s_signatures mid) $ builder FiveTypeGuitar ModeInput
-                { tempo = RBFile.s_tempos mid
-                , events = RBFile.onyxEvents $ RBFile.s_tracks mid
-                , part = RBFile.getFlexPart pg.guitar $ RBFile.s_tracks mid
+              result = completeFiveResult False (F.s_signatures mid) $ builder FiveTypeGuitar ModeInput
+                { tempo = F.s_tempos mid
+                , events = F.onyxEvents $ F.s_tracks mid
+                , part = F.getFlexPart pg.guitar $ F.s_tracks mid
                 }
               notes :: RTB.T U.Beats ([(Maybe Color, StrumHOPOTap)], Maybe U.Beats)
               notes = guitarify' $ fromMaybe mempty $ Map.lookup Expert result.notes
@@ -158,11 +157,11 @@ pgRules buildInfo dir pg = do
                 , gelsGEVT      = V.fromList $ do
                   -- TODO hopos
                   (absBeats, (fretsSHT, mlen)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 notes
-                  let startSecs = realToFrac $ U.applyTempoMap (RBFile.s_tempos mid) absBeats
+                  let startSecs = realToFrac $ U.applyTempoMap (F.s_tempos mid) absBeats
                       sustSecs = case mlen of
                         Nothing  -> 0
                         Just len -> let
-                          endSecs = realToFrac $ U.applyTempoMap (RBFile.s_tempos mid) $ absBeats + len
+                          endSecs = realToFrac $ U.applyTempoMap (F.s_tempos mid) $ absBeats + len
                           in endSecs - startSecs
                       frets = map fst fretsSHT
                   return PG.GEVT
@@ -186,13 +185,13 @@ pgRules buildInfo dir pg = do
             ]
           , gevSTRH = strh
           , gevSTRS = strs
-          , gevTMPO = PG.makeTempos $ RBFile.s_tempos mid
+          , gevTMPO = PG.makeTempos $ F.s_tempos mid
           }
     stackIO $ BL.writeFile out $ runPut $ PG.showGEV gev
 
   objCueGEV %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
-    let _ = mid :: RBFile.Song (RBFile.OnyxFile U.Beats)
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    let _ = mid :: F.Song (F.OnyxFile U.Beats)
         (strh, strs, _mapping) = PG.makeStringBank []
         gev = PG.GEV
           { gevPCMC = PG.PCMC
@@ -204,13 +203,13 @@ pgRules buildInfo dir pg = do
           , gevGELH = PG.GELH $ V.fromList []
           , gevSTRH = strh
           , gevSTRS = strs
-          , gevTMPO = PG.makeTempos $ RBFile.s_tempos mid
+          , gevTMPO = PG.makeTempos $ F.s_tempos mid
           }
     stackIO $ BL.writeFile out $ runPut $ PG.showGEV gev
 
   objXML %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
-    let _ = mid :: RBFile.Song (RBFile.OnyxFile U.Beats)
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    let _ = mid :: F.Song (F.OnyxFile U.Beats)
         -- Hoping this works to be able to give instruments no audio channels
         emptyAudio = PG.Mode
           { mode_2d = Nothing
@@ -265,7 +264,7 @@ pgRules buildInfo dir pg = do
               }
             , info_url              = ""
             , info_length           = let
-              len = quot (RBFile.songLengthMS mid) 1000
+              len = quot (F.songLengthMS mid) 1000
               (minutes, seconds) = quotRem len 60
               in PG.Length
                 { length_minutes = minutes

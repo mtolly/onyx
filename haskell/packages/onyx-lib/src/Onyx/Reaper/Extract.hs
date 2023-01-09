@@ -14,7 +14,7 @@ import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
 import           Numeric                               (readHex)
 import qualified Numeric.NonNegative.Wrapper           as NN
-import qualified Onyx.MIDI.Track.File                  as RBFile
+import qualified Onyx.MIDI.Track.File                  as F
 import           Onyx.Reaper.Base
 import           Onyx.StackTrace                       (SendMessage,
                                                         StackTraceT, fatal,
@@ -156,8 +156,8 @@ getTracks proj = let
                   $ RTB.mapTime (\tks -> fromInteger tks / fromInteger resolution)
                   $ RTB.fromPairList pairs
 
-getMIDI :: (SendMessage m) => Element -> StackTraceT m (RBFile.Song [RTB.T U.Beats E.T])
+getMIDI :: (SendMessage m) => Element -> StackTraceT m (F.Song [RTB.T U.Beats E.T])
 getMIDI elt = do
   (tmap, mmap) <- timingToMaps <$> getTiming elt
   trks <- getTracks elt
-  return $ RBFile.Song tmap mmap trks
+  return $ F.Song tmap mmap trks

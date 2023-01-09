@@ -44,8 +44,8 @@ import           Onyx.MIDI.Read                   (mapTrack)
 import           Onyx.MIDI.Track.Beat
 import qualified Onyx.MIDI.Track.Drums            as D
 import           Onyx.MIDI.Track.Events
-import qualified Onyx.MIDI.Track.File             as RBFile
-import qualified Onyx.MIDI.Track.FiveFret         as F
+import qualified Onyx.MIDI.Track.File             as F
+import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.Vocal
 import           Onyx.MIDI.Track.Vocal.Legacy     (harm1ToPartVocals)
 import           Onyx.Mode
@@ -74,8 +74,8 @@ import           System.FilePath                  (takeExtension, takeFileName,
 import           System.IO.Temp                   (withSystemTempDirectory)
 
 worGuitarEdits
-  :: RTB.T U.Beats ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
-  -> RTB.T U.Beats ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
+  :: RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
+  -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
 worGuitarEdits
   = RTB.flatten
   . (let
@@ -160,8 +160,8 @@ makeDrumFill notes end = let
 -- GH doesn't support chords of different lengths, so we can join all simultaneous notes together
 joinChords
   :: (NNC.C t)
-  => RTB.T t ((Maybe F.Color, StrumHOPOTap), Maybe t)
-  -> RTB.T t ([Maybe F.Color], StrumHOPOTap, Maybe t)
+  => RTB.T t ((Maybe Five.Color, StrumHOPOTap), Maybe t)
+  -> RTB.T t ([Maybe Five.Color], StrumHOPOTap, Maybe t)
 joinChords = fmap joinChord . RTB.collectCoincident where
   joinChord notes = let
     -- these should all be safe due to collectCoincident
@@ -172,8 +172,8 @@ joinChords = fmap joinChord . RTB.collectCoincident where
 
 annotateOverlaps
   :: (NNC.C t)
-  => RTB.T t ([Maybe F.Color], StrumHOPOTap, Maybe t)
-  -> RTB.T t ([Maybe F.Color], StrumHOPOTap, Maybe t, [Maybe F.Color])
+  => RTB.T t ([Maybe Five.Color], StrumHOPOTap, Maybe t)
+  -> RTB.T t ([Maybe Five.Color], StrumHOPOTap, Maybe t, [Maybe Five.Color])
 annotateOverlaps = go . fmap (, Set.empty) where
   go = \case
     RNil -> RNil
@@ -232,10 +232,10 @@ makeGHWoRNote
   :: (SendMessage m)
   => SongYaml f
   -> TargetGH5
-  -> RBFile.Song (RBFile.OnyxFile U.Beats)
+  -> F.Song (F.OnyxFile U.Beats)
   -> StackTraceT m U.Seconds -- ^ get longest audio length
   -> StackTraceT m (GHNoteFile, HM.HashMap Word32 T.Text)
-makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength = let
+makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
   secondsToMS :: U.Seconds -> Word32
   secondsToMS = floor . (* 1000)
   beatsToMS :: U.Beats -> Word32
@@ -250,8 +250,8 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
   resultGB fpart = getPart fpart songYaml >>= anyFiveFret >>= \builder ->
     return $ completeFiveResult False mmap $ builder FiveTypeGuitarExt ModeInput
       { tempo  = tmap
-      , events = RBFile.onyxEvents ofile
-      , part   = RBFile.getFlexPart fpart ofile
+      , events = F.onyxEvents ofile
+      , part   = F.getFlexPart fpart ofile
       }
   resultGuitar = resultGB target.guitar
   resultBass   = resultGB target.bass
@@ -259,14 +259,14 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
   makeGB Nothing       _    = GuitarBass [] [] []
   makeGB (Just result) diff = let
     notes = worGuitarEdits $ fromMaybe mempty $ Map.lookup diff result.notes
-    taps = pullBackTapEnds' notes $ F.fiveTap $ emit5' notes
+    taps = pullBackTapEnds' notes $ Five.fiveTap $ emit5' notes
     colorToBit = \case
-      Just F.Green  -> 0
-      Just F.Red    -> 1
-      Just F.Yellow -> 2
-      Just F.Blue   -> 3
-      Just F.Orange -> 4
-      Nothing       -> 5
+      Just Five.Green  -> 0
+      Just Five.Red    -> 1
+      Just Five.Yellow -> 2
+      Just Five.Blue   -> 3
+      Just Five.Orange -> 4
+      Nothing          -> 5
     in GuitarBass
       { gb_instrument = do
         (t, (colors, sht, maybeLen, overlaps)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0
@@ -290,11 +290,11 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
           , noteAccent = foldr (\mcolor n -> n `clearBit` colorToBit mcolor) 31 overlaps
           }
       , gb_tapping = makeStarPower taps
-      , gb_starpower = makeStarPower $ F.fiveOverdrive result.other
+      , gb_starpower = makeStarPower $ Five.fiveOverdrive result.other
       }
   makeDrums fpart diff timing = case getPart fpart songYaml >>= (.drums) of
     Just pd -> let
-      opart = fromMaybe mempty $ Map.lookup fpart $ RBFile.onyxParts ofile
+      opart = fromMaybe mempty $ Map.lookup fpart $ F.onyxParts ofile
       trk = buildDrumTarget
         DrumTargetGH
         pd
@@ -375,10 +375,10 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
     timing <- basicTiming song getAudioLength
     (voxNotes, voxLyrics, voxSP, voxPhrases, voxMarkers) <- case getPart target.vocal songYaml >>= (.vocal) of
       Just _pv -> do
-        let opart = fromMaybe mempty $ Map.lookup target.vocal $ RBFile.onyxParts ofile
-            trk = if nullVox $ RBFile.onyxPartVocals opart
-              then harm1ToPartVocals $ RBFile.onyxHarm1 opart
-              else RBFile.onyxPartVocals opart
+        let opart = fromMaybe mempty $ Map.lookup target.vocal $ F.onyxParts ofile
+            trk = if nullVox $ F.onyxPartVocals opart
+              then harm1ToPartVocals $ F.onyxHarm1 opart
+              else F.onyxPartVocals opart
             sp = makeStarPower $ vocalOverdrive trk
             phrases = map secondsToMS $ makePhrasePoints
               (mapTrack (U.applyTempoTrack tmap) $ timingBeat timing)
@@ -441,7 +441,7 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
             , tsNumerator = fromIntegral num
             , tsDenominator = 4
             }
-        sections = flip fmap (eventsSections $ RBFile.onyxEvents ofile) $ \(_, section) -> let
+        sections = flip fmap (eventsSections $ F.onyxEvents ofile) $ \(_, section) -> let
           (_, sectionPrint) = makePSSection section
           sectionGH = "\\u[m]" <> sectionPrint
           in (qsKey sectionGH, sectionGH)

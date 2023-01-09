@@ -17,18 +17,18 @@ import           Onyx.DeriveHelpers
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
 import qualified Onyx.MIDI.Track.Drums            as D
-import           Onyx.MIDI.Track.File             (ParseFile (..), fileTrack)
-import qualified Onyx.MIDI.Track.FiveFret         as F
+import qualified Onyx.MIDI.Track.File             as F
+import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.Vocal            (Pitch)
 import qualified Sound.MIDI.File                  as F
 import           Sound.MIDI.Message.Channel.Voice (toPitch)
 import qualified Sound.MIDI.Util                  as U
 
 data GuitarDifficulty t = GuitarDifficulty
-  { guitarGems             :: RTB.T t (Edge () (Maybe F.Color))
-  , guitarPowerChordsE     :: RTB.T t (Edge () (Maybe F.Color))
-  , guitarPowerChordsA     :: RTB.T t (Edge () (Maybe F.Color))
-  , guitarPowerChordsGRYBO :: RTB.T t (Edge () (Maybe F.Color)) -- normal notes used in power chord sections
+  { guitarGems             :: RTB.T t (Edge () (Maybe Five.Color))
+  , guitarPowerChordsE     :: RTB.T t (Edge () (Maybe Five.Color))
+  , guitarPowerChordsA     :: RTB.T t (Edge () (Maybe Five.Color))
+  , guitarPowerChordsGRYBO :: RTB.T t (Edge () (Maybe Five.Color)) -- normal notes used in power chord sections
   , guitarHOPO             :: RTB.T t Bool
   , guitarPowerChordMode   :: RTB.T t Bool
   , guitarMojoDrummer      :: RTB.T t Bool
@@ -43,33 +43,33 @@ instance ParseTrack GuitarDifficulty where
   parseTrack = do
     let allGems = Nothing : map Just each
     guitarGems <- (guitarGems =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
-      Nothing       -> 60
-      Just F.Green  -> 62
-      Just F.Red    -> 64
-      Just F.Yellow -> 65
-      Just F.Blue   -> 67
-      Just F.Orange -> 69
+      Nothing          -> 60
+      Just Five.Green  -> 62
+      Just Five.Red    -> 64
+      Just Five.Yellow -> 65
+      Just Five.Blue   -> 67
+      Just Five.Orange -> 69
     guitarPowerChordsGRYBO <- (guitarPowerChordsGRYBO =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
-      Nothing       -> 96
-      Just F.Green  -> 98
-      Just F.Red    -> 100
-      Just F.Yellow -> 101
-      Just F.Blue   -> 103
-      Just F.Orange -> 105
+      Nothing          -> 96
+      Just Five.Green  -> 98
+      Just Five.Red    -> 100
+      Just Five.Yellow -> 101
+      Just Five.Blue   -> 103
+      Just Five.Orange -> 105
     guitarPowerChordsE <- (guitarPowerChordsE =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
-      Nothing       -> 108
-      Just F.Green  -> 109
-      Just F.Red    -> 110
-      Just F.Yellow -> 111
-      Just F.Blue   -> 112
-      Just F.Orange -> 113
+      Nothing          -> 108
+      Just Five.Green  -> 109
+      Just Five.Red    -> 110
+      Just Five.Yellow -> 111
+      Just Five.Blue   -> 112
+      Just Five.Orange -> 113
     guitarPowerChordsA <- (guitarPowerChordsA =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
-      Nothing       -> 114
-      Just F.Green  -> 115
-      Just F.Red    -> 116
-      Just F.Yellow -> 117
-      Just F.Blue   -> 118
-      Just F.Orange -> 119
+      Nothing          -> 114
+      Just Five.Green  -> 115
+      Just Five.Red    -> 116
+      Just Five.Yellow -> 117
+      Just Five.Blue   -> 118
+      Just Five.Orange -> 119
     guitarHOPO           <- guitarHOPO           =. controllerBool 68 -- "legato pedal"
     guitarPowerChordMode <- guitarPowerChordMode =. controllerBool 86
     guitarMojoDrummer    <- guitarMojoDrummer    =. controllerBool 81
@@ -181,31 +181,31 @@ data PGFile t = PGFile
   } deriving (Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (PGFile t)
 
-instance ParseFile PGFile where
+instance F.ParseFile PGFile where
   parseFile = do
 
-    pgGuitarBeginner <- pgGuitarBeginner =. fileTrack (pure "guitar_1_beginner")
-    pgGuitarEasy     <- pgGuitarEasy     =. fileTrack (pure "guitar_1_easy"    )
-    pgGuitarMedium   <- pgGuitarMedium   =. fileTrack (pure "guitar_1_medium"  )
-    pgGuitarHard     <- pgGuitarHard     =. fileTrack (pure "guitar_1_hard"    )
-    pgGuitarExpert   <- pgGuitarExpert   =. fileTrack (pure "guitar_1_expert"  )
-    pgGuitarMaster   <- pgGuitarMaster   =. fileTrack (pure "guitar_1_master"  )
+    pgGuitarBeginner <- pgGuitarBeginner =. F.fileTrack (pure "guitar_1_beginner")
+    pgGuitarEasy     <- pgGuitarEasy     =. F.fileTrack (pure "guitar_1_easy"    )
+    pgGuitarMedium   <- pgGuitarMedium   =. F.fileTrack (pure "guitar_1_medium"  )
+    pgGuitarHard     <- pgGuitarHard     =. F.fileTrack (pure "guitar_1_hard"    )
+    pgGuitarExpert   <- pgGuitarExpert   =. F.fileTrack (pure "guitar_1_expert"  )
+    pgGuitarMaster   <- pgGuitarMaster   =. F.fileTrack (pure "guitar_1_master"  )
 
-    pgDrumsBeginner <- pgDrumsBeginner =. fileTrack (pure "drums_1_beginner")
-    pgDrumsEasy     <- pgDrumsEasy     =. fileTrack (pure "drums_1_easy"    )
-    pgDrumsMedium   <- pgDrumsMedium   =. fileTrack (pure "drums_1_medium"  )
-    pgDrumsHard     <- pgDrumsHard     =. fileTrack (pure "drums_1_hard"    )
-    pgDrumsExpert   <- pgDrumsExpert   =. fileTrack (pure "drums_1_expert"  )
-    pgDrumsMaster   <- pgDrumsMaster   =. fileTrack (pure "drums_1_master"  )
+    pgDrumsBeginner <- pgDrumsBeginner =. F.fileTrack (pure "drums_1_beginner")
+    pgDrumsEasy     <- pgDrumsEasy     =. F.fileTrack (pure "drums_1_easy"    )
+    pgDrumsMedium   <- pgDrumsMedium   =. F.fileTrack (pure "drums_1_medium"  )
+    pgDrumsHard     <- pgDrumsHard     =. F.fileTrack (pure "drums_1_hard"    )
+    pgDrumsExpert   <- pgDrumsExpert   =. F.fileTrack (pure "drums_1_expert"  )
+    pgDrumsMaster   <- pgDrumsMaster   =. F.fileTrack (pure "drums_1_master"  )
 
-    pgVocalsBeginner <- pgVocalsBeginner =. fileTrack (pure "vocals_1_beginner")
-    pgVocalsEasy     <- pgVocalsEasy     =. fileTrack (pure "vocals_1_easy"    )
-    pgVocalsMedium   <- pgVocalsMedium   =. fileTrack (pure "vocals_1_medium"  )
-    pgVocalsHard     <- pgVocalsHard     =. fileTrack (pure "vocals_1_hard"    )
-    pgVocalsExpert   <- pgVocalsExpert   =. fileTrack (pure "vocals_1_expert"  )
-    pgVocalsMaster   <- pgVocalsMaster   =. fileTrack (pure "vocals_1_master"  )
+    pgVocalsBeginner <- pgVocalsBeginner =. F.fileTrack (pure "vocals_1_beginner")
+    pgVocalsEasy     <- pgVocalsEasy     =. F.fileTrack (pure "vocals_1_easy"    )
+    pgVocalsMedium   <- pgVocalsMedium   =. F.fileTrack (pure "vocals_1_medium"  )
+    pgVocalsHard     <- pgVocalsHard     =. F.fileTrack (pure "vocals_1_hard"    )
+    pgVocalsExpert   <- pgVocalsExpert   =. F.fileTrack (pure "vocals_1_expert"  )
+    pgVocalsMaster   <- pgVocalsMaster   =. F.fileTrack (pure "vocals_1_master"  )
 
-    pgBeat <- pgBeat =. fileTrack (pure "beat")
+    pgBeat <- pgBeat =. F.fileTrack (pure "beat")
 
     return PGFile{..}
 

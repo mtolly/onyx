@@ -25,8 +25,8 @@ import           Onyx.MIDI.Common                 (Difficulty (..),
 import qualified Onyx.MIDI.Track.Drums            as D
 import           Onyx.MIDI.Track.Drums.Full
 import           Onyx.MIDI.Track.Events
-import qualified Onyx.MIDI.Track.File             as RBFile
-import qualified Onyx.MIDI.Track.FiveFret         as F
+import qualified Onyx.MIDI.Track.File             as F
+import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.Neversoft.CRC               (qbKeyCRC)
 import           Onyx.Neversoft.Metadata          (SongInfoGH3 (..))
 import           Onyx.Neversoft.QB
@@ -300,7 +300,7 @@ readGH3TempoMap sigs bars = let
   in U.tempoMapFromBPS $ RTB.fromPairList
     $ zip (0 : map snd temposGaps) (map fst temposGaps)
 
-gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap Word32 T.Text -> GH3MidQB -> RBFile.Song (RBFile.OnyxFile U.Beats)
+gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap Word32 T.Text -> GH3MidQB -> F.Song (F.OnyxFile U.Beats)
 gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   tempos = readGH3TempoMap (gh3TimeSignatures gh3) (gh3FretBars gh3)
   toBeats :: Word32 -> U.Beats
@@ -331,23 +331,23 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
           else 0
         lenBeats = toBeats (time + lenTrimmed) - pos
     concat
-      [ [(pos, TrackNote (Just F.Green ) lenBeats) | bits `testBit` 0]
-      , [(pos, TrackNote (Just F.Red   ) lenBeats) | bits `testBit` 1]
-      , [(pos, TrackNote (Just F.Yellow) lenBeats) | bits `testBit` 2]
-      , [(pos, TrackNote (Just F.Blue  ) lenBeats) | bits `testBit` 3]
-      , [(pos, TrackNote (Just F.Orange) lenBeats) | bits `testBit` 4]
+      [ [(pos, TrackNote (Just Five.Green ) lenBeats) | bits `testBit` 0]
+      , [(pos, TrackNote (Just Five.Red   ) lenBeats) | bits `testBit` 1]
+      , [(pos, TrackNote (Just Five.Yellow) lenBeats) | bits `testBit` 2]
+      , [(pos, TrackNote (Just Five.Blue  ) lenBeats) | bits `testBit` 3]
+      , [(pos, TrackNote (Just Five.Orange) lenBeats) | bits `testBit` 4]
       , [(pos, TrackForce                lenBeats) | bits `testBit` 5]
       ]
   getPart part = mempty
-    { F.fiveDifficulties = Map.fromList
+    { Five.fiveDifficulties = Map.fromList
       [ (Expert, getTrack $ gh3Expert part)
       , (Hard  , getTrack $ gh3Hard   part)
       , (Medium, getTrack $ gh3Medium part)
       , (Easy  , getTrack $ gh3Easy   part)
       ]
-    , F.fiveOverdrive = makeSpan $ fmap (\(time, len, _notecount) -> (time, len)) $ gh3StarPower $ gh3Expert part
-    , F.fivePlayer1 = makeSpan $ gh3P1FaceOff gh3
-    , F.fivePlayer2 = makeSpan $ gh3P2FaceOff gh3
+    , Five.fiveOverdrive = makeSpan $ fmap (\(time, len, _notecount) -> (time, len)) $ gh3StarPower $ gh3Expert part
+    , Five.fivePlayer1 = makeSpan $ gh3P1FaceOff gh3
+    , Five.fivePlayer2 = makeSpan $ gh3P2FaceOff gh3
     }
   makeSpan spans = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
     (time, len) <- spans
@@ -366,27 +366,27 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
     }
   drums = gh3DrumsToFull toBeats $ gh3Drums $ gh3BackgroundNotes gh3
   fixed = mempty
-    { RBFile.onyxParts = Map.fromList
-      [ ( RBFile.FlexGuitar
-        , mempty { RBFile.onyxPartGuitar = trackLead }
+    { F.onyxParts = Map.fromList
+      [ ( F.FlexGuitar
+        , mempty { F.onyxPartGuitar = trackLead }
         )
-      , ( if coopRhythm then RBFile.FlexExtra "rhythm" else RBFile.FlexBass
-        , mempty { RBFile.onyxPartGuitar = trackCoop }
+      , ( if coopRhythm then F.FlexExtra "rhythm" else F.FlexBass
+        , mempty { F.onyxPartGuitar = trackCoop }
         )
-      , ( RBFile.FlexDrums
-        , mempty { RBFile.onyxPartFullDrums = drums }
+      , ( F.FlexDrums
+        , mempty { F.onyxPartFullDrums = drums }
         )
       ]
-    , RBFile.onyxEvents = events
+    , F.onyxEvents = events
     }
-  in RBFile.Song
-    { RBFile.s_tempos = tempos
-    , RBFile.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+  in F.Song
+    { F.s_tempos = tempos
+    , F.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
       (time, num, den) <- gh3TimeSignatures gh3
       let unit = 4 / fromIntegral den
           len = fromIntegral num * unit
       return (toBeats time, U.TimeSig len unit)
-    , RBFile.s_tracks = fixed
+    , F.s_tracks = fixed
     }
 
 gh3DrumMapping :: [(Word32, (FullGem, D.Hand))]
@@ -446,7 +446,7 @@ makeGH3TrackNotes
   :: U.TempoMap
   -> [(Word32, Word32, Word32)] -- time signatures in new gh3 mid
   -> [Word32] -- fretbars in new gh3 mid
-  -> RTB.T U.Beats ((F.Color, StrumHOPOTap), Maybe U.Beats)
+  -> RTB.T U.Beats ((Five.Color, StrumHOPOTap), Maybe U.Beats)
   -> [(Word32, Word32, Word32)]
 makeGH3TrackNotes tmap newSigs newFretbars notes = let
   newTempos = readGH3TempoMap newSigs newFretbars
@@ -468,7 +468,7 @@ makeGH3TrackNotes tmap newSigs newFretbars notes = let
   sustainTrim = quot sustainThreshold 2
   toMilli :: U.Beats -> Word32
   toMilli b = floor $ U.applyTempoMap tmap b * 1000
-  eachNotes :: (U.Beats, ([(F.Color, Bool)], Maybe U.Beats)) -> (Word32, Word32, Word32)
+  eachNotes :: (U.Beats, ([(Five.Color, Bool)], Maybe U.Beats)) -> (Word32, Word32, Word32)
   eachNotes (pos, (gems, len)) = let
     posMS = toMilli pos
     lenMS = case len of
@@ -477,10 +477,10 @@ makeGH3TrackNotes tmap newSigs newFretbars notes = let
     bits = foldr (.|.) 0 $ flip map gems $ \(gem, force) -> let
       force' = force && null (drop 1 gems) -- can't force chords
       in (if force' then bit 5 else 0) .|. case gem of
-        F.Green  -> bit 0
-        F.Red    -> bit 1
-        F.Yellow -> bit 2
-        F.Blue   -> bit 3
-        F.Orange -> bit 4
+        Five.Green  -> bit 0
+        Five.Red    -> bit 1
+        Five.Yellow -> bit 2
+        Five.Blue   -> bit 3
+        Five.Orange -> bit 4
     in (posMS, lenMS, bits)
   in map eachNotes $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ guitarify' withForces

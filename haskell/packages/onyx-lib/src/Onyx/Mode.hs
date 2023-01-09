@@ -28,8 +28,7 @@ import           Onyx.MIDI.Read                   (mapTrack)
 import qualified Onyx.MIDI.Track.Drums            as D
 import qualified Onyx.MIDI.Track.Drums.Full       as FD
 import           Onyx.MIDI.Track.Events
-import           Onyx.MIDI.Track.File
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.ProGuitar        (getStringIndex,
                                                    tuningPitches)
@@ -41,7 +40,7 @@ import qualified Sound.MIDI.Util                  as U
 data ModeInput = ModeInput
   { tempo  :: U.TempoMap
   , events :: EventsTrack U.Beats
-  , part   :: RBFile.OnyxPart U.Beats
+  , part   :: F.OnyxPart U.Beats
   }
 
 ------------------------------------------------------------------
@@ -63,9 +62,9 @@ type BuildFive = FiveType -> ModeInput -> FiveResult
 
 nativeFiveFret :: Part f -> Maybe BuildFive
 nativeFiveFret part = flip fmap part.grybo $ \grybo ftype input -> let
-  gtr  = (onyxPartGuitar    input.part, HOPOsRBGuitar)
-  keys = (onyxPartKeys      input.part, HOPOsRBKeys  )
-  ext  = (onyxPartGuitarExt input.part, HOPOsRBGuitar)
+  gtr  = (F.onyxPartGuitar    input.part, HOPOsRBGuitar)
+  keys = (F.onyxPartKeys      input.part, HOPOsRBKeys  )
+  ext  = (F.onyxPartGuitarExt input.part, HOPOsRBGuitar)
   trks = case ftype of
     FiveTypeGuitar    -> [gtr, ext, keys]
     FiveTypeKeys      -> [keys, ext, gtr] -- prefer ext due to sustains? or gtr due to no opens? dunno
@@ -150,10 +149,10 @@ type BuildDrums = DrumTarget -> ModeInput -> DrumResult
 nativeDrums :: Part f -> Maybe BuildDrums
 nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
 
-  src1x   =                             RBFile.onyxPartDrums       input.part
-  src2x   =                             RBFile.onyxPartDrums2x     input.part
-  srcReal = D.psRealToPro             $ RBFile.onyxPartRealDrumsPS input.part
-  srcFull = FD.convertFullDrums False $ RBFile.onyxPartFullDrums   input.part
+  src1x   =                             F.onyxPartDrums       input.part
+  src2x   =                             F.onyxPartDrums2x     input.part
+  srcReal = D.psRealToPro             $ F.onyxPartRealDrumsPS input.part
+  srcFull = FD.convertFullDrums False $ F.onyxPartFullDrums   input.part
   srcsRB = case dtarget of
     DrumTargetRB1x -> [src1x, src2x]
     _              -> [src2x, src1x]
@@ -221,17 +220,17 @@ anyDrums = nativeDrums
 buildDrumAnimation
   :: PartDrums f
   -> U.TempoMap
-  -> RBFile.OnyxPart U.Beats
+  -> F.OnyxPart U.Beats
   -> RTB.T U.Beats D.Animation
 buildDrumAnimation pd tmap opart = let
-  rbTracks = map ($ opart) [RBFile.onyxPartRealDrumsPS, RBFile.onyxPartDrums2x, RBFile.onyxPartDrums]
+  rbTracks = map ($ opart) [F.onyxPartRealDrumsPS, F.onyxPartDrums2x, F.onyxPartDrums]
   inRealTime f = U.unapplyTempoTrack tmap . f . U.applyTempoTrack tmap
   closeTime = 0.25 :: U.Seconds
   in case filter (not . RTB.null) $ map D.drumAnimation rbTracks of
     anims : _ -> anims
     []        -> case pd.mode of
       DrumsFull -> inRealTime (FD.autoFDAnimation closeTime)
-        $ FD.getDifficulty (Just RB.Expert) $ RBFile.onyxPartFullDrums opart
+        $ FD.getDifficulty (Just RB.Expert) $ F.onyxPartFullDrums opart
       -- TODO this could be made better for modes other than pro
       _ -> inRealTime (D.autoDrumAnimation closeTime)
         $ fmap fst $ D.computePro (Just RB.Expert)
@@ -247,14 +246,14 @@ buildDrumTarget
   -> PartDrums f
   -> U.Beats
   -> U.TempoMap
-  -> RBFile.OnyxPart U.Beats
+  -> F.OnyxPart U.Beats
   -> D.DrumTrack U.Beats
 buildDrumTarget tgt pd timingEnd tmap opart = let
 
-  src1x   =                             RBFile.onyxPartDrums       opart
-  src2x   =                             RBFile.onyxPartDrums2x     opart
-  srcReal = D.psRealToPro             $ RBFile.onyxPartRealDrumsPS opart
-  srcFull = FD.convertFullDrums False $ RBFile.onyxPartFullDrums   opart
+  src1x   =                             F.onyxPartDrums       opart
+  src2x   =                             F.onyxPartDrums2x     opart
+  srcReal = D.psRealToPro             $ F.onyxPartRealDrumsPS opart
+  srcFull = FD.convertFullDrums False $ F.onyxPartFullDrums   opart
   srcsRB = case tgt of
     DrumTargetRB1x -> [src1x, src2x]
     _              -> [src2x, src1x]
@@ -345,8 +344,8 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
       -- * join linked notes together if same fret, or mark link child as hopo if different fret
       -- * maybe split bent notes into multiple
       chosenTrack = fromMaybe RTB.empty $ listToMaybe $ filter (not . RTB.null)
-        [ rsNotes $ RBFile.onyxPartRSGuitar input.part
-        , rsNotes $ RBFile.onyxPartRSBass input.part
+        [ rsNotes $ F.onyxPartRSGuitar input.part
+        , rsNotes $ F.onyxPartRSBass input.part
         -- TODO support RB protar tracks
         ]
       strings = tuningPitches ppg.tuning
@@ -390,7 +389,7 @@ proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
         = RTB.toAbsoluteEventList 0
         $ guitarify'
         $ fmap (\((), key, len) -> (fromEnum key, guard (len >= standardBlipThreshold) >> Just len))
-        $ RB.joinEdgesSimple $ pkNotes $ RBFile.onyxPartRealKeysX input.part
+        $ RB.joinEdgesSimple $ pkNotes $ F.onyxPartRealKeysX input.part
       autoResult = autoChart 5 $ do
         (bts, (notes, _len)) <- ATB.toPairList chorded
         pitch <- simplifyChord notes

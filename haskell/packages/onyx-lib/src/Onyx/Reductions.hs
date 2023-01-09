@@ -25,7 +25,7 @@ import           Onyx.MIDI.Common                 (Difficulty (..), Key (..),
                                                    trackGlue)
 import qualified Onyx.MIDI.Track.Drums            as D
 import           Onyx.MIDI.Track.Events           (eventsSections)
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.ProKeys          as PK
@@ -517,30 +517,30 @@ drumsReduce diff   mmap od sections trk = let
 
 simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleReduce fin fout = do
-  RBFile.Song tempos mmap onyx <- loadMIDIOrChart fin
-  let sections = fmap snd $ eventsSections $ RBFile.onyxEvents onyx
-  stackIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap onyx
-    { RBFile.onyxParts = flip fmap (RBFile.onyxParts onyx) $ \trks -> let
-      pkX = RBFile.onyxPartRealKeysX trks
-      pkH = RBFile.onyxPartRealKeysH trks `pkOr` pkReduce Hard   mmap od pkX
-      pkM = RBFile.onyxPartRealKeysM trks `pkOr` pkReduce Medium mmap od pkH
-      pkE = RBFile.onyxPartRealKeysE trks `pkOr` pkReduce Easy   mmap od pkM
+  F.Song tempos mmap onyx <- loadMIDIOrChart fin
+  let sections = fmap snd $ eventsSections $ F.onyxEvents onyx
+  stackIO $ Save.toFile fout $ F.showMIDIFile' $ F.Song tempos mmap onyx
+    { F.onyxParts = flip fmap (F.onyxParts onyx) $ \trks -> let
+      pkX = F.onyxPartRealKeysX trks
+      pkH = F.onyxPartRealKeysH trks `pkOr` pkReduce Hard   mmap od pkX
+      pkM = F.onyxPartRealKeysM trks `pkOr` pkReduce Medium mmap od pkH
+      pkE = F.onyxPartRealKeysE trks `pkOr` pkReduce Easy   mmap od pkM
       od = pkOverdrive pkX
       trkX `pkOr` trkY
         | nullPK pkX  = mempty
         | nullPK trkX = trkY
         | otherwise   = trkX
       in trks
-      { RBFile.onyxPartGuitar = gryboComplete (Just 170) mmap $ RBFile.onyxPartGuitar trks
-      , RBFile.onyxPartKeys = gryboComplete Nothing mmap $ RBFile.onyxPartKeys trks
-      , RBFile.onyxPartDrums
+      { F.onyxPartGuitar = gryboComplete (Just 170) mmap $ F.onyxPartGuitar trks
+      , F.onyxPartKeys = gryboComplete Nothing mmap $ F.onyxPartKeys trks
+      , F.onyxPartDrums
         = D.fillDrumAnimation (0.25 :: U.Seconds) tempos
         $ drumsComplete mmap sections
-        $ RBFile.onyxPartDrums trks
-      , RBFile.onyxPartRealKeysX = pkX
-      , RBFile.onyxPartRealKeysH = pkH
-      , RBFile.onyxPartRealKeysM = pkM
-      , RBFile.onyxPartRealKeysE = pkE
+        $ F.onyxPartDrums trks
+      , F.onyxPartRealKeysX = pkX
+      , F.onyxPartRealKeysH = pkH
+      , F.onyxPartRealKeysM = pkM
+      , F.onyxPartRealKeysE = pkE
       }
     }
 

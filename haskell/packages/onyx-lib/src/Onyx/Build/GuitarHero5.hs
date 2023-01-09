@@ -34,8 +34,7 @@ import           Onyx.Build.Neversoft            (makeGHWoRNote,
                                                   worFileTextPak)
 import           Onyx.Difficulty
 import           Onyx.Genre
-import           Onyx.MIDI.Track.File            (shakeMIDI)
-import qualified Onyx.MIDI.Track.File            as RBFile
+import qualified Onyx.MIDI.Track.File            as F
 import           Onyx.Neversoft.CRC              (qbKeyCRC, qsKey)
 import           Onyx.Neversoft.Crypt            (ghworEncrypt)
 import           Onyx.Neversoft.Note             (makeWoRNoteFile, putNote)
@@ -117,8 +116,8 @@ gh5Rules buildInfo dir gh5 = do
   dir </> "cdl.pak.xen" %> \out -> stackIO $ BL.writeFile out worFileBarePak
 
   dir </> "cdl_text.pak.xen" %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
-    let _ = mid :: RBFile.Song (RBFile.OnyxFile U.Beats)
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    let _ = mid :: F.Song (F.OnyxFile U.Beats)
         makeQSPair s = let s' = worMetadataString s in (qsKey s', s')
         -- not sure what the \L does; it works without it but we'll just match official songs
         titleQS  = makeQSPair $ "\\L" <> targetTitle songYaml (GH5 gh5)
@@ -149,7 +148,7 @@ gh5Rules buildInfo dir gh5 = do
               , QBStructItemQbKey (qbKeyCRC "genre") $ qbWoRGenre genre
               , QBStructItemInteger (qbKeyCRC "leaderboard") 0 -- does setting this to 0 work?
               , QBStructItemInteger (qbKeyCRC "duration")
-                (fromIntegral $ quot (RBFile.songLengthMS mid + 500) 1000) -- this is just displayed in song list
+                (fromIntegral $ quot (F.songLengthMS mid + 500) 1000) -- this is just displayed in song list
               , QBStructItemInteger (qbKeyCRC "flags") 0 -- what is this?
               , QBStructItemInteger (qbKeyCRC "double_kick") $
                 case getPart gh5.drums songYaml >>= (.drums) of
@@ -258,7 +257,7 @@ gh5Rules buildInfo dir gh5 = do
     stackIO $ BL.writeFile out $ buildPak nodes
 
   (dir </> "ghwor.note", dir </> "ghwor.qs") %> \(outNote, outQS) -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
     (note, qs) <- makeGHWoRNote songYaml gh5
       (applyTargetMIDI gh5.common mid)
       $ getAudioLength buildInfo planName plan
@@ -267,8 +266,8 @@ gh5Rules buildInfo dir gh5 = do
     stackIO $ BL.writeFile outQS $ makeQS $ HM.toList qs
 
   dir </> "preview.wav" %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
-    let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    let (pstart, pend) = previewBounds songYaml (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
         fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
     src <- shk $ buildSource
       $ Gain 0.5 -- just guessing at this. without it previews are too loud
@@ -293,8 +292,8 @@ gh5Rules buildInfo dir gh5 = do
     len <- getAudioLength buildInfo planName plan
     runAudio (applySpeedAudio (common gh5) $ silent (Seconds $ realToFrac len) 1000 6) out
   dir </> "audio3.wav" %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
-    let _ = mid :: RBFile.Song (RBFile.OnyxFile U.Beats)
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    let _ = mid :: F.Song (F.OnyxFile U.Beats)
     src <- shk $ buildSource $ Merge
       $ Input (planDir </> "everything.wav")
       :| [Silence 2 $ Seconds 0]

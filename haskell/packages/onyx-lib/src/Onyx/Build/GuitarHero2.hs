@@ -44,8 +44,7 @@ import           Onyx.Harmonix.RockBand.Score     (gh2Base)
 import           Onyx.Image.DXT
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                   (mapTrack)
-import           Onyx.MIDI.Track.File             (saveMIDI, shakeMIDI)
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.StackTrace
 import           Onyx.Xbox.STFS                   (gh2pkg)
@@ -86,27 +85,27 @@ gh2Rules buildInfo dir gh2 = do
             Just chans -> any (`notElem` (silentChans :: [Int])) $ concat $ toList chans
 
   (dir </> "gh2/notes.mid", dir </> "gh2/coop_max_scores.dta", dir </> "gh2/pad.txt") %> \(out, coop, pad) -> do
-    input <- shakeMIDI $ planDir </> "processed.mid"
+    input <- F.shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
     audio <- computeGH2Audio songYaml gh2 hasAudio
     (mid, padSeconds) <- midiRB3toGH2 songYaml gh2 audio
       (applyTargetMIDI gh2.common input)
       (getAudioLength buildInfo planName plan)
-    saveMIDI out mid
-    let p1 = gh2PartGuitar $ RBFile.s_tracks mid
+    F.saveMIDI out mid
+    let p1 = gh2PartGuitar $ F.s_tracks mid
         p2 = case gh2.coop of
-          GH2Bass   -> gh2PartBass   $ RBFile.s_tracks mid
-          GH2Rhythm -> gh2PartRhythm $ RBFile.s_tracks mid
+          GH2Bass   -> gh2PartBass   $ F.s_tracks mid
+          GH2Rhythm -> gh2PartRhythm $ F.s_tracks mid
         scores = map (\diff -> gh2Base diff p1 + gh2Base diff p2) [Easy .. Expert]
         dta = "(" <> T.unpack key <> " (" <> unwords (map show scores) <> "))"
     stackIO $ writeFile coop dta
     stackIO $ writeFile pad $ show padSeconds
 
-  let loadGH2Midi = shakeMIDI $ dir </> "gh2/notes.mid" :: Staction (RBFile.Song (GH2File U.Beats))
+  let loadGH2Midi = F.shakeMIDI $ dir </> "gh2/notes.mid" :: Staction (F.Song (GH2File U.Beats))
       correctAudioLength mid = do
-        endTime <- case RTB.filter (== GH2.End) $ GH2.eventsOther $ gh2Events $ RBFile.s_tracks mid of
+        endTime <- case RTB.filter (== GH2.End) $ GH2.eventsOther $ gh2Events $ F.s_tracks mid of
           RNil       -> fatal "panic! couldn't find [end] event in GH2 output midi"
-          Wait t _ _ -> return $ U.applyTempoMap (RBFile.s_tempos mid) t
+          Wait t _ _ -> return $ U.applyTempoMap (F.s_tempos mid) t
         return $ endTime + 5
         -- previously we went 0.5s past [end], but that still had issues,
         -- particularly in practice mode when playing the last section
@@ -184,7 +183,7 @@ gh2Rules buildInfo dir gh2 = do
       lg $ "Finished writing GH2 practice audio for " ++ show speed ++ "% speed"
 
   (dir </> "gh2/songs.dta", dir </> "gh2/songs-dx2.dta", dir </> "gh2/songs-inner.dta", dir </> "gh2/songs-inner-dx2.dta") %> \(out, outDX2, outInner, outInnerDX2) -> do
-    input <- shakeMIDI $ planDir </> "processed.mid"
+    input <- F.shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
     audio <- computeGH2Audio songYaml gh2 hasAudio
     pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
@@ -192,7 +191,7 @@ gh2Rules buildInfo dir gh2 = do
         inner isDX2 = D.serialize (valueId D.stackChunks) $ makeGH2DTA
           songYaml
           key
-          (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)) padSeconds False)
+          (previewBounds songYaml (input :: F.Song (F.OnyxFile U.Beats)) padSeconds False)
           gh2
           audio
           (targetTitle songYaml $ GH2 gh2)
@@ -207,11 +206,11 @@ gh2Rules buildInfo dir gh2 = do
     stackIO $ D.writeFileDTA_latin1 outInnerDX2 innerDX2
 
   dir </> "gh2/lipsync.voc" %> \out -> do
-    midi <- shakeMIDI $ planDir </> "raw.mid"
-    let vox = RBFile.getFlexPart gh2.vocal $ RBFile.s_tracks midi
-        auto = gh2Lipsync englishSyllables . mapTrack (U.applyTempoTrack $ RBFile.s_tempos midi)
+    midi <- F.shakeMIDI $ planDir </> "raw.mid"
+    let vox = F.getFlexPart gh2.vocal $ F.s_tracks midi
+        auto = gh2Lipsync englishSyllables . mapTrack (U.applyTempoTrack $ F.s_tempos midi)
     stackIO $ BL.writeFile out $ runPut $ putVocFile
-      $ auto $ RBFile.onyxPartVocals vox
+      $ auto $ F.onyxPartVocals vox
 
   dir </> "gh2/symbol" %> \out -> do
     stackIO $ B.writeFile out $ B8.pack pkg
@@ -268,7 +267,7 @@ gh2Rules buildInfo dir gh2 = do
         ]
       ]
   dir </> "stfs/config/songs.dta" %> \out -> do
-    input <- shakeMIDI $ planDir </> "processed.mid"
+    input <- F.shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
     audio <- computeGH2Audio songYaml gh2 hasAudio
     pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
@@ -276,7 +275,7 @@ gh2Rules buildInfo dir gh2 = do
         songPackage = makeGH2DTA360
           songYaml
           key
-          (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)) padSeconds False)
+          (previewBounds songYaml (input :: F.Song (F.OnyxFile U.Beats)) padSeconds False)
           gh2
           audio
           (targetTitle songYaml (GH2 gh2))
@@ -287,7 +286,7 @@ gh2Rules buildInfo dir gh2 = do
           , songyear       = T.pack . show <$> songYaml.metadata.year
           , songgenre      = songYaml.metadata.genre
           , songorigin     = Nothing
-          , songduration   = Just $ fromIntegral $ RBFile.songLengthMS input
+          , songduration   = Just $ fromIntegral $ F.songLengthMS input
           , songguitarrank = Nothing -- TODO
           , songbassrank   = Nothing -- TODO
           , songrhythmrank = Nothing -- TODO

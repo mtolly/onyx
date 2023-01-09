@@ -41,7 +41,7 @@ import           Data.Maybe                           (catMaybes, fromMaybe,
                                                        listToMaybe, mapMaybe)
 import qualified Data.Text                            as T
 import qualified Data.Text.Encoding                   as TE
-import qualified Data.Text.IO                         as TIO
+import qualified Data.Text.IO                         as T
 import qualified Data.Yaml                            as Y
 import           Onyx.Amplitude.PS2.TxtBin            (getTxtBin, txtBinToDTA)
 import           Onyx.Audio                           (Audio (Input),
@@ -98,7 +98,7 @@ import qualified Onyx.MIDI.Script.Base                as MS
 import qualified Onyx.MIDI.Script.Parse               as MS
 import qualified Onyx.MIDI.Script.Read                as MS
 import qualified Onyx.MIDI.Script.Scan                as MS
-import qualified Onyx.MIDI.Track.File                 as RBFile
+import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.Vocal                (nullVox)
 import           Onyx.Neversoft.CRC                   (knownKeys, qbKeyCRC)
 import           Onyx.Neversoft.Crypt                 (decryptFSB, gh3Encrypt,
@@ -357,8 +357,8 @@ undone = fatal "Feature not built yet..."
 changeToVenueGen :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m ()
 changeToVenueGen dir = do
   let midPath = dir </> "notes.mid"
-  mid <- RBFile.loadMIDI midPath
-  stackIO $ Save.toFile midPath $ RBFile.showMIDIFile' $ RBFile.convertToVenueGen mid
+  mid <- F.loadMIDI midPath
+  stackIO $ Save.toFile midPath $ F.showMIDIFile' $ F.convertToVenueGen mid
 
 commands :: [Command]
 commands =
@@ -552,7 +552,7 @@ commands =
       , "onyx hanging notes.mid"
       ]
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> do
-      let withMIDI mid = RBFile.loadMIDI mid >>= lg . T.unpack . closeShiftsFile
+      let withMIDI mid = F.loadMIDI mid >>= lg . T.unpack . closeShiftsFile
       case ftype of
         FileSongYaml -> withProject (optIndex opts) fpath $ proKeysHanging $ getMaybePlan opts
         FileRBProj   -> do
@@ -722,7 +722,7 @@ commands =
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
       FileMidi -> do
         out <- outputFile opts $ return $ fpath -<.> "midtxt"
-        res <- MS.toStandardMIDI <$> RBFile.loadRawMIDI fpath
+        res <- MS.toStandardMIDI <$> F.loadRawMIDI fpath
         case res of
           Left  err -> fatal err
           Right sm  -> stackIO $ writeFile out $ MS.showStandardMIDI (midiOptions opts) sm
@@ -743,7 +743,7 @@ commands =
     , commandUsage = "onyx midi-text-git in.mid > out.midtxt"
     , commandRun = \files opts -> case files of
       [mid] -> do
-        res <- MS.toStandardMIDI <$> RBFile.loadRawMIDI mid
+        res <- MS.toStandardMIDI <$> F.loadRawMIDI mid
         case res of
           Left  err -> fatal err
           Right sm  -> lg $ MS.showStandardMIDI (midiOptions opts) sm
@@ -779,31 +779,31 @@ commands =
       ]
     , commandRun = \args opts -> case args of
       [base, tracks] -> do
-        baseMid <- RBFile.loadMIDI base
-        tracksMid <- RBFile.loadMIDI tracks
+        baseMid <- F.loadMIDI base
+        tracksMid <- F.loadMIDI tracks
         out <- outputFile opts $ return $ tracks ++ ".merged.mid"
-        let newMid = RBFile.mergeCharts (RBFile.TrackPad 0) baseMid tracksMid
-        stackIO $ Save.toFile out $ RBFile.showMIDIFile' newMid
+        let newMid = F.mergeCharts (F.TrackPad 0) baseMid tracksMid
+        stackIO $ Save.toFile out $ F.showMIDIFile' newMid
         return [out]
       [base, tracks, "pad", n] -> do
-        baseMid <- RBFile.loadMIDI base
-        tracksMid <- RBFile.loadMIDI tracks
+        baseMid <- F.loadMIDI base
+        tracksMid <- F.loadMIDI tracks
         out <- outputFile opts $ return $ tracks ++ ".merged.mid"
         n' <- case readMaybe n of
           Nothing -> fatal "Invalid merge pad amount"
           Just d  -> return $ realToFrac (d :: Double)
-        let newMid = RBFile.mergeCharts (RBFile.TrackPad n') baseMid tracksMid
-        stackIO $ Save.toFile out $ RBFile.showMIDIFile' newMid
+        let newMid = F.mergeCharts (F.TrackPad n') baseMid tracksMid
+        stackIO $ Save.toFile out $ F.showMIDIFile' newMid
         return [out]
       [base, tracks, "drop", n] -> do
-        baseMid <- RBFile.loadMIDI base
-        tracksMid <- RBFile.loadMIDI tracks
+        baseMid <- F.loadMIDI base
+        tracksMid <- F.loadMIDI tracks
         out <- outputFile opts $ return $ tracks ++ ".merged.mid"
         n' <- case readMaybe n of
           Nothing -> fatal "Invalid merge drop amount"
           Just d  -> return $ realToFrac (d :: Double)
-        let newMid = RBFile.mergeCharts (RBFile.TrackDrop n') baseMid tracksMid
-        stackIO $ Save.toFile out $ RBFile.showMIDIFile' newMid
+        let newMid = F.mergeCharts (F.TrackDrop n') baseMid tracksMid
+        stackIO $ Save.toFile out $ F.showMIDIFile' newMid
         return [out]
       _ -> fatal "Invalid merge syntax"
     }
@@ -820,13 +820,13 @@ commands =
         FileSongYaml -> return $ takeDirectory fpath </> "notes.mid"
         FileRBProj -> undone
         _ -> fatal "Unrecognized --to argument, expected .mid/.yml/.rbproj"
-      mid <- RBFile.loadMIDI pathMid
-      let existingTracks = RBFile.rawTracks $ RBFile.s_tracks mid
+      mid <- F.loadMIDI pathMid
+      let existingTracks = F.rawTracks $ F.s_tracks mid
           existingNames = mapMaybe U.trackName existingTracks
       case filter (`notElem` existingNames) args of
         []      -> return ()
-        newTrks -> stackIO $ Save.toFile pathMid $ RBFile.showMIDIFile' mid
-          { RBFile.s_tracks = RBFile.RawFile $ existingTracks ++ map (`U.setTrackName` RTB.empty) newTrks
+        newTrks -> stackIO $ Save.toFile pathMid $ F.showMIDIFile' mid
+          { F.s_tracks = F.RawFile $ existingTracks ++ map (`U.setTrackName` RTB.empty) newTrks
           }
       return [pathMid]
     }
@@ -915,7 +915,7 @@ commands =
     , commandUsage = "onyx lipsync-gen in.mid"
     , commandRun = \args opts -> case args of
       [fmid] -> do
-        mid <- RBFile.loadMIDI fmid
+        mid <- F.loadMIDI fmid
         let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
         voxToLip <- case game of
           GameRB3  -> (\vmap -> autoLipsync    defaultTransition vmap englishSyllables) <$> loadVisemesRB3
@@ -924,19 +924,19 @@ commands =
           _        -> fatal "Unsupported game for lipsync-gen"
         let template = dropExtension fmid
             tracks =
-              [ (RBFile.fixedPartVocals, "_solovox.lipsync", False)
-              , (RBFile.fixedHarm1, "_harm1.lipsync", False)
-              , (RBFile.fixedHarm2, "_harm2.lipsync", False)
-              , (RBFile.fixedHarm3, "_harm3.lipsync", False)
+              [ (F.fixedPartVocals, "_solovox.lipsync", False)
+              , (F.fixedHarm1, "_harm1.lipsync", False)
+              , (F.fixedHarm2, "_harm2.lipsync", False)
+              , (F.fixedHarm3, "_harm3.lipsync", False)
               , (const mempty, "_empty.lipsync", True)
               ]
         fmap catMaybes $ forM tracks $ \(getter, suffix, alwaysWrite) -> do
-          let trk = getter $ RBFile.s_tracks mid
+          let trk = getter $ F.s_tracks mid
               fout = template <> suffix
           if nullVox trk && not alwaysWrite
             then return Nothing
             else do
-              let lip = voxToLip $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
+              let lip = voxToLip $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) trk
               stackIO $ BL.writeFile fout $ runPut $ putLipsync lip
               return $ Just fout
       _ -> fatal "Expected 1 argument (input midi)"
@@ -948,7 +948,7 @@ commands =
     , commandUsage = "onyx lipsync-track-gen in.mid"
     , commandRun = \args opts -> case args of
       [fmid] -> do
-        mid <- RBFile.loadMIDI fmid
+        mid <- F.loadMIDI fmid
         let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
         vmap <- case game of
           GameRB3  -> loadVisemesRB3
@@ -957,22 +957,22 @@ commands =
           _        -> fatal "Unsupported game for lipsync-track-gen"
         let template = dropExtension fmid
             tracks =
-              [ (RBFile.onyxLipsync1, "_1.lipsync")
-              , (RBFile.onyxLipsync2, "_2.lipsync")
-              , (RBFile.onyxLipsync3, "_3.lipsync")
-              , (RBFile.onyxLipsync4, "_4.lipsync")
+              [ (F.onyxLipsync1, "_1.lipsync")
+              , (F.onyxLipsync2, "_2.lipsync")
+              , (F.onyxLipsync3, "_3.lipsync")
+              , (F.onyxLipsync4, "_4.lipsync")
               ]
             voxToLip
               = (if game == GameTBRB then setBeatles else id)
               . lipsyncFromMIDITrack vmap
-        fmap concat $ forM (Map.toList $ RBFile.onyxParts $ RBFile.s_tracks mid) $ \(fpart, opart) -> do
+        fmap concat $ forM (Map.toList $ F.onyxParts $ F.s_tracks mid) $ \(fpart, opart) -> do
           fmap catMaybes $ forM tracks $ \(getter, suffix) -> do
             let trk = getter opart
-                fout = template <> "_" <> T.unpack (RBFile.getPartName fpart) <> suffix
+                fout = template <> "_" <> T.unpack (F.getPartName fpart) <> suffix
             if trk == mempty
               then return Nothing
               else do
-                let lip = voxToLip $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid) trk
+                let lip = voxToLip $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) trk
                 stackIO $ BL.writeFile fout $ runPut $ putLipsync lip
                 return $ Just fout
       _ -> fatal "Expected 1 argument (input midi)"
@@ -1011,23 +1011,23 @@ commands =
     , commandRun = \args opts -> case args of
       ["raw", fin] -> do
         fout <- outputFile opts $ return $ fin <> ".txt"
-        mid <- RBFile.loadMIDI fin
-        stackIO $ writeFile fout $ show (mid :: RBFile.Song (RBFile.RawFile U.Beats))
+        mid <- F.loadMIDI fin
+        stackIO $ writeFile fout $ show (mid :: F.Song (F.RawFile U.Beats))
         return [fout]
       ["raw-len", fin] -> do
         fout <- outputFile opts $ return $ fin <> ".txt"
-        mid <- RBFile.loadMIDI fin
-        stackIO $ writeFile fout $ show $ length $ show (mid :: RBFile.Song (RBFile.RawFile U.Beats))
+        mid <- F.loadMIDI fin
+        stackIO $ writeFile fout $ show $ length $ show (mid :: F.Song (F.RawFile U.Beats))
         return [fout]
       ["fixed", fin] -> do
         fout <- outputFile opts $ return $ fin <> ".txt"
-        mid <- RBFile.loadMIDI fin
-        stackIO $ writeFile fout $ show (mid :: RBFile.Song (RBFile.FixedFile U.Beats))
+        mid <- F.loadMIDI fin
+        stackIO $ writeFile fout $ show (mid :: F.Song (F.FixedFile U.Beats))
         return [fout]
       ["onyx", fin] -> do
         fout <- outputFile opts $ return $ fin <> ".txt"
-        mid <- RBFile.loadMIDI fin
-        stackIO $ writeFile fout $ show (mid :: RBFile.Song (RBFile.OnyxFile U.Beats))
+        mid <- F.loadMIDI fin
+        stackIO $ writeFile fout $ show (mid :: F.Song (F.OnyxFile U.Beats))
         return [fout]
       _ -> fatal "Expected 2 arguments (raw/fixed/onyx, then a midi file)"
     }
@@ -1044,11 +1044,11 @@ commands =
       ]
     , commandRun = \args _opts -> case args of
       fin : players -> do
-        mid <- RBFile.loadMIDI fin
+        mid <- F.loadMIDI fin
         case players of
           [] -> stackIO $ forM_ [minBound .. maxBound] $ \scoreTrack -> do
             forM_ [minBound .. maxBound] $ \diff -> do
-              let stars = starCutoffs (RBFile.s_tracks mid) [(scoreTrack, diff)]
+              let stars = starCutoffs (F.s_tracks mid) [(scoreTrack, diff)]
               when (any (maybe False (> 0)) stars) $ do
                 putStrLn $ unwords [show scoreTrack, show diff, show stars]
           _ -> let
@@ -1064,9 +1064,9 @@ commands =
               Left  err   -> fatal err
               Right pairs -> stackIO $ do
                 forM_ pairs $ \pair -> let
-                  (base, solo) = baseAndSolo (RBFile.s_tracks mid) pair
+                  (base, solo) = baseAndSolo (F.s_tracks mid) pair
                   in putStrLn $ show pair <> ": base " <> show base <> ", solo bonuses " <> show solo
-                print $ starCutoffs (RBFile.s_tracks mid) pairs
+                print $ starCutoffs (F.s_tracks mid) pairs
         return []
       _ -> fatal "Expected 1 argument (input midi)"
     }
@@ -1161,13 +1161,13 @@ commands =
     , commandUsage = "onyx coop-max-scores notes.mid"
     , commandRun = \args _opts -> case args of
       [fin] -> do
-        mid <- RBFile.loadMIDI fin
-        let p1 = if nullPart $ gh2PartGuitarCoop $ RBFile.s_tracks mid
-              then gh2PartGuitar     $ RBFile.s_tracks mid
-              else gh2PartGuitarCoop $ RBFile.s_tracks mid
-            p2 = if nullPart $ gh2PartBass $ RBFile.s_tracks mid
-              then gh2PartRhythm $ RBFile.s_tracks mid
-              else gh2PartBass   $ RBFile.s_tracks mid
+        mid <- F.loadMIDI fin
+        let p1 = if nullPart $ gh2PartGuitarCoop $ F.s_tracks mid
+              then gh2PartGuitar     $ F.s_tracks mid
+              else gh2PartGuitarCoop $ F.s_tracks mid
+            p2 = if nullPart $ gh2PartBass $ F.s_tracks mid
+              then gh2PartRhythm $ F.s_tracks mid
+              else gh2PartBass   $ F.s_tracks mid
             scores1 = map (\diff -> gh2Base diff p1) [Easy .. Expert]
             scores2 = map (\diff -> gh2Base diff p2) [Easy .. Expert]
             scoresCoop = map (\diff -> gh2Base diff p1 + gh2Base diff p2) [Easy .. Expert]
@@ -1513,7 +1513,7 @@ commands =
         fout <- outputFile opts $ return $ fin <> ".dta"
         bs <- stackIO $ B.readFile fin
         txtBin <- runGetM getTxtBin $ BL.fromStrict bs
-        stackIO $ TIO.writeFile fout $ showDTA $ fmap TE.decodeLatin1 $ txtBinToDTA txtBin
+        stackIO $ T.writeFile fout $ showDTA $ fmap TE.decodeLatin1 $ txtBinToDTA txtBin
         return [fout]
       _ -> fatal "Expected 1 argument"
     }
@@ -1629,18 +1629,18 @@ data OnyxOption
 
 applyMidiFunction
   :: (MonadIO m, SendMessage m)
-  => Maybe (RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats)) -- ^ MIDI transform
+  => Maybe (F.Song (F.FixedFile U.Beats) -> F.Song (F.FixedFile U.Beats)) -- ^ MIDI transform
   -> FilePath
   -> FilePath
   -> StackTraceT m ()
 applyMidiFunction Nothing fin fout = stackIO $ Dir.copyFile fin fout
 applyMidiFunction (Just fn) fin fout = do
-  mid <- RBFile.loadMIDI fin
-  stackIO $ Save.toFile fout $ RBFile.showMIDIFile' $ fn mid
+  mid <- F.loadMIDI fin
+  stackIO $ Save.toFile fout $ F.showMIDIFile' $ fn mid
 
 getDolphinFunction
   :: [OnyxOption]
-  -> Maybe (RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats))
+  -> Maybe (F.Song (F.FixedFile U.Beats) -> F.Song (F.FixedFile U.Beats))
 getDolphinFunction opts = let
   nofills   = elem OptWiiNoFills   opts
   mustang22 = elem OptWiiMustang22 opts
@@ -1648,9 +1648,9 @@ getDolphinFunction opts = let
   in do
     guard $ or [nofills, mustang22, unmute22]
     Just
-      $ (if nofills   then RBFile.wiiNoFills   else id)
-      . (if mustang22 then RBFile.wiiMustang22 else id)
-      . (if unmute22  then RBFile.wiiUnmute22  else id)
+      $ (if nofills   then F.wiiNoFills   else id)
+      . (if mustang22 then F.wiiMustang22 else id)
+      . (if unmute22  then F.wiiUnmute22  else id)
 
 data Game
   = GameRB3

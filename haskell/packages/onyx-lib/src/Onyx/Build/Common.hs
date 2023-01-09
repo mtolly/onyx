@@ -41,8 +41,8 @@ import           Onyx.Genre
 import           Onyx.Image.DXT
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                   (mapTrack)
-import qualified Onyx.MIDI.Track.Drums            as RBDrums
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.Drums            as Drums
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.Resources                   (onyxAlbum)
 import           Onyx.StackTrace
@@ -122,31 +122,31 @@ hashRB3 songYaml rb3 = let
 crawlFolderBytes :: (MonadIO m) => FilePath -> StackTraceT m (Folder B.ByteString Readable)
 crawlFolderBytes p = stackIO $ fmap (first TE.encodeUtf8) $ crawlFolder p
 
-applyTargetMIDI :: TargetCommon -> RBFile.Song (RBFile.OnyxFile U.Beats) -> RBFile.Song (RBFile.OnyxFile U.Beats)
+applyTargetMIDI :: TargetCommon -> F.Song (F.OnyxFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
 applyTargetMIDI tgt mid = let
-  eval = fmap (U.unapplyTempoMap $ RBFile.s_tempos mid) . evalPreviewTime False (Just RBFile.getEventsTrack) mid 0 False
+  eval = fmap (U.unapplyTempoMap $ F.s_tempos mid) . evalPreviewTime False (Just F.getEventsTrack) mid 0 False
   applyEnd = case tgt.end >>= eval . (.notes) of
     Nothing -> id
     Just notesEnd -> \m -> m
-      { RBFile.s_tracks
+      { F.s_tracks
         = chopTake notesEnd
-        $ RBFile.s_tracks m
+        $ F.s_tracks m
       -- the RockBand3 module process functions will remove tempos and sigs after [end]
       }
   applyStart = case tgt.start >>= \seg -> liftA2 (,) (eval seg.fadeStart) (eval seg.notes) of
     Nothing -> id
     Just (audioStart, notesStart) -> \m -> m
-      { RBFile.s_tracks
+      { F.s_tracks
         = mapTrack (RTB.delay $ notesStart - audioStart)
         $ chopDrop notesStart
-        $ RBFile.s_tracks m
-      , RBFile.s_tempos = case U.trackSplit audioStart $ U.tempoMapToBPS $ RBFile.s_tempos m of
+        $ F.s_tracks m
+      , F.s_tempos = case U.trackSplit audioStart $ U.tempoMapToBPS $ F.s_tempos m of
         -- cut time off the front of the tempo map, and copy the last tempo
         -- from before the cut point to the cut point if needed
         (cut, keep) -> U.tempoMapFromBPS $ case U.trackTakeZero keep of
           [] -> U.trackGlueZero (toList $ snd . snd <$> RTB.viewR cut) keep
           _  -> keep
-      , RBFile.s_signatures = case U.trackSplit audioStart $ U.measureMapToTimeSigs $ RBFile.s_signatures m of
+      , F.s_signatures = case U.trackSplit audioStart $ U.measureMapToTimeSigs $ F.s_signatures m of
         (cut, keep) -> U.measureMapFromTimeSigs U.Error $ case U.trackTakeZero keep of
           _ : _ -> keep -- already a time signature at the cut point
           []    -> case lastEvent cut of
@@ -168,11 +168,11 @@ applyTargetMIDI tgt mid = let
   applySpeed = case fromMaybe 1 tgt.speed of
     1     -> id
     speed -> \m -> m
-      { RBFile.s_tempos
+      { F.s_tempos
         = U.tempoMapFromBPS
         $ fmap (* realToFrac speed)
         $ U.tempoMapToBPS
-        $ RBFile.s_tempos m
+        $ F.s_tempos m
       }
   in applySpeed . applyStart . applyEnd $ mid
 
@@ -181,7 +181,7 @@ lastEvent (Wait !t x RNil) = Just (t, x)
 lastEvent (Wait !t _ xs  ) = lastEvent $ RTB.delay t xs
 lastEvent RNil             = Nothing
 
-applyTargetLength :: TargetCommon -> RBFile.Song (f U.Beats) -> U.Seconds -> U.Seconds
+applyTargetLength :: TargetCommon -> F.Song (f U.Beats) -> U.Seconds -> U.Seconds
 applyTargetLength tgt mid = let
   -- TODO get Events track to support sections as segment boundaries
   applyEnd = case tgt.end >>= evalPreviewTime False Nothing mid 0 False . (.fadeEnd) of
@@ -221,7 +221,7 @@ audioDepend buildInfo name = do
 
 sourceKick, sourceSnare, sourceKit, sourceSimplePart
   :: (MonadResource m)
-  => BuildInfo -> [RBFile.FlexPartName] -> TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan FilePath -> RBFile.FlexPartName -> Integer
+  => BuildInfo -> [F.FlexPartName] -> TargetCommon -> F.Song f -> Int -> Bool -> T.Text -> Plan FilePath -> F.FlexPartName -> Integer
   -> Staction (AudioSource m Float)
 
 sourceKick buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
@@ -266,8 +266,8 @@ sourceKit buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart ra
         guard $ rank /= 0
         case HM.lookup fpart x.parts.getParts of
           Just (PartDrumKit kick snare kit) -> case mixMode of
-            RBDrums.D0 -> toList kick <> toList snare <> [kit]
-            _          -> [kit]
+            Drums.D0 -> toList kick <> toList snare <> [kit]
+            _        -> [kit]
           Just (PartSingle             kit) -> [kit]
           _                                 -> []
       in mapM build indexSets >>= \case
@@ -279,8 +279,8 @@ sourceKit buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart ra
         guard $ rank /= 0
         case HM.lookup fpart x.parts.getParts of
           Just (PartDrumKit kick snare kit) -> case mixMode of
-            RBDrums.D0 -> toList kick <> toList snare <> [kit]
-            _          -> [kit]
+            Drums.D0 -> toList kick <> toList snare <> [kit]
+            _        -> [kit]
           Just (PartSingle             kit) -> [kit]
           _                                 -> []
       in mapM (build . Just) exprs >>= \case
@@ -290,7 +290,7 @@ sourceKit buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart ra
 
 getPartSource
   :: (MonadResource m)
-  => BuildInfo -> [(Double, Double)] -> T.Text -> Plan FilePath -> RBFile.FlexPartName -> Integer
+  => BuildInfo -> [(Double, Double)] -> T.Text -> Plan FilePath -> F.FlexPartName -> Integer
   -> Staction (AudioSource m Float)
 getPartSource buildInfo spec planName plan fpart rank = case plan of
   MoggPlan x -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols) $ do
@@ -302,7 +302,7 @@ getPartSource buildInfo spec planName plan fpart rank = case plan of
 
 sourceStereoParts
   :: (MonadResource m)
-  => BuildInfo -> [RBFile.FlexPartName] -> TargetCommon -> RBFile.Song f -> Int -> T.Text -> Plan FilePath -> [(RBFile.FlexPartName, Integer)]
+  => BuildInfo -> [F.FlexPartName] -> TargetCommon -> F.Song f -> Int -> T.Text -> Plan FilePath -> [(F.FlexPartName, Integer)]
   -> Staction (AudioSource m Float)
 sourceStereoParts buildInfo gameParts tgt mid pad planName plan fpartranks = do
   let spec = [(-1, 0), (1, 0)]
@@ -321,7 +321,7 @@ sourceSimplePart buildInfo gameParts tgt mid pad supportsOffMono planName plan f
 
 sourceCrowd
   :: (MonadResource m)
-  => BuildInfo -> TargetCommon -> RBFile.Song f -> Int -> T.Text -> Plan FilePath
+  => BuildInfo -> TargetCommon -> F.Song f -> Int -> T.Text -> Plan FilePath
   -> Staction (AudioSource m Float)
 sourceCrowd buildInfo tgt mid pad planName plan = do
   src <- case plan of
@@ -333,7 +333,7 @@ sourceCrowd buildInfo tgt mid pad planName plan = do
 
 sourceSongCountin
   :: (MonadResource m)
-  => BuildInfo -> TargetCommon -> RBFile.Song f -> Int -> Bool -> T.Text -> Plan FilePath -> [(RBFile.FlexPartName, Integer)]
+  => BuildInfo -> TargetCommon -> F.Song f -> Int -> Bool -> T.Text -> Plan FilePath -> [(F.FlexPartName, Integer)]
   -> Staction (AudioSource m Float)
 sourceSongCountin buildInfo tgt mid pad includeCountin planName plan fparts = do
   let usedParts' = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
@@ -397,7 +397,7 @@ setAudioLengthOrEmpty secs src = do
     else setAudioLength secs src
 
 -- Silences out an audio stream if more than 1 game part maps to the same flex part
-zeroIfMultiple :: (Monad m) => [RBFile.FlexPartName] -> RBFile.FlexPartName -> AudioSource m Float -> AudioSource m Float
+zeroIfMultiple :: (Monad m) => [F.FlexPartName] -> F.FlexPartName -> AudioSource m Float -> AudioSource m Float
 zeroIfMultiple fparts fpart src = case filter (== fpart) fparts of
   _ : _ : _ -> takeStart (Frames 0) src
   _         -> src
@@ -466,7 +466,7 @@ backgroundColor bg img = let
     (imageWidth img)
     (imageHeight img)
 
-applyTargetAudio :: (MonadResource m) => TargetCommon -> RBFile.Song f -> AudioSource m Float -> AudioSource m Float
+applyTargetAudio :: (MonadResource m) => TargetCommon -> F.Song f -> AudioSource m Float -> AudioSource m Float
 applyTargetAudio tgt mid = let
   eval = evalPreviewTime False Nothing mid 0 False -- TODO get Events track to support sections as segment boundaries
   bounds :: SegmentEdge -> Maybe (U.Seconds, U.Seconds)

@@ -33,8 +33,7 @@ import           Onyx.MIDI.Common                 (Difficulty (..),
                                                    pattern RNil, pattern Wait)
 import           Onyx.MIDI.Track.Drums            (DrumVelocity (..))
 import qualified Onyx.MIDI.Track.Drums.Full       as FD
-import           Onyx.MIDI.Track.File             (FlexPartName (..))
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret
 import           Onyx.Project                     hiding (TargetDTX (..))
 import           Onyx.StackTrace
@@ -45,8 +44,8 @@ import           System.FilePath                  (takeDirectory, takeExtension,
                                                    (<.>), (</>))
 
 dtxConvertDrums, dtxConvertGuitar, dtxConvertBass
-  :: DTX -> RBFile.Song (RBFile.OnyxFile U.Beats) -> RBFile.Song (RBFile.OnyxFile U.Beats)
-dtxConvertDrums dtx (RBFile.Song tmap mmap onyx) = let
+  :: DTX -> F.Song (F.OnyxFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
+dtxConvertDrums dtx (F.Song tmap mmap onyx) = let
   importFullDrums notes = mempty
     { FD.fdDifficulties = Map.singleton Expert FD.FullDrumDifficulty
       { FD.fdGems = flip RTB.mapMaybe notes $ \case
@@ -66,16 +65,16 @@ dtxConvertDrums dtx (RBFile.Song tmap mmap onyx) = let
       }
     , FD.fdKick2 = RTB.mapMaybe (\case LeftBass -> Just (); _ -> Nothing) notes
     }
-  in RBFile.Song tmap mmap $ RBFile.editOnyxPart FlexDrums
-    (\opart -> opart { RBFile.onyxPartFullDrums = importFullDrums $ fmap fst $ dtx_Drums dtx })
+  in F.Song tmap mmap $ F.editOnyxPart F.FlexDrums
+    (\opart -> opart { F.onyxPartFullDrums = importFullDrums $ fmap fst $ dtx_Drums dtx })
     onyx
-dtxConvertGuitar = dtxConvertGB dtx_Guitar dtx_GuitarLong $ \onyx five -> RBFile.editOnyxPart
-  FlexGuitar
-  (\opart -> opart { RBFile.onyxPartGuitar = five })
+dtxConvertGuitar = dtxConvertGB dtx_Guitar dtx_GuitarLong $ \onyx five -> F.editOnyxPart
+  F.FlexGuitar
+  (\opart -> opart { F.onyxPartGuitar = five })
   onyx
-dtxConvertBass   = dtxConvertGB dtx_Bass   dtx_BassLong   $ \onyx five -> RBFile.editOnyxPart
-  FlexBass
-  (\opart -> opart { RBFile.onyxPartGuitar = five })
+dtxConvertBass   = dtxConvertGB dtx_Bass   dtx_BassLong   $ \onyx five -> F.editOnyxPart
+  F.FlexBass
+  (\opart -> opart { F.onyxPartGuitar = five })
   onyx
 
 dtxConvertGB
@@ -83,9 +82,9 @@ dtxConvertGB
   -> (DTX -> RTB.T U.Beats ())
   -> (f U.Beats -> FiveTrack U.Beats -> f U.Beats)
   -> DTX
-  -> RBFile.Song (f U.Beats)
-  -> RBFile.Song (f U.Beats)
-dtxConvertGB getter getLong setter dtx (RBFile.Song tmap mmap fixed) = let
+  -> F.Song (f U.Beats)
+  -> F.Song (f U.Beats)
+dtxConvertGB getter getLong setter dtx (F.Song tmap mmap fixed) = let
   longLengths = let
     pairs = RTB.toPairList $ getLong dtx
     in RTB.fromPairList $ zipWith
@@ -103,10 +102,10 @@ dtxConvertGB getter getLong setter dtx (RBFile.Song tmap mmap fixed) = let
           sustain : _ -> [ (note, Just sustain) | (note, _) <- rights instant ]
           []          -> rights instant
     }
-  in RBFile.Song tmap mmap $ setter fixed $ guitarToFive $ fmap fst $ getter dtx
+  in F.Song tmap mmap $ setter fixed $ guitarToFive $ fmap fst $ getter dtx
 
-dtxBaseMIDI :: DTX -> RBFile.Song (RBFile.OnyxFile U.Beats)
-dtxBaseMIDI dtx = RBFile.Song (dtx_TempoMap dtx) (dtx_MeasureMap dtx) mempty
+dtxBaseMIDI :: DTX -> F.Song (F.OnyxFile U.Beats)
+dtxBaseMIDI dtx = F.Song (dtx_TempoMap dtx) (dtx_MeasureMap dtx) mempty
 
 dtxAddChipAudio :: (SendMessage m, MonadIO m) => DTX -> FilePath -> StackTraceT m (SongYaml SoftFile -> SongYaml SoftFile)
 dtxAddChipAudio dtx fin = do
@@ -134,8 +133,8 @@ dtxAddChipAudio dtx fin = do
   return $ \songYaml -> songYaml { audio = HM.fromList audio }
 
 dtxMakeAudioPlan :: DTX
-  -> (SongYaml SoftFile, RBFile.Song (RBFile.OnyxFile U.Beats))
-  -> (SongYaml SoftFile, RBFile.Song (RBFile.OnyxFile U.Beats))
+  -> (SongYaml SoftFile, F.Song (F.OnyxFile U.Beats))
+  -> (SongYaml SoftFile, F.Song (F.OnyxFile U.Beats))
 dtxMakeAudioPlan dtx (songYaml, mid) = let
   foundChips = HM.keysSet songYaml.audio
   audioForChipsOverlap name chips = if RTB.null chips
@@ -146,8 +145,8 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
         , groupCrossfade = 0.002 -- doesn't matter
         }
       audios = AudioSamples poly
-      track = RBFile.SamplesTrack
-        $ fmap (\chip -> RBFile.SampleTrigger "" chip)
+      track = F.SamplesTrack
+        $ fmap (\chip -> F.SampleTrigger "" chip)
         -- don't include sample if we didn't find its audio
         $ RTB.filter (\chip -> HS.member chip foundChips) chips
       in (Just (name, audios), Just (name, track))
@@ -159,10 +158,10 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
         , groupCrossfade = 0.002
         }
       audios = AudioSamples poly
-      track = RBFile.SamplesTrack $ foldr RTB.merge RTB.empty $ do
+      track = F.SamplesTrack $ foldr RTB.merge RTB.empty $ do
         (groupName, groupChips) <- chips
         return
-          $ fmap (RBFile.SampleTrigger groupName)
+          $ fmap (F.SampleTrigger groupName)
           -- don't include sample if we didn't find its audio
           $ RTB.filter (\chip -> HS.member chip foundChips) groupChips
       in (Just (name, audios), Just (name, track))
@@ -204,9 +203,9 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
       { song        = flip fmap songAudio $ \(name, _) -> audioExpr name
       , countin     = Countin []
       , parts       = Parts $ HM.fromList $ concat
-        [ toList $ flip fmap guitarAudio $ \(name, _) -> (FlexGuitar, PartSingle $ audioExpr name)
-        , toList $ flip fmap bassAudio $ \(name, _) -> (FlexBass, PartSingle $ audioExpr name)
-        , toList $ (FlexDrums ,) <$> case kitAudio of
+        [ toList $ flip fmap guitarAudio $ \(name, _) -> (F.FlexGuitar, PartSingle $ audioExpr name)
+        , toList $ flip fmap bassAudio $ \(name, _) -> (F.FlexBass, PartSingle $ audioExpr name)
+        , toList $ (F.FlexDrums ,) <$> case kitAudio of
           Just (name, _) -> Just PartDrumKit
             { kick  = flip fmap kickAudio $ \(n, _) -> audioExpr n
             , snare = flip fmap snareAudio $ \(n, _) -> audioExpr n
@@ -218,7 +217,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
               (name, _) :| [] -> audioExpr name
               _               -> audiosExpr $ fmap fst xs
         , flip mapMaybe extraResults $ \(extraAudio, _) -> flip fmap extraAudio
-          $ \(name, _) -> (FlexExtra name, PartSingle $ audioExpr name)
+          $ \(name, _) -> (F.FlexExtra name, PartSingle $ audioExpr name)
         ]
       , crowd       = Nothing
       , comments    = []
@@ -227,8 +226,8 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
       }
     }
   mid' = mid
-    { RBFile.s_tracks = (RBFile.s_tracks mid)
-      { RBFile.onyxSamples = Map.fromList $ catMaybes
+    { F.s_tracks = (F.s_tracks mid)
+      { F.onyxSamples = Map.fromList $ catMaybes
         $ [songTrack, guitarTrack, bassTrack, kickTrack, snareTrack, kitTrack]
         <> map snd extraResults
       }
@@ -359,7 +358,7 @@ importSetDef setDefPath song level = do
         , plans = HM.empty
         , targets = HM.empty
         , parts = Parts $ HM.fromList $ catMaybes
-          [ flip fmap topDrumDiff $ \diff -> (FlexDrums, emptyPart
+          [ flip fmap topDrumDiff $ \diff -> (F.FlexDrums, emptyPart
             { drums = Just PartDrums
               { difficulty  = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
               , mode        = DrumsFull
@@ -374,12 +373,12 @@ importSetDef setDefPath song level = do
               , fullLayout  = FDStandard
               }
             })
-          , flip fmap topGuitarDiff $ \diff -> (FlexGuitar, emptyPart
+          , flip fmap topGuitarDiff $ \diff -> (F.FlexGuitar, emptyPart
             { grybo = Just (def :: PartGRYBO)
               { difficulty = translateDifficulty (dtx_GLEVEL diff) (dtx_GLVDEC diff)
               }
             })
-          , flip fmap topBassDiff $ \diff -> (FlexBass, emptyPart
+          , flip fmap topBassDiff $ \diff -> (F.FlexBass, emptyPart
             { grybo = Just (def :: PartGRYBO)
               { difficulty = translateDifficulty (dtx_BLEVEL diff) (dtx_BLVDEC diff)
               }

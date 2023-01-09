@@ -56,8 +56,7 @@ import           Onyx.MIDI.Common                     (Key (..), SongKey (..),
                                                        showKey,
                                                        songKeyUsesFlats)
 import           Onyx.MIDI.Track.Events
-import           Onyx.MIDI.Track.File                 (FlexPartName (..))
-import qualified Onyx.MIDI.Track.File                 as RBFile
+import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
                                                        GtrTuning (..))
 import           Onyx.Preferences                     (MagmaSetting (..))
@@ -236,15 +235,15 @@ instance (StackJSON a) => StackJSON (PartAudio a) where
         ]
     }
 
-newtype Parts a = Parts { getParts :: HM.HashMap FlexPartName a }
+newtype Parts a = Parts { getParts :: HM.HashMap F.FlexPartName a }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 instance (StackJSON a) => StackJSON (Parts a) where
   stackJSON = Codec
-    { codecIn = Parts . HM.fromList . map (first RBFile.readPartName) . HM.toList
+    { codecIn = Parts . HM.fromList . map (first F.readPartName) . HM.toList
       <$> mapping fromJSON
     , codecOut = makeOut $ \(Parts hm) -> mappingToJSON $ HM.fromList
-      $ map (first RBFile.getPartName) $ HM.toList hm
+      $ map (first F.getPartName) $ HM.toList hm
     }
 
 data Plan f
@@ -316,10 +315,10 @@ getFileTempo = \case
 
 getKaraoke, getMultitrack :: Plan f -> Bool
 getKaraoke = \case
-  StandardPlan x -> HM.keys x.parts.getParts == [FlexVocal]
+  StandardPlan x -> HM.keys x.parts.getParts == [F.FlexVocal]
   MoggPlan     x -> x.karaoke
 getMultitrack = \case
-  StandardPlan x -> not $ HM.null $ HM.delete FlexVocal x.parts.getParts
+  StandardPlan x -> not $ HM.null $ HM.delete F.FlexVocal x.parts.getParts
   MoggPlan     x -> x.multitrack
 
 newtype Countin = Countin [(Either U.MeasureBeats U.Seconds, Audio Duration AudioInput)]
@@ -568,10 +567,10 @@ instance StackJSON Duration where
       Seconds s -> showTimestamp $ realToFrac s
     }
 
-instance StackJSON FlexPartName where
+instance StackJSON F.FlexPartName where
   stackJSON = Codec
-    { codecIn = RBFile.readPartName <$> fromJSON
-    , codecOut = makeOut $ A.toJSON . RBFile.getPartName
+    { codecIn = F.readPartName <$> fromJSON
+    , codecOut = makeOut $ A.toJSON . F.getPartName
     }
 
 data Difficulty
@@ -1151,11 +1150,11 @@ data TargetRB3 = TargetRB3
   , version       :: Maybe Integer
   , harmonix      :: Bool
   , magma         :: MagmaSetting
-  , guitar        :: FlexPartName
-  , bass          :: FlexPartName
-  , drums         :: FlexPartName
-  , keys          :: FlexPartName
-  , vocal         :: FlexPartName
+  , guitar        :: F.FlexPartName
+  , bass          :: F.FlexPartName
+  , drums         :: F.FlexPartName
+  , keys          :: F.FlexPartName
+  , vocal         :: F.FlexPartName
   , ps3Encrypt    :: Bool
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
@@ -1167,11 +1166,11 @@ parseTargetRB3 = do
   version       <- (.version      ) =. opt Nothing      "version"       stackJSON
   harmonix      <- (.harmonix     ) =. opt False        "harmonix"      stackJSON
   magma         <- (.magma        ) =. opt MagmaRequire "magma"         stackJSON
-  guitar        <- (.guitar       ) =. opt FlexGuitar   "guitar"        stackJSON
-  bass          <- (.bass         ) =. opt FlexBass     "bass"          stackJSON
-  drums         <- (.drums        ) =. opt FlexDrums    "drums"         stackJSON
-  keys          <- (.keys         ) =. opt FlexKeys     "keys"          stackJSON
-  vocal         <- (.vocal        ) =. opt FlexVocal    "vocal"         stackJSON
+  guitar        <- (.guitar       ) =. opt F.FlexGuitar   "guitar"        stackJSON
+  bass          <- (.bass         ) =. opt F.FlexBass     "bass"          stackJSON
+  drums         <- (.drums        ) =. opt F.FlexDrums    "drums"         stackJSON
+  keys          <- (.keys         ) =. opt F.FlexKeys     "keys"          stackJSON
+  vocal         <- (.vocal        ) =. opt F.FlexVocal    "vocal"         stackJSON
   ps3Encrypt    <- (.ps3Encrypt   ) =. opt True         "ps3-encrypt"   stackJSON
   return TargetRB3{..}
 
@@ -1246,10 +1245,10 @@ data TargetRB2 = TargetRB2
   , labelRB2      :: Bool
   , version       :: Maybe Integer
   , magma         :: MagmaSetting -- this currently only affects Magma v2; v1 is always tried but optional
-  , guitar        :: FlexPartName
-  , bass          :: FlexPartName
-  , drums         :: FlexPartName
-  , vocal         :: FlexPartName
+  , guitar        :: F.FlexPartName
+  , bass          :: F.FlexPartName
+  , drums         :: F.FlexPartName
+  , vocal         :: F.FlexPartName
   , ps3Encrypt    :: Bool
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
@@ -1261,10 +1260,10 @@ parseTargetRB2 = do
   labelRB2      <- (.labelRB2     ) =. opt False        "label-rb2"     stackJSON
   version       <- (.version      ) =. opt Nothing      "version"       stackJSON
   magma         <- (.magma        ) =. opt MagmaRequire "magma"         stackJSON
-  guitar        <- (.guitar       ) =. opt FlexGuitar   "guitar"        stackJSON
-  bass          <- (.bass         ) =. opt FlexBass     "bass"          stackJSON
-  drums         <- (.drums        ) =. opt FlexDrums    "drums"         stackJSON
-  vocal         <- (.vocal        ) =. opt FlexVocal    "vocal"         stackJSON
+  guitar        <- (.guitar       ) =. opt F.FlexGuitar   "guitar"        stackJSON
+  bass          <- (.bass         ) =. opt F.FlexBass     "bass"          stackJSON
+  drums         <- (.drums        ) =. opt F.FlexDrums    "drums"         stackJSON
+  vocal         <- (.vocal        ) =. opt F.FlexVocal    "vocal"         stackJSON
   ps3Encrypt    <- (.ps3Encrypt   ) =. opt True         "ps3-encrypt"   stackJSON
   return TargetRB2{..}
 
@@ -1276,14 +1275,14 @@ instance Default TargetRB2 where
 
 data TargetPS = TargetPS
   { common        :: TargetCommon
-  , guitar        :: FlexPartName
-  , bass          :: FlexPartName
-  , drums         :: FlexPartName
-  , keys          :: FlexPartName
-  , vocal         :: FlexPartName
-  , rhythm        :: FlexPartName
-  , guitarCoop    :: FlexPartName
-  , dance         :: FlexPartName
+  , guitar        :: F.FlexPartName
+  , bass          :: F.FlexPartName
+  , drums         :: F.FlexPartName
+  , keys          :: F.FlexPartName
+  , vocal         :: F.FlexPartName
+  , rhythm        :: F.FlexPartName
+  , guitarCoop    :: F.FlexPartName
+  , dance         :: F.FlexPartName
   , loadingPhrase :: Maybe T.Text
   , bigRockEnding :: Bool
   } deriving (Eq, Ord, Show, Generic, Hashable)
@@ -1291,16 +1290,16 @@ data TargetPS = TargetPS
 parseTargetPS :: (SendMessage m) => ObjectCodec m A.Value TargetPS
 parseTargetPS = do
   common        <- (.common       ) =. parseTargetCommon
-  guitar        <- (.guitar       ) =. opt FlexGuitar                "guitar"          stackJSON
-  bass          <- (.bass         ) =. opt FlexBass                  "bass"            stackJSON
-  drums         <- (.drums        ) =. opt FlexDrums                 "drums"           stackJSON
-  keys          <- (.keys         ) =. opt FlexKeys                  "keys"            stackJSON
-  vocal         <- (.vocal        ) =. opt FlexVocal                 "vocal"           stackJSON
-  rhythm        <- (.rhythm       ) =. opt (FlexExtra "rhythm"     ) "rhythm"          stackJSON
-  guitarCoop    <- (.guitarCoop   ) =. opt (FlexExtra "guitar-coop") "guitar-coop"     stackJSON
-  dance         <- (.dance        ) =. opt (FlexExtra "global"     ) "dance"           stackJSON
-  loadingPhrase <- (.loadingPhrase) =. opt Nothing                   "loading-phrase"  stackJSON
-  bigRockEnding <- (.bigRockEnding) =. opt True                      "big-rock-ending" stackJSON
+  guitar        <- (.guitar       ) =. opt F.FlexGuitar                "guitar"          stackJSON
+  bass          <- (.bass         ) =. opt F.FlexBass                  "bass"            stackJSON
+  drums         <- (.drums        ) =. opt F.FlexDrums                 "drums"           stackJSON
+  keys          <- (.keys         ) =. opt F.FlexKeys                  "keys"            stackJSON
+  vocal         <- (.vocal        ) =. opt F.FlexVocal                 "vocal"           stackJSON
+  rhythm        <- (.rhythm       ) =. opt (F.FlexExtra "rhythm"     ) "rhythm"          stackJSON
+  guitarCoop    <- (.guitarCoop   ) =. opt (F.FlexExtra "guitar-coop") "guitar-coop"     stackJSON
+  dance         <- (.dance        ) =. opt (F.FlexExtra "global"     ) "dance"           stackJSON
+  loadingPhrase <- (.loadingPhrase) =. opt Nothing                     "loading-phrase"  stackJSON
+  bigRockEnding <- (.bigRockEnding) =. opt True                        "big-rock-ending" stackJSON
   return TargetPS{..}
 
 instance StackJSON TargetPS where
@@ -1311,11 +1310,11 @@ instance Default TargetPS where
 
 data TargetGH1 = TargetGH1
   { common        :: TargetCommon
-  , guitar        :: FlexPartName
-  , bass          :: FlexPartName
-  , drums         :: FlexPartName
-  , vocal         :: FlexPartName
-  , keys          :: FlexPartName
+  , guitar        :: F.FlexPartName
+  , bass          :: F.FlexPartName
+  , drums         :: F.FlexPartName
+  , vocal         :: F.FlexPartName
+  , keys          :: F.FlexPartName
   , key           :: Maybe T.Text -- top symbol
   , loadingPhrase :: Maybe T.Text -- these go in ghui/eng/gen/locale.dtb, loading_tip_thesongkey
   , offset        :: Double -- in seconds, positive means pull audio earlier, negative means push later
@@ -1324,11 +1323,11 @@ data TargetGH1 = TargetGH1
 parseTargetGH1 :: (SendMessage m) => ObjectCodec m A.Value TargetGH1
 parseTargetGH1 = do
   common        <- (.common       ) =. parseTargetCommon
-  guitar        <- (.guitar       ) =. opt FlexGuitar "guitar"         stackJSON
-  bass          <- (.bass         ) =. opt FlexBass   "bass"           stackJSON
-  drums         <- (.drums        ) =. opt FlexDrums  "drums"          stackJSON
-  keys          <- (.keys         ) =. opt FlexKeys   "keys"           stackJSON
-  vocal         <- (.vocal        ) =. opt FlexVocal  "vocal"          stackJSON
+  guitar        <- (.guitar       ) =. opt F.FlexGuitar "guitar"         stackJSON
+  bass          <- (.bass         ) =. opt F.FlexBass   "bass"           stackJSON
+  drums         <- (.drums        ) =. opt F.FlexDrums  "drums"          stackJSON
+  keys          <- (.keys         ) =. opt F.FlexKeys   "keys"           stackJSON
+  vocal         <- (.vocal        ) =. opt F.FlexVocal  "vocal"          stackJSON
   key           <- (.key          ) =. opt Nothing    "key"            stackJSON
   loadingPhrase <- (.loadingPhrase) =. opt Nothing    "loading-phrase" stackJSON
   offset        <- (.offset       ) =. opt 0          "offset"         stackJSON
@@ -1350,12 +1349,12 @@ instance StackJSON GH2Coop where
 
 data TargetGH2 = TargetGH2
   { common        :: TargetCommon
-  , guitar        :: FlexPartName
-  , bass          :: FlexPartName
-  , rhythm        :: FlexPartName
-  , drums         :: FlexPartName
-  , vocal         :: FlexPartName
-  , keys          :: FlexPartName
+  , guitar        :: F.FlexPartName
+  , bass          :: F.FlexPartName
+  , rhythm        :: F.FlexPartName
+  , drums         :: F.FlexPartName
+  , vocal         :: F.FlexPartName
+  , keys          :: F.FlexPartName
   , coop          :: GH2Coop
   , key           :: Maybe T.Text -- top symbol for 360 DLC
   , context       :: Maybe Int -- contexts.dta for 360 DLC
@@ -1370,12 +1369,12 @@ data TargetGH2 = TargetGH2
 parseTargetGH2 :: (SendMessage m) => ObjectCodec m A.Value TargetGH2
 parseTargetGH2 = do
   common        <- (.common       ) =. parseTargetCommon
-  guitar        <- (.guitar       ) =. opt FlexGuitar           "guitar"         stackJSON
-  bass          <- (.bass         ) =. opt FlexBass             "bass"           stackJSON
-  rhythm        <- (.rhythm       ) =. opt (FlexExtra "rhythm") "rhythm"         stackJSON
-  drums         <- (.drums        ) =. opt FlexDrums            "drums"          stackJSON
-  keys          <- (.keys         ) =. opt FlexKeys             "keys"           stackJSON
-  vocal         <- (.vocal        ) =. opt FlexVocal            "vocal"          stackJSON
+  guitar        <- (.guitar       ) =. opt F.FlexGuitar           "guitar"         stackJSON
+  bass          <- (.bass         ) =. opt F.FlexBass             "bass"           stackJSON
+  rhythm        <- (.rhythm       ) =. opt (F.FlexExtra "rhythm") "rhythm"         stackJSON
+  drums         <- (.drums        ) =. opt F.FlexDrums            "drums"          stackJSON
+  keys          <- (.keys         ) =. opt F.FlexKeys             "keys"           stackJSON
+  vocal         <- (.vocal        ) =. opt F.FlexVocal            "vocal"          stackJSON
   coop          <- (.coop         ) =. opt GH2Bass              "coop"           stackJSON
   key           <- (.key          ) =. opt Nothing              "key"            stackJSON
   context       <- (.context      ) =. opt Nothing              "context"        stackJSON
@@ -1396,10 +1395,10 @@ instance Default TargetGH2 where
 -- gh5 or ghwor, mostly same formats
 data TargetGH5 = TargetGH5
   { common :: TargetCommon
-  , guitar :: FlexPartName
-  , bass   :: FlexPartName
-  , drums  :: FlexPartName
-  , vocal  :: FlexPartName
+  , guitar :: F.FlexPartName
+  , bass   :: F.FlexPartName
+  , drums  :: F.FlexPartName
+  , vocal  :: F.FlexPartName
   , songID :: Maybe Int -- like 783 in "adlc783_1.fsb.xen"
   , cdl    :: Maybe Int -- like 511 in "cdl511"
   , proTo4 :: Bool -- true if pro drums should just use RYBG
@@ -1408,10 +1407,10 @@ data TargetGH5 = TargetGH5
 parseTargetGH5 :: (SendMessage m) => ObjectCodec m A.Value TargetGH5
 parseTargetGH5 = do
   common <- (.common) =. parseTargetCommon
-  guitar <- (.guitar) =. opt FlexGuitar "guitar"   stackJSON
-  bass   <- (.bass  ) =. opt FlexBass   "bass"     stackJSON
-  drums  <- (.drums ) =. opt FlexDrums  "drums"    stackJSON
-  vocal  <- (.vocal ) =. opt FlexVocal  "vocal"    stackJSON
+  guitar <- (.guitar) =. opt F.FlexGuitar "guitar"   stackJSON
+  bass   <- (.bass  ) =. opt F.FlexBass   "bass"     stackJSON
+  drums  <- (.drums ) =. opt F.FlexDrums  "drums"    stackJSON
+  vocal  <- (.vocal ) =. opt F.FlexVocal  "vocal"    stackJSON
   songID <- (.songID) =. opt Nothing    "song-id"  stackJSON
   cdl    <- (.cdl   ) =. opt Nothing    "cdl"      stackJSON
   proTo4 <- (.proTo4) =. opt False      "pro-to-4" stackJSON
@@ -1425,13 +1424,13 @@ instance Default TargetGH5 where
 
 data TargetGH3 = TargetGH3
   { common :: TargetCommon
-  , guitar :: FlexPartName
-  , bass   :: FlexPartName
-  , rhythm :: FlexPartName
+  , guitar :: F.FlexPartName
+  , bass   :: F.FlexPartName
+  , rhythm :: F.FlexPartName
   , coop   :: GH2Coop
-  , drums  :: FlexPartName
-  , vocal  :: FlexPartName
-  , keys   :: FlexPartName
+  , drums  :: F.FlexPartName
+  , vocal  :: F.FlexPartName
+  , keys   :: F.FlexPartName
   , songID :: Maybe (Either Int T.Text) -- Int gets title/artist added, Text is exact
   , dl     :: Maybe Int -- like 15 in "dl15"
   } deriving (Eq, Ord, Show, Generic, Hashable)
@@ -1439,13 +1438,13 @@ data TargetGH3 = TargetGH3
 parseTargetGH3 :: (SendMessage m) => ObjectCodec m A.Value TargetGH3
 parseTargetGH3 = do
   common <- (.common) =. parseTargetCommon
-  guitar <- (.guitar) =. opt FlexGuitar           "guitar"  stackJSON
-  bass   <- (.bass  ) =. opt FlexBass             "bass"    stackJSON
-  rhythm <- (.rhythm) =. opt (FlexExtra "rhythm") "rhythm"  stackJSON
+  guitar <- (.guitar) =. opt F.FlexGuitar           "guitar"  stackJSON
+  bass   <- (.bass  ) =. opt F.FlexBass             "bass"    stackJSON
+  rhythm <- (.rhythm) =. opt (F.FlexExtra "rhythm") "rhythm"  stackJSON
   coop   <- (.coop  ) =. opt GH2Bass              "coop"    stackJSON
-  drums  <- (.drums ) =. opt FlexDrums            "drums"   stackJSON
-  vocal  <- (.vocal ) =. opt FlexVocal            "vocal"   stackJSON
-  keys   <- (.keys  ) =. opt FlexVocal            "keys"    stackJSON
+  drums  <- (.drums ) =. opt F.FlexDrums            "drums"   stackJSON
+  vocal  <- (.vocal ) =. opt F.FlexVocal            "vocal"   stackJSON
+  keys   <- (.keys  ) =. opt F.FlexVocal            "keys"    stackJSON
   songID <- (.songID) =. opt Nothing              "song-id" stackJSON
   dl     <- (.dl    ) =. opt Nothing              "dl"      stackJSON
   return TargetGH3{..}
@@ -1458,17 +1457,17 @@ instance Default TargetGH3 where
 
 data TargetDTX = TargetDTX
   { common :: TargetCommon
-  , drums  :: FlexPartName
-  , guitar :: FlexPartName
-  , bass   :: FlexPartName
+  , drums  :: F.FlexPartName
+  , guitar :: F.FlexPartName
+  , bass   :: F.FlexPartName
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetDTX :: (SendMessage m) => ObjectCodec m A.Value TargetDTX
 parseTargetDTX = do
   common <- (.common) =. parseTargetCommon
-  guitar <- (.guitar) =. opt FlexGuitar "guitar" stackJSON
-  bass   <- (.bass  ) =. opt FlexBass   "bass"   stackJSON
-  drums  <- (.drums ) =. opt FlexDrums  "drums"  stackJSON
+  guitar <- (.guitar) =. opt F.FlexGuitar "guitar" stackJSON
+  bass   <- (.bass  ) =. opt F.FlexBass   "bass"   stackJSON
+  drums  <- (.drums ) =. opt F.FlexDrums  "drums"  stackJSON
   return TargetDTX{..}
 
 instance StackJSON TargetDTX where
@@ -1497,8 +1496,8 @@ data RSArrSlot = RSArrSlot RSArrModifier RSArrType
 
 data TargetRS = TargetRS
   { common       :: TargetCommon
-  , arrangements :: [(RSArrSlot, FlexPartName)]
-  , vocal        :: FlexPartName
+  , arrangements :: [(RSArrSlot, F.FlexPartName)]
+  , vocal        :: F.FlexPartName
   , songKey      :: Maybe T.Text
   , version      :: Maybe T.Text
   } deriving (Eq, Ord, Show, Generic, Hashable)
@@ -1516,7 +1515,7 @@ rsArrSlot (RSArrSlot arrmod arrtype) = let
     RSBonus     -> "bonus-" <> base
     RSAlternate -> "alt-" <> base
 
-parseRSArr :: (SendMessage m) => ValueCodec m A.Value (RSArrSlot, FlexPartName)
+parseRSArr :: (SendMessage m) => ValueCodec m A.Value (RSArrSlot, F.FlexPartName)
 parseRSArr = let
   slotCodec = enumCodec
     "arrangement slot like lead, bonus-rhythm, alt-bass, etc."
@@ -1536,7 +1535,7 @@ parseTargetRS :: (SendMessage m) => ObjectCodec m A.Value TargetRS
 parseTargetRS = do
   common       <- (.common      ) =. parseTargetCommon
   arrangements <- (.arrangements) =. opt [] "arrangements" (listCodec parseRSArr)
-  vocal        <- (.vocal       ) =. opt FlexVocal "vocal" stackJSON
+  vocal        <- (.vocal       ) =. opt F.FlexVocal "vocal" stackJSON
   songKey      <- (.songKey     ) =. opt Nothing "song-key" stackJSON
   version      <- (.version     ) =. opt Nothing "version" stackJSON
   return TargetRS{..}
@@ -1550,9 +1549,9 @@ instance Default TargetRS where
 data TargetPG = TargetPG
   { common        :: TargetCommon
   , is2xBassPedal :: Bool
-  , guitar        :: FlexPartName
-  , drums         :: FlexPartName
-  , vocal         :: FlexPartName
+  , guitar        :: F.FlexPartName
+  , drums         :: F.FlexPartName
+  , vocal         :: F.FlexPartName
   , key           :: Maybe T.Text
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
@@ -1560,9 +1559,9 @@ parseTargetPG :: (SendMessage m) => ObjectCodec m A.Value TargetPG
 parseTargetPG = do
   common        <- (.common       ) =. parseTargetCommon
   is2xBassPedal <- (.is2xBassPedal) =. opt False        "2x-bass-pedal" stackJSON
-  guitar        <- (.guitar       ) =. opt FlexGuitar   "guitar"        stackJSON
-  drums         <- (.drums        ) =. opt FlexDrums    "drums"         stackJSON
-  vocal         <- (.vocal        ) =. opt FlexVocal    "vocal"         stackJSON
+  guitar        <- (.guitar       ) =. opt F.FlexGuitar   "guitar"        stackJSON
+  drums         <- (.drums        ) =. opt F.FlexDrums    "drums"         stackJSON
+  vocal         <- (.vocal        ) =. opt F.FlexVocal    "vocal"         stackJSON
   key           <- (.key          ) =. opt Nothing      "key"           stackJSON
   return TargetPG{..}
 
@@ -1574,13 +1573,13 @@ instance Default TargetPG where
 
 data TargetPart = TargetPart
   { common :: TargetCommon
-  , part   :: FlexPartName
+  , part   :: F.FlexPartName
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetPart :: (SendMessage m) => ObjectCodec m A.Value TargetPart
 parseTargetPart = do
   common <- (.common) =. parseTargetCommon
-  part   <- (.part  ) =. opt (FlexExtra "global") "part" stackJSON
+  part   <- (.part  ) =. opt (F.FlexExtra "global") "part" stackJSON
   return TargetPart{..}
 
 instance StackJSON TargetPart where
@@ -1676,21 +1675,21 @@ instance (Eq f, IsString f, StackJSON f) => StackJSON (SongYaml f) where
     parts    <- (.parts   ) =. req          "parts"    stackJSON
     return SongYaml{..}
 
-getPart :: FlexPartName -> SongYaml f -> Maybe (Part f)
+getPart :: F.FlexPartName -> SongYaml f -> Maybe (Part f)
 getPart fpart = HM.lookup fpart . (.getParts) . (.parts)
 
 -- | Returns the start and end of the preview audio in milliseconds.
 previewBounds
-  :: (RBFile.HasEvents f)
+  :: (F.HasEvents f)
   => SongYaml file
-  -> RBFile.Song (f U.Beats) -- Midi used to evaluate midi timestamps and section boundaries
+  -> F.Song (f U.Beats) -- Midi used to evaluate midi timestamps and section boundaries
   -> U.Seconds -- Padding added to the project midi to produce the game midi
   -> Bool -- Is the given midi file already padded?
   -> (Int, Int)
 previewBounds syaml song padding prepadded = let
-  len = RBFile.songLengthMS song
+  len = F.songLengthMS song
   secsToMS s = floor $ s * 1000
-  evalTime t = secsToMS <$> evalPreviewTime True (Just RBFile.getEventsTrack) song padding prepadded t
+  evalTime t = secsToMS <$> evalPreviewTime True (Just F.getEventsTrack) song padding prepadded t
   evalTime' pt = fromMaybe (error $ "Couldn't evaluate preview bound: " ++ show pt) $ evalTime pt
   defStartTime = max 0 $ case mapMaybe (evalTime . PreviewSection) ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"] of
     []    -> quot len 2 - 15000
@@ -1704,7 +1703,7 @@ previewBounds syaml song padding prepadded = let
 evalPreviewTime
   :: Bool -- Should midi and section timestamps be pulled back slightly to account for fade-in?
   -> Maybe (f -> EventsTrack U.Beats)
-  -> RBFile.Song f
+  -> F.Song f
   -> U.Seconds -- Padding added to the project midi to produce the game midi
   -> Bool -- Are the given midi file and events track already padded?
   -> PreviewTime
@@ -1713,13 +1712,13 @@ evalPreviewTime leadin getEvents song padding prepadded = \case
   PreviewSeconds secs -> Just $ secs + padding
   PreviewMIDI mb -> Just $ addLeadin
     $ addMIDIPadding
-    $ U.applyTempoMap (RBFile.s_tempos song)
-    $ U.unapplyMeasureMap (RBFile.s_signatures song) mb
-  PreviewSection str -> addLeadin . addMIDIPadding . U.applyTempoMap (RBFile.s_tempos song)
+    $ U.applyTempoMap (F.s_tempos song)
+    $ U.unapplyMeasureMap (F.s_signatures song) mb
+  PreviewSection str -> addLeadin . addMIDIPadding . U.applyTempoMap (F.s_tempos song)
     <$> findSection str
   where addLeadin = if leadin then (NNC.-| 0.6) else id
         addMIDIPadding = if prepadded then id else (+ padding)
         -- TODO make this more reliable in matching section formatting
         findSection sect = getEvents >>= \f ->
           fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . snd)
-            $ eventsSections $ f $ RBFile.s_tracks song
+            $ eventsSections $ f $ F.s_tracks song

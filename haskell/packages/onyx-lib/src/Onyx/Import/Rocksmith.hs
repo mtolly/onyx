@@ -34,7 +34,7 @@ import           Onyx.MIDI.Common                 (blipEdgesRBNice, fixOverlaps,
                                                    fixOverlapsSimple,
                                                    minSustainLengthRB,
                                                    splitEdgesSimple)
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.Rocksmith
 import           Onyx.Project
@@ -270,16 +270,16 @@ importRSSong folder song level = do
       goNameParts prev ((slot, sng, bnkPath, meta, isBass, tones) : rest) = let
         n = length $ filter (== slot) prev
         name = case (slot, n) of
-          (RSArrSlot RSDefault RSLead  , 0) -> RBFile.FlexGuitar
-          (RSArrSlot RSDefault RSRhythm, 0) -> RBFile.FlexExtra "rhythm"
-          (RSArrSlot RSDefault RSBass  , 0) -> RBFile.FlexBass
-          _ -> RBFile.FlexExtra $ rsArrSlot slot <> case n of
+          (RSArrSlot RSDefault RSLead  , 0) -> F.FlexGuitar
+          (RSArrSlot RSDefault RSRhythm, 0) -> F.FlexExtra "rhythm"
+          (RSArrSlot RSDefault RSBass  , 0) -> F.FlexBass
+          _ -> F.FlexExtra $ rsArrSlot slot <> case n of
             0 -> ""
             _ -> "-" <> T.pack (show $ n + 1)
         in ((slot, name), sng, bnkPath, meta, isBass, tones) : goNameParts (slot : prev) rest
       midi = case level of
-        ImportFull -> RBFile.Song temps sigs mempty
-          { RBFile.onyxParts = Map.fromList $ do
+        ImportFull -> F.Song temps sigs mempty
+          { F.onyxParts = Map.fromList $ do
             ((_, partName), sng, _, _, isBass, _) <- namedParts
             let toSeconds = realToFrac :: Float -> U.Seconds
                 capoOffset :: Int
@@ -498,8 +498,8 @@ importRSSong folder song level = do
                   , rsChords = RTB.merge noteChordInfo shapeChordInfo
                   }
             return (partName, if isBass
-              then mempty { RBFile.onyxPartRSBass   = trk }
-              else mempty { RBFile.onyxPartRSGuitar = trk })
+              then mempty { F.onyxPartRSBass   = trk }
+              else mempty { F.onyxPartRSGuitar = trk })
           }
         ImportQuick -> emptyChart
 

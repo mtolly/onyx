@@ -55,8 +55,7 @@ import           Onyx.Keys.Ranges
 import qualified Onyx.MelodysEscape               as Melody
 import           Onyx.MIDI.Common
 import qualified Onyx.MIDI.Track.Drums.Full       as FD
-import           Onyx.MIDI.Track.File             (saveMIDI, shakeMIDI)
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Mode
 import           Onyx.Overdrive                   (calculateUnisons,
                                                    getOverdrive, printFlexParts)
@@ -84,11 +83,11 @@ forceRW f = stackIO $ do
 
 printOverdrive :: FilePath -> StackTraceT (QueueLog Action) ()
 printOverdrive mid = do
-  song <- shakeMIDI mid
-  let _ = song :: RBFile.Song (RBFile.OnyxFile U.Beats)
-  od <- calculateUnisons <$> getOverdrive (RBFile.s_tracks song)
+  song <- F.shakeMIDI mid
+  let _ = song :: F.Song (F.OnyxFile U.Beats)
+  od <- calculateUnisons <$> getOverdrive (F.s_tracks song)
   forM_ (ATB.toPairList $ RTB.toAbsoluteEventList 0 od) $ \(posn, unison) -> do
-    let posn' = showPosition (RBFile.s_signatures song) posn
+    let posn' = showPosition (F.s_signatures song) posn
     if all (== 0) [ t | (t, _, _) <- NE.toList unison ]
       then lg $ posn' <> ": " <> printFlexParts [ inst | (_, inst, _) <- NE.toList unison ]
       else lg $ intercalate "\n" $ (posn' <> ":") : do
@@ -122,8 +121,8 @@ dtxRules buildInfo dir dtx = do
     buildAudio (Input wav) out
 
   dir </> "dtx/preview.ogg" %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
-    let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    let (pstart, pend) = previewBounds songYaml (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
         fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
         previewExpr
           = Fade End (Seconds 5)
@@ -151,16 +150,16 @@ dtxRules buildInfo dir dtx = do
     return (templateFixed, templateDTX)
 
   dir </> "dtx/mstr.dtx" %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
     let bgmChip   = "0X" -- TODO read this from BGMWAV in mapping
         emptyChip = "ZZ"
         makeGuitarBass = \case
           Nothing          -> (RTB.empty, RTB.empty)
           Just (buildFive, partName) -> let
             input = ModeInput
-              { tempo  = RBFile.s_tempos mid
-              , events = RBFile.onyxEvents $ RBFile.s_tracks mid
-              , part   = RBFile.getFlexPart partName $ RBFile.s_tracks mid
+              { tempo  = F.s_tempos mid
+              , events = F.onyxEvents $ F.s_tracks mid
+              , part   = F.getFlexPart partName $ F.s_tracks mid
               }
             result = buildFive FiveTypeGuitarExt input
             noteGroups = guitarify' $ fromMaybe RTB.empty $ Map.lookup Expert result.notes
@@ -195,8 +194,8 @@ dtxRules buildInfo dir dtx = do
       , DTX.dtx_VOLUME        = maybe HM.empty (DTX.dtx_VOLUME . snd) template
       , DTX.dtx_PAN           = maybe HM.empty (DTX.dtx_PAN    . snd) template
       , DTX.dtx_AVI           = HM.empty
-      , DTX.dtx_MeasureMap    = RBFile.s_signatures mid
-      , DTX.dtx_TempoMap      = RBFile.s_tempos mid
+      , DTX.dtx_MeasureMap    = F.s_signatures mid
+      , DTX.dtx_TempoMap      = F.s_tempos mid
       , DTX.dtx_Drums         = case dtxPartDrums of
         Nothing          -> RTB.empty
         Just (part, _pd) -> let
@@ -204,10 +203,10 @@ dtxRules buildInfo dir dtx = do
           -- TODO figure out what to do for Left Bass
           fullNotes
             = FD.getDifficulty Nothing
-            $ maybe mempty RBFile.onyxPartFullDrums
+            $ maybe mempty F.onyxPartFullDrums
             $ Map.lookup part
-            $ RBFile.onyxParts
-            $ RBFile.s_tracks mid
+            $ F.onyxParts
+            $ F.s_tracks mid
           toDTXNotes = fmap $ \fdn -> let
             lane = case FD.fdn_gem fdn of
               FD.Kick      -> DTX.BassDrum
@@ -274,13 +273,13 @@ melodyRules buildInfo dir tgt = do
   melodyAudio %> shk . copyFile' (planDir </> "everything.ogg")
   melodyChart %> \out -> do
     shk $ need [midraw, melodyAudio]
-    mid <- shakeMIDI midraw
+    mid <- F.shakeMIDI midraw
     melody <- liftIO
       $ Melody.randomNotes
-      $ maybe mempty RBFile.onyxMelody
+      $ maybe mempty F.onyxMelody
       $ Map.lookup tgt.part
-      $ RBFile.onyxParts
-      $ RBFile.s_tracks mid
+      $ F.onyxParts
+      $ F.s_tracks mid
     info <- liftIO $ Snd.getFileInfo melodyAudio
     let secs = realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info) :: U.Seconds
         str = unlines
@@ -291,8 +290,8 @@ melodyRules buildInfo dir tgt = do
             , "420"
             ]
             , "4"
-          , Melody.writeTransitions (RBFile.s_tempos mid) melody
-          , Melody.writeNotes (RBFile.s_tempos mid) melody
+          , Melody.writeTransitions (F.s_tempos mid) melody
+          , Melody.writeNotes (F.s_tempos mid) melody
           ]
     liftIO $ writeFile out str
   phony (dir </> "melody") $ shk $ need [melodyAudio, melodyChart]
@@ -387,10 +386,10 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         let f = rel songYaml.global.fileMidi
         doesFileExist f >>= \b -> if b
           then copyFile' f out
-          else saveMIDI out RBFile.Song
-            { RBFile.s_tempos = U.tempoMapFromBPS RTB.empty
-            , RBFile.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
-            , RBFile.s_tracks = mempty :: RBFile.OnyxFile U.Beats
+          else F.saveMIDI out F.Song
+            { F.s_tempos = U.tempoMapFromBPS RTB.empty
+            , F.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
+            , F.s_tracks = mempty :: F.OnyxFile U.Beats
             }
 
       forM_ (HM.toList songYaml.audio) $ \(name, _) -> do
@@ -413,7 +412,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , bass = rb2.bass
               , drums = rb2.drums
               , vocal = rb2.vocal
-              , keys = RBFile.FlexExtra "undefined"
+              , keys = F.FlexExtra "undefined"
               , harmonix = False
               , magma = rb2.magma
               , ps3Encrypt = rb2.ps3Encrypt
@@ -435,18 +434,18 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         let dir = rel $ "gen/plan" </> T.unpack planName
 
         -- plan audio, currently only used for REAPER project
-        let allPlanParts :: [(RBFile.FlexPartName, PartAudio ())]
+        let allPlanParts :: [(F.FlexPartName, PartAudio ())]
             allPlanParts = case plan of
               StandardPlan x -> HM.toList $ (void <$> x.parts).getParts
               MoggPlan     x -> do
                 (fpart, pa) <- HM.toList x.parts.getParts
                 guard $ not $ null $ concat $ toList pa
                 return (fpart, void pa)
-            dummyMIDI :: RBFile.Song (RBFile.OnyxFile U.Beats)
-            dummyMIDI = RBFile.Song
-              { RBFile.s_tempos = U.tempoMapFromBPS RTB.empty
-              , RBFile.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
-              , RBFile.s_tracks = mempty :: RBFile.OnyxFile U.Beats
+            dummyMIDI :: F.Song (F.OnyxFile U.Beats)
+            dummyMIDI = F.Song
+              { F.s_tempos = U.tempoMapFromBPS RTB.empty
+              , F.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
+              , F.s_tracks = mempty :: F.OnyxFile U.Beats
               }
         dir </> "song.wav" %> \out -> do
           s <- sourceSongCountin buildInfo def dummyMIDI 0 False planName plan [ (fpart, 1) | (fpart, _) <- allPlanParts ]
@@ -455,7 +454,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           s <- sourceCrowd buildInfo def dummyMIDI 0 planName plan
           runAudio (clampIfSilent s) out
         forM_ allPlanParts $ \(fpart, pa) -> do
-          let name = T.unpack $ RBFile.getPartName fpart
+          let name = T.unpack $ F.getPartName fpart
           case pa of
             PartSingle () -> do
               dir </> name <.> "wav" %> \out -> do
@@ -477,7 +476,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             allPlanAudio = map (dir </>) $ concat
               [ [ "song.wav" ]
               , sort $ allPlanParts >>= \(fpart, pa) -> let
-                name = T.unpack $ RBFile.getPartName fpart
+                name = T.unpack $ F.getPartName fpart
                 in case pa of
                   PartSingle () -> [name <.> "wav"]
                   PartDrumKit mkick msnare () -> concat
@@ -549,33 +548,33 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             display = dir </> "display.json"
         midraw %> \out -> do
           lg "Loading the MIDI file..."
-          input <- shakeMIDI $ rel "gen/notes.mid"
-          let _ = input :: RBFile.Song (RBFile.RawFile U.Beats)
-          tempos <- fmap RBFile.s_tempos $ case getFileTempo plan of
+          input <- F.shakeMIDI $ rel "gen/notes.mid"
+          let _ = input :: F.Song (F.RawFile U.Beats)
+          tempos <- fmap F.s_tempos $ case getFileTempo plan of
             Nothing -> return input
-            Just m  -> shakeMIDI m
-          saveMIDI out input { RBFile.s_tempos = tempos }
+            Just m  -> F.shakeMIDI m
+          F.saveMIDI out input { F.s_tempos = tempos }
         midprocessed %> \out -> do
           -- basically just autogen a BEAT track
-          input <- shakeMIDI midraw
+          input <- F.shakeMIDI midraw
           output <- RB3.processTiming input $ getAudioLength buildInfo planName plan
-          saveMIDI out output
+          F.saveMIDI out output
 
         sampleTimes %> \out -> do
-          input <- shakeMIDI midraw
-          let _ = input :: RBFile.Song (RBFile.OnyxFile U.Beats)
+          input <- F.shakeMIDI midraw
+          let _ = input :: F.Song (F.OnyxFile U.Beats)
               output :: [(T.Text, [(Double, T.Text, T.Text)])]
-              output = map (second getSampleList) $ Map.toList $ RBFile.onyxSamples $ RBFile.s_tracks input
-              getSampleList = map makeSampleTriple . ATB.toPairList . RTB.toAbsoluteEventList 0 . RBFile.sampleTriggers
+              output = map (second getSampleList) $ Map.toList $ F.onyxSamples $ F.s_tracks input
+              getSampleList = map makeSampleTriple . ATB.toPairList . RTB.toAbsoluteEventList 0 . F.sampleTriggers
               makeSampleTriple (bts, trigger) =
-                ( realToFrac $ U.applyTempoMap (RBFile.s_tempos input) bts
-                , RBFile.sampleGroup trigger
-                , RBFile.sampleAudio trigger
+                ( realToFrac $ U.applyTempoMap (F.s_tempos input) bts
+                , F.sampleGroup trigger
+                , F.sampleAudio trigger
                 )
           stackIO $ writeFile out $ show output
 
         display %> \out -> do
-          song <- shakeMIDI midprocessed
+          song <- F.shakeMIDI midprocessed
           liftIO $ BL.writeFile out $ makeDisplay songYaml song
 
         -- count-in audio
@@ -584,11 +583,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           src <- buildAudioToSpec yamlDir audioLib (audioDepend buildInfo) songYaml [(-1, 0), (1, 0)] planName =<< case NE.nonEmpty hits of
             Nothing    -> return Nothing
             Just hits' -> Just . (\expr -> PlanAudio expr [] []) <$> do
-              mid <- shakeMIDI $ dir </> "raw.mid"
-              let _ = mid :: RBFile.Song (RBFile.RawFile U.Beats)
+              mid <- F.shakeMIDI $ dir </> "raw.mid"
+              let _ = mid :: F.Song (F.RawFile U.Beats)
               return $ Mix $ flip fmap hits' $ \(posn, aud) -> let
                 time = Seconds $ realToFrac $ case posn of
-                  Left  mb   -> U.applyTempoMap (RBFile.s_tempos mid) $ U.unapplyMeasureMap (RBFile.s_signatures mid) mb
+                  Left  mb   -> U.applyTempoMap (F.s_tempos mid) $ U.unapplyMeasureMap (F.s_signatures mid) mb
                   Right secs -> secs
                 in Pad Start time aud
           runAudio src out
@@ -639,7 +638,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
         -- Warn about notes that might hang off before a pro keys range shift
         phony (dir </> "hanging") $ do
-          song <- shakeMIDI midprocessed
+          song <- F.shakeMIDI midprocessed
           lg $ T.unpack $ closeShiftsFile song
 
         -- Print out a summary of (non-vocal) overdrive and unison phrases
@@ -648,7 +647,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         {-
           -- Check for some extra problems that Magma doesn't catch.
           phony (pedalDir </> "problems") $ do
-            song <- RBFile.loadMIDI $ pedalDir </> "notes.mid"
+            song <- F.loadMIDI $ pedalDir </> "notes.mid"
             let problems = RB3.findProblems song
             mapM_ putNormal problems
             unless (null problems) $ fail "At least 1 problem was found in the MIDI."

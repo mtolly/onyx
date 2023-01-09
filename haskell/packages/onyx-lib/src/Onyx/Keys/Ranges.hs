@@ -20,7 +20,7 @@ import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                   (mapTrack)
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.StackTrace
 import           Onyx.WebPlayer                   (showTimestamp)
@@ -29,13 +29,13 @@ import qualified Sound.MIDI.Util                  as U
 
 completeFile :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 completeFile fin fout = do
-  RBFile.Song tempos mmap trks <- RBFile.loadMIDI fin
-  liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap trks
-    { RBFile.onyxParts = flip fmap (RBFile.onyxParts trks) $ \flex -> flex
-      { RBFile.onyxPartRealKeysE = completeRanges $ RBFile.onyxPartRealKeysE flex
-      , RBFile.onyxPartRealKeysM = completeRanges $ RBFile.onyxPartRealKeysM flex
-      , RBFile.onyxPartRealKeysH = completeRanges $ RBFile.onyxPartRealKeysH flex
-      , RBFile.onyxPartRealKeysX = completeRanges $ RBFile.onyxPartRealKeysX flex
+  F.Song tempos mmap trks <- F.loadMIDI fin
+  liftIO $ Save.toFile fout $ F.showMIDIFile' $ F.Song tempos mmap trks
+    { F.onyxParts = flip fmap (F.onyxParts trks) $ \flex -> flex
+      { F.onyxPartRealKeysE = completeRanges $ F.onyxPartRealKeysE flex
+      , F.onyxPartRealKeysM = completeRanges $ F.onyxPartRealKeysM flex
+      , F.onyxPartRealKeysH = completeRanges $ F.onyxPartRealKeysH flex
+      , F.onyxPartRealKeysX = completeRanges $ F.onyxPartRealKeysX flex
       }
     }
 
@@ -136,15 +136,15 @@ showPitch = \case
     else "Green " <> showKey False k
   OrangeC -> "Orange C"
 
-closeShiftsFile :: RBFile.Song (RBFile.OnyxFile U.Beats) -> T.Text
+closeShiftsFile :: F.Song (F.OnyxFile U.Beats) -> T.Text
 closeShiftsFile song = T.unlines $ do
-  (partName, part) <- Map.toAscList $ RBFile.onyxParts $ RBFile.s_tracks song
-  let xpk = RBFile.onyxPartRealKeysX part
+  (partName, part) <- Map.toAscList $ F.onyxParts $ F.s_tracks song
+  let xpk = F.onyxPartRealKeysX part
   guard $ not $ nullPK xpk
-  let close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos song) xpk
+  let close = U.unapplyTempoTrack (F.s_tempos song) $ closeShifts 1 $ mapTrack (U.applyTempoTrack $ F.s_tempos song) xpk
       showSeconds secs = T.pack (show (realToFrac secs :: Milli)) <> "s"
       showClose (t, (rng1, rng2, dt, p)) = T.unwords
-        [ showTimestamp (U.applyTempoMap (RBFile.s_tempos song) t) <> ":"
+        [ showTimestamp (U.applyTempoMap (F.s_tempos song) t) <> ":"
         , "expert pro keys shift to"
         , T.pack $ show rng2
         , "is"
@@ -154,7 +154,7 @@ closeShiftsFile song = T.unlines $ do
         , "which is outside previous range"
         , T.pack $ show rng1
         ]
-      surround x = ["[" <> RBFile.getPartName partName <> "]"] <> x
+      surround x = ["[" <> F.getPartName partName <> "]"] <> x
   surround $ case ATB.toPairList $ RTB.toAbsoluteEventList 0 close of
     []    -> ["No close shifts found."]
     pairs -> map showClose pairs

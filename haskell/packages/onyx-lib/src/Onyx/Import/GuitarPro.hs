@@ -20,7 +20,7 @@ import qualified Data.Vector                      as V
 import           Onyx.GuitarPro
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.ProGuitar        (GtrBase (..), GtrTuning (..),
                                                    getStringIndex,
                                                    tuningPitches)
@@ -229,11 +229,11 @@ importGPIF gpif level = do
     ImportQuick -> return []
     ImportFull  -> fromGPIF gpif
   (tmap, mmap) <- timingGPIF gpif
-  let mid = RBFile.Song tmap mmap mempty
-        { RBFile.onyxParts = Map.fromList do
+  let mid = F.Song tmap mmap mempty
+        { F.onyxParts = Map.fromList do
           (name, _, trk) <- imported
-          let opart = mempty { RBFile.onyxPartRSGuitar = trk }
-          return (RBFile.FlexExtra name, opart)
+          let opart = mempty { F.onyxPartRSGuitar = trk }
+          return (F.FlexExtra name, opart)
         }
   return SongYaml
     { metadata = def'
@@ -273,6 +273,6 @@ importGPIF gpif level = do
               , pickedBass    = False
               }
             }
-      return (RBFile.FlexExtra name, part)
+      return (F.FlexExtra name, part)
     }
 

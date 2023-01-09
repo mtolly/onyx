@@ -16,7 +16,7 @@ import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Conduit                 (($$++))
 import qualified Data.Conduit                 as C
-import qualified Data.Conduit.Audio           as A
+import qualified Data.Conduit.Audio           as CA
 import           Data.List.Extra              (minimumOn, elemIndex)
 import           Onyx.Util.Handle            (Readable (..), fileReadable,
                                                useHandle)
@@ -67,21 +67,21 @@ data VGSInputState m = VGSInputState
   , vgsSealedInput   :: !(C.SealedConduitT () (V.Vector Int16) m ())
   }
 
-writeVGSMultiRate :: (MonadResource m) => FilePath -> [A.AudioSource m Int16] -> m ()
+writeVGSMultiRate :: (MonadResource m) => FilePath -> [CA.AudioSource m Int16] -> m ()
 writeVGSMultiRate fp srcs = let
-  maxSeconds = maximum $ map (\src -> A.framesToSeconds (A.frames src) (A.rate src)) srcs
+  maxSeconds = maximum $ map (\src -> CA.framesToSeconds (CA.frames src) (CA.rate src)) srcs
   header blocksPerSource = BL.take 0x80 $ runPut $ do
     putByteString $ B8.pack "VgS!"
     putWord32le 2
     forM_ (zip srcs blocksPerSource) $ \(src, numBlocks) -> do
-      replicateM_ (A.channels src) $ do
-        putWord32le $ round $ A.rate src
+      replicateM_ (CA.channels src) $ do
+        putWord32le $ round $ CA.rate src
         putWord32le numBlocks
     putByteString $ B.replicate 0x80 0
   writeBlock h inputState = do
     mblk <- C.await
     let chans = case mblk of
-          Just blk -> A.deinterleave (vgsChannels inputState) blk
+          Just blk -> CA.deinterleave (vgsChannels inputState) blk
           Nothing  -> replicate (vgsChannels inputState) V.empty
     newStates <- forM (zip3 [vgsFirstChannel inputState ..] chans $ vgsXAStates inputState) $ \input -> do
       let (bs, newState) = makeXABlock input
@@ -106,13 +106,13 @@ writeVGSMultiRate fp srcs = let
     { vgsXAStates      = repeat (0, 0, 0, 0)
     , vgsBlocksWritten = 0
     , vgsFirstChannel  = currentChannel
-    , vgsChannels      = A.channels s
-    , vgsRate          = A.rate s
-    , vgsSealedInput   = C.sealConduitT $ A.source s
-    } : initialStates (currentChannel + A.channels s) ss
+    , vgsChannels      = CA.channels s
+    , vgsRate          = CA.rate s
+    , vgsSealedInput   = C.sealConduitT $ CA.source s
+    } : initialStates (currentChannel + CA.channels s) ss
   go h = do
     liftIO $ IO.hSeek h IO.AbsoluteSeek 0x80
-    finalStates <- writeBlocks h $ initialStates 0 $ map (A.reorganize xaBlockSamples) srcs
+    finalStates <- writeBlocks h $ initialStates 0 $ map (CA.reorganize xaBlockSamples) srcs
     liftIO $ IO.hSeek h IO.AbsoluteSeek 0
     liftIO $ BL.hPut h $ header $ map vgsBlocksWritten finalStates
   in do
@@ -120,7 +120,7 @@ writeVGSMultiRate fp srcs = let
     go h
     release key
 
-writeVGS :: (MonadResource m) => FilePath -> A.AudioSource m Int16 -> m ()
+writeVGS :: (MonadResource m) => FilePath -> CA.AudioSource m Int16 -> m ()
 writeVGS fp src = writeVGSMultiRate fp [src]
 
 decodeVAGBlock :: Maybe Word8 -> StateT (Double, Double) Get [Int16]
@@ -177,7 +177,7 @@ vgsChannelCount r = do
   header <- useHandle r $ \h -> BL.hGet h 0x80
   return $ length $ readVGSHeader header
 
-readVGSReadable :: (MonadResource m) => Readable -> IO [A.AudioSource m Int16]
+readVGSReadable :: (MonadResource m) => Readable -> IO [CA.AudioSource m Int16]
 readVGSReadable r = do
   header <- useHandle r $ \h -> BL.hGet h 0x80
   let chans = readVGSHeader header
@@ -194,13 +194,13 @@ readVGSReadable r = do
                 C.yield $ V.fromList samps
                 go dbls' $ blocksLeft - 1
       go (0, 0) totalBlocks
-    in A.AudioSource src (realToFrac rate) 1 $ fromIntegral blocks * xaBlockSamples
+    in CA.AudioSource src (realToFrac rate) 1 $ fromIntegral blocks * xaBlockSamples
 
-readVGS :: (MonadResource m) => FilePath -> IO [A.AudioSource m Int16]
+readVGS :: (MonadResource m) => FilePath -> IO [CA.AudioSource m Int16]
 readVGS = readVGSReadable . fileReadable
 
 -- Allows seeking. Only supports VGS where all channels are the same sample rate.
-readSingleRateVGS :: (MonadResource m) => A.Duration -> Readable -> IO (A.AudioSource m Int16)
+readSingleRateVGS :: (MonadResource m) => CA.Duration -> Readable -> IO (CA.AudioSource m Int16)
 readSingleRateVGS dur r = do
   header <- useHandle r $ \h -> BL.hGet h 0x80
   let chans = readVGSHeader header
@@ -212,11 +212,11 @@ readSingleRateVGS dur r = do
       else fail $ "readSingleRateVGS: VGS does not have consistent sample rate, channel rates are: " <> show (map fst chans)
     [] -> fail "readSingleRateVGS: VGS has no channels"
   let startFrame = case dur of
-        A.Frames  f -> f
-        A.Seconds s -> floor $ s * fromIntegral rate
+        CA.Frames  f -> f
+        CA.Seconds s -> floor $ s * fromIntegral rate
       startBlockSet = quot startFrame xaBlockSamples
       initialSkip = startFrame - startBlockSet * xaBlockSamples
-  return $ A.dropStart (A.Frames initialSkip) $ let
+  return $ CA.dropStart (CA.Frames initialSkip) $ let
     src = C.bracketP (rOpen r) IO.hClose $ \h -> do
       liftIO $ IO.hSeek h IO.AbsoluteSeek $ fromIntegral $ 0x80 + startBlockSet * 0x10 * numChans
       let go _      0             = return ()
@@ -225,10 +225,10 @@ readSingleRateVGS dur r = do
               chunk <- liftIO $ BL.hGet h 16
               let (samps, newState) = runGet (runStateT (decodeVAGBlock Nothing) channelState) chunk
               return (V.fromList samps, newState)
-            C.yield $ A.interleave $ map fst results
+            C.yield $ CA.interleave $ map fst results
             go (map snd results) $ blockSetsLeft - 1
       go (replicate numChans (0, 0)) $ fromIntegral blockSets - startBlockSet
-    in A.AudioSource src (realToFrac rate) numChans $ fromIntegral totalBlocks * xaBlockSamples - startFrame
+    in CA.AudioSource src (realToFrac rate) numChans $ fromIntegral totalBlocks * xaBlockSamples - startFrame
 
 splitOutVGSChannels :: [Int] -> Readable -> IO BL.ByteString
 splitOutVGSChannels wantChannels r = useHandle r $ \hin -> do

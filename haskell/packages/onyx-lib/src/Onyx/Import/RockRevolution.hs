@@ -44,8 +44,8 @@ import           Onyx.MIDI.Read                   (ChannelType (..),
 import qualified Onyx.MIDI.Track.Drums            as D
 import qualified Onyx.MIDI.Track.Drums.Full       as FD
 import           Onyx.MIDI.Track.Events
-import qualified Onyx.MIDI.Track.File             as RBFile
-import qualified Onyx.MIDI.Track.FiveFret         as F
+import qualified Onyx.MIDI.Track.File             as F
+import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
@@ -75,41 +75,41 @@ data SectionMarker
   deriving (Eq)
 
 data RRFiveDifficulty t = RRFiveDifficulty
-  { rrfStrums :: RTB.T t (Edge () F.Color)
-  , rrfHOPOs  :: RTB.T t (Edge () F.Color)
+  { rrfStrums :: RTB.T t (Edge () Five.Color)
+  , rrfHOPOs  :: RTB.T t (Edge () Five.Color)
   , rrfSolo   :: RTB.T t Bool
   } deriving (Show)
 
 instance ParseTrack RRFiveDifficulty where
   parseTrack = do
     rrfStrums <- (rrfStrums =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
-      F.Green  -> 48
-      F.Red    -> 49
-      F.Yellow -> 50
-      F.Blue   -> 51
-      F.Orange -> 52
+      Five.Green  -> 48
+      Five.Red    -> 49
+      Five.Yellow -> 50
+      Five.Blue   -> 51
+      Five.Orange -> 52
     rrfHOPOs <- (rrfHOPOs =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
-      F.Green  -> 60
-      F.Red    -> 61
-      F.Yellow -> 62
-      F.Blue   -> 63
-      F.Orange -> 64
+      Five.Green  -> 60
+      Five.Red    -> 61
+      Five.Yellow -> 62
+      Five.Blue   -> 63
+      Five.Orange -> 64
     rrfSolo <- rrfSolo =. edges 127
     return RRFiveDifficulty{..}
 
-importRRGuitarBass :: RRFiveDifficulty U.Beats -> F.FiveDifficulty U.Beats
+importRRGuitarBass :: RRFiveDifficulty U.Beats -> Five.FiveDifficulty U.Beats
 importRRGuitarBass rr = let
   forceEdges
     = RTB.flatten
     . fmap nubOrd
     . RTB.collectCoincident
     . fmap (\case EdgeOn{} -> True; EdgeOff{} -> False)
-  in F.FiveDifficulty
-    { F.fiveForceStrum = forceEdges $ rrfStrums rr
-    , F.fiveForceHOPO = forceEdges $ rrfHOPOs rr
-    , F.fiveTap = RTB.empty
-    , F.fiveOpen = RTB.empty
-    , F.fiveGems = RTB.merge (rrfStrums rr) (rrfHOPOs rr)
+  in Five.FiveDifficulty
+    { Five.fiveForceStrum = forceEdges $ rrfStrums rr
+    , Five.fiveForceHOPO = forceEdges $ rrfHOPOs rr
+    , Five.fiveTap = RTB.empty
+    , Five.fiveOpen = RTB.empty
+    , Five.fiveGems = RTB.merge (rrfStrums rr) (rrfHOPOs rr)
     }
 
 importRRSong :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> T.Text -> Import m
@@ -164,27 +164,27 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
   controlMid <- case level of
     ImportQuick -> return emptyChart
     ImportFull  -> needRead ("s" <> key <> "_control.mid")
-      >>= \r -> RBFile.loadRawMIDIReadable r >>= RBFile.readMixedMIDI
+      >>= \r -> F.loadRawMIDIReadable r >>= F.readMixedMIDI
 
   let loadGuitarBass inst = case level of
         ImportQuick -> return mempty
         ImportFull  -> do
           fiveDiffs <- forM diffs $ \(num, diff) -> do
             mid <- needRead (T.concat ["s", key, "_", inst, "_", num, ".mid"])
-              >>= RBFile.loadRawMIDIReadable >>= RBFile.readMixedMIDI
-            rr <- RBFile.parseTrackReport $ RBFile.s_tracks mid
+              >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
+            rr <- F.parseTrackReport $ F.s_tracks mid
             return (diff, (rr, importRRGuitarBass rr))
           return mempty
-            { F.fiveDifficulties = fmap snd $ Map.fromList fiveDiffs
-            , F.fiveSolo = maybe RTB.empty (rrfSolo . fst) $ lookup Expert fiveDiffs
+            { Five.fiveDifficulties = fmap snd $ Map.fromList fiveDiffs
+            , Five.fiveSolo = maybe RTB.empty (rrfSolo . fst) $ lookup Expert fiveDiffs
             }
       loadDrums = case level of
         ImportQuick -> return mempty
         ImportFull  -> do
           rrDiffs <- fmap Map.fromList $ forM diffs $ \(num, diff) -> do
             r <- needRead $ T.concat ["s", key, "_drums_", num, ".mid"]
-            mid <- RBFile.loadRawMIDIReadable r >>= RBFile.readMixedMIDI
-            rrd <- RBFile.parseTrackReport $ RBFile.s_tracks mid
+            mid <- F.loadRawMIDIReadable r >>= F.readMixedMIDI
+            rrd <- F.parseTrackReport $ F.s_tracks mid
             return (diff, rrd)
           return
             ( importRRDrums rrDiffs
@@ -199,8 +199,8 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
   sectionNames <- case level of
     ImportQuick -> return RTB.empty
     ImportFull -> do
-      control <- needRead (T.concat ["s", key, "_control.mid"]) >>= RBFile.loadRawMIDIReadable >>= RBFile.readMixedMIDI
-      let sections = flip RTB.mapMaybe (RBFile.s_tracks control) $ \evt -> case isNoteEdgeCPV evt of
+      control <- needRead (T.concat ["s", key, "_control.mid"]) >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
+      let sections = flip RTB.mapMaybe (F.s_tracks control) $ \evt -> case isNoteEdgeCPV evt of
             Just (15, p, Just _) -> case p of
               48                     -> Just SectionIntro
               49                     -> Just SectionVerse
@@ -248,23 +248,23 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
       , fileBackgroundImage = Nothing
       , fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
         ImportFull  -> controlMid
-          { RBFile.s_tracks = mempty
-            { RBFile.onyxParts = Map.fromList
-              [ (RBFile.FlexGuitar, mempty
-                { RBFile.onyxPartGuitar = guitar
+          { F.s_tracks = mempty
+            { F.onyxParts = Map.fromList
+              [ (F.FlexGuitar, mempty
+                { F.onyxPartGuitar = guitar
                 })
-              , (RBFile.FlexBass, mempty
-                { RBFile.onyxPartGuitar = bass
+              , (F.FlexBass, mempty
+                { F.onyxPartGuitar = bass
                 })
-              , (RBFile.FlexDrums, mempty
-                { RBFile.onyxPartDrums = drums
-                , RBFile.onyxPartFullDrums = fullDrums
+              , (F.FlexDrums, mempty
+                { F.onyxPartDrums = drums
+                , F.onyxPartFullDrums = fullDrums
                 })
-              , (RBFile.FlexExtra "hidden-drums", mempty
-                { RBFile.onyxPartFullDrums = hiddenDrums
+              , (F.FlexExtra "hidden-drums", mempty
+                { F.onyxPartFullDrums = hiddenDrums
                 })
               ]
-            , RBFile.onyxEvents = mempty
+            , F.onyxEvents = mempty
               { eventsSections = (SectionRB2,) <$> sectionNames
               }
             }
@@ -288,9 +288,9 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
       { song = flip fmap backingStream $ \s -> PlanAudio (Input $ Named s) [] []
       , countin = Countin []
       , parts = Parts $ HM.fromList $ catMaybes
-        [ flip fmap guitarStream $ \s -> (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named s) [] [])
-        , flip fmap bassStream   $ \s -> (RBFile.FlexBass  , PartSingle $ PlanAudio (Input $ Named s) [] [])
-        , flip fmap drumsStream  $ \s -> (RBFile.FlexDrums , PartSingle $ PlanAudio (Input $ Named s) [] [])
+        [ flip fmap guitarStream $ \s -> (F.FlexGuitar, PartSingle $ PlanAudio (Input $ Named s) [] [])
+        , flip fmap bassStream   $ \s -> (F.FlexBass  , PartSingle $ PlanAudio (Input $ Named s) [] [])
+        , flip fmap drumsStream  $ \s -> (F.FlexDrums , PartSingle $ PlanAudio (Input $ Named s) [] [])
         ]
       , crowd = Nothing
       , comments = []
@@ -298,13 +298,13 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
       , fileTempo = Nothing
       }
     , parts = Parts $ HM.fromList
-      [ (RBFile.FlexGuitar, emptyPart
+      [ (F.FlexGuitar, emptyPart
         { grybo = Just def
         })
-      , (RBFile.FlexBass, emptyPart
+      , (F.FlexBass, emptyPart
         { grybo = Just def
         })
-      , (RBFile.FlexDrums, (emptyPart :: Part SoftFile)
+      , (F.FlexDrums, (emptyPart :: Part SoftFile)
         { drums = Just PartDrums
           { difficulty = Tier 1
           , mode = DrumsFull
@@ -318,7 +318,7 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
           }
         })
       {-
-      , (RBFile.FlexExtra "hidden-drums", def
+      , (F.FlexExtra "hidden-drums", def
         { partDrums = Just PartDrums
           { drumsDifficulty = Tier 1
           , drumsMode = DrumsFull

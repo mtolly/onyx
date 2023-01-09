@@ -27,8 +27,8 @@ import           Onyx.Guitar                      (HOPOsAlgorithm (..), emit5',
                                                    strumHOPOTap)
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (Difficulty (..))
-import qualified Onyx.MIDI.Track.File             as RBFile
-import qualified Onyx.MIDI.Track.FiveFret         as F
+import qualified Onyx.MIDI.Track.File             as F
+import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Handle                 (fileReadable)
@@ -105,7 +105,7 @@ parseSong xml = do
   elt <- maybe (fatal "Couldn't parse XML") return $ parseXMLDoc xml
   mapStackTraceT (`runReaderT` elt) $ codecIn $ isTag "Song" $ parseInside' insideCodec
 
-songToMidi :: Song -> RBFile.Song (RBFile.OnyxFile U.Beats)
+songToMidi :: Song -> F.Song (F.OnyxFile U.Beats)
 songToMidi song = let
   tempos = U.tempoMapFromBPS RTB.empty -- "BeatsPerSecond" is probably useless
   sigs = U.measureMapFromTimeSigs U.Truncate RTB.empty
@@ -126,13 +126,13 @@ songToMidi song = let
       in (time, (fret, len))
       )
     $ V.toList song.data_
-  in RBFile.Song
+  in F.Song
     { s_tempos = tempos
     , s_signatures = sigs
     , s_tracks = mempty
-      { RBFile.onyxParts = Map.singleton RBFile.FlexGuitar mempty
-        { RBFile.onyxPartGuitar = mempty
-          { F.fiveDifficulties = Map.singleton Expert gtr
+      { F.onyxParts = Map.singleton F.FlexGuitar mempty
+        { F.onyxPartGuitar = mempty
+          { Five.fiveDifficulties = Map.singleton Expert gtr
           }
         }
       }
@@ -183,7 +183,7 @@ importFreetar sng level = do
         }
       in ("freetar", plan)
     , targets = HM.empty
-    , parts = Parts $ HM.singleton RBFile.FlexGuitar emptyPart
+    , parts = Parts $ HM.singleton F.FlexGuitar emptyPart
       { grybo = Just def
       }
     }

@@ -35,7 +35,7 @@ import           Onyx.Import.GuitarHero2          (ImportMode (..))
 import           Onyx.MIDI.Common                 (Difficulty (..))
 import           Onyx.MIDI.Track.Drums.Full       (fdDifficulties, fdGems,
                                                    fdKick2)
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret         (nullFive)
 import           Onyx.Neversoft.CRC               (qbKeyCRC)
 import           Onyx.Neversoft.Crypt             (decryptFSB', gh3Decrypt)
@@ -99,7 +99,7 @@ importGH5WoR src folder = do
               return $ ghToMidi bank songPak
             ImportQuick -> return emptyChart
           let midiOnyx = midiFixed
-                { RBFile.s_tracks = RBFile.fixedToOnyx $ RBFile.s_tracks midiFixed
+                { F.s_tracks = F.fixedToOnyx $ F.s_tracks midiFixed
                 }
               getAudio getName = case level of
                 ImportQuick -> return []
@@ -162,7 +162,7 @@ importGH5WoR src folder = do
               , countin = Countin []
               , parts = Parts $ HM.fromList $ let
                 drums = case map fst streams1 of
-                  d1 : d2 : d3 : d4 : _ -> [(RBFile.FlexDrums, PartDrumKit
+                  d1 : d2 : d3 : d4 : _ -> [(F.FlexDrums, PartDrumKit
                     (Just $ PlanAudio (Input $ Named d1) [] [])
                     (Just $ PlanAudio (Input $ Named d2) [] [])
                     (PlanAudio (Mix (Input (Named d3) :| [Input $ Named d4])) [] [])
@@ -170,9 +170,9 @@ importGH5WoR src folder = do
                   _ -> []
                 gbv = case map fst streams2 of
                   g : b : v : _ ->
-                    [ (RBFile.FlexGuitar, PartSingle $ PlanAudio (Input $ Named g) [] [])
-                    , (RBFile.FlexBass  , PartSingle $ PlanAudio (Input $ Named b) [] [])
-                    , (RBFile.FlexVocal , PartSingle $ PlanAudio (Input $ Named v) [] [])
+                    [ (F.FlexGuitar, PartSingle $ PlanAudio (Input $ Named g) [] [])
+                    , (F.FlexBass  , PartSingle $ PlanAudio (Input $ Named b) [] [])
+                    , (F.FlexVocal , PartSingle $ PlanAudio (Input $ Named v) [] [])
                     ]
                   _ -> []
                 in drums <> gbv
@@ -185,13 +185,13 @@ importGH5WoR src folder = do
               }
             , targets = HM.empty
             , parts = Parts $ HM.fromList
-              [ (RBFile.FlexGuitar, (emptyPart :: Part SoftFile)
+              [ (F.FlexGuitar, (emptyPart :: Part SoftFile)
                 { grybo = readTier (songTierGuitar info) $ \diff -> def { difficulty = diff }
                 })
-              , (RBFile.FlexBass, (emptyPart :: Part SoftFile)
+              , (F.FlexBass, (emptyPart :: Part SoftFile)
                 { grybo = readTier (songTierBass info) $ \diff -> def { difficulty = diff }
                 })
-              , (RBFile.FlexDrums, (emptyPart :: Part SoftFile)
+              , (F.FlexDrums, (emptyPart :: Part SoftFile)
                 { drums = readTier (songTierDrums info) $ \diff -> PartDrums
                   { mode        = Drums5
                   , difficulty  = diff
@@ -206,7 +206,7 @@ importGH5WoR src folder = do
                   , fullLayout  = FDStandard
                   }
                 })
-              , (RBFile.FlexVocal, (emptyPart :: Part SoftFile)
+              , (F.FlexVocal, (emptyPart :: Part SoftFile)
                 { vocal = readTier (songTierVocals info) $ \diff -> PartVocal
                   { difficulty = diff
                   , count      = Vocal1
@@ -355,7 +355,7 @@ importGH3Song gh3i = let
     -- We Three Kings is only DLC with rhythm coop but use coop notetracks = false.
     let thisRhythmTrack = gh3RhythmTrack info && hasRealCoop
         hasRealCoop     = mode == ImportCoop || not (gh3UseCoopNotetracks info)
-        coopPart        = if thisRhythmTrack then RBFile.FlexExtra "rhythm" else RBFile.FlexBass
+        coopPart        = if thisRhythmTrack then F.FlexExtra "rhythm" else F.FlexBass
     midiOnyx <- case level of
       ImportFull -> do
         let ?endian = case gh3iAudio gh3i of
@@ -388,13 +388,13 @@ importGH3Song gh3i = let
               midQB
       ImportQuick -> return emptyChart
     -- don't mark that we have a coop part if it has no notes (like many customs)
-    let hasCoopGems = maybe False (not . nullFive . RBFile.onyxPartGuitar)
-          $ Map.lookup coopPart $ RBFile.onyxParts $ RBFile.s_tracks midiOnyx
+    let hasCoopGems = maybe False (not . nullFive . F.onyxPartGuitar)
+          $ Map.lookup coopPart $ F.onyxParts $ F.s_tracks midiOnyx
         drums
-          = maybe mempty RBFile.onyxPartFullDrums
-          $ Map.lookup RBFile.FlexDrums
-          $ RBFile.onyxParts
-          $ RBFile.s_tracks midiOnyx
+          = maybe mempty F.onyxPartFullDrums
+          $ Map.lookup F.FlexDrums
+          $ F.onyxParts
+          $ F.s_tracks midiOnyx
     audio <- case level of
       ImportQuick -> return []
       ImportFull -> case gh3iAudio gh3i of
@@ -478,7 +478,7 @@ importGH3Song gh3i = let
           , countin = Countin []
           , parts = Parts $ HM.fromList $ catMaybes
             [ flip fmap (lookup (qbKeyCRC nameLead  ) audio) $ \group ->
-              (RBFile.FlexGuitar, PartSingle $ PlanAudio (toExpr group) [] guitarVol)
+              (F.FlexGuitar, PartSingle $ PlanAudio (toExpr group) [] guitarVol)
             , flip fmap (lookup (qbKeyCRC nameRhythm) audio) $ \group ->
               (coopPart         , PartSingle $ PlanAudio (toExpr group) [] guitarVol)
             ]
@@ -489,11 +489,11 @@ importGH3Song gh3i = let
           }
       , targets = HM.empty
       , parts = Parts $ HM.fromList $ catMaybes
-        [ Just (RBFile.FlexGuitar, emptyPart { grybo = Just def })
+        [ Just (F.FlexGuitar, emptyPart { grybo = Just def })
         , guard (hasRealCoop && hasCoopGems) >> Just (coopPart, emptyPart { grybo = Just def })
         , do
           guard $ maybe False (not . RTB.null . fdGems) $ Map.lookup Expert $ fdDifficulties drums
-          Just (RBFile.FlexDrums, emptyPart
+          Just (F.FlexDrums, emptyPart
             { drums = Just PartDrums
               { difficulty  = Tier 1
               , mode        = DrumsFull

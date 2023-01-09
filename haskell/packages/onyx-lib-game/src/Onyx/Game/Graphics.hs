@@ -53,7 +53,7 @@ import           Onyx.MIDI.Track.Beat
 import qualified Onyx.MIDI.Track.Drums        as D
 import           Onyx.MIDI.Track.Drums.Full   (FullDrumNote (..))
 import qualified Onyx.MIDI.Track.Drums.Full   as FD
-import qualified Onyx.MIDI.Track.FiveFret     as F
+import qualified Onyx.MIDI.Track.FiveFret     as Five
 import qualified Onyx.MIDI.Track.ProGuitar    as PG
 import           Onyx.Preferences             (Preferences (..),
                                                readPreferences)
@@ -707,7 +707,7 @@ zoomMap t1 t2 m = let
     then maybe Map.empty (Map.singleton $ t1 + (t2 + t1) / 2) generated
     else zoomed
 
-drawFive :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (GuitarState (Maybe F.Color))) -> IO ()
+drawFive :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (GuitarState (Maybe Five.Color))) -> IO ()
 drawFive glStuff@GLStuff{..} nowTime speed trk = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
@@ -726,12 +726,12 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
         - gfxConfig.track.note_area.x_left
       fracToX f = gfxConfig.track.note_area.x_left + trackWidth * f
       colorCenterX = \case
-        Nothing       -> fracToX 0.5
-        Just F.Green  -> fracToX $ 1 / 10
-        Just F.Red    -> fracToX $ 3 / 10
-        Just F.Yellow -> fracToX $ 5 / 10
-        Just F.Blue   -> fracToX $ 7 / 10
-        Just F.Orange -> fracToX $ 9 / 10
+        Nothing          -> fracToX 0.5
+        Just Five.Green  -> fracToX $ 1 / 10
+        Just Five.Red    -> fracToX $ 3 / 10
+        Just Five.Yellow -> fracToX $ 5 / 10
+        Just Five.Blue   -> fracToX $ 7 / 10
+        Just Five.Orange -> fracToX $ 9 / 10
       drawSustain t1 t2 od color
         | t2 <= nowTime = return ()
         | otherwise     = let
@@ -739,12 +739,12 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
           boxColor = if od
             then sc.energy
             else case color of
-              Nothing       -> sc.open
-              Just F.Green  -> sc.green
-              Just F.Red    -> sc.red
-              Just F.Yellow -> sc.yellow
-              Just F.Blue   -> sc.blue
-              Just F.Orange -> sc.orange
+              Nothing          -> sc.open
+              Just Five.Green  -> sc.green
+              Just Five.Red    -> sc.red
+              Just Five.Yellow -> sc.yellow
+              Just Five.Blue   -> sc.blue
+              Just Five.Orange -> sc.orange
           (x1, x2) = let
             center = colorCenterX color
             halfWidth = 0.5 * case color of
@@ -758,23 +758,23 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
       drawGem t od color sht alpha = let
         (texid, obj) = case (color, sht) of
           (Nothing      , Strum) -> (if od then TextureLongEnergy else TextureLongOpen , Model ModelGuitarOpen)
-          (Just F.Green , Strum) -> (if od then TextureEnergyGem  else TextureGreenGem , Model ModelGuitarStrum)
-          (Just F.Red   , Strum) -> (if od then TextureEnergyGem  else TextureRedGem   , Model ModelGuitarStrum)
-          (Just F.Yellow, Strum) -> (if od then TextureEnergyGem  else TextureYellowGem, Model ModelGuitarStrum)
-          (Just F.Blue  , Strum) -> (if od then TextureEnergyGem  else TextureBlueGem  , Model ModelGuitarStrum)
-          (Just F.Orange, Strum) -> (if od then TextureEnergyGem  else TextureOrangeGem, Model ModelGuitarStrum)
+          (Just Five.Green , Strum) -> (if od then TextureEnergyGem  else TextureGreenGem , Model ModelGuitarStrum)
+          (Just Five.Red   , Strum) -> (if od then TextureEnergyGem  else TextureRedGem   , Model ModelGuitarStrum)
+          (Just Five.Yellow, Strum) -> (if od then TextureEnergyGem  else TextureYellowGem, Model ModelGuitarStrum)
+          (Just Five.Blue  , Strum) -> (if od then TextureEnergyGem  else TextureBlueGem  , Model ModelGuitarStrum)
+          (Just Five.Orange, Strum) -> (if od then TextureEnergyGem  else TextureOrangeGem, Model ModelGuitarStrum)
           (Nothing      , HOPO) -> (if od then TextureLongEnergyHopo else TextureLongOpenHopo , Model ModelGuitarOpen)
-          (Just F.Green , HOPO) -> (if od then TextureEnergyHopo  else TextureGreenHopo , Model ModelGuitarHOPOTap)
-          (Just F.Red   , HOPO) -> (if od then TextureEnergyHopo  else TextureRedHopo   , Model ModelGuitarHOPOTap)
-          (Just F.Yellow, HOPO) -> (if od then TextureEnergyHopo  else TextureYellowHopo, Model ModelGuitarHOPOTap)
-          (Just F.Blue  , HOPO) -> (if od then TextureEnergyHopo  else TextureBlueHopo  , Model ModelGuitarHOPOTap)
-          (Just F.Orange, HOPO) -> (if od then TextureEnergyHopo  else TextureOrangeHopo, Model ModelGuitarHOPOTap)
+          (Just Five.Green , HOPO) -> (if od then TextureEnergyHopo  else TextureGreenHopo , Model ModelGuitarHOPOTap)
+          (Just Five.Red   , HOPO) -> (if od then TextureEnergyHopo  else TextureRedHopo   , Model ModelGuitarHOPOTap)
+          (Just Five.Yellow, HOPO) -> (if od then TextureEnergyHopo  else TextureYellowHopo, Model ModelGuitarHOPOTap)
+          (Just Five.Blue  , HOPO) -> (if od then TextureEnergyHopo  else TextureBlueHopo  , Model ModelGuitarHOPOTap)
+          (Just Five.Orange, HOPO) -> (if od then TextureEnergyHopo  else TextureOrangeHopo, Model ModelGuitarHOPOTap)
           (Nothing      , Tap) -> (if od then TextureLongEnergyTap else TextureLongOpenTap , Model ModelGuitarOpen)
-          (Just F.Green , Tap) -> (if od then TextureEnergyTap  else TextureGreenTap , Model ModelGuitarHOPOTap)
-          (Just F.Red   , Tap) -> (if od then TextureEnergyTap  else TextureRedTap   , Model ModelGuitarHOPOTap)
-          (Just F.Yellow, Tap) -> (if od then TextureEnergyTap  else TextureYellowTap, Model ModelGuitarHOPOTap)
-          (Just F.Blue  , Tap) -> (if od then TextureEnergyTap  else TextureBlueTap  , Model ModelGuitarHOPOTap)
-          (Just F.Orange, Tap) -> (if od then TextureEnergyTap  else TextureOrangeTap, Model ModelGuitarHOPOTap)
+          (Just Five.Green , Tap) -> (if od then TextureEnergyTap  else TextureGreenTap , Model ModelGuitarHOPOTap)
+          (Just Five.Red   , Tap) -> (if od then TextureEnergyTap  else TextureRedTap   , Model ModelGuitarHOPOTap)
+          (Just Five.Yellow, Tap) -> (if od then TextureEnergyTap  else TextureYellowTap, Model ModelGuitarHOPOTap)
+          (Just Five.Blue  , Tap) -> (if od then TextureEnergyTap  else TextureBlueTap  , Model ModelGuitarHOPOTap)
+          (Just Five.Orange, Tap) -> (if od then TextureEnergyTap  else TextureOrangeTap, Model ModelGuitarHOPOTap)
         shade = case alpha of
           Nothing -> CSImage texid
           Just _  -> CSColor gfxConfig.objects.gems.color_hit
@@ -886,19 +886,19 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
   void $ Map.traverseWithKey drawBeat zoomed
   -- draw lanes
   let drawLane startTime endTime color = let
-        i = maybe 2 (fromIntegral . fromEnum) (color :: Maybe F.Color)
+        i = maybe 2 (fromIntegral . fromEnum) (color :: Maybe Five.Color)
         x1 = fracToX $ i       / 5
         x2 = fracToX $ (i + 1) / 5
         y = gfxConfig.track.y
         z1 = timeToZ startTime
         z2 = timeToZ endTime
         tex = case color of
-          Nothing       -> TextureLanePurple
-          Just F.Green  -> TextureLaneGreen
-          Just F.Red    -> TextureLaneRed
-          Just F.Yellow -> TextureLaneYellow
-          Just F.Blue   -> TextureLaneBlue
-          Just F.Orange -> TextureLaneOrange
+          Nothing          -> TextureLanePurple
+          Just Five.Green  -> TextureLaneGreen
+          Just Five.Red    -> TextureLaneRed
+          Just Five.Yellow -> TextureLaneYellow
+          Just Five.Blue   -> TextureLaneBlue
+          Just Five.Orange -> TextureLaneOrange
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) 1 globalLight
       drawLanes _        []                      = return ()
       drawLanes nextTime ((thisTime, cs) : rest) = do
@@ -949,11 +949,11 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
             Just (_, cs) -> [(nowTime, before cs)]
           | otherwise     -> Map.toDescList past
   drawLights lookPast
-    [ (0, TextureTargetGreenLight , Just F.Green )
-    , (1, TextureTargetRedLight   , Just F.Red   )
-    , (2, TextureTargetYellowLight, Just F.Yellow)
-    , (3, TextureTargetBlueLight  , Just F.Blue  )
-    , (4, TextureTargetOrangeLight, Just F.Orange)
+    [ (0, TextureTargetGreenLight , Just Five.Green )
+    , (1, TextureTargetRedLight   , Just Five.Red   )
+    , (2, TextureTargetYellowLight, Just Five.Yellow)
+    , (3, TextureTargetBlueLight  , Just Five.Blue  )
+    , (4, TextureTargetOrangeLight, Just Five.Orange)
     ]
   glDepthFunc GL_LESS
   -- draw notes

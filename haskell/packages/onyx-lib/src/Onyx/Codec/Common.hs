@@ -9,14 +9,14 @@ import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
 import           Data.Functor.Identity      (Identity (..))
 import qualified Data.HashMap.Strict        as HM
-import qualified Data.HashSet               as Set
+import qualified Data.HashSet               as HS
 import           Data.Maybe                 (isJust)
 import qualified Data.Text                  as T
 import           Onyx.StackTrace
 
 type StackParser m v = StackTraceT (ReaderT v m)
 
-type ObjectParser m v = StackParser (StateT (Set.HashSet T.Text) m) (HM.HashMap T.Text v)
+type ObjectParser m v = StackParser (StateT (HS.HashSet T.Text) m) (HM.HashMap T.Text v)
 type ObjectBuilder v = Writer [(T.Text, v)]
 type ObjectCodec m v a = Codec (ObjectParser m v) (ObjectBuilder v) a
 
@@ -76,15 +76,15 @@ strictKeys :: (Monad m) => ObjectParser m v ()
 strictKeys = do
   obj <- lift ask
   known <- lift $ lift get
-  let unknown = Set.fromList (HM.keys obj) `Set.difference` known
-  unless (Set.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (Set.toList unknown)
+  let unknown = HS.fromList (HM.keys obj) `HS.difference` known
+  unless (HS.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (HS.toList unknown)
 
 warnKeys :: (SendMessage m) => ObjectParser m v ()
 warnKeys = do
   obj <- lift ask
   known <- lift $ lift get
-  let unknown = Set.fromList (HM.keys obj) `Set.difference` known
-  unless (Set.null unknown) $ warn $ "Unrecognized object keys: " ++ show (Set.toList unknown)
+  let unknown = HS.fromList (HM.keys obj) `HS.difference` known
+  unless (HS.null unknown) $ warn $ "Unrecognized object keys: " ++ show (HS.toList unknown)
 
 makeObject :: (Monad m) => ObjectCodec m v a -> a -> [(T.Text, v)]
 makeObject codec x = execWriter $ codecOut codec x
@@ -108,7 +108,7 @@ objectKey dflt shouldWarn shouldFill key valCodec = Codec
       Just v  -> let
         keyLayer = (if isJust dflt then "optional" else "required") <> " key " <> show key
         in inside keyLayer $ do
-          lift $ lift $ modify $ Set.insert key
+          lift $ lift $ modify $ HS.insert key
           let f = withReaderT (const v) . mapReaderT lift
           mapStackTraceT f $ codecIn valCodec
   , codecOut = fmapArg $ \val -> tell

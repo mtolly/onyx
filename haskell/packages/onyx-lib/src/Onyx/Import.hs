@@ -21,7 +21,7 @@ import           Data.Foldable                (toList)
 import           Data.Functor                 (void)
 import           Data.Functor.Identity
 import           Data.Hashable
-import qualified Data.HashMap.Strict          as Map
+import qualified Data.HashMap.Strict          as HM
 import           Data.Int                     (Int32)
 import           Data.List.Extra              (stripSuffix)
 import           Data.List.NonEmpty           (NonEmpty ((:|)))
@@ -638,7 +638,7 @@ buildPlayer :: (MonadIO m) => Maybe T.Text -> Project -> StackTraceT (QueueLog m
 buildPlayer mplan proj = do
   planName <- case mplan of
     Just planName -> return planName
-    Nothing       -> case Map.toList (projectSongYaml proj).plans of
+    Nothing       -> case HM.toList (projectSongYaml proj).plans of
       [(planName, _)] -> return planName
       []              -> fatal "Project has no audio plans"
       _ : _ : _       -> fatal "Project has more than 1 audio plan"
@@ -646,7 +646,7 @@ buildPlayer mplan proj = do
 
 choosePlan :: (Monad m) => Maybe T.Text -> Project -> StackTraceT m T.Text
 choosePlan (Just plan) _    = return plan
-choosePlan Nothing     proj = case Map.keys (projectSongYaml proj).plans of
+choosePlan Nothing     proj = case HM.keys (projectSongYaml proj).plans of
   [p]   -> return p
   plans -> fatal $ "No plan selected, and the project doesn't have exactly 1 plan: " <> show plans
 

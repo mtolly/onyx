@@ -23,7 +23,7 @@ import           Control.Monad          (forM)
 import           Control.Monad.IO.Class (MonadIO (..))
 import qualified Data.Aeson             as A
 import qualified Data.Aeson.Key         as K
-import qualified Data.Aeson.KeyMap      as M
+import qualified Data.Aeson.KeyMap      as KM
 import           Data.List              (foldl')
 import qualified Data.Text              as T
 import qualified Data.Yaml              as Y
@@ -41,7 +41,7 @@ readYAMLTree f = inside ("YAML file " ++ show f) $ let
   dir = takeDirectory f
   go :: (MonadIO m) => Y.Value -> StackTraceT m Y.Value
   go v = case v of
-    Y.Object o -> goPairs M.empty $ M.toList o
+    Y.Object o -> goPairs KM.empty $ KM.toList o
     Y.Array a  -> Y.Array <$> mapM go a
     _          -> return v
   goPairs :: (MonadIO m) => Y.Object -> [(A.Key, Y.Value)] -> StackTraceT m Y.Value
@@ -52,8 +52,8 @@ readYAMLTree f = inside ("YAML file " ++ show f) $ let
         let files = either (: []) id e
         vs <- forM files $ \file -> liftIO (makeAbsolute $ dir </> file) >>= readYAMLTree
         case mapM A.fromJSON vs of
-          A.Success objs -> goPairs (foldl' M.union o objs) rest
-          -- TODO: M.union above should be edited so that sub-objects are merged
+          A.Success objs -> goPairs (foldl' KM.union o objs) rest
+          -- TODO: KM.union above should be edited so that sub-objects are merged
           A.Error s      -> fail s
       A.Error s -> fail s
     Just _ -> case stringOrStrings v of
@@ -62,9 +62,9 @@ readYAMLTree f = inside ("YAML file " ++ show f) $ let
           Left  s  -> fmap A.toJSON $ makeAbsolute $ dir </> s
           Right [] -> return A.Null
           Right ss -> fmap A.toJSON $ forM ss $ \s -> makeAbsolute $ dir </> s
-        goPairs (M.insert k v' o) rest
+        goPairs (KM.insert k v' o) rest
       A.Error s -> fail s
-    _ -> go v >>= \v' -> goPairs (M.insert k v' o) rest
+    _ -> go v >>= \v' -> goPairs (KM.insert k v' o) rest
   in liftIO (Y.decodeFileEither f) >>= \case
     Left  err -> fatal $ Y.prettyPrintParseException err
     Right val -> go val

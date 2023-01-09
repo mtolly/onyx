@@ -5,7 +5,7 @@ module Onyx.FeedBack.Base where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Micro, Milli)
-import qualified Data.HashMap.Strict              as Map
+import qualified Data.HashMap.Strict              as HM
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Wrapper      as NN
 
@@ -30,8 +30,8 @@ data Event t
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 data Chart t = Chart
-  { chartSong   :: Map.HashMap T.Text Atom
-  , chartTracks :: Map.HashMap T.Text (RTB.T t (Event t))
+  { chartSong   :: HM.HashMap T.Text Atom
+  , chartTracks :: HM.HashMap T.Text (RTB.T t (Event t))
   } deriving (Eq, Show)
 
 instance Functor Chart where

@@ -22,7 +22,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.Audio                       (audioIO)
 import           Onyx.Codec.JSON                  (toJSON, yamlEncodeFile)
 import           Onyx.MIDI.Track.Drums
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import           Onyx.Project
 import           Onyx.StackTrace
@@ -37,7 +37,7 @@ data SoftContents
   = SoftReadable Readable
   | SoftAudio (CA.AudioSource (ResourceT IO) Float)
   | SoftImage (Image PixelRGB8)
-  | SoftChart (RBFile.Song (RBFile.OnyxFile U.Beats))
+  | SoftChart (F.Song (F.OnyxFile U.Beats))
 
 instance Show SoftContents where
   show (SoftReadable r) = "SoftReadable{" <> show r <> "}"
@@ -69,7 +69,7 @@ saveImport dout yaml = do
             SoftImage img -> case map toLower $ takeExtension newName of
               ".png" -> writePng newNameFull img
               ext    -> error $ "saveImport: unhandled image extension " <> show ext
-            SoftChart song -> Save.toFile newNameFull $ RBFile.showMIDIFile' song
+            SoftChart song -> Save.toFile newNameFull $ F.showMIDIFile' song
             SoftAudio aud -> audioIO Nothing aud newNameFull
           return newName
         modify ((newName, newAsync) :)
@@ -105,10 +105,10 @@ bothFirstSecond t1 t2 = let
     , RTB.flatten $ fmap thd3 result
     )
 
-detectExtProBass :: RBFile.FixedFile t -> PG.GtrBase
+detectExtProBass :: F.FixedFile t -> PG.GtrBase
 detectExtProBass trks = let
   strs = do
-    trk <- [RBFile.fixedPartRealBass trks, RBFile.fixedPartRealBass22 trks]
+    trk <- [F.fixedPartRealBass trks, F.fixedPartRealBass22 trks]
     diff <- toList $ PG.pgDifficulties trk
     (str, _) <- toList (PG.pgNotes diff) >>= toList
     return str
@@ -118,26 +118,26 @@ detectExtProBass trks = let
       then PG.GtrCustom [28, 33, 38, 43, 47] -- bass with 1 high gtr string
       else PG.Bass4
 
-emptyChart :: (Monoid a) => RBFile.Song a
-emptyChart = RBFile.Song
-  { RBFile.s_tempos = U.makeTempoMap RTB.empty
-  , RBFile.s_signatures = U.makeMeasureMap U.Ignore RTB.empty
-  , RBFile.s_tracks = mempty
+emptyChart :: (Monoid a) => F.Song a
+emptyChart = F.Song
+  { F.s_tempos = U.makeTempoMap RTB.empty
+  , F.s_signatures = U.makeMeasureMap U.Ignore RTB.empty
+  , F.s_tracks = mempty
   }
 
 -- | Discards drum accents/ghosts unless [ENABLE_CHART_DYNAMICS] is present.
 checkEnableDynamics
-  :: RBFile.Song (RBFile.FixedFile U.Beats)
-  -> RBFile.Song (RBFile.FixedFile U.Beats)
-checkEnableDynamics (RBFile.Song tmap mmap ps) = let
+  :: F.Song (F.FixedFile U.Beats)
+  -> F.Song (F.FixedFile U.Beats)
+checkEnableDynamics (F.Song tmap mmap ps) = let
   checkTrack trk = if RTB.null $ drumEnableDynamics trk
     then trk { drumDifficulties = noDynamics <$> drumDifficulties trk }
     else trk
   noDynamics dd = dd
     { drumGems = (\(gem, _) -> (gem, VelocityNormal)) <$> drumGems dd
     }
-  in RBFile.Song tmap mmap ps
-    { RBFile.fixedPartDrums       = checkTrack $ RBFile.fixedPartDrums       ps
-    , RBFile.fixedPartDrums2x     = checkTrack $ RBFile.fixedPartDrums2x     ps
-    , RBFile.fixedPartRealDrumsPS = checkTrack $ RBFile.fixedPartRealDrumsPS ps
+  in F.Song tmap mmap ps
+    { F.fixedPartDrums       = checkTrack $ F.fixedPartDrums       ps
+    , F.fixedPartDrums2x     = checkTrack $ F.fixedPartDrums2x     ps
+    , F.fixedPartRealDrumsPS = checkTrack $ F.fixedPartRealDrumsPS ps
     }

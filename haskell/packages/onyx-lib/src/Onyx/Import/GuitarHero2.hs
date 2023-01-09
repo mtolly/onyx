@@ -53,7 +53,7 @@ import           Onyx.Harmonix.GH2.Triggers
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (Difficulty (..))
 import qualified Onyx.MIDI.Track.Events           as RB
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as RB
 import           Onyx.Project
 import           Onyx.Sections                    (fromGH2Section)
@@ -84,8 +84,8 @@ data ImportMode = ImportSolo | ImportCoop
 importGH2 :: (SendMessage m, MonadResource m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH2 genPath gen = map (\(_, (mode, pkg)) -> importGH2Song mode pkg genPath gen) . getImports <$> getSongList gen
 
-importGH2MIDI :: ImportMode -> Song -> RBFile.Song (GH2File U.Beats) -> RBFile.Song (RBFile.OnyxFile U.Beats)
-importGH2MIDI mode songChunk (RBFile.Song tmap mmap gh2) = RBFile.Song tmap mmap $ let
+importGH2MIDI :: ImportMode -> Song -> F.Song (GH2File U.Beats) -> F.Song (F.OnyxFile U.Beats)
+importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap $ let
   convertPart :: PartTrack U.Beats -> RB.FiveTrack U.Beats
   convertPart part = RB.FiveTrack
     { RB.fiveDifficulties = flip fmap (partDifficulties part) $ \diff -> mempty
@@ -109,8 +109,8 @@ importGH2MIDI mode songChunk (RBFile.Song tmap mmap gh2) = RBFile.Song tmap mmap
     , RB.fivePlayer1      = maybe RTB.empty partPlayer1 $ Map.lookup Expert $ partDifficulties part
     , RB.fivePlayer2      = maybe RTB.empty partPlayer2 $ Map.lookup Expert $ partDifficulties part
     }
-  in RBFile.fixedToOnyx mempty
-    { RBFile.fixedEvents = RB.EventsTrack
+  in F.fixedToOnyx mempty
+    { F.fixedEvents = RB.EventsTrack
       { RB.eventsMusicStart = void $ RTB.filter (== MusicStart) $ eventsOther $ gh2Events gh2
       , RB.eventsMusicEnd   = RTB.empty
       , RB.eventsEnd        = void $ RTB.filter (== End) $ eventsOther $ gh2Events gh2
@@ -121,20 +121,20 @@ importGH2MIDI mode songChunk (RBFile.Song tmap mmap gh2) = RBFile.Song tmap mmap
       , RB.eventsSections   = (\s -> (RB.SectionRB2, fromGH2Section s)) <$> eventsSections (gh2Events gh2)
       , RB.eventsBacking    = triggersBacking $ gh2Triggers gh2
       }
-    , RBFile.fixedPartGuitar = convertPart $ case mode of
+    , F.fixedPartGuitar = convertPart $ case mode of
       ImportSolo -> gh2PartGuitar gh2
       ImportCoop -> if nullPart $ gh2PartGuitarCoop gh2
         then gh2PartGuitar gh2
         else gh2PartGuitarCoop gh2
-    , RBFile.fixedPartBass = if isJust $ lookup "bass" $ D.fromDictList $ tracks songChunk
+    , F.fixedPartBass = if isJust $ lookup "bass" $ D.fromDictList $ tracks songChunk
       then convertPart $ gh2PartBass gh2
       else mempty
-    , RBFile.fixedPartRhythm = if isJust $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
+    , F.fixedPartRhythm = if isJust $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
       then convertPart $ gh2PartRhythm gh2
       else mempty
     }
 
-gh2SongYaml :: ImportMode -> SongPackage -> Maybe GH2DXExtra -> Song -> RBFile.Song (RBFile.OnyxFile U.Beats) -> SongYaml SoftFile
+gh2SongYaml :: ImportMode -> SongPackage -> Maybe GH2DXExtra -> Song -> F.Song (F.OnyxFile U.Beats) -> SongYaml SoftFile
 gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
   { metadata = def'
     { title  = Just $ name pkg <> case mode of
@@ -163,7 +163,7 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
   , parts = Parts $ HM.fromList $ catMaybes
     [ do
       guard $ maybe False (not . null) $ lookup "guitar" $ D.fromDictList $ tracks songChunk
-      return (RBFile.FlexGuitar, emptyPart
+      return (F.FlexGuitar, emptyPart
         { grybo = Just (def :: PartGRYBO)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
           , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songguitarrank)
@@ -171,7 +171,7 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
         })
     , do
       guard $ maybe False (not . null) $ lookup "bass" $ D.fromDictList $ tracks songChunk
-      return (RBFile.FlexBass, emptyPart
+      return (F.FlexBass, emptyPart
         { grybo = Just (def :: PartGRYBO)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
           , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songbassrank)
@@ -179,7 +179,7 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
         })
     , do
       guard $ maybe False (not . null) $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
-      return (RBFile.FlexExtra "rhythm", emptyPart
+      return (F.FlexExtra "rhythm", emptyPart
         { grybo = Just (def :: PartGRYBO)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
           , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
@@ -209,7 +209,7 @@ importGH2Song mode pkg genPath gen level = do
   midi <- split (midiFile songChunk) >>= need . fmap encLatin1
   vgs <- split (songName songChunk <> ".vgs") >>= need . fmap encLatin1
   onyxMidi <- case level of
-    ImportFull  -> importGH2MIDI mode songChunk <$> RBFile.loadMIDIReadable midi
+    ImportFull  -> importGH2MIDI mode songChunk <$> F.loadMIDIReadable midi
     ImportQuick -> return emptyChart
   numChannels <- stackIO $ vgsChannelCount vgs
   namedChans <- stackIO $ forConcurrently [0 .. numChannels - 1] $ \i -> do
@@ -252,9 +252,9 @@ importGH2Song mode pkg genPath gen level = do
         , countin = Countin []
         , parts = Parts $ HM.fromList $ catMaybes
           -- I made up these volume adjustments but they seem to work
-          [ (RBFile.FlexGuitar ,) . PartSingle <$> mixChans (-0.5) guitarChans
-          , (RBFile.FlexBass ,) . PartSingle <$> mixChans (-3) bassChans
-          , (RBFile.FlexExtra "rhythm" ,) . PartSingle <$> mixChans (-1.5) rhythmChans
+          [ (F.FlexGuitar ,) . PartSingle <$> mixChans (-0.5) guitarChans
+          , (F.FlexBass ,) . PartSingle <$> mixChans (-3) bassChans
+          , (F.FlexExtra "rhythm" ,) . PartSingle <$> mixChans (-1.5) rhythmChans
           ]
         , crowd = Nothing
         , comments = []
@@ -294,7 +294,7 @@ importGH2DLC src folder = do
           lg $ "Importing GH2 DLC song [" <> T.unpack (songName songChunk) <> "] from: " <> src
         midi <- split (T.unpack $ midiFile songChunk) >>= need
         onyxMidi <- case level of
-          ImportFull  -> importGH2MIDI mode songChunk <$> RBFile.loadMIDIReadable midi
+          ImportFull  -> importGH2MIDI mode songChunk <$> F.loadMIDIReadable midi
           ImportQuick -> return emptyChart
         let instChans :: [(T.Text, [Int])]
             instChans = map (second $ map fromIntegral) $ D.fromDictList $ tracks songChunk
@@ -303,9 +303,9 @@ importGH2DLC src folder = do
             { fileMOGG = Just $ SoftFile "audio.mogg" mogg
             , moggMD5 = Nothing
             , parts = Parts $ HM.fromList $ concat
-              [ [ (RBFile.FlexGuitar        , PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
-              , [ (RBFile.FlexBass          , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
-              , [ (RBFile.FlexExtra "rhythm", PartSingle ns) | ns <- toList $ lookup "rhythm" instChans ]
+              [ [ (F.FlexGuitar        , PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
+              , [ (F.FlexBass          , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
+              , [ (F.FlexExtra "rhythm", PartSingle ns) | ns <- toList $ lookup "rhythm" instChans ]
               ]
             , crowd = []
             , pans = map realToFrac $ pans songChunk

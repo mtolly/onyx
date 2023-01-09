@@ -21,8 +21,7 @@ import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (Edge (..), Key (..),
                                                    blipEdgesRB_,
                                                    joinEdgesSimple)
-import           Onyx.MIDI.Track.File             (FlexPartName (..))
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.Project
 import           Onyx.StackTrace
@@ -74,8 +73,8 @@ importBMS bmsPath level = do
             , groupCrossfade = 0.002
             }
           audios = [(name, AudioSamples poly)]
-          track = Just $ RBFile.SamplesTrack
-            $ fmap (\chip -> RBFile.SampleTrigger chip chip)
+          track = Just $ F.SamplesTrack
+            $ fmap (\chip -> F.SampleTrigger chip chip)
             -- don't include sample if we didn't find its audio
             $ RTB.filter (\chip -> HS.member chip foundChips) chips
           in (audios, track)
@@ -94,15 +93,15 @@ importBMS bmsPath level = do
         }
       midi = case level of
         ImportQuick -> emptyChart
-        ImportFull -> RBFile.Song (bms_TempoMap bms) (bms_MeasureMap bms) mempty
-          { RBFile.onyxParts = Map.fromList $ do
+        ImportFull -> F.Song (bms_TempoMap bms) (bms_MeasureMap bms) mempty
+          { F.onyxParts = Map.fromList $ do
             (fpart, chips, chipsLong) <-
-              [ (FlexExtra "player1", bms_Player1 bms, bms_Player1Long bms)
-              , (FlexExtra "player2", bms_Player2 bms, bms_Player2Long bms)
+              [ (F.FlexExtra "player1", bms_Player1 bms, bms_Player1Long bms)
+              , (F.FlexExtra "player2", bms_Player2 bms, bms_Player2Long bms)
               ]
             guard $ not $ RTB.null chips && RTB.null chipsLong
             let opart = mempty
-                  { RBFile.onyxPartRealKeysX = mempty
+                  { F.onyxPartRealKeysX = mempty
                     { pkLanes = RTB.singleton 0 RangeC
                     , pkNotes = let
                       lookupKey = \case
@@ -122,7 +121,7 @@ importBMS bmsPath level = do
                     }
                   }
             return (fpart, opart)
-          , RBFile.onyxSamples = Map.fromList $ catMaybes
+          , F.onyxSamples = Map.fromList $ catMaybes
             [ ("audio-bgm",) <$> songSampleTrack
             , ("audio-p1" ,) <$> p1SampleTrack
             , ("audio-p2" ,) <$> p2SampleTrack
@@ -153,8 +152,8 @@ importBMS bmsPath level = do
       { song        = guard (isJust songSampleTrack) >> Just (audioExpr "audio-bgm")
       , countin     = Countin []
       , parts       = Parts $ HM.fromList $ catMaybes
-        [ guard (isJust p1SampleTrack) >> Just (FlexExtra "player1", PartSingle $ audioExpr "audio-p1")
-        , guard (isJust p2SampleTrack) >> Just (FlexExtra "player2", PartSingle $ audioExpr "audio-p2")
+        [ guard (isJust p1SampleTrack) >> Just (F.FlexExtra "player1", PartSingle $ audioExpr "audio-p1")
+        , guard (isJust p2SampleTrack) >> Just (F.FlexExtra "player2", PartSingle $ audioExpr "audio-p2")
         ]
       , crowd       = Nothing
       , comments    = []
@@ -164,8 +163,8 @@ importBMS bmsPath level = do
     , targets = HM.empty
     , parts = Parts $ HM.fromList $ do
       (fpart, chips) <-
-        [ (FlexExtra "player1", bms_Player1 bms)
-        , (FlexExtra "player2", bms_Player2 bms)
+        [ (F.FlexExtra "player1", bms_Player1 bms)
+        , (F.FlexExtra "player2", bms_Player2 bms)
         ]
       guard $ not $ RTB.null chips
       return (fpart, emptyPart

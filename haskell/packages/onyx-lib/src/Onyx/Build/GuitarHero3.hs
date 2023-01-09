@@ -39,8 +39,7 @@ import           Onyx.MIDI.Track.Beat              (BeatEvent (..))
 import           Onyx.MIDI.Track.Drums.Full        (FullDrumNote (..),
                                                     animationToFD)
 import           Onyx.MIDI.Track.Events
-import           Onyx.MIDI.Track.File              (shakeMIDI)
-import qualified Onyx.MIDI.Track.File              as RBFile
+import qualified Onyx.MIDI.Track.File              as F
 import qualified Onyx.MIDI.Track.FiveFret          as Five
 import           Onyx.Mode
 import           Onyx.Neversoft.CRC                (qbKeyCRC)
@@ -105,8 +104,8 @@ gh3Rules buildInfo dir gh3 = do
         GH2Bass   -> gh3.bass
         GH2Rhythm -> gh3.rhythm
       gh3Parts = [gh3.guitar, coopPart]
-      loadOnyxMidi :: Staction (RBFile.Song (RBFile.OnyxFile U.Beats))
-      loadOnyxMidi = shakeMIDI $ planDir </> "raw.mid"
+      loadOnyxMidi :: Staction (F.Song (F.OnyxFile U.Beats))
+      loadOnyxMidi = F.shakeMIDI $ planDir </> "raw.mid"
 
   let pathGuitar  = dir </> "guitar.mp3"
       pathRhythm  = dir </> "rhythm.mp3"
@@ -140,9 +139,9 @@ gh3Rules buildInfo dir gh3 = do
     pad <- readPad
     stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathPreview %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
     -- Pad passed as 0 because we are just applying it to the unpadded audio
-    let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
+    let (pstart, pend) = previewBounds songYaml (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
         fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
         previewExpr
           = Fade End (Seconds 5)
@@ -279,7 +278,7 @@ gh3Rules buildInfo dir gh3 = do
     -- being lazy and copying english file. really we ought to swap out some translated strings
     shk $ copyFile' pathText out
   [pathSongPak, pathPad] %> \_ -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
     let midApplied = applyTargetMIDI gh3.common mid
     timing <- basicTiming midApplied $ getAudioLength buildInfo planName plan
     let (gh3Mid, padSeconds) = makeGH3MidQB
@@ -423,11 +422,11 @@ makeGH3Timing tmap mmap end = let
 
 makeGH3MidQB
   :: SongYaml f
-  -> RBFile.Song (RBFile.OnyxFile U.Beats)
+  -> F.Song (F.OnyxFile U.Beats)
   -> BasicTiming
-  -> RBFile.FlexPartName
-  -> RBFile.FlexPartName
-  -> RBFile.FlexPartName
+  -> F.FlexPartName
+  -> F.FlexPartName
+  -> F.FlexPartName
   -> (GH3MidQB, Int)
 makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
 
@@ -437,27 +436,27 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     Nothing           -> 999
   firstNoteBeats = foldr min 999 $ do
     part <- [partLead, partRhythm]
-    let opart = RBFile.getFlexPart part $ RBFile.s_tracks origSong
+    let opart = F.getFlexPart part $ F.s_tracks origSong
     builder <- toList $ getPart part songYaml >>= anyFiveFret
     let result = builder FiveTypeGuitar ModeInput
-          { tempo = RBFile.s_tempos origSong
-          , events = RBFile.onyxEvents $ RBFile.s_tracks origSong
+          { tempo = F.s_tempos origSong
+          , events = F.onyxEvents $ F.s_tracks origSong
           , part = opart
           }
     map firstEvent $ Map.elems result.notes
-  firstNoteSeconds = U.applyTempoMap (RBFile.s_tempos origSong) firstNoteBeats
+  firstNoteSeconds = U.applyTempoMap (F.s_tempos origSong) firstNoteBeats
   padSeconds = max 0 $ ceiling $ 3 - (realToFrac firstNoteSeconds :: Rational)
-  song = RBFile.padAnyFile padSeconds origSong
+  song = F.padAnyFile padSeconds origSong
 
   makeGH3Part fpart = let
     emptyTrack = GH3Track [] [] []
     in case getPart fpart songYaml >>= anyFiveFret of
       Nothing -> (mempty, GH3Part emptyTrack emptyTrack emptyTrack emptyTrack)
       Just builder -> let
-        result = completeFiveResult False (RBFile.s_signatures song) $ builder FiveTypeGuitar ModeInput
-          { tempo  = RBFile.s_tempos song
-          , events = RBFile.onyxEvents $ RBFile.s_tracks song
-          , part   = RBFile.getFlexPart fpart $ RBFile.s_tracks song
+        result = completeFiveResult False (F.s_signatures song) $ builder FiveTypeGuitar ModeInput
+          { tempo  = F.s_tempos song
+          , events = F.onyxEvents $ F.s_tracks song
+          , part   = F.getFlexPart fpart $ F.s_tracks song
           }
         in (result.other, GH3Part
           { gh3Easy   = makeGH3Track Easy   result
@@ -474,20 +473,20 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
       $ fromMaybe RTB.empty
       $ Map.lookup diff result.notes
     in GH3Track
-      { gh3Notes       = makeGH3TrackNotes (RBFile.s_tempos song) timeSigs beats sht
-      , gh3StarPower   = makeGH3Spans (RBFile.s_tempos song) (Five.fiveOverdrive result.other) sht
+      { gh3Notes       = makeGH3TrackNotes (F.s_tempos song) timeSigs beats sht
+      , gh3StarPower   = makeGH3Spans (F.s_tempos song) (Five.fiveOverdrive result.other) sht
       , gh3BattleStars = []
       }
   (beats, timeSigs) = makeGH3Timing
-    (RBFile.s_tempos song)
-    (RBFile.s_signatures song)
+    (F.s_tempos song)
+    (F.s_signatures song)
     (timingEnd timing)
   sections
     = map (\(secs, (_, sect)) -> (fromSeconds secs, Right $ snd $ makePSSection sect))
     $ ATB.toPairList
     $ RTB.toAbsoluteEventList 0
-    $ U.applyTempoTrack (RBFile.s_tempos song)
-    $ eventsSections (RBFile.getEventsTrack $ RBFile.s_tracks song)
+    $ U.applyTempoTrack (F.s_tempos song)
+    $ eventsSections (F.getEventsTrack $ F.s_tracks song)
   (leadTrack, leadPart  ) = makeGH3Part partLead
   (_        , rhythmPart) = makeGH3Part partRhythm
   -- Not sure if there's a real way to extend the end of the song past the last note.
@@ -502,21 +501,21 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     , gh3Expert = addEndHack $ gh3Expert rhythmPart
     }
   addEndHack diff = diff { gh3Notes = gh3Notes diff <> endHack }
-  endHack = [(fromSeconds $ U.applyTempoMap (RBFile.s_tempos song) $ timingEnd timing, 1, 1)]
+  endHack = [(fromSeconds $ U.applyTempoMap (F.s_tempos song) $ timingEnd timing, 1, 1)]
   makeFaceoff getPlayer
     = map (\(pos, len, _count) -> (pos, len))
-    $ makeGH3Spans (RBFile.s_tempos song) (getPlayer leadTrack)
+    $ makeGH3Spans (F.s_tempos song) (getPlayer leadTrack)
     $ maybe RTB.empty Five.fiveGems
     $ Map.lookup Expert
     $ Five.fiveDifficulties leadTrack
   drumAnims = case getPart partDrummer songYaml >>= (.drums) of
     Nothing -> []
     Just pd -> let
-      rbAnims = buildDrumAnimation pd (RBFile.s_tempos song) $ RBFile.getFlexPart partDrummer $ RBFile.s_tracks song
+      rbAnims = buildDrumAnimation pd (F.s_tempos song) $ F.getFlexPart partDrummer $ F.s_tracks song
       mapping = map swap gh3DrumMapping
       notes = RTB.mapMaybe (\(fdn, hand) -> lookup (fdn_gem fdn, hand) mapping) $ animationToFD rbAnims
       in map (\(secs, pitch) -> [floor $ secs * 1000, pitch, 96]) -- third number is probably original midi velocity
-        $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack (RBFile.s_tempos song) notes
+        $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack (F.s_tempos song) notes
   in (emptyMidQB
     { gh3Guitar          = leadPart
     , gh3Rhythm          = rhythmWithEndHack

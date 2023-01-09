@@ -33,8 +33,7 @@ import           Onyx.Codec.JSON                  (toJSON)
 import           Onyx.FFMPEG                      (audioIntegratedVolume)
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Track.Beat
-import           Onyx.MIDI.Track.File             (saveMIDI, shakeMIDI)
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.Rocksmith
 import           Onyx.MIDI.Track.Vocal            (nullVox)
@@ -83,58 +82,58 @@ rsRules buildInfo dir rs = do
           -- see https://github.com/rscustom/rocksmith-custom-song-toolkit/blob/fa63cc4e0075/RocksmithToolkitLib/XML/Song2014.cs#L347
           -- similarly, we'll need "showlights" when that is implemented
           RSPlayable slot _ -> if isBass slot then "b" else "g"
-        in dir </> "cst/" <> T.unpack (RBFile.getPartName p) <> "." <> suffix <> ".arr.xml"
+        in dir </> "cst/" <> T.unpack (F.getPartName p) <> "." <> suffix <> ".arr.xml"
 
   phony (dir </> "cst") $ shk $ need $
     [rsBuilder, rsProject, rsAudio, rsPreview, rsArt] ++ [ rsArr p arrSlot | (p, arrSlot) <- presentParts ]
 
   rsPadding %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
     let firstNoteBeats = do
           (fpart, RSPlayable _ _) <- presentParts
-          let opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
-          trk <- [RBFile.onyxPartRSBass opart, RBFile.onyxPartRSGuitar opart]
+          let opart = F.getFlexPart fpart $ F.s_tracks mid
+          trk <- [F.onyxPartRSBass opart, F.onyxPartRSGuitar opart]
           Wait dt _ _ <- [rsNotes trk]
           return dt
         targetTime = 10 :: U.Seconds
         firstNoteTime = case NE.nonEmpty firstNoteBeats of
           Nothing -> targetTime
-          Just ts -> U.applyTempoMap (RBFile.s_tempos mid) $ minimum ts
+          Just ts -> U.applyTempoMap (F.s_tempos mid) $ minimum ts
     stackIO $ writeFile out $ show $ if firstNoteTime >= targetTime
       then 0
       else realToFrac $ targetTime - firstNoteTime :: Milli
 
   rsAnchors %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
     let eachTrack trk = if RTB.null $ rsNotes trk
           then return trk
           else do
-            rso <- buildRS (RBFile.s_tempos mid) 0 trk
-            return $ backportAnchors (RBFile.s_tempos mid) trk rso
-    newParts <- forM (RBFile.onyxParts $ RBFile.s_tracks mid) $ \opart -> do
-      gtr  <- eachTrack $ RBFile.onyxPartRSGuitar opart
-      bass <- eachTrack $ RBFile.onyxPartRSBass   opart
+            rso <- buildRS (F.s_tempos mid) 0 trk
+            return $ backportAnchors (F.s_tempos mid) trk rso
+    newParts <- forM (F.onyxParts $ F.s_tracks mid) $ \opart -> do
+      gtr  <- eachTrack $ F.onyxPartRSGuitar opart
+      bass <- eachTrack $ F.onyxPartRSBass   opart
       return opart
-        { RBFile.onyxPartRSGuitar = gtr
-        , RBFile.onyxPartRSBass   = bass
+        { F.onyxPartRSGuitar = gtr
+        , F.onyxPartRSBass   = bass
         }
-    saveMIDI out $ mid
-      { RBFile.s_tracks = (RBFile.s_tracks mid)
-        { RBFile.onyxParts = newParts
+    F.saveMIDI out $ mid
+      { F.s_tracks = (F.s_tracks mid)
+        { F.onyxParts = newParts
         }
       }
 
   forM_ presentParts $ \(fpart, arrSlot) -> do
     rsArr fpart arrSlot %> \out -> do
-      mid <- shakeMIDI $ planDir </> "processed.mid"
+      mid <- F.shakeMIDI $ planDir </> "processed.mid"
       pad <- shk $ (realToFrac :: Milli -> U.Seconds) . read <$> readFile' rsPadding
       case arrSlot of
         RSVocal _pv -> do
-          let opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
-              trk = if nullVox $ RBFile.onyxPartVocals opart
-                then RBFile.onyxHarm1 opart
-                else RBFile.onyxPartVocals opart
-              vox = buildRSVocals (RBFile.s_tempos mid) trk
+          let opart = F.getFlexPart fpart $ F.s_tracks mid
+              trk = if nullVox $ F.onyxPartVocals opart
+                then F.onyxHarm1 opart
+                else F.onyxPartVocals opart
+              vox = buildRSVocals (F.s_tempos mid) trk
           Arr.writePart out $ Arr.addPadding pad $ Arr.PartVocals vox
         RSPlayable slot pg -> do
           mapM_ (shk . need . toList) pg.tones
@@ -144,8 +143,8 @@ rsRules buildInfo dir rs = do
           -- also, notes can't go past the last beat event, or they disappear.
           let ebeats = V.fromList $ numberBars 1 $ ATB.toPairList
                 $ RTB.toAbsoluteEventList 0
-                $ U.applyTempoTrack (RBFile.s_tempos mid)
-                $ beatLines $ RBFile.onyxBeat $ RBFile.s_tracks mid
+                $ U.applyTempoTrack (F.s_tempos mid)
+                $ beatLines $ F.onyxBeat $ F.s_tracks mid
               numberBars _       [] = []
               numberBars measure ((t, Beat) : rest)
                 = Arr.Ebeat t Nothing : numberBars measure rest
@@ -161,15 +160,15 @@ rsRules buildInfo dir rs = do
               -- NOTE: the cutoff is -4 for bass because for some reason CST fails
               -- when trying to apply the low bass fix
               tuning3 = map (+ if octaveDown then 12 else 0) tuning2
-              lengthBeats = RBFile.songLengthBeats mid
-              lengthSeconds = U.applyTempoMap (RBFile.s_tempos mid) lengthBeats
+              lengthBeats = F.songLengthBeats mid
+              lengthSeconds = U.applyTempoMap (F.s_tempos mid) lengthBeats
           rso <- let
-            opart = RBFile.getFlexPart fpart $ RBFile.s_tracks mid
+            opart = F.getFlexPart fpart $ F.s_tracks mid
             trk = if isBass slot
-              then RBFile.onyxPartRSBass   opart
-              else RBFile.onyxPartRSGuitar opart
+              then F.onyxPartRSBass   opart
+              else F.onyxPartRSGuitar opart
               -- TODO maybe support using bass track for a guitar slot
-            in buildRS (RBFile.s_tempos mid) (gtrCapo tuning0) trk
+            in buildRS (F.s_tempos mid) (gtrCapo tuning0) trk
           let allNotes = Arr.lvl_notes $ rso_level rso
           time <- stackIO getZonedTime
           Arr.writePart out $ Arr.addPadding pad $ Arr.PartArrangement Arr.Arrangement
@@ -293,8 +292,8 @@ rsRules buildInfo dir rs = do
       0 -> shk $ copyFile' wav out
       _ -> buildAudio (Pad Start (Seconds pad) $ Input wav) out
   rsPreview %> \out -> do
-    mid <- shakeMIDI $ planDir </> "processed.mid"
-    let (pstart, pend) = previewBounds songYaml (mid :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    let (pstart, pend) = previewBounds songYaml (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
         fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
         previewExpr
           = Fade End (Seconds 5)

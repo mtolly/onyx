@@ -25,9 +25,9 @@ import qualified Onyx.Build.RB3CH                 as RB3
 import           Onyx.Difficulty
 import qualified Onyx.FretsOnFire                 as FoF
 import           Onyx.Genre
-import qualified Onyx.MIDI.Track.Drums            as RBDrums
+import qualified Onyx.MIDI.Track.Drums            as Drums
 import           Onyx.MIDI.Track.File             (saveMIDI, shakeMIDI)
-import qualified Onyx.MIDI.Track.File             as RBFile
+import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.StackTrace
@@ -62,9 +62,9 @@ psRules buildInfo dir ps = do
   dir </> "ps/expert+.mid" %> \out -> do
     song <- shakeMIDI $ dir </> "ps/notes.mid"
     saveMIDI out song
-      { RBFile.s_tracks = (RBFile.s_tracks song)
-        { RBFile.fixedPartDrums = RBDrums.expertWith2x
-          $ RBFile.fixedPartDrums $ RBFile.s_tracks song
+      { F.s_tracks = (F.s_tracks song)
+        { F.fixedPartDrums = Drums.expertWith2x
+          $ F.fixedPartDrums $ F.s_tracks song
         }
       }
 
@@ -88,17 +88,17 @@ psRules buildInfo dir ps = do
     raw <- shakeMIDI $ planDir </> "raw.mid"
     song <- shakeMIDI $ dir </> "ps/notes.mid"
     (DifficultyPS{..}, _) <- loadEditedParts
-    let (pstart, _) = previewBounds songYaml (raw :: RBFile.Song (RBFile.OnyxFile U.Beats)) 0 False
-        len = RBFile.songLengthMS song
+    let (pstart, _) = previewBounds songYaml (raw :: F.Song (F.OnyxFile U.Beats)) 0 False
+        len = F.songLengthMS song
         pd = getPart ps.drums songYaml >>= (.drums)
         dmode = (.mode) <$> pd
         DifficultyRB3{..} = psDifficultyRB3
         allFives =
-          [ RBFile.fixedPartGuitar     $ RBFile.s_tracks song
-          , RBFile.fixedPartBass       $ RBFile.s_tracks song
-          , RBFile.fixedPartKeys       $ RBFile.s_tracks song
-          , RBFile.fixedPartRhythm     $ RBFile.s_tracks song
-          , RBFile.fixedPartGuitarCoop $ RBFile.s_tracks song
+          [ F.fixedPartGuitar     $ F.s_tracks song
+          , F.fixedPartBass       $ F.s_tracks song
+          , F.fixedPartKeys       $ F.s_tracks song
+          , F.fixedPartRhythm     $ F.s_tracks song
+          , F.fixedPartGuitarCoop $ F.s_tracks song
           ]
     FoF.saveSong out FoF.Song
       { FoF.artist           = songYaml.metadata.artist
@@ -173,13 +173,13 @@ psRules buildInfo dir ps = do
 
   let psParts = [ps.drums, ps.guitar, ps.bass, ps.keys, ps.vocal, ps.rhythm, ps.guitarCoop]
       eitherDiff x y = if x == 0 then y else x
-      loadPSMidi :: Staction (RBFile.Song (RBFile.OnyxFile U.Beats), DifficultyPS, DifficultyRB3, U.Seconds)
+      loadPSMidi :: Staction (F.Song (F.OnyxFile U.Beats), DifficultyPS, DifficultyRB3, U.Seconds)
       loadPSMidi = do
         (diffs, _) <- loadEditedParts
         mid <- shakeMIDI $ planDir </> "processed.mid"
         -- should just retrieve the events already there
         timing <- RB3.basicTiming mid $ getAudioLength buildInfo planName plan
-        let endSecs = U.applyTempoMap (RBFile.s_tempos mid) $ RB3.timingEnd timing
+        let endSecs = U.applyTempoMap (F.s_tempos mid) $ RB3.timingEnd timing
         return (mid, diffs, psDifficultyRB3 diffs, endSecs)
   -- TODO for mix mode 4 (kick + kit), we should create only
   --   drums_1 (kick) and drums_2 (kit). currently we create
@@ -260,13 +260,13 @@ psRules buildInfo dir ps = do
         | maybe False ((/= Kicks1x) . (.kicks))
         $ getPart ps.drums songYaml >>= (.drums)
         ]
-      , ["try-drums.ogg"   | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode == RBDrums.D0 && case plan of
+      , ["try-drums.ogg"   | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode == Drums.D0 && case plan of
           StandardPlan x -> HM.member ps.drums x.parts.getParts
           MoggPlan     _ -> True
         ]
-      , ["try-drums_1.ogg" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= RBDrums.D0]
-      , ["try-drums_2.ogg" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= RBDrums.D0]
-      , ["try-drums_3.ogg" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= RBDrums.D0]
+      , ["try-drums_1.ogg" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= Drums.D0]
+      , ["try-drums_2.ogg" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= Drums.D0]
+      , ["try-drums_3.ogg" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= Drums.D0]
       , ["try-guitar.ogg"  | needsPartAudio (.guitar) || needsPartAudio (.guitarCoop)]
       , ["try-keys.ogg"    | needsPartAudio (.keys  )                                   ]
       , ["try-rhythm.ogg"  | needsPartAudio (.bass  ) || needsPartAudio (.rhythm    )]

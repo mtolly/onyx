@@ -17,7 +17,7 @@ import qualified Data.ByteString.Lazy                 as BL
 import           Data.Char                            (isSpace)
 import           Data.Default.Class                   (Default (..))
 import           Data.Foldable                        (forM_)
-import qualified Data.HashMap.Strict                  as Map
+import qualified Data.HashMap.Strict                  as HM
 import           Data.List.HT                         (partitionMaybe)
 import           Data.Maybe                           (catMaybes, fromMaybe,
                                                        listToMaybe, mapMaybe)
@@ -120,13 +120,13 @@ skipScripting = map $ \chunk -> case chunk of
   D.Brackets (D.Tree w xs) -> D.Brackets $ D.Tree w $ skipScripting xs
   _ -> chunk
 
-missingMapping :: Map.HashMap T.Text [D.Chunk T.Text]
+missingMapping :: HM.HashMap T.Text [D.Chunk T.Text]
 missingMapping = case missingSongData of
   D.DTA _ (D.Tree _ chunks) -> let
     getPair = \case
       D.Parens (D.Tree _ (D.Sym k : rest)) -> (k, rest)
       _ -> error "panic! missing_song_data not in expected format"
-    in Map.fromList $ map getPair chunks
+    in HM.fromList $ map getPair chunks
 
 -- | Applies an update from missing_song_data.dta.
 applyUpdate :: [D.Chunk T.Text] -> [D.Chunk T.Text] -> [D.Chunk T.Text]
@@ -167,7 +167,7 @@ readDTASingle :: (SendMessage m) => (B.ByteString, D.Chunk B.ByteString) -> Stac
 readDTASingle (bytes, chunk) = do
   let readTextChunk = \case
         D.Parens (D.Tree _ (D.Sym k : chunks)) -> do
-          let missingChunks = fromMaybe [] $ Map.lookup k missingMapping
+          let missingChunks = fromMaybe [] $ HM.lookup k missingMapping
           pkg <- unserialize stackChunks $ D.DTA 0 $ D.Tree 0
             $ removeOldDTAKeys $ fixTracksCount $ skipScripting
             $ applyUpdate chunks missingChunks

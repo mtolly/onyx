@@ -17,7 +17,7 @@ import qualified Data.Aeson.KeyMap          as KM
 import qualified Data.ByteString            as B
 import           Data.Fixed                 (Fixed, HasResolution)
 import qualified Data.HashMap.Strict        as HM
-import qualified Data.HashSet               as Set
+import qualified Data.HashSet               as HS
 import           Data.List.NonEmpty         (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty         as NE
 import           Data.Profunctor            (dimap)
@@ -74,7 +74,7 @@ asObject :: (Monad m) => T.Text -> ObjectCodec m A.Value a -> JSONCodec m a
 asObject err codec = Codec
   { codecIn = inside ("parsing " ++ T.unpack err) $ lift ask >>= \case
     A.Object obj -> let
-      f = withReaderT (const $ KM.toHashMapText obj) . mapReaderT (`evalStateT` Set.empty)
+      f = withReaderT (const $ KM.toHashMapText obj) . mapReaderT (`evalStateT` HS.empty)
       in mapStackTraceT f $ codecIn codec
     _ -> expected "object"
   , codecOut = makeOut $ A.Object . KM.fromHashMapText . HM.fromList . makeObject codec
@@ -108,8 +108,8 @@ optionalKey k p = lift ask >>= \hm -> case HM.lookup k hm of
 expectedKeys :: (Monad m) => [T.Text] -> StackParser m (HM.HashMap T.Text A.Value) ()
 expectedKeys keys = do
   hm <- lift ask
-  let unknown = Set.fromList (HM.keys hm) `Set.difference` Set.fromList keys
-  unless (Set.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (Set.toList unknown)
+  let unknown = HS.fromList (HM.keys hm) `HS.difference` HS.fromList keys
+  unless (HS.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (HS.toList unknown)
 
 instance StackJSON Int
 instance StackJSON Integer

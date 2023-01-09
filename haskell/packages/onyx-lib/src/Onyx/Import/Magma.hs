@@ -26,7 +26,7 @@ import qualified Onyx.Harmonix.DTA.Serialize.Magma as RBProj
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Track.File              (FlexPartName (..))
-import qualified Onyx.MIDI.Track.File              as RBFile
+import qualified Onyx.MIDI.Track.File              as F
 import           Onyx.MIDI.Track.ProGuitar         (GtrBase (..),
                                                     GtrTuning (..))
 import           Onyx.Project                      hiding (Difficulty)
@@ -48,8 +48,8 @@ importMagma fin level = do
 
   midiLoc <- locate $ T.unpack $ RBProj.midiFile $ RBProj.midi rbproj
   let midi = SoftFile "notes.mid" $ SoftReadable $ fileReadable midiLoc
-  bassBase <- detectExtProBass . RBFile.s_tracks <$> case level of
-    ImportFull  -> RBFile.loadMIDI midiLoc
+  bassBase <- detectExtProBass . F.s_tracks <$> case level of
+    ImportFull  -> F.loadMIDI midiLoc
     ImportQuick -> return emptyChart
 
   c3 <- do

@@ -39,7 +39,7 @@ import           Onyx.Import.Base
 import           Onyx.MIDI.Common                     (Difficulty (..),
                                                        Mood (..))
 import qualified Onyx.MIDI.Track.Events               as RB
-import qualified Onyx.MIDI.Track.File                 as RBFile
+import qualified Onyx.MIDI.Track.File                 as F
 import qualified Onyx.MIDI.Track.FiveFret             as RB
 import           Onyx.Project
 import           Onyx.StackTrace
@@ -147,12 +147,12 @@ importGH1Song pkg path gen level = do
         Nothing -> fatal $ "Required file not found: " <> B8.unpack (B8.intercalate "/" $ toList p)
   midi <- split (midiFile pkg) >>= need . fmap encLatin1
   vgs <- split (songName (song pkg) <> ".vgs") >>= need . fmap encLatin1
-  RBFile.Song tmap mmap gh1 <- case level of
-    ImportFull  -> RBFile.loadMIDIReadable midi
+  F.Song tmap mmap gh1 <- case level of
+    ImportFull  -> F.loadMIDIReadable midi
     ImportQuick -> return emptyChart
-  let convmid :: RBFile.Song (RBFile.OnyxFile U.Beats)
-      convmid = RBFile.Song tmap mmap $ RBFile.fixedToOnyx mempty
-        { RBFile.fixedPartGuitar = mempty
+  let convmid :: F.Song (F.OnyxFile U.Beats)
+      convmid = F.Song tmap mmap $ F.fixedToOnyx mempty
+        { F.fixedPartGuitar = mempty
           { RB.fiveDifficulties = flip fmap diffs $ \diff -> mempty
             { RB.fiveGems = partGems diff
             }
@@ -173,7 +173,7 @@ importGH1Song pkg path gen level = do
             Event_gtr_off -> Just Mood_idle
             _             -> Nothing
           }
-        , RBFile.fixedEvents = mempty
+        , F.fixedEvents = mempty
           { RB.eventsEnd = void $ RTB.filter (== Event_end) $ eventsList $ gh1Events gh1
           }
         }
@@ -236,7 +236,7 @@ importGH1Song pkg path gen level = do
         { song = mixChans songChans
         , countin = Countin []
         , parts = Parts $ HM.fromList $ catMaybes
-          [ (RBFile.FlexGuitar ,) . PartSingle <$> mixChans guitarChans
+          [ (F.FlexGuitar ,) . PartSingle <$> mixChans guitarChans
           ]
         , crowd = Nothing
         , comments = []
@@ -244,7 +244,7 @@ importGH1Song pkg path gen level = do
         , fileTempo = Nothing
         }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton RBFile.FlexGuitar emptyPart
+    , parts = Parts $ HM.singleton F.FlexGuitar emptyPart
       { grybo = Just def
       }
     }

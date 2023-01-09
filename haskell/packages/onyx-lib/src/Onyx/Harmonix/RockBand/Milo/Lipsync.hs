@@ -43,7 +43,7 @@ import           Onyx.MIDI.Common                        (noRedundantStatus,
                                                           pattern RNil,
                                                           pattern Wait)
 import           Onyx.MIDI.Read                          (mapTrack)
-import qualified Onyx.MIDI.Track.File                    as RBFile
+import qualified Onyx.MIDI.Track.File                    as F
 import           Onyx.MIDI.Track.Lipsync                 (GH2Viseme (..),
                                                           LipsyncTrack (..),
                                                           LyricLanguage (..),
@@ -870,7 +870,7 @@ lipsyncPad secs lip = let
 
 testConvertLipsync :: FilePath -> [FilePath] -> FilePath -> IO ()
 testConvertLipsync fmid fvocs fout = do
-  res <- logStdout $ RBFile.loadMIDI fmid
+  res <- logStdout $ F.loadMIDI fmid
   mid <- case res of
     Left err  -> error $ show err
     Right mid -> return mid
@@ -878,17 +878,17 @@ testConvertLipsync fmid fvocs fout = do
     trk <- BL.readFile fvoc >>= return . case takeExtension fvoc of
       ".voc" -> vocToMIDITrack     . runGet parseVocFile
       _      -> lipsyncToMIDITrack . runGet parseLipsync
-    return $ mapTrack (U.unapplyTempoTrack $ RBFile.s_tempos mid) trk
-  Save.toFile fout $ RBFile.showMIDIFile' mid
-    { RBFile.s_tracks = (RBFile.s_tracks mid)
-      { RBFile.onyxParts = let
-        orig = RBFile.onyxParts $ RBFile.s_tracks mid
+    return $ mapTrack (U.unapplyTempoTrack $ F.s_tempos mid) trk
+  Save.toFile fout $ F.showMIDIFile' mid
+    { F.s_tracks = (F.s_tracks mid)
+      { F.onyxParts = let
+        orig = F.onyxParts $ F.s_tracks mid
         fn vox = Just (fromMaybe mempty vox)
-          { RBFile.onyxLipsync1 = fromMaybe mempty $ listToMaybe trks
-          , RBFile.onyxLipsync2 = fromMaybe mempty $ listToMaybe $ drop 1 trks
-          , RBFile.onyxLipsync3 = fromMaybe mempty $ listToMaybe $ drop 2 trks
+          { F.onyxLipsync1 = fromMaybe mempty $ listToMaybe trks
+          , F.onyxLipsync2 = fromMaybe mempty $ listToMaybe $ drop 1 trks
+          , F.onyxLipsync3 = fromMaybe mempty $ listToMaybe $ drop 2 trks
           }
-        in Map.alter fn RBFile.FlexVocal orig
+        in Map.alter fn F.FlexVocal orig
       }
     }
 

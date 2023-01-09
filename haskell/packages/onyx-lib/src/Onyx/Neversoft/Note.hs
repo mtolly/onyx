@@ -35,8 +35,8 @@ import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
                                                    splitEdgesSimple)
 import qualified Onyx.MIDI.Track.Drums            as D
 import           Onyx.MIDI.Track.Events
-import qualified Onyx.MIDI.Track.File             as RBFile
-import qualified Onyx.MIDI.Track.FiveFret         as F
+import qualified Onyx.MIDI.Track.File             as F
+import qualified Onyx.MIDI.Track.FiveFret         as Five
 import qualified Onyx.MIDI.Track.Vocal            as V
 import           Onyx.Neversoft.CRC               (qbKeyCRC)
 import           Onyx.Neversoft.Pak
@@ -403,7 +403,7 @@ tappingToFunction taps w = any
   (\tap -> singleTimeOffset tap <= w && w < singleTimeOffset tap + singleValue tap)
   taps
 
-ghToMidi :: HM.HashMap Word32 T.Text -> GHNoteFile -> RBFile.Song (RBFile.FixedFile U.Beats)
+ghToMidi :: HM.HashMap Word32 T.Text -> GHNoteFile -> F.Song (F.FixedFile U.Beats)
 ghToMidi bank pak = let
   toSeconds :: Word32 -> U.Seconds
   toSeconds = (/ 1000) . fromIntegral
@@ -425,11 +425,11 @@ ghToMidi bank pak = let
       fret <- if noteBits note `testBit` 5
         then [Nothing] -- open note
         else concat
-          [ [Just F.Green  | noteBits note `testBit` 0]
-          , [Just F.Red    | noteBits note `testBit` 1]
-          , [Just F.Yellow | noteBits note `testBit` 2]
-          , [Just F.Blue   | noteBits note `testBit` 3]
-          , [Just F.Orange | noteBits note `testBit` 4]
+          [ [Just Five.Green  | noteBits note `testBit` 0]
+          , [Just Five.Red    | noteBits note `testBit` 1]
+          , [Just Five.Yellow | noteBits note `testBit` 2]
+          , [Just Five.Blue   | noteBits note `testBit` 3]
+          , [Just Five.Orange | noteBits note `testBit` 4]
           ]
       let pos = toBeats $ noteTimeOffset note
           sht | isTap $ noteTimeOffset note = Tap
@@ -524,25 +524,25 @@ ghToMidi bank pak = let
       in (\x -> (toBeats t, x)) <$> mevent)
     $ gh_markers pak
   fixed = mempty
-    { RBFile.fixedPartGuitar = mempty
-      { F.fiveDifficulties = Map.fromList
+    { F.fixedPartGuitar = mempty
+      { Five.fiveDifficulties = Map.fromList
         [ (Expert, getGB $ gh_guitarexpert pak)
         , (Hard  , getGB $ gh_guitarhard   pak)
         , (Medium, getGB $ gh_guitarmedium pak)
         , (Easy  , getGB $ gh_guitareasy   pak)
         ]
-      , F.fiveOverdrive = getOD $ gb_starpower $ gh_guitarexpert pak
+      , Five.fiveOverdrive = getOD $ gb_starpower $ gh_guitarexpert pak
       }
-    , RBFile.fixedPartBass = mempty
-      { F.fiveDifficulties = Map.fromList
+    , F.fixedPartBass = mempty
+      { Five.fiveDifficulties = Map.fromList
         [ (Expert, getGB $ gh_bassexpert pak)
         , (Hard  , getGB $ gh_basshard   pak)
         , (Medium, getGB $ gh_bassmedium pak)
         , (Easy  , getGB $ gh_basseasy   pak)
         ]
-      , F.fiveOverdrive = getOD $ gb_starpower $ gh_bassexpert pak
+      , Five.fiveOverdrive = getOD $ gb_starpower $ gh_bassexpert pak
       }
-    , RBFile.fixedPartDrums = mempty
+    , F.fixedPartDrums = mempty
       { D.drumDifficulties = Map.fromList
         [ (Expert, getDrums $ gh_drumsexpert pak)
         , (Hard  , getDrums $ gh_drumshard   pak)
@@ -552,27 +552,27 @@ ghToMidi bank pak = let
       , D.drumOverdrive = getOD $ drums_starpower $ gh_drumsexpert pak
       , D.drumKick2x = getKick2x $ gh_drumsexpert pak
       }
-    , RBFile.fixedPartVocals = getVocal
+    , F.fixedPartVocals = getVocal
       (gh_vocals         pak)
       (gh_vocallyrics    pak)
       (gh_vocalphrase    pak)
       (gh_vocalstarpower pak)
-    , RBFile.fixedHarm2      = fromMaybe mempty $ getVocal
+    , F.fixedHarm2      = fromMaybe mempty $ getVocal
       <$> gh_backup_vocals         pak
       <*> gh_backup_vocallyrics    pak
       <*> gh_backup_vocalphrase    pak
       <*> gh_backup_vocalstarpower pak
-    , RBFile.fixedEvents = mempty
+    , F.fixedEvents = mempty
       { eventsSections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers
       , eventsEnd      = RTB.mapMaybe (\case Left  ()   -> Just ()  ; _ -> Nothing) markers
       }
     }
-  in RBFile.Song
-    { RBFile.s_tempos = tempos
-    , RBFile.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+  in F.Song
+    { F.s_tempos = tempos
+    , F.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
       ts <- gh_timesig pak
       let unit = 4 / fromIntegral (tsDenominator ts)
           len = fromIntegral (tsNumerator ts) * unit
       return (toBeats $ tsTimestamp ts, U.TimeSig len unit)
-    , RBFile.s_tracks = fixed
+    , F.s_tracks = fixed
     }

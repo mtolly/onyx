@@ -20,10 +20,10 @@ import           Onyx.MIDI.Common                 (Difficulty (..), Edge,
                                                    minSustainLengthRB,
                                                    pattern RNil, pattern Wait,
                                                    trackGlue)
-import qualified Onyx.MIDI.Track.Drums            as RBDrums
+import qualified Onyx.MIDI.Track.Drums            as Drums
 import qualified Onyx.MIDI.Track.Events           as E
-import qualified Onyx.MIDI.Track.File             as RBFile
-import qualified Onyx.MIDI.Track.FiveFret         as RBFive
+import qualified Onyx.MIDI.Track.File             as F
+import qualified Onyx.MIDI.Track.FiveFret         as Five
 import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import qualified Onyx.MIDI.Track.ProKeys          as PK
 import qualified Onyx.MIDI.Track.Vocal            as Vox
@@ -131,11 +131,11 @@ voxBaseAndSolo diff vt = let
   pieces = go 1 $ RTB.getBodies $ RTB.merge phraseEnds perc
   in (sum $ lefts pieces, sum $ rights pieces)
 
-baseAndSolo :: RBFile.FixedFile U.Beats -> (ScoreTrack, Difficulty) -> (Int, Int)
+baseAndSolo :: F.FixedFile U.Beats -> (ScoreTrack, Difficulty) -> (Int, Int)
 baseAndSolo mid (scoreTrack, diff) = let
   adjustGems breLanes = ignoreBRE breLanes . fixSloppyNotes (10 / 480)
   -- have to ignore notes under the BRE lanes, but not the ones after
-  ignoreBRE breLanes = case E.eventsCoda $ RBFile.fixedEvents mid of
+  ignoreBRE breLanes = case E.eventsCoda $ F.fixedEvents mid of
     Wait breStart () _ -> case RTB.filter not $ U.trackDrop breStart breLanes of
       Wait breLength _ _ -> \gems -> let
         breEnd = breStart <> breLength
@@ -143,19 +143,19 @@ baseAndSolo mid (scoreTrack, diff) = let
       RNil -> U.trackTake breStart -- shouldn't happen
     _            -> id
   getDrums gem = let
-    trk = RBFile.fixedPartDrums mid
-    gems = adjustGems (RBDrums.drumActivation trk) $ RBDrums.computePro (Just diff) trk
+    trk = F.fixedPartDrums mid
+    gems = adjustGems (Drums.drumActivation trk) $ Drums.computePro (Just diff) trk
     base = drumBase gem gems
-    solo = perfectSoloBonus 100 (RBDrums.drumSolo trk) gems
+    solo = perfectSoloBonus 100 (Drums.drumSolo trk) gems
     in (base, solo)
   getFive maxStreak getTrack = let
     trk = getTrack mid
-    gems = adjustGems (RBFive.fiveBRE trk)
+    gems = adjustGems (Five.fiveBRE trk)
       $ edgeBlips_ minSustainLengthRB
-      $ maybe RTB.empty RBFive.fiveGems
-      $ Map.lookup diff $ RBFive.fiveDifficulties trk
+      $ maybe RTB.empty Five.fiveGems
+      $ Map.lookup diff $ Five.fiveDifficulties trk
     base = gbkBase 25 12 maxStreak $ fmap snd gems
-    solo = perfectSoloBonus 100 (RBFive.fiveSolo trk) $ RTB.collectCoincident gems
+    solo = perfectSoloBonus 100 (Five.fiveSolo trk) $ RTB.collectCoincident gems
     in (base, solo)
   -- From what I can tell 17 and 22 are same cutoff, and it uses the 22 chart
   getPG maxStreak get22 get17 = let
@@ -174,26 +174,26 @@ baseAndSolo mid (scoreTrack, diff) = let
   getVox getTrack = voxBaseAndSolo diff $ getTrack mid
   getPK = let
     trk = case diff of
-      Easy   -> RBFile.fixedPartRealKeysE mid
-      Medium -> RBFile.fixedPartRealKeysM mid
-      Hard   -> RBFile.fixedPartRealKeysH mid
-      Expert -> RBFile.fixedPartRealKeysX mid
-    expert = RBFile.fixedPartRealKeysX mid
+      Easy   -> F.fixedPartRealKeysE mid
+      Medium -> F.fixedPartRealKeysM mid
+      Hard   -> F.fixedPartRealKeysH mid
+      Expert -> F.fixedPartRealKeysX mid
+    expert = F.fixedPartRealKeysX mid
     gems = adjustGems (PK.pkBRE expert) $ edgeBlips_ minSustainLengthRB $ PK.pkNotes trk
     base = gbkBase 60 30 4 $ fmap snd gems
     solo = perfectSoloBonus 100 (PK.pkSolo expert) $ RTB.collectCoincident gems
     in (base, solo)
   in case scoreTrack of
-    ScoreDrums       -> getDrums 25
-    ScoreProDrums    -> getDrums 30
-    ScoreGuitar      -> getFive 4 RBFile.fixedPartGuitar
-    ScoreBass        -> getFive 6 RBFile.fixedPartBass
-    ScoreKeys        -> getFive 4 RBFile.fixedPartKeys
-    ScoreProGuitar   -> getPG 4 RBFile.fixedPartRealGuitar22 RBFile.fixedPartRealGuitar
-    ScoreProBass     -> getPG 6 RBFile.fixedPartRealBass22 RBFile.fixedPartRealBass
-    ScoreVocals      -> getVox RBFile.fixedPartVocals
-    ScoreHarmonies   -> getVox RBFile.fixedHarm1
-    ScoreProKeys     -> getPK
+    ScoreDrums     -> getDrums 25
+    ScoreProDrums  -> getDrums 30
+    ScoreGuitar    -> getFive 4 F.fixedPartGuitar
+    ScoreBass      -> getFive 6 F.fixedPartBass
+    ScoreKeys      -> getFive 4 F.fixedPartKeys
+    ScoreProGuitar -> getPG 4 F.fixedPartRealGuitar22 F.fixedPartRealGuitar
+    ScoreProBass   -> getPG 6 F.fixedPartRealBass22 F.fixedPartRealBass
+    ScoreVocals    -> getVox F.fixedPartVocals
+    ScoreHarmonies -> getVox F.fixedHarm1
+    ScoreProKeys   -> getPK
 
 annotateMultiplier :: Int -> RTB.T t a -> RTB.T t (a, Int)
 annotateMultiplier maxMult = RTB.fromPairList . go 1 9 . RTB.toPairList where
@@ -212,7 +212,7 @@ gbkBase headPoints tailPoints maxStreak evts = let
     let tailTicks = maybe 0 (\bts -> floor $ toRational bts * toRational tailPoints) mlen
     return $ mult * (headPoints + tailTicks)
 
-getScoreTracks :: RBFile.FixedFile U.Beats -> [(ScoreTrack, Difficulty, (Int, Int))]
+getScoreTracks :: F.FixedFile U.Beats -> [(ScoreTrack, Difficulty, (Int, Int))]
 getScoreTracks mid = do
   strack <- [minBound .. maxBound]
   diff   <- [minBound .. maxBound]
@@ -235,7 +235,7 @@ tracksToStars trks = let
   allExpert = all (\(_, diff, _) -> diff == Expert) trks
   in allCutoffs { starsGold = guard allExpert >> starsGold allCutoffs }
 
-starCutoffs :: RBFile.FixedFile U.Beats -> [(ScoreTrack, Difficulty)] -> Stars (Maybe Int)
+starCutoffs :: F.FixedFile U.Beats -> [(ScoreTrack, Difficulty)] -> Stars (Maybe Int)
 starCutoffs mid trks = tracksToStars $ do
   pair@(strack, diff) <- trks
   let (base, solo) = baseAndSolo mid pair
@@ -243,7 +243,7 @@ starCutoffs mid trks = tracksToStars $ do
 
 -- GH2 stuff
 
-gh2BaseGems :: RTB.T U.Beats (Edge () RBFive.Color) -> Int
+gh2BaseGems :: RTB.T U.Beats (Edge () Five.Color) -> Int
 gh2BaseGems edges = let
   gems = fixSloppyNotes (10 / 480) $ edgeBlips_ minSustainLengthRB edges
   in gbkBase 50 25 1 $ fmap snd gems
@@ -253,10 +253,10 @@ gh2Base diff pt = case Map.lookup diff $ partDifficulties pt of
   Nothing -> 0
   Just pd -> gh2BaseGems $ partGems pd
 
-gh2BaseFixed :: Difficulty -> RBFive.FiveTrack U.Beats -> Int
-gh2BaseFixed diff ft = case Map.lookup diff $ RBFive.fiveDifficulties ft of
+gh2BaseFixed :: Difficulty -> Five.FiveTrack U.Beats -> Int
+gh2BaseFixed diff ft = case Map.lookup diff $ Five.fiveDifficulties ft of
   Nothing -> 0
-  Just fd -> gh2BaseGems $ RBFive.fiveGems fd
+  Just fd -> gh2BaseGems $ Five.fiveGems fd
 
 -- In GH2 coop_max_scores (either a .dtb on disc or .dta in 360 DLC)
 -- each song has an entry:
@@ -275,13 +275,13 @@ scoreTrackNameGH2 = \case
   ScoreGH2Bass   -> "Bass"
   ScoreGH2Rhythm -> "Rhythm"
 
-getScoreTracksGH2 :: RBFile.FixedFile U.Beats -> [(ScoreTrackGH2, Difficulty, Int)]
+getScoreTracksGH2 :: F.FixedFile U.Beats -> [(ScoreTrackGH2, Difficulty, Int)]
 getScoreTracksGH2 mid = do
   strack <- [minBound .. maxBound]
   diff   <- [minBound .. maxBound]
   let base = gh2BaseFixed diff $ case strack of
-        ScoreGH2Guitar -> RBFile.fixedPartGuitar mid
-        ScoreGH2Bass   -> RBFile.fixedPartBass   mid
-        ScoreGH2Rhythm -> RBFile.fixedPartRhythm mid
+        ScoreGH2Guitar -> F.fixedPartGuitar mid
+        ScoreGH2Bass   -> F.fixedPartBass   mid
+        ScoreGH2Rhythm -> F.fixedPartRhythm mid
   guard $ base /= 0
   return (strack, diff, base)

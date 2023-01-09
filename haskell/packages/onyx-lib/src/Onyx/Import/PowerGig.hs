@@ -44,8 +44,8 @@ import           Onyx.MIDI.Common                  (Difficulty (..),
                                                     StrumHOPOTap (..),
                                                     pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Track.Drums             as D
-import qualified Onyx.MIDI.Track.File              as RBFile
-import qualified Onyx.MIDI.Track.FiveFret          as F
+import qualified Onyx.MIDI.Track.File              as F
+import qualified Onyx.MIDI.Track.FiveFret          as Five
 import           Onyx.MIDI.Track.Vocal             (Lyric (..), LyricNote (..),
                                                     Pitch, TalkyDifficulty (..),
                                                     VocalTrack (..),
@@ -96,7 +96,7 @@ importPowerGigSong key song folder level = do
   --   ImportQuick -> return Nothing
   --   ImportFull -> case findFileCI ("Audio" :| ["songs", key, audio_midi $ song_audio song]) folder of
   --     Nothing -> return Nothing
-  --     Just r  -> fmap Just $ RBFile.loadRawMIDIReadable r >>= RBFile.readMIDIFile' . fixLateTrackNames
+  --     Just r  -> fmap Just $ F.loadRawMIDIReadable r >>= F.readMIDIFile' . fixLateTrackNames
   -- TODO maybe just warn if level is ImportFull and there's no gev or midi found
 
   let tempo = maybe (U.makeTempoMap RTB.empty) getMIDITempos maybeGEV
@@ -204,22 +204,22 @@ importPowerGigSong key song folder level = do
   vox <- getVocalsGEV "vocals_1_expert"
 
   let onyxFile = mempty
-        { RBFile.onyxParts = Map.fromList
-          [ (RBFile.FlexGuitar, mempty
-            { RBFile.onyxPartGuitar = mempty
-              { F.fiveDifficulties = Map.fromList
+        { F.onyxParts = Map.fromList
+          [ (F.FlexGuitar, mempty
+            { F.onyxPartGuitar = mempty
+              { Five.fiveDifficulties = Map.fromList
                 [ (Easy  , getGuitarGEV "guitar_1_easy"  )
                 , (Medium, getGuitarGEV "guitar_1_medium")
                 , (Hard  , getGuitarGEV "guitar_1_hard"  )
                 , (Expert, getGuitarGEV "guitar_1_expert")
                 ]
-              , F.fiveOverdrive = case Map.lookup "guitar_1_expert" gevTracks of
+              , Five.fiveOverdrive = case Map.lookup "guitar_1_expert" gevTracks of
                 Nothing  -> RTB.empty
                 Just trk -> RTB.merge (getController 81 trk) (getController 82 trk)
               }
             })
-          , (RBFile.FlexDrums, mempty
-            { RBFile.onyxPartDrums = mempty
+          , (F.FlexDrums, mempty
+            { F.onyxPartDrums = mempty
               { D.drumDifficulties = Map.fromList
                 [ (Easy  , getDrumsGEV "drums_1_easy"  )
                 , (Medium, getDrumsGEV "drums_1_medium")
@@ -231,11 +231,11 @@ importPowerGigSong key song folder level = do
                 Just trk -> RTB.merge (getController 80 trk) (getController 82 trk)
               }
             })
-          , (RBFile.FlexVocal, mempty
-            { RBFile.onyxPartVocals = vox
+          , (F.FlexVocal, mempty
+            { F.onyxPartVocals = vox
             })
           ]
-        , RBFile.onyxBeat = mempty -- TODO
+        , F.onyxBeat = mempty -- TODO
         }
       getDrumsGEV trackName = case Map.lookup trackName gevTracks of
         Nothing  -> mempty
@@ -273,22 +273,22 @@ importPowerGigSong key song folder level = do
                   s -> Just $ secsToBeats (gevtTime evt + s) - start
             color <- concat
               [ [Nothing | not $ any (`elem` bits) [Bit_Green, Bit_Red, Bit_Yellow, Bit_Blue, Bit_Orange]]
-              , [Just F.Green   | elem Bit_Green  bits]
-              , [Just F.Red     | elem Bit_Red    bits]
-              , [Just F.Yellow  | elem Bit_Yellow bits]
-              , [Just F.Blue    | elem Bit_Blue   bits]
-              , [Just F.Orange  | elem Bit_Orange bits]
+              , [Just Five.Green   | elem Bit_Green  bits]
+              , [Just Five.Red     | elem Bit_Red    bits]
+              , [Just Five.Yellow  | elem Bit_Yellow bits]
+              , [Just Five.Blue    | elem Bit_Blue   bits]
+              , [Just Five.Orange  | elem Bit_Orange bits]
               ]
             return (start, (color, sustain))
           in fmap (\(hopo, (color, sustain)) -> ((color, if hopo then HOPO else Strum), sustain))
             $ applyStatus1 False hopos notes
 
-      onyxMid = RBFile.Song
-        { RBFile.s_tempos     = tempo
+      onyxMid = F.Song
+        { F.s_tempos     = tempo
         -- unfortunately .gev does not contain time sig info (_cue.gev has the gevtType = 20 events, but no data!)
         -- maybe we can optionally look for .mid just to load time sigs?
-        , RBFile.s_signatures = U.measureMapFromLengths U.Error RTB.empty
-        , RBFile.s_tracks     = onyxFile
+        , F.s_signatures = U.measureMapFromLengths U.Error RTB.empty
+        , F.s_tracks     = onyxFile
         }
 
   combinedAudio <- case audio_combined_audio $ song_audio song of
@@ -431,9 +431,9 @@ importPowerGigSong key song folder level = do
       { song = audioBacking
       , countin = Countin []
       , parts = Parts $ HM.fromList $ catMaybes
-        [ (RBFile.FlexGuitar,) <$> audioGuitar
-        , (RBFile.FlexDrums ,) <$> audioDrums
-        , (RBFile.FlexVocal ,) <$> audioVocals
+        [ (F.FlexGuitar,) <$> audioGuitar
+        , (F.FlexDrums ,) <$> audioDrums
+        , (F.FlexVocal ,) <$> audioVocals
         ]
       , crowd = Nothing
       , comments = []
@@ -448,12 +448,12 @@ importPowerGigSong key song folder level = do
       }
     , parts = Parts $ HM.fromList
       -- do all songs have all instruments?
-      [ (RBFile.FlexGuitar, emptyPart
+      [ (F.FlexGuitar, emptyPart
         { grybo = Just (def :: PartGRYBO)
           { difficulty = Tier 1 -- TODO
           }
         })
-      , (RBFile.FlexDrums, (emptyPart :: Part SoftFile)
+      , (F.FlexDrums, (emptyPart :: Part SoftFile)
         { drums = Just PartDrums
           { mode        = Drums4
           , difficulty  = Tier 1 -- TODO
@@ -466,7 +466,7 @@ importPowerGigSong key song folder level = do
           , fullLayout  = FDStandard
           }
         })
-      , (RBFile.FlexVocal, (emptyPart :: Part SoftFile)
+      , (F.FlexVocal, (emptyPart :: Part SoftFile)
         { vocal = Just PartVocal
           { difficulty = Tier 1 -- TODO
           , gender = info_singer_gender (song_info song) >>= \case

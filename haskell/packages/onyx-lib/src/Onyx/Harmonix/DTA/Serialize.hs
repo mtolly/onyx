@@ -11,8 +11,8 @@ import           Control.Monad.Trans.Class  (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.State  (evalStateT)
 import           Data.Hashable              (Hashable)
-import qualified Data.HashMap.Strict        as Map
-import qualified Data.HashSet               as Set
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.HashSet               as HS
 import qualified Data.Text                  as T
 import           Onyx.Codec.Common
 import           Onyx.Harmonix.DTA.Base
@@ -155,13 +155,13 @@ chunksDictList ck cv = Codec
 instance (Eq k, StackChunk k, StackChunks a) => StackChunks (DictList k a) where
   stackChunks = chunksDictList stackChunk stackChunks
 
-chunksDict :: (Monad m, Eq k, Hashable k) => ChunkCodec m k -> ChunksCodec m a -> ChunksCodec m (Map.HashMap k a)
+chunksDict :: (Monad m, Eq k, Hashable k) => ChunkCodec m k -> ChunksCodec m a -> ChunksCodec m (HM.HashMap k a)
 chunksDict ck cv = Codec
-  { codecOut = fmapArg $ void . codecOut dl . DictList . Map.toList
-  , codecIn = Map.fromList . fromDictList <$> codecIn dl
+  { codecOut = fmapArg $ void . codecOut dl . DictList . HM.toList
+  , codecIn = HM.fromList . fromDictList <$> codecIn dl
   } where dl = chunksDictList ck cv
 
-instance (Eq k, Hashable k, StackChunk k, StackChunks a) => StackChunks (Map.HashMap k a) where
+instance (Eq k, Hashable k, StackChunk k, StackChunks a) => StackChunks (HM.HashMap k a) where
   stackChunks = chunksDict stackChunk stackChunks
 
 chunksParens :: (Monad m) => ChunksCodec m a -> ChunksCodec m a
@@ -208,7 +208,7 @@ asAssoc :: (Monad m) => T.Text -> ObjectCodec m [Chunk T.Text] a -> ChunksCodec 
 asAssoc err codec = Codec
   { codecIn = inside ("parsing " ++ T.unpack err) $ do
     obj <- codecIn cdc
-    let f = withReaderT (const $ Map.fromList $ fromDictList obj) . mapReaderT (`evalStateT` Set.empty)
+    let f = withReaderT (const $ HM.fromList $ fromDictList obj) . mapReaderT (`evalStateT` HS.empty)
     mapStackTraceT f $ codecIn codec
   , codecOut = fmapArg $ void . codecOut cdc . DictList . makeObject codec
   } where cdc = chunksDictList chunkSym identityCodec
