@@ -15,9 +15,9 @@ import           Data.Char                         (toUpper)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME           (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding   as L
-import           Data.Default.Class                (def)
 import qualified Data.EventList.Absolute.TimeBody  as ATB
 import qualified Data.EventList.Relative.TimeBody  as RTB
+import           Data.Foldable                     (toList)
 import           Data.Hashable                     (Hashable, hash)
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (catMaybes, fromMaybe)
@@ -30,13 +30,8 @@ import           Onyx.Audio
 import           Onyx.Audio.FSB                    (emitFSB, mp3sToFSB3)
 import           Onyx.Build.Common
 import           Onyx.Build.RB3CH                  (BasicTiming (..),
-                                                    basicTiming, buildDrums,
-                                                    drumsToFive)
-import           Onyx.Guitar                       (HOPOsAlgorithm (..),
-                                                    applyForces,
-                                                    computeFiveFretNotes,
-                                                    getForces5, gh3LegalHOPOs,
-                                                    noOpenNotes, strumHOPOTap)
+                                                    basicTiming)
+import           Onyx.Guitar                       (gh3LegalHOPOs, noOpenNotes)
 import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
 import           Onyx.MIDI.Common                  (Difficulty (..), Edge (..),
                                                     joinEdgesSimple, trackGlue)
@@ -47,6 +42,7 @@ import           Onyx.MIDI.Track.Events
 import           Onyx.MIDI.Track.File              (shakeMIDI)
 import qualified Onyx.MIDI.Track.File              as RBFile
 import qualified Onyx.MIDI.Track.FiveFret          as Five
+import           Onyx.Mode
 import           Onyx.Neversoft.CRC                (qbKeyCRC)
 import           Onyx.Neversoft.Crypt              (gh3Encrypt)
 import           Onyx.Neversoft.GH3
@@ -57,7 +53,7 @@ import           Onyx.PlayStation.NPData           (gh3CustomMidEdatConfig,
                                                     npdContentID, packNPData)
 import           Onyx.PlayStation.PKG              (makePKG)
 import           Onyx.Project                      hiding (Difficulty)
-import           Onyx.Reductions                   (gryboComplete)
+import           Onyx.Reductions                   (completeFiveResult)
 import           Onyx.Resources                    (getResourcesPath,
                                                     gh3Thumbnail)
 import           Onyx.Sections                     (makePSSection)
@@ -442,43 +438,44 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
   firstNoteBeats = foldr min 999 $ do
     part <- [partLead, partRhythm]
     let opart = RBFile.getFlexPart part $ RBFile.s_tracks origSong
-        five = fst $ RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart
-    diff <- Map.elems $ Five.fiveDifficulties five
-    return $ firstEvent $ Five.fiveGems diff
+    builder <- toList $ getPart part songYaml >>= anyFiveFret
+    let result = builder FiveTypeGuitar ModeInput
+          { tempo = RBFile.s_tempos origSong
+          , events = RBFile.onyxEvents $ RBFile.s_tracks origSong
+          , part = opart
+          }
+    map firstEvent $ Map.elems result.notes
   firstNoteSeconds = U.applyTempoMap (RBFile.s_tempos origSong) firstNoteBeats
   padSeconds = max 0 $ ceiling $ 3 - (realToFrac firstNoteSeconds :: Rational)
   song = RBFile.padAnyFile padSeconds origSong
 
   makeGH3Part fpart = let
-    opart = RBFile.getFlexPart fpart $ RBFile.s_tracks song
-    ((trk, algo), threshold, detectMuted) = case getPart fpart songYaml >>= (.grybo) of
-      Just pg -> (RBFile.selectGuitarTrack RBFile.FiveTypeGuitar opart, pg.hopoThreshold, pg.detectMutedOpens)
-      Nothing -> let
-        trk' = case getPart fpart songYaml >>= (.drums) of
-          Just _pd -> case buildDrums fpart (Left (def :: TargetRB3) { is2xBassPedal = True }) song timing songYaml of
-            Just drums -> drumsToFive song drums
-            Nothing    -> mempty
-          Nothing -> mempty
-        in ((trk', HOPOsRBGuitar), 170, False)
-    in (trk, GH3Part
-      { gh3Easy   = makeGH3Track Easy   trk algo threshold detectMuted
-      , gh3Medium = makeGH3Track Medium trk algo threshold detectMuted
-      , gh3Hard   = makeGH3Track Hard   trk algo threshold detectMuted
-      , gh3Expert = makeGH3Track Expert trk algo threshold detectMuted
-      })
-  makeGH3Track diff trk algo threshold detectMuted = let
-    trk' = gryboComplete (Just threshold) (RBFile.s_signatures song) trk
-    fiveDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk'
+    emptyTrack = GH3Track [] [] []
+    in case getPart fpart songYaml >>= anyFiveFret of
+      Nothing -> (mempty, GH3Part emptyTrack emptyTrack emptyTrack emptyTrack)
+      Just builder -> let
+        result = completeFiveResult False (RBFile.s_signatures song) $ builder FiveTypeGuitar ModeInput
+          { tempo  = RBFile.s_tempos song
+          , events = RBFile.onyxEvents $ RBFile.s_tracks song
+          , part   = RBFile.getFlexPart fpart $ RBFile.s_tracks song
+          }
+        in (result.other, GH3Part
+          { gh3Easy   = makeGH3Track Easy   result
+          , gh3Medium = makeGH3Track Medium result
+          , gh3Hard   = makeGH3Track Hard   result
+          , gh3Expert = makeGH3Track Expert result
+          })
+  makeGH3Track :: Difficulty -> FiveResult -> GH3Track
+  makeGH3Track diff result = let
     sht
       = gh3LegalHOPOs
-      $ noOpenNotes detectMuted
+      $ noOpenNotes result.settings.detectMutedOpens
       -- TODO guitarify' is called by makeGH3TrackNotes but should we remove ext sustains before noOpenNotes?
-      $ applyForces (getForces5 fiveDiff)
-      $ strumHOPOTap algo (fromIntegral threshold / 480)
-      $ computeFiveFretNotes fiveDiff
+      $ fromMaybe RTB.empty
+      $ Map.lookup diff result.notes
     in GH3Track
       { gh3Notes       = makeGH3TrackNotes (RBFile.s_tempos song) timeSigs beats sht
-      , gh3StarPower   = makeGH3Spans (RBFile.s_tempos song) (Five.fiveOverdrive trk) (Five.fiveGems fiveDiff)
+      , gh3StarPower   = makeGH3Spans (RBFile.s_tempos song) (Five.fiveOverdrive result.other) sht
       , gh3BattleStars = []
       }
   (beats, timeSigs) = makeGH3Timing

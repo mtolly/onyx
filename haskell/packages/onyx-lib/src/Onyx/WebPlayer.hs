@@ -51,6 +51,7 @@ import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import           Onyx.MIDI.Track.ProKeys          as PK
 import qualified Onyx.MIDI.Track.SixFret          as GHL
 import qualified Onyx.MIDI.Track.Vocal.Legacy     as Vox
+import           Onyx.Mode
 import qualified Onyx.PhaseShift.Dance            as Dance
 import qualified Onyx.Project                     as C
 import           Onyx.Sections                    (makePSSection)
@@ -320,13 +321,9 @@ laneDifficulty Hard   lanes
   $ joinEdgesSimple $ maybe (EdgeOff ()) (`EdgeOn` ()) <$> lanes
 laneDifficulty _      _     = RTB.empty
 
-processFive :: HOPOsAlgorithm -> U.Beats -> U.TempoMap -> Five.FiveTrack U.Beats -> Difficulties Five U.Seconds
-processFive algo hopoThreshold tmap trk = makeDifficulties $ \diff -> let
-  thisDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk
-  assigned
-    = applyForces (getForces5 thisDiff)
-    $ strumHOPOTap algo hopoThreshold
-    $ computeFiveFretNotes thisDiff
+processFive :: U.TempoMap -> FiveResult -> Difficulties Five U.Seconds
+processFive tmap result = makeDifficulties $ \diff -> let
+  assigned = fromMaybe mempty $ Map.lookup diff result.notes
   assigned' = U.trackJoin $ flip fmap assigned $ \((color, sht), mlen) -> case mlen of
     Nothing  -> RTB.singleton 0 $ Blip sht color
     Just len -> RTB.fromPairList [(0, NoteOn sht color), (len, NoteOff color)]
@@ -334,19 +331,19 @@ processFive algo hopoThreshold tmap trk = makeDifficulties $ \diff -> let
   notes = Map.fromList $ do
     color <- Nothing : map Just [minBound .. maxBound]
     return (color, getColor color)
-  solo   = realTrack tmap $ Five.fiveSolo      trk
-  energy = realTrack tmap $ Five.fiveOverdrive trk
-  bre    = realTrack tmap $ Five.fiveBRE       trk
+  solo   = realTrack tmap $ Five.fiveSolo      result.other
+  energy = realTrack tmap $ Five.fiveOverdrive result.other
+  bre    = realTrack tmap $ Five.fiveBRE       result.other
   ons    = RTB.normalize $ fmap (fst . fst) assigned
-  trems  = findTremolos ons $ RTB.normalize $ laneDifficulty diff $ Five.fiveTremolo trk
-  trills = findTrills ons $ RTB.normalize $ laneDifficulty diff $ Five.fiveTrill trk
+  trems  = findTremolos ons $ RTB.normalize $ laneDifficulty diff $ Five.fiveTremolo result.other
+  trills = findTrills ons $ RTB.normalize $ laneDifficulty diff $ Five.fiveTrill result.other
   lanesAll = RTB.merge trems trills
   lanes = Map.fromList $ do
     color <- Nothing : fmap Just [Five.Green .. Five.Orange]
     return $ (,) color $ U.applyTempoTrack tmap $ splitEdgesBool $ flip RTB.mapMaybe lanesAll $ \(color', len) -> do
       guard $ color == color'
       return len
-  in guard (not $ RTB.null $ Five.fiveGems thisDiff) >> Just (Five notes solo energy lanes bre)
+  in guard (not $ RTB.null assigned) >> Just (Five notes solo energy lanes bre)
 
 processSix :: U.Beats -> U.TempoMap -> GHL.SixTrack U.Beats -> Difficulties Six U.Seconds
 processSix hopoThreshold tmap trk = makeDifficulties $ \diff -> let
@@ -745,13 +742,13 @@ makeDisplay songYaml song = let
   -- the above gets imported from first song_key then vocal_tonic_note
   makePart :: RBFile.FlexPartName -> C.Part FilePath -> Flex U.Seconds
   makePart name fpart = Flex
-    { flexFive = flip fmap fpart.grybo $ \grybo ->
-      case RBFile.selectGuitarTrack RBFile.FiveTypeGuitarExt tracks of
-        (trk, algo) -> processFive
-          algo
-          (ht grybo.hopoThreshold)
-          (RBFile.s_tempos song)
-          trk
+    { flexFive = flip fmap (nativeFiveFret fpart) $ \builder -> let
+      result = builder FiveTypeGuitarExt ModeInput
+        { tempo  = RBFile.s_tempos song
+        , events = RBFile.onyxEvents $ RBFile.s_tracks song
+        , part   = tracks
+        }
+      in processFive (RBFile.s_tempos song) result
     , flexSix = flip fmap fpart.ghl $ \ghl -> processSix (ht ghl.hopoThreshold) (RBFile.s_tempos song) (RBFile.onyxPartSix tracks)
     , flexDrums = case fpart.drums of
       Nothing -> []

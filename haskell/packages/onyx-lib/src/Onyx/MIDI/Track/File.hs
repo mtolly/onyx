@@ -18,7 +18,7 @@ import           Control.Monad.Trans.State.Strict  (StateT, execState, get, put,
                                                     runStateT)
 import           Control.Monad.Trans.Writer.Strict (Writer, execWriter, tell)
 import qualified Data.EventList.Relative.TimeBody  as RTB
-import           Data.Foldable                     (find, toList)
+import           Data.Foldable                     (toList)
 import           Data.Functor                      (void)
 import           Data.Functor.Identity             (Identity)
 import           Data.Hashable                     (Hashable (..))
@@ -36,8 +36,7 @@ import           GHC.Generics                      (Generic)
 import qualified Numeric.NonNegative.Class         as NNC
 import           Onyx.Amplitude.Track
 import           Onyx.DeriveHelpers
-import           Onyx.Guitar                       (HOPOsAlgorithm (..),
-                                                    noExtendedSustains',
+import           Onyx.Guitar                       (noExtendedSustains',
                                                     standardBlipThreshold,
                                                     standardSustainGap)
 import           Onyx.Harmonix.DTA.Serialize.Magma (Percussion)
@@ -325,24 +324,6 @@ editOnyxPart pname edit onyx = onyx
     pname
     (onyxParts onyx)
   }
-
-data FiveType
-  = FiveTypeGuitar
-  | FiveTypeKeys
-  | FiveTypeGuitarExt
-  deriving (Eq, Show)
-
-selectGuitarTrack :: (NNC.C t) => FiveType -> OnyxPart t -> (FiveTrack t, HOPOsAlgorithm)
-selectGuitarTrack typ part = let
-  gtr  = (onyxPartGuitar    part, HOPOsRBGuitar)
-  keys = (onyxPartKeys      part, HOPOsRBKeys  )
-  ext  = (onyxPartGuitarExt part, HOPOsRBGuitar)
-  trks = case typ of
-    FiveTypeGuitar    -> [gtr, ext, keys]
-    FiveTypeKeys      -> [keys, ext, gtr] -- prefer ext due to sustains? or gtr due to no opens? dunno
-    FiveTypeGuitarExt -> [ext, gtr, keys]
-  in fromMaybe (mempty, HOPOsRBGuitar) $ find (not . nullFive . fst) trks
-  -- TODO maybe fill in lower difficulties from secondary tracks
 
 instance TraverseTrack OnyxPart where
   traverseTrack fn

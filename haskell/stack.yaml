@@ -24,6 +24,7 @@ extra-deps:
 - packages/onyx-wwise
 - packages/onyx-npdata
 - packages/onyx-mogg-encrypt
+- packages/onyx-autochart
 - cabal/Cabal/ # this submodule should just be a git reference, but stack appears to not apply it correctly that way
 # git repos
 - git: https://github.com/mtolly/midi

@@ -25,7 +25,8 @@ import qualified Data.EventList.Absolute.TimeBody  as ATB
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.List.Extra                   (nubOrd)
 import qualified Data.Map                          as Map
-import           Data.Maybe                        (fromMaybe, isJust)
+import           Data.Maybe                        (fromMaybe, isJust,
+                                                    isNothing)
 import qualified Data.Text                         as T
 import qualified Numeric.NonNegative.Class         as NNC
 import           Onyx.Difficulty
@@ -48,8 +49,8 @@ import           Onyx.MIDI.Track.Venue
 import           Onyx.MIDI.Track.VenueGen          (buildCamera, buildLighting)
 import           Onyx.MIDI.Track.Vocal
 import qualified Onyx.MIDI.Track.Vocal.Legacy      as RBVox
+import           Onyx.Mode
 import           Onyx.Overdrive
-import           Onyx.Preferences                  (MagmaSetting (..))
 import           Onyx.Project
 import           Onyx.Reductions
 import           Onyx.Sections                     (makePSSection)
@@ -430,80 +431,55 @@ buildFive
   -> Bool
   -> SongYaml f
   -> Maybe (FiveTrack U.Beats)
-buildFive fivePart target song@(RBFile.Song tempos mmap trks) timing toKeys songYaml = case getPart fivePart songYaml >>= (.grybo) of
-  Nothing    -> let
-    target' = case target of
-      Left _rb3 -> target
-      Right ps  -> Left TargetRB3
-        { common      = ps.common
-        , is2xBassPedal = True -- assume 2x
-        , songID      = SongIDAutoSymbol
-        , version     = Nothing
-        , harmonix    = False
-        , magma       = MagmaRequire
-        , guitar      = ps.guitar
-        , bass        = ps.bass
-        , drums       = ps.drums
-        , keys        = ps.keys
-        , vocal       = ps.vocal
-        , ps3Encrypt  = True
-        }
-    in case buildDrums fivePart target' song timing songYaml of
-      Nothing    -> Nothing
-      Just drums -> Just $ drumsToFive song drums
-  Just grybo -> Just $ let
-    src = RBFile.getFlexPart fivePart trks
+buildFive fivePart target (RBFile.Song tempos mmap trks) timing toKeys songYaml = case getPart fivePart songYaml >>= anyFiveFret of
+  Nothing -> Nothing
+  Just getFive -> Just $ let
     gtrType = case (target, toKeys) of
-      (_         , True ) -> RBFile.FiveTypeKeys
-      (Left  _rb3, False) -> RBFile.FiveTypeGuitar
-      (Right _ps , False) -> RBFile.FiveTypeGuitarExt
-    (trackOrig, algo) = RBFile.selectGuitarTrack gtrType src
-    track
-      = (\fd -> fd { fivePlayer1 = RTB.empty, fivePlayer2 = RTB.empty })
-      $ (if grybo.fixFreeform then RBFile.fixFreeformFive else id)
-      $ gryboComplete (guard (not toKeys) >> Just ht) mmap trackOrig
-    ht = grybo.hopoThreshold
-    fiveEachDiff f ft = ft { fiveDifficulties = fmap f $ fiveDifficulties ft }
-    gap = fromIntegral grybo.sustainGap / 480
+      (_         , True ) -> FiveTypeKeys
+      (Left  _rb3, False) -> FiveTypeGuitar
+      (Right _ps , False) -> FiveTypeGuitarExt
+    result = completeFiveResult toKeys mmap $ getFive gtrType ModeInput
+      { tempo  = tempos
+      , events = RBFile.onyxEvents trks
+      , part   = RBFile.getFlexPart fivePart trks
+      }
+    gap = fromIntegral result.settings.sustainGap / 480
     breRemover = removeBRE target $ RBFile.onyxEvents trks
-    forRB3 = fiveEachDiff $ \fd ->
-        emit5'
+    makeDifficultyRB3
+      = emit5'
       . fromClosed'
       . no5NoteChords
-      . noOpenNotes grybo.detectMutedOpens
+      . noOpenNotes result.settings.detectMutedOpens
       . noTaps
       . (if toKeys then id else noExtendedSustains' standardBlipThreshold gap)
-      . applyForces (getForces5 fd)
-      . strumHOPOTap algo (fromIntegral ht / 480)
-      . fixSloppyNotes (10 / 480)
       . maybe id (\x -> breRemoveBlips x) breRemover -- note: lambda needed for GHC 9+ (if DeepSubsumption not on) due to forall weirdness
-      . computeFiveFretNotes
-      $ fd
-    forPS = fiveEachDiff $ \fd ->
-        emit5'
-      . applyForces (getForces5 fd)
-      . strumHOPOTap algo (fromIntegral ht / 480)
-      . fixSloppyNotes (10 / 480)
-      . computeFiveFretNotes
-      $ fd
-    chSPFix ft = ft { fiveOverdrive = fixTapOff $ fiveOverdrive ft }
-    forAll
-      = addFiveMoods tempos timing
-      . (if grybo.smoothFrets then smoothFrets else id)
-      . (\ft -> ft
-        { fiveTremolo = maybe id breRemoveLanes breRemover $ fiveTremolo ft
-        , fiveTrill   = maybe id breRemoveLanes breRemover $ fiveTrill   ft
-        })
-    smoothFrets x = x
-      { fiveFretPosition
-        = U.unapplyTempoTrack tempos
-        $ smoothFretPosition
-        $ U.applyTempoTrack tempos
-        $ fiveFretPosition x
+    makeDifficultyPS = emit5'
+    finalSteps
+      = (if result.settings.fixFreeform then RBFile.fixFreeformFive else id)
+      . addFiveMoods tempos timing
+    in finalSteps FiveTrack
+      { fiveDifficulties = fmap
+        (case target of Left _rb3 -> makeDifficultyRB3; Right _ps -> makeDifficultyPS)
+        result.notes
+      , fiveMood = result.other.fiveMood
+      , fiveHandMap = result.other.fiveHandMap
+      , fiveStrumMap = result.other.fiveStrumMap
+      , fiveFretPosition = if result.settings.smoothFrets
+        then U.unapplyTempoTrack tempos
+          $ smoothFretPosition
+          $ U.applyTempoTrack tempos
+          $ result.other.fiveFretPosition
+        else result.other.fiveFretPosition
+      , fiveTremolo = maybe id breRemoveLanes breRemover result.other.fiveTremolo
+      , fiveTrill = maybe id breRemoveLanes breRemover result.other.fiveTrill
+      , fiveOverdrive = case target of
+        Left _rb3 -> result.other.fiveOverdrive
+        Right _ps -> fixTapOff result.other.fiveOverdrive
+      , fiveBRE = result.other.fiveBRE
+      , fiveSolo = result.other.fiveSolo
+      , fivePlayer1 = RTB.empty
+      , fivePlayer2 = RTB.empty
       }
-    in forAll $ case target of
-      Left  _rb3 -> forRB3 track
-      Right _ps  -> chSPFix $ forPS track
 
 deleteBRE :: RBFile.Song (RBFile.OnyxFile U.Beats) -> RBFile.Song (RBFile.OnyxFile U.Beats)
 deleteBRE song = song
@@ -654,19 +630,8 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
   (proGtr , proGtr22 ) <- makeProGtrTracks TypeGuitar guitarPart
   (proBass, proBass22) <- makeProGtrTracks TypeBass   bassPart
 
-  let hasProtarNotFive partName = case getPart partName songYaml of
-        Just part -> case (part.grybo, part.proGuitar) of
-          (Nothing, Just _) -> True
-          _                 -> False
-        Nothing -> False
-
-      guitar = if hasProtarNotFive guitarPart
-        then addFiveMoods tempos timing $ RBFile.protarToGrybo proGtr
-        else makeGRYBOTrack False guitarPart
-
-      bass = if hasProtarNotFive bassPart
-        then addFiveMoods tempos timing $ RBFile.protarToGrybo proBass
-        else makeGRYBOTrack False bassPart
+  let guitar = makeGRYBOTrack False guitarPart
+      bass   = makeGRYBOTrack False bassPart
 
       rhythmPart = either (const $ RBFile.FlexExtra "undefined") (.rhythm) target
       rhythmPS = makeGRYBOTrack False rhythmPart
@@ -702,13 +667,10 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       keysPart = either (.keys) (.keys) target
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of
         Nothing -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
-        Just part -> case (part.grybo, part.drums, part.proKeys) of
-          (Nothing, Nothing, Nothing) -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
-          _ -> let
-            basicKeys = gryboComplete Nothing mmap
-              $ if isJust part.grybo || isJust part.drums
-                then makeGRYBOTrack True keysPart
-                else addFiveMoods tempos timing $ RBFile.expertProKeysToKeys keysExpert
+        Just part -> if isNothing (anyFiveFret part) && isNothing part.proKeys
+          then (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
+          else let
+            basicKeys = makeGRYBOTrack True keysPart
             fpart = RBFile.getFlexPart keysPart trks
             keysDiff diff = if isJust part.proKeys
               then case diff of

@@ -150,6 +150,7 @@ import           Onyx.MIDI.Track.File                      (FlexPartName (..))
 import qualified Onyx.MIDI.Track.File                      as RBFile
 import           Onyx.MIDI.Track.Lipsync
 import           Onyx.MIDI.Track.Vocal                     (nullVox)
+import           Onyx.Mode                                 (anyFiveFret)
 import           Onyx.Neversoft.Metadata                   (combineGH3SongCache360,
                                                             combineGH3SongCachePS3)
 import qualified Onyx.PlayStation.PKG                      as PKG
@@ -1466,10 +1467,10 @@ saveProject proj song = do
 -- Batch mode presets for changing parts around
 
 hasPartWithFive :: SongYaml f -> FlexPartName -> Bool
-hasPartWithFive song flex = isJust $ getPart flex song >>= (.grybo)
+hasPartWithFive song flex = isJust $ getPart flex song >>= anyFiveFret
 
-partHasFiveOrDrums :: Part a -> Bool
-partHasFiveOrDrums p = isJust p.grybo || isJust p.drums
+partCanMakeFiveFret :: Part a -> Bool
+partCanMakeFiveFret = isJust . anyFiveFret
 
 batchPartPresetsRB3 :: [(T.Text, SongYaml f -> TargetRB3 -> TargetRB3)]
 batchPartPresetsRB3 =
@@ -1698,7 +1699,7 @@ batchPageGHWOR sink rect tab build = do
         proTo4 <- stackIO getProTo4
         newPreferences <- readPreferences
         return $ \proj -> let
-          hasPart p = isJust $ HM.lookup p (projectSongYaml proj).parts.getParts >>= (.grybo)
+          hasPart p = isJust $ HM.lookup p (projectSongYaml proj).parts.getParts >>= anyFiveFret
           pickedGuitar = listToMaybe $ filter hasPart
             [ FlexGuitar
             , FlexExtra "rhythm"
@@ -1941,10 +1942,7 @@ batchPageGH1 sink rect tab build = do
   let getTargetSong usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
         speed <- getSpeed
         go $ \proj -> let
-          hasPart p = case HM.lookup p (projectSongYaml proj).parts.getParts of
-            Nothing   -> False
-            Just part -> isJust part.grybo || isJust part.drums
-          leadPart = listToMaybe $ filter hasPart
+          leadPart = listToMaybe $ filter (hasPartWithFive $ projectSongYaml proj)
             [ FlexGuitar
             , FlexExtra "rhythm"
             , FlexKeys
@@ -2009,9 +2007,7 @@ batchPageGH3 sink rect tab build = do
   let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
         speed <- getSpeed
         go $ \proj -> let
-          hasPart p = case HM.lookup p (projectSongYaml proj).parts.getParts of
-            Nothing   -> False
-            Just part -> isJust part.grybo || isJust part.drums
+          hasPart = hasPartWithFive $ projectSongYaml proj
           leadPart = listToMaybe $ filter hasPart
             [ FlexGuitar
             , FlexExtra "rhythm"
@@ -2087,9 +2083,7 @@ batchPageGH2 sink rect tab build = do
         drumChoice <- getDrumChoice
         go $ \proj -> let
           defGH2 = def :: TargetGH2
-          hasPart p = case HM.lookup p (projectSongYaml proj).parts.getParts of
-            Nothing   -> False
-            Just part -> isJust part.grybo || isJust part.drums
+          hasPart = hasPartWithFive $ projectSongYaml proj
           leadPart = listToMaybe $ filter hasPart
             [ FlexGuitar
             , FlexExtra "rhythm"
@@ -2340,13 +2334,13 @@ songPageRB3 sink rect tab proj build = mdo
       rb3 { songID = sid }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.guitar), (\v rb3 -> (rb3 :: TargetRB3) { guitar = v })
-        , (\p -> isJust p.grybo || isJust p.proGuitar || isJust p.drums)
+        , (\p -> partCanMakeFiveFret p || isJust p.proGuitar) -- technically pro guitar can make five fret. but good to be safe
         )
       , ( "Bass"  , (.bass  ), (\v rb3 -> (rb3 :: TargetRB3) { bass   = v })
-        , (\p -> isJust p.grybo || isJust p.proGuitar || isJust p.drums)
+        , (\p -> partCanMakeFiveFret p || isJust p.proGuitar)
         )
       , ( "Keys"  , (.keys  ), (\v rb3 -> (rb3 :: TargetRB3) { keys   = v })
-        , (\p -> isJust p.grybo || isJust p.proKeys || isJust p.drums)
+        , (\p -> partCanMakeFiveFret p || isJust p.proKeys) -- similarly pro keys can make five fret
         )
       , ( "Drums" , (.drums ), (\v rb3 -> (rb3 :: TargetRB3) { drums  = v })
         , (\p -> isJust p.drums)
@@ -2455,10 +2449,10 @@ songPageRB2 sink rect tab proj build = mdo
       rb2 { songID = sid }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.guitar), (\v rb2 -> (rb2 :: TargetRB2) { guitar = v })
-        , (\p -> isJust p.grybo || isJust p.proGuitar || isJust p.drums)
+        , (\p -> isJust $ anyFiveFret p)
         )
       , ( "Bass"  , (.bass  ), (\v rb2 -> (rb2 :: TargetRB2) { bass   = v })
-        , (\p -> isJust p.grybo || isJust p.proGuitar || isJust p.drums)
+        , (\p -> isJust $ anyFiveFret p)
         )
       , ( "Drums" , (.drums ), (\v rb2 -> (rb2 :: TargetRB2) { drums  = v })
         , (\p -> isJust p.drums)
@@ -2559,10 +2553,10 @@ songPageGHWOR sink rect tab proj build = mdo
       gh5 { cdl = sid }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.guitar), (\v gh5 -> (gh5 :: TargetGH5) { guitar = v })
-        , (\p -> isJust p.grybo)
+        , (\p -> isJust $ anyFiveFret p)
         )
       , ( "Bass"  , (.bass  ), (\v gh5 -> (gh5 :: TargetGH5) { bass   = v })
-        , (\p -> isJust p.grybo)
+        , (\p -> isJust $ anyFiveFret p)
         )
       , ( "Drums" , (.drums ), (\v gh5 -> (gh5 :: TargetGH5) { drums  = v })
         , (\p -> isJust p.drums)
@@ -2642,13 +2636,13 @@ songPagePS sink rect tab proj build = mdo
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar"     , (.guitar    ), (\v ps -> (ps :: TargetPS) { guitar     = v })
-        , (\p -> isJust p.grybo || isJust p.ghl || isJust p.proGuitar || isJust p.drums)
+        , (\p -> isJust (anyFiveFret p) || isJust p.ghl || isJust p.proGuitar) -- pro guitar redundant since it can make five fret
         )
       , ( "Bass"       , (.bass      ), (\v ps -> (ps :: TargetPS) { bass       = v })
-        , (\p -> isJust p.grybo || isJust p.ghl || isJust p.proGuitar || isJust p.drums)
+        , (\p -> isJust (anyFiveFret p) || isJust p.ghl || isJust p.proGuitar)
         )
       , ( "Keys"       , (.keys      ), (\v ps -> (ps :: TargetPS) { keys       = v })
-        , (\p -> isJust p.grybo || isJust p.proKeys || isJust p.drums)
+        , (\p -> isJust (anyFiveFret p) || isJust p.proKeys) -- pro keys redundant since it can make five fret
         )
       , ( "Drums"      , (.drums     ), (\v ps -> (ps :: TargetPS) { drums      = v })
         , (\p -> isJust p.drums)
@@ -2657,10 +2651,10 @@ songPagePS sink rect tab proj build = mdo
         , (\p -> isJust p.vocal)
         )
       , ( "Rhythm"     , (.rhythm    ), (\v ps -> (ps :: TargetPS) { rhythm     = v })
-        , (\p -> isJust p.grybo || isJust p.drums)
+        , (\p -> isJust $ anyFiveFret p)
         )
       , ( "Guitar Coop", (.guitarCoop), (\v ps -> (ps :: TargetPS) { guitarCoop = v })
-        , (\p -> isJust p.grybo || isJust p.drums)
+        , (\p -> isJust $ anyFiveFret p)
         )
       ]
     fullWidth 35 $ \rect' -> do
@@ -2800,15 +2794,15 @@ songPageGH1 sink rect tab proj build = mdo
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.guitar), (\v gh1 -> (gh1 :: TargetGH1) { guitar = v })
-        , partHasFiveOrDrums
+        , partCanMakeFiveFret
         )
       ]
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Bass" , (.bass ), (\v gh1 -> (gh1 :: TargetGH1) { bass  = v })
-        , isJust . (.grybo)
+        , isJust . anyFiveFret
         )
       , ( "Keys" , (.keys ), (\v gh1 -> (gh1 :: TargetGH1) { keys  = v })
-        , isJust . (.grybo)
+        , isJust . anyFiveFret
         )
       , ( "Drums", (.drums), (\v gh1 -> (gh1 :: TargetGH1) { drums = v })
         , isJust . (.drums)
@@ -2890,19 +2884,19 @@ songPageGH2 sink rect tab proj build = mdo
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.guitar), (\v gh2 -> (gh2 :: TargetGH2) { guitar = v })
-        , partHasFiveOrDrums
+        , partCanMakeFiveFret
         )
       ]
     fullWidth 50 $ \rect' -> do
       let [bassArea, coopArea, rhythmArea] = splitHorizN 3 rect'
       void $ partSelectors bassArea proj
         [ ( "Bass"  , (.bass  ), (\v gh2 -> (gh2 :: TargetGH2) { bass = v })
-          , partHasFiveOrDrums
+          , partCanMakeFiveFret
           )
         ]
       controlRhythm <- partSelectors rhythmArea proj
         [ ( "Rhythm", (.rhythm), (\v gh2 -> (gh2 :: TargetGH2) { rhythm = v })
-          , partHasFiveOrDrums
+          , partCanMakeFiveFret
           )
         ]
       coopPart <- liftIO $ newIORef GH2Bass
@@ -2923,7 +2917,7 @@ songPageGH2 sink rect tab proj build = mdo
       tell $ readIORef coopPart >>= \coop -> return $ Endo $ \gh2 -> gh2 { coop = coop }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Keys" , (.keys ), (\v gh2 -> (gh2 :: TargetGH2) { keys  = v })
-        , isJust . (.grybo)
+        , isJust . anyFiveFret
         )
       , ( "Drums", (.drums), (\v gh2 -> (gh2 :: TargetGH2) { drums = v })
         , isJust . (.drums)
@@ -3030,19 +3024,19 @@ songPageGH3 sink rect tab proj build = mdo
       return counter
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.guitar), (\v gh3 -> (gh3 :: TargetGH3) { guitar = v })
-        , partHasFiveOrDrums
+        , partCanMakeFiveFret
         )
       ]
     fullWidth 50 $ \rect' -> do
       let [bassArea, coopArea, rhythmArea] = splitHorizN 3 rect'
       void $ partSelectors bassArea proj
         [ ( "Bass"  , (.bass  ), (\v gh3 -> (gh3 :: TargetGH3) { bass   = v })
-          , partHasFiveOrDrums
+          , partCanMakeFiveFret
           )
         ]
       controlRhythm <- partSelectors rhythmArea proj
         [ ( "Rhythm", (.rhythm), (\v gh3 -> (gh3 :: TargetGH3) { rhythm = v })
-          , partHasFiveOrDrums
+          , partCanMakeFiveFret
           )
         ]
       coopPart <- liftIO $ newIORef GH2Bass
@@ -3063,7 +3057,7 @@ songPageGH3 sink rect tab proj build = mdo
       tell $ readIORef coopPart >>= \coop -> return $ Endo $ \gh3 -> gh3 { coop = coop }
     fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
       [ ( "Keys" , (.keys ), (\v gh3 -> (gh3 :: TargetGH3) { keys  = v })
-        , isJust . (.grybo)
+        , isJust . anyFiveFret
         )
       , ( "Drums", (.drums), (\v gh3 -> (gh3 :: TargetGH3) { drums = v })
         , isJust . (.drums)

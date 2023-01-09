@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Build (shakeBuildFiles, shakeBuild, targetTitle, validFileName, validFileNamePiece, NameRule(..), hashRB3) where
 
 import           Codec.Picture
@@ -47,8 +48,7 @@ import           Onyx.Build.RockBand
 import           Onyx.Build.Rocksmith
 import           Onyx.Codec.JSON                  (loadYaml)
 import qualified Onyx.DTXMania.DTX                as DTX
-import           Onyx.Guitar                      (computeFiveFretNotes,
-                                                   guitarify')
+import           Onyx.Guitar                      (guitarify')
 import           Onyx.Harmonix.MOGG
 import           Onyx.Image.DXT
 import           Onyx.Keys.Ranges
@@ -57,7 +57,7 @@ import           Onyx.MIDI.Common
 import qualified Onyx.MIDI.Track.Drums.Full       as FD
 import           Onyx.MIDI.Track.File             (saveMIDI, shakeMIDI)
 import qualified Onyx.MIDI.Track.File             as RBFile
-import           Onyx.MIDI.Track.FiveFret
+import           Onyx.Mode
 import           Onyx.Overdrive                   (calculateUnisons,
                                                    getOverdrive, printFlexParts)
 import           Onyx.Project                     hiding (Difficulty)
@@ -111,12 +111,8 @@ dtxRules buildInfo dir dtx = do
   let dtxPartDrums  = case getPart dtx.drums songYaml >>= (.drums) of
         Just pd -> Just (dtx.drums, pd)
         Nothing -> Nothing
-      dtxPartGuitar = case getPart dtx.guitar songYaml >>= (.grybo) of
-        Just pg -> Just (dtx.guitar, pg)
-        Nothing -> Nothing
-      dtxPartBass   = case getPart dtx.bass songYaml >>= (.grybo) of
-        Just pg -> Just (dtx.bass, pg)
-        Nothing -> Nothing
+      dtxPartGuitar = fmap (, dtx.guitar) $ getPart dtx.guitar songYaml >>= anyFiveFret
+      dtxPartBass   = fmap (, dtx.bass  ) $ getPart dtx.bass   songYaml >>= anyFiveFret
 
   dir </> "dtx/empty.wav" %> \out -> do
     buildAudio (Silence 1 $ Seconds 0) out
@@ -160,19 +156,18 @@ dtxRules buildInfo dir dtx = do
         emptyChip = "ZZ"
         makeGuitarBass = \case
           Nothing          -> (RTB.empty, RTB.empty)
-          Just (part, _pg) -> let
-            notes
-              = maybe RTB.empty (guitarify' . computeFiveFretNotes)
-              $ Map.lookup Expert
-              $ fiveDifficulties
-              $ maybe mempty (fst . RBFile.selectGuitarTrack RBFile.FiveTypeGuitarExt)
-              $ Map.lookup part
-              $ RBFile.onyxParts
-              $ RBFile.s_tracks mid
-            dtxNotes = (\(mcolors, _len) -> (sort $ catMaybes mcolors, emptyChip)) <$> notes
+          Just (buildFive, partName) -> let
+            input = ModeInput
+              { tempo  = RBFile.s_tempos mid
+              , events = RBFile.onyxEvents $ RBFile.s_tracks mid
+              , part   = RBFile.getFlexPart partName $ RBFile.s_tracks mid
+              }
+            result = buildFive FiveTypeGuitarExt input
+            noteGroups = guitarify' $ fromMaybe RTB.empty $ Map.lookup Expert result.notes
+            dtxNotes = (\(gems, _len) -> (sort $ catMaybes $ map fst gems, emptyChip)) <$> noteGroups
             dtxLongs = U.trackJoin $ RTB.mapMaybe
               (\(_, mlen) -> (\len -> RTB.fromPairList [(0, ()), (len, ())]) <$> mlen)
-              notes
+              noteGroups
             in (dtxNotes, dtxLongs)
         (gtrNotes , gtrLongs ) = makeGuitarBass dtxPartGuitar
         (bassNotes, bassLongs) = makeGuitarBass dtxPartBass

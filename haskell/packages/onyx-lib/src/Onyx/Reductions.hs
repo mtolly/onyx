@@ -1,6 +1,8 @@
-{-# LANGUAGE LambdaCase    #-}
-{-# LANGUAGE TupleSections #-}
-module Onyx.Reductions (gryboComplete, pkReduce, drumsComplete, protarComplete, simpleReduce) where
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE TupleSections         #-}
+module Onyx.Reductions (gryboComplete, pkReduce, drumsComplete, protarComplete, simpleReduce, completeFiveResult) where
 
 import           Control.Monad                    (guard, void)
 import           Control.Monad.IO.Class           (MonadIO)
@@ -27,9 +29,28 @@ import qualified Onyx.MIDI.Track.File             as RBFile
 import           Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.ProKeys          as PK
+import           Onyx.Mode
 import           Onyx.StackTrace
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
+
+completeFiveResult :: Bool -> U.MeasureMap -> FiveResult -> FiveResult
+completeFiveResult isKeys mmap result = let
+  od        = fiveOverdrive result.other
+  getDiff d = fromMaybe RTB.empty $ Map.lookup d result.notes
+  trk1 `orIfNull` trk2 = if length (RTB.collectCoincident trk1) <= 5 then trk2 else trk1
+  expert    = getDiff Expert
+  hard      = getDiff Hard   `orIfNull` gryboReduce Hard   isKeys mmap od expert
+  medium    = getDiff Medium `orIfNull` gryboReduce Medium isKeys mmap od hard
+  easy      = getDiff Easy   `orIfNull` gryboReduce Easy   isKeys mmap od medium
+  in result
+    { notes = Map.fromList
+      [ (Easy  , easy  )
+      , (Medium, medium)
+      , (Hard  , hard  )
+      , (Expert, expert)
+      ]
+    }
 
 -- | Fills out a GRYBO chart by generating difficulties if needed.
 gryboComplete :: Maybe Int -> U.MeasureMap -> FiveTrack U.Beats -> FiveTrack U.Beats
@@ -38,9 +59,9 @@ gryboComplete hopoThres mmap trk = let
   getDiff d = fromMaybe mempty $ Map.lookup d $ fiveDifficulties trk
   trk1 `orIfNull` trk2 = if length (RTB.collectCoincident $ fiveGems trk1) <= 5 then trk2 else trk1
   expert    = getDiff Expert
-  hard      = getDiff Hard   `orIfNull` gryboReduce Hard   hopoThres mmap od expert
-  medium    = getDiff Medium `orIfNull` gryboReduce Medium hopoThres mmap od hard
-  easy      = getDiff Easy   `orIfNull` gryboReduce Easy   hopoThres mmap od medium
+  hard      = getDiff Hard   `orIfNull` gryboReduceDifficulty Hard   hopoThres mmap od expert
+  medium    = getDiff Medium `orIfNull` gryboReduceDifficulty Medium hopoThres mmap od hard
+  easy      = getDiff Easy   `orIfNull` gryboReduceDifficulty Easy   hopoThres mmap od medium
   in trk
     { fiveDifficulties = Map.fromList
       [ (Easy, easy)
@@ -50,18 +71,38 @@ gryboComplete hopoThres mmap trk = let
       ]
     }
 
-gryboReduce
+gryboReduceDifficulty
   :: Difficulty
   -> Maybe Int              -- ^ HOPO threshold if guitar or bass, Nothing if keys
   -> U.MeasureMap
   -> RTB.T U.Beats Bool     -- ^ Overdrive phrases
   -> FiveDifficulty U.Beats -- ^ The source difficulty, one level up
   -> FiveDifficulty U.Beats -- ^ The target difficulty
+gryboReduceDifficulty diff hopoThres mmap od fd
+  = (\result -> if isNothing hopoThres || elem diff [Easy, Medium]
+    then result { fiveForceStrum = RTB.empty, fiveForceHOPO = RTB.empty, fiveTap = RTB.empty }
+    else result
+    )
+  $ emit5'
+  $ gryboReduce diff (isNothing hopoThres) mmap od
+  $ (case hopoThres of
+    Nothing -> fmap (\(col, len) -> ((col, Strum), len))
+    Just i  -> applyForces (getForces5 fd) . strumHOPOTap HOPOsRBGuitar (fromIntegral i / 480)
+    )
+  $ computeFiveFretNotes fd
 
-gryboReduce Expert _         _    _  diffEvents = diffEvents
-gryboReduce diff   hopoThres mmap od diffEvents = let
+gryboReduce
+  :: Difficulty
+  -> Bool                                                            -- ^ is keys?
+  -> U.MeasureMap
+  -> RTB.T U.Beats Bool                                              -- ^ Overdrive phrases
+  -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats) -- ^ The source difficulty, one level up
+  -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats) -- ^ The target difficulty
+
+gryboReduce Expert _      _    _  diffNotes = diffNotes
+gryboReduce diff   isKeys mmap od diffNotes = let
   odMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.normalize od
-  gnotes1 = readGuitarNotes hopoThres diffEvents
+  gnotes1 = readGuitarNotes diffNotes
   isOD bts = maybe False snd $ Map.lookupLE bts odMap
   -- TODO: replace the next 2 with BEAT track
   isMeasure bts = snd (U.applyMeasureMap mmap bts) == 0
@@ -150,7 +191,7 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
       -> (t1, GuitarNote [minimum cols] ntype len) : fixDoubleHopoChord rest
     x : xs -> x : fixDoubleHopoChord xs
   -- Step: fix quick jumps (GO for hard, GB/RO for medium/easy)
-  gnotes7 = if isNothing hopoThres
+  gnotes7 = if isKeys
     then gnotes6
     else RTB.fromPairList $ fixJumps $ RTB.toPairList gnotes6
   jumpDiff = case diff of
@@ -190,28 +231,20 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
       len1' = guard (l1' >= 1) >> Just l1'
       in (t1, GuitarNote cols1 ntype1 len1') : pullBackSustains rest
     x : xs -> x : pullBackSustains xs
-  in showGuitarNotes (isNothing hopoThres || elem diff [Easy, Medium]) gnotes9
+  in showGuitarNotes gnotes9
 
 data GuitarNote t = GuitarNote [Five.Color] StrumHOPOTap (Maybe t)
   deriving (Eq, Ord, Show)
 
-readGuitarNotes :: Maybe Int -> FiveDifficulty U.Beats -> RTB.T U.Beats (GuitarNote U.Beats)
-readGuitarNotes hopoThres fd
+readGuitarNotes :: RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats) -> RTB.T U.Beats (GuitarNote U.Beats)
+readGuitarNotes
   = fmap (\(notes, len) -> GuitarNote (map fst notes) (snd $ head notes) len)
   . guitarify'
   . noOpenNotes True -- doesn't really matter if we do mute-strums detection
-  . case hopoThres of
-    Nothing -> fmap (\(col, len) -> ((col, Strum), len))
-    Just i  -> applyForces (getForces5 fd) . strumHOPOTap HOPOsRBGuitar (fromIntegral i / 480)
-  $ computeFiveFretNotes fd
 
-showGuitarNotes :: Bool -> RTB.T U.Beats (GuitarNote U.Beats) -> FiveDifficulty U.Beats
-showGuitarNotes isKeys trk = let
-  fd = emit5' $ RTB.flatten $ flip fmap trk $ \case
-    GuitarNote colors sht mlen -> map (\color -> ((Just color, sht), mlen)) colors
-  in if isKeys
-    then fd { fiveForceStrum = RTB.empty, fiveForceHOPO = RTB.empty, fiveTap = RTB.empty }
-    else fd
+showGuitarNotes :: RTB.T U.Beats (GuitarNote U.Beats) -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
+showGuitarNotes trk = RTB.flatten $ flip fmap trk $ \case
+  GuitarNote colors sht mlen -> map (\color -> ((Just color, sht), mlen)) colors
 
 data PKNote t = PKNote [PK.Pitch] (Maybe t)
   deriving (Eq, Ord, Show)

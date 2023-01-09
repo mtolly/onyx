@@ -73,3 +73,8 @@ targets:
     game: ps
     bass: not-finished
     plan: album
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
+    plan: album

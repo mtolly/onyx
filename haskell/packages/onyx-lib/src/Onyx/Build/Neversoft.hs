@@ -1,8 +1,9 @@
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE PatternSynonyms     #-}
-{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Build.Neversoft where
 
 import           Control.Monad                    (forM, forM_, guard)
@@ -30,13 +31,9 @@ import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.Build.RB3CH                 (BasicTiming (..),
                                                    basicTiming)
-import           Onyx.Guitar                      (applyForces,
-                                                   computeFiveFretNotes, emit5',
-                                                   fixSloppyNotes, getForces5,
-                                                   noLowerExtSustains,
+import           Onyx.Guitar                      (emit5', noLowerExtSustains,
                                                    standardBlipThreshold,
-                                                   standardSustainGap,
-                                                   strumHOPOTap)
+                                                   standardSustainGap)
 import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
                                                    StrumHOPOTap (..),
                                                    joinEdgesSimple,
@@ -51,6 +48,7 @@ import qualified Onyx.MIDI.Track.File             as RBFile
 import qualified Onyx.MIDI.Track.FiveFret         as F
 import           Onyx.MIDI.Track.Vocal
 import           Onyx.MIDI.Track.Vocal.Legacy     (harm1ToPartVocals)
+import           Onyx.Mode
 import           Onyx.Neversoft.CRC
 import           Onyx.Neversoft.Metadata
 import           Onyx.Neversoft.Note
@@ -61,6 +59,7 @@ import           Onyx.PlayStation.NPData          (ghworCustomMidEdatConfig,
 import           Onyx.PlayStation.PKG             (loadPKG, makePKG, pkgFolder,
                                                    tryDecryptEDAT)
 import           Onyx.Project
+import           Onyx.Reductions                  (completeFiveResult)
 import           Onyx.Resources                   (getResourcesPath,
                                                    ghWoRThumbnail)
 import           Onyx.Sections                    (makePSSection)
@@ -248,53 +247,51 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
     let start = beatsToMS t
         end   = beatsToMS $ t + len
     return $ Single start (fromIntegral $ end - start)
-  makeGB fpart diff = case getPart fpart songYaml >>= (.grybo) of -- TODO support drums->guitar
-    Just grybo -> let
-      opart = fromMaybe mempty $ Map.lookup fpart $ RBFile.onyxParts ofile
-      (trk, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitarExt opart
-      fd = fromMaybe mempty $ Map.lookup diff $ F.fiveDifficulties trk
-      notes
-        = worGuitarEdits
-        . applyForces (getForces5 fd)
-        . strumHOPOTap algo (fromIntegral grybo.hopoThreshold / 480)
-        . fixSloppyNotes (10 / 480)
-        . computeFiveFretNotes
-        $ fd
-        :: RTB.T U.Beats ((Maybe F.Color, StrumHOPOTap), Maybe U.Beats)
-      taps = pullBackTapEnds' notes $ F.fiveTap $ emit5' notes
-      colorToBit = \case
-        Just F.Green  -> 0
-        Just F.Red    -> 1
-        Just F.Yellow -> 2
-        Just F.Blue   -> 3
-        Just F.Orange -> 4
-        Nothing       -> 5
-      in GuitarBass
-        { gb_instrument = do
-          (t, (colors, sht, maybeLen, overlaps)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0
-            $ annotateOverlaps $ joinChords notes
-          let start = beatsToMS t
-              end = maybe (start + 1) (\bts -> beatsToMS $ t + bts) maybeLen
-          return Note
-            { noteTimeOffset = beatsToMS t
-            , noteDuration = fromIntegral $ end - start
-            , noteBits = foldr (.|.) 0 $ do
-              -- Open pulloff notes only work on bass for some reason.
-              -- For now we just leave them in on guitar to become strums;
-              -- could also consider modifying the no-opens algorithm to only
-              -- adjust pulloffs and not open strums.
-              mcolor <- colors
-              let shtBit = if sht /= Strum then bit 6 else 0
-                  colorBit = bit $ colorToBit mcolor
-              return $ shtBit .|. colorBit
-            -- noteAccent is required for extended sustains to work.
-            -- Clear bits for colors with notes that overlap this one
-            , noteAccent = foldr (\mcolor n -> n `clearBit` colorToBit mcolor) 31 overlaps
-            }
-        , gb_tapping = makeStarPower taps
-        , gb_starpower = makeStarPower $ F.fiveOverdrive trk
-        }
-    Nothing -> GuitarBass [] [] []
+  resultGB fpart = getPart fpart songYaml >>= anyFiveFret >>= \builder ->
+    return $ completeFiveResult False mmap $ builder FiveTypeGuitarExt ModeInput
+      { tempo  = tmap
+      , events = RBFile.onyxEvents ofile
+      , part   = RBFile.getFlexPart fpart ofile
+      }
+  resultGuitar = resultGB target.guitar
+  resultBass   = resultGB target.bass
+  makeGB :: Maybe FiveResult -> Onyx.MIDI.Common.Difficulty -> GuitarBass
+  makeGB Nothing       _    = GuitarBass [] [] []
+  makeGB (Just result) diff = let
+    notes = worGuitarEdits $ fromMaybe mempty $ Map.lookup diff result.notes
+    taps = pullBackTapEnds' notes $ F.fiveTap $ emit5' notes
+    colorToBit = \case
+      Just F.Green  -> 0
+      Just F.Red    -> 1
+      Just F.Yellow -> 2
+      Just F.Blue   -> 3
+      Just F.Orange -> 4
+      Nothing       -> 5
+    in GuitarBass
+      { gb_instrument = do
+        (t, (colors, sht, maybeLen, overlaps)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0
+          $ annotateOverlaps $ joinChords notes
+        let start = beatsToMS t
+            end = maybe (start + 1) (\bts -> beatsToMS $ t + bts) maybeLen
+        return Note
+          { noteTimeOffset = beatsToMS t
+          , noteDuration = fromIntegral $ end - start
+          , noteBits = foldr (.|.) 0 $ do
+            -- Open pulloff notes only work on bass for some reason.
+            -- For now we just leave them in on guitar to become strums;
+            -- could also consider modifying the no-opens algorithm to only
+            -- adjust pulloffs and not open strums.
+            mcolor <- colors
+            let shtBit = if sht /= Strum then bit 6 else 0
+                colorBit = bit $ colorToBit mcolor
+            return $ shtBit .|. colorBit
+          -- noteAccent is required for extended sustains to work.
+          -- Clear bits for colors with notes that overlap this one
+          , noteAccent = foldr (\mcolor n -> n `clearBit` colorToBit mcolor) 31 overlaps
+          }
+      , gb_tapping = makeStarPower taps
+      , gb_starpower = makeStarPower $ F.fiveOverdrive result.other
+      }
   makeDrums fpart diff timing = case getPart fpart songYaml >>= (.drums) of
     Just pd -> let
       opart = fromMaybe mempty $ Map.lookup fpart $ RBFile.onyxParts ofile
@@ -459,15 +456,15 @@ makeGHWoRNote songYaml target song@(RBFile.Song tmap mmap ofile) getAudioLength 
           $ RTB.toAbsoluteEventList 0 sections'
         sectionBank = HM.fromList $ RTB.getBodies sections'
     return (GHNoteFile
-      { gh_guitareasy            = makeGB target.guitar Easy
-      , gh_guitarmedium          = makeGB target.guitar Medium
-      , gh_guitarhard            = makeGB target.guitar Hard
-      , gh_guitarexpert          = makeGB target.guitar Expert
+      { gh_guitareasy            = makeGB resultGuitar Easy
+      , gh_guitarmedium          = makeGB resultGuitar Medium
+      , gh_guitarhard            = makeGB resultGuitar Hard
+      , gh_guitarexpert          = makeGB resultGuitar Expert
 
-      , gh_basseasy              = makeGB target.bass Easy
-      , gh_bassmedium            = makeGB target.bass Medium
-      , gh_basshard              = makeGB target.bass Hard
-      , gh_bassexpert            = makeGB target.bass Expert
+      , gh_basseasy              = makeGB resultBass Easy
+      , gh_bassmedium            = makeGB resultBass Medium
+      , gh_basshard              = makeGB resultBass Hard
+      , gh_bassexpert            = makeGB resultBass Expert
 
       , gh_drumseasy             = makeDrums target.drums Easy   timing
       , gh_drumsmedium           = makeDrums target.drums Medium timing

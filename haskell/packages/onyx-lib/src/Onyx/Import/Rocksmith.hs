@@ -438,8 +438,13 @@ importRSSong folder song level = do
                   }) where
                     chord = sng_Chords sng !! fromIntegral chordID
                     t' = U.unapplyTempoMap temps $ toSeconds t
+                legalFret = min 27 -- TODO should warn or something. this is just so midi's fromVelocity doesn't throw an error
                 trk = RocksmithTrack
-                  { rsNotes = blipEdgesRBNice $ fixOverlaps $ fmap fst notes
+                  { rsNotes
+                    = blipEdgesRBNice
+                    $ fixOverlaps
+                    $ fmap (\((fret, str, len), _) -> (legalFret fret, str, len))
+                    $ notes
                   , rsPhrases = U.unapplyTempoTrack temps
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList
@@ -459,8 +464,8 @@ importRSSong folder song level = do
                       t = toSeconds $ sect_StartTime sect
                       name = TE.decodeUtf8With lenientDecode $ sect_Name sect
                       in (t, name)
-                  , rsAnchorLow  = fmap fst anchors
-                  , rsAnchorHigh = fmap snd anchors
+                  , rsAnchorLow  = fmap (legalFret . fst) anchors
+                  , rsAnchorHigh = fmap (legalFret . snd) anchors
                   , rsModifiers  = flip RTB.mapMaybe notes $ \((_, str, len), (mods, _)) -> let
                     mods' = mods <> case len of
                       Just n | n < minSustainLengthRB -> [ModSustain] -- force small note to sustain
@@ -486,7 +491,10 @@ importRSSong folder song level = do
                     return (toSeconds t, ([str], realToFrac bend))
                   -- TODO verify/tweak the fixOverlapsSimple usage.
                   -- added to fix processing of In the Presence of Enemies on CF
-                  , rsHandShapes = splitEdgesSimple $ fixOverlapsSimple shapes
+                  , rsHandShapes
+                    = splitEdgesSimple
+                    $ fmap (\(fret, str, len) -> (legalFret fret, str, len))
+                    $ fixOverlapsSimple shapes
                   , rsChords = RTB.merge noteChordInfo shapeChordInfo
                   }
             return (partName, if isBass

@@ -31,7 +31,7 @@ import           Data.Conduit.Audio                   (Duration (..))
 import           Data.Default.Class
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Fixed                           (Milli)
-import           Data.Foldable                        (find, toList)
+import           Data.Foldable                        (toList)
 import           Data.Hashable                        (Hashable (..))
 import qualified Data.HashMap.Strict                  as HM
 import           Data.Int                             (Int32)
@@ -49,18 +49,12 @@ import           Onyx.Audio                           hiding (fadeEnd,
 import           Onyx.Codec.Common
 import           Onyx.Codec.JSON
 import           Onyx.DeriveHelpers
-import           Onyx.Drums.OneFoot                   (phaseShiftKicks,
-                                                       rockBand1x, rockBand2x)
 import qualified Onyx.Harmonix.DTA.Serialize.Magma    as Magma
 import           Onyx.Harmonix.DTA.Serialize.RockBand (AnimTempo (..))
 import           Onyx.MIDI.Common                     (Key (..), SongKey (..),
                                                        Tonality (..), readpKey,
                                                        showKey,
                                                        songKeyUsesFlats)
-import qualified Onyx.MIDI.Common                     as RB
-import           Onyx.MIDI.Read                       (mapTrack)
-import qualified Onyx.MIDI.Track.Drums                as D
-import qualified Onyx.MIDI.Track.Drums.Full           as FD
 import           Onyx.MIDI.Track.Events
 import           Onyx.MIDI.Track.File                 (FlexPartName (..))
 import qualified Onyx.MIDI.Track.File                 as RBFile
@@ -1729,105 +1723,3 @@ evalPreviewTime leadin getEvents song padding prepadded = \case
         findSection sect = getEvents >>= \f ->
           fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . snd)
             $ eventsSections $ f $ RBFile.s_tracks song
-
-data DrumTarget
-  = DrumTargetRB1x -- pro, 1x
-  | DrumTargetRB2x -- pro, 2x
-  | DrumTargetCH -- pro, x+
-  | DrumTargetGH -- 5-lane, x+
-
-buildDrumTarget
-  :: DrumTarget
-  -> PartDrums f
-  -> U.Beats
-  -> U.TempoMap
-  -> RBFile.OnyxPart U.Beats
-  -> D.DrumTrack U.Beats
-buildDrumTarget tgt pd timingEnd tmap opart = let
-
-  src1x   =                             RBFile.onyxPartDrums       opart
-  src2x   =                             RBFile.onyxPartDrums2x     opart
-  srcReal = D.psRealToPro             $ RBFile.onyxPartRealDrumsPS opart
-  srcFull = FD.convertFullDrums False $ RBFile.onyxPartFullDrums   opart
-  srcsRB = case tgt of
-    DrumTargetRB1x -> [src1x, src2x]
-    _              -> [src2x, src1x]
-  srcList = case pd.mode of
-    DrumsReal -> srcReal : srcsRB
-    DrumsFull -> srcFull : srcsRB
-    _         -> srcsRB
-  src = fromMaybe mempty $ find (not . D.nullDrums) srcList
-
-  stepAddKicks = case pd.kicks of
-    Kicks2x -> mapTrack (U.unapplyTempoTrack tmap) . phaseShiftKicks 0.18 0.11 . mapTrack (U.applyTempoTrack tmap)
-    _       -> id
-
-  isRBTarget = case tgt of
-    DrumTargetRB1x -> True
-    DrumTargetRB2x -> True
-    _              -> False
-
-  stepRBKicks = case tgt of
-    DrumTargetRB1x -> rockBand1x
-    DrumTargetRB2x -> rockBand2x
-    _              -> id
-
-  drumEachDiff f dt = dt { D.drumDifficulties = fmap f $ D.drumDifficulties dt }
-  step5to4 = if pd.mode == Drums5 && isRBTarget
-    then drumEachDiff $ \dd -> dd
-      { D.drumGems = D.fiveToFour
-        (case pd.fallback of
-          FallbackBlue  -> D.Blue
-          FallbackGreen -> D.Green
-        )
-        (D.drumGems dd)
-      }
-    else id
-
-  isBasicSource = case pd.mode of
-    Drums4 -> True
-    Drums5 -> True
-    _      -> False
-
-  noToms dt = dt { D.drumToms = RTB.empty }
-  allToms dt = dt
-    { D.drumToms = RTB.fromPairList
-      [ (0        , (D.Yellow, D.Tom   ))
-      , (0        , (D.Blue  , D.Tom   ))
-      , (0        , (D.Green , D.Tom   ))
-      , (timingEnd, (D.Yellow, D.Cymbal))
-      , (0        , (D.Blue  , D.Cymbal))
-      , (0        , (D.Green , D.Cymbal))
-      ]
-    }
-  stepToms = if isBasicSource
-    then if isRBTarget
-      then allToms
-      else noToms
-    else id
-
-  -- TODO pro to 5 conversion (for GH target)
-  -- Move logic from Neversoft.Export to here
-
-  in stepToms $ step5to4 $ stepRBKicks $ stepAddKicks src
-
-buildDrumAnimation
-  :: PartDrums f
-  -> U.TempoMap
-  -> RBFile.OnyxPart U.Beats
-  -> RTB.T U.Beats D.Animation
-buildDrumAnimation pd tmap opart = let
-  rbTracks = map ($ opart) [RBFile.onyxPartRealDrumsPS, RBFile.onyxPartDrums2x, RBFile.onyxPartDrums]
-  inRealTime f = U.unapplyTempoTrack tmap . f . U.applyTempoTrack tmap
-  closeTime = 0.25 :: U.Seconds
-  in case filter (not . RTB.null) $ map D.drumAnimation rbTracks of
-    anims : _ -> anims
-    []        -> case pd.mode of
-      DrumsFull -> inRealTime (FD.autoFDAnimation closeTime)
-        $ FD.getDifficulty (Just RB.Expert) $ RBFile.onyxPartFullDrums opart
-      -- TODO this could be made better for modes other than pro
-      _ -> inRealTime (D.autoDrumAnimation closeTime)
-        $ fmap fst $ D.computePro (Just RB.Expert)
-        $ case filter (not . D.nullDrums) rbTracks of
-          trk : _ -> trk
-          []      -> mempty

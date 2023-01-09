@@ -1,0 +1,19 @@
+cabal-version:  2.2
+name:           onyx-autochart
+version:        0.1
+build-type:     Simple
+
+library
+  exposed-modules:
+    Onyx.AutoChart
+  hs-source-dirs:
+    src
+  ghc-options: -Wall
+  include-dirs:
+    cbits
+  cxx-sources:
+    cbits/midi-ch.cpp
+  build-depends: base
+  default-language: Haskell2010
+  extra-libraries: stdc++
+  cxx-options: -std=c++11

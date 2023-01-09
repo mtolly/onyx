@@ -24,17 +24,18 @@ import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.FSB                   (writeXMA2)
 import           Onyx.Build.Common
-import           Onyx.Guitar                      (computeFiveFretNotes,
-                                                   guitarify', strumHOPOTap)
+import           Onyx.Guitar                      (guitarify')
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Track.File             (shakeMIDI)
 import qualified Onyx.MIDI.Track.File             as RBFile
 import           Onyx.MIDI.Track.FiveFret
+import           Onyx.Mode
 import           Onyx.PowerGig.Crypt              (buildHeader, encryptE2,
                                                    makeNewPK, rebuildFullHeader)
 import qualified Onyx.PowerGig.GEV                as PG
 import qualified Onyx.PowerGig.Songs              as PG
 import           Onyx.Project                     hiding (Difficulty)
+import           Onyx.Reductions                  (completeFiveResult)
 import           Onyx.Resources                   (getResourcesPath,
                                                    powerGigThumbnail,
                                                    powerGigTitleThumbnail)
@@ -138,12 +139,14 @@ pgRules buildInfo dir pg = do
             , pcmcMIDI = B.concat ["songs:", TE.encodeUtf8 key, "\\", TE.encodeUtf8 key, ".mid"]
             }
           , gevGELH = PG.GELH $ V.fromList $ catMaybes
-            [ flip fmap (getPart pg.guitar songYaml >>= (.grybo)) $ \grybo -> let
-              src = RBFile.getFlexPart pg.guitar $ RBFile.s_tracks mid
-              (trackOrig, algo) = RBFile.selectGuitarTrack RBFile.FiveTypeGuitar src
+            [ flip fmap (getPart pg.guitar songYaml >>= anyFiveFret) $ \builder -> let
+              result = completeFiveResult False (RBFile.s_signatures mid) $ builder FiveTypeGuitar ModeInput
+                { tempo = RBFile.s_tempos mid
+                , events = RBFile.onyxEvents $ RBFile.s_tracks mid
+                , part = RBFile.getFlexPart pg.guitar $ RBFile.s_tracks mid
+                }
               notes :: RTB.T U.Beats ([(Maybe Color, StrumHOPOTap)], Maybe U.Beats)
-              notes = guitarify' $ strumHOPOTap algo (fromIntegral grybo.hopoThreshold / 480) $ computeFiveFretNotes
-                $ fromMaybe mempty $ Map.lookup Expert $ fiveDifficulties trackOrig
+              notes = guitarify' $ fromMaybe mempty $ Map.lookup Expert result.notes
               in PG.GELS
                 { gelsUnk1      = 2
                 , gelsTrackName = fromMaybe (error "panic! gev string not found") $ Map.lookup "guitar_1_expert" mapping

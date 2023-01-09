@@ -29,8 +29,7 @@ import           Onyx.Build.Common
 import           Onyx.Build.GuitarHero2.Logic         (GH2AudioSection (..),
                                                        adjustSongText)
 import           Onyx.Build.RB3CH                     (BasicTiming (..),
-                                                       basicTiming, drumsToFive,
-                                                       makeMoods)
+                                                       basicTiming, makeMoods)
 import           Onyx.Codec.Common                    (valueId)
 import           Onyx.Guitar
 import qualified Onyx.Harmonix.DTA                    as D
@@ -46,10 +45,10 @@ import qualified Onyx.MIDI.Track.Drums                as RB
 import qualified Onyx.MIDI.Track.File                 as F
 import qualified Onyx.MIDI.Track.FiveFret             as RB
 import qualified Onyx.MIDI.Track.Vocal                as RB
-import           Onyx.Overdrive                       (removeNotelessOD,
-                                                       voidEdgeOn)
+import           Onyx.Mode
+import           Onyx.Overdrive                       (removeNotelessOD)
 import           Onyx.Project
-import           Onyx.Reductions                      (gryboComplete)
+import           Onyx.Reductions                      (completeFiveResult)
 import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                      as U
 
@@ -132,53 +131,47 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
           Mood_mellow        -> True
           Mood_intense       -> True
           Mood_play_solo     -> True
-      makeDiffs fpart rbg = do
-        let makeDiff diff fdiff = do
+      makeDiffs fpart result = do
+        let _ = result :: FiveResult
+            gap :: U.Beats
+            gap = fromIntegral result.settings.sustainGap / 480
+            editNotes
+              = fromClosed'
+              . noOpenNotes result.settings.detectMutedOpens
+              . noTaps
+              . noExtendedSustains' standardBlipThreshold gap
+            makeDiff diff notes = do
+              let notes' = editNotes notes
               od <- removeNotelessOD
                 mmap
-                [(fpart, [(show diff, voidEdgeOn $ RB.fiveGems fdiff)])]
-                ((fpart,) <$> RB.fiveOverdrive rbg)
+                [(fpart, [(show diff, void notes')])]
+                ((fpart,) <$> RB.fiveOverdrive result.other)
               return PartDifficulty
                 { partStarPower = snd <$> od
-                , partPlayer1   = RB.fivePlayer1 rbg
-                , partPlayer2   = RB.fivePlayer2 rbg
-                , partGems      = RB.fiveGems fdiff
+                , partPlayer1   = RB.fivePlayer1 result.other
+                , partPlayer2   = RB.fivePlayer2 result.other
+                , partGems      = RB.fiveGems $ emit5' notes'
                 }
         fmap Map.fromList
-          $ mapM (\(diff, fdiff) -> (diff,) <$> makeDiff diff fdiff)
-          $ Map.toList $ RB.fiveDifficulties rbg
-      getLeadData fpart = case getPart fpart song >>= (.grybo) of
-        Nothing -> case getPart fpart song >>= (.drums) of
-          Nothing -> fatal "No guitar or drums info set up for lead guitar part"
-          Just pd -> return $ let
-            trackOrig = buildDrumTarget
-              DrumTargetRB2x
-              pd
-              (timingEnd timing)
-              tmap
-              (F.getFlexPart fpart onyx)
-            in drumsToFive inputMid trackOrig
-        Just grybo -> return $ let
-          src = F.getFlexPart fpart onyx
-          (trackOrig, algo) = getFive src
-          gap = fromIntegral grybo.sustainGap / 480
-          ht = grybo.hopoThreshold
-          fiveEachDiff f ft = ft { RB.fiveDifficulties = fmap f $ RB.fiveDifficulties ft }
-          toGtr = fiveEachDiff $ \fd ->
-              emit5'
-            . fromClosed'
-            . noOpenNotes grybo.detectMutedOpens
-            . noTaps
-            . noExtendedSustains' standardBlipThreshold gap
-            . applyForces (getForces5 fd)
-            . strumHOPOTap algo (fromIntegral ht / 480)
-            . fixSloppyNotes (10 / 480)
-            . computeFiveFretNotes
-            $ fd
-          in gryboComplete (Just ht) mmap $ toGtr trackOrig
-      getFive = F.selectGuitarTrack F.FiveTypeGuitar
-  rbGuitar <- getLeadData $ gh1LeadTrack audio
-  leadDiffs <- makeDiffs (gh1LeadTrack audio) rbGuitar
+          $ mapM (\(diff, notes) -> (diff,) <$> makeDiff diff notes)
+          $ Map.toList result.notes
+      getFive fpart = do
+        builder <- getPart fpart song >>= anyFiveFret
+        return $ builder FiveTypeGuitar ModeInput
+          { tempo  = tmap
+          , events = F.onyxEvents onyx
+          , part   = F.getFlexPart fpart onyx
+          }
+      getLeadData fpart = case getFive fpart of
+        Nothing     -> fatal "No guitar-compatible mode set up for lead guitar part"
+        Just result -> return $ completeFiveResult False mmap result
+      fiveResultMoods :: FiveResult -> RTB.T U.Beats Bool
+      fiveResultMoods result
+        = makePlayBools (RB.fiveMood result.other)
+        $ maybe mempty (splitEdges . fmap (\((fret, sht), len) -> (fret, sht, len)))
+        $ Map.lookup Expert result.notes
+  guitarResult <- getLeadData $ gh1LeadTrack audio
+  leadDiffs <- makeDiffs (gh1LeadTrack audio) guitarResult
   gh1Pad $ F.Song tmap mmap GH1File
     { gh1T1Gems   = GemsTrack
       { gemsDifficulties = leadDiffs
@@ -187,8 +180,8 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         Just part -> fmap snd $ RB.vocalNotes $ F.onyxPartVocals $ F.getFlexPart part onyx
       }
     , gh1Anim     = AnimTrack
-      { animFretPosition = first FretPosition <$> RB.fiveFretPosition rbGuitar
-      , animHandMap = flip fmap (RB.fiveHandMap rbGuitar) $ \case
+      { animFretPosition = first FretPosition <$> RB.fiveFretPosition guitarResult.other
+      , animHandMap = flip fmap (RB.fiveHandMap guitarResult.other) $ \case
         RB.HandMap_Default   -> HandMap_Default
         RB.HandMap_NoChords  -> HandMap_NoChords
         RB.HandMap_AllChords -> HandMap_AllChords
@@ -204,9 +197,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
     , gh1Events   = EventsTrack
       { eventsList = foldr RTB.merge RTB.empty
         [ fmap (\b -> if b then Event_gtr_on else Event_gtr_off)
-          $ makePlayBools (RB.fiveMood rbGuitar)
-          $ maybe mempty (splitEdges . edgeBlips minSustainLengthRB . RB.fiveGems)
-          $ Map.lookup Expert $ RB.fiveDifficulties rbGuitar
+          $ fiveResultMoods guitarResult
         , case gh1AnimVocal audio of
           Nothing -> RTB.empty
           Just part -> let
@@ -215,22 +206,12 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
               $ makePlayBools (RB.vocalMood trk)
               $ fmap (\case (p, True) -> NoteOn () p; (p, False) -> NoteOff p)
               $ RB.vocalNotes trk
-        , case gh1AnimBass audio of
-          Nothing -> RTB.empty
-          Just part -> let
-            trk = fst $ getFive $ F.getFlexPart part onyx
-            in fmap (\b -> if b then Event_bass_on else Event_bass_off)
-              $ makePlayBools (RB.fiveMood trk)
-              $ maybe mempty (splitEdges . edgeBlips minSustainLengthRB . RB.fiveGems)
-              $ Map.lookup Expert $ RB.fiveDifficulties trk
-        , case gh1AnimKeys audio of
-          Nothing -> RTB.empty
-          Just part -> let
-            trk = fst $ getFive $ F.getFlexPart part onyx
-            in fmap (\b -> if b then Event_keys_on else Event_keys_off)
-              $ makePlayBools (RB.fiveMood trk)
-              $ maybe mempty (splitEdges . edgeBlips minSustainLengthRB . RB.fiveGems)
-              $ Map.lookup Expert $ RB.fiveDifficulties trk
+        , fmap (\b -> if b then Event_bass_on else Event_bass_off)
+          $ maybe RTB.empty fiveResultMoods
+          $ gh1AnimBass audio >>= getFive
+        , fmap (\b -> if b then Event_keys_on else Event_keys_off)
+          $ maybe RTB.empty fiveResultMoods
+          $ gh1AnimKeys audio >>= getFive
         , case gh1AnimDrums audio of
           Nothing -> RTB.empty
           Just part -> let

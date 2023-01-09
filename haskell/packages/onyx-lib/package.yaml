@@ -103,6 +103,7 @@ library:
   - onyx-handle
   - onyx-npdata
   - onyx-mogg-encrypt
+  - onyx-autochart
 
   ghc-options: -O
   build-tools:

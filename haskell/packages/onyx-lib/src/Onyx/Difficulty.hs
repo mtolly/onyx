@@ -5,9 +5,12 @@
 {-# LANGUAGE RecordWildCards     #-}
 module Onyx.Difficulty where
 
-import           Onyx.MIDI.Track.File (FlexPartName (..))
-import           Onyx.Preferences     (MagmaSetting (..))
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Onyx.MIDI.Track.File             (FlexPartName (..))
+import           Onyx.Mode
+import           Onyx.Preferences                 (MagmaSetting (..))
 import           Onyx.Project
+import qualified Sound.MIDI.Util                  as U
 
 rankToTier :: DiffMap -> Integer -> Integer
 rankToTier dm rank = fromIntegral $ length $ takeWhile (<= rank) (1 : dm)
@@ -42,17 +45,23 @@ difficultyRB3 rb3 songYaml = let
     Just mode -> case mode.difficulty of
       Rank r -> r
       Tier t -> tierToRank dmap t
-
-  x `rankOr` y = if x == 0 then y else x
+  fiveRank flex dmap = case getPart flex songYaml >>= anyFiveFret of
+    Nothing -> 0
+    Just builder -> let
+      result = builder FiveTypeGuitarExt ModeInput
+        { tempo  = U.tempoMapFromBPS RTB.empty
+        , events = mempty
+        , part   = mempty
+        }
+      in case result.settings.difficulty of
+        Rank r -> r
+        Tier t -> tierToRank dmap t
 
   rb3DrumsRank     = simpleRank rb3.drums  (.drums    ) drumsDiffMap
-  rb3BassRank'     = simpleRank rb3.bass   (.grybo    ) bassDiffMap
-    `rankOr`         simpleRank rb3.bass   (.drums    ) drumsDiffMap
-  rb3GuitarRank'   = simpleRank rb3.guitar (.grybo    ) guitarDiffMap
-    `rankOr`         simpleRank rb3.guitar (.drums    ) drumsDiffMap
+  rb3BassRank'     = fiveRank rb3.bass   bassDiffMap
+  rb3GuitarRank'   = fiveRank rb3.guitar guitarDiffMap
+  rb3KeysRank'     = fiveRank rb3.keys   keysDiffMap
   rb3VocalRank     = simpleRank rb3.vocal  (.vocal    ) vocalDiffMap
-  rb3KeysRank'     = simpleRank rb3.keys   (.grybo    ) keysDiffMap
-    `rankOr`         simpleRank rb3.keys   (.drums    ) drumsDiffMap
   rb3ProKeysRank'  = simpleRank rb3.keys   (.proKeys  ) keysDiffMap
   rb3KeysRank      = if rb3KeysRank' == 0 then rb3ProKeysRank' else rb3KeysRank'
   rb3ProKeysRank   = if rb3ProKeysRank' == 0 then rb3KeysRank' else rb3ProKeysRank'
