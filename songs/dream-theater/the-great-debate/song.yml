@@ -53,27 +53,24 @@ audio:
     frames: 36419544
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      fade:
-      - end
-      - 6.038
-      - take:
-        - '13:46.773'
-        - fade:
-          - start
-          - 2.75
-          - concatenate:
-            - take: [end, 1.082, album-prev]
-            - album-track
+      mix:
+      - countin
+      - fade:
+        - end
+        - 6.038
+        - take:
+          - '13:46.773'
+          - fade:
+            - start
+            - 2.75
+            - concatenate:
+              - take: [end, 1.082, album-prev]
+              - album-track
 targets:
   rb3:
     game: rb3

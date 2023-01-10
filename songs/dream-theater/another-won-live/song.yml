@@ -28,21 +28,25 @@ audio:
           - drumcam-band
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   drumcam:
     song:
-      resample:
-        fade:
-        - start
-        - 2.885
-        - fade:
-          - end
-          - 3.721
-          - take:
-            - '5:23.913'
-            - drop:
-              - '12:27.452'
-              - subtracted
+      mix:
+      - countin
+      - resample:
+          fade:
+          - start
+          - 2.885
+          - fade:
+            - end
+            - 3.721
+            - take:
+              - '5:23.913'
+              - drop:
+                - '12:27.452'
+                - subtracted
     parts:
       drums:
         resample:
@@ -58,15 +62,10 @@ plans:
                 - '12:27.452'
                 - gain: [-1, drumcam-drums]
   album:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      pad:
+      mix:
+      - countin
+      - pad:
         - 1.870
         - fade:
           - end

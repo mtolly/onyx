@@ -16,17 +16,14 @@ audio:
     - ../../../scripts/youtube V462IsOV3js 140
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      1|0: hihat
-      1|2: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
-      2|3: hihat
     song:
-      pad: [2.499, youtube]
+      mix:
+      - countin
+      - pad: [2.499, youtube]
 parts:
   drums:
     drums:

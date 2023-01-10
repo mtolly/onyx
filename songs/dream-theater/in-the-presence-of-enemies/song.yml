@@ -21,19 +21,10 @@ audio:
   pt2-drums:
     file-path: ../in-the-presence-of-enemies-pt-2/gen/plan/drumcam/drums.wav
     frames: 43915388
-  hihat:
-    file-path: ../../../sound/hihat-foot.wav
 plans:
   drumcam:
     comments:
     - "References the audio files built for parts 1 and 2."
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     parts:
       drums:
         mix:

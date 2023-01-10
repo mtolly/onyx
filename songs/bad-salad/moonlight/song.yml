@@ -36,22 +36,17 @@ audio:
     frames: 18190155
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      &countin
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      pad: [3.631, album-track]
+      mix:
+      - countin
+      - pad: [3.631, album-track]
   pledgemusic:
     comments:
     - "Stems from [the PledgeMusic campaign](http://www.pledgemusic.com/projects/badsalad2013)."
-    countin: *countin
     parts:
       drums:
         trim:
@@ -98,18 +93,14 @@ plans:
           - 0.326
           - gain: [0.8, pledgemusic-vocals]
     song:
-      # following is a hack for CH bug
-      take:
-      - '6:52.15'
-      - pad:
-        - end
-        - '6:52.15'
-        - mask:
-          - [mixed]
-          - *mask
-          - trim:
-            - 0.326
-            - gain: [0.8, pledgemusic-guitars]
+      mix:
+      - countin
+      - mask:
+        - [mixed]
+        - *mask
+        - trim:
+          - 0.326
+          - gain: [0.8, pledgemusic-guitars]
 parts:
   drums:
     drums:

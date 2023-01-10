@@ -14,6 +14,8 @@ audio:
   #   frames: 0 # TODO
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 jammit:
   jammit-track: {}
 plans:
@@ -22,36 +24,32 @@ plans:
     - >-
       The drum stem is missing many kick drum hits.
       At some point I may try to add them back in.
-    countin:
-      &countin
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     parts:
       drums:
         pad: [2.314, only: [Drums, jammit-track]]
       bass:
         pad: [2.314, only: [Bass, jammit-track]]
     song:
-      pad:
-      - 2.314
-      - mix:
-        - without: [drums, jammit-track]
-        - gain: [-1, only: [Bass, jammit-track]]
+      mix:
+      - countin
+      - pad:
+        - 2.314
+        - mix:
+          - without: [drums, jammit-track]
+          - gain: [-1, only: [Bass, jammit-track]]
   album:
-    countin: *countin
     song:
-      pad: [4.317, album-track]
+      mix:
+      - countin
+      - pad: [4.317, album-track]
     file-tempo: tempo-album.mid
   # greatest-hit:
   #   comments:
   #   - "The remastered version from *Greatest Hit (...and 21 other pretty cool songs)*."
-  #   countin: *countin
   #   song:
-  #     pad: [4.340, greatest-hit-track]
+  #     mix:
+  #     - countin
+  #     - pad: [4.340, greatest-hit-track]
 parts:
   drums:
     drums:

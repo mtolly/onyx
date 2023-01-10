@@ -38,50 +38,48 @@ audio:
         - drop: ['47:31.200', drumcam-drums]
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      &countin
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
-    song: expr-album-song
+    song:
+      mix:
+      - countin
+      - expr-album-song
   drumcam:
     comments:
     - >-
       Requires both the DVD audio, and the album audio.
       (The DVD audio cuts out about 2 minutes before the end of the song.)
-    countin: *countin
     song:
-      gain:
-      - 1.35
-      - mix:
-        - pad:
-          - 1
-          - drop:
-            - 1
-            - resample:
-                mix:
-                - fade:
-                  - end
-                  - 0.03
-                  - drop:
-                    - frames: 3911
-                    - take:
-                      - '12:50.531'
-                      - drop: ['47:31.200', drumcam-band]
-                - gain: [-1, expr-drumcam-drums]
-        - gain:
-          - 0.58
+      mix:
+      - countin
+      - gain:
+        - 1.35
+        - mix:
           - pad:
-            - "12:50.401"
-            - fade:
-              - start
-              - 0.03
-              - drop: ["12:50.401", expr-album-song]
+            - 1
+            - drop:
+              - 1
+              - resample:
+                  mix:
+                  - fade:
+                    - end
+                    - 0.03
+                    - drop:
+                      - frames: 3911
+                      - take:
+                        - '12:50.531'
+                        - drop: ['47:31.200', drumcam-band]
+                  - gain: [-1, expr-drumcam-drums]
+          - gain:
+            - 0.58
+            - pad:
+              - "12:50.401"
+              - fade:
+                - start
+                - 0.03
+                - drop: ["12:50.401", expr-album-song]
     parts:
       drums:
         gain:

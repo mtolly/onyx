@@ -11,19 +11,14 @@ audio:
     file-path: ../../../sound/chip-hihat.wav
   hihat-soft:
     file-path: ../../../sound/chip-hihat-soft.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      0|0: hihat
-      0|1.5: hihat
-      1|0: hihat
-      1|0.5: hihat-soft
-      1|1: hihat-soft
-      1|1.5: hihat
-      1|2: hihat-soft
-      1|2.5: hihat-soft
     song:
-      pad: [3.186, album]
+      mix:
+      - pad: [3.186, album]
+      - countin
 parts:
   keys:
     grybo:

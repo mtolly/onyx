@@ -9,16 +9,14 @@ audio:
     frames: 10492416
   hihat:
     file-path: ../../../sound/chip-hihat-soft.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
     song:
-      pad: [3.522, album]
+      mix:
+      - pad: [3.522, album]
+      - countin
 parts:
   keys:
     pro-keys:

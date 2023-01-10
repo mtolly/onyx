@@ -34,17 +34,14 @@ audio:
     - ../../../scripts/youtube VEGh2yMEQkI 140
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      pad: [2.791, album-track]
+      mix:
+      - countin
+      - pad: [2.791, album-track]
 targets:
   # visualizer: http://i.imgur.com/55AXhwl.jpg
   # video: https://www.youtube.com/watch?v=WATwNE28ek0

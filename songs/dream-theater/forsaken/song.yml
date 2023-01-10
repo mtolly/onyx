@@ -24,61 +24,59 @@ audio:
     # AudioFile_81.ac3
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      &countin
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
+    # TODO should probably glue on faded-in bit of previous track
     song:
-      &album
-      pad: [6.027, album-track]
+      mix:
+      - countin
+      - &album
+        pad: [6.027, album-track]
   drumcam:
     comments:
     - "Portnoy's sysDRUMatic Chaos DVD."
-    countin: *countin
     song:
-      gain:
-      - 1.55
-      - mix:
-        - fade:
-          - end
-          - 1
-          - take:
-            - '5:29.490'
-            - resample:
-                pad:
-                - 3.515
-                - take:
-                  - '5:37'
-                  - mix:
-                    - pad:
-                      - frames: 3192
-                      - trim: ['9:08', drumcam-band]
-                    - gain:
-                      - -1
-                      - concatenate:
-                        - take:
-                          - '5:24.340'
-                          - &drums
-                            trim: ['9:08', drumcam-drums]
-                        - pad:
-                          - frames: 3192
-                          - drop:
+      mix:
+      - countin
+      - gain:
+        - 1.55
+        - mix:
+          - fade:
+            - end
+            - 1
+            - take:
+              - '5:29.490'
+              - resample:
+                  pad:
+                  - 3.515
+                  - take:
+                    - '5:37'
+                    - mix:
+                      - pad:
+                        - frames: 3192
+                        - trim: ['9:08', drumcam-band]
+                      - gain:
+                        - -1
+                        - concatenate:
+                          - take:
                             - '5:24.340'
-                            - *drums
-        - pad:
-          - '5:28.090'
-          - gain:
-            - 0.55
-            - fade:
-              - start
-              - 1
-              - drop: ['5:28.090', *album]
+                            - &drums
+                              trim: ['9:08', drumcam-drums]
+                          - pad:
+                            - frames: 3192
+                            - drop:
+                              - '5:24.340'
+                              - *drums
+          - pad:
+            - '5:28.090'
+            - gain:
+              - 0.55
+              - fade:
+                - start
+                - 1
+                - drop: ['5:28.090', *album]
     parts:
       drums:
         gain:

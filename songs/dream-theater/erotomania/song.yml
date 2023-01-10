@@ -11,24 +11,19 @@ audio:
     frames: 17826396
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 jammit:
   jammit-track:
     title: 'A Mind Beside Itself I. Erotomania'
 plans:
   album:
-    countin:
-      &countin
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      pad: [2.960, album-track]
+      mix:
+      - countin
+      - pad: [2.960, album-track]
     file-tempo: tempo-album.mid
   jammit:
-    countin: *countin
     parts:
       drums:
         # jammit drums are audience-panned on this song
@@ -42,24 +37,27 @@ plans:
       guitar-2:
         pad: [1.193, only: [Guitar 2, jammit-track]]
     song:
-      pad:
-      - 1.193
-      - mix:
-        - without: [drums, jammit-track]
-        - gain:
-          - -1
-          - mix:
-            - only: [Bass, jammit-track]
-            - only: [Keys, jammit-track]
-            - only: [Guitar 1, jammit-track]
-            - only: [Guitar 2, jammit-track]
+      mix:
+      - countin
+      - pad:
+        - 1.193
+        - mix:
+          - without: [drums, jammit-track]
+          - gain:
+            - -1
+            - mix:
+              - only: [Bass, jammit-track]
+              - only: [Keys, jammit-track]
+              - only: [Guitar 1, jammit-track]
+              - only: [Guitar 2, jammit-track]
   jammit-simple:
-    countin: *countin
     parts:
       bass:
         pad: [1.193, only: [Bass, jammit-track]]
     song:
-      pad: [1.193, without: [bass, jammit-track]]
+      mix:
+      - countin
+      - pad: [1.193, without: [bass, jammit-track]]
 parts:
   drums:
     drums:

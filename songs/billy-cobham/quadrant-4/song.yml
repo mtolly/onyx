@@ -15,18 +15,13 @@ audio:
     frames: 11992260
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 jammit:
   jammit-track:
     title: Quadrant Four
 plans:
   jammit:
-    countin:
-      &countin
-      2|0: hihat
-      2|2: hihat
-      3|0: hihat
-      3|1: hihat
-      3|2: hihat
     parts:
       drums:
         pad: [2.054, only: [Drums, jammit-track]]
@@ -44,30 +39,34 @@ plans:
       keys:
         pad: [2.054, only: [Keys, jammit-track]]
     song:
+      mix:
+      - countin
       # this should actually just go in keys
-      pad:
-      - 2.054
-      - mix:
-        - without: [drums, jammit-track]
-        - gain:
-          - -1
-          - mix:
-            - only: [Guitar, jammit-track]
-            - only: [Bass, jammit-track]
-            - only: [Keys, jammit-track]
+      - pad:
+        - 2.054
+        - mix:
+          - without: [drums, jammit-track]
+          - gain:
+            - -1
+            - mix:
+              - only: [Guitar, jammit-track]
+              - only: [Bass, jammit-track]
+              - only: [Keys, jammit-track]
   jammit-simple:
-    countin: *countin
     parts:
       bass: *fixedbass
     song:
-      pad: [2.054, without: [bass, jammit-track]]
+      mix:
+      - countin
+      - pad: [2.054, without: [bass, jammit-track]]
   album:
-    countin: *countin
     song:
       expr:
-        stretch:
-        - 0.9987984454700994
-        - drop: [7.732, album-track]
+        mix:
+        - countin
+        - stretch:
+          - 0.9987984454700994
+          - drop: [7.732, album-track]
       pans: [1, -1]
       vols: [2, 2]
 parts:

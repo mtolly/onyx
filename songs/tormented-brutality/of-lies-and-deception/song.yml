@@ -21,17 +21,14 @@ audio:
     frames: 9311333
   china:
     file-path: ../../../sound/china-cymbal.wav
+  countin:
+    samples: {}
 plans:
   album:
     song:
-      pad: [2.695, album-track]
-    countin:
-      0|0: china
-      0|2: china
-      1|0: china
-      1|1: china
-      1|2: china
-      1|3: china
+      mix:
+      - countin
+      - pad: [2.695, album-track]
 targets:
   rb3:
     game: rb3

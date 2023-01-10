@@ -38,15 +38,14 @@ audio:
     frames: 30723000
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      1|0: hihat
-      1|2: hihat
-      2|0: hihat
-      2|1: hihat
     song:
-      pad: [4.048, gain: [1.4, album-track]]
+      mix:
+      - countin
+      - pad: [4.048, gain: [1.4, album-track]]
 targets:
   rb3:
     game: rb3

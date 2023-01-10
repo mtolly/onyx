@@ -17,22 +17,19 @@ audio:
     commands:
     - echo TODO set up spleeter here
     - cp AUDIO(album-track) audio-drumless.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      &countin
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      pad: [4.143, album-track]
+      mix:
+      - countin
+      - pad: [4.143, album-track]
   drumless:
-    countin: *countin
     song:
-      pad: [4.143, drumless]
+      mix:
+      - countin
+      - pad: [4.143, drumless]
 parts:
   drums:
     drums:

@@ -21,6 +21,8 @@ audio:
     frames: 22073520
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
   jammit-nodrums:
     expr:
       without: [drums, jammit-track]
@@ -228,22 +230,17 @@ audio:
 
 plans:
   jammit:
-    countin:
-      &countin
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
     parts:
       drums: jammit-game-drums
       bass: jammit-bass
       vocal: jammit-game-vox
       guitar: jammit-game-gtr
       keys: jammit-game-keys
-    song: jammit-game-song
+    song:
+      mix:
+      - countin
+      - jammit-game-song
   jammit-wii:
-    countin: *countin
     parts:
       drums: jammit-game-drums
       bass:
@@ -260,11 +257,15 @@ plans:
           - channels: [[1], jammit-game-vox]
       guitar: jammit-game-gtr
       keys: jammit-game-keys
-    song: jammit-game-song
-  album:
-    countin: *countin
     song:
-      pad: [2.793, album-track]
+      mix:
+      - countin
+      - jammit-game-song
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [2.793, album-track]
 
 parts:
   drums:

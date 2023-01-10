@@ -31,24 +31,10 @@ audio:
     frames: 14521583
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   stems:
-    countin:
-      &countin
-      # countin for spacey part
-      19|1: hihat
-      19|3: hihat
-      20|1: hihat
-      20|2: hihat
-      20|3: hihat
-      20|4: hihat
-      # countin for band
-      36|0: hihat
-      36|2: hihat
-      37|0: hihat
-      37|1: hihat
-      37|2: hihat
-      37|3: hihat
     parts:
       drums:
         pad:
@@ -63,6 +49,7 @@ plans:
       # TODO: keys audio
     song:
       mix:
+      - countin
       - take:
         - '1:22.806'
         - gain: [1.2, hdtracks-track]
@@ -75,13 +62,14 @@ plans:
           - stem-solo
           - stem-vocal
   album:
-    countin: *countin
     song:
-      gain:
-      - 1.2
-      - channels:
-        - [1, 0] # flip channels
-        - hdtracks-track
+      mix:
+      - countin
+      - gain:
+        - 1.2
+        - channels:
+          - [1, 0] # flip channels
+          - hdtracks-track
 parts:
   drums:
     drums:

@@ -1080,7 +1080,7 @@ keysToProKeys d ft = ProKeysTrack
   }
 
 data SamplesTrack t = SamplesTrack
-  { sampleTriggers :: RTB.T t SampleTrigger -- (group name, audio reference)
+  { sampleTriggers :: RTB.T t SampleTrigger
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (SamplesTrack t)
 

@@ -9,24 +9,20 @@ audio:
     frames: 36227966
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   hdtracks:
-    countin:
-      &countin
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      pad:
-      - 3.074
-      - channels:
-        - [1, 0]
-        # I'm 90% sure the channels are flipped around from what they should be,
-        # comparing to the Zildjian playthrough video
-        - hdtracks-track
+      mix:
+      - countin
+      - pad:
+        - 3.074
+        - channels:
+          - [1, 0]
+          # I'm 90% sure the channels are flipped around from what they should be,
+          # comparing to the Zildjian playthrough video
+          - hdtracks-track
 parts:
   drums:
     drums:

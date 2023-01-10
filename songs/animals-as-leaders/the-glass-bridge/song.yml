@@ -17,17 +17,14 @@ audio:
     frames: 13479900
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   plan:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      pad: [3.750, album-track]
+      mix:
+      - countin
+      - pad: [3.750, album-track]
 metadata:
   title: The Glass Bridge
   artist: Animals as Leaders

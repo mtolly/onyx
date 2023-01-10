@@ -16,22 +16,19 @@ audio:
     frames: 28680876
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      1|0: hihat
-      1|2: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
-      2|3: hihat
     song:
-      fade:
-      - start
-      - 6.556
-      - concatenate:
-        - drop: [13:28.500, album-prev]
-        - album-track
+      mix:
+      - countin
+      - fade:
+        - start
+        - 6.556
+        - concatenate:
+          - drop: [13:28.500, album-prev]
+          - album-track
 parts:
   drums:
     drums:

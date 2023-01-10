@@ -11,27 +11,24 @@ audio:
     frames: 11877600
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 jammit:
   jammit-track: {}
 plans:
   jammit:
-    countin:
-      &countin
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     parts:
       drums:
         pad: [1.840, only: [Drums, jammit-track]]
     song:
-      pad: [1.840, without: [drums, jammit-track]]
+      mix:
+      - countin
+      - pad: [1.840, without: [drums, jammit-track]]
   album:
-    countin: *countin
     song:
-      pad: [3.651, album-track]
+      mix:
+      - countin
+      - pad: [3.651, album-track]
 parts:
   drums:
     drums:

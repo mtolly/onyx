@@ -8,6 +8,8 @@ metadata:
 audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
   drumcam-band:
     md5: c6954c1a636b32e696e50dfd5ab293f6
     frames: 223442400
@@ -40,21 +42,17 @@ audio:
               - drumcam-drums
 plans:
   drumcam:
-    countin:
-      &countin
-      1|0: hihat
-      1|2: hihat
-      2|0: hihat
-      2|1: hihat
     song:
-      pad:
-      - 3.349
-      - resample:
-          gain:
-          - 1 # TODO
-          - mix:
-            - drumcam-band-expr
-            - drumcam-drums-expr
+      mix:
+      - countin
+      - pad:
+        - 3.349
+        - resample:
+            gain:
+            - 1 # TODO
+            - mix:
+              - drumcam-band-expr
+              - drumcam-drums-expr
     parts:
       drums:
         pad:

@@ -35,24 +35,20 @@ audio:
     frames: 22720499
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      &countin
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      pad: [4.656, album-track]
+      mix:
+      - countin
+      - pad: [4.656, album-track]
   deluxe:
     # TODO: fix this
     # 6:13 - 7:06: keyboard solo is in both Keys and Solo stems
     # Reconstruct bg keyboard by moving solo stem back 49 samples, and mixing with keys stem.
     # (It's already inverted.)
-    countin: *countin
+    song: countin
     parts:
       drums:
         pad:

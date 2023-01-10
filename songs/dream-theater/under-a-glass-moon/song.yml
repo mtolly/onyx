@@ -16,42 +16,40 @@ audio:
     frames: 18671940
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 jammit:
   jammit-track: {}
 plans:
   jammit:
-    countin:
-      &countin
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     parts:
       drums:
         pad: [1.704, only: [Drums, jammit-track]]
       bass:
         pad: [1.704, only: [Bass, jammit-track]]
     song:
-      pad:
-      - 1.704
-      - mix:
-        - without: [drums, jammit-track]
-        - gain:
-          - -1
-          - only: [Bass, jammit-track]
+      mix:
+      - countin
+      - pad:
+        - 1.704
+        - mix:
+          - without: [drums, jammit-track]
+          - gain:
+            - -1
+            - only: [Bass, jammit-track]
   jammit-simple:
-    countin: *countin
     parts:
       drums:
         pad: [1.704, only: [Drums, jammit-track]]
     song:
-      pad: [1.704, without: [drums, jammit-track]]
+      mix:
+      - countin
+      - pad: [1.704, without: [drums, jammit-track]]
   album:
-    countin: *countin
     song:
-      pad: [3.051, album-track]
+      mix:
+      - countin
+      - pad: [3.051, album-track]
     file-tempo: tempo-album.mid
 parts:
   drums:

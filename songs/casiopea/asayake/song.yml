@@ -15,22 +15,19 @@ audio:
     frames: 13271160
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
     tuning-cents: 15 # this is just a guess for now
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      pad:
-      - 3.819
-      - channels:
-        - [1, 0]
-        - album-track
+      mix:
+      - countin
+      - pad:
+        - 3.819
+        - channels:
+          - [1, 0]
+          - album-track
 parts:
   drums:
     drums:

@@ -14,6 +14,8 @@ audio:
     frames: 20110776
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
   mixed-bass:
     expr:
       trim: [11.711, gain: [1.6, only: [Bass, jammit-track]]]
@@ -96,16 +98,6 @@ jammit:
   jammit-track: {}
 plans:
   jammit:
-    countin:
-      &countin
-      0|0: hihat
-      0|1.5: hihat
-      1|0: hihat
-      1|0.5: hihat
-      1|1: hihat
-      1|1.5: hihat
-      1|2: hihat
-      1|2.5: hihat
     parts:
       bass:
         mixed-bass
@@ -125,6 +117,7 @@ plans:
         mixed-drums
     song:
       mix:
+      - countin
       - mixed-guitar1-backing
       - fade:
         - start
@@ -133,7 +126,6 @@ plans:
           - 4.063
           - mixed-guitar1-unchanged # guitar tune-up before first notes
   jammit-wii:
-    countin: *countin
     parts:
       guitar:
         pad:
@@ -149,6 +141,7 @@ plans:
         mixed-drums
     song:
       mix:
+      - countin
       - mixed-bass
       - mixed-vocal
       - mixed-bvocals-unchanged
@@ -161,12 +154,13 @@ plans:
           - 4.063
           - mixed-guitar1-unchanged # guitar tune-up before first notes
   album:
-    countin: *countin
     song:
-      fade:
-      - start
-      - 2.4
-      - trim: [19.991, album-track]
+      mix:
+      - countin
+      - fade:
+        - start
+        - 2.4
+        - trim: [19.991, album-track]
 parts:
   drums:
     drums:

@@ -9,14 +9,9 @@ metadata:
 plans:
   album:
     song:
-      pad: [3.950, youtube]
-    countin:
-      1|0: hihat
-      1|2: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
-      2|3: hihat
+      mix:
+      - countin
+      - pad: [3.950, youtube]
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -24,6 +19,8 @@ audio:
     - ../../../scripts/youtube Qu1Z1Tlzz0E 140
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 parts:
   drums:
     drums:

@@ -15,6 +15,8 @@ audio:
     frames: 12681396
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 jammit:
   jammit-track:
     title: "Anxiety | Tuarian Matador"
@@ -53,15 +55,11 @@ plans:
           - drop: ['1:39.929', only: [Keys 2, jammit-track]]
         pans: [1, -1]
   album:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
     song:
       expr:
-        drop: ['1:38.652', album-track]
+        mix:
+        - countin
+        - drop: ['1:38.652', album-track]
       pans: [1, -1]
 parts:
   drums:
