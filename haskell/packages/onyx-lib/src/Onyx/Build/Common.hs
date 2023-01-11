@@ -331,11 +331,11 @@ sourceCrowd buildInfo tgt mid pad planName plan = do
       (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) [(-1, 0), (1, 0)] planName x.crowd
   return $ padAudio pad $ applyTargetAudio tgt mid src
 
-sourceSongCountin
+sourceBacking
   :: (MonadResource m)
-  => BuildInfo -> TargetCommon -> F.Song f -> Int -> Bool -> T.Text -> Plan FilePath -> [(F.FlexPartName, Integer)]
+  => BuildInfo -> TargetCommon -> F.Song f -> Int -> T.Text -> Plan FilePath -> [(F.FlexPartName, Integer)]
   -> Staction (AudioSource m Float)
-sourceSongCountin buildInfo tgt mid pad includeCountin planName plan fparts = do
+sourceBacking buildInfo tgt mid pad planName plan fparts = do
   let usedParts' = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
       usedParts =
         [ fpart
@@ -358,16 +358,11 @@ sourceSongCountin buildInfo tgt mid pad includeCountin planName plan fparts = do
         guard $ notElem fpart usedParts
         return pa
       partAudios = maybe id (\pa -> (PartSingle pa :)) x.song unusedParts
-      countinPath = biRelative buildInfo $ "gen/plan" </> T.unpack planName </> "countin.wav"
       in do
         unusedSrcs <- mapM (buildPartAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName . Just) partAudios
-        if includeCountin
-          then do
-            countinSrc <- shk $ buildSource $ Input countinPath
-            return $ foldr mix countinSrc unusedSrcs
-          else case unusedSrcs of
-            []     -> buildPartAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName Nothing
-            s : ss -> return $ foldr mix s ss
+        case unusedSrcs of
+          []     -> buildPartAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName Nothing
+          s : ss -> return $ foldr mix s ss
   return $ padAudio pad $ applyTargetAudio tgt mid src
 
 adjustSpec :: Bool -> [(Double, Double)] -> [(Double, Double)]

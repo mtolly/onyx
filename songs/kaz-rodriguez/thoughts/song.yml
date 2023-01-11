@@ -20,41 +20,38 @@ audio:
     frames: 15552000
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   youtube:
     song:
-      gain:
-      - 1.6
-      - mix:
-        - mask:
-          - [drumless]
-          - &mask
-            - center: 0
-              tag: drumless
-            - center: 8.142
-              tag: youtube
-              fade: 0.1
-          - pad:
-            - 3.419
-            - gain: [1.85, drumless]
-        - mask:
-          - [youtube]
-          - *mask
-          - pad:
-            - 0.493
-            - youtube
+      mix:
+      - countin
+      - gain:
+        - 1.6
+        - mix:
+          - mask:
+            - [drumless]
+            - &mask
+              - center: 0
+                tag: drumless
+              - center: 8.142
+                tag: youtube
+                fade: 0.1
+            - pad:
+              - 3.419
+              - gain: [1.85, drumless]
+          - mask:
+            - [youtube]
+            - *mask
+            - pad:
+              - 0.493
+              - youtube
     # parts:
     #   drumless:
     #     pad:
     #     - 3.419
     #     - gain: [2.96, drumless]
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
 parts:
   drums:
     drums:

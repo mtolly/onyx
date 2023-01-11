@@ -13,18 +13,15 @@ audio:
     file-path: audio-youtube.wav
     commands:
     - ../../../scripts/youtube 0i32h6Q4R6A 140
-    md5: c70406708f6d54b74c74495d98de96fd
-    frames: 16762880
+    # md5: c70406708f6d54b74c74495d98de96fd
+    # frames: 16762880
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      0|0: hihat
-      0|1.5: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
+    song: countin
     parts:
       guitar:
         pad: [3.005, gain: [1.5, youtube]]

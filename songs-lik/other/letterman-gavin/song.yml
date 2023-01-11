@@ -7,6 +7,8 @@ audio:
     frames: 10130432
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
   aligned-audio:
     expr:
       gain:
@@ -23,50 +25,45 @@ audio:
 plans:
   album:
     song:
-      mask:
-      - [band]
-      - &solo-mask
-        - center: 0
-          tag: band
-        - center: 0:45.641
-          fade: 0.04
-          tag: solo
-        - center: 1:17.211
-          fade: 0.04
-          tag: band
-        - center: 1:19.607
-          fade: 0.04
-          tag: solo
-          # there's some applause during this solo, but I think it's fine
-        - center: 1:51.194
-          fade: 0.04
-          tag: band
-        - center: 1:53.422
-          fade: 0.04
-          tag: solo
-        - center: 2:25.091
-          fade: 0.04
-          tag: band
-        - center: 2:27.584
-          fade: 0.04
-          tag: solo
-        - center: 2:59.137
-          fade: 0.04
-          tag: band
-      - aligned-audio
+      mix:
+      - countin
+      - mask:
+        - [band]
+        - &solo-mask
+          - center: 0
+            tag: band
+          - center: 0:45.641
+            fade: 0.04
+            tag: solo
+          - center: 1:17.211
+            fade: 0.04
+            tag: band
+          - center: 1:19.607
+            fade: 0.04
+            tag: solo
+            # there's some applause during this solo, but I think it's fine
+          - center: 1:51.194
+            fade: 0.04
+            tag: band
+          - center: 1:53.422
+            fade: 0.04
+            tag: solo
+          - center: 2:25.091
+            fade: 0.04
+            tag: band
+          - center: 2:27.584
+            fade: 0.04
+            tag: solo
+          - center: 2:59.137
+            fade: 0.04
+            tag: band
+        - aligned-audio
     parts:
       drums:
         mask:
         - [solo]
         - *solo-mask
         - aligned-audio
-    countin:
-      7|0: hihat
-      7|2: hihat
-      8|0: hihat
-      8|1: hihat
-      8|2: hihat
-      8|3: hihat
 metadata:
   author: TheLieInKing, Onyxite
   title: The Chicken (Live on Letterman)

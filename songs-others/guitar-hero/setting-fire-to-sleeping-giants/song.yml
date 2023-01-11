@@ -31,14 +31,8 @@ plans:
           mix:
           - drums_3.ogg
           - drums_4.ogg
-    song: song.ogg
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
+    song:
+      mix: [countin, song.ogg]
 targets:
   rb3:
     game: rb3
@@ -82,3 +76,5 @@ audio:
     file-path: drums_2.ogg
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}

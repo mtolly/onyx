@@ -429,7 +429,6 @@ importPowerGigSong key song folder level = do
     , audio = HM.fromList audio
     , plans = HM.singleton "powergig" $ StandardPlan StandardPlanInfo
       { song = audioBacking
-      , countin = Countin []
       , parts = Parts $ HM.fromList $ catMaybes
         [ (F.FlexGuitar,) <$> audioGuitar
         , (F.FlexDrums ,) <$> audioDrums

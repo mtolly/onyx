@@ -19,6 +19,8 @@ audio:
     frames: 18317964
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
   mogg-channel-0:
     md5: 323e9e1ce006f9c8a920ae766fb5afef
     frames: 18595500
@@ -69,15 +71,10 @@ audio:
     channels: 1
 plans:
   album:
-    countin:
-      &countin
-      1|0: hihat
-      1|2: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
     song:
-      pad: [3.593, album-track]
+      mix:
+      - countin
+      - pad: [3.593, album-track]
   mogg:
     mogg-md5: e9657cb623ede70d2930c98ac6c4c243
     pans: [ 0.0, -1.0,  1.0, -1.0,  1.0,  0.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0]
@@ -92,7 +89,7 @@ plans:
       vocal: [8, 9]
       keys: [10, 11]
   final:
-    countin: *countin
+    song: countin
     parts:
       drums:
         kick:

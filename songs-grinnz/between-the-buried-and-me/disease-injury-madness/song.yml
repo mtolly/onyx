@@ -12,22 +12,19 @@ audio:
     frames: 29236536
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      0|0: hihat
-      0|1.5: hihat
-      0|3: hihat
-      1|0.5: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      fade:
-      - end
-      - 0.1
-      - trim:
-        - '9:11.247'
-        - concatenate: [album-obfuscation, album-disease]
+      mix:
+      - countin
+      - fade:
+        - end
+        - 0.1
+        - trim:
+          - '9:11.247'
+          - concatenate: [album-obfuscation, album-disease]
 parts:
   drums:
     drums:

@@ -249,7 +249,6 @@ importGH2Song mode pkg genPath gen level = do
             }
       in StandardPlan StandardPlanInfo
         { song = mixChans 0 songChans
-        , countin = Countin []
         , parts = Parts $ HM.fromList $ catMaybes
           -- I made up these volume adjustments but they seem to work
           [ (F.FlexGuitar ,) . PartSingle <$> mixChans (-0.5) guitarChans

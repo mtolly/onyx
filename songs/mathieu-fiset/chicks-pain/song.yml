@@ -28,14 +28,9 @@ parts:
 plans:
   album:
     song:
-      pad: [3.623, album-track]
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
+      mix:
+      - countin
+      - pad: [3.623, album-track]
 audio:
   album-track:
     # https://mathieufiset.bandcamp.com/album/robojazz
@@ -43,6 +38,8 @@ audio:
     frames: 9589206
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 targets:
   rb3:
     game: rb3

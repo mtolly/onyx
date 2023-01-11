@@ -234,7 +234,6 @@ importGH1Song pkg path gen level = do
             }
       in StandardPlan StandardPlanInfo
         { song = mixChans songChans
-        , countin = Countin []
         , parts = Parts $ HM.fromList $ catMaybes
           [ (F.FlexGuitar ,) . PartSingle <$> mixChans guitarChans
           ]

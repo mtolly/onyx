@@ -3,21 +3,18 @@ audio:
     commands:
     - ../../../scripts/youtube HRM8N1987qA 140
     file-path: audio-youtube.wav
-    md5: c7adf32a4cf01b7057ea91d93cfb5c37
-    frames: 9364480
+    # md5: c7adf32a4cf01b7057ea91d93cfb5c37
+    # frames: 9364480
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      0|2: hihat
-      0|4: hihat
-      0|6: hihat
-      0|7: hihat
-      0|8: hihat
-      0|9: hihat
     song:
-      pad: [2.412, youtube]
+      mix:
+      - countin
+      - pad: [2.412, youtube]
 metadata:
   rating: Family Friendly
   track-number: 8

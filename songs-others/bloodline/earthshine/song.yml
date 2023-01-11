@@ -13,16 +13,11 @@ parts:
 plans:
   youtube:
     song:
-      take:
-      - '5:26.059'
-      - pad: [0.411, youtube]
-    countin:
-      2|0: hihat
-      3|0: hihat
-      4|0: hihat
-      4|2: hihat
-      5|0: hihat
-      5|2: hihat
+      mix:
+      - countin
+      - take:
+        - '5:26.059'
+        - pad: [0.411, youtube]
   dev:
     parts:
       bass: stem-bass
@@ -43,6 +38,8 @@ audio:
     - ../../../scripts/youtube tI1zdXLflqs 140
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
   stem-bass:
     md5: 16d0520a595ea9e6cb24fb8feb01636f
     frames: 14436266

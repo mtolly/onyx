@@ -12,27 +12,22 @@ plans:
         - -0.8
         - pad: [0.494, subtracted]
     song:
-      pad: [4.049, drumless]
-    countin:
-      1|0: hihat
-      1|2: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
-      2|3: hihat
+      mix:
+      - countin
+      - pad: [4.049, drumless]
 audio:
   drumless:
     file-path: audio-drumless.wav
     commands:
     - ../../../scripts/youtube uWLthUYRar8 140 audio-drumless.wav
-    md5: 464caa0a9004ab85f41e5a3efa21146c
-    frames: 10527744
+    # md5: 464caa0a9004ab85f41e5a3efa21146c
+    # frames: 10527744
   rudinger:
     file-path: audio-rudinger.wav
     commands:
     - ../../../scripts/youtube o8LoO3M_2-M 140 audio-rudinger.wav
-    md5: 442f996f370ada810df72d173fdde7d5
-    frames: 11419648
+    # md5: 442f996f370ada810df72d173fdde7d5
+    # frames: 11419648
   subtracted:
     expr:
       mix:
@@ -42,6 +37,8 @@ audio:
         - gain: [-0.6875, drumless]
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 targets:
   rb3-2x:
     game: rb3

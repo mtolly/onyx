@@ -14,28 +14,25 @@ audio:
     md5: 6b0733955a9a3fe7cd686b4a1d34d8e2
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  hihat-quiet:
+    expr:
+      gain: [0.45, hihat]
+  hihat-quieter:
+    expr:
+      gain: [0.18, hihat]
+  countin:
+    samples: {}
 plans:
   album:
     song:
-      fade:
-      - start
-      - 3
-      - drop:
-        - 7:18.089
-        - concatenate: [album-prev, album-track]
-    countin:
-      0|0:
-        gain: [0.45, hihat]
-      0|1:
-        gain: [0.18, hihat]
-      0|2:
-        gain: [0.18, hihat]
-      1|0:
-        gain: [0.45, hihat]
-      1|1:
-        gain: [0.18, hihat]
-      1|2:
-        gain: [0.18, hihat]
+      mix:
+      - countin
+      - fade:
+        - start
+        - 3
+        - drop:
+          - 7:18.089
+          - concatenate: [album-prev, album-track]
 parts:
   drums:
     drums:

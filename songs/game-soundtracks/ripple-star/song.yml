@@ -33,16 +33,14 @@ audio:
     file-path: stems_stems_BACKING.wav
   snare-hit:
     file-path: snare-hit.wav
+  countin:
+    samples: {}
 plans:
   stems:
-    countin:
-      0|0: snare-hit
-      0|2: snare-hit
-      1|0: snare-hit
-      1|1: snare-hit
-      1|2: snare-hit
-      1|3: snare-hit
-    song: stem-backing
+    song:
+      mix:
+      - countin
+      - stem-backing
     parts:
       bass: stem-bass
       drums:

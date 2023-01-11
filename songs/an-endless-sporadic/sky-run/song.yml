@@ -13,17 +13,15 @@ audio:
     frames: 23588208
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    # TODO add countin for 140bpm part
+    samples: {}
 plans:
   album:
-    countin:
-      # TODO: maybe fix tempo map so there can be a countin for 140bpm part
-      2|0: hihat
-      2|2: hihat
-      3|0: hihat
-      3|1: hihat
-      3|2: hihat
-      3|3: hihat
-    song: album-track
+    song:
+      mix:
+      - countin
+      - album-track
 parts:
   drums:
     drums:

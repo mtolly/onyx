@@ -117,7 +117,7 @@ gh2Rules buildInfo dir gh2 = do
           GH2PartStereo part -> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
           -- This halves the volume, so we set vols in .dta to compensate
           GH2PartMono part -> applyVolsMono [0] <$> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
-          GH2Band -> sourceSongCountin buildInfo def mid 0 True planName plan $ concat
+          GH2Band -> sourceBacking buildInfo def mid 0 planName plan $ concat
             [ [(audio.leadTrack, 1)]
             , [(audio.coopTrack, 1)]
             , maybe [] (\t -> [(t, 1)]) audio.drumTrack

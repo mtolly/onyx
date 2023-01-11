@@ -39,7 +39,6 @@ import           Data.Maybe                           (fromMaybe, mapMaybe)
 import           Data.Scientific                      (Scientific, toRealFloat)
 import           Data.String                          (IsString (..))
 import qualified Data.Text                            as T
-import           Data.Traversable
 import qualified Data.Vector                          as V
 import           GHC.Generics                         (Generic (..))
 import qualified Numeric.NonNegative.Class            as NNC
@@ -253,7 +252,6 @@ data Plan f
 
 data StandardPlanInfo f = StandardPlanInfo
   { song        :: Maybe (PlanAudio Duration AudioInput)
-  , countin     :: Countin
   , parts       :: Parts (PartAudio (PlanAudio Duration AudioInput))
   , crowd       :: Maybe (PlanAudio Duration AudioInput)
   , comments    :: [T.Text]
@@ -264,7 +262,6 @@ data StandardPlanInfo f = StandardPlanInfo
 instance (Eq f, StackJSON f) => StackJSON (StandardPlanInfo f) where
   stackJSON = asStrictObject "StandardPlanInfo" $ do
     song        <- (.song       ) =. opt Nothing          "song"         stackJSON
-    countin     <- (.countin    ) =. opt (Countin [])     "countin"      stackJSON
     parts       <- (.parts      ) =. opt (Parts HM.empty) "parts"        stackJSON
     crowd       <- (.crowd      ) =. opt Nothing          "crowd"        stackJSON
     comments    <- (.comments   ) =. opt []               "comments"     stackJSON
@@ -321,26 +318,11 @@ getMultitrack = \case
   StandardPlan x -> not $ HM.null $ HM.delete F.FlexVocal x.parts.getParts
   MoggPlan     x -> x.multitrack
 
-newtype Countin = Countin [(Either U.MeasureBeats U.Seconds, Audio Duration AudioInput)]
-  deriving (Eq, Ord, Show)
-
-instance StackJSON Countin where
-  stackJSON = Codec
-    { codecIn = do
-      hm <- mapping fromJSON
-      fmap Countin $ forM (HM.toList hm) $ \(k, v) -> (, v) <$> parseFrom k parseCountinTime
-    , codecOut = makeOut $ \(Countin pairs) -> A.Object $ KM.fromHashMapText $ HM.fromList $ flip map pairs $ \(t, v) -> let
-      k = case t of
-        Left mb    -> showMeasureBeats mb
-        Right secs -> T.pack $ show (realToFrac secs :: Milli)
-      in (k, toJSON v)
-    }
-
 -- | Parses any of \"measure|beats\", \"seconds\", or \"minutes:seconds\".
-parseCountinTime :: (SendMessage m) => StackParser m T.Text (Either U.MeasureBeats U.Seconds)
-parseCountinTime = do
+parseTimestamp :: (SendMessage m) => StackParser m T.Text (Either U.MeasureBeats U.Seconds)
+parseTimestamp = do
   t <- lift ask
-  inside ("Countin timestamp " ++ show t)
+  inside ("Parsing timestamp " ++ show t)
     $                  fmap Left                 parseMeasureBeats
     `catchError` \_ -> fmap (Right . realToFrac) (parseFrom (A.String t) parseMinutes)
     `catchError` \_ -> parseFrom (A.String t) $ expected "a timestamp in measure|beats, seconds, or minutes:seconds"
@@ -955,7 +937,7 @@ instance StackJSON PreviewTime where
         case T.stripPrefix "prc_" str of
           Just prc -> return $ PreviewSection prc
           Nothing -> let
-            p = parseFrom str $ either PreviewMIDI PreviewSeconds <$> parseCountinTime
+            p = parseFrom str $ either PreviewMIDI PreviewSeconds <$> parseTimestamp
             in p `catchError` \_ -> expected "a preview time: prc_something, timestamp, or measure|beats"
       in traceNum `catchError` \_ -> traceStr
     , codecOut = makeOut $ \case

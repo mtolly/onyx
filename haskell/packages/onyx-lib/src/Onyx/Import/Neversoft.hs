@@ -159,7 +159,6 @@ importGH5WoR src folder = do
               { song = case streams3 of
                 (x, _) : _ -> Just $ PlanAudio (Input $ Named x) [] []
                 []         -> Nothing
-              , countin = Countin []
               , parts = Parts $ HM.fromList $ let
                 drums = case map fst streams1 of
                   d1 : d2 : d3 : d4 : _ -> [(F.FlexDrums, PartDrumKit
@@ -475,7 +474,6 @@ importGH3Song gh3i = let
         in HM.singleton "gh" $ StandardPlan StandardPlanInfo
           { song = flip fmap (lookup (qbKeyCRC nameBand) audio) $ \group ->
             PlanAudio (toExpr group) [] bandVol
-          , countin = Countin []
           , parts = Parts $ HM.fromList $ catMaybes
             [ flip fmap (lookup (qbKeyCRC nameLead  ) audio) $ \group ->
               (F.FlexGuitar, PartSingle $ PlanAudio (toExpr group) [] guitarVol)

@@ -1,11 +1,14 @@
 metadata:
-  title: Kodou # 鼓動
+  title: Kodou
+  title-jp: 鼓動
   artist: Yoshida Brothers
+  artist-jp: 吉田兄弟
   album: Renaissance
   track-number: 2
   year: 2004
   file-album-art: cover.jpg
   # this also appeared as track 5 on the international album Yoshida Brothers II (2004)
+  author: Onyxite
 parts:
   guitar: # left speaker: Ryōichirō
     {}
@@ -22,16 +25,14 @@ audio:
     frames: 9878400
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
     song:
-      pad: [1.669, album-track]
+      mix:
+      - countin
+      - pad: [1.669, album-track]
 targets:
   rb3:
     game: rb3

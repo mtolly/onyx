@@ -163,7 +163,6 @@ importOsu separateSongs f = do
           -- Also see Onyx.Audio.buildSource' for note about something wrong in our ffmpeg seek code
           mp3Delay = Drop Start (CA.Seconds 0.02)
           in PlanAudio (mp3Delay $ Input $ Named "osu-audio-file") [] []
-        , countin = Countin []
         , parts = Parts HM.empty
         , crowd = Nothing
         , comments = []

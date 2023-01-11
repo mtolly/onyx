@@ -201,7 +201,6 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
       <> map fst extraResults
     , plans = HM.singleton "dtx" $ StandardPlan StandardPlanInfo
       { song        = flip fmap songAudio $ \(name, _) -> audioExpr name
-      , countin     = Countin []
       , parts       = Parts $ HM.fromList $ concat
         [ toList $ flip fmap guitarAudio $ \(name, _) -> (F.FlexGuitar, PartSingle $ audioExpr name)
         , toList $ flip fmap bassAudio $ \(name, _) -> (F.FlexBass, PartSingle $ audioExpr name)

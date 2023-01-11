@@ -63,21 +63,18 @@ audio:
     frames: 11144330
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   stems:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      gain:
-      - 2.5
-      - pad:
-        - 2.817
-        - stem-crowd
+      mix:
+      - countin
+      - gain:
+        - 2.5
+        - pad:
+          - 2.817
+          - stem-crowd
     parts:
       guitar:
         gain:

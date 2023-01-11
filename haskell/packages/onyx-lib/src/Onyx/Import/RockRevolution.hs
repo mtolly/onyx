@@ -286,7 +286,6 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
         })
     , plans = HM.singleton "rr" $ StandardPlan StandardPlanInfo
       { song = flip fmap backingStream $ \s -> PlanAudio (Input $ Named s) [] []
-      , countin = Countin []
       , parts = Parts $ HM.fromList $ catMaybes
         [ flip fmap guitarStream $ \s -> (F.FlexGuitar, PartSingle $ PlanAudio (Input $ Named s) [] [])
         , flip fmap bassStream   $ \s -> (F.FlexBass  , PartSingle $ PlanAudio (Input $ Named s) [] [])

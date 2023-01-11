@@ -132,7 +132,7 @@ gh3Rules buildInfo dir gh3 = do
     stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathSong %> \out -> do
     mid <- loadOnyxMidi
-    s <- sourceSongCountin buildInfo gh3.common mid 0 True planName plan
+    s <- sourceBacking buildInfo gh3.common mid 0 planName plan
       [ (gh3.guitar, 1)
       , (coopPart      , 1)
       ]

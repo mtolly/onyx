@@ -548,7 +548,6 @@ importRSSong folder song level = do
         , pans = []
         , vols = []
         }
-      , countin     = Countin []
       , parts       = Parts HM.empty
       , crowd       = Nothing
       , comments    = []

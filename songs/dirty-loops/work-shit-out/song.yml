@@ -22,31 +22,24 @@ audio:
   #   - ../../../scripts/youtube r_GTgpdoCh0 140
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      pad:
-      - 2.889
-      - album-track
+      mix:
+      - countin
+      - pad:
+        - 2.889
+        - album-track
+  # not in correct position anymore! we switched to album version
   # youtube:
-  #   countin:
-  #     2|0: hihat
-  #     2|2: hihat
-  #     3|0: hihat
-  #     3|1: hihat
-  #     3|2: hihat
-  #     3|3: hihat
   #   song:
-  #     pad:
-  #     - 0.804
-  #     - youtube
+  #     mix:
+  #     - countin
+  #     - pad:
+  #       - 0.804
+  #       - youtube
 parts:
   drums:
     drums:
@@ -70,10 +63,13 @@ parts:
     grybo:
       difficulty: 7
 targets:
+  # TODO may need to adjust for album audio (missing glass smash SFX, anything else?)
   rb3:
     game: rb3
     song-id: 1660200151
     version: 1
+    plan: album
   ps:
     game: ps
     loading-phrase: "Part of Onyxite's Jazz Pack 4. Recommended 5-fret part: Keys, though Bass is also fun throughout."
+    plan: album

@@ -215,7 +215,6 @@ importMagma fin level = do
     , jammit = HM.empty
     , plans = HM.singleton "rbproj" $ StandardPlan StandardPlanInfo
       { song = fmap fst song
-      , countin = Countin []
       , parts = Parts $ HM.fromList $ concat
         [ case drums of
           Nothing -> []

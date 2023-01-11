@@ -15,24 +15,18 @@ audio:
     channels: 16
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      &countin
-      0|0: hihat
-      0|2.5: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
-      1|4: hihat
     song:
-      pad: [4.180, album-track]
+      mix:
+      - countin
+      - pad: [4.180, album-track]
     file-tempo: tempo-album.mid
   ghwt-c3:
     comments:
     - "Uses the C3 version of the audio from Guitar Hero: World Tour."
-    countin: *countin
     parts:
       drums:
         kick:
@@ -53,6 +47,7 @@ plans:
         channels: [[10, 11], c3]
     song:
       mix:
+      - countin
       - pad:
         - '5:40'
         - drop:

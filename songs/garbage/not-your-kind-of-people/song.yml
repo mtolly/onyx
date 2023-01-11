@@ -11,22 +11,19 @@ audio:
   youtube:
     file-path: audio-youtube.wav
     commands:
-    - ../../../scripts/youtube KckCsw_JyJI 141
-    md5: 13ce78c276b4ff7baa5470f4d11ac7be
-    frames: 13184000
+    - ../../../scripts/youtube KckCsw_JyJI 140
+    # md5: 13ce78c276b4ff7baa5470f4d11ac7be
+    # frames: 13184000
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      pad: [3.683, youtube]
+      mix:
+      - countin
+      - pad: [3.683, youtube]
 parts:
   vocal:
     vocal:

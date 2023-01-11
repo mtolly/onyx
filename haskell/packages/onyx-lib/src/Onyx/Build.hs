@@ -448,7 +448,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , F.s_tracks = mempty :: F.OnyxFile U.Beats
               }
         dir </> "song.wav" %> \out -> do
-          s <- sourceSongCountin buildInfo def dummyMIDI 0 False planName plan [ (fpart, 1) | (fpart, _) <- allPlanParts ]
+          s <- sourceBacking buildInfo def dummyMIDI 0 planName plan [ (fpart, 1) | (fpart, _) <- allPlanParts ]
           runAudio (clampIfSilent s) out
         dir </> "crowd.wav" %> \out -> do
           s <- sourceCrowd buildInfo def dummyMIDI 0 planName plan
@@ -536,8 +536,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   , toList x.parts >>= toList
                   ]
             srcs <- mapM (buildAudioToSpec yamlDir audioLib (audioDepend buildInfo) songYaml [(-1, 0), (1, 0)] planName . Just) planAudios
-            count <- shk $ buildSource $ Input $ dir </> "countin.wav"
-            runAudio (foldr mix count srcs) out
+            case srcs of
+              s : ss -> runAudio (foldr mix s ss) out
+              []     -> buildAudio (Silence 2 $ Frames 0) out
         dir </> "everything.ogg" %> buildAudio (Input $ dir </> "everything.wav")
 
         -- MIDI files
@@ -576,21 +577,6 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         display %> \out -> do
           song <- F.shakeMIDI midprocessed
           liftIO $ BL.writeFile out $ makeDisplay songYaml song
-
-        -- count-in audio
-        dir </> "countin.wav" %> \out -> do
-          let hits = case plan of MoggPlan _ -> []; StandardPlan x -> case x.countin of Countin h -> h
-          src <- buildAudioToSpec yamlDir audioLib (audioDepend buildInfo) songYaml [(-1, 0), (1, 0)] planName =<< case NE.nonEmpty hits of
-            Nothing    -> return Nothing
-            Just hits' -> Just . (\expr -> PlanAudio expr [] []) <$> do
-              mid <- F.shakeMIDI $ dir </> "raw.mid"
-              let _ = mid :: F.Song (F.RawFile U.Beats)
-              return $ Mix $ flip fmap hits' $ \(posn, aud) -> let
-                time = Seconds $ realToFrac $ case posn of
-                  Left  mb   -> U.applyTempoMap (F.s_tempos mid) $ U.unapplyMeasureMap (F.s_signatures mid) mb
-                  Right secs -> secs
-                in Pad Start time aud
-          runAudio src out
 
         -- Getting MOGG/OGG from MoggPlan
         let ogg  = dir </> "audio.ogg"

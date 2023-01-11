@@ -18,6 +18,8 @@ audio:
     frames: 7544628
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   # mogg:
   #   # only first half of song
@@ -34,15 +36,10 @@ plans:
   #   mogg-md5: a7bf49dfb51e1be6bed1c5673e0aa424
   #   multitrack: true
   album:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      fade:
+      mix:
+      - countin
+      - fade:
         - end
         - 2.583
         - take:

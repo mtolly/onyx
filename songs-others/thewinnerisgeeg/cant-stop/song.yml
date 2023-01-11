@@ -23,18 +23,14 @@ audio:
     md5: 84b5daa89c10d51ee3a88d517d324307
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    song: album-track
-    countin:
-      0|0:
-        gain: [0.5, hihat]
-      0|2:
-        gain: [0.5, hihat]
-      1|0:
-        gain: [0.5, hihat]
-      1|2:
-        gain: [0.5, hihat]
+    song:
+      mix:
+      - gain: [0.5, countin]
+      - album-track
 targets:
   rb3:
     game: rb3

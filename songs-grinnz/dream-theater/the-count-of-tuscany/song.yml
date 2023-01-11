@@ -35,25 +35,18 @@ audio:
     frames: 49823778
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      &countin
-      0|0: hihat
-      0|1.5: hihat
-      1|0: hihat
-      1|0.5: hihat
-      1|1: hihat
-      1|1.5: hihat
-      1|2: hihat
-      1|2.5: hihat
     song:
-      pad: [3.351, album-track]
+      mix:
+      - countin
+      - pad: [3.351, album-track]
   deluxe:
     # TODO: some guitar parts in the intro (before the srs C minor part) are missing
     # 2:19 - 2:37: guitar is missing
     # 3:04 - 3:20: guitar is missing
-    countin: *countin
     parts:
       drums:
         pad:
@@ -64,7 +57,9 @@ plans:
           - 2.496
           - gain: [0.52, deluxe-bass]
     song:
-      pad:
+      mix:
+      - countin
+      - pad:
         - 2.496
         - gain:
           - 0.4

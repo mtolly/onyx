@@ -19,10 +19,12 @@ audio:
     commands:
     - ../../../scripts/youtube JAmbbFMmAGM 140
     file-path: audio-youtube.wav
-    md5: 11f34c62480da4adf6b9bce475ec5569
-    frames: 11116544
+    # md5: 11f34c62480da4adf6b9bce475ec5569
+    # frames: 11116544
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 parts:
   drums:
     drums:
@@ -46,12 +48,7 @@ parts:
       gender: male
 plans:
   album:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
     song:
-      pad: [2.943, youtube]
+      mix:
+      - countin
+      - pad: [2.943, youtube]

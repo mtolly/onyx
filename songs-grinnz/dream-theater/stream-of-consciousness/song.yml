@@ -20,6 +20,8 @@ audio:
     frames: 7822164
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
   drumcam-band:
     md5: 694c99e4867e4a4691a963d92a77d432
     frames: 192898560
@@ -54,56 +56,50 @@ audio:
     frames: 30090003
 plans:
   album:
-    countin:
-      &countin
-      0|2: hihat
-      0|4: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
-      1|4: hihat
-      # changed Grinnz's 5/4 countin to 4/4
-    song:
-      fade:
-      - start
-      - 3
-      - concatenate:
-        - take:
-          - end
-          - 4.979
-          - album-vacant
-        - album-track
-  drumcam:
-    countin: *countin
     song:
       mix:
-      - mask:
-        - [vacant]
-        - &vacant-to-stream
-          - center: 0
-            tag: vacant
-          - center: 5.02
-            fade: 0.09
-            tag: stream
-        - fade:
-          - start
-          - 3
-          - drop: ['2:52.303', album-vacant]
-      - mask:
-        - [stream]
-        - *vacant-to-stream
-        - take:
-          - '11:21.312'
-          - pad:
-            - 4.839
-            - resample:
-                gain:
-                - 3.78
-                - mix:
-                  - drumcam-band-expr
-                  - take:
-                    - '11:02.160'
-                    - drumcam-drums-expr
+      - countin
+      - fade:
+        - start
+        - 3
+        - concatenate:
+          - take:
+            - end
+            - 4.979
+            - album-vacant
+          - album-track
+  drumcam:
+    song:
+      mix:
+      - countin
+      - mix:
+        - mask:
+          - [vacant]
+          - &vacant-to-stream
+            - center: 0
+              tag: vacant
+            - center: 5.02
+              fade: 0.09
+              tag: stream
+          - fade:
+            - start
+            - 3
+            - drop: ['2:52.303', album-vacant]
+        - mask:
+          - [stream]
+          - *vacant-to-stream
+          - take:
+            - '11:21.312'
+            - pad:
+              - 4.839
+              - resample:
+                  gain:
+                  - 3.78
+                  - mix:
+                    - drumcam-band-expr
+                    - take:
+                      - '11:02.160'
+                      - drumcam-drums-expr
     parts:
       drums:
         take:
@@ -115,8 +111,10 @@ plans:
               - -3.6
               - drumcam-drums-expr
   release:
-    countin: *countin
-    song: final-song
+    song:
+      mix:
+      - countin
+      - final-song
     parts:
       drums: final-drums
   mogg:

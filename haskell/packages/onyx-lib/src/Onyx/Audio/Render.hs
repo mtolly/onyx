@@ -75,7 +75,6 @@ checkDefined songYaml = do
             in map getLeaves $ concat
               [ maybe [] toList x.song
               , maybe [] toList x.crowd
-              , case x.countin of Countin xs -> concatMap (toList . snd) xs
               , toList x.parts.getParts >>= toList >>= toList
               ]
     case filter (not . (`elem` definedLeaves)) leaves of

@@ -12,6 +12,8 @@ audio:
     frames: 24490200
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
   rbn-bass:
     md5: 7a61310252cdf17e28b411fcfb4c328d
     frames: 24692678
@@ -26,24 +28,17 @@ audio:
     frames: 24692678
 plans:
   album:
-    countin:
-      &countin
-      0|2+(2/3): hihat
-      1|0: hihat
-      1|1+(1/3): hihat
-      1|2: hihat
-      1|2+(2/3): hihat
-      1|3+(1/3): hihat
     song:
-      &song
-      fade:
-      - start
-      - 2.756
-      - trim:
-        - '3:32.957'
-        - concatenate: [album-mirrors, album-obfuscation]
+      mix:
+      - countin
+      - &song
+        fade:
+        - start
+        - 2.756
+        - trim:
+          - '3:32.957'
+          - concatenate: [album-mirrors, album-obfuscation]
   dev:
-    countin: *countin
     song: *song
     parts:
       rbn-bass: rbn-bass

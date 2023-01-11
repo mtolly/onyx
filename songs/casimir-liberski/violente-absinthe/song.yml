@@ -16,20 +16,11 @@ audio:
   #   frames:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
-plans:
-  album:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
-      1|3: hihat
-    # song:
-    #   pad: [4.048, gain: [1.5, album-track]]
-targets:
-  rb3:
-    game: rb3
-  rb3-2x:
-    game: rb3
-    2x-bass-pedal: true
+  countin:
+    samples: {}
+# plans:
+#   album:
+#     song:
+#       mix:
+#       - countin
+#       - pad: [4.048, gain: [1.5, album-track]]

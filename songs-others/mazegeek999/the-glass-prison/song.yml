@@ -38,15 +38,10 @@ parts:
       kicks: 2
 plans:
   album:
-    countin:
-      1|0: hihat
-      1|2: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
-      2|3: hihat
     song:
-      drop: [7.366, album-track]
+      mix:
+      - countin
+      - drop: [7.366, album-track]
 targets:
   rb3-2x:
     song-id: 1684700120
@@ -81,3 +76,5 @@ audio:
     frames: 36724716
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}

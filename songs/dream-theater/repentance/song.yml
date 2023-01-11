@@ -28,20 +28,17 @@ audio:
     # AudioFile_81.ac3
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  hihat-quiet:
+    expr:
+      gain: [0.5, hihat]
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      &countin
-      0|0: hihat
-      0|1.5: hihat
-      1|0: hihat
-      1|0.5: {gain: [0.5, hihat]}
-      1|1: {gain: [0.5, hihat]}
-      1|1.5: hihat
-      1|2: {gain: [0.5, hihat]}
-      1|2.5: {gain: [0.5, hihat]}
     song:
-      pad: [4.942, album-track]
+      mix:
+      - countin
+      - pad: [4.942, album-track]
   drumcam:
     # three phases of offset in this one.
     # first band is 821 frames ahead of drums,
@@ -52,52 +49,53 @@ plans:
     - >-
       Portnoy's sysDRUMatic Chaos DVD.
       See the project README for help on extracting the DVD audio.
-    countin: *countin
     song:
-      gain:
-      - 1.25
-      - resample:
-          pad:
-          - 4.832
-          - take:
-            - '10:42.951'
-            - mix:
-              - drop:
-                - '30:47.852'
-                - drumcam-band
-              - gain:
-                - -1
-                - concatenate:
-                  - take:
-                    - frames: 16602381
-                    - &drums
-                      drop:
-                      - frames: 821
-                      - pad:
-                        - 1
-                        - drop:
-                          - '30:48.852'
-                          - drumcam-drums
-                  - take:
-                    - frames: 4034014
-                    - drop:
+      mix:
+      - countin
+      - gain:
+        - 1.25
+        - resample:
+            pad:
+            - 4.832
+            - take:
+              - '10:42.951'
+              - mix:
+                - drop:
+                  - '30:47.852'
+                  - drumcam-band
+                - gain:
+                  - -1
+                  - concatenate:
+                    - take:
                       - frames: 16602381
-                      - drop:
-                        - frames: 1986
+                      - &drums
+                        drop:
+                        - frames: 821
                         - pad:
                           - 1
                           - drop:
                             - '30:48.852'
                             - drumcam-drums
-                  - drop:
-                    - frames: 20636395
-                    - drop:
-                      - frames: 705
-                      - pad:
-                        - 1
+                    - take:
+                      - frames: 4034014
+                      - drop:
+                        - frames: 16602381
                         - drop:
-                          - '30:48.852'
-                          - drumcam-drums
+                          - frames: 1986
+                          - pad:
+                            - 1
+                            - drop:
+                              - '30:48.852'
+                              - drumcam-drums
+                    - drop:
+                      - frames: 20636395
+                      - drop:
+                        - frames: 705
+                        - pad:
+                          - 1
+                          - drop:
+                            - '30:48.852'
+                            - drumcam-drums
     parts:
       drums:
         gain:

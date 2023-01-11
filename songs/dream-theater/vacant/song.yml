@@ -14,28 +14,22 @@ audio:
     frames: 7822164
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
   final-song:
     md5: f82f750fe1f596be0a1f2d942cc8bf61
     frames: 8215376
 plans:
   album:
-    countin:
-      &countin
-      1|0:
-        gain: [0.25, hihat]
-      1|1.5:
-        gain: [0.25, hihat]
-      2|0:
-        gain: [0.25, hihat]
-      2|1:
-        gain: [0.25, hihat]
-      2|2:
-        gain: [0.25, hihat]
     song:
-      fade: [end, 4, album-track]
+      mix:
+      - gain: [0.25, countin]
+      - fade: [end, 4, album-track]
   release:
-    countin: *countin
-    song: final-song
+    song:
+      mix:
+      - gain: [0.25, countin]
+      - final-song
   mogg:
     parts:
       vocal: [3]

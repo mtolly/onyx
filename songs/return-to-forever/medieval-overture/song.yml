@@ -10,16 +10,12 @@ metadata:
 audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 jammit:
   jammit-track: {}
 plans:
   jammit:
-    countin:
-      0|0: hihat
-      0|2: hihat
-      1|0: hihat
-      1|1: hihat
-      1|2: hihat
     parts:
       drums:
         pad:
@@ -69,9 +65,8 @@ plans:
               - *keys-mask
               - only: [Keys 2, jammit-track]
     song:
-      pad:
-      - end
-      - 15 # hack for CH bug with short stems
+      mix:
+      - countin
       - pad:
         - 2.634
         - mix:

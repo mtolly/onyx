@@ -460,7 +460,6 @@ importFoF src level = do
     , jammit = HM.empty
     , plans = HM.singleton "fof" $ StandardPlan StandardPlanInfo
       { song         = audioExpr songAudio
-      , countin      = Countin []
       , parts        = Parts $ HM.fromList $ concat
         [ case audioExpr gtrAudio of Nothing -> []; Just x -> [(FlexGuitar, PartSingle x)]
         , case (audioExpr bassAudio, audioExpr rhythmAudio) of

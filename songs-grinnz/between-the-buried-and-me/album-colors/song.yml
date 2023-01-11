@@ -31,25 +31,24 @@ audio:
     frames: 37626708
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      0|0: hihat
-      0|1: hihat
-      0|2: hihat
-      0|3: hihat
     song:
-      pad:
-      - 3.496
-      - concatenate:
-        - album-the-backtrack
-        - album-the-decade-of-statues
-        - album-informal-gluttony
-        - album-sun-of-nothing
-        - album-ants-of-the-sky
-        - album-prequel-to-the-sequel
-        - album-viridian
-        - album-white-walls
+      mix:
+      - countin
+      - pad:
+        - 3.496
+        - concatenate:
+          - album-the-backtrack
+          - album-the-decade-of-statues
+          - album-informal-gluttony
+          - album-sun-of-nothing
+          - album-ants-of-the-sky
+          - album-prequel-to-the-sequel
+          - album-viridian
+          - album-white-walls
 parts:
   drums:
     drums:

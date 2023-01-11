@@ -122,7 +122,7 @@ rbRules buildInfo dir rb3 mrb2 = do
       pathMagmaDryvox2     = dir </> "magma/dryvox2.wav"
       pathMagmaDryvox3     = dir </> "magma/dryvox3.wav"
       pathMagmaDryvoxSine  = dir </> "magma/dryvox-sine.wav"
-      pathMagmaSong        = dir </> "magma/song-countin.wav"
+      pathMagmaSong        = dir </> "magma/song.wav"
       pathMagmaCover       = dir </> "magma/cover.bmp"
       pathMagmaCoverV1     = dir </> "magma/cover-v1.bmp"
       pathMagmaMid         = dir </> "magma/notes.mid"
@@ -184,7 +184,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     runAudio (clampIfSilent s) out
   pathMagmaSong   %> \out -> do
     (mid, DifficultyRB3{..}, _, pad) <- loadMidiResults
-    s <- sourceSongCountin buildInfo            rb3.common mid pad True planName plan
+    s <- sourceBacking buildInfo                rb3.common mid pad      planName plan
       [ (rb3.drums , rb3DrumsRank )
       , (rb3.guitar, rb3GuitarRank)
       , (rb3.bass  , rb3BassRank  )
@@ -1093,7 +1093,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
         , Magma.keys = if rb3KeysRank == 0
           then disabledFile
           else pvFile (computeSimplePart rb3.keys plan songYaml) "keys.wav"
-        , Magma.backing = pvFile [(-1, 0), (1, 0)] "song-countin.wav"
+        , Magma.backing = pvFile [(-1, 0), (1, 0)] "song.wav"
         }
       }
     }

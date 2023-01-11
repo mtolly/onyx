@@ -15,17 +15,14 @@ audio:
     frames: 23043132
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
   album:
-    countin:
-      1|0: hihat
-      1|2: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
-      2|3: hihat
     song:
-      fade:
+      mix:
+      - countin
+      - fade:
         - begin
         - 3.477
         - drop: [10.201, album-track]
@@ -82,19 +79,20 @@ parts:
         rank: 189
       count: 2
       gender: male
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
 targets:
   rb3:
     game: rb3
     label: (O)
     plan: mogg
-    file-milo: lipsync-venue.milo_xbox
     harmonix: true
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
     plan: mogg
-    file-milo: lipsync-venue.milo_xbox
     harmonix: true
   ps:
     game: ps
@@ -106,3 +104,5 @@ targets:
     plan: album
     arrangements:
     - [bonus-rhythm, bass]
+global:
+  file-song-anim: song.anim

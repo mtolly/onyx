@@ -227,7 +227,7 @@ psRules buildInfo dir ps = do
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> "ps/song.ogg"    %> \out -> do
     (mid, DifficultyPS{..}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceSongCountin buildInfo ps.common mid 0 True planName plan
+    s <- sourceBacking buildInfo ps.common mid 0 planName plan
       [ (ps.drums     , rb3DrumsTier    )
       , (ps.guitar    , eitherDiff rb3GuitarRank chGuitarGHLTier)
       , (ps.guitarCoop, psGuitarCoopTier)

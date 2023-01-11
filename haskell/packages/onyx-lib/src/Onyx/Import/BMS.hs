@@ -150,7 +150,6 @@ importBMS bmsPath level = do
     , jammit = HM.empty
     , plans = HM.singleton "bms" $ StandardPlan StandardPlanInfo
       { song        = guard (isJust songSampleTrack) >> Just (audioExpr "audio-bgm")
-      , countin     = Countin []
       , parts       = Parts $ HM.fromList $ catMaybes
         [ guard (isJust p1SampleTrack) >> Just (F.FlexExtra "player1", PartSingle $ audioExpr "audio-p1")
         , guard (isJust p2SampleTrack) >> Just (F.FlexExtra "player2", PartSingle $ audioExpr "audio-p2")

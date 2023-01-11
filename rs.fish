@@ -129,6 +129,7 @@ end
 # build songs/trivium/of-all-these-yesterdays
 # build songs-others/guitar-hero/we-three-kings
 build songs-others/guitar-hero/that-was-just-your-life
+build songs/hiromi-uehara/caravan
 
 # phrases unknown:
 

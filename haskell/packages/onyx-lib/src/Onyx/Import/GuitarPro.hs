@@ -253,7 +253,6 @@ importGPIF gpif level = do
     , audio = HM.empty
     , plans = HM.singleton "dummy" $ StandardPlan StandardPlanInfo
       { song        = Nothing
-      , countin     = Countin []
       , parts       = Parts HM.empty
       , crowd       = Nothing
       , comments    = []

@@ -493,7 +493,6 @@ importRB rbi level = do
                 }
           in StandardPlan StandardPlanInfo
             { song = mixChans songChans
-            , countin = Countin []
             , parts = Parts $ HM.fromList $ catMaybes
               [ lookup "guitar" instChans >>= mixChans >>= \x -> return (F.FlexGuitar, PartSingle x)
               , lookup "bass"   instChans >>= mixChans >>= \x -> return (F.FlexBass  , PartSingle x)

@@ -174,7 +174,6 @@ importFreetar sng level = do
     , plans = HM.fromList $ toList $ flip fmap props.musicFileName $ \_ -> let
       plan = StandardPlan StandardPlanInfo
         { song = Just $ PlanAudio (Input $ Named "song") [] []
-        , countin = Countin []
         , parts = Parts HM.empty
         , crowd = Nothing
         , comments = []

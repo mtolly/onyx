@@ -29,6 +29,8 @@ audio:
     - ../../../scripts/youtube EfzqOP4nlAo 140
   china:
     file-path: ../../../sound/china-cymbal.wav
+  countin:
+    samples: {}
 plans:
   mogg:
     parts:
@@ -41,12 +43,9 @@ plans:
     file-mogg: audio.mogg
   youtube:
     song:
-      pad: [4.114, youtube]
-    countin:
-      2|0: china
-      2|1: china
-      2|2: china
-      2|3: china
+      mix:
+      - countin
+      - pad: [4.114, youtube]
 targets:
   rb3:
     song-id: 1660299990
