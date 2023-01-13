@@ -289,6 +289,7 @@ data GH2Installation = GH2Installation
   , files            :: [(B.ByteString, FilePath)] -- ^ files to copy into the song folder, e.g. @("songsym.mid", "some/dir/notes.mid")@
   , sort_            :: Maybe SongSort -- ^ should bonus songs be sorted alphabetically
   , loading_phrase   :: Maybe B.ByteString
+  , gh2Deluxe        :: Bool
   }
 
 -- | Adds a song to a GH2 ARK, and registers it as a bonus song with price 0.
@@ -346,7 +347,7 @@ addBonusSongGH2 gh2i = withArk gh2i.gen $ \ark -> do
                 return $ catMaybes
                   [ (\x -> D.Parens (D.Tree 0 [D.Sym gh2i.symbol                    , D.String x])) <$> gh2i.shop_title
                   , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_shop_desc"  , D.String x])) <$> gh2i.shop_description
-                  , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_author"     , D.String x])) <$> gh2i.author -- only used by GH2DX
+                  , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_author"     , D.String x])) <$> (guard gh2i.gh2Deluxe >> gh2i.author)
                   , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i.symbol, D.String x])) <$> gh2i.loading_phrase
                   ] <> chunks
             ]

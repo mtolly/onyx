@@ -88,7 +88,7 @@ gh2Rules buildInfo dir gh2 = do
   (dir </> "gh2/notes.mid", dir </> "gh2/coop_max_scores.dta", dir </> "gh2/pad.txt") %> \(out, coop, pad) -> do
     input <- F.shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
-    audio <- computeGH2Audio songYaml gh2 hasAudio
+    audio <- computeGH2Audio songYaml gh2 True hasAudio -- "is 360" parameter here doesn't matter
     (mid, padSeconds) <- midiRB3toGH2 songYaml gh2 audio
       (applyTargetMIDI gh2.common input)
       (getAudioLength buildInfo planName plan)
@@ -110,9 +110,9 @@ gh2Rules buildInfo dir gh2 = do
         return $ endTime + 5
         -- previously we went 0.5s past [end], but that still had issues,
         -- particularly in practice mode when playing the last section
-      gh2SourceGeneral lowRateSilence withSources = do
+      gh2SourceGeneral is360 withSources = do
         hasAudio <- loadPartAudioCheck
-        audio <- computeGH2Audio songYaml gh2 hasAudio
+        audio <- computeGH2Audio songYaml gh2 is360 hasAudio
         mid <- loadGH2Midi
         srcs <- forM audio.audioSections $ \case
           GH2PartStereo part -> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
@@ -123,7 +123,8 @@ gh2Rules buildInfo dir gh2 = do
             , [(audio.coopTrack, 1)]
             , maybe [] (\t -> [(t, 1)]) audio.drumTrack
             ]
-          GH2Silent -> return $ silent (Seconds 0) (if lowRateSilence then 11025 else 44100) 1
+          -- for ps2 only we encode the silent vgs channel at a lower rate
+          GH2Silent -> return $ silent (Seconds 0) (if is360 then 44100 else 11025) 1
         pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
         audioLen <- correctAudioLength mid
         let applyOffset = case compare gh2.offset 0 of
@@ -137,9 +138,9 @@ gh2Rules buildInfo dir gh2 = do
               . applyTargetAudio gh2.common mid
         return $ fmap toEachSource $ withSources srcs
       -- for vgs, separate sources so silence can be encoded at low sample rate
-      gh2SourcesVGS = gh2SourceGeneral True id
+      gh2SourcesVGS = gh2SourceGeneral False id
       -- for mogg, single source
-      gh2Source = fmap runIdentity $ gh2SourceGeneral False $ Identity . foldr1 merge
+      gh2SourceMOGG = fmap runIdentity $ gh2SourceGeneral True $ Identity . foldr1 merge
 
   dir </> "gh2/audio.vgs" %> \out -> do
     srcs <- gh2SourcesVGS
@@ -152,7 +153,7 @@ gh2Rules buildInfo dir gh2 = do
   forM_ ([90, 75, 60] :: [Int]) $ \speed -> do
     dir </> ("gh2/audio_p" ++ show speed ++ ".vgs") %> \out -> do
       hasAudio <- loadPartAudioCheck
-      audio <- computeGH2Audio songYaml gh2 hasAudio
+      audio <- computeGH2Audio songYaml gh2 False hasAudio
       mid <- loadGH2Midi
       (src, dupe) <- case audio.practice of
         [Nothing, Nothing] -> do
@@ -183,28 +184,49 @@ gh2Rules buildInfo dir gh2 = do
         $ applyTargetAudio gh2.common mid src
       lg $ "Finished writing GH2 practice audio for " ++ show speed ++ "% speed"
 
-  (dir </> "gh2/songs.dta", dir </> "gh2/songs-dx2.dta", dir </> "gh2/songs-inner.dta", dir </> "gh2/songs-inner-dx2.dta") %> \(out, outDX2, outInner, outInnerDX2) -> do
+  let addExtraIfDX :: F.Song (F.OnyxFile U.Beats) -> GH2Audio -> [D.Chunk T.Text] -> [D.Chunk T.Text]
+      addExtraIfDX input audio = let
+        difficulty = difficultyPS (def :: TargetPS)
+          { guitar = audio.leadTrack
+          , bass   = case gh2.coop of GH2Bass -> audio.coopTrack; GH2Rhythm -> F.FlexExtra "undefined"
+          , rhythm = case gh2.coop of GH2Rhythm -> audio.coopTrack; GH2Bass -> F.FlexExtra "undefined"
+          , drums  = fromMaybe (F.FlexExtra "undefined") audio.drumTrack
+          } songYaml
+        translateDiff = \case
+          0 -> -1 -- in gh2dx, 0 means "present but unknown difficulty" which we might want to support later
+          n -> fromIntegral n
+        in if gh2.gh2Deluxe
+          then addDXExtra GH2DXExtra
+            { songalbum      = songYaml.metadata.album
+            , author         = songYaml.metadata.author
+            , songyear       = T.pack . show <$> songYaml.metadata.year
+            , songgenre      = songYaml.metadata.genre
+            , songorigin     = Nothing
+            , songduration   = Just $ fromIntegral $ F.songLengthMS input
+            , songguitarrank = Just $ translateDiff $ rb3GuitarTier $ psDifficultyRB3 difficulty
+            , songbassrank   = Just $ translateDiff $ rb3BassTier $ psDifficultyRB3 difficulty
+            , songrhythmrank = Just $ translateDiff $ psRhythmTier difficulty
+            , songdrumrank   = Just $ translateDiff $ rb3DrumsTier $ psDifficultyRB3 difficulty
+            , songartist     = Nothing -- not needed
+            }
+          else id
+
+  (dir </> "gh2/songs.dta", dir </> "gh2/songs-inner.dta") %> \(out, outInner) -> do
     input <- F.shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
-    audio <- computeGH2Audio songYaml gh2 hasAudio
+    audio <- computeGH2Audio songYaml gh2 False hasAudio
     pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
     let padSeconds = fromIntegral (pad :: Int) :: U.Seconds
-        inner isDX2 = D.serialize (valueId D.stackChunks) $ makeGH2DTA
+        inner = addExtraIfDX input audio $ makeValue (valueId D.stackChunks) $ makeGH2DTA
           songYaml
           key
           (previewBounds songYaml (input :: F.Song (F.OnyxFile U.Beats)) padSeconds False)
           gh2
           audio
           (targetTitle songYaml $ GH2 gh2)
-          isDX2
-        innerStandard = inner False
-        innerDX2      = inner True
     stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
-      [ D.Parens $ D.Tree 0 $ D.Sym key : D.treeChunks (D.topTree innerStandard) ]
-    stackIO $ D.writeFileDTA_latin1 outDX2 $ D.DTA 0 $ D.Tree 0
-      [ D.Parens $ D.Tree 0 $ D.Sym key : D.treeChunks (D.topTree innerDX2) ]
-    stackIO $ D.writeFileDTA_latin1 outInner innerStandard
-    stackIO $ D.writeFileDTA_latin1 outInnerDX2 innerDX2
+      [ D.Parens $ D.Tree 0 $ D.Sym key : inner ]
+    stackIO $ D.writeFileDTA_latin1 outInner $ D.DTA 0 $ D.Tree 0 inner
 
   dir </> "gh2/lipsync.voc" %> \out -> do
     midi <- F.shakeMIDI $ planDir </> "raw.mid"
@@ -216,7 +238,8 @@ gh2Rules buildInfo dir gh2 = do
   dir </> "gh2/symbol" %> \out -> do
     stackIO $ B.writeFile out $ B8.pack pkg
 
-  -- TODO give this the "distressed photo" look like the other bonus songs
+  -- TODO for the store, give this the "distressed photo" look like the other bonus songs.
+  -- but not for GH2DX songlist
   dir </> "gh2/cover.png_ps2" %> \out -> do
     img <- loadRGB8 songYaml
     stackIO $ BL.writeFile out $ toHMXPS2 img
@@ -225,9 +248,7 @@ gh2Rules buildInfo dir gh2 = do
     [ dir </> "gh2/notes.mid"
     , dir </> "gh2/audio.vgs"
     , dir </> "gh2/songs.dta"
-    , dir </> "gh2/songs-dx2.dta"
     , dir </> "gh2/songs-inner.dta"
-    , dir </> "gh2/songs-inner-dx2.dta"
     , dir </> "gh2/lipsync.voc"
     , dir </> "gh2/coop_max_scores.dta"
     , dir </> "gh2/symbol"
@@ -246,7 +267,7 @@ gh2Rules buildInfo dir gh2 = do
       [ D.Parens $ D.Tree 0 $ catMaybes
         [ Just $ D.Sym key
         -- include author for gh2dx
-        , flip fmap songYaml.metadata.author $ \author -> D.Braces $ D.Tree 0
+        , flip fmap (guard gh2.gh2Deluxe >> songYaml.metadata.author) $ \author -> D.Braces $ D.Tree 0
           [ D.Sym "set"
           , D.Var "author"
           , D.String author
@@ -270,7 +291,7 @@ gh2Rules buildInfo dir gh2 = do
   dir </> "stfs/config/songs.dta" %> \out -> do
     input <- F.shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
-    audio <- computeGH2Audio songYaml gh2 hasAudio
+    audio <- computeGH2Audio songYaml gh2 True hasAudio
     pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
     let padSeconds = fromIntegral (pad :: Int) :: U.Seconds
         songPackage = makeGH2DTA360
@@ -280,42 +301,15 @@ gh2Rules buildInfo dir gh2 = do
           gh2
           audio
           (targetTitle songYaml (GH2 gh2))
-        difficulty = difficultyPS (def :: TargetPS)
-          { guitar = gh2.guitar
-          , bass   = gh2.bass
-          , rhythm = gh2.rhythm
-          , drums  = gh2.drums
-          } songYaml
-        translateDiff = \case
-          0 -> -1 -- in gh2dx, 0 means "present but unknown difficulty" which we might want to support later
-          n -> fromIntegral n
-        -- TODO gate behind a "dx" flag on target maybe
-        extra = addDXExtra GH2DXExtra
-          { songalbum      = songYaml.metadata.album
-          , author         = songYaml.metadata.author
-          , songyear       = T.pack . show <$> songYaml.metadata.year
-          , songgenre      = songYaml.metadata.genre
-          , songorigin     = Nothing
-          , songduration   = Just $ fromIntegral $ F.songLengthMS input
-          , songguitarrank = Just $ translateDiff $ rb3GuitarTier $ psDifficultyRB3 difficulty
-          , songbassrank   = Just $ case gh2.coop of
-            GH2Bass   -> translateDiff $ rb3BassTier $ psDifficultyRB3 difficulty
-            GH2Rhythm -> -1
-          , songrhythmrank = Just $ case gh2.coop of
-            GH2Rhythm -> translateDiff $ psRhythmTier difficulty
-            GH2Bass   -> -1
-          , songdrumrank   = Just $ translateDiff $ rb3DrumsTier $ psDifficultyRB3 difficulty
-          , songartist     = Nothing -- not needed
-          }
     stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
       [ D.Parens $ D.Tree 0
         $ D.Sym key
-        : extra (makeValue (valueId D.stackChunks) songPackage)
+        : addExtraIfDX input audio (makeValue (valueId D.stackChunks) songPackage)
       ]
   dir </> "stfs/songs" </> pkg </> pkg <.> "mid" %> \out -> do
     shk $ copyFile' (dir </> "gh2/notes.mid") out
   dir </> "audio.ogg" %> \out -> do
-    src <- gh2Source
+    src <- gh2SourceMOGG
     runAudio src out
   dir </> "stfs/songs" </> pkg </> pkg <.> "mogg" %> \out -> do
     shk $ need [dir </> "audio.ogg"]
@@ -325,7 +319,7 @@ gh2Rules buildInfo dir gh2 = do
   dir </> "stfs/songs" </> pkg </> "gen" </> pkg <.> "bmp_xbox" %> \out -> do
     loadRGB8 songYaml >>= stackIO . BL.writeFile out . toDXT1File PNGXbox
   dir </> "gh2live" %> \out -> do
-    shk $ need
+    shk $ need $
       [ dir </> "stfs/config/contexts.dta"
       , dir </> "stfs/config/coop_max_scores.dta"
       , dir </> "stfs/config/leaderboards.dta"
@@ -333,8 +327,7 @@ gh2Rules buildInfo dir gh2 = do
       , dir </> "stfs/songs" </> pkg </> pkg <.> "mid"
       , dir </> "stfs/songs" </> pkg </> pkg <.> "mogg"
       , dir </> "stfs/songs" </> pkg </> pkg <.> "voc"
-      , dir </> "stfs/songs" </> pkg </> "gen" </> pkg <.> "bmp_xbox"
-      ]
+      ] <> [ dir </> "stfs/songs" </> pkg </> "gen" </> pkg <.> "bmp_xbox" | gh2.gh2Deluxe ]
     lg "# Producing GH2 LIVE file"
     mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ gh2pkg
       (getArtist songYaml.metadata <> " - " <> targetTitle songYaml (GH2 gh2))

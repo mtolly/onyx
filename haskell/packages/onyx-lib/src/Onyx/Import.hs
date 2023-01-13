@@ -527,31 +527,31 @@ installGH1 gh1 proj gen = do
       then Just SongSortArtistTitle
       else Just SongSortTitleArtist
     , loading_phrase   = toBytes <$> gh1.loadingPhrase
+    , gh2Deluxe        = False
     }
 
 installGH2 :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 installGH2 gh2 proj gen = do
-  isDX2 <- stackIO (crawlFolder gen >>= detectGameGH) >>= \case
+  stackIO (crawlFolder gen >>= detectGameGH) >>= \case
     Nothing         -> fatal "Couldn't detect what game this ARK is for."
     Just GameGH1    -> fatal "This appears to be a Guitar Hero (1) ARK!"
-    Just GameGH2    -> do
-      lg "ARK detected as GH2, no drums support."
-      return False
-    Just GameGH2DX2 -> do
-      lg "ARK detected as GH2 Deluxe with drums support."
-      return True
+    Just GameGH2    -> lg "ARK detected as GH2, no drums support."
+    Just GameGH2DX2 -> lg "ARK detected as GH2 Deluxe with drums support."
     Just GameRB     -> fatal "This appears to be a Rock Band ARK!"
   dir <- buildGH2Dir gh2 proj
   files <- stackIO $ Dir.listDirectory dir
-  dta <- stackIO $ readFileDTA $ if isDX2
-    then dir </> "songs-inner-dx2.dta"
-    else dir </> "songs-inner.dta"
+  dta <- stackIO $ readFileDTA $ dir </> "songs-inner.dta"
   sym <- stackIO $ B.readFile $ dir </> "symbol"
   coop <- stackIO $ readFileDTA $ dir </> "coop_max_scores.dta"
   let chunks = treeChunks $ topTree $ fmap (B8.pack . T.unpack) dta
       filePairs = flip mapMaybe files $ \f -> do
         guard $ elem (takeExtension f) [".mid", ".vgs", ".voc"]
         return (sym <> B8.pack (dropWhile isAlpha f), dir </> f)
+      filePairsDX = if gh2.gh2Deluxe
+        then flip mapMaybe files $ \f -> case f of
+          "cover.png_ps2" -> Just ("gen/" <> sym <> ".bmp_ps2", dir </> f)
+          _               -> Nothing
+        else []
   coopNums <- case coop of
     DTA 0 (Tree _ [Parens (Tree _ [Sym _, Parens (Tree _ nums)])]) -> forM nums $ \case
       Int n -> return $ fromIntegral n
@@ -572,11 +572,12 @@ installGH2 gh2 proj gen = do
       ]
     , author           = toBytes . adjustSongText <$> (projectSongYaml proj).metadata.author
     , album_art        = Just $ dir </> "cover.png_ps2"
-    , files            = filePairs
-    , sort_             = guard (prefSortGH2 prefs) >> if prefArtistSort prefs
+    , files            = filePairs <> filePairsDX
+    , sort_            = guard (prefSortGH2 prefs) >> if prefArtistSort prefs
       then Just SongSortArtistTitle
       else Just SongSortTitleArtist
     , loading_phrase   = toBytes <$> gh2.loadingPhrase
+    , gh2Deluxe        = gh2.gh2Deluxe
     }) >>= mapM_ warn
 
 makeGH1DIY :: (MonadIO m) => TargetGH1 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
@@ -612,25 +613,24 @@ makeGH2DIY gh2 proj dout = do
   sym <- stackIO $ fmap B8.unpack $ B.readFile $ dir </> "symbol"
   let filePairs = flip mapMaybe files $ \f -> let ext = takeExtension f in if
         | elem ext [".voc", ".vgs", ".mid"]       -> Just (sym <> dropWhile isAlpha f          , dir </> f)
-        | ext == ".dta" && f /= "songs-inner.dta" && f /= "songs-inner-dx2.dta"
-          -> Just (f, dir </> f)
+        | ext == ".dta" && f /= "songs-inner.dta" -> Just (f                                   , dir </> f)
         | ext == ".png_ps2"                       -> Just ("us_logo_" <> sym <> "_keep.png_ps2", dir </> f)
         | otherwise                               -> Nothing
   stackIO $ forM_ filePairs $ \(dest, src) -> Dir.copyFile src $ dout </> dest
   let s = T.pack sym
-  stackIO $ B.writeFile (dout </> "README.txt") $ encodeUtf8 $ T.intercalate "\r\n"
+  stackIO $ B.writeFile (dout </> "README.txt") $ encodeUtf8 $ T.intercalate "\r\n" $
     [ "Instructions for GH2 song installation"
     , ""
     , "You must have a tool that can edit .ARK files such as arkhelper,"
     , "and a tool that can edit .dtb files such as dtab (which arkhelper can use automatically)."
     , ""
     , "1. Add the contents of songs.dta to: config/gen/songs.dtb"
-    , "  (For GH2 Deluxe 2.0, use songs-dx2.dta instead)"
     , "2. (possibly optional) Add the contents of coop_max_scores.dta to: config/gen/coop_max_scores.dtb"
     , "3. Make a new folder: songs/" <> s <> "/ and copy all .mid, .vgs, and .voc files into it"
     , "4. Edit either config/gen/campaign.dtb or config/gen/store.dtb to add your song as a career or bonus song respectively"
     , "5. If added as a bonus song, copy the .png_ps2 to ui/image/og/gen/us_logo_" <> s <> "_keep.png_ps2 if you want album art in the shop"
-    , "6. If added as a bonus song, edit ui/eng/gen/locale.dtb with keys '" <> s <> "' and '" <> s <> "_shop_desc' if you want a title/description in the shop"
+    ] <> ["  * For GH2 Deluxe album art, copy it to songs/" <> s <> "/gen/" <> s <> ".bmp_ps2" | gh2.gh2Deluxe] <>
+    [ "6. If added as a bonus song, edit ui/eng/gen/locale.dtb with keys '" <> s <> "' and '" <> s <> "_shop_desc' if you want a title/description in the shop"
     -- TODO also mention loading tip in locale.dtb?
     ]
 

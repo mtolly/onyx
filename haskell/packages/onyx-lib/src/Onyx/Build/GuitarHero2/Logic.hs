@@ -107,26 +107,27 @@ computeGH2Audio
   :: (Monad m)
   => SongYaml f
   -> TargetGH2
+  -> Bool -- xbox 360
   -> (F.FlexPartName -> Bool) -- True if part has own audio
   -> StackTraceT m GH2Audio
-computeGH2Audio song target hasAudio = do
+computeGH2Audio song target is360 hasAudio = do
   let hasFiveOrDrums = \case
         Nothing   -> False
         Just part -> isJust part.grybo || isJust part.drums
   leadTrack <- if hasFiveOrDrums $ getPart target.guitar song
     then return target.guitar
     else fatal "computeGH2Audio: no lead guitar part selected"
-  drumTrack <- case getPart target.drums song >>= (.drums) of
-    Nothing -> return Nothing
-    Just _  -> return $ do
-      guard target.drumChart
-      Just target.drums
-  let specifiedCoop = case target.coop of
+  let drumTrack = do
+        guard target.gh2Deluxe
+        case getPart target.drums song >>= (.drums) of
+          Nothing -> Nothing
+          Just _  -> Just target.drums
+      specifiedCoop = case target.coop of
         GH2Bass   -> target.bass
         GH2Rhythm -> target.rhythm
       (coopTrack, coopType) = if hasFiveOrDrums $ getPart specifiedCoop song
         then (specifiedCoop, target.coop)
-        else (leadTrack    , GH2Rhythm      )
+        else (leadTrack    , GH2Rhythm  )
       leadAudio = hasAudio leadTrack
       coopAudio = leadTrack /= coopTrack && hasAudio coopTrack
       drumAudio = maybe False hasAudio drumTrack
@@ -135,7 +136,7 @@ computeGH2Audio song target hasAudio = do
         GH2PartMono   _ -> 1
         GH2Band         -> 2
         GH2Silent       -> 1
-      maxVGSChannels = 6
+      maxChannels = if is360 then 12 else 6 -- don't know actual 360 max but we won't reach it
 
       -- order: band, guitar, bass, drums, silent
       bandSection = [GH2Band]
@@ -145,7 +146,7 @@ computeGH2Audio song target hasAudio = do
       drumSection = do
         guard drumAudio
         GH2PartStereo <$> toList drumTrack
-      remainingLeadCoop = maxVGSChannels - sum (map count $ concat [bandSection, silentSection, drumSection])
+      remainingLeadCoop = maxChannels - sum (map count $ concat [bandSection, silentSection, drumSection])
       leadSection = do
         guard leadAudio
         if (coopAudio && remainingLeadCoop >= 3) || (not coopAudio && remainingLeadCoop >= 2)
@@ -153,7 +154,7 @@ computeGH2Audio song target hasAudio = do
           else [GH2PartMono   leadTrack]
       coopSection = do
         guard coopAudio
-        if maxVGSChannels - sum (map count $ concat [bandSection, silentSection, drumSection, leadSection]) >= 2
+        if maxChannels - sum (map count $ concat [bandSection, silentSection, drumSection, leadSection]) >= 2
           then [GH2PartStereo coopTrack]
           else [GH2PartMono   coopTrack]
 
@@ -372,15 +373,17 @@ bandMembers song audio = let
 adjustSongText :: T.Text -> T.Text
 adjustSongText = T.replace "&" "+"
   -- GH2 doesn't have & in the start-of-song-display font.
-  -- In the song list it just displays as + anyway
+  -- In the song list it just displays as + anyway.
+  -- TODO we need to do non-latin-1 replacement
+  -- TODO any other text we need to do this on, author maybe? other gh2dx metadata?
 
-makeGH2DTA :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 -> GH2Audio -> T.Text -> Bool -> D.SongPackage
-makeGH2DTA song key preview target audio title isDX2 = D.SongPackage
+makeGH2DTA :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 -> GH2Audio -> T.Text -> D.SongPackage
+makeGH2DTA song key preview target audio title = D.SongPackage
   { D.name = adjustSongText title
   , D.artist = adjustSongText $ getArtist song.metadata
   , D.caption = guard (not song.metadata.cover) >> Just "performed_by"
-  , D.song = makeSong isDX2
-  , D.song_vs = if isDX2 then Just $ makeSong False else Nothing
+  , D.song = makeSong target.gh2Deluxe
+  , D.song_vs = if target.gh2Deluxe then Just $ makeSong False else Nothing
   , D.animTempo = KTempoMedium
   , D.preview = bimap fromIntegral fromIntegral preview
   , D.quickplay = evalRand D.randomQuickplay $ mkStdGen $ hash key
@@ -443,32 +446,8 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
   { D.name = adjustSongText title
   , D.artist = adjustSongText $ getArtist song.metadata
   , D.caption = guard (not song.metadata.cover) >> Just "performed_by"
-  , D.song = D.Song
-    { D.songName      = "songs/" <> key <> "/" <> key
-    , D.tracks        = D.DictList $ filter (\(_, ns) -> not $ null ns)
-      [ ("guitar", map fromIntegral audio.leadChannels)
-      , (coop    , map fromIntegral audio.coopChannels)
-      , ("drum"  , map fromIntegral audio.drumChannels)
-      ]
-    , D.pans          = audio.audioSections >>= \case
-      GH2PartStereo _ -> [-1, 1]
-      GH2PartMono   _ -> [0]
-      GH2Band         -> [-1, 1]
-      GH2Silent       -> [0]
-    , D.vols          = audio.audioSections >>= \case
-      GH2PartStereo _ -> [0, 0]
-      GH2PartMono   _ -> [20 * (log 2 / log 10)] -- compensate for half volume later
-      GH2Band         -> [0, 0]
-      GH2Silent       -> [0]
-    , D.cores         = audio.audioSections >>= \case
-      GH2PartStereo p -> if p == audio.leadTrack then [1, 1] else [-1, -1]
-      GH2PartMono p   -> if p == audio.leadTrack then [1] else [-1]
-      GH2Band         -> [-1, -1]
-      GH2Silent       -> [-1]
-    , D.midiFile      = "songs/" <> key <> "/" <> key <> ".mid"
-    , D.hopoThreshold = Nothing
-    }
-  , D.song_vs = Nothing
+  , D.song = makeSong target.gh2Deluxe
+  , D.song_vs = if target.gh2Deluxe then Just $ makeSong False else Nothing
   , D.animTempo = KTempoMedium
   , D.preview = bimap fromIntegral fromIntegral preview
   , D.quickplay = evalRand D.randomQuickplay $ mkStdGen $ hash key
@@ -480,6 +459,30 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
   , D.band = bandMembers song audio
   } where
     coop = case target.coop of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
+    makeSong includeTrack3 = D.Song
+      { D.songName      = "songs/" <> key <> "/" <> key
+      , D.tracks        = D.DictList $ filter (\(_, ns) -> not $ null ns)
+        [ ("guitar", map fromIntegral audio.leadChannels)
+        , (coop    , map fromIntegral audio.coopChannels)
+        ] <> [("drum", map fromIntegral audio.drumChannels) | includeTrack3]
+      , D.pans          = audio.audioSections >>= \case
+        GH2PartStereo _ -> [-1, 1]
+        GH2PartMono   _ -> [0] -- note, we don't use actually any mono on 360
+        GH2Band         -> [-1, 1]
+        GH2Silent       -> [0]
+      , D.vols          = audio.audioSections >>= \case
+        GH2PartStereo _ -> [0, 0]
+        GH2PartMono   _ -> [20 * (log 2 / log 10)] -- compensate for half volume later
+        GH2Band         -> [0, 0]
+        GH2Silent       -> [0]
+      , D.cores         = audio.audioSections >>= \case
+        GH2PartStereo p -> if p == audio.leadTrack then [1, 1] else [-1, -1]
+        GH2PartMono p   -> if p == audio.leadTrack then [1] else [-1]
+        GH2Band         -> [-1, -1]
+        GH2Silent       -> [-1]
+      , D.midiFile      = "songs/" <> key <> "/" <> key <> ".mid"
+      , D.hopoThreshold = Nothing
+      }
 
 addDXExtra :: GH2DXExtra -> [D.Chunk T.Text] -> [D.Chunk T.Text]
 addDXExtra extra = map $ \case

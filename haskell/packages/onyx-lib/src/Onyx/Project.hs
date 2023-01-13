@@ -1344,7 +1344,7 @@ data TargetGH2 = TargetGH2
   , practiceAudio :: Bool -- should we make slow audio for PS2
   , loadingPhrase :: Maybe T.Text
   , offset        :: Double -- in seconds, positive means pull audio earlier, negative means push later
-  , drumChart     :: Bool
+  , gh2Deluxe     :: Bool -- enables gh2dx features: drum chart, extra metadata sets, album art, future hopo/strum/tap markers
   , is2xBassPedal :: Bool
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
@@ -1364,7 +1364,7 @@ parseTargetGH2 = do
   practiceAudio <- (.practiceAudio) =. opt True                 "practice-audio" stackJSON
   loadingPhrase <- (.loadingPhrase) =. opt Nothing              "loading-phrase" stackJSON
   offset        <- (.offset       ) =. opt 0                    "offset"         stackJSON
-  drumChart     <- (.drumChart    ) =. opt False                "drum-chart"     stackJSON
+  gh2Deluxe     <- (.gh2Deluxe    ) =. opt False                "gh2-deluxe"     stackJSON
   is2xBassPedal <- (.is2xBassPedal) =. opt False                "2x-bass-pedal"  stackJSON
   return TargetGH2{..}
 

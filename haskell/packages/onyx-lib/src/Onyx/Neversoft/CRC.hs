@@ -23,7 +23,13 @@ crcTable = VU.fromList $ flip map [0..255] $ let
   in foldr (.) id $ replicate 8 crcStep
 
 qbKeyCRC :: B.ByteString -> Word32
-qbKeyCRC = go 0xFFFFFFFF . B8.map toLower where
+qbKeyCRC = qbKeyCRCNoLowercase . B8.map toLower
+
+crc32 :: B.ByteString -> Word32
+crc32 = (`xor` 0xFFFFFFFF) . qbKeyCRC
+
+qbKeyCRCNoLowercase :: B.ByteString -> Word32
+qbKeyCRCNoLowercase = go 0xFFFFFFFF where
   go !crc bs = case B.uncons bs of
     Nothing -> crc
     Just (b, bs') -> let
@@ -31,9 +37,6 @@ qbKeyCRC = go 0xFFFFFFFF . B8.map toLower where
       entry = crcTable VU.! fromIntegral index
       crc' = (crc `shiftR` 8) `xor` entry
       in go crc' bs'
-
-crc32 :: B.ByteString -> Word32
-crc32 = (`xor` 0xFFFFFFFF) . qbKeyCRC
 
 {-# NOINLINE knownKeys #-}
 knownKeys :: HM.HashMap Word32 B.ByteString
@@ -47,7 +50,7 @@ knownKeys = unsafePerformIO $ do
 -- This appears to be how most .qs / .qs.(lang) keys are calculated, but some are different?
 -- Escape sequences are given to this as backslash + char. So "\LSong Title" is ['\\', 'L', 'S', ...]
 qsKey :: T.Text -> Word32
-qsKey = qbKeyCRC . TE.encodeUtf16LE
+qsKey = qbKeyCRCNoLowercase . TE.encodeUtf16LE
 
 huntKeys :: Int -> [B.ByteString] -> Word32 -> Maybe B.ByteString
 huntKeys maxLevel parts k = go (1 :: Int) where

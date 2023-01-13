@@ -48,10 +48,12 @@ import qualified Onyx.Harmonix.DTA.Serialize      as D
 import           Onyx.Harmonix.DTA.Serialize.GH2
 import           Onyx.Harmonix.GH2.Events
 import           Onyx.Harmonix.GH2.File
+import           Onyx.Harmonix.GH2.PartDrum
 import           Onyx.Harmonix.GH2.PartGuitar
 import           Onyx.Harmonix.GH2.Triggers
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (Difficulty (..))
+import qualified Onyx.MIDI.Track.Drums            as Drums
 import qualified Onyx.MIDI.Track.Events           as RB
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as RB
@@ -132,6 +134,29 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap $ let
     , F.fixedPartRhythm = if isJust $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
       then convertPart $ gh2PartRhythm gh2
       else mempty
+    , F.fixedPartDrums = if isJust $ lookup "drum" $ D.fromDictList $ tracks songChunk
+      then let
+        expert = fromMaybe mempty $ Map.lookup Expert $ gh2drumDifficulties $ gh2PartDrum gh2
+        in Drums.DrumTrack
+          { drumDifficulties = flip fmap (gh2drumDifficulties $ gh2PartDrum gh2) $ \diff -> Drums.DrumDifficulty
+            { Drums.drumMix = RTB.empty
+            , Drums.drumPSModifiers = RTB.empty
+            , Drums.drumGems = (, Drums.VelocityNormal) <$> gh2drumGems diff
+            }
+          , drumMood = RTB.empty -- TODO import from band drummer
+          , drumToms = RTB.empty
+          , drumSingleRoll = RTB.empty
+          , drumDoubleRoll = RTB.empty
+          , drumOverdrive = gh2drumStarPower expert
+          , drumActivation = RTB.empty
+          , drumSolo = RTB.empty
+          , drumPlayer1 = gh2drumPlayer1 expert
+          , drumPlayer2 = gh2drumPlayer2 expert
+          , drumKick2x = RTB.empty
+          , drumAnimation = RTB.empty -- TODO import from band drummer
+          , drumEnableDynamics = RTB.empty
+          }
+      else mempty
     }
 
 gh2SongYaml :: ImportMode -> SongPackage -> Maybe GH2DXExtra -> Song -> F.Song (F.OnyxFile U.Beats) -> SongYaml SoftFile
@@ -183,6 +208,21 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
         { grybo = Just (def :: PartGRYBO)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
           , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
+          }
+        })
+    , do
+      guard $ maybe False (not . null) $ lookup "drum" $ D.fromDictList $ tracks songChunk
+      return (F.FlexDrums, emptyPart
+        { drums = Just PartDrums
+          { difficulty = undefined -- :: Onyx.Project.Difficulty
+          , mode = undefined -- :: DrumMode
+          , kicks = undefined -- :: Kicks
+          , fixFreeform = undefined -- :: Bool
+          , kit = undefined -- :: DrumKit
+          , layout = undefined -- :: DrumLayout
+          , fallback = undefined -- :: OrangeFallback
+          , fileDTXKit = undefined -- :: Maybe f0
+          , fullLayout = undefined -- :: FullDrumLayout
           }
         })
     ]
