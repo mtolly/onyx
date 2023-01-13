@@ -40,10 +40,10 @@ data Node = Node
 -- Used in GHWT and onward.
 -- TODO this seems to not handle some WoR disc files right, like qb.pab.xen
 decompressPakGH4 :: (MonadFail m) => BL.ByteString -> m BL.ByteString
-decompressPakGH4 bs = let
+decompressPakGH4 bs = do
   -- conveniently, start and next are relative to this CHNK, not the whole file
-  [magic, start, len, next, _flags, _size] = runGet (replicateM 6 getWord32be) bs
-  in if magic /= 0x43484e4b -- CHNK
+  [magic, start, len, next, _flags, _size] <- runGetM (replicateM 6 getWord32be) bs
+  if magic /= 0x43484e4b -- CHNK
     then return BL.empty
     else do
       let buf = BL.take (fromIntegral len) $ BL.drop (fromIntegral start) bs

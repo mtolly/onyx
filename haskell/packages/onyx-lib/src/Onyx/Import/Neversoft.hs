@@ -415,7 +415,7 @@ importGH3Song gh3i = let
           -- add crc keys to pretend it's indexed like the 360 audio
           let applyNames names r = do
                 bs <- stackIO $ useHandle r handleToByteString
-                let vgs = chunksOf 2 $ map convertChannelToVGS $ splitChannels bs
+                vgs <- fmap (chunksOf 2) $ mapM convertChannelToVGS $ splitChannels bs
                 return $ flip map (zip names vgs) $ \(name, chans) -> let
                   crc = qbKeyCRC $ gh3Name info <> "_" <> name
                   makeChannel i chan = (TE.decodeLatin1 name <> "." <> T.pack (show (i :: Int)) <> ".vgs", chan)

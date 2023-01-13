@@ -203,7 +203,7 @@ stretchSimple ratio src = AudioSource
         len :: Double
         len = fromIntegral $ V.length $ head chans
         allIndexes = iterate (+ stride) phase
-        (usedIndexes, nextIndex : _) = span (<= len - 1) allIndexes
+        (usedIndexes, unusedIndexes) = span (<= len - 1) allIndexes
         stretchChannel prevSample channel = let
           doubleIndex d
             | d >= 0 = case properFraction d of
@@ -215,7 +215,9 @@ stretchSimple ratio src = AudioSource
           in V.fromList $ map doubleIndex usedIndexes
         in do
           yield $ interleave $ zipWith stretchChannel prev chans
-          pipe (nextIndex - len) $ map V.last chans
+          case unusedIndexes of
+            []            -> return () -- should not happen!
+            nextIndex : _ -> pipe (nextIndex - len) $ map V.last chans
 
 -- | Avoids giving silent channels to the audio stretcher.
 stretchFullSmart :: (MonadResource m) => Double -> Double -> AudioSource m Float -> AudioSource m Float

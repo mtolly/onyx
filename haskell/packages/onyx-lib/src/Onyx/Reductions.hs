@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE TupleSections         #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Reductions (gryboComplete, pkReduce, drumsComplete, protarComplete, simpleReduce, completeFiveResult) where
 
 import           Control.Monad                    (guard, void)

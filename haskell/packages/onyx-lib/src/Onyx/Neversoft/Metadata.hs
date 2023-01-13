@@ -64,10 +64,10 @@ readTextPakQB bs = do
     (_, [qb]) -> return (snd qb, False)
     _         -> fail "Couldn't locate metadata .qb"
   let mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
-      qb = let
-        ?endian = BigEndian
-        in map (lookupQS mappingQS) $ runGet parseQB qbFile
-      arrayStructIDPairs =
+  qb <- let
+    ?endian = BigEndian
+    in map (lookupQS mappingQS) <$> runGetM parseQB qbFile
+  let arrayStructIDPairs =
         [ (qbKeyCRC "gh6_dlc_songlist", qbKeyCRC "gh6_dlc_songlist_props") -- WoR DLC
         -- rest are seen in GH5 only
         , (qbKeyCRC "gh4_dlc_songlist", qbKeyCRC "gh4_dlc_songlist_props") -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)

@@ -3,6 +3,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Onyx.Neversoft.PS2 where
 
+import           Control.Applicative   (liftA2)
 import           Data.Bifunctor        (bimap)
 import           Data.Binary.Get
 import           Data.Binary.Put
@@ -17,6 +18,7 @@ import qualified Data.Text.Encoding    as TE
 import           Data.Word
 import           Onyx.Util.Handle
 import           Onyx.Wii.WAD          (roundUpToMultiple, skipToMultiple)
+import           Onyx.Xbox.STFS        (runGetM)
 
 -- DATAP.HED + DATAP.WAD, contains most smaller files
 
@@ -96,14 +98,14 @@ splitChannels bs = do
     []      -> []
     blk : _ -> [blk]
 
-convertChannelToVGS :: BL.ByteString -> BL.ByteString
-convertChannelToVGS chan = runPut $ do
-  putByteString $ B8.pack "VgS!"
-  putWord32le 2
-  let len = runGet getWord32be $ BL.drop 12 chan
-      rate = runGet getWord32be $ BL.drop 16 chan
-      audio = BL.take (fromIntegral len) $ BL.drop 0x40 chan
-  putWord32le $ fromIntegral rate
-  putWord32le $ fromIntegral $ len `quot` 0x10
-  putByteString $ B.replicate (0x80 - 16) 0
-  putLazyByteString audio
+convertChannelToVGS :: (MonadFail m) => BL.ByteString -> m BL.ByteString
+convertChannelToVGS chan = do
+  (len, rate) <- flip runGetM (BL.drop 12 chan) $ liftA2 (,) getWord32be getWord32be
+  return $ runPut $ do
+    putByteString $ B8.pack "VgS!"
+    putWord32le 2
+    let audio = BL.take (fromIntegral len) $ BL.drop 0x40 chan
+    putWord32le $ fromIntegral rate
+    putWord32le $ fromIntegral $ len `quot` 0x10
+    putByteString $ B.replicate (0x80 - 16) 0
+    putLazyByteString audio

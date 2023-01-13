@@ -15,6 +15,7 @@ import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Word
 import           Numeric
+import           Onyx.Xbox.STFS       (runGetM)
 import           System.IO
 
 data Packet a
@@ -36,7 +37,7 @@ scanPackets h = go [] 0 where
             bytes <- B.hGet h 10
             go ((posn, PackStart bytes) : packets) (posn + 14)
           _ -> do
-            dataLen <- fromIntegral . runGet getWord16be <$> BL.hGet h 2
+            dataLen <- fmap fromIntegral $ BL.hGet h 2 >>= runGetM getWord16be
             let dataPosn = posn + 6
             hSeek h RelativeSeek $ fromIntegral dataLen
             go ((posn, Packet byte (dataPosn, dataLen)) : packets) (posn + 6 + dataLen)

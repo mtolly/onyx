@@ -94,21 +94,19 @@ gh5Rules buildInfo dir gh5 = do
       -- "GH: Warriors of Rock 1 Track Pack" becomes "gh__warriors_of_rock_1_track_pack"
       (titleHashHex, titleHash) = packageNameHash packageTitle
 
-      -- more IDs that might need to be unique
-      manifestQBFilenameKey
-        : textQBFilenameKey
-        : textQS1FilenameKey
-        : textQS2FilenameKey
-        : textQS3FilenameKey
-        : textQS4FilenameKey
-        : textQS5FilenameKey
-        : songQBFilenameKey
-        : songQSFilenameKey
-        : songNoteFilenameKey
-        : songQB2FilenameKey
-        : songPerfFilenameKey
-        : _
-        = [songKeyQB + 1 ..]
+      -- I don't actually think these matter or need to be unique
+      manifestQBFilenameKey = songKeyQB + 1
+      textQBFilenameKey     = songKeyQB + 2
+      textQS1FilenameKey    = songKeyQB + 3
+      textQS2FilenameKey    = songKeyQB + 4
+      textQS3FilenameKey    = songKeyQB + 5
+      textQS4FilenameKey    = songKeyQB + 6
+      textQS5FilenameKey    = songKeyQB + 7
+      songQBFilenameKey     = songKeyQB + 8
+      songQSFilenameKey     = songKeyQB + 9
+      songNoteFilenameKey   = songKeyQB + 10
+      songQB2FilenameKey    = songKeyQB + 11
+      songPerfFilenameKey   = songKeyQB + 12
 
   dir </> "cmanifest.pak.xen" %> \out -> stackIO $ BL.writeFile out
     $ worFileManifest titleHashHex (T.pack cdl) manifestQBFilenameKey [fromIntegral songID]

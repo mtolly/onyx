@@ -703,15 +703,14 @@ saveMetadataLIVE library fout = let
     in [s, "", s, s, s, s]
   (titleHashHex, titleHash) = packageNameHash packageTitle
   cdl = "cdl2000000000"
-  manifestQBFilenameKey
-    : textQBFilenameKey
-    : textQS1FilenameKey
-    : textQS2FilenameKey
-    : textQS3FilenameKey
-    : textQS4FilenameKey
-    : textQS5FilenameKey
-    : _
-    = [2000000001 ..]
+  -- I don't actually think these matter or need to be unique
+  manifestQBFilenameKey = 2000000001
+  textQBFilenameKey     = 2000000002
+  textQS1FilenameKey    = 2000000003
+  textQS2FilenameKey    = 2000000004
+  textQS3FilenameKey    = 2000000005
+  textQS4FilenameKey    = 2000000006
+  textQS5FilenameKey    = 2000000007
 
   (qb, qs) = showTextPakQBQS $ TextPakQB textQBFilenameKey library
   textPak = worFileTextPak
@@ -757,15 +756,14 @@ saveMetadataPKG library fout = let
   label = "CUSTOMS_DATABASE" :: T.Text
   (titleHashHex, titleHash) = packageNameHash label
   cdl = "cdl2000000000"
-  manifestQBFilenameKey
-    : textQBFilenameKey
-    : textQS1FilenameKey
-    : textQS2FilenameKey
-    : textQS3FilenameKey
-    : textQS4FilenameKey
-    : textQS5FilenameKey
-    : _
-    = [2000000001 ..]
+  -- I don't actually think these matter or need to be unique
+  manifestQBFilenameKey = 2000000001
+  textQBFilenameKey     = 2000000002
+  textQS1FilenameKey    = 2000000003
+  textQS2FilenameKey    = 2000000004
+  textQS3FilenameKey    = 2000000005
+  textQS4FilenameKey    = 2000000006
+  textQS5FilenameKey    = 2000000007
 
   (qb, qs) = showTextPakQBQS $ TextPakQB textQBFilenameKey library
   textPak = worFileTextPak

@@ -3,13 +3,14 @@ module Onyx.Harmonix.Magma (runMagmaMIDI, runMagma, runMagmaV1, getRBAFile, getR
 import           Control.Monad                (forM_, replicateM)
 import           Control.Monad.IO.Class       (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource (MonadResource)
-import           Data.Binary.Get              (getWord32le, runGet)
+import           Data.Binary.Get              (getWord32le)
 import qualified Data.ByteString.Lazy         as BL
 import           Onyx.Resources               (magmaCommonDir, magmaV1Dir,
                                                magmaV2Dir)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle             (Readable, byteStringSimpleHandle,
                                                makeHandle)
+import           Onyx.Xbox.STFS               (runGetM)
 import qualified System.Directory             as Dir
 import           System.FilePath              ((</>))
 import           System.Info                  (os)
@@ -70,7 +71,7 @@ runMagmaV1 proj rba = tempDir "magma-v1" $ \tmp -> do
 getRBAFileBS :: (MonadIO m) => Int -> FilePath -> m BL.ByteString
 getRBAFileBS i rba = liftIO $ IO.withBinaryFile rba IO.ReadMode $ \h -> do
   IO.hSeek h IO.AbsoluteSeek 0x08
-  let read7words = runGet (replicateM 7 getWord32le) <$> BL.hGet h (7 * 4)
+  let read7words = BL.hGet h (7 * 4) >>= runGetM (replicateM 7 getWord32le)
   offsets <- read7words
   sizes <- read7words
   IO.hSeek h IO.AbsoluteSeek $ fromIntegral $ offsets !! i

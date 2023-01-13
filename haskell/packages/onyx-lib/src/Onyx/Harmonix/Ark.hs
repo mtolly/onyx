@@ -11,7 +11,7 @@ import           Control.Monad          (forM, replicateM, when)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Bifunctor         (first)
 import           Data.Binary.Get        (getByteString, getInt32le, getWord32le,
-                                         getWord64le, runGet, skip)
+                                         getWord64le, skip)
 import           Data.Bits
 import qualified Data.ByteString        as B
 import qualified Data.ByteString.Char8  as B8
@@ -48,8 +48,8 @@ data Hdr = Hdr
 readHdr :: (MonadFail m) => BL.ByteString -> m Hdr
 readHdr bs = do
   testType <- runGetM getWord32le bs
-  let dec = if testType <= 10 then bs else decryptHdr bs
-      parseEntry parseOffsetIndex = do
+  dec <- if testType <= 10 then return bs else decryptHdr bs
+  let parseEntry parseOffsetIndex = do
         offset <- fromIntegral <$> parseOffsetIndex
         name <- getInt32le
         folder <- (\i -> if i == -1 then Nothing else Just i) <$> getInt32le
@@ -159,7 +159,7 @@ readHdr bs = do
       _ -> fail $ "Unsupported ARK version " <> show arkVersion
 
 -- Decrypts .hdr for ARK version 4 and later
-decryptHdr :: BL.ByteString -> BL.ByteString
+decryptHdr :: (MonadFail m) => BL.ByteString -> m BL.ByteString
 decryptHdr enc = let
   cryptRound :: Int32 -> Int32
   cryptRound key = let
@@ -167,13 +167,14 @@ decryptHdr enc = let
     in if ret <= 0
       then ret + 0x7FFFFFFF
       else ret
-  initKey = cryptRound $ runGet getInt32le enc
-  initCryptStream = BL.pack $ map fromIntegral $ iterate cryptRound initKey
-  testArkVersion = runGet getInt32le $ BL.packZipWith xor (BL.take 4 $ BL.drop 4 enc) initCryptStream
-  cryptStream = if testArkVersion < 0
-    then BL.map complement initCryptStream
-    else initCryptStream
-  in BL.packZipWith xor (BL.drop 4 enc) cryptStream
+  in do
+    initKey <- cryptRound <$> runGetM getInt32le enc
+    let initCryptStream = BL.pack $ map fromIntegral $ iterate cryptRound initKey
+    testArkVersion <- runGetM getInt32le $ BL.packZipWith xor (BL.take 4 $ BL.drop 4 enc) initCryptStream
+    let cryptStream = if testArkVersion < 0
+          then BL.map complement initCryptStream
+          else initCryptStream
+    return $ BL.packZipWith xor (BL.drop 4 enc) cryptStream
 
 entryFolder :: Hdr -> Folder B.ByteString (FileEntry B.ByteString)
 entryFolder entries = fromFiles $ flip map entries.files $ \entry -> let

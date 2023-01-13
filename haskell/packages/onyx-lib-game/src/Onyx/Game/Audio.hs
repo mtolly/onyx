@@ -70,8 +70,8 @@ withMOGG mogg fn = withSystemTempDirectory "onyxLoadMogg" $ \tmp -> do
   logStdout (moggToOgg mogg ogg) >>= either throwIO return
   fn ogg
 
-sndSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> FilePath -> IO (CA.AudioSource m Int16)
-sndSecsSpeed pos mspeed f = do
+_sndSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> FilePath -> IO (CA.AudioSource m Int16)
+_sndSecsSpeed pos mspeed f = do
   src <- sourceSndFrom (CA.Seconds pos) f
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
@@ -358,6 +358,6 @@ projectAudio k proj = case lookup k $ HM.toList (projectSongYaml proj).plans of
   {-
   Just _ -> errorToWarning $ do
     wav <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/everything.wav"
-    return $ \t speed -> sndSecsSpeed t speed wav >>= playSource [-1, 1] [0, 0]
+    return $ \t speed -> _sndSecsSpeed t speed wav >>= playSource [-1, 1] [0, 0]
   -}
   Nothing -> return Nothing
