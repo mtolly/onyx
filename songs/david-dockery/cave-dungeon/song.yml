@@ -1,0 +1,32 @@
+metadata:
+  title: Cave Dungeon [Super Mario 64]
+  genre: funk
+  artist: David Dockery
+  year: 2022
+  file-album-art: ../cover.jpg
+  author: Onyxite
+plans:
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [2.634, youtube]
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube c2oiz6L-BTQ 140
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+parts:
+  drums:
+    drums:
+      kicks: 1
+      difficulty: 5
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps

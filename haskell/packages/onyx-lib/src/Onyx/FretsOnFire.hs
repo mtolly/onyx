@@ -119,6 +119,8 @@ stripTags = let
 
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do
+  -- We should just parse the ini lines ourselves instead of ini library,
+  -- so we can ignore unrecognized lines instead of failing altogether
   let readIniUTF8 = fmap (parseIni . noComments . decodeGeneral) . B.readFile
       -- C3 CON Tools (new at some point?) puts comments at the bottom
       -- which the ini library chokes on. Not sure if just removing blindly like

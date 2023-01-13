@@ -32,6 +32,7 @@ import           Onyx.Audio.VGS                   (writeVGS, writeVGSMultiRate)
 import           Onyx.Build.Common
 import           Onyx.Build.GuitarHero2.Logic
 import           Onyx.Codec.Common                (makeValue, valueId)
+import           Onyx.Difficulty
 import           Onyx.Harmonix.Ark.GH2            (GH2DXExtra (..))
 import qualified Onyx.Harmonix.DTA                as D
 import qualified Onyx.Harmonix.DTA.Serialize      as D
@@ -279,6 +280,15 @@ gh2Rules buildInfo dir gh2 = do
           gh2
           audio
           (targetTitle songYaml (GH2 gh2))
+        difficulty = difficultyPS (def :: TargetPS)
+          { guitar = gh2.guitar
+          , bass   = gh2.bass
+          , rhythm = gh2.rhythm
+          , drums  = gh2.drums
+          } songYaml
+        translateDiff = \case
+          0 -> -1 -- in gh2dx, 0 means "present but unknown difficulty" which we might want to support later
+          n -> fromIntegral n
         -- TODO gate behind a "dx" flag on target maybe
         extra = addDXExtra GH2DXExtra
           { songalbum      = songYaml.metadata.album
@@ -287,10 +297,14 @@ gh2Rules buildInfo dir gh2 = do
           , songgenre      = songYaml.metadata.genre
           , songorigin     = Nothing
           , songduration   = Just $ fromIntegral $ F.songLengthMS input
-          , songguitarrank = Nothing -- TODO
-          , songbassrank   = Nothing -- TODO
-          , songrhythmrank = Nothing -- TODO
-          , songdrumrank   = Nothing -- TODO
+          , songguitarrank = Just $ translateDiff $ rb3GuitarTier $ psDifficultyRB3 difficulty
+          , songbassrank   = Just $ case gh2.coop of
+            GH2Bass   -> translateDiff $ rb3BassTier $ psDifficultyRB3 difficulty
+            GH2Rhythm -> -1
+          , songrhythmrank = Just $ case gh2.coop of
+            GH2Rhythm -> translateDiff $ psRhythmTier difficulty
+            GH2Bass   -> -1
+          , songdrumrank   = Just $ translateDiff $ rb3DrumsTier $ psDifficultyRB3 difficulty
           , songartist     = Nothing -- not needed
           }
     stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
@@ -308,6 +322,8 @@ gh2Rules buildInfo dir gh2 = do
     oggToMogg (dir </> "audio.ogg") out
   dir </> "stfs/songs" </> pkg </> pkg <.> "voc" %> \out -> do
     shk $ copyFile' (dir </> "gh2/lipsync.voc") out
+  dir </> "stfs/songs" </> pkg </> "gen" </> pkg <.> "bmp_xbox" %> \out -> do
+    loadRGB8 songYaml >>= stackIO . BL.writeFile out . toDXT1File PNGXbox
   dir </> "gh2live" %> \out -> do
     shk $ need
       [ dir </> "stfs/config/contexts.dta"
@@ -317,6 +333,7 @@ gh2Rules buildInfo dir gh2 = do
       , dir </> "stfs/songs" </> pkg </> pkg <.> "mid"
       , dir </> "stfs/songs" </> pkg </> pkg <.> "mogg"
       , dir </> "stfs/songs" </> pkg </> pkg <.> "voc"
+      , dir </> "stfs/songs" </> pkg </> "gen" </> pkg <.> "bmp_xbox"
       ]
     lg "# Producing GH2 LIVE file"
     mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ gh2pkg

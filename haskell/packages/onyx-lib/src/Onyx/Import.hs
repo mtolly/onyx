@@ -559,7 +559,7 @@ installGH2 gh2 proj gen = do
     _ -> fatal "Couldn't read coop scores list"
   let toBytes = B8.pack . T.unpack
   prefs <- readPreferences
-  stackIO $ addBonusSongGH2 GH2Installation
+  stackIO (addBonusSongGH2 GH2Installation
     { gen              = gen
     , symbol           = sym
     , song             = chunks
@@ -577,7 +577,7 @@ installGH2 gh2 proj gen = do
       then Just SongSortArtistTitle
       else Just SongSortTitleArtist
     , loading_phrase   = toBytes <$> gh2.loadingPhrase
-    }
+    }) >>= mapM_ warn
 
 makeGH1DIY :: (MonadIO m) => TargetGH1 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 makeGH1DIY gh1 proj dout = do

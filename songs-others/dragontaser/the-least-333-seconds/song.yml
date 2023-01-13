@@ -13,7 +13,7 @@ parts:
 plans:
   album:
     song:
-      pad: [2.989, youtube]
+      pad: [3.084, album-track]
 targets:
   rb3:
     game: rb3
@@ -22,11 +22,9 @@ targets:
     arrangements:
     - [bass, bass]
 audio:
-  youtube:
-    file-path: audio-youtube.wav
-    commands:
-    - ../../../scripts/youtube n4pVtlJWrmA 140
-    frames: 14777344
+  album-track:
+    md5: b8d45eec3f8e40429e6989aedc043479
+    frames: 14770560
 metadata:
   author: DragonTaser, Onyxite
   title: The Least 333sec

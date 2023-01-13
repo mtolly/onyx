@@ -292,7 +292,8 @@ data GH2Installation = GH2Installation
   }
 
 -- | Adds a song to a GH2 ARK, and registers it as a bonus song with price 0.
-addBonusSongGH2 :: GH2Installation -> IO ()
+-- Returns a list of warnings for missing optional .dtb files.
+addBonusSongGH2 :: GH2Installation -> IO [String]
 addBonusSongGH2 gh2i = withArk gh2i.gen $ \ark -> do
   withSystemTempFile "songs.dtb"             $ \fdtb1 hdl1 -> do
     withSystemTempFile "coop_max_scores.dtb" $ \fdtb2 hdl2 -> do
@@ -302,48 +303,60 @@ addBonusSongGH2 gh2i = withArk gh2i.gen $ \ark -> do
           IO.hClose hdl2
           IO.hClose hdl3
           IO.hClose hdl4
-          let editDTB tmp path f = do
-                ark_GetFile' ark tmp path True
-                D.DTA z (D.Tree _ chunks) <- D.readFileDTB tmp
-                chunks' <- f chunks
-                D.writeFileDTB tmp $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 chunks'
-                ark_ReplaceAFile' ark tmp path True
-                return chunks'
-          newSongs <- editDTB fdtb1 "config/gen/songs.dtb" $ \chunks -> do
+          let editDTB tmp path f = ark_GetFile ark tmp path True >>= \case
+                True -> do
+                  ark_GetFile' ark tmp path True
+                  D.DTA z (D.Tree _ chunks) <- D.readFileDTB tmp
+                  chunks' <- f chunks
+                  D.writeFileDTB tmp $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 chunks'
+                  ark_ReplaceAFile' ark tmp path True
+                  return $ Just chunks'
+                False -> return Nothing
+              tryEditDTB tmp path f = editDTB tmp path f >>= \case
+                Just _  -> return []
+                Nothing -> return ["Couldn't find optional .dtb: " <> B8.unpack path]
+          songResult <- editDTB fdtb1 "config/gen/songs.dtb" $ \chunks -> do
             return $ D.Parens (D.Tree 0 (D.Sym gh2i.symbol : gh2i.song)) : chunks
-          void $ editDTB fdtb2 "config/gen/coop_max_scores.dtb" $ \chunks -> do
-            return $ D.Parens (D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 (map (D.Int . fromIntegral) gh2i.coop_max_scores)]) : chunks
-          void $ editDTB fdtb3 "config/gen/store.dtb" $ \chunks -> do
-            forM chunks $ \case
-              D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> do
-                let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
-                bonusSorted <- case gh2i.sort_ of
-                  -- TODO handle warnings/errors better
-                  Just ss -> logStdout (readSongListGH2 $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
-                    Right newSongList -> return $ let
-                      sorter = sortSongs ss $ \case
-                        D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
-                          Just pkg -> (GH2.name pkg, GH2.artist pkg)
-                          Nothing  -> (T.pack $ show sym, "")
-                        _                                  -> ("", "")
-                      in sorter bonus'
-                    Left _ -> return bonus'
-                  Nothing -> return bonus'
-                return $ D.Parens $ D.Tree 0 bonusSorted
-              chunk -> return chunk
-          void $ editDTB fdtb4 "ui/eng/gen/locale.dtb" $ \chunks -> do
-            return $ catMaybes
-              [ (\x -> D.Parens (D.Tree 0 [D.Sym gh2i.symbol                    , D.String x])) <$> gh2i.shop_title
-              , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_shop_desc"  , D.String x])) <$> gh2i.shop_description
-              , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_author"     , D.String x])) <$> gh2i.author -- only used by GH2DX
-              , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i.symbol, D.String x])) <$> gh2i.loading_phrase
-              ] <> chunks
+          newSongs <- maybe
+            (fail "Failed to extract config/gen/songs.dtb when installing a new song")
+            return
+            songResult
+          warnings <- fmap concat $ sequence
+            [ tryEditDTB fdtb2 "config/gen/coop_max_scores.dtb" $ \chunks -> do
+                return $ D.Parens (D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 (map (D.Int . fromIntegral) gh2i.coop_max_scores)]) : chunks
+            , tryEditDTB fdtb3 "config/gen/store.dtb" $ \chunks -> do
+                forM chunks $ \case
+                  D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> do
+                    let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
+                    bonusSorted <- case gh2i.sort_ of
+                      -- TODO handle warnings/errors better
+                      Just ss -> logStdout (readSongListGH2 $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
+                        Right newSongList -> return $ let
+                          sorter = sortSongs ss $ \case
+                            D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
+                              Just pkg -> (GH2.name pkg, GH2.artist pkg)
+                              Nothing  -> (T.pack $ show sym, "")
+                            _                                  -> ("", "")
+                          in sorter bonus'
+                        Left _ -> return bonus'
+                      Nothing -> return bonus'
+                    return $ D.Parens $ D.Tree 0 bonusSorted
+                  chunk -> return chunk
+            , tryEditDTB fdtb4 "ui/eng/gen/locale.dtb" $ \chunks -> do
+                return $ catMaybes
+                  [ (\x -> D.Parens (D.Tree 0 [D.Sym gh2i.symbol                    , D.String x])) <$> gh2i.shop_title
+                  , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_shop_desc"  , D.String x])) <$> gh2i.shop_description
+                  , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_author"     , D.String x])) <$> gh2i.author -- only used by GH2DX
+                  , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i.symbol, D.String x])) <$> gh2i.loading_phrase
+                  ] <> chunks
+            ]
           forM_ gh2i.files $ \(arkName, localPath) -> do
             let arkPath = "songs/" <> gh2i.symbol <> "/" <> arkName
             ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
           forM_ gh2i.album_art $ \img -> do
             ark_AddFile' ark img ("ui/image/og/gen/us_logo_" <> gh2i.symbol <> "_keep.png_ps2") True
           ark_Save' ark
+          return warnings
 
 -- | Adds a song to a GH1 ARK, and registers it as a bonus song with price 0.
 addBonusSongGH1 :: GH2Installation -> IO ()
