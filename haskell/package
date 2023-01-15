@@ -15,7 +15,8 @@ case $(uname) in
     stack exec -- onyx-package changes
     stack exec -- onyx-package version-write Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/bin/onyx-resources/README.txt
     stack exec -- onyx-package version-print \
-      | env LD_LIBRARY_PATH="$(pwd)"/dependencies/root/lib xargs -I{} env VERSION={} linuxdeployqt Onyx.AppDir/usr/share/applications/onyx.desktop -appimage
+      | env LD_LIBRARY_PATH="$(pwd)"/dependencies/root/lib xargs -I{} env VERSION={} linuxdeploy --appdir Onyx.AppDir --output appimage
+    stack exec -- onyx-package version-print | xargs -I{} mv Onyx-{}-x86_64.AppImage onyx-{}-linux-x64.AppImage
     ;;
   MINGW* )
     rm -rf win/

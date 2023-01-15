@@ -31,7 +31,7 @@ After installing `stack`, make sure MSYS2 is updated with:
 
 ## Linux
 
-  * [`linuxdeployqt`](https://github.com/probonopd/linuxdeployqt)
+  * [`linuxdeploy`](https://github.com/linuxdeploy/linuxdeploy)
 
 # Build C dependencies
 
@@ -50,9 +50,6 @@ After installing `stack`, make sure MSYS2 is updated with:
 3. `./package`
 
 Your OS-specific package should be created.
-
-Note that `./package` will fail on too-recent Linux systems due to `linuxdeployqt`.
-Instead, use either the Docker steps or command line installation.
 
 # Docker
 

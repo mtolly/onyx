@@ -4,11 +4,11 @@ FROM ubuntu:16.04
 ENV TZ=America/Chicago
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# extract linuxdeployqt AppImage due to no FUSE in docker
+# extract linuxdeploy AppImage due to no FUSE in docker
 # the sed hack comes from https://github.com/AppImage/AppImageKit/issues/828
 RUN apt-get update && apt-get -y install wget
-RUN wget https://github.com/probonopd/linuxdeployqt/releases/download/7/linuxdeployqt-7-x86_64.AppImage -O linuxdeployqt && chmod +x linuxdeployqt && sed '0,/AI\x02/{s|AI\x02|\x00\x00\x00|}' -i linuxdeployqt && ./linuxdeployqt --appimage-extract && ln -s $(pwd)/squashfs-root/AppRun /usr/local/bin/linuxdeployqt
-# needed by linuxdeployqt
+RUN wget https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20220822-1/linuxdeploy-x86_64.AppImage -O linuxdeploy && chmod +x linuxdeploy && sed '0,/AI\x02/{s|AI\x02|\x00\x00\x00|}' -i linuxdeploy && ./linuxdeploy --appimage-extract && ln -s $(pwd)/squashfs-root/AppRun /usr/local/bin/linuxdeploy
+# needed by linuxdeployqt, do we still need for linuxdeploy?
 RUN apt-get update && apt-get -y install file libglib2.0-0
 
 COPY pre-dependencies /onyx/pre-dependencies
