@@ -8,12 +8,12 @@ library
     Onyx.AutoChart
   hs-source-dirs:
     src
-  ghc-options: -Wall
+  ghc-options: -Wall -O
   include-dirs:
     cbits
   cxx-sources:
     cbits/midi-ch.cpp
-  build-depends: base
+  build-depends: base, containers
   default-language: Haskell2010
   extra-libraries: stdc++
   cxx-options: -std=c++11
