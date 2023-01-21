@@ -34,9 +34,9 @@ parts:
       difficulty: 5
     pro-keys:
       difficulty: 5
-  global:
-    konga:
-      mode-1X: 8
+  # global:
+  #   konga:
+  #     mode-1X: 8
 audio:
   album-track:
     file-path: audio-youtube.wav
@@ -63,8 +63,8 @@ targets:
     version: 1
   ps:
     game: ps
-  konga:
-    game: konga
+  # konga:
+  #   game: konga
   rs:
     game: rs
     arrangements:

@@ -320,8 +320,6 @@ buildTarget yamlPath opts = do
         RS    {} -> undefined -- TODO
         DTX   {} -> undefined -- TODO
         PG    {} -> undefined -- TODO
-        Melody{} -> undefined -- TODO
-        Konga {} -> undefined -- TODO
   shakeBuildFiles audioDirs yamlPath [built]
   return (target, takeDirectory yamlPath </> built)
 
@@ -429,8 +427,6 @@ commands =
                 RS    {} -> undefined -- TODO
                 DTX   {} -> undefined -- TODO
                 PG    {} -> undefined -- TODO
-                Melody{} -> undefined -- TODO
-                Konga {} -> undefined -- TODO
           doInstall ftype' built
         FileRBProj -> undone -- install con to usb drive
         FileSTFS -> do

@@ -254,8 +254,9 @@ dtxRules buildInfo dir dtx = do
 
 ------------------------------------------------------------------------------
 
-melodyRules :: BuildInfo -> FilePath -> TargetPart -> QueueLog Rules ()
-melodyRules buildInfo dir tgt = do
+-- Not used at the moment (removed Melody's Escape target types)
+_melodyRules :: BuildInfo -> FilePath -> TargetPart -> QueueLog Rules ()
+_melodyRules buildInfo dir tgt = do
 
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
@@ -421,13 +422,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           GH1 gh1 -> gh1Rules buildInfo dir gh1
           GH2 gh2 -> gh2Rules buildInfo dir gh2
           PS ps -> psRules buildInfo dir ps
-          Melody tgt -> melodyRules buildInfo dir tgt
           RS rs -> rsRules buildInfo dir rs
           GH5 gh5 -> gh5Rules buildInfo dir gh5
           GH3 gh3 -> gh3Rules buildInfo dir gh3
           DTX dtx -> dtxRules buildInfo dir dtx
           PG pg -> pgRules buildInfo dir pg
-          Konga _ -> return () -- TODO
 
       forM_ (HM.toList songYaml.plans) $ \(planName, plan) -> do
 

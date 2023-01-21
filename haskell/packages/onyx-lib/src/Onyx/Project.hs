@@ -824,38 +824,6 @@ instance StackJSON Amp.Instrument where
     Amp.Vocal  -> "vocal"
     Amp.Guitar -> "guitar"
 
-data PartMelody = PartMelody
-  deriving (Eq, Ord, Show)
-
-instance StackJSON PartMelody where
-  stackJSON = asStrictObject "PartMelody" $ do
-    return PartMelody
-
-data PartKonga = PartKonga
-  { mode1E :: Maybe Int
-  , mode1H :: Maybe Int
-  , mode1X :: Maybe Int
-  , mode2E :: Maybe Int
-  , mode2H :: Maybe Int
-  , mode2X :: Maybe Int
-  , mode4  :: Maybe Int
-  , modeB  :: Maybe Int
-  , modeC  :: Maybe Int
-  } deriving (Eq, Ord, Show)
-
-instance StackJSON PartKonga where
-  stackJSON = asStrictObject "PartKonga" $ do
-    mode1E <- (.mode1E) =. opt Nothing "mode-1E" stackJSON
-    mode1H <- (.mode1H) =. opt Nothing "mode-1H" stackJSON
-    mode1X <- (.mode1X) =. opt Nothing "mode-1X" stackJSON
-    mode2E <- (.mode2E) =. opt Nothing "mode-2E" stackJSON
-    mode2H <- (.mode2H) =. opt Nothing "mode-2H" stackJSON
-    mode2X <- (.mode2X) =. opt Nothing "mode-2X" stackJSON
-    mode4  <- (.mode4 ) =. opt Nothing "mode-4"  stackJSON
-    modeB  <- (.modeB ) =. opt Nothing "mode-B"  stackJSON
-    modeC  <- (.modeC ) =. opt Nothing "mode-C"  stackJSON
-    return PartKonga{..}
-
 data PartDance = PartDance
   { difficulty :: Difficulty
   } deriving (Eq, Ord, Show)
@@ -873,8 +841,6 @@ data Part f = Part
   , drums     :: Maybe (PartDrums f)
   , vocal     :: Maybe (PartVocal f)
   , amplitude :: Maybe PartAmplitude
-  , melody    :: Maybe PartMelody
-  , konga     :: Maybe PartKonga
   , dance     :: Maybe PartDance
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
@@ -887,13 +853,11 @@ instance (Eq f, StackJSON f) => StackJSON (Part f) where
     drums     <- (.drums    ) =. opt Nothing "drums"      stackJSON
     vocal     <- (.vocal    ) =. opt Nothing "vocal"      stackJSON
     amplitude <- (.amplitude) =. opt Nothing "amplitude"  stackJSON
-    melody    <- (.melody   ) =. opt Nothing "melody"     stackJSON
-    konga     <- (.konga    ) =. opt Nothing "konga"      stackJSON
     dance     <- (.dance    ) =. opt Nothing "dance"      stackJSON
     return Part{..}
 
 emptyPart :: Part f
-emptyPart = Part Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+emptyPart = Part Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 instance StackJSON Magma.AutogenTheme where
   stackJSON = enumCodecFull "the name of an autogen theme or null" $ \case
@@ -1581,8 +1545,6 @@ data Target
   | RS     TargetRS
   | DTX    TargetDTX
   | PG     TargetPG
-  | Melody TargetPart
-  | Konga  TargetPart
   deriving (Eq, Ord, Show, Generic, Hashable)
 
 targetCommon :: Target -> TargetCommon
@@ -1597,8 +1559,6 @@ targetCommon = \case
   RS     x -> x.common
   DTX    x -> x.common
   PG     x -> x.common
-  Melody x -> x.common
-  Konga  x -> x.common
 
 addKey :: (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
 addKey codec k v x = A.Object $ KM.fromHashMapText $ HM.insert k v $ HM.fromList $ makeObject (objectId codec) x
@@ -1618,8 +1578,6 @@ instance StackJSON Target where
         "rs"     -> fmap RS     fromJSON
         "dtx"    -> fmap DTX    fromJSON
         "pg"     -> fmap PG     fromJSON
-        "melody" -> fmap Melody fromJSON
-        "konga"  -> fmap Konga  fromJSON
         _        -> fatal $ "Unrecognized target game: " ++ show target
     , codecOut = makeOut $ \case
       RB3    rb3 -> addKey parseTargetRB3  "game" "rb3"    rb3
@@ -1632,8 +1590,6 @@ instance StackJSON Target where
       RS     rs  -> addKey parseTargetRS   "game" "rs"     rs
       DTX    dtx -> addKey parseTargetDTX  "game" "dtx"    dtx
       PG     pg  -> addKey parseTargetPG   "game" "pg"     pg
-      Melody tgt -> addKey parseTargetPart "game" "melody" tgt
-      Konga  tgt -> addKey parseTargetPart "game" "konga"  tgt
     }
 
 data SongYaml f = SongYaml
