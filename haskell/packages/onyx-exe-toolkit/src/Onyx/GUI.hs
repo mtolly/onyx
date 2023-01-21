@@ -4156,14 +4156,16 @@ miscPagePacks sink rect tab startTasks = mdo
                         , STFS.createLIVE         = isLIVE
                         }
                       in STFS.makePack (map stfsPath stfs) applyOpts f
-                case output of
+                maybeArtDir <- case output of
                   PackCON       -> makeSTFS False
                   PackLIVE      -> makeSTFS True
                   PackExtracted -> do
                     roots <- stackIO $ mapM (STFS.getSTFSFolder . stfsPath) stfs
                     merged <- STFS.packCombineFolders roots
                     stackIO $ saveHandleFolder merged f
-                return [f]
+                    -- TODO add album_art save? probably check what gh2dx xenia setup expects
+                    return Nothing
+                return $ f : toList maybeArtDir
               taskLabel = case output of
                 PackExtracted -> "Save pack as extracted contents: " <> f
                 PackCON       -> "Save pack as CON: " <> f

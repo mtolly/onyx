@@ -1569,16 +1569,16 @@ instance StackJSON Target where
       target <- requiredKey "game" fromJSON
       hm <- lift ask
       parseFrom (A.Object $ KM.fromHashMapText $ HM.delete "game" hm) $ case target :: T.Text of
-        "rb3"    -> fmap RB3    fromJSON
-        "rb2"    -> fmap RB2    fromJSON
-        "ps"     -> fmap PS     fromJSON
-        "gh2"    -> fmap GH2    fromJSON
-        "gh3"    -> fmap GH3    fromJSON
-        "gh5"    -> fmap GH5    fromJSON
-        "rs"     -> fmap RS     fromJSON
-        "dtx"    -> fmap DTX    fromJSON
-        "pg"     -> fmap PG     fromJSON
-        _        -> fatal $ "Unrecognized target game: " ++ show target
+        "rb3" -> fmap RB3    fromJSON
+        "rb2" -> fmap RB2    fromJSON
+        "ps"  -> fmap PS     fromJSON
+        "gh2" -> fmap GH2    fromJSON
+        "gh3" -> fmap GH3    fromJSON
+        "gh5" -> fmap GH5    fromJSON
+        "rs"  -> fmap RS     fromJSON
+        "dtx" -> fmap DTX    fromJSON
+        "pg"  -> fmap PG     fromJSON
+        _     -> fatal $ "Unrecognized target game: " ++ show target
     , codecOut = makeOut $ \case
       RB3    rb3 -> addKey parseTargetRB3  "game" "rb3"    rb3
       RB2    rb2 -> addKey parseTargetRB2  "game" "rb2"    rb2

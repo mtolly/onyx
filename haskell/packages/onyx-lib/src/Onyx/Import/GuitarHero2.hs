@@ -214,15 +214,15 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
       guard $ maybe False (not . null) $ lookup "drum" $ D.fromDictList $ tracks songChunk
       return (F.FlexDrums, emptyPart
         { drums = Just PartDrums
-          { difficulty = undefined -- :: Onyx.Project.Difficulty
-          , mode = undefined -- :: DrumMode
-          , kicks = undefined -- :: Kicks
-          , fixFreeform = undefined -- :: Bool
-          , kit = undefined -- :: DrumKit
-          , layout = undefined -- :: DrumLayout
-          , fallback = undefined -- :: OrangeFallback
-          , fileDTXKit = undefined -- :: Maybe f0
-          , fullLayout = undefined -- :: FullDrumLayout
+          { difficulty  = Tier $ maybe 1 fromIntegral $ extra >>= (.songdrumrank)
+          , mode        = Drums4
+          , kicks       = Kicks1x -- TODO should probably save this on export
+          , fixFreeform = False
+          , kit         = HardRockKit
+          , layout      = StandardLayout
+          , fallback    = FallbackBlue
+          , fileDTXKit  = Nothing
+          , fullLayout  = FDStandard
           }
         })
     ]

@@ -69,29 +69,38 @@ data PartTrack t = PartTrack
   , partUnknown110   :: RTB.T t Bool
   -- ^ from mariteaux: note 110 on part guitar will cause a "disappointment"
   -- sound effect to play if the player misses any and all notes during its duration
+
+  -- following is GH2DX added. note, encoding is blips for start/end
+  -- instead of a long note, due to easier scripting implementation
+  , partSoloEdge     :: RTB.T t ()
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (PartTrack t)
 
 instance TraverseTrack PartTrack where
-  traverseTrack fn (PartTrack a b c d e f g h i j k) = PartTrack
+  traverseTrack fn (PartTrack a b c d e f g h i j k l) = PartTrack
     <$> traverse (traverseTrack fn) a
     <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
     <*> fn g <*> fn h <*> fn i <*> fn j <*> fn k
+    <*> fn l
 
 nullPart :: PartTrack t -> Bool
 nullPart = all (RTB.null . partGems) . toList . partDifficulties
 
 data PartDifficulty t = PartDifficulty
-  { partStarPower :: RTB.T t Bool
-  , partPlayer1   :: RTB.T t Bool
-  , partPlayer2   :: RTB.T t Bool
-  , partGems      :: RTB.T t (Edge () Color)
+  { partStarPower  :: RTB.T t Bool
+  , partPlayer1    :: RTB.T t Bool
+  , partPlayer2    :: RTB.T t Bool
+  , partGems       :: RTB.T t (Edge () Color)
+  -- following are added for future GH2DX compatibility
+  , partForceHOPO  :: RTB.T t Bool
+  , partForceStrum :: RTB.T t Bool
+  , partForceTap   :: RTB.T t Bool
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (PartDifficulty t)
 
 instance TraverseTrack PartDifficulty where
-  traverseTrack fn (PartDifficulty a b c d) = PartDifficulty
-    <$> fn a <*> fn b <*> fn c <*> fn d
+  traverseTrack fn (PartDifficulty a b c d e f g) = PartDifficulty
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g
 
 instance ParseTrack PartTrack where
   parseTrack = do
@@ -116,6 +125,8 @@ instance ParseTrack PartTrack where
       False -> ["ow_face_off"]
     partUnknown110 <- partUnknown110 =. edges 110
     partDifficulties <- (partDifficulties =.) $ eachKey each parseDifficulty
+    -- GH2DX added. pitch chosen to match RB3 protar/prokeys
+    partSoloEdge <- partSoloEdge =. blip 115
     return PartTrack{..}
 
 parseDifficulty :: (Monad m) => Difficulty -> TrackCodec m U.Beats (PartDifficulty U.Beats)
@@ -134,4 +145,9 @@ parseDifficulty diff = do
     Yellow -> base + 2
     Blue   -> base + 3
     Orange -> base + 4
+  -- tentative format for future GH2DX support.
+  -- hopo/strum like RB; taps like CH's newer non-sysex format (but separated per difficulty)
+  partForceHOPO  <- partForceHOPO  =. edges (base + 5)
+  partForceStrum <- partForceStrum =. edges (base + 6)
+  partForceTap   <- partForceTap   =. edges (base + 8)
   return PartDifficulty{..}

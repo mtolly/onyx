@@ -72,6 +72,7 @@ import           Onyx.Resources            (gh2Thumbnail, ghWoRThumbnail,
                                             rb2Thumbnail, rb3Thumbnail, xboxKV)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
+import           System.FilePath           (takeDirectory, (</>))
 import           System.IO
 
 data Header
@@ -1318,7 +1319,8 @@ packCombineFolders roots = let
     | otherwise = case contents of
       []     -> return Nothing -- shouldn't happen
       [r]    -> return $ Just r
-      r : rs -> if name == "spa.bin" -- file in official GH2 DLC that can be dropped
+      r : rs -> if elem name ["spa.bin", ".DS_Store", "Thumbs.db"]
+        -- these files can be dropped (spa.bin from gh2 360 dlc, other 2 are mac/windows filesystem clutter)
         then return Nothing
         else if elem name ["ICON0.PNG", "PARAM.SFO", "PS3LOGO.DAT"]
           then return $ Just r -- ps3 package root files, assume they are constant
@@ -1331,7 +1333,8 @@ packCombineFolders roots = let
   showPath parents name = T.unpack $ T.intercalate "/" $ reverse $ name : parents
   in combineFolders [] roots
 
-makePack :: (MonadIO m) => [FilePath] -> (CreateOptions -> CreateOptions) -> FilePath -> StackTraceT m ()
+-- Returns path of album_art folder if that was also created.
+makePack :: (MonadIO m) => [FilePath] -> (CreateOptions -> CreateOptions) -> FilePath -> StackTraceT m (Maybe FilePath)
 makePack []                 _         _    = fatal "Need at least 1 file for STFS pack"
 makePack inputs@(input : _) applyOpts fout = do
   opts <- stackIO $ withSTFSPackage input $ \stfs -> return $ applyOpts CreateOptions
@@ -1353,6 +1356,36 @@ makePack inputs@(input : _) applyOpts fout = do
   roots <- stackIO $ mapM getSTFSFolder inputs
   merged <- packCombineFolders roots
   stackIO $ makeCONReadable opts merged fout
+  forM (findGH2DXAlbumArt merged) $ \art -> do
+    let artTarget = takeDirectory fout </> "album_art"
+    stackIO $ saveHandleFolder art artTarget
+    return artTarget
+
+findGH2DXAlbumArt :: Folder T.Text Readable -> Maybe (Folder T.Text Readable)
+findGH2DXAlbumArt root = let
+  art = do
+    songs <- toList $ findFolder (return "songs") root
+    (songName, song) <- folderSubfolders songs
+    gen <- toList $ findFolder (return "gen") song
+    return (songName, do
+      bmp@(bmpName, _) <- folderFiles gen
+      guard $ ".bmp_xbox" `T.isSuffixOf` bmpName
+      return bmp
+      )
+  in guard (not $ null art) >> Just Folder
+    { folderFiles = []
+    , folderSubfolders = do
+      (songName, bmps) <- art
+      return (songName, Folder
+        { folderFiles = []
+        , folderSubfolders =
+          [ ("gen", Folder
+            { folderFiles = bmps
+            , folderSubfolders = []
+            })
+          ]
+        })
+    }
 
 repackOptions :: STFSPackage -> CreateOptions
 repackOptions stfs = CreateOptions

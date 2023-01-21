@@ -16,12 +16,14 @@ import           Onyx.MIDI.Track.Drums
 
 data GH2DrumTrack t = GH2DrumTrack
   { gh2drumDifficulties :: Map.Map Difficulty (GH2DrumDifficulty t)
+  -- GH2DX added
+  , gh2drumSoloEdge     :: RTB.T t ()
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (GH2DrumTrack t)
 
 instance TraverseTrack GH2DrumTrack where
-  traverseTrack fn (GH2DrumTrack a) = GH2DrumTrack
-    <$> traverse (traverseTrack fn) a
+  traverseTrack fn (GH2DrumTrack a b) = GH2DrumTrack
+    <$> traverse (traverseTrack fn) a <*> fn b
 
 data GH2DrumDifficulty t = GH2DrumDifficulty
   { gh2drumStarPower :: RTB.T t Bool
@@ -54,4 +56,6 @@ instance ParseTrack GH2DrumTrack where
         Pro Green ()  -> base + 4
         Orange        -> base + 4
       return GH2DrumDifficulty{..}
+    -- GH2DX added
+    gh2drumSoloEdge <- gh2drumSoloEdge =. blip 115
     return GH2DrumTrack{..}

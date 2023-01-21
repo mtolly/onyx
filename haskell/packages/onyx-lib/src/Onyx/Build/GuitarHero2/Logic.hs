@@ -18,6 +18,7 @@ import qualified Data.Map                             as Map
 import           Data.Maybe                           (catMaybes, fromMaybe,
                                                        isJust, isNothing)
 import qualified Data.Text                            as T
+import qualified Numeric.NonNegative.Class            as NNC
 import           Onyx.Build.RB3CH                     (BasicTiming (..),
                                                        basicTiming)
 import qualified Onyx.Build.RB3CH                     as RB3
@@ -191,6 +192,12 @@ computeGH2Audio song target is360 hasAudio = do
       animKeys  = target.keys  <$ (getPart target.keys  song >>= (.grybo))
   return GH2Audio{..}
 
+-- GH2DX uses solo format of "note on solo start, note on solo end".
+-- For simplicity, if one solo ends right when another one begins,
+-- just join them together (don't emit anything at their shared edge)
+makeSoloEdges :: (NNC.C t) => RTB.T t Bool -> RTB.T t ()
+makeSoloEdges = void . RTB.filter (odd . length) . RTB.collectCoincident
+
 midiRB3toGH2
   :: (SendMessage m)
   => SongYaml f
@@ -221,7 +228,6 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
               editNotes
                 = fromClosed'
                 . noOpenNotes result.settings.detectMutedOpens
-                . noTaps
                 . noExtendedSustains' standardBlipThreshold gap
               makeDiff diff notes = do
                 let notes' = editNotes notes
@@ -229,11 +235,15 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
                   mmap
                   [(fpart, [(show diff, void notes')])]
                   ((fpart,) <$> RB.fiveOverdrive result.other)
+                let emitted = emit5' notes'
                 return PartDifficulty
-                  { partStarPower = snd <$> od
-                  , partPlayer1   = RB.fivePlayer1 result.other
-                  , partPlayer2   = RB.fivePlayer2 result.other
-                  , partGems      = RB.fiveGems $ emit5' $ editNotes notes'
+                  { partStarPower  = snd <$> od
+                  , partPlayer1    = RB.fivePlayer1 result.other
+                  , partPlayer2    = RB.fivePlayer2 result.other
+                  , partGems       = RB.fiveGems emitted
+                  , partForceHOPO  = if target.gh2Deluxe then RB.fiveForceHOPO  emitted else RTB.empty
+                  , partForceStrum = if target.gh2Deluxe then RB.fiveForceStrum emitted else RTB.empty
+                  , partForceTap   = if target.gh2Deluxe then RB.fiveTap        emitted else RTB.empty
                   }
               (idle, play) = makeMoods (RB.fiveMood result.other)
                 $ maybe mempty (splitEdges . fmap (\((fret, sht), len) -> (fret, sht, len)))
@@ -257,6 +267,9 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
               RB.HandMap_Chord_C   -> HandMap_Default
               RB.HandMap_Chord_D   -> HandMap_Default
               RB.HandMap_Chord_A   -> HandMap_Default
+            , partSoloEdge     = if target.gh2Deluxe
+              then makeSoloEdges $ RB.fiveSolo result.other
+              else RTB.empty
             }
       makeDrum fpart = case getPart fpart song >>= (.drums) of
         Nothing -> mempty
@@ -274,6 +287,9 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
               , gh2drumPlayer2   = RB.drumPlayer2 trackOrig
               , gh2drumGems      = fmap fst $ RB.drumGems diff
               }
+            , gh2drumSoloEdge = if target.gh2Deluxe
+              then makeSoloEdges $ RB.drumSolo trackOrig
+              else RTB.empty
             }
       makeBandBass :: FiveResult -> BandBassTrack U.Beats
       makeBandBass result = mempty

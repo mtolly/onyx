@@ -147,10 +147,13 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
                 [(fpart, [(show diff, void notes')])]
                 ((fpart,) <$> RB.fiveOverdrive result.other)
               return PartDifficulty
-                { partStarPower = snd <$> od
-                , partPlayer1   = RB.fivePlayer1 result.other
-                , partPlayer2   = RB.fivePlayer2 result.other
-                , partGems      = RB.fiveGems $ emit5' notes'
+                { partStarPower  = snd <$> od
+                , partPlayer1    = RB.fivePlayer1 result.other
+                , partPlayer2    = RB.fivePlayer2 result.other
+                , partGems       = RB.fiveGems $ emit5' notes'
+                , partForceHOPO  = RTB.empty
+                , partForceStrum = RTB.empty
+                , partForceTap   = RTB.empty
                 }
         fmap Map.fromList
           $ mapM (\(diff, notes) -> (diff,) <$> makeDiff diff notes)
