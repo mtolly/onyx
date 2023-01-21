@@ -7,6 +7,7 @@
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
 {-# LANGUAGE TupleSections         #-}
@@ -52,7 +53,8 @@ import           Onyx.Harmonix.GH2.PartDrum
 import           Onyx.Harmonix.GH2.PartGuitar
 import           Onyx.Harmonix.GH2.Triggers
 import           Onyx.Import.Base
-import           Onyx.MIDI.Common                 (Difficulty (..))
+import           Onyx.MIDI.Common                 (Difficulty (..),
+                                                   pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Track.Drums            as Drums
 import qualified Onyx.MIDI.Track.Events           as RB
 import qualified Onyx.MIDI.Track.File             as F
@@ -91,7 +93,11 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap $ let
   convertPart :: PartTrack U.Beats -> RB.FiveTrack U.Beats
   convertPart part = RB.FiveTrack
     { RB.fiveDifficulties = flip fmap (partDifficulties part) $ \diff -> mempty
-      { RB.fiveGems = partGems diff
+      { RB.fiveGems       = partGems       diff
+      -- stuff that we may have written for future gh2dx support
+      , RB.fiveForceHOPO  = partForceHOPO  diff
+      , RB.fiveForceStrum = partForceStrum diff
+      , RB.fiveTap        = partForceTap   diff
       }
     , RB.fiveMood         = RTB.empty -- TODO
     , RB.fiveHandMap      = flip fmap (partHandMap part) $ \case
@@ -107,10 +113,16 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap $ let
     , RB.fiveTrill        = RTB.empty
     , RB.fiveOverdrive    = maybe RTB.empty partStarPower $ Map.lookup Expert $ partDifficulties part
     , RB.fiveBRE          = RTB.empty
-    , RB.fiveSolo         = RTB.empty
+    , RB.fiveSolo         = importSolo $ partSoloEdge part
     , RB.fivePlayer1      = maybe RTB.empty partPlayer1 $ Map.lookup Expert $ partDifficulties part
     , RB.fivePlayer2      = maybe RTB.empty partPlayer2 $ Map.lookup Expert $ partDifficulties part
     }
+  -- import from gh2dx "on/off" solo format
+  importSolo :: RTB.T t () -> RTB.T t Bool
+  importSolo = go True where
+    go True (Wait _ _  RNil) = RNil -- don't start a solo that doesn't end
+    go b    (Wait t () rest) = Wait t b $ go (not b) rest
+    go _    RNil             = RNil
   in F.fixedToOnyx mempty
     { F.fixedEvents = RB.EventsTrack
       { RB.eventsMusicStart = void $ RTB.filter (== MusicStart) $ eventsOther $ gh2Events gh2
@@ -136,24 +148,25 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap $ let
       else mempty
     , F.fixedPartDrums = if isJust $ lookup "drum" $ D.fromDictList $ tracks songChunk
       then let
-        expert = fromMaybe mempty $ Map.lookup Expert $ gh2drumDifficulties $ gh2PartDrum gh2
+        drums = gh2PartDrum gh2
+        expert = fromMaybe mempty $ Map.lookup Expert $ gh2drumDifficulties drums
         in Drums.DrumTrack
-          { drumDifficulties = flip fmap (gh2drumDifficulties $ gh2PartDrum gh2) $ \diff -> Drums.DrumDifficulty
+          { drumDifficulties = flip fmap (gh2drumDifficulties drums) $ \diff -> Drums.DrumDifficulty
             { Drums.drumMix = RTB.empty
             , Drums.drumPSModifiers = RTB.empty
             , Drums.drumGems = (, Drums.VelocityNormal) <$> gh2drumGems diff
             }
-          , drumMood = RTB.empty -- TODO import from band drummer
-          , drumToms = RTB.empty
-          , drumSingleRoll = RTB.empty
-          , drumDoubleRoll = RTB.empty
-          , drumOverdrive = gh2drumStarPower expert
-          , drumActivation = RTB.empty
-          , drumSolo = RTB.empty
-          , drumPlayer1 = gh2drumPlayer1 expert
-          , drumPlayer2 = gh2drumPlayer2 expert
-          , drumKick2x = RTB.empty
-          , drumAnimation = RTB.empty -- TODO import from band drummer
+          , drumMood           = RTB.empty -- TODO import from band drummer
+          , drumToms           = RTB.empty
+          , drumSingleRoll     = RTB.empty
+          , drumDoubleRoll     = RTB.empty
+          , drumOverdrive      = gh2drumStarPower expert
+          , drumActivation     = RTB.empty
+          , drumSolo           = importSolo $ gh2drumSoloEdge drums
+          , drumPlayer1        = gh2drumPlayer1 expert
+          , drumPlayer2        = gh2drumPlayer2 expert
+          , drumKick2x         = RTB.empty
+          , drumAnimation      = RTB.empty -- TODO import from band drummer
           , drumEnableDynamics = RTB.empty
           }
       else mempty

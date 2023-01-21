@@ -112,10 +112,10 @@ computeGH2Audio
   -> (F.FlexPartName -> Bool) -- True if part has own audio
   -> StackTraceT m GH2Audio
 computeGH2Audio song target is360 hasAudio = do
-  let hasFiveOrDrums = \case
+  let canGetFiveFret = \case
         Nothing   -> False
-        Just part -> isJust part.grybo || isJust part.drums
-  leadTrack <- if hasFiveOrDrums $ getPart target.guitar song
+        Just part -> isJust $ anyFiveFret part
+  leadTrack <- if canGetFiveFret $ getPart target.guitar song
     then return target.guitar
     else fatal "computeGH2Audio: no lead guitar part selected"
   let drumTrack = do
@@ -126,7 +126,7 @@ computeGH2Audio song target is360 hasAudio = do
       specifiedCoop = case target.coop of
         GH2Bass   -> target.bass
         GH2Rhythm -> target.rhythm
-      (coopTrack, coopType) = if hasFiveOrDrums $ getPart specifiedCoop song
+      (coopTrack, coopType) = if canGetFiveFret $ getPart specifiedCoop song
         then (specifiedCoop, target.coop)
         else (leadTrack    , GH2Rhythm  )
       leadAudio = hasAudio leadTrack
@@ -393,6 +393,13 @@ adjustSongText = T.replace "&" "+"
   -- TODO we need to do non-latin-1 replacement
   -- TODO any other text we need to do this on, author maybe? other gh2dx metadata?
 
+-- Pass along guitar's (probably imported) hopo threshold
+getDefaultHOPOThreshold :: SongYaml f -> GH2Audio -> Maybe Integer
+getDefaultHOPOThreshold song audio = fmap (fromIntegral . (.hopoThreshold))
+  $ getPart audio.leadTrack song >>= (.grybo)
+  -- could support other converted modes I guess but this is realistically
+  -- the only place weird thresholds would come from
+
 makeGH2DTA :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 -> GH2Audio -> T.Text -> D.SongPackage
 makeGH2DTA song key preview target audio title = D.SongPackage
   { D.name = adjustSongText title
@@ -425,7 +432,7 @@ makeGH2DTA song key preview target audio title = D.SongPackage
       , D.vols = 0 <$ audio.practice
       , D.cores = (-1) <$ audio.practice
       , D.midiFile = "songs/" <> key <> "/" <> key <> ".mid"
-      , D.hopoThreshold = Nothing
+      , D.hopoThreshold = threshold
       }
     makeSong includeTrack3 = D.Song
       { D.songName      = "songs/" <> key <> "/" <> key
@@ -454,8 +461,9 @@ makeGH2DTA song key preview target audio title = D.SongPackage
         GH2Band         -> [-1, -1]
         GH2Silent       -> [-1]
       , D.midiFile      = "songs/" <> key <> "/" <> key <> ".mid"
-      , D.hopoThreshold = Nothing
+      , D.hopoThreshold = threshold
       }
+    threshold = getDefaultHOPOThreshold song audio
 
 makeGH2DTA360 :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 -> GH2Audio -> T.Text -> D.SongPackage
 makeGH2DTA360 song key preview target audio title = D.SongPackage
@@ -497,7 +505,7 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
         GH2Band         -> [-1, -1]
         GH2Silent       -> [-1]
       , D.midiFile      = "songs/" <> key <> "/" <> key <> ".mid"
-      , D.hopoThreshold = Nothing
+      , D.hopoThreshold = getDefaultHOPOThreshold song audio
       }
 
 addDXExtra :: GH2DXExtra -> [D.Chunk T.Text] -> [D.Chunk T.Text]

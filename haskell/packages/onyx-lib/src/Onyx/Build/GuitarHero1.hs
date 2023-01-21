@@ -89,10 +89,10 @@ computeGH1Audio
   -> (F.FlexPartName -> Bool) -- True if part has own audio
   -> StackTraceT m GH1Audio
 computeGH1Audio song target hasAudio = do
-  let hasFiveOrDrums = \case
+  let canGetFiveFret = \case
         Nothing   -> False
-        Just part -> isJust part.grybo || isJust part.drums
-  gh1LeadTrack <- if hasFiveOrDrums $ getPart target.guitar song
+        Just part -> isJust $ anyFiveFret part
+  gh1LeadTrack <- if canGetFiveFret $ getPart target.guitar song
     then return target.guitar
     else fatal "computeGH1Audio: no lead guitar part selected"
   let leadAudio = hasAudio gh1LeadTrack
