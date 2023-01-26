@@ -417,6 +417,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , harmonix = False
               , magma = rb2.magma
               , ps3Encrypt = rb2.ps3Encrypt
+              , legalTempos = rb2.legalTempos
               }
             in rbRules buildInfo dir rb3 $ Just rb2
           GH1 gh1 -> gh1Rules buildInfo dir gh1

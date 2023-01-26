@@ -68,7 +68,8 @@ processRB3Pad
 processRB3Pad a b c d e = do
   (mid, diffs, vc) <- processMIDI (Left a) b c d e
   -- TODO we probably should run fixBrokenUnisons before autoreductions
-  (mid', pad) <- magmaLegalTemposFile mid >>= fixNotelessOD >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
+  legal <- if a.legalTempos then magmaLegalTemposFile mid else return mid
+  (mid', pad) <- fixNotelessOD legal >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
   return (proKeysODOnlyExpert mid', psDifficultyRB3 diffs, vc, pad)
 
 processRB3
@@ -82,7 +83,8 @@ processRB3
 processRB3 a b c d e = do
   (mid, diffs, vc) <- processMIDI (Left a) b c d e
   -- TODO we probably should run fixBrokenUnisons before autoreductions
-  mid' <- fmap fixBeatTrack' $ magmaLegalTemposFile mid >>= fixNotelessOD >>= fixBrokenUnisons
+  legal <- if a.legalTempos then magmaLegalTemposFile mid else return mid
+  mid' <- fmap fixBeatTrack' $ fixNotelessOD legal >>= fixBrokenUnisons
   return (proKeysODOnlyExpert mid', psDifficultyRB3 diffs, vc)
 
 processPS

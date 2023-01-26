@@ -1102,22 +1102,24 @@ data TargetRB3 = TargetRB3
   , keys          :: F.FlexPartName
   , vocal         :: F.FlexPartName
   , ps3Encrypt    :: Bool
+  , legalTempos   :: Bool -- should tempos be kept in Magma-legal range of 40-300 BPM
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetRB3 :: (SendMessage m) => ObjectCodec m A.Value TargetRB3
 parseTargetRB3 = do
   common        <- (.common       ) =. parseTargetCommon
-  is2xBassPedal <- (.is2xBassPedal) =. opt False        "2x-bass-pedal" stackJSON
-  songID        <- (.songID       ) =. fill SongIDAutoSymbol "song-id"  stackJSON
-  version       <- (.version      ) =. opt Nothing      "version"       stackJSON
-  harmonix      <- (.harmonix     ) =. opt False        "harmonix"      stackJSON
-  magma         <- (.magma        ) =. opt MagmaRequire "magma"         stackJSON
-  guitar        <- (.guitar       ) =. opt F.FlexGuitar   "guitar"        stackJSON
-  bass          <- (.bass         ) =. opt F.FlexBass     "bass"          stackJSON
-  drums         <- (.drums        ) =. opt F.FlexDrums    "drums"         stackJSON
-  keys          <- (.keys         ) =. opt F.FlexKeys     "keys"          stackJSON
-  vocal         <- (.vocal        ) =. opt F.FlexVocal    "vocal"         stackJSON
-  ps3Encrypt    <- (.ps3Encrypt   ) =. opt True         "ps3-encrypt"   stackJSON
+  is2xBassPedal <- (.is2xBassPedal) =. opt  False            "2x-bass-pedal" stackJSON
+  songID        <- (.songID       ) =. fill SongIDAutoSymbol "song-id"       stackJSON
+  version       <- (.version      ) =. opt  Nothing          "version"       stackJSON
+  harmonix      <- (.harmonix     ) =. opt  False            "harmonix"      stackJSON
+  magma         <- (.magma        ) =. opt  MagmaRequire     "magma"         stackJSON
+  guitar        <- (.guitar       ) =. opt  F.FlexGuitar     "guitar"        stackJSON
+  bass          <- (.bass         ) =. opt  F.FlexBass       "bass"          stackJSON
+  drums         <- (.drums        ) =. opt  F.FlexDrums      "drums"         stackJSON
+  keys          <- (.keys         ) =. opt  F.FlexKeys       "keys"          stackJSON
+  vocal         <- (.vocal        ) =. opt  F.FlexVocal      "vocal"         stackJSON
+  ps3Encrypt    <- (.ps3Encrypt   ) =. opt  True             "ps3-encrypt"   stackJSON
+  legalTempos   <- (.legalTempos  ) =. opt  True             "legal-tempos"  stackJSON
   return TargetRB3{..}
 
 instance StackJSON TargetRB3 where
@@ -1196,21 +1198,23 @@ data TargetRB2 = TargetRB2
   , drums         :: F.FlexPartName
   , vocal         :: F.FlexPartName
   , ps3Encrypt    :: Bool
+  , legalTempos   :: Bool -- should tempos be kept in Magma-legal range of 40-300 BPM
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetRB2 :: (SendMessage m) => ObjectCodec m A.Value TargetRB2
 parseTargetRB2 = do
   common        <- (.common       ) =. parseTargetCommon
-  is2xBassPedal <- (.is2xBassPedal) =. opt False        "2x-bass-pedal" stackJSON
-  songID        <- (.songID       ) =. fill SongIDAutoSymbol "song-id"  stackJSON
-  labelRB2      <- (.labelRB2     ) =. opt False        "label-rb2"     stackJSON
-  version       <- (.version      ) =. opt Nothing      "version"       stackJSON
-  magma         <- (.magma        ) =. opt MagmaRequire "magma"         stackJSON
-  guitar        <- (.guitar       ) =. opt F.FlexGuitar   "guitar"        stackJSON
-  bass          <- (.bass         ) =. opt F.FlexBass     "bass"          stackJSON
-  drums         <- (.drums        ) =. opt F.FlexDrums    "drums"         stackJSON
-  vocal         <- (.vocal        ) =. opt F.FlexVocal    "vocal"         stackJSON
-  ps3Encrypt    <- (.ps3Encrypt   ) =. opt True         "ps3-encrypt"   stackJSON
+  is2xBassPedal <- (.is2xBassPedal) =. opt  False            "2x-bass-pedal" stackJSON
+  songID        <- (.songID       ) =. fill SongIDAutoSymbol "song-id"       stackJSON
+  labelRB2      <- (.labelRB2     ) =. opt  False            "label-rb2"     stackJSON
+  version       <- (.version      ) =. opt  Nothing          "version"       stackJSON
+  magma         <- (.magma        ) =. opt  MagmaRequire     "magma"         stackJSON
+  guitar        <- (.guitar       ) =. opt  F.FlexGuitar     "guitar"        stackJSON
+  bass          <- (.bass         ) =. opt  F.FlexBass       "bass"          stackJSON
+  drums         <- (.drums        ) =. opt  F.FlexDrums      "drums"         stackJSON
+  vocal         <- (.vocal        ) =. opt  F.FlexVocal      "vocal"         stackJSON
+  ps3Encrypt    <- (.ps3Encrypt   ) =. opt  True             "ps3-encrypt"   stackJSON
+  legalTempos   <- (.legalTempos  ) =. opt  True             "legal-tempos"  stackJSON
   return TargetRB2{..}
 
 instance StackJSON TargetRB2 where

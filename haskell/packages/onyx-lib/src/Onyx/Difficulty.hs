@@ -109,6 +109,7 @@ difficultyPS ps songYaml = let
     , harmonix      = False
     , magma         = MagmaRequire
     , ps3Encrypt    = True
+    , legalTempos   = True
     }
   psDifficultyRB3 = difficultyRB3 rb3 songYaml
   simpleTier flex getMode dmap = case getPart flex songYaml >>= getMode of
@@ -146,6 +147,7 @@ difficultyGH5 TargetGH5{..} songYaml = let
     , harmonix      = False
     , magma         = MagmaRequire
     , ps3Encrypt    = True
+    , legalTempos   = True
     }
   DifficultyRB3{..} = difficultyRB3 rb3 songYaml
   rb3RankToGH5 = \case
