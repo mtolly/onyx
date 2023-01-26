@@ -400,7 +400,9 @@ readGH3TextPakQB nodes = do
         songs
   sortedNodes <- forM nodes $ \pair@(node, bs) -> if nodeFileType node == qbKeyCRC ".qb"
     then do
-      qb <- map (lookupQS mappingQS) <$> runGetM parseQB bs
+      -- this will just be an empty list if we can't parse the qb,
+      -- such as some parts of gh3 disc .pak we don't care about
+      let qb = fromMaybe [] $ map (lookupQS mappingQS) <$> runGetM parseQB bs
       return $ case getSonglistProps qb of
         []    -> Left  pair
         songs -> Right songs
