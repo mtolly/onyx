@@ -58,6 +58,7 @@ instance ParseTrack ProKeysTrack where
     pkOverdrive <- pkOverdrive =. edges 116
     pkSolo      <- pkSolo      =. edges 115
     pkBRE       <- pkBRE       =. edges 120
+    chordSnap [48 .. 72]
     pkNotes     <- (pkNotes    =.) $ fatBlips (1/8) $ translateEdges
       $ condenseMap $ eachKey each $ \k -> edges $ fromEnum k + 48
     pkLanes     <- (pkLanes    =.) $ statusBlips $ condenseMap_ $ eachKey each $ blip . \case

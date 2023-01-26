@@ -66,6 +66,7 @@ instance ParseTrack SixTrack where
       sixForceStrum <- sixForceStrum =. edges (base + 6)
       sixForceHOPO  <- sixForceHOPO  =. edges (base + 5)
       sixTap        <- sixTap        =. sysexPS diff PS.TapNotes
+      chordSnap [base - 2 .. base + 4]
       sixGems       <- (sixGems =.) $ translateEdges $ condenseMap
         $ eachKey (Nothing : map Just each) $ edges . \case
           Nothing     -> base - 2

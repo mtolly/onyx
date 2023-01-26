@@ -285,6 +285,7 @@ instance ParseTrack ProGuitarTrack where
             Medium -> 48
             Hard   -> 72
             Expert -> 96
+      chordSnap [base - 2 .. base + 5]
       pgNotes        <- (pgNotes =.) $ let
         fs = \case
           EdgeOn fret (str, nt) -> (str, (nt, Just $ fret + 100))

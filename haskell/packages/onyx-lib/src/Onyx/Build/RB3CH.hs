@@ -263,8 +263,7 @@ buildDrums drumsPart target (F.Song tempos mmap trks) timing@BasicTiming{..} son
       Kicks2x -> mapTrack (U.unapplyTempoTrack tempos) . phaseShiftKicks 0.18 0.11 . mapTrack (U.applyTempoTrack tempos)
       _       -> id
     sections = fmap snd $ eventsSections $ F.onyxEvents trks
-    finish = sloppyDrums . changeMode . psKicks . drumsComplete mmap sections
-    sloppyDrums = drumEachDiff $ \dd -> dd { drumGems = fixSloppyNotes (10 / 480) $ drumGems dd }
+    finish = changeMode . psKicks . drumsComplete mmap sections
     fiveToFourTrack = drumEachDiff $ \dd -> dd
       { drumGems = Drums.fiveToFour
         (case pd.fallback of
@@ -688,7 +687,6 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
                   , pkTrill     = breRemoveBools $ pkTrill     pk
                   }
                 Nothing -> id)
-              . (\pk -> pk { pkNotes = fixSloppyNotes (10 / 480) $ pkNotes pk })
             keysExpert = eachPKDiff $ keysDiff Expert
             keysHard   = eachPKDiff $ keysDiff Hard   `orIfNull` pkReduce Hard   mmap keysOD keysExpert
             keysMedium = eachPKDiff $ keysDiff Medium `orIfNull` pkReduce Medium mmap keysOD keysHard

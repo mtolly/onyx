@@ -240,7 +240,7 @@ edgeBlips_ minLen = fmap (\((), color, mlen) -> (color, mlen)) . edgeBlips minLe
 
 blipEdgesRB :: (Ord s, Ord a) => RTB.T U.Beats (s, a, Maybe U.Beats) -> RTB.T U.Beats (Edge s a)
 blipEdgesRB = let
-  smallestBlip = 1/32 :: U.Beats
+  smallestBlip = 1/480 :: U.Beats
   in splitEdgesSimple
     . fmap (\(s, a, mlen) -> (s, a, fromMaybe smallestBlip mlen))
 
@@ -336,8 +336,8 @@ isNoteEdge e = isNoteEdgeCPV e >>= \(_c, p, v) -> return (p, isJust v)
 
 unparseBlipCPV :: (Int, Int, Int) -> RTB.T U.Beats E.T
 unparseBlipCPV (c, p, v) = RTB.fromPairList
-  [ (0     , makeEdgeCPV c p $ Just v)
-  , (1 / 32, makeEdgeCPV c p Nothing )
+  [ (0      , makeEdgeCPV c p $ Just v)
+  , (1 / 480, makeEdgeCPV c p Nothing )
   ]
 
 makeEdge' :: Edge Int (Int, Int) -> E.T

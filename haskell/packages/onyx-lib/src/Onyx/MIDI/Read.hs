@@ -337,6 +337,57 @@ matchEdgesCV = dimap
   (U.trackJoin . fmap (\(c, v, len) -> RTB.fromPairList [(NNC.zero, (c, Just v)), (len, (c, Nothing))]))
   joinEdges'
 
+-- | Tries to emulate the Harmonix MIDI chord snapping behavior.
+-- If a note in the given pitch set begins, and then overlaps some other notes
+-- that start up to 10 ticks (at 480 resolution) later, those notes will instead
+-- start simultaneous with the earlier note.
+chordSnap :: (Monad m) => [Int] -> CodecFor (TrackParser m U.Beats) (TrackBuilder U.Beats) a ()
+chordSnap pitches = Codec
+  { codecIn = lift $ modify' $ \mt -> let
+    pitches' = map V.toPitch pitches
+    (target, other) = Map.partitionWithKey (\p _ -> elem p pitches') $ midiNotes mt
+
+    -- note, this is 1 more tick than the max distance we will snap
+    maxSnapAnchorLength :: U.Beats
+    maxSnapAnchorLength = 11 / 480
+
+    -- first match up edges and just get all note lengths
+    allNotes :: RTB.T U.Beats U.Beats
+    allNotes = fmap (\(_vel, _ch, len) -> len)
+      $ foldr RTB.merge RTB.empty $ map joinEdgesSimple $ Map.elems target
+
+    -- then process them so we only have the notes that other notes could snap to
+    snapAnchors = Left <$> notesToSnapAnchors allNotes
+    notesToSnapAnchors :: RTB.T U.Beats U.Beats -> RTB.T U.Beats U.Beats
+    notesToSnapAnchors = thinAnchors . fmap (min maxSnapAnchorLength . maximum) . RTB.collectCoincident
+    thinAnchors = \case
+      RNil             -> RNil
+      Wait dt len rest -> Wait dt len $ thinAnchors $ RTB.delay len $ U.trackDrop len rest
+
+    -- finally, use the anchors to adjust edges in each pitch
+    eachSnap :: RTB.T U.Beats (Edge V.Velocity C.Channel) -> RTB.T U.Beats (Edge V.Velocity C.Channel)
+    eachSnap = go . RTB.merge snapAnchors . fmap Right
+    -- (merge puts Lefts before Rights)
+    go :: RTB.T U.Beats (Either U.Beats (Edge V.Velocity C.Channel)) -> RTB.T U.Beats (Edge V.Velocity C.Channel)
+    go = \case
+      RNil -> RNil
+      Wait dt (Right e) rest -> Wait dt e $ go rest
+      Wait dt (Left len) rest -> case rest of
+        -- pull back note on to the snap anchor
+        Wait dt2 (Right on@EdgeOn{}) rest2 | dt2 < len -> Wait dt on $ go $ RTB.delay dt2 rest2
+        -- pull back a note off and a note on to the snap anchor
+        Wait dt2 (Right off@EdgeOff{}) (Wait dt3 (Right on@EdgeOn{}) rest2)
+          | dt2 <> dt3 < len
+          -> Wait dt off $ Wait 0 on $ go $ RTB.delay (dt2 <> dt3) rest2
+        _ -> RTB.delay dt $ go rest
+
+    target' = Map.fromList $ zip (Map.keys target) (map eachSnap $ Map.elems target)
+    in mt
+      { midiNotes = Map.union target' other
+      }
+  , codecOut = \_ -> return ()
+  }
+
 -- | Extends output notes within this group to be at least a 32nd note,
 -- or up to the next note.
 fatBlips :: (NNC.C t, Monad m) => t -> Codec (TrackParser m t) (TrackBuilder t) a -> Codec (TrackParser m t) (TrackBuilder t) a
@@ -427,7 +478,7 @@ blipSustainRB
   => TrackCodec m U.Beats (RTB.T U.Beats (a, U.Beats))
   -> TrackCodec m U.Beats (RTB.T U.Beats (a, Maybe U.Beats))
 blipSustainRB = let
-  fs = fmap $ \(a, mt) -> (a, fromMaybe (1/32) mt)
+  fs = fmap $ \(a, mt) -> (a, fromMaybe (1/480) mt)
   fp = fmap $ \(a, t) -> (a, guard (t > (1/3)) >> Just t)
   in dimap fs fp
 

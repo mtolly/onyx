@@ -176,6 +176,7 @@ instance ParseTrack FiveTrack where
       fiveForceHOPO  <- fiveForceHOPO  =. edges (base + 5)
       fiveTap        <- fiveTap        =. sysexPS diff PS.TapNotes
       fiveOpen'      <- fiveOpen       =. sysexPS diff PS.OpenStrum
+      chordSnap [base - 1 .. base + 4]
       fiveGems'      <- (fiveGems =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
         Green  -> base + 0
         Red    -> base + 1

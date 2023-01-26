@@ -13,7 +13,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
-import           Onyx.Guitar                      (applyStatus, fixSloppyNotes)
+import           Onyx.Guitar                      (applyStatus)
 import           Onyx.Harmonix.GH2.PartGuitar
 import           Onyx.MIDI.Common                 (Difficulty (..), Edge,
                                                    edgeBlips, edgeBlips_,
@@ -285,3 +285,26 @@ getScoreTracksGH2 mid = do
         ScoreGH2Rhythm -> F.fixedPartRhythm mid
   guard $ base /= 0
   return (strack, diff, base)
+
+-- Old sloppy notes fix, don't know how accurate this is
+
+{-
+
+The closest 2 notes on the same fret can be is 15 ticks (a 128th note) because
+this is the shortest possible MIDI note. Any closer and you get a double
+note-on/note-off error.
+
+The closest 2 notes on different frets can be is 11 ticks. Any closer and you
+get `Overlapping or too-close gems`.
+
+-}
+
+fixSloppyNotes :: (NNC.C t) => t -> RTB.T t a -> RTB.T t a
+fixSloppyNotes threshold = RTB.flatten . go . RTB.collectCoincident where
+  go rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, xs), rtb') -> case RTB.viewL rtb' of
+      Nothing -> rtb
+      Just ((dt', ys), rtb'') -> if dt' <= threshold
+        then RTB.cons dt (xs ++ ys) $ go $ RTB.delay dt' rtb''
+        else RTB.cons dt xs $ go rtb'

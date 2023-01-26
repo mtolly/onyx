@@ -30,27 +30,6 @@ computeFiveFretNotes fd = fmap (\(isOpen, (col, len)) -> (guard (not isOpen) >> 
   $ edgeBlips_ minSustainLengthRB
   $ fiveGems fd
 
-{-
-
-The closest 2 notes on the same fret can be is 15 ticks (a 128th note) because
-this is the shortest possible MIDI note. Any closer and you get a double
-note-on/note-off error.
-
-The closest 2 notes on different frets can be is 11 ticks. Any closer and you
-get `Overlapping or too-close gems`.
-
--}
-
-fixSloppyNotes :: (NNC.C t) => t -> RTB.T t a -> RTB.T t a
-fixSloppyNotes threshold = RTB.flatten . go . RTB.collectCoincident where
-  go rtb = case RTB.viewL rtb of
-    Nothing -> RTB.empty
-    Just ((dt, xs), rtb') -> case RTB.viewL rtb' of
-      Nothing -> rtb
-      Just ((dt', ys), rtb'') -> if dt' <= threshold
-        then RTB.cons dt (xs ++ ys) $ go $ RTB.delay dt' rtb''
-        else RTB.cons dt xs $ go rtb'
-
 data HOPOsAlgorithm
   = HOPOsRBGuitar
   | HOPOsRBKeys
@@ -515,7 +494,7 @@ emit5' :: RTB.T U.Beats ((Maybe G5.Color, StrumHOPOTap), Maybe U.Beats) -> FiveD
 emit5' notes = FiveDifficulty
   { fiveForceStrum = makeForce Strum
   , fiveForceHOPO = makeForce HOPO
-  , fiveTap = fixTapOff $ makeForce Tap
+  , fiveTap = {- fixTapOff $ -} makeForce Tap
   , fiveOpen = U.trackJoin $ flip RTB.mapMaybe notes $ \case
     ((Nothing, _), _) -> Just boolBlip
     _                 -> Nothing
@@ -526,7 +505,7 @@ emit5' notes = FiveDifficulty
     shts = fmap (snd . fst) $ RTB.flatten $ fmap (take 1) $ RTB.collectCoincident notes
     shtEdges = cleanEdges $ U.trackJoin $ fmap (\sht -> fmap (, sht) boolBlip) shts
     makeForce sht = fmap fst $ RTB.filter ((== sht) . snd) shtEdges
-    boolBlip = RTB.fromPairList [(0, True), (1/32, False)]
+    boolBlip = RTB.fromPairList [(0, True), (1/480, False)]
 
 -- | Writes every note with an explicit HOPO/strum force.
 emit6' :: RTB.T U.Beats ((Maybe Fret, StrumHOPOTap), Maybe U.Beats) -> SixDifficulty U.Beats
@@ -539,4 +518,4 @@ emit6' notes = SixDifficulty
     shts = fmap (snd . fst) $ RTB.flatten $ fmap (take 1) $ RTB.collectCoincident notes
     shtEdges = cleanEdges $ U.trackJoin $ fmap (\sht -> fmap (, sht) boolBlip) shts
     makeForce sht = fmap fst $ RTB.filter ((== sht) . snd) shtEdges
-    boolBlip = RTB.fromPairList [(0, True), (1/32, False)]
+    boolBlip = RTB.fromPairList [(0, True), (1/480, False)]

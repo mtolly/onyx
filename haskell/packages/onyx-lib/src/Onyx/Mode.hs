@@ -76,7 +76,6 @@ nativeFiveFret part = flip fmap part.grybo $ \grybo ftype input -> let
     , notes    = flip fmap (Five.fiveDifficulties trk) $ \diff ->
       applyForces (getForces5 diff)
         $ strumHOPOTap algo (fromIntegral grybo.hopoThreshold / 480)
-        -- TODO we may need to do "fixSloppyNotes (10 / 480)" here
         $ computeFiveFretNotes diff
     , other    = trk
     , source = "five-fret chart"

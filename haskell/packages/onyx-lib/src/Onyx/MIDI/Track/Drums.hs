@@ -224,6 +224,7 @@ instance ParseTrack DrumTrack where
               VelocityAccent -> 127
             in (drum, (0, v))
           allDrums = [Kick, Red, Pro Yellow (), Pro Blue (), Pro Green (), Orange]
+      chordSnap [base - 1 .. base + 5]
       drumGems <- drumGems =. do
         dimap (fmap encodeCV) (fmap decodeCV) $ condenseMap $ eachKey allDrums $ \drum -> do
           blipCV $ base + case drum of
