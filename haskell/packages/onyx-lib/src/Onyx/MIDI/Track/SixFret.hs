@@ -65,6 +65,7 @@ instance ParseTrack SixTrack where
             Expert -> 96
       sixForceStrum <- sixForceStrum =. edges (base + 6)
       sixForceHOPO  <- sixForceHOPO  =. edges (base + 5)
+      -- TODO we probably need to support pitch 104 like on 5-fret
       sixTap        <- sixTap        =. sysexPS diff PS.TapNotes
       chordSnap [base - 2 .. base + 4]
       sixGems       <- (sixGems =.) $ translateEdges $ condenseMap

@@ -11,7 +11,7 @@ module Onyx.Sections
 ) where
 
 import           Control.Arrow          (second)
-import           Data.Char              (isAlphaNum, isAscii, isPrint)
+import           Data.Char              (isAlphaNum, isAscii, isDigit, isPrint)
 import qualified Data.HashMap.Strict    as HM
 import           Data.List              (sort)
 import           Data.List.HT           (partitionMaybe)
@@ -2610,8 +2610,12 @@ printForm
 
 makeRB3Section :: T.Text -> (SectionType, T.Text)
 makeRB3Section t = case findRBN2Section t of
-  Nothing     -> (SectionRB2, underscoreForm t)
+  Nothing     -> (SectionRB2, fixNumber $ underscoreForm t)
   Just (k, _) -> (SectionRB3, k)
+  where fixNumber s = case T.uncons s of
+          -- starting with a number crashes rb3 practice mode apparently
+          Just (c, _) | isDigit c -> "x_" <> s
+          _                       -> s
 
 makeRB2Section :: T.Text -> (SectionType, T.Text)
 makeRB2Section t =

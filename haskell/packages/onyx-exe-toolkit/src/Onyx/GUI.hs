@@ -1774,15 +1774,16 @@ batchPageRB2 sink rect tab build = do
         newPreferences <- readPreferences
         return $ \proj -> let
           tgt = preset yaml def
-            { common = (def :: TargetRB2).common
+            { common      = (def :: TargetRB2).common
               { speed   = Just speed
               , label2x = prefLabel2x newPreferences
               }
-            , magma = prefMagma newPreferences
-            , songID = if prefRBNumberID newPreferences
+            , legalTempos = prefLegalTempos newPreferences
+            , magma       = prefMagma newPreferences
+            , songID      = if prefRBNumberID newPreferences
               then SongIDAutoInt
               else SongIDAutoSymbol
-            , ps3Encrypt = prefPS3Encrypt newPreferences
+            , ps3Encrypt  = prefPS3Encrypt newPreferences
             }
           kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart FlexDrums yaml >>= (.drums)) of
             (_        , Kicks1x) -> [(False, ""   )]
@@ -2367,6 +2368,7 @@ songPageRB3 sink rect tab proj build = mdo
         modifier <- targetModifier
         return $ modifier def
           { magma = prefMagma newPreferences
+          , legalTempos = prefLegalTempos newPreferences
           , common = def
             { label2x = prefLabel2x newPreferences
             }
@@ -2479,6 +2481,7 @@ songPageRB2 sink rect tab proj build = mdo
         modifier <- targetModifier
         return $ modifier def
           { magma = prefMagma newPreferences
+          , legalTempos = prefLegalTempos newPreferences
           , common = def
             { label2x = prefLabel2x newPreferences
             }
@@ -3162,6 +3165,7 @@ batchPageRB3 sink rect tab build = do
               { speed = Just speed
               , label2x = prefLabel2x newPreferences
               }
+            , legalTempos = prefLegalTempos newPreferences
             , magma = prefMagma newPreferences
             , songID = if prefRBNumberID newPreferences
               then SongIDAutoInt
@@ -5017,15 +5021,15 @@ launchQuickConvert sink makeMenuBar = mdo
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   functionTabs <- sequence
-    [ makeTab windowRect "Quick convert (RB)" $ \rect tab -> do
+    [ makeTab windowRect "RB quick convert + pack creator" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       pageQuickConvert sink rect tab startTasks
       return tab
-    , makeTab windowRect "Make a pack (360 GH2/RB)" $ \rect tab -> do
+    , makeTab windowRect "GH2 pack creator" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPagePacks sink rect tab startTasks
       return tab
-    , makeTab windowRect "Direct CON->PKG (RB)" $ \rect tab -> do
+    , makeTab windowRect "RB legacy CON->PKG" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageCONtoPKG sink rect tab startTasks
       return tab
@@ -5967,6 +5971,14 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Label 2x kick charts as (2x Bass Pedal) by default"
             void $ FL.setValue check $ prefLabel2x loadedPrefs
             return $ (\b prefs -> prefs { prefLabel2x = b }) <$> FL.getValue check
+          , do
+            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Modify tempos in RB export to follow Magma rules"
+            FL.setTooltip check $ T.unwords
+              [ "Magma requires MIDI files to use tempos in the range of 40 to 300 BPM."
+              , "This is a more restricted range than the games actually require."
+              ]
+            void $ FL.setValue check $ prefLegalTempos loadedPrefs
+            return $ (\b prefs -> prefs { prefLegalTempos = b }) <$> FL.getValue check
           ]
         FL.end pack
         return fn
@@ -6324,7 +6336,7 @@ launchGUI = withAL $ \hasAudio -> do
 
   buttonQuick <- FL.buttonNew
     areaQuick
-    (Just "Quick convert")
+    (Just "Quick convert/pack")
   quickConvertColor >>= FL.setColor buttonQuick
   FL.setCallback buttonQuick $ \_ -> launchQuickConvert' sink makeMenuBar
 

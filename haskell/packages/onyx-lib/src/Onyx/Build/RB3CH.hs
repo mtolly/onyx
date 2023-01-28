@@ -347,7 +347,7 @@ buildDrums drumsPart target (F.Song tempos mmap trks) timing@BasicTiming{..} son
           if rb3.is2xBassPedal
             then rockBand2x ps2x
             else rockBand1x ps1x
-        Right _ -> psPS { drumOverdrive = fixTapOff $ drumOverdrive psPS }
+        Right _ -> psPS
 
 data BRERemover t = BRERemover
   { breRemoveEdges :: forall s a. (Ord s, Ord a) => RTB.T t (Edge s a) -> RTB.T t (Edge s a)
@@ -473,9 +473,7 @@ buildFive fivePart target (F.Song tempos mmap trks) timing toKeys songYaml = cas
         else result.other.fiveFretPosition
       , fiveTremolo = maybe id breRemoveLanes breRemover result.other.fiveTremolo
       , fiveTrill = maybe id breRemoveLanes breRemover result.other.fiveTrill
-      , fiveOverdrive = case target of
-        Left _rb3 -> result.other.fiveOverdrive
-        Right _ps -> fixTapOff result.other.fiveOverdrive
+      , fiveOverdrive = result.other.fiveOverdrive
       , fiveBRE = result.other.fiveBRE
       , fiveSolo = result.other.fiveSolo
       , fivePlayer1 = RTB.empty
@@ -642,7 +640,6 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
 
       sixEachDiff f st = st
         { sixDifficulties = fmap f $ sixDifficulties st
-        , sixOverdrive = fixTapOff $ sixOverdrive st
         }
       guitarGHL = case getPart guitarPart songYaml >>= (.ghl) of
         Nothing  -> mempty

@@ -43,6 +43,7 @@ data Preferences = Preferences
   , prefArtistSort    :: Bool -- in gh2/gh3, sort by artist then title
   , prefThreads       :: Maybe Int
   , prefDetectMuted   :: Bool
+  , prefLegalTempos   :: Bool -- for RB3/RB2 export, try to modfiy tempos to be in Magma-legal range
   }
 
 instance StackJSON Preferences where
@@ -70,6 +71,7 @@ instance StackJSON Preferences where
     prefArtistSort    <- prefArtistSort    =. opt  False        "artist-sort"     stackJSON
     prefThreads       <- prefThreads       =. opt  Nothing      "threads"         stackJSON
     prefDetectMuted   <- prefDetectMuted   =. opt  True         "detect-muted"    stackJSON
+    prefLegalTempos   <- prefLegalTempos   =. opt  True         "legal-tempos"    stackJSON
     return Preferences{..}
 
 instance Default Preferences where

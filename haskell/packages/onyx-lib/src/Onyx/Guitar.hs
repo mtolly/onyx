@@ -477,16 +477,30 @@ cleanEdges = go . RTB.normalize where
     else Wait (tx <> ty) (False, x) $ Wait NNC.zero (True, y) $ go rest
   go (Wait t pair rest) = Wait t pair $ go rest
 
--- | Clone Hero (v0.22.5) does not apply tap-off until the next tick.
--- So we move each tap-off earlier by one tick.
--- (Moonscraper doesn't have this issue, so CH must be using an old version?)
--- 2020-10-26: CH v0.24.0.2068-master also now has this bug with SP phrases...
-fixTapOff :: RTB.T U.Beats Bool -> RTB.T U.Beats Bool
-fixTapOff = \case
-  Wait t False rest -> let
+{-
+
+Clone Hero (v0.22.5) does not apply tap-off until the next tick.
+So we move each tap-off earlier by one tick.
+(Moonscraper doesn't have this issue, so CH must be using an old version?)
+
+2020-10-26: CH v0.24.0.2068-master also now has this bug with SP phrases...
+
+2022-01-27: CH v1.0.0.4080 appears to not have it with SP. But still on taps.
+Also, Moonscraper v1.5.0 is the same.
+
+-}
+fixTapOffCH :: RTB.T U.Beats (Bool, StrumHOPOTap) -> RTB.T U.Beats (Bool, StrumHOPOTap)
+fixTapOffCH = \case
+  -- if this is the last force change, don't need to adjust
+  -- (would cause problems if we did)
+  Wait t x RNil -> Wait t x RNil
+  -- pull back tap-off by one tick if it's not the last force change
+  -- (note: make sure tap-off comes before strum-on/hopo-on in list;
+  -- cleanEdges does this but otherwise we'd need RTB.normalize)
+  Wait t pair@(False, Tap) rest -> let
     t' = t NNC.-| (1/480)
-    in Wait t' False $ fixTapOff $ RTB.delay (t - t') rest
-  Wait t True rest -> Wait t True $ fixTapOff rest
+    in Wait t' pair $ fixTapOffCH $ RTB.delay (t - t') rest
+  Wait t x rest -> Wait t x $ fixTapOffCH rest
   RNil -> RNil
 
 -- | Writes every note with an explicit HOPO/strum force.
@@ -494,7 +508,7 @@ emit5' :: RTB.T U.Beats ((Maybe G5.Color, StrumHOPOTap), Maybe U.Beats) -> FiveD
 emit5' notes = FiveDifficulty
   { fiveForceStrum = makeForce Strum
   , fiveForceHOPO = makeForce HOPO
-  , fiveTap = {- fixTapOff $ -} makeForce Tap
+  , fiveTap = makeForce Tap
   , fiveOpen = U.trackJoin $ flip RTB.mapMaybe notes $ \case
     ((Nothing, _), _) -> Just boolBlip
     _                 -> Nothing
@@ -503,7 +517,7 @@ emit5' notes = FiveDifficulty
     $ fmap (\((mc, _), len) -> (fromMaybe G5.Green mc, len)) notes
   } where
     shts = fmap (snd . fst) $ RTB.flatten $ fmap (take 1) $ RTB.collectCoincident notes
-    shtEdges = cleanEdges $ U.trackJoin $ fmap (\sht -> fmap (, sht) boolBlip) shts
+    shtEdges = fixTapOffCH $ cleanEdges $ U.trackJoin $ fmap (\sht -> fmap (, sht) boolBlip) shts
     makeForce sht = fmap fst $ RTB.filter ((== sht) . snd) shtEdges
     boolBlip = RTB.fromPairList [(0, True), (1/480, False)]
 
@@ -516,6 +530,6 @@ emit6' notes = SixDifficulty
   , sixGems = blipEdgesRB_ $ fmap (\((mc, _), len) -> (mc, len)) notes
   } where
     shts = fmap (snd . fst) $ RTB.flatten $ fmap (take 1) $ RTB.collectCoincident notes
-    shtEdges = cleanEdges $ U.trackJoin $ fmap (\sht -> fmap (, sht) boolBlip) shts
+    shtEdges = fixTapOffCH $ cleanEdges $ U.trackJoin $ fmap (\sht -> fmap (, sht) boolBlip) shts
     makeForce sht = fmap fst $ RTB.filter ((== sht) . snd) shtEdges
     boolBlip = RTB.fromPairList [(0, True), (1/480, False)]

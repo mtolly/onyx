@@ -84,8 +84,8 @@ nativeFiveFret part = flip fmap part.grybo $ \grybo ftype input -> let
 anyFiveFret :: Part f -> Maybe BuildFive
 anyFiveFret p
   = nativeFiveFret p
-  <|> proGuitarToFiveFret p
-  <|> proKeysToFiveFret p
+  -- <|> proGuitarToFiveFret p
+  -- <|> proKeysToFiveFret p
   <|> fmap convertDrumsToFive (nativeDrums p)
 
 convertDrumsToFive :: BuildDrums -> BuildFive

@@ -3,18 +3,21 @@ metadata:
   artist: CHON
   year: 2015
   track-number: 2
-  author: Onyxite
+  author: Onyxite, XEntombmentX
   genre: prog
   subgenre: progrock
   album: Grow
   file-album-art: ../../../covers/grow.jpg
   preview-start: prc_verse_2
 parts:
-  drums:
+  drums: # Onyxite
     drums:
       kicks: 1
       mode: full
       difficulty: 6
+  guitar: # XEntombmentX
+    grybo:
+      difficulty: 5
 audio:
   album-track:
     md5: 8badfedc6c4b41983afc6e502419e5d1
