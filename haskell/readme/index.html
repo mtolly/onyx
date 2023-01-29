@@ -126,6 +126,18 @@ nav a {
   background-color: rgb(192,192,192);
 }
 
+.screenshot {
+  text-align: center;
+}
+
+.screenshot img {
+  max-width: 95%;
+  margin: 15px;
+
+  box-shadow: 0px 0px 15px #111;
+  border-radius: 10px;
+}
+
 </style>
 </head>
 <body>
@@ -299,29 +311,31 @@ nav a {
 
 <h3 id="single-song-mode">Single Song Mode</h3>
 <p>To load a single song, click <span class="gui-button gui-button-load">Load a song</span> on the main console window, and select a file from the dialog box.</p>
-<p>(screenshot here)</p>
+<p class="screenshot"><img src="images/console.png" style="width: 500px;"></p>
 <p>Note that folder-based formats may require particular files to be selected; for example, Clone Hero / Phase Shift songs can be imported by selecting the <code>song.ini</code> file, or <code>notes.chart</code> if there is no <code>song.ini</code>.</p>
 <p>But, you can also simply <em>drag and drop</em> any file or folder onto the <span class="gui-button gui-button-load">Load a song</span> button. If given a folder, this will scan the contents for any recognized songs. If more than one song is found, a window will pop up letting you select which songs you want to import.</p>
-<p>(screenshot here)</p>
+<p class="screenshot"><img src="images/select-songs.png" style="width: 500px;"></p>
 <p>Once a song is open, you can make changes to metadata and instrument settings.</p>
 <ul>
-<li><p>The <em>Metadata</em> tab displays loaded metadata from the source song. You can edit data here to have it reflected in any converted output.</p></li>
+<li><p>The <em>Metadata</em> tab displays loaded metadata from the source song. You can edit data here to have it reflected in any converted output.</p>
+<p class="screenshot"><img src="images/single-song.png" style="width: 800px;"></p>
+</li>
 <li><p>The <em>Instruments</em> tab shows all the gameplay modes Onyx found in the song. Modes are sorted first by logical instrument, and then the specific controllers that instrument supports.</p>
 <p>Deselecting an instrument mode checkbox will hide it from any output files.</p>
 <p>In addition to difficulty selections, some controller modes have other specific options, such as drum freestyle sounds, vocalist gender, etc.</p></li>
 </ul>
 <p>Then, use one of the target game tabs to start a conversion. Each tab has options specific to that game, as well as "slots" that correspond to the instruments supported by that game. For example, Rock Band 2 has four slots, for guitar, bass, drums, and vocals:</p>
-<p>(screenshot here)</p>
+<p class="screenshot"><img src="images/single-song-target.png" style="width: 800px;"></p>
 <p>Depending on what instruments were present in the file you imported, you can reassign them to different slots in the new file you create. The selection from each dropdown refers to an instrument from the original imported file, which will be assigned to that slot when converting.</p>
 <p>Finally, use one of the <span class="gui-button gui-button-task">Create &hellip;</span> buttons to start a conversion. Most game targets support a few different output formats. Most of these will ask you where to save a new file or folder; an exception is Guitar Hero 1 and 2, which have <span class="gui-button gui-button-task">Add to PS2 ARK as Bonus Song</span>. This will ask you for the location of a <code>MAIN.HDR</code> file, and then <code>MAIN.HDR</code> and <code>MAIN.ARK</code> will be directly modified with the new song files.</p>
 
 <h3 id="batch-mode">Batch Mode</h3>
 <p>To run a batch conversion, first click <span class="gui-button gui-button-batch">Batch process</span> on the main console window. Then in the new window, select <span class="gui-button gui-button-gray">Add Song</span>, and select a file from the dialog box. Or, just <em>drag and drop</em> files or folders into the empty panel.</p>
-<p>(screenshot here)</p>
+<p class="screenshot"><img src="images/batch.png" style="width: 800px;"></p>
 <p>Individual songs can be deleted by selecting a song and pressing the Delete key. They can also be moved up/down in the list with <code>Ctrl + Up</code> and <code>Ctrl + Down</code> (or <code>Command + Up</code> and <code>Command + Down</code> on Mac).</p>
 <p>At the bottom of the panel are toggles for whether specific instruments should be imported. These can be helpful if unwanted instrument parts are causing compilation errors.</p>
 <p>Then, switch to a target game tab. Some game-specific options are available, followed by <span class="gui-button gui-button-task">Create &hellip;</span> buttons. Each button has an associated <em>Template</em> box, which determines how newly created files and folders will be named. You can hover over one of these to see a list of supported <code>%templates%</code>. The folder button to the right allows you to select a folder, which will overwrite the folder part of the current template (so all created files will be in that folder). The farthest right button will reset the template to its default value.</p>
-<p>(screenshot here)</p>
+<p class="screenshot"><img src="images/batch-target.png" style="width: 800px;"></p>
 
 
 <h2 id="game-specific-info">Game-Specific Info</h2>
@@ -426,7 +440,7 @@ nav a {
 
 <h2 id="preview-tools">Preview Tools</h2>
 <h3 id="3d-preview">3D Preview</h3>
-<p>(screenshot here)</p>
+<p class="screenshot"><img src="images/3d-preview.png" style="width: 800px;"></p>
 <p>The <em>Preview</em> tab of a single-song window lets you view and listen to supported gameplay tracks in a full 3D graphical display. Currently 5-fret guitar/bass/keys (including tap/open notes) and 4-lane drums (including cymbals) are supported, with more to come. Background images and videos from certain input formats are also supported.</p>
 <p>You can configure MSAA and FXAA antialiasing in <code>Edit &gt; Preferences</code>.</p>
 <p>Gem models and textures created by Inventor211. Most textures, models, and shaders are customizable, inside the <code>onyx-resources</code> folder.</p>
@@ -437,7 +451,7 @@ nav a {
 </ul>
 <p>The file <code>3d-config.yml</code> contains settings you may also want to edit.</p>
 <h3 id="web-preview">Web Preview</h3>
-<p>(screenshot here)</p>
+<p class="screenshot"><img src="images/web-preview.png" style="width: 996px;"></p>
 <p>This is an older preview method which generates a JavaScript (Canvas) chart preview app for web browsers. The resulting webpage can play the audio and display tracks in 2D “Beatmania” style.</p>
 <p>Supports all Rock Band 3 instrument tracks, including Pro Guitar/Bass/Keys, as well as Clone Hero’s 6-fret (GHL) mode, 5-lane Drums, and PS Real Drums.</p>
 <p>A player folder will appear next to each song; open <code>index.html</code> to run. It can be run locally via <code>file://</code>, or hosted on a web server.</p>
@@ -445,7 +459,7 @@ nav a {
 
 
 <h2 id="quick-convert">Quick Convert</h2>
-<p>(screenshot here)</p>
+<p class="screenshot"><img src="images/quick-convert.png" style="width: 800px;"></p>
 <p>Quick Convert is an alternate tool that can perform several different kinds of processing/conversion on existing Rock Band format songs, without doing the normal import + export process. Some things it can do:</p>
 <ul>
 <li>Convert between Xbox 360 and PS3 formats, as well as to Dolphin/Wii</li>
