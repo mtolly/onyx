@@ -619,14 +619,14 @@ Other tabs under the Quick Convert window:
       2. Edit the text events to modify the animations. The meaning of text
         events is as follows:
 
-        * `[viseme_name N]` moves linearly from weight N to this viseme's next
-          event
+          * `[viseme_name N]` moves linearly from weight N to this viseme's next
+            event
 
-        * `[viseme_name N hold]` continues weight N until this viseme's next
-          event
+          * `[viseme_name N hold]` continues weight N until this viseme's next
+            event
 
-        * `[viseme_name N ease]` moves from weight N to this viseme's next
-          event, using an "easeInExpo" transition function
+          * `[viseme_name N ease]` moves from weight N to this viseme's next
+            event, using an "easeInExpo" transition function
 
       3. For TBRB, rename the tracks from LIPSYNC1, LIPSYNC2, etc. to one of
         LIPSYNC_JOHN, LIPSYNC_PAUL, LIPSYNC_GEORGE, or LIPSYNC_RINGO.
