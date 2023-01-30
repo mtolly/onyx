@@ -6,9 +6,14 @@ cp icon/icon.png resources/icon.png
 rm -rf resources/player
 cp -R ../player/www resources/player
 cp ../player/build/app.min.js resources/player/
-cp README.md resources/README.txt
 cp CHANGES.md resources/CHANGES.txt
 cp LICENSE.txt resources/LICENSE.txt
 cp CREDITS.txt resources/CREDITS.txt
 mkdir -p resources/makefsb4
 cp makefsb4/*.{exe,dll} resources/makefsb4
+
+cp readme/index.html resources/README.html
+rm -rf resources/readme-images
+cp -R readme/images resources/readme-images
+sed -i "s/src=\"..\\/icon\\//src=\"/g" resources/README.html
+sed -i "s/src=\"images/src=\"readme-images/g" resources/README.html

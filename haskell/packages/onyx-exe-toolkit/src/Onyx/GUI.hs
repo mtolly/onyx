@@ -6235,7 +6235,7 @@ launchGUI = withAL $ \hasAudio -> do
               , ( "Help/Readme"
                 , Nothing
                 , Just $ sink $ EventIO $ do
-                    getResourcesPath "README.txt" >>= osOpenFile
+                    getResourcesPath "README.html" >>= osOpenFile
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               , ( "Help/Update history"

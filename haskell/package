@@ -13,7 +13,7 @@ case $(uname) in
     cp icon/icon.png Onyx.AppDir/usr/share/icons/hicolor/256x256/apps/onyx.png
     cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
     stack exec -- onyx-package changes
-    stack exec -- onyx-package version-write Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/bin/onyx-resources/README.txt
+    stack exec -- onyx-package version-write Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/bin/onyx-resources/README.html
     stack exec -- onyx-package version-print \
       | env LD_LIBRARY_PATH="$(pwd)"/dependencies/root/lib xargs -I{} env VERSION={} linuxdeploy --appdir Onyx.AppDir --output appimage
     stack exec -- onyx-package version-print | xargs -I{} mv Onyx-{}-x86_64.AppImage onyx-{}-linux-x64.AppImage
@@ -27,12 +27,11 @@ case $(uname) in
     stack exec -- bash -c "cp /mingw64/bin/*.dll win/"
     stack exec strip win/onyx.exe
     cp LICENSE.txt win/LICENSE.txt
-    cp README.md win/README.txt
     cp CHANGES.md win/CHANGES.txt
     cp CREDITS.txt win/CREDITS.txt
     cp -R resources win/onyx-resources
     stack exec -- onyx-package changes
-    stack exec -- onyx-package version-write win/README.txt win/onyx-resources/README.txt
+    stack exec -- onyx-package version-write win/onyx-resources/README.html
     stack exec -- onyx-package dlls win/onyx.exe
     stack exec -- onyx-package nsis
     "/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
@@ -48,12 +47,13 @@ case $(uname) in
     mkdir mac/
     cp -R Onyx.app mac/
     cp LICENSE.txt mac/license.txt
-    cp README.md mac/readme.txt
+    cp resources/README.html mac/readme.html
+    cp -R resources/readme-images mac/readme-images
     cp CHANGES.md mac/changes.txt
     cp CREDITS.txt mac/credits.txt
     cp mac-permissions.txt "mac/IMPORTANT mac instructions.txt"
     stack exec -- onyx-package changes
-    stack exec -- onyx-package version-write mac/Onyx.app/Contents/Info.plist mac/README.txt mac/Onyx.app/Contents/MacOS/onyx-resources/README.txt
+    stack exec -- onyx-package version-write mac/Onyx.app/Contents/Info.plist mac/readme.html mac/Onyx.app/Contents/MacOS/onyx-resources/README.html
     stack exec -- onyx-package version-print | ./mac-package.sh
     ;;
   * )
