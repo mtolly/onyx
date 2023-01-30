@@ -98,7 +98,7 @@ main = getArgs >>= \args -> case args of
       { finRunText = "Run Onyx"
       , finRun = " " -- should be empty this works I guess
       , finReadmeText = "View README"
-      , finReadme = "$INSTDIR/README.txt"
+      , finReadme = "$INSTDIR/onyx-resources/README.html"
       , finReadmeChecked = True
       }
 
@@ -117,6 +117,7 @@ main = getArgs >>= \args -> case args of
       delete [] "$INSTDIR/*.dll"
       delete [] "$INSTDIR/itaijidict"
       delete [] "$INSTDIR/kanwadict"
+      delete [] "$INSTDIR/README.txt"
       -- copy the files
       file [Recursive] "win/*"
       -- write install path
