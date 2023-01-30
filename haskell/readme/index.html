@@ -17,7 +17,7 @@ body {
 nav {
   background-color: #979;
   font-family: sans-serif;
-  overflow: scroll;
+  overflow-y: scroll;
 }
 
 nav ul {
@@ -48,7 +48,7 @@ nav a {
   display: flex;
   flex-direction: row;
   justify-content: center;
-  overflow: scroll;
+  overflow-y: scroll;
   align-items: flex-start;
 }
 
@@ -346,7 +346,8 @@ nav a {
 <li><p>By default, tempos are modified to attempt to stay within Magma's range of legal tempos, which is 40 to 300 beats per minute. This may produce odd results sometimes, and is more restrictive than what appears to work in the games. This behavior can be disabled in Preferences.</p></li>
 <li><p>Overdrive phrases must follow various rules; they may be modified if they produce invalid unison phrases, have no notes under them on any difficulty, or have no notes between two adjacent phrases on any difficulty.</p></li>
 <li><p>If the “automatic tom markers” option is turned on, an FoF song that doesn’t have any tom markers and that does not have <code>pro_drums = True</code> in the song.ini will have tom markers added over the whole drum part, under the assumption that Pro Drums have not been authored for the chart.</p></li>
-<li><p>Open notes from a PS or CH song will be translated to green notes. Sequences of notes adjacent to open notes will be moved up one fret if necessary to preserve motion.</p></li>
+<li><p>Open notes will usually be translated to green notes, but adjacent sequences will be adjusted if necessary to preserve motion.</p>
+<p>In addition, strummed open notes between chords are by default interpreted as muted strums, and are translated to the usual style of the lowest note of an adjacent chord. This behavior can be disabled in Preferences.</p></li>
 <li><p>The song speed can be modified to produce sped up or slowed down songs. This will modify both the audio and MIDI, and add <code>(X% Speed)</code> to the title. For CON inputs this only works with unencrypted MOGG files. Different speed versions may not pass Magma in all cases, if certain events become too close together or too far apart. If this happens, you can produce a Magma project and make any needed changes, then give the project back to Onyx to compile.</p></li>
 <li><p>In batch mode, a few settings are available for moving/copying Guitar/Bass/Keys parts, as well as converting drums parts into guitar for an interesting challenge. When moving Keys parts to Guitar/Bass, force notes will be applied so charts keep their correct strum/HOPO notes according to the RB3 keytar algorithm. Note that in some cases (when the input and output both use MOGG audio) the output may assign multiple instruments to the same audio channel indexes, which works in game but will cut out the audio if either player misses.</p></li>
 <li><p>By default, an input format like Phase Shift that can contain both 1x and 2x Bass Pedal drums charts will generate two separate songs. If you are interested in only 1x or only 2x, select the appropriate Bass Pedal option. Songs that are detected as 2x Bass Pedal versions can also produce an automatic 1x version, using an algorithm to remove certain kick notes.</p></li>
@@ -395,7 +396,7 @@ nav a {
 <p>Creates custom DLC files for Guitar Hero III, for use on a jailbroken Xbox 360 (RGH or JTAG) or PlayStation 3.</p>
 <ul>
 <li><p>Supports lead + rhythm/bass charts, automatic HOPO forcing, star power, face off sections, practice sections, and basic drum animations (translated from Rock Band drum animation notes, or generated from a drum chart).</p></li>
-<li><p>After creating DLC files, you <em>must</em> take all your custom songs, plus any official DLC you want to load, and create a “Song Cache” from them. See the Other Tools section for information. This is required to load your songs!</p></li>
+<li><p>After creating DLC files, you <em>must</em> take all your custom songs, plus any official DLC you want to load, and create a “Song Cache” from them. <a href="#gh-song-cache-generation">See below</a> for details. This is required to load your songs!</p></li>
 <li><p>Normally GH3 will end a song shortly after the last playable note, which would often be too soon. However it seems the game checks both lead and rhythm tracks on your current difficulty to find the last note, so as a hack for now, a dummy note is added to each difficulty on the rhythm/bass track to extend the song length.</p></li>
 <li><p>Generated charts use MP3 audio, even on Xbox 360 where official content uses the native XMA format. MP3 is much faster/easier to generate and does not waste significant space in GH3 (unlike later GH games).</p></li>
 <li><p>On stock GH3, it is possible to load roughly 70-80 songs in the Download setlist, though this number can decrease as you add scores to songs.</p></li>
@@ -407,7 +408,7 @@ nav a {
 <ul>
 <li><p>There appears to be a limit of slightly over 700 songs’ metadata in one file; any more causes a crash on game launch.</p>
 <p><strong>IMPORTANT</strong>: In addition, it may be possible to corrupt a save somewhat by loading too many new songs over multiple sessions. When this happens, loading any more new songs will crash the game. So, it is recommended you back up any save data you care about before loading custom songs, in case this happens, until the issue can be researched in more detail.</p></li>
-<li><p>After creating DLC files, you <em>must</em> take all your custom songs, plus any official WoR DLC you want to load (pre-WoR DLC is not required to be included), and create a “Song Cache” from them. See the Other Tools section for information. This is required to load your songs!</p></li>
+<li><p>After creating DLC files, you <em>must</em> take all your custom songs, plus any official WoR DLC you want to load (pre-WoR DLC is not required to be included), and create a “Song Cache” from them. <a href="#gh-song-cache-generation">See below</a> for details. This is required to load your songs!</p></li>
 <li><p>Guitar and bass support some of the Clone Hero feature set, with caveats.</p>
 <ul>
 <li>Extended sustains can only move upward (hold a lower note and play higher notes). Ones that move downward will be trimmed back.</li>
@@ -571,7 +572,7 @@ nav a {
 
 <h3 id="gh-song-cache-generation">GH Song Cache Generation</h3>
 <p>This is a required step to load more than one custom song into Neversoft Guitar Hero games. The games load song metadata by finding the highest ID DLC package, and getting all metadata from that. Neversoft used this to avoid a lengthy song scan process that some of the Rock Band games had, by including all previous DLC information in each new DLC package that was released.</p>
-<p>So, to load customs, we create a “cache” file which is just a DLC package containing only metadata and no songs. This cache package will have a higher ID than any custom or DLC (the cache ID is set to 2 billion, and customs will be between 1 and 2 billion). You must provide all custom songs as well as any official DLC (for WoR, including GH5 DLC is not necessary). Then, simply place this cache package next to your DLC on your storage device.</p>
+<p>So, to load customs, we create a “cache” file which is just a DLC package containing only metadata and no songs. This cache package will have a higher ID than any custom or DLC (the cache ID is set to 2 billion, and customs will be between 1 and 2 billion). You must provide all custom songs as well as any official DLC (for WoR, including GH5 DLC is not necessary). Then, simply place this cache package next to your DLC and custom songs on your storage device.</p>
 <p>You can also use previous cache files as an input to create new ones, so you don’t have to keep around already-processed customs on your computer.</p>
 <p>To create a cache using official DLC for PlayStation 3, you’ll need to place the appropriate <code>.RAP</code> files in the <code>onyx-resources/raps</code> folder so the contents can be decrypted.</p>
 
