@@ -48,7 +48,10 @@ case $(uname) in
     cp -R Onyx.app mac/
     cp LICENSE.txt mac/license.txt
     cp resources/README.html mac/readme.html
+    sed -i.bak "s/icon\\.png/readme-images\\/icon.png/g" mac/readme.html
+    rm mac/readme.html.bak
     cp -R resources/readme-images mac/readme-images
+    cp icon/icon.png mac/readme-images/icon.png
     cp CHANGES.md mac/changes.txt
     cp CREDITS.txt mac/credits.txt
     cp mac-permissions.txt "mac/IMPORTANT mac instructions.txt"

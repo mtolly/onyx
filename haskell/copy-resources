@@ -15,5 +15,7 @@ cp makefsb4/*.{exe,dll} resources/makefsb4
 cp readme/index.html resources/README.html
 rm -rf resources/readme-images
 cp -R readme/images resources/readme-images
-sed -i "s/src=\"..\\/icon\\//src=\"/g" resources/README.html
-sed -i "s/src=\"images/src=\"readme-images/g" resources/README.html
+# sed in-place that works on both GNU and BSD, https://stackoverflow.com/a/22084103
+sed -i.bak "s/src=\"..\\/icon\\//src=\"/g" resources/README.html
+sed -i.bak "s/src=\"images/src=\"readme-images/g" resources/README.html
+rm resources/README.html.bak
