@@ -1,5 +1,23 @@
 # Version history
 
+## 20230130
+
+* Additions for Guitar Hero II Deluxe
+  * Import and export new supported metadata
+    (album, year, source, genre, difficulty, duration)
+  * Export album art
+    * GH2 Pack Creator then extracts the art into a single folder
+      for console installation
+  * Drum charts exported for Xbox 360
+  * Import drum charts
+  * Export solo markers, and (for future support) Strum/HOPO/Tap markers
+* Preserve imported HOPO threshold when exporting to GH1/GH2
+* Fix loading from GH3/GHA discs (broke in `20221230`) (#225)
+* Better implementation of chord snapping, closer to official games
+  + should be less likely to apply when it shouldn't
+* Preference to disable RB3/RB2 "Magma-legal tempos" hacks
+* New manual in web format
+
 ## 20221230
 
 * Improvements to the open note removal algorithm
