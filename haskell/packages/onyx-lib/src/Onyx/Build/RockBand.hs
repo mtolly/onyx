@@ -310,13 +310,18 @@ rbRules buildInfo dir rb3 mrb2 = do
       getRealSections' = do
         raw <- fmap (applyTargetMIDI rb3.common) $ F.shakeMIDI $ planDir </> "raw.mid"
         let sects = fmap snd $ eventsSections $ F.onyxEvents $ F.s_tracks raw
-        (_, _, _, RB3.TrackAdjust adjuster) <- RB3.magmaLegalTempos
-          (sum (RTB.getTimes sects) + 20) -- whatever
-          (F.s_tempos raw)
-          (F.s_signatures raw)
+        maybeAdjuster <- if rb3.legalTempos
+          then do
+            (_, _, _, RB3.TrackAdjust adjuster) <- RB3.magmaLegalTempos
+              (sum (RTB.getTimes sects) + 20) -- whatever
+              (F.s_tempos raw)
+              (F.s_signatures raw)
+            return $ Just adjuster
+          else return Nothing
         padSeconds <- shk $ read <$> readFile' pathMagmaPad
         let padBeats = padSeconds * 2
-        notSingleSection $ RTB.delay (fromInteger padBeats) $ adjuster sects
+        notSingleSection $ RTB.delay (fromInteger padBeats)
+          $ fromMaybe id maybeAdjuster sects
       notSingleSection rtb = case RTB.toPairList rtb of
         [_] -> do
           warn "Only one practice section event; removing it"

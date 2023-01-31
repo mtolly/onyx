@@ -126,7 +126,7 @@ instance ParseTrack PartTrack where
     partUnknown110 <- partUnknown110 =. edges 110
     partDifficulties <- (partDifficulties =.) $ eachKey each parseDifficulty
     -- GH2DX added. pitch chosen to match RB3 protar/prokeys
-    partSoloEdge <- partSoloEdge =. blip 115
+    partSoloEdge <- partSoloEdge =. fatBlips (1/8) (blip 115)
     return PartTrack{..}
 
 parseDifficulty :: (Monad m) => Difficulty -> TrackCodec m U.Beats (PartDifficulty U.Beats)
