@@ -80,4 +80,4 @@ executables:
 
   onyx-package:
     main: Installer.hs
-    dependencies: [base, nsis, text, process, containers, filepath, directory, cmark]
+    dependencies: [base, nsis, text, process, containers, filepath, directory, bytestring]

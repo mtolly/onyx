@@ -1,12 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import           CMark                  (commonmarkToHtml)
 import           Control.Monad          (forM_, unless)
+import qualified Data.ByteString        as B
 import qualified Data.Set               as Set
 import           Data.String            (IsString (..))
 import qualified Data.Text              as T
-import qualified Data.Text.IO           as T
+import qualified Data.Text.Encoding     as TE
 import           Data.Version           (showVersion)
 import           Development.NSIS
 import           Paths_onyx_exe_toolkit (version)
@@ -31,13 +31,19 @@ insertInfo txt = do
     $ T.replace "_ONYXDATE_" (T.pack date)
     $ T.replace "_ONYXVERSION_" versionString txt
 
+readUTF8 :: FilePath -> IO T.Text
+readUTF8 f = TE.decodeUtf8 <$> B.readFile f
+
+writeUTF8 :: FilePath -> T.Text -> IO ()
+writeUTF8 f t = B.writeFile f $ TE.encodeUtf8 t
+
 main :: IO ()
 main = getArgs >>= \args -> case args of
 
   ["changes"] -> do
 
     -- Make sure I wrote up the changes for this version
-    changes <- T.readFile "CHANGES.md"
+    changes <- readUTF8 "CHANGES.md"
     unless (versionString `T.isInfixOf` changes) $ do
       error $ "No changelog written for version " ++ versionString
 
@@ -49,13 +55,7 @@ main = getArgs >>= \args -> case args of
   "version-write" : files -> do
 
     -- Insert version string into files specified on command line
-    forM_ files $ \f -> T.readFile f >>= insertInfo >>= T.writeFile f
-
-  ["readme-html", markdown, template, out] -> do
-
-    md <- T.readFile markdown >>= insertInfo
-    tpl <- T.readFile template
-    T.writeFile out $ T.replace "_MARKDOWN_" (commonmarkToHtml [] md) tpl
+    forM_ files $ \f -> readUTF8 f >>= insertInfo >>= writeUTF8 f
 
   ["dlls", exe] -> do
 
