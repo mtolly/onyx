@@ -204,7 +204,7 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
       return (F.FlexGuitar, emptyPart
         { grybo = Just (def :: PartGRYBO)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
-          , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songguitarrank)
+          , difficulty = Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songguitarrank)
           }
         })
     , do
@@ -212,7 +212,7 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
       return (F.FlexBass, emptyPart
         { grybo = Just (def :: PartGRYBO)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
-          , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songbassrank)
+          , difficulty = Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songbassrank)
           }
         })
     , do
@@ -220,14 +220,14 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
       return (F.FlexExtra "rhythm", emptyPart
         { grybo = Just (def :: PartGRYBO)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
-          , difficulty = Tier $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
+          , difficulty = Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
           }
         })
     , do
       guard $ maybe False (not . null) $ lookup "drum" $ D.fromDictList $ tracks songChunk
       return (F.FlexDrums, emptyPart
         { drums = Just PartDrums
-          { difficulty  = Tier $ maybe 1 fromIntegral $ extra >>= (.songdrumrank)
+          { difficulty  = Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songdrumrank)
           , mode        = Drums4
           , kicks       = Kicks1x -- TODO should probably save this on export
           , fixFreeform = False

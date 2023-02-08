@@ -91,6 +91,7 @@ import           Onyx.Harmonix.RockBand.Milo          (SongPref, autoLipsync,
 import           Onyx.Harmonix.RockBand.Score
 import           Onyx.Image.DXT                       (readRBImageMaybe)
 import           Onyx.Import
+import           Onyx.ISO                             (folderISO)
 import           Onyx.Keys.Ranges                     (closeShiftsFile)
 import           Onyx.MIDI.Common                     (Difficulty (..))
 import           Onyx.MIDI.Read                       (mapTrack)
@@ -109,6 +110,9 @@ import           Onyx.Neversoft.Pak                   (Node (..), buildPak,
                                                        splitPakNodes)
 import           Onyx.Neversoft.QB                    (discardStrings, lookupQB,
                                                        lookupQS, parseQB, putQB)
+import           Onyx.Nintendo.GCM                    (loadGCM)
+import           Onyx.Nintendo.U8                     (packU8, readU8)
+import           Onyx.Nintendo.WAD                    (getWAD, hackSplitU8s)
 import           Onyx.PlayStation.PKG                 (PKG (..), loadPKG,
                                                        makePKG, tryDecryptEDATs)
 import qualified Onyx.PowerGig.Crypt                  as PG
@@ -121,11 +125,11 @@ import           Onyx.Util.Files                      (copyDirRecursive,
                                                        fixFileCase,
                                                        shortWindowsPath)
 import           Onyx.Util.Handle                     (byteStringSimpleHandle,
-                                                       crawlFolder, makeHandle,
+                                                       crawlFolder,
+                                                       fileReadable, makeHandle,
                                                        saveHandleFolder)
 import           Onyx.Util.Text.Decode                (decodeGeneral)
-import           Onyx.Wii.U8                          (packU8, readU8)
-import           Onyx.Wii.WAD                         (getWAD, hackSplitU8s)
+import           Onyx.Xbox.ISO                        (loadXboxISO)
 import           Onyx.Xbox.STFS
 import qualified Sound.MIDI.File.Save                 as Save
 import qualified Sound.MIDI.Util                      as U
@@ -211,6 +215,7 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
     ".zip" -> return $ FileType FileZip fp
     ".chart" -> return $ FileType FileChart fp
     ".psarc" -> return $ FileType FilePSARC fp
+    ".iso" -> return $ FileType FileISO fp
     ".2" | ".hdr.e.2" `T.isSuffixOf` T.toLower (T.pack $ takeFileName fp) -> return $ FileType FileHdrE2 fp
     _ -> case takeFileName fp of
       "song.ini" -> return $ FileType FilePS fp
@@ -273,6 +278,7 @@ data FileType
   | FileMilo
   | FilePKG
   | FileHdrE2
+  | FileISO
   deriving (Eq, Ord, Show)
 
 identifyFile' :: (MonadIO m) => FilePath -> StackTraceT m (FileType, FilePath)
@@ -643,6 +649,17 @@ commands =
           let connected = (if elem OptCrypt opts then PG.decryptPKContents else id)
                 $ PG.connectPKFiles tree base $ PG.getFolder $ PG.fh_Contents hdr
           saveHandleFolder connected out
+        return out
+      (FileISO, iso) -> do
+        out <- outputFile opts $ return $ iso <> "_extract"
+        dir <- stackIO $ do
+          magic <- IO.withBinaryFile iso IO.ReadMode $ \h -> BL.hGet h 1
+          if magic == "G" -- maybe not foolproof
+            then loadGCM $ fileReadable iso
+            else loadXboxISO (fileReadable iso) >>= \case
+              Just xiso -> return xiso
+              Nothing   -> folderISO $ fileReadable iso
+        stackIO $ saveHandleFolder (first TE.decodeLatin1 dir) out
         return out
       p -> fatal $ "Unexpected file type given to extractor: " <> show p
     }

@@ -4,7 +4,7 @@ https://github.com/AerialX/rawksd/blob/f97aef64cbcc66/consolehaxx/ConsoleHaxx.Wi
 -}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
-module Onyx.Wii.WAD where
+module Onyx.Nintendo.WAD where
 
 import           Control.Monad
 import           Crypto.Cipher.AES
@@ -16,8 +16,8 @@ import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Int
 import           Data.Word
+import           Onyx.Nintendo.U8
 import           Onyx.Util.Handle
-import           Onyx.Wii.U8
 
 data WADHeader = WADHeader
   { wadHeaderSize           :: Word32

@@ -43,6 +43,7 @@ import           Onyx.Harmonix.DTA            (Chunk (..), DTA (..), Tree (..),
 import           Onyx.Import.Amplitude2016    (importAmplitude)
 import           Onyx.Import.Base             (ImportLevel (..), saveImport)
 import           Onyx.Import.BMS              (importBMS)
+import           Onyx.Import.DonkeyKonga      (importDK)
 import           Onyx.Import.DTXMania         (importDTX, importSet)
 import           Onyx.Import.Freetar          (importFreetar)
 import           Onyx.Import.FretsOnFire      (importFoF)
@@ -259,17 +260,23 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         dir <- stackIO $ crawlFolder loc
         imps <- importGH3PS2 loc dir
         foundImports "Guitar Hero III (PS2)" loc imps
-      foundISO iso = stackIO (loadXboxISO $ fileReadable iso) >>= \case
-        Just xiso -> found360Game iso $ first TE.decodeLatin1 xiso
-        Nothing   -> do
-          contents <- stackIO $ fmap (first TE.decodeLatin1) $ folderISO $ fileReadable iso
-          case findFolder ["GEN"] contents of
-            Just gen -> foundGEN iso gen
-            Nothing  -> case findFileCI (pure "DATAP.HED") contents of
-              Just _ -> do
-                imps <- importGH3PS2 iso contents
-                foundImports "Guitar Hero III (PS2)" iso imps
-              Nothing -> return ([], [])
+      foundISO iso = do
+        magic <- stackIO $ IO.withBinaryFile iso IO.ReadMode $ \h -> BL.hGet h 6
+        if elem magic ["GKGJ01", "GKGE01", "GKGP01"] -- donkey konga 1, japan/us/europe
+          then do
+            imps <- importDK $ fileReadable iso
+            foundImports "Donkey Konga" iso imps
+          else stackIO (loadXboxISO $ fileReadable iso) >>= \case
+            Just xiso -> found360Game iso $ first TE.decodeLatin1 xiso
+            Nothing   -> do
+              contents <- stackIO $ fmap (first TE.decodeLatin1) $ folderISO $ fileReadable iso
+              case findFolder ["GEN"] contents of
+                Just gen -> foundGEN iso gen
+                Nothing  -> case findFileCI (pure "DATAP.HED") contents of
+                  Just _ -> do
+                    imps <- importGH3PS2 iso contents
+                    foundImports "Guitar Hero III (PS2)" iso imps
+                  Nothing -> return ([], [])
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         let single = null $ drop 1 imports

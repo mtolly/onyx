@@ -5,16 +5,19 @@ build-type:     Simple
 
 library
   exposed-modules:
-    Onyx.Audio.GamecubeDSP
+    Onyx.Nintendo.DSP
   hs-source-dirs:
     src
   ghc-options: -Wall
   c-sources:
-    cbits/dkdsp.c
-    cbits/main.c
-    cbits/grok.c
+    cbits/decode.c
+    cbits/encode.c
+    cbits/math.c
+  include-dirs:
+    cbits
   extra-libraries:
     m
   build-depends:
-    base
+    base, bytestring, binary, vector
+  build-tools: c2hs
   default-language: Haskell2010

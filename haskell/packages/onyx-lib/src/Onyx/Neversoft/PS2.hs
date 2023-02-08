@@ -16,8 +16,8 @@ import           Data.List.Split       (chunksOf)
 import qualified Data.Text             as T
 import qualified Data.Text.Encoding    as TE
 import           Data.Word
+import           Onyx.Nintendo.WAD     (roundUpToMultiple, skipToMultiple)
 import           Onyx.Util.Handle
-import           Onyx.Wii.WAD          (roundUpToMultiple, skipToMultiple)
 import           Onyx.Xbox.STFS        (runGetM)
 
 -- DATAP.HED + DATAP.WAD, contains most smaller files

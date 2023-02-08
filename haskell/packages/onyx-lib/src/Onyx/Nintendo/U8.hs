@@ -8,7 +8,7 @@ Written with reference to
 -}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase   #-}
-module Onyx.Wii.U8 (packU8, packU8Folder, readU8) where
+module Onyx.Nintendo.U8 (packU8, packU8Folder, readU8) where
 
 import           Control.Monad         (replicateM)
 import           Data.Bifunctor        (first)

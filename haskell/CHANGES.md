@@ -16,6 +16,7 @@
 * Better implementation of chord snapping, closer to official games
   + should be less likely to apply when it shouldn't
 * Preference to disable RB3/RB2 "Magma-legal tempos" hacks
+* Import long note markers from DTX format
 * New manual in web format
 
 ## 20221230

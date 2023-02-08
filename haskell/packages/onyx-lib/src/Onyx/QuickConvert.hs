@@ -70,12 +70,12 @@ import           Onyx.MIDI.Common                     (isNoteEdge, isNoteEdge',
                                                        pattern Wait,
                                                        splitEdgesSimple)
 import           Onyx.MIDI.Parse                      (getMIDI)
+import           Onyx.Nintendo.U8                     (packU8Folder)
 import           Onyx.PlayStation.NPData
 import           Onyx.PlayStation.PKG
 import           Onyx.Resources                       (getResourcesPath)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
-import           Onyx.Wii.U8                          (packU8Folder)
 import           Onyx.Xbox.STFS
 import qualified Sound.File.Sndfile                   as Snd
 import qualified Sound.MIDI.File                      as F
