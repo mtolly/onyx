@@ -34,6 +34,11 @@ ppChunk c = case c of
   Braces tr -> ppTree "{" "}" tr
   String t -> PP.pretty $ "\"" <> T.concatMap f t <> "\"" where
     f '"' = "\\q"
+    -- TODO brought these over from dtab for amp .bin -> .dta to work right
+    -- (if we put actual newlines in, pretty printer will add extra spaces)
+    -- should maybe double check if this breaks anything though
+    f '\n' = "\\n"
+    f '\\' = "\\\\"
     f ch  = T.singleton ch
   Brackets tr -> ppTree "[" "]" tr
   Define t -> PP.hsep ["#define", PP.pretty t]

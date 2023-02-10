@@ -81,3 +81,7 @@ executables:
   onyx-package:
     main: Installer.hs
     dependencies: [base, nsis, text, process, containers, filepath, directory, bytestring]
+
+  onyx-cli:
+    main: CLI.hs
+    dependencies: [base, onyx-lib, resourcet]

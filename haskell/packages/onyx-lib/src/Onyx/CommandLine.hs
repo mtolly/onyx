@@ -41,9 +41,10 @@ import           Data.Maybe                           (catMaybes, fromMaybe,
                                                        listToMaybe, mapMaybe)
 import qualified Data.Text                            as T
 import qualified Data.Text.Encoding                   as TE
-import qualified Data.Text.IO                         as T
 import qualified Data.Yaml                            as Y
-import           Onyx.Amplitude.PS2.TxtBin            (getTxtBin, txtBinToDTA)
+import           Onyx.Amplitude.PS2.TxtBin            (TxtBin (..), dtaToTxtBin,
+                                                       getTxtBin, putTxtBin,
+                                                       txtBinToDTA)
 import           Onyx.Audio                           (Audio (Input),
                                                        audioLength, audioMD5,
                                                        makeFSB4, makeFSB4',
@@ -62,6 +63,7 @@ import           Onyx.GuitarHero.IOS                  (extractIGA)
 import qualified Onyx.Harmonix.Ark                    as Ark
 import           Onyx.Harmonix.Ark.Amplitude          as AmpArk
 import qualified Onyx.Harmonix.Ark.GH2                as GHArk
+import           Onyx.Harmonix.DTA                    (readDTABytes)
 import           Onyx.Harmonix.DTA.C3                 (readRB3DTA)
 import           Onyx.Harmonix.DTA.Parse              (parseStack)
 import           Onyx.Harmonix.DTA.Print              (showDTA)
@@ -1515,17 +1517,39 @@ commands =
     }
 
   , Command
-    { commandWord = "txt-bin-dta"
-    , commandDesc = "Converts Amplitude (PS2) .txt.bin to .dta"
+    { commandWord = "bin-to-dta"
+    , commandDesc = "Converts Amplitude (PS2) .bin data to .dta"
     , commandUsage = T.unlines
-      [ "onyx txt-bin-yml in.txt.bin [--to out.dta]"
+      [ "onyx bin-to-dta in.bin [--to out.dta]"
       ]
     , commandRun = \args opts -> case args of
       [fin] -> do
-        fout <- outputFile opts $ return $ fin <> ".dta"
+        fout <- outputFile opts $ return $ fin -<.> "dta"
         bs <- stackIO $ B.readFile fin
         txtBin <- runGetM getTxtBin $ BL.fromStrict bs
-        stackIO $ T.writeFile fout $ showDTA $ fmap TE.decodeLatin1 $ txtBinToDTA txtBin
+        let dta      = showDTA $ fmap TE.decodeLatin1 $ txtBinToDTA txtBin
+            comments = case filter (\src -> T.take 1 src /= "(") $ map TE.decodeLatin1 txtBin.sources of
+              []      -> ""
+              sources -> T.unlines ("; .bin sources:" : map (";   " <>) sources) <> "\n"
+        stackIO $ B.writeFile fout $ B8.pack $ T.unpack $ comments <> dta
+        return [fout]
+      _ -> fatal "Expected 1 argument"
+    }
+
+  , Command
+    { commandWord = "dta-to-bin"
+    , commandDesc = T.unlines
+      [ "Converts .dta to Amplitude (PS2) .bin."
+      , "Note, only specific constructs are supported, matching the output of bin-to-dta."
+      ]
+    , commandUsage = T.unlines
+      [ "onyx dta-to-bin in.dta [--to out.bin]"
+      ]
+    , commandRun = \args opts -> case args of
+      [fin] -> do
+        fout <- outputFile opts $ return $ fin -<.> "bin"
+        txtBin <- stackIO (B.readFile fin) >>= readDTABytes >>= dtaToTxtBin
+        stackIO $ BL.writeFile fout $ putTxtBin txtBin
         return [fout]
       _ -> fatal "Expected 1 argument"
     }
