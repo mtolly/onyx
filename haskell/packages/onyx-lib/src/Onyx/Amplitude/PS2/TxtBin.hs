@@ -9,7 +9,7 @@
 module Onyx.Amplitude.PS2.TxtBin
 ( TxtBin(..), Node(..), NodeContents(..)
 , getTxtBin, putTxtBin
-, txtBinToDTA, dtaToTxtBin
+, txtBinToDTA, txtBinToTracedDTA, dtaToTxtBin
 ) where
 
 import           Control.Monad.Extra   (forM, forM_, mapMaybeM, replicateM)
@@ -130,21 +130,49 @@ txtBinToDTA tb = let
     N node -> D.Parens $ D.Tree 0 $ encodeNode node
   in D.DTA 0 $ D.Tree 0 $ encodeNode tb.node
 
--- Does not include source or line number info
+-- Includes source and line number info
+txtBinToTracedDTA :: TxtBin -> D.DTA B.ByteString
+txtBinToTracedDTA tb = let
+  sourceList = D.Braces $ D.Tree 0 $ map D.String tb.sources
+  encodeNode (Node x y vals) = let
+    traceNumbers = D.Brackets $ D.Tree 0
+      [ D.Int $ fromIntegral x
+      , D.Int $ fromIntegral y
+      ]
+    in (traceNumbers :) $ flip map vals $ \case
+      I int  -> D.Int int
+      S str  -> if B8.elem ' ' str || B8.elem '\'' str || B8.elem '\n' str
+        then D.String str
+        else D.Sym str
+      F flt  -> D.Float flt
+      N node -> D.Parens $ D.Tree 0 $ encodeNode node
+  in D.DTA 0 $ D.Tree 0 $ sourceList : encodeNode tb.node
+
 dtaToTxtBin :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m TxtBin
-dtaToTxtBin (D.DTA _ (D.Tree _ root)) = let
-  makeNode chunks = do
-    contents <- flip mapMaybeM chunks $ \case
-      D.Int      int             -> return $ Just $ I int
-      D.Sym      str             -> return $ Just $ S str
-      D.String   str             -> return $ Just $ S str
-      D.Float    flt             -> return $ Just $ F flt
-      D.Parens   (D.Tree _ tree) -> Just . N <$> makeNode tree
-      D.Braces   (D.Tree _ tree) -> Just . N <$> makeNode tree
-      D.Brackets (D.Tree _ tree) -> Just . N <$> makeNode tree
-      chunk                      -> do
-        warn $ "Unrecognized DTA chunk for .bin conversion: " <> show chunk
-        return Nothing
-    return $ Node 0 0 contents
-  defSource = "(onyx dta-to-bin, ask onyxite if you need this trace info)"
-  in TxtBin [defSource] <$> makeNode root
+dtaToTxtBin (D.DTA _ (D.Tree _ root)) = do
+  (sourceList, root') <- case root of
+    D.Braces (D.Tree _ sourceChunks) : rest -> do
+      sources <- flip mapMaybeM sourceChunks $ \case
+        D.String s -> return $ Just s
+        D.Sym s -> return $ Just s
+        x -> do
+          warn $ "Unrecognized source file reference (expected string): " <> show x
+          return Nothing
+      return (sources, rest)
+    _ -> return (["(onyx dta-to-bin)"], root)
+  let makeNode chunks = do
+        (x, y, chunks') <- case chunks of
+          D.Brackets (D.Tree _ [D.Int x, D.Int y]) : rest ->
+            return (fromIntegral x, fromIntegral y, rest)
+          _ -> return (0, 0, chunks)
+        contents <- flip mapMaybeM chunks' $ \case
+          D.Int      int             -> return $ Just $ I int
+          D.Sym      str             -> return $ Just $ S str
+          D.String   str             -> return $ Just $ S str
+          D.Float    flt             -> return $ Just $ F flt
+          D.Parens   (D.Tree _ tree) -> Just . N <$> makeNode tree
+          chunk                      -> do
+            warn $ "Unrecognized DTA chunk for .bin conversion: " <> show chunk
+            return Nothing
+        return $ Node x y contents
+  TxtBin sourceList <$> makeNode root'

@@ -44,7 +44,8 @@ import qualified Data.Text.Encoding                   as TE
 import qualified Data.Yaml                            as Y
 import           Onyx.Amplitude.PS2.TxtBin            (TxtBin (..), dtaToTxtBin,
                                                        getTxtBin, putTxtBin,
-                                                       txtBinToDTA)
+                                                       txtBinToDTA,
+                                                       txtBinToTracedDTA)
 import           Onyx.Audio                           (Audio (Input),
                                                        audioLength, audioMD5,
                                                        makeFSB4, makeFSB4',
@@ -1525,13 +1526,17 @@ commands =
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ return $ fin -<.> "dta"
+        let binSources = elem OptBinSources opts
         bs <- stackIO $ B.readFile fin
         txtBin <- runGetM getTxtBin $ BL.fromStrict bs
-        let dta      = showDTA $ fmap TE.decodeLatin1 $ txtBinToDTA txtBin
+        let dta = showDTA $ fmap TE.decodeLatin1
+              $ (if binSources then txtBinToTracedDTA else txtBinToDTA) txtBin
             comments = case filter (\src -> T.take 1 src /= "(") $ map TE.decodeLatin1 txtBin.sources of
               []      -> ""
               sources -> T.unlines ("; .bin sources:" : map (";   " <>) sources) <> "\n"
-        stackIO $ B.writeFile fout $ B8.pack $ T.unpack $ comments <> dta
+        stackIO $ B.writeFile fout $ B8.pack $ T.unpack $ if binSources
+          then dta
+          else comments <> dta
         return [fout]
       _ -> fatal "Expected 1 argument"
     }
@@ -1631,6 +1636,7 @@ optDescrs =
   , Option []   ["index"          ] (ReqArg (OptIndex . read)      "int"      ) ""
   , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
   , Option []   ["crypt"          ] (NoArg  OptCrypt                          ) ""
+  , Option []   ["bin-sources"    ] (NoArg  OptBinSources                     ) ""
   ] where
     readGame = \case
       "rb3"   -> GameRB3
@@ -1661,6 +1667,7 @@ data OnyxOption
   | OptIndex Int
   | OptHelp
   | OptCrypt
+  | OptBinSources
   deriving (Eq, Ord, Show)
 
 applyMidiFunction

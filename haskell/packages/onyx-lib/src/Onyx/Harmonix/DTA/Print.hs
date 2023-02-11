@@ -33,13 +33,13 @@ ppChunk c = case c of
   Parens tr -> ppTree "(" ")" tr
   Braces tr -> ppTree "{" "}" tr
   String t -> PP.pretty $ "\"" <> T.concatMap f t <> "\"" where
-    f '"' = "\\q"
+    f '"'  = "\\q"
     -- TODO brought these over from dtab for amp .bin -> .dta to work right
     -- (if we put actual newlines in, pretty printer will add extra spaces)
     -- should maybe double check if this breaks anything though
     f '\n' = "\\n"
     f '\\' = "\\\\"
-    f ch  = T.singleton ch
+    f ch   = T.singleton ch
   Brackets tr -> ppTree "[" "]" tr
   Define t -> PP.hsep ["#define", PP.pretty t]
   Include t -> PP.hsep ["#include", PP.pretty t]
@@ -67,12 +67,13 @@ ppTree sl sr (Tree _ chks)
   | all simpleChunk chks = PP.hcat [sl, PP.hsep $ map ppChunk chks, sr]
   | otherwise            = PP.vcat [sl, PP.indent 3 $ PP.vcat $ map ppChunk chks, sr]
   where simpleChunk c = case c of
-          Int _     -> True
-          Float _   -> True
-          Var _     -> True
-          Sym _     -> True
-          Unhandled -> True
-          _         -> False
+          Int _                            -> True
+          Float _                          -> True
+          Var _                            -> True
+          Sym _                            -> True
+          Unhandled                        -> True
+          Brackets (Tree _ [Int _, Int _]) -> True -- hack for .bin to .dta with trace info
+          _                                -> False
 
 -- | Produces a single-quoted string literal.
 ppSym :: T.Text -> PP.Doc ()
