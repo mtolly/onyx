@@ -12,17 +12,21 @@ module Onyx.Amplitude.PS2.TxtBin
 , txtBinToDTA, txtBinToTracedDTA, dtaToTxtBin
 ) where
 
-import           Control.Monad.Extra   (forM, forM_, mapMaybeM, replicateM)
+import           Control.Monad.Extra       (forM, forM_, mapMaybeM, replicateM)
+import           Control.Monad.Trans.Class (lift)
+import           Control.Monad.Trans.State
 import           Data.Binary.Get
 import           Data.Binary.Put
 import           Data.Bits
-import qualified Data.ByteString       as B
-import qualified Data.ByteString.Char8 as B8
-import qualified Data.ByteString.Lazy  as BL
+import qualified Data.ByteString           as B
+import qualified Data.ByteString.Char8     as B8
+import qualified Data.ByteString.Lazy      as BL
 import           Data.Int
-import           Data.List.Extra       (chunksOf)
+import           Data.List.Extra           (chunksOf, foldl', nubOrd)
+import qualified Data.Map                  as Map
+import           Data.Maybe                (fromMaybe)
 import           Data.Word
-import qualified Onyx.Harmonix.DTA     as D
+import qualified Onyx.Harmonix.DTA         as D
 import           Onyx.StackTrace
 
 data TxtBin = TxtBin
@@ -148,6 +152,15 @@ txtBinToTracedDTA tb = let
       N node -> D.Parens $ D.Tree 0 $ encodeNode node
   in D.DTA 0 $ D.Tree 0 $ sourceList : encodeNode tb.node
 
+newtype TraceState = TraceState
+  { nextLineForFile :: Map.Map Word32 Word32
+  }
+
+-- supported trace info formats:
+-- ([x y] ...) exact line and file numbers
+-- ([y] ...)   y is file index, generate unique line number
+-- (...)       0 is file index, generate unique line number
+
 dtaToTxtBin :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m TxtBin
 dtaToTxtBin (D.DTA _ (D.Tree _ root)) = do
   (sourceList, root') <- case root of
@@ -160,11 +173,29 @@ dtaToTxtBin (D.DTA _ (D.Tree _ root)) = do
           return Nothing
       return (sources, rest)
     _ -> return (["(onyx dta-to-bin)"], root)
-  let makeNode chunks = do
+
+  let exactTraceInfo :: [(Word32, Word32)]
+      exactTraceInfo = root >>= getExactTraceInfo
+      getExactTraceInfo = \case
+        D.Brackets (D.Tree _ [D.Int x, D.Int y]) -> [(fromIntegral x, fromIntegral y)]
+        D.Parens (D.Tree _ xs) -> xs >>= getExactTraceInfo
+        _ -> []
+      fileIndexes = nubOrd $ map snd exactTraceInfo
+      initialTraceState = TraceState $ Map.fromList $ do
+        i <- fileIndexes
+        return (i, foldl' max 0 [ line | (line, j) <- exactTraceInfo, i == j ] + 1)
+
+      makeNode chunks = do
+        let freshLine fileIndex rest = do
+              ts <- lift get
+              let x = fromMaybe 1 $ Map.lookup fileIndex ts.nextLineForFile
+              lift $ put $ TraceState $ Map.insert fileIndex (x + 1) ts.nextLineForFile
+              return (x, fileIndex, rest)
         (x, y, chunks') <- case chunks of
           D.Brackets (D.Tree _ [D.Int x, D.Int y]) : rest ->
             return (fromIntegral x, fromIntegral y, rest)
-          _ -> return (0, 0, chunks)
+          D.Brackets (D.Tree _ [D.Int y]) : rest -> freshLine (fromIntegral y) rest
+          _ -> freshLine 0 chunks
         contents <- flip mapMaybeM chunks' $ \case
           D.Int      int             -> return $ Just $ I int
           D.Sym      str             -> return $ Just $ S str
@@ -175,4 +206,5 @@ dtaToTxtBin (D.DTA _ (D.Tree _ root)) = do
             warn $ "Unrecognized DTA chunk for .bin conversion: " <> show chunk
             return Nothing
         return $ Node x y contents
-  TxtBin sourceList <$> makeNode root'
+
+  TxtBin sourceList <$> mapStackTraceT (`evalStateT` initialTraceState) (makeNode root')

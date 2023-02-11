@@ -5,6 +5,7 @@ module Onyx.Harmonix.DTA.Print (showDTA) where
 import qualified Data.Text                 as T
 import           Onyx.Harmonix.DTA.Base
 import qualified Prettyprinter             as PP
+import           Prettyprinter.Internal    (unsafeTextWithoutNewlines)
 import           Prettyprinter.Render.Text (renderStrict)
 
 -- These functions are designed to emulate the format Magma uses
@@ -24,35 +25,30 @@ ppChunk c = case c of
   -- normal cases
   Int i -> PP.pretty $ show i
   Float f -> PP.pretty $ show f
-  Var t -> PP.hcat ["$", PP.pretty t]
+  Var t -> PP.hcat ["$", unsafeTextWithoutNewlines t]
   Sym t -> ppSym t
   Unhandled -> "kDataUnhandled"
-  IfDef t -> PP.hsep ["#ifdef", PP.pretty t]
+  IfDef t -> PP.hsep ["#ifdef", unsafeTextWithoutNewlines t]
   Else -> "#else"
   EndIf -> "#endif"
   Parens tr -> ppTree "(" ")" tr
   Braces tr -> ppTree "{" "}" tr
-  String t -> PP.pretty $ "\"" <> T.concatMap f t <> "\"" where
-    f '"'  = "\\q"
-    -- TODO brought these over from dtab for amp .bin -> .dta to work right
-    -- (if we put actual newlines in, pretty printer will add extra spaces)
-    -- should maybe double check if this breaks anything though
-    f '\n' = "\\n"
-    f '\\' = "\\\\"
-    f ch   = T.singleton ch
+  String t -> unsafeTextWithoutNewlines $ "\"" <> T.concatMap f t <> "\"" where
+    f '"' = "\\q"
+    f ch  = T.singleton ch
   Brackets tr -> ppTree "[" "]" tr
-  Define t -> PP.hsep ["#define", PP.pretty t]
-  Include t -> PP.hsep ["#include", PP.pretty t]
-  Merge t -> PP.hsep ["#merge", PP.pretty t]
-  IfNDef t -> PP.hsep ["#ifndef", PP.pretty t]
+  Define t -> PP.hsep ["#define", unsafeTextWithoutNewlines t]
+  Include t -> PP.hsep ["#include", unsafeTextWithoutNewlines t]
+  Merge t -> PP.hsep ["#merge", unsafeTextWithoutNewlines t]
+  IfNDef t -> PP.hsep ["#ifndef", unsafeTextWithoutNewlines t]
   Autorun -> "#autorun"
-  Undef t -> PP.hsep ["#undef", PP.pretty t]
+  Undef t -> PP.hsep ["#undef", unsafeTextWithoutNewlines t]
 
 -- | Used for certain attributes that C3 can only parse on one line,
 -- with no single quotes around symbols.
 rawOneLine :: Chunk T.Text -> PP.Doc ()
 rawOneLine c = case c of
-  Sym t                  -> PP.pretty t
+  Sym t                  -> unsafeTextWithoutNewlines t
   Parens (Tree _ chks)   -> PP.parens $ PP.hsep $ map rawOneLine chks
   Braces (Tree _ chks)   -> PP.braces $ PP.hsep $ map rawOneLine chks
   Brackets (Tree _ chks) -> PP.brackets $ PP.hsep $ map rawOneLine chks
@@ -77,7 +73,7 @@ ppTree sl sr (Tree _ chks)
 
 -- | Produces a single-quoted string literal.
 ppSym :: T.Text -> PP.Doc ()
-ppSym = PP.pretty . f . show where
+ppSym = unsafeTextWithoutNewlines . T.pack . f . show where
   -- simply convert a double-quoted string to single-quoted string
   f ""          = ""
   f ('"':xs)    = '\'' : f xs
