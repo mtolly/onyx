@@ -6,7 +6,8 @@
 {-# LANGUAGE ViewPatterns      #-}
 module Onyx.Neversoft.Metadata where
 
-import           Control.Monad                (forM, forM_, guard, replicateM)
+import           Control.Monad.Extra          (forM, forM_, guard, mapMaybeM,
+                                               replicateM)
 import           Control.Monad.IO.Class       (MonadIO (..))
 import           Control.Monad.Trans.Resource (MonadResource)
 import           Data.Bifunctor               (first)
@@ -16,7 +17,7 @@ import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Char                    (toLower)
 import           Data.Either                  (lefts, rights)
-import           Data.List.Extra              (nubOrdOn)
+import           Data.List.Extra              (nubOrd, nubOrdOn)
 import           Data.Maybe                   (catMaybes, fromMaybe,
                                                listToMaybe, mapMaybe)
 import qualified Data.Text                    as T
@@ -51,10 +52,17 @@ import           System.FilePath              (dropExtension, takeExtension,
 
 data TextPakQB = TextPakQB
   { textPakFileKey     :: Word32
-  , textPakSongStructs :: [(Word32, [QBStructItem QSResult Word32])]
+  , textPakSongStructs :: [TextPakSongStruct]
   } deriving (Show)
 
-readTextPakQB :: (MonadFail m) => BL.ByteString -> m TextPakQB
+data TextPakSongStruct = TextPakSongStruct
+  { songArrayID  :: Word32 -- like "gh6_dlc_songlist"
+  , songStructID :: Word32 -- like "gh6_dlc_songlist_props"
+  , songDLCID    :: Word32 -- like "dlc123"
+  , songData     :: [QBStructItem QSResult Word32]
+  } deriving (Show)
+
+readTextPakQB :: (SendMessage m) => BL.ByteString -> StackTraceT m TextPakQB
 readTextPakQB bs = do
   nodes <- splitPakNodes BigEndian bs Nothing
   let _qbFilenameCRC isWoR = if isWoR then 1379803300 else 3130519416 -- actually GH5 apparently has different ones per package
@@ -77,53 +85,46 @@ readTextPakQB bs = do
         , (qbKeyCRC "gh4_2_songlist", qbKeyCRC "gh4_2_songlist_props") -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
         , (qbKeyCRC "gh4_songlist", qbKeyCRC "gh4_songlist_props") -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
         , (qbKeyCRC "gh5_dlc_songlist", qbKeyCRC "gh5_dlc_songlist_props") -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)
+        , (qbKeyCRC "gh4_3_songlist", qbKeyCRC "gh4_3_songlist_props") -- van halen (not actually exported, but WoR expects this and Addy uses it in his export)
         ]
-      _arrays = do
-        QBSectionArray arrayID fileID (QBArrayOfQbKey keys) <- qb
-        guard $ elem arrayID $ map fst arrayStructIDPairs
-        return (fileID, keys)
       structs = do
         QBSectionStruct structID fileID (QBStructHeader : songs) <- qb
-        guard $ elem structID $ map snd arrayStructIDPairs
-        return (fileID, songs)
+        (listID, propsID) <- filter (\(_, propsID) -> propsID == structID) arrayStructIDPairs
+        song <- songs
+        return (fileID, (listID, propsID, song))
   case structs of
     [] -> fail "Couldn't find any song structs"
     (fileID, _) : _ -> do
-      structs' <- forM (concat $ map snd structs) $ \case
-        QBStructItemStruct k struct -> return (k, struct)
-        item -> fail $ "Unexpected item in _text.pak instead of song struct: " <> show item
+      structs' <- flip mapMaybeM structs $ \(_, (listID, propsID, song)) -> case song of
+        QBStructItemStruct k struct -> return $ Just $ TextPakSongStruct listID propsID k struct
+        item -> do
+          warn $ "Unexpected item in _text.pak instead of song struct: " <> show item
+          return Nothing
       return $ TextPakQB fileID structs'
 
-combineTextPakQBs :: [TextPakQB] -> [(Word32, [QBStructItem QSResult Word32])]
-combineTextPakQBs = nubOrdOn fst . concatMap textPakSongStructs
+combineTextPakQBs :: [TextPakQB] -> [TextPakSongStruct]
+combineTextPakQBs = nubOrdOn songDLCID . concatMap textPakSongStructs
 
 showTextPakQBQS :: TextPakQB -> (BL.ByteString, BL.ByteString)
 showTextPakQBQS contents = let
-  qb =
-    [ QBSectionArray (qbKeyCRC "gh6_dlc_songlist") (textPakFileKey contents)
-      $ QBArrayOfQbKey $ map fst $ textPakSongStructs contents
-    , QBSectionStruct (qbKeyCRC "gh6_dlc_songlist_props") (textPakFileKey contents)
-      $ QBStructHeader : map (uncurry QBStructItemStruct) (textPakSongStructs contents)
-    ]
+  qbLists = do
+    songlistID <- nubOrd $ map songArrayID $ textPakSongStructs contents
+    return $ QBSectionArray songlistID (textPakFileKey contents) $ QBArrayOfQbKey $ do
+      struct <- textPakSongStructs contents
+      guard $ songArrayID struct == songlistID
+      return $ songDLCID struct
+  qbProps = do
+    propsID <- nubOrd $ map songStructID $ textPakSongStructs contents
+    return $ QBSectionStruct propsID (textPakFileKey contents) $ QBStructHeader : do
+      struct <- textPakSongStructs contents
+      guard $ songStructID struct == propsID
+      return $ QBStructItemStruct (songDLCID struct) (songData struct)
+  qb = qbLists <> qbProps
   qs = nubOrdOn fst $ do
-    (_, items) <- textPakSongStructs contents
-    item <- items
+    item <- textPakSongStructs contents >>= songData
     KnownQS k txt <- allQS item
     return (k, txt)
   in (putQB $ discardQS qb, makeQS qs)
-
-updateTextPakQB :: (MonadFail m) => [(Word32, [QBStructItem QSResult Word32])] -> BL.ByteString -> m BL.ByteString
-updateTextPakQB library bs = do
-  nodes <- splitPakNodes BigEndian bs Nothing
-  let nodes' = flip map nodes $ \pair@(n, _) -> if
-        | nodeFileType n == qbKeyCRC ".qb" && nodeFilenameCRC n == 1379803300 -> let
-          (qb, _) = showTextPakQBQS $ TextPakQB (nodeFilenameKey n) library
-          in (n, qb)
-        | elem (nodeFileType n) (map qbKeyCRC [".qs.en", ".qs.es", ".qs.it", ".qs.de", ".qs.fr"]) && nodeFilenameCRC n == 1379803300 -> let
-          (_, qs) = showTextPakQBQS $ TextPakQB (nodeFilenameKey n) library
-          in (n, qs)
-        | otherwise -> pair
-  return $ buildPak nodes'
 
 data SongInfo = SongInfo
   { songName       :: B.ByteString -- this is an id like "dlc747"

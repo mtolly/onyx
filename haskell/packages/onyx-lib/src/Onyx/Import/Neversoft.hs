@@ -81,8 +81,8 @@ importGH5WoR src folder = do
     errorToWarning (readTextPakQB bs) >>= \case
       Nothing       -> return []
       Just contents -> return $ textPakSongStructs contents
-  songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do
-    case parseSongInfoStruct items of
+  songInfo <- fmap concat $ forM qbSections $ \song -> do
+    case parseSongInfoStruct $ songData song of
       Left  err  -> warn err >> return []
       Right info -> return [info]
   fmap catMaybes $ forM songInfo $ \info -> do

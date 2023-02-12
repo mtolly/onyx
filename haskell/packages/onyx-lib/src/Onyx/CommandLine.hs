@@ -55,8 +55,7 @@ import           Onyx.Audio.FSB                       (parseXMA,
                                                        writeXMA2, xma1To2)
 import           Onyx.Audio.VGS                       (readVGS)
 import           Onyx.Build                           (shakeBuildFiles)
-import           Onyx.Build.Neversoft                 (makeMetadataLIVE,
-                                                       shareMetadata)
+import           Onyx.Build.Neversoft                 (makeMetadataLIVE)
 import           Onyx.Codec.Binary
 import           Onyx.Codec.JSON                      (loadYaml, toJSON,
                                                        yamlEncodeFile)
@@ -1417,15 +1416,6 @@ commands =
         stackIO $ BL.writeFile fout $ putQB $ discardStrings qb
         return [fout]
       _ -> fatal "Expected 1 argument (.yaml)"
-    }
-
-  , Command
-    { commandWord = "share-wor"
-    , commandDesc = ""
-    , commandUsage = ""
-    , commandRun = \args _opts -> do
-      shareMetadata args
-      return args
     }
 
   , Command

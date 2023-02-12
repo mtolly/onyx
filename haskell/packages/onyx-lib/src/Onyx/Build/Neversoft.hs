@@ -6,7 +6,7 @@
 {-# LANGUAGE TupleSections         #-}
 module Onyx.Build.Neversoft where
 
-import           Control.Monad                    (forM, forM_, guard)
+import           Control.Monad                    (forM, guard)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Data.Bifunctor                   (first)
 import           Data.Bits
@@ -68,9 +68,8 @@ import           Onyx.StackTrace                  (SendMessage, StackTraceT,
 import           Onyx.Util.Handle
 import           Onyx.Xbox.STFS
 import qualified Sound.MIDI.Util                  as U
-import qualified System.Directory                 as Dir
 import           System.FilePath                  (takeExtension, takeFileName,
-                                                   (<.>), (</>))
+                                                   (</>))
 import           System.IO.Temp                   (withSystemTempDirectory)
 
 worGuitarEdits
@@ -493,12 +492,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
 
       }, sectionBank)
 
-shareMetadata :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m ()
-shareMetadata lives = do
-  library <- getAllMetadata lives
-  stackIO $ updateMetadata library lives
-
-getAllMetadata :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m [(Word32, [QBStructItem QSResult Word32])]
+getAllMetadata :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m [TextPakSongStruct]
 getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs $ \input -> do
   texts <- case map toLower $ takeExtension input of
     ".pkg" -> do
@@ -516,22 +510,6 @@ getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs $ \input
   fmap catMaybes $ forM texts $ \r -> do
     bs <- stackIO $ useHandle r handleToByteString
     errorToWarning $ readTextPakQB bs
-
-updateMetadata :: [(Word32, [QBStructItem QSResult Word32])] -> [FilePath] -> IO ()
-updateMetadata library lives = forM_ lives $ \live -> do
-  folder <- getSTFSFolder live
-  repack <- withSTFSPackage live $ return . repackOptions
-  files' <- forM (folderFiles folder) $ \pair@(name, r) ->
-    if "_text.pak.xen" `T.isSuffixOf` name
-      then do
-        bs <- useHandle r handleToByteString
-        bs' <- updateTextPakQB library bs
-        return (name, makeHandle ("New contents for " <> T.unpack name) $ byteStringSimpleHandle bs')
-      else return pair
-  let folder' = folder { folderFiles = files' }
-  makeCONReadable repack folder' (live <.> "tmp")
-  Dir.renameFile live (live <.> "bak")
-  Dir.renameFile (live <.> "tmp") live
 
 makeMetadataLIVE :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> StackTraceT m ()
 makeMetadataLIVE inputs fout = do
@@ -691,7 +669,7 @@ worFileTextPak (qbKey, qb) (qsKey1, qsKey2, qsKey3, qsKey4, qsKey5, qs) = buildP
     )
   ]
 
-saveMetadataLIVE :: [(Word32, [QBStructItem QSResult Word32])] -> FilePath -> IO ()
+saveMetadataLIVE :: [TextPakSongStruct] -> FilePath -> IO ()
 saveMetadataLIVE library fout = let
 
   packageTitle = "GH:WoR Customs Database"
@@ -750,7 +728,7 @@ saveMetadataLIVE library fout = let
       , createLIVE = True
       } folder fout
 
-saveMetadataPKG :: [(Word32, [QBStructItem QSResult Word32])] -> FilePath -> IO ()
+saveMetadataPKG :: [TextPakSongStruct] -> FilePath -> IO ()
 saveMetadataPKG library fout = let
 
   label = "CUSTOMS_DATABASE" :: T.Text
