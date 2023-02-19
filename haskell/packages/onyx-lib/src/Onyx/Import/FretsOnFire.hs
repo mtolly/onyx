@@ -56,6 +56,11 @@ import qualified Sound.MIDI.Util                  as U
 import qualified System.Directory                 as Dir
 import           System.FilePath
 
+-- TODO this swell fix breaks things like gravity blasts, where people
+-- correctly use the single lane over something that may look like it
+-- should be a double lane. we should probably restrict it to only try to fix
+-- all-cymbals lanes
+
 generateSwells
   :: (Eq a)
   => RTB.T U.Seconds (Bool, [a])

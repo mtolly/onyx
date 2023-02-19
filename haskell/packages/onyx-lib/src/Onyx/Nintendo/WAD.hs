@@ -276,7 +276,7 @@ Our hack import process:
 --   ( unknown first file which is first entry in tmd content
 --   : sequence of zero or more U8 files
 --   )
-hackSplitU8s :: (MonadFail m) => WAD -> m (B.ByteString, [Folder B.ByteString BL.ByteString])
+hackSplitU8s :: (MonadFail m) => WAD -> m (B.ByteString, [(B.ByteString, Folder B.ByteString BL.ByteString)])
 hackSplitU8s wad = do
   dec <- getDecryptedData wad
   firstSize <- case tmdContents $ wadTMD wad of
@@ -289,6 +289,6 @@ hackSplitU8s wad = do
         else do
           (folder, usedBytes) <- readU8 $ BL.fromStrict bs
           rest <- getU8s $ B.drop (fromIntegral $ roundUpToMultiple 0x40 usedBytes) bs
-          return $ folder : rest
+          return $ (B.take (fromIntegral usedBytes) bs, folder) : rest
   u8s <- getU8s afterFirstData
   return (firstData, u8s)

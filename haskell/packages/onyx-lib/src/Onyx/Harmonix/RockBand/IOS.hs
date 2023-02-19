@@ -13,7 +13,7 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text            as T
 import qualified Data.Text.Encoding   as TE
 import           Data.Word
-import           System.FilePath      (dropExtension)
+import           System.FilePath      (dropExtension, takeFileName)
 
 data Blob = Blob
   { blobMagic         :: Word32 -- CB 8E F1 02 (but read little endian)
@@ -73,8 +73,9 @@ blobKey = B.pack [228, 197, 27, 48, 219, 126, 14, 32, 21, 181, 216, 46, 26, 246,
 loadBlob :: FilePath -> IO (Blob, [(FilePath, B.ByteString)])
 loadBlob blobPath = do
   let pathBase = dropExtension blobPath -- "path/to/a0" without .blob
+      nameBase = takeFileName pathBase -- just "a0"
   blob <- runGet getBlob . BL.fromStrict <$> decodeBlob blobPath -- TODO handle Get errors
-  let datPaths = map (bimap (pathBase <>) (pathBase <>))
+  let datPaths = map (bimap (pathBase <>) (nameBase <>))
         [ ("_mid.dat", ".mid")
         , ("_bass_solo.dat", "_bass_solo.ogg")
         , ("_bass_trks.dat", "_bass_trks.ogg")

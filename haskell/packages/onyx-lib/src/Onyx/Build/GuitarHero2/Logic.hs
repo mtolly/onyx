@@ -485,7 +485,7 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
     coop = case target.coop of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
     makeSong includeTrack3 = D.Song
       { D.songName      = "songs/" <> key <> "/" <> key
-      , D.tracks        = D.DictList $ filter (\(_, ns) -> not $ null ns)
+      , D.tracks        = D.DictList $ filter (\(_, ns) -> not $ null ns) $
         [ ("guitar", map fromIntegral audio.leadChannels)
         , (coop    , map fromIntegral audio.coopChannels)
         ] <> [("drum", map fromIntegral audio.drumChannels) | includeTrack3]

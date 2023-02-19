@@ -78,7 +78,7 @@ loadIGA f = do
       sliceFile name (offset, len, compression) = if compression == -1
         then return (name, BL.fromStrict $ B.take (fromIntegral len) $ B.drop (fromIntegral offset) bs)
         else let
-          decodeFrom offset' len' = print (name, offset', len', compression) >> let
+          decodeFrom offset' len' = {- print (name, offset', len', compression) >> -} let
             jumpToData = BL.fromStrict $ B.drop (fromIntegral offset') bs
             compressedLength = runGet getWord16be jumpToData
             compressed = runGet (skip 2 >> getLazyByteString (fromIntegral compressedLength)) jumpToData
@@ -86,7 +86,7 @@ loadIGA f = do
             gotFromThisBlock = fromIntegral $ BL.length uncompressed
             in case compare gotFromThisBlock (fromIntegral len') of
               EQ -> do
-                putStrLn "File complete!"
+                -- putStrLn "File complete!"
                 return uncompressed
               LT -> do
                 -- we jump to the next 0x800 boundary after the data we uncompressed
