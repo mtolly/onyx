@@ -3667,7 +3667,7 @@ miscPageLipsync sink rect tab startTasks = do
             lg "Updating milo from vocal chart tracks."
             return False
   padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    let [chopRight 5 -> (makeArea, _), chopLeft 5 -> (_, updateArea)] = splitHorizN 2 rect'
+    let [trimClock 0 5 0 0 -> makeArea, trimClock 0 5 0 5 -> updateArea, trimClock 0 0 0 5 -> rawArea] = splitHorizN 3 rect'
     makeButton <- FL.buttonNew makeArea $ Just "Make RB3 .milo_*"
     taskColor >>= FL.setColor makeButton
     FL.setTooltip makeButton "Create a RB3 .milo_* file from the first present out of: LIPSYNC* tracks, HARM* tracks, or PART VOCALS."
@@ -3730,40 +3730,67 @@ miscPageLipsync sink rect tab startTasks = do
                 { miloFiles = do
                   ((_, name), contents) <- zip (miloEntryNames dir) (miloFiles dir)
                   return $ case name of
-                    "john.lipsync"   -> fromMaybe contents $ getLipsync Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncJohn
-                    "paul.lipsync"   -> fromMaybe contents $ getLipsync Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncPaul
-                    "george.lipsync" -> fromMaybe contents $ getLipsync Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncGeorge
-                    "ringo.lipsync"  -> fromMaybe contents $ getLipsync Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncRingo
-                    "song.lipsync"   -> fromMaybe contents $ if useLipsyncTracks
+                    "john.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncJohn
+                    "paul.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncPaul
+                    "george.lipsync" -> getLipsync Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncGeorge
+                    "ringo.lipsync"  -> getLipsync Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncRingo
+                    "song.lipsync"   -> if useLipsyncTracks
                       then getLipsync Milo.LipsyncRB3 vmapRB3 F.fixedLipsync1
                       else getVocal [F.fixedHarm1, F.fixedPartVocals]
-                    "part2.lipsync"  -> fromMaybe contents $ if useLipsyncTracks
+                    "part2.lipsync"  -> if useLipsyncTracks
                       then getLipsync Milo.LipsyncRB3 vmapRB3 F.fixedLipsync2
                       else getVocal [F.fixedHarm2]
-                    "part3.lipsync"  -> fromMaybe contents $ if useLipsyncTracks
+                    "part3.lipsync"  -> if useLipsyncTracks
                       then getLipsync Milo.LipsyncRB3 vmapRB3 F.fixedLipsync3
                       else getVocal [F.fixedHarm3]
-                    "part4.lipsync"  -> fromMaybe contents $ getLipsync Milo.LipsyncRB3 vmapRB3 F.fixedLipsync4
+                    "part4.lipsync"  -> getLipsync Milo.LipsyncRB3 vmapRB3 F.fixedLipsync4
                     _                -> contents
                 , miloSubdirs = map editDir $ miloSubdirs dir
                 }
-              getVocal getTracks = do
-                trk <- listToMaybe $ filter (/= mempty) $ map ($ F.s_tracks mid) getTracks
-                Just
-                  $ runPut $ putLipsync
+              getVocal getTracks = let
+                trk = fromMaybe mempty $ listToMaybe $ filter (/= mempty) $ map ($ F.s_tracks mid) getTracks
+                in runPut $ putLipsync
                   $ autoLipsync trans vmapRB3 vowels
                   $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) trk
               getLipsync tgt vmap getTrack = let
                 trk = getTrack $ F.s_tracks mid
-                in do
-                  guard $ trk /= mempty
-                  Just
-                    $ runPut $ putLipsync
-                    $ lipsyncFromMIDITrack' tgt vmap
-                    $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) trk
+                in runPut $ putLipsync
+                  $ lipsyncFromMIDITrack' tgt vmap
+                  $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) trk
           stackIO $ BL.writeFile milo $ addMiloHeader $ makeMiloFile $ editDir topDir
           return [milo]
         in startTasks [("Update .milo with MIDI lipsync: " <> milo, task)]
+    rawButton <- FL.buttonNew rawArea $ Just "Create *.lipsync"
+    taskColor >>= FL.setColor rawButton
+    FL.setTooltip rawButton "Export all LIPSYNC* and LIPSYNC_[beatle] tracks to .lipsync files, ready to be inserted into .milo_* files."
+    FL.setCallback rawButton $ \_ -> sink $ EventIO $ do
+      input <- pickedFile
+      askFolder (Just $ takeDirectory input) $ \dout -> sink $ EventOnyx $ let
+        task = do
+          mid <- F.loadMIDI input
+          vmapBeatles <- loadVisemesTBRB
+          vmapRB3 <- loadVisemesRB3
+          let tracks = catMaybes
+                [ makeFixed "john.lipsync"   Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncJohn
+                , makeFixed "paul.lipsync"   Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncPaul
+                , makeFixed "george.lipsync" Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncGeorge
+                , makeFixed "ringo.lipsync"  Milo.LipsyncTBRB vmapBeatles F.fixedLipsyncRingo
+                , makeFixed "song.lipsync"   Milo.LipsyncRB3  vmapRB3     F.fixedLipsync1
+                , makeFixed "part2.lipsync"  Milo.LipsyncRB3  vmapRB3     F.fixedLipsync2
+                , makeFixed "part3.lipsync"  Milo.LipsyncRB3  vmapRB3     F.fixedLipsync3
+                , makeFixed "part4.lipsync"  Milo.LipsyncRB3  vmapRB3     F.fixedLipsync4
+                ]
+              makeFixed name tgt vmap getTrack = let
+                trk = getTrack $ F.s_tracks mid
+                in do
+                  guard $ trk /= mempty
+                  Just (dout </> name, runPut $ putLipsync
+                    $ lipsyncFromMIDITrack' tgt vmap
+                    $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) trk)
+          forM tracks $ \(path, bs) -> do
+            stackIO $ BL.writeFile path bs
+            return path
+        in startTasks [("Export .lipsync to folder", task)]
 
   let makeLipsyncTracks loadVisemes toEvents = do
         input <- pickedFile
