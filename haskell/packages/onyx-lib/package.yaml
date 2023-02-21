@@ -1,5 +1,5 @@
 name: onyx-lib
-version: '20230130'
+version: '20230220'
 github: mtolly/onyxite-customs
 author: Michael Tolly <miketolly@gmail.com>
 category: Distribution
@@ -118,7 +118,7 @@ library:
   - cbits/encode_vag.c
   extra-libraries:
   - stdc++
-  # - vorbisfile # needed for ghci to work, even though it's under pkg-config?
+  - vorbisfile # needed for ghci to work, even though it's under pkg-config?
   pkg-config-dependencies:
   - vorbisfile
 

@@ -52,6 +52,7 @@ import           Onyx.Harmonix.RockBand.Milo           (MagmaLipsync (..),
                                                         autoLipsync,
                                                         defaultTransition,
                                                         englishSyllables,
+                                                        extendLipsyncMilo,
                                                         lipsyncAdjustSpeed,
                                                         lipsyncFromMIDITrack,
                                                         lipsyncPad,
@@ -880,9 +881,16 @@ rbRules buildInfo dir rb3 mrb2 = do
         rb2Milo %> \out -> do
           -- TODO replace this with our own lipsync milo, ignore magma
           ex <- doesRBAExist
-          if ex
-            then stackIO $ Magma.getRBAFile 3 pathMagmaRbaV1 out
-            else stackIO emptyMiloRB2 >>= \mt -> shk $ copyFile' mt out
+          orig <- if ex
+            then stackIO $ Magma.getRBAFileBS 3 pathMagmaRbaV1
+            else stackIO $ emptyMiloRB2 >>= fmap BL.fromStrict . B.readFile
+          -- need to extend to song length for lego rock band
+          mid <- F.shakeMIDI pathMagmaMidV1
+          let _ = mid :: F.Song (F.FixedFile U.Beats)
+              lipsyncLen :: U.Seconds
+              lipsyncLen = fromIntegral (F.songLengthMS mid) / 1000 + 1
+          extended <- extendLipsyncMilo lipsyncLen orig
+          stackIO $ BL.writeFile out extended
         rb2Weights %> \out -> do
           ex <- doesRBAExist
           if ex

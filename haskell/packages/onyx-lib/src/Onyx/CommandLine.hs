@@ -398,7 +398,7 @@ commands =
 
   [ Command
     { commandWord = "import"
-    , commandDesc = "Import a file into onyx's project format."
+    , commandDesc = "Import a file into Onyx's project format. The project format is not documented yet and is subject to change."
     , commandUsage = ""
     , commandRun = \files opts -> do
       fpath <- case files of
@@ -415,7 +415,7 @@ commands =
 
   , Command
     { commandWord = "build"
-    , commandDesc = "Compile an onyx or Magma project."
+    , commandDesc = "Compile an Onyx project for a given target. This is not documented yet, but after importing a song to a project, you will need to edit song.yml in order to add or edit a target."
     , commandUsage = T.unlines
       [ "onyx build --target rb3 --to new_rb3con"
       , "onyx build --target ps --to new_ps.zip"
@@ -449,7 +449,7 @@ commands =
   , Command
     { commandWord = "web-player"
     , commandDesc = "Create a web browser chart playback app."
-    , commandUsage = ""
+    , commandUsage = "onyx web-player (song) [--to folder]"
     , commandRun = \files opts -> do
       fpath <- case files of
         []  -> return "."
@@ -469,7 +469,7 @@ commands =
   , Command
     { commandWord = "reaper"
     , commandDesc = "Generate a REAPER project for a song."
-    , commandUsage = ""
+    , commandUsage = "onyx reaper (song) [--to folder]"
     , commandRun = \files opts -> do
       fpath <- case files of
         []  -> return "."
@@ -530,10 +530,9 @@ commands =
     { commandWord = "stfs"
     , commandDesc = "Compile a folder's contents into an Xbox 360 STFS file."
     , commandUsage = T.unlines
-      [ "onyx stfs my_folder"
-      , "onyx stfs my_folder --to new_rb3con"
-      , "onyx stfs my_folder --to new_rb3con --game rb3"
-      , "onyx stfs my_folder --to new_rb3con --game rb2"
+      [ "onyx stfs (folder) [--to (output)] [--game (rb3/rb2/gh2)]"
+      , "# Other data can be overridden by making an `onyx-repack` folder."
+      , "# Extract an existing STFS file to see an example of the format."
       ]
     , commandRun = \files opts -> case files of
       [dir] -> stackIO (Dir.doesDirectoryExist dir) >>= \case
@@ -600,7 +599,7 @@ commands =
 
   , Command
     { commandWord = "milo"
-    , commandDesc = "Recombine a split .milo_xxx file."
+    , commandDesc = "Recombine an extracted .milo_xxx file. This requires the format output by running `onyx extract` on an existing milo file."
     , commandUsage = "onyx milo dir [--to out.milo_xxx]"
     , commandRun = \args opts -> case args of
       [din] -> do
@@ -640,7 +639,7 @@ commands =
   -- TODO clean this up, maybe only output MP3 and just have the two types (gh3 and ghwt+)
   , Command
     { commandWord = "fsb"
-    , commandDesc = ""
+    , commandDesc = "Encode a WAV file to an XMA-based FSB file. This command will be modified in the future to primarily support MP3-based FSB files."
     , commandUsage = T.unlines
       [ "onyx fsb fmod in.wav --to out.fsb"
       , "onyx fsb xdk  in.wav --to out.fsb"
@@ -668,7 +667,7 @@ commands =
 
   , Command
     { commandWord = "pak"
-    , commandDesc = ""
+    , commandDesc = "Compile an extracted Neversoft GH .pak file back into a folder. This requires the format output by running `onyx extract` on an existing .pak file."
     , commandUsage = "onyx pak in-folder [--to out.pak.xen]"
     , commandRun = \args opts -> case args of
       [dir] -> do
@@ -712,10 +711,25 @@ commands =
 
   , Command
     { commandWord = "extract"
-    , commandDesc = "Extract various archive formats to a folder."
+    , commandDesc = T.unlines
+      [ "Extract various archive/container formats to a folder. These formats are currently (somewhat) supported:"
+      , "- Xbox 360 STFS (CON/LIVE)"
+      , "- Rocksmith .psarc"
+      , "- Magma (v1/v2) .rba"
+      , "- Rock Band .milo_*"
+      , "- Power Gig .hdr.e.2"
+      , "- Standard (PS2) and Xbox 360 .iso"
+      , "- FMOD Sample Bank v3/v4 (extracts to individual streams)"
+      , "- Wii U8 archive"
+      , "- Harmonix PS2 .vgs (extracts each channel to WAV)"
+      , "- Rock Band iOS .blob"
+      , "- Guitar Hero iOS .iga"
+      , "- Harmonix .hdr/.ark (versions 2-6)"
+      , "- Neversoft .pak.*"
+      , "- Wii .wad"
+      ]
     , commandUsage = T.unlines
-      [ "onyx extract file_in"
-      , "onyx extract file_in --to folder_out"
+      [ "onyx extract file_in [--to folder_out]"
       ]
     , commandRun = \files opts -> forM files $ \f -> identifyFile' f >>= \case
       (FileSTFS, stfs) -> do
@@ -881,7 +895,7 @@ commands =
 
   , Command
     { commandWord = "unwrap"
-    , commandDesc = "Decodes/decrypts a single file inside the input file."
+    , commandDesc = "Decodes/decrypts a single file inside certain formats, see usage."
     , commandUsage = T.unlines
       [ "onyx unwrap in.fsb.xen --to out.fsb  # decrypt Neversoft GH FSB"
       , "onyx unwrap in.mogg --to out.ogg     # unwrap unencrypted MOGG"
@@ -914,7 +928,7 @@ commands =
 
   , Command
     { commandWord = "midi-text"
-    , commandDesc = "Convert a MIDI file to/from a plaintext format."
+    , commandDesc = "Convert a MIDI file to/from a plaintext format. Some information at https://github.com/mtolly/midiscript"
     , commandUsage = ""
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
       FileMidi -> do
@@ -936,7 +950,7 @@ commands =
 
   , Command
     { commandWord = "midi-text-git"
-    , commandDesc = "Convert a MIDI file to a plaintext format. (for git use)"
+    , commandDesc = "Convert a MIDI file to a plaintext format. (modified for git use)"
     , commandUsage = "onyx midi-text-git in.mid > out.midtxt"
     , commandRun = \files opts -> case files of
       [mid] -> do

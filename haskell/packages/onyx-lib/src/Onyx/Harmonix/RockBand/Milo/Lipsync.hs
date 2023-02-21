@@ -59,6 +59,7 @@ import           Onyx.StackTrace                         (StackTraceT, fatal,
                                                           inside, logStdout,
                                                           stackIO)
 import           Onyx.Vocal.DryVox                       (vocalTubes)
+import           Onyx.Xbox.STFS                          (runGetM)
 import qualified Sound.MIDI.File.Save                    as Save
 import qualified Sound.MIDI.Util                         as U
 import           System.FilePath                         (takeExtension)
@@ -1119,3 +1120,27 @@ visemesToVoc visemes = VocFile
   , vocMystery19 = Nothing
   , vocMystery20 = Nothing
   }
+
+-- Lego Rock Band (but not RB2) seems to require the lipsync file to cover the
+-- length of the song; otherwise you can get a fatal crash.
+extendLipsyncMilo :: (MonadFail m) => U.Seconds -> BL.ByteString -> m BL.ByteString
+extendLipsyncMilo len bs = do
+  let lenFrames = ceiling $ len * 30 :: Int
+  top <- runGetM decompressMilo bs >>= runGetM parseMiloFile
+  let adjustDir dir = do
+        newFiles <- forM (zip (miloEntryNames dir) (miloFiles dir)) $ \((typ, _name), file) -> case typ of
+          "CharLipSync" -> do
+            lip <- runGetM parseLipsync file
+            let newLip = lip
+                  { lipsyncKeyframes
+                      = take lenFrames
+                      $ lipsyncKeyframes lip <> repeat (Keyframe [])
+                  }
+            return $ runPut $ putLipsync newLip
+          _ -> return file
+        newSubs <- mapM adjustDir $ miloSubdirs dir
+        return dir
+          { miloSubdirs = newSubs
+          , miloFiles = newFiles
+          }
+  addMiloHeader . makeMiloFile <$> adjustDir top

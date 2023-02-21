@@ -1,5 +1,23 @@
 # Version history
 
+## 20230220
+
+* Fix Rock Band 2 output to work around a crash in Lego Rock Band
+  due to empty lipsync files
+* Fix generating GH2 Deluxe (360) files with no drums,
+  where an empty channel list allowed drums to be selected and crash the game
+* Fix GH:WoR cache file generation not handling older game data correctly
+* When updating lipsync in milo files, an empty or absent track will now replace
+  the corresponding lipsync file with an empty one, instead of leaving it as-is
+* Added back a button to export lipsync files directly
+  instead of into a milo file
+* Added a command line build for Windows, which only includes the command line
+  interface but is compiled as a console executable, allowing it to be used
+  from all shells
+  * CLI is usable on the normal Linux and Mac builds
+  * CLI has been cleaned up somewhat,
+    more improvements/additions coming in later updates
+
 ## 20230130
 
 * Additions for Guitar Hero II Deluxe

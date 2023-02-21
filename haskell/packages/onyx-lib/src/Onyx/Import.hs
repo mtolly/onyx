@@ -42,7 +42,7 @@ import           Onyx.Harmonix.DTA            (Chunk (..), DTA (..), Tree (..),
                                                readFileDTA)
 import           Onyx.Import.Amplitude2016    (importAmplitude)
 import           Onyx.Import.Base             (ImportLevel (..), saveImport)
-import           Onyx.Import.BMS              (importBMS)
+-- import           Onyx.Import.BMS              (importBMS)
 import           Onyx.Import.DonkeyKonga      (importDK)
 import           Onyx.Import.DTXMania         (importDTX, importSet)
 import           Onyx.Import.Freetar          (importFreetar)
@@ -53,7 +53,7 @@ import           Onyx.Import.GuitarPro        (importGPIF)
 import           Onyx.Import.Magma            (importMagma)
 import           Onyx.Import.Neversoft        (importGH3Disc, importGH3PS2,
                                                importNeversoftGH)
-import           Onyx.Import.Osu              (importOsu)
+-- import           Onyx.Import.Osu              (importOsu)
 import           Onyx.Import.PowerGig         (importPowerGig)
 import           Onyx.Import.RockBand         (importRB4, importRBA,
                                                importSTFSFolder)
@@ -156,7 +156,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           importSTFSFolder loc (first TE.decodeLatin1 folder) >>= foundImports "Rock Band (.ARK)" loc
       foundDTXSet loc = importSet loc >>= foundImports "DTXMania (set.def)" (takeDirectory loc)
       foundDTX loc = foundImport "DTXMania" loc $ importDTX loc
-      foundBME loc = foundImport "Be-Music Source" loc $ importBMS loc
+      -- foundBME loc = foundImport "Be-Music Source" loc $ importBMS loc
       foundYaml loc = do
         let dir = takeDirectory loc
         yml <- loadYaml loc
@@ -261,8 +261,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         imps <- importGH3PS2 loc dir
         foundImports "Guitar Hero III (PS2)" loc imps
       foundISO iso = do
-        magic <- stackIO $ IO.withBinaryFile iso IO.ReadMode $ \h -> BL.hGet h 6
-        if elem magic ["GKGJ01", "GKGE01", "GKGP01"] -- donkey konga 1, japan/us/europe
+        -- magic <- stackIO $ IO.withBinaryFile iso IO.ReadMode $ \h -> BL.hGet h 6
+        if False -- elem magic ["GKGJ01", "GKGE01", "GKGP01"] -- donkey konga 1, japan/us/europe
           then do
             imps <- importDK $ fileReadable iso
             foundImports "Donkey Konga" iso imps
@@ -356,10 +356,10 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".gda" -> foundDTX fp
         ".sm" -> foundImport "StepMania" fp $ importSM fp
         ".dwi" -> foundImport "StepMania" fp $ importSM fp
-        ".bms" -> foundBME fp
-        ".bme" -> foundBME fp
-        ".bml" -> foundBME fp
-        ".pms" -> foundBME fp
+        -- ".bms" -> foundBME fp
+        -- ".bme" -> foundBME fp
+        -- ".bml" -> foundBME fp
+        -- ".pms" -> foundBME fp
         ".psarc" -> foundRS fp
         ".edat" | map toLower (takeExtension $ dropExtension fp) == ".psarc"
           -> foundRSPS3 fp
@@ -372,7 +372,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           foundPowerGig fp folder $ takeFileName fp
         ".sng" -> foundFreetar fp
         ".iso" -> foundISO fp
-        ".osz" -> importOsu True fp >>= foundImports "osu!" fp
+        -- ".osz" -> importOsu True fp >>= foundImports "osu!" fp
         _ -> case map toLower $ takeFileName fp of
           "song.yml" -> foundYaml fp
           "song.ini" -> foundFoF fp

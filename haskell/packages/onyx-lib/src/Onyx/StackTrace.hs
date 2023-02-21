@@ -263,6 +263,8 @@ stackProcess cp = do
       , stringNoCR err
       ]
     where stringNoCR = filter (/= '\r') . B8.unpack
+  -- TODO Magma v1 can crash sometimes (something related to vocals processing)
+  -- and this doesn't seem to always catch it correctly, at least in Wine
 
 stackCatchIO :: (MonadIO m, Exc.Exception e) => (e -> StackTraceT m a) -> IO a -> StackTraceT m a
 stackCatchIO handler io = do
