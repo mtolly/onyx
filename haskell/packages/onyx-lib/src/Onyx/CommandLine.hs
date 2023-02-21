@@ -35,7 +35,7 @@ import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
 import qualified Data.HashMap.Strict                  as HM
 import           Data.List.Extra                      (find, stripSuffix,
-                                                       unsnoc)
+                                                       unsnoc, isPrefixOf)
 import qualified Data.Map                             as Map
 import           Data.Maybe                           (catMaybes, fromMaybe,
                                                        listToMaybe, mapMaybe)
@@ -152,7 +152,6 @@ import           Text.Read                            (readMaybe)
 import           Data.Bits                            (testBit)
 import           System.Win32.File                    (getLogicalDrives)
 #else
-import           Data.List                            (isPrefixOf)
 import           System.MountPoints
 #endif
 
