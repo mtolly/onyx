@@ -1005,6 +1005,8 @@ commands =
     , commandDesc = "Converts Amplitude (PS2) .bin data to .dta"
     , commandUsage = T.unlines
       [ "onyx bin-to-dta in.bin [--to out.dta]"
+      , "# to preserve source file and line number info:"
+      , "onyx bin-to-dta in.bin [--to out.dta] --bin-sources"
       ]
     , commandRun = \args opts -> case args of
       [fin] -> do

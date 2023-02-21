@@ -1,0 +1,31 @@
+#!/bin/bash
+set -e
+set -u
+
+case $(uname) in
+  Linux )
+    # TODO
+    ;;
+  MINGW* )
+    rm -rf win/
+    mkdir win/
+    stack exec which onyx-cli | xargs -I{} cp {} win/onyx.exe
+    cp dependencies/root/bin/*.dll win/
+    # this needs to be /mingw64 in stack's msys2
+    stack exec -- bash -c "cp /mingw64/bin/*.dll win/"
+    stack exec strip win/onyx.exe
+    cp LICENSE.txt win/LICENSE.txt
+    cp CHANGES.md win/CHANGES.txt
+    cp CREDITS.txt win/CREDITS.txt
+    cp -R resources win/onyx-resources
+    stack exec -- onyx-package changes
+    stack exec -- onyx-package version-write win/onyx-resources/README.html
+    stack exec -- onyx-package dlls win/onyx.exe
+    ;;
+  Darwin )
+    # TODO
+    ;;
+  * )
+    echo "unknown"
+    exit 1
+esac
