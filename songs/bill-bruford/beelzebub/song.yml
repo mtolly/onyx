@@ -1,0 +1,22 @@
+metadata:
+  title: Beelzebub
+  artist: Bruford
+  genre: fusion
+  subgenre: fusion
+  year: 1978
+  author: Onyxite
+audio:
+  album-track:
+    md5: a9b142627b1a98f33243df4b18e74eb0
+    frames: 8996400
+plans:
+  album:
+    song:
+      pad: [2.318, album-track]
+parts:
+  drums:
+    drums:
+      mode: full
+      kicks: 1
+
+# xxx..xxx..xxxx.xxxx.xxxxxxxx

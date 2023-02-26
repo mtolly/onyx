@@ -168,6 +168,9 @@ readTrackDK2 mid = let
     else DKRoll drum len
   makePurple instant = case sort instant of
     [DKNote DKYellow     , DKNote DKRed     ] -> [DKNote DKPurple]
+    -- real purple roll form seen
+    [DKNote DKYellow     , DKRoll DKRed len ] -> [DKRoll DKPurple len]
+    -- this isn't actually used I think
     [DKRoll DKYellow len1, DKRoll DKRed len2] -> [DKRoll DKPurple $ min len1 len2]
     xs                                        -> xs
   in RTB.flatten $ fmap makePurple $ RTB.collectCoincident noPurple

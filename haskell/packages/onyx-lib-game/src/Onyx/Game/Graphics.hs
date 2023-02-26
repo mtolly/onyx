@@ -2076,21 +2076,32 @@ drawColor GLStuff{..} (WindowDims screenW screenH) (V2 x y) (V2 w h) color = do
   sendUniformName quadShader "color" color
   checkGL "glDrawElements" $ glDrawElements GL_TRIANGLES (objVertexCount quadObject) GL_UNSIGNED_INT nullPtr
 
--- | Covers the screen with the texture, preserving aspect ratio and possibly clipping some of the texture.
-drawBackground :: GLStuff -> WindowDims -> Texture -> IO ()
-drawBackground GLStuff{..} (WindowDims screenW screenH) (Texture tex w h) = do
+data BackgroundMode
+  = BackgroundFill -- preserve aspect ratio, texture is drawn at least as big as screen (may be clipped)
+  | BackgroundFit  -- preserve aspect ratio, texture is drawn no bigger than screen (may be boxed)
+
+drawBackground :: GLStuff -> WindowDims -> BackgroundMode -> Texture -> IO ()
+drawBackground GLStuff{..} (WindowDims screenW screenH) mode (Texture tex w h) = do
   glUseProgram quadShader
   glActiveTexture GL_TEXTURE0
   checkGL "glBindTexture" $ glBindTexture GL_TEXTURE_2D tex
   glBindVertexArray $ objVAO quadObject
   let textureRatio = fromIntegral w       / fromIntegral h       :: Float
       screenRatio  = fromIntegral screenW / fromIntegral screenH :: Float
-      scaleX = if textureRatio > screenRatio
-        then textureRatio / screenRatio -- texture may clip left/right
-        else 1                          -- texture may clip top/bottom
-      scaleY = if textureRatio > screenRatio
-        then 1                          -- texture may clip left/right
-        else screenRatio / textureRatio -- texture may clip top/bottom
+      scaleX = case mode of
+        BackgroundFill -> if textureRatio > screenRatio
+          then textureRatio / screenRatio -- texture may clip left/right
+          else 1                          -- texture may clip top/bottom
+        BackgroundFit -> if textureRatio > screenRatio
+          then 1
+          else textureRatio / screenRatio -- TODO check
+      scaleY = case mode of
+        BackgroundFill -> if textureRatio > screenRatio
+          then 1                          -- texture may clip left/right
+          else screenRatio / textureRatio -- texture may clip top/bottom
+        BackgroundFit -> if textureRatio > screenRatio
+          then screenRatio / textureRatio -- TODO check
+          else 1
   sendUniformName quadShader "transform"
     (L.scaled (V4 scaleX scaleY 1 1) :: M44 Float)
   sendUniformName quadShader "startFade" (1 :: Float)
@@ -2265,6 +2276,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trk
 
   glDepthFunc GL_ALWAYS -- turn off z to draw backgrounds + time box
 
+  -- TODO should allow user choice between fit and fill background modes
   forM_ bg $ \case
     PreviewBGVideo vi -> case Map.lookup vi videoBGs of
       Just VideoHandle{..} -> do
@@ -2282,9 +2294,9 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trk
                 updateTexture image tex
                 writeIORef videoTexture $ Just (timeNew, tex)
               return $ Just tex
-        forM_ mtex $ drawBackground glStuff dims
+        forM_ mtex $ drawBackground glStuff dims BackgroundFit
       Nothing -> return ()
-    PreviewBGImage f -> forM_ (Map.lookup f imageBGs) $ drawBackground glStuff dims
+    PreviewBGImage f -> forM_ (Map.lookup f imageBGs) $ drawBackground glStuff dims BackgroundFit
 
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
   let songLength = U.applyTempoMap (previewTempo previewSong) $ timingEnd $ previewTiming previewSong

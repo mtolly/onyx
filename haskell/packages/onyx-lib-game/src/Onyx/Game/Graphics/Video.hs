@@ -15,6 +15,7 @@ import           Control.Monad                (filterM, join, unless, void,
 import           Control.Monad.Trans.Resource
 import           Data.Fixed                   (mod')
 import           Data.IORef
+import           Data.Maybe                   (fromMaybe)
 import qualified Data.Vector.Storable         as V
 import qualified Data.Vector.Storable.Mutable as MV
 import           Foreign                      hiding (void)
@@ -79,6 +80,8 @@ forkFrameLoader logger vi = do
     (num, den) <- stackIO $ stream_time_base stream
     let resolution = realToFrac num / realToFrac den :: Double
     duration <- stackIO $ avfc_duration ctx
+    -- this is usually 0, but have seen a small offset in .mpg files
+    startOffset <- stackIO $ fromMaybe 0 <$> avfc_start_time ctx
     let videoStart = maybe 0 realToFrac vi.videoStartTime
         videoEnd = maybe duration realToFrac vi.videoEndTime
         playLength = videoEnd - videoStart
@@ -115,9 +118,9 @@ forkFrameLoader logger vi = do
                 then Nothing -- before start of video
                 else if thisTimeNoLoop >= videoEnd
                   then if vi.videoLoop
-                    then Just $ videoStart + mod' thisTimeMIDI playLength
+                    then Just $ videoStart + mod' thisTimeMIDI playLength + startOffset
                     else Nothing -- after end of video
-                  else Just thisTimeNoLoop
+                  else Just $ thisTimeNoLoop + startOffset
           case thisTimeMaybe of
             Nothing -> do
               stackIO $ writeIORef ref Nothing

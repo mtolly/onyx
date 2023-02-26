@@ -34,8 +34,8 @@ import qualified Data.Digest.Pure.MD5                 as MD5
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
 import qualified Data.HashMap.Strict                  as HM
-import           Data.List.Extra                      (find, stripSuffix,
-                                                       unsnoc, isPrefixOf)
+import           Data.List.Extra                      (find, isPrefixOf,
+                                                       stripSuffix, unsnoc)
 import qualified Data.Map                             as Map
 import           Data.Maybe                           (catMaybes, fromMaybe,
                                                        listToMaybe, mapMaybe)

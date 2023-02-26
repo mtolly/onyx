@@ -236,6 +236,28 @@ avfc_duration fc = do
   n <- {#get AVFormatContext->duration #} fc
   return $ realToFrac n / {#const AV_TIME_BASE #}
 
+avfc_start_time :: AVFormatContext -> IO (Maybe Double)
+avfc_start_time fc = do
+  n <- fromIntegral <$> {#get AVFormatContext->start_time #} fc
+  -- this define has a cast that breaks c2hs #const
+  let av_NOPTS_VALUE = fromIntegral (0x8000000000000000 :: Word64) :: Int64
+  return $ if n == av_NOPTS_VALUE
+    then Nothing
+    else Just $ realToFrac n / {#const AV_TIME_BASE #}
+{-
+  // from libavformat/dump.c
+  if (ic->start_time != AV_NOPTS_VALUE) {
+      int secs, us;
+      av_log(NULL, AV_LOG_INFO, ", start: ");
+      secs = llabs(ic->start_time / AV_TIME_BASE);
+      us   = llabs(ic->start_time % AV_TIME_BASE);
+      av_log(NULL, AV_LOG_INFO, "%s%d.%06d",
+             ic->start_time >= 0 ? "" : "-",
+             secs,
+             (int) av_rescale(us, 1000000, AV_TIME_BASE));
+  }
+-}
+
 codec_type :: AVCodecParameters -> IO AVMediaType
 codec_type = fmap (toEnum . fromIntegral) . {#get AVCodecParameters->codec_type #}
 

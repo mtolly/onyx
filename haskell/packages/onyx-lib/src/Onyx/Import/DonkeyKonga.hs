@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.DonkeyKonga where
@@ -14,8 +15,9 @@ import           Data.Conduit                     (yield)
 import qualified Data.Conduit.Audio               as CA
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
+import           Data.List.NonEmpty               (NonEmpty (..))
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import qualified Data.Vector.Storable             as V
@@ -37,9 +39,20 @@ import qualified Sound.MIDI.Util                  as U
 import           System.Directory                 (listDirectory)
 import           System.FilePath                  ((<.>), (</>))
 
--- Imports from Donkey Konga 1 (J/U/E) (not 2/3) .iso (GCM)
-importDK :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m [Import m]
-importDK gcm = do
+supportedDKGames :: (SendMessage m, MonadIO m) => [(B.ByteString, Readable -> StackTraceT m [Import m])]
+supportedDKGames =
+  [ ("GKGJ01", importDK1 ) -- dk1 japan
+  , ("GKGE01", importDK1 ) -- dk1 us
+  , ("GKGP01", importDK1 ) -- dk1 europe
+  , ("GY2J01", importDK23) -- dk2 japan
+  , ("GY2E01", importDK23) -- dk2 us
+  , ("GY2P01", importDK23) -- dk2 europe
+  , ("GY3J01", importDK23) -- dk3 japan
+  ]
+
+-- Imports from Donkey Konga 1 (J/U/E) .iso (GCM)
+importDK1 :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m [Import m]
+importDK1 gcm = do
   tree <- stackIO $ loadGCM gcm
   chartFolder <- case findFolder ["Game", "Sheet", "Solo"] tree of
     Nothing -> fatal "Couldn't find charts folder"
@@ -72,7 +85,37 @@ importDK gcm = do
         [] -> do
           warn $ "Couldn't locate matching audio for chart: " <> show name
           return []
-        (_, dsp) : _ -> return [importDKSong chartName bin dsp]
+        (_, dsp) : _ -> return [importDKSong chartName False bin dsp]
+
+-- Imports from Donkey Konga 2 (J/U/E) or Donkey Konga 3 (J) .iso (GCM)
+importDK23 :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m [Import m]
+importDK23 gcm = do
+  tree <- stackIO $ loadGCM gcm
+  -- song info file not present in japanese dk2
+  songInfo <- case findFile ("Resource" :| ["SongInfo.res"]) tree of
+    Nothing -> return Nothing
+    Just r  -> Just . readSongInfo . BL.toStrict <$> stackIO (useHandle r handleToByteString)
+  chartFolder <- case findFolder ["Score"] tree of
+    Nothing -> fatal "Couldn't find charts folder"
+    Just d  -> return d
+  audioFolder <- case findFolder ["stream", "score"] tree of
+    Nothing -> fatal "Couldn't find audio folder"
+    Just d  -> return d
+  let chartFiles = folderFiles chartFolder <> maybe [] folderFiles (findFolder ["CVS"] chartFolder)
+      audioFiles = folderFiles audioFolder <> maybe [] folderFiles (findFolder ["CVS"] audioFolder)
+      allSongIDs = case songInfo of
+        Nothing   -> mapMaybe (\(name, _) -> B.stripSuffix "_1x.mid" name) chartFiles
+        Just info -> map (.info_FILENAME) $ filter (\s -> s.info_PRICE /= Just 0) info
+  forM allSongIDs $ \songID -> do
+    let chartFilename = songID <> "_1x.mid"
+        audioFilename = B.take 2 songID <> ".dsp"
+    mid <- case lookup chartFilename chartFiles of
+      Nothing -> fatal $ "Couldn't find chart file: " <> show chartFilename
+      Just r  -> return r
+    dsp <- case lookup audioFilename audioFiles of
+      Nothing -> fatal $ "Couldn't find audio file: " <> show audioFilename
+      Just r  -> return r
+    return $ importDKSong songID True mid dsp
 
 -- got these from random webpages, should probably get exact disc info + add artists and other data
 dk1TitleLookup :: [(B.ByteString, T.Text)]
@@ -167,8 +210,10 @@ dk1TitleLookup =
 
   ]
 
-importDKSong :: (SendMessage m, MonadIO m) => B.ByteString -> Readable -> Readable -> Import m
-importDKSong chartName bin dsp level = do
+-- TODO support passing SongInfo data
+-- TODO figure out dk2/dk3 offset issue
+importDKSong :: (SendMessage m, MonadIO m) => B.ByteString -> Bool -> Readable -> Readable -> Import m
+importDKSong chartName isMidi chartFile dsp level = do
 
   (soundsHigh, soundsLow, soundsClap) <- case level of
     ImportQuick -> return ([], [], [])
@@ -196,8 +241,18 @@ importDKSong chartName bin dsp level = do
 
   (tempos, chart) <- case level of
     ImportQuick -> return (U.makeTempoMap RTB.empty, RTB.empty)
-    ImportFull -> stackIO (useHandle bin handleToByteString) >>= fmap binToMidi . runGetM readSheetBin
-  let converted = mapTrack (U.unapplyTempoTrack tempos) $ convertDKDrums $ interpretDK1 chart
+    ImportFull -> if isMidi
+      then do
+        mid <- F.loadMIDIReadable chartFile
+        let dk = readTrackDK2 $ U.applyTempoTrack (F.s_tempos mid) $ case F.rawTracks $ F.s_tracks mid of
+              t : _ -> t
+              []    -> RTB.empty
+        return (F.s_tempos mid, dk)
+      else do
+        b <- stackIO $ useHandle chartFile handleToByteString
+        (tempos, events) <- fmap binToMidi $ runGetM readSheetBin b
+        return (tempos, interpretDK1 events)
+  let converted = mapTrack (U.unapplyTempoTrack tempos) $ convertDKDrums chart
       roundRobin = zip3 (cycle $ map fst soundsHigh) (cycle $ map fst soundsLow) (cycle $ map fst soundsClap)
       bongoSampleTrack = F.SamplesTrack
         { F.sampleTriggers
@@ -221,10 +276,10 @@ importDKSong chartName bin dsp level = do
   audio <- case level of
     ImportQuick -> return Nothing
     ImportFull -> do
-      (chanL, chanR) <- stackIO $ useHandle dsp handleToByteString >>= decodeStereoCstr . BL.toStrict
+      (rate, chanL, chanR) <- stackIO $ useHandle dsp handleToByteString >>= decodeStereoCstr . BL.toStrict
       return $ Just $ CA.mapSamples CA.fractionalSample CA.AudioSource
         { CA.source = yield $ CA.interleave [chanL, chanR]
-        , CA.rate = 44100
+        , CA.rate = fromIntegral rate
         , CA.channels = 2
         , CA.frames = V.length chanL
         }

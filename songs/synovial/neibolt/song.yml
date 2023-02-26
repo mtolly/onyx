@@ -1,0 +1,55 @@
+global:
+  anim-tempo: 32
+metadata:
+  album: Metronome
+  artist: Synovial
+  author: Xane60
+  difficulty:
+    tier: 1
+  expert-only: true
+  file-album-art: cover.png_xbox
+  genre: metal
+  languages:
+  - English
+  preview-end: 1:00.000
+  preview-start: 30
+  subgenre: core
+  title: Neibolt
+  track-number: 1
+  year: 2022
+parts:
+  bass: {}
+  drums:
+    drums:
+      difficulty:
+        tier: 7
+      fix-freeform: false
+      kicks: 2
+  guitar:
+    grybo: {} # emh
+  keys: {}
+  vocal: {}
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    karaoke: false
+    multitrack: false
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    parts:
+      drums:
+      - 0
+      - 1
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3-2x:
+    2x-bass-pedal: true
+    game: rb3
+    song-id: neiboltidx4

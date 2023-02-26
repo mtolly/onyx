@@ -45,14 +45,26 @@ import           System.FilePath
 import           System.IO
 import           Text.Read                        (readMaybe)
 
-loadDTXLines :: FilePath -> IO [(T.Text, T.Text)]
-loadDTXLines f = do
+loadDTXLines' :: Bool -> FilePath -> IO [(T.Text, T.Text)]
+loadDTXLines' semicolonComments f = do
   -- Shift-JIS is the usual encoding, but I've seen UTF-16 (with BOM) in the wild
   lns <- T.lines . decodeWithDefault (T.pack . decodeShiftJIS) <$> B.readFile f
   return $ flip mapMaybe lns $ \ln -> case T.uncons ln of
     Just ('#', rest) -> case T.span isAlphaNum rest of
-      (x, y) -> Just (T.strip x, T.strip $ T.takeWhile (/= ';') $ T.dropWhile (== ':') y)
+      (x, y) -> Just
+        ( T.strip x
+        , T.strip
+          $ (if semicolonComments then T.takeWhile (/= ';') else id)
+          $ T.dropWhile (== ':') y
+        )
     _ -> Nothing
+
+-- don't think bms supports semicolon comment in the middle of a line like dtx.
+-- see Options_semicolon.bms with "#TITLE Options [;]"
+
+loadDTXLines, loadBMSLines :: FilePath -> IO [(T.Text, T.Text)]
+loadDTXLines = loadDTXLines' True
+loadBMSLines = loadDTXLines' False
 
 type BarNumber = Int
 type Channel = T.Text

@@ -1,11 +1,13 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TupleSections         #-}
 module Onyx.Import.BMS where
 
 import           Control.Monad                    (forM, guard)
 import           Control.Monad.IO.Class           (MonadIO)
+import           Data.Char                        (toLower)
 import qualified Data.Conduit.Audio               as CA
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
@@ -20,12 +22,16 @@ import           Onyx.DTXMania.DTX
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (Edge (..), Key (..),
                                                    blipEdgesRB_,
-                                                   joinEdgesSimple)
+                                                   joinEdgesSimple,
+                                                   pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.Project
 import           Onyx.StackTrace
-import           System.FilePath                  (takeDirectory, (<.>), (</>))
+import           Onyx.Util.Handle                 (fileReadable)
+import qualified Sound.MIDI.Util                  as U
+import           System.FilePath                  (takeDirectory, takeExtension,
+                                                   (<.>), (</>))
 
 joinLongNotes :: (NNC.C t) =>
   RTB.T t (BMKey, Chip, Bool) -> RTB.T t (BMKey, Chip, t)
@@ -36,7 +42,7 @@ joinLongNotes
 
 importBMS :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importBMS bmsPath level = do
-  bms <- stackIO $ readBMSLines <$> loadDTXLines bmsPath
+  bms <- stackIO $ readBMSLines <$> loadBMSLines bmsPath
 
   -- TODO if .pms extension, combine notes (on p1 and p2) into 9k track
 
@@ -128,6 +134,29 @@ importBMS bmsPath level = do
             ]
           }
 
+  background <- case bms_BGA bms of
+    RNil -> return Nothing
+    Wait bts chip RNil -> case HM.lookup chip $ bms_BMP bms of
+      Nothing -> do
+        warn $ "Couldn't find BGA chip: " <> show chip
+        return Nothing
+      Just fp -> let
+        ext = map toLower $ takeExtension fp
+        in if elem ext [".png", ".bmp", ".gif", ".jpg", ".jpeg"]
+          then return $ Just $ Left $ SoftFile ("background" <> ext)
+            $ SoftReadable $ fileReadable $ takeDirectory bmsPath </> fp
+          else return $ Just $ Right VideoInfo
+            { fileVideo = SoftFile ("background" <> ext)
+              $ SoftReadable $ fileReadable $ takeDirectory bmsPath </> fp
+            , videoStartTime = Just $ negate $ realToFrac
+              $ U.applyTempoMap (F.s_tempos midi) bts
+            , videoEndTime = Nothing
+            , videoLoop = False
+            }
+    _ -> do
+      warn "Can't import background yet (more than one BGA chip)"
+      return Nothing
+
   return SongYaml
     { metadata = def'
       -- may need to adjust these title suffixes, sometimes there is SUBTITLE but it's same across difficulties
@@ -141,8 +170,8 @@ importBMS bmsPath level = do
       , fileAlbumArt = Nothing
       }
     , global = def'
-      { backgroundVideo = Nothing
-      , fileBackgroundImage = Nothing
+      { backgroundVideo = background >>= either (const Nothing) Just
+      , fileBackgroundImage = background >>= either Just (const Nothing)
       , fileMidi = SoftFile "notes.mid" $ SoftChart midi
       , fileSongAnim = Nothing
       }

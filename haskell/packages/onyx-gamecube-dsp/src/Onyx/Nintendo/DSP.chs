@@ -29,8 +29,9 @@ splitEvery n b = if B.null b
     (x, y) = B.splitAt n b
     in x : splitEvery n y
 
-decodeStereoCstr :: B.ByteString -> IO (V.Vector Int16, V.Vector Int16)
+decodeStereoCstr :: B.ByteString -> IO (Word16, V.Vector Int16, V.Vector Int16)
 decodeStereoCstr bs = let
+  sampleRate = runGet getWord16le $ BL.fromStrict $ B.drop 0x18 bs
   afterHeaders = B.drop (0x20 + 0x60 + 0x60) bs
   dspHeader1 = B.take 0x60 $ B.drop 0x20 bs
   dspHeader2 = B.take 0x60 $ B.drop (0x20 + 0x60) bs
@@ -54,4 +55,4 @@ decodeStereoCstr bs = let
   in do
     result1 <- runDecode dspHeader1 data1
     result2 <- runDecode dspHeader2 data2
-    return (result1, result2)
+    return (sampleRate, result1, result2)

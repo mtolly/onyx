@@ -33,6 +33,8 @@ data BMS = BMS
   , bms_Player1Long :: RTB.T U.Beats (BMKey, Chip, Bool)
   , bms_Player2Long :: RTB.T U.Beats (BMKey, Chip, Bool)
   , bms_BGM         :: RTB.T U.Beats Chip
+  , bms_BMP         :: HM.HashMap Chip FilePath
+  , bms_BGA         :: RTB.T U.Beats Chip
   } deriving (Show)
 
 data BMKey
@@ -81,6 +83,8 @@ readBMSLines lns = BMS
   , bms_Player1Long = readPlayerLong '5'
   , bms_Player2Long = readPlayerLong '6'
   , bms_BGM = getChannel "01"
+  , bms_BMP = fmap T.unpack $ HM.fromList $ getReferences "BMP" lns
+  , bms_BGA = getChannel "04"
   } where
 
     objects :: Map.Map BarNumber (HM.HashMap Channel [T.Text])

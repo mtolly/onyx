@@ -178,7 +178,9 @@ basicTiming input@(F.Song tempos mmap trks) getAudioLength = do
           absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
           lastMIDIEvent = foldr max 0
             $ concatMap absTimes (F.s_tracks $ F.showMIDITracks input)
-            ++ absTimes (U.tempoMapToBPS tempos)
+            -- ++ absTimes (U.tempoMapToBPS tempos)
+            -- (why did I also consider tempos here originally?
+            -- maybe beacuse we weren't dropping tempos past [end])
           endPosn = fromInteger $ ceiling $ max thirtySecs $ max audLen lastMIDIEvent + 4
       lg $ unwords
         [ "Placing [end] at " <> showPosn endPosn <> "."

@@ -1,0 +1,34 @@
+audio:
+  guitar.ogg:
+    file-path: guitar.ogg
+metadata:
+  album: Discipline
+  artist: King Crimson
+  author: gaebpls, Onyxite
+  difficulty:
+    tier: 1
+  file-album-art: album.png
+  genre: Prog
+  title: Elephant Talk
+  track-number: 1
+  year: 1981
+parts:
+  drums:
+    drums: # Onyxite
+      mode: full
+      kicks: 1
+  guitar:
+    grybo: # gaebpls
+      difficulty:
+        tier: 7
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0.91
+      - guitar.ogg
+targets:
+  ps:
+    game: ps
+    loading-phrase: CSC Monthly Pack - August 2018
