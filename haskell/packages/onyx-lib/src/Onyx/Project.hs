@@ -833,6 +833,17 @@ instance StackJSON PartDance where
     difficulty <- (.difficulty) =. fill (Tier 1) "difficulty" stackJSON
     return PartDance{..}
 
+data PartMania = PartMania
+  { keys      :: Int
+  , turntable :: Bool
+  } deriving (Eq, Ord, Show)
+
+instance StackJSON PartMania where
+  stackJSON = asStrictObject "PartMania" $ do
+    keys      <- (.keys)      =. req       "keys"      stackJSON
+    turntable <- (.turntable) =. opt False "turntable" stackJSON
+    return PartMania{..}
+
 data Part f = Part
   { grybo     :: Maybe PartGRYBO
   , ghl       :: Maybe PartGHL
@@ -842,6 +853,7 @@ data Part f = Part
   , vocal     :: Maybe (PartVocal f)
   , amplitude :: Maybe PartAmplitude
   , dance     :: Maybe PartDance
+  , mania     :: Maybe PartMania
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (Part f) where
@@ -854,10 +866,11 @@ instance (Eq f, StackJSON f) => StackJSON (Part f) where
     vocal     <- (.vocal    ) =. opt Nothing "vocal"      stackJSON
     amplitude <- (.amplitude) =. opt Nothing "amplitude"  stackJSON
     dance     <- (.dance    ) =. opt Nothing "dance"      stackJSON
+    mania     <- (.mania    ) =. opt Nothing "mania"      stackJSON
     return Part{..}
 
 emptyPart :: Part f
-emptyPart = Part Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+emptyPart = Part Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 instance StackJSON Magma.AutogenTheme where
   stackJSON = enumCodecFull "the name of an autogen theme or null" $ \case

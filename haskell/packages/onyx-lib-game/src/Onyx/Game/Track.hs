@@ -34,6 +34,7 @@ import qualified Onyx.MIDI.Track.Drums.Full       as FD
 import           Onyx.MIDI.Track.Events           (eventsCoda, eventsSections)
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
+import           Onyx.MIDI.Track.Mania
 import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import           Onyx.MIDI.Track.Rocksmith
 import           Onyx.Project
@@ -54,6 +55,7 @@ data PreviewTrack
   | PreviewDrumsFull FullDrumLayout (Map.Map Double (PNF.CommonState (PNF.DrumState FD.FullDrumNote FD.FullGem)))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState (Maybe Five.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
+  | PreviewMania PartMania (Map.Map Double (PNF.CommonState PNF.ManiaState))
   deriving (Show)
 
 data PreviewBG
@@ -103,6 +105,53 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       gem <- colors
       return $ fmap (Map.singleton gem) $ toggle $ gemToggle gem
     in foldr (\x y -> fmap (uncurry Map.union) $ PNF.zipStateMaps x y) Map.empty gemSingletons
+
+  maniaTrack fpart = let
+    src = maybe mempty F.onyxPartMania $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
+    assigned :: RTB.T U.Beats (LongNote () Int)
+    assigned
+      = splitEdges
+      $ fmap (\(key, len) -> ((), key, len))
+      $ edgeBlips_ minSustainLengthRB
+      $ maniaNotes src
+    assignedMap :: Map.Map Double (Map.Map Int (PNF.PNF () ()))
+    assignedMap
+      = rtbToMap
+      $ buildStatus PNF.empty
+      $ RTB.collectCoincident
+      $ assigned
+    buildStatus _    RNil                 = RNil
+    buildStatus prev (Wait dt edges rest) = let
+      applyEdge edge = case edge of
+        Blip _ key -> Map.alter (\case
+          Nothing          -> Just $ PNF.N ()
+          Just PNF.Empty   -> Just $ PNF.N ()
+          Just (PNF.P  ()) -> Just $ PNF.PN () ()
+          Just (PNF.PF ()) -> Just $ PNF.PN () ()
+          x                -> x -- shouldn't happen
+          ) key
+        NoteOn () key -> Map.alter (\case
+          Nothing          -> Just $ PNF.NF () ()
+          Just PNF.Empty   -> Just $ PNF.NF () ()
+          Just (PNF.P  ()) -> Just $ PNF.PNF () () ()
+          Just (PNF.PF ()) -> Just $ PNF.PNF () () ()
+          x                -> x -- shouldn't happen
+          ) key
+        NoteOff key -> Map.update (\case
+          PNF.PF () -> Just $ PNF.P ()
+          x         -> Just x -- could happen if Blip or NoteOn was applied first
+          ) key
+      this = foldr applyEdge (PNF.after prev) edges
+      in Wait dt this $ buildStatus this rest
+    states = PNF.ManiaState <$> assignedMap
+    in do
+      guard $ not $ RTB.null $ maniaNotes src
+      Just $ (\((((a, b), c), d), e) -> PNF.CommonState a b c d e) <$> do
+        states
+          `PNF.zipStateMaps` Map.empty
+          `PNF.zipStateMaps` Map.empty
+          `PNF.zipStateMaps` Map.empty
+          `PNF.zipStateMaps` fmap Just beats
 
   drumTrack fpart pdrums diff = let
     -- TODO support PS real
@@ -434,6 +483,13 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
                   )
                 ]
             _         -> []
+    mania = case part.mania of
+      Nothing -> []
+      Just pm -> let
+        name = T.pack $ show fpart <> " [Mania]"
+        in case maniaTrack fpart of
+          Nothing  -> []
+          Just trk -> [(name, PreviewMania pm trk)]
     pg = case part.proGuitar of
       Nothing     -> []
       Just ppg -> let
@@ -447,7 +503,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
     rs = case part.proGuitar of
       Nothing  -> return []
       Just ppg -> rsTracks fpart ppg
-    in ((five ++ drums ++ pg) ++) <$> rs
+    in ((mania ++ five ++ drums ++ pg) ++) <$> rs
 
   bgs = concat
     [ case songYaml.global.backgroundVideo of

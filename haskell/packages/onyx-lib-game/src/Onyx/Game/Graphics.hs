@@ -58,7 +58,7 @@ import qualified Onyx.MIDI.Track.ProGuitar    as PG
 import           Onyx.Preferences             (Preferences (..),
                                                readPreferences)
 import           Onyx.Project                 (FullDrumLayout (..),
-                                               VideoInfo (..))
+                                               PartMania (..), VideoInfo (..))
 import           Onyx.Resources               (getResourcesPath)
 import           Onyx.StackTrace              (QueueLog, SendMessage,
                                                StackTraceT, fatal, getQueueLog,
@@ -1174,6 +1174,204 @@ drawPG glStuff@GLStuff{..} nowTime speed tuning trk = do
   -- draw notes
   drawNotes farTime $ Map.toDescList zoomed
 
+data ManiaColor = ManiaRed | ManiaWhite | ManiaBlack
+
+drawMania :: GLStuff -> Double -> Double -> PartMania -> Map.Map Double (CommonState ManiaState) -> IO ()
+drawMania glStuff@GLStuff{..} nowTime speed pmania trk = do
+  glUseProgram objectShader
+  -- view and projection matrices should already have been set
+  let drawObject' = drawObject glStuff
+      globalLight = LightGlobal gfxConfig.track.light
+      nearZ = gfxConfig.track.time.z_past
+      nowZ = gfxConfig.track.time.z_now
+      farZ = gfxConfig.track.time.z_future
+      farTime = nowTime + speed * realToFrac gfxConfig.track.time.secs_future :: Double
+      timeToZ t = nowZ + (farZ - nowZ) * realToFrac ((t - nowTime) / (farTime - nowTime))
+      zToTime z = nowTime + (farTime - nowTime) * realToFrac ((z - nowZ) / (farZ - nowZ))
+      nearTime = zToTime nearZ
+      zoomed = zoomMap nearTime farTime trk
+      trackWidth
+        = gfxConfig.track.note_area.x_right
+        - gfxConfig.track.note_area.x_left
+      fracToX f = gfxConfig.track.note_area.x_left + trackWidth * f
+      sc = gfxConfig.objects.sustains.colors
+      drawBeat t cs = case commonBeats cs of
+        Nothing -> return ()
+        Just e -> let
+          tex = case e of
+            Just Bar  -> TextureLine1
+            Just Beat -> TextureLine2
+            Nothing   -> TextureLine3
+          z = timeToZ t
+          xyz1 = V3
+            gfxConfig.track.note_area.x_left
+            gfxConfig.track.y
+            (z + gfxConfig.track.beats.z_past)
+          xyz2 = V3
+            gfxConfig.track.note_area.x_right
+            gfxConfig.track.y
+            (z + gfxConfig.track.beats.z_future)
+          in drawObject' Flat (ObjectStretch xyz1 xyz2) (CSImage tex) 1 globalLight
+      keys = take pmania.keys $ [ManiaRed | pmania.turntable] <> cycle [ManiaWhite, ManiaBlack]
+      keyColor i = case drop i keys of
+        color : _ -> color
+        []        -> ManiaRed -- shouldn't happen
+      keyWidth = 1 / fromIntegral pmania.keys
+      keyBounds :: Int -> (Float, Float)
+      keyBounds n = (fracToX $ fromIntegral n * keyWidth, fracToX $ fromIntegral (n + 1) * keyWidth)
+      drawSustain t1 t2 color key
+        | t2 <= nowTime = return ()
+        | otherwise     = let
+          boxColor = case color of
+            ManiaRed   -> sc.red
+            ManiaWhite -> sc.blue
+            ManiaBlack -> sc.purple
+          (x1, x2) = let
+            (leftBound, rightBound) = keyBounds key
+            center = (leftBound + rightBound) / 2
+            halfWidth = 0.5 * gfxConfig.objects.sustains.width.fret
+            in (center - halfWidth, center + halfWidth)
+          y2 = gfxConfig.track.y
+          y1 = y2 + gfxConfig.objects.sustains.height
+          (z1, z2) = (timeToZ $ max nowTime t1, timeToZ t2)
+          in drawObject' Box (ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2)) (CSColor boxColor) 1 globalLight
+      drawGem t color key alpha = let
+        obj = Model ModelPGNote
+        halfWidth = keyWidth / 2
+        (x1, x2) = keyBounds key
+        y1 = gfxConfig.track.y - halfWidth
+        y2 = gfxConfig.track.y + halfWidth
+        z = timeToZ t
+        (z1, z2) = (z - halfWidth, z + halfWidth)
+        stretch = ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2)
+        texid = case color of
+          ManiaRed   -> TextureRedGem
+          ManiaWhite -> TextureBlueGem
+          ManiaBlack -> TexturePurpleGem
+        shade = case alpha of
+          Nothing -> CSImage texid
+          Just _  -> CSColor gfxConfig.objects.gems.color_hit
+        in drawObject' obj stretch shade (fromMaybe 1 alpha) $ LightOffset $ let
+          normalLight = gfxConfig.objects.gems.light
+          in normalLight { C.position = V3 0 0 0.5 }
+      drawNotes _        []                      = return ()
+      drawNotes nextTime ((thisTime, cs) : rest) = do
+        let notes = Map.toList $ maniaNotes $ commonState cs
+        -- draw following sustain
+        forM_ notes $ \(key, pnf) -> forM_ (getFuture pnf) $ \() -> do
+          drawSustain thisTime nextTime (keyColor key) key
+        -- draw note
+        let fadeTime = gfxConfig.objects.gems.secs_fade
+        forM_ notes $ \(key, pnf) -> forM_ (getNow pnf) $ \() -> if nowTime <= thisTime
+          then drawGem thisTime (keyColor key) key Nothing
+          else if nowTime - thisTime < realToFrac fadeTime
+            then drawGem nowTime (keyColor key) key $ Just $ 1 - realToFrac (nowTime - thisTime) / fadeTime
+            else return ()
+        -- draw past sustain if rest is empty
+        when (null rest) $ do
+          forM_ notes $ \(key, pnf) -> forM_ (getPast pnf) $ \() -> do
+            drawSustain nearTime thisTime (keyColor key) key
+        drawNotes thisTime rest
+      drawTargetSquare i tex alpha = let
+        (x1, x2) = keyBounds i
+        y = gfxConfig.track.y
+        z1 = gfxConfig.track.targets.z_past
+        z2 = gfxConfig.track.targets.z_future
+        in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
+  -- draw highway
+  forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
+    let highwayColor
+          = (if isSolo then (.solo) else (.normal))
+          $ gfxConfig.track.color
+    drawObject'
+      Flat
+      (ObjectStretch
+        (V3
+          gfxConfig.track.note_area.x_left
+          gfxConfig.track.y
+          (timeToZ t1)
+        )
+        (V3
+          gfxConfig.track.note_area.x_right
+          gfxConfig.track.y
+          (timeToZ t2)
+        )
+      )
+      (CSColor highwayColor)
+      1
+      globalLight
+  -- draw railings
+  let rail = gfxConfig.track.railings
+      noteArea = gfxConfig.track.note_area
+  drawObject' Box
+    (ObjectStretch
+      (V3
+        (noteArea.x_left - rail.x_width)
+        rail.y_top
+        nearZ
+      )
+      (V3
+        (noteArea.x_left)
+        rail.y_bottom
+        farZ
+      )
+    )
+    (CSColor rail.color) 1 globalLight
+  drawObject' Box
+    (ObjectStretch
+      (V3
+        noteArea.x_right
+        rail.y_top
+        nearZ
+      )
+      (V3
+        (noteArea.x_right + rail.x_width)
+        rail.y_bottom
+        farZ
+      )
+    )
+    (CSColor rail.color) 1 globalLight
+  -- draw beat lines
+  glDepthFunc GL_ALWAYS
+  void $ Map.traverseWithKey drawBeat zoomed
+  -- draw target
+  forM_ (zip [0..] keys) $ \(i, color) -> let
+    tex = case color of
+      ManiaRed   -> TextureTargetRed
+      ManiaWhite -> TextureTargetBlue
+      ManiaBlack -> TextureTargetPurple
+    in drawTargetSquare i tex 1
+  let drawLights [] _ = return ()
+      drawLights _ [] = return ()
+      drawLights ((t, cs) : states) colors = let
+        getLightAlpha i = do
+          pnf <- Map.lookup i $ maniaNotes $ commonState cs
+          case getFuture pnf of
+            Just _ -> Just 1 -- key is being sustained
+            Nothing -> do
+              guard $ isJust (getNow pnf) || isJust (getPast pnf)
+              Just alpha
+        (colorsYes, colorsNo) = flip partitionMaybe colors $ \(i, color) -> let
+          light = case color of
+            ManiaRed   -> TextureTargetRedLight
+            ManiaWhite -> TextureTargetBlueLight
+            ManiaBlack -> TextureTargetPurpleLight
+          in fmap (\thisAlpha -> (i, light, thisAlpha)) $ getLightAlpha i
+        alpha = 1 - realToFrac (nowTime - t) / gfxConfig.track.targets.secs_light
+        in do
+          forM_ colorsYes $ \(i, light, thisAlpha) -> drawTargetSquare i light thisAlpha
+          drawLights states colorsNo
+      lookPast = case Map.split nowTime zoomed of
+        (past, future)
+          | Map.null past -> case Map.lookupMin future of
+            Nothing      -> []
+            Just (_, cs) -> [(nowTime, before cs)]
+          | otherwise     -> Map.toDescList past
+  drawLights lookPast $ zip [0..] keys
+  glDepthFunc GL_LESS
+  -- draw notes
+  drawNotes farTime $ Map.toDescList zoomed
+
 fillPtr :: (Storable a, MonadIO m) => (Ptr a -> IO ()) -> m a
 fillPtr f = liftIO $ alloca $ \p -> f p >> peek p
 
@@ -1491,6 +1689,7 @@ data TextureID
   | TextureYellowGem
   | TextureBlueGem
   | TextureOrangeGem
+  | TexturePurpleGem
   | TextureEnergyGem
   | TextureGreenHopo
   | TextureRedHopo
@@ -1743,6 +1942,7 @@ loadGLStuff scaleUI previewSong = do
           TextureYellowGem               -> "box-yellow"
           TextureBlueGem                 -> "box-blue"
           TextureOrangeGem               -> "box-orange"
+          TexturePurpleGem               -> "box-purple"
           TextureEnergyGem               -> "box-energy"
           TextureGreenHopo               -> "hopo-green"
           TextureRedHopo                 -> "hopo-red"
@@ -2333,6 +2533,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trk
       PreviewDrumsFull layout m -> drawFullDrums glStuff time speed layout m
       PreviewFive  m            -> drawFive  glStuff time speed   m
       PreviewPG  t m            -> drawPG    glStuff time speed t m
+      PreviewMania p m          -> drawMania glStuff time speed p m
 
     case framebuffers of
       SimpleFramebuffer{..} -> do

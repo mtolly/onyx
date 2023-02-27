@@ -20,12 +20,11 @@ import           Onyx.Audio
 import           Onyx.Beatmania.BMS
 import           Onyx.DTXMania.DTX
 import           Onyx.Import.Base
-import           Onyx.MIDI.Common                 (Edge (..), Key (..),
-                                                   blipEdgesRB_,
+import           Onyx.MIDI.Common                 (Edge (..), blipEdgesRB_,
                                                    joinEdgesSimple,
                                                    pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Track.File             as F
-import           Onyx.MIDI.Track.ProKeys
+import           Onyx.MIDI.Track.Mania
 import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Handle                 (fileReadable)
@@ -102,27 +101,19 @@ importBMS bmsPath level = do
         ImportFull -> F.Song (bms_TempoMap bms) (bms_MeasureMap bms) mempty
           { F.onyxParts = Map.fromList $ do
             (fpart, chips, chipsLong) <-
-              [ (F.FlexExtra "player1", bms_Player1 bms, bms_Player1Long bms)
-              , (F.FlexExtra "player2", bms_Player2 bms, bms_Player2Long bms)
+              [ (F.FlexKeys          , bms_Player1 bms, bms_Player1Long bms)
+              , (F.FlexExtra "rhythm", bms_Player2 bms, bms_Player2Long bms)
               ]
             guard $ not $ RTB.null chips && RTB.null chipsLong
             let opart = mempty
-                  { F.onyxPartRealKeysX = mempty
-                    { pkLanes = RTB.singleton 0 RangeC
-                    , pkNotes = let
-                      lookupKey = \case
-                        BMScratch -> RedYellow E
-                        BMKey1    -> RedYellow F
-                        BMKey2    -> RedYellow Fs
-                        BMKey3    -> RedYellow G
-                        BMKey4    -> RedYellow Gs
-                        BMKey5    -> RedYellow A
-                        BMKey6    -> RedYellow As
-                        BMKey7    -> RedYellow B
+                  { F.onyxPartMania = ManiaTrack
+                    { maniaNotes = let
+                      keyIndex :: BMKey -> Int
+                      keyIndex = fromEnum
                       short = flip fmap chips
-                        $ \(key, _) -> (lookupKey key, Nothing)
+                        $ \(key, _) -> (keyIndex key, Nothing)
                       long = flip fmap (joinLongNotes chipsLong)
-                        $ \(key, _, len) -> (lookupKey key, Just len)
+                        $ \(key, _, len) -> (keyIndex key, Just len)
                       in blipEdgesRB_ $ RTB.merge short long
                     }
                   }
@@ -180,8 +171,8 @@ importBMS bmsPath level = do
     , plans = HM.singleton "bms" $ StandardPlan StandardPlanInfo
       { song        = guard (isJust songSampleTrack) >> Just (audioExpr "audio-bgm")
       , parts       = Parts $ HM.fromList $ catMaybes
-        [ guard (isJust p1SampleTrack) >> Just (F.FlexExtra "player1", PartSingle $ audioExpr "audio-p1")
-        , guard (isJust p2SampleTrack) >> Just (F.FlexExtra "player2", PartSingle $ audioExpr "audio-p2")
+        [ guard (isJust p1SampleTrack) >> Just (F.FlexKeys          , PartSingle $ audioExpr "audio-p1")
+        , guard (isJust p2SampleTrack) >> Just (F.FlexExtra "rhythm", PartSingle $ audioExpr "audio-p2")
         ]
       , crowd       = Nothing
       , comments    = []
@@ -191,14 +182,15 @@ importBMS bmsPath level = do
     , targets = HM.empty
     , parts = Parts $ HM.fromList $ do
       (fpart, chips) <-
-        [ (F.FlexExtra "player1", bms_Player1 bms)
-        , (F.FlexExtra "player2", bms_Player2 bms)
+        [ (F.FlexKeys          , bms_Player1 bms)
+        , (F.FlexExtra "rhythm", bms_Player2 bms)
         ]
       guard $ not $ RTB.null chips
       return (fpart, emptyPart
-        { proKeys = Just PartProKeys
-          { difficulty  = Tier 1
-          , fixFreeform = True
+        { mania = Just PartMania
+          -- TODO change these as needed
+          { keys      = 8
+          , turntable = True
           }
         })
     }

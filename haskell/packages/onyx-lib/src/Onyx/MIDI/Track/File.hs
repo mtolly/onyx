@@ -51,6 +51,7 @@ import           Onyx.MIDI.Track.Events
 import           Onyx.MIDI.Track.FiveFret
 import qualified Onyx.MIDI.Track.FiveFret          as Five
 import           Onyx.MIDI.Track.Lipsync
+import           Onyx.MIDI.Track.Mania
 import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.MIDI.Track.Rocksmith
@@ -314,6 +315,7 @@ data OnyxPart t = OnyxPart
   , onyxLipsync4         :: LipsyncTrack t
   , onyxMelody           :: MelodyTrack t
   , onyxPartDance        :: DanceTrack t
+  , onyxPartMania        :: ManiaTrack t
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxPart t)
 
@@ -327,7 +329,7 @@ editOnyxPart pname edit onyx = onyx
 
 instance TraverseTrack OnyxPart where
   traverseTrack fn
-    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x y z aa ab ac)
+    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x y z aa ab ac ad)
     = OnyxPart
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -338,7 +340,7 @@ instance TraverseTrack OnyxPart where
       <*> traverseTrack fn s <*> traverseTrack fn t <*> traverseTrack fn u
       <*> traverseTrack fn v <*> traverseTrack fn w <*> traverseTrack fn x
       <*> traverseTrack fn y <*> traverseTrack fn z <*> traverseTrack fn aa
-      <*> traverseTrack fn ab <*> traverseTrack fn ac
+      <*> traverseTrack fn ab <*> traverseTrack fn ac <*> traverseTrack fn ad
 
 getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
 getFlexPart part = fromMaybe mempty . Map.lookup part . onyxParts
@@ -416,6 +418,7 @@ parseOnyxPart partName = do
   onyxLipsync3         <- onyxLipsync3         =. names (pure (FlexVocal, "LIPSYNC3"))
   onyxLipsync4         <- onyxLipsync4         =. names (pure (FlexVocal, "LIPSYNC4"))
   onyxPartDance        <- onyxPartDance        =. names (pure (FlexExtra "global", "PART DANCE"))
+  onyxPartMania        <- onyxPartMania        =. names (pure (FlexExtra "global", "PART MANIA"))
   return OnyxPart{..}
 
 instance ParseFile OnyxFile where
@@ -792,6 +795,7 @@ instance ChopTrack OnyxPart where
     , onyxLipsync4         = mapTrack (U.trackTake t) $ onyxLipsync4         op -- TODO
     , onyxMelody           = mapTrack (U.trackTake t) $ onyxMelody           op -- TODO
     , onyxPartDance        = mapTrack (U.trackTake t) $ onyxPartDance        op -- TODO
+    , onyxPartMania        = mapTrack (U.trackTake t) $ onyxPartMania        op -- TODO
     }
   chopDrop t op = OnyxPart
     { onyxPartDrums        = chopDrop t               $ onyxPartDrums        op
@@ -823,6 +827,7 @@ instance ChopTrack OnyxPart where
     , onyxLipsync4         = mapTrack (U.trackDrop t) $ onyxLipsync4         op -- TODO
     , onyxMelody           = mapTrack (U.trackDrop t) $ onyxMelody           op -- TODO
     , onyxPartDance        = mapTrack (U.trackDrop t) $ onyxPartDance        op -- TODO
+    , onyxPartMania        = mapTrack (U.trackDrop t) $ onyxPartMania        op -- TODO
     }
 
 onyxToFixed :: OnyxFile U.Beats -> FixedFile U.Beats

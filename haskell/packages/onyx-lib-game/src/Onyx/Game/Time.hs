@@ -158,6 +158,11 @@ data PGState t = PGState
   } deriving (Show, Generic)
     deriving (TimeState) via GenericTimeState (PGState t)
 
+newtype ManiaState = ManiaState
+  { maniaNotes :: Map.Map Int (PNF () ())
+  } deriving (Show, Generic)
+    deriving (TimeState) via GenericTimeState ManiaState
+
 class TimeState a where
   before :: a -> a
   before _ = empty

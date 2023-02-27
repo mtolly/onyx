@@ -9,7 +9,6 @@ import           Data.Bits                        (testBit)
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isDigit, toLower)
 import qualified Data.Conduit.Audio               as CA
-import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
@@ -27,6 +26,7 @@ import           Onyx.MIDI.Common                 (Difficulty (..), Key (..),
                                                    blipEdgesRB_)
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
+import           Onyx.MIDI.Track.Mania
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.Osu.Base
 import           Onyx.Project
@@ -68,13 +68,11 @@ importOsu separateSongs f = do
       Nothing -> return Nothing
       Just version -> case osu.general.mode of
         3 -> let
-          track = if maniaColumnCount osu <= 5
-            then Left  $ maniaToFiveKeys (F.s_tempos timingMid) osu
-            else Right $ maniaToProKeys  (F.s_tempos timingMid) osu
+          track = maniaToTrack (F.s_tempos timingMid) osu
           partName = if separateSongs
             then F.FlexKeys
             else F.FlexExtra version
-          in return $ Just (partName, track)
+          in return $ Just (partName, osu, track)
         _ -> return Nothing
 
     -- Note, we do not yet handle "Sample" commands in the events list.
@@ -131,15 +129,10 @@ importOsu separateSongs f = do
           ImportFull  -> timingMid
             { F.s_tracks = mempty
               { F.onyxParts = Map.fromList $ do
-                (partName, track) <- mania
-                return (partName, case track of
-                  Left five -> mempty
-                    { F.onyxPartKeys = five
-                    }
-                  Right pk -> mempty
-                    { F.onyxPartRealKeysX = pk
-                    }
-                  )
+                (partName, _, track) <- mania
+                return (partName, mempty
+                  { F.onyxPartMania = track
+                  })
               }
             }
           ImportQuick -> emptyChart
@@ -171,18 +164,13 @@ importOsu separateSongs f = do
         }
       , targets = HM.empty
       , parts = Parts $ HM.fromList $ do
-        (partName, track) <- mania
-        return $ (partName, case track of
-          Left _five -> emptyPart
-            { grybo = Just def
+        (partName, osu, _) <- mania
+        return $ (partName, emptyPart
+          { mania = Just PartMania
+            { keys = fromIntegral $ maniaColumnCount osu
+            , turntable = osu.general.specialStyle
             }
-          Right _pk -> emptyPart
-            { proKeys = Just PartProKeys
-              { difficulty  = Tier 1
-              , fixFreeform = True
-              }
-            }
-          )
+          })
       }
 
 maniaColumnCount :: OsuFile -> Integer
@@ -224,6 +212,17 @@ getManiaChart osu = let
           in return (xToColumn hit.x, endTime)
         else []
     return (msToSecs hit.time, note)
+
+maniaToTrack :: U.TempoMap -> OsuFile -> ManiaTrack U.Beats
+maniaToTrack tmap osu = let
+  mania = getManiaChart osu
+  in ManiaTrack
+    { maniaNotes = blipEdgesRB_ $ RTB.fromAbsoluteEventList $ ATB.fromPairList $
+      mania >>= \(secs, (column, endHold)) -> let
+        startBeats = U.unapplyTempoMap tmap secs
+        holdBeats = (\endSecs -> U.unapplyTempoMap tmap endSecs - startBeats) <$> endHold
+        in return (startBeats, (fromIntegral column, holdBeats))
+    }
 
 maniaToFiveKeys :: U.TempoMap -> OsuFile -> Five.FiveTrack U.Beats
 maniaToFiveKeys tmap osu = let
