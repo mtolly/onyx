@@ -109,6 +109,7 @@ showTextPakQBQS :: TextPakQB -> (BL.ByteString, BL.ByteString)
 showTextPakQBQS contents = let
   qbLists = do
     songlistID <- nubOrd $ map songArrayID $ textPakSongStructs contents
+    guard $ songlistID /= qbKeyCRC "gh4_2_songlist" && songlistID /= qbKeyCRC "gh4_3_songlist" -- We only want the metadata updates, not overwrite the setlists
     return $ QBSectionArray songlistID (textPakFileKey contents) $ QBArrayOfQbKey $ do
       struct <- textPakSongStructs contents
       guard $ songArrayID struct == songlistID
