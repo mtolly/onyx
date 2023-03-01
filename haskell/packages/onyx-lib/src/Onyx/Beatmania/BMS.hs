@@ -35,6 +35,7 @@ data BMS = BMS
   , bms_BGM         :: RTB.T U.Beats Chip
   , bms_BMP         :: HM.HashMap Chip FilePath
   , bms_BGA         :: RTB.T U.Beats Chip
+  , bms_LNOBJ       :: Maybe Chip
   } deriving (Show)
 
 data BMKey
@@ -85,6 +86,7 @@ readBMSLines lns = BMS
   , bms_BGM = getChannel "01"
   , bms_BMP = fmap T.unpack $ HM.fromList $ getReferences "BMP" lns
   , bms_BGA = getChannel "04"
+  , bms_LNOBJ = lookup "LNOBJ" lns
   } where
 
     objects :: Map.Map BarNumber (HM.HashMap Channel [T.Text])

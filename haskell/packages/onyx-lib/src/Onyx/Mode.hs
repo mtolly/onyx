@@ -30,6 +30,7 @@ import qualified Onyx.MIDI.Track.Drums.Full       as FD
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
+import           Onyx.MIDI.Track.Mania
 import           Onyx.MIDI.Track.ProGuitar        (getStringIndex,
                                                    tuningPitches)
 import           Onyx.MIDI.Track.ProKeys
@@ -86,6 +87,7 @@ anyFiveFret p
   = nativeFiveFret p
   -- <|> proGuitarToFiveFret p
   -- <|> proKeysToFiveFret p
+  <|> maniaToFiveFret p
   <|> fmap convertDrumsToFive (nativeDrums p)
 
 convertDrumsToFive :: BuildDrums -> BuildFive
@@ -410,4 +412,40 @@ proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
         $ chorded
     , other = mempty -- TODO overdrive, solos, etc.
     , source = "converted Pro Keys chart to five-fret"
+    }
+
+maniaToFiveFret :: Part f -> Maybe BuildFive
+maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
+  in FiveResult
+    { settings = def :: PartGRYBO
+    , notes = Map.singleton RB.Expert $ if pm.keys <= 5
+      then fmap (\(k, len) -> ((Just $ toEnum k, RB.Tap), len))
+        $ RB.edgeBlips_ RB.minSustainLengthRB
+        $ maniaNotes $ F.onyxPartMania input.part
+      else let
+        chorded
+          = RTB.toAbsoluteEventList 0
+          $ guitarify'
+          $ fmap (\((), key, len) -> (key, guard (len >= standardBlipThreshold) >> Just len))
+          $ RB.joinEdgesSimple $ maniaNotes $ F.onyxPartMania input.part
+        autoResult = autoChart 5 $ do
+          (bts, (notes, _len)) <- ATB.toPairList chorded
+          pitch <- simplifyChord notes
+          return (realToFrac bts, pitch)
+        autoMap = foldr (Map.unionWith (<>)) Map.empty $ map
+          (\(pos, fret) -> Map.singleton (realToFrac pos) [fret])
+          autoResult
+        in RTB.flatten
+          $ RTB.fromAbsoluteEventList
+          $ ATB.fromPairList
+          $ map (\(posn, (_, len)) -> let
+            notes = do
+              fret <- maybe [Just Five.Green] (map (Just . toEnum)) $ Map.lookup posn autoMap
+              return ((fret, RB.Tap), len)
+            in (posn, notes)
+            )
+          $ ATB.toPairList
+          $ chorded
+    , other = mempty
+    , source = "converted Mania chart to five-fret"
     }

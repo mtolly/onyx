@@ -32,6 +32,20 @@ import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeDirectory, takeExtension,
                                                    (<.>), (</>))
 
+processLongObj :: (NNC.C t) =>
+  Maybe Chip -> RTB.T t (BMKey, Chip) -> RTB.T t (BMKey, Chip, Maybe t)
+processLongObj Nothing      chips = (\(key, chip) -> (key, chip, Nothing)) <$> chips
+processLongObj (Just lnobj) chips = let
+  eachKey = flip map [minBound .. maxBound] $ \key -> let
+    go = \case
+      Wait t1 (_, c1) after1@(Wait t2 (_, c2) rest) -> if c2 == lnobj
+        then Wait t1 (key, c1, Just t2) $ RTB.delay t2 $ go rest
+        else Wait t1 (key, c1, Nothing) $ go after1
+      Wait t1 (_, c1) RNil -> Wait t1 (key, c1, Nothing) RNil
+      RNil -> RNil
+    in go $ RTB.filter ((== key) . fst) chips
+  in foldr RTB.merge RTB.empty eachKey
+
 joinLongNotes :: (NNC.C t) =>
   RTB.T t (BMKey, Chip, Bool) -> RTB.T t (BMKey, Chip, t)
 joinLongNotes
@@ -80,8 +94,8 @@ importBMS bmsPath level = do
           audios = [(name, AudioSamples poly)]
           track = Just $ F.SamplesTrack
             $ fmap (\chip -> F.SampleTrigger chip chip)
-            -- don't include sample if we didn't find its audio
-            $ RTB.filter (\chip -> HS.member chip foundChips) chips
+            -- don't include sample if we didn't find its audio, or if it's the long note end
+            $ RTB.filter (\chip -> HS.member chip foundChips && Just chip /= bms_LNOBJ bms) chips
           in (audios, track)
       (songAudios, songSampleTrack) = audioForChips "audio-bgm" $ bms_BGM bms
       (p1Audios, p1SampleTrack) = audioForChips "audio-p1" $ RTB.merge
@@ -110,8 +124,8 @@ importBMS bmsPath level = do
                     { maniaNotes = let
                       keyIndex :: BMKey -> Int
                       keyIndex = fromEnum
-                      short = flip fmap chips
-                        $ \(key, _) -> (keyIndex key, Nothing)
+                      short = flip fmap (processLongObj (bms_LNOBJ bms) chips)
+                        $ \(key, _, mlen) -> (keyIndex key, mlen)
                       long = flip fmap (joinLongNotes chipsLong)
                         $ \(key, _, len) -> (keyIndex key, Just len)
                       in blipEdgesRB_ $ RTB.merge short long

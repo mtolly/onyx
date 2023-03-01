@@ -19,7 +19,8 @@ import           Control.Applicative                  ((<|>))
 import           Control.Monad.Extra                  (filterM, forM, forM_,
                                                        guard, when)
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Resource         (MonadResource)
+import           Control.Monad.Trans.Resource         (MonadResource,
+                                                       runResourceT)
 import           Data.Bifunctor                       (bimap, first)
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Char8                as B8
@@ -29,13 +30,18 @@ import           Data.Char                            (isAlphaNum, isAscii,
                                                        isDigit, isUpper,
                                                        toLower)
 import qualified Data.Conduit.Audio                   as CA
+import           Data.Conduit.Audio.LAME              (sinkMP3WithHandle)
+import qualified Data.Conduit.Audio.LAME.Binding      as L
+import           Data.Conduit.Audio.SampleRate
 import           Data.Default.Class                   (def)
 import qualified Data.Digest.Pure.MD5                 as MD5
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
 import qualified Data.HashMap.Strict                  as HM
 import           Data.List.Extra                      (find, isPrefixOf,
-                                                       stripSuffix, unsnoc)
+                                                       stripPrefix, stripSuffix,
+                                                       unsnoc)
+import           Data.List.Split                      (chunksOf)
 import qualified Data.Map                             as Map
 import           Data.Maybe                           (catMaybes, fromMaybe,
                                                        listToMaybe, mapMaybe)
@@ -48,14 +54,18 @@ import           Onyx.Amplitude.PS2.TxtBin            (TxtBin (..), dtaToTxtBin,
                                                        txtBinToTracedDTA)
 import           Onyx.Audio                           (Audio (Input),
                                                        audioLength, audioMD5,
-                                                       makeFSB4, makeFSB4',
-                                                       makeXMAFSB3, runAudio)
-import           Onyx.Audio.FSB                       (parseXMA,
+                                                       buildSource', makeFSB4,
+                                                       makeFSB4', makeXMAFSB3,
+                                                       runAudio)
+import           Onyx.Audio.FSB                       (emitFSB,
+                                                       ghBandMP3sToFSB4,
+                                                       parseXMA,
                                                        splitFSBStreamsToDir,
                                                        writeXMA2, xma1To2)
 import           Onyx.Audio.VGS                       (readVGS)
 import           Onyx.Build                           (shakeBuildFiles)
-import           Onyx.Build.Neversoft                 (makeMetadataLIVE)
+import           Onyx.Build.Neversoft                 (makeMetadataLIVE,
+                                                       packageNameHashFormat)
 import           Onyx.Codec.Binary
 import           Onyx.Codec.JSON                      (loadYaml, toJSON,
                                                        yamlEncodeFile)
@@ -115,21 +125,25 @@ import           Onyx.Neversoft.QB                    (discardStrings, lookupQB,
 import           Onyx.Nintendo.GCM                    (loadGCM)
 import           Onyx.Nintendo.U8                     (packU8, readU8)
 import           Onyx.Nintendo.WAD                    (getWAD, hackSplitU8s)
+import           Onyx.PlayStation.NPData
 import           Onyx.PlayStation.PKG                 (PKG (..), loadPKG,
                                                        makePKG, tryDecryptEDATs)
 import qualified Onyx.PowerGig.Crypt                  as PG
 import           Onyx.Project
 import           Onyx.Reaper.Build                    (TuningInfo (..),
                                                        makeReaper)
+import           Onyx.Resources                       (getResourcesPath)
 import           Onyx.Rocksmith.PSARC                 (extractPSARC)
 import           Onyx.StackTrace
 import           Onyx.Util.Files                      (copyDirRecursive,
                                                        fixFileCase,
                                                        shortWindowsPath)
-import           Onyx.Util.Handle                     (byteStringSimpleHandle,
+import           Onyx.Util.Handle                     (Folder (..),
+                                                       byteStringSimpleHandle,
                                                        crawlFolder,
                                                        fileReadable, makeHandle,
-                                                       saveHandleFolder)
+                                                       saveHandleFolder,
+                                                       saveReadable)
 import           Onyx.Util.Text.Decode                (decodeGeneral)
 import           Onyx.Xbox.ISO                        (loadXboxISO)
 import           Onyx.Xbox.STFS
@@ -640,8 +654,9 @@ commands =
     { commandWord = "fsb"
     , commandDesc = "Encode a WAV file to an XMA-based FSB file. This command will be modified in the future to primarily support MP3-based FSB files."
     , commandUsage = T.unlines
-      [ "onyx fsb fmod in.wav --to out.fsb"
-      , "onyx fsb xdk  in.wav --to out.fsb"
+      [ "onyx fsb fmod    in.wav --to out.fsb"
+      , "onyx fsb xdk     in.wav --to out.fsb"
+      , "onyx fsb gh4-mp3 in1.wav [in2.wav ...] --to out.fsb # each input should be stereo"
       ]
     , commandRun = \args opts -> case args of
       ["fmod", fin] -> do
@@ -660,6 +675,24 @@ commands =
         makeXMAFSB3 (zipWith
           (\i stream -> (B8.pack $ show (i :: Int) <> ".xma", stream))
           [0..] streams) fout
+        return [fout]
+      "gh4-mp3" : streams -> do
+        fout <- outputFile opts $ fatal "Need --to"
+        tempDir "onyx-fsb" $ \tmp -> do
+          let tmpWav = tmp </> "temp.wav"
+          mp3s <- forM streams $ \fin -> case map toLower $ takeExtension tmp of
+            ".mp3" -> stackIO $ BL.fromStrict <$> B.readFile fin
+            ".wav" -> do
+              let setup lame = liftIO $ do
+                    L.check $ L.setBrate lame 128
+                    L.check $ L.setQuality lame 5
+                    L.check $ L.setOutSamplerate lame 48000
+              src <- buildSource' $ Input fin
+              let resampled = resampleTo 48000 SincMediumQuality src
+              stackIO $ runResourceT $ sinkMP3WithHandle tmpWav setup resampled
+              stackIO $ BL.fromStrict <$> B.readFile tmpWav
+            _ -> fatal $ "Expected mp3 or wav file extension for audio: " <> show fin
+          stackIO $ ghBandMP3sToFSB4 mp3s >>= BL.writeFile fout . emitFSB
         return [fout]
       _ -> fatal "Invalid format"
     }
@@ -693,19 +726,138 @@ commands =
     { commandWord = "pkg"
     , commandDesc = "Compile a folder's contents into a PS3 .pkg file."
     , commandUsage = T.unlines
-      [ "onyx pkg CONTENT_ID my_folder --to new.pkg"
+      [ "onyx pkg (content-id) my_folder --to new.pkg"
+      , "* content-id should be something like UP0006-BLUS30050_00-RBSTILLALCCF005D"
       ]
     , commandRun = \args opts -> case args of
-      [contentID, dir] -> stackIO (Dir.doesDirectoryExist dir) >>= \case
+      [argContentID, dir] -> stackIO (Dir.doesDirectoryExist dir) >>= \case
         True -> do
+          let contentID = B8.pack argContentID
           pkg <- outputFile opts
             $ (<.> "pkg") . dropTrailingPathSeparator
             <$> stackIO (Dir.makeAbsolute dir)
-          folder <- stackIO $ first TE.encodeUtf8 <$> crawlFolder dir
-          stackIO $ makePKG (B8.pack contentID) folder pkg
+          folderOrig <- stackIO $ crawlFolder dir
+          folderEDATs <- tempDir "onyx-pkg" $ \tmp -> let
+            tmpIn  = tmp </> "input"
+            tmpOut = tmp </> "output.edat"
+            modifyFolder folder = do
+              newFiles <- forM (folderFiles folder) $ \(name, r) ->
+                if ".PS3" `T.isSuffixOf` name
+                  then do
+                    let edatName = name <> ".EDAT"
+                    stackIO $ saveReadable r tmpIn
+                    tmpIn'  <- shortWindowsPath False tmpIn
+                    tmpOut' <- shortWindowsPath True  tmpOut
+                    stackIO $ packNPData NPDataConfig
+                      { npdContentID = contentID
+                      , npdKLIC      = ghworKLIC
+                      , npdRAP       = Nothing
+                      , npdVersion   = 2
+                      , npdLicense   = 3
+                      , npdType      = 0
+                      , npdBlock     = 16
+                      , npdEDAT      = True
+                      } tmpIn' tmpOut' (TE.encodeUtf8 edatName)
+                    edat <- stackIO $ BL.fromStrict <$> B.readFile tmpOut
+                    return (edatName, makeHandle "(new edat)" $ byteStringSimpleHandle edat)
+                  else return (name, r)
+              newFolders <- forM (folderSubfolders folder) $ \(name, sub) -> do
+                sub' <- modifyFolder sub
+                return (name, sub')
+              return Folder { folderFiles = newFiles, folderSubfolders = newFolders }
+            in modifyFolder folderOrig
+          stackIO $ makePKG contentID (first TE.encodeUtf8 folderEDATs) pkg
           return [pkg]
         False -> fatal $ "onyx pkg expected directory; given: " <> dir
-      _ -> fatal $ "onyx pkg expected 2 argument, given " <> show (length args)
+      _ -> fatal $ "onyx pkg expected 2 arguments, given " <> show (length args)
+    }
+
+  , Command
+    { commandWord = "edat"
+    , commandDesc = "Encrypt a file into a PS3 .edat file."
+    , commandUsage = T.unlines
+      [ "onyx edat (content-id) (klic) file-in [--to file-out.edat]"
+      , "* content-id should be like: UP0002-BLUS30487_00-MYPACKAGELABEL"
+      , "* klic should be a 16-byte hex string (32 chars) like: d7f3f90a1f012d844ca557e08ee42391"
+      , "  * or, it can be `neversoft` to use the common NS GH klic"
+      , "  * or, it can be `rb-FOLDERNAME` to use the RB klic for the given folder name"
+      , "* the output filename affects encryption, so it should be named as it will be on the console"
+      ]
+    , commandRun = \args opts -> case args of
+      [argContentID, argKlic, fin] -> do
+        let contentID = TE.encodeUtf8 $ T.pack argContentID
+        klic <- case argKlic of
+          "neversoft" -> return ghworKLIC
+          _ -> case stripPrefix "rb-" argKlic of
+            Just folder -> return $ rockBandKLIC $ TE.encodeUtf8 $ T.pack folder
+            Nothing -> let
+              lookupHex c = lookup (toLower c) $ zip "0123456789abcdef" [0..]
+              hexes = mapMaybe lookupHex argKlic
+              in case length hexes of
+                32 -> return $ B.pack $ map (sum . zipWith (*) [16, 1]) $ chunksOf 2 hexes
+                n  -> fatal $ "Expected KLIC to have 32 hex digits, but it has " <> show n
+        fout <- outputFile opts $ return $ fin <.> "edat"
+        fin' <- shortWindowsPath False fin
+        fout' <- shortWindowsPath True fout
+        stackIO $ packNPData NPDataConfig
+          { npdContentID = contentID
+          , npdKLIC      = klic
+          , npdRAP       = Nothing
+          , npdVersion   = 2
+          , npdLicense   = 3
+          , npdType      = 0
+          , npdBlock     = 16
+          , npdEDAT      = True
+          } fin' fout' (TE.encodeUtf8 $ T.pack $ takeFileName fout)
+        return [fout]
+      _ -> fatal $ "onyx edat expected 3 arguments, given " <> show (length args)
+    }
+
+  , Command
+    { commandWord = "port-gh-ps3"
+    , commandDesc = "Extract a Neversoft GH Xbox 360 STFS file, and get the contents ready to repackage for PS3."
+    , commandUsage = T.unlines
+      [ "1. onyx port-gh-ps3 (live-file) [--to dir]"
+      , "2. for any .REPLACEME audio files, replace with a valid .FSB.PS3"
+      , "  - can use `onyx encrypt-gh-fsb ghwt WHATEVER.FSB` if you need to GH-encrypt"
+      , "3. pick a content ID like UP0002-BLUS30487_00-MYPACKAGELABEL"
+      , "4. onyx pkg (CONTENT-ID) dir [--to out.pkg]"
+      ]
+    , commandRun = \args opts -> case args of
+      [stfs] -> do
+        out <- outputFile opts $ return $ stfs <> "_ps3"
+        displayName <- stackIO $ withSTFSPackage stfs $ return . head . md_DisplayName . stfsMetadata
+        let displayName' = TE.decodeLatin1 $ packageNameHashFormat True displayName
+        contents <- stackIO $ getSTFSFolder stfs
+        contents' <- let
+          modifyFolder folder = do
+            newFiles <- forM (folderFiles folder) $ \(name, r) -> let
+              upper = T.toUpper name
+              in case T.stripSuffix ".FSB.XEN" upper of
+                Just audioName -> return
+                  ( audioName <> ".FSB.PS3.REPLACEME"
+                  , makeHandle "(empty file)" $ byteStringSimpleHandle BL.empty
+                  )
+                Nothing -> case T.stripSuffix ".XEN" upper of
+                  Just baseName -> return (baseName <> ".PS3", r)
+                  Nothing       -> return (name, r) -- shouldn't happen
+            newFolders <- forM (folderSubfolders folder) $ \(name, sub) -> do
+              sub' <- modifyFolder sub
+              return (name, sub')
+            return Folder { folderFiles = newFiles, folderSubfolders = newFolders }
+          in modifyFolder contents
+        additions <- stackIO $ getResourcesPath "pkg-contents/ghwor" >>= crawlFolder
+        let pkgContents = additions <> Folder
+              { folderSubfolders = [("USRDIR", Folder
+                { folderSubfolders = [(displayName', contents')]
+                , folderFiles = []
+                })]
+              , folderFiles = []
+              }
+        stackIO $ saveHandleFolder pkgContents out
+        return [out]
+      _ -> fatal $ "onyx port-gh-ps3 expected 1 argument, given " <> show (length args)
+
     }
 
   , Command
@@ -902,7 +1054,6 @@ commands =
       ]
     , commandRun = \files opts -> forM files $ \f -> identifyFile' f >>= \case
       (FileFSBEncrypted, fin) -> do
-        -- GH encrypted
         dec <- stackIO (decryptFSB fin) >>= maybe (fatal "Couldn't decrypt GH .fsb.(xen/ps3) audio") return
         out <- outputFile opts $ return $ case stripSuffix ".fsb.xen" fin <|> stripSuffix ".fsb.ps3" fin <|> stripSuffix ".FSB.PS3" fin of
           Just root -> root <.> "fsb"

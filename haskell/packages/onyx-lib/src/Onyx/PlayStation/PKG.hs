@@ -291,6 +291,15 @@ rockBandIDs =
   , "BLUS30327" -- Classic Rock Track Pack
   ]
 
+-- Games that use the common Neversoft KLIC
+neversoftIDs :: [B.ByteString]
+neversoftIDs =
+  [ "BLUS30487", "BLES00801" -- GHWoR
+  , "BLUS30292", "BLES00576" -- GH5
+  , "BLUS30164", "BLES00299" -- GHWT
+  , "BLUS30074", "BLES00134" -- GH3
+  ]
+
 tryDecryptEDAT
   :: (MonadIO m, SendMessage m)
   => B.ByteString
@@ -308,23 +317,16 @@ tryDecryptEDAT dir name readable = do
           licenseType = BL.take 4 $ BL.drop 8 edat
           gameID = B.take 9 $ B.drop 7 contentID
       mklic <- case gameID of
-        "BLUS30487" -> do
-          lg "Decrypting GH:WoR EDAT file"
-          return $ Just ghworKLIC
-        "BLUS30074" -> do
-          lg "Decrypting GH3 EDAT file"
-          return $ Just ghworKLIC
-        "BLES00134" -> do
-          lg "Decrypting GH3 EDAT file"
-          return $ Just ghworKLIC
         "BLUS30670" -> do
           lg "Decrypting Rocksmith 2014 EDAT file"
           return $ Just rs2014KLIC
-        _ -> if elem gameID rockBandIDs
-          then do
+        _ | elem gameID neversoftIDs -> do
+            lg "Decrypting Neversoft GH EDAT file"
+            return $ Just ghworKLIC
+          | elem gameID rockBandIDs -> do
             lg "Decrypting Rock Band EDAT file"
             return $ Just $ rockBandKLIC dir
-          else do
+          | otherwise -> do
             warn $ "Unknown KLIC for game ID " <> show gameID
             return Nothing
       case mklic of
