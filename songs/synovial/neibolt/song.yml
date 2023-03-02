@@ -3,7 +3,7 @@ global:
 metadata:
   album: Metronome
   artist: Synovial
-  author: Xane60
+  author: Xane60, SoundHaven, HopH2O
   difficulty:
     tier: 1
   expert-only: true
@@ -18,7 +18,8 @@ metadata:
   track-number: 1
   year: 2022
 parts:
-  bass: {}
+  bass:
+    grybo: {} # hop
   drums:
     drums:
       difficulty:

@@ -16,8 +16,8 @@ module Onyx.CommandLine
 
 import           Codec.Picture                        (writePng)
 import           Control.Applicative                  ((<|>))
-import           Control.Monad.Extra                  (filterM, forM, forM_,
-                                                       guard, when)
+import           Control.Monad.Extra                  (concatMapM, filterM,
+                                                       forM, forM_, guard, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource         (MonadResource,
                                                        runResourceT)
@@ -65,7 +65,9 @@ import           Onyx.Audio.FSB                       (emitFSB,
 import           Onyx.Audio.VGS                       (readVGS)
 import           Onyx.Build                           (shakeBuildFiles)
 import           Onyx.Build.Neversoft                 (makeMetadataLIVE,
-                                                       packageNameHashFormat)
+                                                       packageNameHashFormat,
+                                                       worFilePS3EmptyVRAMPak,
+                                                       worFilePS3SongVRAMPak)
 import           Onyx.Codec.Binary
 import           Onyx.Codec.JSON                      (loadYaml, toJSON,
                                                        yamlEncodeFile)
@@ -831,16 +833,32 @@ commands =
         contents <- stackIO $ getSTFSFolder stfs
         contents' <- let
           modifyFolder folder = do
-            newFiles <- forM (folderFiles folder) $ \(name, r) -> let
+            newFiles <- flip concatMapM (folderFiles folder) $ \(name, r) -> let
               upper = T.toUpper name
               in case T.stripSuffix ".FSB.XEN" upper of
-                Just audioName -> return
+                Just audioName -> return $ return
                   ( audioName <> ".FSB.PS3.REPLACEME"
                   , makeHandle "(empty file)" $ byteStringSimpleHandle BL.empty
                   )
                 Nothing -> case T.stripSuffix ".XEN" upper of
-                  Just baseName -> return (baseName <> ".PS3", r)
-                  Nothing       -> return (name, r) -- shouldn't happen
+                  Just baseName -> case T.stripSuffix ".PAK" baseName of
+                    Just pakName -> case T.stripPrefix "B" pakName of
+                      Just dlcN_song -> let
+                        dlcID = qbKeyCRC $ TE.encodeUtf8 $ T.takeWhile (/= '_') dlcN_song
+                        in return
+                          [ (baseName <> ".PS3", r)
+                          , ( pakName <> "_VRAM.PAK.PS3"
+                            , makeHandle "(vram pak)" $ byteStringSimpleHandle $ worFilePS3SongVRAMPak dlcID
+                            )
+                          ]
+                      Nothing -> return
+                        [ (baseName <> ".PS3", r)
+                        , ( pakName <> "_VRAM.PAK.PS3"
+                          , makeHandle "(vram pak)" $ byteStringSimpleHandle worFilePS3EmptyVRAMPak
+                          )
+                        ]
+                    Nothing -> return [(baseName <> ".PS3", r)]
+                  Nothing       -> return [(name, r)] -- shouldn't happen
             newFolders <- forM (folderSubfolders folder) $ \(name, sub) -> do
               sub' <- modifyFolder sub
               return (name, sub')
