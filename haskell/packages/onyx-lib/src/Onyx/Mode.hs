@@ -1,8 +1,10 @@
 -- Extracting and converting parts between different gameplay modes
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE StrictData            #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Mode where
@@ -17,12 +19,16 @@ import           Data.Foldable                    (find)
 import           Data.Functor                     (void)
 import           Data.List.Extra                  (nubOrd, sort)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, listToMaybe)
+import           Data.Maybe                       (fromMaybe, isJust,
+                                                   listToMaybe)
 import qualified Data.Text                        as T
+import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.AutoChart                   (autoChart)
 import           Onyx.Drums.OneFoot               (phaseShiftKicks, rockBand1x,
                                                    rockBand2x)
 import           Onyx.Guitar
+import           Onyx.MIDI.Common                 (StrumHOPOTap (..),
+                                                   pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Common                 as RB
 import           Onyx.MIDI.Read                   (mapTrack)
 import qualified Onyx.MIDI.Track.Drums            as D
@@ -31,7 +37,8 @@ import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.Mania
-import           Onyx.MIDI.Track.ProGuitar        (getStringIndex,
+import           Onyx.MIDI.Track.ProGuitar        (GtrFret, GtrString,
+                                                   getStringIndex,
                                                    tuningPitches)
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.MIDI.Track.Rocksmith
@@ -48,7 +55,7 @@ data ModeInput = ModeInput
 
 data FiveResult = FiveResult
   { settings :: PartGRYBO
-  , notes    :: Map.Map RB.Difficulty (RTB.T U.Beats ((Maybe Five.Color, RB.StrumHOPOTap), Maybe U.Beats))
+  , notes    :: Map.Map RB.Difficulty (RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats))
   , other    :: Five.FiveTrack U.Beats
   , source   :: T.Text
   }
@@ -85,8 +92,8 @@ nativeFiveFret part = flip fmap part.grybo $ \grybo ftype input -> let
 anyFiveFret :: Part f -> Maybe BuildFive
 anyFiveFret p
   = nativeFiveFret p
-  -- <|> proGuitarToFiveFret p
-  -- <|> proKeysToFiveFret p
+  <|> proGuitarToFiveFret p
+  <|> proKeysToFiveFret p
   <|> maniaToFiveFret p
   <|> fmap convertDrumsToFive (nativeDrums p)
 
@@ -331,6 +338,79 @@ simplifyChord pitches = case pitches of
       else take 3 sorted -- otherwise max 3-note
       -- maybe have a smarter way of thinning? (preserve unique keys)
 
+-- Turn RS linked sustains into RB style (link child either merged into first
+-- note if same fret, or marked as HOPO if different fret)
+applyLinks :: (NNC.C t) => RTB.T t (RB.Edge (GtrFret, [RSModifier]) GtrString) -> RTB.T t (RB.Edge (GtrFret, [RSModifier]) GtrString)
+applyLinks = \case
+  Wait t edge rest -> case edge of
+    RB.EdgeOff _ -> Wait t edge $ applyLinks rest
+    RB.EdgeOn (fret, mods) str -> if elem ModLink mods
+      then let
+        findThisOff = \case
+          RB.EdgeOff str' -> guard (str == str') >> Just ()
+          _               -> Nothing
+        findNextOn = \case
+          RB.EdgeOn fretMods str' -> guard (str == str') >> Just fretMods
+          _                       -> Nothing
+        in case U.extractFirst findThisOff rest of
+          Nothing -> Wait t edge $ applyLinks rest
+          Just ((thisLength, ()), rest') -> case U.extractFirst findNextOn rest' of
+            Nothing -> Wait t edge $ applyLinks rest
+            Just ((beforeNextOn, (nextFret, nextMods)), rest'') -> if fret == nextFret
+              -- if linking to same fret, join the two notes together, and move slide/link mods from 2nd note to 1st
+              then let
+                mods' = filter (/= ModLink) mods <> let
+                  moveBack = \case
+                    ModSlide        _ -> True
+                    ModSlideUnpitch _ -> True
+                    ModLink           -> True
+                    _                 -> False
+                  in filter moveBack nextMods
+                in applyLinks $ Wait t (RB.EdgeOn (fret, mods') str) rest''
+              -- if linking to a different fret, don't remove any notes, but mark 2nd note as "HOPO"
+              else Wait t edge
+                $ applyLinks
+                $ RTB.insert thisLength (RB.EdgeOff str)
+                $ RTB.insert beforeNextOn (RB.EdgeOn (nextFret, ModHammerOn : nextMods) str)
+                $ rest''
+      else Wait t edge $ applyLinks rest
+  RNil -> RNil
+
+-- For more GHRB-like style, turns some strums into hopos, and some hopos into taps
+adjustRocksmithHST
+  :: U.TempoMap
+  -> RTB.T U.Beats [((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)]
+  -> RTB.T U.Beats [((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)]
+adjustRocksmithHST tempos = let
+  timeLong, timeShort :: U.Seconds
+  timeLong  = 0.5
+  timeShort = 0.13 -- may want to adjust this, could be too high for some situations
+  go = \case
+    -- tap, hopo: hopo should become tap
+    Wait t1 chord1@(((_, Tap), _) : _) (Wait t2 chord2@(((_, HOPO), _) : _) rest)
+      ->  Wait t1 chord1
+        $ go
+        $ Wait t2 [ ((color, Tap), len) | ((color, _), len) <- chord2 ] rest
+    -- long gap, hopo, tap: hopo should become tap
+    -- TODO support more than 1 hopo before tap
+    Wait t1 chord1@(((_, HOPO), _) : _) rest@(Wait _ (((_, Tap), _) : _) _)
+      | t1 >= timeLong
+      ->  Wait t1 [ ((color, Tap), len) | ((color, _), len) <- chord1 ]
+        $ go rest
+    -- strum/hopo, short gap, strum: second note should become hopo under certain conditions
+    Wait t1 note1@[((color1, sht1), _)] (Wait t2 [((color2, Strum), len2)] rest)
+      |    t2 <= timeShort -- short gap between notes
+        && color1 /= color2 -- different single gems
+        && sht1 /= Tap -- first note is strum or hopo
+        && isJust color2 -- second note isn't an open note (was fret-hand-mute in RS)
+      ->  Wait t1 note1
+        $ go
+        $ Wait t2 [((color2, HOPO), len2)] rest
+    -- otherwise nothing to change
+    Wait t x rest -> Wait t x $ go rest
+    RNil -> RNil
+  in U.unapplyTempoTrack tempos . go . U.applyTempoTrack tempos
+
 proGuitarToFiveFret :: Part f -> Maybe BuildFive
 proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
   in FiveResult
@@ -338,15 +418,13 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
       { difficulty = ppg.difficulty
       }
     , notes = let
-      -- TODO extend notes out during handshape sections
-      -- TODO compute rs modifiers in advance, use them to
-      -- * assign strum/hopo/tap
-      -- * use opens for fret hand mutes
-      -- * join linked notes together if same fret, or mark link child as hopo if different fret
+      -- TODO
+      -- * extend notes out during handshape sections
+      -- * turn tremolo sustains into stream of strummed notes on regular rhythm
       -- * maybe split bent notes into multiple
       chosenTrack = fromMaybe RTB.empty $ listToMaybe $ filter (not . RTB.null)
-        [ rsNotes $ F.onyxPartRSGuitar input.part
-        , rsNotes $ F.onyxPartRSBass input.part
+        [ applyLinks $ getNotesWithModifiers $ F.onyxPartRSGuitar input.part
+        , applyLinks $ getNotesWithModifiers $ F.onyxPartRSBass input.part
         -- TODO support RB protar tracks
         ]
       strings = tuningPitches ppg.tuning
@@ -354,23 +432,33 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
       chorded
         = RTB.toAbsoluteEventList 0
         $ guitarify'
-        $ fmap (\(fret, str, len) -> ((fret, str), guard (len >= standardBlipThreshold) >> Just len))
+        $ fmap (\((fret, mods), str, len) -> (((fret, str), mods), guard (len >= standardBlipThreshold) >> Just len))
         $ RB.joinEdgesSimple chosenTrack
       autoResult = autoChart 5 $ do
         (bts, (notes, _len)) <- ATB.toPairList chorded
-        pitch <- simplifyChord $ nubOrd $ map toPitch notes
+        pitch <- simplifyChord $ nubOrd
+          -- Don't give fret-hand-mute notes to the autochart,
+          -- then below they will automatically become open notes
+          [ toPitch fretStr | (fretStr, mods) <- notes, notElem ModMute mods ]
         return (realToFrac bts, pitch)
       autoMap = foldr (Map.unionWith (<>)) Map.empty $ map
         (\(pos, fret) -> Map.singleton (realToFrac pos) [fret])
         autoResult
       in Map.singleton RB.Expert
         $ RTB.flatten
+        $ adjustRocksmithHST input.tempo
         $ RTB.fromAbsoluteEventList
         $ ATB.fromPairList
-        $ map (\(posn, (_, len)) -> let
+        $ map (\(posn, (chord, len)) -> let
+          allMods = chord >>= snd
+          hst = if elem ModHammerOn allMods || elem ModPullOff allMods
+            then HOPO
+            else if elem ModTap allMods
+              then Tap
+              else Strum
           notes = do
             fret <- maybe [Nothing] (map (Just . toEnum)) $ Map.lookup posn autoMap
-            return ((fret, RB.Strum), len)
+            return ((fret, hst), len)
           in (posn, notes)
           )
         $ ATB.toPairList
@@ -405,7 +493,7 @@ proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
         $ map (\(posn, (_, len)) -> let
           notes = do
             fret <- maybe [Just Five.Green] (map (Just . toEnum)) $ Map.lookup posn autoMap
-            return ((fret, RB.Tap), len)
+            return ((fret, Tap), len)
           in (posn, notes)
           )
         $ ATB.toPairList
@@ -419,7 +507,7 @@ maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
   in FiveResult
     { settings = def :: PartGRYBO
     , notes = Map.singleton RB.Expert $ if pm.keys <= 5
-      then fmap (\(k, len) -> ((Just $ toEnum k, RB.Tap), len))
+      then fmap (\(k, len) -> ((Just $ toEnum k, Tap), len))
         $ RB.edgeBlips_ RB.minSustainLengthRB
         $ maniaNotes $ F.onyxPartMania input.part
       else let
@@ -441,7 +529,7 @@ maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
           $ map (\(posn, (_, len)) -> let
             notes = do
               fret <- maybe [Just Five.Green] (map (Just . toEnum)) $ Map.lookup posn autoMap
-              return ((fret, RB.Tap), len)
+              return ((fret, Tap), len)
             in (posn, notes)
             )
           $ ATB.toPairList

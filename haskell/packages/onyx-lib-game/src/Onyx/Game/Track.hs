@@ -1,8 +1,9 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
 module Onyx.Game.Track where
 
 import           Control.Applicative              ((<|>))
@@ -37,6 +38,7 @@ import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.Mania
 import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import           Onyx.MIDI.Track.Rocksmith
+import           Onyx.Mode
 import           Onyx.Project
 import qualified Onyx.Reaper.Extract              as RPP
 import qualified Onyx.Reaper.Parse                as RPP
@@ -227,25 +229,14 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           `PNF.zipStateMaps` toggle (FD.fdSolo thisSrc)
           `PNF.zipStateMaps` fmap Just beats
 
-  fiveTrack fpart pgrybo diff = let
-    -- TODO support multiple tracks (show both opens and no-opens versions, including auto no-opens conversion)
-    (src, isKeys) = case Map.lookup fpart $ F.onyxParts $ F.s_tracks song of
-      Nothing -> (mempty, False)
-      Just part
-        | not $ Five.nullFive $ F.onyxPartGuitarExt part -> (F.onyxPartGuitarExt part, False)
-        | not $ Five.nullFive $ F.onyxPartKeys      part -> (F.onyxPartKeys      part, True )
-        | otherwise                                        -> (F.onyxPartGuitar    part, False)
-    thisDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties src
-    withOpens = computeFiveFretNotes thisDiff
-    ons = fmap fst withOpens
+  fiveTrack diff result = let
+    thisDiff = fromMaybe mempty $ Map.lookup diff result.notes
+    ons = fmap (fst . fst) thisDiff
     assigned :: RTB.T U.Beats (LongNote Bool (Maybe Five.Color, StrumHOPOTap))
-    assigned
-      = splitEdges
+    assigned = splitEdges
       $ fmap (\(a, (b, c)) -> (a, b, c))
-      $ applyStatus1 False (RTB.normalize $ Five.fiveOverdrive src)
-      $ applyForces (getForces5 thisDiff)
-      $ strumHOPOTap (if isKeys then HOPOsRBKeys else HOPOsRBGuitar) hopoThreshold
-      $ withOpens
+      $ applyStatus1 False (RTB.normalize $ Five.fiveOverdrive result.other)
+      $ thisDiff
     assignedMap :: Map.Map Double (Map.Map (Maybe Five.Color) (PNF.PNF PNF.IsOverdrive StrumHOPOTap))
     assignedMap
       = rtbToMap
@@ -275,18 +266,17 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           ) color
       this = foldr applyEdge (PNF.after prev) edges
       in Wait dt this $ buildFiveStatus this rest
-    hopoThreshold = fromIntegral pgrybo.hopoThreshold / 480 :: U.Beats
     fiveStates = (\((a, b), c) -> PNF.GuitarState a b c) <$> do
       assignedMap
-        `PNF.zipStateMaps` (makeLanes (Nothing : map Just each) $ findTremolos ons $ laneDifficulty diff $ Five.fiveTremolo src)
-        `PNF.zipStateMaps` (makeLanes (Nothing : map Just each) $ findTrills   ons $ laneDifficulty diff $ Five.fiveTrill   src)
+        `PNF.zipStateMaps` (makeLanes (Nothing : map Just each) $ findTremolos ons $ laneDifficulty diff $ Five.fiveTremolo result.other)
+        `PNF.zipStateMaps` (makeLanes (Nothing : map Just each) $ findTrills   ons $ laneDifficulty diff $ Five.fiveTrill   result.other)
     in do
-      guard $ not $ RTB.null $ Five.fiveGems thisDiff
+      guard $ not $ RTB.null thisDiff
       Just $ (\((((a, b), c), d), e) -> PNF.CommonState a b c d e) <$> do
         fiveStates
-          `PNF.zipStateMaps` toggle (Five.fiveOverdrive src)
-          `PNF.zipStateMaps` toggle (Five.fiveBRE src)
-          `PNF.zipStateMaps` toggle (Five.fiveSolo src)
+          `PNF.zipStateMaps` toggle (Five.fiveOverdrive result.other)
+          `PNF.zipStateMaps` toggle (Five.fiveBRE result.other)
+          `PNF.zipStateMaps` toggle (Five.fiveSolo result.other)
           `PNF.zipStateMaps` fmap Just beats
 
   pgRocksmith rso = let
@@ -446,17 +436,25 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       $ makeBeats True source
 
   tracks = fmap (filter $ not . null) $ forM (sortOn fst $ HM.toList parts.getParts) $ \(fpart, part) -> let
-    five = case part.grybo of
-      Nothing     -> []
-      Just pgrybo -> let
-        name = case fpart of
+    five = case nativeFiveFret part <|> proGuitarToFiveFret part <|> proKeysToFiveFret part of
+      Nothing -> []
+      Just buildFive -> let
+        result = buildFive FiveTypeGuitarExt ModeInput
+          { tempo = tempos
+          , events = F.onyxEvents $ F.s_tracks song
+          , part = fromMaybe mempty $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
+          }
+        name = (case fpart of
           F.FlexGuitar              -> "Guitar"
           F.FlexBass                -> "Bass"
           F.FlexKeys                -> "Keys"
           F.FlexExtra "rhythm"      -> "Rhythm"
           F.FlexExtra "guitar-coop" -> "Guitar Coop"
           _                         -> T.pack $ show fpart <> " [5]"
-        in diffPairs >>= \(diff, letter) -> case fiveTrack fpart pgrybo diff of
+          ) <> case nativeFiveFret part of
+            Just _  -> ""
+            Nothing -> " (Autochart)"
+        in diffPairs >>= \(diff, letter) -> case fiveTrack diff result of
           Nothing  -> []
           Just trk -> [(name <> " (" <> letter <> ")", PreviewFive trk)]
     drums = case part.drums of

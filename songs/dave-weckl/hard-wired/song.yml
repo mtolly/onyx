@@ -1,14 +1,13 @@
 metadata:
-  title: Beelzebub
-  artist: Bruford
+  title: Hard-Wired
+  artist: Dave Weckl
   genre: fusion
   subgenre: fusion
-  year: 1978
+  year: 1994
   author: Onyxite
 audio:
   album-track:
-    md5: a9b142627b1a98f33243df4b18e74eb0
-    frames: 8996400
+    file-path: audio-.mp3
   stems:
     file-path: audio-stems.wav
     commands:
@@ -21,23 +20,21 @@ audio:
 plans:
   album:
     song:
-      expr:
-        mix:
-        - countin
-        - pad: [2.318, album-track]
-      pans: [1, -1]
+      mix:
+      - countin
+      - pad: [3.210, album-track]
   dev:
     song:
-      pad: [2.318, album-track]
+      pad: [3.210, album-track]
     parts:
       bass:
-        pad: [2.318, channels: [[0, 1], stems]]
+        pad: [3.210, channels: [[0, 1], stems]]
       drums:
-        pad: [2.318, channels: [[2, 3], stems]]
+        pad: [3.210, channels: [[2, 3], stems]]
       vocal:
-        pad: [2.318, channels: [[4, 5], stems]]
+        pad: [3.210, channels: [[4, 5], stems]]
       other:
-        pad: [2.318, channels: [[6, 7], stems]]
+        pad: [3.210, channels: [[6, 7], stems]]
 parts:
   drums:
     drums:

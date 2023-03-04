@@ -21,6 +21,7 @@ module Onyx.MIDI.Track.Rocksmith
 , backportAnchors
 , convertRStoPG
 , nullRS
+, getNotesWithModifiers
 ) where
 
 import           Control.Applicative              (liftA2, (<|>))
@@ -527,6 +528,18 @@ fillUnnamedPhrases ps = let
   go (Wait t "" rest) (new : news) = Wait t new $ go rest news
   go (Wait t p  rest) news         = Wait t p   $ go rest news
   in go ps canAdd
+
+-- TODO actually use this in buildRS
+getNotesWithModifiers :: (NNC.C t) => RocksmithTrack t -> RTB.T t (Edge (GtrFret, [RSModifier]) GtrString)
+getNotesWithModifiers trk = let
+  merged = RTB.collectCoincident $ RTB.merge (Left <$> rsModifiers trk) (Right <$> rsNotes trk)
+  in RTB.flatten $ flip fmap merged $ \instant -> let
+    modsNow = [ x | Left x <- instant ]
+    modsForString str = concat [ mods | (strs, mods) <- modsNow, null strs || elem str strs ]
+    edgesNow = [ x | Right x <- instant ]
+    in flip map edgesNow $ \case
+      EdgeOn fret str -> EdgeOn (fret, modsForString str) str
+      EdgeOff     str -> EdgeOff str
 
 buildRS :: (SendMessage m) => U.TempoMap -> Int -> RocksmithTrack U.Beats -> StackTraceT m RSOutput
 buildRS tmap capo trk = do
