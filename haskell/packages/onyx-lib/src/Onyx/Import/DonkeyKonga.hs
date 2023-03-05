@@ -402,7 +402,7 @@ convertDKDrums dk = let
 -- Returns (high bongo, low bongo, clap)
 loadBongoSounds :: IO ([(T.Text, FilePath)], [(T.Text, FilePath)], [(T.Text, FilePath)])
 loadBongoSounds = do
-  dir <- getResourcesPath "bongos"
+  dir <- getResourcesPath "sfx"
   let list category = do
         let path = dir </> category
         ents <- filter (\x -> take 1 x /= ".") <$> listDirectory path

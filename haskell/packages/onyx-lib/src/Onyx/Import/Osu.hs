@@ -1,6 +1,9 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Osu where
 
 import           Control.Monad                    (forM, guard, when)
@@ -15,26 +18,29 @@ import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, mapMaybe)
+import           Data.Maybe                       (catMaybes, fromMaybe,
+                                                   mapMaybe)
+import           Data.Scientific                  (Scientific)
 import qualified Data.Text                        as T
 import qualified Data.Vector                      as V
 import           Onyx.Audio
-import           Onyx.Guitar                      (emit5')
 import           Onyx.Import.Base
-import           Onyx.MIDI.Common                 (Difficulty (..), Key (..),
-                                                   StrumHOPOTap (..),
-                                                   blipEdgesRB_)
+import           Onyx.MIDI.Common                 (Difficulty (..),
+                                                   LaneDifficulty (..),
+                                                   blipEdgesRB_, pattern RNil,
+                                                   pattern Wait)
+import           Onyx.MIDI.Read                   (mapTrack)
+import           Onyx.MIDI.Track.Drums
 import qualified Onyx.MIDI.Track.File             as F
-import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.Mania
-import           Onyx.MIDI.Track.ProKeys
 import           Onyx.Osu.Base
 import           Onyx.Project
+import           Onyx.Resources                   (getResourcesPath)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
 import           Onyx.Util.Text.Decode            (decodeGeneral)
 import qualified Sound.MIDI.Util                  as U
-import           System.FilePath                  (takeExtension, (<.>))
+import           System.FilePath                  (takeExtension, (<.>), (</>))
 import           Text.Read                        (readMaybe)
 
 importOsu :: (SendMessage m, MonadIO m) => Bool -> FilePath -> StackTraceT m [Import m]
@@ -50,8 +56,8 @@ importOsu separateSongs f = do
           splitOsuFile txt >>= readOsu . snd
         _ -> return Nothing
 
-  -- currently only loading Mania charts
-  let filteredOsus = filter (\osu -> osu.general.mode == 3) loadedOsus
+  -- currently only loading Mania and Taiko charts
+  let filteredOsus = filter (\osu -> elem osu.general.mode [1, 3]) loadedOsus
   when (null filteredOsus) $ warn "No importable .osu files found in .osz"
   osuSets <- if separateSongs
     then return $ map (\x -> (x, [x])) filteredOsus
@@ -64,15 +70,21 @@ importOsu separateSongs f = do
 
     let timingMid = getOsuTiming primary
 
-    mania <- fmap catMaybes $ forM osus $ \osu -> case osu.metadata.version of
+    convertedTracks <- fmap catMaybes $ forM osus $ \osu -> case osu.metadata.version of
       Nothing -> return Nothing
       Just version -> case osu.general.mode of
+        1 -> let
+          track = taikoToTrack (F.s_tempos timingMid) osu
+          partName = if separateSongs
+            then F.FlexDrums
+            else F.FlexExtra version
+          in return $ Just (partName, osu, Left track)
         3 -> let
           track = maniaToTrack (F.s_tempos timingMid) osu
           partName = if separateSongs
             then F.FlexKeys
             else F.FlexExtra version
-          in return $ Just (partName, osu, track)
+          in return $ Just (partName, osu, Right track)
         _ -> return Nothing
 
     -- Note, we do not yet handle "Sample" commands in the events list.
@@ -87,7 +99,44 @@ importOsu separateSongs f = do
           Nothing    -> fatal $ "Couldn't find audio file: " <> T.unpack primary.general.audioFilename
           Just getBS -> BL.fromStrict <$> stackIO getBS
         let audioName = "audio" <.> takeExtension (T.unpack primary.general.audioFilename)
-        return $ Just (audioBytes, audioName)
+        return $ Just ("osu-audio-file", audioName, makeHandle audioName $ byteStringSimpleHandle audioBytes)
+
+    let keyClap    = "hit-clap"
+        keyFinish  = "hit-finish"
+        keyNormal  = "hit-normal"
+        keyWhistle = "hit-whistle"
+        keySamplesForPart k = "samples-" <> F.getPartName k
+    taikoSamples <- case level of
+      ImportQuick -> return []
+      ImportFull -> if any (\osu -> osu.general.mode == 1) loadedOsus -- are we loading any taiko charts
+        then do
+          dir <- stackIO $ getResourcesPath "sfx/osu-argon-pro"
+          return
+            [ (keyClap   , "sfx/hit-clap.ogg"   , fileReadable $ dir </> "drum-hitclap.ogg"   )
+            , (keyFinish , "sfx/hit-finish.ogg" , fileReadable $ dir </> "drum-hitfinish.ogg" )
+            , (keyNormal , "sfx/hit-normal.ogg" , fileReadable $ dir </> "drum-hitnormal.ogg" )
+            , (keyWhistle, "sfx/hit-whistle.ogg", fileReadable $ dir </> "drum-hitwhistle.ogg")
+            ]
+        else return []
+    let taikoSampleTracks = do
+          (partName, _, track) <- convertedTracks
+          case track of
+            Left drums -> let
+              sampleTrack = F.SamplesTrack
+                $ RTB.flatten
+                $ fmap (\instant -> let
+                  gems = map fst instant
+                  in concat
+                    [ [F.SampleTrigger "" keyNormal | any (`elem` gems) [Pro Yellow (), Pro Blue  ()]]
+                    , [F.SampleTrigger "" keyClap   | any (`elem` gems) [Red          , Pro Green ()]]
+                    , [F.SampleTrigger "" keyFinish | not $ null $ drop 1 instant                    ]
+                    ]
+                  )
+                $ RTB.collectCoincident
+                $ drumGems
+                $ fromMaybe mempty $ Map.lookup Expert $ drumDifficulties drums
+              in [(keySamplesForPart partName, sampleTrack)]
+            Right _mania -> []
 
     background <- case level of
       ImportQuick -> return Nothing
@@ -129,34 +178,47 @@ importOsu separateSongs f = do
           ImportFull  -> timingMid
             { F.s_tracks = mempty
               { F.onyxParts = Map.fromList $ do
-                (partName, _, track) <- mania
-                return (partName, mempty
-                  { F.onyxPartMania = track
-                  })
+                (partName, _, track) <- convertedTracks
+                case track of
+                  Left  drums -> return (partName, mempty { F.onyxPartDrums = drums })
+                  Right mania -> return (partName, mempty { F.onyxPartMania = mania })
+              , F.onyxSamples = Map.fromList taikoSampleTracks
               }
             }
           ImportQuick -> emptyChart
         , fileSongAnim = Nothing
         }
       , jammit = HM.empty
-      , audio = HM.singleton "osu-audio-file" $ AudioFile AudioInfo
-        { md5 = Nothing
-        , frames = Nothing
-        , filePath = flip fmap audio $ \(audioBytes, audioName) ->
-          SoftFile audioName $ SoftReadable
-            $ makeHandle audioName $ byteStringSimpleHandle audioBytes
-        , commands = []
-        , rate = Nothing
-        , channels = 2 -- TODO maybe verify
-        }
+      , audio = HM.fromList $ let
+        audioFiles = flip map (toList audio <> taikoSamples) $ \(key, fileName, r) ->
+          (key, AudioFile AudioInfo
+            { md5 = Nothing
+            , frames = Nothing
+            , filePath = Just $ SoftFile fileName $ SoftReadable r
+            , commands = []
+            , rate = Nothing
+            , channels = 2 -- TODO maybe verify
+            }
+          )
+        audioSamples = do
+          (key, _) <- taikoSampleTracks
+          return (key, AudioSamples SamplesInfo
+            { groupPolyphony = Nothing
+            , groupCrossfade = 0
+            })
+        in audioFiles <> audioSamples
       , plans = HM.singleton "osu-audio" $ StandardPlan StandardPlanInfo
-        { song = Just $ let
+        { song = flip fmap audio $ \(key, _, _) -> let
           -- Need to do this or audio is out of sync. I assume the game is
           -- skipping MP3 encoder delay. But .ogg also appears to need adjustment?
           -- Also see Onyx.Audio.buildSource' for note about something wrong in our ffmpeg seek code
           mp3Delay = Drop Start (CA.Seconds 0.02)
-          in PlanAudio (mp3Delay $ Input $ Named "osu-audio-file") [] []
-        , parts = Parts HM.empty
+          in PlanAudio (mp3Delay $ Input $ Named key) [] []
+        , parts = Parts $ HM.fromList $ do
+          (partName, _, track) <- convertedTracks
+          case track of
+            Left  _drums -> [(partName, PartSingle $ PlanAudio (Input $ Named $ keySamplesForPart partName) [] [])]
+            Right _mania -> []
         , crowd = Nothing
         , comments = []
         , tuningCents = 0
@@ -164,17 +226,42 @@ importOsu separateSongs f = do
         }
       , targets = HM.empty
       , parts = Parts $ HM.fromList $ do
-        (partName, osu, _) <- mania
-        return $ (partName, emptyPart
-          { mania = Just PartMania
-            { keys = fromIntegral $ maniaColumnCount osu
-            , turntable = osu.general.specialStyle
-            }
-          })
+        (partName, osu, track) <- convertedTracks
+        case track of
+          Left _drums -> return $ (partName, emptyPart
+            { drums = Just PartDrums
+              { difficulty  = Tier 1
+              , mode        = Drums4
+              , kicks       = Kicks1x
+              , fixFreeform = True
+              , kit         = HardRockKit
+              , layout      = StandardLayout
+              , fallback    = FallbackBlue
+              , fileDTXKit  = Nothing
+              , fullLayout  = FDStandard
+              }
+            })
+          Right _mania -> return $ (partName, emptyPart
+            { mania = Just PartMania
+              { keys = fromIntegral $ maniaColumnCount osu
+              , turntable = osu.general.specialStyle
+              }
+            })
       }
 
 maniaColumnCount :: OsuFile -> Integer
 maniaColumnCount osu = min 10 $ max 1 $ maybe 10 round osu.difficulty.circleSize
+
+-- fix cases where hit objects that should be simultaneous are off by 1 ms
+unslopHitObjects :: [OsuHitObject] -> [OsuHitObject]
+unslopHitObjects = go Nothing where
+  go _           []           = []
+  go Nothing     (hit : rest) = hit : go (Just hit) rest
+  go (Just prev) (hit : rest) = let
+    hit' = if hit.time == prev.time + 1
+      then hit { time = prev.time } :: OsuHitObject
+      else hit
+    in hit' : go (Just hit') rest
 
 getManiaChart :: OsuFile -> [(U.Seconds, (Integer, Maybe U.Seconds))]
 getManiaChart osu = let
@@ -183,27 +270,8 @@ getManiaChart osu = let
   xToColumn x = max 0 $ min (columnCount - 1) $ quot (x * columnCount) 512
   msToSecs :: Integer -> U.Seconds
   msToSecs ms = fromIntegral ms / 1000
-  -- fix cases where hit objects that should be simultaneous are off by 1 ms
-  unslopHitObjects _           []           = []
-  unslopHitObjects Nothing     (hit : rest) = hit : unslopHitObjects (Just hit) rest
-  unslopHitObjects (Just prev) (hit : rest) = let
-    hit' = if hit.time == prev.time + 1
-      then OsuHitObject
-        -- this should just be a record update for "time",
-        -- but overloaded record update is not really in ghc yet, wtf!
-        -- can do it with DuplicateRecordFields but has a warning about not
-        -- working in future ghc??
-        { x            = hit.x
-        , y            = hit.y
-        , time         = prev.time
-        , type_        = hit.type_
-        , hitSound     = hit.hitSound
-        , objectParams = hit.objectParams
-        }
-      else hit
-    in hit' : unslopHitObjects (Just hit') rest
   in do
-    hit <- unslopHitObjects Nothing $ V.toList osu.hitObjects
+    hit <- unslopHitObjects $ V.toList osu.hitObjects
     note <- if testBit hit.type_ 0 -- hit circle
       then return (xToColumn hit.x, Nothing)
       else if testBit hit.type_ 7 -- hold
@@ -224,6 +292,7 @@ maniaToTrack tmap osu = let
         in return (startBeats, (fromIntegral column, holdBeats))
     }
 
+{-
 maniaToFiveKeys :: U.TempoMap -> OsuFile -> Five.FiveTrack U.Beats
 maniaToFiveKeys tmap osu = let
   mania = getManiaChart osu
@@ -273,3 +342,118 @@ maniaToProKeys tmap osu = let
           in return (startBeats, (key, holdBeats))
         []      -> [] -- key out of range somehow
     }
+-}
+
+taikoToTrack :: U.TempoMap -> OsuFile -> DrumTrack U.Beats
+taikoToTrack tmap osu = let
+
+  events = RTB.fromAbsoluteEventList $ ATB.fromPairList $ getTaikoChart osu
+
+  red    = (Red          , VelocityNormal)
+  yellow = (Pro Yellow (), VelocityNormal)
+  blue   = (Pro Blue   (), VelocityNormal)
+  green  = (Pro Green  (), VelocityNormal)
+
+  laneSpeed = 0.080 :: U.Seconds -- 80 ms for consistent combo
+  -- make lanes into single notes if they're too short to have 2 notes
+  events' = flip fmap events $ \case
+    TaikoRoll      t | t <= laneSpeed -> TaikoSingle TaikoCenter
+    TaikoRollLarge t | t <= laneSpeed -> TaikoSingle TaikoCenterLarge
+    TaikoDenden    t | t <= laneSpeed -> TaikoSingle TaikoCenter
+    event                             -> event
+
+  normalNotes = flip RTB.mapMaybe events' $ \case
+    TaikoSingle x -> Just x
+    _             -> Nothing
+
+  makeLane len = Wait 0 (Just LaneExpert) $ Wait len Nothing RNil
+  doubleLanes = U.trackJoin $ flip fmap events' $ \case
+    TaikoRoll      len -> makeLane len
+    TaikoRollLarge len -> makeLane len
+    TaikoDenden    len -> makeLane len
+    _                  -> RNil
+
+  laneNotes = U.trackJoin $ flip fmap events' $ \case
+    TaikoRoll      len -> U.trackTake len $ RTB.fromPairList $ zip (0 : repeat laneSpeed) $ repeat TaikoCenter
+    TaikoRollLarge len -> U.trackTake len $ RTB.fromPairList $ zip (0 : repeat laneSpeed) $ repeat TaikoCenter
+    TaikoDenden    len -> U.trackTake len $ RTB.fromPairList $ zip (0 : repeat laneSpeed) $ cycle [TaikoCenter, TaikoRim]
+    TaikoSingle    _   -> RNil
+
+  applySticking nextHand = \case
+    RNil -> RNil
+    Wait t TaikoCenter      rest
+      -> Wait t (case nextHand of LH -> yellow; RH -> blue ) $ applySticking flipHand rest
+    Wait t TaikoRim         rest
+      -> Wait t (case nextHand of LH -> red   ; RH -> green) $ applySticking flipHand rest
+    Wait t TaikoCenterLarge rest
+      -> Wait t yellow $ Wait 0 blue  $ applySticking RH rest
+    Wait t TaikoRimLarge    rest
+      -> Wait t red    $ Wait 0 green $ applySticking RH rest
+    where flipHand = case nextHand of LH -> RH; RH -> LH
+
+  in mapTrack (U.unapplyTempoTrack tmap) mempty
+    { drumDifficulties = Map.singleton Expert mempty
+      { drumGems = applySticking RH $ RTB.merge normalNotes laneNotes
+      }
+    , drumDoubleRoll = doubleLanes
+    }
+
+getTaikoChart :: OsuFile -> [(U.Seconds, TaikoEvent U.Seconds)]
+getTaikoChart osu = let
+  msToSecs :: Integer -> U.Seconds
+  msToSecs ms = fromIntegral ms / 1000
+  timingLookup, uninheritedLookup :: Map.Map Scientific OsuTimingPoint
+  timingLookup = Map.fromList $ do
+    tp <- V.toList osu.timingPoints
+    return (tp.time, tp)
+  uninheritedLookup = Map.filter (.uninherited) timingLookup
+  in do
+    hit <- unslopHitObjects $ V.toList osu.hitObjects
+    let whistleClap = testBit hit.hitSound 1 || testBit hit.hitSound 3
+        finish      = testBit hit.hitSound 2
+    event <- if testBit hit.type_ 0 -- hit circle
+      then return $ case (whistleClap, finish) of
+        (False, False) -> TaikoSingle TaikoCenter
+        (True , False) -> TaikoSingle TaikoRim
+        (False, True ) -> TaikoSingle TaikoCenterLarge
+        (True , True ) -> TaikoSingle TaikoRimLarge
+      else if testBit hit.type_ 1 -- slider (drum roll)
+        then toList $ do
+          -- https://osu.ppy.sh/wiki/en/Client/File_formats/Osu_%28file_format%29#sliders says:
+          -- length / (SliderMultiplier * 100 * SV) * beatLength = ms of one "side" of a slider
+          lengthPixels <- (hit.objectParams V.!? 2) >>= readMaybe . T.unpack :: Maybe Scientific
+          sliderMultiplier <- osu.difficulty.sliderMultiplier
+          thisTiming <- snd <$> Map.lookupLE (fromIntegral hit.time) timingLookup
+          thisUninherited <- if thisTiming.uninherited
+            then return thisTiming
+            else snd <$> Map.lookupLE (fromIntegral hit.time) uninheritedLookup
+          -- is slides ever not 1 for taiko charts?
+          slides <- (hit.objectParams V.!? 1) >>= readMaybe . T.unpack :: Maybe Integer
+          let beatLength = thisUninherited.beatLength
+              sv = if thisTiming.uninherited then 1
+                else negate $ thisTiming.beatLength / 100
+              sideLengthMS :: Rational
+              sideLengthMS = toRational lengthPixels / toRational (sliderMultiplier * 100 * sv) * toRational beatLength
+              totalLengthMS :: Integer
+              totalLengthMS = floor $ sideLengthMS * fromIntegral slides
+          return $ (if finish then TaikoRollLarge else TaikoRoll) $ msToSecs totalLengthMS
+        else if testBit hit.type_ 3 -- spinner (denden)
+          then do
+            endMS <- toList $ (hit.objectParams V.!? 0) >>= readMaybe . T.unpack
+            return $ TaikoDenden $ msToSecs $ endMS - hit.time
+          else []
+    return (msToSecs hit.time, event)
+
+data TaikoEvent t
+  = TaikoSingle TaikoNote
+  | TaikoRoll t
+  | TaikoRollLarge t
+  | TaikoDenden t
+  deriving (Eq, Ord)
+
+data TaikoNote
+  = TaikoCenter
+  | TaikoRim
+  | TaikoCenterLarge
+  | TaikoRimLarge
+  deriving (Eq, Ord)

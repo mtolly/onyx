@@ -510,6 +510,7 @@ maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
       then fmap (\(k, len) -> ((Just $ toEnum k, Tap), len))
         $ RB.edgeBlips_ RB.minSustainLengthRB
         $ maniaNotes $ F.onyxPartMania input.part
+        -- TODO maybe offset if less than 4 keys? like RYB for 3-key
       else let
         chorded
           = RTB.toAbsoluteEventList 0
