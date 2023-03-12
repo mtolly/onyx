@@ -4,6 +4,8 @@ audio-*.*
 *.vgs
 video-*.*
 video.*
+*.mp4
+*.m4a
 preview-audio.*
 *_rb3con
 *.rba

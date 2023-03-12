@@ -1,0 +1,60 @@
+global:
+  anim-tempo: 32
+metadata:
+  album: Metronome
+  artist: Synovial
+  author: Xane60, Onyxite
+  difficulty:
+    tier: 1
+  expert-only: true
+  file-album-art: cover.png_xbox
+  genre: metal
+  languages:
+  - English
+  preview-end: 1:00.000
+  preview-start: 30
+  subgenre: core
+  title: Desert Hours
+  track-number: 4
+  year: 2022
+parts:
+  bass:
+    grybo: {}
+    pro-guitar:
+      tuning:
+        base: bass-5
+        # Drop G# (G# D# G# C# F#)
+        offsets: [-2, 0, 0, 0, 0]
+        global: -1
+  drums:
+    drums:
+      difficulty:
+        tier: 7
+      fix-freeform: false
+      kicks: 2
+  guitar:
+    grybo: {}
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    karaoke: false
+    multitrack: false
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    parts:
+      drums:
+      - 0
+      - 1
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3-2x:
+    2x-bass-pedal: true
+    game: rb3
+    song-id: deserthoursidx4

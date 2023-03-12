@@ -1,6 +1,6 @@
 audio:
-  guitar.ogg:
-    file-path: guitar.ogg
+  audio-ch:
+    file-path: audio-.ogg
 metadata:
   album: Discipline
   artist: King Crimson
@@ -27,7 +27,7 @@ plans:
       pad:
       - start
       - 0.91
-      - guitar.ogg
+      - audio-ch
 targets:
   ps:
     game: ps
