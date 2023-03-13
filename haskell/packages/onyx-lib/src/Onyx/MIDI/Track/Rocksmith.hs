@@ -22,6 +22,7 @@ module Onyx.MIDI.Track.Rocksmith
 , convertRStoPG
 , nullRS
 , getNotesWithModifiers
+, applyLinks
 ) where
 
 import           Control.Applicative              (liftA2, (<|>))
@@ -31,6 +32,7 @@ import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.State.Lazy   (evalStateT, get, put)
 import           Control.Monad.Trans.State.Strict (modify)
 import           Data.Char                        (isDigit)
+import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
@@ -40,7 +42,8 @@ import           Data.List.Extra                  (elemIndex, nubOrd, partition,
 import           Data.List.NonEmpty               (NonEmpty (..))
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, listToMaybe)
+import           Data.Maybe                       (fromMaybe, listToMaybe,
+                                                   mapMaybe)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
@@ -48,10 +51,8 @@ import qualified Data.Vector                      as V
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.DeriveHelpers
-import           Onyx.Guitar                      (applyStatus1,
-                                                   noExtendedSustains,
-                                                   standardBlipThreshold,
-                                                   standardSustainGap)
+import           Onyx.Guitar                      (applyStatus1, cleanEdges,
+                                                   guitarify')
 import           Onyx.MIDI.Common                 hiding (RB3Instrument (..))
 import           Onyx.MIDI.Read
 import           Onyx.MIDI.Track.ProGuitar
@@ -529,6 +530,44 @@ fillUnnamedPhrases ps = let
   go (Wait t p  rest) news         = Wait t p   $ go rest news
   in go ps canAdd
 
+-- Turn RS linked sustains into RB style (link child either merged into first
+-- note if same fret, or marked as HOPO if different fret)
+applyLinks :: (NNC.C t) => RTB.T t (Edge (GtrFret, [RSModifier]) GtrString) -> RTB.T t (Edge (GtrFret, [RSModifier]) GtrString)
+applyLinks = \case
+  Wait t thisEdge rest -> case thisEdge of
+    EdgeOff _ -> Wait t thisEdge $ applyLinks rest
+    EdgeOn (fret, mods) str -> if elem ModLink mods
+      then let
+        findThisOff = \case
+          EdgeOff str' -> guard (str == str') >> Just ()
+          _            -> Nothing
+        findNextOn = \case
+          EdgeOn fretMods str' -> guard (str == str') >> Just fretMods
+          _                    -> Nothing
+        in case U.extractFirst findThisOff rest of
+          Nothing -> Wait t thisEdge $ applyLinks rest
+          Just ((thisLength, ()), rest') -> case U.extractFirst findNextOn rest' of
+            Nothing -> Wait t thisEdge $ applyLinks rest
+            Just ((beforeNextOn, (nextFret, nextMods)), rest'') -> if fret == nextFret
+              -- if linking to same fret, join the two notes together, and move slide/link mods from 2nd note to 1st
+              then let
+                mods' = filter (/= ModLink) mods <> let
+                  moveBack = \case
+                    ModSlide        _ -> True
+                    ModSlideUnpitch _ -> True
+                    ModLink           -> True
+                    _                 -> False
+                  in filter moveBack nextMods
+                in applyLinks $ Wait t (EdgeOn (fret, mods') str) rest''
+              -- if linking to a different fret, don't remove any notes, but mark 2nd note as "HOPO"
+              else Wait t thisEdge
+                $ applyLinks
+                $ RTB.insert thisLength (EdgeOff str)
+                $ RTB.insert beforeNextOn (EdgeOn (nextFret, ModHammerOn : nextMods) str)
+                $ rest''
+      else Wait t thisEdge $ applyLinks rest
+  RNil -> RNil
+
 -- TODO actually use this in buildRS
 getNotesWithModifiers :: (NNC.C t) => RocksmithTrack t -> RTB.T t (Edge (GtrFret, [RSModifier]) GtrString)
 getNotesWithModifiers trk = let
@@ -870,20 +909,172 @@ buildRSVocals tmap vox = Vocals $ V.fromList $ let
 
 convertRStoPG :: (SendMessage m) => RocksmithTrack U.Beats -> StackTraceT m (ProGuitarTrack U.Beats)
 convertRStoPG rs = let
-  notes
-    = fmap (fmap $ \str -> (str, NormalNote)) -- TODO different note types
-    $ blipEdgesRB
-    $ joinEdges
-    $ noExtendedSustains standardBlipThreshold standardSustainGap
-    $ splitEdges
+
+  calculatedNotes :: RTB.T U.Beats ([(GtrString, GtrFret, [RSModifier])], Maybe U.Beats)
+  calculatedNotes
+    = guitarify'
+    $ fmap (\((fret, mods), str, len) -> ((str, fret, mods), len))
     $ edgeBlips minSustainLengthRB
-    $ rsNotes rs
+    $ applyLinks
+    $ getNotesWithModifiers rs
+
+  calculatedShapes :: RTB.T U.Beats ([(GtrString, GtrFret)], U.Beats)
+  calculatedShapes
+    = fmap (\(shape, (), len) -> (shape, len))
+    $ joinEdgesSimple
+    $ noOverlapShapes []
+    $ RTB.collectCoincident $ rsHandShapes rs
+  noOverlapShapes cur = \case
+    RNil             -> RNil -- cur should be empty, hopefully
+    Wait dt new rest -> let
+      ons = [ (str, fret) | EdgeOn fret str <- new ]
+      in if null ons
+        then Wait dt (EdgeOff ()) $ noOverlapShapes [] rest
+        else if null cur
+          then Wait dt                       (EdgeOn ons ()) $ noOverlapShapes ons rest
+          else Wait dt (EdgeOff ()) $ Wait 0 (EdgeOn ons ()) $ noOverlapShapes ons rest
+
+  combinedNotesShapes :: RTB.T U.Beats
+    ( [(GtrString, GtrFret, [RSModifier])] -- real notes
+    , Maybe U.Beats -- notes length
+    , Maybe ([(GtrString, GtrFret)], U.Beats) -- handshape starting here, list is ghost notes on top of real notes
+    )
+  combinedNotesShapes
+    = RTB.mapMaybe (\instant -> let
+      notes = lefts instant
+      shapes = rights instant
+      in case (notes, shapes) of
+        ([], _) -> Nothing
+        ((chord, len) : _, []) -> Just (chord, len, Nothing)
+        ((chord, len) : _, shape : _) -> let
+          mapChord = Map.fromList [ (str, fret) | (str, fret, _) <- chord ]
+          mapShape = Map.fromList $ fst shape
+          -- union uses left in case of duplicate, so this checks if mapShape is a superset of mapChord
+          in if Map.union mapChord mapShape == mapShape
+            then let
+              ghosts = Map.difference mapShape mapChord
+              in Just (chord, len, Just (Map.toList ghosts, snd shape))
+            else Just (chord, len, Nothing)
+      )
+    $ RTB.collectCoincident
+    $ RTB.merge (Left <$> calculatedNotes) (Right <$> calculatedShapes)
+
+  convertedNotes :: RTB.T U.Beats (Edge GtrFret (GtrString, NoteType))
+  convertedNotes
+    = blipEdgesRB
+    $ RTB.flatten
+    $ fmap (\(chord, len, maybeShape) -> let
+      realNotes = do
+        (str, fret, mods) <- chord
+        let ntype
+              | elem ModMute mods = Muted
+              | elem ModTap  mods = Tapped
+              | otherwise         = NormalNote
+        return (fret, (str, ntype), len)
+      ghostNotes = case maybeShape of
+        Nothing -> []
+        Just (shapeExtra, _shapeLength) -> do
+          (str, fret) <- shapeExtra
+          return (fret, (str, ArpeggioForm), len)
+      in realNotes <> ghostNotes
+      )
+    $ combinedNotesShapes
+
+  convertedForces :: RTB.T U.Beats (Edge () PGForce)
+  convertedForces
+    = fmap (\(b, x) -> if b then EdgeOn () x else EdgeOff x)
+    $ cleanEdges
+    $ U.trackJoin
+    $ fmap (\(chord, _) -> let
+      allMods = chord >>= \(_, _, mods) -> mods
+      force = if any (`elem` allMods) [ModHammerOn, ModPullOff, ModTap]
+        then PGForceHOPO
+        else PGForceStrum
+      in RTB.fromPairList [(0, (True, force)), (1/480, (False, force))]
+      )
+    $ calculatedNotes
+
+  convertedArpeggio :: RTB.T U.Beats Bool
+  convertedArpeggio
+    = U.trackJoin
+    $ RTB.mapMaybe (\(_, _, maybeShape) -> case maybeShape of
+      Nothing               -> Nothing
+      Just (_, shapeLength) -> Just $ RTB.fromPairList
+        [(0, True), (shapeLength, False)]
+      )
+    $ combinedNotesShapes
+
+  chordBank = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ buildChordBank rs
+
+  convertedChordNames :: RTB.T U.Beats (Maybe T.Text)
+  convertedChordNames
+    = RTB.fromAbsoluteEventList
+    $ ATB.fromPairList
+    $ mapMaybe (\(t, (chord, _, maybeShape)) -> do
+      (shape, _shapeLength) <- maybeShape
+      case Map.lookupLE t chordBank of
+        Nothing               -> Just (t, Nothing)
+        Just (bankTime, bank) -> let
+          targetChord = Map.fromList $ [ (str, fret) | (str, fret, _) <- chord ] <> shape
+          lookupOnce = do
+            guard $ bankTime == t
+            Map.lookup (Map.keys targetChord) $ cb_shapes_once bank
+          lookupNotOnce = Map.lookup targetChord $ cb_shapes bank
+          in Just (t, (lookupOnce <|> lookupNotOnce) >>= ciName)
+      )
+    $ ATB.toPairList
+    $ RTB.toAbsoluteEventList 0 combinedNotesShapes
+
+  -- TODO check if there's any chord name character substitution we need to do.
+  -- sharp/flat should already be good to go (#/b in both formats apparently)
+
+  desiredSlides :: RTB.T U.Beats Slide
+  desiredSlides
+    = RTB.mapMaybe (\(chord, _) -> let
+      directions = do
+        (_, fret, mods) <- chord
+        targetFret <- mods >>= \case
+          ModSlide        n -> [n]
+          ModSlideUnpitch n -> [n]
+          _                 -> []
+        case compare fret targetFret of
+          EQ -> []
+          LT -> [SlideUp]
+          GT -> [SlideDown]
+      in listToMaybe directions
+      )
+    $ calculatedNotes
+
+  resultDefaultSlides = mempty
+    { pgNotes = convertedNotes
+    , pgForce = convertedForces
+    , pgArpeggio = convertedArpeggio
+    , pgSlide = NormalSlide <$ desiredSlides
+    , pgChordName = convertedChordNames
+    }
+
+  defaultSlideDirections :: RTB.T U.Beats Slide
+  defaultSlideDirections
+    = RTB.mapMaybe (\(_, _, sustain) -> sustain >>= snd)
+    $ guitarifyFull (170/480) resultDefaultSlides
+
+  fixedSlideMarkers :: RTB.T U.Beats SlideType
+  fixedSlideMarkers
+    = RTB.flatten
+    $ fmap (\instant -> case (lefts instant, rights instant) of
+      (desired : _, got : _) -> [if desired == got then NormalSlide else ReversedSlide]
+      (desired    , _      ) -> NormalSlide <$ desired -- probably shouldn't happen but maybe possible
+      )
+    $ RTB.collectCoincident
+    $ RTB.merge (Left <$> desiredSlides) (Right <$> defaultSlideDirections)
+
+  resultFixedSlides = resultDefaultSlides
+    { pgSlide = fixedSlideMarkers
+    }
+
   in return mempty
-    { pgDifficulties = Map.singleton Expert mempty
-      { pgNotes = notes
-      -- TODO pgChordName, pgForceHOPO (including force strums), pgSlide, pgArpeggio
-      }
-    -- TODO pgTremolo, pgHandPosition (maybe)
+    { pgDifficulties = Map.singleton Expert resultFixedSlides
+    -- TODO pgTremolo
     }
 
 {-

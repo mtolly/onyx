@@ -22,7 +22,6 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust,
                                                    listToMaybe)
 import qualified Data.Text                        as T
-import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.AutoChart                   (autoChart)
 import           Onyx.Drums.OneFoot               (phaseShiftKicks, rockBand1x,
                                                    rockBand2x)
@@ -37,8 +36,7 @@ import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.Mania
-import           Onyx.MIDI.Track.ProGuitar        (GtrFret, GtrString,
-                                                   getStringIndex,
+import           Onyx.MIDI.Track.ProGuitar        (getStringIndex,
                                                    tuningPitches)
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.MIDI.Track.Rocksmith
@@ -337,44 +335,6 @@ simplifyChord pitches = case pitches of
       then take 2 sorted -- power chords or octaves become max 2-note
       else take 3 sorted -- otherwise max 3-note
       -- maybe have a smarter way of thinning? (preserve unique keys)
-
--- Turn RS linked sustains into RB style (link child either merged into first
--- note if same fret, or marked as HOPO if different fret)
-applyLinks :: (NNC.C t) => RTB.T t (RB.Edge (GtrFret, [RSModifier]) GtrString) -> RTB.T t (RB.Edge (GtrFret, [RSModifier]) GtrString)
-applyLinks = \case
-  Wait t edge rest -> case edge of
-    RB.EdgeOff _ -> Wait t edge $ applyLinks rest
-    RB.EdgeOn (fret, mods) str -> if elem ModLink mods
-      then let
-        findThisOff = \case
-          RB.EdgeOff str' -> guard (str == str') >> Just ()
-          _               -> Nothing
-        findNextOn = \case
-          RB.EdgeOn fretMods str' -> guard (str == str') >> Just fretMods
-          _                       -> Nothing
-        in case U.extractFirst findThisOff rest of
-          Nothing -> Wait t edge $ applyLinks rest
-          Just ((thisLength, ()), rest') -> case U.extractFirst findNextOn rest' of
-            Nothing -> Wait t edge $ applyLinks rest
-            Just ((beforeNextOn, (nextFret, nextMods)), rest'') -> if fret == nextFret
-              -- if linking to same fret, join the two notes together, and move slide/link mods from 2nd note to 1st
-              then let
-                mods' = filter (/= ModLink) mods <> let
-                  moveBack = \case
-                    ModSlide        _ -> True
-                    ModSlideUnpitch _ -> True
-                    ModLink           -> True
-                    _                 -> False
-                  in filter moveBack nextMods
-                in applyLinks $ Wait t (RB.EdgeOn (fret, mods') str) rest''
-              -- if linking to a different fret, don't remove any notes, but mark 2nd note as "HOPO"
-              else Wait t edge
-                $ applyLinks
-                $ RTB.insert thisLength (RB.EdgeOff str)
-                $ RTB.insert beforeNextOn (RB.EdgeOn (nextFret, ModHammerOn : nextMods) str)
-                $ rest''
-      else Wait t edge $ applyLinks rest
-  RNil -> RNil
 
 -- For more GHRB-like style, turns some strums into hopos, and some hopos into taps
 adjustRocksmithHST

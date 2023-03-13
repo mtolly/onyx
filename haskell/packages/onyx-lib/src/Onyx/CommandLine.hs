@@ -219,6 +219,7 @@ data Command = Command
   , commandRun   :: forall m. (MonadResource m) => [FilePath] -> [OnyxOption] -> StackTraceT (QueueLog m) [FilePath]
   , commandDesc  :: T.Text
   , commandUsage :: T.Text
+  , commandList  :: Bool
   }
 
 identifyFile :: FilePath -> IO FileResult
@@ -415,6 +416,7 @@ commands =
     { commandWord = "import"
     , commandDesc = "Import a file into Onyx's project format. The project format is not documented yet and is subject to change."
     , commandUsage = ""
+    , commandList = True
     , commandRun = \files opts -> do
       fpath <- case files of
         []  -> return "."
@@ -436,6 +438,7 @@ commands =
       , "onyx build --target ps --to new_ps.zip"
       , "onyx build song.yml --target rb3 --to new_rb3con"
       ]
+    , commandList = True
     , commandRun = \files opts -> optionalFile files >>= \case
       (FileSongYaml, yamlPath) -> do
         out <- outputFile opts $ fatal "onyx build (yaml) requires --to, none given"
@@ -451,6 +454,7 @@ commands =
     { commandWord = "debug"
     , commandDesc = "Internal command to build intermediate files in an Onyx project."
     , commandUsage = "onyx debug mysong.yml file1 [file2 ...]"
+    , commandList = False
     , commandRun = \files opts -> case files of
       [] -> return []
       yml : builds -> identifyFile' yml >>= \case
@@ -465,6 +469,7 @@ commands =
     { commandWord = "web-player"
     , commandDesc = "Create a web browser chart playback app."
     , commandUsage = "onyx web-player (song) [--to folder]"
+    , commandList = True
     , commandRun = \files opts -> do
       fpath <- case files of
         []  -> return "."
@@ -485,6 +490,7 @@ commands =
     { commandWord = "reaper"
     , commandDesc = "Generate a REAPER project for a song."
     , commandUsage = "onyx reaper (song) [--to folder]"
+    , commandList = True
     , commandRun = \files opts -> do
       fpath <- case files of
         []  -> return "."
@@ -522,6 +528,7 @@ commands =
       [ "onyx hanging mysong.yml"
       , "onyx hanging notes.mid"
       ]
+    , commandList = True
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> do
       let withMIDI mid = F.loadMIDI mid >>= lg . T.unpack . closeShiftsFile
       case ftype of
@@ -549,6 +556,7 @@ commands =
       , "# Other data can be overridden by making an `onyx-repack` folder."
       , "# Extract an existing STFS file to see an example of the format."
       ]
+    , commandList = True
     , commandRun = \files opts -> case files of
       [dir] -> stackIO (Dir.doesDirectoryExist dir) >>= \case
         True -> do
@@ -574,6 +582,7 @@ commands =
     , commandUsage = T.unlines
       [ "onyx mogg in.ogg [--to out.mogg]"
       ]
+    , commandList = True
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
       FileOGG -> do
         mogg <- outputFile opts $ return $ fpath -<.> "mogg"
@@ -586,6 +595,7 @@ commands =
     { commandWord = "encrypt-mogg-rb1"
     , commandDesc = "Encrypt a MOGG file as 0x0B-type (Rock Band 1)."
     , commandUsage = "onyx encrypt-mogg-rb1 in.mogg --to out.mogg"
+    , commandList = True
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ fatal "Requires --to argument"
@@ -600,6 +610,7 @@ commands =
     { commandWord = "u8"
     , commandDesc = "Package a folder into a U8 file for Wii."
     , commandUsage = "onyx u8 dir --to out.app"
+    , commandList = True
     , commandRun = \args opts -> case args of
       [dir] -> stackIO (Dir.doesDirectoryExist dir) >>= \case
         True -> do
@@ -616,6 +627,7 @@ commands =
     { commandWord = "milo"
     , commandDesc = "Recombine an extracted .milo_xxx file. This requires the format output by running `onyx extract` on an existing milo file."
     , commandUsage = "onyx milo dir [--to out.milo_xxx]"
+    , commandList = True
     , commandRun = \args opts -> case args of
       [din] -> do
         fout <- outputFile opts $ return $ dropTrailingPathSeparator din <.> "milo_xbox"
@@ -632,6 +644,7 @@ commands =
       , "onyx encrypt-gh-fsb ghwt  in.fsb [--to out.fsb.xen]"
       , "onyx encrypt-gh-fsb ghwor in.fsb [--to out.fsb.xen]"
       ]
+    , commandList = True
     , commandRun = \args opts -> case args of
       [game, fsb] -> do
         out <- outputFile opts $ return $ fsb <.> "xen"
@@ -660,6 +673,7 @@ commands =
       , "onyx fsb xdk     in.wav --to out.fsb"
       , "onyx fsb gh4-mp3 in1.wav [in2.wav ...] --to out.fsb # each input should be stereo"
       ]
+    , commandList = True
     , commandRun = \args opts -> case args of
       ["fmod", fin] -> do
         fout <- outputFile opts $ return $ fin <.> "fsb"
@@ -703,6 +717,7 @@ commands =
     { commandWord = "pak"
     , commandDesc = "Compile an extracted Neversoft GH .pak file back into a folder. This requires the format output by running `onyx extract` on an existing .pak file."
     , commandUsage = "onyx pak in-folder [--to out.pak.xen]"
+    , commandList = True
     , commandRun = \args opts -> case args of
       [dir] -> do
         fout <- outputFile opts $ return $ dir <.> "pak"
@@ -731,6 +746,7 @@ commands =
       [ "onyx pkg (content-id) my_folder --to new.pkg"
       , "* content-id should be something like UP0006-BLUS30050_00-RBSTILLALCCF005D"
       ]
+    , commandList = True
     , commandRun = \args opts -> case args of
       [argContentID, dir] -> stackIO (Dir.doesDirectoryExist dir) >>= \case
         True -> do
@@ -785,6 +801,7 @@ commands =
       , "  * or, it can be `rb-FOLDERNAME` to use the RB klic for the given folder name"
       , "* the output filename affects encryption, so it should be named as it will be on the console"
       ]
+    , commandList = True
     , commandRun = \args opts -> case args of
       [argContentID, argKlic, fin] -> do
         let contentID = TE.encodeUtf8 $ T.pack argContentID
@@ -825,6 +842,7 @@ commands =
       , "3. pick a content ID like UP0002-BLUS30487_00-MYPACKAGELABEL"
       , "4. onyx pkg (CONTENT-ID) dir [--to out.pkg]"
       ]
+    , commandList = True
     , commandRun = \args opts -> case args of
       [stfs] -> do
         out <- outputFile opts $ return $ stfs <> "_ps3"
@@ -900,6 +918,7 @@ commands =
     , commandUsage = T.unlines
       [ "onyx extract file_in [--to folder_out]"
       ]
+    , commandList = True
     , commandRun = \files opts -> forM files $ \f -> identifyFile' f >>= \case
       (FileSTFS, stfs) -> do
         out <- outputFile opts $ return $ stfs ++ "_extract"
@@ -1070,6 +1089,7 @@ commands =
       , "onyx unwrap in.mogg --to out.ogg     # unwrap unencrypted MOGG"
       , "onyx unwrap in.png_xbox --to out.png # decode Harmonix image format"
       ]
+    , commandList = True
     , commandRun = \files opts -> forM files $ \f -> identifyFile' f >>= \case
       (FileFSBEncrypted, fin) -> do
         dec <- stackIO (decryptFSB fin) >>= maybe (fatal "Couldn't decrypt GH .fsb.(xen/ps3) audio") return
@@ -1098,6 +1118,7 @@ commands =
     { commandWord = "midi-text"
     , commandDesc = "Convert a MIDI file to/from a plaintext format. Some information at https://github.com/mtolly/midiscript"
     , commandUsage = ""
+    , commandList = True
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
       FileMidi -> do
         out <- outputFile opts $ return $ fpath -<.> "midtxt"
@@ -1120,6 +1141,7 @@ commands =
     { commandWord = "midi-text-git"
     , commandDesc = "Convert a MIDI file to a plaintext format. (modified for git use)"
     , commandUsage = "onyx midi-text-git in.mid > out.midtxt"
+    , commandList = False
     , commandRun = \files opts -> case files of
       [mid] -> do
         res <- MS.toStandardMIDI <$> F.loadRawMIDI mid
@@ -1137,6 +1159,7 @@ commands =
       [ "onyx midi-merge base.mid tracks.mid pad  n --to out.mid"
       , "onyx midi-merge base.mid tracks.mid drop n --to out.mid"
       ]
+    , commandList = True
     , commandRun = \args opts -> case args of
       [base, tracks] -> do
         baseMid <- F.loadMIDI base
@@ -1176,6 +1199,7 @@ commands =
       , "# to preserve source file and line number info:"
       , "onyx bin-to-dta in.bin [--to out.dta] --bin-sources"
       ]
+    , commandList = True
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ return $ fin -<.> "dta"
@@ -1203,6 +1227,7 @@ commands =
     , commandUsage = T.unlines
       [ "onyx dta-to-bin in.dta [--to out.bin]"
       ]
+    , commandList = True
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ return $ fin -<.> "bin"
@@ -1210,6 +1235,76 @@ commands =
         stackIO $ BL.writeFile fout $ putTxtBin txtBin
         return [fout]
       _ -> fatal "Expected 1 argument"
+    }
+
+  , Command
+    { commandWord = "add-track"
+    , commandDesc = "Add an empty track to a MIDI file with a given name."
+    , commandUsage = "onyx add-track \"TRACK NAME\" --to [notes.mid|song.yml]"
+    , commandList = False
+    , commandRun = \args opts -> do
+      f <- outputFile opts $ return "."
+      (ftype, fpath) <- identifyFile' f
+      pathMid <- case ftype of
+        FileMidi -> return fpath
+        FileSongYaml -> return $ takeDirectory fpath </> "notes.mid"
+        FileRBProj -> undone
+        _ -> fatal "Unrecognized --to argument, expected .mid/.yml/.rbproj"
+      mid <- F.loadMIDI pathMid
+      let existingTracks = F.rawTracks $ F.s_tracks mid
+          existingNames = mapMaybe U.trackName existingTracks
+      case filter (`notElem` existingNames) args of
+        []      -> return ()
+        newTrks -> stackIO $ Save.toFile pathMid $ F.showMIDIFile' mid
+          { F.s_tracks = F.RawFile $ existingTracks ++ map (`U.setTrackName` RTB.empty) newTrks
+          }
+      return [pathMid]
+    }
+
+  , Command
+    { commandWord = "import-audio"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandList = False
+    , commandRun = \args opts -> case args of
+      audios@(_ : _) -> do
+        pairs <- forM audios $ \audio -> inside ("audio file: " <> audio) $ do
+          md5 <- audioMD5 audio >>= maybe (fatal "Couldn't compute audio hash") return
+          len <- audioLength audio >>= maybe (fatal "Couldn't compute audio length") return
+          return (md5, len)
+        dir <- outputFile opts $ return "."
+        stackIO $ Dir.createDirectoryIfMissing False dir
+        stackIO $ yamlEncodeFile (dir </> "song.yml") $ toJSON (SongYaml
+          { metadata = def
+          , global   = def
+          , audio    = HM.fromList $ flip map (zip [1..] pairs) $ \(i, (md5, len)) -> let
+            ainfo = AudioFile AudioInfo
+              { md5      = Just $ T.pack md5
+              , frames   = Just len
+              , filePath = Nothing
+              , commands = []
+              , rate     = Nothing
+              , channels = 2 -- TODO real channel count from audio
+              }
+            in (T.pack $ "audio-" <> show (i :: Int), ainfo)
+          , jammit   = HM.empty
+          , plans    = HM.singleton "plan" $ StandardPlan StandardPlanInfo
+            { song        = Just PlanAudio
+              { expr = Input $ Named "audio-1"
+              , pans = []
+              , vols = []
+              }
+            , parts       = Parts HM.empty
+            , crowd       = Nothing
+            , comments    = []
+            , tuningCents = 0
+            , fileTempo   = Nothing
+            }
+          , targets  = HM.empty
+          , parts    = Parts HM.empty
+          } :: SongYaml FilePath)
+        return [dir]
+      _ -> fatal "Expected at least 1 arg (flac or wav files)"
     }
 
   ]
@@ -1221,6 +1316,7 @@ _oldCommands =
     { commandWord = "magma-check"
     , commandDesc = "Run Magma compilation for an RB3 target in a project, to check for errors."
     , commandUsage = ""
+    , commandList = False
     , commandRun = \files opts -> optionalFile files >>= \case
       (FileSongYaml, yamlPath) -> do
         targetName <- case [ t | OptTarget t <- opts ] of
@@ -1248,6 +1344,7 @@ _oldCommands =
     { commandWord = "pack-powergig"
     , commandDesc = "Pack a folder into Data.hdr.e.2 and Data.pk0."
     , commandUsage = ""
+    , commandList = False
     , commandRun = \args opts -> case args of
       -- make new hdr and single pk
       [dir] -> do
@@ -1283,6 +1380,7 @@ _oldCommands =
     { commandWord = "decrypt-powergig"
     , commandDesc = "Decrypt .e.2, producing crypt header and file"
     , commandUsage = ""
+    , commandList = False
     , commandRun = \files _opts -> fmap concat $ forM files $ \f -> do
       let out = case T.stripSuffix ".e.2" $ T.pack f of
             Nothing -> f <> ".dec"
@@ -1302,33 +1400,11 @@ _oldCommands =
     { commandWord = "encrypt-powergig"
     , commandDesc = "Encrypt to .e.2"
     , commandUsage = ""
+    , commandList = False
     , commandRun = \files _opts -> forM files $ \f -> do
       let out = f <> ".e.2"
       stackIO (B.readFile f) >>= PG.encryptE2 >>= stackIO . BL.writeFile out
       return out
-    }
-
-  , Command
-    { commandWord = "add-track"
-    , commandDesc = "Add an empty track to a MIDI file with a given name."
-    , commandUsage = "onyx add-track \"TRACK NAME\" --to [notes.mid|song.yml]"
-    , commandRun = \args opts -> do
-      f <- outputFile opts $ return "."
-      (ftype, fpath) <- identifyFile' f
-      pathMid <- case ftype of
-        FileMidi -> return fpath
-        FileSongYaml -> return $ takeDirectory fpath </> "notes.mid"
-        FileRBProj -> undone
-        _ -> fatal "Unrecognized --to argument, expected .mid/.yml/.rbproj"
-      mid <- F.loadMIDI pathMid
-      let existingTracks = F.rawTracks $ F.s_tracks mid
-          existingNames = mapMaybe U.trackName existingTracks
-      case filter (`notElem` existingNames) args of
-        []      -> return ()
-        newTrks -> stackIO $ Save.toFile pathMid $ F.showMIDIFile' mid
-          { F.s_tracks = F.RawFile $ existingTracks ++ map (`U.setTrackName` RTB.empty) newTrks
-          }
-      return [pathMid]
     }
 
   , Command
@@ -1341,6 +1417,7 @@ _oldCommands =
       , "# by default, creates .dolphin.mid. or specify --to"
       , "onyx dolphin-midi notes.mid --to new.mid [--wii-no-fills] [--wii-mustang-22]"
       ]
+    , commandList = False
     , commandRun = \files opts -> do
       fin <- getInputMIDI files
       fout <- outputFile opts $ return $ fin -<.> "dolphin.mid"
@@ -1352,6 +1429,7 @@ _oldCommands =
     { commandWord = "install-ark"
     , commandDesc = "Install a song into GH2 (PS2)."
     , commandUsage = "onyx install-ark song GEN/ --target gh2"
+    , commandList = False
     , commandRun = \args opts -> case args of
       [song, gen] -> withProject (optIndex opts) song $ \proj -> do
         targetName <- case [ t | OptTarget t <- opts ] of
@@ -1372,6 +1450,7 @@ _oldCommands =
     { commandWord = "lipsync-midi"
     , commandDesc = "Transfer data from a lipsync file to a MIDI file."
     , commandUsage = "onyx lipsync-midi in.mid in.lipsync [in2.lipsync [in3.lipsync]] out.mid"
+    , commandList = False
     , commandRun = \args _opts -> case args of
       fmid : (unsnoc -> Just (fvocs, fout)) -> do
         stackIO $ testConvertLipsync fmid fvocs fout
@@ -1383,6 +1462,7 @@ _oldCommands =
     { commandWord = "lipsync-gen"
     , commandDesc = "Make lipsync files from the vocal tracks in a MIDI file."
     , commandUsage = "onyx lipsync-gen in.mid"
+    , commandList = False
     , commandRun = \args opts -> case args of
       [fmid] -> do
         mid <- F.loadMIDI fmid
@@ -1416,6 +1496,7 @@ _oldCommands =
     { commandWord = "lipsync-track-gen"
     , commandDesc = "Make lipsync files from LIPSYNC{1,2,3,4} in a MIDI file."
     , commandUsage = "onyx lipsync-track-gen in.mid"
+    , commandList = False
     , commandRun = \args opts -> case args of
       [fmid] -> do
         mid <- F.loadMIDI fmid
@@ -1458,6 +1539,7 @@ _oldCommands =
       , "  difficulty: e m h x"
       , "for example: onyx scoring in.mid G x B x PD x V x"
       ]
+    , commandList = False
     , commandRun = \args _opts -> case args of
       fin : players -> do
         mid <- F.loadMIDI fin
@@ -1491,6 +1573,7 @@ _oldCommands =
     { commandWord = "amp-pack"
     , commandDesc = ""
     , commandUsage = ""
+    , commandList = False
     , commandRun = \args opts -> case args of
       [dir] -> do
         ark <- outputFile opts $ return $ dir <.> "ark"
@@ -1503,6 +1586,7 @@ _oldCommands =
     { commandWord = "gh-pack"
     , commandDesc = ""
     , commandUsage = ""
+    , commandList = False
     , commandRun = \args _opts -> case args of
       [dir, hdr] -> do
         let ark = dropExtension hdr <> "_0.ARK"
@@ -1515,6 +1599,7 @@ _oldCommands =
     { commandWord = "coop-max-scores"
     , commandDesc = ""
     , commandUsage = "onyx coop-max-scores notes.mid"
+    , commandList = False
     , commandRun = \args _opts -> case args of
       [fin] -> do
         mid <- F.loadMIDI fin
@@ -1536,54 +1621,10 @@ _oldCommands =
     }
 
   , Command
-    { commandWord = "import-audio"
-    , commandDesc = ""
-    , commandUsage = ""
-    , commandRun = \args opts -> case args of
-      audios@(_ : _) -> do
-        pairs <- forM audios $ \audio -> inside ("audio file: " <> audio) $ do
-          md5 <- audioMD5 audio >>= maybe (fatal "Couldn't compute audio hash") return
-          len <- audioLength audio >>= maybe (fatal "Couldn't compute audio length") return
-          return (md5, len)
-        dir <- outputFile opts $ return "."
-        stackIO $ Dir.createDirectoryIfMissing False dir
-        stackIO $ yamlEncodeFile (dir </> "song.yml") $ toJSON (SongYaml
-          { metadata = def
-          , global   = def
-          , audio    = HM.fromList $ flip map (zip [1..] pairs) $ \(i, (md5, len)) -> let
-            ainfo = AudioFile AudioInfo
-              { md5      = Just $ T.pack md5
-              , frames   = Just len
-              , filePath = Nothing
-              , commands = []
-              , rate     = Nothing
-              , channels = 2 -- TODO real channel count from audio
-              }
-            in (T.pack $ "audio-" <> show (i :: Int), ainfo)
-          , jammit   = HM.empty
-          , plans    = HM.singleton "plan" $ StandardPlan StandardPlanInfo
-            { song        = Just PlanAudio
-              { expr = Input $ Named "audio-1"
-              , pans = []
-              , vols = []
-              }
-            , parts       = Parts HM.empty
-            , crowd       = Nothing
-            , comments    = []
-            , tuningCents = 0
-            , fileTempo   = Nothing
-            }
-          , targets  = HM.empty
-          , parts    = Parts HM.empty
-          } :: SongYaml FilePath)
-        return [dir]
-      _ -> fatal "Expected at least 1 arg (flac or wav files)"
-    }
-
-  , Command
     { commandWord = "make-qb"
     , commandDesc = "Compile a .yaml file back into a .qb"
     , commandUsage = "onyx make-qb in.qb.parsed.yaml [--to out.qb]"
+    , commandList = False
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ return $ fin <.> "qb"
@@ -1597,6 +1638,7 @@ _oldCommands =
     { commandWord = "make-wor-database"
     , commandDesc = ""
     , commandUsage = ""
+    , commandList = False
     , commandRun = \args opts -> do
       fout <- outputFile opts $ fatal "make-wor-database requires --to argument"
       makeMetadataLIVE args fout
@@ -1610,6 +1652,7 @@ _oldCommands =
       [ "onyx test-rb3-venue song.anim --to out.txt"
       , "onyx test-rb3-venue song.anim in.mid --to out.mid"
       ]
+    , commandList = False
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ return $ fin <.> "txt"
@@ -1629,6 +1672,7 @@ _oldCommands =
     , commandUsage = T.unlines
       [ "onyx to-xma2 in.xma [--to out.xma]"
       ]
+    , commandList = False
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ return $ fin -<.> "xma2.xma"
@@ -1652,7 +1696,7 @@ commandLine args = let
     [ "Onyx Music Game Toolkit"
     , ""
     , "Usage: onyx [command] [files] [options]"
-    , "Commands: " <> T.unwords (map commandWord commands)
+    , "Commands: " <> T.unwords (map commandWord $ filter commandList commands)
     , "Run `onyx [command] --help` for further instructions."
     , ""
     ]

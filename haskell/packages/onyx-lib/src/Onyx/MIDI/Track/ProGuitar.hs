@@ -626,11 +626,11 @@ data Slide = SlideUp | SlideDown
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 computeSlides
-  :: ProGuitarDifficulty U.Beats
+  :: RTB.T U.Beats SlideType
   -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe U.Beats)
   -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe (U.Beats, Maybe Slide))
-computeSlides pgd hopo = let
-  marked = RTB.collectCoincident $ RTB.merge (Left <$> hopo) (Right <$> pgSlide pgd)
+computeSlides slideMarkers hopo = let
+  marked = RTB.collectCoincident $ RTB.merge (Left <$> hopo) (Right <$> slideMarkers)
   marked' = RTB.flatten $ flip fmap marked $ \xs -> let
     notes = lefts xs
     slides = rights xs
@@ -677,7 +677,7 @@ computeSlides pgd hopo = let
 
 guitarifyFull :: U.Beats -> ProGuitarDifficulty U.Beats
   -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe (U.Beats, Maybe Slide))
-guitarifyFull threshold pgd = computeSlides pgd $ guitarifyHOPO threshold pgd
+guitarifyFull threshold pgd = computeSlides (pgSlide pgd) $ guitarifyHOPO threshold pgd
 
 -- | Ensures that frets do not go above the given maximum,
 -- first by lowering marked sections one octave and then by muting high notes.
