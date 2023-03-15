@@ -31,7 +31,7 @@ import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.State.Lazy   (evalStateT, get, put)
 import           Control.Monad.Trans.State.Strict (modify)
-import           Data.Char                        (isDigit)
+import           Data.Char                        (isDigit, isSpace)
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -42,11 +42,12 @@ import           Data.List.Extra                  (elemIndex, nubOrd, partition,
 import           Data.List.NonEmpty               (NonEmpty (..))
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, listToMaybe,
-                                                   mapMaybe)
+import           Data.Maybe                       (fromMaybe, isJust,
+                                                   listToMaybe, mapMaybe)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
+import           Data.Tuple.Extra                 (fst3)
 import qualified Data.Vector                      as V
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
@@ -944,8 +945,8 @@ convertRStoPG rs = let
       notes = lefts instant
       shapes = rights instant
       in case (notes, shapes) of
-        ([], _) -> Nothing
-        ((chord, len) : _, []) -> Just (chord, len, Nothing)
+        ([]              , _        ) -> Nothing
+        ((chord, len) : _, []       ) -> Just (chord, len, Nothing)
         ((chord, len) : _, shape : _) -> let
           mapChord = Map.fromList [ (str, fret) | (str, fret, _) <- chord ]
           mapShape = Map.fromList $ fst shape
@@ -958,6 +959,33 @@ convertRStoPG rs = let
       )
     $ RTB.collectCoincident
     $ RTB.merge (Left <$> calculatedNotes) (Right <$> calculatedShapes)
+
+  -- In a handshape, extend notes out to the next note or the end of the shape
+  extendedNotesShapes :: RTB.T U.Beats
+    ( [(GtrString, GtrFret, [RSModifier])]
+    , Maybe U.Beats
+    , Maybe ([(GtrString, GtrFret)], U.Beats)
+    )
+  extendedNotesShapes = let
+    go continuedShape = \case
+      Wait dt triple@(chord, len, newShape) rest -> let
+        maybeShapeLeft = fmap snd newShape <|> do
+          cont <- continuedShape
+          case cont NNC.-| dt of
+            0 -> Nothing
+            n -> Just n
+        in case maybeShapeLeft of
+          Nothing        -> Wait dt triple $ go Nothing rest
+          Just shapeLeft -> let
+            sustainLength = case rest of
+              Wait dt' _ _ -> min shapeLeft $ dt' NNC.-| 0.25
+              RNil         -> shapeLeft
+            newTriple = if sustainLength >= 0.75 && maybe True (sustainLength >) len
+              then (chord, Just sustainLength, newShape)
+              else triple
+            in Wait dt newTriple $ go (Just shapeLeft) rest
+      RNil -> RNil
+    in go Nothing combinedNotesShapes
 
   convertedNotes :: RTB.T U.Beats (Edge GtrFret (GtrString, NoteType))
   convertedNotes
@@ -978,7 +1006,7 @@ convertRStoPG rs = let
           return (fret, (str, ArpeggioForm), len)
       in realNotes <> ghostNotes
       )
-    $ combinedNotesShapes
+    $ extendedNotesShapes
 
   convertedForces :: RTB.T U.Beats (Edge () PGForce)
   convertedForces
@@ -1002,7 +1030,18 @@ convertRStoPG rs = let
       Just (_, shapeLength) -> Just $ RTB.fromPairList
         [(0, True), (shapeLength, False)]
       )
-    $ combinedNotesShapes
+    $ removeSingleChordArpeggio
+    $ extendedNotesShapes
+  removeSingleChordArpeggio = \case
+    Wait dt triple@(chord, len, Just (shapeExtra, shapeLength)) rest -> let
+      inThisShape = map fst3 (RTB.getBodies $ U.trackTake shapeLength rest)
+      chordToMap = Map.fromList . map (\(x, y, _) -> (x, y))
+      targetMap = chordToMap chord
+      in if null shapeExtra && all ((== targetMap) . chordToMap) inThisShape
+        then Wait dt (chord, len, Nothing) $ removeSingleChordArpeggio rest
+        else Wait dt triple $ removeSingleChordArpeggio rest
+    Wait dt triple rest -> Wait dt triple $ removeSingleChordArpeggio rest
+    RNil -> RNil
 
   chordBank = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ buildChordBank rs
 
@@ -1011,19 +1050,34 @@ convertRStoPG rs = let
     = RTB.fromAbsoluteEventList
     $ ATB.fromPairList
     $ mapMaybe (\(t, (chord, _, maybeShape)) -> do
-      (shape, _shapeLength) <- maybeShape
+      (shapeExtra, _shapeLength) <- maybeShape
       case Map.lookupLE t chordBank of
         Nothing               -> Just (t, Nothing)
         Just (bankTime, bank) -> let
-          targetChord = Map.fromList $ [ (str, fret) | (str, fret, _) <- chord ] <> shape
+          targetChord = Map.fromList $ [ (str, fret) | (str, fret, _) <- chord ] <> shapeExtra
           lookupOnce = do
             guard $ bankTime == t
             Map.lookup (Map.keys targetChord) $ cb_shapes_once bank
           lookupNotOnce = Map.lookup targetChord $ cb_shapes bank
-          in Just (t, (lookupOnce <|> lookupNotOnce) >>= ciName)
+          name = (lookupOnce <|> lookupNotOnce) >>= ciName >>= \x -> do
+            guard $ T.any (not . isSpace) x
+            return x
+          in Just (t, name)
       )
     $ ATB.toPairList
-    $ RTB.toAbsoluteEventList 0 combinedNotesShapes
+    $ RTB.toAbsoluteEventList 0 extendedNotesShapes
+
+  hiddenChordNames :: RTB.T U.Beats Bool
+  hiddenChordNames = let
+    go = \case
+      Wait t1 Nothing rest -> let
+        blipLen = case rest of
+          Wait t2 _ _ -> min t2 0.25
+          RNil        -> 0.25
+        in Wait t1 (RTB.fromPairList [(0, True), (blipLen, False)]) $ go rest
+      Wait t (Just _) rest -> RTB.delay t $ go rest
+      RNil -> RNil
+    in U.trackJoin $ go convertedChordNames
 
   -- TODO check if there's any chord name character substitution we need to do.
   -- sharp/flat should already be good to go (#/b in both formats apparently)
@@ -1050,7 +1104,7 @@ convertRStoPG rs = let
     , pgForce = convertedForces
     , pgArpeggio = convertedArpeggio
     , pgSlide = NormalSlide <$ desiredSlides
-    , pgChordName = convertedChordNames
+    , pgChordName = RTB.filter isJust convertedChordNames
     }
 
   defaultSlideDirections :: RTB.T U.Beats Slide
@@ -1074,41 +1128,6 @@ convertRStoPG rs = let
 
   in return mempty
     { pgDifficulties = Map.singleton Expert resultFixedSlides
+    , pgNoChordNames = hiddenChordNames
     -- TODO pgTremolo
     }
-
-{-
-planning for convertRStoPG
-
-NOTE PROPERTIES
-
-hammeron/pulloff: force hopo (could also force other notes to strum?)
-
-channel priority
-mute: set mute channel
-tap: set tap channel (maybe also force hopo to be sure)
-(rest don't do anything)
-vibrato: set bend channel
-harmonic: set harmonic channel
-pinch harmonic: set pinch harmonic channel
-
-slide: add slide (compute up/down), maybe try to add endpoint note (hopo)
-slideunpitch: add slide (compute up/down)
-
-ignore: maybe optionally add mute channel?
-
-slap/pop: nope
-accent: nope
-palmmute: probably ignore
-
-tremolo: turn into many notes with tremolo lane?
-link: figure out proper way of combining notes
-
-CHORDS
-
-in general, just turn handshapes/arpeggios into arpeggios.
-chord names can just be brought over exactly that way.
-EXCEPT when the contents are an unchanging chord, can just have the chords. (sustain maybe?)
-but, what if the arpeggio starts with a note not in the arp shape? (not supported in RB)
-could start the arpeggio right before that note maybe.
--}

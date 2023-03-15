@@ -9,7 +9,7 @@ import           Control.Monad                    (guard, void)
 import           Control.Monad.IO.Class           (MonadIO)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (nub, sort, sortOn)
+import           Data.List.Extra                  (nubOrd, sort, sortOn)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isNothing)
 import qualified Data.Set                         as Set
@@ -19,8 +19,8 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.FeedBack.Load               (loadMIDIOrChart)
 import           Onyx.Guitar
 import           Onyx.Keys.Ranges                 (completeRanges)
-import           Onyx.MIDI.Common                 (Difficulty (..), Key (..),
-                                                   StrumHOPOTap (..),
+import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
+                                                   Key (..), StrumHOPOTap (..),
                                                    blipEdgesRB_, edgeBlips_,
                                                    minSustainLengthRB,
                                                    trackGlue)
@@ -343,7 +343,7 @@ pkReduce diff   mmap od diffEvents = let
     then pknotes4
     else flip fmap pknotes4 $ \(PKNote ps len) -> let
       -- we'll use range F-A for easy/medium
-      ps' = nub $ flip map ps $ \case
+      ps' = nubOrd $ flip map ps $ \case
         PK.RedYellow k -> if k < F
           then PK.BlueGreen k
           else PK.RedYellow k
@@ -545,13 +545,26 @@ simpleReduce fin fout = do
       }
     }
 
--- | Currently just copies upper difficulties to lower ones if empty.
+-- | Currently just fills empty lower difficulties with dummy data
 protarComplete :: ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats
 protarComplete pg = let
   getDiff d = fromMaybe mempty $ Map.lookup d $ pgDifficulties pg
   fill upper this = if RTB.null $ pgNotes this then upper else this
-  x =          getDiff Expert
-  h = fill x $ getDiff Hard
-  m = fill h $ getDiff Medium
-  e = fill m $ getDiff Easy
+  x = getDiff Expert
+  dummy = ProGuitarDifficulty
+    { pgChordName    = RTB.empty
+    , pgForce        = RTB.empty
+    , pgSlide        = RTB.empty
+    , pgArpeggio     = RTB.empty
+    , pgPartialChord = RTB.empty
+    , pgAllFrets     = RTB.empty
+    , pgMysteryBFlat = RTB.empty
+    , pgNotes        = let
+      openLow EdgeOn {} = EdgeOn 0 (S6, NormalNote)
+      openLow EdgeOff{} = EdgeOff  (S6, NormalNote)
+      in RTB.flatten $ fmap (nubOrd . map openLow) $ RTB.collectCoincident $ pgNotes x
+    }
+  h = fill dummy $ getDiff Hard
+  m = fill dummy $ getDiff Medium
+  e = fill dummy $ getDiff Easy
   in pg { pgDifficulties = Map.fromList [(Expert, x), (Hard, h), (Medium, m), (Easy, e)] }
