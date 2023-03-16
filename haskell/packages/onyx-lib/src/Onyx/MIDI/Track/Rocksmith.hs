@@ -47,7 +47,7 @@ import           Data.Maybe                       (fromMaybe, isJust,
 import           Data.Profunctor                  (dimap)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
-import           Data.Tuple.Extra                 (fst3)
+import           Data.Tuple.Extra                 (fst3, thd3)
 import qualified Data.Vector                      as V
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
@@ -549,6 +549,7 @@ applyLinks = \case
           Nothing -> Wait t thisEdge $ applyLinks rest
           Just ((thisLength, ()), rest') -> case U.extractFirst findNextOn rest' of
             Nothing -> Wait t thisEdge $ applyLinks rest
+            -- TODO probably we don't want to change anything if tremolo starts/ends between the two notes
             Just ((beforeNextOn, (nextFret, nextMods)), rest'') -> if fret == nextFret
               -- if linking to same fret, join the two notes together, and move slide/link mods from 2nd note to 1st
               then let
@@ -908,12 +909,45 @@ buildRSVocals tmap vox = Vocals $ V.fromList $ let
     RNil -> RNil
   in map (\(t, f) -> f t) $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ go evts
 
-convertRStoPG :: (SendMessage m) => RocksmithTrack U.Beats -> StackTraceT m (ProGuitarTrack U.Beats)
-convertRStoPG rs = let
+applyTremolo
+  :: U.TempoMap
+  -> RTB.T U.Beats ([(GtrString, GtrFret, [RSModifier])], Maybe U.Beats)
+  -> (RTB.T U.Beats ([(GtrString, GtrFret, [RSModifier])], Maybe U.Beats), RTB.T U.Beats U.Beats)
+applyTremolo tmap notes = let
+  tremoloSpeed = 0.080 :: U.Seconds
+  results = do
+    orig@(t, (chord, len)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 notes
+    let allMods = chord >>= thd3
+    case len of
+      Nothing -> [Left orig]
+      Just sustainBeats -> if elem ModTremolo allMods
+        then let
+          startSecs = U.applyTempoMap tmap t
+          endBeats  = t + sustainBeats
+          isSlide   = flip any allMods $ \case
+            ModSlide        _ -> True
+            ModSlideUnpitch _ -> True
+            _                 -> False
+          newChord  = do
+            (str, fret, mods) <- chord
+            let newMods = filter (/= ModTremolo) mods <> [ModMute | isSlide]
+            return (str, fret, newMods)
+          newNotes  = takeWhile ((< endBeats) . fst) $ do
+            newSecs <- iterate (+ tremoloSpeed) startSecs
+            return (U.unapplyTempoMap tmap newSecs, (newChord, Nothing))
+          tremolo   = [Right (t, sustainBeats) | not $ null $ drop 1 newNotes]
+          in map Left newNotes <> tremolo
+        else [Left orig]
+  toRTB = RTB.fromAbsoluteEventList . ATB.fromPairList
+  in (toRTB $ lefts results, toRTB $ rights results)
+
+convertRStoPG :: U.TempoMap -> RocksmithTrack U.Beats -> ProGuitarTrack U.Beats
+convertRStoPG tmap rs = let
 
   calculatedNotes :: RTB.T U.Beats ([(GtrString, GtrFret, [RSModifier])], Maybe U.Beats)
-  calculatedNotes
-    = guitarify'
+  (calculatedNotes, tremolo)
+    = applyTremolo tmap
+    $ guitarify'
     $ fmap (\((fret, mods), str, len) -> ((str, fret, mods), len))
     $ edgeBlips minSustainLengthRB
     $ applyLinks
@@ -1126,8 +1160,10 @@ convertRStoPG rs = let
     { pgSlide = fixedSlideMarkers
     }
 
-  in return mempty
+  in mempty
     { pgDifficulties = Map.singleton Expert resultFixedSlides
     , pgNoChordNames = hiddenChordNames
-    -- TODO pgTremolo
+    , pgTremolo = U.trackJoin
+      $ fmap (\len -> RTB.fromPairList [(0, Just LaneExpert), (len, Nothing)])
+      $ tremolo
     }

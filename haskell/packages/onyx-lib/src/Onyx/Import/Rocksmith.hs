@@ -580,7 +580,7 @@ importRSSong folder song level = do
                     n  -> n
                   }
               , tuningRSBass = Nothing
-              , fixFreeform   = False
+              , fixFreeform = True -- setting this for cleaner tremolo if we translate to RB protar
               , tones = flip fmap tones $ fmap $ \tone -> let
                 file = T.unpack (t14_Key tone) <.> "tone2014.xml"
                 in SoftFile file $ SoftReadable $ makeHandle file $

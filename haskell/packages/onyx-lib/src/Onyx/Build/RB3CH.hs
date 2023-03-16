@@ -620,10 +620,10 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
           srcRSG = F.onyxPartRSGuitar     src
           srcRSB = F.onyxPartRSBass       src
           in do
-            src22' <- case (nullPG src22 && nullPG src17, nullRS srcRSG, nullRS srcRSB) of
-              (True, False, _    ) -> convertRStoPG srcRSG
-              (True, True , False) -> convertRStoPG srcRSB
-              (_   , _    , _    ) -> return src22
+            let src22' = case (nullPG src22 && nullPG src17, nullRS srcRSG, nullRS srcRSB) of
+                  (True, False, _    ) -> convertRStoPG tempos srcRSG
+                  (True, True , False) -> convertRStoPG tempos srcRSB
+                  (_   , _    , _    ) -> src22
             let mustang = f $ fretLimit 17 $ if nullPG src17  then src22' else src17
                 squier  = f $ fretLimit 22 $ if nullPG src22' then src17  else src22'
             return (mustang, if mustang == squier then mempty else squier)
