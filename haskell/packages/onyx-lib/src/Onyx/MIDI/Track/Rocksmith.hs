@@ -22,7 +22,8 @@ module Onyx.MIDI.Track.Rocksmith
 , convertRStoPG
 , nullRS
 , getNotesWithModifiers
-, applyLinks
+, RSRockBandOutput(..)
+, rsToRockBand
 ) where
 
 import           Control.Applicative              (liftA2, (<|>))
@@ -909,6 +910,7 @@ buildRSVocals tmap vox = Vocals $ V.fromList $ let
     RNil -> RNil
   in map (\(t, f) -> f t) $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ go evts
 
+-- TODO make this have two modes: 80ms (for tremolo lanes) and 16th notes (for CH etc.)
 applyTremolo
   :: U.TempoMap
   -> RTB.T U.Beats ([(GtrString, GtrFret, [RSModifier])], Maybe U.Beats)
@@ -934,15 +936,27 @@ applyTremolo tmap notes = let
             return (str, fret, newMods)
           newNotes  = takeWhile ((< endBeats) . fst) $ do
             newSecs <- iterate (+ tremoloSpeed) startSecs
-            return (U.unapplyTempoMap tmap newSecs, (newChord, Nothing))
+            -- lock positions to 480 resolution to avoid problems with autochart
+            let newBeats = fromInteger (floor $ U.unapplyTempoMap tmap newSecs * 480) / 480 :: U.Beats
+            return (newBeats, (newChord, Nothing))
           tremolo   = [Right (t, sustainBeats) | not $ null $ drop 1 newNotes]
           in map Left newNotes <> tremolo
         else [Left orig]
   toRTB = RTB.fromAbsoluteEventList . ATB.fromPairList
   in (toRTB $ lefts results, toRTB $ rights results)
 
-convertRStoPG :: U.TempoMap -> RocksmithTrack U.Beats -> ProGuitarTrack U.Beats
-convertRStoPG tmap rs = let
+-- Data that can be used both for Pro Guitar output, as well as autochart conversion to 5-fret
+data RSRockBandOutput = RSRockBandOutput
+  { notesWithHandshapes :: RTB.T U.Beats
+    ( [(GtrString, GtrFret, [RSModifier])]    -- main note(s)
+    , Maybe U.Beats                           -- sustain length
+    , Maybe ([(GtrString, GtrFret)], U.Beats) -- handshape starting here, list is ghost notes on top of real notes
+    )
+  , tremoloMarkers :: RTB.T U.Beats U.Beats
+  }
+
+rsToRockBand :: U.TempoMap -> RocksmithTrack U.Beats -> RSRockBandOutput
+rsToRockBand tmap rs = let
 
   calculatedNotes :: RTB.T U.Beats ([(GtrString, GtrFret, [RSModifier])], Maybe U.Beats)
   (calculatedNotes, tremolo)
@@ -1021,6 +1035,18 @@ convertRStoPG tmap rs = let
       RNil -> RNil
     in go Nothing combinedNotesShapes
 
+  in RSRockBandOutput
+    { notesWithHandshapes = extendedNotesShapes
+    , tremoloMarkers      = tremolo
+    }
+
+convertRStoPG :: U.TempoMap -> RocksmithTrack U.Beats -> ProGuitarTrack U.Beats
+convertRStoPG tmap rs = let
+
+  output = rsToRockBand tmap rs
+  extendedNotesShapes = notesWithHandshapes output
+  tremolo = tremoloMarkers output
+
   convertedNotes :: RTB.T U.Beats (Edge GtrFret (GtrString, NoteType))
   convertedNotes
     = blipEdgesRB
@@ -1047,14 +1073,14 @@ convertRStoPG tmap rs = let
     = fmap (\(b, x) -> if b then EdgeOn () x else EdgeOff x)
     $ cleanEdges
     $ U.trackJoin
-    $ fmap (\(chord, _) -> let
+    $ fmap (\(chord, _, _) -> let
       allMods = chord >>= \(_, _, mods) -> mods
       force = if any (`elem` allMods) [ModHammerOn, ModPullOff, ModTap]
         then PGForceHOPO
         else PGForceStrum
       in RTB.fromPairList [(0, (True, force)), (1/480, (False, force))]
       )
-    $ calculatedNotes
+    $ extendedNotesShapes
 
   convertedArpeggio :: RTB.T U.Beats Bool
   convertedArpeggio
@@ -1118,7 +1144,7 @@ convertRStoPG tmap rs = let
 
   desiredSlides :: RTB.T U.Beats Slide
   desiredSlides
-    = RTB.mapMaybe (\(chord, _) -> let
+    = RTB.mapMaybe (\(chord, _, _) -> let
       directions = do
         (_, fret, mods) <- chord
         targetFret <- mods >>= \case
@@ -1131,7 +1157,7 @@ convertRStoPG tmap rs = let
           GT -> [SlideDown]
       in listToMaybe directions
       )
-    $ calculatedNotes
+    $ extendedNotesShapes
 
   resultDefaultSlides = mempty
     { pgNotes = convertedNotes

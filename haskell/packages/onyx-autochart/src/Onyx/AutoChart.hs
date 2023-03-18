@@ -108,6 +108,7 @@ distinguishFrets frets orig auto = let
 
 autoChart :: Int -> [(Rational, Int)] -> [(Rational, Int)]
 autoChart frets notes = let
+  -- TODO if resolution is too high, this starts overflowing ints!
   resolution :: Rational
   resolution = fromIntegral $ foldr lcm 1 $ map (denominator . fst) notes
   cppInput = map (first $ \posn -> round $ posn * resolution) notes

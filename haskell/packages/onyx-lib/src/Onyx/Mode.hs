@@ -19,7 +19,7 @@ import           Data.Foldable                    (find)
 import           Data.Functor                     (void)
 import           Data.List.Extra                  (nubOrd, sort)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, isJust,
+import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    listToMaybe)
 import qualified Data.Text                        as T
 import           Onyx.AutoChart                   (autoChart)
@@ -379,27 +379,24 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
       }
     , notes = let
       -- TODO
-      -- * extend notes out during handshape sections
-      -- * turn tremolo sustains into stream of strummed notes on regular rhythm
       -- * maybe split bent notes into multiple
-      chosenTrack = fromMaybe RTB.empty $ listToMaybe $ filter (not . RTB.null)
-        [ applyLinks $ getNotesWithModifiers $ F.onyxPartRSGuitar input.part
-        , applyLinks $ getNotesWithModifiers $ F.onyxPartRSBass input.part
+      chorded = RTB.toAbsoluteEventList 0 $ notesWithHandshapes $ fromMaybe (RSRockBandOutput RTB.empty RTB.empty) $ listToMaybe $ catMaybes
+        [ do
+          guard $ not $ RTB.null $ rsNotes $ F.onyxPartRSGuitar input.part
+          return $ rsToRockBand input.tempo $ F.onyxPartRSGuitar input.part
+        , do
+          guard $ not $ RTB.null $ rsNotes $ F.onyxPartRSBass input.part
+          return $ rsToRockBand input.tempo $ F.onyxPartRSBass input.part
         -- TODO support RB protar tracks
         ]
       strings = tuningPitches ppg.tuning
-      toPitch (fret, str) = (strings !! getStringIndex 6 str) + fret
-      chorded
-        = RTB.toAbsoluteEventList 0
-        $ guitarify'
-        $ fmap (\((fret, mods), str, len) -> (((fret, str), mods), guard (len >= standardBlipThreshold) >> Just len))
-        $ RB.joinEdgesSimple chosenTrack
+      toPitch str fret = (strings !! getStringIndex 6 str) + fret
       autoResult = autoChart 5 $ do
-        (bts, (notes, _len)) <- ATB.toPairList chorded
+        (bts, (notes, _len, _shape)) <- ATB.toPairList chorded
         pitch <- simplifyChord $ nubOrd
           -- Don't give fret-hand-mute notes to the autochart,
           -- then below they will automatically become open notes
-          [ toPitch fretStr | (fretStr, mods) <- notes, notElem ModMute mods ]
+          [ toPitch str fret | (str, fret, mods) <- notes, notElem ModMute mods ]
         return (realToFrac bts, pitch)
       autoMap = foldr (Map.unionWith (<>)) Map.empty $ map
         (\(pos, fret) -> Map.singleton (realToFrac pos) [fret])
@@ -409,8 +406,8 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
         $ adjustRocksmithHST input.tempo
         $ RTB.fromAbsoluteEventList
         $ ATB.fromPairList
-        $ map (\(posn, (chord, len)) -> let
-          allMods = chord >>= snd
+        $ map (\(posn, (chord, len, _shape)) -> let
+          allMods = chord >>= \(_, _, mods) -> mods
           hst = if elem ModHammerOn allMods || elem ModPullOff allMods
             then HOPO
             else if elem ModTap allMods

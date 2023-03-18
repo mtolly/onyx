@@ -19,6 +19,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (find, sort)
+import           Data.List.Extra                  (nubOrd)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, mapMaybe)
@@ -299,7 +300,9 @@ importRSSong folder song level = do
                   parseMask mask = concat
                     [ [ModHammerOn | mask .&. 0x200 /= 0]
                     , [ModPullOff | mask .&. 0x400 /= 0]
-                    , [ModMute | mask .&. 0x020000 /= 0]
+                    -- according to CST, 8 = NOTE_MASK_FRETHANDMUTE, 0x20000 = NOTE_MASK_MUTE ?
+                    -- seemingly, chords have 8 (in notes_NoteMask, not chord_Mask!), non-chords have 0x20000
+                    , [ModMute | mask .&. 0x20000 /= 0 || mask .&. 0x8 /= 0]
                     , [ModPalmMute | mask .&. 0x40 /= 0]
                     , [ModAccent | mask .&. 0x04000000 /= 0]
                     , [ModLink | mask .&. 0x8000000 /= 0] -- also the next note has mask .&. 0x10000000
@@ -321,6 +324,11 @@ importRSSong folder song level = do
                   -- ModRightHand
                   numNot x n = guard (n /= x) >> Just n
                   in do
+                    let noteMods = parseMask (notes_NoteMask note) <> catMaybes
+                          [ ModVibrato      .               fromIntegral <$> numNot 0    (notes_Vibrato        note)
+                          , ModSlide        . unapplyCapo . fromIntegral <$> numNot (-1) (notes_SlideTo        note)
+                          , ModSlideUnpitch . unapplyCapo . fromIntegral <$> numNot (-1) (notes_SlideUnpitchTo note)
+                          ]
                     (str, fret, mods, bends) <- case notes_ChordId note of
                       -1 -> let
                         fret = unapplyCapo $ fromIntegral $ notes_FretId note
@@ -332,13 +340,8 @@ importRSSong folder song level = do
                           4 -> S2
                           5 -> S1
                           _ -> S7 -- TODO raise error
-                        mods = parseMask (notes_NoteMask note) <> catMaybes
-                          [ ModVibrato      .               fromIntegral <$> numNot 0    (notes_Vibrato        note)
-                          , ModSlide        . unapplyCapo . fromIntegral <$> numNot (-1) (notes_SlideTo        note)
-                          , ModSlideUnpitch . unapplyCapo . fromIntegral <$> numNot (-1) (notes_SlideUnpitchTo note)
-                          ]
                         bends = map (\bd -> (bd32_Time bd, bd32_Step bd)) $ notes_BendData note
-                        in [(str, fret, mods, bends)]
+                        in [(str, fret, noteMods, bends)]
                       chordID -> do
                         let chord = sng_Chords sng !! fromIntegral chordID
                             chordNotes = case notes_ChordNotesId note of
@@ -346,7 +349,9 @@ importRSSong folder song level = do
                               cnid -> Just $ sng_ChordNotes sng !! fromIntegral cnid
                         (str, i) <- zip [S6, S5 ..] [0..]
                         let fret = unapplyCapo $ fromIntegral $ chord_Frets chord !! i
-                            mods = case chordNotes of
+                            -- apparently need to include notes_NoteMask as well,
+                            -- because fret-hand-mute chords use that as indicator (mask & 8)
+                            mods = nubOrd $ noteMods <> case chordNotes of
                               Nothing -> []
                               Just cn -> parseMask (cn_NoteMask cn !! i) <> catMaybes
                                 [ ModVibrato      .               fromIntegral <$> numNot 0    (cn_Vibrato        cn !! i)
