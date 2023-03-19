@@ -150,7 +150,8 @@ import           Onyx.MIDI.Track.File                      (FlexPartName (..))
 import qualified Onyx.MIDI.Track.File                      as F
 import           Onyx.MIDI.Track.Lipsync
 import           Onyx.MIDI.Track.Vocal                     (nullVox)
-import           Onyx.Mode                                 (anyFiveFret)
+import           Onyx.Mode                                 (anyDrums,
+                                                            anyFiveFret)
 import           Onyx.Neversoft.Metadata                   (combineGH3SongCache360,
                                                             combineGH3SongCachePS3)
 import qualified Onyx.PlayStation.PKG                      as PKG
@@ -1793,6 +1794,7 @@ batchPageRB2 sink rect tab build = do
               else SongIDAutoSymbol
             , ps3Encrypt  = prefPS3Encrypt newPreferences
             }
+          -- TODO need to use anyDrums
           kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart FlexDrums yaml >>= (.drums)) of
             (_        , Kicks1x) -> [(False, ""   )]
             (Kicks1x  , _      ) -> [(False, "_1x")]
@@ -2352,7 +2354,7 @@ songPageRB3 sink rect tab proj build = mdo
         , (\p -> partCanMakeFiveFret p || isJust p.proKeys) -- similarly pro keys can make five fret
         )
       , ( "Drums" , (.drums ), (\v rb3 -> (rb3 :: TargetRB3) { drums  = v })
-        , (\p -> isJust p.drums)
+        , (\p -> isJust $ anyDrums p)
         )
       , ( "Vocal" , (.vocal ), (\v rb3 -> (rb3 :: TargetRB3) { vocal  = v })
         , (\p -> isJust p.vocal)
@@ -2465,7 +2467,7 @@ songPageRB2 sink rect tab proj build = mdo
         , (\p -> isJust $ anyFiveFret p)
         )
       , ( "Drums" , (.drums ), (\v rb2 -> (rb2 :: TargetRB2) { drums  = v })
-        , (\p -> isJust p.drums)
+        , (\p -> isJust $ anyDrums p)
         )
       , ( "Vocal" , (.vocal ), (\v rb2 -> (rb2 :: TargetRB2) { vocal  = v })
         , (\p -> isJust p.vocal)
@@ -2570,7 +2572,7 @@ songPageGHWOR sink rect tab proj build = mdo
         , (\p -> isJust $ anyFiveFret p)
         )
       , ( "Drums" , (.drums ), (\v gh5 -> (gh5 :: TargetGH5) { drums  = v })
-        , (\p -> isJust p.drums)
+        , (\p -> isJust $ anyDrums p)
         )
       , ( "Vocal" , (.vocal ), (\v gh5 -> (gh5 :: TargetGH5) { vocal  = v })
         , (\p -> isJust p.vocal)
@@ -2656,7 +2658,7 @@ songPagePS sink rect tab proj build = mdo
         , (\p -> isJust (anyFiveFret p) || isJust p.proKeys) -- pro keys redundant since it can make five fret
         )
       , ( "Drums"      , (.drums     ), (\v ps -> (ps :: TargetPS) { drums      = v })
-        , (\p -> isJust p.drums)
+        , (\p -> isJust $ anyDrums p)
         )
       , ( "Vocal"      , (.vocal     ), (\v ps -> (ps :: TargetPS) { vocal      = v })
         , (\p -> isJust p.vocal)
@@ -2931,7 +2933,7 @@ songPageGH2 sink rect tab proj build = mdo
         , isJust . anyFiveFret
         )
       , ( "Drums", (.drums), (\v gh2 -> (gh2 :: TargetGH2) { drums = v })
-        , isJust . (.drums)
+        , isJust . anyDrums
         )
       , ( "Vocal", (.vocal), (\v gh2 -> (gh2 :: TargetGH2) { vocal = v })
         , isJust . (.vocal)
@@ -3179,6 +3181,7 @@ batchPageRB3 sink rect tab build = do
               then SongIDAutoInt
               else SongIDAutoSymbol
             }
+          -- TODO need to use anyDrums
           kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart FlexDrums yaml >>= (.drums)) of
             (_        , Kicks1x) -> [(False, ""   )]
             (Kicks1x  , _      ) -> [(False, "_1x")]

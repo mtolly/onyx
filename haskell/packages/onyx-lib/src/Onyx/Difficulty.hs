@@ -45,6 +45,17 @@ difficultyRB3 rb3 songYaml = let
     Just mode -> case mode.difficulty of
       Rank r -> r
       Tier t -> tierToRank dmap t
+  drumRank flex dmap = case getPart flex songYaml >>= anyDrums of
+    Nothing -> 0
+    Just builder -> let
+      result = builder DrumTargetRB2x ModeInput
+        { tempo  = U.tempoMapFromBPS RTB.empty
+        , events = mempty
+        , part   = mempty
+        }
+      in case result.settings.difficulty of
+        Rank r -> r
+        Tier t -> tierToRank dmap t
   fiveRank flex dmap = case getPart flex songYaml >>= anyFiveFret of
     Nothing -> 0
     Just builder -> let
@@ -57,7 +68,7 @@ difficultyRB3 rb3 songYaml = let
         Rank r -> r
         Tier t -> tierToRank dmap t
 
-  rb3DrumsRank     = simpleRank rb3.drums  (.drums    ) drumsDiffMap
+  rb3DrumsRank     = drumRank rb3.drums  drumsDiffMap
   rb3BassRank'     = fiveRank rb3.bass   bassDiffMap
   rb3GuitarRank'   = fiveRank rb3.guitar guitarDiffMap
   rb3KeysRank'     = fiveRank rb3.keys   keysDiffMap

@@ -30,7 +30,6 @@ import           Data.Maybe                        (fromMaybe, isJust,
 import qualified Data.Text                         as T
 import qualified Numeric.NonNegative.Class         as NNC
 import           Onyx.Difficulty
-import           Onyx.Drums.OneFoot
 import           Onyx.Guitar
 import           Onyx.Keys.Ranges
 import           Onyx.MIDI.Common
@@ -259,97 +258,54 @@ buildDrums
   -> BasicTiming
   -> SongYaml f
   -> Maybe (DrumTrack U.Beats)
-buildDrums drumsPart target (F.Song tempos mmap trks) timing@BasicTiming{..} songYaml = case getPart drumsPart songYaml >>= (.drums) of
-  Nothing -> Nothing
-  Just pd -> Just $ let
-    -- TODO replace all this with buildDrumTarget which I copied most of the logic to
-    psKicks = case pd.kicks of
-      Kicks2x -> mapTrack (U.unapplyTempoTrack tempos) . phaseShiftKicks 0.18 0.11 . mapTrack (U.applyTempoTrack tempos)
-      _       -> id
-    sections = fmap snd $ eventsSections $ F.onyxEvents trks
-    finish = changeMode . psKicks . drumsComplete mmap sections
-    fiveToFourTrack = drumEachDiff $ \dd -> dd
-      { drumGems = Drums.fiveToFour
-        (case pd.fallback of
-          FallbackBlue  -> Drums.Blue
-          FallbackGreen -> Drums.Green
-        )
-        (drumGems dd)
-      }
-    drumEachDiff f dt = dt { drumDifficulties = fmap f $ drumDifficulties dt }
-    noToms dt = dt { drumToms = RTB.empty }
-    allToms dt = dt
-      { drumToms = RTB.fromPairList
-        [ (0        , (Drums.Yellow, Drums.Tom   ))
-        , (0        , (Drums.Blue  , Drums.Tom   ))
-        , (0        , (Drums.Green , Drums.Tom   ))
-        , (timingEnd, (Drums.Yellow, Drums.Cymbal))
-        , (0        , (Drums.Blue  , Drums.Cymbal))
-        , (0        , (Drums.Green , Drums.Cymbal))
-        ]
-      }
-    changeMode = case (pd.mode, target) of
-      (DrumsFull, _         ) -> id
-      (DrumsReal, _         ) -> id
-      (DrumsPro , _         ) -> id
-      -- TODO convert 5 to pro, not just basic.
-      (Drums5   , Left  _rb3) -> allToms . fiveToFourTrack
-      (Drums5   , Right _ps ) -> noToms
-      (Drums4   , Right _ps ) -> noToms
-      (Drums4   , Left  _rb3) -> allToms
-    flex = F.getFlexPart drumsPart trks
-    trk1x = if Drums.nullDrums (F.onyxPartDrums flex) && pd.mode == DrumsFull
-      then FD.convertFullDrums False $ F.onyxPartFullDrums flex
-      else F.onyxPartDrums flex
-    trk2x = F.onyxPartDrums2x flex
-    trkReal = if Drums.nullDrums (F.onyxPartRealDrumsPS flex) && pd.mode == DrumsFull
-      then FD.convertFullDrums True $ F.onyxPartFullDrums flex
-      else F.onyxPartRealDrumsPS flex
-    trkReal' = Drums.psRealToPro trkReal
-    onlyPSReal = all nullDrums [trk1x, trk2x] && not (nullDrums trkReal)
-    pro1x = if onlyPSReal then trkReal' else trk1x
-    pro2x = if onlyPSReal then trkReal' else trk2x
-    ps1x = finish $ if nullDrums pro1x then pro2x else pro1x
-    ps2x = finish $ if nullDrums pro2x then pro1x else pro2x
-    psPS = if not $ RTB.null $ drumKick2x pro1x then ps1x else ps2x
-    autoAnims = buildDrumAnimation pd tempos flex
-    addAnims dt = if RTB.null $ drumAnimation dt
-      then dt { drumAnimation = autoAnims }
-      else dt
-    addMoods dt = dt
-      { drumMood = noEarlyMood $ if RTB.null $ drumMood dt
-        then makeMoods tempos timing $ Blip () () <$ drumAnimation dt
-        else drumMood dt
-      }
-    drumsRemoveBRE = case removeBRE target $ F.onyxEvents trks of
-      Just BRERemover{..}
-        -> drumEachDiff (\dd -> dd { drumGems = breRemoveBlips $ drumGems dd })
-        . (\dt -> dt
-          { drumSingleRoll = breRemoveLanes $ drumSingleRoll dt
-          , drumDoubleRoll = breRemoveLanes $ drumDoubleRoll dt
-          })
-      Nothing -> id
-    hasDynamics dt = flip any (drumDifficulties dt) $ \dd ->
-      flip any (drumGems dd) $ \(_gem, vel) ->
-        vel /= VelocityNormal
-    enableDynamics dt = dt
-      -- this will use the no-brackets version, so Magma is ok with it
-      { drumEnableDynamics = if hasDynamics dt then RTB.singleton 0 () else RTB.empty
-      }
-    -- Note: drumMix must be applied *after* drumsComplete.
-    -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
-    in (if pd.fixFreeform then F.fixFreeformDrums else id)
-      $ (\dt -> dt { drumPlayer1 = RTB.empty, drumPlayer2 = RTB.empty })
-      $ drumsRemoveBRE
-      $ addMoods
-      $ addAnims
-      $ enableDynamics
-      $ case target of
-        Left rb3 -> drumEachDiff (\dd -> dd { drumPSModifiers = RTB.empty }) $
-          if rb3.is2xBassPedal
-            then rockBand2x ps2x
-            else rockBand1x ps1x
-        Right _ -> psPS
+buildDrums drumsPart target (F.Song tempos mmap trks) timing songYaml = do
+  bd <- getPart drumsPart songYaml >>= anyDrums
+
+  let drumTarget = case target of
+        Left rb3 -> if rb3.is2xBassPedal
+          then DrumTargetRB2x
+          else DrumTargetRB1x
+        Right _ps -> DrumTargetCH
+      modeInput = ModeInput
+        { tempo  = tempos
+        , events = F.getEventsTrack trks
+        , part   = F.getFlexPart drumsPart trks
+        }
+      src = drumResultToTrack $ bd drumTarget modeInput
+
+      sections = fmap snd $ eventsSections $ F.onyxEvents trks
+
+      drumEachDiff f dt = dt { drumDifficulties = fmap f $ drumDifficulties dt }
+      drumsRemoveBRE = case removeBRE target $ F.onyxEvents trks of
+        Just BRERemover{..}
+          -> drumEachDiff (\dd -> dd { drumGems = breRemoveBlips $ drumGems dd })
+          . (\dt -> dt
+            { drumSingleRoll = breRemoveLanes $ drumSingleRoll dt
+            , drumDoubleRoll = breRemoveLanes $ drumDoubleRoll dt
+            })
+        Nothing -> id
+
+      addMoods dt = dt
+        { drumMood = noEarlyMood $ if RTB.null $ drumMood dt
+          then makeMoods tempos timing $ Blip () () <$ drumAnimation dt
+          else drumMood dt
+        }
+
+      hasDynamics dt = flip any (drumDifficulties dt) $ \dd ->
+        flip any (drumGems dd) $ \(_gem, vel) ->
+          vel /= VelocityNormal
+      enableDynamics dt = dt
+        -- this will use the no-brackets version, so Magma is ok with it
+        { drumEnableDynamics = if hasDynamics dt then RTB.singleton 0 () else RTB.empty
+        }
+
+  return
+    $ (\dt -> dt { drumPlayer1 = RTB.empty, drumPlayer2 = RTB.empty })
+    $ drumsRemoveBRE
+    $ addMoods
+    $ enableDynamics
+    $ drumsComplete mmap sections
+    $ src
 
 data BRERemover t = BRERemover
   { breRemoveEdges :: forall s a. (Ord s, Ord a) => RTB.T t (Edge s a) -> RTB.T t (Edge s a)

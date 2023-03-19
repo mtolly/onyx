@@ -71,6 +71,7 @@ data SM = SM
   , sm_BANNER           :: Maybe T.Text
   , sm_JACKET           :: Maybe T.Text
   , sm_BACKGROUND       :: Maybe T.Text
+  -- TODO #BGCHANGES
   , sm_LYRICSPATH       :: Maybe T.Text
   , sm_CDTITLE          :: Maybe T.Text
   , sm_MUSIC            :: Maybe T.Text

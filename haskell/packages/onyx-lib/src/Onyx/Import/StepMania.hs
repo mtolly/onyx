@@ -217,18 +217,21 @@ importSM src level = do
           , channels = chans
           }
 
-  let imageExts f = map (f <.>) ["png", "jpg", "jpeg"]
+  let imageExts = ["png", "jpg", "jpeg"]
+      isImageExt f = elem (map toLower $ takeExtension f) imageExts
+      addImageExts f = map (f <.>) imageExts
       bannerOptions = concat
         -- try jacket (square art) first
-        [ (\f -> takeDirectory src </> T.unpack f) <$> toList (sm_JACKET sm)
-        , imageExts $ dropExtension src <> "-jacket"
-        , (\f -> takeDirectory src </> T.unpack f) <$> toList (sm_BANNER sm)
-        , imageExts $ dropExtension src
-        , imageExts $ dropExtension src <> "-banner"
+        [ filter isImageExt $ (\f -> takeDirectory src </> T.unpack f) <$> toList (sm_JACKET sm)
+        , addImageExts $ dropExtension src <> "-jacket"
+        -- have seen a video in BANNER field, so we verify extensions
+        , filter isImageExt $ (\f -> takeDirectory src </> T.unpack f) <$> toList (sm_BANNER sm)
+        , addImageExts $ dropExtension src
+        , addImageExts $ dropExtension src <> "-banner"
         ]
       bgOptions = concat
-        [ (\f -> takeDirectory src </> T.unpack f) <$> toList (sm_BACKGROUND sm)
-        , imageExts $ dropExtension src <> "-bg"
+        [ filter isImageExt $ (\f -> takeDirectory src </> T.unpack f) <$> toList (sm_BACKGROUND sm)
+        , addImageExts $ dropExtension src <> "-bg"
         ]
   banner <- flip firstJustM bannerOptions $ \opt -> do
     path' <- fixFileCase opt
@@ -240,6 +243,27 @@ importSM src level = do
     stackIO (doesFileExist path') >>= \case
       True  -> return $ Just $ SoftFile ("background" <.> takeExtension path') $ SoftReadable $ fileReadable path'
       False -> return Nothing
+
+  -- disabled for now (various format issues to figure out)
+  {-
+  let videoExts = ["avi", "mp4"] -- others?
+      _isVideoExt f = elem (map toLower $ takeExtension f) videoExts
+      addVideoExts f = map (f <.>) videoExts
+      videoOptions = concat
+        [ addVideoExts $ dropExtension src
+        ]
+  video <- flip firstJustM videoOptions $ \opt -> do
+    p <- fixFileCase opt
+    stackIO (doesFileExist p) >>= \case
+      False -> return Nothing
+      True -> return $ Just VideoInfo
+        { fileVideo = SoftFile ("video" <.> takeExtension p) $ SoftReadable $ fileReadable p
+        , videoStartTime = Nothing
+        , videoEndTime = Nothing
+        , videoLoop = False -- ?
+        }
+  -}
+  let video = Nothing
 
   -- logic to include subtitle, and juggle jp/transliterated versions
   let combineTitleSub (Just t) (Just st) = Just $ t <> if T.any isAlphaNum $ T.take 1 st
@@ -280,11 +304,13 @@ importSM src level = do
     , jammit = HM.empty
     , audio = audio
     , plans = HM.singleton "sm" $ StandardPlan StandardPlanInfo
-      { song = flip fmap (sm_MUSIC sm) $ \_ -> PlanAudio
-        { expr = delayAudio $ Input $ Named "audio-file"
-        , pans = []
-        , vols = []
-        }
+      { song = do
+        guard $ not $ HM.null audio
+        return PlanAudio
+          { expr = delayAudio $ Input $ Named "audio-file"
+          , pans = []
+          , vols = []
+          }
       , parts = Parts HM.empty
       , crowd = Nothing
       , comments = []
@@ -308,7 +334,7 @@ importSM src level = do
       , fileSongAnim = Nothing
       , autogenTheme = Nothing
       , animTempo = Left KTempoMedium
-      , backgroundVideo = Nothing
+      , backgroundVideo = video
       , fileBackgroundImage = background
       }
     }

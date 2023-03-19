@@ -291,25 +291,27 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
       , gb_tapping = makeStarPower taps
       , gb_starpower = makeStarPower $ Five.fiveOverdrive result.other
       }
-  makeDrums fpart diff timing = case getPart fpart songYaml >>= (.drums) of
-    Just pd -> let
+  makeDrums fpart diff = case getPart fpart songYaml >>= anyDrums of
+    Just builder -> let
       opart = fromMaybe mempty $ Map.lookup fpart $ F.onyxParts ofile
-      trk = buildDrumTarget
+      result = builder
         DrumTargetGH
-        pd
-        (timingEnd timing)
-        tmap
-        opart
+        ModeInput
+          { tempo  = tmap
+          , events = F.getEventsTrack ofile
+          , part   = opart
+          }
+      trk = drumResultToTrack result
       dd = fromMaybe mempty $ Map.lookup diff $ D.drumDifficulties trk
       add2x xs = case diff of
         Expert -> RTB.merge (fmap Just xs) $ Nothing <$ D.drumKick2x trk
         _      -> fmap Just xs
-      fiveLane = case pd.mode of
+      fiveLane = case result.settings.mode of
         Drums4 -> add2x $ D.drumGems dd
         Drums5 -> add2x $ D.drumGems dd
         _ | target.proTo4 -> add2x $ D.drumGems dd
         _ -> let
-          -- TODO this logic should be moved to buildDrumTarget
+          -- TODO this logic should be moved to Onyx.Mode DrumResult
           pro = add2x $ D.computePro (Just diff) trk
           eachGroup evts = concat
             [ [Just (D.Kick, vel) | Just (D.Kick, vel) <- evts]
@@ -465,10 +467,10 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
       , gh_basshard              = makeGB resultBass Hard
       , gh_bassexpert            = makeGB resultBass Expert
 
-      , gh_drumseasy             = makeDrums target.drums Easy   timing
-      , gh_drumsmedium           = makeDrums target.drums Medium timing
-      , gh_drumshard             = makeDrums target.drums Hard   timing
-      , gh_drumsexpert           = makeDrums target.drums Expert timing
+      , gh_drumseasy             = makeDrums target.drums Easy
+      , gh_drumsmedium           = makeDrums target.drums Medium
+      , gh_drumshard             = makeDrums target.drums Hard
+      , gh_drumsexpert           = makeDrums target.drums Expert
 
       , gh_vocals                = voxNotes
       , gh_vocallyrics           = voxLyrics

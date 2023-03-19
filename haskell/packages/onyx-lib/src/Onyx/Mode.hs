@@ -6,6 +6,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE StrictData            #-}
+{-# LANGUAGE TupleSections         #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Mode where
 
@@ -40,6 +41,7 @@ import           Onyx.MIDI.Track.ProGuitar        (getStringIndex,
                                                    tuningPitches)
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.MIDI.Track.Rocksmith
+import           Onyx.PhaseShift.Dance
 import           Onyx.Project
 import qualified Sound.MIDI.Util                  as U
 
@@ -93,6 +95,7 @@ anyFiveFret p
   <|> proGuitarToFiveFret p
   <|> proKeysToFiveFret p
   <|> maniaToFiveFret p
+  <|> danceToFiveFret p
   <|> fmap convertDrumsToFive (nativeDrums p)
 
 convertDrumsToFive :: BuildDrums -> BuildFive
@@ -141,6 +144,7 @@ data DrumResult = DrumResult
   , notes      :: Map.Map RB.Difficulty (RTB.T U.Beats (D.Gem D.ProType, D.DrumVelocity))
   , other      :: D.DrumTrack U.Beats -- includes 2x kicks when CH/GH format is requested
   , animations :: RTB.T U.Beats D.Animation
+  , hasRBMarks :: Bool -- True if `other` includes correct tom markers and mix events
   , source     :: T.Text
   }
 
@@ -199,7 +203,9 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     Drums5 -> True
     _      -> False
 
-  src' = step5to4 $ stepRBKicks $ stepAddKicks src
+  src'
+    = (if pd.fixFreeform then F.fixFreeformDrums else id)
+    $ step5to4 $ stepRBKicks $ stepAddKicks src
 
   modifyProType ptype = if isBasicSource
     then if isRBTarget then D.Tom else D.Cymbal
@@ -217,11 +223,15 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
       return (diff, gems)
     , other = src'
     , animations = buildDrumAnimation pd input.tempo input.part
+    , hasRBMarks = not isBasicSource
     , source = "drum chart"
     }
 
 anyDrums :: Part f -> Maybe BuildDrums
-anyDrums = nativeDrums
+anyDrums p
+  = nativeDrums p
+  <|> maniaToDrums p
+  <|> danceToDrums p
 
 buildDrumAnimation
   :: PartDrums f
@@ -243,84 +253,6 @@ buildDrumAnimation pd tmap opart = let
         $ case filter (not . D.nullDrums) rbTracks of
           trk : _ -> trk
           []      -> mempty
-
-------------------------------------------------------------------
-
--- TODO transition to nativeDrums
-buildDrumTarget
-  :: DrumTarget
-  -> PartDrums f
-  -> U.Beats
-  -> U.TempoMap
-  -> F.OnyxPart U.Beats
-  -> D.DrumTrack U.Beats
-buildDrumTarget tgt pd timingEnd tmap opart = let
-
-  src1x   =                             F.onyxPartDrums       opart
-  src2x   =                             F.onyxPartDrums2x     opart
-  srcReal = D.psRealToPro             $ F.onyxPartRealDrumsPS opart
-  srcFull = FD.convertFullDrums False $ F.onyxPartFullDrums   opart
-  srcsRB = case tgt of
-    DrumTargetRB1x -> [src1x, src2x]
-    _              -> [src2x, src1x]
-  srcList = case pd.mode of
-    DrumsReal -> srcReal : srcsRB
-    DrumsFull -> srcFull : srcsRB
-    _         -> srcsRB
-  src = fromMaybe mempty $ find (not . D.nullDrums) srcList
-
-  stepAddKicks = case pd.kicks of
-    Kicks2x -> mapTrack (U.unapplyTempoTrack tmap) . phaseShiftKicks 0.18 0.11 . mapTrack (U.applyTempoTrack tmap)
-    _       -> id
-
-  isRBTarget = case tgt of
-    DrumTargetRB1x -> True
-    DrumTargetRB2x -> True
-    _              -> False
-
-  stepRBKicks = case tgt of
-    DrumTargetRB1x -> rockBand1x
-    DrumTargetRB2x -> rockBand2x
-    _              -> id
-
-  drumEachDiff f dt = dt { D.drumDifficulties = fmap f $ D.drumDifficulties dt }
-  step5to4 = if pd.mode == Drums5 && isRBTarget
-    then drumEachDiff $ \dd -> dd
-      { D.drumGems = D.fiveToFour
-        (case pd.fallback of
-          FallbackBlue  -> D.Blue
-          FallbackGreen -> D.Green
-        )
-        (D.drumGems dd)
-      }
-    else id
-
-  isBasicSource = case pd.mode of
-    Drums4 -> True
-    Drums5 -> True
-    _      -> False
-
-  noToms dt = dt { D.drumToms = RTB.empty }
-  allToms dt = dt
-    { D.drumToms = RTB.fromPairList
-      [ (0        , (D.Yellow, D.Tom   ))
-      , (0        , (D.Blue  , D.Tom   ))
-      , (0        , (D.Green , D.Tom   ))
-      , (timingEnd, (D.Yellow, D.Cymbal))
-      , (0        , (D.Blue  , D.Cymbal))
-      , (0        , (D.Green , D.Cymbal))
-      ]
-    }
-  stepToms = if isBasicSource
-    then if isRBTarget
-      then allToms
-      else noToms
-    else id
-
-  -- TODO pro to 5 conversion (for GH target)
-  -- Move logic from Neversoft.Export to here
-
-  in stepToms $ step5to4 $ stepRBKicks $ stepAddKicks src
 
 ------------------------------------------------------------------
 
@@ -494,4 +426,129 @@ maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
           $ chorded
     , other = mempty
     , source = "converted Mania chart to five-fret"
+    }
+
+danceToFiveFret :: Part f -> Maybe BuildFive
+danceToFiveFret part = flip fmap part.dance $ \pd _ftype input -> FiveResult
+  { settings = def
+    { difficulty = pd.difficulty
+    }
+  , notes = Map.fromList $ do
+    (smdiff, dd) <- Map.toList $ danceDifficulties $ F.onyxPartDance input.part
+    diff <- case smdiff of
+      SMBeginner  -> []
+      SMEasy      -> return RB.Easy
+      SMMedium    -> return RB.Medium
+      SMHard      -> return RB.Hard
+      SMChallenge -> return RB.Expert
+    let five :: RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
+        five
+          = RTB.mapMaybe (\case
+            ((_    , NoteMine), _  ) -> Nothing
+            ((arrow, _       ), len) -> Just
+              ((Just $ toEnum $ fromEnum arrow, Tap), len)
+            -- this turns rolls into sustains, probably fine but may want to revisit
+            )
+          $ RB.edgeBlips_ RB.minSustainLengthRB $ danceNotes dd
+    return (diff, five)
+  , other = mempty
+    { Five.fiveOverdrive = danceOverdrive $ F.onyxPartDance input.part
+    }
+  , source = "converted dance chart to five-fret"
+  }
+
+danceToDrums :: Part f -> Maybe BuildDrums
+danceToDrums = const Nothing
+
+maniaToDrums :: Part f -> Maybe BuildDrums
+maniaToDrums part = flip fmap part.mania $ \pm dtarget input -> let
+  inputNotes :: RTB.T U.Beats Int
+  inputNotes
+    = RTB.flatten
+    $ fmap (\xs -> case xs of
+      -- max 2 notes at a time
+      _ : _ : _ : _ -> [minimum xs, maximum xs]
+      _             -> xs
+      )
+    $ RTB.collectCoincident
+    $ RTB.mapMaybe (\case RB.EdgeOn _ n -> Just n; RB.EdgeOff _ -> Nothing)
+    $ maniaNotes $ F.onyxPartMania input.part
+  notes :: RTB.T U.Beats (D.Gem D.ProType)
+  notes = if pm.keys <= laneCount
+    then keyToDrum <$> inputNotes
+    else RTB.fromAbsoluteEventList $ ATB.fromPairList
+      $ map (\(t, n) -> (realToFrac t, keyToDrum n))
+      $ autoChart laneCount
+      $ map (first realToFrac) $ ATB.toPairList $ RTB.toAbsoluteEventList 0 inputNotes
+  laneCount = case dtarget of
+    DrumTargetGH -> 5
+    _            -> 4
+  -- TODO maybe put turntable lane on kick?
+  keyToDrum :: Int -> D.Gem D.ProType
+  keyToDrum n = case dtarget of
+    DrumTargetGH -> [D.Red, D.Pro D.Yellow D.Tom, D.Pro D.Blue D.Tom, D.Orange, D.Pro D.Green D.Tom] !! n
+    _            -> [D.Red, D.Pro D.Yellow D.Tom, D.Pro D.Blue D.Tom,           D.Pro D.Green D.Tom] !! n
+  in DrumResult
+    { settings = PartDrums
+      { difficulty  = Tier 1
+      , mode        = case dtarget of
+        DrumTargetGH -> Drums5
+        _            -> Drums4
+      , kicks       = Kicks1x
+      , fixFreeform = True
+      , kit         = HardRockKit
+      , layout      = StandardLayout
+      , fallback    = FallbackGreen
+      , fileDTXKit  = Nothing
+      , fullLayout  = FDStandard
+      }
+    , notes = Map.singleton RB.Expert $ (, D.VelocityNormal) <$> notes
+    , other = mempty
+    , hasRBMarks = False
+    , animations
+      = U.unapplyTempoTrack input.tempo
+      $ D.autoDrumAnimation 0.25
+      $ U.applyTempoTrack input.tempo notes
+      :: RTB.T U.Beats D.Animation
+    , source = "converted Mania chart to drums"
+    }
+
+drumResultToTrack :: DrumResult -> D.DrumTrack U.Beats
+drumResultToTrack dr = if dr.hasRBMarks
+  then dr.other
+    { D.drumAnimation = dr.animations
+    }
+  else dr.other
+    { D.drumDifficulties = flip fmap dr.notes $ \notes -> D.DrumDifficulty
+      -- TODO we still need to apply discobeat! flip gems + include mix events
+      { D.drumGems = first void <$> notes
+      , D.drumMix = RTB.empty
+      , D.drumPSModifiers = RTB.empty
+      }
+    , D.drumToms = let
+      makeColorTomMarkers :: RTB.T U.Beats D.ProType -> RTB.T U.Beats D.ProType
+      makeColorTomMarkers
+        = RTB.mapMaybe (\case
+          (True , D.Tom) -> Just D.Tom
+          (False, D.Tom) -> Just D.Cymbal
+          _              -> Nothing
+          )
+        . cleanEdges
+        . U.trackJoin
+        . fmap (\typ -> RTB.fromPairList [(0, (True, typ)), (1/480, (False, typ))])
+      getColorDiff ybg = RTB.mapMaybe $ \case
+        (D.Pro ybg' typ, _) | ybg == ybg' -> Just typ
+        _                                 -> Nothing
+      getColor ybg = let
+        allDiffs = foldr RTB.merge RTB.empty $ map (getColorDiff ybg) $ Map.elems dr.notes
+        getUniform = \case
+          x : xs -> guard (all (== x) xs) >> Just x
+          []     -> Nothing -- shouldn't happen (collectCoincident)
+        in case mapM getUniform $ RTB.collectCoincident allDiffs of
+          Just noConflicts -> noConflicts
+          Nothing          -> getColorDiff ybg $ fromMaybe RTB.empty $ Map.lookup RB.Expert dr.notes
+      in foldr RTB.merge RTB.empty $ do
+        ybg <- [D.Yellow, D.Blue, D.Green]
+        return $ fmap (ybg,) $ makeColorTomMarkers $ getColor ybg
+    , D.drumAnimation = dr.animations
     }

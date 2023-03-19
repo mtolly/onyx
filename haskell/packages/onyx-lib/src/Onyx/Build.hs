@@ -107,6 +107,7 @@ dtxRules buildInfo dir dtx = do
     Just pair -> return pair
   let planDir = rel $ "gen/plan" </> T.unpack planName
 
+  -- TODO use Onyx.Mode to fetch drums
   let dtxPartDrums  = case getPart dtx.drums songYaml >>= (.drums) of
         Just pd -> Just (dtx.drums, pd)
         Nothing -> Nothing

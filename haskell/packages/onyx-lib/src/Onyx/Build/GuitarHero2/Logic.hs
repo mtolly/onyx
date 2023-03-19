@@ -120,7 +120,7 @@ computeGH2Audio song target is360 hasAudio = do
     else fatal "computeGH2Audio: no lead guitar part selected"
   let drumTrack = do
         guard target.gh2Deluxe
-        case getPart target.drums song >>= (.drums) of
+        case getPart target.drums song >>= anyDrums of
           Nothing -> Nothing
           Just _  -> Just target.drums
       specifiedCoop = case target.coop of
@@ -271,15 +271,16 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
               then makeSoloEdges $ RB.fiveSolo result.other
               else RTB.empty
             }
-      makeDrum fpart = case getPart fpart song >>= (.drums) of
-        Nothing -> mempty
-        Just pd -> let
-          trackOrig = buildDrumTarget
+      makeDrum fpart = case getPart fpart song >>= anyDrums of
+        Nothing      -> mempty
+        Just builder -> let
+          trackOrig = drumResultToTrack $ builder
             (if target.is2xBassPedal then DrumTargetRB2x else DrumTargetRB1x)
-            pd
-            (timingEnd timing)
-            tmap
-            (F.getFlexPart fpart onyx)
+            ModeInput
+              { tempo  = tmap
+              , events = F.getEventsTrack onyx
+              , part   = F.getFlexPart fpart onyx
+              }
           in GH2DrumTrack
             { gh2drumDifficulties = flip fmap (RB.drumDifficulties trackOrig) $ \diff -> GH2DrumDifficulty
               { gh2drumStarPower = RB.drumOverdrive trackOrig
