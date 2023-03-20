@@ -1,0 +1,58 @@
+metadata:
+  title: S2N
+  artist: Dream Theater
+  album: Distance over Time
+  genre: metal
+  subgenre: prog
+  file-album-art: ../pale-blue-dot/cover.jpg
+  author: Onyxite
+  year: 2019
+  track-number: 6
+  # preview-start:
+parts:
+  drums:
+    drums:
+      kicks: both
+      mode: full
+audio:
+  album-track:
+    md5: 8f465b7a94d9f3a0d9b63baccca69173
+    frames: 16808568
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+plans:
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [3.246, album-track]
+  dev:
+    song:
+      pad: [3.246, album-track]
+    parts:
+      bass:
+        pad: [3.246, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.246, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.246, channels: [[4, 5], stems]]
+      other:
+        pad: [3.246, channels: [[6, 7], stems]]
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: album
+  ps:
+    game: ps
+    plan: album

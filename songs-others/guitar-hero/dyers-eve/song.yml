@@ -1,0 +1,66 @@
+audio:
+  adlc363_1.fsb.xen.0.xma:
+    file-path: adlc363_1.fsb.xen.0.xma
+  adlc363_1.fsb.xen.1.xma:
+    file-path: adlc363_1.fsb.xen.1.xma
+  adlc363_1.fsb.xen.2.xma:
+    file-path: adlc363_1.fsb.xen.2.xma
+  adlc363_1.fsb.xen.3.xma:
+    file-path: adlc363_1.fsb.xen.3.xma
+  adlc363_2.fsb.xen.0.xma:
+    file-path: adlc363_2.fsb.xen.0.xma
+  adlc363_2.fsb.xen.1.xma:
+    file-path: adlc363_2.fsb.xen.1.xma
+  adlc363_2.fsb.xen.2.xma:
+    file-path: adlc363_2.fsb.xen.2.xma
+  adlc363_3.fsb.xen.0.xma:
+    file-path: adlc363_3.fsb.xen.0.xma
+  adlc363_3.fsb.xen.1.xma:
+    file-path: adlc363_3.fsb.xen.1.xma
+metadata:
+  album: "...And Justice For All"
+  artist: Metallica
+  author: Neversoft, Onyxite
+  difficulty:
+    tier: 1
+  genre: Metal
+  title: Dyers Eve
+  year: 1988
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 500
+    pro-guitar:
+      tuning:
+        base: bass-4
+      picked-bass: true
+  drums:
+    drums:
+      difficulty:
+        rank: 500
+      kicks: both
+      mode: 5
+  guitar:
+    grybo:
+      difficulty:
+        rank: 450
+  vocal:
+    vocal:
+      difficulty:
+        rank: 150
+plans:
+  gh:
+    crowd: adlc363_3.fsb.xen.1.xma
+    parts:
+      bass: adlc363_2.fsb.xen.1.xma
+      drums:
+        kick: adlc363_1.fsb.xen.0.xma
+        kit:
+          mix:
+          - adlc363_1.fsb.xen.2.xma
+          - adlc363_1.fsb.xen.3.xma
+        snare: adlc363_1.fsb.xen.1.xma
+      guitar: adlc363_2.fsb.xen.0.xma
+      vocal: adlc363_2.fsb.xen.2.xma
+    song: adlc363_3.fsb.xen.0.xma

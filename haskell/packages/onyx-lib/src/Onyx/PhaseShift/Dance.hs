@@ -6,12 +6,14 @@
 {-# LANGUAGE RecordWildCards    #-}
 module Onyx.PhaseShift.Dance where
 
+import           Control.Monad                    (guard)
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
 import           Data.Profunctor                  (dimap)
 import           GHC.Generics                     (Generic)
+import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.DeriveHelpers
 import           Onyx.MIDI.Common                 (Edge (..), each)
 import           Onyx.MIDI.Read
@@ -36,6 +38,14 @@ instance TraverseTrack DanceTrack where
 
 nullDance :: DanceTrack t -> Bool
 nullDance = all (RTB.null . danceNotes) . toList . danceDifficulties
+
+-- gets highest to lowest that have notes
+getDanceDifficulties :: (NNC.C t) => DanceTrack t -> [DanceDifficulty t]
+getDanceDifficulties dt = do
+  diff <- [maxBound, pred maxBound .. minBound]
+  dd <- toList $ Map.lookup diff $ danceDifficulties dt
+  guard $ not $ RTB.null $ danceNotes dd
+  return dd
 
 data Arrow = ArrowL | ArrowD | ArrowU | ArrowR
   deriving (Eq, Ord, Show, Enum, Bounded)

@@ -43,7 +43,7 @@ import           Onyx.Harmonix.DTA            (Chunk (..), DTA (..), Tree (..),
 import           Onyx.Import.Amplitude2016    (importAmplitude)
 import           Onyx.Import.Base             (ImportLevel (..), saveImport)
 import           Onyx.Import.BMS              (importBMS)
-import           Onyx.Import.DonkeyKonga      (supportedDKGames)
+-- import           Onyx.Import.DonkeyKonga      (supportedDKGames)
 import           Onyx.Import.DTXMania         (importDTX, importSet)
 import           Onyx.Import.Freetar          (importFreetar)
 import           Onyx.Import.FretsOnFire      (importFoF)
@@ -262,7 +262,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         foundImports "Guitar Hero III (PS2)" loc imps
       foundISO iso = do
         magic <- stackIO $ IO.withBinaryFile iso IO.ReadMode $ \h -> B.hGet h 6
-        case lookup magic supportedDKGames of
+        case lookup magic [] {- supportedDKGames -} of
           Just importDK -> do
             imps <- importDK $ fileReadable iso
             foundImports "Donkey Konga" iso imps

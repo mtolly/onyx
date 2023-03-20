@@ -190,7 +190,7 @@ importSM src level = do
               , danceOverdrive = RTB.empty
               }
       return $ delayMIDI $ F.Song tempos sigs mempty
-        { F.onyxParts = Map.singleton (F.FlexExtra "global") mempty
+        { F.onyxParts = Map.singleton (F.FlexExtra "dance") mempty
           { F.onyxPartDance = getDanceTrack "dance-single"
           }
         }
@@ -318,7 +318,7 @@ importSM src level = do
       , fileTempo = Nothing
       }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton (F.FlexExtra "global") (emptyPart :: Part SoftFile)
+    , parts = Parts $ HM.singleton (F.FlexExtra "dance") (emptyPart :: Part SoftFile)
       { dance = Just PartDance
         { difficulty = Tier $ max 1 $ let
           -- as a hack, get max meter value and subtract 4 (so 10 becomes 6)

@@ -619,7 +619,7 @@ importFoF src level = do
           , lipsyncRB3 = Nothing
           }
         })
-      , ( FlexExtra "global", (emptyPart :: Part SoftFile)
+      , ( FlexExtra "dance", (emptyPart :: Part SoftFile)
         { dance = guard (isnt nullDance F.fixedPartDance && guardDifficulty FoF.diffDance) >> Just PartDance
           { difficulty = toTier $ FoF.diffDance song
           }

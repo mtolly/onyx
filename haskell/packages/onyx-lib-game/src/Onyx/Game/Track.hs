@@ -451,9 +451,9 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           F.FlexExtra "rhythm"      -> "Rhythm"
           F.FlexExtra "guitar-coop" -> "Guitar Coop"
           _                         -> T.pack $ show fpart <> " [5]"
-          ) <> case nativeFiveFret part of
-            Just _  -> ""
-            Nothing -> " (Autochart)"
+          ) <> if result.autochart
+            then " (Autochart)"
+            else ""
         in diffPairs >>= \(diff, letter) -> case fiveTrack diff result of
           Nothing  -> []
           Just trk -> [(name <> " (" <> letter <> ")", PreviewFive trk)]

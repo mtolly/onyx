@@ -12,7 +12,7 @@ module Onyx.Mode where
 
 import           Control.Applicative              ((<|>))
 import           Control.Monad                    (guard)
-import           Data.Bifunctor                   (first)
+import           Data.Bifunctor                   (first, second)
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -54,10 +54,11 @@ data ModeInput = ModeInput
 ------------------------------------------------------------------
 
 data FiveResult = FiveResult
-  { settings :: PartGRYBO
-  , notes    :: Map.Map RB.Difficulty (RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats))
-  , other    :: Five.FiveTrack U.Beats
-  , source   :: T.Text
+  { settings  :: PartGRYBO
+  , notes     :: Map.Map RB.Difficulty (RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats))
+  , other     :: Five.FiveTrack U.Beats
+  , source    :: T.Text
+  , autochart :: Bool
   }
 
 data FiveType
@@ -80,13 +81,14 @@ nativeFiveFret part = flip fmap part.grybo $ \grybo ftype input -> let
   -- TODO maybe fill in lower difficulties from secondary tracks
   (trk, algo) = fromMaybe (mempty, HOPOsRBGuitar) $ find (not . Five.nullFive . fst) trks
   in FiveResult
-    { settings = grybo
-    , notes    = flip fmap (Five.fiveDifficulties trk) $ \diff ->
+    { settings  = grybo
+    , notes     = flip fmap (Five.fiveDifficulties trk) $ \diff ->
       applyForces (getForces5 diff)
         $ strumHOPOTap algo (fromIntegral grybo.hopoThreshold / 480)
         $ computeFiveFretNotes diff
-    , other    = trk
-    , source = "five-fret chart"
+    , other     = trk
+    , source    = "five-fret chart"
+    , autochart = False
     }
 
 anyFiveFret :: Part f -> Maybe BuildFive
@@ -135,6 +137,7 @@ convertDrumsToFive bd _ftype input = let
       , Five.fivePlayer2      = D.drumPlayer2 drumResult.other
       }
     , source = "converted drum chart to five-fret"
+    , autochart = False
     }
 
 ------------------------------------------------------------------
@@ -146,6 +149,7 @@ data DrumResult = DrumResult
   , animations :: RTB.T U.Beats D.Animation
   , hasRBMarks :: Bool -- True if `other` includes correct tom markers and mix events
   , source     :: T.Text
+  , autochart  :: Bool
   }
 
 data DrumTarget
@@ -225,6 +229,7 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     , animations = buildDrumAnimation pd input.tempo input.part
     , hasRBMarks = not isBasicSource
     , source = "drum chart"
+    , autochart = False
     }
 
 anyDrums :: Part f -> Maybe BuildDrums
@@ -354,6 +359,7 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
         $ chorded
     , other = mempty -- TODO when RB pro tracks are supported, add overdrive, solos, etc.
     , source = "converted Rocksmith chart to five-fret"
+    , autochart = True
     }
 
 proKeysToFiveFret :: Part f -> Maybe BuildFive
@@ -389,6 +395,7 @@ proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
         $ chorded
     , other = mempty -- TODO overdrive, solos, etc.
     , source = "converted Pro Keys chart to five-fret"
+    , autochart = True
     }
 
 maniaToFiveFret :: Part f -> Maybe BuildFive
@@ -426,6 +433,7 @@ maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
           $ chorded
     , other = mempty
     , source = "converted Mania chart to five-fret"
+    , autochart = pm.keys > 5
     }
 
 danceToFiveFret :: Part f -> Maybe BuildFive
@@ -434,13 +442,7 @@ danceToFiveFret part = flip fmap part.dance $ \pd _ftype input -> FiveResult
     { difficulty = pd.difficulty
     }
   , notes = Map.fromList $ do
-    (smdiff, dd) <- Map.toList $ danceDifficulties $ F.onyxPartDance input.part
-    diff <- case smdiff of
-      SMBeginner  -> []
-      SMEasy      -> return RB.Easy
-      SMMedium    -> return RB.Medium
-      SMHard      -> return RB.Hard
-      SMChallenge -> return RB.Expert
+    (diff, dd) <- zip [RB.Expert, RB.Hard, RB.Medium, RB.Easy] $ getDanceDifficulties $ F.onyxPartDance input.part
     let five :: RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
         five
           = RTB.mapMaybe (\case
@@ -455,10 +457,58 @@ danceToFiveFret part = flip fmap part.dance $ \pd _ftype input -> FiveResult
     { Five.fiveOverdrive = danceOverdrive $ F.onyxPartDance input.part
     }
   , source = "converted dance chart to five-fret"
+  , autochart = False
   }
 
 danceToDrums :: Part f -> Maybe BuildDrums
-danceToDrums = const Nothing
+danceToDrums part = flip fmap part.dance $ \pd dtarget input -> let
+  notes :: [(RB.Difficulty, RTB.T U.Beats (D.Gem D.ProType))]
+  notes = do
+    (diff, dd) <- zip [RB.Expert, RB.Hard, RB.Medium, RB.Easy] $ getDanceDifficulties $ F.onyxPartDance input.part
+    let diffNotes
+          = RTB.flatten
+          $ fmap (\xs -> case xs of
+            -- max 2 notes at a time
+            _ : _ : _ : _ -> [minimum xs, maximum xs]
+            _             -> xs
+            )
+          $ RTB.collectCoincident
+          $ RTB.mapMaybe (\case
+            RB.EdgeOn _ (arrow, typ) | typ /= NoteMine -> Just $ case arrow of
+              ArrowL -> D.Red
+              ArrowD -> D.Pro D.Yellow D.Tom
+              ArrowU -> D.Pro D.Blue   D.Tom
+              ArrowR -> D.Pro D.Green  D.Tom
+            _                                          -> Nothing
+            )
+          $ danceNotes dd
+    return (diff, diffNotes)
+  in DrumResult
+    { settings = PartDrums
+      { difficulty  = pd.difficulty
+      , mode        = case dtarget of
+        DrumTargetGH -> Drums5
+        _            -> Drums4
+      , kicks       = Kicks1x
+      , fixFreeform = True
+      , kit         = HardRockKit
+      , layout      = StandardLayout
+      , fallback    = FallbackGreen
+      , fileDTXKit  = Nothing
+      , fullLayout  = FDStandard
+      }
+    , notes = Map.fromList $ map (second $ fmap (, D.VelocityNormal)) notes
+    , other = mempty
+    , hasRBMarks = False
+    , animations
+      = U.unapplyTempoTrack input.tempo
+      $ D.autoDrumAnimation 0.25
+      $ U.applyTempoTrack input.tempo
+      $ fromMaybe RTB.empty $ lookup RB.Expert notes
+      :: RTB.T U.Beats D.Animation
+    , source = "converted dance chart to drums"
+    , autochart = False
+    }
 
 maniaToDrums :: Part f -> Maybe BuildDrums
 maniaToDrums part = flip fmap part.mania $ \pm dtarget input -> let
@@ -511,6 +561,7 @@ maniaToDrums part = flip fmap part.mania $ \pm dtarget input -> let
       $ U.applyTempoTrack input.tempo notes
       :: RTB.T U.Beats D.Animation
     , source = "converted Mania chart to drums"
+    , autochart = pm.keys > laneCount
     }
 
 drumResultToTrack :: DrumResult -> D.DrumTrack U.Beats

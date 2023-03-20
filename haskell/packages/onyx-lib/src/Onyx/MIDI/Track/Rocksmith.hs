@@ -766,7 +766,7 @@ buildRS tmap capo trk = do
               in case Map.lookupLE t chordBank >>= Map.lookup key . cb_notes . snd of
                 Just cinfo -> (: []) <$> makeNoteChord t cinfo noteGroup'
                 Nothing -> do
-                  warn $ "Not making simultaneous notes into a chord due to no chord mapping:  " <> show key
+                  -- warn $ "Not making simultaneous notes into a chord due to no chord mapping:  " <> show key
                   return $ map (Left . makeNote t) noteGroup'
       -- note: if you have any chords in the notes, you need at least one handshape, otherwise CST crashes
   shapes <- concat <$> let

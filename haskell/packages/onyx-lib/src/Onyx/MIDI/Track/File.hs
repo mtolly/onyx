@@ -362,7 +362,7 @@ identifyFlexTrack name = case T.stripPrefix "[" name of
     | "HARM"        `T.isInfixOf` name -> Just FlexVocal
     | "MELODY"      `T.isInfixOf` name -> Just $ FlexExtra "global"
     | "KONGA"       `T.isInfixOf` name -> Just $ FlexExtra "global"
-    | "DANCE"       `T.isInfixOf` name -> Just $ FlexExtra "global"
+    | "DANCE"       `T.isInfixOf` name -> Just $ FlexExtra "dance"
     | otherwise                        -> Nothing
 
 parseOnyxPart :: (SendMessage m) => FlexPartName -> FileCodec m U.Beats (OnyxPart U.Beats)
@@ -417,8 +417,8 @@ parseOnyxPart partName = do
   onyxLipsync2         <- onyxLipsync2         =. names (pure (FlexVocal, "LIPSYNC2"))
   onyxLipsync3         <- onyxLipsync3         =. names (pure (FlexVocal, "LIPSYNC3"))
   onyxLipsync4         <- onyxLipsync4         =. names (pure (FlexVocal, "LIPSYNC4"))
-  onyxPartDance        <- onyxPartDance        =. names (pure (FlexExtra "global", "PART DANCE"))
-  onyxPartMania        <- onyxPartMania        =. names (pure (FlexExtra "global", "PART MANIA"))
+  onyxPartDance        <- onyxPartDance        =. names (pure (FlexExtra "dance", "PART DANCE"))
+  onyxPartMania        <- onyxPartMania        =. names (pure (FlexKeys, "PART MANIA"))
   return OnyxPart{..}
 
 instance ParseFile OnyxFile where
@@ -853,7 +853,7 @@ onyxToFixed o = FixedFile
   , fixedPartKeysAnimLH   = inPart FlexKeys                  onyxPartKeysAnimLH
   , fixedPartKeysAnimRH   = inPart FlexKeys                  onyxPartKeysAnimRH
   , fixedPartVocals       = inPart FlexVocal                 onyxPartVocals
-  , fixedPartDance        = inPart (FlexExtra "global")      onyxPartDance
+  , fixedPartDance        = inPart (FlexExtra "dance")       onyxPartDance
   , fixedHarm1            = inPart FlexVocal                 onyxHarm1
   , fixedHarm2            = inPart FlexVocal                 onyxHarm2
   , fixedHarm3            = inPart FlexVocal                 onyxHarm3
@@ -915,7 +915,7 @@ fixedToOnyx f = OnyxFile
     , (FlexExtra "guitar-coop", mempty
       { onyxPartGuitar = fixedPartGuitarCoop f
       })
-    , (FlexExtra "global", mempty
+    , (FlexExtra "dance", mempty
       { onyxPartDance = fixedPartDance f
       })
     ]

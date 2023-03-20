@@ -1260,7 +1260,7 @@ parseTargetPS = do
   vocal         <- (.vocal        ) =. opt F.FlexVocal                 "vocal"           stackJSON
   rhythm        <- (.rhythm       ) =. opt (F.FlexExtra "rhythm"     ) "rhythm"          stackJSON
   guitarCoop    <- (.guitarCoop   ) =. opt (F.FlexExtra "guitar-coop") "guitar-coop"     stackJSON
-  dance         <- (.dance        ) =. opt (F.FlexExtra "global"     ) "dance"           stackJSON
+  dance         <- (.dance        ) =. opt (F.FlexExtra "dance"      ) "dance"           stackJSON
   loadingPhrase <- (.loadingPhrase) =. opt Nothing                     "loading-phrase"  stackJSON
   bigRockEnding <- (.bigRockEnding) =. opt True                        "big-rock-ending" stackJSON
   return TargetPS{..}
