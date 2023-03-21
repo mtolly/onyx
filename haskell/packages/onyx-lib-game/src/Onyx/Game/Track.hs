@@ -14,6 +14,7 @@ import qualified Data.ByteString                  as B
 import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import           Data.Functor                     (($>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort, sortOn)
@@ -39,6 +40,7 @@ import           Onyx.MIDI.Track.Mania
 import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import           Onyx.MIDI.Track.Rocksmith
 import           Onyx.Mode
+import           Onyx.PhaseShift.Dance
 import           Onyx.Project
 import qualified Onyx.Reaper.Extract              as RPP
 import qualified Onyx.Reaper.Parse                as RPP
@@ -110,6 +112,9 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
 
   maniaTrack fpart = let
     src = maybe mempty F.onyxPartMania $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
+    in maniaTrack' src
+
+  maniaTrack' src = let
     assigned :: RTB.T U.Beats (LongNote () Int)
     assigned
       = splitEdges
@@ -154,6 +159,22 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           `PNF.zipStateMaps` Map.empty
           `PNF.zipStateMaps` Map.empty
           `PNF.zipStateMaps` fmap Just beats
+
+  danceTracks fpart = do
+    let dance = maybe mempty F.onyxPartDance $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
+        pm = PartMania
+          { keys      = 4
+          , turntable = False
+          }
+    (smdiff, dd) <- Map.toDescList $ danceDifficulties dance
+    trk <- toList $ maniaTrack' $ ManiaTrack
+      $ RTB.mapMaybe (\case
+        EdgeOn () (arrow, typ) | typ /= NoteMine -> Just $ EdgeOn () $ fromEnum arrow
+        EdgeOff   (arrow, typ) | typ /= NoteMine -> Just $ EdgeOff   $ fromEnum arrow
+        _                                        -> Nothing
+        )
+      $ danceNotes dd
+    return (smdiff, PreviewMania pm trk)
 
   drumTrack fpart pdrums diff = let
     -- TODO support PS real
@@ -488,6 +509,16 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
         in case maniaTrack fpart of
           Nothing  -> []
           Just trk -> [(name, PreviewMania pm trk)]
+    dance = case part.dance of
+      Nothing -> []
+      Just _ -> let
+        name = case fpart of
+          F.FlexExtra "dance" -> "Dance"
+          _                   -> T.pack $ show fpart <> " [Dance]"
+        in do
+          (smdiff, preview) <- danceTracks fpart
+          let diffLabel = T.pack $ " (" <> (drop 2 $ show smdiff) <> ")"
+          return (name <> diffLabel, preview)
     pg = case part.proGuitar of
       Nothing     -> []
       Just ppg -> let
@@ -501,7 +532,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
     rs = case part.proGuitar of
       Nothing  -> return []
       Just ppg -> rsTracks fpart ppg
-    in ((mania ++ five ++ drums ++ pg) ++) <$> rs
+    in ((mania ++ dance ++ five ++ drums ++ pg) ++) <$> rs
 
   bgs = concat
     [ case songYaml.global.backgroundVideo of

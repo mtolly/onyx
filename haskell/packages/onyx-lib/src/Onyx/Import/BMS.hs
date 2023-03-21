@@ -7,6 +7,7 @@ module Onyx.Import.BMS where
 
 import           Control.Monad                    (forM, guard)
 import           Control.Monad.IO.Class           (MonadIO)
+import           Data.Bifunctor                   (first)
 import           Data.Char                        (toLower)
 import qualified Data.Conduit.Audio               as CA
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -14,6 +15,7 @@ import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
+import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.Audio
@@ -57,7 +59,7 @@ importBMS :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importBMS bmsPath level = do
   bms <- stackIO $ readBMSLines <$> loadBMSLines bmsPath
 
-  -- TODO if .pms extension, combine notes (on p1 and p2) into 9k track
+  let isPMS = map toLower (takeExtension bmsPath) == ".pms"
 
   chipAudio <- case level of
     ImportQuick -> return []
@@ -83,6 +85,7 @@ importBMS bmsPath level = do
           , rate = Nothing
           , channels = 2
           })
+
   let foundChips = HS.fromList $ map fst chipAudio
       audioForChips name chips = if RTB.null chips
         then ([], Nothing)
@@ -97,38 +100,72 @@ importBMS bmsPath level = do
             -- don't include sample if we didn't find its audio, or if it's the long note end
             $ RTB.filter (\chip -> HS.member chip foundChips && Just chip /= bms_LNOBJ bms) chips
           in (audios, track)
-      (songAudios, songSampleTrack) = audioForChips "audio-bgm" $ bms_BGM bms
-      (p1Audios, p1SampleTrack) = audioForChips "audio-p1" $ RTB.merge
-        (snd <$> bms_Player1 bms)
-        (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ bms_Player1Long bms)
-      (p2Audios, p2SampleTrack) = audioForChips "audio-p2" $ RTB.merge
-        (snd <$> bms_Player2 bms)
-        (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ bms_Player2Long bms)
 
-  let audioExpr name = PlanAudio
+      audioExpr name = PlanAudio
         { expr = Input $ Named name
         , pans = []
         , vols = []
         }
+
+      loadManiaTrack chips chipsLong = let
+        short = flip fmap (processLongObj (bms_LNOBJ bms) chips)
+          $ \(key, _, mlen) -> (key, mlen)
+        long = flip fmap (joinLongNotes chipsLong)
+          $ \(key, _, len) -> (key, Just len)
+        in RTB.merge short long
+
+      player1, player2 :: RTB.T U.Beats (BMKey, Maybe U.Beats)
+      player1 = loadManiaTrack (bms_Player1 bms) (bms_Player1Long bms)
+      player2 = loadManiaTrack (bms_Player2 bms) (bms_Player2Long bms)
+
+      -- For now, we'll import BMS double play as 2 tracks, but PMS as 1 track
+      shouldCombine = isPMS
+
+      usedKeys1 = Set.fromList $ map fst $ RTB.getBodies player1
+      usedKeys2 = Set.fromList $ map fst $ RTB.getBodies player2
+
+      keyIndex1, keyIndex2 :: BMKey -> Int
+      keyIndex1 k = fromMaybe (-1) $ Set.lookupIndex k usedKeys1
+      keyIndex2 k = if shouldCombine
+        then maybe (-1) (+ Set.size usedKeys1) $ Set.lookupIndex k usedKeys2
+        else fromMaybe (-1)                    $ Set.lookupIndex k usedKeys2
+
+      player1Indexed, player2Indexed :: RTB.T U.Beats (Int, Maybe U.Beats)
+      player1Indexed = if shouldCombine
+        then RTB.merge
+          (first keyIndex1 <$> player1)
+          (first keyIndex2 <$> player2)
+        else first keyIndex1 <$> player1
+      player2Indexed = if shouldCombine
+        then RTB.empty
+        else first keyIndex2 <$> player2
+
+      (songAudios, songSampleTrack) = audioForChips "audio-bgm" $ bms_BGM bms
+      (p1Audios, p1SampleTrack) = if shouldCombine
+        then audioForChips "audio-p1" $ RTB.merge
+          (snd <$> RTB.merge (bms_Player1 bms) (bms_Player2 bms))
+          (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ RTB.merge (bms_Player1Long bms) (bms_Player2Long bms))
+        else audioForChips "audio-p1" $ RTB.merge
+          (snd <$> bms_Player1 bms)
+          (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ bms_Player1Long bms)
+      (p2Audios, p2SampleTrack) = if shouldCombine
+        then ([], Nothing)
+        else audioForChips "audio-p2" $ RTB.merge
+          (snd <$> bms_Player2 bms)
+          (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ bms_Player2Long bms)
+
       midi = case level of
         ImportQuick -> emptyChart
         ImportFull -> F.Song (bms_TempoMap bms) (bms_MeasureMap bms) mempty
           { F.onyxParts = Map.fromList $ do
-            (fpart, chips, chipsLong) <-
-              [ (F.FlexKeys          , bms_Player1 bms, bms_Player1Long bms)
-              , (F.FlexExtra "rhythm", bms_Player2 bms, bms_Player2Long bms)
+            (fpart, indexed) <-
+              [ (F.FlexKeys          , player1Indexed)
+              , (F.FlexExtra "rhythm", player2Indexed)
               ]
-            guard $ not $ RTB.null chips && RTB.null chipsLong
+            guard $ not $ RTB.null indexed
             let opart = mempty
                   { F.onyxPartMania = ManiaTrack
-                    { maniaNotes = let
-                      keyIndex :: BMKey -> Int
-                      keyIndex = fromEnum
-                      short = flip fmap (processLongObj (bms_LNOBJ bms) chips)
-                        $ \(key, _, mlen) -> (keyIndex key, mlen)
-                      long = flip fmap (joinLongNotes chipsLong)
-                        $ \(key, _, len) -> (keyIndex key, Just len)
-                      in blipEdgesRB_ $ RTB.merge short long
+                    { maniaNotes = blipEdgesRB_ indexed
                     }
                   }
             return (fpart, opart)
@@ -195,16 +232,25 @@ importBMS bmsPath level = do
       }
     , targets = HM.empty
     , parts = Parts $ HM.fromList $ do
-      (fpart, chips) <-
-        [ (F.FlexKeys          , bms_Player1 bms)
-        , (F.FlexExtra "rhythm", bms_Player2 bms)
+      (fpart, indexed, p1) <-
+        [ (F.FlexKeys          , player1Indexed, True )
+        , (F.FlexExtra "rhythm", player2Indexed, False)
         ]
-      guard $ not $ RTB.null chips
+      guard $ not $ RTB.null indexed
       return (fpart, emptyPart
         { mania = Just PartMania
-          -- TODO change these as needed
-          { keys      = 8
-          , turntable = True
+          { keys      = if p1
+            then if shouldCombine
+              then Set.size usedKeys1 + Set.size usedKeys2
+              else Set.size usedKeys1
+            else if shouldCombine
+              then 0 -- shouldn't happen
+              else Set.size usedKeys2
+          , turntable = if p1
+            then Set.member BMScratch usedKeys1
+            else if shouldCombine
+              then False -- shouldn't happen
+              else Set.member BMScratch usedKeys2
           }
         })
     }

@@ -363,6 +363,7 @@ identifyFlexTrack name = case T.stripPrefix "[" name of
     | "MELODY"      `T.isInfixOf` name -> Just $ FlexExtra "global"
     | "KONGA"       `T.isInfixOf` name -> Just $ FlexExtra "global"
     | "DANCE"       `T.isInfixOf` name -> Just $ FlexExtra "dance"
+    | "MANIA"       `T.isInfixOf` name -> Just FlexKeys
     | otherwise                        -> Nothing
 
 parseOnyxPart :: (SendMessage m) => FlexPartName -> FileCodec m U.Beats (OnyxPart U.Beats)
